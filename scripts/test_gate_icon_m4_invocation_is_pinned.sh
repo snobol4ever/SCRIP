@@ -32,6 +32,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 HARNESS="$HERE/corpus_suite_harness.py"; JCON="$HERE/test_icon_jcon_suite.sh"; ARIZ="$HERE/test_icon_arizona_suite.sh"
 . "$HERE/lib_oracle_flags.sh"
+. "$HERE/lib_board_line.sh"      # board_is: a board field is read BY NAME, never by adjacency (CEO-839)
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"
 for f in "$HARNESS" "$JCON" "$ARIZ"; do [ -f "$f" ] || { echo "REFUSED rc=2: $f is missing -- cannot measure"; exit 2; }; done
 [ -x "$SCRIP" ] || { echo "REFUSED rc=2: no $SCRIP -- run make, then re-run"; exit 2; }
@@ -81,7 +82,11 @@ PW="$W/livepin"; mkdir -p "$PW"
 printf '#%s 1 pinwitness\nprocedure main()\n   write("&progname: ",&progname)\nend\n' "-----------------" > "$PW/ALL.icn"
 printf '#%s 1 pinwitness\n&progname: pinwitness\n' "-----------------" > "$PW/ALL.ref"
 LIVE="$(timeout 120s python3 "$HARNESS" run --lang icon --modes m3,m4 "$PW/ALL.icn" "$PW/ALL.ref" 2>&1)"
-if printf '%s' "$LIVE" | grep -q 'm3_n=1 m3_pass=1' && printf '%s' "$LIVE" | grep -q 'm4_n=1 m4_pass=1'; then
+# fields read BY NAME, never by adjacency: 'm3_n=1 m3_pass=1' asserted the board's LAYOUT, and the board
+# gained shipped=/outside= once already (CEO-749/772; the same pattern shape left arm 9 of
+# test_gate_harness_refusal_is_rc2.sh red for a day over a correct board -- CEO-839).
+_lb="$(grep -m1 '^SUITE_BOARD ' <<<"$LIVE")"
+if board_is "$_lb" m3_n 1 && board_is "$_lb" m3_pass 1 && board_is "$_lb" m4_n 1 && board_is "$_lb" m4_pass 1; then
   say_ok "LIVE: the harness grades the entry green in m3 AND m4 against ONE ref line -- the rule holds where entries are actually graded"
 else
   say_fail "LIVE: the harness does not grade the entry green in both modes against one ref line ($(printf '%s' "$LIVE" | grep -o 'm[34]_pass=[0-9]*' | tr '\n' ' '))"

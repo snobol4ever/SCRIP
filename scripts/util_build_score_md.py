@@ -86,8 +86,20 @@ MASTERS = {  # lang -> (extension of the master program file, --lang value for t
     "snobol4": (".sno", ""), "icon": (".icn", "icon"), "prolog": (".pl", "prolog"), "raku": (".raku", "raku"),
     "pascal": (".pas", "pascal"), "snocone": (".sc", "snocone"), "rebus": (".reb", "rebus"),
 }
-_SUITE_BOARD_RE = re.compile(r"SUITE_BOARD family=\S+ total=(\d+)(.*)$", re.M)
-_MODE_RE = re.compile(r"(m[34])_pass=(\d+) \1_fail=(\d+) \1_crash=(\d+) \1_hang=(\d+) \1_unproven=(\d+) \1_skip=(\d+) \1_xfail=(\d+) \1_xpass=(\d+)")
+# ⛔ BOTH OF THESE READ THE BOARD BY POSITION AND BOTH WERE ONE INSERTION FROM SILENCE (coo, CEO-839).
+# `family=\S+ total=` required total to FOLLOW family, and the mode regex required EIGHT fields in exactly that
+# order with nothing between any two of them.  The same shape, in test_gate_harness_refusal_is_rc2.sh arm 9, went
+# red against a CORRECT board the day shipped=/outside= landed between total= and m3_n= (CEO-749/772) and stayed
+# red for a day -- and here a miss is worse than red: it returns UNPROVEN, so SCORE.md would have quietly said
+# "no SUITE_BOARD line from the harness" about a harness that printed one.  Fields are read BY NAME now.
+_SUITE_BOARD_LINE_RE = re.compile(r"^SUITE_BOARD .*$", re.M)
+_FIELD_RE = re.compile(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=(\S+)")
+_MODE_FIELDS = ("pass", "fail", "crash", "hang", "unproven", "skip", "xfail", "xpass")
+
+
+def board_fields(line):
+    """every NAME=VALUE on a board line, read by identity -- order and adjacency are not part of the reading"""
+    return {m.group(1): m.group(2) for m in _FIELD_RE.finditer(line)}
 
 
 def run_master(lang):
@@ -103,17 +115,28 @@ def run_master(lang):
     except subprocess.TimeoutExpired:
         return "UNPROVEN(2): master run timed out after %ss -- unmeasured, not a verdict" % MASTER_TIMEOUT
     out = (p.stdout or "") + "\n" + (p.stderr or "")
-    m = _SUITE_BOARD_RE.search(out)
+    m = _SUITE_BOARD_LINE_RE.search(out)
     if not m:
         tail = " ".join((p.stderr or p.stdout or "").strip().split("\n")[-1:])[:160]
         return "UNPROVEN(%d): no SUITE_BOARD line from the harness%s" % (p.returncode, (" -- " + tail) if tail else "")
-    cols = ["total=%s" % m.group(1)]
-    for mm in _MODE_RE.finditer(m.group(2)):
-        mode, ps, fl, cr, hg, un, sk, xf, xp = mm.groups()
-        bits = ["%s pass=%s fail=%s crash=%s" % (mode, ps, fl, cr)]
-        for k, v in (("hang", hg), ("unproven", un), ("skip", sk), ("xfail", xf), ("xpass", xp)):
-            if v != "0":
+    f = board_fields(m.group(0))
+    if "total" not in f:
+        return "UNPROVEN(%d): the SUITE_BOARD line carries no total= field -- %s" % (p.returncode, m.group(0)[:160])
+    cols = ["total=%s" % f["total"]]
+    for mode in ("m3", "m4"):
+        if ("%s_pass" % mode) not in f:
+            continue
+        # a field the board did not print is ABSENT, never silently 0: the old regex demanded all eight and
+        # returned nothing at all when one was missing, which read as "no board" rather than "a shorter board".
+        missing = [k for k in _MODE_FIELDS if ("%s_%s" % (mode, k)) not in f]
+        bits = ["%s pass=%s fail=%s crash=%s" % (mode, f.get("%s_pass" % mode, "?"),
+                                                 f.get("%s_fail" % mode, "?"), f.get("%s_crash" % mode, "?"))]
+        for k in ("hang", "unproven", "skip", "xfail", "xpass"):
+            v = f.get("%s_%s" % (mode, k))
+            if v is not None and v != "0":
                 bits.append("%s=%s" % (k, v))
+        if missing:
+            bits.append("ABSENT:" + ",".join(missing))
         cols.append(" ".join(bits))
     return " · ".join(cols) + " (PER MODE, never summed)"
 

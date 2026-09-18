@@ -22,7 +22,7 @@
 # twelve of thirteen seats, and two of the five arms read GREEN off that wrong rc. Every grading arm now runs on
 # this gate's own fixtures under $W, outside the corpus tree, and the two arms that could not distinguish one
 # rc=2 from another assert what the refusal SAYS. Arm 4's rc check was also dead code (a line-continuation
-# detached its `else`), which is why the banner claimed 16 checks and 15 ran; it is 18 now.
+# detached its `else`), which is why the banner claimed 16 checks and 15 ran; it is 23 now (arm 10, coo CEO-839).
 # ⭐ ARMS 6-9 ADDED 2026-09-10 (hq_T, row corpus-suite-harness-run-without-lang-silently-regrades-...): a suite
 # pair whose suffix names a dialect REFUSES rc=2 without --lang, in `run` AND in `pin-ref`, and the refusal names
 # the flag instead of accusing the corpus · the explicit `--lang snobol4` escape hatch still reaches the
@@ -33,6 +33,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
+. "$HERE/lib_board_line.sh"      # board_field/board_is: a board is read BY NAME, never by adjacency (CEO-839)
 H="$HERE/corpus_suite_harness.py"
 MASTER="$S4E/corpus/tests/rebus"
 [ -f "$H" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: harness not found at $H"; exit 2; }
@@ -162,7 +163,47 @@ echo "--- ARM 9: a .sno pair with no --lang is UNTOUCHED (every existing caller)
 out="$(timeout 300 python3 "$H" run "$W/sno/ALL.sno" "$W/sno/ALL.ref" --modes m3 --by-modes-column 2>&1)"; rc=$?
 if [ "$rc" = 0 ] || [ "$rc" = 1 ]; then ck ok "a .sno pair still grades with no --lang (rc=$rc)"
 else ck no "the guard caught a .sno caller -- got rc=$rc -- $(tail -c 300 <<<"$out")"; fi
-grep -q '^SUITE_BOARD family=ALL total=2 m3_n=2 ' <<<"$out" && ck ok "and it printed a board that graded both entries, not an empty one" || ck no "no board over the 2 entries -- $(grep '^SUITE_BOARD family' <<<"$out" | head -c 300)"
+# ⛔⭐ THIS ARM READ THE BOARD BY POSITION AND WAS RED FOR A DAY OVER A CORRECT BOARD (ceo CEO-839, coo's
+# row instruments-rc2-gate-arm9-...): it grepped '^SUITE_BOARD family=ALL total=2 m3_n=2 ', which asserts
+# that NOTHING sits between total= and m3_n=, and SCRIP 3ade619f2 (CEO-749/772) correctly put shipped= and
+# outside= there.  It then reported the failure as "no board over the 2 entries" -- reading like the run
+# graded nothing rather than like the pattern was stale, which is why nothing caught it: this is a make test
+# arm, not a preflight arm.  It now reads each field BY NAME through lib_board_line.sh, so a board that adds
+# a field stays green and a board that grades nothing still reds.  util_board_field_matcher_census.py counts
+# every remaining positional matcher in scripts/ and arm 10 below holds it at zero.
+_b9="$(grep -m1 '^SUITE_BOARD ' <<<"$out")"
+if [ -n "$_b9" ] && board_is "$_b9" family ALL && board_is "$_b9" total 2 && board_is "$_b9" m3_n 2; then
+  ck ok "and it printed a board that graded both entries, not an empty one (family/total/m3_n read BY NAME: family=$(board_field "$_b9" family) total=$(board_field "$_b9" total) m3_n=$(board_field "$_b9" m3_n))"
+else
+  ck no "no board over the 2 entries -- family=$(board_field "$_b9" family) total=$(board_field "$_b9" total) m3_n=$(board_field "$_b9" m3_n) -- $(head -c 240 <<<"$_b9")"
+fi
+echo "--- ARM 10: the arm-9 predicate itself -- planted boards, and the positional-matcher census at zero ---"
+# ⛔ AN ARM THAT ONLY PASSES PROVES NOTHING ABOUT WHAT IT REJECTS.  Arm 9's cure is "read the fields by name",
+# and the two things that must both hold are planted here directly on the predicate: a board that GRADED
+# NOTHING still reds (the property arm 9 was added for), and a board that gained a field between total= and
+# m3_n= is still accepted (the property it lost).  A gate cured by loosening its pattern would pass the second
+# and fail the first; this arm makes that impossible to land quietly.
+_plant_ok="SUITE_BOARD family=ALL total=2 shipped=2 outside=0 brand_new_field=7 m3_n=2 m3_pass=2 m3_fail=0"
+_plant_empty="SUITE_BOARD family=ALL total=2 shipped=2 outside=0 m3_n=0 m3_pass=0 m3_fail=0"
+if board_is "$_plant_ok" family ALL && board_is "$_plant_ok" total 2 && board_is "$_plant_ok" m3_n 2; then
+  ck ok "(10a) a board carrying a FIELD THIS GATE HAS NEVER SEEN between total= and m3_n= is still accepted -- the exact insertion that broke arm 9"
+else ck no "(10a) an inserted field still breaks the reading -- the cure did not anchor on identity"; fi
+if board_is "$_plant_empty" m3_n 2; then
+  ck no "(10b) a board that graded NOTHING (m3_n=0) was accepted -- the cure loosened the arm instead of re-anchoring it"
+else ck ok "(10b) a board that graded nothing (m3_n=0) still REDS -- arm 9 kept the property it was added for"; fi
+if board_field "$_plant_empty" no_such_field >/dev/null 2>&1; then
+  ck no "(10c) an ABSENT field read as present -- absence and zero would be indistinguishable"
+else ck ok "(10c) an absent field is rc=1, not the empty string standing in for 0"; fi
+_cen="$(python3 "$HERE/util_board_field_matcher_census.py" 2>&1)"; _crc=$?
+_cadj="$(sed -n 's/^CENSUS board-matchers ADJACENT=\([0-9]*\) .*/\1/p' <<<"$_cen" | head -1)"
+if [ "$_crc" = 0 ] && [ "${_cadj:-x}" = 0 ]; then
+  ck ok "(10d) the positional-matcher census over scripts/ prints its population and reads ADJACENT=0: $(grep -m1 '^CENSUS board-matchers literals' <<<"$_cen" | cut -c1-150)"
+else
+  ck no "(10d) positional board matchers remain (rc=$_crc, ADJACENT=${_cadj:-unreadable}) -- $(grep -m2 'ADJACENT-MATCHER' <<<"$_cen" | tr '\n' ';' | cut -c1-220)"
+fi
+if ! python3 "$HERE/util_board_field_matcher_census.py" --selftest >/dev/null 2>&1; then
+  ck no "(10e) the census's own selftest does not pass -- an uninstrumented census is a grep that agrees"
+else ck ok "(10e) the census trips on planted patterns and tells a PRINTER from a MATCHER (its own selftest)"; fi
 echo "------------------------------------------------------------"
 if [ "$fails" -ne 0 ]; then echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; fi
 echo "✅ GATE PASS: $checks/$checks checks"; exit 0
