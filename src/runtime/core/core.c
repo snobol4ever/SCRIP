@@ -11,6 +11,8 @@
 #include "../keywords.h"
 #include "../builtins/gen.h"
 extern int g_protected_pat_vars_armed;
+int core_icn_error(int code, DESCR_t val);
+int rt_str_to_real(const char *s, double *out);
 int g_call_fastpath_off = 0;
 #include <stdio.h>
 #include <stdlib.h>
@@ -3549,7 +3551,7 @@ typedef struct _FNCBLK_t {
     int     nlocals;
     char  **locals;
     int     min_args;
-    struct _FuncEntry *next;
+    struct _FNCBLK_t *next;
 } FNCBLK_t;
 #define CORE_FN_PAD_MAX 8
 static FNCBLK_t *_func_buckets[FUNC_BUCKETS];

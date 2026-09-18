@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include "../parsers/prolog/pl_cell.h"
 #include "rt/rt_pl_trail.h"
+void rt_pl_ball_report(void *ball);
 #define PL_CELL_ALLOC(n) (rt_ws_alloc(n))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val);

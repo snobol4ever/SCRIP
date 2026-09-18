@@ -11,6 +11,8 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
 int core_icn_error(int code, DESCR_t val);
+void rt_pl_iso_throw_existence_key(const char *key);
+extern int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_loadfunc_cstr_args(DESCR_t *args, int nargs) {
     for (int i = 0; i < nargs && i < 2; i++) {

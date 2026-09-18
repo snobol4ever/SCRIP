@@ -15,6 +15,8 @@ _Static_assert(RT_DCAP_ISLAND_BYTES == 67108864UL, "rt_chain_enter/rt_chain_ente
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
+void rt_proc_set_rest_kind(const char *name, int kind);
+void rt_proc_set_named_rest(const char *name, int slot);
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void          *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn  emit_chain(void *entry, void *out, const char *prefix);
