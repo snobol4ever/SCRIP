@@ -108,8 +108,19 @@ arms() {   # arms <label> <script> -> 0 iff all seven contracts hold on <script>
   # asserted the wider rule would land it without anyone having made it.
   out="$(printf 'GOAL: fixture with no criterion at all.\n' | FIX bash "$s" mint t-none 5 --owner hq_T --stdin 2>&1)"; rc=$?
   if [ "$rc" != 0 ]; then echo "    ✗ t-none: rc=$rc, expected 0 -- a mint supplying NO DONE-WHEN must still work"; ok=0
-  elif ! grep -q '^DONE-WHEN: ⛔ MUST BE MADE RUNNABLE' "$PO/tasks/t-none.task.md" 2>/dev/null; then
-      echo "    ✗ t-none: the placeholder baton was not written as before"; ok=0; fi
+  # ⛔⭐ THE PLACEHOLDER IS RUNNABLE AND ALWAYS RED SINCE 2026-09-17 (coo, ceo CEO-829): it used to be PROSE, which
+  # made every freshly minted row PERMANENTLY UNCLOSEABLE and red the whole fleet's `make test` for the sanctioned
+  # act of minting. This arm is STRONGER than the string match it replaces -- it runs what mint wrote and requires
+  # BOTH properties: it PARSES as shell (so the row is closeable once someone writes the real criterion) and it
+  # EXITS NON-ZERO (so `done` can never close a row still wearing it). A placeholder that exits 0 would be worse
+  # than the prose ever was.
+  elif ! _dw="$(sed -n 's/^DONE-WHEN: //p' "$PO/tasks/t-none.task.md" 2>/dev/null | head -1)" || [ -z "$_dw" ]; then
+      echo "    ✗ t-none: the placeholder baton was not written at all"; ok=0
+  elif ! bash -n -c "$_dw" 2>/dev/null; then
+      echo "    ✗ t-none: mint's placeholder does not PARSE as shell -- a fresh row would be permanently uncloseable: $_dw"; ok=0
+  elif bash -c "$_dw" >/dev/null 2>&1; then
+      echo "    ✗ t-none: mint's placeholder EXITS 0 -- a fresh row would close VACUOUSLY, worse than the prose it replaced: $_dw"; ok=0
+  fi
   [ "$ok" = 1 ]; }
 
 RC=0
