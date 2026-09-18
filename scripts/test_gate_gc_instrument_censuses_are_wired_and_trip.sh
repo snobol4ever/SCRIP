@@ -6,7 +6,7 @@
 # WHAT THIS GATE IS FOR.  The five censuses are RED today and stay red until the design lands -- that is the point of
 # them, and it is exactly why they cannot grade themselves.  A census that reports success while counting nothing is
 # THE recurring failure (RULES.md THE INSTRUMENT LAWS), so this gate grades the INSTRUMENTS, not the collector:
-#   (a) every census trips on a PLANTED violation and passes a clean fixture -- util_gc_census.py --selftest, 33 arms COUNTED as they run (the arm asserts >= 25; the tool itself refuses below its own floor)
+#   (a) every census trips on a PLANTED violation and passes a clean fixture -- util_gc_census.py --selftest, 39 arms COUNTED as they run (the arm asserts >= 25; the tool itself refuses below its own floor)
 #   (b) all six censuses run on THIS tree and each prints its population and a verdict; none is silent, none crashes
 #   (c) THE RATCHET: every count is exactly its baseline (scripts/gc_census_baseline.tsv).  UP is a regression; DOWN
 #       with the baseline unchanged is a win nobody recorded, and a loose ratchet lets the next regression back in --

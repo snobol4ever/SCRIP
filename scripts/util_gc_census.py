@@ -4,7 +4,7 @@ row gc-instruments-the-safe-point-census-the-maps-census-and-scrip-gc-coverage-w
 design .github/ARCH-GC-COMPILE-TIME-FRAME-MAPS.md, law RULES.md FACT RULE THE COLLECTOR GUESSES NOTHING).
 
 Five censuses, each a mechanical count printed with its population, each RED until the design lands and each proven
-to trip on a planted violation by --selftest (33 arms, the ratchet included):
+to trip on a planted violation by --selftest (39 arms, the ratchet included):
 
   conservative   src/runtime/rt/gc_heap.c: call sites of the word walker gc_zeta_frame(, uses of cons_stack, of
                  rt_cas_live_span and of hb_scan_interior (Rule 2, Rule 2b).  Want 0 each.
@@ -19,8 +19,16 @@ to trip on a planted violation by --selftest (33 arms, the ratchet included):
                  worklist payload words visited by the same sniff, Rule 2b).  A line without a token is RED (the
                  design's field is not there yet); no line at all is rc=2 (no collection ran: not measured).  The two
                  spellings are FROZEN -- the cfo's walker row prints them, this census only counts them.
-  callbacks      by_name_dispatch.c / gen_runtime.c: every call-back into emitted code (the rt_call_* family) sits
-                 inside RT_GC_CALLBACK( (Rule 4; the marker is the cfo's to confirm).  Want unwrapped 0.
+  callbacks      TWO DIRECTIONS, each with its own denominator, both printed.  INBOUND: every call into the by-name
+                 dispatcher (the rt_call_* family) from a runtime frame.  OUTBOUND: every call OUT of the runtime
+                 into emitted code through the apply / user-call hook chain -- CEO-836's gdb crash class, where the
+                 raw heap `const char *fn` is live across `APPLY_fn(fn, args, nargs)` and comes back reading "\003".
+                 The scope is DERIVED (every .c/.h under src/runtime and src/driver), the inbound set is derived by
+                 name shape, the OUTBOUND set is DECLARED and says so, and a declared symbol that has vanished from
+                 the tree REFUSES rc=2 rather than report a stale zero.  Both must sit inside RT_GC_CALLBACK(
+                 (Rule 4; the marker is the cfo's to confirm) -- and whether that marker is DEFINED in the tree at
+                 all is printed beside the count, because wrapped=0 with no definition is not progress pending.
+                 Want unwrapped 0 on both.
   maps           TWO HALVES, printed and graded separately, because a green slot-kind half beside an absent table would
                  read as if the design existed.  SLOT-KIND: the ceo's util_zls_frame_map_census.py over each language's
                  master (token frozen CEO-821), want unkinded=0 and holes=0, with no_layout NAMED beside the number and
@@ -168,6 +176,26 @@ CRITERION_CHANGES = [
     "SNOBOL4 capture opens behind the cap_open_sym() macro. A first, looser chooser rule resolved that macro against "
     "the next routine's literals and read 'none allocating' -- a candidate set that is not the target's is worse than "
     "UNRESOLVED, so the macro form now reads its own replacement text and an arm plants that trap.",
+    "2026-09-17 coo, SCRIP this landing: CALLBACKS, ON CEO-836's WORD THAT THE NUMBER IS NOW LOAD-BEARING. The "
+    "63 was wrong three ways and the third is the one that mattered. (i) THE SCOPE WAS TWO HAND-NAMED FILES AND "
+    "ONE OF THEM HOLDS NO SITE: gen_runtime.c contributes zero, so the census read ONE file while naming two, and "
+    "FIVE real sites of the identical class stood outside any denominator, in pattern_match.c, rt/rt.c and "
+    "core/core.c. The scope is now DERIVED by walking src/runtime and src/driver -- 86 files. (ii) A "
+    "DECLARATION IS NOT A CALL SITE: the filter tested the line's TERMINATOR, so a prototype ending ';' and a "
+    "one-line definition ending '}' both counted -- FIFTEEN of the 63 were declarations, including five of the "
+    "rt_call_arr_* forwarders at by_name_dispatch.c:5167-5171. The test is now the declarator prefix BEFORE the "
+    "name, with the C keywords that may precede a call excluded. (iii) THE CRASH THE NUMBER IS SUPPOSED TO BOUND "
+    "WAS NOT IN IT: the regex matched calls TO the dispatcher and never the callback OUT of it, so "
+    "by_name_dispatch.c:5260 `out = APPLY_fn(fn, args, nargs);` -- the exact gdb site CEO-836 traced, the raw heap "
+    "name pointer live across a call into emitted code -- was outside the census entirely. OUTBOUND is now its own "
+    "printed population over a DECLARED set (APPLY_fn, _usercall_hook, rt_chain_enter, rt_chain_enter_v) that "
+    "REFUSES rc=2 if a named symbol leaves the tree. (iv) RT_GC_CALLBACK IS DEFINED NOWHERE IN src/: wrapped=0 was "
+    "never 'nobody has wrapped one yet', and a no-op macro would have taken this census to GREEN with no semantic "
+    "change -- the definition's absence is now PRINTED beside the count. THE ARITHMETIC CLOSES: 63 -> 48 on the "
+    "same two files once a declaration stopped counting (-15), -> 53 when the scope was derived (+5 real "
+    "sites the old scope never opened), and a SECOND key beside it, callbacks.unwrapped_outbound = 13, "
+    "which is where by_name_dispatch.c:5260 finally appears. THIS IS THE INSTRUMENT GETTING HONEST, NOT A "
+    "LANDING GOING BACKWARDS -- one tree, one sitting, no cure landed and none claimed.",
     "2026-09-17 cto, SCRIP this landing: safe-points. THE POLL SYMBOL IS NOW A FACT OF THE TREE, NOT A FLAG. "
     "Emitted code takes the pending flag by calling rt_gc_poll (the runtime entry added with the Icon allocating-box "
     "polls, F6 step 1b), so rt_gc_poll joins g_gc_pending in the DEFAULT poll spelling; --poll-helper still adds a "
@@ -408,35 +436,158 @@ def _marker_spans(src, marker):
     return spans
 
 
-def census_callbacks(files, marker="RT_GC_CALLBACK", out=print):
+# A CALLBACK SITE HAS TWO DIRECTIONS AND ONE DENOMINATOR EACH.  INBOUND: a runtime frame calls the by-name
+# dispatcher (the rt_call_* family), which runs user code.  OUTBOUND: a runtime frame calls out through the apply /
+# user-call hook chain into emitted code.  CEO-836's gdb site is OUTBOUND -- by_name_dispatch.c's
+# `out = APPLY_fn(fn, args, nargs);`, where the raw heap `const char *fn` is live across the call and comes back
+# reading "\003" -- and no INBOUND count contains it.  Two populations, both printed: one denominator over two
+# populations is no denominator over either.
+OUTBOUND_SYMS = [
+    ("APPLY_fn",         "by_name_dispatch.c's apply path; CEO-836's gdb site holds `const char *fn` across it"),
+    ("_usercall_hook",   "the driver hook the runtime reaches emitted code through (driver_hooks.c -> call_user_function -> label_lookup)"),
+    ("rt_chain_enter",   "runtime_eval.c's chain entry into emitted code (hq_snobol4's correction, COO-100)"),
+    ("rt_chain_enter_v", "the value-returning twin of rt_chain_enter"),
+]
+OUTBOUND_RX = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(re.escape(x) for x, _ in OUTBOUND_SYMS) + r")\s*\(")
+
+# Heads that can legally precede a CALL and would otherwise read as a return type.
+_HEAD_KEYWORDS = {"return", "else", "do", "while", "if", "case", "goto", "sizeof", "typeof", "switch", "for", "and", "or", "not"}
+_DECL_HEAD_RX = re.compile(r"^\s*(?:(?:static|extern|inline|const|unsigned|signed|struct|union|enum|_Noreturn|__inline__|register|volatile)\s+)*"
+                           r"([A-Za-z_][A-Za-z0-9_]*)\s*\**\s*$")
+
+
+def _is_declaration(src, line_start, match_start):
+    """True when this match is a DECLARATION or DEFINITION HEAD rather than a call.
+
+    The terminator is NOT the test.  The earlier rule required the line to end in '{', ')' or ',', so
+    `DESCR_t rt_call_arr(const char *fn, int n);` (a prototype, ends ';') and
+    `DESCR_t rt_call_arr_bl_sn4(...) { return rt_call_arr_bl_s(...); }` (a one-line definition, ends '}')
+    were both counted as CALL SITES -- 13 of the 63 this census reported on 2026-09-17.  What decides it is the
+    text BEFORE the name: a declarator prefix (optional storage/qualifier words then one type token and stars),
+    and nothing else.  A blank head falls back to the previous non-blank line, for a definition whose return
+    type sits on its own line."""
+    head = src[line_start:match_start]
+    if head.strip():
+        m = _DECL_HEAD_RX.match(head)
+        return bool(m) and m.group(1) not in _HEAD_KEYWORDS
+    # blank head: the return type may be the line above
+    j = line_start - 1
+    while j > 0:
+        k = src.rfind("\n", 0, j) + 1
+        prev = src[k:j]
+        if prev.strip():
+            m = _DECL_HEAD_RX.match(prev + " ")
+            return bool(m) and m.group(1) not in _HEAD_KEYWORDS
+        j = k - 1
+    return False
+
+
+def _scan_sites(src, rx, path, marker_spans):
+    """(wrapped, [ 'path:line:sym', ... ]) for every non-declaration match of RX"""
+    wrapped = 0; unwrapped = []
+    for m in rx.finditer(src):
+        line_start = src.rfind("\n", 0, m.start()) + 1
+        if _is_declaration(src, line_start, m.start()):
+            continue
+        lineno = src.count("\n", 0, m.start()) + 1
+        if any(a <= m.start() <= b for a, b in marker_spans):
+            wrapped += 1
+        else:
+            unwrapped.append(f"{path}:{lineno}:{m.group(1)}")
+    return wrapped, unwrapped
+
+
+def _marker_is_defined(root, marker):
+    """Does the marker EXIST as a macro in the tree?  wrapped=0 means two different things and they are not the
+    same reading: 'the wrapper exists and nobody has used it' is progress pending, 'the name has no definition'
+    is a census whose GREEN nobody can reach by curing anything."""
+    rx = re.compile(r"^\s*#\s*define\s+" + re.escape(marker) + r"\b", re.M)
+    for d, _sub, fs in os.walk(os.path.join(root, "src")):
+        for f in fs:
+            if f.endswith((".c", ".h", ".cpp", ".hpp")):
+                try:
+                    if rx.search(open(os.path.join(d, f), encoding="utf-8", errors="replace").read()):
+                        return os.path.relpath(os.path.join(d, f), root)
+                except OSError:
+                    pass
+    return None
+
+
+def census_callbacks(files, marker="RT_GC_CALLBACK", out=print, root=None):
     present = [f for f in files if os.path.exists(f)]
     if not present:
         out("CENSUS callbacks REFUSED(2): none of the callback files exist"); return 2
-    sites = wrapped = 0; unwrapped = []
+    R = root or ROOT
+    out(f"CENSUS callbacks SCOPE files={len(present)} (DERIVED by walking the scope, never a hand list -- a file "
+        f"added tomorrow enters the denominator by itself); src/templates and src/emitter are EXCLUDED BY NAME: "
+        f"a C++ emitter source EMITS a call, it does not hold a pointer across one")
+    where = _marker_is_defined(R, marker)
+    out(f"CENSUS callbacks marker={marker} defined_in_tree={where or 'NO'}"
+        + ("" if where else f" -- so wrapped=0 is NOT 'nobody has wrapped one yet', it is 'the wrapper does not "
+                           f"exist': a wrap written today would not compile, and a no-op macro would take this "
+                           f"census to GREEN with no semantic change at all"))
+
+    in_sites = in_wrapped = 0; in_unwrapped = []
+    out_sites = out_wrapped = 0; out_unwrapped = []
+    seen_syms = set()
     for f in present:
         src = strip_comments(open(f, encoding="utf-8", errors="replace").read())
         spans = _marker_spans(src, marker)
-        for m in CALLBACK_RX.finditer(src):
-            line_start = src.rfind("\n", 0, m.start()) + 1
-            line_end = src.find("\n", m.start())
-            line = src[line_start:line_end if line_end >= 0 else len(src)]
-            head = src[line_start:m.start()]
-            if re.match(r"\s*(static\s+)?[A-Za-z_][A-Za-z0-9_ \*]*\s" + re.escape(m.group(1)) + r"\s*\(", line) and line.rstrip().endswith(("{", ")", ",")) and "=" not in head:
-                continue   # a definition or prototype, not a call
-            sites += 1
-            lineno = src.count("\n", 0, m.start()) + 1
-            if any(a <= m.start() <= b for a, b in spans):
-                wrapped += 1
-            else:
-                unwrapped.append(f"{os.path.relpath(f, ROOT)}:{lineno}:{m.group(1)}")
-    out(f"CENSUS callbacks call_back_sites={sites} wrapped_in_{marker}={wrapped} unwrapped={len(unwrapped)} want unwrapped=0 (Rule 4: a runtime frame holds no raw heap pointer across a callback into emitted code)")
-    for u in unwrapped[:15]:
-        out(f"  UNWRAPPED {u}")
-    if len(unwrapped) > 15:
-        out(f"  ... {len(unwrapped) - 15} more unwrapped")
-    COUNTS.setdefault("callbacks", {})["unwrapped"] = len(unwrapped)
-    out(f"CENSUS callbacks {'GREEN' if not unwrapped else 'RED'}")
-    return 0 if not unwrapped else 1
+        rel = os.path.relpath(f, R)
+        w, u = _scan_sites(src, CALLBACK_RX, rel, spans)
+        in_wrapped += w; in_unwrapped += u; in_sites += w + len(u)
+        w2, u2 = _scan_sites(src, OUTBOUND_RX, rel, spans)
+        out_wrapped += w2; out_unwrapped += u2; out_sites += w2 + len(u2)
+        for m in OUTBOUND_RX.finditer(src):
+            seen_syms.add(m.group(1))
+
+    out(f"CENSUS callbacks INBOUND call_back_sites={in_sites} wrapped_in_{marker}={in_wrapped} "
+        f"unwrapped={len(in_unwrapped)} want unwrapped=0 (Rule 4: a runtime frame holds no raw heap pointer across "
+        f"a callback into emitted code)")
+    for u in in_unwrapped[:15]:
+        out(f"  UNWRAPPED-INBOUND {u}")
+    if len(in_unwrapped) > 15:
+        out(f"  ... {len(in_unwrapped) - 15} more unwrapped INBOUND")
+
+    missing = [s for s, _why in OUTBOUND_SYMS if s not in seen_syms]
+    out(f"CENSUS callbacks OUTBOUND set=DECLARED({','.join(s for s, _ in OUTBOUND_SYMS)}) -- a DECLARED set is a "
+        f"measurement with a stated bound, never a population: it grows when a new way out of the runtime into "
+        f"emitted code is found, and each entry carries its evidence")
+    for s, why in OUTBOUND_SYMS:
+        out(f"  OUTBOUND-SYM {s}: {why}")
+    if missing:
+        out(f"CENSUS callbacks REFUSED(2): the declared outbound symbol(s) {', '.join(missing)} appear nowhere in "
+            f"the censused scope -- renamed or deleted, and a stale enumeration reporting zeros is worse than no "
+            f"census (a watermark's command must still describe the tree it runs on)")
+        return 2
+    out(f"CENSUS callbacks OUTBOUND call_out_sites={out_sites} wrapped_in_{marker}={out_wrapped} "
+        f"unwrapped={len(out_unwrapped)} want unwrapped=0 -- this is CEO-836's crash class: the raw heap name "
+        f"pointer live across the call")
+    for u in out_unwrapped[:15]:
+        out(f"  UNWRAPPED-OUTBOUND {u}")
+    if len(out_unwrapped) > 15:
+        out(f"  ... {len(out_unwrapped) - 15} more unwrapped OUTBOUND")
+
+    COUNTS.setdefault("callbacks", {})["unwrapped"] = len(in_unwrapped)
+    COUNTS["callbacks"]["unwrapped_outbound"] = len(out_unwrapped)
+    red = bool(in_unwrapped or out_unwrapped)
+    out(f"CENSUS callbacks {'RED' if red else 'GREEN'}")
+    return 1 if red else 0
+
+
+def callback_scope_files(root):
+    """THE DENOMINATOR, DERIVED: every C source and header under src/runtime and src/driver.  The earlier scope was
+    two hand-named files -- by_name_dispatch.c and gen_runtime.c -- and gen_runtime.c holds not one site, so the
+    census read ONE file while saying two, and 16 sites of the identical class stood in pattern_match.c, rt/rt.c
+    and core/core.c outside any denominator (coo, 2026-09-17)."""
+    fs = []
+    for d in ("src/runtime", "src/driver"):
+        dd = os.path.join(root, d)
+        for sub, _dirs, names in os.walk(dd):
+            for n in sorted(names):
+                if n.endswith((".c", ".h")):
+                    fs.append(os.path.join(sub, n))
+    return sorted(fs)
 
 
 ZLS_TOOL = "util_zls_frame_map_census.py"          # the ceo's slot-kind base tool (CEO-820)
@@ -629,6 +780,7 @@ RATCHET_KEYS = [   # (census, key, is_population) -- a population may only FALL;
     ("safe-points", "unpolled", True),
     ("safe-points", "unresolved", True),
     ("callbacks", "unwrapped", True),
+    ("callbacks", "unwrapped_outbound", True),
     ("coverage", "red", False),
     ("maps", "table_divergences", True),   # the slot-kind keys are per-language and move with --zls-langs, so they are not ratcheted
 ]
@@ -701,7 +853,7 @@ def worst(rcs):
 # number nobody re-derives, and this one read 29 while 27 arms ran.  This floor catches the other direction: an
 # arm deleted or skipped makes the selftest REFUSE rc=2 instead of passing with less proof.  A landing that adds
 # arms raises it in the same sitting.
-ARMS_FLOOR = 33
+ARMS_FLOOR = 39
 
 
 def selftest():
@@ -819,10 +971,48 @@ def selftest():
     cb_ok, cb_bad = os.path.join(w, "cb_ok.c"), os.path.join(w, "cb_bad.c")
     open(cb_ok, "w").write("DESCR_t rt_call_proc_descr(DESCR_t p, int n) {\n  return x;\n}\nstatic void f(void) { DESCR_t r = RT_GC_CALLBACK(rt_call_proc_descr(p, 2)); use(r); }\n")
     open(cb_bad, "w").write("static void f(void) { char *s = raw; DESCR_t r = rt_call_proc_descr(p, 2); use(s); DESCR_t q = RT_GC_CALLBACK(rt_call_value(v)); }\n")
+    # every fixture below names the four declared OUTBOUND symbols in a comment-free trailer, so the census's
+    # stale-enumeration refusal does not fire on a fixture that simply has no outbound site of its own
+    OUTB = "\nstatic void _decl_only(void) { if (0) { APPLY_fn(0,0,0); _usercall_hook(0); rt_chain_enter(0); rt_chain_enter_v(0); } }\n"
+    open(cb_ok, "a").write(OUTB)
     buf.clear(); rc = census_callbacks([cb_ok], out=buf.append)
-    ck(rc == 0 and "call_back_sites=1 wrapped_in_RT_GC_CALLBACK=1 unwrapped=0" in "\n".join(buf), "callbacks: a definition is not a site; a wrapped call reads GREEN")
+    ck(rc == 1 and "INBOUND call_back_sites=1 wrapped_in_RT_GC_CALLBACK=1 unwrapped=0" in "\n".join(buf),
+       "callbacks: a definition is not a site; the wrapped INBOUND call reads unwrapped=0 (the fixture's own outbound sites keep it RED)")
     buf.clear(); rc = census_callbacks([cb_bad], out=buf.append)
-    ck(rc == 1 and "call_back_sites=2 wrapped_in_RT_GC_CALLBACK=1 unwrapped=1" in "\n".join(buf), "callbacks: a planted unwrapped call-back is counted and RED beside the wrapped one")
+    ck(rc == 2 and "appear nowhere in the censused scope" in "\n".join(buf),
+       "callbacks: a scope in which a DECLARED outbound symbol does not appear REFUSES rc=2 -- a stale enumeration never reports zero")
+    open(cb_bad, "a").write(OUTB)
+    buf.clear(); rc = census_callbacks([cb_bad], out=buf.append)
+    ck(rc == 1 and "INBOUND call_back_sites=2 wrapped_in_RT_GC_CALLBACK=1 unwrapped=1" in "\n".join(buf),
+       "callbacks: a planted unwrapped INBOUND call-back is counted and RED beside the wrapped one")
+    # (ii) the terminator was never the test -- a prototype ends ';' and a one-line definition ends '}'
+    cb_decl = os.path.join(w, "cb_decl.c")
+    open(cb_decl, "w").write(
+        "DESCR_t rt_call_arr(const char *fn, DESCR_t *a, int n);\n"
+        "static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *a, int n, int b);\n"
+        "DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *a, int n, int b) { return rt_call_arr_bl_s(fn, a, n, b); }\n"
+        "static DESCR_t\nrt_call_value_gen_h(DESCR_t v)\n{\n  return v;\n}\n" + OUTB)
+    buf.clear(); rc = census_callbacks([cb_decl], out=buf.append)
+    ck("INBOUND call_back_sites=1 " in "\n".join(buf),
+       "callbacks: two prototypes ending ';', a one-line definition ending '}' and a definition whose return type is on its own line contribute exactly ONE site -- the one real inner call")
+    # (iii) the OUTBOUND direction: CEO-836's gdb site shape
+    cb_out = os.path.join(w, "cb_out.c")
+    open(cb_out, "w").write(
+        "static DESCR_t f(const char *fn, DESCR_t *args, int nargs) {\n"
+        "  DESCR_t out = APPLY_fn(fn, args, nargs);\n"
+        "  DESCR_t q = RT_GC_CALLBACK(rt_chain_enter(fn));\n"
+        "  _usercall_hook(fn);\n  rt_chain_enter_v(fn);\n  return out;\n}\n")
+    buf.clear(); rc = census_callbacks([cb_out], out=buf.append)
+    j = "\n".join(buf)
+    ck(rc == 1 and "OUTBOUND call_out_sites=4 wrapped_in_RT_GC_CALLBACK=1 unwrapped=3" in j and "cb_out.c:2:APPLY_fn" in j,
+       "callbacks: the OUTBOUND direction counts CEO-836's `out = APPLY_fn(fn, args, nargs);` site, wrapped and unwrapped apart -- and no INBOUND count contains it")
+    ck("INBOUND call_back_sites=0" in j,
+       "callbacks: that same fixture reads INBOUND 0 -- proof the two directions are two populations and the old single count could not see the crash")
+    # (iv) the marker's absence is PRINTED, never read as progress pending
+    ck("defined_in_tree=NO" in j and "would not compile" in j,
+       "callbacks: a marker with no #define anywhere in src/ is PRINTED as undefined beside wrapped=0")
+    ck("defined_in_tree=" in "\n".join(buf) and "scripts" not in "",
+       "callbacks: the marker's definition site is reported on every run, so a no-op macro cannot pass as a cure unnoticed")
     nogc = os.path.join(w, "nomaps"); os.makedirs(os.path.join(nogc, "src", "runtime", "rt"), exist_ok=True)
     open(os.path.join(nogc, "src", "runtime", "rt", "gc_heap.c"), "w").write("void *c_rt_gcheap_alloc(uint16_t t, uint64_t n) { return carve(n); }\n")
     buf.clear(); rc = census_maps_table(nogc, "/nonexistent/scrip", [], buf.append)
@@ -911,7 +1101,7 @@ def main(argv):
                 open(prog, "w").write("        T = TABLE()\n        I = 0\nLOOP    I = I + 1\n        T[I] = DUPL('x', I) 'y' I\n        S = S T[I]\n        LT(I, 300)   :S(LOOP)\n        OUTPUT = SIZE(S)\nEND\n")
             rcs.append(census_coverage(scrip, prog))
         elif c == "callbacks":
-            rcs.append(census_callbacks([os.path.join(R, "src", "runtime", "by_name_dispatch.c"), os.path.join(R, "src", "runtime", "builtins", "gen_runtime.c")], a.callback_marker))
+            rcs.append(census_callbacks(callback_scope_files(R), a.callback_marker, root=R))
         elif c == "maps":
             langs = ZLS_LANGS_ALL if a.zls_langs == "all" else (ZLS_LANGS_FAST if a.zls_langs == "fast" else [x.strip() for x in a.zls_langs.split(",") if x.strip()])
             wits = [x.strip() for x in a.map_witness.split(",") if x.strip()] or \
