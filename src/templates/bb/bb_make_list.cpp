@@ -33,6 +33,7 @@ std::string bb_make_list() {
         s += x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN());
         s += x86("mov", ZRES(8), "rdx");
+        s += x86_rt_gc_poll();
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
@@ -53,6 +54,7 @@ std::string bb_make_list() {
              + x86("call",  "rt_make_list", (uint64_t)(uintptr_t)(void*)rt_make_list)
              + x86("mov",   FRQ(_.op_off),     "rax")
              + x86("mov",   FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
 }

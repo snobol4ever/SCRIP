@@ -4,12 +4,13 @@
 # unrecorded fall.  census	key	count	want
 # CRITERION CHANGED 2026-09-17 coo, SCRIP e625d1b35 -> this tree: safe-points. (i) A CALL TARGET IS SPELLED AS THE ASSEMBLER SEES IT: the ASCII-only symbol rule read the 32 emitter literals naming a Greek Byrd port (rt_proc_call_epilogue_GAMMA and kin) as no literal at all, so unresolved fell 39 -> 7 and two ALLOCATING targets entered the denominator (allocating_call_sites 202 -> 203). (ii) A POLL BELONGS TO THE CALL'S OWN ROUTINE: the line window walked past the closing brace and read the next routine's poll, so bb_call_proc_staged.cpp:88 read a FALSE POLLED. unpolled 202 -> 203 IS THE INSTRUMENT GETTING HONEST, NOT A LANDING GOING BACKWARDS -- the same tree, one site that was never counted before, and it is genuinely unpolled.
 # CRITERION CHANGED 2026-09-17 coo, same sitting: safe-points. THE CENSUS IS TOLD HOW TO READ A COMPUTED TARGET -- array, macro, chooser and resolver-out-parameter, each named beside the site it resolves. The last 7 UNRESOLVED sites entered the denominator: unresolved 7 -> 0, allocating_call_sites 203 -> 210, unpolled 203 -> 210. Three of the seven are the Prolog direct-dispatch registry (dop_direct_fp, 172 allocating targets among 504 literals) and two are the SNOBOL4 capture opens behind the cap_open_sym() macro. A first, looser chooser rule resolved that macro against the next routine's literals and read 'none allocating' -- a candidate set that is not the target's is worse than UNRESOLVED, so the macro form now reads its own replacement text and an arm plants that trap.
+# CRITERION CHANGED 2026-09-17 cto, SCRIP this landing: safe-points. THE POLL SYMBOL IS NOW A FACT OF THE TREE, NOT A FLAG. Emitted code takes the pending flag by calling rt_gc_poll (the runtime entry added with the Icon allocating-box polls, F6 step 1b), so rt_gc_poll joins g_gc_pending in the DEFAULT poll spelling; --poll-helper still adds a landing-local name. No count moved on this criterion alone -- the same tree read 208 unpolled with the helper named and 208 without it; the 210 -> 208 fall is the two bb_make_list sites this landing polled.
 conservative	gc_zeta_frame_calls	12	0
 conservative	cons_stack_uses	8	0
 conservative	rt_cas_live_span_uses	2	0
 conservative	hb_scan_interior_uses	2	0
 allocator	rt_gc_collect_calls_in_the_allocator	0	0
-safe-points	unpolled	210	0
+safe-points	unpolled	208	0
 safe-points	unresolved	0	0
 callbacks	unwrapped	63	0
 coverage	red	1	0

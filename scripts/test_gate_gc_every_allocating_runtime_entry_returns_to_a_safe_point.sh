@@ -22,6 +22,12 @@
 # file left in place) all three blocking arms read red -- census 3 collect calls, reserve 0 soft-end advances, cap
 # rc=0 with no cap-named exhaustion -- and all three read green on the cure. FAIL_ONCE=1 additionally plants the
 # pre-cure census count for a cheap re-check that arm 1 still discriminates without a rebuild.
+# ⛔ ARMS 2 AND 3 CHANGED THEIR WITNESS 2026-09-17 (cto, CEO-821 F6 step 1b), AND THE REASON IS THE POINT OF THIS ROW:
+# they grew the arena with FOUR HUNDRED THOUSAND DEAD LISTS, which grew only because an Icon allocation loop reached no
+# safe point. With the Icon allocating-box polls landed that loop COLLECTS instead of growing (soft-end advances 0), so
+# the arms read red on a tree that is strictly better. The witness is now 400000 LIVE lists held by one list: growth is
+# unavoidable there whatever the collector does, which is what these two arms actually grade -- 30 soft-end advances at
+# SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512, and a cap-named abort (rc=134) when the cap equals the window.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -36,9 +42,9 @@ n=$(grep -c 'rt_gc_collect();' "$SRC")
 if [ "$n" -eq 0 ]; then echo "  census PASS (the allocator contains 0 collect-from-inside-a-runtime-call sites in gc_heap.c)"
 else echo "  census FAIL ($n collect call(s) inside gc_heap.c: a collection with live unmapped C frames is back)"; RC=1; fi
 examined=$((examined+1))
-printf 'procedure main()\n   local i, L;\n   every i := 1 to 400000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/grow.icn"
+printf 'procedure main()\n   local i, L;\n   L := [];\n   every i := 1 to 400000 do put(L, [i, i+1, i+2]);\n   write("done ", *L);\nend\n' > "$T/grow.icn"
 out=$(cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout 120 "$SCRIP" grow.icn 2>&1); g=$(printf '%s\n' "$out" | grep -c 'soft end ->')
-if [ "$(printf '%s\n' "$out" | grep -c '^done 3$')" = 1 ] && [ "$g" -gt 0 ]; then echo "  reserve PASS (an 8 MB window inside a 512 MB reserve grew its soft end $g time(s) into the reserve instead of collecting, answer intact)"
+if [ "$(printf '%s\n' "$out" | grep -c '^done 400000$')" = 1 ] && [ "$g" -gt 0 ]; then echo "  reserve PASS (an 8 MB window inside a 512 MB reserve grew its soft end $g time(s) into the reserve instead of collecting, answer intact)"
 else echo "  reserve FAIL (soft-end advances=$g, answer=[$(printf '%s\n' "$out" | grep '^done' | head -1)] -- the arena did not grow when the allocator refused to collect)"; RC=1; fi
 examined=$((examined+1))
 out=$(cd "$T" && SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout 120 "$SCRIP" grow.icn 2>&1); r=$?

@@ -36,6 +36,8 @@ long  rt_gcheap_verify(void);
 long  rt_gc_collect(void);
 long  rt_gcheap_free(void);
 long  rt_gc_runs_count(void);
+void  rt_gc_poll(void);
+long  rt_gc_polls_count(void);
 void  rt_gc_point(struct DESCR_t *d0, const char **r0);
 void  rt_gc_point_arr(struct DESCR_t *arr, int n, const char **r0);
 void  rt_gc_visit_descr(struct DESCR_t *d);

@@ -96,6 +96,7 @@ test_gate_gc_carve_advances_the_virgin_mark_past_a_straddling_block.sh	WIRED	-	-
 test_gate_gc_every_allocating_runtime_entry_returns_to_a_safe_point.sh	WIRED	-	-	-
 test_gate_gc_every_safe_point_has_a_compile_time_frame_shape.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
+test_gate_gc_icon_allocating_boxes_poll_after_storing_the_result.sh	WIRED	-	-	-
 test_gate_gc_instrument_censuses_are_wired_and_trip.sh	WIRED	-	-	-
 test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-

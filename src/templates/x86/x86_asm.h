@@ -2169,4 +2169,7 @@ inline void bb_emit_x86(const std::string & s) {
     }
 }
 extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_gc_poll(void);
+inline std::string x86_rt_gc_poll() { return x86("call", "rt_gc_poll", (uint64_t)(uintptr_t)(void *)rt_gc_poll); }
 #endif

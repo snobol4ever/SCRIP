@@ -161,6 +161,11 @@ CRITERION_CHANGES = [
     "SNOBOL4 capture opens behind the cap_open_sym() macro. A first, looser chooser rule resolved that macro against "
     "the next routine's literals and read 'none allocating' -- a candidate set that is not the target's is worse than "
     "UNRESOLVED, so the macro form now reads its own replacement text and an arm plants that trap.",
+    "2026-09-17 cto, SCRIP this landing: safe-points. THE POLL SYMBOL IS NOW A FACT OF THE TREE, NOT A FLAG. "
+    "Emitted code takes the pending flag by calling rt_gc_poll (the runtime entry added with the Icon allocating-box "
+    "polls, F6 step 1b), so rt_gc_poll joins g_gc_pending in the DEFAULT poll spelling; --poll-helper still adds a "
+    "landing-local name. No count moved on this criterion alone -- the same tree read 208 unpolled with the helper "
+    "named and 208 without it; the 210 -> 208 fall is the two bb_make_list sites this landing polled.",
 ]
 
 # A CALL TARGET IS SPELLED AS THE ASSEMBLER SEES IT, NOT AS ASCII C.  This tree names its four Byrd ports α β γ ω and
@@ -286,7 +291,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     sites = emitter_call_sites(emitter_files)
     if not sites:
         out("CENSUS safe-points REFUSED(2): no x86(\"call\", ...) sites found in the emitter files -- wrong tree?"); return 2
-    poll_rx = re.compile(r"g_gc_pending" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
+    poll_rx = re.compile(r"g_gc_pending|rt_gc_poll" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
     for f, i, syms, lines, rule in sites:
@@ -320,7 +325,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         else:
             unpolled.append(f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}"
                             + (f" [{rule}, {len(syms)} candidate(s)]" if rule else ""))
-    out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} unpolled={len(unpolled)} unresolved={len(unresolved)} want unpolled=0 unresolved=0 (poll = g_gc_pending{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
+    out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} unpolled={len(unpolled)} unresolved={len(unresolved)} want unpolled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
     for u in unpolled[:25]:
         out(f"  UNPOLLED {u}")
     if len(unpolled) > 25:

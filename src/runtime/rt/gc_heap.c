@@ -41,6 +41,7 @@ static long g_hp_grown = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
+static long g_gc_polls = 0;
 static int g_gc_in;
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.s bakes g_sxt_fr.owner @0");
@@ -632,7 +633,7 @@ static int gc_block_exact(const char *q, uint16_t want_type)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_zeta_frame(const char *lo0, const char *hi0)
 {
-    char *lo = (char *)lo0, *hi = (char *)hi0;
+    char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
     char *p = lo;
     while (p + 8 <= hi) {
         if (p + 16 <= hi) { DESCR_t *d = (DESCR_t *)p; rt_hblk_t *h = (d->v == DT_S || (d->v == DT_N && d->slen == 0)) ? gc_blk_of(d->s) : (rt_hblk_t *)0;
@@ -750,6 +751,16 @@ long rt_gc_collect_c(char *floor)
     g_gc_seam_sp = (char *)0;
     return r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_poll(void)
+{
+    char here;
+    if (g_gc_in) return;
+    if (!g_gc_pending && !(g_hp_gcline && g_hp_top > g_hp_gcline)) return;
+    g_gc_polls++;
+    rt_gc_point_arr_c((DESCR_t *)0, 0, (const char **)0, &here);
+}
+long rt_gc_polls_count(void) { return g_gc_polls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 long rt_gc_runs_count(void) { return g_gc_runs; }
