@@ -11,7 +11,7 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #define GC_HEAP_MB 512
-static inline int hb_scan_interior(uint16_t t) { return t == HB_WS || t == HB_DINST || t == HB_ARR; }
+static inline int hb_scan_interior(uint16_t t) { return t == HB_WS; }
 #include "descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
@@ -225,6 +225,13 @@ static long gc_plant_pin_skip(void)
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long gc_plant_pin_type(void)
+{
+    static long t = -2;
+    if (t == -2) { const char *e = getenv("SCRIP_GC_PLANT_PIN_TYPE"); t = (e && *e) ? atol(e) : -1; }
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_alloc_detax = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
@@ -430,7 +437,7 @@ static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
 {
     uint16_t old = h->flags;
     h->flags = (uint16_t)(old | HBF_MARK | addf);
-    if (!(old & HBF_MARK) && (h->type == HB_WS || h->type == HB_PLJ || HB_IS_AGG(h->type))) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
+    if (!(old & HBF_MARK) && (h->type == HB_WS || h->type == HB_PLJ || h->type == HB_ARR || h->type == HB_DINST || HB_IS_AGG(h->type))) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_zeta_frame(const char *lo0, const char *hi0);
@@ -467,6 +474,31 @@ int rt_gc_slot_registered(const void *loc)
 static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_tbblk(struct _TBBLK_t *t);
+static void gc_wl_push(DESCR_t *d);
+static void gc_visit_arblk(ARBLK_t *a);
+static void gc_visit_datinst(DATINST_t *u);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_visit_arblk(ARBLK_t *a)
+{
+    if (a->proto) rt_gc_visit_raw((const char **)&a->proto);
+    if (!a->data) return;
+    rt_gc_visit_raw((const char **)&a->data);
+    { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) gc_wl_push(&a->data[i]); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_visit_datinst(DATINST_t *u)
+{
+    if (!u->fields || !u->type) return;
+    rt_gc_visit_raw((const char **)&u->type);
+    rt_gc_visit_raw((const char **)&u->fields);
+    if ((u->type->nfields == 3 || u->type->nfields == 4) && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
+        long n = (long)u->fields[1].i; DESCR_t *el = (u->fields[0].v == DT_DATA) ? (DESCR_t *)u->fields[0].ptr : NULL;
+        if (el) rt_gc_visit_raw((const char **)&u->fields[0].ptr);
+        if (el && n > 0) for (long i = 0; i < n; i++) gc_wl_push(&el[i]);
+        gc_wl_push(&u->fields[2]);
+        return; }
+    for (int i = 0; i < u->type->nfields; i++) gc_wl_push(&u->fields[i]);
+}
 static void gc_visit_vcell(VCELL_t *vc)
 {
     gc_mark_agg(vc);
@@ -527,10 +559,7 @@ static void gc_visit_one(DESCR_t *d)
         gc_mark_agg((const void *)a);
         gc_slot_reg((void *)&d->arr);
         if (!a || !gc_hins((void *)a)) return;
-        if (a->proto) rt_gc_visit_raw((const char **)&a->proto);
-        if (!a->data) return;
-        rt_gc_visit_raw((const char **)&a->data);
-        { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) gc_wl_push(&a->data[i]); }
+        gc_visit_arblk(a);
         return; }
     case DT_T: {
         TBBLK_t *t = d->tbl;
@@ -542,16 +571,8 @@ static void gc_visit_one(DESCR_t *d)
         DATINST_t *u = d->u;
         gc_mark_agg((const void *)u);
         gc_slot_reg((void *)&d->u);
-        if (!u || !gc_hins((void *)u) || !u->fields || !u->type) return;
-        rt_gc_visit_raw((const char **)&u->type);
-        rt_gc_visit_raw((const char **)&u->fields);
-        if ((u->type->nfields == 3 || u->type->nfields == 4) && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
-            long n = (long)u->fields[1].i; DESCR_t *el = (u->fields[0].v == DT_DATA) ? (DESCR_t *)u->fields[0].ptr : NULL;
-            if (el) rt_gc_visit_raw((const char **)&u->fields[0].ptr);
-            if (el && n > 0) for (long i = 0; i < n; i++) gc_wl_push(&el[i]);
-            gc_wl_push(&u->fields[2]);
-            return; }
-        for (int i = 0; i < u->type->nfields; i++) gc_wl_push(&u->fields[i]);
+        if (!u || !gc_hins((void *)u)) return;
+        gc_visit_datinst(u);
         return; }
     case DT_N: {
         if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; gc_slot_reg((void *)&d->p); if (!vc || !gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
@@ -774,7 +795,7 @@ static void gc_root_cas(void)
 static long gc_collect_ex(int cons_stack)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern int rt_scan_active(void);
-    char anchor; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
+    char anchor; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
     g_sxt_owner = (char *)0;
@@ -821,6 +842,8 @@ static long gc_collect_ex(int cons_stack)
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
     { long walked = 0, nscan = 0, rounds = 0;
       { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
+            if (h->type == HB_ARR) { ARBLK_t *a = (ARBLK_t *)(h + 1); if (gc_hins((void *)a)) gc_visit_arblk(a); continue; }
+            if (h->type == HB_DINST) { DATINST_t *u = (DATINST_t *)(h + 1); if (gc_hins((void *)u)) gc_visit_datinst(u); continue; }
             if (hb_scan_interior(h->type) || h->type == HB_PLJ) { g_gc_rep_pop = 3; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); g_gc_rep_pop = 0; continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
             if (h->type == HB_AGGB) continue;
@@ -833,7 +856,7 @@ static long gc_collect_ex(int cons_stack)
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if (h->flags & HBF_MARK) { n_mk++; if (n_mk == gc_plant_pin_skip()) { h->fwd = 0; dest += h->size; }
+        if (h->flags & HBF_MARK) { n_mk++; if (gc_plant_pin_type() < 0 || (long)h->type == gc_plant_pin_type()) n_plant++; if (n_plant == gc_plant_pin_skip()) { h->fwd = 0; dest += h->size; }
             else { h->fwd = (uint64_t)dest; dest += h->size; nlive++; } }
         else h->fwd = 0;
         if (h->fwd) n_fw++;

@@ -48,7 +48,7 @@ for w in w.sno g.icn; do
     pops=$(grep -o 'pop=[a-z]*' "$W/onerr_$w.txt" | sort -u | tr '\n' ' ')
     if [ "$ron" -ne 0 ] || [ "$n" -eq 0 ]; then echo "  arm 2 RED [$w]: reporter produced no census (rc=$ron, $n line(s))"; bad=1; continue; fi
     echo "  arm 2 PASS [$w]: $n census line(s) over populations: $pops"
-    if [ "${so:-x}" = "0" ]; then echo "  arm 3 PASS [$w]: sniff_only=0 -- the conservative sniff visits no cell the type tag rejects"
+    if [ "${so:-x}" = "0" ]; then echo "  arm 3 PASS [$w]: sniff_only=0 -- the typed walk found everything the guesser found. ⛔ NECESSARY, NOT SUFFICIENT (ceo CEO-881): it cannot see a pointer that is only in a REGISTER or only in a C FRAME at the moment of collection"
     else echo "  arm 3 RED [$w]: sniff_only=$so -- the sniff is visiting cells the type tag says are not references"; bad=1; fi
     grep 'GC-MAPS' "$W/onerr_$w.txt" | tail -4 | sed 's/^/      /'
 done
