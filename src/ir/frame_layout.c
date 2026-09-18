@@ -1065,7 +1065,10 @@ void fl_derive_tier(IR_graph_t * g) {
     g->zframe_pinned_base = (resumed || g->resumable_callable) ? 1 : 0; g->zframe_graph = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_tables_reset(void) { fct_n = 0; }
+void fc_tables_reset(void) {
+    fca_n = 0; fcab_n = 0; fcc_n = 0; fch_n = 0; fcm_n = 0; fcs_n = 0; fct_n = 0; fcv_n = 0;
+    fpe_n = 0; fvb_n = 0; fvcl_n = 0; fvdj_n = 0; fvl_n = 0; fvr_n = 0; fvs_n = 0; fvw_n = 0;
+}
 int fc_frameless_fpr_rsp(const IR_t * nd) { if (!nd) return 0; { long _fk = 0; return !fc_geom(nd, &_fk); } }
 static struct { const char * name; int fb; int fp; int uni; } pz[512];
 static int pz_n = 0;

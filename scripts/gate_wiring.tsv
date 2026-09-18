@@ -80,6 +80,7 @@ test_gate_emit_no_ir_mutation.sh	WIRED	-	-	-
 test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
+test_gate_fc_side_tables_are_reset_at_every_runtime_compile_entry.sh	WIRED	-	-	-
 test_gate_frame_det_leaf_seal_matches_the_emitter_registry.sh	WIRED	-	-	-
 test_gate_frame_field_census_names_what_no_template_addresses.sh	WIRED	-	-	-
 test_gate_frame_layout_retires_a_dead_graphs_record.sh	WIRED	-	-	-
