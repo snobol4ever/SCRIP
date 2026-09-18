@@ -729,6 +729,7 @@ static long gc_collect_ex(int cons_stack)
     after_b = (long)(g_hp_top - g_hp_arena);
     { static int psn = -1; if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : 1; } if (psn) { char *ot = g_hp_arena + before_b; long pb = ot > g_hp_top ? (long)(ot - g_hp_top) : 0; if (pb > 0) memset(g_hp_top, 0xDB, (size_t)pb); if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot); } }
     if (w_tel) { w_sld = li; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    { extern void rt_nv_memo_invalidate(void); rt_nv_memo_invalidate(); }
     rt_gcheap_verify();
     if (w_tel) { w_vfy = nlive + nfill; n_vfy = gc_walk_ns() - n_t0; }
     g_gc_runs++;

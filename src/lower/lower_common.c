@@ -207,7 +207,7 @@ void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v-
 void * lc_vec_push(lc_vec * v, const void * elem) {
     if (v->n >= v->cap) {
         int nc = v->cap ? v->cap * 2 : 8;
-        void * nd = v->data ? rt_ws_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_ws_alloc((size_t) nc * (size_t) v->esz);
+        void * nd = realloc(v->data, (size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
         v->data = nd; v->cap = nc;
     }
