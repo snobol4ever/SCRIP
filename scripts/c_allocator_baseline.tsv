@@ -36,6 +36,23 @@
 # ⛔ The same landing adds ONE ct_grow (the shared reader's buffer) which is CLASS 3, ruled permanent by
 # CEO-854 and licensed in c_allocator_ruled_permanent.tsv -- arena_in_runtime reads 115 while the ratcheted
 # debt stays 114, because a buffer the program only ever sees copies of can never repay a debt by being rooted.
+# CRITERION ADDED 2026-09-18 (coo, on the cto's finding): `outside_src_sites` enters the ratchet at 20 -- the
+# tracked malloc/calloc/realloc/free sites OUTSIDE src/, which every seat's census has read as ZERO because
+# every census was scoped to src/.  ⛔ LON'S ACCEPTANCE TEST IS TEXTUAL AND IT IS OVER THE SOURCE BASE: a grep
+# for the four names returns 20 today -- 16 in scripts/monitor/monitor_ipc_bin_csn.c, 3 in
+# tools/rakugram/prec_test.c, 1 in tools/rakugram/rk_main.c.  CEO-842 splits the work one directory per seat
+# and TOP-LEVEL tools/ AND scripts/ ARE NAMED IN NO LANE, so these survived every sweep while every instrument
+# reported zero -- the population the order sweeps and the population the acceptance test grades are not the
+# same population, and the gap is invisible from inside any single lane.
+# ⛔ IT IS RATCHETED, NOT HARD-ZERO, AND THAT IS DELIBERATE: whether these convert is a RULING nobody has made,
+# and an instrument does not rule.  It counts them, names them per file, and refuses to let the number grow
+# while the question is open.  If the ceo rules them in, the count falls to 0 and the ratchet reds asking for
+# the win to be recorded.
+# ⛔ AND THIS FILE'S NOTES NOW SURVIVE --write-baseline (same landing).  The writer opened with "w" and a fixed
+# header, deleting every note on each regeneration; the ceo's own note above says their CEO-842 note was
+# "regenerated away ... as its own last line predicted", and I destroyed both of the surviving ones by
+# regenerating before I fixed it.  Notes are carried forward now, so the convention no longer depends on each
+# caller remembering to restore them by hand.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -48,3 +65,4 @@ arena_in_runtime_evasion	0
 arena_in_runtime_debt	114
 container_unmarked_live	1
 libc_owned_misuse	0
+outside_src_sites	20

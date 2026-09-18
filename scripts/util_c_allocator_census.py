@@ -36,7 +36,7 @@ rc: 0 forbidden=0 and no arena-in-runtime violation; 1 either remains; 2 could n
 Usage: python3 scripts/util_c_allocator_census.py [--root DIR] [--ratchet FILE] [--write-baseline FILE]
                                                   [--by-dir] [--sites] [--selftest]
 """
-import argparse, os, re, sys, tempfile
+import argparse, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
@@ -520,6 +520,56 @@ def provenance(now, base):
     return ev, debt, unknown
 
 
+def tracked_sources_outside_src(root):
+    """⛔⭐ THE POPULATION LON'S ACCEPTANCE TEST GRADES IS THE SOURCE BASE, NOT src/ (coo 2026-09-18, on the cto's
+    finding; CEO-842's census clause).  CEO-842 splits the work by directory -- ceo src/parsers, cfo src/runtime,
+    cto the middle, coo src/driver and src/tools -- and TOP-LEVEL tools/ IS NAMED IN NONE OF THEM.  But the
+    acceptance test is TEXTUAL and it is Lon's: a grep for the four names over the SCRIP source base returns ZERO.
+    A census scoped to src/ prints ZERO and PASSES while that grep prints seventeen.
+
+    ⛔ THAT IS THIS INSTRUMENT COMMITTING THE DEFECT IT EXISTS TO CATCH: the population the order sweeps and the
+    population the acceptance test grades are not the same population, and the gap is invisible from inside any
+    single lane because each seat greps only its own directory.  It is counted and NAMED here so the denominator
+    question is answerable; whether these sites must be CONVERTED is a RULING (they are outside every named lane)
+    and this instrument does not rule -- it refuses to be silent.
+
+    ⛔ GIT-TRACKED ONLY, and that is not a convenience: the working tree carries .scratch/wt-bisect* worktrees
+    holding whole copies of src/, which a naive walk counts as 3314 sites of other people's history.  What ships
+    is what git tracks."""
+    # ⛔ THE REASON TRAVELS WITH THE REFUSAL (coo 2026-09-18, caught in this function within the hour of writing
+    # it).  The first cut swallowed every exception into a bare `return None`, and the caller printed "git could
+    # not list the tracked source base" -- which was FALSE: git was fine, the module had never imported
+    # subprocess, and a NameError was wearing a misdiagnosis that would have sent the next reader to their git
+    # install.  An instrument that reports the wrong cause is worse than one that reports none.
+    try:
+        r = subprocess.run(["git", "-C", root, "ls-files", "--", "*.c", "*.h", "*.cpp"],
+                           capture_output=True, text=True, timeout=30)
+    except Exception as e:
+        return None, [("<could not run git>", 0, "%s: %s" % (type(e).__name__, e))]
+    if r.returncode != 0:
+        # ⛔ NOT A GIT CHECKOUT IS NOT A FAILURE, IT IS NOT-APPLICABLE (coo 2026-09-18).  A scratch fixture tree has
+        # no tracked source base at all, so there is no half of Lon's acceptance test for it to be missing -- and
+        # refusing there would make every hermetic fixture in this file unmeasurable to prove a point about the
+        # real tree.  A git that failed for ANY OTHER reason is still a refusal, because then the population
+        # exists and could not be read, which is the case that matters.
+        err = (r.stderr or "").strip()
+        if "not a git repository" in err.lower():
+            return -1, []
+        return None, [("<git refused>", r.returncode, err[:200])]
+    rels = [x for x in r.stdout.split("\n") if x.strip() and not x.startswith("src/")]
+    hits = []
+    for rel in rels:
+        path = os.path.join(root, rel)
+        try:
+            text = open(path, encoding="utf-8", errors="replace").read()
+        except Exception:
+            continue
+        for i, line in enumerate(text.split("\n"), 1):
+            for m in re.finditer(r"\b(malloc|calloc|realloc|free)[ \t]*\(", line):
+                hits.append((rel, i, m.group(1)))
+    return len(rels), hits
+
+
 def census(root, by_dir=False, sites=False, out=print):
     files = source_files(root)
     if not files:
@@ -529,6 +579,34 @@ def census(root, by_dir=False, sites=False, out=print):
     forb, dest, aliases, alias_calls, prose, bare, texts_for_container = scan(files, root)
     out(f"CENSUS c-allocators SCOPE files={len(files)} under src/ (every {'/'.join(SRC_EXT)} file, generated flex "
         f"and bison output INCLUDED -- a generated file that is checked in is source, CEO-842)")
+
+    # ⛔⭐ AND THE SCOPE LINE ABOVE IS NOT LON'S SCOPE.  See tracked_sources_outside_src.
+    n_outside, outside_hits = tracked_sources_outside_src(root)
+    if n_outside == -1:
+        out("CENSUS c-allocators OUTSIDE-SRC NOT-APPLICABLE: this root is not a git checkout, so it has no tracked "
+            "source base outside src/. Stated rather than skipped -- a check that goes quiet is indistinguishable "
+            "from a check that passed")
+        COUNTS["outside_src_sites"] = 0
+        outside_refused = False
+    elif n_outside is None:
+        why = outside_hits[0][2] if outside_hits else "no reason returned"
+        out(f"CENSUS c-allocators OUTSIDE-SRC REFUSED(2): the tracked source base could not be listed ({why}), so "
+            f"the population Lon's acceptance test grades was not read. A src/-only zero is NOT that test.")
+        COUNTS["outside_src_sites"] = None
+        outside_refused = True
+    else:
+        COUNTS["outside_src_sites"] = len(outside_hits)
+        byf = {}
+        for rel, _ln, _nm in outside_hits:
+            byf[rel] = byf.get(rel, 0) + 1
+        out(f"CENSUS c-allocators OUTSIDE-SRC={len(outside_hits)} in {len(byf)} of {n_outside} tracked "
+            f"{'/'.join(SRC_EXT)} file(s) OUTSIDE src/ -- ⛔ LON'S ACCEPTANCE TEST IS A GREP OVER THE SOURCE BASE "
+            f"AND THIS IS THE PART OF IT src/ DOES NOT COVER. CEO-842 splits the work by directory and TOP-LEVEL "
+            f"tools/ AND scripts/ ARE NAMED IN NO LANE, so these survived every seat's sweep while every seat's "
+            f"census read zero. NAMED, not ruled: whether they convert is the ceo's call, not this instrument's")
+        for rel, n in sorted(byf.items(), key=lambda kv: -kv[1]):
+            out(f"  OUTSIDE-SRC {rel} {n} site(s)")
+        outside_refused = False
 
     per = {n: sum(1 for s in forb if s[2] == n) for n in FORBIDDEN}
     total = len(forb)
@@ -727,6 +805,12 @@ def census(root, by_dir=False, sites=False, out=print):
     # it joins the evasion in the verdict rather than being a note under a green line.  A MALFORMED ROW REDS TOO -- a
     # row this reader dropped is a licence nobody granted.  ⛔ AND AN UNREADABLE RECORD REFUSES rc=2 AHEAD OF BOTH:
     # could-not-measure is never green and never red, and an unmerged .github is exactly that case.
+    # ⛔ AND A PRINTED REFUSAL THAT DOES NOT REACH THE VERDICT IS A NOTE UNDER A GREEN LINE (coo 2026-09-18,
+    # caught in my own addition the same hour: OUTSIDE-SRC printed REFUSED(2) and the census still returned GREEN).
+    if outside_refused:
+        out("CENSUS c-allocators REFUSED(2): the OUTSIDE-SRC population -- the half of Lon's acceptance test that "
+            "src/ does not cover -- was not read, so this run cannot speak to that test at all")
+        return 2
     if rp_unreadable:
         out(f"CENSUS c-allocators REFUSED(2): {len(rp_rows)} class-3 citation(s) could not be checked against "
             f"{rp_unreadable}")
@@ -746,9 +830,14 @@ def census(root, by_dir=False, sites=False, out=print):
 # longer reach zero and a ratchet with an unreachable target teaches the fleet to raise baselines.  ⭐ THIS IS NOT A
 # WEAKENING: evasion is still a HARD 0, debt still only falls, and every site that leaves the ratchet must be named in
 # c_allocator_ruled_permanent.tsv with a ruling that RESOLVES -- an unresolved citation reds the census outright.
+# ⛔ outside_src_sites IS RATCHETED BUT IS NOT A HARD ZERO (coo 2026-09-18, the cto's finding).  Whether the 20
+# sites in tools/rakugram and scripts/monitor must CONVERT is a ruling nobody has made -- CEO-842 splits the work
+# by directory and top-level tools/ and scripts/ are named in no lane.  So the instrument does what an instrument
+# may do without a ruling: it counts them, names them, and refuses to let the number GROW while the question is
+# open.  If the ceo rules them in, the count falls to 0 and the ratchet reds asking for the win to be recorded.
 RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "alias_calls",
                 "arena_in_runtime_ratcheted", "arena_in_runtime_evasion", "arena_in_runtime_debt",
-                "container_unmarked_live", "libc_owned_misuse"]
+                "container_unmarked_live", "libc_owned_misuse", "outside_src_sites"]
 
 
 def ratchet(path, out=print):
@@ -793,7 +882,7 @@ def ratchet(path, out=print):
     out("RATCHET GREEN: every ratcheted count is exactly its baseline"); return 0
 
 
-ARMS_FLOOR = 36
+ARMS_FLOOR = 38
 
 
 def selftest():
@@ -1013,6 +1102,28 @@ def selftest():
     finally:
         RULED_PERMANENT = _rp_saved
 
+    # ⛔⭐ THE OUTSIDE-SRC READER, PROVED ON BOTH SIDES (coo 2026-09-18, the cto's finding).  This arm exists
+    # because the reader's whole job is to NOT read zero over a population it never opened -- so it is planted
+    # with a real git checkout carrying a malloc outside src/, and separately with a root that is not a checkout
+    # at all, and both answers are asserted.  An instrument added to cure a vacuous population must not ship one.
+    gw = tempfile.mkdtemp(prefix="c_alloc_git.")
+    os.makedirs(os.path.join(gw, "src", "runtime"))
+    os.makedirs(os.path.join(gw, "tools"))
+    open(os.path.join(gw, "src", "runtime", "ok.c"), "w").write("void *f(void){ return ct_alloc(8); }\n")
+    open(os.path.join(gw, "tools", "outside.c"), "w").write("void *g(void){ return malloc(8); }\n")
+    _q = {"capture_output": True, "text": True}
+    subprocess.run(["git", "-C", gw, "init", "-q"], **_q)
+    subprocess.run(["git", "-C", gw, "config", "user.email", "t@t"], **_q)
+    subprocess.run(["git", "-C", gw, "config", "user.name", "t"], **_q)
+    subprocess.run(["git", "-C", gw, "add", "-A"], **_q)
+    subprocess.run(["git", "-C", gw, "commit", "-qm", "i"], **_q)
+    n_out, hits_out = tracked_sources_outside_src(gw)
+    ck(n_out == 1 and len(hits_out) == 1 and hits_out[0][0] == "tools/outside.c",
+       "A TRACKED malloc OUTSIDE src/ IS FOUND AND NAMED -- the population Lon's acceptance test greps is the source base, and a census scoped to src/ reads ZERO over it while his grep does not")
+    n_na, _ = tracked_sources_outside_src(tempfile.mkdtemp(prefix="c_alloc_nogit."))
+    ck(n_na == -1,
+       "and a root that is NOT a git checkout answers NOT-APPLICABLE rather than refusing -- a fixture tree has no tracked source base to be missing, and refusing there would make every hermetic fixture unmeasurable to prove a point about the real tree")
+
     saved = dict(COUNTS)
     try:
         COUNTS.clear(); COUNTS.update({k: 0 for k in RATCHET_KEYS})
@@ -1048,15 +1159,32 @@ def main(argv):
         return selftest()
     rc = census(a.root, a.by_dir, a.sites)
     if a.write_baseline:
+        # ⛔⭐ THE CRITERION NOTES SURVIVE THE REWRITE (coo 2026-09-18, caught by destroying them).  This writer
+        # opened the file with "w" and a fixed three-line header, so EVERY prior comment -- including every
+        # `# CRITERION CHANGED` note explaining why a number moved -- was silently deleted on each regeneration.
+        # The cfo preserved them through their last landing BY HAND, which is the fragile path: a convention that
+        # depends on each caller remembering is a convention that fails on the run that matters, and I proved it
+        # within the hour by regenerating and wiping both of ours.
+        # ⭐ THE NOTES ARE THE ONLY RECORD OF WHY A COUNT MOVED WITHOUT AN EDIT BEHIND IT (the cfo's libc_owned_misuse
+        # 6 -> 0 is exactly that shape: not one of the six named lines changed, the declarations did).  A reader six
+        # months out who finds a count drop with no note suspects the instrument.  So they are CARRIED, never pruned.
+        carried = []
+        _std = ("# c_allocator_baseline.tsv", "# Written by", "# rewrites this file")
+        if os.path.exists(a.write_baseline):
+            for line in open(a.write_baseline, encoding="utf-8"):
+                if line.startswith("#") and not line.startswith(_std):
+                    carried.append(line.rstrip("\n"))
         with open(a.write_baseline, "w", encoding="utf-8") as fh:
             fh.write("# c_allocator_baseline.tsv -- the counts Lon's eradication order drives to 0 (coo, CEO-842/843).\n"
                      "# Written by `util_c_allocator_census.py --write-baseline`; the landing that lowers a count\n"
                      "# rewrites this file in the same sitting.  key\tcount\n")
+            for c in carried:
+                fh.write(c + "\n")
             for k in RATCHET_KEYS:
                 v = COUNTS.get(k)
                 if v is not None:
                     fh.write(f"{k}\t{v}\n")
-        print(f"baseline written: {a.write_baseline}")
+        print(f"baseline written: {a.write_baseline} ({len(carried)} criterion note line(s) carried forward)")
     if a.write_sites_baseline:
         pf = COUNTS.get("__per_file__") or {}
         import subprocess
