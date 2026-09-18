@@ -32,8 +32,17 @@ for M in m3 m4; do
   else echo "  $M FAIL (out=[$out] RSS=[${v:-?}] KB, bound 262144)"; RC=1; fi
 done
 examined=$((examined+1))
-if [ "$(head -1 "$T/c.out")" = ok ] && [ -n "$rc_" ] && [ "$rc_" -gt 409600 ]; then echo "  control PASS (SCRIP_GC_LINE_MB=0 reproduces the exhaustion-only policy: RSS ${rc_} KB)"
-else echo "  control FAIL (SCRIP_GC_LINE_MB=0 read RSS=[${rc_:-?}] KB, expected above 400 MB -- the seam no longer selects the old policy, so the paced arms prove nothing)"; RC=1; fi
+# ⛔ THE CONTROL ARM ASSERTS A RATIO, NOT AN ABSOLUTE RSS (ceo CEO-885, 2026-09-18). It read -gt 409600 -- above 400 MB -- and went RED ON ORIGIN FOR EVERY SEAT the day the
+# collector got BETTER: the cfo took HB_ARR and HB_DINST out of the conservative sniff (F6 step 5, SCRIP 48d5a1a5e), a precise visit frees what a conservative sniff retained,
+# and the exhaustion-only control fell from above 400 MB to 290 MB. THE SEAM IS INTACT AND THAT WAS MEASURED, NOT ASSUMED: gc_line_paced() is false at LINE_MB=0 so the line
+# goes to g_hp_end, and the witness still collects 3 times by exhaustion against 7 when paced. What died was the THRESHOLD, which was a property of how much the sniff LEAKED.
+# An absolute number anchored on a measured artifact dies the day someone cures the artifact (CEO-554), and this one took every seat down with it.
+# The property the arm exists to prove is PACING IS WHAT BOUNDS THE RSS, and that is a RATIO. Measured at this landing: paced 150936 KB, control 289712 KB = 192%.
+# Bar: 150% of the paced arm AND above 200 MB -- so a collector that improves BOTH arms still discriminates, and a control that collapses onto the paced arm still reds.
+# Both numbers and the ratio are PRINTED, never collapsed to a verdict.
+ctl_min=$(( ${r3:-0} * 3 / 2 ))
+if [ "$(head -1 "$T/c.out")" = ok ] && [ -n "$rc_" ] && [ -n "$r3" ] && [ "$rc_" -gt 204800 ] && [ "$rc_" -gt "$ctl_min" ]; then echo "  control PASS (SCRIP_GC_LINE_MB=0 selects the exhaustion-only policy: control ${rc_} KB against paced ${r3} KB = $(( rc_ * 100 / r3 ))%, bar 150% and 200 MB)"
+else echo "  control FAIL (control RSS=[${rc_:-?}] KB against paced [${r3:-?}] KB -- bar is 150% of the paced arm AND above 200 MB; below it the seam no longer selects the old policy and the paced arms prove nothing)"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$(basename "${BASH_SOURCE[0]}" .sh)]: regeneration is paced at the 128 MB line in both modes and the seam still selects the old policy (examined $examined arms)"
 else echo "GATE FAIL(1) [$(basename "${BASH_SOURCE[0]}" .sh)]: pacing does not bound a churning program, or the control arm no longer discriminates (examined $examined arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"

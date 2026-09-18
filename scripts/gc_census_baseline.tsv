@@ -12,7 +12,8 @@ conservative	cons_stack_uses	8	0
 conservative	rt_cas_live_span_uses	2	0
 conservative	hb_scan_interior_uses	2	0
 allocator	rt_gc_collect_calls_in_the_allocator	0	0
-safe-points	unpolled	208	0
+# CRITERION UNCHANGED, COUNT EARNED 2026-09-18 ceo, SCRIP 45611ca09 + d10113100: safe-points.unpolled 208 -> 132. THE cto's TWO STEP-4 BATCHES EARNED IT AND THE BASELINE DID NOT MOVE WITH THEM, so the ratchet went RED ON ORIGIN FOR EVERY SEAT -- arm (c) reading BETTER and refusing, exactly as designed. â THE RULE IS THE LANDING THAT EARNS AN IMPROVEMENT LOWERS THE BASELINE IN THE SAME COMMIT; this is the ceo lowering it after the fact because the landings are already on origin and a red on origin is everyone's. â­ NOTHING ABOUT THE CRITERION MOVED: same census, same spelling, same denominator of 210 -- 78 sites are polled where 2 were.
+safe-points	unpolled	132	0
 safe-points	unresolved	0	0
 callbacks	unwrapped	53	0
 callbacks	unwrapped_outbound	13	0
