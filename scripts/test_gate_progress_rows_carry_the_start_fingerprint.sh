@@ -126,7 +126,7 @@ mut=$!
 rc4="$(run_harness "$W/c" "$W/c/db.tsv")"; wait "$mut" 2>/dev/null
 n4="$(rows_in "$W/c/db.tsv")"
 post_c="$(git -C "$W/c/corpus" rev-parse --short HEAD)"
-[ "$post_c" != "$(git -C "$W/c/corpus" rev-list --max-parents=0 --abbrev-commit HEAD | tail -1)" ] || { echo "GATE UNPROVEN(2) [$G]: arm4 mutator did not move corpus HEAD -- the arm would pass vacuously"; exit 2; }
+[ "$post_c" != "$(git -C "$W/c/corpus" rev-list --max-parents=0 --abbrev-commit HEAD | tail -1)" ] || { echo "GATE UNPROVEN(2) [$G]: arm4 mutator did not move corpus HEAD -- the arm would pass vacuously. READ $W/c/out.log FIRST: wait_grading only fires once the scratch scrip has EXECUTED, so a harness that REFUSED before grading (rc=2) never releases the mutator and this line reports the symptom, not the cause -- which is how this gate was read as an arm-4 defect for a day (coo 2026-09-18)."; exit 2; }
 ck "$([ "$n4" = 0 ] && [ "$rc4" = 2 ] && echo ok || echo no)" "arm4 corpus HEAD moved mid-run -> ZERO rows and rc=2 (rows=$n4 rc=$rc4)"
 # ---- arm 5: the SCRIP HEAD moves mid-run ---------------------------------------------------------------------------
 mk_world "$W/d" >/dev/null 2>&1
@@ -135,8 +135,24 @@ mut=$!
 rc5="$(run_harness "$W/d" "$W/d/db.tsv")"; wait "$mut" 2>/dev/null
 n5="$(rows_in "$W/d/db.tsv")"
 post_d="$(git -C "$W/d/SCRIP" rev-parse --short HEAD)"
-[ "$post_d" != "$(git -C "$W/d/SCRIP" rev-list --max-parents=0 --abbrev-commit HEAD | tail -1)" ] || { echo "GATE UNPROVEN(2) [$G]: arm5 mutator did not move SCRIP HEAD -- the arm would pass vacuously"; exit 2; }
+[ "$post_d" != "$(git -C "$W/d/SCRIP" rev-list --max-parents=0 --abbrev-commit HEAD | tail -1)" ] || { echo "GATE UNPROVEN(2) [$G]: arm5 mutator did not move SCRIP HEAD -- the arm would pass vacuously. READ $W/d/out.log FIRST -- see the arm4 note: a harness that refused before grading never releases the mutator."; exit 2; }
 ck "$([ "$n5" = 0 ] && [ "$rc5" = 2 ] && echo ok || echo no)" "arm5 SCRIP HEAD moved mid-run -> ZERO rows and rc=2 (rows=$n5 rc=$rc5)"
+# ---- arm 6: the planted red -- arm2's check must FAIL when a fingerprint is stripped ------------------------------
+# ⛔⭐ AN ARM THAT HAS NEVER BEEN SEEN TO FAIL IS NOT A MEASUREMENT (coo 2026-09-18, this row's DONE-WHEN; the same
+# shape the cto named the same day -- a gate with an EMPTY population and a gate with a FULL one are indistinguishable
+# at the exit code). Arms 1 and 2 read the db of the honest run; had that run appended nothing, or had index($0,f)
+# matched something it always matches, they could read green while proving nothing about fingerprints. THIS ARM TAKES
+# THE SAME db, STRIPS THE FINGERPRINT FROM EXACTLY ONE ROW, AND ASSERTS ARM 2'S OWN PREDICATE GOES RED -- so arm2's
+# green is a fact about the rows and not about the predicate. The plant is a COPY; the honest db is never touched.
+if [ "$n" -gt 0 ]; then
+  plant="$W/a/db.planted.tsv"
+  awk -F'\t' -v f="$pre_fp" 'NR==2{gsub(f,"stripped")}1' OFS='\t' "$W/a/db.tsv" > "$plant"
+  p_rows="$(rows_in "$plant")"
+  p_carry="$(awk -F'\t' -v f="$pre_fp" 'NR>1 && index($0,f)>0' "$plant" | grep -c .)"
+  ck "$([ "$p_rows" = "$n" ] && [ "$p_carry" = "$((n-1))" ] && echo ok || echo no)" "arm6 PLANTED: one row stripped of the fingerprint reds arm2's own check (rows=$p_rows carrying=$p_carry want $((n-1)) of $n)"
+else
+  ck no "arm6 PLANTED: no honest rows to plant into, so arm2's verdict is about an empty population (rows=$n)"
+fi
 # ---- verdict ------------------------------------------------------------------------------------------------------
 printf '%s: %d/%d arms ok\n' "$G" "$((checks-fails))" "$checks"
 [ "$fails" = 0 ] || { echo "GATE RED [$G]: $fails of $checks arms failed"; exit 1; }

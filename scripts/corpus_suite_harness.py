@@ -2413,13 +2413,56 @@ def require_lang_for_suite(subcmd, src_path, args):
            f"--lang snobol4.")
 
 
+SHARED_CORPUS_REMOTE = "snobol4ever/corpus"
+
+
+def _corpus_is_the_shared_population(corpus_root):
+    """⛔⭐ WHOSE corpus IS IT? (coo 2026-09-18, row instruments-the-progress-fingerprint-gate-appends-no-rows-arms-1-
+    and-2-red-and-arm-4-vacuous). CEO-547 part 1 says a gate's own mktemp fixture is not a board because it grades no
+    corpus population -- but the test written for it asked a PATH question, "is the suite under the corpus root", and
+    the corpus root is whatever S4E_HOME/corpus resolves to. A hermetic fixture that builds its own two-repo world and
+    points S4E_HOME at it therefore lands INSIDE its own corpus tree and is judged a board, which is how
+    test_gate_progress_rows_carry_the_start_fingerprint.sh came to be DARK on origin for a day: its eight-entry scratch
+    master was refused rc=2, the harness appended nothing, and arms 1 and 2 read FAIL for a reason that was never about
+    fingerprints. ⭐ THE FACT ASKED HERE IS THE ONE CEO-547 ACTUALLY NAMES -- is this the population every seat has? --
+    and it is asked of the remote: a real checkout carries origin snobol4ever/corpus, a `git init` scratch world carries
+    no remote at all. ⛔ UNREADABLE ANSWERS TRUE: a guard that cannot tell must refuse, never wave through."""
+    try:
+        r = subprocess.run(["git", "-C", str(corpus_root), "remote", "-v"],
+                           capture_output=True, text=True, timeout=10)
+    except Exception:
+        return True
+    if r.returncode != 0:
+        return True
+    return SHARED_CORPUS_REMOTE in r.stdout
+
+
+def _writes_the_live_progress_table():
+    """Does this run append to the shared record, or to a scratch table of its own? The second half of CEO-547's
+    definition ("publishes no row, writes no score"), asked of the file that would actually be written. Unreadable
+    answers TRUE, for the same reason as above."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import util_progress_append as _upa
+        return os.path.realpath(_upa.db_path()) == os.path.realpath(_upa.DB_DEFAULT)
+    except Exception:
+        return True
+
+
 def _suite_is_a_board(suite_path, corpus_root):
     """⛔⭐ WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT (ceo CEO-547 part 1, on the cfo's
     measurement). A suite living under the corpus tree is a board: it grades a shared population, publishes rows and writes a
     score. A gate's own two-entry mktemp fixture publishes no row, writes no score, grades no corpus population and costs about
     a second -- it is not a board by the definition CEO-523 itself uses. The guard used to fire before it knew which of the two
     it was holding, so make test -- THE blocking set -- was red on a clean origin tree for twelve of thirteen seats. An
-    unreadable or unresolvable path answers TRUE: a guard that cannot tell must refuse, never wave through."""
+    unreadable or unresolvable path answers TRUE: a guard that cannot tell must refuse, never wave through.
+    ⛔ AMENDED 2026-09-18 (coo): PATH CONTAINMENT ALONE CANNOT SEE A FIXTURE THAT BUILT ITS OWN corpus/ AND POINTED
+    S4E_HOME AT IT -- see _corpus_is_the_shared_population. A suite under a directory named corpus is still judged a board
+    unless BOTH remaining facts say fixture: the tree is not a checkout of the shared corpus AND this run writes to a
+    scratch progress table rather than the live one. ⭐ BOTH, never either: a real board that merely redirected its
+    progress writes is still a board, and a checkout that merely lost its remote is still the shared population. To reach
+    the fixture branch dishonestly a caller must both break its corpus remote and write its rows where nobody reads them,
+    which is not an escape from the rule -- it is the rule's own description of a run that publishes nothing."""
     try:
         sp = Path(suite_path).resolve()
         cr = Path(corpus_root).resolve()
@@ -2427,9 +2470,14 @@ def _suite_is_a_board(suite_path, corpus_root):
         return True
     try:
         sp.relative_to(cr)
-        return True
     except ValueError:
         return False
+    if not _corpus_is_the_shared_population(cr) and not _writes_the_live_progress_table():
+        print("ONE-RUNNER: FIXTURE, not a board -- %s is under %s, which is not a checkout of %s, and this run appends "
+              "to a scratch progress table. No row reaches the shared record (CEO-547 part 1)." % (sp, cr, SHARED_CORPUS_REMOTE),
+              flush=True)
+        return False
+    return True
 
 
 def _one_runner_lang(suite_path=None, lang=None):

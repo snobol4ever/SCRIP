@@ -17,13 +17,39 @@ one_runner_seat() {
   local here; here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   S4E_HOME="${S4E_HOME:-$(cd "$here/../.." && pwd)}" python3 -c 'import sys; sys.path.insert(0,sys.argv[1]); import util_score_row as u; print(u.derive_measurer() or "")' "$here" 2>/dev/null
 }
+# ⛔⭐ WHOSE corpus IS IT? (coo 2026-09-18, row instruments-the-progress-fingerprint-gate-appends-no-rows-arms-1-and-2-red-and-arm-4-
+# vacuous). CEO-547 part 1 says a gate's own mktemp fixture is not a board because it grades no corpus population -- but the test
+# written for it asked a PATH question, "is the suite under the corpus root", and the corpus root is whatever S4E_HOME/corpus
+# resolves to. A hermetic fixture that builds its own two-repo world and points S4E_HOME at it therefore lands INSIDE its own corpus
+# tree and is judged a board: test_gate_progress_rows_carry_the_start_fingerprint.sh was DARK on origin for a day because its
+# eight-entry scratch master was refused rc=2, the harness appended nothing, and arms 1 and 2 read FAIL for a reason that was never
+# about fingerprints. ⭐ THE FACT ASKED IS THE ONE CEO-547 NAMES -- is this the population every seat has? -- and it is asked of the
+# remote: a real checkout carries origin snobol4ever/corpus, a `git init` scratch world carries no remote at all. ⛔ BOTH FACTS, NEVER
+# EITHER: a real board that merely redirected its progress writes is still a board, and a checkout that merely lost its remote is
+# still the shared population. ⛔ UNREADABLE ANSWERS BOARD: a guard that cannot tell must refuse, never wave through.
+ONE_RUNNER_SHARED_CORPUS_REMOTE='snobol4ever/corpus'
+ONE_RUNNER_LIVE_PROGRESS_DB='/home/resources/progress/results.tsv'
+one_runner_corpus_is_the_shared_population() {
+  local cr="$1" out
+  out="$(git -C "$cr" remote -v 2>/dev/null)" || return 0
+  case "$out" in *"$ONE_RUNNER_SHARED_CORPUS_REMOTE"*) return 0;; *) return 1;; esac
+}
+one_runner_writes_the_live_progress_table() {
+  local db="${S4E_PROGRESS_DB:-$ONE_RUNNER_LIVE_PROGRESS_DB}"
+  [ "$(readlink -f "$db" 2>/dev/null || printf '%s' "$db")" = "$(readlink -f "$ONE_RUNNER_LIVE_PROGRESS_DB" 2>/dev/null || printf '%s' "$ONE_RUNNER_LIVE_PROGRESS_DB")" ]
+}
 one_runner_suite_is_a_board() {
   local suite="$1" corpus sp cr
   corpus="${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}"
   sp="$(cd "$(dirname "$suite")" 2>/dev/null && pwd)/$(basename "$suite")" || return 0
   cr="$(cd "$corpus" 2>/dev/null && pwd)" || return 0
   [ -n "$cr" ] || return 0
-  case "$sp" in "$cr"/*|"$cr") return 0;; *) return 1;; esac
+  case "$sp" in "$cr"/*|"$cr") ;; *) return 1;; esac
+  if ! one_runner_corpus_is_the_shared_population "$cr" && ! one_runner_writes_the_live_progress_table; then
+    printf 'ONE-RUNNER: FIXTURE, not a board -- %s is under %s, which is not a checkout of %s, and this run appends to a scratch progress table. No row reaches the shared record (CEO-547 part 1).\n' "$sp" "$cr" "$ONE_RUNNER_SHARED_CORPUS_REMOTE"
+    return 1
+  fi
+  return 0
 }
 # ⛔⭐⭐⭐ NO CENTRAL RUNNER: EVERY LANGUAGE HQ RUNS ITS OWN LANGUAGE'S TEST AND BENCHMARK SUITES (Lon 2026-09-16 10:5x CDT, in-chat
 # to ceo, verbatim: "So do not have a centralized runner at all. Let's each HQ run its language test and benchmark suites."; ceo CEO-775,
