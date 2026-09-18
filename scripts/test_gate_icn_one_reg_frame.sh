@@ -31,10 +31,22 @@
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet · Claude Fable  DATE: 2026-05-30 (relaid 2026-08-21)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="${HERE}/../src"
-HANDBUILT_RATCHET="${HANDBUILT_RATCHET:-22}"
+HANDBUILT_RATCHET="${HANDBUILT_RATCHET:-16}"
 rc=0
 
 [ -d "${SRC}/templates" ] || { echo "GATE FAIL(2): census surface ${SRC}/templates does not exist."; exit 2; }
+. "${HERE}/lib_gate.sh"
+gate_parse_args "$@"
+# ⛔⭐ AND THE -d TEST ABOVE IS THE NARROWER QUESTION (coo 2026-09-18, the cto's re-measurement of seat10's list).
+# The injection harness creates src/templates EMPTY, so the -d test passed, the *.cpp glob matched nothing, both
+# locks scanned zero files, and THIS GATE IS A RATCHET: sites=0 is not greater than the ceiling 22, so it printed
+# OK and then printed "RATCHET IMPROVED: 0 < 22 -- lower HANDBUILT_RATCHET in this script to lock the gain in."
+# ⛔ THAT IS THE SAME DEFECT THIS FILE'S OWN HEADER NAMES ABOUT LOCK 1 -- "a ratchet whose subject has been
+# deleted reports success forever" -- arriving through the population instead of through the subject, and it is
+# worse than a silent green because it RECRUITS AN HONEST SEAT into locking in a gain that was never measured.
+census_files=0
+for _f in "${SRC}"/templates/bb/*.cpp "${SRC}"/templates/xa/*.cpp; do [ -f "$_f" ] && census_files=$((census_files+1)); done
+gate_floor "$census_files" 1 "src/templates/{bb,xa}/*.cpp census file(s) -- a ratchet must refuse on an empty population BEFORE it compares against its ceiling"
 
 echo "=== ICON STACKLESS ONE-REGISTER FRAME gate ==="
 LEGACY=$(grep -rnoE '\(uintptr_t\)[[:space:]]*&(pBB|a0)->(value|counter|state)' "${SRC}" 2>/dev/null | grep -v _pl_ | grep -c . || true)
@@ -44,8 +56,21 @@ if [ "${LEGACY}" -gt 0 ]; then
     rc=1
 fi
 
+# ⛔⭐⭐ AND THE FLOOR ABOVE CAUGHT LOCK 2 SCANNING ZERO FILES ON THE REAL TREE, NOT ONLY UNDER INJECTION (coo
+# 2026-09-18).  The glob was "${SRC}"/templates/*.cpp -- but src/templates holds NO .cpp at its top level; they
+# live in bb/, xa/ and x86/, and this file's own header states the surface as src/templates/{bb,xa}/*.cpp.  So
+# the loop matched nothing, sites stayed 0, and because LOCK 2 IS A RATCHET the gate printed "RATCHET IMPROVED:
+# 0 < 22 -- lower HANDBUILT_RATCHET in this script to lock the gain in" ON EVERY RUN SINCE IT WAS WRITTEN.
+# ⛔ THE HEADER OF THIS VERY FILE SAYS LOCK 1 WAS VACUOUS BECAUSE ITS SUBJECT HAD BEEN DELETED, AND LOCK 2 WAS
+# WRITTEN TO REPLACE IT.  Lock 2 was vacuous too, by a glob that missed the subdirectories -- the same defect
+# arriving through the POPULATION instead of through the SUBJECT, in the gate written to cure it.
+# ⭐ THE FIRST HONEST READING OVER THE CORRECT SURFACE IS 16 (bb_define 3, xa_flat 13), which is UNDER the old
+# ceiling of 22, so nothing is red and no ceiling is raised.  The 22 was never a measurement of this surface
+# either -- it was carried from the s247 command -- so the ceiling is set to the measured 16 in this landing
+# rather than left naming a number no scan ever produced.  That is recording the win, not yielding to a red.
 sites=0
-for f in "${SRC}"/templates/*.cpp; do
+for f in "${SRC}"/templates/bb/*.cpp "${SRC}"/templates/xa/*.cpp; do
+    [ -f "$f" ] || continue
     code=$(perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$f" | grep -v 'strstr(')
     n=$(printf '%s' "$code" | grep -oE '"\[r(sp|bp)[^"]*"' | grep -c . || true)
     [ "$n" -gt 0 ] && { sites=$((sites+n)); printf '    %-32s %d\n' "$(basename "$f")" "$n"; }

@@ -11,6 +11,13 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/.." || exit 2
 gate_require "src/templates" "templates dir"
 gate_require "src/emitter" "emitter dir"
+# ⛔ gate_require ANSWERS "DOES THE DIRECTORY EXIST", WHICH IS THE NARROWER QUESTION (coo 2026-09-18, the cto's
+# finding).  The injection harness creates src/templates and src/emitter EMPTY, so both gate_require calls passed
+# and this gate then printed "all port operations route through the four port functions" having opened no file at
+# all.  A path test is not a population test; count what the find actually yields.
+files=0
+while IFS= read -r f; do files=$((files+1)); done < <(find src/templates src/emitter -name '*.cpp' -o -name '*.c' -o -name '*.h')
+gate_floor "$files" 1 "template/emitter source file(s)"
 total=0; hits=""
 while IFS= read -r f; do
   case "$f" in *bb_callee_frame.cpp|*bb_query_frame.cpp) continue;; esac

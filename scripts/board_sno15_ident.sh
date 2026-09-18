@@ -79,3 +79,23 @@ for nm in "${DEMOS[@]}"; do
 done
 printf '%.0s-' {1..66}; echo
 echo "TRI-IDENTICAL $nid/${#DEMOS[@]}   m3 bad=$nd3   m4 bad=$nd4   harness-fail=$nfail"
+
+# ⛔⭐ A BOARD THAT GRADED NOTHING REFUSES rc=2 (coo 2026-09-18, on the cto's re-measurement of seat10's
+# 2026-08-23 list).  WHAT THIS LOOKED LIKE: on a tree with no binary and no corpus every demo took the NO SOURCE
+# or SBL FAILED path, so the board printed TRI-IDENTICAL 0/14 with harness-fail=14 -- EVERY PROGRAM IN THE
+# POPULATION FAILED TO EXECUTE -- and then fell off the end of the script, which exits with the status of the
+# last echo.  ZERO.  A reader checking the exit code recorded a clean board for a run in which nothing was ever
+# compared against the oracle, and "0/14 identical" is the most alarming line this board can print.
+# ⛔ THE VERDICT SEMANTICS ARE DELIBERATELY UNCHANGED OTHERWISE, and that restraint is the point: these demos
+# carry KNOWN divergences (the header names at least three separate mechanisms behind the broken ones), so
+# turning divergence into a non-zero exit would red a board that is honestly reporting known debt.  The defect
+# is not "it fails to fail on divergence", it is "it cannot tell a graded board from an ungraded one".  Only
+# that distinction is added here.
+graded=$(( ${#DEMOS[@]} - nfail ))
+if [ "$graded" -le 0 ]; then
+  echo "BOARD UNPROVEN(2) [board_sno15_ident]: graded 0 of ${#DEMOS[@]} demo(s) -- every program failed the harness"
+  echo "    before any oracle comparison was made (missing source, missing binary, or the oracle refused), so"
+  echo "    TRI-IDENTICAL 0/${#DEMOS[@]} above describes NO measurement.  Could-not-measure is never a pass."
+  exit 2
+fi
+echo "population: graded $graded of ${#DEMOS[@]} demo(s) against the oracle (harness-fail $nfail)"

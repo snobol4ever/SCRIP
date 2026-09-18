@@ -443,6 +443,11 @@ gate_and_per_program() {
     printf '%s %s %s\n' "$((_total - _n))" "$_n" "$(printf '%s ' $_u)"
 }
 # gate_floor <examined-count> <minimum> <what-was-counted> -- the empty-glob / empty-dir / zero-files class.
+# ⛔⭐ AND IT PRINTS THE POPULATION ON THE PASSING PATH TOO (coo 2026-09-18, on the cto's finding).  The refusal
+# was always here; what was missing is that A GATE WITH A FULL POPULATION AND A GATE WITH A NEARLY-EMPTY ONE
+# PRINTED THE SAME THING when both cleared the floor, so nothing in the house style forced the denominator into
+# the output and a reader could not tell 4851 scanned from 2.  One additive line, so every one of the 52 callers
+# states what it actually looked at without changing its own verdict lines.
 gate_floor() {
     GATE_EXAMINED="$1"
     if [ "$1" -lt "$2" ] 2>/dev/null; then
@@ -451,6 +456,7 @@ gate_floor() {
         gate_stamp
         exit 2
     fi
+    echo "population: examined $1 $3 (floor $2)"
 }
 # gate_oracle_stdout_match <oracle-stdout-file> <actual-stdout-file> <actual-stderr-file> <actual-rc>
 #

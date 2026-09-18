@@ -14,6 +14,9 @@ SRC="$ROOT/src"
 # ...` with no `|| true` guard of its own -- find's "No such file or directory" goes to stderr and
 # the loop below it just sees zero lines, indistinguishable from a clean scan of a real tree.
 [ -d "$SRC" ] || { echo "UNPROVEN: $SRC missing"; exit 2; }
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SELF_DIR/lib_gate.sh"
+gate_parse_args "$@"
 strip() { sed -E ':a;s@/\*[^*]*\*+([^/*][^*]*\*+)*/@@;ta'; }
 LIVE() { find "$SRC" -name '*.c' -o -name '*.cpp' -o -name '*.h' | grep -v '/attic/'; }
 
@@ -28,6 +31,19 @@ scan() {
   done < <(LIVE)
   echo "$total"
 }
+
+# ⛔⭐ THE POPULATION IS COUNTED BEFORE ANYTHING IS COMPARED TO THE TARGET, AND THIS ONE IS THE WORST SHAPE IN
+# THE CLASS (coo 2026-09-18, on the cto's re-measurement of seat10's 2026-08-23 list).  The -d test above shows
+# the author already saw this defect class -- but it asks whether the DIRECTORY EXISTS, which is the narrower
+# question, and the injection harness creates src/ EMPTY.  So LIVE() yielded nothing, every scan returned 0, and
+# HARD=0 was compared against TARGET=119.
+# ⛔ A VACUOUS HARD-ZERO GATE MERELY LOOKS CLEAN.  A VACUOUS RATCHET LOOKS LIKE A 119-POINT WIN AND THEN PRINTS
+# AN INSTRUCTION TO RATCHET THE TARGET TOWARD 0 -- so acting on this gate's own printed advice would entrench a
+# false target-reached permanently, and it would be an honest seat following the instrument that did it.  That is
+# why the refusal has to land HERE, before the comparison, and not be folded into the verdict below.
+live_files=0
+while IFS= read -r _f; do live_files=$((live_files+1)); done < <(LIVE)
+gate_floor "$live_files" 1 "live (non-attic) src file(s) -- a ratchet must refuse on an empty population BEFORE it compares against its TARGET"
 
 echo "=== IR_t FIELD-DISCIPLINE gate (JCON: one meaning per field, children in operands[], dval is a real literal) ==="
 

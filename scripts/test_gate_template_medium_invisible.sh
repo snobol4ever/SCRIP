@@ -15,7 +15,20 @@
 # 0) and a SANCTIONED arm that reaches into port instrumentation (a mode arm may change INSTRUCTIONS,
 # never a port's x86_deflabel canary/ZDP/ZLS2 hook -- RULES.md: "port-seam protection stays absolute").
 # PART 1 (raw-byte producers + raw scatter) is an informational WIP baseline; --strict enforces zero.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$(dirname "$0")/.." || exit 2
+. "$SELF_DIR/lib_gate.sh"
+gate_parse_args "$@"
+# ⛔⭐ THE POPULATION IS COUNTED BEFORE EITHER PART RUNS (coo 2026-09-18, the cto's finding, seat10's list).  Both
+# parts loop over globs -- src/templates/{bb,xa}/*.cpp and src/templates/bb/bb_*.cpp -- and an unmatched glob in
+# bash expands to the literal pattern, so on an EMPTY tree the loop bodies scan nothing, total stays 0, and PART 1
+# printed "every BB template is medium-invisible" over zero templates.
+# ⛔ AND PART 2 IS A RATCHET against MEDIUM_RATCHET, so a vacuous scan there does not merely look clean -- it reads
+# as the ceiling having been beaten, which is the shape that invites the next seat to lower a ceiling onto a
+# measurement nobody took.  Refuse on the empty population FIRST, before either verdict.
+census_files=0
+for _f in src/templates/bb/*.cpp src/templates/xa/*.cpp; do [ -f "$_f" ] && census_files=$((census_files+1)); done
+gate_floor "$census_files" 1 "src/templates bb/xa template file(s) -- both parts, the ratchet included, are asserted over this population"
 # =====================================================================================================
 # SHARED SCANNERS -- the real-tree scans below and this script's own § SELF-TEST fixtures call these SAME
 # functions, so "what the gate checks" and "what the self-test proves" cannot drift apart from each other

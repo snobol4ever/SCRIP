@@ -17,7 +17,14 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
-fail=0
+. "$HERE/lib_gate.sh"
+gate_parse_args "$@"
+# ⛔ THE POPULATION IS COUNTED BEFORE THE FOUR ARMS RUN (coo 2026-09-18, the cto's finding, seat10's list).  Every
+# arm here is a grep -r over src/ asserting a count of ZERO, so an EMPTY src/ satisfies all four at once and the
+# gate printed "rbx quarantined (4 arms)" having read no file.  Four arms agreeing about nothing is not four
+# arms; the denominator is the whole verdict for a gate whose every arm asserts an absence.
+census_files=$(find src/ -name '*.c' -o -name '*.cpp' -o -name '*.h' 2>/dev/null | wc -l)
+gate_floor "$census_files" 1 "src/ source file(s) over which all four absence arms are asserted"
 
 # Arm 1 — no rbx-relative GVA operand spelling anywhere in the tree.
 n=$(grep -rn 'RDQ("rbx"' src/ 2>/dev/null | grep -cv '\.o:') || true

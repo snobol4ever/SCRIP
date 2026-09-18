@@ -31,6 +31,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
+. "$HERE/lib_gate.sh"
+gate_parse_args "$@"
 
 # A missing src/ must REFUSE, not silently score zero violations. The scan below
 # runs grep with `|| true` (required so `set -euo pipefail` tolerates a legitimate
@@ -124,6 +126,13 @@ new_violations=()
 #
 # The grep is deliberately permissive on false positives — the allowlist
 # is the proper escape hatch for any legitimate bare appearance.
+
+# ⛔ THE POPULATION IS COUNTED BEFORE THE FIELD SWEEP (coo 2026-09-18, the cto's finding, seat10's 2026-08-23
+# list).  Every field below is checked with a grep -r over src/ that must find NO bare reference, so an EMPTY
+# src/ satisfies every field at once and the gate printed that all references are qualified having opened no
+# file.  For a gate whose whole verdict is an absence, the denominator IS the verdict.
+census_files=$(find src/ -name '*.c' -o -name '*.h' 2>/dev/null | wc -l)
+gate_floor "$census_files" 1 "src/ C source file(s) over which every field's absence is asserted"
 
 for field in "${FIELDS[@]}"; do
     # Match the field as a whole word not preceded by '.' or '>'.

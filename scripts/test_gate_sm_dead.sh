@@ -19,7 +19,19 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SELF_DIR/lib_gate.sh"
+gate_parse_args "$@"
+
 MAX="${SM_DEAD_MAX:-1}"
+
+# ⛔⭐ THE POPULATION IS COUNTED BEFORE IT IS COMPARED TO MAX (coo 2026-09-18, the cto's finding).  This is the
+# same shape as test_gate_ir_field_discipline and it is a RATCHET, not a hard-zero gate: grep -r over an EMPTY
+# src/ returns 0, 0 is not greater than MAX=1, and the gate printed OK and advised driving the count to 0 having
+# read no file at all.  A ratchet that reads a vacuous scan as headroom invites the next seat to lower MAX onto a
+# measurement nobody took.  Refuse on the empty population FIRST.
+scanned=$(find src/ -name '*.c' -o -name '*.h' 2>/dev/null | wc -l)
+gate_floor "$scanned" 1 "src/ C source file(s) -- a ratchet must refuse on an empty population BEFORE it compares against MAX"
 
 count=$(grep -rnE 'sm_interp_run *\(|sm_run_native *\(|g_vstack *\[' \
             src/ --include='*.c' --include='*.h' 2>/dev/null \
