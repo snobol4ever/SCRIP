@@ -53,6 +53,7 @@ std::string bb_binop_relop() {
              + x86("je", L(2))
              + x86("cmp", "eax", (long)1)
              + x86_omega("je")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86("def", L(2))
              + x86("mov", "rdi", FRQ(_.op_sa))
@@ -74,6 +75,7 @@ std::string bb_binop_relop() {
                  + x86("mov", "rcx", FRQ(_.op_sb + 8))
                  + x86("lea", "r8", FRQ(_.op_off))
                  + x86("call", "rt_relop_val_coerce", (uint64_t)(uintptr_t)(void*)rt_relop_val_coerce))
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
          : (_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0
@@ -103,6 +105,7 @@ std::string bb_binop_relop() {
                  + x86("mov", "rcx", FRQ(_.op_sb + 8))
                  + x86("lea", "r8", FRQ(_.op_off))
                  + x86("call", "rt_relop_val_coerce", (uint64_t)(uintptr_t)(void*)rt_relop_val_coerce))
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
          : x86_bomb("bb_binop_relop: shape mismatch");

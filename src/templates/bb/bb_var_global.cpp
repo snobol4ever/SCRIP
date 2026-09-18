@@ -36,6 +36,7 @@ std::string bb_var_global() {
              + x86("mov",    vg_res(0), "rax")
              + x86("note", ZRESN())
              + x86("mov",    vg_res(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))

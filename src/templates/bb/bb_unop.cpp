@@ -30,6 +30,7 @@ std::string bb_unop() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
         return !(_.op_off >= 0) ? std::string() :
@@ -91,6 +92,7 @@ std::string bb_unop() {
              + x86("call", "rt_cset_compl", (uint64_t)(uintptr_t)(void *)rt_cset_compl)
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline() :
                (int)_.op_ival == TT_SIZE ?
@@ -111,6 +113,7 @@ std::string bb_unop() {
              + IF((int)_.op_ival != TT_MNS, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
 }

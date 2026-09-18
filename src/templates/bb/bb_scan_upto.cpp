@@ -50,6 +50,7 @@ std::string bb_scan_upto() {
              + x86("mov",     FRQ(_.op_off), (long)DT_I)
              + x86("add",     "rax", (long)1)
              + x86("mov",     FRQ(_.op_off + 8), "rax")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86("def",     L(1))
              + x86("inc",     FRQ(_.op_off + 16))

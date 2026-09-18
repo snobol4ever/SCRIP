@@ -54,6 +54,7 @@ std::string bb_binop_relop_val() {
                  + x86("mov", "rcx", ZOPQ(1, 8))
                  + x86("lea", "r8", ZRES(0))
                  + x86("call", "rt_relop_val_coerce", (uint64_t)(uintptr_t)(void*)rt_relop_val_coerce))
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
     if (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && !_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
@@ -135,6 +136,7 @@ std::string bb_binop_relop_val() {
              + x86("call", "rt_binop_overload", (uint64_t)(uintptr_t)(void*)rt_binop_overload)
              + x86("test", "eax", "eax")
              + x86("je", L(2))
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86("def", L(2))
              + x86("mov", "rdi", FRQ(_.op_sa))

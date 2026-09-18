@@ -33,6 +33,7 @@ std::string bb_limit() {
            + x86("mov",   FRQ(_.op_off),     "rax")
            + x86("mov",   "rax", FRQ(_.op_sa + 8))
            + x86("mov",   FRQ(_.op_off + 8), "rax")
+           + x86_rt_gc_poll()
            + x86_gamma()
            + x86_beta()
            + x86("mov",   "rdi", FRQ(_.op_sc))

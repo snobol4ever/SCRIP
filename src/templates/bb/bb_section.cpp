@@ -30,6 +30,7 @@ std::string bb_section() {
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
              : (_.op_sval && (_.op_sval[0] == '+' || _.op_sval[0] == '-'))
@@ -46,6 +47,7 @@ std::string bb_section() {
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
              : x86("comment", "IR_SUBSCRIPT section")
@@ -61,6 +63,7 @@ std::string bb_section() {
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
 }

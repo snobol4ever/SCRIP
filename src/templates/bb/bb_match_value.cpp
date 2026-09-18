@@ -28,6 +28,7 @@ std::string bb_match_value() {
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def",  L(4))
          + bb_glue_wire_land()
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86("def",  L(5))
          + bb_glue_wire_land()

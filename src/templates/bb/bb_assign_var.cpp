@@ -28,6 +28,7 @@ std::string bb_assign_var() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
     return IF(_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0, x86_alpha() + x86_bomb("bb_assign_var: needs own slot + variable/value operand slots"))
@@ -43,6 +44,7 @@ std::string bb_assign_var() {
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline());
 }

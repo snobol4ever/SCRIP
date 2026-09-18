@@ -47,6 +47,7 @@ std::string bb_scan_any() {
              + x86("mov",     "rax", "r14")
              + x86("add",     "rax", (long)2)
              + x86("mov",     FRQ(_.op_off + 8), "rax")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline() :
            (!(_.op_off >= 0 && _.op_name1)) ? x86_alpha() + x86_bomb("bb_scan_any: unhandled (needs literal cset arg + descr flat-chain slot)") :
@@ -67,6 +68,7 @@ std::string bb_scan_any() {
          + x86("mov",     "rax", "r14")
          + x86("add",     "rax", (long)2)
          + x86("mov",     FRQ(_.op_off + 8), "rax")
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline()
          + x86("def",     L(0))

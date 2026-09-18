@@ -72,6 +72,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
         if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }
+        s += x86_rt_gc_poll();
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;

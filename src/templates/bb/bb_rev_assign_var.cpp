@@ -28,6 +28,7 @@ std::string bb_rev_assign_var() {
          + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     "rax")
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta()
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

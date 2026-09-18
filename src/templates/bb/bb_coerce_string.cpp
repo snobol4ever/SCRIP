@@ -19,6 +19,7 @@ std::string bb_coerce_string() {
              + x86("lea",  "rsi", ZRES(0))
              + x86("mov",  "rdx", (long)_.op_ival)
              + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
     return IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_string: needs operand slot (op_sa) + own value slot (op_off)"))
@@ -29,6 +30,7 @@ std::string bb_coerce_string() {
            + x86("lea",  "rsi", FRQ(_.op_off))
            + x86("mov",  "rdx", (long)_.op_ival)
            + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
+           + x86_rt_gc_poll()
            + x86_gamma()
            + x86_beta_trampoline());
 }

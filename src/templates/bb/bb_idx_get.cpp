@@ -30,6 +30,7 @@ std::string bb_idx_get() {
             + x86("call", (_.op_strict ? "subscript_get_strict" : "subscript_get"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? subscript_get_strict : subscript_get))
             + x86("mov",  FRQ(_.op_off),     "rax")
             + x86("mov",  FRQ(_.op_off + 8), "rdx")
+            + x86_rt_gc_poll()
             + x86_gamma()
             + x86_beta_trampoline())
          + IF(_.bb_lk != (int)IR_LIT_STRING,
@@ -82,6 +83,7 @@ std::string bb_idx_get() {
             + x86_omega("je")
             + x86("mov", FRQ(_.op_off),     "rax")
             + x86("mov", FRQ(_.op_off + 8), "rdx")
+            + x86_rt_gc_poll()
             + x86_gamma()
             + x86_beta_trampoline());
 }

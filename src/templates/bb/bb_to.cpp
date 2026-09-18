@@ -74,6 +74,7 @@ std::string bb_to() {
                  + x86("mov", ZRES(0),  (long)DT_I)
                  + x86("note",  ZRESN())
                  + x86("mov", ZRES(8),  "rax")
+                 + x86_rt_gc_poll()
                  + x86_gamma()
                  + x86_beta()
                  + x86("inc",   FRQ(_.op_off + 16))

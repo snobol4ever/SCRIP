@@ -24,6 +24,7 @@ std::string bb_key_gen(IR_t * pBB) {
          + x86("mov",  FRQ(_.op_off + 8), "rdx")
          + x86("cmp64", "rax", 99L)
          + x86_omega("je")
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta()
          + x86("inc",  FRQ(_.op_sb))

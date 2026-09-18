@@ -466,6 +466,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        s += x86_rt_gc_poll();
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;

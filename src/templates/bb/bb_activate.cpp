@@ -28,6 +28,7 @@ std::string bb_activate() {
              + x86("call", "scrip_coexpr_activate", (uint64_t)(uintptr_t)(void *)scrip_coexpr_activate)
              + x86("test", "rax", "rax")
              + x86_omega("je")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline());
 }

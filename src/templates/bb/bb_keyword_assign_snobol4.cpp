@@ -26,6 +26,7 @@ std::string bb_keyword_assign_snobol4() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
              + x86_ro_seal_q(0, (uint64_t)(int64_t)kwi);
@@ -40,6 +41,7 @@ std::string bb_keyword_assign_snobol4() {
          + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     "rax")
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline()
          + x86_ro_seal_q(0, (uint64_t)(int64_t)kwi);
