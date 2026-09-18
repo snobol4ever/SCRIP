@@ -202,7 +202,7 @@ check_rule "NO-CENTRAL-RUNNER" \
     'THE ONE RUNNER IS THE coo under EXECUTIVE: every master or package board runs once per landing batch by the coo'
 
 check_rule "FINDING-FILES-ARE-PERMITTED-AGAIN" \
-    'FINDING FILES ARE GONE|never (create |be |write )?a .?FINDING|never a .?FINDING-\\*\\.md|gone on Lon.s word 2026-09-16|FINDING files? (are|is) GONE|ZERO .?FINDING-\*\.md|no FINDING files? (exist|remain)|FINDING-\*\.md.{0,30}(is|are) (forbidden|retired|gone)' \
+    'FINDING FILES ARE GONE|never (create |be |write )?a .?FINDING|gone on Lon.s word 2026-09-16|FINDING files? (are|is) GONE|ZERO .?FINDING-\*\.md|no FINDING files? (exist|remain)|FINDING-\*\.md.{0,30}(is|are) (forbidden|retired|gone|ZERO)|FINDING-\*\.md.{0,12}\(gone|CEO-(760|796)|no .?FINDING-\*\.md.? (exists|may be)|FINDING-\*\.md.? IS ZERO|all 874 were removed' \
     'CEO-859|permitted again|may write a .?FINDING|deletes? them periodically|summariz|retired 2026-09-18|no longer forbidden|used to|was the rule|history' \
     '.github/RULES.md FACT RULE -- FINDING FILES ARE PERMITTED AGAIN (Lon 2026-09-18, in-chat to the cto, verbatim: "You can use as many FINDING files as you want. I will just delete them periodically. We should probably do a summarization when I delete."; CEO-859): the CEO-760/796 prohibition is RETIRED. Any seat may write one. The measured claims go into the citing baton or GOAL cursor IN THE SAME LANDING, because Lon deletes them periodically and a measurement living only in a FINDING has a deletion date.' \
     "FINDING FILES ARE GONE on Lon word 2026-09-16 (.github a2a311d0, CEO-760/796): never create a FINDING-*.md"
