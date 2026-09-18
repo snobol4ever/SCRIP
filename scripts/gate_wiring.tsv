@@ -55,6 +55,7 @@ test_gate_blocking_set_shards_agree_with_sequential.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
 test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh	WIRED	-	-	-
+test_gate_c_allocators_are_eradicated_and_say_where_they_went.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
@@ -106,9 +107,9 @@ test_gate_gc_pas_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
 test_gate_gc_raku_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
 test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	WIRED	-	-	-
 test_gate_gc_table_insertion_order_array_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
-test_gate_gc_the_name_save_stack_and_the_eval_tables_are_rooted_not_moved_off_the_heap.sh	WIRED	-	-	-
 test_gate_gc_the_lowerer_registries_are_rooted_not_malloced.sh	WIRED	-	-	-
 test_gate_gc_the_mark_walk_is_a_worklist_not_recursion_per_cell.sh	WIRED	-	-	-
+test_gate_gc_the_name_save_stack_and_the_eval_tables_are_rooted_not_moved_off_the_heap.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-

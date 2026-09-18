@@ -1,0 +1,10 @@
+# c_allocator_baseline.tsv -- the counts Lon's eradication order drives to 0 (coo, CEO-842/843).
+# Written by `util_c_allocator_census.py --write-baseline`; the landing that lowers a count
+# rewrites this file in the same sitting.  key	count
+forbidden_total	1182
+malloc	146
+calloc	163
+realloc	68
+free	805
+aliases	22
+arena_in_runtime	0
