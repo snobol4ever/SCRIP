@@ -9,15 +9,19 @@
 # SCRIP_HEAP_MAX_MB, default 8x SCRIP_HEAP_MB) whose soft end g_hp_end advances 2 MB at a time when the allocator must
 # not collect, and the exhaustion abort fires only at the cap. Arms 1-3 measure exactly that and BLOCK.
 #
-# ⛔ ARM 4 IS A PRINTED CENSUS AND DOES NOT BLOCK, BY THE cfo's MEASUREMENT 2026-09-17 ON THIS CHANGE: an Icon
-# allocation loop (4 million dead lists) reaches NO safe point at all -- origin collected 5 times through the
-# allocator's own pacing site and read 157 MB RSS; with the allocator silent it collects ONCE, at the end, and reads
-# 842 MB. The shielded rt_gc_point_arr sites F4 keeps are SNOBOL4/Prolog dispatch points and Icon's loops contain none,
-# so "every allocating runtime entry returns to a safe point" is FALSE today and cannot be made true from the runtime
-# side. It becomes true at F6 step 4 (the cto's polls at every allocating return). Arm 4 prints the collections-per-
-# program rate that step 4 must raise; WHEN STEP 4 LANDS, ARM 4 BECOMES BLOCKING AND THE BOUND IS A NON-ZERO RATE ON
-# THE ICON WITNESS. Until then it is the instrument, not the verdict, and this header is the reason why.
-#
+# ⭐ ARM 4 (SAFE-POINT COVERAGE) BLOCKS AS OF THE cto's ICON POLLS, SCRIP 5dd2d79f0 -- the lift this gate named
+# when it was written has landed and the arm was re-armed on the cfo's own instruction rather than left on the ramp.
+# THE HISTORY, because the bound is only meaningful beside it: with F6 step 1 alone the allocator stopped collecting
+# and an Icon every-do loop reached NO safe point at all, so the 4M-dead-list witness collected ONCE, at exit, at
+# 861932 KB, against origin's 5 collections at 157144 KB through the allocator. With the polls it reads 5 collections
+# at ~161000 KB. THE BOUND IS A RATE, NOT AN RSS FIGURE: at least TWO collections, which is the difference between a
+# loop that reaches a safe point INSIDE itself and one that only collects at exit. RSS is graded by
+# test_gate_gc_aggregates_are_collectable_not_immortal and is deliberately not duplicated here -- two gates printing
+# one number from different code is how they drift apart.
+# ⛔ THE FAIL-ONCE FOR THIS ARM IS MEASURED BUT ON A SUPERSEDED TREE (step 1 alone: 1 collection, 861932 KB), and
+# that is said rather than dressed up. Live corroboration that the figure is a MEASUREMENT AND NOT A CONSTANT, taken
+# on this tree: SCRIP_GC_LINE_MB=128 reads 5 collections and SCRIP_GC_LINE_MB=3000 reads 2, so the number moves with
+# the pacing line. Anyone who can rebuild the poll-less state should re-take the fail-once against it.
 # FAIL-ONCE IS MEASURED, NOT ASSERTED: run against origin 162e8a172 (the cure stashed, the runtime rebuilt, the gate
 # file left in place) all three blocking arms read red -- census 3 collect calls, reserve 0 soft-end advances, cap
 # rc=0 with no cap-named exhaustion -- and all three read green on the cure. FAIL_ONCE=1 additionally plants the
@@ -54,10 +58,9 @@ examined=$((examined+1))
 printf 'procedure main()\n   local i, L;\n   every i := 1 to 4000000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/churn.icn"
 ( cd "$T" && SCRIP_ZETA_TELEM=1 /usr/bin/time -f 'RSS=%M' timeout 180 "$SCRIP" churn.icn ) >"$T/c.out" 2>"$T/c.err"
 col=$(grep -c 'ZGC. regeneration' "$T/c.err"); rss=$(grep -o 'RSS=[0-9]*' "$T/c.err" | tail -1 | cut -d= -f2)
-echo "  ⚠ safe-point coverage CENSUS, NOT BLOCKING until F6 step 4 lands the emitted polls:"
-echo "      the Icon 4M-dead-list witness took $col collection(s) at ${rss:-?} KB RSS (origin through the allocator: 5 collections at 157144 KB, measured by the cfo 2026-09-17 on 162e8a172)"
-echo "      an Icon allocation loop contains no shielded rt_gc_point_arr site, so until the polls exist nothing collects inside it; step 4 must raise this rate and then this arm blocks"
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$(basename "${BASH_SOURCE[0]}" .sh)]: the allocator never collects, the arena is a virtual reserve that grows and is capped (examined $examined arms; the coverage census is printed, not blocking, until F6 step 4)"
-else echo "GATE FAIL(1) [$(basename "${BASH_SOURCE[0]}" .sh)]: the allocator collects again, or the reserve does not grow or is not capped (examined $examined arms)"; fi
+if [ -n "$col" ] && [ "$col" -ge 2 ] && [ "$(head -1 "$T/c.out")" = "done 3" ]; then echo "  coverage PASS (the Icon 4M-dead-list loop reached a safe point $col time(s) at ${rss:-?} KB RSS -- it collects DURING the loop, not once at the end)"
+else echo "  coverage FAIL (the Icon 4M-dead-list loop collected ${col:-?} time(s) at ${rss:-?} KB RSS, answer [$(head -1 "$T/c.out")] -- an allocation loop that collects fewer than twice reached no safe point INSIDE itself and only collected at exit; the emitted polls have regressed)"; RC=1; fi
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$(basename "${BASH_SOURCE[0]}" .sh)]: the allocator never collects, the arena is a virtual reserve that grows and is capped (examined $examined arms, coverage arm blocking since the cto's Icon polls)"
+else echo "GATE FAIL(1) [$(basename "${BASH_SOURCE[0]}" .sh)]: the allocator collects again, or the reserve does not grow or is not capped, or an Icon allocation loop stopped reaching a safe point (examined $examined arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
