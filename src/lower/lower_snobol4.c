@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -1184,7 +1185,7 @@ static const tree_t * sno_var_val(const char * nm);
 static const char * sno_cset_fold(const tree_t * a) {
     if (!a) return NULL;
     if (a->t == TT_QLIT) return a->v.sval ? a->v.sval : "";
-    if (a->t == TT_ILIT) { char nb[24]; snprintf(nb, sizeof nb, "%lld", (long long) a->v.ival); char * ob = (char *) malloc(strlen(nb) + 1); if (!ob) return NULL; strcpy(ob, nb); return ob; }
+    if (a->t == TT_ILIT) { char nb[24]; snprintf(nb, sizeof nb, "%lld", (long long) a->v.ival); char * ob = (char *) ct_alloc(strlen(nb) + 1); if (!ob) return NULL; strcpy(ob, nb); return ob; }
     if (a->t == TT_VAR && a->v.sval) { static int _vf = -1; if (_vf < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _vf = (!e || *e != '0') ? 1 : 0; } if (_vf) { const tree_t * vv = sno_var_val(a->v.sval); if (vv && vv != a) return sno_cset_fold(vv); const tree_t * vt = sno_fz_tree(a->v.sval); if (vt && vt != a) return sno_cset_fold(vt); } return NULL; }
     if (a->t == TT_KEYWORD && a->v.sval) {
         static const struct { const char * n; const char * v; } kc[] = { { "lcase", "abcdefghijklmnopqrstuvwxyz" }, { "ucase", "ABCDEFGHIJKLMNOPQRSTUVWXYZ" } };
@@ -1193,12 +1194,12 @@ static const char * sno_cset_fold(const tree_t * a) {
         { char cb[130]; snprintf(cb, sizeof cb, "&%s", a->v.sval[0] == '&' ? a->v.sval + 1 : a->v.sval); const tree_t * cv = sno_const_val(cb); if (cv) return sno_cset_fold(cv); const tree_t * cp = sno_const_pat(cb); if (cp && cp != a) return sno_cset_fold(cp); }
     }
     if (a->t == TT_FNC && a->v.sval && (!strcmp(a->v.sval, "CHAR") || !strcmp(a->v.sval, "char")) && a->n == 1 && a->c[0] && a->c[0]->t == TT_ILIT && a->c[0]->v.ival >= 1 && a->c[0]->v.ival <= 255) {
-        char * cb = (char *) malloc(2); if (!cb) return NULL; cb[0] = (char)(unsigned char) a->c[0]->v.ival; cb[1] = 0; return cb;
+        char * cb = (char *) ct_alloc(2); if (!cb) return NULL; cb[0] = (char)(unsigned char) a->c[0]->v.ival; cb[1] = 0; return cb;
     }
     if (a->t == TT_SEQ || a->t == TT_CAT) {
         const char * l = sno_cset_fold((a->n > 0) ? a->c[0] : NULL); if (!l) return NULL;
         const char * r = sno_cset_fold((a->n > 1) ? a->c[1] : NULL); if (!r) return NULL;
-        size_t ln = strlen(l), rn = strlen(r); char * buf = (char *) malloc(ln + rn + 1); if (!buf) return NULL;
+        size_t ln = strlen(l), rn = strlen(r); char * buf = (char *) ct_alloc(ln + rn + 1); if (!buf) return NULL;
         memcpy(buf, l, ln); memcpy(buf + ln, r, rn); buf[ln + rn] = 0; return buf;
     }
     return NULL;
@@ -2242,10 +2243,10 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0; cx.prog_nstmt = (long)nst + 1 + stno_base;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
-    IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
-    IR_t ** fail_tgt = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
-    IR_t ** match_land = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
-    IR_t ** asgn_land = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
+    IR_t ** anchor = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
+    IR_t ** fail_tgt = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
+    IR_t ** match_land = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
+    IR_t ** asgn_land = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
     for (int _skw = 0; _skw < nst; _skw++) sno_scan_stmtkw(st[_skw]);
     bb_label_registry_reset();
     IR_t * endnd = exitnd;
@@ -2627,9 +2628,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         while (t && t->op == IR_GOTO && t->γ.node && hops++ < 64) t = t->γ.node;
         if (t) { int _ln = lp_s_int(st[i], ":line"); bb_src_note(t, ssrc, lp_s_int(st[i], ":incl") ? -_ln : _ln); }
     }
-    free(anchor);
-    free(fail_tgt); free(asgn_land);
-    free(match_land);
+    ct_drop(anchor);
+    ct_drop(fail_tgt); ct_drop(asgn_land);
+    ct_drop(match_land);
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2865,13 +2866,13 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
-    const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
+    const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fz_build_table(st, nst);
     sno_def_t defs[SNO_DEF_MAX]; int ndefs = 0; g_sno_npredef = 0;
     const char * def_entry_all[SNO_DEF_MAX * 2]; int n_def_entry_all = 0;
     const tree_t * def_body[SNO_DEF_MAX]; for (int _k = 0; _k < SNO_DEF_MAX; _k++) def_body[_k] = NULL;
-    int * is_def = (int *) calloc((size_t) nst, sizeof(int));
+    int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
     const char * stmt_bind_fname[SNO_DEF_MAX]; int n_stmt_bind = 0;
     const char * exprdef_names[SNO_DEF_MAX]; int n_exprdef = 0;
     for (int i = 0; i < nst; i++) {
@@ -2984,12 +2985,12 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             const tree_t * bp = def_body[di];
             int bn = 0;
             for (int i = 0; i < bp->n; i++) if (bp->c[i] && bp->c[i]->t == TT_STMT) bn++;
-            const tree_t ** bst = (const tree_t **) calloc((size_t)(bn > 0 ? bn : 1), sizeof(tree_t *));
+            const tree_t ** bst = (const tree_t **) ct_zalloc((size_t)(bn > 0 ? bn : 1), sizeof(tree_t *));
             int bk = 0;
             for (int i = 0; i < bp->n; i++) if (bp->c[i] && bp->c[i]->t == TT_STMT) bst[bk++] = bp->c[i];
-            int * bis = (int *) calloc((size_t)(bn > 0 ? bn : 1), sizeof(int));
+            int * bis = (int *) ct_zalloc((size_t)(bn > 0 ? bn : 1), sizeof(int));
             gf = sno_build_graph(bst, bn, 0, bis, rn, 0, 0);
-            free((void *) bst); free(bis);
+            ct_drop((void *) bst); ct_drop(bis);
         } else {
             int eidx = -1;
             for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
@@ -3015,7 +3016,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
       for (int dp = 0; dp < 8; dp++) { int pn = sno_pat_count(); if (pn > pdone) { sno_pat_thunks_build(pdone); pdone = pn; }
         int xn = sno_expr_mark(); if (xn > xdone) { sno_expr_thunks_build(xdone); xdone = xn; }
         if (sno_pat_count() == pdone && sno_expr_mark() == xdone) break; } }
-    free((void *) st); free(is_def);
+    ct_drop((void *) st); ct_drop(is_def);
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3054,16 +3055,16 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
     if (nst == 0 || entry_idx < 0 || entry_idx >= nst) return NULL;
-    const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
+    const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fragment_reject_define(st, nst);
     g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nencl = 0;
     g_sno_nt4 = 0; g_sno_t4_unsafe = 1;
     int seal_sv = g_sno_seal_enabled; g_sno_seal_enabled = 0;
-    int * is_def = (int *) calloc((size_t) nst, sizeof(int));
+    int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
     IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL, stno_base, 0);
     { extern void optimizer_run(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); if (g) { optimizer_run(g); ir_drive_slot_assign(g); } }
-    free((void *) st); free(is_def);
+    ct_drop((void *) st); ct_drop(is_def);
     g_sno_seal_enabled = seal_sv;
     return g;
 }

@@ -1,6 +1,7 @@
 #ifndef SCRIP_CC_H
 #define SCRIP_CC_H
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -37,7 +38,7 @@ struct CODE_t_opaque {
 };
 typedef struct CODE_t_opaque CODE_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline STMT_t *stmt_new(void) { return calloc(1, sizeof(STMT_t)); }
+static inline STMT_t *stmt_new(void) { return ct_zalloc(1, sizeof(STMT_t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void expr_add_child(tree_t *e, tree_t *child) {
     ast_push(e, child);
@@ -51,10 +52,10 @@ static inline tree_t *expr_binary(tree_e k, tree_t *left, tree_t *right) {
     tree_t *e = ast_node_new(k); ast_push(e, left); ast_push(e, right); return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline char *intern(const char *s) { return s ? strdup(s) : NULL; }
+static inline char *intern(const char *s) { return s ? ct_strdup(s) : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline char *intern_n(const char *s, int n) {
-    char *p = malloc(n+1); memcpy(p,s,n); p[n]='\0'; return p;
+    char *p = ct_alloc(n+1); memcpy(p,s,n); p[n]='\0'; return p;
 }
 void     sno_add_include_dir(const char *d);
 void     sno_reset(void);

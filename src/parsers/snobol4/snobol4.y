@@ -1,3 +1,6 @@
+%{
+#include "ct_arena.h"
+%}
 %code requires {
 #include "scrip_cc.h"
 #include "snobol4.h"
@@ -107,16 +110,16 @@ opt_pattern: expr3                                                              
            |                                                                           { $$=NULL; }
            ;
 opt_repl   : T_2EQUAL expr0                                                                   { $$=$2; }
-           | T_2EQUAL                                                                          { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup("");$$=e; }
+           | T_2EQUAL                                                                          { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup("");$$=e; }
            |                                                                           { $$=NULL; }
            ;
 goto_label_expr
-           : T_GOTO_LPAREN T_IDENT T_GOTO_RPAREN                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup($2.sval);$$=e; }
-           | T_GOTO_LPAREN T_END T_GOTO_RPAREN                                               { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup($2.sval);$$=e; }
-           | T_GOTO_LPAREN T_FUNCTION T_GOTO_RPAREN                                          { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup($2.sval);$$=e; }
-           | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",$3.sval);e->v.sval=strdup(buf);$$=e; }
+           : T_GOTO_LPAREN T_IDENT T_GOTO_RPAREN                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
+           | T_GOTO_LPAREN T_END T_GOTO_RPAREN                                               { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
+           | T_GOTO_LPAREN T_FUNCTION T_GOTO_RPAREN                                          { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
+           | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",$3.sval);e->v.sval=ct_strdup(buf);$$=e; }
            | T_GOTO_LPAREN T_1DOLLAR T_GOTO_LPAREN goto_expr T_GOTO_RPAREN T_GOTO_RPAREN    { $$=$4; }
-           | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup($3.sval);$$=e; }
+           | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($3.sval);$$=e; }
            | T_GOTO_LPAREN T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($2.sval); tal_open(); tal_fnc_open(_k,(char*)$2.sval); } goto_fnc_args T_GOTO_RPAREN T_GOTO_RPAREN { $$=tal_fnc_close(); }
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
@@ -126,7 +129,7 @@ expr0      : expr1 T_2EQUAL expr0                                               
 expr1      : expr2 T_2QUEST      expr1                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
            | expr2                                                                                 { $$=$1; }
            ;
-expr2      : expr2 T_2AMP  expr3                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("&"); $$=_e; }
+expr2      : expr2 T_2AMP  expr3                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("&"); $$=_e; }
            | expr3                                                                                 { $$=$1; }
            ;
 expr3      : expr3 T_2PIPE expr4                                                            { tree_t*a=ast_node_new(TT_ALT);expr_add_child(a,$1);expr_add_child(a,$3);$$=a; }
@@ -135,14 +138,14 @@ expr3      : expr3 T_2PIPE expr4                                                
 expr4      : expr4 T_CONCAT expr5                                                                           { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,$1);expr_add_child(s,$3);$$=s; }
            | expr5                                                                                 { $$=$1; }
            ;
-expr5      : expr5 T_2AT    expr6                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("@"); $$=_e; }
+expr5      : expr5 T_2AT    expr6                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("@"); $$=_e; }
            | expr6                                                                                 { $$=$1; }
            ;
 expr6      : expr6 T_2PLUS   expr7                                                             { $$=expr_binary(TT_ADD,             $1,$3); }
            | expr6 T_2MINUS expr7                                                            { $$=expr_binary(TT_SUB,             $1,$3); }
            | expr7                                                                                 { $$=$1; }
            ;
-expr7      : expr7 T_2POUND      expr8                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("#"); $$=_e; }
+expr7      : expr7 T_2POUND      expr8                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("#"); $$=_e; }
            | expr8                                                                                 { $$=$1; }
            ;
 expr8      : expr8 T_2SLASH   expr9                                                             { $$=expr_binary(TT_DIV,             $1,$3); }
@@ -151,7 +154,7 @@ expr8      : expr8 T_2SLASH   expr9                                             
 expr9      : expr9 T_2STAR expr10                                                        { $$=expr_binary(TT_MUL,             $1,$3); }
            | expr10                                                                                { $$=$1; }
            ;
-expr10     : expr10 T_2PERCENT   expr11                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("%"); $$=_e; }
+expr10     : expr10 T_2PERCENT   expr11                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("%"); $$=_e; }
            | expr11                                                                                { $$=$1; }
            ;
 expr11     : expr12 T_2CARET expr11                                                       { $$=expr_binary(TT_POW,             $1,$3); }
@@ -161,25 +164,25 @@ expr12     : expr12 T_2DOLLAR expr13                                            
            | expr12 T_2DOT      expr13                                                     { $$=expr_binary(TT_CAPT_COND_ASGN, $1,$3); }
            | expr13                                                                                { $$=$1; }
            ;
-expr13     : expr14 T_2TILDE     expr13                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("~"); $$=_e; }
+expr13     : expr14 T_2TILDE     expr13                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("~"); $$=_e; }
            | expr14                                                                                { $$=$1; }
            ;
 expr14     : T_1AT      expr14                                                             { $$=expr_unary(TT_CAPT_CURSOR,     $2); }
            | T_1TILDE        expr14                                                             { $$=expr_unary(TT_NOT,             $2); }
            | T_1QUEST expr14                                                            { $$=expr_unary(TT_INTERROGATE,     $2); }
-           | T_1AMP    expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("&"); $$=_e; }
+           | T_1AMP    expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("&"); $$=_e; }
            | T_1PLUS         expr14                                                             { $$=expr_unary(TT_PLS,             $2); }
            | T_1MINUS        expr14                                                             { $$=expr_unary(TT_MNS,             $2); }
            | T_1STAR     expr14                                                             { $$=expr_unary(TT_DEFER,           $2); }
            | T_1DOLLAR  expr14                                                             { $$=expr_unary(TT_INDIRECT,        $2); }
            | T_1DOT       expr14                                                             { $$=expr_unary(TT_NAME,            $2); }
-           | T_1BANG  expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("!"); $$=_e; }
-           | T_1PERCENT      expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("%"); $$=_e; }
-           | T_1SLASH        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("/"); $$=_e; }
-           | T_1POUND        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("#"); $$=_e; }
-           | T_1EQUAL        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("="); $$=_e; }
-           | T_1PIPE expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("|"); $$=_e; }
-           | T_1CARET        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("^"); $$=_e; }
+           | T_1BANG  expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("!"); $$=_e; }
+           | T_1PERCENT      expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("%"); $$=_e; }
+           | T_1SLASH        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("/"); $$=_e; }
+           | T_1POUND        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("#"); $$=_e; }
+           | T_1EQUAL        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("="); $$=_e; }
+           | T_1PIPE expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("|"); $$=_e; }
+           | T_1CARET        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("^"); $$=_e; }
            | expr15                                                                                { $$=$1; }
            ;
 expr15     : expr15 T_LBRACK { tal_open(); tal_push($1); } idx_args T_RBRACK  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
@@ -237,10 +240,10 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     STMT_t *s=stmt_new();
     s->lineno = lbl.lineno ? lbl.lineno : snobol4_get_stmt_lineno();
     { extern int snobol4_get_stmt_lline(void); extern const char *snobol4_get_stmt_file(void);
-      s->lline = snobol4_get_stmt_lline(); s->file = strdup(snobol4_get_stmt_file()); }
+      s->lline = snobol4_get_stmt_lline(); s->file = ct_strdup(snobol4_get_stmt_file()); }
     { extern int snobol4_get_nofail_mode(void); s->nofail = snobol4_get_nofail_mode(); }
     s->stno = ++pp->prog->nstmts;
-    if(lbl.sval){s->label=strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
+    if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
         for(STMT_t *p=pp->prog->head;p;p=p->next) if(p->label&&!strcmp(p->label,lbl.sval)){sno_error(s->lineno,"duplicate label '%s'",lbl.sval);break;}}
     s->subject=subj; s->pattern=pat;
     if(has_eq){s->has_eq=1;s->replacement=repl;}
@@ -254,86 +257,86 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     }
 }
 static tree_t *parse_expr(Lex *lx){
-    CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
     return prog->head?prog->head->subject:NULL;
 }
 CODE_t *parse_program_tokens(Lex *stream){
-    CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;snobol4_parse(&p);return prog;
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;snobol4_parse(&p);return prog;
 }
 CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out){
-    CODE_t *prog=calloc(1,sizeof*prog);
-    tree_t *ast=calloc(1,sizeof*ast); ast->t=TT_PROGRAM;
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);
+    tree_t *ast=ct_zalloc(1,sizeof*ast); ast->t=TT_PROGRAM;
     PP p={prog,NULL,ast};g_lx=stream;snobol4_parse(&p);
     *ast_out=ast;
     return prog;
 }
-CODE_t *parse_program(LineArray *lines){(void)lines;return calloc(1,sizeof(CODE_t));}
+CODE_t *parse_program(LineArray *lines){(void)lines;return ct_zalloc(1,sizeof(CODE_t));}
 tree_t *parse_expr_from_str(const char *src){
     if(!src||!*src) return NULL;Lex lx={0};lex_open_str(&lx,src,(int)strlen(src),0);return parse_expr(&lx);
 }
 tree_t *parse_expr_pat_from_str(const char *src) {
     if (!src || !*src) return NULL;
     int slen = (int)strlen(src);
-    char *buf = malloc(slen + 2);
+    char *buf = ct_alloc(slen + 2);
     if (!buf) return NULL;
     memcpy(buf, src, slen);
     buf[slen]   = '\n';
     buf[slen+1] = '\0';
     Lex lx = {0};
     lex_open_str(&lx, buf, slen + 1, 0);
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
     snobol4_parse(&p);
-    free(buf);
+    ct_drop(buf);
     if (p.ast_prog && p.ast_prog->n > 0) {
         const tree_t *s = p.ast_prog->c[0];
         if (s) {
             tree_t *pat = stmt_attr_expr(stmt_attr_find(s, ":pat"));
-            if (pat) { free(prog); return pat; }
+            if (pat) { ct_drop(prog); return pat; }
             return stmt_attr_expr(stmt_attr_find(s, ":subj"));
         }
     }
-    if (!prog->head) { free(prog); return NULL; }
+    if (!prog->head) { ct_drop(prog); return NULL; }
     STMT_t *s = prog->head;
     tree_t *res = s->pattern ? s->pattern : s->subject;
-    free(prog);
+    ct_drop(prog);
     return res;
 }
 CODE_t *sno_parse_string(const char *src) {
-    if (!src) return calloc(1, sizeof(CODE_t));
+    if (!src) return ct_zalloc(1, sizeof(CODE_t));
     int slen = (int)strlen(src);
-    char *buf = malloc(slen + 2);
-    if (!buf) return calloc(1, sizeof(CODE_t));
+    char *buf = ct_alloc(slen + 2);
+    if (!buf) return ct_zalloc(1, sizeof(CODE_t));
     memcpy(buf, src, slen);
     buf[slen]   = '\n';
     buf[slen+1] = '\0';
     Lex lx = {0};
     lex_open_str_initial(&lx, buf, slen + 1, 0);
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
     snobol4_parse(&p);
-    free(buf);
+    ct_drop(buf);
     return prog;
 }
 tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out) {
-    if (!src) { if (code_out) *code_out = calloc(1, sizeof(CODE_t)); return NULL; }
+    if (!src) { if (code_out) *code_out = ct_zalloc(1, sizeof(CODE_t)); return NULL; }
     int slen = (int)strlen(src);
-    char *buf = malloc(slen + 2);
-    if (!buf) { if (code_out) *code_out = calloc(1, sizeof(CODE_t)); return NULL; }
+    char *buf = ct_alloc(slen + 2);
+    if (!buf) { if (code_out) *code_out = ct_zalloc(1, sizeof(CODE_t)); return NULL; }
     memcpy(buf, src, slen);
     buf[slen]   = '\n';
     buf[slen+1] = '\0';
     Lex lx = {0};
     lex_open_str_initial(&lx, buf, slen + 1, 0);
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
-    tree_t  *ast  = calloc(1, sizeof(tree_t)); ast->t = TT_PROGRAM;
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
+    tree_t  *ast  = ct_zalloc(1, sizeof(tree_t)); ast->t = TT_PROGRAM;
     PP p = {prog, NULL, ast};
     g_lx = &lx;
     snobol4_parse(&p);
     ast = p.ast_prog;
-    free(buf);
-    if (code_out) *code_out = prog; else free(prog);
+    ct_drop(buf);
+    if (code_out) *code_out = prog; else ct_drop(prog);
     return (ast && ast->n > 0) ? ast : NULL;
 }

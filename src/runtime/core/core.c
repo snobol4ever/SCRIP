@@ -1,4 +1,5 @@
 #include "core.h"
+#include "ct_arena.h"
 #include "../rtx/rtcc.h"
 #include "../rt/rt_arena.h"
 #include "sil_macros.h"
@@ -482,7 +483,7 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
     fprintf(stderr, "scrip: error %d: %s\n  at %s:%ld", code, msg ? msg : "", g_file ? g_file : "", g_line);
     if (g_stno > 0) fprintf(stderr, "; statement %ld", g_stno);
     fputc('\n', stderr);
-    if (has_val && val.v != DT_FAIL) { char *vb = (char *)0; size_t vn = 0; FILE *vf = open_memstream(&vb, &vn); if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); } if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); free(vb); }
+    if (has_val && val.v != DT_FAIL) { char *vb = (char *)0; size_t vn = 0; FILE *vf = open_memstream(&vb, &vn); if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); } if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); ct_drop(vb); }
     if (rt_k_level >= 1 && g_icn_act[1].name) core_icn_traceback();
     fflush(stderr);
 }
@@ -597,16 +598,16 @@ static int load_names_file_bin(const char *path) {
             cap *= 2;
             names = (char **)rt_ws_realloc(names, cap * sizeof(char *));
             lens  = (int  *)rt_ws_realloc(lens,  cap * sizeof(int));
-            if (!names || !lens) { fclose(f); free(line); return -1; }
+            if (!names || !lens) { fclose(f); ct_drop(line); return -1; }
         }
         char *copy = (char *)rt_ws_alloc((size_t)got + 1);
-        if (!copy) { fclose(f); free(line); return -1; }
+        if (!copy) { fclose(f); ct_drop(line); return -1; }
         memcpy(copy, line, (size_t)got + 1);
         names[n] = copy;
         lens[n]  = (int)got;
         n++;
     }
-    free(line);
+    ct_drop(line);
     fclose(f);
     g_bin_names     = names;
     g_bin_name_lens = lens;
@@ -1339,7 +1340,7 @@ static void _io_chan_close(int ch) {
     if (ch < 0 || ch >= IO_CHAN_MAX) return;
     if (_io_chan[ch].fp) { if (_io_chan[ch].fp == stdin || _io_chan[ch].fp == stdout) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
     if (_io_chan[ch].varname) { _io_chan[ch].varname = NULL; }
-    if (_io_chan[ch].buf)  { free(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
+    if (_io_chan[ch].buf)  { ct_drop(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
     _io_chan[ch].cap = 0;
     _io_chan[ch].is_output = 0;
     _io_chan[ch].is_popen = 0;
@@ -3345,7 +3346,7 @@ static void dump_collect(DESCR_t d, const char *name) {
     void *p; long no; if (!dump_obj_ptr(d, &p, &no)) return;
     if (no > 0) {
         for (int i = 0; i < g_ndobj; i++) if (g_dobj[i].p == p) return;
-        if (g_ndobj == g_cdobj) { g_cdobj = g_cdobj ? g_cdobj * 2 : 64; g_dobj = (DUMPOBJ_t *)realloc(g_dobj, (size_t)g_cdobj * sizeof(DUMPOBJ_t)); if (!g_dobj) { g_ndobj = 0; g_cdobj = 0; return; } }
+        if (g_ndobj == g_cdobj) { g_cdobj = g_cdobj ? g_cdobj * 2 : 64; g_dobj = (DUMPOBJ_t *)ct_grow(g_dobj, (size_t)g_cdobj * sizeof(DUMPOBJ_t)); if (!g_dobj) { g_ndobj = 0; g_cdobj = 0; return; } }
         g_dobj[g_ndobj].d = d; g_dobj[g_ndobj].p = p; g_dobj[g_ndobj].no = no; g_dobj[g_ndobj].name = name; g_ndobj++;
     }
     if (d.v == DT_A) { ARBLK_t *a = d.arr; long cnt = dump_arr_count(a); if (a->data) for (long i = 0; i < cnt; i++) dump_collect(a->data[i], (const char *)0); }
@@ -3393,14 +3394,14 @@ static void dump_contents(void) {
         DESCR_t d = g_dobj[k].d; char hb[192]; dump_obj_head(d, hb, (int)sizeof hb); const char *nm = g_dobj[k].name ? g_dobj[k].name : hb;
         dump_puts(hb); dump_nl();
         if (d.v == DT_A) dump_arr_elems(d.arr, nm);
-        else if (d.v == DT_T) { TBBLK_t *t = d.tbl; unsigned n = t->ord_len; DUMPTK_t *ks = (DUMPTK_t *)calloc(n ? n : 1, sizeof(DUMPTK_t)); if (!ks) continue;
+        else if (d.v == DT_T) { TBBLK_t *t = d.tbl; unsigned n = t->ord_len; DUMPTK_t *ks = (DUMPTK_t *)ct_zalloc(n ? n : 1, sizeof(DUMPTK_t)); if (!ks) continue;
             for (unsigned i = 0; i < n; i++) { ks[i].idx = i; ks[i].bucket = dump_spitbol_bucket(t->ord[i], t->init > 0 ? t->init : 11); }
             qsort(ks, (size_t)n, sizeof(DUMPTK_t), dump_tk_cmp);
             for (unsigned j = 0; j < n; j++) {
                 unsigned i = ks[j].idx; int f = 0; DESCR_t v = table_get_found_d(t, t->ord[i], &f); if (!f || dump_is_null(v)) continue;
                 dump_puts(nm); dump_putc('<'); dump_val(t->ord[i]); dump_puts("> = "); dump_val(v); dump_nl();
             }
-            free(ks); }
+            ct_drop(ks); }
         else if (d.v == DT_DATA && d.u->type && d.u->fields) {
             for (int i = 0; i < d.u->type->nfields; i++) {
                 DESCR_t v = d.u->fields[i]; if (dump_is_null(v)) continue;
@@ -3409,7 +3410,7 @@ static void dump_contents(void) {
         }
         dump_nl();
     }
-    free(g_dobj); g_dobj = 0; g_ndobj = 0; g_cdobj = 0;
+    ct_drop(g_dobj); g_dobj = 0; g_ndobj = 0; g_cdobj = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_dump_emit(const char *name, DESCR_t v) { dump_putc('&'); dump_puts(name); dump_puts(" = "); dump_val(v); dump_nl(); }
@@ -3477,7 +3478,7 @@ static void var_dump(void) {
         if (!e->is_gva && !e->touched && is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (dump_is_null(d) || d.v == DT_FH) continue;
-        if (n == cap) { cap = cap ? cap * 2 : 64; v = (NV_t **)realloc(v, (size_t)cap * sizeof(NV_t *)); if (!v) return; }
+        if (n == cap) { cap = cap ? cap * 2 : 64; v = (NV_t **)ct_grow(v, (size_t)cap * sizeof(NV_t *)); if (!v) return; }
         v[n++] = e;
     }
     if (n > 1) qsort(v, (size_t)n, sizeof(NV_t *), var_dump_cmp);
@@ -3492,7 +3493,7 @@ static void var_dump(void) {
     if (g_dump >= 2 && g_ndobj > 0) { dump_nl(); dump_contents(); dump_nl(); dump_nl(); }
     else { dump_nl(); dump_nl(); dump_nl(); }
     fflush(stdout);
-    free(v);
+    ct_drop(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump_at_exit(void) { extern long g_dump; if (g_dump) var_dump(); }

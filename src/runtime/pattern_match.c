@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -1745,7 +1746,7 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
         int nc = *cap_cell > 0 ? *cap_cell : 4;
         while (nc < i + 1) nc *= 2;
         char * op = (char *)*ptr_cell;
-        char * np = (char *)realloc(op, (size_t)nc * (size_t)elem_sz);
+        char * np = (char *)ct_grow(op, (size_t)nc * (size_t)elem_sz);
         if (!np) rt_bomb("rt_zcol_push: collection realloc failed");
         memset(np + (size_t)*cap_cell * (size_t)elem_sz, 0, (size_t)(nc - *cap_cell) * (size_t)elem_sz);
         *ptr_cell = np; *cap_cell = nc;

@@ -9,6 +9,7 @@ typedef struct ExprList {
 } ExprList;
 }
 %{
+#include "ct_arena.h"
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "raku.tab.h"
@@ -22,20 +23,20 @@ void raku_yyerror(const char *msg) {
     fprintf(stderr, "raku parse error line %d: %s\n", raku_get_lineno(), msg);
 }
 static ExprList *exprlist_new(void) {
-    ExprList *l = calloc(1, sizeof *l);
+    ExprList *l = ct_zalloc(1, sizeof *l);
     if (!l) { fprintf(stderr, "raku: OOM\n"); exit(1); }
     return l;
 }
 static ExprList *exprlist_append(ExprList *l, tree_t *e) {
     if (l->count >= l->cap) {
         l->cap = l->cap ? l->cap * 2 : 8;
-        l->items = realloc(l->items, l->cap * sizeof(tree_t *));
+        l->items = ct_grow(l->items, l->cap * sizeof(tree_t *));
         if (!l->items) { fprintf(stderr, "raku: OOM\n"); exit(1); }
     }
     l->items[l->count++] = e;
     return l;
 }
-static void exprlist_free(ExprList *l) { if (l) { free(l->items); free(l); } }
+static void exprlist_free(ExprList *l) { if (l) { ct_drop(l->items); ct_drop(l); } }
 static const char *strip_sigil(const char *s) {
     if (s && (s[0]=='$'||s[0]=='@'||s[0]=='%')) return s+1;
     return s;
@@ -312,7 +313,7 @@ static tree_t *rk_arr_all(const char *arr) {
 static tree_t *rk_tree_clone(tree_t *e) {
     if (!e) return NULL;
     tree_t *c = ast_node_new(e->t); c->v = e->v;
-    if ((e->t == TT_VAR || e->t == TT_QLIT || e->t == TT_FNC) && e->v.sval) c->v.sval = strdup(e->v.sval);
+    if ((e->t == TT_VAR || e->t == TT_QLIT || e->t == TT_FNC) && e->v.sval) c->v.sval = ct_strdup(e->v.sval);
     for (int i = 0; i < e->n; i++) expr_add_child(c, rk_tree_clone(e->c[i]));
     return c;
 }
@@ -648,55 +649,55 @@ stmt
     | KW_MY VAR_HASH '=' '(' pair_list ')' ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $5); }
     | KW_MY IDENT VAR_SCALAR '=' expr ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
     | KW_MY IDENT VAR_ARRAY '=' expr ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,rk_arr_rhs($5)); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); ast_push(e,rk_arr_rhs($5)); $$=e; }
     | KW_MY IDENT VAR_ARRAY '=' expr ',' arg_list ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$5);
           ExprList *args=$7; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,call); $$=e; }
+          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); ast_push(e,call); $$=e; }
     | KW_MY IDENT VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$6);
           ExprList *args=$8; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,call); $$=e; }
+          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); ast_push(e,call); $$=e; }
     | KW_MY IDENT VAR_HASH '=' expr ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); ast_push(e,$5); $$=e; }
     | KW_MY IDENT VAR_SCALAR ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); $$=e; }
     | KW_MY IDENT VAR_ARRAY ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); $$=e; }
     | KW_MY IDENT VAR_HASH ';'
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); $$=e; }
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); $$=e; }
     | KW_USE IDENT ';'
-        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); $$=u; }
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); ct_drop($2); $$=u; }
     | KW_USE IDENT expr ';'
-        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); ast_push(u,$3); $$=u; }
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); ct_drop($2); ast_push(u,$3); $$=u; }
     | KW_CONSTANT IDENT '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); free($2); }
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); ct_drop($2); }
     | KW_CONSTANT VAR_SCALAR '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); free($2); }
+        { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); ct_drop($2); }
     | KW_MY KW_CONSTANT IDENT '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($3), $5); free($3); }
+        { $$ = expr_binary(TT_ASSIGN, var_node($3), $5); ct_drop($3); }
     | KW_MY KW_CONSTANT VAR_SCALAR '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($3), $5); free($3); }
+        { $$ = expr_binary(TT_ASSIGN, var_node($3), $5); ct_drop($3); }
     | KW_ENUM IDENT WORDLIST ';'
         { ExprList *l=exprlist_new(); char *s=$3; int idx=0;
           while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
-            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1);
+            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)ct_alloc(L+1);
             memcpy(tok,w,L); tok[L]='\0';
             tree_t *val=ast_node_new(TT_ILIT); val->v.ival=idx++;
-            exprlist_append(l, expr_binary(TT_ASSIGN, var_node(tok), val)); free(tok); }
-          free($2); free($3); $$ = make_seq(l); }
+            exprlist_append(l, expr_binary(TT_ASSIGN, var_node(tok), val)); ct_drop(tok); }
+          ct_drop($2); ct_drop($3); $$ = make_seq(l); }
     | TESTOP ';'
-        { $$=make_call(testop_rt($1)); free($1); }
+        { $$=make_call(testop_rt($1)); ct_drop($1); }
     | TESTOP '(' arg_list ')' ';'
-        { ExprList *a=$3; tree_t *c=rk_testop_call(testop_rt($1), a); free($1); if(a) exprlist_free(a); $$=c; }
+        { ExprList *a=$3; tree_t *c=rk_testop_call(testop_rt($1), a); ct_drop($1); if(a) exprlist_free(a); $$=c; }
     | TESTOP '(' ')' ';'
-        { $$=make_call(testop_rt($1)); free($1); }
+        { $$=make_call(testop_rt($1)); ct_drop($1); }
     | TESTOP arg_list ';'
-        { ExprList *a=$2; tree_t *c=rk_testop_call(testop_rt($1), a); free($1); if(a) exprlist_free(a); $$=c; }
+        { ExprList *a=$2; tree_t *c=rk_testop_call(testop_rt($1), a); ct_drop($1); if(a) exprlist_free(a); $$=c; }
     | IDENT VAR_ARRAY ';'
-        { tree_t *c=make_call($1); free($1); expr_add_child(c,var_node($2)); $$=c; }
+        { tree_t *c=make_call($1); ct_drop($1); expr_add_child(c,var_node($2)); $$=c; }
     | KW_SAY expr ';'
         { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,$2); $$=c; }
     | KW_SAY expr ',' arg_list ';'
@@ -748,26 +749,26 @@ stmt
         { rk_mark_arrlit_scalar(strip_sigil($1), $3); $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
-          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
+          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); ct_drop($3);
           ExprList *args=$5; if(args){ for(int i=0;i<args->count;i++) ast_push(mc,args->items[i]); exprlist_free(args); }
           $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' ')' ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
-          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
+          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); ct_drop($3);
           $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
     | VAR_SCALAR OP_DOTEQ IDENT ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
-          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
+          ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); ct_drop($3);
           $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
     | call_expr '.' meth_name '=' expr ';'
-        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); free($3); expr_add_child(fe,$1);
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); ct_drop($3); expr_add_child(fe,$1);
           $$=expr_binary(TT_ASSIGN,fe,$5); }
     | atom '.' meth_name '=' expr ';'
-        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); free($3); expr_add_child(fe,$1);
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); ct_drop($3); expr_add_child(fe,$1);
           $$=expr_binary(TT_ASSIGN,fe,$5); }
     | VAR_TWIGIL '=' expr ';'
         { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval=(char*)intern(rk_tw_bare($1)); free($1);
+          fe->v.sval=(char*)intern(rk_tw_bare($1)); ct_drop($1);
           $$=expr_binary(TT_ASSIGN,fe,$3); }
     | VAR_ARRAY '[' expr ']' '=' expr ';'
         { tree_t *c=ast_node_new(TT_ARR_SET);
@@ -963,13 +964,13 @@ loop_incr
     ;
 for_stmt
     : KW_FOR add_expr OP_RANGE add_expr OP_ARROW VAR_SCALAR block
-        { const char *vn = intern(strip_sigil($6)); free($6);
+        { const char *vn = intern(strip_sigil($6)); ct_drop($6);
           tree_t *r = ast_node_new(TT_FOR_RANGE);
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, $4); ast_push(r, $7);
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
           $$ = r; }
     | KW_FOR add_expr OP_RANGE_EX add_expr OP_ARROW VAR_SCALAR block
-        { const char *vn = intern(strip_sigil($6)); free($6);
+        { const char *vn = intern(strip_sigil($6)); ct_drop($6);
           tree_t *r = ast_node_new(TT_FOR_RANGE);
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, rk_dec($4)); ast_push(r, $7);
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
@@ -983,7 +984,7 @@ for_stmt
               $$ = expr_binary(TT_EVERY, gen, $5);
           } else $$ = rk_for_multi(vs, $2, $5); }
     | KW_FOR expr ',' arg_list OP_ARROW VAR_SCALAR block
-        { const char *vn = intern(strip_sigil($6)); free($6);
+        { const char *vn = intern(strip_sigil($6)); ct_drop($6);
           tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
           tree_t *gen = expr_unary(TT_ITERATE, lst); gen->v.sval = (char *)vn;
@@ -1030,8 +1031,8 @@ when_list
           $$=$1; }
     ;
 sub_trait_list
-    : TESTOP IDENT { free($1); free($2); }
-    | sub_trait_list TESTOP IDENT { free($2); free($3); }
+    : TESTOP IDENT { ct_drop($1); ct_drop($2); }
+    | sub_trait_list TESTOP IDENT { ct_drop($2); ct_drop($3); }
     ;
 sub_decl
     : KW_SUB IDENT '(' param_list ')' sub_body
@@ -1096,14 +1097,14 @@ sub_decl
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
           tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free($3); $$=e; }
+          ct_drop($3); $$=e; }
     | KW_MULTI KW_SUB IDENT '(' ')' sub_body
         { const char *mname=rk_multi_mangle($3,NULL);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           tree_t *body=$6;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free($3); $$=e; }
+          ct_drop($3); $$=e; }
     | KW_MULTI KW_SUB OP_NAME '(' param_list ')' sub_body
         { ExprList *params=$5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np=params?params->count:0;
           const char *mname=rk_multi_mangle($3,params);
@@ -1112,7 +1113,7 @@ sub_decl
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
           tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free($3); $$=e; }
+          ct_drop($3); $$=e; }
     | KW_MULTI IDENT '(' param_list ')' sub_body
         { ExprList *params=$4; tree_t *rkbody=rk_defaults_prologue(params,$6); int np=params?params->count:0;
           const char *mname=rk_multi_mangle($2,params);
@@ -1121,14 +1122,14 @@ sub_decl
           if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
           tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free($2); $$=e; }
+          ct_drop($2); $$=e; }
     | KW_MULTI IDENT '(' ')' sub_body
         { const char *mname=rk_multi_mangle($2,NULL);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           tree_t *body=$5;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free($2); $$=e; }
+          ct_drop($2); $$=e; }
     ;
 sub_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
@@ -1176,7 +1177,7 @@ method_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
     | '{' YADA '}'               { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
     | '{' stmt_list VAR_TWIGIL '=' expr '}'
-        { tree_t *fe=rk_tw_field($3); free($3);
+        { tree_t *fe=rk_tw_field($3); ct_drop($3);
           ExprList *l=$2; exprlist_append(l,expr_binary(TT_ASSIGN,fe,$5)); $$=make_seq(l); }
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
@@ -1224,7 +1225,7 @@ pkg_name
 class_decl
     : KW_CLASS pkg_name is_clauses '{' class_body_list '}'
         {
-            const char *cname = intern($2); free($2);
+            const char *cname = intern($2); ct_drop($2);
             ExprList *body = $5;
             tree_t *cd = ast_node_new(TT_CLASS_DECL);
             if ($3) cd->v.sval = $3;
@@ -1240,7 +1241,7 @@ class_decl
 role_decl
     : KW_ROLE pkg_name '{' class_body_list '}'
         {
-            const char *rname = intern($2); free($2);
+            const char *rname = intern($2); ct_drop($2);
             ExprList *body = $4;
             tree_t *rd = ast_node_new(TT_ROLE_DECL);
             ast_push(rd, leaf_sval(TT_VAR, rname));
@@ -1255,7 +1256,7 @@ role_decl
 module_decl
     : KW_MODULE pkg_name '{' stmt_list '}'
         {
-            const char *mname = intern($2); free($2);
+            const char *mname = intern($2); ct_drop($2);
             ExprList *body = $4;
             tree_t *md = ast_node_new(TT_MODULE_DECL);
             ast_push(md, leaf_sval(TT_VAR, mname));
@@ -1276,10 +1277,10 @@ is_clauses
             else if ($2 && !strcmp($2, "does")) tag = 'd';
             if (tag && $3) {
                 size_t l2 = strlen($3);
-                if (!$1) { char *m = (char *)malloc(l2 + 2); m[0] = tag; memcpy(m + 1, $3, l2 + 1); $$ = m; }
-                else { size_t l1 = strlen($1); char *m = (char *)malloc(l1 + l2 + 3); memcpy(m, $1, l1); m[l1] = '\x01'; m[l1 + 1] = tag; memcpy(m + l1 + 2, $3, l2 + 1); free($1); $$ = m; }
+                if (!$1) { char *m = (char *)ct_alloc(l2 + 2); m[0] = tag; memcpy(m + 1, $3, l2 + 1); $$ = m; }
+                else { size_t l1 = strlen($1); char *m = (char *)ct_alloc(l1 + l2 + 3); memcpy(m, $1, l1); m[l1] = '\x01'; m[l1 + 1] = tag; memcpy(m + l1 + 2, $3, l2 + 1); ct_drop($1); $$ = m; }
             } else { $$ = $1; }
-            free($2); free($3);
+            ct_drop($2); ct_drop($3);
         }
     | is_clauses TESTOP IDENT
         {
@@ -1288,133 +1289,133 @@ is_clauses
             else if ($2 && !strcmp($2, "does")) tag = 'd';
             if (tag && $3) {
                 size_t l2 = strlen($3);
-                if (!$1) { char *m = (char *)malloc(l2 + 2); m[0] = tag; memcpy(m + 1, $3, l2 + 1); $$ = m; }
-                else { size_t l1 = strlen($1); char *m = (char *)malloc(l1 + l2 + 3); memcpy(m, $1, l1); m[l1] = '\x01'; m[l1 + 1] = tag; memcpy(m + l1 + 2, $3, l2 + 1); free($1); $$ = m; }
+                if (!$1) { char *m = (char *)ct_alloc(l2 + 2); m[0] = tag; memcpy(m + 1, $3, l2 + 1); $$ = m; }
+                else { size_t l1 = strlen($1); char *m = (char *)ct_alloc(l1 + l2 + 3); memcpy(m, $1, l1); m[l1] = '\x01'; m[l1 + 1] = tag; memcpy(m + l1 + 2, $3, l2 + 1); ct_drop($1); $$ = m; }
             } else { $$ = $1; }
-            free($2); free($3);
+            ct_drop($2); ct_drop($3);
         }
     ;
 class_body_list
     :  { $$ = exprlist_new(); }
     | class_body_list KW_HAS VAR_TWIGIL ';'
-        { tree_t *fv = leaf_sval(TT_VAR, $3); free($3);
+        { tree_t *fv = leaf_sval(TT_VAR, $3); ct_drop($3);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_ARRAY_TWIGIL ';'
-        { tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern($3); free($3);
+        { tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern($3); ct_drop($3);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_HASH_TWIGIL ';'
-        { tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern($3); free($3);
+        { tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern($3); ct_drop($3);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_ARRAY_TWIGIL ';'
-        { free($3); tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern($4); free($4);
+        { ct_drop($3); tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern($4); ct_drop($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_HASH_TWIGIL ';'
-        { free($3); tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern($4); free($4);
+        { ct_drop($3); tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern($4); ct_drop($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR ';'
-        { tree_t *fv = leaf_sval(TT_VAR, strip_sigil($3)); free($3);
+        { tree_t *fv = leaf_sval(TT_VAR, strip_sigil($3)); ct_drop($3);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_TWIGIL ';'
-        { free($3); tree_t *fv = leaf_sval(TT_VAR, $4); free($4);
+        { ct_drop($3); tree_t *fv = leaf_sval(TT_VAR, $4); ct_drop($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_SCALAR ';'
-        { free($3); tree_t *fv = leaf_sval(TT_VAR, strip_sigil($4)); free($4);
+        { ct_drop($3); tree_t *fv = leaf_sval(TT_VAR, strip_sigil($4)); ct_drop($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_TWIGIL '=' expr ';'
-        { tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); free($3); expr_add_child(fv, $5);
+        { tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); ct_drop($3); expr_add_child(fv, $5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR '=' expr ';'
-        { const char *fn = strip_sigil($3); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free($3); expr_add_child(fv, $5);
+        { const char *fn = strip_sigil($3); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); ct_drop($3); expr_add_child(fv, $5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_TWIGIL '=' expr ';'
-        { free($3); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); free($4); expr_add_child(fv, $6);
+        { ct_drop($3); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); ct_drop($4); expr_add_child(fv, $6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_SCALAR '=' expr ';'
-        { free($3); const char *fn = strip_sigil($4); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free($4); expr_add_child(fv, $6);
+        { ct_drop($3); const char *fn = strip_sigil($4); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); ct_drop($4); expr_add_child(fv, $6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_TWIGIL IDENT IDENT ';'
         { tree_t *fv;
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); }
           else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern($3); }
           else fv = leaf_sval(TT_VAR, $3);
-          free($3); free($4); free($5);
+          ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_TWIGIL IDENT IDENT '=' expr ';'
         { const char *an = intern($3); ExprList *l = $1;
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { tree_t *rw = ast_node_new(TT_RW_DECL); rw->v.sval = (char *)an; l = exprlist_append(l, rw); }
           tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)an; expr_add_child(fv, $7);
-          free($3); free($4); free($5);
+          ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append(l, fv); }
     | class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT '=' expr ';'
         { const char *an = intern($3); ExprList *l = $1;
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { tree_t *rw = ast_node_new(TT_RW_DECL); rw->v.sval = (char *)an; l = exprlist_append(l, rw); }
           tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)an; expr_add_child(fv, $7);
-          free($3); free($4); free($5);
+          ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append(l, fv); }
     | class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT ';'
         { tree_t *fv;
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); }
           else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern($3); }
           else fv = leaf_sval(TT_VAR, $3);
-          free($3); free($4); free($5);
+          ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR IDENT IDENT ';'
         { tree_t *fv; const char *fn = strip_sigil($3);
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
           else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
           else fv = leaf_sval(TT_VAR, fn);
-          free($3); free($4); free($5);
+          ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR TESTOP IDENT ';'
         { tree_t *fv; const char *fn = strip_sigil($3);
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
           else if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
           else fv = leaf_sval(TT_VAR, fn);
-          free($3); free($4); free($5);
+          ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_SCALAR KW_HANDLES ';'
         { const char *fn = strip_sigil($3); tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern(fn);
-          expr_add_child(fv, leaf_sval(TT_QLIT, $4)); free($3); free($4);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $4)); ct_drop($3); ct_drop($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS VAR_TWIGIL KW_HANDLES ';'
         { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern($3);
-          expr_add_child(fv, leaf_sval(TT_QLIT, $4)); free($3); free($4);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $4)); ct_drop($3); ct_drop($4);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_SCALAR KW_HANDLES ';'
         { const char *fn = strip_sigil($4); tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern(fn);
-          expr_add_child(fv, leaf_sval(TT_QLIT, $5)); free($3); free($4); free($5);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $5)); ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_TWIGIL KW_HANDLES ';'
         { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern($4);
-          expr_add_child(fv, leaf_sval(TT_QLIT, $5)); free($3); free($4); free($5);
+          expr_add_child(fv, leaf_sval(TT_QLIT, $5)); ct_drop($3); ct_drop($4); ct_drop($5);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_TWIGIL IDENT IDENT ';'
         { tree_t *fv;
           if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); }
           else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern($4); }
           else fv = leaf_sval(TT_VAR, $4);
-          free($3); free($4); free($5); free($6);
+          ct_drop($3); ct_drop($4); ct_drop($5); ct_drop($6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_TWIGIL TESTOP IDENT ';'
         { tree_t *fv;
           if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($4); }
           else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern($4); }
           else fv = leaf_sval(TT_VAR, $4);
-          free($3); free($4); free($5); free($6);
+          ct_drop($3); ct_drop($4); ct_drop($5); ct_drop($6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_SCALAR IDENT IDENT ';'
         { tree_t *fv; const char *fn = strip_sigil($4);
           if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
           else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
           else fv = leaf_sval(TT_VAR, fn);
-          free($3); free($4); free($5); free($6);
+          ct_drop($3); ct_drop($4); ct_drop($5); ct_drop($6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_HAS IDENT VAR_SCALAR TESTOP IDENT ';'
         { tree_t *fv; const char *fn = strip_sigil($4);
           if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
           else if ($5 && !strcmp($5, "is") && $6 && !strcmp($6, "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
           else fv = leaf_sval(TT_VAR, fn);
-          free($3); free($4); free($5); free($6);
+          ct_drop($3); ct_drop($4); ct_drop($5); ct_drop($6);
           $$ = exprlist_append($1, fv); }
     | class_body_list KW_METHOD meth_name '(' param_list ')' method_body
         { ExprList *params = $5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np = params ? params->count : 0;
@@ -1424,7 +1425,7 @@ class_body_list
           if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
           tree_t *body=rkbody;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          free($3);
+          ct_drop($3);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_METHOD meth_name '(' ')' method_body
         { tree_t *e = ast_node_new(TT_SUB_DECL);
@@ -1432,7 +1433,7 @@ class_body_list
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern($3); expr_add_child(e, nn);
           tree_t *body = $6;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          free($3);
+          ct_drop($3);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_METHOD meth_name method_body
         { tree_t *e = ast_node_new(TT_SUB_DECL);
@@ -1440,7 +1441,7 @@ class_body_list
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern($3); expr_add_child(e, nn);
           tree_t *body = $4;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          free($3);
+          ct_drop($3);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_METHOD KW_NEW '(' param_list ')' method_body
         { ExprList *params = $5; tree_t *rkbody=rk_defaults_prologue(params,$7); int np = params ? params->count : 0;
@@ -1473,7 +1474,7 @@ class_body_list
           if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
           tree_t *body=rkbody;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          free($4);
+          ct_drop($4);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_MULTI KW_METHOD meth_name '(' ')' method_body
         { const char *mname = rk_multi_mangle($4, NULL);
@@ -1481,7 +1482,7 @@ class_body_list
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
           tree_t *body = $7;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          free($4);
+          ct_drop($4);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_MULTI KW_METHOD meth_name method_body
         { const char *mname = rk_multi_mangle($4, NULL);
@@ -1489,11 +1490,11 @@ class_body_list
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
           tree_t *body = $5;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          free($4);
+          ct_drop($4);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_MULTI KW_METHOD KW_NEW '(' param_list ')' method_body
         { ExprList *params = $6; tree_t *rkbody=rk_defaults_prologue(params,$8); int np = params ? params->count : 0;
-          const char *mname = rk_multi_mangle(strdup("new"), params);
+          const char *mname = rk_multi_mangle(ct_strdup("new"), params);
           tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(np + 1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
           if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
@@ -1501,7 +1502,7 @@ class_body_list
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           $$ = exprlist_append($1, e); }
     | class_body_list KW_MULTI KW_METHOD KW_NEW '(' ')' method_body
-        { const char *mname = rk_multi_mangle(strdup("new"), NULL);
+        { const char *mname = rk_multi_mangle(ct_strdup("new"), NULL);
           tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
           tree_t *body = $7;
@@ -1511,7 +1512,7 @@ class_body_list
 grammar_decl
     : KW_GRAMMAR pkg_name '{' grammar_body_list '}'
         {
-            const char *gname = intern($2); free($2);
+            const char *gname = intern($2); ct_drop($2);
             ExprList *body = $4;
             tree_t *gd = ast_node_new(TT_GRAMMAR_DECL);
             ast_push(gd, leaf_sval(TT_VAR, gname));
@@ -1527,74 +1528,74 @@ grammar_body_list
     :  { $$ = exprlist_new(); }
     | grammar_body_list KW_TOKEN IDENT LIT_REGEX
         { tree_t *rd = ast_node_new(TT_REGEX_DECL); rd->v.ival = 0;
-          ast_push(rd, leaf_sval(TT_VAR, intern($3))); free($3);
+          ast_push(rd, leaf_sval(TT_VAR, intern($3))); ct_drop($3);
           ast_push(rd, leaf_sval(TT_QLIT, $4));
           $$ = exprlist_append($1, rd); }
     | grammar_body_list KW_RULE IDENT LIT_REGEX
         { tree_t *rd = ast_node_new(TT_REGEX_DECL); rd->v.ival = 1;
-          ast_push(rd, leaf_sval(TT_VAR, intern($3))); free($3);
+          ast_push(rd, leaf_sval(TT_VAR, intern($3))); ct_drop($3);
           ast_push(rd, leaf_sval(TT_QLIT, $4));
           $$ = exprlist_append($1, rd); }
     | grammar_body_list KW_REGEX IDENT LIT_REGEX
         { tree_t *rd = ast_node_new(TT_REGEX_DECL); rd->v.ival = 2;
-          ast_push(rd, leaf_sval(TT_VAR, intern($3))); free($3);
+          ast_push(rd, leaf_sval(TT_VAR, intern($3))); ct_drop($3);
           ast_push(rd, leaf_sval(TT_QLIT, $4));
           $$ = exprlist_append($1, rd); }
     ;
 named_arg_list
     : IDENT OP_FATARROW expr
         { $$ = exprlist_new();
-          exprlist_append($$, leaf_sval(TT_QLIT, $1)); free($1);
+          exprlist_append($$, leaf_sval(TT_QLIT, $1)); ct_drop($1);
           exprlist_append($$, $3); }
     | ':' IDENT '(' expr ')'
         { $$ = exprlist_new();
-          exprlist_append($$, leaf_sval(TT_QLIT, $2)); free($2);
+          exprlist_append($$, leaf_sval(TT_QLIT, $2)); ct_drop($2);
           exprlist_append($$, $4); }
     | ':' IDENT
         { $$ = exprlist_new();
-          exprlist_append($$, leaf_sval(TT_QLIT, $2)); free($2);
+          exprlist_append($$, leaf_sval(TT_QLIT, $2)); ct_drop($2);
           tree_t *tb = ast_node_new(TT_FNC); tb->v.sval = (char *)"__rk_mkbool";
           tree_t *tn = ast_node_new(TT_VAR); tn->v.sval = (char *)"__rk_mkbool"; ast_push(tb, tn);
           tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1; ast_push(tb, one);
           exprlist_append($$, tb); }
     | named_arg_list ',' IDENT OP_FATARROW expr
-        { exprlist_append($1, leaf_sval(TT_QLIT, $3)); free($3);
+        { exprlist_append($1, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           exprlist_append($1, $5);
           $$ = $1; }
     | named_arg_list ',' ':' IDENT '(' expr ')'
-        { exprlist_append($1, leaf_sval(TT_QLIT, $4)); free($4);
+        { exprlist_append($1, leaf_sval(TT_QLIT, $4)); ct_drop($4);
           exprlist_append($1, $6);
           $$ = $1; }
     ;
 pair_list
     : IDENT OP_FATARROW expr
-        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,$1)); free($1); expr_add_child(c,$3); $$=c; }
+        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,$1)); ct_drop($1); expr_add_child(c,$3); $$=c; }
     | LIT_STR OP_FATARROW expr
         { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,$1)); expr_add_child(c,$3); $$=c; }
     | pair_list ',' IDENT OP_FATARROW expr
-        { expr_add_child($1,leaf_sval(TT_QLIT,$3)); free($3); expr_add_child($1,$5); $$=$1; }
+        { expr_add_child($1,leaf_sval(TT_QLIT,$3)); ct_drop($3); expr_add_child($1,$5); $$=$1; }
     | pair_list ',' LIT_STR OP_FATARROW expr
         { expr_add_child($1,leaf_sval(TT_QLIT,$3)); expr_add_child($1,$5); $$=$1; }
     ;
 param_list
     : VAR_SCALAR             { $$=exprlist_append(exprlist_new(),var_node($1)); }
-    | VAR_SCALAR TESTOP IDENT { free($2); free($3); $$=exprlist_append(exprlist_new(),var_node($1)); }
-    | param_list ',' VAR_SCALAR TESTOP IDENT { free($4); free($5); $$=exprlist_append($1,var_node($3)); }
-    | IDENT VAR_SCALAR TESTOP IDENT { free($3); free($4); $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
-    | param_list ',' IDENT VAR_SCALAR TESTOP IDENT { free($5); free($6); $$=exprlist_append($1,rk_typed_param($3,$4)); free($3); }
+    | VAR_SCALAR TESTOP IDENT { ct_drop($2); ct_drop($3); $$=exprlist_append(exprlist_new(),var_node($1)); }
+    | param_list ',' VAR_SCALAR TESTOP IDENT { ct_drop($4); ct_drop($5); $$=exprlist_append($1,var_node($3)); }
+    | IDENT VAR_SCALAR TESTOP IDENT { ct_drop($3); ct_drop($4); $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); ct_drop($1); }
+    | param_list ',' IDENT VAR_SCALAR TESTOP IDENT { ct_drop($5); ct_drop($6); $$=exprlist_append($1,rk_typed_param($3,$4)); ct_drop($3); }
     | VAR_ARRAY               { $$=exprlist_append(exprlist_new(),rk_byref_param($1)); }
     | param_list ',' VAR_ARRAY { $$=exprlist_append($1,rk_byref_param($3)); }
-    | IDENT VAR_SCALAR       { $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
-    | IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":D",$3)); free($1); }
-    | IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":U",$3)); free($1); }
+    | IDENT VAR_SCALAR       { $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); ct_drop($1); }
+    | IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":D",$3)); ct_drop($1); }
+    | IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":U",$3)); ct_drop($1); }
     | param_list ',' VAR_SCALAR { $$=exprlist_append($1,var_node($3)); }
-    | param_list ',' IDENT VAR_SCALAR { $$=exprlist_append($1,rk_typed_param($3,$4)); free($3); }
-    | param_list ',' IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":D",$5)); free($3); }
-    | param_list ',' IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":U",$5)); free($3); }
+    | param_list ',' IDENT VAR_SCALAR { $$=exprlist_append($1,rk_typed_param($3,$4)); ct_drop($3); }
+    | param_list ',' IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":D",$5)); ct_drop($3); }
+    | param_list ',' IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":U",$5)); ct_drop($3); }
     | VAR_SCALAR '=' expr    { $$=exprlist_append(exprlist_new(),rk_param_default(var_node($1),$3)); }
     | param_list ',' VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(var_node($3),$5)); }
-    | IDENT VAR_SCALAR '=' expr { $$=exprlist_append(exprlist_new(),rk_param_default(rk_typed_param($1,$2),$4)); free($1); }
-    | param_list ',' IDENT VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(rk_typed_param($3,$4),$6)); free($3); }
+    | IDENT VAR_SCALAR '=' expr { $$=exprlist_append(exprlist_new(),rk_param_default(rk_typed_param($1,$2),$4)); ct_drop($1); }
+    | param_list ',' IDENT VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(rk_typed_param($3,$4),$6)); ct_drop($3); }
     | SLURPY_POS             { $$=exprlist_append(exprlist_new(),rk_slurpy_param($1)); }
     | param_list ',' SLURPY_POS { $$=exprlist_append($1,rk_slurpy_param($3)); }
     | SLURPY_LOL             { $$=exprlist_append(exprlist_new(),rk_slurpy_lol_param($1)); }
@@ -1648,13 +1649,13 @@ block
     | '{' stmt_list KW_PRINT expr '}'
         { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
     | '{' stmt_list call_expr '.' meth_name '=' expr '}'
-        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); free($5); expr_add_child(fe,$3);
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); ct_drop($5); expr_add_child(fe,$3);
           tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list atom '.' meth_name '=' expr '}'
-        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); free($5); expr_add_child(fe,$3);
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); ct_drop($5); expr_add_child(fe,$3);
           tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list VAR_TWIGIL '=' expr '}'
-        { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD); fe->v.sval=(char*)intern(rk_tw_bare($3)); free($3);
+        { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD); fe->v.sval=(char*)intern(rk_tw_bare($3)); ct_drop($3);
           tree_t *a=expr_binary(TT_ASSIGN,fe,$5); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list VAR_ARRAY '[' expr ']' '=' expr '}'
         { tree_t *c=ast_node_new(TT_ARR_SET); ast_push(c,var_node($3)); ast_push(c,$5); ast_push(c,$8);
@@ -1768,7 +1769,7 @@ cmp_expr
         { tree_t *mc = ast_node_new(TT_METHCALL);
           ast_push(mc, $1);
           ast_push(mc, leaf_sval(TT_QLIT, "does"));
-          ast_push(mc, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(mc, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = mc; }
     | divis_expr                 { $$=$1; }
     ;
@@ -1850,7 +1851,7 @@ unary_expr
         { const char *rop = !strcmp($1,"+") ? "__rk_reduce_add" : !strcmp($1,"-") ? "__rk_reduce_sub"
                           : !strcmp($1,"*") ? "__rk_reduce_mul" : !strcmp($1,"~") ? "__rk_reduce_cat"
                           : !strcmp($1,"min") ? "__rk_reduce_min" : "__rk_reduce_max";
-          tree_t *e=make_call(rop); expr_add_child(e,$2); free($1); $$=e; }
+          tree_t *e=make_call(rop); expr_add_child(e,$2); ct_drop($1); $$=e; }
     | pow_expr                     { $$=$1; }
     ;
 pow_expr
@@ -1858,22 +1859,22 @@ pow_expr
     | postfix_expr                    { $$=$1; }
     ;
 scalar_list
-    : VAR_SCALAR                    { $$ = exprlist_append(exprlist_new(), var_node($1)); free($1); }
-    | scalar_list ',' VAR_SCALAR    { $$ = exprlist_append($1, var_node($3)); free($3); }
+    : VAR_SCALAR                    { $$ = exprlist_append(exprlist_new(), var_node($1)); ct_drop($1); }
+    | scalar_list ',' VAR_SCALAR    { $$ = exprlist_append($1, var_node($3)); ct_drop($3); }
     ;
 meth_name
     : IDENT      { $$=$1; }
-    | KW_SORT    { $$=strdup("sort"); }
-    | KW_REVERSE { $$=strdup("reverse"); }
-    | KW_MAP     { $$=strdup("map"); }
-    | KW_GREP    { $$=strdup("grep"); }
-    | KW_SAY     { $$=strdup("say"); }
-    | KW_PRINT   { $$=strdup("print"); }
-    | KW_TAKE    { $$=strdup("take"); }
-    | KW_RETURN  { $$=strdup("return"); }
-    | KW_EXISTS  { $$=strdup("exists"); }
-    | KW_DELETE  { $$=strdup("delete"); }
-    | KW_JOIN    { $$=strdup("join"); }
+    | KW_SORT    { $$=ct_strdup("sort"); }
+    | KW_REVERSE { $$=ct_strdup("reverse"); }
+    | KW_MAP     { $$=ct_strdup("map"); }
+    | KW_GREP    { $$=ct_strdup("grep"); }
+    | KW_SAY     { $$=ct_strdup("say"); }
+    | KW_PRINT   { $$=ct_strdup("print"); }
+    | KW_TAKE    { $$=ct_strdup("take"); }
+    | KW_RETURN  { $$=ct_strdup("return"); }
+    | KW_EXISTS  { $$=ct_strdup("exists"); }
+    | KW_DELETE  { $$=ct_strdup("delete"); }
+    | KW_JOIN    { $$=ct_strdup("join"); }
     | TESTOP     { $$=$1; }
     ;
 postfix_expr : call_expr { $$=$1; } ;
@@ -1891,9 +1892,9 @@ call_expr
           $$=e; }
     | IDENT '(' ')'  { $$=make_call($1); }
     | IDENT '(' named_arg_list ')'
-        { $$ = rk_named_call($1, NULL, $3); free($1); }
+        { $$ = rk_named_call($1, NULL, $3); ct_drop($1); }
     | IDENT '(' arg_list ',' named_arg_list ')'
-        { $$ = rk_named_call($1, $3, $5); free($1); }
+        { $$ = rk_named_call($1, $3, $5); ct_drop($1); }
     | VAR_SCALAR '(' arg_list ')'
         { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node($1));
           ExprList *args=$3;
@@ -1903,133 +1904,133 @@ call_expr
         { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node($1)); $$=e; }
     | IDENT '.' KW_NEW '(' named_arg_list ')'
         { tree_t *ah = rk_adhoc_new($1, $5, NULL);
-          if (ah) { free($1); exprlist_free($5); $$ = ah; }
+          if (ah) { ct_drop($1); exprlist_free($5); $$ = ah; }
           else {
           tree_t *c = ast_node_new(TT_NEW);
-          ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
+          ast_push(c, leaf_sval(TT_QLIT, $1)); ct_drop($1);
           ExprList *nargs = $5;
           if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
           $$ = c; } }
     | IDENT '.' KW_NEW '(' arg_list ')'
         { tree_t *ah = rk_adhoc_new($1, NULL, $5);
-          if (ah) { free($1); exprlist_free($5); $$ = ah; }
+          if (ah) { ct_drop($1); exprlist_free($5); $$ = ah; }
           else {
           tree_t *c = ast_node_new(TT_NEW);
-          ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
+          ast_push(c, leaf_sval(TT_QLIT, $1)); ct_drop($1);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; } }
     | IDENT '.' KW_NEW '(' ')'
         { tree_t *ah = rk_adhoc_new($1, NULL, NULL);
-          if (ah) { free($1); $$ = ah; }
+          if (ah) { ct_drop($1); $$ = ah; }
           else {
           tree_t *c = ast_node_new(TT_NEW);
-          ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
+          ast_push(c, leaf_sval(TT_QLIT, $1)); ct_drop($1);
           $$ = c; } }
     | IDENT '.' KW_NEW
         { tree_t *c = ast_node_new(TT_NEW);
-          ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
+          ast_push(c, leaf_sval(TT_QLIT, $1)); ct_drop($1);
           $$ = c; }
     | IDENT '.' IDENT
         { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1)); free($1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, var_node($1)); ct_drop($1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = c; }
     | IDENT '.' IDENT '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1)); free($1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, var_node($1)); ct_drop($1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | IDENT '.' IDENT '(' ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1)); free($1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, var_node($1)); ct_drop($1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = c; }
     | IDENT '.' CARET IDENT
         { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1)); free($1);
-          { size_t _l = strlen($4); char *_m = (char*)malloc(_l+2); _m[0]='^'; memcpy(_m+1,$4,_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); free(_m); }
-          free($4);
+          ast_push(c, var_node($1)); ct_drop($1);
+          { size_t _l = strlen($4); char *_m = (char*)ct_alloc(_l+2); _m[0]='^'; memcpy(_m+1,$4,_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); ct_drop(_m); }
+          ct_drop($4);
           $$ = c; }
     | atom '.' CARET IDENT
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          { size_t _l = strlen($4); char *_m = (char*)malloc(_l+2); _m[0]='^'; memcpy(_m+1,$4,_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); free(_m); }
-          free($4);
+          { size_t _l = strlen($4); char *_m = (char*)ct_alloc(_l+2); _m[0]='^'; memcpy(_m+1,$4,_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); ct_drop(_m); }
+          ct_drop($4);
           $$ = c; }
     | atom '.' meth_name '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | atom '.' meth_name '(' named_arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           ExprList *nargs = $5;
           if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
           $$ = c; }
     | atom '.' meth_name '(' ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = c; }
     | atom '.' meth_name
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = c; }
     | call_expr '.' meth_name '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | call_expr '.' meth_name '(' ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = c; }
     | call_expr '.' meth_name
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           $$ = c; }
     | atom '.' meth_name ':' arg_list
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | call_expr '.' meth_name ':' arg_list
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); ct_drop($3);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | '.' meth_name '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node("$_"));
-          ast_push(c, leaf_sval(TT_QLIT, $2)); free($2);
+          ast_push(c, leaf_sval(TT_QLIT, $2)); ct_drop($2);
           ExprList *args = $4;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | '.' meth_name '(' ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node("$_"));
-          ast_push(c, leaf_sval(TT_QLIT, $2)); free($2);
+          ast_push(c, leaf_sval(TT_QLIT, $2)); ct_drop($2);
           $$ = c; }
     | '.' meth_name
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node("$_"));
-          ast_push(c, leaf_sval(TT_QLIT, $2)); free($2);
+          ast_push(c, leaf_sval(TT_QLIT, $2)); ct_drop($2);
           $$ = c; }
     | KW_DIE expr
         { tree_t *d=ast_node_new(TT_DIE); expr_add_child(d,$2); $$=d; }
@@ -2072,10 +2073,10 @@ atom
     | WORDLIST
         { tree_t *call=make_call("__rk_arr"); char *s=$1; int wc=0;
           while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
-            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1); int ti=0;
+            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)ct_alloc(L+1); int ti=0;
             for(int wi=0;wi<L;wi++){ if(w[wi]=='\\'&&wi+1<L&&w[wi+1]=='\\'){ tok[ti++]='\\'; wi++; } else tok[ti++]=w[wi]; }
-            tok[ti]='\0'; expr_add_child(call,leaf_sval(TT_QLIT,tok)); free(tok); wc++; }
-          free($1);
+            tok[ti]='\0'; expr_add_child(call,leaf_sval(TT_QLIT,tok)); ct_drop(tok); wc++; }
+          ct_drop($1);
           if(wc==1){ tree_t *only=call->c[0]; call->c[0]=NULL; call->n=0; $$=only; }
           else { $$=call; } }
     | LIT_INTERP_STR  { $$=lower_interp_str($1); }
@@ -2084,8 +2085,8 @@ atom
     | OP_DEC VAR_SCALAR { $$=rk_incdec($2,0); }
     | VAR_SCALAR OP_INC { $$=rk_post_incdec($1,1); }
     | VAR_SCALAR OP_DEC { $$=rk_post_incdec($1,0); }
-    | VAR_TWIGIL OP_INC { $$=rk_tw_post_incdec($1,1); free($1); }
-    | VAR_TWIGIL OP_DEC { $$=rk_tw_post_incdec($1,0); free($1); }
+    | VAR_TWIGIL OP_INC { $$=rk_tw_post_incdec($1,1); ct_drop($1); }
+    | VAR_TWIGIL OP_DEC { $$=rk_tw_post_incdec($1,0); ct_drop($1); }
     | VAR_ARRAY       { $$=var_node($1); }
     | VAR_HASH        { $$=var_node($1); }
     | VAR_CAPTURE
@@ -2128,15 +2129,15 @@ atom
     | IDENT           { $$=var_node($1); }
     | VAR_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
+          fe->v.sval = (char *)intern(rk_tw_bare($1)); ct_drop($1);
           $$ = fe; }
     | VAR_ARRAY_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
+          fe->v.sval = (char *)intern(rk_tw_bare($1)); ct_drop($1);
           $$ = fe; }
     | VAR_HASH_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
+          fe->v.sval = (char *)intern(rk_tw_bare($1)); ct_drop($1);
           $$ = fe; }
     | '[' ']'         { $$=make_call("__rk_arr_lit"); }
     | '[' expr ']'

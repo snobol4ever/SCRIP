@@ -1,4 +1,5 @@
 %{
+#include "ct_arena.h"
 #include "raku.tab.h"
 #include "rk_opname.h"
 #include <stdio.h>
@@ -41,28 +42,28 @@ WS       [ \t\r]
 <POD><<EOF>>         { BEGIN(INITIAL); yyterminate(); }
 "my"            { return KW_MY; }
 "use"           { return KW_USE; }
-"plan"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"ok"            { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"nok"           { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"is"            { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"isnt"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"done-testing"  { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"skip-rest"     { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"skip"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"todo"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"diag"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"pass"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"flunk"         { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"subtest"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"is-deeply"     { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"isa-ok"        { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"does-ok"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"cmp-ok"        { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"lives-ok"      { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"dies-ok"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"throws-like"   { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"eval-lives-ok" { raku_yylval.sval = strdup(yytext); return TESTOP; }
-"eval-dies-ok"  { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"plan"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"ok"            { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"nok"           { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"is"            { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"isnt"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"done-testing"  { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"skip-rest"     { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"skip"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"todo"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"diag"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"pass"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"flunk"         { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"subtest"       { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"is-deeply"     { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"isa-ok"        { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"does-ok"       { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"cmp-ok"        { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"lives-ok"      { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"dies-ok"       { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"throws-like"   { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"eval-lives-ok" { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"eval-dies-ok"  { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "say"           { return KW_SAY; }
 "join"          { return KW_JOIN; }
 "print"         { return KW_PRINT; }
@@ -111,18 +112,18 @@ WS       [ \t\r]
 "submethod"     { return KW_METHOD; }
 "multi"         { return KW_MULTI; }
 "proto"         { return KW_PROTO; }
-"infix:<"[^>]+">"   { char raw[64]; int rl=(int)yyleng-8; if(rl>63)rl=63; memcpy(raw,yytext+7,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("infix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
-"prefix:<"[^>]+">"  { char raw[64]; int rl=(int)yyleng-9; if(rl>63)rl=63; memcpy(raw,yytext+8,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("prefix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
-"postfix:<"[^>]+">" { char raw[64]; int rl=(int)yyleng-10; if(rl>63)rl=63; memcpy(raw,yytext+9,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("postfix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
+"infix:<"[^>]+">"   { char raw[64]; int rl=(int)yyleng-8; if(rl>63)rl=63; memcpy(raw,yytext+7,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("infix",raw,cb,sizeof cb); raku_yylval.sval=ct_strdup(cb); return OP_NAME; }
+"prefix:<"[^>]+">"  { char raw[64]; int rl=(int)yyleng-9; if(rl>63)rl=63; memcpy(raw,yytext+8,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("prefix",raw,cb,sizeof cb); raku_yylval.sval=ct_strdup(cb); return OP_NAME; }
+"postfix:<"[^>]+">" { char raw[64]; int rl=(int)yyleng-10; if(rl>63)rl=63; memcpy(raw,yytext+9,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("postfix",raw,cb,sizeof cb); raku_yylval.sval=ct_strdup(cb); return OP_NAME; }
 ":exists"       { return ADV_EXISTS; }
 ":delete"       { return ADV_DELETE; }
 ":D"            { return OP_COLON_D; }
 ":U"            { return OP_COLON_U; }
-":$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
+":$"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_SCALAR; }
 "has"           { return KW_HAS; }
-"handles"[ \t]*"<"[^>]*">"  { const char *lt = strchr(yytext,'<'); const char *gt = strrchr(yytext,'>'); int n=(int)(gt-lt-1); if(n<0)n=0; char *w=(char*)malloc(n+1); memcpy(w,lt+1,n); w[n]=0; raku_yylval.sval=w; return KW_HANDLES; }
+"handles"[ \t]*"<"[^>]*">"  { const char *lt = strchr(yytext,'<'); const char *gt = strrchr(yytext,'>'); int n=(int)(gt-lt-1); if(n<0)n=0; char *w=(char*)ct_alloc(n+1); memcpy(w,lt+1,n); w[n]=0; raku_yylval.sval=w; return KW_HANDLES; }
 "new"           { return KW_NEW; }
-"self"          { raku_yylval.sval = strdup("self"); return VAR_SCALAR; }
+"self"          { raku_yylval.sval = ct_strdup("self"); return VAR_SCALAR; }
 "True"          { raku_yylval.ival = 1; return LIT_BOOL; }
 "False"         { raku_yylval.ival = 0; return LIT_BOOL; }
 "eq"            { return OP_SEQ; }
@@ -133,7 +134,7 @@ WS       [ \t\r]
 "ge"            { return OP_SGE; }
 "cmp"           { return OP_CMPG; }
 "leg"           { return OP_LEG; }
-[ \t]+("xx"|"x")/[ \t]*"=>"  { const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = strdup(_p); return IDENT; }
+[ \t]+("xx"|"x")/[ \t]*"=>"  { const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = ct_strdup(_p); return IDENT; }
 [ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
 [ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
 "div"           { return OP_DIV; }
@@ -210,7 +211,7 @@ WS       [ \t\r]
 "%"             { return '%'; }
 "~"             { return '~'; }
 "<"[ \t]*[a-zA-Z0-9_.:/*+?=!$,;#@|\\-]+([ \t]+[a-zA-Z0-9_.:/*+?=!$,;#@|\\-]+)+[ \t]*">"  {
-    int n=(int)yyleng-2; char *inner=(char*)malloc(n+1); memcpy(inner,yytext+1,n); inner[n]='\0';
+    int n=(int)yyleng-2; char *inner=(char*)ct_alloc(n+1); memcpy(inner,yytext+1,n); inner[n]='\0';
     raku_yylval.sval=inner; return WORDLIST; }
 "<"             { return '<'; }
 ">"             { return '>'; }
@@ -220,12 +221,12 @@ WS       [ \t\r]
 "}"             { return '}'; }
 "("             { return '('; }
 ")"             { return ')'; }
-"[+]"           { raku_yylval.sval = strdup("+");   return OP_REDUCE; }
-"[-]"           { raku_yylval.sval = strdup("-");   return OP_REDUCE; }
-"[*]"           { raku_yylval.sval = strdup("*");   return OP_REDUCE; }
-"[~]"           { raku_yylval.sval = strdup("~");   return OP_REDUCE; }
-"[min]"         { raku_yylval.sval = strdup("min"); return OP_REDUCE; }
-"[max]"         { raku_yylval.sval = strdup("max"); return OP_REDUCE; }
+"[+]"           { raku_yylval.sval = ct_strdup("+");   return OP_REDUCE; }
+"[-]"           { raku_yylval.sval = ct_strdup("-");   return OP_REDUCE; }
+"[*]"           { raku_yylval.sval = ct_strdup("*");   return OP_REDUCE; }
+"[~]"           { raku_yylval.sval = ct_strdup("~");   return OP_REDUCE; }
+"[min]"         { raku_yylval.sval = ct_strdup("min"); return OP_REDUCE; }
+"[max]"         { raku_yylval.sval = ct_strdup("max"); return OP_REDUCE; }
 "["             { return '['; }
 "]"             { return ']'; }
 ";"             { return ';'; }
@@ -237,7 +238,7 @@ WS       [ \t\r]
 {DIGIT}+"."{DIGIT}+{EXP}?  { raku_yylval.dval = atof(yytext); return LIT_FLOAT; }
 {DIGIT}+{EXP}               { raku_yylval.dval = atof(yytext); return LIT_FLOAT; }
 {DIGIT}+                    { raku_yylval.ival = atol(yytext); return LIT_INT; }
-"$_"            { raku_yylval.sval = strdup("$_"); return VAR_SCALAR; }
+"$_"            { raku_yylval.sval = ct_strdup("$_"); return VAR_SCALAR; }
 "$*STDIN"       { raku_yylval.ival = 0; return VAR_FH; }
 "$*STDOUT"      { raku_yylval.ival = 1; return VAR_FH; }
 "$*STDERR"      { raku_yylval.ival = 2; return VAR_FH; }
@@ -245,37 +246,37 @@ WS       [ \t\r]
 "$["            { return DOLLAR_LBRACKET; }
 "$<"[a-zA-Z][a-zA-Z0-9_]*">" {
     int len = strlen(yytext)-3;
-    char *nm = malloc(len+1); memcpy(nm,yytext+2,len); nm[len]='\0';
+    char *nm = ct_alloc(len+1); memcpy(nm,yytext+2,len); nm[len]='\0';
     raku_yylval.sval = nm; return VAR_NAMED_CAPTURE; }
-"$."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
-"$!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
-"@."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
-"@!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
-"%."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
-"%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
+"$."{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_TWIGIL; }
+"$!"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_TWIGIL; }
+"@."{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
+"@!"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
+"%."{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_HASH_TWIGIL; }
+"%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_HASH_TWIGIL; }
 "$?LINE"        { raku_yylval.ival = raku_yylineno; return LIT_INT; }
-"$*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
-"$?"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
-"$^"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
-"$="{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
-"$~"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
-"$!"            { raku_yylval.sval = strdup("$!"); return VAR_SCALAR; }
-"@*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
-"%*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
-"$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
-"**@"{ALPHA}{ALNUM}* { raku_yylval.sval = strdup(yytext+2); return SLURPY_LOL; }
-"*@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return SLURPY_POS; }
-"*%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return SLURPY_NAMED; }
-"@"{ALPHA}{ALNUM}*"[*]"  { char *s = strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
-"@"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
-"%"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
-"\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
-{ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = strdup(yytext); return IDENT; }
-{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = strdup(yytext); return IDENT; }
+"$*"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
+"$?"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
+"$^"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
+"$="{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
+"$~"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
+"$!"            { raku_yylval.sval = ct_strdup("$!"); return VAR_SCALAR; }
+"@*"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_ARRAY; }
+"%*"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_HASH; }
+"$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
+"**@"{ALPHA}{ALNUM}* { raku_yylval.sval = ct_strdup(yytext+2); return SLURPY_LOL; }
+"*@"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return SLURPY_POS; }
+"*%"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return SLURPY_NAMED; }
+"@"{ALPHA}{ALNUM}*"[*]"  { char *s = ct_strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
+"@"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = ct_strdup(yytext); return VAR_ARRAY; }
+"%"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = ct_strdup(yytext); return VAR_HASH; }
+"\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_SCALAR; }
+{ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = ct_strdup(yytext); return IDENT; }
+{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = ct_strdup(yytext); return IDENT; }
 "\""            { raku_strpos = 0; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
         return LIT_INTERP_STR;
@@ -291,7 +292,7 @@ WS       [ \t\r]
 "｢"         { raku_strpos = 0; BEGIN(STR_CORNER); }
 <STR_CORNER>"｣"  {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
 }
@@ -299,7 +300,7 @@ WS       [ \t\r]
 <STR_CORNER>.      { if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = yytext[0]; }
 <STR_SQ>"'"    {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
 }
@@ -310,7 +311,7 @@ WS       [ \t\r]
 "s/"            { if (raku_after_smatch) { raku_after_smatch=0; raku_strpos=0; BEGIN(STR_SUBST_PAT); } else { yyless(1); return 's'; } }
 <STR_SUBST_PAT>"/"  {
     raku_strbuf[raku_strpos]='\0';
-    raku_subst_pat = strdup(raku_strbuf);
+    raku_subst_pat = ct_strdup(raku_strbuf);
     raku_strpos=0; BEGIN(STR_SUBST_REPL);
 }
 <STR_SUBST_PAT>"\\/"  { raku_strbuf[raku_strpos++]='/'; }
@@ -319,11 +320,11 @@ WS       [ \t\r]
     raku_strbuf[raku_strpos]='\0';
     int global = (yytext[1]=='g');
     size_t plen=strlen(raku_subst_pat), rlen=raku_strpos;
-    char *tok = malloc(plen+rlen+4);
+    char *tok = ct_alloc(plen+rlen+4);
     memcpy(tok, raku_subst_pat, plen); tok[plen]='\x01';
     memcpy(tok+plen+1, raku_strbuf, rlen); tok[plen+1+rlen]='\x01';
     tok[plen+2+rlen] = global ? 'g' : '-'; tok[plen+3+rlen]='\0';
-    free(raku_subst_pat); raku_subst_pat=NULL;
+    ct_drop(raku_subst_pat); raku_subst_pat=NULL;
     raku_yylval.sval = tok;
     BEGIN(INITIAL); return LIT_SUBST;
 }
@@ -333,7 +334,7 @@ WS       [ \t\r]
 "/"             { if (raku_after_smatch) { raku_after_smatch=0; raku_strpos=0; BEGIN(STR_RE); } else { return '/'; } }
 <STR_RE>"/"    {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (raku_match_global) { raku_match_global=0; return LIT_MATCH_GLOBAL; }
     return LIT_REGEX;
@@ -346,7 +347,7 @@ WS       [ \t\r]
     rebody_depth--;
     if (rebody_depth == 0) {
         raku_strbuf[raku_strpos] = '\0';
-        raku_yylval.sval = strdup(raku_strbuf);
+        raku_yylval.sval = ct_strdup(raku_strbuf);
         BEGIN(INITIAL);
         return LIT_REGEX;
     }

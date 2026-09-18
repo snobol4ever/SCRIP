@@ -1,4 +1,5 @@
 #include "copy_prop.h"
+#include "ct_arena.h"
 #include "ir_index.h"
 #include "gen.h"
 #include "ir_query.h"
@@ -25,7 +26,7 @@ int cp_run(IR_graph_t * g) {
         for (int k = 0; k < nd->n_operands; k++) { int guard = 0; IR_t * src; while ((src = cp_source(nd->operands[k])) != (IR_t *)0 && guard++ < 32) { nd->operands[k] = src; total++; } }
     }
     if (!total) return 0;
-    char * ref = (char *)calloc((size_t)g->n, 1);
+    char * ref = (char *)ct_zalloc((size_t)g->n, 1);
     if (!ref) return total;
     ir_index_t ix; ir_index_build(&ix, g);
     for (int i = 0; i < g->n; i++) {
@@ -35,6 +36,6 @@ int cp_run(IR_graph_t * g) {
     }
     ir_index_free(&ix);
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && cp_source(nd) != (IR_t *)0 && !ref[i]) { nd->op = IR_SUCCEED; nd->n_operands = 0; total++; } }
-    free(ref);
+    ct_drop(ref);
     return total;
 }

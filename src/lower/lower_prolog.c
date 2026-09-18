@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,7 +26,7 @@ unsigned resolve_pred_hash(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice) {
     unsigned h = resolve_pred_hash(key);
-    Resolve_PredEntry *e = (Resolve_PredEntry *) malloc(sizeof(Resolve_PredEntry));
+    Resolve_PredEntry *e = (Resolve_PredEntry *) ct_alloc(sizeof(Resolve_PredEntry));
     e->key = key; e->choice = choice; e->entry_pc = -1; e->next = pt->buckets[h]; pt->buckets[h] = e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -46,9 +47,9 @@ static pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
     pl_bb_ent_t * existing = pl_bb_lookup(name, arity);
     if (existing) { existing->bb_idx = bb_idx; return existing; }
     if (pl_bb_n >= PL_BB_TABLE_MAX) return NULL;
-    if (!pl_bb_tab) { pl_bb_tab = (pl_bb_ent_t *)calloc(PL_BB_TABLE_MAX, sizeof *pl_bb_tab); if (!pl_bb_tab) return NULL; }
+    if (!pl_bb_tab) { pl_bb_tab = (pl_bb_ent_t *)ct_zalloc(PL_BB_TABLE_MAX, sizeof *pl_bb_tab); if (!pl_bb_tab) return NULL; }
     pl_bb_ent_t * e = &pl_bb_tab[pl_bb_n++];
-    e->name = strdup(name); e->arity = arity; e->bb_idx = bb_idx;
+    e->name = ct_strdup(name); e->arity = arity; e->bb_idx = bb_idx;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -71,7 +72,7 @@ static void pl_decl_dyn_mark(const char * name, int arity) {
     if (!name) return;
     for (int i = 0; i < g_pl_decl_dyn_n; i++) if (g_pl_decl_dyn_name[i] && !strcmp(g_pl_decl_dyn_name[i], name) && g_pl_decl_dyn_arity[i] == arity) return;
     if (g_pl_decl_dyn_n >= 64) return;
-    g_pl_decl_dyn_name[g_pl_decl_dyn_n] = strdup(name); g_pl_decl_dyn_arity[g_pl_decl_dyn_n] = arity; g_pl_decl_dyn_n++;
+    g_pl_decl_dyn_name[g_pl_decl_dyn_n] = ct_strdup(name); g_pl_decl_dyn_arity[g_pl_decl_dyn_n] = arity; g_pl_decl_dyn_n++;
 }
 static int pl_decl_dyn_is(const char * name, int arity) {
     if (!name) return 0;
@@ -100,14 +101,14 @@ static void pl_refuse(const char * what, const char * detail, int rung) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_var_name(int slot) {
     static char * cache[1024]; static char buf[24];
-    if (slot >= 0 && slot < 1024) { if (!cache[slot]) { snprintf(buf, sizeof buf, "G%d", slot); cache[slot] = strdup(buf); } return cache[slot]; }
-    snprintf(buf, sizeof buf, "G%d", slot); return strdup(buf);
+    if (slot >= 0 && slot < 1024) { if (!cache[slot]) { snprintf(buf, sizeof buf, "G%d", slot); cache[slot] = ct_strdup(buf); } return cache[slot]; }
+    snprintf(buf, sizeof buf, "G%d", slot); return ct_strdup(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_pi_name(const char * nm, int ar) {
     static char buf[264];
-    if (!nm) return strdup("?");
-    snprintf(buf, sizeof buf, "%s/%d", nm, ar); return strdup(buf);
+    if (!nm) return ct_strdup("?");
+    snprintf(buf, sizeof buf, "%s/%d", nm, ar); return ct_strdup(buf);
 }
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 static int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }
@@ -115,7 +116,7 @@ static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, NULL, cx->tω); IR_LIT(nd).sval = "$mkc";
-    IR_t * fn = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(fn).sval = strdup(fname);
+    IR_t * fn = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(fn).sval = ct_strdup(fname);
     ir_operand_push(nd, fn);
     IR_t * prev = fn; IR_t * first = fn;
     for (int i = 0; i < nkids; i++) {
@@ -160,11 +161,11 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
             if (entry_out) *entry_out = dg;
             return nd; }
         if (nk == 0) { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; return nd; }
-        IR_t ** kids = (IR_t **) calloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
-        IR_t ** kes  = (IR_t **) calloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
+        IR_t ** kids = (IR_t **) ct_zalloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
+        IR_t ** kes  = (IR_t **) ct_zalloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
         for (int i = 0; i < nk; i++) kids[i] = term_lval_e(cx, t->c[i], &kes[i]);
         IR_t * nd = mkc_node(cx, t->v.sval ? t->v.sval : "?", nk, kids, kes, entry_out);
-        free(kids); free(kes);
+        ct_drop(kids); ct_drop(kes);
         return nd;
     }
     case TT_CUT: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = "!"; return nd; }
@@ -180,8 +181,8 @@ static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_param_name(int i) {
     static char * cache[64]; static char buf[16];
-    if (i >= 0 && i < 64) { if (!cache[i]) { snprintf(buf, sizeof buf, "A%d", i); cache[i] = strdup(buf); } return cache[i]; }
-    snprintf(buf, sizeof buf, "A%d", i); return strdup(buf);
+    if (i >= 0 && i < 64) { if (!cache[i]) { snprintf(buf, sizeof buf, "A%d", i); cache[i] = ct_strdup(buf); } return cache[i]; }
+    snprintf(buf, sizeof buf, "A%d", i); return ct_strdup(buf);
 }
 static const char * pl_vname(const lcx_t * cx, int slot) { if (cx && slot >= 0 && slot < 1024 && cx->valias[slot]) return pl_param_name((int) cx->valias[slot] - 1); return pl_var_name(slot); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -265,7 +266,7 @@ static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker
         && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT) {
         char key[264]; snprintf(key, sizeof key, "%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
         pl_decl_dyn_mark(spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
-        if (!resolve_pred_table_lookup(&s2->resolve_pred_table, key)) resolve_pred_table_insert(&s2->resolve_pred_table, strdup(key), marker);
+        if (!resolve_pred_table_lookup(&s2->resolve_pred_table, key)) resolve_pred_table_insert(&s2->resolve_pred_table, ct_strdup(key), marker);
         return;
     }
     pl_refuse("dynamic declaration shape", spec->v.sval ? spec->v.sval : "?", 10);
@@ -310,13 +311,13 @@ static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t 
     }
     if (t && (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && pl_ax_suffix(t->v.sval, 0)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, 0));
-        IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
+        IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = ct_strdup(nb);
         if (entry_out) *entry_out = nd;
         return nd;
     }
     if (t && t->t == TT_FNC && t->v.sval && (t->n == 1 || t->n == 2) && pl_ax_suffix(t->v.sval, t->n)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, t->n));
-        IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
+        IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = ct_strdup(nb);
         IR_t * prev = NULL; IR_t * first = NULL; IR_t * dvsr = NULL;
         for (int i = 0; i < t->n; i++) {
             IR_t * ke = NULL; IR_t * k = lower_arith_val(cx, t->c[i], ωfail, &ke); IR_t * en = ke ? ke : k;
@@ -327,7 +328,7 @@ static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t 
         }
         if (dvsr && t->n == 2 && pl_ax_divides(pl_ax_suffix(t->v.sval, 2))) {
             IR_t * zg = build(cx, IR_CALL, nd, ωfail); IR_LIT(zg).sval = "$ax_zguard";
-            IR_t * opn = build(cx, IR_LIT_STRING, zg, ωfail); IR_LIT(opn).sval = strdup(t->v.sval);
+            IR_t * opn = build(cx, IR_LIT_STRING, zg, ωfail); IR_LIT(opn).sval = ct_strdup(t->v.sval);
             ir_operand_push(zg, dvsr); ir_operand_push(zg, opn);
             if (prev) lc_γ_to(prev, opn);
             prev = zg;
@@ -347,10 +348,10 @@ static void collect_conj(const tree_t * t, lc_vec * out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
-    IR_t ** gn = (IR_t **) calloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
-    IR_t ** en = (IR_t **) calloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
-    IR_t ** rd = (IR_t **) calloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
-    int * rds = (int *) calloc((size_t)(ng > 0 ? ng : 1), sizeof(int));
+    IR_t ** gn = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
+    IR_t ** en = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
+    IR_t ** rd = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
+    int * rds = (int *) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(int));
     IR_t * next = γtail;
     for (int i = ng - 1; i >= 0; i--) {
         IR_t * e = NULL;
@@ -372,7 +373,7 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
     if (tail_out) *tail_out = (ng > 0) ? gn[ng - 1] : NULL;
     IR_t * first = (ng > 0) ? gn[0] : NULL;
-    free(gn); free(en); free(rd); free(rds);
+    ct_drop(gn); ct_drop(en); ct_drop(rd); ct_drop(rds);
     return first;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -753,7 +754,7 @@ static int pl_dyn_index(const char * name, int arity) {
 static int pl_dyn_index_or_add(const char * name, int arity) {
     int k = pl_dyn_index(name, arity);
     if (k >= 0) return k;
-    pl_dyn_mark(strdup(name), arity);
+    pl_dyn_mark(ct_strdup(name), arity);
     return pl_dyn_index(name, arity);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -972,8 +973,8 @@ static tree_t * pl_body_term(const tree_t * b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar) {
     tree_t * h; tree_t * bt = NULL; int nc = (cl && cl->t == TT_CLAUSE) ? cl->n : 0;
-    if (ar > 0) { h = ast_node_new(TT_FNC); h->v.sval = strdup(pn); for (int i = 0; i < ar; i++) ast_push(h, (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_")); }
-    else { h = ast_node_new(TT_QLIT); h->v.sval = strdup(pn); }
+    if (ar > 0) { h = ast_node_new(TT_FNC); h->v.sval = ct_strdup(pn); for (int i = 0; i < ar; i++) ast_push(h, (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_")); }
+    else { h = ast_node_new(TT_QLIT); h->v.sval = ct_strdup(pn); }
     for (int i = nc - 1; i >= ar; i--) { tree_t * g = pl_body_term(cl->c[i]); if (!bt) bt = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; } }
     if (!bt) { bt = ast_node_new(TT_QLIT); bt->v.sval = (char *) "true"; }
     { tree_t * tg = pl_clause_target(h, bt); long long slots[256]; int n = 0;
@@ -1150,7 +1151,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { const char * csuf = (t->n == 2) ? pl_cmp_op_suffix(nm) : NULL;
           if (csuf) {
             char nb[16]; snprintf(nb, sizeof nb, "$cmp_%s", csuf);
-            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
+            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = ct_strdup(nb);
             IR_t * ea = NULL; IR_t * eb = NULL;
             IR_t * a = lower_arith_val(cx, t->c[0], ωfail, &ea); IR_t * b = lower_arith_val(cx, t->c[1], ωfail, &eb);
             lc_γ_to(a, eb ? eb : b); lc_ω_to(a, ωfail);
@@ -1250,8 +1251,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 lc_vec glv2; lc_vec_init(&glv2, (int) sizeof(const tree_t *));
                 collect_conj(gt, &glv2);
                 IR_t * te2 = NULL; IR_t * tv2 = term_e(cx, t->c[0], &te2);
-                IR_t ** wk = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
-                IR_t ** we = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
+                IR_t ** wk = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
+                IR_t ** we = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
                 for (int i = 0; i < pl_nfv; i++) { wk[i] = build(cx, IR_VAR, NULL, ωfail); IR_LIT(wk[i]).sval = pl_vname(cx, pl_fv[i]); we[i] = NULL; }
                 IR_t * wce = NULL; IR_t * wc = mkc_node(cx, "$w", pl_nfv, wk, we, &wce);
                 IR_t * pkids[2]; IR_t * pkes[2]; pkids[0] = wc; pkes[0] = wce; pkids[1] = tv2; pkes[1] = te2;
@@ -1266,8 +1267,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 ir_operand_push(add, acc); ir_operand_push(add, pr);
                 if (gredo) lc_γ_to_β(add, gredo); else lc_γ_to(add, lo);
                 lc_ω_to(add, lo);
-                IR_t ** rk = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
-                IR_t ** rke = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
+                IR_t ** rk = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
+                IR_t ** rke = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
                 for (int i = 0; i < pl_nfv; i++) { rk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(rk[i]).sval = pl_vname(cx, pl_fv[i]); rke[i] = NULL; }
                 IR_t * wre = NULL; IR_t * wr = mkc_node(cx, "$w", pl_nfv, rk, rke, &wre);
                 IR_t * re2 = NULL; IR_t * rl2 = term_lval_e(cx, t->c[2], &re2);
@@ -1277,7 +1278,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 ir_operand_push(to, lo); ir_operand_push(to, cnt);
                 ir_operand_push(nd, acc); ir_operand_push(nd, to); ir_operand_push(nd, wr); ir_operand_push(nd, rl2);
                 lc_ω_to_β(nd, to);
-                free(wk); free(we); free(rk); free(rke);
+                ct_drop(wk); ct_drop(we); ct_drop(rk); ct_drop(rke);
                 { IR_t * lge = NULL; IR_t * lg = goal(cx, pl_cc_fnc1("$pl_list_guard", (tree_t *) t->c[2]), re2 ? re2 : rl2, ωfail, &lge);
                   if (entry_out) *entry_out = lge ? lge : lg; }
                 return to;
@@ -1529,7 +1530,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_new_proc(const char * name, int nparams, int bb_idx) {
     int pi = stage2_proc_grow(&g_stage2);
-    g_stage2.proc_table[pi].name         = strdup(name);
+    g_stage2.proc_table[pi].name         = ct_strdup(name);
     g_stage2.proc_table[pi].proc         = NULL;
     g_stage2.proc_table[pi].entry_pc     = -1;
     g_stage2.proc_table[pi].bb_idx       = bb_idx;
@@ -1544,9 +1545,9 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsign
     g->body_root = NULL;
     { extern int dop_direct_leaf_known(const char *, int); for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op == IR_CALL && nd->sval && nd->sval[0] == '$' && dop_direct_leaf_known(nd->sval, nd->n_operands)) nd->seal = IR_SEAL_CALL_DET_LEAF; } }
     g->nparams = arity;
-    if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
+    if (arity > 0) { g->pnames = (const char **) ct_zalloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
     int nl = 0;
-    if (maxlocal >= 0) { g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *));
+    if (maxlocal >= 0) { g->lnames = (const char **) ct_zalloc((size_t)(maxlocal + 1), sizeof(const char *));
         for (int k = 0; k <= maxlocal; k++) { const char * nm = pl_var_name(k); int used = !(aliased && k < 1024 && aliased[k]);
             for (int i = 0; i < g->n && !used; i++) { const IR_t * nd = g->all[i]; if (nd && (nd->op == IR_VAR || nd->op == IR_VAR_REF) && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, nm)) used = 1; }
             if (used) g->lnames[nl++] = nm; }
@@ -1557,9 +1558,9 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsign
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_alt_alloc(IR_graph_t * g, int nc) {
-    g->alt_entry = (IR_t **) calloc((size_t) nc, sizeof(IR_t *));
-    g->alt_ret   = (IR_t **) calloc((size_t) nc, sizeof(IR_t *));
-    g->alt_redo  = (IR_t **) calloc((size_t) nc, sizeof(IR_t *));
+    g->alt_entry = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
+    g->alt_ret   = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
+    g->alt_redo  = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
     g->n_alts    = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1650,7 +1651,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     int idx; IR_graph_t * g; bb_box_fn fn; IR_graph_t * cfg_sv; int fa; int rfe_sv; int gpa_sv;
     if (!key || !choice) return (void *)0;
     { extern int rt_proc_is_registered(const char *); extern void rt_proc_register(const char *, const char **, int);
-      if (!rt_proc_is_registered(key)) rt_proc_register(strdup(key), (const char **) 0, arity); }
+      if (!rt_proc_is_registered(key)) rt_proc_register(ct_strdup(key), (const char **) 0, arity); }
     { extern void bb_pool_init(void); bb_pool_init(); }
     idx = lower_pl_pred_graph(key, choice);
     if (idx < 0) return (void *)0;
@@ -1697,9 +1698,9 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
 void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_g(key, choice, arity, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_mc_wrapper_term(const char * fn, int ar) {
-    if (ar <= 0) { tree_t * a = ast_node_new(TT_QLIT); a->v.sval = strdup(fn); return a; }
-    { tree_t * t = ast_node_new(TT_FNC); t->v.sval = strdup(fn);
-      for (int i = 0; i < ar; i++) { char b[24]; tree_t * v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", i); v->v.sval = strdup(b); ast_push(t, v); }
+    if (ar <= 0) { tree_t * a = ast_node_new(TT_QLIT); a->v.sval = ct_strdup(fn); return a; }
+    { tree_t * t = ast_node_new(TT_FNC); t->v.sval = ct_strdup(fn);
+      for (int i = 0; i < ar; i++) { char b[24]; tree_t * v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", i); v->v.sval = ct_strdup(b); ast_push(t, v); }
       return t; }
 }
 static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) {
@@ -1721,14 +1722,14 @@ static void * pl_mc_define(const char * wkey, const char * wname, int ar, tree_t
     tree_t * cl = pl_runtime_clause_tree(pair);
     tree_t * ch;
     if (!cl) return (void *)0;
-    ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(wkey); ast_push(ch, cl);
+    ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(wkey); ast_push(ch, cl);
     return pl_runtime_define_pred_g(wkey, ch, ar, gout);
 }
 void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar) {
     extern int rt_pl_unknown_suppress(const char *);
     char wname[300]; IR_graph_t * g = NULL; void * fn;
     if (!wkey || !nm || ar < 0) return (void *)0;
-    nm = strdup(nm);
+    nm = ct_strdup(nm);
     snprintf(wname, sizeof wname, "$mc:%s", nm);
     fn = pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term(nm, ar), &g);
     if (!fn) return (void *)0;
@@ -1826,7 +1827,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         g_pl_seed_var_base = save_base;
         if (nseed > 0) { IR_graph_t * sg = pl_body_graph(seeds, nseed); int bb_idx = bb_program_add(&g_stage2.bbp, sg);
           if (bb_idx >= 0) { pl_bb_register("$db_seed/0", 0, bb_idx); pl_new_proc("$db_seed/0", 0, bb_idx); if (nall < PL_INIT_GOALS_MAX) all_goals[nall++] = pl_atom_goal("$db_seed"); } } }
-      { enum { PL_DECL_GOALS_MAX = 4096 }; const tree_t ** decls = (const tree_t **) calloc(PL_DECL_GOALS_MAX, sizeof(const tree_t *)); int ndecl = 0;
+      { enum { PL_DECL_GOALS_MAX = 4096 }; const tree_t ** decls = (const tree_t **) ct_zalloc(PL_DECL_GOALS_MAX, sizeof(const tree_t *)); int ndecl = 0;
         for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE && decls; bi++)
           for (Resolve_PredEntry * pe = g_stage2.resolve_pred_table.buckets[bi]; pe && ndecl < PL_DECL_GOALS_MAX; pe = pe->next) {
             const char * slash; int ar; char nm[264]; size_t nl;
@@ -1834,7 +1835,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             slash = strrchr(pe->key, '/'); if (!slash) continue;
             ar = atoi(slash + 1); nl = (size_t) (slash - pe->key); if (nl >= sizeof nm) continue; memcpy(nm, pe->key, nl); nm[nl] = 0;
             if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) continue;
-            decls[ndecl++] = pl_cc_fnc3("$db_decl", (tree_t *) pl_atom_goal(strdup(nm)), pl_cc_ilit(ar), pl_cc_ilit(1)); }
+            decls[ndecl++] = pl_cc_fnc3("$db_decl", (tree_t *) pl_atom_goal(ct_strdup(nm)), pl_cc_ilit(ar), pl_cc_ilit(1)); }
         for (int i = 0; i < g_pl_decl_other_n && decls && ndecl < PL_DECL_GOALS_MAX; i++)
           if (g_pl_decl_other_name[i][0] != '$') decls[ndecl++] = pl_cc_fnc3("$db_decl", (tree_t *) pl_atom_goal(g_pl_decl_other_name[i]), pl_cc_ilit(g_pl_decl_other_arity[i]), pl_cc_ilit(2));
         for (int di = 0; di < g_stage2.pl_dyn_n && decls && ndecl < PL_DECL_GOALS_MAX; di++)
@@ -1842,7 +1843,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             decls[ndecl++] = pl_cc_fnc3("$db_decl", (tree_t *) pl_atom_goal(g_stage2.pl_dyn_name[di]), pl_cc_ilit(g_stage2.pl_dyn_arity[di]), pl_cc_ilit(2));
         if (ndecl > 0) { IR_graph_t * dg = pl_body_graph(decls, ndecl); int bb_idx = bb_program_add(&g_stage2.bbp, dg);
           if (bb_idx >= 0) { pl_bb_register("$db_decl/0", 0, bb_idx); pl_new_proc("$db_decl/0", 0, bb_idx); if (nall < PL_INIT_GOALS_MAX) all_goals[nall++] = pl_atom_goal("$db_decl"); } }
-        free(decls); }
+        ct_drop(decls); }
       for (int i = 0; i < ndir && nall < PL_INIT_GOALS_MAX * 2; i++) all_goals[nall++] = dir_goals[i];
       for (int i = 0; i < ninit && nall < PL_INIT_GOALS_MAX * 2; i++) all_goals[nall++] = init_goals[i];
       ninit = nall; for (int i = 0; i < nall; i++) init_goals[i < PL_INIT_GOALS_MAX ? i : PL_INIT_GOALS_MAX - 1] = all_goals[i]; }
@@ -1865,10 +1866,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
       { const char * fk = "$fc/3";
         if (!pl_bb_lookup(fk, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, fk)) {
-          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(fk); int nb = 0;
+          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(fk); int nb = 0;
           pl_bb_register(fk, 3, -1);
           for (int bi = 0; bi < 4; bi++) {
-            tree_t * hd = ast_node_new(TT_FNC); tree_t * body; tree_t * raw; tree_t * cl; hd->v.sval = strdup("$fc");
+            tree_t * hd = ast_node_new(TT_FNC); tree_t * body; tree_t * raw; tree_t * cl; hd->v.sval = ct_strdup("$fc");
             if (bi == 0) { ast_push(hd, pl_meta_var("G")); ast_push(hd, pl_meta_var("_")); ast_push(hd, pl_meta_var("_"));
               body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("var", pl_meta_var("G")), (tree_t *) pl_atom_goal("!")), (tree_t *) pl_atom_goal("fail")); }
             else if (bi == 1) { ast_push(hd, pl_meta_var("G")); ast_push(hd, (tree_t *) pl_atom_goal("true")); ast_push(hd, (tree_t *) pl_atom_goal("true"));
@@ -1890,10 +1891,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (pl_bb_lookup(key, 2)) continue;
         if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
         nclause = !strcmp(wn, ";") ? 6 : !strcmp(wn, ",") ? 2 : 1;
-        { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); int nb = 0;
+        { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(key); int nb = 0;
           for (int bi = 0; bi < nclause; bi++) {
             tree_t * hd = ast_node_new(TT_FNC); tree_t * body = (tree_t *) 0; tree_t * raw; tree_t * cl;
-            hd->v.sval = strdup(wn); ast_push(hd, pl_meta_var("A")); ast_push(hd, pl_meta_var("B"));
+            hd->v.sval = ct_strdup(wn); ast_push(hd, pl_meta_var("A")); ast_push(hd, pl_meta_var("B"));
             if (!strcmp(wn, ",")) { tree_t * f1 = pl_cc_fnc3("$fc", pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("B")), pl_meta_var("Pre"), pl_meta_var("Post"));
               tree_t * f2 = pl_cc_fnc2(",", pl_cc_fnc2(",", f1, (tree_t *) pl_atom_goal("!")), pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("Pre")), (tree_t *) pl_atom_goal("!")));
               body = bi == 0 ? pl_cc_fnc2(",", f2, pl_cc_fnc1("call", pl_meta_var("Post"))) : pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B"))); }
@@ -1919,16 +1920,16 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
       { const char * pk = "print/1";
         if ((pl_file_defines("portray", 1) || pl_db_owned("portray", 1)) && !pl_bb_lookup(pk, 1)
             && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, pk) && !pl_decl_dyn_is("print", 1)) {
-          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(pk);
-          tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = strdup("print"); ast_push(hd, pl_meta_var("A"));
+          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(pk);
+          tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = ct_strdup("print"); ast_push(hd, pl_meta_var("A"));
           tree_t * body = pl_cc_ite(pl_cc_fnc1("portray", pl_meta_var("A")), (tree_t *) pl_atom_goal("true"), pl_cc_fnc1("writeq", pl_meta_var("A")));
           tree_t * raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
           tree_t * cl = pl_runtime_clause_tree(raw);
           if (cl) { ast_push(ch, cl); { int bb_idx = lower_pl_pred_graph(pk, ch); if (bb_idx >= 0) { pl_bb_register(pk, 1, bb_idx); pl_new_proc(pk, 1, bb_idx); } } } } }
       { const char * ik = "if/3";
         if (!pl_bb_lookup(ik, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, ik) && !pl_decl_dyn_is("if", 3)) {
-          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(ik);
-          tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = strdup("if"); ast_push(hd, pl_meta_var("C")); ast_push(hd, pl_meta_var("T")); ast_push(hd, pl_meta_var("E"));
+          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(ik);
+          tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = ct_strdup("if"); ast_push(hd, pl_meta_var("C")); ast_push(hd, pl_meta_var("T")); ast_push(hd, pl_meta_var("E"));
           tree_t * body = pl_cc_scite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("E")));
           tree_t * raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
           tree_t * cl = pl_runtime_clause_tree(raw);
@@ -1945,12 +1946,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
         { tree_t * hd; tree_t * body; tree_t * raw; tree_t * cl; tree_t * ch; static const char * const an[] = { "A", "B", "C", "D", "E" };
           if (ba > 5) continue;
-          if (ba > 0) { hd = ast_node_new(TT_FNC); hd->v.sval = strdup(bn); body = ast_node_new(TT_FNC); body->v.sval = strdup(bn);
+          if (ba > 0) { hd = ast_node_new(TT_FNC); hd->v.sval = ct_strdup(bn); body = ast_node_new(TT_FNC); body->v.sval = ct_strdup(bn);
                         for (int k = 0; k < ba; k++) { ast_push(hd, pl_meta_var(an[k])); ast_push(body, pl_meta_var(an[k])); } }
-          else { hd = ast_node_new(TT_QLIT); hd->v.sval = strdup(bn); body = ast_node_new(TT_QLIT); body->v.sval = strdup(bn); }
+          else { hd = ast_node_new(TT_QLIT); hd->v.sval = ct_strdup(bn); body = ast_node_new(TT_QLIT); body->v.sval = ct_strdup(bn); }
           raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
           cl = pl_runtime_clause_tree(raw); if (!cl) continue;
-          ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); ast_push(ch, cl);
+          ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(key); ast_push(ch, cl);
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, ba, bb_idx); pl_new_proc(key, ba, bb_idx); } } } }
     for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
@@ -1960,14 +1961,14 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           if (pl_bb_lookup(key, da)) continue;
           { extern tree_t * pl_runtime_clause_tree(tree_t *);
             tree_t * hd; tree_t * raw; tree_t * cl; tree_t * ch;
-            if (da > 0) { hd = ast_node_new(TT_FNC); hd->v.sval = strdup(dn);
+            if (da > 0) { hd = ast_node_new(TT_FNC); hd->v.sval = ct_strdup(dn);
                           for (int i = 0; i < da; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.sval = (char *) "_"; ast_push(hd, v); } }
-            else { hd = ast_node_new(TT_QLIT); hd->v.sval = strdup(dn); }
+            else { hd = ast_node_new(TT_QLIT); hd->v.sval = ct_strdup(dn); }
             { tree_t * fb = ast_node_new(TT_QLIT); fb->v.sval = (char *) "fail";
               raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, fb); }
             cl = pl_runtime_clause_tree(raw);
             if (!cl) continue;
-            ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); ast_push(ch, cl);
+            ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(key); ast_push(ch, cl);
             { int bb_idx = lower_pl_pred_graph(key, ch);
               if (bb_idx < 0) continue;
               pl_bb_register(key, da, bb_idx);

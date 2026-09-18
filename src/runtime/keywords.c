@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "core.h"
 #include "sil_macros.h"
 #include "keywords.h"
@@ -74,7 +75,7 @@ static void kw_cset_hindex_insert(int idx) {
 }
 static void kw_cset_hindex_rebuild(void) {
     int want = 64; while (want < g_kw_cset_cap * 2) want <<= 1;
-    if (want != g_kw_cset_hcap) { free(g_kw_cset_hidx); free(g_kw_cset_cidx); g_kw_cset_hidx = (int *) calloc((size_t)want, sizeof(int)); g_kw_cset_cidx = (int *) calloc((size_t)want, sizeof(int)); g_kw_cset_hcap = want; }
+    if (want != g_kw_cset_hcap) { ct_drop(g_kw_cset_hidx); ct_drop(g_kw_cset_cidx); g_kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int)); g_kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int)); g_kw_cset_hcap = want; }
     else { memset(g_kw_cset_hidx, 0, (size_t)want * sizeof(int)); memset(g_kw_cset_cidx, 0, (size_t)want * sizeof(int)); }
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) { kw_cset_hindex_insert(i); kw_cset_cindex_insert(i); }
 }
@@ -90,7 +91,7 @@ static int kw_cset_find_ptr(const char *p) {
 static void kw_cset_grow(void) {
     if (g_kw_cset_count < g_kw_cset_cap) return;
     g_kw_cset_cap = g_kw_cset_cap ? g_kw_cset_cap * 2 : 16;
-    g_kw_cset_names = (kw_cset_ent_t *) realloc(g_kw_cset_names, (size_t)g_kw_cset_cap * sizeof(kw_cset_ent_t));
+    g_kw_cset_names = (kw_cset_ent_t *) ct_grow(g_kw_cset_names, (size_t)g_kw_cset_cap * sizeof(kw_cset_ent_t));
     kw_cset_hindex_rebuild();
 }
 static void kw_cset_bits_fill(kw_cset_ent_t *e) {

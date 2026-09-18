@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -17,19 +18,19 @@ uint64_t * rt_port_counts_cell(int uid, int port, const char * label)
     if (uid < 0 || port < 0 || port >= PC_PORTS) return NULL;
     long s = (long)uid * PC_PORTS + port, ci = s / PC_CHUNK, off = s % PC_CHUNK;
     if (ci >= g_pc_nchunk) {
-        long n = ci + 1; uint64_t ** t = (uint64_t **)realloc(g_pc_chunk, (size_t)n * sizeof *t);
+        long n = ci + 1; uint64_t ** t = (uint64_t **)ct_grow(g_pc_chunk, (size_t)n * sizeof *t);
         if (!t) return NULL;
-        g_pc_chunk = t; for (long i = g_pc_nchunk; i < n; i++) g_pc_chunk[i] = (uint64_t *)calloc(PC_CHUNK, sizeof(uint64_t));
+        g_pc_chunk = t; for (long i = g_pc_nchunk; i < n; i++) g_pc_chunk[i] = (uint64_t *)ct_zalloc(PC_CHUNK, sizeof(uint64_t));
         g_pc_nchunk = n;
     }
     if (!g_pc_chunk[ci]) return NULL;
     if (s + 1 > g_pc_nslot) g_pc_nslot = s + 1;
     if (label && *label) {
         if (s >= g_pc_nname) {
-            long n = s + 1; char ** t = (char **)realloc(g_pc_name, (size_t)n * sizeof *t);
+            long n = s + 1; char ** t = (char **)ct_grow(g_pc_name, (size_t)n * sizeof *t);
             if (t) { g_pc_name = t; for (long i = g_pc_nname; i < n; i++) g_pc_name[i] = NULL; g_pc_nname = n; }
         }
-        if (s < g_pc_nname && !g_pc_name[s]) g_pc_name[s] = strdup(label);
+        if (s < g_pc_nname && !g_pc_name[s]) g_pc_name[s] = ct_strdup(label);
     }
     return &g_pc_chunk[ci][off];
 }
@@ -95,7 +96,7 @@ void rt_port_counts_report(const char * tag, int four)
         fprintf(stderr, "[PORTCOUNTS] ⛔ REFUSE: %ld cells registered but EVERY alpha count is zero -- the increments were emitted but never executed, or never reached the cells.\n", g_pc_nslot);
         return;
     }
-    { long * ord = (long *)malloc((size_t)nbox * sizeof(long)); if (!ord) return;
+    { long * ord = (long *)ct_alloc((size_t)nbox * sizeof(long)); if (!ord) return;
       for (long b = 0; b < nbox; b++) ord[b] = b;
       for (long i = 1; i < nbox; i++) { long k = ord[i], j = i - 1; while (j >= 0 && pc_get(ord[j] * PC_PORTS) < pc_get(k * PC_PORTS)) { ord[j + 1] = ord[j]; j--; } ord[j + 1] = k; }
       if (four) fprintf(stderr, "[PORTCOUNTS] %12s %12s %12s %12s %8s %8s  %s\n", "alpha", "beta", "gamma", "omega", "B/A", "W/G", "box");
@@ -106,7 +107,7 @@ void rt_port_counts_report(const char * tag, int four)
           pc_box_name(ord[i], nm, sizeof nm);
           pc_row(four, ord[i], nm); shown++;
       }
-      free(ord); }
+      ct_drop(ord); }
     if (getenv("SCRIP_PORT_COUNTS_CSV")) pc_csv(four);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

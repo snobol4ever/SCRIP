@@ -1,4 +1,5 @@
 %{
+#include "ct_arena.h"
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "pascal.tab.h"
@@ -9,7 +10,7 @@
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char *pascal_raw_dup(const char *s, int n) {
-    char *b = (char *)malloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
+    char *b = (char *)ct_alloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
 }
 static char *pascal_lower_dup(const char *s, int n) {
     char *b = pascal_raw_dup(s, n);

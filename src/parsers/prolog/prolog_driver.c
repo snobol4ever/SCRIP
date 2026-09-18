@@ -1,6 +1,8 @@
 #include "prolog_driver.h"
+#include "ct_arena.h"
 #include "prolog_parse.h"
 #include "prolog_lower.h"
+#include "lower.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,9 +21,9 @@ static char * pl_consult_resolve(const char *spec, const char *from_file) {
     dlen = slash ? (size_t)(slash - from_file) + 1 : 0;
     if (dlen && dlen < sizeof cand - strlen(spec) - 8) {
         memcpy(cand, from_file, dlen); snprintf(cand + dlen, sizeof cand - dlen, "%s%s", spec, has_ext ? "" : ".pl");
-        probe = fopen(cand, "r"); if (probe) { fclose(probe); return strdup(cand); } }
+        probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); } }
     snprintf(cand, sizeof cand, "%s%s", spec, has_ext ? "" : ".pl");
-    probe = fopen(cand, "r"); if (probe) { fclose(probe); return strdup(cand); }
+    probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); }
     return (char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -34,15 +36,15 @@ static const char * pl_consult_spec(const tree_t *t) {
 static void pl_consult_one(tree_t *prog, const char *spec, const char *from_file) {
     char *path = pl_consult_resolve(spec, from_file); FILE *f; long flen; char *src; tree_t *sub = (tree_t *)0;
     if (!path) { fprintf(stderr, "scrip: prolog: consult: cannot find source for '%s' (tried alongside %s and the working directory)\n", spec, from_file ? from_file : "<stdin>"); return; }
-    for (int i = 0; i < g_pl_consulted_n; i++) if (!strcmp(g_pl_consulted[i], path)) { free(path); return; }
-    if (g_pl_consulted_n < PL_CONSULT_FILES_MAX) g_pl_consulted[g_pl_consulted_n++] = path; else { free(path); return; }
+    for (int i = 0; i < g_pl_consulted_n; i++) if (!strcmp(g_pl_consulted[i], path)) { ct_drop(path); return; }
+    if (g_pl_consulted_n < PL_CONSULT_FILES_MAX) g_pl_consulted[g_pl_consulted_n++] = path; else { ct_drop(path); return; }
     f = fopen(path, "r"); if (!f) return;
     fseek(f, 0, SEEK_END); flen = ftell(f); rewind(f);
-    src = (char *)malloc((size_t)flen + 1); if (!src) { fclose(f); return; }
+    src = (char *)ct_alloc((size_t)flen + 1); if (!src) { fclose(f); return; }
     if (fread(src, 1, (size_t)flen, f) != (size_t)flen) src[0] = src[0];
     src[flen] = '\0'; fclose(f);
     prolog_compile(src, path, &sub);
-    free(src);
+    ct_drop(src);
     if (sub) for (int i = 0; i < sub->n; i++) if (sub->c[i]) ast_push(prog, sub->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

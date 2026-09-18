@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <stdio.h>
 #include "sync_monitor.h"
@@ -41,7 +42,7 @@ void exec_snapshot_take(ExecSnapshot *s) {
         for (int fi = 0; fi < frame_depth; fi++)
             total += frame_stack[fi].sc.n;
         if (total > 0) {
-            s->frame_locals = malloc((size_t)total * sizeof(NvPair));
+            s->frame_locals = ct_alloc((size_t)total * sizeof(NvPair));
             int out = 0;
             for (int fi = 0; fi < frame_depth; fi++) {
                 GenFrame *f = &frame_stack[fi];
@@ -72,18 +73,18 @@ void exec_snapshot_free(ExecSnapshot *s) {
     if (!s) return;
     s->nv_pairs = NULL;
     s->nv_count = 0;
-    free(s->label_path);
+    ct_drop(s->label_path);
     s->label_path     = NULL;
     s->label_path_n   = 0;
     s->label_path_cap = 0;
-    free(s->frame_locals);
+    ct_drop(s->frame_locals);
     s->frame_locals       = NULL;
     s->frame_locals_count = 0;
     for (int i = 0; i < s->resolve_locals_count; i++) {
-        free(s->resolve_locals[i].name);
-        free(s->resolve_locals[i].val_str);
+        ct_drop(s->resolve_locals[i].name);
+        ct_drop(s->resolve_locals[i].val_str);
     }
-    free(s->resolve_locals);
+    ct_drop(s->resolve_locals);
     s->resolve_locals       = NULL;
     s->resolve_locals_count = 0;
 }
@@ -91,7 +92,7 @@ void exec_snapshot_free(ExecSnapshot *s) {
 static void label_path_append(ExecSnapshot *s, const char *lbl) {
     if (s->label_path_n >= s->label_path_cap) {
         int newcap = s->label_path_cap ? s->label_path_cap * 2 : 16;
-        s->label_path = realloc(s->label_path, (size_t)newcap * sizeof(const char *));
+        s->label_path = ct_grow(s->label_path, (size_t)newcap * sizeof(const char *));
         s->label_path_cap = newcap;
     }
     s->label_path[s->label_path_n++] = lbl;

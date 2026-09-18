@@ -1,4 +1,5 @@
 #include "rt_slab.h"
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -26,7 +27,7 @@ rt_slab_t *rt_slab_get(size_t min_bytes) {
     }
     pthread_mutex_unlock(&g_mx);
     size_t cap = (k < NKLASS) ? k_bytes[k] : ((min_bytes + 15u) & ~(size_t)15u);
-    rt_slab_t *s = (rt_slab_t *)malloc(32 + cap);
+    rt_slab_t *s = (rt_slab_t *)ct_alloc(32 + cap);
     if (!s) { fprintf(stderr, "rt_slab_get: OOM (%zu)\n", cap); abort(); }
     s->next = NULL; s->cap = cap; s->klass = k; s->magic = RT_SLAB_MAGIC;
     pthread_mutex_lock(&g_mx);
@@ -38,7 +39,7 @@ rt_slab_t *rt_slab_get(size_t min_bytes) {
 void rt_slab_put(rt_slab_t *s) {
     if (!s) return;
     if (s->magic != RT_SLAB_MAGIC) { fprintf(stderr, "rt_slab_put: bad magic\n"); abort(); }
-    if (s->klass >= NKLASS) { free(s); return; }
+    if (s->klass >= NKLASS) { ct_drop(s); return; }
     pthread_mutex_lock(&g_mx);
     s->next = g_free[s->klass];
     g_free[s->klass] = s;

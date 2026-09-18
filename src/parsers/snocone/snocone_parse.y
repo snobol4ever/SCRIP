@@ -1,3 +1,6 @@
+%{
+#include "ct_arena.h"
+%}
 %code top {
 }
 %code requires {
@@ -249,9 +252,9 @@ matched_stmt
             | switch_head T_LBRACE T_RBRACE
                                         { sc_finalize_switch_pst(st, $1); }
             | T_STRUCT T_IDENT T_LBRACE struct_field_list T_RBRACE
-                                        { sc_emit_struct(st, $2, $4); free($2); free($4); }
+                                        { sc_emit_struct(st, $2, $4); ct_drop($2); ct_drop($4); }
             | T_STRUCT T_IDENT T_LBRACE T_RBRACE
-                                        { sc_emit_struct(st, $2, strdup("")); free($2); }
+                                        { sc_emit_struct(st, $2, ct_strdup("")); ct_drop($2); }
             | label_decl
             ;
 unmatched_stmt
@@ -269,13 +272,13 @@ if_head     : T_IF T_LPAREN expr0 T_RPAREN opt_head_sep
             ;
 while_head  : T_WHILE T_LPAREN expr0 T_RPAREN opt_head_sep
                                         { sc_loop_push(st, NULL, NULL, 1);
-                                          struct WhileHead *wh = calloc(1, sizeof *wh);
+                                          struct WhileHead *wh = ct_zalloc(1, sizeof *wh);
                                           wh->cond        = $3;
                                           wh->before_body = st->code->tail;
                                           $$ = wh; }
             ;
 do_head     : T_DO                  { sc_loop_push(st, NULL, NULL, 1);
-                                      struct DoHead *dh = calloc(1, sizeof *dh);
+                                      struct DoHead *dh = ct_zalloc(1, sizeof *dh);
                                       dh->before_body = st->code->tail;
                                       $$ = dh; }
             ;
@@ -306,47 +309,47 @@ opt_head_sep
             | T_CONCAT
             ;
 func_head   : T_DEFINE T_IDENT T_LPAREN func_arglist func_locals
-                                        { $$ = sc_func_head_new_pst(st, $2, $4, $5); free($2); free($4); free($5); }
+                                        { $$ = sc_func_head_new_pst(st, $2, $4, $5); ct_drop($2); ct_drop($4); ct_drop($5); }
             ;
 func_locals
-            : opt_head_sep                              { $$ = strdup(""); }
+            : opt_head_sep                              { $$ = ct_strdup(""); }
             | opt_head_sep func_locals_ne opt_head_sep  { $$ = $2; }
             ;
 func_locals_ne
-            : T_IDENT                  { $$ = strdup($1); free($1); }
+            : T_IDENT                  { $$ = ct_strdup($1); ct_drop($1); }
             | func_locals_ne T_COMMA T_IDENT
                 { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = malloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  free($1); free($3); $$ = s; }
+                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
+                  ct_drop($1); ct_drop($3); $$ = s; }
             ;
 func_arglist
-            : T_RPAREN                 { $$ = strdup(""); }
-            | T_IDENT T_RPAREN         { $$ = strdup($1); free($1); }
+            : T_RPAREN                 { $$ = ct_strdup(""); }
+            | T_IDENT T_RPAREN         { $$ = ct_strdup($1); ct_drop($1); }
             | func_arglist_ne T_RPAREN { $$ = $1; }
             ;
 func_arglist_ne
             : T_IDENT T_COMMA T_IDENT
                 { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = malloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  free($1); free($3); $$ = s; }
+                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
+                  ct_drop($1); ct_drop($3); $$ = s; }
             | func_arglist_ne T_COMMA T_IDENT
                 { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = malloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  free($1); free($3); $$ = s; }
+                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
+                  ct_drop($1); ct_drop($3); $$ = s; }
             ;
 struct_field_list
             : T_IDENT
-                { $$ = strdup($1); free($1); }
+                { $$ = ct_strdup($1); ct_drop($1); }
             | struct_field_list T_COMMA T_IDENT
                 { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = malloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  free($1); free($3); $$ = s; }
+                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
+                  ct_drop($1); ct_drop($3); $$ = s; }
             ;
 else_keyword
             : T_ELSE                 { $$ = st->code->tail; }
             ;
 label_decl
-            : T_IDENT T_COLON        { sc_append_label_node(st, $1); free($1); }
+            : T_IDENT T_COLON        { sc_append_label_node(st, $1); ct_drop($1); }
             ;
 simple_stmt : expr0 T_SEMICOLON                { sc_append_stmt(st, $1); }
             | T_SEMICOLON                      {         }
@@ -355,11 +358,11 @@ simple_stmt : expr0 T_SEMICOLON                { sc_append_stmt(st, $1); }
             | T_RETURN T_SEMICOLON          { sc_append_stmt(st, ast_node_new(TT_RETURN)); }
             | T_FRETURN T_SEMICOLON         { sc_append_stmt(st, ast_node_new(TT_PROC_FAIL)); }
             | T_NRETURN T_SEMICOLON         { sc_append_stmt(st, ast_node_new(TT_NRETURN)); }
-            | T_GOTO T_IDENT T_SEMICOLON    { tree_t *g = ast_node_new(TT_GOTO_U); g->sval = strdup($2); free($2); sc_append_stmt(st, g); }
+            | T_GOTO T_IDENT T_SEMICOLON    { tree_t *g = ast_node_new(TT_GOTO_U); g->sval = ct_strdup($2); ct_drop($2); sc_append_stmt(st, g); }
             | T_BREAK T_SEMICOLON           { sc_append_break(st, NULL); }
-            | T_BREAK T_IDENT T_SEMICOLON   { sc_append_break(st, $2); free($2); }
+            | T_BREAK T_IDENT T_SEMICOLON   { sc_append_break(st, $2); ct_drop($2); }
             | T_CONTINUE T_SEMICOLON        { sc_append_continue(st, NULL); }
-            | T_CONTINUE T_IDENT T_SEMICOLON { sc_append_continue(st, $2); free($2); }
+            | T_CONTINUE T_IDENT T_SEMICOLON { sc_append_continue(st, $2); ct_drop($2); }
             ;
 block_stmt  : T_LBRACE stmt_list T_RBRACE      { }
             | T_LBRACE T_RBRACE                {                  }
@@ -368,7 +371,7 @@ expr0       : expr1 T_2EQUAL    expr0
                                 { $$ = expr_binary(TT_ASSIGN, $1, $3); }
             | expr1 T_2EQUAL
                                 { tree_t *empty = expr_new(TT_QLIT);
-                                  empty->sval = strdup("");
+                                  empty->sval = ct_strdup("");
                                   $$ = expr_binary(TT_ASSIGN, $1, empty); }
             | expr1 T_PLUS_ASSIGN   expr0
                                 { tree_t *a = ast_node_new(TT_AUGOP); a->ival = TK_AUGPLUS;
@@ -404,46 +407,46 @@ expr4       : expr4 T_CONCAT expr5
                                 { $$ = $1; }
             ;
 expr5       : expr5 T_EQ        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("EQ");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("EQ");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_NE        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("NE");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("NE");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LT        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LT");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LT");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_GT        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("GT");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("GT");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LE        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LE");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LE");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_GE        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("GE");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("GE");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LEQ       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LEQ");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LEQ");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LNE       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LNE");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LNE");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LLT       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LLT");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LLT");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LGT       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LGT");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LGT");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LLE       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LLE");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LLE");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_LGE       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("LGE");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LGE");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_IDENT_OP  expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("IDENT");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("IDENT");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr5 T_DIFFER    expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = strdup("DIFFER");
+                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("DIFFER");
                                   expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
             | expr6
                                 { $$ = $1; }
@@ -485,19 +488,19 @@ expr14      : T_1PLUS  expr14
             | T_1TILDE  expr14  { $$ = expr_unary(TT_NOT,         $2); }
             | T_1QUEST  expr14  { $$ = expr_unary(TT_INTERROGATE, $2); }
             | T_1AMP    expr14  { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("&"); $$ = _e; }
+                                  _e->sval = ct_strdup("&"); $$ = _e; }
             | T_1PERCENT expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("%"); $$ = _e; }
+                                  _e->sval = ct_strdup("%"); $$ = _e; }
             | T_1SLASH   expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("/"); $$ = _e; }
+                                  _e->sval = ct_strdup("/"); $$ = _e; }
             | T_1POUND   expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("#"); $$ = _e; }
+                                  _e->sval = ct_strdup("#"); $$ = _e; }
             | T_1PIPE    expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("|"); $$ = _e; }
+                                  _e->sval = ct_strdup("|"); $$ = _e; }
             | T_1EQUAL   expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("="); $$ = _e; }
+                                  _e->sval = ct_strdup("="); $$ = _e; }
             | T_1BANG    expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("!"); $$ = _e; }
+                                  _e->sval = ct_strdup("!"); $$ = _e; }
             | expr15
                                 { $$ = $1; }
             ;
@@ -506,7 +509,7 @@ expr15      : expr15 T_LBRACK exprlist T_RBRACK
                                   expr_add_child(idx, $1);
                                   for (int i = 0; i < $3->nchildren; i++)
                                       expr_add_child(idx, $3->children[i]);
-                                  if ($3->c) free((char*)$3->c - sizeof(size_t)); free($3);
+                                  if ($3->c) ct_drop((char*)$3->c - sizeof(size_t)); ct_drop($3);
                                   $$ = idx; }
             | expr17
                                 { $$ = $1; }
@@ -519,7 +522,7 @@ exprlist    : exprlist_ne
 exprlist_ne : exprlist_ne T_COMMA expr0
                                 { tree_t *l = expr_new(TT_NUL);
                                   for (int i = 0; i < $1->nchildren; i++) expr_add_child(l, $1->children[i]);
-                                  if ($1->c) free((char*)$1->c - sizeof(size_t)); free($1);
+                                  if ($1->c) ct_drop((char*)$1->c - sizeof(size_t)); ct_drop($1);
                                   expr_add_child(l, $3); $$ = l; }
             | expr0
                                 { tree_t *l = expr_new(TT_NUL); expr_add_child(l, $1); $$ = l; }
@@ -527,10 +530,10 @@ exprlist_ne : exprlist_ne T_COMMA expr0
 expr17      : T_CALL exprlist T_RPAREN
                                 { tree_e _k = sc_pat_prim_kind($1);
                                   tree_t *e = expr_new(_k == TT_VAR ? TT_FNC : _k);
-                                  if (_k == TT_VAR || _k == TT_ARB || _k == TT_BAL || _k == TT_REM || _k == TT_FAIL || _k == TT_SUCCEED || _k == TT_ABORT) e->sval = $1; else free($1);
+                                  if (_k == TT_VAR || _k == TT_ARB || _k == TT_BAL || _k == TT_REM || _k == TT_FAIL || _k == TT_SUCCEED || _k == TT_ABORT) e->sval = $1; else ct_drop($1);
                                   for (int i = 0; i < $2->nchildren; i++)
                                       expr_add_child(e, $2->children[i]);
-                                  if ($2->c) free((char*)$2->c - sizeof(size_t)); free($2);
+                                  if ($2->c) ct_drop((char*)$2->c - sizeof(size_t)); ct_drop($2);
                                   $$ = e; }
             | T_IDENT
                                 { tree_t *e = expr_new(TT_VAR);
@@ -541,11 +544,11 @@ expr17      : T_CALL exprlist T_RPAREN
                                   e->sval = $1;
                                   $$ = e; }
             | T_INT
-                                { $$ = sc_int_literal($1); free($1); }
+                                { $$ = sc_int_literal($1); ct_drop($1); }
             | T_REAL
-                                { $$ = sc_real_literal($1); free($1); }
+                                { $$ = sc_real_literal($1); ct_drop($1); }
             | T_STR
-                                { $$ = sc_str_literal($1); free($1); }
+                                { $$ = sc_str_literal($1); ct_drop($1); }
             | T_LPAREN expr0 T_RPAREN
                                 { $$ = $2; }
             | T_LPAREN expr0 T_COMMA exprlist_ne T_RPAREN
@@ -553,7 +556,7 @@ expr17      : T_CALL exprlist T_RPAREN
                                   expr_add_child(a, $2);
                                   for (int i = 0; i < $4->nchildren; i++)
                                       expr_add_child(a, $4->children[i]);
-                                  if ($4->c) free((char*)$4->c - sizeof(size_t)); free($4);
+                                  if ($4->c) ct_drop((char*)$4->c - sizeof(size_t)); ct_drop($4);
                                   $$ = a; }
             | T_LPAREN T_RPAREN
                                 { $$ = expr_new(TT_NUL); }
@@ -586,11 +589,11 @@ static tree_t *sc_real_literal(const char *txt) {
 }
 static tree_t *sc_str_literal(const char *txt) {
     tree_t *e = expr_new(TT_QLIT);
-    e->sval = strdup(txt);
+    e->sval = ct_strdup(txt);
     return e;
 }
 static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
-    struct IfHead *h = calloc(1, sizeof *h);
+    struct IfHead *h = ct_zalloc(1, sizeof *h);
     h->cond        = cond;
     h->before_body = st->code->tail;
     h->lineno      = st->ctx ? st->ctx->line : 0;
@@ -598,7 +601,7 @@ static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
 }
 static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, STMT_t *before_body) {
     (void)st;
-    struct ForHead *h = calloc(1, sizeof *h);
+    struct ForHead *h = ct_zalloc(1, sizeof *h);
     h->init        = init;
     h->cond        = cond;
     h->step        = step;
@@ -606,10 +609,10 @@ static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_
     return h;
 }
 static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr, char *locstr) {
-    struct FuncHead *h  = calloc(1, sizeof *h);
-    h->name             = strdup(name);
-    h->argstr           = strdup(argstr);
-    h->locstr           = strdup(locstr ? locstr : "");
+    struct FuncHead *h  = ct_zalloc(1, sizeof *h);
+    h->name             = ct_strdup(name);
+    h->argstr           = ct_strdup(argstr);
+    h->locstr           = ct_strdup(locstr ? locstr : "");
     h->prev_func        = st->cur_func_name;
     h->before_body      = st->code->tail;
     st->cur_func_name   = h->name;
@@ -619,23 +622,23 @@ static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
 {
     tree_t *body  = sc_collect_body(st, h->before_body);
     int slen = strlen(h->name) + 1 + strlen(h->argstr) + 1 + strlen(h->locstr) + 1;
-    char *sig = malloc((size_t)slen);
+    char *sig = ct_alloc((size_t)slen);
     snprintf(sig, (size_t)slen, "%s(%s)%s", h->name, h->argstr, h->locstr);
-    tree_t *qname = ast_node_new(TT_QLIT); qname->sval = strdup(h->name);
+    tree_t *qname = ast_node_new(TT_QLIT); qname->sval = ct_strdup(h->name);
     tree_t *qsig  = ast_node_new(TT_QLIT); qsig->sval  = sig;
     tree_t *def   = ast_node_new(TT_DEFINE);
     ast_push(def, qname);
     ast_push(def, qsig);
     ast_push(def, body);
     st->cur_func_name = h->prev_func;
-    free(h->name); free(h->argstr); free(h->locstr); free(h);
+    ct_drop(h->name); ct_drop(h->argstr); ct_drop(h->locstr); ct_drop(h);
     sc_append_stmt(st, def);
 }
 static void sc_append_label_node(ScParseState *st, const char *name) {
     STMT_t *s = stmt_new();
     s->lineno = st->ctx ? st->ctx->line : 0;
     s->stno   = ++st->code->nstmts;
-    s->label  = strdup(name);
+    s->label  = ct_strdup(name);
     sc_append_chain(st, s, s);
 }
 static void sc_append_chain(ScParseState *st, STMT_t *chain_head, STMT_t *chain_tail) {
@@ -656,7 +659,7 @@ static tree_t *sc_collect_body(ScParseState *st, STMT_t *snapshot)
     for (STMT_t *s = first; s; ) {
         STMT_t *nxt = s->next;
         ast_push(block, stmt_to_ast(s));
-        free(s);
+        ct_drop(s);
         s = nxt;
     }
     return block;
@@ -668,7 +671,7 @@ static void sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h)
     ast_push(if_node, h->cond);
     ast_push(if_node, then_block);
     sc_append_stmt(st, if_node);
-    free(h);
+    ct_drop(h);
 }
 static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *before_else)
 {
@@ -679,7 +682,7 @@ static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *
     ast_push(if_node, then_block);
     ast_push(if_node, else_block);
     sc_append_stmt(st, if_node);
-    free(h);
+    ct_drop(h);
 }
 static void sc_finalize_while_pst(ScParseState *st, struct WhileHead *h, tree_t *cond)
 {
@@ -688,7 +691,7 @@ static void sc_finalize_while_pst(ScParseState *st, struct WhileHead *h, tree_t 
     ast_push(w, cond);
     ast_push(w, body);
     sc_loop_pop(st);
-    free(h);
+    ct_drop(h);
     sc_append_stmt(st, w);
 }
 static void sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t *cond)
@@ -698,7 +701,7 @@ static void sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t 
     ast_push(dw, body);
     ast_push(dw, cond);
     sc_loop_pop(st);
-    free(h);
+    ct_drop(h);
     sc_append_stmt(st, dw);
 }
 static void sc_finalize_for_pst(ScParseState *st, struct ForHead *h)
@@ -711,10 +714,10 @@ static void sc_finalize_for_pst(ScParseState *st, struct ForHead *h)
     ast_push(f, body);
     sc_loop_pop(st);
     sc_append_stmt(st, f);
-    free(h);
+    ct_drop(h);
 }
 static void sc_loop_push(ScParseState *st, char *cont_label, char *end_label, int is_loop) {
-    LoopFrame *f = calloc(1, sizeof *f);
+    LoopFrame *f = ct_zalloc(1, sizeof *f);
     f->cont_label = cont_label;
     f->end_label  = end_label;
     f->is_loop    = is_loop;
@@ -725,9 +728,9 @@ static void sc_loop_pop(ScParseState *st) {
     LoopFrame *f = st->loop_top;
     if (!f) return;
     st->loop_top = f->outer;
-    free(f->cont_label);
-    free(f->end_label);
-    free(f);
+    ct_drop(f->cont_label);
+    ct_drop(f->end_label);
+    ct_drop(f);
 }
 static void sc_append_break(ScParseState *st, char *user_label) {
     if (!st->loop_top) {
@@ -736,7 +739,7 @@ static void sc_append_break(ScParseState *st, char *user_label) {
     }
     tree_t *brk = ast_node_new(TT_LOOP_BREAK);
     if (user_label) {
-        tree_t *q = ast_node_new(TT_QLIT); q->sval = strdup(user_label);
+        tree_t *q = ast_node_new(TT_QLIT); q->sval = ct_strdup(user_label);
         ast_push(brk, q);
     }
     sc_append_stmt(st, brk);
@@ -748,7 +751,7 @@ static void sc_append_continue(ScParseState *st, char *user_label) {
     }
     tree_t *nxt = ast_node_new(TT_LOOP_NEXT);
     if (user_label) {
-        tree_t *q = ast_node_new(TT_QLIT); q->sval = strdup(user_label);
+        tree_t *q = ast_node_new(TT_QLIT); q->sval = ct_strdup(user_label);
         ast_push(nxt, q);
     }
     sc_append_stmt(st, nxt);
@@ -756,12 +759,12 @@ static void sc_append_continue(ScParseState *st, char *user_label) {
 static void sc_switch_cases_grow(struct SwitchHead *h) {
     if (h->cases_count >= h->cases_cap) {
         int newcap = h->cases_cap ? h->cases_cap * 2 : 4;
-        h->cases = realloc(h->cases, newcap * sizeof *h->cases);
+        h->cases = ct_grow(h->cases, newcap * sizeof *h->cases);
         h->cases_cap = newcap;
     }
 }
 static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc) {
-    struct SwitchHead *h = calloc(1, sizeof *h);
+    struct SwitchHead *h = ct_zalloc(1, sizeof *h);
     h->disc          = disc;
     h->lineno        = st->ctx ? st->ctx->line : 0;
     h->prev_switch   = st->cur_switch;
@@ -798,7 +801,7 @@ static void sc_switch_default_label(ScParseState *st) {
 static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
 {
     int nc = h->cases_count;
-    tree_t **bodies = calloc((size_t)(nc > 0 ? nc : 1), sizeof *bodies);
+    tree_t **bodies = ct_zalloc((size_t)(nc > 0 ? nc : 1), sizeof *bodies);
     for (int i = nc - 1; i >= 0; i--)
         bodies[i] = sc_collect_body(st, h->cases[i].before_body);
     tree_t *node = ast_node_new(TT_CASE);
@@ -811,25 +814,25 @@ static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
         }
         ast_push(node, bodies[i]);
     }
-    free(bodies);
+    ct_drop(bodies);
     sc_loop_pop(st);
     st->cur_switch = h->prev_switch;
-    for (int i = 0; i < nc; i++) free(h->cases[i].case_label);
-    free(h->cases);
-    free(h->end_label);
-    free(h->default_label);
-    free(h->tmp_name);
-    free(h);
+    for (int i = 0; i < nc; i++) ct_drop(h->cases[i].case_label);
+    ct_drop(h->cases);
+    ct_drop(h->end_label);
+    ct_drop(h->default_label);
+    ct_drop(h->tmp_name);
+    ct_drop(h);
     sc_append_stmt(st, node);
 }
 static void sc_emit_struct(ScParseState *st, char *name, char *fields) {
     int slen = strlen(name) + 1 + strlen(fields) + 2;
-    char *spec = malloc(slen);
+    char *spec = ct_alloc(slen);
     snprintf(spec, slen, "%s(%s)", name, fields);
     tree_t *qarg = expr_new(TT_QLIT);
     qarg->sval   = spec;
     tree_t *data_call = expr_new(TT_FNC);
-    data_call->sval   = strdup("DATA");
+    data_call->sval   = ct_strdup("DATA");
     expr_add_child(data_call, qarg);
     sc_append_stmt(st, data_call);
 }
@@ -839,13 +842,13 @@ CODE_t *snocone_parse_program(const char *src, const char *filename) {
     ctx.line        = 1;
     ScParseState    state = {0};
     state.ctx       = (struct LexCtx *)&ctx;
-    state.code      = calloc(1, sizeof *state.code);
+    state.code      = ct_zalloc(1, sizeof *state.code);
     state.filename  = filename;
     state.nerrors   = 0;
     int rc = sc_parse(&state);
     while (state.loop_top) sc_loop_pop(&state);
     if (rc != 0 || state.nerrors > 0) {
-        free(state.code);
+        ct_drop(state.code);
         return NULL;
     }
     return state.code;

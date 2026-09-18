@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include "parsers/snobol4/scrip_cc.h"
@@ -57,7 +58,7 @@ extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t *segs, int *nsegs, int max_segs)
 {
-    tree_t *result = calloc(1, sizeof(tree_t));
+    tree_t *result = ct_zalloc(1, sizeof(tree_t));
     if (!result) return NULL;
     result->t = TT_PROGRAM;
     const char *p = src;
@@ -76,7 +77,7 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
         const char *close = strstr(p, "```");
         if (!close) break;
         int   blen = (int)(close - block_start);
-        char *block = malloc(blen + 1);
+        char *block = ct_alloc(blen + 1);
         if (!block) { p = close + 3; continue; }
         memcpy(block, block_start, blen);
         block[blen] = '\0';
@@ -98,11 +99,11 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
             fence_fn = lower_raku_stage2;
         } else if (tag_len == 5 && strncmp(tag_start, "Rebus", 5) == 0) {
             rebus_compile(block, filename, &sub_ast);
-        } else { free(block); continue; }
-        free(block);
-        if (!sub_ast || sub_ast->n == 0) { free(sub_ast); continue; }
+        } else { ct_drop(block); continue; }
+        ct_drop(block);
+        if (!sub_ast || sub_ast->n == 0) { ct_drop(sub_ast); continue; }
         if (segs && nsegs && *nsegs < max_segs) {
-            tree_t *_sp = calloc(1, sizeof(tree_t));
+            tree_t *_sp = ct_zalloc(1, sizeof(tree_t));
             if (_sp) { _sp->t = TT_PROGRAM;
                 for (int _si = 0; _si < sub_ast->n; _si++) if (sub_ast->c[_si]) ast_push(_sp, sub_ast->c[_si]);
                 segs[*nsegs].prog = _sp; segs[*nsegs].fn = fence_fn; (*nsegs)++; }
@@ -112,7 +113,7 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
             if (!ch) continue;
             ast_push(result, ch);
         }
-        if (sub_ast->c) free((char *)sub_ast->c - sizeof(size_t)); free(sub_ast);
+        if (sub_ast->c) ct_drop((char *)sub_ast->c - sizeof(size_t)); ct_drop(sub_ast);
     }
     return result;
 }

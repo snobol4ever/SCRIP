@@ -1,5 +1,6 @@
 #ifdef __cplusplus
 #include <unordered_map>
+#include "ct_arena.h"
 #include <string>
 #include "emit.h"
 #include "gc_frame_map.h"
@@ -74,7 +75,7 @@ static const char * g_flt_fam = (const char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_pool_reset(void)
 {
-    for (int i = 0; i < g_label_pool_n; i++) free(g_label_pool[i]);
+    for (int i = 0; i < g_label_pool_n; i++) ct_drop(g_label_pool[i]);
     g_label_pool_n = 0; g_label_map.clear();
     g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
 }
@@ -101,12 +102,12 @@ bb_label_t *emit_label_alloc(const char *fmt, ...)
 {
     if (g_label_pool_n >= g_label_pool_max) {
         int new_max = g_label_pool_max ? g_label_pool_max * 2 : 64;
-        bb_label_t **g = (bb_label_t **)realloc(g_label_pool, (size_t)new_max * sizeof(bb_label_t *));
+        bb_label_t **g = (bb_label_t **)ct_grow(g_label_pool, (size_t)new_max * sizeof(bb_label_t *));
         if (!g) return NULL;
         g_label_pool     = g;
         g_label_pool_max = new_max;
     }
-    bb_label_t *lbl = (bb_label_t *)calloc(1, sizeof(bb_label_t));
+    bb_label_t *lbl = (bb_label_t *)ct_zalloc(1, sizeof(bb_label_t));
     if (!lbl) return NULL;
     va_list ap; va_start(ap, fmt);
     char nb[4096]; vsnprintf(nb, sizeof nb, fmt, ap);
@@ -423,7 +424,7 @@ void xa_dispatch(XA_op_t op)
 static struct { const char *s; int idx; } g_strtab[SMX_STRTAB_CAP];
 static int g_strtab_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void strtab_reset(void) { for (int i = 0; i < g_strtab_n; i++) free((void *)g_strtab[i].s); g_strtab_n = 0; }
+void strtab_reset(void) { for (int i = 0; i < g_strtab_n; i++) ct_drop((void *)g_strtab[i].s); g_strtab_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int strtab_intern(const char *s)
 {
@@ -432,7 +433,7 @@ int strtab_intern(const char *s)
         if (g_strtab[i].s == s || strcmp(g_strtab[i].s, s) == 0) return g_strtab[i].idx;
     if (g_strtab_n >= SMX_STRTAB_CAP) { fprintf(stderr, "strtab overflow\n"); abort(); }
     int idx = g_strtab_n;
-    g_strtab[g_strtab_n].s = strdup(s); g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
+    g_strtab[g_strtab_n].s = ct_strdup(s); g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -562,7 +563,7 @@ static int g_bb_slotmap_max = 0;
 static void bb_slotmap_push(IR_t *nd, int off) {
     if (g_bb_slotmap_n >= g_bb_slotmap_max) {
         int new_max = g_bb_slotmap_max ? g_bb_slotmap_max * 2 : 512;
-        bb_slotmap_ent_t *g = (bb_slotmap_ent_t *)realloc(g_bb_slotmap, (size_t)new_max * sizeof(bb_slotmap_ent_t));
+        bb_slotmap_ent_t *g = (bb_slotmap_ent_t *)ct_grow(g_bb_slotmap, (size_t)new_max * sizeof(bb_slotmap_ent_t));
         if (!g) return;
         g_bb_slotmap = g; g_bb_slotmap_max = new_max;
     }
@@ -967,7 +968,7 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
 static IR_t **g_nidx_nodes = 0; static int g_nidx_n = 0; static IR_t **g_nidx_keys = 0; static int *g_nidx_vals = 0; static size_t g_nidx_cap = 0;
 static void nidx_build(IR_t **nodes, int n) {
     size_t want = 16; while (want < (size_t)n * 2 + 2) want <<= 1;
-    if (want > g_nidx_cap) { free(g_nidx_keys); free(g_nidx_vals); g_nidx_keys = (IR_t **)malloc(want * sizeof(IR_t *)); g_nidx_vals = (int *)malloc(want * sizeof(int)); g_nidx_cap = want; }
+    if (want > g_nidx_cap) { ct_drop(g_nidx_keys); ct_drop(g_nidx_vals); g_nidx_keys = (IR_t **)ct_alloc(want * sizeof(IR_t *)); g_nidx_vals = (int *)ct_alloc(want * sizeof(int)); g_nidx_cap = want; }
     memset(g_nidx_keys, 0, g_nidx_cap * sizeof(IR_t *));
     for (int i = 0; i < n; i++) { IR_t *k = nodes[i]; if (!k) continue; size_t h = ((size_t)(uintptr_t)k >> 4) & (g_nidx_cap - 1); while (g_nidx_keys[h] && g_nidx_keys[h] != k) h = (h + 1) & (g_nidx_cap - 1); if (!g_nidx_keys[h]) { g_nidx_keys[h] = k; g_nidx_vals[h] = i; } }
     g_nidx_nodes = nodes; g_nidx_n = n;
@@ -1476,7 +1477,7 @@ static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label
 static void emit_parts_reserve(int n) {
     if (n <= g_emit.op_parts_cap) return;
     int cap = g_emit.op_parts_cap > 0 ? g_emit.op_parts_cap : 32; while (cap < n) cap *= 2;
-    int64_t * grown = (int64_t *) realloc(g_emit.op_parts_ival, (size_t) cap * sizeof(int64_t));
+    int64_t * grown = (int64_t *) ct_grow(g_emit.op_parts_ival, (size_t) cap * sizeof(int64_t));
     if (!grown) { fprintf(stderr, "emit: op_parts table: out of memory at %d parts\n", n); exit(2); }
     g_emit.op_parts_ival = grown; g_emit.op_parts_cap = cap;
 }
@@ -1520,7 +1521,7 @@ void drive_arg_slots_reserve(int n) {
     if (n <= g_emit.op_arg_slot_cap) return;
     int cap = g_emit.op_arg_slot_cap > 0 ? g_emit.op_arg_slot_cap : 16;
     while (cap < n) cap *= 2;
-    int *grown = (int *)realloc(g_emit.op_arg_slot, (size_t)cap * sizeof(int));
+    int *grown = (int *)ct_grow(g_emit.op_arg_slot, (size_t)cap * sizeof(int));
     if (!grown) { fprintf(stderr, "FATAL emit_drive: arg-slot staging realloc to %d failed\n", cap); abort(); }
     g_emit.op_arg_slot = grown; g_emit.op_arg_slot_cap = cap;
 }
@@ -2783,7 +2784,7 @@ typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, const char *prefix) {
     static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_ZD_DEPTH"); _on = (e && *e == '1') ? 1 : 0; }
     if (!_on || n <= 0) return;
-    zdw_ent_t * w = (zdw_ent_t *)calloc((size_t)(2 * n + 1), sizeof(zdw_ent_t)); if (!w) return;
+    zdw_ent_t * w = (zdw_ent_t *)ct_zalloc((size_t)(2 * n + 1), sizeof(zdw_ent_t)); if (!w) return;
     int wn = 0, armed = 0, edges = 0, walls = 0;
     for (int i = 0; i < n; i++) { if (!zon[i]) continue; armed++;
         int K = zd_k(nodes[i]);
@@ -2802,7 +2803,7 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
                 int d = (p == 0) ? (zout[i] - zgpop[i]) : (zout[i] - Kp - zwpop[i]);
                 fprintf(stderr, "[ZD-DEPTH]   pred %s i=%d %-22s depth=%d gpop=%d%s\n", p == 0 ? "\xce\xb3" : "\xcf\x89", i, bb_op_name(nodes[i]->op) ? bb_op_name(nodes[i]->op) : "<unnamed>", d, zgpop[i], d == w[k].d0 ? "" : "   <-- DISAGREES"); } } }
     fprintf(stderr, "[ZD-DEPTH] %s n=%d armed=%d in_edges=%d joins=%d walls=%d\n", prefix ? prefix : "?", n, armed, edges, wn, walls);
-    free(w);
+    ct_drop(w);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (ir_is_generator_kind(nd->op) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT || op == IR_GOTO || op == IR_STATEMENT_BEGIN || (g_emit_cfg && nd == g_emit_cfg->body_root))) ? 1 : 0; }
@@ -2855,11 +2856,11 @@ static void icn_register_local_offsets(const char * pname) {
     for (int k = 0; k < g_emit_cfg->nparams; k++) if (g_emit_cfg->pnames && g_emit_cfg->pnames[k]) rt_proc_set_pname(pname, k, g_emit_cfg->pnames[k]);
     { extern void rt_proc_set_loc_params(const char *, const char **, int);
       if (g_emit_cfg->pnames && g_emit_cfg->nparams > 0) {
-          const char ** pc = (const char **) malloc(sizeof(const char *) * (size_t) g_emit_cfg->nparams);
-          if (pc) { for (int k = 0; k < g_emit_cfg->nparams; k++) pc[k] = g_emit_cfg->pnames[k] ? strdup(g_emit_cfg->pnames[k]) : (const char *) 0; rt_proc_set_loc_params(pname, pc, g_emit_cfg->nparams); } } }
+          const char ** pc = (const char **) ct_alloc(sizeof(const char *) * (size_t) g_emit_cfg->nparams);
+          if (pc) { for (int k = 0; k < g_emit_cfg->nparams; k++) pc[k] = g_emit_cfg->pnames[k] ? ct_strdup(g_emit_cfg->pnames[k]) : (const char *) 0; rt_proc_set_loc_params(pname, pc, g_emit_cfg->nparams); } } }
     int nv = zls_g_vslot_count(g_emit_cfg); if (nv <= 0) return;
     int nl = g_emit_cfg->nlocals;
-    int * offs = (int *) malloc(sizeof(int) * (size_t) nl); if (!offs) return;
+    int * offs = (int *) ct_alloc(sizeof(int) * (size_t) nl); if (!offs) return;
     for (int k = 0; k < nl; k++) {
         offs[k] = -1;
         const char * ln = g_emit_cfg->lnames[k]; if (!ln) continue;
@@ -2936,10 +2937,10 @@ static void emit_gc_map_data(const char * fam) {
         char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name, g_gc_map_lbl.name, eb);
         emit_text_n(b, (size_t)n); g_gc_map_last_off = 0;
     } else {
-        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)strdup(fam ? fam : "?")); bb_emit_u64(0);
+        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64(0);
         g_gc_map_last_off = g_gc_map_lbl.offset;
     }
-    if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = strdup(g_gc_map_lbl.name);
+    if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = ct_strdup(g_gc_map_lbl.name);
     if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
 }
 extern "C" int emit_gc_map_last_off(void) { return g_gc_map_last_off; }
@@ -2995,15 +2996,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
     g_nidx_nodes = 0; g_nidx_n = 0;
     int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024; int Q_MAX = CH_MAX * 16;
-    static IR_t **nodes = 0; static int nodes_cap = 0; if (nodes_cap < CH_MAX) { nodes = (IR_t **)realloc(nodes, (size_t)CH_MAX * sizeof(IR_t *)); nodes_cap = CH_MAX; } int n = 0;
-    static IR_t **queue = 0; static int queue_cap = 0; if (queue_cap < Q_MAX) { queue = (IR_t **)realloc(queue, (size_t)Q_MAX * sizeof(IR_t *)); queue_cap = Q_MAX; } int qh = 0, qt = 0;
+    static IR_t **nodes = 0; static int nodes_cap = 0; if (nodes_cap < CH_MAX) { nodes = (IR_t **)ct_grow(nodes, (size_t)CH_MAX * sizeof(IR_t *)); nodes_cap = CH_MAX; } int n = 0;
+    static IR_t **queue = 0; static int queue_cap = 0; if (queue_cap < Q_MAX) { queue = (IR_t **)ct_grow(queue, (size_t)Q_MAX * sizeof(IR_t *)); queue_cap = Q_MAX; } int qh = 0, qt = 0;
     int entry_is_own_graph_root = (g_emit_cfg && (entry == g_emit_cfg->entry)) ? 1 : 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL || entry->op == IR_GOTO) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
     if (g_emit_cfg && entry == g_emit_cfg->entry) entry_is_own_graph_root = 1;
     int flat_empty_body_fail = (entry && entry->op == IR_FAIL) ? 1 : 0;
     int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
-    static IR_t **postv = 0; static int postv_cap = 0; if (postv_cap < CH_MAX) { postv = (IR_t **)realloc(postv, (size_t)CH_MAX * sizeof(IR_t *)); postv_cap = CH_MAX; } int pn = 0;
+    static IR_t **postv = 0; static int postv_cap = 0; if (postv_cap < CH_MAX) { postv = (IR_t **)ct_grow(postv, (size_t)CH_MAX * sizeof(IR_t *)); postv_cap = CH_MAX; } int pn = 0;
     ir_pset_t seenset; ir_pset_init(&seenset);
 #define RPO_VISITED(p) (ir_pset_has(&seenset, (const IR_t *)(p)))
 #define RPO_MARK(p)    ir_pset_add(&seenset, (const IR_t *)(p))
@@ -4017,7 +4018,7 @@ void emit_textf(const char * fmt, ...) {
     va_list ap; va_start(ap, fmt); char sb[4096]; int need = vsnprintf(sb, sizeof sb, fmt, ap); va_end(ap);
     if (need <= 0) return;
     if (need < (int) sizeof sb) emit_text_n(sb, (size_t) need);
-    else { char * hb = (char *) malloc((size_t) need + 1); if (!hb) return; va_start(ap, fmt); vsnprintf(hb, (size_t) need + 1, fmt, ap); va_end(ap); emit_text_n(hb, (size_t) need); free(hb); }
+    else { char * hb = (char *) ct_alloc((size_t) need + 1); if (!hb) return; va_start(ap, fmt); vsnprintf(hb, (size_t) need + 1, fmt, ap); va_end(ap); emit_text_n(hb, (size_t) need); ct_drop(hb); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_textf_flush(void) { emit_text_flush(); }

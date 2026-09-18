@@ -1,6 +1,7 @@
 #ifndef RUNTIME_SHIM_H
 #define RUNTIME_SHIM_H
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "core.h"
 #include <string.h>
 #define IS_FAIL_fn(v)      IS_FAIL_fn(v)
@@ -103,7 +104,7 @@ static int       _core_abort_lineno = 0;
 static inline void push_abort_handler(jmp_buf *jb) {
     if (_core_abort_depth >= _core_abort_cap) {
         _core_abort_cap = _core_abort_cap ? _core_abort_cap * 2 : ABRT_STACK_INIT;
-        _core_abort_stack = realloc(_core_abort_stack, _core_abort_cap * sizeof(jmp_buf *));
+        _core_abort_stack = ct_grow(_core_abort_stack, _core_abort_cap * sizeof(jmp_buf *));
         if (!_core_abort_stack) { fprintf(stderr, "abort stack OOM\n"); abort(); }
     }
     _core_abort_stack[_core_abort_depth++] = jb;

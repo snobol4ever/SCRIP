@@ -1,4 +1,5 @@
 #include "icon_driver.h"
+#include "ct_arena.h"
 #include "icon_lex.h"
 #include "icon_parse.h"
 #include "../snobol4/scrip_cc.h"
@@ -11,7 +12,7 @@ static char * icn_read_file(const char * path) {
     FILE * f = fopen(path, "rb");
     if (!f) return NULL;
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    char * buf = (char *) malloc((size_t) sz + 1);
+    char * buf = (char *) ct_alloc((size_t) sz + 1);
     if (!buf) { fclose(f); return NULL; }
     size_t got = fread(buf, 1, (size_t) sz, f); fclose(f); buf[got] = '\0';
     return buf;
@@ -71,7 +72,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
     if (slash) { size_t dl = (size_t)(slash - filename); if (dl >= sizeof dir) dl = sizeof dir - 1; memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
     const char * loaded[64]; int nloaded = 0;
     { const char * base = slash ? slash + 1 : filename; const char * dot = strrchr(base, '.'); size_t bl = dot ? (size_t)(dot - base) : strlen(base);
-      char * own = (char *) malloc(bl + 1); memcpy(own, base, bl); own[bl] = '\0'; loaded[nloaded++] = own; }
+      char * own = (char *) ct_alloc(bl + 1); memcpy(own, base, bl); own[bl] = '\0'; loaded[nloaded++] = own; }
     for (int scan = 0; scan < prog->n; scan++) {
         const tree_t * subj = icn_stmt_subject(prog->c[scan]);
         if (!subj || subj->t != TT_LINK) continue;
@@ -89,7 +90,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             tree_t * sub_ast = NULL;
             CODE_t * sp = icn_parse_file(&p2, &sub_ast);
             if (p2.had_error) { fprintf(stderr, "icon: parse error in linked file %s: %s\n", path, p2.errmsg); exit(1); }
-            free(sp);
+            ct_drop(sp);
             if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) ast_push(prog, sub_ast->c[j]);
         }
     }
@@ -110,11 +111,11 @@ void icn_prune_unreachable_procs(tree_t * prog) {
     if (!prog) return;
     int np = 0; for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t == TT_PROC_DECL) np++; }
     if (np == 0) return;
-    const tree_t ** procs = (const tree_t **) calloc((size_t) np, sizeof *procs); char * keep = (char *) calloc((size_t) np, 1); char * walked = (char *) calloc((size_t) np, 1); int k = 0;
+    const tree_t ** procs = (const tree_t **) ct_zalloc((size_t) np, sizeof *procs); char * keep = (char *) ct_zalloc((size_t) np, 1); char * walked = (char *) ct_zalloc((size_t) np, 1); int k = 0;
     for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t == TT_PROC_DECL) procs[k++] = s; }
     for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (!s || s->t != TT_INVOCABLE) continue;
         for (int j = 0; j < s->n; j++) { const char * nm = s->c[j] ? s->c[j]->v.sval : NULL; if (!nm) continue;
-            if (!strcmp(nm, "all")) { free(procs); free(keep); free(walked); return; }
+            if (!strcmp(nm, "all")) { ct_drop(procs); ct_drop(keep); ct_drop(walked); return; }
             for (int q = 0; q < np; q++) if (procs[q]->v.sval && !strcmp(procs[q]->v.sval, nm)) keep[q] = 1; } }
     for (int q = 0; q < np; q++) if (procs[q]->v.sval && !strcmp(procs[q]->v.sval, "main")) keep[q] = 1;
     for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t != TT_PROC_DECL) icn_mark_proc_refs(s, procs, np, keep); }
@@ -122,7 +123,7 @@ void icn_prune_unreachable_procs(tree_t * prog) {
     int w = 0; for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); int drop = 0;
         if (s && s->t == TT_PROC_DECL) for (int q = 0; q < np; q++) if (procs[q] == s) { drop = !keep[q]; break; }
         if (!drop) prog->c[w++] = prog->c[i]; }
-    prog->n = w; free(procs); free(keep); free(walked);
+    prog->n = w; ct_drop(procs); ct_drop(keep); ct_drop(walked);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
@@ -136,7 +137,7 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     CODE_t *prog = icn_parse_file(&parser, out_ast);
     if (parser.had_error) {
         fprintf(stderr, "icon: parse error in %s: %s\n", filename, parser.errmsg);
-        free(prog);
+        ct_drop(prog);
         if (out_ast) *out_ast = NULL;
         exit(1);
     }

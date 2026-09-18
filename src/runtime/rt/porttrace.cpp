@@ -1,4 +1,5 @@
 #include <cstdio>
+#include "ct_arena.h"
 #include <cstdlib>
 #include <cstring>
 #include "emit.h"
@@ -17,7 +18,7 @@ static __attribute__((force_align_arg_pointer)) void plt_report(void) { rt_port_
 static unsigned long * plt_lastn(long uid) {
     if (uid < 0) return NULL;
     if (uid >= g_emit.pl_trace_lastn_cap) {
-        long n = uid + 1024; unsigned long * t = (unsigned long *)realloc(g_emit.pl_trace_lastn, (size_t)n * sizeof *t);
+        long n = uid + 1024; unsigned long * t = (unsigned long *)ct_grow(g_emit.pl_trace_lastn, (size_t)n * sizeof *t);
         if (!t) return NULL;
         memset(t + g_emit.pl_trace_lastn_cap, 0, (size_t)(n - g_emit.pl_trace_lastn_cap) * sizeof *t);
         g_emit.pl_trace_lastn = t; g_emit.pl_trace_lastn_cap = n;
@@ -27,7 +28,7 @@ static unsigned long * plt_lastn(long uid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plt_push(long uid, unsigned long n) {
     if (g_emit.pl_trace_sp + 1 > g_emit.pl_trace_stk_cap) {
-        long c = g_emit.pl_trace_stk_cap ? g_emit.pl_trace_stk_cap * 2 : 256; long * t = (long *)realloc(g_emit.pl_trace_stk, (size_t)c * 2 * sizeof *t);
+        long c = g_emit.pl_trace_stk_cap ? g_emit.pl_trace_stk_cap * 2 : 256; long * t = (long *)ct_grow(g_emit.pl_trace_stk, (size_t)c * 2 * sizeof *t);
         if (!t) return;
         g_emit.pl_trace_stk = t; g_emit.pl_trace_stk_cap = c;
     }

@@ -1,4 +1,5 @@
 #include "gen_runtime.h"
+#include "ct_arena.h"
 #include "gen_value.h"
 #include "ast.h"
 #include "../../parsers/snobol4/scrip_cc.h"
@@ -31,7 +32,7 @@ int rt_scan_active(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_scan_state_capture(void *prev) {
     ScanState *s = (ScanState *)prev;
-    if (!s) { s = (ScanState *)calloc(1, sizeof(ScanState)); if (!s) return NULL; }
+    if (!s) { s = (ScanState *)ct_zalloc(1, sizeof(ScanState)); if (!s) return NULL; }
     s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->saved_depth = scan_saved_depth;
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) s->saved[i] = scan_saved[i];
     return s;

@@ -1,4 +1,5 @@
 #include "IR.h"
+#include "ct_arena.h"
 #include "emit.h"
 #include "bb_program.h"
 #include <stdlib.h>
@@ -149,10 +150,10 @@ const char * bb_op_name(IR_e k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * IR_alloc(int max_nodes) {
-    IR_graph_t * bbg = calloc(1, sizeof(IR_graph_t));
+    IR_graph_t * bbg = ct_zalloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;
-    bbg->all  = calloc((size_t)max_nodes, sizeof(IR_t *));
-    if (!bbg->all) { free(bbg); return NULL; }
+    bbg->all  = ct_zalloc((size_t)max_nodes, sizeof(IR_t *));
+    if (!bbg->all) { ct_drop(bbg); return NULL; }
     bbg->n    = 0;
     bbg->max  = max_nodes;
     bbg->entry = NULL;
@@ -163,19 +164,19 @@ IR_graph_t * IR_alloc(int max_nodes) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * IR_node_alloc(IR_graph_t * bbg, IR_e t) {
-    IR_t * bb = calloc(1, sizeof(IR_t));
+    IR_t * bb = ct_zalloc(1, sizeof(IR_t));
     if (!bb) return NULL;
     bb->op       = t;
     bb->γ.node = NULL;
     bb->ω.node = NULL;
-    if (bbg->n >= bbg->max) { int nm = bbg->max > 0 ? bbg->max * 2 : 16; IR_t ** na = (IR_t **) realloc(bbg->all, (size_t) nm * sizeof(IR_t *)); if (!na) { free(bb); return NULL; } bbg->all = na; bbg->max = nm; }
+    if (bbg->n >= bbg->max) { int nm = bbg->max > 0 ? bbg->max * 2 : 16; IR_t ** na = (IR_t **) ct_grow(bbg->all, (size_t) nm * sizeof(IR_t *)); if (!na) { ct_drop(bb); return NULL; } bbg->all = na; bbg->max = nm; }
     bbg->all[bbg->n++] = bb;
     return bb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_operand_push(IR_t * nd, IR_t * child) {
     if (!nd) return 0;
-    IR_t ** p = realloc(nd->operands, (size_t)(nd->n_operands + 1) * sizeof(IR_t *));
+    IR_t ** p = ct_grow(nd->operands, (size_t)(nd->n_operands + 1) * sizeof(IR_t *));
     if (!p) return 0;
     nd->operands = p;
     nd->operands[nd->n_operands++] = child;
@@ -187,12 +188,12 @@ void IR_free(IR_graph_t * bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
-        free(bb);
+        ct_drop(bb);
     }
-    free(bbg->all);
-    free(bbg->vslots);
-    free((void *)bbg->pnames);
-    free(bbg);
+    ct_drop(bbg->all);
+    ct_drop(bbg->vslots);
+    ct_drop((void *)bbg->pnames);
+    ct_drop(bbg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void IR_free_dyn(void * g) { IR_free((IR_graph_t *)g); }
@@ -202,11 +203,11 @@ int bb_program_add(bb_program_t * p, IR_graph_t * bbg) {
     if (p->cap == 0) {
         p->cap   = 16;
         p->count = 0;
-        p->table = (IR_graph_t **)calloc((size_t)p->cap, sizeof(IR_graph_t *));
+        p->table = (IR_graph_t **)ct_zalloc((size_t)p->cap, sizeof(IR_graph_t *));
     }
     if (p->count >= p->cap) {
         p->cap  *= 2;
-        p->table = (IR_graph_t **)realloc(p->table, (size_t)p->cap * sizeof(IR_graph_t *));
+        p->table = (IR_graph_t **)ct_grow(p->table, (size_t)p->cap * sizeof(IR_graph_t *));
     }
     int idx = p->count++;
     p->table[idx] = bbg;
@@ -218,7 +219,7 @@ void bb_program_free(bb_program_t * p) {
     for (int i = 0; i < p->count; i++) { IR_free(p->table[i]); p->table[i] = NULL; }
     p->count = 0;
     p->cap   = 0;
-    free(p->table);
+    ct_drop(p->table);
     p->table = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -253,7 +254,7 @@ int ir_node_produces_value(IR_e op) {
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
     if (!name) return;
     for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return;
-    { void * nv = realloc(g->vslots, (size_t)(g->n_vslots + 1) * sizeof(g->vslots[0])); if (!nv) return; g->vslots = nv; }
+    { void * nv = ct_grow(g->vslots, (size_t)(g->n_vslots + 1) * sizeof(g->vslots[0])); if (!nv) return; g->vslots = nv; }
     g->vslots[g->n_vslots].name = name; g->vslots[g->n_vslots].off = off; g->n_vslots++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -355,9 +356,9 @@ void bb_print(const IR_graph_t * bbg, FILE * fp) { bb_print_v(bbg, fp, 0); }
 void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     if (!bbg) { fprintf(fp, "(null IR_graph_t)\n"); return; }
     int nn0 = bbg->n;
-    char * vis0 = (char *) calloc(nn0 > 0 ? nn0 : 1, 1);
-    int * order0 = (int *) malloc((size_t)(nn0 > 0 ? nn0 : 1) * sizeof(int));
-    int * seqmap = (int *) malloc((size_t)(nn0 > 0 ? nn0 : 1) * sizeof(int));
+    char * vis0 = (char *) ct_zalloc(nn0 > 0 ? nn0 : 1, 1);
+    int * order0 = (int *) ct_alloc((size_t)(nn0 > 0 ? nn0 : 1) * sizeof(int));
+    int * seqmap = (int *) ct_alloc((size_t)(nn0 > 0 ? nn0 : 1) * sizeof(int));
     int norder = 0;
     if (vis0 && order0 && seqmap) {
         bb_emit_order_visit(bbg, bbg->entry, vis0, order0, &norder);
@@ -382,7 +383,7 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
         if (any_unreached) for (int i = 0; i < nn; i++) if (!vis0[i] && bbg->all[i]) bb_print_node_line(bbg, fp, seqmap[i], i, verbose);
     } else { for (int i = 0; i < nn; i++) bb_print_node_line(bbg, fp, i, i, verbose); }
     g_seq_of_node = (const int *)0; g_seq_of_node_n = 0;
-    free(vis0); free(order0); free(seqmap);
+    ct_drop(vis0); ct_drop(order0); ct_drop(seqmap);
     for (int i = 0; i < bbg->n; i++) {
         const IR_t * bb = bbg->all[i];
         if (!bb) continue;

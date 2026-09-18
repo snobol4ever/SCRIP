@@ -1,4 +1,5 @@
 #include "prolog_lower.h"
+#include "ct_arena.h"
 #include "prolog_parse.h"
 #include "prolog_atom.h"
 #include "scrip_cc.h"
@@ -41,7 +42,7 @@ static void test_facts(void) {
     CHECK("facts: clause[0] nchildren==1", ch && ch->n >= 1 &&
           ch->c[0]->t == TT_CLAUSE &&
           ch->c[0]->n == 1);
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_rule(void) {
@@ -58,7 +59,7 @@ static void test_rule(void) {
         CHECK("rule: 3 children (2 head args + 1 body goal)", cl->n == 3);
         CHECK("rule: n_vars >= 2", cl->v.ival >= 2);
     }
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_unify_node(void) {
@@ -74,7 +75,7 @@ static void test_unify_node(void) {
               cl->n >= 1 &&
               cl->c[0]->t == TT_UNIFY);
     }
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_cut_node(void) {
@@ -93,7 +94,7 @@ static void test_cut_node(void) {
             if (cl1->c[i]->t == TT_CUT) found_cut = 1;
         CHECK("cut: TT_CUT in clause 1 body", found_cut);
     }
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_multi_pred(void) {
@@ -109,7 +110,7 @@ static void test_multi_pred(void) {
     CHECK("multi: append/3 exists", find_choice(ir, "append/3") != NULL);
     tree_t *mem = find_choice(ir, "member/2");
     CHECK("multi: member/2 has 2 clauses", mem && mem->n == 2);
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_directive(void) {
@@ -122,7 +123,7 @@ static void test_directive(void) {
     CHECK("directive: first stmt is TT_FNC",
           ir->head && ir->head->subject &&
           ir->head->subject->t == TT_FNC);
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 static const char *PUZZLE01 =
     ":- initialization(main).\n"
@@ -161,7 +162,7 @@ static void test_puzzle01(void) {
     CHECK("puzzle01: differ/3 has 4 clauses",
           find_choice(ir, "differ/3") &&
           find_choice(ir, "differ/3")->n == 4);
-    prolog_program_free(pl); free(ir);
+    prolog_program_free(pl); ct_drop(ir);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {

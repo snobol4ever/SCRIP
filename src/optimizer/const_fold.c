@@ -1,4 +1,5 @@
 #include "const_fold.h"
+#include "ct_arena.h"
 #include "gen.h"
 #include <string.h>
 #include <stdlib.h>
@@ -19,7 +20,7 @@ static int cf_lit_descr(const IR_t * nd, DESCR_t * out) {
 static int cf_store_descr(IR_graph_t * g, IR_t * nd, DESCR_t r) {
     if (r.v == DT_I) { nd->op = IR_LIT_INTEGER; IR_LIT(nd).ival = r.i; nd->n_operands = 0; return 1; }
     if (r.v == DT_R) { nd->op = IR_LIT_REAL;    IR_LIT(nd).dval = r.r; nd->n_operands = 0; return 1; }
-    if (r.v == DT_S || r.v == DT_SNUL) { const char * s = r.s ? r.s : ""; size_t n = r.slen ? (size_t)r.slen : strlen(s); char * c = (char *)malloc(n + 1); if (!c) return 0; memcpy(c, s, n); c[n] = '\0'; nd->op = IR_LIT_STRING; IR_LIT(nd).sval = c; nd->n_operands = 0;
+    if (r.v == DT_S || r.v == DT_SNUL) { const char * s = r.s ? r.s : ""; size_t n = r.slen ? (size_t)r.slen : strlen(s); char * c = (char *)ct_alloc(n + 1); if (!c) return 0; memcpy(c, s, n); c[n] = '\0'; nd->op = IR_LIT_STRING; IR_LIT(nd).sval = c; nd->n_operands = 0;
         if (g && n != strlen(c)) { IR_t * ln = IR_node_alloc(g, IR_LIT_INTEGER); if (ln) { IR_LIT(ln).ival = (int64_t) n; ir_operand_push(nd, ln); } }
         return 1; }
     return 0;

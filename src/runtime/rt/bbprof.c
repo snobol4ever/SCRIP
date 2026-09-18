@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -24,7 +25,7 @@ int bbprof_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SC
 void bbprof_record(int nid, int kind, int uid, void *lo, void *hi)
 {
     if (!bbprof_on() || !lo || hi <= lo) return;
-    if (g_n == g_cap) { g_cap = g_cap ? g_cap * 2 : 1024; g_tab = (bbprof_e *)realloc(g_tab, (size_t)g_cap * sizeof(bbprof_e)); if (!g_tab) { g_cap = g_n = 0; return; } }
+    if (g_n == g_cap) { g_cap = g_cap ? g_cap * 2 : 1024; g_tab = (bbprof_e *)ct_grow(g_tab, (size_t)g_cap * sizeof(bbprof_e)); if (!g_tab) { g_cap = g_n = 0; return; } }
     g_tab[g_n].lo = (uintptr_t)lo; g_tab[g_n].hi = (uintptr_t)hi; g_tab[g_n].nid = nid; g_tab[g_n].kind = kind; g_tab[g_n].uid = uid; g_tab[g_n].direct = 0; g_tab[g_n].viac = 0; g_n++;
     g_sorted = 0;
     if (g_armed) g_late_n++;
@@ -108,7 +109,7 @@ void bbprof_report(void)
         for (int i = 0; i < g_n; i++) fprintf(stderr, "[BBMAP] %#lx %#lx %s %d %d\n", (unsigned long)g_tab[i].lo, (unsigned long)g_tab[i].hi, bb_op_name(g_tab[i].kind), g_tab[i].nid, g_tab[i].uid); } }
     if (g_total == 0) { fprintf(stderr, "[BBPROF] 0 samples\n"); return; }
     extern const char *bb_op_name(int);
-    bbprof_e **rank = (bbprof_e **)malloc((size_t)g_n * sizeof(bbprof_e *));
+    bbprof_e **rank = (bbprof_e **)ct_alloc((size_t)g_n * sizeof(bbprof_e *));
     for (int i = 0; i < g_n; i++) rank[i] = &g_tab[i];
     qsort(rank, (size_t)g_n, sizeof(bbprof_e *), bbprof_rank);
     uint64_t viac_total = g_c_samples - g_unattr, box_total = 0;
@@ -148,5 +149,5 @@ void bbprof_report(void)
         if (!names[i][0] && dladdr((void *)g_pcs[i].pc, &di) && di.dli_sname) { nm = di.dli_sname; off = g_pcs[i].pc - (uintptr_t)di.dli_saddr; }
         fprintf(stderr, "[BBPROF] %6.2f%%  %s+%#lx (%#lx)\n", 100.0 * (double)g_pcs[i].n / (double)g_total, nm, (unsigned long)off, (unsigned long)g_pcs[i].pc);
       } }
-    free(rank);
+    ct_drop(rank);
 }

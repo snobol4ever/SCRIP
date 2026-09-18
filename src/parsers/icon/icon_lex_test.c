@@ -1,4 +1,5 @@
 #include "icon_lex.h"
+#include "ct_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -280,7 +281,7 @@ static void test_corpus_file(const char *path) {
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     rewind(f);
-    char *src = malloc(sz + 1);
+    char *src = ct_alloc(sz + 1);
     fread(src, 1, sz, f);
     src[sz] = '\0';
     fclose(f);
@@ -292,7 +293,7 @@ static void test_corpus_file(const char *path) {
         if (t.t == TK_ERROR) { errors++; printf("    error: %s\n", lx.errmsg); }
         if (t.t == TK_EOF) break;
     }
-    free(src);
+    ct_drop(src);
     const char *slash = strrchr(path, '/');
     const char *label = slash ? slash + 1 : path;
     char name[128]; snprintf(name, sizeof(name), "corpus %s", label);

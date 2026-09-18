@@ -124,6 +124,7 @@ struct tree_t {
     int         slen;
 };
 #include <stdlib.h>
+#include "ct_arena.h"
 #include <string.h>
 #define AST_CAP(p)         (*(size_t *)((char *)(p)->c - sizeof(size_t)))
 #define AST_SET_CAP(p, v)  (*(size_t *)((char *)(p)->c - sizeof(size_t)) = (size_t)(v))
@@ -132,7 +133,7 @@ static inline void ast_push(tree_t * p, tree_t * child) {
     size_t cap = p->c ? AST_CAP(p) : 0;
     if ((size_t)p->n >= cap) {
         size_t new_cap = cap ? cap * 2 : 4;
-        char * block = (char *)realloc(p->c ? (char *)p->c - sizeof(size_t) : NULL, sizeof(size_t) + new_cap * sizeof(tree_t *));
+        char * block = (char *)ct_grow(p->c ? (char *)p->c - sizeof(size_t) : NULL, sizeof(size_t) + new_cap * sizeof(tree_t *));
         p->c = (tree_t **)(block + sizeof(size_t));
         AST_SET_CAP(p, new_cap);
     }
@@ -147,7 +148,7 @@ static inline tree_t * ast_pop(tree_t * p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline tree_t * ast_node_new(tree_e kind) {
-    tree_t * e = (tree_t *)calloc(1, sizeof(tree_t));
+    tree_t * e = (tree_t *)ct_zalloc(1, sizeof(tree_t));
     e->t = kind;
     return e;
 }
@@ -155,8 +156,8 @@ static inline tree_t * ast_node_new(tree_e kind) {
 static inline void ast_tree_free(tree_t *p) {
     if (!p) return;
     for (int _i = 0; _i < p->n; _i++) ast_tree_free(p->c[_i]);
-    if (p->c) free((char *)p->c - sizeof(size_t));
-    free(p);
+    if (p->c) ct_drop((char *)p->c - sizeof(size_t));
+    ct_drop(p);
 }
 #ifdef BB_DEFINE_NAMES
 static const char * const tt_e_name[TT_KIND_COUNT] = {

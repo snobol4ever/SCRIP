@@ -1,4 +1,5 @@
 #include "prolog_lex.h"
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -24,7 +25,7 @@ static char advance(Lexer *lx) {
 static void buf_push(char **buf, int *len, int *cap, char c) {
     if (*len + 2 > *cap) {
         *cap = (*cap) ? (*cap) * 2 : 32;
-        *buf = realloc(*buf, *cap);
+        *buf = ct_grow(*buf, *cap);
     }
     (*buf)[(*len)++] = c;
     (*buf)[*len] = '\0';
@@ -36,7 +37,7 @@ static Token make_tok(TkKind kind, char *text, int line) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token make_err(int line, const char *msg) {
-    Token t; t.kind = TK_ERROR; t.text = strdup(msg); t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
+    Token t; t.kind = TK_ERROR; t.text = ct_strdup(msg); t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -132,14 +133,14 @@ static Token scan_quoted_atom(Lexer *lx) {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
             if (st == 1) { char eb[8]; int bl = pl_lex_u8_put(eb, code); for (int i = 0; i < bl; i++) buf_push(&buf, &len, &cap, eb[i]); }
-            else if (st < 0) { free(buf); return make_err(line, "invalid escape sequence in quoted atom"); }
+            else if (st < 0) { ct_drop(buf); return make_err(line, "invalid escape sequence in quoted atom"); }
         } else if (c == '\n' || c == '\t') {
-            free(buf); return make_err(line, "unescaped layout character in quoted atom");
+            ct_drop(buf); return make_err(line, "unescaped layout character in quoted atom");
         } else {
             buf_push(&buf, &len, &cap, c); advance(lx);
         }
     }
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     Token t = make_tok(TK_ATOM, buf, line);
     return t;
 }
@@ -156,14 +157,14 @@ static Token scan_string(Lexer *lx) {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
             if (st == 1) { char eb[8]; int bl = pl_lex_u8_put(eb, code); for (int i = 0; i < bl; i++) buf_push(&buf, &len, &cap, eb[i]); }
-            else if (st < 0) { free(buf); return make_err(line, "invalid escape sequence in double-quoted token"); }
+            else if (st < 0) { ct_drop(buf); return make_err(line, "invalid escape sequence in double-quoted token"); }
         } else if (c == '\n' || c == '\t') {
-            free(buf); return make_err(line, "unescaped layout character in double-quoted token");
+            ct_drop(buf); return make_err(line, "unescaped layout character in double-quoted token");
         } else {
             buf_push(&buf, &len, &cap, c); advance(lx);
         }
     }
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     Token t = make_tok(TK_STRING, buf, line);
     return t;
 }
@@ -174,9 +175,9 @@ static Token scan_number(Lexer *lx) {
     int is_float = 0;
     if (cur(lx) == '0' && peek1(lx) == '\'') {
         advance(lx); advance(lx);
-        Token t = make_tok(TK_INT, NULL, line); t.text = strdup("0'c");
+        Token t = make_tok(TK_INT, NULL, line); t.text = ct_strdup("0'c");
         if (cur(lx) == '\\') { advance(lx); int code; int st = decode_escape(lx, &code);
-            if (st != 1) { free(t.text); return make_err(line, "invalid escape sequence in character code constant"); }
+            if (st != 1) { ct_drop(t.text); return make_err(line, "invalid escape sequence in character code constant"); }
             t.ival = (long)code; return t; }
         if (cur(lx) == '\'' && peek1(lx) == '\'') { advance(lx); advance(lx); t.ival = (long)'\''; return t; }
         { const unsigned char *u = (const unsigned char *)&lx->src[lx->pos]; int adv = 1, cp = (int)u[0];
@@ -201,7 +202,7 @@ static Token scan_number(Lexer *lx) {
             else if (cur(lx) == ' ' && ndig) { int pv = hexval(peek1(lx)); if (pv < 0 || pv >= radix) break; advance(lx); }
             else break;
         }
-        if (!ndig || (hexval(cur(lx)) >= 0) || isalnum((unsigned char)cur(lx))) { free(buf); return make_err(line, "malformed radix integer"); }
+        if (!ndig || (hexval(cur(lx)) >= 0) || isalnum((unsigned char)cur(lx))) { ct_drop(buf); return make_err(line, "malformed radix integer"); }
         Token t = make_tok(TK_INT, buf, line);
         t.ival = (long)(unsigned long long)strtoull(buf+2, NULL, radix);
         return t;
@@ -230,8 +231,8 @@ static Token scan_number(Lexer *lx) {
                 if (v < 0 || v >= radix) break;
                 buf_push(&dbuf, &dlen, &dcap, advance(lx));
             }
-            if (!dbuf) dbuf = strdup("0");
-            free(buf);
+            if (!dbuf) dbuf = ct_strdup("0");
+            ct_drop(buf);
             Token t = make_tok(TK_INT, dbuf, line);
             t.ival = (long)(unsigned long long)strtoull(dbuf, NULL, (int)radix);
             return t;
@@ -252,10 +253,10 @@ static Token scan_number(Lexer *lx) {
         if ((cur(lx)=='N' && lx->src[lx->pos+1]=='a' && lx->src[lx->pos+2]=='N') ||
             (cur(lx)=='I' && lx->src[lx->pos+1]=='n' && lx->src[lx->pos+2]=='f')) {
             advance(lx); advance(lx); advance(lx);
-            if (!buf) buf = strdup("nan");
+            if (!buf) buf = ct_strdup("nan");
         }
     }
-    if (!buf) buf = strdup("0");
+    if (!buf) buf = ct_strdup("0");
     if (is_float) {
         Token t = make_tok(TK_FLOAT, buf, line);
         t.fval = atof(buf);
@@ -274,7 +275,7 @@ static Token scan_word(Lexer *lx) {
     char *buf = NULL; int len = 0, cap = 0;
     while (isalnum((unsigned char)cur(lx)) || cur(lx) == '_')
         buf_push(&buf, &len, &cap, advance(lx));
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     return make_tok(TK_ATOM, buf, line);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -290,14 +291,14 @@ static Token scan_graphic(Lexer *lx) {
     char *buf = NULL; int len = 0, cap = 0;
     while (is_graphic(cur(lx)) && cur(lx) != ',' && cur(lx) != '|')
         buf_push(&buf, &len, &cap, advance(lx));
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     if (strcmp(buf, ":-") == 0) { Token t = make_tok(TK_NECK, buf, line); return t; }
     if (strcmp(buf, "?-") == 0) { Token t = make_tok(TK_QUERY, buf, line); return t; }
     return make_tok(TK_OP, buf, line);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token lexer_next_raw(Lexer *lx) {
-    if (lx->fenced) return make_tok(TK_EOF, strdup(""), lx->line);
+    if (lx->fenced) return make_tok(TK_EOF, ct_strdup(""), lx->line);
     if (lx->has_peek) {
         lx->has_peek = 0;
         return lx->peek;
@@ -305,20 +306,20 @@ static Token lexer_next_raw(Lexer *lx) {
     skip_ws(lx);
     int line = lx->line;
     char c = cur(lx);
-    if (c == '\0') return make_tok(TK_EOF, strdup(""), line);
+    if (c == '\0') return make_tok(TK_EOF, ct_strdup(""), line);
     if (c == '\'') return scan_quoted_atom(lx);
     if (c == '"') return scan_string(lx);
     if (isupper((unsigned char)c)) {
         char *buf = NULL; int len = 0, cap = 0;
         while (isalnum((unsigned char)cur(lx)) || cur(lx) == '_')
             buf_push(&buf, &len, &cap, advance(lx));
-        if (!buf) buf = strdup("");
+        if (!buf) buf = ct_strdup("");
         return make_tok(TK_VAR, buf, line);
     }
     if (c == '_') {
         advance(lx);
         if (!isalnum((unsigned char)cur(lx)) && cur(lx) != '_')
-            return make_tok(TK_ANON, strdup("_"), line);
+            return make_tok(TK_ANON, ct_strdup("_"), line);
         char *buf = NULL; int len = 0, cap = 0;
         buf_push(&buf, &len, &cap, '_');
         while (isalnum((unsigned char)cur(lx)) || cur(lx) == '_')
@@ -329,21 +330,21 @@ static Token lexer_next_raw(Lexer *lx) {
     if (islower((unsigned char)c)) return scan_word(lx);
     advance(lx);
     switch (c) {
-        case '(': return make_tok(TK_LPAREN,   strdup("("), line);
-        case ')': return make_tok(TK_RPAREN,   strdup(")"), line);
+        case '(': return make_tok(TK_LPAREN,   ct_strdup("("), line);
+        case ')': return make_tok(TK_RPAREN,   ct_strdup(")"), line);
         case '[':
-            if (cur(lx) == ']') { advance(lx); return make_tok(TK_ATOM, strdup("[]"), line); }
-            return make_tok(TK_LBRACKET, strdup("["), line);
-        case ']': return make_tok(TK_RBRACKET, strdup("]"), line);
-        case '|': return make_tok(TK_PIPE,     strdup("|"), line);
-        case ',': return make_tok(TK_COMMA,    strdup(","), line);
-        case '!': return make_tok(TK_CUT,      strdup("!"), line);
-        case ';': return make_tok(TK_SEMI,     strdup(";"), line);
-        case '{': return make_tok(TK_LBRACE,   strdup("{"), line);
-        case '}': return make_tok(TK_RBRACE,   strdup("}"), line);
+            if (cur(lx) == ']') { advance(lx); return make_tok(TK_ATOM, ct_strdup("[]"), line); }
+            return make_tok(TK_LBRACKET, ct_strdup("["), line);
+        case ']': return make_tok(TK_RBRACKET, ct_strdup("]"), line);
+        case '|': return make_tok(TK_PIPE,     ct_strdup("|"), line);
+        case ',': return make_tok(TK_COMMA,    ct_strdup(","), line);
+        case '!': return make_tok(TK_CUT,      ct_strdup("!"), line);
+        case ';': return make_tok(TK_SEMI,     ct_strdup(";"), line);
+        case '{': return make_tok(TK_LBRACE,   ct_strdup("{"), line);
+        case '}': return make_tok(TK_RBRACE,   ct_strdup("}"), line);
         case '.':
             if (cur(lx) == '\0' || isspace((unsigned char)cur(lx)) || cur(lx) == '%')
-                return make_tok(TK_DOT, strdup("."), line);
+                return make_tok(TK_DOT, ct_strdup("."), line);
             lx->pos--;
             return scan_graphic(lx);
         default:

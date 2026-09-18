@@ -625,6 +625,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/aggregates.c \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/ir/bb_pool.c \
+    $(SRC)/ir/ct_arena.c \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/templates/x86/x86_arg_roles.cpp \

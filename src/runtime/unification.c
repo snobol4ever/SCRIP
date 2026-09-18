@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "rt/rt.h"
 #include "core.h"
 #include "core/utf8.h"
@@ -906,7 +907,7 @@ typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; in
 static void plc_fb_raw(plc_fb *f, const char *s, size_t n)
 {
     if (!n) return;
-    if (f->n + n + 1 > f->cap) { size_t c = f->cap ? f->cap : 512; while (c < f->n + n + 1) c *= 2; char *nb = (char *)realloc(f->b, c); if (!nb) return; f->b = nb; f->cap = c; }
+    if (f->n + n + 1 > f->cap) { size_t c = f->cap ? f->cap : 512; while (c < f->n + n + 1) c *= 2; char *nb = (char *)ct_grow(f->b, c); if (!nb) return; f->b = nb; f->cap = c; }
     memcpy(f->b + f->n, s, n); f->n += n; f->b[f->n] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -933,7 +934,7 @@ static void plc_fb_stop(plc_fb *f, long target)
     long cur = (long)plc_fb_colat(f, f->n), pad = target - cur;
     if (pad > 0 && f->nf == 0) { for (long i = 0; i < pad; i++) plc_fb_raw(f, " ", 1); }
     else if (pad > 0) {
-        size_t base = f->seg, segn = f->n - f->seg; int nf = f->nf, fi = 0; char *seg = (char *)malloc(segn + 1);
+        size_t base = f->seg, segn = f->n - f->seg; int nf = f->nf, fi = 0; char *seg = (char *)ct_alloc(segn + 1);
         if (!seg) { f->seg = f->n; f->nf = 0; return; }
         if (segn) memcpy(seg, f->b + base, segn); f->n = base; if (f->b) f->b[f->n] = '\0';
         for (size_t k = 0; k <= segn; k++) {
@@ -944,7 +945,7 @@ static void plc_fb_stop(plc_fb *f, long target)
             }
             if (k < segn) plc_fb_raw(f, seg + k, 1);
         }
-        free(seg);
+        ct_drop(seg);
     }
     f->seg = f->n; f->nf = 0;
 }
@@ -961,7 +962,7 @@ static void plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignor
     else plc_wt(t, quoted, ignore_ops, 1, -1, 0, 1200, &m);
     fclose(ms);
     plc_fb_add(f, bp ? bp : "", bn);
-    free(bp);
+    ct_drop(bp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_A || (int)d->v == DT_S) && !pl_cell_unbound(d); }
@@ -996,20 +997,20 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball)
     size_t cap = 64, n = 0; char *b; pl_cell_t *lst;
     if (!h) return 0;
     if (pl_cell_unbound(h)) { if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
-    if (plc_fmt_is_atom(h)) { const char *s = plc_atom_text(h); *len = strlen(s); *out = (char *)malloc(*len + 1); if (!*out) return 0; memcpy(*out, s, *len + 1); return 1; }
-    b = (char *)malloc(cap); if (!b) return 0;
+    if (plc_fmt_is_atom(h)) { const char *s = plc_atom_text(h); *len = strlen(s); *out = (char *)ct_alloc(*len + 1); if (!*out) return 0; memcpy(*out, s, *len + 1); return 1; }
+    b = (char *)ct_alloc(cap); if (!b) return 0;
     lst = pl_deref(h);
     while (lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2) {
         pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst); pl_cell_t *e = pl_deref(&aa[0]); int ch = -1;
-        if (pl_cell_unbound(e)) { free(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+        if (pl_cell_unbound(e)) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
         if (pl_is_int(e)) ch = (int)pl_int_val(e);
         else if (plc_fmt_is_atom(e)) { const char *s = plc_atom_text(e); ch = s ? (unsigned char)s[0] : 0; }
-        else { free(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *e); return 0; }
-        if (n + 2 > cap) { cap *= 2; char *nb = (char *)realloc(b, cap); if (!nb) { free(b); return 0; } b = nb; }
+        else { ct_drop(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *e); return 0; }
+        if (n + 2 > cap) { cap *= 2; char *nb = (char *)ct_grow(b, cap); if (!nb) { ct_drop(b); return 0; } b = nb; }
         b[n++] = (char)ch; lst = pl_deref(&aa[1]);
     }
-    if (lst && pl_cell_unbound(lst)) { free(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
-    if (!lst || !plc_is_nil(lst)) { free(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", lst ? *lst : *h); return 0; }
+    if (lst && pl_cell_unbound(lst)) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+    if (!lst || !plc_is_nil(lst)) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", lst ? *lst : *h); return 0; }
     b[n] = '\0'; *out = b; *len = n; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1086,7 +1087,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell)
               if (have_n && (size_t)nval < tn) tn = (size_t)(nval < 0 ? 0 : nval);
               plc_fb_add(&f, tx, tn);
               if (have_n && (size_t)nval > tn) for (size_t i = tn; i < (size_t)nval; i++) plc_fb_add(&f, " ", 1);
-              free(tx);
+              ct_drop(tx);
           }
           else if (*p == 'W') {
               pl_cell_t *o = plc_fmt_next_arg(&args); int quoted = 0, iops = 0; pl_cell_t *lst;
@@ -1108,7 +1109,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell)
     }
     if (!ball && args && !pl_cell_unbound(args) && !plc_is_nil(args)) ball = rt_pl_ball_kind2("domain_error", "format_arguments", all);
     if (!ball) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
-    free(f.b);
+    ct_drop(f.b);
     return ball;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1682,7 +1683,7 @@ static int pl_acyclic_walk(pl_cell_t *c, pl_cell_t ***ppath, int *pdepth, int *p
         if ((int)d->v != DT_PLREF) { ret = 1; break; }
         int cyc = 0; for (int i = 0; i < *pdepth; i++) if ((*ppath)[i] == d) { cyc = 1; break; }
         if (cyc) { ret = 0; break; }
-        if (*pdepth >= *pcap) { int nc = *pcap * 2; pl_cell_t **np = (pl_cell_t **)realloc(*ppath, (size_t)nc * sizeof(pl_cell_t *)); if (!np) { ret = 0; break; } *ppath = np; *pcap = nc; }
+        if (*pdepth >= *pcap) { int nc = *pcap * 2; pl_cell_t **np = (pl_cell_t **)ct_grow(*ppath, (size_t)nc * sizeof(pl_cell_t *)); if (!np) { ret = 0; break; } *ppath = np; *pcap = nc; }
         (*ppath)[(*pdepth)++] = d;
         int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d);
         if (ar <= 0) { ret = 1; break; }
@@ -1696,10 +1697,10 @@ static int pl_acyclic_walk(pl_cell_t *c, pl_cell_t ***ppath, int *pdepth, int *p
 int rt_pl_acyclic_cell(void *term_cell)
 {
     if (!term_cell) return 1;
-    int cap = 256, depth = 0; pl_cell_t **path = (pl_cell_t **)malloc((size_t)cap * sizeof(pl_cell_t *));
+    int cap = 256, depth = 0; pl_cell_t **path = (pl_cell_t **)ct_alloc((size_t)cap * sizeof(pl_cell_t *));
     if (!path) return 1;
     int r = pl_acyclic_walk((pl_cell_t *)term_cell, &path, &depth, &cap);
-    free(path); return r;
+    ct_drop(path); return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
@@ -1709,9 +1710,9 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
     if (!ms) { return 0; }
     plc_vmap m; m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
     plc_writeq((pl_cell_t *)term_cell, &m);
-    if (fclose(ms) != 0) { free(buf); return 0; }
+    if (fclose(ms) != 0) { ct_drop(buf); return 0; }
     int ok = plc_unify_into_cell_cx((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""), cx);
-    free(buf);
+    ct_drop(buf);
     if (!ok) { return 0; }
     return 1;
 }

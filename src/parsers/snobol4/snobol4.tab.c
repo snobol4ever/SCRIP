@@ -95,6 +95,7 @@
 # endif
 
 #include "snobol4.tab.h"
+#include "ct_arena.h"
 /* Symbol kind.  */
 enum yysymbol_kind_t
 {
@@ -438,7 +439,7 @@ typedef int yy_state_fast_t;
 
 #if !defined yyoverflow
 
-/* The parser invokes alloca or malloc; define the necessary symbols.  */
+/* The parser invokes alloca or the compile-time arena; define the necessary symbols.  */
 
 # ifdef YYSTACK_USE_ALLOCA
 #  if YYSTACK_USE_ALLOCA
@@ -449,7 +450,7 @@ typedef int yy_state_fast_t;
 #   elif defined _AIX
 #    define YYSTACK_ALLOC __alloca
 #   elif defined _MSC_VER
-#    include <malloc.h> /* INFRINGES ON USER NAME SPACE */
+#    include \"ct_arena.h\"
 #    define alloca _alloca
 #   else
 #    define YYSTACK_ALLOC alloca
@@ -481,23 +482,23 @@ typedef int yy_state_fast_t;
 #   define YYSTACK_ALLOC_MAXIMUM YYSIZE_MAXIMUM
 #  endif
 #  if (defined __cplusplus && ! defined EXIT_SUCCESS \
-       && ! ((defined YYMALLOC || defined malloc) \
-             && (defined YYFREE || defined free)))
+       && ! ((defined YYMALLOC) \
+             && (defined YYFREE)))
 #   include <stdlib.h> /* INFRINGES ON USER NAME SPACE */
 #   ifndef EXIT_SUCCESS
 #    define EXIT_SUCCESS 0
 #   endif
 #  endif
 #  ifndef YYMALLOC
-#   define YYMALLOC malloc
-#   if ! defined malloc && ! defined EXIT_SUCCESS
-void *malloc (YYSIZE_T); /* INFRINGES ON USER NAME SPACE */
+#   define YYMALLOC ct_alloc
+#   if 0
+void *ct_alloc(YYSIZE_T); /* INFRINGES ON USER NAME SPACE */
 #   endif
 #  endif
 #  ifndef YYFREE
-#   define YYFREE free
-#   if ! defined free && ! defined EXIT_SUCCESS
-void free (void *); /* INFRINGES ON USER NAME SPACE */
+#   define YYFREE ct_drop
+#   if 0
+void ct_drop(void *); /* INFRINGES ON USER NAME SPACE */
 #   endif
 #  endif
 # endif
@@ -1576,7 +1577,7 @@ yyreduce:
 
   case 37: /* opt_repl: T_2EQUAL  */
 #line 110 "snobol4.y"
-                                                                                               { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup("");(yyval.expr)=e; }
+                                                                                               { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup("");(yyval.expr)=e; }
 #line 1581 "snobol4.tab.c"
     break;
 
@@ -1588,25 +1589,25 @@ yyreduce:
 
   case 39: /* goto_label_expr: T_GOTO_LPAREN T_IDENT T_GOTO_RPAREN  */
 #line 114 "snobol4.y"
-                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
+                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
 #line 1593 "snobol4.tab.c"
     break;
 
   case 40: /* goto_label_expr: T_GOTO_LPAREN T_END T_GOTO_RPAREN  */
 #line 115 "snobol4.y"
-                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
+                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
 #line 1599 "snobol4.tab.c"
     break;
 
   case 41: /* goto_label_expr: T_GOTO_LPAREN T_FUNCTION T_GOTO_RPAREN  */
 #line 116 "snobol4.y"
-                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
+                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
 #line 1605 "snobol4.tab.c"
     break;
 
   case 42: /* goto_label_expr: T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN  */
 #line 117 "snobol4.y"
-                                                                                             { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",(yyvsp[-1].tok).sval);e->v.sval=strdup(buf);(yyval.expr)=e; }
+                                                                                             { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",(yyvsp[-1].tok).sval);e->v.sval=ct_strdup(buf);(yyval.expr)=e; }
 #line 1611 "snobol4.tab.c"
     break;
 
@@ -1618,7 +1619,7 @@ yyreduce:
 
   case 44: /* goto_label_expr: T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN  */
 #line 119 "snobol4.y"
-                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
+                                                                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
 #line 1623 "snobol4.tab.c"
     break;
 
@@ -1666,7 +1667,7 @@ yyreduce:
 
   case 52: /* expr2: expr2 T_2AMP expr3  */
 #line 129 "snobol4.y"
-                                                                                             { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("&"); (yyval.expr)=_e; }
+                                                                                             { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=ct_strdup("&"); (yyval.expr)=_e; }
 #line 1671 "snobol4.tab.c"
     break;
 
@@ -1702,7 +1703,7 @@ yyreduce:
 
   case 58: /* expr5: expr5 T_2AT expr6  */
 #line 138 "snobol4.y"
-                                                                                              { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("@"); (yyval.expr)=_e; }
+                                                                                              { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=ct_strdup("@"); (yyval.expr)=_e; }
 #line 1707 "snobol4.tab.c"
     break;
 
@@ -1732,7 +1733,7 @@ yyreduce:
 
   case 63: /* expr7: expr7 T_2POUND expr8  */
 #line 145 "snobol4.y"
-                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("#"); (yyval.expr)=_e; }
+                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=ct_strdup("#"); (yyval.expr)=_e; }
 #line 1737 "snobol4.tab.c"
     break;
 
@@ -1768,7 +1769,7 @@ yyreduce:
 
   case 69: /* expr10: expr10 T_2PERCENT expr11  */
 #line 154 "snobol4.y"
-                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("%"); (yyval.expr)=_e; }
+                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=ct_strdup("%"); (yyval.expr)=_e; }
 #line 1773 "snobol4.tab.c"
     break;
 
@@ -1810,7 +1811,7 @@ yyreduce:
 
   case 76: /* expr13: expr14 T_2TILDE expr13  */
 #line 164 "snobol4.y"
-                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("~"); (yyval.expr)=_e; }
+                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=ct_strdup("~"); (yyval.expr)=_e; }
 #line 1815 "snobol4.tab.c"
     break;
 
@@ -1840,7 +1841,7 @@ yyreduce:
 
   case 81: /* expr14: T_1AMP expr14  */
 #line 170 "snobol4.y"
-                                                                                          { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("&"); (yyval.expr)=_e; }
+                                                                                          { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("&"); (yyval.expr)=_e; }
 #line 1845 "snobol4.tab.c"
     break;
 
@@ -1876,43 +1877,43 @@ yyreduce:
 
   case 87: /* expr14: T_1BANG expr14  */
 #line 176 "snobol4.y"
-                                                                                         { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("!"); (yyval.expr)=_e; }
+                                                                                         { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("!"); (yyval.expr)=_e; }
 #line 1881 "snobol4.tab.c"
     break;
 
   case 88: /* expr14: T_1PERCENT expr14  */
 #line 177 "snobol4.y"
-                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("%"); (yyval.expr)=_e; }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("%"); (yyval.expr)=_e; }
 #line 1887 "snobol4.tab.c"
     break;
 
   case 89: /* expr14: T_1SLASH expr14  */
 #line 178 "snobol4.y"
-                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("/"); (yyval.expr)=_e; }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("/"); (yyval.expr)=_e; }
 #line 1893 "snobol4.tab.c"
     break;
 
   case 90: /* expr14: T_1POUND expr14  */
 #line 179 "snobol4.y"
-                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("#"); (yyval.expr)=_e; }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("#"); (yyval.expr)=_e; }
 #line 1899 "snobol4.tab.c"
     break;
 
   case 91: /* expr14: T_1EQUAL expr14  */
 #line 180 "snobol4.y"
-                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("="); (yyval.expr)=_e; }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("="); (yyval.expr)=_e; }
 #line 1905 "snobol4.tab.c"
     break;
 
   case 92: /* expr14: T_1PIPE expr14  */
 #line 181 "snobol4.y"
-                                                                                        { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("|"); (yyval.expr)=_e; }
+                                                                                        { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("|"); (yyval.expr)=_e; }
 #line 1911 "snobol4.tab.c"
     break;
 
   case 93: /* expr14: T_1CARET expr14  */
 #line 182 "snobol4.y"
-                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("^"); (yyval.expr)=_e; }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=ct_strdup("^"); (yyval.expr)=_e; }
 #line 1917 "snobol4.tab.c"
     break;
 
@@ -2346,10 +2347,10 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     STMT_t *s=stmt_new();
     s->lineno = lbl.lineno ? lbl.lineno : snobol4_get_stmt_lineno();
     { extern int snobol4_get_stmt_lline(void); extern const char *snobol4_get_stmt_file(void);
-      s->lline = snobol4_get_stmt_lline(); s->file = strdup(snobol4_get_stmt_file()); }
+      s->lline = snobol4_get_stmt_lline(); s->file = ct_strdup(snobol4_get_stmt_file()); }
     { extern int snobol4_get_nofail_mode(void); s->nofail = snobol4_get_nofail_mode(); }
     s->stno = ++pp->prog->nstmts;
-    if(lbl.sval){s->label=strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
+    if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
         for(STMT_t *p=pp->prog->head;p;p=p->next) if(p->label&&!strcmp(p->label,lbl.sval)){sno_error(s->lineno,"duplicate label '%s'",lbl.sval);break;}}
     s->subject=subj; s->pattern=pat;
     if(has_eq){s->has_eq=1;s->replacement=repl;}
@@ -2363,86 +2364,86 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     }
 }
 static tree_t *parse_expr(Lex *lx){
-    CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
     return prog->head?prog->head->subject:NULL;
 }
 CODE_t *parse_program_tokens(Lex *stream){
-    CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;snobol4_parse(&p);return prog;
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;snobol4_parse(&p);return prog;
 }
 CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out){
-    CODE_t *prog=calloc(1,sizeof*prog);
-    tree_t *ast=calloc(1,sizeof*ast); ast->t=TT_PROGRAM;
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);
+    tree_t *ast=ct_zalloc(1,sizeof*ast); ast->t=TT_PROGRAM;
     PP p={prog,NULL,ast};g_lx=stream;snobol4_parse(&p);
     *ast_out=ast;
     return prog;
 }
-CODE_t *parse_program(LineArray *lines){(void)lines;return calloc(1,sizeof(CODE_t));}
+CODE_t *parse_program(LineArray *lines){(void)lines;return ct_zalloc(1,sizeof(CODE_t));}
 tree_t *parse_expr_from_str(const char *src){
     if(!src||!*src) return NULL;Lex lx={0};lex_open_str(&lx,src,(int)strlen(src),0);return parse_expr(&lx);
 }
 tree_t *parse_expr_pat_from_str(const char *src) {
     if (!src || !*src) return NULL;
     int slen = (int)strlen(src);
-    char *buf = malloc(slen + 2);
+    char *buf = ct_alloc(slen + 2);
     if (!buf) return NULL;
     memcpy(buf, src, slen);
     buf[slen]   = '\n';
     buf[slen+1] = '\0';
     Lex lx = {0};
     lex_open_str(&lx, buf, slen + 1, 0);
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
     snobol4_parse(&p);
-    free(buf);
+    ct_drop(buf);
     if (p.ast_prog && p.ast_prog->n > 0) {
         const tree_t *s = p.ast_prog->c[0];
         if (s) {
             tree_t *pat = stmt_attr_expr(stmt_attr_find(s, ":pat"));
-            if (pat) { free(prog); return pat; }
+            if (pat) { ct_drop(prog); return pat; }
             return stmt_attr_expr(stmt_attr_find(s, ":subj"));
         }
     }
-    if (!prog->head) { free(prog); return NULL; }
+    if (!prog->head) { ct_drop(prog); return NULL; }
     STMT_t *s = prog->head;
     tree_t *res = s->pattern ? s->pattern : s->subject;
-    free(prog);
+    ct_drop(prog);
     return res;
 }
 CODE_t *sno_parse_string(const char *src) {
-    if (!src) return calloc(1, sizeof(CODE_t));
+    if (!src) return ct_zalloc(1, sizeof(CODE_t));
     int slen = (int)strlen(src);
-    char *buf = malloc(slen + 2);
-    if (!buf) return calloc(1, sizeof(CODE_t));
+    char *buf = ct_alloc(slen + 2);
+    if (!buf) return ct_zalloc(1, sizeof(CODE_t));
     memcpy(buf, src, slen);
     buf[slen]   = '\n';
     buf[slen+1] = '\0';
     Lex lx = {0};
     lex_open_str_initial(&lx, buf, slen + 1, 0);
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
     snobol4_parse(&p);
-    free(buf);
+    ct_drop(buf);
     return prog;
 }
 tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out) {
-    if (!src) { if (code_out) *code_out = calloc(1, sizeof(CODE_t)); return NULL; }
+    if (!src) { if (code_out) *code_out = ct_zalloc(1, sizeof(CODE_t)); return NULL; }
     int slen = (int)strlen(src);
-    char *buf = malloc(slen + 2);
-    if (!buf) { if (code_out) *code_out = calloc(1, sizeof(CODE_t)); return NULL; }
+    char *buf = ct_alloc(slen + 2);
+    if (!buf) { if (code_out) *code_out = ct_zalloc(1, sizeof(CODE_t)); return NULL; }
     memcpy(buf, src, slen);
     buf[slen]   = '\n';
     buf[slen+1] = '\0';
     Lex lx = {0};
     lex_open_str_initial(&lx, buf, slen + 1, 0);
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
-    tree_t  *ast  = calloc(1, sizeof(tree_t)); ast->t = TT_PROGRAM;
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
+    tree_t  *ast  = ct_zalloc(1, sizeof(tree_t)); ast->t = TT_PROGRAM;
     PP p = {prog, NULL, ast};
     g_lx = &lx;
     snobol4_parse(&p);
     ast = p.ast_prog;
-    free(buf);
-    if (code_out) *code_out = prog; else free(prog);
+    ct_drop(buf);
+    if (code_out) *code_out = prog; else ct_drop(prog);
     return (ast && ast->n > 0) ? ast : NULL;
 }

@@ -1,4 +1,5 @@
 %{
+#include "ct_arena.h"
 #include "scrip_cc.h"
 #include "snobol4.h"
 #include "snobol4.tab.h"
@@ -49,25 +50,25 @@ static const char *sno_frame_file(void) {
 static int sno_frame_line(void) { return lineno + incl_start_stack[incl_stack_depth].line_delta; }
 static void sno_stmt_pos_mark(void) {
     g_stmt_pos.lineno = lineno; g_stmt_pos.lline = sno_frame_line();
-    free(g_stmt_pos.fname);
-    g_stmt_pos.fname = g_stmt_pos.pend_fname ? g_stmt_pos.pend_fname : strdup(sno_frame_file());
+    ct_drop(g_stmt_pos.fname);
+    g_stmt_pos.fname = g_stmt_pos.pend_fname ? g_stmt_pos.pend_fname : ct_strdup(sno_frame_file());
     g_stmt_pos.pend_fname = (char *)0;
 }
 static void sno_stmt_comment_latch(void) {
-    if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = strdup(sno_frame_file());
+    if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = ct_strdup(sno_frame_file());
 }
 static void sno_frame_push(const char *name) {
     if (incl_stack_depth >= MAX_INCL_NEST) return;
     { SNO_SRC_FRAME_t *f = &incl_start_stack[++incl_stack_depth];
       f->start_line = lineno; f->line_delta = 1 - lineno;
-      free(f->fname); f->fname = strdup(name ? name : ""); }
+      ct_drop(f->fname); f->fname = ct_strdup(name ? name : ""); }
 }
 #define MAX_INCL_ONCE 512
 static char *incl_once[MAX_INCL_ONCE];
 static int   incl_once_n = 0;
 static int sno_include_once_seen(const char *key) {
     for (int i = 0; i < incl_once_n; i++) if (!strcmp(incl_once[i], key)) return 1;
-    if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = strdup(key);
+    if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = ct_strdup(key);
     return 0;
 }
 static Token mktok(int k, const char *sv, long iv, double dv) {
@@ -110,7 +111,7 @@ G       ({WS}|{CONT})*
             if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
             char *sl=strrchr(rpath,'/');
-            if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
+            if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
             }
@@ -135,7 +136,7 @@ G       ({WS}|{CONT})*
             if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
             char *sl=strrchr(rpath,'/');
-            if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
+            if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
             }
@@ -157,7 +158,7 @@ G       ({WS}|{CONT})*
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
             char *sl=strrchr(rpath,'/');
-            if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
+            if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
         }
@@ -173,8 +174,8 @@ G       ({WS}|{CONT})*
         f->line_delta = (int)(nn - lineno);
         { const char *q1 = strchr(p,'"'), *q2 = q1 ? strchr(q1+1,'"') : (const char *)0;
           if (!q1) { q1 = strchr(p,'\''); q2 = q1 ? strchr(q1+1,'\'') : (const char *)0; }
-          if (q1 && q2 && q2 > q1 + 1) { int nl = (int)(q2-q1-1); char *nm = malloc((size_t)nl+1);
-            if (nm) { memcpy(nm,q1+1,(size_t)nl); nm[nl]='\0'; free(f->fname); f->fname = nm; } } }
+          if (q1 && q2 && q2 > q1 + 1) { int nl = (int)(q2-q1-1); char *nm = ct_alloc((size_t)nl+1);
+            if (nm) { memcpy(nm,q1+1,(size_t)nl); nm[nl]='\0'; ct_drop(f->fname); f->fname = nm; } } }
     }
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

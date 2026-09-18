@@ -1,6 +1,7 @@
 #ifndef X86_ASM_H
 #define X86_ASM_H
 #include <string>
+#include "ct_arena.h"
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
@@ -1868,7 +1869,7 @@ extern "C" void rt_pl_port_trace(const char * stem, const char * target, long ev
 inline std::string x86_pl_trace_ro(const char * dst, const char * s) {
     if (!s) return x86("mov", dst, 0L);
     char lbl[24]; strtab_label(lbl, sizeof lbl, s);
-    return x86_load_ro(dst, lbl, (uint64_t)(uintptr_t)(MEDIUM_BINARY ? strdup(s) : s));
+    return x86_load_ro(dst, lbl, (uint64_t)(uintptr_t)(MEDIUM_BINARY ? ct_strdup(s) : s));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pl_trace_ev(int site, int port, const char * lbl) {

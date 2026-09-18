@@ -1,4 +1,5 @@
 #include "gva_collect.h"
+#include "ct_arena.h"
 #include "IR.h"
 #include <string.h>
 #include <stdlib.h>
@@ -18,7 +19,7 @@ static int gva_io_refused(const char *name) {
 void gva_io_refuse_name(const char *name) {
     if (!name || !name[0] || gva_io_refused(name)) return;
     if (g_gva_io_refused_n >= g_gva_io_refused_max) {
-        int nm = g_gva_io_refused_max ? g_gva_io_refused_max * 2 : 32; const char **g = (const char **)realloc(g_gva_io_refused, (size_t)nm * sizeof(const char *));
+        int nm = g_gva_io_refused_max ? g_gva_io_refused_max * 2 : 32; const char **g = (const char **)ct_grow(g_gva_io_refused, (size_t)nm * sizeof(const char *));
         if (!g) return; g_gva_io_refused = g; g_gva_io_refused_max = nm;
     }
     g_gva_io_refused[g_gva_io_refused_n++] = name;
@@ -52,7 +53,7 @@ int gva_keyword_refused(const char *name) {
 void gva_keyword_refuse_name(const char *name) {
     if (!name || !name[0] || gva_keyword_refused(name)) return;
     if (g_gva_kw_refused_n >= g_gva_kw_refused_max) {
-        int nm = g_gva_kw_refused_max ? g_gva_kw_refused_max * 2 : 32; const char **g = (const char **)realloc(g_gva_kw_refused, (size_t)nm * sizeof(const char *));
+        int nm = g_gva_kw_refused_max ? g_gva_kw_refused_max * 2 : 32; const char **g = (const char **)ct_grow(g_gva_kw_refused, (size_t)nm * sizeof(const char *));
         if (!g) return; g_gva_kw_refused = g; g_gva_kw_refused_max = nm;
     }
     g_gva_kw_refused[g_gva_kw_refused_n++] = name;
@@ -115,7 +116,7 @@ int gva_collect_var(const char *name) {
     if (!gva_name_eligible(name)) return -1;
     int k = gva_index_of(name); if (k >= 0) return k;
     if (g_gva_n >= g_gva_max) {
-        int nm = g_gva_max ? g_gva_max * 2 : 256; const char **g = (const char **)realloc(g_gva_names, (size_t)nm * sizeof(const char *));
+        int nm = g_gva_max ? g_gva_max * 2 : 256; const char **g = (const char **)ct_grow(g_gva_names, (size_t)nm * sizeof(const char *));
         if (!g) return -1; g_gva_names = g; g_gva_max = nm;
     }
     g_gva_names[g_gva_n] = name; return g_gva_n++;

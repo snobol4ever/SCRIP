@@ -1,6 +1,7 @@
 #ifndef BB_BOX_H
 #define BB_BOX_H
 #include <stdlib.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <stdbool.h>
 #include "descr.h"
@@ -25,7 +26,7 @@ static inline void * bb_enter(void ** ζζ, size_t size) {
     void * ζ = *ζζ;
     if (size) {
         if (ζ) memset(ζ, 0, size);
-        else   ζ = *ζζ = calloc(1, size);
+        else   ζ = *ζζ = ct_zalloc(1, size);
     }
     return ζ;
 }

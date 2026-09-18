@@ -1,4 +1,5 @@
 #include "icon_lex.h"
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -26,7 +27,7 @@ static char lex_advance(IcnLexer *lx) {
 static void buf_push(char **buf, int *len, int *cap, char c) {
     if (*len + 2 > *cap) {
         *cap = (*cap) ? (*cap) * 2 : 32;
-        *buf = realloc(*buf, *cap);
+        *buf = ct_grow(*buf, *cap);
     }
     (*buf)[(*len)++] = c;
     (*buf)[*len] = '\0';
@@ -163,9 +164,9 @@ static IcnToken scan_string(IcnLexer *lx) {
             buf_push(&buf, &len, &cap, c);
         }
     }
-    if (!lex_cur(lx)) { free(buf); return make_error(lx, "unterminated string literal"); }
+    if (!lex_cur(lx)) { ct_drop(buf); return make_error(lx, "unterminated string literal"); }
     lex_advance(lx);
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     IcnToken t = make_tok(TK_STRING, line, col);
     t.val.sval.data = buf;
     t.val.sval.len  = (size_t)len;
@@ -193,9 +194,9 @@ static IcnToken scan_cset(IcnLexer *lx) {
         }
         buf_push(&buf, &len, &cap, c);
     }
-    if (!lex_cur(lx)) { free(buf); return make_error(lx, "unterminated cset literal"); }
+    if (!lex_cur(lx)) { ct_drop(buf); return make_error(lx, "unterminated cset literal"); }
     lex_advance(lx);
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     IcnToken t = make_tok(TK_CSET, line, col);
     t.val.sval.data = buf;
     t.val.sval.len  = (size_t)len;
@@ -213,7 +214,7 @@ static IcnToken scan_number(IcnLexer *lx) {
         while (isxdigit((unsigned char)lex_cur(lx)))
             buf_push(&buf, &len, &cap, lex_advance(lx));
         long val = strtol(buf, NULL, 16);
-        free(buf);
+        ct_drop(buf);
         IcnToken t = make_tok(TK_INT, line, col);
         t.val.ival = val;
         return t;
@@ -222,11 +223,11 @@ static IcnToken scan_number(IcnLexer *lx) {
         buf_push(&buf, &len, &cap, lex_advance(lx));
     if ((lex_cur(lx) == 'r' || lex_cur(lx) == 'R') && !is_real) {
         int radix = (int)strtol(buf, NULL, 10);
-        free(buf); buf = NULL; len = 0; cap = 0;
+        ct_drop(buf); buf = NULL; len = 0; cap = 0;
         lex_advance(lx);
         while (isalnum((unsigned char)lex_cur(lx)))
             buf_push(&buf, &len, &cap, lex_advance(lx));
-        if (!buf) buf = strdup("0");
+        if (!buf) buf = ct_strdup("0");
         unsigned long long val = 0; int big = 0;
         for (int i = 0; i < len; i++) {
             char c = buf[i];
@@ -237,11 +238,11 @@ static IcnToken scan_number(IcnLexer *lx) {
             val = val * (unsigned)radix + (unsigned)d;
         }
         if (big) {
-            size_t bl = strlen(buf); char *txt = (char *)malloc(bl + 16); snprintf(txt, bl + 16, "%dr%s", radix, buf); free(buf);
+            size_t bl = strlen(buf); char *txt = (char *)ct_alloc(bl + 16); snprintf(txt, bl + 16, "%dr%s", radix, buf); ct_drop(buf);
             IcnToken t = make_tok(TK_BIGINT, line, col); t.val.sval.data = txt; t.val.sval.len = strlen(txt);
             return t;
         }
-        free(buf);
+        ct_drop(buf);
         IcnToken t = make_tok(TK_INT, line, col);
         t.val.ival = (long long)val;
         return t;
@@ -267,10 +268,10 @@ static IcnToken scan_number(IcnLexer *lx) {
     } else {
         errno = 0;
         long _iv = strtol(buf, NULL, 10);
-        if (errno == ERANGE) { t = make_tok(TK_BIGINT, line, col); t.val.sval.data = strdup(buf); t.val.sval.len = strlen(buf); }
+        if (errno == ERANGE) { t = make_tok(TK_BIGINT, line, col); t.val.sval.data = ct_strdup(buf); t.val.sval.len = strlen(buf); }
         else { t = make_tok(TK_INT, line, col); t.val.ival = _iv; }
     }
-    free(buf);
+    ct_drop(buf);
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -279,14 +280,14 @@ static IcnToken scan_ident(IcnLexer *lx) {
     char *buf = NULL; int len = 0, cap = 0;
     while (isalnum((unsigned char)lex_cur(lx)) || lex_cur(lx) == '_')
         buf_push(&buf, &len, &cap, lex_advance(lx));
-    if (!buf) buf = strdup("");
+    if (!buf) buf = ct_strdup("");
     IcnTkKind kind = lookup_keyword(buf);
     IcnToken t = make_tok(kind, line, col);
     if (kind == TK_IDENT) {
         t.val.sval.data = buf;
         t.val.sval.len  = (size_t)len;
     } else {
-        free(buf);
+        ct_drop(buf);
     }
     return t;
 }
@@ -580,7 +581,7 @@ static char *pp_subst_span(const char *s, size_t len, const PpDef *defs, int nde
             continue; }
         buf_push(&out, &olen, &ocap, c); i++;
     }
-    if (!out) out = strdup("");
+    if (!out) out = ct_strdup("");
     return out;
 }
 static char icn_pp_src[1024] = "";
@@ -601,11 +602,11 @@ void icn_pp_source_base(char *out, size_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pp_expand(const char *body, const PpDef *defs, int ndefs) {
-    char *cur = strdup(body ? body : "");
+    char *cur = ct_strdup(body ? body : "");
     for (int r = 0; r < 8; r++) {
         char *nx = pp_subst_span(cur, strlen(cur), defs, ndefs);
         int same = !strcmp(nx, cur);
-        free(cur); cur = nx;
+        ct_drop(cur); cur = nx;
         if (same) break;
     }
     return cur;
@@ -679,7 +680,7 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
                     }
                     while (ve > vs && (src[ve - 1] == ' ' || src[ve - 1] == '\t' || src[ve - 1] == '\r')) ve--;
                     if (ve > vs && src[ve - 1] == ';') { ve--; while (ve > vs && (src[ve - 1] == ' ' || src[ve - 1] == '\t')) ve--; }
-                    if (*ndefs < 128) { defs[*ndefs].name = strndup(src + ns, ne - ns); defs[*ndefs].val = pp_subst_span(src + vs, ve - vs, defs, *ndefs); (*ndefs)++; }
+                    if (*ndefs < 128) { defs[*ndefs].name = ct_strndup(src + ns, ne - ns); defs[*ndefs].val = pp_subst_span(src + vs, ve - vs, defs, *ndefs); (*ndefs)++; }
                 }
             } else if (j + 7 <= n && !strncmp(src + j, "include", 7) && (j + 7 == n || !pp_word_char(src[j + 7]))) {
                 j += 7; while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
@@ -694,8 +695,8 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
                         FILE *f = fopen(path, "rb");
                         if (f) {
                             fseek(f, 0, SEEK_END); long fz = ftell(f); fseek(f, 0, SEEK_SET);
-                            char *fsrc = (char *)malloc((size_t)fz + 1);
-                            if (fsrc) { size_t rd = fread(fsrc, 1, (size_t)fz, f); fsrc[rd] = 0; icn_pp_run(fsrc, out, olen, ocap, defs, ndefs, depth + 1); free(fsrc); }
+                            char *fsrc = (char *)ct_alloc((size_t)fz + 1);
+                            if (fsrc) { size_t rd = fread(fsrc, 1, (size_t)fz, f); fsrc[rd] = 0; icn_pp_run(fsrc, out, olen, ocap, defs, ndefs, depth + 1); ct_drop(fsrc); }
                             fclose(f);
                         }
                     }
@@ -717,7 +718,7 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
             size_t ws = i; while (i < n && pp_word_char(src[i])) i++;
             size_t wl = i - ws; const char *rep = NULL;
             for (int k = *ndefs - 1; k >= 0; k--) if (strlen(defs[k].name) == wl && !strncmp(defs[k].name, src + ws, wl)) { rep = defs[k].val; break; }
-            if (rep) { char *ex = pp_expand(rep, defs, *ndefs); for (const char *p = ex; *p; p++) buf_push(out, olen, ocap, *p); free(ex); }
+            if (rep) { char *ex = pp_expand(rep, defs, *ndefs); for (const char *p = ex; *p; p++) buf_push(out, olen, ocap, *p); ct_drop(ex); }
             else     { for (size_t k = ws; k < i; k++) buf_push(out, olen, ocap, src[k]); }
             at_bol = 0; continue; }
         buf_push(out, olen, ocap, c);
@@ -728,11 +729,11 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
 static char *icn_preprocess(const char *src) {
     PpDef defs[128]; int ndefs = 0;
     static const char *pre[] = { "_UNIX", "_ASCII", "_CO_EXPRESSIONS", "_KEYBOARD_FUNCTIONS", "_LARGE_INTEGERS", "_PIPES", "_SYSTEM_FUNCTION" };
-    for (int k = 0; k < 7 && ndefs < 128; k++) { defs[ndefs].name = strdup(pre[k]); defs[ndefs].val = strdup("1"); ndefs++; }
+    for (int k = 0; k < 7 && ndefs < 128; k++) { defs[ndefs].name = ct_strdup(pre[k]); defs[ndefs].val = ct_strdup("1"); ndefs++; }
     char *out = NULL; int olen = 0, ocap = 0;
     icn_pp_run(src, &out, &olen, &ocap, defs, &ndefs, 0);
-    if (!out) out = strdup("");
-    for (int k = 0; k < ndefs; k++) { free(defs[k].name); free(defs[k].val); }
+    if (!out) out = ct_strdup("");
+    for (int k = 0; k < ndefs; k++) { ct_drop(defs[k].name); ct_drop(defs[k].val); }
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

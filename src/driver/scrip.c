@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "../ir/pin_va.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -128,7 +129,7 @@ static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2)
     if (!bbg || !s2) return;
     int _bd = 0; for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (ir_define_is_bind(_c)) _bd++; }
     if (_bd <= 0 || bbg->n_dentry != 0) return;
-    bbg->dentry_node = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)calloc((size_t)_bd, sizeof(char *));
+    bbg->dentry_node = (IR_t **)ct_zalloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)ct_zalloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)ct_zalloc((size_t)_bd, sizeof(char *));
     if (!bbg->dentry_node || !bbg->dentry_entry || !bbg->dentry_name) return;
     for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (!ir_define_is_bind(_c) || !IR_LIT(_c).sval) continue;
         if (bbg->n_dentry >= _bd) break;
@@ -142,7 +143,7 @@ static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2)
                 if (!_tn) break;
                 bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; }
             { char _anb[300]; snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
-              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = strdup(_anb); bbg->n_dentry++; break; } } }
+              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = ct_strdup(_anb); bbg->n_dentry++; break; } } }
 }
 static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
@@ -423,7 +424,7 @@ static void register_procs_all(stage2_t * s2) {
         int np = s2->proc_table[_pi].nparams;
         const char **pn = NULL;
         if (np > 0) {
-            pn = (const char **)calloc((size_t)np, sizeof(const char *));
+            pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
             for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                 pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
         }
@@ -945,7 +946,7 @@ static void icn_register_locals(const char *pname, IR_graph_t *g) {
     rt_proc_set_locals(pname, g->lnames, g->nlocals);
     int nv = zls_g_vslot_count(g);
     if (nv <= 0) return;
-    int *offs = (int *)malloc(sizeof(int) * (size_t)g->nlocals);
+    int *offs = (int *)ct_alloc(sizeof(int) * (size_t)g->nlocals);
     if (!offs) return;
     for (int k = 0; k < g->nlocals; k++) {
         offs[k] = -1;
@@ -1090,7 +1091,7 @@ int main(int argc, char **argv)
     tree_t  *ast_prog = NULL;
     #define RECORD_SEG(sub_ast, seg_fn) do { \
         if ((sub_ast) && nsegs < 64) { \
-            tree_t *_sp = calloc(1, sizeof(tree_t)); \
+            tree_t *_sp = ct_zalloc(1, sizeof(tree_t)); \
             if (_sp) { _sp->t = TT_PROGRAM; \
                 for (int _si = 0; _si < (sub_ast)->n; _si++) if ((sub_ast)->c[_si]) ast_push(_sp, (sub_ast)->c[_si]); \
                 segs[nsegs].prog = _sp; segs[nsegs].fn = (seg_fn); nsegs++; } } \
@@ -1106,7 +1107,7 @@ int main(int argc, char **argv)
                 for (int _i = 0; _i < (sub_ast)->n; _i++) { \
                     ast_push(ast_prog, (sub_ast)->c[_i]); \
                 } \
-                if ((sub_ast)->c) free((char *)(sub_ast)->c - sizeof(size_t)); free(sub_ast); \
+                if ((sub_ast)->c) ct_drop((char *)(sub_ast)->c - sizeof(size_t)); ct_drop(sub_ast); \
             } \
         } \
     } while(0)
@@ -1123,13 +1124,13 @@ int main(int argc, char **argv)
             strncpy(dirbuf, abs_path, sizeof dirbuf - 1);
             dirbuf[sizeof dirbuf - 1] = '\0';
             char *sl = strrchr(dirbuf, '/');
-            if (sl) { *sl = '\0'; sno_add_include_dir(strdup(dirbuf)); }
+            if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); }
             else     { sno_add_include_dir("."); }
             const char *core_lib = getenv("SNO_LIB");
             if (core_lib && *core_lib) {
                 char envb[4096]; strncpy(envb, core_lib, sizeof envb - 1); envb[sizeof envb - 1] = '\0';
                 char *sp = envb; char *tk;
-                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) sno_add_include_dir(strdup(tk));
+                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) sno_add_include_dir(ct_strdup(tk));
             }
             char walk[4096];
             strncpy(walk, abs_path, sizeof walk - 1);
@@ -1141,10 +1142,10 @@ int main(int argc, char **argv)
                 snprintf(probe, sizeof probe, "%s/lib", walk);
                 struct stat st;
                 int hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
-                if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); if (hit) sno_add_include_dir(strdup(probe)); }
+                if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); if (hit) sno_add_include_dir(ct_strdup(probe)); }
                 snprintf(probe, sizeof probe, "%s/include", walk);
-                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(strdup(probe)); }
-                if (hit) sno_add_include_dir(strdup(walk));
+                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); }
+                if (hit) sno_add_include_dir(ct_strdup(walk));
                 p = strrchr(walk, '/');
             }
             sno_add_include_dir(".");
@@ -1162,17 +1163,17 @@ int main(int argc, char **argv)
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
-            char *src = malloc(flen + 1);
+            char *src = ct_alloc(flen + 1);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
             fread(src, 1, flen, f); src[flen] = '\0'; fclose(f);
             tree_t *sub_ast = parse_scrip_polyglot(src, input_path, segs, &nsegs, 64);
-            free(src);
+            ct_drop(src);
             MERGE_AST(sub_ast);
         } else if (lang_snocone || lang_prolog || lang_icon || lang_raku || lang_rebus || lang_pascal) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
-            char *src = malloc(flen + 1);
+            char *src = ct_alloc(flen + 1);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
             fread(src, 1, flen, f); src[flen] = '\0'; fclose(f);
             tree_t *sub_ast = NULL;
@@ -1182,7 +1183,7 @@ int main(int argc, char **argv)
             else if (lang_rebus)   rebus_compile(src, input_path, &sub_ast);
             else if (lang_pascal)  pascal_compile(src, input_path, &sub_ast);
             else                   snocone_compile(src, input_path, &sub_ast);
-            free(src);
+            ct_drop(src);
             if (dump_ast && sub_ast) {
                 ir_dump_program(sub_ast, stdout); return 0;
             }
@@ -1220,17 +1221,17 @@ int main(int argc, char **argv)
                 for (_k = 0; _k < n_preload; _k++) _plen += strlen(preload_path[_k]) + 16;
                 fseek(f, 0, SEEK_END); _flen = ftell(f); rewind(f);
                 if (_flen < 0) { fprintf(stderr, "scrip: cannot size '%s'\n", input_path); fclose(f); return 1; }
-                _pre_buf = (char *)malloc(_plen + (size_t)_flen + 2);
+                _pre_buf = (char *)ct_alloc(_plen + (size_t)_flen + 2);
                 if (!_pre_buf) { fprintf(stderr, "scrip: out of memory\n"); fclose(f); return 1; }
                 { size_t _at = 0; for (_k = 0; _k < n_preload; _k++) _at += (size_t)snprintf(_pre_buf + _at, _plen + 2 - _at, "-INCLUDE '%s'\n", preload_path[_k]);
-                  if (fread(_pre_buf + _at, 1, (size_t)_flen, f) != (size_t)_flen) { fprintf(stderr, "scrip: short read on '%s'\n", input_path); free(_pre_buf); fclose(f); return 1; }
+                  if (fread(_pre_buf + _at, 1, (size_t)_flen, f) != (size_t)_flen) { fprintf(stderr, "scrip: short read on '%s'\n", input_path); ct_drop(_pre_buf); fclose(f); return 1; }
                   _pre_buf[_at + (size_t)_flen] = '\0';
                   fclose(f); f = fmemopen(_pre_buf, _at + (size_t)_flen, "r");
-                  if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); free(_pre_buf); return 1; } }
+                  if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); ct_drop(_pre_buf); return 1; } }
             }
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
-            free(_pre_buf);
+            ct_drop(_pre_buf);
             RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
         }
@@ -1295,7 +1296,7 @@ int main(int argc, char **argv)
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
         { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
-        const IR_t ** seen_all = (const IR_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
+        const IR_t ** seen_all = (const IR_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
             int idx = s2->proc_table[_pi].bb_idx;
@@ -1311,7 +1312,7 @@ int main(int argc, char **argv)
             if (dump_ir) bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
         if (dump_zeta) zls_dump(stdout);
-        free(seen_all);
+        ct_drop(seen_all);
         return 0;
     }
     if (dump_bb) {
@@ -1321,8 +1322,8 @@ int main(int argc, char **argv)
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
         for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]);
-        const IR_graph_t ** gset = (const IR_graph_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_graph_t *));
-        const char ** gname = (const char **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const char *));
+        const IR_graph_t ** gset = (const IR_graph_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_graph_t *));
+        const char ** gname = (const char **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const char *));
         int gn = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
             int idx = s2->proc_table[_pi].bb_idx;
@@ -1338,8 +1339,8 @@ int main(int argc, char **argv)
         int first = 1, stno = 0;
         for (int gi = 0; gi < gn; gi++) {
             const IR_graph_t * g = gset[gi];
-            int * stno_of = (int *) calloc(g->n > 0 ? g->n : 1, sizeof(int));
-            const char ** src_of = (const char **) calloc(g->n > 0 ? g->n : 1, sizeof(const char *));
+            int * stno_of = (int *) ct_zalloc(g->n > 0 ? g->n : 1, sizeof(int));
+            const char ** src_of = (const char **) ct_zalloc(g->n > 0 ? g->n : 1, sizeof(const char *));
             int pend = 0;
             for (int i = 0; i < g->n; i++) {
                 if (!g->all[i]) continue;
@@ -1363,7 +1364,7 @@ int main(int argc, char **argv)
                 if (src_of[i]) { fputs(",\"src\":", stdout); bbj_str(stdout, src_of[i]); }
                 fputs("}", stdout);
             }
-            free(stno_of); free((void *) src_of);
+            ct_drop(stno_of); ct_drop((void *) src_of);
         }
         fputs("],\n \"edges\":[", stdout);
         first = 1;
@@ -1387,7 +1388,7 @@ int main(int argc, char **argv)
             }
         }
         fputs("]}\n", stdout);
-        free(gset); free(gname);
+        ct_drop(gset); ct_drop(gname);
         return 0;
     }
     if (mode_compile_x86) {
@@ -1447,12 +1448,12 @@ int main(int argc, char **argv)
             g_gva_active = (n_gva_icn > 0) ? 1 : 0;
             int n_procs = 0;
             int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
-            const char **proc_names_buf = (const char **)malloc((size_t)_pnbcap * sizeof(const char *));
-            int *proc_nparams_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            int *proc_pidx_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            int *proc_zstatic_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
+            const char **proc_names_buf = (const char **)ct_alloc((size_t)_pnbcap * sizeof(const char *));
+            int *proc_nparams_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
+            int *proc_pidx_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
+            int *proc_fb_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
+            int *proc_ispat_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
+            int *proc_zstatic_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
             { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1462,7 +1463,7 @@ int main(int argc, char **argv)
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
                 if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
@@ -1484,8 +1485,8 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
-                proc_names_buf[n_procs++] = pname ? strdup(pname) : NULL;
-                free(pn);
+                proc_names_buf[n_procs++] = pname ? ct_strdup(pname) : NULL;
+                ct_drop(pn);
             }
             int n_cls_emit = 0;
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
@@ -1555,12 +1556,12 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 sn4_dentry_table_build(bbg, s2);
                 { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
-                  if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
+                  if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)ct_zalloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)ct_zalloc((size_t)_na, sizeof(char *));
                       if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
                           if (bbg->n_balias >= _na) break;
                           IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
                           { int _dl = 0; for (int _dq = 0; _dq < bbg->n_dentry; _dq++) if (bbg->dentry_entry[_dq] == _bn) { _dl = 1; break; } if (_dl && !sn4_define_lbl_alias()) continue; }
-                          char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+                          char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
                 emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
@@ -1569,8 +1570,8 @@ int main(int argc, char **argv)
                 if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
                 { extern int emit_gc_map_names_n(void); extern const char *emit_gc_map_name(int); int _nm = emit_gc_map_names_n(); emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm); for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k)); emit_textf("  .section .text\n  .intel_syntax noprefix\n"); }
             }
-            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
-            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
+            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { ct_drop((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
+            ct_drop(proc_names_buf); ct_drop(proc_nparams_buf); ct_drop(proc_pidx_buf); ct_drop(proc_fb_buf); ct_drop(proc_zstatic_buf);
             g_gva_active = 0;
             g_frame_active = 0;
             { extern int g_proc_direct_active; g_proc_direct_active = 0; }
@@ -1617,7 +1618,7 @@ int main(int argc, char **argv)
                 int n_gva_m3; { extern int gva_trace_demoted(void); const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = (gva_trace_demoted() || (_gv && *_gv && *_gv == (char)48)) ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
-                    const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
+                    const char **m3_gva_nms = (const char **)ct_alloc((size_t)n_gva_m3 * sizeof(const char *));
                     for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
                 }
@@ -1641,7 +1642,7 @@ int main(int argc, char **argv)
                 int np = s2->proc_table[_pi].nparams;
                 const char **pn = NULL;
                 if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                    pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
@@ -1696,11 +1697,11 @@ int main(int argc, char **argv)
               g_ab_posthook_g = bbg; g_ab_posthook_gva = g_gva_active;
               g_emit_chain_posthook = bb_ab_posthook; }
             { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
-              if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
+              if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)ct_zalloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)ct_zalloc((size_t)_na, sizeof(char *));
                   if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
                       if (bbg->n_balias >= _na) break;
                       IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
-                      char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+                      char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
             { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
             if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;

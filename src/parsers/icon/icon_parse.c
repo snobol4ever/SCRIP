@@ -1,4 +1,5 @@
 #include "icon_parse.h"
+#include "ct_arena.h"
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include <stdlib.h>
@@ -855,7 +856,7 @@ static tree_t *parse_proc(IcnParser *p) {
     expect(p, TK_LPAREN, "procedure params");
     while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
         if (p->cur.kind == TK_IDENT) {
-            if (nparams+1 > pcap) { pcap = pcap ? pcap*2 : 4; params = realloc(params, pcap*sizeof(tree_t*)); }
+            if (nparams+1 > pcap) { pcap = pcap ? pcap*2 : 4; params = ct_grow(params, pcap*sizeof(tree_t*)); }
             params[nparams++] = e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len);
             advance(p);
             if (check(p, TK_LBRACK)) { advance(p); match(p, TK_RBRACK); is_variadic = 1; break; }
@@ -870,7 +871,7 @@ static tree_t *parse_proc(IcnParser *p) {
         tree_t *s = parse_stmt(p);
         if (s && s->line <= 0) s->line = sline;
         if (s) {
-            if (nstmts+1 > scap) { scap = scap ? scap*2 : 8; stmts = realloc(stmts, scap*sizeof(tree_t*)); }
+            if (nstmts+1 > scap) { scap = scap ? scap*2 : 8; stmts = ct_grow(stmts, scap*sizeof(tree_t*)); }
             stmts[nstmts++] = s;
         }
     }
@@ -888,7 +889,7 @@ static tree_t *parse_proc(IcnParser *p) {
     ast_push(proc, e_leaf_sval(TT_VAR, procname, -1));
     ast_push(proc, vlist);
     ast_push(proc, body);
-    free(params); free(stmts);
+    ct_drop(params); ct_drop(stmts);
     return proc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,4 +1,5 @@
 #include "driver_private.h"
+#include "ct_arena.h"
 #include "../runtime/snobol4_system_fns.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void label_table_build(stage2_t *s2, const tree_t *prog)
@@ -11,7 +12,7 @@ void label_table_build(stage2_t *s2, const tree_t *prog)
         const char *lbl = stmt_attr_str(stmt_attr_find(s, ":lbl"));
         if (lbl && *lbl) {
             int _li = stage2_label_grow(s2);
-            s2->label_table[_li].name = strdup(lbl);
+            s2->label_table[_li].name = ct_strdup(lbl);
             s2->label_table[_li].stmt = s;
         }
     }
@@ -82,9 +83,9 @@ void prescan_defines(const tree_t *prog)
         const char *spec = define_spec_from_expr(subj);
         if (spec && *spec) {
             { char nb[128]; int k = 0; for (; spec[k] && spec[k] != '(' && spec[k] != ' ' && k < 127; k++) nb[k] = spec[k]; nb[k] = 0; if (nb[0] && sn4_sysfn_protected(nb)) continue; }
-            char *spec_copy = strdup(spec);
+            char *spec_copy = ct_strdup(spec);
             const char *entry = define_entry_from_expr(subj);
-            if (entry) DEFINE_fn_entry(spec_copy, NULL, strdup(entry));
+            if (entry) DEFINE_fn_entry(spec_copy, NULL, ct_strdup(entry));
             else       DEFINE_fn(spec_copy, NULL);
         }
     }

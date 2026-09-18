@@ -1,4 +1,5 @@
 %{
+#include "ct_arena.h"
 #include "rebus.h"
 #include "ast.h"
 #include "../../parsers/snobol4/scrip_cc.h"
@@ -10,22 +11,22 @@ extern tree_t *rebus_parsed_program;
 extern int       rebus_nerrors;
 typedef struct { char **a; int n, cap; } SAL;
 static SAL *sal_new(void) {
-    SAL *s = calloc(1, sizeof *s);
-    s->cap = 4; s->a = malloc(4 * sizeof(char *));
+    SAL *s = ct_zalloc(1, sizeof *s);
+    s->cap = 4; s->a = ct_alloc(4 * sizeof(char *));
     return s;
 }
 static void sal_push(SAL *s, char *v) {
-    if (s->n >= s->cap) { s->cap *= 2; s->a = realloc(s->a, s->cap * sizeof(char *)); }
+    if (s->n >= s->cap) { s->cap *= 2; s->a = ct_grow(s->a, s->cap * sizeof(char *)); }
     s->a[s->n++] = v;
 }
 typedef struct { tree_t **a; int n, cap; } TAL;
 static TAL *tal_new(void) {
-    TAL *t = calloc(1, sizeof *t);
-    t->cap = 4; t->a = malloc(4 * sizeof(tree_t *));
+    TAL *t = ct_zalloc(1, sizeof *t);
+    t->cap = 4; t->a = ct_alloc(4 * sizeof(tree_t *));
     return t;
 }
 static void tal_push(TAL *t, tree_t *v) {
-    if (t->n >= t->cap) { t->cap *= 2; t->a = realloc(t->a, t->cap * sizeof(tree_t *)); }
+    if (t->n >= t->cap) { t->cap *= 2; t->a = ct_grow(t->a, t->cap * sizeof(tree_t *)); }
     t->a[t->n++] = v;
 }
 extern int  yylex(void);
@@ -125,7 +126,7 @@ record_decl
                 tree_t *fld = ast_node_new(TT_VAR); fld->v.sval = sl->a[i];
                 expr_add_child(rec, fld);
             }
-            free(sl->a); free(sl);
+            ct_drop(sl->a); ct_drop(sl);
             $$ = rec;
         }
     ;
@@ -146,7 +147,7 @@ function_decl
                 tree_t *p = ast_node_new(TT_VAR); p->v.sval = ps->a[i];
                 expr_add_child(params_node, p);
             }
-            free(ps->a); free(ps);
+            ct_drop(ps->a); ct_drop(ps);
             expr_add_child(fn, params_node);
             tree_t *locals_node = ast_node_new(TT_VLIST);
             SAL *ls = (SAL*)$7;
@@ -154,7 +155,7 @@ function_decl
                 tree_t *l = ast_node_new(TT_VAR); l->v.sval = ls->a[i];
                 expr_add_child(locals_node, l);
             }
-            free(ls->a); free(ls);
+            ct_drop(ls->a); ct_drop(ls);
             expr_add_child(fn, locals_node);
             expr_add_child(fn, $8 ? $8 : ast_node_new(TT_NUL));
             expr_add_child(fn, $9);
@@ -311,7 +312,7 @@ for_stmt
     : T_FOR T_IDENT T_FROM expr T_TO expr T_DO opt_semi stmt_body
         {
             tree_t *n = ast_node_new(TT_FOR);
-            n->v.sval = strdup($2);
+            n->v.sval = ct_strdup($2);
             expr_add_child(n, $4);
             expr_add_child(n, $6);
             expr_add_child(n, ast_node_new(TT_NUL));
@@ -321,7 +322,7 @@ for_stmt
     | T_FOR T_IDENT T_FROM expr T_TO expr T_BY expr T_DO opt_semi stmt_body
         {
             tree_t *n = ast_node_new(TT_FOR);
-            n->v.sval = strdup($2);
+            n->v.sval = ct_strdup($2);
             expr_add_child(n, $4);
             expr_add_child(n, $6);
             expr_add_child(n, $8);
@@ -342,7 +343,7 @@ case_stmt
                 }
                 expr_add_child(cs, c->body_tree);
             }
-            { RCase *c = $5; while (c) { RCase *nx = c->next; free(c); c = nx; } }
+            { RCase *c = $5; while (c) { RCase *nx = c->next; ct_drop(c); c = nx; } }
             $$ = cs;
         }
     ;
@@ -455,7 +456,7 @@ unary_expr
     | '!' unary_expr %prec UBANG            { tree_t *n = ast_node_new(TT_ITERATE);  expr_add_child(n, $2); $$ = n; }
     | '@' T_IDENT %prec UAT                 {
             tree_t *n = ast_node_new(TT_CAPT_CURSOR);
-            n->v.sval = strdup($2); $$ = n;
+            n->v.sval = ct_strdup($2); $$ = n;
         }
     | '$' unary_expr %prec UDOLLAR          { tree_t *n = ast_node_new(TT_INDIRECT); expr_add_child(n, $2); $$ = n; }
     | '.' unary_expr %prec UDOT             {
@@ -473,7 +474,7 @@ postfix_expr
             expr_add_child(f, $1);
             for (int i = 0; i < al->n; i++)
                 expr_add_child(f, al->a[i] ? al->a[i] : ast_node_new(TT_NUL));
-            free(al->a); free(al);
+            ct_drop(al->a); ct_drop(al);
             $$ = f;
         }
     | postfix_expr '[' arglist ']'
@@ -483,7 +484,7 @@ postfix_expr
             expr_add_child(idx, $1);
             for (int i = 0; i < al->n; i++)
                 expr_add_child(idx, al->a[i] ? al->a[i] : ast_node_new(TT_NUL));
-            free(al->a); free(al);
+            ct_drop(al->a); ct_drop(al);
             $$ = idx;
         }
     | postfix_expr '[' expr T_PLUSCOLON expr ']'

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
@@ -32,32 +33,32 @@ static char *csn_descr_to_str(ptr_t vp) {
         struct spec sp; struct spec *spp = &sp;
         X_LOCSP(spp, vp);
         int len = (int)S_L(spp);
-        if (len <= 0) return strdup("");
+        if (len <= 0) return ct_strdup("");
         if (len > 4096) len = 4096;
-        char *s = malloc((size_t)(len + 1));
-        if (!s) return strdup("?");
+        char *s = ct_alloc((size_t)(len + 1));
+        if (!s) return ct_strdup("?");
         memcpy(s, S_SP(spp), (size_t)len);
         s[len] = '\0';
         return s;
     } else if (vtype == I) {
         snprintf(buf, sizeof buf, "%ld", (long)D_A(vp));
-        return strdup(buf);
+        return ct_strdup(buf);
     } else if (vtype == R) {
         real_t rv; int_t ia = D_A(vp);
         memcpy(&rv, &ia, sizeof rv);
         snprintf(buf, sizeof buf, "%g", (double)rv);
-        return strdup(buf);
+        return ct_strdup(buf);
     } else if (vtype == 0) {
-        return strdup("");
+        return ct_strdup("");
     } else {
         snprintf(buf, sizeof buf, "<type%d>", vtype);
-        return strdup(buf);
+        return ct_strdup(buf);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int csn_nv_snapshot(CsnNvPair **out_pairs, int *out_count) {
     int cap = 64, n = 0;
-    CsnNvPair *pairs = malloc((size_t)cap * sizeof(CsnNvPair));
+    CsnNvPair *pairs = ct_alloc((size_t)cap * sizeof(CsnNvPair));
     if (!pairs) { *out_pairs = NULL; *out_count = 0; return -1; }
     ptr_t bucket = OBLIST;
     ptr_t obend  = OBEND;
@@ -74,15 +75,15 @@ static int csn_nv_snapshot(CsnNvPair **out_pairs, int *out_count) {
             X_LOCSP(nspp, node);
             int nlen = (int)S_L(nspp);
             if (nlen <= 0) continue;
-            char *name = malloc((size_t)(nlen + 1));
+            char *name = ct_alloc((size_t)(nlen + 1));
             if (!name) continue;
             memcpy(name, S_SP(nspp), (size_t)nlen);
             name[nlen] = '\0';
             char *val = csn_descr_to_str(vp);
             if (n >= cap) {
                 cap *= 2;
-                CsnNvPair *tmp = realloc(pairs, (size_t)cap * sizeof(CsnNvPair));
-                if (!tmp) { free(name); free(val); break; }
+                CsnNvPair *tmp = ct_grow(pairs, (size_t)cap * sizeof(CsnNvPair));
+                if (!tmp) { ct_drop(name); ct_drop(val); break; }
                 pairs = tmp;
             }
             pairs[n].name = name; pairs[n].val_str = val; n++;
@@ -112,8 +113,8 @@ int csnobol4_run_steps(const char *core_path, int step_limit,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void csn_nv_snapshot_free(CsnNvPair *pairs, int n) {
     if (!pairs) return;
-    for (int i = 0; i < n; i++) { free(pairs[i].name); free(pairs[i].val_str); }
-    free(pairs);
+    for (int i = 0; i < n; i++) { ct_drop(pairs[i].name); ct_drop(pairs[i].val_str); }
+    ct_drop(pairs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void cleanup(void) { }

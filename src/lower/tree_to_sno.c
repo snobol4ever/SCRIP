@@ -1,4 +1,5 @@
 #include "lower_snobol4.h"
+#include "ct_arena.h"
 #include "ast.h"
 #include "../parsers/icon/icon_lex.h"
 #include <stdio.h>
@@ -458,7 +459,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
                 c->loop_top++;
             }
             {
-                const char *Ltop_dup = strdup(Ltop);
+                const char *Ltop_dup = ct_strdup(Ltop);
                 c->pending_label = Ltop_dup;
                 if (subj->c[0] && subj->c[0]->t == TT_PROGRAM && subj->c[0]->n > 0) {
                     int j;
@@ -564,7 +565,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             snprintf(swd_raw, sizeof swd_raw, "_swd_%04d", seq);
             snprintf(swd, sizeof swd, "%s", label_sanitize(swd_raw));
             snprintf(Lend, sizeof Lend, "_Lswend_%04d", seq);
-            Lcase = (char (*)[32])malloc((size_t)(npairs > 0 ? npairs : 1) * 32);
+            Lcase = (char (*)[32])ct_alloc((size_t)(npairs > 0 ? npairs : 1) * 32);
             for (k = 0; k < npairs; k++) snprintf(Lcase[k], 32, "_Lswc_%04d_%02d", seq, k);
             if (c->pending_label) {
                 emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
@@ -590,7 +591,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             }
             for (k = 0; k < npairs; k++) {
                 const tree_t *body = subj->c[2 + 2 * k];
-                c->pending_label = strdup(Lcase[k]);
+                c->pending_label = ct_strdup(Lcase[k]);
                 if (body && body->t == TT_PROGRAM && body->n > 0) {
                     int j;
                     for (j = 0; j < body->n; j++) emit_node(c, body->c[j]);
@@ -605,7 +606,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             }
             if (c->loop_top > 0) c->loop_top--;
             emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
-            free(Lcase);
+            ct_drop(Lcase);
             return;
         }
         if (subj->t == TT_LOOP_BREAK || subj->t == TT_LOOP_NEXT) {

@@ -274,6 +274,7 @@
 
 /* begin standard C headers. */
 #include <stdio.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -476,7 +477,7 @@ struct yy_buffer_state
 	int yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
-	 * and can realloc() it to grow it, and should free() it to
+	 * and can ct_grow() it to grow it, and should ct_drop() it to
 	 * delete it.
 	 */
 	int yy_is_our_buffer;
@@ -907,7 +908,7 @@ char *yytext;
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char *pascal_raw_dup(const char *s, int n) {
-    char *b = (char *)malloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
+    char *b = (char *)ct_alloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
 }
 static char *pascal_lower_dup(const char *s, int n) {
     char *b = pascal_raw_dup(s, n);
@@ -2193,7 +2194,7 @@ static void yyensure_buffer_stack (void)
 
 		/* First allocation is just for 2 elements, since we don't know if this
 		 * scanner will even need a stack. We use 2 instead of 1 to avoid an
-		 * immediate realloc on the next call.
+		 * immediate regrow on the next call.
          */
       num_to_alloc = 1; /* After all that talk, this was set to 1 anyways... */
 		(yy_buffer_stack) = (struct yy_buffer_state**)yyalloc
@@ -2501,7 +2502,7 @@ static int yy_flex_strlen (const char * s )
 
 void *yyalloc (yy_size_t  size )
 {
-			return malloc(size);
+			return ct_alloc(size);
 }
 
 void *yyrealloc  (void * ptr, yy_size_t  size )
@@ -2514,12 +2515,12 @@ void *yyrealloc  (void * ptr, yy_size_t  size )
 	 * any pointer type to void*, and deal with argument conversions
 	 * as though doing an assignment.
 	 */
-	return realloc(ptr, size);
+	return ct_grow(ptr, size);
 }
 
 void yyfree (void * ptr )
 {
-			free( (char *) ptr );	/* see yyrealloc() for (char *) cast */
+			ct_drop( (char *) ptr );	/* see yyrealloc() for (char *) cast */
 }
 
 #define YYTABLES_NAME "yytables"

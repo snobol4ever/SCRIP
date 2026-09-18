@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include "ct_arena.h"
 #include <pthread.h>
 #include <semaphore.h>
 #include <stddef.h>
@@ -92,7 +93,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     pthread_join(ctx->thread, NULL);
     if (ctx->stk_lo) { rt_gc_root_range_del((const char *)ctx->stk_lo); ctx->stk_lo = 0; ctx->stk_hi = 0; }
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
-    if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); free(ctx->frame_copy); ctx->frame_copy = NULL; }
+    if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); ct_drop(ctx->frame_copy); ctx->frame_copy = NULL; }
     sem_destroy(ctx->semp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -196,9 +197,9 @@ void scrip_coexpr_trampoline_entry(void *arg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
-    scrip_coctx_t *ctx = (scrip_coctx_t *)malloc(sizeof(scrip_coctx_t));
+    scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
-    scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)malloc(sizeof(scrip_coexpr_entry_pkg_t));
+    scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)ct_alloc(sizeof(scrip_coexpr_entry_pkg_t));
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
     ctx->inherit_scan = 0;
@@ -208,7 +209,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     if (frame_bytes + below_bytes > 0 && regs[5] != 0) {
         extern void rt_gc_root_range_add(const char *, const char *);
         size_t span = (size_t)(frame_bytes + below_bytes);
-        void *cp = malloc(span);
+        void *cp = ct_alloc(span);
         if (!cp) scrip_co_uerror("scrip_coexpr: malloc frame snapshot failed");
         memcpy(cp, (const void *)(uintptr_t)(regs[5] - below_bytes), span);
         pkg->csav5 = (uint64_t)(uintptr_t)cp; pkg->frame_bytes = (uint64_t)span; pkg->below = below_bytes;

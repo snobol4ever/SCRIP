@@ -15,6 +15,7 @@
 
 /* begin standard C headers. */
 #include <stdio.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -211,7 +212,7 @@ struct yy_buffer_state
 	int yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
-	 * and can realloc() it to grow it, and should free() it to
+	 * and can ct_grow() it to grow it, and should ct_drop() it to
 	 * delete it.
 	 */
 	int yy_is_our_buffer;
@@ -755,25 +756,25 @@ static const char *sno_frame_file(void) {
 static int sno_frame_line(void) { return lineno + incl_start_stack[incl_stack_depth].line_delta; }
 static void sno_stmt_pos_mark(void) {
     g_stmt_pos.lineno = lineno; g_stmt_pos.lline = sno_frame_line();
-    free(g_stmt_pos.fname);
-    g_stmt_pos.fname = g_stmt_pos.pend_fname ? g_stmt_pos.pend_fname : strdup(sno_frame_file());
+    ct_drop(g_stmt_pos.fname);
+    g_stmt_pos.fname = g_stmt_pos.pend_fname ? g_stmt_pos.pend_fname : ct_strdup(sno_frame_file());
     g_stmt_pos.pend_fname = (char *)0;
 }
 static void sno_stmt_comment_latch(void) {
-    if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = strdup(sno_frame_file());
+    if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = ct_strdup(sno_frame_file());
 }
 static void sno_frame_push(const char *name) {
     if (incl_stack_depth >= MAX_INCL_NEST) return;
     { SNO_SRC_FRAME_t *f = &incl_start_stack[++incl_stack_depth];
       f->start_line = lineno; f->line_delta = 1 - lineno;
-      free(f->fname); f->fname = strdup(name ? name : ""); }
+      ct_drop(f->fname); f->fname = ct_strdup(name ? name : ""); }
 }
 #define MAX_INCL_ONCE 512
 static char *incl_once[MAX_INCL_ONCE];
 static int   incl_once_n = 0;
 static int sno_include_once_seen(const char *key) {
     for (int i = 0; i < incl_once_n; i++) if (!strcmp(incl_once[i], key)) return 1;
-    if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = strdup(key);
+    if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = ct_strdup(key);
     return 0;
 }
 static Token mktok(int k, const char *sv, long iv, double dv) {
@@ -1142,7 +1143,7 @@ YY_RULE_SETUP
             if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
             char *sl=strrchr(rpath,'/');
-            if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
+            if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
             }
@@ -1171,7 +1172,7 @@ YY_RULE_SETUP
             if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
             char *sl=strrchr(rpath,'/');
-            if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
+            if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
             }
@@ -1197,7 +1198,7 @@ YY_RULE_SETUP
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
             char *sl=strrchr(rpath,'/');
-            if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
+            if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
         }
@@ -1217,8 +1218,8 @@ YY_RULE_SETUP
         f->line_delta = (int)(nn - lineno);
         { const char *q1 = strchr(p,'"'), *q2 = q1 ? strchr(q1+1,'"') : (const char *)0;
           if (!q1) { q1 = strchr(p,'\''); q2 = q1 ? strchr(q1+1,'\'') : (const char *)0; }
-          if (q1 && q2 && q2 > q1 + 1) { int nl = (int)(q2-q1-1); char *nm = malloc((size_t)nl+1);
-            if (nm) { memcpy(nm,q1+1,(size_t)nl); nm[nl]='\0'; free(f->fname); f->fname = nm; } } }
+          if (q1 && q2 && q2 > q1 + 1) { int nl = (int)(q2-q1-1); char *nm = ct_alloc((size_t)nl+1);
+            if (nm) { memcpy(nm,q1+1,(size_t)nl); nm[nl]='\0'; ct_drop(f->fname); f->fname = nm; } } }
     }
 }
 	YY_BREAK
@@ -2513,7 +2514,7 @@ static void yyensure_buffer_stack (yyscan_t yyscanner)
 
 		/* First allocation is just for 2 elements, since we don't know if this
 		 * scanner will even need a stack. We use 2 instead of 1 to avoid an
-		 * immediate realloc on the next call.
+		 * immediate regrow on the next call.
          */
       num_to_alloc = 1; /* After all that talk, this was set to 1 anyways... */
 		yyg->yy_buffer_stack = (struct yy_buffer_state**)yyalloc
@@ -3004,7 +3005,7 @@ void *yyalloc (yy_size_t  size , yyscan_t yyscanner)
 {
 	struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
 	(void)yyg;
-	return malloc(size);
+	return ct_alloc(size);
 }
 
 void *yyrealloc  (void * ptr, yy_size_t  size , yyscan_t yyscanner)
@@ -3019,14 +3020,14 @@ void *yyrealloc  (void * ptr, yy_size_t  size , yyscan_t yyscanner)
 	 * any pointer type to void*, and deal with argument conversions
 	 * as though doing an assignment.
 	 */
-	return realloc(ptr, size);
+	return ct_grow(ptr, size);
 }
 
 void yyfree (void * ptr , yyscan_t yyscanner)
 {
 	struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
 	(void)yyg;
-	free( (char *) ptr );	/* see yyrealloc() for (char *) cast */
+	ct_drop( (char *) ptr );	/* see yyrealloc() for (char *) cast */
 }
 
 #define YYTABLES_NAME "yytables"

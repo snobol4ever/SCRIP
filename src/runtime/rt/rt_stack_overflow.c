@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <signal.h>
+#include "ct_arena.h"
 #include <ucontext.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -23,7 +24,7 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_stack_overflow_init(void)
 {
-    void *sp = malloc(65536);
+    void *sp = ct_alloc(65536);
     if (!sp) return;
     stack_t ss; ss.ss_sp = sp; ss.ss_size = 65536; ss.ss_flags = 0;
     if (sigaltstack(&ss, NULL) != 0) return;

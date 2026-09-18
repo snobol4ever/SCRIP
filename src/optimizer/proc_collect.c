@@ -1,4 +1,5 @@
 #include "proc_collect.h"
+#include "ct_arena.h"
 #include <string.h>
 #include <stdlib.h>
 static const char **g_proc_slot_names = NULL;
@@ -17,7 +18,7 @@ int proc_collect_add(const char *name) {
     if (!name || !name[0]) return -1;
     int k = proc_slot_of(name); if (k >= 0) return k;
     if (g_proc_slot_n >= g_proc_slot_max) {
-        int nm = g_proc_slot_max ? g_proc_slot_max * 2 : 64; const char **g = (const char **)realloc(g_proc_slot_names, (size_t)nm * sizeof(const char *));
+        int nm = g_proc_slot_max ? g_proc_slot_max * 2 : 64; const char **g = (const char **)ct_grow(g_proc_slot_names, (size_t)nm * sizeof(const char *));
         if (!g) return -1; g_proc_slot_names = g; g_proc_slot_max = nm;
     }
     g_proc_slot_names[g_proc_slot_n] = name; return g_proc_slot_n++;

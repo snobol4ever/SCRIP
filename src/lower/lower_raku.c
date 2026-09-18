@@ -1,4 +1,5 @@
 #include <string.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include "lower.h"
@@ -927,7 +928,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     int is_multi = (pd && pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$');
     int rk_np = 0; if (pd && !is_multi) for (int k = 1; k < pd->n && pd->c[k] && pd->c[k]->t == TT_VAR; k++) rk_np++;
     int rk_bstart = rk_np + 1, rk_bn = (pd && pd->n > rk_bstart) ? pd->n - rk_bstart : 0;
-    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) calloc((size_t) (rk_bn + rk_np), sizeof(const tree_t *)) : NULL;
+    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) ct_zalloc((size_t) (rk_bn + rk_np), sizeof(const tree_t *)) : NULL;
     if (rk_plan) {
         int nplan = 0, bi = 0;
         for (int k = 1; k <= rk_np; k++) {
@@ -954,7 +955,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
             if (e) { entry = e; sentry = e; }
         }
-        free(rk_plan); g->entry = entry; return g;
+        ct_drop(rk_plan); g->entry = entry; return g;
     }
     for (int i = (pd ? pd->n : 0) - 1; i >= 1; i--) {
         const tree_t * s = pd->c[i];
@@ -1285,7 +1286,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             }
             g_stage2.bbp.table[bb_idx]->nparams = sc->n; g_stage2.bbp.table[bb_idx]->entry_frame = 1; g_stage2.bbp.table[bb_idx]->smx = 1; g_stage2.proc_table[pi].lex_startup = 1;
             if (sc->n > 0) {
-                const char ** _pn = (const char **) calloc((size_t) sc->n, sizeof(const char *));
+                const char ** _pn = (const char **) ct_zalloc((size_t) sc->n, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
             }
         }

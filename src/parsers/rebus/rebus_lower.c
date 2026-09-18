@@ -1,4 +1,5 @@
 #include "rebus.h"
+#include "ct_arena.h"
 #include "rebus_lower.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "ast.h"
@@ -19,7 +20,7 @@ typedef struct {
 static char *newlab(RebLow *L) {
     char buf[32];
     snprintf(buf, sizeof buf, "rb_%d", ++L->label_ctr);
-    return strdup(buf);
+    return ct_strdup(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit(RebLow *L, STMT_t *s) {
@@ -32,19 +33,19 @@ static STMT_t *blank_stmt(void) { return stmt_new(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_label(RebLow *L, const char *lab) {
     STMT_t *s = blank_stmt();
-    s->label = strdup(lab);
+    s->label = ct_strdup(lab);
     emit(L, s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_goto(RebLow *L, const char *target) {
     STMT_t *s = blank_stmt();
-    s->goto_u = strdup(target);
+    s->goto_u = ct_strdup(target);
     emit(L, s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *make_fnc(const char *name, int n, ...) {
     tree_t *f = ast_node_new(TT_FNC);
-    f->v.sval = strdup(name);
+    f->v.sval = ct_strdup(name);
     va_list ap; va_start(ap, n);
     for (int i = 0; i < n; i++)
         expr_add_child(f, va_arg(ap, tree_t *));
@@ -54,7 +55,7 @@ static tree_t *make_fnc(const char *name, int n, ...) {
 static tree_t *rebus_tree_copy(const tree_t *e) {
     if (!e) return NULL;
     tree_t *n = ast_node_new(e->t);
-    if (e->v.sval) n->v.sval = strdup(e->v.sval);
+    if (e->v.sval) n->v.sval = ct_strdup(e->v.sval);
     n->v.ival = e->v.ival;
     for (int i = 0; i < e->n; i++) expr_add_child(n, rebus_tree_copy(e->c[i]));
     return n;
@@ -118,9 +119,9 @@ static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
         tree_t *f = ast_node_new(TT_FNC);
         int start = 0;
         if (e->v.sval) {
-            f->v.sval = strdup(e->v.sval);
+            f->v.sval = ct_strdup(e->v.sval);
         } else if (e->n > 0 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
-            f->v.sval = strdup(e->c[0]->v.sval);
+            f->v.sval = ct_strdup(e->c[0]->v.sval);
             start = 1;
         }
         for (int i = start; i < e->n; i++)
@@ -164,8 +165,8 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         char *l_end  = newlab(L);
         STMT_t *cst  = blank_stmt();
         cst->subject = lower_tree_expr(L, s->c[0]);
-        cst->goto_s = strdup(l_then);
-        cst->goto_f = strdup(l_else);
+        cst->goto_s = ct_strdup(l_then);
+        cst->goto_f = ct_strdup(l_else);
         emit(L, cst);
         emit_label(L, l_then);
         lower_tree_stmt(L, s->c[1]);
@@ -173,7 +174,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         emit_label(L, l_else);
         if (s->n >= 3) lower_tree_stmt(L, s->c[2]);
         emit_label(L, l_end);
-        free(l_then); free(l_else); free(l_end);
+        ct_drop(l_then); ct_drop(l_else); ct_drop(l_end);
         break;
     }
     case TT_UNLESS: {
@@ -181,13 +182,13 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         char *l_end  = newlab(L);
         STMT_t *cst  = blank_stmt();
         cst->subject = lower_tree_expr(L, s->c[0]);
-        cst->goto_s = strdup(l_end);
-        cst->goto_f = strdup(l_body);
+        cst->goto_s = ct_strdup(l_end);
+        cst->goto_f = ct_strdup(l_body);
         emit(L, cst);
         emit_label(L, l_body);
         lower_tree_stmt(L, s->c[1]);
         emit_label(L, l_end);
-        free(l_body); free(l_end);
+        ct_drop(l_body); ct_drop(l_end);
         break;
     }
     case TT_WHILE: {
@@ -199,15 +200,15 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         emit_label(L, l_top);
         STMT_t *cst  = blank_stmt();
         cst->subject = lower_tree_expr(L, s->c[0]);
-        cst->goto_s = strdup(l_body);
-        cst->goto_f = strdup(l_end);
+        cst->goto_s = ct_strdup(l_body);
+        cst->goto_f = ct_strdup(l_end);
         emit(L, cst);
         emit_label(L, l_body);
         lower_tree_stmt(L, s->c[1]);
         emit_goto(L, l_top);
         emit_label(L, l_end);
         L->loop_depth--;
-        free(l_top); free(l_body); free(l_end);
+        ct_drop(l_top); ct_drop(l_body); ct_drop(l_end);
         break;
     }
     case TT_UNTIL: {
@@ -219,15 +220,15 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         emit_label(L, l_top);
         STMT_t *cst  = blank_stmt();
         cst->subject = lower_tree_expr(L, s->c[0]);
-        cst->goto_s = strdup(l_end);
-        cst->goto_f = strdup(l_body);
+        cst->goto_s = ct_strdup(l_end);
+        cst->goto_f = ct_strdup(l_body);
         emit(L, cst);
         emit_label(L, l_body);
         lower_tree_stmt(L, s->c[1]);
         emit_goto(L, l_top);
         emit_label(L, l_end);
         L->loop_depth--;
-        free(l_top); free(l_body); free(l_end);
+        ct_drop(l_top); ct_drop(l_body); ct_drop(l_end);
         break;
     }
     case TT_REPEAT: {
@@ -240,7 +241,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         emit_goto(L, l_top);
         emit_label(L, l_end);
         L->loop_depth--;
-        free(l_top); free(l_end);
+        ct_drop(l_top); ct_drop(l_end);
         break;
     }
     case TT_FOR: {
@@ -248,19 +249,19 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         char *l_end = newlab(L);
         L->loop_top[L->loop_depth]   = l_top;
         L->loop_end[L->loop_depth++] = l_end;
-        tree_t *var = ast_node_new(TT_VAR); var->v.sval = strdup(s->v.sval);
+        tree_t *var = ast_node_new(TT_VAR); var->v.sval = ct_strdup(s->v.sval);
         STMT_t *init = blank_stmt();
         init->subject = expr_binary(TT_ASSIGN, var, lower_tree_expr(L, s->c[0]));
         emit(L, init);
         emit_label(L, l_top);
-        tree_t *var2 = ast_node_new(TT_VAR); var2->v.sval = strdup(s->v.sval);
+        tree_t *var2 = ast_node_new(TT_VAR); var2->v.sval = ct_strdup(s->v.sval);
         STMT_t *test = blank_stmt();
         test->subject = make_fnc("GT", 2, var2, lower_tree_expr(L, s->c[1]));
-        test->goto_s = strdup(l_end);
+        test->goto_s = ct_strdup(l_end);
         emit(L, test);
         lower_tree_stmt(L, s->c[3]);
-        tree_t *var3 = ast_node_new(TT_VAR); var3->v.sval = strdup(s->v.sval);
-        tree_t *var4 = ast_node_new(TT_VAR); var4->v.sval = strdup(s->v.sval);
+        tree_t *var3 = ast_node_new(TT_VAR); var3->v.sval = ct_strdup(s->v.sval);
+        tree_t *var4 = ast_node_new(TT_VAR); var4->v.sval = ct_strdup(s->v.sval);
         tree_t *step = (s->c[2] && s->c[2]->t != TT_NUL)
                        ? lower_tree_expr(L, s->c[2])
                        : ({ tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1; one; });
@@ -270,14 +271,14 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         emit_goto(L, l_top);
         emit_label(L, l_end);
         L->loop_depth--;
-        free(l_top); free(l_end);
+        ct_drop(l_top); ct_drop(l_end);
         break;
     }
     case TT_CASE: {
         char *l_end = newlab(L);
         char tmpbuf[32];
         snprintf(tmpbuf, sizeof tmpbuf, "rb_case_%d", L->label_ctr);
-        tree_t *tmpvar = ast_node_new(TT_VAR); tmpvar->v.sval = strdup(tmpbuf);
+        tree_t *tmpvar = ast_node_new(TT_VAR); tmpvar->v.sval = ct_strdup(tmpbuf);
         STMT_t *assign = blank_stmt();
         assign->subject = expr_binary(TT_ASSIGN, tmpvar, lower_tree_expr(L, s->c[0]));
         emit(L, assign);
@@ -285,32 +286,32 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         for (int i = 1; i + 1 < s->n; i += 2) {
             tree_t *guard = s->c[i];
             tree_t *body  = s->c[i + 1];
-            if (l_next) { emit_label(L, l_next); free(l_next); l_next = NULL; }
+            if (l_next) { emit_label(L, l_next); ct_drop(l_next); l_next = NULL; }
             if (guard->t == TT_NUL) {
                 lower_tree_stmt(L, body);
                 emit_goto(L, l_end);
             } else {
                 char *l_match = newlab(L);
                 l_next = newlab(L);
-                tree_t *tv = ast_node_new(TT_VAR); tv->v.sval = strdup(tmpbuf);
+                tree_t *tv = ast_node_new(TT_VAR); tv->v.sval = ct_strdup(tmpbuf);
                 STMT_t *cst = blank_stmt();
                 cst->subject = make_fnc("IDENT", 2, tv, lower_tree_expr(L, guard));
-                cst->goto_s = strdup(l_match);
-                cst->goto_f = strdup(l_next);
+                cst->goto_s = ct_strdup(l_match);
+                cst->goto_f = ct_strdup(l_next);
                 emit(L, cst);
                 emit_label(L, l_match);
                 lower_tree_stmt(L, body);
                 emit_goto(L, l_end);
             }
         }
-        if (l_next) { emit_label(L, l_next); free(l_next); }
+        if (l_next) { emit_label(L, l_next); ct_drop(l_next); }
         emit_label(L, l_end);
-        free(l_end);
+        ct_drop(l_end);
         break;
     }
     case TT_RETURN: {
         if (s->n > 0 && L->fname) {
-            tree_t *fn = ast_node_new(TT_VAR); fn->v.sval = strdup(L->fname);
+            tree_t *fn = ast_node_new(TT_VAR); fn->v.sval = ct_strdup(L->fname);
             STMT_t *assign = blank_stmt();
             assign->subject     = fn;
             assign->replacement = lower_tree_expr(L, s->c[0]);
@@ -337,8 +338,8 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         snprintf(tmpbuf, sizeof tmpbuf, "rb_swap_%d", ++L->label_ctr);
         tree_t *lhs = lower_tree_expr(L, s->c[0]);
         tree_t *rhs = lower_tree_expr(L, s->c[1]);
-        tree_t *tmp_w = ast_node_new(TT_VAR); tmp_w->v.sval = strdup(tmpbuf);
-        tree_t *tmp_r = ast_node_new(TT_VAR); tmp_r->v.sval = strdup(tmpbuf);
+        tree_t *tmp_w = ast_node_new(TT_VAR); tmp_w->v.sval = ct_strdup(tmpbuf);
+        tree_t *tmp_r = ast_node_new(TT_VAR); tmp_r->v.sval = ct_strdup(tmpbuf);
         STMT_t *save = blank_stmt(); save->subject = tmp_w; save->replacement = rebus_tree_copy(lhs); save->has_eq = 1;
         STMT_t *fwd  = blank_stmt(); fwd->subject  = lhs;   fwd->replacement  = rebus_tree_copy(rhs); fwd->has_eq  = 1;
         STMT_t *back = blank_stmt(); back->subject = rhs;   back->replacement = tmp_r;                back->has_eq = 1;
@@ -373,7 +374,7 @@ static void lower_decl(RebLow *L, tree_t *d) {
         }
         snprintf(buf + pos, sizeof buf - pos, ")");
         STMT_t *st = blank_stmt();
-        tree_t *arg = ast_node_new(TT_QLIT); arg->v.sval = strdup(buf);
+        tree_t *arg = ast_node_new(TT_QLIT); arg->v.sval = ct_strdup(buf);
         st->subject = make_fnc("DATA", 1, arg);
         emit(L, st);
         break;
@@ -400,7 +401,7 @@ static void lower_decl(RebLow *L, tree_t *d) {
             }
         }
         STMT_t *def_st = blank_stmt();
-        tree_t *arg = ast_node_new(TT_QLIT); arg->v.sval = strdup(buf);
+        tree_t *arg = ast_node_new(TT_QLIT); arg->v.sval = ct_strdup(buf);
         def_st->subject = make_fnc("DEFINE", 1, arg);
         emit(L, def_st);
         char *l_end = newlab(L);
@@ -409,27 +410,27 @@ static void lower_decl(RebLow *L, tree_t *d) {
         if (init_node && init_node->t != TT_NUL) {
             char flagbuf[64];
             snprintf(flagbuf, sizeof flagbuf, "rb_init_%s", fname);
-            tree_t *flag = ast_node_new(TT_VAR); flag->v.sval = strdup(flagbuf);
+            tree_t *flag = ast_node_new(TT_VAR); flag->v.sval = ct_strdup(flagbuf);
             char *l_done = newlab(L);
             STMT_t *chk = blank_stmt();
             chk->subject = flag;
-            chk->goto_s = strdup(l_done);
+            chk->goto_s = ct_strdup(l_done);
             emit(L, chk);
             lower_tree_stmt(L, init_node);
-            tree_t *fv = ast_node_new(TT_VAR); fv->v.sval = strdup(flagbuf);
+            tree_t *fv = ast_node_new(TT_VAR); fv->v.sval = ct_strdup(flagbuf);
             tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
             STMT_t *fst = blank_stmt();
             fst->subject = expr_binary(TT_ASSIGN, fv, one);
             emit(L, fst);
-            emit_label(L, l_done); free(l_done);
+            emit_label(L, l_done); ct_drop(l_done);
         }
         char *saved_fname = L->fname;
-        L->fname = strdup(fname);
+        L->fname = ct_strdup(fname);
         if (body_node) lower_tree_stmt(L, body_node);
-        free(L->fname);
+        ct_drop(L->fname);
         L->fname = saved_fname;
         emit_goto(L, "RETURN");
-        emit_label(L, l_end); free(l_end);
+        emit_label(L, l_end); ct_drop(l_end);
         break;
     }
     default:
@@ -442,7 +443,7 @@ static void lower_decl(RebLow *L, tree_t *d) {
 CODE_t *rebus_lower(tree_t *prog) {
     if (!prog) return NULL;
     RebLow L = {0};
-    L.prog     = calloc(1, sizeof(CODE_t));
+    L.prog     = ct_zalloc(1, sizeof(CODE_t));
     L.filename = "<rebus>";
     for (int i = 0; i < prog->n; i++)
         lower_decl(&L, prog->c[i]);
@@ -473,7 +474,7 @@ void rebus_compile(const char *src, const char *filename, tree_t **out_ast) {
     }
     CODE_t *prog = rebus_lower(rp);
     if (!prog) return;
-    STMT_t *call_st = calloc(1, sizeof(STMT_t));
+    STMT_t *call_st = ct_zalloc(1, sizeof(STMT_t));
     call_st->subject = make_fnc("MAIN", 0);
     if (!prog->head) prog->head = prog->tail = call_st;
     else           { prog->tail->next = call_st; prog->tail = call_st; }

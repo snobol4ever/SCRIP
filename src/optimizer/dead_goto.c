@@ -1,4 +1,5 @@
 #include "dead_goto.h"
+#include "ct_arena.h"
 #include "ir_index.h"
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6,7 +7,7 @@ static int dg_mon(void) { static int m = -1; if (m < 0) m = (getenv("MONITOR_BIN
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dg_run(IR_graph_t * g) {
     if (!g || g->n <= 0) return 0;
-    char * ref = (char *)calloc((size_t)g->n, 1);
+    char * ref = (char *)ct_zalloc((size_t)g->n, 1);
     if (!ref) return 0;
     ir_index_t ix; ir_index_build(&ix, g);
     for (int i = 0; i < g->n; i++) {
@@ -21,6 +22,6 @@ int dg_run(IR_graph_t * g) {
     ir_index_free(&ix);
     int total = 0;
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op == IR_GOTO && !ref[i] && !(dg_mon() && IR_LIT(nd).ival > 0)) { g->all[i] = NULL; total++; } }
-    free(ref);
+    ct_drop(ref);
     return total;
 }

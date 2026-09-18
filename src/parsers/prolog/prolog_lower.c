@@ -1,4 +1,5 @@
 #include "prolog_lower.h"
+#include "ct_arena.h"
 #include "prolog_atom.h"
 #include "scrip_cc.h"
 #include <stdio.h>
@@ -20,7 +21,7 @@ static char *pred_str(int functor, int arity) {
     if (!fn) fn = "?";
     char buf[256];
     snprintf(buf, sizeof buf, "%s/%d", fn, arity);
-    return strdup(buf);
+    return ct_strdup(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_flatten_conj(tree_t *t, tree_t *prog) {
@@ -42,9 +43,9 @@ static tree_t *pl_arrow_then_prog(tree_t *arrow) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pl_disj_of_rest(tree_t *semi_node, int from) {
-    if (from >= semi_node->n) { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = strdup("fail"); return f; }
+    if (from >= semi_node->n) { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = ct_strdup("fail"); return f; }
     if (from == semi_node->n - 1) return semi_node->c[from];
-    tree_t *rest = ast_node_new(TT_FNC); rest->v.sval = strdup(";");
+    tree_t *rest = ast_node_new(TT_FNC); rest->v.sval = ct_strdup(";");
     for (int i = from; i < semi_node->n; i++) ast_push(rest, semi_node->c[i]);
     return rest;
 }
@@ -58,7 +59,7 @@ static tree_t *pl_rewrite_control(tree_t *t) {
     if (pl_is_arrow(t)) {
         tree_t *then_prog = pl_arrow_then_prog(t);
         tree_t *else_prog = ast_node_new(TT_PROGRAM);
-        { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = strdup("fail"); ast_push(else_prog, f); }
+        { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = ct_strdup("fail"); ast_push(else_prog, f); }
         tree_t *iff = ast_node_new(TT_IF);
         iff->v.ival = 1;
         ast_push(iff, pl_rewrite_control(t->c[0]));
@@ -143,10 +144,10 @@ static void tr_head_key(tree_t *head, const char **fn_out, int *arity_out) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *pb_var(const char *nm) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = strdup(nm); return v; }
-static tree_t *pb_fnc2(const char *f, tree_t *a, tree_t *b) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = strdup(f); ast_push(n, a); ast_push(n, b); return n; }
-static tree_t *pb_fnc1(const char *f, tree_t *a) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = strdup(f); ast_push(n, a); return n; }
-static tree_t *pb_fnc3(const char *f, tree_t *a, tree_t *b, tree_t *c) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = strdup(f); ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
+static tree_t *pb_var(const char *nm) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = ct_strdup(nm); return v; }
+static tree_t *pb_fnc2(const char *f, tree_t *a, tree_t *b) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = ct_strdup(f); ast_push(n, a); ast_push(n, b); return n; }
+static tree_t *pb_fnc1(const char *f, tree_t *a) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = ct_strdup(f); ast_push(n, a); return n; }
+static tree_t *pb_fnc3(const char *f, tree_t *a, tree_t *b, tree_t *c) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = ct_strdup(f); ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pb_collect_names(const tree_t *t, const char **names, int *n, int cap) {
     if (!t) return;
@@ -182,8 +183,8 @@ static void pb_expand_bagof(tree_t *t) {
         tree_t *fin = is_setof ? pb_fnc2("sort", pb_var(b1), L) : pb_fnc2("=", pb_var(b1), L);
         inner = pb_fnc2(",", ne, fin);
     } else {
-        tree_t *k1 = ast_node_new(TT_FNC); k1->v.sval = strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k1, pb_var(fv[i]));
-        tree_t *k2 = ast_node_new(TT_FNC); k2->v.sval = strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k2, pb_var(fv[i]));
+        tree_t *k1 = ast_node_new(TT_FNC); k1->v.sval = ct_strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k1, pb_var(fv[i]));
+        tree_t *k2 = ast_node_new(TT_FNC); k2->v.sval = ct_strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k2, pb_var(fv[i]));
         snprintf(b1, sizeof b1, "_$B%d", g_pb_fresh_ctr++);
         snprintf(b2, sizeof b2, "_$B%d", g_pb_fresh_ctr++);
         fa = pb_fnc3("findall", pb_fnc2("-", k1, T), G1, pb_var(b1));
@@ -191,7 +192,7 @@ static void pb_expand_bagof(tree_t *t) {
         tree_t *grp = pb_fnc3("$bag_group", pb_var(b2), k2, L);
         inner = pb_fnc2(",", prep, grp);
     }
-    t->v.sval = strdup(","); t->n = 0;
+    t->v.sval = ct_strdup(","); t->n = 0;
     ast_push(t, fa); ast_push(t, inner);
     pb_expand_goal(fa->c[1]);
 }
@@ -277,7 +278,7 @@ static tree_t *tr_dup(const tree_t *e) {
     switch (e->t) {
         case TT_QLIT: case TT_VAR: case TT_KEYWORD: case TT_FNC:
         case TT_IDX:  case TT_CSET: case TT_ATTR:
-            c->v.sval = e->v.sval ? strdup(e->v.sval) : NULL;
+            c->v.sval = e->v.sval ? ct_strdup(e->v.sval) : NULL;
             break;
         default:
             break;
@@ -293,7 +294,7 @@ static void pld_mark_spec(tree_t *spec) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && spec->c[1]) {
         tree_t *nm = spec->c[0], *ar = spec->c[1];
-        if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pl_dyn_mark(strdup(nm->v.sval), (int)ar->v.ival);
+        if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pl_dyn_mark(ct_strdup(nm->v.sval), (int)ar->v.ival);
         return;
     }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pld_mark_spec(spec->c[i]); return; }
@@ -305,8 +306,8 @@ static void pld_mark_clause_arg(tree_t *arg) {
     tree_t *h = arg;
     if (arg->t == TT_FNC && arg->v.sval && !strcmp(arg->v.sval, ":-") && arg->n == 2) h = arg->c[0];
     if (!h) return;
-    if (h->t == TT_FNC && h->v.sval) pl_dyn_mark(strdup(h->v.sval), h->n);
-    else if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) pl_dyn_mark(strdup(h->v.sval), 0);
+    if (h->t == TT_FNC && h->v.sval) pl_dyn_mark(ct_strdup(h->v.sval), h->n);
+    else if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) pl_dyn_mark(ct_strdup(h->v.sval), 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pld_mark_scan(tree_t *t, int mark_assertz) {
@@ -335,9 +336,9 @@ tree_t *pl_runtime_clause_tree(tree_t *raw) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
-    pl_dyn_mark(strdup("$db_registry"), 0);
+    pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
-    CODE_t *prog = calloc(1, sizeof(CODE_t));
+    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     tree_t *pld_seed[256]; int pld_seed_n = 0;
     #define PL_MAX_CLAUSES 2048
     char plunit_suite[PL_MAX_CLAUSES][64];
@@ -403,7 +404,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                                 tree_t *acc = tr_dup(body_src->c[body_src->n - 1]);
                                 for (int bi = body_src->n - 2; bi >= 0; bi--) {
                                     tree_t *cm = ast_node_new(TT_FNC);
-                                    cm->v.sval = strdup(",");
+                                    cm->v.sval = ct_strdup(",");
                                     expr_add_child(cm, tr_dup(body_src->c[bi]));
                                     expr_add_child(cm, acc);
                                     acc = cm;
@@ -415,18 +416,18 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                         }
                         if (!body_tr) {
                             body_tr = ast_node_new(TT_QLIT);
-                            body_tr->v.sval = strdup("true");
+                            body_tr->v.sval = ct_strdup("true");
                         }
                         tree_t *name_tr = tr_dup(name_src);
                         tree_t *opts_tr = opts_src ? tr_dup(opts_src) : NULL;
                         if (!opts_tr) {
                             opts_tr = ast_node_new(TT_QLIT);
-                            opts_tr->v.sval = strdup("[]");
+                            opts_tr->v.sval = ct_strdup("[]");
                         }
                         tree_t *suite_tr = ast_node_new(TT_QLIT);
-                        suite_tr->v.sval = strdup(plunit_suite[clause_idx]);
+                        suite_tr->v.sval = ct_strdup(plunit_suite[clause_idx]);
                         tree_t *pj_head = ast_node_new(TT_FNC);
-                        pj_head->v.sval = strdup("pj_test");
+                        pj_head->v.sval = ct_strdup("pj_test");
                         expr_add_child(pj_head, suite_tr);
                         expr_add_child(pj_head, name_tr);
                         expr_add_child(pj_head, opts_tr);
@@ -536,9 +537,9 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 int hfn = prolog_atom_intern(hname);
                 PredKey hk = { hfn, 0 };
                 tree_t *helper_head = ast_node_new(TT_QLIT);
-                helper_head->v.sval = strdup(hname);
+                helper_head->v.sval = ct_strdup(hname);
                 tree_t *syn = ast_node_new(TT_FNC);
-                syn->v.sval = strdup(":-");
+                syn->v.sval = ct_strdup(":-");
                 syn->n = 0;
                 expr_add_child(syn, helper_head);
                 expr_add_child(syn, goal_tr);
@@ -550,9 +551,9 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                     expr_add_child(choices[nkeys], ec);
                     nkeys++;
                     tree_t *init_arg = ast_node_new(TT_QLIT);
-                    init_arg->v.sval = strdup(hname);
+                    init_arg->v.sval = ct_strdup(hname);
                     tree_t *init_call = ast_node_new(TT_FNC);
-                    init_call->v.sval = strdup("initialization");
+                    init_call->v.sval = ct_strdup("initialization");
                     init_call->n = 0;
                     expr_add_child(init_call, init_arg);
                     goal_tr = init_call;
@@ -573,8 +574,8 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 ename = arg->v.sval;
             }
             if (ename) {
-                ExportEntry *e = calloc(1, sizeof *e);
-                e->name = strdup(ename);
+                ExportEntry *e = ct_zalloc(1, sizeof *e);
+                e->name = ct_strdup(ename);
                 e->next = prog->exports;
                 prog->exports = e;
             }

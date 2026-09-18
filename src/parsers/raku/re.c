@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -36,7 +37,7 @@ struct Nfa {
 static int nfa_alloc(Nfa *nfa) {
     if (nfa->n >= nfa->cap) {
         nfa->cap *= 2;
-        nfa->states = realloc(nfa->states, (size_t)nfa->cap * sizeof(Nfa_state));
+        nfa->states = ct_grow(nfa->states, (size_t)nfa->cap * sizeof(Nfa_state));
     }
     int id = nfa->n++;
     memset(&nfa->states[id], 0, sizeof(Nfa_state));
@@ -185,7 +186,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         while (!at_end(p)&&depth>0){char x=consume(p);if(x=='{')depth++;else if(x=='}')depth--;}
         int ce=p->pos-1;
         int clen=ce-cs;
-        char *code=malloc(clen+1); memcpy(code,p->pat+cs,clen); code[clen]='\0';
+        char *code=ct_alloc(clen+1); memcpy(code,p->pat+cs,clen); code[clen]='\0';
         int id=nfa_alloc(p->nfa);
         p->nfa->states[id].kind=(!strcmp(code,"!ww")) ? NK_ASSERT_NOT_WW : (!strcmp(code,"!sp")) ? NK_ASSERT_NOT_SP : NK_CODE_ASSERT;
         p->nfa->states[id].code_str=code;
@@ -289,10 +290,10 @@ static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Nfa *nfa_build(const char *pattern) {
-    Nfa *nfa = malloc(sizeof *nfa);
+    Nfa *nfa = ct_alloc(sizeof *nfa);
     nfa->cap=NFA_INIT_CAP; nfa->n=0; nfa->ngroups=0;
     memset(nfa->group_name,0,sizeof nfa->group_name);
-    nfa->states=malloc((size_t)nfa->cap*sizeof(Nfa_state));
+    nfa->states=ct_alloc((size_t)nfa->cap*sizeof(Nfa_state));
     nfa->start=NFA_NULL; nfa->accept=NFA_NULL;
     Re_parser p;
     p.pat=pattern; p.pos=0; p.len=(int)strlen(pattern);
@@ -309,7 +310,7 @@ Nfa *nfa_build(const char *pattern) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int        nfa_state_count(const Nfa *nfa) { return nfa?nfa->n:0; }
-void nfa_free(Nfa *nfa) { if(!nfa)return; free(nfa->states); free(nfa); }
+void nfa_free(Nfa *nfa) { if(!nfa)return; ct_drop(nfa->states); ct_drop(nfa); }
 #define MAX_STATES 512
 typedef struct { int ids[MAX_STATES]; int n; } State_set;
 typedef struct {

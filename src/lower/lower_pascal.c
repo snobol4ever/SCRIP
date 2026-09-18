@@ -1,4 +1,5 @@
 #include <string.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include "lower.h"
@@ -109,7 +110,7 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** res) {
-    char * nm = (char *) malloc(16);
+    char * nm = (char *) ct_alloc(16);
     snprintf(nm, 16, "__pbt%d", cx->npbt++);
     IR_t * v  = build(cx, IR_VAR, NULL, ω); IR_LIT(v).sval = nm;
     IR_t * at = build(cx, IR_ASSIGN, v, ω); IR_LIT(at).sval = nm;
@@ -304,7 +305,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
             IR_t * e;
             {
-                const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
+                const tree_t ** av = (const tree_t **) ct_zalloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
                 for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k];
                 av[an++] = rhs;
                 e = pas_call_args(cx, call, 2.0, av, an, ω);
@@ -317,7 +318,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
         IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
         IR_t * e;
         {
-            const tree_t ** av = (const tree_t **) calloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
+            const tree_t ** av = (const tree_t **) ct_zalloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
             for (int k = 0; k < lhs->n; k++) av[an++] = lhs->c[k];
             av[an++] = rhs;
             e = pas_call_args(cx, call, 2.0, av, an, ω);
@@ -647,7 +648,7 @@ static pas_scope_t * build_scope_chain(const tree_t * pd) {
         if (PAS_PROC(i) == pd) { parent_pd = PAS_PARENT(i); break; }
     }
     pas_scope_t * outer = parent_pd ? build_scope_chain(parent_pd) : NULL;
-    pas_scope_t * sc = (pas_scope_t *) calloc(1, sizeof(pas_scope_t));
+    pas_scope_t * sc = (pas_scope_t *) ct_zalloc(1, sizeof(pas_scope_t));
     build_scope(sc, pd, outer);
     for (int i = 0; i < g_pas_proc_list.n; i++) if (PAS_PARENT(i) == pd) { sc->has_children = 1; break; }
     return sc;
@@ -787,14 +788,14 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
                     sc->n++;
                 }
                 if (locals->n > 0) {
-                    const char ** _ln = (const char **) calloc((size_t) locals->n, sizeof(const char *)); int _nl = 0;
+                    const char ** _ln = (const char **) ct_zalloc((size_t) locals->n, sizeof(const char *)); int _nl = 0;
                     if (_ln) { for (int k = 0; k < locals->n; k++) if (locals->c[k] && locals->c[k]->v.sval) _ln[_nl++] = locals->c[k]->v.sval;
                         g_stage2.bbp.table[bb_idx]->lnames = _ln; g_stage2.bbp.table[bb_idx]->nlocals = _nl; }
                 }
             }
             g_stage2.bbp.table[bb_idx]->nparams = np;
             if (np > 0) {
-                const char ** _pn = (const char **) calloc((size_t) np, sizeof(const char *));
+                const char ** _pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
             }
         }

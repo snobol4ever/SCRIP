@@ -1,4 +1,5 @@
 #include "branch_chain.h"
+#include "ct_arena.h"
 #include "ir_index.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +10,7 @@ static int bc_mon(void) { static int m = -1; if (m < 0) m = (getenv("MONITOR_BIN
 static int bc_stamped(const IR_t *nd) { return bc_mon() && nd->op == IR_GOTO && IR_LIT(nd).ival > 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * bc_build_protect(IR_graph_t *g, const ir_index_t *ix) {
-    char *prot = (char *)calloc((size_t)(g->n > 0 ? g->n : 1), 1);
+    char *prot = (char *)ct_zalloc((size_t)(g->n > 0 ? g->n : 1), 1);
     if (!prot) return prot;
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
@@ -58,7 +59,7 @@ int bc_run(IR_graph_t *g) {
     }
     if (g->entry) { char sz[4] = { 0 }; IR_t *t = bc_chase(prot, &ix,g->entry, sz); if (t != g->entry) { g->entry = t; total++; } }
     if (g->body_root) { char sz[4] = { 0 }; IR_t *t = bc_chase(prot, &ix,g->body_root, sz); if (t != g->body_root) { g->body_root = t; total++; } }
-    free(prot);
+    ct_drop(prot);
     ir_index_free(&ix);
     return total;
 }

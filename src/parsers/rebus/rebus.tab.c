@@ -78,6 +78,7 @@
 #line 1 "rebus.y"
 
 #include "rebus.h"
+#include "ct_arena.h"
 #include "ast.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
@@ -88,22 +89,22 @@ extern tree_t *rebus_parsed_program;
 extern int       rebus_nerrors;
 typedef struct { char **a; int n, cap; } SAL;
 static SAL *sal_new(void) {
-    SAL *s = calloc(1, sizeof *s);
-    s->cap = 4; s->a = malloc(4 * sizeof(char *));
+    SAL *s = ct_zalloc(1, sizeof *s);
+    s->cap = 4; s->a = ct_alloc(4 * sizeof(char *));
     return s;
 }
 static void sal_push(SAL *s, char *v) {
-    if (s->n >= s->cap) { s->cap *= 2; s->a = realloc(s->a, s->cap * sizeof(char *)); }
+    if (s->n >= s->cap) { s->cap *= 2; s->a = ct_grow(s->a, s->cap * sizeof(char *)); }
     s->a[s->n++] = v;
 }
 typedef struct { tree_t **a; int n, cap; } TAL;
 static TAL *tal_new(void) {
-    TAL *t = calloc(1, sizeof *t);
-    t->cap = 4; t->a = malloc(4 * sizeof(tree_t *));
+    TAL *t = ct_zalloc(1, sizeof *t);
+    t->cap = 4; t->a = ct_alloc(4 * sizeof(tree_t *));
     return t;
 }
 static void tal_push(TAL *t, tree_t *v) {
-    if (t->n >= t->cap) { t->cap *= 2; t->a = realloc(t->a, t->cap * sizeof(tree_t *)); }
+    if (t->n >= t->cap) { t->cap *= 2; t->a = ct_grow(t->a, t->cap * sizeof(tree_t *)); }
     t->a[t->n++] = v;
 }
 extern int  yylex(void);
@@ -469,7 +470,7 @@ typedef int yy_state_fast_t;
 
 #if !defined yyoverflow
 
-/* The parser invokes alloca or malloc; define the necessary symbols.  */
+/* The parser invokes alloca or the compile-time arena; define the necessary symbols.  */
 
 # ifdef YYSTACK_USE_ALLOCA
 #  if YYSTACK_USE_ALLOCA
@@ -480,7 +481,7 @@ typedef int yy_state_fast_t;
 #   elif defined _AIX
 #    define YYSTACK_ALLOC __alloca
 #   elif defined _MSC_VER
-#    include <malloc.h> /* INFRINGES ON USER NAME SPACE */
+#    include \"ct_arena.h\"
 #    define alloca _alloca
 #   else
 #    define YYSTACK_ALLOC alloca
@@ -512,23 +513,23 @@ typedef int yy_state_fast_t;
 #   define YYSTACK_ALLOC_MAXIMUM YYSIZE_MAXIMUM
 #  endif
 #  if (defined __cplusplus && ! defined EXIT_SUCCESS \
-       && ! ((defined YYMALLOC || defined malloc) \
-             && (defined YYFREE || defined free)))
+       && ! ((defined YYMALLOC) \
+             && (defined YYFREE)))
 #   include <stdlib.h> /* INFRINGES ON USER NAME SPACE */
 #   ifndef EXIT_SUCCESS
 #    define EXIT_SUCCESS 0
 #   endif
 #  endif
 #  ifndef YYMALLOC
-#   define YYMALLOC malloc
-#   if ! defined malloc && ! defined EXIT_SUCCESS
-void *malloc (YYSIZE_T); /* INFRINGES ON USER NAME SPACE */
+#   define YYMALLOC ct_alloc
+#   if 0
+void *ct_alloc(YYSIZE_T); /* INFRINGES ON USER NAME SPACE */
 #   endif
 #  endif
 #  ifndef YYFREE
-#   define YYFREE free
-#   if ! defined free && ! defined EXIT_SUCCESS
-void free (void *); /* INFRINGES ON USER NAME SPACE */
+#   define YYFREE ct_drop
+#   if 0
+void ct_drop(void *); /* INFRINGES ON USER NAME SPACE */
 #   endif
 #  endif
 # endif
@@ -1452,7 +1453,7 @@ yyreduce:
                 tree_t *fld = ast_node_new(TT_VAR); fld->v.sval = sl->a[i];
                 expr_add_child(rec, fld);
             }
-            free(sl->a); free(sl);
+            ct_drop(sl->a); ct_drop(sl);
             (yyval.tree) = rec;
         }
 #line 1459 "rebus.tab.c"
@@ -1471,7 +1472,7 @@ yyreduce:
                 tree_t *p = ast_node_new(TT_VAR); p->v.sval = ps->a[i];
                 expr_add_child(params_node, p);
             }
-            free(ps->a); free(ps);
+            ct_drop(ps->a); ct_drop(ps);
             expr_add_child(fn, params_node);
             tree_t *locals_node = ast_node_new(TT_VLIST);
             SAL *ls = (SAL*)(yyvsp[-3].sal);
@@ -1479,7 +1480,7 @@ yyreduce:
                 tree_t *l = ast_node_new(TT_VAR); l->v.sval = ls->a[i];
                 expr_add_child(locals_node, l);
             }
-            free(ls->a); free(ls);
+            ct_drop(ls->a); ct_drop(ls);
             expr_add_child(fn, locals_node);
             expr_add_child(fn, (yyvsp[-2].tree) ? (yyvsp[-2].tree) : ast_node_new(TT_NUL));
             expr_add_child(fn, (yyvsp[-1].tree));
@@ -1820,7 +1821,7 @@ yyreduce:
 #line 312 "rebus.y"
         {
             tree_t *n = ast_node_new(TT_FOR);
-            n->v.sval = strdup((yyvsp[-7].sval));
+            n->v.sval = ct_strdup((yyvsp[-7].sval));
             expr_add_child(n, (yyvsp[-5].tree));
             expr_add_child(n, (yyvsp[-3].tree));
             expr_add_child(n, ast_node_new(TT_NUL));
@@ -1834,7 +1835,7 @@ yyreduce:
 #line 322 "rebus.y"
         {
             tree_t *n = ast_node_new(TT_FOR);
-            n->v.sval = strdup((yyvsp[-9].sval));
+            n->v.sval = ct_strdup((yyvsp[-9].sval));
             expr_add_child(n, (yyvsp[-7].tree));
             expr_add_child(n, (yyvsp[-5].tree));
             expr_add_child(n, (yyvsp[-3].tree));
@@ -1857,7 +1858,7 @@ yyreduce:
                 }
                 expr_add_child(cs, c->body_tree);
             }
-            { RCase *c = (yyvsp[-1].rcase); while (c) { RCase *nx = c->next; free(c); c = nx; } }
+            { RCase *c = (yyvsp[-1].rcase); while (c) { RCase *nx = c->next; ct_drop(c); c = nx; } }
             (yyval.tree) = cs;
         }
 #line 1864 "rebus.tab.c"
@@ -2186,7 +2187,7 @@ yyreduce:
 #line 456 "rebus.y"
                                             {
             tree_t *n = ast_node_new(TT_CAPT_CURSOR);
-            n->v.sval = strdup((yyvsp[0].sval)); (yyval.tree) = n;
+            n->v.sval = ct_strdup((yyvsp[0].sval)); (yyval.tree) = n;
         }
 #line 2192 "rebus.tab.c"
     break;
@@ -2221,7 +2222,7 @@ yyreduce:
             expr_add_child(f, (yyvsp[-3].tree));
             for (int i = 0; i < al->n; i++)
                 expr_add_child(f, al->a[i] ? al->a[i] : ast_node_new(TT_NUL));
-            free(al->a); free(al);
+            ct_drop(al->a); ct_drop(al);
             (yyval.tree) = f;
         }
 #line 2228 "rebus.tab.c"
@@ -2235,7 +2236,7 @@ yyreduce:
             expr_add_child(idx, (yyvsp[-3].tree));
             for (int i = 0; i < al->n; i++)
                 expr_add_child(idx, al->a[i] ? al->a[i] : ast_node_new(TT_NUL));
-            free(al->a); free(al);
+            ct_drop(al->a); ct_drop(al);
             (yyval.tree) = idx;
         }
 #line 2242 "rebus.tab.c"

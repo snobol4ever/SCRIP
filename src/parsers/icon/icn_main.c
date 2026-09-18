@@ -1,4 +1,5 @@
 #include "icon_lex.h"
+#include "ct_arena.h"
 #include "icon_parse.h"
 #include "icon_emit.h"
 #include "scrip_cc.h"
@@ -29,19 +30,19 @@ ImportEntry *icn_prescan_imports(const char *src) {
                 tok[ti++] = *lp++;
             tok[ti] = '\0';
             if (ti > 0) {
-                ImportEntry *e = calloc(1, sizeof *e);
+                ImportEntry *e = ct_zalloc(1, sizeof *e);
                 char *dot = strchr(tok, '.');
                 if (dot) {
                     int alen = (int)(dot - tok);
                     char asmname[256] = {0};
                     strncpy(asmname, tok, alen < 255 ? alen : 255);
-                    e->name   = strdup(asmname);
-                    e->method = strdup(dot + 1);
+                    e->name   = ct_strdup(asmname);
+                    e->method = ct_strdup(dot + 1);
                 } else {
-                    e->name   = strdup(tok);
-                    e->method = strdup(tok);
+                    e->name   = ct_strdup(tok);
+                    e->method = ct_strdup(tok);
                 }
-                e->lang = strdup("ICON");
+                e->lang = ct_strdup("ICON");
                 e->next = head;
                 head = e;
             }
@@ -57,7 +58,7 @@ static char *read_file(const char *path) {
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     rewind(f);
-    char *buf = malloc(sz + 1);
+    char *buf = ct_alloc(sz + 1);
     fread(buf, 1, sz, f);
     buf[sz] = '\0';
     fclose(f);
@@ -85,7 +86,7 @@ int icn_main(int argc, char **argv) {
     CODE_t *prog = icn_parse_file(&parser, NULL);
     if (parser.had_error) {
         fprintf(stderr, "parse error: %s\n", parser.errmsg);
-        free(src); return 1;
+        ct_drop(src); return 1;
     }
     (void)prog;
     if (do_jvm) {
@@ -95,7 +96,7 @@ int icn_main(int argc, char **argv) {
         fprintf(stderr, "scrip: icn emit archived; use --run\n");
         return 1;
     }
-    free(src);
+    ct_drop(src);
     if (do_run && output) {
         char obj[256], bin[256], cmd[1024];
         snprintf(obj, sizeof obj, "%s.o", output);

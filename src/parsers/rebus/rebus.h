@@ -1,6 +1,7 @@
 #ifndef REBUS_H
 #define REBUS_H
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -14,17 +15,17 @@ struct RCase {
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline RCase *rcase_new(int lineno) {
-    RCase *c = calloc(1, sizeof *c);
+    RCase *c = ct_zalloc(1, sizeof *c);
     (void)lineno;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline char *rebus_intern(const char *s) {
-    return s ? strdup(s) : NULL;
+    return s ? ct_strdup(s) : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline char *rebus_intern_n(const char *s, int n) {
-    char *p = malloc(n + 1);
+    char *p = ct_alloc(n + 1);
     memcpy(p, s, n);
     p[n] = '\0';
     return p;

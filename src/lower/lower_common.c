@@ -1,5 +1,6 @@
 #define BB_DEFINE_NAMES
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "lower.h"
 #include "emit.h"
 #include "bb_program.h"
@@ -57,7 +58,7 @@ tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *lp_strdup(const char *s) {
     if (!s) return NULL;
-    { size_t n = strlen(s) + 1; char *q = (char *)malloc(n); if (!q) return NULL; memcpy(q, s, n); return q; }
+    { size_t n = strlen(s) + 1; char *q = (char *)ct_alloc(n); if (!q) return NULL; memcpy(q, s, n); return q; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * norm_charseq(DESCR_t d) {

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include "snocone_lex.h"
@@ -104,7 +105,7 @@ static inline int emit_value(LexCtx *ctx, SC_STYPE *yylval, const char *p, const
     if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
     memcpy(ctx->text, tok_start, n);
     ctx->text[n] = '\0';
-    yylval->str = strdup(ctx->text);
+    yylval->str = ct_strdup(ctx->text);
     ctx->p = p;
     ctx->last_kind = kind;
     return kind;
@@ -379,7 +380,7 @@ LX_CALL:
         if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
         memcpy(ctx->text, tok_start, n);
         ctx->text[n] = '\0';
-        yylval->str = strdup(ctx->text);
+        yylval->str = ct_strdup(ctx->text);
         ADV(1);
         ctx->p = p;
         ctx->last_kind = T_CALL;
@@ -392,7 +393,7 @@ LX_IDENT:
         if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
         memcpy(ctx->text, tok_start, n);
         ctx->text[n] = '\0';
-        yylval->str = strdup(ctx->text);
+        yylval->str = ct_strdup(ctx->text);
         ctx->p = p; ctx->last_kind = kind; return kind;
     }
 TT_KEYWORD:
@@ -401,7 +402,7 @@ TT_KEYWORD:
         if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
         memcpy(ctx->text, tok_start, n);
         ctx->text[n] = '\0';
-        yylval->str = strdup(ctx->text);
+        yylval->str = ct_strdup(ctx->text);
         ctx->p = p; ctx->last_kind = T_KEYWORD; return T_KEYWORD;
     }
 LX_STR:
@@ -411,7 +412,7 @@ LX_STR:
         if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
         memcpy(ctx->text, ctx->strbuf, n);
         ctx->text[n] = '\0';
-        yylval->str = strdup(ctx->text);
+        yylval->str = ct_strdup(ctx->text);
         ctx->p = p; ctx->last_kind = T_STR; return T_STR;
     }
 TT_UNKNOWN:       EMIT_V(T_UNKNOWN);

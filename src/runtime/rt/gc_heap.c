@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -340,7 +341,7 @@ static char *g_gc_stktop = (char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_live_grow(long need) { if (need < g_gc_lcap) return; g_gc_lcap = g_gc_lcap ? g_gc_lcap : 4096; while (g_gc_lcap <= need) g_gc_lcap *= 2;
-    g_gc_liveo = (rt_hblk_t **)realloc((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo)); g_gc_livef = (uint64_t *)realloc((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef)); if (!g_gc_liveo || !g_gc_livef) abort(); }
+    g_gc_liveo = (rt_hblk_t **)ct_grow((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo)); g_gc_livef = (uint64_t *)ct_grow((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef)); if (!g_gc_liveo || !g_gc_livef) abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static double gc_walk_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
 static long gc_collect_ex(int cons_stack);
@@ -370,10 +371,10 @@ void rt_gc_point(DESCR_t *d0, const char **r0)
 static int gc_hins(void *p)
 {
     if (g_gc_hn * 10 >= g_gc_hcap * 7) {
-        long ncap = g_gc_hcap ? g_gc_hcap * 2 : 4096; void **nh = (void **)calloc((size_t)ncap, sizeof(void *));
+        long ncap = g_gc_hcap ? g_gc_hcap * 2 : 4096; void **nh = (void **)ct_zalloc((size_t)ncap, sizeof(void *));
         if (!nh) { fprintf(stderr, "[ZGC] visited-set alloc failed\n"); abort(); }
         for (long i = 0; i < g_gc_hcap; i++) if (g_gc_hs[i]) { uint64_t h = ((uint64_t)g_gc_hs[i] >> 4) * 0x9E3779B97F4A7C15ull; long s = (long)(h & (uint64_t)(ncap - 1)); while (nh[s]) s = (s + 1) & (ncap - 1); nh[s] = g_gc_hs[i]; }
-        free(g_gc_hs); g_gc_hs = nh; g_gc_hcap = ncap;
+        ct_drop(g_gc_hs); g_gc_hs = nh; g_gc_hcap = ncap;
     }
     { uint64_t h = ((uint64_t)p >> 4) * 0x9E3779B97F4A7C15ull; long s = (long)(h & (uint64_t)(g_gc_hcap - 1));
       while (g_gc_hs[s]) { if (g_gc_hs[s] == p) return 0; s = (s + 1) & (g_gc_hcap - 1); }
@@ -402,7 +403,7 @@ static void gc_slot_reg(void *loc)
     const char *v = *(const char *const *)loc;
     if (!gc_blk_of(v)) return;
     if (!gc_hins((void *)((uintptr_t)loc | 1))) return;
-    if (g_gc_nslot == g_gc_scap) { g_gc_scap = g_gc_scap ? g_gc_scap * 2 : 4096; g_gc_slots = (gc_slot_t *)realloc((void *)g_gc_slots, (size_t)g_gc_scap * sizeof(*g_gc_slots)); if (!g_gc_slots) abort(); }
+    if (g_gc_nslot == g_gc_scap) { g_gc_scap = g_gc_scap ? g_gc_scap * 2 : 4096; g_gc_slots = (gc_slot_t *)ct_grow((void *)g_gc_slots, (size_t)g_gc_scap * sizeof(*g_gc_slots)); if (!g_gc_slots) abort(); }
     { rt_hblk_t *hl = gc_blk_of((const char *)loc);
       if (hl) { g_gc_slots[g_gc_nslot].hloc = hl; g_gc_slots[g_gc_nslot].off = (uintptr_t)((char *)loc - (char *)(hl + 1)); }
       else { g_gc_slots[g_gc_nslot].hloc = (rt_hblk_t *)0; g_gc_slots[g_gc_nslot].off = (uintptr_t)loc; }
@@ -468,7 +469,7 @@ static int g_gc_wl_draining = 0;
 static void gc_wl_push(DESCR_t *d)
 {
     if (!d) return;
-    if (g_gc_wln == g_gc_wlcap) { g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096; g_gc_wl = (DESCR_t **)realloc((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl)); if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); } }
+    if (g_gc_wln == g_gc_wlcap) { g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096; g_gc_wl = (DESCR_t **)ct_grow((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl)); if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); } }
     g_gc_wl[g_gc_wln++] = d;
     if (g_gc_wln > g_gc_wlmax) g_gc_wlmax = g_gc_wln;
 }
@@ -539,7 +540,7 @@ static long g_gc_rrng_ss = 0;
 void rt_gc_root_range_add(const char *lo, const char *hi)
 {
     if (g_gc_rrng_n == g_gc_rrng_cap) { g_gc_rrng_cap = g_gc_rrng_cap ? g_gc_rrng_cap * 2 : 64;
-        g_gc_rrng = (struct gc_rng_t *)realloc((void *)g_gc_rrng, (size_t)g_gc_rrng_cap * sizeof(*g_gc_rrng)); if (!g_gc_rrng) abort(); }
+        g_gc_rrng = (struct gc_rng_t *)ct_grow((void *)g_gc_rrng, (size_t)g_gc_rrng_cap * sizeof(*g_gc_rrng)); if (!g_gc_rrng) abort(); }
     g_gc_rrng[g_gc_rrng_n].lo = lo; g_gc_rrng[g_gc_rrng_n].hi = hi; g_gc_rrng_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -554,7 +555,7 @@ void rt_gc_frame_maps_add(const gc_frame_map_t *m)
     if (!m || gc_frame_map_registered(m)) return;
     if (m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAP] rt_gc_frame_maps_add: %p is not a frame map (magic %08x)\n", (const void *)m, m->magic); abort(); }
     if (g_gc_maps_n == g_gc_maps_cap) { g_gc_maps_cap = g_gc_maps_cap ? g_gc_maps_cap * 2 : 64;
-        g_gc_maps = (const gc_frame_map_t **)realloc((void *)g_gc_maps, (size_t)g_gc_maps_cap * sizeof(*g_gc_maps)); if (!g_gc_maps) abort(); }
+        g_gc_maps = (const gc_frame_map_t **)ct_grow((void *)g_gc_maps, (size_t)g_gc_maps_cap * sizeof(*g_gc_maps)); if (!g_gc_maps) abort(); }
     g_gc_maps[g_gc_maps_n++] = m;
 }
 void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
@@ -607,7 +608,7 @@ static int gc_phdr_cb(struct dl_phdr_info *info, size_t sz, void *data)
     for (int i = 0; i < (int)info->dlpi_phnum; i++) { const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
         if (ph->p_type != PT_LOAD || !(ph->p_flags & PF_W)) continue;
         if (g_gc_nseg == g_gc_seg_cap) { g_gc_seg_cap = g_gc_seg_cap ? g_gc_seg_cap * 2 : 16;
-            g_gc_segs = (struct gc_seg_t *)realloc((void *)g_gc_segs, (size_t)g_gc_seg_cap * sizeof(*g_gc_segs)); if (!g_gc_segs) abort(); }
+            g_gc_segs = (struct gc_seg_t *)ct_grow((void *)g_gc_segs, (size_t)g_gc_seg_cap * sizeof(*g_gc_segs)); if (!g_gc_segs) abort(); }
         g_gc_segs[g_gc_nseg].lo = (char *)(info->dlpi_addr + ph->p_vaddr); g_gc_segs[g_gc_nseg].hi = g_gc_segs[g_gc_nseg].lo + ph->p_memsz; g_gc_nseg++; }
     return 0;
 }
@@ -699,10 +700,10 @@ static long gc_collect_ex(int cons_stack)
     g_gc_nblk = 0;
     if (w_tel) { w_cnt = g_gc_nblk; n_cnt = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (g_gc_nblk > g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap : 4096; while (g_gc_icap < g_gc_nblk) g_gc_icap *= 2;
-        g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); }
+        g_gc_idxbuf = (rt_hblk_t **)ct_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); }
     g_gc_idx = g_gc_idxbuf;
-    { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
-        if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
+    { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)ct_alloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
+        if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)ct_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
         h->flags &= (uint16_t)~HBF_MARK;
         if (h->type == HB_ZBLK || h->type == HB_PLJ) nforeign++;
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 511) >> 9);

@@ -274,6 +274,7 @@
 
 /* begin standard C headers. */
 #include <stdio.h>
+#include "ct_arena.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -476,7 +477,7 @@ struct yy_buffer_state
 	int yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
-	 * and can realloc() it to grow it, and should free() it to
+	 * and can ct_grow() it to grow it, and should ct_drop() it to
 	 * delete it.
 	 */
 	int yy_is_our_buffer;
@@ -2094,91 +2095,91 @@ YY_RULE_SETUP
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return TESTOP; }
+{ raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
@@ -2375,17 +2376,17 @@ YY_RULE_SETUP
 case 83:
 /* rule 83 can match eol */
 YY_RULE_SETUP
-{ char raw[64]; int rl=(int)yyleng-8; if(rl>63)rl=63; memcpy(raw,yytext+7,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("infix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
+{ char raw[64]; int rl=(int)yyleng-8; if(rl>63)rl=63; memcpy(raw,yytext+7,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("infix",raw,cb,sizeof cb); raku_yylval.sval=ct_strdup(cb); return OP_NAME; }
 	YY_BREAK
 case 84:
 /* rule 84 can match eol */
 YY_RULE_SETUP
-{ char raw[64]; int rl=(int)yyleng-9; if(rl>63)rl=63; memcpy(raw,yytext+8,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("prefix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
+{ char raw[64]; int rl=(int)yyleng-9; if(rl>63)rl=63; memcpy(raw,yytext+8,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("prefix",raw,cb,sizeof cb); raku_yylval.sval=ct_strdup(cb); return OP_NAME; }
 	YY_BREAK
 case 85:
 /* rule 85 can match eol */
 YY_RULE_SETUP
-{ char raw[64]; int rl=(int)yyleng-10; if(rl>63)rl=63; memcpy(raw,yytext+9,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("postfix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
+{ char raw[64]; int rl=(int)yyleng-10; if(rl>63)rl=63; memcpy(raw,yytext+9,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("postfix",raw,cb,sizeof cb); raku_yylval.sval=ct_strdup(cb); return OP_NAME; }
 	YY_BREAK
 case 86:
 YY_RULE_SETUP
@@ -2405,7 +2406,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 90:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_SCALAR; }
 	YY_BREAK
 case 91:
 YY_RULE_SETUP
@@ -2414,7 +2415,7 @@ YY_RULE_SETUP
 case 92:
 /* rule 92 can match eol */
 YY_RULE_SETUP
-{ const char *lt = strchr(yytext,'<'); const char *gt = strrchr(yytext,'>'); int n=(int)(gt-lt-1); if(n<0)n=0; char *w=(char*)malloc(n+1); memcpy(w,lt+1,n); w[n]=0; raku_yylval.sval=w; return KW_HANDLES; }
+{ const char *lt = strchr(yytext,'<'); const char *gt = strrchr(yytext,'>'); int n=(int)(gt-lt-1); if(n<0)n=0; char *w=(char*)ct_alloc(n+1); memcpy(w,lt+1,n); w[n]=0; raku_yylval.sval=w; return KW_HANDLES; }
 	YY_BREAK
 case 93:
 YY_RULE_SETUP
@@ -2422,7 +2423,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 94:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("self"); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup("self"); return VAR_SCALAR; }
 	YY_BREAK
 case 95:
 YY_RULE_SETUP
@@ -2466,7 +2467,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 105:
 YY_RULE_SETUP
-{ const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = strdup(_p); return IDENT; }
+{ const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = ct_strdup(_p); return IDENT; }
 	YY_BREAK
 case 106:
 /* rule 106 can match eol */
@@ -2814,7 +2815,7 @@ YY_RULE_SETUP
 case 181:
 YY_RULE_SETUP
 {
-    int n=(int)yyleng-2; char *inner=(char*)malloc(n+1); memcpy(inner,yytext+1,n); inner[n]='\0';
+    int n=(int)yyleng-2; char *inner=(char*)ct_alloc(n+1); memcpy(inner,yytext+1,n); inner[n]='\0';
     raku_yylval.sval=inner; return WORDLIST; }
 	YY_BREAK
 case 182:
@@ -2851,27 +2852,27 @@ YY_RULE_SETUP
 	YY_BREAK
 case 190:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("+");   return OP_REDUCE; }
+{ raku_yylval.sval = ct_strdup("+");   return OP_REDUCE; }
 	YY_BREAK
 case 191:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("-");   return OP_REDUCE; }
+{ raku_yylval.sval = ct_strdup("-");   return OP_REDUCE; }
 	YY_BREAK
 case 192:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("*");   return OP_REDUCE; }
+{ raku_yylval.sval = ct_strdup("*");   return OP_REDUCE; }
 	YY_BREAK
 case 193:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("~");   return OP_REDUCE; }
+{ raku_yylval.sval = ct_strdup("~");   return OP_REDUCE; }
 	YY_BREAK
 case 194:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("min"); return OP_REDUCE; }
+{ raku_yylval.sval = ct_strdup("min"); return OP_REDUCE; }
 	YY_BREAK
 case 195:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("max"); return OP_REDUCE; }
+{ raku_yylval.sval = ct_strdup("max"); return OP_REDUCE; }
 	YY_BREAK
 case 196:
 YY_RULE_SETUP
@@ -2919,7 +2920,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 207:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("$_"); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup("$_"); return VAR_SCALAR; }
 	YY_BREAK
 case 208:
 YY_RULE_SETUP
@@ -2945,32 +2946,32 @@ case 213:
 YY_RULE_SETUP
 {
     int len = strlen(yytext)-3;
-    char *nm = malloc(len+1); memcpy(nm,yytext+2,len); nm[len]='\0';
+    char *nm = ct_alloc(len+1); memcpy(nm,yytext+2,len); nm[len]='\0';
     raku_yylval.sval = nm; return VAR_NAMED_CAPTURE; }
 	YY_BREAK
 case 214:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_TWIGIL; }
 	YY_BREAK
 case 215:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_TWIGIL; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_TWIGIL; }
 	YY_BREAK
 case 216:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
 	YY_BREAK
 case 217:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
 	YY_BREAK
 case 218:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_HASH_TWIGIL; }
 	YY_BREAK
 case 219:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_HASH_TWIGIL; }
 	YY_BREAK
 case 220:
 YY_RULE_SETUP
@@ -2978,75 +2979,75 @@ YY_RULE_SETUP
 	YY_BREAK
 case 221:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 	YY_BREAK
 case 222:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 	YY_BREAK
 case 223:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 	YY_BREAK
 case 224:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 	YY_BREAK
 case 225:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 	YY_BREAK
 case 226:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup("$!"); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup("$!"); return VAR_SCALAR; }
 	YY_BREAK
 case 227:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_ARRAY; }
 	YY_BREAK
 case 228:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_HASH; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_HASH; }
 	YY_BREAK
 case 229:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 	YY_BREAK
 case 230:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+2); return SLURPY_LOL; }
+{ raku_yylval.sval = ct_strdup(yytext+2); return SLURPY_LOL; }
 	YY_BREAK
 case 231:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return SLURPY_POS; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return SLURPY_POS; }
 	YY_BREAK
 case 232:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return SLURPY_NAMED; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return SLURPY_NAMED; }
 	YY_BREAK
 case 233:
 YY_RULE_SETUP
-{ char *s = strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
+{ char *s = ct_strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
 	YY_BREAK
 case 234:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_ARRAY; }
 	YY_BREAK
 case 235:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return VAR_HASH; }
+{ raku_yylval.sval = ct_strdup(yytext); return VAR_HASH; }
 	YY_BREAK
 case 236:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
+{ raku_yylval.sval = ct_strdup(yytext+1); return VAR_SCALAR; }
 	YY_BREAK
 case 237:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return IDENT; }
+{ raku_yylval.sval = ct_strdup(yytext); return IDENT; }
 	YY_BREAK
 case 238:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return IDENT; }
+{ raku_yylval.sval = ct_strdup(yytext); return IDENT; }
 	YY_BREAK
 case 239:
 YY_RULE_SETUP
@@ -3056,7 +3057,7 @@ case 240:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
         return LIT_INTERP_STR;
@@ -3100,7 +3101,7 @@ case 249:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
 }
@@ -3118,7 +3119,7 @@ case 252:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
 }
@@ -3148,7 +3149,7 @@ case 258:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos]='\0';
-    raku_subst_pat = strdup(raku_strbuf);
+    raku_subst_pat = ct_strdup(raku_strbuf);
     raku_strpos=0; BEGIN(STR_SUBST_REPL);
 }
 	YY_BREAK
@@ -3166,11 +3167,11 @@ YY_RULE_SETUP
     raku_strbuf[raku_strpos]='\0';
     int global = (yytext[1]=='g');
     size_t plen=strlen(raku_subst_pat), rlen=raku_strpos;
-    char *tok = malloc(plen+rlen+4);
+    char *tok = ct_alloc(plen+rlen+4);
     memcpy(tok, raku_subst_pat, plen); tok[plen]='\x01';
     memcpy(tok+plen+1, raku_strbuf, rlen); tok[plen+1+rlen]='\x01';
     tok[plen+2+rlen] = global ? 'g' : '-'; tok[plen+3+rlen]='\0';
-    free(raku_subst_pat); raku_subst_pat=NULL;
+    ct_drop(raku_subst_pat); raku_subst_pat=NULL;
     raku_yylval.sval = tok;
     BEGIN(INITIAL); return LIT_SUBST;
 }
@@ -3195,7 +3196,7 @@ case 266:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylval.sval = strdup(raku_strbuf);
+    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (raku_match_global) { raku_match_global=0; return LIT_MATCH_GLOBAL; }
     return LIT_REGEX;
@@ -3224,7 +3225,7 @@ YY_RULE_SETUP
     rebody_depth--;
     if (rebody_depth == 0) {
         raku_strbuf[raku_strpos] = '\0';
-        raku_yylval.sval = strdup(raku_strbuf);
+        raku_yylval.sval = ct_strdup(raku_strbuf);
         BEGIN(INITIAL);
         return LIT_REGEX;
     }
@@ -3874,7 +3875,7 @@ static void yyensure_buffer_stack (void)
 
 		/* First allocation is just for 2 elements, since we don't know if this
 		 * scanner will even need a stack. We use 2 instead of 1 to avoid an
-		 * immediate realloc on the next call.
+		 * immediate regrow on the next call.
          */
       num_to_alloc = 1; /* After all that talk, this was set to 1 anyways... */
 		(yy_buffer_stack) = (struct yy_buffer_state**)yyalloc
@@ -4190,7 +4191,7 @@ static int yy_flex_strlen (const char * s )
 
 void *yyalloc (yy_size_t  size )
 {
-			return malloc(size);
+			return ct_alloc(size);
 }
 
 void *yyrealloc  (void * ptr, yy_size_t  size )
@@ -4203,12 +4204,12 @@ void *yyrealloc  (void * ptr, yy_size_t  size )
 	 * any pointer type to void*, and deal with argument conversions
 	 * as though doing an assignment.
 	 */
-	return realloc(ptr, size);
+	return ct_grow(ptr, size);
 }
 
 void yyfree (void * ptr )
 {
-			free( (char *) ptr );	/* see yyrealloc() for (char *) cast */
+			ct_drop( (char *) ptr );	/* see yyrealloc() for (char *) cast */
 }
 
 #define YYTABLES_NAME "yytables"

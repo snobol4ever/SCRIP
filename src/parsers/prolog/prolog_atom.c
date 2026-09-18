@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "prolog_atom.h"
 #include <stdlib.h>
 #include <string.h>
@@ -68,7 +69,7 @@ int prolog_atom_intern(const char *name) {
         atom_names = rt_ws_realloc(atom_names, atom_cap * sizeof(char *));
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = strdup(name);
+    char *copy = ct_strdup(name);
     int   id   = atom_len++;
     atom_names[id] = copy;
     ht[h].key = copy;

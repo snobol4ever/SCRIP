@@ -1,4 +1,5 @@
 #include "icon_lex.h"
+#include "ct_arena.h"
 #include "icon_ast.h"
 #include "icon_parse.h"
 #include <stdio.h>
@@ -163,13 +164,13 @@ static IcnNode **parse_corpus_file(const char *path, int *count) {
     FILE *f = fopen(path, "r");
     if (!f) { *count = 0; return NULL; }
     fseek(f, 0, SEEK_END); long sz = ftell(f); rewind(f);
-    char *src = malloc(sz + 1);
+    char *src = ct_alloc(sz + 1);
     fread(src, 1, sz, f); src[sz] = '\0'; fclose(f);
     IcnLexer lx; icn_lex_init(&lx, src);
     IcnParser p;  icn_parse_init(&p, &lx);
     IcnNode **procs = icn_parse_file(&p, count);
     if (p.had_error) { fprintf(stderr, "    parse error: %s\n", p.errmsg); }
-    free(src);
+    ct_drop(src);
     return procs;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -207,7 +208,7 @@ static void test_rung1_parse(void) {
         }
         PASS(name);
         for (int j = 0; j < count; j++) icn_node_free(procs[j]);
-        free(procs);
+        ct_drop(procs);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

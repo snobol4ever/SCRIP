@@ -1,4 +1,5 @@
 #include <string.h>
+#include "ct_arena.h"
 #include <stdlib.h>
 #include <math.h>
 #include "lower.h"
@@ -74,7 +75,7 @@ static const char * icn_cset_canon(const char * s, int len, int * out_len) {
     char buf[257]; int n = 0;
     for (int c = 0; c < 256; c++) if (seen[c]) buf[n++] = (char) c;
     buf[n] = 0; if (out_len) *out_len = n;
-    { char * p = (char *) malloc((size_t) n + 1); if (p) { memcpy(p, buf, (size_t) n); p[n] = 0; } return p; }
+    { char * p = (char *) ct_alloc((size_t) n + 1); if (p) { memcpy(p, buf, (size_t) n); p[n] = 0; } return p; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_attach_lit_len(icx_t * cx, IR_t * nd, int len) {
@@ -867,7 +868,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (k == 0) { IR_t * nv = build(cx, IR_VAR, γ, ω); IR_LIT(nv).sval = (char *) "&null"; *res = nv; return nv; }
         if (k == 1) return lower(cx, S[0], γ, ω, res);
         IR_t * SEQX = build(cx, IR_CONJUNCTION, γ, ω);
-        IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
+        IR_t ** val = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
         if (t->t == TT_SEQ_EXPR) {
             IR_t * failt = ω; IR_t * last_beta = ω; IR_t * rb = NULL;
             for (int i = k - 1; i >= 0; i--) {
@@ -884,8 +885,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
         }
         IR_t * last_beta = ω; IR_t * rb = NULL;
-        IR_t ** bet = (IR_t **) calloc((size_t) k, sizeof(IR_t *));
-        IR_t ** jn = (IR_t **) calloc((size_t) k, sizeof(IR_t *));
+        IR_t ** bet = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
+        IR_t ** jn = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
         for (int i = k - 1; i >= 0; i--) { val[i] = NULL; cx->beta = ω;
             IR_t * failt = ω; if (i > 0) { jn[i] = build(cx, IR_GOTO, ω, ω); failt = jn[i]; }
             ent[i] = lower(cx, S[i], succ, failt, &val[i]); bet[i] = cx->beta;
@@ -1570,7 +1571,7 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
         if (st && st->t == TT_STATIC_DECL)
             for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval && cnt < 64) {
                 names[cnt] = st->c[k]->v.sval;
-                char * m = malloc(strlen(pname) + strlen(names[cnt]) + 12); sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
+                char * m = ct_alloc(strlen(pname) + strlen(names[cnt]) + 12); sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
                 { extern void global_register(const char *); global_register(m); }
                 { const char * mc = m; lc_vec_push(&g_icn_synth_excl, &mc); }
                 mangled[cnt] = m; cnt++;
@@ -1580,7 +1581,7 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
     for (int i = 0; i < body->n; i++) {
         tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
         if (st && st->t == TT_INITIAL) {
-            char * f = malloc(strlen(pname) + 20); sprintf(f, "%s__INITFLAG__%d", pname, inits++);
+            char * f = ct_alloc(strlen(pname) + 20); sprintf(f, "%s__INITFLAG__%d", pname, inits++);
             { extern void global_register(const char *); global_register(f); }
             { const char * fc = f; lc_vec_push(&g_icn_synth_excl, &fc); }
             tree_t * fv = ast_node_new(TT_VAR); fv->v.sval = f;
@@ -1786,14 +1787,14 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
                 sc->n++;
             }
             if (np > 0) {
-                const char ** _pn = (const char **)calloc((size_t)np, sizeof(const char *));
+                const char ** _pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
             }
             { const tree_t *body = (proc->n > 2) ? proc->c[2] : NULL; int nl = 0;
               for (int i = 0; body && i < body->n; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
                   if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) nl++; }
               const char ** _ln = NULL; int w = 0;
-              if (nl > 0) { _ln = (const char **)calloc((size_t)nl, sizeof(const char *));
+              if (nl > 0) { _ln = (const char **)ct_zalloc((size_t)nl, sizeof(const char *));
                   for (int i = 0; body && i < body->n && _ln; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
                       if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); } }
               lc_vec _excl; lc_vec_init(&_excl, (int) sizeof(const char *));
@@ -1805,7 +1806,7 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
               icn_collect_implicit_locals(body, (const char **)_excl.data, _excl.n, &_impl);
               if (w > 0 || _impl.n > 0) {
                   int total = w + _impl.n;
-                  const char ** _all = (const char **)calloc((size_t)total, sizeof(const char *)); int a = 0;
+                  const char ** _all = (const char **)ct_zalloc((size_t)total, sizeof(const char *)); int a = 0;
                   if (_all) { for (int k = 0; k < w; k++) _all[a++] = _ln[k]; for (int k = 0; k < _impl.n; k++) _all[a++] = LC_AT(&_impl, const char *, k);
                       g_stage2.bbp.table[bb_idx]->lnames = _all; g_stage2.bbp.table[bb_idx]->nlocals = total; } } }
         }

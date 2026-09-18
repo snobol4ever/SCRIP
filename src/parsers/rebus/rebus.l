@@ -1,4 +1,5 @@
 %{
+#include "ct_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +18,7 @@ void rebus_error(int lineno, const char *fmt, ...) {
     rebus_nerrors++;
 }
 static char *upcase(const char *s) {
-    char *p = strdup(s);
+    char *p = ct_strdup(s);
     for (int i = 0; p[i]; i++) p[i] = (char)toupper((unsigned char)p[i]);
     return p;
 }
@@ -105,7 +106,7 @@ WS      [ \t]+
 "&"{IDENT}      { yylval.sval=upcase(yytext+1); last_tok=T_KEYWORD; return T_KEYWORD; }
 "&"             { last_tok='&'; return '&'; }
 {IDENT}         { char *up=upcase(yytext); int kw=lookup_kw(up);
-                  if(kw){free(up);last_tok=kw;return kw;}
+                  if(kw){ct_drop(up);last_tok=kw;return kw;}
                   yylval.sval=up; last_tok=T_IDENT; return T_IDENT; }
 ":=:"           { last_tok=T_EXCHANGE;   return T_EXCHANGE;  }
 "||:="          { last_tok=T_CATASSIGN;  return T_CATASSIGN; }
@@ -165,13 +166,13 @@ tree_t      *rebus_parsed_program = NULL;
 tree_t *rebus_parse(FILE *f, const char *filename) {
     rebus_filename=(char *)filename;
     last_tok=0;
-    rbuf=malloc(RBUF_MAX);
+    rbuf=ct_alloc(RBUF_MAX);
     if(!rbuf){fprintf(stderr,"rebus: out of memory\n");exit(1);}
     rlen=0; rpos=0;
     load_file(f);
     yy_switch_to_buffer(yy_create_buffer(NULL,YY_BUF_SIZE));
     rebus_parse_init();
     rebus_yyparse();
-    free(rbuf); rbuf=NULL;
+    ct_drop(rbuf); rbuf=NULL;
     return rebus_parsed_program;
 }
