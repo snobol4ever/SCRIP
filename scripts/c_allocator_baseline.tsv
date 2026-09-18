@@ -10,6 +10,17 @@
 # ⛔ NOT the same population as the twelve forbidden names: RULES.md line 29 says the census gains THOSE
 # in the same landing as their cure, and it has not.  This counts ownership MISMATCHES and reads SIX, not
 # zero -- it names an open door rather than printing a zero over one.
+# CRITERION UNCHANGED, COUNT EARNED 2026-09-18 (cfo, CEO-847/850 destination (3)): `arena_in_runtime` and
+# `arena_in_runtime_debt` fall 126 -> 114.  ⛔ THOSE TWELVE LEFT BY DESTINATION (3), NOT BY BEING ROOTED, and
+# the distinction matters to anyone reading the ratchet as progress on holders: they are gc_heap.c's own
+# bookkeeping -- the live-block array and its flags, the visited set and its rehash, the slot set, the mark
+# worklist, the root-range table, the frame-map table, the segment table, the index buffer and the page map --
+# and they now mmap directly, because the collector's tables cannot live in the heap they manage and must not
+# depend on an allocator whose lifetime it does not control.  They are never reachable from the running
+# program and will NEVER acquire a root, so class-2 debt falling by twelve here is correct and is NOT evidence
+# that any holder was rooted.  The remaining 114 still ratchet to 0 the way RULES.md line 29 class (2) says.
+# The ceo's CEO-842 note recording the 0 -> 126 rise is regenerated away by --write-baseline and lives in git
+# history at SCRIP 36f0edab5, as its own last line predicted.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -17,8 +28,8 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime	126
+arena_in_runtime	114
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	126
+arena_in_runtime_debt	114
 container_unmarked_live	1
 libc_owned_misuse	6
