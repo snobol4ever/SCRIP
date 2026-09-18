@@ -15,6 +15,15 @@
 #
 # ARMS: (1) CENSUS -- the spellings above under src/ read 0 (the arm the ceo asked for: the mechanism cannot return by
 # name); (2) STRUCTURAL -- gc_heap.c contains no self-forward of a title (fwd = h) so no type is exempt from the slide;
+# ⛔⭐ (5) PROPERTY and (6) PLANTED, added by the cfo 2026-09-17 under CEO-831 on LON's ORDER ("Get rid of any code that
+# pins blocks in the GC"), because ARMS 1 AND 2 CATCH THE MECHANISM AS IT WAS WRITTEN AND NOT THE PROPERTY THEY EXIST TO
+# PROTECT. A block can be pinned WITHOUT ever self-forwarding and WITHOUT any known spelling: leave it marked and simply
+# SKIP it in the forwarding pass. It keeps its address, the self-forward grep never matches, and the name census cannot
+# know a name nobody has invented yet. The collector now counts marked blocks and forwarded blocks INDEPENDENTLY, prints
+# both on the [ZGC] line, and prints a loud [ZGC-PIN] VIOLATION whenever they differ. Arm 5 asserts the equality; arm 6
+# PLANTS a skip through the test-only cached-getenv seam SCRIP_GC_PLANT_PIN_SKIP and requires the arm to FIRE, because a
+# guard never seen to fire is not known to hold. Measured on the churn witness: clean reads marked=437 forwarded=437 on
+# every collection; SCRIP_GC_PLANT_PIN_SKIP=3 reads 437/436 with the violation line on every collection.
 # (3) BEHAVIOURAL, both modes -- a live TABLE, ARRAY and DATA record survive 30000 statements of 20 KB string churn
 # (four collections, SCRIP_ZETA_TELEM counts them; zero is a vacuous run) and print byte-identical to sbl. The
 # behavioural arm is deliberately UNSTRESSED: under SCRIP_GC_STRESS=20 this witness SEGVs both modes on the deletion
@@ -46,7 +55,17 @@ if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -
     ( cd "$T" && SCRIP_ZETA_TELEM=1 timeout 60s ./w4 </dev/null > m4.out 2> m4.err ); r=$?; c=$(grep -c regeneration "$T/m4.err" || true)
     if [ "$r" -eq 0 ] && cmp -s "$T/m4.out" "$T/w.ref" && [ "$c" -ge 1 ]; then echo "  m4 PASS (rc=0, $c collections, byte-identical to the oracle)"; else echo "  m4 FAIL (rc=$r collections=$c)"; RC=1; fi
 else echo "  m4 FAIL (compile or link refused: $(head -c 200 "$T/ld.log"))"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: the pinning mechanism is gone by census and by structure, and a live table, array and record survive the slide in both modes (examined 4 arms)"
-else echo "⛔ GATE FAIL(1) [$G]: the pinning mechanism is back, or a live aggregate did not survive the slide (examined 4 arms)"; fi
+mk=$(grep -oE "marked=[0-9]+ forwarded=[0-9]+" "$T/m3.err" || true)
+bad=$(printf '%s\n' "$mk" | awk -F'[= ]' 'NF>=4 && $2 != $4' | wc -l)
+pairs=$(printf '%s\n' "$mk" | grep -c . || true)
+viol=$(grep -c "ZGC-PIN. VIOLATION" "$T/m3.err" || true)
+if [ "$pairs" -ge 1 ] && [ "$bad" -eq 0 ] && [ "$viol" -eq 0 ]; then echo "  property PASS (EVERY MARKED BLOCK IS FORWARDED: marked == forwarded on all $pairs collection(s), no violation line) -- this arm asserts the PROPERTY at the collector, so a future pin under ANY name fails it by construction, which the name census and the self-forward grep cannot do"
+else echo "  property FAIL (collections with counts=$pairs, mismatched=$bad, violation lines=$viol -- a marked block was not given a forwarding address, so it kept its address while the heap slid around it: pinning under another name)"; RC=1; fi
+( cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_GC_PLANT_PIN_SKIP=3 timeout 60s "$SCRIP" w.sno </dev/null > p.out 2> p.err ); pv=$(grep -c "ZGC-PIN. VIOLATION" "$T/p.err" || true)
+pbad=$(grep -oE "marked=[0-9]+ forwarded=[0-9]+" "$T/p.err" | awk -F'[= ]' 'NF>=4 && $2 != $4' | wc -l)
+if [ "$pv" -ge 1 ] && [ "$pbad" -ge 1 ]; then echo "  planted PASS (SCRIP_GC_PLANT_PIN_SKIP=3 skips the third marked block in the forwarding pass and the property arm FIRES: $pv violation line(s), $pbad mismatched collection(s)) -- a guard never seen to fire is not known to hold (CEO-554)"
+else echo "  planted FAIL (the planted skip produced violations=$pv mismatches=$pbad -- the property check does NOT fire on a deliberately pinned block, so its green above proves nothing)"; RC=1; fi
+if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: the pinning mechanism is gone by census and by structure, and a live table, array and record survive the slide in both modes; EVERY MARKED BLOCK IS FORWARDED, proven by a planted skip that reds the arm (examined 6 arms)"
+else echo "⛔ GATE FAIL(1) [$G]: the pinning mechanism is back under some name, a marked block was skipped in the forwarding pass, or a live aggregate did not survive the slide (examined 6 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
