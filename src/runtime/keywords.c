@@ -143,6 +143,17 @@ static void kw_cset_prime(void) {
     { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void kw_cset_gc_roots(void)
+{
+    extern void rt_gc_visit_raw(const char **loc);
+    if (!g_kw_cset_names) return;
+    rt_gc_visit_raw((const char **)&g_kw_cset_names);
+    for (int i = 0; i < g_kw_cset_count; i++) {
+        if (g_kw_cset_names[i].ptr)  rt_gc_visit_raw(&g_kw_cset_names[i].ptr);
+        if (g_kw_cset_names[i].name) rt_gc_visit_raw(&g_kw_cset_names[i].name);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
 const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
