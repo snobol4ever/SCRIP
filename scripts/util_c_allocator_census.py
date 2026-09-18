@@ -91,13 +91,58 @@ def source_files(root):
     return sorted(fs)
 
 
+_DEFINE_RX = re.compile(r"^[ \t]*#[ \t]*define[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*(?:\([^)]*\))?[ \t]*(.*)$")
+_CPP_RX = re.compile(r"^\s*#\s*(?:define|include|if|ifdef|ifndef|elif|else|endif|undef|pragma|error)\b")
+_BARE_RX = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(FORBIDDEN) + r")(?![A-Za-z0-9_])\s*(?!\()")
+_WORD_RX = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def resolve_aliases(defines):
+    """⛔ THE ALIAS QUESTION IS TRANSITIVE AND THE ONE-LEVEL ANSWER IS WRONG TWICE (CEO-844 clause 1).
+
+    bison writes `#define YYSTACK_ALLOC YYMALLOC` beside `#define YYMALLOC malloc`: a reader who only asks
+    whether a define's body IS a forbidden name sees neither the chain nor the 15 calls made through it, and a
+    four-name grep sees nothing at all.  And a substring reader gets a FALSE alias out of flex's
+    `#define yyrealloc pascal_yyrealloc`, which renames flex's own hook and is not C realloc under any spelling.
+    So: parse each define into (name, body), then ask whether the body REACHES one of the four through other
+    defines, by whole word.  Returns {(rel, line, name): (forbidden_name, chain)}.
+    """
+    body_of = {}
+    for _rel, _ln, nm, body in defines:
+        body_of.setdefault(nm, []).append(body)
+
+    def reach(nm, seen):
+        if nm in FORBIDDEN:
+            return (nm, [nm])
+        if nm in seen or nm not in body_of:
+            return None
+        seen = seen | {nm}
+        for body in body_of[nm]:
+            for tok in _WORD_RX.findall(body):
+                got = reach(tok, seen)
+                if got:
+                    return (got[0], [nm] + got[1])
+        return None
+
+    found = {}
+    for rel, ln, nm, _body in defines:
+        if nm in FORBIDDEN:
+            continue
+        got = reach(nm, frozenset())
+        if got:
+            found[(rel, ln, nm)] = got
+    return found
+
+
 def scan(files, root):
-    """(forbidden_sites, destination_sites, alias_sites) -- each a list of (relpath, lineno, symbol)"""
-    forb, dest, alias = [], [], []
+    """(forbidden, destinations, aliases, alias_calls, prose, bare) -- the four names, where the converted
+    sites went, every spelling that reaches them, every CALL through such a spelling, and the two residues a
+    textual grep hits that are not call sites at all."""
+    forb, dest, defines, prose, bare = [], [], [], {}, []
     rxs = [(n, call_rx(n)) for n in FORBIDDEN]
     drx = [(d, n, call_rx(n)) for d, syms in DESTINATIONS.items() for n in syms]
-    alias_rx = re.compile(r"#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\([^)]*\)\s*)?(?:\(\s*)?(" +
-                          "|".join(FORBIDDEN) + r")(?![A-Za-z0-9_])")
+    word_rx = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(FORBIDDEN) + r")(?![A-Za-z0-9_])")
+    texts = {}
     for f in files:
         try:
             raw = open(f, encoding="utf-8", errors="replace").read()
@@ -105,6 +150,16 @@ def scan(files, root):
             continue
         rel = os.path.relpath(f, root)
         src = strip_comments(raw)
+        texts[rel] = src
+        # ⛔ THE PROSE RESIDUE IS MEASURED HERE AND NEVER FOLDED INTO THE COUNT (CEO-844 clause 2).  The
+        # generated bison and flex files carry the GPL sentence "This program is free software"; that sentence
+        # is not usage.  An instrument that counts it reads a permanent false red, and the cheapest way to
+        # clear a false red is to delete a licence header -- so this population is printed APART, with its
+        # files, and a reader who sees it knows why Lon's textual grep will not reach 0 on the same day the
+        # call sites do.
+        n_prose = len(word_rx.findall(raw)) - len(word_rx.findall(src))
+        if n_prose > 0:
+            prose[rel] = n_prose
         lines = src.split("\n")
         for i, line in enumerate(lines, 1):
             for name, rx in rxs:
@@ -117,9 +172,39 @@ def scan(files, root):
                     if is_declaration(line, m.start()):
                         continue
                     dest.append((rel, i, name, d))
-        for m in alias_rx.finditer(src):
-            alias.append((rel, src.count("\n", 0, m.start()) + 1, f"{m.group(1)}={m.group(2)}"))
-    return forb, dest, alias
+            m = _DEFINE_RX.match(line)
+            if m:
+                defines.append((rel, i, m.group(1), m.group(2)))
+                continue
+            for m in _BARE_RX.finditer(line):
+                if is_declaration(line, m.start()):
+                    continue
+                bare.append((rel, i, m.group(1), line.strip()[:78]))
+
+    aliases = resolve_aliases(defines)
+    # every CALL made through a spelling that reaches a forbidden name -- the population a four-name grep and a
+    # one-level alias reader BOTH miss, and the one that lets a tree read 0 while still calling malloc.
+    alias_calls = []
+    if aliases:
+        names = sorted({nm for (_r, _l, nm) in aliases})
+        arx = [(nm, call_rx(nm)) for nm in names]
+        for rel, src in texts.items():
+            for i, line in enumerate(src.split("\n"), 1):
+                if _CPP_RX.match(line):
+                    continue
+                for nm, rx in arx:
+                    for m in rx.finditer(line):
+                        if is_declaration(line, m.start()):
+                            continue
+                        alias_calls.append((rel, i, nm, aliases_lookup(aliases, nm)))
+    return forb, dest, aliases, alias_calls, prose, bare
+
+
+def aliases_lookup(aliases, nm):
+    for (_r, _l, n), (target, _chain) in aliases.items():
+        if n == nm:
+            return target
+    return "?"
 
 
 def runtime_reachable(rel):
@@ -138,7 +223,7 @@ def census(root, by_dir=False, sites=False, out=print):
         out(f"CENSUS c-allocators REFUSED(2): no source files under {os.path.join(root, 'src')} -- a zero from a "
             f"tool that read nothing is not a zero")
         return 2
-    forb, dest, alias = scan(files, root)
+    forb, dest, aliases, alias_calls, prose, bare = scan(files, root)
     out(f"CENSUS c-allocators SCOPE files={len(files)} under src/ (every {'/'.join(SRC_EXT)} file, generated flex "
         f"and bison output INCLUDED -- a generated file that is checked in is source, CEO-842)")
 
@@ -158,11 +243,18 @@ def census(root, by_dir=False, sites=False, out=print):
     out(f"CENSUS c-allocators SPLIT hand_written={hand} generated_lex_tab={len(gen)} grammar_y_l={len(gram)} -- the "
         f"last two OVERLAP by construction (a grammar's action code is copied into its generated twin) and both "
         f"are checked in, so both must reach zero: a cure in only one of the pair is undone by the next regeneration")
-    if alias:
-        out(f"CENSUS c-allocators ALIASES={len(alias)} -- the rule forbids these four under ANY spelling, a "
-            f"#define alias included")
-        for rel, ln, what in alias[:10]:
-            out(f"  ALIAS {rel}:{ln} {what}")
+    out(f"CENSUS c-allocators ALIASES={len(aliases)} ALIAS-CALLS={len(alias_calls)} want=0/0 -- the rule forbids "
+        f"these four under ANY spelling (CEO-844): a define whose body REACHES a forbidden name, through however "
+        f"many other defines, is that name, and every CALL through such a spelling is a call site a four-name "
+        f"grep cannot see")
+    for (rel, ln, nm), (target, chain) in sorted(aliases.items())[:12]:
+        out(f"  ALIAS {rel}:{ln} {nm} -> {target}   via {' -> '.join(chain)}")
+    agg_ac = {}
+    for rel, _ln, nm, target in alias_calls:
+        agg_ac.setdefault((nm, target), []).append(rel)
+    for (nm, target), rels in sorted(agg_ac.items(), key=lambda kv: -len(kv[1]))[:12]:
+        out(f"  ALIAS-CALL {nm}() -> {target}  {len(rels)} call(s) in {len(set(rels))} file(s): "
+            f"{', '.join(sorted(set(rels))[:4])}")
 
     dper = {}
     for _rel, _ln, _sym, d in dest:
@@ -182,6 +274,23 @@ def census(root, by_dir=False, sites=False, out=print):
         f"collector's own bookkeeping; elsewhere it wants a reason in its commit")
     for rel, ln, sym in mmap_out[:10]:
         out(f"  MMAP-OUTSIDE {rel}:{ln} {sym}")
+
+    # ⛔ THE TWO RESIDUES A TEXTUAL GREP HITS THAT ARE NOT CALL SITES.  Lon's acceptance test is a grep, so the
+    # day the call sites reach 0 his grep will still print these -- and a reader who has not been told why will
+    # either call the instrument a liar or delete a licence header to make the number move.  Both are worse than
+    # the residue.  Printed APART, never folded into FORBIDDEN, never ratcheted as a defect.
+    n_prose = sum(prose.values())
+    out(f"CENSUS c-allocators PROSE-RESIDUE={n_prose} in {len(prose)} file(s) -- NOT call sites and NOT in the "
+        f"count above: the four names inside comments and string literals, most of them the GPL sentence "
+        f"'This program is free software' that bison and flex write into every generated file. ⛔ A LICENCE "
+        f"HEADER IS NEVER EDITED TO MAKE A GREP READ ZERO (CEO-844 clause 2)")
+    for rel, n in sorted(prose.items(), key=lambda kv: (-kv[1], kv[0]))[:12]:
+        out(f"  PROSE {rel} {n}")
+    out(f"CENSUS c-allocators NON-CALL-REFS={len(bare)} -- NOT call sites and NOT in the count above: the four "
+        f"names in preprocessor guards and #include <malloc.h>, which a grep hits and a compiler never calls; a "
+        f"genuine function-pointer hand-off (`= free`, `, free)`) would land here too and IS a site to convert")
+    for rel, ln, nm, txt in bare[:10]:
+        out(f"  NON-CALL-REF {rel}:{ln} {nm} | {txt}")
 
     if total == 0 and not dest:
         out("CENSUS c-allocators REFUSED(2): the four names read 0 AND no destination symbol appears anywhere -- "
@@ -204,14 +313,20 @@ def census(root, by_dir=False, sites=False, out=print):
     COUNTS["forbidden_total"] = total
     for n in FORBIDDEN:
         COUNTS[n] = per[n]
-    COUNTS["aliases"] = len(alias)
+    COUNTS["aliases"] = len(aliases)
+    COUNTS["alias_calls"] = len(alias_calls)
     COUNTS["arena_in_runtime"] = len(viol)
-    red = total > 0 or viol or alias
+    COUNTS["prose_residue"] = n_prose
+    red = total > 0 or viol or aliases or alias_calls
     out(f"CENSUS c-allocators {'RED' if red else 'GREEN'}")
     return 1 if red else 0
 
 
-RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "arena_in_runtime"]
+# ⛔ prose_residue is MEASURED and PRINTED but deliberately NOT ratcheted: it is licence text, it is not ours to
+# drive to zero, and a ratchet on it is an instruction to edit a copyright header.  alias_calls IS ratcheted --
+# that one is ours and it is the half a four-name grep cannot see.
+RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "alias_calls",
+                "arena_in_runtime"]
 
 
 def ratchet(path, out=print):
@@ -256,7 +371,7 @@ def ratchet(path, out=print):
     out("RATCHET GREEN: every ratcheted count is exactly its baseline"); return 0
 
 
-ARMS_FLOOR = 12
+ARMS_FLOOR = 17
 
 
 def selftest():
@@ -294,9 +409,44 @@ def selftest():
 
     open(os.path.join(ld, "alias.c"), "w").write("#define MYALLOC malloc\nvoid *f(void){return MYALLOC(8);}\n")
     buf.clear(); census(w, out=buf.append)
-    ck("ALIASES=1" in "\n".join(buf), "a #define alias of a forbidden name is counted -- the rule binds under any spelling")
+    j = "\n".join(buf)
+    ck("ALIASES=1" in j, "a #define alias of a forbidden name is counted -- the rule binds under any spelling")
+    ck("ALIAS-CALL MYALLOC() -> malloc" in j, "and the CALL through that alias is counted and named with what it reaches")
     os.remove(os.path.join(ld, "alias.c"))
     os.remove(os.path.join(ld, "dirty.c"))
+
+    # ⛔ CEO-844 clause 1: bison's chain, which one level of alias reading does not see and a grep never sees.
+    open(os.path.join(ld, "chain.c"), "w").write(
+        "#define YYMALLOC malloc\n#define YYSTACK_ALLOC YYMALLOC\n"
+        "void *f(void) { return YYSTACK_ALLOC(8); }\n")
+    buf.clear(); rc = census(w, out=buf.append)
+    j = "\n".join(buf)
+    ck("YYSTACK_ALLOC -> malloc   via YYSTACK_ALLOC -> YYMALLOC -> malloc" in j,
+       "A TWO-LEVEL ALIAS CHAIN IS RESOLVED AND ITS ROUTE PRINTED -- bison writes exactly this, and one level of reading calls it clean")
+    ck("ALIAS-CALLS=1" in j and rc == 1,
+       "a call through the chain is a call site and REDS the census although the four names read zero in that file")
+    os.remove(os.path.join(ld, "chain.c"))
+
+    # ⛔ the false positive a substring reader produces out of flex's own hook rename.
+    open(os.path.join(ld, "rename.c"), "w").write(
+        "#define yyrealloc pascal_yyrealloc\n#define yyfree pascal_yyfree\nvoid f(void){ ct_drop(p); }\n")
+    buf.clear(); census(w, out=buf.append)
+    j = "\n".join(buf)
+    ck("ALIASES=0" in j,
+       "flex's `#define yyrealloc pascal_yyrealloc` RENAMES flex's hook and is NOT an alias of C realloc -- a substring reader calls it one and mislabels it `yy`")
+    os.remove(os.path.join(ld, "rename.c"))
+
+    # ⛔ CEO-844 clause 2: the licence sentence is not usage.
+    open(os.path.join(ld, "gpl.c"), "w").write(
+        "/* This program is free software; you can redistribute it and/or modify\n"
+        "   it under the terms of the GNU General Public License.  free free */\n"
+        "void f(void) { ct_drop(p); }\n")
+    buf.clear(); rc = census(w, out=buf.append)
+    j = "\n".join(buf)
+    ck("FORBIDDEN total=0" in j and "PROSE-RESIDUE=5 in 2 file(s)" in j and "PROSE src/lower/gpl.c 3" in j,
+       "A LICENCE HEADER IS PROSE RESIDUE, NAMED WITH ITS FILE AND KEPT OUT OF THE COUNT -- folding it in reads a permanent false red, and the cheapest way to clear a false red is to delete a copyright header")
+    ck(rc == 0, "and a tree whose only remaining hits are licence prose reads GREEN -- the residue is not a defect")
+    os.remove(os.path.join(ld, "gpl.c"))
 
     open(os.path.join(sd, "near_miss.c"), "w").write(
         "void f(void) { ct_free(p); rt_ws_realloc(q, 8); my_free(r); }\n")

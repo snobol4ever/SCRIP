@@ -23,6 +23,11 @@
 #       (b) the census runs on this tree and prints its population (a REFUSAL here is rc=2, never green)
 #       (c) ARENA-IN-RUNTIME is 0 -- the anti-evasion clause, the population a four-name grep cannot see
 #       (d) the ratchet holds against scripts/c_allocator_baseline.tsv
+#       (e) the census still ANSWERS both halves of CEO-844: it resolves alias CHAINS and counts the calls made
+#           through them, and it reports licence prose APART from the count.  An instrument that goes quiet on
+#           either clause reads green while the thing it was built to see walks past it -- the alias chain
+#           `#define YYSTACK_ALLOC YYMALLOC` over `#define YYMALLOC malloc` is invisible to a four-name grep AND
+#           to one level of alias reading, and the GPL sentence "This program is free software" is not usage.
 # FAIL_ONCE=1 blanks the selftest's proof so arm (a) is seen to trip.
 # EXIT: 0 every arm · 1 an arm failed · 2 REFUSED (no python3, no census, no baseline).
 set -uo pipefail
@@ -40,7 +45,7 @@ echo "=== gate: the four C allocators leave the tree, and every converted site s
 st="$(timeout 300s python3 "$CEN" --selftest 2>&1)"; strc=$?
 [ "${FAIL_ONCE:-0}" = 1 ] && st="(blanked by FAIL_ONCE)"
 arms="$(printf '%s\n' "$st" | sed -n 's/^population: \([0-9]*\) selftest arm(s).*/\1/p')"
-if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 12 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
+if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 17 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
   ck ok "(a) the census trips on planted violations and refuses a vacuous zero -- $arms selftest arms, 0 FAIL"
 else
   ck no "(a) the census selftest did not pass (rc=$strc, arms=${arms:-none}): $(printf '%s\n' "$st" | grep -m2 '  FAIL  ' | tr '\n' ';')"
@@ -53,13 +58,29 @@ else
   ck ok "(b) the census measured this tree: $(printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators FORBIDDEN' | cut -c1-140)"
 fi
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators SPLIT' | sed 's/^/    /'
+printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators ALIASES' | sed 's/^/    /'
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators DESTINATIONS' | sed 's/^/    /'
+printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators PROSE-RESIDUE' | sed 's/^/    /'
 
 av="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators ARENA-IN-RUNTIME=\([0-9]*\) .*/\1/p' | head -1)"
 if [ "${av:-x}" = 0 ]; then
   ck ok "(c) ARENA-IN-RUNTIME=0 -- nothing the running program can reach is parked in the compile-time arena"
 else
   ck no "(c) ARENA-IN-RUNTIME=${av:-unreadable} -- the arena is holding runtime-reachable memory, which is the evasion one name further out: $(printf '%s\n' "$out" | grep -m3 'ARENA-IN-RUNTIME ' | tr '\n' ';' | cut -c1-200)"
+fi
+
+# ⛔ (e) THE TWO CLAUSES OF CEO-844 ARE THEMSELVES A POPULATION, because the failure mode of this instrument is
+# not a wrong number, it is SILENCE: drop the chain resolver and the census reads the same 1182 while 15 calls
+# through YYSTACK_ALLOC walk past it; fold the licence prose in and the count never reaches 0, which teaches the
+# next reader to edit a copyright header.  Both lines must be present, and the prose must be OUT of the count.
+al="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators ALIASES=\([0-9]*\) ALIAS-CALLS=\([0-9]*\) .*/\1 \2/p' | head -1)"
+pr="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators PROSE-RESIDUE=\([0-9]*\) .*/\1/p' | head -1)"
+ft="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators FORBIDDEN total=\([0-9]*\) .*/\1/p' | head -1)"
+chain="$(printf '%s\n' "$out" | grep -c ' via .* -> .* -> ' || true)"
+if [ -n "$al" ] && [ -n "$pr" ] && [ -n "$ft" ]; then
+  ck ok "(e) both halves of CEO-844 are answered: ALIASES/ALIAS-CALLS=$al with $chain resolved multi-level chain(s) named by route, and PROSE-RESIDUE=$pr held APART from the count of $ft -- a licence header is never edited to make a grep read zero"
+else
+  ck no "(e) the census went QUIET on a CEO-844 clause -- aliases='${al:-missing}' prose='${pr:-missing}' forbidden='${ft:-missing}'; an instrument that stops reporting a population reads green while that population walks past it"
 fi
 
 rout="$(timeout 300s python3 "$CEN" --ratchet "$BASE" 2>&1)"; rrc=$?
