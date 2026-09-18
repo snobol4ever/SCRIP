@@ -129,7 +129,7 @@ extern int rebus_yydebug;
 #if ! defined REBUS_YYSTYPE && ! defined REBUS_YYSTYPE_IS_DECLARED
 union REBUS_YYSTYPE
 {
-#line 37 "rebus.y"
+#line 38 "rebus.y"
 
     char       *sval;
     long        ival;

@@ -20,7 +20,7 @@ P="$SCRIP/src/parsers"
 # ⛔ THE INVOCATION TABLE MOVED TO scripts/lib_gen_parsers.sh (hq_T 2026-09-04) and this script is now one of its TWO readers -- the
 # other is test_gate_parser_generated_files_in_sync.sh, which grades the committed outputs against exactly these commands. It was one
 # table with one reader; a gate that carried its own copy would grade the tree against a second, silently drifting idea of the flags.
-gen() { echo "GEN $1/$2"; ( cd "$P/$1" && eval "$3" ); }
+gen() { echo "GEN $1/$2"; ( cd "$P/$1" && eval "$3" ); gen_postprocess "$P/$1/$2" $( [ -f "$P/$1/${2%.c}.h" ] && echo "$P/$1/${2%.c}.h" ); }
 while IFS=$'\t' read -r d src out cmd; do gen "$d" "$out" "$cmd"; done < <(gen_parsers_table)
 echo "DONE -- generated files now differing from HEAD (empty = the committed outputs already match their sources):"
 git -C "$SCRIP" status --short -- src/parsers | grep -E '\.tab\.[ch]|\.lex\.c|lex\.[a-z]+\.c' | sed 's/^/   /' || true

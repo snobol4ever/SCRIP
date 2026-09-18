@@ -1,3 +1,4 @@
+#include <string.h>
 #define ICN_STACK_MAX 256
 static long icn_stack[ICN_STACK_MAX];
 static int  icn_sp = 0;

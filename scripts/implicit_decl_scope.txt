@@ -5,3 +5,4 @@
 # ⛔ THE POINT OF THE SCOPE FILE is that a ratchet on COUNTS goes stale silently while a ratchet on SCOPE
 # cannot: a cured directory is one line, and an uncured one is named out loud in every run.
 src/runtime/
+src/parsers/

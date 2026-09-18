@@ -274,7 +274,6 @@
 
 /* begin standard C headers. */
 #include <stdio.h>
-#include "ct_arena.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -898,6 +897,7 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
+#include "ct_arena.h"
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "pascal.tab.h"

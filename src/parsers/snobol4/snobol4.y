@@ -12,6 +12,8 @@
 #include <ctype.h>
 typedef struct { CODE_t *prog; tree_t **result; tree_t *ast_prog; } PP;
 static void     sno4_stmt_commit_go(void*,Token,tree_t*,tree_t*,int,tree_t*,tree_t*,tree_t*,tree_t*);
+int             snobol4_lex(YYSTYPE *yylval_param);
+void            snobol4_error(void *p, const char *msg);
 static Lex     *g_lx;
 static int      g_err_lineno;
 #define TAL_MAX 512
@@ -89,18 +91,18 @@ stmt
            | unlabeled_stmt
            ;
 unlabeled_stmt
-             : opt_subject opt_repl T_STMT_END                                             { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,NULL,NULL); }
-             | opt_subject opt_repl goto_label_expr T_STMT_END                             { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),$1,NULL,($2!=NULL),$2,$3,NULL,NULL); }
-             | opt_subject opt_repl T_GOTO_S goto_label_expr T_STMT_END                    { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$4,NULL); }
-             | opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END                    { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,NULL,$4); }
-             | opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$4,$6); }
-             | opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$6,$4); }
-           | expr2 T_2QUEST opt_pattern opt_repl T_STMT_END                              { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,NULL,NULL); }
-           | expr2 T_2QUEST opt_pattern opt_repl goto_label_expr T_STMT_END              { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,$5,NULL,NULL); }
-           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_STMT_END     { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$6,NULL); }
-           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_STMT_END     { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,NULL,$6); }
-           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$6,$8); }
-           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$8,$6); }
+             : opt_subject opt_repl T_STMT_END                                             { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,NULL,NULL); }
+             | opt_subject opt_repl goto_label_expr T_STMT_END                             { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,$3,NULL,NULL); }
+             | opt_subject opt_repl T_GOTO_S goto_label_expr T_STMT_END                    { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$4,NULL); }
+             | opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END                    { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,NULL,$4); }
+             | opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$4,$6); }
+             | opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$6,$4); }
+           | expr2 T_2QUEST opt_pattern opt_repl T_STMT_END                              { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,NULL,NULL); }
+           | expr2 T_2QUEST opt_pattern opt_repl goto_label_expr T_STMT_END              { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,$5,NULL,NULL); }
+           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_STMT_END     { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$6,NULL); }
+           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_STMT_END     { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,NULL,$6); }
+           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$6,$8); }
+           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$8,$6); }
            ;
 opt_subject: expr14 T_CONCAT expr2                                                                 { $$=expr_binary(TT_SCAN,$1,$3); }
            | expr5                                                                                  { $$=$1; }
@@ -228,8 +230,8 @@ goto_expr  : goto_atom                                                          
            | goto_expr T_CONCAT goto_atom                                                         { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,$1);expr_add_child(s,$3);$$=s; }
            ;
 %%
-int snobol4_lex(YYSTYPE *yylval_param, void *yyparse_param) {
-    (void)yyparse_param; Token t=lex_next(g_lx); yylval_param->tok=t; if (t.lineno) g_err_lineno=t.lineno;
+int snobol4_lex(YYSTYPE *yylval_param) {
+    Token t=lex_next(g_lx); yylval_param->tok=t; if (t.lineno) g_err_lineno=t.lineno;
     if (getenv("SNO_TOK_TRACE"))
         fprintf(stderr,"[TOK %d sval=%s ival=%ld]\n",t.kind,t.sval?t.sval:"",t.ival);
     return t.kind;

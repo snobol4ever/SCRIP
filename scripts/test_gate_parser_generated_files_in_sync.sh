@@ -74,6 +74,12 @@ while IFS=$'\t' read -r dir src out cmd; do
     # artifacts from the generator is what keeps this gate honest when a flag changes what gets written.
     produced="$(cd "$w" && ls -1 | grep -v -x -F -e "$src" -e .genlog | sort)"
     if [ -z "$produced" ]; then echo "RED  $dir/$src: the generator exited 0 and produced nothing"; bad=$((bad + 1)); continue; fi
+    # ⛔ THE POST-PROCESS IS PART OF GENERATION AND THIS GATE MUST APPLY IT TOO (ceo CEO-851).  bison and flex emit a skeleton calling
+    # malloc and free; RULES.md line 29 forbids them in generated output as much as anywhere, so the committed twin is swept.  A gate
+    # that diffed raw generator output against the swept twin would be RED FOREVER on exactly the difference the post-process exists to
+    # create -- which is what it did on all nine files at 36f0edab5 until this line.  gen_postprocess lives in lib_gen_parsers.sh beside
+    # the invocation table, so this gate and the regenerator cannot drift apart.
+    ( cd "$w" && gen_postprocess $produced )
     for f in $produced; do
         checked=$((checked + 1))
         if [ ! -f "$P/$dir/$f" ]; then

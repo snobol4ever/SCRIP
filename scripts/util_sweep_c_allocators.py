@@ -43,29 +43,34 @@ def add_include(path, text):
     if m:
         return text[: m.end()] + '#include "ct_arena.h"\n' + text[m.end() :]
     return '#include "ct_arena.h"\n' + text
-def sweep(paths, apply):
-    total, touched = 0, 0
+def walk_targets(paths):
     for root in paths:
+        if os.path.isfile(root):
+            yield root
+            continue
         for dirpath, _, files in os.walk(root):
             for fn in sorted(files):
-                if not fn.endswith(SRC_EXT):
-                    continue
-                p = os.path.join(dirpath, fn)
-                if p.endswith("ct_arena.c") or p.endswith("ct_arena.h"):
-                    continue
-                with open(p, encoding="utf-8", errors="surrogateescape") as f:
-                    text = f.read()
-                new, n1 = rewrite_calls(text)
-                new, n2 = rewrite_bison_block(new)
-                if n1 + n2 == 0:
-                    continue
-                new = add_include(p, new)
-                total += n1 + n2
-                touched += 1
-                print("%-62s calls=%-4d skeleton=%d" % (p, n1, n2))
-                if apply:
-                    with open(p, "w", encoding="utf-8", errors="surrogateescape", newline="\n") as f:
-                        f.write(new)
+                yield os.path.join(dirpath, fn)
+def sweep(paths, apply):
+    total, touched = 0, 0
+    for p in walk_targets(paths):
+        if not p.endswith(SRC_EXT):
+            continue
+        if p.endswith("ct_arena.c") or p.endswith("ct_arena.h"):
+            continue
+        with open(p, encoding="utf-8", errors="surrogateescape") as f:
+            text = f.read()
+        new, n1 = rewrite_calls(text)
+        new, n2 = rewrite_bison_block(new)
+        if n1 + n2 == 0:
+            continue
+        new = add_include(p, new)
+        total += n1 + n2
+        touched += 1
+        print("%-62s calls=%-4d skeleton=%d" % (p, n1, n2))
+        if apply:
+            with open(p, "w", encoding="utf-8", errors="surrogateescape", newline="\n") as f:
+                f.write(new)
     print("SWEEP files=%d sites=%d %s" % (touched, total, "APPLIED" if apply else "DRY-RUN"))
     return 0
 if __name__ == "__main__":

@@ -274,7 +274,6 @@
 
 /* begin standard C headers. */
 #include <stdio.h>
-#include "ct_arena.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -779,6 +778,7 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
+#include "ct_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

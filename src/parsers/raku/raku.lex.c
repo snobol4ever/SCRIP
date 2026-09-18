@@ -274,7 +274,6 @@
 
 /* begin standard C headers. */
 #include <stdio.h>
-#include "ct_arena.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -1697,6 +1696,7 @@ goto find_rule; \
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
+#include "ct_arena.h"
 #include "raku.tab.h"
 #include "rk_opname.h"
 #include <stdio.h>
