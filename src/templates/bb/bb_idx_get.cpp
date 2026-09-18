@@ -44,6 +44,7 @@ std::string bb_idx_get() {
                + x86_rt_gc_poll())
             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
             + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
+            + x86_rt_gc_poll_res()
             + x86("cmp",  "al", (long)DT_A)
             + x86("jne",  L(0))
             + IF(_.bb_lk == (int)IR_VAR,

@@ -71,6 +71,7 @@ std::string bb_to_by() {
              + x86("mov",     "rcx", FRQ(_.op_sc + 8))
              + x86("mov",     "r8d", (long)BINOP_ADD)
              + x86("call",    (_.op_strict ? "rt_num_arith_strict" : "rt_num_arith"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_num_arith_strict : rt_num_arith))
+             + x86_rt_gc_poll_res()
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("mov",     FRQ(_.op_off + 24), "rdx")
              + x86("jmp",     L(0)) :
