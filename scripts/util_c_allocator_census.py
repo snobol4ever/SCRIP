@@ -226,6 +226,96 @@ _INDEXED = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[|->)")
 _ADDR_OF = re.compile(r"&\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?![\w\[])")
 
 
+# ⛔⭐ WHO OWNS THE BLOCK (RULES.md line 29 as amended by CEO-850; the hazard named in CEO-850's last clause).
+# libc hands ownership out through more doors than the four names, and a block libc owns may not be handed to
+# OUR bookkeeping under any of them.  Two shapes, one root cause:
+#   ct_drop / ct_grow on a libc-owned pointer -- the arena reads the 32 bytes BEFORE the block looking for its
+#     magic header, which is memory it does not own, and then (the magic never matching) returns silently, so
+#     the buffer LEAKS.  The MAGIC guard makes it safe, not correct.
+#   a collector root over a libc-owned pointer -- the ceo's named hazard: the next getline reallocs it through
+#     libc and the root then names memory the collector never moved and libc has freed.
+_LIBC_OUT_PARAM = ("getline", "getdelim", "posix_memalign", "asprintf", "vasprintf")
+_LIBC_RETURNS = ("strdup", "strndup", "strdupa", "malloc", "calloc", "realloc", "aligned_alloc",
+                 "memalign", "valloc", "reallocarray")
+_OURS = {"ct_drop": "the arena's free", "ct_grow": "the arena's realloc", "ct_realloc": "the arena's realloc",
+         "rt_gc_visit_raw": "a collector root", "rt_gc_visit_descr": "a collector root",
+         "rt_gc_root_range_add": "a collector root", "rt_ws_realloc": "the collected heap's realloc"}
+_LVALUE = (r"[A-Za-z_][A-Za-z0-9_]*(?:\s*\[[^\]]*\]|\s*\.\s*[A-Za-z_][A-Za-z0-9_]*"
+           r"|\s*->\s*[A-Za-z_][A-Za-z0-9_]*)*")
+_PTR_DECL = re.compile(r"(?:^|[{;])\s*(?:static\s+)?(?:const\s+)?[A-Za-z_][A-Za-z0-9_]*\s*\*\s*"
+                       r"([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|;)", re.M)
+_STATIC_ARR = re.compile(r"^static\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[", re.M)
+
+
+def _norm_lvalue(e):
+    return re.sub(r"\[[^\]]*\]", "[]", re.sub(r"\s+", "", e))
+
+
+def _enclosing_block(src, p):
+    """⛔ THE SCOPE IS THE DECLARATION'S BLOCK, NOT THE FUNCTION, AND THAT IS WHAT MAKES THIS ARM HONEST.
+    by_name_dispatch.c declares `ln` twice inside one giant dispatch function -- once from getline() at 7177
+    and once from ct_alloc() at 7716.  A function-scoped reader merges them and convicts three CORRECT
+    ct_drop()s of the arena-owned one.  Measured: that reader reported 5 sites in that file; this one reports
+    the 2 that are real."""
+    d, i = 0, p
+    while i > 0:
+        i -= 1
+        if src[i] == "}":
+            d += 1
+        elif src[i] == "{":
+            if d == 0:
+                break
+            d -= 1
+    start, d, j = i, 1, i + 1
+    while j < len(src) and d:
+        d += 1 if src[j] == "{" else (-1 if src[j] == "}" else 0)
+        j += 1
+    return start, (j if j > p else len(src))
+
+
+def libc_ownership_census(texts, out=print):
+    """Every site where a block libc owns is handed to our allocator or our collector."""
+    hits = []
+    for rel, src in sorted(texts.items()):
+        scopes = [(m.group(1), m.start(1), _enclosing_block(src, m.start(1))[1]) for m in _PTR_DECL.finditer(src)]
+        scopes += [(m.group(1), 0, len(src)) for m in _STATIC_ARR.finditer(src)]
+        for sym, a, b in scopes:
+            seg = src[a:b]
+            owner = None
+            esym = re.escape(sym)
+            for fn in _LIBC_OUT_PARAM:
+                if re.search(fn + r"\s*\(\s*&\s*" + esym + r"(?![A-Za-z0-9_])"
+                             r"(?:\s*\[[^\]]*\]|\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*\s*,", seg):
+                    owner = fn
+            for fn in _LIBC_RETURNS:
+                if re.search(r"(?<![A-Za-z0-9_])" + esym + r"\s*=\s*(?:\([^)]*\)\s*)?" + fn + r"\s*\(", seg):
+                    owner = fn
+            if not owner:
+                continue
+            for ours, what in _OURS.items():
+                # ⛔ THE CAST IS NOT OPTIONAL TO HANDLE: every root in core.c is written
+                # rt_gc_visit_raw((const char **)&X), so a reader that only matches a bare &X misses the
+                # exact hazard it was built for.  A planted arm caught this before it shipped.
+                for mm in re.finditer(ours + r"\s*\(\s*(?:\([^()]*\)\s*)?&?\s*(" + _LVALUE + r")\s*\)", seg):
+                    got = _norm_lvalue(mm.group(1))
+                    if re.match(r"[A-Za-z_][A-Za-z0-9_]*", got).group(0) == sym:
+                        hits.append((rel, src.count("\n", 0, a + mm.start()) + 1, ours, got, owner, what))
+    uniq = sorted({(h[0], h[1]): h for h in hits}.values())
+    out(f"CENSUS c-allocators LIBC-OWNED-MISUSE={len(uniq)} want=0 -- a block LIBC owns handed to OUR "
+        f"bookkeeping (RULES.md line 29 as amended, CEO-850: the test is WHO OWNS THE BLOCK, never what the "
+        f"function is called). ct_drop on a libc pointer reads the 32 bytes BEFORE the block hunting a magic "
+        f"header it does not own, then returns silently because the magic never matches -- so the buffer LEAKS, "
+        f"and the MAGIC guard makes that SAFE rather than CORRECT. A collector root over one is the same error "
+        f"wearing the opposite coat: the next getline reallocs it through libc and the root names memory the "
+        f"collector never moved")
+    for rel, ln, ours, expr, owner, what in uniq:
+        out(f"  ⛔ LIBC-OWNED-MISUSE {rel}:{ln} {ours}({expr}) is {what}, but {expr} is owned by {owner}()")
+    out(f"  ⛔ LIMIT: block-scoped and syntactic. It reads the declaration's OWN block, not the function -- "
+        f"a function-scoped reader merges by_name_dispatch.c's two `ln` variables and convicts the "
+        f"arena-owned one -- but it cannot follow a pointer through a helper or across a struct assignment.")
+    return uniq
+
+
 def container_census(texts, out=print):
     """⛔⭐ MARK THE CONTAINER, NOT ONLY WHAT IT POINTS AT (CEO-846; the cfo's CFO-96/97 find).
 
@@ -417,6 +507,8 @@ def census(root, by_dir=False, sites=False, out=print):
     # THE SPLIT IS NOT COMPUTABLE -- so it REFUSES rather than guessing, and never silently calls debt an
     # evasion (which would red an honest landing) or an evasion debt (which would admit the very thing the
     # clause exists to stop).
+    libc_misuse = libc_ownership_census(texts_for_container, out=out)
+    COUNTS["libc_owned_misuse"] = len(libc_misuse)
     live_c, latent_c = container_census(texts_for_container, out=out)
     COUNTS["container_unmarked_live"] = len(live_c)
 
@@ -513,7 +605,7 @@ def census(root, by_dir=False, sites=False, out=print):
 # per CEO-846 -- _evasion is a HARD 0 (it is never debt and never transitional) and _debt only ever falls.
 RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "alias_calls",
                 "arena_in_runtime", "arena_in_runtime_evasion", "arena_in_runtime_debt",
-                "container_unmarked_live"]
+                "container_unmarked_live", "libc_owned_misuse"]
 
 
 def ratchet(path, out=print):
@@ -558,7 +650,7 @@ def ratchet(path, out=print):
     out("RATCHET GREEN: every ratcheted count is exactly its baseline"); return 0
 
 
-ARMS_FLOOR = 24
+ARMS_FLOOR = 28
 
 
 def selftest():
@@ -665,6 +757,25 @@ def selftest():
     buf.clear(); rc = census(vac, out=buf.append)
     ck(rc == 2 and "A vacuous zero is not a pass" in "\n".join(buf),
        "zero forbidden names AND zero destination symbols REFUSES rc=2 -- that is a tool reading the wrong thing, not a cured tree")
+
+    # ⛔⭐ CEO-850: WHO OWNS THE BLOCK.  Tested on both sides, because the arm's whole value is telling a
+    # libc-owned pointer from an arena-owned one that is spelled identically two hundred lines away.
+    def lc(src_):
+        b2 = []
+        return libc_ownership_census({"src/runtime/t.c": src_}, out=b2.append)
+    h = lc("void f(void){ char *ln = NULL; size_t cap = 0; getline(&ln, &cap, stdin); ct_drop(ln); }\n")
+    ck(len(h) == 1 and h[0][2] == "ct_drop" and h[0][4] == "getline",
+       "A getline-OWNED BUFFER HANDED TO ct_drop IS NAMED -- the arena reads the bytes before a block it does not own, finds no magic, returns silently, and the buffer leaks; the MAGIC guard makes that safe, not correct")
+    h = lc("void f(void){ size_t cap = 128; char *ln = (char *)ct_alloc(cap); ct_drop(ln); }\n")
+    ck(len(h) == 0,
+       "and an ARENA-owned buffer of the same name handed to the same ct_drop is CLEAN -- this is the by_name_dispatch.c pair, where a function-scoped reader convicts the correct one")
+    h = lc("void f(void){ char *b = NULL; size_t c = 0; getline(&b, &c, stdin); "
+           "rt_gc_visit_raw((const char **)&b); }\n")
+    ck(len(h) == 1 and h[0][5] == "a collector root",
+       "A COLLECTOR ROOT LAID OVER A getline-OWNED BUFFER IS NAMED -- the ceo's hazard on holder 12: the next getline reallocs it through libc and the root names memory the collector never moved. This shape is NOT in the tree today and the arm reds the moment it is added")
+    h = lc("static char *tbuf = NULL;\nvoid f(void){ static size_t tc = 0; getline(&tbuf, &tc, fp); }\n")
+    ck(len(h) == 0,
+       "a getline-owned static that is never handed to our bookkeeping is NOT a hit -- libc owns it and keeps it, which is allowed until the twelve-name census lands with its cure")
 
     # ⛔⭐ CEO-846: the class split is the arm that decides whether an honest sweep lands or a cfo-f62a33aed
     # shaped evasion does, so it is tested on BOTH sides -- a debt that must NOT red as an evasion, and an

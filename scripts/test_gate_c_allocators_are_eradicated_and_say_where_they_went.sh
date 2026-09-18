@@ -29,6 +29,9 @@
 #           Without scripts/c_allocator_sites_baseline.tsv the split is not computable and this REFUSES rc=2.
 #       (d) the ratchet holds against scripts/c_allocator_baseline.tsv
 #       (f) MARK THE CONTAINER, NOT ONLY WHAT IT POINTS AT (CFO-96/97) is graded and printed, with its limit
+#       (g) WHO OWNS THE BLOCK (CEO-850): a block libc owns handed to the arena's free or to a collector root.
+#           Six today, every one named. NOT the twelve-name census, which RULES.md line 29 says lands with its
+#           cure -- this names an open door rather than printing a zero over one.
 #       (e) the census still ANSWERS both halves of CEO-844: it resolves alias CHAINS and counts the calls made
 #           through them, and it reports licence prose APART from the count.  An instrument that goes quiet on
 #           either clause reads green while the thing it was built to see walks past it -- the alias chain
@@ -52,7 +55,7 @@ echo "=== gate: the four C allocators leave the tree, and every converted site s
 st="$(timeout 300s python3 "$CEN" --selftest 2>&1)"; strc=$?
 [ "${FAIL_ONCE:-0}" = 1 ] && st="(blanked by FAIL_ONCE)"
 arms="$(printf '%s\n' "$st" | sed -n 's/^population: \([0-9]*\) selftest arm(s).*/\1/p')"
-if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 24 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
+if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 28 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
   ck ok "(a) the census trips on planted violations and refuses a vacuous zero -- $arms selftest arms, 0 FAIL"
 else
   ck no "(a) the census selftest did not pass (rc=$strc, arms=${arms:-none}): $(printf '%s\n' "$st" | grep -m2 '  FAIL  ' | tr '\n' ';')"
@@ -70,6 +73,7 @@ printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators DESTINATIONS' | sed 's/^/ 
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators PROSE-RESIDUE' | sed 's/^/    /'
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators ARENA-SPLIT' | sed 's/^/    /'
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators CONTAINER-UNMARKED' | sed 's/^/    /'
+printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators LIBC-OWNED-MISUSE' | sed 's/^/    /'
 
 # ⛔⭐ (c) THE CLASS SPLIT (CEO-846).  The clause was written as one rule over two different acts and only one
 # of them is the evasion, so the TOTAL is not the verdict: what a site WAS decides.  Class 1 -- collected heap
@@ -97,6 +101,16 @@ fi
 # gate's own destination column included, which only asks where an allocation went.  Ratcheted by arm (d);
 # graded here so the reading is printed rather than buried, WITH the limit stated: it is a syntactic read of
 # the *_gc_roots functions and a LIVE=0 from it is not a proof.
+# ⛔ (g) WHO OWNS THE BLOCK (CEO-850, RULES.md line 29 as amended).  A block libc owns handed to our arena or
+# our collector.  Graded and PRINTED rather than folded into a count, and ratcheted by arm (d) -- it reads 6
+# today and every one is named, because naming an open door is the opposite of printing a zero over one.
+lom="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators LIBC-OWNED-MISUSE=\([0-9]*\) .*/\1/p' | head -1)"
+if [ -z "$lom" ]; then
+  ck no "(g) the libc-ownership census did not print -- the test is WHO OWNS THE BLOCK and an instrument silent on it certifies every cross-allocator drop in the tree"
+else
+  ck ok "(g) ownership is GRADED and every mismatch named: LIBC-OWNED-MISUSE=$lom (ratcheted by arm (d); ct_drop on a libc pointer leaks and the MAGIC guard makes that safe rather than correct)"
+fi
+
 cu="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators CONTAINER-UNMARKED LIVE=\([0-9]*\) .*/\1/p' | head -1)"
 if [ -z "$cu" ]; then
   ck no "(f) the container census did not print -- an instrument that goes quiet on this property certifies the shape as cured across the whole tree"
