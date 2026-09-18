@@ -76,5 +76,18 @@ out=$(python3 "$Q" --db "$W/db.tsv" --since 1h --per hour --mode m3 2>&1)
 grep -qE 'TOTAL newly-passing in window: master 1,' <<<"$out" && ck ok "gate_probe FAIL->PASS counted as 1 newly-passing master program" || ck no "flip not seen: $out"
 out=$(python3 "$Q" --db "$W/db.tsv" --register --program gate_probe 2>&1)
 grep -qP '^snobol4-master\tgate_probe\tmaster\tsnobol4\tWORKING\t20' <<<"$out" && ck ok "register: gate_probe WORKING with its began_working_utc" || ck no "register wrong: $out"
+echo "--- ARM 8: a DEVELOPMENT PASS says so IN THE ROW, not only in the runner's printed output ---"
+# ⛔ WHY THIS ARM EXISTS (coo 2026-09-18, the cfo's disclosure 1): a seat running a suite under
+# S4E_ONE_RUNNER_OVERRIDE is doing it correctly -- the override is loud, printed, and that seat writes no
+# SCORE row. But the ROW it appends is indistinguishable from a board pass whose runner never published its
+# suite row, and THAT shape is a defect a batch audit convicts. So the qualifier has to travel WITH the row,
+# derived from the environment exactly as `measurer` is, never remembered by a caller.
+python3 "$PY" append --class master --suite icon-master --lang icon --program dev_probe --mode m3 --outcome PASS >/dev/null 2>&1
+tail -1 "$W/db.tsv" | awk -F'\t' '$8=="dev_probe"' | grep -qv 'dev-pass=' && ck ok "no override set: the row carries NO dev-pass token, so it reads as a board pass and IS expected to have a published suite row behind it" || ck no "a row with no override is wearing a dev-pass token: $(tail -1 "$W/db.tsv")"
+S4E_ONE_RUNNER_OVERRIDE="officer development pass, every language HQ is paused" python3 "$PY" append --class master --suite icon-master --lang icon --program dev_probe2 --mode m3 --outcome PASS >/dev/null 2>&1
+tail -1 "$W/db.tsv" | awk -F'\t' '$8=="dev_probe2" && $12 ~ /^dev-pass=officer development pass/' | grep -q . && ck ok "override set: the row carries dev-pass= with the reason verbatim, so nobody has to special-case a seat's runs from memory" || ck no "dev-pass token missing or malformed: $(tail -1 "$W/db.tsv")"
+S4E_ONE_RUNNER_OVERRIDE="a reason" python3 "$PY" append --class master --suite icon-master --lang icon --program dev_probe3 --mode m3 --outcome PASS --note "secs=2" >/dev/null 2>&1
+tail -1 "$W/db.tsv" | awk -F'\t' '$8=="dev_probe3" && $12=="dev-pass=a reason;secs=2"' | grep -q . && ck ok "the token comes FIRST and the caller's own note is preserved after it -- it survives truncation and destroys nothing" || ck no "token/note composition wrong: $(tail -1 "$W/db.tsv")"
+
 GATE_EXAMINED="$checks arms"
 gate_verdict "$fails" "progress-database arm(s) red -- a suite run that leaves the table untouched, or a scratch run that writes it"

@@ -26,6 +26,9 @@ CLI:      util_progress_append.py append --class C --suite S --lang L --program 
 rc 0 = rows written (count printed) or S4E_PROGRESS_OFF · rc 2 = refused (unwritable table, malformed row, unreadable input)."""
 import os, sys, csv, io, time, fcntl, subprocess, re, collections
 COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "program", "mode", "outcome", "secs", "note", "fingerprint"]
+# ⛔ THE MACHINE TOKEN FOR A DEVELOPMENT PASS.  A reader asking "was this a board pass?" greps the note for
+# this prefix; a row without it is a board pass and IS expected to have a published suite row behind it.
+DEVPASS_TOKEN = "dev-pass="
 CLASSES = ("master", "package", "benchmark")
 OUTCOMES = ("PASS", "FAIL", "CRASH", "HANG", "SKIP", "REFUSE", "UNGRADED", "UNPROVEN", "MISSING", "REJECT", "XFAIL", "XPASS",
             "DEFERRED", "OUTSIDE", "UNGRADABLE")
@@ -78,6 +81,17 @@ def context():
         except Exception:
             who = ""
     _CTX["measurer"] = who or ("root:" + os.path.basename(os.path.abspath(S4E).rstrip("/")))
+    # ⛔⭐ A DEVELOPMENT PASS MUST SAY SO IN THE ROW, NOT ONLY IN THE RUNNER'S PRINTED OUTPUT (coo 2026-09-18,
+    # the cfo's disclosure 1).  A seat that runs a suite under S4E_ONE_RUNNER_OVERRIDE is doing it correctly --
+    # the override is loud, it is printed, and that seat writes no SCORE row.  But the ROW IT APPENDS is
+    # indistinguishable from a board pass whose runner never published its suite row, and that second shape is
+    # a defect a batch audit is supposed to convict.  So the qualifier travels WITH the row: derived once per
+    # run from the environment exactly as `measurer` is, never passed by a caller who has to remember.
+    # ⛔ WHY THE note COLUMN AND NOT A NEW ONE: results.tsv has ~360k rows and readers all over the fleet split
+    # on a fixed column count.  A stable machine token inside free text is greppable and breaks nothing; a
+    # fourteenth column would be a schema migration to record a qualifier.  The token is first in the note so
+    # it survives truncation, and the human reason follows it.
+    _CTX["devpass"] = _clean(os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "").strip(), "devpass")
     return _CTX
 
 
@@ -217,7 +231,11 @@ def append_rows(rows, db=None):
     ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
     lines = []
     for r in rows:
-        lines.append("\t".join([ts, ctx["scrip"], ctx["corpus"], ctx["measurer"], r["class"], r["suite"], r["lang"], r["program"], r["mode"], r["outcome"], r["secs"], r["note"], ctx.get("fingerprint", "")]))
+        note = r["note"]
+        dev = ctx.get("devpass", "")
+        if dev:
+            note = DEVPASS_TOKEN + dev + (";" + note if note else "")
+        lines.append("\t".join([ts, ctx["scrip"], ctx["corpus"], ctx["measurer"], r["class"], r["suite"], r["lang"], r["program"], r["mode"], r["outcome"], r["secs"], note, ctx.get("fingerprint", "")]))
     payload = "\n".join(lines) + "\n"
     try:
         d = os.path.dirname(path)
