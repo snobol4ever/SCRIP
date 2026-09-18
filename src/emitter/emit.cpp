@@ -2896,10 +2896,12 @@ static bb_label_t g_gc_map_lbl;
 static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
 static unsigned g_gc_map_flags = 0;
 static char * g_gc_map_names[8192];
+static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
 static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
 static int gc_maps_check_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_CHECK"); return v; }
 static int gc_maps_plant_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_PLANT"); return v; }
 static int gc_maps_report_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_REPORT"); return v; }
+static int gc_maptab_plant_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPTAB_PLANT"); return v; }
 extern "C" void rt_gc_frame_map_check(const DESCR_t * cell);
 extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel) {
     if (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes) { fprintf(stderr, "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d (the map cell must be a 16-aligned cell inside the frame)\n", map_off, frame_bytes); abort(); }
@@ -2921,13 +2923,17 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
     return s;
 }
 static void emit_gc_map_data(const char * fam) {
+    { extern const char * zls_graph_name_get(const IR_graph_t *); const char * ef = gc_map_entry_fam(fam);
+      if (ef && !strcmp(ef, "main")) fam = ef;
+      else { const char * gn = g_emit_cfg ? zls_graph_name_get(g_emit_cfg) : (const char *)0; fam = (gn && *gn) ? gn : fam; } }
     if (!g_gc_map_pending) { g_gc_map_last_off = -1; return; }
     g_gc_map_pending = 0;
     emit_sep_rule('-'); emit_label_define_bb(&g_gc_map_lbl);
-    uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)g_gc_map_fb << 32);
+    uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)(g_gc_map_fb + (gc_maptab_plant_on() ? 16 : 0)) << 32);
     uint64_t q1 = (uint64_t)(uint32_t)g_gc_map_hdr | ((uint64_t)g_gc_map_flags << 32);
     if (g_is_text) {
-        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name, g_gc_map_lbl.name, fam ? fam : "?");
+        char eb[512]; { int ei = 0; for (const char * q = fam ? fam : "?"; *q && ei < 508; q++) { if (*q == '\\' || *q == '"') eb[ei++] = '\\'; eb[ei++] = *q; } eb[ei] = 0; }
+        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name, g_gc_map_lbl.name, eb);
         emit_text_n(b, (size_t)n); g_gc_map_last_off = 0;
     } else {
         bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)strdup(fam ? fam : "?")); bb_emit_u64(0);
@@ -3144,7 +3150,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
     g_emit.flat_carve_total = 0;
-    if (prefix && (!strcmp(prefix, "main") || !strcmp(prefix, "pat_flat")) && !g_rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg, g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
+    if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg, g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
     } else if (icn_gen_regime() && g_emit.flat_gen) {

@@ -537,9 +537,11 @@ void rt_gc_root_range_add(const char *lo, const char *hi)
 static const gc_frame_map_t **g_gc_maps = (const gc_frame_map_t **)0;
 static int g_gc_maps_n = 0, g_gc_maps_cap = 0, g_gc_map_report_reg = 0;
 static long g_gc_map_checked = 0;
+static void gc_frame_maps_dump_atexit(void);
 static int gc_frame_map_registered(const gc_frame_map_t *m) { for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] == m) return 1; return 0; }
 void rt_gc_frame_maps_add(const gc_frame_map_t *m)
 {
+    { static int dreg = 0; if (!dreg) { const char *e = getenv("SCRIP_GC_MAPS_DUMP"); dreg = 1; if (e && *e == '1') atexit(gc_frame_maps_dump_atexit); } }
     if (!m || gc_frame_map_registered(m)) return;
     if (m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAP] rt_gc_frame_maps_add: %p is not a frame map (magic %08x)\n", (const void *)m, m->magic); abort(); }
     if (g_gc_maps_n == g_gc_maps_cap) { g_gc_maps_cap = g_gc_maps_cap ? g_gc_maps_cap * 2 : 64;
@@ -549,6 +551,17 @@ void rt_gc_frame_maps_add(const gc_frame_map_t *m)
 void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
 void rt_gc_frame_maps_install_counted(const void *tab) { const uint64_t *t = (const uint64_t *)tab; if (!t) return; rt_gc_frame_maps_install((const gc_frame_map_t *const *)(t + 1), (int)t[0]); }
 const gc_frame_map_t *const *rt_gc_frame_maps(int *n) { if (n) *n = g_gc_maps_n; return g_gc_maps; }
+void rt_gc_frame_maps_dump(void)
+{
+    int n = 0; const gc_frame_map_t *const *t = rt_gc_frame_maps(&n);
+    fprintf(stderr, "[GC-MAPTAB] n=%d\n", n);
+    for (int i = 0; i < n; i++) {
+        const gc_frame_map_t *m = t[i];
+        if (!m || m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAPTAB] BAD entry %d %p\n", i, (const void *)m); continue; }
+        fprintf(stderr, "[GC-MAPTAB] graph=%s frame_bytes=%u header_bytes=%u flags=%u\n", m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, m->flags);
+    }
+}
+static void gc_frame_maps_dump_atexit(void) { rt_gc_frame_maps_dump(); }
 static void gc_frame_map_report(void) { fprintf(stderr, "[GC-MAP] frames_checked=%ld maps=%d\n", g_gc_map_checked, g_gc_maps_n); }
 void rt_gc_frame_map_check(const DESCR_t *cell)
 {

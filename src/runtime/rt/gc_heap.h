@@ -48,6 +48,7 @@ void  rt_gc_frame_maps_add(const struct gc_frame_map_t *m);
 void  rt_gc_frame_maps_install(const struct gc_frame_map_t *const *maps, int n);
 void  rt_gc_frame_maps_install_counted(const void *tab);
 const struct gc_frame_map_t *const *rt_gc_frame_maps(int *n);
+void  rt_gc_frame_maps_dump(void);
 void  rt_gc_frame_map_check(const struct DESCR_t *cell);
 void  rt_gc_root_range_add_seamsafe(const char *lo, const char *hi);
 void  rt_gc_root_range_del(const char *lo);

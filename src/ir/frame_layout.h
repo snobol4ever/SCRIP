@@ -9,6 +9,7 @@ typedef struct { int off; int size; unsigned char kind; unsigned char audit; con
 typedef struct { int id; int parent; int klass; const char * name; int first_field; int n_fields; int lo_off; int hi_off; } zls_scope_t;
 void         zls_reset(void);
 void         zls_graph_name(const IR_graph_t * g, const char * name);
+const char * zls_graph_name_get(const IR_graph_t * g);
 void         zls_group_mark(const IR_graph_t * g, const char * name);
 void         zls_group_mark_anchor(const IR_graph_t * g, const char * name, const IR_t * anchor);
 int          zls_g_group_count(const IR_graph_t * g);
