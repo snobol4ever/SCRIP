@@ -138,6 +138,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     s += x86("mov", FRQ(resoff + 8), "rdx");
     s += x86("cmp", "al", (long)DT_FAIL);
     s += x86_omega("je");
+    s += x86_rt_gc_poll();
     s += x86_gamma();
     s += x86_beta();
     s += x86_omega();

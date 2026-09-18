@@ -46,6 +46,7 @@ std::string bb_rev_assign_global() {
             + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn)
             + x86("mov", FRQ(_.op_sc), "rax")
             + x86("mov", FRQ(_.op_sc + 8), "rdx")
+            + x86_rt_gc_poll()
             + x86("mov", "rsi", FRQ(_.op_a_slot))
             + x86("mov", "rdx", FRQ(_.op_a_slot + 8))
             + x86("mov", "rdi", ROQ(0))
