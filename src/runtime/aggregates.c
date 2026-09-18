@@ -28,7 +28,7 @@ ARBLK_t *array_new(int lo, int hi) {
     a->proto = (const char *)0;
     int sz  = hi - lo + 1;
     if (sz < 1) sz = 1;
-    a->data = rt_ws_alloc(sz * sizeof(DESCR_t));
+    a->data = rt_ws_alloc_descr((size_t)sz);
     for (int i = 0; i < sz; i++) a->data[i] = NULVCL;
     return a;
 }
@@ -47,7 +47,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     int cols = hi2 - lo2 + 1;
     if (rows < 1) rows = 1;
     if (cols < 1) cols = 1;
-    a->data = rt_ws_alloc(rows * cols * sizeof(DESCR_t));
+    a->data = rt_ws_alloc_descr((size_t)(rows * cols));
     for (int i = 0; i < rows * cols; i++) a->data[i] = NULVCL;
     return a;
 }

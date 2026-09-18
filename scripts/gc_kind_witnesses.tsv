@@ -38,3 +38,4 @@ HB_PLJ	209	WITNESSED	hb_plj.pl	WITNESS	rt_plj_alloc, the Prolog-side collected-h
 HB_AGGB	211	WITNESSED	hb_aggt.icn	165	the table's bucket storage; allocated by the same table witness
 HB_ARR	212	WITNESSED	hb_arr.sno	ALPHAOMEGA	aggregates.c / core.c / pattern_match.c; a SNOBOL4 ARRAY is the shortest path to one
 HB_DINST	213	WITNESSED	hb_dinst.icn	72	the datatype instance (an Icon record and its fields)
+HB_DVEC	214	WITNESSED	hb_arr.sno	ALPHAOMEGA	the descriptor-array backing store an ARBLK keeps its elements in; rt_ws_alloc_descr stamps the kind so the element count comes from the block header rather than from the owner, and the same SNOBOL4 ARRAY witness allocates one
