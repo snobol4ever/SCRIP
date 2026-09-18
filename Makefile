@@ -608,7 +608,6 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
     $(RT)/rt/gc_heap.c \
     $(RT)/rt/rt_protected.c \
-    $(RT)/rt/pat_pool.c \
     $(RT)/rt/rt_coexpr.c \
     $(RT)/rt/bbprof.c \
     $(RT)/rt/portcount.c \

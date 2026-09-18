@@ -13,8 +13,14 @@
 #   MALLOC : raw malloc/calloc/realloc/strdup outside rt_slab.c  (RUNTIME scope only
 #            in strict mode: parser tab.c/lex.c compiler-phase allocs are ledgered
 #            separately — they matter at runtime only via EVAL/CODE = TR-3c/A-TRANS)
-#   MMAP   : private data mmaps outside src/machine/ (pat_pool.c is a CODE pool —
-#            RWX, program-image column — SANCTIONED with reason, see ledger)
+#   MMAP   : private data mmaps outside src/machine/.  ⛔ THE pat_pool.c EXCLUSION IS GONE WITH THE FILE
+#            (ceo CEO-892, 2026-09-18): it was sanctioned here as "a CODE pool — RWX, program-image
+#            column", and it was DEAD — pat_pool_emit and g_pat_pool_cur had ZERO callers outside their
+#            own file, pat_pool_reset was never called, yet pat_pool_init ran on every scrip invocation
+#            and mapped 4 MB of READ-WRITE-EXECUTE with no MAP_NORESERVE.  The sealed slab that actually
+#            holds emitted BB code is bb_pool.c, which is mapped RW and mprotect'd RW→RX by bb_seal and
+#            is therefore never RWX at any instant.  An exclusion outlived the thing it excused, which is
+#            how a sanctioned line becomes a blind spot.
 #   BSS    : mutable .bss arrays used as data arenas (za[] geometry table sanctioned:
 #            compile-time metadata, not runtime object storage)
 #
@@ -39,7 +45,7 @@ count_malloc_all(){ grep -rn -a '\b\(malloc\|calloc\|realloc\|strdup\)(' \
                     "$SRC" --include='*.c' --include='*.cpp' 2>/dev/null \
                   | grep -v 'GC_\|rt_slab\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
 count_mmap()    { grep -rn -a '\bmmap(' "$SRC" --include='*.c' --include='*.cpp' 2>/dev/null \
-                  | grep -v 'src/machine/\|pat_pool\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
+                  | grep -v 'src/machine/\|-parked-' | eval $NOCOMMENT | wc -l; }
 count_bss()     { grep -rn -a 'static.*\[\s*[0-9]\{4,\}\]' "$SRC/runtime" "$SRC/contracts" 2>/dev/null \
                   | grep -v 'const\|zeta_storage\.c\|-parked-' | eval $NOCOMMENT | wc -l; }
 
@@ -50,7 +56,7 @@ report() {
   echo "  GC(external-GC refs, non-parked, non-gc_heap) : $gc"
   echo "  MALLOC(runtime+contracts+machine)       : $mrt"
   echo "  MALLOC(whole tree, incl compiler phase) : $mall"
-  echo "  MMAP(data, outside machine/, non-pat_pool): $mm"
+  echo "  MMAP(data, outside machine/)          : $mm"
   echo "  BSS(runtime data arenas, non-sanctioned): $bss"
   if [ "$MODE" = "--strict" ]; then
     # TR-8 floors: GC=0, runtime MALLOC=0 (sanctions folded into rt_slab or ledger),
