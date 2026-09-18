@@ -1,31 +1,22 @@
 # c_allocator_baseline.tsv -- the counts Lon's eradication order drives to 0 (coo, CEO-842/843).
 # Written by `util_c_allocator_census.py --write-baseline`; the landing that lowers a count
 # rewrites this file in the same sitting.  key	count
-# CRITERION CHANGED 2026-09-18 (coo, CEO-844 clause 1): `aliases` 22 -> 40 and the new key `alias_calls`
-# 0 -> 15 are A WIDER AND A CORRECTED DEFINITION, NOT A REGRESSION.  The old reader asked only whether a
-# define's body IS a forbidden name, one level deep and by substring: it MISSED bison's `#define
-# YYSTACK_ALLOC YYMALLOC` over `#define YYMALLOC malloc` and the 15 calls made through it, and it
-# INVENTED an alias named `yy` out of flex's `#define yyrealloc pascal_yyrealloc`, which renames flex's
-# own hook and is not C realloc under any spelling.  The new reader resolves the chain by whole word.
-#
-# CRITERION CHANGED 2026-09-18 (coo, CEO-846): `arena_in_runtime` is no longer a verdict on its own.  It
-# is split by WHAT EACH SITE WAS, against the per-file provenance in c_allocator_sites_baseline.tsv:
-#   arena_in_runtime_evasion -- was on the COLLECTED HEAP, now in the arena.  HARD 0, never transitional,
-#     reverted on sight.  Unattributable sites are counted HERE, not as debt: a history the instrument
-#     cannot read gets no benefit of the doubt.
-#   arena_in_runtime_debt -- was a libc malloc, now in the arena.  Same lifetime it already had, so it is
-#     debt and not an evasion; it only ever FALLS, as each holder is rooted.
-# and `container_unmarked_live` 1 is the cfo's CFO-96/97 property: MARK THE CONTAINER, NOT ONLY WHAT IT
-# POINTS AT.  The 1 is pas_gc_roots/g_pas_heap (cfo's disclosure 2), harmless only while that block is
-# off-heap -- it becomes the g_name_save corruption the moment the sweep moves it to the collected heap.
-forbidden_total	1182
-malloc	146
-calloc	163
-realloc	68
-free	805
-aliases	40
-alias_calls	15
-arena_in_runtime	0
+# CRITERION CHANGED 2026-09-18 (ceo, CEO-842 landing): every count of the four names falls to 0 in one
+# landing -- 1880 sites over 79 files, parsers and generated bison/flex output included -- and
+# `arena_in_runtime_debt` RISES 0 -> 126 BY CONSTRUCTION, which is the one direction this file records
+# as earned rather than worse: those 126 were libc malloc sites, they keep the lifetime they already
+# had, and RULES.md line 29 class (2) ratchets them to 0 as the cfo roots each holder.  NOTHING moved
+# from the collected heap to the arena: arena_in_runtime_evasion stays 0 and is a hard red forever.
+# The two earlier CRITERION CHANGED notes (coo, CEO-844 aliases-by-chain; coo, CEO-846 the split) are
+# regenerated away by --write-baseline and live in git history at SCRIP 9208703c6 and 188801a59.
+forbidden_total	0
+malloc	0
+calloc	0
+realloc	0
+free	0
+aliases	0
+alias_calls	0
+arena_in_runtime	126
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	0
+arena_in_runtime_debt	126
 container_unmarked_live	1
