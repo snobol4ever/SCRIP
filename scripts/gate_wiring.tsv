@@ -95,6 +95,7 @@ test_gate_frame_reuse_rung3e_a_single_reader_temp_takes_its_sealed_calls_argv_sl
 test_gate_frame_reuse_rung3f_a_first_occurrence_head_variable_is_its_param_slot.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_gc_a_callee_saved_register_at_an_allocating_return_is_named_not_assumed.sh	WIRED	-	-	-
+test_gate_gc_a_register_resident_box_result_is_spilled_as_a_descr_across_its_poll.sh	WIRED	-	-	-
 test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_blob_carve_invariant_is_named_and_held.sh	WIRED	-	-	-
