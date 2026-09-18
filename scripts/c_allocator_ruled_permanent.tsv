@@ -1,0 +1,26 @@
+# c_allocator_ruled_permanent.tsv -- CLASS 3, RULED-PERMANENT ARENA (coo, on ceo CEO-856; the cfo's shape, CFO/cfo-859).
+#
+# ⛔ WHAT THIS FILE IS FOR.  Class 2 DEBT means "was a libc malloc, now in the arena, holder not yet rooted" and its
+# whole meaning is that it RATCHETS TO ZERO as each holder is rooted.  That model assumes every arena-in-runtime site
+# is a holder waiting to be rooted.  Some are not: the ceo ruled CEO-854 that all five getline buffers are PERMANENTLY
+# and CORRECTLY arena -- the program is always handed a copy through rt_heap_strdup_c and no buffer pointer ever enters
+# anything the collector walks, so there is no future landing in which rooting them becomes correct.  Counting a site
+# like that as debt makes the ratchet's target of zero UNREACHABLE BY CONSTRUCTION, which is how a ratchet stops being
+# believed.  Class 3 is counted and PRINTED, and is NOT driven to zero.
+#
+# ⛔⭐ THE CITATION IS A HARD ARM, NOT A COURTESY FIELD (ceo CEO-856, quoting the cfo's own sentence).  An entry whose
+# cited ruling DOES NOT RESOLVE in .github/GOAL-CEO.md REDS the gate, because a class-3 entry with no ruling behind it
+# is a CLASS 1 EVASION IN DISGUISE and this file would otherwise be the one hiding place in the whole census.  The
+# resolver reads the MERGED .github: an unmerged .github cannot resolve today's ruling and REFUSES rc=2 rather than
+# convicting an honest entry -- could-not-measure is never red and never green.
+#
+# ⛔ THE KEY IS (file, ALLOCATOR SYMBOL), NEVER A LINE NUMBER.  Line numbers do not survive a sweep that rewrites 79
+# files.  `symbol` is the allocator called (ct_alloc, ct_grow, ...), which is what the census records per site.  A row
+# licences AT MOST `sites` calls of that symbol in that file -- an extra one falls straight back into class 1/2 and is
+# graded exactly as before, so a row can never become a blanket amnesty for a file.
+#
+# ⛔ IT IS EMPTY TODAY AND THAT IS THE CORRECT RESTING STATE.  No site is ruled permanent until somebody writes it down
+# with the ruling that made it so.  The first row is the cfo's getline landing under CEO-854; the coo built the class,
+# not the entry, because naming another seat's site before their landing is guessing at code that does not exist yet.
+#
+# file	symbol	sites	ruling	reason

@@ -218,6 +218,9 @@ def is_collector_bookkeeping(rel):
 
 
 SITES_BASELINE = os.path.join(HERE, "c_allocator_sites_baseline.tsv")
+RULED_PERMANENT = os.path.join(HERE, "c_allocator_ruled_permanent.tsv")
+# The class-3 citation record, overridable ONLY as a test seam (see ruling_resolves).
+RECORD_OVERRIDE = None
 
 _GLOBAL_DECL = re.compile(r"^(?:static\s+|extern\s+)?(?:const\s+)?[A-Za-z_][A-Za-z0-9_]*\s+(\**)\s*"
                           r"([A-Za-z_][A-Za-z0-9_]*)\s*(\[|=|;)", re.M)
@@ -402,6 +405,76 @@ def read_sites_baseline(path):
     return base
 
 
+def read_ruled_permanent(path):
+    """CLASS 3, RULED-PERMANENT (ceo CEO-856, the cfo's shape). Rows are file<TAB>symbol<TAB>sites<TAB>ruling<TAB>reason.
+    ⛔ A MISSING FILE IS AN EMPTY REGISTRY, NOT A REFUSAL -- no site is ruled permanent until one is written down, and
+    that is the correct resting state. An unreadable or malformed row is dropped LOUDLY by the caller, never silently."""
+    rows, bad = [], []
+    if not os.path.exists(path):
+        return rows, bad
+    for ln, line in enumerate(open(path, encoding="utf-8"), 1):
+        if line.startswith("#") or not line.strip():
+            continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) < 5 or not f[2].strip().isdigit():
+            bad.append((ln, line.rstrip("\n")[:120])); continue
+        rows.append({"file": f[0].strip(), "symbol": f[1].strip(), "sites": int(f[2]),
+                     "ruling": f[3].strip(), "reason": f[4].strip()})
+    return rows, bad
+
+
+def ruling_resolves(ruling, root=None):
+    """⛔⭐ THE CITATION IS A HARD ARM, NOT A COURTESY FIELD (ceo CEO-856, quoting the cfo's own sentence: the citation
+    is the only thing standing between a third class and a hiding place). A class-3 entry whose cited ruling does not
+    resolve is a CLASS 1 EVASION IN DISGUISE and REDS.
+
+    ⛔ THREE ANSWERS, NOT TWO: True it resolves, False it does not, None THE RECORD COULD NOT BE READ -- an unmerged or
+    absent .github cannot resolve a ruling landed this morning, and convicting an honest entry because the reader is
+    behind is the same fault as passing a dishonest one. None is carried to the caller as rc=2, could-not-measure.
+
+    ⛔⭐ THE SEAM (ceo CEO-560): every guard ships a sanctioned way to be TRIPPED that does not require doing the
+    forbidden thing. RECORD_OVERRIDE names the record explicitly, so the rc=2 branch can be proved by pointing the
+    reader at a path that is not there -- without deleting anybody's .github. Without a seam that branch would be
+    unreachable from a test and would sit here unexecuted, which is the precise shape this census exists against."""
+    if RECORD_OVERRIDE is not None:
+        record = RECORD_OVERRIDE
+        if not os.path.exists(record):
+            return None, record
+    else:
+        cands = []
+        if root:
+            cands.append(os.path.join(root, ".github", "GOAL-CEO.md"))
+        if os.environ.get("S4E_HOME"):
+            cands.append(os.path.join(os.environ["S4E_HOME"], ".github", "GOAL-CEO.md"))
+        cands.append(os.path.join(os.path.dirname(os.path.dirname(HERE)), ".github", "GOAL-CEO.md"))
+        record = next((c for c in cands if os.path.exists(c)), cands[-1])
+        if not os.path.exists(record):
+            return None, record
+    try:
+        text = open(record, encoding="utf-8", errors="replace").read()
+    except Exception:
+        return None, record
+    return (ruling in text), record
+
+
+def split_ruled_permanent(viol, rows):
+    """Partition the ARENA-IN-RUNTIME sites into class 3 and the rest, keyed on (file, allocator symbol) and CAPPED at
+    the row's site count. ⛔ THE CAP IS WHAT STOPS A ROW BECOMING A BLANKET AMNESTY FOR A FILE: an extra site beyond
+    what the ruling licensed falls straight back into class 1/2 and is graded exactly as before."""
+    budget = {}
+    for r in rows:
+        budget[(r["file"], r["symbol"])] = budget.get((r["file"], r["symbol"]), 0) + r["sites"]
+    perm, rest = [], []
+    for rel, ln, sym in viol:
+        k = (rel, sym)
+        if budget.get(k, 0) > 0:
+            budget[k] -= 1
+            perm.append((rel, ln, sym))
+        else:
+            rest.append((rel, ln, sym))
+    return perm, rest
+
+
 def provenance(now, base):
     """⛔⭐ THE SPLIT CEO-846 ORDERED, AND IT TURNS ENTIRELY ON WHAT A SITE WAS BEFORE.
 
@@ -512,6 +585,53 @@ def census(root, by_dir=False, sites=False, out=print):
     live_c, latent_c = container_census(texts_for_container, out=out)
     COUNTS["container_unmarked_live"] = len(live_c)
 
+    # ⛔⭐ CLASS 3, RULED-PERMANENT (ceo CEO-856 on the cfo's proposal, cfo-859).  Class 2 DEBT means "was a libc
+    # malloc, now in the arena, HOLDER NOT YET ROOTED", and its whole meaning is that it ratchets to zero as each
+    # holder is rooted.  That model assumes every arena-in-runtime site is a holder waiting to be rooted.  Some are
+    # not: CEO-854 ruled all five getline buffers PERMANENTLY and CORRECTLY arena -- the program is handed a copy and
+    # no buffer pointer enters anything the collector walks, so there is no future landing in which rooting them
+    # becomes correct.  Counting those as debt makes the ratchet's target of zero UNREACHABLE BY CONSTRUCTION, which
+    # is how a ratchet stops being believed.  Class 3 is COUNTED, PRINTED, and NOT driven to zero -- and it is the
+    # CITATION, graded hard below, that stops it becoming the one hiding place in the census.
+    rp_rows, rp_bad = read_ruled_permanent(RULED_PERMANENT)
+    perm, viol_rest = split_ruled_permanent(viol, rp_rows)
+    rp_unresolved, rp_unreadable = [], None
+    for r in rp_rows:
+        ok, where = ruling_resolves(r["ruling"])
+        if ok is None:
+            rp_unreadable = where
+        elif not ok:
+            rp_unresolved.append(r)
+    COUNTS["arena_in_runtime_ruled_permanent"] = len(perm)
+    COUNTS["arena_in_runtime_ratcheted"] = len(viol) - len(perm)
+    out(f"CENSUS c-allocators CLASS-3-RULED-PERMANENT={len(perm)} of ARENA-IN-RUNTIME={len(viol)} in "
+        f"{len(rp_rows)} registry row(s) -- runtime memory PROVEN unreachable by the collector and ruled arena BY "
+        f"NAME. Counted and printed, NOT driven to zero: there is no landing in which rooting it becomes correct, so "
+        f"carrying it as debt would make the ratchet's target unreachable by construction. ⛔ THE RATCHETED NUMBER IS "
+        f"ARENA-IN-RUNTIME MINUS THIS = {len(viol) - len(perm)}")
+    for rel, ln, sym in perm[:12]:
+        cite = next((r["ruling"] for r in rp_rows if r["file"] == rel and r["symbol"] == sym), "?")
+        out(f"  CLASS-3-RULED-PERMANENT {rel}:{ln} {sym} -- ruled by {cite}")
+    used = set()
+    for rel, _ln, sym in perm:
+        used.add((rel, sym))
+    for r in rp_rows:
+        if (r["file"], r["symbol"]) not in used:
+            out(f"  CLASS-3 UNUSED ROW {r['file']} {r['symbol']} ({r['ruling']}) licences {r['sites']} site(s) that "
+                f"this tree does not have -- NAMED, not red: a licence outliving its site is stale, and a stale "
+                f"licence nobody can see is how the next one gets written for a site that never existed")
+    for ln_, raw in rp_bad:
+        out(f"  \u26d4 CLASS-3 MALFORMED ROW {RULED_PERMANENT}:{ln_} -- five tab-separated fields are required "
+            f"(file, symbol, sites, ruling, reason) and sites must be a number: {raw}")
+    for r in rp_unresolved:
+        out(f"  \u26d4 CLASS-3 CITATION DOES NOT RESOLVE: {r['file']} {r['symbol']} cites {r['ruling']}, which is not "
+            f"in the record. AN ENTRY IN CLASS 3 WITH NO RULING BEHIND IT IS A CLASS 1 EVASION IN DISGUISE -- that is "
+            f"the cfo's own sentence and it is the only thing standing between a third class and a hiding place")
+    if rp_unreadable:
+        out(f"  \u26d4 CLASS-3 CITATIONS NOT MEASURABLE: the record at {rp_unreadable} could not be read, so no "
+            f"citation was checked either way. Merge .github and re-run -- convicting an honest entry because the "
+            f"reader is behind is the same fault as passing a dishonest one")
+
     sbase = read_sites_baseline(SITES_BASELINE)
     now_pf = per_file(forb, dest)
     COUNTS["arena_in_runtime"] = len(viol)
@@ -524,7 +644,17 @@ def census(root, by_dir=False, sites=False, out=print):
         prov_refused = True
     else:
         prov_refused = False
-        ev, debt, unknown = provenance(now_pf, sbase)
+        # ⛔ CLASS 3 IS SUBTRACTED FROM THE ARENA COUNT PROVENANCE SEES, so a ruled-permanent site is never ALSO
+        # counted as class-2 debt -- one site, one class, or the debt number can never reach zero.
+        perm_pf = {}
+        for rel, _ln, _sym in perm:
+            perm_pf[rel] = perm_pf.get(rel, 0) + 1
+        now_pf_np = {}
+        for rel, cur in now_pf.items():
+            c = dict(cur)
+            c["arena"] = max(0, c.get("arena", 0) - perm_pf.get(rel, 0))
+            now_pf_np[rel] = c
+        ev, debt, unknown = provenance(now_pf_np, sbase)
         n_ev = sum(x[1] for x in ev)
         n_debt = sum(x[1] for x in debt)
         n_unk = sum(x[1] for x in unknown)
@@ -593,7 +723,16 @@ def census(root, by_dir=False, sites=False, out=print):
     COUNTS["aliases"] = len(aliases)
     COUNTS["alias_calls"] = len(alias_calls)
     COUNTS["prose_residue"] = n_prose
-    red = total > 0 or aliases or alias_calls or COUNTS.get("arena_in_runtime_evasion") or prov_refused
+    # ⛔ A CLASS-3 ENTRY WHOSE CITATION DOES NOT RESOLVE REDS (ceo CEO-856): it is a class-1 evasion in disguise, so
+    # it joins the evasion in the verdict rather than being a note under a green line.  A MALFORMED ROW REDS TOO -- a
+    # row this reader dropped is a licence nobody granted.  ⛔ AND AN UNREADABLE RECORD REFUSES rc=2 AHEAD OF BOTH:
+    # could-not-measure is never green and never red, and an unmerged .github is exactly that case.
+    if rp_unreadable:
+        out(f"CENSUS c-allocators REFUSED(2): {len(rp_rows)} class-3 citation(s) could not be checked against "
+            f"{rp_unreadable}")
+        return 2
+    red = (total > 0 or aliases or alias_calls or COUNTS.get("arena_in_runtime_evasion") or prov_refused
+           or rp_unresolved or rp_bad)
     out(f"CENSUS c-allocators {'RED' if red else 'GREEN'}")
     return 1 if red else 0
 
@@ -601,10 +740,14 @@ def census(root, by_dir=False, sites=False, out=print):
 # ⛔ prose_residue is MEASURED and PRINTED but deliberately NOT ratcheted: it is licence text, it is not ours to
 # drive to zero, and a ratchet on it is an instruction to edit a copyright header.  alias_calls IS ratcheted --
 # that one is ours and it is the half a four-name grep cannot see.
-# ⛔ arena_in_runtime is the TOTAL and is ratcheted like the rest; the two that carry the meaning are split out
-# per CEO-846 -- _evasion is a HARD 0 (it is never debt and never transitional) and _debt only ever falls.
+# ⛔ arena_in_runtime is the TOTAL and is PRINTED, but what is RATCHETED is arena_in_runtime_ratcheted -- the total
+# MINUS class 3 (ceo CEO-856, 2026-09-18).  Ratcheting the raw total was correct while every arena-in-runtime site was
+# a holder waiting to be rooted; CEO-854 ruled five of them permanently and correctly arena, so the raw total can no
+# longer reach zero and a ratchet with an unreachable target teaches the fleet to raise baselines.  ⭐ THIS IS NOT A
+# WEAKENING: evasion is still a HARD 0, debt still only falls, and every site that leaves the ratchet must be named in
+# c_allocator_ruled_permanent.tsv with a ruling that RESOLVES -- an unresolved citation reds the census outright.
 RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "alias_calls",
-                "arena_in_runtime", "arena_in_runtime_evasion", "arena_in_runtime_debt",
+                "arena_in_runtime_ratcheted", "arena_in_runtime_evasion", "arena_in_runtime_debt",
                 "container_unmarked_live", "libc_owned_misuse"]
 
 
@@ -650,7 +793,7 @@ def ratchet(path, out=print):
     out("RATCHET GREEN: every ratcheted count is exactly its baseline"); return 0
 
 
-ARMS_FLOOR = 28
+ARMS_FLOOR = 36
 
 
 def selftest():
@@ -816,6 +959,59 @@ def selftest():
                 "rt_gc_visit_descr(&e->val); }\n")
     ck(len(lv) == 0 and any(x[2] == "g_tab" for x in lt),
        "a FIXED ARRAY of pointers is LATENT, not LIVE -- its storage is static so there is no block to mark, and calling that a defect is how this arm would become noise (it is exactly _var_buckets, which core_gc_roots marks per slot and marks correctly)")
+
+    # ⛔⭐ CLASS 3, RULED-PERMANENT, PROVED ON BOTH SIDES (ceo CEO-856).  A class whose citation arm has never been
+    # seen to RED is a hiding place with a comment on it, so every one of these arms plants the failure rather than
+    # asserting the success: an entry with a bogus ruling must RED, an entry beyond its licensed count must fall back
+    # to the ordinary grading, and a stale row must be NAMED.  The same shape as the fingerprint gate's planted arm.
+    global RULED_PERMANENT
+    _rp_saved = RULED_PERMANENT
+    try:
+        open(os.path.join(sd, "perm.c"), "w").write("void *f(void){ return ct_alloc(8); }\n")
+        reg = os.path.join(w, "ruled.tsv")
+        RULED_PERMANENT = reg
+
+        open(reg, "w").write("# f\nsrc/runtime/perm.c\tct_alloc\t1\tCEO-854\tproven unreachable, ruled arena\n")
+        buf.clear(); rc = census(w, out=buf.append); j = "\n".join(buf)
+        ck("CLASS-3-RULED-PERMANENT=1" in j and "ruled by CEO-854" in j and "MINUS THIS = 0" in j,
+           "A RULED-PERMANENT SITE IS COUNTED IN CLASS 3, NAMED WITH ITS RULING, AND TAKEN OUT OF THE RATCHETED NUMBER -- which is the whole point: it can never be rooted, so carrying it as debt makes the ratchet's target unreachable by construction")
+        ck(COUNTS.get("arena_in_runtime") == 1 and COUNTS.get("arena_in_runtime_ratcheted") == 0,
+           "and the RAW TOTAL is still measured and printed beside it -- two numbers, the honest total and the one the ratchet drives, neither replacing the other")
+        ck(COUNTS.get("arena_in_runtime_debt") == 0,
+           "a class-3 site is NOT also counted as class-2 debt -- one site, one class, or the debt number could never reach zero")
+
+        open(reg, "w").write("src/runtime/perm.c\tct_alloc\t1\tCEO-999999\tno such ruling\n")
+        buf.clear(); rc = census(w, out=buf.append); j = "\n".join(buf)
+        ck(rc == 1 and "CITATION DOES NOT RESOLVE" in j and "CEO-999999" in j,
+           "⛔ AN ENTRY WHOSE CITED RULING DOES NOT RESOLVE REDS -- an entry in class 3 with no ruling behind it is a CLASS 1 EVASION IN DISGUISE, and this arm is the only thing standing between a third class and a hiding place")
+
+        open(os.path.join(sd, "perm2.c"), "w").write("void *g(void){ return ct_alloc(8); }\nvoid *h(void){ return ct_alloc(9); }\n")
+        open(reg, "w").write("src/runtime/perm2.c\tct_alloc\t1\tCEO-854\tone site only\n")
+        buf.clear(); census(w, out=buf.append); j = "\n".join(buf)
+        ck("CLASS-3-RULED-PERMANENT=1" in j and COUNTS.get("arena_in_runtime_ratcheted") == 2,
+           "A ROW LICENCES A COUNT, NOT A FILE: the second ct_alloc in the same file beyond the licensed 1 falls straight back into the ordinary grading, so a row can never become a blanket amnesty")
+        os.remove(os.path.join(sd, "perm2.c"))
+
+        open(reg, "w").write("src/runtime/nowhere.c\tct_alloc\t1\tCEO-854\tstale\n")
+        buf.clear(); census(w, out=buf.append); j = "\n".join(buf)
+        ck("CLASS-3 UNUSED ROW" in j and "nowhere.c" in j,
+           "a row licensing a site the tree does not have is NAMED rather than silently carried -- a stale licence nobody can see is how the next one gets written for a site that never existed")
+
+        open(reg, "w").write("src/runtime/perm.c\tct_alloc\tnotanumber\tCEO-854\tbad row\n")
+        buf.clear(); rc = census(w, out=buf.append); j = "\n".join(buf)
+        ck(rc == 1 and "MALFORMED ROW" in j,
+           "and a MALFORMED row REDS rather than being dropped -- a row this reader silently skipped is a licence nobody granted and an evasion nobody would see")
+
+        open(reg, "w").write("src/runtime/perm.c\tct_alloc\t1\tCEO-854\tok\n")
+        global RECORD_OVERRIDE
+        RECORD_OVERRIDE = os.path.join(w, "no-such-record", "GOAL-CEO.md")
+        buf.clear(); rc = census(w, out=buf.append); j = "\n".join(buf)
+        RECORD_OVERRIDE = None
+        ck(rc == 2 and "NOT MEASURABLE" in j,
+           "⛔ AND A RECORD THAT CANNOT BE READ REFUSES rc=2 AHEAD OF BOTH VERDICTS -- an unmerged .github cannot resolve a ruling landed this morning, and convicting an honest entry because the reader is behind is the same fault as passing a dishonest one")
+        os.remove(os.path.join(sd, "perm.c"))
+    finally:
+        RULED_PERMANENT = _rp_saved
 
     saved = dict(COUNTS)
     try:

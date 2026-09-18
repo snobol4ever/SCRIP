@@ -111,6 +111,24 @@ else
   ck ok "(g) ownership is GRADED and every mismatch named: LIBC-OWNED-MISUSE=$lom (ratcheted by arm (d); ct_drop on a libc pointer leaks and the MAGIC guard makes that safe rather than correct)"
 fi
 
+# ⛔ (h) CLASS 3, RULED-PERMANENT (CEO-856, the cfo's shape).  Class 2 DEBT means "holder not yet rooted" and its
+# meaning is that it ratchets to ZERO; CEO-854 ruled five sites permanently and correctly arena, so carrying them as
+# debt makes that target unreachable BY CONSTRUCTION -- and a ratchet with an unreachable target teaches the fleet to
+# raise baselines instead of curing.  Class 3 is counted, PRINTED, and not driven to zero.  ⛔ THE CITATION IS THE
+# WHOLE SAFETY: an entry whose cited ruling does not resolve is a class-1 evasion in disguise, and the census REDS on
+# it.  Graded here so the reading is printed rather than inferred from a green line, and so an empty class 3 -- which
+# is the correct resting state today -- is visibly empty rather than absent.
+c3="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators CLASS-3-RULED-PERMANENT=\([0-9]*\) .*/\1/p' | head -1)"
+if [ -z "$c3" ]; then
+  ck no "(h) the class-3 census did not print -- with no third class the ratchet's target is unreachable by construction the moment a site is ruled permanent, and the instrument would be silent about which sites left the ratchet"
+elif printf '%s\n' "$out" | grep -q 'CLASS-3 CITATION DOES NOT RESOLVE'; then
+  ck no "(h) a CLASS-3 entry cites a ruling that does not resolve -- an entry in class 3 with no ruling behind it is a CLASS 1 EVASION IN DISGUISE: $(printf '%s\n' "$out" | grep -m2 'CLASS-3 CITATION DOES NOT RESOLVE' | tr '\n' ';' | cut -c1-260)"
+elif printf '%s\n' "$out" | grep -q 'CLASS-3 CITATIONS NOT MEASURABLE'; then
+  ck no "(h) the class-3 citations could not be checked at all -- merge .github and re-run; could-not-measure is never green (this arm is rc=2 shaped and is reported as not-green deliberately)"
+else
+  ck ok "(h) class 3 is GRADED with every citation resolved: CLASS-3-RULED-PERMANENT=$c3, each site named with the ruling that licensed it, counted and printed but NOT driven to zero (ARENA-IN-RUNTIME=${av:-?} total; the ratcheted number is that minus class 3)"
+fi
+
 cu="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators CONTAINER-UNMARKED LIVE=\([0-9]*\) .*/\1/p' | head -1)"
 if [ -z "$cu" ]; then
   ck no "(f) the container census did not print -- an instrument that goes quiet on this property certifies the shape as cured across the whole tree"
