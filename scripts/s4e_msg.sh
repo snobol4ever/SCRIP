@@ -2429,7 +2429,20 @@ case "$cmd" in
          # hq_I 2026-09-06, on a row hq_B minted for them: "the baton carries TWO DONE-WHEN lines, yours and
          # the mint placeholder underneath". The extractor takes the FIRST and a human reading down the file
          # takes the LAST, so the two readers of one file disagreed.)
-         dw_block="DONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row."
+         # ⛔⭐ THE PLACEHOLDER IS RUNNABLE AND ALWAYS RED (coo 2026-09-17, ceo CEO-829, row instrument-mint-writes-a-
+         # runnable-always-red-placeholder-so-a-new-row-is-red-not-permanently-uncloseable). It used to be PROSE, so
+         # every mint counted PERMANENTLY UNCLOSEABLE in test_gate_baton_donewhen_runnable.sh and pushed it past its
+         # ceiling -- REDDING make test for every seat. That happened TWICE IN ONE HOUR on 2026-09-17, both on rows
+         # the ceo asked for, and the ceo wrote both criteria by hand to clear the red: MINTING, THE SANCTIONED WAY
+         # TO ADD WORK, RED THE FLEET. The conflation was the defect, not the guard -- "nobody has written the
+         # criterion yet, this row is four minutes old" and "this row's criterion is broken prose from six weeks
+         # ago" are different facts. ⛔ THE GUARD IS NOT WEAKENED BY ONE INCH: this command EXITS 1, always, so
+         # `done` can never close a row wearing it -- a fresh row is RED (honest: not done, not closeable yet)
+         # instead of UNCLOSEABLE (a different and worse state). It is deliberately written in the self-refusing
+         # stub shape s4e_donewhen_is_placeholder already recognises, so every placeholder-aware reader -- the
+         # picker's refusal to dispatch, the hidden-criterion gate, the multiple-contracts scanner -- keeps working
+         # with no second spelling of the rule anywhere.
+         dw_block="DONE-WHEN: echo \"⛔ NOT MEASURED: this row was minted with no acceptance criterion. Replace this line with a command that MEASURES the GOAL above; until then the row is RED and can never close.\"; exit 1"
          if printf '%s\n' "$goal" | grep -q '^DONE-WHEN:'; then
              dw_block="$(printf '%s\n' "$goal" | sed -n '/^DONE-WHEN:/,$p')"
              goal="$(printf '%s\n' "$goal" | sed '/^DONE-WHEN:/,$d')"
