@@ -53,6 +53,21 @@
 # "regenerated away ... as its own last line predicted", and I destroyed both of the surviving ones by
 # regenerating before I fixed it.  Notes are carried forward now, so the convention no longer depends on each
 # caller remembering to restore them by hand.
+# RULED 2026-09-18 (ceo CEO-878, on the coo's measurement): THE 20 CONVERT, AND THEN THEY PARK until the
+# collector milestone. The ceo checked the sites rather than assuming -- all 16 in monitor_ipc_bin_csn.c allocate
+# and free their OWN blocks (names, lens, copy, the getline line buffer) and none frees csnobol4-owned memory, so
+# mechanical conversion is safe and does not repeat the getline ownership defect. A host-tool exemption was
+# refused as exactly the carve-out RULES.md forbids a seat writing for itself. ⛔ THE RATCHET STAYS AT 20 --
+# counted, named, not hard-zero, cannot grow -- because converting them moves neither conservative total nor
+# unpolled by one point and Lon's order is GC to 100%. The ceo takes the 20 themselves when unpolled reads 0.
+# ⛔ TWO FACTS RECORDED NOW SO THE NUMBER IS HONEST RATHER THAN SURPRISING LATER (CEO-878, each verified here by
+# the coo rather than carried on the telegram's word):
+#   (a) monitor_ipc_bin_csn.c also uses getline -- 1 site, measured -- which RULES.md line 31 forbids under
+#       CEO-850's widened set, so the conversion is 20 allocator sites PLUS one getline, not 20.
+#   (b) BOTH build recipes compile a SINGLE source file and will need ct_arena.c added to the command line:
+#       scripts/build_monitor_ipc_bin_libraries.sh, and scripts/test_gate_rakugram_precedence.sh which builds its
+#       temp-dir copies at lines 46 and 52 (`gcc -O0 -Wall -o .../prec_test ...prec_test.c` and the hll pair).
+#       Neither names ct_arena today, so a conversion that only edits the .c files will not link.
 forbidden_total	0
 malloc	0
 calloc	0
