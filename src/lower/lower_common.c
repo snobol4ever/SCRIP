@@ -18,6 +18,17 @@ static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_label_registry_reset(void) { g_bb_labels.n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void lower_gc_roots(void)
+{
+    extern void rt_gc_visit_raw(const char **);
+    if (!g_bb_labels.data) return;
+    rt_gc_visit_raw((const char **) &g_bb_labels.data);
+    for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
+        if (e->name) rt_gc_visit_raw((const char **) &e->name);
+        if (e->landing) rt_gc_visit_raw((const char **) &e->landing); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_label_registry_add(const char * name, IR_t * landing) {
     if (!name || !landing) return;
     bb_label_entry_t e; e.name = name; e.landing = landing;
@@ -207,7 +218,7 @@ void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v-
 void * lc_vec_push(lc_vec * v, const void * elem) {
     if (v->n >= v->cap) {
         int nc = v->cap ? v->cap * 2 : 8;
-        void * nd = realloc(v->data, (size_t) nc * (size_t) v->esz);
+        void * nd = v->data ? rt_ws_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_ws_alloc((size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
         v->data = nd; v->cap = nc;
     }
