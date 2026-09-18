@@ -60,12 +60,19 @@ r(){ python3 "$D" "$1" "$2" >"$W/out" 2>&1; echo $?; }
 # (e) THE REAL PAIR, out of the archive the ceo ruled into existence (CEO-827).  Every arm above plants its readings;
 # this one reads what a runner actually printed, because a reconstruction is faithful at best and this row exists
 # precisely because nobody could diff the real pair on the morning it was ruled.
+# ⛔ THE ARCHIVE IS DATA THE FLEET PRODUCES, NOT A PREREQUISITE OF THIS INSTRUMENT, and the difference was measured
+# rather than reasoned: the first cut REFUSED rc=2 when .github/board-lines was absent, and within the hour the cto
+# reported this gate redding THEIR preflight -- their .github checkout simply predated the ceo's archive commit.
+# A gate that reds a seat for the state of a sibling repo they have not merged is grading the wrong thing. So an
+# absent archive is NOT MEASURED, said out loud and named in the population line; the planted arms above still
+# prove the instrument, and arm (e) grades a real reading whenever one is on disk.
 BL="$HERE/../../.github/board-lines"
 if [ ! -d "$BL" ]; then
-  refuse "no $BL -- CEO-827 makes the verbatim board line part of a receipt, so its absence is an unmeasurable arm, not a green one"
+  ck ok "(e) NOT MEASURED against real readings: no $BL on this root (merge .github, or nobody has archived a board line yet) -- the planted arms above proved the instrument, and this run graded no runner's own output"
+  BL=""
 fi
 pair_found=0
-for f in "$BL"/*.tsv; do
+for f in ${BL:+"$BL"/*.tsv}; do
   [ -f "$f" ] || continue
   # any suite archived at two different trees is a real pair; take the first and grade the instrument on it
   read -r suite t1 t2 <<<"$(awk -F'\t' '!/^#/ && NF>=4 { if (seen[$2] != "" && seen[$2] != $1) { print $2, seen[$2], $1; exit } seen[$2]=$1 }' "$f")"
@@ -80,7 +87,7 @@ for f in "$BL"/*.tsv; do
   pair_found=1
   break
 done
-[ "$pair_found" = 1 ] || ck ok "(e) the archive exists but holds no suite at two trees yet -- NOT MEASURED against real readings this run, and said so rather than counted as coverage"
+[ "$pair_found" = 1 ] || [ -z "$BL" ] || ck ok "(e) the archive exists but holds no suite at two trees yet -- NOT MEASURED against real readings this run, and said so rather than counted as coverage"
 
 # (f) THE CALLER (CEO-827 (3)): the base-vs-head control arm of a shared-node landing is the only place two readings
 # of one suite exist at once, and the diff's verdict is part of that arm's verdict. The wrapper ENFORCES the entry

@@ -154,6 +154,13 @@ CRITERION_CHANGES = [
     "closing brace and read the next routine's poll, so bb_call_proc_staged.cpp:88 read a FALSE POLLED. unpolled "
     "202 -> 203 IS THE INSTRUMENT GETTING HONEST, NOT A LANDING GOING BACKWARDS -- the same tree, one site that was "
     "never counted before, and it is genuinely unpolled.",
+    "2026-09-17 cto, SCRIP 5dd2d79f0, recorded here by the coo: COVERAGE. Every words_scanned / interior_words "
+    "reading taken BEFORE that tree was taken through a blindfold and none of them bounds anything: the conservative "
+    "sniff gc_zeta_frame started at the address of a char local, three bytes off a word boundary, so it found ZERO "
+    "arena-pointing words on the main stack -- measured 0 unaligned against 3, 7, 11, 12 aligned over the same four "
+    "collections. A zero from a walker that was mis-started is not a small number, it is NOT A MEASUREMENT, and the "
+    "coverage census's own RED=1 is the only reading of that criterion that survives. hq_snocone's decidable test and "
+    "the poison-fill arm are decidable on 5dd2d79f0 or later, never before it.",
     "2026-09-17 coo, same sitting: safe-points. THE CENSUS IS TOLD HOW TO READ A COMPUTED TARGET -- array, macro, "
     "chooser and resolver-out-parameter, each named beside the site it resolves. The last 7 UNRESOLVED sites entered "
     "the denominator: unresolved 7 -> 0, allocating_call_sites 203 -> 210, unpolled 203 -> 210. Three of the seven are "
