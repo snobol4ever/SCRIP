@@ -24,3 +24,4 @@
 # not the entry, because naming another seat's site before their landing is guessing at code that does not exist yet.
 #
 # file	symbol	sites	ruling	reason
+src/runtime/core/core.c	ct_grow	1	CEO-854	the shared line readers buffer: every runtime getline buffer is scratch whose bytes are copied onto the collected heap by rt_heap_strdup_c before the program can see them, so no live DESCR ever points at it and there is no landing in which rooting it becomes correct

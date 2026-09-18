@@ -583,6 +583,38 @@ static int    *g_bin_name_lens  = NULL;
 static int     g_bin_n_names    = 0;
 static int     g_bin_names_cap  = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_line_cap(char **buf, size_t *cap, size_t want)
+{
+    size_t nc = *cap ? *cap : 128;
+    char *nb;
+    if (*buf && *cap >= want) return 1;
+    while (nc < want) nc *= 2;
+    nb = (char *)ct_grow((void *)*buf, nc);
+    if (!nb) return 0;
+    *buf = nb; *cap = nc;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ssize_t rt_line_read(char **buf, size_t *cap, FILE *f)
+{
+    size_t n = 0;
+    int c;
+    if (!buf || !cap || !f) return -1;
+    if (!rt_line_cap(buf, cap, 128)) return -1;
+    flockfile(f);
+    for (;;) {
+        c = getc_unlocked(f);
+        if (c == EOF) break;
+        if (n + 2 > *cap && !rt_line_cap(buf, cap, n + 2)) { funlockfile(f); return -1; }
+        (*buf)[n++] = (char)c;
+        if (c == '\n') break;
+    }
+    funlockfile(f);
+    if (n == 0) { (*buf)[0] = '\0'; return -1; }
+    (*buf)[n] = '\0';
+    return (ssize_t)n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int load_names_file_bin(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
@@ -593,7 +625,7 @@ static int load_names_file_bin(const char *path) {
     int n = 0;
     char *line = NULL; size_t lcap = 0;
     ssize_t got;
-    while ((got = getline(&line, &lcap, f)) >= 0) {
+    while ((got = rt_line_read(&line, &lcap, f)) >= 0) {
         if (got > 0 && line[got-1] == '\n') { line[got-1] = '\0'; got--; }
         if (got > 0 && line[got-1] == '\r') { line[got-1] = '\0'; got--; }
         if (n == cap) {
@@ -3076,7 +3108,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && !_io_chan[ch].is_output && _io_chan[ch].fp) {
-        ssize_t nread = getline(&_io_chan[ch].buf, &_io_chan[ch].cap, _io_chan[ch].fp);
+        ssize_t nread = rt_line_read(&_io_chan[ch].buf, &_io_chan[ch].cap, _io_chan[ch].fp);
         if (nread < 0) return FAILDESCR;
         if (nread > 0 && _io_chan[ch].buf[nread-1] == '\n') { _io_chan[ch].buf[nread-1] = '\0'; nread--; }
         if (kw_trim) {
@@ -3983,7 +4015,7 @@ DESCR_t terminal_read(void) {
     if (!_terminal_tried) { _terminal_tried = 1; _terminal_fp = fopen("/dev/tty", "r"); }
     if (!_terminal_fp) return FAILDESCR;
     static char *tbuf = NULL; static size_t tcap = 0;
-    ssize_t nread = getline(&tbuf, &tcap, _terminal_fp);
+    ssize_t nread = rt_line_read(&tbuf, &tcap, _terminal_fp);
     if (nread < 0) return FAILDESCR;
     if (nread > 0 && tbuf[nread-1] == '\n') { tbuf[nread-1] = '\0'; nread--; }
     if (kw_trim) {
@@ -4002,7 +4034,7 @@ DESCR_t input_read(void) {
         b[got] = '\0';
         { DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; }
     }
-    ssize_t nread = getline(&_input_buf, &_input_cap, _input_fp);
+    ssize_t nread = rt_line_read(&_input_buf, &_input_cap, _input_fp);
     if (nread < 0) return FAILDESCR;
     if (nread > 0 && _input_buf[nread-1] == '\n') { _input_buf[nread-1] = '\0'; nread--; }
     if (nread > RT_INPUT_DEFAULT_RECLEN) { nread = RT_INPUT_DEFAULT_RECLEN; _input_buf[nread] = '\0'; }

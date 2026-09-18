@@ -1,12 +1,12 @@
+# c_allocator_baseline.tsv -- the counts Lon's eradication order drives to 0 (coo, CEO-842/843).
+# Written by `util_c_allocator_census.py --write-baseline`; the landing that lowers a count
+# rewrites this file in the same sitting.  key	count
 # CRITERION CHANGED 2026-09-18 (coo, ceo CEO-856): the ratcheted arena key is now arena_in_runtime_ratcheted,
 # the ARENA-IN-RUNTIME total MINUS class 3 RULED-PERMANENT. The raw total is still measured and PRINTED; it is
 # no longer the ratcheted number, because CEO-854 ruled five sites permanently and correctly arena and a ratchet
 # whose target is unreachable by construction teaches the fleet to raise baselines. The number is UNCHANGED at
 # 114 on this tree (class 3 is empty until a landing writes a row), so this line changes the CRITERION and not
 # the reading -- and any site that leaves the ratchet must be named with a ruling that resolves, or the census reds.
-# c_allocator_baseline.tsv -- the counts Lon's eradication order drives to 0 (coo, CEO-842/843).
-# Written by `util_c_allocator_census.py --write-baseline`; the landing that lowers a count
-# rewrites this file in the same sitting.  key	count
 # CRITERION ADDED 2026-09-18 (coo, CEO-850 / RULES.md line 29 as amended): `libc_owned_misuse` 6 -- a block
 # LIBC owns handed to OUR bookkeeping.  The sweep rewrote free(X) to ct_drop(X) mechanically, and six of
 # those X are getline-owned: core.c 601/604/610 (line), core.c 1343 (_io_chan[ch].buf, which is the cfo's
@@ -27,6 +27,15 @@
 # that any holder was rooted.  The remaining 114 still ratchet to 0 the way RULES.md line 29 class (2) says.
 # The ceo's CEO-842 note recording the 0 -> 126 rise is regenerated away by --write-baseline and lives in git
 # history at SCRIP 36f0edab5, as its own last line predicted.
+# COUNT EARNED 2026-09-18 (cfo, CEO-850/854): `libc_owned_misuse` falls 6 -> 0 and NONE of the six lines the
+# coo named was edited.  The sweep had rewritten free(X) into ct_drop(X) over six glibc-owned getline buffers;
+# ct_drop hunts a magic header it does not own, does not find it and returns silently, so each one LEAKED --
+# the MAGIC guard made it safe rather than correct.  The five getline call sites now read through one shared
+# arena-backed reader, so THE BLOCK IS OURS and every one of those ct_drop calls is correct as written.  The
+# cure is in the declarations, not at the six sites, which is why the count moves without those lines changing.
+# ⛔ The same landing adds ONE ct_grow (the shared reader's buffer) which is CLASS 3, ruled permanent by
+# CEO-854 and licensed in c_allocator_ruled_permanent.tsv -- arena_in_runtime reads 115 while the ratcheted
+# debt stays 114, because a buffer the program only ever sees copies of can never repay a debt by being rooted.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -38,4 +47,4 @@ arena_in_runtime_ratcheted	114
 arena_in_runtime_evasion	0
 arena_in_runtime_debt	114
 container_unmarked_live	1
-libc_owned_misuse	6
+libc_owned_misuse	0

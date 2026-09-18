@@ -13,6 +13,7 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 int core_icn_error(int code, DESCR_t val);
 void rt_pl_iso_throw_existence_key(const char *key);
 extern int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
+extern ssize_t rt_line_read(char **buf, size_t *cap, FILE *f);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_loadfunc_cstr_args(DESCR_t *args, int nargs) {
     for (int i = 0; i < nargs && i < 2; i++) {
@@ -7176,7 +7177,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5874: ;
     if ((_bid == BID_read) && nargs == 0) {
-        char *ln = NULL; size_t cap = 0; ssize_t got = getline(&ln, &cap, stdin);
+        char *ln = NULL; size_t cap = 0; ssize_t got = rt_line_read(&ln, &cap, stdin);
         if (got < 0) { ct_drop(ln); *out = FAILDESCR; return 1; }
         size_t len = (size_t)got;
         if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
