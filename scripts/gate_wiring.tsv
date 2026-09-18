@@ -81,6 +81,7 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_fc_side_tables_are_reset_at_every_runtime_compile_entry.sh	WIRED	-	-	-
+test_gate_findings_live_in_the_findings_directory.sh	WIRED	-	-	-
 test_gate_frame_det_leaf_seal_matches_the_emitter_registry.sh	WIRED	-	-	-
 test_gate_frame_field_census_names_what_no_template_addresses.sh	WIRED	-	-	-
 test_gate_frame_layout_retires_a_dead_graphs_record.sh	WIRED	-	-	-
@@ -103,6 +104,7 @@ test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_gc_icon_allocating_boxes_poll_after_storing_the_result.sh	WIRED	-	-	-
 test_gate_gc_instrument_censuses_are_wired_and_trip.sh	WIRED	-	-	-
 test_gate_gc_map_table_present_in_both_media.sh	WIRED	-	-	-
+test_gate_gc_maps_reporter_runs_beside_the_scan.sh	WIRED	-	-	-
 test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_pas_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
@@ -218,7 +220,6 @@ test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
 test_gate_no_bb_bin_t.sh	WIRED	-	-	-
 test_gate_no_bench_kernel_qualifies_for_gva_demotion.sh	WIRED	-	-	-
-test_gate_findings_live_in_the_findings_directory.sh	WIRED	-	-	-
 test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
 test_gate_no_implicit_declarations.sh	WIRED	-	-	-
 test_gate_no_language_discriminator_in_the_runtime.sh	WIRED	-	-	-

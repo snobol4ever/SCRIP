@@ -698,9 +698,57 @@ static int gc_block_exact(const char *q, uint16_t want_type)
     { rt_hblk_t *h = gc_blk_of(q); return (h && (char *)(h + 1) == q && h->type == want_type && (h->flags & HBF_TTL)) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int  g_gc_maps_rep = -1;
+#define GC_REP_POPS 4
+static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk" };
+static long g_gc_rep_ranges[GC_REP_POPS], g_gc_rep_bytes[GC_REP_POPS], g_gc_rep_agree[GC_REP_POPS], g_gc_rep_map_only[GC_REP_POPS], g_gc_rep_sniff_only[GC_REP_POPS];
+static int g_gc_rep_pop = 0;
+static int gc_maps_on(void) { if (g_gc_maps_rep < 0) { const char *e = getenv("SCRIP_GC_MAPS"); g_gc_maps_rep = (e && *e && *e != '0') ? 1 : 0; } return g_gc_maps_rep; }
+static int gc_type_says_ref(const DESCR_t *d)
+{
+    switch (d->v) {
+        case DT_S:    return 1;
+        case DT_T:    return 1;
+        case DT_A:    return 1;
+        case DT_DATA: return 1;
+        case DT_N:    return d->slen == 0 || d->slen == 2;
+        default:      return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_sniff_would_take(const DESCR_t *d)
+{
+    if (d->v == DT_S || (d->v == DT_N && d->slen == 0)) {
+        rt_hblk_t *h = gc_blk_of(d->s);
+        if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) return 1; }
+    if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) return 1; }
+    if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) return 1; }
+    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) return 1;
+    if (d->v == DT_DATA && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_maps_report_range(const char *lo0, const char *hi0)
+{
+    char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
+    char *p;
+    int k = g_gc_rep_pop;
+    if (lo >= hi) return;
+    g_gc_rep_ranges[k]++;
+    g_gc_rep_bytes[k] += (long)(hi - lo);
+    for (p = lo; p + 16 <= hi; p += 16) {
+        const DESCR_t *d = (const DESCR_t *)p;
+        int t = gc_type_says_ref(d), sn = gc_sniff_would_take(d);
+        if (t && sn) g_gc_rep_agree[k]++;
+        else if (t && !sn) g_gc_rep_map_only[k]++;
+        else if (!t && sn) g_gc_rep_sniff_only[k]++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_zeta_frame(const char *lo0, const char *hi0)
 {
     char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
+    if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
     char *p = lo;
     while (p + 8 <= hi) {
         if (p + 16 <= hi) { DESCR_t *d = (DESCR_t *)p; rt_hblk_t *h = (d->v == DT_S || (d->v == DT_N && d->slen == 0)) ? gc_blk_of(d->s) : (rt_hblk_t *)0;
@@ -755,21 +803,25 @@ static long gc_collect_ex(int cons_stack)
     }
     rt_gc_ws_roots();
     if (!pz) { char *chi; gc_coexpr_roots(&chi);
-      if (cons_stack) { char *lo = g_gc_seam_sp ? g_gc_seam_sp : &anchor, *hi = chi ? chi : gc_stack_top(); if (lo < hi) gc_zeta_frame(lo, hi); } }
+      if (cons_stack) { char *lo = g_gc_seam_sp ? g_gc_seam_sp : &anchor, *hi = chi ? chi : gc_stack_top(); if (lo < hi) { g_gc_rep_pop = 1; gc_zeta_frame(lo, hi); g_gc_rep_pop = 0; } } }
     gc_root_cas();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }
     kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots();
+    if (gc_maps_on()) for (int k = 0; k < GC_REP_POPS; k++) if (g_gc_rep_ranges[k])
+        fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld\n",
+            g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k], g_gc_rep_agree[k], g_gc_rep_map_only[k], g_gc_rep_sniff_only[k],
+            g_gc_rep_map_only[k] + g_gc_rep_sniff_only[k]);
     { static int au = -1; if (au < 0) { const char *e = getenv("SCRIP_GC_AUDIT_SLOTS"); au = (e && *e && *e != '0') ? 1 : 0; }
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
         fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un); } }
     if (pz) { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) rt_gc_visit_raw((const char **)&rtccb[ci]); }
-    if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) gc_zeta_frame(g_gc_seam_sp, sst); }
+    if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) { g_gc_rep_pop = 2; gc_zeta_frame(g_gc_seam_sp, sst); g_gc_rep_pop = 0; } }
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
     { long walked = 0, nscan = 0, rounds = 0;
       { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
-            if (hb_scan_interior(h->type) || h->type == HB_PLJ) { gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); continue; }
+            if (hb_scan_interior(h->type) || h->type == HB_PLJ) { g_gc_rep_pop = 3; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); g_gc_rep_pop = 0; continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
             if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);

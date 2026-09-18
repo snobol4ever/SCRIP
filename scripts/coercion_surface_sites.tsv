@@ -75,3 +75,4 @@ src/runtime/by_name_dispatch.c	pl_iso_unbound	-	Prolog ISO unbound-variable test
 src/runtime/by_name_dispatch.c	pl_text_is_unbalanced	-	Prolog text balance check; same reason
 src/runtime/by_name_dispatch.c	rt_pl_dop_atomic_list_concat_c	-	Prolog atomic_list_concat/2,3; same reason
 src/runtime/by_name_dispatch.c	rt_pl_dop_concat_atom_c	-	Prolog atom_concat/3; same reason
+src/runtime/rt/gc_heap.c	gc_type_says_ref	-	SCRIP_GC_MAPS reporter only, never a coercion: it asks whether a tag REFERENCES THE HEAP, not what a value coerces to, and it is read-only beside the conservative scan. A new tag owes a row here only if the tag can hold a heap pointer; a new non-referencing tag correctly falls to default and is counted as not-a-slot (F6 step 3, ceo CEO-867)
