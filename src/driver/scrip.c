@@ -72,6 +72,7 @@ static void n2_fb_prepass_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N
     fprintf(stderr, "[N2-FB] PREPASS-END procs=%d\n", s2->proc_count); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_XGRAPH")) return;
+    extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *);
     fprintf(stderr, "[N2-XG] window=post-drive_slots_all procs=%d bbp.count=%d\n", s2->proc_count, s2->bbp.count);
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) { fprintf(stderr, "[N2-XG] proc=%s UNREACHABLE gi=%d\n", pn ? pn : "(null)", gi); continue; }

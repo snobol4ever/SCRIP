@@ -6,3 +6,4 @@
 # cannot: a cured directory is one line, and an uncured one is named out loud in every run.
 src/runtime/
 src/parsers/
+src/driver/
