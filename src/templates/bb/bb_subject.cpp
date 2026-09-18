@@ -26,6 +26,7 @@ std::string bb_subject() {
            + x86("call",    "rt_subject_load_nv", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, void *))rt_subject_load_nv)
            + x86_align_leave()
            + x86("add",     "rsp", (long)8)
+           + x86_rt_gc_poll()
            + x86_gamma()
            + x86_beta_trampoline() ) :
            !_.op_a_sval ? x86_alpha() + x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)") :

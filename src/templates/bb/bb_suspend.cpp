@@ -35,6 +35,7 @@ std::string bb_suspend() {
          + x86("call", "rt_trace_suspend_hook", (uint64_t)(uintptr_t)(void *)rt_trace_suspend_hook)
          + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax")
          + x86("comment", "THE DEREFERENCE IS NOT HERE, AND THAT IS THE WHOLE POINT: a yielded VARIABLE has two consumers, the trace tap above which must image the variable, and the invoking expression which usually wants the value -- and only the CALLER knows which it is. It dereferences at the call (lower_icon.c, IR_DEREF over a user-procedure call in rvalue position) and does not when the call is itself an lvalue, which is what lets `every vproc(b) := 0` assign through a suspended list element. Dereferencing here instead served the tap and destroyed the variable for everyone else.")
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta()
          + x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)

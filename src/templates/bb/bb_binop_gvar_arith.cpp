@@ -45,6 +45,7 @@ std::string bb_binop_gvar_arith() {
                           + x86("mov", "rsi", "rax")
                           + x86("pop", "rdx")
                           + x86("call", "rt_gvar_assign_descr", (uint64_t)(uintptr_t)(void *) rt_gvar_assign_descr)
+                          + x86_rt_gc_poll()
                           + x86_gamma()
                           + x86_beta_trampoline())
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))

@@ -18,5 +18,6 @@ std::string bb_coret() {
            + x86("mov",  "rsi", FRQ(_.op_sa + 8))
            + x86("xor",  "edx", "edx")
            + x86("call", "scrip_coret", (uint64_t)(uintptr_t)(void *)scrip_coret)
+           + x86_rt_gc_poll()
            + x86_gamma());
 }

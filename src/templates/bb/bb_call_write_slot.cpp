@@ -22,6 +22,7 @@ static bb_label_t * bb_call_write_beta_target() {
      + x86("mov", "rdi", FRQ(off)) \
      + x86("mov", "rsi", FRQ((off) + 8)) \
      + x86("call", "rt_write_any_nl", (uint64_t)(uintptr_t)(void*)rt_write_any_nl) \
+     + x86_rt_gc_poll() \
      + x86_gamma() \
      + x86_beta() \
      + ((beta_tgt) == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0)))
@@ -34,6 +35,7 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
      + x86("mov", "rdi", FRQ(off)) \
      + x86("mov", "rsi", FRQ((off) + 8)) \
      + x86("call", "rt_write_any_nl", (uint64_t)(uintptr_t)(void*)rt_write_any_nl) \
+     + x86_rt_gc_poll() \
      + x86_gamma() \
      + x86_beta() \
      + ((beta_tgt) == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0)))

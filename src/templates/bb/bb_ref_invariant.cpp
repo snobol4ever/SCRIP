@@ -16,6 +16,7 @@ std::string bb_ref_invariant() {
          + x86_align_enter()
          + x86("call", "rt_gvar_assign_pat", (uint64_t)(uintptr_t)(void *)(void(*)(const char*,void*))rt_gvar_assign_pat)
          + x86_align_leave()
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_pair_loop();
 }
