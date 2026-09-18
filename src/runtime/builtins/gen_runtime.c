@@ -320,4 +320,39 @@ void gen_gc_roots(void)
     rt_gc_visit_descr(&drive_val);
     for (int f = 0; f < frame_depth; f++) { GenFrame *fr = &frame_stack[f]; for (int i = 0; i < fr->env_n; i++) rt_gc_visit_descr(&fr->env[i]); rt_gc_visit_descr(&fr->return_val); for (int g = 0; g < fr->gen_depth; g++) rt_gc_visit_raw(&fr->gen[g].sval); }
     rt_gc_visit_raw(&scan_subj);
+    for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) if (scan_saved[i].subj) rt_gc_visit_raw(&scan_saved[i].subj);
+    { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gen_gc_visit_scan_state(void *p)
+{
+    extern void rt_gc_visit_raw(const char **loc);
+    ScanState *s = (ScanState *)p;
+    if (!s) return;
+    if (s->subj) rt_gc_visit_raw(&s->subj);
+    for (int i = 0; i < s->saved_depth && i < SCAN_STACK_MAX; i++) if (s->saved[i].subj) rt_gc_visit_raw(&s->saved[i].subj);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gen_audit_one(const char **loc, long *hp, long *un)
+{
+    extern int rt_gc_ptr_in_heap_slot(const char *);
+    extern int rt_gc_slot_registered(const void *);
+    if (!*loc || !rt_gc_ptr_in_heap_slot(*loc)) return;
+    (*hp)++;
+    if (!rt_gc_slot_registered((const void *)loc)) (*un)++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gen_gc_audit_scan_state(void *p, long *hp, long *un)
+{
+    ScanState *s = (ScanState *)p;
+    if (!s) return;
+    gen_audit_one(&s->subj, hp, un);
+    for (int i = 0; i < s->saved_depth && i < SCAN_STACK_MAX; i++) gen_audit_one(&s->saved[i].subj, hp, un);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gen_gc_audit_scan_slots(long *hp, long *un)
+{
+    extern void rt_coexpr_gc_audit_scan_states(long *, long *);
+    for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) gen_audit_one(&scan_saved[i].subj, hp, un);
+    rt_coexpr_gc_audit_scan_states(hp, un);
 }

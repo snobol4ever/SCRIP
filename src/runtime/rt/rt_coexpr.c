@@ -296,6 +296,22 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_co_gc_link(scrip_coctx_t *ctx) { ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx; }
+void rt_coexpr_gc_scan_states(void)
+{
+    extern void gen_gc_visit_scan_state(void *);
+    scrip_coctx_t *c;
+    gen_gc_visit_scan_state(g_root_ctx.scan_state);
+    for (c = g_co_gc_head; c; c = c->gc_next) gen_gc_visit_scan_state(c->scan_state);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_coexpr_gc_audit_scan_states(long *hp, long *un)
+{
+    extern void gen_gc_audit_scan_state(void *, long *, long *);
+    scrip_coctx_t *c;
+    gen_gc_audit_scan_state(g_root_ctx.scan_state, hp, un);
+    for (c = g_co_gc_head; c; c = c->gc_next) gen_gc_audit_scan_state(c->scan_state, hp, un);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
 scrip_coctx_t *scrip_co_gc_root(void) { if (g_root_ctx.serial == 0) g_root_ctx.serial = 1; return &g_root_ctx; }
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
