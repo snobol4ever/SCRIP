@@ -361,10 +361,11 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             unpolled.append(f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}"
                             + (f" [{rule}, {len(syms)} candidate(s)]" if rule else ""))
     out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} unpolled={len(unpolled)} unresolved={len(unresolved)} want unpolled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
-    for u in unpolled[:25]:
+    cap = len(unpolled) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 25
+    for u in unpolled[:cap]:
         out(f"  UNPOLLED {u}")
-    if len(unpolled) > 25:
-        out(f"  ... {len(unpolled) - 25} more unpolled")
+    if len(unpolled) > cap:
+        out(f"  ... {len(unpolled) - cap} more unpolled -- SCRIP_GC_CENSUS_LIST_ALL=1 prints every one (a count without names cannot be triaged, and 208 sites is a worklist, not a verdict)")
     for r in resolved:
         out(f"  RESOLVED {r}")
     for u in unresolved[:10]:
