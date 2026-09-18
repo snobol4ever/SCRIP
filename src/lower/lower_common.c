@@ -21,11 +21,13 @@ void bb_label_registry_reset(void) { g_bb_labels.n = 0; }
 void lower_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **);
-    if (!g_bb_labels.data) return;
-    rt_gc_visit_raw((const char **) &g_bb_labels.data);
-    for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
-        if (e->name) rt_gc_visit_raw((const char **) &e->name);
-        if (e->landing) rt_gc_visit_raw((const char **) &e->landing); }
+    extern void bb_src_gc_roots(void);
+    if (g_bb_labels.data) {
+        rt_gc_visit_raw((const char **) &g_bb_labels.data);
+        for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
+            if (e->name) rt_gc_visit_raw((const char **) &e->name);
+            if (e->landing) rt_gc_visit_raw((const char **) &e->landing); } }
+    bb_src_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -259,15 +261,16 @@ IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const 
     return g2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * cx, const tree_t * const * args) {
-    IR_LIT(call).dval = dv;
-    if (nargs <= 0) return;
-    IR_graph_t ** blks = (IR_graph_t **) calloc((size_t) nargs, sizeof(IR_graph_t *));
-    if (!blks) return;
-    for (int k = 0; k < nargs; k++) blks[k] = mk(cx, args[k]);
-    (void)(blks);
-}
 static struct { const IR_t ** nd; const char ** src; int * line; int n; int max; } g_bb_src = { 0, 0, 0, 0, 0 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_src_gc_roots(void)
+{
+    extern void rt_gc_visit_raw(const char **);
+    if (g_bb_src.nd) rt_gc_visit_raw((const char **) &g_bb_src.nd);
+    if (g_bb_src.src) rt_gc_visit_raw((const char **) &g_bb_src.src);
+    if (g_bb_src.line) rt_gc_visit_raw((const char **) &g_bb_src.line);
+    for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i]) rt_gc_visit_raw((const char **) &g_bb_src.nd[i]); if (g_bb_src.src[i]) rt_gc_visit_raw((const char **) &g_bb_src.src[i]); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_note(const IR_t * nd, const char * src, int line) {
     if (!nd || !src || !src[0]) return;
@@ -278,18 +281,17 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
                       if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }
         size_t la = strlen(g_bb_src.src[i]);
         size_t lb = strlen(src);
-        char * j = (char *) malloc(la + lb + 2);
+        char * j = (char *) rt_ws_alloc(la + lb + 2);
         if (!j) return;
         memcpy(j, g_bb_src.src[i], la); j[la] = '\n'; memcpy(j + la + 1, src, lb); j[la + 1 + lb] = 0;
         g_bb_src.src[i] = lp_strdup(j);
-        free(j);
         return;
     }
     if (g_bb_src.n >= g_bb_src.max) {
         int m = g_bb_src.max ? g_bb_src.max * 2 : 256;
-        const IR_t ** a = (const IR_t **) realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
-        const char ** b = (const char **) realloc((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
-        int * c = (int *) realloc((void *) g_bb_src.line, (size_t) m * sizeof(int));
+        const IR_t ** a = (const IR_t **) rt_ws_realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
+        const char ** b = (const char **) rt_ws_realloc((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
+        int * c = (int *) rt_ws_realloc((void *) g_bb_src.line, (size_t) m * sizeof(int));
         if (!a || !b || !c) return;
         g_bb_src.nd = a; g_bb_src.src = b; g_bb_src.line = c; g_bb_src.max = m;
     }
