@@ -1358,7 +1358,11 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
 void rt_gc_ws_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
-    for (int i = 0; i < g_name_save_top; i++) rt_gc_visit_descr(&g_name_save[i].old);
+    if (g_name_save) rt_gc_visit_raw((const char **)&g_name_save);
+    for (int i = 0; i < g_name_save_top; i++) {
+        if (g_name_save[i].name) rt_gc_visit_raw((const char **)&g_name_save[i].name);
+        if (g_name_save[i].cell) rt_gc_visit_raw((const char **)&g_name_save[i].cell);
+        rt_gc_visit_descr(&g_name_save[i].old); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char g_lvl_own[1 << 16];
