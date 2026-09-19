@@ -634,7 +634,7 @@ static int load_names_file_bin(const char *path) {
             lens  = (int  *)rt_ws_realloc(lens,  cap * sizeof(int));
             if (!names || !lens) { fclose(f); ct_drop(line); return -1; }
         }
-        char *copy = (char *)rt_ws_alloc((size_t)got + 1);
+        char *copy = (char *)rt_wsb_alloc((size_t)got + 1);
         if (!copy) { fclose(f); ct_drop(line); return -1; }
         memcpy(copy, line, (size_t)got + 1);
         names[n] = copy;
@@ -678,7 +678,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
         g_bin_name_lens = nl;
         g_bin_names_cap = new_cap;
     }
-    char *copy = (char *)rt_ws_alloc((size_t)len + 1);
+    char *copy = (char *)rt_wsb_alloc((size_t)len + 1);
     if (!copy) return MW_NAME_ID_NONE;
     if (len > 0) memcpy(copy, p, (size_t)len);
     copy[len] = '\0';
@@ -3907,7 +3907,7 @@ static const char *_define_cstr(DESCR_t d) {
     const char *s = VARVAL_fn(d);
     { extern int IS_VARREF_fn(DESCR_t); extern DESCR_t rt_deref(DESCR_t); if (IS_VARREF_fn(d)) d = rt_deref(d); }
     if (!s || d.v != DT_S || !d.s) return s;
-    { size_t len = descr_slen(d); char *c = rt_ws_alloc(len + 1); memcpy(c, d.s, len); c[len] = 0; return c; }
+    { size_t len = descr_slen(d); char *c = rt_wsb_alloc(len + 1); memcpy(c, d.s, len); c[len] = 0; return c; }
 }
 static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;

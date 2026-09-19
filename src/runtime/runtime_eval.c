@@ -12,6 +12,7 @@
 _Static_assert(RT_DCAP_TOP == 0x70000000UL, "rt_chain_enter/rt_chain_enter_v seed r12 from the absolute slot 0x70000000 written literally in their asm, exactly as rt_outer_call and main's prologue do; if pin_va.h moves the pin the trampolines read a DEAD page and hand generated code a zero pend top");
 _Static_assert(RT_DCAP_ISLAND_BYTES == 67108864UL, "rt_chain_enter/rt_chain_enter_v bound-test r12 against base+67108864 written literally in their asm to tell a LIVE pend top from C's own callee-saved value; if the island resizes the test admits or rejects the wrong halves of it");
 #include "stage2.h"
+extern void *rt_wsb_alloc(size_t n);
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
@@ -235,7 +236,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     size_t n = strlen(s);
-    char *src = (char *)rt_ws_alloc(n + 4);
+    char *src = (char *)rt_wsb_alloc(n + 4);
     if (!src) return NULL;
     snprintf(src, n + 4, "(%s)", s);
     extern void sno_error_quiet_begin(void); extern void sno_error_quiet_end(void); extern const char *sno_error_captured(void); extern const char *g_sno_errtext;
