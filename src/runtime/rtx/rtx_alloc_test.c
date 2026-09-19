@@ -56,7 +56,7 @@ int main(void) {
     pair("payload 33",       1, 33);
     pair("payload 4096",     1, 4096);
     pair("type HB_WSC-ish",  201, 48);
-    pair("type HB_PLJ 209",  209, 32);
+    pair("type HB_PLDB 216", 216, 32);
     pair("type DT_S big",    1, 65536);
     pair("type 0",           0, 24);
     pair("type 65535",       65535, 24);

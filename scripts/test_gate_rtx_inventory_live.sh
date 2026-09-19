@@ -36,7 +36,7 @@ SO=out/libscrip_rt.so
 [ -f "$SO" ] || { echo "FAIL: $SO not built — run make first (this gate reads the linker's symbol table)"; exit 1; }
 NMSYMS=$(nm -g --defined-only "$SO" 2>/dev/null | awk '{print $3}')
 SYMS="
-ALLOC:rt_gcheap_alloc rt_str_alloc rt_str_dup rt_ws_alloc rt_ws_realloc rt_ws_strdup rt_ws_alloc_c rt_agg_alloc rt_plj_alloc blk_alloc blk_free
+ALLOC:rt_gcheap_alloc rt_str_alloc rt_str_dup rt_ws_alloc rt_ws_realloc rt_ws_strdup rt_ws_alloc_c rt_agg_alloc rt_pl_struct_alloc rt_pvec_alloc rt_wsb_realloc blk_alloc blk_free
 STR:str_concat_d rt_concat rt_lcomp rt_acomp rt_coerce_str_d rt_substr
 CALL:rt_proc_call_open rt_proc_call_open_slim rt_proc_call_epilogue_ rt_proc_call_epilogue_slim_ rt_proc_open_fn rt_call_arr rt_call_named_proc rt_call rt_arg_stage rt_do_return rt_define rt_define_entry rt_proc_register rt_proc_reset rt_frame
 AGG:rt_subscript_var rt_deref rt_field_var record_register

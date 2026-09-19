@@ -1,6 +1,7 @@
 #include "rt/rt_arena.h"
 #include "ct_arena.h"
 #include "rt/rt.h"
+#include "rt/gc_heap.h"
 #include "core.h"
 #include "core/utf8.h"
 #include "bb_pool.h"
@@ -2047,7 +2048,7 @@ typedef struct { int i; int mark; } pl_flagit_t;
 typedef struct { int si; int pi; int mark; } pl_spropit_t;
 static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
 {
-    extern void *rt_plj_alloc(size_t); extern void *rt_ws_alloc_descr(size_t);
+    extern void *rt_ws_alloc_descr(size_t);
     pl_cell_t *d = pl_deref(c);
     if (pl_cell_unbound(d)) {
         for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return pl_make_ref(vnew[i], (int)vnew[i]->slen);
@@ -2079,13 +2080,12 @@ typedef struct { pl_db_slot_t *s; int n; int cap; int killed; int next_ref; } pl
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_db_get(void *root, int64_t k)
 {
-    extern void *rt_plj_alloc(size_t);
     if (!root || k < 0 || k >= PL_DB_CELLS_MAX) return (void *)0;
     { pl_db_t **cell = (pl_db_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
       if (!*cell) {
-          pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
+          pl_db_t *d = (pl_db_t *)rt_pl_struct_alloc(HB_PLDB, sizeof *d);
           if (!d) return (void *)0;
-          d->cap = 8; d->n = 0; d->killed = 0; d->next_ref = 1; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+          d->cap = 8; d->n = 0; d->killed = 0; d->next_ref = 1; d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
           if (!d->s) { d->cap = 0; }
           *cell = d;
       }
@@ -2094,7 +2094,7 @@ void * rt_pl_db_get(void *root, int64_t k)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_set(void *root, int64_t k, void *val)
 {
-    extern void *rt_plj_alloc(size_t); extern void *rt_ws_alloc_descr(size_t);
+    extern void *rt_ws_alloc_descr(size_t);
     if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !val) return 0;
     { pl_cell_t **cell = (pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
       pl_cell_t *t = pl_deref((pl_cell_t *)val);
@@ -2123,15 +2123,24 @@ int rt_pl_nb_is_set(void *root, int64_t k)
 #define PL_DB_REGISTRY_CELL 0
 typedef struct { char key[264]; int k; pl_db_t *db; int stat; int decl; } pl_db_key_t;
 typedef struct { pl_db_key_t *e; int n; int cap; } pl_db_reg_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void pl_db_gc_visit(uint16_t type, void *p, size_t bytes)
+{
+    extern void rt_gc_visit_raw(const char **); extern void rt_gc_visit_descr(DESCR_t *);
+    if (type == HB_PLDB) { pl_db_t *d = (pl_db_t *)p; if (d->s) rt_gc_visit_raw((const char **)&d->s); return; }
+    if (type == HB_PLDBS) { pl_db_slot_t *s = (pl_db_slot_t *)p; size_t n = bytes / sizeof(pl_db_slot_t); for (size_t i = 0; i < n; i++) rt_gc_visit_descr(&s[i].cl); return; }
+    if (type == HB_PLDBR) { pl_db_reg_t *r = (pl_db_reg_t *)p; if (r->e) rt_gc_visit_raw((const char **)&r->e); return; }
+    if (type == HB_PLDBK) { pl_db_key_t *k = (pl_db_key_t *)p; size_t n = bytes / sizeof(pl_db_key_t); for (size_t i = 0; i < n; i++) if (k[i].db) rt_gc_visit_raw((const char **)&k[i].db); return; }
+    abort();
+}
 static pl_db_reg_t * pl_db_registry(void *root, int create)
 {
-    extern void *rt_plj_alloc(size_t);
     if (!root) return (pl_db_reg_t *)0;
     { pl_db_reg_t **cell = (pl_db_reg_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)PL_DB_REGISTRY_CELL);
       if (!*cell && create) {
-          pl_db_reg_t *r = (pl_db_reg_t *)rt_plj_alloc(sizeof *r);
+          pl_db_reg_t *r = (pl_db_reg_t *)rt_pl_struct_alloc(HB_PLDBR, sizeof *r);
           if (!r) return (pl_db_reg_t *)0;
-          r->cap = 32; r->n = 0; r->e = (pl_db_key_t *)rt_plj_alloc((size_t)r->cap * sizeof(pl_db_key_t));
+          r->cap = 32; r->n = 0; r->e = (pl_db_key_t *)rt_pl_struct_alloc(HB_PLDBK, (size_t)r->cap * sizeof(pl_db_key_t));
           if (!r->e) { r->cap = 0; }
           *cell = r;
       }
@@ -2145,11 +2154,10 @@ static pl_db_key_t * pl_db_reg_find(pl_db_reg_t *r, const char *key)
 }
 static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key)
 {
-    extern void *rt_plj_alloc(size_t);
     if (!r || !key) return (pl_db_key_t *)0;
     if (r->n >= r->cap) {
         int nc = r->cap > 0 ? r->cap * 2 : 32;
-        pl_db_key_t *ne = (pl_db_key_t *)rt_plj_alloc((size_t)nc * sizeof(pl_db_key_t));
+        pl_db_key_t *ne = (pl_db_key_t *)rt_pl_struct_alloc(HB_PLDBK, (size_t)nc * sizeof(pl_db_key_t));
         if (!ne) return (pl_db_key_t *)0;
         for (int i = 0; i < r->n; i++) ne[i] = r->e[i];
         r->e = ne; r->cap = nc;
@@ -2219,7 +2227,6 @@ const char * rt_pl_db_cp_nth(void *root, int64_t i, int *arity)
 }
 void * rt_pl_db_get_by_key(void *root, const char *key, int create)
 {
-    extern void *rt_plj_alloc(size_t);
     pl_db_reg_t *r = pl_db_registry(root, create);
     pl_db_key_t *e = pl_db_reg_find(r, key);
     if (e && e->k >= 0) return rt_pl_db_get(root, e->k);
@@ -2227,9 +2234,9 @@ void * rt_pl_db_get_by_key(void *root, const char *key, int create)
     if (!create) return (void *)0;
     if (!e) e = pl_db_reg_add(r, key);
     if (!e) return (void *)0;
-    { pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
+    { pl_db_t *d = (pl_db_t *)rt_pl_struct_alloc(HB_PLDB, sizeof *d);
       if (!d) return (void *)0;
-      d->cap = 8; d->n = 0; d->killed = 0; d->next_ref = 1; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+      d->cap = 8; d->n = 0; d->killed = 0; d->next_ref = 1; d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
       if (!d->s) d->cap = 0;
       e->db = d; return (void *)d; }
 }
@@ -2314,14 +2321,13 @@ int rt_pl_db_seed(void *db_v, void *clause_term) { return pl_db_store(db_v, clau
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile)
 {
-    extern void *rt_plj_alloc(size_t);
     extern int prolog_atom_intern(const char *);
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !clause_term) return 0;
     db->killed = 0;
     if (db->n >= db->cap) {
         int nc = db->cap > 0 ? db->cap * 2 : 8;
-        pl_db_slot_t *ns = (pl_db_slot_t *)rt_plj_alloc((size_t)nc * sizeof(pl_db_slot_t));
+        pl_db_slot_t *ns = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)nc * sizeof(pl_db_slot_t));
         if (!ns) return 0;
         for (int i = 0; i < db->n; i++) ns[i] = db->s[i];
         db->s = ns; db->cap = nc;

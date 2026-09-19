@@ -34,9 +34,16 @@ HB_WSC	205	WITNESSED	hb_ws.icn	WITNESS-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-
 HB_AGGV	206	WITNESSED	hb_aggv.icn	66	rt_agg_alloc kind 0, the aggregate value vector; 19 call sites
 HB_AGGP	207	NO-PRODUCER	-	-	the mark walk has a dedicated TBPAIR arm at gc_heap.c:775, but rt_agg_alloc is called with kind 0 and kind 2 only -- never 1 -- so that arm is unreachable in this tree
 HB_AGGT	208	WITNESSED	hb_aggt.icn	165	rt_agg_alloc kind 2, the table block
-HB_PLJ	209	WITNESSED	hb_plj.pl	WITNESS	rt_plj_alloc, the Prolog-side collected-heap block
 HB_AGGB	211	WITNESSED	hb_aggt.icn	165	the table's bucket storage; allocated by the same table witness
 HB_ARR	212	WITNESSED	hb_arr.sno	ALPHAOMEGA	aggregates.c / core.c / pattern_match.c; a SNOBOL4 ARRAY is the shortest path to one
 HB_DINST	213	WITNESSED	hb_dinst.icn	72	the datatype instance (an Icon record and its fields)
 HB_DVEC	214	WITNESSED	hb_arr.sno	ALPHAOMEGA	the descriptor-array backing store an ARBLK keeps its elements in; rt_ws_alloc_descr stamps the kind so the element count comes from the block header rather than from the owner, and the same SNOBOL4 ARRAY witness allocates one
 HB_WSB	215	WITNESSED	hb_wsb.icn	10-//	rt_wsb_alloc, the ATOMIC sibling of HB_WS: a byte buffer with no pointers in it, so the collector marks and RELOCATES the block but never scans its interior (the HB_AGGB shape, and Boehm & Weiser 1988's atomic/composite split). Converted sites hold only memcpy/snprintf/strftime bytes and a NUL.
+HB_PLDB	216	WITNESSED	hb_pldb.pl	WITNESS	the Prolog clause-database head (pl_db_t: one pointer to its slot vector); visitor pl_db_gc_visit in unification.c beside the structs; HB_PLJ (209) retired 2026-09-19 when its last eight sites took these four kinds
+HB_PLDBS	217	WITNESSED	hb_pldb.pl	WITNESS	the clause slot vector (pl_db_slot_t: one DESCR per slot, visited by count from the block size); assertz allocates it
+HB_PLDBR	218	WITNESSED	hb_pldb.pl	WITNESS	the database registry (pl_db_reg_t: one pointer to its key vector); the first assertz allocates it
+HB_PLDBK	219	WITNESSED	hb_pldb.pl	WITNESS	the registry key vector (pl_db_key_t: a name and one pointer to a database head)
+HB_PVEC	220	NO-PRODUCER	-	-	a vector of raw collected-heap pointers (rt_pvec_alloc; the visitor raw-visits every non-null word): minted 2026-09-19 on the coo's ask (coo-105) for driver_call.c:88 and driver_data.c:384/:387, which take it in the coo's landing together with this row's witness
+HB_DATBLK	221	NO-PRODUCER	-	-	the SNOBOL4 DATA type block (DATBLK_t: a name string, a fields vector, a chain pointer, scalars) -- minted 2026-09-19 for the cfo's core.c:2961; the visitor core_struct_gc_visit is the cfo's, beside the struct in core.c (a weak abort stub in gc_heap.c until it lands), the witness lands with the retype
+HB_NV	222	NO-PRODUCER	-	-	the SNOBOL4 variable-table entry (NV_t: a name string, a DESCR by value, a DESCR pointer, a chain pointer, flags) -- minted 2026-09-19 for the cfo's core.c:3094/3218/3233/3256; same visitor and witness route as HB_DATBLK
+HB_FNCBLK	223	NO-PRODUCER	-	-	the SNOBOL4 function block (FNCBLK_t: the name and the locals/params vectors) -- minted 2026-09-19 for the cfo's core.c:3606/3786; same visitor and witness route as HB_DATBLK

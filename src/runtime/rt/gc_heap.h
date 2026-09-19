@@ -11,12 +11,19 @@
 #define HB_AGGV  206
 #define HB_AGGP  207
 #define HB_AGGT  208
-#define HB_PLJ   209
 #define HB_AGGB  211
 #define HB_ARR   212
 #define HB_DINST 213
 #define HB_DVEC  214
 #define HB_WSB   215
+#define HB_PLDB  216
+#define HB_PLDBS 217
+#define HB_PLDBR 218
+#define HB_PLDBK 219
+#define HB_PVEC  220
+#define HB_DATBLK 221
+#define HB_NV    222
+#define HB_FNCBLK 223
 #define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB)
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
@@ -27,6 +34,11 @@ void  rt_gcheap_warmup(void);
 char *rt_str_alloc(long n);
 void *rt_ws_alloc_descr(size_t n);
 void *rt_wsb_alloc(size_t n);
+void *rt_wsb_realloc(void *p, size_t n);
+void *rt_pl_struct_alloc(uint16_t type, size_t n);
+void *rt_pvec_alloc(size_t n);
+void *rt_pvec_realloc(void *p, size_t n);
+void *rt_core_struct_alloc(uint16_t type, size_t n);
 char *rt_str_dup(const char *s);
 typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
 extern rt_sxt_fr_t g_sxt_fr;
