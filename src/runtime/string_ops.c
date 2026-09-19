@@ -16,7 +16,6 @@ static int so_is_list(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
-    { extern void rt_gc_point_arr(DESCR_t *, int, const char **); DESCR_t sh[2]; sh[0] = a; sh[1] = b; rt_gc_point_arr(sh, 2, (const char **)0); a = sh[0]; b = sh[1]; }
     if (a.v == DT_P || b.v == DT_P || a.v == DT_X || b.v == DT_X) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
@@ -84,7 +83,6 @@ DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
-    { extern void rt_gc_point_arr(DESCR_t *, int, const char **); DESCR_t sh[2]; sh[0] = s; sh[1] = n; rt_gc_point_arr(sh, 2, (const char **)0); s = sh[0]; n = sh[1]; }
     if (IS_FAIL_fn(s) || IS_FAIL_fn(n)) return FAILDESCR;
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     const char *sp;
