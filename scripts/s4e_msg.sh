@@ -643,13 +643,18 @@ s4e_lane_owner_of_language() {
       # SNOBOL4 runtime crash classes, coo the one runner, ceo the loop). Written out per language because the
       # gate beside it compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a
       # default would agree with a line 2 that had drifted on six of them without anything noticing.
-      icon)     printf 'hq_icon';;
-      prolog)   printf 'hq_prolog';;
-      snobol4)  printf 'hq_snobol4';;
-      pascal)   printf 'hq_pascal';;
-      snocone)  printf 'hq_snocone';;
-      rebus)    printf 'cfo';;
-      raku)     printf 'hq_raku';;
+      # ⛔ MODE CEO (CEO-903, 2026-09-18, Lon in-chat: "I'm thinking we go to CEO mode"): ONE SEAT HOLDS EVERY
+      # LANGUAGE. Written out per language rather than collapsed to a default for the same reason the DECTET
+      # table above was: the gate compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a default would
+      # agree with a line 2 that had drifted on six of them without anything noticing. The DECTET mapping is
+      # kept in the comment above so the flip back is a seven-line edit and not a reconstruction.
+      icon)     printf 'ceo';;
+      prolog)   printf 'ceo';;
+      snobol4)  printf 'ceo';;
+      pascal)   printf 'ceo';;
+      snocone)  printf 'ceo';;
+      rebus)    printf 'ceo';;
+      raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
