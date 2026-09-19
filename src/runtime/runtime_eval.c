@@ -245,7 +245,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     sno_error_quiet_end();
     if (!e) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return NULL; }
     tree_t *var = ast_stmt_new(TT_VAR);
-    var->v.sval = rt_heap_strdup_c(EVAL_TMP);
+    var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", 1));
     { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
