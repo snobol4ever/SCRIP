@@ -24,40 +24,7 @@
 #include <stdlib.h>
 extern const char *Σ;
 extern int Σlen;
-__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
-        "rt_outer_call:\n"
-        "  push %r12\n"
-        "  sub $4194304, %rsp\n"
-        "  mov %rdi, %rax\n"
-        "  mov %rsi, %rdi\n"
-        "  mov %rdx, %rsi\n"
-        "  mov 0x70000000, %r12\n"
-        "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-        "  cmpb $0, (%r10)\n"
-        "  je 1f\n"
-        "  movq rtccb@GOTPCREL(%rip), %r10\n"
-        "  movq 64(%r10), %r11\n"
-        "  movq 40(%r10), %r8\n"
-        "  movq 48(%r10), %r9\n"
-        "  movq 56(%r10), %r10\n"
-        "1:\n"
-        "  movq rt_kw_return_level_zero@GOTPCREL(%rip), %rcx\n"
-        "  push %rcx\n"
-        "  push %rcx\n"
-        "  jmp *%rax\n"
-        "  add $4194304, %rsp\n"
-        "  add $16, %rsp\n"
-        "  pop %r12\n"
-        "  ret\n"
-        ".size rt_outer_call, .-rt_outer_call\n");
-__asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n"
-        "rt_outer_call_delta0:\n"
-        "  push %r14\n"
-        "  xor %r14d, %r14d\n"
-        "  call rt_outer_call\n"
-        "  pop %r14\n"
-        "  ret\n"
-        ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
+static void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return; { FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\n", site, name ? name : "?"); fclose(f); } }
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -991,6 +958,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
         { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
+        rt_c2bb_hit(frag ? "descr.frag" : "descr.named", name);
         return frag ? rt_proc_enter_frag(fn, name) : rt_proc_enter_named(fn, name); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
@@ -998,20 +966,22 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return FAILDESCR;
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; rt_c2bb_hit("descr.tiny", name); return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
     int _nsb = rt_name_save_mark();
     long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
-        if (p->jmp_entry) return rt_proc_enter((void *)p->fn);
+        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn); }
         void *fb = alloca((size_t)fbytes);
         void *fn2 = rt_frame_prep(fb, fbytes);
+        rt_c2bb_hit("descr.callregime.lex", name);
         DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
         return rt_proc_call_epilogue_ret(fret);
     }
     rt_g_want_name = _wn_gen;
-    if (name && strchr(name, '$')) { DESCR_t _r = rt_proc_enter((void *)p->fn); rt_name_save_unwind(_nsb); return _r; }
+    if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); DESCR_t _r = rt_proc_enter((void *)p->fn); rt_name_save_unwind(_nsb); return _r; }
+    rt_c2bb_hit("descr.enter.dyn.named", name);
     return rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1180,6 +1150,7 @@ void rt_genp_entry_c(rt_genp_s *g)
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
     if (!fb) { g->done = 2; scrip_cofail(); }
+    rt_c2bb_hit(g->region_ft > 0 ? "genp.spine.n2" : "genp.spine", g->name);
     if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0); else rt_genp_spine_enter(g->fn);
     g->done = 2; scrip_cofail();
     for (;;) pause();
@@ -1231,6 +1202,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         long fb2 = rt_proc_call_open(name, nargs);
         if (!fb2) { if (hout) *hout = (void *)0; return FAILDESCR; }
         if (hout) *hout = (void *)0;
+        rt_c2bb_hit("gen_h.enter", name);
         return rt_proc_enter((void *)p->fn);
     }
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
@@ -1241,6 +1213,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     if (hout) *hout = (void *)0;
+    rt_c2bb_hit("gen_h.callregime", name);
     rt_k_level++; rt_k_level_mirror(); (void)p->fn((void *)fb, 0); rt_k_level--; rt_k_level_mirror();
     return *(DESCR_t *)(fb + 0);
 }
@@ -1707,11 +1680,13 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
     for (int i = 0; i < nargs; i++) g_call_args[i] = args ? args[i] : NULVCL;
     if (p->jmp_entry) {
         (void)rt_proc_call_prologue_lex(p, nargs, wn);
+        rt_c2bb_hit("c_lex.enter", p->name);
         return rt_proc_enter((void *)p->fn);
     }
     long fbytes = (long)rt_proc_call_prologue_lex(p, nargs, wn);
     void *fb = alloca((size_t)fbytes);
     void *fn2 = rt_frame_prep(fb, fbytes);
+    rt_c2bb_hit("c_lex.callregime", p->name);
     DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
     return rt_proc_call_epilogue_ret(fret);
 }
@@ -1841,20 +1816,10 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     { void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
       if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
-                 for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn, (long)_n); } }
+                 for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; rt_c2bb_hit("named.tiny", name); return rt_tiny_record_enter(afn, (long)_n); } }
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
+    rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
     return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, name);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
-{
-    if (idx < 0 || idx >= g_rt_gen_proc_count) return FAILDESCR;
-    rt_proc_t *p = &g_rt_gen_procs[idx];
-    if (!p->fn) return FAILDESCR;
-    int _wn = rt_g_want_name; rt_g_want_name = 0;
-    if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
-    (void)rt_proc_call_prologue(p, args, nargs, _wn);
-    return (p->name && strchr(p->name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, p->name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)
@@ -1898,7 +1863,7 @@ void rt_proc_set_frame_bytes(const char *name, int bytes)
     if (p && bytes > p->frame_bytes) p->frame_bytes = bytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_define_bind_body(const char *fname, const char *entry)
+void rt_define_bind_entry(const char *fname, const char *entry)
 {
     extern void *rt_entry_resolve(const char *, int *);
     extern void *bb_ab_fn_cell_ptr(const char *);
@@ -1906,7 +1871,7 @@ void rt_define_bind_body(const char *fname, const char *entry)
     if (!fname || !*fname || !entry || !*entry) return;
     { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); if (!fn) return;
       { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
-      { char cell[300]; snprintf(cell, sizeof cell, "body$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } } }
+      { char cell[300]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
@@ -1976,32 +1941,6 @@ int rt_proc_name_exists(const char *name)
 DESCR_t *rt_gvar_cell(const char *name)
 {
     return NV_PTR_fn(name);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *sl)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    if (!p || !p->fn) return FAILDESCR;
-    rt_proc_resolve_cells(p);
-    int np = p->nparams;
-    int ns = (p->frame_nslots > np) ? p->frame_nslots : np;
-    int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
-    if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    int save_base = g_name_save_top;
-    rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
-    fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    void *fb = alloca((size_t)fbytes);
-    ((void **)fb)[0] = sl;
-    DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
-    for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
-    const char *save_Σ = Σ; int save_Σlen = Σlen;
-    if (g_monitor_bin) mon_emit_call_bin(name);
-    rt_k_level++; rt_k_level_mirror(); DESCR_t fret = p->fn(fb, 0); rt_k_level--; rt_k_level_mirror();
-    Σ = save_Σ; Σlen = save_Σlen;
-    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
-    rt_name_restore(save_base);
-    if (g_monitor_bin) mon_emit_return_bin(name, result);
-    return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_define(const char *spec)

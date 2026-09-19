@@ -9,7 +9,7 @@
 #      a label nobody emitted -> `ld: relocation R_X86_64_PC32 against undefined symbol` under PIE.
 #      (.github FINDING-2026-08-29-hq_P-alpha-reference-and-definition-gated-on-different-predicates.md)
 #   2. seat16 2026-08-30 — forcing the SNO$STMT hook on put ARITH_LOOP_α in the referenced-but-undefined set;
-#      a hook prepended to a DEFINE'd body's first statement, a completely different trigger. (.github ed132985)
+#      a hook prepended to a DEFINE'd function's entry statement, a completely different trigger. (.github ed132985)
 # ⛔ A REFERENCE AND ITS DEFINITION MUST BE GATED ON THE SAME PREDICATE. This gate tests that mechanically
 # instead of waiting for a linker to say so on whichever program happens to exercise it.
 #

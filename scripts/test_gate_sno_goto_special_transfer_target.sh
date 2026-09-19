@@ -14,7 +14,7 @@
 # call form -- so a gate that pinned only the by-name arm would stay green while the commoner form was red.
 #
 # ⭐ ARM 3 IS THE CONTROL AND IT MUST STAY: a LITERAL `:(RETURN)` reached dynamically from a main-program
-# label (fallen into from a DEFINE'd body) already worked before the cure and must keep working. It is the
+# label (fallen into from a DEFINE'd function's statements) already worked before the cure and must keep working. It is the
 # arm that proves the landing is ACTIVATION-DYNAMIC rather than lexical, so a future cure that binds RETURN
 # to the graph it is written in reds here instead of passing.
 #

@@ -35,11 +35,11 @@ std::string bb_goto_deferred() {
     { static int _df = -1; if (_df < 0)
         { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; }
     if (_df && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
-        return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp body alpha, no chain, no reserve)")
+        return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp the function's alpha, no chain, no reserve)")
              + x86_alpha()
              + bb_goto_deferred_frame_release()
              + x86("jmp", "[rip@cell + __]",
-                   (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + _.op_sval).c_str()),
+                   (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("entry$") + _.op_sval).c_str()),
                    (std::string("LBL__") + _.op_sval).c_str())
              + x86_gamma();
     } }

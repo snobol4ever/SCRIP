@@ -14,7 +14,7 @@ extern int g_monitor_bin;
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);
-void rt_define_bind_body(const char *fname, const char *entry);
+void rt_define_bind_entry(const char *fname, const char *entry);
 extern int * const rt_k_level_p;
 extern long rt_stno_stack[];
 extern long g_stno;
@@ -50,7 +50,7 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
     if (!pname || !fnbase) return;
     char lbl[300], cell[300];
     if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_\xce\xb1", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }
-    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  bb_ab_sym_name(pname)); snprintf(cell, sizeof cell, "body$%s",  pname); }
+    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  bb_ab_sym_name(pname)); snprintf(cell, sizeof cell, "entry$%s",  pname); }
     int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
@@ -61,7 +61,7 @@ extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     *(void **)bb_ab_fn_cell_ptr(cell) = alpha;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_define_body_cell_data(const std::string & lbl, const std::string & init) {
+static std::string bb_define_entry_cell_data(const std::string & lbl, const std::string & init) {
     static std::vector<std::string> seen;
     for (size_t i = 0; i < seen.size(); i++) if (seen[i] == lbl) return std::string();
     seen.push_back(lbl);
@@ -439,21 +439,21 @@ static std::string bb_define_bind() {
             + x86("call", "bb_ab_seal_alpha", _seal_fp)
             + x86_scan_sync_in_rr(); } }
     { if (_.lbl_t0 && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
-        reg = reg + x86("comment", "M4-BODY-SEAL (term 3): body_cell$<FN> <- &LBL__<this DEFINE's entry>, so a call reads the binding in force when it runs rather than a baked winner")
-            + x86("comment", "⛔ THE SEAL DEFINES THE CELL IT WRITES THROUGH (hq_I 2026-09-13, hq_U co-sign).  It used to only REFERENCE body_cell$<FN>, while the .quad defining it was emitted by bb_define_body_cell_data() from the role-4/5 body arms alone -- a reference and its definition behind DIFFERENT GUARDS on DIFFERENT IR NODES, with nothing checking that the second fired.  Measured: a SNOBOL4 function emits both, because its labelled-statement shape reaches sno_build_call_stub() and builds a role-4 node; a Snocone function always has a body block, takes sno_build_graph() instead, builds no role-4 node, and linked with `undefined reference to body_cell$pos`.  Curing only the missing node would fix one instance and leave this seal free to drift from the next role that builds no stub -- Raku and Pascal reach this box too.  bb_define_body_cell_data() is idempotent by its own `seen` vector, so emitting here is a no-op wherever a body arm already did it; that idempotence is PROVEN BY DIFFING THE EMITTED .s, never by reading the vector.")
-            + bb_define_body_cell_data(std::string("body_cell$") + std::string(bb_ab_sym_name(fname)), std::string(_.lbl_t0))
+        reg = reg + x86("comment", "M4-ENTRY-SEAL (term 3): entry_cell$<FN> <- &LBL__<this DEFINE's entry>, so a call reads the binding in force when it runs rather than a baked winner")
+            + x86("comment", "⛔ THE SEAL DEFINES THE CELL IT WRITES THROUGH (hq_I 2026-09-13, hq_U co-sign).  It used to only REFERENCE entry_cell$<FN>, while the .quad defining it was emitted by bb_define_entry_cell_data() from the role-4/5 entry arms alone -- a reference and its definition behind DIFFERENT GUARDS on DIFFERENT IR NODES, with nothing checking that the second fired.  Measured: a SNOBOL4 function emits both, because its labelled-statement shape reaches sno_build_call_stub() and builds a role-4 node; a Snocone function always has a body block, takes sno_build_graph() instead, builds no role-4 node, and linked with `undefined reference to entry_cell$pos`.  Curing only the missing node would fix one instance and leave this seal free to drift from the next role that builds no stub -- Raku and Pascal reach this box too.  bb_define_entry_cell_data() is idempotent by its own `seen` vector, so emitting here is a no-op wherever an entry arm already did it; that idempotence is PROVEN BY DIFFING THE EMITTED .s, never by reading the vector.")
+            + bb_define_entry_cell_data(std::string("entry_cell$") + std::string(bb_ab_sym_name(fname)), std::string(_.lbl_t0))
             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, _.lbl_t0)
-            + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, (std::string("body_cell$") + std::string(bb_ab_sym_name(fname))).c_str())
+            + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, (std::string("entry_cell$") + std::string(bb_ab_sym_name(fname))).c_str())
             + x86("mov", RDQ("rcx", 0), "rax"); } }
     std::string bind_seal;
     { if (_.lbl_t0 && bb_ab_cell_addr(fname)) {
         const char * _ent = (strncmp(_.lbl_t0, "LBL__", 5) == 0) ? _.lbl_t0 + 5 : _.lbl_t0;
-        uint64_t _bind_fp; { void (*fp)(const char *, const char *) = rt_define_bind_body; _bind_fp = (uint64_t)(uintptr_t)(void *)fp; }
-        reg = reg + x86("comment", "AB-BODY-SEAL (the AB twin of term 3): fn_cell$<FN> <- the entry named by THIS DEFINE.  Resolved by NAME at runtime, not baked: the M4-BODY-SEAL's lea carries a label in TEXT but a compile-time-queried POINTER in BINARY (x86_load_ro), and in BINARY that pointer is the default entry, so a baked seal silently re-pins the winner it is here to unpin.")
+        uint64_t _bind_fp; { void (*fp)(const char *, const char *) = rt_define_bind_entry; _bind_fp = (uint64_t)(uintptr_t)(void *)fp; }
+        reg = reg + x86("comment", "AB-ENTRY-SEAL (the AB twin of term 3): fn_cell$<FN> <- the entry named by THIS DEFINE.  Resolved by NAME at runtime, not baked: the M4-ENTRY-SEAL's lea carries a label in TEXT but a compile-time-queried POINTER in BINARY (x86_load_ro), and in BINARY that pointer is the default entry, so a baked seal silently re-pins the winner it is here to unpin.")
             + x86_ro_load_q("rdi", 0)
             + x86_ro_load_q("rsi", 2)
             + x86_scan_sync_out()
-            + x86("call", "rt_define_bind_body", _bind_fp)
+            + x86("call", "rt_define_bind_entry", _bind_fp)
             + x86_scan_sync_in_rr();
         bind_seal = x86_ro_seal_str(2, _ent); } }
     std::string entry_seal;
@@ -572,7 +572,7 @@ static std::string bb_define_sr() {
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
         long WNOFF = 16L * xt4 + 24;
         auto WNSAVE = [&]() {
-            return x86("comment", "WANT-NAME NESTING (ceo-441): the caller's pending by-name request is a single global, so an inner request raised inside this body -- and cleared by whichever consumer takes it -- destroys the outer one still pending at the call site. The request therefore rides THIS activation frame: parked at entry, the global zeroed so the body starts with no inherited intent, put back at both exits so the caller's post-call consult reads its OWN request. Same protocol as bb_define_activate's AB_OFF_WN slot; rax/rdx are scratch here (rcx holds the signature block).")
+            return x86("comment", "WANT-NAME NESTING (ceo-441): the caller's pending by-name request is a single global, so an inner request raised inside this activation -- and cleared by whichever consumer takes it -- destroys the outer one still pending at the call site. The request therefore rides THIS activation frame: parked at entry, the global zeroed so the function's statements start with no inherited intent, put back at both exits so the caller's post-call consult reads its OWN request. Same protocol as bb_define_activate's AB_OFF_WN slot; rax/rdx are scratch here (rcx holds the signature block).")
                  + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
                  + x86("mov", "edx", RDD("rax", 0))
                  + x86("movsxd", "rdx", "edx")
@@ -586,8 +586,8 @@ static std::string bb_define_sr() {
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";
         std::string blb = inl5 ? std::string(en4) : (std::string("LBL__") + en4);
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());
-        uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + fn4).c_str());
-        std::string bcell = std::string("body_cell$") + std::string(bb_ab_sym_name(fn4));
+        uint64_t entry_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("entry$") + fn4).c_str());
+        std::string bcell = std::string("entry_cell$") + std::string(bb_ab_sym_name(fn4));
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };
         auto RESTORE4 = [&](int lid) {
             return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))
@@ -728,7 +728,7 @@ static std::string bb_define_sr() {
                  + (x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("push", "rax")
                              + x86("push", "rcx"))
-                 + bb_define_body_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), body_cell)
+                 + bb_define_entry_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), entry_cell)
                  + x86_def_ext(lbl_b)
                  + x86("note", gva_name(rgx))
                  + x86("mov", "rdi", GQ(rgx, 0))
@@ -875,10 +875,10 @@ static std::string bb_define_sr() {
                         + x86_deflabel_id(41 + i); })
              + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
              + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
-             + (x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, body entered at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
+             + (x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, the entry label reached at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
                          + x86("push", "rax")
                          + x86("push", "rcx"))
-             + bb_define_body_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), body_cell)
+             + bb_define_entry_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), entry_cell)
              + x86_def_ext(lbl_b)
              + x86("note", gva_name(rgx))
              + x86("mov", "rdi", GQ(rgx, 0))

@@ -9,7 +9,7 @@
 # byte-identical, and this gate PLANTED that perturbation and required it to kill. The dependency was then NAMED
 # (baton ledger of the row above, GOAL-CTO CTO-83): the match-end box called rt_match_end_all, a C pump that
 # CALLED BACK into emitted code (rt_dcap_pump -> rt_sno_dtx_value -> rt_call_proc_descr -> rt_proc_enter) through
-# five C frames, so a DEFINE'd body reached that way ran at a depth the emitter never laid out, and its rsp-relative
+# five C frames, so a DEFINE'd function's statements reached that way ran at a depth the emitter never laid out, and its rsp-relative
 # frame slots (op_zdepth 0, main-frame offsets) landed wherever the C frames' sizes put them -- on a dead slot when
 # green, on the outer match's saved r12 when a -fstack-protector canary made the C frames 80 bytes deeper. The
 # carve perturbation moved the same block by the same bytes. That is the whole "depth contract".

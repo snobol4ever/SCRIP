@@ -45,8 +45,11 @@ SCAN_DIRS="src/runtime src/driver src/ir src/lower src/parsers src/optimizer"
 # that cannot be opened, so this class can never present as green again.
 for _d in $SCAN_DIRS; do gate_require "$_d" "SCAN_DIRS entry"; done
 
-enclosing_fn() { # file line -> name of enclosing top-level function
+enclosing_fn() { # file line -> name of enclosing top-level function; a top-level __asm__ block whose .globl symbol sits on the
+    # __asm__( line itself is named by that symbol (the driver's rt_outer_call / rt_outer_call_delta0, relocated from rt.c 2026-09-19 by the
+    # cfo so that the runtime library holds no MAIN thunk); every other __asm__ block still reads as __asm__ (V6), so the rt.c report is unchanged.
     awk -v n="$2" 'NR<=n && /^[A-Za-z_][A-Za-z0-9_ \*]*\(/ && !/;[ \t]*$/ { f=$0 } END {
+        if (f ~ /^__asm__\(/ && match(f, /\.globl [A-Za-z_][A-Za-z0-9_]*/)) { print substr(f, RSTART+7, RLENGTH-7); exit }
         gsub(/\(.*/,"",f); nf=split(f,a,/[ \*]+/); print (nf?a[nf]:"?") }' "$1"
 }
 
@@ -85,6 +88,12 @@ while IFS=: read -r f l shape; do
     fn=$(enclosing_fn "$f" "$l")
     case "$f:$fn" in
         src/driver/scrip.c:main|src/driver/scrip.c:m3_enter_with_rbx) continue ;;
+        # ⭐ THE MODE-3 ORIGINAL INVOCATION THUNK (cfo 2026-09-19, row gc-rt-c-c-to-bb-entries-leave-no-emitted-code-is-entered-from-c-in-rt-c-
+        # except-the-original-invocation): rt_outer_call / rt_outer_call_delta0 are the very transfer RULES.md § NO C→BB ENTRY allows -- main's
+        # one entry into the graph -- and they lived in src/runtime/rt/rt.c only because that file held the asm. They are the driver's, beside
+        # icn_zf_main_call, so libscrip_rt.so exports no C→BB thunk for the main program at all. m3_enter_with_rbx above no longer exists
+        # (kept in the case list as history; a hit can never carry that name).
+        src/driver/scrip.c:rt_outer_call|src/driver/scrip.c:rt_outer_call_delta0) continue ;;
         src/runtime/rt/rt_coexpr.c:scrip_coexpr_trampoline_entry) continue ;;
         # ⭐ THIRD SANCTIONED MAIN SITE (row c-to-bb-unledgered-scrip-c-57, seat15 2026-08-30): NOT dead
         # Icon scaffolding -- verified actively called (scrip.c main(), the `_zframe_graph &&
@@ -112,7 +121,7 @@ ledger_of() { # enclosing function -> ledger group
 }
 
 echo "=== NCB GATE — C→BB transfers outside the sanctioned MAIN sites ==="
-echo "    sanctioned: scrip.c:main (2 exclusive MAIN branches + m3_enter_with_rbx) · rt_coexpr.c:scrip_coexpr_trampoline_entry · scrip.c:icn_zf_main_call (3rd MAIN branch)"
+echo "    sanctioned: scrip.c:main (2 exclusive MAIN branches through the driver's rt_outer_call / rt_outer_call_delta0 thunks) · rt_coexpr.c:scrip_coexpr_trampoline_entry · scrip.c:icn_zf_main_call (3rd MAIN branch)"
 VGRPS=""
 UNLEDGERED=0
 for V in V1 V2 V3 V4 V5 V6 V7 UNLEDGERED; do

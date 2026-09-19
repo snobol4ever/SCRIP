@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1685
-#define GC_ALLOC_TAB_N_VOID 190
-#define GC_ALLOC_TAB_N_DESCR 925
-#define GC_ALLOC_TAB_N_OTHER 570
+#define GC_ALLOC_TAB_N 1654
+#define GC_ALLOC_TAB_N_VOID 186
+#define GC_ALLOC_TAB_N_DESCR 923
+#define GC_ALLOC_TAB_N_OTHER 545
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -905,9 +905,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_impl", GC_RET_DESCR },
     { "rt_call_arr_strict", GC_RET_DESCR },
     { "rt_call_named_proc", GC_RET_DESCR },
-    { "rt_call_named_proc_sl", GC_RET_DESCR },
     { "rt_call_proc_descr", GC_RET_DESCR },
-    { "rt_call_proc_direct", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
     { "rt_call_value_resume_h", GC_RET_DESCR },
@@ -1589,7 +1587,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_wsb_alloc", GC_RET_OTHER },
     { "rt_wsb_realloc", GC_RET_OTHER },
     { "scan_labels", GC_RET_VOID },
-    { "sco_branch", GC_RET_OTHER },
     { "scrip_co_trace_term", GC_RET_VOID },
     { "scrip_co_trace_xmit", GC_RET_VOID },
     { "scrip_coexpr_activate", GC_RET_OTHER },
@@ -1606,32 +1603,13 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "set_inter", GC_RET_OTHER },
     { "set_new", GC_RET_OTHER },
     { "set_union", GC_RET_OTHER },
-    { "sgoto", GC_RET_OTHER },
     { "sm_preamble", GC_RET_OTHER },
     { "sno_array_from_proto", GC_RET_DESCR },
     { "sno_array_from_proto_d", GC_RET_DESCR },
     { "sno_build_graph", GC_RET_OTHER },
-    { "sno_capt_body", GC_RET_OTHER },
-    { "sno_def_entry_absent", GC_RET_OTHER },
-    { "sno_expr_thunks_build", GC_RET_VOID },
-    { "sno_fragment_reject_define", GC_RET_VOID },
-    { "sno_fz_build_table", GC_RET_VOID },
-    { "sno_goto_branch", GC_RET_OTHER },
-    { "sno_goto_computed_target", GC_RET_OTHER },
-    { "sno_goto_direct_target", GC_RET_OTHER },
-    { "sno_goto_special_chain", GC_RET_OTHER },
-    { "sno_goto_target", GC_RET_OTHER },
     { "sno_lower_fragment_at", GC_RET_OTHER },
-    { "sno_lower_match", GC_RET_OTHER },
-    { "sno_pat_carrier_build", GC_RET_OTHER },
-    { "sno_pat_node", GC_RET_OTHER },
-    { "sno_pat_thunks_build", GC_RET_VOID },
-    { "sno_pat_tree_graph_rt", GC_RET_OTHER },
-    { "sno_qlit_fold", GC_RET_OTHER },
-    { "sno_seq_nary", GC_RET_OTHER },
     { "sno_setexit_fire_on_end", GC_RET_VOID },
     { "sno_setexit_resume", GC_RET_VOID },
-    { "sno_stmt_define", GC_RET_OTHER },
     { "sort_chars_cmp", GC_RET_OTHER },
     { "sort_chars_len", GC_RET_OTHER },
     { "sort_descr_cmp", GC_RET_OTHER },
@@ -1657,15 +1635,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "subscript_set2", GC_RET_OTHER },
     { "subscript_set2_body", GC_RET_OTHER },
     { "subscript_set_body", GC_RET_OTHER },
-    { "sx_binop", GC_RET_OTHER },
-    { "sx_call_named", GC_RET_OTHER },
-    { "sx_ident_differ", GC_RET_OTHER },
-    { "sx_idx_container", GC_RET_OTHER },
-    { "sx_lower", GC_RET_OTHER },
-    { "sx_nameval", GC_RET_OTHER },
-    { "sx_pred_cmp", GC_RET_OTHER },
-    { "sx_subscript_lv", GC_RET_OTHER },
-    { "sx_subscript_lv_fused", GC_RET_OTHER },
     { "table_delete_d", GC_RET_OTHER },
     { "table_icn_nth", GC_RET_OTHER },
     { "table_new", GC_RET_OTHER },

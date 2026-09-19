@@ -116,6 +116,40 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         : "memory", "rsi", "r8", "r9", "r10", "r11"
     );
 }
+__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
+        "rt_outer_call:\n"
+        "  push %r12\n"
+        "  sub $4194304, %rsp\n"
+        "  mov %rdi, %rax\n"
+        "  mov %rsi, %rdi\n"
+        "  mov %rdx, %rsi\n"
+        "  mov 0x70000000, %r12\n"
+        "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+        "  cmpb $0, (%r10)\n"
+        "  je 1f\n"
+        "  movq rtccb@GOTPCREL(%rip), %r10\n"
+        "  movq 64(%r10), %r11\n"
+        "  movq 40(%r10), %r8\n"
+        "  movq 48(%r10), %r9\n"
+        "  movq 56(%r10), %r10\n"
+        "1:\n"
+        "  movq rt_kw_return_level_zero@GOTPCREL(%rip), %rcx\n"
+        "  push %rcx\n"
+        "  push %rcx\n"
+        "  jmp *%rax\n"
+        "  add $4194304, %rsp\n"
+        "  add $16, %rsp\n"
+        "  pop %r12\n"
+        "  ret\n"
+        ".size rt_outer_call, .-rt_outer_call\n");
+__asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n"
+        "rt_outer_call_delta0:\n"
+        "  push %r14\n"
+        "  xor %r14d, %r14d\n"
+        "  call rt_outer_call\n"
+        "  pop %r14\n"
+        "  ret\n"
+        ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
