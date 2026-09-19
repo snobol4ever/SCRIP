@@ -40,7 +40,7 @@
 # the block, fix up the cell, and leave the register pointing at the old address. The census therefore refuses to
 # call a copy raw, and arm 5 holds the copy count at its measured ceiling so the class cannot grow in silence.
 #
-# ⛔ THE COPY CEILING HAS BEEN RE-BASED TWICE AND NEITHER MOVE WAS THE CLASS GROWING -- A COUNT IS NOT COMPARABLE
+# ⛔ THE COPY CEILING HAS BEEN RE-BASED THREE TIMES AND NO MOVE WAS THE CLASS GROWING -- A COUNT IS NOT COMPARABLE
 # ACROSS A CHANGE OF ITS CRITERION, and both changes were the population getting honest.
 #   83 -> 108 (cto 2026-09-18, section 6.5c): the seven hermetic witnesses carry no DEFERRED pattern, so this gate
 #     read heap=0 and had NEVER GRADED ONE INSTANCE of the class it exists to hold; the residual it ratcheted was
@@ -52,6 +52,13 @@
 #     inter-function tail jumps took this gate's population from 528 allocating call sites to 582 -- the SAME
 #     witnesses, 54 sites that were never graded before. Every one of the 25 new copy readings is at a site that was
 #     always allocating and was never counted.
+#   133 -> 185 (cto 2026-09-19, row gc-the-blob-frame-interior-...; Lon: no BB is entered from C after the original
+#   invocation): the SNOBOL4 match-end pump is BOX-DRIVEN now -- rt_match_end_all (one allocating call per match end,
+#   the C pump entering bodies from C) became rt_dcap_end_ok_open + rt_dcap_land_γ + rt_dcap_land_ω (three), the box
+#   entering the capture target itself through an indirect jmp. 582 -> 594 sites is exactly +2 per IR_MATCH_END over
+#   the witnesses, and the census reads every callee-saved register live across the box's indirect entry (the same
+#   upper-bound reading a ret produces), so the SAME copies (r13 = outer subject, r14/r15 cursors, r12 pend, rbx)
+#   count at twelve more sites. No new register, no new defining form: arm 3 still reads 0 unclassified.
 #
 # ARMS (all blocking). (1) SELFTEST: the census's own arms, including its planted ones -- an instrument not shown
 # to discriminate has measured nothing. (2) POPULATION: one witness per frontend, all seven, compiled to mode-4
@@ -73,7 +80,7 @@ CENSUS="$HERE/util_gc_callee_saved_census.py"; [ -f "$CENSUS" ] || { echo "⛔ G
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
-COPY_CEILING=${COPY_CEILING:-133}
+COPY_CEILING=${COPY_CEILING:-185}
 
 echo "  HOLDS: what sits in a callee-saved register at an allocating return is NAMED from the emitted code, not assumed from a paragraph -- and it is a property of the SITE, not of the graph, so it does not go in the per-graph map. gc_frame_map_t.reserved stays zero with no reader; the registers get a tag at the poll (section 6.5's spill record), which is the polls row's build."
 

@@ -7,18 +7,14 @@ extern "C" {
 }
 extern "C" void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 extern "C" long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
-extern "C" long rt_dcap_step(DESCR_t fret);
+extern "C" long rt_dcap_land_γ(DESCR_t frame0);
+extern "C" long rt_dcap_land_ω(void);
 extern "C" void rt_dcap_end_ok_close(void);
-extern "C" void *rt_proc_open_fn(void);
-extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
-extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" long zvo_owner_dout(int cur_head);
-extern "C" long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer);
 #include "x86_asm.h"
 #define rfc() (_.op_fc_disp >= 0)
 #define hfc() (_.op_fc_wbytes > 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int one_end(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_END"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int oscap_l(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OS_CAP"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int has_replace_l(void) { if (!g_emit_cfg) return 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && (_nd->op == IR_MATCH_REPLACE || _nd->op == IR_MATCH_FENCE0 || _nd->op == IR_MATCH_FENCE1 || _nd->op == IR_MATCH_ABORT || _nd->op == IR_MATCH_ARBNO)) return 1; } return 0; }
 #define stfh() (_.flat_stmt_frame || (oscap_l() && _.flat_deep_arrival && !_.flat_jmp_entry && !_.flat_lcl_proc && !_.zframe_graph && !_.flat_pat && !_.flat_gen && !has_replace_l()))
@@ -44,89 +40,54 @@ static std::string mend_bank_cursors() {
          : std::string());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string release_pump_legacy() {
+static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + x86("mov",  "rsi", "r12")
          + x86("note", "cas_mark")
-         + x86("mov", "rdi", RDQ("rbp", -8))
+         + x86("mov",  "rdi", RDQ("rbp", -8))
+         + x86("mov",  "rsi", "r12")
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
-         + x86("test", "rax", "rax")
-         + x86("je",   L(2))
-         + bb_glue_pass_wires(3, 4)
+         + x86("comment", "IR_MATCH_END capture pump: rax = 0 done, 1 strict-refuse, else the entry address of a deferred capture target -- the box enters it with its own wires (Lon 2026-09-19: no BB is entered from C after the original invocation; a C leaf returns the data for the jump)")
+         + x86("cmp",  "rax", 1L)
+         + x86("jbe",  L(2))
+         + x86("push", "rbx")
+         + x86("push", "r12")
+         + bb_glue_pass_wires_blob_regs(3, 4)
          + x86("def",  L(3))
-         + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
+         + x86("add",  "rsp", 16L)
+         + x86("pop",  "r12")
+         + x86("pop",  "rbx")
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
+         + x86("call", "rt_dcap_land_γ", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_land_γ)
          + x86("jmp",  L(1))
          + x86("def",  L(4))
-         + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
-         + x86("mov",  "rdi", "rax")
-         + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_dcap_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_step)
+         + x86("add",  "rsp", 16L)
+         + x86("pop",  "r12")
+         + x86("pop",  "rbx")
+         + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(long (*)(void))rt_dcap_land_ω)
          + x86("jmp",  L(1))
          + x86("def",  L(2))
+         + x86("mov",  RDQ("rsp", 0), "rax")
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
+         + x86("note", HKN(1))
+         + x86("mov",  "rdi", RDQ("rbp", -16))
+         + x86("note", HKN(3))
+         + x86("mov",  "rsi", RDQ("rbp", -32))
+         + x86("xor",  "edx", "edx")
+         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
+         + x86("mov",  "rax", RDQ("rsp", 0))
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + (x86("note", "cas_mark")
-             + x86("mov", "r12", RDQ("rbp", -8))
-             + x86("note", HKN(1))
-             + x86("mov", "r13", RDQ("rbp", -16))
-             + x86("note", HKN(2))
-             + x86("mov", "r14", RDQ("rbp", -24))
-             + x86("note", HKN(3))
-             + x86("mov", "r15", RDQ("rbp", -32)))
-         + IF(_.op_dval != 0.0,
-               x86("note", "repl_start")
-             + x86("mov", "eax", RDD("rbp", -36))
-             + x86("mov", RDD("r12", 0), "eax")
-             + x86("note", "repl_end")
-             + x86("mov", "rax", RDQ("rbp", -56))
-             + x86("mov", RDQ("r12", 8), "rax")
-             + x86("add", "r12", (long)16))
-         + x86("mov", "rdi", "r13")
-         + x86("mov", "rsi", "r15")
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
-         + x86("note", "frame_whack")
-         + x86("mov", "rsp", "rbp")
-         + x86("pop", "rbp")
-         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
-         + x86_gamma();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string release_pump_one() {
-    return std::string()
-         + x86_xfer_enter()
-         + x86_anchor_enter()
-         + x86("note", "cas_mark")
-         + x86("mov", "rdi", RDQ("rbp", -8))
-         + x86("note", HKN(3))
-         + x86("mov", "rax", RDQ("rbp", -32))
-         + x86("note", HKN(1))
-         + x86("mov", "rcx", RDQ("rbp", -16))
-         + x86("push", "rax")
-         + x86("push", "rcx")
-         + x86("lea",  "rcx", RDQ("rsp", 0))
-         + x86("mov",  "rsi", "r12")
-         + x86("mov",  "rdx", "r13")
-         + x86("call", "rt_match_end_all", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *, const uint64_t *))rt_match_end_all)
          + IF(cap_name_strict(),
-               x86("comment", "SN4-CAP-NAME-STRICT: rax != 0 = a deferred capture target resolved to a VALUE, not a NAME -- the terminus fails instead of committing an indirect assignment (oracle: sbl retreats).  The stub undoes exactly what this box's alpha established (the two pushes, anchor, xfer) and jumps omega, which lower_snobol4.c wires to head -- the same continuation a failing rightmost pattern element takes, so retry-or-exhaust is decided by head as usual.")
+               x86("comment", "SN4-CAP-NAME-STRICT: rax != 0 = a deferred capture target resolved to a VALUE, not a NAME -- the terminus fails instead of committing an indirect assignment (oracle: sbl retreats)")
              + x86("test", "rax", "rax")
              + x86("je",   L(13))
-             + x86("add",  "rsp", (long)16)
-             + x86_anchor_leave()
-             + x86_xfer_leave()
              + x86_omega()
              + x86("def",  L(13)))
-         + x86("add",  "rsp", (long)16)
-         + x86_anchor_leave()
-         + x86_xfer_leave()
          + (x86("note", "cas_mark")
              + x86("mov", "r12", RDQ("rbp", -8))
              + x86("note", HKN(1))
@@ -149,8 +110,6 @@ static std::string release_pump_one() {
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
          + x86_gamma();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string release_pump() { return one_end() ? release_pump_one() : release_pump_legacy(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_end() {
     x86_begin();

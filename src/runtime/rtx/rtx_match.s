@@ -247,8 +247,7 @@ RTX_FUNC(rt_dcap_end_ok_open)
     cmp     ecx, dword ptr [rip + g_dcf_cap]
     jge     c_rt_dcap_end_ok_open
 .Ldeoo_mutate:
-    lea     rcx, [rcx + rcx*4]
-    shl     rcx, 3
+    shl     rcx, 6
     add     rax, rcx
     inc     dword ptr [rip + g_dcf_top]
     mov     qword ptr [rax + 0], rdi
@@ -257,6 +256,9 @@ RTX_FUNC(rt_dcap_end_ok_open)
     mov     qword ptr [rax + 24], 0
     lea     rcx, [rip + .Lrtx_dfx_nul]
     mov     qword ptr [rax + 32], rcx
+    mov     qword ptr [rax + 40], 0
+    mov     qword ptr [rax + 48], 0
+    mov     qword ptr [rax + 56], 0
     jmp     rt_dcap_pump
 RTX_ENDF(rt_dcap_end_ok_open)
 RTX_FUNC(rt_dcap_end_ok_close)
@@ -266,30 +268,6 @@ RTX_FUNC(rt_dcap_end_ok_close)
 .Lrtx_deoc_ret:
     ret
 RTX_ENDF(rt_dcap_end_ok_close)
-RTX_FUNC(rt_match_end_all)
-    RTX_GATE(match, c_rt_match_end_all)
-    cmp     dword ptr [rip + g_dcap_trace], 0
-    jne     c_rt_match_end_all
-    mov     r8, qword ptr [rcx + 0]
-    mov     r9, qword ptr [rcx + 8]
-    push    r9
-    push    r8
-    sub     rsp, 8
-    call    rt_dcap_end_ok_open
-    add     rsp, 8
-    cmp     dword ptr [rip + g_dcf_top], 0
-    jle     .Lmea_skip_pop
-    dec     dword ptr [rip + g_dcf_top]
-.Lmea_skip_pop:
-    mov     rdi, qword ptr [rsp + 0]
-    mov     rsi, qword ptr [rsp + 8]
-    mov     r10, qword ptr [rip + Σ@GOTPCREL]
-    mov     qword ptr [r10], rdi
-    mov     r10, qword ptr [rip + Σlen@GOTPCREL]
-    mov     dword ptr [r10], esi
-    add     rsp, 16
-    ret
-RTX_ENDF(rt_match_end_all)
 RTX_FUNC(rt_match_replace)
     RTX_GATE(match, c_rt_match_replace)
     cmp     dword ptr [rip + g_repl_trace], 0
@@ -421,32 +399,6 @@ RTX_FUNC(rt_match_replace)
     pop     r12
     ret
 RTX_ENDF(rt_match_replace)
-RTX_FUNC(rt_dcap_step)
-    RTX_GATE(match, c_rt_dcap_step)
-    mov     r8d, dword ptr [rip + g_dcf_top]
-    test    r8d, r8d
-    jle     .Lrtx_dcs_ret0
-    cmp     dil, DT_FAIL
-    je      c_rt_dcap_step
-    test    dil, (DT_NOTSTR_MASK & 0xFF)
-    jz      c_rt_dcap_step
-.Lrtx_dcs_mutate:
-    dec     r8d
-    lea     r8, [r8 + r8*4]
-    shl     r8, 3
-    add     r8, qword ptr [rip + g_dcf]
-    mov     r10, qword ptr [rip + rt_g_want_name@GOTPCREL]
-    mov     dword ptr [r10], 0
-    mov     rdx, qword ptr [r8 + 24]
-    mov     rcx, qword ptr [r8 + 32]
-    sub     rsp, 8
-    call    rt_assign_var
-    add     rsp, 8
-    jmp     rt_dcap_pump
-.Lrtx_dcs_ret0:
-    xor     eax, eax
-    ret
-RTX_ENDF(rt_dcap_step)
 RTX_FUNC(rt_defer_get_pat_fn)
     test    rdi, rdi
     jz      .Ldfpf_nv

@@ -1015,6 +1015,30 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     return rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_dcap_call_prepare(const char *name, short *how, int *nsb)
+{
+    rt_proc_t *p = rt_proc_find(name);
+    *how = 0; *nsb = 0;
+    if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
+      if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return 0; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, 0, wn); }
+        *how = 1; return (long)(uintptr_t)fn; } }
+    if (!p || !p->fn) {
+        extern void rt_pl_iso_throw_existence_key(const char *);
+        fprintf(stderr, "[GZ-10] rt_dcap_call_prepare: procedure '%s' has no stackless slab\n", name ? name : "(null)");
+        rt_pl_iso_throw_existence_key(name ? name : "?");
+        return 0;
+    }
+    if (!p->dyn_scope) { fprintf(stderr, "FATAL rt_dcap_call_prepare: capture target '%s' is a C-frame procedure; a deferred capture may only enter a box-entered procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
+    { int _wn_gen = rt_g_want_name;
+      *nsb = rt_name_save_mark();
+      long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, 0) : rt_proc_call_open(name, 0);
+      if (!fbytes) return 0;
+      rt_g_want_name = _wn_gen; }
+    *how = (name && strchr(name, '$')) ? 3 : 1;
+    return (long)(uintptr_t)p->fn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
 {
     static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }

@@ -668,7 +668,6 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
 }
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
-#define RT_DCAP_E_THUNK  (~(uint64_t)0)
 const char *g_dcap_base = 0;
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -687,12 +686,13 @@ int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = g
 int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_POISON"); v = (e && *e && *e != '0') ? (int)(unsigned char)'Z' : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
-typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
+typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; const char *star; int nsb; short how; short rc; int wsv; uint32_t asv; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 extern uint32_t g_cap_gen;
 __attribute__((visibility("hidden"))) uint32_t g_cap_abort_gen;
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
-_Static_assert(sizeof(rt_dcf_t) == 40, "rtx_match.s RTX-8 slice 8 hardcodes stride 40 for rt_dcf_t");
+_Static_assert(sizeof(rt_dcf_t) == 64, "rtx_match.s rt_dcap_end_ok_open hardcodes stride 64 for rt_dcf_t (shl 6) and zeroes +40..+63");
+_Static_assert(offsetof(rt_dcf_t, star) == 40 && offsetof(rt_dcf_t, nsb) == 48 && offsetof(rt_dcf_t, how) == 52 && offsetof(rt_dcf_t, rc) == 54 && offsetof(rt_dcf_t, wsv) == 56 && offsetof(rt_dcf_t, asv) == 60, "rtx_match.s rt_dcap_end_ok_open zeroes the box-driven call record at +40 +48 +56 as three qwords");
 _Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.s RTX-8 slice 8 hardcodes cur at +0");
 _Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.s RTX-8 slice 8 hardcodes top at +8");
 _Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.s RTX-8 slice 8 hardcodes subj at +16");
@@ -713,6 +713,24 @@ static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm)
+{
+    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+    extern int rt_g_ret_by_name;
+    extern int rt_g_want_name;
+    const int strict = rt_cap_name_strict();
+    const int nmyield = !strncmp(c->star + 1, "EXPRNM$", 7);
+    g_cap_abort_gen = c->asv;
+    rt_g_want_name = c->wsv;
+    const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
+    DESCR_t d = c->pending;
+    if (IS_FAIL_fn(nm)) { if (strict) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", c->star); c->rc = 1; return 1; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", c->star); return 0; }
+    if (strict && !by_name) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", c->star, (int)nm.v, nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?"); c->rc = 1; return 1; }
+    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
+    else rt_assign_var(nm, d);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
@@ -721,25 +739,11 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return 1; }
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    long rc = 0;
     int _cva = comm_var_active();
     int _prev_star = 0;
-    int _frame_has_thunk = 0;
-    { const char *_p = c->cur;
-      while (_p + sizeof(rt_dcap_e) <= c->top) {
-          const rt_dcap_e *_e = (const rt_dcap_e *)(const void *)_p;
-          if (_e->len == RT_DCAP_E_THUNK) { _frame_has_thunk = 1; break; }
-          _p += sizeof(rt_dcap_e);
-      } }
     while (c->cur < c->top) {
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
-        if (e->len == RT_DCAP_E_THUNK) {
-            void (*thunk)(void) = (void (*)(void))(uintptr_t)e->saved_delta;
-            c->cur += sizeof(rt_dcap_e);
-            if (thunk) thunk();
-            continue;
-        }
         int len = (int)e->len; if (len < 0) len = 0;
         { extern int Σlen;
           long long _end = (long long)e->saved_delta + (long long)len;
@@ -747,7 +751,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
               fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s', frame depth %d). Deferred re-entry invalidated the outer frame; capture skipped rather than reading out of bounds.\n",
                       len, (unsigned long long)e->saved_delta, _end, Σlen, e->varname ? e->varname : "(null)", g_dcf_top);
               c->cur += sizeof(rt_dcap_e);
-              rc = 1;
+              c->rc = 1;
               continue; } }
         DESCR_t d;
         int _star_arm = (e->varname && e->varname[0] == '*');
@@ -755,7 +759,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
         if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
         int _budget_ok = (_slice_budget < 0) || (_slice_idx < _slice_budget);
-        if (len > 0 && c->subj && !_star_arm && !_frame_has_thunk && _budget_ok && rt_cap_slice_on()) {
+        if (len > 0 && c->subj && !_star_arm && _budget_ok && rt_cap_slice_on()) {
             if (_slice_trace) fprintf(stderr, "[SLICE] #%ld var=%s len=%d delta=%llu subj=%p\n", _slice_idx, e->varname ? e->varname : "?", len, (unsigned long long)e->saved_delta, (const void *)c->subj);
             _slice_idx++;
             rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
@@ -766,25 +770,17 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         }
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
+            extern int rt_proc_is_registered(const char *);
+            extern long rt_dcap_call_prepare(const char *, short *, int *);
+            const char *pn = e->varname + 1;
             _prev_star = 1;
-            const int strict = rt_cap_name_strict();
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
-            extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-            extern int rt_g_ret_by_name;
-            const int nmyield = !strncmp(e->varname + 1, "EXPRNM$", 7);
-            { int _wsv = rt_g_want_name; rt_g_want_name = 1; uint32_t _asv = g_cap_abort_gen;
-            DESCR_t nm = rt_sno_dtx_value(e->varname + 1);
-            g_cap_abort_gen = _asv;
-            rt_g_want_name = _wsv;
-            const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
-            if (IS_FAIL_fn(nm)) { if (strict) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", e->varname); rc = 1; break; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }
-            if (strict && !by_name) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", e->varname, (int)nm.v, nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?"); rc = 1; break; }
-            if (IS_STR_fn(nm)) {
-                                 const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
-            else rt_assign_var(nm, d);
-            continue;
+            c->pending = d; c->star = e->varname; c->wsv = rt_g_want_name; c->asv = g_cap_abort_gen; c->how = 0; c->nsb = 0;
+            rt_g_want_name = 1;
+            if (!rt_proc_is_registered(pn)) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return 1; continue; }
+            { long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb);
+              if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return 1; continue; }
+              return fn; }
         }
-            }
         if (e->varname && e->varname[0]) {
             DESCR_t *cell0;
             { extern int g_call_fastpath_off;
@@ -804,7 +800,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             }
         }
     }
-    return rc;
+    return c->rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
@@ -813,30 +809,30 @@ long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
     if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
     if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];
-    c->cur = mark; c->top = top; c->subj = subj; c->pending = NULVCL;
+    c->cur = mark; c->top = top; c->subj = subj; c->pending = NULVCL; c->star = (const char *)0; c->nsb = 0; c->how = 0; c->rc = 0; c->wsv = 0; c->asv = 0;
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long c_rt_dcap_step(DESCR_t nm)
+long rt_dcap_land_γ(DESCR_t frame0)
 {
-    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-    extern int rt_g_want_name;
+    extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t); extern DESCR_t rt_proc_call_epilogue_named_γ(const char *); extern void rt_name_save_unwind(int);
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    rt_g_want_name = 0;
-    if (!IS_FAIL_fn(nm)) { if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, c->pending); } else rt_assign_var(nm, c->pending); }
+    DESCR_t nm = (c->how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1) : rt_proc_call_epilogue_γ(frame0);
+    if (c->how == 3) rt_name_save_unwind(c->nsb);
+    if (rt_dcap_star_finish(c, nm)) return 1;
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long c_rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer)
+long rt_dcap_land_ω(void)
 {
-    extern void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
-    extern long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
-    long rc = rt_dcap_end_ok_open(mark, top, subj);
-    { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace && rc) fprintf(stderr, "[DCAP] MATCH_END rc=%ld -> OMEGA (strict stub)\n", rc); }
-    if (g_dcf_top > 0) g_dcf_top--;
-    rt_match_ctx_restore(outer[0], outer[1], 0);
-    return rc;
+    extern DESCR_t rt_proc_call_epilogue_ω(void); extern DESCR_t rt_proc_call_epilogue_named_ω(const char *); extern void rt_name_save_unwind(int);
+    if (g_dcf_top <= 0) return 0;
+    rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    DESCR_t nm = (c->how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1) : rt_proc_call_epilogue_ω();
+    if (c->how == 3) rt_name_save_unwind(c->nsb);
+    if (rt_dcap_star_finish(c, nm)) return 1;
+    return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
