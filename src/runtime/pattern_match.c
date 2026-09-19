@@ -409,7 +409,7 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
                 DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=DATA_ELEMS_SLEN; empty_ptr.ptr=NULL;
                 return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"), INTVAL(0));
             }
-            DESCR_t *rbuf = rt_ws_alloc(rlen * sizeof(DESCR_t));
+            DESCR_t *rbuf = rt_ws_alloc_descr((size_t)rlen);
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
             DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=DATA_ELEMS_SLEN; rptr.ptr=(void*)rbuf;
             static int list_slice_reg = 0;
@@ -548,7 +548,7 @@ DESCR_t sort_fn(DESCR_t arr) {
         if (!src) return arr;
         int n = src->hi - src->lo + 1;
         if (n <= 0) return arr;
-        DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
+        DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
         const char **strs = rt_ws_alloc(n * sizeof(char *));
         char *bufblk = rt_ws_alloc((size_t)n * 64);
         for (int i = 0; i < n; i++) { vals[i] = src->data[i]; strs[i] = tbl_key_str(vals[i], bufblk + (size_t)i * 64, 64); }
@@ -572,8 +572,8 @@ DESCR_t sort_fn(DESCR_t arr) {
     TBL_FOREACH(tbl, e) n++;
     if (n == 0) return FAILDESCR;
     const char **keys = rt_ws_alloc(n * sizeof(char *));
-    DESCR_t *key_descrs = rt_ws_alloc(n * sizeof(DESCR_t));
-    DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
+    DESCR_t *key_descrs = rt_ws_alloc_descr((size_t)n);
+    DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
     int idx = 0;
     TBL_FOREACH(tbl, e) {
             keys[idx] = tbl_pair_key(e);
@@ -603,11 +603,11 @@ DESCR_t sort_fn(DESCR_t arr) {
     a->proto_bare = 1;
     a->id         = rt_agg_serial_list();
     { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_heap_strdup_c(pb); }
-    a->data = rt_ws_alloc(n * sizeof(DESCR_t));
+    a->data = rt_ws_alloc_descr((size_t)n);
     for (int i = 0; i < n; i++) {
         ARBLK_t *row = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
         row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0; row->id = rt_agg_serial_list(); row->dumpno = 0;
-        row->data = rt_ws_alloc(2 * sizeof(DESCR_t));
+        row->data = rt_ws_alloc_descr(2);
         row->data[0] = key_descrs[order[i]];
         row->data[1] = vals[order[i]];
         DESCR_t rd = {0}; rd.v = DT_A; rd.arr = row;
