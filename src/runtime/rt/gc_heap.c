@@ -526,6 +526,7 @@ int rt_gc_slot_registered(const void *loc)
 static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_tbblk(struct _TBBLK_t *t);
+static int gc_block_exact(const char *q, uint16_t want_type);
 static void gc_wl_push(DESCR_t *d);
 static void gc_visit_arblk(ARBLK_t *a);
 static void gc_visit_datinst(DATINST_t *u);
@@ -602,15 +603,17 @@ static void gc_visit_one(DESCR_t *d)
         return; }
     case DT_A: {
         ARBLK_t *a = d->arr;
+        if (!a || !gc_block_exact((const char *)a, HB_ARR)) return;
         gc_mark_agg((const void *)a);
         gc_slot_reg((void *)&d->arr);
-        if (!a || !gc_hins((void *)a)) return;
+        if (!gc_hins((void *)a)) return;
         gc_visit_arblk(a);
         return; }
     case DT_T: {
         TBBLK_t *t = d->tbl;
+        if (!t || !gc_block_exact((const char *)t, HB_AGGT)) return;
         gc_slot_reg((void *)&d->tbl);
-        if (!t || !gc_hins((void *)t)) return;
+        if (!gc_hins((void *)t)) return;
         gc_visit_tbblk(t);
         return; }
     case DT_DATA: {
@@ -618,9 +621,10 @@ static void gc_visit_one(DESCR_t *d)
             if (eh) { g_gc_dvec_elems++; if (eh->type != HB_DVEC) { g_gc_dvec_nondvec++; } }
             rt_gc_visit_raw((const char **)&d->ptr); return; }
         { DATINST_t *u = d->u;
+          if (!u || !gc_block_exact((const char *)u, HB_DINST)) return;
           gc_mark_agg((const void *)u);
           gc_slot_reg((void *)&d->u);
-          if (!u || !gc_hins((void *)u)) return;
+          if (!gc_hins((void *)u)) return;
           gc_visit_datinst(u); }
         return; }
     case DT_N: {
