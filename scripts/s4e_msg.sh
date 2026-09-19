@@ -2558,12 +2558,20 @@ TASKEOF
            # would have to fall out of the case for the admitted seat, and falling out returns success for the other two as well.
            cto)     case "$_mode" in
                       CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";; esac;;
-           cfo|coo) case "$_mode" in
+           # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
+           # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
+           # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
+           cfo)     case "$_mode" in
                       CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _refuse_dispatch "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";; esac;;
+           coo)     case "$_mode" in
+                      CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      DUO) _refuse_dispatch "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";;
+                      TRIO) _refuse_dispatch "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";; esac;;
            hq|hq_*) case "$_mode" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO) _refuse_dispatch "an HQ" "Under DUO no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-19, CEO-907).";;
+                      TRIO) _refuse_dispatch "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
                       EXECUTIVE) _refuse_dispatch "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
            seat*)   case "$_mode" in
                       CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET|NONET|DECTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
