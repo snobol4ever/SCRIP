@@ -156,17 +156,16 @@ typedef enum {
     IR_LIMIT_GATE,
     IR_OP_COUNT
 } IR_e;
-DESCR_SASSERT(IR_OP_COUNT <= 255, "mint_op is a uint8_t (descr.h) and it answers ONE question: WHICH BB MINTED "
-               "THIS DESCRIPTOR. 0 is UNSTAMPED, 1..IR_OP_COUNT-1 is the minting BB/IR op, and an op past 255 "
-               "would stamp as a DIFFERENT op with no compiler or test saying so. THIS IS THE WHOLE GUARD. It "
-               "replaced a literal 130 in descr_tags.inc standing for IR_OP_COUNT+1, which was true when it was "
-               "typed and then stopped being true SEVEN TIMES as ops were added, because nothing read both "
-               "files. IF YOU ARE READING THIS BECAUSE YOU WANT TO RECORD WHICH RUNTIME FUNCTION A BB CALLED: "
-               "that was a SECOND, ORTHOGONAL DIMENSION carried here as 123 per-routine ids, it is deliberately "
-               "and temporarily GONE (Lon 2026-09-13, ceo CEO-719: we can do without that granularity for now "
-               "until we figure something else), and its home is ITS OWN STORAGE AND NEVER THIS BYTE -- N values "
-               "for which-rt added back here is 1 + 136 + 123 = 260 in a 256-wide field, the exact overflow this "
-               "cured. descr_tags.inc carries the long form where those ids used to be.");
+DESCR_SASSERT(IR_OP_COUNT > 0,
+               "THE OP-IN-A-BYTE GUARD THAT STOOD HERE IS RETIRED AND THIS ASSERT KEEPS ITS PLACE SO THE HISTORY IS "
+               "NOT LOST. It read IR_OP_COUNT <= 255 because descr.h carried a uint8_t mint_op holding the minting "
+               "BB/IR op, so an op past 255 would have stamped as a DIFFERENT op with nothing saying so. Lon removed "
+               "mint_op on 2026-09-18, in-chat, on the ground that the op is DERIVABLE from the node id -- scrip "
+               "--dump-bb maps each id to its kind and statement -- so storing both was storing one fact twice. The "
+               "byte went to src_node, which is now 24 bits. NOTHING CONSTRAINS IR_OP_COUNT TO A BYTE ANY MORE; if "
+               "you are adding ops, add them. The descr_tags.inc block above this file's enum carries the rest of "
+               "the numbering history, including the 123 per-runtime-routine ids that were a SECOND, ORTHOGONAL "
+               "dimension and are still homeless.");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_matcher(int t) {
     switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:

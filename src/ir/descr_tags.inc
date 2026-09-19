@@ -57,29 +57,21 @@
  * tag was not a recognisable immediate at all, it was a nibble inside a 64-bit literal, so no reviewer and no
  * pattern for "a bare tag constant" could see it. (slen 2 << 32) | DT_N. Use THIS, never the packed number. */
 #define DT_NAMETRAP_LO (((2) << 32) | DT_N)
-/* ⛔⭐ mint_op IS ONE NUMBERING AND ONE NUMBERING ONLY: 0 = nothing stamped it, 1..IR_OP_COUNT-1 = THE BB/IR OP
- * THAT MINTED THE DESCRIPTOR. The C-side compiler stamps it in bb_lit_scalar.cpp's lit_tag_imm, where the
- * template knows which program statement it is emitting; the field is asserted to fit in IR.h beside the enum.
- * ⛔ WHAT WAS HERE AND WHY IT IS GONE (Lon 2026-09-13 via ceo CEO-719 and its two corrections): 123
- * MOD_OP_RT_* ids, one per hand-written rtx/*.s routine that mints a descriptor, numbered from 130 because a
- * comment here said that was one past IR_OP_COUNT. THEY WERE A SECOND, ORTHOGONAL DIMENSION, not a second
- * numbering of this one: mint_op says WHICH BB minted, and the rt id said WHICH RUNTIME FUNCTION THAT BB
- * CALLED -- "Like BB_CALL, which call?" -- because one bb_call dispatches to rt_add, rt_concat, rt_size and
- * dozens more with the BB identical every time. Measured: 118 of the 123 have no IR op counterpart by name,
- * because they are runtime HELPERS a BB calls and not BBs.
- * ⛔⛔ SO THIS IS A DELIBERATE, TEMPORARY, NAMED LOSS, ACCEPTED BY LON IN THOSE TERMS -- "We can do without
- * that granularity for now until we figure something else." A reader chasing a bad descriptor keeps "which BB
- * minted this" and loses "by calling which runtime function"; a helper-minted descriptor now reads
- * mint_op 0, UNSTAMPED, which is exactly true of it. ITS HOME IS TBD AND IT IS A SECOND DIMENSION NEEDING ITS
- * OWN STORAGE -- NEVER a numbering to fold back into mint_op. Putting N values for "which rt" back into this
- * byte RE-CREATES THE OVERFLOW THIS CURED: 1 + 136 + 123 = 260 in a 256-wide field, i.e. the space was not
- * running out, IT WAS ALREADY OVER, and seven IR ops (IR_UNOP IR_UNOP_TEST IR_VAR IR_VAR_REF IR_VAR_FRAME
- * IR_ASSIGN_FRAME IR_LIMIT_GATE) were stamping straight onto RT_FAILDESCR..RT_PROC_VALUE.
- * ⭐ AND THE NAME WAS THE ROOT OF IT: the field was `mint_op`, which reads as MODIFIED, so a numbering that
- * records WHO MINTED looked like it needed a second population with a divider between them -- and the divider
- * was a literal 130 standing for IR_OP_COUNT+1 that nothing read against IR.h and that stopped being true
- * seven times without one loud failure. Three dead proposals, do not re-walk them (CEO-719): merging the
- * per-language IR ops is backwards and would CREATE the language switch the law forbids; src_node cannot hold
- * the stamp because it is the BB node id and 16 bits is already too small; bit fields cannot be targeted
- * portably by 49 hand-written asm mints. */
+/* ⛔⭐ mint_op IS GONE (Lon 2026-09-18, in-chat to the cfo, on reading this file's own history: "Remove mint_op
+ * since it is derivative"). IT HELD THE MINTING BB/IR OP IN ONE BYTE, and the op is RECOVERABLE FROM THE NODE ID --
+ * `scrip --dump-bb` prints an id, a kind and a stmt for every box -- so the tree was storing one fact twice and
+ * spending a byte of a 16-byte ABI-pinned struct to do it. THE BYTE WENT TO src_node, WHICH IS NOW 24 BITS.
+ * ⭐ THAT ALSO ANSWERS THE OBJECTION RECORDED HERE UNDER CEO-719, which is why this is not a re-walk of a dead
+ * proposal: the dead proposal was folding the OP STAMP INTO src_node, and it died on "src_node cannot hold the stamp
+ * because it is the BB node id and 16 bits is already too small". This is the opposite move -- the op stamp is
+ * DELETED rather than folded, and the freed byte CURES the 16-bit shortage that objection named. MEASURED HEADROOM:
+ * beauty.sno is the densest program in the corpus at 12812 boxes over 618 lines, 20.7 boxes per line, which was 19.6
+ * percent of the old 16-bit field and is 0.08 percent of the new one; the whole graded SNOBOL4 suite at that density
+ * would be about 402000 boxes, 2.4 percent of a 24-bit space.
+ * ⛔ WHAT IS STILL HOMELESS AND MUST NOT BE FOLDED IN HERE: the 123 MOD_OP_RT_* ids, one per hand-written rtx/*.s
+ * routine that mints a descriptor. They were a SECOND, ORTHOGONAL DIMENSION -- "Like BB_CALL, which call?" -- because
+ * one bb_call dispatches to rt_add, rt_concat, rt_size and dozens more with the BB identical every time, and 118 of
+ * the 123 have no IR op counterpart by name. Lon accepted that loss in those terms ("We can do without that
+ * granularity for now until we figure something else"). IT NEEDS ITS OWN STORAGE AND IT IS NOT DERIVABLE FROM THE
+ * NODE ID, which is exactly why it did not go the way mint_op just did. */
 #endif
