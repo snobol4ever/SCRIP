@@ -19,7 +19,30 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 # run (SCRIP 5dafed741). Deleting it would blind two blocking gates to cure a census. PIN in this class meant PINNED FRAMES. The exclusion
 # is exactly the SCRIP_GC_ prefix and nothing wider: the row's DONE-WHEN plants a getenv("SCRIP_PIN_FRAMES") in a scratch tree and proves
 # this gate still reds on it.
-hits=$(grep -rnoE 'getenv\("SCRIP_[A-Z0-9_]*(RBP|FRAME|PIN|ZFRAME|CARVE)[A-Z0-9_]*"\)' "$ROOT/src" 2>/dev/null | grep -vE 'getenv\("SCRIP_GC_' || true)
+# ⛔⭐ RULING 2026-09-19 (ceo CEO-948, the same shape as the SCRIP_GC_ ruling above and for the same measured reason):
+# A PLANT SEAM THAT A BLOCKING GATE USES IS DECLARED HERE WITH ITS GATE, AND THE DECLARATION CHECKS ITSELF.
+# The census went red on the clean tree again -- this time on getenv("SCRIP_BLOB_CARVE_PAD") (emit.cpp:2529, added by
+# the GC landing 01aa9008c "the R-4(b) blob carve is a DEPTH CONTRACT, named and held by a gate that plants the
+# perturbation"), and it was red on origin for every seat with no record anywhere. The tension is real and it is between
+# two laws: CEO-554 says an instrument must be able to PLANT its trip through a cached-getenv seam, because a gate
+# anchored on a found witness dies the day someone cures the witness; RULES.md's ζ TIER IS DERIVED says no env switch
+# chooses a frame placement. A seam that PADS THE CARVE is not inert -- it changes emitted frame geometry -- so the
+# census is right to see it, and deleting it would blind test_gate_gc_blob_carve_invariant_is_named_and_held.sh, which
+# is exactly what the SCRIP_GC_ ruling refused to do three days earlier.
+# THE RECONCILIATION KEEPS THE CENSUS'S FORCE: an exempt name is listed below WITH the gate that plants with it, and
+# this gate REFUSES rc=2 unless that gate exists AND actually references the name. So the list cannot become a dumping
+# ground, a seam whose gate is deleted stops being exempt the same day, and an UNDECLARED switch still reds. Same
+# declared-set shape as the arena pin list in test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh and the
+# ROOTED-HEAP family read in the two rooting gates.
+SEAMS="SCRIP_BLOB_CARVE_PAD:test_gate_gc_blob_carve_invariant_is_named_and_held.sh"
+SEAM_RX=""
+for _sp in $SEAMS; do
+    _nm=${_sp%%:*}; _gt=${_sp##*:}
+    [ -f "$HERE/$_gt" ] || { echo "⛔ REFUSE(2): declared plant seam $_nm names gate $_gt, which does not exist. A seam is exempt only while the gate that plants with it does -- delete the declaration or restore the gate."; exit 2; }
+    grep -q "$_nm" "$HERE/$_gt" || { echo "⛔ REFUSE(2): declared plant seam $_nm names gate $_gt, which does not reference it. An exemption whose gate never uses the seam is a dumping ground, and this census does not keep one."; exit 2; }
+    SEAM_RX="${SEAM_RX:+$SEAM_RX|}getenv\(\"$_nm\"\)"
+done
+hits=$(grep -rnoE 'getenv\("SCRIP_[A-Z0-9_]*(RBP|FRAME|PIN|ZFRAME|CARVE)[A-Z0-9_]*"\)' "$ROOT/src" 2>/dev/null | grep -vE 'getenv\("SCRIP_GC_' | { [ -n "$SEAM_RX" ] && grep -vE "$SEAM_RX" || cat; } || true)
 n=$(printf '%s' "$hits" | grep -c . || true)
 if [ "$n" -ne 0 ]; then
   echo "⛔ FAIL: $n zeta frame switch(es) under src/ -- the tier is DERIVED, never enumerated (RULES.md, CEO-447):"
@@ -35,5 +58,5 @@ if [ "$zn" -ne 0 ]; then
   printf '%s\n' "$zhits" | sed "s#^$ROOT/##"
   exit 1
 fi
-echo "✅ PASS: 0 zeta frame switches (getenv SCRIP_*{RBP,FRAME,PIN,ZFRAME,CARVE}*) and 0 ZC_/ZLS identifiers or zeta store files under src/ -- the tier is derived, the layout is typed"
+echo "✅ PASS: 0 undeclared zeta frame switches (getenv SCRIP_*{RBP,FRAME,PIN,ZFRAME,CARVE}*, less the SCRIP_GC_ heap-policy namespace and the declared plant seams [$SEAMS], each verified against the gate that plants with it) and 0 ZC_/ZLS identifiers or zeta store files under src/ -- the tier is derived, the layout is typed"
 exit 0
