@@ -208,7 +208,7 @@ static void trace_image_icon_var_f(FILE *fp, DESCR_t a) {
 static void trace_image_icon_f(FILE *fp, DESCR_t a, int top) {
     extern long rt_record_image_id(void *inst);
     if (IS_VARREF_fn(a)) { trace_image_icon_var_f(fp, a); return; }
-    if (a.v == DT_DATA && a.u && a.u->type && a.u->type->name) {
+    if (IS_DATA_INST_fn(a) && a.u && a.u->type && a.u->type->name) {
         DATBLK_t *t = a.u->type;
         if (!strcmp(t->name, "list")) {
             int n = (t->nfields >= 2 && a.u->fields) ? (int)a.u->fields[1].i : 0;
@@ -1779,7 +1779,7 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         inst->type = blk; inst->id = blk ? blk->serial_next++ : 0; inst->dumpno = rt_sno_dumpno_next();
         inst->fields = rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
         for (int i = 0; i < nf; i++) inst->fields[i] = src->fields[i];
-        DESCR_t r; r.v = DT_DATA; r.slen = 0; r.u = inst; return r;
+        DESCR_t r; r.v = DT_DATA; r.slen = DATA_INST_SLEN; r.u = inst; return r;
     }
     if (IS_TBL(v)) {
         if (!v.tbl) return v;
@@ -2023,7 +2023,7 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
-    return (DESCR_t){ .v = DT_DATA, .u = u };
+    return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = u };
 }
 #define CTOR_FN(idx) \
 static DESCR_t _ctor_##idx(DESCR_t *a, int n) { return _make_ctor(idx, a, n); }
@@ -2922,7 +2922,7 @@ const char *datatype(DESCR_t v) {
         case DT_BOOL:    return "BOOL";
         case DT_ORDER:   return "ORDER";
         case DT_R:       return "REAL";
-        case DT_DATA:    return v.u ? v.u->type->name : "DATA";
+        case DT_DATA:    return (v.slen == DATA_INST_SLEN && v.u) ? v.u->type->name : "DATA";
         case DT_P:       return "PATTERN";
         case DT_A:       return "ARRAY";
         case DT_T:       return "TABLE";
@@ -3004,7 +3004,7 @@ DESCR_t DATCON_fn(const char *typename, ...) {
         u->fields[i] = v;
     }
     va_end(ap);
-    return (DESCR_t){ .v = DT_DATA, .u = u };
+    return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = u };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t FIELD_GET_fn(DESCR_t obj, const char *field) {
@@ -3340,7 +3340,7 @@ static const char *dump_arr_proto(const ARBLK_t *a, char *pb, int n) {
 static void dump_obj_head(DESCR_t d, char *out, int n) {
     if (d.v == DT_A && d.arr) { char pb[64]; snprintf(out, (size_t)n, "ARRAY(%s) #%ld", dump_arr_proto(d.arr, pb, (int)sizeof pb), d.arr->dumpno); return; }
     if (d.v == DT_T && d.tbl) { snprintf(out, (size_t)n, "TABLE(%d) #%ld", d.tbl->init, d.tbl->dumpno); return; }
-    if (d.v == DT_DATA && d.u && d.u->type) { snprintf(out, (size_t)n, "%s #%ld", d.u->type->name ? d.u->type->name : "DATA", d.u->dumpno); return; }
+    if (IS_DATA_INST_fn(d) && d.u && d.u->type) { snprintf(out, (size_t)n, "%s #%ld", d.u->type->name ? d.u->type->name : "DATA", d.u->dumpno); return; }
     out[0] = 0;
 }
 static void dump_val(DESCR_t d) {
@@ -3372,7 +3372,7 @@ static DUMPOBJ_t *g_dobj = 0; static int g_ndobj = 0, g_cdobj = 0;
 static int dump_obj_ptr(DESCR_t d, void **pp, long *no) {
     if (d.v == DT_A && d.arr) { *pp = d.arr; *no = d.arr->dumpno; return 1; }
     if (d.v == DT_T && d.tbl) { *pp = d.tbl; *no = d.tbl->dumpno; return 1; }
-    if (d.v == DT_DATA && d.u) { *pp = d.u; *no = d.u->dumpno; return 1; }
+    if (IS_DATA_INST_fn(d) && d.u) { *pp = d.u; *no = d.u->dumpno; return 1; }
     return 0;
 }
 static long dump_arr_count(const ARBLK_t *a) { long n = (long)(a->hi - a->lo + 1); if (a->ndim > 1) n *= (long)(a->hi2 - a->lo2 + 1); return n < 0 ? 0 : n; }
@@ -3385,7 +3385,7 @@ static void dump_collect(DESCR_t d, const char *name) {
     }
     if (d.v == DT_A) { ARBLK_t *a = d.arr; long cnt = dump_arr_count(a); if (a->data) for (long i = 0; i < cnt; i++) dump_collect(a->data[i], (const char *)0); }
     else if (d.v == DT_T) { TBBLK_t *t = d.tbl; for (unsigned i = 0; i < t->ord_len; i++) { int f = 0; DESCR_t v = table_get_found_d(t, t->ord[i], &f); if (f) dump_collect(v, (const char *)0); } }
-    else if (d.v == DT_DATA && d.u->type && d.u->fields) { for (int i = 0; i < d.u->type->nfields; i++) dump_collect(d.u->fields[i], (const char *)0); }
+    else if (IS_DATA_INST_fn(d) && d.u->type && d.u->fields) { for (int i = 0; i < d.u->type->nfields; i++) dump_collect(d.u->fields[i], (const char *)0); }
 }
 typedef struct { unsigned idx; unsigned long bucket; } DUMPTK_t;
 static unsigned long dump_spitbol_bucket(DESCR_t k, int nb) {
@@ -3436,7 +3436,7 @@ static void dump_contents(void) {
                 dump_puts(nm); dump_putc('<'); dump_val(t->ord[i]); dump_puts("> = "); dump_val(v); dump_nl();
             }
             ct_drop(ks); }
-        else if (d.v == DT_DATA && d.u->type && d.u->fields) {
+        else if (IS_DATA_INST_fn(d) && d.u->type && d.u->fields) {
             for (int i = 0; i < d.u->type->nfields; i++) {
                 DESCR_t v = d.u->fields[i]; if (dump_is_null(v)) continue;
                 dump_puts(d.u->type->fields && d.u->type->fields[i] ? d.u->type->fields[i] : ""); dump_putc('('); dump_puts(nm); dump_puts(") = "); dump_val(v); dump_nl();

@@ -154,7 +154,7 @@ const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
         case DT_I:    { char *p = buf; *p++ = '\001'; *p++ = 'i'; long long v = (long long)kd.i; unsigned long long u; if (v < 0) { *p++ = '-'; u = (unsigned long long)(-(v + 1)) + 1ull; } else u = (unsigned long long)v;
                         char t[24]; int n = 0; do { t[n++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; } while (u); while (n) *p++ = t[--n]; *p = 0; (void)bufn; return buf; }
         case DT_R:    snprintf(buf, bufn, "\001r%.17g", kd.r); return buf;
-        case DT_DATA: { if (!kd.u) return "\001d0"; snprintf(buf, bufn, "\001d%s#%ld", kd.u->type ? kd.u->type->name : "?", kd.u->id); return buf; }
+        case DT_DATA: { if (kd.slen != DATA_INST_SLEN || !kd.u) return "\001d0"; snprintf(buf, bufn, "\001d%s#%ld", kd.u->type ? kd.u->type->name : "?", kd.u->id); return buf; }
         case DT_BIG:  { extern char *rt_big_str(DESCR_t); snprintf(buf, bufn, "\001b%s", rt_big_str(kd)); return buf; }
         case DT_A:    { if (!kd.arr) return "\001l0"; if (!kd.arr->id) kd.arr->id = g_agg_list_ser++; snprintf(buf, bufn, "\001l%ld", kd.arr->id); return buf; }
         case DT_T:    { if (!kd.tbl) return "\001t0"; if (!kd.tbl->id) kd.tbl->id = g_agg_table_ser++; snprintf(buf, bufn, "\001%c%ld", kd.tbl->is_set ? 'S' : 't', kd.tbl->id); return buf; }
@@ -245,7 +245,7 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
         case DT_R:    { union { double d; unsigned long long u; } a, b; a.d = e->key_descr.r; b.d = k.r; return a.u == b.u; }
         case DT_A:    return e->key_descr.arr == k.arr;
         case DT_T:    return e->key_descr.tbl == k.tbl;
-        case DT_DATA: return e->key_descr.u == k.u;
+        case DT_DATA: return e->key_descr.slen == k.slen && e->key_descr.u == k.u;
         case DT_BIG:  { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(e->key_descr, k) == 0; }
         default:      return e->key_descr.ptr == k.ptr;
     }
@@ -352,7 +352,7 @@ static unsigned long _icn_hash(DESCR_t k) {
     }
     if (k.v == DT_I) return (13255ul * (unsigned long)k.i) >> 10;
     if (k.v == DT_R) return (unsigned long)(k.r * 1129.27586206896558);
-    if (k.v == DT_DATA && k.u) return (13255ul * (unsigned long)k.u->id) >> 10;
+    if (IS_DATA_INST_fn(k) && k.u) return (13255ul * (unsigned long)k.u->id) >> 10;
     if (k.v == DT_A && k.arr) return (13255ul * (unsigned long)k.arr->id) >> 10;
     if (k.v == DT_T && k.tbl) return (13255ul * (unsigned long)k.tbl->id) >> 10;
     return (unsigned long)k.v;

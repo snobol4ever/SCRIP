@@ -89,6 +89,23 @@ static inline __attribute__((always_inline)) int IS_FAIL_fn(DESCR_t v) { return 
 static inline __attribute__((always_inline)) int IS_DATA_TAG_fn(uint8_t v) { return v >= DT_DATA && v < DT_RAW; }
 static inline __attribute__((always_inline)) int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
 static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
+#define DATA_INST_SLEN  0u
+#define DATA_ELEMS_SLEN 1u
+DESCR_SASSERT(DATA_INST_SLEN != DATA_ELEMS_SLEN,
+               "DT_DATA was a UNION with nothing in the descriptor to arbitrate it: the .u arm is a DATINST_t (a record instance) and the "
+               ".ptr arm is a raw DESCR_t element vector (an Icon list's frame_elems backing store), and until 2026-09-18 BOTH were minted "
+               "with slen 0, so a reader that guessed wrong read a DATBLK_t* out of the first element of a descriptor array -- a SILENT "
+               "WRONG ANSWER, not a crash, and the collector had to string-compare a field name to tell them apart. This is DT_N's own "
+               "scheme (slen 0 char*, 1 DESCR_t*, 2 VCELL_t*) applied to the tag that needed it; the two values are PINNED here so a future "
+               "third meaning cannot quietly reuse one.");
+DESCR_SASSERT(DATA_ELEMS_SLEN != 0xFFFFFFFFu && DATA_ELEMS_SLEN != 0xFFFFFFFDu && DATA_ELEMS_SLEN != 0xFFFFFFFEu &&
+               DATA_ELEMS_SLEN != 0xFFFFFFFCu && DATA_ELEMS_SLEN != 0xFFFFFFFBu,
+               "a DT_DATA discriminator is PER-TAG, so reusing a small value another tag already uses is fine (DT_N slen 1 is NAMEPTR and is "
+               "unrelated to this); what it must not do is land in the 0xFFFFFFFx range that the PROCVAL_BUILTIN_SLEN assert above records as "
+               "ONE space shared across unrelated headers with nothing collecting it.");
+static inline __attribute__((always_inline)) int IS_DATA_INST_fn(DESCR_t v)  { return v.v == DT_DATA && v.slen == DATA_INST_SLEN; }
+static inline __attribute__((always_inline)) int IS_DATA_ELEMS_fn(DESCR_t v) { return v.v == DT_DATA && v.slen == DATA_ELEMS_SLEN; }
+#define DATA_ELEMS(p_) ((DESCR_t){ .v = DT_DATA, .slen = DATA_ELEMS_SLEN, .ptr = (void *)(p_) })
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
 #define COERCE_ERR_FAILURE_CONVERTIBLE 0x1000000L
 #define COERCE_KEEP_INT 0x2000000L

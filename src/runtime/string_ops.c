@@ -10,7 +10,7 @@
 #include <math.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int so_is_list(DESCR_t v) {
-    if (v.v != DT_DATA || !v.u) return 0;
+    if (!IS_DATA_INST_fn(v) || !v.u) return 0;
     DESCR_t t = FIELD_GET_fn(v, "gen_type");
     return t.v == DT_S && t.s && !strcmp(t.s, "list");
 }
@@ -32,7 +32,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
         DESCR_t *ne = (DESCR_t *)rt_ws_alloc((size_t)((n > 0 ? n : 1) * (int64_t)sizeof(DESCR_t)));
         for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
         for (int64_t i = 0; i < bn; i++) ne[an + i] = be ? be[i] : NULVCL;
-        DESCR_t ep; ep.v = DT_DATA; ep.slen = 0; ep.ptr = (void *)ne;
+        DESCR_t ep; ep.v = DT_DATA; ep.slen = DATA_ELEMS_SLEN; ep.ptr = (void *)ne;
         return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n));
     }
     const char *asp, *bsp;

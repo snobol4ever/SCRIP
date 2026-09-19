@@ -100,6 +100,7 @@ test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_blob_carve_invariant_is_named_and_held.sh	WIRED	-	-	-
 test_gate_gc_carve_advances_the_virgin_mark_past_a_straddling_block.sh	WIRED	-	-	-
+test_gate_gc_dt_data_names_one_pointed_at_shape.sh	WIRED	-	-	-
 test_gate_gc_every_allocating_runtime_entry_returns_to_a_safe_point.sh	WIRED	-	-	-
 test_gate_gc_every_safe_point_has_a_compile_time_frame_shape.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-

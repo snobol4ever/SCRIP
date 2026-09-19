@@ -24,12 +24,12 @@ DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 static DATBLK_t *g_lf_type;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
-    if (o.v != DT_DATA || !o.u) return 0;
+    if (!IS_DATA_INST_fn(o) || !o.u) return 0;
     DATBLK_t *t = o.u->type;
     if (t != g_lf_type) { if (!t || t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0; g_lf_type = t; }
     DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s) return 0;
     if (!(gt.s[0] == 'l' && gt.s[1] == 'i' && gt.s[2] == 's' && gt.s[3] == 't' && gt.s[4] == '\0')) return 0;
-    DESCR_t ea = o.u->fields[0]; *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL; *n = (int)o.u->fields[1].i;
+    DESCR_t ea = o.u->fields[0]; *elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL; *n = (int)o.u->fields[1].i;
     return 1;
 }
 typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
@@ -406,12 +406,12 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
             if (rlen <= 0) {
                 static int list_empty_reg = 0;
                 if (!list_empty_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_empty_reg=1; }
-                DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=0; empty_ptr.ptr=NULL;
+                DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=DATA_ELEMS_SLEN; empty_ptr.ptr=NULL;
                 return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"), INTVAL(0));
             }
             DESCR_t *rbuf = rt_ws_alloc(rlen * sizeof(DESCR_t));
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
-            DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=0; rptr.ptr=(void*)rbuf;
+            DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=DATA_ELEMS_SLEN; rptr.ptr=(void*)rbuf;
             static int list_slice_reg = 0;
             if (!list_slice_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_slice_reg=1; }
             return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"), INTVAL(rlen));
@@ -1423,7 +1423,7 @@ DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
     return rt_subscript_var(hop1, idx2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_data_is_record_inst(DESCR_t obj) { DESCR_t *e = 0; int n = 0; return obj.v == DT_DATA && obj.u && obj.u->type && obj.u->type->name && !rt_list_view(obj, &e, &n); }
+static int rt_data_is_record_inst(DESCR_t obj) { DESCR_t *e = 0; int n = 0; return IS_DATA_INST_fn(obj) && obj.u && obj.u->type && obj.u->type->name && !rt_list_view(obj, &e, &n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);

@@ -37,6 +37,10 @@ RTX_FUNC(dat_field_get)
     RTX_GATE(icnagg, c_dat_field_get)
     cmp     sil, DT_DATA
     jl      c_dat_field_get
+    mov     r8, rsi
+    shr     r8, 32
+    test    r8d, r8d
+    jne     c_dat_field_get
     test    rdx, rdx
     je      c_dat_field_get
     mov     r8, [rdx]

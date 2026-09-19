@@ -542,7 +542,7 @@ int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; 
 extern DESCR_t rk_gram_enter_box(bb_box_fn fn, const char *sigma, long delta, void *zeta, long *out_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_is_nil(DESCR_t d) {
-    if (!(d.v == DT_DATA && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0;
+    if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0;
     return FIELD_GET_fn(d, "ok").i == 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -927,7 +927,7 @@ static const char *rt_mc_type_name(DESCR_t d) {
     case DT_ORDER: return "Order";
     case DT_R: return "Num";
     case DT_S: return "Str";
-    case DT_DATA: { if (d.u && d.u->type && d.u->type->name) return d.u->type->name; return "Any"; }
+    case DT_DATA: { if (d.slen == DATA_INST_SLEN && d.u && d.u->type && d.u->type->name) return d.u->type->name; return "Any"; }
     default: return "Any";
     }
 }
@@ -1154,7 +1154,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     return rt_call_value(callee, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *rt_data_type_name(DESCR_t v) { return (v.v == DT_DATA && v.u && ((DATINST_t *)v.u)->type && ((DATINST_t *)v.u)->type->name) ? ((DATINST_t *)v.u)->type->name : ""; }
+const char *rt_data_type_name(DESCR_t v) { return (IS_DATA_INST_fn(v) && v.u && ((DATINST_t *)v.u)->type && ((DATINST_t *)v.u)->type->name) ? ((DATINST_t *)v.u)->type->name : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_data_is_record(DESCR_t v) { const char *n = rt_data_type_name(v); return n[0] && strcmp(n, "list") != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1164,7 +1164,7 @@ int rt_apply_unpack(DESCR_t lv, DESCR_t *buf, int cap) {
       if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
           int ln = (int)FIELD_GET_fn(lv, "frame_size").i;
           DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
-          DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
+          DESCR_t *arr = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
           if (!arr) return -1;
           if (ln < 0) ln = 0; if (ln > cap) ln = cap;
           for (int k = 0; k < ln; k++) buf[k] = arr[k];
@@ -3054,7 +3054,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char * tn = VARVAL_fn(args[1]);
         if (tn && *tn && dat_find_type(tn)) {
             const char * cn = NULL;
-            if (args[0].v == DT_DATA && args[0].u) { DATINST_t * di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t * di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { const char * s0 = VARVAL_fn(args[0]); if (s0 && dat_find_type(s0)) cn = s0; }
             if (!cn) { *out = INTVAL(0); return 1; }
             extern int dat_mro(const char *name, const char **out, int max);
@@ -4466,7 +4466,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "field_get_pub") && nargs == 2) {
         const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
-        if (args[0].v == DT_DATA && args[0].u) {
+        if (IS_DATA_INST_fn(args[0]) && args[0].u) {
             DATINST_t *di = (DATINST_t *)args[0].u;
             const char *cn = (di && di->type) ? di->type->name : NULL;
             extern int dat_field_is_private(const char *cls, const char *field);
@@ -4489,7 +4489,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "field_set_pub") && nargs == 3) {
         extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
         const char *fname = VARVAL_fn(args[1]); if (!fname) fname = "";
-        if (args[0].v == DT_DATA && args[0].u) {
+        if (IS_DATA_INST_fn(args[0]) && args[0].u) {
             DATINST_t *di = (DATINST_t *)args[0].u;
             const char *cn = (di && di->type) ? di->type->name : NULL;
             extern int dat_field_is_private(const char *cls, const char *field);
@@ -4547,7 +4547,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *mname0 = VARVAL_fn(args[1]);
         if (mname0 && mname0[0] == '^') {
             const char *mm = mname0 + 1; const char *cn = NULL;
-            if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             if (cn && !strcmp(mm, "name")) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
             if (cn && !strcmp(mm, "parents")) {
@@ -4572,14 +4572,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (mname0 && !strcmp(mname0, "WHAT")) {
             const char *cn = NULL;
-            if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             if (cn) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
             *out = FAILDESCR; return 1;
         }
         if (mname0 && (!strcmp(mname0, "isa") || !strcmp(mname0, "does")) && nargs >= 3) {
             const char *cn = NULL;
-            if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             const char *target = VARVAL_fn(args[2]);
             if (!cn || !target) { *out = INTVAL(0); return 1; }
@@ -4605,7 +4605,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             }
             *out = dat_construct(dt, fvals, dt->nfields); return 1;
         }
-        if (mname0 && !strcmp(mname0, "clone") && args[0].v == DT_DATA && args[0].u) {
+        if (mname0 && !strcmp(mname0, "clone") && IS_DATA_INST_fn(args[0]) && args[0].u) {
             DATINST_t *src = (DATINST_t *)args[0].u; const char *cname = (src && src->type) ? src->type->name : NULL;
             DatType *dt = cname ? dat_find_type(cname) : NULL; if (!dt) { *out = FAILDESCR; return 1; }
             DESCR_t fvals[64];
@@ -4682,7 +4682,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 }
             }
         }
-        if (args[0].v != DT_DATA || !args[0].u) { *out = FAILDESCR; return 1; }
+        if (!IS_DATA_INST_fn(args[0]) || !args[0].u) { *out = FAILDESCR; return 1; }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
         if (!cname) { *out = FAILDESCR; return 1; }
@@ -5290,7 +5290,7 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
     DESCR_t *elems = rt_ws_alloc((nargs>0?nargs:1)*sizeof(DESCR_t));
     for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
-    DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
+    DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5505,7 +5505,7 @@ void out_write_str(FILE *dest, const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_match_render(DESCR_t d, int use_gist) {
-    if (!(d.v == DT_DATA && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return NULL;
+    if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return NULL;
     int ok = (int) FIELD_GET_fn(d, "ok").i;
     if (!ok) return use_gist ? "Nil" : "";
     const char *text = VARVAL_fn(FIELD_GET_fn(d, "text")); if (!text) text = "";
@@ -5524,7 +5524,7 @@ static const char *rk_match_render(DESCR_t d, int use_gist) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
-    if (d.v == DT_DATA && d.u && d.u->type && d.u->type->name) {
+    if (IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name) {
         const char *mname = use_gist ? "gist" : "Str";
         char proc[256]; resolve_method_chain(d.u->type->name, mname, proc, sizeof proc, NULL);
         if (meth_is_user_proc(proc)) { DESCR_t self1 = d; DESCR_t r = invoke_method_proc(proc, &self1, 1); const char *s = VARVAL_fn(r); return s ? s : ""; }
@@ -5900,7 +5900,7 @@ static long sort_struct_serial(DESCR_t v) {
     if (v.v == DT_CO && v.p) { extern long scrip_coexpr_serial_of(void *); return scrip_coexpr_serial_of(v.p); }
     if (v.v == DT_A && v.arr) return v.arr->id;
     if (v.v == DT_T && v.tbl) return v.tbl->id;
-    if (v.v == DT_DATA && v.u) return ((DATINST_t *)v.u)->id;
+    if (IS_DATA_INST_fn(v) && v.u) return ((DATINST_t *)v.u)->id;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5948,12 +5948,12 @@ static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
 static int sort_field_slot(int field_i, int n) { int idx = field_i > 0 ? field_i - 1 : n + field_i; return (field_i == 0 || idx < 0 || idx >= n) ? -1 : idx; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_data_field(DESCR_t v, int field_i, DESCR_t *out) {
-    if (field_i == 0 || v.v != DT_DATA || !v.u) return 0;
+    if (field_i == 0 || !IS_DATA_INST_fn(v) || !v.u) return 0;
     DATINST_t *ia = (DATINST_t *)v.u;
     if (!ia->type || !ia->type->name || !ia->fields) return 0;
     if (!strcmp(ia->type->name, "list")) {
         DESCR_t ea = FIELD_GET_fn(v, "frame_elems"); int n = (int)FIELD_GET_fn(v, "frame_size").i, idx = sort_field_slot(field_i, n);
-        DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
+        DESCR_t *arr = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
         if (!arr || idx < 0) return 0;
         *out = arr[idx]; return 1;
     }
@@ -5994,7 +5994,7 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_arg_is_list(DESCR_t v) {
-    if (v.v != DT_DATA || !v.u) return 0;
+    if (!IS_DATA_INST_fn(v) || !v.u) return 0;
     DESCR_t t = FIELD_GET_fn(v, "gen_type");
     return (t.v == DT_S && t.s && !strcmp(t.s, "list")) ? 1 : 0;
 }
@@ -6030,7 +6030,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
         case BID_get: case BID_pop: case BID_pull: case BID_push: case BID_put:
             return icn_arg_is_list(args[0]) ? 0 : icn_argtype_raise(108, args[0], out);
         case BID_sort:
-            if (nargs >= 1 && !(icn_arg_is_list(args[0]) || args[0].v == DT_T || (args[0].v == DT_DATA && args[0].u && args[0].u->type))) return icn_argtype_raise(115, args[0], out);
+            if (nargs >= 1 && !(icn_arg_is_list(args[0]) || args[0].v == DT_T || (IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type))) return icn_argtype_raise(115, args[0], out);
             return 0;
         case BID_delete: return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
@@ -6060,7 +6060,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen) { return try_call_builtin_by_name_bl_s(fn, args, nargs, out, bidlen, 0); }
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict)
 {
-    if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
+    if (nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; const char _f0 = fn ? fn[0] : 0;
         for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) {
             extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
@@ -6638,7 +6638,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (av.v == DT_BIG)      { extern char *rt_big_image_str(DESCR_t); *out = STRVAL(rt_big_image_str(av)); return 1; }
         if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
         if (av.v==DT_T)          { snprintf(buf,128,"%s_%ld(%d)", (av.tbl && av.tbl->is_set) ? "set" : "table", av.tbl?av.tbl->id:0, av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
-        if (av.v==DT_DATA && av.u) {
+        if (IS_DATA_INST_fn(av) && av.u) {
             const char *tname = av.u->type ? av.u->type->name : "record";
             if (strcmp(tname,"list")==0) {
                 int cnt = (av.u->type && av.u->type->nfields>=2 && av.u->fields)
@@ -7105,15 +7105,15 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
                 DESCR_t ea = FIELD_GET_fn(src, "frame_elems");
                 int n = (int)FIELD_GET_fn(src, "frame_size").i;
-                DESCR_t *src_elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+                DESCR_t *src_elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL;
                 DESCR_t *new_elems = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
-                DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)new_elems;
+                DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = DATA_ELEMS_SLEN; eptr.ptr = (void *)new_elems;
                 *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
                 return 1;
             }
         }
-        if (src.v == DT_DATA && src.u && src.u->type) {
+        if (IS_DATA_INST_fn(src) && src.u && src.u->type) {
             DATBLK_t *rt = src.u->type;
             int nf = rt->nfields > 0 ? rt->nfields : 0;
             DATINST_t *nu = (DATINST_t *) rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
@@ -7123,7 +7123,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             nu->dumpno = rt_sno_dumpno_next();
             nu->fields = (DESCR_t *) rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
             for (int i = 0; i < nf; i++) nu->fields[i] = src.u->fields[i];
-            DESCR_t d = {0}; d.v = DT_DATA; d.slen = 0; d.u = nu;
+            DESCR_t d = {0}; d.v = DT_DATA; d.slen = DATA_INST_SLEN; d.u = nu;
             *out = d; return 1;
         }
         *out = src; return 1;
@@ -7160,7 +7160,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg2 = 1; }
         DESCR_t *elems = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int i = 0; i < n; i++) elems[i] = init;
-        DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
+        DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
         *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
         return 1;
     }
@@ -7413,7 +7413,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 _nb[0]=_vd;
                 if(_a&&_n>0) memcpy(_nb+1,_a,_n*sizeof(DESCR_t));
                 _a=_nb; _n++;
-                rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_nb}); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_n); }
+                rt_lv_set_elems(ld,DATA_ELEMS(_nb)); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_n); }
             *out = ld; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
@@ -7422,11 +7422,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
-            DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+            DESCR_t *old=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
             DESCR_t *nb=rt_ws_alloc((n+1)*sizeof(DESCR_t));
             nb[0]=vd;
             if(old&&n>0) memcpy(nb+1,old,n*sizeof(DESCR_t));
-            FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
+            FIELD_SET_fn(ld,"frame_elems",DATA_ELEMS(nb));
             FIELD_SET_fn(ld,"frame_size",INTVAL(n+1));
             FIELD_SET_fn(ld,"frame_cap",INTVAL(n+1));
         }
@@ -7446,7 +7446,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 DESCR_t *_nb=rt_ws_alloc(_ncap*sizeof(DESCR_t));
                 if(_a&&_n>0) memcpy(_nb,_a,_n*sizeof(DESCR_t));
                 _nb[_n]=_vd; _a=_nb; _n++;
-                rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_nb}); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_ncap); }
+                rt_lv_set_elems(ld,DATA_ELEMS(_nb)); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_ncap); }
             *out = ld; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
@@ -7455,7 +7455,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
-            DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+            DESCR_t *old=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
             DESCR_t capd=FIELD_GET_fn(ld,"frame_cap");
             long cap=(capd.v==DT_I)?capd.i:-1;
             if(old&&cap>=0&&n<cap){ old[n]=vd; FIELD_SET_fn(ld,"frame_size",INTVAL(n+1)); continue; }
@@ -7463,7 +7463,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t *nb=rt_ws_alloc(ncap*sizeof(DESCR_t));
             if(old&&n>0) memcpy(nb,old,n*sizeof(DESCR_t));
             nb[n]=vd;
-            FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
+            FIELD_SET_fn(ld,"frame_elems",DATA_ELEMS(nb));
             FIELD_SET_fn(ld,"frame_size",INTVAL(n+1));
             FIELD_SET_fn(ld,"frame_cap",INTVAL(ncap));
         }
@@ -7475,17 +7475,17 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (ld.v != DT_DATA) return 0;
         { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
             if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
-            DESCR_t _r=_a[0]; rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_a+1}); rt_lv_set_size(ld,_n-1);
+            DESCR_t _r=_a[0]; rt_lv_set_elems(ld,DATA_ELEMS(_a+1)); rt_lv_set_size(ld,_n-1);
             { long _c=rt_lv_cap(ld); if(_c>0) rt_lv_set_cap(ld,_c-1); }
             *out=_r; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
         if(!arr||n<=0) { *out=FAILDESCR; return 1; }
         DESCR_t ret=arr[0];
-        FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=arr+1});
+        FIELD_SET_fn(ld,"frame_elems",DATA_ELEMS(arr+1));
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
         { DESCR_t capd=FIELD_GET_fn(ld,"frame_cap"); if(capd.v==DT_I&&capd.i>0) FIELD_SET_fn(ld,"frame_cap",INTVAL(capd.i-1)); }
         *out = ret; return 1;
@@ -7496,17 +7496,17 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (ld.v != DT_DATA) return 0;
         { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) {
             if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
-            DESCR_t _r=_a[0]; rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_a+1}); rt_lv_set_size(ld,_n-1);
+            DESCR_t _r=_a[0]; rt_lv_set_elems(ld,DATA_ELEMS(_a+1)); rt_lv_set_size(ld,_n-1);
             { long _c=rt_lv_cap(ld); if(_c>0) rt_lv_set_cap(ld,_c-1); }
             *out=_r; return 1; } }
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
         if(!arr||n<=0) { *out=FAILDESCR; return 1; }
         DESCR_t ret=arr[0];
-        FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=arr+1});
+        FIELD_SET_fn(ld,"frame_elems",DATA_ELEMS(arr+1));
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
         { DESCR_t capd=FIELD_GET_fn(ld,"frame_cap"); if(capd.v==DT_I&&capd.i>0) FIELD_SET_fn(ld,"frame_cap",INTVAL(capd.i-1)); }
         *out = ret; return 1;
@@ -7522,7 +7522,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
         if(!arr||n<=0) { *out=FAILDESCR; return 1; }
         DESCR_t ret=arr[n-1];
         FIELD_SET_fn(ld,"frame_size",INTVAL(n-1));
@@ -7553,7 +7553,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         DESCR_t outer = rt_make_list(NULL, 0);
         DESCR_t *pairs = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
-        FIELD_SET_fn(outer, "frame_elems", (DESCR_t){.v=DT_DATA,.ptr=pairs});
+        FIELD_SET_fn(outer, "frame_elems", DATA_ELEMS(pairs));
         FIELD_SET_fn(outer, "frame_size", INTVAL(n));
         FIELD_SET_fn(outer, "frame_cap", INTVAL(n));
         *out = outer; return 1;
@@ -7567,7 +7567,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
-    if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_is_record(args[0])) {
+    if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && IS_DATA_INST_fn(args[0]) && args[0].u && sort_is_record(args[0])) {
         DATINST_t *di = (DATINST_t *)args[0].u;
         int n = di->type->nfields; if (n < 0) n = 0;
         DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
@@ -7585,7 +7585,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
         extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
         if (n<=0) { *out=rt_make_list(NULL,0); return 1; }
-        DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
+        DESCR_t *arr=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
         if(!arr) { *out=rt_make_list(NULL,0); return 1; }
         DESCR_t *sorted=rt_ws_alloc(n*sizeof(DESCR_t));
         memcpy(sorted,arr,n*sizeof(DESCR_t));
@@ -7696,7 +7696,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_9998: ;
     if ((_bid == BID_serial) && nargs == 1) {
-        if (args[0].v == DT_DATA && args[0].u) { *out = INTVAL(args[0].u->id); return 1; }
+        if (IS_DATA_INST_fn(args[0]) && args[0].u) { *out = INTVAL(args[0].u->id); return 1; }
         if (args[0].v == DT_T && args[0].tbl) { *out = INTVAL(args[0].tbl->id); return 1; }
         if (args[0].v == DT_CO && args[0].p) { extern long scrip_coexpr_serial_of(void *); *out = INTVAL(scrip_coexpr_serial_of(args[0].p)); return 1; }
         *out = FAILDESCR; return 1;
@@ -7775,7 +7775,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {
                 DESCR_t ea = FIELD_GET_fn(args[0], "frame_elems");
                 int n = (int)FIELD_GET_fn(args[0], "frame_size").i;
-                DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
+                DESCR_t *elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL;
                 char kb[64];
                 if (elems) for (int _i = 0; _i < n; _i++)
                     table_set_descr_d(tbl, elems[_i], elems[_i]);
@@ -8043,7 +8043,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         }
         if (fn[0]=='*' && fn[1]=='\0') {
             if (IS_INT_fn(a)||IS_REAL_fn(a)) { *out=INTVAL(1); return 1; }
-            if (a.v==DT_DATA && a.u && a.u->type) { *out=INTVAL(a.u->type->nfields); return 1; }
+            if (IS_DATA_INST_fn(a) && a.u && a.u->type) { *out=INTVAL(a.u->type->nfields); return 1; }
             const char *s=VARVAL_fn(a); *out=INTVAL(s?(long long)strlen(s):0LL); return 1;
         }
         if (fn[0]=='!' && fn[1]=='\0') {

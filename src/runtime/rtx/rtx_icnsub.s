@@ -13,7 +13,10 @@ RTX_GATE_DEF(icnsub)
 #define VCELL_LEN        64
 #define VCELL_SIZE       72
 #define DESCR_SIZE       16
+#define DATA_INST_SLEN    0
+#define DATA_ELEMS_SLEN   1
 #define FIELD0_V          0
+#define FIELD0_SLEN       4
 #define FIELD0_P          8
 #define FIELD1_P         24
 #define FIELD2_V         32
@@ -68,6 +71,10 @@ RTX_FUNC(rt_subscript_var)
     je      .Lsub_table_int
     cmp     al, DT_DATA
     jne     .Lsub_bail
+    mov     r8, rax
+    shr     r8, 32
+    cmp     r8d, DATA_INST_SLEN
+    jne     .Lsub_bail
     mov     rsi, rdx
     test    rsi, rsi
     je      .Lsub_bail
@@ -100,6 +107,8 @@ RTX_FUNC(rt_subscript_var)
     cmp     byte ptr [r10 + 4], 0
     jne     .Lsub_bail
     cmp     dword ptr [r9 + FIELD0_V], DT_DATA
+    jne     .Lsub_bail
+    cmp     dword ptr [r9 + FIELD0_SLEN], DATA_ELEMS_SLEN
     jne     .Lsub_bail
     mov     r8, [r9 + FIELD0_P]
     test    r8, r8

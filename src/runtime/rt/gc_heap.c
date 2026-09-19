@@ -435,6 +435,8 @@ static int gc_hins(void *p)
       g_gc_hs[s] = p; g_gc_hn++; return 1; }
 }
 static char *g_gc_pmap_top = (char *)0;
+static long g_gc_dvec_elems = 0;
+static long g_gc_dvec_nondvec = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_hblk_t *gc_blk_of(const char *p)
 {
@@ -501,12 +503,6 @@ static void gc_visit_datinst(DATINST_t *u)
     if (!u->fields || !u->type) return;
     rt_gc_visit_raw((const char **)&u->type);
     rt_gc_visit_raw((const char **)&u->fields);
-    if ((u->type->nfields == 3 || u->type->nfields == 4) && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
-        long n = (long)u->fields[1].i; DESCR_t *el = (u->fields[0].v == DT_DATA) ? (DESCR_t *)u->fields[0].ptr : NULL;
-        if (el) rt_gc_visit_raw((const char **)&u->fields[0].ptr);
-        if (el && n > 0) for (long i = 0; i < n; i++) gc_wl_push(&el[i]);
-        gc_wl_push(&u->fields[2]);
-        return; }
     for (int i = 0; i < u->type->nfields; i++) gc_wl_push(&u->fields[i]);
 }
 static void gc_visit_vcell(VCELL_t *vc)
@@ -578,11 +574,14 @@ static void gc_visit_one(DESCR_t *d)
         gc_visit_tbblk(t);
         return; }
     case DT_DATA: {
-        DATINST_t *u = d->u;
-        gc_mark_agg((const void *)u);
-        gc_slot_reg((void *)&d->u);
-        if (!u || !gc_hins((void *)u)) return;
-        gc_visit_datinst(u);
+        if (d->slen == DATA_ELEMS_SLEN) { rt_hblk_t *eh = gc_blk_of((const char *)d->ptr);
+            if (eh) { g_gc_dvec_elems++; if (eh->type != HB_DVEC) { g_gc_dvec_nondvec++; } }
+            rt_gc_visit_raw((const char **)&d->ptr); return; }
+        { DATINST_t *u = d->u;
+          gc_mark_agg((const void *)u);
+          gc_slot_reg((void *)&d->u);
+          if (!u || !gc_hins((void *)u)) return;
+          gc_visit_datinst(u); }
         return; }
     case DT_N: {
         if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; gc_slot_reg((void *)&d->p); if (!vc || !gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
@@ -723,6 +722,15 @@ static void gc_coexpr_roots(char **cur_hi)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_dvec_ref_ok(const DESCR_t *d)
+{
+    rt_hblk_t *h;
+    if (d->v != DT_DATA || d->slen != DATA_ELEMS_SLEN || !d->ptr) return 0;
+    h = gc_blk_of((const char *)d->ptr);
+    if (!h || h->type != HB_DVEC) return 0;
+    return (((const char *)d->ptr - (const char *)(h + 1)) % (long)sizeof(DESCR_t)) == 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_block_exact(const char *q, uint16_t want_type)
 {
     if (!q || (uintptr_t)q < sizeof(rt_hblk_t) || ((uintptr_t)q & 7u)) return 0;
@@ -755,7 +763,8 @@ static int gc_sniff_would_take(const DESCR_t *d)
     if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) return 1; }
     if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) return 1; }
     if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) return 1;
-    if (d->v == DT_DATA && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
+    if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN) return gc_dvec_ref_ok(d);
+    if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -787,7 +796,8 @@ static void gc_zeta_frame(const char *lo0, const char *hi0)
             if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
             if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
             if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); p += 16; continue; }
-            if (d->v == DT_DATA && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); p += 16; continue; } }
+            if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); p += 16; continue; }
+            if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); p += 16; continue; } }
         { const char **loc = (const char **)p; if (gc_blk_of(*loc)) rt_gc_visit_raw(loc); }
         p += 8;
     }
@@ -895,6 +905,7 @@ static long gc_collect_ex(int cons_stack)
     if (w_tel) fprintf(stderr, "[ZGC-WALK] arm=%s nblk=%ld | count=%ld/%.0fus index=%ld/%.0fus pmap-gran=%ld fwd=%ld/%.0fus live=%ld/%.0fus | mark=%.0fus fixup=%ld+%ld/%.0fus slide=%ld/%.0fus moved=%ldB verify=%ld/%.0fus | walk-floor=%ld titles %.0fus of %.0fus total\n",
         "FOLD", g_gc_nblk, w_cnt, n_cnt / 1e3, w_idx, n_idx / 1e3, w_pmg, w_fwd, n_fwd / 1e3, w_liv, n_liv / 1e3, n_mrk / 1e3, w_cel, w_raw, n_fix / 1e3, w_sld, n_sld / 1e3, w_mov, w_vfy, n_vfy / 1e3,
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
+    if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
     if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, pz ? "PZ" : "LG", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
