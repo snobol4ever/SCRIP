@@ -159,7 +159,7 @@ static void rt_gcheap_init(void)
 {
     long mb = (long)GC_HEAP_MB, cap_mb;
     { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) mb = v; } }
-    cap_mb = mb * 8;
+    cap_mb = (mb * 8 > (long)GC_HEAP_MB * 8) ? mb * 8 : (long)GC_HEAP_MB * 8;
     { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); if (v >= mb) cap_mb = v; } }
     { void *rv = mmap((void *)0, (size_t)cap_mb << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
       if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap reserve mmap failed (%ld MB reserve) -- lower SCRIP_HEAP_MAX_MB\n", cap_mb); abort(); }
