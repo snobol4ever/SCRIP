@@ -7,8 +7,8 @@ extern "C" {
 typedef struct { long fn; long how; } rt_dcap_next_t;
 extern "C" rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag);
 extern "C" rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag);
-extern "C" rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0);
-extern "C" rt_dcap_next_t rt_defer_land_ω(void);
+extern "C" rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word);
+extern "C" rt_dcap_next_t rt_defer_land_ω(long word);
 extern "C" int   rt_defer_close    (int cur_delta);
 extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
@@ -274,44 +274,13 @@ std::string bb_match_defer() {
          + x86("je",   "L3")
          + x86("cmp",  "rdx", 4L)
          + x86("je",   L(40))
-         + x86("push", "rbx")
-         + x86("push", "r12")
-         + x86("cmp",  "rdx", 2L)
-         + x86("je",   L(41))
-         + bb_glue_pass_wires_blob_regs(42, 43)
-         + x86("def",  L(41))
-         + x86("sub",  "rsp", 48L)
-         + x86("mov",  RDQ("rsp", 0), 0L)
-         + x86_lea_id("rcx", 44)
-         + x86("mov",  RDQ("rsp", 8), "rcx")
-         + x86_lea_id("rcx", 45)
-         + x86("mov",  RDQ("rsp", 16), "rcx")
-         + x86("mov",  RDQ("rsp", 24), 0L)
-         + x86("mov",  RDQ("rsp", 32), 16L)
-         + x86("lea",  "rcx", RDQ("rsp", 0))
-         + x86("jmp",  "rax")
-         + x86("def",  L(44))
-         + x86("add",  "rsp", 48L)
+         + bb_glue_enter_c2bb(41, 46, 47)
          + x86("def",  L(46))
-         + x86("pop",  "r12")
-         + x86("pop",  "rbx")
-         + x86("mov",  "rdi", "rax")
-         + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_defer_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t))rt_defer_land_γ)
+         + x86("call", "rt_defer_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t, long))rt_defer_land_γ)
          + x86("jmp",  "L2")
-         + x86("def",  L(45))
-         + x86("add",  "rsp", 48L)
          + x86("def",  L(47))
-         + x86("pop",  "r12")
-         + x86("pop",  "rbx")
-         + x86("call", "rt_defer_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void))rt_defer_land_ω)
+         + x86("call", "rt_defer_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(long))rt_defer_land_ω)
          + x86("jmp",  "L2")
-         + x86("def",  L(42))
-         + x86("add",  "rsp", 16L)
-         + x86("jmp",  L(46))
-         + x86("def",  L(43))
-         + x86("add",  "rsp", 16L)
-         + x86("jmp",  L(47))
          + x86("def",  L(40))
          + x86_xfer_leave()
          + x86("mov",  "rdx", "rax")

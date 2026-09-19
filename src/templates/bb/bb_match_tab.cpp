@@ -2,7 +2,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-long rt_pat_prim_int(const char *varname);
+#include "bb_templates.h"
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13,8 +13,7 @@ std::string bb_match_tab() {
              + x86_alpha()
              + x86("mov",   LFC(0), "r14d")
              + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval + 1), (strtab_label(b, sizeof b, _.op_sval + 1), b))
-             + x86("call",  "rt_pat_prim_int", (uint64_t)(uintptr_t)(void *)rt_pat_prim_int)
-             + x86_rt_gc_poll_rec_sigma(1)
+             + bb_glue_prim_int(50)
              + x86("test",  "rax", "rax")
              + x86_omega("js")
              + x86("cmp",   "r14d", "eax")

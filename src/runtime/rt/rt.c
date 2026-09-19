@@ -324,16 +324,19 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     out->v = DT_I; out->slen = 0; out->i = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_pat_prim_arg(const char *varname) {
-    extern DESCR_t NV_GET_fn(const char *);
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+static DESCR_t g_prim_val;
+rt_call_next_t rt_pat_prim_open(const char *varname) {
     extern int rt_proc_is_registered(const char *name);
-    if (varname && varname[0] == '*') { if (!rt_proc_is_registered(varname + 1)) return NV_GET_fn(varname + 1); rt_c2bb_hit("via.prim", varname + 1); return rt_call_proc_descr(varname + 1, 0); }
-    return NV_GET_fn(varname ? varname : "");
+    if (varname && varname[0] == '*') { if (rt_proc_is_registered(varname + 1)) { rt_call_next_t n = rt_call_open_by_name(varname + 1, 0); if (n.fn) return n; g_prim_val = FAILDESCR; return (rt_call_next_t){ 0, 0 }; } g_prim_val = NV_GET_fn(varname + 1); return (rt_call_next_t){ 0, 0 }; }
+    g_prim_val = NV_GET_fn(varname ? varname : "");
+    return (rt_call_next_t){ 0, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_pat_prim_int(const char *varname) {
-    DESCR_t v = rt_pat_prim_arg(varname);
+void rt_pat_prim_land_γ(DESCR_t frame0, long word) { g_prim_val = rt_call_land_γ(frame0, word); }
+void rt_pat_prim_land_ω(long word) { g_prim_val = rt_call_land_ω(word); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_pat_prim_int_take(void) {
+    DESCR_t v = g_prim_val;
     int64_t r = 0;
     if (v.v == DT_I) { r = v.i; }
     else if (v.v == DT_R) { double d = v.r; r = (int64_t)d; }
@@ -348,9 +351,9 @@ long rt_pat_prim_int(const char *varname) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len) {
+long rt_pat_prim_str_take(const char **out_ptr, long *out_len) {
     extern int IS_FAIL_fn(DESCR_t);
-    DESCR_t v = rt_pat_prim_arg(varname);
+    DESCR_t v = g_prim_val;
     DESCR_t s;
     if (IS_FAIL_fn(v)) return -1;
     rt_coerce_str_d(&v, &s, 0);
@@ -986,14 +989,11 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     return rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_C2BB_REC_MAX 4096
-static struct { const char *name; int nsb; short how; } g_c2bb_rec[RT_C2BB_REC_MAX];
-static int g_c2bb_top;
-static rt_call_next_t rt_c2bb_opened(const char *name, long fn, short how, int nsb)
+static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb)
 {
-    if (g_c2bb_top >= RT_C2BB_REC_MAX) { fprintf(stderr, "rt_call_open_by_name: record overflow (%d) -- raise RT_C2BB_REC_MAX\n", g_c2bb_top); abort(); }
-    g_c2bb_rec[g_c2bb_top].name = name; g_c2bb_rec[g_c2bb_top].nsb = nsb; g_c2bb_rec[g_c2bb_top].how = how; g_c2bb_top++;
-    return (rt_call_next_t){ fn, (long)how };
+    long idx = p ? (long)(p - g_rt_gen_procs) : 0;
+    if (p && (idx < 0 || idx >= g_rt_gen_proc_count)) { fprintf(stderr, "rt_call_open_by_name: procedure '%s' is not in the registry\n", p->name ? p->name : "?"); abort(); }
+    return (rt_call_next_t){ fn, how | ((long)(unsigned)nsb << 8) | (idx << 40) };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs)
@@ -1002,41 +1002,37 @@ rt_call_next_t rt_call_open_by_name(const char *name, int nargs)
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *efn = rt_entry_resolve(el, &frag); if (!efn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
         { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
-        return rt_c2bb_opened(name, (long)(uintptr_t)efn, 1, 0); } }
+        return rt_c2bb_word(p, (long)(uintptr_t)efn, 1, 0); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_open_by_name: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return (rt_call_next_t){ 0, 0 };
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) return rt_c2bb_opened(name, (long)(uintptr_t)afn, 2, 0); }
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, 0); }
     if (!p->dyn_scope && !p->jmp_entry) { fprintf(stderr, "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
     { int _wn_gen = rt_g_want_name;
       int nsb = rt_name_save_mark();
       long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
       if (!fbytes) return (rt_call_next_t){ 0, 0 };
       rt_g_want_name = _wn_gen;
-      return rt_c2bb_opened(name, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, nsb); }
+      return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, nsb); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_land_γ(DESCR_t frame0)
+DESCR_t rt_call_land_γ(DESCR_t frame0, long word)
 {
     extern DESCR_t rt_proc_call_epilogue_named_γ(const char *);
-    if (g_c2bb_top <= 0) { fprintf(stderr, "rt_call_land_γ: no open record\n"); abort(); }
-    g_c2bb_top--;
-    { const char *name = g_c2bb_rec[g_c2bb_top].name; short how = g_c2bb_rec[g_c2bb_top].how; int nsb = g_c2bb_rec[g_c2bb_top].nsb;
-      DESCR_t r = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(name) : rt_proc_call_epilogue_γ(frame0);
+    { short how = (short)(word & 0xff); int nsb = (int)((word >> 8) & 0xffffffffL); long idx = word >> 40;
+      DESCR_t r = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(g_rt_gen_procs[idx].name) : rt_proc_call_epilogue_γ(frame0);
       if (how == 3) rt_name_save_unwind(nsb);
       return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_land_ω(void)
+DESCR_t rt_call_land_ω(long word)
 {
     extern DESCR_t rt_proc_call_epilogue_named_ω(const char *);
-    if (g_c2bb_top <= 0) { fprintf(stderr, "rt_call_land_ω: no open record\n"); abort(); }
-    g_c2bb_top--;
-    { const char *name = g_c2bb_rec[g_c2bb_top].name; short how = g_c2bb_rec[g_c2bb_top].how; int nsb = g_c2bb_rec[g_c2bb_top].nsb;
-      DESCR_t r = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(name) : rt_proc_call_epilogue_ω();
+    { short how = (short)(word & 0xff); int nsb = (int)((word >> 8) & 0xffffffffL); long idx = word >> 40;
+      DESCR_t r = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(g_rt_gen_procs[idx].name) : rt_proc_call_epilogue_ω();
       if (how == 3) rt_name_save_unwind(nsb);
       return r; }
 }
@@ -1046,7 +1042,7 @@ long rt_dcap_call_prepare(const char *name, short *how, int *nsb)
     rt_call_next_t n = rt_call_open_by_name(name, 0);
     *how = 0; *nsb = 0;
     if (!n.fn) return 0;
-    g_c2bb_top--; *how = g_c2bb_rec[g_c2bb_top].how; *nsb = g_c2bb_rec[g_c2bb_top].nsb;
+    *how = (short)(n.how & 0xff); *nsb = (int)((n.how >> 8) & 0xffffffffL);
     return n.fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2058,7 +2054,7 @@ void rt_gc_root_args(void)
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
     for (int i = 0; i < CALL_ARGS_MAX; i++) rt_gc_visit_descr(&g_call_args[i]);
-    for (int i = 0; i < g_c2bb_top; i++) if (g_c2bb_rec[i].name) rt_gc_visit_raw(&g_c2bb_rec[i].name);
+    rt_gc_visit_descr(&g_prim_val);
     if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
     if (g_rt_gen_procs) { rt_gc_visit_raw((const char **)&g_rt_gen_procs);
         for (int i = 0; i < g_rt_gen_proc_count; i++) { rt_proc_t *pr = &g_rt_gen_procs[i];

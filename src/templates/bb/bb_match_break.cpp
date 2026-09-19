@@ -10,7 +10,6 @@ extern "C" {
 extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
-extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len);
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
 static char bk_nlb[24];
 static char bk_dlb[24];
@@ -54,10 +53,7 @@ std::string bb_match_break() {
         return x86("comment", "IR_MATCH_BREAK defer")
              + x86_alpha()
              + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(bk_dlb, sizeof bk_dlb, _.op_sval), bk_dlb))
-             + x86("lea",   "rsi", LFDQ(0, 4))
-             + x86("lea",   "rdx", LFD(8, 12))
-             + x86("call",  "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
-             + x86_rt_gc_poll_rec_sigma(1)
+             + bb_glue_prim_str(50, 0, 4, 8, 12)
              + x86("test",  "rax", "rax")
              + x86_omega("js")
              + x86("mov",   "edi", "r14d")

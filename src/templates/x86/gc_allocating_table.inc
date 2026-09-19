@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1651
-#define GC_ALLOC_TAB_N_VOID 185
-#define GC_ALLOC_TAB_N_DESCR 924
-#define GC_ALLOC_TAB_N_OTHER 542
+#define GC_ALLOC_TAB_N 1655
+#define GC_ALLOC_TAB_N_VOID 186
+#define GC_ALLOC_TAB_N_DESCR 923
+#define GC_ALLOC_TAB_N_OTHER 546
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -911,9 +911,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_value_gen_h", GC_RET_DESCR },
     { "rt_call_value_resume_h", GC_RET_DESCR },
     { "rt_call_value_spine_prep", GC_RET_OTHER },
-    { "rt_cap_finish", GC_RET_VOID },
+    { "rt_cap_land_γ", GC_RET_OTHER },
+    { "rt_cap_land_ω", GC_RET_OTHER },
     { "rt_cap_open_plain", GC_RET_OTHER },
     { "rt_cap_push", GC_RET_VOID },
+    { "rt_cap_target_finish", GC_RET_OTHER },
     { "rt_cdiff", GC_RET_DESCR },
     { "rt_cdiff_strict", GC_RET_DESCR },
     { "rt_cell_for", GC_RET_OTHER },
@@ -1049,9 +1051,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_nv_cstr", GC_RET_OTHER },
     { "rt_nv_slen", GC_RET_OTHER },
     { "rt_parse_num_d", GC_RET_OTHER },
-    { "rt_pat_prim_arg", GC_RET_DESCR },
-    { "rt_pat_prim_int", GC_RET_OTHER },
-    { "rt_pat_prim_str", GC_RET_OTHER },
+    { "rt_pat_prim_int_take", GC_RET_OTHER },
+    { "rt_pat_prim_land_γ", GC_RET_VOID },
+    { "rt_pat_prim_land_ω", GC_RET_VOID },
+    { "rt_pat_prim_open", GC_RET_OTHER },
+    { "rt_pat_prim_str_take", GC_RET_OTHER },
     { "rt_patv_defer_get_pat_dtp", GC_RET_OTHER },
     { "rt_patv_defer_open_entry", GC_RET_OTHER },
     { "rt_patv_freeze", GC_RET_VOID },

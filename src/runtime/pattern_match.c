@@ -868,45 +868,60 @@ void rt_cap_push(void *slot, int delta)
     }
     s->buf[1 + s->sp++] = (uint32_t)delta;
 }
-static DESCR_t *g_capx; static int g_capx_top, g_capx_cap;
+#define RT_CAS_CAPO_MAX 1024
+static struct { DESCR_t matched; int wsv; uint32_t asv; int nmyield; } g_capo[RT_CAS_CAPO_MAX]; static int g_capo_top;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
+static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name)
 {
-    (void)is_imm;
-    if (!varname || !*varname) return 0;
-    int len = cur_delta - saved_delta;
-    if (len < 0) len = 0;
-    const char *base = Σ ? Σ + saved_delta : NULL;
-    char *copy = rt_str_alloc(len);
-    if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
-    DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-    if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) return 0;
-    if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return 0; }
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-    extern int rt_g_want_name;
-    extern int rt_g_ret_by_name;
-    const int nmyield_capo = !strncmp(varname + 1, "EXPRNM$", 7);
-    DESCR_t nm_capo;
-    int by_name_capo;
-    { int _wsv2 = rt_g_want_name; rt_g_want_name = 1; uint32_t _asv = g_cap_abort_gen;
-      nm_capo = rt_sno_dtx_value(varname + 1);
-      g_cap_abort_gen = _asv;
-      rt_g_want_name = _wsv2;
-      by_name_capo = rt_g_ret_by_name || nmyield_capo; rt_g_ret_by_name = 0; }
-    if (IS_FAIL_fn(nm_capo)) return rt_cap_fail_retreat() ? -1 : 0;
-    if (rt_cap_name_strict() && !by_name_capo) { g_cap_abort_gen = g_cap_gen; return 0; }
-    if (IS_STR_fn(nm_capo)) { const char *ns = VARVAL_fn(nm_capo); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm_capo, matched);
+    if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;
+    if (rt_cap_name_strict() && !by_name) { g_cap_abort_gen = g_cap_gen; return 0; }
+    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm, matched);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_finish(DESCR_t nm)
+rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
-    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-    extern int rt_g_want_name;
-    rt_g_want_name = 0;
-    DESCR_t matched = g_capx_top > 0 ? g_capx[--g_capx_top] : (DESCR_t){ .v = DT_S, .slen = 0, .s = "" };
-    if (!IS_FAIL_fn(nm)) rt_assign_var(nm, matched);
+    extern rt_dcap_next_t rt_call_open_by_name(const char *, int); extern int rt_proc_is_registered(const char *); extern int rt_g_want_name; extern int rt_g_ret_by_name;
+    (void)is_imm;
+    if (!varname || !*varname) return (rt_dcap_next_t){ 0, 0 };
+    { int len = cur_delta - saved_delta; if (len < 0) len = 0;
+      const char *base = Σ ? Σ + saved_delta : NULL;
+      char *copy = rt_str_alloc(len);
+      if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
+      { DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) return (rt_dcap_next_t){ 0, 0 };
+        if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return (rt_dcap_next_t){ 0, 0 }; }
+        { const char *tn = varname + 1; const int nmyield = !strncmp(tn, "EXPRNM$", 7); int wsv = rt_g_want_name;
+          if (!rt_proc_is_registered(tn)) { rt_g_want_name = 1; DESCR_t nm = NV_GET_fn(tn); rt_g_want_name = wsv; { int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0; return (rt_dcap_next_t){ rt_cap_target_finish(nm, matched, by_name), 0 }; } }
+          if (g_capo_top >= RT_CAS_CAPO_MAX) { fprintf(stderr, "rt_cas: capo overflow (%d) — raise RT_CAS_CAPO_MAX\n", g_capo_top); abort(); }
+          g_capo[g_capo_top].matched = matched; g_capo[g_capo_top].wsv = wsv; g_capo[g_capo_top].asv = g_cap_abort_gen; g_capo[g_capo_top].nmyield = nmyield; g_capo_top++;
+          rt_g_want_name = 1;
+          { rt_dcap_next_t n = rt_call_open_by_name(tn, 0);
+            if (!n.fn) { g_capo_top--; rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; }
+            return n; } } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_cap_land_γ(DESCR_t frame0, long word)
+{
+    extern DESCR_t rt_call_land_γ(DESCR_t, long); extern int rt_g_want_name; extern int rt_g_ret_by_name;
+    DESCR_t nm = rt_call_land_γ(frame0, word);
+    if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_γ: no open capture\n"); abort(); }
+    g_capo_top--;
+    { DESCR_t matched = g_capo[g_capo_top].matched; int by_name;
+      g_cap_abort_gen = g_capo[g_capo_top].asv; rt_g_want_name = g_capo[g_capo_top].wsv;
+      by_name = rt_g_ret_by_name || g_capo[g_capo_top].nmyield; rt_g_ret_by_name = 0;
+      return rt_cap_target_finish(nm, matched, by_name); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_cap_land_ω(long word)
+{
+    extern DESCR_t rt_call_land_ω(long); extern int rt_g_want_name; extern int rt_g_ret_by_name;
+    DESCR_t nm = rt_call_land_ω(word);
+    if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_ω: no open capture\n"); abort(); }
+    g_capo_top--;
+    g_cap_abort_gen = g_capo[g_capo_top].asv; rt_g_want_name = g_capo[g_capo_top].wsv; rt_g_ret_by_name = 0;
+    return rt_cap_target_finish(nm, g_capo[g_capo_top].matched, 0);
 }
 extern const char *Σ;
 extern int Σlen;
@@ -992,7 +1007,7 @@ long rt_cas_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    for (int i = 0; i < g_capx_top; i++) { rt_gc_visit_descr(&g_capx[i]); b += (long)sizeof(DESCR_t); }
+    for (int i = 0; i < g_capo_top; i++) { rt_gc_visit_descr(&g_capo[i].matched); b += (long)sizeof(DESCR_t); }
     for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
     for (int i = 0; i < g_dcf_top; i++) { rt_dcf_t *c = &g_dcf[i]; rt_gc_visit_descr(&c->pending); rt_gc_visit_raw(&c->cur); rt_gc_visit_raw(&c->top); rt_gc_visit_raw(&c->subj); rt_gc_visit_raw(&c->star); b += (long)sizeof(DESCR_t) + 4 * (long)sizeof(const char *); }
     return b;
@@ -1073,18 +1088,18 @@ rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int iv
     return rt_defer_resolve(s, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0)
+rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word)
 {
-    extern DESCR_t rt_call_land_γ(DESCR_t);
+    extern DESCR_t rt_call_land_γ(DESCR_t, long);
     if (g_dfx_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; return rt_defer_resolve(s, rt_call_land_γ(frame0)); }
+    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; return rt_defer_resolve(s, rt_call_land_γ(frame0, word)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_land_ω(void)
+rt_dcap_next_t rt_defer_land_ω(long word)
 {
-    extern DESCR_t rt_call_land_ω(void);
+    extern DESCR_t rt_call_land_ω(long);
     if (g_dfx_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; return rt_defer_resolve(s, rt_call_land_ω()); }
+    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; return rt_defer_resolve(s, rt_call_land_ω(word)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {

@@ -10,7 +10,6 @@ extern "C" {
 extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
-extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len);
 static char bx_dlb[24];
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
 #define BX_CHAINP() (_.op_sa < 0 && CSK() >= 1 && CSK() <= CSET_CHAIN_MAX)
@@ -66,10 +65,7 @@ std::string bb_match_breakx() {
              + x86("mov",   LFC(4), "r14d")
              + x86("sub",   "rsp", (long)16)
              + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(bx_dlb, sizeof bx_dlb, _.op_sval), bx_dlb))
-             + x86("lea",   "rsi", "qword ptr [rsp + 0]")
-             + x86("lea",   "rdx", "qword ptr [rsp + 8]")
-             + x86("call",  "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
-             + x86_rt_gc_poll_rec_sigma(1)
+             + bb_glue_prim_str_rsp(50, 0, 8)
              + x86("test",  "rax", "rax")
              + x86("mov",   "r8",  "qword ptr [rsp + 0]")
              + x86("mov",   "r9d", "dword ptr [rsp + 8]")
@@ -86,10 +82,7 @@ std::string bb_match_breakx() {
              + x86_beta()
              + x86("sub",   "rsp", (long)16)
              + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(bx_dlb, sizeof bx_dlb, _.op_sval), bx_dlb))
-             + x86("lea",   "rsi", "qword ptr [rsp + 0]")
-             + x86("lea",   "rdx", "qword ptr [rsp + 8]")
-             + x86("call",  "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
-             + x86_rt_gc_poll_rec_sigma(1)
+             + bb_glue_prim_str_rsp(60, 0, 8)
              + x86("test",  "rax", "rax")
              + x86("mov",   "r8",  "qword ptr [rsp + 0]")
              + x86("mov",   "r9d", "dword ptr [rsp + 8]")

@@ -2,7 +2,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-long rt_pat_prim_int(const char *varname);
+#include "bb_templates.h"
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13,8 +13,7 @@ static std::string bb_match_len_body() {
          + x86_alpha()
          + IF(_.op_sval != NULL,
                x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_vn1, (strtab_label(b, sizeof b, _vn1), b))
-             + x86("call", "rt_pat_prim_int", (uint64_t)(uintptr_t)(void *)(long (*)(const char *))rt_pat_prim_int)
-             + x86_rt_gc_poll_rec_sigma(1)
+             + bb_glue_prim_int(50)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "ecx", "eax"))
@@ -32,8 +31,7 @@ static std::string bb_match_len_body() {
          + x86_beta()
          + IF(_.op_sval != NULL,
                x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_vn1, (strtab_label(b, sizeof b, _vn1), b))
-             + x86("call", "rt_pat_prim_int", (uint64_t)(uintptr_t)(void *)(long (*)(const char *))rt_pat_prim_int)
-             + x86_rt_gc_poll_rec_sigma(1)
+             + bb_glue_prim_int(60)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "ecx", "eax"))
