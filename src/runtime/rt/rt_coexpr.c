@@ -21,6 +21,10 @@ static scrip_coctx_t *g_co_gc_head = NULL;
 static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
 static long g_coexpr_serial = 1;
+extern int scan_depth;
+_Static_assert(sizeof(DESCR_t) == 16, "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
+static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
+int scrip_co_gc_plant(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_COEXPR_PLANT"); v = (e && *e) ? atoi(e) : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_uerror(const char *msg) {
     perror(msg);
@@ -74,11 +78,10 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
           if (pthread_getattr_np(new_ctx->thread, &a) != 0) scrip_co_uerror("scrip_coexpr: pthread_getattr_np on new thread failed");
           if (pthread_attr_getstack(&a, &sa, &sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_getstack on new thread failed");
           pthread_attr_destroy(&a);
-          new_ctx->stk_lo = (char *)sa; new_ctx->stk_hi = (char *)sa + sz;
-          rt_gc_root_range_add((const char *)new_ctx->stk_lo, (const char *)new_ctx->stk_hi); }
+          new_ctx->stk_lo = (char *)sa; new_ctx->stk_hi = (char *)sa + sz; }
         new_ctx->alive = 1;
     }
-    __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "rax", "memory");
+    __asm__ volatile ("mov %%rsp, %0" : "=m"(old->park_sp));
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
@@ -91,7 +94,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->alive = 0;
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
-    if (ctx->stk_lo) { rt_gc_root_range_del((const char *)ctx->stk_lo); ctx->stk_lo = 0; ctx->stk_hi = 0; }
+    ctx->stk_lo = 0; ctx->stk_hi = 0; ctx->park_sp = 0;
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
     if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); ct_drop(ctx->frame_copy); ctx->frame_copy = NULL; }
     sem_destroy(ctx->semp);
@@ -128,8 +131,7 @@ void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     scrip_coctx_t *me = scrip_co_current;
     scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
-    back->xmit[0] = d0;
-    back->xmit[1] = d1;
+    co_xmit_set(&back->xmit, d0, d1);
     me->activations++;
     scrip_co_trace_term(me, back, d0, d1, 0);
     scrip_co_current = back;
@@ -224,11 +226,11 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->activator   = NULL;
     ctx->resume_addr = NULL;
     ctx->dead        = 0;
-    ctx->xmit[0]     = 0;
-    ctx->xmit[1]     = 0;
+    memset(&ctx->xmit, 0, sizeof ctx->xmit);
     ctx->stk_lo      = 0;
     ctx->stk_hi      = 0;
-    for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
+    ctx->park_sp     = 0;
+    ctx->sigma_live  = scan_depth > 0;
     ctx->scan_state = NULL;
     ctx->serial = ++g_coexpr_serial;
     ctx->activations = 0;
@@ -257,16 +259,14 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     int first = target->alive ? 1 : 0;
     scrip_co_trace_xmit(procname, self, target, x0, x1);
     target->activator = self;
-    target->xmit[0] = x0;
-    target->xmit[1] = x1;
+    co_xmit_set(&target->xmit, x0, x1);
     { extern long g_line; self->cur_line = g_line; if (!target->alive && target->create_line > 0) g_line = target->create_line; }
     scrip_co_current = target;
     scrip_coswitch(self, target, first);
     scrip_co_current = prev;
     { extern long g_line; if (self->cur_line > 0) g_line = self->cur_line; }
     if (target->dead) return 0;
-    out2[0] = self->xmit[0];
-    out2[1] = self->xmit[1];
+    memcpy(out2, &self->xmit, sizeof self->xmit);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -281,11 +281,11 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->inherit_scan = 0;
     ctx->resume_addr = NULL;
     ctx->dead        = 0;
-    ctx->xmit[0]     = 0;
-    ctx->xmit[1]     = 0;
+    memset(&ctx->xmit, 0, sizeof ctx->xmit);
     ctx->stk_lo      = 0;
     ctx->stk_hi      = 0;
-    for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
+    ctx->park_sp     = 0;
+    ctx->sigma_live  = scan_depth > 0;
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     ctx->scan_state = NULL;
     ctx->serial = 0;
@@ -314,6 +314,24 @@ void rt_coexpr_gc_audit_scan_states(long *hp, long *un)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern void rt_genp_thread_entry(void *arg);
+static void co_gc_visit_record(scrip_coctx_t *c, long *n_sigma)
+{
+    if (!c->entry_arg || !c->sigma_live) return;
+    if (c->entry_fn == scrip_coexpr_trampoline_entry) { scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)c->entry_arg; rt_gc_visit_raw((const char **)&pkg->r13); (*n_sigma)++; return; }
+    if (c->entry_fn == rt_genp_thread_entry) { rt_gc_visit_raw((const char **)((char *)c->entry_arg + 24)); (*n_sigma)++; return; }
+}
+long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma)
+{
+    long n = 0, ns = 0; scrip_coctx_t *c;
+    if (scrip_co_gc_plant() == 1) { if (n_ctx) *n_ctx = 0; if (n_sigma) *n_sigma = 0; return 0; }
+    rt_gc_visit_descr(&g_root_ctx.xmit); n++;
+    for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); co_gc_visit_record(c, &ns); n++; }
+    if (n_ctx) *n_ctx = n;
+    if (n_sigma) *n_sigma = ns;
+    return n;
+}
 scrip_coctx_t *scrip_co_gc_root(void) { if (g_root_ctx.serial == 0) g_root_ctx.serial = 1; return &g_root_ctx; }
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
 long scrip_coexpr_activations_of(void *ctx) { if (!ctx) return 0; if (ctx == (void *)&g_root_ctx) return ((scrip_coctx_t *)ctx)->activations + 1; return ((scrip_coctx_t *)ctx)->activations; }

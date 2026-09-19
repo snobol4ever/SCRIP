@@ -51,7 +51,7 @@ int main(void) {
     return 0;
 }
 EOF
-gcc -O0 -g -I "$ROOT/src/runtime/rt" -o "$BIN" "$SRC" "$ROOT/out/libscrip_rt.so" -Wl,-rpath,"$ROOT/out" -lpthread 2>/tmp/coexpr_witness_build.log
+gcc -O0 -g -I "$ROOT/src/runtime/rt" -I "$ROOT/src/ir" -o "$BIN" "$SRC" "$ROOT/out/libscrip_rt.so" -Wl,-rpath,"$ROOT/out" -lpthread 2>/tmp/coexpr_witness_build.log
 bc=$?
 if [ "$bc" -ne 0 ]; then
     echo "REFUSE: witness failed to build"

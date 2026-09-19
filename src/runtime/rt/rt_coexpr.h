@@ -2,6 +2,7 @@
 #ifndef RT_COEXPR_H
 #define RT_COEXPR_H
 #include <pthread.h>
+#include "descr.h"
 #include <semaphore.h>
 #include <setjmp.h>
 #include <stdint.h>
@@ -18,9 +19,9 @@ typedef struct scrip_coctx_t {
     struct scrip_coctx_t *activator;
     void     *resume_addr;
     int       dead;
-    uint64_t  xmit[2];
+    DESCR_t   xmit;
     char *stk_lo; char *stk_hi;
-    struct scrip_coctx_t *gc_next; uint64_t gc_spill[6];
+    struct scrip_coctx_t *gc_next; char *park_sp; int sigma_live;
     void *frame_copy; uint64_t frame_copy_sz; uint64_t frame_copy_below;
     void *scan_state;
     int   inherit_scan;
@@ -46,6 +47,8 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
 void scrip_co_gc_link(scrip_coctx_t *ctx);
 int scrip_co_main_known(pthread_t *out);
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi);
+long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma);
+int scrip_co_gc_plant(void);
 scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig);
 long scrip_coexpr_serial_of(void *ctx);
 long scrip_coexpr_activations_of(void *ctx);

@@ -750,20 +750,39 @@ static char *gc_stack_top(void)
     return g_gc_stktop;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_coexpr_roots(char **cur_hi)
+typedef struct gc_seg_it_t { int stage; pthread_t self, mainthr; int co; scrip_coctx_t *c; char *floor; char *run_hi; } gc_seg_it_t;
+static long g_gc_co_ctxs, g_gc_co_sigma, g_gc_co_parked, g_gc_shift_now, g_gc_shift_prefix;
+static int g_gc_rep_pop;
+static void gc_coexpr_records(void)
 {
-    pthread_t self = pthread_self(), mainthr; scrip_coctx_t *c;
-    *cur_hi = (char *)0;
-    if (!scrip_co_main_known(&mainthr)) return;
-    if (!pthread_equal(self, mainthr)) { char *slo, *shi; gc_stack_region(&slo, &shi); if (slo && shi && slo < shi) gc_zeta_frame((const char *)slo, (const char *)shi);
-        { scrip_coctx_t *r = scrip_co_gc_root(); gc_zeta_frame((const char *)r->gc_spill, (const char *)r->gc_spill + sizeof r->gc_spill);
-          gc_zeta_frame((const char *)r->xmit, (const char *)r->xmit + sizeof r->xmit); } }
-    for (c = scrip_co_gc_head(); c; c = c->gc_next) {
-        gc_zeta_frame((const char *)c->gc_spill, (const char *)c->gc_spill + sizeof c->gc_spill);
-        gc_zeta_frame((const char *)c->xmit, (const char *)c->xmit + sizeof c->xmit);
-        if (c->entry_arg) gc_zeta_frame((const char *)c->entry_arg + 8, (const char *)c->entry_arg + 56);
-        { char *lo, *hi; if (scrip_co_stack_of(c, &lo, &hi) && lo < hi) { if (c->alive && pthread_equal(self, c->thread)) *cur_hi = hi; else gc_zeta_frame((const char *)lo, (const char *)hi); } }
-    }
+    g_gc_co_ctxs = g_gc_co_sigma = 0;
+    scrip_co_gc_visit_records(&g_gc_co_ctxs, &g_gc_co_sigma);
+}
+static void gc_seg_begin(gc_seg_it_t *it, char *floor)
+{
+    it->stage = 0; it->self = pthread_self(); it->co = scrip_co_main_known(&it->mainthr); it->c = it->co ? scrip_co_gc_head() : (scrip_coctx_t *)0;
+    it->floor = floor; it->run_hi = gc_stack_top(); g_gc_co_parked = 0;
+}
+static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() == 2 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
+static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
+{
+    if (it->stage == 0) { it->stage = 1;
+        if (it->co && !pthread_equal(it->self, it->mainthr)) { char *slo, *shi; gc_stack_region(&slo, &shi);
+            if (slo && shi && slo < shi) { *lo = gc_seg_parked_lo(scrip_co_gc_root(), slo); *hi = shi; *pop = 4; g_gc_co_parked++; return 1; } } }
+    while (it->stage == 1) { scrip_coctx_t *c = it->c; char *clo, *chi;
+        if (!c) { it->stage = 2; break; }
+        it->c = c->gc_next;
+        if (!scrip_co_stack_of(c, &clo, &chi) || clo >= chi) continue;
+        if (c->alive && pthread_equal(it->self, c->thread)) { it->run_hi = chi; continue; }
+        *lo = gc_seg_parked_lo(c, clo); *hi = chi; *pop = 4; g_gc_co_parked++; return 1; }
+    if (it->stage == 2) { it->stage = 3; if (it->floor < it->run_hi) { *lo = it->floor; *hi = it->run_hi; *pop = 1; return 1; } }
+    return 0;
+}
+static void gc_stack_segments(char *floor)
+{
+    gc_seg_it_t it; char *lo, *hi; int pop;
+    gc_seg_begin(&it, floor);
+    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; gc_zeta_frame((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_dvec_ref_ok(const DESCR_t *d)
@@ -782,8 +801,8 @@ static int gc_block_exact(const char *q, uint16_t want_type)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int  g_gc_maps_rep = -1;
-#define GC_REP_POPS 4
-static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk" };
+#define GC_REP_POPS 5
+static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk", "parked" };
 static long g_gc_rep_ranges[GC_REP_POPS], g_gc_rep_bytes[GC_REP_POPS], g_gc_rep_agree[GC_REP_POPS], g_gc_rep_map_only[GC_REP_POPS], g_gc_rep_sniff_only[GC_REP_POPS];
 static int g_gc_rep_pop = 0;
 static int gc_maps_on(void) { if (g_gc_maps_rep < 0) { const char *e = getenv("SCRIP_GC_MAPS"); g_gc_maps_rep = (e && *e && *e != '0') ? 1 : 0; } return g_gc_maps_rep; }
@@ -875,6 +894,19 @@ static void gc_root_cas(void)
     g_gc_cas_bytes = rt_cas_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long gc_plant_shift_bytes(void)
+{
+    static long v = -1;
+    if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_SHIFT"); v = (e && *e) ? atol(e) : 0; if (v < 0) v = 0; v &= ~15L; if (v > (1L << 20)) v = 1L << 20; }
+    if (!v) return 0;
+    return ((long)(g_hp_end - g_hp_top) > v) ? v : 0;
+}
+static long gc_plant_shift_prefix(void)
+{
+    long prefix = 0; char *p = g_hp_arena;
+    while (p < g_hp_top && ((rt_hblk_t *)p)->type == HB_FILL && ((rt_hblk_t *)p)->size) { prefix += ((rt_hblk_t *)p)->size; p += ((rt_hblk_t *)p)->size; }
+    return prefix;
+}
 static long gc_collect_ex(int cons_stack)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern int rt_scan_active(void);
@@ -906,8 +938,7 @@ static long gc_collect_ex(int cons_stack)
     if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
     }
     rt_gc_ws_roots();
-    if (!pz) { char *chi; gc_coexpr_roots(&chi);
-      if (cons_stack) { char *lo = g_gc_seam_sp ? g_gc_seam_sp : &anchor, *hi = chi ? chi : gc_stack_top(); if (lo < hi) { g_gc_rep_pop = 1; gc_zeta_frame(lo, hi); g_gc_rep_pop = 0; } } }
+    if (!pz) { gc_coexpr_records(); gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor); }
     gc_root_cas();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }
@@ -916,7 +947,8 @@ static long gc_collect_ex(int cons_stack)
         fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld\n",
             g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k], g_gc_rep_agree[k], g_gc_rep_map_only[k], g_gc_rep_sniff_only[k],
             g_gc_rep_map_only[k] + g_gc_rep_sniff_only[k]);
-    if (gc_maps_on()) { fprintf(stderr, "[GC-BLOB] frames=%ld entries=%ld descr=%ld ptr_gc=%ld raw=%ld code=%ld raw_in_heap=%ld\n", g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap); }
+    if (gc_maps_on()) { fprintf(stderr, "[GC-BLOB] frames=%ld entries=%ld descr=%ld ptr_gc=%ld raw=%ld code=%ld raw_in_heap=%ld\n", g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap);
+      fprintf(stderr, "[GC-COEXPR] ctxs=%ld parked=%ld sigma=%ld plant=%d\n", g_gc_co_ctxs, g_gc_co_parked, g_gc_co_sigma, scrip_co_gc_plant()); }
     g_gc_blob_frames = g_gc_blob_entries = g_gc_blob_descr = g_gc_blob_ptr = g_gc_blob_raw = g_gc_blob_code = g_gc_blob_raw_in_heap = 0;
     { static int au = -1; if (au < 0) { const char *e = getenv("SCRIP_GC_AUDIT_SLOTS"); au = (e && *e && *e != '0') ? 1 : 0; }
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
@@ -942,7 +974,7 @@ static long gc_collect_ex(int cons_stack)
         rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
     }
-    dest = g_hp_arena;
+    { long shift = gc_plant_shift_bytes(); g_gc_shift_prefix = shift ? gc_plant_shift_prefix() : 0; dest = g_hp_arena + g_gc_shift_prefix + shift; g_gc_shift_now = shift; }
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
@@ -958,6 +990,14 @@ static long gc_collect_ex(int cons_stack)
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
     dest = g_hp_arena;
+    if (g_gc_shift_now) {
+        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
+        for (long i = li - 1; i >= 0; i--) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
+        { rt_hblk_t *fl = (rt_hblk_t *)(g_hp_arena + g_gc_shift_prefix); fl->fwd = 0; fl->size = (uint32_t)g_gc_shift_now; fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
+          for (char *q = g_hp_arena; q < g_hp_arena + g_gc_shift_prefix; q += ((rt_hblk_t *)q)->size) nfill++; }
+        dest = li ? (char *)livef[li - 1] + ((rt_hblk_t *)livef[li - 1])->size : g_hp_arena + g_gc_shift_prefix + g_gc_shift_now;
+        if (w_tel || gc_maps_on()) fprintf(stderr, "[GC-SHIFT] plant: every live block forwarded %ld bytes up, over %ld bytes of kept fill at the arena start -- a stale copy of any heap address is wrong after every collection\n", g_gc_shift_now, g_gc_shift_prefix + g_gc_shift_now);
+    } else
     for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size;
         if ((char *)livef[i] == (char *)h) { if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
             if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = dest; g_hp_wend = (char *)h; } } dest = (char *)h + sz; }

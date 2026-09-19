@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_gc_maps_reporter_runs_beside_the_scan.sh -- F6 STEP 3: THE WALKER AS A REPORTER, BEHIND SCRIP_GC_MAPS=1.
 # ⭐ WHAT STEP 3 IS FOR (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 7 F6, ceo CEO-867): the conservative scan --
-# gc_zeta_frame, cons_stack, rt_cas_live_span and the heap-interior sniff, CENSUS conservative total=21 (24 until 2026-09-19: the cas-span byte scan and its gc_zeta_frame call went with the blob static layout, cto) -- may only be
+# gc_zeta_frame, cons_stack, rt_cas_live_span and the heap-interior sniff, CENSUS conservative total=13 (24 until 2026-09-19: the cas-span byte scan and its gc_zeta_frame call went with the blob static layout, then 21 -> 13 the same day when the seven coexpression sweeps became typed visits and one segment walk, cto) -- may only be
 # DELETED once a census says the typed walk and the sniff agree. This gate is that census. It walks every range the
 # conservative scan walks, classifies each 16-byte cell TWICE (by the DESCR type tag alone, which is the frozen design's
 # only tag; and by whether the sniff would take it), and counts the two divergence directions per POPULATION.
