@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1684
+#define GC_ALLOC_TAB_N 1686
 #define GC_ALLOC_TAB_N_VOID 190
 #define GC_ALLOC_TAB_N_DESCR 925
-#define GC_ALLOC_TAB_N_OTHER 569
+#define GC_ALLOC_TAB_N_OTHER 571
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -954,7 +954,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_div_strict", GC_RET_DESCR },
     { "rt_div_zero", GC_RET_VOID },
     { "rt_dtx_drain", GC_RET_DESCR },
-    { "rt_enter", GC_RET_OTHER },
     { "rt_extfn_invoke", GC_RET_DESCR },
     { "rt_extfn_mint", GC_RET_DESCR },
     { "rt_field_var", GC_RET_DESCR },
@@ -1481,6 +1480,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_pairs_keys_values_cell", GC_RET_OTHER },
     { "rt_pl_root_omega", GC_RET_VOID },
     { "rt_pl_sort_cell", GC_RET_OTHER },
+    { "rt_pl_struct_alloc", GC_RET_OTHER },
     { "rt_pl_sub_atom_at_cell", GC_RET_OTHER },
     { "rt_pl_subsumes_cell", GC_RET_OTHER },
     { "rt_pl_succ_plus_cell", GC_RET_OTHER },
@@ -1499,7 +1499,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_write_cell_fp", GC_RET_VOID },
     { "rt_pl_write_term_cell", GC_RET_VOID },
     { "rt_pl_writeq_cell", GC_RET_VOID },
-    { "rt_plj_alloc", GC_RET_OTHER },
     { "rt_pow", GC_RET_DESCR },
     { "rt_pow_strict", GC_RET_DESCR },
     { "rt_powreal", GC_RET_DESCR },
@@ -1529,6 +1528,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_resolve_cells", GC_RET_VOID },
     { "rt_proc_resume_frame_h", GC_RET_DESCR },
     { "rt_proc_set_fn", GC_RET_VOID },
+    { "rt_pvec_alloc", GC_RET_OTHER },
+    { "rt_pvec_realloc", GC_RET_OTHER },
     { "rt_random_var", GC_RET_DESCR },
     { "rt_random_var_body", GC_RET_DESCR },
     { "rt_random_var_s", GC_RET_DESCR },
@@ -1587,6 +1588,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_ws_alloc_descr", GC_RET_OTHER },
     { "rt_ws_realloc", GC_RET_OTHER },
     { "rt_wsb_alloc", GC_RET_OTHER },
+    { "rt_wsb_realloc", GC_RET_OTHER },
     { "scan_labels", GC_RET_VOID },
     { "sco_branch", GC_RET_OTHER },
     { "scrip_co_trace_term", GC_RET_VOID },
