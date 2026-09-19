@@ -1021,7 +1021,7 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
         for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], nm)) { beaten = 1; break; } }
         if (!beaten) { win = i; break; } }
     if (win < 0) win = 0;
-    int total = 1 + nm; DESCR_t *ca = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+    int total = 1 + nm; DESCR_t *ca = rt_ws_alloc_descr((size_t)total);
     ca[0] = args[0]; for (int k = 0; k < nm; k++) ca[1 + k] = ma[k];
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
@@ -1490,11 +1490,11 @@ static void rk_tap_diag(const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen) {
-    size_t cap = strlen(fmt) + 64, len = 0; char *buf = (char *)rt_ws_alloc(cap); int ai = from;
+    size_t cap = strlen(fmt) + 64, len = 0; char *buf = (char *)rt_wsb_alloc(cap); int ai = from;
     for (const char *p = fmt; *p; ) {
-        if (*p != '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *p++; continue; }
+        if (*p != '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *p++; continue; }
         const char *start = p; p++;
-        if (*p == '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = '%'; p++; continue; }
+        if (*p == '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = '%'; p++; continue; }
         char spec[64]; int sp = 0; spec[sp++] = '%';
         while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#') { if (sp < 60) spec[sp++] = *p; p++; }
         long width = -1;
@@ -1522,18 +1522,18 @@ void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char *
             const char *sv = to_cstring(a, sb, sizeof sb); if (!sv) sv = "";
             char cspec[68]; int cl = 0; for (int k = 0; k < sp; k++) cspec[cl++] = spec[k]; cspec[cl++] = 's'; cspec[cl] = 0;
             int need = snprintf(NULL, 0, cspec, sv);
-            if (need >= (int)sizeof piece) { char *big = (char *)rt_ws_alloc((size_t)need + 1); snprintf(big, (size_t)need + 1, cspec, sv);
-                if (len + (size_t)need + 1 > cap) { cap = len + (size_t)need + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; }
+            if (need >= (int)sizeof piece) { char *big = (char *)rt_wsb_alloc((size_t)need + 1); snprintf(big, (size_t)need + 1, cspec, sv);
+                if (len + (size_t)need + 1 > cap) { cap = len + (size_t)need + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; }
                 memcpy(buf + len, big, (size_t)need); len += (size_t)need; continue; }
             snprintf(piece, sizeof piece, cspec, sv); done = 1;
         } else if (conv == 'b') {
             unsigned long uv = IS_INT_fn(a) ? (unsigned long)a.i : (IS_REAL_fn(a) ? (unsigned long)a.r : (unsigned long)atol(to_cstring(a, sb, sizeof sb)));
             char bits[72]; int bn = 0; if (uv == 0) bits[bn++] = '0'; else { char tmp[72]; int tn = 0; while (uv) { tmp[tn++] = (char)('0' + (uv & 1)); uv >>= 1; } while (tn) bits[bn++] = tmp[--tn]; } bits[bn] = 0;
             long w = 0; int zero = 0; for (int k = 1; k < sp; k++) { if (spec[k] == '0') zero = 1; else if (spec[k] >= '1' && spec[k] <= '9') { w = w * 10 + (spec[k] - '0'); } }
-            int pad = (int)w - bn; if (pad > 0) { char pc = zero ? '0' : ' '; for (int k = 0; k < pad; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = pc; } }
-            for (int k = 0; k < bn; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = bits[k]; } continue;
-        } else { for (const char *q = start; q <= start + (p - start) - 1; q++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *q; } continue; }
-        if (done) { size_t pl = strlen(piece); if (len + pl + 1 > cap) { cap = len + pl + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } memcpy(buf + len, piece, pl); len += pl; }
+            int pad = (int)w - bn; if (pad > 0) { char pc = zero ? '0' : ' '; for (int k = 0; k < pad; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = pc; } }
+            for (int k = 0; k < bn; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = bits[k]; } continue;
+        } else { for (const char *q = start; q <= start + (p - start) - 1; q++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *q; } continue; }
+        if (done) { size_t pl = strlen(piece); if (len + pl + 1 > cap) { cap = len + pl + 8; char *nb = (char *)rt_wsb_alloc(cap); memcpy(nb, buf, len); buf = nb; } memcpy(buf + len, piece, pl); len += pl; }
     }
     buf[len] = 0; *outp = buf; if (outlen) *outlen = len;
 }
