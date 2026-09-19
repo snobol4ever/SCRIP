@@ -47,12 +47,36 @@ else echo "  structural labels FAIL (lower_gc_roots visits [&g_bb_labels.data bb
 n=$(awk '/^void bb_src_gc_roots\(void\)$/{f=1} f&&/&g_bb_src\.nd\)/{a++} f&&/&g_bb_src\.src\)/{b++} f&&/&g_bb_src\.line\)/{c++} f&&/^}/{exit} END{printf "%d %d %d", a+0, b+0, c+0}' "$LC")
 if [ "$n" = "1 1 1" ]; then echo "  structural bb_src PASS (bb_src_gc_roots visits all THREE parallel array blocks -- the line array holds no pointers, but an unmarked block is reclaimed whatever it holds)"
 else echo "  structural bb_src FAIL (bb_src_gc_roots visits [nd src line] = [$n], want [1 1 1]: a parallel array of g_bb_src is reclaimed under a live registry)"; RC=1; fi
+# ⛔⭐ THE COLLECTED-HEAP ALLOCATOR FAMILY COMES FROM ITS ONE AUTHORITY, NOT FROM A SPELLING TYPED HERE (ceo CEO-946).
+# THIS ARM WAS RED ON ORIGIN FOR DAYS AND THE HOLDERS WERE FINE: it grepped for rt_ws_alloc / rt_ws_realloc, and the
+# HB_WS kind with both of those names was DELETED at place D (the cfo, CEO-925) when its sites took typed kinds. The
+# three holders moved to the ATOMIC sibling rt_wsb_alloc / rt_wsb_realloc, which is still the COLLECTED heap -- marked,
+# relocated, interior never scanned -- and is on util_c_allocator_census.py's ROOTED-HEAP list, the tree's one record of
+# which allocators the collector owns. So the gate said "moved off the heap instead of rooted" about a holder that had
+# been rooted all along, and every seat's `make test` carried the red. A gate that names an allocator by spelling dies
+# at the next retype; this one reads the family and survives it, because the standing rule already makes a landing that
+# adds an allocator update that list.
+rooted_family() {
+    python3 - "$ROOT/scripts/util_c_allocator_census.py" <<'PYEOF'
+import re, sys
+s = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r'"ROOTED-HEAP":\s*\(([^)]*)\)', s)
+names = re.findall(r'"([A-Za-z_][A-Za-z_0-9]*)"', m.group(1)) if m else []
+names += ["rt_heap_strdup_c", "rt_gcheap_alloc", "c_rt_str_alloc"]
+print("|".join(sorted(set(names))))
+PYEOF
+}
+ROOTED_RX=$(rooted_family)
+case "$ROOTED_RX" in
+    *rt_wsb_alloc*) : ;;
+    *) echo "⛔ GATE REFUSE(2) [$G]: could not read the ROOTED-HEAP allocator family from scripts/util_c_allocator_census.py (got [$ROOTED_RX]). A predicate that cannot be evaluated FAILS CLOSED -- this gate does not guess a spelling."; exit 2 ;;
+esac
 bad=0
 for fn in lc_vec_push bb_src_note; do
     body=$(awk -v f="$fn" 'index($0, f"(")&&/^void |^static void |^void \* /{d=1} d{print} d&&/^}/{exit}' "$LC")
     [ -n "$body" ] || { echo "  fact-rule FAIL ($fn not found in lower_common.c, so this arm measured nothing)"; bad=1; continue; }
     printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|free)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn allocates with a C allocator -- moving a holder off the collected heap is the same evasion as pinning it, one indirection further out)"; bad=1; }
-    printf '%s' "$body" | grep -qE 'rt_ws_alloc|rt_ws_realloc' || { echo "  fact-rule FAIL ($fn no longer allocates from the collected heap at all, so the roots above are guarding nothing)"; bad=1; }
+    printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL ($fn no longer allocates from the collected heap at all (its allocator is in none of the ROOTED-HEAP family [$ROOTED_RX]), so the roots above are guarding nothing)"; bad=1; }
 done
 if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (lc_vec_push and bb_src_note both still allocate from the COLLECTED heap, so the roots above are guarding something real)"; else RC=1; fi
 cp "$W" "$T/w.sno"
