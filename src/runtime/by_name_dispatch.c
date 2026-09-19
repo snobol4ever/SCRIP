@@ -432,7 +432,7 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
             int depth = 1; p++;
             while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
             size_t L = (size_t)(p - start);
-            char *mb = rt_ws_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
+            char *mb = rt_wsb_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
             hit = junction_collapse(scalar, STRVAL(mb), op, numeric);
         } else {
             while (*p && *p != SOH && *p != '\x04') p++;
@@ -1353,7 +1353,7 @@ static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
 static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
 static void *pl_var_cell_ptr(DESCR_t v) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(v); return (d.v == (DTYPE_t)DT_PLVAR) ? d.p : (void *)0; }
 static void pl_count_var_occ(DESCR_t t, void *target, int *cnt) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(t); if (d.v == (DTYPE_t)DT_PLVAR) { if (d.p == target) (*cnt)++; return; } if (d.v == (DTYPE_t)DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); DESCR_t *kids = (DESCR_t *)d.p; for (int i = 0; i < ar; i++) pl_count_var_occ(kids[i], target, cnt); } }
-static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_ws_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
+static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_wsb_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sink_kind(DESCR_t a) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
@@ -1370,10 +1370,10 @@ static int pl_sink_kind(DESCR_t a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_sink_build(int kind, const char *s, size_t n) {
     if (kind == 1 || kind == 2) return pl_mk_atom_dup(s, n);
-    DESCR_t *elems = (DESCR_t *)rt_ws_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
+    DESCR_t *elems = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
     for (size_t i = 0; i < n; i++) {
         if (kind == 3) { elems[i].v = (DTYPE_t)DT_I; elems[i].slen = 0; elems[i].i = (unsigned char)s[i]; }
-        else { char *o = (char *)rt_ws_alloc(2); o[0] = s[i]; o[1] = 0; elems[i] = pl_mk_atom_dup(o, 1); }
+        else { char *o = (char *)rt_wsb_alloc(2); o[0] = s[i]; o[1] = 0; elems[i] = pl_mk_atom_dup(o, 1); }
     }
     return pl_list_from_arr(elems, (int)n);
 }
