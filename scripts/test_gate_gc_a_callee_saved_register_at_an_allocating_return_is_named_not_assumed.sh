@@ -40,6 +40,19 @@
 # the block, fix up the cell, and leave the register pointing at the old address. The census therefore refuses to
 # call a copy raw, and arm 5 holds the copy count at its measured ceiling so the class cannot grow in silence.
 #
+# ⛔ THE COPY CEILING HAS BEEN RE-BASED TWICE AND NEITHER MOVE WAS THE CLASS GROWING -- A COUNT IS NOT COMPARABLE
+# ACROSS A CHANGE OF ITS CRITERION, and both changes were the population getting honest.
+#   83 -> 108 (cto 2026-09-18, section 6.5c): the seven hermetic witnesses carry no DEFERRED pattern, so this gate
+#     read heap=0 and had NEVER GRADED ONE INSTANCE of the class it exists to hold; the residual it ratcheted was
+#     entirely CELL copies. A deferred-pattern witness joined the population and reads heap=5 -- and reads the same
+#     heap=5 on ORIGIN, so it was a two-day population gap and not something a cure made. Arm 2b now reds on heap=0.
+#   108 -> 133 (cto 2026-09-18, section 6.5d): the ALLOCATING SET itself was undercounted. Its derivation recorded
+#     `call` edges only, and the hand-written asm allocators in rtx_alloc.s reach the carve by a TAIL JUMP, so they
+#     and the 99 functions reaching the heap only through them read NON-ALLOCATING. Widening the derivation to
+#     inter-function tail jumps took this gate's population from 528 allocating call sites to 582 -- the SAME
+#     witnesses, 54 sites that were never graded before. Every one of the 25 new copy readings is at a site that was
+#     always allocating and was never counted.
+#
 # ARMS (all blocking). (1) SELFTEST: the census's own arms, including its planted ones -- an instrument not shown
 # to discriminate has measured nothing. (2) POPULATION: one witness per frontend, all seven, compiled to mode-4
 # asm; the census reads a non-zero allocating-call population out of them and prints it. (3) UNCLASSIFIED = 0:
@@ -60,7 +73,7 @@ CENSUS="$HERE/util_gc_callee_saved_census.py"; [ -f "$CENSUS" ] || { echo "⛔ G
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
-COPY_CEILING=${COPY_CEILING:-108}
+COPY_CEILING=${COPY_CEILING:-133}
 
 echo "  HOLDS: what sits in a callee-saved register at an allocating return is NAMED from the emitted code, not assumed from a paragraph -- and it is a property of the SITE, not of the graph, so it does not go in the per-graph map. gc_frame_map_t.reserved stays zero with no reader; the registers get a tag at the poll (section 6.5's spill record), which is the polls row's build."
 

@@ -119,32 +119,56 @@ def census_allocator(path, out=print):
     return 0 if n == 0 else 1
 
 
-def allocating_entries_from_binary(so, out=print):
-    """every function in the runtime .so whose call graph reaches rt_gcheap_alloc (objdump -d, direct calls)"""
-    try:
-        txt = subprocess.run(["objdump", "-d", "--no-show-raw-insn", so], capture_output=True, text=True, check=True).stdout
-    except (OSError, subprocess.CalledProcessError) as e:
-        out(f"CENSUS safe-points REFUSED(2): objdump on {so} failed: {e}"); return None
-    fn = None; calls = collections.defaultdict(set); funcs = set()
+# ⛔⭐ A TAIL JUMP IS A CALL-GRAPH EDGE AND LEAVING IT OUT UNDERCOUNTED THE ALLOCATING SET BY 99 FUNCTIONS
+# (cto 2026-09-18, found while generating the emitter's allocating table, row
+# gc-the-emitter-emits-the-poll-not-the-template).  This walk used to record `call` edges only.  The
+# hand-written asm allocators in src/runtime/rtx/rtx_alloc.s -- rt_str_alloc and rt_agg_alloc -- reach the
+# carve by a TAIL JUMP (`jmp .Lga_armed` on the armed path, `je c_rt_str_alloc` to the C fallback otherwise)
+# and never execute a `call rt_gcheap_alloc`, so BOTH of them and everything that reaches the heap only
+# through them read as NON-ALLOCATING: 99 functions, the SNOBOL4 string builtins among them (DUPL_fn,
+# REVERS_fn, SUBSTR_fn, TRIM_fn, BCHAR_fn, _CHAR_, _COLLECT_, _ITEM_ ...).  Downstream that put 27 emitter
+# call sites OUTSIDE THE DENOMINATOR ENTIRELY -- neither polled nor counted unpolled -- in the number the GC
+# emergency is steered by.  A tail jump is an edge for exactly the question this census asks: control reaches
+# the target, the target may allocate, and it returns past us to OUR caller, so the allocation happens with
+# the caller's frame live.  objdump prints a jump to a local label as <fn+0xNN>, and the symbol pattern below
+# refuses a '+', so only true inter-function transfers are recorded; a self-edge is dropped.
+EDGE_RXS = (re.compile(r"\bcall\s+[0-9a-f]+ <([^>@+]+)"), re.compile(r"\bjmp\s+[0-9a-f]+ <([^>@+]+)"))
+
+def _alloc_reach_from_disasm(txt, seed="rt_gcheap_alloc"):
+    """the reverse-reachable set of seed over call AND inter-function tail-jump edges; (set, funcs) or (None, funcs)"""
+    fn = None; edges = collections.defaultdict(set); funcs = set()
     for line in txt.split("\n"):
         m = re.match(r"^[0-9a-f]+ <([^>]+)>:$", line)
         if m:
             fn = m.group(1); funcs.add(fn); continue
-        m = re.search(r"\bcall\s+[0-9a-f]+ <([^>@+]+)", line)
-        if m and fn:
-            calls[fn].add(m.group(1))
-    if "rt_gcheap_alloc" not in funcs:
-        out(f"CENSUS safe-points REFUSED(2): {so} defines no rt_gcheap_alloc (renamed? tell the census)"); return None
+        if not fn: continue
+        for rx in EDGE_RXS:
+            m = rx.search(line)
+            if m and m.group(1) != fn:
+                edges[fn].add(m.group(1))
+    if seed not in funcs:
+        return None, funcs
     rev = collections.defaultdict(set)
-    for a, bs in calls.items():
+    for a, bs in edges.items():
         for b in bs:
             rev[b].add(a)
-    seen = {"rt_gcheap_alloc"}; stack = ["rt_gcheap_alloc"]
+    seen = {seed}; stack = [seed]
     while stack:
         x = stack.pop()
         for y in rev.get(x, ()):
             if y not in seen:
                 seen.add(y); stack.append(y)
+    return seen, funcs
+
+def allocating_entries_from_binary(so, out=print):
+    """every function in the runtime .so whose call graph reaches rt_gcheap_alloc (objdump -d, calls AND tail jumps)"""
+    try:
+        txt = subprocess.run(["objdump", "-d", "--no-show-raw-insn", so], capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        out(f"CENSUS safe-points REFUSED(2): objdump on {so} failed: {e}"); return None
+    seen, funcs = _alloc_reach_from_disasm(txt)
+    if seen is None:
+        out(f"CENSUS safe-points REFUSED(2): {so} defines no rt_gcheap_alloc (renamed? tell the census)"); return None
     out(f"CENSUS safe-points allocating_entries={len(seen)} of {len(funcs)} runtime functions reach rt_gcheap_alloc ({so})")
     return seen
 
@@ -894,6 +918,32 @@ def selftest():
     open(nf, "w").write("void *some_other_thing(void) { rt_gc_collect(); return 0; }\n")
     buf.clear(); rc = census_allocator(nf, buf.append)
     ck(rc == 2, "allocator: a file with neither spelling REFUSES rc=2 (a renamed allocator is not a green one)")
+    # THE ALLOCATING SET ITSELF, over planted disassembly -- the derivation every other arm's `allocating` set
+    # is handed for free, and the one that was wrong for two days (cto 2026-09-18: tail-jump edges).
+    DIS_CALL = ("0000000000001000 <rt_gcheap_alloc>:\n    1000:\tret\n"
+                "0000000000002000 <caller_by_call>:\n    2000:\tcall   1000 <rt_gcheap_alloc>\n    2005:\tret\n"
+                "0000000000003000 <stranger>:\n    3000:\tret\n")
+    seen, funcs = _alloc_reach_from_disasm(DIS_CALL)
+    ck(seen == {"rt_gcheap_alloc", "caller_by_call"} and "stranger" in funcs,
+       f"allocating-set: a direct caller is in the set and an unrelated function is not, got {seen}")
+    DIS_JMP = DIS_CALL + ("0000000000004000 <tail_jumper>:\n    4000:\tjmp    1000 <rt_gcheap_alloc>\n"
+                          "0000000000005000 <caller_of_tail_jumper>:\n    5000:\tcall   4000 <tail_jumper>\n    5005:\tret\n")
+    seen2, _ = _alloc_reach_from_disasm(DIS_JMP)
+    ck("tail_jumper" in seen2 and "caller_of_tail_jumper" in seen2,
+       "allocating-set PLANTED: a function that reaches the allocator ONLY by a TAIL JUMP is in the set, and so is "
+       "its caller. This is the real shape of rt_str_alloc and rt_agg_alloc in rtx_alloc.s, which reach the carve by "
+       "`jmp` and never `call` it; with call edges alone they and 99 other functions read NON-ALLOCATING and 27 "
+       f"emitter call sites fell outside the denominator entirely. got {sorted(seen2)}")
+    seen3, _ = _alloc_reach_from_disasm(
+        "0000000000001000 <rt_gcheap_alloc>:\n    1000:\tret\n"
+        "0000000000002000 <selfloop>:\n    2000:\tjmp    2004 <selfloop+0x4>\n    2004:\tret\n")
+    ck(seen3 == {"rt_gcheap_alloc"},
+       f"allocating-set PLANTED: an intra-function jump to a local label (<fn+0xNN>) is NOT an edge -- widening to "
+       f"tail jumps must not sweep every looping function into the set, got {seen3}")
+    seen4, _ = _alloc_reach_from_disasm("0000000000002000 <only_this>:\n    2000:\tret\n")
+    ck(seen4 is None,
+       "allocating-set: a binary that defines no rt_gcheap_alloc REFUSES rather than returning an empty set, because "
+       "an empty allocating set makes every other census read GREEN while measuring nothing")
     # safe-points on fixture templates with a given allocating set
     tpl_ok = os.path.join(w, "ok.cpp"); tpl_bad = os.path.join(w, "bad.cpp")
     open(tpl_ok, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n + x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending")\n + x86("test", "eax", "eax"); }\nstd::string b(){ return x86("call", "rt_pure_cmp", fp); }\n')
