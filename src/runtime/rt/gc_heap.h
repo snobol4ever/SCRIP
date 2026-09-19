@@ -5,7 +5,6 @@
 #include <stddef.h>
 #define HB_ZCOL  200
 #define HB_FILL  202
-#define HB_WS    203
 #define HB_ZBLK  204
 #define HB_WSC   205
 #define HB_AGGV  206

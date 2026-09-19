@@ -26,8 +26,6 @@ void         rt_arena_release(rt_arena_t *a, arena_mark_t m);
 void         rt_arena_destroy(rt_arena_t *a);
 void        *rt_arena_zblock_get(rt_arena_t *a, size_t block_sz);
 void         rt_arena_zblock_put(rt_arena_t *a, void *blk);
-void        *rt_ws_alloc(size_t n);
-void        *rt_ws_realloc(void *p, size_t n);
 void        *rt_wsb_alloc(size_t n);
 void        *rt_wsb_realloc(void *p, size_t n);
 void        *rt_ws_alloc_descr(size_t n);

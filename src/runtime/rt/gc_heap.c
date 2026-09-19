@@ -11,7 +11,6 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #define GC_HEAP_MB 512
-static inline int hb_scan_interior(uint16_t t) { return t == HB_WS; }
 #include "descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
@@ -282,24 +281,10 @@ char *rt_str_dup(const char *s)
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_ws_alloc(size_t n)
-{
-    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
-    return rt_gcheap_alloc((uint16_t)HB_WS, (uint64_t)(n ? n : 1));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_wsb_alloc(size_t n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSB, (uint64_t)n);
     return rt_gcheap_alloc((uint16_t)HB_WSB, (uint64_t)(n ? n : 1));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_ws_realloc(void *p, size_t n)
-{
-    if (!p) return rt_ws_alloc(n);
-    { rt_hblk_t *h = (rt_hblk_t *)p - 1; size_t old = (size_t)h->size - sizeof(rt_hblk_t);
-      if (n <= old) return p;
-      { void *q = rt_ws_alloc(n); memcpy(q, p, old); return q; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_ws_alloc_descr(size_t n)
@@ -393,7 +378,7 @@ typedef struct gc_slot_t { rt_hblk_t *hloc; uintptr_t off; } gc_slot_t;
 static gc_slot_t *g_gc_slots = (gc_slot_t *)0;
 static long g_gc_nslot = 0, g_gc_scap = 0;
 static int g_gc_in = 0;
-static long g_gc_runs = 0, g_gc_interior = 0, g_gc_isw_ws = 0, g_gc_isw_wsb = 0;
+static long g_gc_runs = 0, g_gc_interior = 0;
 static char *g_gc_stktop = (char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GCBK_MAGIC 0x5a47424b48445200ull
@@ -485,7 +470,7 @@ static rt_hblk_t *gc_blk_of(const char *p)
     { long lo = 0, hi = g_gc_nblk - 1; while (lo <= hi) { long m = (lo + hi) >> 1; char *b = (char *)g_gc_idx[m]; if (p < b) hi = m - 1; else if (p >= b + g_gc_idx[m]->size) lo = m + 1; else return g_gc_idx[m]; } return (rt_hblk_t *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int gc_type_moves(uint16_t t) { return (t == HB_WS || t == HB_DVEC || (t >= HB_PLDB && t <= HB_DTPRCP) || t == HB_ARR || t == HB_DINST || HB_IS_AGG(t)) ? 1 : 0; }
+static int gc_type_moves(uint16_t t) { return (t == HB_DVEC || (t >= HB_PLDB && t <= HB_DTPRCP) || t == HB_ARR || t == HB_DINST || HB_IS_AGG(t)) ? 1 : 0; }
 static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
 {
     uint16_t old = h->flags;
@@ -917,7 +902,7 @@ static long gc_collect_ex(int cons_stack)
     { pz = (cons_stack == 0 && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && g_gc_rrng_n == g_gc_rrng_ss);
       if (cons_stack == 0 && !pz) cons_stack = 1; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
-    g_gc_nslot = 0; g_gc_interior = 0; g_gc_isw_ws = 0; g_gc_isw_wsb = 0;
+    g_gc_nslot = 0; g_gc_interior = 0;
     if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
     }
     rt_gc_ws_roots();
@@ -948,7 +933,6 @@ static long gc_collect_ex(int cons_stack)
                         if (h->type >= HB_PLDB && h->type <= HB_PLDBK) { extern void pl_db_gc_visit(uint16_t, void *, size_t); pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); continue; }
             if (h->type == HB_DTP || h->type == HB_DTPRCP) { extern void pm_struct_gc_visit(uint16_t, void *, size_t); pm_struct_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); continue; }
             if (h->type == HB_PVEC) { const char **v = (const char **)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *)); for (long i = 0; i < n; i++) if (v[i]) rt_gc_visit_raw(&v[i]); continue; }
-            if (hb_scan_interior(h->type)) { long ipay = (long)h->size - (long)sizeof(rt_hblk_t); g_gc_isw_ws++; g_gc_isw_wsb += ipay; g_gc_rep_pop = 3; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); g_gc_rep_pop = 0; continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
             if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
@@ -957,8 +941,6 @@ static long gc_collect_ex(int cons_stack)
         if (g_gc_wln == 0) break;
         rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
-      { static int icov = -1; if (icov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); icov = (e && *e && *e != '0') ? 1 : 0; }
-        if (icov) fprintf(stderr, "[GC-COV-HEAP] interior_sweep_blocks=%ld interior_sweep_bytes=%ld ws_blocks=%ld ws_bytes=%ld\n", g_gc_isw_ws, g_gc_isw_wsb, g_gc_isw_ws, g_gc_isw_wsb); }
     }
     dest = g_hp_arena;
     { int fold = 1;

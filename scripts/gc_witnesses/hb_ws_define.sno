@@ -1,9 +1,0 @@
-*  WITNESS for HB_WS -- a DEFINE with parameters and locals; its parameter-cell vector is one of the kind's last producers (rt.c pcells).
-        DEFINE('ADD3(A,B,C)T')                  :(D_END)
-ADD3    T = A + B
-        ADD3 = T + C                             :(RETURN)
-D_END   I = 0
-CHURN   S = S 'w'
-        I = LT(I,200) I + 1                      :S(CHURN)
-        OUTPUT = 'WS-' ADD3(1,2,3) '-' ADD3(10,20,30) '-' SIZE(S)
-END

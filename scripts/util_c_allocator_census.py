@@ -10,7 +10,7 @@ generated flex/bison output included, because a generated file that is committed
 only counts the four names would read green on a tree where half the runtime quietly lives outside the
 collector."  The rule names THREE destinations and only one of them is right for a given site:
 
-  ROOTED-HEAP   rt_ws_alloc / rt_wsb_alloc / rt_ws_alloc_descr / rt_ws_realloc / rt_wsb_realloc / rt_pvec_alloc / rt_pvec_realloc / rt_pl_struct_alloc / rt_pm_struct_alloc -- anything the RUNNING PROGRAM can reach, walked like everything
+  ROOTED-HEAP   rt_wsb_alloc / rt_ws_alloc_descr / rt_wsb_realloc / rt_pvec_alloc / rt_pvec_realloc / rt_pl_struct_alloc / rt_pm_struct_alloc -- anything the RUNNING PROGRAM can reach, walked like everything
                 else, with a root.  If you are unsure, this is the answer (CEO-842).
                 rt_wsb_alloc is ON THIS LIST AND IS NOT AN EVASION, which this gate correctly demanded be settled:
                 it is rt_gcheap_alloc of kind HB_WSB, the SAME collected heap, and the block is marked, forwarded
@@ -30,7 +30,7 @@ call site under src/runtime/ is counted as a VIOLATION and named, with gc_heap.c
 MMAP is expected.  A tree can satisfy Lon's grep exactly while failing this, which is the whole point.
 
 ⛔ IT COUNTS CALLS, NOT WORDS.  Comments and string literals are stripped, a declaration or prototype is not a
-call, and `ct_free` / `rt_ws_realloc` are not `free` / `realloc` -- the word-boundary does that, and an arm plants
+call, and `ct_free` / `rt_wsb_realloc` are not `free` / `realloc` -- the word-boundary does that, and an arm plants
 it.  Evasions the rule names by hand are counted too: `#define X malloc`, a typedef'd pointer assigned one of the
 four, and a wrapper whose body calls one.
 
@@ -49,7 +49,7 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 
 FORBIDDEN = ("malloc", "calloc", "realloc", "free")
 DESTINATIONS = {
-    "ROOTED-HEAP": ("rt_ws_alloc", "rt_wsb_alloc", "rt_ws_alloc_descr", "rt_ws_realloc", "rt_ws_zalloc", "rt_wsb_realloc", "rt_pvec_alloc", "rt_pvec_realloc", "rt_pl_struct_alloc", "rt_pm_struct_alloc"),
+    "ROOTED-HEAP": ("rt_wsb_alloc", "rt_ws_alloc_descr", "rt_wsb_realloc", "rt_pvec_alloc", "rt_pvec_realloc", "rt_pl_struct_alloc", "rt_pm_struct_alloc"),
     "ARENA":       ("ct_alloc", "ct_zalloc", "ct_grow", "ct_strdup", "ct_strndup", "ct_drop", "ct_calloc", "ct_realloc"),
     "MMAP":        ("mmap",),
 }
@@ -248,7 +248,7 @@ _LIBC_RETURNS = ("strdup", "strndup", "strdupa", "malloc", "calloc", "realloc", 
                  "memalign", "valloc", "reallocarray")
 _OURS = {"ct_drop": "the arena's free", "ct_grow": "the arena's realloc", "ct_realloc": "the arena's realloc",
          "rt_gc_visit_raw": "a collector root", "rt_gc_visit_descr": "a collector root",
-         "rt_gc_root_range_add": "a collector root", "rt_ws_realloc": "the collected heap's realloc"}
+         "rt_gc_root_range_add": "a collector root", "rt_wsb_realloc": "the collected heap's realloc"}
 _LVALUE = (r"[A-Za-z_][A-Za-z0-9_]*(?:\s*\[[^\]]*\]|\s*\.\s*[A-Za-z_][A-Za-z0-9_]*"
            r"|\s*->\s*[A-Za-z_][A-Za-z0-9_]*)*")
 _PTR_DECL = re.compile(r"(?:^|[{;])\s*(?:static\s+)?(?:const\s+)?[A-Za-z_][A-Za-z0-9_]*\s*\*\s*"
@@ -966,11 +966,11 @@ def selftest():
     os.remove(os.path.join(ld, "gpl.c"))
 
     open(os.path.join(sd, "near_miss.c"), "w").write(
-        "void f(void) { ct_free(p); rt_ws_realloc(q, 8); my_free(r); }\n")
+        "void f(void) { ct_free(p); rt_wsb_realloc(q, 8); my_free(r); }\n")
     buf.clear(); rc = census(w, out=buf.append)
     j = "\n".join(buf)
-    ck("FORBIDDEN total=0" in j, "ct_free is not free and rt_ws_realloc is not realloc -- the word boundary decides, not a substring")
-    ck("ROOTED-HEAP=1" in j, "rt_ws_realloc is counted as the ROOTED-HEAP destination")
+    ck("FORBIDDEN total=0" in j, "ct_free is not free and rt_wsb_realloc is not realloc -- the word boundary decides, not a substring")
+    ck("ROOTED-HEAP=1" in j, "rt_wsb_realloc is counted as the ROOTED-HEAP destination")
 
     open(os.path.join(sd, "evade.c"), "w").write("void *f(void) { return ct_alloc(8); }\n")
     buf.clear(); rc = census(w, out=buf.append)
