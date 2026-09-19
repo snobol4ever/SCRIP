@@ -392,7 +392,7 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     }
     inst->type   = blk;
     inst->id     = blk->serial_next++;
-    inst->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
+    { extern void *rt_ws_alloc_descr(size_t); inst->fields = rt_ws_alloc_descr((size_t)(t->nfields > 0 ? t->nfields : 0)); }
     for (int i = 0; i < t->nfields; i++) {
         inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
         if (t->has_default[i] && inst->fields[i].v == DT_SNUL) inst->fields[i] = t->defaults[i];

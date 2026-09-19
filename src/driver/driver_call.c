@@ -85,8 +85,9 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     comm_call(retname);
     monitor_quiet_depth++;
     int nsaved = 1 + np + nl;
+    extern void *rt_ws_alloc_descr(size_t);
     char   **snames = rt_ws_alloc((size_t)nsaved * sizeof(char *));
-    DESCR_t *svals  = rt_ws_alloc((size_t)nsaved * sizeof(DESCR_t));
+    DESCR_t *svals  = rt_ws_alloc_descr((size_t)nsaved);
     snames[0] = rt_heap_strdup_c(retname);
     svals[0]  = NV_GET_fn(retname);
     NV_SET_fn(retname, STRVAL(""));
