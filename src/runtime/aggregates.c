@@ -336,7 +336,7 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;
-    if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc((size_t)nc * sizeof(DESCR_t)); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
+    if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc_descr((size_t)nc); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
     if (tbl->ord_dead > 0u) { for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (!_tbl_eq_d(&_op, k)) continue; tbl->ord[oi] = k; tbl->ord_dead--; goto _ord_placed; } }
     tbl->ord[tbl->ord_len++] = k;
 _ord_placed: ;

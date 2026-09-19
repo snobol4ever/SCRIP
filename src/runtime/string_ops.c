@@ -29,7 +29,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
         DESCR_t *ae = (DESCR_t *)FIELD_GET_fn(a, "frame_elems").ptr;
         DESCR_t *be = (DESCR_t *)FIELD_GET_fn(b, "frame_elems").ptr;
         int64_t n = an + bn;
-        DESCR_t *ne = (DESCR_t *)rt_ws_alloc((size_t)((n > 0 ? n : 1) * (int64_t)sizeof(DESCR_t)));
+        DESCR_t *ne = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
         for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
         for (int64_t i = 0; i < bn; i++) ne[an + i] = be ? be[i] : NULVCL;
         DESCR_t ep; ep.v = DT_DATA; ep.slen = DATA_ELEMS_SLEN; ep.ptr = (void *)ne;
