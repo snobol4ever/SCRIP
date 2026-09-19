@@ -1736,9 +1736,16 @@ inline std::string x86_frame_unsink() {
     return x86("mov", "rsp", "qword ptr [rsp + 0]");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_xfer_enter() { return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L); }
+inline std::string x86_xfer_enter() {
+    return x86("comment", "ARCH-GC 6.2i THE XFER RECORD IS TWO TAGGED CELLS (cto 2026-09-19): the three scan registers a deferred entry must survive are saved as DESCR cells the collector reads by tag -- {DT_S, r15d, r13} the subject at [rsp+0], {DT_I, 0, r14} the cursor at [rsp+16] -- in place of four raw pushes. The frame walker named the raw push of r13 as the one untagged heap word on the SNOBOL4 defer road: the sweep's raw arm marked it and never rewrote it, so the match resumed on the subject's old address after a collection inside the deferred callee (hb_defer_subject.sno printed NO at stress 1/3/5 in both media). Same 32 bytes, same rsp parity, nothing indexes into the record.")
+         + x86("sub", "rsp", 32L)
+         + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
+         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_xfer_leave() { return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14"); }
+inline std::string x86_xfer_leave() {
+    return x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24) + x86("add", "rsp", 32L);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_alpha_carve(long K)          { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
 inline std::string x86_gamma_free(long K)           { return K > 0 ? x86("add", "rsp", K) : std::string(); }

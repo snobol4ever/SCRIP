@@ -24,7 +24,8 @@
 #       all: the value belongs to an ANCESTOR frame, still sitting in the register because nothing here touched it.
 #       No map of THIS graph can name it, because the fact is not this graph's.
 # THE RULING THIS GATE HOLDS: the register facts do NOT go in the map, section 6.5 stands, section 7 F1's clause
-# is the stale one, and gc_frame_map_t.reserved stays ZERO with no reader -- arm 6 reds if a register mask is ever
+# is the stale one, and the map's fourth quad carries a FRAME fact only (map_off since CTO-88, ARCH-GC 6.2h; it was
+# the zero `reserved` quad before) -- arm 6 reds if a register mask is ever
 # smuggled into it. What the registers DO need is a tag at the site, which is the spill record, and that is the
 # polls row's build, not this one's.
 #
@@ -192,13 +193,13 @@ badq=0; qpop=""
 for w in w.icn w.sno w.pl w.sc w.raku w.pas w.reb w.defer.sno; do
     [ -s "$T/$w.s" ] || continue
     n=$(grep -c '^\.Lgcmap_[^ ]*:$' "$T/$w.s")
-    nz=$(awk 'BEGIN{c=-1} /^\.Lgcmap_[^ ]*:$/{c=0;next} c>=0 && /^[ \t]*\.quad/{c++; if(c==4){ if($2 != "0") bad++ ; c=-1}} END{print bad+0}' "$T/$w.s")
+    nz=$(awk 'BEGIN{c=-1} /^\.Lgcmap_[^ ]*:$/{c=0;next} c>=0 && /^[ \t]*\.quad/{c++; if(c==1){fb=int($2/4294967296)} if(c==4){ if($2+0 > fb || $2+0 < 0) bad++ ; c=-1}} END{print bad+0}' "$T/$w.s")
     qpop="$qpop $w:$n"
-    [ "${nz:-0}" -gt 0 ] && { echo "  arm 6 RED ($w: $nz emitted map(s) carry a NON-ZERO fourth quad -- a register mask has been smuggled into the per-graph map, which the site-dependence measurement says cannot be right)"; badq=1; }
+    [ "${nz:-0}" -gt 0 ] && { echo "  arm 6 RED ($w: $nz emitted map(s) carry a fourth quad LARGER THAN frame_bytes -- the fourth quad is map_off, the cell's offset from the frame's region base (ARCH-GC 6.2h, CTO-88), a frame fact the walker reads; a value outside [0, frame_bytes] is not an offset and a register mask smuggled into the per-graph map is exactly what the site-dependence measurement says cannot be right)"; badq=1; }
 done
-readers=$(grep -rn -e '->reserved' -e '\.reserved' "$ROOT/src" 2>/dev/null | grep -vc '^$')
+readers=$(grep -rn -e '->reserved' -e '\.reserved' -e 'regmask' -e 'reg_mask' "$ROOT/src" 2>/dev/null | grep -vc '^$')
 if [ "$badq" = 0 ] && [ "$readers" -eq 0 ]; then
-    echo "  arm 6 PASS: the map's fourth quad is zero in every emitted map (maps per witness --$qpop) and gc_frame_map_t.reserved has 0 readers in src/. THE MEASUREMENT BEHIND THE RULING: $dep (graph, register) pair(s) over $gr graphs are live across one allocating return of a graph and dead across another, so a per-graph mask would have to be a union that guesses at one of its own sites; and most callee-saved registers at most sites were never written by the graph at all, so the value is an ancestor's and no map of this graph can name it."
+    echo "  arm 6 PASS: the map's fourth quad is map_off in every emitted map, never above frame_bytes (maps per witness --$qpop), and no reader of a reserved or register-mask field exists in src/. THE MEASUREMENT BEHIND THE RULING: $dep (graph, register) pair(s) over $gr graphs are live across one allocating return of a graph and dead across another, so a per-graph mask would have to be a union that guesses at one of its own sites; and most callee-saved registers at most sites were never written by the graph at all, so the value is an ancestor's and no map of this graph can name it."
 else [ "$badq" = 0 ] && echo "  arm 6 RED: gc_frame_map_t.reserved has $readers reader(s) in src/ -- the register facts are being moved into the per-graph map, which section 6.5 and the site-dependence measurement both say cannot be done without guessing"; RC=1; fi
 
 cat > "$T/plant.s" <<'EOF'

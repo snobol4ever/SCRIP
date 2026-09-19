@@ -870,6 +870,31 @@ static void gc_walk_badtag(const char *graph, long off, const DESCR_t *d)
     g_gw_lines++;
     fprintf(stderr, "[GC-WALK-BADTAG] pop=%s graph=%s off=%ld v=0x%02x slen=%u p=%p\n", g_gc_rep_popname[g_gc_rep_pop], graph ? graph : "-", off, (unsigned)d->v, (unsigned)d->slen, (const void *)d->p);
 }
+static int gc_maps_dump(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_MAPS"); v = (e && *e >= '3' && *e <= '9') ? 1 : 0; } return v; }
+#define GC_WALK_DUMP_CAP 6
+static long g_gw_dumps;
+static int gc_code_range(const char *w)
+{
+    static unsigned long lo[64], hi[64]; static int n = -1;
+    if (n < 0) { FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; n = 0;
+        if (f) { while (fgets(ln, sizeof ln, f) && n < 64) { unsigned long a, b; char pm[8]; if (sscanf(ln, "%lx-%lx %7s", &a, &b, pm) == 3 && pm[1] == '-' && pm[2] == 'x') { lo[n] = a; hi[n] = b; n++; } } fclose(f); } }
+    for (int i = 0; i < n; i++) if ((unsigned long)w >= lo[i] && (unsigned long)w < hi[i]) return 1;
+    return 0;
+}
+static void gc_walk_dump(const char *lo, const char *base, const char *graph)
+{
+    if (!gc_maps_dump() || g_gw_dumps >= GC_WALK_DUMP_CAP || base - lo <= 64) return;
+    g_gw_dumps++;
+    fprintf(stderr, "[GC-WALK-DUMP] pop=%s graph=%s floor=%p base=%p words=%ld\n", g_gc_rep_popname[g_gc_rep_pop], graph ? graph : "-", (const void *)lo, (const void *)base, (long)(base - lo) / 8);
+    for (const char *p = lo; p + 8 <= base; p += 8) { const char *w = *(const char *const *)p; rt_hblk_t *h = gc_blk_of(w); const char *cls = "int"; unsigned ty = 0; int cell = (p - 8 >= lo) && gc_tag_bears_ptr(*(const uint8_t *)(p - 8));
+        if (h) { cls = cell ? "heap-cell" : "heap-RAW"; ty = h->type; }
+        else if (!w) cls = "nil";
+        else if (gc_code_range(w)) cls = "code";
+        else if (w >= lo - (1L << 20) && w <= gc_stack_top()) cls = "stack";
+        else if (((uintptr_t)w & 0xFFFFFF00u) == 0 && gc_tag_known((uint8_t)(uintptr_t)w)) cls = "tag";
+        else if (((uintptr_t)w & 0xFFFFFF00u) == 0 && gc_tag_known((uint8_t)(uintptr_t)w) && ((uintptr_t)w >> 32) != 0) cls = "tag";
+        fprintf(stderr, "[GC-WALK-DUMP] off=%ld at=%p word=%p cls=%s type=%u\n", (long)(p - base), (const void *)p, (const void *)w, cls, ty); }
+}
 static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
 {
     gc_walk_t *g = &g_gw[g_gc_rep_pop];
@@ -915,7 +940,7 @@ static void gc_walk_range(const char *lo0, const char *hi0)
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
         else { const char *base = c - (long)m->map_off, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (base < p) base = p; if (hhi > hi) hhi = hi;
-            gc_walk_words(p, base, above ? 2 : 0, lo, above ? last : m->graph_name, base);
+            { long before = g->s_raw_heap; gc_walk_words(p, base, above ? 2 : 0, lo, above ? last : m->graph_name, base); if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, base, m->graph_name); }
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
@@ -1044,6 +1069,7 @@ static long gc_collect_ex(int cons_stack)
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
         fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un); } }
     if (pz) { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) rt_gc_visit_raw((const char **)&rtccb[ci]); }
+    { extern const char *Σ; rt_gc_visit_raw(&Σ); }
     if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) { g_gc_rep_pop = 2; words += gc_zeta_frame(g_gc_seam_sp, sst); g_gc_rep_pop = 0; } }
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
