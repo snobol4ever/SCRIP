@@ -353,7 +353,7 @@ typedef struct gc_slot_t { rt_hblk_t *hloc; uintptr_t off; } gc_slot_t;
 static gc_slot_t *g_gc_slots = (gc_slot_t *)0;
 static long g_gc_nslot = 0, g_gc_scap = 0;
 static int g_gc_in = 0;
-static long g_gc_runs = 0, g_gc_interior = 0;
+static long g_gc_runs = 0, g_gc_interior = 0, g_gc_isw_ws = 0, g_gc_isw_wsb = 0, g_gc_isw_plj = 0, g_gc_isw_pljb = 0;
 static char *g_gc_stktop = (char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GCBK_MAGIC 0x5a47424b48445200ull
@@ -839,7 +839,7 @@ static long gc_collect_ex(int cons_stack)
     { pz = (cons_stack == 0 && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && g_gc_rrng_n == g_gc_rrng_ss);
       if (cons_stack == 0 && !pz) cons_stack = 1; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
-    g_gc_nslot = 0; g_gc_interior = 0;
+    g_gc_nslot = 0; g_gc_interior = 0; g_gc_isw_ws = 0; g_gc_isw_wsb = 0; g_gc_isw_plj = 0; g_gc_isw_pljb = 0;
     if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
     }
     rt_gc_ws_roots();
@@ -865,13 +865,15 @@ static long gc_collect_ex(int cons_stack)
             if (h->type == HB_DVEC) { DESCR_t *v = (DESCR_t *)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t)); for (long i = 0; i < n; i++) gc_wl_push(&v[i]); continue; }
             if (h->type == HB_ARR) { ARBLK_t *a = (ARBLK_t *)(h + 1); if (gc_hins((void *)a)) gc_visit_arblk(a); continue; }
             if (h->type == HB_DINST) { DATINST_t *u = (DATINST_t *)(h + 1); if (gc_hins((void *)u)) gc_visit_datinst(u); continue; }
-            if (hb_scan_interior(h->type) || h->type == HB_PLJ) { g_gc_rep_pop = 3; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); g_gc_rep_pop = 0; continue; }
+            if (hb_scan_interior(h->type) || h->type == HB_PLJ) { long ipay = (long)h->size - (long)sizeof(rt_hblk_t); if (h->type == HB_PLJ) { g_gc_isw_plj++; g_gc_isw_pljb += ipay; } else { g_gc_isw_ws++; g_gc_isw_wsb += ipay; } g_gc_rep_pop = 3; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); g_gc_rep_pop = 0; continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
             if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
+      { static int icov = -1; if (icov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); icov = (e && *e && *e != '0') ? 1 : 0; }
+        if (icov) fprintf(stderr, "[GC-COV-HEAP] interior_sweep_blocks=%ld interior_sweep_bytes=%ld ws_blocks=%ld ws_bytes=%ld plj_blocks=%ld plj_bytes=%ld\n", g_gc_isw_ws + g_gc_isw_plj, g_gc_isw_wsb + g_gc_isw_pljb, g_gc_isw_ws, g_gc_isw_wsb, g_gc_isw_plj, g_gc_isw_pljb); }
     }
     dest = g_hp_arena;
     { int fold = 1;
