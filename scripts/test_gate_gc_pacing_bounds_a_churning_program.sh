@@ -14,6 +14,16 @@
 # FAIL_ONCE=1 plants the control arm's RSS into arm 1 to prove the bound trips.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
+# ⛔⭐ THIS GATE NAMES ITS OWN ARENA, AND THAT IS THE RULE, NOT AN EXEMPTION (Lon 2026-09-19, ceo CEO-938; RULES.md
+# § THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2).  The tiny arena is the default of all GC testing and the Makefile
+# exports SCRIP_HEAP_MB=1 to every gate run through make -- but THIS gate measures an arena-dependent quantity: the
+# pacing line is min(SCRIP_GC_LINE_MB, half of what remains) past the top and both arms grade RSS against a 256 MB bound
+# calibrated at the shipped 512 MB window.  At a 1 MB window the program collects every megabyte, RSS never approaches
+# the bound, the control arm stops discriminating and the gate reads FAIL for a reason that is not the thing it tests
+# (measured: FAIL under an inherited SCRIP_HEAP_MB=1, PASS at 512).  So it pins the arena it was calibrated at, in the
+# open, where a reader sees it.  A gate that measures an arena-dependent quantity does the same; one that does not must
+# NOT pin, because inheriting the tiny arena is how the fleet finds collector defects in every other gate.
+export SCRIP_HEAP_MB=512
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
 command -v /usr/bin/time >/dev/null || { echo "⛔ REFUSE(2): /usr/bin/time is the RSS instrument and it is absent"; exit 2; }

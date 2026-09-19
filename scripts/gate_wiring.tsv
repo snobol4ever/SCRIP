@@ -126,6 +126,7 @@ test_gate_gc_the_lowerer_registries_are_rooted_not_malloced.sh	WIRED	-	-	-
 test_gate_gc_the_mark_walk_is_a_worklist_not_recursion_per_cell.sh	WIRED	-	-	-
 test_gate_gc_the_name_save_stack_and_the_eval_tables_are_rooted_not_moved_off_the_heap.sh	WIRED	-	-	-
 test_gate_gc_the_spill_record_carries_a_callee_saved_heap_pointer_across_an_allocating_return.sh	WIRED	-	-	-
+test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-

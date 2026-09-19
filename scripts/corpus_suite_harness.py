@@ -2552,6 +2552,17 @@ def cmd_run(args):
         os.environ["S4E_BIN_AT_START"] = _upa_bin.bin_fingerprint().strip()
     # the baseline is STATED, like the tree stamp: a reader (and the gate's mid-run arm) can see what this run will be held to
     print(f"BINARY_AT_START {os.environ['S4E_BIN_AT_START']} (md5/12 of scrip, libscrip_rt.so; a rebuild under this run refuses the board)", flush=True)
+    # ⛔⭐ A BOARD NAMES THE ARENA IT RAN UNDER (Lon 2026-09-19, ceo CEO-931/934/938; RULES.md batch 28 CLAUSE 2).  The
+    # tiny arena is the default of all GC testing, so the SAME suite legitimately reads two different populations on one
+    # binary -- SnoM 1963/1974 at the shipped 512 MB window and 1959/1974 at 1 MB -- and a reader who cannot see which
+    # one a board is has no measurement.  Reported, never defaulted here: the knob comes from the environment (the
+    # Makefile exports 1 for everything run through make), because a harness that silently changed every existing
+    # board's arena would change what every published number MEANS with no line of evidence anywhere.
+    _arena_mb = os.environ.get("SCRIP_HEAP_MB", "").strip() or "512"
+    _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
+    print("ARENA SCRIP_HEAP_MB=%s%s%s" % (_arena_mb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
+          " (committed window in MB; unset means the shipped default 512. The reserve is the larger of 8x the window and the"
+          " default's, so a small window collects often and refuses no live set)"), flush=True)
     def _bin_unmoved_or_refuse():
         _mv = _upa_bin.binary_moved_since_start()
         if _mv:
@@ -2945,6 +2956,7 @@ def cmd_run(args):
     # instead of them: the cell carries both so the split stays readable, and a reader who wants one mode still
     # has it. Shards partition the entries, so these two sum across shards exactly as every other field does.
     fields.append(f"all_pass={all_pass} all_n={all_n}")
+    fields.append(f"arena_mb={_arena_mb}" + (f" arena_cap_mb={_arena_cap}" if _arena_cap else ""))
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
     _bin_unmoved_or_refuse()
