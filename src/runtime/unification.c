@@ -2047,11 +2047,11 @@ typedef struct { int i; int mark; } pl_flagit_t;
 typedef struct { int si; int pi; int mark; } pl_spropit_t;
 static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
 {
-    extern void *rt_plj_alloc(size_t);
+    extern void *rt_plj_alloc(size_t); extern void *rt_ws_alloc_descr(size_t);
     pl_cell_t *d = pl_deref(c);
     if (pl_cell_unbound(d)) {
         for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return pl_make_ref(vnew[i], (int)vnew[i]->slen);
-        pl_cell_t *fresh = (pl_cell_t *)rt_plj_alloc(sizeof(pl_cell_t));
+        pl_cell_t *fresh = (pl_cell_t *)rt_ws_alloc_descr(1);
         if (!fresh) return *d;
         pl_init_var(fresh, -1);
         if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
@@ -2064,7 +2064,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
     if ((int)d->v == DT_PLREF) {
         int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
         pl_cell_t *aa = (pl_cell_t *)d->p;
-        pl_cell_t *na = (pl_cell_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(pl_cell_t));
+        pl_cell_t *na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
         if (!na) return *d;
         for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_persist(&aa[i], vaddr, vnew, vn, cap);
         return pl_make_compound(fn, ar, na);
@@ -2094,13 +2094,13 @@ void * rt_pl_db_get(void *root, int64_t k)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_set(void *root, int64_t k, void *val)
 {
-    extern void *rt_plj_alloc(size_t);
+    extern void *rt_plj_alloc(size_t); extern void *rt_ws_alloc_descr(size_t);
     if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !val) return 0;
     { pl_cell_t **cell = (pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
       pl_cell_t *t = pl_deref((pl_cell_t *)val);
       pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
       pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn, 256);
-      pl_cell_t *box = (pl_cell_t *)rt_plj_alloc(sizeof *box);
+      pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
       if (!box) return 0;
       *box = stored; *cell = box; return 1; }
 }
