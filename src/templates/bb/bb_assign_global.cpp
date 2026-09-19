@@ -79,7 +79,7 @@ std::string bb_assign_global() {
                 + x86("mov", "rsi", "rax")
                 + x86("mov", "rdi", ROQ(0))
                 + x86("call", "NV_SET_fn", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(const char *, DESCR_t))NV_SET_fn)
-                + x86_rt_gc_poll_res()
+                + x86_rt_gc_poll_rec_res()
                 + x86_gamma()
                 + x86_beta_trampoline()
                 + x86("def",    L(0))

@@ -2203,4 +2203,18 @@ inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32,
          + x86("add", "rsp", (long)32);
 }
 inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
+inline std::string x86_rt_gc_poll_rec_res() {
+    return x86("comment", "ARCH-GC 6.5c: the box result IS a DESCR, so the rax:rdx pair is written as the record's ONE cell and handed to the poll as its shield array -- rt_gc_visit_descr relocates it BY ITS OWN TYPE FIELD, a typed visit and not the word sweep, and the floor is the caller's own rsp so the cell sits outside the swept range. 6.5b's spill-PAIR left this cell INSIDE that range and was relocated by gc_zeta_frame, which is the mechanism F6 step 3 deletes; this form survives that deletion by construction")
+         + x86("sub", "rsp", (long)16)
+         + x86_rsp_store64(0, "rax")
+         + x86_rsp_store64(8, "rdx")
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)1)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 16)
+         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rsp_load64("rax", 0)
+         + x86_rsp_load64("rdx", 8)
+         + x86("add", "rsp", (long)16);
+}
 #endif
