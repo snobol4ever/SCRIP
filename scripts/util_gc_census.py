@@ -173,7 +173,7 @@ def allocating_entries_from_binary(so, out=print):
     return seen
 
 
-CALL_RX = re.compile(r'x86\(\s*"call"\s*,(.*)$')
+CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
 
 # A COUNT IS NOT COMPARABLE ACROSS A CHANGE OF ITS CRITERION.  Every line here names a sitting in which the census
 # started counting something it could not see before, so a reader never reads the step as a regression or a win
@@ -271,6 +271,41 @@ def _brace_body_literals(text, at):
     return []
 
 
+def _brace_body(text, o):
+    """the text between the brace at o and its match, or "" when the braces do not close"""
+    depth = 0
+    for k in range(o, len(text)):
+        if text[k] == "{":
+            depth += 1
+        elif text[k] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[o:k]
+    return ""
+
+
+DEF_RX_FMT = r"^[ \t]*(?:static\s+)?(?:inline\s+)?[A-Za-z_][\w \*]*\b%s\s*\([^;{\n]*\)[ \t]*\{"
+
+
+def _chooser_literals_nested(text, o, depth=0, seen=None):
+    """a chooser's literals plus, one level down, the literals of every chooser it calls that is DEFINED in the same
+    file (a definition line: a type, the name, its parameter list and the opening brace, at the start of a line --
+    never an if-statement that happens to call it, which is the 2026-09-17 mis-resolution shape)"""
+    body = _brace_body(text, o)
+    lits = LIT_RX.findall(body)
+    if depth >= 2:
+        return lits
+    seen = set(seen or ())
+    for callee in sorted(set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", body))):
+        if callee in seen:
+            continue
+        d = re.search(DEF_RX_FMT % re.escape(callee), text, re.M)
+        if d and d.end() - 1 != o:
+            seen.add(callee)
+            lits += _chooser_literals_nested(text, d.end() - 1, depth + 1, seen)
+    return lits
+
+
 def _first_arg(expr):
     """the call's first argument: up to the first comma at paren/bracket depth 0"""
     depth = 0
@@ -306,6 +341,11 @@ def resolve_computed(expr, own_text, all_text):
         d = re.search(r"\b" + m.group(1) + r"\s*\([^;{\n]*\)[ \t]*\{", own_text)
         if d:
             return _brace_body_literals(own_text, d.end() - 1), f"chooser {m.group(1)}()"
+    m = re.match(r"([A-Za-z_]\w*)\s*\(.*\)\s*$", e)
+    if m:
+        d = re.search(DEF_RX_FMT % re.escape(m.group(1)), own_text, re.M)
+        if d:
+            return _chooser_literals_nested(own_text, d.end() - 1), f"chooser {m.group(1)}(...)"
     m = re.match(r"([A-Za-z_]\w*)\s*$", e)
     if m:
         for rv in SYM_RESOLVERS:
