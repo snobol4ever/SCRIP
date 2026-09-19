@@ -115,7 +115,18 @@ ledger_of() { # enclosing function -> ledger group
         rt_call_proc_descr|rt_proc_call_gen|rt_proc_call_gen_h) echo "V4" ;;
         rt_proc_resume_frame|rt_proc_resume_frame_h)            echo "V5" ;;
         rt_eval_run|__asm__|rt_eval_enter_shim)   echo "V6" ;;
-        rt_call_value_gen_h|rt_call_value_resume_h|plc_next)    echo "V7" ;;
+        rt_call_value_gen_h|rt_call_value_resume_h|plc_next|rt_pl_goal_gen_h_c)    echo "V7" ;;
+        # ⛔⭐ rt_pl_goal_gen_h_c JOINED V7 2026-09-19 (ceo CEO-943), AND IT IS A LEDGER FIX, NOT A NEW TRANSFER: the
+        # function has been in the tree since `b4736aa3d` (2026-09-06 11:23, prolog: a meta-call miss raises a REAL ball),
+        # so for THIRTEEN DAYS this gate printed it under UNLEDGERED and told every seat "a NEW violation of the one-entry
+        # convention -- read it before anything else", which is the loudest line it has.  A ledger that lags the tree spends
+        # the gate's credibility: a seat that learns the alarm is stale stops reading the alarm.  It belongs in V7 with the
+        # other two RIDERS of by_name_dispatch.c (rt_call_value_gen_h, rt_call_value_resume_h): same file, same shape -- a C
+        # rider that stages arguments and tail-returns rt_proc_call_gen_h, entering the box from C -- and the same owner, the
+        # ceo's row gc-the-five-c-to-bb-entries-outside-rt-c-go-to-zero.  Its own frame passes the property test of ARCH-GC
+        # section 9 (iii): `key` is a local char buffer, the stage happens before the entry and it tail-returns, so nothing
+        # stale is read afterwards.  ⛔ UNLEDGERED STAYS THE LOUD CLASS: this line moves ONE known site into its group and
+        # weakens nothing -- the gate still counts it, still names it, and STRICT still fails while it exists.
         *)                                        echo "UNLEDGERED" ;;
     esac
 }
