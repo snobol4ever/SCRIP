@@ -1672,7 +1672,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             a->lo = 1; a->hi = n; a->ndim = 1; a->lo2 = 0; a->hi2 = 0;
             a->proto_bare = 1; a->id = rt_agg_serial_list();
             { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_heap_strdup_c(pb); }
-            a->data = rt_ws_alloc(n * sizeof(DESCR_t));
+            a->data = rt_ws_alloc_descr((size_t)n);
             int row = 0;
             TBPAIR_t *e;
             TBPAIR_t **ord = rt_ws_alloc((size_t)n * sizeof(TBPAIR_t *));
@@ -1686,7 +1686,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
                 rb->dumpno = 0;
                 rb->lo = 1; rb->hi = 2; rb->ndim = 1; rb->lo2 = 0; rb->hi2 = 0;
                 rb->proto_bare = 1; rb->proto = 0; rb->id = rt_agg_serial_list();
-                rb->data = rt_ws_alloc(2 * sizeof(DESCR_t));
+                rb->data = rt_ws_alloc_descr(2);
                 rb->data[0] = kd;
                 rb->data[1] = e->val;
                 DESCR_t rd = {0}; rd.v = DT_A; rd.arr = rb;
@@ -1777,7 +1777,7 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         DATINST_t *src = (DATINST_t *)v.u; DATBLK_t *blk = src->type; int nf = blk ? blk->nfields : 0;
         DATINST_t *inst = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
         inst->type = blk; inst->id = blk ? blk->serial_next++ : 0; inst->dumpno = rt_sno_dumpno_next();
-        inst->fields = rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
+        inst->fields = rt_ws_alloc_descr((size_t)(nf > 0 ? nf : 1));
         for (int i = 0; i < nf; i++) inst->fields[i] = src->fields[i];
         DESCR_t r; r.v = DT_DATA; r.slen = DATA_INST_SLEN; r.u = inst; return r;
     }
@@ -2020,7 +2020,7 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     u->type   = t;
     u->id     = t->serial_next++;
     u->dumpno = rt_sno_dumpno_next();
-    u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
+    u->fields = rt_ws_alloc_descr((size_t)t->nfields);
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
     return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = u };
@@ -2994,7 +2994,7 @@ DESCR_t DATCON_fn(const char *typename, ...) {
     u->type   = t;
     u->id     = t->serial_next++;
     u->dumpno = rt_sno_dumpno_next();
-    u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
+    u->fields = rt_ws_alloc_descr((size_t)t->nfields);
     for (int i = 0; i < t->nfields; i++) u->fields[i] = NULVCL;
     va_list ap;
     va_start(ap, typename);
