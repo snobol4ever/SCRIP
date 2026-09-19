@@ -550,7 +550,7 @@ DESCR_t sort_fn(DESCR_t arr) {
         if (n <= 0) return arr;
         DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
         const char **strs = rt_ws_alloc(n * sizeof(char *));
-        char *bufblk = rt_ws_alloc((size_t)n * 64);
+        char *bufblk = rt_wsb_alloc((size_t)n * 64);
         for (int i = 0; i < n; i++) { vals[i] = src->data[i]; strs[i] = tbl_key_str(vals[i], bufblk + (size_t)i * 64, 64); }
         for (int i = 1; i < n; i++) {
             DESCR_t tv = vals[i]; const char *ts = strs[i];
@@ -581,7 +581,7 @@ DESCR_t sort_fn(DESCR_t arr) {
             vals[idx] = e->val;
             idx++;
         }
-    int *order = rt_ws_alloc(n * sizeof(int));
+    int *order = rt_wsb_alloc(n * sizeof(int));
     for (int i = 0; i < n; i++) order[i] = i;
     for (int i = 1; i < n; i++) {
         int tmp = order[i];
@@ -851,10 +851,10 @@ void rt_cap_push(void *slot, int delta)
 {
     rt_cap_stk_t *s = (rt_cap_stk_t *)slot;
     if (s->gen != g_cap_gen) { s->sp = 0; s->gen = g_cap_gen; }
-    if (!s->buf) { s->buf = (uint32_t *)rt_ws_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
+    if (!s->buf) { s->buf = (uint32_t *)rt_wsb_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
     if (s->sp == s->buf[0]) {
         uint32_t nc = s->buf[0] * 2;
-        uint32_t *nb = (uint32_t *)rt_ws_alloc(((size_t)nc + 1) * sizeof(uint32_t));
+        uint32_t *nb = (uint32_t *)rt_wsb_alloc(((size_t)nc + 1) * sizeof(uint32_t));
         memcpy(nb + 1, s->buf + 1, (size_t)s->sp * sizeof(uint32_t));
         nb[0] = nc; s->buf = nb;
     }
