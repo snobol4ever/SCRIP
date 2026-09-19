@@ -2958,14 +2958,14 @@ void DEFDAT_fn(const char *spec) {
     if (close) *close = '\0';
     DATBLK_t *prev = _udef_lookup(name);
     if (prev && _udef_fields_same(prev, fields_str)) return;
-    DATBLK_t *t = rt_ws_alloc(sizeof(DATBLK_t));
+    DATBLK_t *t = rt_wsb_alloc(sizeof(DATBLK_t));
     t->name = rt_heap_strdup_c(name);
     int nfields = 0;
     char *tmp = rt_heap_strdup_c(fields_str);
     char *tok = strtok(tmp, ",");
     while (tok) { nfields++; tok = strtok(NULL, ","); }
     t->nfields = nfields;
-    t->fields  = rt_ws_alloc(nfields * sizeof(char *));
+    t->fields  = rt_pvec_alloc((size_t)nfields);
     tmp = rt_heap_strdup_c(fields_str);
     tok = strtok(tmp, ",");
     for (int i = 0; i < nfields && tok; i++) {
@@ -3091,7 +3091,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     NV_t *e = _var_bucket_find(key);
     if (e) { e->val = val; return val; }
     unsigned h = _var_hash(key);
-    e = rt_ws_alloc(sizeof(NV_t));
+    e = rt_wsb_alloc(sizeof(NV_t));
     e->name = rt_heap_strdup_c(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0;
     e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++;
     return val;
@@ -3215,7 +3215,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         }
     }
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
-    NV_t *e = rt_ws_alloc(sizeof(NV_t));
+    NV_t *e = rt_wsb_alloc(sizeof(NV_t));
     e->name = rt_heap_strdup_c(name);
     e->val  = val;
     e->cell = (DESCR_t *)0;
@@ -3230,7 +3230,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
 int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
 DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -3253,7 +3253,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
-    NV_t *e = rt_ws_alloc(sizeof(NV_t));
+    NV_t *e = rt_wsb_alloc(sizeof(NV_t));
     e->name = rt_heap_strdup_c(name);
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
@@ -3603,7 +3603,7 @@ static unsigned _func_hash(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
-    FNCBLK_t *fe = rt_ws_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
     char *s = rt_heap_strdup_c(spec);
     fe->spec = rt_heap_strdup_c(spec);
     char *paren = strchr(s, '(');
@@ -3618,7 +3618,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
             char *tok = strtok(lstr, ",");
             while (tok) { nl++; tok = strtok(NULL, ","); }
             fe->nlocals = nl;
-            fe->locals  = rt_ws_alloc(nl * sizeof(char *));
+            fe->locals  = rt_pvec_alloc((size_t)nl);
             lstr = rt_heap_strdup_c(comma + 1);
             tok  = strtok(lstr, ",");
             for (int i = 0; i < nl && tok; i++) {
@@ -3651,7 +3651,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         while (tok) { np++; tok = strtok(NULL, ","); }
     }
     fe->nparams = np;
-    fe->params  = np ? rt_ws_alloc(np * sizeof(char *)) : NULL;
+    fe->params  = np ? rt_pvec_alloc((size_t)np) : NULL;
     if (np) {
         pstr = rt_heap_strdup_c(paren + 1);
         char *tok = strtok(pstr, ",");
@@ -3669,7 +3669,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         char *tok  = strtok(lstr, ",");
         while (tok) { nl++; tok = strtok(NULL, ","); }
         fe->nlocals = nl;
-        fe->locals  = rt_ws_alloc(nl * sizeof(char *));
+        fe->locals  = rt_pvec_alloc((size_t)nl);
         lstr = rt_heap_strdup_c(locals_str);
         tok  = strtok(lstr, ",");
         for (int i = 0; i < nl && tok; i++) {
@@ -3783,7 +3783,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
     for (FNCBLK_t *e = _func_buckets[ho]; e; e = e->next) {
         if (strcmp(e->name, oldname) == 0) { old_entry = e; break; }
     }
-    FNCBLK_t *fe = rt_ws_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
     fe->name    = rt_heap_strdup_c(newname);
     if (old_entry) {
         fe->spec        = old_entry->spec;

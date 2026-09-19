@@ -381,10 +381,10 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     { extern long rt_sno_dumpno_next(void); inst->dumpno = rt_sno_dumpno_next(); }
     DATBLK_t *blk = (DATBLK_t *)t->blk;
     if (!blk) {
-        blk = rt_ws_alloc(sizeof(DATBLK_t));
+        blk = rt_wsb_alloc(sizeof(DATBLK_t));
         blk->name    = rt_heap_strdup_c(t->name);
         blk->nfields = t->nfields;
-        blk->fields  = rt_ws_alloc(t->nfields * sizeof(char *));
+        blk->fields  = rt_pvec_alloc((size_t)t->nfields);
         for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_heap_strdup_c(t->fields[i]);
         blk->next    = NULL;
         blk->serial_next = 1;
