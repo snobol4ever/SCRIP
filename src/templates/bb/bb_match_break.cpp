@@ -57,6 +57,7 @@ std::string bb_match_break() {
              + x86("lea",   "rsi", LFC(4))
              + x86("lea",   "rdx", LFC(12))
              + x86("call",  "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
+             + x86_rt_gc_poll_rec_sigma(1)
              + x86("test",  "rax", "rax")
              + x86_omega("js")
              + x86("mov",   "edi", "r14d")

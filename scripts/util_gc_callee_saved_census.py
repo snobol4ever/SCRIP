@@ -46,6 +46,12 @@ WHAT IT MEASURES, PER MODE-4 .s:
       that the register is raw -- it is the argument that the register needs a tag OF ITS OWN at the site.
       HEAP:
         SUBJECT  mov r13, rax after call rt_match_enter   the one collected-heap pointer section 6.5 names by hand
+      AND ITS SIBLING, PROVABLY NOT A POINTER BY THE SAME EVIDENCE (cto 2026-09-18, section 6.5c):
+        LENGTH   mov <r>, rdx after call rt_match_enter    the SECOND half of the ScanSubjRegs pair that call
+                 returns -- gen_runtime.h declares it `uint64_t len`, the same declaration that makes the rax half
+                 SUBJECT.  This form is how the DEFERRED pattern blobs seed r15, and it is NOT the 32-bit seeding
+                 section 6.5a measured on the seven hermetic witnesses: that population carries no deferred
+                 pattern, so a 64-bit `mov r15, rdx` read UNCLASSIFIED there and the gap was invisible.
       Anything else is UNCLASSIFIED: the census names it by site rather than guessing a class, and an
       UNCLASSIFIED reading is the census working, not the census failing.
   (4) SITE-DEPENDENCE.  For each graph, whether a register's live-across status is the SAME at every allocating
@@ -251,6 +257,9 @@ def classify_def(insns, i, reg, depth=0):
         if src.strip() == "rax" and reg == "r13":
             for j in range(i - 1, max(-1, i - 3), -1):
                 if insns[j].mnem == "call" and SUBJECT_SEED in insns[j].text: return "SUBJECT"
+        if src.strip() == "rdx":
+            for j in range(i - 1, max(-1, i - 3), -1):
+                if insns[j].mnem == "call" and SUBJECT_SEED in insns[j].text: return "LENGTH"
         if "[" in src: return cell_class(insns, i, src, reg, depth)
         if reg_of(src): return "REG"
         return "UNCLASSIFIED"
@@ -377,7 +386,7 @@ def graph_of(insns, i):
     ga = CTX["graph_at"]
     return ga[i] if i < len(ga) else None
 
-PROVABLY_RAW = {"RSP", "IMM", "D32", "RIP"}
+PROVABLY_RAW = {"RSP", "IMM", "D32", "RIP", "LENGTH"}
 COPY = {"CELL", "POP", "REG", "ARITH", "LEA", "CALLERS"}
 CELL_PREFIX = "CELL:"
 HEAP = {"SUBJECT"}
@@ -469,7 +478,9 @@ def report(paths, alloc, out=print):
         by = defaultdict(int)
         for c in heaps: by[(c[3], c[4])] += 1
         out("      " + "  ".join(f"{r}/{k}={v}" for (r, k), v in sorted(by.items())))
-        for h in heaps[:4]:
+        # EVERY heap site is printed, never a sample: the spill-record gate reads this list as its COVERAGE
+        # population, and a truncated list would let it report full coverage over four of five sites (cto 6.5c).
+        for h in heaps:
             out(f"      {h[0]} graph={h[1]} line={h[2]} {h[3]}  [{h[5]}]")
     if copy_n:
         out(f"  ⛔ {copy_n} OWNED reading(s) are A COPY OF SOMETHING ELSE, and that is the residual this census exists "
@@ -585,6 +596,28 @@ def selftest():
     tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
     ck(classes.get("r13", {}).get("SUBJECT", 0) == 1,
        f"the one heap class is recognised by its seeding call, got {dict(classes.get('r13',{}))}")
+    open(p, "w").write(
+        " .text\n"
+        "kl_\u03b1:\n"
+        " call rt_match_enter\n"
+        " mov r15, rdx\n"
+        " call rt_alloc_thing\n"
+        " mov edi, r15d\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r15", {}).get("LENGTH", 0) == 1 and not unc,
+       f"the Delta half of the ScanSubjRegs pair reads LENGTH (provably not a pointer by the same declaration that makes the rax half SUBJECT), got {dict(classes.get('r15',{}))} unclassified={unc}")
+    open(p, "w").write(
+        " .text\n"
+        "km_\u03b1:\n"
+        " call rt_other_entry\n"
+        " mov r15, rdx\n"
+        " call rt_alloc_thing\n"
+        " mov edi, r15d\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r15", {}).get("LENGTH", 0) == 0 and any(u[3] == "r15" for u in unc),
+       f"PLANTED: the SAME copy out of rdx after a call that is NOT rt_match_enter is refused the LENGTH class and reads UNCLASSIFIED, got {dict(classes.get('r15',{}))} unclassified={unc}")
     open(p, "w").write(
         " .text\n"
         "v_α:\n"

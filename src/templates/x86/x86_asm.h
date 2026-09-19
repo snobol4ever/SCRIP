@@ -2183,4 +2183,24 @@ inline std::string x86_rt_gc_poll_res() {
          + x86_reg_disp32_load64("rdx", "rsp", 8)
          + x86("add", "rsp", (long)16);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
+inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax) {
+    return x86("comment", "ARCH-GC 6.5 SPILL RECORD: the collected-heap pointer a callee-saved register holds at this allocating return is spilled as ONE TAGGED DESCR cell and handed to the poll as its shield array, so the collector visits it precisely by type and relocates it; the FLOOR handed to the poll is the caller's own rsp, which leaves the record and the raw scratch below it OUT of the word-swept range -- an untagged integer inside a swept range is visited raw and rewritten when its block slides, which is why the record carries tagged cells and nothing else")
+         + x86("sub", "rsp", (long)32)
+         + x86_rsp_store32_imm(0, (long)DT_S)
+         + IF(lenreg32 != NULL, x86_rsp_store32(4, lenreg32))
+         + IF(lenreg32 == NULL, x86_rsp_store32_imm(4, (long)0))
+         + x86_rsp_store64(8, preg)
+         + IF(keep_rax, x86_rsp_store64(16, "rax"))
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)1)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 32)
+         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rsp_load64(preg, 8)
+         + IF(keep_rax, x86_rsp_load64("rax", 16))
+         + x86("add", "rsp", (long)32);
+}
+inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
 #endif

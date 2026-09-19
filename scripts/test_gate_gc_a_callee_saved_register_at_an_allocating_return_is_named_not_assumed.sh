@@ -60,7 +60,7 @@ CENSUS="$HERE/util_gc_callee_saved_census.py"; [ -f "$CENSUS" ] || { echo "⛔ G
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
-COPY_CEILING=${COPY_CEILING:-83}
+COPY_CEILING=${COPY_CEILING:-108}
 
 echo "  HOLDS: what sits in a callee-saved register at an allocating return is NAMED from the emitted code, not assumed from a paragraph -- and it is a property of the SITE, not of the graph, so it does not go in the per-graph map. gc_frame_map_t.reserved stays zero with no reader; the registers get a tag at the poll (section 6.5's spill record), which is the polls row's build."
 
@@ -134,8 +134,20 @@ function main()
   OUTPUT := 3 + 4
 end
 EOF
+cat > "$T/w.defer.sno" <<'EOF'
+        S = 'AAAAABBBBBCCCCC'
+        N = 3
+        C = 'AB'
+        S LEN(*N) . X1                              :F(D1)
+D1      S ANY(*C) . X2                              :F(D2)
+D2      S SPAN(*C) . X3                             :F(D3)
+D3      S BREAK(*C) . X4                            :F(D4)
+D4      S TAB(*N) . X5                              :F(D5)
+D5
+END
+EOF
 asm=""
-for w in w.icn w.sno w.pl w.sc w.raku w.pas w.reb; do
+for w in w.icn w.sno w.pl w.sc w.raku w.pas w.reb w.defer.sno; do
     if timeout 120 "$SCRIP" --compile -o "$T/$w.s" "$T/$w" </dev/null >/dev/null 2>&1 && [ -s "$T/$w.s" ]; then asm="$asm $T/$w.s"
     else echo "  arm 2 RED ($w: mode 4 did not emit asm -- this frontend could not be censused)"; RC=1; fi
 done
@@ -144,9 +156,11 @@ python3 "$CENSUS" $asm > "$T/c.txt" 2>&1
 sum=$(grep '^SUMMARY ' "$T/c.txt" | tail -1)
 val(){ echo "$sum" | tr ' ' '\n' | awk -F= -v k="$1" '$1==k{print $2}'; }
 sites=$(val sites); unc=$(val unclassified); unk=$(val unknown_mnemonics); cop=$(val copies); dep=$(val site_dependent_pairs); gr=$(val graphs); raw=$(val raw); heap=$(val heap)
-if [ "$nasm" -eq 7 ] && [ -n "$sites" ] && [ "$sites" -ge 100 ]; then
-    echo "  arm 2 PASS: 7 of 7 frontends censused, $sites allocating call site(s) over $gr graph(s) -- owned readings: provably_not_a_pointer=$raw a_copy_of_something_else=$cop heap=$heap"
-else echo "  arm 2 RED: censused $nasm of 7 frontends, sites=${sites:-none} (a census over an empty population reports zero violations while measuring nothing)"; RC=1; fi
+if [ "$nasm" -eq 8 ] && [ -n "$sites" ] && [ "$sites" -ge 100 ]; then
+    echo "  arm 2 PASS: 7 of 7 frontends plus the DEFERRED-PATTERN witness censused ($nasm files), $sites allocating call site(s) over $gr graph(s) -- owned readings: provably_not_a_pointer=$raw a_copy_of_something_else=$cop heap=$heap"
+else echo "  arm 2 RED: censused $nasm of 8 witnesses, sites=${sites:-none} (a census over an empty population reports zero violations while measuring nothing)"; RC=1; fi
+if [ -n "$heap" ] && [ "$heap" -gt 0 ]; then echo "  arm 2b PASS: $heap owned reading(s) in this population ARE a collected-heap pointer in a callee-saved register at an allocating return -- the class this gate exists to hold is EXERCISED, not merely declared"
+else echo "  arm 2b RED: heap=${heap:-0} -- the population carries no collected-heap pointer in any callee-saved register at any allocating return, so arms 3 and 5 grade a class that never occurs in it. The seven hermetic witnesses read heap=0 for exactly this reason and the gap was invisible until a DEFERRED pattern was censused (section 6.5c)."; RC=1; fi
 if [ "${unc:-1}" = 0 ]; then echo "  arm 3 PASS: 0 unclassified -- every owned register live across an allocating return has a defining form the census can name"
 else echo "  arm 3 RED: $unc register reading(s) live across an allocating return whose content the census cannot name:"; grep 'UNCLASSIFIED' "$T/c.txt" | head -6 | sed 's/^/    /'; RC=1; fi
 if [ "${unk:-1}" = 0 ]; then echo "  arm 4 PASS: 0 mnemonics outside the census's def/use model"
@@ -155,7 +169,7 @@ if [ -n "$cop" ] && [ "$cop" -le "$COPY_CEILING" ]; then echo "  arm 5 PASS: $co
 else echo "  arm 5 RED: the copy residual is ${cop:-?} against a ceiling of $COPY_CEILING -- a register holding an untagged copy across a collection is a root the collector cannot fix up"; RC=1; fi
 
 badq=0; qpop=""
-for w in w.icn w.sno w.pl w.sc w.raku w.pas w.reb; do
+for w in w.icn w.sno w.pl w.sc w.raku w.pas w.reb w.defer.sno; do
     [ -s "$T/$w.s" ] || continue
     n=$(grep -c '^\.Lgcmap_[^ ]*:$' "$T/$w.s")
     nz=$(awk 'BEGIN{c=-1} /^\.Lgcmap_[^ ]*:$/{c=0;next} c>=0 && /^[ \t]*\.quad/{c++; if(c==4){ if($2 != "0") bad++ ; c=-1}} END{print bad+0}' "$T/$w.s")
@@ -182,7 +196,7 @@ python3 "$CENSUS" "$T/plant.s" > "$T/plant.txt" 2>&1; prc=$?
 if [ "$prc" -ne 0 ] && grep -q 'UNCLASSIFIED' "$T/plant.txt"; then echo "  arm 7 PASS: a planted register defined by an un-whitelisted form, live across an allocating return, makes the census RED end to end (rc=$prc) -- the arms above are not an inert seam"
 else echo "  arm 7 RED: the planted unclassifiable definition read GREEN (rc=$prc) -- the census has stopped discriminating and arms 3 to 5 are measuring nothing"; RC=1; fi
 
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: what a callee-saved register holds at an allocating return is read off the emitted code, nothing is unclassified, and the per-graph map carries no register mask (examined 7 arms)"
-else echo "GATE FAIL(1) [$G]: a callee-saved register at an allocating return is unnamed, unmodelled, or the map has taken on a register mask it cannot honestly carry (examined 7 arms)"; fi
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: what a callee-saved register holds at an allocating return is read off the emitted code, nothing is unclassified, and the per-graph map carries no register mask (examined 8 arms)"
+else echo "GATE FAIL(1) [$G]: a callee-saved register at an allocating return is unnamed, unmodelled, or the map has taken on a register mask it cannot honestly carry (examined 8 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
