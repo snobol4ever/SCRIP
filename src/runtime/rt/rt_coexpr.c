@@ -73,6 +73,7 @@ static void scrip_co_init_once(scrip_coctx_t *cur) {
     scrip_co_makesem(cur);
     cur->thread = pthread_self();
     cur->alive = 1;
+    cur->started = 1;
     g_co_main_thr = cur->thread; g_co_main_set = 1;
     { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_coexp_stksize = _v; } }
     pthread_attr_init(&attribs);
@@ -101,7 +102,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     const int _inh_ctx = new_ctx && new_ctx->inherit_scan;
     { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
     if (first == 0) scrip_co_thread_start(new_ctx);
-    if (!new_ctx->started) { new_ctx->started = 1; { extern void rt_scan_state_reset(void); if (!_inh_ctx) rt_scan_state_reset(); } }
+    if (!new_ctx->started) { new_ctx->started = 1; { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); } }
     __asm__ volatile ("mov %%rsp, %0" : "=m"(old->park_sp));
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);

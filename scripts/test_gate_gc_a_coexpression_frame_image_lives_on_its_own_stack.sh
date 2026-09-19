@@ -26,7 +26,10 @@
 # (58 lines; its &errout trace is the ceo's rowed finding, not graded here). (4) MEASURED, NOT ASSERTED: the reporter's
 # images_on_stack counts every context whose image address lies inside its own thread's stack mapping and
 # images_off_stack reads 0 on the refresh witness. (5) the uncreated-thread gate holds both contracts (lazy refused,
-# eager already has its stack).
+# eager already has its stack). (6) hb_coexpr_genp_scan.icn -- a generator called by VALUE inside a scan (rt.c's lazily
+# started generator thread) keeps the caller's scan environment across its first yield back to main, both modes, stress
+# 0,1,3,5 under the shift plant: the fail-once of rung 2's first cut, whose `started` flag read main's context as never
+# started and reset the scan environment on that yield (IcnM 825/826, procedure_suspend_scan_replace_1, both modes).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -66,8 +69,17 @@ line=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WI
 on=$(echo "$line" | grep -oE 'images_on_stack=[0-9]+' | cut -d= -f2); off=$(echo "$line" | grep -oE 'images_off_stack=[0-9]+' | cut -d= -f2)
 if [ "${on:-0}" -ge 1 ] && [ "${off:-x}" = 0 ]; then echo "  arm 4 PASS: every co-expression image lies inside its own thread's stack mapping ($line)"
 else echo "  arm 4 FAIL: reporter line [$line]"; RC=1; fi
+GW="$WD/hb_coexpr_genp_scan.icn"; GR="$WD/hb_coexpr_genp_scan.ref"; [ -f "$GW" ] && [ -f "$GR" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing $GW"; exit 2; }
+gref="$(cat "$GR")"; a6=""; a6bad=0
+m4build "$GW" "$T/gp" || { echo "  arm 6 FAIL: the generator-in-scan witness does not build in mode 4"; RC=1; a6bad=1; }
+for st in 0 1 3 5; do
+    g3="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$GW" 2>/dev/null </dev/null | tr -d '\0' )"; g4="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$T/gp" 2>/dev/null </dev/null | tr -d '\0' )"
+    if [ "$g3" = "$gref" ] && [ "$g4" = "$gref" ]; then a6="$a6 @$st:ok"; else a6="$a6 @$st:m3=$([ "$g3" = "$gref" ] && echo ok || echo RED),m4=$([ "$g4" = "$gref" ] && echo ok || echo RED)"; a6bad=1; fi
+done
+if [ "$a6bad" = 0 ]; then echo "  arm 6 PASS: a generator called by value inside a scan (the lazily started generator thread) keeps the caller's scan environment across its first yield back to main, at stress 0,1,3,5 in both modes under the shift plant --$a6 (the fail-once: rung 2's first cut reset it and IcnM read 825/826)"
+else echo "  arm 6 FAIL: the generator thread's first yield disturbed the caller's scan environment --$a6"; RC=1; fi
 if bash "$HERE/test_gate_coexpr_stack_of_uncreated_thread.sh" >"$T/u.txt" 2>&1; then echo "  arm 5 PASS: $(grep '^PASS:' "$T/u.txt" | head -1 | cut -c1-150)"; else echo "  arm 5 FAIL: $(tail -2 "$T/u.txt" | tr '\n' ' ' | cut -c1-160)"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: no frame image leaves the stack -- the eager thread holds the creator's image on its own stack, refresh reads it back under forced motion in both modes, Arizona agrees with icont (examined 5 arms)"
-else echo "GATE FAIL(1) [$G]: a frame image is off the stack or the refresh path lost it (examined 5 arms)"; fi
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: no frame image leaves the stack -- the eager thread holds the creator's image on its own stack, refresh reads it back under forced motion in both modes, Arizona agrees with icont (examined 6 arms)"
+else echo "GATE FAIL(1) [$G]: a frame image is off the stack, the refresh path lost it, or a generator's first yield disturbed the scan (examined 6 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
