@@ -1029,6 +1029,7 @@ long rt_dcap_call_prepare(const char *name, short *how, int *nsb)
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return 0;
     }
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { *how = 2; return (long)(uintptr_t)afn; } }
     if (!p->dyn_scope) { fprintf(stderr, "FATAL rt_dcap_call_prepare: capture target '%s' is a C-frame procedure; a deferred capture may only enter a box-entered procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
     { int _wn_gen = rt_g_want_name;
       *nsb = rt_name_save_mark();

@@ -6,9 +6,10 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
-extern "C" long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
-extern "C" long rt_dcap_land_γ(DESCR_t frame0);
-extern "C" long rt_dcap_land_ω(void);
+typedef struct { long fn; long how; } rt_dcap_next_t;
+extern "C" rt_dcap_next_t rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
+extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0);
+extern "C" rt_dcap_next_t rt_dcap_land_ω(void);
 extern "C" void rt_dcap_end_ok_close(void);
 extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
@@ -48,28 +49,50 @@ static std::string release_pump() {
          + x86("mov",  "rdi", RDQ("rbp", -8))
          + x86("mov",  "rsi", "r12")
          + x86("mov",  "rdx", "r13")
-         + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
+         + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
          + x86("comment", "IR_MATCH_END capture pump: rax = 0 done, 1 strict-refuse, else the entry address of a deferred capture target -- the box enters it with its own wires (Lon 2026-09-19: no BB is entered from C after the original invocation; a C leaf returns the data for the jump)")
          + x86("cmp",  "rax", 1L)
          + x86("jbe",  L(2))
          + x86("push", "rbx")
          + x86("push", "r12")
+         + x86("cmp",  "rdx", 2L)
+         + x86("je",   L(5))
          + bb_glue_pass_wires_blob_regs(3, 4)
-         + x86("def",  L(3))
-         + x86("add",  "rsp", 16L)
+         + x86("def",  L(5))
+         + x86("comment", "IR_MATCH_END capture pump, the alpha arm: the target is the DEFINE'd procedure's own alpha face, entered with rt_tiny_record_enter's record {nargs=0, gamma, omega, 0, 16} at rcx and rsp restored by the face")
+         + x86("sub",  "rsp", 48L)
+         + x86("mov",  RDQ("rsp", 0), 0L)
+         + x86_lea_id("rcx", 6)
+         + x86("mov",  RDQ("rsp", 8), "rcx")
+         + x86_lea_id("rcx", 7)
+         + x86("mov",  RDQ("rsp", 16), "rcx")
+         + x86("mov",  RDQ("rsp", 24), 0L)
+         + x86("mov",  RDQ("rsp", 32), 16L)
+         + x86("lea",  "rcx", RDQ("rsp", 0))
+         + x86("jmp",  "rax")
+         + x86("def",  L(6))
+         + x86("add",  "rsp", 48L)
+         + x86("def",  L(8))
          + x86("pop",  "r12")
          + x86("pop",  "rbx")
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_dcap_land_γ", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_dcap_land_γ)
+         + x86("call", "rt_dcap_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t))rt_dcap_land_γ)
          + x86("jmp",  L(1))
-         + x86("def",  L(4))
-         + x86("add",  "rsp", 16L)
+         + x86("def",  L(7))
+         + x86("add",  "rsp", 48L)
+         + x86("def",  L(9))
          + x86("pop",  "r12")
          + x86("pop",  "rbx")
-         + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(long (*)(void))rt_dcap_land_ω)
+         + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void))rt_dcap_land_ω)
          + x86("jmp",  L(1))
+         + x86("def",  L(3))
+         + x86("add",  "rsp", 16L)
+         + x86("jmp",  L(8))
+         + x86("def",  L(4))
+         + x86("add",  "rsp", 16L)
+         + x86("jmp",  L(9))
          + x86("def",  L(2))
          + x86("mov",  RDQ("rsp", 0), "rax")
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)

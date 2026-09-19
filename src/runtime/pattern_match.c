@@ -687,6 +687,8 @@ int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; const char *star; int nsb; short how; short rc; int wsv; uint32_t asv; } rt_dcf_t;
+typedef struct { long fn; long how; } rt_dcap_next_t;
+_Static_assert(sizeof(rt_dcap_next_t) == 16, "bb_match_end reads the pump result as rax = entry (0 done, 1 refuse) and rdx = protocol (2 = the alpha tiny record, else wires)");
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 extern uint32_t g_cap_gen;
 __attribute__((visibility("hidden"))) uint32_t g_cap_abort_gen;
@@ -731,13 +733,13 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) long rt_dcap_pump(void)
+__attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
     extern int g_protected_pat_vars_armed;
-    if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return 1; }
-    if (g_dcf_top <= 0) return 0;
+    if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return (rt_dcap_next_t){ 1, 0 }; }
+    if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     int _cva = comm_var_active();
     int _prev_star = 0;
@@ -776,10 +778,10 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             _prev_star = 1;
             c->pending = d; c->star = e->varname; c->wsv = rt_g_want_name; c->asv = g_cap_abort_gen; c->how = 0; c->nsb = 0;
             rt_g_want_name = 1;
-            if (!rt_proc_is_registered(pn)) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return 1; continue; }
+            if (!rt_proc_is_registered(pn)) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return (rt_dcap_next_t){ 1, 0 }; continue; }
             { long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb);
-              if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return 1; continue; }
-              return fn; }
+              if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return (rt_dcap_next_t){ 1, 0 }; continue; }
+              return (rt_dcap_next_t){ fn, (long)c->how }; }
         }
         if (e->varname && e->varname[0]) {
             DESCR_t *cell0;
@@ -800,10 +802,10 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             }
         }
     }
-    return c->rc;
+    return (rt_dcap_next_t){ (long)c->rc, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
+rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
     { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }
     if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
@@ -813,25 +815,25 @@ long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_land_γ(DESCR_t frame0)
+rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0)
 {
-    extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t); extern DESCR_t rt_proc_call_epilogue_named_γ(const char *); extern void rt_name_save_unwind(int);
-    if (g_dcf_top <= 0) return 0;
+    extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t); extern DESCR_t rt_proc_call_epilogue_named_γ(const char *); extern DESCR_t rt_nret_fix_tiny(DESCR_t, int); extern void rt_name_save_unwind(int);
+    if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    DESCR_t nm = (c->how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1) : rt_proc_call_epilogue_γ(frame0);
+    DESCR_t nm = (c->how == 2) ? rt_nret_fix_tiny(frame0, 0) : (c->how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1) : rt_proc_call_epilogue_γ(frame0);
     if (c->how == 3) rt_name_save_unwind(c->nsb);
-    if (rt_dcap_star_finish(c, nm)) return 1;
+    if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_land_ω(void)
+rt_dcap_next_t rt_dcap_land_ω(void)
 {
-    extern DESCR_t rt_proc_call_epilogue_ω(void); extern DESCR_t rt_proc_call_epilogue_named_ω(const char *); extern void rt_name_save_unwind(int);
-    if (g_dcf_top <= 0) return 0;
+    extern DESCR_t rt_proc_call_epilogue_ω(void); extern DESCR_t rt_proc_call_epilogue_named_ω(const char *); extern DESCR_t rt_ret_faildescr(void); extern void rt_name_save_unwind(int);
+    if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    DESCR_t nm = (c->how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1) : rt_proc_call_epilogue_ω();
+    DESCR_t nm = (c->how == 2) ? rt_ret_faildescr() : (c->how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1) : rt_proc_call_epilogue_ω();
     if (c->how == 3) rt_name_save_unwind(c->nsb);
-    if (rt_dcap_star_finish(c, nm)) return 1;
+    if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
