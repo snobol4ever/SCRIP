@@ -21,6 +21,10 @@
 # confirm rc=139; restore, rebuild, confirm clean PASS) -- see this row's LEDGER, not asserted from
 # reading the source alone.
 #
+# 2026-09-19 (cto, rung 2 of the coexpression rows, Lon's word that frame bytes never leave the stack): scrip_coexpr_create now
+# creates the thread EAGERLY (the creator's frame image is copied onto the new thread's own stack at create time, no arena
+# snapshot), so the alive-without-a-thread state exists only for rt.c's lazily started generator contexts (scrip_co_ctx_init);
+# the harness checks BOTH contracts: the lazy one is refused by scrip_co_stack_of, the eager one already has its stack.
 # Usage: bash scripts/test_gate_coexpr_stack_of_uncreated_thread.sh
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,21 +37,22 @@ cat > "$SRC" <<'EOF'
 #include <stdio.h>
 #include <stdint.h>
 #include "rt_coexpr.h"
+static void dummy_entry(void *arg) { (void)arg; }
 int main(void) {
-    uint64_t regs[6] = {0,0,0,0,0,0};
-    scrip_coctx_t *ctx = scrip_coexpr_create((void *)0x1, regs, 0, 0, "main");
-    if (ctx->thread != 0) {
-        fprintf(stderr, "FAIL: ctx->thread not zero-initialized after scrip_coexpr_create\n");
-        return 1;
-    }
-    ctx->alive = 1;   /* the exact pre-thread-creation state: alive but no thread created yet */
-    char *lo = (char *)0x1, *hi = (char *)0x1;   /* poison -- must not be left looking like a valid answer */
-    int r = scrip_co_stack_of(ctx, &lo, &hi);
-    if (r != 0) {
-        fprintf(stderr, "FAIL: scrip_co_stack_of claimed bounds (return %d) for an alive-but-uncreated thread\n", r);
-        return 1;
-    }
-    printf("PASS: scrip_co_stack_of correctly refused an alive-but-uncreated thread\n");
+    scrip_coctx_t lazy;
+    scrip_co_ctx_init(&lazy, dummy_entry, (void *)0);
+    if (lazy.thread != 0) { fprintf(stderr, "FAIL: a ctx_init'd (lazy, rt.c generator-style) context has a thread before its first activation\n"); return 1; }
+    lazy.alive = 1;   /* the exact pre-thread-creation state the original defect hit: alive but no thread created yet */
+    { char *lo = (char *)0x1, *hi = (char *)0x1;
+      int r = scrip_co_stack_of(&lazy, &lo, &hi);
+      if (r != 0) { fprintf(stderr, "FAIL: scrip_co_stack_of claimed bounds (return %d) for an alive-but-uncreated lazy context\n", r); return 1; } }
+    uint64_t regs[7] = {0,0,0,0,0,0,0};
+    scrip_coctx_t *eager = scrip_coexpr_create((void *)0x1, regs, 0, 0, "main");
+    if (eager->thread == 0 || eager->alive != 1) { fprintf(stderr, "FAIL: scrip_coexpr_create must create the co-expression's thread EAGERLY (Lon 2026-09-19: a frame image never leaves the RSP/RBP stack, so the creator's frame is copied onto the new thread's own stack at create time) -- thread=%lu alive=%d\n", (unsigned long)eager->thread, eager->alive); return 1; }
+    { char *lo = (char *)0, *hi = (char *)0;
+      int r = scrip_co_stack_of(eager, &lo, &hi);
+      if (r != 1 || !(lo < hi)) { fprintf(stderr, "FAIL: scrip_co_stack_of must know the eagerly created thread's stack (return %d lo=%p hi=%p)\n", r, (void *)lo, (void *)hi); return 1; } }
+    printf("PASS: a lazy context without a thread is refused by scrip_co_stack_of, and an eagerly created co-expression has its thread and stack before its first activation\n");
     return 0;
 }
 EOF
