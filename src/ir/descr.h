@@ -63,7 +63,7 @@ struct _TBBLK_t;
 struct _DATINST_t;
 typedef struct DESCR_t {
     uint8_t  v;
-    uint8_t  src_node[3];
+    uint8_t  src_node0, src_node1, src_node2;
     uint32_t slen;
     union {
         char              *s;
@@ -79,7 +79,7 @@ typedef struct DESCR_t {
 DESCR_SASSERT(sizeof(DESCR_t) == 16, "DESCR_t is a SysV register-pair (rax:rdx) INTEGER-class return; 17+ bytes flips it to MEMORY class across 4,009 lines of asm");
 #define DESCR_SRC_NODE_UNSTAMPED 0u
 #define DESCR_SRC_NODE_OVERFLOW  0xFFFFFFu
-DESCR_SASSERT(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, src_node) == 1 && offsetof(DESCR_t, slen) == 4,
+DESCR_SASSERT(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, src_node0) == 1 && offsetof(DESCR_t, src_node2) == 3 && offsetof(DESCR_t, slen) == 4,
                "the tag word is {v:1, src_node:3, slen:4} and emitted code mints it as ONE 32-bit immediate: "
                "bb_lit_scalar.cpp's lit_tag_imm ORs the node id in at <<8, which on little-endian x86-64 lands in "
                "src_node[0..2] exactly. Move either field and every stamped literal mints a wrong node id silently.");
@@ -92,9 +92,9 @@ DESCR_SASSERT(DESCR_SRC_NODE_OVERFLOW == 0xFFFFFFu && DESCR_SRC_NODE_UNSTAMPED =
                "in the corpus at 12812 boxes over 618 lines, 19.6 percent of the OLD 16-bit field and 0.08 percent of "
                "this one.");
 static inline __attribute__((always_inline)) uint32_t descr_src_node(DESCR_t d)
-{ return (uint32_t)d.src_node[0] | ((uint32_t)d.src_node[1] << 8) | ((uint32_t)d.src_node[2] << 16); }
+{ return (uint32_t)d.src_node0 | ((uint32_t)d.src_node1 << 8) | ((uint32_t)d.src_node2 << 16); }
 static inline __attribute__((always_inline)) void descr_set_src_node(DESCR_t *d, uint32_t id)
-{ if (id > DESCR_SRC_NODE_OVERFLOW) id = DESCR_SRC_NODE_OVERFLOW; d->src_node[0] = (uint8_t)id; d->src_node[1] = (uint8_t)(id >> 8); d->src_node[2] = (uint8_t)(id >> 16); }
+{ if (id > DESCR_SRC_NODE_OVERFLOW) id = DESCR_SRC_NODE_OVERFLOW; d->src_node0 = (uint8_t)id; d->src_node1 = (uint8_t)(id >> 8); d->src_node2 = (uint8_t)(id >> 16); }
 typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
