@@ -180,12 +180,12 @@ static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c)
     if (c->v != DT_N && (c->v != (DTYPE_t)DT_PLVAR || !c->p || c->p == (void *)c)) return c;
     return plw_cell_deref_slow(c);
 }
-extern void *rt_plj_alloc(size_t);
+extern void *rt_ws_alloc_descr(size_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
     char probe; char *floor_ = &probe;
     if (pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
-    if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
+    if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *cell = word;
 }
 static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
@@ -202,7 +202,7 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
             if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u, cx); }
             plw_bind(lo, r, cx); return 1;
         }
-        { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
+        { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
     if (av) { plw_bind(A, *B, cx); return 1; }
     if (bv) { plw_bind(B, *A, cx); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -251,7 +251,7 @@ static DESCR_t *plw_det_cell(DESCR_t *tmp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
-DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
+DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name)
 {
@@ -1345,7 +1345,7 @@ static DESCR_t pl_nil(void) { return pl_mk_atom("[]"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     extern int prolog_atom_intern(const char *);
-    DESCR_t *kids = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); kids[0] = head; kids[1] = tail;
+    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2); kids[0] = head; kids[1] = tail;
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(".")) << 16) | (2u & 0xFFFFu); c.p = (void *)kids;
     return c;
 }
@@ -1731,7 +1731,7 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
 int rt_pl_ax_eval_val(DESCR_t t, DESCR_t *out, void **ball) { return pl_ax_eval(t, out, ball); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
-    DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
+    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
     for (int i = 0; i < ar; i++) {
         DESCR_t t = srcs[i];
         DESCR_t *F = plw_cell_deref(plw_entry(&t));
@@ -2034,7 +2034,7 @@ static int pl_stream_idx(DESCR_t s, int out) {
 }
 static DESCR_t pl_mk_stream(int idx) {
     extern int prolog_atom_intern(const char *);
-    DESCR_t *kids = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); kids[0] = INTVAL((long long)idx);
+    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = INTVAL((long long)idx);
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("$stream")) << 16) | 1u; c.p = (void *)kids; return c;
 }
 static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
@@ -2093,7 +2093,7 @@ DESCR_t dop_pl_op(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     extern int prolog_atom_intern(const char *);
-    DESCR_t *kids = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); kids[0] = a0;
+    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = a0;
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(f)) << 16) | 1u; c.p = (void *)kids; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2566,7 +2566,7 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     case TT_FNC: case TT_UNIFY: case TT_IF: {
         const char *nm = t->t == TT_UNIFY ? "=" : t->t == TT_IF ? "->" : (t->v.sval ? t->v.sval : "?");
         if (t->n == 0) return pl_mk_atom_dup(nm, strlen(nm));
-        { DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)t->n * sizeof(DESCR_t)); for (int i = 0; i < t->n; i++) kids[i] = pl_tree_cell(t->c[i], vt);
+        { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)t->n); for (int i = 0; i < t->n; i++) kids[i] = pl_tree_cell(t->c[i], vt);
           DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(nm)) << 16) | ((uint32_t)t->n & 0xFFFFu); c.p = (void *)kids; return c; } }
     default: return pl_mk_atom("?");
     }
@@ -2662,7 +2662,7 @@ PL_CX_LEAF_HEAD(atom_to_term, 3) { char b[65536]; const char *txt; DESCR_t t; pl
     if (pl_val_unbound(rt_pl_deref_val(args[0]))) ok = rt_pl_term_string_cell(&args[1], &args[0], cx) && plw_unify_vals(args[2], pl_nil(), cx);
     else if (!pl_cell_text(args[0], b, sizeof b, &txt) || !pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) ok = 0;
     else { DESCR_t el[256]; int n = 0; extern int prolog_atom_intern(const char *);
-        for (int i = 0; i < vt.n; i++) { DESCR_t *kids = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); kids[0] = pl_mk_atom_dup(vt.nm[i], strlen(vt.nm[i])); kids[1] = vt.v[i];
+        for (int i = 0; i < vt.n; i++) { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2); kids[0] = pl_mk_atom_dup(vt.nm[i], strlen(vt.nm[i])); kids[1] = vt.v[i];
             { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("=")) << 16) | 2u; c.p = (void *)kids; el[n++] = c; } }
         ok = plw_unify_vals(args[1], t, cx) && plw_unify_vals(args[2], pl_list_from_arr(el, n), cx); } } PL_CX_LEAF_TAIL
 static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *cx) { extern int prolog_atom_intern(const char *);
@@ -2673,7 +2673,7 @@ static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *c
             if (is_vars || is_vn || is_sing) { DESCR_t el[256]; int n = 0;
                 for (int i = 0; i < vt->n; i++) { if (is_sing && vt->cnt[i] != 1) continue;
                     if (is_vars) { el[n++] = vt->v[i]; continue; }
-                    { DESCR_t *k2 = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); k2[0] = pl_mk_atom_dup(vt->nm[i], strlen(vt->nm[i])); k2[1] = vt->v[i];
+                    { DESCR_t *k2 = (DESCR_t *)rt_ws_alloc_descr(2); k2[0] = pl_mk_atom_dup(vt->nm[i], strlen(vt->nm[i])); k2[1] = vt->v[i];
                       DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("=")) << 16) | 2u; c.p = (void *)k2; el[n++] = c; } }
                 if (!plw_unify_vals(oa[0], pl_list_from_arr(el, n), cx)) return 0; } }
         o = rt_pl_deref_val(kids[1]); }
@@ -2850,7 +2850,7 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *
     else if (!pl_cell_text(args[1], vb, sizeof vb, &vn)) { cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", v); }
     else if (!fl->mod) { cx->ball = rt_pl_ball_permission3("modify", "flag", f); }
     else { int good = 0; for (int i = 0; fl->ok[i]; i++) if (!strcmp(vn, fl->ok[i])) good = 1;
-        if (!good) { DESCR_t *kk = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); extern int prolog_atom_intern(const char *);
+        if (!good) { DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(2); extern int prolog_atom_intern(const char *);
             kk[0] = pl_mk_atom_dup(fl->nm, strlen(fl->nm)); kk[1] = rt_pl_deref_val(args[1]);
             { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("+")) << 16) | 2u; c.p = (void *)kk;
               cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", c); } }

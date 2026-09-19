@@ -594,6 +594,13 @@ static void gc_visit_one(DESCR_t *d)
         if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; gc_slot_reg((void *)&d->ptr); if (tc) gc_mark_agg((const void *)tc); if (tc && gc_hins((void *)tc)) gc_wl_push(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); gc_slot_reg((void *)&d->s); } }
         return; }
+    case DT_PLVAR: case DT_PLREF: {
+        rt_hblk_t *h = gc_blk_of((const char *)d->p);
+        if (!h) return;
+        gc_mark_blk(h, 0);
+        if ((const char *)d->p != (const char *)(h + 1)) g_gc_interior++;
+        gc_slot_reg((void *)&d->p);
+        return; }
     default: return;
     }
 }
@@ -867,7 +874,7 @@ static long gc_collect_ex(int cons_stack)
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
     { long walked = 0, nscan = 0, rounds = 0;
-      { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
+      { for (;;) { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
             if (h->type == HB_DVEC) { DESCR_t *v = (DESCR_t *)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t)); for (long i = 0; i < n; i++) gc_wl_push(&v[i]); continue; }
             if (h->type == HB_ARR) { ARBLK_t *a = (ARBLK_t *)(h + 1); if (gc_hins((void *)a)) gc_visit_arblk(a); continue; }
             if (h->type == HB_DINST) { DATINST_t *u = (DATINST_t *)(h + 1); if (gc_hins((void *)u)) gc_visit_datinst(u); continue; }
@@ -876,7 +883,9 @@ static long gc_collect_ex(int cons_stack)
             if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
-            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
+            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } }
+        if (g_gc_wln == 0) break;
+        rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
       { static int icov = -1; if (icov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); icov = (e && *e && *e != '0') ? 1 : 0; }
         if (icov) fprintf(stderr, "[GC-COV-HEAP] interior_sweep_blocks=%ld interior_sweep_bytes=%ld ws_blocks=%ld ws_bytes=%ld plj_blocks=%ld plj_bytes=%ld\n", g_gc_isw_ws + g_gc_isw_plj, g_gc_isw_wsb + g_gc_isw_pljb, g_gc_isw_ws, g_gc_isw_wsb, g_gc_isw_plj, g_gc_isw_pljb); }
