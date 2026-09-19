@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-extern void *rt_plj_alloc(size_t);
+extern void *rt_wsb_alloc(size_t);
 #define IF_STACK_MAX 32
 typedef struct {
     int active;
@@ -298,7 +298,7 @@ static tree_t *tls(tree_t *t) {
         default: {
             int fid = prolog_atom_intern(t->v.sval ? t->v.sval : "");
             int arity = t->n;
-            tree_t **args = arity > 0 ? (tree_t **)rt_plj_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
+            tree_t **args = arity > 0 ? (tree_t **)rt_wsb_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
             for (int i = 0; i < arity; i++) args[i] = tls(t->c[i]);
             return mk_call(fid, args, arity);
         }
@@ -343,7 +343,7 @@ static tree_t *rls(tree_t *t) {
         default: {
             int fid = prolog_atom_intern(t->v.sval ? t->v.sval : "");
             int arity = t->n;
-            tree_t **args = arity > 0 ? (tree_t **)rt_plj_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
+            tree_t **args = arity > 0 ? (tree_t **)rt_wsb_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
             for (int i = 0; i < arity; i++) args[i] = rls(t->c[i]);
             return mk_raw(fid, args, arity);
         }
@@ -766,7 +766,7 @@ static tree_t *dcg_make_unify(TreeScope *ts, tree_t *a, tree_t *b) {
 static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_out) {
     if (nt && nt->t == TT_FNC) {
         int new_arity = nt->n + 2;
-        tree_t **args = (tree_t **)rt_plj_alloc((size_t)new_arity * sizeof(tree_t *));
+        tree_t **args = (tree_t **)rt_wsb_alloc((size_t)new_arity * sizeof(tree_t *));
         for (int i = 0; i < nt->n; i++)
             args[i] = nt->c[i];
         args[new_arity-2] = dcg_var_use(ts, s_in);
@@ -787,7 +787,7 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "{}") == 0
             && body->n == 1) {
         int n = dcg_count_conj(body->c[0]);
-        tree_t **tmp = (tree_t **)rt_plj_alloc((size_t)(n+1) * sizeof(tree_t *));
+        tree_t **tmp = (tree_t **)rt_wsb_alloc((size_t)(n+1) * sizeof(tree_t *));
         int nn = dcg_flatten_conj(body->c[0], tmp, 0);
         for (int i = 0; i < nn; i++) buf[idx++] = tmp[i];
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
