@@ -3977,7 +3977,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *seg = cs0;
             while (*cs0) {
                 const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                char *el = rt_ws_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
+                char *el = rt_wsb_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
                 char *ep; long long ev = strtoll(el, &ep, 10);
                 DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
                 g_call_args[0] = ed;
@@ -3995,7 +3995,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *nx = strchr(cs, SOH);
         size_t L = nx ? (size_t)(nx - cs) : strlen(cs);
         if (L == 0 && !nx && (!cs || !*cs)) { *out = NULVCL; return 1; }
-        char *cp = rt_ws_alloc(L + 1); memcpy(cp, cs, L); cp[L] = '\0';
+        char *cp = rt_wsb_alloc(L + 1); memcpy(cp, cs, L); cp[L] = '\0';
         char *ep; long long v = strtoll(cp, &ep, 10);
         *out = (*ep == '\0' && ep != cp) ? INTVAL(v) : STRVAL(cp); return 1;
     }
@@ -4009,7 +4009,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
         if (!cs || !*cs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         size_t clen = strlen(cs); int nel = 1; for (const char *q = cs; *q; q++) if (*q == SOH) nel++;
-        char *buf = rt_ws_alloc(clen + (size_t)nel * 25 + 1); int p = 0; int idx = 0;
+        char *buf = rt_wsb_alloc(clen + (size_t)nel * 25 + 1); int p = 0; int idx = 0;
         const char *seg = cs;
         for (;;) {
             const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
@@ -4026,7 +4026,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
         if (!cs || !*cs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int nel = 1; for (const char *p = cs; *p; p++) if (*p == SOH) nel++;
-        char *buf = rt_ws_alloc((size_t)nel * 24 + 1); int p = 0;
+        char *buf = rt_wsb_alloc((size_t)nel * 24 + 1); int p = 0;
         for (int i = 0; i < nel; i++) { if (i) buf[p++] = SOH; char nb[24]; int L = snprintf(nb, sizeof nb, "%d", i); memcpy(buf + p, nb, (size_t)L); p += L; }
         buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
@@ -4074,7 +4074,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *buf = rt_heap_strdup_c(""); size_t blen = 0; const char *seg = cs;
         for (;;) {
             const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            char *no = rt_ws_alloc(blen + L + 1); memcpy(no, buf, blen); memcpy(no + blen, seg, L); no[blen + L] = '\0';
+            char *no = rt_wsb_alloc(blen + L + 1); memcpy(no, buf, blen); memcpy(no + blen, seg, L); no[blen + L] = '\0';
             buf = no; blen += L;
             if (!nx) break; seg = nx + 1;
         }
@@ -4091,7 +4091,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             char *ep; long long v = strtoll(eb, &ep, 10); int isn = (*ep == '\0' && ep != eb);
             int take; if (!have) take = 1; else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
             else { int c = strcmp(eb, best ? best : ""); take = want_max ? (c > 0) : (c < 0); }
-            if (take) { char *cp = rt_ws_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestn = v; best_num = isn; have = 1; }
+            if (take) { char *cp = rt_wsb_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestn = v; best_num = isn; have = 1; }
             if (!nx) break; seg = nx + 1;
         }
         *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best ? best : "")); return 1;
@@ -4108,7 +4108,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 const char *nx = strchr(seg, SOH);
                 size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
                 size_t add = (first ? 0 : seplen) + L;
-                char *no = rt_ws_alloc(blen + add + 1);
+                char *no = rt_wsb_alloc(blen + add + 1);
                 memcpy(no, buf, blen); size_t p = blen;
                 if (!first) { memcpy(no + p, sepd, seplen); p += seplen; }
                 memcpy(no + p, seg, L); p += L; no[p] = '\0';
