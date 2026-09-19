@@ -478,7 +478,7 @@ static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
     if (!(old & HBF_MARK) && gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_zeta_frame(const char *lo0, const char *hi0);
+static long gc_zeta_frame(const char *lo0, const char *hi0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_slot_reg(void *loc)
 {
@@ -778,11 +778,12 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
     if (it->stage == 2) { it->stage = 3; if (it->floor < it->run_hi) { *lo = it->floor; *hi = it->run_hi; *pop = 1; return 1; } }
     return 0;
 }
-static void gc_stack_segments(char *floor)
+static long gc_stack_segments(char *floor)
 {
-    gc_seg_it_t it; char *lo, *hi; int pop;
+    gc_seg_it_t it; char *lo, *hi; int pop; long words = 0;
     gc_seg_begin(&it, floor);
-    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; gc_zeta_frame((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; }
+    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; words += gc_zeta_frame((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; }
+    return words;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_dvec_ref_ok(const DESCR_t *d)
@@ -803,9 +804,11 @@ static int gc_block_exact(const char *q, uint16_t want_type)
 static int  g_gc_maps_rep = -1;
 #define GC_REP_POPS 5
 static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk", "parked" };
-static long g_gc_rep_ranges[GC_REP_POPS], g_gc_rep_bytes[GC_REP_POPS], g_gc_rep_agree[GC_REP_POPS], g_gc_rep_map_only[GC_REP_POPS], g_gc_rep_sniff_only[GC_REP_POPS];
+static long g_gc_rep_ranges[GC_REP_POPS], g_gc_rep_bytes[GC_REP_POPS], g_gc_rep_agree[GC_REP_POPS], g_gc_rep_map_only[GC_REP_POPS], g_gc_rep_sniff_only[GC_REP_POPS], g_gc_rep_raw[GC_REP_POPS];
 static int g_gc_rep_pop = 0;
 static int gc_maps_on(void) { if (g_gc_maps_rep < 0) { const char *e = getenv("SCRIP_GC_MAPS"); g_gc_maps_rep = (e && *e && *e != '0') ? 1 : 0; } return g_gc_maps_rep; }
+static int gc_maps_verbose(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_MAPS"); v = (e && *e >= '2' && *e <= '9') ? 1 : 0; } return v; }
+static FILE *gc_maps_log(void) { static FILE *f = (FILE *)0; static int tried = 0; if (!tried) { const char *e = getenv("SCRIP_GC_MAPS_LOG"); tried = 1; if (e && *e) { f = fopen(e, "a"); if (f) setvbuf(f, (char *)0, _IOLBF, 0); } } return f ? f : stderr; }
 static int gc_type_says_ref(const DESCR_t *d)
 {
     switch (d->v) {
@@ -867,23 +870,30 @@ static int gc_blob_cell(const char *p, const char *hi)
     if (!m || !gc_frame_map_registered(m)) return 0;
     return (m->magic == GC_FRAME_MAP_MAGIC && (m->flags & GC_FRAME_MAP_BLOB) && m->frame_bytes == d->slen) ? 1 : 0;
 }
-static void gc_zeta_frame(const char *lo0, const char *hi0)
+static long gc_zeta_frame(const char *lo0, const char *hi0)
 {
     char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
+    long words = 0; const char *cell = (const char *)0; const char *cell_graph = (const char *)0;
     if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
     char *p = lo;
     while (p + 8 <= hi) {
         if (gc_blob_cell(p, hi)) { const gc_frame_map_t *m = (const gc_frame_map_t *)((const DESCR_t *)p)->p; gc_blob_layout_visit(p, m); p += (long)m->frame_bytes + (long)m->header_bytes; continue; }
         if (p + 16 <= hi) { DESCR_t *d = (DESCR_t *)p; rt_hblk_t *h = (d->v == DT_S || (d->v == DT_N && d->slen == 0)) ? gc_blk_of(d->s) : (rt_hblk_t *)0;
-            if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) { rt_gc_visit_descr(d); p += 16; continue; }
-            if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
-            if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
-            if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); p += 16; continue; }
-            if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); p += 16; continue; }
-            if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); p += 16; continue; } }
-        { const char **loc = (const char **)p; if (gc_blk_of(*loc)) rt_gc_visit_raw(loc); }
-        p += 8;
+            if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
+            if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; } }
+            if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; } }
+            if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
+            if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
+            if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
+            if (gc_maps_verbose() && d->v == DT_MAP && gc_frame_map_registered((const gc_frame_map_t *)d->p)) { const gc_frame_map_t *m = (const gc_frame_map_t *)d->p; cell = p; cell_graph = m->graph_name ? m->graph_name : "?";
+                fprintf(gc_maps_log(), "[GC-MAPS-CELL] pop=%s cell=%p depth=%ld graph=%s frame_bytes=%u header_bytes=%u flags=%u\n", g_gc_rep_popname[g_gc_rep_pop], (const void *)p, (long)(hi - p), cell_graph, m->frame_bytes, m->header_bytes, m->flags); } }
+        { const char **loc = (const char **)p; rt_hblk_t *h = gc_blk_of(*loc);
+          if (h) { if (gc_maps_on()) { g_gc_rep_raw[g_gc_rep_pop]++;
+              if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-MAPS-RAW] pop=%s at=%p depth=%ld word=%p blk=%p type=%u off=%ld below_cell=%p graph=%s\n", g_gc_rep_popname[g_gc_rep_pop], (const void *)p, (long)(hi - p), (const void *)*loc, (const void *)h, (unsigned)h->type, (long)(*loc - (const char *)(h + 1)), (const void *)cell, cell_graph ? cell_graph : "-"); }
+            rt_gc_visit_raw(loc); } }
+        words++; p += 8;
     }
+    return words;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_gc_cas_bytes = 0;
@@ -910,7 +920,7 @@ static long gc_plant_shift_prefix(void)
 static long gc_collect_ex(int cons_stack)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern int rt_scan_active(void);
-    char anchor; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
+    char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
     g_sxt_owner = (char *)0;
@@ -935,18 +945,16 @@ static long gc_collect_ex(int cons_stack)
       if (cons_stack == 0 && !pz) cons_stack = 1; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
-    if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
+    if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) words += gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
     }
     rt_gc_ws_roots();
-    if (!pz) { gc_coexpr_records(); gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor); }
+    if (!pz) { gc_coexpr_records(); words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor); }
     gc_root_cas();
-    { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
-      if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }
     kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots();
     if (gc_maps_on()) for (int k = 0; k < GC_REP_POPS; k++) if (g_gc_rep_ranges[k])
-        fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld\n",
+        fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld raw_hits=%ld\n",
             g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k], g_gc_rep_agree[k], g_gc_rep_map_only[k], g_gc_rep_sniff_only[k],
-            g_gc_rep_map_only[k] + g_gc_rep_sniff_only[k]);
+            g_gc_rep_map_only[k] + g_gc_rep_sniff_only[k], g_gc_rep_raw[k]);
     if (gc_maps_on()) { fprintf(stderr, "[GC-BLOB] frames=%ld entries=%ld descr=%ld ptr_gc=%ld raw=%ld code=%ld raw_in_heap=%ld\n", g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap);
       { long ion = 0, ioff = 0; scrip_co_gc_images(&ion, &ioff); fprintf(stderr, "[GC-COEXPR] ctxs=%ld parked=%ld sigma=%ld images_on_stack=%ld images_off_stack=%ld plant=%d\n", g_gc_co_ctxs, g_gc_co_parked, g_gc_co_sigma, ion, ioff, scrip_co_gc_plant()); } }
     g_gc_blob_frames = g_gc_blob_entries = g_gc_blob_descr = g_gc_blob_ptr = g_gc_blob_raw = g_gc_blob_code = g_gc_blob_raw_in_heap = 0;
@@ -954,7 +962,7 @@ static long gc_collect_ex(int cons_stack)
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
         fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un); } }
     if (pz) { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) rt_gc_visit_raw((const char **)&rtccb[ci]); }
-    if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) { g_gc_rep_pop = 2; gc_zeta_frame(g_gc_seam_sp, sst); g_gc_rep_pop = 0; } }
+    if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) { g_gc_rep_pop = 2; words += gc_zeta_frame(g_gc_seam_sp, sst); g_gc_rep_pop = 0; } }
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
     { long walked = 0, nscan = 0, rounds = 0;
@@ -969,11 +977,15 @@ static long gc_collect_ex(int cons_stack)
             if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
-            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } }
+            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; }
+            if (h->type < HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
+            interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *)); }
         if (g_gc_wln == 0) break;
         rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
     }
+    { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
+      if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d words_scanned=%ld interior_words=%ld\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack, words, interior); }
     { long shift = gc_plant_shift_bytes(); g_gc_shift_prefix = shift ? gc_plant_shift_prefix() : 0; dest = g_hp_arena + g_gc_shift_prefix + shift; g_gc_shift_now = shift; }
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }

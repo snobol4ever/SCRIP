@@ -69,7 +69,7 @@ def census_conservative(path, out=print):
         hits = []
         for i, line in enumerate(src.split("\n"), 1):
             for _m in re.finditer(rx, line):
-                if label == "gc_zeta_frame_calls" and re.search(r"(static\s+)?void\s+gc_zeta_frame\s*\(", line):
+                if label == "gc_zeta_frame_calls" and re.search(r"(static\s+)?(void|long)\s+gc_zeta_frame\s*\(", line):
                     continue   # the definition / prototype is not a call site
                 hits.append(i)
         n = len(hits)
