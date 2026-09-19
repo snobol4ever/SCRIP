@@ -97,6 +97,7 @@ std::string bb_binop_gvar_arith() {
                           + IF(_.op_ival == BINOP_MOD, x86("idiv", "rcx"))
                           + IF(_.op_ival == BINOP_MOD, x86("mov", "rax", "rdx"))
                           + x86("mov", FRQ(_.op_off), "rax")
+                          + x86_rt_gc_poll()
                           + x86_gamma()
                           + x86_beta_trampoline())
                           + IF(_.op_off >= 0 && !(_.op_kind && !strcmp(_.op_kind, "POW"))
