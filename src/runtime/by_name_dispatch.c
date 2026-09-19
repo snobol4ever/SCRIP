@@ -7409,7 +7409,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             int _nv2 = (nargs > 1) ? nargs - 1 : 1;
             for (int _pi = 0; _pi < _nv2; _pi++) {
                 DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
-                DESCR_t *_nb=rt_ws_alloc((_n+1)*sizeof(DESCR_t));
+                DESCR_t *_nb=rt_ws_alloc_descr((size_t)(_n+1));
                 _nb[0]=_vd;
                 if(_a&&_n>0) memcpy(_nb+1,_a,_n*sizeof(DESCR_t));
                 _a=_nb; _n++;
@@ -7423,7 +7423,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
             DESCR_t *old=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
-            DESCR_t *nb=rt_ws_alloc((n+1)*sizeof(DESCR_t));
+            DESCR_t *nb=rt_ws_alloc_descr((size_t)(n+1));
             nb[0]=vd;
             if(old&&n>0) memcpy(nb+1,old,n*sizeof(DESCR_t));
             FIELD_SET_fn(ld,"frame_elems",DATA_ELEMS(nb));
@@ -7443,7 +7443,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 long _c = rt_lv_cap(ld);
                 if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
                 long _ncap=(_n>0)?(long)_n*2:8; if(_ncap<_n+1)_ncap=_n+1;
-                DESCR_t *_nb=rt_ws_alloc(_ncap*sizeof(DESCR_t));
+                DESCR_t *_nb=rt_ws_alloc_descr((size_t)_ncap);
                 if(_a&&_n>0) memcpy(_nb,_a,_n*sizeof(DESCR_t));
                 _nb[_n]=_vd; _a=_nb; _n++;
                 rt_lv_set_elems(ld,DATA_ELEMS(_nb)); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_ncap); }
@@ -7460,7 +7460,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             long cap=(capd.v==DT_I)?capd.i:-1;
             if(old&&cap>=0&&n<cap){ old[n]=vd; FIELD_SET_fn(ld,"frame_size",INTVAL(n+1)); continue; }
             long ncap=(n>0)?(long)n*2:8; if(ncap<n+1)ncap=n+1;
-            DESCR_t *nb=rt_ws_alloc(ncap*sizeof(DESCR_t));
+            DESCR_t *nb=rt_ws_alloc_descr((size_t)ncap);
             if(old&&n>0) memcpy(nb,old,n*sizeof(DESCR_t));
             nb[n]=vd;
             FIELD_SET_fn(ld,"frame_elems",DATA_ELEMS(nb));
