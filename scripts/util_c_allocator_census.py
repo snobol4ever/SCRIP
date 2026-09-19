@@ -10,8 +10,14 @@ generated flex/bison output included, because a generated file that is committed
 only counts the four names would read green on a tree where half the runtime quietly lives outside the
 collector."  The rule names THREE destinations and only one of them is right for a given site:
 
-  ROOTED-HEAP   rt_ws_alloc / rt_ws_alloc_descr / rt_ws_realloc -- anything the RUNNING PROGRAM can reach, walked like everything
+  ROOTED-HEAP   rt_ws_alloc / rt_wsb_alloc / rt_ws_alloc_descr / rt_ws_realloc -- anything the RUNNING PROGRAM can reach, walked like everything
                 else, with a root.  If you are unsure, this is the answer (CEO-842).
+                rt_wsb_alloc is ON THIS LIST AND IS NOT AN EVASION, which this gate correctly demanded be settled:
+                it is rt_gcheap_alloc of kind HB_WSB, the SAME collected heap, and the block is marked, forwarded
+                and RELOCATED exactly like HB_WS.  The only thing that differs is that its interior is never
+                SCANNED, because the kind's contract is that it holds no pointers.  The proof is not this comment:
+                test_gate_gc_the_decidable_test grades HB_WSB with its own witness and reports SENSITIVITY
+                DETECTED at skip=2, i.e. the witness fails when the collector is denied a forwarding address.
   ARENA         ct_alloc / ct_zalloc / ct_grow / ct_strdup / ct_strndup / ct_drop -- anything only the COMPILER
                 touches, dead before the emitted program runs.
   MMAP          the collector's OWN bookkeeping (page map, mark worklist, live-block array) reserves address
@@ -43,7 +49,7 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 
 FORBIDDEN = ("malloc", "calloc", "realloc", "free")
 DESTINATIONS = {
-    "ROOTED-HEAP": ("rt_ws_alloc", "rt_ws_alloc_descr", "rt_ws_realloc", "rt_ws_zalloc"),
+    "ROOTED-HEAP": ("rt_ws_alloc", "rt_wsb_alloc", "rt_ws_alloc_descr", "rt_ws_realloc", "rt_ws_zalloc"),
     "ARENA":       ("ct_alloc", "ct_zalloc", "ct_grow", "ct_strdup", "ct_strndup", "ct_drop", "ct_calloc", "ct_realloc"),
     "MMAP":        ("mmap",),
 }

@@ -18,8 +18,8 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
 bash scripts/util_require_fresh.sh >/dev/null 2>&1 || { echo "REFUSES rc=2: stale or missing ./scrip -- run make"; exit 2; }
 bad=0
-if grep -q 'rt_ws_alloc' src/runtime/keywords.c; then echo "  FACT-RULE PASS: kw_cset_intern still allocates the interned bytes on the COLLECTED heap"
-else echo "  FACT-RULE RED: keywords.c no longer allocates through rt_ws_alloc -- the band may be green because the bytes left the collector's sight, which is the evasion this gate exists to refuse"; bad=1; fi
+if grep -qE 'rt_wsb?_alloc|rt_ws_alloc_descr' src/runtime/keywords.c && ! grep -qE '\b(malloc|calloc|realloc|strdup)\b' src/runtime/keywords.c; then echo "  FACT-RULE PASS: kw_cset_intern still allocates the interned bytes on the COLLECTED heap (rt_ws_alloc or its atomic sibling rt_wsb_alloc -- same rt_gcheap_alloc, same marking, same relocation, only the interior scan differs) AND the interned bytes reach no libc allocator"
+else echo "  FACT-RULE RED: keywords.c either stopped allocating on the collected heap or reached an off-heap allocator -- the band may be green because the bytes left the collector's sight, which is the evasion this gate exists to refuse (⛔ rt_wsb_alloc is NOT that evasion: it is rt_gcheap_alloc of kind HB_WSB and test_gate_gc_the_decidable_test grades it with SENSITIVITY DETECTED)"; bad=1; fi
 n=$(awk '/^void kw_cset_gc_roots\(void\)/{f=1} f&&/rt_gc_visit_raw/{c++} f&&/^}/{exit} END{print c+0}' src/runtime/keywords.c)
 if [ "$n" -ge 2 ]; then echo "  structural PASS: kw_cset_gc_roots visits $n slot kind(s) per entry"; else echo "  structural RED: kw_cset_gc_roots does not visit the registry's ptr and name"; bad=1; fi
 grep -q 'kw_cset_gc_roots();' src/runtime/rt/gc_heap.c || { echo "  structural RED: kw_cset_gc_roots is never called from the collector's root phase -- a walk nothing calls is not a root"; bad=1; }

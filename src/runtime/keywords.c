@@ -126,8 +126,8 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_cset_reg(const char *chars, const char *name, int len) {
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, name)) return;
-    extern void *rt_ws_alloc(size_t);
-    char *stable = (char *)rt_ws_alloc((size_t)len + 1);
+    extern void *rt_wsb_alloc(size_t);
+    char *stable = (char *)rt_wsb_alloc((size_t)len + 1);
     memcpy(stable, chars, (size_t)len);
     stable[len] = '\0';
     kw_cset_append(stable, name, len);
@@ -159,7 +159,7 @@ const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
     if (!canon) canon = "";
     if (len >= 0 && (int)strlen(canon) == len) { int hit = kw_cset_find_content(canon); if (hit >= 0 && g_kw_cset_names[hit].len == len) return g_kw_cset_names[hit].ptr; }
-    { extern void *rt_ws_alloc(size_t); char *stable = (char *)rt_ws_alloc((size_t)len + 1); memcpy(stable, canon, (size_t)len); stable[len] = '\0'; kw_cset_append(stable, NULL, len); return stable; }
+    { extern void *rt_wsb_alloc(size_t); char *stable = (char *)rt_wsb_alloc((size_t)len + 1); memcpy(stable, canon, (size_t)len); stable[len] = '\0'; kw_cset_append(stable, NULL, len); return stable; }
 }
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
@@ -402,8 +402,8 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
-            extern void *rt_ws_alloc(size_t);
-            char *stable = (char *)rt_ws_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
+            extern void *rt_wsb_alloc(size_t);
+            char *stable = (char *)rt_wsb_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
             kw_cset_append(stable, "&ascii", 128);
             cs = stable;
         }
@@ -414,8 +414,8 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
-            extern void *rt_ws_alloc(size_t);
-            char *stable = (char *)rt_ws_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
+            extern void *rt_wsb_alloc(size_t);
+            char *stable = (char *)rt_wsb_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
             kw_cset_append(stable, "&cset", 256);
             cs = stable;
         }
@@ -473,19 +473,19 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"current")) { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = cur; return d; }
     if (!strcmp(kw,"main"))    { DESCR_t d = {0}; d.v = DT_CO; d.p = scrip_co_gc_root(); return d; }
     if (!strcmp(kw,"source"))  { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); scrip_coctx_t *src = cur->activator ? cur->activator : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = src; return d; }
-    { time_t t = time(NULL); struct tm *tm = localtime(&t);
+    { time_t t = time(NULL); struct tm *tm = localtime(&t); extern void *rt_wsb_alloc(size_t);
       if (!strcmp(kw,"date")) {
-          char *buf = rt_ws_alloc(16);
+          char *buf = rt_wsb_alloc(16);
           snprintf(buf,16,"%04d/%02d/%02d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"dateline")) {
-          char *buf = rt_ws_alloc(64);
+          char *buf = rt_wsb_alloc(64);
           strftime(buf,64,"%A, %B %e, %Y  %l:%M %P",tm);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"clock")) {
-          char *buf = rt_ws_alloc(16);
+          char *buf = rt_wsb_alloc(16);
           snprintf(buf,16,"%02d:%02d:%02d",tm->tm_hour,tm->tm_min,tm->tm_sec);
           return STRVAL(buf);
       }
