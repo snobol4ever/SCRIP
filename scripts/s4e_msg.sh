@@ -2572,6 +2572,7 @@ TASKEOF
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO) _refuse_dispatch "an HQ" "Under DUO no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-19, CEO-907).";;
                       TRIO) _refuse_dispatch "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
+                      QUARTET) _refuse_dispatch "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
                       EXECUTIVE) _refuse_dispatch "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
            seat*)   case "$_mode" in
                       CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET|NONET|DECTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
