@@ -32,11 +32,11 @@
 #   rather than by name. Both make the map LIE about which graph a frame belongs to, and a collector
 #   that guesses nothing cannot be built on metadata that does.
 #
-# ⛔ THE NAMED EXCLUSION, stated so this gate cannot read green by never looking (6.2b): a SNOBOL4
-# stored-pattern blob frame (emit.cpp R-4(b)) emits NO map cell and therefore NO map, so it appears in
-# neither medium's table. That exclusion is held at its measured count by arm 6 of the rung-1 gate, not
-# here. This gate grades the graphs that DO carry a map, and PRINTS how many that was in each medium, so
-# a table that silently emptied reds arm 1 instead of passing as "no divergence".
+# ⛔ THE EXCLUSION THIS PARAGRAPH USED TO NAME IS RETIRED (cto, 2026-09-19, row gc-the-blob-frame-interior-takes-one-
+# static-layout...): a SNOBOL4 stored-pattern blob frame (emit.cpp R-4(b)) now stores a DT_MAP cell at the bottom of
+# its carve and its map carries GC_FRAME_MAP_BLOB plus a static layout of the interior (ARCH-GC section 6.2e), so it
+# appears in BOTH media's tables like every other frame graph and this gate's read-back covers it; the layout itself
+# is graded by test_gate_gc_the_blob_frame_interior_is_a_static_layout.sh.
 #
 # ⛔ THE SEVEN-FRONTEND WIDENING (2026-09-18, cto, on the ceo's word CEO-845). The gate shipped with THREE
 # witnesses -- Icon, SNOBOL4, Prolog -- and three witnesses cannot see a divergence in the other four frontends.

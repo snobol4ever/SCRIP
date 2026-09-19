@@ -123,7 +123,7 @@ if [ "$tot_elems" -gt 0 ]; then
 else
     echo "GATE UNPROVEN(2) [$G]: the collector never visited a single DT_DATA element descriptor -- the witness no longer exercises the arm this gate grades, so its green means nothing"; exit 2
 fi
-echo "       STEP-5 REMAINDER, MEASURED AND PRINTED, NOT GRADED: of $tot_elems DT_DATA element descriptor(s) visited, $tot_nd pointed at a block that is NOT HB_DVEC. That is the population still walked by the conservative interior scan (hb_scan_interior, 2 of the conservative total of 24). Driving it to zero is the retyping this header records as HELD on the gc2 regression; it is printed so it cannot be forgotten and NOT graded, because a number this seat could not move today is a ratchet against the next landing rather than a measurement."
+echo "       STEP-5 REMAINDER, MEASURED AND PRINTED, NOT GRADED: of $tot_elems DT_DATA element descriptor(s) visited, $tot_nd pointed at a block that is NOT HB_DVEC. That is the population still walked by the conservative interior scan (hb_scan_interior, 2 of the conservative total of 21 since 2026-09-19; 24 before the blob static layout took rt_cas_live_span). Driving it to zero is the retyping this header records as HELD on the gc2 regression; it is printed so it cannot be forgotten and NOT graded, because a number this seat could not move today is a ratchet against the next landing rather than a measurement."
 
 gate_floor "$checks" 5 "arm(s) graded"
 if [ "$fails" = 0 ]; then echo "✅ GATE PASS [$G]: $checks of $checks arms hold"; exit 0; fi

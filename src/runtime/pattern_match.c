@@ -994,18 +994,15 @@ static int rt_spk_take(const char *nm, DESCR_t *out);
 static rt_spk_t *g_spk;
 static int g_spk_n, g_spk_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cas_live_span(int i, void **base, size_t *bytes)
+long rt_cas_gc_roots(void)
 {
-    void *b = 0; size_t n = 0;
-    switch (i) {
-        case 0: if (g_capx && g_capx_top > 0) { b = (void *)g_capx; n = (size_t)g_capx_top * sizeof(DESCR_t); } break;
-        case 1: if (g_dfx  && g_dfx_top  > 0) { b = (void *)g_dfx;  n = (size_t)g_dfx_top  * sizeof(rt_dfx_t); } break;
-        case 2: if (g_dcf  && g_dcf_top  > 0) { b = (void *)g_dcf;  n = (size_t)g_dcf_top  * sizeof(rt_dcf_t); } break;
-        case 3: if (g_spk  && g_spk_n    > 0) { b = (void *)g_spk;  n = (size_t)g_spk_n    * sizeof(rt_spk_t); } break;
-        default: return 0;
-    }
-    if (base) *base = b; if (bytes) *bytes = n;
-    return 1;
+    extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
+    long b = 0;
+    for (int i = 0; i < g_capx_top; i++) { rt_gc_visit_descr(&g_capx[i]); b += (long)sizeof(DESCR_t); }
+    for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
+    for (int i = 0; i < g_dcf_top; i++) { rt_dcf_t *c = &g_dcf[i]; rt_gc_visit_descr(&c->pending); rt_gc_visit_raw(&c->cur); rt_gc_visit_raw(&c->top); rt_gc_visit_raw(&c->subj); rt_gc_visit_raw(&c->star); b += (long)sizeof(DESCR_t) + 4 * (long)sizeof(const char *); }
+    for (int i = 0; i < g_spk_n; i++) { rt_gc_visit_raw(&g_spk[i].nm); rt_gc_visit_descr(&g_spk[i].val); b += (long)sizeof(DESCR_t) + (long)sizeof(const char *); }
+    return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_defer_nv_read(const char *name)

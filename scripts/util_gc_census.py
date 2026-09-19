@@ -725,13 +725,13 @@ def census_maps_table(root, scrip, witnesses, out=print):
         m3 = read_gcmaps(r3.stdout + r3.stderr)
         m4 = read_gcmaps(r4.stderr)
         asm = r4.stdout
-        labels = set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_]+):", asm, re.M)) - set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_]+_s):", asm, re.M))
-        leas = collections.Counter(re.findall(r"lea\s+\S+,\s*\[rip \+ (\.Lgcmap_[A-Za-z0-9_]+)\]", asm))
-        tbl = re.search(r"^__gc_frame_maps:\s*\.quad\s+(\d+)\s*\n((?:\s*\.quad\s+\.Lgcmap_[A-Za-z0-9_]+\s*\n)+)", asm, re.M)
+        labels = set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$]+):", asm, re.M)) - set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$]+_s):", asm, re.M))
+        leas = collections.Counter(re.findall(r"lea\s+\S+,\s*\[rip \+ (\.Lgcmap_[A-Za-z0-9_$]+)\]", asm))
+        tbl = re.search(r"^__gc_frame_maps:\s*\.quad\s+(\d+)\s*\n((?:\s*\.quad\s+\.Lgcmap_[A-Za-z0-9_$]+\s*\n)+)", asm, re.M)
         if not (laid and m3 and m4):
             out(f"CENSUS maps/table REFUSED(2): {tag}: a producer printed nothing (dump-zeta graphs={len(laid)} m3 maps={len(m3)} m4 maps={len(m4)}) -- not measured"); return 2
         n_declared = int(tbl.group(1)) if tbl else -1
-        entries = re.findall(r"\.quad\s+(\.Lgcmap_[A-Za-z0-9_]+)", tbl.group(2)) if tbl else []
+        entries = re.findall(r"\.quad\s+(\.Lgcmap_[A-Za-z0-9_$]+)", tbl.group(2)) if tbl else []
         # the one NAMED alias: mode 3's emitter calls the entry graph pat_flat where mode 4 and --dump-zeta call it main
         alias = ENTRY_ALIAS[0] in m3 and ENTRY_ALIAS[0] not in laid and ENTRY_ALIAS[1] in laid
         m3n = dict(m3)
@@ -770,8 +770,8 @@ def census_maps_table(root, scrip, witnesses, out=print):
         red += len(bad)
     if not blob_class_visible(all_laid):
         out(f"CENSUS maps/table REFUSED(2): {len(witnesses)} witness(es), {total_graphs} graph(s), and NOT ONE stored-pattern "
-            "(PAT$...) graph among them -- the blob-frame class (a frame that presents no map cell; ARCH-GC 6.2b holds the "
-            "walk rule, the cto's arm 6 holds the count at 4) CANNOT BE SEEN by this witness set, so the divergence count "
+            "(PAT$...) graph among them -- the blob-frame class (a frame whose map carries a static layout since 2026-09-19, "
+            "ARCH-GC 6.2e; before that it presented no cell at all) CANNOT BE SEEN by this witness set, so the divergence count "
             "would be a zero by never looking. Add a pattern-bearing witness.")
         return 2
     blobs = sorted(g for g in all_laid if PATTERN_GRAPH_RX.match(g))
@@ -780,7 +780,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
     # word ending that line, and an instrument that appends to a line another instrument reads by identity breaks it.
     out(f"CENSUS maps/table blob-frame class VISIBLE in this witness set: {len(blobs)} stored-pattern graph(s) -- "
         + ", ".join(blobs[:4]) + (f" ... +{len(blobs) - 4} more" if len(blobs) > 4 else "")
-        + " (ARCH-GC 6.2b; a frame that presents no map cell, so a 0 here is a measured 0)")
+        + " (ARCH-GC 6.2e since 2026-09-19: a blob frame presents a map cell and a static layout, so its map is counted like any other; a 0 here is a measured 0)")
     out(f"CENSUS maps/table {len(witnesses)} witness(es), {total_graphs} graph(s) laid out, {red} divergence(s) {'GREEN' if red == 0 else 'RED'}")
     return 0 if red == 0 else 1
 

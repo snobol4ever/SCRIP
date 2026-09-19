@@ -773,7 +773,7 @@ static int fence0_whack_on() { static int v = -1; if (v < 0) { const char * e = 
 static int fence0_dyn_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FENCE0_DYNAMIC"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence0_dyn_floor(const IR_t * nd) {
-    int blob_frame_scope(void); int blob_frame_bytes(void);
+    int blob_frame_scope(void); int blob_carve_bytes(void);
     int _fzd = getenv("SCRIP_FZ_DIAG") ? 1 : 0;
     if (!fence0_dyn_on()) return 0;
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE0) return 0;
@@ -784,8 +784,8 @@ static int fence0_dyn_floor(const IR_t * nd) {
         if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_VALUE || mo == IR_CALL || mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: dynamic successor %s\n", (const void *)nd, bb_op_name((IR_e)mo)); return 0; }
         cur = zd_chase(cur->γ.node); }
     if (guard > n) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: successor chase did not terminate\n", (const void *)nd); return 0; }
-    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: FLOOR=%d\n", (const void *)nd, blob_frame_bytes());
-    return blob_frame_bytes();
+    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: FLOOR=%d\n", (const void *)nd, blob_carve_bytes());
+    return blob_carve_bytes();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence0_release_bytes(const IR_t * nd) {
@@ -2408,6 +2408,7 @@ static int frame_slot_is_candidate(const IR_t * nd) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void (*g_frame_slot_visitor)(const IR_t *, int, int) = (void (*)(const IR_t *, int, int))0;
 static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count) {
     if (out_index) *out_index = -1; if (out_count) *out_count = 0;
     if (!g_emit_cfg) return 0;
@@ -2418,7 +2419,7 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
     int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
     int k = 0, found = -1; extern int zdp_scratch_cell(const IR_t *);
     for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
-        if (j == qi) found = k; k += (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1); }
+        if (j == qi) found = k; { int u = (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1); if (g_frame_slot_visitor) g_frame_slot_visitor(m, k, u); k += u; } }
     if (out_index) *out_index = found; if (out_count) *out_count = k;
     return blob ? 2 : 1;
 }
@@ -2537,6 +2538,34 @@ extern "C" int sn4_choice_rbp_off(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int sn4_choice_rbp_off(void) {
     return blob_choice_rbp_scan() ? -(int)blob_frame_bytes() : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
+static uint64_t g_blob_lay[512]; static int g_blob_lay_n = 0;
+static void blob_lay_push(int off, unsigned kind, int size) { if (g_blob_lay_n < 512) g_blob_lay[g_blob_lay_n++] = GC_LAY_Q(off, kind, size); }
+static void blob_layout_slot(const IR_t * m, int k, int units) {
+    extern int zdp_scratch_cell(const IR_t *); int o0 = frame_slot_off(2, k); (void)units;
+    if (m->op == IR_MATCH_ALTERNATE) { int r = frame_slot_off(2, k + 1); blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 24, GC_LAY_RAW, 8); return; }
+    if (zdp_scratch_cell(m)) { blob_lay_push(o0, GC_LAY_PTR_GC, 8); blob_lay_push(o0 + 8, GC_LAY_RAW, 8); blob_lay_push(frame_slot_off(2, k + 1), GC_LAY_RAW, 16); return; }
+    if (m->op == IR_MATCH_ARBNO || m->op == IR_MATCH_ASSIGN_SAVE || m->op == IR_MATCH_FENCE1) { blob_lay_push(o0, GC_LAY_RAW, 16); return; }
+    blob_lay_push(o0, GC_LAY_DESCR, 16);
+}
+static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
+static int blob_layout_plant(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_BLOB_LAYOUT_PLANT"); v = e ? atoi(e) : 0; } return v; }
+static int blob_layout_build(int bfb) {
+    int count = 0; g_blob_lay_n = 0;
+    blob_lay_push(0, GC_LAY_RAW, 8); blob_lay_push(8, GC_LAY_PTR_CODE, 8); blob_lay_push(16, GC_LAY_PTR_CODE, 8);
+    blob_lay_push(-8, GC_LAY_PTR_CODE, 8); blob_lay_push(-16, GC_LAY_PTR_CODE, 8); blob_lay_push(-24, GC_LAY_PTR_GC, 8);
+    if (sn4_blob_casmark()) blob_lay_push(-32, GC_LAY_RAW, 8);
+    g_frame_slot_visitor = blob_layout_slot; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) count = 0; g_frame_slot_visitor = (void (*)(const IR_t *, int, int))0;
+    blob_lay_push(-(blob_head_bytes() + 16 * count), GC_LAY_RAW, 8);
+    if (blob_choice_rbp_scan()) { int r = -bfb; blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 24, GC_LAY_RAW, 8); }
+    if (blob_layout_plant() == 1 && g_blob_lay_n > 0) g_blob_lay_n--;
+    if (blob_layout_plant() == 2) for (int i = 0; i < g_blob_lay_n; i++) { unsigned k = GC_LAY_KIND(g_blob_lay[i]); if (k == GC_LAY_DESCR || k == GC_LAY_PTR_GC) g_blob_lay[i] = GC_LAY_Q(GC_LAY_OFF(g_blob_lay[i]), GC_LAY_RAW, GC_LAY_SIZE(g_blob_lay[i])); }
+    qsort(g_blob_lay, (size_t)g_blob_lay_n, sizeof g_blob_lay[0], blob_lay_cmp);
+    { int expect = -bfb; for (int i = 0; i < g_blob_lay_n; i++) { int o = GC_LAY_OFF(g_blob_lay[i]); if (o != expect) { fprintf(stderr, "FATAL blob_layout_build: graph %s entry %d at rbp%+d, expected rbp%+d -- the static layout does not tile the blob frame [%d, 24) and a layout that does not cover its frame is a guess (ARCH-GC section 6.2e)\n", g_emit.flat_fam ? g_emit.flat_fam : "?", i, o, expect, -bfb); abort(); } expect += GC_LAY_SIZE(g_blob_lay[i]); }
+      if (expect != 24) { fprintf(stderr, "FATAL blob_layout_build: graph %s layout ends at rbp%+d, expected rbp+24 (frame [%d, 24))\n", g_emit.flat_fam ? g_emit.flat_fam : "?", expect, -bfb); abort(); } }
+    return g_blob_lay_n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int choice_frame_slot(const IR_t * alt_nd) {
@@ -2905,17 +2934,18 @@ static int gc_maps_report_on(void) { static int v = -1; if (v < 0) v = gc_maps_k
 static int gc_maptab_plant_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPTAB_PLANT"); return v; }
 extern "C" void rt_gc_frame_map_check(const DESCR_t * cell);
 extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel) {
-    if (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes) { fprintf(stderr, "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d (the map cell must be a 16-aligned cell inside the frame)\n", map_off, frame_bytes); abort(); }
+    if (frame_rel == 2 ? (map_off < 16 || map_off != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes)) { fprintf(stderr, "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d frame_rel=%d (the map cell must be a 16-aligned cell inside the frame; a blob's cell is the frame's bottom cell at [rbp - frame_bytes] and carries GC_FRAME_MAP_BLOB)\n", map_off, frame_bytes, frame_rel); abort(); }
     g_gc_map_pending = 1; g_gc_map_off = map_off; g_gc_map_fb = frame_bytes; g_gc_map_hdr = header_bytes; g_gc_map_flags = flags;
     emit_label_initf(&g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
     long slen = (long)frame_bytes + (gc_maps_plant_on() ? 16L : 0L);
     std::string s = x86("comment", "GC MAP CELL (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65): the frame's highest value-region cell is a DT_MAP DESCR { slen = frame_bytes, p = &map }; the map is four sealed quads at the end of this chain, found by the collector through the cell and by the census through rt_gc_frame_maps_install")
                   + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)&g_gc_map_lbl);
-    if (frame_rel) s += x86("mov", FRQ(map_off + 8), "rax") + x86("mov", FR(map_off), (long)DT_MAP) + x86("mov", FR(map_off + 4), slen);
+    if (frame_rel == 2) s += x86("mov", RDQ("rbp", -map_off + 8), "rax") + x86("mov", RDD("rbp", -map_off), (long)DT_MAP) + x86("mov", RDD("rbp", -map_off + 4), slen);
+    else if (frame_rel) s += x86("mov", FRQ(map_off + 8), "rax") + x86("mov", FR(map_off), (long)DT_MAP) + x86("mov", FR(map_off + 4), slen);
     else           s += x86("mov", RDQ("rsp", map_off + 8), "rax") + x86("mov", RDD("rsp", map_off), (long)DT_MAP) + x86("mov", RDD("rsp", map_off + 4), slen);
     if (gc_maps_check_on()) {
         uint64_t fp = (uint64_t)(uintptr_t)(void *)rt_gc_frame_map_check;
-        s += (frame_rel ? x86("lea", "rax", FRQ(map_off)) : x86("lea", "rax", RDQ("rsp", map_off)))
+        s += (frame_rel == 2 ? x86("lea", "rax", RDQ("rbp", -map_off)) : frame_rel ? x86("lea", "rax", FRQ(map_off)) : x86("lea", "rax", RDQ("rsp", map_off)))
            + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
            + x86("mov", "rdi", "rax")
            + x86("call", "rt_gc_frame_map_check", fp)
@@ -2934,12 +2964,18 @@ static void emit_gc_map_data(const char * fam) {
     uint64_t q1 = (uint64_t)(uint32_t)g_gc_map_hdr | ((uint64_t)g_gc_map_flags << 32);
     if (g_is_text) {
         char eb[512]; { int ei = 0; for (const char * q = fam ? fam : "?"; *q && ei < 508; q++) { if (*q == '\\' || *q == '"') eb[ei++] = '\\'; eb[ei++] = *q; } eb[ei] = 0; }
-        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name, g_gc_map_lbl.name, eb);
+        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name);
+        emit_text_n(b, (size_t)n);
+        if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { n = snprintf(b, sizeof b, " .quad %d\n", g_blob_lay_n); emit_text_n(b, (size_t)n); for (int i = 0; i < g_blob_lay_n; i++) { n = snprintf(b, sizeof b, " .quad %llu\n", (unsigned long long)g_blob_lay[i]); emit_text_n(b, (size_t)n); } }
+        n = snprintf(b, sizeof b, "%s_s: .string \"%s\"\n", g_gc_map_lbl.name, eb);
         emit_text_n(b, (size_t)n); g_gc_map_last_off = 0;
     } else {
         bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64(0);
+        if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { bb_emit_u64((uint64_t)g_blob_lay_n); for (int i = 0; i < g_blob_lay_n; i++) bb_emit_u64(g_blob_lay[i]); }
         g_gc_map_last_off = g_gc_map_lbl.offset;
     }
+    if (gc_maps_report_on() && (g_gc_map_flags & GC_FRAME_MAP_BLOB)) { fprintf(stderr, "[GC-MAP-LAYOUT] graph=%s n=%d", fam ? fam : "?", g_blob_lay_n); for (int i = 0; i < g_blob_lay_n; i++) fprintf(stderr, " %d:%u:%d", GC_LAY_OFF(g_blob_lay[i]), GC_LAY_KIND(g_blob_lay[i]), GC_LAY_SIZE(g_blob_lay[i])); fprintf(stderr, "\n"); }
+    if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay_n = 0;
     if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = ct_strdup(g_gc_map_lbl.name);
     if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
 }
@@ -3257,7 +3293,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
-    { int _bfb = blob_frame_bytes(); if (_bfb > 0) bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(_bfb + blob_carve_pad())) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12")));
+    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.  STATIC LAYOUT (Lon CEO-905, ARCH-GC section 6.2e): the carve is bfb+16 and the extra cell at the BOTTOM, [rbp-(bfb+16)], is the frame's DT_MAP cell (frame_bytes = bfb+16, header_bytes = 24 = saved rbp, gamma, omega above rbp); its map carries GC_FRAME_MAP_BLOB and, after the four quads, one static layout entry per word of [rbp-bfb, rbp+24) generated from the same frame_slot_scan walk that hands out the slots, so the collector reads the interior by table and never sweeps it; the frame [rbp-bfb, rbp) is zeroed at entry (rep stosb, after the cell store, which the safe-point gate reads on the line after the carve) so a collection before a box has written its slot reads a null and never the previous activation's stale word, and the reporter's raw_in_heap column counts only words a box wrote.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + x86("lea", "rdi", RDQ("rbp", -_bfb)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_bfb) + x86("rep_stosb") + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
     }
     { extern int g_flat_outer_nparams; static int _gsym = -1; if (_gsym < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); _gsym = (e && *e == '1') ? 1 : 0; } int _legacy = (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !g_emit.zframe_graph && !g_emit.flat_lcl_proc);  extern int g_glue_entered; g_glue_entered = (g_emit.flat_outer_nparams == 0 && _legacy) ? 1 : 0; if (g_glue_entered) bb_emit_x86(x86_main_prologue()); (void)_gsym; { static int _gluo = -1; if (_gluo < 0) { const char * e = getenv("SCRIP_GLUEO"); _gluo = (e && *e == '0') ? 0 : 1; } static int _gluod = -1; if (_gluod < 0) { const char * e = getenv("SCRIP_GLUEO_DIAG"); _gluod = (e && *e == '1') ? 1 : 0; } extern int g_glue_o_sup; g_glue_o_sup = (_gluo && g_glue_entered && !emit_rec_pin()) ? 1 : 0; if (g_glue_o_sup) g_glue_entered = 0; if (_gluod) fprintf(stderr, "[GLUEO] graph=%s entered=%d rec_pin=%d deep=%d pat=%d gen=%d -> closed_loop_suppressed=%d\n", g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", g_glue_entered, emit_rec_pin() ? 1 : 0, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_glue_o_sup); } if (g_glue_entered) { { long _capN = 0; if (g_emit_cfg) for (int _ci = 0; _ci < g_emit_cfg->n; _ci++) { IR_t * _cs = g_emit_cfg->all[_ci]; if (_cs && _cs->op == IR_MATCH_ASSIGN_SAVE && cap_anchor_of(_cs) > 0) _capN++; } g_emit.op_fc_bytes = _capN > 0 ? (long)(64 + 16 * _capN) : 0; }    bb_emit_x86(bb_glue_framed_enter()); } }
     nidx_build(nodes, n);

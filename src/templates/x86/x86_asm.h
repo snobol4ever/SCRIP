@@ -954,6 +954,8 @@ inline const char * ZREFS(int reg_off, int d, int w, int customer, int spine) {
 inline const char * ZREF(int reg_off, int d, int w) { return ZREFC(reg_off, d, w, FL_LEAF); }
 inline const char * LFC(int d)  { return ZREF(_.op_leaf_frame_off, d, 4); }
 inline const char * LFCQ(int d) { return ZREF(_.op_leaf_frame_off, d, 8); }
+inline const char * LFDQ(int d, int sd) { return LFC_ON() ? RDQ("rbp", _.op_leaf_frame_off + 16 + d) : LFCQ(sd); }
+inline const char * LFD(int d, int sd)  { return LFC_ON() ? RDD("rbp", _.op_leaf_frame_off + 16 + d) : LFC(sd); }
 inline const char * AFC(int d)  { return ZREFC(_.op_arbno_frame_off, d, 4, FL_ARBNO); }
 inline const char * AFCQ(int d) { return ZREFC(_.op_arbno_frame_off, d, 8, FL_ARBNO); }
 inline const char * CFC(int d)  { return ZREFC(_.op_cap_frame_off, d, 4, FL_CAPTURE); }
