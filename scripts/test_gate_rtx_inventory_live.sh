@@ -42,7 +42,7 @@ CALL:rt_proc_call_open rt_proc_call_open_slim rt_proc_call_epilogue_ rt_proc_cal
 AGG:rt_subscript_var rt_deref rt_field_var record_register
 ARITH:rt_num_arith rt_arith rt_binop_overload rt_coerce_num2_d rt_coerce_num rt_num_pos rt_neg rt_incr rt_decr rt_exp rt_cmp_d
 NV:NV_GET_fn NV_SET_fn rt_nv_get rt_nv_set rt_gvar_get_int rt_gvar_assign_str rt_gvar_assign_var rt_gvar_assign_int rt_gvar_assign_descr rt_gva_island gva_register rt_subject_load_nv
-MATCH:rt_match_enter rt_match_variant rt_match_replace rt_cap_push rt_cap_pop rt_cap_top rt_defer_open rt_defer_step rt_defer_close rt_defer_get_pat_fn rt_scan_splice_empty
+MATCH:rt_match_enter rt_match_variant rt_match_replace rt_cap_push rt_cap_pop rt_cap_top rt_defer_close rt_scan_splice_empty
 MISC:rt_faildescr rt_is_truthy rt_last_ok rt_assign_var rt_goto_transfer rt_bomb execute_code_dyn comm_stno core_lib_init dtp_fn_of rt_write_any_nl rt_push_ rt_pop_void rt_halt_tos
 "
 PH=0; nd=0; nc=0; np=0

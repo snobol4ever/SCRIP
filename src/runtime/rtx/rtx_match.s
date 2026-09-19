@@ -42,72 +42,6 @@ RTX_FUNC(rt_cap_top)
 .Lct_ret:
     ret
 RTX_ENDF(rt_cap_top)
-RTX_FUNC(rt_defer_open)
-    RTX_GATE(match, c_rt_defer_open)
-    test    esi, esi
-    jne     c_rt_defer_open
-    test    rdi, rdi
-    jz      c_rt_defer_open
-    mov     al, byte ptr [rdi]
-    cmp     al, 0x2A
-    je      c_rt_defer_open
-    cmp     al, 0x46
-    jne     .Ldo_push
-    cmp     dword ptr [rdi], 0x4C494146
-    jne     .Ldo_push
-    cmp     byte ptr [rdi + 4], 0
-    je      c_rt_defer_open
-.Ldo_push:
-    mov     r10, qword ptr [rip + g_dfx]
-    test    r10, r10
-    jz      c_rt_defer_open
-    mov     eax, dword ptr [rip + g_dfx_top]
-    cmp     eax, dword ptr [rip + g_dfx_cap]
-    jge     c_rt_defer_open
-    lea     r11, [rax + rax*2]
-    lea     r11, [r10 + r11*8]
-    add     eax, 1
-    mov     dword ptr [rip + g_dfx_top], eax
-    xor     eax, eax
-    mov     qword ptr [r11], rax
-    lea     rdx, [rip + .Lrtx_dfx_nul]
-    mov     qword ptr [r11 + 8], rdx
-    mov     dword ptr [r11 + 16], eax
-    mov     dword ptr [r11 + 20], eax
-    RTX_CALL_ALIGN
-    push    r11
-    sub     rsp, 8
-    call    NV_GET_fn
-    add     rsp, 8
-    pop     r11
-    RTX_CALL_UNALIGN
-    cmp     al, DT_X
-    je      .Ldo_dtx
-    mov     qword ptr [r11], rax
-    mov     qword ptr [r11 + 8], rdx
-    xor     eax, eax
-    ret
-.Ldo_dtx:
-    mov     dword ptr [r11 + 20], 1
-    test    rdx, rdx
-    jnz     .Ldo_dtx_arg
-    lea     rdx, [rip + .Lrtx_dfx_nul]
-.Ldo_dtx_arg:
-    RTX_CALL_ALIGN
-    push    r11
-    sub     rsp, 8
-    mov     rdi, rdx
-    xor     esi, esi
-    call    rt_proc_call_open
-    add     rsp, 8
-    pop     r11
-    RTX_CALL_UNALIGN
-    test    rax, rax
-    jnz     .Ldo_dtx_ret
-    mov     dword ptr [r11 + 16], 1
-.Ldo_dtx_ret:
-    ret
-RTX_ENDF(rt_defer_open)
 RTX_FUNC(rt_defer_close)
     RTX_GATE(match, c_rt_defer_close)
     mov     eax, dword ptr [rip + g_dfx_top]
@@ -399,32 +333,6 @@ RTX_FUNC(rt_match_replace)
     pop     r12
     ret
 RTX_ENDF(rt_match_replace)
-RTX_FUNC(rt_defer_get_pat_fn)
-    test    rdi, rdi
-    jz      .Ldfpf_nv
-    cmp     byte ptr [rdi], 42
-    je      c_rt_defer_get_pat_fn
-.Ldfpf_nv:
-.Ldfpf_mutate:
-    test    rdi, rdi
-    jnz     .Ldfpf_call
-    lea     rdi, [rip + .Ldfpf_empty]
-.Ldfpf_call:
-    sub     rsp, 8
-    mov     r10, qword ptr [rip + NV_GET_fn@GOTPCREL]
-    call    r10
-    add     rsp, 8
-    cmp     eax, 8
-    jne     .Ldfpf_null
-    test    rdx, rdx
-    jz      .Ldfpf_null
-    mov     rdi, rdx
-    mov     r10, qword ptr [rip + dtp_fn_of@GOTPCREL]
-    jmp     r10
-.Ldfpf_null:
-    xor     eax, eax
-    ret
-RTX_ENDF(rt_defer_get_pat_fn)
 RTX_FUNC(rt_cap_open)
     test    rdi, rdi
     jz      c_rt_cap_open

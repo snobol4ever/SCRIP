@@ -24,7 +24,7 @@
 #include <stdlib.h>
 extern const char *Σ;
 extern int Σlen;
-static void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return; { FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\n", site, name ? name : "?"); fclose(f); } }
+void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return; { FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\n", site, name ? name : "?"); fclose(f); } }
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -328,7 +328,7 @@ static DESCR_t rt_pat_prim_arg(const char *varname) {
     extern DESCR_t NV_GET_fn(const char *);
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     extern int rt_proc_is_registered(const char *name);
-    if (varname && varname[0] == '*') return rt_proc_is_registered(varname + 1) ? rt_call_proc_descr(varname + 1, 0) : NV_GET_fn(varname + 1);
+    if (varname && varname[0] == '*') { if (!rt_proc_is_registered(varname + 1)) return NV_GET_fn(varname + 1); rt_c2bb_hit("via.prim", varname + 1); return rt_call_proc_descr(varname + 1, 0); }
     return NV_GET_fn(varname ? varname : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -540,6 +540,7 @@ int rt_proc_is_registered(const char *name)
 DESCR_t rt_sno_dtx_value(const char *name)
 {
     if (name && *name && !rt_proc_is_registered(name)) return NV_GET_fn(name);
+    rt_c2bb_hit("via.dtx", name);
     return rt_call_proc_descr(name ? name : "", 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -985,29 +986,68 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     return rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_call_prepare(const char *name, short *how, int *nsb)
+#define RT_C2BB_REC_MAX 4096
+static struct { const char *name; int nsb; short how; } g_c2bb_rec[RT_C2BB_REC_MAX];
+static int g_c2bb_top;
+static rt_call_next_t rt_c2bb_opened(const char *name, long fn, short how, int nsb)
+{
+    if (g_c2bb_top >= RT_C2BB_REC_MAX) { fprintf(stderr, "rt_call_open_by_name: record overflow (%d) -- raise RT_C2BB_REC_MAX\n", g_c2bb_top); abort(); }
+    g_c2bb_rec[g_c2bb_top].name = name; g_c2bb_rec[g_c2bb_top].nsb = nsb; g_c2bb_rec[g_c2bb_top].how = how; g_c2bb_top++;
+    return (rt_call_next_t){ fn, (long)how };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_call_next_t rt_call_open_by_name(const char *name, int nargs)
 {
     rt_proc_t *p = rt_proc_find(name);
-    *how = 0; *nsb = 0;
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
-      if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return 0; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, 0, wn); }
-        *how = 1; return (long)(uintptr_t)fn; } }
+      if (el) { void *efn = rt_entry_resolve(el, &frag); if (!efn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
+        return rt_c2bb_opened(name, (long)(uintptr_t)efn, 1, 0); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
-        fprintf(stderr, "[GZ-10] rt_dcap_call_prepare: procedure '%s' has no stackless slab\n", name ? name : "(null)");
+        fprintf(stderr, "[GZ-10] rt_call_open_by_name: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         rt_pl_iso_throw_existence_key(name ? name : "?");
-        return 0;
+        return (rt_call_next_t){ 0, 0 };
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { *how = 2; return (long)(uintptr_t)afn; } }
-    if (!p->dyn_scope) { fprintf(stderr, "FATAL rt_dcap_call_prepare: capture target '%s' is a C-frame procedure; a deferred capture may only enter a box-entered procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) return rt_c2bb_opened(name, (long)(uintptr_t)afn, 2, 0); }
+    if (!p->dyn_scope && !p->jmp_entry) { fprintf(stderr, "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
     { int _wn_gen = rt_g_want_name;
-      *nsb = rt_name_save_mark();
-      long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, 0) : rt_proc_call_open(name, 0);
-      if (!fbytes) return 0;
-      rt_g_want_name = _wn_gen; }
-    *how = (name && strchr(name, '$')) ? 3 : 1;
-    return (long)(uintptr_t)p->fn;
+      int nsb = rt_name_save_mark();
+      long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
+      if (!fbytes) return (rt_call_next_t){ 0, 0 };
+      rt_g_want_name = _wn_gen;
+      return rt_c2bb_opened(name, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, nsb); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_land_γ(DESCR_t frame0)
+{
+    extern DESCR_t rt_proc_call_epilogue_named_γ(const char *);
+    if (g_c2bb_top <= 0) { fprintf(stderr, "rt_call_land_γ: no open record\n"); abort(); }
+    g_c2bb_top--;
+    { const char *name = g_c2bb_rec[g_c2bb_top].name; short how = g_c2bb_rec[g_c2bb_top].how; int nsb = g_c2bb_rec[g_c2bb_top].nsb;
+      DESCR_t r = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(name) : rt_proc_call_epilogue_γ(frame0);
+      if (how == 3) rt_name_save_unwind(nsb);
+      return r; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_call_land_ω(void)
+{
+    extern DESCR_t rt_proc_call_epilogue_named_ω(const char *);
+    if (g_c2bb_top <= 0) { fprintf(stderr, "rt_call_land_ω: no open record\n"); abort(); }
+    g_c2bb_top--;
+    { const char *name = g_c2bb_rec[g_c2bb_top].name; short how = g_c2bb_rec[g_c2bb_top].how; int nsb = g_c2bb_rec[g_c2bb_top].nsb;
+      DESCR_t r = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(name) : rt_proc_call_epilogue_ω();
+      if (how == 3) rt_name_save_unwind(nsb);
+      return r; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_dcap_call_prepare(const char *name, short *how, int *nsb)
+{
+    rt_call_next_t n = rt_call_open_by_name(name, 0);
+    *how = 0; *nsb = 0;
+    if (!n.fn) return 0;
+    g_c2bb_top--; *how = g_c2bb_rec[g_c2bb_top].how; *nsb = g_c2bb_rec[g_c2bb_top].nsb;
+    return n.fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
@@ -2018,6 +2058,7 @@ void rt_gc_root_args(void)
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
     for (int i = 0; i < CALL_ARGS_MAX; i++) rt_gc_visit_descr(&g_call_args[i]);
+    for (int i = 0; i < g_c2bb_top; i++) if (g_c2bb_rec[i].name) rt_gc_visit_raw(&g_c2bb_rec[i].name);
     if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
     if (g_rt_gen_procs) { rt_gc_visit_raw((const char **)&g_rt_gen_procs);
         for (int i = 0; i < g_rt_gen_proc_count; i++) { rt_proc_t *pr = &g_rt_gen_procs[i];

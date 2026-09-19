@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1654
-#define GC_ALLOC_TAB_N_VOID 186
-#define GC_ALLOC_TAB_N_DESCR 923
-#define GC_ALLOC_TAB_N_OTHER 545
+#define GC_ALLOC_TAB_N 1651
+#define GC_ALLOC_TAB_N_VOID 185
+#define GC_ALLOC_TAB_N_DESCR 924
+#define GC_ALLOC_TAB_N_OTHER 542
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -382,8 +382,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "c_rt_coerce_num2_d", GC_RET_VOID },
     { "c_rt_dcap_end_ok_open", GC_RET_OTHER },
     { "c_rt_defer_close", GC_RET_OTHER },
-    { "c_rt_defer_get_pat_fn", GC_RET_OTHER },
-    { "c_rt_defer_open", GC_RET_OTHER },
     { "c_rt_jct_relop", GC_RET_OTHER },
     { "c_rt_match_enter", GC_RET_OTHER },
     { "c_rt_match_replace", GC_RET_VOID },
@@ -904,7 +902,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_gen_strict", GC_RET_DESCR },
     { "rt_call_arr_impl", GC_RET_DESCR },
     { "rt_call_arr_strict", GC_RET_DESCR },
+    { "rt_call_land_γ", GC_RET_DESCR },
+    { "rt_call_land_ω", GC_RET_DESCR },
     { "rt_call_named_proc", GC_RET_DESCR },
+    { "rt_call_open_by_name", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
@@ -936,22 +937,19 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_dcap_star_finish", GC_RET_OTHER },
     { "rt_defer_close_v", GC_RET_OTHER },
     { "rt_defer_expr_value", GC_RET_DESCR },
-    { "rt_defer_get_pat_dtp", GC_RET_OTHER },
+    { "rt_defer_land_γ", GC_RET_OTHER },
+    { "rt_defer_land_ω", GC_RET_OTHER },
     { "rt_defer_nv_read", GC_RET_DESCR },
-    { "rt_defer_open", GC_RET_OTHER },
+    { "rt_defer_open_entry", GC_RET_OTHER },
     { "rt_defer_probe_run", GC_RET_OTHER },
-    { "rt_defer_run_all", GC_RET_OTHER },
+    { "rt_defer_resolve", GC_RET_OTHER },
     { "rt_defer_run_all_v", GC_RET_OTHER },
-    { "rt_defer_step", GC_RET_OTHER },
-    { "rt_defer_take", GC_RET_VOID },
-    { "rt_defer_xpat_dtp", GC_RET_OTHER },
     { "rt_define_site", GC_RET_VOID },
     { "rt_deref", GC_RET_DESCR },
     { "rt_deref_slow", GC_RET_DESCR },
     { "rt_div", GC_RET_DESCR },
     { "rt_div_strict", GC_RET_DESCR },
     { "rt_div_zero", GC_RET_VOID },
-    { "rt_dtx_drain", GC_RET_DESCR },
     { "rt_extfn_invoke", GC_RET_DESCR },
     { "rt_extfn_mint", GC_RET_DESCR },
     { "rt_field_var", GC_RET_DESCR },
@@ -1055,8 +1053,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pat_prim_int", GC_RET_OTHER },
     { "rt_pat_prim_str", GC_RET_OTHER },
     { "rt_patv_defer_get_pat_dtp", GC_RET_OTHER },
-    { "rt_patv_defer_open", GC_RET_OTHER },
-    { "rt_patv_defer_run_all", GC_RET_OTHER },
+    { "rt_patv_defer_open_entry", GC_RET_OTHER },
     { "rt_patv_freeze", GC_RET_VOID },
     { "rt_pl_agg_count_finish", GC_RET_OTHER },
     { "rt_pl_agg_max_finish", GC_RET_OTHER },

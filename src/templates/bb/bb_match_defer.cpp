@@ -4,24 +4,17 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-extern "C" long  rt_defer_open     (const char *varname, int ival_flag);
-extern "C" long  rt_defer_step     (DESCR_t fret);
+typedef struct { long fn; long how; } rt_dcap_next_t;
+extern "C" rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag);
+extern "C" rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag);
+extern "C" rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0);
+extern "C" rt_dcap_next_t rt_defer_land_ω(void);
 extern "C" int   rt_defer_close    (int cur_delta);
-extern "C" void *rt_proc_open_fn   (void);
-extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
-extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
-extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
-extern "C" void *rt_defer_get_pat_dtp(const char *varname, int ival_flag);
 extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
-extern "C" long  rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag);
-extern "C" int rt_defer_run_all(const char *varname, int cur_delta);
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
 extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site);
-extern "C" int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta);
 extern "C" void *dtp_fn_of(void *headv);
-extern "C" void *rt_defer_xpat_dtp(const char *nm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int defer_xpat_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XPAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 extern "C" uint64_t g_sno_defer_cells[4096];
 extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
@@ -31,7 +24,6 @@ extern "C" int sn4_alt_carrier(void);
 #define dswap() (1)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
-static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int defer_inline(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_INLINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dfrm(void) { return (_.op_seal == 1); }
@@ -52,7 +44,7 @@ std::string bb_match_defer() {
     int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
-    int merged = (vslot < 0 && one_defer() && !(g_gva_active && _.op_gva_k >= 0));
+    int merged = (vslot < 0 && !(g_gva_active && _.op_gva_k >= 0));
     static int g_defer_site_n; int msite = merged ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
     static char pl[8][48]; static int pln; if (msite >= 0) { pln = (pln + 1) & 7; snprintf(pl[pln], sizeof pl[pln], "g_sno_defer_cells+%d", (2048 + msite * 2) * 8); }
     const char * pairlbl = msite >= 0 ? pl[pln] : "";
@@ -125,19 +117,6 @@ std::string bb_match_defer() {
              + x86("mov",  "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("jmp",  L(10))
              + x86("def",  L(9))
-             + IF(defer_xpat_on(),
-                  x86("cmp",  "al", (long)DT_X)
-                + x86("jne",  L(21))
-                + x86("mov",  "rdi", "rdx")
-                + x86_align_enter()
-                + x86("call", "rt_defer_xpat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *))rt_defer_xpat_dtp)
-                + x86_align_leave()
-                + x86("mov",  "rdx", "rax")
-                + x86("test", "rax", "rax")
-                + x86("je",   L(21))
-                + x86("mov",  "rax", RDQ("rdx", 0))
-                + x86("jmp",  L(10))
-                + x86("def",  L(21)))
              + x86("xor",  "eax", "eax")
              + x86("def",  L(10)))
          + IF(ci >= 0,
@@ -256,6 +235,7 @@ std::string bb_match_defer() {
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
+         + x86("def",  L(48))
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def",  L(4))
@@ -272,78 +252,76 @@ std::string bb_match_defer() {
              + x86("pop", "rbp"))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
-         + (one_defer()
-             ? x86("def",  "L0")
-             + IF(merged, x86("comment", "IR_MATCH_DEFER probe-str")
-                        + x86("mov",  "eax", "edx"))
-             + IF(!merged, x86_xfer_enter())
-             + IF(!merged && vslot < 0,
-                   x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-                 + x86("mov",  "esi", "r14d"))
-             + IF(vslot >= 0,
-                   x86("mov",  "rdi", RDQ("rbp", -24))
-                 + x86("mov",  "esi", (long)vslot)
-                 + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-                 + x86("mov",  "ecx", "r14d"))
-             + IF(!merged, x86_anchor_enter())
-             + IF(!merged && vslot < 0,  x86("call", "rt_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int))rt_defer_run_all))
-             + IF(vslot >= 0, x86("call", "rt_patv_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(void *, long, const char *, int))rt_patv_defer_run_all))
-             + IF(!merged, x86_anchor_leave())
-             + IF(!merged, x86_xfer_leave())
-             : x86("def",  "L0")
+         + x86("def",  "L0")
+         + IF(merged, x86("comment", "IR_MATCH_DEFER probe-str")
+                    + x86("mov",  "eax", "edx")
+                    + x86("cmp",  "eax", -2L)
+                    + x86("jne",  L(49)))
+         + x86("comment", "IR_MATCH_DEFER entry road (cfo 2026-09-19, row gc-rt-c-c-to-bb-entries): the open leaf returns rax = the deferred target's entry (0 = the value is ready) and rdx = its protocol -- 0 lexical wires, 1 named wires, 2 the alpha tiny record, 3 dyn $ wires, 4 a pattern whose DTP rides rax -- and the BOX enters it with its own wires and lands on rt_defer_land_γ/ω, which resolve the value (a chain, an expression, a pattern or a string) and may hand back another entry; the C road rt_defer_run_all that called the thunk from C is deleted (Lon 2026-09-19: no BB is entered from C after the original invocation)")
          + x86_xfer_enter()
          + IF(vslot < 0,
                x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-             + x86("xor",  "esi", "esi"))
+             + x86("xor",  "esi", "esi")
+             + x86("call", "rt_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, int))rt_defer_open_entry))
          + IF(vslot >= 0,
-               x86("comment", "IR_MATCH_DEFER $V-scalar")
-             + x86("mov",  "rdi", RDQ("rbp", -24))
+               x86("mov",  "rdi", RDQ("rbp", -24))
              + x86("mov",  "esi", (long)vslot)
              + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-             + x86("xor",  "ecx", "ecx"))
-         + x86_anchor_enter()
-         + IF(vslot < 0,
-               x86("call", "rt_defer_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int))rt_defer_open))
-         + IF(vslot >= 0,
-               x86("call", "rt_patv_defer_open", (uint64_t)(uintptr_t)(void *)(long (*)(void *, long, const char *, int))rt_patv_defer_open))
+             + x86("xor",  "ecx", "ecx")
+             + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *, int))rt_patv_defer_open_entry))
          + x86("def",  "L2")
          + x86("test", "rax", "rax")
          + x86("je",   "L3")
-         + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         + IF(!dswap(), x86("push",x86_zr())
-                      + x86("sub","rsp",8L)
-                      + x86("mov",x86_zr(),"rsp"))
-         + bb_glue_pass_wires(7, 8)
-         + x86("def",  L(7))
-         + IF(!dswap(), x86("mov","rax","rsp")
-                      + x86("mov","rax",RDQ("rax",8))
-                      + x86("mov","rdi",RDQ("rax",0))
-                      + x86("mov","rsi",RDQ("rax",8))
-                      + x86("mov","rsp",x86_zr())
-                      + x86("add","rsp",8L)
-                      + x86("pop",x86_zr()))
-         + x86("call","rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
+         + x86("cmp",  "rdx", 4L)
+         + x86("je",   L(40))
+         + x86("push", "rbx")
+         + x86("push", "r12")
+         + x86("cmp",  "rdx", 2L)
+         + x86("je",   L(41))
+         + bb_glue_pass_wires_blob_regs(42, 43)
+         + x86("def",  L(41))
+         + x86("sub",  "rsp", 48L)
+         + x86("mov",  RDQ("rsp", 0), 0L)
+         + x86_lea_id("rcx", 44)
+         + x86("mov",  RDQ("rsp", 8), "rcx")
+         + x86_lea_id("rcx", 45)
+         + x86("mov",  RDQ("rsp", 16), "rcx")
+         + x86("mov",  RDQ("rsp", 24), 0L)
+         + x86("mov",  RDQ("rsp", 32), 16L)
+         + x86("lea",  "rcx", RDQ("rsp", 0))
+         + x86("jmp",  "rax")
+         + x86("def",  L(44))
+         + x86("add",  "rsp", 48L)
+         + x86("def",  L(46))
+         + x86("pop",  "r12")
+         + x86("pop",  "rbx")
          + x86("mov",  "rdi", "rax")
          + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_defer_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_defer_step)
+         + x86("call", "rt_defer_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t))rt_defer_land_γ)
          + x86("jmp",  "L2")
-         + x86("def",  L(8))
-         + IF(!dswap(), x86("mov","rsp",x86_zr())
-                      + x86("add","rsp",8L)
-                      + x86("pop",x86_zr()))
-         + x86("call","rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
-         + x86("mov",  "rdi", "rax")
-         + x86("mov",  "rsi", "rdx")
-         + x86("call", "rt_defer_step", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t))rt_defer_step)
+         + x86("def",  L(45))
+         + x86("add",  "rsp", 48L)
+         + x86("def",  L(47))
+         + x86("pop",  "r12")
+         + x86("pop",  "rbx")
+         + x86("call", "rt_defer_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void))rt_defer_land_ω)
          + x86("jmp",  "L2")
+         + x86("def",  L(42))
+         + x86("add",  "rsp", 16L)
+         + x86("jmp",  L(46))
+         + x86("def",  L(43))
+         + x86("add",  "rsp", 16L)
+         + x86("jmp",  L(47))
+         + x86("def",  L(40))
+         + x86_xfer_leave()
+         + x86("mov",  "rdx", "rax")
+         + x86("mov",  "rax", RDQ("rdx", 0))
+         + x86("jmp",  L(48))
          + x86("def",  "L3")
-         + x86_anchor_leave()
          + x86_xfer_leave()
          + x86("mov",  "edi", "r14d")
-         + x86_align_enter()
          + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int))rt_defer_close)
-         + x86_align_leave()
-         )
+         + x86("def",  L(49))
          + x86("test", "eax", "eax")
          + x86_omega("js")
          + IF(sn4_alt_carrier(),
