@@ -2123,7 +2123,7 @@ int pas_tf_read(FILE *fp, DESCR_t *o) {
     if (tg == 'A') { int32_t lo = 0, hi = -1; if (fread(&lo, 4, 1, fp) != 1 || fread(&hi, 4, 1, fp) != 1) return 0;
         long long n = (long long)hi - lo + 1; if (n < 1) n = 1;
         ARBLK_t *b = (ARBLK_t *)rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = lo; b->hi = hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0;
-        b->data = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t) * (size_t)n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0);
+        b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n)); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0);
         for (int k = 0; k <= hi - lo; k++) if (!pas_tf_read(fp, &b->data[k])) return 0;
         DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *o = d; return 1; }
     *o = NULVCL; return 1;
@@ -2339,7 +2339,7 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
     { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i;
       DESCR_t *el; DESCR_t lst;
       if (mode != 0 && n == 0) return 0;
-      el = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+      el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
       if (!el) return 0;
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
       lst = pl_list_from_arr(el, n);
@@ -2353,7 +2353,7 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     if (h.v != DT_I) return 0;
     DESCR_t t4 = args[2]; DESCR_t *c4 = plw_cell_deref(plw_entry(&t4));
     { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
-      el = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+      el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
       if (!el) return 0;
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
       for (i = n - 1; i >= 0; i--) lst = pl_cons(el[i], lst);
@@ -2376,7 +2376,7 @@ static int pl_bagof_groups(void *acc, DESCR_t **items_out, int **ord_out, int **
     int n = rt_pl_findall_count(acc), i, j, ng = 0, k = 0;
     DESCR_t *it; int *ord, *gs, *used, *gi;
     if (n <= 0) return 0;
-    it = (DESCR_t *)rt_ws_alloc((size_t)n * sizeof(DESCR_t));
+    it = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
     ord = (int *)rt_wsb_alloc((size_t)n * sizeof(int));
     gs = (int *)rt_wsb_alloc((size_t)(n + 1) * sizeof(int));
     used = (int *)rt_wsb_alloc((size_t)n * sizeof(int));
@@ -2430,7 +2430,7 @@ static int rt_pl_bagof_group_at_cell(DESCR_t *args, pl_tr_ctx_t *cx, int sorted)
     g = gi[idx];
     cnt = gs[g + 1] - gs[g];
     if (cnt <= 0) return 0;
-    el = (DESCR_t *)rt_ws_alloc((size_t)cnt * sizeof(DESCR_t));
+    el = (DESCR_t *)rt_ws_alloc_descr((size_t)cnt);
     if (!el) return 0;
     if (!pl_pair_parts(it[ord[gs[g]]], &wrep, &trep)) return 0;
     ok = 1;
@@ -3619,7 +3619,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(buf); return 1;
     }
     if ((!strcmp(fn, "rk_write") || !strcmp(fn, "rk_writes"))) {
-        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
+        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc_descr((size_t)(nargs > 0 ? nargs : 1));
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (args[_ri].v == DT_BOOL) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i ? "True" : "False"));
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
@@ -3629,7 +3629,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
     }
     if (!strcmp(fn, "note") && !rt_proc_is_registered(fn)) {
-        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
+        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc_descr((size_t)(nargs > 0 ? nargs : 1));
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (IS_REAL_fn(args[_ri])) { char *_rb = rt_wsb_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
             else tmp[_ri] = args[_ri];
@@ -4124,7 +4124,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = 0; b->hi = (int) hi;
         b->ndim = 1;
         b->ndim = 1;
-        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
+        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n)); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
         d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if (!strcmp(fn, "arr_get") && nargs == 2) {
@@ -4264,7 +4264,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             ARBLK_t *b = (ARBLK_t *) args[0].arr; int n = b->hi - b->lo + 1; if (n < 0) n = 0;
             ARBLK_t *r = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
             r->id = rt_agg_serial_list(); r->dumpno = rt_sno_dumpno_next(); r->lo = b->lo; r->hi = b->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = 0;
-            r->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) (n ? n : 1));
+            r->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n ? n : 1));
             for (int i = 0; i < n; i++) r->data[i] = b->data[n - 1 - i];
             DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = r; *out = d; return 1;
         }
@@ -4650,7 +4650,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                                     : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
-                    DESCR_t *fa = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+                    DESCR_t *fa = rt_ws_alloc_descr((size_t)total);
                     if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }
                     else { fa[0] = args[0]; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
                     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
@@ -4668,7 +4668,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 char tproc[256]; resolve_method_chain(tname, mname0, tproc, sizeof tproc, NULL);
                 if (meth_is_user_proc(tproc)) {
                     int nextra = nargs - 2, total = 1 + nextra;
-                    DESCR_t *ca = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+                    DESCR_t *ca = rt_ws_alloc_descr((size_t)total);
                     ca[0] = args[0]; for (int k = 0; k < nextra; k++) ca[1 + k] = args[2 + k];
                     int pi; for (pi = 0; pi < g_stage2.proc_count; pi++)
                         if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, tproc)) break;
@@ -4708,7 +4708,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (dat_handles_field(cname, mname, delegfield, sizeof delegfield)) {
                 extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
                 DESCR_t deleg = dat_field_get(delegfield, args[0]);
-                DESCR_t *fwd = rt_ws_alloc((size_t)nargs * sizeof(DESCR_t)); fwd[0] = deleg; fwd[1] = args[1];
+                DESCR_t *fwd = rt_ws_alloc_descr((size_t)nargs); fwd[0] = deleg; fwd[1] = args[1];
                 for (int k = 2; k < nargs; k++) fwd[k] = args[k];
                 extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
                 return script_try_call_builtin_by_name("meth_call", fwd, nargs, out);
@@ -4716,7 +4716,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         int nextra = nargs - 2;
         int total = 1 + nextra;
-        DESCR_t *callargs = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+        DESCR_t *callargs = rt_ws_alloc_descr((size_t)total);
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
         int rd = -1;
@@ -5288,7 +5288,7 @@ DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
-    DESCR_t *elems = rt_ws_alloc((nargs>0?nargs:1)*sizeof(DESCR_t));
+    DESCR_t *elems = rt_ws_alloc_descr((size_t)(nargs>0?nargs:1));
     for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
     DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs));
@@ -5296,7 +5296,7 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_args_list_from(char **v, int n) {
     if (n < 0 || !v) n = 0;
-    DESCR_t *tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+    DESCR_t *tmp = rt_ws_alloc_descr((size_t)(n>0?n:1));
     for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
     return rt_make_list(tmp, n);
 }
@@ -7106,7 +7106,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 DESCR_t ea = FIELD_GET_fn(src, "frame_elems");
                 int n = (int)FIELD_GET_fn(src, "frame_size").i;
                 DESCR_t *src_elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL;
-                DESCR_t *new_elems = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+                DESCR_t *new_elems = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
                 DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = DATA_ELEMS_SLEN; eptr.ptr = (void *)new_elems;
                 *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
@@ -7121,7 +7121,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (rt->serial_next < 1) rt->serial_next = 1;
             nu->id = rt->serial_next++;
             nu->dumpno = rt_sno_dumpno_next();
-            nu->fields = (DESCR_t *) rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
+            nu->fields = (DESCR_t *)rt_ws_alloc_descr((size_t)(nf > 0 ? nf : 1));
             for (int i = 0; i < nf; i++) nu->fields[i] = src.u->fields[i];
             DESCR_t d = {0}; d.v = DT_DATA; d.slen = DATA_INST_SLEN; d.u = nu;
             *out = d; return 1;
@@ -7158,7 +7158,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         }
         static int list_reg2 = 0;
         if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg2 = 1; }
-        DESCR_t *elems = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *elems = rt_ws_alloc_descr((size_t)(n>0?n:1));
         for (int i = 0; i < n; i++) elems[i] = init;
         DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
         *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
@@ -7541,17 +7541,17 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         { TBPAIR_t **_tmp = rt_pvec_alloc((n>0?n:1)); sort_msort_pairs(ent, _tmp, n, by_val); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         if (tb->is_set) {
-            DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+            DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
             for (int _k = 0; _k < n; _k++) mem[_k] = ent[_k]->key_descr;
             *out = rt_make_list(mem, n); return 1;
         }
         if (i_mode >= 3) {
-            DESCR_t *flat = rt_ws_alloc((2*n>0?2*n:1)*sizeof(DESCR_t));
+            DESCR_t *flat = rt_ws_alloc_descr((size_t)(2*n>0?2*n:1));
             for (int _k = 0; _k < n; _k++) { flat[2*_k] = ent[_k]->key_descr; flat[2*_k+1] = ent[_k]->val; }
             *out = rt_make_list(flat, 2*n); return 1;
         }
         DESCR_t outer = rt_make_list(NULL, 0);
-        DESCR_t *pairs = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *pairs = rt_ws_alloc_descr((size_t)(n>0?n:1));
         for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
         FIELD_SET_fn(outer, "frame_elems", DATA_ELEMS(pairs));
         FIELD_SET_fn(outer, "frame_size", INTVAL(n));
@@ -7561,18 +7561,18 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set) {
         TBBLK_t *tb = args[0].tbl;
         int n = 0; { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
-        DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
         { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) mem[_k++] = e->key_descr; }
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
+        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
     if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && IS_DATA_INST_fn(args[0]) && args[0].u && sort_is_record(args[0])) {
         DATINST_t *di = (DATINST_t *)args[0].u;
         int n = di->type->nfields; if (n < 0) n = 0;
-        DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
         for (int _k = 0; _k < n; _k++) mem[_k] = di->fields[_k];
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, (_bid == BID_sortf) ? sortf_field_i(args, nargs) : 0); }
+        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(mem, _tmp, n, (_bid == BID_sortf) ? sortf_field_i(args, nargs) : 0); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
@@ -7587,10 +7587,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (n<=0) { *out=rt_make_list(NULL,0); return 1; }
         DESCR_t *arr=IS_DATA_ELEMS_fn(ea) ? (DESCR_t*)ea.ptr :NULL;
         if(!arr) { *out=rt_make_list(NULL,0); return 1; }
-        DESCR_t *sorted=rt_ws_alloc(n*sizeof(DESCR_t));
+        DESCR_t *sorted=rt_ws_alloc_descr((size_t)n);
         memcpy(sorted,arr,n*sizeof(DESCR_t));
         int field_i=(_bid == BID_sortf)?sortf_field_i(args, nargs):0;
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_i); }
+        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(sorted, _tmp, n, field_i); }
         *out=rt_make_list(sorted,n); return 1;
     }
     L_bidjmp_6322: ;
