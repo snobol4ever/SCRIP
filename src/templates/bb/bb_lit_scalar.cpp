@@ -88,6 +88,7 @@ std::string bb_lit_scalar() {
                        + x86("call", "rt_icn_cset_register", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int))rt_icn_cset_register)
                        + x86("pop", "rdx")
                        + x86("pop", "rax")
+                       + x86_rt_gc_poll()
                  : std::string())
              + x86_gamma()
              + x86_beta_trampoline()

@@ -351,6 +351,7 @@ static std::string bb_define_activate() {
       + x86("mov", "rdx", RDQ("rsi", AB_OFF_RES1))
       + x86("mov", "rsi", RDQ("rsi", AB_OFF_RES0))
       + x86("call", "mon_emit_return_bin", (uint64_t)(uintptr_t)(void *)mon_emit_return_bin)
+      + x86_rt_gc_poll()
       + x86_align_leave()
       + x86("def", L(5))
       + x86("mov", "rsi", ABSQ(RT_AB_ANCHOR))

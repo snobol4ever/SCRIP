@@ -13,5 +13,6 @@ std::string bb_cofail() {
     return x86("comment", "IR_COFAIL exhausted")
          + x86_alpha()
          + x86("call", "scrip_cofail", (uint64_t)(uintptr_t)(void *)scrip_cofail)
+         + x86_rt_gc_poll()
          + x86_omega();
 }
