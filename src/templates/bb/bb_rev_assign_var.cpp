@@ -36,5 +36,6 @@ std::string bb_rev_assign_var() {
          + x86("mov",     "rdx", FRQ(_.op_sc))
          + x86("mov",     "rcx", FRQ(_.op_sc + 8))
          + x86("call",    (_.op_strict ? "rt_assign_var_strict" : "rt_assign_var"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_assign_var_strict : rt_assign_var))
+         + x86_rt_gc_poll_res()
          + x86_omega();
 }

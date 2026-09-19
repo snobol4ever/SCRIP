@@ -14,7 +14,7 @@ conservative	hb_scan_interior_uses	2	0
 allocator	rt_gc_collect_calls_in_the_allocator	0	0
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-18 ceo, SCRIP 45611ca09 + d10113100: safe-points.unpolled 208 -> 132. THE cto's TWO STEP-4 BATCHES EARNED IT AND THE BASELINE DID NOT MOVE WITH THEM, so the ratchet went RED ON ORIGIN FOR EVERY SEAT -- arm (c) reading BETTER and refusing, exactly as designed. â THE RULE IS THE LANDING THAT EARNS AN IMPROVEMENT LOWERS THE BASELINE IN THE SAME COMMIT; this is the ceo lowering it after the fact because the landings are already on origin and a red on origin is everyone's. â­ NOTHING ABOUT THE CRITERION MOVED: same census, same spelling, same denominator of 210 -- 78 sites are polled where 2 were.
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-18 cto, SCRIP this landing: safe-points.unpolled 132 -> 131. THE SPILL-PAIR POLL (ARCH-GC 6.5b, x86_rt_gc_poll_res): bb_assign_global's NV_SET_fn path is an op_zres box whose result stays in rax:rdx, and it is the site whose BARE poll printed stk= against stk=B in CTO-76 -- a WRONG ANSWER, not a crash. It is polled now because the result is spilled as a DESCR cell under rsp across the poll and reloaded, and the collector's precise root phase already walks that range (measured: pop=seam ranges=1 bytes=4.2M). NOTHING ABOUT THE CRITERION MOVED: same census, same denominator of 210; the helper's name carries the rt_gc_poll spelling the census already reads, so no --poll-helper was needed.
-safe-points	unpolled	110	0
+safe-points	unpolled	109	0
 safe-points	unresolved	0	0
 callbacks	unwrapped	53	0
 callbacks	unwrapped_outbound	13	0
