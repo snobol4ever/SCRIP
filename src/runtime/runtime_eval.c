@@ -59,7 +59,7 @@ static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eva
 static void eval_cache_put(const char *s, eval_chain_fn fn) {
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
         int ncap = g_eval_cache_cap ? g_eval_cache_cap * 2 : 16;
-        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_ws_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
+        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
         for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn);
@@ -363,7 +363,7 @@ void rt_label_set_fn(const char *name, void *fn) {
     for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) { g_lbl_tab[i].fn = (eval_chain_fn)fn; return; }
     if (g_lbl_n >= g_lbl_cap) {
         int ncap = g_lbl_cap ? g_lbl_cap * 2 : 16;
-        lbl_ent_t *nt = (lbl_ent_t *)rt_ws_realloc(g_lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
+        lbl_ent_t *nt = (lbl_ent_t *)rt_wsb_realloc(g_lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
         if (!nt) return;
         g_lbl_tab = nt; g_lbl_cap = ncap;
     }

@@ -558,7 +558,7 @@ DESCR_t sort_fn(DESCR_t arr) {
         int n = src->hi - src->lo + 1;
         if (n <= 0) return arr;
         DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
-        const char **strs = rt_ws_alloc(n * sizeof(char *));
+        const char **strs = rt_pvec_alloc((size_t)n);
         char *bufblk = rt_wsb_alloc((size_t)n * 64);
         for (int i = 0; i < n; i++) { vals[i] = src->data[i]; strs[i] = tbl_key_str(vals[i], bufblk + (size_t)i * 64, 64); }
         for (int i = 1; i < n; i++) {
@@ -580,7 +580,7 @@ DESCR_t sort_fn(DESCR_t arr) {
     int n = 0; TBPAIR_t *e;
     TBL_FOREACH(tbl, e) n++;
     if (n == 0) return FAILDESCR;
-    const char **keys = rt_ws_alloc(n * sizeof(char *));
+    const char **keys = rt_pvec_alloc((size_t)n);
     DESCR_t *key_descrs = rt_ws_alloc_descr((size_t)n);
     DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
     int idx = 0;

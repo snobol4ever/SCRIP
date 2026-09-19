@@ -619,8 +619,8 @@ static int load_names_file_bin(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     int   cap = 64;
-    char **names = (char **)rt_ws_alloc(cap * sizeof(char *));
-    int   *lens  = (int  *)rt_ws_alloc(cap * sizeof(int));
+    char **names = (char **)rt_pvec_alloc(cap);
+    int   *lens  = (int  *)rt_wsb_alloc(cap * sizeof(int));
     if (!names || !lens) { fclose(f); return -1; }
     int n = 0;
     char *line = NULL; size_t lcap = 0;
@@ -630,8 +630,8 @@ static int load_names_file_bin(const char *path) {
         if (got > 0 && line[got-1] == '\r') { line[got-1] = '\0'; got--; }
         if (n == cap) {
             cap *= 2;
-            names = (char **)rt_ws_realloc(names, cap * sizeof(char *));
-            lens  = (int  *)rt_ws_realloc(lens,  cap * sizeof(int));
+            names = (char **)rt_pvec_realloc(names, cap);
+            lens  = (int  *)rt_wsb_realloc(lens,  cap * sizeof(int));
             if (!names || !lens) { fclose(f); ct_drop(line); return -1; }
         }
         char *copy = (char *)rt_wsb_alloc((size_t)got + 1);
@@ -667,8 +667,8 @@ static uint32_t intern_name_bin(const char *p, int len) {
     }
     if (g_bin_n_names == g_bin_names_cap) {
         int new_cap = g_bin_names_cap ? g_bin_names_cap * 2 : 64;
-        char **nn = (char **)rt_ws_realloc(g_bin_names, (size_t)new_cap * sizeof(char *));
-        int   *nl = (int  *)rt_ws_realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
+        char **nn = (char **)rt_pvec_realloc(g_bin_names, (size_t)new_cap);
+        int   *nl = (int  *)rt_wsb_realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
         if (!nn || !nl) {
             if (nn) g_bin_names = nn;
             if (nl) g_bin_name_lens = nl;
@@ -1675,7 +1675,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             a->data = rt_ws_alloc_descr((size_t)n);
             int row = 0;
             TBPAIR_t *e;
-            TBPAIR_t **ord = rt_ws_alloc((size_t)n * sizeof(TBPAIR_t *));
+            TBPAIR_t **ord = rt_pvec_alloc((size_t)n);
             for (unsigned oi = 0; oi < tbl->ord_len && row < n; oi++) { TBPAIR_t *pe = table_find_pair_d(tbl, tbl->ord[oi]); if (pe) ord[row++] = pe; }
             if (row < n) { TBL_FOREACH(tbl, e) { if (row >= n) break; int seen = 0; for (int q = 0; q < row; q++) if (ord[q] == e) { seen = 1; break; } if (!seen) ord[row++] = e; } }
             for (int oi = 0; oi < row; oi++) { e = ord[oi];

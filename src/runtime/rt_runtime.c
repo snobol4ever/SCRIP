@@ -14,7 +14,6 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include "../../parsers/prolog/pl_cell.h"
-#define PL_CELL_ALLOC(n) rt_ws_alloc(n)
 #include "../ir/dtp.h"
 extern const char *Σ;
 extern int         Δ;
@@ -76,7 +75,7 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
     if (matched && is_repl && subj_name && subj_name[0]) {
         const char * repl = repl_lit ? repl_lit : ""; int repl_len = (int)strlen(repl);
         int new_len = m_start + repl_len + (subj_len - m_end);
-        char * new_s = (char *)rt_ws_alloc((size_t)new_len + 1);
+        char * new_s = (char *)rt_wsb_alloc((size_t)new_len + 1);
         memcpy(new_s, subj_str, (size_t)m_start);
         memcpy(new_s + m_start, repl, (size_t)repl_len);
         memcpy(new_s + m_start + repl_len, subj_str + m_end, (size_t)(subj_len - m_end));
@@ -253,7 +252,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         size_t len = strlen(buf);
         if (len > 0 && buf[len-1] == '\n') buf[--len] = '\0';
         if (len > 0 && buf[len-1] == '\r') buf[--len] = '\0';
-        char *cp = rt_ws_alloc(len + 1); memcpy(cp, buf, len + 1);
+        char *cp = rt_wsb_alloc(len + 1); memcpy(cp, buf, len + 1);
         *out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = cp };
         return 1;
     }
@@ -276,7 +275,7 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         else if (IS_CSET_fn(sobj)) { extern int kw_cset_len(const char *); int kn = kw_cset_len(s); slen = (kn >= 0) ? (int64_t)kn : (int64_t)strlen(s); }
         else slen = (int64_t)descr_slen(sobj);
         if (!s || idx >= slen) return 0;
-        char *ch = rt_ws_alloc(2);
+        char *ch = rt_wsb_alloc(2);
         ch[0] = s[idx];
         ch[1] = '\0';
         *out = (DESCR_t){ .v = DT_S, .slen = 1, .s = ch };
@@ -308,7 +307,7 @@ void rt_scan_splice_empty(const char *subj_name, int m_start, int m_end)
     if (sv.v == DT_S || sv.v == DT_SNUL) { s = sv.s ? sv.s : ""; slen = sv.slen ? (int)sv.slen : (int)strlen(s); }
     if (m_start < 0 || m_end < m_start || m_end > slen) return;
     int new_len = m_start + (slen - m_end);
-    char *ns = (char *)rt_ws_alloc((size_t)new_len + 1);
+    char *ns = (char *)rt_wsb_alloc((size_t)new_len + 1);
     if (!ns) return;
     if (m_start > 0) memcpy(ns, s, (size_t)m_start);
     if (slen - m_end > 0) memcpy(ns + m_start, s + m_end, (size_t)(slen - m_end));

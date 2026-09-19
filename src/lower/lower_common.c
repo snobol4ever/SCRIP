@@ -66,7 +66,7 @@ static const char * norm_charseq(DESCR_t d) {
     if (!IS_STR_fn(d)) return NULL;
     const char * s = d.s ? d.s : "";
     if (!strchr(s, '\x01')) return s;
-    size_t cap = strlen(s) + 1; char * out = (char *) rt_ws_alloc(cap); size_t oi = 0;
+    size_t cap = strlen(s) + 1; char * out = (char *) rt_wsb_alloc(cap); size_t oi = 0;
     const char * seg = s;
     for (;;) {
         const char * nx = strchr(seg, '\x01');
@@ -154,7 +154,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             const char *rs = rs_d.s ? rs_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             size_t rl = rs_d.slen > 0 ? (size_t)rs_d.slen : strlen(rs);
-            char *buf = rt_ws_alloc(ll + rl + 1);
+            char *buf = rt_wsb_alloc(ll + rl + 1);
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
         }
@@ -164,9 +164,9 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             const char *ls = ls_d.s ? ls_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             long cnt = IS_INT_fn(rv) ? rv.i : (IS_REAL_fn(rv) ? (long)rv.r : 0);
-            if (cnt < 1 || ll == 0) { DESCR_t re; re.v = DT_S; re.slen = 0; re.s = rt_ws_alloc(1); re.s[0] = '\0'; return re; }
+            if (cnt < 1 || ll == 0) { DESCR_t re; re.v = DT_S; re.slen = 0; re.s = rt_wsb_alloc(1); re.s[0] = '\0'; return re; }
             size_t total = ll * (size_t)cnt;
-            char *buf = rt_ws_alloc(total + 1);
+            char *buf = rt_wsb_alloc(total + 1);
             for (long k = 0; k < cnt; k++) memcpy(buf + (size_t)k * ll, ls, ll);
             buf[total] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)total; r2.s = buf; return r2; }
@@ -221,7 +221,7 @@ void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v-
 void * lc_vec_push(lc_vec * v, const void * elem) {
     if (v->n >= v->cap) {
         int nc = v->cap ? v->cap * 2 : 8;
-        void * nd = v->data ? rt_ws_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_ws_alloc((size_t) nc * (size_t) v->esz);
+        void * nd = v->data ? rt_wsb_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_wsb_alloc((size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
         v->data = nd; v->cap = nc;
     }
@@ -282,7 +282,7 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
                       if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }
         size_t la = strlen(g_bb_src.src[i]);
         size_t lb = strlen(src);
-        char * j = (char *) rt_ws_alloc(la + lb + 2);
+        char * j = (char *) rt_wsb_alloc(la + lb + 2);
         if (!j) return;
         memcpy(j, g_bb_src.src[i], la); j[la] = '\n'; memcpy(j + la + 1, src, lb); j[la + 1 + lb] = 0;
         g_bb_src.src[i] = lp_strdup(j);
@@ -290,9 +290,9 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
     }
     if (g_bb_src.n >= g_bb_src.max) {
         int m = g_bb_src.max ? g_bb_src.max * 2 : 256;
-        const IR_t ** a = (const IR_t **) rt_ws_realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
-        const char ** b = (const char **) rt_ws_realloc((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
-        int * c = (int *) rt_ws_realloc((void *) g_bb_src.line, (size_t) m * sizeof(int));
+        const IR_t ** a = (const IR_t **) rt_wsb_realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
+        const char ** b = (const char **) rt_wsb_realloc((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
+        int * c = (int *) rt_wsb_realloc((void *) g_bb_src.line, (size_t) m * sizeof(int));
         if (!a || !b || !c) return;
         g_bb_src.nd = a; g_bb_src.src = b; g_bb_src.line = c; g_bb_src.max = m;
     }
