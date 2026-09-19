@@ -2,6 +2,7 @@
 #ifndef ZETA_STORAGE_H
 #define ZETA_STORAGE_H
 #include <stdio.h>
+#include <stdint.h>
 #include "IR.h"
 enum { ZK_DESCR = 0, ZK_RAW = 1, ZK_PTR_GC = 2, ZK_PTR_CODE = 3 };
 enum { ZSC_FN = 0, ZSC_GROUP = 1, ZSC_ITER = 2, ZSC_PAT = 3, ZSC_COEXPR = 4 };
@@ -30,6 +31,7 @@ int          zls_g_zeta_mark(const IR_graph_t * g);
 int          zls_g_locals(const IR_graph_t * g);
 int          zls_node_bytes(const IR_t * nd);
 int          zls_g_vslot_count(const IR_graph_t * g);
+int          zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts);
 const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off);
 void         zls_dump(FILE * fp);
 #endif

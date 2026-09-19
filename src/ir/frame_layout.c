@@ -108,7 +108,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "list.elem", nd);
         return 0 + nd->n_operands; }
     case IR_SCAN_ENTER:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.leave out3 sigma (transient reg out-area; dead at safe points)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "scan.leave out3 sigma (the OUTER subject pointer, held here across the whole inner scan body and reloaded into r13 at leave: a collected-heap pointer the walker must relocate -- ZK_RAW until 2026-09-19 read it as dead at safe points, and the walker-reporter measured it live at every collection of a nested scan, CTO-88)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_MATCH_BEGIN:
         zls_field(scope_id, off + 4, 4, ZK_RAW, 0, "head.cursor pad (unused upper half of the quad)", nd); zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor (ZB-FC-3d granted: the LIVE anchor lives in HEAD's self-pushed 32B rsp cell at [rsp+0] via the op_fc_wbytes window; this FLAT +0 then holds the RELEASE-stashed match START read by IR_MATCH_REPLACE -- same logical offset, window-disambiguated, so REPLACE's template is unchanged both paths)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved the rsp mark() pointer; ZB-FC-3d granted: cell-resident at [rsp+8])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (retired ALLOC-port era: saved the rsp mark() cursor; released by head's own omega-choke on failure / IR_MATCH_END on success — the RSP-carve twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent.  ZB-FC-3d granted: cell-resident at [rsp+16] holding the PRE-PUSH rsp, so the S10e unwind releases HEAD's cell and every suspended pattern cell in one mov)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_END when the statement carries a replacement, read by IR_MATCH_REPLACE; ZB-FC-3d: FLAT on both paths -- post-unwind lifetime)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "head.dcap_mark (REG-6 PEND-PROMOTE: α saves live-r12 pend top = this match's MARK; ω/RELEASE truncate r12 from it — the cell [RT_DCAP_TOP] is now seed-source only, prologue-read, never written mid-match; ZK_RAW — points into the base-pinned dcap island, never GC-moved.  ZB-FC-3d: FLAT on both paths -- RELEASE's post-unwind pump reads it after the match dies)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "head.incoming____ (DEAD at REG-2 — ___ is no longer the pend cursor, nothing saves or restores here; slot left ALLOCATED v1 so op_off accounting does not ripple, reclaim is a named follow-up.  Re-tenants at REG-3 as the frame-___ era's saved-outer-___ if the wire-header [+24] route changes)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "head.sigma_save (PATCTX, Lon directive 2026-07-29: HEAD saves the OUTER match's Σ=r13 at α before rt_match_enter installs the new subject; BOTH exits restore -- head's own omega-choke on failure, release_pump's tail on success -- and re-sync the C-side Σ/Σlen mirror via rt_match_ctx_restore, so nested matches (deferred *F() evaluation, EVAL/CODE, pump-committed *VAR proc bodies that themselves match) are LIFO-sound by construction.  ZK_RAW deliberately: Σ is register-resident today and registers are GC-invisible regardless; when ZHEAP moves strings THIS slot is exactly where a suspended subject becomes a findable root -- retag interior-PTR_GC in that rung.  KNOWN BYPASS, named not hidden: pat_seal kills (ABORT, FENCE-seal) jump straight to fJ and skip the omega-choke, so they skip this restore the same way they already skip the zls unwind and CAS pop -- the ___ match-frame rung is what closes that class)", nd); zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "head.delta_save (PATCTX: outer δ=r14)", nd); zls_field(scope_id, off + 64, 8, ZK_RAW, 0, "head.Delta_save (PATCTX: outer Δ=r15)", nd); zls_field(scope_id, off + 72, 8, ZK_RAW, 0, "head.capgen_save (PATCTX-2: the OUTER match g_cap_gen id, read at alpha before rt_match_enter draws a fresh id from the monotonic well; both exits restore it through rt_match_ctx_restore -- nest1 autopsy: the inner match stamp invalidated the outer SAVE bracket, pop no-opd, top returned 0, R captured [0,end).  Occupies the former pad quad, so the 5-quad grant and every downstream offset are unchanged)", nd); return 5;
     case IR_MATCH_SPAN:
@@ -835,6 +835,32 @@ int zls_g_resume_by_name(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "gc_frame_map.h"
+_Static_assert(GC_LAY_DESCR == ZK_DESCR && GC_LAY_RAW == ZK_RAW && GC_LAY_PTR_GC == ZK_PTR_GC && GC_LAY_PTR_CODE == ZK_PTR_CODE, "a layout quad's kind IS the zls_field kind: the emitter seals zls_field_t.kind unchanged after the map's four quads and the collector reads it back as GC_LAY_*, so the two enumerations must agree by value (ARCH-GC section 6.2h)");
+typedef struct { int off; int size; unsigned char kind; } zls_layq_t;
+static zls_layq_t zlq[FL_MAX_FIELDS];
+static int zls_layq_cmp(const void * a, const void * b) { const zls_layq_t * x = (const zls_layq_t *)a; const zls_layq_t * y = (const zls_layq_t *)b; if (x->off != y->off) return x->off < y->off ? -1 : 1; if (x->size != y->size) return x->size > y->size ? -1 : 1; return (int)x->kind - (int)y->kind; }
+int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts) {
+    zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; int n = 0, m = 0, gaps = 0, conf = 0, expect = 0;
+    if (gap_bytes) *gap_bytes = 0;
+    if (conflicts) *conflicts = 0;
+    if (!r || r->first_scope < 0) return -1;
+    for (int f = 0; f < zf_n; f++) if (zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && zf[f].size > 0 && zf[f].off >= 0) zlq[n++] = (zls_layq_t){ zf[f].off, zf[f].size, zf[f].kind };
+    qsort(zlq, (size_t)n, sizeof zlq[0], zls_layq_cmp);
+    for (int i = 0; i < n; i++) {
+        int off = zlq[i].off, end = zlq[i].off + zlq[i].size; unsigned kind = zlq[i].kind;
+        if (off < expect) { unsigned lk = m > 0 ? GC_LAY_KIND(out[m - 1]) : 255u; if (lk != kind) conf++; if (end <= expect) continue; off = expect; }
+        if (off > expect) gaps += off - expect;
+        if (m > 0 && GC_LAY_KIND(out[m - 1]) == kind && GC_LAY_OFF(out[m - 1]) + GC_LAY_SIZE(out[m - 1]) == off && GC_LAY_SIZE(out[m - 1]) + (end - off) <= 0xFFF0) out[m - 1] = GC_LAY_Q(GC_LAY_OFF(out[m - 1]), kind, GC_LAY_SIZE(out[m - 1]) + (end - off));
+        else { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(off, kind, end - off); }
+        expect = end;
+    }
+    if (r->region > expect) gaps += r->region - expect;
+    if (gap_bytes) *gap_bytes = gaps;
+    if (conflicts) *conflicts = conf;
+    return m;
+}
 int zls_g_zeta_mark(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->zeta_mark_off : -1; }
 int zls_g_vslot_count(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->n_vslots : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

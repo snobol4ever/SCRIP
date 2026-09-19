@@ -52,5 +52,47 @@ for w in w.sno g.icn; do
     else echo "  arm 3 RED [$w]: sniff_only=$so -- the sniff is visiting cells the type tag says are not references"; bad=1; fi
     grep 'GC-MAPS' "$W/onerr_$w.txt" | tail -4 | sed 's/^/      /'
 done
+# ⭐ ARMS 4-6 (cto 2026-09-19, CTO-88): THE FRAME WALKER AS A REPORTER, beside the sweep. Every graph's map now seals its
+# zls kind table after the four quads (flag GC_FRAME_MAP_LAYOUT, the fourth quad = map_off), and behind the same knob the
+# collector walks every swept segment FRAME BY FRAME through the DT_MAP cells: the interior by the table (slot by kind),
+# the words between frames as spine, the words above the ROOT frame as residue. It prints one [GC-WALK] line per
+# population per collection. arm 4: every segment finds its frames through their cells (nomap=0), every frame's interior
+# is tabled (notab=0) and fully covered (i_gap=0). arm 5, THE FAIL-ONCE THAT IS A CURE: the nested-scan witness holds the
+# OUTER subject pointer in scan-enter's save slot across the whole inner scan; registered ZK_RAW ("dead at safe points")
+# it read i_raw_heap=1 at every one of 15101 collections on the uncured tree (2026-09-19); retagged ZK_PTR_GC it reads
+# i_raw_heap=0 and i_ptr_heap>=1, both media, answer = icont. arm 6: every installed map carries a layout in both media.
+for w in w.sno g.icn; do
+    e="$W/onerr_$w.txt"; n=$(grep -c '^\[GC-WALK\] ' "$e")
+    if [ "$n" -eq 0 ]; then echo "  arm 4 RED [$w]: no [GC-WALK] line -- the frame walker did not run beside the sweep"; bad=1; continue; fi
+    fr=$(grep '^\[GC-WALK\] ' "$e" | grep -o 'frames=[0-9]*' | sed 's/.*=//' | sort -n | head -1)
+    nomap=$(grep '^\[GC-WALK\] ' "$e" | grep -o 'nomap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    notab=$(grep '^\[GC-WALK\] ' "$e" | grep -o 'notab=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    gap=$(grep '^\[GC-WALK\] ' "$e" | grep -o 'i_gap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    if [ "${fr:-0}" -ge 1 ] && [ "${nomap:-1}" -eq 0 ] && [ "${notab:-1}" -eq 0 ] && [ "${gap:-1}" -eq 0 ]; then echo "  arm 4 PASS [$w]: $n walk line(s); every segment found a frame through its cell (min frames=$fr), notab=0, i_gap=0 -- every interior read by its kind table"
+    else echo "  arm 4 RED [$w]: frames>=${fr:-0} nomap=${nomap:-?} notab=${notab:-?} i_gap=${gap:-?}"; bad=1; fi
+done
+NS="$ROOT/scripts/gc_witnesses/hb_scan_nested.icn"; NSREF="$ROOT/scripts/gc_witnesses/hb_scan_nested.ref"
+walk_arm5() {
+    lbl="$1"; shift
+    "$@" > "$W/ns_out.txt" 2> "$W/ns_err.txt"; r=$?
+    c=$(grep -c '^\[GC-WALK\] ' "$W/ns_err.txt")
+    rh=$(grep '^\[GC-WALK\] ' "$W/ns_err.txt" | grep -o 'i_raw_heap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    ph=$(grep '^\[GC-WALK\] ' "$W/ns_err.txt" | grep -o 'i_ptr_heap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    if [ "$r" -ne 0 ] || ! cmp -s "$W/ns_out.txt" "$NSREF"; then echo "  arm 5 RED [$lbl]: rc=$r answer=[$(tail -1 "$W/ns_out.txt")] oracle=[$(cat "$NSREF")]"; bad=1; return; fi
+    if [ "$c" -lt 1 ]; then echo "  arm 5 RED [$lbl]: no collection observed under the reporter"; bad=1; return; fi
+    if [ "${rh:-1}" -ne 0 ]; then echo "  arm 5 RED [$lbl]: i_raw_heap=$rh -- a RAW-kinded frame slot holds a collected-heap pointer the typed walk would not relocate (the scan-enter sigma save read exactly this on the uncured tree)"; bad=1; return; fi
+    if [ "${ph:-0}" -lt 1 ]; then echo "  arm 5 RED [$lbl]: i_ptr_heap=${ph:-0} -- the retagged sigma save never held a heap pointer, so this arm graded nothing"; bad=1; return; fi
+    echo "  arm 5 PASS [$lbl]: $c collection(s), i_raw_heap=0, i_ptr_heap>=1, answer = icont"
+}
+walk_arm5 "m3" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout 300 "$ROOT/scrip" "$NS"
+if "$ROOT/scrip" --compile -o "$W/ns.s" "$NS" < /dev/null 2>"$W/nsc.txt" && gcc "$W/ns.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ns.m4" 2>>"$W/nsc.txt"; then
+    walk_arm5 "m4" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout 300 "$W/ns.m4"
+else echo "  arm 5 RED [m4]: the witness did not compile or link -- $(tail -1 "$W/nsc.txt")"; bad=1; fi
+for w in w.sno g.icn; do
+    ( cd "$W" && SCRIP_GC_MAPS_DUMP=1 timeout 60 "$ROOT/scrip" "$w" > /dev/null 2> "$W/dump_$w.txt" )
+    nm=$(grep -c '^\[GC-MAPTAB\] graph=' "$W/dump_$w.txt"); nl=$(grep -c '^\[GC-MAPTAB-LAYOUT\] ' "$W/dump_$w.txt")
+    if [ "$nm" -ge 1 ] && [ "$nm" -eq "$nl" ]; then echo "  arm 6 PASS [$w]: $nm installed map(s), $nl with a kind table"
+    else echo "  arm 6 RED [$w]: $nm installed map(s) but $nl kind table(s) -- a frame the walker cannot read by kind"; bad=1; fi
+done
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_maps_reporter_runs_beside_the_scan]: the step-3 reporter is not measuring"; exit 1; fi
-echo "GATE PASS(0) [gc_maps_reporter_runs_beside_the_scan]: reporter silent when off, censuses two frontends by population, sniff_only=0 on both"
+echo "GATE PASS(0) [gc_maps_reporter_runs_beside_the_scan]: reporter silent when off, censuses two frontends by population, sniff_only=0 on both; the frame walker finds every frame through its cell and every interior by its kind table, and the scan-enter sigma save is a typed pointer slot (6 arms)"

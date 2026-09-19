@@ -2542,6 +2542,8 @@ extern "C" int sn4_choice_rbp_off(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
 static uint64_t g_blob_lay[512]; static int g_blob_lay_n = 0;
+static uint64_t g_zls_lay[32768]; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
+extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *);
 static void blob_lay_push(int off, unsigned kind, int size) { if (g_blob_lay_n < 512) g_blob_lay[g_blob_lay_n++] = GC_LAY_Q(off, kind, size); }
 static void blob_layout_slot(const IR_t * m, int k, int units) {
     extern int zdp_scratch_cell(const IR_t *); int o0 = frame_slot_off(2, k); (void)units;
@@ -2959,22 +2961,27 @@ static void emit_gc_map_data(const char * fam) {
       else { const char * gn = g_emit_cfg ? zls_graph_name_get(g_emit_cfg) : (const char *)0; fam = (gn && *gn) ? gn : fam; } }
     if (!g_gc_map_pending) { g_gc_map_last_off = -1; return; }
     g_gc_map_pending = 0;
+    const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_zls_lay_gaps = 0; g_zls_lay_conf = 0;
+    if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = g_blob_lay; lay_n = g_blob_lay_n; }
+    else if (g_emit_cfg) { int gaps = 0, conf = 0; int n = zls_g_layout_q(g_emit_cfg, g_zls_lay, 32768, &gaps, &conf);
+        if (n > 32768) { fprintf(stderr, "FATAL emit_gc_map_data: graph %s needs more than 32768 kind-table entries -- the sealed table is bounded and a truncated table is a guess (ARCH-GC section 6.2h)\n", fam ? fam : "?"); abort(); }
+        if (n >= 0) { lay = g_zls_lay; lay_n = n; g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_zls_lay_gaps = gaps; g_zls_lay_conf = conf; } }
     emit_sep_rule('-'); emit_label_define_bb(&g_gc_map_lbl);
     uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)(g_gc_map_fb + (gc_maptab_plant_on() ? 16 : 0)) << 32);
     uint64_t q1 = (uint64_t)(uint32_t)g_gc_map_hdr | ((uint64_t)g_gc_map_flags << 32);
     if (g_is_text) {
         char eb[512]; { int ei = 0; for (const char * q = fam ? fam : "?"; *q && ei < 508; q++) { if (*q == '\\' || *q == '"') eb[ei++] = '\\'; eb[ei++] = *q; } eb[ei] = 0; }
-        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name);
+        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad %d\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name, g_gc_map_off);
         emit_text_n(b, (size_t)n);
-        if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { n = snprintf(b, sizeof b, " .quad %d\n", g_blob_lay_n); emit_text_n(b, (size_t)n); for (int i = 0; i < g_blob_lay_n; i++) { n = snprintf(b, sizeof b, " .quad %llu\n", (unsigned long long)g_blob_lay[i]); emit_text_n(b, (size_t)n); } }
+        if (lay) { n = snprintf(b, sizeof b, " .quad %d\n", lay_n); emit_text_n(b, (size_t)n); for (int i = 0; i < lay_n; i++) { n = snprintf(b, sizeof b, " .quad %llu\n", (unsigned long long)lay[i]); emit_text_n(b, (size_t)n); } }
         n = snprintf(b, sizeof b, "%s_s: .string \"%s\"\n", g_gc_map_lbl.name, eb);
         emit_text_n(b, (size_t)n); g_gc_map_last_off = 0;
     } else {
-        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64(0);
-        if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { bb_emit_u64((uint64_t)g_blob_lay_n); for (int i = 0; i < g_blob_lay_n; i++) bb_emit_u64(g_blob_lay[i]); }
+        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64((uint64_t)(uint32_t)g_gc_map_off);
+        if (lay) { bb_emit_u64((uint64_t)lay_n); for (int i = 0; i < lay_n; i++) bb_emit_u64(lay[i]); }
         g_gc_map_last_off = g_gc_map_lbl.offset;
     }
-    if (gc_maps_report_on() && (g_gc_map_flags & GC_FRAME_MAP_BLOB)) { fprintf(stderr, "[GC-MAP-LAYOUT] graph=%s n=%d", fam ? fam : "?", g_blob_lay_n); for (int i = 0; i < g_blob_lay_n; i++) fprintf(stderr, " %d:%u:%d", GC_LAY_OFF(g_blob_lay[i]), GC_LAY_KIND(g_blob_lay[i]), GC_LAY_SIZE(g_blob_lay[i])); fprintf(stderr, "\n"); }
+    if (gc_maps_report_on() && lay) { fprintf(stderr, "[GC-MAP-LAYOUT] graph=%s n=%d", fam ? fam : "?", lay_n); for (int i = 0; i < lay_n; i++) fprintf(stderr, " %d:%u:%d", GC_LAY_OFF(lay[i]), GC_LAY_KIND(lay[i]), GC_LAY_SIZE(lay[i])); fprintf(stderr, " gaps=%d conflicts=%d\n", g_zls_lay_gaps, g_zls_lay_conf); }
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay_n = 0;
     if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = ct_strdup(g_gc_map_lbl.name);
     if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
