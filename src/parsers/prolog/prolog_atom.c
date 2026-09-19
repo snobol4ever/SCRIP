@@ -14,6 +14,7 @@ static char  **atom_names = NULL;
 static int     atom_len   = 0;
 static int     atom_cap   = 0;
 #define HT_INIT_SIZE  512
+extern void *rt_wsb_alloc(size_t);
 typedef struct { char *key; int id; } HEntry;
 static HEntry *ht      = NULL;
 static int     ht_size = 0;
@@ -28,7 +29,7 @@ static unsigned int ht_hash(const char *s) {
 static void ht_grow(int new_size) {
     HEntry *old = ht;
     int     old_size = ht_size;
-    ht = rt_ws_alloc(new_size * sizeof(HEntry));
+    ht = rt_wsb_alloc(new_size * sizeof(HEntry));
     memset(ht, 0, new_size * sizeof(HEntry));
     ht_size = new_size;
     ht_used = 0;
@@ -45,12 +46,12 @@ int prolog_atom_intern(const char *name) {
     if (!name) name = "";
     if (!ht) {
         ht_size = HT_INIT_SIZE;
-        ht = rt_ws_alloc(ht_size * sizeof(HEntry));
+        ht = rt_wsb_alloc(ht_size * sizeof(HEntry));
         memset(ht, 0, ht_size * sizeof(HEntry));
     }
     if (!atom_names) {
         atom_cap  = ATOM_INIT_CAP;
-        atom_names = rt_ws_alloc(atom_cap * sizeof(char *));
+        atom_names = rt_wsb_alloc(atom_cap * sizeof(char *));
         memset(atom_names, 0, atom_cap * sizeof(char *));
     }
     unsigned int h = ht_hash(name) & (ht_size - 1);
@@ -66,7 +67,9 @@ int prolog_atom_intern(const char *name) {
     if (atom_len >= atom_cap) {
         int old_cap = atom_cap;
         atom_cap *= 2;
-        atom_names = rt_ws_realloc(atom_names, atom_cap * sizeof(char *));
+        { char **grown = (char **)rt_wsb_alloc((size_t)atom_cap * sizeof(char *));
+          memcpy(grown, atom_names, (size_t)old_cap * sizeof(char *));
+          atom_names = grown; }
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
     char *copy = ct_strdup(name);
