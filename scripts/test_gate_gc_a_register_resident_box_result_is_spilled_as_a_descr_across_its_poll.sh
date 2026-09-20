@@ -122,9 +122,17 @@ else echo "⛔ ARM 3 RED: the allocating witness printed '$A3' under SCRIP_GC_ST
 # 16-byte one, so the four sigma sites read `open == 0` and the arm called four correct records broken.  The test
 # is now the EQUALITY the arm's own sentence states, over either size, and a size it does not know still reads
 # open == 0 and reds rather than passing in silence.
+# \u26d4 AND "EITHER SIZE" WAS STILL A WHITELIST, WHICH IS WHY IT BROKE A SECOND TIME THE SAME DAY (cfo
+# 2026-09-19): the defer road's protocol pair became THREE tagged cells against the cto's measured blocker, the
+# record opens with `sub rsp,48`, and a matcher spelled (16|32) read those four correct sites as open == 0 and
+# called them broken -- the identical misread this comment was written about, one size later. The matcher now
+# tests the PROPERTY the record must have rather than a list of sizes it has had: a positive multiple of 16 (the
+# multiple of 16 is what keeps rsp parity at the poll's call, which is the other thing a record owes). A size that
+# is not one still reads open == 0 and still reds, so nothing passes in silence, and the planted violation lowers
+# EVERY floor by displacement rather than by the two displacements someone happened to have seen.
 floor_below_cell() {
     awk '
-      /sub +rsp, +(16|32)$/ { o=$0; sub(/.*rsp, +/, "", o); open=o+0 }
+      /sub +rsp, +[0-9]+$/ { o=$0; sub(/.*rsp, +/, "", o); o=o+0; open=(o > 0 && o % 16 == 0) ? o : 0 }
       /lea +rcx, +\[rsp \+ [0-9]+\]/ { f=$0; sub(/.*\[rsp \+ /, "", f); sub(/\].*/, "", f); floor=f+0 }
       /call +rt_gc_point_arr_c/ { n++; if (floor != open || open == 0) bad++; floor=-1; open=0 }
       END { print (bad+0) " " (n+0) }
@@ -134,7 +142,7 @@ read -r FBAD FN < <(floor_below_cell "$T/w.s")
 if [ "${FN:-0}" -gt 0 ] && [ "${FBAD:-1}" -eq 0 ]; then
   echo "  ARM 4 THE INVERSION: all $FN record(s) hand the poll a floor EQUAL to the rsp the record opened at, so the cell at [rsp+0] lies BELOW the swept floor. Arm 1 measured the value surviving a moving collection; this arm says the sweep cannot be what relocated it, because the sweep walks [floor, stack top) and the cell is not in it. The relocation came from rt_gc_visit_descr through the shield array -- a TYPED visit -- so this cure SURVIVES the deletion of gc_zeta_frame (F6 step 3), which 6.5b's spill-PAIR did not."
 else echo "⛔ ARM 4 RED: $FBAD of ${FN:-0} record call(s) hand the poll a floor that is not the rsp the record opened at -- the cell is back inside the word-swept range, and it will be visited by nothing the moment the sweep is deleted"; RC=1; fi
-sed -e 's/lea\( *\)rcx,\( *\)\[rsp + 16\]/lea\1rcx,\2[rsp + 0]/' -e 's/lea\( *\)rcx,\( *\)\[rsp + 32\]/lea\1rcx,\2[rsp + 0]/' "$T/w.s" > "$T/lowfloor.s"
+sed -e 's/lea\( *\)rcx,\( *\)\[rsp + [0-9][0-9]*\]/lea\1rcx,\2[rsp + 0]/' "$T/w.s" > "$T/lowfloor.s"
 read -r PBAD PN < <(floor_below_cell "$T/lowfloor.s")
 if [ "${PBAD:-0}" -gt 0 ]; then echo "  ARM 4 planted-violation: lowering every floor to [rsp + 0] -- putting the cell back inside the sweep, which is exactly 6.5b -- makes $PBAD of $PN read RED against the same test"
 else echo "⛔ ARM 4 PLANTED-VIOLATION DID NOT TRIP: a floor lowered into the cell read GREEN"; RC=1; fi
