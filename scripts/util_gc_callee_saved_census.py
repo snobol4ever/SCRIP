@@ -390,6 +390,22 @@ PROVABLY_RAW = {"RSP", "IMM", "D32", "RIP", "LENGTH"}
 COPY = {"CELL", "POP", "REG", "ARITH", "LEA", "CALLERS"}
 CELL_PREFIX = "CELL:"
 HEAP = {"SUBJECT"}
+def bucket(k):
+    """\u26d4 PEEL EVERY CELL: PREFIX, NOT ONE (cfo 2026-09-19).  cell_class composes its class NAME recursively --
+    a reload out of a slot whose store came from a register that was itself reloaded out of a slot reads
+    CELL:CELL:POP -- and this bucket stripped ONE prefix, so CELL:CELL:POP left with a tail of CELL:POP that is in
+    no set and fell to "unclassified".  The SUMMARY prints unclassified as len(unc), which such a reading never
+    joins (census() files it in the COPY list), so two readings at rt_dcap_land_\u03b3/\u03c9 in the SNOBOL4
+    witness were counted in NEITHER of the two blocking arms: not in arm 5's copy ratchet, not in arm 3's
+    unclassified.  Measured, not reasoned: the copy LIST held 289 while this tally reported 287.  The nesting is
+    bounded at CELL:CELL:<leaf> by classify_def's depth>2 cut, so the loop terminates at the leaf class."""
+    t = k
+    while t.startswith(CELL_PREFIX): t = t[len(CELL_PREFIX):]
+    if t in HEAP: return "heap"
+    if t in PROVABLY_RAW or t == "ENTRY": return "raw"
+    if t in COPY: return "copy"
+    return "unclassified"
+
 
 def census(paths, alloc, out=print):
     tot_sites = 0
@@ -455,12 +471,6 @@ def report(paths, alloc, out=print):
         cs = classes.get(r, {})
         detail = " ".join(f"{k}={v}" for k, v in sorted(cs.items())) or "-"
         out(f"  {r}: live_across={la.get(r,0)}/{tot} (owned={owned.get(r,0)} passed_through={passed.get(r,0)})  owned_def_classes: {detail}")
-    def bucket(k):
-        t = k[len(CELL_PREFIX):] if k.startswith(CELL_PREFIX) else k
-        if t in HEAP: return "heap"
-        if t in PROVABLY_RAW or t == "ENTRY": return "raw"
-        if t in COPY: return "copy"
-        return "unclassified"
     tally = defaultdict(int)
     for r in CS:
         for k, v in classes.get(r, {}).items(): tally[bucket(k)] += v
@@ -490,6 +500,19 @@ def report(paths, alloc, out=print):
         by = defaultdict(int)
         for c in cop: by[(c[3], c[4])] += 1
         out("      " + "  ".join(f"{r}/{k}={v}" for (r, k), v in sorted(by.items())))
+        # \u26d4 NAMED BY FILE AND GRAPH, because a residual nobody can attribute is a residual nobody cures: the
+        # ratchet arm holds this count against a ceiling, and a seat that sees only the total cannot tell its own
+        # road's copies from another seat's.  Printed as a TALLY and never as line= records -- the spill-record gate
+        # reads every `<file>.s graph=... line=N rNN` line of this report as its HEAP coverage population, so a copy
+        # printed in that shape would enter that gate's population and be graded as a heap site.  (cfo 2026-09-19)
+        byf = defaultdict(int)
+        for c in cop: byf[(c[0], c[1])] += 1
+        out(f"      COPY RESIDUAL BY FILE AND GRAPH ({len(cop)} reading(s) over {len(byf)} graph(s), every one accounted for):")
+        pf = defaultdict(int)
+        for (f, g), v in byf.items(): pf[f] += v
+        for f in sorted(pf, key=lambda x: -pf[x]):
+            gs = sorted(((g, v) for (ff, g), v in byf.items() if ff == f), key=lambda x: -x[1])
+            out(f"      COPY {f} total={pf[f]}: " + " ".join(f"{g}={v}" for g, v in gs))
     for u in unc[:12]:
         out(f"      ⛔ UNCLASSIFIED {u[0]} graph={u[1]} line={u[2]} {u[3]} class={u[4]}  [{u[5]}]")
     varies = [(k, r) for k, d in per_graph.items() for r, v in d.items() if len(v) > 1]
@@ -501,10 +524,17 @@ def report(paths, alloc, out=print):
         f"would invent site-dependence.")
     for k, r in varies[:12]:
         out(f"      {k[0]} graph={k[1]} register={r}: live across one allocating return and dead across another")
-    out(f"SUMMARY sites={tot} raw={raw_n} copies={copy_n} heap={heap_n} unclassified={len(unc)} "
+    drift = tally["unclassified"] - len(unc)
+    if drift:
+        out(f"  \u26d4 INSTRUMENT REFUSAL: the class tally buckets {tally['unclassified']} owned reading(s) as unclassified "
+            f"while the unclassified LIST holds {len(unc)}.  The two are counts of the SAME class by two routes and a "
+            f"disagreement means a class name reached the tally that no bucket can place -- those readings are then in "
+            f"neither the copy ratchet nor the unclassified arm, which is the exact shape of a residual growing behind a "
+            f"green gate.  The census REFUSES rather than print a number it cannot reconcile.")
+    out(f"SUMMARY sites={tot} raw={raw_n} copies={copy_n} heap={heap_n} unclassified={len(unc)} bucket_unclassified={tally['unclassified']} "
         f"unknown_mnemonics={sum(unknown.values())} site_dependent_pairs={len(varies)} graphs={len(per_graph)} "
         f"unattributed_sites={unattr} files={len(paths)}")
-    return tot, la, owned, passed, classes, unc, cop, varies
+    return tot, la, owned, passed, classes, unc, cop, varies, drift
 """----------------------------------------------------------------------------------------------------------"""
 def main(argv):
     if "--selftest" in argv: return selftest()
@@ -533,9 +563,12 @@ def main(argv):
     if not paths:
         print("REFUSE(2): no .s to read (pass files, or --corpus)")
         return 2
-    tot, la, owned, passed, classes, unc, cop, varies = report(paths, alloc)
+    tot, la, owned, passed, classes, unc, cop, varies, drift = report(paths, alloc)
     if tot == 0:
         print("REFUSE(2): zero allocating call sites found -- the census measured nothing")
+        return 2
+    if drift:
+        print("REFUSE(2): the class tally and the unclassified list disagree -- see the INSTRUMENT REFUSAL above")
         return 2
     return 1 if unc else 0
 """----------------------------------------------------------------------------------------------------------"""
@@ -632,6 +665,26 @@ def selftest():
     varies = [(k, r) for k, dd in pg.items() for r, v in dd.items() if len(v) > 1]
     ck(any(r == "rbx" for _, r in varies),
        f"a register live across one allocating call of a graph and dead across another is reported as site-dependent, got {varies}")
+    open(p, "w").write(
+        " .text\n"
+        "cc_\u03b1:\n"
+        " mov rbp, rsp\n"
+        " pop rbx\n"
+        " mov qword ptr [rbp - 40], rbx\n"
+        " mov r13, qword ptr [rbp - 40]\n"
+        " mov qword ptr [rbp - 48], r13\n"
+        " mov r12, qword ptr [rbp - 48]\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r12\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    _tal = defaultdict(int)
+    for r in CS:
+        for k, v in classes.get(r, {}).items(): _tal[bucket(k)] += v
+    ck(classes.get("r12", {}).get("CELL:CELL:POP", 0) == 1,
+       f"PLANTED: a reload whose slot was stored from a register that was itself reloaded out of a slot composes the NESTED class CELL:CELL:POP, got {dict(classes.get('r12',{}))}")
+    ck(bucket("CELL:CELL:POP") == "copy" and _tal["copy"] == len(cop) and _tal["unclassified"] == len(unc),
+       f"PLANTED: the nested class is counted as a COPY and the tally reconciles with the lists -- one CELL: prefix peeled instead of every one hid it from BOTH blocking arms, got tally={dict(_tal)} copies={len(cop)} unclassified={len(unc)}")
     print(f"SELFTEST {ok[0]}/{ok[1]} arms green")
     return 0 if ok[0] == ok[1] else 1
 

@@ -95,7 +95,24 @@ export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
 #   and it falls when a site stops keeping a heap pointer in a callee-saved register across an allocating return --
 #   never because a count was uncomfortable.  The census's own rule stands: "it came from a tagged cell" is not an
 #   argument that a register is raw, it is the argument that the register needs a tag OF ITS OWN at the site.
-COPY_CEILING=${COPY_CEILING:-287}
+#   287 -> 289 (cfo 2026-09-19, row gc-rt-c-c-to-bb-entries-...; THE COUNT BECOMING HONEST, NOT THE CLASS GROWING,
+#   AND THE INSTRUMENT'S OWN TWO COUNTS DISAGREEING IS HOW IT WAS FOUND): the census composes a class NAME
+#   recursively -- a reload out of a slot whose store came from a register that was itself reloaded out of a slot
+#   reads CELL:CELL:POP -- and the tally that feeds THIS ceiling peeled ONE `CELL:` prefix, so such a reading left
+#   with a tail of CELL:POP, matched no set, and fell to the tally's "unclassified" bucket. The SUMMARY prints
+#   unclassified as the length of the unclassified LIST, which such a reading never joins (the census files it in the
+#   COPY list), so the two readings -- both r12 at rt_dcap_land_γ/ω in n27_match_end of the SNOBOL4 witness, this
+#   seat's own match-end road -- were counted by NEITHER blocking arm: not arm 5's ratchet, not arm 3's zero. The
+#   copy LIST held 289 while this ceiling was grading 287 and no arm could say so. Cured at the instrument: bucket()
+#   peels every prefix (hoisted to module scope so the selftest grades the REAL rule and not a second copy of it),
+#   the census REFUSES rc=2 when the tally and the list disagree, a 14th selftest arm plants a CELL:CELL:POP chain
+#   and reds on the one-prefix peel, and the SUMMARY carries bucket_unclassified= so the two counts are visible side
+#   by side in the one line the gates parse. NO NEW SITE, NO NEW REGISTER, NO NEW DEFINING FORM: 612 sites, raw 372,
+#   heap 6 are unchanged from 41323bc8e -- only the two readings that were always there and were never counted.
+#   ⛔ AND THE RESIDUAL IS NOW NAMED BY FILE AND GRAPH in the census report (`COPY <file> total=N: <graph>=n ...`),
+#   because a residual nobody can attribute is a residual nobody cures: 166 of the 289 are the deferred-pattern
+#   witness's primitive and capture roads, 43 the SNOBOL4 witness, and the rest the ceo's frontends.
+COPY_CEILING=${COPY_CEILING:-289}
 
 echo "  HOLDS: what sits in a callee-saved register at an allocating return is NAMED from the emitted code, not assumed from a paragraph -- and it is a property of the SITE, not of the graph, so it does not go in the per-graph map. gc_frame_map_t.reserved stays zero with no reader; the registers get a tag at the poll (section 6.5's spill record), which is the polls row's build."
 
