@@ -157,8 +157,74 @@ def supersede_marker(prov_before, key, when, measurer):
                                     "(superseded %s by %s; %s; util_score_row.py folded it forward" % (when, measurer, old), 1)
 
 
+# ⛔⭐⭐ EVERY REFUSAL ASSERTS ITS OWN "NOTHING WAS WRITTEN", AT ALL 44 die() SITES, BY CONSTRUCTION
+# (coo 2026-09-20, on the ceo's reported finding; row a-refused-score-row-write-still-moved-a-provenance-
+# stamp-on-a-row-nobody-measured).  THE REPORT AND WHAT IT TURNED OUT TO BE: the ceo saw a provenance stamp
+# move on the raku row -- tree, corpus, date and measurer all forward, the NUMBER unchanged -- in a sitting
+# whose only score-row runs had REFUSED and printed "NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both
+# untouched".  Measured here: those refusal paths are innocent (all three reproduce byte-identical, see the
+# selftest arms below), and the stamp was moved by a SUCCESSFUL raku/floor write whose reading did not change.
+# ⭐ THE ARM IS STILL THE RIGHT ONE AND THAT IS THE POINT.  Fourteen of this file's refusal messages PROMISE
+# byte-identity in words, and until now the promise was kept by four hand-written selftest arms covering four
+# of the paths -- i.e. the guarantee was a per-path habit, and the ten paths nobody had written an arm for
+# were asserting something no instrument had ever checked.  A promise printed at 14 sites and checked at 4 is
+# indistinguishable, to its reader, from one checked at 14.
+# ⛔ SO THE CHECK LIVES IN die() RATHER THAN IN N ARMS: one site, every refusal, no per-path maintenance, and
+# it CANNOT fall out of date as refusals are added -- which is the same reasoning _write_score_md records for
+# routing nine writers into one.  It never repairs and never hides the refusal: the refusal's own rc and text
+# are untouched, and the finding is printed BESIDE them.
+# ⭐ IT READS IN BOTH DIRECTIONS, because a refusal AFTER a deliberate write is a different animal from one
+# before it.  suite_sync's banner-failure die and the grid read-back die are both REAL partial states that
+# already say "⛔ PARTIAL" in prose; there the check CONFIRMS the prose and names the files, so PARTIAL stops
+# being an author's claim and becomes a measurement.  A file that moved with NO deliberate write behind it is
+# the defect the ceo described, and it is named as one.
+_REFUSAL_WATCH = {}          # path -> digest as of the last moment this process knows it to be unwritten
+_WROTE_DELIBERATELY = set()  # paths this process meant to write, so a later refusal is PARTIAL, not manufacture
+
+
+def _digest(path):
+    try:
+        import hashlib
+        return hashlib.md5(open(path, "rb").read()).hexdigest()
+    except OSError:
+        return None            # absent is a state, not an error: a first write creates the file
+
+
+def refusal_watch_arm():
+    """Record what the leaderboard files look like BEFORE this command can touch them."""
+    for _p in (SCORE_MD, SUITES_TSV):
+        _REFUSAL_WATCH[_p] = _digest(_p)
+
+
+def refusal_watch_wrote(path):
+    """Declare a write this command MEANT to make, and re-baseline it."""
+    _WROTE_DELIBERATELY.add(path)
+    _REFUSAL_WATCH[path] = _digest(path)
+
+
+def _refusal_watch_report():
+    moved = [p for p, d in _REFUSAL_WATCH.items() if d != _digest(p)]
+    if not moved:
+        return ""
+    undeclared = [p for p in moved if p not in _WROTE_DELIBERATELY]
+    out = []
+    if undeclared:
+        out.append("  ⛔⛔ AND THE REFUSAL ABOVE IS NOT TRUE OF %s: %s CHANGED ON DISK during this refused run,\n"
+                   "     with no deliberate write behind it. A refusal that half-writes is worse than none -- the file now\n"
+                   "     carries a stamp from a run that reported writing nothing, which is the ADRIFT class (a tree and a\n"
+                   "     measurer moving forward under a number nobody re-measured). ⛔ REVERT IT (git checkout the file)\n"
+                   "     AND REPORT THIS LINE: it is a defect in util_score_row.py, not in your invocation."
+                   % (("it" if len(undeclared) == 1 else "them"), ", ".join(sorted(undeclared))))
+    declared = [p for p in moved if p in _WROTE_DELIBERATELY]
+    if declared:
+        out.append("  ⛔ PARTIAL, MEASURED: %s WAS written before this refusal (its digest moved), so this run left the\n"
+                   "     board half-moved. The refusal text above is true only of the files NOT named here."
+                   % ", ".join(sorted(declared)))
+    return "\n" + "\n".join(out)
+
+
 def die(msg, rc=2):
-    sys.stderr.write("REFUSED(%d) util_score_row: %s\n" % (rc, msg))
+    sys.stderr.write("REFUSED(%d) util_score_row: %s%s\n" % (rc, msg, _refusal_watch_report()))
     raise SystemExit(rc)
 
 
@@ -250,6 +316,7 @@ def _write_score_md(lines, seeding=False):
             "than re-adding digits nobody measured in this sitting."
             % (", ".join(lost), lost[0]))
     open(SCORE_MD, "w", encoding="utf-8").write(new)
+    refusal_watch_wrote(SCORE_MD)   # a refusal AFTER this point is PARTIAL, and die() says so with the digest
 
 
 def git(repo, *args):
@@ -1044,7 +1111,7 @@ def write_grid_direct(a):
     if a.dry_run:
         print("WOULD REWRITE grid %s for %s\n  was: %s\n  now: %s" % (gkey, a.lang, gbefore, gnew))
         return 0
-    done = False
+    done, _gline_no = False, 0
     for gl, gline in enumerate(lines):
         if gline.startswith("| %s |" % a.lang):
             gc = [x.strip() for x in gline.strip().strip("|").split("|")]
@@ -1052,10 +1119,14 @@ def write_grid_direct(a):
                 gc[gi] = gnew
                 lines[gl] = "| " + " | ".join(gc) + " |"
                 done = True
+                _gline_no = gl + 1
                 print("SCORE.md: grid %s for %s rewritten in place (line %d)\n  was: %s\n  now: %s" % (gkey, a.lang, gl + 1, gbefore, gnew))
                 break
     if not done:
         die("internal: find_grid saw a %s row but no line matched it" % a.lang)
+    _un = unchanged_reading_note("grid %s" % gkey, a.lang, gbefore, gnew, "", "", _gline_no)
+    if _un:
+        print(_un)
     lines = mark_grid_stamp(lines)
     _write_score_md(lines)
     print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
@@ -1337,6 +1408,12 @@ def suite_sync(a, tree, dry_run, decided=None):
     if getattr(a, "criterion_changed", None):
         cmd += ["--criterion-changed", a.criterion_changed]
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    # ⛔ THE BANNER IS A SUBPROCESS, SO ITS WRITE IS DECLARED HERE ON ITS RC, NOT ASSUMED FROM THE CALL.
+    # A banner that moved the row and THEN failed is a real partial state, and the digest is what tells
+    # the two apart -- the message below has always called itself PARTIAL in prose about SCORE.md; now
+    # die() names which files actually moved, so PARTIAL is a measurement and not the author's claim.
+    if r.returncode == 0:
+        refusal_watch_wrote(SUITES_TSV)
     if r.returncode != 0:
         die("util_suite_banner.py --set %s %s %s failed rc=%d: %s\n        Row %s.\n"
             "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv was NOT -- this is the one case where the board\n"
@@ -1607,6 +1684,7 @@ def cmd_write(a):
                     "hand-edit the cell instead of trusting this writer:\n%s"
                     % (a.lang, a.column, len(still_lost), "\n".join("  - %s" % l for l in still_lost)))
         cells[idx] = new_text
+    _prov_before = cells[PROV_COL]
     cells[PROV_COL] = merge_prov(cells[PROV_COL], key, stamp)
     newline = "| " + " | ".join(cells) + " |"
     lines[i] = newline
@@ -1833,8 +1911,14 @@ def cmd_write(a):
             print("  ⚠ grid %s: no grid row for %s -- this write touches the display only" % (gkey, a.lang))
         print(suite_sync(a, suite_tree_stamp(), True, _decided))
         archive_board_line(a.text, _decided[0], a.measurer, suite_tree_stamp(), dry=True)
+        _un = unchanged_reading_note("display row", a.lang, before, cells[idx], _prov_before, cells[PROV_COL], i + 1, key)
+        if _un:
+            print(_un)
         print("  (DRY RUN -- nothing written)")
         return 0
+    _un = unchanged_reading_note("display row", a.lang, before, cells[idx], _prov_before, cells[PROV_COL], i + 1, key)
+    if _un:
+        print(_un)
     lines = mark_grid_stamp(lines)
     _write_score_md(lines)
     # ⛔ READ BOTH CELLS BACK: the display's and the grid's fraction for this suite must agree after the write, or the split state is
@@ -1862,6 +1946,63 @@ def cmd_write(a):
           + (" AND %s" % os.path.relpath(_arch, os.path.join(S4E, ".github")) if _arch else "")
           + " with the landing that carried this measurement.")
     return 0
+
+
+# ⛔⭐⭐ A WRITE WHOSE READING DID NOT MOVE STILL MOVES ITS STAMP, AND IT HAS TO SAY SO (coo 2026-09-20,
+# on the ceo's reported finding; row a-refused-score-row-write-still-moved-a-provenance-stamp-on-a-row-nobody-
+# measured).  THE OCCURRENCE, and it is the whole reason this function exists: the ceo found a one-line diff on
+# the raku row -- SCRIP `2d403670f` -> `5367103df`, corpus `fcfeb6a92` -> `8d4656ada`, 2026-09-13 17:59 ->
+# 2026-09-20 08:25, measurer hq_T -> ceo -- in a sitting where nothing he ran had measured raku, and every
+# score-row run had REFUSED saying "NOTHING WAS WRITTEN".  He read it, reasonably, as a refusal manufacturing
+# provenance, and reverted it.
+# ⭐ IT WAS NOT.  Reproduced here character for character by a SUCCESSFUL `--lang raku --column floor` write
+# whose --text was byte-identical to the cell already there: merge_prov restamps the clause, so tree, corpus,
+# date and measurer all move and the NUMBER does not.  The only writer of that cell is test_smoke_raku.sh, which
+# three gates invoke -- so a gate run had published a leaderboard row, and the publication was invisible BECAUSE
+# the reading had not changed.  A diff that shows only a stamp reads, to every reader, as bookkeeping.
+# ⛔ SO THE DEFECT IS NOT THE RESTAMP, WHICH IS HONEST -- the smoke really did run on the new tree and a
+# re-confirmation IS information.  The defect is that it was SILENT.  A write that moves four provenance fields
+# and no number is the one shape whose diff cannot be distinguished, by reading it, from a stamp manufactured by
+# something that measured nothing; and the ADRIFT class this board already tracks is exactly "a tree and a
+# measurer that moved under a number nobody re-measured".  The cure is not to suppress the restamp (that would
+# throw away a true re-confirmation and make the cell read older than it is) -- it is to make the writer NAME
+# the case, so the reader of the diff is told which of the two it is instead of having to guess.
+def prov_clause_for(prov, key):
+    """The `<key>:` clause of a provenance cell, or "".  ⛔ THE KEY MATTERS AND THE WHOLE CELL DOES NOT:
+    a prov cell holds one clause per column (`smoke:`, `board:`, `entries:`, `floor:` ...), so reading the
+    cell whole and taking its FIRST hash grades whichever clause happens to sort first -- which is how the
+    first draft of unchanged_reading_note reported "provenance unchanged" on the exact occurrence it was
+    written for: raku's cell leads with `smoke:`, whose tree had not moved, while `floor:` moved by four
+    fields.  Same clause-splitting rule as supersede_marker, which is why it is one function."""
+    for clause in (prov or "").split(";"):
+        mm = re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", clause)
+        if mm and mm.group(1) == key:
+            return clause
+    return ""
+
+
+def unchanged_reading_note(kind, lang, before, after, prov_before, prov_after, line_no, key=""):
+    """One loud line when a write re-stamps a cell it did not move.  Returns "" when the reading changed."""
+    if (before or "").strip() != (after or "").strip():
+        return ""
+    if key:
+        prov_before, prov_after = prov_clause_for(prov_before, key), prov_clause_for(prov_after, key)
+    fields = []
+    for label, rx in (("SCRIP tree", r"SCRIP `([0-9a-f]{7,40})`"), ("corpus", r"corpus `([0-9a-f]{7,40})`"),
+                      ("date", r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})"), ("measurer", r"·\s*\d{4}-\d{2}-\d{2}[^·]*·\s*([A-Za-z0-9_-]+)")):
+        b = re.findall(rx, prov_before or "")
+        a_ = re.findall(rx, prov_after or "")
+        if b and a_ and b[0] != a_[0]:
+            fields.append("%s %s -> %s" % (label, b[0], a_[0]))
+        elif a_ and not b:
+            fields.append("%s -> %s (none before)" % (label, a_[0]))
+    if not fields:
+        return "  ℹ reading unchanged and provenance unchanged -- this write is a no-op on %s %s (line %d)." % (kind, lang, line_no)
+    return ("  ⛔ READING UNCHANGED, STAMP REFRESHED -- %s %s (line %d): the cell's NUMBER is byte-identical to what\n"
+            "     was already there and this write moved only its provenance (%s).\n"
+            "     ⭐ That is a RE-CONFIRMATION, not a new measurement, and it is stated because a diff showing only a\n"
+            "     moved tree and date is otherwise indistinguishable from a stamp nothing measured (the ADRIFT class).\n"
+            "     If you did NOT just re-run the measurement behind this cell, revert this hunk." % (kind, lang, line_no, " · ".join(fields)))
 
 
 def mark_grid_stamp(lines):
@@ -2942,6 +3083,61 @@ def cmd_selftest(a):
             else:
                 print("SELFTEST FAIL: board-line archive -- p1=%r p2=%r p3=%r occurrences=%d" %
                       (_p1, _p2, _p3, _txt.count(_line))); ok = False
+        # ⛔⭐ THE REFUSAL SELF-CHECK, BOTH DIRECTIONS (coo 2026-09-20, the ceo's reported finding).
+        # Four hand-written arms above already prove byte-identity for four refusal paths.  These two
+        # prove the MECHANISM that now covers all 44, so adding a refusal no longer means remembering
+        # to add an arm -- and, just as important, that it does NOT fire on an honest refusal.
+        _rw_probe = os.path.join(d, "refusal_watch_probe.md")
+        open(_rw_probe, "w", encoding="utf-8").write("seed\n")
+        _saved_watch = dict(_REFUSAL_WATCH); _saved_wrote = set(_WROTE_DELIBERATELY)
+        try:
+            _REFUSAL_WATCH.clear(); _WROTE_DELIBERATELY.clear()
+            _REFUSAL_WATCH[_rw_probe] = _digest(_rw_probe)
+            if _refusal_watch_report() == "":
+                print("SELFTEST: a refusal with the file UNTOUCHED reports nothing extra (no false positive on an honest refusal)")
+            else:
+                print("SELFTEST FAIL: the refusal self-check fired on a file nobody wrote"); ok = False
+            open(_rw_probe, "a", encoding="utf-8").write("planted\n")
+            _rep = _refusal_watch_report()
+            if "NOT TRUE OF" in _rep and _rw_probe in _rep:
+                print("SELFTEST: a refusal AFTER an undeclared write is NAMED -- die() contradicts its own "
+                      "'NOTHING WAS WRITTEN' and says which file moved (all 44 refusal sites, by construction)")
+            else:
+                print("SELFTEST FAIL: an undeclared mutation before a refusal was not reported: %r" % _rep[:200]); ok = False
+            refusal_watch_wrote(_rw_probe)
+            open(_rw_probe, "a", encoding="utf-8").write("declared\n")
+            _rep2 = _refusal_watch_report()
+            if "PARTIAL, MEASURED" in _rep2 and "NOT TRUE OF" not in _rep2:
+                print("SELFTEST: a refusal after a DELIBERATE write reads PARTIAL, not manufacture -- the two are "
+                      "different animals and the digest is what tells them apart")
+            else:
+                print("SELFTEST FAIL: a declared write before a refusal did not read PARTIAL: %r" % _rep2[:200]); ok = False
+        finally:
+            _REFUSAL_WATCH.clear(); _REFUSAL_WATCH.update(_saved_watch)
+            _WROTE_DELIBERATELY.clear(); _WROTE_DELIBERATELY.update(_saved_wrote)
+        # ⛔⭐ AND THE NOTICE THAT WOULD HAVE ANSWERED THE ceo's QUESTION AT THE TIME: a write whose reading
+        # did not move must SAY it moved only the stamp, and must stay quiet when the reading really moved.
+        _pb = "smoke: SCRIP `aaaaaaaaa` · corpus `bbbbbbbbb` · 2026-09-13 17:59 CDT · hq_T; floor: SCRIP `2d403670f` · corpus `fcfeb6a92` · 2026-09-13 17:59 CDT · hq_T"
+        _pa = "smoke: SCRIP `aaaaaaaaa` · corpus `bbbbbbbbb` · 2026-09-13 17:59 CDT · hq_T; floor: SCRIP `5367103df` · corpus `8d4656ada` · 2026-09-20 08:25 CDT · ceo"
+        _same = unchanged_reading_note("display row", "raku", "smoke 10/10", "smoke 10/10", _pb, _pa, 128, "floor")
+        if ("READING UNCHANGED" in _same and "2d403670f -> 5367103df" in _same
+                and "fcfeb6a92 -> 8d4656ada" in _same and "hq_T -> ceo" in _same):
+            print("SELFTEST: an unchanged reading whose stamp moved is NAMED with all four fields "
+                  "(the ceo's own occurrence, replayed)")
+        else:
+            print("SELFTEST FAIL: unchanged-reading notice did not name the moved fields: %r" % _same[:300]); ok = False
+        # ⛔ THE KEY, NOT THE CELL: raku's prov cell LEADS with `smoke:`, whose tree did not move.  Reading
+        # the cell whole made the first draft of this notice report "provenance unchanged" on the very
+        # occurrence it was written for.  This arm holds the clause-keyed read that fixed it.
+        if "provenance unchanged" in unchanged_reading_note("display row", "raku", "x", "x", _pb, _pa, 128, "smoke"):
+            print("SELFTEST: the notice reads the clause for ITS OWN key -- an untouched `smoke:` clause reads untouched "
+                  "even while `floor:` moved in the same cell")
+        else:
+            print("SELFTEST FAIL: the unchanged-reading notice is reading the whole prov cell, not its key's clause"); ok = False
+        if unchanged_reading_note("display row", "raku", "smoke 10/10", "smoke 9/10", _pb, _pa, 128, "floor") == "":
+            print("SELFTEST: a reading that REALLY moved prints no notice (the notice is about stamps, not about writes)")
+        else:
+            print("SELFTEST FAIL: the unchanged-reading notice fired on a write that moved the reading"); ok = False
     finally:
         SCORE_MD = real
         SUITES_TSV = real_tsv
@@ -4269,6 +4465,10 @@ def main():
         return 2
     if a.cmd != "seat-name" and not os.path.exists(SCORE_MD):
         die("no leaderboard at %s (S4E_HOME=%s)" % (SCORE_MD, S4E))
+    # ⛔ ARMED HERE, BEFORE DISPATCH, so every command's every refusal is covered rather than the write
+    # path's alone -- `check`, `agree` and `clause-check` are read-only BY INTENT and nothing until now
+    # asserted it. See die()'s banner. `selftest` re-arms per scratch board (it moves SCORE_MD itself).
+    refusal_watch_arm()
     return a.fn(a)
 
 
