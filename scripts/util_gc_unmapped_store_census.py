@@ -441,7 +441,7 @@ def report(scrip, progs, workdir, out=print):
         members, undec, ex, refusal, grid = census_asm(asm, rep, tag, out=out)
         if refusal:
             out(f"CENSUS unmapped-store REFUSED(2): {refusal}"); return 2
-        graphs_seen |= set(GCC.read_gcmaps(rep).keys())
+        graphs_seen |= {(tag, g) for g in GCC.read_gcmaps(rep)}
         all_members += members; all_undec += undec; examined += ex
         all_grid += grid[0]; unreached_calls += grid[1]
         per_witness[tag] = (len(members), len(undec), ex)
@@ -509,6 +509,11 @@ def report(scrip, progs, workdir, out=print):
         "that) and is why a tag the recognizer does not know is a LOST value and a zero word pair could be a "
         "SPURIOUS one. An OFF-GRID call is a site where no grid walk is available at all and the guess is the "
         "only road, so it is named here rather than counted.")
+    out("CENSUS unmapped-store THE GRAPH COUNT IS KEYED BY (witness, graph) AND NOT BY GRAPH NAME (hq_snocone "
+        "2026-09-20, who read graphs=1 over 336 snocone master entries because EVERY entry's graph is called main "
+        "and graphs_seen was a set union of NAMES). A name collision across witnesses is not a population, and a "
+        "census whose denominator collapses to 1 over 336 programs is reporting the wrong denominator even where "
+        "nothing in the reading rests on it.")
     out(f"CENSUS unmapped-store witnesses={len(progs)} graphs={len(graphs_seen)} shielded_stores={examined} "
         f"members={named} undecidable={len(all_undec)} "
         + " ".join(f"{v}={counts.get(v, 0)}" for v in VERDICTS))
