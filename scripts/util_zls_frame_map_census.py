@@ -24,6 +24,16 @@ The population is the zls REGION, and the summary line says so.
 POPULATION: one master suite (--lang, extracted in-process through the harness's own readers, the ONE
 extraction authority) or explicit --files.  An entry the compiler refuses (no `; graph` line, or rc != 0)
 is NO LAYOUT, named and counted beside the verdict, never silently dropped and never graded green.
+⛔⭐ A NO-LAYOUT ROW PRINTS rc WITH THE FIRST LINE OF THE REFUSAL, because `rc=1` alone is a bucket and not a
+member (the coo's instrument bar, 2026-09-20: every bucket a fleet instrument prints must be answerable to
+"name one member of this count").  It also keeps a RED apart from a COULD-NOT-MEASURE, which is the split the
+Makefile holds everywhere else.  MEASURED THE HOUR IT LANDED (hq_snobol4, SCRIP 553678ec2 / corpus 86574b2bf,
+RT_OPT=-O0), the whole remaining fleet bucket named in one command: snobol4's 1 is
+`rc=1: FATAL lower_snobol4 ... lambda(expr), the CONDITIONAL pattern lambda, is not implemented yet`; raku's 31
+are `rc=1: raku parse error line 1: syntax error` on the test_stmt_pfx_BEGIN/_CHECK/_END statement-prefix family;
+prolog's 10 are `rc=2: builtin b_getval is not on the ladder yet -- rung 10 lands it`.  42 real, three named
+unlanded-feature gaps, no mystery -- and rc=2 there is an honest REFUSAL that a bare `rc=` would have shown as
+the same thing as raku's red.
 rc 0 = graded > 0 and holes == 0; rc 1 = holes > 0; rc 2 = nothing graded (the denominator is zero).
 Set ZLS_LIST_ALL=1 to print every hole (the default caps the listing).
 THE MACHINE-READ LINE, frozen for the coo's maps census (CEO-821): one per run,
@@ -118,7 +128,8 @@ def dump_one(scrip, path, timeout):
     except subprocess.TimeoutExpired:
         return None, "timeout"
     if p.returncode != 0:
-        return None, f"rc={p.returncode}"
+        first = (p.stdout + p.stderr).strip().splitlines()
+        return None, (f"rc={p.returncode}: {first[0][:120]}" if first else f"rc={p.returncode}")
     graphs = parse_dump(p.stdout)
     if not graphs:
         return None, "no graph in the dump"
