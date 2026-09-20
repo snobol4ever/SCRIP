@@ -631,6 +631,12 @@ static void gc_visit_one(DESCR_t *d)
         if ((const char *)d->p != (const char *)(h + 1)) g_gc_interior++;
         gc_slot_reg((void *)&d->p);
         return; }
+    case DT_BIG: {
+        rt_hblk_t *h = gc_blk_of((const char *)d->p);
+        if (!h) return;
+        gc_mark_blk(h, 0);
+        gc_slot_reg((void *)&d->p);
+        return; }
     default: return;
     }
 }
@@ -816,6 +822,7 @@ static int gc_type_says_ref(const DESCR_t *d)
         case DT_T:    return 1;
         case DT_A:    return 1;
         case DT_DATA: return 1;
+        case DT_BIG:  return 1;
         case DT_N:    return d->slen == 0 || d->slen == 2;
         default:      return 0;
     }
