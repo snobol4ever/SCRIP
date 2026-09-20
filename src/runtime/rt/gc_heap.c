@@ -873,6 +873,18 @@ static void gc_maps_report_range(const char *lo0, const char *hi0)
 typedef struct gc_walk_t { long frames, roots, nomap, notab, i_descr, i_heap, i_badtag, i_ptr, i_ptr_heap, i_raw, i_raw_heap, i_gap, h_words, h_cell_heap, h_raw_heap, s_words, s_cell_heap, s_raw_heap, a_words, a_heap; } gc_walk_t;
 static gc_walk_t g_gw[GC_REP_POPS];
 static long g_gw_lines, g_gw_suppressed;
+#define GC_SPINE_REC_CAP 32
+typedef struct gc_spine_rec_t { rt_hblk_t *h; const char *graph; long off; const char *const *at; } gc_spine_rec_t;
+static gc_spine_rec_t g_gc_spine_rec[GC_SPINE_REC_CAP];
+static int g_gc_spine_recn;
+static long g_gc_spine_lost, g_gc_spine_seen;
+static void gc_spine_record(const char *graph, long off, const char *const *w, rt_hblk_t *h)
+{
+    if (!gc_maps_on()) return;
+    g_gc_spine_seen++;
+    if (g_gc_spine_recn >= GC_SPINE_REC_CAP) return;
+    g_gc_spine_rec[g_gc_spine_recn].h = h; g_gc_spine_rec[g_gc_spine_recn].graph = graph; g_gc_spine_rec[g_gc_spine_recn].off = off; g_gc_spine_rec[g_gc_spine_recn].at = w; g_gc_spine_recn++;
+}
 static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_MAP); }
 static int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF; }
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h)
@@ -940,7 +952,7 @@ static void gc_walk_words(const char *lo, const char *hi, int cls, const char *r
         if (!h) continue;
         if (cls == 2) { g->a_heap++; gc_walk_site("ABOVE", graph, (long)(p - base), w, h); continue; }
         if (p - 8 >= rlo && gc_tag_bears_ptr(*(const uint8_t *)(p - 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; continue; }
-        if (cls == 0) { g->s_raw_heap++; gc_walk_site("SPINE", graph, (long)(p - base), w, h); } else { g->h_raw_heap++; gc_walk_site("HEADER", graph, (long)(p - base), w, h); } }
+        if (cls == 0) { g->s_raw_heap++; gc_walk_site("SPINE", graph, (long)(p - base), w, h); gc_spine_record(graph, (long)(p - base), w, h); } else { g->h_raw_heap++; gc_walk_site("HEADER", graph, (long)(p - base), w, h); } }
 }
 static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
 static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
@@ -999,6 +1011,16 @@ static void gc_walk_print(void)
     memset(g_gw, 0, sizeof g_gw); g_gw_lines = 0; g_gw_suppressed = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_spine_lost_check(void)
+{
+    long nlost = 0;
+    if (!gc_maps_on()) { g_gc_spine_recn = 0; g_gc_spine_seen = 0; return; }
+    for (int i = 0; i < g_gc_spine_recn; i++) { rt_hblk_t *h = g_gc_spine_rec[i].h; if (h->flags & HBF_MARK) continue; g_gc_spine_lost++; nlost++;
+        { char tx[25]; const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t); int j = 0; for (; j < 24 && j < n; j++) tx[j] = (b[j] >= 32 && b[j] < 127) ? (char)b[j] : '.'; tx[j] = 0;
+          fprintf(stderr, "[GC-SPINE-LOST] graph=%s off=%ld at=%p word=%p blk=%p type=%u text=%s\n", g_gc_spine_rec[i].graph ? g_gc_spine_rec[i].graph : "-", g_gc_spine_rec[i].off, (const void *)g_gc_spine_rec[i].at, (const void *)*g_gc_spine_rec[i].at, (const void *)h, (unsigned)h->type, tx); } }
+    if (nlost) fprintf(stderr, "[GC-SPINE-LOST] blocks=%ld raw_spine_words=%ld -- a word on the emitted spine that no map covers points at a block NO ROOT MARKED. ⛔ NECESSARY, NOT SUFFICIENT (cfo 2026-09-20, CFO-114): a DEAD spill slot holding a stale pointer reads identically, and 12 of the 32 green witnesses in scripts/gc_witnesses print this line while answering their oracle. It names a candidate, never a defect; only the frame map can say whether the slot is live.\n", nlost, g_gc_spine_seen);
+    g_gc_spine_recn = 0; g_gc_spine_seen = 0;
+}
 static long gc_visit_segment(const char *lo0, const char *hi0)
 {
     if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
@@ -1050,7 +1072,7 @@ static long gc_collect_ex(void)
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 511) >> 9);
             for (char *gs = gs0; gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
-    g_gc_mhead = (rt_hblk_t *)0;
+    g_gc_mhead = (rt_hblk_t *)0; g_gc_spine_recn = 0;
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
     for (long i = 0; i < g_gc_rrng_n; i++) { if (g_gc_rrng[i].hi) continue; { const char *top = *(const char * const *)g_gc_rrng[i].lo;
@@ -1093,6 +1115,7 @@ static long gc_collect_ex(void)
         rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
     }
+    gc_spine_lost_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior); }
     { long shift = gc_plant_shift_bytes(); g_gc_shift_prefix = shift ? gc_plant_shift_prefix() : 0; dest = g_hp_arena + g_gc_shift_prefix + shift; g_gc_shift_now = shift; }

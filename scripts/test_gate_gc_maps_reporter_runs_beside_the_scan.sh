@@ -16,6 +16,17 @@
 # from the emitter to know which cells are slots at all. That is the emitter's row, not this one. Printed, never graded.
 # ⛔ AND THE REPORTER MUST NOT CHANGE THE COLLECTOR: arm 1 requires byte-identical program output and ZERO [GC-MAPS]
 # lines with the knob off, so a reporter that perturbs the run fails before its numbers are read.
+# ⭐ [GC-SPINE-LOST] (cfo 2026-09-20, CFO-114): behind the SAME knob, every raw heap word the SPINE class reports is
+# remembered and re-read AFTER the mark drain finishes and BEFORE the forwarding pass. A word whose block ends the mark
+# phase UNMARKED is a candidate lost value -- the spine still points at it and the sweep is about to take it. It cost
+# hq_snobol4 a gdb session and an interleaved stress probe to establish exactly this for one entry; it is now one env var.
+# ⛔ THE CLASS IS NOT GRADEABLE AND THIS GATE DOES NOT GRADE IT. Measured over the 32 witnesses of scripts/gc_witnesses at
+# SCRIP_GC_STRESS=1, SCRIP_HEAP_MB=1: 1954 such lines over TWELVE witnesses that all answered their oracle (worst
+# hb_bignum_length 845, hb_coexpr_parked 740, hb_coexpr_refresh 207). A DEAD spill slot holding a stale pointer reads
+# byte-identically to a live one -- only the frame map can say which, which is the whole of ARCH-GC section 7. A proposal
+# to RED on this class (or on `off < 0`, which is worse: the ratchet's own two named residual words sit at off=-120 on
+# hb_defer_subject.sno, so that rule reds this gate's arm 7 on the tree it was proposed against) was measured and
+# declined for exactly this reason. Arm 1 holds the one thing that IS gradeable: the line never appears with the knob off.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
 bash scripts/util_require_fresh.sh >/dev/null 2>&1 || { echo "REFUSES rc=2: stale or missing ./scrip -- run make"; exit 2; }
@@ -38,9 +49,9 @@ procedure main();
 end
 EOS
 ( cd "$W" && SCRIP_GC_STRESS=5 timeout 120 "$ROOT/scrip" w.sno > off.txt 2> offerr.txt ); roff=$?
-noff=$(grep -c 'GC-MAPS' "$W/offerr.txt")
-if [ "$roff" -eq 0 ] && [ "$noff" -eq 0 ] && [ "$(tail -1 "$W/off.txt")" = "DONE" ]; then echo "  arm 1 PASS: knob off -- rc=0, correct output, 0 [GC-MAPS] lines"
-else echo "  arm 1 RED: knob off changed the run (rc=$roff, $noff report line(s), last=[$(tail -1 "$W/off.txt")])"; bad=1; fi
+noff=$(grep -cE 'GC-MAPS|GC-SPINE-LOST' "$W/offerr.txt")
+if [ "$roff" -eq 0 ] && [ "$noff" -eq 0 ] && [ "$(tail -1 "$W/off.txt")" = "DONE" ]; then echo "  arm 1 PASS: knob off -- rc=0, correct output, 0 [GC-MAPS] and 0 [GC-SPINE-LOST] lines"
+else echo "  arm 1 RED: knob off changed the run (rc=$roff, $noff report line(s) from [GC-MAPS] or [GC-SPINE-LOST], last=[$(tail -1 "$W/off.txt")])"; bad=1; fi
 for w in w.sno g.icn; do
     ( cd "$W" && SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=5 timeout 120 "$ROOT/scrip" "$w" > "on_$w.txt" 2> "onerr_$w.txt" ); ron=$?
     n=$(grep -c 'GC-MAPS' "$W/onerr_$w.txt")
