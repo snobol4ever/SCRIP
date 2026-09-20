@@ -147,18 +147,18 @@ arena:  # ⭐ WHAT ARENA WILL THE TINY PASS USE? print it rather than assume it 
 
 test-arena: export SCRIP_HEAP_MB := $(SCRIP_HEAP_MB_TINY)
 test-arena: scrip arena  # ⛔⭐ LON'S TINY-ARENA PASS, MANDATORY PER COLLECTOR LANDING (Lon 2026-09-19; ceo CEO-938/939; RULES.md batch 28 CLAUSE 2; gate test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh). Every arm below runs with a 1 MB committed window, which collects wherever the program allocates a megabyte -- the exasperation Lon asked for, and on its first afternoon it found nine SNOBOL4 programs and two Icon programs that the shipped arena passes. ⛔ THIS IS A SECOND PASS, NOT `make test`'s ENVIRONMENT: a landing gate grades the configuration we ship (CEO-939 measured the alternative -- the blanket export took the 360-arm set to 32 red, including gates that grade shipped behaviour correctly at 512), and every red HERE is a row, never a blocked fleet. ⛔ AND IT IS RED BY DESIGN TODAY: two arms below are the collector findings of 2026-09-19 (gc2's Arizona witness and the co-expression frame image, both green at 512 and red at 1 MB), each on a row of its own; a seat reads the NAMES, not the exit code, until those rows close.
-	@bad=0; n=0; \
+	@bad=0; ref=0; n=0; \
 	for g in scripts/test_gate_gc_*.sh; do \
 	  n=$$((n + 1)); \
 	  if out=$$(bash "$$g" 2>&1); then printf '  GREEN  %s\n' "$$(basename $$g)"; \
-	  else rc=$$?; bad=$$((bad + 1)); printf '  %-7s %s  rc=%s\n' "$$([ $$rc -eq 2 ] && echo REFUSED || echo RED)" "$$(basename $$g)" "$$rc"; printf '%s\n' "$$out" | tail -4 | sed 's/^/           /'; fi; \
+	  else rc=$$?; if [ $$rc -eq 2 ]; then ref=$$((ref + 1)); else bad=$$((bad + 1)); fi; printf '  %-7s %s  rc=%s\n' "$$([ $$rc -eq 2 ] && echo REFUSED || echo RED)" "$$(basename $$g)" "$$rc"; printf '%s\n' "$$out" | tail -4 | sed 's/^/           /'; fi; \
 	done; \
 	for l in snobol4 icon prolog pascal raku rebus snocone; do \
 	  n=$$((n + 1)); \
 	  if bash scripts/test_smoke_$$l.sh >/dev/null 2>&1; then printf '  GREEN  smoke %s\n' "$$l"; else bad=$$((bad + 1)); printf '  RED    smoke %s\n' "$$l"; fi; \
 	done; \
-	printf 'test-arena: arms=%s red=%s at SCRIP_HEAP_MB=%s -- every red here is a collector finding and owes a ROW (the arena is named on the line above; a suite board run under this pass names it too)\n' "$$n" "$$bad" "$$SCRIP_HEAP_MB"; \
-	[ $$bad -eq 0 ]
+	printf 'test-arena: arms=%s red=%s refused=%s at SCRIP_HEAP_MB=%s -- every RED here is a collector finding and owes a ROW; a REFUSED arm COULD NOT MEASURE (a ceiling that fired, a missing prerequisite) and owes its REASON, never a collector row (coo 2026-09-20 on the cfo CFO-121/122: the mark-walk arm needs 651s at 1 MB against a 300s ceiling, and rc=124 was being tallied and read as a lost root). Both still fail this target -- unmeasured must not read green -- but a reader can now tell a clock from a collector (the arena is named on the line above; a suite board run under this pass names it too)\n' "$$n" "$$bad" "$$ref" "$$SCRIP_HEAP_MB"; \
+	[ $$bad -eq 0 ] && [ $$ref -eq 0 ]
 
 test-boards:  # ⭐ THE PACKAGE BOARDS, SPLIT OUT OF `make test` 2026-09-08 (cfo, ECONOMY, on CEO-433/431 in GOAL-CEO.md): board_packages.sh runs every vendored package/third-party suite and prints the denominator (suites=/graded=/unproven=). It was the REPORTED, NOT BLOCKING arm of `make test` (MASTER-PLAN I21, D1 stage): its exit code is 0 whenever it measured, red constituent suites included, so it could never fail the build -- and it cost every seat ~10 minutes per blocking run. The coo's measure runs this target; any seat runs it on demand. D5 turns the measured floor into a real gate, and that gate goes back into `test` when it exists.
 	$(MAKE) scrip

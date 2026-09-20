@@ -22,6 +22,23 @@
 #
 # FAIL-ONCE IS MEASURED, NOT ASSERTED: on origin b12714737 (this cure stashed, runtime rebuilt, this gate left in place)
 # arms 1, 2 and 3 all read red -- rc=1, ERROR 246, empty output, collections=0.
+#
+# ⛔⭐ THE CEILING IS ARENA-AWARE, AND A CEILING THAT FIRES IS A REFUSAL, NOT A RED (coo 2026-09-20, on the cfo's
+# measurement CFO-121/122; the cure was the cfo's to report and the coo's to choose). This gate's three ceilings were
+# calibrated against the SHIPPED arena. `make test-arena` runs the same arms at SCRIP_HEAP_MB=1, where the scaling
+# program is forced through 1106 collections and needs 651 SECONDS against its 300-second ceiling -- so the arm timed
+# out, rc=124, and test-arena reported it as a COLLECTOR red owing a row. ⭐ THE PROPERTY THE GATE EXISTS TO MEASURE
+# HELD WHILE IT FAILED: the cfo read wl_depth_max=2118170, past this arm's own 1000000 bar, so the mark walk WAS an
+# explicit worklist and the chain WAS being walked. A red that is a clock reads exactly like a red that is a lost root,
+# and it cost a seat its attribution work on an otherwise clean arena pass.
+#   TWO CHANGES, and the second is the one that matters: (1) the ceilings scale with the arena; (2) rc=124 is a
+# GATE REFUSE(2) naming the clock, the arena and the ceiling -- never a FAIL. A timeout is COULD NOT MEASURE, which is
+# rc=2 under the INSTRUMENT LAWS, and no ceiling I can pick makes that judgement unnecessary: an under-set ceiling now
+# reports ITSELF instead of manufacturing a collector finding.
+#   ⛔ THE NUMBERS, EACH LABELLED WITH WHAT IS BEHIND IT: 900s for the scaling arm at a tiny arena is the cfo's
+# MEASURED 651s (SCRIP_HEAP_MB=1, rc=0, out=1500000, collections=1106, wl_depth_max=3000000, wall 09:19:09-09:30:00)
+# plus headroom. 600s for the two 600000-cell arms is DECLARED, not measured -- no one has run them at 1 MB -- and it
+# is safe to declare precisely because (2) turns a wrong guess into a refusal rather than into a red.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -29,19 +46,52 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $SCRIP"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; examined=0
+# THE ARENA AND ITS CEILINGS, PRINTED: a number is not labelled until it carries the arena it was measured at.
+ARENA_MB="${SCRIP_HEAP_MB:-}"
+if [ -n "$ARENA_MB" ] && [ "$ARENA_MB" -le 8 ] 2>/dev/null; then
+  CEIL_CHAIN=600; CEIL_SCALE=900; CEIL_WHY="tiny arena SCRIP_HEAP_MB=$ARENA_MB -- the scaling arm needs 651s here (cfo CFO-122, measured), the 600s pair is declared headroom"
+else
+  CEIL_CHAIN=180; CEIL_SCALE=300; CEIL_WHY="shipped arena (SCRIP_HEAP_MB ${ARENA_MB:+=$ARENA_MB}${ARENA_MB:-unset}) -- the ceilings this gate was calibrated against"
+fi
+# ⭐ THE SANCTIONED SEAM (ceo CEO-560): a guard whose only proof of firing is doing the forbidden thing is tested
+# that way OR NOT AT ALL. The refusal below cannot be reached in a tick without burning 651 seconds at a 1 MB arena,
+# so the CEILING -- an instrument's clock, never the collector's behaviour -- is overridable and LOUD when it is.
+# It is also the recipe the cfo asked for: the same arm, the same program, a bigger ceiling.
+if [ -n "${SCRIP_GATE_MARKWALK_CEIL:-}" ]; then
+  CEIL_CHAIN="$SCRIP_GATE_MARKWALK_CEIL"; CEIL_SCALE="$SCRIP_GATE_MARKWALK_CEIL"
+  CEIL_WHY="SCRIP_GATE_MARKWALK_CEIL=$SCRIP_GATE_MARKWALK_CEIL (declared override of the arena ceiling, printed so no reading of this gate is unlabelled)"
+  echo "⚠ CEILING OVERRIDE: $CEIL_WHY"
+fi
+echo "    ceilings: chain arms ${CEIL_CHAIN}s, scaling arm ${CEIL_SCALE}s -- $CEIL_WHY"
+# ⛔ rc=124 IS A TIMEOUT FIRING AND NOTHING ELSE. It says the ceiling was reached; it says NOTHING about whether the
+# collector recursed, so it may not be spelled FAIL. Whatever the walk had already reported is printed with the
+# refusal, because "the property held and the clock ran out" and "the chain never came back" are different readings.
+refuse_on_clock() {  # <rc> <arm> <ceiling> <errfile>
+  [ "$1" = 124 ] || return 0
+  local d; d=$(grep -oE 'wl_depth_max=[0-9]+' "$4" 2>/dev/null | cut -d= -f2 | sort -n | tail -1)
+  echo "⛔ GATE REFUSE(2) [$G]: the $2 arm hit its ${3}s CEILING (rc=124, a timeout firing) at $CEIL_WHY."
+  echo "    COULD NOT MEASURE -- this is not a collector verdict: wl_depth_max=${d:-absent} at the moment the clock ran out"
+  echo "    (a depth past 1000000 means the mark walk WAS an explicit worklist and the chain WAS being walked; raise the"
+  echo "     ceiling for this arena or run this arm at the shipped arena, and do NOT open a collector row on this line)."
+  echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
+  exit 2
+}
 chain() { printf " DATA('CONS(CAR,CDR)')\n L = \n I = 0\nLP I = LT(I,%s) I + 1 :F(DN)\n L = CONS(I, L) :(LP)\nDN X = COLLECT()\n J = 0\nCT J = LT(J,3000) J + 1 :F(OUT)\n S = DUPL('x', 20000) :(CT)\nOUT K = 0\nCN L = DIFFER(L) CDR(L) :F(FIN)\n K = K + 1 :(CN)\nFIN OUTPUT = K\nEND\n" "$1" > "$2"; }
 chain 600000 "$T/w.sno"; chain 1500000 "$T/big.sno"
 examined=$((examined+1))
-SCRIP_ZETA_TELEM=1 timeout 180 "$SCRIP" "$T/w.sno" </dev/null >"$T/o3" 2>"$T/e3"; r3=$?; c3=$(grep -c regeneration "$T/e3")
+SCRIP_ZETA_TELEM=1 timeout "$CEIL_CHAIN" "$SCRIP" "$T/w.sno" </dev/null >"$T/o3" 2>"$T/e3"; r3=$?; c3=$(grep -c regeneration "$T/e3")
+refuse_on_clock "$r3" "m3 600000-cell" "$CEIL_CHAIN" "$T/e3"
 if [ "$r3" = 0 ] && [ "$(cat "$T/o3")" = 600000 ] && [ "$c3" -ge 1 ]; then echo "  m3 PASS (600000-cell CONS chain live across a COLLECT(): rc=0, walked $(cat "$T/o3") cells back, $c3 collection(s))"
 else echo "  m3 FAIL (rc=$r3 out=[$(cat "$T/o3")] collections=$c3 -- $(head -1 "$T/e3" | cut -c1-90))"; RC=1; fi
 examined=$((examined+1))
-( cd "$T" && timeout 180 "$SCRIP" --compile -o w.s w.sno </dev/null >/dev/null 2>&1 && gcc -no-pie w.s -o w.x -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: the m4 witness did not build"; exit 2; }
-SCRIP_ZETA_TELEM=1 timeout 180 "$T/w.x" </dev/null >"$T/o4" 2>"$T/e4"; r4=$?; c4=$(grep -c regeneration "$T/e4")
+( cd "$T" && timeout "$CEIL_CHAIN" "$SCRIP" --compile -o w.s w.sno </dev/null >/dev/null 2>&1 && gcc -no-pie w.s -o w.x -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: the m4 witness did not build"; exit 2; }
+SCRIP_ZETA_TELEM=1 timeout "$CEIL_CHAIN" "$T/w.x" </dev/null >"$T/o4" 2>"$T/e4"; r4=$?; c4=$(grep -c regeneration "$T/e4")
+refuse_on_clock "$r4" "m4 600000-cell" "$CEIL_CHAIN" "$T/e4"
 if [ "$r4" = 0 ] && [ "$(cat "$T/o4")" = 600000 ] && [ "$c4" -ge 1 ]; then echo "  m4 PASS (same chain in mode 4: rc=0, walked $(cat "$T/o4") cells back, $c4 collection(s))"
 else echo "  m4 FAIL (rc=$r4 out=[$(cat "$T/o4")] collections=$c4 -- $(head -1 "$T/e4" | cut -c1-90))"; RC=1; fi
 examined=$((examined+1))
-SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" "$T/big.sno" </dev/null >"$T/ob" 2>"$T/eb"; rb=$?; cb=$(grep -c regeneration "$T/eb")
+SCRIP_ZETA_TELEM=1 timeout "$CEIL_SCALE" "$SCRIP" "$T/big.sno" </dev/null >"$T/ob" 2>"$T/eb"; rb=$?; cb=$(grep -c regeneration "$T/eb")
+refuse_on_clock "$rb" "scaling 1500000-cell" "$CEIL_SCALE" "$T/eb"
 d=$(grep -oE 'wl_depth_max=[0-9]+' "$T/eb" | cut -d= -f2 | sort -n | tail -1)
 if [ "$rb" = 0 ] && [ "$(cat "$T/ob")" = 1500000 ] && [ "$cb" -ge 1 ] && [ -n "$d" ] && [ "$d" -gt 1000000 ]; then echo "  scaling PASS (1500000-cell chain: rc=0, $cb collection(s), wl_depth_max=$d entries on the HEAP worklist -- the walk is not on the C stack, and it really walked)"
 else echo "  scaling FAIL (rc=$rb out=[$(cat "$T/ob")] collections=$cb wl_depth_max=[${d:-absent}] -- either the chain did not survive, or the depth instrument is gone, or the collector stopped walking the chain and only looks cured)"; RC=1; fi
