@@ -23,10 +23,10 @@ RTX_FUNC(rt_gcheap_alloc)
     ja      .Lga_slow
     cmp     r11, [r10 + 32]
     jb      .Lga_slow
-    add     qword ptr [rip + g_rt_alloc_total], rcx
+    add     qword ptr [r10 + 56], rcx
     cmp     di, DT_S
     jne     .Lga_counted
-    add     qword ptr [rip + g_rt_alloc_str], rcx
+    add     qword ptr [r10 + 64], rcx
 .Lga_counted:
     mov     qword ptr [r11 + 0], 0
     mov     dword ptr [r11 + 8], ecx

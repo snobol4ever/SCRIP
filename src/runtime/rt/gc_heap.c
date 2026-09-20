@@ -15,11 +15,9 @@
 #include "pin_va.h"
 #include "gc_frame_map.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
-typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; } rt_hp_fr_t;
-rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0 };
-__attribute__((visibility("hidden"))) long g_rt_alloc_total = 0;
-__attribute__((visibility("hidden"))) long g_rt_alloc_str = 0;
-_Static_assert(sizeof(rt_hp_fr_t) == 56, "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put; the pacing line rides at 48");
+typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; long alloc_total; long alloc_str; } rt_hp_fr_t;
+rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0, 0, 0 };
+_Static_assert(sizeof(rt_hp_fr_t) == 72, "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put; the pacing line rides at 48; the two allocation counters ride at 56 and 64 so emitted code reaches them on the base it already holds");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, top)    ==  0, "PL-SINK-3 bakes g_hp_fr.top @0");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, end)    ==  8, "PL-SINK-3 bakes g_hp_fr.end @8");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, blocks) == 16, "PL-SINK-3 bakes g_hp_fr.blocks @16");
@@ -27,6 +25,8 @@ _Static_assert(__builtin_offsetof(rt_hp_fr_t, armed)  == 24, "PL-SINK-3 bakes g_
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, virgin) == 32, "RTX-2 bakes g_hp_fr.virgin @32");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, zfull)  == 40, "RTX-2 bakes g_hp_fr.zfull @40");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, line)   == 48, "rtx_alloc.s compares the inline carve against g_hp_fr.line @48 (the pacing line, or the arena end when pacing is off)");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, alloc_total) == 56, "the &allocated total rides at 56: a hidden global cannot be named by emitted code and an exported one cannot be reached RIP-direct from rtx_alloc.s (measured: the shared object refuses to link)");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, alloc_str)   == 64, "the &allocated string total rides at 64");
 #define g_hp_top    (g_hp_fr.top)
 #define g_hp_end    (g_hp_fr.end)
 #define g_hp_blocks (g_hp_fr.blocks)
@@ -106,7 +106,7 @@ char *rt_sxt_extend(char *s, long al, long bl)
         uint64_t d = want - h->size;
         if (g_hp_top + d > g_hp_end) { g_sxt_owner = (char *)0; return (char *)0; }
         h->size = (uint32_t)want;
-        g_hp_top += d; g_rt_alloc_total += (long)d; g_rt_alloc_str += (long)d;
+        g_hp_top += d; g_hp_fr.alloc_total += (long)d; g_hp_fr.alloc_str += (long)d;
     }
     { uint64_t pay = want - sizeof(rt_hblk_t); uint64_t used = (uint64_t)(al + bl + 1); if (pay > used) memset(s + used, 0, (size_t)(pay - used)); }
     return s;
@@ -179,7 +179,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
 {
     rt_hblk_t *h = (rt_hblk_t *)at;
     h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
-    g_rt_alloc_total += (long)total; if (type == (uint16_t)DT_S) g_rt_alloc_str += (long)total;
+    g_hp_fr.alloc_total += (long)total; if (type == (uint16_t)DT_S) g_hp_fr.alloc_str += (long)total;
     uint64_t pay = total - sizeof(rt_hblk_t);
     if (g_hp_fr.zfull < 0) g_hp_fr.zfull = 0;
     { const int zfull = g_hp_fr.zfull;
@@ -818,6 +818,8 @@ static int gc_block_exact(const char *q, uint16_t want_type)
     { rt_hblk_t *h = gc_blk_of(q); return (h && (char *)(h + 1) == q && h->type == want_type && (h->flags & HBF_TTL)) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_gc_alloc_total(void) { return g_hp_fr.alloc_total; }
+long rt_gc_alloc_str(void) { return g_hp_fr.alloc_str; }
 static int  g_gc_maps_rep = -1;
 #define GC_REP_POPS 5
 static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk", "parked" };

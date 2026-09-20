@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; } rt_hp_fr_t;
+typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; long alloc_total; long alloc_str; } rt_hp_fr_t;
+_Static_assert(sizeof(rt_hp_fr_t) == 72, "this file carries its OWN copy of the frontier cell and nothing holds the two spellings equal: if gc_heap.c extends it, this assert fails the build instead of the test reading a short struct over a long object");
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, alloc_total) == 56, "the copy must agree with gc_heap.c at 56");
 extern rt_hp_fr_t g_hp_fr;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
