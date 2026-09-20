@@ -101,6 +101,10 @@ def _grade(t):
     body = dw[len('DONE-WHEN:'):].strip()
     if not body or body.startswith('⛔') or body.startswith('TBD') or body.lower().startswith('tbd'): return 'prose'
     root = os.environ.get('S4E_HOME') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    # S4E_DONE_WHEN_RUN=1 admits THE RUN (lib_one_runner.sh) and, since ceo CEO-997, publishes NOTHING: util_score_row.py
+    # no longer reads it as a leaderboard-write door. It had to be closed there rather than dropped here -- this census
+    # grades EVERY receiptless row's criterion, so while that door stood, a hygiene pass over a row whose DONE-WHEN is a
+    # board was a fleet-wide publish button, and the row's own seat never ran it.
     try:
         r = subprocess.run(['bash', '-c', body], cwd=root, env=dict(os.environ, S4E_HOME=root, S4E_DONE_WHEN_RUN='1'), capture_output=True, text=True, timeout=120)
         rc = r.returncode

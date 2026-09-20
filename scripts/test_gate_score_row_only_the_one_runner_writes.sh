@@ -99,11 +99,24 @@ mode_with 'hq_I SNOCONE; hq_T RAKU; the lanes are cut by concern and this mode n
 before="$(sum_of "$B5")"; out="$(run_write "$B5" hq_I)"
 [ "$(sum_of "$B5")" != "$before" ] && [[ "$out" == *"NOT DETERMINED"* ]]
 arm $? "A MODE THAT CUTS NO ONE RUNNER refuses nobody -- the guard follows the roster instead of outliving it"
-echo "--- ARMS 6-7b: THE SANCTIONED DOORS, LOUD AND RECORDED -- and the RUN door is not one of them (CEO-961) ---"
+echo "--- ARMS 6-7b: THE SANCTIONED DOORS, LOUD AND RECORDED -- and NEITHER the RUN door NOR the bus's own computed done is one of them (CEO-961, CEO-997) ---"
+# ⛔⭐ ARM 6 INVERTED 2026-09-20 BY CEO-997 (the coo's QA-2 on row one-runner-override-gates-the-run-and-the-leaderboard-
+# write-needs-its-own-consent), and this NARROWS hq_B's own standing arm 6 rather than deleting it. hq_B wired it in
+# 2026-09-13 to keep ONE run per closure usable: the bus runs every DONE-WHEN with S4E_DONE_WHEN_RUN=1, and a row whose
+# criterion IS a board had to be closeable. ⛔ THE DEFECT IS CEO-961'S WORD FOR WORD WITH A DIFFERENT VARIABLE: a
+# DONE-WHEN that runs a board the seat does not own PUBLISHES A LEADERBOARD ROW AS A SIDE EFFECT OF BEING USED AS A
+# MEASUREMENT -- and the door is wider than the bus, because util_queue_visibility_census.py:105 runs EVERY baton's
+# DONE-WHEN body with S4E_DONE_WHEN_RUN=1, so the coo's own hygiene census was a fleet-wide publish button.
+# ⭐ THE RULING'S OWN ARGUMENT IS ARM 6B: the lane owner writes EITHER WAY, because the lane check passes before this
+# door is ever read, so closing it costs the legitimate case nothing and shuts only the control-arm case.
 B6="$WORK/b6"; mkboard "$B6" yes || refuse "could not build the fifth fixture board"
 mode_with 'coo PASCAL, and THE ONE RUNNER for every master and package board'
 before="$(sum_of "$B6")"; out="$(DW=1 run_write "$B6" hq_I)"
-[ "$(sum_of "$B6")" != "$before" ]; arm $? "the bus's computed \`done\` run of a DONE-WHEN writes (S4E_DONE_WHEN_RUN=1, one run per closure)"
+[ "$(sum_of "$B6")" = "$before" ] && [[ "$out" == *"NOT UPDATED"* ]]
+arm $? "the bus's computed \`done\` run of a DONE-WHEN by a seat that is NOT the lane owner writes NOTHING and says so (CEO-997 ONE)"
+B6B="$WORK/b6b"; mkboard "$B6B" yes || refuse "could not build the fifth-b fixture board"
+before="$(sum_of "$B6B")"; out="$(DW=1 run_write "$B6B" coo)"
+[ "$(sum_of "$B6B")" != "$before" ]; arm $? "and THE LANE OWNER's own computed \`done\` still writes -- closing that door costs the legitimate case nothing"
 # ⛔⭐ ARM 7 INVERTED 2026-09-20 BY CEO-961 (row one-runner-override-gates-the-run-and-the-leaderboard-write-needs-its-own-
 # consent), and the inversion is the finding, not a relaxation. Until today S4E_ONE_RUNNER_OVERRIDE opened the RUN door in
 # lib_one_runner.sh AND this write door, together, so there was NO WAY TO SAY "run the arm and publish nothing" -- and a

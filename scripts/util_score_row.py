@@ -1023,14 +1023,19 @@ def one_runner_declines(measurer, what, lang=None):
     keeps it, unchanged) and says NOTHING about publication; a leaderboard write needs ITS OWN loud recorded consent,
     S4E_SCORE_WRITE="why", or the seat MODE's LANES: line names for this board's language.  ⭐ A RUNNER DRIVEN AS A
     CONTROL ARM DEFAULTS TO WRITE NOTHING, which is the only default under which forgetting is safe.
-    The bus's computed `done` run of a DONE-WHEN (one run per closure) stays a door here, word for word with
-    lib_one_runner.sh, because two guards over one rule that disagree about their doors are a third defect -- and it is
-    REPORTED to the ceo as the same class one mechanism away (a DONE-WHEN that runs a board it does not own publishes
-    for the same reason the override did).  A --dry-run writes nothing, so it is previewed, never refused.
+    ⛔⭐ AND THE BUS'S COMPUTED `done` IS NO LONGER A DOOR EITHER (ceo CEO-997 ONE, 2026-09-20, on this writer's own
+    QA-2).  `S4E_DONE_WHEN_RUN=1` opened the write exactly as the override did -- a DONE-WHEN that runs a board the seat
+    does not own published a row AS A SIDE EFFECT OF BEING USED AS A MEASUREMENT, which is CEO-961's sentence with a
+    different variable.  It was wider than the bus: util_queue_visibility_census.py runs EVERY baton's DONE-WHEN body
+    with that variable set, so the coo's own hygiene census was a fleet-wide publish button.  ⭐ CLOSING IT COSTS THE
+    LEGITIMATE CASE NOTHING, which is the ruling's own argument and is graded: the LANE OWNER's `done` writes either
+    way, because the lane check above passes before this door is ever read; only the control-arm case is shut.  The RUN
+    door in lib_one_runner.sh keeps that variable, unchanged -- the two guards govern two consents and are MEANT to
+    differ here, exactly as they already differ about S4E_ONE_RUNNER_OVERRIDE.  This NARROWS hq_B's standing arm 6 in
+    test_gate_score_row_only_the_one_runner_writes.sh (wired 2026-09-13 to keep one run per closure usable) rather than
+    deleting it; that gate now grades both directions.  A --dry-run writes nothing, so it is previewed, never refused.
     """
     if not score_md_is_the_shared_board():
-        return None
-    if os.environ.get("S4E_DONE_WHEN_RUN", "") == "1":
         return None
     # ⛔⭐ THE LANE OWNER FIRST (CEO-775/786): the seat MODE's LANES: line names for this board's language is the writer;
     # a mode that cuts ONE runner for every board (THE ONE RUNNER on line 2) is read only when no LANES: line answers.
@@ -1065,9 +1070,11 @@ def one_runner_declines(measurer, what, lang=None):
             "ONE BOARD only that seat writes its rows. NOTHING WAS WRITTEN and the file is untouched, deliberately: a row "
             "left in your working tree is swept in by the next stage-everything.\n"
             "  The measurement below stands as your own board line -- %s -- and lands when the one runner's next "
-            "pass measures it. Doors, both loud and recorded: the bus's computed `done` run of a DONE-WHEN is exempt, "
-            "and S4E_SCORE_WRITE=\"why\" writes the row and prints the reason. S4E_ONE_RUNNER_OVERRIDE is NOT one of "
-            "them since CEO-961 -- it admits the board RUN and leaves publication to its own consent."
+            "pass measures it. THE ONE DOOR, loud and recorded: S4E_SCORE_WRITE=\"why\" writes the row and prints the "
+            "reason. S4E_ONE_RUNNER_OVERRIDE is NOT one (CEO-961 -- it admits the board RUN and leaves publication to "
+            "its own consent) and neither is the bus's computed `done` (CEO-997 -- a DONE-WHEN that runs a board its "
+            "seat does not own publishes as a side effect of being used as a measurement; the lane owner's own `done` "
+            "writes here regardless, through the lane check above)."
             % (measurer or "?", writer, why, what))
 
 
