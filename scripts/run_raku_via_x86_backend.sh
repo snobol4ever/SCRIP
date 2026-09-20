@@ -5,11 +5,11 @@
 # run_prolog_via_x86_backend.sh.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$SCRIP/scrip}"
-LIBRT="${LIBRT:-$SCRIP/out/libscrip_rt.so}"
+ROOT="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$ROOT/scrip}"
+LIBRT="${LIBRT:-$ROOT/out/libscrip_rt.so}"
 RK="${1:?Usage: run_raku_via_x86_backend.sh <file.raku>}"
-[ -x "$SCRIP" ] || { echo "FAIL scrip not built: $SCRIP"; exit 1; }
+[ -f "$SCRIP" ] && [ -x "$SCRIP" ] || { echo "FAIL scrip not built (or not a file): $SCRIP"; exit 1; }
 [ -f "$LIBRT" ] || { echo "FAIL libscrip_rt.so not built: $LIBRT (run 'make libscrip_rt' first)"; exit 1; }
 [ -f "$RK"    ] || { echo "FAIL no such file: $RK"; exit 1; }
 WORK="$(mktemp -d /tmp/rk_x86_XXXXXX)"
