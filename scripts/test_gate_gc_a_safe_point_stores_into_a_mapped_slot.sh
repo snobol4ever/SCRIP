@@ -109,17 +109,24 @@ else
   ck no "(e) the population moved to members=${mem:-?} undecidable=${und:-?} against members=$BASE_MEMBERS undecidable=$BASE_UNDEC -- a win nobody recorded is a loose ratchet; move the baseline in the same landing that earns it"
 fi
 
-# (f) THE PROPERTY ITSELF, graded by ORACLE DIFF and not by rc (CEO-997)
+# (f) THE PROPERTY ITSELF, graded by ORACLE DIFF and not by rc (CEO-997), over a band that goes WELL ABOVE 5.
+# ⛔ THE BAND WAS [0 1 2 3 4] UNTIL 2026-09-20 21:3x AND THAT WAS A DEFECT IN THIS GATE, not a conservative choice
+# (CEO-1024, hq_raku's measurement: the raku master at the tiny arena loses 65 gradings over 36 DISTINCT PROGRAMS
+# at SCRIP_GC_STRESS=16 that a 1-3-5 band calls green -- every one exit 0, no diagnostic, plausible wrong answer).
+# A band that ends where the defects start does not measure the tree, it measures the band. The cto's own A/B/A at
+# CTO-101 had already read this witness at twelve points and its BASE band is `. X X . X . . X . . . .` -- the X at
+# stress 8 sits OUTSIDE the old band, so a cure that closed 0..4 alone would have turned this arm green with the
+# witness still wrong. The twelve points below are that measurement's own band and cost 4 seconds.
 want="$(cat "$REF")"
 diffs=0; band=""
-for s in 0 1 2 3 4; do
+for s in 0 1 2 3 4 5 6 8 10 12 16 20; do
   got="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS=$s timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "$want" ]; then band="$band ."; else band="$band X"; diffs=$((diffs+1)); fi
 done
 if [ "$diffs" = 0 ]; then
-  ck ok "(f) THE PROPERTY HOLDS: the witness answers its oracle-cut ref at every stress point in the band [0 1 2 3 4] --$band"
+  ck ok "(f) THE PROPERTY HOLDS: the witness answers its oracle-cut ref at every stress point in the band [0 1 2 3 4 5 6 8 10 12 16 20] --$band"
 else
-  ck no "(f) THE PROPERTY IS FALSE: the witness diverges from its oracle-cut ref at $diffs of 5 stress points --$band (want '$want'). ⛔ AND THE CURE THAT CLOSES THIS BAND IS NOT THIS ROW'S -- SAID HERE SO THE NEXT READER IS NOT SENT AT THE WRONG FILE (hq_snobol4 2026-09-20, VERIFIED A/B/A by the cto): gc_heap.c spells 'which kinds carry a heap payload' TWICE and the two copies disagree by two kinds -- gc_visit_one (the heap visitor) handles DT_X and DT_SNUL, gc_cell_visit (the emitted-stack cell recognizer) does not. Adding both to gc_cell_visit takes this witness from '. X X . X . . X . . . .' to TWELVE OF TWELVE GREEN over stress 0..20, and reverting restores the base band byte for byte. That is the cfo's file and an ASK, not this row's landing. ⭐ WHAT THIS ROW STILL OWNS, AND WHY THE CENSUS IS NOT INVALIDATED BY THAT: a store outside the map is NECESSARY BUT NOT SUFFICIENT for loss, because gc_walk_words tries gc_cell_visit on every below-base word first -- so the 162 members are safe points whose correctness rests on a TAG-RECOGNIZER HEURISTIC instead of on the frame map ARCH-GC section 3 says should cover them. When the recognizer fix lands this arm goes green with the members still at 162, and THAT reading -- green band, 162 unmapped stores -- is exactly the residual risk this row exists to remove."
+  ck no "(f) THE PROPERTY IS FALSE: the witness diverges from its oracle-cut ref at $diffs of 12 stress points --$band (want '$want'). ⛔ AND THE CURE THAT CLOSES THIS BAND IS NOT THIS ROW'S -- SAID HERE SO THE NEXT READER IS NOT SENT AT THE WRONG FILE (hq_snobol4 2026-09-20, VERIFIED A/B/A by the cto): gc_heap.c spells 'which kinds carry a heap payload' TWICE and the two copies disagree by two kinds -- gc_visit_one (the heap visitor) handles DT_X and DT_SNUL, gc_cell_visit (the emitted-stack cell recognizer) does not. Adding both to gc_cell_visit takes this witness from '. X X . X . . X . . . .' to TWELVE OF TWELVE GREEN over stress 0..20, and reverting restores the base band byte for byte. That is the cfo's file and an ASK, not this row's landing. ⭐ WHAT THIS ROW STILL OWNS, AND WHY THE CENSUS IS NOT INVALIDATED BY THAT: a store outside the map is NECESSARY BUT NOT SUFFICIENT for loss, because gc_walk_words tries gc_cell_visit on every below-base word first -- so the 162 members are safe points whose correctness rests on a TAG-RECOGNIZER HEURISTIC instead of on the frame map ARCH-GC section 3 says should cover them. When the recognizer fix lands this arm goes green with the members still at 162, and THAT reading -- green band, 162 unmapped stores -- is exactly the residual risk this row exists to remove."
 fi
 
 # (h) THE ROW'S OWN QUESTION, so this DONE-WHEN cannot go green on somebody else's cure
