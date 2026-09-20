@@ -308,7 +308,8 @@ static std::string xa_flat_zframe_prologue_str(void) {
                     + x86("mov", FRQ(kt - 40), "rax")
                     + x86("mov", "rax", "rsp")
                     + x86("mov", RDQ("r15", _off), "rax"); } } }
-    s += emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0);
+    if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_cell(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0);
+    else s += emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, 0u, 0);
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
