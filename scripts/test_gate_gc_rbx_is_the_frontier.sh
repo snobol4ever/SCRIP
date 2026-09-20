@@ -14,17 +14,26 @@
 # nowhere has no failure mode.  r9 held the same years without drifting, and the only mechanical difference is the
 # RTCC_GVA_REG _Static_assert in x86_asm.h.  This gate is that difference, for the six pins.
 #
-# ⛔ WHAT THIS GATE DOES NOT YET GRADE, DECLARED RATHER THAN MISSING.  The row's steps 2 and 3 flip rbx to a CACHE of
+# ⛔ WHAT THIS GATE WILL NEVER GRADE, AND THE WORD THAT SETTLED IT.  The row's step 2 flipped rbx to a CACHE of
 # g_hp_fr.top -- written back before a call that can allocate, reloaded after, never restored from a save -- and the two
-# arms that grade THAT design are not here: the emitted .s advancing rbx with no per-allocation GOT load, and the round
-# trip (allocate, collect inside a C-to-BB entry, allocate again) with a planted RESTORE-instead-of-RELOAD seam proven
-# red.  THE REASON IS A MEASUREMENT, not an omission: emitted code never calls the allocator.  Zero mentions of
-# rt_gcheap_alloc, rt_ws_alloc, rt_heap_alloc, rt_pm_struct_alloc or rt_agg_alloc in src/templates or src/emitter; the
+# arms that would grade THAT design are not here: the emitted .s advancing rbx with no per-allocation GOT load, and the
+# round trip (allocate, collect inside a C-to-BB entry, allocate again) with a planted RESTORE-instead-of-RELOAD seam
+# proven red.  THE FIRST REASON IS A MEASUREMENT, not an omission: emitted code never calls the allocator.  Zero mentions
+# of rt_gcheap_alloc, rt_ws_alloc, rt_heap_alloc, rt_pm_struct_alloc or rt_agg_alloc in src/templates or src/emitter; the
 # safe-point census reads 244 allocating call sites in emitted code and every one is a call into a runtime entry that
 # allocates internally (1655 of 8645 runtime functions reach rt_gcheap_alloc), and the GOT load the row wants gone lives
-# in rtx_alloc.s 7/46/60 and rtx_str.s 100 -- inside the runtime.  So there is no emitted instruction that reads or
-# writes the frontier, and a cache with no consumer cannot be graded by reading the emitted .s.  The flip needs a new
-# emitted allocation shape, which is a codegen design; it is rowed separately and those two arms land with it.
+# in rtx_alloc.s 7/46/60 and rtx_str.s 100 -- inside the runtime.  So a cache with no consumer cannot be graded by reading
+# the emitted .s, and the flip needed a new emitted allocation shape first.
+#
+# ⛔ THE SECOND REASON IS LON'S WORD, AND IT IS WHY THESE TWO ARMS ARE RETIRED RATHER THAN PENDING.  That allocation
+# shape was cut on a branch, disassembled, and RETIRED IN CHAT 2026-09-20 (CEO-1007, CTO-98), verbatim: "So forget the
+# inline GC bump.  It is just too long."  The measurement he ruled on, one concat site of bench_icnstr_concat_table.icn
+# in mode 4: 15 -> 86 emitted instructions, +302 object text bytes per site, THE BUMP ALONE 27 against a ceiling of 6 --
+# 13 after every fold that actually exists, and 8 irreducible (header write, top commit, block count, bound check) before
+# any guard.  4-6 needs pre-formatted size-class runs, which is a different collector.  The code is on tag
+# retired/cto-rbx-rung1-2026-09-20 (SCRIP 1815dc8b8) and NOTHING of it is on main.  THIS GATE'S POPULATION IS THEREFORE
+# FINAL AT FOUR ARMS: whoever revives an advancing rbx must first revive an emitted allocation shape and argue against
+# that arithmetic, and the two arms land with THAT, not with this row.
 #
 # THE ARMS.  (1) THE SCRATCH CENSUS, which is what step 1 earned and what this gate keeps: every spelling of rbx in
 # src/templates and src/emitter is in the DECLARED set below, each entry named with its reason.  A sixth occurrence --
@@ -78,7 +87,7 @@ examined=$((examined + 1))
 if [ "${FAIL_ONCE:-0}" = 1 ]; then
     if [ "$RC" = 1 ]; then echo "  arm 4 PASS: FAIL_ONCE=1 planted a sixth rbx spelling and this gate reads red"; else echo "  arm 4 FAIL: the plant went unseen"; RC=1; fi
 else echo "  arm 4 PASS: FAIL_ONCE=1 plants a scratch rbx spelling into arm 1's population (run with FAIL_ONCE=1 to see it trip)"; fi
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: rbx carries no scratch, the six pins are declared in code, and the aligned-call saver needs no callee-saved register (examined $examined arms; the two flip arms are declared in this gate's banner and land with the emitted allocation shape)"
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: rbx carries no scratch, the six pins are declared in code, and the aligned-call saver needs no callee-saved register (examined $examined arms; the two flip arms are RETIRED with the emitted allocation shape Lon killed in chat 2026-09-20, so this population is final)"
 else echo "GATE FAIL(1) [$G]: the register plane is not held (examined $examined arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
