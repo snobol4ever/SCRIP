@@ -273,12 +273,6 @@ void emit_jmp_label(bb_label_t *target, jmp_kind_t kind)
     else { if (k==0) ef_b1(0xE9); else ef_b2(ops[k][0], ops[k][1]); bb_emit_patch_rel32(target); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void emit_aligned_call_rt(const char *sym, void *addr)
-{
-    if (g_is_text) { emit_textf(" push rbx\n mov rbx, rsp\n and rsp, -16\n call %s@PLT\n mov rsp, rbx\n pop rbx\n", sym ? sym : ""); }
-    else { ef_b1(0x53); ef_b3(0x48,0x89,0xE3); ef_b4(0x48,0x83,0xE4,0xF0); ef_b2(0x48,0xB8); bb_emit_u64((uint64_t)(uintptr_t)addr); ef_b2(0xFF,0xD0); ef_b3(0x48,0x89,0xDC); ef_b1(0x5B); }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_label_define(bb_label_t *lbl)
 {
     if (!MEDIUM_BINARY) {
@@ -2908,18 +2902,18 @@ static std::string icn_trace_tap(const char * pname, int kind, int np) {
     pname = icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);
     std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : (kind == 4 ? "L246" : "L" + std::to_string(235 + kind)); std::string fl = ".Licn_trace_nm" + id;
-    std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
+    std::string s = x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
         + IF(kind == 2 || kind == 3 || kind == 5, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
         + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
     if (kind == 4) { extern void core_icn_act_record(const char *, int, void *);
-        s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "core_icn_act_record", (uint64_t)(uintptr_t)(void *)core_icn_act_record); }
-    else if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
-    else if (kind == 2) s += x86("mov", "rsi", RDQ("rbx", 16)) + x86("mov", "rdx", RDQ("rbx", 8)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
+        s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "core_icn_act_record", (uint64_t)(uintptr_t)(void *)core_icn_act_record); }
+    else if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8)) + x86("mov", "rdx", RDQ("r11", 0)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
     else if (kind == 5) s += x86("mov", "rsi", "rbp") + x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
-    s += x86("def", sk) + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax");
+    s += x86("def", sk) + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax");
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

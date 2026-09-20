@@ -2194,6 +2194,17 @@ inline std::string x86_rt_gc_poll_res() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
+inline std::string x86_align_call_enter() {
+    return x86("comment", "ARCH-GC 6.2j STEP 1 (cto 2026-09-20, row gc-rbx-is-the-bump-frontier; Lon 2026-09-19: rbx was always meant to be the GC bump frontier, if it is not so make it so): the 16-byte alignment an ABI call needs costs NO callee-saved register. The old spelling pushed rbx, parked rsp in it, aligned, called, and restored -- which is why rbx, preserved by SysV and therefore free-looking, was picked up as scratch here after the ZC_PORT_* HEAP arm that owned it was deleted. The old rsp now rides the ALIGNED STACK ITSELF at [rsp], read back rsp-relatively, and r11 holds it only for the three instructions before the call, where it is already dead: the call that follows clobbers r11 by the ABI, so a box that needed it live across this sequence was already broken. rsp is 16-aligned AT the call, as the ABI requires, and the reads a caller makes through the parked pointer use r11 while it lives.")
+         + x86("mov", "r11", "rsp")
+         + x86("and", "rsp", (long)-16)
+         + x86("sub", "rsp", (long)16)
+         + x86_rsp_store64(0, "r11");
+}
+inline std::string x86_align_call_leave() {
+    return x86("comment", "ARCH-GC 6.2j STEP 1: restore the caller's rsp from the slot the aligned frame parked it in -- no pop, no callee-saved register, and correct on every path that jumps to the epilogue because rsp is unchanged between the enter and here.")
+         + x86_rsp_load64("rsp", 0);
+}
 inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
     return x86("comment", "ARCH-GC 6.5 SPILL RECORD: the collected-heap pointer a callee-saved register holds at this allocating return is spilled as ONE TAGGED DESCR cell and handed to the poll as its shield array, so the collector visits it precisely by type and relocates it; the FLOOR handed to the poll is the caller's own rsp, which leaves the record and the raw scratch below it OUT of the word-swept range -- an untagged integer inside a swept range is visited raw and rewritten when its block slides, which is why the record carries tagged cells and nothing else")
          + x86("sub", "rsp", (long)32)
