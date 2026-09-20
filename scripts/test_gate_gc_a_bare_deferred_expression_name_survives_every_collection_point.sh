@@ -78,43 +78,28 @@ LIBDIR="$(pwd)/out"
 SBL="$(sbl_correctness_bin)" || refuse "the GRADING oracle is not reachable by its accessor; a missing oracle prints a full, plausible, entirely false all-FAIL table"
 FLAGS="$(sbl_lang_flags)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-mk_w(){ cat > "$T/$1.sno"; }
-mk_w w <<'EOF'
-                  lvl1           =  LEN(2)
-                  lvl2           =  *lvl1
-                  subj           =  'AA'
-                  subj           POS(0) lvl2 RPOS(0)                             :F(no)
-                  OUTPUT         =  'match'                                      :(done)
-no                OUTPUT         =  'nomatch'
-done
-END
-EOF
-mk_w nodefer <<'EOF'
-                  lvl1           =  LEN(2)
-                  lvl2           =  lvl1
-                  subj           =  'AA'
-                  subj           POS(0) lvl2 RPOS(0)                             :F(no)
-                  OUTPUT         =  'match'                                      :(done)
-no                OUTPUT         =  'nomatch'
-done
-END
-EOF
-for pair in "a_dupl:DUPL('AB',2)" "a_trim:TRIM('AB  ')" "a_replace:REPLACE('ABCD','CD','AB')" "a_substr:SUBSTR('ZABZ',2,2)"; do
-  n="${pair%%:*}"; call="${pair#*:}"
-  printf '                  s              =  %s\n                  OUTPUT         =  s\nEND\n' "$call" > "$T/$n.sno"
-done
-for pair in "d_dupl:DUPL('A',2)" "d_trim:TRIM('AA  ')" "d_substr:SUBSTR('ZAAZ',2,2)" "d_replace:REPLACE('BB','B','A')"; do
-  n="${pair%%:*}"; call="${pair#*:}"
-  { printf "                  subj           =  'AA'\n"
-    printf '                  subj           POS(0) *%s RPOS(0)                  :F(no)\n' "$call"
-    printf "                  OUTPUT         =  'match'                                      :(done)\n"
-    printf "no                OUTPUT         =  'nomatch'\ndone\nEND\n"; } > "$T/$n.sno"
-done
-NAMES="w nodefer a_dupl a_trim a_replace a_substr d_dupl d_trim d_substr d_replace"
+WIT=scripts/gc_witnesses
+# ⛔⭐ ONE SPELLING OF EACH WITNESS, AND THAT IS WHY THEY ARE FILES AND NOT HEREDOCS.  The first version of this
+# gate MINTED all ten inline, to keep them out of a ratchet whose population was a directory glob; the `cto`
+# cured that ratchet to a PER-WITNESS baseline the same hour (SCRIP b11071af1) and invited them in.  Keeping the
+# heredocs as well would have left ONE WITNESS SPELLED TWICE -- the defect this whole row is about, one level up
+# (gc_visit_one and gc_cell_visit spell "which kinds carry a heap payload" twice and disagree by two kinds).  So
+# the files are the one spelling, the shared censuses can see them, and this gate reads them.
+# THE REF IS STILL CHECKED AGAINST THE LIVE ORACLE EVERY RUN, which is the half a committed .ref cannot do: a
+# shipped expectation that has drifted from `sbl -bf` is graded against nothing, and a ref is cut from the oracle
+# and never from our output.  A mismatch REFUSES rc=2 and prints both answers.
+NAMES="hb_mkexpr_unmapped_spine_store hb_deferexpr_nodefer hb_deferexpr_a_dupl hb_deferexpr_a_trim hb_deferexpr_a_replace hb_deferexpr_a_substr hb_deferexpr_d_dupl hb_deferexpr_d_trim hb_deferexpr_d_substr hb_deferexpr_d_replace"
 if [ "${GC_BAND_FULL:-0}" = 1 ]; then PTS="0 1 2 3 4 5 6 8 10 12 16 20 25 30 35 40 50"; else PTS="0 1 2 3 4 5 6 8 16 25"; fi
 for n in $NAMES; do
-  "$SBL" $FLAGS "$T/$n.sno" > "$T/$n.ref" 2>&1 || refuse "the oracle did not run $n cleanly -- nothing here is graded against our own output"
-  [ -s "$T/$n.ref" ] || refuse "the oracle's answer for $n is EMPTY; an empty expectation makes every arm pass"
+  [ -f "$WIT/$n.sno" ] || refuse "witness $WIT/$n.sno is missing -- a shorter population is not a greener gate"
+  [ -f "$WIT/$n.ref" ] || refuse "witness $WIT/$n.ref is missing -- there is nothing to grade $n against"
+  cp "$WIT/$n.sno" "$T/$n.sno"
+  "$SBL" $FLAGS "$T/$n.sno" > "$T/$n.live" 2>&1 || refuse "the oracle did not run $n cleanly -- nothing here is graded against our own output"
+  [ -s "$T/$n.live" ] || refuse "the oracle's answer for $n is EMPTY; an empty expectation makes every arm pass"
+  if ! cmp -s "$T/$n.live" "$WIT/$n.ref"; then
+    refuse "the committed ref for $n has DRIFTED from the oracle -- committed [$(tr '\n' '|' < "$WIT/$n.ref")] vs live [$(tr '\n' '|' < "$T/$n.live")]; a ref is cut from the oracle, never from our output"
+  fi
+  cp "$WIT/$n.ref" "$T/$n.ref"
   ( cd "$T" && timeout 60s "$OLDPWD/scrip" --compile -o "$n.s" "$n.sno" < /dev/null > /dev/null 2>&1 \
       && gcc -m64 -no-pie -rdynamic "$n.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$n.x4" 2> "$n.ld.log" ) \
       || refuse "mode-4 compile or link failed for $n, so every m4 arm measured nothing ($(head -c 160 "$T/$n.ld.log" 2>/dev/null))"
@@ -134,7 +119,12 @@ for n in $NAMES; do
       if [ "$got" = "$want" ] && [ "$rc" = 0 ]; then row="$row   ."
       else
         row="$row   X"; red=$((red+1)); redset="$redset $n/$m/$N(rc=$rc)"
-        case "$n" in w) wit_red=$((wit_red+1));; nodefer) ctl_red=$((ctl_red+1));; *) sib_red=$((sib_red+1));; esac
+        case "$n" in
+          hb_mkexpr_unmapped_spine_store) wit_red=$((wit_red+1));;
+          hb_deferexpr_nodefer)           ctl_red=$((ctl_red+1));;
+          hb_deferexpr_*)                 sib_red=$((sib_red+1));;
+          *) refuse "witness $n is in the population but in none of the three classes -- a classifier that cannot place a member will misfile it silently (this arm caught exactly that when the witnesses were renamed out of heredocs into files: every red was counted a SIBLING and the gate printed the WRONG conclusion, green-looking and plausible)";;
+        esac
       fi
     done
     echo "$row"

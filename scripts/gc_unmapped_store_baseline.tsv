@@ -20,6 +20,15 @@ hb_coexpr_sigma.icn	0	0	16
 hb_cv_spine_plain_redo.icn	0	0	16
 hb_datblk.sno	24	0	24
 hb_defer_subject.sno	4	4	8
+hb_deferexpr_a_dupl.sno	4	0	4
+hb_deferexpr_a_replace.sno	4	0	4
+hb_deferexpr_a_substr.sno	4	0	4
+hb_deferexpr_a_trim.sno	4	0	4
+hb_deferexpr_d_dupl.sno	2	2	4
+hb_deferexpr_d_replace.sno	2	2	4
+hb_deferexpr_d_substr.sno	2	2	4
+hb_deferexpr_d_trim.sno	2	2	4
+hb_deferexpr_nodefer.sno	6	0	6
 hb_dinst.icn	0	0	8
 hb_dtp.sno	4	2	6
 hb_dvec_data_convert.sno	34	0	34
