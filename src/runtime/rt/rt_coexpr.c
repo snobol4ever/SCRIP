@@ -207,6 +207,55 @@ void scrip_coexpr_trampoline_entry(void *arg) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern void rt_genp_deliver_γ(DESCR_t v);
+extern void rt_genp_deliver_ω(void);
+extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
+__asm__(".text\n.globl rt_genp_spine_enter\n"
+"rt_genp_spine_enter:\n"
+"  pushq $0\n"
+"  leaq 4f(%rip), %rax\n"
+"  pushq $0\n"
+"  pushq %rax\n"
+"  movq %rdi, %rax\n"
+"  leaq 2f(%rip), %rcx\n"
+"  leaq 3f(%rip), %rdx\n"
+"  jmp *%rax\n"
+"2:\n"
+"  call rt_genp_deliver_γ\n"
+"  jmp *(%rsp)\n"
+"3:\n"
+"  call rt_genp_deliver_ω\n"
+"4:\n"
+"  call rt_genp_deliver_ω\n"
+);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(DT_FAIL == 0x68, "rt_genp_spine_enter_n2's cmpb $0x68 bakes DT_FAIL");
+__asm__(".text\n.globl rt_genp_spine_enter_n2\n"
+"rt_genp_spine_enter_n2:\n"
+"  # N-2 ABI WORD, RUNTIME TWIN (row icon-generator-through-a-procedure-value-is-ungraded-at-the-intersection, hq_B): this reserve is the hand-written twin of bcps_spine_gen_arm's push block and MUST hand the callee the same FIVE-word entry frame [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=ABI word, ANCHOR=[rsp+40] (CEO-483, hq_U 2026-09-10: the sixth word, the PL-CALL-ALIGN pad, had NO READER -- poisoning [entry rsp+32] left parse byte-identical while the same poison at [entry rsp+0] SIGSEGVd -- and its 8 bytes moved across the call into the callee`s own carve in emit.cpp. ONE `pushq $0` was dropped HERE in the same landing, because this arm and bcps_spine_gen_arm are two hand-written copies of ONE ABI and the last time one grew without the other it took weeks to find. The `subq $16` above is NOT that pad: one of its words is the ABI word and the other is this path`s OWN parity correction, needed because this arm is entered by a CALL. Parity after the drop: entry = X-48, and X is 8 mod 16 here, so entry is 8 mod 16 -- which is exactly what the callee`s carve (now odd, align16(ft)+56) is built to absorb, landing the body at 0 mod 16 on BOTH doors.). ORIGINAL NOTE FOLLOWS: b49fd7a4 grew the COMPILED site by one word and moved the callee ANCHOR lea 40->48, but this arm was not grown with it, so the callee stored ANCHOR = rsp0 and label 5 below re-loaded rsp = rsp0 before calling deliver -- and rsp0 here is 8 mod 16, because THIS arm is entered by a CALL while the compiled site's rsp0 is a 0-mod-16 BB depth. OPPOSITE BASE PARITY IS THE WHOLE POINT: the old 40 offset was the aligned one for this path and the new 48 is the aligned one for that path, so the shared callee constant can only be right for both if this reserve carries the extra word. 16 not 8: the body then runs at rsp0-56 = 0 mod 16 and ANCHOR at rsp0-8 = 0 mod 16, so both the body's own calls and the deliver call below enter their helper at the 8 mod 16 SysV requires. Symptom when it is 8: SIGSEGV in the first movaps a callee reaches, which is glibc tcache_init via rt_scan_state_capture -- a crash with no SCRIP frame in it.\n"
+"  subq $16, %rsp\n"
+"  pushq $0\n"
+"  pushq %rsi\n"
+"  leaq 6f(%rip), %rax\n"
+"  pushq %rax\n"
+"  leaq 5f(%rip), %rax\n"
+"  pushq %rax\n"
+"  movq %rdi, %rax\n"
+"  leaq 5f(%rip), %rcx\n"
+"  leaq 6f(%rip), %rdx\n"
+"  jmp *%rax\n"
+"5:\n"
+"  cmpb $0x68, %al\n"
+"  je 6f\n"
+"  movq %rdx, %rdi\n"
+"  call rt_genp_deliver_n2_γ\n"
+"  movq 40(%rax), %rsp\n"
+"  jmpq *32(%rax)\n"
+"6:\n"
+"  call rt_genp_deliver_ω\n"
+);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));

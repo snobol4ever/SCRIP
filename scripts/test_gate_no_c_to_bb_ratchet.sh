@@ -56,13 +56,21 @@ if [ -z "$POP" ]; then
     gate_stamp
     exit 2
 fi
-# ── PINS ── measured at SCRIP c6bf8e789, 2026-09-20, by the ONE_LINER below.  Umbrella total 12.
+# ── PINS ── measured at SCRIP c6bf8e789, 2026-09-20, by the ONE_LINER below.  Umbrella total 10.
 # ⛔ EDIT ONLY DOWNWARD.  rt.c is the cfo's (row gc-rt-c-c-to-bb-entries-...): 4 asm shims + rt_proc_call_gen_h's
-# member-fnptr, all five blocked on the 19 foreign callers in the ceo's files, plus the 2 generator spines held
-# on the ceo's ruling of whether a fresh coroutine stack's first frame is the sanctioned initial-start class.
+# member-fnptr, all five blocked on the 19 foreign callers in the ceo's files.
+# ⭐ 7 -> 5 ON 2026-09-20, AND IT IS A SANCTION PLUS A MOVE, NOT A CONVERSION (cto, CEO-970): the two generator
+# spines rt_genp_spine_enter and rt_genp_spine_enter_n2 were held here pending the ceo's ruling on whether a
+# fresh coroutine stack's first frame is the sanctioned initial-start class.  The ceo ruled it IS -- both are
+# reached only from rt_genp_entry_c, which rt_genp_thread_entry jumps to, which scrip_co_ctx_init installs as
+# the entry on a fresh coroutine stack with no emitted code beneath it, structurally identical to
+# scrip_coexpr_trampoline_entry -- so they moved beside that twin in rt_coexpr.c and test_gate_no_c_to_bb.sh
+# sanctions them by name.  ⛔ THE cfo's ROW DID NOT ADVANCE BY THIS: rt.c reads 5 because two entries left the
+# file sanctioned, not because two conversions landed.  If Lon's INITIAL START is per-run rather than per-stack,
+# the sanction is withdrawn, the two return as conversions on the cfo's row, and this pin goes back to 7.
 # runtime_eval.c and by_name_dispatch.c are the ceo's row gc-the-five-c-to-bb-entries-outside-rt-c-....
 PINS="
-7 src/runtime/rt/rt.c
+5 src/runtime/rt/rt.c
 3 src/runtime/by_name_dispatch.c
 2 src/runtime/runtime_eval.c
 "

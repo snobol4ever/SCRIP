@@ -11,6 +11,9 @@
 #                                                        singular; ground truth is two exclusive branches of
 #                                                        the one MAIN dispatch — one transfer per run either way.]
 #   src/runtime/rt/rt_coexpr.c scrip_coexpr_trampoline_entry — sanctioned per-thread MAIN (jmp not call,
+#   src/runtime/rt/rt_coexpr.c rt_genp_spine_enter / rt_genp_spine_enter_n2 — the two coroutine spines, the
+#     first frame on a fresh coroutine stack with no emitted code beneath them (CEO-970, moved out of rt.c
+#     2026-09-20 by the cto so the sanction and the code agree).
 #                                                        fresh pthread stack, never returns).
 #   src/driver/scrip.c        icn_zf_main_call         — THIRD mutually-exclusive MAIN branch (row
 #                                                        c-to-bb-unledgered-scrip-c-57, seat15 2026-08-30):
@@ -95,6 +98,16 @@ while IFS=: read -r f l shape; do
         # (kept in the case list as history; a hit can never carry that name).
         src/driver/scrip.c:rt_outer_call|src/driver/scrip.c:rt_outer_call_delta0) continue ;;
         src/runtime/rt/rt_coexpr.c:scrip_coexpr_trampoline_entry) continue ;;
+        # ⭐ THE TWO COROUTINE SPINES, SANCTIONED PER CEO-970 AND MOVED HERE BESIDE THEIR TWIN (cto 2026-09-20):
+        # rt_genp_spine_enter and rt_genp_spine_enter_n2 are reached ONLY from rt_genp_entry_c, which
+        # rt_genp_thread_entry jumps to, which scrip_co_ctx_init installs as the entry on a FRESH COROUTINE
+        # STACK -- the first frame on that stack, with no emitted code beneath it.  That is structurally
+        # identical to scrip_coexpr_trampoline_entry above, which this gate already sanctions as the per-thread
+        # MAIN, and a rule that sanctions one while naming the other reads the file name and not the structure.
+        # They lived in rt.c only because that file held the asm; they are the coexpression road's, so the
+        # sanction and the code now agree.  ⛔ If Lon's INITIAL START is per-run rather than per-stack, this
+        # sanction is withdrawn and the two become conversions on the rt.c seat's row.
+        src/runtime/rt/rt_coexpr.c:rt_genp_spine_enter|src/runtime/rt/rt_coexpr.c:rt_genp_spine_enter_n2) continue ;;
         # ⭐ THIRD SANCTIONED MAIN SITE (row c-to-bb-unledgered-scrip-c-57, seat15 2026-08-30): NOT dead
         # Icon scaffolding -- verified actively called (scrip.c main(), the `_zframe_graph &&
         # !_icn_cells_graph` branch) as a THIRD mutually-exclusive MAIN-transfer arm alongside the two
