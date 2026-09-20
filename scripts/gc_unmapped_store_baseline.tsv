@@ -35,6 +35,8 @@ hb_dvec_data_convert.sno	34	0	34
 hb_dvec_list.icn	0	0	90
 hb_dvec_list_slice.icn	0	0	48
 hb_dvec_sort_match.sno	24	22	46
+hb_errtext_eval_capture.sno	6	0	6
+hb_errtext_keyword.sno	4	0	4
 hb_eval_names.sno	10	0	10
 hb_file_name_unrooted.icn	0	0	4
 hb_mkexpr_unmapped_spine_store.sno	6	0	6
