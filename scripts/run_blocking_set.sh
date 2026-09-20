@@ -272,11 +272,96 @@ race_stamp_line() {  # race_stamp_line <shape> <arms> <wall-seconds> <load-at-st
     printf 'blocking set stamp: shape=%s arms=%s wall=%ss load=%s->%s tree=%s detector=%s raced=%s\n' \
         "$1" "$2" "$3" "$4" "$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo ?)" "$tree" "$RACE_STATE" "$5"
 }
+# ⛔⭐⭐ A RUN THAT DIES MUST SAY WHO KILLED IT (coo 2026-09-20, row instruments-a-blocking-set-run-is-killed-
+# from-outside-and-no-seat-completed-one-today, ceo on the cfo's CFO-147). FIVE DEATHS, THREE SEATS, ONE
+# AFTERNOON: the cfo at arm 103 with SIGTERM and at arm 166 with SIGKILL DESPITE setsid, hq_prolog at arm 6
+# after thirty seconds, hq_raku at 18 and at 61 -- and not one of them said what ended it, so every seat spent
+# the afternoon guessing between a wall clock, an OOM and another seat's pkill. Ten seats share ONE UNIX USER,
+# so a `pkill -f` keyed on a script name reaches every other seat's run; the cto signalled eleven pids over
+# shared patterns at 01:4x and reported it unprompted, which is the existence proof.
+#   · the CATCHABLE signals are trapped and print SIGNAL, ARM REACHED, ELAPSED, counts so far, and the SENDER
+#     looked up in the kill ledger s4e_kill_mine.sh now writes -- or "no ledger entry", which is its own fact.
+#   · ⛔ SIGKILL CANNOT BE TRAPPED AND NOTHING INSIDE A VICTIM EVER REPORTS IT. That is exactly why the RUNSTATE
+#     exists: the next run in this root POSTMORTEMS a state file that was never completed, so a SIGKILL becomes
+#     legible after the fact instead of vanishing. A mechanism that only handles the signals you can catch
+#     handles the ones that do not happen.
+#   · ⛔ THE RUNSTATE LIVES IN /tmp, PER ROOT, AND NEVER UNDER THE CHECKOUT. Writing it under out/ or the root
+#     would move a watched path on every arm and make the race detector convict every concurrent arm of racing
+#     -- the instrument sabotaging its own sibling, one directory apart.
+#   · a trap fires when the arm in flight returns, because bash defers traps during a foreground child. When a
+#     `pkill -f` hits the whole tree that is immediate; when only the parent is signalled the report comes at
+#     the end of the current arm. Late, never lost, and said here rather than discovered.
+RUNSTATE=""   # ⛔ its VALUE is set below, once --shard is parsed: a shard child is supervised by its parent and
+              # writes no state of its own, or N children would clobber one file and postmortem each other.
+KILL_LEDGER="${S4E_KILL_LEDGER:-${S4E_POST:-/home/resources/postoffice}/kills.tsv}"
+RUN_T0=$(date +%s); RUN_ARM_I=0; RUN_ARM_CMD=""
+runstate_write() {  # runstate_write <state-word>
+    [ -n "$RUNSTATE" ] || return 0
+    { printf 'pid=%s\nstarted=%s\nstarted_iso=%s\nroot=%s\nsource=%s\narms=%s\nstate=%s\narm_index=%s\narm_cmd=%s\n' \
+        "$$" "$RUN_T0" "$(date -u -d "@$RUN_T0" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" "$ROOT" "$SOURCE" "$N" "$1" "$RUN_ARM_I" "$RUN_ARM_CMD"
+      [ "$1" = completed ] && printf 'completed=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    } > "$RUNSTATE" 2>/dev/null || true
+}
+kill_ledger_lookup() {  # kill_ledger_lookup <pid> <since-epoch> -- prints the sender line or nothing
+    [ -r "$KILL_LEDGER" ] || return 1
+    awk -F'\t' -v pid="$1" '$6 == pid {last = "seat=" $2 " root=" $3 " sender_pid=" $4 " signal=SIG" $5 " at=" $1 " pattern=" $9} END {if (last != "") print last}' "$KILL_LEDGER"
+}
+death_report() {  # death_report <signal-name>
+    local el sender
+    el=$(( $(date +%s) - RUN_T0 ))
+    echo
+    echo "⛔⛔ BLOCKING SET KILLED BY SIG$1 -- THIS RUN DID NOT COMPLETE, so nothing below it is a verdict."
+    printf '   arm reached : %s of %s   %s\n' "$RUN_ARM_I" "$N" "${RUN_ARM_CMD:-<none started>}"
+    printf '   elapsed     : %ss   counts so far: green=%s red=%s refused=%s\n' "$el" "${green:-0}" "${red:-0}" "${refused:-0}"
+    printf '   this run    : pid=%s root=%s source=%s\n' "$$" "$ROOT" "$SOURCE"
+    sender="$(kill_ledger_lookup "$$" "$RUN_T0")"
+    if [ -n "$sender" ]; then
+        printf '   ⭐ SENDER    : %s\n                 (recorded in %s)\n' "$sender" "$KILL_LEDGER"
+    else
+        printf '   ⛔ SENDER    : NO LEDGER ENTRY for pid %s in %s -- AN UNLOGGED KILLER.\n' "$$" "$KILL_LEDGER"
+        printf '                 A kill that leaves no record cannot be named by its victim. Every seat signals through\n'
+        printf '                 scripts/s4e_kill_mine.sh, which is root-scoped AND records; a bare pkill -f is the reach itself.\n'
+    fi
+    runstate_write "killed-SIG$1"
+}
+trap 'death_report TERM; exit 143' TERM
+trap 'death_report INT;  exit 130' INT
+trap 'death_report HUP;  exit 129' HUP
+trap 'death_report QUIT; exit 131' QUIT
+# ⛔ THE POSTMORTEM IS READ BEFORE THIS RUN OVERWRITES THE STATE, and it is the only way an untrappable death is
+# ever reported: the run that died cannot speak, so the next one speaks for it.
+runstate_postmortem() {
+    [ -n "$RUNSTATE" ] && [ -r "$RUNSTATE" ] || return 0
+    grep -q '^completed=' "$RUNSTATE" 2>/dev/null && return 0
+    local pid started iso idx cmd arms el sender
+    pid=$(sed -n 's/^pid=//p' "$RUNSTATE"); started=$(sed -n 's/^started=//p' "$RUNSTATE")
+    iso=$(sed -n 's/^started_iso=//p' "$RUNSTATE"); idx=$(sed -n 's/^arm_index=//p' "$RUNSTATE")
+    cmd=$(sed -n 's/^arm_cmd=//p' "$RUNSTATE"); arms=$(sed -n 's/^arms=//p' "$RUNSTATE")
+    el=$(sed -n 's/^state=//p' "$RUNSTATE")
+    echo "⛔ POSTMORTEM OF THE PREVIOUS RUN IN THIS ROOT -- it never recorded a completion, so it was ENDED:"
+    printf '   pid=%s started %s, reached arm %s of %s, last arm: %s\n' "${pid:-?}" "${iso:-?}" "${idx:-?}" "${arms:-?}" "${cmd:-<none>}"
+    printf '   last state it wrote: %s\n' "${el:-unknown}"
+    sender="$(kill_ledger_lookup "${pid:-0}" "${started:-0}")"
+    if [ -n "$sender" ]; then
+        printf '   ⭐ SENDER: %s   (recorded in %s)\n' "$sender" "$KILL_LEDGER"
+    else
+        printf '   ⛔ SENDER: no ledger entry for pid %s -- an UNLOGGED killer, or a SIGKILL from outside s4e_kill_mine.sh.\n' "${pid:-?}"
+        printf '             SIGKILL cannot be trapped, which is why this state file exists at all.\n'
+    fi
+    echo
+}
+sig_name_of_rc() {  # sig_name_of_rc <rc> -- prints SIG<NAME> for 128+n, else nothing
+    [ "${1:-0}" -gt 128 ] 2>/dev/null || return 1
+    local n="$(( $1 - 128 ))" nm
+    nm="$(kill -l "$n" 2>/dev/null)"
+    [ -n "$nm" ] && printf 'SIG%s' "$nm"
+}
 # ⛔ ONE ARM, ONE EXECUTION SITE.  The fan-out parent ran its serial arms through a copy of this line and the
 # sequential loop through another; a detector wired into one of them and not the other is the half-wired shape
 # the org keeps paying for.  ARM_RC / ARM_OUT / ARM_SEC are the outputs.
 arm_exec() {  # arm_exec <cmd>
     local t0
+    RUN_ARM_I=$((RUN_ARM_I + 1)); RUN_ARM_CMD="$1"; runstate_write running
     race_before
     t0=$SECONDS
     ARM_OUT="$(cd "$ROOT" && bash -c "$1" </dev/null 2>&1)"; ARM_RC=$?
@@ -313,6 +398,14 @@ if [ "$SHARD_N" -gt 0 ]; then
     [ "$N" -gt 0 ] || refuse "shard $SHARD_K/$SHARD_N holds ZERO arms (the set has fewer shardable arms than shards) -- a slice that graded nothing must never print the success shape"
 fi
 
+# ⛔ THE RUNSTATE PATH IS DECIDED HERE, WHERE --shard IS FINALLY KNOWN. /tmp and never the checkout: a state file
+# under out/ or the root would move a watched path on every arm and make the race detector convict every
+# concurrent arm of racing -- one instrument sabotaging its sibling, one directory apart.
+# S4E_BLOCKING_RUNSTATE names it elsewhere so the acceptance gate's fixtures are HERMETIC -- a gate that
+# postmortemed its own fixtures into this seat's real state file would manufacture a false death report on the
+# next real run, which is the class of defect this whole row is about.
+[ "$SHARD_N" -gt 0 ] || RUNSTATE="${S4E_BLOCKING_RUNSTATE:-/tmp/si_blockingset$(printf '%s' "$ROOT" | tr '/' '-').runstate}"
+
 if [ "$LIST_ONLY" -eq 1 ]; then
     for i in $(seq 0 $((N - 1))); do
         if [ -n "${FLAGS[$i]}" ]; then printf '%3d  REPORTED  %s\n' "$((i + 1))" "${CMDS[$i]}"
@@ -325,6 +418,7 @@ fi
 # `--shard k/N` of this same script over the same declaration, and MERGES their per-arm machine lines.  The merge
 # is by ARM NAME, which is what the acceptance compares: same red name set, same refused name set, same total.
 if [ -n "$SHARDS" ]; then
+    runstate_postmortem
     WORK="$(mktemp -d)" || refuse "no temp dir for the fan-out"
     trap 'rm -rf "$WORK"' EXIT
     LOAD0="$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo ?)"
@@ -345,13 +439,24 @@ if [ -n "$SHARDS" ]; then
         printf '[serial] rc=%-3s %4ds  %s\n' "$ARM_RC" "$ARM_SEC" "${CMDS[$i]}"
     done
     for k in $(seq 1 "$SHARDS"); do
-        ( bash "${BASH_SOURCE[0]}" --shard "$k/$SHARDS" --target "$DECL_TARGET" --makefile "$MAKEFILE" \
+        ( echo "shardpid=$BASHPID" > "$WORK/shard.$k.pid"; bash "${BASH_SOURCE[0]}" --shard "$k/$SHARDS" --target "$DECL_TARGET" --makefile "$MAKEFILE" \
               ${ARMS_FILE:+--arms-from "$ARMS_FILE"} --serial-arms "$SERIAL_FILE" --shared-surfaces "$SURFACE_FILE" > "$WORK/shard.$k.out" 2>&1; echo $? > "$WORK/shard.$k.rc" ) &
     done
     wait
     for k in $(seq 1 "$SHARDS"); do
         krc="$(cat "$WORK/shard.$k.rc" 2>/dev/null || echo 2)"
         printf 'shard %d/%s: rc=%s, %s arm(s)\n' "$k" "$SHARDS" "$krc" "$(grep -c '^ARMRESULT	' "$WORK/shard.$k.out" 2>/dev/null || echo 0)"
+        # ⛔ A CHILD THAT DIED ON A SIGNAL IS NAMED AS SUCH, NOT LEFT AS A BARE rc. "rc=137" is a number a reader
+        # has to decode; "SIGKILL after 14 arms" is the fact, and it is the difference between a shard that
+        # FAILED and a shard that WAS ENDED -- the second is never a verdict about the tree.
+        _ksig="$(sig_name_of_rc "$krc")"
+        if [ -n "$_ksig" ]; then
+            printf '   ⛔ shard %d WAS ENDED BY %s after %s arm(s) -- its slice is UNMEASURED, not green and not red.\n' \
+                "$k" "$_ksig" "$(grep -c '^ARMRESULT	' "$WORK/shard.$k.out" 2>/dev/null || echo 0)"
+            _ksender="$(kill_ledger_lookup "$(sed -n "s/^shardpid=//p" "$WORK/shard.$k.pid" 2>/dev/null)" "$RUN_T0")"
+            [ -n "$_ksender" ] && printf '      ⭐ SENDER: %s\n' "$_ksender" \
+                || printf '      ⛔ SENDER: no ledger entry -- an unlogged killer (see scripts/s4e_kill_mine.sh).\n'
+        fi
         grep '^ARMRESULT	' "$WORK/shard.$k.out" >> "$WORK/results.tsv" 2>/dev/null
         if [ "$krc" = 2 ] && ! grep -q '^ARMRESULT	' "$WORK/shard.$k.out" 2>/dev/null; then
             echo "⛔ shard $k/$SHARDS produced NO arm results:"; tail -3 "$WORK/shard.$k.out" | sed 's/^/     /'
@@ -404,12 +509,15 @@ if [ -n "$SHARDS" ]; then
         "$N" "$g" "$r" "$f" "$g" "$r" "$f" "$tot" "$SHARDS" "$((SECONDS - t_all))"
     race_stamp_line "fan-out/$SHARDS" "$N" "$((SECONDS - t_all))" "$LOAD0" "$n_raced"
     [ "$tot" -eq "$N" ] || refuse "the fan-out reported $tot arm(s) for a declared $N -- a shard lost or doubled work, and a set that cannot account for its own arms is not a measurement (speed is reported BESIDE name-set identity, never instead of it)"
+    runstate_write completed
     if [ "$bred" -gt 0 ]; then echo "⛔ BLOCKING SET RED: $bred blocking arm(s) failed, $bref refused."; exit 1; fi
     if [ "$bref" -gt 0 ]; then echo "⛔ BLOCKING SET UNPROVEN: no blocking arm failed, but $bref could not measure (rc=2).  A refusal is not a pass."; exit 2; fi
     echo "✅ BLOCKING SET GREEN: all $N arm(s) ran across $SHARDS shard(s); every blocking arm passed."
+    runstate_write completed
     exit 0
 fi
 
+runstate_postmortem
 echo "=== blocking set: $N arm(s) from $SOURCE -- EVERY arm runs; reds and refusals are reported separately at the end ==="
 LOAD0="$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo ?)"; T_ALL=$SECONDS
 green=0; red=0; refused=0
@@ -453,6 +561,7 @@ fi
 printf 'blocking set: arms=%d  green=%d  red=%d  refused=%d   (%d+%d+%d=%d)\n' \
     "$N" "$green" "$red" "$refused" "$green" "$red" "$refused" "$((green + red + refused))"
 race_stamp_line "sequential" "$N" "$((SECONDS - T_ALL))" "$LOAD0" 0
+runstate_write completed
 [ "$((green + red + refused))" -eq "$N" ] || refuse "the classes do not sum to the arm count -- this driver cannot report its own run"
 if [ -f "$HERE/lib_gate.sh" ]; then . "$HERE/lib_gate.sh" 2>/dev/null && gate_stamp 2>/dev/null; fi
 # ⛔ REPORTED ARMS CANNOT CHANGE THE VERDICT, which is exactly what a leading `-` meant to make.  Everything

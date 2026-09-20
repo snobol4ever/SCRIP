@@ -45,3 +45,9 @@ blocking_set_shards_agree
 #    measuring the fleet. A duration-pinned arm's verdict is a fact about the box and must never be read as one
 #    about the tree.
 gc_every_allocating_runtime_entry_returns_to_a_safe_point
+# ⛔ AND THE DEATH GATE, coo 2026-09-20: it starts four background runs and a three-shard fan-out of its own and
+#    then KILLS them on a one-second timer. Nested inside a shard it would be a fan-out inside a fan-out with a
+#    load-sensitive fixture -- its wait_started budget is ten seconds -- and it is the one arm in the set that
+#    sends signals at all. It is root-scoped and pattern-scoped to its own mktemp dir, so it cannot reach another
+#    arm; it runs alone because its own MEASUREMENT would otherwise be a measurement of the box.
+a_blocking_set_death_names_its_killer

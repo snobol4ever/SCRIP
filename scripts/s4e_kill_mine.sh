@@ -182,7 +182,40 @@ for pid in "${targets[@]}"; do
   printf '  pid=%s cwd=%s cmd=%s\n' "$pid" "$cwd" "$cmdline"
 done
 
+# ⛔⭐ EVERY SIGNAL THIS SCRIPT SENDS IS RECORDED, BECAUSE A KILL THAT LEAVES NO RECORD CANNOT BE NAMED BY ITS
+# VICTIM (coo 2026-09-20, row instruments-a-blocking-set-run-is-killed-from-outside-and-no-seat-completed-one-
+# today, ceo on the cfo's CFO-147). FIVE DEATHS, THREE SEATS, ONE AFTERNOON -- the cfo at arm 103 with SIGTERM
+# and arm 166 with SIGKILL despite setsid, hq_prolog at arm 6 after thirty seconds, hq_raku at 18 and at 61 --
+# and NOT ONE OF THEM COULD SAY WHO KILLED IT. Ten seats share one unix user, so the question "was that me?"
+# is answerable only from a shared record. This is that record: append-only, one line per pid signalled,
+# naming the SENDER as well as the target, under flock so ten seats can write it at once.
+# ⛔ --explain-only WRITES NOTHING, and that is not an oversight: it signals nothing, so a line here would be
+# a record of an event that did not happen -- the same false-green shape in ledger clothing.
+# ⛔ AND AN UNWRITABLE LEDGER DOES NOT BLOCK THE KILL. A seat trying to stop its own runaway process must not
+# be stopped by a full disk; the kill proceeds and the failure is PRINTED, so the victim's report will read
+# "no ledger entry" honestly rather than being silently robbed of its answer.
+KILL_LEDGER="${S4E_KILL_LEDGER:-${S4E_POST:-/home/resources/postoffice}/kills.tsv}"
+kill_ledger_append() {  # kill_ledger_append <pid> <signal> <target-cwd> <target-cmd>
+  local when me sender_root line
+  when="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  me="${S4E_SEAT:-$(basename "$S4E" 2>/dev/null | sed 's/^claude_//')}"
+  sender_root="$S4E"
+  # TAB-separated, and every field is a WORD so a reader splitting on tabs cannot shift a column.
+  line="$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' \
+      "$when" "${me:-unknown}" "$sender_root" "$$" "$2" "$1" "${4:-unknown}" "${3:-unknown}" "${pattern:-<none>}")"
+  if ! ( flock 9 2>/dev/null; printf '%s\n' "$line" >> "$KILL_LEDGER" ) 9>>"${KILL_LEDGER}.lock" 2>/dev/null; then
+    echo "  ⚠ COULD NOT RECORD this kill in $KILL_LEDGER -- the signal was still sent, and its victim will read 'no ledger entry'" >&2
+  fi
+}
 for pid in "${targets[@]}"; do
+  _cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
+  # ⛔ THE SUBSHELL IS THE POINT: a pid can vanish between enumeration and this read (a child dying with its
+  # parent is the common case), and `< /proc/N/cmdline 2>/dev/null` cannot suppress the SHELL's own redirection
+  # error -- it prints "No such file" from the middle of a kill report. The record then reads "unknown", which
+  # is the honest value for a process that was already gone.
+  _cmd=$( (tr '\0' ' ' < "/proc/$pid/cmdline") 2>/dev/null | sed 's/[[:space:]]*$//')
   kill -TERM "$pid" 2>/dev/null
+  kill_ledger_append "$pid" "TERM" "$_cwd" "$_cmd"
 done
+echo "s4e_kill_mine: ${#targets[@]} signal(s) recorded in $KILL_LEDGER -- a victim can now name this kill"
 exit 0
