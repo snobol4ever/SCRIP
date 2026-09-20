@@ -203,14 +203,14 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         return 1 + nd->n_operands;
     case IR_PROC_GEN: case IR_CALL_VALUE:
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run; at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a NON-RESUMABLE callee -- a plain procedure returns once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
         zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_PTR_CODE, 0, "callgen.act +8 (WRITTEN, not a pad: the callee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
         return 1 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             if (nd->op == IR_CALL_PROC_STAGED) {
                 if (!zls_callee_is_gen(nd)) return 0;
-                zls_field(scope_id, off, 8, ZK_RAW, 0, "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run; at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
+                zls_field(scope_id, off, 8, ZK_RAW, 0, "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a NON-RESUMABLE callee -- a plain procedure returns once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
                 zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "callgen.act +8 (WRITTEN, not a pad: the callee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
                 return 1;
             }

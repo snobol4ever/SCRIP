@@ -1185,22 +1185,28 @@ DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot) {
     return rt_call_value_gen_h(callee, buf, n, hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
+static FILE *cvprep_log(void) { static FILE *f = (FILE *)0; static int tried = 0; if (!tried) { const char *e = getenv("SCRIP_CV_PREP_LOG"); tried = 1; if (e && *e) { f = fopen(e, "a"); if (f) setvbuf(f, (char *)0, _IOLBF, 0); } } return f; }
+static int cvprep_trace_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_CV_PREP_TRACE"); p = ((e && *e && *e != '0') || cvprep_log()) ? 1 : 0; } return p; }
+static void cvprep_say(const char *what, const char *why, const char *nm) { if (!cvprep_trace_on()) return; FILE *f = cvprep_log(); if (!f) f = stderr; fprintf(f, "[CV-PREP] %s %s %s\n", what, why, nm ? nm : "(noname)"); if (f == stderr) fflush(f); }
+static CVSPINE_t cvprep_decline(const char *why, const char *nm) { cvprep_say("decline", why, nm); return (CVSPINE_t){ 0, 0 }; }
+CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     icn_call_value_deref_args(nm, argv, n);
-    if (IS_PROCVAL_BUILTIN_fn(callee)) return (void *)0;
-    if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
-    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }
+    if (IS_PROCVAL_BUILTIN_fn(callee)) return cvprep_decline("builtin", nm);
+    if (!nm) return cvprep_decline("noname", nm);
+    if (!rt_proc_is_registered(nm)) return cvprep_decline("unregistered", nm);
+    if (!rt_proc_jmp_entry(nm)) return cvprep_decline("nojmpentry", nm);
+    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return cvprep_decline("genregionft", nm); }
     { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0}; }
-    if (!rt_proc_call_open(nm, n)) return (void *)0;
-    return rt_proc_fn(nm);
+    if (!rt_proc_call_open(nm, n)) return cvprep_decline("openfailed", nm);
+    { int gen = rt_proc_is_generator(nm); cvprep_say("open", gen ? "spine" : "spinedet", nm); return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), gen ? 0 : 2 }; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
+CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
     DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
-    if (n < 0) return (void *)0;
+    if (n < 0) return (CVSPINE_t){ 0, 0 };
     return rt_call_value_spine_prep(callee, buf, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -11,8 +11,8 @@ extern DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **
 extern DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot);
 extern DESCR_t rt_call_value_resume_h(void **hslot);
 extern void rt_proc_drop_frame_h(void **hslot);
-extern void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
-extern void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
+extern CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
+extern CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
 extern void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n);
 extern DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
@@ -36,8 +36,8 @@ std::string bb_call_value() {
         if (_.op_arg_slot[i] < 0)
             return x86_alpha() + x86_bomb("bb_call_value: argument slot unfilled");
     int H = _.op_off + 16 + n * 16;
-    uint64_t vprep_fp; { void *(*fp)(DESCR_t, DESCR_t *, int) = rt_call_value_spine_prep; vprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    uint64_t aprep_fp; { void *(*fp)(DESCR_t, DESCR_t) = rt_call_apply_spine_prep; aprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t vprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t *, int) = rt_call_value_spine_prep; vprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t aprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t) = rt_call_apply_spine_prep; aprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t gprep_fp; { void *(*fp)(DESCR_t, DESCR_t *, int) = rt_pl_goal_spine_prep; gprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void *)fp; }
@@ -73,6 +73,8 @@ std::string bb_call_value() {
             + (cv_is_goal() ? x86("call", "rt_pl_goal_spine_prep", gprep_fp) : x86("call", "rt_call_value_spine_prep", vprep_fp)))
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
+       + IF(!cv_is_goal(), x86("comment", "BANK THE PREP'S SECOND REGISTER BEFORE THE TRANSFER (ceo 2026-09-19, row gc-the-five-c-to-bb-entries-outside-rt-c-go-to-zero). rt_call_value_spine_prep and rt_call_apply_spine_prep return CVSPINE_t: rax the callee entry, rdx the word this cell must hold. 0 keeps the old contract exactly -- a jmp-entry GENERATOR, and the gamma landing below writes 1 once its epilogue has run. 2 is new and says THE CALLEE CANNOT BE RE-DRIVEN: prep opened a plain procedure, which returns once and releases, so beta must fail forward rather than jump back into a dead frame. The old guard for that was rt_call_value_spine_prep refusing every non-generator, which sent the call to rt_call_value_gen_h and its C-to-BB entry (by_name_dispatch.c 1129) -- 26 of the 40 reaching it over the Icon master. Dropping the refusal ALONE hangs every redo (measured: `every x := f()` and a failing comparison both loop forever, while a single call is byte-correct), which is exactly this word's job. rdx is free here: it is an argument register on the way in and the glue below reloads it as a wire on the way out.")
+                           + x86("mov", FRQ(H), "rdx"))
        + IF(cv_pl_proto(), x86("comment", "PL-CALL-ALIGN + jump-back word, byte-identical to bb_call_proc_staged's own PL call site: the callee is a PL Byrd box and it reads a FOUR-word entry stack ([rsp+0]=gamma [rsp+8]=omega [rsp+16]=jump-back [rsp+24]=pad), not the two-word pair an Icon flat generator takes. Pushing the pair alone left the box reading its jump-back out of the caller's locals AND left rsp 8-mod-16 into the callee, which is a real ABI violation before it is a protocol one. Emitting the same four words is what lets the landings below pop the same 32.")
                           + x86("sub", "rsp", 8L)
                           + x86_lea_id("rcx", 11)
@@ -92,9 +94,13 @@ std::string bb_call_value() {
             : bb_glue_wire_land()
               + x86("mov",  FRQ(H + 8), "rsp")
               + x86("mov",  "rax", FRQ(H))
+              + x86("comment", "THE NON-RESUMABLE SPINE ARM ARRIVES HERE EXACTLY ONCE (act0 = 2, banked before the transfer): take the same first-arrival epilogue a generator takes and LEAVE the 2 standing, because beta reads it to decide that there is nothing to resume. Testing it before the zero test is what keeps 2 out of the `already flagged` arm, which would otherwise read a first arrival as a re-drive and call rt_gen_spine_pass_γ with no pass to make.")
+              + x86("cmp",  "rax", 2L)
+              + x86("je",   L(23))
               + x86("test", "rax", "rax")
               + x86("jne",  L(5))
               + x86("mov",  FRQ(H), 1L)
+              + x86("def",  L(23))
               + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
               + x86("jmp",  L(2))
               + x86("def", L(5))
@@ -111,9 +117,12 @@ std::string bb_call_value() {
             : bb_glue_wire_land()
               + x86("mov",  FRQ(H + 8), "rsp")
               + x86("mov",  "rax", FRQ(H))
+              + x86("cmp",  "rax", 2L)
+              + x86("je",   L(24))
               + x86("test", "rax", "rax")
               + x86("jne",  L(6))
               + x86("mov",  FRQ(H), 1L)
+              + x86("def",  L(24))
               + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
               + x86("jmp",  L(2))
               + x86("def", L(6))
@@ -158,6 +167,9 @@ std::string bb_call_value() {
               + x86("def",  L(12))
               + x86_omega()
             : x86("mov",  "rax", FRQ(H))
+              + x86("comment", "act0 = 2 IS A DEAD END BY CONSTRUCTION: the spine opened a plain procedure, it returned its one result and released its frame, and there is no suspension to re-enter. Fail forward. It must be tested BEFORE the C-window arm at L(8) as well as before the resume: rt_call_value_resume_h would read 2 as an hslot value and dereference it as an ICN_OPGEN_t.")
+              + x86("cmp",  "rax", 2L)
+              + x86_omega("je")
               + x86("cmp",  "rax", 1L)
               + x86("jne",  L(8))
               + x86_scan_sync_out()

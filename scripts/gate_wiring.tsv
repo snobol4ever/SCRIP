@@ -95,6 +95,7 @@ test_gate_frame_reuse_rung3d_the_dead_result_scratch_overlays_a_pool_slot.sh	WIR
 test_gate_frame_reuse_rung3e_a_single_reader_temp_takes_its_sealed_calls_argv_slot.sh	WIRED	-	-	-
 test_gate_frame_reuse_rung3f_a_first_occurrence_head_variable_is_its_param_slot.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
+test_gate_gc_a_bignum_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
 test_gate_gc_a_callee_saved_register_at_an_allocating_return_is_named_not_assumed.sh	WIRED	-	-	-
 test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
 test_gate_gc_a_register_resident_box_result_is_spilled_as_a_descr_across_its_poll.sh	WIRED	-	-	-
@@ -104,8 +105,6 @@ test_gate_gc_blob_carve_invariant_is_named_and_held.sh	WIRED	-	-	-
 test_gate_gc_carve_advances_the_virgin_mark_past_a_straddling_block.sh	WIRED	-	-	-
 test_gate_gc_dt_data_names_one_pointed_at_shape.sh	WIRED	-	-	-
 test_gate_gc_eval_built_names_survive_a_collection.sh	WIRED	-	-	-
-test_gate_gc_a_bignum_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
-test_gate_gc_the_prolog_root_cells_live_inside_the_value_region_and_are_visited_by_type.sh	WIRED	-	-	-
 test_gate_gc_every_allocating_runtime_entry_returns_to_a_safe_point.sh	WIRED	-	-	-
 test_gate_gc_every_safe_point_has_a_compile_time_frame_shape.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
@@ -128,11 +127,13 @@ test_gate_gc_the_decidable_test.sh	WIRED	-	-	-
 test_gate_gc_the_lowerer_registries_are_rooted_not_malloced.sh	WIRED	-	-	-
 test_gate_gc_the_mark_walk_is_a_worklist_not_recursion_per_cell.sh	WIRED	-	-	-
 test_gate_gc_the_name_save_stack_and_the_eval_tables_are_rooted_not_moved_off_the_heap.sh	WIRED	-	-	-
+test_gate_gc_the_prolog_root_cells_live_inside_the_value_region_and_are_visited_by_type.sh	WIRED	-	-	-
 test_gate_gc_the_spill_record_carries_a_callee_saved_heap_pointer_across_an_allocating_return.sh	WIRED	-	-	-
 test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_a_spine_opened_plain_procedure_fails_forward_on_redo.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_survives_the_procedure_boundary.sh	WIRED	-	-	-
