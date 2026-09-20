@@ -81,7 +81,21 @@ CENSUS="$HERE/util_gc_callee_saved_census.py"; [ -f "$CENSUS" ] || { echo "⛔ G
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
-COPY_CEILING=${COPY_CEILING:-185}
+#   185 -> 287 (cfo 2026-09-19, row gc-rt-c-c-to-bb-entries-...; the SAME mechanism as the move above, MEASURED ON
+#   THREE TREES WITH THE SAME WITNESS SET RATHER THAN REASONED): landing 3 put the COMPUTED-NAME CAPTURE TARGET and
+#   the TEN MATCH-TIME PRIMITIVES on the tree's one open/land pair, so the deferred witness's LEN/ANY/SPAN/BREAK/TAB
+#   each enter their target through the box's indirect jmp instead of calling one C leaf.  80e3a942e (landing 2):
+#   594 sites, not-a-pointer 317, copies 185, heap 6.  f0368fb08 (landing 3): 612 sites, 332, 339, heap 6.
+#   41323bc8e (landing 5, the entry glue's record as tagged cells): 612 sites, 372, 287, heap 6.  NO NEW REGISTER
+#   AND NO NEW DEFINING FORM -- arm 3 reads 0 unclassified on all three and heap stays 6 -- so the 185 -> 339 half is
+#   eighteen more allocating call sites reading the SAME copies (r13 the outer subject, r14/r15 the cursors, r12 the
+#   pend, rbx), and the 339 -> 287 half is this seat's cure giving 52 back: the glue's pops became tagged-cell loads
+#   and r15 is now reloaded 32-bit, which the census reads as D32, provably not a pointer (that is the 332 -> 372).
+#   ⛔ THE CEILING IS RE-MEASURED, NOT RAISED TO FIT: it is the residual the spill record of section 6.5 must carry,
+#   and it falls when a site stops keeping a heap pointer in a callee-saved register across an allocating return --
+#   never because a count was uncomfortable.  The census's own rule stands: "it came from a tagged cell" is not an
+#   argument that a register is raw, it is the argument that the register needs a tag OF ITS OWN at the site.
+COPY_CEILING=${COPY_CEILING:-287}
 
 echo "  HOLDS: what sits in a callee-saved register at an allocating return is NAMED from the emitted code, not assumed from a paragraph -- and it is a property of the SITE, not of the graph, so it does not go in the per-graph map. gc_frame_map_t.reserved stays zero with no reader; the registers get a tag at the poll (section 6.5's spill record), which is the polls row's build."
 
