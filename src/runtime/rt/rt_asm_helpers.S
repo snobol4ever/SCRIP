@@ -88,8 +88,11 @@ rt_gc_point_arr:
     testq  %rdx, %rdx
     jnz    .Lgpa_r0
     leaq   24(%rsp), %rdx
+    call   rt_gc_point_arr_probe_c@PLT
+    jmp    .Lgpa_done
 .Lgpa_r0:
     call   rt_gc_point_arr_c@PLT
+.Lgpa_done:
     addq   $8, %rsp
     popq   %r15
     popq   %r14

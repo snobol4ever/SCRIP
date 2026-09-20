@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1655
-#define GC_ALLOC_TAB_N_VOID 186
+#define GC_ALLOC_TAB_N 1652
+#define GC_ALLOC_TAB_N_VOID 184
 #define GC_ALLOC_TAB_N_DESCR 923
-#define GC_ALLOC_TAB_N_OTHER 546
+#define GC_ALLOC_TAB_N_OTHER 545
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -979,11 +979,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_gvar_arith", GC_RET_OTHER },
     { "rt_gvar_assign_concat_parts", GC_RET_VOID },
     { "rt_gvar_assign_descr", GC_RET_VOID },
-    { "rt_gvar_assign_int", GC_RET_VOID },
     { "rt_gvar_assign_pat", GC_RET_VOID },
     { "rt_gvar_assign_pat_sz", GC_RET_VOID },
     { "rt_gvar_assign_str", GC_RET_VOID },
-    { "rt_gvar_assign_var", GC_RET_VOID },
     { "rt_gvar_cell", GC_RET_OTHER },
     { "rt_gvar_get_descr", GC_RET_DESCR },
     { "rt_gvar_get_int", GC_RET_OTHER },
@@ -1049,7 +1047,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_num_neg", GC_RET_DESCR },
     { "rt_num_pos", GC_RET_DESCR },
     { "rt_nv_cstr", GC_RET_OTHER },
-    { "rt_nv_slen", GC_RET_OTHER },
     { "rt_parse_num_d", GC_RET_OTHER },
     { "rt_pat_prim_int_take", GC_RET_OTHER },
     { "rt_pat_prim_land_γ", GC_RET_VOID },

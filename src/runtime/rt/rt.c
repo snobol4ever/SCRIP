@@ -95,15 +95,9 @@ const char *rt_nv_cstr(const char *name)
     return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_nv_slen(const char *name)
-{
-    return (long)descr_slen(NV_GET_fn(name ? name : ""));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_str(const char *name, const char *str)
 {
     DESCR_t d;
-    rt_gc_point((DESCR_t *)0, &str);
     d.v    = DT_S;
     d.s    = (char *)(str ? str : "");
     d.slen = descr_cstrlen(d.s);
@@ -143,17 +137,6 @@ void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zsta
     d.p    = dtp_wrap_fn_sz(fn, zsz, zstatic);
     NV_SET_fn(name ? name : "", d);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_int(const char *name, int64_t val)
-{
-    DESCR_t d;
-    rt_gc_point((DESCR_t *)0, (const char **)0);
-    d.v    = DT_I;
-    d.slen = 0;
-    d.i    = val;
-    NV_SET_fn(name ? name : "", d);
-    if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
-}
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_gvar_arith(const char *a, const char *b, int op)
@@ -192,15 +175,6 @@ DESCR_t rt_gvar_get_descr(const char *name)
     return NV_GET_fn(name ? name : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_var(const char *dst, const char *src)
-{
-    DESCR_t d;
-    rt_gc_point((DESCR_t *)0, (const char **)0);
-    d = NV_GET_fn(src ? src : "");
-    NV_SET_fn(dst ? dst : "", d);
-    if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
 {
     DESCR_t d;
@@ -209,7 +183,6 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
     d.v    = u.f.v;
     d.slen = u.f.slen;
     d.i    = hi;
-    rt_gc_point(&d, (const char **)0);
     NV_SET_fn(name ? name : "", d);
     if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
@@ -789,7 +762,6 @@ DESCR_t g_call_args[CALL_ARGS_MAX];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_arg_stage(int idx, DESCR_t v)
 {
-    rt_gc_point(&v, (const char **)0);
     if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

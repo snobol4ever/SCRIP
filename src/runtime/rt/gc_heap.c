@@ -428,18 +428,29 @@ static char *g_gc_seam_sp = (char *)0;
 static DESCR_t *g_gc_shield_arr = (DESCR_t *)0;
 static int g_gc_shield_n = 0;
 static const char **g_gc_shield_r = (const char **)0;
+static int g_gc_shield_r_is_probe = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor)
+static void gc_point_arr_body(DESCR_t *arr, int n, const char **r0, char *floor, int is_probe)
 {
     int pv = g_gc_pending;
     if (!pv && g_hp_gcline && g_hp_top > g_hp_gcline) pv = 1;
     if (!pv) return;
     g_gc_pending = 0;
-    g_gc_shield_arr = arr; g_gc_shield_n = n; g_gc_shield_r = r0;
+    g_gc_shield_arr = arr; g_gc_shield_n = n; g_gc_shield_r = r0; g_gc_shield_r_is_probe = is_probe;
     g_gc_seam_sp = floor;
     gc_collect_ex();
     g_gc_seam_sp = (char *)0;
-    g_gc_shield_arr = (DESCR_t *)0; g_gc_shield_n = 0; g_gc_shield_r = (const char **)0;
+    g_gc_shield_arr = (DESCR_t *)0; g_gc_shield_n = 0; g_gc_shield_r = (const char **)0; g_gc_shield_r_is_probe = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor)
+{
+    gc_point_arr_body(arr, n, r0, floor, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_point_arr_probe_c(DESCR_t *arr, int n, const char **saved_subject_reg, char *floor)
+{
+    gc_point_arr_body(arr, n, saved_subject_reg, floor, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_point(DESCR_t *d0, const char **r0)
@@ -1060,7 +1071,7 @@ static long gc_collect_ex(void)
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
         fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un); } }
     { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) if (gc_blk_of((const char *)rtccb[ci])) { g_gc_rtccb_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p\n", ci, (const void *)rtccb[ci]); } }
-    if (g_gc_shield_r) { extern const char *Σ; extern const char *scan_subj; if (*g_gc_shield_r && (*g_gc_shield_r == Σ || *g_gc_shield_r == scan_subj)) rt_gc_visit_raw(g_gc_shield_r); }
+    if (g_gc_shield_r && *g_gc_shield_r) { extern const char *Σ; extern const char *scan_subj; if (*g_gc_shield_r == Σ || *g_gc_shield_r == scan_subj) rt_gc_visit_raw(g_gc_shield_r); else if (!g_gc_shield_r_is_probe) { fprintf(stderr, "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor scan_subj, so this shield cannot reach it and honouring the call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this road.\n", (const void *)*g_gc_shield_r); abort(); } }
     { extern const char *Σ; rt_gc_visit_raw(&Σ); }
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     { long walked = 0, nscan = 0, rounds = 0;
