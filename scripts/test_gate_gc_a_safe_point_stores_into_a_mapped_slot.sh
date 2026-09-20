@@ -17,11 +17,18 @@
 # property is graded by ORACLE DIFF against a ref cut from BOTH SNOBOL4 oracles, and the POPULATION is graded off
 # the emitted text by scripts/util_gc_unmapped_store_census.py.
 #
-# ⛔ WHAT THE CENSUS CANNOT SEE, NAMED SO NOBODY READS ITS ZEROES AS COVERAGE.  Class 3 of section 3c -- a raw heap
-# pointer returned in a REGISTER PAIR (cfo CFO-134) -- presents no store target, because a frame map describes
-# memory.  And 294 sites over the shared witness set are UNDECIDABLE rather than green: the wired regime enters
-# those boxes through an indirect jump, so no path from the frame's own prologue reaches them.  Arm (d) exists
-# because "0 members" for Prolog and "0 members" for Raku are different statements and only one of them is clean.
+# ⛔ WHAT THE CENSUS CANNOT SEE, NAMED SO NOBODY READS ITS ZEROES AS COVERAGE -- AND THE LIST GREW BY A WHOLE ROAD
+# ON 2026-09-20.  Class 3 of section 3c -- a raw heap pointer returned in a REGISTER PAIR (cfo CFO-134) -- presents
+# no store target, because a frame map describes memory.  302 sites over the shared witness set are UNDECIDABLE
+# rather than green: the wired regime enters those boxes through an indirect jump, so no path from the frame's own
+# prologue reaches them.  ⛔ AND 6690 STORES -- against 972 the census grades -- SHIELD THEIR VALUE AT A SAFE POINT
+# INTO A FIXED SYMBOL (`rtccb`, the runtime's caller-saved spill block) RATHER THAN INTO THE FRAME.  No frame map
+# can cover those and no planner cure can reach them; their safety rests entirely on the collector's ROOT SET, and
+# rt_gc_root_range_add_seamsafe registers that block as a root range which gc_heap.c's only walk over the range
+# table SKIPS (`if (g_gc_rrng[i].hi) continue;`).  Measured the same evening: 47 witnesses at the tiny arena,
+# 0 slots holding a heap block pointer at any collection, so the hole is LATENT AND NOT LIVE -- reported to the
+# cfo, whose file it is.  Arms (d), (i) and (j) exist because "0 members" for Prolog, for Raku and for a language
+# the census never read are three different statements and only one of them is clean.
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"
@@ -29,8 +36,6 @@ CENSUS="$ROOT/scripts/util_gc_unmapped_store_census.py"
 WIT="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.sno"
 REF="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.ref"
 SCRIP="$ROOT/scrip"
-BASE_MEMBERS=162
-BASE_UNDEC=294
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [gc_a_safe_point_stores_into_a_mapped_slot]: $1"; exit 2; }
@@ -69,7 +74,7 @@ with tempfile.TemporaryDirectory() as wd:
     asm, rep, err = uc.emit_and_read(scrip, wit, wd)
     if err: print("PLANT-REFUSED-TO-SET-UP", err); sys.exit(3)
     doctored = "\n".join(l for l in rep.split("\n") if "graph=main " not in l)
-    m, u, ex, refusal, grid = uc.census_asm(asm, doctored, "planted")
+    m, u, ex, refusal, grid, reach = uc.census_asm(asm, doctored, "planted")
     print("PLANT-RESULT", "REFUSED" if refusal else f"ACCEPTED members={len(m or [])}", refusal or "")
 PY
 )"
@@ -83,16 +88,16 @@ fi
 pop="$(timeout 900s python3 "$CENSUS" "$ROOT"/scripts/gc_witnesses/*.icn "$ROOT"/scripts/gc_witnesses/*.sno "$ROOT"/scripts/gc_witnesses/*.pl "$ROOT"/scripts/gc_witnesses/*.raku 2>&1)"; prc=$?
 [ "$prc" = 2 ] && refuse "the census refused over the shared witness set: $(printf '%s\n' "$pop" | grep -m1 REFUSED)"
 bad=0
-while read -r lang mem und; do
+while read -r lang mem und unrd; do
   [ -z "${lang:-}" ] && continue
-  if [ "$mem" = 0 ] && [ "$und" != 0 ]; then
+  if [ "$mem" = 0 ] && { [ "$und" != 0 ] || [ "${unrd:-0}" != 0 ]; }; then
     printf '%s\n' "$pop" | grep -q "LANG $lang .*ZERO MEMBERS HERE IS NOT A CLEAN READING" || bad=$((bad+1))
   fi
 done <<EOF
-$(printf '%s\n' "$pop" | sed -n 's/^CENSUS unmapped-store LANG \([a-z]*\) witnesses=[0-9]* members=\([0-9]*\) undecidable=\([0-9]*\).*/\1 \2 \3/p')
+$(printf '%s\n' "$pop" | sed -n 's/^CENSUS unmapped-store LANG \([a-z]*\) witnesses=[0-9]* members=\([0-9]*\) undecidable=\([0-9]*\) shielded=[0-9]* unread_static=\([0-9]*\).*/\1 \2 \3 \4/p')
 EOF
 if [ "$bad" = 0 ]; then
-  ck ok "(d) every language reading zero members WITH undecidable sites says so in its own line -- $(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store LANG ') language rows printed"
+  ck ok "(d) every language reading zero members over an UNMEASURED population says so in its own line, on BOTH roads -- undecidable sites and stores shielded into a fixed symbol -- $(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store LANG ') language rows printed"
 else
   ck no "(d) $bad language row(s) printed zero members over an unmeasured population without saying so -- that is a zero nobody could have failed"
 fi
@@ -124,6 +129,41 @@ elif [ "${rgone:-0}" != 0 ]; then
   ck no "(e) a witness left the population without its baseline line leaving with it -- a ratchet cannot grade what it cannot see: $(printf '%s\n' "$rat" | grep '^GONE ' | head -3 | tr '\n' ' ')"
 else
   ck no "(e) ${rnew:-?} WITNESS(ES) ARRIVED THAT THE BASELINE DOES NOT KNOW. ⛔ THIS IS A FILE ADDITION AND NOT A COMPILER REGRESSION, and the arm says so rather than naming a cause it did not measure (hq_snobol4 2026-09-20, who measured exactly this against this gate before landing). Add the line(s) to scripts/gc_unmapped_store_baseline.tsv in the same commit that lands the witness, or rewrite the file with --write-baseline: $(printf '%s\n' "$rat" | grep '^NEW ' | sed 's/^NEW //' | head -12 | tr '\n' ';')"
+fi
+
+# (i) THE CENSUS'S OWN REACH IS A MEASUREMENT AND NOT AN ASSUMPTION.
+# ⛔ THIS ARM EXISTS BECAUSE THE SELFTEST ARM THAT PROVED THE BLIND SPOT IS THE ARM THAT SHOULD HAVE COUNTED IT.
+# `disp_of refuses a rip-relative operand` has held since this census landed, with `[rip + rtccb+40]` as its very
+# example -- the refusal is correct, because a frame map describes memory IN A FRAME and no planner cure can reach
+# a fixed symbol.  What was never measured is the CONSEQUENCE: a language whose shielding rides that road reads
+# `members=0 undecidable=0`, which is spelled exactly like clean.  Raku read CLEAN AND DECIDED COMPLETELY in three
+# published cursor entries on EIGHT graded frame stores while 207 of its shielded stores went unread, and the
+# language it certified was losing 65 gradings at SCRIP_GC_STRESS=16 in another seat's master the same evening.
+# Over the shared witness set the two roads are 972 graded against 6690 unread: this census grades about an
+# eighth of the shielding at its own safe points, and now says so on every run.
+reach="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store REACH ')"
+rst="$(printf '%s\n' "$reach" | sed -n 's/.* static_shielded=\([0-9]*\) .*/\1/p')"
+rfr="$(printf '%s\n' "$reach" | sed -n 's/.* frame_shielded=\([0-9]*\) .*/\1/p')"
+if [ -n "${rst:-}" ] && [ "${rst:-0}" -gt 0 ] && printf '%s\n' "$pop" | grep -q '^CENSUS unmapped-store UNREAD-ROAD symbol=rtccb '; then
+  ck ok "(i) the census reports its OWN reach and NAMES the road it cannot grade -- frame_shielded=$rfr static_shielded=$rst, $(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store UNREAD-ROAD ') symbol(s) named. A zero from this census is now a zero with its denominator beside it"
+else
+  ck no "(i) the census printed no REACH line, or named no unread road -- an instrument that silently drops a whole shielding road reports success while it is not looking, which is the failure THE INSTRUMENT LAWS exist to catch: $reach"
+fi
+
+# (j) PLANTED: THE RATCHET GRADES THE REACH COLUMN, so coverage MOVING from the graded road to the unread one is a
+# red rather than an improvement.  ⛔ THAT MOVE IS INVISIBLE TO EVERY OTHER NUMBER HERE: when a store stops being
+# shielded into the frame and starts being shielded into a fixed symbol, `members` falls and `shielded` falls, and
+# arms (e) and (h) both read a win.  The plant doctors the FIFTH COLUMN ALONE of one baseline row and requires MOVED.
+pl5="$(mktemp)"; trap 'rm -f "$pl5"' EXIT
+awk -F'\t' 'BEGIN{OFS="\t"} !/^#/ && NF>=5 && !done {$5=$5+1; done=1} {print}' "$BASE" > "$pl5"
+pmv="$(printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$pl5" 2>&1 | grep -c '^MOVED ')"
+p4="$(mktemp)"; cut -f1-4 "$BASE" > "$p4"
+printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$p4" >/dev/null 2>&1; p4rc=$?
+rm -f "$p4"
+if [ "${pmv:-0}" = 1 ] && [ "${p4rc:-0}" = 2 ]; then
+  ck ok "(j) PLANTED BOTH WAYS -- doctoring the reach column of ONE row reads MOVED (1 witness named), and a four-column baseline is REFUSED(2) rather than silently graded on four of its five facts"
+else
+  ck no "(j) the ratchet did not grade its fifth column: doctored-row MOVED count=${pmv:-?} (want 1), four-column baseline rc=${p4rc:-?} (want 2). A floor that cannot see shielding move to the unread road reads that loss of coverage as a win"
 fi
 
 # (f) THE PROPERTY ITSELF, graded by ORACLE DIFF and not by rc (CEO-997), over a band that goes WELL ABOVE 5.

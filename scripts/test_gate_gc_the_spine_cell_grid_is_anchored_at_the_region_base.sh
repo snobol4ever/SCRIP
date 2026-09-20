@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory() as wd:
             out.append("                        push             rax"); done = False
     doctored = asm + ".planted.s"
     open(doctored, "w", encoding="utf-8").write("\n".join(out))
-    m, u, ex, refusal, grid = uc.census_asm(doctored, rep, "planted")
+    m, u, ex, refusal, grid, reach = uc.census_asm(doctored, rep, "planted")
     if refusal:
         print("PLANT-RESULT REFUSED", refusal); sys.exit(0)
     off = [r for r in grid[0] if r[5] == "OFF-GRID"]

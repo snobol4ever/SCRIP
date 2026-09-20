@@ -11,7 +11,12 @@ NAME-NEVER-A-COUNT rule applied one level down from where the census first appli
 THE THREE VERDICTS ARE DIFFERENT FACTS AND ARE NEVER SUMMED: MOVED is a witness whose OWN reading changed, which
 is the thing the row exists to catch; GONE is a baseline line whose witness left the population, so the floor is
 grading something it can no longer see; NEW is a file addition, which must be recorded but is NOT a regression and
-must not be reported as one."""
+must not be reported as one.
+
+THE FIFTH COLUMN, ADDED 2026-09-20 BY THE cto: stores shielded at a safe point into a FIXED SYMBOL instead
+of into the frame.  It is ratcheted for a reason the other four cannot express -- when shielding MOVES from
+the road this census grades to the road it does not, `members` and `shielded` both FALL and every arm reads
+an improvement, while the truth is that coverage was lost."""
 import sys
 
 
@@ -24,13 +29,20 @@ def main(argv):
         if ln.startswith("#") or not ln.strip():
             continue
         f = ln.rstrip("\n").split("\t")
-        if len(f) >= 4:
-            base[f[0]] = tuple(f[1:4])
+        if len(f) >= 5:
+            base[f[0]] = tuple(f[1:5])
+        elif len(f) >= 4:
+            print("RATCHET REFUSED(2): baseline row " + f[0] + " carries four columns and this ratchet "
+                  "grades five -- the fifth is the census's own REACH (stores shielded into a fixed "
+                  "symbol). A four-column floor cannot see shielding MOVE from the graded road to the "
+                  "unread one, which every other number in the row reads as an improvement. Rewrite the "
+                  "file with --write-baseline in this landing.")
+            return 2
     now = {}
     for ln in sys.stdin:
         if ln.startswith("CENSUS unmapped-store WITNESS "):
             f = ln.split()
-            now[f[3]] = tuple(x.split("=")[1] for x in f[4:7])
+            now[f[3]] = tuple(x.split("=")[1] for x in f[4:8])
     if not now:
         print("RATCHET REFUSED(2): the census run carried no WITNESS line -- a ratchet over an empty reading "
               "holds by never looking")
@@ -39,7 +51,7 @@ def main(argv):
     gone = sorted(set(base) - set(now))
     new = sorted(set(now) - set(base))
     for w, b, n in moved:
-        print(f"MOVED {w} baseline members={b[0]} undecidable={b[1]} now members={n[0]} undecidable={n[1]}")
+        print(f"MOVED {w} baseline members={b[0]} undecidable={b[1]} shielded={b[2]} unread_static={b[3]} now members={n[0]} undecidable={n[1]} shielded={n[2]} unread_static={n[3]}")
     for w in gone:
         print(f"GONE {w} -- in the baseline and not in the population")
     for w in new:

@@ -11,6 +11,24 @@ a quiet whole-match failure that exits 0 with a plausible wrong answer -- the co
 arena re-issues it in place, and the program prints something.  No rc can tell a cure from a silencing, so the
 CURE is graded by ORACLE DIFF on the witness and the POPULATION is graded here, off the emitted text.
 
+THE UNREAD ROAD, AND WHY IT IS COUNTED HERE RATHER THAN LEFT TO THE READER'S MEMORY (cto 2026-09-20).  This
+census grades stores to [rsp+D] and [rbp+D].  A value can also be shielded across a safe point by spilling it to
+a FIXED SYMBOL -- the emitter does exactly that in x86_asm.h, saving r8/r10/r11 into the runtime's caller-saved
+block `rtccb` on either side of the poll -- and no frame map can ever cover one of those, because a frame map
+describes memory in a frame.  REFUSING to grade them is correct and the selftest has always held it.  ⛔ WHAT WAS
+WRONG IS THAT THE REFUSAL WAS SILENT: the store was dropped on the floor, so a language whose shielding rides this
+road printed `members=0 undecidable=0`, which is spelled exactly like clean.  Raku was published as CLEAN and
+DECIDED COMPLETELY in three cursor entries on the strength of EIGHT graded frame stores, while 207 of its shielded
+stores went unread and its master was losing 65 gradings at SCRIP_GC_STRESS=16 the same evening.  MEASURED over
+the shared witness set: 2230 safe points, 972 frame stores graded, 6690 shielded into `rtccb` -- this census reads
+about an eighth of the shielding at its own safe points, and every run now says so.  THE SAFETY OF THAT ROAD IS A
+ROOT-SET QUESTION AND NOT A MAP QUESTION, and it is open: rtcc_init.c registers the block with
+rt_gc_root_range_add_seamsafe, and the only walk over the root-range table in gc_heap.c begins
+`if (g_gc_rrng[i].hi) continue;` -- which is precisely how that range is registered, so nothing visits it.
+Measured 47 witnesses at SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3: the runtime's own [GC-RTCCB] reporter counts ZERO
+slots holding a heap block pointer at any collection, so the hole is LATENT AND NOT LIVE TODAY.  gc_heap.c is the
+cfo's file; this is an ASK with a measurement, never a cure cut from here.
+
 THE DECISION PROCEDURE, and every term in it is read from the tree rather than assumed:
   * A graph's map cell is written by its prologue as `lea rX,[rip+.Lgcmap_<g>]` / `mov [base + D], rX`, with the
     DT_MAP tag stored at [base + D-8].  The cell therefore starts at D-8.
@@ -69,6 +87,7 @@ import util_gc_census as GCC
 GCMAP_LAYOUT_RX = re.compile(r"\[GC-MAP-LAYOUT\] graph=(\S+) n=(\d+) (.*?) gaps=(\d+) conflicts=(\d+)")
 LEA_MAP_RX = re.compile(r"\[rip \+ (\.Lgcmap_[A-Za-z0-9_$]+)\]")
 MEM_RX = re.compile(r"\[\s*(rsp|rbp)\s*([+-]\s*-?\d+)?\s*\]")
+STATIC_RX = re.compile(r"\[\s*rip\s*\+\s*([A-Za-z_][A-Za-z0-9_.$]*?)\s*(?:\+\s*(\d+))?\s*\]")
 IMM_RX = re.compile(r"^-?\d+$")
 POLL_NAMES = ("rt_gc_poll",)
 DELTA_CAP = 8
@@ -202,21 +221,29 @@ def frame_fixpoint(insns, succ, start, rbp0):
 
 
 def shielded_stores(insns, i):
-    """the frame stores in the basic block that ends at the poll -- the stores this safe point was placed after.
+    """the stores in the basic block that ends at the poll -- the stores this safe point was placed after.
+
+    TWO POPULATIONS ARE RETURNED AND THEY ARE NEVER SUMMED: the FRAME stores, which this census can grade against
+    the graph's frame map, and the STATIC stores, which it cannot, because a frame map describes memory IN A FRAME
+    and a rip-relative store lands in a fixed symbol.  The second list is this census's own REACH BOUNDARY.  It was
+    dropped on the floor until 2026-09-20 22:xx and the module docstring's UNREAD ROAD paragraph carries what that
+    cost: a language whose shielding rides the static road read `members=0 undecidable=0`, which is indistinguishable
+    from clean.
 
     The walk back stops at a control transfer (a store on the other side of a branch does not precede this poll on
     every path) and stops AFTER the instruction that carries a label, because a label is where another path enters."""
-    out = []
+    frame, static = [], []
     j = i - 1
     while j >= 0:
         ins = insns[j]
         if CS.JCC.match(ins.mnem) or ins.mnem in ("call", "ret", "ud2"):
             break
-        out.extend(_store_of(ins))
+        frame.extend(_store_of(ins))
+        static.extend(_static_store_of(ins))
         if ins.labels:
             break
         j -= 1
-    return out
+    return frame, static
 
 
 def _store_of(ins):
@@ -229,6 +256,22 @@ def _store_of(ins):
     if base is None:
         return []
     return [(base, d, ins.ops[1])]
+
+
+def _static_store_of(ins):
+    """the rip-relative store this instruction performs, as [(symbol, byte offset, source operand)].
+
+    NO CURE TO THE PLANNER CAN REACH ONE OF THESE, which is exactly why they are counted rather than dropped: a
+    frame map describes a frame, so a value shielded into a fixed symbol is outside every map BY CONSTRUCTION and
+    its safety rests entirely on whether the collector's ROOT SET covers that symbol."""
+    if ins.mnem not in ("mov", "movq") or len(ins.ops) != 2:
+        return []
+    if "[" not in ins.ops[0] or "rip" not in ins.ops[0]:
+        return []
+    m = STATIC_RX.search(ins.ops[0])
+    if m is None:
+        return []
+    return [(m.group(1), int(m.group(2) or 0), ins.ops[1])]
 
 
 def classify(k, layout, map_off, blob):
@@ -348,16 +391,16 @@ def grid_sites(insns, frames):
 
 
 def census_asm(asm_path, report_text, tag, out=print):
-    """read one emitted program; returns (members, undecidable, examined, refusal, grid)"""
+    """read one emitted program; returns (members, undecidable, examined, refusal, grid, reach)"""
     insns = CS.parse(asm_path)
     if not insns:
-        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured", None
+        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured", None, None
     succ, top, label_at = CS.build_cfg(insns)
     trim_entry_fallthrough(insns, succ, label_at)
     maps = GCC.read_gcmaps(report_text)
     layouts = read_layouts(report_text)
     if not maps:
-        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure", None
+        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure", None, None
     by_label = {mangle(g): g for g in maps}
     frames, unmatched = {}, []
     for lbl, (ai, base, cell) in find_anchors(insns).items():
@@ -372,13 +415,18 @@ def census_asm(asm_path, report_text, tag, out=print):
     if unmatched:
         return None, None, 0, (f"{tag}: {len(unmatched)} map label(s) match no graph in the report "
                                f"({', '.join(sorted(unmatched)[:4])}) -- the mangling fact of ARCH-GC 6.2d "
-                               "is not being read correctly and every site under them would read green by accident"), None
+                               "is not being read correctly and every site under them would read green by accident"), None, None
     members, undecidable, examined = [], [], 0
+    unread, sites = collections.Counter(), 0
     for i, ins in enumerate(insns):
         if not (ins.mnem == "call" and ins.ops and any(p in ins.ops[0] for p in POLL_NAMES)):
             continue
         lbl = site_label(insns, i)
-        for base, d, src in shielded_stores(insns, i):
+        sites += 1
+        frame_st, static_st = shielded_stores(insns, i)
+        for sym, _off, _src in static_st:
+            unread[sym] += 1
+        for base, d, src in frame_st:
             g, k, why = owner_of(base, d, i, frames)
             examined += 1
             if why:
@@ -393,7 +441,7 @@ def census_asm(asm_path, report_text, tag, out=print):
             for g, i, k, why in graded]
     reached = {i for _, i, _, _ in graded}
     unreached = sum(1 for i, ins in enumerate(insns) if ins.mnem == "call" and i not in reached)
-    return members, undecidable, examined, None, (grid, unreached)
+    return members, undecidable, examined, None, (grid, unreached), (unread, sites)
 
 
 def emit_and_read(scrip, prog, workdir, env_extra=None):
@@ -427,7 +475,31 @@ BASELINE_HEADER = (
     "# directory glob, so nine witnesses arriving would move a total from 162 to 192 and the arm would print THE\n"
     "# CLASS GREW and name a compiler regression it never measured.  A witness ARRIVING is a file addition; a\n"
     "# witness's own numbers MOVING is the thing this row exists to catch, and only a name set can tell them apart.\n"
-    "# witness\tmembers\tundecidable\tshielded\n")
+    "# THE FIFTH COLUMN IS THIS CENSUS'S OWN REACH (cto 2026-09-20): stores shielded at a safe point into a\n"
+    "# FIXED SYMBOL rather than into the frame.  It is ratcheted because shielding MOVING from the graded road\n"
+    "# to the unread one is a loss of coverage that every other number here reads as an improvement.\n"
+    "# witness\tmembers\tundecidable\tshielded\tunread_static\n")
+
+
+def clean_reading_note(mem, und, unread, shielded):
+    """the sentence a language row owes when its zero rests on something it did not read.
+
+    ⛔ A ZERO HAS TO BE A ZERO SOMEBODY COULD HAVE FAILED.  Three different things spell `members=0` and only one
+    of them is clean: nothing was found over a population that was read (clean), sites were refused as undecidable
+    (unmeasured there), and shielding rode a road this census does not read at all (unmeasured everywhere).  The
+    third is the one raku read for a whole day."""
+    if mem != 0:
+        return ""
+    why = []
+    if und:
+        why.append(f"{und} undecidable site(s)")
+    if unread:
+        why.append(f"{unread} store(s) shielded into a fixed symbol, which this census does not grade")
+    if not shielded:
+        why.append("ZERO frame stores were graded at all")
+    if not why:
+        return ""
+    return "  -- ZERO MEMBERS HERE IS NOT A CLEAN READING: " + "; ".join(why)
 
 
 def report(scrip, progs, workdir, out=print):
@@ -438,6 +510,7 @@ def report(scrip, progs, workdir, out=print):
     all_members, all_undec, examined, graphs_seen, all_grid = [], [], 0, set(), []
     unreached_calls = 0
     per_witness = {}
+    all_unread, all_sites = collections.Counter(), 0
     for prog in progs:
         tag = os.path.basename(prog)
         if not os.path.exists(prog):
@@ -445,13 +518,14 @@ def report(scrip, progs, workdir, out=print):
         asm, rep, err = emit_and_read(scrip, prog, workdir)
         if err:
             out(f"CENSUS unmapped-store REFUSED(2): {err}"); return 2
-        members, undec, ex, refusal, grid = census_asm(asm, rep, tag, out=out)
+        members, undec, ex, refusal, grid, reach = census_asm(asm, rep, tag, out=out)
         if refusal:
             out(f"CENSUS unmapped-store REFUSED(2): {refusal}"); return 2
         graphs_seen |= {(tag, g) for g in GCC.read_gcmaps(rep)}
         all_members += members; all_undec += undec; examined += ex
         all_grid += grid[0]; unreached_calls += grid[1]
-        per_witness[tag] = (len(members), len(undec), ex)
+        all_unread += reach[0]; all_sites += reach[1]
+        per_witness[tag] = (len(members), len(undec), ex, sum(reach[0].values()), reach[1])
     if examined == 0:
         out("CENSUS unmapped-store REFUSED(2): zero shielded stores examined over "
             f"{len(progs)} witness(es) -- a zero has to be a zero somebody could have failed"); return 2
@@ -466,19 +540,22 @@ def report(scrip, progs, workdir, out=print):
         out(f"CENSUS unmapped-store REFUSED(2): counted {total} member(s) and printed {named} name(s) -- a count "
             "without its names is a work list nobody can pick up (CTO-96, INSTRUMENT LAWS batch 30 clause 2)")
         return 2
-    per = collections.defaultdict(lambda: [0, 0, 0])
+    per = collections.defaultdict(lambda: [0, 0, 0, 0, 0])
     for m in all_members:
         per[m[0].rsplit(".", 1)[-1]][0] += 1
     for u in all_undec:
         per[u[0].rsplit(".", 1)[-1]][1] += 1
     for prog in progs:
-        per[os.path.basename(prog).rsplit(".", 1)[-1]][2] += 1
+        lang = os.path.basename(prog).rsplit(".", 1)[-1]
+        per[lang][2] += 1
+        w = per_witness.get(os.path.basename(prog))
+        if w:
+            per[lang][3] += w[2]
+            per[lang][4] += w[3]
     for lang in sorted(per):
-        mem, und, wit = per[lang]
-        note = ("" if und == 0 else
-                "  -- ZERO MEMBERS HERE IS NOT A CLEAN READING: this language has undecidable sites and is UNMEASURED at them"
-                if mem == 0 else "")
-        out(f"CENSUS unmapped-store LANG {lang} witnesses={wit} members={mem} undecidable={und}{note}")
+        mem, und, wit, shielded, unrd = per[lang]
+        out(f"CENSUS unmapped-store LANG {lang} witnesses={wit} members={mem} undecidable={und} "
+            f"shielded={shielded} unread_static={unrd}{clean_reading_note(mem, und, unrd, shielded)}")
     why = collections.Counter(u[5] for u in all_undec)
     for w, n in sorted(why.items(), key=lambda kv: -kv[1]):
         out(f"CENSUS unmapped-store UNDECIDABLE-REASON {w} n={n}")
@@ -489,8 +566,20 @@ def report(scrip, progs, workdir, out=print):
         "own frame at least once (mov rbp, [rbp+N] and mov rbp, rax), so containment would grade a store against a "
         "frame that is not the one it lands in. Making these sites decidable is part of the cure, not of the census.")
     for tag in sorted(per_witness):
-        mem, und, ex = per_witness[tag]
-        out(f"CENSUS unmapped-store WITNESS {tag} members={mem} undecidable={und} shielded={ex}")
+        mem, und, ex, unrd, sites = per_witness[tag]
+        out(f"CENSUS unmapped-store WITNESS {tag} members={mem} undecidable={und} shielded={ex} unread_static={unrd}")
+    for sym, n in sorted(all_unread.items(), key=lambda kv: -kv[1]):
+        out(f"CENSUS unmapped-store UNREAD-ROAD symbol={sym} stores={n} -- shielded at a safe point into a FIXED "
+            "SYMBOL, which no frame map can ever cover and no planner cure can reach; graded here only for its size, "
+            "and its safety rests entirely on the collector's root set covering that symbol")
+    out(f"CENSUS unmapped-store REACH safe_points={all_sites} frame_shielded={examined} "
+        f"static_shielded={sum(all_unread.values())} -- THE SECOND NUMBER IS THE ONLY ONE THIS CENSUS GRADES. "
+        "⛔ THE THIRD WAS DROPPED ON THE FLOOR UNTIL 2026-09-20 AND THE SELFTEST ARM THAT PROVED IT WAS DROPPED "
+        "(`disp_of refuses a rip-relative operand`) IS THE ARM THAT SHOULD HAVE COUNTED IT: the refusal was "
+        "deliberate and correct, and its CONSEQUENCE -- that a language whose shielding rides the static road "
+        "reads members=0 undecidable=0, which is spelled exactly like clean -- was never measured. Raku read "
+        "CLEAN and DECIDED COMPLETELY in three published cursor entries on 8 frame stores while 207 of its "
+        "shielded stores at safe points went unread.")
     out("CENSUS unmapped-store WHY THE PER-WITNESS LINES EXIST (hq_snobol4 2026-09-20, measured against this "
         "census before landing rather than discovered afterwards): the ratchet's population is a DIRECTORY GLOB "
         "over scripts/gc_witnesses, so a colleague landing nine oracle-cut witnesses of their own would move a "
@@ -560,6 +649,22 @@ def selftest():
     arm("grid: the witness's own pointer word at -24 is OFF-GRID as a floor", grid_verdict(-24) == "OFF-GRID")
     arm("grid: the region base itself is ON-GRID", grid_verdict(0) == "ON-GRID")
     arm("grid: an 8-byte push below the base takes the floor OFF-GRID", grid_verdict(-8) == "OFF-GRID")
+    spill = CS.Insn(1, "mov qword ptr [rip + rtccb+40], r8", [])
+    arm("a rip-relative shield is NAMED with its symbol and offset, not dropped",
+        _static_store_of(spill) == [("rtccb", 40, "r8")])
+    arm("the frame reader still REFUSES that same store -- the reach boundary is counted, never graded",
+        _store_of(spill) == [])
+    arm("a bare symbol with no offset reads as offset 0",
+        _static_store_of(CS.Insn(1, "mov qword ptr [rip + scan_subj], rax", [])) == [("scan_subj", 0, "rax")])
+    arm("a frame store is not mistaken for a static one",
+        _static_store_of(CS.Insn(1, "mov qword ptr [rsp + 8], rdx", [])) == [])
+    arm("ZERO MEMBERS over an UNREAD road is not a clean reading -- the raku case",
+        "NOT A CLEAN READING" in clean_reading_note(0, 0, 207, 8))
+    arm("ZERO MEMBERS over a read population with nothing unread IS clean",
+        clean_reading_note(0, 0, 0, 242) == "")
+    arm("grading NOTHING at all is named rather than read as clean",
+        "ZERO frame stores" in clean_reading_note(0, 0, 0, 0))
+    arm("a language with members named owes no zero-note", clean_reading_note(3, 9, 99, 99) == "")
     print(f"SELFTEST {ok[0]}/{ok[1]} arms green")
     return 0 if ok[0] == ok[1] else 1
 
@@ -587,7 +692,7 @@ def main(argv):
         with open(a.write_baseline, "w", encoding="utf-8") as fh:
             fh.write(BASELINE_HEADER)
             for r in rows:
-                fh.write("\t".join([r[3]] + [f.split("=")[1] for f in r[4:7]]) + "\n")
+                fh.write("\t".join([r[3]] + [f.split("=")[1] for f in r[4:8]]) + "\n")
         print(f"wrote {a.write_baseline}: {len(rows)} witness row(s)")
         return 0
 
