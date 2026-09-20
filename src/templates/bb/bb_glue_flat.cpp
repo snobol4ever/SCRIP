@@ -146,10 +146,8 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
     return x86("call", "rt_pat_prim_open", (uint64_t)(uintptr_t)(void *)rt_pat_prim_open)
-         + x86("comment", "ARCH-GC section 3: a poll at the EMITTED return of every allocating runtime call on this road -- the open may allocate through the prologue, and the packed spine word in rdx is saved across the poll because the poll speaks the argument registers")
-         + x86("push", "rdx")
-         + x86_rt_gc_poll_rec_sigma(1)
-         + x86("pop",  "rdx")
+         + x86("comment", "ARCH-GC section 3: a poll at the EMITTED return of every allocating runtime call on this road -- the open may allocate through the prologue, and the packed spine word in rdx is saved across the poll because the poll speaks the argument registers. ⛔ THE SAVE IS 16 BYTES AND NOT A PUSH, AND THAT IS A MEASURED CURE RATHER THAN A STYLE (cfo 2026-09-19): an 8-byte push flips rsp's parity at the poll's own call, and a misaligned rsp faults inside libc's SSE code with si_addr NULL -- the defer road's identical spelling crashed a SNOBOL4 master entry 5 of 5 that way under a small arena, in gc_stack_region's sscanf under gc_collect_ex, and reading the gdb line rather than theorising named it in one run. The C call above this poll is correctly aligned, so anything that flips the parity between them is the defect.")
+         + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", base + 7)
          + bb_glue_enter_c2bb(base, base + 5, base + 6)
