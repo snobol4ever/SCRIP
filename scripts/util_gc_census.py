@@ -672,6 +672,7 @@ def callback_scope_files(root):
 
 ZLS_TOOL = "util_zls_frame_map_census.py"          # the ceo's slot-kind base tool (CEO-820)
 ZLS_RX = re.compile(r"^ZLS-MAP lang=(\S+) graphs=(\d+) words=(\d+) unkinded=(\d+) holes=(\d+) graded=(\d+) no_layout=(\d+)")
+ZLS_KIND_RX = re.compile(r"no_layout_never_emitted=(\d+) no_layout_emitted_no_layout=(\d+) no_layout_unmeasured=(\d+)")
 ZLS_LANGS_ALL = ["rebus", "snocone", "pascal", "icon", "raku", "snobol4", "prolog"]   # ~32 s for the seven
 ZLS_LANGS_FAST = ["rebus", "snocone", "pascal"]                                       # ~2.7 s; the wired gate's default
 GCMAP_RX = re.compile(r"\[GC-MAP\] graph=(\S+) frame_bytes=(\d+) header_bytes=(\d+) map_off=(\d+) flags=(\d+)")
@@ -686,7 +687,7 @@ def census_maps_slotkind(root, langs, out=print):
     tool = os.path.join(root, "scripts", ZLS_TOOL)
     if not os.path.exists(tool):
         out(f"CENSUS maps/slot-kind REFUSED(2): no {ZLS_TOOL} at {tool}"); return 2
-    red = 0; swept = []; nolayout = 0; graded = 0
+    red = 0; swept = []; nolayout = 0; graded = 0; never_emitted = 0; emitted_no_layout = 0
     for lang in langs:
         try:
             r = subprocess.run([sys.executable, tool, "--lang", lang], capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL)
@@ -700,12 +701,25 @@ def census_maps_slotkind(root, langs, out=print):
         if not m:
             out(f"CENSUS maps/slot-kind REFUSED(2): {ZLS_TOOL} --lang {lang} printed no ZLS-MAP line (rc={r.returncode}) -- the token is frozen (CEO-821); a census that parses prose is the defect one level up"); return 2
         _l, graphs, words, unkinded, holes, gr, nl = m.group(1), *(int(x) for x in m.groups()[1:])
-        swept.append(lang); graded += gr; nolayout += nl
-        bad = unkinded + holes
+        km = ZLS_KIND_RX.search(m.string)
+        if not km:
+            out(f"CENSUS maps/slot-kind REFUSED(2): lang={lang} printed a ZLS-MAP line without the three kind fields"
+                " -- no_layout CONFLATES two populations with OPPOSITE OWNERS (ceo CEO-1025) and an absent field would"
+                " read as zero, which is how the conflation looked like a clean split in the first place"); return 2
+        never, emitted_nl, unmeasured = (int(x) for x in km.groups())
+        if never + emitted_nl + unmeasured != nl:
+            out(f"CENSUS maps/slot-kind REFUSED(2): lang={lang} no_layout={nl} but the kinds sum to"
+                f" {never + emitted_nl + unmeasured} -- an entry in no bucket vanishes from BOTH owners' work lists"); return 2
+        swept.append(lang); graded += gr; nolayout += nl; never_emitted += never; emitted_no_layout += emitted_nl
+        bad = unkinded + holes + emitted_nl
         red += bad
         out(f"CENSUS maps/slot-kind lang={lang} graphs={graphs} words={words} unkinded={unkinded} holes={holes} want 0 and 0"
-            f" -- graded={gr}, no_layout={nl} NAMED AND UNCOUNTED (the compiler refused those entries; they are not a pass)"
-            + ("" if not bad else f"  RED"))
+            f" -- graded={gr}, no_layout={nl} NAMED AND UNCOUNTED, split NEVER-EMITTED={never}"
+            f" EMITTED-NO-LAYOUT={emitted_nl} UNMEASURED={unmeasured}"
+            + ("" if not emitted_nl else "  ⛔ EMITTED-NO-LAYOUT IS THE CORRECTNESS POPULATION AND IT IS RED: those"
+               " graphs EMIT, so every leaf boundary in them stores into an unmapped slot BY CONSTRUCTION (cfo's"
+               " clause, MODE TENET condition 1). A NEVER-EMITTED entry is a COMPLETENESS debt and gates nothing here")
+            + ("" if not bad else "  RED"))
         named = [ln.strip() for ln in r.stdout.split("\n") if ln.startswith("NO-LAYOUT ")]
         for ln in named:
             out("CENSUS maps/slot-kind " + ln)
@@ -714,7 +728,8 @@ def census_maps_slotkind(root, langs, out=print):
                 " -- this line has said NAMED AND UNCOUNTED since CEO-749 while printing no name at all (cto 2026-09-20, CTO-96); a census that"
                 " claims to name must print the names or refuse, and a count without its names is a work list nobody can pick up"); return 2
         COUNTS.setdefault("maps", {})[f"slotkind_bad_{lang}"] = bad
-    out(f"CENSUS maps/slot-kind swept {len(swept)} of {len(ZLS_LANGS_ALL)} language(s) ({', '.join(swept)}); graded={graded} no_layout={nolayout} UNCOUNTED; "
+    out(f"CENSUS maps/slot-kind swept {len(swept)} of {len(ZLS_LANGS_ALL)} language(s) ({', '.join(swept)}); graded={graded} no_layout={nolayout} UNCOUNTED "
+        f"(NEVER-EMITTED={never_emitted} a completeness debt that gates nothing here, EMITTED-NO-LAYOUT={emitted_no_layout} the correctness population that does); "
         f"{'GREEN' if red == 0 else 'RED'}"
         + ("" if len(swept) == len(ZLS_LANGS_ALL) else "  -- A PARTIAL SWEEP IS NOT ALL-LANGUAGE COVERAGE: --zls-langs all for the other " + str(len(ZLS_LANGS_ALL) - len(swept))))
     out("CENSUS maps/slot-kind NOT CENSUSED HERE, named: the wire header past region_end (the cto's map cell, section 6.7) and the "

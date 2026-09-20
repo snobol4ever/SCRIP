@@ -38,6 +38,23 @@ rc 0 = graded > 0 and holes == 0; rc 1 = holes > 0; rc 2 = nothing graded (the d
 Set ZLS_LIST_ALL=1 to print every hole (the default caps the listing).
 THE MACHINE-READ LINE, frozen for the coo's maps census (CEO-821): one per run,
   ZLS-MAP lang=<l> graphs=<n> words=<n> unkinded=<n> holes=<n> graded=<n> no_layout=<n> no_layout_declared=<n>
+    no_layout_never_emitted=<n> no_layout_emitted_no_layout=<n> no_layout_unmeasured=<n>
+
+⛔⭐ THE THREE KIND FIELDS, AND WHY THE DISCRIMINATOR IS NOT THE rc (cto 2026-09-20, building CEO-1025 and
+correcting its discriminator on the data).  The ruling is right that `no_layout` CONFLATES TWO POPULATIONS WITH
+OPPOSITE OWNERS: (a) the compiler REFUSED the entry, so nothing was emitted, there is no leaf boundary and no
+store -- a COMPLETENESS debt wearing a GC census's clothes; and (b) the compiler EMITTED the graph and the planner
+gave it no frame layout -- boundaries exist, they store into unmapped slots, and THAT is the correctness
+population that gates completeness under MODE TENET condition 1.  ⛔ THE RULING NAMED rc=2 AGAINST rc=1 AS THE
+SPLIT AND THE DATA SAYS OTHERWISE: prolog's ten read `rc=2 builtin X is not on the ladder yet`, and raku's seven
+read `rc=1 raku parse error` / `lex error` / a role-composition refusal.  BOTH ARE REFUSALS THAT EMIT NOTHING, so
+rc=1 against rc=2 separates a ladder refusal from a parser refusal -- two flavours INSIDE bucket (a) -- and not
+(a) from (b).  The fact the ruling actually asked for is DID THIS ENTRY PRODUCE EMITTED CODE AT ALL, and this
+census has always known it directly: a non-zero rc from `--dump-zeta` is NEVER-EMITTED, rc=0 with no frame layout
+in the dump is EMITTED-NO-LAYOUT, and a timeout is UNMEASURED and is folded into neither.  The kind is returned as
+a VALUE by dump_one and never re-parsed out of the message text, because a guard keyed on a spelling is a
+coincidence and not a guard.  The three sum to `no_layout` and the census REFUSES rc=2 if they do not, because an
+entry placed in no bucket vanishes from both owners' work lists.
 ⛔ A DECLARED entry keeps the `NO-LAYOUT ` LINE PREFIX and carries [DECLARED wantrc=N] in its tail; the declaration is NEVER a
 new line prefix.  The coo's util_gc_census.py cross-checks no_layout=N against the number of lines starting `NO-LAYOUT ` and
 REFUSES when they disagree -- measured 2026-09-20: a first cut of this field used a NO-LAYOUT-DECLARED prefix, the consumer
@@ -132,18 +149,27 @@ def holes_of(graph):
     return out
 
 
+NO_LAYOUT_KINDS = ("NEVER-EMITTED", "EMITTED-NO-LAYOUT", "UNMEASURED")
+
+
 def dump_one(scrip, path, timeout):
+    """returns (graphs, err, kind); kind is "" on success and one of NO_LAYOUT_KINDS otherwise.
+
+    ⛔ THE KIND IS RETURNED STRUCTURALLY AND IS NEVER RE-PARSED OUT OF `err` BY A CONSUMER (cto 2026-09-20, CEO-1025).
+    A guard keyed on a spelling is a coincidence and not a guard -- hq_snobol4 lost a sitting to a classifier keyed
+    on old filename stems the same evening this field was ruled.  The fact is known HERE, at the only place that
+    runs the compiler, and it travels as a value."""
     try:
         p = subprocess.run([str(scrip), "--dump-zeta", str(path)], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, errors="replace")
     except subprocess.TimeoutExpired:
-        return None, "timeout"
+        return None, "timeout", "UNMEASURED"
     if p.returncode != 0:
         first = (p.stdout + p.stderr).strip().splitlines()
-        return None, (f"rc={p.returncode}: {first[0][:120]}" if first else f"rc={p.returncode}")
+        return None, (f"rc={p.returncode}: {first[0][:120]}" if first else f"rc={p.returncode}"), "NEVER-EMITTED"
     graphs = parse_dump(p.stdout)
     if not graphs:
-        return None, "no graph in the dump"
-    return graphs, ""
+        return None, "no graph in the dump", "EMITTED-NO-LAYOUT"
+    return graphs, "", ""
 
 
 def wantrc_sidecar(lang, s4e_home):
@@ -242,9 +268,9 @@ def main():
     counts = {"region-gap": 0, "scope-gap": 0, "overlap": 0, "vslot-unmapped": 0, "provisional-kind": 0, "unknown-kind": 0}
     graded = 0; nolayout = []; graphs_n = 0; fields_n = 0; holes = 0; shown = 0; words_n = 0; unkinded_n = 0
     for name, p in work:
-        graphs, err = dump_one(scrip, p, a.timeout)
+        graphs, err, kind = dump_one(scrip, p, a.timeout)
         if graphs is None:
-            nolayout.append((name, err)); continue
+            nolayout.append((name, err, kind)); continue
         graded += 1
         for g in graphs:
             graphs_n += 1; words_n += g["region_end"] // 8
@@ -257,16 +283,21 @@ def main():
                     print(f"HOLE {cls} lang={label} entry={name} graph='{g['name']}' {scn} off=[{lo}..{hi}) {detail}")
     if holes > shown:
         print(f"... {holes - shown} more hole(s) not listed (ZLS_LIST_ALL=1 prints every one)")
-    declared = [(n, e) for n, e in nolayout if wantrc.get(n, 0) != 0]
-    for name, err in nolayout:
+    declared = [(n, e) for n, e, _k in nolayout if wantrc.get(n, 0) != 0]
+    by_kind = {k: 0 for k in NO_LAYOUT_KINDS}
+    for _n, _e, kind in nolayout:
+        by_kind[kind] = by_kind.get(kind, 0) + 1
+    for name, err, kind in nolayout:
         if wantrc.get(name, 0) != 0:
-            print(f"NO-LAYOUT lang={label} entry={name} ({err}) [DECLARED wantrc={wantrc[name]}] -- the master declares this entry must not compile, so having no frame is correct and permanent, not a defect")
+            print(f"NO-LAYOUT lang={label} entry={name} ({err}) [{kind}] [DECLARED wantrc={wantrc[name]}] -- the master declares this entry must not compile, so having no frame is correct and permanent, not a defect")
         else:
-            print(f"NO-LAYOUT lang={label} entry={name} ({err})")
+            print(f"NO-LAYOUT lang={label} entry={name} ({err}) [{kind}]")
+    if sum(by_kind.values()) != len(nolayout):
+        print(f"zls-frame-map-census[{label}]: REFUSE(2): {len(nolayout)} no-layout entr(ies) and {sum(by_kind.values())} placed in a kind -- an entry this census cannot place is not counted in any bucket and would vanish from both owners' work lists"); return 2
     if wantrc_note:
         print(f"NO-LAYOUT-SIDECAR lang={label} -- {wantrc_note}")
     cls_s = " ".join(f"{k}={v}" for k, v in counts.items())
-    print(f"ZLS-MAP lang={label} graphs={graphs_n} words={words_n} unkinded={unkinded_n} holes={holes} graded={graded} no_layout={len(nolayout)} no_layout_declared={len(declared)}")
+    print(f"ZLS-MAP lang={label} graphs={graphs_n} words={words_n} unkinded={unkinded_n} holes={holes} graded={graded} no_layout={len(nolayout)} no_layout_declared={len(declared)} no_layout_never_emitted={by_kind['NEVER-EMITTED']} no_layout_emitted_no_layout={by_kind['EMITTED-NO-LAYOUT']} no_layout_unmeasured={by_kind['UNMEASURED']}")
     print(f"zls-frame-map-census[{label}]: entries={len(work)} graded={graded} no_layout={len(nolayout)} (declared={len(declared)} defect={len(nolayout) - len(declared)}) graphs={graphs_n} fields={fields_n} holes={holes} ({cls_s}) population=the zls region only; the wire header past region_end and the spine are not censused here")
     if graded == 0:
         print(f"zls-frame-map-census[{label}]: REFUSE(2): nothing graded"); return 2
