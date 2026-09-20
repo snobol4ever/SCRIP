@@ -15,9 +15,17 @@ THE DECISION PROCEDURE, and every term in it is read from the tree rather than a
   * A graph's map cell is written by its prologue as `lea rX,[rip+.Lgcmap_<g>]` / `mov [base + D], rX`, with the
     DT_MAP tag stored at [base + D-8].  The cell therefore starts at D-8.
   * gc_heap.c's gc_walk_range computes `base = cell - map_off` and walks [base, base+map_off) through the static
-    layout table, and walks [p, base) as UNTYPED WORDS -- counted into s_raw_heap and printed as [GC-WALK-SPINE],
-    never visited as a root.  So REGION BASE = the value of the cell's base register at the cell store, and a
-    store below it is lost by construction.
+    layout table.  Below that it walks [p, base) as WORDS: gc_walk_words tries gc_cell_visit on each one first and
+    only counts what that recognizer REFUSES into s_raw_heap, printed as [GC-WALK-SPINE].  So REGION BASE = the
+    value of the cell's base register at the cell store.
+  * ⛔ A STORE BELOW THE BASE IS THEREFORE NOT THE SAME FACT AS A LOST VALUE, and this census does not claim it is
+    (hq_snobol4 2026-09-20, verified A/B/A by the cto; the cfo refuted the sign rule twice before that, CFO-114 and
+    CFO-136 -- a negative offset is where spine words live BY CONSTRUCTION and was never the discriminator).  What
+    a member means is exactly this: the safe point's correctness rests on gc_cell_visit RECOGNISING the tag that
+    lands there, instead of on the frame map that ARCH-GC section 3 says should cover it.  The row's witness is
+    lost today only because gc_cell_visit is missing DT_X and DT_SNUL while gc_visit_one has them -- one fact
+    spelled twice in one file.  Cure that and the witness answers its oracle at every stress point WITH ITS STORE
+    STILL OUTSIDE THE MAP: that surviving 162 is the residual this census exists to name.
   * The rsp displacement from the cell store to each safe point is recovered by a set-valued forward fixpoint over
     the emitted CFG.  A site the fixpoint cannot pin to ONE displacement is UNDECIDABLE and is named as such; it is
     never folded into the green count, because a census that guesses is the defect this row exists to remove.
