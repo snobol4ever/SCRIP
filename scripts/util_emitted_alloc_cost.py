@@ -15,7 +15,18 @@ code we generate, which is what Lon's sentence is about.  A change can move eith
 the inline bump is that the `call` DISAPPEARS, so counting "allocation sites" in the after arm counts the very thing the
 change removes and the per-site cost would divide by a number that fell.  THE NUMBER OF ALLOCATION SITES IS A PROPERTY OF
 THE PROGRAM, not of the form we emit them in, so the before arm -- where every site still names itself with a call to an
-entry in GC_ALLOC_TAB -- is what counts them, for both arms.  Same program, same tree plus the one change: that is the
+entry in GC_ALLOC_TAB -- is what counts them, for both arms.  ⭐ THE cto GAVE THIS RULE A STRONGER REASON THAN MINE
+(2026-09-20, from their own hand disassembly): in their after arm the call was STILL THERE as the miss path, so counting
+sites in the after arm would have counted ONE site twice -- once as a call, once as an inline sequence -- and divided by
+two.  The before-arm rule holds whether the change REMOVES the call or KEEPS it, which is the property, and "the call
+disappears" was only the case I happened to be looking at.
+⛔ ITS FIRST REAL READING RETIRED THE ROW IT WAS BUILT FOR, WHICH IS WHAT AN INSTRUMENT IS FOR (Lon, in-chat to the cto
+2026-09-20, verbatim: "So forget the inline GC bump. It is just too long."):  ONE concat site in
+bench_icnstr_concat_table.icn went 15 -> 86 emitted instructions, the bump ALONE 27 against Lon's ceiling of 6, object
+text 3319 -> 3923 bytes over the program.  The cto's arithmetic for whoever proposes emitted allocation next: eight
+instructions are irreducible before any guard, every available fold stops at thirteen, and 4-6 needs pre-formatted
+size-class runs -- a different collector.  --max-insns expresses a different bar (the bump plus the separately granted
+owner guard of up to 5 is --max-insns 11); the DEFAULT stays Lon's 6 so nobody inherits a widened bar by accident.  Same program, same tree plus the one change: that is the
 control the INSTRUMENT LAWS require of a before/after pair, and this tool refuses a pair that does not carry it.
 
 MEASURE ONE TREE:   util_emitted_alloc_cost.py measure <program> [<program>...] [--label L] [--out FILE]
