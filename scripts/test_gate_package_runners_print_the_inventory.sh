@@ -604,13 +604,40 @@ PINNED = {"icon":    ["arizona", "ipl", "jcon"],
           "pascal":  ["fpc", "PAT"],
           "prolog":  ["gnu"],
           "snobol4": ["csnobol4", "snoflake"]}
-s = io.open(os.environ['SCORE_MD'], encoding='utf-8').read()
+# ⛔⭐⭐ THE TABLE IS FOUND BY THE ONE WRITER'S OWN FINDER, NOT BY A SECOND POSITIONAL COPY OF THE JOIN
+# (coo 2026-09-20, measured). THIS ARM GRADED A TABLE NO RUNNER CAN WRITE, and it is the third instance of
+# the shape util_score_row.py's own comments already record twice -- counted_fractions' "compute the join
+# ONCE, name it, and leave no second way to spell it", and find_table's "Shape is the identity here, never
+# position". What the two copies disagreed about, exactly:
+#   * SCORE.md carries THREE '| icon |' rows in TWO grids. find_table() -- the ONE writer's finder -- takes
+#     the grid that PROVES its shape (6 columns, index 4 headed "Vendor / package suites") and refuses to
+#     write into any other; table_shape_error() rejects the 8-column M/L/V display outright. So `--column
+#     vendor`, which every package runner passes, can land in ONE cell and one only.
+#   * this arm selected `ln.count('|') >= 8` and then read `ln.split('|')[4]` WITHOUT stripping the outer
+#     pipes -- so it bound to the 8-column display (the grid CEO-174 added ABOVE the standardized one on
+#     2026-09-03, named in find_table's comment as the reason position is not identity) and read a cell the
+#     one writer is forbidden to touch. Two errors that cancelled into a plausible-looking number.
+# ⛔ THE MEASURED COST, and it is the arizona report this arm has been printing: arizona's clause is
+# PRESENT, SUMMING (124 = graded 90 + ungraded 0 + ungradable 34) and written BY ITS OWN RUNNER into the only
+# cell the writer may write -- and this arm called it ABSENT and told the reader to re-run the runner that had
+# already done the work correctly. A diagnostic that names the wrong cure is worse than one that stays quiet,
+# because the cure it names is expensive and its failure teaches nothing. The clauses this arm DID find
+# (ipl, jcon) are in the unwritable display, i.e. hand-transcribed -- which is the very thing it exists to
+# catch, and it was scoring them as the compliant case.
+# ⭐ THE REUSABLE HALF: an arm that grades "did the writer write it" MUST locate the cell the way the
+# writer locates it, by calling the writer's own finder. Any second spelling of that join grades a different
+# board, and will do so silently, because a missing clause and a mis-addressed read look identical.
+lines = io.open(os.environ['SCORE_MD'], encoding='utf-8').read().split('\n')
+U.SCORE_MD = os.environ['SCORE_MD']          # find_table names this path in its refusals
+_hdr, _rows, _skipped = U.find_table(lines)  # die()s rc=2 -- "could not measure", never a violation
 cells = {}
-for ln in s.split('\n'):
-    if ln.startswith('| ') and ln.count('|') >= 8:
-        lang = ln.split('|')[1].strip()
-        if lang in U.PROGRESS_COUNTED and lang not in cells:
-            cells[lang] = ln.split('|')[4]
+for _lang, (_i, _c) in _rows.items():
+    if _lang in U.PROGRESS_COUNTED:
+        cells[_lang] = _c[U.COLUMNS['vendor'][0]]
+print("    ARM 19 board grid=header line %d (found by util_score_row.find_table, the one writer's own finder)"
+      "  rows=%d  counted langs=%s%s"
+      % (_hdr + 1, len(_rows), ",".join(sorted(cells)),
+         "  SKIPPED mis-shaped rows=%s" % ",".join(sorted(_skipped)) if _skipped else ""))
 bad, gained, lacking, pinned_n = 0, [], [], 0
 for lang in sorted(U.PROGRESS_COUNTED):
     names = [n for n, _rx, _d in U.PROGRESS_COUNTED[lang]]
