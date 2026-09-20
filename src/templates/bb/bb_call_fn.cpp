@@ -28,6 +28,11 @@ typedef struct { long fn; long how; } rk_next_t;
 extern rk_next_t rk_method_open(DESCR_t * args, int nargs);
 extern DESCR_t rk_method_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rk_method_land_ω(long word);
+extern long rk_iter_open(DESCR_t * args, int nargs, DESCR_t * cur);
+extern rk_next_t rk_iter_step(DESCR_t * cur);
+extern long rk_iter_land_γ(DESCR_t frame0, long word, DESCR_t * cur);
+extern long rk_iter_land_ω(long word, DESCR_t * cur);
+extern DESCR_t rk_iter_finish(DESCR_t * cur);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_opens_as_method(const char * fn, int nargs) { return (fn && nargs >= 2 && !strcmp(fn, "meth_call")) ? 1 : 0; }
@@ -45,6 +50,44 @@ static std::string bcfn_method_open_enter(int base, int decl_id, int join_id) {
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
          + x86("call", "rk_method_land_ω", (uint64_t)(uintptr_t)(void *)rk_method_land_ω)
+         + x86_rt_gc_poll_rec_res()
+         + x86_jmp_id(join_id);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bcfn_opens_as_iter(const char * fn, int nargs) { return (fn && nargs == 3 && !strcmp(fn, "meth_call")) ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcfn_iter_open_enter(int base, const std::string & cellsq, const std::string & curq, int nargs, int decl_id, int join_id) {
+    return x86("comment", "THE BOX OWNS THE LOOP AND THE C CODE IS FOUR LEAVES WITH A CURSOR (hq_raku 2026-09-20, ceo CEO-986 phase 0). Lon, verbatim: so make a plan to get those constructs converted to a sequence of BB's -- under his FACT RULE CEO-985 that logic lives in emitted boxes, not in C. WHAT THIS REPLACES, measured by backtrace on a five-element .reduce witness and not inferred: the fold ran inside script_try_call_builtin_by_name and entered the block's box FROM C once per element, seven C frames deep -- rt_call_arr_bl -> rt_call_arr_bl_s -> rt_call_arr_impl -> try_call_builtin_by_name_bl_s -> script_try_call_builtin_by_name(meth_call) -> script_try_call_builtin_by_name(__rk_arr_reduce) -> rt_call_proc_descr -> rt_proc_enter -- and all seven stayed on the stack for the whole life of the block, n-1 times. Now alpha opens the cursor, rk_iter_step is the next leaf plus the per-element open, the transfer is the tree's ONE entry glue, and the land is the emit. THE FOUR LEAVES ARE open, step(=next+open), land(=emit) and finish, and map/reduce/first/sort differ ONLY inside rk_iter_emit and in whether the land answers STOP -- which is why this is one box for four constructs rather than four rewrites. THE GC ANSWER, WHICH IS PHASE 0's REAL DELIVERABLE AND NOT A DETAIL: THE CURSOR IS ONE TYPED DESCR IN A FRAME CELL THE MAP ALREADY COVERS -- this node's own result slot, kind DESCR in the typed frame layout -- and its state lives inside a block of an ALREADY-VISITED type (DT_A, gc_visit_arblk). So no new heap type, no new visitor, NO NEW GLOBAL and no collector change: a C global would have been both a new global under the no-new-globals law and an unrooted holder under Lon's five clauses, which is the pair of mistakes g_redisp made. Positions inside the cursor are the remaining-subject DESCR rather than a raw scan pointer, and gc_heap.c:1110 relocates an interior string pointer by preserving its offset, so the cursor survives a collection BY CONSTRUCTION rather than by a sweep. AND IT GENERALISES, WHICH IS THE SEQUENCING TRAP THE ceo NAMED: a construct whose state does not fit the four cells widens the SAME one visited block (phase 2's sort keeps its element vector there), so the protocol does not get rewritten at the nested loop. WHY A COLLECTION CANNOT HAPPEN INSIDE A LEAF, so only the leaf BOUNDARIES need rooting: rt_gcheap_alloc never collects -- it carves, grows, and arms g_gc_pending -- and the collection happens at the emitted poll (CEO-812, verified in the allocator). THE OPEN DECLINES (rax == 0) FOR EVERYTHING IT IS NOT PROVABLY EXACT ON and the unchanged rt_call_arr_bl road follows the decline label: a non-reduce method, a non-block argument, a data-type invocant, a callee that is not a plain jmp-entry box, an empty array and a single-element array (which make no per-element call at all and stay on the arm that already answers them). THE POLLS ARE THE SANCTIONED SAFE POINTS AT THE EMITTED RETURN OF AN ALLOCATING RUNTIME CALL: the _sigma_word form after the open, the step and each land, because rax is a code pointer or an integer verdict and rdx an integer protocol word -- neither a collected-heap block -- and the _rec_res form after finish, because THAT return IS a DESCR whose second word is a heap pointer, the distinction x86_rt_gc_poll_rec_sigma_pair was written against.")
+         + x86("lea", "rdi", cellsq.c_str())
+         + x86("mov32", "esi", (long)nargs)
+         + x86("lea", "rdx", curq.c_str())
+         + x86("call", "rk_iter_open", (uint64_t)(uintptr_t)(void *)rk_iter_open)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", decl_id)
+         + x86_deflabel_id(base + 7)
+         + x86("lea", "rdi", curq.c_str())
+         + x86("call", "rk_iter_step", (uint64_t)(uintptr_t)(void *)rk_iter_step)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", base + 9)
+         + bb_glue_enter_c2bb(base, base + 5, base + 6)
+         + x86_deflabel_id(base + 5)
+         + x86("lea", "rcx", curq.c_str())
+         + x86("call", "rk_iter_land_γ", (uint64_t)(uintptr_t)(void *)rk_iter_land_γ)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", base + 7)
+         + x86_jmp_id(base + 9)
+         + x86_deflabel_id(base + 6)
+         + x86("lea", "rsi", curq.c_str())
+         + x86("call", "rk_iter_land_ω", (uint64_t)(uintptr_t)(void *)rk_iter_land_ω)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", base + 7)
+         + x86_deflabel_id(base + 9)
+         + x86("lea", "rdi", curq.c_str())
+         + x86("call", "rk_iter_finish", (uint64_t)(uintptr_t)(void *)rk_iter_finish)
          + x86_rt_gc_poll_rec_res()
          + x86_jmp_id(join_id);
 }
@@ -151,7 +194,9 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
     } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
+        int _iopen = bcfn_opens_as_iter(fn, nargs);
         if (_mopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
+        if (_iopen) { std::string _cq = FRQ(argbase); std::string _rq = FRQ(resoff); s += bcfn_iter_open_enter(40, _cq, _rq, nargs, 48, 29); s += x86_deflabel_id(48); }
         std::string fl = std::string(".L") + x86_boxkind() + "_rkfn" + std::to_string(g_flat_node_id++);
         s += x86("directive", ".section .rodata");
         s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
@@ -164,7 +209,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call_bare", ((_.op_strict == 2) ? "rt_call_arr_bl_sn4" : _.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), (uint64_t)(uintptr_t)(void *)((_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl));
         s += x86("rtcc_rl");
-        if (_mopen) s += x86_deflabel_id(29);
+        if (_mopen || _iopen) s += x86_deflabel_id(29);
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");

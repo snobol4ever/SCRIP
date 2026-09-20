@@ -899,6 +899,84 @@ DESCR_t rk_method_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_la
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_method_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); DESCR_t r = rt_call_land_ω(word); if (g_redisp_top > 0) g_redisp_top--; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+enum { RKIT_SUBJ = 0, RKIT_ACC = 1, RKIT_BLK = 2, RKIT_STATE = 3, RKIT_NCELL = 4 };
+enum { RKIT_K_REDUCE = 1 };
+enum { RKIT_CONTINUE = 0, RKIT_STOP = 1 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_methcall_is_array_reduce(const DESCR_t *args, int nargs)
+{
+    if (!args || nargs != 3) return 0;
+    if (args[2].v != DT_BLK || !args[2].s || !*args[2].s) return 0;
+    { const char *m = VARVAL_fn(args[1]); if (!m || strcmp(m, "reduce")) return 0; }
+    if (args[0].v == DT_DATA) return 0;
+    { const char *rtn = VARVAL_fn(args[0]); if (rtn && dat_find_type(rtn)) return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t *rk_iter_cells(DESCR_t *cur) { return (cur && cur->v == DT_A && cur->arr && cur->arr->data) ? cur->arr->data : (DESCR_t *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rk_iter_open(DESCR_t *args, int nargs, DESCR_t *cur)
+{
+    extern ARBLK_t *array_new(int lo, int hi);
+    extern int rt_define_returns_by_frame(const char *name);
+    char scratch0[64];
+    if (!cur || !rk_methcall_is_array_reduce(args, nargs)) return 0;
+    if (!rt_define_returns_by_frame(args[2].s)) return 0;
+    { const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0);
+      if (!cs0 || cs0 == scratch0 || !*cs0) return 0;
+      { const char *nx = strchr(cs0, SOH); size_t L;
+        if (!nx) return 0;
+        L = (size_t)(nx - cs0);
+        { ARBLK_t *a = array_new(0, RKIT_NCELL - 1); char *el;
+          if (!a || !a->data) return 0;
+          el = rt_wsb_alloc(L + 1); memcpy(el, cs0, L); el[L] = 0;
+          a->data[RKIT_ACC] = rk_elem_descr(el, L);
+          a->data[RKIT_SUBJ] = STRVAL((char *)(nx + 1));
+          a->data[RKIT_BLK] = args[2];
+          a->data[RKIT_STATE] = INTVAL(RKIT_K_REDUCE);
+          { DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = a; *cur = d; }
+          return 1; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_call_next_t rk_iter_step(DESCR_t *cur)
+{
+    extern DESCR_t g_call_args[];
+    rt_call_next_t none; none.fn = 0; none.how = 0;
+    { DESCR_t *c = rk_iter_cells(cur);
+      if (!c || c[RKIT_SUBJ].v == DT_FAIL) return none;
+      { const char *seg = c[RKIT_SUBJ].s ? c[RKIT_SUBJ].s : ""; const char *nx = strchr(seg, SOH);
+        size_t L = nx ? (size_t)(nx - seg) : strlen(seg); char *el = rt_wsb_alloc(L + 1);
+        memcpy(el, seg, L); el[L] = 0;
+        c[RKIT_SUBJ] = nx ? STRVAL((char *)(nx + 1)) : FAILDESCR;
+        g_call_args[0] = c[RKIT_ACC];
+        g_call_args[1] = rk_elem_descr(el, L);
+        { rt_call_next_t n = rt_call_open_by_name(c[RKIT_BLK].s, 2); return n.fn ? n : none; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_iter_emit(DESCR_t *cur, DESCR_t r)
+{
+    DESCR_t *c = rk_iter_cells(cur);
+    if (!c) return RKIT_STOP;
+    switch ((int)c[RKIT_STATE].i) {
+    case RKIT_K_REDUCE: c[RKIT_ACC] = r; return RKIT_CONTINUE;
+    default: return RKIT_STOP;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_iter_land_γ(DESCR_t frame0, long word, DESCR_t *cur) { extern DESCR_t rt_call_land_γ(DESCR_t, long); return rk_iter_emit(cur, rt_call_land_γ(frame0, word)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_iter_land_ω(long word, DESCR_t *cur) { extern DESCR_t rt_call_land_ω(long); return rk_iter_emit(cur, rt_call_land_ω(word)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rk_iter_finish(DESCR_t *cur)
+{
+    DESCR_t *c = rk_iter_cells(cur);
+    if (!c) return FAILDESCR;
+    switch ((int)c[RKIT_STATE].i) {
+    case RKIT_K_REDUCE: return c[RKIT_ACC];
+    default: return FAILDESCR;
+    }
+}
 void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
