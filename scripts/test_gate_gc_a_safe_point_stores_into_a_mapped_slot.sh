@@ -198,7 +198,7 @@ fi
 
 # (g) an instrument nobody runs is not an instrument
 if grep -q 'test_gate_gc_a_safe_point_stores_into_a_mapped_slot.sh' "$ROOT/Makefile" 2>/dev/null; then
-  ck ok "(g) this gate is named in the Makefile, as a REPORTED arm -- run and classified by every seat, blocking none of them while arm (f) is red by design (CEO-513 declare-when-you-hold-one-out, CEO-463 a known-red blocking arm makes every seat pay for one open row). It moves to a blocking arm the day (f) goes green"
+  ck ok "(g) this gate is named in the Makefile, as a REPORTED arm -- run and classified by every seat, blocking none of them while arm (h) is red BY DESIGN (CEO-513 declare-when-you-hold-one-out, CEO-463 a known-red blocking arm makes every seat pay for one open row). ⛔ THE PROMOTION THIS ARM ONCE PROMISED HAS BEEN PAID, AND NOT THE WAY IT WAS WORDED: arm (f) went green 2026-09-20 on the cfo DT_X landing, and what went BLOCKING is the PROPERTY ALONE -- test_gate_gc_the_unmapped_spine_store_witness_answers_its_oracle_at_every_band_point.sh, ~0.8s, both modes, the ref re-cut from the oracle every run and a vacuous comparator planted against. THE CENSUS DID NOT GO WITH IT: it costs minutes over 49 witnesses and MODE TENET condition 2 charges that to ten seats through an essentially serial set, and arm (h) is red by design so this gate cannot be blocking at all. A gate that declares a promotion it should not perform is the same defect as a design page stating a property nothing enforces (CTO-99)"
 else
   ck no "(g) this gate is not named in the Makefile -- a gate in no runner is not measuring (RULES.md THE INSTRUMENT LAWS), and a gate landed unwired is the CEO-381 class (CEO-513)"
 fi
