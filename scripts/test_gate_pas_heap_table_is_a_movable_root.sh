@@ -5,7 +5,7 @@
 # slide"): since ac044419d four block types were marked live unconditionally and never moved, and Pascal new() records were
 # among them -- Pascal pointer stability was a side effect of that exemption, not a design. Pascal pointers are integer
 # handles into a heap table, so the table is the right place for the invariant: the table itself now lives OUTSIDE the
-# collector arena (plain malloc, so it never competes for the 512 MB slab), every live cell is visited by pas_gc_roots,
+# collector arena (ct_arena, a never-collected bump allocator -- NOT malloc, which CEO-832 forbids anywhere in SCRIP, so it never competes for the 512 MB slab), every live cell is visited by pas_gc_roots,
 # which the collector calls beside core_gc_roots and gen_gc_roots, every record payload and every set is allocated through
 # rt_str_alloc as an ordinary movable block, and dispose returns the handle to a free list so the table is reused.
 #
