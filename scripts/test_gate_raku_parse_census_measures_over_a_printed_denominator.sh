@@ -18,6 +18,13 @@ cd "$HERE/.." || exit 2
 ROOT=$(pwd)
 CENSUS="$HERE/util_raku_parse_census.sh"
 [ -x "$ROOT/scrip" ] || { echo "⛔ REFUSE(2): no scrip binary (run: make) -- this gate cannot grade a parser it cannot run" >&2; exit 2; }
+# ⛔ AND IT MUST BE A CURRENT BINARY, NOT MERELY A PRESENT ONE (COO-80, row
+# instrument-the-nineteen-non-gc-blocking-arms): this gate EXECUTES ./scrip, and
+# test_gate_runners_refuse_on_a_stale_binary ARM 15 named it as one of two scrip-executing gates with no
+# freshness guard. A parse census taken with a binary older than src/ is a number about a tree it cannot
+# name, and rc=2 means "could not measure", never green and never red.
+. "$HERE/lib_gate.sh"
+gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 [ -f "$CENSUS" ] || { echo "⛔ REFUSE(2): $CENSUS not on disk" >&2; exit 2; }
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 PASS=0; FAIL=0

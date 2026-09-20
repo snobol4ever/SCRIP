@@ -42,7 +42,7 @@ rc: 0 forbidden=0 and no arena-in-runtime violation; 1 either remains; 2 could n
 Usage: python3 scripts/util_c_allocator_census.py [--root DIR] [--ratchet FILE] [--write-baseline FILE]
                                                   [--by-dir] [--sites] [--selftest]
 """
-import argparse, os, re, subprocess, sys, tempfile
+import argparse, functools, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
@@ -167,13 +167,23 @@ def scan(files, root):
         if n_prose > 0:
             prose[rel] = n_prose
         lines = src.split("\n")
+        # ⛔ THE SUBSTRING TEST IS A PRE-FILTER, NOT A CRITERION (COO-80, row
+        # instrument-the-nineteen-non-gc-blocking-arms). Every pattern here is call_rx(name), which cannot
+        # match a line that does not contain `name` literally, so `name not in line` skips only lines the
+        # regex was always going to reject. It is a pure cost cut over the same population: this loop ran
+        # each of the forbidden and destination patterns against EVERY line of src/, 2.5 million finditer
+        # calls on a --by-dir pass. The census output is byte-identical across the change.
         for i, line in enumerate(lines, 1):
             for name, rx in rxs:
+                if name not in line:
+                    continue
                 for m in rx.finditer(line):
                     if is_declaration(line, m.start()):
                         continue
                     forb.append((rel, i, name))
             for d, name, rx in drx:
+                if name not in line:
+                    continue
                 for m in rx.finditer(line):
                     if is_declaration(line, m.start()):
                         continue
@@ -199,6 +209,8 @@ def scan(files, root):
                 if _CPP_RX.match(line):
                     continue
                 for nm, rx in arx:
+                    if nm not in line:
+                        continue
                     for m in rx.finditer(line):
                         if is_declaration(line, m.start()):
                             continue
@@ -256,6 +268,35 @@ _PTR_DECL = re.compile(r"(?:^|[{;])\s*(?:static\s+)?(?:const\s+)?[A-Za-z_][A-Za-
 _STATIC_ARR = re.compile(r"^static\s+[A-Za-z_][A-Za-z0-9_]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[", re.M)
 
 
+# ⛔⭐ THE PATTERNS ARE BUILT ONCE, NOT ONCE PER SCOPE (COO-80, 2026-09-19, row
+# instrument-the-nineteen-non-gc-blocking-arms). libc_ownership_census interpolated re.escape(sym) and each
+# table name into a fresh pattern string inside its per-scope loop, so every one of the ~10,000 declaration
+# scopes recompiled about seven regexes: a cProfile run read 71,202 compilations, 14.5s of the census's 24.9s,
+# because Python's internal re cache holds 512 entries and this blew through it on every file. That cost put
+# test_gate_c_allocators_are_eradicated_and_say_where_they_went.sh (which runs the census three times) at
+# 23.7s against the 5s per-arm preflight budget, which is the SLOW arm that kept
+# test_gate_preflight_arms_stay_cheap red. ⛔ NOTHING HERE CHANGES WHAT IS MEASURED -- the criterion is frozen
+# (MODE line 2) and the output of --by-dir, --sites, --selftest and the plain run is byte-identical across
+# this change, which is the only reason a speed edit to a frozen instrument is allowed at all. Two mechanisms:
+# the _OURS patterns carry no symbol so they are compiled at import; the two libc tables are memoised per
+# (name, symbol) pair, and every loop is guarded by a plain substring test first, because a pattern demanding
+# the literal name cannot match a segment the name does not occur in.
+_OURS_RX = {ours: re.compile(ours + r"\s*\(\s*(?:\([^()]*\)\s*)?&?\s*(" + _LVALUE + r")\s*\)")
+            for ours in _OURS}
+_LEADING_IDENT_RX = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+@functools.lru_cache(maxsize=None)
+def _libc_outparam_rx(fn, esym):
+    return re.compile(fn + r"\s*\(\s*&\s*" + esym + r"(?![A-Za-z0-9_])"
+                      r"(?:\s*\[[^\]]*\]|\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*\s*,")
+
+
+@functools.lru_cache(maxsize=None)
+def _libc_returns_rx(fn, esym):
+    return re.compile(r"(?<![A-Za-z0-9_])" + esym + r"\s*=\s*(?:\([^)]*\)\s*)?" + fn + r"\s*\(")
+
+
 def _norm_lvalue(e):
     return re.sub(r"\[[^\]]*\]", "[]", re.sub(r"\s+", "", e))
 
@@ -266,20 +307,45 @@ def _enclosing_block(src, p):
     and once from ct_alloc() at 7716.  A function-scoped reader merges them and convicts three CORRECT
     ct_drop()s of the arena-owned one.  Measured: that reader reported 5 sites in that file; this one reports
     the 2 that are real."""
+    # ⛔ BRACE-STEPPED, NOT CHARACTER-STEPPED (COO-80, 2026-09-19, row
+    # instrument-the-nineteen-non-gc-blocking-arms). Both scans below used to walk one Python character at a
+    # time, and the forward one re-evaluated len(src) on every step: cProfile read 22.5 MILLION len() calls
+    # over the 10,135 scopes of a --by-dir pass, 2.8s of the census, on a tree whose largest file is a few
+    # hundred KB. str.find/str.rfind do the same walk in C and stop only on the braces that can change the
+    # depth, so the loops now step once per BRACE rather than once per byte. ⛔ The semantics are unchanged
+    # and deliberately so: the backward scan still stops at the first unmatched "{" at or before p (or index
+    # 0 when the file has none before it), the forward scan still leaves j ONE PAST the matching "}" (or at
+    # len(src) when the block never closes), and the same (start, end) pair comes back. The census output is
+    # byte-identical across this change in every mode, which is the only warrant for touching a frozen
+    # instrument at all.
+    n = len(src)
     d, i = 0, p
     while i > 0:
-        i -= 1
-        if src[i] == "}":
+        k = max(src.rfind("{", 0, i), src.rfind("}", 0, i))
+        if k < 0:
+            i = 0
+            break
+        i = k
+        if src[k] == "}":
             d += 1
-        elif src[i] == "{":
-            if d == 0:
-                break
+        elif d == 0:
+            break
+        else:
             d -= 1
     start, d, j = i, 1, i + 1
-    while j < len(src) and d:
-        d += 1 if src[j] == "{" else (-1 if src[j] == "}" else 0)
-        j += 1
-    return start, (j if j > p else len(src))
+    while j < n and d:
+        b_open = src.find("{", j)
+        b_close = src.find("}", j)
+        if b_open < 0 and b_close < 0:
+            j = n
+            break
+        if b_open >= 0 and (b_close < 0 or b_open < b_close):
+            d += 1
+            j = b_open + 1
+        else:
+            d -= 1
+            j = b_close + 1
+    return start, (j if j > p else n)
 
 
 def libc_ownership_census(texts, out=print):
@@ -292,12 +358,13 @@ def libc_ownership_census(texts, out=print):
             seg = src[a:b]
             owner = None
             esym = re.escape(sym)
+            if sym not in seg:
+                continue
             for fn in _LIBC_OUT_PARAM:
-                if re.search(fn + r"\s*\(\s*&\s*" + esym + r"(?![A-Za-z0-9_])"
-                             r"(?:\s*\[[^\]]*\]|\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*\s*,", seg):
+                if fn in seg and _libc_outparam_rx(fn, esym).search(seg):
                     owner = fn
             for fn in _LIBC_RETURNS:
-                if re.search(r"(?<![A-Za-z0-9_])" + esym + r"\s*=\s*(?:\([^)]*\)\s*)?" + fn + r"\s*\(", seg):
+                if fn in seg and _libc_returns_rx(fn, esym).search(seg):
                     owner = fn
             if not owner:
                 continue
@@ -305,9 +372,11 @@ def libc_ownership_census(texts, out=print):
                 # ⛔ THE CAST IS NOT OPTIONAL TO HANDLE: every root in core.c is written
                 # rt_gc_visit_raw((const char **)&X), so a reader that only matches a bare &X misses the
                 # exact hazard it was built for.  A planted arm caught this before it shipped.
-                for mm in re.finditer(ours + r"\s*\(\s*(?:\([^()]*\)\s*)?&?\s*(" + _LVALUE + r")\s*\)", seg):
+                if ours not in seg:
+                    continue
+                for mm in _OURS_RX[ours].finditer(seg):
                     got = _norm_lvalue(mm.group(1))
-                    if re.match(r"[A-Za-z_][A-Za-z0-9_]*", got).group(0) == sym:
+                    if _LEADING_IDENT_RX.match(got).group(0) == sym:
                         hits.append((rel, src.count("\n", 0, a + mm.start()) + 1, ours, got, owner, what))
     uniq = sorted({(h[0], h[1]): h for h in hits}.values())
     out(f"CENSUS c-allocators LIBC-OWNED-MISUSE={len(uniq)} want=0 -- a block LIBC owns handed to OUR "

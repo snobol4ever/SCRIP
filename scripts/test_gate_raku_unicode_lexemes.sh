@@ -24,6 +24,14 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; cd "$HERE/.." || exit 2
 GATE_NAME="raku-unicode-lexemes"
 SCRIP="./scrip"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2) [$GATE_NAME]: no scrip binary -- run make" >&2; exit 2; }
+# ⛔ AND IT MUST BE A CURRENT BINARY, NOT MERELY A PRESENT ONE (COO-80, row
+# instrument-the-nineteen-non-gc-blocking-arms): this gate EXECUTES ./scrip against the rakudo oracle, and
+# test_gate_runners_refuse_on_a_stale_binary ARM 15 named it as one of two scrip-executing gates with no
+# freshness guard. Grading a stale binary against a live oracle attributes yesterday's parser to today's
+# tree, which is how a cured lexeme reads as still-red and a regressed one reads as green.
+ROOT="$(pwd)"
+. "$HERE/lib_gate.sh"
+gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 RAKU="$(command -v raku || true)"
 [ -n "$RAKU" ] || { echo "⛔ REFUSE(2) [$GATE_NAME]: no rakudo on PATH -- refs are cut from the oracle, never from our output" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
