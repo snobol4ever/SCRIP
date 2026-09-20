@@ -93,6 +93,7 @@ run_arm(){ # $1 = tag
   local fn="${tag/:/_}"
   : > "$W/$fn.db"; : > "$W/$fn.raw"; : > "$W/$fn.shardrc"
   for k in $(seq 1 "$SHARDS"); do
+    _before=$(wc -l < "$W/$fn.db")
     ( case "$tag" in
         control)  unset SCRIP_HEAP_MB SCRIP_GC_STRESS ;;
         arena)    export SCRIP_HEAP_MB="$TINY_MB"; unset SCRIP_GC_STRESS ;;
@@ -102,20 +103,31 @@ run_arm(){ # $1 = tag
       S4E_PROGRESS_DB="$W/$fn.db" timeout "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
         "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" ) \
       >> "$W/$fn.raw" 2>&1
-    # ⛔⭐⭐ A SHARD'S rc IS EVIDENCE AND THIS GATE USED TO THROW IT AWAY. Measured on its own first band run:
-    # the stress:16 arm graded 975 (entry,mode) pairs against control's 1043, and all 68 missing entries proved
-    # to sit at position ≡ 1 (mod 16) -- EXACTLY SHARD 1, whole. corpus_suite_harness.py prints its SUITE_BOARD
-    # line BEFORE it calls _progress_record, so a shard that dies (or is killed by SHARD_TIMEOUT) after the board
-    # and before the rows CONTRIBUTES A FULL BOARD TO THE SUM AND ZERO PER-ENTRY ROWS. ⛔ THE SIGNATURE IS A
-    # COMPLETE-LOOKING boards=16 BESIDE A SHORT PER-ENTRY SET, and NOTHING SAYS SO: a consumer summing
-    # SUITE_BOARD gets a full denominator, a consumer reading per-entry rows gets a short one, and the two
-    # disagree silently. Any gate that sums boards across shards while also diffing per-entry data has this hole.
-    _src=$?; echo "$k $_src" >> "$W/$fn.shardrc"
-    [ "$_src" = 0 ] || echo "SHARD-NONZERO arm=$tag shard=$k/$SHARDS rc=$_src (124 = SHARD_TIMEOUT ${SHARD_TIMEOUT}s fired)"
+    # ⛔⭐⭐ THE HONEST QUESTION IS "DID THIS SHARD RECORD ANYTHING", NOT "WHAT WAS ITS rc" -- and this gate got
+    # that wrong twice in one sitting, in opposite directions. First it DISCARDED the shard rc entirely, and a
+    # shard whose rows never landed showed up much later as an unexplained population mismatch. Then it refused
+    # on ANY non-zero rc -- which is WRONG, because the harness exits 1 whenever a board merely CONTAINS REDS,
+    # so that check would refuse every honest run of a suite that is not already perfect. ⭐ rc CONFLATES "this
+    # board has failing entries" with "this board did not happen", and no amount of care about rc separates them.
+    # WHAT ACTUALLY SEPARATES THEM IS THE RECORD ITSELF: count the progress rows before and after each shard.
+    # A shard that added ZERO rows did not happen, whatever it printed and whatever it exited.
+    # MEASURED WHY THIS MATTERS (hq_prolog, 2026-09-20): a shard printed a complete healthy board -- total=36
+    # m3_pass=34 m3_fail=2, 95.56 s against a 5400 s bound -- and appended NOTHING, because corpus_suite_harness.py
+    # prints SUITE_BOARD BEFORE it calls _progress_record and the record refused ("THE GROUND MOVED UNDER THIS RUN
+    # (scrip <a> -> <b>)" -- the pinned ground is the REPO SHA, not only the binary, and I had committed while the
+    # board was grading). The signature is a complete-looking boards=N beside a short per-entry set, and NOTHING
+    # says so: a board-summing consumer sees a full denominator, a per-entry consumer sees a short one, and
+    # neither can see that the other disagrees.
+    _src=$?; _after=$(wc -l < "$W/$fn.db"); _added=$((_after - _before))
+    echo "$k $_src $_added" >> "$W/$fn.shardrc"
+    case "$_src" in 0|1) ;; 124) echo "SHARD-TIMEOUT arm=$tag shard=$k/$SHARDS rc=124 -- SHARD_TIMEOUT ${SHARD_TIMEOUT}s fired" ;;
+                    *) echo "SHARD-REFUSED arm=$tag shard=$k/$SHARDS rc=$_src (rc=2 is could-not-measure; rc=0/1 are both real boards, 1 meaning the board has reds)" ;; esac
+    [ "$_added" -gt 0 ] || echo "SHARD-RECORDED-NOTHING arm=$tag shard=$k/$SHARDS rc=$_src -- it added 0 progress rows, so whatever it printed, this shard did not happen"
   done
-  # refuse on ANY non-zero shard rather than discovering it later as a population mismatch
-  _bad=$(awk '$2!=0' "$W/$fn.shardrc" | wc -l)
-  [ "$_bad" -eq 0 ] || { cat "$W/$fn.shardrc"; refuse "$tag arm had $_bad shard(s) exit non-zero -- their boards may have printed while their per-entry rows did NOT, which reads as a complete arm with a short record"; }
+  # ⛔ REFUSE ON A SHARD THAT RECORDED NOTHING -- never on a shard that merely had reds.
+  _bad=$(awk '$3==0' "$W/$fn.shardrc" | wc -l)
+  [ "$_bad" -eq 0 ] || { echo "---- shard  rc  rows_added ----"; cat "$W/$fn.shardrc"; \
+    refuse "$tag arm had $_bad shard(s) record ZERO rows -- their boards printed and still sum, so this arm reads complete while its per-entry set is short. Settle the tree (pull, rebuild, push, clean) and re-run: the pinned ground is the REPO SHA, so a commit under a running board costs exactly the shard that straddles it."; }
   boards=$(grep -c '^SUITE_BOARD ' "$W/$fn.raw" || true)
   # ⛔ THE WHOLE HARNESS OUTPUT IS KEPT AND QUOTED ON A REFUSAL. Piping into `grep SUITE_BOARD` discards the ONE
   # RUNNER refusal, the likeliest reason a shard printed no board -- an honest refusal naming nothing actionable
