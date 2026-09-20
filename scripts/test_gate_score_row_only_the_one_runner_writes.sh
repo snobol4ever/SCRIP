@@ -66,7 +66,7 @@ run_write() { # run_write <home> <measurer> [extra args...]
     local home="$1" meas="$2"; shift 2
     ( export S4E_SEAT="$meas"
       S4E_HOME="$home" S4E_MODE_FILE="$WORK/MODE" S4E_DONE_WHEN_RUN="${DW:-}" \
-        S4E_ONE_RUNNER_OVERRIDE="${OV:-}" python3 "$U" write --lang snocone --column ladder \
+        S4E_ONE_RUNNER_OVERRIDE="${OV:-}" S4E_SCORE_WRITE="${SW:-}" python3 "$U" write --lang snocone --column ladder \
         --text "rungs 0..9 PASS 33/33 (fixture)" --measurer "${S4E_SEAT:-}" "$@" 2>&1 )
 }
 sum_of() { md5sum "$1/.github/SCORE.md" | cut -d' ' -f1; }
@@ -99,15 +99,26 @@ mode_with 'hq_I SNOCONE; hq_T RAKU; the lanes are cut by concern and this mode n
 before="$(sum_of "$B5")"; out="$(run_write "$B5" hq_I)"
 [ "$(sum_of "$B5")" != "$before" ] && [[ "$out" == *"NOT DETERMINED"* ]]
 arm $? "A MODE THAT CUTS NO ONE RUNNER refuses nobody -- the guard follows the roster instead of outliving it"
-echo "--- ARMS 6-7: BOTH SANCTIONED DOORS, LOUD AND RECORDED (lib_one_runner.sh's own, word for word) ---"
+echo "--- ARMS 6-7b: THE SANCTIONED DOORS, LOUD AND RECORDED -- and the RUN door is not one of them (CEO-961) ---"
 B6="$WORK/b6"; mkboard "$B6" yes || refuse "could not build the fifth fixture board"
 mode_with 'coo PASCAL, and THE ONE RUNNER for every master and package board'
 before="$(sum_of "$B6")"; out="$(DW=1 run_write "$B6" hq_I)"
 [ "$(sum_of "$B6")" != "$before" ]; arm $? "the bus's computed \`done\` run of a DONE-WHEN writes (S4E_DONE_WHEN_RUN=1, one run per closure)"
+# ⛔⭐ ARM 7 INVERTED 2026-09-20 BY CEO-961 (row one-runner-override-gates-the-run-and-the-leaderboard-write-needs-its-own-
+# consent), and the inversion is the finding, not a relaxation. Until today S4E_ONE_RUNNER_OVERRIDE opened the RUN door in
+# lib_one_runner.sh AND this write door, together, so there was NO WAY TO SAY "run the arm and publish nothing" -- and a
+# control arm on another seat's frontend, which RULES.md § SHARED-NODE VERDICT SCOPE requires of every shared-node landing,
+# published a leaderboard row AS A SIDE EFFECT OF BEING USED AS A MEASUREMENT (measured: the coo's gimpel arm of COO-115,
+# reverted by hand). The channel that must stay usable and loud is still here -- it is S4E_SCORE_WRITE, arm 7b -- and what
+# arm 7 now grades is that the OTHER variable no longer speaks for it. Both directions, as ever.
 B7="$WORK/b7"; mkboard "$B7" yes || refuse "could not build the sixth fixture board"
-before="$(sum_of "$B7")"; out="$(OV='proving the seam' run_write "$B7" hq_I)"
-[ "$(sum_of "$B7")" != "$before" ] && [[ "$out" == *OVERRIDE* && "$out" == *"proving the seam"* ]]
-arm $? "a NAMED override writes the row and prints the reason -- the channel stays usable and stays loud"
+before="$(sum_of "$B7")"; out="$(OV='control arm for a landing, publishes nothing' run_write "$B7" hq_I)"
+[ "$(sum_of "$B7")" = "$before" ] && [[ "$out" == *"NOT UPDATED"* && "$out" == *"admitted THE RUN, not the WRITE"* && "$out" == *S4E_SCORE_WRITE* ]]
+arm $? "S4E_ONE_RUNNER_OVERRIDE alone writes NOTHING and says WHY, naming the consent it is not (CEO-961: the run and the write are two consents)"
+B7B="$WORK/b7b"; mkboard "$B7B" yes || refuse "could not build the seventh fixture board"
+before="$(sum_of "$B7B")"; out="$(SW='proving the seam' run_write "$B7B" hq_I)"
+[ "$(sum_of "$B7B")" != "$before" ] && [[ "$out" == *"LEADERBOARD WRITE CONSENT"* && "$out" == *"proving the seam"* ]]
+arm $? "a NAMED S4E_SCORE_WRITE writes the row and prints the reason -- the channel stays usable and stays loud"
 echo "--- ARM 8: A GATE'S OWN SCRATCH COPY IS NOT THE LEADERBOARD, so this guard cannot break the gates that prove the writer ---"
 B8="$WORK/b8"; mkboard "$B8" no || refuse "could not build the repo-less fixture board"
 before="$(sum_of "$B8")"; out="$(run_write "$B8" hq_I)"

@@ -946,9 +946,20 @@ def score_md_is_the_shared_board():
 def one_runner_declines(measurer, what, lang=None):
     """The announcement to print INSTEAD of writing `what`, or None to go ahead and write it.
 
-    Exemptions are lib_one_runner.sh's own, word for word, because two guards over one rule that disagree about their
-    doors are a third defect: the bus's computed `done` run of a DONE-WHEN (one run per closure), and a loud, named
-    S4E_ONE_RUNNER_OVERRIDE.  A --dry-run writes nothing, so it is previewed, never refused.
+    ⛔⭐ THE RUN AND THE WRITE ARE TWO CONSENTS, NOT ONE (ceo CEO-961, 2026-09-20, on the coo's report; row
+    one-runner-override-gates-the-run-and-the-leaderboard-write-needs-its-own-consent).  Until now S4E_ONE_RUNNER_OVERRIDE
+    opened BOTH doors, so there was NO WAY TO SAY "run the arm and publish nothing": a runner driven as a CONTROL ARM --
+    the shape RULES.md § SHARED-NODE VERDICT SCOPE requires of every landing on another seat's frontend -- published a
+    leaderboard row AS A SIDE EFFECT OF BEING USED AS A MEASUREMENT.  Measured: the coo's gimpel control arm of COO-115
+    wrote snobol4/vendor on the ceo's lane and the row had to be reverted BY HAND.  That is a defect in the instrument,
+    not in the seat's discipline, so the doors are split here: S4E_ONE_RUNNER_OVERRIDE admits THE RUN (lib_one_runner.sh
+    keeps it, unchanged) and says NOTHING about publication; a leaderboard write needs ITS OWN loud recorded consent,
+    S4E_SCORE_WRITE="why", or the seat MODE's LANES: line names for this board's language.  ⭐ A RUNNER DRIVEN AS A
+    CONTROL ARM DEFAULTS TO WRITE NOTHING, which is the only default under which forgetting is safe.
+    The bus's computed `done` run of a DONE-WHEN (one run per closure) stays a door here, word for word with
+    lib_one_runner.sh, because two guards over one rule that disagree about their doors are a third defect -- and it is
+    REPORTED to the ceo as the same class one mechanism away (a DONE-WHEN that runs a board it does not own publishes
+    for the same reason the override did).  A --dry-run writes nothing, so it is previewed, never refused.
     """
     if not score_md_is_the_shared_board():
         return None
@@ -967,16 +978,29 @@ def one_runner_declines(measurer, what, lang=None):
     if (measurer or "").strip() == writer:
         print("  lane owner: %s writes %s rows (%s)" % (writer, lang or "these", why))
         return None
+    sw = os.environ.get("S4E_SCORE_WRITE", "").strip()
+    if sw:
+        print("⚠ LEADERBOARD WRITE CONSENT by %s (%s is the lane owner, %s): %s" % (measurer, writer, why, sw))
+        return None
     ov = os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "").strip()
     if ov:
-        print("⚠ ONE-RUNNER OVERRIDE by %s on the leaderboard (%s is the one runner, %s): %s" % (measurer, writer, why, ov))
-        return None
+        # ⛔ THE OVERRIDE ADMITTED THE RUN AND SAYS NOTHING ABOUT THE WRITE (CEO-961). Named, so the seat that set it
+        # reads WHY its row did not land instead of meeting a bare refusal it thinks it already answered.
+        return ("⚠ SCORE.md NOT UPDATED — S4E_ONE_RUNNER_OVERRIDE admitted THE RUN, not the WRITE (ceo CEO-961): seat %s is "
+                "not %s, the lane owner for this board (%s), and a runner driven as a CONTROL ARM publishes nothing by "
+                "default. NOTHING WAS WRITTEN and the file is untouched, deliberately: a row left in your working tree is "
+                "swept in by the next stage-everything.\n"
+                "  The override you set was: %s\n"
+                "  The measurement below stands as your own board line -- %s -- and lands when the lane owner's next pass "
+                "measures it. If you MEANT to publish, say so separately and loudly: S4E_SCORE_WRITE=\"why\"."
+                % (measurer or "?", writer, why, ov, what))
     return ("⚠ SCORE.md NOT UPDATED — seat %s is not %s, the lane owner for this board (%s), and under ONE RUNNER PER LANGUAGE, "
             "ONE BOARD only that seat writes its rows. NOTHING WAS WRITTEN and the file is untouched, deliberately: a row "
             "left in your working tree is swept in by the next stage-everything.\n"
             "  The measurement below stands as your own board line -- %s -- and lands when the one runner's next "
             "pass measures it. Doors, both loud and recorded: the bus's computed `done` run of a DONE-WHEN is exempt, "
-            "and S4E_ONE_RUNNER_OVERRIDE=\"why\" writes the row and prints the reason."
+            "and S4E_SCORE_WRITE=\"why\" writes the row and prints the reason. S4E_ONE_RUNNER_OVERRIDE is NOT one of "
+            "them since CEO-961 -- it admits the board RUN and leaves publication to its own consent."
             % (measurer or "?", writer, why, what))
 
 
@@ -1391,7 +1415,8 @@ def cmd_write(a):
               "re-running this WITHOUT --dry-run would write nothing either. The cell below is what the "
               "row WOULD say when the one runner next measures it -- read it as your own board line, not "
               "as a row that is about to land. (Doors: the bus's computed `done` run of a DONE-WHEN is "
-              "exempt, and S4E_ONE_RUNNER_OVERRIDE=\"why\" writes the row and prints the reason.)"
+              "exempt, and S4E_SCORE_WRITE=\"why\" writes the row and prints the reason. S4E_ONE_RUNNER_OVERRIDE "
+              "admits the board RUN only, never the write -- ceo CEO-961.)"
               % (a.measurer or "?", (lane_writer_seat(a.lang)[0] or board_writer_seat()[0] or "?")))
         print("--- preview follows (nothing is written under --dry-run) ---")
     if a.column in GRID_DIRECT:

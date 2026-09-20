@@ -4,7 +4,13 @@
 # Sourced on line 2 of every master/package board runner and called by corpus_suite_harness.py run: a board is refused (rc=2) to any
 # seat but the one MODE's LANES: line names for the board's LANGUAGE (CEO-775 below; the centralized coo runner is history). Exempt: the bus's own
 # computed `done`/dispatch run of a DONE-WHEN (S4E_DONE_WHEN_RUN=1, set by s4e_msg.sh, one run per closure) and a loud, named
-# override (S4E_ONE_RUNNER_OVERRIDE="why", printed on the board). Identity: S4E_SEAT if set, else the ONE root-path map in
+# override (S4E_ONE_RUNNER_OVERRIDE="why", printed on the board). ⛔⭐ THE OVERRIDE ADMITS THE RUN AND NOTHING ELSE (ceo CEO-961,
+# 2026-09-20, on the coo's report; row one-runner-override-gates-the-run-and-the-leaderboard-write-needs-its-own-consent): until that
+# ruling the same variable also opened util_score_row.py's LEADERBOARD write, so there was no way to say "run the arm and publish
+# nothing" and a runner driven as a CONTROL ARM -- the shape RULES.md § SHARED-NODE VERDICT SCOPE requires of every landing -- published
+# a row as a side effect of being used as a measurement (measured: the coo's gimpel arm, COO-115, reverted by hand). A leaderboard write
+# now needs its OWN loud recorded consent, S4E_SCORE_WRITE="why", or the seat the LANES: line names for that language; a control arm
+# writes NOTHING by default. Identity: S4E_SEAT if set, else the ONE root-path map in
 # util_score_row.derive_measurer (never a fourth copy). `bash lib_one_runner.sh --check` exits 0/2 silently for a Makefile arm to test.
 # ⛔⭐ WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT (ceo CEO-547 part 1, 2026-09-11, on the cfo's
 # measurement). one_runner_guard <board> [suite_path]: with a suite_path OUTSIDE the corpus tree the run is NOT a board and is
@@ -133,7 +139,7 @@ one_runner_guard() {
   else
     _noseat="<no seat -- the LANES line is present but names none for this language>"
   fi
-  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: %s is a %s board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, MODE line 2, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ. S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "$lang" "${seat:-?}" "${who:-$_noseat}" "$lang"
+  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: %s is a %s board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, MODE line 2, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ. S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded, and it admits THE RUN ONLY -- publishing a leaderboard row needs its own consent, S4E_SCORE_WRITE="why" (ceo CEO-961).\n' "$board" "$lang" "${seat:-?}" "${who:-$_noseat}" "$lang"
   return 2
 }
 # ⛔⭐ THE SEAM: EVERY GUARD SHIPS A SANCTIONED WAY TO BE TRIPPED THAT DOES NOT REQUIRE DOING THE FORBIDDEN THING
