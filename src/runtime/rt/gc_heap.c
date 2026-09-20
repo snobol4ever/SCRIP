@@ -591,7 +591,7 @@ static void gc_visit_one(DESCR_t *d)
 {
     if (!d) return;
     switch ((int)d->v) {
-    case DT_S: case DT_SNUL: {
+    case DT_S: case DT_SNUL: case DT_X: {
         rt_hblk_t *h = gc_blk_of(d->s);
         if (!h) return;
         gc_mark_blk(h, 0);
