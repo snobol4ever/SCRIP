@@ -63,6 +63,14 @@ cmp -s "$SRC/ALL.csv" "$T/ALL.csv" && ck ok "(a) ALL.csv reproduced BYTE-IDENTIC
 [ "$md_ref_before" = "$(md5sum < "$T/ALL.ref")" ] && ck ok "(c) ALL.ref untouched" || ck no "(c) ALL.ref was modified -- --reindex must write ONLY ALL.csv"
 [ "$(grep -c $'\r$' "$T/ALL.csv" || true)" = "$crlf_before" ] && ck ok "(f) CRLF preserved ($crlf_before lines)" || ck no "(f) CRLF lost: $crlf_before -> $(grep -c $'\r$' "$T/ALL.csv" || true) (universal-newline rewrite)"
 echo "--- (b) it RECOMPUTES, it does not copy ---"
+# ⛔ THIS ARM READS THE CELL IT CORRUPTED, never byte-equality with the committed index (coo 2026-09-19,
+# row instrument-the-nineteen-non-gc-blocking-arms). cmp against $SRC/ALL.csv CONFLATED (b) with (a):
+# when the committed index disagrees with the builder for any OTHER reason, cmp fails even though the
+# corrupted cell WAS recomputed correctly, and the arm then reported "copying, not recomputing" -- a
+# false cause naming the wrong mechanism. That was the live case: prolog's committed rank column was
+# stale, so (b) accused the builder of copying while it was recomputing the cell perfectly.
+cell_n_lines() { python3 -c 'import csv,io,sys; rows=list(csv.reader(io.open(sys.argv[1],newline=""))); print(rows[1][rows[0].index("n_lines")])' "$1"; }
+b_true="$(cell_n_lines "$T/ALL.csv")"
 python3 - "$T/ALL.csv" <<'PY'
 import csv,io,sys
 p=sys.argv[1]; rows=list(csv.reader(io.open(p,newline='')));h=rows[0]
@@ -70,10 +78,12 @@ i=h.index('n_lines')
 rows[1][i]=str(int(rows[1][i])+999)          # a derived cell, deliberately wrong
 csv.writer(io.open(p,'w',newline='')).writerows(rows)
 PY
-cmp -s "$SRC/ALL.csv" "$T/ALL.csv" && ck no "harness error: the corruption did not land" || ck ok "corrupted one derived cell (n_lines +999)"
+b_bad="$(cell_n_lines "$T/ALL.csv")"
+[ "$b_bad" != "$b_true" ] && ck ok "corrupted one derived cell (n_lines $b_true -> $b_bad)" || ck no "harness error: the corruption did not land"
 out="$(run "${ACKARG[@]}")"; rc=$?
 [ "$rc" -eq 0 ] && ck ok "reindex over a corrupted index exits 0 (got $rc)" || ck no "reindex must exit 0 over a corrupted index, got $rc"
-cmp -s "$SRC/ALL.csv" "$T/ALL.csv" && ck ok "(b) the corrupted cell was RECOMPUTED back to the committed value" || ck no "(b) corruption survived -- --reindex is copying, not recomputing"
+b_after="$(cell_n_lines "$T/ALL.csv")"
+[ "$b_after" = "$b_true" ] && ck ok "(b) the corrupted cell was RECOMPUTED ($b_bad -> $b_after)" || ck no "(b) corruption survived ($b_bad -> $b_after) -- --reindex is copying, not recomputing"
 echo "--- (e) absorption flags REFUSE ---"
 out="$(S4E_HOME="$W" python3 "$SUT" --lang "$LANG_T" --reindex --delete-absorbed 2>&1)"; rc=$?
 [ "$rc" -eq 2 ] && ck ok "--reindex --delete-absorbed -> rc=2 (got $rc)" || ck no "--reindex with an absorption flag must exit rc=2, got $rc"
