@@ -1037,6 +1037,18 @@ def one_runner_declines(measurer, what, lang=None):
     """
     if not score_md_is_the_shared_board():
         return None
+    nw = os.environ.get("S4E_SCORE_NO_WRITE", "").strip()
+    if nw:
+        # ⛔⭐ A GATE NEVER PUBLISHES A LEADERBOARD ROW (ceo CEO-997 TWO, 2026-09-20, on the coo's report): a gate is an
+        # INVARIANT CHECK, a board is a MEASUREMENT OF RECORD, and an invariant check that writes to the record makes the
+        # record a function of who ran which gate today.  Until this door existed there was no way for a caller to say it:
+        # the lane owner's own runs write by lane ownership, so three gates that invoke test_smoke_raku.sh published
+        # raku/floor every time hq_raku ran them -- and the publication was INVISIBLE because the reading did not change,
+        # which is why it survived.  This door beats every other, INCLUDING lane ownership, and is loud and recorded.
+        return ("⚠ SCORE.md NOT UPDATED — this run publishes nothing by its caller's own declaration (S4E_SCORE_NO_WRITE): %s\n"
+                "  NOTHING WAS WRITTEN and the file is untouched. The measurement below stands as this run's own board "
+                "line -- %s -- and the record moves when a BOARD measures it, never when a gate runs.\n"
+                "  If this run IS the measurement of record, it is not a gate: drop the declaration." % (nw, what))
     # ⛔⭐ THE LANE OWNER FIRST (CEO-775/786): the seat MODE's LANES: line names for this board's language is the writer;
     # a mode that cuts ONE runner for every board (THE ONE RUNNER on line 2) is read only when no LANES: line answers.
     writer, why = lane_writer_seat(lang) if lang else (None, "no language given for this write")
@@ -1573,9 +1585,10 @@ def cmd_write(a):
         print("⚠ PREVIEW ONLY, AND THE REAL WRITE WOULD DECLINE: seat %s is not %s, the lane owner for this board, so "
               "re-running this WITHOUT --dry-run would write nothing either. The cell below is what the "
               "row WOULD say when the one runner next measures it -- read it as your own board line, not "
-              "as a row that is about to land. (Doors: the bus's computed `done` run of a DONE-WHEN is "
-              "exempt, and S4E_SCORE_WRITE=\"why\" writes the row and prints the reason. S4E_ONE_RUNNER_OVERRIDE "
-              "admits the board RUN only, never the write -- ceo CEO-961.)"
+              "as a row that is about to land. (THE ONE DOOR: S4E_SCORE_WRITE=\"why\" writes the row and prints the "
+              "reason. S4E_ONE_RUNNER_OVERRIDE admits the board RUN only, never the write -- ceo CEO-961; the bus's "
+              "computed `done` is not a door either -- ceo CEO-997; and S4E_SCORE_NO_WRITE=\"why\" shuts the write "
+              "from the caller's side, above every other door, for a gate or a control arm.)"
               % (a.measurer or "?", (lane_writer_seat(a.lang)[0] or board_writer_seat()[0] or "?")))
         print("--- preview follows (nothing is written under --dry-run) ---")
     if a.column in GRID_DIRECT:

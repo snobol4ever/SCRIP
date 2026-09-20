@@ -66,7 +66,7 @@ run_write() { # run_write <home> <measurer> [extra args...]
     local home="$1" meas="$2"; shift 2
     ( export S4E_SEAT="$meas"
       S4E_HOME="$home" S4E_MODE_FILE="$WORK/MODE" S4E_DONE_WHEN_RUN="${DW:-}" \
-        S4E_ONE_RUNNER_OVERRIDE="${OV:-}" S4E_SCORE_WRITE="${SW:-}" python3 "$U" write --lang snocone --column ladder \
+        S4E_ONE_RUNNER_OVERRIDE="${OV:-}" S4E_SCORE_WRITE="${SW:-}" S4E_SCORE_NO_WRITE="${NW:-}" python3 "$U" write --lang snocone --column ladder \
         --text "rungs 0..9 PASS 33/33 (fixture)" --measurer "${S4E_SEAT:-}" "$@" 2>&1 )
 }
 sum_of() { md5sum "$1/.github/SCORE.md" | cut -d' ' -f1; }
@@ -132,6 +132,20 @@ B7B="$WORK/b7b"; mkboard "$B7B" yes || refuse "could not build the seventh fixtu
 before="$(sum_of "$B7B")"; out="$(SW='proving the seam' run_write "$B7B" hq_I)"
 [ "$(sum_of "$B7B")" != "$before" ] && [[ "$out" == *"LEADERBOARD WRITE CONSENT"* && "$out" == *"proving the seam"* ]]
 arm $? "a NAMED S4E_SCORE_WRITE writes the row and prints the reason -- the channel stays usable and stays loud"
+echo "--- ARMS 7c-7d: A GATE NEVER PUBLISHES A LEADERBOARD ROW -- the caller's own door, above lane ownership (CEO-997 TWO) ---"
+# ⛔⭐ THE DIRECTION THAT MATTERS IS THE LANE OWNER'S. Every other door here answers "may this seat publish?", and a gate
+# run BY the lane owner answers yes -- which is how three gates that invoke test_smoke_raku.sh published raku/floor every
+# time hq_raku ran them, invisibly, because the reading did not change. A gate is an INVARIANT CHECK and the leaderboard is
+# the record of MEASUREMENTS; an invariant check that writes to the record makes the record a function of who ran which
+# gate today. So the declaration is the CALLER's and it beats lane ownership, which is what arm 7c grades.
+B7C="$WORK/b7c"; mkboard "$B7C" yes || refuse "could not build the eighth fixture board"
+mode_with 'coo PASCAL, and THE ONE RUNNER for every master and package board'
+before="$(sum_of "$B7C")"; out="$(NW='gate fixture: an invariant check, not a measurement of record' run_write "$B7C" coo)"; rc=$?
+[ "$rc" = 0 ] && [ "$(sum_of "$B7C")" = "$before" ] && [[ "$out" == *"NOT UPDATED"* && "$out" == *"publishes nothing by its caller"* ]]
+arm $? "the LANE OWNER's own run publishes NOTHING when the caller declares it (S4E_SCORE_NO_WRITE), non-fatal and byte-unchanged"
+B7D="$WORK/b7d"; mkboard "$B7D" yes || refuse "could not build the ninth fixture board"
+before="$(sum_of "$B7D")"; out="$(run_write "$B7D" coo)"
+[ "$(sum_of "$B7D")" != "$before" ]; arm $? "and WITHOUT the declaration that same seat writes -- the door is the caller's statement, not a new refusal"
 echo "--- ARM 8: A GATE'S OWN SCRATCH COPY IS NOT THE LEADERBOARD, so this guard cannot break the gates that prove the writer ---"
 B8="$WORK/b8"; mkboard "$B8" no || refuse "could not build the repo-less fixture board"
 before="$(sum_of "$B8")"; out="$(run_write "$B8" hq_I)"
