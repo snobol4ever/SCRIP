@@ -1195,13 +1195,68 @@ def resolve_suite_key(lang, column, suite, explicit):
                   % (suite, len(hits), ", ".join(hits) or "none"))
 
 
+BOARD_LINE_ANY_RX = re.compile(r"(?m)^.*?\b[A-Z0-9_]*SUITE_BOARD\b.*$")
+
+
+def board_field_by_name(line, name):
+    """lib_board_line.sh's board_field, in python: a WORD-BOUNDED NAME=VALUE read.  `all_n` never matches
+    inside `m3_all_n`, and an ABSENT field is None, never the empty string treated as 0."""
+    m = re.search(r"(?:^|\s)%s=(\S+)" % re.escape(name), line)
+    return m.group(1) if m else None
+
+
+def board_line_fraction(text):
+    """(pass, total, None) read BY NAME off a canonical SUITE_BOARD line, or (None, None, why|None).
+
+    why is None when the text simply carries no board line at all (the caller's own message is the right one);
+    it is a sentence when a board line IS present but cannot be read -- a reader must not have to guess which
+    of those two they are looking at."""
+    lines = [l for l in BOARD_LINE_ANY_RX.findall(text or "") if l.strip()]
+    if not lines:
+        return None, None, None
+    # ⛔ A SHARD BOARD IS NOT THE SUITE: its total= is this shard's entries, so its fraction is a fact about a
+    # quarter of a population and the suite row is about all of it.  Named rather than skipped.
+    shards = [l for l in lines if board_field_by_name(l, "shard")]
+    whole = [l for l in lines if l not in shards]
+    if not whole:
+        return None, None, ("the --text's only SUITE_BOARD line carries shard=%s -- a SHARD board is not the suite "
+                            "(its total= is that shard's entries), so its fraction cannot be the suite row's -- "
+                            "hand the combined board, or pass --suite-pass/--suite-total"
+                            % board_field_by_name(shards[0], "shard"))
+    pairs, half = set(), []
+    for l in whole:
+        p, t = board_field_by_name(l, "all_pass"), board_field_by_name(l, "all_n")
+        if p is not None and t is not None:
+            pairs.add((p, t))
+        elif p is not None or t is not None:
+            half.append("all_pass=%s all_n=%s" % (p, t))
+    if len(pairs) == 1:
+        return sorted(pairs)[0][0], sorted(pairs)[0][1], None
+    if len(pairs) > 1:
+        return None, None, ("the --text carries %d SUITE_BOARD lines whose all_pass/all_n DISAGREE (%s), so which one the "
+                            "suite row means is a judgement, not a reading -- pass --suite-pass/--suite-total"
+                            % (len(pairs), ", ".join("%s/%s" % p for p in sorted(pairs))))
+    if half:
+        return None, None, ("the --text's SUITE_BOARD line carries only HALF the pair (%s); a fraction needs both fields "
+                            "read by name -- pass --suite-pass/--suite-total" % half[0])
+    return None, None, ("the --text's SUITE_BOARD line carries neither all_pass= nor all_n=, so the suite row's pass/total "
+                        "cannot be read from it -- pass --suite-pass/--suite-total")
+
+
 def fraction_from_text(text, p_override, t_override):
     """(pass, total, None) or (None, None, why).  EXACTLY ONE N/M or it refuses -- see the banner above."""
     if p_override is not None and t_override is not None:
         return str(p_override), str(t_override), None
     if (p_override is None) != (t_override is None):
         return None, None, "--suite-pass and --suite-total are a pair; give both or neither"
-    found = re.findall(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", text or "")
+    # ⛔ A SHARD BOARD IS NOT THE SUITE, AND ITS `shard=k/N` LOOKS EXACTLY LIKE A FRACTION (coo 2026-09-20).
+    # `--shard k/N` makes corpus_suite_harness.py print `shard=k/N` beside a `total=` that is THIS SHARD's
+    # entries, so a shard line handed as --text used to read as pass=k total=N and write a real number under a
+    # provenance stamp saying it was measured.  The token is blanked BEFORE the scan -- never read, never
+    # silently preferred -- and a text whose ONLY board line is a shard line refuses by name below.
+    scan = re.sub(r"(?:^|\s)shard=\d+\s*/\s*\d+", " ", text or "")
+    found = re.findall(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", scan)
+    bp, bt, bwhy = board_line_fraction(text)
     # ⭐ ONE fraction, or SEVERAL THAT AGREE.  A two-mode board line ("m3 1852/1854 · m4 1852/1854") is the
     # COMMON shape, not the exceptional one, so refusing every text with more than one fraction would make
     # this unusable and push runners straight back to hand-editing -- the failure being cured.  But when the
@@ -1211,8 +1266,28 @@ def fraction_from_text(text, p_override, t_override):
     # refusing.
     uniq = sorted(set(found))
     if len(uniq) == 1:
+        # ⛔ TWO READINGS OF ONE SUITE THAT DISAGREE ARE A JUDGEMENT, WHOEVER PRINTED THEM.  A prose fraction
+        # beside a board line whose all_pass/all_n say something else is the same fault as two disagreeing
+        # modes: there is no fact of the matter about which the row means, so refuse and name both.
+        if bp is not None and (bp, bt) != (uniq[0][0], uniq[0][1]):
+            return None, None, ("the --text carries the fraction %s/%s AND a SUITE_BOARD line reading all_pass=%s all_n=%s; "
+                                "which one the suite row means is a judgement, not a reading -- pass --suite-pass/--suite-total"
+                                % (uniq[0][0], uniq[0][1], bp, bt))
         return uniq[0][0], uniq[0][1], None
     if not found:
+        # ⛔⭐ THE CANONICAL BOARD LINE IS SELF-SUFFICIENT AND WAS BEING RETYPED (hq_raku 2026-09-20, to the coo,
+        # on their first real write of raku-master 830/927).  CEO-827 tells a runner to hand this writer its
+        # VERBATIM SUITE_BOARD line; that line states the suite's fraction as `all_pass=830 all_n=927` -- the
+        # harness's OWN AND-per-program count over its OWN population -- in key=value form and with no N/M
+        # anywhere.  So the writer refused the very line the law asks for, and every board-column write had to
+        # restate its number on the command line: the fraction reached SUITES.tsv by being TYPED rather than by
+        # being READ off the line that measured it, which is a transcription seam of exactly the kind this file
+        # exists to close.  Read BY NAME, word-bounded (lib_board_line.sh's discipline, CEO-839), never by
+        # position, and never derived from pass/(pass+fail) -- that denominator is not the population.
+        if bp is not None:
+            return bp, bt, None
+        if bwhy:
+            return None, None, bwhy
         return None, None, ("the runner's --text carries no N/M fraction, so the suite row's pass/total cannot be read "
                             "from it -- pass --suite-pass/--suite-total")
     return None, None, ("the runner's --text carries %d DIFFERENT N/M fractions (%s), so which one the suite row means is "
@@ -1823,6 +1898,24 @@ def cmd_write(a):
             if _gnum_update:
                 gpure = True   # an in-place fraction move loses no prose by construction
             glost = [] if gpure else cell_prose_loss(gbare, gnew)
+            # ⛔⭐ THE GRID HALF READS THE SAME LINE BY NAME INSTEAD OF REFUSING IT (coo 2026-09-20, on hq_raku's
+            # report of their first real write).  The refusal below is RIGHT about pass/(pass+fail) -- that
+            # denominator is not the population and would publish 100% -- but `all_n=` IS the population, printed
+            # by the harness itself beside `all_pass=`, so reading those two BY NAME is not a derivation at all.
+            # Refusing the canonical board line on both halves is what forced every board-column write to restate
+            # its own fraction on the command line.  The number is RESTATED into the grid cell as an explicit
+            # `p/t` (the grid column is parsed for one) and the addition is PRINTED, never silent: the cell must
+            # say what the display line already said, in the form the parser reads.
+            # ⭐ PRINTED WHERE IT HAPPENS, NOT FOLDED INTO THE SUCCESS NOTE: the restatement is a fact about the TEXT,
+            # and it is true whether or not the cell then survives the prose guard below.  A reader who meets that
+            # guard must still be able to see that the fraction seam was closed.
+            if not cell_fractions(gnew)[0]:
+                _bgp, _bgt, _ = board_line_fraction(gnew)
+                if _bgp is not None:
+                    gnew = "%s · %s/%s" % (gnew, _bgp, _bgt)
+                    print("  grid %s: the board line carries no N/M, so its OWN all_pass=%s all_n=%s were read by name "
+                          "and restated as %s/%s in the cell (never derived from pass/(pass+fail))"
+                          % (gkey, _bgp, _bgt, _bgp, _bgt))
             gnew = (gnew + " " + GRID_STAMP % (time.strftime("%Y-%m-%d"), a.measurer or derive_measurer() or "unknown")).strip()
             # ⛔⭐⭐ THE TWO COLUMNS HAVE DIFFERENT CONTRACTS AND A VERBATIM COPY BETWEEN THEM PUBLISHES A
             # WRONG PERCENTAGE. Measured by hq_P as the first customer of the dual-write, on the live board:
@@ -2850,6 +2943,44 @@ def cmd_selftest(a):
         if not _arm("AGREEING fractions across two modes are ONE reading, not an ambiguity",
                     lambda: cmd_write(_A(text="m3 9/48 · m4 9/48")), False): ok = False
         if not _arm("a text with NO fraction REFUSES", lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41")), True): ok = False
+        # ⛔⭐ THE CANONICAL BOARD LINE IS READ BY NAME, NOT RETYPED (hq_raku 2026-09-20, to the coo, on their first real
+        # write: CEO-827 tells a runner to hand this writer its verbatim SUITE_BOARD line, and that line carries the
+        # suite's fraction as `all_pass=830 all_n=927` -- key=value, not N/M -- so the writer refused the very line the
+        # law asks for and every board-column write restated its own number on the command line.  A number that reaches
+        # SUITES.tsv by being RETYPED is a transcription seam, and this file exists to close those.  Fields are read
+        # word-bounded BY NAME (lib_board_line.sh's discipline, CEO-839), never by position.
+        _BL = ("SUITE_BOARD family=ALL total=48 shipped=48 outside=0 m3_n=48 m3_pass=7 m3_fail=41 "
+               "m4_n=48 m4_pass=7 m4_fail=41 all_pass=7 all_n=48 arena_mb=512")
+        if not _arm("a canonical SUITE_BOARD line with NO N/M fraction WRITES -- all_pass=/all_n= are read by name",
+                    lambda: cmd_write(_A(text=_BL)), False): ok = False
+        _v = _tsv_row("reb-master")
+        if _v and (_v["today_pass"], _v["today_total"]) == ("7", "48"):
+            print("SELFTEST: ...and the row it set is the board line's OWN fraction (reb-master -> 7/48, nothing retyped)")
+        else:
+            print("SELFTEST FAIL: the board-line write left the suite row at %r" % (_v and (_v["today_pass"], _v["today_total"]),)); ok = False
+        # ⛔ A SHARD BOARD IS NOT THE SUITE.  `--shard k/N` makes the harness print shard=k/N and a total that is THIS
+        # SHARD's entries; the old scan matched that k/N as an N/M fraction, so a shard line handed as --text wrote
+        # pass=k total=N -- a real number under a provenance stamp, the one outcome worse than refusing.
+        if not _arm("a shard= token is NEVER the suite's fraction (a shard board is not the suite)",
+                    lambda: cmd_write(_A(text="SUITE_BOARD family=ALL shard=2/4 total=12 m3_pass=3 m4_pass=3")), True): ok = False
+        if not _arm("a board line whose all_pass/all_n DISAGREE with a fraction in the same text REFUSES",
+                    lambda: cmd_write(_A(text="m3 9/48 · " + _BL)), True): ok = False
+        if not _arm("a board line carrying all_pass= but no all_n= REFUSES naming the missing field",
+                    lambda: cmd_write(_A(text="SUITE_BOARD family=ALL total=48 m3_pass=7 all_pass=7")), True): ok = False
+        # ⛔ AND THE GRID HALF STOPS REFUSING THE SAME LINE. The `no N/M fraction` guard was RIGHT about
+        # pass/(pass+fail) and wrong to fire here: `all_n=` IS the population. The cell may still be held back
+        # by the PROSE guard -- that one is a different ruling and is left exactly as it was -- so this arm
+        # asserts the two messages by name rather than asserting the cell was written.
+        import io as _io, contextlib as _ctx
+        _cap = _io.StringIO()
+        with _ctx.redirect_stdout(_cap):
+            try: cmd_write(_A(text=_BL))
+            except SystemExit: pass
+        _capped = _cap.getvalue()
+        if "carries NO `N/M` fraction" not in _capped and "restated as 7/48 in the cell" in _capped:
+            print("SELFTEST: the grid half reads all_pass=/all_n= by name too -- the NO-N/M refusal no longer fires on a canonical board line")
+        else:
+            print("SELFTEST FAIL: the grid half still refuses the canonical board line for want of an N/M fraction"); ok = False
         if not _arm("--no-suite-sync is a labelled escape, not a refusal",
                     lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41", no_suite_sync=True)), False): ok = False
         # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND (hq_raku 2026-09-16): a scratch DB with 7 PASS + 41 FAIL rebus-master rows on
