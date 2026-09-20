@@ -78,8 +78,25 @@ gate_parse_args "$@"
 #     deliberately and routed to the ceo: extending the inert rule to all-defaulted signatures is a
 #     criterion change, and a seat does not quietly make one to lower its own floor.
 # campaign progress and would otherwise bank four entries of work nobody performed.
+# ⛔⭐ 6 -> 3 at SCRIP <this commit> (coo 2026-09-20, ceo CEO-962 answering the ask the paragraph above
+# routed): A THIRD KIND OF FLOOR MOVE, and the receipt must say which one it is, so: this is NOT a feed
+# (61 -> 53) and NOT a heuristic-accuracy move (53 -> 50, 34 -> 6). IT IS A DECLARATION. The ceo REFUSED
+# the widening, verbatim -- "DO NOT WIDEN inert_argv_match. THE FLOOR STAYS 6. ... A matcher widened to
+# cover them silently absolves an unbounded future class of the same shape, and a criterion a widening
+# satisfies while the debt stands is FALSE rather than lenient. THE CURE IS A DECLARATION BESIDE THE DATA
+# ... The floor then falls honestly, by three named programs rather than by a rule nobody can see." The
+# three raku entries are now NAMED, each with its reason, in corpus/tests/raku/ALL.argv.bare, which
+# util_master_sidecar_census.py reads and corpus_suite_harness.py DOES NOT (`ALL.raku`.with_suffix(".argv")
+# is `ALL.argv`, never `ALL.argv.bare`, and the string does not appear in the harness at all) -- so
+# grading is byte-for-byte unchanged and a declaration ABOUT the measurement cannot change it.
+# ⛔ THE DEBT IS NOT DENIED BY THE DROP: every reason says the entry can observe an argument if given one
+# and that what to pass is a corpus question for the raku corpus owner. What is left at 3 is the three
+# icon entries that genuinely read `args[1]`/`*args > 0`, and the ceo has taken them as corpus debt.
+# ⛔ THE DECLARATION FILE REFUSES rc=2 rather than quietly excusing: a row with no reason, a row naming no
+# entry in the master, and a name declared in BOTH ALL.argv and ALL.argv.bare are each a refusal, all
+# three measured on a scratch tests-dir before this floor moved.
 PIN_STDIN="${PIN_STDIN:-50}"
-PIN_ARGV="${PIN_ARGV:-6}"
+PIN_ARGV="${PIN_ARGV:-3}"
 
 CENSUS="$HERE/util_master_sidecar_census.py"
 [ -f "$CENSUS" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no census tool at $CENSUS"; gate_stamp; exit 2; }

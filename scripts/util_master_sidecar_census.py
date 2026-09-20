@@ -141,6 +141,54 @@ def declared_argv(d):
     return names
 
 
+# ⛔⭐ THE SECOND DECLARATION, AND WHY IT COULD NOT BE A ROW IN ALL.argv (ceo CEO-962, 2026-09-20, on the coo's
+# report; row instrument-the-nineteen-non-gc-blocking-arms-...). Three raku entries carry a REAL `sub MAIN(...)`
+# whose parameters are ALL DEFAULTED: they run correctly bare, and they CAN observe an argument if given one.
+# That second fact is the whole difference from Icon's never-named parameter, so the ceo REFUSED the widening of
+# inert_argv_match() that would have covered them -- "a matcher widened to cover them silently absolves an
+# unbounded future class of the same shape, and a criterion a widening satisfies while the debt stands is FALSE
+# rather than lenient" -- and ruled the cure to be A DECLARATION BESIDE THE DATA, the shape this tree already
+# uses for the CEO-409 mask and the OUTSIDE_SPITBOL_BASELINE sidecar: name the programs, with the reason.
+# ⛔ AND IT MUST BE A SEPARATE FILE, which is a MEASURED constraint and not a preference:
+# corpus_suite_harness.py:read_argv_sidecar REFUSES a name in ALL.argv declared with NO arguments ("no arguments
+# is already the default -- remove the line rather than restating it"), so the three could not be written there
+# without either refusing the whole raku master rc=2 or inventing arguments no oracle cut a ref for. ALL.argv
+# says WHAT TO PASS and the harness executes it; ALL.argv.bare says THIS ENTRY IS GRADED BARE ON PURPOSE, WITH
+# THE REASON, and NOTHING EXECUTES IT -- grading is byte-for-byte unchanged by its existence, which is exactly
+# what makes it a declaration about the census rather than a change to the measurement.
+# ⛔ EVERY ROW CARRIES ITS REASON OR THE CENSUS REFUSES rc=2: a bare name here would be an exemption with no
+# author and no argument, which is the thing a floor drop must never be able to hide.
+def declared_bare(d, known=None):
+    """Entry names DECLARED to be graded bare on purpose, from ALL.argv.bare (`name<TAB>reason`).
+
+    Absent file -> empty set. REFUSES (rc=2) on a row with no reason, on a row naming no entry in the master
+    (a rename or a stale leftover silently withdraws the guarantee the file was written to add -- the same
+    refusal read_argv_sidecar makes for its own file), and on a name declared in BOTH ALL.argv and
+    ALL.argv.bare, which is two declarations contradicting each other about one program.
+    """
+    a = d / "ALL.argv.bare"
+    if not a.is_file():
+        return set()
+    names, unknown, reasonless = set(), [], []
+    for raw in a.read_text(encoding="utf-8").splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        parts = raw.split("\t")
+        name, reason = parts[0].strip(), "\t".join(parts[1:]).strip()
+        if not reason:
+            reasonless.append(name); continue
+        if known is not None and name not in known:
+            unknown.append(name); continue
+        names.add(name)
+    if reasonless:
+        refuse(f"{a}: declared bare with NO REASON: {reasonless} -- a name alone is an exemption with no "
+               f"author and no argument, and a floor that falls on one of those falls on nothing")
+    if unknown:
+        refuse(f"{a}: declarations with no matching entry: {unknown} -- a rename or a stale leftover, and "
+               f"either way it silently withdraws the guarantee this file was written to add")
+    return names
+
+
 def census(tests_dir, langs):
     rows, examined = [], 0
     for lang in langs:
@@ -150,6 +198,12 @@ def census(tests_dir, langs):
         d, sno, entries = got
         rs, ra = re.compile(STDIN_RE[lang], re.I), re.compile(ARGV_RE[lang], re.I)
         decl_a = declared_argv(d)
+        decl_bare = declared_bare(d, known={e.name for e in entries})
+        _both = decl_a & decl_bare
+        if _both:
+            refuse(f"{d}: {sorted(_both)} are declared in BOTH ALL.argv and ALL.argv.bare -- one file says "
+                   f"pass these arguments and the other says this entry is graded bare on purpose, and a "
+                   f"reader cannot be asked to pick")
         ast_only = set()
         _csv = d / "ALL.csv"
         if _csv.is_file():
@@ -161,7 +215,8 @@ def census(tests_dir, langs):
             examined += 1
             text = "\n".join(e.sno_lines)
             owes_in = bool(rs.search(text)) and e.stdin is None
-            owes_argv = bool(ra.search(text)) and not inert_argv_match(lang, text) and e.name not in decl_a
+            owes_argv = (bool(ra.search(text)) and not inert_argv_match(lang, text)
+                         and e.name not in decl_a and e.name not in decl_bare)
             if owes_in or owes_argv:
                 rows.append({"lang": lang, "name": e.name, "seq": e.seq, "kind": e.kind,
                              "owes_stdin": owes_in, "owes_argv": owes_argv})
