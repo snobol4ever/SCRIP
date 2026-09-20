@@ -775,6 +775,8 @@ static void pas_heap_release(long m) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *);
+    static int plant = -1; if (plant < 0) { const char * e = getenv("SCRIP_TEST_PLANT_PAS_ROOT_SKIP"); plant = (e && *e == '1') ? 1 : 0; }
+    if (plant) return;
     long top = (g_pas_heap_ctr < g_pas_heap_cap) ? g_pas_heap_ctr : g_pas_heap_cap - 1;
     for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_pas_heap[n]);
     for (int i = 0; i < 512; i++) if (g_pas_tf[i].has) rt_gc_visit_descr(&g_pas_tf[i].buf);

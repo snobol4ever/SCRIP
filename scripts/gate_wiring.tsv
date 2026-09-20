@@ -124,6 +124,7 @@ test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_nv_cell_caches_honour_the_memo_generation.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_pas_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
+test_gate_gc_pas_heap_cells_survive_forced_movement.sh	WIRED	-	-	-
 test_gate_gc_raku_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
 test_gate_gc_rbx_is_the_frontier.sh	WIRED	-	-	-
 test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	WIRED	-	-	-
