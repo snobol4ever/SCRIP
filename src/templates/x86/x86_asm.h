@@ -2216,22 +2216,6 @@ inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32,
 inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
 inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return x86("comment", "ARCH-GC 6.5 SPILL RECORD, KEEPING THE PROTOCOL WORD: a box that opened a call by name holds its packed spine word in rdx across this poll, and the poll speaks the argument registers. The word rides the record's OWN spare quad at [rsp + 24], below the floor the poll hands the collector, so it is never swept and never relocated -- it is an integer. ⛔ IT IS NOT A PUSH, AND THAT IS MEASURED (cfo 2026-09-19): an 8-byte push flips rsp's parity at the poll's call and a misaligned rsp faults inside libc's SSE code with si_addr NULL -- the defer road crashed a master entry 5 of 5 that way, in gc_stack_region's sscanf under gc_collect_ex. A 16-byte save fixes the parity but opens a second frame, which the register-resident gate's arm 4 reads as the record's own; the record's spare quad costs no frame at all.")
                                                                  + x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
-inline std::string x86_rt_gc_poll_rec_defer(const char * tag_reg, int tag_on_rax) {
-    return x86("comment", "ARCH-GC 6.5 SPILL RECORD, THE DEFER ROAD (cto 2026-09-19 on the cfo's c2e82f161, measured with mode-4 symbols: the kept rax at the open/land return IS the DTP block when the protocol word is 4, and the kept rdx at the probe_run return IS the DTP when rax is nonzero -- a raw word below the poll's floor that neither the sweep nor the walker can see, so the block moved and the box jumped through the stale copy: hb_dvec_sort_match rc=139 at 1 MB stress 1 on origin/main 2be0f91a2 itself). The two kept words ride the shield array as DESCR cells whose TAG THE PROTOCOL DECIDES -- the box computes it into tag_reg with the same compare it branches on -- so the collector visits the one that is a pointer by type and rewrites it and reads the other as an integer: three cells, 48 bytes, floor rsp+48, r13, rax and rdx reloaded from their cells after the call.")
-         + x86("sub", "rsp", (long)48)
-         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
-         + (tag_on_rax ? x86_rsp_store32(16, tag_reg) : x86_rsp_store32_imm(16, (long)DT_I)) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "rax")
-         + (tag_on_rax ? x86_rsp_store32_imm(32, (long)DT_I) : x86_rsp_store32(32, tag_reg)) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
-         + x86_reg_disp32_lea64("rdi", "rsp", 0)
-         + x86("mov", "esi", (long)3)
-         + x86("mov", "edx", (long)0)
-         + x86_reg_disp32_lea64("rcx", "rsp", 48)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
-         + x86_rsp_load64("r13", 8)
-         + x86_rsp_load64("rax", 24)
-         + x86_rsp_load64("rdx", 40)
-         + x86("add", "rsp", (long)48);
-}
 inline std::string x86_rt_gc_poll_rec_res() {
     return x86("comment", "ARCH-GC 6.5c: the box result IS a DESCR, so the rax:rdx pair is written as the record's ONE cell and handed to the poll as its shield array -- rt_gc_visit_descr relocates it BY ITS OWN TYPE FIELD, a typed visit and not the word sweep, and the floor is the caller's own rsp so the cell sits outside the swept range. 6.5b's spill-PAIR left this cell INSIDE that range and was relocated by gc_zeta_frame, which is the mechanism F6 step 3 deletes; this form survives that deletion by construction")
          + x86("sub", "rsp", (long)16)
