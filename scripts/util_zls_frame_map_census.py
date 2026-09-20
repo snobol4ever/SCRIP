@@ -24,6 +24,20 @@ The population is the zls REGION, and the summary line says so.
 POPULATION: one master suite (--lang, extracted in-process through the harness's own readers, the ONE
 extraction authority) or explicit --files.  An entry the compiler refuses (no `; graph` line, or rc != 0)
 is NO LAYOUT, named and counted beside the verdict, never silently dropped and never graded green.
+⛔⭐ AN ENTRY IS MATERIALIZED THE WAY THE GRADER MATERIALIZES IT, AND THAT IS NOT A DETAIL -- it goes into
+its OWN subdir, its -INCLUDE/open()/INPUT() companions are copied in beside it by the harness's own
+_copy_companions (transitive closure), scrip runs with that subdir as cwd, and SNO_LIB points at
+corpus/include exactly as run_suite_entry sets it.  BEFORE THAT (hq_snobol4, 2026-09-20, SCRIP fff6d8a82 /
+corpus 86574b2bf): this tool wrote the entry text into one flat temp dir with neither, so every entry that
+names a companion failed to PARSE and landed in no_layout -- SNOBOL4 read no_layout=31 of which THIRTY were
+this artifact and ONE was a real refusal (trim_alt_keyword_replace_branch_1, the unlanded lambda(expr)).
+The bucket was 1.6% of entries and 45.8% OF THE CENSUSED WORDS: graded 1951 -> 1981, graphs 4008 -> 4506,
+words 170578 -> 314812, holes 0 and unkinded 0 throughout, and icon words 164348 -> 164358.  Cost of the
+two ingredients over the full seven-language sweep: 34.7s -> 37.4s, one box, one variable at a time.
+⛔ THE LESSON IS THE BUCKET, NOT THE INCLUDES: no_layout printed itself as "the compiler refused those
+entries" (util_gc_census.py's own wording) -- a CAUSE the tool never measured, for a bucket that held two
+classes.  rc is now printed with its first line so every NO-LAYOUT row names its own reason and an rc=2
+REFUSAL can never read as an rc=1 red.
 rc 0 = graded > 0 and holes == 0; rc 1 = holes > 0; rc 2 = nothing graded (the denominator is zero).
 Set ZLS_LIST_ALL=1 to print every hole (the default caps the listing).
 THE MACHINE-READ LINE, frozen for the coo's maps census (CEO-821): one per run,
@@ -112,13 +126,14 @@ def holes_of(graph):
     return out
 
 
-def dump_one(scrip, path, timeout):
+def dump_one(scrip, path, timeout, cwd=None, env=None):
     try:
-        p = subprocess.run([str(scrip), "--dump-zeta", str(path)], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, errors="replace")
+        p = subprocess.run([str(scrip), "--dump-zeta", str(path)], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, errors="replace", cwd=cwd, env=env)
     except subprocess.TimeoutExpired:
         return None, "timeout"
     if p.returncode != 0:
-        return None, f"rc={p.returncode}"
+        first = (p.stdout + p.stderr).strip().splitlines()
+        return None, f"rc={p.returncode}: {first[0][:120]}" if first else f"rc={p.returncode}"
     graphs = parse_dump(p.stdout)
     if not graphs:
         return None, "no graph in the dump"
@@ -159,20 +174,26 @@ def main():
         entries, ext, err = master_entries(a.lang, s4e_home)
         if entries is None:
             print(f"zls-frame-map-census[{label}]: REFUSE(2): {err}"); return 2
+        import corpus_suite_harness as H
+        master_dir = Path(s4e_home) / "corpus" / "tests" / a.lang
         for e in entries:
             text = e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)
-            p = Path(tmp.name) / (re.sub(r"[^A-Za-z0-9_.-]", "_", e.name) + ext)
+            sub = Path(tmp.name) / re.sub(r"[^A-Za-z0-9_.-]", "_", e.name)
+            sub.mkdir(parents=True, exist_ok=True)
+            p = sub / (re.sub(r"[^A-Za-z0-9_.-]", "_", e.name) + ext)
             p.write_text(text + "\n")
-            work.append((e.name, p))
+            H._copy_companions(text, str(master_dir), str(sub))
+            work.append((e.name, p, sub))
     else:
         for f in a.files:
-            work.append((f, Path(f)))
+            work.append((f, Path(f), None))
     list_all = os.environ.get("ZLS_LIST_ALL") == "1"
     cap = 40
     counts = {"region-gap": 0, "scope-gap": 0, "overlap": 0, "vslot-unmapped": 0, "provisional-kind": 0, "unknown-kind": 0}
     graded = 0; nolayout = []; graphs_n = 0; fields_n = 0; holes = 0; shown = 0; words_n = 0; unkinded_n = 0
-    for name, p in work:
-        graphs, err = dump_one(scrip, p, a.timeout)
+    env = dict(os.environ, SNO_LIB=str(Path(s4e_home) / "corpus" / "include"))
+    for name, p, cwd in work:
+        graphs, err = dump_one(scrip, p, a.timeout, cwd=(str(cwd) if cwd else None), env=env)
         if graphs is None:
             nolayout.append((name, err)); continue
         graded += 1
