@@ -1108,13 +1108,13 @@ void emit_patzeta_register(const char * name, int frame_bytes, int fp_total, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_patzeta_frame_reserve(const char * name, int * bytes) {
     if (!name) return 0;
-    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (bytes) *bytes = (((ZLS_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return 1; }
+    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (bytes) *bytes = (((FLAT_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_patzeta_lookup(const char * name, int * susp) {
     if (!name) return 0;
-    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((ZLS_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return pz[i].uni; }
+    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((FLAT_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return pz[i].uni; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

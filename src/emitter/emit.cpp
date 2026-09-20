@@ -3874,7 +3874,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? ZLS_FRAME_ALLOWANCE_PINNED : ZLS_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? FLAT_FRAME_ALLOWANCE_PINNED : FLAT_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;
     return 1;
 }
@@ -3984,7 +3984,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->icn_cells_graph)) ? 1 : 0; }
       g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
       g_emit.zframe_pinned_base = (g_emit_cfg && g_emit_cfg->zframe_pinned_base && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
-      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? ZLS_FRAME_ALLOWANCE_PINNED : ZLS_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
+      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? FLAT_FRAME_ALLOWANCE_PINNED : FLAT_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
       g_emit.flat_stmt_frame = 0; }
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     { if (getenv("SCRIP_N2_FT_PROBE") && g_emit_cfg) { int _rg = g_emit_cfg->jcon_value_region, _np = g_emit_cfg->nparams, _nl = g_emit_cfg->nlocals;

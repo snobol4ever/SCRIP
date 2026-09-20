@@ -35,11 +35,11 @@ static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND(
 #else
 _Static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == GC_LAY_PTR_GC && GC_LAY_SIZE(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == 8, "a blob layout entry is ONE quad: rbp-relative offset in the low 32 bits (sign-extended on read), kind in bits 32..39, byte size in bits 40..55 -- the emitter seals n then n entries right after the map's four quads when GC_FRAME_MAP_BLOB is set, and the collector reads them through (const uint64_t *)(map + 1); no relocation in either medium, so the map's sizeof stays 32 (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2e)");
 #endif
-#define ZLS_FRAME_ALLOWANCE 64
-#define ZLS_FRAME_ALLOWANCE_PINNED 96
+#define FLAT_FRAME_ALLOWANCE 64
+#define FLAT_FRAME_ALLOWANCE_PINNED 96
 #ifdef __cplusplus
-static_assert(ZLS_FRAME_ALLOWANCE == 48 + 16 && ZLS_FRAME_ALLOWANCE_PINNED == 80 + 16, "the allowance above the value region is the wire header (48, or 80 with the Prolog quad) plus ONE 16-byte map cell (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65); every frame-size formula reads these two names, never a literal, because the generator reserve in frame_layout.c and the two prologue formulas in emit.cpp must agree to the byte or a generator delivers its result from the wrong cell");
+static_assert(FLAT_FRAME_ALLOWANCE == 48 + 16 && FLAT_FRAME_ALLOWANCE_PINNED == 80 + 16, "the allowance above the value region is the wire header (48, or 80 with the Prolog quad) plus ONE 16-byte map cell (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65); every frame-size formula reads these two names, never a literal, because the generator reserve in frame_layout.c and the two prologue formulas in emit.cpp must agree to the byte or a generator delivers its result from the wrong cell");
 #else
-_Static_assert(ZLS_FRAME_ALLOWANCE == 48 + 16 && ZLS_FRAME_ALLOWANCE_PINNED == 80 + 16, "the allowance above the value region is the wire header (48, or 80 with the Prolog quad) plus ONE 16-byte map cell (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65); every frame-size formula reads these two names, never a literal, because the generator reserve in frame_layout.c and the two prologue formulas in emit.cpp must agree to the byte or a generator delivers its result from the wrong cell");
+_Static_assert(FLAT_FRAME_ALLOWANCE == 48 + 16 && FLAT_FRAME_ALLOWANCE_PINNED == 80 + 16, "the allowance above the value region is the wire header (48, or 80 with the Prolog quad) plus ONE 16-byte map cell (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65); every frame-size formula reads these two names, never a literal, because the generator reserve in frame_layout.c and the two prologue formulas in emit.cpp must agree to the byte or a generator delivers its result from the wrong cell");
 #endif
 #endif
