@@ -931,19 +931,22 @@ static void gc_walk_words(const char *lo, const char *hi, int cls, const char *r
         if (p - 8 >= rlo && gc_tag_bears_ptr(*(const uint8_t *)(p - 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; continue; }
         if (cls == 0) { g->s_raw_heap++; gc_walk_site("SPINE", graph, (long)(p - base), w, h); } else { g->h_raw_heap++; gc_walk_site("HEADER", graph, (long)(p - base), w, h); } }
 }
+static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
 static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
 {
-    gc_walk_t *g = &g_gw[g_gc_rep_pop]; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0]; long covered = 0;
+    gc_walk_t *g = &g_gw[g_gc_rep_pop]; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0]; long covered = 0; int blob = (m->flags & GC_FRAME_MAP_BLOB) ? 1 : 0;
+    if (blob) g_gc_blob_frames++;
     long span = (m->flags & GC_FRAME_MAP_BLOB) ? (long)m->frame_bytes + 8 : (long)m->map_off;
     for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); const char *w = anchor + off, *e = w + size;
         if (w < lo) w = lo;
         if (e > hi) e = hi;
         if (w >= e) continue;
         covered += e - w;
+        if (blob) { g_gc_blob_entries++; if (kind == GC_LAY_DESCR) g_gc_blob_descr++; else if (kind == GC_LAY_PTR_GC) g_gc_blob_ptr++; else if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++; }
         if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else { if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; rt_gc_visit_descr(d); } } continue; }
         for (const char *c = w; c + 8 <= e; c += 8) { const char **pw = (const char **)c; rt_hblk_t *h = gc_blk_of(*pw);
             if (kind == GC_LAY_PTR_GC) { g->i_ptr++; if (h) { g->i_ptr_heap++; rt_gc_visit_raw(pw); } continue; }
-            g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); } } }
+            g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } } }
     if (span > covered) g->i_gap += (span - covered) / 8;
 }
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo)
@@ -985,25 +988,6 @@ static void gc_walk_print(void)
     memset(g_gw, 0, sizeof g_gw); g_gw_lines = 0; g_gw_suppressed = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
-static void gc_blob_layout_visit(char *cell, const gc_frame_map_t *m)
-{
-    char *fb = cell + m->frame_bytes; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0];
-    g_gc_blob_frames++;
-    for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); char *w = fb + off; g_gc_blob_entries++;
-        if (kind == GC_LAY_DESCR) { g_gc_blob_descr++; rt_gc_visit_descr((DESCR_t *)w); continue; }
-        if (kind == GC_LAY_PTR_GC) { g_gc_blob_ptr++; rt_gc_visit_raw((const char **)w); continue; }
-        if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++;
-        if (gc_maps_on()) for (int b = 0; b + 8 <= size; b += 8) { const char *v = *(const char *const *)(w + b); rt_hblk_t *h = gc_blk_of(v); if (h && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%d kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", off + b, kind, (const void *)v, (const void *)h, (unsigned)h->type); } } }
-}
-static int gc_blob_cell(const char *p, const char *hi)
-{
-    const DESCR_t *d = (const DESCR_t *)p; const gc_frame_map_t *m;
-    if (p + 16 > hi || d->v != DT_MAP) return 0;
-    m = (const gc_frame_map_t *)d->p;
-    if (!m || !gc_frame_map_registered(m)) return 0;
-    return (m->magic == GC_FRAME_MAP_MAGIC && (m->flags & GC_FRAME_MAP_BLOB) && m->frame_bytes == d->slen) ? 1 : 0;
-}
 static long gc_visit_segment(const char *lo0, const char *hi0)
 {
     if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
