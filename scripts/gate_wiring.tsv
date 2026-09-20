@@ -52,6 +52,7 @@ test_gate_baton_donewhen_reads_its_runner_rc.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable.sh	WIRED	-	-	-
 test_gate_bench_prolog_kernels_pristine.sh	WIRED	-	-	-
 test_gate_bench_rivals_coverage.sh	WIRED	-	-	-
+test_gate_blocking_set_parallel_agrees_with_serial.sh	WIRED	-	-	-
 test_gate_blocking_set_shards_agree_with_sequential.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-

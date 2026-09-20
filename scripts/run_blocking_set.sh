@@ -36,6 +36,8 @@
 #   bash scripts/run_blocking_set.sh --target T       # read a different declaration target
 #   bash scripts/run_blocking_set.sh --shard K/N      # run ONE interleaved slice of the declared set
 #   bash scripts/run_blocking_set.sh --shards N       # fan out N slices as children and MERGE their report
+#   bash scripts/run_blocking_set.sh --serial-arms F  # read a different declaration of the arms that run alone
+#   bash scripts/run_blocking_set.sh --shared-surfaces F  # read a different declaration of the watched surface
 #
 # ⭐ SHARDS, AND WHAT THEY ARE ACCEPTED ON (ceo CEO-829, from the cfo's economy measurement: 338 arms, ~35
 # minutes at load 1.5-2.6, against an origin/main that took 22 landings today -- and the gaps between the last
@@ -50,6 +52,17 @@
 # their tmp3/tmp4 litter there), timing-sensitive arms read a loaded box differently, and the one-runner board
 # arms must not run twice at once. scripts/blocking_set_serial_arms.txt names the patterns that RUN ALONE in the
 # parent before any fan-out. A null hazard census bounds the probe, not the thing probed.
+# ⛔⭐ AND THE REFUSAL MATTERS MORE THAN THE SPEED (coo 2026-09-20, row instruments-the-blocking-set-is-367-
+# serial-arms-and-it-caps-every-seat-in-the-fleet, on Lon's TENET). A fan-out that turns a COLLISION into a RED
+# manufactures an UNATTRIBUTABLE FINDING: the arm does not reproduce serially, so a seat either chases a defect
+# that is not there or learns to discount reds -- and ten seats on one box cannot afford either. So the fan-out
+# WATCHES a declared shared surface (scripts/blocking_set_shared_surfaces.txt) around every arm, and two arms
+# whose observed change sets intersect on one path while their run windows OVERLAP are BOTH rc=2 REFUSED, named
+# with each other and with the path. Never red. A refusal says the one true thing -- THIS ARM WAS NOT MEASURED --
+# and the cure for a repeat offender is a line in blocking_set_serial_arms.txt, never a tolerance.
+# ⛔ THE DETECTOR HAS TWO FAILURE DIRECTIONS AND THE GATE PROVES BOTH: unwired, a race reads as a flaky red
+# (M1); greedy, an innocent red or green is buried under a refusal and the set stops being able to report a
+# defect at all (M2). test_gate_blocking_set_parallel_agrees_with_serial.sh trips on each.
 # An arm line prefixed `-` is REPORTED: it is run and classified like any other, it is printed in its class,
 # and it CANNOT change the exit code -- exactly what a leading `-` already meant to make.
 #
@@ -67,6 +80,12 @@ LIST_ONLY=0
 SHARD=""
 SHARDS=""
 SERIAL_FILE="$HERE/blocking_set_serial_arms.txt"
+SURFACE_FILE="$HERE/blocking_set_shared_surfaces.txt"
+# ⛔ THE TWO KNOBS BELOW ARE SOURCE CONSTANTS AND NOT ENVIRONMENT READS, ON PURPOSE. A safety check a seat can
+# switch off from the environment is a safety check that will be off on the day it mattered. The acceptance gate
+# mutates a COPY of this file at these two anchors -- which is what a mutant is: a patch, not a back door.
+RACE_DETECT=1              # ⛔ MUTANT ANCHOR M1 -- 0 unwires the detector, and a race then reads as a flaky RED
+RACE_NEEDS_SHARED_PATH=1   # ⛔ MUTANT ANCHOR M2 -- 0 convicts on time alone, and every concurrent arm is refused
 refuse() { echo "⛔ REFUSED(2) [$NAME]: $*" >&2; exit 2; }
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -83,6 +102,8 @@ while [ $# -gt 0 ]; do
         --shards=*) SHARDS="${1#*=}" ;;
         --serial-arms) shift; [ $# -gt 0 ] || refuse "--serial-arms needs a file"; SERIAL_FILE="$1" ;;
         --serial-arms=*) SERIAL_FILE="${1#*=}" ;;
+        --shared-surfaces) shift; [ $# -gt 0 ] || refuse "--shared-surfaces needs a file"; SURFACE_FILE="$1" ;;
+        --shared-surfaces=*) SURFACE_FILE="${1#*=}" ;;
         -h|--help) sed -n '1,40p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) refuse "unrecognised argument '$1' -- a driver that treats an unknown flag as a filename is how a typo becomes a plausible answer" ;;
     esac
@@ -161,6 +182,108 @@ is_serial_arm() {  # is_serial_arm <cmd>
     done
     return 1
 }
+# ⛔⭐ THE RACE DETECTOR.  The watched surface is DECLARED the way the serial arms are (see the header): an
+# unreadable declaration REFUSES, because "I could not read the surface list" and "the surface list is empty"
+# are the two facts this driver must never conflate.  A MISSING file means no surface has been declared yet and
+# the detector is simply off -- and it SAYS SO on the stamp line rather than letting a silent zero read as "no
+# races found".
+WATCH_DIRS=(); EXCL_RE=""; RACE_ON=0; RACE_STATE="off"
+race_load_surfaces() {
+    WATCH_DIRS=(); EXCL_RE=""
+    if [ "$RACE_DETECT" != 1 ]; then RACE_STATE="UNWIRED(M1)"; return 0; fi
+    if [ -z "${SURFACE_FILE:-}" ] || [ ! -e "$SURFACE_FILE" ]; then RACE_STATE="no-surface-declared"; return 0; fi
+    [ -r "$SURFACE_FILE" ] || refuse "shared-surfaces file '$SURFACE_FILE' exists but cannot be read -- an unreadable surface declaration is not an empty one"
+    local _l
+    while IFS= read -r _l; do
+        case "$_l" in
+            ""|"#"*) continue ;;
+            "!"*) EXCL_RE="${EXCL_RE:+$EXCL_RE|}${_l#!}" ;;
+            /*) WATCH_DIRS+=("$_l") ;;
+            *) WATCH_DIRS+=("$ROOT/$_l") ;;
+        esac
+    done < "$SURFACE_FILE"
+    if [ "${#WATCH_DIRS[@]}" -gt 0 ]; then RACE_STATE="on"; else RACE_STATE="no-surface-declared"; fi
+}
+race_now() { date +%s%N; }
+race_snapshot() {  # race_snapshot <outfile> -- path, mtime, size of every TOP-LEVEL entry of each watched dir
+    local d
+    for d in ${WATCH_DIRS[@]+"${WATCH_DIRS[@]}"}; do
+        [ -d "$d" ] || continue
+        find "$d" -maxdepth 1 -mindepth 1 -printf '%p\t%T@\t%s\n' 2>/dev/null
+    done | awk -F'\t' -v re="$EXCL_RE" 're == "" || $1 !~ re' | sort > "$1"
+}
+race_before() {
+    RACE_ON=0
+    [ "$RACE_STATE" = on ] || return 0
+    [ -n "${S4E_BLOCKING_WITNESS:-}" ] && [ -d "${S4E_BLOCKING_WITNESS:-/nonexistent}" ] || return 0
+    RACE_ON=1
+    RACE_SNAP_A="$(mktemp)"; RACE_SNAP_B="$(mktemp)"
+    race_snapshot "$RACE_SNAP_A"
+    RACE_T0="$(race_now)"
+}
+race_after() {  # race_after <cmd>
+    [ "${RACE_ON:-0}" = 1 ] || return 0
+    local t1 rec p
+    t1="$(race_now)"
+    race_snapshot "$RACE_SNAP_B"
+    rec="$(mktemp)"
+    # ⛔ THE WINDOW IS RECORDED FOR EVERY ARM, WRITES OR NONE.  An arm that changed nothing still needs its
+    # window on the record: it is what makes "these two overlapped" answerable at all, and it is the only thing
+    # the greedy mutant can convict on -- which is how the gate proves the path test is load-bearing.
+    printf 'ARMWINDOW\t%s\t%s\t%s\n' "$RACE_T0" "$t1" "$1" > "$rec"
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        printf 'ARMWRITE\t%s\t%s\t%s\t%s\n' "$p" "$RACE_T0" "$t1" "$1" >> "$rec"
+    done < <(comm -3 "$RACE_SNAP_A" "$RACE_SNAP_B" | sed 's/^\t//' | cut -f1 | sort -u)
+    ( flock 9 2>/dev/null; cat "$rec" >> "$S4E_BLOCKING_WITNESS/writes.tsv" ) 9>> "$S4E_BLOCKING_WITNESS/.lock"
+    rm -f "$RACE_SNAP_A" "$RACE_SNAP_B" "$rec"
+    RACE_ON=0
+}
+race_collisions() {  # race_collisions <witness writes.tsv> -> "path<TAB>cmd" per raced arm, sorted
+    awk -F'\t' -v need="$RACE_NEEDS_SHARED_PATH" '
+        $1 == "ARMWINDOW" { n++; T0[n] = $2 + 0; T1[n] = $3 + 0; C[n] = $4 }
+        $1 == "ARMWRITE"  { m++; P[m] = $2; W0[m] = $3 + 0; W1[m] = $4 + 0; WC[m] = $5; G[$2] = G[$2] " " m }
+        END {
+            if (need == 1) {
+                for (p in G) {
+                    k = split(G[p], a, " ")
+                    for (i = 1; i <= k; i++) for (j = i + 1; j <= k; j++) {
+                        x = a[i]; y = a[j]
+                        if (WC[x] == WC[y]) continue
+                        if (W0[x] < W1[y] && W0[y] < W1[x]) { print P[x] "\t" WC[x]; print P[x] "\t" WC[y] }
+                    }
+                }
+            } else {
+                for (i = 1; i <= n; i++) for (j = i + 1; j <= n; j++) {
+                    if (C[i] == C[j]) continue
+                    if (T0[i] < T1[j] && T0[j] < T1[i]) { print "<any path -- M2: convicted on time alone>\t" C[i]; print "<any path -- M2: convicted on time alone>\t" C[j] }
+                }
+            }
+        }' "$1" | sort -u
+}
+# ⛔ THE STAMP LINE IS ITS OWN LINE AND NOT AN EXTENSION OF THE SUMMARY.  test_gate_make_test_loops_and_reports.sh
+# asserts the summary line by EQUALITY, and an instrument that breaks its own acceptance gate to report a number
+# has not reported a number.  Both shapes print this line, spelled identically, so two runs are comparable by
+# construction rather than by whoever remembered to note the load.
+race_stamp_line() {  # race_stamp_line <shape> <arms> <wall-seconds> <load-at-start> <raced-arm-count>
+    local tree
+    tree="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    [ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ] && tree="$tree-dirty"
+    printf 'blocking set stamp: shape=%s arms=%s wall=%ss load=%s->%s tree=%s detector=%s raced=%s\n' \
+        "$1" "$2" "$3" "$4" "$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo ?)" "$tree" "$RACE_STATE" "$5"
+}
+# ⛔ ONE ARM, ONE EXECUTION SITE.  The fan-out parent ran its serial arms through a copy of this line and the
+# sequential loop through another; a detector wired into one of them and not the other is the half-wired shape
+# the org keeps paying for.  ARM_RC / ARM_OUT / ARM_SEC are the outputs.
+arm_exec() {  # arm_exec <cmd>
+    local t0
+    race_before
+    t0=$SECONDS
+    ARM_OUT="$(cd "$ROOT" && bash -c "$1" </dev/null 2>&1)"; ARM_RC=$?
+    ARM_SEC=$((SECONDS - t0))
+    race_after "$1"
+}
+race_load_surfaces
 # ⛔ SHARD SELECTION IS INTERLEAVED AND PARTITIONS THE SET EXACTLY ONCE -- the same k/N convention the suite
 # harness uses, so N shards' arm lists concatenate back to the declaration with nothing doubled and nothing
 # dropped.  A serial arm is in NO shard: the parent runs it.
@@ -204,20 +327,26 @@ fi
 if [ -n "$SHARDS" ]; then
     WORK="$(mktemp -d)" || refuse "no temp dir for the fan-out"
     trap 'rm -rf "$WORK"' EXIT
+    LOAD0="$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo ?)"
+    # ⛔ THE WITNESS IS SHARED BY THE PARENT AND EVERY CHILD, and it is what makes a race ANSWERABLE rather than
+    # arguable: one append-only record of every arm's window and every path that moved under it, under flock.
+    if [ "$RACE_STATE" = on ]; then
+        mkdir -p "$WORK/witness" && : > "$WORK/witness/writes.tsv" || refuse "cannot create the race witness under $WORK"
+        export S4E_BLOCKING_WITNESS="$WORK/witness"
+    fi
     echo "=== blocking set: $N arm(s) from $SOURCE -- FAN-OUT over $SHARDS shard(s); declared serial arms run in the parent first ==="
     printf '%s\n' "${SERIAL_PATS[@]+${SERIAL_PATS[@]}}" | sed '/^$/d; s/^/  serial (never sharded): /'
     t_all=$SECONDS
     : > "$WORK/results.tsv"
     for i in $(seq 0 $((N - 1))); do
         is_serial_arm "${CMDS[$i]}" || continue
-        t0=$SECONDS
-        out="$(cd "$ROOT" && bash -c "${CMDS[$i]}" </dev/null 2>&1)"; rc=$?
-        printf 'ARMRESULT\t%s\t%s\t%s\t%s\n' "$rc" "$((SECONDS - t0))" "$([ -n "${FLAGS[$i]}" ] && echo R || echo B)" "${CMDS[$i]}" >> "$WORK/results.tsv"
-        printf '[serial] rc=%-3s %4ds  %s\n' "$rc" "$((SECONDS - t0))" "${CMDS[$i]}"
+        arm_exec "${CMDS[$i]}"
+        printf 'ARMRESULT\t%s\t%s\t%s\t%s\n' "$ARM_RC" "$ARM_SEC" "$([ -n "${FLAGS[$i]}" ] && echo R || echo B)" "${CMDS[$i]}" >> "$WORK/results.tsv"
+        printf '[serial] rc=%-3s %4ds  %s\n' "$ARM_RC" "$ARM_SEC" "${CMDS[$i]}"
     done
     for k in $(seq 1 "$SHARDS"); do
         ( bash "${BASH_SOURCE[0]}" --shard "$k/$SHARDS" --target "$DECL_TARGET" --makefile "$MAKEFILE" \
-              ${ARMS_FILE:+--arms-from "$ARMS_FILE"} --serial-arms "$SERIAL_FILE" > "$WORK/shard.$k.out" 2>&1; echo $? > "$WORK/shard.$k.rc" ) &
+              ${ARMS_FILE:+--arms-from "$ARMS_FILE"} --serial-arms "$SERIAL_FILE" --shared-surfaces "$SURFACE_FILE" > "$WORK/shard.$k.out" 2>&1; echo $? > "$WORK/shard.$k.rc" ) &
     done
     wait
     for k in $(seq 1 "$SHARDS"); do
@@ -229,21 +358,51 @@ if [ -n "$SHARDS" ]; then
         fi
     done
     echo
+    # ⛔ THE COLLISIONS ARE COMPUTED BEFORE ANY VERDICT IS PRINTED, because a raced arm's rc is not a verdict and
+    # must never be printed as one.  RACED_BY maps an arm to the path(s) it shares with a concurrent arm.
+    RACES="$WORK/races.tsv"; : > "$RACES"
+    declare -A RACED_BY=()
+    if [ "$RACE_STATE" = on ] && [ -s "$WORK/witness/writes.tsv" ]; then
+        race_collisions "$WORK/witness/writes.tsv" > "$RACES"
+    fi
+    n_raced=0
+    if [ -s "$RACES" ]; then
+        echo "⛔ RACED -- these arms ran CONCURRENTLY and the SAME PATH on the watched surface moved under both."
+        echo "   Each is rc=2 COULD-NOT-MEASURE and NEVER a red: a collision reported as a red is an"
+        echo "   unattributable finding, and the cure is a line in $(basename "$SERIAL_FILE"), not a tolerance."
+        _lastp=""
+        while IFS="	" read -r _p _c; do
+            [ "$_p" = "$_lastp" ] || { printf '   path %s\n' "$_p"; _lastp="$_p"; }
+            printf '     · %s\n' "$_c"
+            if [ -z "${RACED_BY[$_c]:-}" ]; then n_raced=$((n_raced + 1)); RACED_BY[$_c]="$_p"
+            else RACED_BY[$_c]="${RACED_BY[$_c]}, $_p"; fi
+            printf 'ARMRACE\t%s\t%s\n' "$_p" "$_c"
+        done < "$RACES"
+        echo
+    fi
     g=0; r=0; f=0; bred=0; bref=0
     # ⛔ THE FAN-OUT RE-EMITS EVERY MACHINE LINE.  The per-arm ARMRESULT line is this driver's CONTRACT with any
     # consumer -- it is how a verdict is read BY ARM NAME rather than by count -- and a shape of this driver that
     # printed only its merged prose would be unreadable to the very gate that grades shard-vs-sequential identity.
     while IFS="	" read -r _tag rc sec kind cmd; do
         [ "$_tag" = ARMRESULT ] || continue
+        # ⛔ A RACED ARM IS rc=2 BEFORE IT IS ANYTHING ELSE -- including before it is green.  An arm that passed
+        # while another arm was moving the ground under it did not pass; it was not measured.
+        _race="${RACED_BY[$cmd]:-}"
+        [ -n "$_race" ] && rc=2
         printf 'ARMRESULT\t%s\t%s\t%s\t%s\n' "$rc" "$sec" "$kind" "$cmd"
         _rep=""; [ "$kind" = R ] && _rep="   (REPORTED)"
         if [ "$rc" = 0 ]; then g=$((g + 1))
-        elif [ "$rc" = 2 ]; then f=$((f + 1)); printf '  REFUSED   %s%s\n' "$cmd" "$_rep"; [ "$kind" = B ] && bref=$((bref + 1))
+        elif [ "$rc" = 2 ]; then f=$((f + 1))
+            if [ -n "$_race" ]; then printf '  RACED     %s%s\n              shares %s with a concurrent arm\n' "$cmd" "$_rep" "$_race"
+            else printf '  REFUSED   %s%s\n' "$cmd" "$_rep"; fi
+            [ "$kind" = B ] && bref=$((bref + 1))
         else r=$((r + 1)); printf '  RED  rc=%-3s %s%s\n' "$rc" "$cmd" "$_rep"; [ "$kind" = B ] && bred=$((bred + 1)); fi
     done < "$WORK/results.tsv"
     tot=$((g + r + f))
     printf 'blocking set: arms=%d  green=%d  red=%d  refused=%d   (%d+%d+%d=%d)  shards=%s  wall=%ds\n' \
         "$N" "$g" "$r" "$f" "$g" "$r" "$f" "$tot" "$SHARDS" "$((SECONDS - t_all))"
+    race_stamp_line "fan-out/$SHARDS" "$N" "$((SECONDS - t_all))" "$LOAD0" "$n_raced"
     [ "$tot" -eq "$N" ] || refuse "the fan-out reported $tot arm(s) for a declared $N -- a shard lost or doubled work, and a set that cannot account for its own arms is not a measurement (speed is reported BESIDE name-set identity, never instead of it)"
     if [ "$bred" -gt 0 ]; then echo "⛔ BLOCKING SET RED: $bred blocking arm(s) failed, $bref refused."; exit 1; fi
     if [ "$bref" -gt 0 ]; then echo "⛔ BLOCKING SET UNPROVEN: no blocking arm failed, but $bref could not measure (rc=2).  A refusal is not a pass."; exit 2; fi
@@ -252,13 +411,13 @@ if [ -n "$SHARDS" ]; then
 fi
 
 echo "=== blocking set: $N arm(s) from $SOURCE -- EVERY arm runs; reds and refusals are reported separately at the end ==="
+LOAD0="$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo ?)"; T_ALL=$SECONDS
 green=0; red=0; refused=0
 RED_IDX=(); REF_IDX=(); RC=(); OUT=(); SEC=()
 for i in $(seq 0 $((N - 1))); do
     cmd="${CMDS[$i]}"
-    t0=$SECONDS
-    out="$(cd "$ROOT" && bash -c "$cmd" </dev/null 2>&1)"; rc=$?
-    dt=$((SECONDS - t0))
+    arm_exec "$cmd"
+    rc=$ARM_RC; out="$ARM_OUT"; dt=$ARM_SEC
     RC+=("$rc"); OUT+=("$out"); SEC+=("$dt")
     # ⛔ THE THREE CLASSES ARE THE THREE EXIT CODES (lib_gate.sh): 0 examined and clean, 2 COULD NOT EXAMINE,
     # anything else examined and bad.  A refusal is never folded into red and never into green.
@@ -293,6 +452,7 @@ fi
 # partway used to be indistinguishable from a clean one, and now the arithmetic has to close.
 printf 'blocking set: arms=%d  green=%d  red=%d  refused=%d   (%d+%d+%d=%d)\n' \
     "$N" "$green" "$red" "$refused" "$green" "$red" "$refused" "$((green + red + refused))"
+race_stamp_line "sequential" "$N" "$((SECONDS - T_ALL))" "$LOAD0" 0
 [ "$((green + red + refused))" -eq "$N" ] || refuse "the classes do not sum to the arm count -- this driver cannot report its own run"
 if [ -f "$HERE/lib_gate.sh" ]; then . "$HERE/lib_gate.sh" 2>/dev/null && gate_stamp 2>/dev/null; fi
 # ⛔ REPORTED ARMS CANNOT CHANGE THE VERDICT, which is exactly what a leading `-` meant to make.  Everything

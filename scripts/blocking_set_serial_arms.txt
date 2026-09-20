@@ -26,3 +26,9 @@ bench_
 gc_pacing_bounds
 gc_aggregates_are_collectable
 gc_record_type_table_is_rooted
+# 4. ARMS THAT RUN THEIR OWN FAN-OUT (coo 2026-09-20). Both blocking-set acceptance gates start shard children
+#    of their own; nested inside a shard they would be a fan-out inside a fan-out, and the parallel gate's two
+#    racing arms RENDEZVOUS with a 10-second ceiling -- on a box already carrying N shards that rendezvous can
+#    time out, which the gate correctly reports as COULD-NOT-MEASURE and which is a refusal nobody needs.
+blocking_set_parallel_agrees
+blocking_set_shards_agree
