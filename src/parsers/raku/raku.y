@@ -175,6 +175,105 @@ static tree_t *seq1(tree_t *stmt) {
     if (stmt) expr_add_child(seq, stmt);
     return seq;
 }
+#define RK_PH_BODY 4
+#define RK_PH_DROP (-1)
+#define RK_PH_LOOP (-2)
+static tree_t *rk_ilit(long long v) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = v; return e; }
+static tree_t *rk_phaser_mark(const char *name, tree_t *body) {
+    char buf[64]; snprintf(buf, sizeof buf, "__rk_phaser_%s", name ? name : "");
+    tree_t *m = make_call(buf); expr_add_child(m, body ? body : ast_node_new(TT_SEQ_EXPR)); return m;
+}
+static const char *rk_phaser_of(tree_t *n) {
+    if (!n || n->t != TT_FNC || !n->v.sval || strncmp(n->v.sval, "__rk_phaser_", 12) != 0) return NULL;
+    return n->v.sval + 12;
+}
+static tree_t *rk_phaser_body(tree_t *n) { return (n && n->n >= 2) ? n->c[n->n - 1] : ast_node_new(TT_SEQ_EXPR); }
+static int rk_phaser_is_loop(const char *p) { return !strcmp(p, "FIRST") || !strcmp(p, "LAST") || !strcmp(p, "NEXT") || !strcmp(p, "once"); }
+static int rk_phaser_rank(const char *p, int mainline) {
+    if (!strcmp(p, "BEGIN")) return 0;
+    if (!strcmp(p, "CHECK")) return 1;
+    if (!strcmp(p, "INIT")) return 2;
+    if (!strcmp(p, "ENTER") || !strcmp(p, "PRE")) return 3;
+    if (!strcmp(p, "LEAVE") || !strcmp(p, "POST")) return 5;
+    if (!strcmp(p, "KEEP")) return mainline ? RK_PH_DROP : 6;
+    if (!strcmp(p, "UNDO")) return mainline ? 6 : RK_PH_DROP;
+    if (!strcmp(p, "END")) return 7;
+    if (!strcmp(p, "TEMP")) return RK_PH_DROP;
+    if (rk_phaser_is_loop(p)) return RK_PH_LOOP;
+    return RK_PH_BODY;
+}
+static void rk_phaser_unplaced(const char *p) {
+    extern void rt_script_die_surface(const char *msg);
+    char m[192]; snprintf(m, sizeof m, "%s { } is implemented at mainline scope and as a loop phaser at the top level of a loop body, not here", p);
+    rt_script_die_surface(m);
+}
+static void rk_phaser_inline_tree(tree_t *n) {
+    if (!n) return;
+    for (int i = 0; i < n->n; i++) {
+        const char *p = rk_phaser_of(n->c[i]);
+        if (p) { if (rk_phaser_is_loop(p)) rk_phaser_unplaced(p); n->c[i] = rk_phaser_body(n->c[i]); }
+        rk_phaser_inline_tree(n->c[i]);
+    }
+}
+static ExprList *rk_phasers_place(ExprList *l, int mainline) {
+    int any = 0;
+    tree_t *tail_ret = NULL;
+    if (!l) return l;
+    for (int i = 0; i < l->count; i++) if (rk_phaser_of(l->items[i])) { any = 1; break; }
+    if (!any) return l;
+    if (!mainline && l->count > 0 && l->items[l->count - 1] && l->items[l->count - 1]->t == TT_RETURN) tail_ret = l->items[--l->count];
+    ExprList *out = exprlist_new();
+    for (int rank = 0; rank <= 7; rank++) {
+        for (int i = 0; i < l->count; i++) {
+            tree_t *it = l->items[i];
+            const char *p = rk_phaser_of(it);
+            int r = p ? rk_phaser_rank(p, mainline) : RK_PH_BODY;
+            if (r == RK_PH_DROP) continue;
+            if (r == RK_PH_LOOP && !mainline) { if (rank == RK_PH_BODY) exprlist_append(out, it); continue; }
+            if (r == RK_PH_LOOP) r = RK_PH_BODY;
+            if (r != rank) continue;
+            exprlist_append(out, p ? rk_phaser_body(it) : it);
+        }
+    }
+    if (tail_ret) exprlist_append(out, tail_ret);
+    exprlist_free(l);
+    return out;
+}
+static tree_t *rk_phaser_join(tree_t *a, tree_t *b) {
+    if (!a) return b;
+    ExprList *l = exprlist_new(); exprlist_append(l, a); exprlist_append(l, b); return make_seq(l);
+}
+static tree_t *rk_loop_phasers(tree_t *loop, tree_t *body) {
+    tree_t *first = NULL, *nxt = NULL, *last = NULL;
+    int keep = 0;
+    if (!body || body->t != TT_SEQ_EXPR) return loop;
+    for (int i = 0; i < body->n; i++) {
+        const char *p = rk_phaser_of(body->c[i]);
+        if (p && (!strcmp(p, "FIRST") || !strcmp(p, "once"))) first = rk_phaser_join(first, rk_phaser_body(body->c[i]));
+        else if (p && !strcmp(p, "NEXT")) nxt = rk_phaser_join(nxt, rk_phaser_body(body->c[i]));
+        else if (p && !strcmp(p, "LAST")) last = rk_phaser_join(last, rk_phaser_body(body->c[i]));
+        else body->c[keep++] = body->c[i];
+    }
+    if (keep == body->n) return loop;
+    char gn[48]; snprintf(gn, sizeof gn, "__rk_ph_g%d", raku_get_lineno());
+    const char *g = intern(gn);
+    ExprList *inner = exprlist_new();
+    if (first) {
+        tree_t *t = ast_node_new(TT_SEQ_EXPR); expr_add_child(t, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(0))); expr_add_child(t, first);
+        tree_t *iff = ast_node_new(TT_IF); expr_add_child(iff, leaf_sval(TT_VAR, g)); expr_add_child(iff, t); exprlist_append(inner, iff);
+    } else if (last) exprlist_append(inner, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(0)));
+    for (int i = 0; i < keep; i++) exprlist_append(inner, body->c[i]);
+    if (nxt) exprlist_append(inner, nxt);
+    body->n = 0;
+    for (int i = 0; i < inner->count; i++) ast_push(body, inner->items[i]);
+    exprlist_free(inner);
+    if (!first && !last) return loop;
+    ExprList *outer = exprlist_new();
+    exprlist_append(outer, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(1)));
+    exprlist_append(outer, loop);
+    if (last) { tree_t *u = ast_node_new(TT_UNLESS); ast_push(u, leaf_sval(TT_VAR, g)); ast_push(u, seq1(last)); exprlist_append(outer, u); }
+    return make_seq(outer);
+}
 static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *body) {
     tree_t *n = ast_node_new(TT_CLOOP);
     expr_add_child(n, init); expr_add_child(n, cond); expr_add_child(n, incr); expr_add_child(n, body);
@@ -542,6 +641,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
 %token KW_MODULE
+%token <sval> PHASER
 %token OP_FATARROW
 %token OP_RANGE OP_RANGE_EX
 %token OP_ARROW
@@ -593,10 +693,10 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 program
     : stmt_list
         {
-            ExprList *all = $1;
+            ExprList *all = rk_phasers_place($1, 1);
             if (all) {
                 for (int i = 0; i < all->count; i++)
-                    if (all->items[i]) add_proc(all->items[i]);
+                    if (all->items[i]) { rk_phaser_inline_tree(all->items[i]); add_proc(all->items[i]); }
                 exprlist_free(all);
             }
         }
@@ -869,6 +969,10 @@ stmt
         { tree_t *e=ast_node_new(TT_CATCH); ast_push(e,$2); $$=e; }
     | block
         { $$=$1; }
+    | PHASER block
+        { $$=rk_phaser_mark($1,$2); ct_drop($1); }
+    | PHASER block ';'
+        { $$=rk_phaser_mark($1,$2); ct_drop($1); }
     | unless_stmt       { $$=$1; }
     | until_stmt        { $$=$1; }
     | repeat_stmt       { $$=$1; }
@@ -923,9 +1027,9 @@ elsif_tail
     ;
 while_stmt
     : KW_WHILE '(' expr ')' block
-        { $$=expr_binary(TT_WHILE,$3,$5); }
+        { $$=rk_loop_phasers(expr_binary(TT_WHILE,$3,$5),$5); }
     | KW_WHILE expr block
-        { $$=expr_binary(TT_WHILE,$2,$3); }
+        { $$=rk_loop_phasers(expr_binary(TT_WHILE,$2,$3),$3); }
     ;
 unless_stmt
     : KW_UNLESS '(' expr ')' block
@@ -939,25 +1043,25 @@ unless_stmt
     ;
 until_stmt
     : KW_UNTIL '(' expr ')' block
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$3); expr_add_child(e,$5); $$=e; }
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$3); expr_add_child(e,$5); $$=rk_loop_phasers(e,$5); }
     | KW_UNTIL expr block
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$2); expr_add_child(e,$3); $$=e; }
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$2); expr_add_child(e,$3); $$=rk_loop_phasers(e,$3); }
     ;
 repeat_stmt
     : KW_REPEAT block
-        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); e->v.ival=0; $$=e; }
+        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); e->v.ival=0; $$=rk_loop_phasers(e,$2); }
     | KW_REPEAT block KW_WHILE expr ';'
-        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); expr_add_child(e,$4); e->v.ival=1; $$=e; }
+        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); expr_add_child(e,$4); e->v.ival=1; $$=rk_loop_phasers(e,$2); }
     | KW_REPEAT block KW_UNTIL expr ';'
-        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); expr_add_child(e,$4); e->v.ival=2; $$=e; }
+        { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,$2); expr_add_child(e,$4); e->v.ival=2; $$=rk_loop_phasers(e,$2); }
     ;
 loop_stmt
     : KW_LOOP block
-        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1; $$=expr_binary(TT_WHILE,one,$2); }
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1; $$=rk_loop_phasers(expr_binary(TT_WHILE,one,$2),$2); }
     | KW_LOOP '(' KW_MY VAR_SCALAR '=' expr ';' expr ';' loop_incr ')' block
-        { $$=rk_cstyle_loop(expr_binary(TT_ASSIGN,var_node($4),$6),$8,$10,$12); }
+        { $$=rk_loop_phasers(rk_cstyle_loop(expr_binary(TT_ASSIGN,var_node($4),$6),$8,$10,$12),$12); }
     | KW_LOOP '(' expr ';' expr ';' loop_incr ')' block
-        { $$=rk_cstyle_loop($3,$5,$7,$9); }
+        { $$=rk_loop_phasers(rk_cstyle_loop($3,$5,$7,$9),$9); }
     ;
 loop_incr
     : expr                { $$=$1; }
@@ -968,35 +1072,35 @@ for_stmt
           tree_t *r = ast_node_new(TT_FOR_RANGE);
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, $4); ast_push(r, $7);
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
-          $$ = r; }
+          $$ = rk_loop_phasers(r, $7); }
     | KW_FOR add_expr OP_RANGE_EX add_expr OP_ARROW VAR_SCALAR block
         { const char *vn = intern(strip_sigil($6)); ct_drop($6);
           tree_t *r = ast_node_new(TT_FOR_RANGE);
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, rk_dec($4)); ast_push(r, $7);
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
-          $$ = r; }
+          $$ = rk_loop_phasers(r, $7); }
     | KW_FOR expr OP_ARROW scalar_list block
         { ExprList *vs = $4;
           if (vs && vs->count == 1) {
               const char *vn = vs->items[0]->v.sval; exprlist_free(vs);
               tree_t *gen = expr_unary(TT_ITERATE, $2);
               gen->v.sval = (char *)vn;
-              $$ = expr_binary(TT_EVERY, gen, $5);
-          } else $$ = rk_for_multi(vs, $2, $5); }
+              $$ = rk_loop_phasers(expr_binary(TT_EVERY, gen, $5), $5);
+          } else $$ = rk_loop_phasers(rk_for_multi(vs, $2, $5), $5); }
     | KW_FOR expr ',' arg_list OP_ARROW VAR_SCALAR block
         { const char *vn = intern(strip_sigil($6)); ct_drop($6);
           tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
           tree_t *gen = expr_unary(TT_ITERATE, lst); gen->v.sval = (char *)vn;
-          $$ = expr_binary(TT_EVERY, gen, $7); }
+          $$ = rk_loop_phasers(expr_binary(TT_EVERY, gen, $7), $7); }
     | KW_FOR expr ',' arg_list block
         { tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
           tree_t *gen = expr_unary(TT_ITERATE, lst);
-          $$ = expr_binary(TT_EVERY, gen, $5); }
+          $$ = rk_loop_phasers(expr_binary(TT_EVERY, gen, $5), $5); }
     | KW_FOR expr block
         { tree_t *gen = expr_unary(TT_ITERATE, $2);
-          $$ = expr_binary(TT_EVERY, gen, $3); }
+          $$ = rk_loop_phasers(expr_binary(TT_EVERY, gen, $3), $3); }
     ;
 given_stmt
     : KW_GIVEN expr '{' when_list '}'
@@ -1132,92 +1236,92 @@ sub_decl
           ct_drop($2); $$=e; }
     ;
 sub_body
-    : '{' stmt_list '}'          { $$=make_seq($2); }
+    : '{' stmt_list '}'          { $$=make_seq(rk_phasers_place($2,0)); }
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
-          ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$4);
-          ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN '}'
-        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr '}'
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=$2; exprlist_append(l,s); $$=make_seq(l); }
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,s); $$=make_seq(l); }
     | '{' stmt_list KW_PRINT expr '}'
-        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,p); $$=make_seq(l); }
     | '{' stmt_list expr KW_IF expr '}'
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_UNLESS expr '}'
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WHILE expr '}'
-        { tree_t *e=expr_binary(TT_WHILE,$5,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=expr_binary(TT_WHILE,$5,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_UNTIL expr '}'
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_FOR expr '}'
         { tree_t *gen=expr_unary(TT_ITERATE,$5); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WITH expr '}'
-        { tree_t *e=rk_with_mod($3,$5,0); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_with_mod($3,$5,0); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WITHOUT expr '}'
-        { tree_t *e=rk_with_mod($3,$5,1); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_with_mod($3,$5,1); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_GIVEN expr '}'
-        { tree_t *e=rk_given_mod($3,$5); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_given_mod($3,$5); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_IF expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$6); expr_add_child(e,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$6); expr_add_child(e,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_UNLESS expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$6); ast_push(e,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$6); ast_push(e,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_FOR expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
           tree_t *gen=expr_unary(TT_ITERATE,$6); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     ;
 method_body
-    : '{' stmt_list '}'          { $$=make_seq($2); }
+    : '{' stmt_list '}'          { $$=make_seq(rk_phasers_place($2,0)); }
     | '{' YADA '}'               { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
     | '{' stmt_list VAR_TWIGIL '=' expr '}'
         { tree_t *fe=rk_tw_field($3); ct_drop($3);
-          ExprList *l=$2; exprlist_append(l,expr_binary(TT_ASSIGN,fe,$5)); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,expr_binary(TT_ASSIGN,fe,$5)); $$=make_seq(l); }
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
-          ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$4);
-          ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN '}'
-        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr '}'
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=$2; exprlist_append(l,s); $$=make_seq(l); }
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,s); $$=make_seq(l); }
     | '{' stmt_list KW_PRINT expr '}'
-        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,p); $$=make_seq(l); }
     | '{' stmt_list expr KW_IF expr '}'
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_UNLESS expr '}'
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WHILE expr '}'
-        { tree_t *e=expr_binary(TT_WHILE,$5,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=expr_binary(TT_WHILE,$5,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_UNTIL expr '}'
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_FOR expr '}'
         { tree_t *gen=expr_unary(TT_ITERATE,$5); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WITH expr '}'
-        { tree_t *e=rk_with_mod($3,$5,0); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_with_mod($3,$5,0); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WITHOUT expr '}'
-        { tree_t *e=rk_with_mod($3,$5,1); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_with_mod($3,$5,1); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_GIVEN expr '}'
-        { tree_t *e=rk_given_mod($3,$5); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_given_mod($3,$5); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_IF expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$6); expr_add_child(e,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$6); expr_add_child(e,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_UNLESS expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$6); ast_push(e,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$6); ast_push(e,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_FOR expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
           tree_t *gen=expr_unary(TT_ITERATE,$6); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     ;
 pkg_name
     : IDENT  { $$=$1; }
@@ -1604,83 +1708,83 @@ param_list
     | param_list ',' SLURPY_NAMED { $$=exprlist_append($1,rk_slurpy_named_param($3)); }
     ;
 block
-    : '{' stmt_list '}'  { $$=make_seq($2); }
+    : '{' stmt_list '}'  { $$=make_seq(rk_phasers_place($2,0)); }
     | '{' YADA '}'       { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
     | '{' stmt_list expr '}'
-        { ExprList *l=$2; exprlist_append(l,$3); $$=make_seq(l); }
+        { ExprList *l=rk_phasers_place($2,0); exprlist_append(l,$3); $$=make_seq(l); }
     | '{' stmt_list expr KW_IF expr '}'
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_UNLESS expr '}'
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WHILE expr '}'
-        { tree_t *e=expr_binary(TT_WHILE,$5,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=expr_binary(TT_WHILE,$5,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_UNTIL expr '}'
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$5); expr_add_child(e,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_FOR expr '}'
         { tree_t *gen=expr_unary(TT_ITERATE,$5); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1($3)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1($3)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WITH expr '}'
-        { tree_t *e=rk_with_mod($3,$5,0); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_with_mod($3,$5,0); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_WITHOUT expr '}'
-        { tree_t *e=rk_with_mod($3,$5,1); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_with_mod($3,$5,1); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list expr KW_GIVEN expr '}'
-        { tree_t *e=rk_given_mod($3,$5); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=rk_given_mod($3,$5); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr '}'
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=$2; exprlist_append(l,s); $$=make_seq(l); }
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,s); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_IF expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$6); expr_add_child(e,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$6); expr_add_child(e,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_UNLESS expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$6); ast_push(e,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$6); ast_push(e,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_FOR expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
           tree_t *gen=expr_unary(TT_ITERATE,$6); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_WITH expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=rk_with_mod(s,$6,0); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=rk_with_mod(s,$6,0); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_WITHOUT expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=rk_with_mod(s,$6,1); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=rk_with_mod(s,$6,1); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_SAY expr KW_GIVEN expr '}'
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$4);
-          tree_t *e=rk_given_mod(s,$6); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+          tree_t *e=rk_given_mod(s,$6); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_PRINT expr '}'
-        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,p); $$=make_seq(l); }
     | '{' stmt_list call_expr '.' meth_name '=' expr '}'
         { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); ct_drop($5); expr_add_child(fe,$3);
-          tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
+          tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list atom '.' meth_name '=' expr '}'
         { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); ct_drop($5); expr_add_child(fe,$3);
-          tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
+          tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list VAR_TWIGIL '=' expr '}'
         { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD); fe->v.sval=(char*)intern(rk_tw_bare($3)); ct_drop($3);
-          tree_t *a=expr_binary(TT_ASSIGN,fe,$5); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
+          tree_t *a=expr_binary(TT_ASSIGN,fe,$5); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list VAR_ARRAY '[' expr ']' '=' expr '}'
         { tree_t *c=ast_node_new(TT_ARR_SET); ast_push(c,var_node($3)); ast_push(c,$5); ast_push(c,$8);
-          ExprList *l=$2; exprlist_append(l,c); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,c); $$=make_seq(l); }
     | '{' stmt_list VAR_HASH '{' expr '}' '=' expr '}'
         { tree_t *c=ast_node_new(TT_HASH_SET); ast_push(c,var_node($3)); ast_push(c,$5); ast_push(c,$8);
-          ExprList *l=$2; exprlist_append(l,c); $$=make_seq(l); }
+          ExprList *l=rk_phasers_place($2,0); exprlist_append(l,c); $$=make_seq(l); }
     | '{' stmt_list KW_TAKE expr '}'
-        { tree_t *t=expr_unary(TT_SUSPEND,$4); ExprList *l=$2; exprlist_append(l,t); $$=make_seq(l); }
+        { tree_t *t=expr_unary(TT_SUSPEND,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,t); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN expr '}'
-        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$4); ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$4); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_RETURN '}'
-        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
+        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
     | '{' stmt_list KW_LAST '}'
-        { ExprList *l=$2; exprlist_append(l,ast_node_new(TT_LOOP_BREAK)); $$=make_seq(l); }
+        { ExprList *l=rk_phasers_place($2,0); exprlist_append(l,ast_node_new(TT_LOOP_BREAK)); $$=make_seq(l); }
     | '{' stmt_list KW_NEXT '}'
-        { ExprList *l=$2; exprlist_append(l,ast_node_new(TT_LOOP_NEXT)); $$=make_seq(l); }
+        { ExprList *l=rk_phasers_place($2,0); exprlist_append(l,ast_node_new(TT_LOOP_NEXT)); $$=make_seq(l); }
     | '{' stmt_list KW_LAST KW_IF expr '}'
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_LAST KW_UNLESS expr '}'
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_NEXT KW_IF expr '}'
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$5); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_NEXT KW_UNLESS expr '}'
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$5); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     ;
 closure
     : '{' expr '}'  { $$=$2; }

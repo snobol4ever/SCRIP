@@ -156,86 +156,87 @@ typedef struct ExprList {
     KW_RULE = 337,                 /* KW_RULE  */
     KW_REGEX = 338,                /* KW_REGEX  */
     KW_MODULE = 339,               /* KW_MODULE  */
-    OP_FATARROW = 340,             /* OP_FATARROW  */
-    OP_RANGE = 341,                /* OP_RANGE  */
-    OP_RANGE_EX = 342,             /* OP_RANGE_EX  */
-    OP_ARROW = 343,                /* OP_ARROW  */
-    OP_EQ = 344,                   /* OP_EQ  */
-    OP_NE = 345,                   /* OP_NE  */
-    OP_LE = 346,                   /* OP_LE  */
-    OP_GE = 347,                   /* OP_GE  */
-    OP_SEQ = 348,                  /* OP_SEQ  */
-    OP_SNE = 349,                  /* OP_SNE  */
-    OP_SLT = 350,                  /* OP_SLT  */
-    OP_SLE = 351,                  /* OP_SLE  */
-    OP_SGT = 352,                  /* OP_SGT  */
-    OP_SGE = 353,                  /* OP_SGE  */
-    OP_CMP3 = 354,                 /* OP_CMP3  */
-    OP_CMPG = 355,                 /* OP_CMPG  */
-    OP_LEG = 356,                  /* OP_LEG  */
-    OP_AND = 357,                  /* OP_AND  */
-    OP_OR = 358,                   /* OP_OR  */
-    OP_TERNARY1 = 359,             /* OP_TERNARY1  */
-    OP_TERNARY2 = 360,             /* OP_TERNARY2  */
-    OP_BIND = 361,                 /* OP_BIND  */
-    OP_DOTEQ = 362,                /* OP_DOTEQ  */
-    OP_SMATCH = 363,               /* OP_SMATCH  */
-    OP_INC = 364,                  /* OP_INC  */
-    OP_DEC = 365,                  /* OP_DEC  */
-    OP_ADD_EQ = 366,               /* OP_ADD_EQ  */
-    OP_SUB_EQ = 367,               /* OP_SUB_EQ  */
-    OP_MUL_EQ = 368,               /* OP_MUL_EQ  */
-    OP_DIV_EQ = 369,               /* OP_DIV_EQ  */
-    OP_CAT_EQ = 370,               /* OP_CAT_EQ  */
-    OP_DOR = 371,                  /* OP_DOR  */
-    OP_DIV = 372,                  /* OP_DIV  */
-    ADV_EXISTS = 373,              /* ADV_EXISTS  */
-    ADV_DELETE = 374,              /* ADV_DELETE  */
-    OP_BAND = 375,                 /* OP_BAND  */
-    OP_SHL = 376,                  /* OP_SHL  */
-    OP_GCD = 377,                  /* OP_GCD  */
-    OP_LCM = 378,                  /* OP_LCM  */
-    OP_MODW = 379,                 /* OP_MODW  */
-    OP_NBAND = 380,                /* OP_NBAND  */
-    OP_UMUL = 381,                 /* OP_UMUL  */
-    OP_UDIV = 382,                 /* OP_UDIV  */
-    OP_BORT = 383,                 /* OP_BORT  */
-    OP_NBOR = 384,                 /* OP_NBOR  */
-    OP_QBOR = 385,                 /* OP_QBOR  */
-    OP_QBXOR = 386,                /* OP_QBXOR  */
-    OP_UMINUS_I = 387,             /* OP_UMINUS_I  */
-    OP_COMPOSE = 388,              /* OP_COMPOSE  */
-    OP_COMPOSEU = 389,             /* OP_COMPOSEU  */
-    OP_SETINT = 390,               /* OP_SETINT  */
-    OP_SETMUL = 391,               /* OP_SETMUL  */
-    OP_SETUNI = 392,               /* OP_SETUNI  */
-    OP_SETSUM = 393,               /* OP_SETSUM  */
-    OP_SETDIF = 394,               /* OP_SETDIF  */
-    OP_SETSYM = 395,               /* OP_SETSYM  */
-    OP_XORJ = 396,                 /* OP_XORJ  */
-    OP_RANGE_XL = 397,             /* OP_RANGE_XL  */
-    OP_RANGE_XB = 398,             /* OP_RANGE_XB  */
-    OP_BUT = 399,                  /* OP_BUT  */
-    OP_DOESW = 400,                /* OP_DOESW  */
-    OP_COLL = 401,                 /* OP_COLL  */
-    OP_UNICMP = 402,               /* OP_UNICMP  */
-    OP_IDENT3 = 403,               /* OP_IDENT3  */
-    OP_EQV = 404,                  /* OP_EQV  */
-    OP_BEFORE = 405,               /* OP_BEFORE  */
-    OP_AFTER = 406,                /* OP_AFTER  */
-    OP_SETCONT = 407,              /* OP_SETCONT  */
-    OP_SETELEM = 408,              /* OP_SETELEM  */
-    OP_APPROX = 409,               /* OP_APPROX  */
-    OP_SMARTM = 410,               /* OP_SMARTM  */
-    OP_NSMARTM = 411,              /* OP_NSMARTM  */
-    OP_MINOP = 412,                /* OP_MINOP  */
-    OP_MAXOP = 413,                /* OP_MAXOP  */
-    OP_XOROP = 414,                /* OP_XOROP  */
-    OP_DIVIS = 415,                /* OP_DIVIS  */
-    OP_REP_X = 416,                /* OP_REP_X  */
-    OP_REP_XX = 417,               /* OP_REP_XX  */
-    OP_POW = 418,                  /* OP_POW  */
-    UMINUS = 419                   /* UMINUS  */
+    PHASER = 340,                  /* PHASER  */
+    OP_FATARROW = 341,             /* OP_FATARROW  */
+    OP_RANGE = 342,                /* OP_RANGE  */
+    OP_RANGE_EX = 343,             /* OP_RANGE_EX  */
+    OP_ARROW = 344,                /* OP_ARROW  */
+    OP_EQ = 345,                   /* OP_EQ  */
+    OP_NE = 346,                   /* OP_NE  */
+    OP_LE = 347,                   /* OP_LE  */
+    OP_GE = 348,                   /* OP_GE  */
+    OP_SEQ = 349,                  /* OP_SEQ  */
+    OP_SNE = 350,                  /* OP_SNE  */
+    OP_SLT = 351,                  /* OP_SLT  */
+    OP_SLE = 352,                  /* OP_SLE  */
+    OP_SGT = 353,                  /* OP_SGT  */
+    OP_SGE = 354,                  /* OP_SGE  */
+    OP_CMP3 = 355,                 /* OP_CMP3  */
+    OP_CMPG = 356,                 /* OP_CMPG  */
+    OP_LEG = 357,                  /* OP_LEG  */
+    OP_AND = 358,                  /* OP_AND  */
+    OP_OR = 359,                   /* OP_OR  */
+    OP_TERNARY1 = 360,             /* OP_TERNARY1  */
+    OP_TERNARY2 = 361,             /* OP_TERNARY2  */
+    OP_BIND = 362,                 /* OP_BIND  */
+    OP_DOTEQ = 363,                /* OP_DOTEQ  */
+    OP_SMATCH = 364,               /* OP_SMATCH  */
+    OP_INC = 365,                  /* OP_INC  */
+    OP_DEC = 366,                  /* OP_DEC  */
+    OP_ADD_EQ = 367,               /* OP_ADD_EQ  */
+    OP_SUB_EQ = 368,               /* OP_SUB_EQ  */
+    OP_MUL_EQ = 369,               /* OP_MUL_EQ  */
+    OP_DIV_EQ = 370,               /* OP_DIV_EQ  */
+    OP_CAT_EQ = 371,               /* OP_CAT_EQ  */
+    OP_DOR = 372,                  /* OP_DOR  */
+    OP_DIV = 373,                  /* OP_DIV  */
+    ADV_EXISTS = 374,              /* ADV_EXISTS  */
+    ADV_DELETE = 375,              /* ADV_DELETE  */
+    OP_BAND = 376,                 /* OP_BAND  */
+    OP_SHL = 377,                  /* OP_SHL  */
+    OP_GCD = 378,                  /* OP_GCD  */
+    OP_LCM = 379,                  /* OP_LCM  */
+    OP_MODW = 380,                 /* OP_MODW  */
+    OP_NBAND = 381,                /* OP_NBAND  */
+    OP_UMUL = 382,                 /* OP_UMUL  */
+    OP_UDIV = 383,                 /* OP_UDIV  */
+    OP_BORT = 384,                 /* OP_BORT  */
+    OP_NBOR = 385,                 /* OP_NBOR  */
+    OP_QBOR = 386,                 /* OP_QBOR  */
+    OP_QBXOR = 387,                /* OP_QBXOR  */
+    OP_UMINUS_I = 388,             /* OP_UMINUS_I  */
+    OP_COMPOSE = 389,              /* OP_COMPOSE  */
+    OP_COMPOSEU = 390,             /* OP_COMPOSEU  */
+    OP_SETINT = 391,               /* OP_SETINT  */
+    OP_SETMUL = 392,               /* OP_SETMUL  */
+    OP_SETUNI = 393,               /* OP_SETUNI  */
+    OP_SETSUM = 394,               /* OP_SETSUM  */
+    OP_SETDIF = 395,               /* OP_SETDIF  */
+    OP_SETSYM = 396,               /* OP_SETSYM  */
+    OP_XORJ = 397,                 /* OP_XORJ  */
+    OP_RANGE_XL = 398,             /* OP_RANGE_XL  */
+    OP_RANGE_XB = 399,             /* OP_RANGE_XB  */
+    OP_BUT = 400,                  /* OP_BUT  */
+    OP_DOESW = 401,                /* OP_DOESW  */
+    OP_COLL = 402,                 /* OP_COLL  */
+    OP_UNICMP = 403,               /* OP_UNICMP  */
+    OP_IDENT3 = 404,               /* OP_IDENT3  */
+    OP_EQV = 405,                  /* OP_EQV  */
+    OP_BEFORE = 406,               /* OP_BEFORE  */
+    OP_AFTER = 407,                /* OP_AFTER  */
+    OP_SETCONT = 408,              /* OP_SETCONT  */
+    OP_SETELEM = 409,              /* OP_SETELEM  */
+    OP_APPROX = 410,               /* OP_APPROX  */
+    OP_SMARTM = 411,               /* OP_SMARTM  */
+    OP_NSMARTM = 412,              /* OP_NSMARTM  */
+    OP_MINOP = 413,                /* OP_MINOP  */
+    OP_MAXOP = 414,                /* OP_MAXOP  */
+    OP_XOROP = 415,                /* OP_XOROP  */
+    OP_DIVIS = 416,                /* OP_DIVIS  */
+    OP_REP_X = 417,                /* OP_REP_X  */
+    OP_REP_XX = 418,               /* OP_REP_XX  */
+    OP_POW = 419,                  /* OP_POW  */
+    UMINUS = 420                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -244,7 +245,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 501 "raku.y"
+#line 600 "raku.y"
 
     long      ival;
     double    dval;
@@ -252,7 +253,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 256 "raku.tab.h"
+#line 257 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;

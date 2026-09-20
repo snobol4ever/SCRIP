@@ -26,6 +26,7 @@ int raku_get_lineno(void) { return raku_yylineno; }
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
 ALNUM    [A-Za-z0-9_]
+PHB         [ \t\r\n]*"{"
 EXP      [eE][+-]?{DIGIT}+
 WS       [ \t\r]
 %%
@@ -41,6 +42,25 @@ WS       [ \t\r]
 <POD>[^\n]+          { }
 <POD><<EOF>>         { BEGIN(INITIAL); yyterminate(); }
 "my"            { return KW_MY; }
+"our"           { return KW_MY; }
+"BEGIN"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"CHECK"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"INIT"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"END"/{PHB}     { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"ENTER"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"LEAVE"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"KEEP"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"UNDO"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"PRE"/{PHB}     { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"POST"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"FIRST"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"LAST"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"NEXT"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"TEMP"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"once"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"quietly"/{PHB} { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"react"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"do"/{PHB}      { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
 "use"           { return KW_USE; }
 "plan"          { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "ok"            { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
@@ -65,6 +85,7 @@ WS       [ \t\r]
 "eval-lives-ok" { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "eval-dies-ok"  { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "say"           { return KW_SAY; }
+"join"/"("      { raku_yylval.sval = ct_strdup(yytext); return IDENT; }
 "join"          { return KW_JOIN; }
 "print"         { return KW_PRINT; }
 "if"            { return KW_IF; }
