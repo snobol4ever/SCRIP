@@ -135,6 +135,37 @@ else
   ck no "(g) the two populations share a verdict: emitted-no-layout raised the red banner $red_hit time(s) (want >=1), never-emitted raised it $green_hit time(s) (want 0). They have OPPOSITE OWNERS and cannot share one"
 fi
 
+# (i) THE THIRD POPULATION, WHICH IS NOT `no_layout` AT ALL AND WHICH EVERY HOLE-COUNTING INSTRUMENT PASSES BY
+# CONSTRUCTION (hq_raku 2026-09-20, measured on gram__G__TOP; reproduced here by a different road and widened).
+# ⛔ A GRAPH CAN EMIT, REGISTER A FRAME MAP, AND HAVE NO LAYOUT ENTRY IN IT.  frame_bytes=64 header_bytes=48 with
+# FLAT_FRAME_ALLOWANCE 48+16 leaves a value region of exactly ZERO BYTES.  Such a graph is NOT no_layout -- it has
+# a map, so it counts inside graphs= and graded= -- and it contributes 0 to fields= and 0 to holes=, so a hole
+# census reads it as perfect.  hq_raku's family was corrupt under every collection while
+# test_gate_gc_raku_every_frame_slot_has_a_kind printed PASS over 19476 fields and 0 holes.  A ZERO OVER A
+# DENOMINATOR OF ZERO, which is harder to notice than a zero over a small denominator because no field in the
+# output moves.  MEASURED FLEET-WIDE AT THIS LANDING: 37 graphs -- raku 33 (hq_raku's own count, reached here by
+# parsing --dump-zeta rather than by their per-entry map dump), snobol4 2, icon 2.
+# ⛔⭐ A ZERO-BYTE REGION IS NOT BY ITSELF A DEFECT AND THIS GATE DOES NOT CALL IT ONE.  A graph with nothing live
+# across a safe point has nothing to map: snobol4's two are `main` in simple_program_2 and simple_program_11.  THE
+# CORRECTNESS QUESTION IS THE JOIN -- a zero-entry map in a graph that DOES shield a value at a safe point -- and
+# that join is NOT BUILT YET (it needs this census's graph names against the unmapped-store census's per-graph
+# shielded stores).  Named here as owed rather than counted as clean, which is this row's whole subject matter.
+zr_stub="$T/fakeroot2"
+mkdir -p "$zr_stub"
+cat > "$zr_stub/scrip" <<'STUB'
+#!/bin/sh
+echo "; graph 0 'zr' flat slots=0 region_end=0 resume=-1 vslots=0 scopes=0"
+STUB
+chmod +x "$zr_stub/scrip"
+out="$(SCRIP="$zr_stub/scrip" timeout 120s python3 "$TOOL" --files "$T/w.sno" --timeout 5 2>&1)"
+zrn="$(printf '%s\n' "$out" | grep -m1 '^ZLS-MAP ' | sed -n 's/.* zero_region_graphs=\([0-9]*\).*/\1/p')"
+gr="$(printf '%s\n' "$out" | grep -m1 '^ZLS-MAP ' | sed -n 's/.* graded=\([0-9]*\) .*/\1/p')"
+if [ "${zrn:-0}" = 1 ] && [ "${gr:-0}" = 1 ] && printf '%s\n' "$out" | grep -q "^ZERO-REGION .*region_end=0"; then
+  ck ok "(i) PLANTED -- a graph that EMITS with a zero-entry frame map is counted (zero_region_graphs=1) and NAMED, while still reading graded=1 and no_layout=0, which is exactly how it hides from a hole census"
+else
+  ck no "(i) a zero-entry frame map was not counted or not named: zero_region_graphs=${zrn:-?} graded=${gr:-?}. A graph with a map and no entry in it stores every boundary outside any mapped slot BY CONSTRUCTION and no hole count can see it"
+fi
+
 # (h) an instrument nobody runs is not an instrument
 if grep -q 'test_gate_gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in.sh' "$ROOT/Makefile" 2>/dev/null; then
   ck ok "(h) this gate is named in the Makefile"

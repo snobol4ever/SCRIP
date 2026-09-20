@@ -266,7 +266,7 @@ def main():
     list_all = os.environ.get("ZLS_LIST_ALL") == "1"
     cap = 40
     counts = {"region-gap": 0, "scope-gap": 0, "overlap": 0, "vslot-unmapped": 0, "provisional-kind": 0, "unknown-kind": 0}
-    graded = 0; nolayout = []; graphs_n = 0; fields_n = 0; holes = 0; shown = 0; words_n = 0; unkinded_n = 0
+    graded = 0; nolayout = []; graphs_n = 0; fields_n = 0; holes = 0; shown = 0; words_n = 0; unkinded_n = 0; zero_region = []
     for name, p in work:
         graphs, err, kind = dump_one(scrip, p, a.timeout)
         if graphs is None:
@@ -274,6 +274,8 @@ def main():
         graded += 1
         for g in graphs:
             graphs_n += 1; words_n += g["region_end"] // 8
+            if g["region_end"] == 0 or not any(sc["fields"] for sc in g["scopes"]):
+                zero_region.append((name, g["name"], g["region_end"]))
             fields_n += sum(len(sc["fields"]) for sc in g["scopes"])
             for cls, sc, lo, hi, detail in holes_of(g):
                 holes += 1; counts[cls] += 1; unkinded_n += (hi - lo + 7) // 8
@@ -296,8 +298,12 @@ def main():
         print(f"zls-frame-map-census[{label}]: REFUSE(2): {len(nolayout)} no-layout entr(ies) and {sum(by_kind.values())} placed in a kind -- an entry this census cannot place is not counted in any bucket and would vanish from both owners' work lists"); return 2
     if wantrc_note:
         print(f"NO-LAYOUT-SIDECAR lang={label} -- {wantrc_note}")
+    for ent, gname, rend in zero_region[:40]:
+        print(f"ZERO-REGION lang={label} entry={ent} graph='{gname}' region_end={rend} -- this graph EMITS and REGISTERS a frame map with NO layout entry, so every leaf boundary in it stores outside any mapped slot BY CONSTRUCTION. It is NOT no_layout, it counts inside graphs= and graded=, and it contributes 0 to fields= and 0 to holes=, so it PASSES EVERY HOLE-COUNTING INSTRUMENT BY CONSTRUCTION (hq_raku 2026-09-20, measured on gram__G__TOP: frame_bytes=64 header_bytes=48, a value region of exactly zero bytes, corrupt under every collection while the hole gate read PASS over 19476 fields and 0 holes)")
+    if len(zero_region) > 40:
+        print(f"... {len(zero_region) - 40} more ZERO-REGION graph(s) not listed")
     cls_s = " ".join(f"{k}={v}" for k, v in counts.items())
-    print(f"ZLS-MAP lang={label} graphs={graphs_n} words={words_n} unkinded={unkinded_n} holes={holes} graded={graded} no_layout={len(nolayout)} no_layout_declared={len(declared)} no_layout_never_emitted={by_kind['NEVER-EMITTED']} no_layout_emitted_no_layout={by_kind['EMITTED-NO-LAYOUT']} no_layout_unmeasured={by_kind['UNMEASURED']}")
+    print(f"ZLS-MAP lang={label} graphs={graphs_n} words={words_n} unkinded={unkinded_n} holes={holes} graded={graded} no_layout={len(nolayout)} no_layout_declared={len(declared)} no_layout_never_emitted={by_kind['NEVER-EMITTED']} no_layout_emitted_no_layout={by_kind['EMITTED-NO-LAYOUT']} no_layout_unmeasured={by_kind['UNMEASURED']} zero_region_graphs={len(zero_region)}")
     print(f"zls-frame-map-census[{label}]: entries={len(work)} graded={graded} no_layout={len(nolayout)} (declared={len(declared)} defect={len(nolayout) - len(declared)}) graphs={graphs_n} fields={fields_n} holes={holes} ({cls_s}) population=the zls region only; the wire header past region_end and the spine are not censused here")
     if graded == 0:
         print(f"zls-frame-map-census[{label}]: REFUSE(2): nothing graded"); return 2
