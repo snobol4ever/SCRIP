@@ -607,6 +607,115 @@ s4e_root() { case "$1" in ceo|hq) if [ -d /home/claude_ceo ]; then echo /home/cl
     seat0[1-9]|seat1[0-9]|seat20) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_icon hq_prolog hq_raku hq_pascal hq_snocone hq_snobol4 hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R hq_V ceo cto coo cfo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
 s4e_is_hq() { case "$1" in hq|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|coo|cfo) return 0;; *) return 1;; esac; }
+# ⛔⭐⭐ ONE AUTHORITY FOR "IS THIS SEAT STANDING", CALLED TWICE (coo 2026-09-20, ceo CEO-1002, row
+# instruments-claim-and-next-announce-the-start-of-work-to-every-standing-seat). This case was INLINE in `next`,
+# where it could only ever answer the question about $ME -- and the announcing cure has to ask it about EVERY OTHER
+# SEAT, to know who to tell. ⛔ A SECOND COPY OF THIS TABLE IS THE ONE THING THAT MUST NOT HAPPEN HERE: it is the
+# roster Lon publishes, it changes twice a day (SEPTET is the fourth mode since 09-19), and a stale copy would
+# announce to stood-down seats while missing a standing one -- hq_snobol4 2026-09-20: an instrument that
+# re-implements another instrument's setup will drift from it silently, and the drift prints as a property of the
+# world. So the body MOVED here whole and `next` now calls it; the refusal text and every CEO citation are the
+# originals, unedited. rc=0 the seat stands, rc=1 refused with _REFUSE_KIND/_REFUSE_WHY set for the caller to print.
+s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _REFUSE_KIND/_REFUSE_WHY)
+  local _seat="$1" _m="$2"
+  _REFUSE_KIND=""; _REFUSE_WHY=""
+  _dr() { _REFUSE_KIND="$1"; _REFUSE_WHY="$2"; }
+         case "$_seat" in
+           ceo) : ;;
+           # ⛔⭐ AN OFFICER IS A STOOD-DOWN IDENTITY UNDER MODE CEO, AND THE GUARD DID NOT KNOW IT (ceo CEO-755).
+           # The case below matched hq_* and seat* and let ceo through by name; cto, cfo and coo matched NOTHING
+           # and fell out of the case entirely, so under MODE CEO -- where line 2 says the ceo works the rows
+           # itself -- three seats could still lock rows and hide them from the only seat that is standing.
+           # The defect was invisible for exactly the reason the comment above names: falling out of a case
+           # returns success, so "not refused" and "permitted" are the same observable.
+           # ⛔ MODE DUO (Lon 2026-09-19, in-chat to ceo: "let's move to CEO+CTO mode with CEO as Fable 5.1 effort=xhigh and CTO as
+           # Fable 5.1 effort=high"; CEO-907): the ceo and the cto work rows; the cfo and the coo stay stood down. The cto arm is
+           # split from cfo|coo for exactly CEO-755's reason -- one pattern for three seats under a mode that admits ONE of them
+           # would have to fall out of the case for the admitted seat, and falling out returns success for the other two as well.
+           cto)     case "$_m" in
+                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";; esac;;
+           # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
+           # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
+           # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
+           cfo)     case "$_m" in
+                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      DUO) _dr "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";; esac;;
+           coo)     case "$_m" in
+                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      DUO) _dr "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";;
+                      TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";; esac;;
+           hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
+                      CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
+                      DUO) _dr "an HQ" "Under DUO no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-19, CEO-907).";;
+                      TRIO) _dr "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
+                      QUARTET) _dr "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
+                      SEXTET) case "$_seat" in hq_prolog|hq_icon) : ;; *) _dr "an HQ" "Under SEXTET only hq_prolog and hq_icon stand among the HQs, each on its by_name_dispatch.c region (Lon 2026-09-19, CEO-912).";; esac;;
+                      # ⛔⭐ MODE DECTET, EXPLICIT AND NOT A FALLTHROUGH (ceo CEO-979, 2026-09-20, on Lon's "Can you add some seats to fix bugs alongside the GC work?"). Before this arm existed an HQ under DECTET was
+                      # admitted by FALLING OUT of this case, which returns success -- the admission was correct and nothing in the file said it was INTENDED, which is CEO-755b's class exactly: the hazard is not that
+                      # the wrong seat is admitted, it is that no reader can tell an intended admission from a missing arm. The six LANGUAGE HQs are named; every other hq_* name, the lettered hq_B..hq_V included, is refused.
+                      # ⛔⭐ MODE SEPTET (Lon 2026-09-20, in-chat to the ceo: "Go to mode SEPTET, with the four current officers and 3 more HQ's as Opus"; ceo CEO-979). THREE language HQs stand, chosen for GC work and
+                      # not for language coverage: hq_raku (31 of the 72 no_layout, the 8,000,486-hit method road), hq_snobol4 (31 no_layout, SnoM's two tiny-arena reds, the pattern-replacement class) and hq_prolog
+                      # (10 no_layout and the findall enumeration defect, the only reds left in the 108-witness battery). hq_pascal and hq_snocone are REFUSED BY NAME rather than omitted: both have ZERO no_layout and
+                      # masters at 246/246 and 336/336, so there is no GC work to give them, and hq_icon is refused for the same reason at two entries -- a refusal that states its measurement is a decision, not an oversight.
+                      SEPTET) case "$_seat" in hq_raku|hq_snobol4|hq_prolog) : ;; *) _dr "an HQ" "Under SEPTET three LANGUAGE HQs stand -- hq_raku hq_snobol4 hq_prolog -- and $_seat is not one of them. hq_icon, hq_pascal and hq_snocone are stood down because their GC debt is 2, 0 and 0 entries (CEO-979).";; esac ;;
+                      DECTET) case "$_seat" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal|hq_raku) : ;; *) _dr "an HQ" "Under DECTET the six LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal hq_raku -- and $_seat is not one of them; the lettered hq_B..hq_V are history (CEO-767, CEO-979).";; esac ;;
+                      EXECUTIVE) _dr "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
+           # ⛔⭐ SEXTET AND SEPTET WERE MISSING FROM THIS LIST AND A NUMBERED SEAT WAS ADMITTED BY FALLING OUT OF THE
+           # CASE -- CEO-755b's class exactly, found 2026-09-20 by the coo the first time this table was asked about a
+           # seat OTHER than $ME (the announcing cure, ceo CEO-1002: its gate mailed seat07 under SEPTET and that is how
+           # the hole printed itself). Neither mode has a fleet: SEPTET is four officers and three language HQs (CEO-979)
+           # and SEXTET is the officers plus hq_prolog and hq_icon (CEO-912). ⛔ THE LESSON IS THE ONE THIS FILE KEEPS
+           # RE-LEARNING: a guard written as "refuse these modes" grows a hole every time Lon names a new one, and the
+           # hole is silent because falling out of a case returns success. Every new mode must be added HERE by name.
+           seat*)   case "$_m" in
+                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|DECTET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
+         esac
+  [ -n "$_REFUSE_WHY" ] && return 1
+  return 0; }
+# ⭐ THE STANDING ROSTER, DISCOVERED AND NEVER TYPED: postoffice mailboxes (the fleet roster, LAW 6) filtered
+# through the ONE dispatch authority above, minus drained boxes. This is who `claim` and `next` announce to.
+s4e_standing_boxes() {   # [<mode>] -> one standing seat per line
+  local _m="${1:-$(head -1 "$PO/MODE" 2>/dev/null | tr -d "[:space:]")}" _b
+  for _b in $(s4e_boxes); do
+    [ -f "$PO/$_b/DRAINED" ] && continue
+    s4e_mode_stands "$_b" "$_m" && echo "$_b"
+  done; }
+# ⛔⭐⭐ THE BUS ANNOUNCES THE START OF WORK (coo 2026-09-20, ceo CEO-1002 rank 0, on hq_snobol4's self-reported
+# witness). claim and next LOCKED A ROW SILENTLY: the bus had claim, assign, ask and send and not one of them told
+# another seat that work had STARTED, so the only instrument that reported a collision was a branch that would not
+# fast-forward. MEASURED: hq_snobol4 measured the no_layout census for an hour; the cto spent their own hour on the
+# same 30 entries and the same cause and landed first at SCRIP 83fb80ee7; hq_snobol4 found out on a failed pull.
+# BOTH SEATS HELD ROWS -- the rows did not overlap BY NAME and did overlap BY POPULATION, which a claim on a topic
+# string can never catch and a live claims board shown at the moment of taking the row would have.
+# ⛔ LON, IN-CHAT TO THE ceo 2026-09-20, VERBATIM: "Them not telegramming before starting is YOUR FAULT! You set up
+# the system." -- so this is a defect in the BUS and not a discipline a seat must remember. The ceo's own first draft
+# of the law read TELEGRAM THE LANE WHEN YOU START, and they retracted it in the same ruling: a rule converting a
+# structural gap into an instruction is obeyed for a week and then not.
+# ⭐ IT CANNOT FAIL THE CLAIM. A lock that succeeded and an announcement that did not are two different facts, and
+# the seat owns the row either way; every delivery failure is COUNTED AND NAMED instead of aborting the take.
+s4e_announce_claim() {   # <topic> -- deliver the notice to every standing seat, then print the neighbourhood
+  local _t="$1" _s _n=0 _bad=0 _f _mode _list="" _c _own _k=0
+  _mode="$(head -1 "$PO/MODE" 2>/dev/null | tr -d '[:space:]')"
+  for _s in $(s4e_standing_boxes "$_mode"); do
+    [ "$_s" = "$ME" ] && continue
+    _f="$PO/$_s/inbox/$(date +%s%N)-$ME-claim-notice-$_t.msg"
+    if { printf 'FROM %s TO %s RE claim-notice-%s\n' "$ME" "$_s" "$_t"
+         printf 'WORK STARTED: %s has taken the row %s at %s. This is the bus announcing a claim, not a request and not a question.\n' "$ME" "$_t" "$(date -u +%FT%TZ)"
+         printf 'If it overlaps what YOU are measuring -- by population, not by name, which is the overlap a topic string cannot see -- say so now rather than after a failed fast-forward (ceo CEO-1002).\n'; } > "$_f" 2>/dev/null; then
+      _n=$((_n+1)); _list="$_list $_s"
+    else _bad=$((_bad+1)); printf '⛔ COULD NOT ANNOUNCE to %s -- the row is YOURS regardless; the announcement is what failed\n' "$_s"; fi
+  done
+  printf -- '-- the neighbourhood, read at the moment you took this row (ceo CEO-1002) --\n'
+  printf '  announced to %d standing seat(s) under MODE %s:%s\n' "$_n" "${_mode:-ABSENT}" "${_list:- NONE}"
+  [ "$_bad" -gt 0 ] && printf '  ⛔ %d announcement(s) FAILED and are named above -- do not read this line as delivery\n' "$_bad"
+  for _c in "$PO"/claims/*.claim; do [ -f "$_c" ] || continue
+    _own="$(head -1 "$_c" 2>/dev/null)"; [ "$_own" = "$ME" ] && continue
+    [ "$(s4e_claim_verdict "$(basename "$_c" .claim)")" = "HELD" ] || continue
+    _k=$((_k+1)); printf '  LIVE CLAIM  %-11s %s\n' "$_own" "$(basename "$_c" .claim)"
+  done
+  if [ "$_k" -eq 0 ]; then printf '  (no other seat holds a row right now)\n'
+  else printf '  ⛔ %d row(s) are being worked RIGHT NOW by other seats. Read them for a POPULATION you are about to\n     measure, not for a name that matches yours -- the 30-entry collision above matched on neither.\n' "$_k"; fi
+  return 0; }
 # ⭐⭐ THE LANE — topic->seat and identity->seat, so `next` can restrict dispatch. Topic lane: the owner cell
 # (QUEUE.tsv field 3) wins when it already names a standing seat — an explicit, already-made decision beats a
 # guess; otherwise derived from the topic's LANGUAGE prefix. A topic naming no language (a postoffice/tooling/
@@ -1688,7 +1797,12 @@ case "$cmd" in
                 # spent on release and must NOT be restored (that is ceo's 2026-08-28 ruling, still governing).
                 { _pre="$(s4e_row_state "$topic")"; if s4e_restricted_to "$_pre" >/dev/null; then printf 'PRIOR-STATE %s\n' "$_pre" >> "$c"; fi; }
                 s4e_set_row_state "$topic" "CLAIMED:$ME" || true
-                echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
+                echo "claimed $topic"
+                # ⛔⭐ THE ANNOUNCEMENT IS PART OF TAKING THE ROW (ceo CEO-1002). `next` reaches its lock through this
+                # very line (it runs `$0 claim`), so wiring it HERE covers the picker and the deliberate claim both --
+                # the same reasoning hq_P used to put the queue-column write here rather than in each verb.
+                s4e_announce_claim "$topic"
+                else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
   unclaim) # ⭐ s265 — RELEASE AN UNWORKED CLAIM. Minted because THREE seats hit its absence in one day (seat08,
          # seat09, seat13): a stale-clone picker mis-locked a row, the seat correctly refused to work it, and then had
          # NO WAY TO PUT IT BACK. `done` was the only exit and `done` is COMPUTED — closing a row you never worked
@@ -2548,49 +2662,17 @@ TASKEOF
              printf '   A claim taken by a stood-down identity HIDES that row from the whole fleet -- which is why this\n' >&2
              printf '   is a REFUSAL and not a warning. If the mode is wrong, ask ceo to publish the real one.\n' >&2
              exit 2; }
-         case "$ME" in
-           ceo) : ;;
-           # ⛔⭐ AN OFFICER IS A STOOD-DOWN IDENTITY UNDER MODE CEO, AND THE GUARD DID NOT KNOW IT (ceo CEO-755).
-           # The case below matched hq_* and seat* and let ceo through by name; cto, cfo and coo matched NOTHING
-           # and fell out of the case entirely, so under MODE CEO -- where line 2 says the ceo works the rows
-           # itself -- three seats could still lock rows and hide them from the only seat that is standing.
-           # The defect was invisible for exactly the reason the comment above names: falling out of a case
-           # returns success, so "not refused" and "permitted" are the same observable.
-           # ⛔ MODE DUO (Lon 2026-09-19, in-chat to ceo: "let's move to CEO+CTO mode with CEO as Fable 5.1 effort=xhigh and CTO as
-           # Fable 5.1 effort=high"; CEO-907): the ceo and the cto work rows; the cfo and the coo stay stood down. The cto arm is
-           # split from cfo|coo for exactly CEO-755's reason -- one pattern for three seats under a mode that admits ONE of them
-           # would have to fall out of the case for the admitted seat, and falling out returns success for the other two as well.
-           cto)     case "$_mode" in
-                      CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";; esac;;
-           # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
-           # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
-           # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
-           cfo)     case "$_mode" in
-                      CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO) _refuse_dispatch "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";; esac;;
-           coo)     case "$_mode" in
-                      CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO) _refuse_dispatch "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";;
-                      TRIO) _refuse_dispatch "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";; esac;;
-           hq|hq_*) case "$_mode" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
-                      CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
-                      DUO) _refuse_dispatch "an HQ" "Under DUO no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-19, CEO-907).";;
-                      TRIO) _refuse_dispatch "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
-                      QUARTET) _refuse_dispatch "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
-                      SEXTET) case "$ME" in hq_prolog|hq_icon) : ;; *) _refuse_dispatch "an HQ" "Under SEXTET only hq_prolog and hq_icon stand among the HQs, each on its by_name_dispatch.c region (Lon 2026-09-19, CEO-912).";; esac;;
-                      # ⛔⭐ MODE DECTET, EXPLICIT AND NOT A FALLTHROUGH (ceo CEO-979, 2026-09-20, on Lon's "Can you add some seats to fix bugs alongside the GC work?"). Before this arm existed an HQ under DECTET was
-                      # admitted by FALLING OUT of this case, which returns success -- the admission was correct and nothing in the file said it was INTENDED, which is CEO-755b's class exactly: the hazard is not that
-                      # the wrong seat is admitted, it is that no reader can tell an intended admission from a missing arm. The six LANGUAGE HQs are named; every other hq_* name, the lettered hq_B..hq_V included, is refused.
-                      # ⛔⭐ MODE SEPTET (Lon 2026-09-20, in-chat to the ceo: "Go to mode SEPTET, with the four current officers and 3 more HQ's as Opus"; ceo CEO-979). THREE language HQs stand, chosen for GC work and
-                      # not for language coverage: hq_raku (31 of the 72 no_layout, the 8,000,486-hit method road), hq_snobol4 (31 no_layout, SnoM's two tiny-arena reds, the pattern-replacement class) and hq_prolog
-                      # (10 no_layout and the findall enumeration defect, the only reds left in the 108-witness battery). hq_pascal and hq_snocone are REFUSED BY NAME rather than omitted: both have ZERO no_layout and
-                      # masters at 246/246 and 336/336, so there is no GC work to give them, and hq_icon is refused for the same reason at two entries -- a refusal that states its measurement is a decision, not an oversight.
-                      SEPTET) case "$ME" in hq_raku|hq_snobol4|hq_prolog) : ;; *) _refuse_dispatch "an HQ" "Under SEPTET three LANGUAGE HQs stand -- hq_raku hq_snobol4 hq_prolog -- and $ME is not one of them. hq_icon, hq_pascal and hq_snocone are stood down because their GC debt is 2, 0 and 0 entries (CEO-979).";; esac ;;
-                      DECTET) case "$ME" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal|hq_raku) : ;; *) _refuse_dispatch "an HQ" "Under DECTET the six LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal hq_raku -- and $ME is not one of them; the lettered hq_B..hq_V are history (CEO-767, CEO-979).";; esac ;;
-                      EXECUTIVE) _refuse_dispatch "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
-           seat*)   case "$_mode" in
-                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET|NONET|DECTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
-         esac
+         # ⛔ THE GUARD BODY MOVED TO s4e_mode_stands (coo 2026-09-20, CEO-1002) so the announcing half can ask it about
+         # OTHER seats. Same table, same refusals, same authority -- this line is the only thing that changed here.
+         _REFUSE_KIND=""; _REFUSE_WHY=""
+         s4e_mode_stands "$ME" "$_mode" || _refuse_dispatch "$_REFUSE_KIND" "$_REFUSE_WHY"
+         # ⭐ ONE scratch file for this whole dispatch: `next` takes its lock by running `$0 claim` with both streams
+         # suppressed, and the announcement (ceo CEO-1002) has to survive that. Created here, before any serve path,
+         # because BOTH lock sites below -- the ordinary serve and the dependency-inversion promotion -- re-print from it.
+         # ⛔ NO EXIT TRAP HERE, DELIBERATELY: s4e_pid_arm already owns EXIT (it releases this seat's pid lock), and a
+         # second `trap ... EXIT` REPLACES the first rather than adding to it -- a one-line scratch-file convenience
+         # would have silently disarmed the pid lock release for every `next`. The file is removed at each use instead.
+         _cl_out="$(mktemp "${TMPDIR:-/tmp}/s4e_claim.XXXXXX")"
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran
          # v1's flat file-order picker — no rank sort, no assign-awareness. seat09 locked a rank-1 row while its own
@@ -2795,7 +2877,8 @@ TASKEOF
                # blocker RANKED BELOW the umbrella it blocks got served after the work it blocks. Reaching this
                # row at rank N is itself the proof that its blocker deserves rank N: serve the BLOCKER, here.
                elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && s4e_promotion_admissible "$promo" "$topic" "$rank" \
-                    && s4e_promotion_placeholder_ok "$promo" "$topic" "$rank" && "$0" claim "$promo" >/dev/null 2>&1; then
+                    && s4e_promotion_placeholder_ok "$promo" "$topic" "$rank" && "$0" claim "$promo" >"$_cl_out" 2>&1; then
+                 sed -n '/^-- the neighbourhood/,$p' "$_cl_out"; rm -f "$_cl_out"
                  echo "RUNNING" >> "$PO/claims/$promo.claim"
                  # ⛔ THE PROMOTED BLOCKER IS A SERVED ROW LIKE ANY OTHER, so it is probed like any other. A
                  # blocker that is already satisfied is the WORST row to hand out unprobed: it is blocking
@@ -2927,13 +3010,19 @@ TASKEOF
              printf '⛔ REFUSING TO DISPATCH %s (rank %s) — %s\n' "$topic" "$rank" "$_ppc_why"
              printf '   Not claimed. An HQ or the mint author fixes the baton; this row stays free for everyone else.\n'
              continue; fi
-           if "$0" claim "$topic" >/dev/null 2>&1; then
+           # ⛔⭐ THE NEIGHBOURHOOD SURVIVES THE SUPPRESSION (coo 2026-09-20, ceo CEO-1002). `next` takes its lock by
+           # running `$0 claim` with BOTH streams sent to /dev/null -- correct for the claim's own chatter and fatal
+           # for the announcement, which is the half of the cure the SERVED seat must actually read. So the output is
+           # captured and the neighbourhood block is re-printed here. The notices themselves were already delivered by
+           # that inner call, under this same identity; re-announcing would double every inbox.
+           if "$0" claim "$topic" >"$_cl_out" 2>&1; then
+             sed -n '/^-- the neighbourhood/,$p' "$_cl_out"; rm -f "$_cl_out"
              echo "RUNNING" >> "$PO/claims/$topic.claim"
              # ⛔⭐ ONE CALL, TWO SERVE PATHS -- see s4e_dispatch_gate. Never inline this again.
              s4e_dispatch_gate "$topic" "$rank" || continue
              s4e_report_owned_skips
              s4e_report_rankcap_skips
-             serve "$topic" "LOCKED" "($_serve_reason)"; exit 0; fi
+             serve "$topic" "LOCKED" "($_serve_reason)"; exit 0; fi; rm -f "$_cl_out"
          done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
          return 1
          }

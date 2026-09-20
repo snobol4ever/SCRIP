@@ -59,6 +59,7 @@ test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh	WIRED	-	-	-
 test_gate_c_allocators_are_eradicated_and_say_where_they_went.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
+test_gate_claim_and_next_announce_the_start_of_work.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
 test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
 test_gate_control_edges_live_on_ports.sh	WIRED	-	-	-
