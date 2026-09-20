@@ -1009,6 +1009,8 @@ long rt_cas_gc_roots(void)
     long b = 0;
     for (int i = 0; i < g_capo_top; i++) { rt_gc_visit_descr(&g_capo[i].matched); b += (long)sizeof(DESCR_t); }
     for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
+    for (int i = 0; i < 2048; i++) if (g_sno_defer_cells[i]) rt_gc_visit_raw((const char **)&g_sno_defer_cells[i]);
+    for (int i = 0; i < 1024; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
     for (int i = 0; i < g_dcf_top; i++) { rt_dcf_t *c = &g_dcf[i]; rt_gc_visit_descr(&c->pending); rt_gc_visit_raw(&c->cur); rt_gc_visit_raw(&c->top); rt_gc_visit_raw(&c->subj); rt_gc_visit_raw(&c->star); b += (long)sizeof(DESCR_t) + 4 * (long)sizeof(const char *); }
     return b;
 }

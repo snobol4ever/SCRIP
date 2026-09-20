@@ -84,7 +84,7 @@ else echo "  arm 2 FAIL: the harness's ARENA line is missing or does not track t
 # that must be declared; `export SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}"` YIELDS to any outer value and merely applies the
 # rule when the gate is run directly rather than through make. Only the first spelling is a pin and only it is counted.
 examined=$((examined + 1))
-DECLARED="test_gate_gc_pacing_bounds_a_churning_program.sh"
+DECLARED="test_gate_gc_pacing_bounds_a_churning_program.sh test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh"
 [ "${FAIL_ONCE:-0}" = 1 ] && DECLARED="$DECLARED test_gate_that_does_not_exist_planted_by_fail_once.sh"
 found=$(cd "$HERE" && grep -lE '^export SCRIP_HEAP_MB=' test_gate_*.sh 2>/dev/null | while read -r f; do grep -qE '^export SCRIP_HEAP_MB="\$\{SCRIP_HEAP_MB:-' "$f" || printf '%s\n' "$f"; done | sort | tr '\n' ' ' | sed 's/ $//')
 want=$(printf '%s\n' $DECLARED | sort | tr '\n' ' ' | sed 's/ $//')

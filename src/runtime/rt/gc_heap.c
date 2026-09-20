@@ -423,7 +423,7 @@ static void gc_live_grow(long need) { if (need < g_gc_lcap) return; g_gc_lcap = 
     g_gc_liveo = (rt_hblk_t **)gcbk_grow((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo)); g_gc_livef = (uint64_t *)gcbk_grow((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef)); if (!g_gc_liveo || !g_gc_livef) abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static double gc_walk_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
-static long gc_collect_ex(int cons_stack);
+static long gc_collect_ex(void);
 static char *g_gc_seam_sp = (char *)0;
 static DESCR_t *g_gc_shield_arr = (DESCR_t *)0;
 static int g_gc_shield_n = 0;
@@ -437,7 +437,7 @@ void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor)
     g_gc_pending = 0;
     g_gc_shield_arr = arr; g_gc_shield_n = n; g_gc_shield_r = r0;
     g_gc_seam_sp = floor;
-    gc_collect_ex(0);
+    gc_collect_ex();
     g_gc_seam_sp = (char *)0;
     g_gc_shield_arr = (DESCR_t *)0; g_gc_shield_n = 0; g_gc_shield_r = (const char **)0;
 }
@@ -478,7 +478,7 @@ static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
     if (!(old & HBF_MARK) && gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_zeta_frame(const char *lo0, const char *hi0);
+static long gc_visit_segment(const char *lo0, const char *hi0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_slot_reg(void *loc)
 {
@@ -788,7 +788,7 @@ static long gc_stack_segments(char *floor)
 {
     gc_seg_it_t it; char *lo, *hi; int pop; long words = 0;
     gc_seg_begin(&it, floor);
-    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; words += gc_zeta_frame((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; }
+    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; words += gc_visit_segment((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; }
     return words;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -866,6 +866,7 @@ static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT
 static int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF; }
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h)
 {
+    if (!gc_maps_on()) return;
     if (g_gw_lines >= GC_WALK_LINE_CAP) { g_gw_suppressed++; return; }
     g_gw_lines++;
     { char tx[25]; const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t); int i = 0; for (; i < 24 && i < n; i++) tx[i] = (b[i] >= 32 && b[i] < 127) ? (char)b[i] : '.'; tx[i] = 0;
@@ -873,6 +874,7 @@ static void gc_walk_site(const char *cls, const char *graph, long off, const cha
 }
 static void gc_walk_badtag(const char *graph, long off, const DESCR_t *d)
 {
+    if (!gc_maps_on()) return;
     if (g_gw_lines >= GC_WALK_LINE_CAP) { g_gw_suppressed++; return; }
     g_gw_lines++;
     fprintf(stderr, "[GC-WALK-BADTAG] pop=%s graph=%s off=%ld v=0x%02x slen=%u p=%p\n", g_gc_rep_popname[g_gc_rep_pop], graph ? graph : "-", off, (unsigned)d->v, (unsigned)d->slen, (const void *)d->p);
@@ -896,35 +898,55 @@ static void gc_walk_dump(const char *lo, const char *base, const char *graph)
     for (const char *p = lo; p + 8 <= base; p += 8) { const char *w = *(const char *const *)p; rt_hblk_t *h = gc_blk_of(w); const char *cls = "int"; unsigned ty = 0; int cell = (p - 8 >= lo) && gc_tag_bears_ptr(*(const uint8_t *)(p - 8));
         if (h) { cls = cell ? "heap-cell" : "heap-RAW"; ty = h->type; }
         else if (!w) cls = "nil";
-        else if (gc_code_range(w)) cls = "code";
+        else if (gc_code_range(w)) { Dl_info di; cls = "code"; if (dladdr((const void *)w, &di) && di.dli_sname) { fprintf(stderr, "[GC-WALK-DUMP] off=%ld at=%p word=%p cls=code sym=%s+%ld\n", (long)(p - base), (const void *)p, (const void *)w, di.dli_sname, (long)(w - (const char *)di.dli_saddr)); continue; } }
         else if (w >= lo - (1L << 20) && w <= gc_stack_top()) cls = "stack";
         else if (((uintptr_t)w & 0xFFFFFF00u) == 0 && gc_tag_known((uint8_t)(uintptr_t)w)) cls = "tag";
         else if (((uintptr_t)w & 0xFFFFFF00u) == 0 && gc_tag_known((uint8_t)(uintptr_t)w) && ((uintptr_t)w >> 32) != 0) cls = "tag";
         fprintf(stderr, "[GC-WALK-DUMP] off=%ld at=%p word=%p cls=%s type=%u\n", (long)(p - base), (const void *)p, (const void *)w, cls, ty); }
 }
+static int gc_cell_visit(DESCR_t *d)
+{
+    if (d->v == DT_S || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s);
+        if (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_N && d->slen != 0 && d->slen != 1 && d->slen != 2) { if (gc_blk_of(d->s)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_N && d->slen == 1) { rt_hblk_t *ch = gc_blk_of((const char *)d->ptr); if (ch && (char *)d->ptr >= (char *)(ch + 1) && (char *)d->ptr + 16 <= (char *)ch + ch->size) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }
+    if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); return 1; }
+    if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); return 1; }
+    if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) { rt_gc_visit_descr(d); return 1; }
+    if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { if (gc_blk_of((const char *)d->p)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); if (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    return 0;
+}
 static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
 {
     gc_walk_t *g = &g_gw[g_gc_rep_pop];
-    for (const char *p = lo; p + 8 <= hi; p += 8) { const char *const *w = (const char *const *)p; rt_hblk_t *h = gc_blk_of(*w);
+    for (const char *p = lo; p + 8 <= hi; p += 8) { const char **w = (const char **)p; rt_hblk_t *h = gc_blk_of(*w);
         if (cls == 0) g->s_words++; else if (cls == 1) g->h_words++; else g->a_words++;
+        if (cls != 2 && p + 16 <= hi && gc_cell_visit((DESCR_t *)p)) { if (gc_blk_of(*(const char *const *)(p + 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; } p += 8; if (cls == 0) g->s_words++; else g->h_words++; continue; }
         if (!h) continue;
         if (cls == 2) { g->a_heap++; gc_walk_site("ABOVE", graph, (long)(p - base), w, h); continue; }
         if (p - 8 >= rlo && gc_tag_bears_ptr(*(const uint8_t *)(p - 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; continue; }
         if (cls == 0) { g->s_raw_heap++; gc_walk_site("SPINE", graph, (long)(p - base), w, h); } else { g->h_raw_heap++; gc_walk_site("HEADER", graph, (long)(p - base), w, h); } }
 }
+static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
 static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
 {
-    gc_walk_t *g = &g_gw[g_gc_rep_pop]; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0]; long covered = 0;
+    gc_walk_t *g = &g_gw[g_gc_rep_pop]; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0]; long covered = 0; int blob = (m->flags & GC_FRAME_MAP_BLOB) ? 1 : 0;
+    if (blob) g_gc_blob_frames++;
     long span = (m->flags & GC_FRAME_MAP_BLOB) ? (long)m->frame_bytes + 8 : (long)m->map_off;
     for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); const char *w = anchor + off, *e = w + size;
         if (w < lo) w = lo;
         if (e > hi) e = hi;
         if (w >= e) continue;
         covered += e - w;
-        if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { const DESCR_t *d = (const DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; } continue; }
-        for (const char *c = w; c + 8 <= e; c += 8) { const char *const *pw = (const char *const *)c; rt_hblk_t *h = gc_blk_of(*pw);
-            if (kind == GC_LAY_PTR_GC) { g->i_ptr++; if (h) g->i_ptr_heap++; continue; }
-            g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); } } }
+        if (blob) { g_gc_blob_entries++; if (kind == GC_LAY_DESCR) g_gc_blob_descr++; else if (kind == GC_LAY_PTR_GC) g_gc_blob_ptr++; else if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++; }
+        if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else { if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; rt_gc_visit_descr(d); } } continue; }
+        for (const char *c = w; c + 8 <= e; c += 8) { const char **pw = (const char **)c; rt_hblk_t *h = gc_blk_of(*pw);
+            if (kind == GC_LAY_PTR_GC) { g->i_ptr++; if (h) { g->i_ptr_heap++; rt_gc_visit_raw(pw); } continue; }
+            g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } } }
     if (span > covered) g->i_gap += (span - covered) / 8;
 }
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo)
@@ -938,12 +960,12 @@ static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo
 static void gc_walk_range(const char *lo0, const char *hi0)
 {
     const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo; int k = g_gc_rep_pop, nf = 0, above = 0; const char *last = "-"; gc_walk_t *g = &g_gw[k];
-    if (k != 1 && k != 2 && k != 4) return;
     while (p + 8 <= hi) {
         const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
         while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
         if (!m) { if (nf == 0) g->nomap++; gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
         nf++; g->frames++;
+        if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
         else { const char *base = c - (long)m->map_off, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (base < p) base = p; if (hhi > hi) hhi = hi;
@@ -951,11 +973,14 @@ static void gc_walk_range(const char *lo0, const char *hi0)
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
-        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; above = 1; }
+        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; } }
     }
 }
+static long g_gc_rtccb_heap;
 static void gc_walk_print(void)
 {
+    if (!gc_maps_on()) { memset(g_gw, 0, sizeof g_gw); g_gw_lines = 0; g_gw_suppressed = 0; return; }
+    if (g_gc_rtccb_heap) fprintf(stderr, "[GC-RTCCB] heap=%ld\n", g_gc_rtccb_heap);
     for (int k = 0; k < GC_REP_POPS; k++) { gc_walk_t *g = &g_gw[k]; if (!g->frames && !g->nomap && !g->s_words && !g->a_words) continue;
         fprintf(stderr, "[GC-WALK] pop=%-7s frames=%ld roots=%ld nomap=%ld notab=%ld i_descr=%ld i_heap=%ld i_badtag=%ld i_ptr=%ld i_ptr_heap=%ld i_raw=%ld i_raw_heap=%ld i_gap=%ld h_words=%ld h_cell_heap=%ld h_raw_heap=%ld s_words=%ld s_cell_heap=%ld s_raw_heap=%ld a_words=%ld a_heap=%ld divergence=%ld\n",
             g_gc_rep_popname[k], g->frames, g->roots, g->nomap, g->notab, g->i_descr, g->i_heap, g->i_badtag, g->i_ptr, g->i_ptr_heap, g->i_raw, g->i_raw_heap, g->i_gap, g->h_words, g->h_cell_heap, g->h_raw_heap, g->s_words, g->s_cell_heap, g->s_raw_heap, g->a_words, g->a_heap, g->i_raw_heap + g->h_raw_heap + g->s_raw_heap + g->a_heap); }
@@ -963,50 +988,11 @@ static void gc_walk_print(void)
     memset(g_gw, 0, sizeof g_gw); g_gw_lines = 0; g_gw_suppressed = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
-static void gc_blob_layout_visit(char *cell, const gc_frame_map_t *m)
+static long gc_visit_segment(const char *lo0, const char *hi0)
 {
-    char *fb = cell + m->frame_bytes; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0];
-    g_gc_blob_frames++;
-    for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); char *w = fb + off; g_gc_blob_entries++;
-        if (kind == GC_LAY_DESCR) { g_gc_blob_descr++; rt_gc_visit_descr((DESCR_t *)w); continue; }
-        if (kind == GC_LAY_PTR_GC) { g_gc_blob_ptr++; rt_gc_visit_raw((const char **)w); continue; }
-        if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++;
-        if (gc_maps_on()) for (int b = 0; b + 8 <= size; b += 8) { const char *v = *(const char *const *)(w + b); rt_hblk_t *h = gc_blk_of(v); if (h && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%d kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", off + b, kind, (const void *)v, (const void *)h, (unsigned)h->type); } } }
-}
-static int gc_blob_cell(const char *p, const char *hi)
-{
-    const DESCR_t *d = (const DESCR_t *)p; const gc_frame_map_t *m;
-    if (p + 16 > hi || d->v != DT_MAP) return 0;
-    m = (const gc_frame_map_t *)d->p;
-    if (!m || !gc_frame_map_registered(m)) return 0;
-    return (m->magic == GC_FRAME_MAP_MAGIC && (m->flags & GC_FRAME_MAP_BLOB) && m->frame_bytes == d->slen) ? 1 : 0;
-}
-static long gc_zeta_frame(const char *lo0, const char *hi0)
-{
-    char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
-    long words = 0; const char *cell = (const char *)0; const char *cell_graph = (const char *)0;
     if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
-    if (gc_maps_on()) gc_walk_range(lo0, hi0);
-    char *p = lo;
-    while (p + 8 <= hi) {
-        if (gc_blob_cell(p, hi)) { const gc_frame_map_t *m = (const gc_frame_map_t *)((const DESCR_t *)p)->p; gc_blob_layout_visit(p, m); p += (long)m->frame_bytes + (long)m->header_bytes; continue; }
-        if (p + 16 <= hi) { DESCR_t *d = (DESCR_t *)p; rt_hblk_t *h = (d->v == DT_S || (d->v == DT_N && d->slen == 0)) ? gc_blk_of(d->s) : (rt_hblk_t *)0;
-            if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
-            if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; } }
-            if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; } }
-            if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
-            if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
-            if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); words += 2; p += 16; continue; }
-            if (gc_maps_verbose() && d->v == DT_MAP && gc_frame_map_registered((const gc_frame_map_t *)d->p)) { const gc_frame_map_t *m = (const gc_frame_map_t *)d->p; cell = p; cell_graph = m->graph_name ? m->graph_name : "?";
-                fprintf(gc_maps_log(), "[GC-MAPS-CELL] pop=%s cell=%p depth=%ld graph=%s frame_bytes=%u header_bytes=%u flags=%u\n", g_gc_rep_popname[g_gc_rep_pop], (const void *)p, (long)(hi - p), cell_graph, m->frame_bytes, m->header_bytes, m->flags); } }
-        { const char **loc = (const char **)p; rt_hblk_t *h = gc_blk_of(*loc);
-          if (h) { if (gc_maps_on()) { g_gc_rep_raw[g_gc_rep_pop]++;
-              if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-MAPS-RAW] pop=%s at=%p depth=%ld word=%p blk=%p type=%u off=%ld below_cell=%p graph=%s\n", g_gc_rep_popname[g_gc_rep_pop], (const void *)p, (long)(hi - p), (const void *)*loc, (const void *)h, (unsigned)h->type, (long)(*loc - (const char *)(h + 1)), (const void *)cell, cell_graph ? cell_graph : "-"); }
-            rt_gc_visit_raw(loc); } }
-        words++; p += 8;
-    }
-    return words;
+    gc_walk_range(lo0, hi0);
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_gc_cas_bytes = 0;
@@ -1030,10 +1016,10 @@ static long gc_plant_shift_prefix(void)
     while (p < g_hp_top && ((rt_hblk_t *)p)->type == HB_FILL && ((rt_hblk_t *)p)->size) { prefix += ((rt_hblk_t *)p)->size; p += ((rt_hblk_t *)p)->size; }
     return prefix;
 }
-static long gc_collect_ex(int cons_stack)
+static long gc_collect_ex(void)
 {
-    extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern int rt_scan_active(void);
-    char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
+    extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern int rt_scan_active(void);
+    char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
     g_sxt_owner = (char *)0;
@@ -1054,32 +1040,29 @@ static long gc_collect_ex(int cons_stack)
             for (char *gs = gs0; gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     g_gc_mhead = (rt_hblk_t *)0;
-    { pz = (cons_stack == 0 && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && g_gc_rrng_n == g_gc_rrng_ss);
-      if (cons_stack == 0 && !pz) cons_stack = 1; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
-    if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) words += gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
-    }
+    for (long i = 0; i < g_gc_rrng_n; i++) { if (g_gc_rrng[i].hi) continue; { const char *top = *(const char * const *)g_gc_rrng[i].lo;
+        for (char *e = (char *)g_gc_rrng[i].lo + 32; e + 32 <= top; e += 32) { const char **cell = (const char **)e; DESCR_t *old = (DESCR_t *)(e + 16); if (*cell) rt_gc_visit_raw(cell); rt_gc_visit_descr(old); } } }
     rt_gc_ws_roots();
-    if (!pz) { gc_coexpr_records(); words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor); }
+    gc_coexpr_records(); words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
     gc_root_cas();
-    kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots();
+    kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots(); bnd_gc_roots();
     if (gc_maps_on()) for (int k = 0; k < GC_REP_POPS; k++) if (g_gc_rep_ranges[k])
         fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld raw_hits=%ld\n",
             g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k], g_gc_rep_agree[k], g_gc_rep_map_only[k], g_gc_rep_sniff_only[k],
             g_gc_rep_map_only[k] + g_gc_rep_sniff_only[k], g_gc_rep_raw[k]);
-    if (gc_maps_on()) gc_walk_print();
+    gc_walk_print();
     if (gc_maps_on()) { fprintf(stderr, "[GC-BLOB] frames=%ld entries=%ld descr=%ld ptr_gc=%ld raw=%ld code=%ld raw_in_heap=%ld\n", g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap);
       { long ion = 0, ioff = 0; scrip_co_gc_images(&ion, &ioff); fprintf(stderr, "[GC-COEXPR] ctxs=%ld parked=%ld sigma=%ld images_on_stack=%ld images_off_stack=%ld plant=%d\n", g_gc_co_ctxs, g_gc_co_parked, g_gc_co_sigma, ion, ioff, scrip_co_gc_plant()); } }
     g_gc_blob_frames = g_gc_blob_entries = g_gc_blob_descr = g_gc_blob_ptr = g_gc_blob_raw = g_gc_blob_code = g_gc_blob_raw_in_heap = 0;
     { static int au = -1; if (au < 0) { const char *e = getenv("SCRIP_GC_AUDIT_SLOTS"); au = (e && *e && *e != '0') ? 1 : 0; }
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
         fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un); } }
-    if (pz) { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) rt_gc_visit_raw((const char **)&rtccb[ci]); }
+    { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) if (gc_blk_of((const char *)rtccb[ci])) { g_gc_rtccb_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p\n", ci, (const void *)rtccb[ci]); } }
+    if (g_gc_shield_r) { extern const char *Σ; extern const char *scan_subj; if (*g_gc_shield_r && (*g_gc_shield_r == Σ || *g_gc_shield_r == scan_subj)) rt_gc_visit_raw(g_gc_shield_r); }
     { extern const char *Σ; rt_gc_visit_raw(&Σ); }
-    if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) { g_gc_rep_pop = 2; words += gc_zeta_frame(g_gc_seam_sp, sst); g_gc_rep_pop = 0; } }
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
-    if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
     { long walked = 0, nscan = 0, rounds = 0;
       { for (;;) { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
             if (h->type == HB_DVEC) { DESCR_t *v = (DESCR_t *)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t)); for (long i = 0; i < n; i++) gc_wl_push(&v[i]); continue; }
@@ -1100,7 +1083,7 @@ static long gc_collect_ex(int cons_stack)
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
     }
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
-      if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d words_scanned=%ld interior_words=%ld\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack, words, interior); }
+      if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior); }
     { long shift = gc_plant_shift_bytes(); g_gc_shift_prefix = shift ? gc_plant_shift_prefix() : 0; dest = g_hp_arena + g_gc_shift_prefix + shift; g_gc_shift_now = shift; }
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
@@ -1142,7 +1125,7 @@ static long gc_collect_ex(int cons_stack)
         "FOLD", g_gc_nblk, w_cnt, n_cnt / 1e3, w_idx, n_idx / 1e3, w_pmg, w_fwd, n_fwd / 1e3, w_liv, n_liv / 1e3, n_mrk / 1e3, w_cel, w_raw, n_fix / 1e3, w_sld, n_sld / 1e3, w_mov, w_vfy, n_vfy / 1e3,
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
     if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
-    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, pz ? "PZ" : "LG", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
+    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
     g_gc_idx = (rt_hblk_t **)0;
@@ -1154,7 +1137,7 @@ long rt_gc_collect_c(char *floor)
 {
     long r;
     g_gc_seam_sp = floor;
-    r = gc_collect_ex(1);
+    r = gc_collect_ex();
     g_gc_seam_sp = (char *)0;
     return r;
 }

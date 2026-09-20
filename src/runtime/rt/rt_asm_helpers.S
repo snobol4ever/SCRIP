@@ -85,6 +85,10 @@ rt_gc_point_arr:
     pushq  %r15
     subq   $8, %rsp
     leaq   8(%rsp), %rcx
+    testq  %rdx, %rdx
+    jnz    .Lgpa_r0
+    leaq   24(%rsp), %rdx
+.Lgpa_r0:
     call   rt_gc_point_arr_c@PLT
     addq   $8, %rsp
     popq   %r15
