@@ -104,6 +104,24 @@ def classB(seg):
     return [m.group(1).strip() for m in re.finditer(r'\$\{S4E_HOME:-([^}]*)\}', seg)
             if re.match(r'^/home/claude', m.group(1).strip())]
 def main():
+    # ⛔ AN UNRECOGNISED ARGUMENT IS A REFUSAL, NEVER A SILENT NO-OP (coo 2026-09-19, row
+    # instrument-the-nineteen-non-gc-blocking-arms). Every flag here is read as `'--x' in sys.argv`, so
+    # before this check a misspelled or invented flag was simply ignored -- and this tool's --cure
+    # REWRITES LIVE BATON FILES. This seat ran `--cure --tasks-dir <a copy>` intending to work on a copy,
+    # exactly as the COO-114 discipline requires; --tasks-dir is not a flag this tool has, it was
+    # swallowed, and the LIVE tasks tree was rewritten instead. No harm done that time -- the rewrite was
+    # the designated cure and it was verified -- but an instrument that accepts an instruction it does not
+    # implement, and then reports success, is THE recurring failure the INSTRUMENT LAWS name.
+    # The population is scoped by the S4E_TASKS environment variable, not by a flag; that is said in the
+    # refusal so the next reader does not have to find it the way this one did.
+    _known = {'--cure', '--json', '--list', '--help', '-h'}
+    _unknown = [a for a in sys.argv[1:] if a not in _known]
+    if _unknown:
+        print("REFUSE(2): unrecognised argument(s): %s" % " ".join(_unknown))
+        print("           known flags: --cure --json --list")
+        print("           to scope the population (e.g. to a COPY before a --cure), set S4E_TASKS=<dir>;")
+        print("           there is no --tasks-dir. Refusing rather than ignoring it: --cure rewrites live batons.")
+        return 2
     ap_cure = '--cure' in sys.argv
     tasks = os.environ.get('S4E_TASKS', '/home/resources/postoffice/tasks')
     if not os.path.isdir(tasks):
