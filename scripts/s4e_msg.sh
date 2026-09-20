@@ -3199,7 +3199,17 @@ TASKEOF
          # file-naming habit. Matching $ME alone ("seat08") against the corpus finds ZERO files, always,
          # for every single-digit seat -- so a same-session FINDING silently fails attribution here too.
          mealt="${ME/#seat0/seat}"
-         fnd=$(git -C "$S4E/.github" log --since="$since" --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
+         # ⛔⭐ THE ANCHOR WAS A PATH PREFIX A RE-GRID MOVED OUT FROM UNDER IT, AND IT FAILED SILENTLY AND DOWNWARD
+         # (hq_snobol4 2026-09-20, measured against their own just-pushed finding; reproduced here on .github 52a2a8bd).
+         # This counter matched '^FINDING-'. Since Lon's 2026-09-18 ruling (CEO-859 + CTO-74) every finding lives at
+         # .github/findings/FINDING-*.md, so every path this sees begins 'findings/' and THE ANCHOR NEVER MATCHED:
+         # same window, same repo, anchored 0 -- unanchored 5, across three seats. ⛔ A WRONG COUNT IS NOT THE HARM.
+         # The banner's NOTHING LANDED verdict calls a session EMPTY when it sees no commit and no finding, and a
+         # diagnosis row whose cure lives in another seat's file CORRECTLY produces a finding and nothing else -- so
+         # the instrument was calling real work nothing, loudest for the seats doing the careful half. It is the
+         # digest's own class wearing new clothes: a guard keyed on a NAME is a coincidence, not a guard -- here keyed
+         # on a PATH PREFIX. Matched at a path BOUNDARY now, so it counts findings/ and any historical root-level one.
+         fnd=$(git -C "$S4E/.github" log --since="$since" --diff-filter=A --name-only --format= 2>/dev/null | grep -E '(^|/)FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
          if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
          else lvl="row ${rowst}${row1:+ ${row1}} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed since ${since}"; fi
          # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
