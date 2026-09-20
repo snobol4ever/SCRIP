@@ -94,22 +94,29 @@ for w in w.sno g.icn; do
     if [ "$nm" -ge 1 ] && [ "$nm" -eq "$nl" ]; then echo "  arm 6 PASS [$w]: $nm installed map(s), $nl with a kind table"
     else echo "  arm 6 RED [$w]: $nm installed map(s) but $nl kind table(s) -- a frame the walker cannot read by kind"; bad=1; fi
 done
-# ⭐ ARM 7 (cto 2026-09-19, CTO-89): THE FIRST SPINE CURE, AND THE SUBJECT ROOT THE WALKER LED TO. The walker's SPINE
-# site lines named ONE untagged heap word on the emitted spine of the SNOBOL4 defer road: x86_xfer_enter's raw push of
-# r13 (the match subject) around a deferred *F() entry. The record is two tagged DESCR cells now ({DT_S, r15d, r13} and
-# {DT_I, 0, r14}), read by tag like every result cell. The witness stayed red after that cure, and the reading behind it
-# was the real defect: rt_match_enter parks the subject base in the C global Σ, c_rt_defer_close matches the deferred
-# value with strncmp(Σ + delta, ...) after the callee's collection slid the subject, and Σ was no root at all (Icon's
-# scan_subj has been one in gen_gc_roots all along). Σ takes one typed visit. This arm holds both under the tiny arena:
-# the witness answers as sbl (OK-3) in both media at stress 1, and no collection whose floor is an emitted return poll
-# (s_words <= 80 on this witness; the by-name C-entry poll's floor sits under ~109 words of C frames and is the step-4
-# residual, printed not graded) reads MORE untagged heap words on the spine than the RATCHET below. RED on 00b154c31 by
-# the answer alone (NO). THE RATCHET (measured on f0368fb08 + this landing, both media): 2 per collection, and both words
-# are NAMED by the SCRIP_GC_MAPS=3 dump -- (1) the cfo's landing-3 entry glue bb_glue_enter_c2bb pushes rbx/r12/r13/r14/
-# r15/rdx raw around every C-to-BB entry, so r13 (the subject) is one untagged word per deferred entry (the xfer record's
-# class again, in bb_glue_flat.cpp: the cfo's file, telegrammed); (2) the match head's stfh record stores r13 raw at
-# HKQ(1) (bb_match_begin.cpp, the baton's step 1(a)). Each cure lowers the ceiling; 0 is the E switch's licence here.
-DS="$ROOT/scripts/gc_witnesses/hb_defer_subject.sno"; DSREF="$ROOT/scripts/gc_witnesses/hb_defer_subject.ref"
+# ⭐ ARM 7 (cto 2026-09-19, CTO-89; RE-MEASURED AND RE-ATTRIBUTED 2026-09-20, CTO-95): THE SPINE CURES, AND WHAT THE
+# RESIDUAL ACTUALLY IS. The first cure was x86_xfer_enter's raw push of r13 (the match subject) around a deferred *F()
+# entry, now two tagged DESCR cells ({DT_S, r15d, r13} and {DT_I, 0, r14}); the witness stayed red after it and the
+# reading behind that was the real defect -- rt_match_enter parks the subject base in the C global Σ, c_rt_defer_close
+# matched with strncmp(Σ + delta, ...) after the callee's collection slid the subject, and Σ was no root at all. Σ takes
+# one typed visit. The cfo's C-to-BB entry glue took the same cure (bb_glue_flat.cpp, 48 bytes to 64). This arm holds
+# both under the tiny arena: each witness answers as its oracle in both media at stress 1, and no collection whose floor
+# is an emitted return poll (s_words <= 80; the by-name C-entry poll's floor sits under ~109 words of C frames and is
+# the step-4 residual, printed not graded) reads MORE untagged heap words on the spine than the RATCHET.
+# ⛔ THE RATCHET IS 1 AND THE OLD 2 NAMED A SITE THAT CANNOT RUN. The 2 was the two live save records above; both are
+# cured, and the comment credited the second to "the match head's stfh record at HKQ(1)" -- code in the UNREACHABLE half
+# of bb_match_begin(), which returned out of a bare block before it (92 lines, deleted CTO-95, emission byte-identical
+# over every benchmark, demo, prolog and icon artifact). What the reporter names TODAY is a different class and it is
+# NOT a live save: on hb_defer_subject.sno the single word at off=-120 is the value pointer left by bb_assign_global's
+# mon-var tap (push rax/rax/rdi/rsi/rdx/... around comm_var), ALREADY POPPED -- a carved-but-unwritten spine slot still
+# holding it. MEASURED DEAD, not argued: with a read watchpoint and a write watchpoint on that address at the collection,
+# the first touch afterwards is a WRITE (runtime, then emitted code) and there is never a READ; on
+# hb_nested_match_outer_subject.sno the deepest site (-784) is never touched again at all. A dead word is not visited and
+# is not read, so the typed walk is correct over it -- but the instrument cannot tell dead from live, so 0 IS NOT
+# REACHABLE BY CURING SAVE RECORDS and must not be written as the E switch's licence. ⛔ WHAT THIS ARM HOLDS: no NEW raw
+# push of a heap pointer appears on a graded collection. A cure lowers the ratchet only after the same read-watchpoint
+# experiment shows the word it removes was LIVE.
+DSN="hb_defer_subject hb_nested_match_outer_subject"
 walk_arm7() {
     lbl=$1; shift
     "$@" > "$W/ds_out.txt" 2> "$W/ds_err.txt" < /dev/null; r=$?
@@ -117,14 +124,18 @@ walk_arm7() {
     worst=$(awk '/^\[GC-WALK\] /{sw=0; rh=0; for(i=1;i<=NF;i++){if($i ~ /^s_words=/){split($i,a,"=");sw=a[2]} if($i ~ /^s_raw_heap=/){split($i,b,"=");rh=b[2]}} if (sw+0 <= 80 && rh+0 > m) m=rh+0} END{print m+0}' "$W/ds_err.txt")
     sites=$(grep '^\[GC-WALK-SPINE\] ' "$W/ds_err.txt" | sed -E 's/.* off=(-?[0-9]+) .*type=([0-9]+).*/\1:t\2/' | sort | uniq -c | sort -rn | head -4 | awk '{printf "%s x%s ", $2, $1}')
     deep=$(awk '/^\[GC-WALK\] /{sw=0; rh=0; for(i=1;i<=NF;i++){if($i ~ /^s_words=/){split($i,a,"=");sw=a[2]} if($i ~ /^s_raw_heap=/){split($i,b,"=");rh=b[2]}} if (sw+0 > 80) d+=rh} END{print d+0}' "$W/ds_err.txt")
-    if [ "$r" -ne 0 ] || ! cmp -s "$W/ds_out.txt" "$DSREF"; then echo "  arm 7 RED [$lbl]: rc=$r answer=[$(tail -1 "$W/ds_out.txt")] oracle=[$(cat "$DSREF")] -- the defer road lost the match subject across a collection"; bad=1; return; fi
+    if [ "$r" -ne 0 ] || ! cmp -s "$W/ds_out.txt" "$DSREF"; then echo "  arm 7 RED [$lbl]: rc=$r answer=[$(tail -1 "$W/ds_out.txt")] oracle=[$(cat "$DSREF")] -- the match lost its subject across a collection"; bad=1; return; fi
     if [ "$c" -lt 1 ]; then echo "  arm 7 RED [$lbl]: no collection observed under the reporter"; bad=1; return; fi
-    if [ "$worst" -gt 2 ]; then echo "  arm 7 RED [$lbl]: a collection below an emitted return poll read $worst untagged heap words on the spine, above the ratchet of 2 (the named residual: the entry glue's raw r13 and the match head's HKQ(1)) -- a new raw push of a heap pointer; sites by offset: $sites"; bad=1; return; fi
-    echo "  arm 7 PASS [$lbl]: $c collection(s), answer = sbl, at most $worst untagged heap word(s) below an emitted return poll (ratchet 2; sites by offset: ${sites:-none}; the C-entry poll residual under the by-name trampoline: $deep word(s), step 4's)"
+    if [ "$worst" -gt ${ARM7_RATCHET:-1} ]; then echo "  arm 7 RED [$lbl]: a collection below an emitted return poll read $worst untagged heap words on the spine, above the ratchet of ${ARM7_RATCHET:-1} (the named residual: a carved-but-unwritten spine slot holding a popped mon-var tap word, measured DEAD by watchpoint) -- a new raw push of a heap pointer; sites by offset: $sites"; bad=1; return; fi
+    echo "  arm 7 PASS [$lbl]: $c collection(s), answer = oracle, at most $worst untagged heap word(s) below an emitted return poll (ratchet ${ARM7_RATCHET:-1}; sites by offset: ${sites:-none}; the C-entry poll residual under the by-name trampoline: $deep word(s), step 4's)"
 }
-walk_arm7 "m3" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_MB=1 timeout 300 "$ROOT/scrip" "$DS"
-if "$ROOT/scrip" --compile -o "$W/ds.s" "$DS" < /dev/null 2>"$W/dsc.txt" && gcc "$W/ds.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ds.m4" 2>>"$W/dsc.txt"; then
-    walk_arm7 "m4" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_MB=1 timeout 300 "$W/ds.m4"
-else echo "  arm 7 RED [m4]: the witness did not compile or link -- $(tail -1 "$W/dsc.txt")"; bad=1; fi
+for dsn in $DSN; do
+    DS="$ROOT/scripts/gc_witnesses/$dsn.sno"; DSREF="$ROOT/scripts/gc_witnesses/$dsn.ref"
+    [ -f "$DS" ] && [ -f "$DSREF" ] || { echo "  arm 7 RED [$dsn]: witness or ref missing -- cannot measure"; bad=1; continue; }
+    walk_arm7 "m3 $dsn" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_MB=1 timeout 300 "$ROOT/scrip" "$DS"
+    if "$ROOT/scrip" --compile -o "$W/ds.s" "$DS" < /dev/null 2>"$W/dsc.txt" && gcc "$W/ds.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ds.m4" 2>>"$W/dsc.txt"; then
+        walk_arm7 "m4 $dsn" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_MB=1 timeout 300 "$W/ds.m4"
+    else echo "  arm 7 RED [m4 $dsn]: the witness did not compile or link -- $(tail -1 "$W/dsc.txt")"; bad=1; fi
+done
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_maps_reporter_runs_beside_the_scan]: the step-3 reporter is not measuring"; exit 1; fi
 echo "GATE PASS(0) [gc_maps_reporter_runs_beside_the_scan]: reporter silent when off, censuses two frontends by population, sniff_only=0 on both; the frame walker finds every frame through its cell and every interior by its kind table, and the scan-enter sigma save is a typed pointer slot, the xfer record is tagged cells and the subject base Σ is a root (7 arms)"
