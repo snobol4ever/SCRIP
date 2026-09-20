@@ -4132,6 +4132,16 @@ static DESCR_t _DETACH_(DESCR_t *a, int n) {
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _io_assoc_pair_state(DESCR_t *a, int n) {
+    if (n < 2) return -1;
+    const char *chan = VARVAL_fn(a[1]);
+    const char *spec = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
+    int have_chan = (chan && chan[0]) ? 1 : 0;
+    int have_spec = (spec && spec[0]) ? 1 : 0;
+    if (!have_chan && !have_spec) return 0;
+    if (have_chan != have_spec) return 1;
+    return 2;
+}
 static DESCR_t _INPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
     char fname_buf[4096];
@@ -4142,12 +4152,12 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
-    { const char *third = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
-      if (!core_io_assoc_legacy() && n >= 2 && (n == 2 || !third || !third[0])) {
-          core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; } }
+    if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
+        core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
     if (!fname || !fname[0]) {
         extern int dup(int);
         long fd = -1, rlen = 0;
+        if (_io_assoc_pair_state(a, n) == 0) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
         if (_input_fp && _input_fp != stdin) fclose(_input_fp);
         _input_fp = stdin;
@@ -4186,9 +4196,8 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
-    { const char *third = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
-      if (!core_io_assoc_legacy() && n >= 2 && (n == 2 || !third || !third[0])) {
-          core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; } }
+    if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
+        core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     char fname_buf[4096];
     const char *fname = NULL;
     if (n >= 4) {
@@ -4209,6 +4218,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     if (!fname || !fname[0]) {
         extern int dup(int);
         long fd = -1, rlen = 0;
+        if (_io_assoc_pair_state(a, n) == 0) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
         if (fd < 0 || ch < 0 || ch >= IO_CHAN_MAX) return FAILDESCR;
         { FILE *nf = fdopen(dup((int)fd), "w");
