@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 170
+# TASK-CEILING: 169
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_beta.sh	WIRED	-	-	-
@@ -236,6 +236,8 @@ test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
 test_gate_no_bb_bin_t.sh	WIRED	-	-	-
 test_gate_no_bench_kernel_qualifies_for_gva_demotion.sh	WIRED	-	-	-
+test_gate_no_c_to_bb.sh	WIRED	-	-	-
+test_gate_no_c_to_bb_ratchet.sh	WIRED	-	-	-
 test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
 test_gate_no_implicit_declarations.sh	WIRED	-	-	-
 test_gate_no_language_discriminator_in_the_runtime.sh	WIRED	-	-	-
@@ -550,7 +552,6 @@ test_gate_master_suite_deferral_and_scope.sh	TASK	-	-	-
 test_gate_me6_reentry_hazard.sh	TASK	-	-	-
 test_gate_no_asm_c_asm.sh	TASK	-	-	-
 test_gate_no_brokered.sh	TASK	-	-	-
-test_gate_no_c_to_bb.sh	TASK	-	-	-
 test_gate_no_fossil_src_paths.sh	TASK	-	-	-
 test_gate_no_hidden_global_in_emitted.sh	TASK	-	-	-
 test_gate_no_lang_names.sh	TASK	-	-	-
