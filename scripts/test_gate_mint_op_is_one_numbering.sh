@@ -49,10 +49,27 @@ oldname="$(grep -rn '\bmod_op\b' src/ 2>/dev/null | head -5 || true)"
 if [ -z "$oldname" ]; then PASS=$((PASS+1))
 else echo "  RED  ARM 2: the field is named mod_op again somewhere under src/ -- it is mint_op:"; printf '%s\n' "$oldname"; FAIL=$((FAIL+1)); fi
 
-# ---- ARM 3a — THE ASSERT IS PRESENT, and it is tied to IR_OP_COUNT rather than to a typed literal.
+# ---- ARM 3a — THE WIDTH GUARD, READ AT THE FIELD THAT STILL HAS A WIDTH.
+# ⛔ THE `IR_OP_COUNT <= 255` CRITERION IS RETIRED, and this arm is what retires it on the record instead of
+# deleting it. It read `<= 255` because descr.h carried a uint8_t mint_op holding the minting op, so an op past
+# 255 would have stamped as a DIFFERENT op with nothing saying so. Lon REMOVED mint_op on 2026-09-18, in-chat,
+# on the ground that the op is DERIVABLE from the node id (SCRIP 0a6f75394, CFO-100): the byte went to
+# src_node, which is now 24 bits, and NOTHING CONSTRAINS IR_OP_COUNT TO A BYTE ANY MORE. An arm demanding that
+# assert back demands a guard over a field that no longer exists — which is why this one arm has been RED for
+# every seat since 09-18 while the other seven passed, and a red arm in the blocking set costs every seat its
+# landing gate. So the arm now grades the guard the byte BECAME, in two places that must agree: IR.h keeps the
+# RETIREMENT where the old assert stood, so the next reader cannot re-add a byte constraint by reading only the
+# enum; and descr.h asserts the 24-bit field's two sentinels, because an id past that field must SATURATE — a
+# wrapped id aliases two nodes and attributes CONFIDENTLY WRONGLY, which is strictly worse for a debugging tool
+# than no attribution at all.
 N=$((N+1))
-if grep -qE 'DESCR_SASSERT\(IR_OP_COUNT <= 255' src/ir/IR.h; then PASS=$((PASS+1))
-else echo "  RED  ARM 3a: IR.h carries no DESCR_SASSERT(IR_OP_COUNT <= 255, ...). The literal it replaced was true when it was typed and stopped being true seven times, because nothing read IR.h and descr_tags.inc together. The assert IS the guard."; FAIL=$((FAIL+1)); fi
+a3=""
+grep -qE 'DESCR_SASSERT\(IR_OP_COUNT > 0' src/ir/IR.h \
+  || a3="IR.h no longer records the retirement where the op-in-a-byte guard stood -- a DESCR_SASSERT(IR_OP_COUNT > 0, ...) must keep that place and carry WHY the width guard went, or the next reader re-adds a byte constraint that has not applied since 2026-09-18"
+grep -qE 'DESCR_SASSERT\(DESCR_SRC_NODE_OVERFLOW == 0xFFFFFFu && DESCR_SRC_NODE_UNSTAMPED == 0u' src/ir/descr.h \
+  || a3="${a3:+$a3; }descr.h does not assert the 24-bit src_node sentinels (DESCR_SRC_NODE_OVERFLOW == 0xFFFFFFu && DESCR_SRC_NODE_UNSTAMPED == 0u) -- src_node INHERITED the retired byte and its width is the only one here left to get wrong"
+if [ -z "$a3" ]; then PASS=$((PASS+1))
+else echo "  RED  ARM 3a: $a3"; FAIL=$((FAIL+1)); fi
 
 # ---- ARM 3b — AND IT BITES. The same macro with a violating value must REFUSE to compile.
 N=$((N+1))
@@ -98,5 +115,5 @@ else
 fi
 [ "$N" -gt 0 ] || { echo "⛔ REFUSE(2) [$GATE]: graded nothing"; exit 2; }
 echo "[$GATE] arms=$N pass=$PASS fail=$FAIL"
-[ "$FAIL" -eq 0 ] && { echo "GATE PASS [$GATE]: mint_op is one numbering (0 unstamped, 1..IR_OP_COUNT-1 the minting BB/IR op), the old name is gone, the width is asserted against IR_OP_COUNT by an assert proven to bite, the stamp needs no arithmetic, and the hand-written asm mints leave it unstamped in source AND in the binary"; exit 0; }
+[ "$FAIL" -eq 0 ] && { echo "GATE PASS [$GATE]: the provenance stamp is ONE numbering, the old mod_op name is gone, the op-in-a-byte width guard is RETIRED ON THE RECORD in IR.h (mint_op removed by Lon 2026-09-18, SCRIP 0a6f75394) with the 24-bit src_node sentinels asserted in its place by an assert proven to bite, the stamp needs no arithmetic, and the hand-written asm mints leave it unstamped in source AND in the binary"; exit 0; }
 echo "verdict=RED"; exit 1
