@@ -16,6 +16,13 @@
 # boundary, and so found zero arena-pointing words on the main stack: 0 unaligned vs 3, 7, 11, 12 aligned on the same
 # four collections). If this gate goes intermittent again, the number to re-measure is that one, not the run count.
 set -u
+# THIS GATE PINS ITS ARENA, AND SAYS WHY (Lon 2026-09-19, ceo CEO-938; RULES.md THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2;
+# cto 2026-09-19, the E landing): gc2.icn prints &collections, and gc2.std was cut from the oracle at the shipped 512 MB window.
+# Under an inherited SCRIP_HEAP_MB=1 the program collects hundreds of times more and the count lines differ by construction
+# (measured on origin/main 41323bc8e and on the E tree alike: 0 of 3 byte-identical at 1 MB, 3 of 3 at 512 MB, both media), so
+# a red here at the tiny arena grades the arena, not the record-type roots this gate exists to grade.  The pin is named in
+# test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh's DECLARED set, where a pin that spreads is caught.
+export SCRIP_HEAP_MB=512
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
 bash scripts/util_require_fresh.sh >/dev/null 2>&1 || { echo "REFUSES rc=2: stale or missing ./scrip -- run make"; exit 2; }
 P="$ROOT/../corpus/packages/icon/arizona_tests/general"

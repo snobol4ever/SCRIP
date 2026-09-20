@@ -962,6 +962,7 @@ static void gc_walk_range(const char *lo0, const char *hi0)
         while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
         if (!m) { if (nf == 0) g->nomap++; gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
         nf++; g->frames++;
+        if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
         else { const char *base = c - (long)m->map_off, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (base < p) base = p; if (hhi > hi) hhi = hi;
@@ -969,7 +970,7 @@ static void gc_walk_range(const char *lo0, const char *hi0)
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
-        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; above = 1; }
+        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; } }
     }
 }
 static long g_gc_rtccb_heap;
