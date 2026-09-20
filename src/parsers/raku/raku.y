@@ -239,6 +239,28 @@ static ExprList *rk_phasers_place(ExprList *l, int mainline) {
     exprlist_free(l);
     return out;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tail_is_statement(int t) {
+    switch (t) {
+    case TT_RETURN: case TT_NRETURN: case TT_PROC_FAIL: case TT_SAY: case TT_SAY_FH: case TT_PRINT: case TT_PRINT_FH:
+    case TT_IF: case TT_UNLESS: case TT_WHILE: case TT_UNTIL: case TT_REPEAT: case TT_FOR: case TT_DO_WHILE: case TT_CLOOP:
+    case TT_EVERY: case TT_CASE: case TT_LOOP_BREAK: case TT_LOOP_NEXT: case TT_SUB_DECL: case TT_PROC_DECL:
+    case TT_CLASS_DECL: case TT_RECORD_DECL: case TT_DIE: case TT_TRY: case TT_CATCH: case TT_YADA: case TT_SEQ:
+    case TT_LABEL_DEF: case TT_STMT: case TT_PROGRAM: case TT_END: case TT_GATHER: case TT_GOTO_S: case TT_GOTO_F:
+    case TT_GOTO_U: case TT_GOTO_DIRECT: case TT_GLOBAL: case TT_LOCAL: case TT_STATIC_DECL: case TT_INITIAL:
+        return 1;
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ExprList *rk_tail_value(ExprList *l) {
+    if (!l || l->count <= 0) return l;
+    { tree_t *last = l->items[l->count - 1];
+      if (!last || rk_tail_is_statement(last->t)) return l;
+      { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, last); l->items[l->count - 1] = r; } }
+    return l;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_phaser_join(tree_t *a, tree_t *b) {
     if (!a) return b;
     ExprList *l = exprlist_new(); exprlist_append(l, a); exprlist_append(l, b); return make_seq(l);
@@ -1236,7 +1258,7 @@ sub_decl
           ct_drop($2); $$=e; }
     ;
 sub_body
-    : '{' stmt_list '}'          { $$=make_seq(rk_phasers_place($2,0)); }
+    : '{' stmt_list '}'          { $$=make_seq(rk_phasers_place(rk_tail_value($2),0)); }
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
           ExprList *l=rk_phasers_place($2,0); exprlist_append(l,r); $$=make_seq(l); }
@@ -1278,7 +1300,7 @@ sub_body
           tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=rk_phasers_place($2,0); exprlist_append(l,e); $$=make_seq(l); }
     ;
 method_body
-    : '{' stmt_list '}'          { $$=make_seq(rk_phasers_place($2,0)); }
+    : '{' stmt_list '}'          { $$=make_seq(rk_phasers_place(rk_tail_value($2),0)); }
     | '{' YADA '}'               { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
     | '{' stmt_list VAR_TWIGIL '=' expr '}'
         { tree_t *fe=rk_tw_field($3); ct_drop($3);
