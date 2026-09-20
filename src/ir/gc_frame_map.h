@@ -37,9 +37,12 @@ _Static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND
 #endif
 #define FLAT_FRAME_ALLOWANCE 64
 #define FLAT_FRAME_ALLOWANCE_PINNED 96
+#define FLAT_FRAME_ALLOWANCE_ROOT 80
 #ifdef __cplusplus
 static_assert(FLAT_FRAME_ALLOWANCE == 48 + 16 && FLAT_FRAME_ALLOWANCE_PINNED == 80 + 16, "the allowance above the value region is the wire header (48, or 80 with the Prolog quad) plus ONE 16-byte map cell (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65); every frame-size formula reads these two names, never a literal, because the generator reserve in frame_layout.c and the two prologue formulas in emit.cpp must agree to the byte or a generator delivers its result from the wrong cell");
+static_assert(FLAT_FRAME_ALLOWANCE_ROOT == 64 + 16 && FLAT_FRAME_ALLOWANCE_ROOT == FLAT_FRAME_ALLOWANCE_PINNED - 16, "the ROOT graph (the Prolog main, root_graph) carries its map cell IN the Prolog quad's spare pair [kt-80, kt-64) so that the standing root cells at [r14 - 24 - 8k] (r14 = rsp + kt - 64) lie BELOW the cell inside the tabled region as PTR_GC words the walker visits by table; above the cell only the 64-byte wire header remains (CTO-90: the cells sat above the ROOT cell in the header the walker reports and never visits, and k >= 2 overwrote the cell itself)");
 #else
 _Static_assert(FLAT_FRAME_ALLOWANCE == 48 + 16 && FLAT_FRAME_ALLOWANCE_PINNED == 80 + 16, "the allowance above the value region is the wire header (48, or 80 with the Prolog quad) plus ONE 16-byte map cell (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65); every frame-size formula reads these two names, never a literal, because the generator reserve in frame_layout.c and the two prologue formulas in emit.cpp must agree to the byte or a generator delivers its result from the wrong cell");
+_Static_assert(FLAT_FRAME_ALLOWANCE_ROOT == 64 + 16 && FLAT_FRAME_ALLOWANCE_ROOT == FLAT_FRAME_ALLOWANCE_PINNED - 16, "the ROOT graph (the Prolog main, root_graph) carries its map cell IN the Prolog quad's spare pair [kt-80, kt-64) so that the standing root cells at [r14 - 24 - 8k] (r14 = rsp + kt - 64) lie BELOW the cell inside the tabled region as PTR_GC words the walker visits by table; above the cell only the 64-byte wire header remains (CTO-90: the cells sat above the ROOT cell in the header the walker reports and never visits, and k >= 2 overwrote the cell itself)");
 #endif
 #endif

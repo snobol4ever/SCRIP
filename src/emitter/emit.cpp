@@ -2543,7 +2543,7 @@ extern "C" int sn4_choice_rbp_off(void) {
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
 static uint64_t g_blob_lay[512]; static int g_blob_lay_n = 0;
 static uint64_t g_zls_lay[32768]; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
-extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *);
+extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
 static void blob_lay_push(int off, unsigned kind, int size) { if (g_blob_lay_n < 512) g_blob_lay[g_blob_lay_n++] = GC_LAY_Q(off, kind, size); }
 static void blob_layout_slot(const IR_t * m, int k, int units) {
     extern int zdp_scratch_cell(const IR_t *); int o0 = frame_slot_off(2, k); (void)units;
@@ -2965,6 +2965,10 @@ static void emit_gc_map_data(const char * fam) {
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = g_blob_lay; lay_n = g_blob_lay_n; }
     else if (g_emit_cfg) { int gaps = 0, conf = 0; int n = zls_g_layout_q(g_emit_cfg, g_zls_lay, 32768, &gaps, &conf);
         if (n > 32768) { fprintf(stderr, "FATAL emit_gc_map_data: graph %s needs more than 32768 kind-table entries -- the sealed table is bounded and a truncated table is a guess (ARCH-GC section 6.2h)\n", fam ? fam : "?"); abort(); }
+        if (n >= 0 && g_emit_cfg->root_graph) { int rg = zls_g_region(g_emit_cfg), nc = g_emit_cfg->standing_cells, clo = g_gc_map_off - 8 * nc;
+            if (rg < 0 || clo < rg || nc < 0 || n > 32766) { fprintf(stderr, "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d map_off=%d -- the standing cells must lie between the value region and the map cell (gc_frame_map.h FLAT_FRAME_ALLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_gc_map_off); abort(); }
+            if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
+            if (nc > 0) g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_PTR_GC, 8 * nc); }
         if (n >= 0) { lay = g_zls_lay; lay_n = n; g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_zls_lay_gaps = gaps; g_zls_lay_conf = conf; } }
     emit_sep_rule('-'); emit_label_define_bb(&g_gc_map_lbl);
     uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)(g_gc_map_fb + (gc_maptab_plant_on() ? 16 : 0)) << 32);
@@ -3874,7 +3878,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? FLAT_FRAME_ALLOWANCE_PINNED : FLAT_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? ((g_emit_cfg && g_emit_cfg->root_graph) ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;
     return 1;
 }
@@ -3984,7 +3988,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->icn_cells_graph)) ? 1 : 0; }
       g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
       g_emit.zframe_pinned_base = (g_emit_cfg && g_emit_cfg->zframe_pinned_base && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
-      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? FLAT_FRAME_ALLOWANCE_PINNED : FLAT_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
+      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? ((g_emit_cfg && g_emit_cfg->root_graph) ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
       g_emit.flat_stmt_frame = 0; }
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     { if (getenv("SCRIP_N2_FT_PROBE") && g_emit_cfg) { int _rg = g_emit_cfg->jcon_value_region, _np = g_emit_cfg->nparams, _nl = g_emit_cfg->nlocals;
