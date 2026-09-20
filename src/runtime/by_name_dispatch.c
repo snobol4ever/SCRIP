@@ -857,6 +857,48 @@ static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int t
     return proc_table_call(pi, callargs, total);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_call_next_t rk_method_open(DESCR_t *args, int nargs)
+{
+    extern int rt_define_returns_by_frame(const char *name);
+    extern int rt_proc_has_native_fn(const char *name);
+    extern int dat_mro(const char *name, const char **out, int max);
+    extern DESCR_t g_call_args[];
+    rt_call_next_t none; none.fn = 0; none.how = 0;
+    if (nargs < 2 || !args) return none;
+    if (args[0].v != DT_DATA || !IS_DATA_INST_fn(args[0]) || !args[0].u) return none;
+    DATINST_t *inst = (DATINST_t *)args[0].u;
+    const char *cname = (inst && inst->type) ? inst->type->name : (const char *)0;
+    if (!cname) return none;
+    const char *mname = VARVAL_fn(args[1]);
+    if (!mname || !*mname) return none;
+    if (mname[0] == '^' || !strcmp(mname, "WHAT") || !strcmp(mname, "isa") || !strcmp(mname, "does") || !strcmp(mname, "bless") || !strcmp(mname, "clone") || !strcmp(mname, "parse")) return none;
+    char procname[256]; int found_idx = -1;
+    resolve_method_chain(cname, mname, procname, sizeof procname, &found_idx);
+    if (!meth_is_user_proc(procname)) return none;
+    { int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) break;
+      if (pi < g_stage2.proc_count && !(g_stage2.proc_table[pi].bb_idx >= 0 && rt_proc_has_native_fn(procname))) return none; }
+    if (!rt_define_returns_by_frame(procname)) return none;
+    if (g_redisp_top >= 64) return none;
+    { int nextra = nargs - 2; int total = 1 + nextra; if (total > 64) return none;
+      { int rd = g_redisp_top++;
+        g_redisp[rd].self = args[0]; snprintf(g_redisp[rd].mname, sizeof g_redisp[rd].mname, "%s", mname);
+        g_redisp[rd].mro_len = dat_mro(cname, g_redisp[rd].mro, 64);
+        if (g_redisp[rd].mro_len == 0) { g_redisp[rd].mro[0] = cname; g_redisp[rd].mro_len = 1; }
+        g_redisp[rd].found_idx = found_idx;
+        g_redisp[rd].nargs = total < 16 ? total : 16;
+        g_redisp[rd].args[0] = args[0];
+        for (int k = 1; k < g_redisp[rd].nargs; k++) g_redisp[rd].args[k] = args[1 + k]; }
+      g_call_args[0] = args[0];
+      for (int k = 0; k < nextra && 1 + k < 64; k++) g_call_args[1 + k] = args[2 + k];
+      { rt_call_next_t n = rt_call_open_by_name(procname, total);
+        if (!n.fn) { g_redisp_top--; return none; }
+        return n; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rk_method_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_land_γ(DESCR_t, long); DESCR_t r = rt_call_land_γ(frame0, word); if (g_redisp_top > 0) g_redisp_top--; return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rk_method_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); DESCR_t r = rt_call_land_ω(word); if (g_redisp_top > 0) g_redisp_top--; return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
