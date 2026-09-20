@@ -6,21 +6,29 @@
 # prolog-atom-names-live-in-71-c-locals-that-no-root-scan-sees-so-deleting-pinning-dangles-every-one; cto ruling
 # 2026-09-14 on the cure and on what this gate grades; census by hq_V).
 #
-# ⛔⭐ THE TWO CLAUSES GRADE DIFFERENT THINGS, AND CLAUSE 2 IS RED TODAY FOR A REASON THAT IS NOT THIS ROW'S.
-# Clause 1 grades the PRECONDITION the cto ruled: atom-name storage is OUTSIDE the collected heap. It is this
-# row's fail-once lever and it went red -> green on the cure. The cto ruled option one (storage leaves the heap)
-# over option two (re-read through prolog_atom_name after every point that can collect) because option two is a
-# property at 56 call sites that nothing but the next author's memory can hold: a claim spanning two sites can be
-# held by a check, a claim spanning fifty-six cannot be held at all.
-# ⛔⛔ CLAUSE 2 IS A REGRESSION GUARD AND IT CANNOT PASS UNTIL ANOTHER ROW LANDS, WHICH IS WHY THIS GATE IS NOT
-# WIRED. Grading 20 runs per mode under SCRIP_GC_STRESS=1 trips a SIGSEGV that has nothing to do with atom names:
-# the collection point walks g_call_args (rt.c:2050) and hands rt_gc_visit_descr a word that is not a DESCR
-# (gc_heap.c:419). Row prolog-twelve-master-entries-sigsegv-under-gc-stress-in-the-call-args-root-walk owns it,
-# with corpus/benchmarks/prolog/bench/queens.pl as a 20/20 deterministic witness. ⭐ THAT ATTRIBUTION WAS MEASURED,
-# NOT INFERRED FROM THE SHAPE: the atom-name cure left the rate unchanged (queens 20/20 before and after, this
-# witness 4/30 before and 3/30 after), which is exactly how two defects that look alike at the surface were told
-# apart. ⛔ WIRE THIS GATE BLOCKING IN THE LANDING THAT CURES THAT ROW -- not before, because red-on-arrival is not
-# a gate, and not later, because a gate that is still `ls`-able reads as a gate that still runs.
+# ✅ BOTH CLAUSES ARE GREEN AND THIS GATE IS WIRED BLOCKING (hq_prolog 2026-09-20). It spent three days at
+# 2 of 3 with clause 2 red for a reason that was never this row's, and the ruling in gate_wiring.tsv said in
+# writing to wire it in the landing that cleared that crash. That crash is cleared, so this is that landing.
+# Clause 1 grades the PRECONDITION the cto ruled: atom-name storage is OUTSIDE the collected heap. The cto ruled
+# option one (storage leaves the heap) over option two (re-read through prolog_atom_name after every point that
+# can collect) because option two is a property at 56 call sites that nothing but the next author's memory can
+# hold: a claim spanning two sites can be held by a check, a claim spanning fifty-six cannot be held at all.
+#
+# ⛔⭐ WHAT CLEARED CLAUSE 2, AND IT WAS NOT THIS ROW. Clause 2 grades 20 runs per mode under SCRIP_GC_STRESS=1,
+# and that used to trip a SIGSEGV with nothing to do with atom names: the collection point walked g_call_args and
+# handed the visitor a word that was not a DESCR. Row prolog-twelve-master-entries-sigsegv-under-gc-stress-in-the-
+# call-args-root-walk owned it. It was cured by SCRIP cda82fa66 (cto, CTO-90) -- the DT_N slen==1/slen==2 heap-block
+# checks in gc_visit_one -- which is the walker-side exclusion this seat built, measured at 20/20 -> 0/20, and
+# REFUSED TO LAND because on that tree a DT_N slen==1 frame reference was the only root reaching that cell whenever
+# the pz fast path skipped the machine-stack walk. ⭐ THE REFUSAL WAS RIGHT AND WAS NOT ANSWERED -- it was DISSOLVED
+# by SCRIP c6bf8e789, THE E SWITCH, which deleted cons_stack, pz and the seam sweep so gc_collect_ex now calls
+# gc_stack_segments unconditionally and the excluded cell is always reached by the stack walk itself. The lesson is
+# the schedule's, not the bug's: a blocked row should re-run its DONE-WHEN before re-reading its own analysis,
+# because "has my question been answered" and "is my question still the question" have different answers.
+#
+# ⭐ THE ATTRIBUTION THAT KEPT THE TWO DEFECTS APART WAS MEASURED, NOT INFERRED FROM THE SHAPE: the atom-name cure
+# left the crash rate UNCHANGED (queens 20/20 before and after, this witness 4/30 before and 3/30 after -- noise,
+# and deliberately not read as an improvement). Two defects that looked alike at the surface were two classes.
 #
 # ⛔⭐ WHY CLAUSE 2 CANNOT BE THE LEVER, AND THIS IS THE PART WORTH READING. The collector is a SLIDING compactor:
 # gc_heap.c memmoves live blocks down and DOES NOT overwrite what it vacates. So a pointer left behind by a move
@@ -39,15 +47,35 @@
 # ⛔ WHAT THE POISON DOES NOT COVER, so the next seat does not over-trust a green: it fills the vacated TAIL only.
 # A block that slid DOWN leaves its old address inside the still-live region, where other slid data now sits, so a
 # stale pointer there still reads plausible bytes. Poison catches the tail class; it does not catch that one.
+# ⭐⛔ --quick RUNS 2 ITERATIONS PER MODE INSTEAD OF 20, AND THE NUMBER IS MEASURED RATHER THAN CHOSEN.
+# FAIL-ONCE STUDY, hq_prolog 2026-09-20, on a build with THIS ROW'S CURE REVERTED (prolog_atom.c taking atom-name
+# storage back onto the collected heap via rt_heap_strdup_c): the gate goes RED at ITERS=1 -- 1 of 1 runs diverged,
+# in BOTH modes, at ITERS=1, 2 and 4 alike. DETECTION IS DETERMINISTIC, NOT PROBABILISTIC.
+# ⭐ WHY IT IS DETERMINISTIC NOW WHEN THE 20-RUN DESIGN ASSUMED IT WAS NOT: the 20 runs were specified BEFORE
+# SCRIP_GC_POISON existed, when a dangling atom-name read returned the OLD BYTES -- still the correct string until
+# something allocated over them -- so only repetition plus luck could catch it. Poison fills the vacated tail with
+# 0xDB, so the stale read is GARBAGE on the first run. The poison knob did not make the gate faster; it made the
+# REPETITION REDUNDANT, and nobody had gone back to re-derive the iteration count after landing it.
+# ⛔ THE COST IS PAID BY THE GREEN RUNS, NOT BY DETECTION: a CORRECT run under SCRIP_GC_STRESS=1 costs ~19.4s, a
+# diverging one fails fast (the whole mutated study at ITERS=1/2/4 took 2s, 1s and 2s). So ITERS is almost pure
+# cost on a healthy tree and almost no detection value past the first run.
+# ⛔ 2 AND NOT 1, DELIBERATELY: one run has no margin at all, and this gate's own history is a witness that ran
+# green in every configuration because its switch was dead. Two runs keep a second observation of the positive
+# control. ⛔ MEASURED, AND MY OWN EXTRAPOLATION WAS WRONG: I predicted ~80s from 19.4s per run and a ~2s fixed
+# cost; --quick actually measures 102/91/92s over three runs at load, so the fixed cost (swipl ref cut, m4 build,
+# the telemetry run of the positive control) is ~13s and not ~2s. At ~95s this becomes the joint most expensive
+# arm of the blocking set, whose current maximum is 90s -- 1.06x that maximum, against 8.6x for the 778s form.
+# ⛔ THE FULL 20-ITERATION FORM IS STILL THE DEFAULT for a hand run and for a collector landing -- pass no flag.
 # EXIT: 0 both clauses pass · 1 the precondition is red or a run diverged from the oracle · 2 REFUSED to grade.
-# ⛔ NOT IN make test / test-sequential, BY DECISION: see the clause-2 note above. Running it by hand today gives
-# 1 of 3 checks green (the precondition) and clause 2 red on the other row's crash.
+# ✅ WIRED BLOCKING in make test / test-sequential as of 2026-09-20. The gate_wiring.tsv RULING that held it
+# out EXPIRED WITH ITS NAMED ROW, exactly as that ruling said it would, and the row is closed.
 set -uo pipefail
 GATE_NAME=test_gate_pl_atom_name_survives_a_collect_mid_operation
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT_DIR="${RT_DIR:-$ROOT/out}"; SWIPL="${SWIPL:-/usr/bin/swipl}"
 ATOMC="$ROOT/src/parsers/prolog/prolog_atom.c"
-ITERS="${ITERS:-20}"; STRESS="${SCRIP_GC_STRESS_VALUE:-1}"; CHURN="${WITNESS_CHURN:-300}"; MODES="${MODES:-m3,m4}"
+QUICK=0; for a in "$@"; do case "$a" in --quick) QUICK=1 ;; esac; done
+ITERS="${ITERS:-$([ "$QUICK" = 1 ] && echo 2 || echo 20)}"; STRESS="${SCRIP_GC_STRESS_VALUE:-1}"; CHURN="${WITNESS_CHURN:-300}"; MODES="${MODES:-m3,m4}"
 refuse(){ echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip at $SCRIP -- a missing binary prints a full, plausible, entirely false board"
 [ -x "$SWIPL" ] || refuse "no swipl oracle at $SWIPL -- the ref is cut from the oracle at run time or not at all"
@@ -55,11 +83,32 @@ refuse(){ echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "CLAUSE 1 -- THE PRECONDITION: atom-name storage is outside the collected heap"
-NAMEALLOC="$(grep -nE 'rt_heap_strdup|rt_heap_alloc|rt_pinned_(alloc|realloc|strdup)' "$ATOMC" || true)"
-if [ -n "$NAMEALLOC" ]; then
-    ck no "prolog_atom.c still takes atom-name storage from the collected heap: $(printf '%s' "$NAMEALLOC" | tr '\n' ' ')"
+# ⛔⭐ THIS CLAUSE IS AN ALLOWLIST AND IT USED TO BE A DENYLIST, WHICH IS THE WHOLE LESSON OF THIS ROW.
+# It grepped rt_heap_strdup|rt_heap_alloc|rt_pinned_* and called their ABSENCE a pass. That read CLEAN on a tree
+# where the exposure was strictly WORSE, because the storage had moved to rt_heap_strdup_c -- the same heap under
+# a different allocator name. A denylist of allocator NAMES cannot answer "is this storage collected", only "is it
+# one of the four spellings I thought of", and a new spelling passes it silently. So: resolve the allocator that
+# ACTUALLY produces the name pointer, and require it to be on a short list of off-heap sources. An allocator this
+# clause cannot resolve REFUSES rc=2 -- it must never be able to report a pass about a line it did not understand.
+# ⛔ AND IT IS SCOPED TO THE NAME, NOT THE FILE: prolog_atom.c's TABLES (ht, atom_names) come from rt_wsb_alloc,
+# which IS the collected heap and is CORRECT -- pl_gc_roots visits both blocks and their slots are registered, so
+# a slide fixes them up. Only the NAME may not be collected, because a raw C local holds it across operations and
+# no root scan sees that local. A file-wide allowlist would red the two table allocations, which are not the bug.
+NAMEVAR="$(grep -oE 'atom_names\[[A-Za-z_][A-Za-z0-9_]*\][[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]*' "$ATOMC" | head -1 | sed -E 's/.*=[[:space:]]*//')"
+[ -n "$NAMEVAR" ] || refuse "cannot find the assignment into atom_names[] in $ATOMC -- this clause must never pass on a file it did not parse"
+NAMEALLOC="$(grep -oE "\\b$NAMEVAR[[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(" "$ATOMC" | head -1 | sed -E 's/.*=[[:space:]]*//; s/[[:space:]]*\($//')"
+[ -n "$NAMEALLOC" ] || refuse "found atom_names[...] = $NAMEVAR but cannot resolve where $NAMEVAR is allocated -- refusing rather than guessing"
+case "$NAMEALLOC" in
+    ct_strdup|ct_alloc|strdup|malloc|calloc)
+        ck ok "the atom name is allocated by $NAMEALLOC, which is off the collected heap -- a name pointer held in a raw C local cannot be invalidated by a slide" ;;
+    *)
+        ck no "the atom name is allocated by $NAMEALLOC, which is not on the off-heap allowlist (ct_strdup ct_alloc strdup malloc calloc) -- if $NAMEALLOC is genuinely off-heap, ADD IT HERE with the reason; if it is the collected heap, this row's cure has been reverted" ;;
+esac
+KEYSRC="$(grep -oE 'ht\[[A-Za-z_][A-Za-z0-9_]*\]\.key[[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]*' "$ATOMC" | head -1 | sed -E 's/.*=[[:space:]]*//')"
+if [ "$KEYSRC" = "$NAMEVAR" ]; then
+    ck ok "the hash key and the table entry are the SAME pointer ($NAMEVAR), so neither can be cured while the other dangles"
 else
-    ck ok "prolog_atom.c holds no collected-heap allocator -- a name pointer cannot be invalidated by a slide"
+    ck no "the hash key comes from '$KEYSRC' and the table entry from '$NAMEVAR' -- two storages for one name, and this clause only graded one of them"
 fi
 W="$(mktemp -d "${TMPDIR:-/tmp}/pl_atom_name.XXXXXX")" || refuse "mktemp failed"
 trap 'rm -rf "$W"' EXIT
