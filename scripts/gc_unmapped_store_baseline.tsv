@@ -1,0 +1,46 @@
+# gc_unmapped_store_baseline.tsv -- the PER-WITNESS ratchet of the unmapped-store class (cto, row
+# gc-the-planner-gives-a-call-result-live-across-a-safe-point-...).  Written by
+# `util_gc_unmapped_store_census.py <witnesses> --write-baseline <this file>` in the landing that earns a move.
+# ONE LINE PER WITNESS AND NEVER A TOTAL, on hq_snobol4's measurement of 2026-09-20: the population is a
+# directory glob, so nine witnesses arriving would move a total from 162 to 192 and the arm would print THE
+# CLASS GREW and name a compiler regression it never measured.  A witness ARRIVING is a file addition; a
+# witness's own numbers MOVING is the thing this row exists to catch, and only a name set can tell them apart.
+# witness	members	undecidable	shielded
+hb_aggt.icn	0	0	16
+hb_aggv.icn	0	0	10
+hb_arr.sno	18	0	18
+hb_big_in_aggregate.icn	0	0	38
+hb_bignum_length.icn	0	0	90
+hb_blob_span_defer.sno	6	6	12
+hb_coexpr_create.icn	0	0	14
+hb_coexpr_genp_scan.icn	0	2	4
+hb_coexpr_parked.icn	0	4	8
+hb_coexpr_refresh.icn	0	4	8
+hb_coexpr_sigma.icn	0	0	16
+hb_cv_spine_plain_redo.icn	0	0	16
+hb_datblk.sno	24	0	24
+hb_defer_subject.sno	4	4	8
+hb_dinst.icn	0	0	8
+hb_dtp.sno	4	2	6
+hb_dvec_data_convert.sno	34	0	34
+hb_dvec_list.icn	0	0	90
+hb_dvec_list_slice.icn	0	0	48
+hb_dvec_sort_match.sno	24	22	46
+hb_eval_names.sno	10	0	10
+hb_file_name_unrooted.icn	0	0	4
+hb_mkexpr_unmapped_spine_store.sno	6	0	6
+hb_nested_match_outer_subject.sno	4	8	12
+hb_nv.sno	12	0	12
+hb_pl_findall.pl	0	54	70
+hb_pl_root_cells.pl	0	42	58
+hb_pldb.pl	0	46	62
+hb_plj_batch_b.pl	0	46	62
+hb_scan_nested.icn	0	0	4
+hb_ws.icn	0	0	4
+hb_wsb.icn	0	0	10
+hb_wsb_bignum.icn	0	0	8
+hb_wsb_eval_define.sno	16	0	16
+hb_wsb_pl_atom_dup.pl	0	54	74
+hb_wsb_raku_junction.raku	0	0	4
+hb_wsb_raku_sprintf_multi.raku	0	0	4
+hb_wsb_rk_arr.raku	0	0	0

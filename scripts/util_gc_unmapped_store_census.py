@@ -412,6 +412,16 @@ def emit_and_read(scrip, prog, workdir, env_extra=None):
 
 VERDICTS = ("BELOW-REGION", "RAW-SLOT", "GAP", "ABOVE-REGION", "OUTSIDE-LAYOUT", "NO-MAP")
 
+BASELINE_HEADER = (
+    "# gc_unmapped_store_baseline.tsv -- the PER-WITNESS ratchet of the unmapped-store class (cto, row\n"
+    "# gc-the-planner-gives-a-call-result-live-across-a-safe-point-...).  Written by\n"
+    "# `util_gc_unmapped_store_census.py <witnesses> --write-baseline <this file>` in the landing that earns a move.\n"
+    "# ONE LINE PER WITNESS AND NEVER A TOTAL, on hq_snobol4's measurement of 2026-09-20: the population is a\n"
+    "# directory glob, so nine witnesses arriving would move a total from 162 to 192 and the arm would print THE\n"
+    "# CLASS GREW and name a compiler regression it never measured.  A witness ARRIVING is a file addition; a\n"
+    "# witness's own numbers MOVING is the thing this row exists to catch, and only a name set can tell them apart.\n"
+    "# witness\tmembers\tundecidable\tshielded\n")
+
 
 def report(scrip, progs, workdir, out=print):
     """THE CENSUS.  rc 0 green, 1 red (members named), 2 refused (could not measure)."""
@@ -420,6 +430,7 @@ def report(scrip, progs, workdir, out=print):
         return 2
     all_members, all_undec, examined, graphs_seen, all_grid = [], [], 0, set(), []
     unreached_calls = 0
+    per_witness = {}
     for prog in progs:
         tag = os.path.basename(prog)
         if not os.path.exists(prog):
@@ -433,6 +444,7 @@ def report(scrip, progs, workdir, out=print):
         graphs_seen |= set(GCC.read_gcmaps(rep).keys())
         all_members += members; all_undec += undec; examined += ex
         all_grid += grid[0]; unreached_calls += grid[1]
+        per_witness[tag] = (len(members), len(undec), ex)
     if examined == 0:
         out("CENSUS unmapped-store REFUSED(2): zero shielded stores examined over "
             f"{len(progs)} witness(es) -- a zero has to be a zero somebody could have failed"); return 2
@@ -469,6 +481,16 @@ def report(scrip, progs, workdir, out=print):
         "on measurement -- all 159 Prolog function regions of hb_wsb_pl_atom_dup.pl re-point rbp away from their "
         "own frame at least once (mov rbp, [rbp+N] and mov rbp, rax), so containment would grade a store against a "
         "frame that is not the one it lands in. Making these sites decidable is part of the cure, not of the census.")
+    for tag in sorted(per_witness):
+        mem, und, ex = per_witness[tag]
+        out(f"CENSUS unmapped-store WITNESS {tag} members={mem} undecidable={und} shielded={ex}")
+    out("CENSUS unmapped-store WHY THE PER-WITNESS LINES EXIST (hq_snobol4 2026-09-20, measured against this "
+        "census before landing rather than discovered afterwards): the ratchet's population is a DIRECTORY GLOB "
+        "over scripts/gc_witnesses, so a colleague landing nine oracle-cut witnesses of their own would move a "
+        "TOTAL from 162 to 192 and the arm would print THE CLASS GREW and name a cause it never measured -- a "
+        "well-formed answer to a question nobody asked. A total cannot tell a compiler regression from a file "
+        "arriving. These lines are the name set the arm ratchets, one per witness, which is this row's own "
+        "NAME-NEVER-A-COUNT rule applied one level down from where it was first applied.")
     off = [r for r in all_grid if r[5] == "OFF-GRID"]
     on = [r for r in all_grid if r[5] == "ON-GRID"]
     und_grid = collections.Counter(r[6] for r in all_grid if r[5] is None)
@@ -536,11 +558,26 @@ def main(argv):
     ap.add_argument("progs", nargs="*")
     ap.add_argument("--scrip", default=os.path.join(ROOT, "scrip"))
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--write-baseline", metavar="TSV",
+                    help="rewrite the per-witness ratchet file from this run (the landing that earns a move writes it)")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
     with tempfile.TemporaryDirectory(prefix="gc_unmapped_") as wd:
-        return report(a.scrip, a.progs, wd)
+        if not a.write_baseline:
+            return report(a.scrip, a.progs, wd)
+        lines = []
+        rc = report(a.scrip, a.progs, wd, out=lines.append)
+        if rc == 2:
+            print("\n".join(lines))
+            return 2
+        rows = [l.split() for l in lines if l.startswith("CENSUS unmapped-store WITNESS ")]
+        with open(a.write_baseline, "w", encoding="utf-8") as fh:
+            fh.write(BASELINE_HEADER)
+            for r in rows:
+                fh.write("\t".join([r[3]] + [f.split("=")[1] for f in r[4:7]]) + "\n")
+        print(f"wrote {a.write_baseline}: {len(rows)} witness row(s)")
+        return 0
 
 
 if __name__ == "__main__":

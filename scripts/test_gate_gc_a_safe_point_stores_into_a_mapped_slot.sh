@@ -97,16 +97,33 @@ else
   ck no "(d) $bad language row(s) printed zero members over an unmeasured population without saying so -- that is a zero nobody could have failed"
 fi
 
-# (e) THE RATCHET: the class cannot grow back in silence, and it cannot shrink without the baseline being moved
+# (e) THE RATCHET, PER WITNESS AND NEVER A TOTAL.
+# ⛔ IT WAS A TOTAL UNTIL 2026-09-20 21:4x AND THAT WAS A DEFECT hq_snobol4 MEASURED AGAINST THIS GATE BEFORE
+# LANDING RATHER THAN DISCOVERING AFTERWARDS.  The population is a DIRECTORY GLOB over scripts/gc_witnesses, so
+# their nine oracle-cut siblings arriving would have moved members from 162 to 192 and this arm would have printed
+# THE CLASS GREW -- naming a compiler regression it never measured, over nine files that had just been added.  A
+# well-formed answer to a question nobody asked.  A TOTAL CANNOT TELL A COMPILER REGRESSION FROM A FILE ARRIVING,
+# and only a name set can; which is this row's own NAME-NEVER-A-COUNT rule applied one level down from where the
+# census first applied it.  The baseline is scripts/gc_unmapped_store_baseline.tsv, one line per witness, rewritten
+# by `util_gc_unmapped_store_census.py <witnesses> --write-baseline <that file>` in the landing that earns a move.
+BASE="$ROOT/scripts/gc_unmapped_store_baseline.tsv"
+[ -f "$BASE" ] || refuse "the per-witness baseline $BASE is missing -- a ratchet with no floor is not a ratchet"
+rat="$(printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$BASE" 2>&1)"
+rl="$(printf '%s\n' "$rat" | grep -m1 '^RATCHET ')"
+rmoved="$(printf '%s\n' "$rl" | sed -n 's/.* moved=\([0-9]*\) .*/\1/p')"
+rgone="$(printf '%s\n' "$rl" | sed -n 's/.* gone=\([0-9]*\) .*/\1/p')"
+rnew="$(printf '%s\n' "$rl" | sed -n 's/.* new=\([0-9]*\)$/\1/p')"
 sum="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store witnesses=')"
 mem="$(printf '%s\n' "$sum" | sed -n 's/.* members=\([0-9]*\) .*/\1/p')"
 und="$(printf '%s\n' "$sum" | sed -n 's/.* undecidable=\([0-9]*\) .*/\1/p')"
-if [ "${mem:-x}" = "$BASE_MEMBERS" ] && [ "${und:-x}" = "$BASE_UNDEC" ]; then
-  ck ok "(e) THE RATCHET holds at members=$BASE_MEMBERS undecidable=$BASE_UNDEC -- $sum"
-elif [ "${mem:-999999}" -gt "$BASE_MEMBERS" ] 2>/dev/null; then
-  ck no "(e) THE CLASS GREW: members=$mem against a baseline of $BASE_MEMBERS -- a new safe point stores outside its frame map"
+if [ "${rmoved:-x}" = 0 ] && [ "${rgone:-x}" = 0 ] && [ "${rnew:-x}" = 0 ]; then
+  ck ok "(e) THE RATCHET HOLDS PER WITNESS -- $rl, totalling members=$mem undecidable=$und"
+elif [ "${rmoved:-0}" != 0 ]; then
+  ck no "(e) A WITNESS'S OWN READING MOVED, which is the thing this row exists to catch and is NOT a file arriving: $(printf '%s\n' "$rat" | grep '^MOVED ' | head -3 | tr '\n' ' ')"
+elif [ "${rgone:-0}" != 0 ]; then
+  ck no "(e) a witness left the population without its baseline line leaving with it -- a ratchet cannot grade what it cannot see: $(printf '%s\n' "$rat" | grep '^GONE ' | head -3 | tr '\n' ' ')"
 else
-  ck no "(e) the population moved to members=${mem:-?} undecidable=${und:-?} against members=$BASE_MEMBERS undecidable=$BASE_UNDEC -- a win nobody recorded is a loose ratchet; move the baseline in the same landing that earns it"
+  ck no "(e) ${rnew:-?} WITNESS(ES) ARRIVED THAT THE BASELINE DOES NOT KNOW. ⛔ THIS IS A FILE ADDITION AND NOT A COMPILER REGRESSION, and the arm says so rather than naming a cause it did not measure (hq_snobol4 2026-09-20, who measured exactly this against this gate before landing). Add the line(s) to scripts/gc_unmapped_store_baseline.tsv in the same commit that lands the witness, or rewrite the file with --write-baseline: $(printf '%s\n' "$rat" | grep '^NEW ' | sed 's/^NEW //' | head -12 | tr '\n' ';')"
 fi
 
 # (f) THE PROPERTY ITSELF, graded by ORACLE DIFF and not by rc (CEO-997), over a band that goes WELL ABOVE 5.
@@ -116,17 +133,20 @@ fi
 # A band that ends where the defects start does not measure the tree, it measures the band. The cto's own A/B/A at
 # CTO-101 had already read this witness at twelve points and its BASE band is `. X X . X . . X . . . .` -- the X at
 # stress 8 sits OUTSIDE the old band, so a cure that closed 0..4 alone would have turned this arm green with the
-# witness still wrong. The twelve points below are that measurement's own band and cost 4 seconds.
+# witness still wrong. The points below are that measurement's own band PLUS 25, which hq_snobol4 added on
+# their own evidence the same evening: their ERRTEXT witness is RED at m4 stress 25 while GREEN at 10, 12, 16,
+# 20, 35 and 50, so a band is not made honest by going higher -- it is made honest by not being a straight line
+# through the points somebody already knew about. Thirteen points, 3.2 seconds of the gate's 4.6.
 want="$(cat "$REF")"
 diffs=0; band=""
-for s in 0 1 2 3 4 5 6 8 10 12 16 20; do
+for s in 0 1 2 3 4 5 6 8 10 12 16 20 25; do
   got="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS=$s timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "$want" ]; then band="$band ."; else band="$band X"; diffs=$((diffs+1)); fi
 done
 if [ "$diffs" = 0 ]; then
-  ck ok "(f) THE PROPERTY HOLDS: the witness answers its oracle-cut ref at every stress point in the band [0 1 2 3 4 5 6 8 10 12 16 20] --$band"
+  ck ok "(f) THE PROPERTY HOLDS: the witness answers its oracle-cut ref at every stress point in the band [0 1 2 3 4 5 6 8 10 12 16 20 25] --$band"
 else
-  ck no "(f) THE PROPERTY IS FALSE: the witness diverges from its oracle-cut ref at $diffs of 12 stress points --$band (want '$want'). ⛔ AND THE CURE THAT CLOSES THIS BAND IS NOT THIS ROW'S -- SAID HERE SO THE NEXT READER IS NOT SENT AT THE WRONG FILE (hq_snobol4 2026-09-20, VERIFIED A/B/A by the cto): gc_heap.c spells 'which kinds carry a heap payload' TWICE and the two copies disagree by two kinds -- gc_visit_one (the heap visitor) handles DT_X and DT_SNUL, gc_cell_visit (the emitted-stack cell recognizer) does not. Adding both to gc_cell_visit takes this witness from '. X X . X . . X . . . .' to TWELVE OF TWELVE GREEN over stress 0..20, and reverting restores the base band byte for byte. That is the cfo's file and an ASK, not this row's landing. ⭐ WHAT THIS ROW STILL OWNS, AND WHY THE CENSUS IS NOT INVALIDATED BY THAT: a store outside the map is NECESSARY BUT NOT SUFFICIENT for loss, because gc_walk_words tries gc_cell_visit on every below-base word first -- so the 162 members are safe points whose correctness rests on a TAG-RECOGNIZER HEURISTIC instead of on the frame map ARCH-GC section 3 says should cover them. When the recognizer fix lands this arm goes green with the members still at 162, and THAT reading -- green band, 162 unmapped stores -- is exactly the residual risk this row exists to remove."
+  ck no "(f) THE PROPERTY IS FALSE: the witness diverges from its oracle-cut ref at $diffs of 13 stress points --$band (want '$want'). ⛔ AND THE CURE THAT CLOSES THIS BAND IS NOT THIS ROW'S -- SAID HERE SO THE NEXT READER IS NOT SENT AT THE WRONG FILE (hq_snobol4 2026-09-20, VERIFIED A/B/A by the cto): gc_heap.c spells 'which kinds carry a heap payload' TWICE and the two copies disagree by two kinds -- gc_visit_one (the heap visitor) handles DT_X and DT_SNUL, gc_cell_visit (the emitted-stack cell recognizer) does not. Adding both to gc_cell_visit takes this witness from '. X X . X . . X . . . .' to TWELVE OF TWELVE GREEN over stress 0..20, and reverting restores the base band byte for byte. That is the cfo's file and an ASK, not this row's landing. ⭐ WHAT THIS ROW STILL OWNS, AND WHY THE CENSUS IS NOT INVALIDATED BY THAT: a store outside the map is NECESSARY BUT NOT SUFFICIENT for loss, because gc_walk_words tries gc_cell_visit on every below-base word first -- so the 162 members are safe points whose correctness rests on a TAG-RECOGNIZER HEURISTIC instead of on the frame map ARCH-GC section 3 says should cover them. When the recognizer fix lands this arm goes green with the members still at 162, and THAT reading -- green band, 162 unmapped stores -- is exactly the residual risk this row exists to remove."
 fi
 
 # (h) THE ROW'S OWN QUESTION, so this DONE-WHEN cannot go green on somebody else's cure
