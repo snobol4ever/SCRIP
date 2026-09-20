@@ -495,7 +495,7 @@ cmd="${1:-check}"
 # 0ae4a57cc by hq_C 2026-09-13 (mechanism measured directly: S4E_SEAT=nosuchseat -> rc=3 before, rc=0 after), who
 # also named this cure -- keep the existence assertion on its own, ahead of and independent of the lock.
 case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
-case "$cmd" in mailbox|banner|check|"") ;; *) s4e_pid_acquire;; esac
+case "$cmd" in mailbox|banner|check|premise|"") ;; *) s4e_pid_acquire;; esac
 # /*------------------------------------------------------------------------------------------------------*/
 # ⛔⭐⭐ THE CODEGEN CONTROL ARM -- `done` COMPUTES WHETHER A LANDING TOUCHED CODEGEN, AND CITES A BOARD OF ITS
 # OWN TREE RATHER THAN RUNNING ONE.  Row done-runs-the-snobol4-master-arm-itself-for-any-row-whose-commits-touch-
@@ -1189,10 +1189,20 @@ s4e_donewhen_is_placeholder() {   # $1 = raw column-0 DONE-WHEN text (already ex
 # prose labels that occur inside GOAL bodies (STEP 1:, Verified:, witness:) are NOT terminators, because a
 # criterion's heredoc body is program text and must never be cut by a word that happens to end in a colon.
 # Sets $_dw_backticked=1 when it stripped a markdown backtick pair, so a caller can still announce that.
-s4e_donewhen_text() {   # $1 = baton path; prints the WHOLE criterion on stdout
-    local b="$1" first rest line acc
+# ⛔⭐ GENERALISED TO A LABEL 2026-09-20 (coo, row instruments-claim-computes-the-rows-premise-the-way-done-
+# computes-its-done-when). PREMISE-WHEN is a criterion living in the SAME file format and read by the SAME rules --
+# multi-line only by evidence, heredoc-aware, one matched backtick pair stripped -- so it reads through THIS
+# extractor with the label as an argument. ⛔ A SECOND COPY IS THE THING BEING REFUSED HERE, and not as a style
+# preference: the truncation class this function exists to cure WAS a one-line `sed` repeated at THREE sites, and
+# a private premise extractor would be the fourth -- correct on the day it is written and silently divergent the
+# first time this one is sharpened. ⛔ PREMISE-WHEN JOINS THE TERMINATOR SET in the same edit, which is the
+# load-bearing half: without it a multi-line DONE-WHEN would SWALLOW the PREMISE-WHEN line printed under it and
+# run the premise as part of the completion test. No live baton carries the field yet, so this changes no
+# reading on today's tree -- it is written before the first one exists rather than after the first false green.
+s4e_field_criterion_text() {   # $1 = baton path, $2 = column-0 label (DONE-WHEN | PREMISE-WHEN); prints the WHOLE criterion
+    local b="$1" lbl="${2:-DONE-WHEN}" first rest line acc
     _dw_backticked=""
-    first="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
+    first="$(sed -n "s/^${lbl}:[[:space:]]*//p" "$b" | head -1)"
     [ -n "$first" ] || return 0
     acc="$first"
     # ⛔⭐⭐ CONTINUE ONLY WHILE THE TEXT IS INCOMPLETE SHELL, NEVER "UNTIL THE NEXT FIELD LABEL" -- and that
@@ -1221,10 +1231,10 @@ s4e_donewhen_text() {   # $1 = baton path; prints the WHOLE criterion on stdout
         # ⛔ And if the block ends still unfinished, the incompleteness guard at both runner sites REFUSES rc=2
         # rather than running it -- so a terminator that fires inside a heredoc body fails safe, never green.
         acc="$acc
-$(awk '
-            /^DONE-WHEN:/ && !seen { seen=1; next }
+$(awk -v lbl="$lbl" '
+            $0 ~ "^" lbl ":" && !seen { seen=1; next }
             seen && /^## / { exit }
-            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }
+            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|PREMISE-WHEN|PREMISE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }
             seen { print }
         ' "$b")"
     fi
@@ -1233,6 +1243,9 @@ $(awk '
     # point, so the vacuity probe and the real run cannot disagree about what the criterion IS.
     case "$acc" in '''`'''*'''`''') acc="${acc#\`}"; acc="${acc%\`}"; _dw_backticked=1;; esac
     printf '%s' "$acc"; }
+# The two named readers. Every existing caller keeps calling s4e_donewhen_text and sees no change whatever.
+s4e_donewhen_text() { s4e_field_criterion_text "$1" DONE-WHEN; }
+s4e_premise_text()  { s4e_field_criterion_text "$1" PREMISE-WHEN; }
 # ⛔⭐ AND A SECOND, INDEPENDENT GUARD ON THE SAME FAILURE, because the extractor being right today is not a
 # property anyone can keep proving: bash does NOT fail on an unterminated heredoc -- `bash -n -c "cat <<'EOF'"`
 # exits 0 -- it only WARNS on stderr, which is precisely why the truncation could exit 0 for months. That warning
@@ -1408,6 +1421,107 @@ s4e_predispatch_placeholder_check() {   # $1 = topic; rc 0 = placeholder (refuse
         _ppc_why="the DONE-WHEN is still the mint placeholder, not a command -- $b needs a real DONE-WHEN before this row can be dispatched"
         return 0
     fi
+    return 1; }
+# ⛔⭐⭐ THE PREMISE GATE — THE SYMMETRIC HALF OF `done` (coo 2026-09-20, row instruments-claim-computes-the-
+# rows-premise-the-way-done-computes-its-done-when; ceo CEO-1002, on Lon's rule that a failure the system never
+# asked anyone to avoid is a row against the SYSTEM). THE ASYMMETRY BEING CURED: the bus VERIFIES THE EXIT and
+# TRUSTS THE ENTRY. `done` runs the baton's DONE-WHEN and refuses on a red, so no seat can forget to prove a row
+# finished; `claim` and `next` ran NOTHING about the premise the row is built on, so a stale premise was
+# discovered only after the hour was spent. ⭐ MEASURED COST, ONE DAY, 2026-09-20, six wheel-spins and every one
+# of them cheap to check: the cfo built a 51-entry return-class taxonomy and withdrew it because the allocator
+# never collects (a fact in their own file); hq_prolog banked a trail mark to cure findall and it changed nothing
+# because the trail was empty; the cto announced a cure for a raw push a watchpoint then proved dead; the ceo
+# inferred effort from `ps` and escalated a wrong finding to Lon; hq_snobol4 opened row 1 on a premise reading red
+# in every SnoM run when the entry is green at both arenas; hq_prolog inherited an eight-program bisect with three
+# claims false on this tree.
+# ⛔ A RED PREMISE IS NOT A DEFECT AND NOT A FAILING GATE. It is the row needing REWRITING before anyone spends an
+# hour inside it -- which is exactly what hq_snobol4 did by hand, correctly, and reported. So the refusal says so
+# in its own words, and it refuses BEFORE the lock: a row nobody can work is worse held than free.
+# ⛔ SILENCE IS NEVER THE ANSWER TO "I COULD NOT MEASURE" (THE INSTRUMENT LAWS). rc=0 admits; a criterion that did
+# not FINISH, that names an unbuilt compiler, that cannot be read as shell, or that certifies nothing ADMITS TOO --
+# loudly, naming what it could not do. Only a premise that RAN and came back red stops the lock. An unverifiable
+# premise must never block work; an unspoken one must never read as a verified one.
+s4e_premise_is_placeholder() {   # $1 = raw PREMISE-WHEN text; rc 0 = the field is present but expresses nothing
+    case "$(printf '%s' "${1:-}" | tr -d '[:space:]')" in
+      ''|'⛔NOTEXPRESSED'*|'NOTEXPRESSED'*|TODO*|TBD*|'⛔TODO'*) return 0;; esac
+    return 1; }
+# rc 0 = admit (the caller may lock/serve), rc 1 = REFUSE (the caller must NOT lock and must NOT serve).
+s4e_premise_gate() {   # $1 = topic, $2 = the verb, for the message only
+    local t="$1" verb="${2:-claim}" b="$PO/tasks/$1.task.md" pw log rc to t0 el
+    [ "${S4E_NO_PREMISE_CHECK:-0}" = "1" ] && return 0
+    [ -f "$b" ] || return 0
+    pw="$(s4e_premise_text "$b")"
+    # ⛔ THE BACKLOG IS NAMED, NEVER SILENTLY EXEMPT. Most live batons predate this field; they are admitted, and
+    # the note says WHICH property went unchecked so a reader never mistakes "nothing ran" for "premise green".
+    # ⭐ TWO LINES AND NOT FOUR, DELIBERATELY: on the day this landed it fired on 787 of 787 live rows, and a
+    # notice that fires on everything is the one every reader learns to skip -- at which point the field is
+    # adopted by nobody and the census below is the only thing still telling the truth. The full argument, the
+    # per-owner counts and the names live in util_premise_census.py; this line is the doorbell, not the report.
+    if [ -z "$pw" ] || s4e_premise_is_placeholder "$pw"; then
+        printf '· PREMISE UNVERIFIED: %s has no runnable PREMISE-WHEN, so its central claim was NOT checked against\n' "$t" >&2
+        printf '  today'"'"'s tree. Admitted. Before you spend an hour here, write one line into %s: PREMISE-WHEN: <the one cheap command that proves the premise>\n' "$b" >&2
+        return 0; fi
+    if s4e_donewhen_is_noop "$pw"; then
+        printf '⚠ PREMISE NOT MEASURED: the PREMISE-WHEN in %s is a shell no-op (%s) -- it certifies nothing, so this\n' "$b" "$pw" >&2
+        printf '  row'"'"'s premise is UNCHECKED exactly as if the field were absent. Admitted, never counted as verified.\n' >&2
+        return 0; fi
+    if s4e_donewhen_incomplete "$pw"; then
+        printf '⚠ PREMISE NOT MEASURED (rc=2): the PREMISE-WHEN in %s is incomplete shell (an unclosed heredoc or a\n' "$b" >&2
+        printf '  dangling continuation). bash would run NOTHING and exit 0, which would read as a verified premise --\n' >&2
+        printf '  the false green this whole field exists to prevent. NOT run. Admitted unverified; fix the criterion.\n' >&2
+        return 0; fi
+    if s4e_donewhen_needs_compiler "$pw"; then
+        printf '⚠ PREMISE NOT MEASURED (rc=2): %s. Admitted unverified -- an unbuilt tree is not a false premise.\n' "$_gca_why" >&2
+        return 0; fi
+    to="${S4E_PREMISE_TIMEOUT:-120}"; log="$(mktemp)"; t0="$(date +%s)"
+    # ⭐ THE SAME ENVIRONMENT `done` GIVES A DONE-WHEN, for the same measured reason (hq_C 2026-08-27): S4E_HOME
+    # exported, so a premise written as `cd "$S4E_HOME/SCRIP" && ...` -- the idiom the batons already use --
+    # resolves against the LOCKING SEAT'S OWN ROOT rather than expanding to the empty string on some seats and
+    # not others. A verdict that depends on the grader's environment is not a verdict.
+    ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" S4E_PREMISE_WHEN_RUN=1 timeout "$to" bash -c "$pw" ) >"$log" 2>&1; rc=$?
+    el="$(( $(date +%s) - t0 ))"
+    case "$rc" in
+      0) printf '  ✅ PREMISE-WHEN exited 0 in %ss — the row'"'"'s premise still holds on this tree.\n' "$el" >&2
+         rm -f "$log"; return 0;;
+      124) printf '⚠ PREMISE NOT MEASURED (rc=2): the PREMISE-WHEN did not FINISH within %ss (elapsed %ss). Admitted\n' "$to" "$el" >&2
+         printf '  unverified -- a premise that cannot be measured must never block work. ⛔ But a PREMISE-WHEN is meant\n' >&2
+         printf '  to be THE ONE CHEAP COMMAND: one that needs more than %ss is a finding about the premise, not a slow\n' "$to" >&2
+         printf '  machine. Raise it for this claim with S4E_PREMISE_TIMEOUT=<seconds>, or make it cheaper.\n' >&2
+         rm -f "$log"; return 0;;
+      126|127|2) printf '⚠ PREMISE NOT MEASURED (rc=2): the PREMISE-WHEN exited %s -- %s -- so it was never graded (CEO-786:\n' "$rc" \
+           "$([ "$rc" -eq 127 ] && echo 'command not found' || { [ "$rc" -eq 126 ] && echo 'not executable' || echo 'the criterion itself refused'; })" >&2
+         printf '  cannot measure is not red). Admitted unverified. What it said:\n' >&2
+         [ -s "$log" ] && sed -e 's/^/  | /' "$log" | tail -8 >&2
+         rm -f "$log"; return 0;;
+    esac
+    # RED, AND MEASURED. This is the only outcome that stops the lock.
+    if [ -n "${S4E_PREMISE_OVERRIDE:-}" ]; then
+        printf '⚠ PREMISE-WHEN IS RED AND WAS OVERRIDDEN by %s -- reason recorded in the baton LEDGER: %s\n' "$ME" "$S4E_PREMISE_OVERRIDE" >&2
+        printf '\n- [%s·%s] **PREMISE OVERRIDDEN** — the PREMISE-WHEN exited %s on tree %s and the row was taken anyway. Reason: %s\n' \
+            "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$rc" "$(git -C "$S4E" rev-parse --short HEAD 2>/dev/null || echo '(no tree)')" "$S4E_PREMISE_OVERRIDE" >> "$b"
+        rm -f "$log"; return 0; fi
+    printf '\n⛔⛔⛔ REFUSED — THE PREMISE OF THIS ROW IS RED ON THIS TREE. No lock was taken, nothing was served,\n' >&2
+    printf '    and the QUEUE row is UNCHANGED. %s exited %s after %ss (budget %ss).\n' "PREMISE-WHEN" "$rc" "$el" "$to" >&2
+    printf '    row     : %s\n' "$t" >&2
+    printf '    baton   : %s\n' "$b" >&2
+    printf '    premise : %s\n' "$pw" >&2
+    if [ -s "$log" ]; then
+      printf '    ⭐ WHAT THE PREMISE ITSELF SAID (last 20 lines) -- read this BEFORE hypothesising:\n' >&2
+      sed -e 's/^/    | /' "$log" | tail -20 >&2
+    else
+      printf '    ⚠ the premise produced NO output at all -- usually a check that never ran rather than one that failed.\n' >&2
+    fi
+    rm -f "$log"
+    printf '    ⭐⭐ THIS IS NOT A DEFECT, NOT A FAILING GATE, AND NOT YOUR WORK GOING WRONG. It is the row'"'"'s central\n' >&2
+    printf '       claim no longer being true on this tree -- bought for the price of ONE COMMAND instead of an hour\n' >&2
+    printf '       inside a row built on it. Six seats spent that hour on 2026-09-20 alone; that is why this runs.\n' >&2
+    printf '    WHAT TO DO, in order: (1) READ the premise output above -- it usually names what changed;\n' >&2
+    printf '       (2) REWRITE the row against what is true today (its GOAL, its DONE-WHEN and its PREMISE-WHEN), or\n' >&2
+    printf '       (3) if the row is now moot, say so to the ceo in one line and let it be retired -- a premise that\n' >&2
+    printf '       went green elsewhere is work someone else already did, which is a finding, not a loss.\n' >&2
+    printf '    ⛔ Do NOT weaken the PREMISE-WHEN to get past this. That is the false-green trap in its entry form.\n' >&2
+    printf '    If the PREMISE is wrong and the ROW is right, that is a real event and the honest exit is loud:\n' >&2
+    printf '       S4E_PREMISE_OVERRIDE="why" %s %s %s   (records the reason in the baton LEDGER)\n\n' "$0" "$verb" "$t" >&2
     return 1; }
 # ⛔⭐ THE DISPATCH GATE, CALLED FROM EVERY PATH IN PASS 3 THAT SERVES A ROW -- rc 0 = serve it, 1 = it was
 # closed, take the next one. ⛔ IT IS A FUNCTION BECAUSE PASS 3 SERVES FROM **TWO** PLACES AND THE FIRST DRAFT
@@ -1767,9 +1881,57 @@ case "$cmd" in
   mailbox) nm="$(s4e_canon "${2:?mailbox name}")"
          case "$nm" in ""|*/*|*$'\n'*|.*) echo "⛔ REFUSED: mailbox name must be a plain slug" >&2; exit 2;; esac
          if [ -d "$PO/$nm/inbox" ]; then echo "mailbox $nm already exists"; else mkdir -p "$PO/$nm/inbox" && echo "created mailbox $nm (deliberate, by $ME)"; fi;;
+  premise) # ⛔⭐ THE PREMISE FIELD IS READ THROUGH THE BUS AND NEVER BY A PRIVATE COPY (coo 2026-09-20).
+         # A census that re-derives the reading rule answers a slightly NARROWER question than the gate does
+         # -- multi-line? backticks? placeholder? -- and the two then disagree about which rows are covered,
+         # which is the one failure a backlog count may not have. That is the four-copies-of-one-sed defect
+         # lib_donewhen.sh was written to end, and this verb is how the next instrument avoids re-opening it.
+         # ⛔ A PURE READER: it takes no lock, writes nothing, and is in the pid-guard's exemption list above
+         # for the reason that line already gives -- a reporting verb that holds a mutation mutex makes every
+         # reader a writer, and the slowest reader sets the outage window.
+         case "${2:-}" in
+           --census)  # batons on stdin, one path per line -> "CLASS<TAB>path"; used by util_premise_census.py
+             while IFS= read -r _pb; do
+               [ -n "$_pb" ] || continue
+               if [ ! -f "$_pb" ]; then printf 'NOBATON\t%s\n' "$_pb"; continue; fi
+               _pt="$(s4e_premise_text "$_pb")"
+               if   [ -z "$_pt" ];                     then printf 'NONE\t%s\n' "$_pb"
+               elif s4e_premise_is_placeholder "$_pt"; then printf 'STUB\t%s\n' "$_pb"
+               elif s4e_donewhen_is_noop "$_pt";       then printf 'VACUOUS\t%s\n' "$_pb"
+               elif s4e_donewhen_incomplete "$_pt";    then printf 'BROKEN\t%s\n' "$_pb"
+               else                                         printf 'OK\t%s\n' "$_pb"; fi
+             done; exit 0;;
+           '') printf 'usage: %s premise <topic>    print the row PREMISE-WHEN exactly as claim/next will run it\n' "$0" >&2
+               printf '       %s premise --census   classify batons read from stdin (one path per line)\n' "$0" >&2; exit 2;;
+           *) topic="$2"; b="$PO/tasks/$topic.task.md"
+              [ -f "$b" ] || { printf '⛔ REFUSED (rc=2): no baton at %s -- nothing to read.\n' "$b" >&2; exit 2; }
+              pw="$(s4e_premise_text "$b")"
+              if [ -z "$pw" ]; then
+                printf '⛔ %s carries NO PREMISE-WHEN, so `claim` and `next` dispatch it with its premise UNCHECKED.\n' "$topic" >&2
+                printf '   Write the one cheap command that proves this row is still built on something true:\n' >&2
+                printf '       PREMISE-WHEN: <command>   in %s\n' "$b" >&2; exit 1; fi
+              printf '%s\n' "$pw"; exit 0;;
+         esac;;
   claim) topic="${2:?topic}"; c="$PO/claims/$topic.claim"; mkdir -p "$PO/claims"
          if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"; else echo "CLAIMED by $own — pick other work"; exit 1; fi
-         else t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
+         else
+              # ⛔⭐ THE PREMISE GATE RUNS HERE: BEFORE THE LOCK EXISTS, AND ONLY ON THE PATH THAT TAKES ONE.
+              # BEFORE, because "refuses the lock" is the whole deliverable -- a row nobody can usefully work is
+              # worse HELD than free, and a refusal after the claim is written is not a refusal, it is a cleanup
+              # problem (the same reasoning `mint` uses to hoist its criterion lint above the queue write).
+              # ⛔ ONLY ON THIS PATH: "already yours" and "CLAIMED by someone else" are unchanged, because
+              # neither takes a lock -- re-running a premise against a lock that already exists would refuse a
+              # seat access to its OWN running row, which is eviction wearing a verification.
+              # ⭐ AND HERE RATHER THAN IN EACH VERB, for the reason this file already gives twice on this very
+              # line (the queue-column write, hq_B; the claim announcement, CEO-1002): `next` reaches its lock by
+              # running `$0 claim`, so one wiring covers the picker, the deliberate claim and any future verb that
+              # claims through the primitive instead of re-implementing it. A cure that enumerates its acquiring
+              # verbs silently reopens the first time a new one is minted.
+              # ⛔ `assign` IS DELIBERATELY NOT GATED: an HQ writes the seat's claim on the HQ's own tree, which
+              # is not the tree the work will happen on, so a premise measured there answers about the wrong
+              # machine. The ASSIGNED row is gated at SERVE time instead, in PASS 1 of `next`, on the seat's tree.
+              s4e_premise_gate "$topic" claim || exit 1
+              t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
               if ln "$t" "$c" 2>/dev/null; then rm -f "$t"
                 # ⭐ picker-dependency-and-boomerang-blindness CURE 2: an explicit claim IS the "another seat
                 # touched it" event that ends the boomerang cooldown early. Cleared unconditionally, including
@@ -2626,10 +2788,22 @@ case "$cmd" in
          # ⛔ $goal and $dw_block were split, and the criterion LINTED, before the lock was taken -- see the
          # hoisted block above. Nothing here may re-derive them: a second split would silently re-admit the
          # prose criterion the guard just refused.
+         # ⛔⭐ THE PREMISE FIELD IS WRITTEN AT THE MINT, MARKED UNEXPRESSED RATHER THAN OMITTED (coo 2026-09-20,
+         # row instruments-claim-computes-the-rows-premise-...). A field that only exists once somebody remembers
+         # it is the shape this whole row exists to end: the minter is the ONE reader who knows what the row
+         # assumes, and they are looking at the file exactly once. So the line is here, empty and labelled, at the
+         # moment it is cheapest to fill. ⛔ THE PLACEHOLDER NEVER REFUSES A LOCK -- s4e_premise_gate admits it with
+         # a named "UNVERIFIED" note -- because a row must never be born unclaimable; that is the opposite error
+         # from the DONE-WHEN placeholder, which is deliberately RED (a row not yet closeable is honest; a row not
+         # yet claimable is a mint that blocks work). Supply a real one by writing PREMISE-WHEN: under your
+         # DONE-WHEN in the minted text and this placeholder is not added.
+         pw_block="PREMISE-WHEN: ⛔ NOT EXPRESSED -- replace this with the ONE CHEAP COMMAND that proves this row's central claim is still true on today's tree. It is run by \`claim\` and \`next\`, and a RED one refuses the lock and says the row needs rewriting. Until it is written, this row is dispatched with its premise UNCHECKED."
+         if printf '%s\n' "$dw_block" | grep -q '^PREMISE-WHEN:'; then pw_block=""; fi
          cat > "$b" <<TASKEOF
 # TASK $topic
 GOAL: $goal
-$dw_block
+$dw_block${pw_block:+
+$pw_block}
 LINKS: minted via \`mint\` by $ME, $(date -u +%FT%TZ)
 ## NEXT
 Distill a real first step from the GOAL above (and a real DONE-WHEN — see the line above), then work it.
@@ -2639,7 +2813,14 @@ Distill a real first step from the GOAL above (and a real DONE-WHEN — see the 
 TASKEOF
          printf '%s\t%s\t%s\tFREE\n' "$rank" "$topic" "$owner" >> "$q"
          rmdir "$lock" 2>/dev/null; trap 's4e_pid_release' EXIT
-         echo "minted $topic (rank $rank, owner $owner, state FREE) -> $b";;
+         echo "minted $topic (rank $rank, owner $owner, state FREE) -> $b"
+         [ -n "$pw_block" ] && {
+           printf '⚠ NO PREMISE-WHEN — you are the one reader who knows what this row ASSUMES, and you are looking at\n' >&2
+           printf '  it right now. Write the one cheap command that proves that assumption still holds, into %s:\n' "$b" >&2
+           printf '      PREMISE-WHEN: grep -q "the thing this row is built on" src/path/file.c\n' >&2
+           printf '  `claim` and `next` run it and REFUSE the lock when it goes red, so the row gets rewritten instead of\n' >&2
+           printf '  worked. Six seats lost an hour each to a stale premise on 2026-09-20; every one was cheap to check.\n' >&2; }
+         exit 0;;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          s4e_mode_line
          # ⛔⭐ MODE GATES DISPATCH -- IT IS NOT DECORATION (row next-refuses-to-dispatch-to-an-hq-seat-when-mode-
@@ -2781,7 +2962,16 @@ TASKEOF
          # served -- one lowest-rank winner, deterministic regardless of claims/ directory order.
          while IFS=$'\t' read -r _rk t; do
            [ -n "${t:-}" ] || continue
-           c="$PO/claims/$t.claim"; echo "RUNNING" >> "$c"
+           c="$PO/claims/$t.claim"
+           # ⛔⭐ THE ASSIGNED ROW IS GATED HERE AND NOWHERE ELSE, AND THIS IS THE PATH THAT MATTERS MOST:
+           # an assigned row never passes through `claim` at all (the HQ wrote the lock), so wiring the premise
+           # only into `claim` would leave the fleet's COMMONEST dispatch -- ASSIGNED->RUNNING -- completely
+           # unchecked, which is the half-wired shape s4e_dispatch_gate's own comment was written about.
+           # ⛔ THE LOCK ALREADY EXISTS, so the refusal cannot decline to take it; the analogue is to decline to
+           # START -- the row stays ASSIGNED, unflipped, un-served, and the seat reads why. Refusing to serve is
+           # not unclaiming: putting the row back is the HQ's call or an explicit `unclaim`, never a side effect.
+           s4e_premise_gate "$t" next || continue
+           echo "RUNNING" >> "$c"
            s4e_cross_lane_notice "$t" assigned
            serve "$t" "ASSIGNED->RUNNING" "(dispatched by $(grep -m1 '^ASSIGNED-BY ' "$c" | cut -d' ' -f2))"; exit 0
          done < <(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
@@ -3022,7 +3212,19 @@ TASKEOF
              s4e_dispatch_gate "$topic" "$rank" || continue
              s4e_report_owned_skips
              s4e_report_rankcap_skips
-             serve "$topic" "LOCKED" "($_serve_reason)"; exit 0; fi; rm -f "$_cl_out"
+             serve "$topic" "LOCKED" "($_serve_reason)"; exit 0
+           elif grep -q 'THE PREMISE OF THIS ROW IS RED' "$_cl_out" 2>/dev/null; then
+             # ⛔⭐ A FAILED INNER CLAIM WAS SILENT HERE, AND A SILENT REFUSAL IS THE ONE OUTCOME THIS ROW
+             # FORBIDS. `next` captures the claim's streams (CEO-1002, for the announcement), so a premise
+             # refusal raised inside that subprocess died in $_cl_out and the picker simply moved on -- the
+             # seat would be served the NEXT row and never learn that the one above it needs rewriting, which
+             # is how a stale row stays stale forever while every seat quietly steps around it. A lost race is
+             # ordinary chatter and stays quiet; a measured red premise is a finding and is printed whole.
+             cat "$_cl_out" >&2; rm -f "$_cl_out"
+             printf '↩ SKIP %s (rank %s) — PREMISE RED, not claimed. The row stays FREE and is now a REWRITE,\n' "$topic" "$rank"
+             printf '   not a cure: whoever rewrites it fixes the premise first. Looking for the next row...\n'
+             continue
+           fi; rm -f "$_cl_out"
          done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
          return 1
          }
