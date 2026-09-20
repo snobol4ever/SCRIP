@@ -513,6 +513,11 @@ def report(scrip, progs, workdir, out=print):
     all_unread, all_sites = collections.Counter(), 0
     for prog in progs:
         tag = os.path.basename(prog)
+        if os.path.isdir(prog):
+            out(f"CENSUS unmapped-store REFUSED(2): {prog} is a DIRECTORY and this census takes an expanded FILE "
+                "LIST. A directory handed here is read as ONE witness, the compile fails with rc=3 and zero bytes "
+                "of asm, and the refusal that follows names a COMPILER FAILURE for what is an argument shape "
+                "(hq_snocone 2026-09-20, who paid for it). Expand the glob before passing it."); return 2
         if not os.path.exists(prog):
             out(f"CENSUS unmapped-store REFUSED(2): witness {prog} missing"); return 2
         asm, rep, err = emit_and_read(scrip, prog, workdir)
