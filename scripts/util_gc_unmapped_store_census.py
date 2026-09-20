@@ -270,16 +270,87 @@ def owner_of(base, d, i, frames):
     return g, next(iter(vals)), None
 
 
+CELL = 16
+
+
+def trim_entry_fallthrough(insns, succ, label_at):
+    """drop the FALLTHROUGH edge into any label a `call` names -- a call target starts a different activation.
+
+    ⛔ MEASURED BEFORE IT WAS BELIEVED, and the first grid reading is what found it (cto 2026-09-20).  SNOBOL4
+    emits `module_init` immediately after `main`'s last box in the text, and main's last arm is
+    `main_ω: mov edi,1 / call exit@PLT`.  A `call` gets a fallthrough successor because a call returns -- but
+    `exit` does not, and the next instruction in the text is `module_init`'s own `sub rsp, 8`.  main's rsp
+    fixpoint therefore bled into a DIFFERENT function and graded its four runtime calls at a spine floor of -8,
+    which read as twelve OFF-GRID sites over the SNOBOL4 witnesses.  They are not off the grid; they are not
+    main's frame at all.  A frame's spine displacement describes one activation, and the edge that crosses into
+    another is not a control-flow edge of that activation.  The rule is written on the call target rather than on
+    `exit` because it is the structural fact and covers every emitter that lays one function after another."""
+    entries = set()
+    for ins in insns:
+        if ins.mnem == "call" and ins.ops:
+            tgt = ins.ops[0].split("@")[0].strip()
+            if tgt in label_at:
+                entries.add(label_at[tgt])
+    for j in sorted(entries):
+        if j == 0:
+            continue
+        prev = insns[j - 1]
+        named = any(L in (prev.ops[0].split("@")[0].strip() if prev.ops else "") for L in insns[j].labels)
+        if not named and j in succ.get(j - 1, ()):
+            succ[j - 1] = [t for t in succ[j - 1] if t != j]
+    return len(entries)
+
+
+def grid_verdict(k):
+    """ON-GRID when a spine floor k bytes from the region base falls on the 16-byte descriptor-cell grid.
+
+    ARCH-GC section 2b Rule 1a and section 7 F1 say the spine is TAGGED CELLS ONLY and that the collector "walks
+    the spine from RSP to its base as an array of cells, reading tags: precise, path-independent, no map, no
+    sniff, no guess".  gc_heap.c does not walk an array: gc_walk_words steps EIGHT bytes at a time and tries
+    gc_cell_visit at every step, so what it finds depends on where the walk happened to land -- which is the one
+    thing CEO-812 says the collector may never do.  A grid walk is only available to it if the emitter puts every
+    cell start on one grid anchored at the region base, and that is a property of EMITTED CODE, which is this
+    seat's lane and this census's job to measure rather than assume."""
+    return "ON-GRID" if k % CELL == 0 else "OFF-GRID"
+
+
+def grid_sites(insns, frames):
+    """every emitted call graded against its graph's cell grid: [(graph, insn index, floor, why-undecidable)].
+
+    WHY EVERY CALL AND NOT ONLY THE POLLS.  A collection begins at an emitted poll (rt_gc_poll) and, until section
+    7 F4's shielded rt_gc_point_arr sites retire, inside any runtime call that allocates.  Both are `call`
+    instructions, so the population that decides whether the collector could walk by grid is EVERY call reached
+    from the graph's own map-cell anchor -- grading only the polls would read green over the sites F4 names as
+    still collecting."""
+    rows = []
+    for g, f in frames.items():
+        for i, st in f["frame"].items():
+            if insns[i].mnem != "call" or not st:
+                continue
+            if f["blob"]:
+                rows.append((g, i, None, "BLOB-FRAME-RBP-ANCHORED"))
+                continue
+            vals = {None if rsp is None else rsp - f["cell"] + f["map_off"] for rsp, _ in st}
+            if None in vals:
+                rows.append((g, i, None, "SPINE-DEPTH-UNKNOWN"))
+            elif len(vals) != 1:
+                rows.append((g, i, None, "SPINE-DEPTH-MULTI-VALUED"))
+            else:
+                rows.append((g, i, next(iter(vals)), None))
+    return rows
+
+
 def census_asm(asm_path, report_text, tag, out=print):
-    """read one emitted program; returns (members, undecidable, examined, refusal)"""
+    """read one emitted program; returns (members, undecidable, examined, refusal, grid)"""
     insns = CS.parse(asm_path)
     if not insns:
-        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured"
+        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured", None
     succ, top, label_at = CS.build_cfg(insns)
+    trim_entry_fallthrough(insns, succ, label_at)
     maps = GCC.read_gcmaps(report_text)
     layouts = read_layouts(report_text)
     if not maps:
-        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure"
+        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure", None
     by_label = {mangle(g): g for g in maps}
     frames, unmatched = {}, []
     for lbl, (ai, base, cell) in find_anchors(insns).items():
@@ -294,7 +365,7 @@ def census_asm(asm_path, report_text, tag, out=print):
     if unmatched:
         return None, None, 0, (f"{tag}: {len(unmatched)} map label(s) match no graph in the report "
                                f"({', '.join(sorted(unmatched)[:4])}) -- the mangling fact of ARCH-GC 6.2d "
-                               "is not being read correctly and every site under them would read green by accident")
+                               "is not being read correctly and every site under them would read green by accident"), None
     members, undecidable, examined = [], [], 0
     for i, ins in enumerate(insns):
         if not (ins.mnem == "call" and ins.ops and any(p in ins.ops[0] for p in POLL_NAMES)):
@@ -310,7 +381,12 @@ def census_asm(asm_path, report_text, tag, out=print):
             v = classify(k, f["layout"], f["map_off"], f["blob"])
             if v != "MAPPED":
                 members.append((tag, g, lbl, ins.line, k, v, src))
-    return members, undecidable, examined, None
+    graded = grid_sites(insns, frames)
+    grid = [(tag, g, site_label(insns, i), insns[i].line, k, grid_verdict(k) if k is not None else None, why)
+            for g, i, k, why in graded]
+    reached = {i for _, i, _, _ in graded}
+    unreached = sum(1 for i, ins in enumerate(insns) if ins.mnem == "call" and i not in reached)
+    return members, undecidable, examined, None, (grid, unreached)
 
 
 def emit_and_read(scrip, prog, workdir, env_extra=None):
@@ -342,7 +418,8 @@ def report(scrip, progs, workdir, out=print):
     if not progs:
         out("CENSUS unmapped-store REFUSED(2): no witness named -- a census over an empty population reads zero by never looking")
         return 2
-    all_members, all_undec, examined, graphs_seen = [], [], 0, set()
+    all_members, all_undec, examined, graphs_seen, all_grid = [], [], 0, set(), []
+    unreached_calls = 0
     for prog in progs:
         tag = os.path.basename(prog)
         if not os.path.exists(prog):
@@ -350,11 +427,12 @@ def report(scrip, progs, workdir, out=print):
         asm, rep, err = emit_and_read(scrip, prog, workdir)
         if err:
             out(f"CENSUS unmapped-store REFUSED(2): {err}"); return 2
-        members, undec, ex, refusal = census_asm(asm, rep, tag, out=out)
+        members, undec, ex, refusal, grid = census_asm(asm, rep, tag, out=out)
         if refusal:
             out(f"CENSUS unmapped-store REFUSED(2): {refusal}"); return 2
         graphs_seen |= set(GCC.read_gcmaps(rep).keys())
         all_members += members; all_undec += undec; examined += ex
+        all_grid += grid[0]; unreached_calls += grid[1]
     if examined == 0:
         out("CENSUS unmapped-store REFUSED(2): zero shielded stores examined over "
             f"{len(progs)} witness(es) -- a zero has to be a zero somebody could have failed"); return 2
@@ -391,6 +469,24 @@ def report(scrip, progs, workdir, out=print):
         "on measurement -- all 159 Prolog function regions of hb_wsb_pl_atom_dup.pl re-point rbp away from their "
         "own frame at least once (mov rbp, [rbp+N] and mov rbp, rax), so containment would grade a store against a "
         "frame that is not the one it lands in. Making these sites decidable is part of the cure, not of the census.")
+    off = [r for r in all_grid if r[5] == "OFF-GRID"]
+    on = [r for r in all_grid if r[5] == "ON-GRID"]
+    und_grid = collections.Counter(r[6] for r in all_grid if r[5] is None)
+    for tag, g, lbl, line, k, v, why in sorted(off, key=lambda r: (r[0], r[1], r[3])):
+        out(f"CENSUS unmapped-store GRID OFF-GRID witness={tag} graph={g} site={lbl} line={line} "
+            f"floor={k:+d} residue={k % CELL}")
+    for w, n in sorted(und_grid.items(), key=lambda kv: -kv[1]):
+        out(f"CENSUS unmapped-store GRID-UNDECIDABLE-REASON {w} n={n}")
+    out(f"CENSUS unmapped-store GRID calls={len(all_grid)} on_grid={len(on)} off_grid={len(off)} "
+        f"undecidable={sum(und_grid.values())} unreached={unreached_calls} cell={CELL}")
+    out("CENSUS unmapped-store GRID MEANS EXACTLY THIS AND NOT THAT THE CLASS IS CURED: every call graded ON-GRID "
+        "begins its collection with the emitted spine floor on the 16-byte descriptor-cell grid anchored at the "
+        "region base, so the walk of [floor, base) could read each cell AT ITS START by stepping the grid -- the "
+        "array-of-cells walk ARCH-GC 2b Rule 1a and 7 F1 describe. It does not: gc_walk_words steps 8 bytes and "
+        "tries gc_cell_visit at every step, which is a guess about where a cell begins (CEO-812 forbids exactly "
+        "that) and is why a tag the recognizer does not know is a LOST value and a zero word pair could be a "
+        "SPURIOUS one. An OFF-GRID call is a site where no grid walk is available at all and the guess is the "
+        "only road, so it is named here rather than counted.")
     out(f"CENSUS unmapped-store witnesses={len(progs)} graphs={len(graphs_seen)} shielded_stores={examined} "
         f"members={named} undecidable={len(all_undec)} "
         + " ".join(f"{v}={counts.get(v, 0)}" for v in VERDICTS))
@@ -426,6 +522,10 @@ def selftest():
     arm("read_gcmaps is the harness's reader, not a copy",
         GCC.read_gcmaps("[GC-MAP] graph=main frame_bytes=432 header_bytes=0 map_off=416 flags=9")["main"]["map_off"] == 416)
     arm("report REFUSES an empty population", report("/nonexistent", [], "/tmp") == 2)
+    arm("grid: a floor 32 bytes below the base is ON-GRID", grid_verdict(-32) == "ON-GRID")
+    arm("grid: the witness's own pointer word at -24 is OFF-GRID as a floor", grid_verdict(-24) == "OFF-GRID")
+    arm("grid: the region base itself is ON-GRID", grid_verdict(0) == "ON-GRID")
+    arm("grid: an 8-byte push below the base takes the floor OFF-GRID", grid_verdict(-8) == "OFF-GRID")
     print(f"SELFTEST {ok[0]}/{ok[1]} arms green")
     return 0 if ok[0] == ok[1] else 1
 

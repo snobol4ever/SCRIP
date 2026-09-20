@@ -69,7 +69,7 @@ with tempfile.TemporaryDirectory() as wd:
     asm, rep, err = uc.emit_and_read(scrip, wit, wd)
     if err: print("PLANT-REFUSED-TO-SET-UP", err); sys.exit(3)
     doctored = "\n".join(l for l in rep.split("\n") if "graph=main " not in l)
-    m, u, ex, refusal = uc.census_asm(asm, doctored, "planted")
+    m, u, ex, refusal, grid = uc.census_asm(asm, doctored, "planted")
     print("PLANT-RESULT", "REFUSED" if refusal else f"ACCEPTED members={len(m or [])}", refusal or "")
 PY
 )"
