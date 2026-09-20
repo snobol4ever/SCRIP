@@ -933,6 +933,7 @@ inline const char * ZRESN() { return "result"; }
 inline const char * ZOPN(int k) { if (k < 0 || k >= ZD_NOPS_MAX) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * HKN(int k) { static const char * n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "rsp_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
+inline const char * RDB(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "byte ptr [%s + %d]", base, off); return b[i]; }
 inline const char * XSAQ(int d) { return _.op_zread_xf[0] != -1 ? RDQ("rbp", _.op_zread_xf[0] + d) : FRQ(_.op_sa + d); }
 inline const char * XSAD(int d) { return _.op_zread_xf[0] != -1 ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
 inline const char * zone_ref(int rbp_off, int spine_base, int d, int w) { return (rbp_off != -1) ? ((w == 8) ? RDQ("rbp", rbp_off + d) : RDD("rbp", rbp_off + d)) : ((w == 8) ? FRQ(spine_base + d) : FR(spine_base + d)); }
@@ -1100,6 +1101,15 @@ inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long 
     return x86_rec("mov") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_store_imm8(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x40; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0xC6; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)imm;
+        return x86_Lrec(c);
+    }
+    return x86_rec("mov") + "byte ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_store_imm32(const char * base, int disp, long imm) {
     int b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1260,7 +1270,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT, XK_RIPCELL };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_REGDISPB, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT, XK_RIPCELL };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -1300,6 +1310,9 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
     if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64;  o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
     if (!strncmp(s, "dword ptr [rsp + ", 17)) { o.kind = XK_RSP32; o.off = atoi(s + 17); return; }
+    if (!strncmp(s, "byte ptr [", 10)) { const char * lb = s + 9; const char * pl = strstr(lb, " + ");
+      if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
+        char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISPB; o.off = (int)d; return; } } }
     if (!strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP32; o.off = (int)d; return; } } }
@@ -1630,6 +1643,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_ABS64)    return x86_abs_disp32_load64(a.txt, b.imm);
         if (a.kind == XK_REGDISP32 && b.kind == XK_REG)  return x86_reg_disp32_store32(a.base, a.off, b.txt);
         if (a.kind == XK_REGDISP32 && b.kind == XK_IMM)  return x86_reg_disp32_store_imm32(a.base, a.off, b.imm);
+        if (a.kind == XK_REGDISPB && b.kind == XK_IMM)   return x86_reg_disp32_store_imm8(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP32)  return x86_reg_disp32_load32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_MEMIDX8)  return x86_load_indexed8(a.txt, b.base, b.idx);
         if (a.kind == XK_REG && b.kind == XK_MEMIND)   return x86_load_mem64(a.txt, b.txt);
@@ -2219,10 +2233,20 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_poll(void);
 extern "C" { struct rt_hp_fr_t; extern struct rt_hp_fr_t g_hp_fr; }
+inline std::string x86_gc_bump_inline_at(long dtype, int lmiss);
 enum { GCFR_TOP = 0, GCFR_BLOCKS = 16, GCFR_ARMED = 24, GCFR_VIRGIN = 32, GCFR_ZFULL = 40, GCFR_LINE = 48, GCFR_ATOTAL = 56, GCFR_ASTR = 64 };
+enum { GCHB_HDR = 16, GCHB_TTL = 0x0001 };
+inline std::string x86_gc_fr_load(const char * reg) {
+    return x86("comment", "⛔ THE GOT LOAD IS LOAD-BEARING AND MUST NOT BE 'SIMPLIFIED' INTO A DIRECT NAME (cfo, CFO-126, measured with readelf on a real link, not reasoned): an executable that NAMES an exported data symbol of libscrip_rt.so takes an R_X86_64_COPY relocation and gets its OWN copy of the frontier cell in its BSS, so the emitted bump would advance a different top, virgin and line than the runtime allocator over ONE arena -- two frontiers, each believing it owns the heap, and no instrument we own would see it.")
+         + x86("mov", reg, "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&g_hp_fr, "g_hp_fr");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_gc_bump_inline(long dtype, int lmiss) {
+    return x86_gc_fr_load("r10") + x86_gc_bump_inline_at(dtype, lmiss);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_gc_bump_inline_at(long dtype, int lmiss) {
     return x86("comment", "ARCH-GC 6.2j: THE BOX ALLOCATES, IT DOES NOT CALL C TO ALLOCATE (Lon 2026-09-20, CEO-990: put RBX references into each BB that allocates memory and not call a C function to do it; get to work adding BB code to manipulate HEAP structures directly).  This is rtx_alloc.s lines 7..41 EMITTED, with rbx carrying the frontier: r8 in = payload bytes, r8 out = total bytes with the 16-byte header, rbx out = the BLOCK base (payload is rbx+16), rax and rcx clobbered, and ANY miss jumps to the caller's slow label where the existing runtime entry still runs.  ⛔ THE GOT LOAD IS LOAD-BEARING AND MUST NOT BE 'SIMPLIFIED' INTO A DIRECT NAME (cfo, CFO-126, measured with readelf on a real link, not reasoned): an executable that NAMES an exported data symbol of libscrip_rt.so takes an R_X86_64_COPY relocation and gets its OWN 56-byte copy of the frontier cell in its BSS, so the emitted bump would advance a different top, virgin and line than the runtime allocator over ONE arena -- two frontiers, each believing it owns the heap, and no instrument we own would see it.  ⛔ armed AT +24 IS TESTED FIRST AND IS NOT AN OPTIMISATION (CEO-990 condition one): it means no instrument is armed, so testing it keeps SCRIP_GC_STRESS, the allocation histogram and the budget honest BY CONSTRUCTION -- without it, inlining silently disables the fleet's most important GC instrument and the tiny-arena pass goes green for the wrong reason.  THE OFFSETS ARE BAKED HERE AND HELD BY THE _Static_asserts BESIDE THE STRUCT IN gc_heap.c, which name this sink: a drift fails the BUILD, not a page.")
-         + x86("mov", "r10", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&g_hp_fr, "g_hp_fr")
          + x86("mov", "eax", RDD("r10", GCFR_ARMED))
          + x86("test", "eax", "eax")
          + x86("je", L(lmiss))
@@ -2245,7 +2269,7 @@ inline std::string x86_gc_bump_inline(long dtype, int lmiss) {
          + x86("jb", L(lmiss))
          + x86("mov", RDQ("rbx", 0), (long)0)
          + x86("mov", RDD("rbx", 8), "r8d")
-         + x86("mov", RDD("rbx", 12), (long)(dtype | (HBF_TTL << 16)))
+         + x86("mov", RDD("rbx", 12), (long)(dtype | (GCHB_TTL << 16)))
          + x86("note", "frontier")
          + x86("mov", RDQ("r10", GCFR_VIRGIN), "rax")
          + x86("note", "frontier")
