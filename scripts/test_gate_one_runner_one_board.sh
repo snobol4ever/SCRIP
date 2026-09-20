@@ -22,15 +22,39 @@ CORPUS="${S4E_CORPUS:-${S4E_HOME:-$(cd "$H/../.." && pwd)}/corpus}"
 [ -r "$CORPUS/tests/icon/ALL.icn" ] || { echo "REFUSE(2) [$G]: no corpus master at $CORPUS/tests/icon/ALL.icn -- the board/not-a-board arms cannot be measured"; exit 2; }
 [ -r "$L" ] || { echo "REFUSE(2) [$G]: $L missing -- cannot measure"; exit 2; }
 arm() { examined=$((examined+1)); if eval "$2"; then echo "  ok   $1"; else echo "  FAIL $1"; fail=$((fail+1)); fi; }
+# ⛔⭐ THE OWNERS ARE READ FROM THE SUBJECT'S OWN AUTHORITY, NOT NAMED HERE (COO-80, 2026-09-19, row
+# instrument-the-nineteen-non-gc-blocking-arms). Arms 1c, 2a, 2b and 5 used to spell the owners out --
+# icon=hq_icon, rebus=cfo -- and they were true when they were typed. lib_one_runner.sh reads the owner from
+# MODE's LANES: line (one_runner_who), the LANES line moved to a single owner for every language under the
+# consolidated modes, and those four arms went RED WITH THE GUARD BEHAVING EXACTLY AS RULED. That is the most
+# expensive kind of red there is, and this gate's sister states the principle best: a fixture that restates
+# its subject's facts does not fail when the subject is wrong, it fails when the subject is RIGHT and has
+# moved -- it points at the cure and calls it the bug. ⭐ SO THE ARMS ASK one_runner_who, exactly as the
+# runners do, and derive a NON-owner seat for every refusal arm rather than assuming one. The gate still
+# grades what it always graded -- the named owner passes silently, everyone else is refused rc=2 with the
+# ruling named -- and it now survives every future lane cut without an edit.
+_who() { bash -c "source \"$L\"; one_runner_who \"$1\"" 2>/dev/null; }
+OWN_ICON="$(_who icon)"; OWN_REBUS="$(_who rebus)"
+[ -n "$OWN_ICON" ]  || { echo "REFUSE(2) [$G]: MODE LANES: names no owner for icon, so the owner-passes arms cannot be built. That is a finding about the LANES line, not a broken fixture -- report it rather than lowering the bar."; exit 2; }
+[ -n "$OWN_REBUS" ] || { echo "REFUSE(2) [$G]: MODE LANES: names no owner for rebus, so the second-language arm cannot be built. That is a finding about the LANES line, not a broken fixture."; exit 2; }
+# A refusal arm needs a seat the lane does NOT name. Derive one instead of trusting that any particular name
+# is still a non-owner: under a one-owner table most names are, but WHICH ones depends on the live line.
+_not_owner_of() { local _own="$1" _c; for _c in hq_pascal hq_prolog hq_icon hq_B cto cfo coo; do [ "$_c" = "$_own" ] || { printf '%s' "$_c"; return 0; }; done; return 1; }
+NOT_ICON="$(_not_owner_of "$OWN_ICON")"   || { echo "REFUSE(2) [$G]: every candidate seat owns icon -- no refusal arm can be built"; exit 2; }
+NOT_REBUS="$(_not_owner_of "$OWN_REBUS")" || { echo "REFUSE(2) [$G]: every candidate seat owns rebus -- no refusal arm can be built"; exit 2; }
+# arm 5 drives two refused seats and the owner; both refused seats must really not own icon.
+REF_A=hq_B; [ "$REF_A" = "$OWN_ICON" ] && REF_A="$NOT_ICON"
+REF_B=coo;  [ "$REF_B" = "$OWN_ICON" ] && REF_B=cto
+echo "    lanes (read from MODE LANES: via one_runner_who): icon -> $OWN_ICON, rebus -> $OWN_REBUS; refusal seats: $NOT_ICON (icon), $NOT_REBUS (rebus), $REF_A + $REF_B (--check)"
 arm "1a detector: legacy seat hq_B refused rc=2 on an icon board, naming the ruling" 'out=$(S4E_SEAT=hq_B bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); rc=$?; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out" && grep -q "test_icon_x_suite.sh" <<<"$out"'
 arm "1b detector: the coo is refused rc=2 on an icon board -- there is no central runner" 'out=$(S4E_SEAT=coo bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER PER LANGUAGE" <<<"$out"'
-arm "1c detector: hq_pascal is refused rc=2 on an icon board -- a wrong-language HQ" 'out=$(S4E_SEAT=hq_pascal bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "hq_icon" <<<"$out"'
-arm "2a the lane owner (LANES: icon=hq_icon) passes rc=0 silently on an icon board" 'out=$(S4E_SEAT=hq_icon bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
-arm "2b the owner is read from the LANES line, not baked in: cfo passes on a rebus master path" 'out=$(S4E_SEAT=cfo bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
-arm "2c control: hq_icon is refused rc=2 on that same rebus master path" 'out=$(S4E_SEAT=hq_icon bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ]'
+arm "1c detector: $NOT_ICON is refused rc=2 on an icon board -- a seat the icon lane does not name" 'out=$(S4E_SEAT=$NOT_ICON bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "$OWN_ICON" <<<"$out"'
+arm "2a the lane owner the LANES line names for icon ($OWN_ICON) passes rc=0 silently on an icon board" 'out=$(S4E_SEAT=$OWN_ICON bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
+arm "2b the owner is read from the LANES line, not baked in: the rebus owner $OWN_REBUS passes on a rebus master path" 'out=$(S4E_SEAT=$OWN_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
+arm "2c control: $NOT_REBUS is refused rc=2 on that same rebus master path" 'out=$(S4E_SEAT=$NOT_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ]'
 arm "3 the bus computed done is exempt and says so" 'out=$(S4E_SEAT=hq_B S4E_DONE_WHEN_RUN=1 bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && grep -q "computed done" <<<"$out"'
 arm "4 a loud override passes and prints its reason" 'out=$(S4E_SEAT=cto S4E_ONE_RUNNER_OVERRIDE="ceo audit CEO-999" bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && grep -q "OVERRIDE by cto" <<<"$out" && grep -q "CEO-999" <<<"$out"'
-arm "5 --check <board>: 2 for hq_B and for coo on an icon board, 0 for hq_icon" 'S4E_SEAT=hq_B bash "$L" --check test_icon_x_suite.sh; a=$?; S4E_SEAT=coo bash "$L" --check test_icon_x_suite.sh; c=$?; S4E_SEAT=hq_icon bash "$L" --check test_icon_x_suite.sh; b=$?; [ $a -eq 2 ] && [ $c -eq 2 ] && [ $b -eq 0 ]'
+arm "5 --check <board>: 2 for $REF_A and for $REF_B on an icon board, 0 for the lane owner $OWN_ICON" 'S4E_SEAT=$REF_A bash "$L" --check test_icon_x_suite.sh; a=$?; S4E_SEAT=$REF_B bash "$L" --check test_icon_x_suite.sh; c=$?; S4E_SEAT=$OWN_ICON bash "$L" --check test_icon_x_suite.sh; b=$?; [ $a -eq 2 ] && [ $c -eq 2 ] && [ $b -eq 0 ]'
 arm "6a census: every listed board runner sources the guard on line 2 and calls it (raku_roast_scoreboard calls it after argument parsing, hq_T 09-14)" 'miss=""; while read -r b; do [ -n "$b" ] || continue; { sed -n 2p "$H/$b" | grep -q "lib_one_runner.sh" && grep -q "one_runner_guard" "$H/$b"; } || miss="$miss $b"; done < "$H/one_runner_boards.txt"; [ -z "$miss" ] || { echo "     missing:$miss"; false; }'
 arm "6b census: the master harness guards cmd_run before it grades, with the suite it holds" 'grep -A2 "^def cmd_run(args):" "$H/corpus_suite_harness.py" | grep -q "_one_runner_guard(args.sno, paths\\[.corpus.\\], getattr(args, .lang., None))"'
 arm "6c the bus done run exports S4E_DONE_WHEN_RUN=1" 'grep -q "S4E_DONE_WHEN_RUN=1 timeout" "$H/s4e_msg.sh"'
