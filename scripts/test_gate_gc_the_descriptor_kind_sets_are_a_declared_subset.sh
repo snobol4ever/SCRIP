@@ -31,7 +31,22 @@ cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"
 CENSUS="$ROOT/scripts/util_gc_kind_sets.py"
 SRC="$ROOT/src/runtime/rt/gc_heap.c"
-BASE_UNDECLARED=9
+# ⛔⭐ THE FLOOR IS A NAME SET AND NEVER A COUNT (cto 2026-09-21, and this is the THIRD time the same defect has
+# been found in my own instruments in one evening -- I ruled it for hq_raku's DONE-WHEN, cured it in the
+# unmapped-store ratchet, and it was still standing here).  A COUNT CANNOT TELL THE STANDING SEVEN FROM SEVEN
+# DIFFERENT ONES: a landing that cures four and opens four reads 7 against a baseline of 7 and this arm says
+# nothing.  ⛔ AND IT COST A SEAT REAL TIME BEFORE IT WAS CURED: the cfo saw this gate red on origin, remembered
+# it green in their own battery, and spent four minutes re-running twelve blocking reds with their cure stashed to
+# prove the red was not theirs.  It was never theirs and it was never a regression -- it is this row's STANDING
+# DECLARED RED, and the gate did not say so in a way a reader could act on.  The banner now does.
+DECLARED_STANDING="gc_sniff_would_take lacks DT_BIG
+gc_sniff_would_take lacks DT_P
+gc_sniff_would_take lacks DT_PLREF
+gc_sniff_would_take lacks DT_PLVAR
+gc_type_says_ref lacks DT_P
+gc_type_says_ref lacks DT_PLREF
+gc_type_says_ref lacks DT_PLVAR"
+declared_red=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [gc_the_descriptor_kind_sets_are_a_declared_subset]: $1"; exit 2; }
@@ -100,21 +115,31 @@ fi
 
 # (e) THE READING ITSELF, and it is the work list
 u="$(printf '%s\n' "$rep" | sed -n 's/^KINDSETS .* undeclared_or_stale=\([0-9]*\)$/\1/p')"
+now_names="$(printf '%s\n' "$rep" | grep '^KINDSETS UNDECLARED ' | sed 's/^KINDSETS UNDECLARED //; s/ -- .*//' | sort)"
+want_names="$(printf '%s\n' "$DECLARED_STANDING" | sed '/^$/d' | sort)"
+new_names="$(comm -13 <(printf '%s\n' "$want_names") <(printf '%s\n' "$now_names") | tr '\n' ';')"
+gone_names="$(comm -23 <(printf '%s\n' "$want_names") <(printf '%s\n' "$now_names") | tr '\n' ';')"
 if [ "${u:-x}" = 0 ]; then
   ck ok "(e) every divergence from the authority is written down with its reason -- one fact, one authority, no absences"
-elif [ "${u:-999}" -le "$BASE_UNDECLARED" ] 2>/dev/null; then
-  ck no "(e) ${u} divergence(s) carry no reason (baseline $BASE_UNDECLARED, RED BY DESIGN until they are declared or cured): $(printf '%s\n' "$rep" | grep '^KINDSETS UNDECLARED ' | sed 's/^KINDSETS UNDECLARED //; s/ -- .*//' | tr '\n' ';')"
+elif [ -n "$new_names" ]; then
+  ck no "(e) ⛔ A DIVERGENCE THAT IS NOT ON THE DECLARED STANDING LIST APPEARED -- THIS ONE IS A REGRESSION AND IS THE RED YOU CAME HERE FOR: $new_names (the standing list is $(printf '%s\n' "$want_names" | wc -l) entries and is declared in this gate). A copy of the fact grew a new hole, or a new copy of the fact was added without its declaration"
+elif [ -n "$gone_names" ]; then
+  ck no "(e) A STANDING DIVERGENCE IS GONE AND THE FLOOR STILL NAMES IT -- record the win rather than leaving the floor loose: $gone_names. Delete those line(s) from DECLARED_STANDING in this gate, in the landing that earned it"
 else
-  ck no "(e) THE DIVERGENCE GREW to ${u} against a baseline of $BASE_UNDECLARED -- a new copy of the fact, or a new hole in an old one: $(printf '%s\n' "$rep" | grep '^KINDSETS UNDECLARED ' | sed 's/^KINDSETS UNDECLARED //; s/ -- .*//' | tr '\n' ';')"
+  declared_red=1
+  ck no "(e) ⭐ THE STANDING DECLARED RED, UNCHANGED AND NOT A REGRESSION -- ${u} divergence(s), name for name the list declared in this gate: $(printf '%s\n' "$now_names" | tr '\n' ';') ⛔ IF YOU ARE ATTRIBUTING A RED ON ORIGIN, STOP HERE: this arm has been red since the gate landed and stays red until the divergences are declared with reasons or cured. It becomes a REGRESSION only when a name appears that is not on that list, and this arm says so in different words when it does"
 fi
 
 # (f) an instrument nobody runs is not an instrument
 if grep -q 'test_gate_gc_the_descriptor_kind_sets_are_a_declared_subset.sh' "$ROOT/Makefile" 2>/dev/null; then
-  ck ok "(f) this gate is named in the Makefile, as a REPORTED arm -- red by design while arm (e) names nine undeclared divergences (CEO-513 declare-when-you-hold-one-out, CEO-463 a known-red blocking arm makes every seat pay for one open row). It moves to blocking the day arm (e) goes green"
+  ck ok "(f) this gate is named in the Makefile, as a REPORTED arm -- red by design while arm (e) names the STANDING DECLARED divergences (seven today, nine when the gate landed; the cfo's DT_X landing cured two) (CEO-513 declare-when-you-hold-one-out, CEO-463 a known-red blocking arm makes every seat pay for one open row). It moves to blocking the day arm (e) goes green"
 else
   ck no "(f) this gate is not named in the Makefile -- a gate in no runner is not measuring (RULES.md THE INSTRUMENT LAWS)"
 fi
 
 echo "population: $checks arm(s) graded, $fails FAIL; census rc=$rrc over 5 spellings in $(basename "$SRC")"
 [ "$fails" = 0 ] && { echo "GATE PASS [gc_the_descriptor_kind_sets_are_a_declared_subset]: $checks of $checks arms hold"; exit 0; }
+if [ "$fails" = 1 ] && [ "$declared_red" = 1 ]; then
+  echo "⛔ GATE RED (DECLARED) [gc_the_descriptor_kind_sets_are_a_declared_subset]: 1 of $checks arms FAIL, and it is arm (e), THE STANDING DECLARED RED OF THIS ROW -- name for name the list this gate declares. NOT A REGRESSION AND NOT SOMEBODY'S LANDING. A reader attributing a red on origin can stop here."; exit 1
+fi
 echo "⛔ GATE RED [gc_the_descriptor_kind_sets_are_a_declared_subset]: $fails of $checks arms FAIL"; exit 1
