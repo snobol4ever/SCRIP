@@ -78,11 +78,24 @@ one_runner_lang() {
     *) printf 'unknown';;
   esac
 }
+# ⛔⭐ AN ABSENT OR UNPARSEABLE LANES LINE REFUSES RATHER THAN RESOLVES (ceo CEO-957, 2026-09-19, on the coo's
+# report; row instruments-an-absent-lanes-line-in-mode-must-refuse-not-resolve-every-language-to-the-coo).
+# This function used to fall back to a BAKED SEAT NAME when MODE carried no LANES: line -- ceo under MODE CEO
+# and coo under EVERY other mode, for EVERY language. That is the CENTRALIZED RUNNER that CEO-775 removed on
+# Lon's word, reachable by deleting one line from MODE, and it contradicted the rule written three lines above
+# it in this same file: the law source is the LANES line, never a name baked in here. It is the CEO-907 shape
+# in a new place -- a flip rewrites the prose and leaves a machine-read line behind. Reproduced by both seats:
+# a three-line MODE carrying QUARTET and no LANES read icon -> coo, rebus -> coo, all -> coo.
+# one_runner_who now returns EMPTY, and one_runner_guard refuses rc=2 on an empty owner NAMING THE MISSING
+# LANES LINE specifically -- a missing line and a line that names no owner for this language are DIFFERENT
+# faults and a reader must not have to guess which one they are looking at.
+one_runner_lanes_line() {
+  grep -m1 '^LANES:' "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | sed 's/^LANES://'
+}
 one_runner_who() {
-  local lang="${1:-}" lanes mode
-  mode="$(head -1 "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | tr -d '[:space:]')"
-  lanes="$(grep -m1 '^LANES:' "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | sed 's/^LANES://')"
-  if [ -z "$lanes" ]; then case "$mode" in CEO) printf 'ceo';; *) printf 'coo';; esac; return 0; fi
+  local lang="${1:-}" lanes
+  lanes="$(one_runner_lanes_line)"
+  if [ -z "$lanes" ]; then printf ''; return 0; fi
   case "$lang" in
     all) printf '%s' "$lanes" | tr ' ' '\n' | sed -n 's/^[a-z0-9]*=//p' | sort -u | tr '\n' ' ' | sed 's/ $//';;
     ''|unknown) printf '';;
@@ -114,7 +127,13 @@ one_runner_guard() {
   if [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$who"; then return 0; fi
   if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
   if [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; then printf '⚠ ONE-RUNNER OVERRIDE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_OVERRIDE"; return 0; fi
-  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: %s is a %s board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, MODE line 2, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ. S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "$lang" "${seat:-?}" "${who:-<no seat -- the LANES line names none for this language>}" "$lang"
+  local _noseat
+  if [ -z "$(one_runner_lanes_line)" ]; then
+    _noseat="<NO SEAT: the MODE file carries NO LANES: line at all, so no language has an owner. This REFUSES and no longer resolves to a baked name (ceo CEO-957). Fix MODE, or, in a fixture, declare a lane table the way gate_stage_picker_lane_table does>"
+  else
+    _noseat="<no seat -- the LANES line is present but names none for this language>"
+  fi
+  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: %s is a %s board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, MODE line 2, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ. S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "$lang" "${seat:-?}" "${who:-$_noseat}" "$lang"
   return 2
 }
 # ⛔⭐ THE SEAM: EVERY GUARD SHIPS A SANCTIONED WAY TO BE TRIPPED THAT DOES NOT REQUIRE DOING THE FORBIDDEN THING
