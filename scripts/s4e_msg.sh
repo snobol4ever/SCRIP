@@ -658,6 +658,10 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       # (10 no_layout and the findall enumeration defect, the only reds left in the 108-witness battery). hq_pascal and hq_snocone are REFUSED BY NAME rather than omitted: both have ZERO no_layout and
                       # masters at 246/246 and 336/336, so there is no GC work to give them, and hq_icon is refused for the same reason at two entries -- a refusal that states its measurement is a decision, not an oversight.
                       SEPTET) case "$_seat" in hq_raku|hq_snobol4|hq_prolog) : ;; *) _dr "an HQ" "Under SEPTET three LANGUAGE HQs stand -- hq_raku hq_snobol4 hq_prolog -- and $_seat is not one of them. hq_icon, hq_pascal and hq_snocone are stood down because their GC debt is 2, 0 and 0 entries (CEO-979).";; esac ;;
+                      # ⛔⭐ MODE TENET (Lon 2026-09-20, in-chat to the ceo, verbatim: "Let's got to TENET mode, 4 officers and 6 HQ's all running Opus 5 (xhigh). All officers running Opus 5 (max)."; ceo CEO-1010). TEN WORKING SEATS: the four officers and the SIX language HQs.
+                      # ⛔ THIS ARM EXISTS BECAUSE THE coo PREDICTED ITS ABSENCE THIS MORNING, verbatim: "both cures are correct today and NEITHER SURVIVES THE NEXT MODE LON NAMES." TENET is that next mode, and the arm is written BEFORE the MODE file is flipped -- the ec3a99b43 order, never the reverse.
+                      # TENET is DECTET's roster under Lon's own name for it; the arm is spelled out rather than aliased to DECTET because an alias makes two modes share one reason, and the reasons differ: DECTET was one-HQ-per-language for the shared nodes, TENET is six HQs driving their languages to 100% while the officers finish the GC.
+                      TENET) case "$_seat" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal|hq_raku) : ;; *) _dr "an HQ" "Under TENET the six LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal hq_raku -- and $_seat is not one of them (Lon 2026-09-20, CEO-1010).";; esac;;
                       DECTET) case "$_seat" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal|hq_raku) : ;; *) _dr "an HQ" "Under DECTET the six LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal hq_raku -- and $_seat is not one of them; the lettered hq_B..hq_V are history (CEO-767, CEO-979).";; esac ;;
                       EXECUTIVE) _dr "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
            # ⛔⭐ SEXTET AND SEPTET WERE MISSING FROM THIS LIST AND A NUMBERED SEAT WAS ADMITTED BY FALLING OUT OF THE
@@ -668,7 +672,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # RE-LEARNING: a guard written as "refuse these modes" grows a hole every time Lon names a new one, and the
            # hole is silent because falling out of a case returns success. Every new mode must be added HERE by name.
            seat*)   case "$_m" in
-                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|DECTET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
+                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
          esac
   [ -n "$_REFUSE_WHY" ] && return 1
   return 0; }
@@ -761,11 +765,13 @@ s4e_lane_owner_of_language() {
       # language coverage -- hq_raku 31 of the 72 no_layout plus the 8,000,486-hit method road, hq_snobol4 31 no_layout plus SnoM's two tiny-arena reds, hq_prolog 10 no_layout plus the findall
       # enumeration defect. The four languages whose HQ is NOT standing stay with the ceo, and rebus stays the cfo's keep-green as under DECTET. Written out per language, never collapsed to a
       # default, for the reason the two tables above give: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE, and a default agrees with a line 2 that has drifted on four of them.
-      icon)     printf 'ceo';;
+      # ⛔ MODE TENET (CEO-1010, 2026-09-20, Lon: 4 officers and 6 HQs): EVERY language goes to its own HQ and the three the ceo was holding -- icon, pascal, snocone -- are handed over. Rebus stays the cfo's keep-green at 43/43. The officers own NO language, which is CEO-802 unchanged: they supervise and take the rows an HQ fails at.
+      # ⛔ A GC DEFECT IN AN HQ'S OWN LANGUAGE IS THAT HQ'S ROW AND OUTRANKS ITS COMPLETENESS WORK (CEO-1010 condition 1). This is not a preference: class 2 of the unmapped-slot population -- a graph with no frame layout has no map at all -- is PER-LANGUAGE by construction, and the cto assigned it to the HQs in writing before cutting. Without the rank, a live collector defect sits behind 1,455 roast entries.
+      icon)     printf 'hq_icon';;
       prolog)   printf 'hq_prolog';;
       snobol4)  printf 'hq_snobol4';;
-      pascal)   printf 'ceo';;
-      snocone)  printf 'ceo';;
+      pascal)   printf 'hq_pascal';;
+      snocone)  printf 'hq_snocone';;
       rebus)    printf 'cfo';;
       raku)     printf 'hq_raku';;
     esac
