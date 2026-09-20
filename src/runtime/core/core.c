@@ -3068,7 +3068,7 @@ static NV_t *_var_bucket_find(const char *name) {
 #define NV_MEMO_N 2048
 static const char *g_nv_memo_key[NV_MEMO_N];
 static NV_t       *g_nv_memo_val[NV_MEMO_N];
-static unsigned long g_nv_memo_gen;
+__attribute__((visibility("hidden"))) unsigned long g_nv_memo_gen;
 static unsigned long g_nv_memo_seen[NV_MEMO_N];
 static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NV_MEMO"); v = (e && *e == '0') ? 1 : 0; } return v; }
 static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *name) {
