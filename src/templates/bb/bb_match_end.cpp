@@ -82,6 +82,7 @@ static std::string release_pump() {
              + x86("def",  L(13)))
          + (x86("note", "cas_mark")
              + x86("mov", "r12", RDQ("rbp", -8))
+             + x86_abs_disp32_store64(0x70000000L, "r12")
              + x86("note", HKN(1))
              + x86("mov", "r13", RDQ("rbp", -16))
              + x86("note", HKN(2))
