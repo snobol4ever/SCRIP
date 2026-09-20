@@ -350,6 +350,16 @@ static_assert(RTCC_SLOT_R8  * 8 == 40, "RTCC ABI drift: RTCC_SLOT_R8 no longer m
 static_assert(RTCC_SLOT_R9  * 8 == 48, "RTCC ABI drift: RTCC_SLOT_R9 no longer matches the literal offset in x86_rtcc_rl_bin (and the rtcc_init RT_GVA_VA seed) — this is the H2 SIGSEGV class");
 static_assert(x86_rtcc_streq(RTCC_GVA_REG, "r9"), "RTCC ABI drift: RTCC_GVA_REG no longer names the register the reload encoders load from slot 6 (mov r9,[rcx+48]) — GVARQ would address a register the veneer never seeds");
 static_assert(RTCC_GPR_COUNT == 9 && RTCC_GPR_BYTES == 72, "RTCC ABI drift: GPR tier width no longer matches the 9 slots the encoders write back and reload");
+#define PIN_FRONTIER_REG "rbx"
+#define PIN_CAS_TOP_REG  "r12"
+#define PIN_SIGMA_REG    "r13"
+#define PIN_CURSOR_REG   "r14"
+#define PIN_SUBJLEN_REG  "r15"
+static_assert(x86_rtcc_streq(PIN_FRONTIER_REG, "rbx"), "BLOB PIN DRIFT (ARCH-SNOBOL4-RTX section 2 REGISTER CONTRACT, which ARCH-ICON-RTX names as THE single source): rbx is the arena heap top, the DESCR mint pointer. This assert exists because that plane DID drift -- the frontier lived in the HEAP arm of the ZC_PORT_* selector, the no-modes law deleted those arms, and rbx, preserved by SysV and therefore free-looking, was picked up as scratch by four sites for months. Nothing failed, because a register plane written in a table and enforced nowhere cannot fail. r9 never drifted in the same years, and the only difference is the RTCC_GVA_REG assert above. One assert per pin is the cure (cto 2026-09-20, row gc-rbx-is-the-bump-frontier step 3; ceo CEO-959).");
+static_assert(x86_rtcc_streq(PIN_CAS_TOP_REG, "r12"), "BLOB PIN DRIFT: r12 is the CONDITIONAL-ASSIGNMENT STACK TOP (Lon 2026-08-02, reinstated s23k; the CAS BASE is a MATCH_BEGIN frame slot and not a register). The C-to-BB trampolines seed it from the RT_DCAP_TOP cell and the match templates advance it by 24 per pended capture.");
+static_assert(x86_rtcc_streq(PIN_SIGMA_REG, "r13"), "BLOB PIN DRIFT: r13 is the subject base pointer, the one Lon named in-chat 2026-09-19 -- r13 for SNOBOL4 and Icon points to the subject string. rt.c's generator entry loads it from 24(%rdi) and rt_coexpr.c's package from 16(%0); the chain trampolines seed it from the parked subject.");
+static_assert(x86_rtcc_streq(PIN_CURSOR_REG, "r14"), "BLOB PIN DRIFT: r14 is the subject cursor, the delta the match spine advances and every capture records.");
+static_assert(x86_rtcc_streq(PIN_SUBJLEN_REG, "r15"), "BLOB PIN DRIFT: r15 is the subject length, which the defer road's close compares the capture end against before it reads a byte.");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
     std::string wb;
