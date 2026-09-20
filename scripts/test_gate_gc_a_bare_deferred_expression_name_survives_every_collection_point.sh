@@ -52,11 +52,17 @@
 # into_a_mapped_slot.sh` arm (f) is ALREADY red on this tree for THIS SAME defect, 4 of 12 stress points, measured
 # here before this gate was committed.  A second, wider reading of one live defect is not a second defect.
 #
-# ⛔ NOT WIRED INTO `make test` -- THE BLOCKING SET -- DELIBERATELY, AND HERE IS THE ONE LINE THAT WIRES IT.  The blocking set is 367
-# essentially serial arms shared by ten seats (MODE TENET condition 2); a knowingly-red arm ahead of its cure costs
-# every one of them and buys nothing.  The moment `DT_X` is in `gc_cell_visit` on origin, this gate reads 0 red and
-# the wiring is one recipe line in `test-sequential`:
-#       @bash scripts/test_gate_gc_a_bare_deferred_expression_name_survives_every_collection_point.sh
+# ⭐ WIRED INTO `make test` -- THE BLOCKING SET -- ON 2026-09-20, AND THE HOLD-OUT BEFORE IT WAS THE POINT.  This
+# gate landed UNWIRED and said so on the day it landed: the blocking set is essentially serial and shared by ten
+# seats (MODE TENET condition 2), so a knowingly-red arm ahead of its cure charges every one of them and buys
+# nothing.  It was wired the sitting `DT_X` reached origin in `gc_cell_visit` (the `cfo` at 83b8bc9d2, CFO-138,
+# four spellings) and NOT ON THE ARGUMENT THAT IT WOULD NOW BE GREEN -- it was RE-WALKED ON THAT TREE FIRST, at
+# `GC_BAND_FULL=1`: 340 arms, 6 red -> 0 red, and the 334 that were already green STAYED GREEN, nothing traded.
+# ⛔ THE HOLD-OUT IS THE REUSABLE PART, NOT THE WIRING: a gate held out of the blocking set must say so in its own
+# header, name the cure it waits on, and carry the one line that wires it -- otherwise it is the CEO-381 class, a
+# gate that exists and grades nothing, and no reader can tell that from an oversight.  This block is what that
+# declaration looks like after it is discharged; the wiring line now lives in `test-sequential` beside the other
+# `test_gate_gc_*` arms, with its measured duration and this same history in its provenance comment.
 #
 # BAND: default 0 1 2 3 4 5 6 8 16 25.  `GC_BAND_FULL=1` walks the full 17 points to 50, for a base-vs-head
 # reading rather than a per-landing arm.
