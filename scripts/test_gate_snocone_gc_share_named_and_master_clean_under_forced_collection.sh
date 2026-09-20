@@ -24,7 +24,19 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the snocone master graded as 
 # is the number this arm binds on, and the BELOW-REGION members are printed, named and attributed to the cto's
 # classes 1 and 4 rather than silently counted into a pass.
 #
-# COST ~5 min (extract 336 entries, collect-census them, then the two-mode board). This is a LANE gate, run by
+# ⛔⭐ THE BAND, NOT A POINT (ceo CEO-1024, measured by hq_raku who reversed their own green for it): the fleet
+# graded GC health at stress 1, 3 and 5, and the raku master at stress 16 lost 65 gradings over 36 distinct
+# programs that the 1-3-5 band called green. And the divergence points are NOT MONOTONE in the plant -- hq_snobol4
+# has a witness red at 25 while green at 10, 12, 16, 20, 35 and 50 -- so a band chosen by where the last known red
+# sat misses the next one. This gate therefore grades a BAND (SNC_GC_BAND, default "1 16": the most aggressive
+# plant and one well above 5) and runs ARM 1's decidability question AT EVERY POINT, because a high plant collects
+# LESS OFTEN and a band point can be inert for exactly the reason the tiny arena was. Widen it with
+# SNC_GC_BAND="1 5 16 25 64 100" -- that full sweep was run 2026-09-20 and every point read collectors=336/336
+# (1268, 681, 481, 357, 343, 338 regenerations) with a RED at stress=1 alone, so "clean above 5" here is a
+# measurement and not a band artifact. ⛔ AND THE PLANT IS NAMED AS A VALUE IN EVERY LINE THIS GATE PRINTS:
+# SCRIP_GC_STRESS unset IS stress 0, which is no forced collection at all, so a blank must never print as a blank.
+#
+# COST ~3 min per band point after a one-off extraction. This is a LANE gate, run by
 # hq_snocone per landing; it is deliberately NOT in `make test` -- the blocking set is the shared resource that
 # does not scale with seats (MODE line 2 CONDITION 2) and wiring a five-minute arm into it is the coo's call.
 #
@@ -35,7 +47,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP_DIR="$S4E/SCRIP"
 SCRIP="${SCRIP:-$SCRIP_DIR/scrip}"
 M="$S4E/corpus/tests/snocone"
-STRESS="${SNC_GC_STRESS:-1}"
+BAND="${SNC_GC_BAND:-1 16}"
 ARENA="${SNC_GC_ARENA:-1}"
 fail() { echo "⛔ RED: $*" >&2; exit 1; }
 refuse() { echo "REFUSES rc=2: $*" >&2; exit 2; }
@@ -54,16 +66,7 @@ while IFS= read -r org; do
 done < <(awk -F, 'NR>1{print $3}' "$M/ALL.csv")
 [ "$rows" -gt 0 ] || refuse "ALL.csv carries no entry rows -- a census over an empty population reads zero by never looking"
 [ "$got" -eq "$rows" ] || refuse "materialized $got of $rows entries out of the master -- a population that did not come out whole is not the population the board grades"
-# --- ARM 1: DECIDABILITY. did the graded population collect at all? ---
-coll=0; regens=0
-for f in "$W/e"/*.sc; do
-    b="${f%.sc}"; in="$b.in"; [ -f "$in" ] || in=/dev/null
-    n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
-    [ "$n" -gt 0 ] && { coll=$((coll + 1)); regens=$((regens + n)); }
-done
-echo "ARM 1 DECIDABILITY arena_mb=$ARENA stress=$STRESS entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
-[ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected at arena_mb=$ARENA stress=$STRESS -- the board below would be a statement about this corpus and not about the collector, so it is not reported at all"
-# --- ARM 2: the unmapped-store census, by NAME, over that same population ---
+# --- ARM 2 first: the unmapped-store census is a STATIC read of emitted code and does not depend on the plant ---
 python3 "$HERE/util_gc_unmapped_store_census.py" "$W/e"/*.sc > "$W/census.txt" 2>&1
 crc=$?
 [ "$crc" -eq 2 ] && { sed -n '/REFUSED/p' "$W/census.txt" >&2; refuse "the unmapped-store census could not measure this population"; }
@@ -73,16 +76,32 @@ grep -c '^CENSUS unmapped-store MEMBER' "$W/census.txt" | sed 's/^/ARM 2 members
 nomap="$(printf '%s\n' "$line" | grep -o 'NO-MAP=[0-9]*' | cut -d= -f2)"
 [ -n "$nomap" ] || refuse "the census verdict line carries no NO-MAP field -- the criterion cannot be read off it"
 [ "$nomap" -eq 0 ] || fail "NO-MAP=$nomap -- this lane owns class 2 (a graph the compiler refuses a frame layout for has no map at all), and $nomap site(s) are in it: $(grep -m5 'MEMBER NO-MAP' "$W/census.txt")"
-# --- ARM 3: the master graded against its ORACLE-CUT refs, under forced collection, both modes ---
-out="$(SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
-board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "the master run printed no SUITE_BOARD line -- a run with no board is not a measurement"; }
-echo "ARM 3 $board"
-tot=$(printf '%s\n' "$board" | grep -o 'total=[0-9]*' | cut -d= -f2)
-[ "${tot:-0}" -gt 0 ] || refuse "the board's own denominator is $tot -- a FAIL=0 over nothing is not a reading"
+# --- ARM 1 + ARM 3 OVER THE BAND: decidability at each point, then the board graded against oracle-cut refs ---
 bad=0
-for k in m3_fail m3_crash m3_hang m3_unproven m4_fail m4_crash m4_hang m4_unproven; do
-    v=$(printf '%s\n' "$board" | grep -o "$k=[0-9]*" | cut -d= -f2)
-    [ "${v:-0}" -eq 0 ] || { echo "  $k=$v"; bad=$((bad + v)); }
+for STRESS in $BAND; do
+    coll=0; regens=0
+    for f in "$W/e"/*.sc; do
+        b="${f%.sc}"; in="$b.in"; [ -f "$in" ] || in=/dev/null
+        n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
+        [ "$n" -gt 0 ] && { coll=$((coll + 1)); regens=$((regens + n)); }
+    done
+    echo "ARM 1 DECIDABILITY arena_mb=$ARENA stress=$STRESS entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
+    [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected at arena_mb=$ARENA stress=$STRESS -- the board for this band point would be a statement about this corpus and not about the collector, so it is not reported at all"
+    out="$(SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
+    board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "the master run at stress=$STRESS printed no SUITE_BOARD line -- a run with no board is not a measurement"; }
+    echo "ARM 3 stress=$STRESS $board"
+    tot=$(printf '%s\n' "$board" | grep -o 'total=[0-9]*' | cut -d= -f2)
+    [ "${tot:-0}" -gt 0 ] || refuse "the board's own denominator at stress=$STRESS is $tot -- a FAIL=0 over nothing is not a reading"
+    pbad=0
+    for k in m3_fail m3_crash m3_hang m3_unproven m4_fail m4_crash m4_hang m4_unproven; do
+        v=$(printf '%s\n' "$board" | grep -o "$k=[0-9]*" | cut -d= -f2)
+        [ "${v:-0}" -eq 0 ] || { echo "  stress=$STRESS $k=$v"; pbad=$((pbad + v)); }
+    done
+    # ⛔ THE NAME SET, NEVER THE COUNT (CEO-1024): a same-count comparison between two band points hides a
+    # divergence that MOVED, which is the one comparison this class is built to walk through.
+    names="$(printf '%s\n' "$out" | grep -E '^ +(FAIL|CRASH|HANG|UNPROVEN) ' | awk '{print $2"/"$3}' | sort -u | tr '\n' ' ')"
+    echo "ARM 3 stress=$STRESS NAME-SET: ${names:-<none>}"
+    bad=$((bad + pbad))
 done
-[ "$bad" -eq 0 ] || fail "$bad non-pass verdict(s) over the printed denominator $tot at arena_mb=$ARENA stress=$STRESS -- NAMED: $(printf '%s\n' "$out" | grep -E '^ +(FAIL|CRASH|HANG|UNPROVEN) ' | awk '{print $2"/"$3}' | sort -u | tr '\n' ' ')"
-echo "✅ snocone GC share named (NO-MAP=0) and the master is clean over $tot entries under forced collection"
+[ "$bad" -eq 0 ] || fail "$bad non-pass verdict(s) across the band \"$BAND\" at arena_mb=$ARENA over the printed denominator -- read the per-point NAME-SET lines above, never the totals"
+echo "✅ snocone GC share named (NO-MAP=0) and the master is clean across the band \"$BAND\" at arena_mb=$ARENA"
