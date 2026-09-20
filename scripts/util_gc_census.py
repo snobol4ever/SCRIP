@@ -532,6 +532,21 @@ def _is_declaration(src, line_start, match_start):
     and nothing else.  A blank head falls back to the previous non-blank line, for a definition whose return
     type sits on its own line."""
     head = src[line_start:match_start]
+    # A DECLARATOR PREFIX BEGINS AT A STATEMENT BOUNDARY, NOT AT THE MARGIN (cfo 2026-09-19, the ceo's CEO-942
+    # false positive).  core.c:2382 is `if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name,
+    # DESCR_t *args, int nargs); g_user_call_hook = _usercall_hook; }` -- one line holding a BLOCK-LOCAL EXTERN
+    # DECLARATION and an assignment of the hook's ADDRESS, and no call at all.  Matching the declarator prefix
+    # against the whole line prefix read `if (...) { extern DESCR_t ` as no declarator and counted the
+    # declaration's own parenthesis as a way out of the runtime into emitted code.  The statement this match
+    # belongs to starts after the last '{', '}' or ';' on the line; a blank statement head there is a call at the
+    # start of a statement and NOT a declaration, so it must not fall back to the line above.
+    _cut = max(head.rfind("{"), head.rfind("}"), head.rfind(";"))
+    if _cut >= 0:
+        _stmt = head[_cut + 1:]
+        if not _stmt.strip():
+            return False
+        m = _DECL_HEAD_RX.match(_stmt)
+        return bool(m) and m.group(1) not in _HEAD_KEYWORDS
     if head.strip():
         m = _DECL_HEAD_RX.match(head)
         return bool(m) and m.group(1) not in _HEAD_KEYWORDS
@@ -1086,6 +1101,21 @@ def selftest():
     buf.clear(); rc = census_callbacks([cb_decl], out=buf.append)
     ck("INBOUND call_back_sites=1 " in "\n".join(buf),
        "callbacks: two prototypes ending ';', a one-line definition ending '}' and a definition whose return type is on its own line contribute exactly ONE site -- the one real inner call")
+    # (ii-b) A BLOCK-LOCAL EXTERN SHARING ITS LINE WITH A STATEMENT IS STILL A DECLARATION (cfo 2026-09-19, the
+    # ceo's CEO-942 false positive): the declarator prefix is matched from the STATEMENT boundary, not the margin,
+    # and a call that starts its own statement after that boundary must still count -- both directions planted.
+    cb_stmt = os.path.join(w, "cb_stmt.c")
+    open(cb_stmt, "w").write(
+        "static void g(void) { if (!hook) { extern DESCR_t _usercall_hook(const char *n, DESCR_t *a, int c); hook = _usercall_hook; } }\n"
+        "static void h(void) { int n = 1; extern DESCR_t rt_call_proc_descr(const char *name, int nargs); DESCR_t r = rt_call_proc_descr(\"F\", n); use(r); }\n"
+        "static void k(void) { APPLY_fn(0,0,0); }\n"
+        "static void m(void) { rt_chain_enter(0); rt_chain_enter_v(0); }\n")
+    buf.clear(); rc = census_callbacks([cb_stmt], out=buf.append)
+    _t = "\n".join(buf)
+    ck("INBOUND call_back_sites=1 " in _t and "unwrapped=1" in _t,
+       "callbacks: a block-local extern sharing its line with a statement is NOT a site, while the real call after the ';' on that same line IS -- exactly one inbound site over the two lines")
+    ck("OUTBOUND call_out_sites=3 " in _t,
+       "callbacks: the address-of assignment of an outbound hook beside its own extern declaration is not a way out of the runtime, while the three real outbound calls are counted")
     # (iii) the OUTBOUND direction: CEO-836's gdb site shape
     cb_out = os.path.join(w, "cb_out.c")
     open(cb_out, "w").write(
