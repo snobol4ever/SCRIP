@@ -253,6 +253,27 @@ static int rk_tail_is_statement(int t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_rhs_is_aliasable(tree_t *r) {
+    if (!r) return 0;
+    switch (r->t) {
+    case TT_VAR: case TT_ARR_GET: case TT_HASH_GET: case TT_FIELD: case TT_TWIGIL_FIELD: case TT_INDIRECT: return 1;
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_bind(tree_t *target, tree_t *rhs) {
+    if (rk_rhs_is_aliasable(rhs)) {
+        raku_yyerror("bind ':=' whose right side is an lvalue is not implemented: an aggregate here is carried BY VALUE, so there is no container to alias and lowering this to '=' would copy where the program expects a shared container");
+        return (tree_t *)0;
+    }
+    return expr_binary(TT_ASSIGN, target, rhs);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_bind_container(void) {
+    raku_yyerror("bind ':=' to an @array or %hash is not implemented: ':=' binds the right side itself, so rakudo prints (1 2 3) for a bound List where '=' prints [1 2 3] for a copied Array -- lowering this to '=' would print a wrong answer where we presently refuse");
+    return (tree_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static ExprList *rk_tail_value(ExprList *l) {
     if (!l || l->count <= 0) return l;
     { tree_t *last = l->items[l->count - 1];
@@ -732,6 +753,21 @@ stmt
         { rk_mark_arrlit_scalar(strip_sigil($2), $4); $$ = expr_binary(TT_ASSIGN, var_node($2), rk_scalar_rhs($4)); }
     | KW_MY VAR_SCALAR ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), ast_node_new(TT_NUL)); }
+    | KW_MY VAR_SCALAR OP_BIND expr ';'
+        { tree_t *b = rk_bind(var_node($2), rk_scalar_rhs($4)); if (!b) YYERROR; $$ = b; }
+    | KW_MY VAR_ARRAY OP_BIND expr ';'
+        { (void)$4; if (!rk_bind_container()) YYERROR; $$ = (tree_t *)0; }
+    | KW_MY VAR_HASH OP_BIND expr ';'
+        { (void)$4; if (!rk_bind_container()) YYERROR; $$ = (tree_t *)0; }
+    | KW_MY IDENT VAR_SCALAR OP_BIND expr ';'
+        { tree_t *b = rk_bind(var_node($3), rk_scalar_rhs($5)); if (!b) { ct_drop($2); YYERROR; }
+          { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); ct_drop($2); ast_push(e,var_node($3)); ast_push(e,b->c[1]); $$=e; } }
+    | VAR_SCALAR OP_BIND expr ';'
+        { tree_t *b = rk_bind(var_node($1), rk_scalar_rhs($3)); if (!b) YYERROR; $$ = b; }
+    | VAR_ARRAY OP_BIND expr ';'
+        { (void)$3; if (!rk_bind_container()) YYERROR; $$ = (tree_t *)0; }
+    | VAR_HASH OP_BIND expr ';'
+        { (void)$3; if (!rk_bind_container()) YYERROR; $$ = (tree_t *)0; }
     | KW_MY '(' scalar_list ')' '=' expr ';'
         { $$ = rk_destructure($3, $6); }
     | KW_MY '(' scalar_list ')' '=' expr ',' arg_list ';'
