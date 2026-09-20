@@ -31,6 +31,29 @@ refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_nolane_fallback.XXXXXX")" || refuse "mktemp failed"
 trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
+# ⛔⭐ THE FIXTURE BRINGS ITS OWN TABLE, BECAUSE ITS SUBJECT IS THE owns-a-language TEST AND NOT THE LIVE
+# LANE CUT (COO-80, 2026-09-19, row instrument-the-nineteen-non-gc-blocking-arms; the shape ceo CEO-953
+# directed for its sister gate). This gate needs a table carrying BOTH an hq_* lane and an officer lane, so
+# that the seats it puts under test -- coo and ceo -- own nothing while a real lane exists beside them to
+# prove the refusal is about THEM and not about an empty table. Every mode that gives all seven languages to
+# one seat (CEO, TRIO, QUARTET today) leaves no hq_* owner at all, and this gate then REFUSED rc=2 and took
+# make test-postoffice down with it -- one of the twenty-three blocking arms of CEO-944. It was right to
+# refuse rather than lower its bar; what it lacked was the one piece of scenario it could not write itself.
+# The staging rule is a SOURCED AUTHORITY in lib_gate.sh, shared with the sister gate, never a private copy;
+# the mechanism under test is the real one in the staged file, and whether the LIVE table is correct is a
+# different gate's subject.
+_PINNED_HQ_LANG=icon; _PINNED_HQ_OWNER=hq_icon; _PINNED_OFF_LANG=rebus; _PINNED_OFF_OWNER=cfo
+. "$HERE/lib_gate.sh"
+command -v gate_stage_picker_lane_table >/dev/null 2>&1 || refuse "lib_gate.sh carries no gate_stage_picker_lane_table -- the staging rule is a sourced authority and a gate must never keep a private copy of it"
+gate_stage_picker_lane_table "$SUT" "$W/picker_fixture.sh" "$_PINNED_HQ_OWNER" \
+    "$_PINNED_HQ_LANG=$_PINNED_HQ_OWNER" "$_PINNED_OFF_LANG=$_PINNED_OFF_OWNER"
+case $? in
+  0) : ;;
+  3) refuse "could not find s4e_lane_owner_of_language() in $SUT to stage the fixture's table -- the picker's table has moved or been renamed, and a lane fixture that cannot install its own table must not grade the live one" ;;
+  4) refuse "the staged picker does not read back its pinned table -- the rewrite landed but did not take, and grading would silently be against the live table" ;;
+  *) refuse "staging the fixture picker from $SUT failed" ;;
+esac
+SUT="$W/picker_fixture.sh"
 _lane_owner_of(){ bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e_lane_help()/p" "$1")"; s4e_lane_owner_of_language "$2"' _ "$SUT" "$1" 2>/dev/null; }
 _lane_langs="$(bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e_lane_help()/p" "$1")"; s4e_lane_languages' _ "$SUT" 2>/dev/null)"
 [ -n "$_lane_langs" ] || refuse "cannot read the language list out of $SUT"

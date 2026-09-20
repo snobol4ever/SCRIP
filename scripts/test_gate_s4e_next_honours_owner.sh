@@ -31,7 +31,19 @@ mkdir -p "$W/tasks" "$W/claims" "$W/released"
 # ⛔ Mailbox layout is $PO/<seat>/inbox, and the picker REFUSES an identity with no mailbox rather than
 # creating one on the fly (LAW 6: on-the-fly creation is how the phantom claude01/ mailbox was born).
 for s in hq_B hq_P; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
-printf 'DUO\n' > "$W/MODE"
+# ⛔ THE MODE IS PROBED, NOT BELIEVED (COO-80, 2026-09-19, row instrument-the-nineteen-non-gc-blocking-arms).
+# This line read `printf 'DUO\n' > "$W/MODE"`. DUO gained a stand-down arm for EVERY HQ on 2026-09-19
+# (CEO-907), so the picker refused to dispatch both of this fixture's seats and SEVEN of its nine arms went
+# red -- none of them about the owner column, which is this gate's whole subject. The mode string was
+# incidental to what is graded here and became load-bearing without anyone choosing it. The rule now lives in
+# lib_gate.sh as a sourced authority: candidates are probed against the picker with an empty queue (claiming
+# nothing) and the first that admits the seat is used, so a future stand-down moves this fixture to the next
+# candidate instead of silently emptying it.
+. "$HERE/lib_gate.sh"
+command -v gate_pick_dispatchable_mode >/dev/null 2>&1 || refuse "lib_gate.sh carries no gate_pick_dispatchable_mode -- the mode-probe rule is a sourced authority and a gate must never keep a private copy of it"
+_FIXTURE_MODE="$(gate_pick_dispatchable_mode "$SUT" "$W" hq_B DECTET NONET FLEET-16)" || refuse "the picker refuses to dispatch hq_B under every candidate mode (DECTET, NONET, FLEET-16), so this fixture cannot put an HQ in front of the owner column at all. That is a finding about the stand-down table, not a reason to lower the bar: add a mode in which an HQ stands, or report that none does."
+printf '%s\n' "$_FIXTURE_MODE" > "$W/MODE"
+echo "    fixture: MODE = $_FIXTURE_MODE (probed -- the first candidate under which the picker dispatches hq_B)"
 mk(){ printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$W/QUEUE.tsv"; printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' "$2" > "$W/tasks/$2.task.md"; }
 : > "$W/QUEUE.tsv"
 mk 0 owned_by_other  hq_P       FREE

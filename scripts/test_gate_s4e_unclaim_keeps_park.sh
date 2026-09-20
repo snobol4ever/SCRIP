@@ -16,9 +16,28 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
 [ -f "$MSG" ] || { echo "⛔ REFUSED: $MSG missing"; exit 2; }
 W="$(mktemp -d)" || { echo "⛔ REFUSED: mktemp failed"; exit 2; }; trap 'rm -rf "$W"' EXIT
 PO="$W/po"; ME=hq_B; PARKER=ceo; THIRD=hq_P
+# ⛔ THE FIXTURE MODE IS PROBED, NOT HARDCODED (COO-80, 2026-09-19, row
+# instrument-the-nineteen-non-gc-blocking-arms). mk_po below wrote `TRIO` into the scratch MODE. TRIO stands
+# EVERY HQ down (CEO-910, 2026-09-19), and both seats this gate drives -- hq_B and hq_P -- are HQs, so every
+# `next` in it became a dispatch refusal. ⛔ THAT DID NOT SHOW UP AS A HONEST RED: arm (A) asks that `next`
+# did NOT lock the released row, and a REFUSAL satisfies that by doing nothing at all, so the arm was passing
+# over an empty measurement while the gate as a whole failed for a reason that had nothing to do with parks.
+# The mode was incidental to this gate's subject -- that a park written around a claim survives unclaim -- and
+# became load-bearing without anyone choosing it. The rule is a sourced authority in lib_gate.sh: candidates
+# are probed against the picker with an empty queue, claiming nothing, and the first that admits the seat is
+# used, so the next stand-down moves this fixture along instead of hollowing it out.
+. "$HERE/lib_gate.sh"
+command -v gate_pick_dispatchable_mode >/dev/null 2>&1 || { echo "⛔ REFUSED: lib_gate.sh carries no gate_pick_dispatchable_mode -- the mode-probe rule is a sourced authority and a gate must never keep a private copy of it"; exit 2; }
 mk_po() {
   rm -rf "$PO"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" "$PO/$PARKER/inbox" "$PO/$THIRD/inbox" || return 2
-  : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf "TRIO\n" > "$PO/MODE"
+  : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"
+  if [ -z "${FIXTURE_MODE:-}" ]; then
+      printf 'DECTET\n' > "$PO/MODE"
+      FIXTURE_MODE="$(gate_pick_dispatchable_mode "$MSG" "$PO" "$THIRD" DECTET NONET FLEET-16)" || {
+          echo "⛔ REFUSED: the picker refuses to dispatch $THIRD under every candidate mode (DECTET, NONET, FLEET-16), so this fixture cannot ask a third seat whether a parked row is served. That is a finding about the stand-down table, not a reason to grade a refusal as a pass."; return 2; }
+      echo "    fixture: MODE = $FIXTURE_MODE (probed -- the first candidate under which the picker dispatches $THIRD)"
+  fi
+  printf '%s\n' "$FIXTURE_MODE" > "$PO/MODE"
   { printf '# gate fixture queue\n'; printf '2\tt-claim-shaped\tunassigned\tFREE\n'; printf '5\tt-blocker\tunassigned\tFREE\n'
     local i=0 t; for t in $PARKS; do i=$((i+1)); printf '0\tt-parked-%d\tunassigned\tFREE\n' "$i"; done; } > "$PO/QUEUE.tsv"
   local t; for t in t-claim-shaped t-blocker t-parked-1 t-parked-2 t-parked-3 t-parked-4; do

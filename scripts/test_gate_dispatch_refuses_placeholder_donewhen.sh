@@ -37,6 +37,16 @@ W="$(mktemp -d)" || { echo "⛔ REFUSED: mktemp failed"; exit 2; }
 # mid-run (measured while building test_gate_s4e_one_process_per_identity.sh).
 MAINPID=$$; trap '[ "$BASHPID" = "$MAINPID" ] && rm -rf "$W"' EXIT
 PO="$W/po"; ME=hq_B; HQ=ceo; SEAT=seat01; BUDGET=4
+# ⛔ THE FIXTURE MODE IS PROBED, NOT HARDCODED (COO-80, 2026-09-19, row
+# instrument-the-nineteen-non-gc-blocking-arms). mk_po below wrote a literal mode, kept in step with the live
+# fleet -- it read QUARTET, under which no HQ stands (CEO-911). This fixture's serving seat is hq_B, so every
+# serve became a dispatch refusal and the placeholder mechanism this gate exists for was never exercised;
+# worse, several arms READ AS PASSING on it, because "next did not serve the placeholder" is satisfied by a
+# refusal that served nothing at all. ⛔ BOTH IDENTITIES ARE NAMED IN THE PROBE: this fixture drives an HQ
+# (hq_B) and a FLEET seat (seat01), and the two are stood down by different arms of the same table, so a mode
+# admitting only one still hollows the gate out.
+. "$HERE/lib_gate.sh"
+command -v gate_pick_dispatchable_mode >/dev/null 2>&1 || { echo "⛔ REFUSED: lib_gate.sh carries no gate_pick_dispatchable_mode -- the mode-probe rule is a sourced authority and a gate must never keep a private copy of it"; exit 2; }
 PLACEHOLDER='⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row.'
 # ⛔⭐ env -u S4E_PID_LOCK AND S4E_NO_DISPATCH_PROBE: this gate is itself a DONE-WHEN, so it runs INSIDE a
 # `done` that `next` may have invoked as its own dispatch probe. Both variables leak in from that parent
@@ -48,7 +58,14 @@ mkrow() { printf '%s\t%s\tunassigned\tFREE\n' "$1" "$2" >> "$PO/QUEUE.tsv"
 col() { grep -P "^[0-9]+\t\Q$1\E\t" "$PO/QUEUE.tsv" 2>/dev/null | head -1 | cut -f4; }
 mk_po() {
   rm -rf "$PO"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" "$PO/$HQ/inbox" "$PO/$SEAT/inbox" || return 2
-  : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf 'QUARTET\n' > "$PO/MODE"; printf '5\n' > "$PO/PROTOCOL-VERSION"
+  : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf '5\n' > "$PO/PROTOCOL-VERSION"
+  if [ -z "${FIXTURE_MODE:-}" ]; then
+      printf 'FLEET-16\n' > "$PO/MODE"
+      FIXTURE_MODE="$(gate_pick_dispatchable_mode "$MSG" "$PO" "$ME,$SEAT" FLEET-16 FLEET-12 NONET DECTET)" || {
+          echo "⛔ REFUSED: the picker refuses to dispatch $ME or $SEAT under every candidate mode (FLEET-16, FLEET-12, NONET, DECTET), so this fixture cannot get a placeholder row in front of the dispatch path at all. That is a finding about the stand-down table, not a reason to read a dispatch refusal as a placeholder refusal."; return 2; }
+      echo "    fixture: MODE = $FIXTURE_MODE (probed -- the first candidate under which the picker dispatches both $ME and $SEAT)"
+  fi
+  printf '%s\n' "$FIXTURE_MODE" > "$PO/MODE"
   printf '%s\n' "$HQ" > "$PO/$ME/HQ"; printf '# gate fixture queue\n' > "$PO/QUEUE.tsv"
   mkrow 0 t-placeholder "$PLACEHOLDER"
   mkrow 1 t-slow 'sleep 30 && test -f "$S4E_HOME/po/QUEUE.tsv"'

@@ -39,6 +39,40 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_promo_lane.XXXXXX")" || refuse "mktemp fail
 trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
 for s in ceo hq_C hq_B hq_P hq_T seat07; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
+
+# ⛔⭐⭐ THE FIXTURE BRINGS ITS OWN TWO-LANE TABLE, BECAUSE ITS SUBJECT IS PROMOTION AND FREEZE, NOT THE
+# LIVE LANE CUT (COO-80, 2026-09-19, row instrument-the-nineteen-non-gc-blocking-arms; ceo CEO-953 directed
+# this shape: "Cure the SCENARIO -- let it build its own two-seat table in its scratch postoffice -- rather
+# than the lane table"). THE HISTORY THIS CLOSES: the picker's language->owner table is a baked `case` inside
+# s4e_msg.sh, and every mode that gives all seven languages to one seat dissolves this gate's scenario. Under
+# MODE CEO it printed three arms UNBUILDABLE; under TRIO and QUARTET (all seven to the ceo) it REFUSED rc=2
+# outright and took `make test-postoffice` down with it, which is one of the twenty-three blocking arms that
+# left every seat without a landing gate (CEO-944). The gate was correct to refuse rather than lower its bar,
+# and correct not to be cured by editing the live lane table -- but a fixture that can only run in modes with
+# two or more lanes is a fixture that goes dark exactly when the fleet consolidates.
+# ⭐ SO THE SCENARIO IS MADE SELF-SUFFICIENT. Everything else this gate needs it already builds in its own
+# throwaway postoffice: the queue, the claims, the seats, and MODE itself via set_mode. The one thing it could
+# not build was the table, so it now stages a COPY of the picker under test with a pinned two-lane table and
+# runs that. ⛔ THIS IS NOT THE FIXTURE RESTATING ITS SUBJECT'S FACTS -- the failure the header above warns
+# about at length. It pins the table it needs to EXERCISE the mechanism, and the mechanism -- the promotion
+# path, the lane filter, the language freeze -- is the real one, unmodified, in the same file. WHETHER THE
+# LIVE TABLE IS RIGHT IS A DIFFERENT GATE'S JOB: the table is compared to MODE line 2 language by language by
+# the gate beside it, which is why that comparison is deliberately NOT restated here.
+# ⛔ AND THE STAGING IS PROVEN, NEVER ASSUMED: the rewrite refuses rc=2 if the function it means to replace
+# is not found, and refuses again if the staged copy does not read back the pinned owners. A fixture that
+# silently failed to install its own table would grade the live one and call the result a promotion defect.
+_PINNED_OWN_LANG=icon; _PINNED_OWN_OWNER=hq_icon; _PINNED_CROSS_OWNER=hq_P
+. "$HERE/lib_gate.sh"
+command -v gate_stage_picker_lane_table >/dev/null 2>&1 || refuse "lib_gate.sh carries no gate_stage_picker_lane_table -- the staging rule is a sourced authority and a gate must never keep a private copy of it"
+gate_stage_picker_lane_table "$SUT" "$W/picker_fixture.sh" "$_PINNED_CROSS_OWNER" "$_PINNED_OWN_LANG=$_PINNED_OWN_OWNER"
+case $? in
+  0) : ;;
+  3) refuse "could not find s4e_lane_owner_of_language() in $SUT to stage the fixture's two-lane table -- the picker's table has moved or been renamed, and a lane fixture that cannot install its own table must not grade the live one" ;;
+  4) refuse "the staged picker does not read back its pinned two-lane table -- the rewrite landed but did not take, and grading would silently be against the live table" ;;
+  *) refuse "staging the fixture picker from $SUT failed" ;;
+esac
+SUT="$W/picker_fixture.sh"
+mkdir -p "$W/$_PINNED_OWN_OWNER/inbox" "$W/$_PINNED_OWN_OWNER/archive" "$W/$_PINNED_CROSS_OWNER/inbox" "$W/$_PINNED_CROSS_OWNER/archive"
 # ⛔⭐⭐ THE FIXTURE DERIVES ITS LANGUAGE FROM THE PICKER UNDER TEST, AND NAMES NONE (hq_B 2026-09-13, ceo
 # CEO-672). This block used to read `printf 'hq_B\n' > "$W/seat07/HQ"` with the comment "seat07's lane is
 # hq_B for this fixture (icon)", and every row below hardcoded `hq_B` as its owner cell -- a FOURTH copy of

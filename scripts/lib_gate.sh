@@ -795,3 +795,102 @@ gate_file_has_fresh_guard() {
     grep -qE 'gate_require_fresh|util_require_fresh\.sh' <<<"$_body" && return 2
     return 1
 }
+
+
+# ---------------------------------------------------------------------------------------------------------
+# ⛔⭐ STAGING A PICKER WITH A PINNED LANE TABLE, FOR THE POSTOFFICE GATES WHOSE SUBJECT IS A MECHANISM AND
+# NOT THE LIVE LANE CUT (COO-80, 2026-09-19, row instrument-the-nineteen-non-gc-blocking-arms; the shape ceo
+# CEO-953 directed: cure the SCENARIO, not the lane table).
+# THE PROBLEM THESE SOLVE. The picker's language->owner map is a baked `case` inside s4e_msg.sh. Two gates in
+# make test-postoffice grade mechanisms that need a table with a PARTICULAR SHAPE -- two distinct lanes for
+# test_gate_next_honours_the_lane_cut, and an hq_* lane beside an officer lane for
+# test_gate_s4e_next_any_lane_fallback_refuses_a_seat_with_no_language. Every mode that gives all seven
+# languages to one seat (CEO, TRIO, QUARTET today) dissolves both scenarios, and both gates then REFUSE rc=2
+# and take the whole target down with them -- which is how make test-postoffice came to be one of the
+# twenty-three blocking arms that left every seat without a landing gate (CEO-944). Both gates were RIGHT to
+# refuse rather than lower their bar, and right not to be cured by editing the live table; what they were
+# missing is the ability to build the one part of their scenario they could not write themselves.
+# ⛔ THIS IS NOT A FIXTURE RESTATING ITS SUBJECT'S FACTS. It pins the table needed to EXERCISE a mechanism;
+# the mechanism itself -- the lane filter, the promotion path, the language freeze, the owns-a-language test
+# -- is the real one, unmodified, in the staged copy. WHETHER THE LIVE TABLE IS CORRECT is a different gate's
+# subject: it is compared to MODE line 2 language by language elsewhere, and that comparison is deliberately
+# not restated by any caller of this helper.
+# ⛔ AND IT IS PROVEN, NEVER ASSUMED: the rewrite returns 3 when the function it means to replace is not
+# found (renamed or moved) and 4 when the staged copy does not read its pinned owners back. A staging that
+# silently failed would grade the LIVE table and report the result as a defect in the mechanism.
+
+# gate_lane_owner_of <picker> <language> -- the owner the picker's own table names, read out of the file.
+gate_lane_owner_of() {
+    bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e_lane_help()/p" "$1")"; s4e_lane_owner_of_language "$2"' _ "$1" "$2" 2>/dev/null
+}
+
+# gate_lane_languages <picker> -- the language list the picker's own table carries.
+gate_lane_languages() {
+    bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e_lane_help()/p" "$1")"; s4e_lane_languages' _ "$1" 2>/dev/null
+}
+
+# gate_stage_picker_lane_table <sut> <out> <default_owner> [<lang>=<owner>]...
+# rc 0 staged and read back · 3 the table function was not found in <sut> · 4 the staged copy does not read
+# its pinned owners back · other: the rewrite itself failed.
+gate_stage_picker_lane_table() {
+    local _sut="$1" _out="$2" _default="$3"; shift 3
+    local _arms="" _pair _l _o _rc
+    for _pair in "$@"; do
+        _l="${_pair%%=*}"; _o="${_pair#*=}"
+        _arms="$_arms $_l) printf '$_o';;"
+    done
+    local _fn="s4e_lane_owner_of_language() { case \"\$1\" in$_arms *) printf '$_default';; esac; }"
+    awk -v fn="$_fn" '
+        /^s4e_lane_owner_of_language\(\) \{/ { print fn; skip = 1; found = 1; next }
+        skip && /^\}/ { skip = 0; next }
+        !skip { print }
+        END { if (!found) exit 3 }
+    ' "$_sut" > "$_out"; _rc=$?
+    [ "$_rc" -eq 0 ] || return "$_rc"
+    chmod +x "$_out" 2>/dev/null
+    for _pair in "$@"; do
+        _l="${_pair%%=*}"; _o="${_pair#*=}"
+        [ "$(gate_lane_owner_of "$_out" "$_l")" = "$_o" ] || return 4
+    done
+    [ "$(gate_lane_owner_of "$_out" __no_such_language__)" = "$_default" ] || return 4
+    return 0
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# ⛔⭐ A POSTOFFICE FIXTURE MUST NOT HARDCODE THE MODE IT RUNS ITS SEATS UNDER (COO-80, 2026-09-19, row
+# instrument-the-nineteen-non-gc-blocking-arms). THE FAILURE THIS CLOSES, measured today:
+# test_gate_s4e_next_honours_owner.sh writes `DUO` into its scratch MODE and grades the OWNER COLUMN with two
+# HQ seats. On 2026-09-19 DUO gained a stand-down arm for every HQ (CEO-907), so the picker began REFUSING TO
+# DISPATCH both of its seats and seven of its nine arms went red -- not one of them about the owner column,
+# which is the gate's entire subject. The mode string was incidental to what it grades and it became load-
+# bearing without anyone choosing that. A fixture whose seats are stood down is not measuring its subject.
+# ⭐ SO THE MODE IS CHOSEN BY PROBING THE PICKER, NOT BY BELIEF: each candidate is written into the scratch
+# postoffice and `next` is run for the seat with an EMPTY queue, which claims nothing; the first mode under
+# which the seat is not refused dispatch is the one the fixture uses. When no candidate admits the seat the
+# caller REFUSES rc=2 and says so, which is a real finding about the stand-down table rather than a fixture
+# quietly grading nothing.
+# ⛔ CALL IT BEFORE MINTING ROWS: it truncates the scratch QUEUE.tsv as part of probing.
+
+# gate_pick_dispatchable_mode <sut> <post> <seat>[,<seat>...] <candidate-mode>...
+# prints the first candidate mode under which EVERY named seat is NOT refused dispatch; rc 1 when none is.
+# ⛔ A fixture that drives two kinds of identity must name both: a mode standing EITHER of them down empties
+# the scenario just as thoroughly as one standing down the only seat, and the FLEET seats and the HQs are
+# refused by different arms of the same table (seat* is refused in every consolidated mode, hq_* in CEO, DUO,
+# TRIO, QUARTET, SEXTET and EXECUTIVE), so the two constraints genuinely differ.
+gate_pick_dispatchable_mode() {
+    local _sut="$1" _post="$2" _seats="$3"; shift 3
+    local _m _out _s _ok
+    for _m in "$@"; do
+        printf '%s\n' "$_m" > "$_post/MODE"
+        _ok=1
+        for _s in $(printf '%s' "$_seats" | tr ',' ' '); do
+            : > "$_post/QUEUE.tsv"
+            _out="$(S4E_POST="$_post" S4E_SEAT="$_s" S4E_RELEASE_COOLDOWN=0 bash "$_sut" next 2>&1)"
+            case "$_out" in *"REFUSING TO DISPATCH"*) _ok=0; break ;; esac
+        done
+        [ "$_ok" = 1 ] || continue
+        printf '%s' "$_m"
+        return 0
+    done
+    return 1
+}

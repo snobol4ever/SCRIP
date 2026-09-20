@@ -21,13 +21,30 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
 W="$(mktemp -d)" || { echo "⛔ REFUSED: mktemp failed"; exit 2; }
 MAINPID=$$; trap '[ "$BASHPID" = "$MAINPID" ] && rm -rf "$W"' EXIT
 PO="$W/po"; ME=hq_B; HQ=ceo; BUDGET=4
+# ⛔ THE FIXTURE MODE IS PROBED, NOT HARDCODED (COO-80, 2026-09-19, row
+# instrument-the-nineteen-non-gc-blocking-arms). mk_po below wrote a literal mode into the scratch MODE, and
+# that string was kept in step with the live fleet -- it read QUARTET. QUARTET stands EVERY HQ down
+# (CEO-911), and this gate's seat is hq_B, so every serve in it became a dispatch refusal and six arms went
+# red over a mechanism -- a missing compiler must REFUSE rather than grade -- that was never exercised at
+# all. The mode is incidental to that subject; keeping a literal in step with the fleet is exactly the
+# maintenance that fails silently. The rule is a sourced authority in lib_gate.sh: candidates are probed with
+# an empty queue, claiming nothing, and the first that admits the seat is used.
+. "$HERE/lib_gate.sh"
+command -v gate_pick_dispatchable_mode >/dev/null 2>&1 || { echo "⛔ REFUSED: lib_gate.sh carries no gate_pick_dispatchable_mode -- the mode-probe rule is a sourced authority and a gate must never keep a private copy of it"; exit 2; }
 FIX() { env -u S4E_PID_LOCK -u S4E_NO_DISPATCH_PROBE S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" \
         S4E_NO_BANNER=1 S4E_DISPATCH_PROBE_TIMEOUT="$BUDGET" "$@"; }
 mkrow() { printf '%s\t%s\tunassigned\tFREE\n' "$1" "$2" >> "$PO/QUEUE.tsv"
           printf '# TASK %s\nGOAL: gate fixture.\nDONE-WHEN: %s\nLINKS: none\n## NEXT\ngo\n## LEDGER\n' "$2" "$3" > "$PO/tasks/$2.task.md"; }
 mk_po() {
   rm -rf "$PO" "$W/SCRIP"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" "$PO/$HQ/inbox" "$W/SCRIP/scripts" || return 2
-  : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf 'QUARTET\n' > "$PO/MODE"; printf '5\n' > "$PO/PROTOCOL-VERSION"
+  : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf '5\n' > "$PO/PROTOCOL-VERSION"
+  if [ -z "${FIXTURE_MODE:-}" ]; then
+      printf 'DECTET\n' > "$PO/MODE"
+      FIXTURE_MODE="$(gate_pick_dispatchable_mode "$MSG" "$PO" "$ME" DECTET NONET FLEET-16)" || {
+          echo "⛔ REFUSED: the picker refuses to dispatch $ME under every candidate mode (DECTET, NONET, FLEET-16), so this fixture cannot get a row served and cannot grade what a missing compiler does to it. That is a finding about the stand-down table, not a reason to read a dispatch refusal as a compiler refusal."; return 2; }
+      echo "    fixture: MODE = $FIXTURE_MODE (probed -- the first candidate under which the picker dispatches $ME)"
+  fi
+  printf '%s\n' "$FIXTURE_MODE" > "$PO/MODE"
   printf '%s\n' "$HQ" > "$PO/$ME/HQ"; printf '# gate fixture queue\n' > "$PO/QUEUE.tsv"
   # hq_P's exact shape: the compile step reports a missing binary as rc=1. $W/SCRIP exists; $W/SCRIP/scrip does not.
   mkrow 0 t-cc    'cd "$S4E_HOME/SCRIP" && timeout 30s ./scrip --compile nothing.pas </dev/null >/dev/null 2>&1 || { echo "bubble m4 compile failed"; exit 1; }'
