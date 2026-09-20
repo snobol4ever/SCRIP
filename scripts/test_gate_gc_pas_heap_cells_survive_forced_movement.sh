@@ -118,7 +118,7 @@ for w in $WITNESSES; do
   ( cd "$W" && gcc -o "${w}_m4" "$w.s" -L"$(dirname "$SCRIP")/out" -lscrip_rt -Wl,-rpath,"$(dirname "$SCRIP")/out" >/dev/null 2>&1 ) || { echo "REFUSE(2) [$(basename "$0" .sh)]: mode-4 link failed for $w"; exit 2; }
 done
 echo "pas-heap-forced-movement: workdir=$W path_len=${#W} band='$BAND' shifts='$SHIFTS' modes='m3 m4' poison=on-by-default (a band is a property of program, runner AND path length -- hq_raku 2026-09-20)"
-RED=0; INERT=0; NOMOVE=0; GRADED=0; MATCH=0
+RED=0; INERT=0; NOMOVE=0; GRADED=0; MATCH=0; NOSTART=0
 for w in $WITNESSES; do
   REF=$(cat "$W/$w.ref")
   for st in $BAND; do
@@ -130,6 +130,7 @@ for w in $WITNESSES; do
         mv=$(grep -o 'moved=[0-9]*B' "$W/err.txt" | grep -o '[0-9]*' | awk '{s+=$1} END{print s+0}')
         GRADED=$((GRADED+1))
         tag="$w/$mode/stress:$st/shift:$sh"
+        if [ "$rc" -eq 127 ]; then echo "NOSTART $tag -- rc=127: the runner never started, so this point measured nothing. It is NOT a red and NOT an inert population -- naming the two apart is the whole point (a variable expansion cannot serve as an env-assignment prefix; bash resolves assignments at parse time, so a VAR=val built at runtime becomes a COMMAND NAME. Measured in this lane 2026-09-20: it turned a working census into a plausible PASS=0 FAIL=246 board)"; NOSTART=$((NOSTART+1)); continue; fi
         if [ "$col" -eq 0 ]; then echo "INERT   $tag -- collections=0: this point never ran a collector, so its answer is a statement about the program and not about the collector"; INERT=$((INERT+1)); continue; fi
         if [ "$mv" -eq 0 ]; then echo "NO-MOVE $tag -- collections=$col but moved=0B: nothing relocated, so forwarding was never exercised"; NOMOVE=$((NOMOVE+1)); continue; fi
         if [ "$rc" -ne 0 ]; then echo "RED     $tag -- rc=$rc collections=$col moved=${mv}B"; RED=$((RED+1)); continue; fi
@@ -147,9 +148,9 @@ for w in $WITNESSES; do
   out=$( cd "$W" && SCRIP_TEST_PLANT_PAS_ROOT_SKIP=1 SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 timeout "$det_to" "$SCRIP" "$w.pas" < /dev/null 2>/dev/null ); rc=$?
   if [ "$out" = "$REF" ] && [ "$rc" -eq 0 ]; then echo "DETECTOR-DEAD $w -- SCRIP_TEST_PLANT_PAS_ROOT_SKIP=1 drops the Pascal root walk entirely and the answer was STILL right: this witness cannot see a lost root, so its green means nothing"; DET_FAIL=$((DET_FAIL+1)); else echo "detector $w: planted root-loss DIVERGES (rc=$rc) -- this witness can see a lost root (clean arm ${clean}s, detector bound ${det_to}s = 20x it, so a timeout here is a hang and not slowness -- hq_prolog 2026-09-20: a timeout cannot tell needs-8.1s from never-finishes unless the bound is derived from a measurement in the same run)"; fi
 done
-echo "pas-heap-forced-movement: graded=$GRADED match=$MATCH red=$RED inert=$INERT no_move=$NOMOVE detector_dead=$DET_FAIL (denominator: match+red+inert+no_move = $((MATCH+RED+INERT+NOMOVE)) of $GRADED)"
-if [ "$INERT" -gt 0 ] || [ "$NOMOVE" -gt 0 ] || [ "$DET_FAIL" -gt 0 ] || [ "$GRADED" -eq 0 ]; then
-  echo "REFUSE(2) [$(basename "$0" .sh)]: this run COULD NOT MEASURE what it claims to measure (inert=$INERT no_move=$NOMOVE detector_dead=$DET_FAIL graded=$GRADED). Workdir PRESERVED at $W -- a refusal that deletes its own evidence destroys the diagnosis with the same motion (hq_prolog 2026-09-20)."
+echo "pas-heap-forced-movement: graded=$GRADED match=$MATCH red=$RED inert=$INERT no_move=$NOMOVE nostart=$NOSTART detector_dead=$DET_FAIL (denominator: match+red+inert+no_move+nostart = $((MATCH+RED+INERT+NOMOVE+NOSTART)) of $GRADED)"
+if [ "$INERT" -gt 0 ] || [ "$NOMOVE" -gt 0 ] || [ "$NOSTART" -gt 0 ] || [ "$DET_FAIL" -gt 0 ] || [ "$GRADED" -eq 0 ]; then
+  echo "REFUSE(2) [$(basename "$0" .sh)]: this run COULD NOT MEASURE what it claims to measure (inert=$INERT no_move=$NOMOVE nostart=$NOSTART detector_dead=$DET_FAIL graded=$GRADED). Workdir PRESERVED at $W -- a refusal that deletes its own evidence destroys the diagnosis with the same motion (hq_prolog 2026-09-20)."
   KEEP=1; exit 2
 fi
 if [ "$RED" -gt 0 ]; then echo "GATE RED [$(basename "$0" .sh)]: $RED of $GRADED graded points disagree with fpc -Miso under forced collection AND forced movement. Workdir PRESERVED at $W."; KEEP=1; exit 1; fi
