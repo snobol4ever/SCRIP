@@ -79,7 +79,7 @@ lines = []
 drop = text.replace("if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }",
                     "if (0) { return 0; }", 1)
 add = text.replace("    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }",
-                   "    if (d->v == DT_X) { rt_gc_visit_descr(d); return 1; }\n    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }", 1)
+                   "    if (d->v == DT_SNUL) { rt_gc_visit_descr(d); return 1; }\n    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }", 1)
 for name, doctored in (("DROP", drop), ("ADD", add)):
     if doctored == text:
         print(f"PLANT-{name} FAILED-TO-SET-UP the anchor text was not found"); continue
@@ -92,8 +92,8 @@ for name, doctored in (("DROP", drop), ("ADD", add)):
 PY
 )"
 if printf '%s\n' "$plant" | grep -q 'PLANT-DROP rc=1 KINDSETS UNDECLARED gc_cell_visit lacks DT_T' \
-   && printf '%s\n' "$plant" | grep -q 'PLANT-ADD rc=1 KINDSETS STALE gc_cell_visit HAS DT_X'; then
-  ck ok "(d) PLANTED BOTH WAYS -- removing DT_T from the recognizer is NAMED as undeclared, and adding DT_X while its UNDER-CURE entry stands is NAMED as STALE"
+   && printf '%s\n' "$plant" | grep -q 'PLANT-ADD rc=1 KINDSETS STALE gc_cell_visit HAS DT_SNUL'; then
+  ck ok "(d) PLANTED BOTH WAYS -- removing DT_T from the recognizer is NAMED as undeclared, and adding a kind the table declares is NAMED as STALE. The ADD plant reads DT_SNUL and not DT_X since the cfo's DT_X landing (2026-09-20): DT_X's entry was UNDER-CURE and RETIRED THE DAY THE CURE LANDED, which took the plant's subject with it and broke this arm -- a self-test must not borrow a declaration that is designed to expire. DT_SNUL's gc_cell_visit exclusion is a FROZEN ruling (a speculative recognizer must never admit the zero tag) so it cannot expire, and the plant keeps a subject for as long as the rule stands"
 else
   ck no "(d) the plant did not hold, so this gate can neither fail nor self-clean: $plant"
 fi

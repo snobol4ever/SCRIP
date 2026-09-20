@@ -23,9 +23,16 @@ THE DECISION PROCEDURE, and every term in it is read from the tree rather than a
     CFO-136 -- a negative offset is where spine words live BY CONSTRUCTION and was never the discriminator).  What
     a member means is exactly this: the safe point's correctness rests on gc_cell_visit RECOGNISING the tag that
     lands there, instead of on the frame map that ARCH-GC section 3 says should cover it.  The row's witness is
-    lost today only because gc_cell_visit is missing DT_X and DT_SNUL while gc_visit_one has them -- one fact
-    spelled twice in one file.  Cure that and the witness answers its oracle at every stress point WITH ITS STORE
-    STILL OUTSIDE THE MAP: that surviving 162 is the residual this census exists to name.
+    NO LONGER lost: gc_cell_visit was missing DT_X while gc_visit_one had it, and the cfo landed DT_X into the
+    recognizer and into three further spellings of the same fact on 2026-09-20 (measured: a 17-point stress band
+    out to 50 in both modes at SCRIP_HEAP_MB=1, base 6 red, head 0, nothing traded).  DT_SNUL is NOT part of that
+    cure and must not be added -- see the frozen exclusion in scripts/util_gc_kind_sets.py, and the falsifier that
+    measured it: DT_SNUL planted beside DT_X leaves 218 of 218 outputs byte-identical, so it buys nothing and it
+    would make a speculative recognizer admit the zero tag.  ⛔ THE POINT FOR THIS CENSUS IS THAT ITS MEMBERS DID
+    NOT MOVE: the witness now answers its oracle at every stress point WITH ITS STORE STILL OUTSIDE THE MAP, which
+    is exactly what arm (h) of the gate predicted, and that surviving 162 is the residual this census exists to
+    name.  A member is still a safe point whose correctness rests on the recognizer rather than on the frame map;
+    curing the recognizer changed WHICH tags it recognises, never whether the map covers the store.
   * The rsp displacement from the cell store to each safe point is recovered by a set-valued forward fixpoint over
     the emitted CFG.  A site the fixpoint cannot pin to ONE displacement is UNDECIDABLE and is named as such; it is
     never folded into the green count, because a census that guesses is the defect this row exists to remove.

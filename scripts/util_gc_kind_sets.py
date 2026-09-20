@@ -52,13 +52,6 @@ DECLARED = {
                                    "cell and get REGISTERED FOR FORWARDING. A DT_SNUL that owns heap bytes is a "
                                    "contradiction in terms: if adding it ever changed an outcome, the defect is one "
                                    "level up in whatever minted that descriptor."),
-    ("gc_cell_visit", "DT_X"): ("UNDER-CURE", "owner cfo, ruled CFO-141, row: the DT_X landing. Found by hq_snobol4, "
-                                "verified A/B/A by the cto at CTO-101 -- twelve of twelve stress points over the "
-                                "SNOBOL4 witness, reverted byte for byte. THIS ENTRY IS STALE THE DAY IT LANDS."),
-    ("gc_tag_bears_ptr", "DT_X"): ("UNDER-CURE", "owner cfo, same landing as gc_cell_visit's DT_X: this is the test "
-                                   "that decides whether the word AFTER a tag is a cell word or a raw one, so a kind "
-                                   "missing here is counted as a raw heap word by gc_walk_words and reported as "
-                                   "[GC-WALK-SPINE] -- which is how the class was first seen at all."),
     ("gc_tag_bears_ptr", "DT_BIG"): ("UNDECLARED-BY-MEASUREMENT", "no reason is on the record. gc_visit_one and "
                                      "gc_cell_visit both take DT_BIG (HB_WSB payload); this test does not, so a "
                                      "bignum descriptor's payload word on the spine is classified RAW."),

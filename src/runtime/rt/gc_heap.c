@@ -832,6 +832,7 @@ static int gc_type_says_ref(const DESCR_t *d)
 {
     switch (d->v) {
         case DT_S:    return 1;
+        case DT_X:    return 1;
         case DT_T:    return 1;
         case DT_A:    return 1;
         case DT_DATA: return 1;
@@ -843,7 +844,7 @@ static int gc_type_says_ref(const DESCR_t *d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_sniff_would_take(const DESCR_t *d)
 {
-    if (d->v == DT_S || (d->v == DT_N && d->slen == 0)) {
+    if (d->v == DT_S || d->v == DT_X || (d->v == DT_N && d->slen == 0)) {
         rt_hblk_t *h = gc_blk_of(d->s);
         if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) return 1; }
     if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) return 1; }
@@ -888,7 +889,7 @@ static void gc_spine_record(const char *graph, long off, const char *const *w, r
     g_gc_spine_rec[g_gc_spine_recn].h = h; g_gc_spine_rec[g_gc_spine_recn].graph = graph; g_gc_spine_rec[g_gc_spine_recn].off = off; g_gc_spine_rec[g_gc_spine_recn].at = w; g_gc_spine_recn++;
 }
 static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_MAP); }
-static int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF; }
+static int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF; }
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h)
 {
     if (!gc_maps_on()) return;
@@ -931,7 +932,7 @@ static void gc_walk_dump(const char *lo, const char *base, const char *graph)
 }
 static int gc_cell_visit(DESCR_t *d)
 {
-    if (d->v == DT_S || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s);
+    if (d->v == DT_S || d->v == DT_X || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s);
         if (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
