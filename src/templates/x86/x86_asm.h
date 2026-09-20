@@ -128,6 +128,10 @@ inline std::string x86_rep_stosb() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b2(0xF3, 0xAA)) : x86_rec("rep") + "stosb\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rep_movsb() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0xF3, 0xA4)) : x86_rec("rep") + "movsb\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_xorps_xmm0() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : x86_rec("xorps") + "xmm0, xmm0\n";
 }
@@ -1116,6 +1120,26 @@ inline std::string x86_reg_disp32_add_imm32(const char * base, int disp, long im
     return x86_rec("add") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_add_imm64(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex;
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)(int8_t)imm; }
+        else                           { c += (char)0x81; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
+        return x86_Lrec(c);
+    }
+    return x86_rec("add") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_add_reg64(const char * base, int disp, const char * src) {
+    int g = x86_rnum(src), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x01; x86_rd32_modrm(c, g, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("add") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + src + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1493,6 +1517,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
     if (!strcmp(mnem, "cqo")) return x86_cqo();
     if (!strcmp(mnem, "rep_stosb")) return x86_rep_stosb();
+    if (!strcmp(mnem, "rep_movsb")) return x86_rep_movsb();
     if (!strcmp(mnem, "def")) {
         if (a.kind == XK_PORT) return x86_deflabel(a.port);
         if (a.kind == XK_ILBL) return x86_deflabel_id(a.lbl);
@@ -1646,6 +1671,8 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
         if (a.kind == XK_REGDISP32 && b.kind == XK_IMM) return x86_reg_disp32_add_imm32(a.base, a.off, b.imm);
+        if (a.kind == XK_REGDISP && b.kind == XK_IMM) return x86_reg_disp32_add_imm64(a.base, a.off, b.imm);
+        if (a.kind == XK_REGDISP && b.kind == XK_REG) return x86_reg_disp32_add_reg64(a.base, a.off, b.txt);
         if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_add32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
@@ -2191,6 +2218,43 @@ inline void bb_emit_x86(const std::string & s) {
 extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_poll(void);
+extern "C" { struct rt_hp_fr_t; extern struct rt_hp_fr_t g_hp_fr; }
+enum { GCFR_TOP = 0, GCFR_BLOCKS = 16, GCFR_ARMED = 24, GCFR_VIRGIN = 32, GCFR_ZFULL = 40, GCFR_LINE = 48, GCFR_ATOTAL = 56, GCFR_ASTR = 64 };
+inline std::string x86_gc_bump_inline(long dtype, int lmiss) {
+    return x86("comment", "ARCH-GC 6.2j: THE BOX ALLOCATES, IT DOES NOT CALL C TO ALLOCATE (Lon 2026-09-20, CEO-990: put RBX references into each BB that allocates memory and not call a C function to do it; get to work adding BB code to manipulate HEAP structures directly).  This is rtx_alloc.s lines 7..41 EMITTED, with rbx carrying the frontier: r8 in = payload bytes, r8 out = total bytes with the 16-byte header, rbx out = the BLOCK base (payload is rbx+16), rax and rcx clobbered, and ANY miss jumps to the caller's slow label where the existing runtime entry still runs.  ⛔ THE GOT LOAD IS LOAD-BEARING AND MUST NOT BE 'SIMPLIFIED' INTO A DIRECT NAME (cfo, CFO-126, measured with readelf on a real link, not reasoned): an executable that NAMES an exported data symbol of libscrip_rt.so takes an R_X86_64_COPY relocation and gets its OWN 56-byte copy of the frontier cell in its BSS, so the emitted bump would advance a different top, virgin and line than the runtime allocator over ONE arena -- two frontiers, each believing it owns the heap, and no instrument we own would see it.  ⛔ armed AT +24 IS TESTED FIRST AND IS NOT AN OPTIMISATION (CEO-990 condition one): it means no instrument is armed, so testing it keeps SCRIP_GC_STRESS, the allocation histogram and the budget honest BY CONSTRUCTION -- without it, inlining silently disables the fleet's most important GC instrument and the tiny-arena pass goes green for the wrong reason.  THE OFFSETS ARE BAKED HERE AND HELD BY THE _Static_asserts BESIDE THE STRUCT IN gc_heap.c, which name this sink: a drift fails the BUILD, not a page.")
+         + x86("mov", "r10", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&g_hp_fr, "g_hp_fr")
+         + x86("mov", "eax", RDD("r10", GCFR_ARMED))
+         + x86("test", "eax", "eax")
+         + x86("je", L(lmiss))
+         + x86("mov", "eax", RDD("r10", GCFR_ZFULL))
+         + x86("test", "eax", "eax")
+         + x86("jne", L(lmiss))
+         + x86("lea", "r8", RDQ("r8", 15))
+         + x86("and", "r8", (long)-16)
+         + x86("add", "r8", (long)16)
+         + x86("note", "frontier")
+         + x86("mov", "rbx", RDQ("r10", GCFR_TOP))
+         + x86("mov", "rax", "rbx")
+         + x86("add", "rax", "r8")
+         + x86("jc", L(lmiss))
+         + x86("mov", "rcx", RDQ("r10", GCFR_LINE))
+         + x86("cmp", "rax", "rcx")
+         + x86("ja", L(lmiss))
+         + x86("mov", "rcx", RDQ("r10", GCFR_VIRGIN))
+         + x86("cmp", "rbx", "rcx")
+         + x86("jb", L(lmiss))
+         + x86("mov", RDQ("rbx", 0), (long)0)
+         + x86("mov", RDD("rbx", 8), "r8d")
+         + x86("mov", RDD("rbx", 12), (long)(dtype | (HBF_TTL << 16)))
+         + x86("note", "frontier")
+         + x86("mov", RDQ("r10", GCFR_VIRGIN), "rax")
+         + x86("note", "frontier")
+         + x86("mov", RDQ("r10", GCFR_TOP), "rax")
+         + x86("add", RDQ("r10", GCFR_BLOCKS), (long)1)
+         + x86("add", RDQ("r10", GCFR_ATOTAL), "r8")
+         + IF(dtype == (long)DT_S, x86("add", RDQ("r10", GCFR_ASTR), "r8"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rt_gc_poll() { return x86("call", "rt_gc_poll", (uint64_t)(uintptr_t)(void *)rt_gc_poll); }
 inline std::string x86_rt_gc_poll_res() {
     return x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell under rsp across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it")
