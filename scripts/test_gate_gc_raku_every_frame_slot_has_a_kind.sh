@@ -38,5 +38,26 @@ python3 "$CENSUS" --files "$W/plant.raku" > "$W/clean.txt" 2>&1; rc_clean=$?
 if [ "$rc_clean" -ne 0 ]; then echo "FAIL fixture: the one-function fixture is not clean (rc=$rc_clean)"; grep '^HOLE' "$W/clean.txt" | head -5; RED=$((RED+1)); fi
 SCRIP_TEST_PLANT_ZLS_HOLE=1 python3 "$CENSUS" --files "$W/plant.raku" > "$W/plant.txt" 2>&1; rc_plant=$?
 if [ "$rc_plant" -ne 1 ]; then echo "REFUSE(2) [$(basename "$0" .sh)]: the detector arm did not fire -- SCRIP_TEST_PLANT_ZLS_HOLE=1 read rc=$rc_plant, wanted 1 (a census that cannot see a planted hole cannot be trusted with the real ones)"; tail -2 "$W/plant.txt"; exit 2; fi
+# THE DECLARED ARM (hq_raku 2026-09-20, granted ceo CEO-1003 + the cto's three conditions).  A no_layout entry the master's own
+# ALL.wantrc gives a NON-ZERO rc is DECLARED -- the suite says it must not compile, so having no frame is correct and permanent,
+# not a defect.  This arm is the PRICE OF THE FIELD: without it the classifier is a claim rather than a measurement.  Both
+# directions are graded on ONE uncompilable fixture, so the only thing that differs between them is the sidecar.
+cat > "$W/declared.raku" <<'FIX'
+role R { method needed() {...} }
+class C does R { }
+my $c = C.new(); say("made");
+FIX
+printf '%s\t1\n' "$W/declared.raku" > "$W/wantrc.yes"
+printf '%s\t0\n' "$W/declared.raku" > "$W/wantrc.no"
+python3 "$CENSUS" --files "$W/declared.raku" --wantrc "$W/wantrc.yes" > "$W/dec_yes.txt" 2>&1
+python3 "$CENSUS" --files "$W/declared.raku" --wantrc "$W/wantrc.no"  > "$W/dec_no.txt"  2>&1
+yes_n=$(grep -oE 'no_layout_declared=[0-9]+' "$W/dec_yes.txt" | tail -1 | cut -d= -f2)
+no_n=$(grep -oE 'no_layout_declared=[0-9]+' "$W/dec_no.txt" | tail -1 | cut -d= -f2)
+if [ -z "${yes_n:-}" ] || [ -z "${no_n:-}" ]; then
+  echo "REFUSE(2) [$(basename "$0" .sh)]: the census printed no no_layout_declared field -- the DECLARED classifier is not in this instrument, so this arm graded nothing"; tail -2 "$W/dec_yes.txt"; exit 2
+fi
+if [ "$yes_n" != 1 ]; then echo "FAIL declared: wantrc=1 on an uncompilable fixture read no_layout_declared=$yes_n, wanted 1 -- a DECLARED entry is being counted a defect"; RED=$((RED+1)); fi
+if [ "$no_n" != 0 ]; then echo "FAIL declared: wantrc=0 on the SAME fixture read no_layout_declared=$no_n, wanted 0 -- a real defect is being declared away, which is the narrowing the field exists to refuse"; RED=$((RED+1)); fi
+[ "$yes_n" = 1 ] && [ "$no_n" = 0 ] && echo "PASS declared: one uncompilable fixture reads declared=1 under wantrc=1 and declared=0 under wantrc=0"
 echo "gc-raku-every-frame-slot-has-a-kind:$SUMMARY fixture=clean planted=RED(rc=1) (population: the Raku and Rebus master entries that lay out, both arms; the wire header past region_end and the spine are not censused)"
 if [ "$RED" -eq 0 ]; then echo "GATE PASS(0) [$(basename "$0" .sh)]: 0 holes in every graded Raku and Rebus graph"; exit 0; else echo "GATE RED [$(basename "$0" .sh)]: $RED red arm(s)"; exit 1; fi
