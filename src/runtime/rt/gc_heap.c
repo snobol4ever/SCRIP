@@ -260,7 +260,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
         if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
         return r;
     }
-    fprintf(stderr, "[ZHP] heap exhausted at the reserve cap (%ld MB committed of %ld MB reserved, %ld blocks) -- raise SCRIP_HEAP_MAX_MB, or a safe point is missing so nothing ever collected\n", (long)((g_hp_end - g_hp_arena) >> 20), (long)((g_hp_cap_end - g_hp_arena) >> 20), g_hp_blocks);
+    fprintf(stderr, "[ZHP] heap exhausted at the reserve cap (%ld MB committed of %ld MB reserved, %ld blocks live) -- THIS REQUEST wanted %llu payload bytes (%llu with the header) of block kind %u. A request larger than the whole reserve is a CORRUPTED LENGTH, not a big program: a length computed from a pointer a collection moved asks for the world, so read the size before raising SCRIP_HEAP_MAX_MB -- which is IGNORED below the committed window anyway (rt_gcheap_init takes the env cap only when it is >= the window). If the size is sane, then a safe point is missing and nothing ever collected.\n", (long)((g_hp_end - g_hp_arena) >> 20), (long)((g_hp_cap_end - g_hp_arena) >> 20), g_hp_blocks, (unsigned long long)payload_bytes, (unsigned long long)total, (unsigned)type);
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
