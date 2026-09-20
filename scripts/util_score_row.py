@@ -1963,10 +1963,38 @@ def cmd_write(a):
                 _shown = glost[:3]
                 _more = ("\n      ... and %d more (read the cell; this listing is capped, the count is not)"
                          % (len(glost) - len(_shown))) if len(glost) > len(_shown) else ""
-                gnote = ("  ⚠ grid %s NOT updated -- it carries %d sentence(s) no runner models, "
-                         "so this measurement now sits in the display only and the grid cell is STALE BY THIS "
-                         "WRITE. Fold what is still true into --text, or hand-edit the grid cell:\n%s%s"
-                         % (gkey, len(glost), "\n".join("      - %s" % l[:160] for l in _shown), _more))
+                # ⛔⭐ STALE BY PROVENANCE AND STALE BY VALUE ARE DIFFERENT READINGS, AND THIS WARNING USED TO SPELL
+                # THEM THE SAME (hq_raku 2026-09-20, from inside the guard: they met it on a landing that MOVED NO
+                # PROGRAM -- the cell already said 830/927 and the write would have said 830/927 -- and declined both
+                # exits on purpose, because hand-editing would have flattened six explanatory sentences to restate a
+                # number that did not move).  A no-op write and a real divergence produced the SAME sentence, so the
+                # seat had to OPEN the cell to tell which.  ⭐ The guard itself is untouched and still refuses: the
+                # judgement stays with a human, which is the whole point of it.  What changes is that the message now
+                # says which of the two it is, and the number it would have written is printed either way.
+                # ⛔ COMPARED AS A SET OF DISTINCT p/t PAIRS, NEVER AS THE PARSER'S SHAPE. cell_fractions returns a
+                # TUPLE per denominator in cell order, so a two-mode text ("m3 43/43 · m4 43/43") yields (43, 43)
+                # against a one-mode cell's (43,) -- the same VALUE wearing a different shape. Comparing the raw
+                # structures would call that a divergence and reintroduce the very confusion this names.
+                def _frset(_g):
+                    return {(_p, _d) for _d in (_g or {}) for _p in _g[_d]}
+                def _frshow(_g):
+                    return ", ".join("%s/%s" % (_p, _d) for _p, _d in sorted(_frset(_g)))
+                _fb, _fn = _frset(cell_fractions(gbare)[0]), _frset(cell_fractions(gnew)[0])
+                if _fb and _fn and _fb == _fn:
+                    gnote = ("  ⚠ grid %s NOT updated -- ⭐ STALE BY PROVENANCE ONLY: the value this write would put in "
+                             "the cell (%s) is what the cell ALREADY STATES, so the cell is not misleading -- only its "
+                             "stamp is behind. It carries %d sentence(s) no runner models, and folding here would flatten "
+                             "them to restate a number that did not move. Folding is OPTIONAL in this case; nothing is "
+                             "published wrong by leaving it:\n%s%s"
+                             % (gkey, ", ".join("%s/%s" % (_p, _d) for _p, _d in sorted(_fn)), len(glost), "\n".join("      - %s" % l[:160] for l in _shown), _more))
+                else:
+                    gnote = ("  ⚠ grid %s NOT updated -- STALE BY VALUE: this write's %s differs from the cell's %s, and it "
+                             "carries %d sentence(s) no runner models, so this measurement now sits in the display only and "
+                             "the grid cell is STALE BY THIS WRITE. Fold what is still true into --text, or hand-edit the "
+                             "grid cell:\n%s%s"
+                             % (gkey, ", ".join("%s/%s" % (_p, _d) for _p, _d in sorted(_fn)) or "<no fraction>",
+                                ", ".join("%s/%s" % (_p, _d) for _p, _d in sorted(_fb)) or "<no fraction>", len(glost),
+                                "\n".join("      - %s" % l[:160] for l in _shown), _more))
             else:
                 for gl, gline in enumerate(lines):
                     if gline.startswith("| %s |" % a.lang) and gl != i:
@@ -2981,6 +3009,31 @@ def cmd_selftest(a):
             print("SELFTEST: the grid half reads all_pass=/all_n= by name too -- the NO-N/M refusal no longer fires on a canonical board line")
         else:
             print("SELFTEST FAIL: the grid half still refuses the canonical board line for want of an N/M fraction"); ok = False
+        # ⛔ THE PROSE GUARD NAMES WHICH KIND OF STALE IT IS (hq_raku 2026-09-20, from inside the guard). The live rebus
+        # grid M cell states 43/43 and carries commentary no runner models, so a write of 43/43 is a NO-OP BY VALUE and a
+        # write of 7/48 is a real divergence -- and before today both printed the same sentence. The guard still refuses
+        # in both cases; only the reading is now distinguishable. (The 43/43 arm moves the fixture denominator 48 -> 43,
+        # so it carries its own --criterion-changed; that refusal is proven by its own arms further down.)
+        _cap2 = _io.StringIO()
+        with _ctx.redirect_stdout(_cap2):
+            try: cmd_write(_A(text="m3 43/43 · m4 43/43", criterion_changed="2026-09-20:selftest fixture aligning the write with the grid cell's own fraction to exercise the provenance-only path"))
+            except SystemExit: pass
+        if "STALE BY PROVENANCE ONLY" in _cap2.getvalue():
+            print("SELFTEST: the prose guard says STALE BY PROVENANCE ONLY when the value it would write is the value already there")
+        else:
+            print("SELFTEST FAIL: a no-op-by-value write still reads as STALE BY THIS WRITE, so a seat cannot tell it from a real divergence\n        what it printed: %s" % (_cap2.getvalue()[-600:] or "<silent>")); ok = False
+        _cap3 = _io.StringIO()
+        with _ctx.redirect_stdout(_cap3):
+            try: cmd_write(_A(text="m3 7/43 · m4 7/43"))
+            except SystemExit: pass
+        if "STALE BY VALUE" in _cap3.getvalue() and "STALE BY PROVENANCE ONLY" not in _cap3.getvalue():
+            print("SELFTEST: ...and STALE BY VALUE when it differs, with both fractions named")
+        else:
+            print("SELFTEST FAIL: a real divergence did not read as STALE BY VALUE"); ok = False
+        # ⛔ PUT THE FIXTURE BACK WHERE THE ARMS BELOW EXPECT IT. The two arms above had to align with the LIVE grid
+        # cell's 43/43 to exercise the value comparison at all, which moves the scratch row's denominator off 48; every
+        # arm after this one writes N/48 and would meet the (correct) denominator-move refusal instead of its own subject.
+        cmd_write(_A(text="m3 9/48 · m4 9/48", criterion_changed="2026-09-20:selftest fixture restored to the 48 denominator the arms below are written against"))
         if not _arm("--no-suite-sync is a labelled escape, not a refusal",
                     lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41", no_suite_sync=True)), False): ok = False
         # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND (hq_raku 2026-09-16): a scratch DB with 7 PASS + 41 FAIL rebus-master rows on
