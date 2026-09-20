@@ -32,3 +32,16 @@ gc_record_type_table_is_rooted
 #    time out, which the gate correctly reports as COULD-NOT-MEASURE and which is a refusal nobody needs.
 blocking_set_parallel_agrees
 blocking_set_shards_agree
+# ⛔ MEASURED AND ADDED 2026-09-20 BY THE ARM-FOR-ARM COMPARISON ITSELF, which is the only way an arm of this
+#    class is ever found: test_gate_gc_every_allocating_runtime_entry_returns_to_a_safe_point.sh was the ONE arm
+#    that read GREEN sequentially (101s at load 8) and RED under a six-way fan-out (126s at load 16). Re-run
+#    alone on a quiet box it takes 63s at load 2 and passes. It wraps its compiler runs in `timeout 120` and
+#    `timeout 180` and its coverage arm counts safe points reached inside a bounded run, so its verdict is a
+#    DURATION read off a box whose load the fan-out changes -- class 3 exactly, found by the measurement rather
+#    than by reading. ⛔ AND THE LIMIT OF THIS FILE, STATED WHERE IT IS DISCOVERED: declaring an arm serial
+#    removes the FAN-OUT's load, never the FLEET's. preflight_arms_stay_cheap is declared here and still read RED
+#    in the SEQUENTIAL control at load 8 while reading GREEN in the parent of the fan-out -- the cfo measured the
+#    same arm red on origin under ten seats and named it: a timing gate that reds because the fleet grew is
+#    measuring the fleet. A duration-pinned arm's verdict is a fact about the box and must never be read as one
+#    about the tree.
+gc_every_allocating_runtime_entry_returns_to_a_safe_point
