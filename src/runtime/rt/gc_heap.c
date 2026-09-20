@@ -614,8 +614,8 @@ static void gc_visit_one(DESCR_t *d)
           gc_visit_datinst(u); }
         return; }
     case DT_N: {
-        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; gc_slot_reg((void *)&d->p); if (!vc || !gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
-        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; gc_slot_reg((void *)&d->ptr); if (tc) gc_mark_agg((const void *)tc); if (tc && gc_hins((void *)tc)) gc_wl_push(tc); return; }
+        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; if (!vc || !gc_block_exact((const char *)vc, HB_AGGV)) return; gc_slot_reg((void *)&d->p); if (!gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
+        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; rt_hblk_t *th = gc_blk_of((const char *)tc); if (!th || (const char *)tc < (const char *)(th + 1) || (const char *)tc + 16 > (const char *)th + th->size) return; gc_slot_reg((void *)&d->ptr); gc_mark_agg((const void *)tc); if (gc_hins((void *)tc)) gc_wl_push(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); gc_slot_reg((void *)&d->s); } }
         return; }
     case DT_P: {
@@ -906,7 +906,6 @@ static void gc_walk_dump(const char *lo, const char *base, const char *graph)
 }
 static int gc_cell_visit(DESCR_t *d)
 {
-    if (((uintptr_t)*(const uint32_t *)d & 0xFFFFFF00u) != 0) return 0;
     if (d->v == DT_S || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s);
         if (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
@@ -916,6 +915,7 @@ static int gc_cell_visit(DESCR_t *d)
     if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }
     if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); return 1; }
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); return 1; }
+    if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) { rt_gc_visit_descr(d); return 1; }
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { if (gc_blk_of((const char *)d->p)) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); if (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     return 0;
@@ -1033,7 +1033,7 @@ static long gc_plant_shift_prefix(void)
 }
 static long gc_collect_ex(void)
 {
-    extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern int rt_scan_active(void);
+    extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern int rt_scan_active(void);
     char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
@@ -1062,7 +1062,7 @@ static long gc_collect_ex(void)
     rt_gc_ws_roots();
     gc_coexpr_records(); words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
     gc_root_cas();
-    kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots();
+    kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots(); bnd_gc_roots();
     if (gc_maps_on()) for (int k = 0; k < GC_REP_POPS; k++) if (g_gc_rep_ranges[k])
         fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld raw_hits=%ld\n",
             g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k], g_gc_rep_agree[k], g_gc_rep_map_only[k], g_gc_rep_sniff_only[k],

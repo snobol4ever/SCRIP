@@ -830,6 +830,11 @@ static int meth_is_user_proc(const char *procname) {
 typedef struct { DESCR_t self; char mname[128]; const char *mro[64]; int mro_len; int found_idx; DESCR_t args[16]; int nargs; } RedispFrame;
 static RedispFrame g_redisp[64];
 static int g_redisp_top = 0;
+void bnd_gc_roots(void)
+{
+    extern void rt_gc_visit_descr(DESCR_t *);
+    for (int rd = 0; rd < g_redisp_top && rd < 64; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); for (int k = 0; k < g_redisp[rd].nargs && k < 16; k++) rt_gc_visit_descr(&g_redisp[rd].args[k]); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) {
     int pi;
@@ -1021,7 +1026,7 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
         for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], nm)) { beaten = 1; break; } }
         if (!beaten) { win = i; break; } }
     if (win < 0) win = 0;
-    int total = 1 + nm; DESCR_t *ca = rt_ws_alloc_descr((size_t)total);
+    int total = 1 + nm; DESCR_t ca[total];
     ca[0] = args[0]; for (int k = 0; k < nm; k++) ca[1 + k] = ma[k];
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
@@ -2314,20 +2319,22 @@ DESCR_t rt_pl_dop_big(DESCR_t *args, int nargs) {
       if (!IS_STR_fn(d) || !d.s) return FAILDESCR;
       return rt_big_from_str(d.s); }
 }
+static DESCR_t pl_fa_handle(void *a) { DESCR_t d; memset(&d, 0, sizeof d); d.v = (DTYPE_t)DT_DATA; d.slen = DATA_ELEMS_SLEN; d.ptr = a; return d; }
+static void *pl_fa_of(DESCR_t h) { return (h.v == DT_DATA && h.slen == DATA_ELEMS_SLEN) ? h.ptr : (void *)0; }
 DESCR_t rt_pl_dop_findall_new(DESCR_t *args, int nargs) {
     (void)args;
     if (nargs != 0) return FAILDESCR;
     pl_atoms_ready();
     { extern void *rt_pl_findall_begin(void); void *a = rt_pl_findall_begin();
       if (!a) return FAILDESCR;
-      return INTVAL((int64_t)(intptr_t)a); }
+      return pl_fa_handle(a); }
 }
 DESCR_t rt_pl_dop_findall_add(DESCR_t *args, int nargs) {
     if (nargs != 2) return FAILDESCR;
     { extern void rt_pl_findall_collect(void *, void *);
       DESCR_t h = rt_pl_deref_val(args[0]);
-      if (h.v != DT_I) return FAILDESCR;
-      rt_pl_findall_collect((void *)(intptr_t)h.i, (void *)&args[1]);
+      if (!pl_fa_of(h)) return FAILDESCR;
+      rt_pl_findall_collect(pl_fa_of(h), (void *)&args[1]);
       return pl_ok(); }
 }
 static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
@@ -2335,8 +2342,8 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
     extern void rt_pl_findall_item(void *, int, void *);
     extern int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
     DESCR_t h = rt_pl_deref_val(args[0]);
-    if (h.v != DT_I) return 0;
-    { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i;
+    if (!pl_fa_of(h)) return 0;
+    { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i;
       DESCR_t *el; DESCR_t lst;
       if (mode != 0 && n == 0) return 0;
       el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
@@ -2350,9 +2357,9 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
 static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     extern int rt_pl_findall_count(void *); extern void rt_pl_findall_item(void *, int, void *);
     DESCR_t h = rt_pl_deref_val(args[0]);
-    if (h.v != DT_I) return 0;
+    if (!pl_fa_of(h)) return 0;
     DESCR_t t4 = args[2]; DESCR_t *c4 = plw_cell_deref(plw_entry(&t4));
-    { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
+    { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
       el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
       if (!el) return 0;
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
@@ -2412,8 +2419,8 @@ DESCR_t rt_pl_dop_bagof_group_n(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
     { DESCR_t h = rt_pl_deref_val(args[0]); DESCR_t *it; int *ord, *gs, *gi, ng;
-      if (h.v != DT_I) return FAILDESCR;
-      ng = pl_bagof_groups((void *)(intptr_t)h.i, &it, &ord, &gs, &gi);
+      if (!pl_fa_of(h)) return FAILDESCR;
+      ng = pl_bagof_groups(pl_fa_of(h), &it, &ord, &gs, &gi);
       if (ng <= 0) return FAILDESCR;
       return INTVAL(ng - 1); }
 }
@@ -2423,8 +2430,8 @@ static int rt_pl_bagof_group_at_cell(DESCR_t *args, pl_tr_ctx_t *cx, int sorted)
     DESCR_t h = rt_pl_deref_val(args[0]), iv = rt_pl_deref_val(args[1]);
     DESCR_t *it; int *ord, *gs, *gi, ng, idx, i, cnt, g;
     DESCR_t wrep, trep, *el, lst; char *tr0 = cx->tr; int ok;
-    if (h.v != DT_I || iv.v != DT_I) return 0;
-    ng = pl_bagof_groups((void *)(intptr_t)h.i, &it, &ord, &gs, &gi);
+    if (!pl_fa_of(h) || iv.v != DT_I) return 0;
+    ng = pl_bagof_groups(pl_fa_of(h), &it, &ord, &gs, &gi);
     idx = (int)iv.i;
     if (ng <= 0 || idx < 0 || idx >= ng) return 0;
     g = gi[idx];
@@ -3619,7 +3626,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(buf); return 1;
     }
     if ((!strcmp(fn, "rk_write") || !strcmp(fn, "rk_writes"))) {
-        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc_descr((size_t)(nargs > 0 ? nargs : 1));
+        DESCR_t tmp[nargs > 0 ? nargs : 1];
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (args[_ri].v == DT_BOOL) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i ? "True" : "False"));
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
@@ -4716,7 +4723,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         int nextra = nargs - 2;
         int total = 1 + nextra;
-        DESCR_t *callargs = rt_ws_alloc_descr((size_t)total);
+        DESCR_t callargs[total > 0 ? total : 1];
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
         int rd = -1;
