@@ -1441,6 +1441,29 @@ s4e_predispatch_placeholder_check() {   # $1 = topic; rc 0 = placeholder (refuse
 # not FINISH, that names an unbuilt compiler, that cannot be read as shell, or that certifies nothing ADMITS TOO --
 # loudly, naming what it could not do. Only a premise that RAN and came back red stops the lock. An unverifiable
 # premise must never block work; an unspoken one must never read as a verified one.
+# ⛔⭐⭐ A BASH DIAGNOSTIC IS NOT A USAGE MESSAGE (cto -> coo 2026-09-20, REPORTED rather than cured because
+# the bus is the coo's instrument). MEASURED, verbatim from the cto's terminal on SCRIP d6b8a02c4 and
+# reproduced here: `s4e_msg.sh park` with no topic prints the unread-inbox banner and then
+#     scripts/s4e_msg.sh: line 2067: 2: topic
+# and nothing else. That is `${2:?topic}` firing: the shell's own unbound-parameter message, which names a
+# LINE NUMBER and the bare word `topic` to a seat who was reaching for the board. ⛔ THE COST IS NOT THE
+# MISSING HELP, IT IS WHAT IT READS AS: a line-numbered shell error reads as A BROKEN BUS rather than as a
+# usage error, so the seat stops and investigates the tool instead of retyping the command -- and a seat that
+# cannot see the board picks its next row blind. TEN VERBS SHARED THE SHAPE (send, ask, mailbox, claim,
+# unclaim, park, done, assign, reown, mint), so this was never one verb's typo.
+# ⭐ rc=2 AND NOT 1: "I could not act on what you gave me" is the could-not-measure vocabulary every other
+# refusal in this file speaks, and a caller scripting around the bus can tell it from a measured red.
+# ⛔ NO VERB GAINS A NO-ARGUMENT BEHAVIOUR HERE. The report guessed `park` was dying in "the arm that should
+# be its no-argument listing"; there is no such arm and never has been -- `board` is the verb that prints the
+# board. Inventing one would be a new feature wearing a bug fix, and it would silently change what `park`
+# with a typo'd topic does. The cure is the message, exactly.
+s4e_need() {   # $1 = verb, $2 = what is missing, $3 = the usage line, $4 = one sentence on what the verb does
+    printf '⛔ REFUSED (rc=2): `%s %s` needs %s -- nothing was read, nothing was written.\n' "${0##*/}" "$1" "$2" >&2
+    printf '   usage: %s\n' "$3" >&2
+    [ -n "${4:-}" ] && printf '   %s\n' "$4" >&2
+    printf '   All verbs: %s\n' "$_S4E_VERBS" >&2
+    exit 2; }
+_S4E_VERBS="next|claim|unclaim|park|done|assign|reown|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet|premise|whoami"
 s4e_premise_is_placeholder() {   # $1 = raw PREMISE-WHEN text; rc 0 = the field is present but expresses nothing
     case "$(printf '%s' "${1:-}" | tr -d '[:space:]')" in
       ''|'⛔NOTEXPRESSED'*|'NOTEXPRESSED'*|TODO*|TBD*|'⛔TODO'*) return 0;; esac
@@ -1724,7 +1747,9 @@ esac
 # every seat is refused work while the commit that would fix them does not yet exist on origin.
 S4E_PROTO=5
 case "$cmd" in
-  send)  to="$(s4e_canon "${2:?to}")"; topic="${3:?topic}"; shift 3; s4e_assert_box "$to" destination; s4e_assert_not_drained "$to"
+  send)  [ -n "${2:-}" ] || s4e_need send "a destination seat" "s4e_msg.sh send <to> <topic> --stdin <<'MSG' ... MSG" "A prose body must come through --stdin: a body in double quotes is expanded by YOUR shell before send ever runs."
+         [ -n "${3:-}" ] || s4e_need send "a topic" "s4e_msg.sh send <to> <topic> --stdin <<'MSG' ... MSG" "The topic is the subject line the recipient sorts by; it becomes a filename, so keep it a slug."
+         to="$(s4e_canon "$2")"; topic="$3"; shift 3; s4e_assert_box "$to" destination; s4e_assert_not_drained "$to"
          # ⛔ THE TOPIC BECOMES A FILENAME, SO IT IS VALIDATED BEFORE IT BECOMES A PATH (s191, seat1).  MEASURED, not hypothetical:
          # calling `send seat8 "<a whole message containing SCRIP/scripts/...>"` made the topic carry slashes, the mv failed with
          # "No such file or directory" -- AND THE SCRIPT PRINTED `sent` ANYWAY.  A seat-to-seat message that is silently dropped
@@ -1830,7 +1855,8 @@ case "$cmd" in
          t="$(mktemp "$PO/.msg.XXXXXX")"; { echo "FROM $ME TO $to RE $topic"; echo "$_body"; } > "$t"
          d="$PO/$to/inbox/$(date +%s%N)-$ME-$topic.msg"
          if mv "$t" "$d" && [ -s "$d" ]; then echo "sent -> $to/$topic"; else rm -f "$t"; echo "⛔ NOT SENT -- could not write $d. The message was DROPPED; nothing was delivered." >&2; exit 1; fi;;
-  ask)   topic="${2:?topic}"; shift 2; _hq="$(s4e_hq)"
+  ask)   [ -n "${2:-}" ] || s4e_need ask "a topic" "s4e_msg.sh ask <topic> \"your question\"" "Sends q-<topic> to the HQ named in your postoffice HQ file, and refuses rc=2 when none is set."
+         topic="$2"; shift 2; _hq="$(s4e_hq)"
          [ -n "$_hq" ] || { echo "⛔ REFUSED: no owning HQ resolved for $ME. Set S4E_HQ=hq_C|hq_P|hq_B, or have your HQ write it: echo hq_C > $PO/$ME/HQ" >&2; exit 2; }
          exec "$0" send "$_hq" "q-$topic" "$*";;
   # ⛔ CLEAR DELETES ONLY WHAT CHECK DISPLAYED (hq_C s269). MEASURED, not hypothetical: a message arrived
@@ -1878,7 +1904,8 @@ case "$cmd" in
   # ⭐ CREATION IS A DELIBERATE ACT WITH A NAME (V2-4). LAW 6 forbids mailboxes appearing as a side effect of a
   # typo, not mailboxes existing -- Lon adds seats, and a fleet that cannot enrol one is not operable. So the
   # capability survives as ONE explicit subcommand that says what it did, and every implicit mkdir is gone.
-  mailbox) nm="$(s4e_canon "${2:?mailbox name}")"
+  mailbox) [ -n "${2:-}" ] || s4e_need mailbox "a mailbox name" "s4e_msg.sh mailbox <seat>" "Prints that seat's mailbox; it reads, and never clears."
+         nm="$(s4e_canon "$2")"
          case "$nm" in ""|*/*|*$'\n'*|.*) echo "⛔ REFUSED: mailbox name must be a plain slug" >&2; exit 2;; esac
          if [ -d "$PO/$nm/inbox" ]; then echo "mailbox $nm already exists"; else mkdir -p "$PO/$nm/inbox" && echo "created mailbox $nm (deliberate, by $ME)"; fi;;
   premise) # ⛔⭐ THE PREMISE FIELD IS READ THROUGH THE BUS AND NEVER BY A PRIVATE COPY (coo 2026-09-20).
@@ -1912,7 +1939,8 @@ case "$cmd" in
                 printf '       PREMISE-WHEN: <command>   in %s\n' "$b" >&2; exit 1; fi
               printf '%s\n' "$pw"; exit 0;;
          esac;;
-  claim) topic="${2:?topic}"; c="$PO/claims/$topic.claim"; mkdir -p "$PO/claims"
+  claim) [ -n "${2:-}" ] || s4e_need claim "a topic" "s4e_msg.sh claim <topic>" "Takes a row deliberately. Use \`next\` to be served one; this verb is for a row you have chosen by name."
+         topic="$2"; c="$PO/claims/$topic.claim"; mkdir -p "$PO/claims"
          if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"; else echo "CLAIMED by $own — pick other work"; exit 1; fi
          else
               # ⛔⭐ THE PREMISE GATE RUNS HERE: BEFORE THE LOCK EXISTS, AND ONLY ON THE PATH THAT TAKES ONE.
@@ -1973,7 +2001,8 @@ case "$cmd" in
          # silently removed a row from the whole fleet's reach. ⛔ REFUSES a claim that is DONE (that is a receipt, not
          # a lock) and one you do not own. The release is APPENDED to the baton's LEDGER, so a lock that was taken and
          # returned leaves a trace instead of vanishing.
-         topic="${2:?topic}"; c="$PO/claims/$topic.claim"; q="$PO/QUEUE.tsv"
+         [ -n "${2:-}" ] || s4e_need unclaim "a topic" "s4e_msg.sh unclaim <topic>" "Returns a held row FREE with a receipt under released/. It is the stand-down verb, and the only exit from a row you have not worked."
+         topic="$2"; c="$PO/claims/$topic.claim"; q="$PO/QUEUE.tsv"
          [ -f "$c" ] || { echo "no claim on $topic — nothing to release"; exit 1; }
          own="$(head -1 "$c")"
          # ⛔ s272 hq_C — THE CODE CONTRADICTED ITS OWN MESSAGE. The header above and this very string both said "or by
@@ -2064,7 +2093,8 @@ case "$cmd" in
          # it and un-parks the row back to FREE BY ITSELF the moment <other-topic>'s claim goes DONE (or it is
          # swept into QUEUE.done.tsv). Recording a block this way, not as bare PARKED/BLOCKED text, is what makes
          # it self-clearing instead of needing a human to remember to come back and re-park it.
-         topic="${2:?topic}"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
+         [ -n "${2:-}" ] || s4e_need park "a topic" "s4e_msg.sh park <topic> [STATE]" "Takes a row out of the picker WITHOUT closing it (default state PARKED; park <topic> FREE puts it back). It has no no-argument listing -- \`board\` is the verb that prints the board."
+         topic="$2"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
          # ⛔⭐ ARG 3 IS THE STATE, NOT A REASON — AND IT USED TO ACCEPT ANY STRING AT ALL (hq_P, 2026-08-29,
          # reported against themselves). They ran `park <topic> "<a whole explanatory sentence>"` on the natural
          # assumption that the third argument was a reason, and the entire sentence — commas and all — was written
@@ -2191,7 +2221,8 @@ case "$cmd" in
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **STATE -> %s** by %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$st" "$ME" >> "$b"
          echo "$topic state -> $st";;
-  done)  topic="${2:?topic}"; c="$PO/claims/$topic.claim"
+  done)  [ -n "${2:-}" ] || s4e_need done "a topic" "s4e_msg.sh done <topic>" "Closes a row by RUNNING its baton DONE-WHEN; it refuses on a red or an rc=2. Completion is computed, never declared."
+         topic="$2"; c="$PO/claims/$topic.claim"
          # ⛔ THE BANNER FIRES ITSELF HERE (HQ 2026-08-22, after seat4 finished its row and gave NO banner until Lon
          # asked for one). LAW 15 lived only as a step in the seat's CLAUDE.md -- and a step in a markdown file is a
          # hope, not a mechanism, exactly like the inbox before `check` was forced. A seat that closes a row runs
@@ -2546,7 +2577,9 @@ case "$cmd" in
          # about it; it is discovered by trying to do the thing and finding nothing that does it.
          # OWNERSHIP is "whose lane is this row in" and outlives any sitting; a CLAIM is "who is holding it right
          # now". Changing the first must never silently do the second.
-         seat="${2:?seat}"; topic="${3:?topic}"; q="$PO/QUEUE.tsv"
+         [ -n "${2:-}" ] || s4e_need reown "a seat" "s4e_msg.sh reown <seat> <topic>" "Moves a row's owner column; it does not move the claim."
+         [ -n "${3:-}" ] || s4e_need reown "a topic" "s4e_msg.sh reown <seat> <topic>" "Moves a row's owner column; it does not move the claim."
+         seat="$2"; topic="$3"; q="$PO/QUEUE.tsv"
          case "$seat"  in ""|*/*|*$'\n'*) echo "⛔ REFUSED: seat must be a filename-safe mailbox name (hq_S, cfo, ...)" >&2; exit 2;; esac
          case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a filename-safe slug" >&2; exit 2;; esac
          [ -f "$q" ] || { echo "⛔ REFUSED: no QUEUE.tsv at $q" >&2; exit 2; }
@@ -2579,7 +2612,9 @@ case "$cmd" in
          # side, which makes the v1 dispatch race UNREPRESENTABLE: v1 mailed a brief AND let the seat run `next`, so two
          # channels answered "what am I working on" with nothing arbitrating -- that race is what killed seat13's session
          # (it held five rows, worked a sixth, and starved). There is now exactly one answer and it is a file on disk.
-         seat="${2:?seat}"; topic="${3:?topic}"; q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
+         [ -n "${2:-}" ] || s4e_need assign "a seat" "s4e_msg.sh assign <seat> <topic>" "ASSIGNMENT IS THE LOCK: it writes that seat's claim atomically and rings a doorbell; their next serves it FIRST."
+         [ -n "${3:-}" ] || s4e_need assign "a topic" "s4e_msg.sh assign <seat> <topic>" "ASSIGNMENT IS THE LOCK: it writes that seat's claim atomically and rings a doorbell; their next serves it FIRST."
+         seat="$2"; topic="$3"; q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          case "$seat"  in ""|*/*|*$'\n'*) echo "⛔ REFUSED: seat must be a filename-safe mailbox name (seat07, hq_C, ...)" >&2; exit 2;; esac
          case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a filename-safe slug, not the message body" >&2; exit 2;; esac
          # ⛔ LAW 6 IDENTITY IS ASSERTED, NEVER GLOBBED: refuse a seat with no mailbox, and NEVER create one on the fly --
@@ -2681,7 +2716,8 @@ case "$cmd" in
   # rank is sniffed, not fixed-position: the token right after topic is consumed as rank ONLY if it is
   # ALL DIGITS (never true of real GOAL prose, even prose that happens to start with a number — that always
   # has a following space/letter); otherwise it defaults to 2 and the same token starts the goal text.
-  mint)  topic="${2:?topic}"; shift 2
+  mint)  [ -n "${2:-}" ] || s4e_need mint "a topic" "s4e_msg.sh mint <topic> [rank] [--owner <seat>] \"GOAL text\"" "The only sanctioned way to add work: it writes a QUEUE row and a skeleton baton atomically."
+         topic="$2"; shift 2
          rank=2
          if [ -n "${1:-}" ]; then case "$1" in *[!0-9]*|'') :;; *) rank="$1"; shift;; esac; fi
          # ⭐⭐ NO BLANK OWNER CELL, HALF 2 OF 2 (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-
