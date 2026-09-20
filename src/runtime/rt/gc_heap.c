@@ -614,8 +614,8 @@ static void gc_visit_one(DESCR_t *d)
           gc_visit_datinst(u); }
         return; }
     case DT_N: {
-        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; gc_slot_reg((void *)&d->p); if (!vc || !gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
-        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; gc_slot_reg((void *)&d->ptr); if (tc) gc_mark_agg((const void *)tc); if (tc && gc_hins((void *)tc)) gc_wl_push(tc); return; }
+        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; if (!vc || !gc_block_exact((const char *)vc, HB_AGGV)) return; gc_slot_reg((void *)&d->p); if (!gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
+        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; rt_hblk_t *th = gc_blk_of((const char *)tc); if (!th || (const char *)tc < (const char *)(th + 1) || (const char *)tc + 16 > (const char *)th + th->size) return; gc_slot_reg((void *)&d->ptr); gc_mark_agg((const void *)tc); if (gc_hins((void *)tc)) gc_wl_push(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); gc_slot_reg((void *)&d->s); } }
         return; }
     case DT_P: {
