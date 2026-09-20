@@ -63,7 +63,12 @@ ARGV_RE = {
     "snocone": r'\bHOST\s*\(\s*[24]\b',
     "prolog":  r'\bargv\b',
     "pascal":  r'\bParamStr\b|\bParamCount\b',
-    "raku":    r'@\*ARGS\b|\bsub\s+MAIN\s*\(',
+    # ⛔ RAKU'S MAIN IS CASE-SENSITIVE and this whole table is compiled re.I, so the bare alternative
+    # matched `sub main()` -- an ORDINARY subroutine with an EMPTY signature, which cannot observe an
+    # argument under any circumstances. Measured 2026-09-19 (coo): 33 of the 36 raku entries this census
+    # called argument-owing were lowercase `sub main()` with empty parens. Only `sub MAIN` is Raku's
+    # command-line entry point, so that alternative is pinned case-sensitive with (?-i:...).
+    "raku":    r'@\*ARGS\b|(?-i:\bsub\s+MAIN\s*\()',
     "rebus":   r'\bHOST\s*\(\s*[24]\b|\bARGV\b',
 }
 EXT = {"icon": ".icn", "snobol4": ".sno", "snocone": ".sc", "prolog": ".pl",

@@ -58,9 +58,28 @@ gate_parse_args "$@"
 # file). ⭐ A FLOOR IS A COUNT OF A HEURISTIC'S OUTPUT, so it moves when the heuristic gets more accurate as
 # well as when the campaign feeds an entry, and the two are NOT the same event: this commit lowered the
 # floor and cured nothing. The receipt must say which of the two it did, because a floor drop reads as
+# ⛔ 34 -> 6 at SCRIP <this commit> (coo 2026-09-19, row instrument-the-nineteen-non-gc-blocking-arms):
+# NO entry was fed and NO debt was cured -- THIS IS A HEURISTIC ACCURACY MOVE, the same event as the
+# 53 -> 50 above and not the same as the 61 -> 53. The argv count had GROWN to 39 against the pinned 34.
+# All 36 raku entries in that count were FALSE POSITIVES of one cause: ARGV_RE is compiled re.I and the
+# raku alternative was a bare `\bsub\s+MAIN\s*\(`, so it matched `sub main()` -- an ordinary lowercase
+# subroutine with an EMPTY signature. Raku's MAIN is CASE-SENSITIVE; only `sub MAIN` receives @*ARGS.
+# 33 of the 36 were exactly `sub main()` with empty parens. The alternative is now pinned case-sensitive
+# with (?-i:...) in util_master_sidecar_census.py.
+# ⭐ WHAT REMAINS IS 6 AND EVERY ONE IS REAL, which is why this is re-pinned to 6 rather than to 0:
+#   icon procedure_every_scan_replace_13, _6, procedure_record_scan_replace_2 -- these genuinely READ
+#     their arguments (args[1], *args > 0, open(args[1])), so they owe a declaration. Feeding them is a
+#     CORPUS question -- what arguments, and their refs were cut bare -- not an instrument question, and
+#     it is left to the owner of the Icon corpus rather than smuggled into a gate commit.
+#   raku benchmark_spinner, benchmark_rc-forest-fire-stringify, benchmark_rc-mandelbrot -- real
+#     `sub MAIN(...)` whose parameters are ALL DEFAULTED. They run correctly bare, so they are arguably
+#     inert by the same reasoning as Icon's never-named parameter; but unlike that case they CAN observe
+#     an argument if given one, so this seat did NOT widen inert_argv_match() to cover them. Left flagged
+#     deliberately and routed to the ceo: extending the inert rule to all-defaulted signatures is a
+#     criterion change, and a seat does not quietly make one to lower its own floor.
 # campaign progress and would otherwise bank four entries of work nobody performed.
 PIN_STDIN="${PIN_STDIN:-50}"
-PIN_ARGV="${PIN_ARGV:-34}"
+PIN_ARGV="${PIN_ARGV:-6}"
 
 CENSUS="$HERE/util_master_sidecar_census.py"
 [ -f "$CENSUS" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no census tool at $CENSUS"; gate_stamp; exit 2; }
