@@ -648,13 +648,17 @@ s4e_lane_owner_of_language() {
       # table above was: the gate compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a default would
       # agree with a line 2 that had drifted on six of them without anything noticing. The DECTET mapping is
       # kept in the comment above so the flip back is a seven-line edit and not a reconstruction.
+      # ⛔ MODE SEPTET (CEO-979, 2026-09-20, Lon: "Go to mode SEPTET, with the four current officers and 3 more HQ's as Opus"): THREE language HQs stand and they were chosen by GC DEBT, not by
+      # language coverage -- hq_raku 31 of the 72 no_layout plus the 8,000,486-hit method road, hq_snobol4 31 no_layout plus SnoM's two tiny-arena reds, hq_prolog 10 no_layout plus the findall
+      # enumeration defect. The four languages whose HQ is NOT standing stay with the ceo, and rebus stays the cfo's keep-green as under DECTET. Written out per language, never collapsed to a
+      # default, for the reason the two tables above give: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE, and a default agrees with a line 2 that has drifted on four of them.
       icon)     printf 'ceo';;
-      prolog)   printf 'ceo';;
-      snobol4)  printf 'ceo';;
+      prolog)   printf 'hq_prolog';;
+      snobol4)  printf 'hq_snobol4';;
       pascal)   printf 'ceo';;
       snocone)  printf 'ceo';;
-      rebus)    printf 'ceo';;
-      raku)     printf 'ceo';;
+      rebus)    printf 'cfo';;
+      raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
