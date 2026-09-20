@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the rebus shard below is a runner invoked as an INSTRUMENT FIXTURE and never a board -- it exists only to make corpus_suite_harness.py print its ARENA line, its result is discarded, and without this the one-runner guard makes the gate grade green for the ceo and FAIL(1) for every other seat (the cfo reproduced it as seat cfo; CEO-956, CEO-523)"
 # test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh -- LON'S RULE HELD BY ITS MECHANISM, NOT BY DISCIPLINE.
 #
 # ⛔⭐ THE RULE (Lon 2026-09-19 16:1x CDT, in-chat to the ceo, verbatim: "Actually, for all GC testing all seats should
@@ -77,13 +78,17 @@ for want in 1 7 unset; do
 done
 if [ "$a2bad" = 0 ]; then echo "  arm 2 PASS: every board names the arena it ran under and the line tracks the knob (ARENA read$a2; unset reports the shipped 512)"
 else echo "  arm 2 FAIL: the harness's ARENA line is missing or does not track the knob (read$a2, wanted 1->1 7->7 unset->512)"; RC=1; fi
-# ARM 3 -- the DECLARED set of gates that pin an arena, so a pin cannot spread and turn the rule off gate by gate.
+# ARM 3 -- the DECLARED set of gates that PIN an arena, so a pin cannot spread and turn the rule off gate by gate.
+# ⛔ A PIN IS NOT A DEFAULT, and conflating them made this arm red for a landing that OBEYED the rule (ceo CEO-956):
+# `export SCRIP_HEAP_MB=512` overrides its caller and turns the tiny-arena rule OFF for that gate, which is the thing
+# that must be declared; `export SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}"` YIELDS to any outer value and merely applies the
+# rule when the gate is run directly rather than through make. Only the first spelling is a pin and only it is counted.
 examined=$((examined + 1))
 DECLARED="test_gate_gc_pacing_bounds_a_churning_program.sh"
 [ "${FAIL_ONCE:-0}" = 1 ] && DECLARED="$DECLARED test_gate_that_does_not_exist_planted_by_fail_once.sh"
-found=$(cd "$HERE" && grep -lE '^export SCRIP_HEAP_MB=' test_gate_*.sh 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//')
+found=$(cd "$HERE" && grep -lE '^export SCRIP_HEAP_MB=' test_gate_*.sh 2>/dev/null | while read -r f; do grep -qE '^export SCRIP_HEAP_MB="\$\{SCRIP_HEAP_MB:-' "$f" || printf '%s\n' "$f"; done | sort | tr '\n' ' ' | sed 's/ $//')
 want=$(printf '%s\n' $DECLARED | sort | tr '\n' ' ' | sed 's/ $//')
-if [ "$found" = "$want" ]; then echo "  arm 3 PASS: exactly the declared gate(s) pin an arena: ${found:-none} (each measures an arena-dependent quantity and says so at its pin)"
+if [ "$found" = "$want" ]; then echo "  arm 3 PASS: exactly the declared gate(s) PIN an arena: ${found:-none} (each measures an arena-dependent quantity and says so at its pin; a ${SCRIP_HEAP_MB:-N} default is the rule applied, not a pin, and is not counted)"
 else echo "  arm 3 FAIL: the set of gates pinning an arena is not the declared set -- found [${found:-none}] declared [${want:-none}]. A new pin needs its reason at the pin and its name here; a missing one means the rule is off for that gate."; RC=1; fi
 # ARM 4 -- the board line itself carries the arena, so an archived board line is readable years later.
 examined=$((examined + 1))
