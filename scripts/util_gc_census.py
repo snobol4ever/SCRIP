@@ -706,6 +706,13 @@ def census_maps_slotkind(root, langs, out=print):
         out(f"CENSUS maps/slot-kind lang={lang} graphs={graphs} words={words} unkinded={unkinded} holes={holes} want 0 and 0"
             f" -- graded={gr}, no_layout={nl} NAMED AND UNCOUNTED (the compiler refused those entries; they are not a pass)"
             + ("" if not bad else f"  RED"))
+        named = [ln.strip() for ln in r.stdout.split("\n") if ln.startswith("NO-LAYOUT ")]
+        for ln in named:
+            out("CENSUS maps/slot-kind " + ln)
+        if len(named) != nl:
+            out(f"CENSUS maps/slot-kind REFUSED(2): lang={lang} counted no_layout={nl} but {ZLS_TOOL} printed {len(named)} NO-LAYOUT line(s)"
+                " -- this line has said NAMED AND UNCOUNTED since CEO-749 while printing no name at all (cto 2026-09-20, CTO-96); a census that"
+                " claims to name must print the names or refuse, and a count without its names is a work list nobody can pick up"); return 2
         COUNTS.setdefault("maps", {})[f"slotkind_bad_{lang}"] = bad
     out(f"CENSUS maps/slot-kind swept {len(swept)} of {len(ZLS_LANGS_ALL)} language(s) ({', '.join(swept)}); graded={graded} no_layout={nolayout} UNCOUNTED; "
         f"{'GREEN' if red == 0 else 'RED'}"

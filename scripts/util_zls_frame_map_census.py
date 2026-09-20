@@ -131,13 +131,14 @@ def master_entries(lang, s4e_home):
     d = Path(s4e_home) / "corpus" / "tests" / lang
     src = d / ("ALL" + cfg["ext"]); ref = d / "ALL.ref"
     if not src.is_file() or not ref.is_file():
-        return None, cfg["ext"], f"master {src} or {ref} missing"
+        return None, cfg["ext"], f"master {src} or {ref} missing", []
     banner_re = H.banner_re_for(cfg["comment_open"], cfg["comment_close"])
     try:
         entries = H.read_block_suite(str(src), str(ref), banner_re, in_path=H.sidecar_in_path(str(src)), x_path=H.sidecar_xfail_path(str(src)))
     except Exception:
         entries = H.read_suite(str(src), str(ref), in_path=H.sidecar_in_path(str(src)), x_path=H.sidecar_xfail_path(str(src)))
-    return entries, cfg["ext"], ""
+    inc = Path(os.environ.get("INC", str(Path(s4e_home) / "corpus" / "include")))
+    return entries, cfg["ext"], "", [d, inc]
 
 
 def main():
@@ -156,13 +157,16 @@ def main():
     work = []
     tmp = tempfile.TemporaryDirectory(prefix="zls_census_")
     if a.lang:
-        entries, ext, err = master_entries(a.lang, s4e_home)
+        entries, ext, err, comp_dirs = master_entries(a.lang, s4e_home)
         if entries is None:
             print(f"zls-frame-map-census[{label}]: REFUSE(2): {err}"); return 2
         for e in entries:
             text = e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)
             p = Path(tmp.name) / (re.sub(r"[^A-Za-z0-9_.-]", "_", e.name) + ext)
             p.write_text(text + "\n")
+            import corpus_suite_harness as _H
+            for _cd in comp_dirs:
+                _H._copy_companions(text, str(_cd), tmp.name)
             work.append((e.name, p))
     else:
         for f in a.files:
@@ -187,10 +191,8 @@ def main():
                     print(f"HOLE {cls} lang={label} entry={name} graph='{g['name']}' {scn} off=[{lo}..{hi}) {detail}")
     if holes > shown:
         print(f"... {holes - shown} more hole(s) not listed (ZLS_LIST_ALL=1 prints every one)")
-    for name, err in nolayout[:cap]:
+    for name, err in nolayout:
         print(f"NO-LAYOUT lang={label} entry={name} ({err})")
-    if len(nolayout) > cap:
-        print(f"... {len(nolayout) - cap} more NO-LAYOUT entries")
     cls_s = " ".join(f"{k}={v}" for k, v in counts.items())
     print(f"ZLS-MAP lang={label} graphs={graphs_n} words={words_n} unkinded={unkinded_n} holes={holes} graded={graded} no_layout={len(nolayout)}")
     print(f"zls-frame-map-census[{label}]: entries={len(work)} graded={graded} no_layout={len(nolayout)} graphs={graphs_n} fields={fields_n} holes={holes} ({cls_s}) population=the zls region only; the wire header past region_end and the spine are not censused here")
