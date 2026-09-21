@@ -1252,6 +1252,26 @@ s4e_field_criterion_text() {   # $1 = baton path, $2 = column-0 label (DONE-WHEN
     _dw_backticked=""
     first="$(sed -n "s/^${lbl}:[[:space:]]*//p" "$b" | head -1)"
     [ -n "$first" ] || return 0
+    # \u26d4\u2b50\u2b50 A SECOND LABEL OF THE SAME NAME IS NOT A SECOND CRITERION, IT IS A SILENTLY DISCARDED ONE (ceo CEO-1079).
+    # `head -1` above takes the FIRST and drops the rest without a word.  The coo measured 17 batons carrying the
+    # PREMISE-WHEN placeholder and EIGHT carrying it BESIDE a real line, and observed that every one is harmless
+    # TODAY only because the real line happens to come first -- so the day a baton is edited in the other order,
+    # the row dispatches with its premise UNRUN while the file looks complete.  Measured on the live tree at this
+    # landing: NINE batons carry more than one PREMISE-WHEN.  `mint` is not the door -- it already suppresses its
+    # placeholder when the minted text supplies a real line -- so these were acquired by HAND EDITS after the
+    # mint, which a mint-time guard could never have caught.  This is the one choke point both `claim` and `done`
+    # read through, so it is where the ambiguity has to be surfaced.  It WARNS rather than REFUSES deliberately:
+    # refusing would redden nine live rows for a defect none of their owners can see, which is the fleet-wide
+    # cost this file spends the rest of its length avoiding.  The warning names the file and both texts so the
+    # owner can delete one; when the count reaches zero this can become a refusal and the comment says so.
+    { local _n; _n="$(grep -c "^${lbl}:" "$b" 2>/dev/null || echo 0)"
+      if [ "${_n:-0}" -gt 1 ]; then
+        printf '\u26a0 %s CARRIES %s LINES LABELLED %s AND ONLY THE FIRST IS READ -- the others are DISCARDED SILENTLY.\n' "$b" "$_n" "$lbl" >&2
+        printf '  READ : %s\n' "$first" >&2
+        sed -n "s/^${lbl}:[[:space:]]*//p" "$b" | tail -n +2 | while IFS= read -r _d; do printf '  DROPPED: %s\n' "$_d" >&2; done
+        printf '  Delete the one you do not mean.  A criterion that exists in the file and never runs is the\n' >&2
+        printf '  false-green shape this bus is built against (ceo CEO-1079).\n' >&2
+      fi; }
     acc="$first"
     # ⛔⭐⭐ CONTINUE ONLY WHILE THE TEXT IS INCOMPLETE SHELL, NEVER "UNTIL THE NEXT FIELD LABEL" -- and that
     # distinction is the whole design, measured the hard way. The obvious rule (take every line to the next
