@@ -637,17 +637,19 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # so the admission is written down beside the refusals rather than left to the shape of the case.
            cto)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO-STUPID) : ;; esac;;
+                      DUO-STUPID|QUARTET) : ;; esac;;
            # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
            # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
            # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
            cfo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";; esac;;
+                      DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
+                      QUARTET) : ;; esac;;
            coo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
-                      TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";; esac;;
+                      TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";;
+                      QUARTET) : ;; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO|DUO-STUPID) _dr "an HQ" "Under $_m no HQ is standing -- the ceo and the cto work the rows (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
@@ -824,12 +826,22 @@ s4e_lane_owner_of_language() {
       # two modes share one reason, and a mode name that no `case` arm lists is admitted by FALLING OUT, which
       # returns success (CEO-755b). Written out per language rather than collapsed to a default for the reason every
       # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
-      icon)     printf 'ceo';;
+      # ⛔ MODE QUARTET (CEO-1089, 2026-09-21 16:1x, Lon in-chat to the ceo, verbatim: "Let's get four times the
+      # stupid going. Go to QUARTET mode, CEO, CTO, CFO, and COO. Have COO do the before and after -O0 old versus new
+      # GC and -O2 speed test for all languages."): FOUR WORKING SEATS, the four officers, the six language HQs stood
+      # down. ⛔ THE coo OWNS NO LANGUAGE CELL AND THAT IS THE RULE, NOT AN OVERSIGHT (CEO-723, Lon 2026-09-13:
+      # "It is not possible for COO to do two jobs. He failed at Pascal."): the coo holds THE MEASURE -- the before/after
+      # speed and collector study Lon just ordered, across all seven languages -- and a seat holding the measure holds no
+      # cure lane, so pascal moves to the cto rather than to the coo. The cfo takes ICON because its live rank-0 row is
+      # the icon builtin root class, and keeps REBUS as keep-green. The ceo keeps SNOBOL4 and SNOCONE, where its half of
+      # the C->BB population lives. Written out per language rather than collapsed to a default for the reason every
+      # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
+      icon)     printf 'cfo';;
       prolog)   printf 'cto';;
       snobol4)  printf 'ceo';;
       pascal)   printf 'cto';;
       snocone)  printf 'ceo';;
-      rebus)    printf 'ceo';;
+      rebus)    printf 'cfo';;
       raku)     printf 'cto';;
     esac
 }
