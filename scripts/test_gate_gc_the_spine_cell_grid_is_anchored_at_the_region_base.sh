@@ -39,13 +39,21 @@ ROOT="$PWD"
 CENSUS="$ROOT/scripts/util_gc_unmapped_store_census.py"
 SCRIP="$ROOT/scrip"
 WIT="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.sno"
-# ⛔ THE RATCHET FLOOR, MOVED IN THE LANDING THAT EARNED IT (cto 2026-09-21, 4487 -> 5295).  The census
-# learned to read `mov rsp, qword ptr [rsp + 0]`, the restore half of x86_align_call_enter's window, whose
-# `and rsp, -16` was the SINGLE blamed instruction behind all 1710 undecidable call sites over the witness
-# set -- the mask poisons the depth and every call downstream of it in the graph read SPINE-DEPTH-UNKNOWN
-# forever because nothing ever un-poisoned.  808 more call sites graded, EVERY ONE ON-GRID, off_grid 0 on
-# both sides of the cure, zero sites lost and zero disagreements where both readings decide.
-BASE_ON_GRID=5295
+# ⛔ THE RATCHET FLOOR, MOVED IN THE LANDING THAT EARNED IT (cto 2026-09-21, 5295 -> 5339).  The census
+# learned to read `mov rsp, qword ptr [rbp + K]`, a restore from an ANCHOR-KEYED frame slot, which a blame
+# pass named as the poisoning instruction behind 837 of the 963 sites the prior cure left undecidable.  44
+# more call sites graded, EVERY ONE ON-GRID, off_grid 0 on both sides, zero sites lost and zero
+# disagreements where both readings decide.
+#
+# ⛔⭐ AND THE NUMBER THAT MATTERS MORE THAN THE FLOOR, because the next reader will want to relax the
+# thing that holds it: 837 sites blamed that restore and reading it recovered 44, because a SECOND
+# mechanism dominates -- the aliasing discipline meeting `mov qword ptr [rax + 0], <imm>` (88 of 104
+# measured shadow kills).  Relaxing that discipline is worth 455 more sites AND IMMEDIATELY PRINTS 15
+# OFF-GRID READINGS where the sound one prints zero.  The census cannot tell whether those 15 are the
+# relaxation computing wrong depths or real emitter defects it cannot otherwise see, and THAT is why the
+# relaxation is not a cure: an instrument that cannot tell its own error from a discovery is the shape
+# this row exists to remove.
+BASE_ON_GRID=5339
 POP="${GRID_POP:-$(echo "$ROOT"/scripts/gc_witnesses/*.icn "$ROOT"/scripts/gc_witnesses/*.sno "$ROOT"/scripts/gc_witnesses/*.pl "$ROOT"/scripts/gc_witnesses/*.raku)}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

@@ -186,6 +186,18 @@ def rsp_slot_of(operand):
     return d if base == "rsp" and "qword" in operand else None
 
 
+def rbp_slot_of(operand):
+    """the rbp-relative offset of a `qword ptr [rbp + K]` operand, else None -- a FULL-WIDTH slot only.
+
+    THE TWIN OF rsp_slot_of AND THE REASON THERE ARE TWO (cto 2026-09-21).  A slot named off rbp has an
+    ANCHOR-RELATIVE ADDRESS the moment rbp's displacement is known, which rsp-named slots inside an alignment
+    window do not: there rsp is unknown at the store, so the only knowable thing is a distance.  That difference
+    is the whole reason the anchor-keyed shadow is simpler than the rsp-keyed one -- absolute keys need no
+    re-keying on an rsp move and survive across basic blocks."""
+    base, d = disp_of(operand)
+    return d if base == "rbp" and "qword" in operand else None
+
+
 def reg_written(ins):
     """the shadowed register this instruction OVERWRITES, else None.
 
@@ -221,6 +233,39 @@ def slot_effect(ins, slots):
     out = dict(slots)
     out.pop(d, None)
     out.pop(d - 8, None)
+    return out
+
+
+def anchor_slot_effect(ins, aslots, rsp, rbp):
+    """what this instruction does to the ANCHOR-KEYED shadow before a placeable store of a known rsp is applied.
+
+    THE SAME ALIASING DISCIPLINE AS slot_effect, TAKEN ON THE OTHER KEY: a write this reader cannot place
+    relative to the ANCHOR clears the whole shadow, and a write it can place invalidates the cells it overlaps
+    and nothing else.  Because the key is an absolute anchor-relative address, an `[rsp + K]` write at a KNOWN
+    rsp and an `[rbp + K]` write at a KNOWN rbp are both placeable here -- the two bases meet in one address
+    space -- where the rsp-keyed shadow could only ever place the first.
+
+    ⛔ THE ONE ASSUMPTION, NAMED RATHER THAN LEFT IMPLICIT, because this shadow spans calls where the rsp-keyed
+    one spanned a four-instruction window: a `call` is taken NOT to clobber its caller's frame slots.  That is
+    already the standing assumption of the landed rsp-keyed arm (x86_align_call_enter parks, calls, restores),
+    and it is widened here from one window to a whole activation.  It is not asserted into safety: every site
+    this arm newly decides is cross-checked against the reading that preceded it -- zero disagreements where
+    both decide, and off_grid 0 -- which is what would break first if a callee were writing through a caller
+    frame slot.  A `push` and the cell below it are invalidated explicitly, since push writes memory while
+    naming no memory operand and would otherwise slip past the WRITES_MEMORY test."""
+    if ins.mnem == "push":
+        return {} if rsp is None else {k: v for k, v in dict(aslots).items() if k not in (rsp - 8, rsp - 16)}
+    if ins.mnem not in WRITES_MEMORY or not ins.ops or "[" not in ins.ops[0]:
+        return dict(aslots)
+    if "rip" in ins.ops[0]:
+        return dict(aslots)
+    base, d = disp_of(ins.ops[0])
+    anchor_rel = rsp if base == "rsp" else (rbp if base == "rbp" else None)
+    if anchor_rel is None:
+        return {}
+    out = dict(aslots)
+    out.pop(anchor_rel + d, None)
+    out.pop(anchor_rel + d - 8, None)
     return out
 
 
@@ -296,7 +341,7 @@ def frame_fixpoint(insns, succ, start, rbp0):
     EMITTER, announced on the strength of an arithmetic slip in this function.  One instruction can move both
     registers and this loop now says so."""
     st = collections.defaultdict(set)
-    st[start].add((0, rbp0, frozenset(), frozenset()))
+    st[start].add((0, rbp0, frozenset(), frozenset(), frozenset()))
     work = [start]
     while work:
         i = work.pop()
@@ -316,10 +361,10 @@ def frame_fixpoint(insns, succ, start, rbp0):
     return st
 
 
-BOTTOM = (None, None, frozenset(), frozenset())
+BOTTOM = (None, None, frozenset(), frozenset(), frozenset())
 
 
-def frame_step(ins, rsp, rbp, regs, slots):
+def frame_step(ins, rsp, rbp, regs, slots, aslots):
     """one instruction's effect on (rsp, rbp, register shadow, parked-slot shadow).
 
     ⛔⭐ WHY THE TWO SHADOWS EXIST, AND WHAT THE MEASUREMENT SAID BEFORE A LINE OF THEM WAS WRITTEN (cto
@@ -355,6 +400,10 @@ def frame_step(ins, rsp, rbp, regs, slots):
         src = rsp_slot_of(ins.ops[1])
         if src is not None:
             a = dict(slots).get(src, NOT_AN_ASSIGNMENT)
+        else:
+            src = rbp_slot_of(ins.ops[1])
+            if src is not None and rbp is not None:
+                a = dict(aslots).get(rbp + src, NOT_AN_ASSIGNMENT)
     if a is not NOT_AN_ASSIGNMENT:
         new_rsp, moved = a, None
     elif rsp is None:
@@ -384,11 +433,24 @@ def frame_step(ins, rsp, rbp, regs, slots):
         sl = {}
     elif moved:
         sl = {k - moved: v for k, v in sl.items() if k - moved >= 0}
+    asl = anchor_slot_effect(ins, aslots, rsp, rbp)
+    if ins.mnem == "mov" and len(ins.ops) == 2 and rbp is not None:
+        off = rbp_slot_of(ins.ops[0])
+        if off is not None:
+            src = ins.ops[1].strip()
+            if src in rg:
+                asl[rbp + off] = rg[src]
+            elif src == "rsp" and rsp is not None:
+                asl[rbp + off] = rsp
+            else:
+                asl.pop(rbp + off, None)
     if len(rg) > DELTA_CAP:
         rg = {}
     if len(sl) > DELTA_CAP:
         sl = {}
-    return new_rsp, new_rbp, frozenset(rg.items()), frozenset(sl.items())
+    if len(asl) > DELTA_CAP:
+        asl = {}
+    return new_rsp, new_rbp, frozenset(rg.items()), frozenset(sl.items()), frozenset(asl.items())
 
 
 def shielded_stores(insns, i):
@@ -491,7 +553,7 @@ def owner_of(base, d, i, frames):
     if f["blob"]:
         return g, d, None if base == "rbp" else "BLOB-FRAME-NOT-RBP-ADDRESSED"
     vals = set()
-    for rsp, rbp, _regs, _slots in states:
+    for rsp, rbp, *_shadows in states:
         anchor_rel = rsp if base == "rsp" else rbp
         vals.add(None if anchor_rel is None else anchor_rel + d - f["cell"] + f["map_off"])
     if None in vals:
@@ -561,7 +623,7 @@ def grid_sites(insns, frames):
             if f["blob"]:
                 rows.append((g, i, None, "BLOB-FRAME-RBP-ANCHORED"))
                 continue
-            vals = {None if rsp is None else rsp - f["cell"] + f["map_off"] for rsp, _, _, _ in st}
+            vals = {None if rsp is None else rsp - f["cell"] + f["map_off"] for rsp, *_ in st}
             if None in vals:
                 rows.append((g, i, None, "SPINE-DEPTH-UNKNOWN"))
             elif len(vals) != 1:
@@ -925,6 +987,45 @@ def _selftest_align_window(alias):
         return tuple(got) if len(got) == 2 else (got, got)
 
 
+def _selftest_rbp_park_window(mid):
+    """a park/restore pair keyed off rbp, graded off a hand-built graph; `mid` is one planted instruction.
+
+    THE FOUR ARMS THIS ONE PLANT CARRIES, and none of them is a restatement of the rsp-keyed window's.  With no
+    planted instruction it proves the ANCHOR key works at all: the mask poisons rsp, the call inside reads
+    SPINE-DEPTH-UNKNOWN, and `mov rsp, qword ptr [rbp + 16]` re-establishes the depth a whole activation later.
+    With an UNPLACEABLE store planted between park and restore (`[rax + 0]`, a base this reader cannot place
+    against the anchor) the shadow must be discarded and the restore must stop being readable -- without that
+    arm the aliasing discipline is a paragraph.  With a PLACEABLE store to a DIFFERENT cell the entry must
+    SURVIVE, which is the precision half: a discipline that feared every write would grade the same green as
+    one that places them and would be worthless on real code.  With a placeable store to the SAME cell the
+    entry must DIE, which is what proves the invalidation is not a no-op."""
+    import tempfile
+    asm = (".text\n"
+           "main_bx:\n"
+           "        sub rsp, 64\n"
+           "        lea r11, [rip + .Lgcmap_main]\n"
+           "        mov qword ptr [rsp + 24], r11\n"
+           "        mov rbp, rsp\n"
+           "        mov qword ptr [rbp + 16], rsp\n"
+           "        and rsp, -16\n"
+           "        call rt_gc_point_arr_c@PLT\n"
+           + (f"        {mid}\n" if mid else "") +
+           "        mov rsp, qword ptr [rbp + 16]\n"
+           "        call rt_gc_poll@PLT\n"
+           "        ret\n")
+    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n"
+           "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
+    with tempfile.TemporaryDirectory() as wd:
+        path = os.path.join(wd, "rbppark.s")
+        open(path, "w", encoding="utf-8").write(asm)
+        insns, succ, maps, layouts, frames, refusal = build_frames(path, rep, "rbppark")
+        if refusal:
+            return refusal, refusal
+        got = [(why if why is not None else k) for (g, i, k, why) in grid_sites(insns, frames)
+               if insns[i].mnem == "call"]
+        return tuple(got) if len(got) == 2 else (got, got)
+
+
 def selftest():
     """the arithmetic and the refusals, held against hand-built inputs rather than against a program's output"""
     ok = [0, 0]
@@ -992,6 +1093,22 @@ def selftest():
     arm("PLANTED NEGATIVE -- ONE store this reader cannot place inside the window DISCARDS the shadow and the "
         "restore stops being readable, so the aliasing discipline is a property and not a paragraph",
         _alias[1] == "SPINE-DEPTH-UNKNOWN")
+    _park = _selftest_rbp_park_window("")
+    arm("PLANTED END TO END -- the call inside the mask's poison is undecidable and says so, with the park "
+        "already taken", _park[0] == "SPINE-DEPTH-UNKNOWN")
+    arm("PLANTED END TO END -- `mov rsp, qword ptr [rbp + K]` RESTORES the depth from an ANCHOR-KEYED slot, so "
+        "the call after it reads floor=0 ON-GRID. This form was the single blamed instruction behind 837 of the "
+        "963 remaining SPINE-DEPTH-UNKNOWN sites over the 52 shared witnesses, against 107 for the still-"
+        "unpaired `and rsp, -16`", _park[1] == 0)
+    arm("PLANTED NEGATIVE -- an UNPLACEABLE store between park and restore discards the anchor shadow and the "
+        "restore stops being readable, so the aliasing discipline is a property on this key too",
+        _selftest_rbp_park_window("mov qword ptr [rax + 0], rcx")[1] == "SPINE-DEPTH-UNKNOWN")
+    arm("PLANTED PRECISION -- a PLACEABLE store to a DIFFERENT cell leaves the entry standing, which is what "
+        "separates placing a write from fearing it",
+        _selftest_rbp_park_window("mov qword ptr [rbp + 8], rax")[1] == 0)
+    arm("PLANTED INVALIDATION -- a placeable store to the SAME cell kills the entry, so the invalidation above "
+        "is doing work rather than being a no-op that the precision arm would read as green",
+        _selftest_rbp_park_window("mov qword ptr [rbp + 16], rax")[1] == "SPINE-DEPTH-UNKNOWN")
     arm("rsp_assign over an UNKNOWN rbp stays unknown rather than inventing a depth",
         rsp_assign(CS.Insn(1, "lea rsp, [rbp - 688]", []), -16, None) is None)
     _whack = _selftest_frame_whack()
