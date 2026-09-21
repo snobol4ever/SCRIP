@@ -261,7 +261,7 @@ echo "    (Lon 2026-09-21 ordered the metrics displayed periodically; a handoff 
 echo "     number costs something, which is CEO-822's reason for putting the seven-language sweep here too."
 echo "     SKIP_GC_ACCEPTANCE=1 skips it and SAYS SO: a display that did not run prints nothing green.)"
 if [ -n "${SKIP_GC_ACCEPTANCE:-}" ]; then echo "  SKIPPED by SKIP_GC_ACCEPTANCE — the four numbers were NOT read on this handoff"; else
-  timeout 2400 python3 "$HERE/util_gc_acceptance.py" 2>&1 | sed "s/^/  /" || true
+  timeout 2400 python3 "$SELF_DIR/util_gc_acceptance.py" 2>&1 | sed "s/^/  /" || true
 fi
 echo "ALL-LANGUAGE SLOT-KIND SWEEP (util_gc_census.py maps --zls-langs all) — WARN-ONLY, does not affect the verdict below"
 echo "    (CEO-822, 2026-09-17, on the coo's ask: the FAST THREE stay wired in make test — a 35s number that moves once a"
