@@ -28,6 +28,14 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"
+# ⛔ THE FRESHNESS GUARD, AND IT IS HERE BECAUSE THIS GATE'S OWN CLASS OF DEFECT REACHED THE GATES BUILT TO CHASE
+# IT (the coo, 2026-09-21).  They built at 15:01:58, the cto landed a cure at 15:01:39, they started a 381-arm
+# set at 15:03:52 without rebuilding, and 260 arms refused one at a time for that one reason -- while the DARK
+# run finished in HALF the wall clock of the honest one, so a seat optimising for a quick gate was being
+# rewarded for measuring nothing.  A gate that grades ./scrip with no guard will one day grade a binary older
+# than the cure it is testing and call it green.  One line, and the staleness rule itself lives in exactly one
+# place (gate_require_fresh in lib_gate.sh) -- this is its calling convention, never a second copy of it.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 CENSUS="$ROOT/scripts/util_gc_unmapped_store_census.py"
 SCRIP="$ROOT/scrip"
 WIT="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.sno"
