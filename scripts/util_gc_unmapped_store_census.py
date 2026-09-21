@@ -288,6 +288,16 @@ def classify(k, layout, map_off, blob):
     return "GAP"
 
 
+def join_verdict(reached, shielded):
+    """the zero-entry-map JOIN: a map with no entries is only a DEFECT in a graph that shields a value at a safe point.
+
+    A graph the anchor walk never reached is NOT-REACHED and is never read as benign -- that is the fourth way a
+    zero fails to be a zero (the population never ran the subject) applied one graph at a time."""
+    if not reached:
+        return "NOT-REACHED"
+    return "MEMBER" if shielded else "BENIGN"
+
+
 def site_label(insns, i):
     """the nearest label at or before instruction i -- what a reader greps for in the .s"""
     for j in range(i, max(-1, i - 40), -1):
@@ -391,16 +401,16 @@ def grid_sites(insns, frames):
 
 
 def census_asm(asm_path, report_text, tag, out=print):
-    """read one emitted program; returns (members, undecidable, examined, refusal, grid, reach)"""
+    """read one emitted program; returns (members, undecidable, examined, refusal, grid, reach, join)"""
     insns = CS.parse(asm_path)
     if not insns:
-        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured", None, None
+        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured", None, None, None
     succ, top, label_at = CS.build_cfg(insns)
     trim_entry_fallthrough(insns, succ, label_at)
     maps = GCC.read_gcmaps(report_text)
     layouts = read_layouts(report_text)
     if not maps:
-        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure", None, None
+        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure", None, None, None
     by_label = {mangle(g): g for g in maps}
     frames, unmatched = {}, []
     for lbl, (ai, base, cell) in find_anchors(insns).items():
@@ -415,9 +425,10 @@ def census_asm(asm_path, report_text, tag, out=print):
     if unmatched:
         return None, None, 0, (f"{tag}: {len(unmatched)} map label(s) match no graph in the report "
                                f"({', '.join(sorted(unmatched)[:4])}) -- the mangling fact of ARCH-GC 6.2d "
-                               "is not being read correctly and every site under them would read green by accident"), None, None
+                               "is not being read correctly and every site under them would read green by accident"), None, None, None
     members, undecidable, examined = [], [], 0
     unread, sites = collections.Counter(), 0
+    shield_by_graph = collections.Counter()
     for i, ins in enumerate(insns):
         if not (ins.mnem == "call" and ins.ops and any(p in ins.ops[0] for p in POLL_NAMES)):
             continue
@@ -428,6 +439,8 @@ def census_asm(asm_path, report_text, tag, out=print):
             unread[sym] += 1
         for base, d, src in frame_st:
             g, k, why = owner_of(base, d, i, frames)
+            if g in frames:
+                shield_by_graph[g] += 1
             examined += 1
             if why:
                 undecidable.append((tag, g or "-", lbl, ins.line, f"[{base}{d:+d}]", why))
@@ -436,12 +449,19 @@ def census_asm(asm_path, report_text, tag, out=print):
             v = classify(k, f["layout"], f["map_off"], f["blob"])
             if v != "MAPPED":
                 members.append((tag, g, lbl, ins.line, k, v, src))
+    join = []
+    for g, m in maps.items():
+        if layouts.get(g, []):
+            continue
+        reached = g in frames
+        n = shield_by_graph[g] if reached else 0
+        join.append((tag, g, reached, n, m["map_off"], join_verdict(reached, n)))
     graded = grid_sites(insns, frames)
     grid = [(tag, g, site_label(insns, i), insns[i].line, k, grid_verdict(k) if k is not None else None, why)
             for g, i, k, why in graded]
     reached = {i for _, i, _, _ in graded}
     unreached = sum(1 for i, ins in enumerate(insns) if ins.mnem == "call" and i not in reached)
-    return members, undecidable, examined, None, (grid, unreached), (unread, sites)
+    return members, undecidable, examined, None, (grid, unreached), (unread, sites), join
 
 
 def emit_and_read(scrip, prog, workdir, env_extra=None):
@@ -508,6 +528,7 @@ def report(scrip, progs, workdir, out=print):
         out("CENSUS unmapped-store REFUSED(2): no witness named -- a census over an empty population reads zero by never looking")
         return 2
     all_members, all_undec, examined, graphs_seen, all_grid = [], [], 0, set(), []
+    all_join = []
     unreached_calls = 0
     per_witness = {}
     all_unread, all_sites = collections.Counter(), 0
@@ -523,14 +544,49 @@ def report(scrip, progs, workdir, out=print):
         asm, rep, err = emit_and_read(scrip, prog, workdir)
         if err:
             out(f"CENSUS unmapped-store REFUSED(2): {err}"); return 2
-        members, undec, ex, refusal, grid, reach = census_asm(asm, rep, tag, out=out)
+        members, undec, ex, refusal, grid, reach, join = census_asm(asm, rep, tag, out=out)
         if refusal:
             out(f"CENSUS unmapped-store REFUSED(2): {refusal}"); return 2
         graphs_seen |= {(tag, g) for g in GCC.read_gcmaps(rep)}
         all_members += members; all_undec += undec; examined += ex
         all_grid += grid[0]; unreached_calls += grid[1]
-        all_unread += reach[0]; all_sites += reach[1]
+        all_unread += reach[0]; all_sites += reach[1]; all_join += join
         per_witness[tag] = (len(members), len(undec), ex, sum(reach[0].values()), reach[1])
+    off = [r for r in all_grid if r[5] == "OFF-GRID"]
+    on = [r for r in all_grid if r[5] == "ON-GRID"]
+    und_grid = collections.Counter(r[6] for r in all_grid if r[5] is None)
+    for tag, g, lbl, line, k, v, why in sorted(off, key=lambda r: (r[0], r[1], r[3])):
+        out(f"CENSUS unmapped-store GRID OFF-GRID witness={tag} graph={g} site={lbl} line={line} "
+            f"floor={k:+d} residue={k % CELL}")
+    for w, n in sorted(und_grid.items(), key=lambda kv: -kv[1]):
+        out(f"CENSUS unmapped-store GRID-UNDECIDABLE-REASON {w} n={n}")
+    out(f"CENSUS unmapped-store GRID calls={len(all_grid)} on_grid={len(on)} off_grid={len(off)} "
+        f"undecidable={sum(und_grid.values())} unreached={unreached_calls} cell={CELL}")
+    out("CENSUS unmapped-store GRID MEANS EXACTLY THIS AND NOT THAT THE CLASS IS CURED: every call graded ON-GRID "
+        "begins its collection with the emitted spine floor on the 16-byte descriptor-cell grid anchored at the "
+        "region base, so the walk of [floor, base) could read each cell AT ITS START by stepping the grid -- the "
+        "array-of-cells walk ARCH-GC 2b Rule 1a and 7 F1 describe. It does not: gc_walk_words steps 8 bytes and "
+        "tries gc_cell_visit at every step, which is a guess about where a cell begins (CEO-812 forbids exactly "
+        "that) and is why a tag the recognizer does not know is a LOST value and a zero word pair could be a "
+        "SPURIOUS one. An OFF-GRID call is a site where no grid walk is available at all and the guess is the "
+        "only road, so it is named here rather than counted.")
+    jc = collections.Counter(j[5] for j in all_join)
+    for tag, g, reached, n, region, v in sorted(all_join, key=lambda j: (j[5] != "MEMBER", j[0], j[1])):
+        out(f"CENSUS unmapped-store JOIN {v} witness={tag} graph={g} region_bytes={region} "
+            f"shielded_at_safe_points={n}")
+    if not all_join:
+        out(f"CENSUS unmapped-store JOIN-SUMMARY zero_entry_map_graphs=0 over {len(progs)} witness(es) -- NO GRAPH "
+            "IN THIS POPULATION REGISTERS A FRAME MAP WITH NO LAYOUT ENTRY, so this population says nothing about "
+            "the class either way. An absent population is not a clean one.")
+    else:
+        out(f"CENSUS unmapped-store JOIN-SUMMARY zero_entry_map_graphs={len(all_join)} MEMBER={jc['MEMBER']} "
+            f"BENIGN={jc['BENIGN']} NOT-REACHED={jc['NOT-REACHED']} -- THE JOIN IS THE CORRECTNESS QUESTION AND "
+            "NOT THE CENSUS OF ZERO-ENTRY MAPS: a graph that registers a map with no layout entry has NO mapped "
+            "slot for any offset, so EVERY frame-shielded store at a safe point in it is unmapped BY "
+            "CONSTRUCTION, whatever the offset -- which is why a MEMBER here is decidable where the offset-wise "
+            "census is not. A BENIGN graph shields nothing at a safe point and its empty map is correct. A "
+            "NOT-REACHED graph was never examined by the anchor walk and IS NOT BENIGN: a zero over a graph "
+            "nobody looked at is the fourth way a zero fails to be a zero, one graph at a time.")
     if examined == 0:
         out("CENSUS unmapped-store REFUSED(2): zero shielded stores examined over "
             f"{len(progs)} witness(es) -- a zero has to be a zero somebody could have failed"); return 2
@@ -592,24 +648,6 @@ def report(scrip, progs, workdir, out=print):
         "well-formed answer to a question nobody asked. A total cannot tell a compiler regression from a file "
         "arriving. These lines are the name set the arm ratchets, one per witness, which is this row's own "
         "NAME-NEVER-A-COUNT rule applied one level down from where it was first applied.")
-    off = [r for r in all_grid if r[5] == "OFF-GRID"]
-    on = [r for r in all_grid if r[5] == "ON-GRID"]
-    und_grid = collections.Counter(r[6] for r in all_grid if r[5] is None)
-    for tag, g, lbl, line, k, v, why in sorted(off, key=lambda r: (r[0], r[1], r[3])):
-        out(f"CENSUS unmapped-store GRID OFF-GRID witness={tag} graph={g} site={lbl} line={line} "
-            f"floor={k:+d} residue={k % CELL}")
-    for w, n in sorted(und_grid.items(), key=lambda kv: -kv[1]):
-        out(f"CENSUS unmapped-store GRID-UNDECIDABLE-REASON {w} n={n}")
-    out(f"CENSUS unmapped-store GRID calls={len(all_grid)} on_grid={len(on)} off_grid={len(off)} "
-        f"undecidable={sum(und_grid.values())} unreached={unreached_calls} cell={CELL}")
-    out("CENSUS unmapped-store GRID MEANS EXACTLY THIS AND NOT THAT THE CLASS IS CURED: every call graded ON-GRID "
-        "begins its collection with the emitted spine floor on the 16-byte descriptor-cell grid anchored at the "
-        "region base, so the walk of [floor, base) could read each cell AT ITS START by stepping the grid -- the "
-        "array-of-cells walk ARCH-GC 2b Rule 1a and 7 F1 describe. It does not: gc_walk_words steps 8 bytes and "
-        "tries gc_cell_visit at every step, which is a guess about where a cell begins (CEO-812 forbids exactly "
-        "that) and is why a tag the recognizer does not know is a LOST value and a zero word pair could be a "
-        "SPURIOUS one. An OFF-GRID call is a site where no grid walk is available at all and the guess is the "
-        "only road, so it is named here rather than counted.")
     out("CENSUS unmapped-store THE GRAPH COUNT IS KEYED BY (witness, graph) AND NOT BY GRAPH NAME (hq_snocone "
         "2026-09-20, who read graphs=1 over 336 snocone master entries because EVERY entry's graph is called main "
         "and graphs_seen was a set union of NAMES). A name collision across witnesses is not a population, and a "
@@ -670,6 +708,33 @@ def selftest():
     arm("grading NOTHING at all is named rather than read as clean",
         "ZERO frame stores" in clean_reading_note(0, 0, 0, 0))
     arm("a language with members named owes no zero-note", clean_reading_note(3, 9, 99, 99) == "")
+    arm("JOIN: a zero-entry map over a graph that shields nothing at a safe point is BENIGN",
+        join_verdict(True, 0) == "BENIGN")
+    arm("JOIN: a zero-entry map in a graph that DOES shield is a MEMBER whatever the offset",
+        join_verdict(True, 3) == "MEMBER")
+    arm("JOIN: a graph the anchor walk never reached is NOT-REACHED and never benign",
+        join_verdict(False, 0) == "NOT-REACHED")
+    arm("JOIN: NOT-REACHED outranks a store count, because the count came from a walk that did not reach it",
+        join_verdict(False, 5) == "NOT-REACHED")
+    import tempfile as _tf
+    with _tf.TemporaryDirectory(prefix="gc_join_plant_") as _d:
+        _asm = os.path.join(_d, "plant.s")
+        with open(_asm, "w", encoding="utf-8") as _fh:
+            _fh.write("main:\n"
+                      "\tlea rax, qword ptr [rip + .Lgcmap_main]\n"
+                      "\tmov qword ptr [rsp + 8], rax\n"
+                      "\tmov qword ptr [rsp + 16], rdx\n"
+                      "\tcall rt_gc_poll\n"
+                      "\tret\n")
+        _rep = "[GC-MAP] graph=main frame_bytes=64 header_bytes=48 map_off=0 flags=1\n"
+        _j = census_asm(_asm, _rep, "plant.s", out=lambda *_a, **_k: None)[6]
+        arm("JOIN PLANTED END TO END: a hand-built graph with a zero-entry map and a shielded store reads MEMBER, "
+            "so every BENIGN above comes from a road whose MEMBER arm has fired",
+            _j == [("plant.s", "main", True, 2, 0, "MEMBER")])
+        _rep2 = _rep + "[GC-MAP-LAYOUT] graph=main n=1 0:0:64 gaps=0 conflicts=0\n"
+        _j2 = census_asm(_asm, _rep2, "plant.s", out=lambda *_a, **_k: None)[6]
+        arm("JOIN PLANTED NEGATIVE: the same asm with ONE layout entry leaves the join population empty, so the "
+            "verdict tracks the map and not the stores", _j2 == [])
     print(f"SELFTEST {ok[0]}/{ok[1]} arms green")
     return 0 if ok[0] == ok[1] else 1
 

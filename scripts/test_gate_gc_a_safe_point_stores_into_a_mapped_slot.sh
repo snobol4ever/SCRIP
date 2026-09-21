@@ -74,12 +74,14 @@ with tempfile.TemporaryDirectory() as wd:
     asm, rep, err = uc.emit_and_read(scrip, wit, wd)
     if err: print("PLANT-REFUSED-TO-SET-UP", err); sys.exit(3)
     doctored = "\n".join(l for l in rep.split("\n") if "graph=main " not in l)
-    m, u, ex, refusal, grid, reach = uc.census_asm(asm, doctored, "planted")
+    m, u, ex, refusal, *_rest = uc.census_asm(asm, doctored, "planted")
     print("PLANT-RESULT", "REFUSED" if refusal else f"ACCEPTED members={len(m or [])}", refusal or "")
 PY
 )"
 if printf '%s\n' "$plant" | grep -q '^PLANT-RESULT REFUSED'; then
   ck ok "(c) PLANTED -- withholding main's [GC-MAP] line makes the census REFUSE, not read zero members for main: $(printf '%s\n' "$plant" | sed 's/^PLANT-RESULT REFUSED //' | cut -c1-96)"
+elif ! printf '%s\n' "$plant" | grep -q '^PLANT-RESULT '; then
+  refuse "(c) THE PLANT DID NOT RUN, AND A PLANT THAT DID NOT RUN IS NOT A VERDICT ABOUT THE CENSUS. It printed no PLANT-RESULT line at all, so the ACCEPTED branch below would have reported a DEFECT IN THE SUBJECT on the strength of a setup that never reached it -- hq_P's law, a null result bounds the PROBE and not the thing probed. THIS ARM PAID FOR THE RULE: the cto grew census_asm's return tuple by one value on 2026-09-21 and this plant, which unpacked exactly six, died on the unpack and printed a census defect that did not exist. The unpack is now tolerant of a growing tuple and the silence is a REFUSAL. What came back: $plant"
 else
   ck no "(c) the census ACCEPTED a report whose map label matches no graph -- every site under that label would read green by accident, which is the mangling fact of ARCH-GC 6.2d going unheld: $plant"
 fi

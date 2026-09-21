@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory() as wd:
             out.append("                        push             rax"); done = False
     doctored = asm + ".planted.s"
     open(doctored, "w", encoding="utf-8").write("\n".join(out))
-    m, u, ex, refusal, grid, reach = uc.census_asm(doctored, rep, "planted")
+    m, u, ex, refusal, grid, *_rest = uc.census_asm(doctored, rep, "planted")
     if refusal:
         print("PLANT-RESULT REFUSED", refusal); sys.exit(0)
     off = [r for r in grid[0] if r[5] == "OFF-GRID"]
@@ -96,7 +96,9 @@ with tempfile.TemporaryDirectory() as wd:
 PY
 )"
 pn="$(printf '%s\n' "$plant" | sed -n 's/^PLANT-RESULT off_grid=\([0-9]*\) .*/\1/p')"
-if [ "${pn:-0}" -gt 0 ] 2>/dev/null; then
+if [ -z "$pn" ]; then
+  refuse "(c) THE PLANT DID NOT PRODUCE A VERDICT, AND THAT IS A REFUSAL RATHER THAN A FINDING ABOUT THE CENSUS. Without this branch an empty reading fell through to \${pn:-0} and was graded as the census ABSORBING the planted push -- a defect in the subject reported on the strength of a probe that never ran, which is the same conflation twice in one file. A census REFUSAL of the doctored asm lands here too, and belongs here: the plant then measured nothing about the grid. What came back: $plant"
+elif [ "$pn" -gt 0 ] 2>/dev/null; then
   ck ok "(c) PLANTED -- one 8-byte push below the region base takes $pn call site(s) OFF-GRID and the census NAMES them: $plant"
 else
   ck no "(c) the census absorbed a planted 8-byte push below the region base and still read every site on-grid ($plant) -- an instrument that cannot fail here cannot pass here either"
