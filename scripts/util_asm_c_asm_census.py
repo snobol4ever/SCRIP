@@ -23,7 +23,7 @@
 #      has no business grading the tree.
 import re, sys, glob, os, collections
 ASM_ENTRIES = {"rt_proc_enter","rt_chain_enter","rt_chain_enter_v","rt_tiny_record_enter",
-               "rt_genp_spine_enter","rt_outer_call","rt_outer_call_delta0","rk_gram_enter_box"}
+               "rt_genp_spine_enter","rt_outer_call","rt_outer_call_delta0"}
 BOGUS = {"DESCR_t","fn","code","if","for","while","switch","return","sizeof","do","else","static","extern","inline",
          "void","int","long","char","unsigned","struct","union","typedef","const","goto","case","default","break","continue"}
 GROUND_TRUTH = [("rt_call_arr","rt_call_arr_impl"),("rt_call_arr_impl","try_call_builtin_by_name"),
