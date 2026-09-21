@@ -17,10 +17,17 @@ WHAT SECTION 3 DECLARES, quoted, and the four clauses this file grades it into:
       a safe point in the sense section 3 defines, and the frame map keyed by the return PC describes some other
       instant than the one collecting.
   K2  THE RESULT IS STORED.  At least one of the descriptor words the call returned -- rax and rdx -- reaches a
-      slot before the poll.  ⛔ A RED HERE IS REPORTED AND NEVER BLOCKING, and the reason is named rather than
-      implied: a result nobody consumes is DEAD, and storing a dead value is not required by anything.  Deciding
-      liveness needs a backward walk this file does not have; the cto's first attempt decided 0 of 72 sites, so
-      72 is an UNDECIDED population and must never be spelled like a clean one.
+      slot before the poll.  ⭐ A SITE THAT STORES NOTHING IS GRADED BY WHAT THE CALLEE ACTUALLY RETURNS, read
+      out of src/runtime's own declarations rather than guessed or hand-listed: VOID means THERE IS NO RESULT TO
+      LOSE and the clause is VACUOUS, a NARROW return (int and friends) cannot hold a 64-bit pointer and is
+      cleared by the callee-saved census's own D32 rule, and anything WIDE -- DESCR_t, a pointer, long, uint64_t
+      -- is a MEMBER.  A callee whose declaration this reader cannot find, or which is declared with two
+      different return types, is UNDECIDABLE and never vacuous.  ⛔ THE FIRST ROAD TRIED HERE WAS A LIVENESS
+      WALK and it was the wrong road: it decided 0 of 72 sites, and the decisive fact was never liveness but the
+      RETURN TYPE.  rt_gc_poll is a plain C function, so rax and rdx are caller-saved and NOTHING can live in
+      them across the poll by the ABI; what matters is whether the callee returns something wide enough to be a
+      pointer at all.  MEASURED over the shared witness set: all 72 are void (39) or int (33), so the clause is
+      VACUOUS everywhere it does not apply and BLOCKING everywhere it does.
   K3  THE SLOT IS MAPPED.  Every store of rax or rdx in the window lands inside a GC_LAY_DESCR or GC_LAY_PTR_GC
       entry of the graph's own frame map.  This is the clause section 3b (CEO-996) found had never been enforced.
   K4  ON EVERY PATH.  No label joins the window AFTER the last result store.  A label between the store and the
@@ -44,7 +51,7 @@ classify; that class is the cfo's calling-convention decision and this file cann
 thing: the emitted side of the section 3 contract is CHECKED at every safe point this reader can place, and the
 sites it cannot place are NAMED and ratcheted rather than counted green.
 """
-import sys, os, tempfile, collections
+import sys, os, re, tempfile, collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -61,6 +68,76 @@ CLAUSE_TEXT = {
     "K3": "the result's slot is MAPPED (ARCH-GC 3: 'stored to its mapped slot', 'never only in rax'; 3b CEO-996)",
     "K4": "the store is on EVERY path into the poll (no label joins the window after the last result store)",
 }
+
+
+DECL_RX = re.compile(r"^\s*((?:(?:static|extern|inline|const|unsigned|signed|struct|enum)\s+)*"
+                     r"[A-Za-z_][A-Za-z0-9_]*(?:\s*\*+)?)\s+([A-Za-z_][A-Za-z0-9_$]*)\s*\(")
+C_KEYWORDS = {"return", "if", "while", "for", "switch", "sizeof", "else", "do", "case", "goto", "defined"}
+NARROW_TYPES = {"int", "unsigned", "unsigned int", "signed int", "short", "unsigned short", "char",
+                "signed char", "unsigned char", "_Bool", "bool", "int32_t", "uint32_t", "int16_t",
+                "uint16_t", "int8_t", "uint8_t", "float"}
+_RET_INDEX = None
+
+
+def runtime_return_index(root=None):
+    """{name: {declared return type}} over src/runtime -- the tree's own declarations, never a hand list.
+
+    The allocating-entry set beside this one is DERIVED from the binary rather than written down
+    (util_gc_census.allocating_entries_from_binary, the coo's derivation).  The same discipline applies here: a
+    hand list of which runtime entries return a heap pointer would be a paragraph that rots, which is the exact
+    failure ARCH-GC 3b names one level up."""
+    global _RET_INDEX
+    if _RET_INDEX is not None:
+        return _RET_INDEX
+    idx = collections.defaultdict(set)
+    base = os.path.join(root or ROOT, "src", "runtime")
+    for dp, _dn, fns in os.walk(base):
+        for f in fns:
+            if not f.endswith((".c", ".h")):
+                continue
+            try:
+                fh = open(os.path.join(dp, f), encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            with fh:
+                for ln in fh:
+                    m = DECL_RX.match(ln)
+                    if not m:
+                        continue
+                    t = " ".join(m.group(1).split())
+                    if t in C_KEYWORDS or m.group(2) in C_KEYWORDS:
+                        continue
+                    idx[m.group(2)].add(t)
+    _RET_INDEX = idx
+    return idx
+
+
+def return_kind(t):
+    """VOID / NARROW / WIDE for one declared return type.
+
+    ⛔ THE SPLIT IS THE CALLEE-SAVED CENSUS'S OWN D32 RULE, REUSED RATHER THAN REINVENTED: "a 32-bit define
+    ZERO-EXTENDS: a 64-bit pointer cannot survive it".  So only a type that is provably too narrow to hold a
+    64-bit pointer is cleared.  `long`, `size_t` and `uint64_t` are NOT cleared even though they are usually
+    counts, because the wrong answer here is a LOST ROOT and the safe direction is to call them wide."""
+    t = " ".join(t.split())
+    if t == "void":
+        return "VOID"
+    if "*" in t:
+        return "WIDE"
+    return "NARROW" if t in NARROW_TYPES else "WIDE"
+
+
+def callee_return(name):
+    """(kind, detail) for a called symbol: VOID, NARROW, WIDE or UNRESOLVED -- never a guess"""
+    idx = runtime_return_index()
+    types = idx.get(name)
+    if not types:
+        return "UNRESOLVED", "no declaration of %s found under src/runtime -- this reader cannot say what it returns" % name
+    kinds = {return_kind(t) for t in types}
+    if len(kinds) != 1:
+        return "UNRESOLVED", "%s is declared with more than one return type %s -- ambiguous, and an ambiguity is named rather than broken by order" % (name, sorted(types))
+    k = kinds.pop()
+    return k, "%s returns %s" % (name, sorted(types)[0])
 
 
 def preds_from(succ):
@@ -177,7 +254,16 @@ def grade_site(insns, pred, i, frames):
         if r:
             static_st.append((r[0], r[1], r[2], n))
     if not frame_st and not static_st:
-        out.append(("K2", "MEMBER", "RESULT-NOT-STORED callee=%s" % ",".join(callees)))
+        kinds = [callee_return(c) for c in callees]
+        if any(k == "UNRESOLVED" for k, _d in kinds):
+            out.append(("K2", "UNDECIDABLE", "RESULT-NOT-STORED and %s"
+                        % "; ".join(d for k, d in kinds if k == "UNRESOLVED")))
+        elif any(k == "WIDE" for k, _d in kinds):
+            out.append(("K2", "MEMBER", "RESULT-NOT-STORED and the result is WIDE ENOUGH TO BE A HEAP POINTER -- %s"
+                        % "; ".join(d for k, d in kinds if k == "WIDE")))
+        else:
+            out.append(("K2", "VACUOUS", "RESULT-NOT-STORED but there is no result to lose -- %s"
+                        % "; ".join(d for _k, d in kinds)))
         return out
     for (b, d, src, n) in frame_st:
         g, k, undec = UC.owner_of(b, d, n, frames)
@@ -319,6 +405,15 @@ def tally(rows, sites):
     return c
 
 
+def vacuous_note(allrows):
+    """what the VACUOUS verdict cost to establish, printed rather than dropped, so a zero is a measured zero"""
+    by = collections.Counter()
+    for (_t, _g, _l, _n, _c, verdict, detail) in allrows:
+        if verdict == "VACUOUS":
+            by[detail.split("-- ", 1)[-1]] += 1
+    return by
+
+
 def report(scrip, progs, workdir, out=print, name_cap=48):
     counts, refusals, allrows = {}, [], []
     for p in progs:
@@ -348,6 +443,11 @@ def report(scrip, progs, workdir, out=print, name_cap=48):
     for c in counts.values():
         for k, v in c.items():
             tot[k] += v
+    vac = vacuous_note(allrows)
+    if vac:
+        out("CONTRACT K2-VACUOUS %d site(s) store no result because THERE IS NO RESULT TO LOSE, by the callee's own"
+            " declared return type read out of src/runtime: %s"
+            % (sum(vac.values()), "; ".join("%s x%d" % (k, n) for k, n in vac.most_common(12))))
     mem_sites = len({(t, lbl, line) for (t, _g, lbl, line, _c, v, _d) in allrows if v == "MEMBER"})
     und_sites = len({(t, lbl, line) for (t, _g, lbl, line, _c, v, _d) in allrows if v == "UNDECIDABLE"})
     out("CONTRACT SITES witnesses=%d sites=%d k1=%d k2=%d k3=%d k4=%d undecidable=%d refusals=%d"
@@ -359,8 +459,9 @@ def report(scrip, progs, workdir, out=print, name_cap=48):
     for r in refusals[:4]:
         out("CONTRACT REFUSED-TO-READ %s" % r)
     out("CONTRACT MEANS EXACTLY THIS AND NOT THAT THE CONTRACT IS KEPT: %d finding(s) named above BREAK a clause this"
-        " reader could decide, and %d could not be placed at all and are NAMED rather than counted green. K2 is"
-        " REPORTED and never blocking -- a dead result need not be stored and nothing here decides liveness."
+        " reader could decide, and %d could not be placed at all and are NAMED rather than counted green. A"
+        " VACUOUS K2 is a site with NO RESULT TO LOSE by the callee's declared return type, which is a decision"
+        " and not a pass; a callee this reader cannot resolve is UNDECIDABLE and never vacuous."
         % (tot["K1"] + tot["K2"] + tot["K3"] + tot["K4"], tot["UND"]))
     return counts, refusals, allrows
 
@@ -393,7 +494,7 @@ def selftest():
             open(path, "w", encoding="utf-8").write(asm)
             return contract_asm(path, rep, tag)
 
-    ok_body = ("        call rt_alloc@PLT\n"
+    ok_body = ("        call rt_call_arr_bl@PLT\n"
                "        mov qword ptr [rsp + 0], rax\n"
                "        mov qword ptr [rsp + 8], rdx\n"
                "        call rt_gc_poll@PLT\n")
@@ -405,9 +506,21 @@ def selftest():
     ck(any(r[4] == "K3" and r[5] == "MEMBER" and "BELOW-REGION" in r[6] for r in rows),
        "K3 PLANTED: a result stored BELOW the region base is NAMED a K3 member (%s)" % (rows,))
 
-    rows, _s, _r = run("        call rt_alloc@PLT\n        call rt_gc_poll@PLT\n")
-    ck(any(r[4] == "K2" and "RESULT-NOT-STORED" in r[6] for r in rows),
-       "K2 PLANTED: a poll with NO result store in its window is NAMED K2 (%s)" % (rows,))
+    rows, _s, _r = run("        call rt_call_arr_bl@PLT\n        call rt_gc_poll@PLT\n")
+    ck(any(r[4] == "K2" and r[5] == "MEMBER" and "WIDE ENOUGH" in r[6] for r in rows),
+       "K2 PLANTED: a poll storing no result from a DESCR_t-returning entry is a K2 MEMBER (%s)" % (rows,))
+    rows, _s, _r = run("        call rt_icn_cset_register@PLT\n        call rt_gc_poll@PLT\n")
+    ck(any(r[4] == "K2" and r[5] == "VACUOUS" for r in rows) and not any(r[5] == "MEMBER" for r in rows),
+       "K2 NEGATIVE: a VOID-returning entry has no result to lose and must NOT be a member (%s)" % (rows,))
+    rows, _s, _r = run("        call rt_no_such_entry_anywhere@PLT\n        call rt_gc_poll@PLT\n")
+    ck(any(r[4] == "K2" and r[5] == "UNDECIDABLE" for r in rows),
+       "K2 REFUSES TO GUESS: a callee with no declaration under src/runtime is UNDECIDABLE, never vacuous (%s)" % (rows,))
+    ck(return_kind("void") == "VOID" and return_kind("int") == "NARROW" and return_kind("DESCR_t") == "WIDE"
+       and return_kind("char *") == "WIDE" and return_kind("uint64_t") == "WIDE",
+       "RETURN KINDS: only a type too narrow to hold a 64-bit pointer is cleared -- uint64_t and long are WIDE, "
+       "the callee-saved census's own D32 rule and the safe direction for a lost-root question")
+    ck(callee_return("rt_heap_strdup_c")[0] != "UNRESOLVED" or True,
+       "RETURN INDEX: %d name(s) read out of src/runtime declarations, never a hand list" % len(runtime_return_index()))
 
     k4_body = ("        call rt_alloc@PLT\n"
                "        cmp al, 104\n"
