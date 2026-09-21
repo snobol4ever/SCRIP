@@ -114,6 +114,7 @@ test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_blob_carve_invariant_is_named_and_held.sh	WIRED	-	-	-
 test_gate_gc_carve_advances_the_virgin_mark_past_a_straddling_block.sh	WIRED	-	-	-
 test_gate_gc_collector_visits_only_mapped_slots.sh	WIRED	-	-	-
+test_gate_gc_conservative_auditor_reports_and_cannot_ship.sh	WIRED	-	-	-
 test_gate_gc_differential_configs_agree.sh	WIRED	-	-	-
 test_gate_gc_dt_data_names_one_pointed_at_shape.sh	WIRED	-	-	-
 test_gate_gc_emitted_safe_point_matches_its_contract.sh	WIRED	-	-	-

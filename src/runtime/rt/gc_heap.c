@@ -14,6 +14,7 @@
 #include "descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
+#include "gc_audit_b.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; long alloc_total; long alloc_str; } rt_hp_fr_t;
 rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0, 0, 0 };
@@ -1234,6 +1235,43 @@ static void gc_displace_census(rt_hblk_t **liveo, uint64_t *livef, long li, long
     fprintf(stderr, "[GC-DISPLACE] run=%ld forced=%d live=%ld unmoved=%ld moved=%ld down=%ld up=%ld dmin=%ld dmax=%ld dmean=%ld hist zero=%ld lt4K=%ld lt64K=%ld lt1M=%ld ge1M=%ld\n",
         run, forced, li, un, dn + up, dn, up, mn < 0 ? 0L : mn, mx, (dn + up) ? sum / (dn + up) : 0L, h0, h1, h2, h3, h4);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#ifdef SCRIP_GC_AUDIT_B
+static const rt_hblk_t *gc_audit_b_blk_of(const char *p) { return (const rt_hblk_t *)gc_blk_of(p); }
+static const rt_hblk_t *gc_audit_b_blk_at(long i) { return (i >= 0 && i < g_gc_nblk && g_gc_idx) ? (const rt_hblk_t *)g_gc_idx[i] : (const rt_hblk_t *)0; }
+static long gc_audit_b_birth_of(const char *blk, char *buf, long cap)
+{
+    long bk = gc_birth_find((char *)blk);
+    if (bk < 0) return 0;
+    { Dl_info d0, d1; gc_vac_t *v = &g_gc_vac[bk];
+      const char *s0 = (dladdr(v->ra_site, &d0) && d0.dli_sname) ? d0.dli_sname : "?"; const char *s1 = (v->ra_from && dladdr(v->ra_from, &d1) && d1.dli_sname) ? d1.dli_sname : "?";
+      return (long)snprintf(buf, (size_t)cap, "birth=#%ld by=%s from=%s born_at=arena+%ld", v->serial, s0, s1, (long)(v->at - g_hp_arena)); }
+}
+static long gc_audit_b_shim(char *floor)
+{
+    gc_audit_b_rgn_t rg[64]; gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i; int pop, saved = g_gc_seg_main;
+    if (!g_hp_arena || !g_gc_idx) return -1;
+    gc_static_segs_init();
+    for (i = 0; i < g_gc_nseg && n < 64; i++) { rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; n++; }
+    gc_seg_begin(&it, floor);
+    while (n < 64 && gc_seg_next(&it, &lo, &hi, &pop)) { rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop]; n++; }
+    g_gc_seg_main = saved;
+    sk[k].at = (const void *)&g_hp_fr;          sk[k].bytes = (long)sizeof g_hp_fr;          sk[k].name = "g_hp_fr";          k++;
+    sk[k].at = (const void *)&g_hp_arena;       sk[k].bytes = (long)sizeof g_hp_arena;       sk[k].name = "g_hp_arena";       k++;
+    sk[k].at = (const void *)&g_hp_gcline;      sk[k].bytes = (long)sizeof g_hp_gcline;      sk[k].name = "g_hp_gcline";      k++;
+    sk[k].at = (const void *)&g_hp_win;         sk[k].bytes = (long)sizeof g_hp_win;         sk[k].name = "g_hp_win";         k++;
+    sk[k].at = (const void *)&g_hp_wend;        sk[k].bytes = (long)sizeof g_hp_wend;        sk[k].name = "g_hp_wend";        k++;
+    sk[k].at = (const void *)&g_hp_cap_end;     sk[k].bytes = (long)sizeof g_hp_cap_end;     sk[k].name = "g_hp_cap_end";     k++;
+    sk[k].at = (const void *)&g_hp_qlo;         sk[k].bytes = (long)sizeof g_hp_qlo;         sk[k].name = "g_hp_qlo";         k++;
+    sk[k].at = (const void *)&g_hp_qhi;         sk[k].bytes = (long)sizeof g_hp_qhi;         sk[k].name = "g_hp_qhi";         k++;
+    sk[k].at = (const void *)&g_gc_pmap_top;    sk[k].bytes = (long)sizeof g_gc_pmap_top;    sk[k].name = "g_gc_pmap_top";    k++;
+    sk[k].at = (const void *)&g_gc_mhead;       sk[k].bytes = (long)sizeof g_gc_mhead;       sk[k].name = "g_gc_mhead";       k++;
+    sk[k].at = (const void *)g_gc_spine_rec;    sk[k].bytes = (long)sizeof g_gc_spine_rec;   sk[k].name = "g_gc_spine_rec";   k++;
+    v.blk_of = gc_audit_b_blk_of; v.blk_at = gc_audit_b_blk_at; v.birth_of = gc_birth_on() ? gc_audit_b_birth_of : (long (*)(const char *, char *, long))0;
+    v.alo = g_hp_arena; v.ahi = g_hp_top; v.run = g_gc_runs + 1; v.nblk = g_gc_nblk; v.rgn = rg; v.nrgn = n; v.skip = sk; v.nskip = k;
+    return gc_audit_b_collect(&v);
+}
+#endif
 static long gc_collect_ex(void)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern int rt_scan_active(void);
@@ -1303,6 +1341,9 @@ static long gc_collect_ex(void)
         rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
     }
+#ifdef SCRIP_GC_AUDIT_B
+    gc_audit_b_shim(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
+#endif
     gc_spine_lost_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld ceiling_bytes_skipped=%ld ceiling=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, g_gc_ceil_bytes, (void *)g_gc_emit_ceiling); }

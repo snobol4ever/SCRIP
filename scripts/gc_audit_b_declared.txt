@@ -1,0 +1,27 @@
+# gc_audit_b_declared.txt -- THE PASS-B HOLDER LEDGER (ARCH-GC § 9 RUNG 3, cfo 2026-09-21, CFO-127).
+#
+# Pass B is the conservative AUDITOR: it scans the territory pass A scans and names every word that points at a
+# block pass A did not mark.  It names CANDIDATES, never defects -- a dead word that looks like a heap pointer
+# reads identically to a live root -- so every holder it names is either CURED or DECLARED HERE WITH A REASON.
+# ⛔ THE COUNT FALLS ONLY BY CURING OR DECLARING, WHICH IS CONDITION 4 OF LON'S GRANT.  A holder that appears in
+# a sweep and is not in this file is a RED in test_gate_gc_conservative_auditor_reports_and_cannot_ship.sh.
+#
+# ⛔ THE KEY IS A SYMBOL NAME AND NEVER AN OFFSET.  The auditor prints `<module>+0x<offset>` because an offset is
+# what it can know at the instant of the finding; the GATE resolves that offset through `nm -S` on the very .so
+# that produced it.  An offset is a fact about one build and goes stale on the next; a symbol does not.
+#
+# FIELDS: <holder-symbol>  <OPEN|DECLARED>  <row or reason>
+# OPEN     = a real candidate with a row against it.  The auditor retires when NO OPEN row remains and a sweep
+#            finds nothing -- and on that day the gate's expiry arm REDS and says DELETE, because a disabled
+#            auditor is a conservative scan wearing an if.
+# DECLARED = measured not to be a lost root, with the measurement or the ruling that says so.
+#
+g_fh                 OPEN      the FH table's .alias/.enc hold rt_heap_strdup_c strings and NO *_gc_roots() visits them; ARCH-GC § 9 named this one in advance and hb_file_name_unrooted.icn is its RED witness
+g_icn_op             OPEN      core.c:382 holds DESCR_t a,b for Icon operator error context between core_icn_op_ctx() and core_icn_op_ctx_clear(); core_gc_roots() does not visit them and core.c:472 reads them after the window
+g_icn_reassigned     OPEN      lower_icon.c:54 lc_vec; its .data comes from rt_wsb_alloc (the COLLECTED heap) and lower_gc_roots() visits g_bb_labels and nothing else
+pnv.2                OPEN      lower_icon.c:1656 function-scope static lc_vec, same class as g_icn_reassigned
+lnv.1                OPEN      lower_icon.c:1658 function-scope static lc_vec, same class as g_icn_reassigned
+gnv.0                OPEN      lower_icon.c:1671 function-scope static lc_vec whose .data is handed on as cx.gn, same class as g_icn_reassigned
+rtccb                DECLARED  CALLER-SAVED SCRATCH by the cfo's ruling on CTO-153: nothing that must survive a collection may live there, its root registration was a no-op and was deleted, and test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh is the arm that makes that safe
+cstack               DECLARED  a word on the C stack below the emitted ceiling pointing at an unmarked block is NECESSARY AND NOT SUFFICIENT (cfo 2026-09-20, CFO-114): a DEAD spill slot holding a stale pointer reads identically, and 12 of the 32 green witnesses print this while answering their oracle
+parked               DECLARED  the same class on a parked coexpression stack; only the frame map can say whether the slot is live, and a parked stack's dead frames are exactly where stale pointers accumulate
