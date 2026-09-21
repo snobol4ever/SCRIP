@@ -40,9 +40,12 @@ static size_t g_hp_chunk = 0;
 static long g_hp_grown = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
-typedef struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; } gc_vac_t;
+static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from);
+typedef struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; } gc_vac_t;
 static gc_vac_t *g_gc_vac = (gc_vac_t *)0;
 static long g_gc_vacn = 0, g_gc_vaccap = 0, g_gc_vacover = 0, g_gc_vacgen = 0;
+static gc_vac_t *gc_vac_ledger(void);
+static int gc_birth_on(void);
 static char *g_hp_qlo = (char *)0;
 static char *g_hp_qhi = (char *)0;
 static long g_hp_qgen = 0, g_hp_qarm = 0, g_hp_qbytes = 0;
@@ -182,6 +185,7 @@ static void rt_gcheap_init(void)
     g_hp_gcline = g_hp_arena + gc_line_span((long)(((size_t)mb << 20) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
     gc_static_segs_init();
+    { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
@@ -198,6 +202,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     else if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
     else memset((void *)(h + 1), 0, (size_t)pay);
     g_hp_blocks += 1;
+    gc_birth_record(at, total, type, __builtin_return_address(1), __builtin_return_address(2));
     return (void *)(h + 1); }
 }
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
@@ -255,8 +260,8 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
     if (stress_n > 0 && ++stress_c >= stress_n) { stress_c = 0; g_gc_pending = 1; }
     { static long since = 0, budget = -1;
       if (budget < 0) { const char *e = getenv("SCRIP_GC_BUDGET_MB"); long mb = e ? atol(e) : 0; budget = mb > 0 ? (mb << 20) : 0; }
-      if (!g_alloc_detax) g_alloc_detax = (stress_n == 0 && budget == 0 && g_ah_on <= 0 && g_hp_arena && g_hp_report_reg) ? 1 : -1;
-      g_hp_fr.armed = (g_alloc_detax == 1 && g_ah_on <= 0) ? 1 : 0;
+      if (!g_alloc_detax) g_alloc_detax = (stress_n == 0 && budget == 0 && g_ah_on <= 0 && !gc_birth_on() && g_hp_arena && g_hp_report_reg) ? 1 : -1;
+      g_hp_fr.armed = (g_alloc_detax == 1 && g_ah_on <= 0 && !gc_birth_on()) ? 1 : 0;
       if (budget) { since += (long)total; if (since >= budget && (g_hp_top - g_hp_arena) * 2 >= (g_hp_end - g_hp_arena)) { since = 0; g_gc_pending = 2; } } }
     if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + total > g_hp_gcline && g_hp_top + total <= g_hp_end) g_gc_pending = 1;
     if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) { g_gc_pending = 1; rt_gcheap_grow(total); }
@@ -443,12 +448,64 @@ static void gc_quar_arm(char *lo)
     g_hp_qlo = a; g_hp_qhi = b; g_hp_qgen = g_gc_vacgen; g_hp_qarm++; g_hp_qbytes += (long)(b - a);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_birth_on(void) { return (g_gc_vac && g_gc_vac[g_gc_vaccap].size) ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static gc_vac_t *gc_vac_ledger(void)
+{
+    if (!g_gc_vac) { const char *e = getenv("SCRIP_GC_TRAP_LEDGER"); const char *k = getenv("SCRIP_GC_BIRTH_LEDGER"); long c = e && *e ? atol(e) : 65536; long b = k && *k ? atol(k) : 0;
+        if (c < 64) c = 64; if (c > (1L << 22)) c = 1L << 22; if (b < 0) b = 0; if (b > (1L << 22)) b = 1L << 22;
+        g_gc_vac = (gc_vac_t *)gcbk_alloc((size_t)(c + b + 1) * sizeof(gc_vac_t)); if (!g_gc_vac) return (gc_vac_t *)0; g_gc_vaccap = c;
+        { gc_vac_t *hd = &g_gc_vac[c]; hd->at = (char *)0; hd->fwd = (char *)0; hd->size = (uint32_t)b; hd->gen = 0; hd->type = 0; hd->pad = 0; hd->serial = 0; hd->ra_site = (void *)0; hd->ra_from = (void *)0; } }
+    return g_gc_vac;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from)
+{
+    gc_vac_t *hd; long b, s;
+    if (!g_gc_vac) return;
+    hd = &g_gc_vac[g_gc_vaccap]; b = (long)hd->size; if (b <= 0) return;
+    s = hd->serial++;
+    { gc_vac_t *v = &g_gc_vac[g_gc_vaccap + 1 + (s % b)];
+      v->at = at; v->fwd = (char *)0; v->size = (uint32_t)total; v->gen = 0; v->type = type; v->pad = 0; v->serial = s; v->ra_site = ra_site; v->ra_from = ra_from; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long gc_birth_find(char *at)
+{
+    long i, b;
+    if (!g_gc_vac || !at) return -1;
+    b = (long)g_gc_vac[g_gc_vaccap].size; if (b <= 0) return -1;
+    { long best = -1;
+      for (i = 1; i <= b; i++) { gc_vac_t *v = &g_gc_vac[g_gc_vaccap + i];
+          if (v->gen == 0 && v->size && v->at == at && (best < 0 || v->serial > g_gc_vac[best].serial)) best = g_gc_vaccap + i; }
+      return best; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long gc_birth_cover(char *f)
+{
+    long i, b, best = -1;
+    if (!g_gc_vac || !f) return -1;
+    b = (long)g_gc_vac[g_gc_vaccap].size; if (b <= 0) return -1;
+    for (i = 1; i <= b; i++) { gc_vac_t *v = &g_gc_vac[g_gc_vaccap + i];
+        if (v->gen == 0 && v->size && f >= v->at && f < v->at + (long)v->size && (best < 0 || v->serial > g_gc_vac[best].serial)) best = g_gc_vaccap + i; }
+    return best;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *gc_chain_back(long hit, long *hops)
+{
+    long i, cur = hit, k = 0; char *a = g_gc_vac[hit].at;
+    for (;;) { long prev = -1;
+        for (i = g_gc_vacn - 1; i >= 0; i--) if (g_gc_vac[i].fwd == a && g_gc_vac[i].gen < g_gc_vac[cur].gen) { prev = i; break; }
+        if (prev < 0 || k >= 4096) break;
+        cur = prev; a = g_gc_vac[cur].at; k++; }
+    *hops = k; return a;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_vac_record(char *vlo)
 {
     long i, need = 0;
     if (!gc_trap_on()) return;
-    if (!g_gc_vac) { const char *e = getenv("SCRIP_GC_TRAP_LEDGER"); long c = e && *e ? atol(e) : 65536; if (c < 64) c = 64; if (c > (1L << 22)) c = 1L << 22;
-        g_gc_vac = (gc_vac_t *)gcbk_alloc((size_t)c * sizeof(gc_vac_t)); if (!g_gc_vac) return; g_gc_vaccap = c; }
+    if (!gc_vac_ledger()) return;
     for (i = 0; i < g_gc_nblk; i++) if ((char *)g_gc_idx[i] >= vlo) need++;
     if (need > g_gc_vaccap - g_gc_vacn) { g_gc_vacn = 0; g_gc_vacover++; }
     g_gc_vacgen = g_gc_runs + 1;
@@ -460,7 +517,7 @@ static void gc_vac_record(char *vlo)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_gc_stale_addr_report(void *fault, void *ip)
 {
-    char bf[2048]; int n = 0; char *f = (char *)fault; long off, i, hit = -1;
+    char bf[4096]; int n = 0; char *f = (char *)fault; long off, i, hit = -1;
     if (!g_hp_arena || f < g_hp_arena || f >= g_hp_cap_end) return 0;
     off = (long)(f - g_hp_arena);
     n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE] SIGSEGV touching GC heap ground at %p (arena+%ld) from instruction %p -- a STALE HEAP POINTER was used, not a wild address\n", fault, off, ip);
@@ -470,6 +527,17 @@ int rt_gc_stale_addr_report(void *fault, void *ip)
         if (hit >= 0 && g_gc_vac[hit].fwd) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was MOVED to arena+%ld by collection #%ld, so the holder of this pointer was NEVER VISITED and kept the pre-move address\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)(g_gc_vac[hit].fwd - g_hp_arena), (long)g_gc_vac[hit].gen);
         else if (hit >= 0) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was RECLAIMED by collection #%ld because nothing marked it, so the holder of this pointer was never visited either\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)g_gc_vac[hit].gen);
         else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   no block in the vacated ledger covers this address (ledger holds %ld entries through collection #%ld, %ld resets) -- this ground was vacated before the ledger's oldest entry, so the block is not nameable from here\n", g_gc_vacn, g_gc_vacgen, g_gc_vacover);
+        { long hops = 0; char *born = (char *)0; long bk = -1; int viachain = 0;
+            if (hit >= 0) { born = gc_chain_back(hit, &hops); bk = gc_birth_find(born); viachain = bk >= 0; }
+            if (bk < 0) { bk = gc_birth_cover(f); if (bk >= 0) { born = g_gc_vac[bk].at; hops = 0; } }
+            if (bk >= 0) { Dl_info d0, d1; gc_vac_t *v = &g_gc_vac[bk];
+                const char *s0 = (dladdr(v->ra_site, &d0) && d0.dli_sname) ? d0.dli_sname : "?"; const char *s1 = (v->ra_from && dladdr(v->ra_from, &d1) && d1.dli_sname) ? d1.dli_sname : "?";
+                n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   block #%ld, kind=%u, size=%u, allocated by %s (%p) from %s (%p), born at arena+%ld, +%ld into it, %s\n",
+                    v->serial, (unsigned)v->type, (unsigned)v->size, s0, v->ra_site, s1, v->ra_from, (long)(born - g_hp_arena), (long)(f - born),
+                    viachain ? "reached by walking the vacated ledger back through its relocations" : "matched by address in the birth ring, with no vacated-ledger entry to relocate it");
+                if (viachain) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   it was relocated %ld time(s) between that birth and the collection that vacated the ground you just read\n", hops); }
+            else if (!gc_birth_on()) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   THE BIRTH LEDGER IS OFF, so this fault names an address and not a defect -- set SCRIP_GC_BIRTH_LEDGER=<ring entries> and the report will name the block's serial, its type at birth and the site that allocated it\n");
+            else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   the birth ledger does not hold this block: the chain walked back %ld relocation(s) to arena+%ld and no birth record survives there (ring holds %ld entries, %ld births so far) -- raise SCRIP_GC_BIRTH_LEDGER or the record has been overwritten\n", hops, born ? (long)(born - g_hp_arena) : -1L, (long)g_gc_vac[g_gc_vaccap].size, g_gc_vac[g_gc_vaccap].serial); }
     } else if (f >= g_hp_top) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the address is above the live top (arena+%ld) but its page is not quarantined: vacated ground the allocator has already taken back, or ground beyond the committed window (arena+%ld)\n", (long)(g_hp_top - g_hp_arena), (long)(g_hp_end - g_hp_arena));
     else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the address is BELOW the live top (arena+%ld), so it is inside live heap and this fault is NOT the vacated-ground trap\n", (long)(g_hp_top - g_hp_arena));
     if (g_gc_in) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   THE FAULT HAPPENED INSIDE A COLLECTION -- read this as a defect in the collector or in the trap before reading it as a mutator stale pointer\n");

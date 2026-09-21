@@ -104,6 +104,7 @@ test_gate_gc_a_bare_deferred_expression_name_survives_every_collection_point.sh	
 test_gate_gc_a_bignum_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
 test_gate_gc_a_callee_saved_register_at_an_allocating_return_is_named_not_assumed.sh	WIRED	-	-	-
 test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
+test_gate_gc_a_fault_names_its_block.sh	WIRED	-	-	-
 test_gate_gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in.sh	WIRED	-	-	-
 test_gate_gc_a_register_resident_box_result_is_spilled_as_a_descr_across_its_poll.sh	WIRED	-	-	-
 test_gate_gc_a_safe_point_stores_into_a_mapped_slot.sh	WIRED	-	-	-
