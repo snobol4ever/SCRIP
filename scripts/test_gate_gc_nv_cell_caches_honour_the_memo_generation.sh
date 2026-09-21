@@ -14,6 +14,15 @@
 # g_nv_memo_gen at BOTH read sites. Origin vs cured over a 10-point band, 3 of 3: byte-identical at stress
 # 0/1/2/3/5/8/13/55, and rc=139 -> rc=0 at 21 and 35.
 #
+# ⛔⭐ ARM 1 IS GRADED WITH SCRIP_GC_TRAP=0 SINCE 2026-09-21, AND THE KNOB IS DECLARED HERE RATHER THAN HIDDEN.
+# The stale-read trap (cfo, rung 1 of ARCH-GC § 9) turns a read of vacated ground into a SIGSEGV at the instruction
+# that used the stale pointer. This entry has TWO defects -- the cached DESCR_t* write this gate cured, and the
+# a84e1945 wrong answer that is hq_snobol4's row -- and the trap makes the SECOND one die of signal 11 at stress 21
+# and 35, measured 3 of 3. An rc-only arm cannot tell that from the first defect coming back, so the GRADED runs use
+# the pre-trap configuration where the criterion is exact, and one REPORTED trap-on run per stress point names what
+# the trap sees. ⛔ A SIGNAL DEATH UNDER THE TRAP WITH NO [ZGC-STALE] REPORT IS STILL THIS GATE'S RED: the trap must
+# CLAIM the death or the death is unexplained, and an unexplained death is the thing this gate exists to catch.
+#
 # ⛔ THIS GATE GRADES rc ONLY, AND THAT IS DELIBERATE. The entry still prints a WRONG ANSWER under collection
 # (a84e1945 at most of the band, present identically on origin) -- a second, independent defect that is hq_snobol4's row.
 # Grading stdout here would red on someone else's open defect and make this arm unreadable. A crash is the thing cured
@@ -45,13 +54,22 @@ echo "ARM 1 -- BEHAVIOUR: no signal death under collection (arena SCRIP_HEAP_MB=
 for ST in 21 35; do
   for i in 1 2 3; do
     examined=$((examined+1))
-    ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" timeout 120 "$SCRIP" w.sno ) >"$T/o.$ST.$i" 2>/dev/null; r=$?
+    ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" SCRIP_GC_TRAP=0 timeout 120 "$SCRIP" w.sno ) >"$T/o.$ST.$i" 2>"$T/e.$ST.$i"; r=$?
     if [ "$r" -ge 128 ]; then
       echo "  FAIL stress=$ST run=$i rc=$r -- died of signal $((r-128)); a cached DESCR_t* survived a collection (md5 $(md5sum "$T/o.$ST.$i" | cut -c1-8))"; RC=1
     else
       echo "  ok   stress=$ST run=$i rc=$r (stdout md5 $(md5sum "$T/o.$ST.$i" | cut -c1-8) -- NOT graded here, see the banner)"
     fi
   done
+  ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" timeout 120 "$SCRIP" w.sno ) >"$T/t.$ST" 2>"$T/te.$ST"; tr=$?
+  if [ "$tr" -ge 128 ] && grep -q ZGC-STALE "$T/te.$ST" 2>/dev/null; then
+    echo "  note stress=$ST TRAP ON rc=$tr -- REPORTED, NOT GRADED: $(grep -m1 'QUARANTINED\|SIGSEGV touching' "$T/te.$ST" | sed 's/^\[ZGC-STALE\] *//' | cut -c1-140)"
+    echo "       that is this entry's OTHER defect (the a84e1945 wrong answer, hq_snobol4's row) made LOUD AND LOCATED by the stale-read trap, not the cached-DESCR_t* write graded above"
+  elif [ "$tr" -ge 128 ]; then
+    echo "  FAIL stress=$ST TRAP ON rc=$tr -- died of a signal with NO [ZGC-STALE] report: an UNEXPLAINED death is this gate's defect wherever the trap is, and the trap did not claim it"; RC=1
+  else
+    echo "  note stress=$ST TRAP ON rc=$tr -- the trap found no stale read at this point (stdout md5 $(md5sum "$T/t.$ST" | cut -c1-8))"
+  fi
 done
 echo "ARM 2 -- STRUCTURE: every g_dcap_nv_key[] comparison is generation-checked"
 SRC="$ROOT/src/runtime/pattern_match.c"

@@ -107,6 +107,7 @@ test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
 test_gate_gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in.sh	WIRED	-	-	-
 test_gate_gc_a_register_resident_box_result_is_spilled_as_a_descr_across_its_poll.sh	WIRED	-	-	-
 test_gate_gc_a_safe_point_stores_into_a_mapped_slot.sh	WIRED	-	-	-
+test_gate_gc_a_stale_read_of_vacated_ground_faults_and_names_its_block.sh	WIRED	-	-	-
 test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_blob_carve_invariant_is_named_and_held.sh	WIRED	-	-	-

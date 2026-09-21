@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <signal.h>
 #include "ct_arena.h"
+#include "gc_heap.h"
 #include <ucontext.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -13,6 +14,7 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
     ucontext_t *uc = (ucontext_t *)uctx;
     uintptr_t fault = (uintptr_t)si->si_addr, rsp = (uintptr_t)uc->uc_mcontext.gregs[REG_RSP];
     pthread_attr_t attr; void *lo_p = NULL; size_t sz = 0; int have = 0;
+    if (rt_gc_stale_addr_report(si->si_addr, (void *)uc->uc_mcontext.gregs[REG_RIP])) { signal(sig, SIG_DFL); raise(sig); }
     if (pthread_getattr_np(pthread_self(), &attr) == 0) { have = (pthread_attr_getstack(&attr, &lo_p, &sz) == 0); pthread_attr_destroy(&attr); }
     if (have) { uintptr_t lo = (uintptr_t)lo_p, hi = lo + (uintptr_t)sz, guard = 16UL * 1024 * 1024;
         if (fault < lo && fault + guard >= lo && rsp + guard >= lo && rsp <= hi) {

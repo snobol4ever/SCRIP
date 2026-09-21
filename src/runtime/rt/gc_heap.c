@@ -40,6 +40,14 @@ static size_t g_hp_chunk = 0;
 static long g_hp_grown = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
+typedef struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; } gc_vac_t;
+static gc_vac_t *g_gc_vac = (gc_vac_t *)0;
+static long g_gc_vacn = 0, g_gc_vaccap = 0, g_gc_vacover = 0, g_gc_vacgen = 0;
+static char *g_hp_qlo = (char *)0;
+static char *g_hp_qhi = (char *)0;
+static long g_hp_qgen = 0, g_hp_qarm = 0, g_hp_qbytes = 0;
+static void gc_quar_release(char *need_end);
+static void gc_quar_arm(char *lo);
 int g_gc_pending;
 static long g_gc_polls = 0;
 static int g_gc_in;
@@ -105,6 +113,7 @@ char *rt_sxt_extend(char *s, long al, long bl)
     if (want > h->size) {
         uint64_t d = want - h->size;
         if (g_hp_top + d > g_hp_end) { g_sxt_owner = (char *)0; return (char *)0; }
+        gc_quar_release(g_hp_top + d);
         h->size = (uint32_t)want;
         g_hp_top += d; g_hp_fr.alloc_total += (long)d; g_hp_fr.alloc_str += (long)d;
     }
@@ -235,7 +244,7 @@ static int g_alloc_detax = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
-    if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1; if (g_hp_top + tf <= g_hp_end) { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
+    if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1; if (g_hp_top + tf <= g_hp_end) { if (g_hp_qlo) gc_quar_release(g_hp_top + tf); { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } } }
     if (g_ah_on > 0) { unsigned t = (unsigned)type & 511u; g_ah_tn[t] += 1; g_ah_tb[t] += (long)payload_bytes; }
     uint64_t total = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
     void *r;
@@ -251,7 +260,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
       if (budget) { since += (long)total; if (since >= budget && (g_hp_top - g_hp_arena) * 2 >= (g_hp_end - g_hp_arena)) { since = 0; g_gc_pending = 2; } } }
     if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + total > g_hp_gcline && g_hp_top + total <= g_hp_end) g_gc_pending = 1;
     if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) { g_gc_pending = 1; rt_gcheap_grow(total); }
-    if (g_hp_top + total <= g_hp_end) { r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
+    if (g_hp_top + total <= g_hp_end) { if (g_hp_qlo) gc_quar_release(g_hp_top + total); r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
     if (g_hp_win + total <= g_hp_wend) {
         uint64_t avail = (uint64_t)(g_hp_wend - g_hp_win);
         if (avail - total == sizeof(rt_hblk_t)) total += sizeof(rt_hblk_t);
@@ -392,6 +401,81 @@ static void *gcbk_alloc(size_t n)
     if (h == MAP_FAILED) { fprintf(stderr, "[ZHP] collector bookkeeping mmap failed (%zu bytes)\n", need); abort(); }
     h->magic = GCBK_MAGIC; h->len = (uint64_t)need;
     return (void *)((uint8_t *)h + sizeof(gcbk_head_t));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t gc_pg(void)
+{
+    static size_t pg = 0;
+    if (!pg) { long v = sysconf(_SC_PAGESIZE); pg = (v > 0) ? (size_t)v : (size_t)4096; }
+    return pg;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_trap_on(void)
+{
+    static int t = -1;
+    if (t < 0) { const char *e = getenv("SCRIP_GC_TRAP"); t = (e && *e) ? (*e != '0') : 1; }
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_quar_release(char *need_end)
+{
+    size_t pg; char *b;
+    if (!g_hp_qlo || need_end <= g_hp_qlo) return;
+    pg = gc_pg(); b = (char *)(((uintptr_t)need_end + (pg - 1)) & ~(uintptr_t)(pg - 1));
+    if (b > g_hp_qhi) b = g_hp_qhi;
+    if (b <= g_hp_qlo) return;
+    if (mprotect(g_hp_qlo, (size_t)(b - g_hp_qlo), PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZGC-TRAP] could not re-commit vacated ground arena+%ld..arena+%ld for the allocator -- the stale-read trap refuses the run rather than let the mutator write ground the kernel will not hand back\n", (long)(g_hp_qlo - g_hp_arena), (long)(b - g_hp_arena)); abort(); }
+    g_hp_qlo = b;
+    if (g_hp_qlo >= g_hp_qhi) { g_hp_qlo = (char *)0; g_hp_qhi = (char *)0; g_gc_vacn = 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_quar_arm(char *lo)
+{
+    size_t pg; char *a; char *b; char *ceil;
+    if (!gc_trap_on() || !g_hp_arena) return;
+    pg = gc_pg();
+    ceil = g_hp_virgin < g_hp_end ? g_hp_virgin : g_hp_end;
+    a = (char *)(((uintptr_t)lo + (pg - 1)) & ~(uintptr_t)(pg - 1));
+    b = (char *)((uintptr_t)ceil & ~(uintptr_t)(pg - 1));
+    if (g_hp_qhi > b) b = g_hp_qhi;
+    if (b <= a) return;
+    if (mprotect(a, (size_t)(b - a), PROT_NONE) != 0) { static int said = 0; if (!said) { said = 1; fprintf(stderr, "[ZGC-TRAP] mprotect PROT_NONE refused arena+%ld..arena+%ld -- THE STALE-READ TRAP IS OFF FOR THIS RUN and a stale read will return a plausible 0xDB answer again; a silent instrument is never evidence of health\n", (long)(a - g_hp_arena), (long)(b - g_hp_arena)); } g_hp_qlo = (char *)0; g_hp_qhi = (char *)0; return; }
+    g_hp_qlo = a; g_hp_qhi = b; g_hp_qgen = g_gc_vacgen; g_hp_qarm++; g_hp_qbytes += (long)(b - a);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_vac_record(char *vlo)
+{
+    long i, need = 0;
+    if (!gc_trap_on()) return;
+    if (!g_gc_vac) { const char *e = getenv("SCRIP_GC_TRAP_LEDGER"); long c = e && *e ? atol(e) : 65536; if (c < 64) c = 64; if (c > (1L << 22)) c = 1L << 22;
+        g_gc_vac = (gc_vac_t *)gcbk_alloc((size_t)c * sizeof(gc_vac_t)); if (!g_gc_vac) return; g_gc_vaccap = c; }
+    for (i = 0; i < g_gc_nblk; i++) if ((char *)g_gc_idx[i] >= vlo) need++;
+    if (need > g_gc_vaccap - g_gc_vacn) { g_gc_vacn = 0; g_gc_vacover++; }
+    g_gc_vacgen = g_gc_runs + 1;
+    for (i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
+        if ((char *)h < vlo) continue;
+        if (g_gc_vacn >= g_gc_vaccap) break;
+        { gc_vac_t *v = &g_gc_vac[g_gc_vacn++]; v->at = (char *)h; v->fwd = h->fwd ? (char *)(uintptr_t)h->fwd : (char *)0; v->size = h->size; v->gen = (uint32_t)g_gc_vacgen; v->type = h->type; v->pad = 0; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_gc_stale_addr_report(void *fault, void *ip)
+{
+    char bf[2048]; int n = 0; char *f = (char *)fault; long off, i, hit = -1;
+    if (!g_hp_arena || f < g_hp_arena || f >= g_hp_cap_end) return 0;
+    off = (long)(f - g_hp_arena);
+    n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE] SIGSEGV touching GC heap ground at %p (arena+%ld) from instruction %p -- a STALE HEAP POINTER was used, not a wild address\n", fault, off, ip);
+    if (g_hp_qlo && f >= g_hp_qlo && f < g_hp_qhi) {
+        n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   this page is QUARANTINED PROT_NONE: collection #%ld (or an earlier one) vacated arena+%ld..arena+%ld and no allocation has taken it back; the live top is arena+%ld\n", g_hp_qgen, (long)(g_hp_qlo - g_hp_arena), (long)(g_hp_qhi - g_hp_arena), (long)(g_hp_top - g_hp_arena));
+        for (i = g_gc_vacn - 1; i >= 0; i--) if (f >= g_gc_vac[i].at && f < g_gc_vac[i].at + g_gc_vac[i].size) { hit = i; break; }
+        if (hit >= 0 && g_gc_vac[hit].fwd) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was MOVED to arena+%ld by collection #%ld, so the holder of this pointer was NEVER VISITED and kept the pre-move address\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)(g_gc_vac[hit].fwd - g_hp_arena), (long)g_gc_vac[hit].gen);
+        else if (hit >= 0) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was RECLAIMED by collection #%ld because nothing marked it, so the holder of this pointer was never visited either\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)g_gc_vac[hit].gen);
+        else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   no block in the vacated ledger covers this address (ledger holds %ld entries through collection #%ld, %ld resets) -- this ground was vacated before the ledger's oldest entry, so the block is not nameable from here\n", g_gc_vacn, g_gc_vacgen, g_gc_vacover);
+    } else if (f >= g_hp_top) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the address is above the live top (arena+%ld) but its page is not quarantined: vacated ground the allocator has already taken back, or ground beyond the committed window (arena+%ld)\n", (long)(g_hp_top - g_hp_arena), (long)(g_hp_end - g_hp_arena));
+    else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the address is BELOW the live top (arena+%ld), so it is inside live heap and this fault is NOT the vacated-ground trap\n", (long)(g_hp_top - g_hp_arena));
+    if (g_gc_in) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   THE FAULT HAPPENED INSIDE A COLLECTION -- read this as a defect in the collector or in the trap before reading it as a mutator stale pointer\n");
+    n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   a stale read means a ROOT THE COLLECTOR NEVER VISITED kept a pre-collection address; the instruction above is where it was used, not where it was stored. SCRIP_GC_TRAP=0 restores the old silent wrong answer.\n");
+    if (n > 0) { ssize_t w = write(2, bf, (size_t)n); (void)w; }
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *gcbk_grow(void *p, size_t n)
@@ -1061,6 +1145,7 @@ static long gc_collect_ex(void)
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
+    gc_quar_release(g_hp_cap_end);
     g_hp_win = (char *)0; g_hp_wend = (char *)0;
     n_t0 = w_tel ? gc_walk_ns() : 0;
     g_gc_nblk = 0;
@@ -1131,7 +1216,8 @@ static long gc_collect_ex(void)
         else h->fwd = 0;
         if (h->fwd) n_fw++;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } }
-    if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); } }
+    if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    gc_vac_record(dest); }
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
     for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; const char **loc = sl->hloc ? (const char **)((char *)(sl->hloc + 1) + sl->off) : (const char **)sl->off;
         rt_hblk_t *h = gc_blk_of(*loc); if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
@@ -1166,6 +1252,8 @@ static long gc_collect_ex(void)
     if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
+    gc_quar_arm(g_hp_top);
+    if (w_tel) fprintf(stderr, "[ZGC-TRAP] quarantine arena+%ld..arena+%ld (%ld pages PROT_NONE) ledger=%ld entries over=%ld arms=%ld\n", g_hp_qlo ? (long)(g_hp_qlo - g_hp_arena) : -1L, g_hp_qhi ? (long)(g_hp_qhi - g_hp_arena) : -1L, g_hp_qlo ? (long)((g_hp_qhi - g_hp_qlo) / (long)gc_pg()) : 0L, g_gc_vacn, g_gc_vacover, g_hp_qarm);
     g_gc_idx = (rt_hblk_t **)0;
     g_gc_in = 0;
     return before_b - after_b;
