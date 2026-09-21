@@ -81,6 +81,30 @@ def main():
                 refuse.append("INSTRUMENTED/callback: RT_GC_CALLBACK is undefined in the tree -- "
                               "0 of %d is unmeasurable, and a no-op macro would read 100%%" % (d or 0))
                 continue
+            if nm.startswith("C->BB"):
+                rc3, live = sh("grep -rn 'rt_c2bb_hit' src/runtime --include=*.c | "
+                               "grep -v 'void rt_c2bb_hit' | sed 's|src/runtime/||; s|:.*||' | sort -u | tr '\\n' ' '")
+                nhook = 0
+                rc4, cnt = sh("grep -rn 'rt_c2bb_hit' src/runtime --include=*.c | grep -vc 'void rt_c2bb_hit' || true")
+                try: nhook = int(cnt.strip() or 0)
+                except ValueError: nhook = 0
+                print("      %-46s %s" % (nm, "REFUSE(2) -- NUMERATOR AND DENOMINATOR ARE DIFFERENT POPULATIONS"))
+                print("      %-46s %s" % ("", "The numerator counts occurrences of rt_c2bb_hit in THREE NAMED FILES"))
+                print("      %-46s %s" % ("", "(by_name_dispatch.c, core/core.c, runtime_eval.c) and reads %d." % n))
+                print("      %-46s %s" % ("", "The denominator %d is the INBOUND+OUTBOUND CALLBACK SITE count -- the same" % (d or 0)))
+                print("      %-46s %s" % ("", "%d the callback line above uses.  Those are not the same population, so" % (d or 0)))
+                print("      %-46s %s" % ("", "the fraction is not a coverage reading of anything."))
+                print("      %-46s %s" % ("", "\u26d4 AND %d HOOKS DO EXIST -- all in %s-- which the" % (nhook, live.strip() or "rt/rt.c ")))
+                print("      %-46s %s" % ("", "numerator EXCLUDES BY CONSTRUCTION.  So the zero is not 'nothing is"))
+                print("      %-46s %s" % ("", "hooked', it is 'the instrument does not look where the hooks are'."))
+                print("      %-46s %s" % ("", "This is CEO-1041 verbatim: I told Lon '0 of 49 enforced' as though 49"))
+                print("      %-46s %s" % ("", "were a live population, called that zero a blindfold, and then left the"))
+                print("      %-46s %s" % ("", "instrument unchanged for a day.  Recording a lesson is not fixing it."))
+                print("      %-46s %s" % ("", "IT REFUSES until the C->BB entry sites have their OWN denominator and the"))
+                print("      %-46s %s" % ("", "numerator counts hooks wherever they live (CEO-1071)."))
+                refuse.append("INSTRUMENTED/C->BB: numerator counts 3 files, denominator counts callback sites, "
+                              "and the %d existing hooks are excluded by construction -- not a coverage reading" % nhook)
+                continue
             bad = (n < d)
             print("      %-46s %5d / %-5d  %-7s %s" % (nm, n, d, pct(n, d), "" if not bad else "<- %d open" % (d - n)))
             if bad: fails.append("INSTRUMENTED/%s %d of %d" % (nm.split()[0], n, d))
