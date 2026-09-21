@@ -76,7 +76,7 @@ fi
 
 # (b) THE INVARIANT ITSELF, over every witness that collects.  A slot holding a pointer INTO A HEAP BLOCK at a
 # collection is the whole defect: the block is unreachable from any root walk, so it is swept under a live value.
-witn=0; coll=0; hits=0; named=""; slots=""
+witn=0; coll=0; hits=0; named=""; slots=""; unrep=0; swept=0; movd=0; stale_named=""
 for f in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.sc; do
   [ -f "$f" ] || continue
   witn=$((witn+1))
@@ -86,6 +86,11 @@ for f in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.sc; do
   h="$(printf '%s\n' "$err" | grep -c 'GC-WALK-RTCCB')"
   if [ "${h:-0}" -gt 0 ]; then
     hits=$((hits+h)); named="$named $(basename "$f"):$h"
+    u="$(printf '%s\n' "$err" | grep '^\[GC-RTCCB-STALE\] slot=' | grep -c 'unrepaired=1')"
+    w="$(printf '%s\n' "$err" | grep '^\[GC-RTCCB-STALE\] slot=' | grep -c 'swept=1')"
+    m="$(printf '%s\n' "$err" | grep '^\[GC-RTCCB-STALE\] slot=' | grep -c ' moved=1')"
+    unrep=$((unrep+u)); swept=$((swept+w)); movd=$((movd+m))
+    [ $((u+w)) -gt 0 ] && stale_named="$stale_named $(basename "$f"):unrepaired=$u,swept=$w,of=$h"
     slots="$slots $(printf '%s\n' "$err" | sed -n 's/.*GC-WALK-RTCCB. slot=\([0-9]*\).*/\1/p' | sort -un | tr '\n' ',')"
   fi
 done
@@ -160,15 +165,16 @@ else
   SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$PW" >/dev/null 2>"$bare"
   nap="$(grep -c '^\[GC-RTCCB\] plant:' "$eon")"; nab="$(grep -c '^\[GC-RTCCB\] plant:' "$bare")"
   s7on="$(grep -c '^\[GC-WALK-RTCCB\] slot=7 ' "$eon")"; s7off="$(grep -c '^\[GC-WALK-RTCCB\] slot=[78] ' "$eoff")"
-  stale="$(grep -c 'unrepaired=1' "$eon")"; swept="$(grep -c 'swept=1' "$eon")"
+  stale="$(grep '^\[GC-RTCCB\] plant:' "$eon" | grep -o 'unrepaired=[01] swept=[01]' | grep -c '^unrepaired=1')"; swept="$(grep '^\[GC-RTCCB\] plant:' "$eon" | grep -o 'unrepaired=[01] swept=[01]' | grep -c 'swept=1$')"
+  cens="$(grep '^\[GC-RTCCB-STALE\] slot=7 ' "$eon" | grep -c 'unrepaired=1')"
   if [ "${nap:-0}" = 0 ]; then
     rm -f "$pon" "$poff" "$eon" "$eoff" "$bare"
     refuse "PREMISE UNMET -- SCRIP_GC_PLANT_RTCCB=7 applied 0 times on $(basename "$PW") at arena ${SCRIP_HEAP_MB:-1} MB stress $STRESS, so this configuration cannot prove the detector fires. That is a statement about the run (no collection, or a declined plant), not a defect: a plant that cannot be made to apply here is a configuration fact and this gate refuses rather than reporting a finding (the coo's signed rule, 2026-09-21)"
   fi
-  if [ "${s7on:-0}" -ge 1 ] && [ "${s7off:-0}" = 0 ] && [ "${nab:-0}" -ge 1 ] && cmp -s "$poff" "$pon"; then
-    ck ok "(g) FAIL-ONCE HOLDS: with a heap pointer planted in slot 7 the detector NAMES it $s7on time(s) over $nap planted collection(s); with the plant off the same witness reads ZERO at slots 7 and 8; the plant announces itself $nab time(s) with no telemetry asked for; and stdout is BYTE-IDENTICAL either way, so the instrument has no footprint on the answer. ⭐ AND THE PLANT MEASURES THE HAZARD RATHER THAN ASSERTING IT: $stale of $nap collection(s) left the slot UNREPAIRED after forwarding the block it names (moved, and nothing rewrote the word, because no root walk visits this block), $swept left it pointing at swept ground"
+  if [ "${s7on:-0}" -ge 1 ] && [ "${s7off:-0}" = 0 ] && [ "${nab:-0}" -ge 1 ] && [ "${cens:-0}" = "${stale:-x}" ] && cmp -s "$poff" "$pon"; then
+    ck ok "(g) FAIL-ONCE HOLDS: with a heap pointer planted in slot 7 the detector NAMES it $s7on time(s) over $nap planted collection(s); with the plant off the same witness reads ZERO at slots 7 and 8; the plant announces itself $nab time(s) with no telemetry asked for; and stdout is BYTE-IDENTICAL either way, so the instrument has no footprint on the answer. ⭐ AND THE PLANT MEASURES THE HAZARD RATHER THAN ASSERTING IT: $stale of $nap collection(s) left the slot UNREPAIRED after forwarding the block it names (moved, and nothing rewrote the word, because no root walk visits this block), $swept left it pointing at swept ground. ⭐⭐ AND IT IS ARM (i)'s POSITIVE CONTROL, CHECKED BY AGREEMENT RATHER THAN ASSUMED: the staleness census -- a different reader, counting GC-RTCCB-STALE lines over every slot -- reports $cens unrepaired sightings at slot 7 against the plant's own $stale, and the two agree to the unit. Two readers of one run that disagree would mean one of them is wrong, and this arm would say so"
   else
-    ck no "(g) ⛔ THE DETECTOR IS NOT PROVEN TO FIRE: planted slot-7 sightings=$s7on (want >=1), unplanted slot-7/8 sightings=$s7off (want 0), bare applied banners=$nab (want >=1), stdout identical=$(cmp -s "$poff" "$pon" && echo yes || echo NO). A zero from arm (b) is only a measurement while this arm holds; if the plant applied but the detector said nothing, the reporter is blind and every green reading of this invariant since it landed is a silence"
+    ck no "(g) ⛔ THE DETECTOR IS NOT PROVEN TO FIRE: planted slot-7 sightings=$s7on (want >=1), unplanted slot-7/8 sightings=$s7off (want 0), bare applied banners=$nab (want >=1), staleness-census sightings at slot 7=$cens against the plant's own $stale (want EQUAL -- two readers of one run, and a disagreement means one of them is wrong), stdout identical=$(cmp -s "$poff" "$pon" && echo yes || echo NO). A zero from arm (b) is only a measurement while this arm holds; if the plant applied but the detector said nothing, the reporter is blind and every green reading of this invariant since it landed is a silence"
   fi
   rm -f "$pon" "$poff" "$eon" "$eoff" "$bare"
 fi
@@ -187,6 +193,31 @@ else
 fi
 rm -f "$dec"
 
-echo "population: $checks arm(s) graded, $fails FAIL; $witn witness(es), $coll collected, $hits rtccb heap reference(s)"
+# (i) THE SHARPER HALF, AND IT IS THE ARM THAT MOVES THIS CLASS OFF "NECESSARY BUT NOT SUFFICIENT".  ⛔ ARM (b)
+# COUNTS A POINTER SITTING IN AN UNVISITED SLOT, WHICH IS ONLY THE NECESSARY CONDITION -- the same block may be
+# rooted elsewhere, and that is how eight witnesses hold 806 of them and still answer their oracles (CTO-101, and
+# the cfo twice from the other side at CFO-114 and CFO-136).  THIS ARM ASKS THE SUFFICIENT QUESTION INSTEAD: after
+# the collection, is the word still RIGHT?  Two ways it is not.  UNREPAIRED -- the collector FORWARDED the block
+# the word names and nothing rewrote the word, because nothing visits this block, so the emitted reload after the
+# poll (x86_asm.h 395-398) puts a pre-move address back in the register.  SWEPT -- the block was not forwarded at
+# all, so the word names ground the arena will re-issue.  ⭐ MEASURED ON THE STANDING POPULATION, not a plant, at
+# arena 1 MB stress 3: of 806 detections, 161 name a block THE COLLECTOR MOVED AND ALL 161 ARE LEFT UNREPAIRED --
+# every one, because nothing visits this block -- plus 1 or 2 SWEPT (the swept member varies run to run, the
+# unrepaired 161 did not across two passes).  The other 644, all in hb_dvec_sort_match.sno and six one-hit
+# witnesses, are HARMLESS BY LUCK AND NOT BY MECHANISM: the block they name did not move at that collection and
+# nothing in the engine promises it will not at the next one.  ⭐ AND THAT SPLIT IS THIS ARM'S OWN PROOF THAT IT
+# DISCRIMINATES RATHER THAN PAINTING THE POPULATION RED: 644 detections read moved=0 unrepaired=0 in the same run
+# that 163 read wrong.  Its positive control is arm (g)'s plant, which is unrepaired at slot 7 by construction.
+# ⛔ WHAT IT STILL DOES NOT ESTABLISH, SAID HERE SO NOBODY READS IT AS A LOST VALUE COUNT: a wrong word is only
+# spent when the reload's register is USED as a pointer afterwards.  Slot 5 is r8, which rtcc.h declares as the
+# ANCHOR, and an anchor read as an integer does not care that its bits name vacated ground.  The step after this
+# one is to ask, per member, whether the reloaded register is read as a pointer before it is next written.
+if [ $((unrep + swept)) = 0 ]; then
+  ck ok "(i) THE SHARPER HALF HOLDS: over $hits detection(s), $movd named a block the collector moved and NONE was left wrong by the collection -- 0 unrepaired, 0 swept"
+else
+  ck no "(i) ⛔ $((unrep + swept)) CALLER-SAVED WORD(S) WERE WRONG AFTER A COLLECTION -- $unrep UNREPAIRED (the collector forwarded the block and nothing rewrote the word) and $swept SWEPT (the block was never forwarded, so the word names ground the arena will re-issue), out of $hits detection(s) of which $movd named a moved block, in:$stale_named. ⭐ THE REMAINING $((hits - unrep - swept)) ARE HARMLESS BY LUCK AND NOT BY MECHANISM: the block they name did not move at this collection, and nothing in the engine promises that. ⛔ THE CURE IS NOT TO VISIT rtccb -- 32 untagged words cannot be visited precisely and a sniff is the conservative scan CEO-812 forbids: a value live across a safe point goes in a frame slot covered by that frame's static map, or is handed to the shield as a TAGGED DESCR cell in arr[] (CEO-972). SCRIP_GC_MAPS=1 prints one GC-RTCCB-STALE line per detection naming the slot, the word, the block's type and size, and which of the two ways it went wrong"
+fi
+
+echo "population: $checks arm(s) graded, $fails FAIL; $witn witness(es), $coll collected, $hits rtccb heap reference(s), $movd naming a moved block, $unrep unrepaired, $swept swept"
 [ "$fails" = 0 ] && { echo "GATE PASS [gc_the_caller_saved_spill_block_never_holds_a_heap_reference]: $checks of $checks arms hold"; exit 0; }
 echo "⛔ GATE RED [gc_the_caller_saved_spill_block_never_holds_a_heap_reference]: $fails of $checks arms FAIL"; exit 1
