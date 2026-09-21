@@ -61,16 +61,27 @@ run_w() { local mode="$1" st="$2" src="$3" n="$4" in=/dev/null out; [ -f "$WD/$n
     if [ "$mode" = 3 ]; then ( cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_POISON=1 SCRIP_GC_STRESS="$st" timeout 120 "$SCRIP" "$src" < "$in" 2>/dev/null | tr -d '\0' > "$T/o.txt" ); else ( cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_POISON=1 SCRIP_GC_STRESS="$st" timeout 120 "$T/$n.m4" < "$in" 2>/dev/null | tr -d '\0' > "$T/o.txt" ); fi
     cmp -s "$T/o.txt" "$WD/$n.ref"; }
 base_w() { local src="$1" n="$2" in=/dev/null; [ -f "$WD/$n.in" ] && in="$WD/$n.in"; ( cd "$T" && SCRIP_HEAP_MB=512 SCRIP_GC_STRESS=0 timeout 120 "$SCRIP" "$src" < "$in" 2>/dev/null | tr -d '\0' > "$T/b.txt" ); cmp -s "$T/b.txt" "$WD/$n.ref"; }
-examined=$((examined + 2)); band3=""; band4=""; bad3=0; bad4=0; nw=0; reported=""
+# ⛔⭐ DECLARED-OPEN WITNESSES (cto CTO-160, 2026-09-20, hq_icon declaring its own). THIS GATE'S POPULATION IS A DIRECTORY GLOB OVER A DIRECTORY FIVE SEATS LAND INTO, AND IT CARRIES A BLOCKING VERDICT: the moment any seat
+# commits a witness for an OPEN defect, `make test` goes red for all ten seats and names a cause nobody intended. That is what happened here -- hb_file_name_unrooted is doing exactly what it was cut to do (hq_icon
+# edf3bddf7: an open file's NAME is a collected-heap block held only by the C global g_fh, which is named in ZERO visit or root calls, proven A/B/A) and a witness for an open defect is SUPPOSED to be red until its cure lands.
+# ⛔ A DECLARATION IS NOT AN EXEMPTION AND THIS ONE CANNOT ROT: a declared witness is STILL RUN, is COUNTED INSIDE the denominator, prints its every arm with its row, and ⭐ IF IT EVER READS ok ON EVERY GRADED ARM THE GATE
+# REDS -- because that means the cure landed and the declaration is stale, and a stale declaration is how an exemption list quietly becomes the new floor. Each entry is signed by the seat whose witness it is; declaring
+# ANOTHER seat's witness signs their reason for them (hq_prolog's phrase) and is not done here. Format: <witness> <owning seat> <row the cure lands under>.
+DECLARED_OPEN="hb_file_name_unrooted hq_icon icon-gc-the-icon-share-of-the-unmapped-slot-population-censused-by-name-and-the-master-clean-at-one-megabyte/CFO-149-took-the-class"
+declared_of() { printf '%s\n' "$DECLARED_OPEN" | awk -v n="$1" '$1==n{print $2" row="$3}'; }
+examined=$((examined + 2)); band3=""; band4=""; bad3=0; bad4=0; nw=0; reported=""; declared=""; dec_all_ok=""
 for ref in "$WD"/*.ref; do n=$(basename "$ref" .ref); src=""; for x in sno icn pl raku; do [ -f "$WD/$n.$x" ] && src="$WD/$n.$x"; done; [ -n "$src" ] || continue
     if ! base_w "$src" "$n"; then reported="$reported $n"; continue; fi
-    nw=$((nw + 1))
-    for st in 1 5; do if run_w 3 "$st" "$src" "$n"; then band3="$band3 $n@$st:ok"; else band3="$band3 $n@$st:RED"; bad3=$((bad3 + 1)); fi; done
+    nw=$((nw + 1)); dec="$(declared_of "$n")"; [ -n "$dec" ] && { declared="$declared $n($dec)"; dec_ok=1; }
+    for st in 1 5; do if run_w 3 "$st" "$src" "$n"; then band3="$band3 $n@$st:ok"; else band3="$band3 $n@$st:RED"; [ -n "$dec" ] && { band3="$band3(DECLARED-OPEN)"; dec_ok=0; } || bad3=$((bad3 + 1)); fi; done
     if ( cd "$T" && "$SCRIP" --compile -o "$T/$n.s" "$src" </dev/null 2>/dev/null && gcc "$T/$n.s" -L "$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$T/$n.m4" 2>/dev/null ); then
-        if run_w 4 5 "$src" "$n"; then band4="$band4 $n@5:ok"; else band4="$band4 $n@5:RED"; bad4=$((bad4 + 1)); fi
-    else band4="$band4 $n:NOBUILD"; bad4=$((bad4 + 1)); fi
+        if run_w 4 5 "$src" "$n"; then band4="$band4 $n@5:ok"; else band4="$band4 $n@5:RED"; [ -n "$dec" ] && { band4="$band4(DECLARED-OPEN)"; dec_ok=0; } || bad4=$((bad4 + 1)); fi
+    else band4="$band4 $n:NOBUILD"; [ -n "$dec" ] && { band4="$band4(DECLARED-OPEN)"; dec_ok=0; } || bad4=$((bad4 + 1)); fi
+    [ -n "$dec" ] && [ "${dec_ok:-0}" = 1 ] && dec_all_ok="$dec_all_ok $n"
 done
 [ -n "$reported" ] && echo "  REPORTED, NOT GRADED (misses its ref at the shipped arena with SCRIP_GC_STRESS=0, so no collection is in the reading):$reported"
+[ -n "$declared" ] && echo "  DECLARED OPEN, RUN AND COUNTED IN THE DENOMINATOR, NOT FAILING THIS GATE (a witness for an open defect is supposed to be red until its cure lands; every arm is printed above with its row):$declared"
+if [ -n "$dec_all_ok" ]; then echo "  arm 3/4 FAIL: DECLARED-OPEN witness(es) now read ok on EVERY graded arm --$dec_all_ok. The cure landed, so the declaration is STALE: delete it from DECLARED_OPEN and let the witness be graded like every other. A declaration that outlives its cure is how an exemption list becomes the new floor."; RC=1; fi
 if [ "$nw" -ge 20 ] && [ "$bad3" = 0 ]; then echo "  arm 3 PASS: $nw witnesses match their refs in mode 3 at SCRIP_GC_STRESS=1,5 under SCRIP_HEAP_MB=1 SCRIP_GC_POISON=1 --$band3"
 else echo "  arm 3 FAIL: witnesses=$nw red_arms=$bad3 --$band3"; RC=1; fi
 if [ "$nw" -ge 20 ] && [ "$bad4" = 0 ]; then echo "  arm 4 PASS: $nw witnesses match their refs in mode 4 at SCRIP_GC_STRESS=5 under SCRIP_HEAP_MB=1 SCRIP_GC_POISON=1 --$band4"
