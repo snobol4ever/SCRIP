@@ -27,3 +27,17 @@ arena1_nopoison	SCRIP_HEAP_MB=1 SCRIP_GC_POISON=0	vacated ground is NOT overwrit
 arena1_plant64k	SCRIP_HEAP_MB=1 SCRIP_GC_PLANT_SHIFT=65536	displaces the whole arena by 64 KB per collection so relocation is real rather than incidental. 65536 and not 1048576: the cto measured the megabyte shift applying ZERO times with rc=0 and byte-identical stdout (cured at SCRIP 1b317bea3, a declined plant now names itself on stderr).
 arena1_stress3	SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3	collects at every third opportunity rather than on demand: 2598 collections where arena1 takes 1. Not "more of the same axis" -- it reaches collection points that heap pressure alone never reaches.
 shipped		the configuration we actually ship, no knobs at all. Collects only where the program allocates past the shipped arena, so it is UNDISTINGUISHED on small programs by measurement and a genuine sixth axis on large ones.
+#
+# ⛔ KNOBS DELIBERATELY NOT DECLARED HERE, AND WHY -- a knob left out silently looks like an oversight, so the
+# omission is reasoned. SCRIP_GC_BIRTH_LEDGER (the cfo's rung 2, SCRIP 25e134aa3) records block births and is
+# observable ONLY when a stale read faults; declared as a configuration it would produce an identical
+# collector-event fingerprint on every program that does not fault, so it would be UNDISTINGUISHED on the
+# whole population and add cost for no axis. It is a MODIFIER in the sense this file uses the word, and the
+# cfo classified it that way themselves after this file's measurement reached them. SCRIP_GC_TRAP and
+# SCRIP_GC_POISON's trap half are the same shape: they change what happens AT a fault, not what the collector
+# does, and this instrument's population exits rc=0. ⭐ AND THE LIMIT THAT FOLLOWS IS WORTH STATING: THIS
+# HARNESS CANNOT GRADE A FAULT-ONLY KNOB AT ALL. It compares the bytes a program prints, so a knob whose whole
+# effect is the quality of a diagnostic is invisible to it and needs a planted fault, which is the cfo's gate
+# and not this one. The differential finds a SILENT WRONG ANSWER; the birth ledger NAMES THE BLOCK once
+# something faults. Neither reaches the other's class, and hb_file_name_unrooted is the proof: it exits 0
+# under every configuration and merely prints different bytes, so no trap fires and no ledger engages.
