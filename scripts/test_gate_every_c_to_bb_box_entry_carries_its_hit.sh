@@ -93,9 +93,26 @@ if [ -n "$dfn" ]; then
 fi
 
 printf 'C->BB entry sites examined: %d   unhooked: %d\n' "$sites" "$fails"
-if [ "$sites" -lt 10 ]; then
-  echo "⛔ GATE REFUSES: only $sites entry sites found; the census cannot have shrunk below the 13 that existed at CTO-88 without an edit to ENTRY_PRIMS. A census that finds nothing grades everything green."
+# ⛔⭐ THE FLOOR WAS A COUNT OF THE THING THE WORK EXISTS TO REMOVE, AND IT REFUSED THE WORK.  Until 2026-09-21 this read
+# `if [ "$sites" -lt 10 ]` against "the 13 that existed at CTO-88".  The C->BB eradication is DESIGNED to drive that number to
+# zero -- the ceo took it 22->21 at bc6650ba3 and the cfo 21->19 and 19->18 the same evening -- so the guard fired on a correct
+# landing and blocked `make preflight` for every seat.  ⭐ THE GUARD'S REASON IS RIGHT AND ONLY ITS KEY WAS WRONG: "a census
+# that finds nothing grades everything green" is exactly the failure to prevent.  So the blindness check no longer COUNTS call
+# sites, which are supposed to vanish; it asserts every name in ENTRY_PRIMS is still DEFINED somewhere in the tree, as an asm
+# `.globl` or as a C declaration.  If the regex goes stale or a primitive is renamed, this REFUSES; if the call sites reach
+# zero, that is the eradication finishing and the gate says so.  (Third guard in one day keyed on a population designed to
+# expire -- see the auditor gate's arm d3 and DECLARED_OPEN in test_gate_gc_collector_visits_only_mapped_slots.sh.)
+blind=""
+# ⛔ THE LIST COMES FROM $ENTRY_PRIMS ITSELF -- a self-test that re-types its own input drifts from it, which is the rot this arm exists to stop.
+for prim in $(printf %s "$ENTRY_PRIMS" | tr "|" " "); do
+  grep -rqE "\.globl $prim\\\\n|[A-Za-z_][A-Za-z_0-9 ]*\\**$prim[[:space:]]*\\(" $SCAN_DIRS --include=*.c 2>/dev/null || blind="$blind $prim"
+done
+if [ -n "$blind" ]; then
+  echo "⛔ GATE REFUSES: ENTRY_PRIMS names primitive(s) the tree no longer defines --$blind. The regex is stale, so this census is BLIND and its zero would grade everything green."
   exit 2
+fi
+if [ "$sites" = 0 ]; then
+  echo "⭐ the C->BB entry-site census is EMPTY and the blindness check passed: every ENTRY_PRIM is still defined and nothing in C calls one. That is the eradication FINISHED, not a broken census."
 fi
 if [ "$fails" -gt 0 ]; then
   echo "⛔ GATE FAILED: $fails C->BB box entry site(s) carry no rt_c2bb_hit. An unhooked entry is INVISIBLE to every SCRIP_C2BB_TRACE sweep and reads as zero for the same reason a dead site does (CTO-88)."

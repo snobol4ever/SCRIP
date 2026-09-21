@@ -470,15 +470,32 @@ int rt_goto_transfer(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_goto_transfer_checked(const char *name)
-{
-    int undef = 0;
-    void *fn = rt_goto_resolve_x(name, &undef);
-    extern void rt_c2bb_hit(const char *site, const char *name);
-    if (undef) return 0;
-    if (fn) { rt_c2bb_hit("chain.goto.x", name); rt_chain_enter((eval_chain_fn)fn); }
-    return 1;
-}
+void *rt_goto_resolve_ck(const char *name, int *undef) { return rt_goto_resolve_x(name, undef); }
+__asm__(
+".text\n"
+".globl rt_goto_transfer_checked\n"
+"rt_goto_transfer_checked:\n"
+"  pushq %rbp\n"
+"  movq %rsp, %rbp\n"
+"  subq $16, %rsp\n"
+"  movl $0, -4(%rbp)\n"
+"  leaq -4(%rbp), %rsi\n"
+"  call rt_goto_resolve_ck\n"
+"  cmpl $0, -4(%rbp)\n"
+"  jne 2f\n"
+"  testq %rax, %rax\n"
+"  jz 1f\n"
+"  movq %rax, %rdi\n"
+"  call rt_chain_enter\n"
+"1:\n"
+"  movl $1, %eax\n"
+"  leave\n"
+"  ret\n"
+"2:\n"
+"  xorl %eax, %eax\n"
+"  leave\n"
+"  ret\n"
+);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base);
 DESCR_t code(const char *src) { return code_at(src, 0); }
