@@ -39,7 +39,13 @@ ROOT="$PWD"
 CENSUS="$ROOT/scripts/util_gc_unmapped_store_census.py"
 SCRIP="$ROOT/scrip"
 WIT="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.sno"
-BASE_ON_GRID=3790
+# ⛔ THE RATCHET FLOOR, MOVED IN THE LANDING THAT EARNED IT (cto 2026-09-21, 4487 -> 5295).  The census
+# learned to read `mov rsp, qword ptr [rsp + 0]`, the restore half of x86_align_call_enter's window, whose
+# `and rsp, -16` was the SINGLE blamed instruction behind all 1710 undecidable call sites over the witness
+# set -- the mask poisons the depth and every call downstream of it in the graph read SPINE-DEPTH-UNKNOWN
+# forever because nothing ever un-poisoned.  808 more call sites graded, EVERY ONE ON-GRID, off_grid 0 on
+# both sides of the cure, zero sites lost and zero disagreements where both readings decide.
+BASE_ON_GRID=5295
 POP="${GRID_POP:-$(echo "$ROOT"/scripts/gc_witnesses/*.icn "$ROOT"/scripts/gc_witnesses/*.sno "$ROOT"/scripts/gc_witnesses/*.pl "$ROOT"/scripts/gc_witnesses/*.raku)}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
