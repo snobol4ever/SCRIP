@@ -294,14 +294,20 @@ static eval_chain_fn eval_build_chain(const char *s)
     return fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((noinline))
-static void eval_chain_enter_only(eval_chain_fn fn) {
-    extern void rt_c2bb_hit(const char *site, const char *name);
-    static int _rv = -1; if (_rv < 0) { const char * e = getenv("SCRIP_EVAL_RET"); _rv = (e && *e == '0') ? 0 : 1; }
-    if (_rv) { rt_c2bb_hit("chain.eval.v", "?"); rt_chain_enter_v(fn); return; }
-    rt_c2bb_hit("chain.eval", "?");
-    rt_chain_enter(fn);
-}
+int g_eval_ret_v = 1;
+__attribute__((constructor)) static void eval_ret_init(void) { const char *e = getenv("SCRIP_EVAL_RET"); g_eval_ret_v = (e && *e == '0') ? 0 : 1; }
+extern void eval_chain_enter_only(eval_chain_fn fn);
+__asm__(
+".text\n"
+".globl eval_chain_enter_only\n"
+"eval_chain_enter_only:\n"
+"  movq g_eval_ret_v@GOTPCREL(%rip), %rax\n"
+"  cmpl $0, (%rax)\n"
+"  je 1f\n"
+"  jmp rt_chain_enter_v\n"
+"1:\n"
+"  jmp rt_chain_enter\n"
+);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
