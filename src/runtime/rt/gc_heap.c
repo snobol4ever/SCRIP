@@ -1134,9 +1134,14 @@ static void gc_root_cas(void)
 static long gc_plant_shift_bytes(void)
 {
     static long v = -1;
+    static int said = 0;
     if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_SHIFT"); v = (e && *e) ? atol(e) : 0; if (v < 0) v = 0; v &= ~15L; if (v > (1L << 20)) v = 1L << 20; }
     if (!v) return 0;
-    return ((long)(g_hp_end - g_hp_top) > v) ? v : 0;
+    if ((long)(g_hp_end - g_hp_top) > v) return v;
+    if (!said) { said = 1;
+        fprintf(stderr, "[GC-SHIFT] plant DECLINED at this collection: SCRIP_GC_PLANT_SHIFT=%ld was asked for and the arena has only %ld bytes of headroom, so THIS collection displaced nothing. The decline is per-collection and this line is printed ONCE per process, so it does not by itself mean the plant never ran -- COUNT THE '[GC-SHIFT] plant:' LINES, and if there are NONE the plant never applied and every gate reading this run graded an UNPLANTED collection while passing. Measured by the cto 2026-09-21 on the cfo's flag, one pasrec run at SCRIP_HEAP_MB=1 and stress 3: a 4096-byte shift applies 495 times, 65536 applies 466, 262144 applies 373, and 1048576 applies ZERO with rc=0 and byte-identical stdout. A silent decline is indistinguishable from a plant that ran and proved the property, which is why it is no longer silent.\n",
+                v, (long)(g_hp_end - g_hp_top)); }
+    return 0;
 }
 static long gc_plant_shift_prefix(void)
 {
