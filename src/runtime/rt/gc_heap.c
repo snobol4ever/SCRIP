@@ -1473,4 +1473,22 @@ void rt_gc_poll(void)
 long rt_gc_polls_count(void) { return g_gc_polls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_gc_cb_open(void) { return rt_gc_runs_count(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi)
+{
+    long n = 0;
+    if (rt_gc_runs_count() == mark) return 0;
+    if (!g_hp_arena || !lo || !hi || (char *)hi <= (char *)lo) return 0;
+    { char **w = (char **)((((uintptr_t)lo) + 7u) & ~(uintptr_t)7u);
+      for (; (char *)(w + 1) <= (char *)hi; w++) { char *v = *w; if (v > g_hp_arena && v < g_hp_top) n++; } }
+    if (n) {
+        static int loud = -1; if (loud < 0) { const char *e = getenv("SCRIP_GC_CB_REPORT"); loud = (e && *e != '0') ? 1 : 0; }
+        if (loud) fprintf(stderr, "[ZGC-CB] %s:%d %ld raw arena word(s) live in an UNMAPPED C FRAME across a callback during which the collector ran %ld time(s). Lon 2026-09-21: a C function creates residue on the hardware stack; no compile-time frame map describes this frame, so these words were not updated and the collector could not have updated them without guessing (ARCH-GC section 7, section 9(ii) as reversed at CEO-1090).\n", file ? file : "?", line, n, rt_gc_runs_count() - mark);
+        { static int fatal = -1; if (fatal < 0) { const char *e = getenv("SCRIP_GC_CB_FATAL"); fatal = (e && *e != '0') ? 1 : 0; }
+          if (fatal) { fprintf(stderr, "[ZGC-CB] SCRIP_GC_CB_FATAL is set: aborting on the first Rule 4 violation.\n"); abort(); } }
+    }
+    return n;
+}
 long rt_gc_runs_count(void) { return g_gc_runs; }

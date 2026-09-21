@@ -54,9 +54,15 @@ def main():
     outb     = num(r"OUTBOUND call_out_sites=(\d+)", cen); out_w = num(r"OUTBOUND call_out_sites=\d+ wrapped_in_\w+=(\d+)", cen)
     cons     = num(r"CENSUS conservative total=(\d+)", cen)
     c2bb_all = inb + outb if (inb is not None and outb is not None) else None
-    rc2, hk  = sh("grep -rn 'rt_c2bb_hit' src/runtime --include=*.c | grep -v 'void rt_c2bb_hit' | "
-                  "grep -cE 'by_name_dispatch.c|core/core.c|runtime_eval.c' || true")
-    c2bb_hooked = int(hk.strip() or 0)
+    # ⛔⭐ THE C->BB COVERAGE LINE IS NO LONGER COMPUTED HERE (ceo CEO-1091, on Lon's 2026-09-21 order to fix the
+    # broken gauges).  It used to count rt_c2bb_hit occurrences in THREE NAMED FILES over the CALLBACK SITE count --
+    # two different populations, with the 11 real hooks in rt/rt.c excluded by construction, so the fraction read
+    # zero and meant nothing (CEO-1041/1071).  util_c2bb_coverage.py answers it against the denominator
+    # test_gate_no_c_to_bb.sh itself prints, per site, by the proximity rule, and it is proven to fail once.
+    rc2, cov = sh("python3 scripts/util_c2bb_coverage.py")
+    c2bb_cov_n = num(r"C2BB_COVERAGE hooked=(\d+)", cov)
+    c2bb_cov_d = num(r"C2BB_COVERAGE hooked=\d+ sites=(\d+)", cov)
+    c2bb_cov_refuse = ("REFUSE(2)" in cov) or (c2bb_cov_n is None) or (c2bb_cov_d is None)
     print("\n  1 INSTRUMENTED")
     if None in (polled, pol_ok, inb, outb, cons):
         refuse.append("INSTRUMENTED: the census did not print a line this reader needs"); print("      REFUSE(2) -- census line missing")
@@ -64,7 +70,7 @@ def main():
         marker_absent = "marker=RT_GC_CALLBACK defined_in_tree=NO" in cen
         rows = [("safe-point polls at allocating call returns", pol_ok, polled),
                 ("callback wraps (RT_GC_CALLBACK)",             inb_w + out_w, c2bb_all),
-                ("C->BB entry sites carrying rt_c2bb_hit",      c2bb_hooked, c2bb_all)]
+                ("C->BB transfer sites carrying rt_c2bb_hit",  c2bb_cov_n, c2bb_cov_d)]
         for nm, n, d in rows:
             if nm.startswith("callback wraps") and marker_absent:
                 print("      %-46s %s" % (nm, "REFUSE(2) -- THE WRAPPER DOES NOT EXIST"))
@@ -82,28 +88,19 @@ def main():
                               "0 of %d is unmeasurable, and a no-op macro would read 100%%" % (d or 0))
                 continue
             if nm.startswith("C->BB"):
-                rc3, live = sh("grep -rn 'rt_c2bb_hit' src/runtime --include=*.c | "
-                               "grep -v 'void rt_c2bb_hit' | sed 's|src/runtime/||; s|:.*||' | sort -u | tr '\\n' ' '")
-                nhook = 0
-                rc4, cnt = sh("grep -rn 'rt_c2bb_hit' src/runtime --include=*.c | grep -vc 'void rt_c2bb_hit' || true")
-                try: nhook = int(cnt.strip() or 0)
-                except ValueError: nhook = 0
-                print("      %-46s %s" % (nm, "REFUSE(2) -- NUMERATOR AND DENOMINATOR ARE DIFFERENT POPULATIONS"))
-                print("      %-46s %s" % ("", "The numerator counts occurrences of rt_c2bb_hit in THREE NAMED FILES"))
-                print("      %-46s %s" % ("", "(by_name_dispatch.c, core/core.c, runtime_eval.c) and reads %d." % n))
-                print("      %-46s %s" % ("", "The denominator %d is the INBOUND+OUTBOUND CALLBACK SITE count -- the same" % (d or 0)))
-                print("      %-46s %s" % ("", "%d the callback line above uses.  Those are not the same population, so" % (d or 0)))
-                print("      %-46s %s" % ("", "the fraction is not a coverage reading of anything."))
-                print("      %-46s %s" % ("", "\u26d4 AND %d HOOKS DO EXIST -- all in %s-- which the" % (nhook, live.strip() or "rt/rt.c ")))
-                print("      %-46s %s" % ("", "numerator EXCLUDES BY CONSTRUCTION.  So the zero is not 'nothing is"))
-                print("      %-46s %s" % ("", "hooked', it is 'the instrument does not look where the hooks are'."))
-                print("      %-46s %s" % ("", "This is CEO-1041 verbatim: I told Lon '0 of 49 enforced' as though 49"))
-                print("      %-46s %s" % ("", "were a live population, called that zero a blindfold, and then left the"))
-                print("      %-46s %s" % ("", "instrument unchanged for a day.  Recording a lesson is not fixing it."))
-                print("      %-46s %s" % ("", "IT REFUSES until the C->BB entry sites have their OWN denominator and the"))
-                print("      %-46s %s" % ("", "numerator counts hooks wherever they live (CEO-1071)."))
-                refuse.append("INSTRUMENTED/C->BB: numerator counts 3 files, denominator counts callback sites, "
-                              "and the %d existing hooks are excluded by construction -- not a coverage reading" % nhook)
+                if c2bb_cov_refuse:
+                    print("      %-46s %s" % (nm, "REFUSE(2) -- util_c2bb_coverage.py did not print its line"))
+                    refuse.append("INSTRUMENTED/C->BB: util_c2bb_coverage.py printed no C2BB_COVERAGE line, so it did not measure")
+                    continue
+                bad = (n < d)
+                print("      %-46s %5d / %-5d  %-7s %s" % (nm, n, d, pct(n, d), "" if not bad else "<- %d dark" % (d - n)))
+                for ln_ in cov.split("\n"):
+                    if ln_.startswith("  UNHOOKED"): print("      %-46s %s" % ("", ln_.strip()))
+                print("      %-46s %s" % ("", "denominator: the transfer sites test_gate_no_c_to_bb.sh itself names, not a"))
+                print("      %-46s %s" % ("", "second grep -- forking that definition is what CEO-1071 caught. HOOKED is a"))
+                print("      %-46s %s" % ("", "PROXIMITY test (a hit within 3 lines at or above the transfer): the earlier"))
+                print("      %-46s %s" % ("", "function-body test was proven NOT to fail once and was replaced."))
+                if bad: fails.append("INSTRUMENTED/C->BB %d of %d transfer sites hooked" % (n, d))
                 continue
             bad = (n < d)
             print("      %-46s %5d / %-5d  %-7s %s" % (nm, n, d, pct(n, d), "" if not bad else "<- %d open" % (d - n)))

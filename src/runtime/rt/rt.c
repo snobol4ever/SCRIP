@@ -1,4 +1,6 @@
+#define _GNU_SOURCE 1
 #include <errno.h>
+#include <dlfcn.h>
 #include "ct_arena.h"
 #include "rt.h"
 #include "rt_arena.h"
@@ -24,7 +26,11 @@
 #include <stdlib.h>
 extern const char *Σ;
 extern int Σlen;
-void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return; { FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\n", site, name ? name : "?"); fclose(f); } }
+void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return;
+    { const char *w1 = "?", *w2 = "?"; Dl_info di;
+      if (__builtin_frame_address(1) && __builtin_return_address(1) && dladdr(__builtin_return_address(1), &di) && di.dli_sname) w1 = di.dli_sname;
+      if (__builtin_frame_address(2) && __builtin_return_address(2) && dladdr(__builtin_return_address(2), &di) && di.dli_sname) w2 = di.dli_sname;
+      FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\t%s\t%s\n", site, name ? name : "?", w1, w2); fclose(f); } }
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \

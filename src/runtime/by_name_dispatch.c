@@ -1253,7 +1253,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (!IS_PROCVAL_BUILTIN_fn(callee) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
-        return rt_call_proc_descr(nm, n);
+        return RT_GC_CALLBACK(rt_call_proc_descr(nm, n));
     }
     if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); extern int64_t core_icn_to_int_d(DESCR_t); int64_t lo = core_icn_to_int_d(argv[0]), hi = core_icn_to_int_d(argv[1]), st = core_icn_to_int_d(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
@@ -8187,7 +8187,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
         if (!pn || !*pn) { *out = FAILDESCR; return 1; }
         extern int rt_proc_is_registered(const char *); extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t g_call_args[];
-        if (rt_proc_is_registered(pn)) { int na = nargs - 1; if (na > 64) na = 64; for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1]; *out = rt_call_proc_descr(pn, na); return 1; }
+        if (rt_proc_is_registered(pn)) { int na = nargs - 1; if (na > 64) na = 64; for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1]; *out = RT_GC_CALLBACK(rt_call_proc_descr(pn, na)); return 1; }
         { extern int rt_g_want_name; extern int rt_dat_field_of_any(const char *);
           extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
           if (rt_g_want_name && nargs >= 2 && args[1].v == DT_DATA && rt_dat_field_of_any(pn)) {
