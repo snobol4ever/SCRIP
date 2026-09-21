@@ -107,18 +107,32 @@ def main():
             if not sym:
                 rows.append((f, ln, shape, sym or '?', 'UNHOOKED', 'the asm block declares no .globl this reader can find')); continue
             callers, unhooked = [], []
-            for s in srcs:
-                SL = lines_of(s)
-                for k, t in enumerate(SL):
-                    if not re.search(r'\b%s\s*\(' % re.escape(sym), t): continue
-                    if '.globl' in t or t.lstrip().startswith('"'): continue
-                    t2 = re.sub(r'\b(?:extern\s+)?[A-Za-z_][A-Za-z0-9_ *]*\b%s\s*\([^;()]*\)\s*;' % re.escape(sym), ' ', t)
-                    if not re.search(r'\b%s\s*\(' % re.escape(sym), t2): continue
-                    h = enclosing_fn(SL, k + 1)
-                    if h is None: continue
-                    name = re.sub(r'\s*\(.*', '', SL[h]).split()[-1].lstrip('*')
-                    callers.append('%s:%d' % (name, k + 1))
-                    if hooked_at(SL, k + 1) is None: unhooked.append('%s:%d' % (name, k + 1))
+            syms = [sym]
+            for _hop in range(3):
+                more = []
+                for _sy in syms:
+                    for s in srcs:
+                        SL = lines_of(s)
+                        for k, t in enumerate(SL):
+                            if not re.search(r'jmp\s+' + re.escape(_sy) + r'\\n', t): continue
+                            up = asm_block_symbol(SL, k + 1)
+                            if up and up not in syms and up not in more: more.append(up)
+                if not more: break
+                syms += more
+            for _sy in syms:
+              for s in srcs:
+                  SL = lines_of(s)
+                  for k, t in enumerate(SL):
+                      if not re.search(r'\b%s\s*\(' % re.escape(_sy), t): continue
+                      if '.globl' in t or t.lstrip().startswith('"'): continue
+                      t2 = re.sub(r'\b(?:extern\s+)?[A-Za-z_][A-Za-z0-9_ *]*\b%s\s*\([^;()]*\)\s*;' % re.escape(_sy), ' ', t)
+                      if not re.search(r'\b%s\s*\(' % re.escape(_sy), t2): continue
+                      h = enclosing_fn(SL, k + 1)
+                      if h is None: continue
+                      name = re.sub(r'\s*\(.*', '', SL[h]).split()[-1].lstrip('*')
+                      if name in syms: continue
+                      callers.append('%s:%d' % (name, k + 1))
+                      if hooked_at(SL, k + 1) is None: unhooked.append('%s:%d' % (name, k + 1))
             if not callers:
                 rows.append((f, ln, shape, sym, 'UNHOOKED', 'no C caller found -- DARK, not vacuously covered'))
             elif unhooked:

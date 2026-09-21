@@ -1293,6 +1293,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
+        rt_c2bb_hit("gen_h.call_value", nm);
         return rt_proc_call_gen_h(nm, n, hslot);
     }
     if (n == 3 && !strcmp(nm, "...")) {
@@ -1452,6 +1453,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
         if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; }
         rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
     rt_pl_goal_stage(kids, ar, argv, n);
+    rt_c2bb_hit("gen_h.pl_goal", key);
     return rt_proc_call_gen_h(key, ar + n, hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1460,6 +1462,7 @@ DESCR_t rt_call_value_resume_h(void **hslot) {
     if (!hslot || !*hslot) return FAILDESCR;
     { ICN_OPGEN_t *g = (ICN_OPGEN_t *)*hslot;
       if (g->magic == ICN_OPGEN_MAGIC) { DESCR_t v = icn_opgen_pump(g); if (IS_FAIL_fn(v)) { ct_drop(g); *hslot = (void *)0; } return v; } }
+    rt_c2bb_hit("gen_h.resume_frame", "?");
     return rt_proc_resume_frame_h(hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

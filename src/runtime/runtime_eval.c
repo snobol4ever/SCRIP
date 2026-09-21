@@ -294,6 +294,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     return fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_c2bb_hit(const char *site, const char *name);
 int g_eval_ret_v = 1;
 __attribute__((constructor)) static void eval_ret_init(void) { const char *e = getenv("SCRIP_EVAL_RET"); g_eval_ret_v = (e && *e == '0') ? 0 : 1; }
 extern void eval_chain_enter_only(eval_chain_fn fn);
@@ -314,9 +315,10 @@ static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const 
 static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
-    if (!_ef) { eval_chain_enter_only(fn); return 1; }
+    if (!_ef) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
     int my = g_core_errjmp_n++; long esv = g_error; g_error = -1;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
+    rt_c2bb_hit("chain.eval.guarded", "?");
     eval_chain_enter_only(fn);
     g_core_errjmp_n = my; g_error = esv; return 1;
 }
@@ -568,6 +570,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             if (!fn) return FAILDESCR;
             DESCR_t saved = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, FAILDESCR);
+            rt_c2bb_hit("chain.eval.conve", "?");
             eval_chain_enter_only(fn);
             DESCR_t result = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, saved);
