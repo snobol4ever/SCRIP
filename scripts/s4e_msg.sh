@@ -767,13 +767,19 @@ s4e_lane_owner_of_language() {
       # default, for the reason the two tables above give: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE, and a default agrees with a line 2 that has drifted on four of them.
       # ⛔ MODE TENET (CEO-1010, 2026-09-20, Lon: 4 officers and 6 HQs): EVERY language goes to its own HQ and the three the ceo was holding -- icon, pascal, snocone -- are handed over. Rebus stays the cfo's keep-green at 43/43. The officers own NO language, which is CEO-802 unchanged: they supervise and take the rows an HQ fails at.
       # ⛔ A GC DEFECT IN AN HQ'S OWN LANGUAGE IS THAT HQ'S ROW AND OUTRANKS ITS COMPLETENESS WORK (CEO-1010 condition 1). This is not a preference: class 2 of the unmapped-slot population -- a graph with no frame layout has no map at all -- is PER-LANGUAGE by construction, and the cto assigned it to the HQs in writing before cutting. Without the rank, a live collector defect sits behind 1,455 roast entries.
-      icon)     printf 'hq_icon';;
-      prolog)   printf 'hq_prolog';;
-      snobol4)  printf 'hq_snobol4';;
-      pascal)   printf 'hq_pascal';;
-      snocone)  printf 'hq_snocone';;
+      # ⛔ MODE EXECUTIVE (CEO-1038, 2026-09-21, Lon in-chat: "We are currently running with only 4 officers, CEO, CTO, CFO,
+      # and COO. Just so you are clear."): the six language HQs are stood down and the REVIEWERS of CEO-802 become the
+      # owners -- the cto reviewed hq_prolog and hq_raku, the cfo reviewed the other four and already held rebus. This is
+      # the CURE owner; the BOARD RUNNER is the coo for all seven on the MODE LANES line, because the coo holds the measure
+      # and by CEO-723 holds no cure lane. Written out per language rather than collapsed to a default for the reason every
+      # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
+      icon)     printf 'cfo';;
+      prolog)   printf 'cto';;
+      snobol4)  printf 'cfo';;
+      pascal)   printf 'cfo';;
+      snocone)  printf 'cfo';;
       rebus)    printf 'cfo';;
-      raku)     printf 'hq_raku';;
+      raku)     printf 'cto';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
