@@ -422,6 +422,60 @@ fi
 # next real run, which is the class of defect this whole row is about.
 [ "$SHARD_N" -gt 0 ] || RUNSTATE="${S4E_BLOCKING_RUNSTATE:-/tmp/si_blockingset$(printf '%s' "$ROOT" | tr '/' '-').runstate}"
 
+# ⛔⭐⭐ BUILD CURRENCY IS CHECKED ONCE, HERE, BEFORE ANY ARM RUNS -- AND THE WHOLE RUN REFUSES.
+# (coo 2026-09-21, row instruments-a-blocking-set-run-is-killed-from-outside, from a COMPLETED run rather than
+# a reasoned argument.) THE MEASUREMENT THAT PUT THIS HERE: a full set on this box, 6 shards, tree c8ba4567b --
+# arms=381 green=110 red=11 REFUSED=260, wall 387s. SIXTY-EIGHT PERCENT OF THE LANDING GATE MEASURED NOTHING,
+# and every one of the 260 refused for the SAME reason, discovered 260 times: the binary predated the tree.
+# ⛔ AND THE CAUSE IS THE DOCUMENTED LANDING SEQUENCE ITSELF, WHICH IS WHY IT DESERVES A GUARD RATHER THAN A
+# REMINDER. Every root's CLAUDE.md says `git pull --rebase` before every push. A REBASE REPLAYS COMMITS, AND
+# REPLAYING A COMMIT REWRITES ITS FILES WITH A NEW MTIME -- identical bytes, newer timestamp. So the ordinary
+# order (build, test, commit, pull --rebase, push, run the gate) leaves Makefile and src/ newer than a binary
+# that is semantically perfectly current. The reflog of the run above shows it exactly: build 10:01:58, rebase
+# pick 10:03:28, set started 10:03:52. Nothing was stale. Every arm refused anyway.
+# ⛔ WHY THIS IS NOT MERELY WASTEFUL: rc=2 IS NOT RED, so the set runs to completion and prints "6 blocking
+# arm(s) failed, 256 refused" -- and a seat at the end of a long sitting reads the 6 and lands. A gate that is
+# two-thirds DARK reports in the same shape as a gate that is two-thirds green. That is CEO-582 (DARK is worse
+# than RED) arriving inside the landing gate itself.
+# ⭐ AND IT IS hq_raku's FINDING FROM THE OTHER DIRECTION, THE SECOND REPORT OF ONE SHAPE IN A DAY: their board
+# refused with THE BINARY MOVED UNDER THIS BOARD only at the END, after the run was already paid for, and they
+# said it plainly -- nothing told them at the START that they were holding a lock. A guard that fires after the
+# cost is a diagnosis, not a guard. 387 seconds of a 16-core box shared by ten seats, to learn what one stat(2)
+# answers before the first arm.
+if [ "$SHARD_N" -eq 0 ]; then
+    # ⛔⭐⭐ IT CALLS gate_require_fresh, THE AUTHORITY THE ARMS THEMSELVES USE, AND THAT IS NOT A STYLE CHOICE --
+    # I BUILT THIS GUARD ON THE OTHER ONE FIRST AND IT SILENTLY FAILED TO FIRE. There are TWO build-currency
+    # authorities in this tree and they scan DIFFERENT POPULATIONS: lib_build_currency.sh's s4e_bc_newest_src
+    # scans ONLY $root/src, while lib_gate.sh's gate_require_fresh scans `git ls-files -- src Makefile` -- src/
+    # PLUS THE MAKEFILE. The file they disagree about is the Makefile, which is exactly the file a rebase most
+    # often rewrites, so the two authorities differ precisely in the case that caused this row. A guard that
+    # disagrees with the arms it is guarding is worse than no guard: it green-lights a run that then refuses
+    # 260 times. COLLAPSE TO THE AUTHORITY, DO NOT SYNCHRONISE THE COPIES -- so this calls the arms' own
+    # function in a subshell and takes its verdict rather than re-deriving one.
+    # ⛔ AND THE DISAGREEMENT ITSELF IS A SEPARATE DEFECT, NOT CURED HERE: two authorities answering one
+    # question is a row of its own, and this comment is the evidence for it rather than a fix for it.
+    _bc=0
+    ( . "$HERE/lib_gate.sh" 2>/dev/null || exit 0
+      command -v gate_require_fresh >/dev/null 2>&1 || exit 0
+      GATE_NAME="blocking-set-prestart" gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" >/dev/null 2>&1
+    ) || _bc=$?
+    if [ "$_bc" -eq 2 ]; then
+        echo "" >&2
+        echo "⛔⛔ BLOCKING SET REFUSES TO START (rc=2) -- THE BINARY PREDATES THE TREE, SO MOST ARMS WOULD" >&2
+        echo "    REFUSE ONE AT A TIME AND THE RUN WOULD PRINT A VERDICT SHAPE OVER A MOSTLY DARK SET." >&2
+        echo "    Measured on this box 2026-09-21: 260 of 381 arms refused for exactly this, after 387s." >&2
+        echo "    ⭐ IF YOU JUST RAN git pull --rebase, NOTHING IS ACTUALLY STALE: the rebase replayed your" >&2
+        echo "       commit and rewrote its files with a new mtime. The bytes are fine; the timestamp is not." >&2
+        echo "    cure: cd $ROOT && make        (then re-run this set)" >&2
+        echo "    the deliberate-stale path is the established one, SCRIP_ALLOW_STALE=1, which is loud by" >&2
+        echo "       construction and blocks the leaderboard write; this guard honours it because it is the" >&2
+        echo "       arms' own switch and not a second one invented here." >&2
+        # the authority's own refusal, printed in full rather than summarised, so the reader sees the timestamps
+        ( . "$HERE/lib_gate.sh" 2>/dev/null; GATE_NAME="blocking-set-prestart" gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" ) 2>&1 | sed 's/^/    /' >&2
+        exit 2
+    fi
+fi
+
 if [ "$LIST_ONLY" -eq 1 ]; then
     for i in $(seq 0 $((N - 1))); do
         if [ -n "${FLAGS[$i]}" ]; then printf '%3d  REPORTED  %s\n' "$((i + 1))" "${CMDS[$i]}"

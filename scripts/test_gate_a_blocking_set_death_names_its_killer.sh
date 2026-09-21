@@ -39,6 +39,8 @@
 #   (k) SEVERAL VICTIMS IN ONE KILL all name the same sender and none accuses an unlogged rogue -- end-to-end
 #       corroboration that the lookup and the per-pid loop still agree; measured NOT to red on the old order
 #       at four victims, so a green here is not evidence the race is closed
+#   (l) A SET THAT CANNOT MEASURE REFUSES BEFORE IT SPENDS THE BOX -- the other half of this row. 260 of 381
+#       arms once refused one at a time, over 387s, for one reason discovered 260 times
 # FAIL_ONCE=1 unwires the traps -- (a), (b) and (c) must fail.
 # FAIL_ONCE=2 makes the ledger lookup name somebody for any pid -- (b) must fail, because slandering an unlogged
 # killer is worse than admitting the record is missing.
@@ -257,6 +259,34 @@ if [ "$k_named" = 4 ] && [ "$k_unlogged" = 0 ]; then
   ck ok "(k) one scoped kill over 4 concurrent victims: ALL 4 named seat=gatefixture with its pid, root and signal, and ZERO accused an unlogged killer"
 else
   ck no "(k) $k_named of 4 victims named their sender and $k_unlogged accused an UNLOGGED KILLER over a kill that was recorded -- the signal is outrunning its own ledger row"
+fi
+
+# ---- (l) A RUN THAT CANNOT MEASURE REFUSES BEFORE IT SPENDS THE BOX, NOT 260 TIMES AFTER
+# ⛔ THE MEASUREMENT THAT PUT THIS ARM HERE, and it is the other half of this row -- not "what ended it" but
+# "why no seat completes one". A full set on this box at 6 shards, tree c8ba4567b: arms=381 green=110 red=11
+# REFUSED=260, wall 387s. Every one of the 260 refused for the SAME reason, discovered 260 separate times: the
+# binary predated the tree. AND THE CAUSE WAS THE DOCUMENTED LANDING SEQUENCE -- git pull --rebase replays a
+# commit and rewrites its files with a NEW MTIME, identical bytes, so build/test/commit/rebase/push leaves the
+# Makefile newer than a binary that is semantically current. Reflog: build 10:01:58, rebase pick 10:03:28, set
+# started 10:03:52. Nothing was stale; every arm refused anyway.
+# ⛔ AND rc=2 IS NOT RED, so the set completed and printed "6 blocking arm(s) failed, 256 refused" -- a
+# two-thirds DARK gate reporting in the same shape as a two-thirds green one. CEO-582 inside the landing gate.
+# ⭐ SCRIP_STALE_PROBE_SRC IS THE LIBRARY'S OWN SANCTIONED SCRATCH PROBE (lib_gate.sh): it names one extra
+# candidate for "newest source" so a proof like this runs against a temp file instead of touching a tracked
+# src/ file -- a proof that edits the tree it grades is how a green gate and a dirty checkout coexist. It can
+# only make the verdict STRICTER, so it cannot smuggle a stale binary past anything.
+printf 'bash -c "exit 0"\n' > "$W/l.arms"
+touch "$W/l.probe"
+l_t0=$(date +%s)
+SCRIP_STALE_PROBE_SRC="$W/l.probe" bash "$D0" --arms-from "$W/l.arms" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/l.out" 2>&1
+l_rc=$?; l_el=$(( $(date +%s) - l_t0 ))
+bash "$D0" --arms-from "$W/l.arms" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/l2.out" 2>&1
+l2_rc=$?
+if [ "$l_rc" = 2 ] && grep -q 'REFUSES TO START' "$W/l.out" && ! grep -q '^blocking set: arms=' "$W/l.out" \
+   && [ "$l2_rc" = 0 ] && grep -q '^blocking set: arms=1' "$W/l2.out"; then
+  ck ok "(l) a set whose binary predates the tree REFUSES rc=2 BEFORE running any arm (${l_el}s, and it ran none), while the same set on a current binary runs -- 260 of 381 arms once refused one at a time over 387s for this one reason"
+else
+  ck no "(l) the pre-start refusal did not hold: stale rc=$l_rc (want 2, arms run=$(grep -c '^blocking set: arms=' "$W/l.out")), current rc=$l2_rc (want 0)"
 fi
 
 echo "population: $checks arm(s) graded, $fails FAIL; fixture 60 arms x 4 runs plus one 3-shard fan-out; ledger $(wc -l < "$W/kills.tsv" 2>/dev/null || echo 0) line(s); load $(cut -d' ' -f1 /proc/loadavg)"
