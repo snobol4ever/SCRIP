@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-int rt_goto_transfer(const char *name);
 void *rt_goto_resolve(const char *name);
 int rt_sno_goto_special_is(const char *enc);
 extern int g_rt_fragment_emit;
@@ -43,31 +42,17 @@ std::string bb_goto_deferred() {
                    (std::string("LBL__") + _.op_sval).c_str())
              + x86_gamma();
     } }
-    { static int _gt = -1; if (_gt < 0)
-        { const char * e = getenv("SCRIP_GOTO_TAIL"); _gt = (e && *e == '0') ? 0 : 1; }
-    if (_gt) {
-        return x86("comment", "IR_GOTO_DEFERRED (TAIL-TRANSFER: resolve then jmp at the SITE's depth -- arm 1's shape with a runtime-resolved target)")
-             + x86_alpha()
-             + x86_align_enter()
-             + x86_ro_load_q("rdi", 0)
-             + x86("call", "rt_goto_resolve", (uint64_t)(uintptr_t)(void *)rt_goto_resolve)
-             + x86_align_leave()
-             + x86("test", "rax", "rax")
-             + x86_jcc_id("jz", 1)
-             + IF(_.op_zgpop > 0, x86("add", "rsp", (long)_.op_zgpop))
-             + bb_goto_deferred_frame_release()
-             + x86("jmp", "rax")
-             + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "")
-             + x86_deflabel_id(1)
-             + x86_gamma();
-    } }
-    return x86("comment", "IR_GOTO_DEFERRED")
+    return x86("comment", "IR_GOTO_DEFERRED (TAIL-TRANSFER, now the ONLY arm: resolve in C, then jmp FROM THE BOX at the SITE's depth). The C->BB->C->BB arm below this one is DELETED (Lon 2026-09-21: eradicate the C function violations; CEO-1090 makes it GC work because the C frame leaves residue on the hardware stack no frame map describes). It called rt_goto_transfer, which ENTERED THE TARGET BOX FROM C through rt_chain_enter and let the box return back into that C frame -- the one place in the cto half where EMITTED CODE called a C function that then entered a box. rt_goto_resolve only COMPUTES the target and returns it; the jmp is the box's own. The deleted arm was reachable only through SCRIP_GOTO_TAIL=0, a knob no test, gate, script or recipe in any of the three repos ever set -- measured, not assumed -- so this shape has been the default on every board.")
          + x86_alpha()
          + x86_align_enter()
          + x86_ro_load_q("rdi", 0)
-         + x86("call", "rt_goto_transfer", (uint64_t)(uintptr_t)(void *)rt_goto_transfer)
+         + x86("call", "rt_goto_resolve", (uint64_t)(uintptr_t)(void *)rt_goto_resolve)
          + x86_align_leave()
-         + x86_jmp_id(1)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", 1)
+         + IF(_.op_zgpop > 0, x86("add", "rsp", (long)_.op_zgpop))
+         + bb_goto_deferred_frame_release()
+         + x86("jmp", "rax")
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
          + x86_gamma();
