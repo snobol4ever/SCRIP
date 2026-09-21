@@ -5,27 +5,49 @@ GOAL-CEO CEO-331; the RULE is /home/resources/progress/README.md, CEO-319: every
 per-program rows in the same sitting it rewrites its SCORE.md cell -- a run that leaves the table untouched is a defect
 of that run).
 
-THE TABLE: /home/resources/progress/results.tsv, append-only, one row per (program, mode, run):
-    ts_utc  scrip  corpus  measurer  class  suite  lang  program  mode  outcome  secs  note
+THE TABLE: /home/resources/progress/results.tsv, append-only, one row per (program, mode, run, CONFIGURATION):
+    ts_utc  scrip  corpus  measurer  class  suite  lang  program  mode  outcome  secs  note  fingerprint  config
 ts_utc is the RUN's own wall clock (UTC, second precision, no zone suffix -- the shape the replay rows already carry);
 scrip/corpus are the short hashes of the trees graded; measurer is the seat identity derived from the root path by the
 ONE map (util_score_row.derive_measurer -- never a fourth copy of the map); class is master | package | benchmark;
 suite is the SUITES.tsv key for packages, <lang>-master for masters, <lang>-bench for benchmarks; outcome is one of
 OUTCOMES, never a count; secs is the program's own seconds when the runner knows them, else 0; note is free text
-(xfail marker, benchmark rates) and may be empty.
+(xfail marker, benchmark rates) and may be empty; fingerprint is the binary identity at the board's start.
+⛔⭐ config is WHAT THE RUN EXERCISED -- `arena=1,stress=3`, or `shipped`, or `undeclared` when nobody said.
+It is part of the ROW'S IDENTITY, not a qualifier: without it, (suite, program, mode) collapses every
+configuration of one program into one cell and every reader resolves the collision BY ARRIVAL ORDER. Measured
+on the live table 2026-09-21 before this column existed: 2934 duplicate (tree, corpus, suite, program, mode)
+keys in one day, and 139 keys since 09-20 where ONE tree carries CONTRADICTORY outcomes -- raku-master
+token_say_4 m3 reading both PASS and FAIL at the clean tree 5418432bb, impossible under a byte-for-byte oracle
+diff unless something unrecorded changed. ⛔ THE WRITER GUESSES NOTHING: it refuses rc=2 to record a row that
+declares no configuration while a GC axis is set in its own environment, and it never infers `shipped`.
 
 THE CONTROL ARMS: S4E_PROGRESS_DB=<path> redirects the table (gates use a scratch file; the live table is never
 touched by a gate); S4E_PROGRESS_OFF=1 records nothing and SAYS SO on stderr. There is no silent path: an unwritable
 table is a loud refusal (ProgressUnwritable -> rc=2 from the CLI), never a swallowed exception.
 
-LIBRARY:  from util_progress_append import append_rows; append_rows([{class,suite,lang,program,mode,outcome[,secs][,note]}, ...])
-CLI:      util_progress_append.py append --class C --suite S --lang L --program P --mode M --outcome O [--secs N] [--note T]
-          util_progress_append.py rows-tsv FILE            # bulk: class suite lang program mode outcome [secs [note]] per line
+LIBRARY:  from util_progress_append import append_rows; append_rows([{class,suite,lang,program,mode,outcome[,secs][,note][,config]}, ...])
+CLI:      util_progress_append.py append --class C --suite S --lang L --program P --mode M --outcome O [--secs N] [--note T] [--config 'arena=1,stress=3']
+          util_progress_append.py rows-tsv FILE            # bulk: class suite lang program mode outcome [secs [note [config]]] per line
           util_progress_append.py results-tsv --suite S --lang L FILE   # scorecard_snobol4.sh shape: suite program m3 m4 t3 t4 note
           util_progress_append.py triangulation --lang L FILE           # bench_triangulate_* shape: kernel engine a1 a2 ratio verdict ...
 rc 0 = rows written (count printed) or S4E_PROGRESS_OFF · rc 2 = refused (unwritable table, malformed row, unreadable input)."""
 import os, sys, csv, io, time, fcntl, subprocess, re, collections
-COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "program", "mode", "outcome", "secs", "note", "fingerprint"]
+COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "program", "mode", "outcome", "secs", "note", "fingerprint", "config"]
+# ⛔⭐ THE CONFIGURATION IS A COLUMN, NOT A TOKEN IN THE NOTE, AND THE COMMENT IN context() THAT ARGUED THE OTHER
+# WAY IS RETRACTED IN PLACE BELOW (coo 2026-09-21, ceo rank 0 at CEO-1047/CEO-1050). That comment refused a
+# fourteenth column because "readers all over the fleet split on a fixed column count" -- a reasonable fear that
+# I MEASURED instead of inheriting, over all 32 fleet readers of this table: every positional reader reads `$10`
+# (outcome) or asserts `NF>=10`, so a column APPENDED AT THE END moves nothing any of them reads. The hazard was
+# never the count. It was the HEADER -- and it had already fired: `fingerprint` was added as column 13 on
+# 2026-09-06 without migrating the live table's header, which has said TWELVE since the file was created, so
+# every csv.DictReader in the fleet has been dropping the fingerprint into csv's unnamed restkey ever since.
+# A column the header does not name is a column no reader can read. See migrate_header() below.
+# ⛔ THE AXIS PREDICATE HAS ONE HOME AND THIS IS IT (util_gc_differential.py sources it rather than keeping the
+# second copy it used to carry): SOURCE THE AUTHORITY, NEVER COPY IT.
+GC_AXIS_EXACT = ("SCRIP_HEAP_MB",)
+GC_AXIS_PREFIX = "SCRIP_GC"
+CONFIG_UNDECLARED = "undeclared"
 # ⛔ THE MACHINE TOKEN FOR A DEVELOPMENT PASS.  A reader asking "was this a board pass?" greps the note for
 # this prefix; a row without it is a board pass and IS expected to have a published suite row behind it.
 DEVPASS_TOKEN = "dev-pass="
@@ -43,6 +65,79 @@ class ProgressUnwritable(Exception):
 
 def db_path():
     return os.environ.get("S4E_PROGRESS_DB") or DB_DEFAULT
+
+
+def gc_axis_env(env=None):
+    """The GC axis knobs SET IN THIS PROCESS'S ENVIRONMENT, as {name: value}, sorted. The ONE definition of
+    "this run was not the shipped configuration" (util_gc_differential.py strips exactly this set before every
+    run so a stale knob from the caller's shell cannot silently join a configuration)."""
+    env = os.environ if env is None else env
+    return {k: env[k] for k in sorted(env) if k.startswith(GC_AXIS_PREFIX) or k in GC_AXIS_EXACT}
+
+
+def canonical_config(s):
+    """`k=v,k=v` sorted by key, whitespace stripped. A declaration is a STATEMENT BY THE RUNNER about what it
+    exercised, so this normalises spelling and NEVER invents a pair the caller did not write."""
+    s = (s or "").strip()
+    if not s or s == CONFIG_UNDECLARED:
+        return ""
+    parts = []
+    for tok in s.replace(";", ",").split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if "=" in tok:
+            k, v = tok.split("=", 1)
+            parts.append(f"{k.strip()}={v.strip()}")
+        else:
+            parts.append(tok)          # a bare name like `shipped` is a legal whole-configuration label
+    return ",".join(sorted(parts))
+
+
+def read_header(path):
+    """The table's own column names, or None when the table does not exist / is empty."""
+    try:
+        with open(path, encoding="utf-8", errors="replace", newline="") as f:
+            line = f.readline()
+    except OSError:
+        return None
+    line = line.rstrip("\n").rstrip("\r")
+    return line.split("\t") if line else None
+
+
+def migrate_header(path):
+    """⛔⭐ A COLUMN THE HEADER DOES NOT NAME IS A COLUMN NO READER CAN READ. Called under the append lock.
+
+    The live table has carried a TWELVE-column header since 2026-09-06 while the writer has emitted THIRTEEN
+    fields since `fingerprint` landed the same day, so every csv.DictReader in the fleet has silently dropped
+    that column into csv's unnamed restkey. This rewrites line 1 to name every column the writer writes.
+
+    ⛔ IT MIGRATES ONLY A STRICT PREFIX. A header that is not a prefix of COLUMNS is a table this writer does
+    not understand -- renamed or reordered columns -- and it REFUSES rather than guessing which column is which,
+    because a wrong guess here relabels the whole history. Returns a one-line receipt, or "" when nothing to do.
+    """
+    hdr = read_header(path)
+    if hdr is None or hdr == COLUMNS:
+        return ""
+    if hdr != COLUMNS[:len(hdr)]:
+        raise ProgressUnwritable(
+            f"the table's header is not a prefix of this writer's columns and WILL NOT BE GUESSED AT: header={hdr} "
+            f"writer={COLUMNS}. A renamed or reordered column cannot be migrated without relabelling the whole history; "
+            f"fix the table by hand or point S4E_PROGRESS_DB elsewhere.")
+    tmp = path + ".hdrmigrate.tmp"
+    n = 0
+    with open(path, encoding="utf-8", errors="replace", newline="") as src, \
+         open(tmp, "w", encoding="utf-8", newline="\n") as dst:
+        src.readline()                                  # the stale header, replaced
+        dst.write("\t".join(COLUMNS) + "\n")
+        for line in src:
+            n += 1
+            dst.write(line)
+        dst.flush()
+        os.fsync(dst.fileno())
+    os.replace(tmp, path)                               # atomic: a crash mid-migration leaves the original intact
+    return (f"progress: HEADER MIGRATED in {path} -- {len(hdr)} columns -> {len(COLUMNS)} ({','.join(COLUMNS[len(hdr):])} "
+            f"was written into every row but named by nothing, so every csv.DictReader dropped it); {n} data rows preserved")
 
 
 def recording_off():
@@ -89,7 +184,15 @@ def context():
     # run from the environment exactly as `measurer` is, never passed by a caller who has to remember.
     # ⛔ WHY THE note COLUMN AND NOT A NEW ONE: results.tsv has ~360k rows and readers all over the fleet split
     # on a fixed column count.  A stable machine token inside free text is greppable and breaks nothing; a
-    # fourteenth column would be a schema migration to record a qualifier.  The token is first in the note so
+    # fourteenth column would be a schema migration to record a qualifier.
+    # ⛔ RETRACTED IN PLACE 2026-09-21 BY THE coo, for `config` and for this reasoning generally, on a
+    # MEASUREMENT of the fear rather than on a preference: across all 32 fleet readers of this table every
+    # positional one reads `$10` or asserts `NF>=10`, so a column APPENDED AT THE END moves nothing any of
+    # them reads.  The count was never the hazard; the HEADER was, and it had already fired silently --
+    # `fingerprint` (column 13, this same day) was never named by the live table's header, so every
+    # csv.DictReader dropped it.  A qualifier that has to hide inside free text to avoid a migration is a
+    # qualifier no reader can key on.  `devpass` stays in the note because it is genuinely free text about
+    # the run; `config` is a KEY, and a key belongs in a column.  See COLUMNS and migrate_header().  The token is first in the note so
     # it survives truncation, and the human reason follows it.
     _CTX["devpass"] = _clean(os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "").strip(), "devpass")
     return _CTX
@@ -184,6 +287,27 @@ def normalize_row(r):
         raise ValueError(f"secs is not a number: {secs!r} (program {out['program']})")
     out["secs"] = ("%.3f" % secs).rstrip("0").rstrip(".") if secs else "0"
     out["note"] = _clean(r.get("note", ""), "note")
+    # ⛔⭐ THE WRITER GUESSES NOTHING -- CEO-812'S PRINCIPLE APPLIED TO THE RECORD INSTEAD OF THE HEAP.
+    # Three values and no fourth: what the runner DECLARED; `undeclared` when nobody said and nothing in this
+    # process's environment contradicts it; and a REFUSAL in the one case where the writer holds positive
+    # evidence that the run was NOT the shipped configuration and is being asked to record it as unknown.
+    # It never writes `shipped` on its own inference: the runner may set the axis per-child, so an empty
+    # environment here is an ABSENCE OF EVIDENCE about the child, not evidence of the shipped configuration.
+    # Recording an unknown configuration as a known one is exactly the clean-bill-of-health shape.
+    cfg = canonical_config(r.get("config", ""))
+    if not cfg:
+        axis = gc_axis_env()
+        if axis:
+            raise ValueError(
+                "this row declares NO CONFIGURATION while a GC axis is set in the writer's own environment ("
+                + " ".join(f"{k}={v}" for k, v in axis.items())
+                + f") -- program {out['program']}. A run under a non-shipped arena or stress that records itself as "
+                  "configuration-unknown is indistinguishable from a shipped-configuration board, and that collision is "
+                  "resolved by ARRIVAL ORDER in every reader of this table. Declare it: --config 'arena=1,stress=3' "
+                  "(library: config= in the row dict). If the axis in this environment is stale and the run really was "
+                  "shipped-configuration, unset it or say so with --config shipped.")
+        cfg = CONFIG_UNDECLARED
+    out["config"] = cfg
     return out
 
 
@@ -235,7 +359,7 @@ def append_rows(rows, db=None):
         dev = ctx.get("devpass", "")
         if dev:
             note = DEVPASS_TOKEN + dev + (";" + note if note else "")
-        lines.append("\t".join([ts, ctx["scrip"], ctx["corpus"], ctx["measurer"], r["class"], r["suite"], r["lang"], r["program"], r["mode"], r["outcome"], r["secs"], note, ctx.get("fingerprint", "")]))
+        lines.append("\t".join([ts, ctx["scrip"], ctx["corpus"], ctx["measurer"], r["class"], r["suite"], r["lang"], r["program"], r["mode"], r["outcome"], r["secs"], note, ctx.get("fingerprint", ""), r["config"]]))
     payload = "\n".join(lines) + "\n"
     try:
         d = os.path.dirname(path)
@@ -245,6 +369,13 @@ def append_rows(rows, db=None):
         with open(lock, "a") as lk:
             fcntl.flock(lk.fileno(), fcntl.LOCK_EX)
             new = not os.path.exists(path) or os.path.getsize(path) == 0
+            if not new:
+                # ⛔ UNDER THE LOCK, BEFORE THE APPEND: an existing table whose header is shorter than this
+                # writer's columns gets line 1 rewritten, once, atomically. Every other writer is blocked on
+                # the same flock, so no row can be appended against the header being replaced.
+                receipt = migrate_header(path)
+                if receipt:
+                    print(receipt, file=sys.stderr)
             with open(path, "a", encoding="utf-8", newline="\n") as f:
                 if new:
                     f.write("\t".join(COLUMNS) + "\n")
@@ -352,6 +483,7 @@ def _main(argv):
     for f in ("class", "suite", "lang", "program", "mode", "outcome"):
         a.add_argument("--" + f, required=True, dest=f)
     a.add_argument("--secs", default="0"); a.add_argument("--note", default="")
+    a.add_argument("--config", default="", help="what this run EXERCISED: `arena=1,stress=3`, or `shipped`. Required when a GC axis is set in the environment -- the writer guesses nothing.")
     b = sub.add_parser("rows-tsv"); b.add_argument("file")
     c = sub.add_parser("results-tsv"); c.add_argument("--suite", required=True); c.add_argument("--lang", required=True); c.add_argument("file")
     d = sub.add_parser("triangulation"); d.add_argument("--lang", required=True); d.add_argument("file")
@@ -361,7 +493,7 @@ def _main(argv):
         if args.cmd == "context":
             print("\t".join(f"{k}={v}" for k, v in context().items()) + f"\tdb={db_path()}\toff={recording_off()}"); return 0
         if args.cmd == "append":
-            rows = [{k: getattr(args, k) for k in ("class", "suite", "lang", "program", "mode", "outcome", "secs", "note")}]
+            rows = [{k: getattr(args, k) for k in ("class", "suite", "lang", "program", "mode", "outcome", "secs", "note", "config")}]
         elif args.cmd == "rows-tsv":
             rows = []
             for raw in io.open(args.file, encoding="utf-8", errors="replace"):
@@ -371,7 +503,7 @@ def _main(argv):
                 f = raw.split("\t")
                 if len(f) < 6:
                     raise ValueError(f"rows-tsv line needs class suite lang program mode outcome [secs [note]]: {raw!r}")
-                rows.append({"class": f[0], "suite": f[1], "lang": f[2], "program": f[3], "mode": f[4], "outcome": f[5], "secs": f[6] if len(f) > 6 else 0, "note": f[7] if len(f) > 7 else ""})
+                rows.append({"class": f[0], "suite": f[1], "lang": f[2], "program": f[3], "mode": f[4], "outcome": f[5], "secs": f[6] if len(f) > 6 else 0, "note": f[7] if len(f) > 7 else "", "config": f[8] if len(f) > 8 else ""})
         elif args.cmd == "results-tsv":
             rows = rows_from_results_tsv(args.file, args.suite, args.lang)
         else:

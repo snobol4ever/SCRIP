@@ -4,7 +4,7 @@
 # GOAL-CEO CEO-331; the rule is /home/resources/progress/README.md, CEO-319). Hermetic: S4E_PROGRESS_DB points every
 # arm at a scratch table under mktemp; the live table is never touched. Arms 5-7 grade a real one-entry suite, so
 # they need this tree's built binary (util_require_fresh refuses rc=2 on a stale or absent one).
-#   1  the writer appends a 13-field row whose ts_utc is the run's own clock (within 300 s of now, UTC)
+#   1  the writer appends a 14-field row whose ts_utc is the run's own clock (within 300 s of now, UTC)
 #   2  an unwritable table is a LOUD refusal, rc=2, and says NOT recorded
 #   3  S4E_PROGRESS_OFF=1 records nothing and says so
 #   4  the harness on a NON-canonical suite path (a scratch copy) records nothing
@@ -34,7 +34,7 @@ now=$(date -u +%s)
 python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_probe --mode m3 --outcome FAIL >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && ck ok "append rc=0" || ck no "append rc=$rc"
 row=$(tail -1 "$W/db.tsv"); nf=$(printf '%s\n' "$row" | awk -F'\t' '{print NF}')
-[ "$nf" = 13 ] && ck ok "row has 13 fields" || ck no "row has $nf fields: $row"   # 12 -> 13 on 2026-09-06 (hq_T, CEO-338): the `fingerprint` column. ⭐ THIS ARM CAUGHT THE SCHEMA CHANGE THE MOMENT IT LANDED, which is the arm doing its job -- the count is updated in the SAME commit as the column, never after, because a field-count assertion that lags its schema is a red on origin that every seat learns to step over.
+[ "$nf" = 14 ] && ck ok "row has 14 fields" || ck no "row has $nf fields: $row"   # 12 -> 13 on 2026-09-06 (hq_T, CEO-338): the `fingerprint` column. ⭐ THIS ARM CAUGHT THE SCHEMA CHANGE THE MOMENT IT LANDED, which is the arm doing its job -- the count is updated in the SAME commit as the column, never after, because a field-count assertion that lags its schema is a red on origin that every seat learns to step over. 13 -> 14 on 2026-09-21 (coo, ceo rank 0 CEO-1047/CEO-1050): the `config` column. ⛔ AND THE THING THIS ARM COULD NOT SEE, WHICH IS A PROPERTY OF THIS GATE'''S SHAPE RATHER THAN OF THIS ARM: it counts fields in a table it CREATES FRESH under mktemp, where the header is written complete on first touch. It was green for fifteen days while the LIVE table -- created 2026-09-06, header never migrated -- carried the original TWELVE names against thirteen-field rows, so `fingerprint` went into csv'''s unnamed restkey in every DictReader in the fleet. A hermetic gate that constructs its subject fresh cannot see a defect that exists only in the long-lived artefact. That case is now covered by test_gate_progress_records_the_configuration_it_exercised.sh arm 1, which appends onto a PRE-EXISTING table carrying an older header.
 ts=$(printf '%s' "$row" | cut -f1); tse=$(date -u -d "${ts}Z" +%s 2>/dev/null || echo 0); d=$(( tse - now ))
 [ "$d" -ge -300 ] && [ "$d" -le 300 ] && ck ok "ts_utc $ts is the run's own clock (delta ${d}s)" || ck no "ts_utc $ts is not now (delta ${d}s)"
 [ "$(printf '%s' "$row" | cut -f4)" != "" ] && [ "$(printf '%s' "$row" | cut -f4)" != "unknown-seat" ] && ck ok "measurer is $(printf '%s' "$row" | cut -f4)" || ck no "measurer empty or placeholder"
@@ -75,7 +75,10 @@ python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --prog
 out=$(python3 "$Q" --db "$W/db.tsv" --since 1h --per hour --mode m3 2>&1)
 grep -qE 'TOTAL newly-passing in window: master 1,' <<<"$out" && ck ok "gate_probe FAIL->PASS counted as 1 newly-passing master program" || ck no "flip not seen: $out"
 out=$(python3 "$Q" --db "$W/db.tsv" --register --program gate_probe 2>&1)
-grep -qP '^snobol4-master\tgate_probe\tmaster\tsnobol4\tWORKING\t20' <<<"$out" && ck ok "register: gate_probe WORKING with its began_working_utc" || ck no "register wrong: $out"
+# `config` became column 3 of the register on 2026-09-21 (coo): a program is registered PER CONFIGURATION,
+# because a row blended across configurations reports WORKING for a program that passes at the shipped arena
+# and crashes at arena=1. These two rows are one run with nothing declared, so the configuration reads `undeclared`.
+grep -qP '^snobol4-master\tgate_probe\tundeclared\tmaster\tsnobol4\tWORKING\t20' <<<"$out" && ck ok "register: gate_probe WORKING at config=undeclared with its began_working_utc" || ck no "register wrong: $out"
 echo "--- ARM 8: a DEVELOPMENT PASS says so IN THE ROW, not only in the runner's printed output ---"
 # ⛔ WHY THIS ARM EXISTS (coo 2026-09-18, the cfo's disclosure 1): a seat running a suite under
 # S4E_ONE_RUNNER_OVERRIDE is doing it correctly -- the override is loud, printed, and that seat writes no

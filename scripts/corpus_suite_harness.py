@@ -3044,7 +3044,15 @@ def _progress_record(sno_path, paths, rows):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import util_progress_append as _pa
     try:
-        n = _pa.append_rows([{"class": cls, "suite": suite, "lang": lang, "program": name, "mode": m, "outcome": kind, "secs": secs or 0, "note": note} for name, m, kind, secs, note in rows])
+        # ⛔⭐ THE RUNNER DECLARES WHAT IT EXERCISED, BECAUSE IT IS THE ONLY PARTY THAT KNOWS (coo 2026-09-21,
+        # ceo rank 0 at CEO-1047/CEO-1050). The progress database refuses a row that declares no configuration
+        # while a GC axis is set, and the harness is the site that actually ran the programs -- so it states the
+        # axis instead of letting a board discover the refusal. `shipped` is a POSITIVE STATEMENT that this run
+        # used the shipped configuration, which the harness can make and the writer cannot: the writer sees only
+        # its own environment and a runner may set the axis per-child.
+        _axis = _pa.gc_axis_env()
+        _config = ",".join(f"{k}={v}" for k, v in _axis.items()) if _axis else "shipped"
+        n = _pa.append_rows([{"class": cls, "suite": suite, "lang": lang, "program": name, "mode": m, "outcome": kind, "secs": secs or 0, "note": note, "config": _config} for name, m, kind, secs, note in rows])
     except _pa.ProgressUnwritable:
         sys.exit(2)
     except _pa.ProgressGroundMoved as e:

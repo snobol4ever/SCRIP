@@ -188,8 +188,14 @@ def run_one(prog, envs, timeout, telem=True):
     env = dict(os.environ)
     # A stale knob inherited from the caller's shell would silently join every configuration and make the
     # whole matrix one configuration wearing N names -- the header's hazard arriving through the environment.
+    # ⛔ THE AXIS PREDICATE IS SOURCED, NOT SPELLED AGAIN (coo 2026-09-21): util_progress_append.gc_axis_env is
+    # its one home, because the set of knobs that make a run "not the shipped configuration" must be the SAME set
+    # the progress database refuses to record a row without. Two copies drift and then a run is a configuration
+    # to one instrument and shipped to the other. SCRIP_ZETA_TELEM is stripped here as well -- it is this tool's
+    # own instrument switch, not an axis of the collector.
+    import util_progress_append as _pa
     for k in list(env):
-        if k.startswith("SCRIP_GC") or k in ("SCRIP_HEAP_MB", "SCRIP_ZETA_TELEM"):
+        if k in _pa.gc_axis_env(env) or k == "SCRIP_ZETA_TELEM":
             del env[k]
     env.update(envs)
     if telem:
