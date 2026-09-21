@@ -102,13 +102,18 @@ def main():
     print("\n  4 WORKING (zero gradings lost to the collector -- NOT the master's absolute score)")
     print("      NOT MEASURED HERE BY DESIGN: this needs a board pass per language across the arena and")
     print("      stress axes, which is the one runner's job (MODE LANES), not a 20-second display's.")
-    print("      LAST RECORDED, each by its own lane, 2026-09-20 TENET session, tree named in each baton:")
-    for lane, txt in (("RakM", "-65 gradings, 36 programs, every one exit 0 with a plausible wrong answer (stress 16)"),
-                      ("SnoM", "-26 gradings both-modes, plus 4 HANGS in each mode where there were none (stress 16)"),
-                      ("IcnM", "-28 gradings; 27 of them REPRODUCE AT THE SHIPPED 512 MB ARENA (stress 16)"),
-                      ("SncM", "red at stress 1 alone across a sixteen-point band"),
-                      ("PasM", "withdrawn by its lane as a LOWER BOUND, not a clearance"),
-                      ("ProM", "arena axis clean per entry (1043 pairs, DIVERGENT=0); stress axis not finished")):
+    print("      \u26d4 THE LINES BELOW ARE TYPED, NOT COMPUTED, AND THEY ARE FROZEN AT THE 2026-09-21 STAND-DOWN.")
+    print("         They are each lane's LAST SELF-REPORTED reading, tree named in that lane's baton, which is")
+    print("         the authority -- NOT this display.  A typed figure in a computed dashboard is the defect this")
+    print("         dashboard exists against, and hq_snobol4 caught this section quoting a number they had already")
+    print("         WITHDRAWN (CEO-1052).  Under EXECUTIVE the six lanes are stood down and these cannot refresh")
+    print("         themselves, so READ THE BATON before acting on any line here.")
+    for lane, txt in (("RakM", "-65 gradings over 36 programs at stress 16; BOTH FAMILIES SINCE CURED by hq_raku, row closed 853/929 over three arms"),
+                      ("SnoM", "CORRECTED BY ITS OWN LANE: a 19-entry reading with hang=0 crash=0, superseding the withdrawn -26-plus-4-hangs"),
+                      ("IcnM", "-28 gradings; 27 of them REPRODUCE AT THE SHIPPED 512 MB ARENA (stress 16); 17 are every-driven generator resumption"),
+                      ("SncM", "red at stress 1 alone across a sixteen-point band; the one entry SINCE CURED by the DT_X landing 83b8bc9d2"),
+                      ("PasM", "LOWER BOUND CLEAN, empty name set at stress 4 and 16 -- its lane's own relabelling, never a clearance"),
+                      ("ProM", "the exception ball SINCE CURED at CFO-119/5fc6ae1bc; its 74-pair population is UNMEASURED against the cure and is owed")):
         print("      %-6s %s" % (lane, txt))
     refuse.append("WORKING: no board pass on this tree -- the last readings are 2026-09-20 and the collector has moved")
 
