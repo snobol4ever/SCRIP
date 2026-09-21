@@ -371,8 +371,8 @@ typedef struct {
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.s bakes PROC_NAME and PROC_ISGEN");
-_Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "rtx_plcall.s bakes PROC_DYN_SCOPE and the shl 7 index stride (RTX-1-PL)");
-_Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48, "rtx_plcall.s records this in its offset table; the fbytes computation is elided, not baked");
+_Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "RTX-1-PL: rtx_plcall.S baked PROC_DYN_SCOPE and the shl 7 index stride. THAT FILE IS GONE -- added ff6947e52, DELETED f3565287f 2026-08-13 (GLOBALS ERADICATED s55, which says in its own message: g_pcall* removed REGARDLESS OF CONSUMERS). The offset is still TRUE and this assert still earns its keep, but it guards a contract with NO LIVE CONSUMER: do not read it as evidence that asm reads this table today. It is retained because restoring that dispatcher to asm is the standing cure for the C->BB class (ceo CEO-1085)");
+_Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48, "RTX-1-PL: rtx_plcall.S recorded this in its offset table and the fbytes computation was elided, not baked. THAT FILE WAS DELETED AT f3565287f -- no live consumer (ceo CEO-1085)");
 _Static_assert(__builtin_offsetof(rt_proc_t, byref_mask) == 40 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36, "alpha_slot occupies the 4-byte alignment HOLE that already sat between decl_level and byref_mask -- it must not push any later field, or every baked offset above moves and rtx_call.s/rtx_plcall.s read the wrong words");
 __attribute__((visibility("hidden"))) rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 __attribute__((visibility("hidden"))) int           g_rt_gen_proc_count = 0;
