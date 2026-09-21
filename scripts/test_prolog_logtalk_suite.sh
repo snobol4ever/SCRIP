@@ -90,6 +90,12 @@ _shell="$(grep -m1 '^BOARD_FOR_SHELL ' "$_out" || true)"
 [ -n "$_shell" ] || { echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no BOARD_FOR_SHELL line, so there is no measurement to record"; rm -f "$_out"; exit 1; }
 set -- $_shell
 _pop="$2"; _both="$3"; _m3p="$4"; _m3f="$5"; _m4p="${6:-}"; _m4f="${7:-}"
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04; gap named by coo, test_gate_board_population_floor.sh ARM 6, 2026-09-21).
+# util_logtalk_grade.py only refuses on an empty population when --group is passed; this runner never
+# passes --group, so a suite directory that came back empty (a vendoring accident, a bad --suite path)
+# would otherwise print "population=0, identity 0 == 0 ✓" and read as a clean board.
+"$HERE/util_require_population.sh" --gate "$GATE_NAME" "$_pop" 1 "logtalk_iso cases graded (BOARD_FOR_SHELL population)" || { rm -f "$_out"; exit 2; }
 
 # ⛔⭐ ONE ROW PER CASE PER MODE (CEO-331), appended from what the grader just wrote. NON-FATAL BY DESIGN,
 # exactly like gate_score_row: a runner that gets red-ed by its own bookkeeping is a runner people stop
