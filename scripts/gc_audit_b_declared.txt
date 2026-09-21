@@ -10,6 +10,15 @@
 # what it can know at the instant of the finding; the GATE resolves that offset through `nm -S` on the very .so
 # that produced it.  An offset is a fact about one build and goes stale on the next; a symbol does not.
 #
+# ⛔⭐ THE LIMIT THAT BOUNDS EVERY GREEN HERE, MEASURED 2026-09-21 ON A LIVE OPEN DEFECT AND NOT REASONED:
+# PASS B'S TERRITORY IS PASS A'S TERRITORY, SO IT FINDS AN UNVISITED WORD INSIDE A VISITED REGION AND CANNOT
+# FIND AN UNVISITED REGION.  On user_function_eval_arbno_replace_branch_2 at stress 0, which dies rc=139 with
+# the rung-1 trap naming block #1066 (HB_WSC, 32 bytes) RECLAIMED at collection #1, pass B reports findings=0
+# over 2234 in-heap words, every one MARKED -- and it still reports 0 with SCRIP_GC_CEILING=0, which widens the
+# stack region from 1528 bytes to 4217824.  So the holder of that block is in a REGISTER or in a region nobody
+# enumerates (the libc malloc heap, the compile-time arena, the collector's own mmap'd bookkeeping).  A
+# findings=0 BOUNDS THE PROBE AND NEVER CLEARS THE COLLECTOR.
+#
 # FIELDS: <holder-symbol>  <OPEN|DECLARED>  <row or reason>
 # OPEN     = a real candidate with a row against it.  The auditor retires when NO OPEN row remains and a sweep
 #            finds nothing -- and on that day the gate's expiry arm REDS and says DELETE, because a disabled
