@@ -97,7 +97,36 @@ tbl_knobs="$(printf '%s\n' "$TBL" | cut -d'|' -f1 | sort -u | tr '\n' ' ' | sed 
 if [ "$src_knobs" = "$tbl_knobs" ]; then echo "  arm 4 PASS: the knob table is closed against src/ -- the runtime reads exactly the $rows declared plant knob(s): $src_knobs"
 else echo "  arm 4 FAIL: src/ reads '$src_knobs' and this gate's table declares '$tbl_knobs' -- a plant knob the table does not know is a planting family arm 3 cannot see, and a table entry the runtime no longer reads is a gate grading a knob that does nothing"; RC=1; fi
 
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the plant says whether it applied, its decline impersonates nothing, the knob table is closed against src/ and every planting gate reads its own plant's banner (examined 4 arms, 4 runs)"
-else echo "GATE FAIL(1) [$G]: the plant's own report can be read backwards, or a plant is held by no reader (examined 4 arms)"; fi
+# ⛔⭐ ARM 5: A PLANT KNOB DOES WHAT ITS NAME SAYS, AND THE ONE NOBODY USED DID NOT.  SCRIP_GC_PLANT_PIN_TYPE reads
+# as "deny the nth block OF KIND K a forwarding address", and that is how the ceo ruled on it and how I proposed
+# to wire it.  IT DENIED A RUN.  The forwarding pass advanced its counter only on blocks of the named kind but
+# tested the counter against the skip value on EVERY marked block, so once the counter reached the skip value at
+# the first block of kind K, every marked block after it was denied too, until the next block of kind K moved the
+# counter on.  MEASURED AT HEAD BEFORE THE CURE, arena default, stress 5, SKIP=1: hb_arr.sno TYPE=212 skipped 3
+# blocks, TYPE=214 skipped 2, hb_dtp.sno TYPE=221 skipped 4, hb_pldb.pl TYPE=216 skipped 4 -- against exactly 1
+# with the knob unset.  ⛔ NOBODY HAD PAID FOR IT YET BECAUSE NO GATE USED THE KNOB, WHICH IS THE ONLY REASON IT
+# WAS CHEAP: a per-kind sensitivity arm wired to it would have denied a run of unrelated blocks and reported the
+# witness's death as sensitivity to its OWN kind -- an attribution the mechanism could not support, which is the
+# same shape as arm 7 of the decidable test crediting a plant that never ran.  The cure restricts the denial to a
+# block that also matches the kind; with the knob unset nothing changes, and that control is arm 5's second half.
+pw() { local w="$1" ty="$2" sk="$3" out="$4"; ( cd "$T" && env SCRIP_GC_STRESS=5 SCRIP_ZETA_TELEM=1 ${ty:+SCRIP_GC_PLANT_PIN_TYPE=$ty} SCRIP_GC_PLANT_PIN_SKIP="$sk" timeout 120 "$SCRIP" "$ROOT/scripts/gc_witnesses/$w" >/dev/null 2>"$out" </dev/null ); }
+widths() { grep -o 'skipped=[0-9]*' "$1" | sed 's/skipped=//' | sort -un | tr '\n' ',' | sed 's/,$//'; }
+bad5=""; seen5=0
+for pair in hb_arr.sno:212 hb_arr.sno:214 hb_dtp.sno:221 hb_pldb.pl:216; do
+  w="${pair%%:*}"; ty="${pair##*:}"
+  [ -f "$ROOT/scripts/gc_witnesses/$w" ] || { bad5="$bad5 [$w missing]"; continue; }
+  pw "$w" "$ty" 1 "$T/p5.txt"; ww="$(widths "$T/p5.txt")"
+  if [ -z "$ww" ]; then bad5="$bad5 [$w TYPE=$ty planted nothing -- no ZGC-PIN line, so this pair cannot grade the width]"; continue; fi
+  seen5=$((seen5+1))
+  [ "$ww" = 1 ] || bad5="$bad5 [$w TYPE=$ty denied width(s) $ww, want exactly 1 -- the per-kind denial is reaching blocks that are not of that kind]"
+done
+pw hb_arr.sno "" 1 "$T/c5.txt"; cw="$(widths "$T/c5.txt")"
+[ "$cw" = 1 ] || bad5="$bad5 [control: with SCRIP_GC_PLANT_PIN_TYPE UNSET the denial width(s) read $cw, want exactly 1 -- the type restriction changed the untyped plant, which every other planting gate depends on]"
+if [ -z "$bad5" ] && [ "$seen5" -ge 3 ]; then echo "  arm 5 PASS: SCRIP_GC_PLANT_PIN_TYPE denies exactly ONE block over $seen5 (witness,kind) pair(s), and the untyped plant is unchanged at one -- the knob does what its name says, which it did not before 2026-09-21"
+elif [ "$seen5" -lt 3 ]; then echo "⛔ GATE REFUSE(2) [$G]: PREMISE UNMET -- only $seen5 of 4 (witness,kind) pairs planted at all, so the width property cannot be graded here. That is a statement about which kinds these witnesses allocate, not a defect$bad5"; exit 2
+else echo "  arm 5 FAIL:$bad5 -- a plant that denies more than the block it names cannot support an attribution to that block, and a gate wired to it would report a witness's death as sensitivity to a kind the plant never singled out"; RC=1; fi
+
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the plant says whether it applied, its decline impersonates nothing, the knob table is closed against src/, every planting gate reads its own plant's banner, and the per-kind plant denies exactly the block it names (examined 5 arms)"
+else echo "GATE FAIL(1) [$G]: the plant's own report can be read backwards, a plant is held by no reader, or a plant denies more than the block it names (examined 5 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

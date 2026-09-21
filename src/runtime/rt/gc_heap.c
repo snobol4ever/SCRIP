@@ -1375,8 +1375,8 @@ static long gc_collect_ex(void)
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if (h->flags & HBF_MARK) { n_mk++; if (gc_plant_pin_type() < 0 || (long)h->type == gc_plant_pin_type()) n_plant++; if (n_plant == gc_plant_pin_skip()) { h->fwd = 0; dest += h->size; }
-            else { if (reloc && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + h->size <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } h->fwd = (uint64_t)dest; dest += h->size; nlive++; } }
+        if (h->flags & HBF_MARK) { n_mk++; { int _pt = (gc_plant_pin_type() < 0 || (long)h->type == gc_plant_pin_type()) ? 1 : 0; if (_pt) n_plant++; if (n_plant == gc_plant_pin_skip() && _pt) { h->fwd = 0; dest += h->size; }
+            else { if (reloc && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + h->size <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } h->fwd = (uint64_t)dest; dest += h->size; nlive++; } } }
         else h->fwd = 0;
         if (h->fwd) n_fw++;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } }
