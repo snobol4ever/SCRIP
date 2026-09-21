@@ -45,7 +45,16 @@ COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "p
 # A column the header does not name is a column no reader can read. See migrate_header() below.
 # ⛔ THE AXIS PREDICATE HAS ONE HOME AND THIS IS IT (util_gc_differential.py sources it rather than keeping the
 # second copy it used to carry): SOURCE THE AUTHORITY, NEVER COPY IT.
-GC_AXIS_EXACT = ("SCRIP_HEAP_MB",)
+# ⛔⭐ RT_OPT IS AN AXIS BECAUSE LON'S TWO-PASS ORDER MAKES IT ONE (CEO-1061/CEO-1063, 2026-09-21: the new
+# collector at -O0, then the same collector at -O2, seven languages, README.md the deliverable). Those two passes
+# run the SAME programs on the SAME trees against the SAME corpus, so without this the second pass lands on the
+# first pass's key and the table resolves the pair BY ARRIVAL ORDER -- the exact loss the `config` column was cut
+# to stop, repeated on the first workload to arrive after it. ⛔ IT IS LISTED HERE ONLY SO THAT SILENCE REFUSES:
+# the writer still declares nothing on its own, because RT_OPT in a runner's environment says what that shell was
+# going to build, NOT what the loaded out/libscrip_rt.so was actually built with -- and those differ the moment a
+# caller exports the flag without rebuilding. The binary's own identity is the `fingerprint` column; this is the
+# runner's STATEMENT about it, and a statement nobody made must not be invented (CEO-812 applied to the record).
+GC_AXIS_EXACT = ("SCRIP_HEAP_MB", "RT_OPT")
 GC_AXIS_PREFIX = "SCRIP_GC"
 CONFIG_UNDECLARED = "undeclared"
 # ⛔ THE MACHINE TOKEN FOR A DEVELOPMENT PASS.  A reader asking "was this a board pass?" greps the note for
