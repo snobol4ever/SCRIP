@@ -844,8 +844,8 @@ def census_asm(asm_path, report_text, tag, out=print):
         lbl = site_label(insns, i)
         sites += 1
         frame_st, static_st = shielded_stores(insns, i)
-        for sym, _off, _src in static_st:
-            unread[sym] += 1
+        for sym, off, _src in static_st:
+            unread[(sym, off)] += 1
         for base, d, src in frame_st:
             g, k, why = owner_of(base, d, i, frames)
             if g in frames:
@@ -1056,10 +1056,16 @@ def report(scrip, progs, workdir, out=print):
     for tag in sorted(per_witness):
         mem, und, ex, unrd, sites = per_witness[tag]
         out(f"CENSUS unmapped-store WITNESS {tag} members={mem} undecidable={und} shielded={ex} unread_static={unrd}")
-    for sym, n in sorted(all_unread.items(), key=lambda kv: -kv[1]):
-        out(f"CENSUS unmapped-store UNREAD-ROAD symbol={sym} stores={n} -- shielded at a safe point into a FIXED "
-            "SYMBOL, which no frame map can ever cover and no planner cure can reach; graded here only for its size, "
-            "and its safety rests entirely on the collector's root set covering that symbol")
+    for (sym, off), n in sorted(all_unread.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+        out(f"CENSUS unmapped-store UNREAD-ROAD symbol={sym}+{off} stores={n} -- shielded at a safe point into a "
+            "FIXED SYMBOL, which no frame map can ever cover and no planner cure can reach; its safety rests "
+            "entirely on whether the collector's root set covers THAT WORD, typed")
+    out(f"CENSUS unmapped-store UNREAD-ROAD symbols={len({k[0] for k in all_unread})} "
+        f"words={len(all_unread)} stores={sum(all_unread.values())} -- ⛔ NAMED BY WORD AND NOT BY SYMBOL SINCE "
+        "2026-09-21 (ceo CEO-1042's condition on arm (h)): a criterion whose selling point is that it ADMITS the "
+        "stores the old count could not see, and which then cannot READ them, is a zero over an unmeasured "
+        "population. A symbol-wide count cannot say WHICH WORD a collector must visit, so it could never have "
+        "adjudicated the road it was measuring the size of.")
     out(f"CENSUS unmapped-store REACH safe_points={all_sites} frame_shielded={examined} "
         f"static_shielded={sum(all_unread.values())} -- THE SECOND NUMBER IS THE ONLY ONE THIS CENSUS GRADES. "
         "⛔ THE THIRD WAS DROPPED ON THE FLOOR UNTIL 2026-09-20 AND THE SELFTEST ARM THAT PROVED IT WAS DROPPED "

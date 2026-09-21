@@ -154,10 +154,23 @@ fi
 reach="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store REACH ')"
 rst="$(printf '%s\n' "$reach" | sed -n 's/.* static_shielded=\([0-9]*\) .*/\1/p')"
 rfr="$(printf '%s\n' "$reach" | sed -n 's/.* frame_shielded=\([0-9]*\) .*/\1/p')"
-if [ -n "${rst:-}" ] && [ "${rst:-0}" -gt 0 ] && printf '%s\n' "$pop" | grep -q '^CENSUS unmapped-store UNREAD-ROAD symbol=rtccb '; then
-  ck ok "(i) the census reports its OWN reach and NAMES the road it cannot grade -- frame_shielded=$rfr static_shielded=$rst, $(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store UNREAD-ROAD ') symbol(s) named. A zero from this census is now a zero with its denominator beside it"
+# ⛔⭐ STRENGTHENED 2026-09-21 ON CEO-1042's CONDITION, AND THE OLD FORM OF THIS ARM IS WHY IT NEEDED IT.  It
+# grepped for `symbol=rtccb ` and passed on the presence of ONE line naming ONE SYMBOL over 6825 stores.  A symbol
+# is a SIZE, not a name: it cannot say WHICH WORD a collector would have to visit, so this arm certified that the
+# road was named while the naming could not adjudicate anything.  Keyed by WORD the whole road is THREE -- rtccb+40,
+# rtccb+56, rtccb+64, slots 5, 7 and 8 of rtx/rtcc.h, r8/r10/r11 spilled at x86_asm.h 386-389 -- each at all 2275
+# safe points.  ⛔ AND THE ARM NOW CHECKS THE ACCOUNTING RATHER THAN THE PRESENCE: the per-word stores must SUM to
+# static_shielded exactly.  Without that a word silently dropped from the naming reads identically to a road with
+# no such word in it, which is this gate's own defect class one level down.  The census's own summary line carries
+# the totals so the two roads cannot be computed from different readings.
+words="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store UNREAD-ROAD symbols=')"
+wsum="$(printf '%s\n' "$words" | sed -n 's/.* stores=\([0-9]*\) .*/\1/p')"
+wn="$(printf '%s\n' "$words" | sed -n 's/.* words=\([0-9]*\) .*/\1/p')"
+nmd="$(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store UNREAD-ROAD symbol=')"
+if [ -n "${rst:-}" ] && [ "${rst:-0}" -gt 0 ] && [ "${wsum:-x}" = "${rst:-y}" ] && [ "${wn:-0}" = "${nmd:-x}" ] && [ "${wn:-0}" -gt 0 ]; then
+  ck ok "(i) the census reports its OWN reach and NAMES the unread road BY WORD, and the naming ACCOUNTS FOR ALL OF IT -- frame_shielded=$rfr static_shielded=$rst, $wn word(s) named summing to $wsum: $(printf '%s\n' "$pop" | grep -o '^CENSUS unmapped-store UNREAD-ROAD symbol=[A-Za-z_][A-Za-z0-9_.$+]*' | sed 's/.*symbol=//' | tr '\n' ' ')-- a zero from this census is now a zero with its denominator beside it, and the denominator is a NAME SET rather than a size"
 else
-  ck no "(i) the census printed no REACH line, or named no unread road -- an instrument that silently drops a whole shielding road reports success while it is not looking, which is the failure THE INSTRUMENT LAWS exist to catch: $reach"
+  ck no "(i) the census printed no REACH line, or its per-word naming does not ACCOUNT for the road -- static_shielded=${rst:-?} against ${wn:-?} word(s) summing to ${wsum:-?}, ${nmd:-?} word line(s) printed. An instrument that silently drops a whole shielding road, or names part of one and reports the whole, is success reported while it is not looking, which is the failure THE INSTRUMENT LAWS exist to catch: $reach"
 fi
 
 # (j) PLANTED: THE RATCHET GRADES THE REACH COLUMN, so coverage MOVING from the graded road to the unread one is a
