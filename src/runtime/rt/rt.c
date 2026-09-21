@@ -924,6 +924,61 @@ __asm__(
 "  jmp rt_ret_faildescr\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+__asm__(
+".text\n"
+".globl rt_proc_enter_barrier\n"
+"rt_proc_enter_barrier:\n"
+"  pushq %rsi\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  subq $8, %rsp\n"
+"  movq %rdi, %rax\n"
+"  leaq 2f(%rip), %rcx\n"
+"  leaq 3f(%rip), %rdx\n"
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 4f\n"
+"  movq rtccb@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"4:\n"
+"  pushq %rdx\n"
+"  pushq %rcx\n"
+"  jmp *%rax\n"
+"2:\n"
+"  addq $24, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  movq %rax, %rdi\n"
+"  movq %rdx, %rsi\n"
+"  popq %rdx\n"
+"  jmp rt_proc_call_epilogue_barrier_\u03b3\n"
+"3:\n"
+"  addq $24, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  popq %rdi\n"
+"  jmp rt_proc_call_epilogue_barrier_\u03c9\n"
+);
+DESCR_t rt_proc_enter_barrier(void *fn, long nsb);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_call_epilogue_barrier_γ(DESCR_t frame0, long nsb) { DESCR_t r = rt_proc_call_epilogue_γ(frame0); rt_name_save_unwind((int)nsb); return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_proc_call_epilogue_barrier_ω(long nsb) { DESCR_t r = rt_proc_call_epilogue_ω(); rt_name_save_unwind((int)nsb); return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
 DESCR_t rt_ret_faildescr(void);
@@ -975,10 +1030,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return FAILDESCR;
     }
     rt_g_want_name = _wn_gen;
-    if (name && strchr(name, '$')) {
-        core_runtime_error(287, "dynamic-scope '$' procedure: the barrier path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). C held a name-save mark ACROSS the box entry and ran rt_name_save_unwind AFTER it returned, so C survived the transition and the return came back through C. The unwind belongs in the box's own zeta, not in a C frame parked across the jump.");
-        return FAILDESCR;
-    }
+    if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); return rt_proc_enter_barrier((void *)p->fn, (long)_nsb); }
     rt_c2bb_hit("descr.enter.dyn.named", name);
     return rt_proc_enter_named((void *)p->fn, name);
 }
