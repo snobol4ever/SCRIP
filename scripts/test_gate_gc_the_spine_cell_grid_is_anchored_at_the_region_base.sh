@@ -39,21 +39,39 @@ ROOT="$PWD"
 CENSUS="$ROOT/scripts/util_gc_unmapped_store_census.py"
 SCRIP="$ROOT/scrip"
 WIT="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.sno"
-# ⛔ THE RATCHET FLOOR, MOVED IN THE LANDING THAT EARNED IT (cto 2026-09-21, 5295 -> 5339).  The census
-# learned to read `mov rsp, qword ptr [rbp + K]`, a restore from an ANCHOR-KEYED frame slot, which a blame
-# pass named as the poisoning instruction behind 837 of the 963 sites the prior cure left undecidable.  44
-# more call sites graded, EVERY ONE ON-GRID, off_grid 0 on both sides, zero sites lost and zero
-# disagreements where both readings decide.
+# ⛔ THE RATCHET FLOOR, MOVED IN THE LANDING THAT EARNED IT (cto 2026-09-21, 5339 -> 6012).  Two cures in one
+# landing, A/B'd against HEAD site by site in one process: 683 more call sites decided, 0 LOST, 0 DISAGREEMENTS
+# over the 5339 sites both readings decide, off_grid 0 on BOTH sides.
 #
-# ⛔⭐ AND THE NUMBER THAT MATTERS MORE THAN THE FLOOR, because the next reader will want to relax the
-# thing that holds it: 837 sites blamed that restore and reading it recovered 44, because a SECOND
-# mechanism dominates -- the aliasing discipline meeting `mov qword ptr [rax + 0], <imm>` (88 of 104
-# measured shadow kills).  Relaxing that discipline is worth 455 more sites AND IMMEDIATELY PRINTS 15
-# OFF-GRID READINGS where the sound one prints zero.  The census cannot tell whether those 15 are the
-# relaxation computing wrong depths or real emitter defects it cannot otherwise see, and THAT is why the
-# relaxation is not a cure: an instrument that cannot tell its own error from a discovery is the shape
-# this row exists to remove.
-BASE_ON_GRID=5339
+# (1) THE FIXED-SYMBOL BASE FACT.  A store through a register loaded from a GOT slot -- `mov rax, qword ptr
+# [rip + g_line@GOTPCREL]` then `mov qword ptr [rax + 0], 4` -- addresses a DEFINED SYMBOL, and no symbol is
+# defined on a machine stack, so it cannot alias the spine and the anchor shadow survives it.  That is the same
+# address-space fact slot_effect already places for a direct `[rip + sym]` store, reached through one
+# indirection.  ⛔ AND THE ROAD THE PRIOR FLOOR'S OWN COMMENT PROPOSED WAS MEASURED EMPTY BEFORE IT WAS BUILT:
+# it named a points-to fact about a NAMED ALLOCATOR'S RETURN, to be checked against the runtime.  Of the 2044
+# unplaceable stores over these witnesses the base register is defined by a call ZERO times; it is a GOTPCREL
+# load 1303 times and a rip-relative `lea` 284 times.  The allocator road would have been built and checked for
+# nobody.  ⛔ The distinction is sound rather than convenient, and FOUR sites prove it: `lea r, [rsp + K]` puts
+# a STACK address in a general register and is still feared, so a rule that placed every lea base would compute
+# wrong depths at exactly those four while printing them as discoveries.
+#
+# (2) THE WIDENING NO LONGER THROWS AWAY THE ANSWER.  Going over DELTA_CAP used to collapse the whole state to
+# BOTTOM, and BOTTOM is (rsp=None, rbp=None) -- so the cap destroyed the spine depth and the frame base to bound
+# a set whose SHADOWS were what grew.  Enriching the shadows therefore bought grid sites while LOSING reach
+# elsewhere: the fact alone took RBP-NOT-A-FRAME-BASE-HERE from 4 shielded stores to 116 across four Icon
+# witnesses, a regression hiding underneath a 400-site improvement.  The widening now drops the shadows first
+# and the values only if that is not enough, which is sound because a shadow can only ever turn an unknown rsp
+# into a known one.  Reach restored to 4, and the grid floor went 5729 -> 6012 on top of it.
+#
+# ⛔⭐ ARM (b) STILL MEANS off_grid == 0, AND PAD-ALIGNED IS NOT AN AMNESTY.  Ten of the newly graded sites sit
+# at floor=-8 residue=8 -- the fingerprint of the arithmetic slip that once announced 142 false OFF-GRID sites --
+# so they were taken to the emitted text before anywhere else.  All ten are one shape in one graph: `sub rsp, 8`,
+# stores to fixed symbols only, `call`, `add rsp, 8`.  The floor really is off the grid, so calling them ON-GRID
+# would be a lie; the eight bytes are a bracketed System V pad with NOTHING STORED INTO THEM, so no descriptor
+# cell lives there and calling them emitter defects would be a different lie.  The census names them PAD-ALIGNED
+# with the three conditions checked, and arm (c)'s planted 8-byte PUSH still reads 30 OFF-GRID, which is what
+# proves the pad verdict did not swallow the detector.
+BASE_ON_GRID=6012
 POP="${GRID_POP:-$(echo "$ROOT"/scripts/gc_witnesses/*.icn "$ROOT"/scripts/gc_witnesses/*.sno "$ROOT"/scripts/gc_witnesses/*.pl "$ROOT"/scripts/gc_witnesses/*.raku)}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

@@ -209,7 +209,89 @@ def reg_written(ins):
     return r if r in SHADOW_REGS else None
 
 
-def slot_effect(ins, slots):
+GOTPCREL_RX = re.compile(r"\[\s*rip\s*\+\s*[A-Za-z_][A-Za-z0-9_.$]*@GOTPCREL\s*\]")
+LEA_RIP_RX = re.compile(r"\[\s*rip\s*[+\-]")
+CALLER_SAVED = ("rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11")
+_REG_ALIASES = {"rax": "rax|eax|ax|al|ah", "rcx": "rcx|ecx|cx|cl|ch", "rdx": "rdx|edx|dx|dl|dh",
+                "rsi": "rsi|esi|si|sil", "rdi": "rdi|edi|di|dil", "rbx": "rbx|ebx|bx|bl|bh"}
+for _r in ("r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"):
+    _REG_ALIASES[_r] = "|".join((_r, _r + "d", _r + "w", _r + "b"))
+REG_MENTION = {r: re.compile(r"\b(?:%s)\b" % a) for r, a in _REG_ALIASES.items()}
+MEM_BASE_RX = re.compile(r"\[\s*([a-z][a-z0-9]*)")
+
+
+def base_is_fixed_symbol(insns, i, reg):
+    """does the base register of the store at i provably hold the ADDRESS OF A FIXED DATA SYMBOL?
+
+    ⛔⭐ THE THIRD FACT ABOUT THE ADDRESS SPACE, AND IT IS NOT A RELAXATION OF THE ALIASING DISCIPLINE (cto
+    2026-09-21).  slot_effect places exactly two writes rather than fearing them, both because of what they
+    ADDRESS and not because of what the program does: a `[rip + sym]` store names a fixed data symbol, and an
+    `[rsp + K]` store names the stack itself.  This is the same fact reached through one indirection: the System V
+    small-PIC form of "the address of a global" is a load from that global's GOT slot, so
+
+        mov rax, qword ptr [rip + g_line@GOTPCREL]   |   mov qword ptr [rax + 0], 4
+
+    is `[rip + g_line]` spelled in two instructions.  A GOT slot holds the address of a DEFINED SYMBOL; no
+    symbol is defined on a machine stack, so the store cannot alias one.  `lea r, [rip + sym]` is the same fact
+    with no load at all.
+
+    ⛔ WHY THIS IS THE ROAD AND THE ALLOCATOR-RETURN POINTS-TO FACT WAS NOT, MEASURED BEFORE A LINE WAS CUT.  The
+    prior NEXT named a different claim -- a store through a register holding a NAMED ALLOCATOR'S RETURN cannot
+    alias the stack -- and proposed to check it against the runtime.  A second pass over all 52 witnesses says
+    that population is EMPTY: of 2044 unplaceable stores, the base register is defined by a call ZERO times.  It
+    is a GOTPCREL address load 1303 times and a rip-relative `lea` 284 times.  The allocator road would have been
+    built, checked and landed for nobody.
+
+    ⛔ AND THE FOUR SITES THAT PROVE THE DISTINCTION IS LOAD-BEARING RATHER THAN DECORATIVE: `lea r, [rsp + K]`
+    and `lea r, [rbp + K]` put a STACK address in a general register, and there are FOUR of them in the same
+    population.  A rule that placed every `lea` base, or every non-rsp base, would be unsound at exactly those
+    four and would compute wrong depths there while printing them as discoveries -- which is the shape of the 15
+    OFF-GRID readings the blanket relaxation produced.  So the walk accepts TWO forms by name and fears
+    everything else, including a plain rip-relative LOAD, which reads a global's VALUE and not its address."""
+    mention = REG_MENTION.get(reg)
+    if mention is None:
+        return False
+    caller_saved = reg in CALLER_SAVED
+    for j in range(i - 1, -1, -1):
+        ins = insns[j]
+        if ins.mnem == "call":
+            if caller_saved:
+                return False
+        elif ins.ops and len(ins.ops) == 2 and mention.fullmatch(ins.ops[0].strip()):
+            if ins.mnem == "lea":
+                return bool(LEA_RIP_RX.search(ins.ops[1]))
+            if ins.mnem == "mov":
+                return bool(GOTPCREL_RX.search(ins.ops[1]))
+            return False
+        elif mention.search(ins.text):
+            return False
+        if ins.labels:
+            return False
+    return False
+
+
+def fixed_symbol_store_bases(insns):
+    """the id() of every store whose base register provably holds a fixed data symbol's address.
+
+    KEYED BY id(ins) AND NOT BY LINE NUMBER because CS.parse splits a `;`-separated source line into several
+    Insn objects that share one line number, and marking one of those would mark its neighbour.  The set is
+    computed once per asm file in build_frames and lives exactly as long as the insns list it indexes."""
+    out = set()
+    for i, ins in enumerate(insns):
+        if ins.mnem not in WRITES_MEMORY or not ins.ops or "[" not in ins.ops[0]:
+            continue
+        if "rip" in ins.ops[0]:
+            continue
+        m = MEM_BASE_RX.search(ins.ops[0])
+        reg = m.group(1) if m else None
+        if reg is None or reg in ("rsp", "rbp"):
+            continue
+        if base_is_fixed_symbol(insns, i, reg):
+            out.add(id(ins))
+    return frozenset(out)
+
+
+def slot_effect(ins, slots, fixed=False):
     """what this instruction does to the parked-slot shadow BEFORE the store of a known value is applied.
 
     ⛔ THE ALIASING DISCIPLINE, WHICH IS THE WHOLE REASON THIS SHADOW IS TRUSTWORTHY (cto 2026-09-21).  A slot
@@ -229,14 +311,14 @@ def slot_effect(ins, slots):
         return dict(slots)
     base, d = disp_of(ins.ops[0])
     if base != "rsp":
-        return {}
+        return dict(slots) if fixed else {}
     out = dict(slots)
     out.pop(d, None)
     out.pop(d - 8, None)
     return out
 
 
-def anchor_slot_effect(ins, aslots, rsp, rbp):
+def anchor_slot_effect(ins, aslots, rsp, rbp, fixed=False):
     """what this instruction does to the ANCHOR-KEYED shadow before a placeable store of a known rsp is applied.
 
     THE SAME ALIASING DISCIPLINE AS slot_effect, TAKEN ON THE OTHER KEY: a write this reader cannot place
@@ -262,7 +344,7 @@ def anchor_slot_effect(ins, aslots, rsp, rbp):
     base, d = disp_of(ins.ops[0])
     anchor_rel = rsp if base == "rsp" else (rbp if base == "rbp" else None)
     if anchor_rel is None:
-        return {}
+        return dict(aslots) if fixed else {}
     out = dict(aslots)
     out.pop(anchor_rel + d, None)
     out.pop(anchor_rel + d - 8, None)
@@ -329,7 +411,7 @@ def seed_rbp(insns, anchor):
     return None
 
 
-def frame_fixpoint(insns, succ, start, rbp0):
+def frame_fixpoint(insns, succ, start, rbp0, symbase=frozenset()):
     """set-valued forward fixpoint of (rsp, rbp) displacement from `start`; None means 'not a constant here'.
 
     ⛔ THE rsp EFFECT AND THE rbp EFFECT ARE COMPUTED INDEPENDENTLY, AND THE FIRST CUT DID NOT DO THAT (cto
@@ -347,24 +429,43 @@ def frame_fixpoint(insns, succ, start, rbp0):
         i = work.pop()
         ins = insns[i]
         nxt = set()
+        fixed = id(ins) in symbase
         for state in st[i]:
-            nxt.add(frame_step(ins, *state))
-        if len(nxt) > DELTA_CAP:
-            nxt = {BOTTOM}
+            nxt.add(frame_step(ins, *state, fixed))
+        nxt = widen(nxt)
         for t in succ.get(i, ()):
             before = len(st[t])
-            st[t] |= nxt
-            if len(st[t]) > DELTA_CAP:
-                st[t] = {BOTTOM}
+            st[t] = widen(st[t] | nxt)
             if len(st[t]) != before:
                 work.append(t)
     return st
 
 
+def widen(states):
+    """bound the state set WITHOUT throwing away the two values the verdict is made of.
+
+    ⛔⭐ THE OLD WIDENING WAS `{BOTTOM}` AND BOTTOM IS (rsp=None, rbp=None), SO GOING OVER THE CAP DESTROYED THE
+    SPINE DEPTH AND THE FRAME BASE TOGETHER (cto 2026-09-21, caught by A/B before landing and not after).  The
+    cap counts whole states, and a state carries two shadows that exist only to RECOVER rsp -- so enriching the
+    shadows, which is what the fixed-symbol fact does, pushes more DISTINCT states through a join and used to
+    collapse rbp at sites that were reading it perfectly well.  Measured on the 52 witnesses: the fact alone took
+    RBP-NOT-A-FRAME-BASE-HERE from 4 to 116 shielded stores across four Icon witnesses, a REGRESSION IN REACH
+    hiding underneath a 400-site improvement in the grid -- two numbers moving opposite ways in one reading,
+    which is why a landing is A/B'd on every column and not on the one it aimed at.
+
+    So the widening drops the SHADOWS first and the values only if that is not enough.  Dropping a shadow is
+    always sound: a shadow can only ever turn an unknown rsp into a known one, so losing it loses precision and
+    never invents a depth."""
+    if len(states) <= DELTA_CAP:
+        return states
+    slim = {(rsp, rbp, frozenset(), frozenset(), frozenset()) for rsp, rbp, *_ in states}
+    return slim if len(slim) <= DELTA_CAP else {BOTTOM}
+
+
 BOTTOM = (None, None, frozenset(), frozenset(), frozenset())
 
 
-def frame_step(ins, rsp, rbp, regs, slots, aslots):
+def frame_step(ins, rsp, rbp, regs, slots, aslots, fixed=False):
     """one instruction's effect on (rsp, rbp, register shadow, parked-slot shadow).
 
     ⛔⭐ WHY THE TWO SHADOWS EXIST, AND WHAT THE MEASUREMENT SAID BEFORE A LINE OF THEM WAS WRITTEN (cto
@@ -418,7 +519,7 @@ def frame_step(ins, rsp, rbp, regs, slots, aslots):
             rg[w] = rsp
         else:
             rg.pop(w, None)
-    sl = slot_effect(ins, slots)
+    sl = slot_effect(ins, slots, fixed)
     if ins.mnem == "mov" and len(ins.ops) == 2:
         off = rsp_slot_of(ins.ops[0])
         if off is not None:
@@ -433,7 +534,7 @@ def frame_step(ins, rsp, rbp, regs, slots, aslots):
         sl = {}
     elif moved:
         sl = {k - moved: v for k, v in sl.items() if k - moved >= 0}
-    asl = anchor_slot_effect(ins, aslots, rsp, rbp)
+    asl = anchor_slot_effect(ins, aslots, rsp, rbp, fixed)
     if ins.mnem == "mov" and len(ins.ops) == 2 and rbp is not None:
         off = rbp_slot_of(ins.ops[0])
         if off is not None:
@@ -594,7 +695,7 @@ def trim_entry_fallthrough(insns, succ, label_at):
     return len(entries)
 
 
-def grid_verdict(k):
+def grid_verdict(k, pad=0):
     """ON-GRID when a spine floor k bytes from the region base falls on the 16-byte descriptor-cell grid.
 
     ARCH-GC section 2b Rule 1a and section 7 F1 say the spine is TAGGED CELLS ONLY and that the collector "walks
@@ -604,7 +705,56 @@ def grid_verdict(k):
     thing CEO-812 says the collector may never do.  A grid walk is only available to it if the emitter puts every
     cell start on one grid anchored at the region base, and that is a property of EMITTED CODE, which is this
     seat's lane and this census's job to measure rather than assume."""
-    return "ON-GRID" if k % CELL == 0 else "OFF-GRID"
+    if k % CELL == 0:
+        return "ON-GRID"
+    return "PAD-ALIGNED" if pad else "OFF-GRID"
+
+
+def alignment_pad_at(insns, i, k):
+    """the bytes of a BRACKETED, UNSTORED ABI alignment pad that fully explains an off-grid floor at the call at i.
+
+    ⛔⭐ WHY A THIRD VERDICT EXISTS RATHER THAN A LOOSER SECOND ONE (cto 2026-09-21).  The fixed-symbol base fact
+    un-blinded 390 call sites, and the first ten of them read OFF-GRID at floor=-8 residue=8 -- the exact
+    fingerprint of the arithmetic slip that once announced 142 false OFF-GRID sites, so the reading was taken to
+    the emitted text before it was taken anywhere else.  It is not a slip.  All ten are one shape in one graph:
+
+        sub rsp, 8 | <stores to FIXED SYMBOLS only> | call ... | add rsp, 8
+
+    The floor really IS eight bytes below the grid at the call, so calling it ON-GRID would be a lie.  But the
+    eight bytes are a pure System V alignment pad: the walk proves NOTHING IS STORED INTO THEM, so no descriptor
+    cell lives there and the grid the collector walks is untouched.  Announcing those ten as emitter defects and
+    silencing them are both wrong, and the difference between them is measurable rather than editorial -- which
+    is the whole content of the coo's rule that an instrument whose own error yields a finding must separate the
+    two BEFORE it speaks.  So the pad is its own verdict, and `off_grid` keeps meaning what it meant.
+
+    THE THREE CONDITIONS, ALL REQUIRED: a `sub rsp, K` dominates the call inside its own block with no store to
+    `[rsp + ...]` between it and the call; removing K puts the floor back ON the cell grid, so the pad is the
+    WHOLE explanation and not a coincidence; and a matching `add rsp, K` closes it before the block ends, which
+    is what makes it a pad rather than a spine the graph keeps."""
+    if k is None or k % CELL == 0:
+        return 0
+    pad = None
+    for j in range(i - 1, max(-1, i - 24), -1):
+        ins = insns[j]
+        if ins.mnem == "sub" and len(ins.ops) == 2 and ins.ops[0].strip() == "rsp" and IMM_RX.match(ins.ops[1].strip()):
+            pad = int(ins.ops[1].strip()); break
+        if ins.mnem == "call":
+            return 0
+        if ins.mnem in WRITES_MEMORY and ins.ops and "[" in ins.ops[0] and disp_of(ins.ops[0])[0] == "rsp":
+            return 0
+        if ins.mnem == "push" or (ins.mnem == "add" and ins.ops and ins.ops[0].strip() == "rsp"):
+            return 0
+        if ins.labels:
+            return 0
+    if not pad or (k + pad) % CELL != 0:
+        return 0
+    for j in range(i + 1, min(len(insns), i + 12)):
+        ins = insns[j]
+        if ins.mnem == "add" and len(ins.ops) == 2 and ins.ops[0].strip() == "rsp" and ins.ops[1].strip() == str(pad):
+            return pad
+        if ins.mnem == "call" or ins.labels:
+            return 0
+    return 0
 
 
 def grid_sites(insns, frames):
@@ -661,6 +811,7 @@ def build_frames(asm_path, report_text, tag):
     layouts = read_layouts(report_text)
     if not maps:
         return None, None, None, None, None, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure"
+    symbase = fixed_symbol_store_bases(insns)
     by_label = {mangle(g): g for g in maps}
     frames, unmatched = {}, []
     for lbl, (ai, base, cell) in find_anchors(insns).items():
@@ -671,7 +822,7 @@ def build_frames(asm_path, report_text, tag):
         m = maps[g]
         frames[g] = {"base": base, "cell": cell, "map_off": m["map_off"], "frame_bytes": m["frame_bytes"],
                      "blob": bool(m["flags"] & 4), "layout": layouts.get(g, []),
-                     "frame": frame_fixpoint(insns, succ, ai, seed_rbp(insns, ai))}
+                     "frame": frame_fixpoint(insns, succ, ai, seed_rbp(insns, ai), symbase)}
     if unmatched:
         return None, None, None, None, None, (f"{tag}: {len(unmatched)} map label(s) match no graph in the report "
                                         f"({', '.join(sorted(unmatched)[:4])}) -- the mangling fact of ARCH-GC 6.2d "
@@ -715,7 +866,8 @@ def census_asm(asm_path, report_text, tag, out=print):
         n = shield_by_graph[g] if reached else 0
         join.append((tag, g, reached, n, m["map_off"], join_verdict(reached, n)))
     graded = grid_sites(insns, frames)
-    grid = [(tag, g, site_label(insns, i), insns[i].line, k, grid_verdict(k) if k is not None else None, why)
+    grid = [(tag, g, site_label(insns, i), insns[i].line, k,
+             grid_verdict(k, alignment_pad_at(insns, i, k)) if k is not None else None, why)
             for g, i, k, why in graded]
     reached = {i for _, i, _, _ in graded}
     unreached = sum(1 for i, ins in enumerate(insns) if ins.mnem == "call" and i not in reached)
@@ -812,14 +964,19 @@ def report(scrip, progs, workdir, out=print):
         per_witness[tag] = (len(members), len(undec), ex, sum(reach[0].values()), reach[1])
     off = [r for r in all_grid if r[5] == "OFF-GRID"]
     on = [r for r in all_grid if r[5] == "ON-GRID"]
+    pads = [r for r in all_grid if r[5] == "PAD-ALIGNED"]
     und_grid = collections.Counter(r[6] for r in all_grid if r[5] is None)
     for tag, g, lbl, line, k, v, why in sorted(off, key=lambda r: (r[0], r[1], r[3])):
         out(f"CENSUS unmapped-store GRID OFF-GRID witness={tag} graph={g} site={lbl} line={line} "
             f"floor={k:+d} residue={k % CELL}")
+    for tag, g, lbl, line, k, v, why in sorted(pads, key=lambda r: (r[0], r[1], r[3])):
+        out(f"CENSUS unmapped-store GRID PAD-ALIGNED witness={tag} graph={g} site={lbl} line={line} "
+            f"floor={k:+d} residue={k % CELL} -- a bracketed System V alignment pad holding no store, so the "
+            "floor is genuinely off the grid and NO DESCRIPTOR CELL LIVES IN IT")
     for w, n in sorted(und_grid.items(), key=lambda kv: -kv[1]):
         out(f"CENSUS unmapped-store GRID-UNDECIDABLE-REASON {w} n={n}")
     out(f"CENSUS unmapped-store GRID calls={len(all_grid)} on_grid={len(on)} off_grid={len(off)} "
-        f"undecidable={sum(und_grid.values())} unreached={unreached_calls} cell={CELL}")
+        f"pad_aligned={len(pads)} undecidable={sum(und_grid.values())} unreached={unreached_calls} cell={CELL}")
     out("CENSUS unmapped-store GRID MEANS EXACTLY THIS AND NOT THAT THE CLASS IS CURED: every call graded ON-GRID "
         "begins its collection with the emitted spine floor on the 16-byte descriptor-cell grid anchored at the "
         "region base, so the walk of [floor, base) could read each cell AT ITS START by stepping the grid -- the "
@@ -984,7 +1141,7 @@ def _selftest_align_window(alias):
             return refusal, refusal
         got = [(why if why is not None else k) for (g, i, k, why) in grid_sites(insns, frames)
                if insns[i].mnem == "call"]
-        return tuple(got) if len(got) == 2 else (got, got)
+        return (got[0], got[-1]) if got else ("NO-CALL-GRADED", "NO-CALL-GRADED")
 
 
 def _selftest_rbp_park_window(mid):
@@ -1023,7 +1180,33 @@ def _selftest_rbp_park_window(mid):
             return refusal, refusal
         got = [(why if why is not None else k) for (g, i, k, why) in grid_sites(insns, frames)
                if insns[i].mnem == "call"]
-        return tuple(got) if len(got) == 2 else (got, got)
+        return (got[0], got[-1]) if got else ("NO-CALL-GRADED", "NO-CALL-GRADED")
+
+
+def _selftest_pad_window(body, store_disp=24, map_off=16):
+    """a hand-built graph whose call sits under a planted rsp adjustment; returns (floor, verdict)."""
+    import tempfile
+    asm = (".text\n"
+           "main_bx:\n"
+           "        sub rsp, 64\n"
+           "        lea r11, [rip + .Lgcmap_main]\n"
+           f"        mov qword ptr [rsp + {store_disp}], r11\n"
+           + body +
+           "        ret\n")
+    rep = (f"[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off={map_off} flags=9\n"
+           "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
+    with tempfile.TemporaryDirectory() as wd:
+        path = os.path.join(wd, "pad.s")
+        open(path, "w", encoding="utf-8").write(asm)
+        insns, succ, maps, layouts, frames, refusal = build_frames(path, rep, "pad")
+        if refusal:
+            return refusal, refusal
+        for (g, i, k, why) in grid_sites(insns, frames):
+            if insns[i].mnem == "call":
+                if k is None:
+                    return why, why
+                return k, grid_verdict(k, alignment_pad_at(insns, i, k))
+    return "NO-CALL-GRADED", "NO-CALL-GRADED"
 
 
 def selftest():
@@ -1109,6 +1292,36 @@ def selftest():
     arm("PLANTED INVALIDATION -- a placeable store to the SAME cell kills the entry, so the invalidation above "
         "is doing work rather than being a no-op that the precision arm would read as green",
         _selftest_rbp_park_window("mov qword ptr [rbp + 16], rax")[1] == "SPINE-DEPTH-UNKNOWN")
+    _GOT = "mov rax, qword ptr [rip + g_line@GOTPCREL]\n        mov qword ptr [rax + 0], 4"
+    arm("PLANTED POSITIVE -- a store through a base loaded from a GOT slot is PLACED, not feared: the address of "
+        "a defined symbol is never a machine stack, so the anchor shadow survives and the restore stays readable. "
+        "1303 of the 2044 unplaceable stores over the 52 witnesses are exactly this form",
+        _selftest_rbp_park_window(_GOT)[1] == 0)
+    arm("PLANTED POSITIVE -- `lea r, [rip + sym]` is the same fact with no load at all (284 of the 2044)",
+        _selftest_rbp_park_window("lea rax, [rip + g_line]\n        mov qword ptr [rax + 0], 4")[1] == 0)
+    arm("PLANTED NEGATIVE AND THIS IS THE ARM THAT MAKES THE FACT SOUND -- `lea r, [rsp + K]` puts a STACK "
+        "address in a general register, so a store through it is feared exactly as before. There are FOUR of "
+        "these in the same population, and a rule that placed every lea base would compute wrong depths at all "
+        "four while printing them as discoveries",
+        _selftest_rbp_park_window("lea rax, [rsp + 8]\n        mov qword ptr [rax + 0], 4")[1] == "SPINE-DEPTH-UNKNOWN")
+    arm("PLANTED NEGATIVE -- a PLAIN rip-relative load reads a global's VALUE and not its address, so it is not "
+        "the fact and is not accepted",
+        _selftest_rbp_park_window("mov rax, qword ptr [rip + g_line]\n        mov qword ptr [rax + 0], 4")[1] == "SPINE-DEPTH-UNKNOWN")
+    arm("PLANTED NEGATIVE -- a call between the GOT load and the store clobbers the caller-saved base, so the "
+        "fact expires with it",
+        _selftest_rbp_park_window("mov rax, qword ptr [rip + g_line@GOTPCREL]\n        call rt_gc_point_arr_c@PLT\n        mov qword ptr [rax + 0], 4")[1] == "SPINE-DEPTH-UNKNOWN")
+    arm("GRID PAD -- a bracketed rsp pad holding no store takes the floor off the grid and reads PAD-ALIGNED, "
+        "because the floor really is off the grid and NO DESCRIPTOR CELL LIVES IN THE PAD. Ten of the 400 "
+        "newly graded sites are this shape, all in one graph, all at residue 8",
+        _selftest_pad_window("        sub rsp, 8\n        call rt_gc_poll@PLT\n        add rsp, 8\n") == (-8, "PAD-ALIGNED"))
+    arm("GRID PAD NEGATIVE -- a store INTO the pad means a cell can live there, so the site is OFF-GRID and the "
+        "pad verdict is not a blanket amnesty for an 8-byte adjustment",
+        _selftest_pad_window("        sub rsp, 8\n        mov qword ptr [rsp + 0], rcx\n        call rt_gc_poll@PLT\n        add rsp, 8\n") == (-8, "OFF-GRID"))
+    arm("GRID PAD NEGATIVE -- an adjustment the block never closes is a spine the graph KEEPS, not a pad",
+        _selftest_pad_window("        sub rsp, 8\n        call rt_gc_poll@PLT\n") == (-8, "OFF-GRID"))
+    arm("GRID PAD NEGATIVE -- a pad that does not fully explain the residue leaves the site OFF-GRID, so the "
+        "verdict rests on the arithmetic and not on the presence of a sub",
+        _selftest_pad_window("        sub rsp, 16\n        call rt_gc_poll@PLT\n        add rsp, 16\n", store_disp=16) == (-8, "OFF-GRID"))
     arm("rsp_assign over an UNKNOWN rbp stays unknown rather than inventing a depth",
         rsp_assign(CS.Insn(1, "lea rsp, [rbp - 688]", []), -16, None) is None)
     _whack = _selftest_frame_whack()
