@@ -801,13 +801,21 @@ s4e_lane_owner_of_language() {
       # flip that forgets its table is caught AT THE FLIP by the flipper's own preflight instead of by whoever lands
       # next -- is ranked up on this evidence (CEO-1055). Written out per language rather than collapsed to a default
       # for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
-      icon)     printf 'hq_icon';;
-      prolog)   printf 'hq_prolog';;
-      snobol4)  printf 'hq_snobol4';;
-      pascal)   printf 'hq_pascal';;
-      snocone)  printf 'hq_snocone';;
-      rebus)    printf 'cfo';;
-      raku)     printf 'hq_raku';;
+      # ⛔ MODE CEO (CEO-1069, 2026-09-21 14:0x, Lon in-chat to the ceo, verbatim: "And now you are in CEO mode.
+      # The fleet is going quiet now."): ONE SEAT HOLDS EVERY LANGUAGE. The six language HQs AND the three other
+      # officers are stood down; rebus comes back to the ceo with the rest. Written out per language rather than
+      # collapsed to a default for the reason every table above gives: the gate beside this compares it to MODE
+      # line 2 LANGUAGE BY LANGUAGE, and a default would agree with a line 2 that had drifted on six of them.
+      # ⛔ THIS TABLE MOVED BEFORE THE MODE FILE, through scripts/ceo_mode_flip.sh --preview, which is the
+      # mechanism landed at c641a38f one hour earlier after the table-before-the-file procedure was FOLLOWED TWICE
+      # AND FORGOTTEN TWICE in a single day. This is its first real use.
+      icon)     printf 'ceo';;
+      prolog)   printf 'ceo';;
+      snobol4)  printf 'ceo';;
+      pascal)   printf 'ceo';;
+      snocone)  printf 'ceo';;
+      rebus)    printf 'ceo';;
+      raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
