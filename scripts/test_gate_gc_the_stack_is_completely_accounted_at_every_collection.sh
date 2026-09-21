@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# scripts/test_gate_gc_the_stack_is_completely_accounted_at_every_collection.sh -- THE STACK COMPLETENESS
+# GATE (coo, CEO-1099 rank 0, 2026-09-21).
+#
+# THERE ARE ONLY TWO WAYS TO MAKE A HARDWARE-STACK REGION TRAVERSABLE: DELETE IT OR DECLARE IT.  Eight
+# classes sit on the stack at a collection -- emitted box frames, the zeta-SPINE on RSP, gcc C frames, our
+# own asm shim frames, jmp_buf register copies, live callee-saved registers, coroutine stacks, and the
+# sanctioned driver frames below main.  Today NOTHING accounts for every byte, which is why COMPLETE is an
+# opinion rather than a verdict.  This gate is the verdict.
+#
+# ⛔ IT COUNTS NOTHING OF ITS OWN.  gc_walk_print (src/runtime/rt/gc_heap.c) already prints, behind
+# SCRIP_GC_MAPS, the five quantities that ARE completeness -- nomap, notab, i_raw_heap, h_raw_heap,
+# s_raw_heap -- on its [GC-WALK] line.  This gate PARSES that line, the way test_gate_no_c_to_bb_ratchet.sh
+# parses the gate it depends on.  A second reader of one quantity drifts, and the drift then prints as a
+# property of the world rather than of the reader.
+#
+# ⛔⭐ WHY IT IS A RATCHET AND NOT A PASS/FAIL, AND THE HONEST ANSWER TO "CAN THIS COUNT REACH ZERO BY
+# DESIGN?" (test_gate_term_wordref_ratchet.sh's question, which is what makes this shape legitimate):
+# YES -- every unaccounted region is DEBT that is to be deleted or declared, and 0 is the intended terminal
+# value.  But it is NOT zero today and pretending otherwise would be the false clearance this row exists to
+# prevent: MEASURED 2026-09-21 over all 826 icon master entries at 64 KB / stress 1, 149 programs carry a
+# nonzero completeness counter across 163 DISTINCT NAMED FRAMES and 133648 raw-heap word sites, the largest
+# single region being the SPINE of `main` (33633 sites across 100 programs).  So the gate pins the named
+# remainder and goes RED when a NEW frame appears or a pinned one grows.
+#
+# ⛔ WHEN IT GOES RED IT NAMES THE FRAME, NEVER A COUNT.  A count without names cannot be triaged.  The frame
+# name is the `graph=` field of the [GC-WALK-SPINE|HEADER|RAW] site lines, which is exactly where each of the
+# three raw-heap counters is incremented (gc_heap.c:1130 s_raw_heap->SPINE, :1130 h_raw_heap->HEADER,
+# :1147 i_raw_heap->RAW).
+#
+# ⛔ DEPTH IS PART OF THE VERDICT (CEO-1099).  A shallow witness reads nomap=0 and proves nothing: the ceo
+# measured frames=1 nomap=0 i_raw_heap=0 on bench_icnstr_concat_table.icn and that is NOT evidence about deep
+# stacks.  This gate DECLARES the depth its population reaches and REFUSES rc=2 if the run does not reach it,
+# so a population that quietly got shallower cannot read clean.
+# ⛔ AND A POPULATION THAT NEVER COLLECTED REFUSES rc=2 (CEO-1044).
+GATE_NAME="test_gate_gc_the_stack_is_completely_accounted_at_every_collection"
+. "$(dirname "$0")/lib_gate.sh"
+gate_parse_args "$@"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+S4E="${S4E_HOME:-$(cd "$REPO/.." && pwd)}"
+PINS="$REPO/scripts/gc_stack_accounting_pins.tsv"
+
+gate_require_fresh || exit 2
+
+# ── THE DECLARED POPULATION.  Deep witnesses, named, from the icon master.  Chosen by measured frame depth
+#    (see the ONE_LINER at the foot), never by looking like they might recurse.
+# ⛔⭐ THE POPULATION IS CURATED AGAINST THE RUNTIME'S OWN LINE CAP, AND THAT COST IS REAL.  gc_walk_site
+#    stops after GC_WALK_LINE_CAP=48 site lines PER COLLECTION and reports the rest as `suppressed`, so a
+#    deep-but-chatty witness names almost nothing: measured 2026-09-21, procedure_every_suspend_replace_7
+#    reaches 36 frames over 216 collections and SUPPRESSES 204221 site lines while naming just 2 frames.
+#    Witnesses are therefore chosen for DEPTH PER COLLECTION, not depth alone.  Measured candidates:
+#      procedure_coexpr_every_replace_1   frames=11 coll=14   suppressed=23     rc=0   <- kept
+#      procedure_every_suspend_replace_3  frames=6  coll=72   suppressed=0      rc=0   <- kept
+#      procedure_coexpr_suspend_replace_3 frames=6  coll=262  suppressed=5      rc=1   <- kept
+#      procedure_every_suspend_replace_7  frames=36 coll=216  suppressed=204221 rc=139 <- REJECTED, crashes
+#      procedure_record_every_replace_4   frames=8  coll=2246 suppressed=117287 rc=0   <- REJECTED, chatty
+# ⛔ A CRASHING WITNESS IS REJECTED ON PURPOSE: its evidence stops at an unknown point, so a clean reading
+#    from it cannot be distinguished from a reading that never got deep enough to see anything.
+# GC_STACK_WITNESSES overrides the population FOR THE FAIL-ONCE ARMS ONLY -- a detector arm that has never
+# tripped reads as "there was never a bug here", and it is detector arms that fail OPEN (CEO-1099).
+WITNESSES="${GC_STACK_WITNESSES:-procedure_coexpr_every_replace_1 procedure_every_suspend_replace_3 procedure_coexpr_suspend_replace_3}"
+DEPTH_FLOOR="${GC_STACK_DEPTH_FLOOR:-10}"     # max frames the population MUST reach, or the reading is shallow
+export MASTER_EXT=".icn" MASTER_DIR="$S4E/corpus/tests/icon"
+. "$REPO/scripts/lib_master_extract.sh" >/dev/null 2>&1 || {
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: scripts/lib_master_extract.sh is absent -- this gate materializes witnesses through the ONE authority and invents no extractor of its own"; exit 2; }
+
+TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
+LOG="$TD/walk.log"; : > "$LOG"
+NCOLL=0; MAXFRAMES=0; SUPPRESSED=0; NRUN=0
+for w in $WITNESSES; do
+    src="$TD/$w.icn"
+    master_extract_name "$w" "$src" "$TD/$w.ref" >/dev/null 2>&1 || {
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: could not materialize witness '$w' from $MASTER_DIR -- a population that cannot be built is not a clean reading"; exit 2; }
+    env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 \
+        timeout 60 "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null
+    wrc=$?
+    if [ "$wrc" -ge 128 ] || [ "$wrc" -eq 124 ]; then
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: witness '$w' ended rc=$wrc (crash or timeout) -- its stack evidence stops at an unknown point, and a clean reading from a truncated run cannot be told from a run that never got deep enough to see anything"; exit 2; fi
+    NRUN=$((NRUN + 1))
+done
+
+NCOLL=$(grep -c '^\[GC-WALK\] pop=' "$LOG" 2>/dev/null || echo 0)
+MAXFRAMES=$(sed -n 's/^\[GC-WALK\] pop=[^ ]* *frames=\([0-9]*\) .*/\1/p' "$LOG" | sort -n | tail -1)
+MAXFRAMES="${MAXFRAMES:-0}"
+SUPPRESSED=$(sed -n 's/^\[GC-WALK\] site lines suppressed=\([0-9]*\) .*/\1/p' "$LOG" | awk '{s+=$1} END{print s+0}')
+
+# ⛔ CEO-1044: a population that never collected proves nothing about the collector.
+if [ "$NCOLL" -eq 0 ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: $NRUN witness(es) ran and produced ZERO collections -- a population that never collected proves nothing (CEO-1044)"; exit 2; fi
+# ⛔ CEO-1099: declare the depth, and refuse a reading that did not reach it.
+if [ "$MAXFRAMES" -lt "$DEPTH_FLOOR" ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: population reached only frames=$MAXFRAMES, below the declared floor of $DEPTH_FLOOR -- a shallow stack reads clean and is not evidence about deep ones (CEO-1099)"; exit 2; fi
+
+# ── THE FIVE COMPLETENESS QUANTITIES, summed over every collection, from the runtime's own line.
+read -r NOMAP NOTAB IRH HRH SRH <<EOF
+$(awk '/^\[GC-WALK\] pop=/ {
+    for (i=1;i<=NF;i++){split($i,a,"="); v[a[1]]=a[2]}
+    nm+=v["nomap"]; nt+=v["notab"]; ir+=v["i_raw_heap"]; hr+=v["h_raw_heap"]; sr+=v["s_raw_heap"]
+} END{printf "%d %d %d %d %d\n", nm+0, nt+0, ir+0, hr+0, sr+0}' "$LOG")
+EOF
+TOTAL=$((NOMAP + NOTAB + IRH + HRH + SRH))
+
+echo "── population: $NRUN witness(es), $NCOLL collection(s), max frames=$MAXFRAMES (floor $DEPTH_FLOOR) ──"
+echo "── the five completeness quantities, summed over every collection ──"
+printf '   nomap=%-7s notab=%-7s i_raw_heap=%-8s h_raw_heap=%-8s s_raw_heap=%-8s  TOTAL=%s\n' \
+    "$NOMAP" "$NOTAB" "$IRH" "$HRH" "$SRH" "$TOTAL"
+if [ "$SUPPRESSED" -gt 0 ]; then
+    echo "   ⛔ $SUPPRESSED site line(s) SUPPRESSED by the runtime's per-collection cap -- THE NAME SET BELOW IS"
+    echo "      INCOMPLETE and this gate says so rather than reporting a truncated set as the whole of it."
+fi
+
+# ── THE NAMED FRAMES.  cls+graph, from the site lines the same counters emit.
+OBS="$TD/observed.tsv"
+sed -n 's/^\[GC-WALK-\(SPINE\|HEADER\|RAW\)\] pop=[^ ]* graph=\([^ ]*\) .*/\1\t\2/p' "$LOG" \
+    | sort | uniq -c | awk '{printf "%s\t%s\t%s\n", $2, $3, $1}' | sort -k1,1 -k2,2 > "$OBS"
+NFRAMES=$(wc -l < "$OBS")
+echo "── $NFRAMES distinct named frame(s) carrying unaccounted raw-heap words ──"
+
+if [ ! -f "$PINS" ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: $PINS is absent -- a ratchet with no pins cannot say whether the population grew. Regenerate with the ONE_LINER at the foot of this file."; exit 2; fi
+
+# ⛔⭐ THE RATCHET IS ON THE NAME SET, NOT ON THE COUNTS, AND THAT IS A MEASUREMENT AND NOT A PREFERENCE.
+#    Three identical runs of this exact population on one tree (2026-09-21): SPINE/testio read 853, 946 and
+#    994; SPINE/main 775, 765, 763; SPINE/gen 16, 18, 18.  The COUNTS ARE NOT REPRODUCIBLE -- they follow
+#    where the stress collector happens to fire -- so a count pin would flap red on an unchanged tree, and a
+#    gate that cries wolf is worse than no gate.  THE NAME SET WAS BYTE-IDENTICAL ACROSS ALL THREE.  So a NEW
+#    FRAME NAME is the regression this gate catches, and the counts are printed as the REMAINDER, labelled,
+#    and deliberately not ratcheted.  If a count pin is ever wanted it needs a tolerance derived from this
+#    variance, not a number copied off one run.
+VIOL=0; TIGHTEN=""
+while IFS=$'\t' read -r cls graph n; do
+    [ -z "$graph" ] && continue
+    if ! awk -F'\t' -v c="$cls" -v g="$graph" '$1==c && $2==g {f=1} END{exit !f}' "$PINS"; then
+        printf '  ⛔ %-7s graph=%-40s %7d word(s)   A FRAME NOT IN THE BASELINE IS A NEW UNACCOUNTED REGION\n' "$cls" "$graph" "$n"
+        VIOL=$((VIOL + 1))
+    else
+        printf '     %-7s graph=%-40s %7d word(s)   pinned remainder\n' "$cls" "$graph" "$n"
+    fi
+done < "$OBS"
+# ⭐ A PINNED FRAME THAT VANISHED IS PROGRESS AND MUST STILL BE REPORTED, or the pin lingers as dead slack
+#   that a later regression into the same frame would silently inherit.
+while IFS=$'\t' read -r cls graph; do
+    [ -z "$graph" ] && continue
+    awk -F'\t' -v c="$cls" -v g="$graph" '$1==c && $2==g {f=1} END{exit !f}' "$OBS" && continue
+    printf '  ⭐ %-7s graph=%-40s       0 word(s)   ACCOUNTED FOR NOW -- drop this pin\n' "$cls" "$graph"
+    TIGHTEN="$TIGHTEN $cls/$graph"
+done < "$PINS"
+
+echo "── REMAINDER: $TOTAL unaccounted word(s) over $NFRAMES named frame(s). COMPLETE means this reads 0. ──"
+echo "   (the word COUNT is informational and varies run to run by design of the stress collector;"
+echo "    the NAME SET is what is ratcheted, and it is stable.)"
+[ -n "$TIGHTEN" ] && { echo "  ⭐ TIGHTEN AVAILABLE (a pinned frame is accounted for now -- drop it in the commit that earned it):"; for t in $TIGHTEN; do echo "        $t"; done; }
+
+# ONE_LINER -- regenerate the pins; never retype a number you did not produce (RULES.md § TRANSCRIPTION).
+#   cd "$S4E_HOME/SCRIP" && bash scripts/test_gate_gc_the_stack_is_completely_accounted_at_every_collection.sh --informational 2>&1 \
+#     | sed -n 's/^[^A-Z]*\([A-Z][A-Z]*\)  *graph=\([^ ]*\).*/\1\t\2/p' | sort -u > scripts/gc_stack_accounting_pins.tsv
+gate_verdict "$VIOL" "named frame(s) newly unaccounted on the hardware stack"

@@ -157,6 +157,7 @@ test_gate_gc_the_plant_says_whether_it_applied.sh	WIRED	-	-	-
 test_gate_gc_the_prolog_root_cells_live_inside_the_value_region_and_are_visited_by_type.sh	WIRED	-	-	-
 test_gate_gc_the_spill_record_carries_a_callee_saved_heap_pointer_across_an_allocating_return.sh	WIRED	-	-	-
 test_gate_gc_the_spine_cell_grid_is_anchored_at_the_region_base.sh	WIRED	-	-	-
+test_gate_gc_the_stack_is_completely_accounted_at_every_collection.sh	WIRED	-	-	-
 test_gate_gc_the_stack_walk_stops_at_the_outermost_emitted_frame.sh	WIRED	-	-	-
 test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh	WIRED	-	-	-
 test_gate_gc_the_unmapped_spine_store_witness_answers_its_oracle_at_every_band_point.sh	WIRED	-	-	-
