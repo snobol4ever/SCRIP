@@ -11,6 +11,13 @@
 #     C-frame entry into a box, holding char fb[256] on the C stack across the entry and choosing the port in C
 #     with (r.v != DT_FAIL).  The ceo's telegram named rt.c:1194 as THE LAST non-tail C-frame call in the tree;
 #     it was the last HOOKED one.  This road was never in any census because it was never hooked.
+#     ⭐ DELETED 2026-09-21 on Lon's order, and NOT on a zero trace -- on the MECHANISM.  Under gdb, on a program
+#     carrying both a grammar and a sub, rt_proc_set_fn fires for the sub and NEVER for the grammar rule, while
+#     rt_proc_get_fn("gram__G__TOP") RETURNS NULL: lower_raku builds those graphs but nothing registers them, so
+#     bf was null on every path and both guarded calls were unreachable by construction.  The NFA road is the
+#     working implementation.  rt_gram_trampoline.S went with it, hence its absence from ENTRY_PRIMS below.
+#     ⛔ IT WAS DEAD BECAUSE A FEATURE WAS BUILT AND NEVER WIRED, not because it was retired -- the unwired
+#     gram__ graphs are hq_raku's question and are deliberately NOT resolved by this deletion.
 #   * rt_chain_enter / rt_chain_enter_v -- the EVAL/CODE and computed-GOTO road, FIVE call sites in
 #     runtime_eval.c, all unhooked.  MEASURED LIVE the moment it was hooked: a six-line SNOBOL4 program whose
 #     only dynamic construct is EVAL('3 + 4') fires chain.eval.v.  That transition was invisible to the 1062.
@@ -32,7 +39,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT" || exit 2
 
-ENTRY_PRIMS='rt_proc_enter|rt_proc_enter_named|rt_proc_enter_frag|rt_tiny_record_enter|rk_gram_enter_box|rt_chain_enter|rt_chain_enter_v'
+ENTRY_PRIMS='rt_proc_enter|rt_proc_enter_named|rt_proc_enter_frag|rt_tiny_record_enter|rt_chain_enter|rt_chain_enter_v'
 SCAN_DIRS="src/runtime src/driver"
 WINDOW=3
 

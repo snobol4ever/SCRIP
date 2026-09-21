@@ -1182,17 +1182,9 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         rt_c2bb_hit("gen_h.enter", name);
         return rt_proc_enter((void *)p->fn);
     }
-    int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    char *fb = (char *)__builtin_alloca((size_t)fbytes + 16) + 16;
-    fb = (char *)(((uintptr_t)fb + 15) & ~(uintptr_t)15);
-    { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; }
-    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    rt_frame_bind_args(fb, p, nargs);
     if (hout) *hout = (void *)0;
-    rt_c2bb_hit("gen_h.callregime", name);
-    rt_k_level++; rt_k_level_mirror(); (void)p->fn((void *)fb, 0); rt_k_level--; rt_k_level_mirror();
-    return *(DESCR_t *)(fb + 0);
+    core_runtime_error(287, "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, then delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN LANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own SnoM sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
+    return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_drop_frame_h(void **hslot)

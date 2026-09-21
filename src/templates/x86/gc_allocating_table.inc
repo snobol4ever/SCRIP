@@ -850,7 +850,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rgbkey", GC_RET_OTHER },
     { "rk_block_cmp", GC_RET_OTHER },
     { "rk_discover_grammars", GC_RET_VOID },
-    { "rk_gram_run_native", GC_RET_OTHER },
     { "rk_iter_land_γ", GC_RET_OTHER },
     { "rk_iter_land_ω", GC_RET_OTHER },
     { "rk_iter_open", GC_RET_OTHER },

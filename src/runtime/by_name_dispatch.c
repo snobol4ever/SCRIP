@@ -539,7 +539,6 @@ const char *rt_grammar_qname(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i
 const char *rt_grammar_body(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].body : NULL; }
 int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].flavor : 0; }
 int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
-extern DESCR_t rk_gram_enter_box(bb_box_fn fn, const char *sigma, long delta, void *zeta, long *out_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_is_nil(DESCR_t d) {
     if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0;
@@ -554,25 +553,14 @@ static DESCR_t rk_match_make(const char *text, const char *caps, int ok) {
     return DATCON_fn("Match", STRVAL(rt_heap_strdup_c(text ? text : "")), STRVAL(rt_heap_strdup_c(caps ? caps : "")), INTVAL(ok));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_gram_run_native(bb_box_fn bf, const char *gpn, const char *subj, DESCR_t *out) {
-    extern void rt_c2bb_hit(const char *site, const char *name);
-    long Delta = (long)strlen(subj); long final_delta = 0; char fb[256] __attribute__((aligned(16))); memset(fb, 0, sizeof fb);
-    rt_c2bb_hit("gram.enter", gpn);
-    DESCR_t r = rk_gram_enter_box(bf, subj, Delta, (void *)fb, &final_delta);
-    int matched = (r.v != DT_FAIL); int full = matched && (final_delta == Delta);
-    *out = rk_match_make(full ? subj : "", "", full); return 1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
     if (!gname) gname = ""; if (!subj) subj = "";
     char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname);
     const char *body = gram_get(qn);
-    char gpn[320]; snprintf(gpn, sizeof gpn, "gram__%s__TOP", gname);
-    extern void *rt_proc_get_fn(const char *); bb_box_fn bf = (bb_box_fn)rt_proc_get_fn(gpn);
-    if (!body) { if (bf) return rk_gram_run_native(bf, gpn, subj, out); *out = FAILDESCR; return 1; }
+    if (!body) { *out = FAILDESCR; return 1; }
     int topflv = gram_get_flavor(qn);
     char pat[4096]; gram_expand(gname, body, topflv, pat, sizeof pat, 0);
-    if (bf && !strstr(pat, "{!ww}") && !strchr(pat, '<')) return rk_gram_run_native(bf, gpn, subj, out);
     Nfa *nfa = nfa_build(pat);
     if (!nfa) { *out = FAILDESCR; return 1; }
     Match m; nfa_exec(nfa, subj, &m);

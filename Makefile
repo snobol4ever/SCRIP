@@ -824,7 +824,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_glit.cpp \
     $(SRC)/templates/bb/bb_gcc.cpp \
     $(SRC)/templates/bb/bb_galt.cpp \
-    $(SRC)/runtime/rt_gram_trampoline.S \
     $(SRC)/runtime/rt/rt_sg_scan.S \
     $(SRC)/runtime/rt/rt_asm_helpers.S \
     $(SRC)/templates/xa/xa_stubs.cpp \
