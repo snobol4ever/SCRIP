@@ -1747,8 +1747,7 @@ inline std::string x86_frame_unsink() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_xfer_enter() {
-    return x86("comment", "ARCH-GC 6.2i THE XFER RECORD IS TWO TAGGED CELLS (cto 2026-09-19): the three scan registers a deferred entry must survive are saved as DESCR cells the collector reads by tag -- {DT_S, r15d, r13} the subject at [rsp+0], {DT_I, 0, r14} the cursor at [rsp+16] -- in place of four raw pushes. The frame walker named the raw push of r13 as the one untagged heap word on the SNOBOL4 defer road: the sweep's raw arm marked it and never rewrote it, so the match resumed on the subject's old address after a collection inside the deferred callee (hb_defer_subject.sno printed NO at stress 1/3/5 in both media). Same 32 bytes, same rsp parity, nothing indexes into the record.")
-         + x86("sub", "rsp", 32L)
+    return  x86("sub", "rsp", 32L)
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
          + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
 }
@@ -2205,19 +2204,16 @@ inline std::string x86_rt_gc_poll_res() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
 inline std::string x86_align_call_enter() {
-    return x86("comment", "ARCH-GC 6.2j STEP 1 (cto 2026-09-20, row gc-rbx-is-the-bump-frontier; Lon 2026-09-19: rbx was always meant to be the GC bump frontier, if it is not so make it so): the 16-byte alignment an ABI call needs costs NO callee-saved register. The old spelling pushed rbx, parked rsp in it, aligned, called, and restored -- which is why rbx, preserved by SysV and therefore free-looking, was picked up as scratch here after the HEAP arm that owned it was deleted with the port selector (whose identifiers are forbidden under src/ by test_gate_no_zeta_frame_switches.sh, CEO-448 -- described, never spelled). The old rsp now rides the ALIGNED STACK ITSELF at [rsp], read back rsp-relatively, and r11 holds it only for the three instructions before the call, where it is already dead: the call that follows clobbers r11 by the ABI, so a box that needed it live across this sequence was already broken. rsp is 16-aligned AT the call, as the ABI requires, and the reads a caller makes through the parked pointer use r11 while it lives.")
-         + x86("mov", "r11", "rsp")
+    return  x86("mov", "r11", "rsp")
          + x86("and", "rsp", (long)-16)
          + x86("sub", "rsp", (long)16)
          + x86_rsp_store64(0, "r11");
 }
 inline std::string x86_align_call_leave() {
-    return x86("comment", "ARCH-GC 6.2j STEP 1: restore the caller's rsp from the slot the aligned frame parked it in -- no pop, no callee-saved register, and correct on every path that jumps to the epilogue because rsp is unchanged between the enter and here.")
-         + x86_rsp_load64("rsp", 0);
+    return  x86_rsp_load64("rsp", 0);
 }
 inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
-    return x86("comment", "ARCH-GC 6.5 SPILL RECORD: the collected-heap pointer a callee-saved register holds at this allocating return is spilled as ONE TAGGED DESCR cell and handed to the poll as its shield array, so the collector visits it precisely by type and relocates it; the FLOOR handed to the poll is the caller's own rsp, which leaves the record and the raw scratch below it OUT of the word-swept range -- an untagged integer inside a swept range is visited raw and rewritten when its block slides, which is why the record carries tagged cells and nothing else")
-         + x86("sub", "rsp", (long)32)
+    return  x86("sub", "rsp", (long)32)
          + x86_rsp_store32_imm(0, (long)DT_S)
          + IF(lenreg32 != NULL, x86_rsp_store32(4, lenreg32))
          + IF(lenreg32 == NULL, x86_rsp_store32_imm(4, (long)0))
@@ -2235,11 +2231,9 @@ inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32,
          + x86("add", "rsp", (long)32);
 }
 inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
-inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return x86("comment", "ARCH-GC 6.5 SPILL RECORD, KEEPING THE PROTOCOL WORD: a box that opened a call by name holds its packed spine word in rdx across this poll, and the poll speaks the argument registers. The word rides the record's OWN spare quad at [rsp + 24], below the floor the poll hands the collector, so it is never swept and never relocated -- it is an integer. ⛔ IT IS NOT A PUSH, AND THAT IS MEASURED (cfo 2026-09-19): an 8-byte push flips rsp's parity at the poll's call and a misaligned rsp faults inside libc's SSE code with si_addr NULL -- the defer road crashed a master entry 5 of 5 that way, in gc_stack_region's sscanf under gc_collect_ex. A 16-byte save fixes the parity but opens a second frame, which the register-resident gate's arm 4 reads as the record's own; the record's spare quad costs no frame at all.")
-                                                                 + x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
+inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return  x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
-    return x86("comment", "ARCH-GC 6.5 SPILL RECORD, THE PROTOCOL PAIR AS TAGGED CELLS (cfo 2026-09-19, on the cto's measured blocker against c2e82f161). The defer road's open, land and probe returns hand back a PAIR, and on this road one of the two words IS A COLLECTED-HEAP POINTER decided by the other: rt_defer_resolve returns {(long)r.p, 4} when it resolves a DT_P, so rdx == 4 means rax is the DTP block; rt_defer_probe_run sets r.aux = (long)cv.p whenever r.fn is non-zero, so rax != 0 means rdx is the DTP block. The earlier spelling kept both words RAW at [rsp + 16] and [rsp + 24], BELOW the floor handed to the collector, where neither the sweep nor the walker can see them -- the block moves, the reload restores the old address, and the box jumps through it (hb_dvec_sort_match.sno rc=139 at stress 1/3/5 in both media at 1 MB). A word below the floor is safe only when it is an INTEGER, which is true of the packed spine word and is NOT true here. So the pair rides the shield array as two more DESCR cells and the collector relocates whichever one the tag names. THE TAG IS DECIDED BY THE PROTOCOL, NEVER GUESSED: the pointer cell opens DT_I and is overwritten with DT_P only on the one condition that makes it a block, so a non-pointer is never handed to the visitor as one -- gc_blk_of on a stray word would be the conservative read Lon's rule forbids, and this emits no such read. 48 bytes, a multiple of 16, so rsp parity at the poll's call is unchanged.")
-         + x86("sub", "rsp", (long)48)
+    return  x86("sub", "rsp", (long)48)
          + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "rax")
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
@@ -2256,8 +2250,7 @@ inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
          + x86("add", "rsp", (long)48);
 }
 inline std::string x86_rt_gc_poll_rec_res() {
-    return x86("comment", "ARCH-GC 6.5c: the box result IS a DESCR, so the rax:rdx pair is written as the record's ONE cell and handed to the poll as its shield array -- rt_gc_visit_descr relocates it BY ITS OWN TYPE FIELD, a typed visit and not the word sweep, and the floor is the caller's own rsp so the cell sits outside the swept range. 6.5b's spill-PAIR left this cell INSIDE that range and was relocated by gc_zeta_frame, which is the mechanism F6 step 3 deletes; this form survives that deletion by construction")
-         + x86("sub", "rsp", (long)16)
+    return  x86("sub", "rsp", (long)16)
          + x86_rsp_store64(0, "rax")
          + x86_rsp_store64(8, "rdx")
          + x86_reg_disp32_lea64("rdi", "rsp", 0)

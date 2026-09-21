@@ -17,8 +17,7 @@ static int bal_admit() { return _.op_off >= 0 && _.op_name1 && _.op_name1[0]; }
 std::string bb_scan_bal() {
     x86_begin();
     return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
-           x86("comment", "IR_SCAN_BAL (var c1) [fstranl.r bal: c1 cset-descr@slot, c2/c3 default ()/; counter off+24, cursor off+16; same envelope as literal arm; rt_scan_needle coerces (int/real->string), mirroring bb_scan_match.cpp -- FINDING-2026-09-03-seat02-icon-jcon-suite-census-and-level-cure.md class fix]")
-             + x86_alpha()
+            x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("mov",     "edx", (long)104)
@@ -78,8 +77,7 @@ std::string bb_scan_bal() {
              + x86("mov",     "rax", FRQ(_.op_off + 16))
              + x86("jmp",     L(1)) :
            (!bal_admit()) ? x86_alpha() + x86_bomb("bb_scan_bal: unhandled (needs nonempty bracket-free literal c1 + descr flat-chain slot)") :
-           x86("comment", "IR_SCAN_BAL [beta re-enters at L(1), the bracket classifier, NOT at L(0): the success path exits through gamma before the (/) depth accounting runs, so resuming past that character never counts the opening bracket -- on (AB) the box yielded 1,2,3,4 where iconx yields 1,5. rax is reloaded from the cursor slot because L(1) consumes it and gamma left it clobbered]")
-         + x86_alpha()
+            x86_alpha()
          + x86("mov",     FRQ(_.op_off + 16), "r14")
          + x86("mov",     FRQ(_.op_off + 24), (long)0)
          + x86("def",     L(0))

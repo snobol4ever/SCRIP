@@ -57,8 +57,7 @@ std::string bb_assign_global() {
                 + x86("note", gva_name(_.op_gva_k))
                 + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8), "rdx")
                 + IF(mon_vars_on(),
-                     x86("comment", "s196 MON-VARS, widened row snobol4-csnobol4-trace-builtin-and-ftrace-produce-zero-output: inline WRITE tap beside the GVA fast store -- now fires unconditionally (not only under --monitor) so TRACE()/&TRACE work in ordinary runs; comm_var itself stays self-guarded")
-                   + mon_var_trace_tap())
+                      mon_var_trace_tap())
                 + x86_gamma()
                 + x86_beta_trampoline()
                 + IF(mon_vars_on(),
@@ -74,8 +73,7 @@ std::string bb_assign_global() {
                 + x86("note", ZOPN(0))
                 + x86("mov", "rdx", ZOPQ(0, 8))
                 + IF(mon_vars_on(),
-                     x86("comment", "row snobol4-csnobol4-trace-builtin-and-ftrace-produce-zero-output: this non-GVA path had NO trace tap at all before (not even under --monitor); tap BEFORE the call so NV_SET_fn's return value in rax cannot be mistaken for it")
-                   + mon_var_trace_tap())
+                      mon_var_trace_tap())
                 + x86("mov", "rsi", "rax")
                 + x86("mov", "rdi", ROQ(0))
                 + x86("call", "NV_SET_fn", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(const char *, DESCR_t))NV_SET_fn)
@@ -98,8 +96,7 @@ std::string bb_assign_global() {
             + IF(_.op_res_live && !stf(), x86("mov",    FRQ(_.op_off),     "rax")
                               + x86("mov",    FRQ(_.op_off + 8), "rdx"))
             + IF(mon_vars_on(),
-                 x86("comment", "s196 MON-VARS, widened row snobol4-csnobol4-trace-builtin-and-ftrace-produce-zero-output: inline WRITE tap beside the GVA fast store -- now fires unconditionally (not only under --monitor) so TRACE()/&TRACE work in ordinary runs; comm_var itself stays self-guarded")
-               + mon_var_trace_tap())
+                  mon_var_trace_tap())
             + x86_gamma()
             + x86_beta_trampoline()
             + IF(mon_vars_on(),
@@ -113,8 +110,7 @@ std::string bb_assign_global() {
             + x86("mov", "rax", FRQ(_.op_a_slot))
             + x86("mov", "rdx", FRQ(_.op_a_slot + 8))
             + IF(mon_vars_on(),
-                 x86("comment", "row snobol4-csnobol4-trace-builtin-and-ftrace-produce-zero-output: this non-GVA path had NO trace tap at all before (not even under --monitor); tap BEFORE the call so NV_SET_fn's return value in rax cannot be mistaken for it")
-               + mon_var_trace_tap())
+                  mon_var_trace_tap())
             + x86("mov", "rsi", "rax")
             + x86("mov",    "rdi", ROQ(0))
             + x86("rtcc_wb")

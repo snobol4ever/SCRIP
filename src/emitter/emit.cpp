@@ -2934,8 +2934,7 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
     g_gc_map_pending = 1; g_gc_map_off = map_off; g_gc_map_fb = frame_bytes; g_gc_map_hdr = header_bytes; g_gc_map_flags = flags;
     emit_label_initf(&g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
     long slen = (long)frame_bytes + (gc_maps_plant_on() ? 16L : 0L);
-    std::string s = x86("comment", "GC MAP CELL (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65): the frame's highest value-region cell is a DT_MAP DESCR { slen = frame_bytes, p = &map }; the map is four sealed quads at the end of this chain, found by the collector through the cell and by the census through rt_gc_frame_maps_install")
-                  + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)&g_gc_map_lbl);
+    std::string s =  x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)&g_gc_map_lbl);
     if (frame_rel == 2) s += x86("mov", RDQ("rbp", -map_off + 8), "rax") + x86("mov", RDD("rbp", -map_off), (long)DT_MAP) + x86("mov", RDD("rbp", -map_off + 4), slen);
     else if (frame_rel) s += x86("mov", FRQ(map_off + 8), "rax") + x86("mov", FR(map_off), (long)DT_MAP) + x86("mov", FR(map_off + 4), slen);
     else           s += x86("mov", RDQ("rsp", map_off + 8), "rax") + x86("mov", RDD("rsp", map_off), (long)DT_MAP) + x86("mov", RDD("rsp", map_off + 4), slen);
@@ -3211,10 +3210,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           int _lo = (_en && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
           int _rg = (_en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total)
-              _gseed = x86("comment", "LCL-SEED (generator regime): NULVCL the named-local vslot suffix [R+lo, R+rg) exactly as the flat_lcl_proc prologue below does. rt_icn_zframe_args_install seeds the ARGS-INSTALL slots at R+(i+1)*16, which is a DIFFERENT region from the named-local vslots zls_g_locals reports -- a generator that skipped this read stack residue through /x and \\x, inverting both null tests (ipl ichartp, hq_R 2026-09-10).")
-                     + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
-        bb_emit_x86(x86("comment", "N-3 (ceo 2026-09-07, Lon: each BB carves its own memory, nothing is pre-carved): alpha carves THIS activation's own frame on the spine below the six entry words -- [R, R+ft) cells, header H=R+ft: [H+0]=caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR(rsp0) [H+32]=resume label [H+40]=spine top banked at gamma; rbp:=H, rsp:=R. Entry stack (CEO-483, hq_U -- FIVE words, the pad is gone): [rsp+0]=gamma [rsp+8]=omega [rsp+16]=unused [rsp+24]=L7 [rsp+32]=ABI word, rsp0=[rsp+40]. The pad`s 8 bytes were not deleted, they MOVED ACROSS THE CALL into the +8 on carve just above: entry rsp is now rsp0-40 = 8 mod 16, so the carve carries the odd word and R = rsp_entry - carve stays 0 mod 16 exactly as before. Drop the pad WITHOUT that +8 and patchu SIGSEGVs -- measured 2026-09-10. rt_genp_spine_enter_n2 in rt.c is the hand-written twin of the entry block and carries the same five words. The frame survives gamma (the caller continues BELOW it and beta restores rsp from [H+40]) and is popped by omega (rsp:=ANCHOR). No host walks its callees, no maximum, no depth table.")
-                  + x86("lea", "rax", RDQ("rsp", 0 - carve))
+              _gseed =  x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
+        bb_emit_x86( x86("lea", "rax", RDQ("rsp", 0 - carve))
                   + x86("mov", RDQ("rax", frame_total + 0), "rbp")
                   + x86("mov", "rcx", RDQ("rsp", 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
                   + x86("mov", "rcx", RDQ("rsp", 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
@@ -3228,8 +3225,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
         if (_use_zframe_install) {
             const char * _gn = (prefix && strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
-            bb_emit_x86(x86("comment", "A GENERATOR RECORDS ITS ACTIVATION TOO (ceo FINDING-2026-09-10 only-main-records): the record and the trace event are two mechanisms, and this prologue ran neither -- so the traceback lost every generator frame, display lost its locals and a resume line had no call site. &level is already right here (measured 3 for main->f->g), so the record lands under the level the walk reads.")
-                        + icn_trace_tap(_gn, 4, np));
+            bb_emit_x86( icn_trace_tap(_gn, 4, np));
             icn_register_local_offsets(_gn);
         }
     } else if (g_emit.flat_lcl_proc) {
@@ -3278,8 +3274,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (_iws && _use_zframe_install && !(g_emit_cfg && g_emit_cfg->root_graph)) {
             extern int * const rt_k_level_p;
             extern int64_t kw_fnclevel;
-            bb_emit_x86(x86("comment", "&level ENTRY-SIDE (row icon-rung-ladder-absorption): increment rt_k_level/kw_fnclevel on this class's own entry, mirroring bb_define_activate's enter_env pair verbatim (bb_define.cpp:94-101). Twin of the exit-side decrement already landed in xa_flat_zframe_epilogue_{γ,ω}_str() (SCRIP 41730a7f) -- same gate (icn_wire_stack_on()/_iws && icn_cells_graph/_use_zframe_install), so entry and exit always fire together. Built entirely via the x86() DSL (unlike the raw sub-rsp/call-install sequence just above), so TEXT and BINARY stay identical by construction -- no hand-verified raw bytes needed. Placed after args-install so it never disturbs the rdi/esi/edx marshaling above; rax/rcx are dead here (nothing downstream reads them -- the body proper starts at lbl_α_body, whose incoming state is the freshly-carved frame, not these registers). ⛔ root_graph EXCLUDED: rt_k_level's own static initializer (rt.c:392) is 1, already counting the root graph's (Icon main's) own implicit level -- this class's entry runs for main exactly like any other flat_lcl_proc callee, so without this guard main double-counts itself (measured: minimal repro read 2 3 2 instead of 1 2 1, a constant +1 skew from main's own spurious self-increment). The already-landed exit-side decrement is NOT symmetrically guarded (main's own return still decrements past 1 today) -- left alone deliberately: nothing reads &level after main returns so it is not an observable defect, and that code has already regressed once from an unrelated register-clobber (FINDING-2026-08-30-seat01-icon-level-half-cure...) so it is not reopened here without a witness that needs it.")
-                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+            bb_emit_x86( x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
                      + x86("mov", "rax", RDQ("rax", 0))
                      + x86("add", RDD("rax", 0), (long)1)
                      + x86("mov", "ecx", RDD("rax", 0))
@@ -3298,7 +3293,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
-    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.  STATIC LAYOUT (Lon CEO-905, ARCH-GC section 6.2e): the carve is bfb+16 and the extra cell at the BOTTOM, [rbp-(bfb+16)], is the frame's DT_MAP cell (frame_bytes = bfb+16, header_bytes = 24 = saved rbp, gamma, omega above rbp); its map carries GC_FRAME_MAP_BLOB and, after the four quads, one static layout entry per word of [rbp-bfb, rbp+24) generated from the same frame_slot_scan walk that hands out the slots, so the collector reads the interior by table and never sweeps it; the frame [rbp-bfb, rbp) is zeroed at entry (rep stosb, after the cell store, which the safe-point gate reads on the line after the carve) so a collection before a box has written its slot reads a null and never the previous activation's stale word, and the reporter's raw_in_heap column counts only words a box wrote.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + x86("lea", "rdi", RDQ("rbp", -_bfb)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_bfb) + x86("rep_stosb") + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
+    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + x86("lea", "rdi", RDQ("rbp", -_bfb)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_bfb) + x86("rep_stosb") + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
     }
     { extern int g_flat_outer_nparams; static int _gsym = -1; if (_gsym < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); _gsym = (e && *e == '1') ? 1 : 0; } int _legacy = (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !g_emit.zframe_graph && !g_emit.flat_lcl_proc);  extern int g_glue_entered; g_glue_entered = (g_emit.flat_outer_nparams == 0 && _legacy) ? 1 : 0; if (g_glue_entered) bb_emit_x86(x86_main_prologue()); (void)_gsym; { static int _gluo = -1; if (_gluo < 0) { const char * e = getenv("SCRIP_GLUEO"); _gluo = (e && *e == '0') ? 0 : 1; } static int _gluod = -1; if (_gluod < 0) { const char * e = getenv("SCRIP_GLUEO_DIAG"); _gluod = (e && *e == '1') ? 1 : 0; } extern int g_glue_o_sup; g_glue_o_sup = (_gluo && g_glue_entered && !emit_rec_pin()) ? 1 : 0; if (g_glue_o_sup) g_glue_entered = 0; if (_gluod) fprintf(stderr, "[GLUEO] graph=%s entered=%d rec_pin=%d deep=%d pat=%d gen=%d -> closed_loop_suppressed=%d\n", g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", g_glue_entered, emit_rec_pin() ? 1 : 0, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_glue_o_sup); } if (g_glue_entered) { { long _capN = 0; if (g_emit_cfg) for (int _ci = 0; _ci < g_emit_cfg->n; _ci++) { IR_t * _cs = g_emit_cfg->all[_ci]; if (_cs && _cs->op == IR_MATCH_ASSIGN_SAVE && cap_anchor_of(_cs) > 0) _capN++; } g_emit.op_fc_bytes = _capN > 0 ? (long)(64 + 16 * _capN) : 0; }    bb_emit_x86(bb_glue_framed_enter()); } }
     nidx_build(nodes, n);
@@ -3611,16 +3606,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _k = nidx(nodes, n, _rd); if (_k >= 0) { _rb = betas[_k]; } }
             if (!_rb) continue;
             emit_sep_rule('-'); emit_label_define_bb(ret_tr[_ak]);
-            bb_emit_x86(x86("comment", "PL CLAUSE SUCCESS (rung 2, ARCH sec B.3): this clause is about to hand control to the graph gamma, so it banks the beta of its youngest resumable sub-goal into F.RES at [H+16]. A redo from the caller then re-enters THAT goal rather than stepping the clause; the graph beta zeroes F.RES as it consumes it, so a clause that succeeds again re-banks it here and one that runs out leaves it zero.")
-                      + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)_rb)
+            bb_emit_x86( x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)_rb)
                       + x86("mov", RDQ("rbp", _kt0 - 48), "rcx")
                       + x86("mov32", "eax", (long)DT_I)
                       + x86("mov32", "edx", 1L));
             emit_jmp_label(&lbl_γ, JMP_JMP);
         }
         emit_sep_rule('-'); emit_label_define_bb(pl_step_lbl);
-        bb_emit_x86(x86("comment", "PL CLAUSE STEP (rung 2, ARCH sec B.3): every clause of this predicate fails into here. Undo this activation own trail suffix back to F.TRMARK at [H+0] through the named rtx helper -- the only writer of r12 on this path -- re-seed the clause locals unbound (they are younger than this choice, so the log never recorded them: the LCL-SEED rep stosb precedent), drop any stale F.RES, then follow F.CUR at [H+8], which holds the ADDRESS of the next alternative and reads 0 when the clauses are exhausted.")
-                  + x86("mov", "rdi", RDQ("rbp", _kt0 - 64))
+        bb_emit_x86( x86("mov", "rdi", RDQ("rbp", _kt0 - 64))
                   + x86("call", "rt_pl_tr_unwind", _uwfp)
                   + x86("mov", RDQ("rbp", _kt0 - 48), 0L)
                   + pl_step_reseed_locals()
@@ -3635,8 +3628,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                       + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
                       + x86("mov", RDQ("rbp", _kt - 56), "rax")
                       + IF(_ak + 1 >= n_alt,
-                           x86("comment", "RUNG 11 WAM TRUST_ME (ARCH sec B.18): this is the LAST candidate clause, so this activation offers no further alternative of its own -- drop the choice by restoring B := F.B0, the same B/landing-or-cut-restore shape epilogue-omega already uses (xa_flat.cpp), so a caller-side redo can never re-enter a clause step that has nothing left to try. Without this, F.B == F.B0 never becomes true for a multi-clause activation once its last clause is entered, and neither the existing altdet frame-release nor RUNG 11's LCO admission test can ever fire (FINDING 1, hq_P 2026-09-03).")
-                         + x86("mov", "r13", RDQ("rbp", _kt - 40))));
+                            x86("mov", "r13", RDQ("rbp", _kt - 40))));
             emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
         }
     }
@@ -3646,8 +3638,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_emit.flat_pat) {
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
         } else if (icn_gen_regime() && g_emit.flat_gen) {
-            bb_emit_x86(x86("comment", "N-2 STEP 3 RESUME LANDING (ceo s283): beta re-enters with rax = the region header H (the banked token) and rsp already re-created at rsp0-48 = first-entry body depth (beta does mov rsp,[H+24]; sub rsp,48 before jumping [H+32]). Nothing lives on the machine stack any more -- no 4-word record to discard, no [rsp+24] to read -- so the landing is one instruction: repoint rbp at the header and fall through into the body. ⛔ The landing must NOT release the frame: yielding is not returning (Lon s195).")
-                      + x86("mov", "rbp", "rax"));
+            bb_emit_x86( x86("mov", "rbp", "rax"));
         } else {
         if (g_is_text) {
             char _res[96];
@@ -3667,8 +3658,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _kt = g_emit.flat_frame_bytes;
         bb_label_t * _step = pl_step_lbl;
         bb_label_t * _resume = emit_label_alloc("%s_βres", fam);
-        bb_emit_x86(x86("comment", "PL graph beta (rung 2, ARCH sec B.3 + sec A.1 review C9): the predicate box redo port. A ball in flight is never a redo, so it concedes first. Otherwise consume F.RES at [H+16] -- zeroing it as it is read, so a clause that fails after being redone falls through -- and jump the banked youngest sub-goal beta; with nothing retained, step the clause.")
-                  + x86("test", "r15", "r15"));
+        bb_emit_x86( x86("test", "r15", "r15"));
         emit_jmp_label(&lbl_ω, JMP_JNE);
         bb_emit_x86(x86("mov", "rax", RDQ("rbp", _kt - 48)) + x86("mov", RDQ("rbp", _kt - 48), 0L) + x86("test", "rax", "rax"));
         emit_jmp_label(_resume, JMP_JNE);
@@ -3709,8 +3699,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                     if (_mok && _ti >= 0 && nodes[_ti]->op != IR_MATCH_FENCE1 && nodes[_ti]->op != IR_MATCH_FENCE0) resume_tgt = betas[_ti];
                 } } } }
         if (icn_gen_regime() && g_emit.flat_gen && g_suspend_resume_slot >= 0)
-            bb_emit_x86(x86("comment", "N-2 MULTI-SUSPEND RESUME (ceo s283c): with more than one suspend STATEMENT the graph beta cannot be a static jump to the FIRST suspend's beta -- resuming after the LAST yield would replay the tail forever (two_susp witness: 1,2 then 2 forever; scan2's 4.3M-line runaway). Every suspend's alpha already seeds FRQ(op_sb) with ITS OWN beta label (bb_suspend x86_lea_tgt TGT1), so the slot always names the last yielder -- dispatch through it. Armed flat_gen only; the static jump below stays for every other graph, byte-identical unarmed.")
-                      + x86("mov", "rax", FRQ(g_suspend_resume_slot)) + x86_jmp_reg("rax"));
+            bb_emit_x86( x86("mov", "rax", FRQ(g_suspend_resume_slot)) + x86_jmp_reg("rax"));
         else
         emit_jmp_label(resume_tgt, JMP_JMP);
     }
@@ -3727,20 +3716,18 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }
     else if (_blob_wire) {
         int _bfb = blob_frame_bytes();
-        bb_emit_x86(IF(_bfb > 0, x86("comment", "WIRE-STACK (s195) SUSPEND, off the retired wire-pair scratch registers entirely: yielding keeps the frame AND the pair, so the resume record is built by reading the banked pair through rcx -- omega pushed first, then gamma, and rcx still carries gamma into the jmp.") + x86("mov", "rcx", RDQ("rbp", -16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", -8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0, x86("comment", "WIRE-STACK (s195) SUSPEND, FRAMELESS, off the retired wire-pair scratch registers entirely: the caller's pair still sits at [rsp+0]=gamma [rsp+8]=omega -- LIFO-preserved since entry, the same invariant the omega/FRETURN exit already depends on to release it -- so read it FRESH here instead of trusting an entry-cached scratch-register copy to survive every intervening box call unclobbered. rdx/rcx are read before rsp moves, so the padding sub below cannot shift the offsets out from under them.") + x86("mov", "rdx", RDQ("rsp", 8)) + x86("mov", "rcx", RDQ("rsp", 0)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
+        bb_emit_x86(IF(_bfb > 0,  x86("mov", "rcx", RDQ("rbp", -16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", -8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0,  x86("mov", "rdx", RDQ("rsp", 8)) + x86("mov", "rcx", RDQ("rsp", 0)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
     }
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 2, 0));
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
-        bb_emit_x86(x86("comment", "N-2 STEP 3 SUSPEND (ceo s283): yielding KEEPS the frame -- and the frame is the REGION now, so nothing is pushed. The record collapses into the header: store the resume label at [H+32], hand the caller H itself as the token in rdx (the landing banks it into FRQ(act+8) and reads the yielded descriptor from [H-ft], the frame's return slot -- the value path s273 measured missing), restore the caller's rbp from [H+0], and jump gamma read from [H+8]. gamma/omega/anchor survive IN THE REGION for every later yield -- the old stack copies died the moment the caller ran, which is why suspend_multi's second yield read garbage ports.")
-                  + x86("mov", "rdx", "rbp")
+        bb_emit_x86( x86("mov", "rdx", "rbp")
                   + x86_lea_ext("rax", &lbl_res) + x86("mov", RDQ("rdx", 32), "rax")
                   + x86("mov", RDQ("rdx", 40), "rsp")
                   + x86("mov", "rcx", RDQ("rdx", 8))
                   + x86("mov", "rbp", RDQ("rdx", 0))
-                  + x86("comment", "⛔ SET THE PORT TAG LAST AND NEVER OMIT IT: the caller's landing is SHARED by this port and the retiring one, and it tells them apart by al. Leaving eax alone here does not mean 'no tag' -- it means the tag is whatever the body last computed, so the landing takes the RETIRE arm at random and unwinds a frame that is still live. bb_glue_outer_gamma set DT_S for the same reason; the label lea clobbers rax, so the tag goes after it, not before.")
-                  + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
+         + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
     else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(1, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ()); }
@@ -3751,12 +3738,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 3, 0));
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
-    else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86("comment", "WIRE-STACK (s195) FRETURN FORM, REGISTER-FREE: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 8L) + x86("ret")); }
+    else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp"))  + x86("add", "rsp", 8L) + x86("ret")); }
     else if (icn_gen_regime() && g_emit.flat_gen) {
-        { bb_emit_x86(x86("comment", "A GENERATOR'S RETIRE IS NOT ALWAYS A FAILURE (row icon-a-traced-generator-that-returns-traces-as-failed): a `return` inside a generator is lowered as YIELD-THEN-RETIRE -- bb_return parks this very omega in the resume slot and jumps gamma -- so this exit is reached BOTH by exhaustion (iconx: `p failed`) and by the resumption that follows a return (iconx: nothing at all, the frame is already gone and the value was reported at the return). The tap therefore hands rbp (= the region header H, the same value bb_return's tap recorded) to rt_trace_gen_fail_hook, which suppresses exactly one fail per recorded return and otherwise is rt_trace_fail_hook verbatim. Kind 3 (the unconditional fail tap) is what stood here and it is what printed `vproc failed` where iconx prints `vproc returned &null`.")
-                     + icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
-        bb_emit_x86(x86("comment", "N-2 STEP 3 RETIRE (ceo s283): exhaustion restores the caller's world entirely from the region header -- rsp from the ANCHOR at [H+24] (= caller pre-pad rsp0, so the landing's retire arm releases NOTHING), caller rbp from [H+0], and jumps the gamma wire from [H+8] carrying DT_FAIL in al, which is how the shared landing tells a retirement from a yield. ⛔ No ret: after the first suspend the stack words the old ret popped are long dead -- the region is the only storage whose contents this exit may trust. The region itself is the HOST's to reuse; nothing is freed here.")
-                  + x86("mov", "rcx", RDQ("rbp", 8))
+        { bb_emit_x86( icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
+        bb_emit_x86( x86("mov", "rcx", RDQ("rbp", 8))
                   + x86("mov", "rsp", RDQ("rbp", 24))
                   + x86("mov", "rbp", RDQ("rbp", 0))
                   + x86("mov32", "eax", (long)DT_FAIL) + x86_jmp_reg("rcx"));

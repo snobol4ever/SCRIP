@@ -9,15 +9,13 @@ extern "C" void rt_pl_cut_barrier(void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cut_barrier() {
     if (!x86_fb_pinned()) return std::string();
-    if (_.op_ival) return x86("comment", "PL CUT BARRIER SUPPRESSED: this cut is OPAQUE (ISO 13211-1 7.8.7/7.8.8) -- it sits inside \\+, an if-then-else condition, or call/N, so its scope is that construct and NOT the enclosing activation.  Emitting the barrier here would zero the ENCLOSING clause F.CUR/F.RES, reset B to ITS F.B0, and above all set rsp back to the enclosing frame base, physically releasing every frame younger than the pin -- including the outer generator whose choicepoint the mandatory backtrack out of the construct is about to resume.  The lowerer is the only place that knows opacity (cutω rescoped away from the clause fail node) and it marks the node; the control-flow half is seat06's cutω rewiring, this is the emission half of the same ISO rule.");
+    if (_.op_ival) return std::string();
     int kt = g_emit.flat_frame_bytes;
     uint64_t fp; { void (*f)(void *) = rt_pl_cut_barrier; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return x86("comment", "PL CUT BARRIER (rung 4, ARCH sec B.6): commit. F.CUR at [H+8] := 0 so the rung-2 clause step concedes instead of trying the next candidate clause; F.RES at [H+16] := 0 so a redo from the caller cannot land in a callee this cut just killed; B := F.B0 at [H+24] through a NAMED rtx helper, never an emitted r13 write. The trail needs NO promotion -- it is one linear arena on r12 (rung 1), so a cut-away callee's entries simply stay above the older choice's mark and are undone when IT backtracks, which is the WAM's single-trail behaviour and costs zero instructions.")
-         + x86("mov", RDQ(x86_fb(), kt - 56), 0L)
+    return  x86("mov", RDQ(x86_fb(), kt - 56), 0L)
          + x86("mov", RDQ(x86_fb(), kt - 48), 0L)
          + x86("lea", "rdi", RDQ(x86_fb(), kt - 64))
          + x86("call_bare", "rt_pl_cut_barrier", fp)
-         + x86("comment", "and release every younger frame PHYSICALLY off the pin -- the WAM's B <- B0 reclaiming the stack (sec A.1 review C4). Nothing below the pin is reachable any more: every callee to the left of this cut had its beta made unreachable by the lowerer's cut_omega rewiring in the same rung.")
          + x86("mov", "rsp", x86_fb());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

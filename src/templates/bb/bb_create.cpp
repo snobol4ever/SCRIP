@@ -28,8 +28,7 @@ std::string bb_create() {
        + x86("mov", "ecx", std::to_string(frame_base_pinned ? _.flat_carve_total : 0))
        + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
        + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
-       + x86("comment", "row icon-a-co-expression-value-is-not-a-descriptor: the context pointer goes in the VALUE word with DT_CO in the tag word, never raw in the tag word itself -- a raw pointer there makes type() read the pointer's low byte as a tag, and any slot the value passes through (a global, an argument, a structure) hands the next reader a value it will mis-dispatch on")
-       + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)
+         + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)
        + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 8) + "]", "rax")
        + x86_gamma()
        + x86_beta_trampoline();

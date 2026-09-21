@@ -17,8 +17,7 @@ std::string bb_scan_upto() {
     x86_begin();
     uint64_t bsw[4]; bs_cset_words(_.op_name1, bsw);
         return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
-               x86("comment", "IR_SCAN_UPTO (var cset) [fstranl.r upto: generate positions with s[i] in cset-descr@slot; cursor at off+16; beta resumes; rt_scan_needle coerces (int/real->string), mirroring bb_scan_match.cpp -- FINDING-2026-09-03-seat02-icon-jcon-suite-census-and-level-cure.md class fix]")
-             + x86_alpha()
+                x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("mov",     "edx", (long)104)

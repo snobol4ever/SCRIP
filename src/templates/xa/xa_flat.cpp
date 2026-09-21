@@ -82,8 +82,7 @@ static std::string xa_flat_dc_stub_str(void) {
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
         if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {
-            zs += x86("comment", "N-1(b/c): push {gamma=id2,omega=id3} instead of rcx/rdx, ON TOP of the unconditional double r12 stash above (kept unconditional, not just for OLD, so this arm's stack parity vs the caller of this stub stays a multiple of 16 -- three qwords under the pair would misalign every nested call the callee makes: measured as a real SIGSEGV deep in glibc's snprintf via a nested image() call, s268). Release order at landing: pair(16) + one r12 duplicate(8) = 24, then pop the other (identical) duplicate as the real jump target.")
-                + x86_lea_id("rcx", 3) + x86("push", "rcx")
+            zs +=  x86_lea_id("rcx", 3) + x86("push", "rcx")
                 + x86_lea_id("rcx", 2) + x86("push", "rcx")
                 + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
                 + x86_deflabel_id(2)
@@ -225,8 +224,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + (x86_fb_pinned()
-            ? (x86("comment", "PZ-4 clause (a) PL-ZA-1: [kt-8] STOPS BEING WRITE-ONLY. It held this frame's own base -- a self-anchor nothing ever read (s247, and both epilogue comments below said so). It now holds the CALLER'S base, and the next instruction pins ours. ⛔ THE PIN IS TAKEN AFTER THE CARVE, so the pinned base equals the α-time rsp and every re-homed ζ reference is `[pin + off]` with the SAME off the spine arm used -- a pure rebase, no parity change and NO PUSH. A `push rbp` here would shift every body byte by 8 and turn the two PL-CALL-ALIGN pads from cure into defect.")
-             + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+            ? ( x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
              + x86("mov", x86_fb(), "rsp")
              + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64)) + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
              + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
@@ -234,16 +232,14 @@ static std::string xa_flat_zframe_prologue_str(void) {
                                   "region) and reached from any depth as [r14 - 24 - 8k] -- never a global, never one table of all of them in one slot. ⛔ ZEROED HERE BECAUSE A CARVE IS NOT AN INITIALISATION: the bytes "
                                   "are whatever the C stack left, and the runtime reads a NULL cell as \"this predicate has no store yet\" -- an unzeroed cell is a garbage pointer the first assertz would follow.")
                  + pl_standing_cells_zero(kt, g_emit_cfg->standing_cells))
-             + x86("comment", "F.HI at [H+32] (rung 3, ARCH sec A.1): the LOG THRESHOLD -- a binder holding only B logs a cell at or above [B+32] and skips one below it. Seeded here to this frame's TOP, which is byte-for-byte the rule rung 1 computed as B+64; it is a WORD rather than a constant offset because a choice opened INSIDE an activation (a disjunction, sec B.5) protects less than the whole frame and lowers it.")
-             + x86("lea", "rax", RDQ("rsp", kt))
+         + x86("lea", "rax", RDQ("rsp", kt))
              + x86("mov", RDQ("rsp", kt - 32), "rax")
              + x86("mov", RDQ("rsp", kt - 40), "r13")
              + x86("mov", RDQ("rsp", kt - 48), 0L)
              + x86("mov", RDQ("rsp", kt - 56), 0L)
              + x86("mov", RDQ("rsp", kt - 64), "r12")
              + IF(g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p,
-                   x86("comment", "PL CHOICE OPEN (rung 2, ARCH sec B.3): more than one candidate clause, so this activation IS the youngest choice. F.CUR at [H+8] is seeded with the address of alternative 1 -- Jcon ir_MoveLabel with the temporary promoted into the frame, so the clause step needs no table and no index compare -- and B is set to H through a NAMED rtx helper, never an emitted write of r13.")
-                 + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_alt1_p)
+                    x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_alt1_p)
                  + x86("mov", RDQ("rsp", kt - 56), "rax")
                  + x86("lea", "rdi", RDQ("rsp", kt - 64))
                  + x86("call_bare", "rt_pl_choice_open", _open_fp)))
@@ -354,8 +350,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
     int nf = 0, nsave = 0; int gk[29];
     if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
         int argkt = 16 * nsave;
-        s += x86("comment", "CLASS-C sig-arg marshal-in (s272 snocone-returns-codegen): the caller's .Lsig blob (nargs at +0, per-arg caller-frame offsets from +24 -- rcx above only COPIED the blob pointer, never clobbered it, so it is still the original here) is the only channel carrying argument VALUES; nothing previously read it, so a callee's formal params/locals/own-result-cell (all GVA slots, same addressing classic DEFINE's procs already use correctly) kept whatever a prior activation or the program's static default left there. Own a SEPARATE argkt-byte carve ABOVE the kt carve -- never reinterpret kt's own internal layout, which jcon_value_region may already be using -- purely to stash each touched GVA slot's PRE-CALL value for restore at exit. One-way copy only: read the caller's argument, never write back through it -- unlike bb_define.cpp's SIG shim, CLASS-C's caller-side offsets point into the caller's own still-live zeta storage, not a call-scoped throwaway, so writing through them is not safe to assume. Formal params (index < nf) get the caller's value when the call actually supplied one (nargs>i), else DT_SNUL/blank, matching SNOBOL4's default-to-null-string convention; any name at index >= nf (declared locals, or the function's own result cell when distinct from every param) always starts blank once per activation, mirroring bb_define.cpp's xt-loop. Mirrored at exit by the epilogue-sig's restore, which must run, and fully release argkt, before its own kt-relative sig-pointer reload.")
-             + x86("sub", "rsp", (long)argkt)
+        s +=  x86("sub", "rsp", (long)argkt)
              + x86("mov", "rdx", "[rcx + 0]")
              + x86("lea", "r8", "[rsp + " + std::to_string(kt + argkt) + "]")
              + FOR(0, nsave, [&](int i) {
@@ -389,12 +384,10 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
       if (xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk)) {
           int argkt = 16 * nsave;
           std::string reload = (is_gamma && res_gk >= 0)
-              ? (x86("comment", "nreturn-after-indirect-assign-wrong-value fix (2026-08-27): capture the live result BEFORE the marshal-out restore below overwrites res_gk's own GVA cell with its pre-call value. Cannot rely on rax:rdx already holding it -- that was only ever true by accident, when the return-slot assignment happens to be the last value-producing statement the body ran. Any later statement breaks it: e.g. beauty/match.inc's own `assign(name, expression)` idiom runs an indirect `$name = expression` AFTER `Fnc = .dummy` and BEFORE nreturn, leaving ITS value in rax:rdx instead, which the caller then received unchanged. Reading res_gk fresh here is correct on every gamma exit alike -- explicit `return`, `nreturn`, or an implicit fall-off-the-end success all mean the same thing, 'hand over whatever is in my own result cell' -- so no NRETURN-specific case is needed. Omega is untouched: freturn overrides any pending value unconditionally, so that arm keeps setting FAILDESCR outright.")
-                 + x86("note", gva_name(res_gk)) + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0)) + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
+              ? ( x86("note", gva_name(res_gk)) + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0)) + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
               : std::string();
           pre = reload
-              + x86("comment", "CLASS-C sig-arg marshal-out (s272 snocone-returns-codegen): mirror image of the prologue's marshal-in -- restore every touched GVA slot's pre-call value from this activation's own argkt save area BEFORE releasing it, so an outer activation (recursion, or the same name used as an ordinary variable elsewhere) sees its own value again, not this call's leftovers. Must run, and fully unwind (add rsp,argkt), before the kt-relative sig-pointer reload directly below -- that reload's [kt-24] offset is only correct once this carve is gone. rcx is about to be reloaded fresh from [kt-24]; rax:rdx (the live result, staged above on gamma) are never touched here -- this loop only ever writes gk[i]'s backing GVA memory, never those registers.")
-              + FOR(0, nsave, [&](int i) {
+         + FOR(0, nsave, [&](int i) {
                     return x86("note", gva_name(gk[i]))
                          + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
                          + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
@@ -451,12 +444,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("jmp", "rcx");
     }
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
-        return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; NON-CONSUMING jmp through the caller-pushed gamma wire at [rsp+0] -- the caller's own landing releases the pair (bcps_wire_land), never this exit. Guarded to the Icon (icn_cells_graph) case only -- xa_flat_class_zf() also admits pure zframe_graph (Prolog/Raku/Pascal), whose callee side this rung never touched. SCRIP_ICN_WIRE_STACK=0 restores the [kt-24] header byte-exactly.")
-             + xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0)
+        return  xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
-             + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): decrement rt_k_level/kw_fnclevel on this class's own exit, mirroring bb_define_activate's leave_env pair verbatim (bb_define.cpp:185-193). rax is SAVED/RESTORED around this block -- confirmed via asm-diff + direct trace (fact_dcα's own success landing does `jmp r12` with NO fresh success tag, so whatever this exit leaves in AL is exactly what the caller's `cmp al,104` check reads; clobbering it with an unrelated GOT address broke every non-trivial call site, caught by the Icon rung board before landing, never assume a register is free just because no comment claims it). Entry-side increment still NOT YET LANDED -- see FINDING-2026-08-30-seat01-icon-level-exact-fix-sites-located-implementation-ready.md.")
-             + x86("push", "rax")
+         + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))
              + x86("mov", "ecx", RDD("rax", 0))
@@ -470,8 +461,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt)) + x86("mov", "rbp", RDQ("rbp", kt - 8)) : x86("add", "rsp", (long)kt))
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
-        return x86("comment", "PAS-NEST epilogue-γ: bcps callers PUSH the wire pair and assume the callee consumes it (bcps_wire_pair_consumed=1); the [kt-24] arm left the pair seated and skewed every frame-relative caller access by 16 — the whole nest* rc=139 class. Consume: pop γ-landing, discard ω, jmp")
-             + x86("mov", "rdi", "rax")
+        return  x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + zf_display_restore(kt)
              + x86("add", "rsp", (long)kt)
@@ -480,8 +470,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("jmp", "rcx");
     if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
-        return x86("comment", "PL epilogue-γ (rung 2, ARCH sec A.1 + sec B.3 + PZ-4 clause (f)): γ hands r13 through untouched. If r13 still equals F.B0 at [H+24] this activation left no live choice -- release exactly off the pin and hand rax = 0. Otherwise a choice younger than this frame is LIVE and carved BELOW us, so releasing would let the caller carve straight over a live choice point: KEEP the frame, hand rax = our own base as the caller re-entry token and rdx = our graph β as its resume address, and restore only the caller pin; the caller landing reads rax to decide whether to pop its wire pair. THE ROOT GRAPH NEVER RETAINS -- it is entered from the driver, whose wires call exit, so no landing exists to consume the token. ⛔ Every read here is through the PIN, never through rsp: the ICN-FR-2 arm below spells its own wire [rsp# + kt-24], which equals the pin only while nothing is retained -- under γ-retain rsp sits below a live callee frame and that spelling loads garbage into the wire register.")
-             + x86("mov", "rdi", "rax")
+        return  x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
              + IF(_plretain,
@@ -497,8 +486,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx"); }
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24] THROUGH THE PIN (never bare rsp -- x86_fb() is rbp for a zframe_graph=1 pinned caller, rsp otherwise, matching the PL arm's identical read at :429 and the class-wide ONE-SPELLING rule); unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
-         + x86("mov", "rdi", "rax")
+    return  x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
          + zf_display_restore(kt)
@@ -512,9 +500,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
-        return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
-             + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): same decrement as epilogue-γ, twin arm -- see that comment for the full rationale, the confirmed register-preservation bug this rax save/restore fixes, and what is still owed (the entry-side increment).")
-             + xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0)
+        return   xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))
@@ -536,8 +522,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("pop", "rcx")
              + x86("jmp", "rcx");
     if (x86_fb_pinned())
-        return x86("comment", "PL epilogue-ω (rung 2, ARCH sec A.1): conceding kills every choice this activation opened, so B reverts to F.B0 at [H+24] on the wire and the frame is released exactly off the pin. This is the one r13 write in emitted code and it is the enrolled B-restore shape, not a scratch use.")
-             + x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
+        return  x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
              + zf_release(kt)
              + zf_pin_restore(kt)

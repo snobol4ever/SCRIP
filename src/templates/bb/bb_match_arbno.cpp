@@ -76,7 +76,6 @@ static std::string bb_match_arbno_frameless() {
          + x86("def", PAIR(2))
          + x86("mov", "eax", RDD("rsp", 4))
          + x86("cmp", "r14d", "eax")
-         + x86("comment", "NULL-BODY GUARD and the exhaust arm below both recede into the body, and a CHAIN body's beta is its LAST node's (PAIR(4)), not the body ENTRY (PAIR(1)) -- naming the entry re-runs a concatenated body from the top at the same cursor, which reproduces the same partial match forever.  The FRAME arm already selects this way; the two arms are one family and must name it the same")
          + x86("je",  bodybeta)
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
@@ -94,8 +93,7 @@ static std::string arbno_win_restore(const char * cell, int src) { std::string r
 static std::string bb_match_arbno_frame() {
     const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
     long cs = 32 + ((_.op_arbno_win_bytes + 15) & ~15);
-    return x86("comment", "IR_MATCH_ARBNO_FRAME (ARBNO-FRAME CHAIN: one cell per committed instance on the machine stack -- start@0 mark@4 r12@8 prev@16, then a snapshot of the BODY's rbp slot window -- the rbp slot holds only the chain HEAD.  A body member's slot is per BOX, so instance k+1's alpha overwrites instance k's saved cursor; the snapshot taken at k's commit and restored before receding into k's beta is what makes the recede land on the instance it names)")
-         + x86_alpha()
+    return  x86_alpha()
          + x86("sub", "rsp", cs)
          + x86("mov", RDD("rsp", 0), "r14d")
          + x86("mov", RDD("rsp", 4), "r14d")
@@ -126,7 +124,6 @@ static std::string bb_match_arbno_frame() {
          + x86("mov", AFCQ(0), "rsp")
          + x86_gamma()
          + x86("def", PAIR(3)) + x86("def", PAIR(5))
-         + x86("comment", "EXHAUST: the body conceded.  The cursor is the top cell's mark by definition; pop the cell; the alpha cell (mark == start) concedes, a commit cell restores its snapshot and recedes into the instance below's body beta with rsp exactly where that instance's gamma left it")
          + x86("mov", "rcx", AFCQ(0))
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("mov", "r14d", RDD("rcx", 4))

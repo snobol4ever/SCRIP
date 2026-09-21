@@ -18,8 +18,7 @@ int     core_icn_by_zero_check(int64_t by);
 static std::string to_by_int_operand_guard(int slot) {
     if (!_.op_range_int_operands) return std::string();
     uint64_t fp; { int (*f)(uint64_t, uint64_t) = core_icn_int_operand_ok; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return x86("comment", "ICON RANGE OPERAND CHECK, \"ag:int\" ONLY -- the same shape core_icn_by_zero_check already uses below: raise, then concede on a nonzero rc. core_icn_to_int_check cannot report failure through an int64 return, so a converted error 101 read back as the integer 0 and the range still generated. SNOBOL4 and Prolog take the plain to_int arm and emit none of this.")
-         + x86("mov",  "rdi", FRQ(slot))
+    return  x86("mov",  "rdi", FRQ(slot))
          + x86("mov",  "rsi", FRQ(slot + 8))
          + x86("call", "core_icn_int_operand_ok", fp)
          + x86("test", "eax", "eax")

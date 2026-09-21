@@ -42,8 +42,7 @@ std::string bb_return() {
          + IF(_.op_dval != 2.0 && _.flat_gen,
                x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
              + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0)) + x86("mov", "rdx", FRQ(8))
-             + x86("comment", "THE FOURTH ARGUMENT IS THIS ACTIVATION'S REGION HEADER H (row icon-a-generator-that-returns-is-re-entered-and-traces-a-failure, cfo, the defect 1493214e4 named as left uncured): a return here parks omega in the resume slot and YIELDS, so the next resume reaches omega and its tap prints a failure where iconx prints nothing at all -- Icon's return removes the generator. rbp is H at this point and again at omega, so recording it is what lets omega's tap suppress exactly the one fail that this return will cause.")
-             + x86("mov", "rcx", "rbp")
+         + x86("mov", "rcx", "rbp")
              + x86("call", "rt_trace_gen_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_return_hook)
              + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax"))
          + IF(_.op_dval == 2.0, x86_omega())

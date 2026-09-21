@@ -17,8 +17,7 @@ std::string bb_keyword_icon() {
     if (!(_.op_off >= 0) && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword: no slot");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
     if (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
-        return x86("comment", "KEYWORD_var: a keyword reaching a trace tap is a VARIABLE, so this arm mints rt_keyword_var(name) -- a NAMETRAP with no cell, because &subject and &pos live in scan registers and &trace behind kw_read -- and the read is deferred to DEREFERENCE time. Deferral is the semantics: iconx decrements &trace for the event and dereferences after, so &trace images -47 where an evaluation-time snapshot images -46.")
-             + x86_alpha()
+        return  x86_alpha()
              + x86("mov",     "rdi", ROQ(0))
              + x86("call",    "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
              + x86("mov",     FRQ(_.op_off),     "rax")
@@ -31,8 +30,7 @@ std::string bb_keyword_icon() {
     return _.op_zres
          ? (!strcmp(kw, "subject")
             ? (g_scan_regs_live
-               ? x86("comment", "KEYWORD_subject_reg->ZRES (ZK-2): word0 is {v:1,src_node:3,slen:4} packed (descr.h) -- a bare `mov ZRES(0),DT_S` zeroes slen along with it (row icon-scan-subj-cglobal-retirement's *&subject-in-scan-is-0 sibling), so the tag and the live length (r15) land in the same word as two dword stores instead of one clobbering qword one.")
-               + x86_alpha()
+               ?  x86_alpha()
                + x86("mov", ZRESD(0), (long)DT_S)
                + x86("mov", ZRESD(4), "r15d")
                + x86("note", ZRESN())

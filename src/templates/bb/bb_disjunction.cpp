@@ -35,8 +35,7 @@ static std::string disj_choice_open() {
     if (!x86_fb_pinned()) return std::string();
     int kt = g_emit.flat_frame_bytes;
     uint64_t fp; { void (*f)(void *, void *) = rt_pl_disj_open; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return x86("comment", "PL DISJUNCTION OPEN (rung 3, ARCH sec B.5): the disjunction is FRAMELESS BUT A CHOICE, so it banks its own trail mark in its box pad and lowers this frame's log threshold F.HI at [H+32] to the frame base -- while a branch is untried, every cell of THIS activation is loggable, because the branch step below undoes bindings the clause step would otherwise have re-seeded away. B is raised to H only when the live choice is OLDER than this frame or absent; a retained callee to the left is already younger and stays the choice. Named rtx helper, never an emitted write of r13.")
-         + x86("mov", FRQ(_.op_off + 24), "r12")
+    return  x86("mov", FRQ(_.op_off + 24), "r12")
          + x86("lea", "rdi", RDQ(x86_fb(), kt - 64))
          + x86("mov", "rsi", x86_fb())
          + x86("call_bare", "rt_pl_disj_open", fp);
@@ -45,8 +44,7 @@ static std::string disj_choice_open() {
 static std::string disj_step_unwind() {
     if (!x86_fb_pinned()) return std::string();
     uint64_t fp; { void (*f)(void *) = rt_pl_tr_unwind; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return x86("comment", "PL DISJUNCTION STEP (rung 3, ARCH sec B.5): a branch conceded, so undo everything it bound back to the mark taken at this box's alpha before the next branch is entered -- the same rtx helper the rung-2 clause step uses, the only writer of r12 on this path.")
-         + x86("mov", "rdi", FRQ(_.op_off + 24))
+    return  x86("mov", "rdi", FRQ(_.op_off + 24))
          + x86("call_bare", "rt_pl_tr_unwind", fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

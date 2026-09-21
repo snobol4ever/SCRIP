@@ -440,8 +440,7 @@ static std::string bb_define_bind() {
             + x86_scan_sync_in_rr(); } }
     { if (_.lbl_t0 && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
         reg = reg + x86("comment", "M4-ENTRY-SEAL (term 3): entry_cell$<FN> <- &LBL__<this DEFINE's entry>, so a call reads the binding in force when it runs rather than a baked winner")
-            + x86("comment", "⛔ THE SEAL DEFINES THE CELL IT WRITES THROUGH (hq_I 2026-09-13, hq_U co-sign).  It used to only REFERENCE entry_cell$<FN>, while the .quad defining it was emitted by bb_define_entry_cell_data() from the role-4/5 entry arms alone -- a reference and its definition behind DIFFERENT GUARDS on DIFFERENT IR NODES, with nothing checking that the second fired.  Measured: a SNOBOL4 function emits both, because its labelled-statement shape reaches sno_build_call_stub() and builds a role-4 node; a Snocone function always has a body block, takes sno_build_graph() instead, builds no role-4 node, and linked with `undefined reference to entry_cell$pos`.  Curing only the missing node would fix one instance and leave this seal free to drift from the next role that builds no stub -- Raku and Pascal reach this box too.  bb_define_entry_cell_data() is idempotent by its own `seen` vector, so emitting here is a no-op wherever an entry arm already did it; that idempotence is PROVEN BY DIFFING THE EMITTED .s, never by reading the vector.")
-            + bb_define_entry_cell_data(std::string("entry_cell$") + std::string(bb_ab_sym_name(fname)), std::string(_.lbl_t0))
+         + bb_define_entry_cell_data(std::string("entry_cell$") + std::string(bb_ab_sym_name(fname)), std::string(_.lbl_t0))
             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, _.lbl_t0)
             + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, (std::string("entry_cell$") + std::string(bb_ab_sym_name(fname))).c_str())
             + x86("mov", RDQ("rcx", 0), "rax"); } }
@@ -449,7 +448,7 @@ static std::string bb_define_bind() {
     { if (_.lbl_t0 && bb_ab_cell_addr(fname)) {
         const char * _ent = (strncmp(_.lbl_t0, "LBL__", 5) == 0) ? _.lbl_t0 + 5 : _.lbl_t0;
         uint64_t _bind_fp; { void (*fp)(const char *, const char *) = rt_define_bind_entry; _bind_fp = (uint64_t)(uintptr_t)(void *)fp; }
-        reg = reg + x86("comment", "AB-ENTRY-SEAL (the AB twin of term 3): fn_cell$<FN> <- the entry named by THIS DEFINE.  Resolved by NAME at runtime, not baked: the M4-ENTRY-SEAL's lea carries a label in TEXT but a compile-time-queried POINTER in BINARY (x86_load_ro), and in BINARY that pointer is the default entry, so a baked seal silently re-pins the winner it is here to unpin.")
+        reg = reg
             + x86_ro_load_q("rdi", 0)
             + x86_ro_load_q("rsi", 2)
             + x86_scan_sync_out()
@@ -459,7 +458,7 @@ static std::string bb_define_bind() {
     std::string entry_seal;
     { if (_.op_proto && strchr(_.op_proto, '|') && _.op_entry && *_.op_entry) {
         uint64_t _ent_fp; { void (*fp)(const char *, const char *) = rt_define_site_entry; _ent_fp = (uint64_t)(uintptr_t)(void *)fp; }
-        reg = reg + x86("comment", "SITE-ENTRY-SEAL (CEO-630, multi-prototype name): the executed DEFINE's ENTRY is resolved by NAME when the statement runs and written into the one record the generic path enters through -- in BINARY the r9 pointer above is the compile-time default, so without this the last textual DEFINE's entry ran for every prototype")
+        reg = reg
             + x86_ro_load_q("rdi", 0)
             + x86_ro_load_q("rsi", 3)
             + x86_scan_sync_out()
@@ -572,15 +571,13 @@ static std::string bb_define_sr() {
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
         long WNOFF = 16L * xt4 + 24;
         auto WNSAVE = [&]() {
-            return x86("comment", "WANT-NAME NESTING (ceo-441): the caller's pending by-name request is a single global, so an inner request raised inside this activation -- and cleared by whichever consumer takes it -- destroys the outer one still pending at the call site. The request therefore rides THIS activation frame: parked at entry, the global zeroed so the function's statements start with no inherited intent, put back at both exits so the caller's post-call consult reads its OWN request. Same protocol as bb_define_activate's AB_OFF_WN slot; rax/rdx are scratch here (rcx holds the signature block).")
-                 + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+            return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
                  + x86("mov", "edx", RDD("rax", 0))
                  + x86("movsxd", "rdx", "edx")
                  + x86_rsp_store64((int)WNOFF, "rdx")
                  + x86("mov", RDD("rax", 0), (long)0); };
         auto WNRESTORE = [&]() {
-            return x86("comment", "WANT-NAME RESTORE (ceo-441): the parked request goes back before control leaves the frame, on the failing exit as well as the value-returning one -- an unbalanced exit would leak this activation's intent into the caller exactly the way the global did.")
-                 + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+            return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
                  + x86_rsp_load64("rdx", (int)WNOFF)
                  + x86("mov", RDD("rax", 0), "edx"); };
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";
@@ -684,13 +681,11 @@ static std::string bb_define_sr() {
                             + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
                             + x86("mov", GQ(gk4[i], 8), (long)0)
                             + x86_deflabel_id(41 + i); })
-                 + x86("comment", "&FNCLEVEL ENTRY (row conform-fnclevel-not-tracked, hq_P): rt_k_level++ and kw_fnclevel = rt_k_level-1. Placed exactly where the TRACE CALL tap below is placed and for the same reason -- after the marshal-in, so no formal is disturbed. Before this landed NO write site was emitted at all for a DEFINE'd call: an asm grep of a five-DEFINE witness found six kw_fnclevel references and all six were READS, which is why every shape read 0. ⛔ rcx IS LIVE HERE -- the tap below pushes it before its hook call -- so it is saved across the pair; rax is scratch here exactly as that tap treats it, and the push/pop is paired immediately so rsp is back before any rsp-relative offset.")
-                 + x86("push", "rcx")
+         + x86("push", "rcx")
                  + bb_fnclevel_enter()
                  + bb_stno_save()
                  + x86("pop", "rcx")
-                 + x86("comment", "TRACE(name,'CALL'/'FUNCTION') tap (row snobol4-trace-types-v-l-c-r-k-a-print-spitbols-banner-in-both-modes): fires once every formal is swapped into its GVA home, mirroring where this same file's OWN bb_define_activate() CALL tap fires relative to ITS marshal-in. bb_define_activate is a SIBLING mechanism for a different (non-SIG-shim) calling convention and is confirmed unreached for a tiny-shim-eligible DEFINE'd proc (asm grep: fn_cell$ absent) -- THIS shim (role 4, fnsig()) is the one actually reached, so it needs its own tap. Register save list, g_trace gate and align calls copied verbatim from bb_define_activate's CALL tap, r9 included deliberately: RTCC_GLOBAL_R9_GVA pins r9 as the GVA table base across this whole function (see GQ() above), and a plain C hook function is free to clobber any caller-saved register unless we save/restore it ourselves.")
-                 + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
+         + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jg", 246)
@@ -735,8 +730,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rsi", GQ(rgx, 8))
                  + x86("mov", "rax", "rdi")
                  + x86("mov", "rdx", "rsi")
-                 + x86("comment", "TRACE(name,'RETURN'/'FUNCTION') tap (row snobol4-trace-types-v-l-c-r-k-a-print-spitbols-banner-in-both-modes), gamma-only: rax:rdx already hold the definitive return value here. FRETURN/omega (the def_ext(lbl_o) arm below) has no analogous oracle-verified value to report and is deliberately left unaddressed -- no witness in this row exercises it. Register save list copied verbatim from bb_define_activate's own RETURN tap, r9 included for the same RTCC_GLOBAL_R9_GVA pinning reason as the CALL tap above.")
-                 + x86("push", "rax")
+         + x86("push", "rax")
                  + x86("push", "rdx")
                  + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
                  + x86("mov", "rax", RDQ("rax", 0))
@@ -772,8 +766,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdx")
                  + x86("pop", "rax")
                  + FRESTORE(80)
-                 + x86("comment", "&FNCLEVEL RETURN, gamma (row conform-fnclevel-not-tracked, hq_P): the value-returning exit decrements. rax is dead (FRESTORE above already used it as scratch -- see the re-stage comment below -- and the returned pair is re-derived from rdi/rsi after the frame is popped), but ⛔ rcx IS LIVE and is SAVED: SIGQ is `[rcx + d]`, NOT rsp-relative (the lambda at the top of this arm), so rcx is the signature-block BASE here, not a dead scratch. Measured, not reasoned: the first cut of this cure omitted the save and the emitted asm read `mov rax,[kw_fnclevel]; mov [rax],rcx; mov rcx,[rcx+8]` -- the base loaded from the value just written. A no-formals proc survived it and a one-formal proc SIGSEGVed on RETURN after printing the right answer, which is the shape that makes a register-liveness error look like a returning-path bug.")
-                 + x86("push", "rcx")
+         + x86("push", "rcx")
                  + bb_stno_restore()
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
@@ -786,8 +779,7 @@ static std::string bb_define_sr() {
                  + x86("jmp", "rcx")
                  + x86_def_ext(lbl_o)
                  + FRESTORE(150)
-                 + x86("comment", "TRACE(name,'RETURN'/'FUNCTION') and &FTRACE tap, omega (row snobol4-trace-function-entry-and-exit-call-return-function-and-ftrace-with-depth-marks, cto): the FAILING exit prints 'FRETURN NAME' at the callee's statement and the caller's depth, before the stno and &FNCLEVEL restores below; rax/rdx are dead here (DT_FAIL is staged after), the name string is the return tap's sealed slot 237")
-                 + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
+         + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jne", 248)
@@ -817,8 +809,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rsi")
                  + x86("pop", "rdi")
                  + x86_deflabel_id(249)
-                 + x86("comment", "&FNCLEVEL RETURN, omega (row conform-fnclevel-not-tracked, hq_P): the FAILING exit decrements too. ⛔ THIS IS THE HALF THE TRACE ROW DELIBERATELY LEFT OUT, and its comment says so -- its RETURN tap is gamma-only. For a REPORTING tap that is a defensible choice; for a DEPTH COUNTER an unbalanced exit is a leak, and one FRETURN would leave every later reading of &FNCLEVEL permanently one too high. rax is dead (eax is overwritten with DT_FAIL below), and rcx is SAVED for the same reason as the gamma exit above: SIGQ is `[rcx + d]`, so rcx is the signature-block base, not scratch.")
-                 + x86("push", "rcx")
+         + x86("push", "rcx")
                  + bb_stno_restore()
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
@@ -875,8 +866,7 @@ static std::string bb_define_sr() {
                         + x86_deflabel_id(41 + i); })
              + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
              + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
-             + (x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, the entry label reached at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
-                         + x86("push", "rax")
+             + ( x86("push", "rax")
                          + x86("push", "rcx"))
              + bb_define_entry_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), entry_cell)
              + x86_def_ext(lbl_b)
