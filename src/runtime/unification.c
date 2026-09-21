@@ -296,7 +296,7 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m)
       fflush(m->fp); fh_set_output(sv); fh_free(slot);
       if (h) { extern void rt_proc_drop_frame_h(void **hslot); m->pheld++; rt_proc_drop_frame_h(&h); }
       if (b) { m->pthrown = b; return 0; }
-      return r.v == (DTYPE_t)DT_I; }
+      return !IS_FAIL_fn(r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m)
