@@ -2564,7 +2564,7 @@ def cmd_run(args):
     if not _arena_mb: _arena_mb = "0"
     _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
     print("ARENA SCRIP_HEAP_KB=%s%s%s" % (_arena_kb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
-          " (committed window in MB; unset means the shipped default 512. The reserve is the larger of 8x the window and the"
+          " (committed window in KB; unset means the shipped default 128 KB, which is the PEAK of collector exasperation and not the floor -- below it the live set stops fitting, the window grows and collections FALL (ceo CEO-1095). The reserve is the larger of 8x the window and the"
           " default's, so a small window collects often and refuses no live set)"), flush=True)
     def _bin_unmoved_or_refuse():
         _mv = _upa_bin.binary_moved_since_start()
@@ -2581,6 +2581,20 @@ def cmd_run(args):
     # them apart. That is the exact shape this row was minted to remove, one layer below where it was looking.
     # ⛔ CHECKED HERE, BEFORE ANY READER: read_suite/read_block_suite each open BOTH files at different depths,
     # so a guard inside either one would have to be written twice and would still miss the sidecars' own reads.
+    # ⛔⭐ A BOARD NAMES THE RUNTIME IT ACTUALLY LOADED, NOT THE ONE ITS TREE IMPLIES (coo, ceo CEO-1097).
+    # out/libscrip_rt.so is a SINGLE MUTABLE SYMLINK whose target name is keyed on the TREE PATH, not on the build
+    # configuration, and scrip's RUNPATH is that absolute out directory.  So two builds of one tree at different
+    # RT_OPT overwrite each other silently, and a board that spans a rebuild grades two different runtimes under one
+    # row.  The coo found this by building an -O2 arm beside an -O0 arm at the same tree and watching the -O0 arm
+    # resolve to the -O2 runtime.  Printing the md5 makes the substitution VISIBLE in the board line instead of
+    # invisible: two rows that disagree can be told apart, and two rows that agree can be PROVEN to.
+    _rt_md5 = "unknown"
+    try:
+        import hashlib
+        _rt_so = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "out", "libscrip_rt.so")
+        with open(os.path.realpath(_rt_so), "rb") as _f: _rt_md5 = hashlib.md5(_f.read()).hexdigest()[:12]
+    except Exception: _rt_md5 = "unreadable"
+    print("RUNTIME libscrip_rt.so md5=%s -- the runtime this pass ACTUALLY loaded; out/libscrip_rt.so is one mutable symlink per TREE, not per CONFIGURATION (CEO-1097)" % _rt_md5)
     for _label, _p in (("suite", args.sno), ("ref", args.ref)):
         if not Path(_p).is_file():
             refuse(f"{_label} file does not exist: {_p} -- nothing was graded, and a run that graded nothing is "
@@ -2959,7 +2973,7 @@ def cmd_run(args):
     # instead of them: the cell carries both so the split stays readable, and a reader who wants one mode still
     # has it. Shards partition the entries, so these two sum across shards exactly as every other field does.
     fields.append(f"all_pass={all_pass} all_n={all_n}")
-    fields.append(f"arena_kb={_arena_kb} arena_mb={_arena_mb}" + (f" arena_cap_mb={_arena_cap}" if _arena_cap else ""))
+    fields.append(f"rt_md5={_rt_md5} arena_kb={_arena_kb} arena_mb={_arena_mb}" + (f" arena_cap_mb={_arena_cap}" if _arena_cap else ""))
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
     _bin_unmoved_or_refuse()
