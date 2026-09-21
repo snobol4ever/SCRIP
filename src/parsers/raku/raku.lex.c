@@ -2799,7 +2799,7 @@ YY_LINENO_REWIND_TO(yy_cp - 1);
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-{ return OP_REP_X; }
+{ if (raku_expect_rebody) { raku_yylval.sval = ct_strdup("x"); return IDENT; } return OP_REP_X; }
 	YY_BREAK
 case 128:
 YY_RULE_SETUP

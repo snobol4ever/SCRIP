@@ -157,7 +157,7 @@ WS       [ \t\r]
 "leg"           { return OP_LEG; }
 [ \t]+("xx"|"x")/[ \t]*"=>"  { const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = ct_strdup(_p); return IDENT; }
 [ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
-[ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
+[ \t]+"x"/[^A-Za-z0-9_-]   { if (raku_expect_rebody) { raku_yylval.sval = ct_strdup("x"); return IDENT; } return OP_REP_X; }
 "div"           { return OP_DIV; }
 [ 	]+"gcd"/[ 	]    { return OP_GCD; }
 [ 	]+"lcm"/[ 	]    { return OP_LCM; }
