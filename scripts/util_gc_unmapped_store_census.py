@@ -886,15 +886,20 @@ def emit_and_read(scrip, prog, workdir, env_extra=None):
     try:
         r = subprocess.run([scrip, "--compile", prog], capture_output=True, text=False, env=env,
                            timeout=180, stdin=subprocess.DEVNULL)
+        # ⛔ measured 2026-09-21: adversarial__a14_conversion and rung36_jcon_evalx deliberately embed raw
+        # high-byte string literals (escape/encoding stress tests), which the emitter carries verbatim into
+        # a .string directive. text=True's strict UTF-8 decode raised UnicodeDecodeError on ONE of 826
+        # entries and took the whole census down before it printed a verdict line -- silently, since the
+        # caller reads rc and a grep for the verdict, neither of which named a traceback. Decode leniently.
+        out = r.stdout.decode("utf-8", errors="replace")
+        err = r.stderr.decode("utf-8", errors="replace")
     except (OSError, subprocess.TimeoutExpired) as e:
         return None, None, f"{base}: --compile failed: {e}"
-    # ⛔ measured 2026-09-21: adversarial__a14_conversion and rung36_jcon_evalx deliberately embed raw
-    # high-byte string literals (escape/encoding stress tests), which the emitter carries verbatim into
-    # a .string directive. text=True's strict UTF-8 decode raised UnicodeDecodeError on ONE of 826
-    # entries and took the whole census down before it printed a verdict line -- silently, since the
-    # caller reads rc and a grep for the verdict, neither of which named a traceback. Decode leniently.
-    out = r.stdout.decode("utf-8", errors="replace")
-    err = r.stderr.decode("utf-8", errors="replace")
+    except Exception as e:
+        # cto, on this landing: this function's contract is to RETURN an error, never to raise. errors=
+        # "replace" means decode itself can no longer throw, but widen the net anyway so the next
+        # unforeseen failure in this block names itself in the census instead of taking it down silently.
+        return None, None, f"{base}: --compile capture/decode failed unexpectedly: {e}"
     if r.returncode != 0 or not out.strip():
         return None, None, f"{base}: --compile rc={r.returncode} with {len(out)} bytes of asm -- not measured"
     with open(asm, "w", encoding="utf-8") as fh:
