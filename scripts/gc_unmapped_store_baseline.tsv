@@ -58,3 +58,6 @@ hb_wsb_pl_atom_dup.pl	0	54	74	861
 hb_wsb_raku_junction.raku	0	0	4	69
 hb_wsb_raku_sprintf_multi.raku	0	0	4	78
 hb_wsb_rk_arr.raku	0	0	0	60
+hb_wsb_rk_gram_parse.raku	0	0	0	18
+hb_wsb_rk_iter_grep.raku	0	0	0	51
+hb_wsb_rk_iter_map.raku	0	0	0	51
