@@ -1,0 +1,29 @@
+# gc_differential_configs.tsv -- THE DECLARED GC CONFIGURATIONS of the differential oracle (coo, 2026-09-21,
+# MODE TENET, row gc-the-differential-oracle-same-program-under-two-gc-configurations-must-agree).
+#
+# name <TAB> env assignments <TAB> why this is a DISTINCT axis and not a relabelling of another
+#
+# ⛔⭐ EVERY MODIFIER IS COMPOSED WITH A COLLECTING AXIS, AND THAT IS A MEASUREMENT AND NOT A STYLE CHOICE.
+# Measured on hb_bignum_length.icn at origin f7669a6a8 with SCRIP_ZETA_TELEM=1, collections per run:
+#     shipped 0 | SCRIP_GC_RELOC=1 0 | SCRIP_GC_POISON=0 0 | SCRIP_GC_PLANT_SHIFT=65536 0
+#     SCRIP_HEAP_MB=1 1 | SCRIP_GC_STRESS=3 2598
+# RELOC, POISON and PLANT_SHIFT are MODIFIERS OF A COLLECTION. Declared alone at the shipped arena they never
+# run, their collector-event fingerprints are byte-identical (empty), and a differential over them reports
+# AGREEMENT over a population of ONE configuration wearing four names. Composed with SCRIP_HEAP_MB=1 they
+# separate: reloc changes the move fingerprint, plant64k takes the collection count 1 -> 2, and nopoison drops
+# the [ZGC-POISON] line entirely. The harness re-proves this per program and refuses UNDISTINGUISHED rather
+# than trusting this file, so a knob that stops taking is caught here on the day it stops.
+#
+# ⛔ shipped IS DELIBERATELY LAST AND IS EXPECTED TO COLLAPSE ON SMALL PROGRAMS. It is the configuration we
+# ship, so a divergence between it and any forced configuration is the most valuable finding this instrument
+# can produce -- but on a program that never allocates a megabyte it collects zero times and joins the
+# UNDISTINGUISHED group by measurement. Keeping it named makes that visible instead of absent.
+#
+# ⛔ THE FIRST ROW IS THE REFERENCE CONFIGURATION: it is the one run TWICE for the determinism pre-pass, so it
+# must be a configuration that COLLECTS on nearly everything. arena1 is that row.
+arena1	SCRIP_HEAP_MB=1	the tiny arena, Lon's mandatory pass (CEO-938/939): collects wherever a program allocates a megabyte. The reference row -- run twice per program to separate a program's own nondeterminism from a collector divergence.
+arena1_reloc	SCRIP_HEAP_MB=1 SCRIP_GC_RELOC=1	forces every live block to change address, so a stale pointer cannot accidentally still work. The cfo's row; measured to change the move fingerprint at the same collection count, and the sharpest axis here because it moves EVERY block rather than changing how often the collector runs.
+arena1_nopoison	SCRIP_HEAP_MB=1 SCRIP_GC_POISON=0	vacated ground is NOT overwritten with 0xDB. Distinguished by the ABSENCE of the [ZGC-POISON] line, which is why the fingerprint is taken over every tag and not over the move columns -- those are identical to arena1.
+arena1_plant64k	SCRIP_HEAP_MB=1 SCRIP_GC_PLANT_SHIFT=65536	displaces the whole arena by 64 KB per collection so relocation is real rather than incidental. 65536 and not 1048576: the cto measured the megabyte shift applying ZERO times with rc=0 and byte-identical stdout (cured at SCRIP 1b317bea3, a declined plant now names itself on stderr).
+arena1_stress3	SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3	collects at every third opportunity rather than on demand: 2598 collections where arena1 takes 1. Not "more of the same axis" -- it reaches collection points that heap pressure alone never reaches.
+shipped		the configuration we actually ship, no knobs at all. Collects only where the program allocates past the shipped arena, so it is UNDISTINGUISHED on small programs by measurement and a genuine sixth axis on large ones.

@@ -1,0 +1,8 @@
+# gc_differential_floor.tsv -- the ratchet for the gate population of test_gate_gc_differential_configs_agree.sh
+# (coo 2026-09-21, MODE TENET). A program that was GRADED may not stop being graded and an agreement may not
+# get WEAKER: a fall from AGREE to UNDISTINGUISHED/NO-COLLECTION, or a drop in the number of DISTINCT
+# collector-event fingerprints, means a knob stopped taking -- which is this row own hazard from the other side.
+# Pinned on tree 1b317bea3. Raise with: python3 scripts/util_gc_differential.py <progs> --tsv <this file>
+program	verdict	distinct_fingerprints
+hb_arr.sno	AGREE	2
+hb_bignum_length.icn	AGREE	6
