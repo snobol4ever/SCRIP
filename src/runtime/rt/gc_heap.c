@@ -11,7 +11,9 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #define GC_HEAP_MB 1
+#define GC_HEAP_KB 128
 #define GC_RESERVE_FLOOR_MB 512
+#define GC_HEAP_KB_FLOOR 64
 #include "descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
@@ -145,11 +147,12 @@ long rt_gcheap_verify(void)
 static void rt_gcheap_report(void)
 {
     long win_mb = (long)(g_hp_chunk >> 20), rsv_mb = (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 20) : 0L;
+    long win_kb = (long)(g_hp_chunk >> 10);
     { const char *x = getenv("SCRIP_GC_EXERCISE"); const char *st = getenv("SCRIP_GC_STRESS");
-      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld\n", win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L); }
+      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L); }
     if (!getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
-    fprintf(stderr, "[ZHP] arena=%ldMB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", win_mb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
+    fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_huge_advise(char *a0, char *e0)
@@ -175,20 +178,23 @@ static int rt_gcheap_grow(uint64_t need)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_init(void)
 {
-    long mb = (long)GC_HEAP_MB, cap_mb;
-    { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) mb = v; } }
+    long mb = (long)GC_HEAP_MB, cap_mb, kb = (long)GC_HEAP_KB;
+    { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) { mb = v; kb = v * 1024L; } } }
+    { const char *e = getenv("SCRIP_HEAP_KB"); if (e && *e) { long v = atol(e);
+        if (v < (long)GC_HEAP_KB_FLOOR || v > 4096L * 1024L) { fprintf(stderr, "[ZHP] SCRIP_HEAP_KB=%ld is outside %d..%ld KB and is REFUSED -- the window is not silently clamped, because a run that grades at a size it was not asked for is a false reading (ceo CEO-1095)\n", v, (int)GC_HEAP_KB_FLOOR, 4096L * 1024L); abort(); }
+        kb = v; } }
     cap_mb = (mb * 8 > (long)GC_RESERVE_FLOOR_MB * 8) ? mb * 8 : (long)GC_RESERVE_FLOOR_MB * 8;
     { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); if (v >= mb) cap_mb = v; } }
     { void *rv = mmap((void *)0, (size_t)cap_mb << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
       if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap reserve mmap failed (%ld MB reserve) -- lower SCRIP_HEAP_MAX_MB\n", cap_mb); abort(); }
       g_hp_arena = (char *)rv; }
     g_hp_cap_end = g_hp_arena + ((size_t)cap_mb << 20);
-    g_hp_chunk = (size_t)mb << 20;
-    if (mprotect(g_hp_arena, g_hp_chunk, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] heap window commit failed (%ld MB of a %ld MB reserve)\n", mb, cap_mb); abort(); }
+    g_hp_chunk = (((size_t)kb << 10) + 4095u) & ~(size_t)4095u;
+    if (mprotect(g_hp_arena, g_hp_chunk, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] heap window commit failed (%ld KB of a %ld MB reserve)\n", kb, cap_mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + g_hp_chunk;
     gc_huge_advise(g_hp_arena, g_hp_end);
     g_hp_virgin = g_hp_arena;
-    g_hp_gcline = g_hp_arena + gc_line_span((long)(((size_t)mb << 20) >> 1));
+    g_hp_gcline = g_hp_arena + gc_line_span((long)(g_hp_chunk >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
     gc_static_segs_init();
     { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }

@@ -4,8 +4,15 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the rebus shard below is a ru
 #
 # ⛔⭐ THE RULE (Lon 2026-09-19 16:1x CDT, in-chat to the ceo, verbatim: "Actually, for all GC testing all seats should
 # use a tiny arena to exasperate all the problems all the time. Do you not agree?"; ceo CEO-931/934/938, RULES.md
-# § THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2).  The committed window is SCRIP_HEAP_MB (rt_gcheap_init); at 1 MB
+# ⛔⭐ THE DEFAULT IS 128 KB SINCE 2026-09-21 17:3x (Lon, in-chat to the ceo: "So let's take the default GC arena down to 128 KB."; ceo CEO-1095). It is COMPILED IN as GC_HEAP_KB, so it travels with the
+# binary and the blanket `export SCRIP_HEAP_MB ?= 1` arm 1 refuses is RETIRED rather than re-argued. MEASURED on two allocating witnesses: 128 KB is the PEAK of exasperation, NOT the floor -- icon concat reads
+# 1613 collections at 1 MB, 7533 at 256 KB, 21362 at 128 KB, then DOWN to 5429 at 64 KB because the live set stops fitting and the window GROWS. Below the peak, smaller is LESS exasperating. stdout byte-identical
+# at every point. SCRIP_HEAP_KB is the knob and it REFUSES below 64 KB rather than clamping, because a run that grades at a size it was not asked for is a false reading.
+# § THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2).  The committed window is SCRIP_HEAP_KB (rt_gcheap_init); at 1 MB
 # a program collects wherever it allocates a megabyte -- measured on corpus/benchmarks/icon/bench_icnstr_concat_table.icn:
+# ⛔ THE PROBE VALUES ARE KB AND MUST CLEAR THE 64 KB FLOOR: they were 1 and 7 when the knob was MEGABYTES, and as KB they abort
+# every scrip invocation, which reads as "the harness printed no ARENA line" rather than as "the floor refused" -- a probe that
+# cannot run is not a negative result about the thing probed.  256 and 512 are used, both distinct from the 128 default.
 # 1614 collections at 1 MB, 788 at 2, 389 at 4, SIX at the shipped 512, stdout byte-identical at every size.  That is the
 # exasperation Lon asked for, and it found real defects the same afternoon (SnoM 1959/1974 at 1 MB against 1963 at 512;
 # IcnM 824/826 against 826).
@@ -16,7 +23,7 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the rebus shard below is a ru
 #   (1) `make test-arena` IS the pass -- a target-specific export of SCRIP_HEAP_MB_TINY over every gc gate and every
 #       frontend smoke, announcing its arena first (`make arena`), mandatory per collector landing, its every red a ROW;
 #       and the BLANKET export of the first cut stays out, because a landing gate grades the configuration we ship;
-#   (2) corpus_suite_harness.py PRINTS the arena it ran under (the ARENA line and the SUITE_BOARD arena_mb= field),
+#   (2) corpus_suite_harness.py PRINTS the arena it ran under (the ARENA line and the SUITE_BOARD arena_kb= field),
 #       because the same suite legitimately reads two populations on one binary and a number without its arena is not a
 #       measurement -- the harness REPORTS, it does not default, since a silent default would change what every existing
 #       published number means with no line of evidence anywhere;
@@ -52,32 +59,32 @@ RC=0; examined=0
 examined=$((examined + 1))
 a1=""; a1bad=0
 for want in "" 3; do
-    if [ -z "$want" ]; then got=$( (cd "$ROOT" && make --no-print-directory arena 2>/dev/null) | grep -oE '^ARENA SCRIP_HEAP_MB=[0-9]+' | grep -oE '[0-9]+$' ); exp=1; lbl=default
-    else got=$( (cd "$ROOT" && make --no-print-directory arena SCRIP_HEAP_MB_TINY="$want" 2>/dev/null) | grep -oE '^ARENA SCRIP_HEAP_MB=[0-9]+' | grep -oE '[0-9]+$' ); exp="$want"; lbl="TINY=$want"; fi
+    if [ -z "$want" ]; then got=$( (cd "$ROOT" && make --no-print-directory arena 2>/dev/null) | grep -oE '^ARENA SCRIP_HEAP_KB=[0-9]+' | grep -oE '[0-9]+$' ); exp=128; lbl=default
+    else got=$( (cd "$ROOT" && make --no-print-directory arena SCRIP_HEAP_KB_TINY="$want" 2>/dev/null) | grep -oE '^ARENA SCRIP_HEAP_KB=[0-9]+' | grep -oE '[0-9]+$' ); exp="$want"; lbl="TINY=$want"; fi
     a1="$a1 ${lbl}->${got:-none}"
     [ "${got:-none}" = "$exp" ] || a1bad=1
 done
-grep -qE '^test-arena: *export SCRIP_HEAP_MB' "$ROOT/Makefile" || { a1="$a1 [no test-arena export]"; a1bad=1; }
+grep -qE '^test-arena: *export SCRIP_HEAP_KB' "$ROOT/Makefile" || { a1="$a1 [no test-arena export]"; a1bad=1; }
 grep -qE '^\.PHONY:.*[ 	]test-arena([ 	]|$|\\)' "$ROOT/Makefile" || { a1="$a1 [test-arena not phony]"; a1bad=1; }
 if grep -qE '^export SCRIP_HEAP_MB[ 	]*[?:]?=' "$ROOT/Makefile"; then a1="$a1 [BLANKET EXPORT IS BACK]"; a1bad=1; fi
 if [ "$a1bad" = 0 ]; then echo "  arm 1 PASS: the tiny arena is its own pass, announces its arena and tracks its knob ($a1), and the blanket export that took the 360-arm set to 32 red is not back"
-else echo "  arm 1 FAIL: the tiny-arena pass is missing, does not announce a tracking arena, or the blanket export is back --$a1 (wanted default->1 TINY=3->3, a test-arena target-specific export, test-arena in .PHONY, and NO bare 'export SCRIP_HEAP_MB' anywhere in the Makefile)"; RC=1; fi
+else echo "  arm 1 FAIL: the tiny-arena pass is missing, does not announce a tracking arena, or the blanket export is back --$a1 (wanted default->128 TINY=3->3, a test-arena target-specific export, test-arena in .PHONY, and NO bare 'export SCRIP_HEAP_MB' anywhere in the Makefile)"; RC=1; fi
 # ARM 2 -- the harness NAMES the arena it ran under, tracking the knob at three arenas.
 examined=$((examined + 1))
 a2=""; a2bad=0
 run_one() { # $1 = arena or "unset"; prints the harness's stdout for ONE graded entry
-    if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --by-modes-column --modes m3 --shard 1/43 2>&1 )
-    else ( cd "$ROOT" && SCRIP_HEAP_MB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --by-modes-column --modes m3 --shard 1/43 2>&1 ); fi
+    if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --by-modes-column --modes m3 --shard 1/43 2>&1 )
+    else ( cd "$ROOT" && SCRIP_HEAP_KB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --by-modes-column --modes m3 --shard 1/43 2>&1 ); fi
 }
-for want in 1 7 unset; do
-    exp="$want"; [ "$want" = unset ] && exp=512
+for want in 256 512 unset; do
+    exp="$want"; [ "$want" = unset ] && exp=128
     run_one "$want" > "$T/h_$want.txt" 2>&1
-    got=$(grep -oE '^ARENA SCRIP_HEAP_MB=[0-9]+' "$T/h_$want.txt" | grep -oE '[0-9]+$')
+    got=$(grep -oE '^ARENA SCRIP_HEAP_KB=[0-9]+' "$T/h_$want.txt" | grep -oE '[0-9]+$')
     a2="$a2 ${want}->${got:-none}"
     [ "${got:-none}" = "$exp" ] || a2bad=1
 done
-if [ "$a2bad" = 0 ]; then echo "  arm 2 PASS: every board names the arena it ran under and the line tracks the knob (ARENA read$a2; unset reports the shipped 512)"
-else echo "  arm 2 FAIL: the harness's ARENA line is missing or does not track the knob (read$a2, wanted 1->1 7->7 unset->512)"; RC=1; fi
+if [ "$a2bad" = 0 ]; then echo "  arm 2 PASS: every board names the arena it ran under and the line tracks the knob (ARENA read$a2; unset reports the shipped 128)"
+else echo "  arm 2 FAIL: the harness's ARENA line is missing or does not track the knob (read$a2, wanted 256->256 512->512 unset->128)"; RC=1; fi
 # ARM 3 -- the DECLARED set of gates that PIN an arena, so a pin cannot spread and turn the rule off gate by gate.
 # ⛔ A PIN IS NOT A DEFAULT, and conflating them made this arm red for a landing that OBEYED the rule (ceo CEO-956):
 # `export SCRIP_HEAP_MB=512` overrides its caller and turns the tiny-arena rule OFF for that gate, which is the thing
@@ -92,9 +99,9 @@ if [ "$found" = "$want" ]; then echo "  arm 3 PASS: exactly the declared gate(s)
 else echo "  arm 3 FAIL: the set of gates pinning an arena is not the declared set -- found [${found:-none}] declared [${want:-none}]. A new pin needs its reason at the pin and its name here; a missing one means the rule is off for that gate."; RC=1; fi
 # ARM 4 -- the board line itself carries the arena, so an archived board line is readable years later.
 examined=$((examined + 1))
-b1=$(grep -oE 'arena_mb=[0-9]+' "$T/h_1.txt" | head -1); b7=$(grep -oE 'arena_mb=[0-9]+' "$T/h_7.txt" | head -1); bd=$(grep -oE 'arena_mb=[0-9]+' "$T/h_unset.txt" | head -1)
-if [ "$b1" = "arena_mb=1" ] && [ "$b7" = "arena_mb=7" ] && [ "$bd" = "arena_mb=512" ]; then echo "  arm 4 PASS: the SUITE_BOARD line carries its arena and tracks it ($b1 / $b7 / $bd) -- an archived board line stays readable without its command"
-else echo "  arm 4 FAIL: the SUITE_BOARD line does not carry a tracking arena_mb= field (read [${b1:-none}] [${b7:-none}] [${bd:-none}])"; RC=1; fi
+b1=$(grep -oE 'arena_kb=[0-9]+' "$T/h_256.txt" | head -1); b7=$(grep -oE 'arena_kb=[0-9]+' "$T/h_512.txt" | head -1); bd=$(grep -oE 'arena_kb=[0-9]+' "$T/h_unset.txt" | head -1)
+if [ "$b1" = "arena_kb=256" ] && [ "$b7" = "arena_kb=512" ] && [ "$bd" = "arena_kb=128" ]; then echo "  arm 4 PASS: the SUITE_BOARD line carries its arena and tracks it ($b1 / $b7 / $bd) -- an archived board line stays readable without its command"
+else echo "  arm 4 FAIL: the SUITE_BOARD line does not carry a tracking arena_kb= field (read [${b1:-none}] [${b7:-none}] [${bd:-none}])"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the tiny arena is the standing default of GC testing by mechanism -- make exports it as a default, every board names the arena it ran under and the name tracks the knob, and exactly the declared arena-dependent gate pins its own (examined $examined arms)"
 else echo "GATE FAIL(1) [$G]: the tiny-arena default is not held by its mechanism (examined $examined arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"

@@ -2558,9 +2558,12 @@ def cmd_run(args):
     # one a board is has no measurement.  Reported, never defaulted here: the knob comes from the environment (the
     # Makefile exports 1 for everything run through make), because a harness that silently changed every existing
     # board's arena would change what every published number MEANS with no line of evidence anywhere.
-    _arena_mb = os.environ.get("SCRIP_HEAP_MB", "").strip() or "1"
+    _arena_kb = os.environ.get("SCRIP_HEAP_KB", "").strip()
+    _arena_mb = os.environ.get("SCRIP_HEAP_MB", "").strip()
+    if not _arena_kb: _arena_kb = str(int(_arena_mb) * 1024) if _arena_mb.isdigit() else "128"
+    if not _arena_mb: _arena_mb = "0"
     _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
-    print("ARENA SCRIP_HEAP_MB=%s%s%s" % (_arena_mb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
+    print("ARENA SCRIP_HEAP_KB=%s%s%s" % (_arena_kb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
           " (committed window in MB; unset means the shipped default 512. The reserve is the larger of 8x the window and the"
           " default's, so a small window collects often and refuses no live set)"), flush=True)
     def _bin_unmoved_or_refuse():
@@ -2956,7 +2959,7 @@ def cmd_run(args):
     # instead of them: the cell carries both so the split stays readable, and a reader who wants one mode still
     # has it. Shards partition the entries, so these two sum across shards exactly as every other field does.
     fields.append(f"all_pass={all_pass} all_n={all_n}")
-    fields.append(f"arena_mb={_arena_mb}" + (f" arena_cap_mb={_arena_cap}" if _arena_cap else ""))
+    fields.append(f"arena_kb={_arena_kb} arena_mb={_arena_mb}" + (f" arena_cap_mb={_arena_cap}" if _arena_cap else ""))
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
     _bin_unmoved_or_refuse()
