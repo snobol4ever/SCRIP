@@ -779,13 +779,24 @@ s4e_lane_owner_of_language() {
       # six-way parallel; the officers own items 1-3, which are single-site landings and are not. Written out per
       # language rather than collapsed to a default: the gate beside this compares it to MODE line 2 LANGUAGE BY
       # LANGUAGE, and a default would agree with a line 2 that had drifted on six of them without anything noticing.
-      icon)     printf 'hq_icon';;
-      prolog)   printf 'hq_prolog';;
-      snobol4)  printf 'hq_snobol4';;
-      pascal)   printf 'hq_pascal';;
-      snocone)  printf 'hq_snocone';;
+      # ⛔ MODE EXECUTIVE RESTORED (CEO-1051, 2026-09-21 13:0x, Lon in-chat to the ceo, verbatim: "I do not think we
+      # can afford running the 6 HQ's today. Let's bring those back down. We'll have to get GC complete without them."):
+      # the six language HQs stand down again after one afternoon and the CEO-802 REVIEWERS become the cure owners --
+      # the cto reviewed hq_prolog and hq_raku, the cfo reviewed the other four and already held rebus. ⛔ THIS TABLE IS
+      # MOVED BEFORE THE MODE FILE, NOT AFTER, which is CEO-1046 landed forty minutes earlier and b36a7f709's procedure:
+      # two flips on 2026-09-21 left this table stale and make preflight RED FOR EVERY SEAT in BOTH directions inside
+      # twenty minutes, the second red produced by the correct cure of the first. The coo's deeper cure -- the gate reads
+      # a COMMITTED declaration so a flip that forgets its table is caught AT THE FLIP -- is rowed to them and not yet
+      # landed, so until it is, the ORDER of these two edits is the whole guard. Written out per language rather than
+      # collapsed to a default for the reason every table above gives: the gate beside this compares it to MODE line 2
+      # LANGUAGE BY LANGUAGE, and a default would agree with a line 2 that had drifted on six of them unnoticed.
+      icon)     printf 'cfo';;
+      prolog)   printf 'cto';;
+      snobol4)  printf 'cfo';;
+      pascal)   printf 'cfo';;
+      snocone)  printf 'cfo';;
       rebus)    printf 'cfo';;
-      raku)     printf 'hq_raku';;
+      raku)     printf 'cto';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
