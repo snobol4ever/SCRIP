@@ -40,8 +40,17 @@ MODEF="${LANE_GATE_MODE:-$PO/MODE}"
 
 echo "picker lane table vs MODE line 2 -- recomputed live, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 s4e_subject_announce "$REPO" >/dev/null || true
+# ⛔ TWO CLOCKS, BOTH STAMPED (the cfo's ask, CEO-1056). This arm compares a REPO FILE moved by git against a
+# LIVE SHARED FILE moved by another seat's write, so its red cannot say WHICH SIDE IS BEHIND -- and on 2026-09-21
+# that ambiguity produced three false reds in one day, the third from a seat who had the LAW fresh and the TREE
+# thirty minutes stale and checked only the clock that had burned them twice already. Printing both turns an
+# accusation into a one-line self-diagnosis: if the table commit is older than the MODE mtime, PULL before
+# believing this gate. Every other instrument in this fleet says which population it read; this one did not.
 echo "  table: $MSG"
+echo "         commit $(git -C "$(dirname "$MSG")" log -1 --format='%h %cr (%ci)' -- "$MSG" 2>/dev/null || echo 'UNKNOWN -- not a git checkout')"
 echo "  law:   $MODEF"
+echo "         written $(date -r "$MODEF" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || echo 'UNKNOWN -- cannot stat MODE')"
+echo "  ⛔ TWO CLOCKS: a red here means the TABLE and the LAW disagree, never which of them is stale. If the table commit above predates the MODE write, PULL AND RE-RUN BEFORE REPORTING A RED."
 [ -r "$MSG" ]   || { echo "⛔ REFUSES rc=2: cannot read the picker at $MSG"; exit 2; }
 [ -r "$MODEF" ] || { echo "⛔ REFUSES rc=2: cannot read MODE at $MODEF -- a lane check with no law to check against must not print a verdict."; exit 2; }
 
