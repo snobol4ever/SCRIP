@@ -102,6 +102,7 @@ test_gate_frame_reuse_rung3f_a_first_occurrence_head_variable_is_its_param_slot.
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_gc_a_bare_deferred_expression_name_survives_every_collection_point.sh	WIRED	-	-	-
 test_gate_gc_a_bignum_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
+test_gate_gc_a_board_can_say_whether_the_collector_ran.sh	WIRED	-	-	-
 test_gate_gc_a_callee_saved_register_at_an_allocating_return_is_named_not_assumed.sh	WIRED	-	-	-
 test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
 test_gate_gc_a_fault_names_its_block.sh	WIRED	-	-	-
