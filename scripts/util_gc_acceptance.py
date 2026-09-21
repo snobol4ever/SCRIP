@@ -61,10 +61,26 @@ def main():
     if None in (polled, pol_ok, inb, outb, cons):
         refuse.append("INSTRUMENTED: the census did not print a line this reader needs"); print("      REFUSE(2) -- census line missing")
     else:
+        marker_absent = "marker=RT_GC_CALLBACK defined_in_tree=NO" in cen
         rows = [("safe-point polls at allocating call returns", pol_ok, polled),
                 ("callback wraps (RT_GC_CALLBACK)",             inb_w + out_w, c2bb_all),
                 ("C->BB entry sites carrying rt_c2bb_hit",      c2bb_hooked, c2bb_all)]
         for nm, n, d in rows:
+            if nm.startswith("callback wraps") and marker_absent:
+                print("      %-46s %s" % (nm, "REFUSE(2) -- THE WRAPPER DOES NOT EXIST"))
+                print("      %-46s %s" % ("", "RT_GC_CALLBACK is not defined anywhere in the tree, so 0 of %d is NOT a" % (d or 0)))
+                print("      %-46s %s" % ("", "backlog of %d wraps waiting to be written -- a wrap written today would" % (d or 0)))
+                print("      %-46s %s" % ("", "not compile.  \u26d4 AND THE COMPONENT IS SATISFIABLE BY A NO-OP: a macro"))
+                print("      %-46s %s" % ("", "defined as #define RT_GC_CALLBACK(x) x, applied to all %d sites, takes" % (d or 0)))
+                print("      %-46s %s" % ("", "this line to 100% WITH NO SEMANTIC CHANGE WHATSOEVER.  A component of an"))
+                print("      %-46s %s" % ("", "acceptance commitment that a no-op can satisfy is not a measurement, and"))
+                print("      %-46s %s" % ("", "reporting it as '%d open' invited exactly that (CEO-1070)." % (d or 0)))
+                print("      %-46s %s" % ("", "IT REFUSES UNTIL Rule 4 IS GIVEN A MEANING THE WRAPPER ENFORCES:"))
+                print("      %-46s %s" % ("", "a runtime frame holds NO RAW HEAP POINTER across a callback into emitted"))
+                print("      %-46s %s" % ("", "code.  Define that first, prove it fails once, then count sites."))
+                refuse.append("INSTRUMENTED/callback: RT_GC_CALLBACK is undefined in the tree -- "
+                              "0 of %d is unmeasurable, and a no-op macro would read 100%%" % (d or 0))
+                continue
             bad = (n < d)
             print("      %-46s %5d / %-5d  %-7s %s" % (nm, n, d, pct(n, d), "" if not bad else "<- %d open" % (d - n)))
             if bad: fails.append("INSTRUMENTED/%s %d of %d" % (nm.split()[0], n, d))
