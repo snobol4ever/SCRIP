@@ -884,15 +884,22 @@ def emit_and_read(scrip, prog, workdir, env_extra=None):
     if env_extra:
         env.update(env_extra)
     try:
-        r = subprocess.run([scrip, "--compile", prog], capture_output=True, text=True, env=env,
+        r = subprocess.run([scrip, "--compile", prog], capture_output=True, text=False, env=env,
                            timeout=180, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired) as e:
         return None, None, f"{base}: --compile failed: {e}"
-    if r.returncode != 0 or not r.stdout.strip():
-        return None, None, f"{base}: --compile rc={r.returncode} with {len(r.stdout)} bytes of asm -- not measured"
+    # ⛔ measured 2026-09-21: adversarial__a14_conversion and rung36_jcon_evalx deliberately embed raw
+    # high-byte string literals (escape/encoding stress tests), which the emitter carries verbatim into
+    # a .string directive. text=True's strict UTF-8 decode raised UnicodeDecodeError on ONE of 826
+    # entries and took the whole census down before it printed a verdict line -- silently, since the
+    # caller reads rc and a grep for the verdict, neither of which named a traceback. Decode leniently.
+    out = r.stdout.decode("utf-8", errors="replace")
+    err = r.stderr.decode("utf-8", errors="replace")
+    if r.returncode != 0 or not out.strip():
+        return None, None, f"{base}: --compile rc={r.returncode} with {len(out)} bytes of asm -- not measured"
     with open(asm, "w", encoding="utf-8") as fh:
-        fh.write(r.stdout)
-    return asm, r.stderr, None
+        fh.write(out)
+    return asm, err, None
 
 
 VERDICTS = ("BELOW-REGION", "RAW-SLOT", "GAP", "ABOVE-REGION", "OUTSIDE-LAYOUT", "NO-MAP")

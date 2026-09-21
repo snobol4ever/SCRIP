@@ -112,7 +112,11 @@ echo "ARM 2 undecidable=${und:-unread} -- ⛔ for icon this is the load-bearing 
 zls="$(timeout 900 python3 "$HERE/util_zls_frame_map_census.py" --lang icon 2>/dev/null | grep -m1 '^ZLS-MAP lang=icon')" \
     || refuse "the frame-map census could not measure icon -- no_layout cannot be split when it cannot be read"
 echo "ARM 2 $zls"
-nl="$(printf '%s\n' "$zls" | grep -o 'no_layout=[0-9]*' | cut -d= -f2)"
+# ⛔ measured 2026-09-21: the census now also prints no_layout_emitted_no_layout=N (CEO-1025's split), whose
+# tail is itself the literal substring "no_layout=N" -- an unanchored grep -o took BOTH hits, handing this
+# variable a two-line value and making the -eq test below die with "integer expression expected". Anchor on
+# a preceding space or start-of-line so only the standalone field matches.
+nl="$(printf '%s\n' "$zls" | grep -oE '(^| )no_layout=[0-9]+' | tr -d ' ' | cut -d= -f2)"
 [ -n "$nl" ] || refuse "the frame-map census verdict carries no no_layout field"
 if [ "$nl" -eq 0 ]; then
     echo "ARM 2 CEO-1025 SPLIT: no_layout=0, so (a) never-emitted and (b) emitted-without-a-layout are BOTH EMPTY for icon -- the split is vacuous in this language"
