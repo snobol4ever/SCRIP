@@ -1144,11 +1144,29 @@ static long gc_plant_shift_prefix(void)
     while (p < g_hp_top && ((rt_hblk_t *)p)->type == HB_FILL && ((rt_hblk_t *)p)->size) { prefix += ((rt_hblk_t *)p)->size; p += ((rt_hblk_t *)p)->size; }
     return prefix;
 }
+static int gc_reloc_forced(void)
+{
+    const char *e = getenv("SCRIP_GC_RELOC");
+    return (e && *e && *e != '0') ? 1 : 0;
+}
+static void gc_displace_census(rt_hblk_t **liveo, uint64_t *livef, long li, long run, int forced)
+{
+    const char *e = getenv("SCRIP_GC_DISPLACE");
+    long i, un = 0, dn = 0, up = 0, h0 = 0, h1 = 0, h2 = 0, h3 = 0, h4 = 0, mn = -1, mx = 0, sum = 0;
+    if (!e || !*e || *e == '0') return;
+    for (i = 0; i < li; i++) { long d = (long)((char *)livef[i] - (char *)liveo[i]), a = d < 0 ? -d : d;
+        if (d == 0) un++; else if (d < 0) dn++; else up++;
+        if (a == 0) h0++; else if (a < 4096) h1++; else if (a < 65536) h2++; else if (a < (1L << 20)) h3++; else h4++;
+        if (a) { if (mn < 0 || a < mn) mn = a; if (a > mx) mx = a; sum += a; } }
+    fprintf(stderr, "[GC-DISPLACE] run=%ld forced=%d live=%ld unmoved=%ld moved=%ld down=%ld up=%ld dmin=%ld dmax=%ld dmean=%ld hist zero=%ld lt4K=%ld lt64K=%ld lt1M=%ld ge1M=%ld\n",
+        run, forced, li, un, dn + up, dn, up, mn < 0 ? 0L : mn, mx, (dn + up) ? sum / (dn + up) : 0L, h0, h1, h2, h3, h4);
+}
 static long gc_collect_ex(void)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern int rt_scan_active(void);
     char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
+    long n_rfz = 0; int reloc = gc_reloc_forced();
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
@@ -1220,11 +1238,13 @@ static long gc_collect_ex(void)
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
         if (h->flags & HBF_MARK) { n_mk++; if (gc_plant_pin_type() < 0 || (long)h->type == gc_plant_pin_type()) n_plant++; if (n_plant == gc_plant_pin_skip()) { h->fwd = 0; dest += h->size; }
-            else { h->fwd = (uint64_t)dest; dest += h->size; nlive++; } }
+            else { if (reloc && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + h->size <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } h->fwd = (uint64_t)dest; dest += h->size; nlive++; } }
         else h->fwd = 0;
         if (h->fwd) n_fw++;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } }
     if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    gc_displace_census(liveo, livef, li, g_gc_runs + 1, reloc);
+    if (reloc && n_rfz) fprintf(stderr, "[GC-RELOC] REFUSED to displace %ld live block(s): no room for a minimum legal block (32 bytes) of gap, so they kept their address and THIS COLLECTION IS NOT A FORCED-RELOCATION MEASUREMENT\n", n_rfz);
     gc_vac_record(dest); }
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
     for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; const char **loc = sl->hloc ? (const char **)((char *)(sl->hloc + 1) + sl->off) : (const char **)sl->off;
@@ -1239,6 +1259,15 @@ static long gc_collect_ex(void)
           for (char *q = g_hp_arena; q < g_hp_arena + g_gc_shift_prefix; q += ((rt_hblk_t *)q)->size) nfill++; }
         dest = li ? (char *)livef[li - 1] + ((rt_hblk_t *)livef[li - 1])->size : g_hp_arena + g_gc_shift_prefix + g_gc_shift_now;
         if (w_tel || gc_maps_on()) fprintf(stderr, "[GC-SHIFT] plant: every live block forwarded %ld bytes up, over %ld bytes of kept fill at the arena start -- a stale copy of any heap address is wrong after every collection\n", g_gc_shift_now, g_gc_shift_prefix + g_gc_shift_now);
+    } else if (reloc) {
+        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
+        for (long i = li - 1; i >= 0; i--) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
+        { char *q = g_hp_arena;
+          for (long i = 0; i < li; i++) { char *nb = (char *)livef[i];
+              if (nb > q) { rt_hblk_t *fl = (rt_hblk_t *)q; fl->fwd = 0; fl->size = (uint32_t)(nb - q); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
+                  if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = q; g_hp_wend = nb; } }
+              q = nb + ((rt_hblk_t *)nb)->size; }
+          dest = q; }
     } else
     for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size;
         if ((char *)livef[i] == (char *)h) { if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
