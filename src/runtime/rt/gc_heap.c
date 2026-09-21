@@ -536,9 +536,12 @@ int rt_gc_stale_addr_report(void *fault, void *ip)
             if (hit >= 0) { born = gc_chain_back(hit, &hops); bk = gc_birth_find(born); viachain = bk >= 0; }
             if (bk < 0) { bk = gc_birth_cover(f); if (bk >= 0) { born = g_gc_vac[bk].at; hops = 0; } }
             if (bk >= 0) { Dl_info d0, d1; gc_vac_t *v = &g_gc_vac[bk];
-                const char *s0 = (dladdr(v->ra_site, &d0) && d0.dli_sname) ? d0.dli_sname : "?"; const char *s1 = (v->ra_from && dladdr(v->ra_from, &d1) && d1.dli_sname) ? d1.dli_sname : "?";
-                n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   block #%ld, kind=%u, size=%u, allocated by %s (%p) from %s (%p), born at arena+%ld, +%ld into it, %s\n",
-                    v->serial, (unsigned)v->type, (unsigned)v->size, s0, v->ra_site, s1, v->ra_from, (long)(born - g_hp_arena), (long)(f - born),
+                int k0 = dladdr(v->ra_site, &d0), k1 = v->ra_from ? dladdr(v->ra_from, &d1) : 0;
+                const char *s0 = (k0 && d0.dli_sname) ? d0.dli_sname : "?"; const char *s1 = (k1 && d1.dli_sname) ? d1.dli_sname : "?";
+                const char *m0 = (k0 && d0.dli_fname) ? d0.dli_fname : "?"; const char *m1 = (k1 && d1.dli_fname) ? d1.dli_fname : "?";
+                long f0 = k0 ? (long)((char *)v->ra_site - (char *)d0.dli_fbase) : 0L, f1 = k1 ? (long)((char *)v->ra_from - (char *)d1.dli_fbase) : 0L;
+                n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   block #%ld, kind=%u/%s, size=%u, allocated by %s (%s+0x%lx) from %s (%s+0x%lx), born at arena+%ld, +%ld into it, %s\n",
+                    v->serial, (unsigned)v->type, HB_KIND_NAME(v->type), (unsigned)v->size, s0, m0, f0, s1, m1, f1, (long)(born - g_hp_arena), (long)(f - born),
                     viachain ? "reached by walking the vacated ledger back through its relocations" : "matched by address in the birth ring, with no vacated-ledger entry to relocate it");
                 if (viachain) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   it was relocated %ld time(s) between that birth and the collection that vacated the ground you just read\n", hops); }
             else if (!gc_birth_on()) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   THE BIRTH LEDGER IS OFF, so this fault names an address and not a defect -- set SCRIP_GC_BIRTH_LEDGER=<ring entries> and the report will name the block's serial, its type at birth and the site that allocated it\n");
