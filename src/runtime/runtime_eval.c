@@ -296,8 +296,10 @@ static eval_chain_fn eval_build_chain(const char *s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((noinline))
 static void eval_chain_enter_only(eval_chain_fn fn) {
+    extern void rt_c2bb_hit(const char *site, const char *name);
     static int _rv = -1; if (_rv < 0) { const char * e = getenv("SCRIP_EVAL_RET"); _rv = (e && *e == '0') ? 0 : 1; }
-    if (_rv) { rt_chain_enter_v(fn); return; }
+    if (_rv) { rt_c2bb_hit("chain.eval.v", "?"); rt_chain_enter_v(fn); return; }
+    rt_c2bb_hit("chain.eval", "?");
     rt_chain_enter(fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -456,8 +458,9 @@ void *rt_entry_resolve(const char *name, int *is_frag)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_goto_transfer(const char *name)
 {
+    extern void rt_c2bb_hit(const char *site, const char *name);
     void *fn = rt_goto_resolve(name);
-    if (fn) { rt_chain_enter((eval_chain_fn)fn); return 1; }
+    if (fn) { rt_c2bb_hit("chain.goto", name); rt_chain_enter((eval_chain_fn)fn); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -465,8 +468,9 @@ int rt_goto_transfer_checked(const char *name)
 {
     int undef = 0;
     void *fn = rt_goto_resolve_x(name, &undef);
+    extern void rt_c2bb_hit(const char *site, const char *name);
     if (undef) return 0;
-    if (fn) rt_chain_enter((eval_chain_fn)fn);
+    if (fn) { rt_c2bb_hit("chain.goto.x", name); rt_chain_enter((eval_chain_fn)fn); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -569,6 +573,8 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         if (expr_d.slen == 3) {
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
+            extern void rt_c2bb_hit(const char *site, const char *name);
+            rt_c2bb_hit("chain.code", "?");
             rt_chain_enter(fn);
             return NULVCL;
         }
