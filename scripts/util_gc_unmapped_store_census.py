@@ -400,17 +400,34 @@ def grid_sites(insns, frames):
     return rows
 
 
-def census_asm(asm_path, report_text, tag, out=print):
-    """read one emitted program; returns (members, undecidable, examined, refusal, grid, reach, join)"""
+def build_frames(asm_path, report_text, tag):
+    """(insns, succ, maps, layouts, frames, refusal) -- THE ONE MAP READER, shared rather than copied.
+
+    ⛔ WHY THIS IS A FUNCTION AND NOT A PARAGRAPH REPEATED IN THE NEXT INSTRUMENT (INSTRUMENT LAWS batch 30
+    clause 1).  Every term here is a fact about the emitted text that took a landing to get right -- the entry
+    fallthrough trim of trim_entry_fallthrough, the ARCH-GC 6.2d mangling, the refusal when a map label matches
+    no graph, the set-valued rsp fixpoint.  A second reader that re-derives them re-derives their bugs, and the
+    two would then disagree about which graph owns a site while both printed a confident number.  The safe-point
+    CONTRACT checker (util_gc_safe_point_contract.py) asks a DIFFERENT question of the SAME reading, and that is
+    exactly the split this function draws: the reading is shared, the question is not.
+
+    ⛔ AND THE BOUNDARY THAT COMES WITH IT, WRITTEN HERE BECAUSE IT COST THE cto TWENTY MINUTES ON 2026-09-21.
+    shielded_stores() below walks BACKWARD from a poll and stops at a control transfer, which is right for ITS
+    question -- the stores that precede this poll ON EVERY PATH.  Read as the section 3 contract instead, it
+    printed 1784 of 2275 call results NEVER STORED, 78 percent, a catastrophe that is not true: hb_aggt.icn
+    stores rax into [rbp+752], a MAPPED slot, four instructions before its poll, with a `cmp al,104 / je`
+    between -- and the branch is where the backward walk stopped.  A shared reader's REACH BOUNDARY is not the
+    property being measured, and inheriting the boundary while asking a different question is how a measurement
+    becomes a fiction that reads like a five-alarm fire (the ceo's CEO-1019 lesson, one level over)."""
     insns = CS.parse(asm_path)
     if not insns:
-        return None, None, 0, f"{tag}: {asm_path} parsed to zero instructions -- not measured", None, None, None
+        return None, None, None, None, None, f"{tag}: {asm_path} parsed to zero instructions -- not measured"
     succ, top, label_at = CS.build_cfg(insns)
     trim_entry_fallthrough(insns, succ, label_at)
     maps = GCC.read_gcmaps(report_text)
     layouts = read_layouts(report_text)
     if not maps:
-        return None, None, 0, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure", None, None, None
+        return None, None, None, None, None, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure"
     by_label = {mangle(g): g for g in maps}
     frames, unmatched = {}, []
     for lbl, (ai, base, cell) in find_anchors(insns).items():
@@ -423,9 +440,17 @@ def census_asm(asm_path, report_text, tag, out=print):
                      "blob": bool(m["flags"] & 4), "layout": layouts.get(g, []),
                      "frame": frame_fixpoint(insns, succ, ai, seed_rbp(insns, ai))}
     if unmatched:
-        return None, None, 0, (f"{tag}: {len(unmatched)} map label(s) match no graph in the report "
-                               f"({', '.join(sorted(unmatched)[:4])}) -- the mangling fact of ARCH-GC 6.2d "
-                               "is not being read correctly and every site under them would read green by accident"), None, None, None
+        return None, None, None, None, None, (f"{tag}: {len(unmatched)} map label(s) match no graph in the report "
+                                        f"({', '.join(sorted(unmatched)[:4])}) -- the mangling fact of ARCH-GC 6.2d "
+                                        "is not being read correctly and every site under them would read green by accident")
+    return insns, succ, maps, layouts, frames, None
+
+
+def census_asm(asm_path, report_text, tag, out=print):
+    """read one emitted program; returns (members, undecidable, examined, refusal, grid, reach, join)"""
+    insns, succ, maps, layouts, frames, refusal = build_frames(asm_path, report_text, tag)
+    if refusal:
+        return None, None, 0, refusal, None, None, None
     members, undecidable, examined = [], [], 0
     unread, sites = collections.Counter(), 0
     shield_by_graph = collections.Counter()
