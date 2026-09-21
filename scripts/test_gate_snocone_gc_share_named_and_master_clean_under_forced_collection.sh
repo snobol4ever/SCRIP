@@ -40,6 +40,24 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the snocone master graded as 
 # hq_snocone per landing; it is deliberately NOT in `make test` -- the blocking set is the shared resource that
 # does not scale with seats (MODE line 2 CONDITION 2) and wiring a five-minute arm into it is the coo's call.
 #
+# ⛔⭐⭐ EXTENDED 2026-09-21 (hq_snocone, MODE TENET, ceo-1040 "item 4 of the GC commitment": ZERO GRADINGS LOST
+# TO THE COLLECTOR, axes named not counted). What was here before this date tested ONE axis: SCRIP_GC_STRESS,
+# arena PINNED at SNC_GC_ARENA (default 1 MB) for every point. That is exactly the hole hq_snobol4 found in
+# hq_prolog's FIRST cut of SCRIP 46f348488: "a band varying the arena alone reads GREEN over an arena-insensitive
+# stress-sensitive class" -- the mirror hole here is a band varying STRESS ALONE, which reads green over an
+# ARENA-sensitive class, because it never once asks whether the shipped (512 MB) arena would have answered the
+# same way. ADDED: ARM 0 (the shipped-arena, stress-0 baseline every other arm is diffed against -- this is what
+# SncM's own 100% board already means, re-proven on THIS pinned tree rather than cited from a past one) and ARM 4
+# (the SAME stress band, run at the SHIPPED arena instead of the tiny one). ONE AXIS MOVES AT A TIME, per
+# ceo-1040 precondition 1: ARM4(N) vs ARM0 isolates STRESS ALONE (arena held at shipped in both); ARM3(N) vs
+# ARM4(N) isolates ARENA ALONE (stress held at N in both) -- textbook one-variable-at-a-time, applied here the
+# way hq_prolog's control/arena/stress triple applies it, adapted to a master small enough to run un-sharded.
+# ⛔ WHY ARM0 IS NOT "ARENA=1MB, STRESS=0" (the naive control): that configuration was ALREADY MEASURED, by this
+# very gate's ARM 1, to collect ZERO of 336 entries -- no entry here allocates a whole megabyte on its own. A
+# comparison built on a cell that cannot collect would trivially read as agreement while testing nothing, the
+# exact false-clean this gate's own ARM 1 exists to catch. So arena is tested where it is DECIDABLE: composed
+# with a forcing stress, one axis moved against the other, never alone against an inert cell.
+#
 # Commit identity: LCherryholmes / lcherryh@yahoo.com  (RULES.md)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 set -uo pipefail
@@ -47,7 +65,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP_DIR="$S4E/SCRIP"
 SCRIP="${SCRIP:-$SCRIP_DIR/scrip}"
 M="$S4E/corpus/tests/snocone"
-BAND="${SNC_GC_BAND:-1 16}"
+BAND="${SNC_GC_BAND:-1 3 5 8 16}"
 ARENA="${SNC_GC_ARENA:-1}"
 fail() { echo "⛔ RED: $*" >&2; exit 1; }
 refuse() { echo "REFUSES rc=2: $*" >&2; exit 2; }
@@ -76,32 +94,71 @@ grep -c '^CENSUS unmapped-store MEMBER' "$W/census.txt" | sed 's/^/ARM 2 members
 nomap="$(printf '%s\n' "$line" | grep -o 'NO-MAP=[0-9]*' | cut -d= -f2)"
 [ -n "$nomap" ] || refuse "the census verdict line carries no NO-MAP field -- the criterion cannot be read off it"
 [ "$nomap" -eq 0 ] || fail "NO-MAP=$nomap -- this lane owns class 2 (a graph the compiler refuses a frame layout for has no map at all), and $nomap site(s) are in it: $(grep -m5 'MEMBER NO-MAP' "$W/census.txt")"
-# --- ARM 1 + ARM 3 OVER THE BAND: decidability at each point, then the board graded against oracle-cut refs ---
-bad=0
-for STRESS in $BAND; do
-    coll=0; regens=0
+# --- SELF-TEST: prove the comparison/naming logic below would catch a PLANTED divergence before spending a
+# single scrip invocation on it (CEO-1040 precondition 2: a fail-once before any zero means anything). This
+# proves THIS SCRIPT's own comparison code, not the compiler -- the compiler-level fail-once for the STRESS
+# axis is already on record and is not re-derived here: eval_datatype_defer_1, cured at SCRIP 83b8bc9d2,
+# GOAL-SNOCONE-100.md SC-TENET-2026-09-20 -- named at stress=1, absent at stress=2,3,4,5,8 and at BOTH arenas,
+# which is exactly the per-point per-axis naming ARM 3 / ARM 4 perform below.
+printf 'a/m3\nb/m4\n' | sort -u > "$W/selftest_A"
+printf 'a/m3\nc/m3\n' | sort -u > "$W/selftest_B"
+sonly="$(comm -23 "$W/selftest_A" "$W/selftest_B" | tr '\n' ' ')"; conly="$(comm -13 "$W/selftest_A" "$W/selftest_B" | tr '\n' ' ')"
+case "$sonly:$conly" in "b/m4 :c/m3 ") echo "SELF-TEST comparison logic: planted difference correctly named (A-only: ${sonly}| B-only: ${conly})" ;;
+  *) refuse "SELF-TEST FAILED: planted difference not correctly named (got A-only='$sonly' B-only='$conly') -- an instrument that cannot catch a planted divergence cannot be trusted on a real one" ;; esac
+same="$(comm -23 "$W/selftest_A" "$W/selftest_A")$(comm -13 "$W/selftest_A" "$W/selftest_A")"
+[ -z "$same" ] || refuse "SELF-TEST FAILED: the comparison logic named a difference ($same) between a set and itself"
+echo "SELF-TEST comparison logic: identical sets correctly named as no difference"
+
+# --- ARM 0: THE BASELINE -- shipped arena, SCRIP_GC_STRESS unset (stress=0), no knobs at all. Axis point
+# (arena=shipped, stress=0) of ceo-1040's declared grid. Every other arm below is diffed against THIS, measured
+# fresh on this pinned tree, never against a remembered number from a past sitting.
+out0="$(timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
+board0="$(printf '%s\n' "$out0" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out0" | tail -5 >&2; refuse "ARM 0 baseline (shipped arena, no stress) printed no SUITE_BOARD line"; }
+echo "ARM 0 BASELINE arena=shipped stress=0 $board0"
+tot0=$(printf '%s\n' "$board0" | grep -o 'total=[0-9]*' | cut -d= -f2)
+[ "${tot0:-0}" -eq "$rows" ] || refuse "ARM 0 baseline graded total=$tot0 entries, not the $rows materialized out of the master -- the population moved before any axis did"
+printf '%s\n' "$out0" | grep -E '^ +(FAIL|CRASH|HANG|UNPROVEN) ' | awk '{print $2"/"$3}' | sort -u > "$W/ns_base"
+names0="$(tr '\n' ' ' < "$W/ns_base")"
+[ -s "$W/ns_base" ] && refuse "ARM 0 baseline (shipped arena, no stress -- what we ship) is not clean: $names0 -- fix the master before grading any GC axis against it"
+echo "ARM 0 BASELINE NAME-SET: <none> (as SncM's own 100% board requires)"
+
+# --- ARM 3 (tiny arena) + ARM 4 (shipped arena), SAME stress band -- ONE AXIS MOVES AT A TIME (CEO-1040
+# precondition 1). ARM4(N) vs ARM0 isolates STRESS ALONE; ARM3(N) vs ARM4(N) isolates ARENA ALONE.
+bad=0; arena_bad=0
+run_band_arm() { # $1=label(tiny|shipped) $2=MB ("" = shipped/unset) $3=STRESS
+    local label="$1" mb="$2" st="$3" coll=0 regens=0 f b in n out board tot names
     for f in "$W/e"/*.sc; do
         b="${f%.sc}"; in="$b.in"; [ -f "$in" ] || in=/dev/null
-        n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
+        if [ -n "$mb" ]; then n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$mb" SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
+        else n=$(SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration'); fi
         [ "$n" -gt 0 ] && { coll=$((coll + 1)); regens=$((regens + n)); }
     done
-    echo "ARM 1 DECIDABILITY arena_mb=$ARENA stress=$STRESS entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
-    [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected at arena_mb=$ARENA stress=$STRESS -- the board for this band point would be a statement about this corpus and not about the collector, so it is not reported at all"
-    out="$(SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
-    board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "the master run at stress=$STRESS printed no SUITE_BOARD line -- a run with no board is not a measurement"; }
-    echo "ARM 3 stress=$STRESS $board"
+    echo "ARM $label DECIDABILITY arena=${mb:-shipped} stress=$st entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
+    [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected under ARM $label (arena=${mb:-shipped} stress=$st) -- not reported: this board would be a statement about the corpus, not the collector"
+    if [ -n "$mb" ]; then out="$(SCRIP_HEAP_MB="$mb" SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
+    else out="$(SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"; fi
+    board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "ARM $label at arena=${mb:-shipped} stress=$st printed no SUITE_BOARD line"; }
+    echo "ARM $label arena=${mb:-shipped} stress=$st $board"
     tot=$(printf '%s\n' "$board" | grep -o 'total=[0-9]*' | cut -d= -f2)
-    [ "${tot:-0}" -gt 0 ] || refuse "the board's own denominator at stress=$STRESS is $tot -- a FAIL=0 over nothing is not a reading"
-    pbad=0
-    for k in m3_fail m3_crash m3_hang m3_unproven m4_fail m4_crash m4_hang m4_unproven; do
-        v=$(printf '%s\n' "$board" | grep -o "$k=[0-9]*" | cut -d= -f2)
-        [ "${v:-0}" -eq 0 ] || { echo "  stress=$STRESS $k=$v"; pbad=$((pbad + v)); }
-    done
-    # ⛔ THE NAME SET, NEVER THE COUNT (CEO-1024): a same-count comparison between two band points hides a
-    # divergence that MOVED, which is the one comparison this class is built to walk through.
-    names="$(printf '%s\n' "$out" | grep -E '^ +(FAIL|CRASH|HANG|UNPROVEN) ' | awk '{print $2"/"$3}' | sort -u | tr '\n' ' ')"
-    echo "ARM 3 stress=$STRESS NAME-SET: ${names:-<none>}"
-    bad=$((bad + pbad))
+    [ "${tot:-0}" -eq "$rows" ] || refuse "ARM $label at arena=${mb:-shipped} stress=$st graded total=$tot, not $rows -- the population moved"
+    printf '%s\n' "$out" | grep -E '^ +(FAIL|CRASH|HANG|UNPROVEN) ' | awk '{print $2"/"$3}' | sort -u > "$W/ns_${label}_${st}"
+    names="$(tr '\n' ' ' < "$W/ns_${label}_${st}")"
+    echo "ARM $label arena=${mb:-shipped} stress=$st NAME-SET: ${names:-<none>}"
+}
+for STRESS in $BAND; do
+    run_band_arm tiny "$ARENA" "$STRESS"
+    run_band_arm shipped "" "$STRESS"
+    sbad=$(wc -l < "$W/ns_shipped_${STRESS}"); [ "$sbad" -eq 0 ] || { echo "  STRESS-AXIS DIVERGENT at stress=$STRESS (shipped arena vs ARM 0 baseline): $(tr '\n' ' ' < "$W/ns_shipped_${STRESS}")"; bad=$((bad+sbad)); }
+    tbad=$(wc -l < "$W/ns_tiny_${STRESS}");    [ "$tbad" -eq 0 ] || { echo "  STRESS-AXIS DIVERGENT at stress=$STRESS (tiny arena vs ARM 0 baseline): $(tr '\n' ' ' < "$W/ns_tiny_${STRESS}")"; bad=$((bad+tbad)); }
+    tiny_only="$(comm -23 "$W/ns_tiny_${STRESS}" "$W/ns_shipped_${STRESS}" | tr '\n' ' ')"
+    shipped_only="$(comm -13 "$W/ns_tiny_${STRESS}" "$W/ns_shipped_${STRESS}" | tr '\n' ' ')"
+    if [ -n "$tiny_only" ] || [ -n "$shipped_only" ]; then
+        echo "  ⛔ ARENA-AXIS DIVERGENT at stress=$STRESS: tiny-arena-only [ ${tiny_only:-<none>}] | shipped-arena-only [ ${shipped_only:-<none>}]"
+        arena_bad=$((arena_bad+1))
+    else
+        echo "  arena-axis clean at stress=$STRESS: tiny and shipped arenas NAME the same set at matched stress (stress is the axis that moved, if either did)"
+    fi
 done
-[ "$bad" -eq 0 ] || fail "$bad non-pass verdict(s) across the band \"$BAND\" at arena_mb=$ARENA over the printed denominator -- read the per-point NAME-SET lines above, never the totals"
-echo "✅ snocone GC share named (NO-MAP=0) and the master is clean across the band \"$BAND\" at arena_mb=$ARENA"
+[ "$bad" -eq 0 ] || fail "$bad non-pass (entry,mode) verdict(s) named above across arena={${ARENA}MB,shipped} x stress=\"$BAND\" over the printed denominator -- read the per-point NAME-SET lines, never a total"
+[ "$arena_bad" -eq 0 ] || fail "$arena_bad stress point(s) where the arena axis ALONE moved the answer (tiny vs shipped disagreed at matched stress), named above"
+echo "✅ snocone GC share named (NO-MAP=0) and the master is clean under BOTH axes, tested ONE AT A TIME: arena {${ARENA} MB, shipped} x stress {$BAND} x modes {m3,m4}, $rows entries per configuration, zero divergent pairs"
