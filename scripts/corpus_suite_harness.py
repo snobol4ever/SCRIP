@@ -2558,7 +2558,7 @@ def cmd_run(args):
     # one a board is has no measurement.  Reported, never defaulted here: the knob comes from the environment (the
     # Makefile exports 1 for everything run through make), because a harness that silently changed every existing
     # board's arena would change what every published number MEANS with no line of evidence anywhere.
-    _arena_mb = os.environ.get("SCRIP_HEAP_MB", "").strip() or "512"
+    _arena_mb = os.environ.get("SCRIP_HEAP_MB", "").strip() or "1"
     _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
     print("ARENA SCRIP_HEAP_MB=%s%s%s" % (_arena_mb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
           " (committed window in MB; unset means the shipped default 512. The reserve is the larger of 8x the window and the"
