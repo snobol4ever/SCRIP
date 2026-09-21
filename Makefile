@@ -635,7 +635,8 @@ pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s25
 
 buildinfo:  # ⭐ what am I actually about to link? print it rather than assume it (LAW 0)
 	@printf 'RT_OPT     : %s\n' '$(RT_OPT)'
-	@printf 'ARENA      : shipped default 512 MB committed window; the tiny-arena pass (make test-arena) uses SCRIP_HEAP_MB_TINY=%s, and this shell inherits SCRIP_HEAP_MB=%s (empty means the shipped default)\n' '$(SCRIP_HEAP_MB_TINY)' "$${SCRIP_HEAP_MB:-}"
+	@printf 'ARENA      : shipped default %s KB committed window, READ OUT OF src/runtime/rt/gc_heap.c (#define GC_HEAP_KB) rather than repeated here -- it is COMPILED IN and travels with the binary (ceo CEO-1095, Lon 2026-09-21); the tiny-arena pass (make test-arena) uses SCRIP_HEAP_KB_TINY=%s; this shell inherits SCRIP_HEAP_KB=%s SCRIP_HEAP_MB=%s (both empty means the shipped default)\n' "$$(grep -E '^#define GC_HEAP_KB[[:space:]]+[0-9]+' $(ROOT)/src/runtime/rt/gc_heap.c | awk '{print $$3}')" '$(SCRIP_HEAP_KB_TINY)' "$${SCRIP_HEAP_KB:-}" "$${SCRIP_HEAP_MB:-}"
+	@printf '           : \342\233\224 AN MB PIN NOW RAISES THE ARENA. SCRIP_HEAP_MB=1 is 1024 KB = 8x the shipped default and collects 13x LESS -- 1613 collections against 21362, measured by the cfo 2026-09-21 on corpus/benchmarks/icon/bench_icnstr_concat_table.icn, one binary through the env switch. Before CEO-1095 the default WAS 1 MB and =1 merely applied it; today it overrides it upward, so a gate pinning SCRIP_HEAP_MB=1 for exasperation gets less of it than pinning nothing at all\n'
 	@printf 'ZCFLAGS    : %s\n' '$(ZCFLAGS)'
 	@printf 'RT_TAG     : %s\n' '$(RT_TAG)'
 	@printf 'RT_OBJDIR  : %s  (%s objects cached)\n' '$(RT_OBJDIR)' "$$(ls $(RT_OBJDIR)/*.o 2>/dev/null | wc -l)"
