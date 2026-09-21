@@ -214,8 +214,26 @@ for pid in "${targets[@]}"; do
   # error -- it prints "No such file" from the middle of a kill report. The record then reads "unknown", which
   # is the honest value for a process that was already gone.
   _cmd=$( (tr '\0' ' ' < "/proc/$pid/cmdline") 2>/dev/null | sed 's/[[:space:]]*$//')
-  kill -TERM "$pid" 2>/dev/null
+  # ⛔⭐ THE RECORD IS WRITTEN BEFORE THE SIGNAL, AND THE ORDER IS THE WHOLE CURE (cfo 2026-09-20, PROVEN on
+  # their own board rather than argued: pid 783278, signalled 22:14:36Z, its victim trap read this ledger at
+  # 22:14:35Z and reported "NO LEDGER ENTRY ... AN UNLOGGED KILLER" -- about a kill that was correct, scoped,
+  # and by then already recorded. THE VICTIM LOST BY ONE SECOND. The cfo replayed the victim's own awk a
+  # minute later and it named them correctly, which isolates the defect to WHEN the file was read and clears
+  # the lookup, the field-6 key and the runstate write. Signal-then-append raced structurally and not by luck:
+  # the append for their pid came after nineteen other pids had been signalled and probed through /proc.
+  # ⛔ WHY THE OLD ORDER WAS THE MOST EXPENSIVE POSSIBLE WRONG ANSWER: it converted a CORRECT, ROOT-SCOPED,
+  # LEDGERED kill into the accusation of an unlogged rogue -- in exactly the words this instrument uses to make
+  # a REAL rogue findable -- and the live banner is what a seat reads first, while the postmortem correction
+  # only ever reaches a seat that starts another run in the same root. A seat who dies, reads AN UNLOGGED
+  # KILLER and goes hunting never sees the retraction.
+  # ⛔ AND THE ROW NOW MEANS AN ATTEMPT, WHICH IS SAID HERE RATHER THAN LEFT TO BE INFERRED: a row written
+  # before a signal that then fails records a kill that was TRIED. That is strictly better than a victim
+  # accusing a phantom, and a signal that did not land is PRINTED below so the record and reality never
+  # silently disagree.
   kill_ledger_append "$pid" "TERM" "$_cwd" "$_cmd"
+  if ! kill -TERM "$pid" 2>/dev/null; then
+    echo "  ⚠ pid $pid was already gone when the signal was sent -- the ledger row above records the ATTEMPT, not a delivered signal" >&2
+  fi
 done
-echo "s4e_kill_mine: ${#targets[@]} signal(s) recorded in $KILL_LEDGER -- a victim can now name this kill"
+echo "s4e_kill_mine: ${#targets[@]} signal(s) recorded in $KILL_LEDGER BEFORE being sent -- a victim can now name this kill"
 exit 0

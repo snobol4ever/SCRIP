@@ -34,6 +34,11 @@
 #       sibling, one directory apart
 #   (i) NO RAW BOX-WIDE KILL IN A TRACKED SCRIPT: pkill/killall outside s4e_kill_mine.sh is the reach itself,
 #       measured at ZERO executable sites today and pinned there
+#   (j) THE LEDGER ROW IS WRITTEN BEFORE THE SIGNAL -- structural and deterministic, because the defect is a
+#       RACE and a race arm that happens to win on a quiet box proves nothing. THE DETECTOR of this class.
+#   (k) SEVERAL VICTIMS IN ONE KILL all name the same sender and none accuses an unlogged rogue -- end-to-end
+#       corroboration that the lookup and the per-pid loop still agree; measured NOT to red on the old order
+#       at four victims, so a green here is not evidence the race is closed
 # FAIL_ONCE=1 unwires the traps -- (a), (b) and (c) must fail.
 # FAIL_ONCE=2 makes the ledger lookup name somebody for any pid -- (b) must fail, because slandering an unlogged
 # killer is worse than admitting the record is missing.
@@ -191,6 +196,67 @@ if [ -z "$raw" ]; then
   ck ok "(i) ZERO executable pkill/killall sites outside s4e_kill_mine.sh -- the box-wide reach that signalled eleven pids has no home in a tracked script, and this pins it there"
 else
   ck no "(i) raw box-wide kill(s) found: $(printf '%s' "$raw" | head -3 | tr '\n' ';')"
+fi
+
+# ---- (j) THE LEDGER ROW IS WRITTEN BEFORE THE SIGNAL, AND THIS ARM IS STRUCTURAL ON PURPOSE
+# ⛔ WHY A STRUCTURAL ARM AND NOT ONLY THE END-TO-END ONE BELOW: the defect this pins is a RACE, and a race
+# arm that happens to win proves nothing on a quiet box. The ORDER of the two statements is the invariant --
+# it is deterministic, it is the whole cure, and it cannot pass by luck. (cfo 2026-09-20, proven on their own
+# board: pid 783278 signalled 22:14:36Z, its trap read this ledger at 22:14:35Z and reported AN UNLOGGED
+# KILLER about a kill that was correct, scoped and recorded. THE VICTIM LOST BY ONE SECOND.)
+append_before_signal(){ # <kill-tool> -> 0 when the ledger append precedes the signal in the per-pid loop
+  local f="$1" body ap sg
+  body="$(sed -n '/^for pid in /,/^done$/p' "$f" | grep -vE '^[[:space:]]*#')"
+  ap="$(printf '%s\n' "$body" | grep -n 'kill_ledger_append' | head -1 | cut -d: -f1)"
+  sg="$(printf '%s\n' "$body" | grep -n 'kill -TERM' | head -1 | cut -d: -f1)"
+  [ -n "$ap" ] && [ -n "$sg" ] && [ "$ap" -lt "$sg" ]
+}
+mkdir -p "$W/km"
+awk '/^for pid in /{inloop=1}
+     inloop && /kill_ledger_append "\$pid"/ && held=="" {held=$0; next}
+     inloop && held!="" && /^  fi$/ {print; print held; held=""; next}
+     {print}' "$K" > "$W/km/s4e_kill_mine.sh"
+if append_before_signal "$W/km/s4e_kill_mine.sh"; then
+  refuse "the arm (j) mutant did not reorder anything -- a mutant that does not mutate proves nothing, so this arm is UNEXERCISED and that is a could-not-measure"
+fi
+if append_before_signal "$K"; then
+  ck ok "(j) s4e_kill_mine.sh appends the ledger row BEFORE it sends the signal -- a victim that dies promptly can still name its killer, and the same check REDS on a mutant with the order swapped"
+else
+  ck no "(j) the signal is sent BEFORE the ledger row is written -- every promptly-dying victim will read an empty ledger and accuse a phantom unlogged rogue"
+fi
+
+# ---- (k) SEVERAL VICTIMS IN ONE KILL: every one of them names its sender
+# ⛔⭐ THIS ARM IS CORROBORATION AND ARM (j) IS THE DETECTOR, AND I AM SAYING SO BECAUSE I MEASURED IT RATHER
+# THAN BECAUSE IT SOUNDS MODEST. Reverting the cure on this same tree (coo 2026-09-21, load 2.48) REDS ARM (j)
+# AND LEAVES THIS ARM GREEN: at four victims on a quiet box the append still beat every trap. The cfo's real
+# kill signalled NINETEEN pids, so their pid's append landed after eighteen other /proc probes -- the race is
+# structural in the ORDER and its VISIBILITY scales with the target count and the load, which is exactly why
+# the invariant is pinned by (j)'s deterministic check and not by this one's stopwatch.
+# ⛔ SO WHAT THIS ARM IS FOR, STATED HONESTLY: it proves the END-TO-END path still agrees under concurrency --
+# every victim of one scoped kill names the same sender -- and it would catch a cure that fixed the statement
+# order while breaking the lookup, the field-6 key or the per-pid loop. A GREEN HERE IS NOT EVIDENCE THAT THE
+# RACE IS CLOSED. Arm (j) is that evidence.
+kv=(); ki=""
+for i in 1 2 3 4; do
+  bash "$D" --arms-from "$W/arms.txt" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/k$i.out" 2>&1 & kv+=($!)
+done
+for i in 1 2 3 4; do wait_started "$W/k$i.out" || ki="$ki $i"; done
+if [ -n "$ki" ]; then
+  for p in "${kv[@]}"; do kill -TERM "$p" 2>/dev/null; wait "$p" 2>/dev/null; done
+  refuse "fixture run(s)$ki never reached a first arm -- arm (k) was NOT EXERCISED, which is a could-not-measure and not a pass"
+fi
+sleep 1
+S4E_SEAT=gatefixture bash "$K" --root "$(dirname "$ROOT")" -- "$(basename "$W")" > "$W/k.kill" 2>&1
+for p in "${kv[@]}"; do wait "$p" 2>/dev/null; done
+k_named=0; k_unlogged=0
+for i in 1 2 3 4; do
+  grep -q 'SENDER    : seat=gatefixture' "$W/k$i.out" && k_named=$((k_named+1))
+  grep -q 'UNLOGGED KILLER' "$W/k$i.out" && k_unlogged=$((k_unlogged+1))
+done
+if [ "$k_named" = 4 ] && [ "$k_unlogged" = 0 ]; then
+  ck ok "(k) one scoped kill over 4 concurrent victims: ALL 4 named seat=gatefixture with its pid, root and signal, and ZERO accused an unlogged killer"
+else
+  ck no "(k) $k_named of 4 victims named their sender and $k_unlogged accused an UNLOGGED KILLER over a kill that was recorded -- the signal is outrunning its own ledger row"
 fi
 
 echo "population: $checks arm(s) graded, $fails FAIL; fixture 60 arms x 4 runs plus one 3-shard fan-out; ledger $(wc -l < "$W/kills.tsv" 2>/dev/null || echo 0) line(s); load $(cut -d' ' -f1 /proc/loadavg)"

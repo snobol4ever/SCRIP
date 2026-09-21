@@ -313,6 +313,22 @@ death_report() {  # death_report <signal-name>
     echo "⛔⛔ BLOCKING SET KILLED BY SIG$1 -- THIS RUN DID NOT COMPLETE, so nothing below it is a verdict."
     printf '   arm reached : %s of %s   %s\n' "$RUN_ARM_I" "$N" "${RUN_ARM_CMD:-<none started>}"
     printf '   elapsed     : %ss   counts so far: green=%s red=%s refused=%s\n' "$el" "${green:-0}" "${red:-0}" "${refused:-0}"
+    # ⛔ ALL-ZERO COUNTS ARE AMBIGUOUS AND THE BANNER RESOLVES THEM RATHER THAN LEAVING IT TO THE READER
+    # (cfo 2026-09-20, from a real death: "green=0 red=0 refused=0 at arm 20 of 375 after 358 seconds reads
+    # like a wedged run rather than a run still walking its serial arms, and I had to check the file to know
+    # which I was looking at"). Under fan-out the parent runs the DECLARED-SERIAL arms first and the counters
+    # do not move until the shards start, so zero is the CORRECT reading of a healthy run -- and it is also
+    # what a genuinely wedged run prints. A reader at the moment their board died should not have to tell
+    # those apart by opening a file.
+    if [ "$(( ${green:-0} + ${red:-0} + ${refused:-0} ))" -eq 0 ] && [ "${RUN_ARM_I:-0}" -gt 0 ]; then
+        if [ -n "${SHARDS:-}" ] && [ "${SHARDS:-1}" -gt 1 ] 2>/dev/null; then
+            printf '                 (green=0 red=0 here is NOT a wedged run: this run was still walking its DECLARED-SERIAL\n'
+            printf '                  arms in the parent, which run before the %s shard(s) start and before any counter moves.)\n' "$SHARDS"
+        else
+            printf '                 (green=0 red=0 after %s arm(s) IS worth a look: in sequential mode a counter moves per arm,\n' "$RUN_ARM_I"
+            printf '                  so zero counts this far in means the first arm never returned.)\n'
+        fi
+    fi
     printf '   this run    : pid=%s root=%s source=%s\n' "$$" "$ROOT" "$SOURCE"
     sender="$(kill_ledger_lookup "$$" "$RUN_T0")"
     if [ -n "$sender" ]; then
