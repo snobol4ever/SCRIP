@@ -3616,7 +3616,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(fn, "__pas_treset") && (nargs == 1 || nargs == 2)) {
             FILE *fp = (FILE *)0; int idx = -1;
             if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { fflush(fp); rewind(fp); } }
-            if (!fp) { const char *nm = VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+            if (!fp) { const char *nm = VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
+                if (!nm || !nm[0]) { pas_file_err("6.6.5.2", "the file is undefined immediately prior to reset (it has neither been rewritten nor associated with an external file)", "__pas_treset"); *out = FAILDESCR; return 1; }
                 fp = fopen(nm, "rb"); if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
             if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); g_pas_tf[idx].mode = 2; }
@@ -3638,10 +3639,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(fn, "__pas_fwrite") && nargs == 2) {
             if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
             pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fwrite_range") && nargs == 4) {
+            if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
+            long _lo = pas_ord_of(args[2]), _hi = pas_ord_of(args[3]), _ov = pas_ord_of(args[1]);
+            if (_ov < _lo || _ov > _hi) pas_file_err("6.4.3.5", "the value written is not assignment-compatible with the file's subrange component-type", fn);
+            pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
         if (!strcmp(fn, "__pas_fread") && nargs == 1) {
             if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
             if (!g_pas_tf[idx].has) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
             DESCR_t v = g_pas_tf[idx].buf; g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = v; return 1; }
+        if (!strcmp(fn, "__pas_fread_range") && nargs == 3) {
+            if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
+            if (!g_pas_tf[idx].has) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
+            DESCR_t v = g_pas_tf[idx].buf; g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf);
+            long _lo = pas_ord_of(args[1]), _hi = pas_ord_of(args[2]), _ov = pas_ord_of(v);
+            if (_ov < _lo || _ov > _hi) pas_file_err("6.9.1", "the value read is not assignment-compatible with the subrange of the destination variable", fn);
+            *out = v; return 1; }
         if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(g_pas_tf[idx].has ? 0 : 1); return 1; }
         *out = FAILDESCR; return 1;
     }
