@@ -149,6 +149,7 @@ test_gate_gc_the_lowerer_registries_are_rooted_not_malloced.sh	WIRED	-	-	-
 test_gate_gc_the_mark_walk_is_a_worklist_not_recursion_per_cell.sh	WIRED	-	-	-
 test_gate_gc_the_name_save_stack_and_the_eval_tables_are_rooted_not_moved_off_the_heap.sh	WIRED	-	-	-
 test_gate_gc_the_pending_prolog_ball_is_a_rooted_cell.sh	WIRED	-	-	-
+test_gate_gc_the_plant_says_whether_it_applied.sh	WIRED	-	-	-
 test_gate_gc_the_prolog_root_cells_live_inside_the_value_region_and_are_visited_by_type.sh	WIRED	-	-	-
 test_gate_gc_the_spill_record_carries_a_callee_saved_heap_pointer_across_an_allocating_return.sh	WIRED	-	-	-
 test_gate_gc_the_spine_cell_grid_is_anchored_at_the_region_base.sh	WIRED	-	-	-

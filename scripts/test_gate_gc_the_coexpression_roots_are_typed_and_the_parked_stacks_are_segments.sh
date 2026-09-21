@@ -123,7 +123,10 @@ else echo "  arm 6 FAIL: reporter create=[$rc6] sigma=[$rs6]"; RC=1; fi
 p1=$(grep -c 'offsetof(rt_genp_s, regs) == 8' "$ROOT/src/runtime/rt/rt.c"); p2=$(grep -c 'movq 24(%rdi), %r13' "$ROOT/src/runtime/rt/rt.c"); p3=$(grep -c 'c->entry_arg + 24' "$ROOT/src/runtime/rt/rt_coexpr.c")
 if [ "$p1" -ge 1 ] && [ "$p2" -ge 1 ] && [ "$p3" -ge 1 ]; then echo "  arm 7 PASS: the generator record's r13 word is +24 in rt.c (static assert on regs at +8, the entry asm loads r13 from 24(%rdi)) and rt_coexpr.c visits exactly that word"
 else echo "  arm 7 FAIL: cross-file pin broken (assert=$p1 asm=$p2 visitor=$p3)"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the coexpression roots are typed, the parked stacks are one segment population, the switch record and the record visit are each load-bearing under forced motion (examined 7 arms, three with planted violations)"
-else echo "GATE FAIL(1) [$G]: the coexpression roots are not typed or a plant went unseen (examined 7 arms)"; fi
+pl=$( ( cd "$T" && env SCRIP_GC_PLANT_SHIFT="$SHIFT" SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-SHIFT\] plant:" ); pl=${pl:-0}
+if [ "$pl" -ge 1 ]; then echo "  arm 8 PASS: the forced motion this gate grades under is REAL -- the shift plant announced $pl application(s) at SCRIP_GC_PLANT_SHIFT=$SHIFT with nothing asked for, so arms 2-6 moved every block rather than relying on ordinary compaction"
+else echo "⛔ GATE REFUSE(2) [$G]: the shift plant applied ZERO times at SCRIP_GC_PLANT_SHIFT=$SHIFT and SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-default} -- gc_plant_shift_bytes() declines whenever arena headroom is not strictly greater than the shift, so EVERY arm here graded ordinary compaction while claiming forced relocation. Nothing is graded and nothing is red: this is a configuration statement (cto 2026-09-21, held by test_gate_gc_the_plant_says_whether_it_applied)"; exit 2; fi
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the coexpression roots are typed, the parked stacks are one segment population, the switch record and the record visit are each load-bearing under forced motion (examined 8 arms, three with planted violations)"
+else echo "GATE FAIL(1) [$G]: the coexpression roots are not typed or a plant went unseen (examined 8 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
