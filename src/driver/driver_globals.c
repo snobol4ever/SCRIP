@@ -85,3 +85,9 @@ void rt_script_die_surface(const char *msg) {
     fprintf(stderr, "%s\n", g_script_exception);
     exit(1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void drv_gc_roots(void)
+{
+    extern void rt_gc_visit_raw(const char **loc);
+    for (int i = 0; i < FH_MAX; i++) { if (g_fh[i].name) rt_gc_visit_raw((const char **)&g_fh[i].name); if (g_fh[i].alias) rt_gc_visit_raw((const char **)&g_fh[i].alias); if (g_fh[i].enc) rt_gc_visit_raw((const char **)&g_fh[i].enc); }
+}

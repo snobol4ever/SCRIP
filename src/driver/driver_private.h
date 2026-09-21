@@ -40,6 +40,7 @@ extern int   g_kw_ctx;
 #define FH_MAX 64
 typedef struct { FILE *fp; char *name; char *alias; char *enc; char mode; char type; char untrans; char bom; char repos; } fh_slot_t;
 extern fh_slot_t g_fh[FH_MAX];
+void  drv_gc_roots(void);
 extern int   fh_init;
 int   fh_alias_idx(const char *nm);
 void  fh_set_alias(int idx, const char *nm);

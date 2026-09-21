@@ -93,8 +93,47 @@ echo "-- (d) THE AUDITOR CLAIMS ITS OWN EVENT"
 ck $([ "$n_aud" = "$c_on" ] && echo ok || echo no) "(d1) EVERY collection was audited: $n_aud audited=1 lines against $c_on collections"
 n_f0=$(grep -c 'audited=1 findings=' "$T/e.on" || true)
 ck $([ "$n_f0" = "$n_aud" ] && echo ok || echo no) "(d2) every audited collection PRINTS its findings count, zero included ($n_f0 summary lines against $n_aud audits) -- silence is a statement, not an absence"
-run_aud scripts/gc_witnesses/hb_file_name_unrooted.icn 3 1 > /dev/null; cp "$T/e" "$T/e.fh"
-ck $([ "$(grep -c 'CANDIDATE-LOST-ROOT.*g_fh' "$T/e.fh" || true)" -ge 1 ] && echo ok || echo no) "(d3) the auditor NAMES g_fh on hb_file_name_unrooted.icn -- ARCH-GC § 9 predicted this holder by name before the auditor existed, so it is this instrument's detector proof"
+run_aud scripts/gc_witnesses/hb_file_name_unrooted.icn 3 1 > "$T/fh.out"; cp "$T/e" "$T/e.fh"
+# ⛔⭐ (d3) WAS "the auditor NAMES g_fh" AND THAT ARM DIED OF ITS OWN SUCCESS ON 2026-09-21: the cfo ROOTED the FH
+# table (drv_gc_roots in src/driver/driver_globals.c, registered in gc_heap.c beside the other eleven), the holder
+# went away, and the detector proof went with it.  A PROOF KEYED ON A NAMED OPEN DEFECT IS A COUNTDOWN -- so this
+# arm no longer names a symbol at all.  It asks the sweep for any holder that the LEDGER still lists OPEN, resolved
+# through nm and not through dladdr (dladdr names only EXPORTED symbols, and every holder left today is a file-local
+# static it CANNOT name -- the same coarse-symbol trap as CFO-129).  Cure one holder and the arm re-points itself;
+# cure the last one and arm (f1) is the arm that fires, which is where the retirement belongs.
+d3=$(python3 - "$T/e.fh" "$AUD_SO" "$ROOT/$DECL" <<'PYD3'
+import subprocess, sys, re
+errf, so, decl = sys.argv[1], sys.argv[2], sys.argv[3]
+syms = []
+for ln in subprocess.run(['nm','-S','--defined-only',so],capture_output=True,text=True).stdout.splitlines():
+    f = ln.split()
+    if len(f) < 4: continue
+    try: a = int(f[0],16); sz = int(f[1],16)
+    except ValueError: continue
+    syms.append((a,sz,f[3]))
+state = {}
+for ln in open(decl):
+    ln = ln.strip()
+    if not ln or ln.startswith('#'): continue
+    f = ln.split(None,2)
+    if len(f) >= 2: state[f[0]] = f[1]
+named = set()
+for ln in open(errf, errors='replace'):
+    m = re.search(r'CANDIDATE-LOST-ROOT at=\S+ in=(\S+)', ln)
+    if not m: continue
+    mo = re.match(r'^.*\+0x([0-9a-f]+)/(.*)$', m.group(1))
+    if not mo: named.add(m.group(1)); continue
+    off = int(mo.group(1),16)
+    hit = [x for x in syms if x[0] <= off < x[0]+x[1]]
+    named.add(hit[0][2] if hit else mo.group(2))
+op = sorted(n for n in named if state.get(n) == 'OPEN')
+print("%d %s %s" % (len(op), ','.join(op) or '-', 'g_fh' if 'g_fh' in named else 'no_g_fh'))
+PYD3
+)
+d3n=${d3%% *}; d3rest=${d3#* }; d3names=${d3rest%% *}; d3fh=${d3rest##* }
+ck $([ "${d3n:-0}" -ge 1 ] && echo ok || echo no) "(d3) the detector FIRES on hb_file_name_unrooted.icn and the sweep names ${d3n:-0} holder(s) the ledger still lists OPEN, resolved by nm to a SYMBOL: $d3names"
+ck $([ "$d3fh" = no_g_fh ] && echo ok || echo no) "(d4a) and g_fh -- this arm's named proof until the cfo rooted the FH table -- is GONE from that same sweep (saw $d3fh)"
+ck $(diff -q "$T/fh.out" "$ROOT/scripts/gc_witnesses/hb_file_name_unrooted.ref" >/dev/null 2>&1 && echo ok || echo no) "(d4b) and the witness that was g_fh's RED witness now ANSWERS ITS ORACLE -- the cure and the detector agreeing is what retires a holder, not either one alone"
 
 echo "-- (e) EVERY HOLDER IS CURED OR DECLARED"
 : > "$T/all.err"

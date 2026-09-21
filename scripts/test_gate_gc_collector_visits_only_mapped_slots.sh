@@ -67,7 +67,14 @@ base_w() { local src="$1" n="$2" in=/dev/null; [ -f "$WD/$n.in" ] && in="$WD/$n.
 # ⛔ A DECLARATION IS NOT AN EXEMPTION AND THIS ONE CANNOT ROT: a declared witness is STILL RUN, is COUNTED INSIDE the denominator, prints its every arm with its row, and ⭐ IF IT EVER READS ok ON EVERY GRADED ARM THE GATE
 # REDS -- because that means the cure landed and the declaration is stale, and a stale declaration is how an exemption list quietly becomes the new floor. Each entry is signed by the seat whose witness it is; declaring
 # ANOTHER seat's witness signs their reason for them (hq_prolog's phrase) and is not done here. Format: <witness> <owning seat> <row the cure lands under>.
-DECLARED_OPEN="hb_file_name_unrooted hq_icon icon-gc-the-icon-share-of-the-unmapped-slot-population-censused-by-name-and-the-master-clean-at-one-megabyte/CFO-149-took-the-class"
+# ⭐ RETIRED BY ITS OWN CURE, 2026-09-21, cfo (ICON is the cfo's cell under QUARTET, CEO-1089, and hq_icon is stood down).  The single entry was
+# hb_file_name_unrooted, hq_icon's, and THIS GATE REDDED THE MOMENT THE CURE LANDED -- arm 3/4 fired "now reads ok on EVERY graded arm", which is
+# exactly what the paragraph above promised it would do.  The cure is drv_gc_roots() in src/driver/driver_globals.c, which visits .name .alias .enc
+# of all 64 FH slots through rt_gc_visit_raw; the witness matches its .ref at SCRIP_HEAP_MB=1 at stress 0, 1, 3 and 5.  A/B ON ONE TREE: this gate
+# reads rc=0 on origin and rc=1 with the cure and the stale entry, which is the attribution and not an argument.  Deleting a stale declaration is
+# not signing another seat's reason -- it is the instruction this gate prints -- and the witness is now graded like every other.  THE LIST IS EMPTY
+# AND THAT IS A STATE, NOT A GAP: the next seat to cut a witness for an open defect adds a line here and signs it.
+DECLARED_OPEN=""
 declared_of() { printf '%s\n' "$DECLARED_OPEN" | awk -v n="$1" '$1==n{print $2" row="$3}'; }
 examined=$((examined + 2)); band3=""; band4=""; bad3=0; bad4=0; nw=0; reported=""; declared=""; dec_all_ok=""
 for ref in "$WD"/*.ref; do n=$(basename "$ref" .ref); src=""; for x in sno icn pl raku; do [ -f "$WD/$n.$x" ] && src="$WD/$n.$x"; done; [ -n "$src" ] || continue
