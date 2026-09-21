@@ -1003,7 +1003,7 @@ rt_call_next_t rt_call_open_by_name(const char *name, int nargs)
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return (rt_call_next_t){ 0, 0 };
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, 0); }
+    if (p->dyn_scope && nargs <= 0) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, 0); }
     if (!p->dyn_scope && !p->jmp_entry) { fprintf(stderr, "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
     { int _wn_gen = rt_g_want_name;
       int nsb = rt_name_save_mark();
