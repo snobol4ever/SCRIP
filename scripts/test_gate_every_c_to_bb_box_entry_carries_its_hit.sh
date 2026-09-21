@@ -42,6 +42,8 @@ cd "$ROOT" || exit 2
 ENTRY_PRIMS='rt_proc_enter|rt_proc_enter_named|rt_proc_enter_frag|rt_tiny_record_enter|rt_chain_enter|rt_chain_enter_v'
 SCAN_DIRS="src/runtime src/driver"
 WINDOW=3
+# The program-initiating entry and the coroutine start -- the ONLY entries that may carry no hit (CEO-970).
+SANCTIONED='rt_outer_call rt_genp_spine_enter'
 
 SRC_ROOT="$ROOT"
 if [ "${FAIL_ONCE:-0}" = "1" ]; then
@@ -57,9 +59,21 @@ while IFS= read -r hit; do
   f="${hit%%:*}"; rest="${hit#*:}"; ln="${rest%%:*}"
   case "$f" in *".c") ;; *) continue ;; esac
   line="$(sed -n "${ln}p" "$f")"
+  # ⛔ STRIP INLINE DECLARATIONS, DO NOT SKIP THE WHOLE LINE (cto 2026-09-21, second instance of this class in one
+  # day).  The first version skipped any line containing "extern", which silently hid EVERY entry whose call shares
+  # a line with its own extern declaration -- scrip.c:1764's rt_outer_call is exactly that shape.  A blanket skip is
+  # a false NEGATIVE in a census, which is the failure this gate exists to catch, so it now removes the declaration
+  # text and re-asks whether a CALL remains.
+  probe="$(printf '%s' "$line" | sed -E 's/extern[^;]*;//g')"
+  printf '%s' "$probe" | grep -qE "\b($ENTRY_PRIMS)[[:space:]]*\(" || continue
   case "$line" in
-    *extern*|*"DESCR_t rt_proc_enter"*|*"void rt_chain_enter"*) continue ;;
+    *"DESCR_t rt_proc_enter"*|*"void rt_chain_enter"*) continue ;;
   esac
+  # ⛔ THE SANCTIONED EXCEPTIONS ARE NOW CODE, NOT PROSE (CEO-970).  They were declared in the header above and
+  # never implemented, which meant the header claimed a policy the gate did not enforce.
+  skip=0
+  for ex in $SANCTIONED; do case "$line" in *"$ex"*) skip=1;; esac; done
+  [ "$skip" = 1 ] && continue
   sites=$((sites+1))
   lo=$(( ln > WINDOW ? ln - WINDOW : 1 ))
   ctx="$(sed -n "${lo},${ln}p" "$f" | grep -v 'extern void rt_c2bb_hit')"
