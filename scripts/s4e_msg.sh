@@ -790,13 +790,24 @@ s4e_lane_owner_of_language() {
       # landed, so until it is, the ORDER of these two edits is the whole guard. Written out per language rather than
       # collapsed to a default for the reason every table above gives: the gate beside this compares it to MODE line 2
       # LANGUAGE BY LANGUAGE, and a default would agree with a line 2 that had drifted on six of them unnoticed.
-      icon)     printf 'cfo';;
-      prolog)   printf 'cto';;
-      snobol4)  printf 'cfo';;
-      pascal)   printf 'cfo';;
-      snocone)  printf 'cfo';;
+      # ⛔ MODE TENET RESTORED AGAIN (CEO-1055, 2026-09-21 13:3x, Lon in-chat to the ceo, verbatim: "Well then, I
+      # changed my mind once again. Go to TENET mode."): the six language HQs stand back up, each owning its own
+      # language; rebus stays the cfo's keep-green. ⛔ THIS IS THE FOURTH MODE FLIP OF 2026-09-21 -- TENET at 12:08,
+      # EXECUTIVE at 12:34, TENET again now, after SEPTET/EXECUTIVE earlier -- AND THE FLIP RATE IS THE ARGUMENT, NOT
+      # THE FLIPS. Two of the four left this table stale and turned make preflight RED FOR EVERY SEAT; two did not,
+      # because the table moved in its own commit BEFORE the MODE file (CEO-1046, b36a7f709). That is a procedure
+      # followed twice and forgotten twice IN ONE DAY, which is the measured failure rate of a guard made of a seat
+      # remembering to do two edits in the right order. The coo's row -- the gate reads a COMMITTED declaration, so a
+      # flip that forgets its table is caught AT THE FLIP by the flipper's own preflight instead of by whoever lands
+      # next -- is ranked up on this evidence (CEO-1055). Written out per language rather than collapsed to a default
+      # for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
+      icon)     printf 'hq_icon';;
+      prolog)   printf 'hq_prolog';;
+      snobol4)  printf 'hq_snobol4';;
+      pascal)   printf 'hq_pascal';;
+      snocone)  printf 'hq_snocone';;
       rebus)    printf 'cfo';;
-      raku)     printf 'cto';;
+      raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
