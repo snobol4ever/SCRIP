@@ -15,6 +15,7 @@
 #include "pin_va.h"
 #include "gc_frame_map.h"
 #include "gc_audit_b.h"
+#include "../rtx/rtcc.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; long alloc_total; long alloc_str; } rt_hp_fr_t;
 rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0, 0, 0 };
@@ -1218,6 +1219,18 @@ static long gc_plant_shift_prefix(void)
     while (p < g_hp_top && ((rt_hblk_t *)p)->type == HB_FILL && ((rt_hblk_t *)p)->size) { prefix += ((rt_hblk_t *)p)->size; p += ((rt_hblk_t *)p)->size; }
     return prefix;
 }
+static int gc_plant_rtccb_slot(void)
+{
+    static int s = -2;
+    if (s != -2) return s;
+    { const char *e = getenv("SCRIP_GC_PLANT_RTCCB"); long v = (e && *e) ? atol(e) : -1;
+      if (v < 0) { s = -1; return s; }
+      if (v > 31 || v == RTCC_SLOT_R8 || v == RTCC_SLOT_R9) {
+          fprintf(stderr, "[GC-RTCCB] plant DECLINED for the whole process: SCRIP_GC_PLANT_RTCCB=%ld names a slot this plant refuses. Slot %d is RTCC_SLOT_R8, the word rtcc.h declares as the ANCHOR, and it carries a STANDING population of heap references -- 806 of them over eight SNOBOL4 witnesses at arena 1 MB stress 3, measured by the cto 2026-09-20 and again 2026-09-21 -- so a plant there is INDISTINGUISHABLE FROM THE DEFECT IT EXISTS TO CATCH and could pass by accident on the very population it grades. Slot %d is RTCC_SLOT_R9, the GVA base every emitted program addresses its globals through, and overwriting it across a collection does not plant a defect, it breaks the program. A slot above 31 is outside the block. THE PLANT GOES IN SLOT 7 (r10) OR SLOT 8 (r11), which read a measured ZERO over all 52 witnesses in four languages at stress 3 and 5. This line does not spell the applied banner's literal, so a reader counting applications never counts a decline as one.\\n", v, RTCC_SLOT_R8, RTCC_SLOT_R9);
+          s = -1; return s; }
+      s = (int)v; }
+    return s;
+}
 static int gc_reloc_forced(void)
 {
     const char *e = getenv("SCRIP_GC_RELOC");
@@ -1278,6 +1291,7 @@ static long gc_collect_ex(void)
     char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0, w_unm = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     long n_rfz = 0; int reloc = gc_reloc_forced();
+    int pl_slot = gc_plant_rtccb_slot(), pl_mark = 0; rt_hblk_t *pl_blk = (rt_hblk_t *)0; char *pl_addr = (char *)0; uint64_t pl_save = 0, pl_fwd = 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
@@ -1300,6 +1314,7 @@ static long gc_collect_ex(void)
     g_gc_mhead = (rt_hblk_t *)0; g_gc_spine_recn = 0;
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
+    if (pl_slot >= 0 && g_gc_nblk > 0) { pl_blk = g_gc_idx[g_gc_nblk - 1]; pl_addr = (char *)(pl_blk + 1); pl_save = rtccb[pl_slot]; rtccb[pl_slot] = (uint64_t)(uintptr_t)pl_addr; }
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_gc_rrng_n; i++) if (!g_gc_rrng[i].hi) pl_tr_gc_root_ball(g_gc_rrng[i].lo); }
     for (long i = 0; i < g_gc_rrng_n; i++) { if (g_gc_rrng[i].hi) continue; { const char *top = *(const char * const *)g_gc_rrng[i].lo;
         for (char *e = (char *)g_gc_rrng[i].lo + 32; e + 32 <= top; e += 32) { const char **cell = (const char **)e; DESCR_t *old = (DESCR_t *)(e + 16); if (*cell) rt_gc_visit_raw(cell); rt_gc_visit_descr(old); } } }
@@ -1360,6 +1375,7 @@ static long gc_collect_ex(void)
     gc_displace_census(liveo, livef, li, g_gc_runs + 1, reloc);
     if (reloc && n_rfz) fprintf(stderr, "[GC-RELOC] REFUSED to displace %ld live block(s): no room for a minimum legal block (32 bytes) of gap, so they kept their address and THIS COLLECTION IS NOT A FORCED-RELOCATION MEASUREMENT\n", n_rfz);
     gc_vac_record(dest); }
+    if (pl_blk) { pl_mark = (pl_blk->flags & HBF_MARK) ? 1 : 0; pl_fwd = pl_blk->fwd; }
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
     for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; const char **loc = sl->hloc ? (const char **)((char *)(sl->hloc + 1) + sl->off) : (const char **)sl->off;
         rt_hblk_t *h = gc_blk_of(*loc); if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
@@ -1392,6 +1408,12 @@ static long gc_collect_ex(void)
     g_hp_top = dest; g_hp_blocks = nlive + nfill;
     for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~HBF_MARK); }
     after_b = (long)(g_hp_top - g_hp_arena);
+    if (pl_blk) { static int said_rtccb = 0; uint64_t now = rtccb[pl_slot]; char *nw = pl_fwd ? (char *)((rt_hblk_t *)(uintptr_t)pl_fwd + 1) : (char *)0;
+        int moved = (pl_fwd && pl_fwd != (uint64_t)(uintptr_t)pl_blk) ? 1 : 0, kept = (now == (uint64_t)(uintptr_t)pl_addr) ? 1 : 0;
+        if (w_tel || gc_maps_on() || !said_rtccb) { said_rtccb = 1;
+            fprintf(stderr, "[GC-RTCCB] plant: slot=%d word=%p block=type%d/%ldB live=%d moved=%d forwarded-payload=%p slot-after-collection=%p unrepaired=%d swept=%d. THIS LINE IS THE ONLY PROOF THE PLANT APPLIED and it prints ONCE PER PROCESS with nothing asked for, then once per collection under SCRIP_ZETA_TELEM or SCRIP_GC_MAPS. WHAT IT PLANTS: the payload address of the most recently carved block -- which is what a call result live across a safe point IS -- written into a caller-saved spill slot at the top of a collection and RESTORED BYTE FOR BYTE at the end of it, so the program answers identically with the plant on and off. WHAT IT PROVES: the detector is looking (the run prints a GC-WALK-RTCCB line naming this slot under SCRIP_GC_MAPS, so a green reading of the invariant is a measurement and not a silence), and unrepaired=1 with moved=1 is the STALENESS half measured rather than argued -- no root walk visits this block, so nothing rewrites the slot when the collector forwards the value it holds, and the emitted reload after the poll restores a word that names ground the collector has already given away. WHAT IT IS NOT: this is not the emitter road. The real road is the spill at x86_asm.h 386-398, and its standing population lives in slot %d.\\n",
+                pl_slot, (const void *)pl_addr, (int)pl_blk->type, (long)pl_blk->size, pl_mark, moved, (const void *)nw, (const void *)(uintptr_t)now, (moved && kept) ? 1 : 0, (!pl_mark && kept) ? 1 : 0, RTCC_SLOT_R8); }
+        rtccb[pl_slot] = pl_save; }
     { static int psn = -1; if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : 1; } if (psn) { char *ot = g_hp_arena + before_b; long pb = ot > g_hp_top ? (long)(ot - g_hp_top) : 0; if (pb > 0) memset(g_hp_top, 0xDB, (size_t)pb); if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot); } }
     if (w_tel) { w_sld = li; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     { extern void rt_nv_memo_invalidate(void); rt_nv_memo_invalidate(); }

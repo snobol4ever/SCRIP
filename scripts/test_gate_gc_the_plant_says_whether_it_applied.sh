@@ -54,14 +54,50 @@ d_bare=$(grep -cF "$LIT" "$T/d_notel.txt"); d_bare=${d_bare:-0}
 if [ "$d_anch" -eq 0 ] && [ "$d_bare" -eq 0 ]; then echo "  arm 2 PASS: a declined collection impersonates nothing -- decline lines=$d_dec, anchored applications=0, and an UNANCHORED count of the literal is 0 too, so the reader who forgets the anchor still reads the truth"
 else echo "  arm 2 FAIL: the plant applied 0 times yet a count reads anchored=$d_anch unanchored=$d_bare -- the decline text spells the literal it tells the reader to count, so a DECLINE is counted as an APPLICATION, which is exactly backwards (CTO-113's defect (a), gc_heap.c)"; RC=1; fi
 
-want="test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh test_gate_gc_pas_heap_cells_survive_forced_movement.sh test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh"
-found=$(cd "$HERE" && grep -lE 'SCRIP_GC_PLANT_SHIFT' test_gate_*.sh 2>/dev/null | grep -v "^${G}.sh$" | sort | tr '\n' ' ' | sed 's/ $//')
-blind=""
-for f in $found; do grep -qE 'GC-SHIFT\\\] plant:' "$HERE/$f" || blind="$blind $f"; done
-if [ "$found" = "$(printf '%s' "$want")" ] && [ -z "$blind" ]; then echo "  arm 3 PASS: exactly the declared 3 gates plant, and each reads the applied banner: $found"
-else echo "  arm 3 FAIL: declared='$want' found='$found' planting-but-blind='${blind:- none}' -- a gate whose forced movement IS the plant must read the banner, or it grades an unplanted run in silence; a newcomer is declared here or it is not admitted"; RC=1; fi
+# ⛔⭐ ARM 3 IS NOW A KNOB TABLE AND NOT ONE KNOB, BECAUSE A SECOND PLANT KNOB LANDED AND THIS ARM COULD NOT SEE
+# IT (cto 2026-09-21).  The first cut enumerated the gates that plant with SCRIP_GC_PLANT_SHIFT alone, so
+# SCRIP_GC_PLANT_RTCCB created an entire family of planting gates outside the enumeration -- the blind class this
+# gate exists to close, reproduced one level up by the gate itself.  ⛔ AND THE FIRST THING THAT EVER REDDENED IT
+# WAS A SENTENCE: the enumeration matched any MENTION of the knob, so a header comment naming
+# SCRIP_GC_PLANT_SHIFT=65536 in test_gate_gc_differential_configs_agree.sh (which does not plant at all) and one
+# clause of prose in the caller-saved gate both counted as USES.  A gate that goes red on prose teaches its
+# readers to ignore it.  The enumeration now reads the ASSIGNMENT FORM on lines the shell would EXECUTE, comment
+# lines removed -- the ASM-DIFF-FIRST habit applied to a shell script: grade what runs, not what it says.  A
+# trailing comment after code is still counted, which errs toward RED and is the safe direction.
+# THE TABLE.  One row per SCRIP_GC_PLANT_* knob the RUNTIME reads: knob | the TAG of the banner that proves an
+# application | the gates declared to plant with it.  The tag and not the whole literal, because each reader spells
+# the brackets its own way -- ^\[GC-SHIFT\] plant: here, ZGC-PIN. VIOLATION there -- and a table that dictated the
+# escaping would grade spelling instead of whether the reader looks.  The tag is read on EXECUTABLE lines only, so
+# a gate that merely NAMES the banner in its header is still blind and this arm says so.  A newcomer is declared here or it is not admitted, and arm 4
+# closes the table against src/ so a third knob cannot repeat what the second one did to arm 3.
+TBL='SCRIP_GC_PLANT_SHIFT|GC-SHIFT|test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh test_gate_gc_pas_heap_cells_survive_forced_movement.sh test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh
+SCRIP_GC_PLANT_RTCCB|GC-RTCCB|test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh
+SCRIP_GC_PLANT_PIN_SKIP|ZGC-PIN|test_gate_gc_no_pinned_lifetime_class.sh test_gate_gc_the_decidable_test.sh
+SCRIP_GC_PLANT_PIN_TYPE|ZGC-PIN|'
+scan="$(cd "$HERE" && grep -HnE 'SCRIP_GC_PLANT_[A-Z_]+=' test_gate_*.sh 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#')"
+bad=""; rows=0; gates=0
+while IFS='|' read -r knob lit want; do
+  [ -n "$knob" ] || continue
+  rows=$((rows+1))
+  found="$(printf '%s\n' "$scan" | grep -F "${knob}=" | cut -d: -f1 | grep -v "^${G}.sh$" | sort -u | tr '\n' ' ' | sed 's/ $//')"
+  wantn="$(printf '%s' "$want" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ' | sed 's/ $//')"
+  [ "$found" = "$wantn" ] || bad="$bad [$knob: declared='$wantn' found='${found:-none}']"
+  for f in $found; do gates=$((gates+1)); grep -vE '^[[:space:]]*#' "$HERE/$f" | grep -qF "$lit" || bad="$bad [$knob: $f plants and never reads the '$lit' banner on any line the shell executes]"; done
+done <<EOF
+$TBL
+EOF
+if [ -z "$bad" ]; then echo "  arm 3 PASS: $rows plant knob(s) declared, $gates planting gate(s) found by ASSIGNMENT on executable lines, every one reads its own knob's applied literal"
+else echo "  arm 3 FAIL:$bad -- a gate whose forced movement IS the plant must read that plant's banner or it grades an unplanted run in silence; a newcomer is declared in the table above or it is not admitted"; RC=1; fi
 
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the plant says whether it applied, its decline impersonates nothing, and all three planting gates read the banner (examined 3 arms, 4 runs)"
-else echo "GATE FAIL(1) [$G]: the plant's own report can be read backwards (examined 3 arms)"; fi
+# ⛔ ARM 4: THE TABLE IS CLOSED AGAINST THE RUNTIME.  Arm 3 can only grade the knobs it knows, so a plant knob
+# added to src/ and left out of the table is invisible to it -- which is exactly how SCRIP_GC_PLANT_RTCCB entered.
+# This arm is what makes arm 3's enumeration a statement about ALL plants rather than about a list.
+src_knobs="$(cd "$ROOT" && grep -rhoE 'SCRIP_GC_PLANT_[A-Z_]+' src/ 2>/dev/null | sort -u | tr '\n' ' ' | sed 's/ $//')"
+tbl_knobs="$(printf '%s\n' "$TBL" | cut -d'|' -f1 | sort -u | tr '\n' ' ' | sed 's/ $//')"
+if [ "$src_knobs" = "$tbl_knobs" ]; then echo "  arm 4 PASS: the knob table is closed against src/ -- the runtime reads exactly the $rows declared plant knob(s): $src_knobs"
+else echo "  arm 4 FAIL: src/ reads '$src_knobs' and this gate's table declares '$tbl_knobs' -- a plant knob the table does not know is a planting family arm 3 cannot see, and a table entry the runtime no longer reads is a gate grading a knob that does nothing"; RC=1; fi
+
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the plant says whether it applied, its decline impersonates nothing, the knob table is closed against src/ and every planting gate reads its own plant's banner (examined 4 arms, 4 runs)"
+else echo "GATE FAIL(1) [$G]: the plant's own report can be read backwards, or a plant is held by no reader (examined 4 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

@@ -80,7 +80,7 @@ witn=0; coll=0; hits=0; named=""; slots=""
 for f in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.sc; do
   [ -f "$f" ] || continue
   witn=$((witn+1))
-  err="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$f" 2>&1 >/dev/null)"
+  err="$(env -u SCRIP_GC_PLANT_RTCCB SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$f" 2>&1 >/dev/null)"
   n="$(printf '%s\n' "$err" | grep -c '^\[GC-WALK\]')"
   [ "${n:-0}" -gt 0 ] && coll=$((coll+1))
   h="$(printf '%s\n' "$err" | grep -c 'GC-WALK-RTCCB')"
@@ -127,6 +127,65 @@ if grep -q 'test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_referen
 else
   ck no "(e) this gate is not named in the Makefile -- a gate in no runner is not measuring (RULES.md THE INSTRUMENT LAWS)"
 fi
+
+# (f) THE CONVENTION IS DECLARED WHERE ITS READERS ARE, AND THE DECLARATION IS FINDABLE.  ⛔ CEO-1053 RULED NO ON A
+# DECLARED CONVENTION BEING A MECHANISM BY ITSELF -- "A convention enforced by nothing will drift" -- and the proof
+# was already in hand from the other end: rtcc_init.c registers this block as a root range and gc_heap.c walks all
+# 32 slots, counts, optionally prints AND NEVER VISITS, so a belief that the range was visited survived only as a
+# counter nobody reads.  The mechanism is admitted on one condition, and these three arms are it: the convention is
+# WRITTEN in the header every reader of the block opens, the invariant is GRADED over the population (arm b), and
+# the detector is PROVEN TO FIRE (arm g).  A declaration that can be deleted in silence is the counter again.
+hdr="$ROOT/src/runtime/rtx/rtcc.h"
+if [ -f "$hdr" ] && grep -q "CALLER-SAVED SPILL BLOCK AND IT IS NOT A GC ROOT" "$hdr" && grep -q "_Static_assert" "$hdr"; then
+  ck ok "(f) the convention is declared in rtx/rtcc.h as a _Static_assert naming the block, the words (slot 5 = r8 the anchor, 6 = r9 the GVA, 7 and 8 = r10/r11 scratch) and the reason -- a reader of rtccb cannot open the header without reading why nothing that must survive a collection may live there"
+else
+  ck no "(f) ⛔ rtx/rtcc.h carries no declaration of the caller-saved convention. THE MECHANISM IS THEN UNHELD: CEO-1053 admits a declared convention as one of the four mechanisms shielding a value across a safe point ONLY while a gate holds it and a declaration states it. Restore the _Static_assert or retire this gate in the same landing"
+fi
+
+# (g) FAIL-ONCE.  ⛔⭐ THE ARM THAT MAKES ARM (b)'s GREEN MEAN SOMETHING.  Today arm (b) is red on 806 standing
+# references, all in slot 5, so it is visibly looking.  THE DAY THE EMITTER CURE LANDS, (b) GOES GREEN -- and a
+# green detector that has never been proven to fire is indistinguishable from one that stopped looking, which is
+# the defect this whole row exists to remove.  So the plant: a heap pointer written into slot 7 at the top of a
+# collection and restored byte for byte at the end of it.  ⛔ IT GOES IN SLOT 7 OR 8 AND NEVER SLOT 5, AND THAT IS
+# MEASURED, NOT PREFERRED: the live reporter over all 52 witnesses in four languages at stress 3 and 5 reads 1292
+# occurrences and EVERY ONE IS SLOT 5, from exactly eight SNOBOL4 witnesses, while slots 7 and 8 read a measured
+# zero -- so a plant in slot 5 could pass by accident on the very population it grades.
+PW="$WD/hb_nv.sno"
+if [ ! -f "$PW" ]; then
+  ck no "(g) the plant witness $PW is missing, so the detector cannot be proven to fire and arm (b) grades on trust"
+else
+  pon="$(mktemp)"; poff="$(mktemp)"; eon="$(mktemp)"; eoff="$(mktemp)"; bare="$(mktemp)"
+  env -u SCRIP_GC_PLANT_RTCCB SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$PW" >"$poff" 2>"$eoff"
+  SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$PW" >"$pon" 2>"$eon"
+  SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$PW" >/dev/null 2>"$bare"
+  nap="$(grep -c '^\[GC-RTCCB\] plant:' "$eon")"; nab="$(grep -c '^\[GC-RTCCB\] plant:' "$bare")"
+  s7on="$(grep -c '^\[GC-WALK-RTCCB\] slot=7 ' "$eon")"; s7off="$(grep -c '^\[GC-WALK-RTCCB\] slot=[78] ' "$eoff")"
+  stale="$(grep -c 'unrepaired=1' "$eon")"; swept="$(grep -c 'swept=1' "$eon")"
+  if [ "${nap:-0}" = 0 ]; then
+    rm -f "$pon" "$poff" "$eon" "$eoff" "$bare"
+    refuse "PREMISE UNMET -- SCRIP_GC_PLANT_RTCCB=7 applied 0 times on $(basename "$PW") at arena ${SCRIP_HEAP_MB:-1} MB stress $STRESS, so this configuration cannot prove the detector fires. That is a statement about the run (no collection, or a declined plant), not a defect: a plant that cannot be made to apply here is a configuration fact and this gate refuses rather than reporting a finding (the coo's signed rule, 2026-09-21)"
+  fi
+  if [ "${s7on:-0}" -ge 1 ] && [ "${s7off:-0}" = 0 ] && [ "${nab:-0}" -ge 1 ] && cmp -s "$poff" "$pon"; then
+    ck ok "(g) FAIL-ONCE HOLDS: with a heap pointer planted in slot 7 the detector NAMES it $s7on time(s) over $nap planted collection(s); with the plant off the same witness reads ZERO at slots 7 and 8; the plant announces itself $nab time(s) with no telemetry asked for; and stdout is BYTE-IDENTICAL either way, so the instrument has no footprint on the answer. ⭐ AND THE PLANT MEASURES THE HAZARD RATHER THAN ASSERTING IT: $stale of $nap collection(s) left the slot UNREPAIRED after forwarding the block it names (moved, and nothing rewrote the word, because no root walk visits this block), $swept left it pointing at swept ground"
+  else
+    ck no "(g) ⛔ THE DETECTOR IS NOT PROVEN TO FIRE: planted slot-7 sightings=$s7on (want >=1), unplanted slot-7/8 sightings=$s7off (want 0), bare applied banners=$nab (want >=1), stdout identical=$(cmp -s "$poff" "$pon" && echo yes || echo NO). A zero from arm (b) is only a measurement while this arm holds; if the plant applied but the detector said nothing, the reporter is blind and every green reading of this invariant since it landed is a silence"
+  fi
+  rm -f "$pon" "$poff" "$eon" "$eoff" "$bare"
+fi
+
+# (h) THE PLANT CANNOT HIDE IN THE STANDING POPULATION, AND ITS DECLINE IS NOT AN APPLICATION.  ⛔ BOTH HALVES ARE
+# READER ERRORS THIS FLEET HAS ALREADY PAID FOR: a plant in slot 5 would be indistinguishable from the 806
+# references already there, and a decline that spells the applied banner's literal is counted as an application by
+# an unanchored grep, which is exactly backwards (the coo, 2026-09-21, on SCRIP_GC_PLANT_SHIFT).
+dec="$(mktemp)"
+SCRIP_GC_PLANT_RTCCB=5 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$WD/hb_nv.sno" >/dev/null 2>"$dec"
+nd="$(grep -c 'plant DECLINED' "$dec")"; nlit="$(grep -cF '[GC-RTCCB] plant:' "$dec")"
+if [ "${nd:-0}" -ge 1 ] && [ "${nlit:-0}" = 0 ]; then
+  ck ok "(h) the plant REFUSES slot 5 (RTCC_SLOT_R8, the declared anchor and the whole standing population) and slot 6 (the GVA base), says so once with its reason, and its decline spells no literal an application count would match -- $nd decline line(s), $nlit application literal(s)"
+else
+  ck no "(h) ⛔ the plant did not refuse slot 5, or its decline impersonates an application: decline lines=$nd (want >=1), applied literals in a declined run=$nlit (want 0). A plant admitted into the one slot that already carries the defect can pass on the defect itself; a decline that reads as an application turns a run that planted nothing into evidence that it did"
+fi
+rm -f "$dec"
 
 echo "population: $checks arm(s) graded, $fails FAIL; $witn witness(es), $coll collected, $hits rtccb heap reference(s)"
 [ "$fails" = 0 ] && { echo "GATE PASS [gc_the_caller_saved_spill_block_never_holds_a_heap_reference]: $checks of $checks arms hold"; exit 0; }

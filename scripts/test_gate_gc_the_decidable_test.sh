@@ -56,11 +56,18 @@ else
 fi
 
 # ---- ARM 2-4: the witnessed kinds ---------------------------------------------------------------------------
-run_witness() { # $1=file $2=stress [$3=SCRIP_GC_PLANT_PIN_SKIP] ; prints "rc|collections|movedB|firstline"
+run_witness() { # $1=file $2=stress [$3=SCRIP_GC_PLANT_PIN_SKIP] ; prints "rc|collections|movedB|pinviolations|firstline"
     local f="$1" st="$2" skip="${3:-}" rc=0
-    ( cd "$W" && SCRIP_GC_STRESS="$st" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 \
+    # ⛔⭐ THE PLANT NEVER APPLIED HERE, NOT ONCE, AND THE ARM BELOW REPORTED FIFTEEN DETECTIONS ANYWAY (found by
+    # the cto 2026-09-21).  The prefix was written `${skip:+SCRIP_GC_PLANT_PIN_SKIP=$skip}` in front of the
+    # command, and BASH DECIDES WHICH WORDS ARE ASSIGNMENT PREFIXES BEFORE IT EXPANDS THEM, so an assignment
+    # PRODUCED BY an expansion is not a prefix -- it is the command name.  Every planted run died with
+    # `SCRIP_GC_PLANT_PIN_SKIP=2: command not found`, rc=127, empty stdout, and arm 7 read rc!=0 as the witness
+    # FAILING under a broken collector and printed DETECTED for every kind.  The collector was never broken; the
+    # program never started.  `env` takes its assignments as ARGUMENTS, so an expansion is safe there.
+    ( cd "$W" && env SCRIP_GC_STRESS="$st" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 \
         ${skip:+SCRIP_GC_PLANT_PIN_SKIP=$skip} \
-        timeout 120 "$ROOT/scrip" "$WD/$f" >o.txt 2>t.txt ) || rc=$?
+        timeout 120 "$ROOT/scrip" "$WD/$f" >o.txt 2>t.txt ) 2>/dev/null || rc=$?
     local col mov out
     # ⛔ `grep -c` PRINTS 0 AND EXITS 1 WHEN IT MATCHES NOTHING, so `|| echo 0` fires ON TOP of the 0 it already
     # printed and this function returned TWO lines; `read` then parsed "0|0" as the whole result and every witness
@@ -71,7 +78,18 @@ run_witness() { # $1=file $2=stress [$3=SCRIP_GC_PLANT_PIN_SKIP] ; prints "rc|co
     col=$(grep -c 'ZGC-MARK' "$W/t.txt" 2>/dev/null); col=$(printf '%s' "${col:-0}" | head -1)
     mov=$(grep -oE 'moved=[0-9]+B' "$W/t.txt" 2>/dev/null | grep -oE '[0-9]+' | awk '{s+=$1} END {print s+0}')
     out=$(tr -d '\0' < "$W/o.txt" | sed -n 1p)
-    echo "$rc|$col|$mov|$out"
+    # ⛔ THE PLANT'S OWN BANNER, COUNTED AND RETURNED, BECAUSE ARM 7 CREDITED A FAILURE TO A PLANT IT NEVER SAW
+    # APPLY (found by the cto 2026-09-21 from the other end -- test_gate_gc_the_plant_says_whether_it_applied's
+    # enumeration, generalised from one plant knob to a table of them, named this gate as the one planting gate
+    # that reads no banner).  SCRIP_GC_PLANT_PIN_SKIP=n denies the nth MARKED block a forwarding address, so a
+    # collection with fewer than n marked blocks plants NOTHING and says nothing, and a witness that fails for any
+    # other reason in that run is recorded as sensitivity it does not have.  The collector prints [ZGC-PIN]
+    # VIOLATION marked=N forwarded=M whenever a marked block was denied one, and that line is the only proof the
+    # plant applied.  MEASURED before this line was written, stress 5, POISON on: hb_ws.icn, hb_aggv.icn and
+    # hb_aggt.icn each print 5 violation lines at skip=2 and 4 at skip=3 -- so this gate's green was TRUE
+    # and UNHELD at the same time, which is the state the INSTRUMENT LAWS call a claim held by memory rather than by a check.
+    pin=$(grep -c 'ZGC-PIN' "$W/t.txt" 2>/dev/null); pin=$(printf '%s' "${pin:-0}" | head -1)
+    echo "$rc|$col|$mov|$pin|$out"
 }
 witnessed=0; wit_red=0; vacuous=0; SENS_LIST=""
 while IFS=$'\t' read -r kind val class wit expect note; do
@@ -89,7 +107,7 @@ while IFS=$'\t' read -r kind val class wit expect note; do
     # (2)(3)(4) over the band, and the band is printed
     band_line=""; red=0; col_any=0; mov_any=0
     for st in $BAND; do
-        IFS='|' read -r rc col mov out <<< "$(run_witness "$wit" "$st")"
+        IFS='|' read -r rc col mov pin out <<< "$(run_witness "$wit" "$st")"
         [ "${col:-0}" -gt 0 ] && col_any=1
         [ "${mov:-0}" -gt 0 ] && mov_any=1
         if [ "$rc" -ne 0 ] || [ "$out" != "$expect" ]; then
@@ -137,7 +155,7 @@ fi
 # expected string; if that comparison were broken, or the witness produced no output at all and `expect` were
 # empty, the whole gate would read green while proving nothing -- the exact shape it exists to catch, one level
 # up.  So a witness is run against a DELIBERATELY WRONG expectation and the comparator must reject it.
-IFS='|' read -r prc pcol pmov pout <<< "$(run_witness hb_ws.icn 5)"
+IFS='|' read -r prc pcol pmov ppin pout <<< "$(run_witness hb_ws.icn 5)"
 if [ "$prc" = 0 ] && [ -n "$pout" ] && [ "$pout" != "PLANTED-WRONG-VALUE" ]; then
     ck ok "arm6 PLANTED: the comparator rejects a wrong expectation (witness printed [$pout], planted expectation PLANTED-WRONG-VALUE) -- so a green above is a comparison that happened, not one that was skipped"
 else
@@ -158,13 +176,21 @@ fi
 sens_blind=""
 for entry in $SENS_LIST; do
     IFS=':' read -r s_kind s_val s_wit s_exp <<< "$entry"
-    detected=""
+    detected=""; applied=0; unattr=""
     for skip in 2 3 5 8 13; do
-        IFS='|' read -r rc col mov out <<< "$(run_witness "$s_wit" 5 "$skip")"
-        if [ "$rc" -ne 0 ] || [ "$out" != "$s_exp" ]; then detected="$skip"; break; fi
+        IFS='|' read -r rc col mov pin out <<< "$(run_witness "$s_wit" 5 "$skip")"
+        [ "${pin:-0}" -ge 1 ] && applied=$((applied+1))
+        if [ "$rc" -ne 0 ] || [ "$out" != "$s_exp" ]; then
+            if [ "${pin:-0}" -ge 1 ]; then detected="$skip"; else unattr="$skip"; fi
+            break
+        fi
     done
     if [ -n "$detected" ]; then
-        printf '        %-8s(%s) sensitivity: DETECTED a denied forwarding address at skip=%s\n' "$s_kind" "$s_val" "$detected"
+        printf '        %-8s(%s) sensitivity: DETECTED a denied forwarding address at skip=%s (the collector printed the [ZGC-PIN] VIOLATION line, so the failure is ATTRIBUTED to a plant that applied)\n' "$s_kind" "$s_val" "$detected"
+    elif [ -n "$unattr" ]; then
+        sens_blind="$sens_blind $s_kind($s_val)=FAILED-AT-skip-$unattr-WITH-NO-VIOLATION-LINE"
+    elif [ "$applied" = 0 ]; then
+        sens_blind="$sens_blind $s_kind($s_val)=PLANT-NEVER-APPLIED-ON-ANY-SWEPT-SKIP"
     else
         sens_blind="$sens_blind $s_kind($s_val)"
     fi
@@ -173,14 +199,19 @@ if [ -n "$sens_blind" ]; then
     ck no "arm7 SENSITIVITY:$sens_blind stayed GREEN with the collector deliberately denying a forwarding address -- those witnesses cannot tell a working collector from a broken one, so their green above is not evidence about the collector"
 else
     ck ok "arm7 SENSITIVITY: every witnessed kind was seen to FAIL when the collector was deliberately broken -- so a green from this gate is a statement about the collector and not about the weather"
-    # ⛔ AND THE HONEST LIMIT OF ARM 7, STATED RATHER THAN LEFT FOR A READER TO ASSUME: every kind currently trips
-    # at the SAME skip value, which means this arm proves each witness CAN fail when the collector is broken --
-    # a necessary condition, and the one the 320-entry reading fails -- but it does NOT prove the witness is
-    # sensitive to ITS OWN KIND's root being lost specifically, because a low skip value may be reaching a block
-    # every witness depends on rather than the one it holds. The stronger arm wants a per-kind denial (skip the
-    # nth block OF TYPE K), which is a runtime knob that does not exist today; it is named here rather than
-    # implied, and it is the next thing this gate should grow.
-    echo "        (arm7 limit: all kinds trip at the same skip value, so this proves each witness CAN fail, not that it is sensitive to its OWN kind's root -- a per-kind denial knob is the next step and does not exist yet)"
+    # ⛔ AND THE HONEST LIMIT OF ARM 7, STATED RATHER THAN LEFT FOR A READER TO ASSUME. It proves each witness CAN
+    # fail when the collector is broken -- a necessary condition, and the one the 320-entry reading fails -- but it
+    # does NOT prove the witness is sensitive to ITS OWN KIND's root being lost, because a low skip value may be
+    # reaching a block every witness depends on rather than the one it holds.
+    # ⛔⭐ THIS TEXT USED TO SAY "every kind trips at the SAME skip value" AND THAT SENTENCE WAS AN ARTIFACT OF THE
+    # QUOTING DEFECT CURED ABOVE: with the plant expanding to a command name instead of an assignment, every run
+    # died rc=127 before it started, so of course every kind "tripped" at the first skip swept. With the plant
+    # applying, the measured spread is 9 kinds at skip=2 and 6 at skip=5 (cto 2026-09-21, stress 5, POISON on).
+    # ⭐ AND THE PER-KIND DENIAL THIS TEXT USED TO CALL "a runtime knob that does not exist today" DOES EXIST:
+    # SCRIP_GC_PLANT_PIN_TYPE counts only blocks of the named type, so PIN_TYPE=K with PIN_SKIP=n denies the nth
+    # block OF KIND K. It is the one plant knob in the fleet that NO gate uses -- named in the knob table of
+    # test_gate_gc_the_plant_says_whether_it_applied.sh -- and wiring this sweep to it is the next step here.
+    echo "        (arm7 limit: 9 kinds trip at skip=2 and 6 at skip=5, so this proves each witness CAN fail when the collector is broken, not that it is sensitive to its OWN kind's root -- the per-kind denial SCRIP_GC_PLANT_PIN_TYPE exists and no gate uses it; wiring this sweep to it is the next step)"
 fi
 
 echo "------------------------------------------------------------"
