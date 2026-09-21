@@ -773,13 +773,19 @@ s4e_lane_owner_of_language() {
       # the CURE owner; the BOARD RUNNER is the coo for all seven on the MODE LANES line, because the coo holds the measure
       # and by CEO-723 holds no cure lane. Written out per language rather than collapsed to a default for the reason every
       # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
-      icon)     printf 'cfo';;
-      prolog)   printf 'cto';;
-      snobol4)  printf 'cfo';;
-      pascal)   printf 'cfo';;
-      snocone)  printf 'cfo';;
+      # ⛔ MODE TENET RESTORED (CEO-1040, 2026-09-21, Lon: "Go to TENET mode now."): six language HQs at Sonnet 5
+      # effort max plus four officers at Opus 5 effort max. Each language's owner is its HQ again; rebus stays the
+      # cfo's keep-green. THE HQs OWN ITEM 4 OF THE GC COMMITMENT -- zero gradings lost to the collector -- which is
+      # six-way parallel; the officers own items 1-3, which are single-site landings and are not. Written out per
+      # language rather than collapsed to a default: the gate beside this compares it to MODE line 2 LANGUAGE BY
+      # LANGUAGE, and a default would agree with a line 2 that had drifted on six of them without anything noticing.
+      icon)     printf 'hq_icon';;
+      prolog)   printf 'hq_prolog';;
+      snobol4)  printf 'hq_snobol4';;
+      pascal)   printf 'hq_pascal';;
+      snocone)  printf 'hq_snocone';;
       rebus)    printf 'cfo';;
-      raku)     printf 'cto';;
+      raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
