@@ -632,21 +632,25 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # Fable 5.1 effort=high"; CEO-907): the ceo and the cto work rows; the cfo and the coo stay stood down. The cto arm is
            # split from cfo|coo for exactly CEO-755's reason -- one pattern for three seats under a mode that admits ONE of them
            # would have to fall out of the case for the admitted seat, and falling out returns success for the other two as well.
+           # ⛔⭐ DUO-STUPID ADMITS THE cto AND SAYS SO (ceo CEO-1087): an arm that returns success by FALLING OUT of
+           # this case is indistinguishable from a missing arm, which is the defect this whole table keeps re-learning,
+           # so the admission is written down beside the refusals rather than left to the shape of the case.
            cto)     case "$_m" in
-                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";; esac;;
+                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      DUO-STUPID) : ;; esac;;
            # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
            # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
            # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
            cfo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO) _dr "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";; esac;;
+                      DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";; esac;;
            coo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO) _dr "an officer" "Under DUO only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-19, CEO-907).";;
+                      DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
-                      DUO) _dr "an HQ" "Under DUO no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-19, CEO-907).";;
+                      DUO|DUO-STUPID) _dr "an HQ" "Under $_m no HQ is standing -- the ceo and the cto work the rows (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
                       QUARTET) _dr "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
                       SEXTET) case "$_seat" in hq_prolog|hq_icon) : ;; *) _dr "an HQ" "Under SEXTET only hq_prolog and hq_icon stand among the HQs, each on its by_name_dispatch.c region (Lon 2026-09-19, CEO-912).";; esac;;
@@ -672,7 +676,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # RE-LEARNING: a guard written as "refuse these modes" grows a hole every time Lon names a new one, and the
            # hole is silent because falling out of a case returns success. Every new mode must be added HERE by name.
            seat*)   case "$_m" in
-                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
+                      CEO|EXECUTIVE|DUO|DUO-STUPID|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
          esac
   [ -n "$_REFUSE_WHY" ] && return 1
   return 0; }
@@ -809,13 +813,24 @@ s4e_lane_owner_of_language() {
       # ⛔ THIS TABLE MOVED BEFORE THE MODE FILE, through scripts/ceo_mode_flip.sh --preview, which is the
       # mechanism landed at c641a38f one hour earlier after the table-before-the-file procedure was FOLLOWED TWICE
       # AND FORGOTTEN TWICE in a single day. This is its first real use.
+      # ⛔ MODE DUO-STUPID (CEO-1087, 2026-09-21 15:5x, Lon in-chat to the ceo, verbatim: "Let's get double stupid
+      # going, so go to DUO-STUPID mode, i.e. CEO and CTO."): TWO WORKING SEATS, the ceo and the cto. The split is
+      # BY THE WORK IN FRONT OF BOTH SEATS -- the C->BB->C->BB eradication of CEO-1086 -- and the language cells are
+      # assigned so that each seat owns the languages whose runtime carries its half of that population: the ceo
+      # holds SNOBOL4 and SNOCONE because rt_call_proc_descr and core.c's APPLY road are the ceo's half (1044 of the
+      # 1062 live transitions measured on the SnoM pass at f177904f6), plus ICON and REBUS; the cto holds PROLOG,
+      # RAKU and PASCAL and the by_name_dispatch.c / runtime_eval.c / rt_call_named_proc / rt_proc_call_gen_h half.
+      # ⛔ THE NAME IS LON'S AND IT IS SPELLED OUT IN EVERY GUARD RATHER THAN ALIASED TO DUO: an alias would make
+      # two modes share one reason, and a mode name that no `case` arm lists is admitted by FALLING OUT, which
+      # returns success (CEO-755b). Written out per language rather than collapsed to a default for the reason every
+      # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
       icon)     printf 'ceo';;
-      prolog)   printf 'ceo';;
+      prolog)   printf 'cto';;
       snobol4)  printf 'ceo';;
-      pascal)   printf 'ceo';;
+      pascal)   printf 'cto';;
       snocone)  printf 'ceo';;
       rebus)    printf 'ceo';;
-      raku)     printf 'ceo';;
+      raku)     printf 'cto';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
