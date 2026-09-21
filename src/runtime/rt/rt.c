@@ -819,7 +819,6 @@ DESCR_t rt_proc_enter_frag(void *fn, const char *name);
 int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
-DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 __asm__(
 ".text\n"
 ".globl rt_tiny_record_enter\n"
@@ -966,14 +965,14 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
         if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn); }
-        void *fb = alloca((size_t)fbytes);
-        void *fn2 = rt_frame_prep(fb, fbytes);
-        rt_c2bb_hit("descr.callregime.lex", name);
-        DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
-        return rt_proc_call_epilogue_ret(fret);
+        core_runtime_error(287, "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs-gamma IN C via rt_proc_call_epilogue_ret -- runtime logic where the law requires BB logic. It cannot be converted to return-the-target because a C-stack frame cannot outlive a tail jump; the frame must come from the zeta-spine first. Traced ZERO times over 486 programs (336 snocone master + 150 snobol4 package), so this error is the row, not a regression.");
+        return FAILDESCR;
     }
     rt_g_want_name = _wn_gen;
-    if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); DESCR_t _r = rt_proc_enter((void *)p->fn); rt_name_save_unwind(_nsb); return _r; }
+    if (name && strchr(name, '$')) {
+        core_runtime_error(287, "dynamic-scope '$' procedure: the barrier path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). C held a name-save mark ACROSS the box entry and ran rt_name_save_unwind AFTER it returned, so C survived the transition and the return came back through C. The unwind belongs in the box's own zeta, not in a C frame parked across the jump.");
+        return FAILDESCR;
+    }
     rt_c2bb_hit("descr.enter.dyn.named", name);
     return rt_proc_enter_named((void *)p->fn, name);
 }
@@ -1480,12 +1479,6 @@ DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb)
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
 const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
-{
-    if (IS_FAIL_fn(fret)) return rt_proc_call_epilogue_ω();
-    DESCR_t frame0 = fret;
-    return rt_proc_call_epilogue_γ(frame0);
-}
 __asm__(
 ".text\n"
 ".globl rt_proc_enter\n"
@@ -1661,12 +1654,9 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
         rt_c2bb_hit("c_lex.enter", p->name);
         return rt_proc_enter((void *)p->fn);
     }
-    long fbytes = (long)rt_proc_call_prologue_lex(p, nargs, wn);
-    void *fb = alloca((size_t)fbytes);
-    void *fn2 = rt_frame_prep(fb, fbytes);
-    rt_c2bb_hit("c_lex.callregime", p->name);
-    DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
-    return rt_proc_call_epilogue_ret(fret);
+    (void)rt_proc_call_prologue_lex(p, nargs, wn);
+    core_runtime_error(287, "named lexical procedure has no jmp_entry: the c_lex callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). Identical shape to the descr.callregime.lex arm deleted above -- alloca the frame on the C STACK, call the box, then choose omega-vs-gamma IN C through rt_proc_call_epilogue_ret. Both halves are forbidden: C survives the transition, and the port selection is runtime logic where the law requires BB logic.");
+    return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }

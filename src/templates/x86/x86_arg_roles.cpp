@@ -158,7 +158,6 @@ const char x86_argrole_blob[] =
     "rt_pl_gz_init\0"
     "frame\0"
     "nslots\0"
-    "rt_proc_call_epilogue_ret\0"
     "rt_proc_call_gen_h\0"
     "hout\0"
     "rt_proc_call_open\0"

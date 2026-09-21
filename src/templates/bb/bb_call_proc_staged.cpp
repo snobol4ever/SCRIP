@@ -20,7 +20,6 @@ DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name);
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
-DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
 void    rt_pl_iso_throw_existence_key(const char *key); DESCR_t rt_pl_exist_key_raise(const char *key);
@@ -440,7 +439,6 @@ static std::string bcps_det_arm() {
     uint64_t prep_fp;  { void * (*fp)(void *, long) = rt_frame_prep; prep_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t epir_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_ret; epir_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t undef_fp;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     uint64_t det_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp = (uint64_t)(uintptr_t)(void*)fp; }
