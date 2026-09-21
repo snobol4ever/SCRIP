@@ -168,6 +168,47 @@ def rsp_move(ins):
     return 0
 
 
+NOT_AN_ASSIGNMENT = object()
+
+
+def rsp_assign(ins, rsp, rbp):
+    """the NEW rsp displacement when this instruction ASSIGNS rsp from a base the fixpoint already knows.
+
+    ⛔ WHY THIS EXISTS AND WHY IT IS NOT A `rsp_move` CASE (cto 2026-09-21).  rsp_move answers "how far did rsp
+    MOVE", and a delta cannot express `lea rsp, [rbp - 688]`, which SETS rsp from another register.  Returning
+    None for it poisoned the fixpoint: once rsp read unknown, every call downstream of it read
+    SPINE-DEPTH-UNKNOWN and was dropped from the graded population -- 2215 of the 2256 undecidable call sites
+    over the shared witness set, and the emitter emits exactly two forms that account for 1808 of them:
+
+        lea rsp, [rbp - K]   1703      mov rsp, rbp   105
+
+    Both are rbp-relative, and THIS FIXPOINT ALREADY TRACKS rbp's displacement from the anchor -- the second
+    element of every state pair.  So the depth was never unknowable; it was unexpressed.  ⛔ AND THE ASSIGNMENT
+    MUST BE APPLIED EVEN WHEN rsp IS ALREADY UNKNOWN, which is the load-bearing half: an assignment from a known
+    rbp RE-ESTABLISHES a known rsp, and the old code returned early on `rsp is None` and never looked.
+
+    The forms deliberately NOT handled, because they are genuinely not compile-time constants and a census that
+    guesses is the defect this file exists to remove: `and rsp, -16` (an alignment mask, 176 of them),
+    `mov rsp, qword ptr [...]` (a restore from memory, 227) and `mov rsp, rax` (4)."""
+    mn, ops = ins.mnem, ins.ops
+    if not ops or ops[0] != "rsp" or len(ops) != 2:
+        return NOT_AN_ASSIGNMENT
+    src = ops[1].strip()
+    if mn == "mov":
+        if src == "rbp":
+            return rbp
+        if src == "rsp":
+            return rsp
+        return NOT_AN_ASSIGNMENT
+    if mn != "lea":
+        return NOT_AN_ASSIGNMENT
+    base, d = disp_of(src)
+    if base is None or "qword" in src or "ptr" in src:
+        return NOT_AN_ASSIGNMENT
+    anchor_rel = rsp if base == "rsp" else rbp
+    return None if anchor_rel is None else anchor_rel + d
+
+
 def seed_rbp(insns, anchor):
     """the rbp displacement from the anchor's rsp, when the prologue established rbp before the cell store.
 
@@ -188,7 +229,16 @@ def seed_rbp(insns, anchor):
 
 
 def frame_fixpoint(insns, succ, start, rbp0):
-    """set-valued forward fixpoint of (rsp, rbp) displacement from `start`; None means 'not a constant here'"""
+    """set-valued forward fixpoint of (rsp, rbp) displacement from `start`; None means 'not a constant here'.
+
+    ⛔ THE rsp EFFECT AND THE rbp EFFECT ARE COMPUTED INDEPENDENTLY, AND THE FIRST CUT DID NOT DO THAT (cto
+    2026-09-21).  An instruction that WRITES rbp used to `continue` out of the loop carrying rsp unchanged, so
+    `pop rbp` -- the second half of every `mov rsp, rbp / pop rbp` frame whack the SNOBOL4 emitter lays down --
+    never applied its own +8 to rsp.  While the spine depth was already poisoned downstream that cost nothing
+    visible.  The moment rsp_assign() un-poisoned it, the missing 8 became a SYSTEMATIC parity error and the
+    census reported 142 OFF-GRID call sites at residue 8 across twelve SNOBOL4 witnesses -- a defect in the
+    EMITTER, announced on the strength of an arithmetic slip in this function.  One instruction can move both
+    registers and this loop now says so."""
     st = collections.defaultdict(set)
     st[start].add((0, rbp0))
     work = [start]
@@ -198,16 +248,20 @@ def frame_fixpoint(insns, succ, start, rbp0):
         nxt = set()
         for rsp, rbp in st[i]:
             if ins.mnem == "mov" and len(ins.ops) == 2 and ins.ops[0] == "rbp":
-                nxt.add((rsp, rsp if ins.ops[1] == "rsp" else None))
-                continue
-            if ins.ops and ins.ops[0] == "rbp" and ins.mnem not in ("cmp", "test", "push"):
-                nxt.add((rsp, None))
-                continue
-            if rsp is None:
-                nxt.add((None, rbp))
-                continue
-            m = rsp_move(ins)
-            nxt.add((None, rbp) if m is None else (rsp + m, rbp))
+                new_rbp = rsp if ins.ops[1] == "rsp" else None
+            elif ins.ops and ins.ops[0] == "rbp" and ins.mnem not in ("cmp", "test", "push"):
+                new_rbp = None
+            else:
+                new_rbp = rbp
+            a = rsp_assign(ins, rsp, rbp)
+            if a is not NOT_AN_ASSIGNMENT:
+                new_rsp = a
+            elif rsp is None:
+                new_rsp = None
+            else:
+                m = rsp_move(ins)
+                new_rsp = None if m is None else rsp + m
+            nxt.add((new_rsp, new_rbp))
         if len(nxt) > DELTA_CAP:
             nxt = {(None, None)}
         for t in succ.get(i, ()):
@@ -689,6 +743,35 @@ def report(scrip, progs, workdir, out=print):
     return 0
 
 
+def _selftest_frame_whack():
+    """the floor of the call after a `mov rsp, rbp / pop rbp` frame whack, off a hand-built graph"""
+    import tempfile
+    asm = (".text\n"
+           "main_bx:\n"
+           "        sub rsp, 64\n"
+           "        lea r11, [rip + .Lgcmap_main]\n"
+           "        mov qword ptr [rsp + 24], r11\n"
+           "        push rbp\n"
+           "        mov rbp, rsp\n"
+           "        sub rsp, 32\n"
+           "        mov rsp, rbp\n"
+           "        pop rbp\n"
+           "        call rt_gc_poll@PLT\n"
+           "        ret\n")
+    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n"
+           "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
+    with tempfile.TemporaryDirectory() as wd:
+        path = os.path.join(wd, "whack.s")
+        open(path, "w", encoding="utf-8").write(asm)
+        insns, succ, maps, layouts, frames, refusal = build_frames(path, rep, "whack")
+        if refusal:
+            return refusal
+        for (g, i, k, why) in grid_sites(insns, frames):
+            if insns[i].mnem == "call":
+                return why or k
+    return "NO-CALL-GRADED"
+
+
 def selftest():
     """the arithmetic and the refusals, held against hand-built inputs rather than against a program's output"""
     ok = [0, 0]
@@ -735,6 +818,23 @@ def selftest():
     arm("a language with members named owes no zero-note", clean_reading_note(3, 9, 99, 99) == "")
     arm("JOIN: a zero-entry map over a graph that shields nothing at a safe point is BENIGN",
         join_verdict(True, 0) == "BENIGN")
+    arm("rsp_assign reads `lea rsp, [rbp - 688]` as an ASSIGNMENT from a known rbp, never as an unknown",
+        rsp_assign(CS.Insn(1, "lea rsp, [rbp - 688]", []), -16, -8) == -696)
+    arm("rsp_assign reads `mov rsp, rbp`", rsp_assign(CS.Insn(1, "mov rsp, rbp", []), -16, -8) == -8)
+    arm("rsp_assign RE-ESTABLISHES a known rsp from an UNKNOWN one -- undoing the poisoning is the whole point",
+        rsp_assign(CS.Insn(1, "mov rsp, rbp", []), None, -8) == -8)
+    arm("rsp_assign REFUSES an alignment mask, which is genuinely not a compile-time constant",
+        rsp_assign(CS.Insn(1, "and rsp, -16", []), -16, -8) is NOT_AN_ASSIGNMENT)
+    arm("rsp_assign REFUSES a restore from memory",
+        rsp_assign(CS.Insn(1, "mov rsp, qword ptr [rsp + 0]", []), -16, -8) is NOT_AN_ASSIGNMENT)
+    arm("rsp_assign over an UNKNOWN rbp stays unknown rather than inventing a depth",
+        rsp_assign(CS.Insn(1, "lea rsp, [rbp - 688]", []), -16, None) is None)
+    _whack = _selftest_frame_whack()
+    arm("PLANTED END TO END -- `mov rsp, rbp / pop rbp` is a frame whack and the POP's +8 lands on rsp: the call "
+        "after it reads floor=0 ON-GRID. Without that the census reported 142 OFF-GRID sites at residue 8 across "
+        "twelve SNOBOL4 witnesses, a defect in the EMITTER announced on an arithmetic slip in frame_fixpoint",
+        _whack == 0)
+
     arm("JOIN: a zero-entry map in a graph that DOES shield is a MEMBER whatever the offset",
         join_verdict(True, 3) == "MEMBER")
     arm("JOIN: a graph the anchor walk never reached is NOT-REACHED and never benign",
