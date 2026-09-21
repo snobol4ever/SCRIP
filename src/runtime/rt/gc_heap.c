@@ -864,6 +864,8 @@ static void gc_seg_begin(gc_seg_it_t *it, char *floor)
     it->stage = 0; it->self = pthread_self(); it->co = scrip_co_main_known(&it->mainthr); it->c = it->co ? scrip_co_gc_head() : (scrip_coctx_t *)0;
     it->floor = floor; it->run_hi = gc_stack_top(); g_gc_co_parked = 0;
 }
+static char *g_gc_emit_ceiling = (char *)0;
+static int   g_gc_seg_main = 0;
 static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() == 2 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
 static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
 {
@@ -876,14 +878,17 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
         if (!scrip_co_stack_of(c, &clo, &chi) || clo >= chi) continue;
         if (c->alive && pthread_equal(it->self, c->thread)) { it->run_hi = chi; continue; }
         *lo = gc_seg_parked_lo(c, clo); *hi = chi; *pop = 4; g_gc_co_parked++; return 1; }
-    if (it->stage == 2) { it->stage = 3; if (it->floor < it->run_hi) { *lo = it->floor; *hi = it->run_hi; *pop = 1; return 1; } }
+    if (it->stage == 2) { it->stage = 3; if (it->floor < it->run_hi) { *lo = it->floor; *hi = it->run_hi; *pop = 1;
+        g_gc_seg_main = (it->run_hi == gc_stack_top()) ? 1 : 0;
+        if (g_gc_seg_main && g_gc_emit_ceiling && g_gc_emit_ceiling > it->floor && g_gc_emit_ceiling < it->run_hi) *hi = g_gc_emit_ceiling;
+        return 1; } }
     return 0;
 }
 static long gc_stack_segments(char *floor)
 {
     gc_seg_it_t it; char *lo, *hi; int pop; long words = 0;
     gc_seg_begin(&it, floor);
-    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; words += gc_visit_segment((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; }
+    while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; words += gc_visit_segment((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; g_gc_seg_main = 0; }
     return words;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1059,6 +1064,8 @@ static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const 
             g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } } }
     if (span > covered) g->i_gap += (span - covered) / 8;
 }
+static int gc_ceiling_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_CEILING"); v = (e && *e) ? (*e != '0') : 1; } return v; }
+static long g_gc_ceil_bytes;
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo)
 {
     const DESCR_t *d = (const DESCR_t *)p; const gc_frame_map_t *m;
@@ -1073,7 +1080,7 @@ static void gc_walk_range(const char *lo0, const char *hi0)
     while (p + 8 <= hi) {
         const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
         while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
-        if (!m) { if (nf == 0) g->nomap++; gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
+        if (!m) { if (nf == 0) g->nomap++; if (above && g_gc_seg_main && gc_ceiling_on() && !gc_maps_on()) { g_gc_ceil_bytes += (long)(hi - p); return; } gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
         nf++; g->frames++;
         if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
@@ -1083,7 +1090,8 @@ static void gc_walk_range(const char *lo0, const char *hi0)
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
-        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; } }
+        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; }
+            if (above && gc_ceiling_on() && g_gc_seg_main && (!g_gc_emit_ceiling || (char *)p < g_gc_emit_ceiling)) { g_gc_ceil_bytes += (long)((g_gc_emit_ceiling ? g_gc_emit_ceiling : g_gc_stktop) - (char *)p); g_gc_emit_ceiling = (char *)p; } }
     }
 }
 static long g_gc_rtccb_heap;
@@ -1206,7 +1214,7 @@ static long gc_collect_ex(void)
     }
     gc_spine_lost_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
-      if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior); }
+      if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld ceiling_bytes_skipped=%ld ceiling=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, g_gc_ceil_bytes, (void *)g_gc_emit_ceiling); }
     { long shift = gc_plant_shift_bytes(); g_gc_shift_prefix = shift ? gc_plant_shift_prefix() : 0; dest = g_hp_arena + g_gc_shift_prefix + shift; g_gc_shift_now = shift; }
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }

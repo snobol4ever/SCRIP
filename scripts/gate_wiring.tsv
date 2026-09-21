@@ -135,6 +135,7 @@ test_gate_gc_scan_subject_saves_are_rooted.sh	WIRED	-	-	-
 test_gate_gc_table_insertion_order_array_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_gc_the_allocating_set_is_a_generated_table_gated_against_the_call_graph.sh	WIRED	-	-	-
 test_gate_gc_the_blob_frame_interior_is_a_static_layout.sh	WIRED	-	-	-
+test_gate_gc_the_stack_walk_stops_at_the_outermost_emitted_frame.sh	WIRED	-	-	-
 test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh	WIRED	-	-	-
 test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh	WIRED	-	-	-
 test_gate_gc_the_cset_registry_is_rooted.sh	WIRED	-	-	-
