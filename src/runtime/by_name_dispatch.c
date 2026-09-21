@@ -889,6 +889,26 @@ rt_call_next_t rk_method_open(DESCR_t *args, int nargs)
         return n; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
+    extern rt_call_next_t rt_call_open_by_name(const char *, int);
+    extern int rt_proc_is_registered(const char *);
+    extern DESCR_t g_call_args[];
+    extern void rt_c2bb_hit(const char *site, const char *name);
+    rt_call_next_t none = (rt_call_next_t){ 0, 0 };
+    if (!args || nargs < 1) return none;
+    { const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
+      if (!pn || !*pn) return none;
+      if (!rt_proc_is_registered(pn)) return none;
+      { int na = nargs - 1; if (na > 64) na = 64;
+        for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1];
+        rt_c2bb_hit("apply.open", pn);
+        { rt_call_next_t n = rt_call_open_by_name(pn, na); return n.fn ? n : none; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_apply_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_land_γ(DESCR_t, long); return rt_call_land_γ(frame0, word); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_apply_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); return rt_call_land_ω(word); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_method_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_land_γ(DESCR_t, long); DESCR_t r = rt_call_land_γ(frame0, word); if (g_redisp_top > 0) g_redisp_top--; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_method_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); DESCR_t r = rt_call_land_ω(word); if (g_redisp_top > 0) g_redisp_top--; return r; }

@@ -94,8 +94,7 @@ extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(void);
 extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
-    std::string save = x86("comment", "ARCH-GC 6.2i THE ENTRY RECORD IS TAGGED CELLS (cfo 2026-09-19, on the cto's x86_xfer_enter example and the frame walker's own reading): this glue is the ONE spelling of a box entering an opened target, and it used to push rbx r12 r13 r14 r15 rdx as six RAW words around every C-to-BB entry. SCRIP_GC_MAPS=3 named r13, the match subject, raw at -184 on hb_defer_subject.sno at every collection below a return poll: only the word sweep rewrites such a word, and the E cut deletes the sweep, so the glue would pop a stale subject into the callee. The three that can hold a collected-heap pointer or be mistaken for one now ride DESCR cells the collector reads BY TAG -- {DT_S, r15d, r13} the subject, {DT_I, 0, r14} the cursor, {DT_I, 0, rdx} the protocol word (how in its low byte, nsb above it and a registry index at bit 40, which is a plausible-looking address to a raw sweep and is not one). rbx and r12 stay raw and are NAMED: rbx carries a stack word and r12 the CAS pointer, neither of which is ever a block of the collected heap. 48 bytes become 64, so rsp parity at the transfer is unchanged, and nothing indexes into the record.")
-         + x86("sub", "rsp", 64L)
+    std::string save =  x86("sub", "rsp", 64L)
          + x86_rsp_store64(56, "r12")
          + x86_rsp_store64(48, "rbx")
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
@@ -122,6 +121,8 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + x86("and",  "rcx", 255L)
          + x86("cmp",  "rcx", 2L)
          + x86_jcc_id("je", base)
+         + x86("cmp",  "rcx", 1L)
+         + x86_jcc_id("je", base + 100)
          + bb_glue_pass_wires_blob_regs(base + 1, base + 2)
          + x86_deflabel_id(base)
          + x86("sub",  "rsp", 48L)
@@ -141,12 +142,17 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + x86_deflabel_id(base + 1)
          + land_γ(16L)
          + x86_deflabel_id(base + 2)
-         + land_ω(16L);
+         + land_ω(16L)
+         + x86_deflabel_id(base + 100)
+         + bb_glue_pass_wires_blob_regs(base + 101, base + 102)
+         + x86_deflabel_id(base + 101)
+         + land_γ(0L)
+         + x86_deflabel_id(base + 102)
+         + land_ω(0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
     return x86("call", "rt_pat_prim_open", (uint64_t)(uintptr_t)(void *)rt_pat_prim_open)
-         + x86("comment", "ARCH-GC section 3: a poll at the EMITTED return of every allocating runtime call on this road -- the open may allocate through the prologue, and the packed spine word in rdx is saved across the poll because the poll speaks the argument registers. ⛔ THE SAVE IS 16 BYTES AND NOT A PUSH, AND THAT IS A MEASURED CURE RATHER THAN A STYLE (cfo 2026-09-19): an 8-byte push flips rsp's parity at the poll's own call, and a misaligned rsp faults inside libc's SSE code with si_addr NULL -- the defer road's identical spelling crashed a SNOBOL4 master entry 5 of 5 that way under a small arena, in gc_stack_region's sscanf under gc_collect_ex, and reading the gdb line rather than theorising named it in one run. The C call above this poll is correctly aligned, so anything that flips the parity between them is the defect.")
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", base + 7)
