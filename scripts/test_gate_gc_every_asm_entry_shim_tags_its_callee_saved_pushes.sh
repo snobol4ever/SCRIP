@@ -35,6 +35,12 @@
 #
 # ⭐ FAIL-ONCE, BY THE POPULATION RATHER THAN BY A PLANT.  Arm A is RED on the shims still owed and GREEN on each
 # one cured, so the detector is proven to discriminate on real members every time it runs.
+# ⛔ ARM B GRADES THROUGH corpus_suite_harness.classify AND NOT THROUGH ITS OWN COMPARISON, because a seat
+# grading GC work with a bare cmp or diff is minting phantom reds right now (the coo, relayed by the ceo at
+# CEO-1100): classify rstrips both sides, honours a declared want_rc, applies line masks, and -- the reason it
+# matters here -- SEPARATES HANG FROM FAIL, which is exactly the distinction CEO-1098 requires a loaded box to
+# preserve. This gate's witness is simple enough that a direct string compare happened to agree; relying on that
+# is the reasoning the fleet fact warns against, so it does not.
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"
@@ -61,11 +67,21 @@ else
   printf 'ARM A PASS: %s of %s box-entry shim(s) hand r13 over as a DT_S cell\n' "$TAGGED" "$SHIMS"
 fi
 printf -- '\n-- ARM B: the cured road runs, really collects, and answers its oracle --\n'
-OUT="$(timeout 300s "$ROOT/scrip" "$WIT" 2>"$TD/err.txt")"; arc=$?
-if [ "$arc" = 124 ]; then printf 'GATE REFUSE(2): the witness timed out -- COULD NOT MEASURE, never a FAIL (RULES.md FACT RULE, ceo CEO-1098). Re-run this entry.\n'; exit 2; fi
-if [ "$arc" != 0 ]; then printf 'ARM B RED: the witness exited rc=%s\n' "$arc"; sed -n '1,5p' "$TD/err.txt"; rc=1; fi
-if [ "$OUT" != "$(cat "$REF")" ]; then printf 'ARM B RED: the witness diverged from its ORACLE ref\n  ours:   %s\n  oracle: %s\n' "$OUT" "$(cat "$REF")"; rc=1
-else printf 'answer: byte-identical to the oracle ref (%s)\n' "$OUT"; fi
+VERD="$(python3 - "$ROOT/scripts/corpus_suite_harness.py" "$ROOT/scrip" "$WIT" "$REF" <<'PYA'
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
+import corpus_suite_harness as H
+exp = open(sys.argv[4], encoding='utf-8', errors='replace').read()
+v = H.classify([sys.argv[2], sys.argv[3]], 300, exp)
+print('%s\t%s' % (v.kind, (getattr(v, 'detail', '') or '').replace('\t', ' ').replace('\n', ' ')[:200]))
+PYA
+)"
+VKIND="${VERD%%	*}"; VDET="${VERD#*	}"
+case "$VKIND" in
+  PASS) printf 'answer: graded PASS by corpus_suite_harness.classify against the ORACLE ref (%s)\n' "$(cat "$REF")" ;;
+  HANG|UNPROVEN) printf 'GATE REFUSE(2): the witness graded %s -- COULD NOT MEASURE, never a FAIL (RULES.md FACT RULE, ceo CEO-1098). Re-run this entry. %s\n' "$VKIND" "$VDET"; exit 2 ;;
+  *) printf 'ARM B RED: the witness graded %s against its ORACLE ref. %s\n' "$VKIND" "$VDET"; rc=1 ;;
+esac
 SCRIP_C2BB_TRACE="$TD/tr.tsv" timeout 300s "$ROOT/scrip" "$WIT" >/dev/null 2>&1
 FIRED="$(awk -F'\t' '$1=="chain.eval.v"{n++} END{print n+0}' "$TD/tr.tsv" 2>/dev/null)"
 if [ "${FIRED:-0}" -lt 1 ]; then printf 'GATE REFUSE(2): chain.eval.v never fired -- the witness did not reach the tagged shim, so arm B measured NOTHING (non-inert clause, CEO-1044)\n'; exit 2; fi
@@ -76,6 +92,9 @@ if [ "${COLL:-0}" -lt 1 ]; then printf 'GATE REFUSE(2): the witness collected ZE
 printf 'collections: %s -- the walker really ran over a stack carrying this shim frame\n' "$COLL"
 printf 'raw-spine column: NOT GRADED HERE, and the header says why -- it is bistable on an unchanged binary\n'
 printf -- '\npopulation: examined %s box-entry shim(s) over 2 source file(s), 1 witness, %s collection(s) (floor 1)\n' "$SHIMS" "$COLL"
-if [ "$rc" = 0 ]; then printf 'GATE PASS(0) [%s]\n' "$(basename "$0" .sh)"; else printf 'GATE FAIL(1) [%s]: %s of %s shim(s) still owed\n' "$(basename "$0" .sh)" "$TAGGED" "$SHIMS"; fi
+if [ "$rc" = 0 ]; then printf 'GATE PASS(0) [%s]\n' "$(basename "$0" .sh)"
+else printf 'GATE FAIL(1) [%s]: arm A %s (%s of %s shim(s) tagged, %s owed), arm B %s\n' "$(basename "$0" .sh)" \
+    "$([ "$TAGGED" = "$SHIMS" ] && echo green || echo RED)" "$TAGGED" "$SHIMS" "$((SHIMS - TAGGED))" \
+    "$([ "${VKIND:-}" = PASS ] && echo green || echo "RED (${VKIND:-unrun})")"; fi
 printf '    tree: SCRIP=%s  measured %s\n' "$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)" "$(date -u +%Y-%m-%dT%H:%MZ)"
 exit $rc
