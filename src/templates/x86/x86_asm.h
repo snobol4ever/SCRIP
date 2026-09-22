@@ -2232,6 +2232,25 @@ inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32,
          + x86("add", "rsp", (long)32);
 }
 inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
+inline std::string x86_rt_gc_poll_rec2(const char * preg0, const char * lenreg32_0, const char * preg1, const char * lenreg32_1) {
+    return  x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers across one poll, each written as a well-formed tagged DESCR cell -- the range walk relocates only what gc_cell_visit can TYPE, so a raw spilled pointer is reported and never rooted")
+         + x86("sub", "rsp", (long)32)
+         + x86_rsp_store32_imm(0,  (long)DT_S)
+         + x86_rsp_store32(4,  lenreg32_0)
+         + x86_rsp_store64(8,  preg0)
+         + x86_rsp_store32_imm(16, (long)DT_S)
+         + x86_rsp_store32(20, lenreg32_1)
+         + x86_rsp_store64(24, preg1)
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)2)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 32)
+         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rsp_load64(preg0, 8)
+         + x86_rsp_load64(preg1, 24)
+         + x86("add", "rsp", (long)32);
+}
+inline std::string x86_rt_gc_poll_rec_sigma_needle() { return x86_rt_gc_poll_rec2("r13", "r15d", "rax", "edx"); }
 inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return  x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
     return  x86("sub", "rsp", (long)48)

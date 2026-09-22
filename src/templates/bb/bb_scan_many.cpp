@@ -37,6 +37,7 @@ std::string bb_scan_many() {
              + x86("sub",     "rsp", (long)8)
              + x86("call",    "rt_scan_needle", (uint64_t)(uintptr_t)(void*)rt_scan_needle)
              + x86("add",     "rsp", (long)8)
+             + x86_rt_gc_poll_rec_sigma_needle()
              + x86("mov",     "r11", "rax")
              + x86("mov",     "eax", "r12d")
              + x86("movsxd",  "rcx", "eax")
