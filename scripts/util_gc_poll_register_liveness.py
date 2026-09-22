@@ -234,14 +234,30 @@ def writes_reg(mnem, ops, reg):
     return False
 
 
-ORDER = {"POINTER": 4, "PROPAGATED": 3, "SPILLED": 2, "NARROW": 1}
-BUCKETS = ("POINTER", "PROPAGATED", "SPILLED", "NARROW", "DEAD")
+ORDER = {"POINTER": 5, "BUDGET": 4, "PROPAGATED": 3, "SPILLED": 2, "NARROW": 1}
+BUCKETS = ("POINTER", "BUDGET", "PROPAGATED", "SPILLED", "NARROW", "DEAD")
+WALK_BUDGET = 10000
+DECIDED_FLOOR = 95
+"""⛔⭐ WALK_BUDGET IS MEASURED, NOT CHOSEN, AND THE FIRST VALUE I SHIPPED WAS A GUESS THAT DECIDED HALF THE
+POPULATION.  The first published version of this reader capped the CFG walk at 400 steps and reported a finding
+count as its headline.  Measured over 10 witnesses and four registers, 2152 (site, register) pairs:
+    budget    400 -> decided 1059/2152 = 49%, budget-exhausted 1073, POINTER 4, 2.1s
+    budget   2000 -> decided 2030/2152 = 94%, budget-exhausted   98, POINTER 4, 4.5s
+    budget  10000 -> decided 2128/2152 = 99%, budget-exhausted    0, POINTER 4, 4.8s
+    budget 200000 -> decided 2128/2152 = 99%, budget-exhausted    0, POINTER 4, 4.9s
+So 10000 is the PLATEAU: the first value at which no pair is undecidable for want of steps, and it costs 2.7
+seconds more than the guess.  ⛔ POINTER stayed 4 at every budget, which means the findings were ROBUST -- BUT
+THAT WAS LUCK AND NOT A PROPERTY, because a reader deciding 49% of its population cannot know whether the other
+51% holds findings.  A count over a half-decided population is a lower bound with an unnamed denominator, and
+the file's own docstring already forbade exactly that: a count that hides its undecidables is the defect this
+file exists against.  BUDGET is therefore its own bucket, never folded into PROPAGATED, and DECIDED_FLOOR makes
+the reader REFUSE rather than publish a count it cannot stand behind."""
 NONCOLLECTED = {"r12": "frame_layout.c head.dcap_mark declares it ZK_RAW pointing into the base-pinned dcap island, "
                        "never GC-moved, and pattern_match.c:685 reserves that island with rt_slab_region() at the "
                        "fixed VA RT_DCAP_TOP 0x70000000 -- a fixed-VA reserve is not the collected heap"}
 
 
-def verdict_at(prog, labels, start, reg, budget=400, hops=2):
+def verdict_at(prog, labels, start, reg, budget=WALK_BUDGET, hops=2):
     """forward CFG walk from start: the first classified READ on any path, or DEAD when every path writes first.
 
     A COPY is followed for `hops` more registers rather than answered, because `mov rbx, r13` then a dereference of
@@ -255,7 +271,7 @@ def verdict_at(prog, labels, start, reg, budget=400, hops=2):
         seen.add((i, r))
         steps += 1
         if steps > budget:
-            return "PROPAGATED", "walk budget %d exhausted -- not placed, never counted clean" % budget
+            return "BUDGET", "walk budget %d exhausted -- NOT PLACED for want of steps, which is a limit of THIS READER and not a fact about the program" % budget
         mnem, ops, raw = prog[i]
         use = classify_use(mnem, ops, r)
         if use is not None:
@@ -280,7 +296,7 @@ def verdict_at(prog, labels, start, reg, budget=400, hops=2):
     return best if best is not None else ("DEAD", "every path writes %s before reading it" % reg)
 
 
-def grade_asm(text, regs):
+def grade_asm(text, regs, budget=WALK_BUDGET, hops=2):
     prog, labels = parse_asm(text)
     sites = [i for i, (m, o, raw) in enumerate(prog) if POLL_RX.search(raw)]
     rows = []
@@ -288,7 +304,7 @@ def grade_asm(text, regs):
         after, defined = reload_block(prog, i + 1)
         per = {}
         for r in regs:
-            per[r] = verdict_at(prog, labels, after if r in defined else i + 1, r)
+            per[r] = verdict_at(prog, labels, after if r in defined else i + 1, r, budget=budget, hops=hops)
         rows.append((i, per))
     return prog, sites, rows
 
@@ -348,6 +364,13 @@ main_bx:                call             rt_gc_poll_asm@PLT
 """
 
 
+def R_verdict_budget1(text, reg):
+    prog, labels = parse_asm(text)
+    sites = [i for i, (m, o, raw) in enumerate(prog) if POLL_RX.search(raw)]
+    after, defined = reload_block(prog, sites[0] + 1)
+    return verdict_at(prog, labels, sites[0] + 1, reg, budget=1)[0]
+
+
 def selftest():
     fails = []
 
@@ -397,7 +420,17 @@ def selftest():
     ck(rows and rows[0][1]["r13"][0] == "SPILLED",
        "(j) a store of the register into memory reads SPILLED and is not claimed clean, because this reader cannot "
        "tell a mapped frame slot from a scratch cell (read %s)" % (rows[0][1]["r13"][0] if rows else "nothing"))
-    print("SELFTEST arms=10 fail=%d" % len(fails))
+    _p, s, rows = grade_asm(PLANT_JUMP, ["r13"])
+    v = R_verdict_budget1(PLANT_JUMP, "r13")
+    ck(v == "BUDGET",
+       "(k) FAIL-ONCE ON THE BUCKET THAT ALMOST HID ITSELF: at budget=1 the walk cannot reach the dereference and "
+       "must read BUDGET, not DEAD and not PROPAGATED. The first shipped reader folded budget exhaustion into "
+       "PROPAGATED, so a cap I chose was indistinguishable from a dataflow limit of the program (read %s)" % v)
+    ck(WALK_BUDGET == 10000 and DECIDED_FLOOR == 95,
+       "(l) the budget is the MEASURED plateau (10000, the first value with zero exhaustion over 2152 pairs) and "
+       "the decided floor is declared (95%%), both constants rather than inline guesses -- read %d and %d"
+       % (WALK_BUDGET, DECIDED_FLOOR))
+    print("SELFTEST arms=12 fail=%d" % len(fails))
     return 1 if fails else 0
 
 
@@ -408,6 +441,8 @@ def main(argv):
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--regs", default=",".join(DEFAULT_REGS))
     ap.add_argument("--by-site", action="store_true")
+    ap.add_argument("--budget", type=int, default=WALK_BUDGET)
+    ap.add_argument("--hops", type=int, default=2)
     ap.add_argument("--scrip", default="")
     a = ap.parse_args(argv)
     if a.selftest:
@@ -436,7 +471,7 @@ def main(argv):
     worst = []
     for src, asm in targets:
         text = open(asm, encoding="utf-8", errors="replace").read()
-        _prog, sites, rows = grade_asm(text, regs)
+        _prog, sites, rows = grade_asm(text, regs, budget=a.budget, hops=a.hops)
         sites_tot += len(sites)
         per_prog = collections.Counter()
         for idx, per in rows:
@@ -460,6 +495,18 @@ def main(argv):
                   "above it is short by the difference" % (r, sum(per), sites_tot))
     if short:
         print("REFUSE(2) the per-register buckets do not cover the printed denominator for %d register(s)" % short)
+        return 2
+    ndec = sum(tot[(r, b)] for r in regs for b in BUCKETS if b not in ("BUDGET", "PROPAGATED"))
+    nall = sites_tot * len(regs)
+    pct = (100.0 * ndec / nall) if nall else 0.0
+    print("   DECIDED %d of %d (site, register) pair(s) = %.0f%%  -- BUDGET %d, COPY %d.  ⛔ THIS IS THE FIRST "
+          "NUMBER BECAUSE A FINDING COUNT OVER A PARTLY-DECIDED POPULATION IS A LOWER BOUND WITH AN UNNAMED "
+          "DENOMINATOR" % (ndec, nall, pct,
+                           sum(tot[(r, "BUDGET")] for r in regs), sum(tot[(r, "PROPAGATED")] for r in regs)))
+    if pct < DECIDED_FLOOR:
+        print("REFUSE(2) decided %.0f%% is below the declared floor of %d%% -- this reader will not publish a "
+              "finding count it cannot stand behind. Raise --budget or widen the copy hops, then re-read."
+              % (pct, DECIDED_FLOOR))
         return 2
     npointer = sum(tot[(r, "POINTER")] for r in regs)
     ndecl = sum(tot[(r, "POINTER")] for r in regs if r in NONCOLLECTED)
