@@ -579,8 +579,9 @@ if [ -z "${AND_PASS:-}" ]; then
 else
     echo "JCON_AND_PER_PROGRAM and_pass=$AND_PASS of $total (m3 ${m3p:-n/a} · m4 ${m4p:-n/a} · union of reds $AND_RED:$AND_NAMES)"
     python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$total" \
+        ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
         --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$total (ceo CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
-        || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+        || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
 fi
 fi
 
