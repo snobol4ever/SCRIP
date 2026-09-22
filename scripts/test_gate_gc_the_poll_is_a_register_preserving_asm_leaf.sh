@@ -61,7 +61,14 @@ MISS=""
 for r in rax rcx rdx rsi rdi r8 r9 r10 r11; do printf '%s\n' "$SP" | grep -qx "%$r" || MISS="$MISS $r"; done
 [ -z "$MISS" ]; ck $? "the slow path saves the WHOLE caller-saved set across the collector call, so a bare poll is transparent to emitted code${MISS:+ -- MISSING:$MISS}"
 printf '%s\n' "$SBODY" | grep -q 'fs:0x28'; ck $((1-$?)) "the slow path carries no %fs:0x28 canary either"
-printf '%s\n' "$SBODY" | grep -qE 'leaq +72\(%rsp\), *%rcx'; ck $? "the slow path hands the collector the ENTRY rsp as its walk floor (leaq 72(%rsp)), so the caller's spilled cells stay INSIDE the swept range and the leaf's own 9-register save area stays OUTSIDE it"
+SPILL=$(printf '%s\n' "$SBODY" | grep -oE 'subq +\$[0-9]+, *%rsp' | grep -oE '[0-9]+' | head -1); SPILL="${SPILL:-0}"
+NPUSH=$(printf '%s\n' "$SBODY" | grep -c 'pushq'); FLOOR=$(printf '%s\n' "$SBODY" | grep -oE 'leaq +[0-9]+\(%rsp\), *%rcx' | grep -oE '[0-9]+' | head -1); FLOOR="${FLOOR:-0}"
+[ "$FLOOR" = "$(( NPUSH * 8 + SPILL ))" ]
+ck $? "the slow path hands the collector the ENTRY rsp as its walk floor -- COMPUTED, not a literal: leaq $FLOOR(%rsp) == 8 x $NPUSH pushes + $SPILL bytes of own spill, so the caller's spilled cells stay INSIDE the swept range and everything this leaf saved for itself stays OUTSIDE it. ⛔ THE LITERAL 72 WAS THE WRONG KEY and it red on a correct landing: the cfo's subject probe added a 16-byte slot below the floor, the floor moved to 88 and the property never changed"
+printf '%s\n' "$SBODY" | grep -qE 'movq +%r13, *\(%rsp\)'; ck $? "THE SUBJECT REGISTER IS HANDED TO THE COLLECTOR, NOT MERELY PRESERVED (cfo 2026-09-22): the slow path spills r13 into its own slot below the floor"
+printf '%s\n' "$SBODY" | grep -qE 'movq +%rsp, *%rdx'; ck $? "and passes that slot's ADDRESS as r0, the saved-subject word (CEO-972's road, the one rt_gc_point_arr in rt_asm_helpers.S has always used)"
+printf '%s\n' "$SBODY" | grep -qE 'movl +\$1, *%r8d'; ck $? "with is_probe=1, so gc_point_arr_body visits the word ONLY if it aliases the subject or scan_subj and IGNORES it silently otherwise -- an exact alias test, never a guess, which is why this is safe at all 105 bare-poll sites where spraying x86_rt_gc_poll_rec_sigma would have tagged a frame display register as DT_S"
+printf '%s\n' "$SBODY" | grep -qE 'movq +\(%rsp\), *%r13'; ck $? "AND IT RELOADS r13 FROM THE SLOT after the call rather than popping a saved copy -- the difference between a relocation picked up and a pre-move address restored (ARCH-GC 6.2j's standing rule: a register the collector rewrites is fixed in place or reloaded from its authority, never restored raw)"
 printf '%s\n' "$SBODY" | grep -qE 'call +gc_point_arr_body'; ck $? "the slow path calls the collector body DIRECTLY, not through rt_gc_point_arr_c's -O0 argument spill-and-reload shim"
 if [ -r "$SO" ] && command -v objdump >/dev/null 2>&1; then
   SN=$(objdump -d "$SO" --disassemble=rt_gc_poll_slow 2>/dev/null | grep -cE '^[[:space:]]+[0-9a-f]+:')

@@ -80,13 +80,14 @@ if [ "$nstale" != 0 ]; then
   echo "  ⛔ $nstale DECLARED pair(s) now PASS -- the floor outlived its defect and would silence the next regression:"
   for x in $stale; do echo "    $x"; done
   echo "SWEEP RED(1): move the cured line(s) out of the floor in the landing that cured them"
-  exit 1
+  RED=1
 fi
 if [ "$nnew" != 0 ]; then
   echo "  ⛔ $nnew NEW non-green pair(s). A count without names cannot be triaged:"
   n=0; for x in $newbad; do n=$((n+1)); [ "$LIST_ALL" = 0 ] && [ "$n" -gt 40 ] && { echo "    ... $((nnew-40)) more, re-run with --list-all"; break; }; echo "    $x"; done
   echo "SWEEP RED(1): the witness set does not survive forced relocation at this tree"
-  exit 1
+  RED=1
 fi
+[ "${RED:-0}" = 0 ] || exit 1
 echo "SWEEP GREEN(0): every graded pair survives forced relocation except $ndec DECLARED ($graded pairs)"
 exit 0
