@@ -637,7 +637,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # so the admission is written down beside the refusals rather than left to the shape of the case.
            cto)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO-STUPID|QUARTET) : ;; esac;;
+                      DUO|DUO-STUPID|QUARTET) : ;; esac;;
            # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
            # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
            # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
@@ -837,13 +837,36 @@ s4e_lane_owner_of_language() {
       # the icon builtin root class, and keeps REBUS as keep-green. The ceo keeps SNOBOL4 and SNOCONE, where its half of
       # the C->BB population lives. Written out per language rather than collapsed to a default for the reason every
       # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
+      # ⛔ MODE DUO (CEO-1108, 2026-09-22, Lon in-chat to the ceo, verbatim: "Go to DUO mode. CEO and CTO as Opus 5
+      # effort max."): TWO WORKING SEATS, the ceo and the cto; the cfo and the coo stay stood down and no HQ stands.
+      # ⛔ THE SPLIT IS BY LAYER, NOT BY SITE COUNT, and the language cells follow the layer rather than driving it
+      # (the ceo's recommendation Lon acted on): the cto takes THE ENFORCEMENT HALF -- the per-safe-point slot-kind
+      # table, the planner giving every call result live across a poll a mapped slot, and the emitter REFUSING a safe
+      # point that stores outside the map (their four already-claimed rows, of which
+      # gc-frame-maps-are-keyed-by-graph-not-by-safe-point-44-polls-2-maps is the keystone) -- while the ceo takes THE
+      # SITE CONVERSIONS behind that refusal. ⛔ THE REASON THE ENFORCEMENT COMES FIRST IS MEASURED, NOT ARGUED
+      # (CEO-1107): with maps keyed by GRAPH and not by SAFE POINT, "what is live at this poll" is not a question the
+      # compiler can answer, so every one of the 120 open sites is a hand liveness judgment audited after the fact by
+      # a five-minute master run -- 77 insertions by callee return class broke three languages in m3, and the 26 that
+      # survived all eight smokes still cost 57 Icon programs against a clean-tree control arm.
+      # ⛔ THE LANGUAGE CELLS ARE THE DUO-STUPID SPLIT OF CEO-1087 UNCHANGED, deliberately: the work is layer-split, so
+      # re-cutting the language cells would be churn that costs both seats their bearings for no measured reason. The
+      # ceo keeps ICON because it is the sharpest detector in the tree (826/826 clean, and it is what caught the 57)
+      # and the conversions are the ceo's half; SNOBOL4 and SNOCONE stay with the ceo where its half of the C->BB
+      # population lives; REBUS stays the ceo's keep-green with the cfo stood down. The cto holds PROLOG, RAKU and
+      # PASCAL. ⛔ A SHARED-NODE LANDING STILL TRAVELS WITH ITS CONTROL ARM whoever lands it (CEO-801/757): the lane
+      # names the default picker and the reviewer-after-the-fact, never who may land.
+      # ⛔ AND THE TWO SEATS DO NOT RUN MASTERS AT THE SAME TIME ON THIS BOX: a board taken while the other seat is
+      # building or grading is void (the cfo's flakiness finding plus CEO-1107's own rebuild-under-a-board), which is
+      # the second reason the layer split is the right one -- the cto's half is compile-and-gate work and needs almost
+      # no master passes, and the ceo's half is what needs them.
        icon)     printf 'ceo';;
-       prolog)   printf 'ceo';;
+       prolog)   printf 'cto';;
        snobol4)  printf 'ceo';;
-       pascal)   printf 'ceo';;
+       pascal)   printf 'cto';;
        snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'ceo';;
+       raku)     printf 'cto';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
