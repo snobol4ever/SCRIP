@@ -519,6 +519,34 @@ def _window_after(lines, line_no, poll_window):
     return w[:stop]
 
 
+IF_COND_RX = re.compile(r'\bIF\(\s*(.+?)\s*,\s*x86')
+REL_RX = re.compile(r'^(.*?)\s*(==|!=)\s*(.+?)\s*$')
+
+
+def _if_guard(line):
+    """(lhs, op, rhs) of an IF(<cond>, x86(...)) compile-time guard on this line, or None.  Deliberately narrow: a
+    condition this cannot parse yields None, which leaves the line counted as an intervening call -- the direction
+    that NOMINATES a site for a human to read, never the one that silently clears it."""
+    m = IF_COND_RX.search(line)
+    if not m:
+        return None
+    r = REL_RX.match(m.group(1))
+    return (r.group(1).strip(), r.group(2), r.group(3).strip()) if r else None
+
+
+def _mutually_exclusive(a, b):
+    """⛔ TWO COMPILE-TIME GUARDS THE READER CAN PROVE DISJOINT, AND NOTHING WIDER.  Same left-hand expression, and
+    either == against two DIFFERENT constants or ==/!= against the SAME one.  Found by reading the sixteen names the
+    first arm printed: bb_unop.cpp 25/26 sit in a four-way IF((int)_.op_ival == TT_MNS/TT_PLS/TT_SIZE/TT_CSET_COMPL)
+    chain and :112/113 in a complementary == / != TT_MNS pair, so exactly ONE call of each group is ever emitted and
+    the poll below is that one call's safe point.  Anything this cannot prove disjoint stays an intervening call."""
+    if not a or not b or a[0] != b[0]:
+        return False
+    if a[1] == "==" and b[1] == "==":
+        return a[2] != b[2]
+    return a[2] == b[2]
+
+
 def _poll_is_guarded(window_lines, poll_rx):
     """A poll inside a multi-path unit reaches EVERY path only when nothing selects it.  This tree spells a
     conditional emission `IF(cond, ...)`, so a poll under an IF( -- or under a plain C `if (` -- reaches SOME paths.
@@ -544,6 +572,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     if not sites:
         out("CENSUS safe-points REFUSED(2): no x86(\"call\", ...) sites found in the emitter files -- wrong tree?"); return 2
     poll_rx = re.compile(r"g_gc_pending|rt_gc_poll" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
+    base_call_stop = os.environ.get("SCRIP_GC_CENSUS_BASE_CALL_STOP") == "1"
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
     partial = []; multi = []
@@ -577,6 +606,30 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         stop = len(window_lines)
         for k, wl in enumerate(window_lines):
             if wl.startswith("}") or wl.startswith("/*---"):
+                stop = k
+                break
+            # ⛔ THE SAME DEFECT ONE LEVEL DOWN, AND IT IS MEASURED HERE RATHER THAN ASSUMED.  The expansion-site
+            # window (_window_after) has stopped at the first intervening emitted call since 2026-09-22, because a
+            # poll that follows a LATER call is that call's safe point and not this one's -- the ceo RULED that
+            # reading correct (CEO-1116, 2026-09-22, on the coo's ask).  The BASE window did not carry the stop, so
+            # this knob exists to COUNT what adding it would reclassify before anyone moves the published headline.
+            # Default OFF: with the variable unset this census is byte-for-byte what it was, which is the whole point
+            # of measuring a criterion change instead of landing one.
+            # ⛔ AND THE STOP EXEMPTS A LINE THAT CARRIES A POLL, WHICH _window_after DOES NOT: the poll helpers in
+            # src/templates/x86/x86_asm.h are THEMSELVES spelled x86("call", "rt_gc_poll_asm", ...), so a stop that
+            # broke on any CALL_RX line would exclude the very poll it was looking at and mint a FALSE UNPOLLED --
+            # an error in the direction that INFLATES this delta, i.e. that flatters the row measuring it.
+            # ⛔ AND THE SECOND EXEMPTION WAS PAID FOR THE SAME WAY, BY READING THE SIXTEEN NAMES THE FIRST ARM
+            # PRINTED: a line beginning ":" or "?" is a TERNARY ARM, an ALTERNATIVE to the call above it and not a
+            # successor to it, so exactly one of the two is ever emitted and a poll below is the safe point for
+            # whichever one that is.  Without this exemption the arm called bb_field_get.cpp:21 unpolled because
+            # line 22 is `: x86("call", "icn_field_get", ...)`, the else arm of its own ternary, and bb_iterate.cpp
+            # 27/28/29 unpolled off a four-way `key ? ... : lvv ? ... : lv ? ... : ...` chain in which every line is
+            # an alternative.  Six of sixteen were this artifact -- the SAME confusion of exclusive arms with
+            # sequence that COO-142 recorded in the expansion-path reader, committed again one level down.
+            if base_call_stop and CALL_RX.search(wl) and not poll_rx.search(wl) \
+                    and not wl.lstrip().startswith((":", "?")) \
+                    and not _mutually_exclusive(_if_guard(lines[i - 1]), _if_guard(wl)):
                 stop = k
                 break
         window = "\n".join(window_lines[:stop])
@@ -1176,6 +1229,27 @@ def worst(rcs):
 ARMS_FLOOR = 39
 
 
+def _sp_fields(buf):
+    """The CENSUS safe-points headline parsed FIELD BY NAME, stopping at the " want " clause -- which repeats
+    unpolled=, partially_polled= and unresolved= as TARGETS and would otherwise overwrite the measured values.
+    ⛔ WHY THIS EXISTS, AND IT IS THE coo's OWN DEFECT, FOUND 2026-09-22 WHILE MEASURING SOMETHING ELSE: these arms
+    asserted on a CONTIGUOUS substring of the headline ("allocating_call_sites=1 polled=1 unpolled=0 unresolved=0"),
+    so when COO-142 inserted the partially_polled and multi_path_sites columns BETWEEN those fields on 2026-09-22,
+    FIVE ARMS WENT RED IN ONE LANDING AND NOTHING CAUGHT IT -- the row's own gate matches differently and --selftest
+    is wired into no blocking set, so no seat meets it in the ordinary course.  A field read by name cannot be broken
+    by a later column, and it cannot be satisfied by a PREFIX of a longer number the way the substring
+    "allocating_call_sites=1" is satisfied by allocating_call_sites=12."""
+    for l in buf:
+        if l.startswith("CENSUS safe-points emitter_call_sites="):
+            return {k: int(v) for k, v in re.findall(r'(\w+)=(\d+)', l.split(" want ")[0])}
+    return {}
+
+
+def _sp_has(buf, **want):
+    f = _sp_fields(buf)
+    return bool(f) and all(f.get(k) == v for k, v in want.items())
+
+
 def selftest():
     """planted violations trip, clean fixtures pass -- the proof each census is an instrument and not a grep that agrees"""
     fails = 0
@@ -1245,9 +1319,9 @@ def selftest():
     open(tpl_bad, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n + x86("mov", "rax", "rbx"); }\nstd::string c(){ return x86("call", (flag ? name_a : name_b), fp); }\n')
     alloc = {"rt_concat", "rt_gcheap_alloc"}
     buf.clear(); rc = census_safe_points("", [tpl_ok], out=buf.append, allocating=alloc)
-    ck(rc == 0 and "allocating_call_sites=1 polled=1 unpolled=0 unresolved=0" in "\n".join(buf), "safe-points: an allocating call followed by a g_gc_pending poll reads polled, a non-allocating call is not counted")
+    ck(rc == 0 and _sp_has(buf, allocating_call_sites=1, polled=1, unpolled=0, unresolved=0), "safe-points: an allocating call followed by a g_gc_pending poll reads polled, a non-allocating call is not counted")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc)
-    ck(rc == 1 and "unpolled=1 unresolved=1" in "\n".join(buf) and any("UNPOLLED" in l and "rt_concat" in l for l in buf) and any("UNRESOLVED" in l for l in buf),
+    ck(rc == 1 and _sp_has(buf, unpolled=1, unresolved=1) and any("UNPOLLED" in l and "rt_concat" in l for l in buf) and any("UNRESOLVED" in l for l in buf),
        "safe-points: a planted unpolled allocating call and a computed call target are each named and RED")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc, poll_helper="gc_poll_here")
     ck(rc == 1, "safe-points: naming a poll helper does not excuse a call that has neither")
@@ -1255,7 +1329,7 @@ def selftest():
     open(tpl_gk, "w", encoding="utf-8").write('std::string a(){ return x86("call", "rt_epilogue_\u03b3", fp); }\n'
                                               'std::string b(){ return x86("call", flag ? "rt_epilogue_\u03c9" : "rt_pure_cmp", fp); }\n')
     buf.clear(); rc = census_safe_points("", [tpl_gk], out=buf.append, allocating={"rt_epilogue_\u03b3", "rt_epilogue_\u03c9"})
-    ck(rc == 1 and "allocating_call_sites=2 polled=0 unpolled=2 unresolved=0" in "\n".join(buf)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=0, unpolled=2, unresolved=0)
        and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
        "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
     ck(blob_class_visible({"main", "fn", "PAT$0"}) and not blob_class_visible({"main", "fn", "pattern_helper"}),
@@ -1276,7 +1350,7 @@ def selftest():
         'std::string e(){ return x86("call", (flag ? name_a : name_b), fp); }\n')
     buf.clear(); rc = census_safe_points("", [tpl_rs], out=buf.append, allocating=alloc)
     txt = "\n".join(buf)
-    ck(rc == 1 and "allocating_call_sites=4 polled=0 unpolled=4 unresolved=1" in txt
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=4, polled=0, unpolled=4, unresolved=1)
        and "via array tbl[]" in txt and "via macro pick_sym()" in txt and "via chooser chose()" in txt
        and "via resolver dop_direct_fp()" in txt,
        "safe-points: the four decidable computed-target shapes (array, macro, chooser, resolver out-parameter) each resolve and NAME their rule")
@@ -1289,14 +1363,14 @@ def selftest():
         'std::string a(){ return x86("call", pick_sym(), fp); }\n')
     buf.clear(); rc = census_safe_points("", [tpl_tr], out=buf.append, allocating=alloc)
     txt = "\n".join(buf)
-    ck(rc == 1 and "via macro pick_sym(): 2 candidate(s), none allocating" in txt and "allocating_call_sites=1" in txt,
+    ck(rc == 1 and "via macro pick_sym(): 2 candidate(s), none allocating" in txt and _sp_has(buf, allocating_call_sites=1),
        "safe-points: a macro chooser reads ITS OWN replacement text -- not the literals of the next routine in the file (the mis-resolution of 2026-09-17, which hid two allocating rt_cap_open_plain sites)")
     tpl_xf = os.path.join(w, "crossfn.cpp")
     open(tpl_xf, "w").write('std::string a(){ return x86("call", "rt_concat", fp);\n'
                             '}\n'
                             'std::string b(){ return x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending"); }\n')
     buf.clear(); rc = census_safe_points("", [tpl_xf], out=buf.append, allocating=alloc)
-    ck(rc == 1 and "allocating_call_sites=1 polled=0 unpolled=1" in "\n".join(buf),
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, polled=0, unpolled=1),
        "safe-points: a g_gc_pending poll in the NEXT routine, inside the line window, does NOT make this site polled (the false green of 2026-09-17)")
     # coverage on captured text
     buf.clear(); rc = census_coverage("", "", out=buf.append, cov_text="[GC-COV] ranges=3 words_scanned=0 interior_words=0 pz=1\n[GC-COV] ranges=3 words_scanned=0 interior_words=0 pz=1\n")
@@ -1485,18 +1559,39 @@ def main(argv):
     rc = worst(rcs)
     print(f"population: {len(want)} census(es): {rcs.count(0)} green, {rcs.count(1)} red, {rcs.count(2)} not measured -- rc={rc}")
     if a.write_baseline:
+        # ⛔ THIS WRITER USED TO DESTROY THE RECORD IT EXISTS TO KEEP, AND THE PROCEDURE THAT DESTROYS IT IS THE ONE
+        # THE GATE PRINTS.  Measured by the coo 2026-09-22 before running it: the file carries FOURTEEN comment lines
+        # that CRITERION_CHANGES does not -- every "CRITERION UNCHANGED, COUNT EARNED" note the ceo, cto and cfo wrote
+        # by hand across 2026-09-18/19 recording WHOSE landing earned each fall, plus three CRITERION CHANGED entries
+        # added to the file and never to the list.  A truncating rewrite drops all fourteen, so any seat following
+        # arm (c)'s own instruction ("lower the baseline in the landing that earned it") silently deletes other
+        # seats' provenance.  The counts are regenerated; every prior comment line is CARRIED FORWARD.
+        header = ["# gc_census_baseline.tsv -- the counts THE COLLECTOR GUESSES NOTHING drives to 0 (coo, CEO-818/819 section 7).",
+                  "# Written by `util_gc_census.py all --write-baseline`; every landing that lowers a count rewrites this file",
+                  "# in the same sitting -- test_gate_gc_instrument_censuses_are_wired_and_trip.sh reds on an increase AND on an",
+                  "# unrecorded fall.  census\tkey\tcount\twant"]
+        prior = []
+        try:
+            with open(a.write_baseline, encoding="utf-8") as fh:
+                prior = [l.rstrip("\n") for l in fh if l.startswith("#")]
+        except OSError:
+            pass
         with open(a.write_baseline, "w", encoding="utf-8") as fh:
-            fh.write("# gc_census_baseline.tsv -- the counts THE COLLECTOR GUESSES NOTHING drives to 0 (coo, CEO-818/819 section 7).\n")
-            fh.write("# Written by `util_gc_census.py all --write-baseline`; every landing that lowers a count rewrites this file\n")
-            fh.write("# in the same sitting -- test_gate_gc_instrument_censuses_are_wired_and_trip.sh reds on an increase AND on an\n")
-            fh.write("# unrecorded fall.  census\tkey\tcount\twant\n")
+            emitted = set(header)
+            for h in header:
+                fh.write(h + "\n")
             for line in CRITERION_CHANGES:
-                fh.write(f"# CRITERION CHANGED {line}\n")
+                l = f"# CRITERION CHANGED {line}"
+                fh.write(l + "\n"); emitted.add(l)
+            carried = 0
+            for l in prior:
+                if l not in emitted:
+                    fh.write(l + "\n"); emitted.add(l); carried += 1
             for census, key, _pop in RATCHET_KEYS:
                 v = COUNTS.get(census, {}).get(key)
                 if v is not None:
                     fh.write(f"{census}\t{key}\t{v}\t0\n")
-        print(f"baseline written: {a.write_baseline}")
+        print(f"baseline written: {a.write_baseline} ({carried} prior comment line(s) carried forward, none dropped)")
     if a.ratchet:
         rrc = ratchet(a.ratchet)
         rc = 2 if 2 in (rc, rrc) else (1 if rrc else rc)
