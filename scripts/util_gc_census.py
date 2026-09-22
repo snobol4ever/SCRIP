@@ -179,6 +179,22 @@ CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
 # started counting something it could not see before, so a reader never reads the step as a regression or a win
 # (SUITES.tsv's criterion_changed column, the same rule).  The baseline writer prints them into the file it writes.
 CRITERION_CHANGES = [
+    "2026-09-22 coo, SCRIP this landing (CEO-1109, the cto's finding): safe-points. ONE SOURCE CALL LINE IS NOT ONE "
+    "EMITTED PATH. The predicate reads SOURCE PROXIMITY while POLLED is a claim about EMITTED CONTROL FLOW, and the "
+    "emitter concatenates strings, so a call written once inside a file-local helper or a #define is spliced into "
+    "every path that expands that unit. TWO NEW COLUMNS, multi_path_sites and partially_polled, and partially_polled "
+    "is NOT counted in polled. ⛔ THE HEADLINE DOES NOT MOVE ON THIS TREE -- 152 of 253 before and after, "
+    "partially_polled=0 -- so this is the instrument gaining a verdict it did not have, not a landing and not a "
+    "regression. WHAT MOVES IS WHAT IT CAN SEE: 58 of the 253 sites are multi-path and were previously graded by a "
+    "window that cannot distinguish one path from four. MEASURED PROOF THAT THE EXPOSURE WAS REAL, not argued: a poll "
+    "planted under IF(g_gva_active) in bb_assign_global's comm_var tap reaches TWO of its FOUR expansions, and the old "
+    "criterion read it polled=153 unpolled=100 and dropped the site from the worklist; the new one reads it PARTIAL "
+    "and leaves polled at 152. ⛔ THE PATH COUNT IS AN UPPER BOUND AND SAYS SO: emit.cpp's icn_trace_tap expands at "
+    "six sites but its call lines sit in mutually exclusive caller-selected arms, so the kind==2 call at :2914 is "
+    "reached by one of the six. ⛔ AND ONE STOP RULE IS LOAD-BEARING, caught by reading the output rather than by "
+    "writing the rule: an expansion-site window stops at the first intervening emitted call, because without it the "
+    "reader credited NV_SET_fn's x86_rt_gc_poll_rec_res() to the comm_var tap spliced in above it and reported 2 of 4 "
+    "paths polling on a tap the cto had deliberately left unpolled.",
     "2026-09-17 coo, SCRIP e625d1b35 -> this tree: safe-points. (i) A CALL TARGET IS SPELLED AS THE ASSEMBLER SEES IT: "
     "the ASCII-only symbol rule read the 32 emitter literals naming a Greek Byrd port (rt_proc_call_epilogue_GAMMA and "
     "kin) as no literal at all, so unresolved fell 39 -> 7 and two ALLOCATING targets entered the denominator "
@@ -382,6 +398,143 @@ def emitter_call_sites(files):
     return sites
 
 
+# ⛔ ONE SOURCE CALL LINE IS NOT ONE EMITTED PATH, AND UNTIL 2026-09-22 THIS CENSUS ASSUMED IT WAS.  The emitter
+# builds its output by string concatenation, so a call site written ONCE inside a file-local helper or a #define is
+# SPLICED INTO EVERY PATH THAT EXPANDS THAT UNIT.  The poll predicate below reads SOURCE PROXIMITY -- poll text within
+# --poll-window lines after the call -- which is a question about the source file, while POLLED is a claim about
+# emitted control flow.  Where a unit expands more than once the two come apart, and they come apart in the WORST
+# DIRECTION: one poll in the shared body reads the site fully POLLED however many of its paths actually carry it.
+# FOUND BY THE cto, NOT BY READING THIS CODE (CEO-1109, relayed by the ceo 2026-09-22): bb_assign_global's comm_var
+# tap is ONE x86("call", ...) line spliced into FOUR paths, and at one of them the fresh string is live only in
+# rax:rdx and rooted nowhere -- so polling the rooted paths alone would have read the site POLLED with a quarter of
+# it still uncollectable.  THEY DECLINED AND LEFT IT UNPOLLED, which is why this is a criterion change and not a
+# retraction of somebody's landing.
+#
+# WHAT THIS READER DOES AND, MORE IMPORTANTLY, WHAT IT DOES NOT.  It finds the FUNCTION or MACRO body that textually
+# contains each call site and counts that unit's EXPANSION SITES across the emitter files.  That count is an UPPER
+# BOUND on the paths reaching the site, never an exact figure, and the bound is named in the output rather than
+# rounded away.  Measured reason, 2026-09-22 by the coo, on emit.cpp's icn_trace_tap: the helper is expanded at six
+# sites, but its four call lines sit in MUTUALLY EXCLUSIVE arms selected by the caller's `kind` argument, so the
+# kind==2 call at :2914 is reached by exactly ONE of the six.  A reader that followed argument-selected arms would
+# say 1; this one says 6 and SAYS THAT IT IS AN UPPER BOUND.
+# ⛔ AND THE FIRST VERSION OF THIS READER WAS WRONG IN A WAY WORTH RECORDING, because it is the same error the row
+# exists to cure: it took "nearest preceding function definition" as the enclosing unit, which put
+# bb_binop_arith.cpp:137 inside rtop_addr_s() -- a function whose name merely appears in the call's ARGUMENT list --
+# and reported 32 multi-path sites off that reading.  The site is really inside the inl_tail() MACRO.  Brace depth is
+# tracked from column 0 and #define continuations own their lines, so a macro body is a unit and an argument is not.
+DEFN_RX = re.compile(r'^[A-Za-z_][\w:<>,\s\*&]*?\b([A-Za-z_]\w*)\s*\(')
+PROTO_RX = re.compile(r'^\s*(?:extern\s+|static\s+|inline\s+)*[A-Za-z_][\w:<>,\s\*&]*?\b(\w+)\s*\([^;{]*\)\s*(?:const\s*)?;\s*$')
+
+
+def emission_units(text):
+    """(kind, name, first_line, last_line) for every function body and every #define body in one emitter file.
+    Brace depth is counted from the start of the file so a nested block never opens a unit, and a #define owns its
+    backslash continuations.  1-based, inclusive."""
+    lines = text.split("\n")
+    units = []
+    depth = 0
+    pending = None          # (name, header_line) seen at depth 0, waiting for its opening brace
+    open_at = None
+    i = 0
+    while i < len(lines):
+        ln = i + 1
+        raw = lines[i]
+        if depth == 0 and raw.lstrip().startswith("#define"):
+            m = re.match(r'\s*#define\s+(\w+)', raw)
+            j = i
+            while j < len(lines) and lines[j].rstrip().endswith("\\"):
+                j += 1
+            if m and j > i:                      # a one-line #define expands to no path of its own
+                units.append(("macro", m.group(1), ln, j + 1))
+            i = j + 1
+            continue
+        if depth == 0 and not raw.lstrip().startswith(("#", "//", "/*", "*")):
+            m = DEFN_RX.match(raw)
+            if m and not PROTO_RX.match(raw):
+                pending = (m.group(1), ln)
+        before = depth
+        for ch in raw:
+            if ch == "{":
+                if depth == 0 and pending:
+                    open_at = pending
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0 and open_at:
+                    units.append(("func", open_at[0], open_at[1], ln))
+                    open_at = None
+                    pending = None
+        if depth == before == 0 and raw.strip().endswith(";"):
+            pending = None
+        i += 1
+    return units
+
+
+def unit_of(units, line):
+    """The INNERMOST unit containing `line` -- the narrowest span wins, so a call inside a macro inside a file
+    reads the macro."""
+    best = None
+    for u in units:
+        if u[2] <= line <= u[3]:
+            if best is None or (u[3] - u[2]) < (best[3] - best[2]):
+                best = u
+    return best
+
+
+def expansion_lines(unit, own_file, texts):
+    """Line numbers, per file, that EXPAND this unit -- every reference to its name outside its own body and outside
+    a bare prototype.  A unit expanded 0 or 1 times emits one path; the emitter's own dispatch of a top-level
+    template counts as that one."""
+    kind, name, lo, hi = unit
+    rx = re.compile(r'\b' + re.escape(name) + r'\s*\(' if kind == "func" else r'\b' + re.escape(name) + r'\b')
+    hits = []
+    for f, t in texts.items():
+        fl = t.split("\n")
+        for m in rx.finditer(t):
+            ln = t.count("\n", 0, m.start()) + 1
+            if f == own_file and lo <= ln <= hi:
+                continue                                  # its own body, including recursion
+            src = fl[ln - 1]
+            if PROTO_RX.match(src) or src.lstrip().startswith(("#define", "extern ")):
+                continue
+            hits.append((f, ln))
+    return sorted(set(hits))
+
+
+def _window_after(lines, line_no, poll_window):
+    """The window after an EXPANSION site, stopped at the first column-0 closing brace or /*--- separator (the coo's
+    2026-09-17 rule: a poll belongs to the call's own routine) AND at the first intervening emitted call.
+    ⛔ THE SECOND STOP IS NOT DECORATION AND IT WAS CAUGHT BY READING THE OUTPUT, NOT BY WRITING THE RULE.  Without
+    it this reader said bb_assign_global.cpp:37 had 2 of 4 expansion sites polling -- and both of those polls were
+    x86_rt_gc_poll_rec_res() sitting after a LATER x86("call", "NV_SET_fn", ...) on the same path.  A poll belongs to
+    the call it follows, so crediting NV_SET_fn's safe point to the comm_var tap spliced in above it is the very
+    source-proximity error this row exists to cure, committed one level up.  The cto's own account -- that they left
+    the tap UNPOLLED -- is what the census now reads."""
+    w = lines[line_no:line_no + poll_window]
+    stop = len(w)
+    for k, wl in enumerate(w):
+        if wl.startswith("}") or wl.startswith("/*---") or CALL_RX.search(wl):
+            stop = k
+            break
+    return w[:stop]
+
+
+def _poll_is_guarded(window_lines, poll_rx):
+    """A poll inside a multi-path unit reaches EVERY path only when nothing selects it.  This tree spells a
+    conditional emission `IF(cond, ...)`, so a poll under an IF( -- or under a plain C `if (` -- reaches SOME paths.
+    ⛔ THE ERROR IS DELIBERATELY ONE-DIRECTIONAL: an unrecognised guard would report a partial cure as whole, which is
+    the defect this row cures, so anything conditional-looking between the call and the poll reads PARTIAL."""
+    seen = False
+    for wl in window_lines:
+        m = poll_rx.search(wl)
+        if m:
+            head = wl[:m.start()]
+            return seen or "IF(" in head or bool(re.search(r'\bif\s*\(', head))
+        if "IF(" in wl or re.search(r'\bif\s*\(', wl):
+            seen = True
+    return False
+
+
 def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=print, allocating=None):
     if allocating is None:
         allocating = allocating_entries_from_binary(so, out)
@@ -393,6 +546,14 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     poll_rx = re.compile(r"g_gc_pending|rt_gc_poll" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
+    partial = []; multi = []
+    texts = {}
+    for f in set(x[0] for x in sites):
+        try:
+            texts[f] = open(f, encoding="utf-8", errors="replace").read()
+        except OSError:
+            pass
+    units_by_file = {f: emission_units(t) for f, t in texts.items()}
     for f, i, syms, lines, rule in sites:
         total += 1
         if not syms:
@@ -419,23 +580,74 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                 stop = k
                 break
         window = "\n".join(window_lines[:stop])
-        if poll_rx.search(window):
+        hit = poll_rx.search(window)
+        # ⛔ HOW MANY PATHS DOES THIS ONE SOURCE LINE EMIT?  A site inside a unit that expands more than once is
+        # spliced into every one of those paths, and a poll in the shared body is not evidence that all of them
+        # carry it.  See the block above emission_units for what this bound does and does not claim.
+        unit = unit_of(units_by_file.get(f, []), i)
+        paths = expansion_lines(unit, f, texts) if unit else []
+        npaths = max(1, len(paths))
+        name = f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}" \
+               + (f" [{rule}, {len(syms)} candidate(s)]" if rule else "")
+        if npaths > 1:
+            multi.append(f"{name} in {unit[0]} {unit[1]}() <= {npaths} emitted path(s) at "
+                         + ", ".join(f"{os.path.relpath(pf, ROOT)}:{pl}" for pf, pl in paths[:6])
+                         + (f" ... +{npaths - 6} more" if npaths > 6 else ""))
+        if not hit and npaths == 1:
+            unpolled.append(name)
+        elif hit and npaths == 1:
             polled += 1
+        elif not hit:
+            # THE OTHER HALF OF THE SAME DEFECT, AND THE ONE A FIXER MEETS FIRST.  The natural cure for the cto's
+            # case is to poll the SAFE expansion paths and leave the unrooted one alone -- and then the shared body
+            # carries no poll at all, so the old predicate read the site plain UNPOLLED and the partial cure was
+            # invisible in the other direction.  Read the expansion sites' own windows: none polled is unpolled, all
+            # polled is whole, some polled is PARTIAL and is named with its ratio.
+            n_polled = sum(1 for pf, pl in paths
+                           if poll_rx.search("\n".join(_window_after(texts[pf].split("\n"), pl, poll_window))))
+            if n_polled == 0:
+                unpolled.append(name)
+            elif n_polled == len(paths):
+                polled += 1
+            else:
+                partial.append(f"{name} in {unit[0]} {unit[1]}(): {n_polled} of {len(paths)} expansion site(s) poll")
+        elif _poll_is_guarded(window_lines[:stop], poll_rx):
+            # The poll is selected by something; it reaches SOME of the unit's paths.  A declared partial is honest,
+            # a partial counted as whole is DARK wearing a number (ceo, CEO-1109).
+            partial.append(f"{name} in {unit[0]} {unit[1]}(): poll is guarded and the unit emits <= {npaths} paths")
         else:
-            unpolled.append(f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}"
-                            + (f" [{rule}, {len(syms)} candidate(s)]" if rule else ""))
-    out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} unpolled={len(unpolled)} unresolved={len(unresolved)} want unpolled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
+            polled += 1
+    out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} partially_polled={len(partial)} unpolled={len(unpolled)} multi_path_sites={len(multi)} unresolved={len(unresolved)} want unpolled=0 partially_polled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
+    assert polled + len(partial) + len(unpolled) == alloc_sites, "safe-points: the four columns must partition the denominator"
+    out(f"CENSUS safe-points IDENTITY polled + partially_polled + unpolled == allocating_call_sites ({polled} + {len(partial)} + {len(unpolled)} == {alloc_sites})")
+    out("CENSUS safe-points MULTI-PATH NOTE (the cto's finding, the coo's reader, 2026-09-22): multi_path_sites counts "
+        "allocating call sites written ONCE in a unit that is EXPANDED MORE THAN ONCE, so one source line is spliced "
+        "into several emitted paths. THE PATH COUNT IS AN UPPER BOUND, not an exact figure -- emit.cpp's icn_trace_tap "
+        "expands at six sites but its call lines sit in mutually exclusive arms selected by the caller, so the kind==2 "
+        "call at :2914 is reached by one of the six. partially_polled is NOT counted in polled, so the headline is no "
+        "longer an upper bound wherever a guarded poll sits in a shared body.")
     cap = len(unpolled) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 25
     for u in unpolled[:cap]:
         out(f"  UNPOLLED {u}")
     if len(unpolled) > cap:
         out(f"  ... {len(unpolled) - cap} more unpolled -- SCRIP_GC_CENSUS_LIST_ALL=1 prints every one (a count without names cannot be triaged, and 208 sites is a worklist, not a verdict)")
+    _pcap = len(partial) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 25
+    for u in partial[:_pcap]:
+        out(f"  PARTIAL {u}")
+    if len(partial) > _pcap:
+        out(f"  ... {len(partial) - _pcap} more partially polled -- SCRIP_GC_CENSUS_LIST_ALL=1 prints every one")
+    if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1":
+        for u in multi:
+            out(f"  MULTI-PATH {u}")
+    elif multi:
+        out(f"  {len(multi)} MULTI-PATH site(s) -- SCRIP_GC_CENSUS_LIST_ALL=1 names every one with its expansion sites")
     for r in resolved:
         out(f"  RESOLVED {r}")
     for u in unresolved[:10]:
         out(f"  UNRESOLVED {u} (the call target is computed; name it with a literal or tell the census)")
-    COUNTS.setdefault("safe-points", {}).update({"unpolled": len(unpolled), "unresolved": len(unresolved)})
-    ok = not unpolled and not unresolved
+    COUNTS.setdefault("safe-points", {}).update({"unpolled": len(unpolled), "unresolved": len(unresolved),
+                                                 "partially_polled": len(partial), "multi_path_sites": len(multi)})
+    ok = not unpolled and not unresolved and not partial
     out("CENSUS safe-points NOTE (the cfo, 2026-09-17): A SITE COUNT IS NOT A COVERAGE MEASURE. An Icon allocation loop "
         "reaches NO safe point at all -- the shielded rt_gc_point_arr sites are SNOBOL4 and Prolog by-name dispatch points "
         "and Icon's every-do loop contains none -- so with the allocator silent it collects ONCE (861920 KB RSS) where "
