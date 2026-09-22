@@ -573,6 +573,16 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         out("CENSUS safe-points REFUSED(2): no x86(\"call\", ...) sites found in the emitter files -- wrong tree?"); return 2
     poll_rx = re.compile(r"g_gc_pending|rt_gc_poll" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
     base_call_stop = os.environ.get("SCRIP_GC_CENSUS_BASE_CALL_STOP") == "1"
+    # ⛔ THE POLL HELPERS ARE A FAMILY AND THE rec FAMILY DOES NOT CALL rt_gc_poll AT ALL (the ceo, CEO-1118).
+    # x86_rt_gc_poll{,_res,_rec_sigma,_rec_sigma_word,_rec_sigma_pair,_rec1} all emit a safe point, and the rec forms
+    # emit x86("call", "rt_gc_point_arr_c", ...) -- a line that MATCHES CALL_RX and does NOT match poll_rx, so a stop
+    # keyed on poll_rx alone would truncate the window AT A POLL and mint the FALSE UNPOLLED the exemption exists to
+    # prevent.  MEASURED SCOPE, 2026-09-22 on b335a917e: exactly three such lines exist, x86_asm.h:2228, :2247 and
+    # :2261, all of them the helpers' own DEFINITIONS; in the templates the site reads x86_rt_gc_poll_rec_sigma(0),
+    # which carries the rt_gc_poll text and is not a CALL_RX line at all.  No nomination moved when this widened --
+    # the exposure was latent, not live.  IT IS USED ONLY FOR THE STOP EXEMPTION, NEVER FOR THE POLLED DECISION:
+    # widening what counts as a poll would move the published headline, which is not this knob's business.
+    stop_poll_rx = re.compile(poll_rx.pattern + r"|rt_gc_point_arr")
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
     partial = []; multi = []
@@ -627,7 +637,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             # 27/28/29 unpolled off a four-way `key ? ... : lvv ? ... : lv ? ... : ...` chain in which every line is
             # an alternative.  Six of sixteen were this artifact -- the SAME confusion of exclusive arms with
             # sequence that COO-142 recorded in the expansion-path reader, committed again one level down.
-            if base_call_stop and CALL_RX.search(wl) and not poll_rx.search(wl) \
+            if base_call_stop and CALL_RX.search(wl) and not stop_poll_rx.search(wl) \
                     and not wl.lstrip().startswith((":", "?")) \
                     and not _mutually_exclusive(_if_guard(lines[i - 1]), _if_guard(wl)):
                 stop = k
