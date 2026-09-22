@@ -100,6 +100,12 @@ $(awk '/^\[GC-WALK\] pop=/ {
 EOF
 TOTAL=$((NOMAP + NOTAB + IRH + HRH + SRH))
 
+# ⛔ THE VERDICT LINE MUST CARRY A POPULATION, AND THIS GATE'S WAS READING "(examined 0)" BECAUSE IT NEVER
+#   CALLED gate_floor -- the population printed below was true and the machine-readable one was zero, which
+#   is the shape lib_gate.sh exists against. The population is COLLECTIONS WALKED, never the number of
+#   unaccounted frames: the day this tree is COMPLETE that count is 0, and a floor on it would refuse the
+#   very reading the gate is built to earn.
+gate_floor "$NCOLL" 1 "collection(s) walked across $NRUN witness(es)"
 echo "── population: $NRUN witness(es), $NCOLL collection(s), max frames=$MAXFRAMES (floor $DEPTH_FLOOR) ──"
 echo "── the five completeness quantities, summed over every collection ──"
 printf '   nomap=%-7s notab=%-7s i_raw_heap=%-8s h_raw_heap=%-8s s_raw_heap=%-8s  TOTAL=%s\n' \
@@ -119,6 +125,22 @@ echo "── $NFRAMES distinct named frame(s) carrying unaccounted raw-heap word
 if [ ! -f "$PINS" ]; then
     echo "GATE UNPROVEN(2) [$GATE_NAME]: $PINS is absent -- a ratchet with no pins cannot say whether the population grew. Regenerate with the ONE_LINER at the foot of this file."; exit 2; fi
 
+# ⛔⭐⭐ THE cto FALSIFIED THE COLUMN AND THE RATCHET SURVIVED IT -- BOTH HALVES BELONG HERE (2026-09-21).
+#    THEIR SWEEP: one binary, never rebuilt, one witness whose CONTENT never changed, varying ONLY THE LENGTH
+#    OF THE INVOKING FILESYSTEM PATH, s_raw_heap read 3, 6, 3, 3, 6, 3, 6 -- bistable between two stack
+#    layouts, on an input that has nothing to do with the collector, and they retracted a claimed cure of
+#    6 down to 3 that was only two samples of those two states.  A gate asserting that column equals zero
+#    would flap, and they deleted their own column arm rather than keep a number they could not trust.
+#    ⭐ RE-RUN HERE AGAINST THIS GATE'S OWN RATCHET, because a finding about a statistic is not yet a finding
+#    about a verdict: procedure_coexpr_suspend_replace_3, one binary, seven invoking-path lengths from 60 to
+#    120 characters, s_raw_heap = 1602, 1745, 1602, 1783, 1641, 1642, 1735 -- THE COUNT MOVES BY 11% AND THE
+#    NAME SET IS BYTE-IDENTICAL AT ALL SEVEN: {SPINE/main, SPINE/testio, SPINE/textgen}.  The whole gate,
+#    run under TMPDIR path lengths 4 and 142, reads PASS(0) at both with every pinned count different
+#    (main 756 vs 763, testio 956 vs 994, param 3 vs 4, stat 3 vs 2) and the same seven names.
+#    ⛔ SO THE COLUMN IS NOT TRUSTWORTHY AND IS PRINTED, NEVER PINNED; the cto's own recommendation -- key the
+#    verdict on a NAMED FRAME rather than a whole-stack sum -- is what this gate already does, and their
+#    sweep is the strongest evidence yet that it is the right axis.  If a count is ever pinned it needs a
+#    tolerance derived from that spread, not a number copied off one run.
 # ⛔⭐ THE RATCHET IS ON THE NAME SET, NOT ON THE COUNTS, AND THAT IS A MEASUREMENT AND NOT A PREFERENCE.
 #    Three identical runs of this exact population on one tree (2026-09-21): SPINE/testio read 853, 946 and
 #    994; SPINE/main 775, 765, 763; SPINE/gen 16, 18, 18.  The COUNTS ARE NOT REPRODUCIBLE -- they follow
