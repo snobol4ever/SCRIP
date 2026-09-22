@@ -1489,6 +1489,38 @@ void rt_gc_poll(void)
 }
 long rt_gc_polls_count(void) { return g_gc_polls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_poll_slow(void) { char here; g_gc_polls++; rt_gc_point_arr_c((DESCR_t *)0, 0, (const char **)0, &here); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+__asm__(
+".text\n"
+".globl rt_gc_poll_asm\n"
+".type rt_gc_poll_asm,@function\n"
+"rt_gc_poll_asm:\n"
+"  cmpl $0, g_gc_in(%rip)\n"
+"  jne  9f\n"
+"  pushq %r11\n"
+"  movq g_gc_pending@GOTPCREL(%rip), %r11\n"
+"  cmpl $0, (%r11)\n"
+"  jne  2f\n"
+"  movq g_hp_gcline(%rip), %r11\n"
+"  testq %r11, %r11\n"
+"  je   1f\n"
+"  pushq %r10\n"
+"  movq g_hp_fr@GOTPCREL(%rip), %r10\n"
+"  movq (%r10), %r10\n"
+"  cmpq %r11, %r10\n"
+"  popq %r10\n"
+"  jbe  1f\n"
+"2:\n"
+"  popq %r11\n"
+"  jmp  rt_gc_poll_slow@PLT\n"
+"1:\n"
+"  popq %r11\n"
+"9:\n"
+"  ret\n"
+".size rt_gc_poll_asm,.-rt_gc_poll_asm\n"
+);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gc_cb_open(void) { return rt_gc_runs_count(); }

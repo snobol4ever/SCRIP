@@ -2190,7 +2190,8 @@ inline void bb_emit_x86(const std::string & s) {
 extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_poll(void);
-inline std::string x86_rt_gc_poll() { return x86("call", "rt_gc_poll", (uint64_t)(uintptr_t)(void *)rt_gc_poll); }
+extern "C" void rt_gc_poll_asm(void);
+inline std::string x86_rt_gc_poll() { return x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm); }
 inline std::string x86_rt_gc_poll_res() {
     return x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell under rsp across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it")
          + x86("sub", "rsp", (long)16)
