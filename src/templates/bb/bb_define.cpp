@@ -312,6 +312,7 @@ static std::string bb_define_activate() {
       + x86("mov", "rdx", RDQ("rdi", AB_OFF_RES1))
       + x86("xor", "ecx", "ecx")
       + x86("call", "rt_ab_leave_env", (uint64_t)(uintptr_t)(void *)rt_ab_leave_env)
+      + x86_rt_gc_poll_res()
       + x86_align_leave()
       + x86("mov", "rsi", ABSQ(RT_AB_ANCHOR))
       + x86("def", L(8))
@@ -325,6 +326,7 @@ static std::string bb_define_activate() {
       + x86("xor", "edx", "edx")
       + x86("mov", "ecx", (long)1)
       + x86("call", "rt_ab_leave_env", (uint64_t)(uintptr_t)(void *)rt_ab_leave_env)
+      + x86_rt_gc_poll_res()
       + x86_align_leave()
       + x86("mov", "rsi", ABSQ(RT_AB_ANCHOR))
       + x86("mov", RDQ("rsi", AB_OFF_RES0), "rax")
@@ -431,6 +433,7 @@ static std::string bb_define_bind() {
          + (_.lbl_t0 ? x86("lea", "r9", std::string("[rip + __]"), (uint64_t)(uintptr_t)_fn, blbl.c_str()) : x86_load_got("r9", blbl.c_str(), (uint64_t)(uintptr_t)_fn))
          + x86_scan_sync_out()
          + x86("call", "rt_define_site", _site_fp)
+         + x86_rt_gc_poll()
          + x86_scan_sync_in_rr();
     { static int _m4seal = -1; if (_m4seal < 0) { const char * _e = getenv("SCRIP_M4_ALPHA_SEAL"); _m4seal = (_e && *_e == '0') ? 0 : 1; }
       if (_m4seal && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
@@ -943,6 +946,7 @@ static std::string bb_define_sr() {
          + x86("mov32", "esi", (long)c2np)
          + x86("mov32", "edx", c2nargs)
          + x86("call", "rt_proc_call_open_slim", slim_fp)
+         + x86_rt_gc_poll()
          + x86_scan_sync_in_rr()
          + x86("test", "rax", "rax")
          + x86("jne", L(1))
