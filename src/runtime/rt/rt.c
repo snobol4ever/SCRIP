@@ -982,6 +982,8 @@ __asm__(
 "  jmp rt_proc_call_epilogue_barrier_\u03c9\n"
 );
 DESCR_t rt_proc_enter_barrier(void *fn, long nsb);
+int rt_name_save_mark(void);
+void rt_name_save_unwind(int base);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_barrier_γ(DESCR_t frame0, long nsb) { DESCR_t r = rt_proc_call_epilogue_γ(frame0); rt_name_save_unwind((int)nsb); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1010,8 +1012,6 @@ static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_proc_call_open_p(rt_proc_t *p, int nargs);
 static int proc_open_p_on(void);
-int rt_name_save_mark(void);
-void rt_name_save_unwind(int base);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {

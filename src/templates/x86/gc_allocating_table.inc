@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1659
-#define GC_ALLOC_TAB_N_VOID 184
-#define GC_ALLOC_TAB_N_DESCR 925
-#define GC_ALLOC_TAB_N_OTHER 550
+#define GC_ALLOC_TAB_N 1667
+#define GC_ALLOC_TAB_N_VOID 185
+#define GC_ALLOC_TAB_N_DESCR 930
+#define GC_ALLOC_TAB_N_OTHER 552
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -850,6 +850,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rgbkey", GC_RET_OTHER },
     { "rk_block_cmp", GC_RET_OTHER },
     { "rk_discover_grammars", GC_RET_VOID },
+    { "rk_iter_acc_append", GC_RET_VOID },
+    { "rk_iter_emit", GC_RET_OTHER },
     { "rk_iter_land_γ", GC_RET_OTHER },
     { "rk_iter_land_ω", GC_RET_OTHER },
     { "rk_iter_open", GC_RET_OTHER },
@@ -872,6 +874,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_add", GC_RET_DESCR },
     { "rt_add_big", GC_RET_DESCR },
     { "rt_agg_alloc", GC_RET_OTHER },
+    { "rt_apply_land_γ", GC_RET_DESCR },
+    { "rt_apply_land_ω", GC_RET_DESCR },
+    { "rt_apply_open", GC_RET_OTHER },
     { "rt_args_list_from", GC_RET_DESCR },
     { "rt_assign_var", GC_RET_DESCR },
     { "rt_assign_var_strict", GC_RET_DESCR },
@@ -978,6 +983,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_genp_yield", GC_RET_VOID },
     { "rt_goto_peek_name", GC_RET_OTHER },
     { "rt_goto_resolve", GC_RET_OTHER },
+    { "rt_goto_resolve_ck", GC_RET_OTHER },
     { "rt_goto_resolve_x", GC_RET_OTHER },
     { "rt_goto_transfer", GC_RET_OTHER },
     { "rt_goto_transfer_checked", GC_RET_OTHER },
@@ -1507,6 +1513,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_powreal", GC_RET_DESCR },
     { "rt_powreal_strict", GC_RET_DESCR },
     { "rt_proc_call_c_lex", GC_RET_DESCR },
+    { "rt_proc_call_epilogue_barrier_γ", GC_RET_DESCR },
+    { "rt_proc_call_epilogue_barrier_ω", GC_RET_DESCR },
     { "rt_proc_call_epilogue_named_γ", GC_RET_DESCR },
     { "rt_proc_call_epilogue_named_ω", GC_RET_DESCR },
     { "rt_proc_call_gen_h", GC_RET_DESCR },
@@ -1522,6 +1530,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_call_open_slim", GC_RET_OTHER },
     { "rt_proc_call_prologue", GC_RET_OTHER },
     { "rt_proc_call_prologue_lex", GC_RET_OTHER },
+    { "rt_proc_enter_barrier", GC_RET_DESCR },
     { "rt_proc_enter_frag", GC_RET_DESCR },
     { "rt_proc_enter_named", GC_RET_DESCR },
     { "rt_proc_epilogue_named", GC_RET_DESCR },
