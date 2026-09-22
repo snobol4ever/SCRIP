@@ -94,6 +94,7 @@ std::string bb_match_defer() {
              + x86("call", "rt_patv_defer_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long, const char *))rt_patv_defer_get_pat_dtp)
              + x86_align_leave()
              + x86("mov",  "rdx", "rax")
+             + x86_rt_gc_poll_rec_sigma_pair(0, 54)
              + x86("test", "rax", "rax")
              + x86("je",   L(16))
              + x86("mov",  "rax", RDQ("rdx", 0))

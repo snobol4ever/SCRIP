@@ -62,6 +62,7 @@ std::string bb_binop_relop() {
              + x86("mov", "rcx", FRQ(_.op_sb + 8))
              + x86("mov", "r8d", (long)_.op_ival)
              + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
+             + x86_rt_gc_poll_rec_sigma(1)
              + x86("test", "eax", "eax")
              + x86_omega("jz")
              + (_.op_ival == BINOP_EQV || _.op_ival == BINOP_NEQV
@@ -88,6 +89,7 @@ std::string bb_binop_relop() {
              + x86("mov", "rcx", FRQ(_.op_sb + 8))
              + x86("mov", "r8d", (long)_.op_ival)
              + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
+             + x86_rt_gc_poll_rec_sigma(1)
              + x86("test", "eax", "eax")
              + x86_omega("jz")
              + (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE
