@@ -95,6 +95,7 @@ std::string bb_to() {
              + x86("call",    "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
              + x86("test",    "eax", "eax")
              + x86_omega("jz")
+             + x86_rt_gc_poll()
              + x86("mov",     "rax", FRQ(_.op_off + 16))
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     "rax", FRQ(_.op_off + 24))

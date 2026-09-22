@@ -33,12 +33,18 @@
 #   LATER call is that call's safe point) takes unpolled 97 -> 104 and polled 156 -> 149. That is a CRITERION
 #   CHANGE and carries a CRITERION CHANGED note; a ratchet reading it as a regression would be reading the
 #   instrument getting honest as the tree getting worse (ceo ruling, CEO-1119).
+# COUNT EARNED 2026-09-22 (ceo): safe-points.unpolled 104 -> 101 earned by THIS landing -- the three Icon range-generator
+#   sites bb_to.cpp:95, bb_to_by.cpp:47 and :57, all sharing one shape (call rt_jct_relop / test eax,eax / omega jz) and all
+#   taking a BARE poll after the omega branch where eax is already consumed. Cleared on the POPULATION METHOD, not a board:
+#   349 Icon entries (309 carrying every/seq/element_gen, the population these boxes touch, plus 40 controls carrying none),
+#   extracted standalone, stress 0 and 5, SCRIP_GC_RELOC=1, 128 KB arena, setarch -R, cure against clean-tree control --
+#   44 non-green on each arm, ZERO only-on-cure and ZERO only-on-control, IDENTICAL NAME SETS.
 conservative	gc_zeta_frame_calls	0	0
 conservative	cons_stack_uses	0	0
 conservative	rt_cas_live_span_uses	0	0
 conservative	hb_scan_interior_uses	0	0
 allocator	rt_gc_collect_calls_in_the_allocator	0	0
-safe-points	unpolled	104	0
+safe-points	unpolled	101	0
 safe-points	unresolved	0	0
 callbacks	unwrapped	0	0
 callbacks	unwrapped_outbound	0	0
