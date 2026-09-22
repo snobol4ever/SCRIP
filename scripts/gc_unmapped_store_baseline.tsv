@@ -11,6 +11,7 @@
 # witness	members	undecidable	shielded	unread_static
 hb_aggt.icn	0	0	16	33
 hb_aggv.icn	0	0	10	21
+hb_arena_grow.sno	22	0	22	33
 hb_arr.sno	18	0	18	27
 hb_big_in_aggregate.icn	0	0	38	78
 hb_bignum_length.icn	0	0	90	501

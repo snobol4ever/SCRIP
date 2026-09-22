@@ -46,6 +46,12 @@ OBSERVABLE = [
     ("slide_with_displacement", "the slide moves at least one live block",
      "[ZGC-WALK]", r"moved=(\d+)B", "gc_heap.c:1248",
      "a live block changed address, which is the only way a stale pointer can be exposed"),
+    ("slide_without_displacement", "a live block survives the slide WITHOUT moving",
+     "[ZGC-WALK]", r"unmoved=(\d+)", "gc_heap.c:1403",
+     "a live block kept its base across the slide -- the zero-displacement population, which by construction "
+     "cannot expose a stale pointer. Counted PER BLOCK by w_unm in all three slide arms (:1403, :1412, :1422), "
+     "so it is the discriminator slide_with_displacement lacks: moved= is aggregate BYTES and cannot say how "
+     "many blocks stayed put"),
     ("mark_worklist_growth", "the mark worklist grows past its initial capacity",
      "[ZGC] regeneration", r"wl_depth_max=(\d+)", "gc_heap.c:1252",
      "the marker queued a nontrivial frontier (the worklist reallocs at 4096, gc_heap.c:669)"),
@@ -86,12 +92,6 @@ OBSERVABLE = [
 
 # ⛔ REAL EVENTS THE COLLECTOR CANNOT DISTINGUISH TODAY. Printed by name on every run, never dropped.
 OWED = [
-    ("slide_without_displacement", "a live block survives the slide WITHOUT moving",
-     "[ZGC-WALK] slide=N is `li`, the count of ALL live blocks (gc_heap.c:1243 `w_sld = li`), and moved=NB is "
-     "AGGREGATE BYTES over the three memmove arms (gc_heap.c:1228, :1229, :1238). Neither separates a block "
-     "that stayed put from one that moved, so the zero-displacement population cannot be counted. This is the "
-     "discriminator the axis most needs -- a block that does not move cannot expose a stale pointer -- and it "
-     "is the cfo's every-block-relocates row from the other side. OWED: a per-block counter beside w_mov."),
     ("per_visitor_kind_raw_and_gap", "the RAW and GAP frame-interior kinds are reached",
      "[GC-WALK] prints i_raw and i_gap, so the words are COUNTED -- but RAW and PTR_CODE are by contract never "
      "visited (they are skipped, not walked), so a nonzero i_raw proves the kind was ENCOUNTERED and not that a "
@@ -135,11 +135,17 @@ ABSENT = [
 # that will not run is REFUSED (rc=2) and never silently skipped -- an instrument that reports success while
 # doing nothing is the recurring failure (RULES.md THE INSTRUMENT LAWS).
 PROBES = [
-    ("hb_nv.sno",                        "3", "1"),
-    ("hb_coexpr_create.icn",             "3", "1"),
-    ("hb_arr.sno",                       "3", "5"),
-    ("hb_nested_match_outer_subject.sno", "3", "1"),   # the only ROBUST interior_pointer_fixup probe (see below)
-    ("hb_eval_names.sno",                "3", "1"),   # the only ROBUST blob_frame_walk probe
+    ("hb_nv.sno",                        "3", "1", {}),
+    ("hb_coexpr_create.icn",             "3", "1", {}),
+    ("hb_arr.sno",                       "3", "5", {}),
+    ("hb_nested_match_outer_subject.sno", "3", "1", {}),   # the only ROBUST interior_pointer_fixup probe (see below)
+    ("hb_eval_names.sno",                "3", "1", {}),   # the only ROBUST blob_frame_walk probe
+    ("hb_arena_grow.sno",                "3", "1", {}),   # the ONLY probe that reaches arena_grow: a LIVE set
+                                                          # larger than the window, so the collector cannot
+                                                          # reclaim its way out and the soft end must advance
+    ("hb_nv.sno",                        "3", "1", {"SCRIP_GC_PLANT_SHIFT": "4096"}),  # reaches
+                                                          # fill_block_insertion: the plant lays HB_FILL at the
+                                                          # arena start (gc_heap.c:1405) every collection
 ]
 
 # ⛔ WHAT BOUNDS A "NOT EXERCISED" VERDICT. hq_P's law: A NULL RESULT BOUNDS THE PROBE, NOT THE THING PROBED.
@@ -149,17 +155,23 @@ PROBES = [
 # witnesses) at SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=1 on tree e6f0f7f99, run by the coo 2026-09-21.
 SWEPT = {
     "arena_grow":
-        "SWEPT: all 96 gc_witnesses at SCRIP_HEAP_MB=1 stress 1 -- `grown N MB total` was 0 for EVERY ONE. No "
-        "witness in the pool ever advances the soft end, because at stress 1 the collector reclaims faster than "
-        "the witnesses allocate, so the 1 MB window is never outgrown. This is a REAL HOLE IN THE POOL and not a "
-        "probe artifact: the arena-growth path (gc_heap.c:158-163) is UNEXERCISED BY EVERY GC WITNESS WE HAVE. "
-        "It needs a witness with a LIVE set larger than the window, which is a different shape from every "
-        "witness in the pool (they all allocate heavily and retain almost nothing).",
+        "SWEPT (coo 2026-09-21, tree e6f0f7f99): all 96 gc_witnesses at SCRIP_HEAP_MB=1 stress 1 read `grown N "
+        "MB total` = 0. That verdict was CORRECT and its diagnosis was exact -- every witness in the pool "
+        "allocates heavily and RETAINS ALMOST NOTHING, so the collector reclaims faster than they allocate and "
+        "the window is never outgrown. CURED 2026-09-22 (cfo) by supplying the missing SHAPE rather than more "
+        "probes: hb_arena_grow.sno holds a LIVE set larger than the window (20000 array elements, ~2.09 MB, "
+        "summed afterwards so the set is genuinely live) and reads `soft end -> 3 MB committed (grown 2 MB "
+        "total)`. If this event ever reads NOT EXERCISED again, that probe has regressed -- check it before "
+        "concluding anything about the collector.",
     "fill_block_insertion":
-        "SWEPT: all 96 gc_witnesses at SCRIP_HEAP_MB=1 stress 1 -- `(fill N)` was 0 for EVERY ONE, across every "
-        "collection of every witness. HB_FILL insertion (the filler the collector lays down to keep the title "
-        "chain walkable) is UNEXERCISED BY THE WHOLE POOL. Also a real hole, and a more interesting one: if no "
-        "witness can make the collector insert a fill block, then no witness grades the walk over one.",
+        "SWEPT (coo 2026-09-21, tree e6f0f7f99): all 96 gc_witnesses at SCRIP_HEAP_MB=1 stress 1 read `(fill "
+        "N)` = 0 across every collection. CURED 2026-09-22 (cfo), and the sweep's NULL was a property of the "
+        "ENVIRONMENT, not of the pool: HB_FILL is laid down on three paths and the two that fire reliably are "
+        "both knob-gated -- the plant prefix (gc_heap.c:1405) and the forced-relocation gaps (:1416) -- while "
+        "the unforced path (:1422) needs a block to stay put with a gap before it, which compaction rarely "
+        "leaves. The sweep set neither knob, so it could not have reached the event with any witness. hb_nv.sno "
+        "at SCRIP_GC_PLANT_SHIFT=4096 reads max fill=244; SCRIP_GC_RELOC=1 reads 18. This is hq_P's law landing "
+        "on its own instrument: A NULL RESULT BOUNDS THE PROBE, and here the probe was bounded by its ENV.",
 }
 
 TELEM_ENV = {
@@ -172,13 +184,15 @@ TELEM_ENV = {
 }
 
 
-def run_probe(scrip, wdir, name, mode, stress, timeout_s):
+def run_probe(scrip, wdir, name, mode, stress, timeout_s, extra=None):
     src = os.path.join(wdir, name)
     if not os.path.isfile(src):
         return None, "no such witness: %s" % src
     env = dict(os.environ)
     env.update(TELEM_ENV)
     env["SCRIP_GC_STRESS"] = stress
+    if extra:
+        env.update(extra)
     stdin = open(os.devnull, "rb")
     inf = os.path.join(wdir, os.path.splitext(name)[0] + ".in")
     if os.path.isfile(inf):
@@ -263,14 +277,15 @@ def main():
 
     t0 = time.time()
     exercised, by_probe, ran = {}, {}, 0
-    for name, mode, stress in PROBES:
-        txt, err = run_probe(scrip, wdir, name, mode, stress, a.timeout)
+    for name, mode, stress, extra in PROBES:
+        txt, err = run_probe(scrip, wdir, name, mode, stress, a.timeout, extra)
         if err is not None:
             print("⛔ REFUSE(2): probe %s could not run -- %s" % (name, err))
             return 2
         ran += 1
         hits = scan(txt, OBSERVABLE)
-        by_probe[name] = hits
+        label = name if not extra else name + "+" + ",".join(sorted(extra))
+        by_probe[label] = hits
         for k, v in hits.items():
             if v > exercised.get(k, 0):
                 exercised[k] = v
@@ -282,7 +297,7 @@ def main():
     if not a.quiet:
         print("GC EVENT COVERAGE -- the axis is EVENT COVERAGE, not collection count")
         print("  probes: %d run at SCRIP_HEAP_MB=1 (%s), %.1fs" %
-              (ran, ", ".join("%s@stress%s" % (n, s) for n, _m, s in PROBES), time.time() - t0))
+              (ran, ", ".join("%s@stress%s" % (n, s) for n, _m, s, _e in PROBES), time.time() - t0))
         print("  OBSERVABLE EVENT SPACE: %d events, %d EXERCISED, %d NOT EXERCISED"
               % (total, len(covered), len(uncovered)))
         for key, nm, _mk, _f, site, means in OBSERVABLE:

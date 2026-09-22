@@ -11,8 +11,12 @@
 #
 # ⛔ THE DENOMINATOR IS THE WHOLE POINT, SO IT IS PRINTED THREE WAYS. This row exists because a green instrument was
 # measuring the wrong axis; ratcheting a SUBSET and letting it read as "the event space" would be that same offence
-# one level up. util_gc_event_coverage.py therefore prints OBSERVABLE (15, with telemetry the collector already emits),
-# OWED (2, real events the collector cannot distinguish -- NAMED, never dropped) and ABSENT (1, named in the row's
+# one level up. util_gc_event_coverage.py therefore prints OBSERVABLE (16, with telemetry the collector already emits),
+# OWED (1, real events the collector cannot distinguish -- NAMED, never dropped) and ABSENT (1, named in the row's
+# goal and nonexistent here). ⛔ THESE COUNTS ARE PROSE AND PROSE GOES STALE: the instrument's own OWED entry for
+# slide_without_displacement outlived its truth by a day (the w_unm counter that cures it landed 2026-09-21 in
+# 6489508ec while the entry still said the collector could not distinguish it), which is why that entry is now a
+# LIVE PROBE in OBSERVABLE rather than a hardcoded string. Read the floor file and the report, never this comment.
 # goal and nonexistent here). arena_shrink is ABSENT and not merely uncovered: g_hp_end is only ever advanced
 # (gc_heap.c:160) or initialised (:179), and the one munmap (:502) is gcbk_drop over the collector's OWN bookkeeping,
 # never the object arena. Carrying it as a bucket would read as permanent 0% coverage of a thing that cannot happen,
