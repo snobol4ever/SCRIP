@@ -179,6 +179,29 @@ CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
 # started counting something it could not see before, so a reader never reads the step as a regression or a win
 # (SUITES.tsv's criterion_changed column, the same rule).  The baseline writer prints them into the file it writes.
 CRITERION_CHANGES = [
+    "2026-09-22 coo, SCRIP this landing (CEO-1119, on the coo's measured delta): safe-points. A POLL THAT FOLLOWS "
+    "A LATER CALL IS THAT CALL'S SAFE POINT. The base predicate's poll window now stops at the first intervening "
+    "emitted call, the stop the expansion-site window has carried since CEO-1116 -- the SAME defect one level up, "
+    "held back at COO-142 because it moves the published headline and that is the ceo's call. polled 156 -> 149, "
+    "unpolled 97 -> 104 on SCRIP 20424784f. ⭐ THE RISE IS THE INSTRUMENT GETTING HONEST, NOT THE TREE GETTING "
+    "WORSE (ceo, CEO-1119, the CEO-935 shape): the ratchet REFUSES a rise by design, so the baseline is raised in "
+    "this same landing. This SUPERSEDES the ceo's NEXT MOVE note carried below, which forecast this change -- it "
+    "is history now, not a forecast. ⛔ THE MECHANICAL ARM ALONE READS 148, NOT 149, AND THE DIFFERENCE IS THE "
+    "WHOLE POINT: a mechanical stop can NOMINATE a site and cannot CONVICT one (the symmetric half of the ceo's "
+    "own law that a static reader can reject a site and cannot clear one). Sixteen first nominations, nine thrown "
+    "away by hand, seven published. The ninth rejection -- bb_call_value.cpp:130, where the intervening call at "
+    ":134 sits inside the ELSE arm opened at :131 -- was named at COO-143 as an unmechanized blind spot rather "
+    "than rounded away, and THIS landing mechanizes it: _ternary_sibling_offsets tracks an ARM INDEX PER PAREN "
+    "DEPTH, so a line in a different arm of a ternary the site also stands in is an ALTERNATIVE, never a "
+    "successor. It replaces the leading-character exemption entirely -- one rule, not two -- and reproduces the "
+    "hand-read name set of 104 EXACTLY, name for name, not merely the count. ⛔ TWO EARLIER SHAPES OF THAT RULE "
+    "WERE WRONG AND BOTH WERE CAUGHT BY MEASURING AGAINST THE HAND-READ NAMES RATHER THAN AGAINST A COUNT: a "
+    "line-granular reader re-nominated the five sites whose '?' is on their own line (bb_iterate.cpp:27/:28/:29, "
+    "bb_field_get.cpp:21/:39), and a latching one CLEARED THREE the hand read convicted "
+    "(bb_match_capture.cpp:124/:163, bb_rev_assign_var.cpp:19) because it read the arm the site LIVES IN as an arm "
+    "the site is excluded from. Five planted selftest arms hold both directions, each proven able to go red "
+    "(selftest 47 -> 52 arms). SCRIP_GC_CENSUS_BASE_CALL_STOP=0 reproduces the pre-CEO-1119 reading and was "
+    "verified byte-identical on all 97 names.",
     "2026-09-22 coo, SCRIP this landing (CEO-1109, the cto's finding): safe-points. ONE SOURCE CALL LINE IS NOT ONE "
     "EMITTED PATH. The predicate reads SOURCE PROXIMITY while POLLED is a claim about EMITTED CONTROL FLOW, and the "
     "emitter concatenates strings, so a call written once inside a file-local helper or a #define is spliced into "
@@ -563,6 +586,134 @@ def _poll_is_guarded(window_lines, poll_rx):
     return False
 
 
+def _lit_free(s, q=None):
+    """(the line with string/char literal bodies and a // comment removed, the quote state still open at its end).
+    ⛔ NOT DECORATION AND MEASURED BEFORE IT WAS WRITTEN: 21 lines under src/templates count differently naive, and
+    two of them decide a paren depth -- bb_scan_bal.cpp:61 and :108 hold (long)'(' and :66/:113 hold (long)')', so a
+    naive count reads the BALANCE-scanning templates as opening and closing groups that are not there.  The quote
+    state is carried across lines because a C string may be split over several, and an unterminated quote swallowing
+    the rest of a line is exactly how a depth walk silently desynchronises."""
+    out = []; i = 0; n = len(s)
+    while i < n:
+        c = s[i]
+        if q:
+            if c == "\\":
+                i += 2; continue
+            if c == q:
+                q = None
+            i += 1; continue
+        if c in ('"', "'"):
+            q = c; i += 1; continue
+        if c == "/" and i + 1 < n and s[i + 1] == "/":
+            break
+        out.append(c); i += 1
+    return "".join(out), q
+
+
+def _paren_delta(s, q=None):
+    """(net '(' minus ')' on this line, the quote state still open at its end)."""
+    t, q2 = _lit_free(s, q)
+    return t.count("(") - t.count(")"), q2
+
+
+TERNARY_LOOKBACK = 60
+
+
+def _ternary_sibling_offsets(lines, i, window_lines):
+    """Offsets into `window_lines` whose emitted call stands in a DIFFERENT ARM of a ternary the call at 1-based line
+    `i` also stands in -- an ALTERNATIVE to the site, never a successor to it, so it is not an intervening call and
+    must not stop the poll window.
+
+    ⛔ THIS IS THE BLIND SPOT COO-143 NAMED BY HAND RATHER THAN ROUNDING AWAY, AND MECHANIZING IT IS THE WHOLE GAP
+    BETWEEN THE MECHANICAL ARM'S 148 AND THE 149 THE ceo PUBLISHED (CEO-1119).  bb_call_value.cpp:130 is the last
+    line of the THEN arm of the ternary opened at :126; the ELSE arm opens at :131 with a leading ':' and RUNS ON
+    through :134, which carries the call.  A stop keyed on a line's leading character exempts :131 and then trips on
+    :134 -- the same confusion of EXCLUSIVE ARMS with SEQUENCE that COO-142 recorded in the expansion-path reader and
+    COO-143 recorded in this one, now at its third level.
+
+    THE MODEL IS AN ARM INDEX PER PAREN DEPTH, and it is the third one written: each '?' and each ':' at depth d
+    starts the next arm of the ternary living at that depth, and the whole chain `a ? X : b ? Y : Z` is one ternary
+    with four arm indices.  The call records the arm it stands in at EVERY depth that has one; a later position is an
+    alternative when any of those depths is still open and has moved on to a different arm.  Leaving a depth (a ')'
+    below it, or a ';') forgets it, so a fresh ternary reopening at the same depth can never be mistaken for the
+    site's own.
+
+    ⛔ TWO EARLIER SHAPES OF THIS RULE WERE WRONG IN THE DIRECTION THAT CLEARS SITES, AND BOTH WERE CAUGHT BY
+    MEASURING AGAINST THE HAND-READ NAME SET RATHER THAN AGAINST A COUNT.  (a) A LINE-GRANULAR reader that looked
+    only ABOVE the site for its '?' missed all five sites whose '?' is on their OWN line -- bb_iterate.cpp:27, which
+    is `+ (key ? x86("call", ...)` with three ':' arms below it, and bb_field_get.cpp:21, where the sibling that
+    matters is the OUTER ternary's ':' on the next line at a SHALLOWER depth -- and re-nominated them.  (b) A reader
+    that latched an 'in alternative' flag the moment it saw a ':' at an open-arm depth CLEARED THREE SITES A HAND
+    READ CONVICTED: at bb_rev_assign_var.cpp:14 the guard's ':' on line 15 opens the arm the site at :19 LIVES IN,
+    so every later line is that same arm -- a SUCCESSOR -- and the real intervening call at :26 was being exempted.
+    An arm the site is inside is not an arm the site is excluded from.
+
+    ⛔ AND THE WALK IS LITERAL-FREE: bb_scan_bal.cpp holds (long)'(' and (long)')' as CHAR LITERALS, which a naive
+    depth count reads as opening and closing the very group this rule is tracking."""
+    site = i - 1
+    if site < 0 or site >= len(lines):
+        return set()
+    m = CALL_RX.search(lines[site])
+    if m is None:
+        return set()
+
+    lo = max(0, site - TERNARY_LOOKBACK)
+    for j in range(site - 1, lo - 1, -1):          # never read across a unit boundary
+        if lines[j].startswith("}") or lines[j].startswith("/*---"):
+            lo = j + 1
+            break
+
+    depth = 0
+    chain = {}             # paren depth -> index of the ternary arm currently open at that depth
+    at_call = {}           # the same, frozen at the call: the arms the SITE stands in
+    q = None
+
+    def forget(below):
+        for d in [x for x in chain if x > below]:
+            chain.pop(d, None)
+            at_call.pop(d, None)
+
+    def walk(text):
+        nonlocal depth
+        for ch in text:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                forget(depth)
+            elif ch == ";":
+                forget(depth - 1)
+            elif ch in "?:":
+                chain[depth] = chain.get(depth, 0) + 1
+
+    def alternative():
+        return any(d in chain and chain[d] != a for d, a in at_call.items())
+
+    for j in range(lo, site):
+        c, q = _lit_free(lines[j], q)
+        walk(c)
+    head, q = _lit_free(lines[site][:m.start()], q)
+    walk(head)
+    at_call.update(chain)                          # the arms the site itself stands in
+    rest, q = _lit_free(lines[site][m.start():], q)
+    walk(rest)
+
+    off = set()
+    for k, wl in enumerate(window_lines):
+        mk = CALL_RX.search(wl)
+        if mk is None:
+            c, q = _lit_free(wl, q)
+            walk(c)
+            continue
+        pre, q = _lit_free(wl[:mk.start()], q)
+        walk(pre)
+        if alternative():
+            off.add(k)
+        post, q = _lit_free(wl[mk.start():], q)
+        walk(post)
+    return off
+
+
 def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=print, allocating=None):
     if allocating is None:
         allocating = allocating_entries_from_binary(so, out)
@@ -572,7 +723,14 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     if not sites:
         out("CENSUS safe-points REFUSED(2): no x86(\"call\", ...) sites found in the emitter files -- wrong tree?"); return 2
     poll_rx = re.compile(r"g_gc_pending|rt_gc_poll" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
-    base_call_stop = os.environ.get("SCRIP_GC_CENSUS_BASE_CALL_STOP") == "1"
+    # ⛔⭐ THE BASE WINDOW STOPS AT AN INTERVENING EMITTED CALL, AND SINCE CEO-1119 THAT IS THE CRITERION, NOT A
+    # KNOB.  A poll that follows a LATER call is THAT call's safe point, not this one's -- the ceo RULED the
+    # reading correct for the expansion window (CEO-1116) and, on the measured delta, for the base predicate
+    # (CEO-1119): it takes polled 156 -> 149 and unpolled 97 -> 104 on SCRIP 20424784f.  THE RISE IS THE
+    # INSTRUMENT GETTING HONEST, NOT THE TREE GETTING WORSE, and gc_census_baseline.tsv carries that ruling at
+    # the file so the next reader meets it there.  SCRIP_GC_CENSUS_BASE_CALL_STOP=0 reproduces the pre-CEO-1119
+    # reading for an auditor comparing across the change; it is an escape hatch, never the default.
+    base_call_stop = os.environ.get("SCRIP_GC_CENSUS_BASE_CALL_STOP", "1") != "0"
     # ⛔ THE POLL HELPERS ARE A FAMILY AND THE rec FAMILY DOES NOT CALL rt_gc_poll AT ALL (the ceo, CEO-1118).
     # x86_rt_gc_poll{,_res,_rec_sigma,_rec_sigma_word,_rec_sigma_pair,_rec1} all emit a safe point, and the rec forms
     # emit x86("call", "rt_gc_point_arr_c", ...) -- a line that MATCHES CALL_RX and does NOT match poll_rx, so a stop
@@ -614,6 +772,12 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         # this tree's style: a column-0 closing brace or a column-0 /*---- separator.
         window_lines = lines[i:i + poll_window]
         stop = len(window_lines)
+        # ⛔ THE SIBLING-ARM REGION, COMPUTED ONCE PER SITE (the blind spot COO-143 named; see
+        # _ternary_sibling_offsets).  Offsets here are ALTERNATIVES to the site, not successors, so a call on one of
+        # them is not an intervening call.  MEASURED SCOPE on SCRIP 20424784f: this moves EXACTLY ONE site,
+        # bb_call_value.cpp:130, which is the whole gap between the mechanical arm's 148 and the hand-read 149 the
+        # ceo published (CEO-1119).  Empty unless base_call_stop, so the pre-stop census is untouched by it.
+        sibling = _ternary_sibling_offsets(lines, i, window_lines) if base_call_stop else set()
         for k, wl in enumerate(window_lines):
             if wl.startswith("}") or wl.startswith("/*---"):
                 stop = k
@@ -638,7 +802,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             # an alternative.  Six of sixteen were this artifact -- the SAME confusion of exclusive arms with
             # sequence that COO-142 recorded in the expansion-path reader, committed again one level down.
             if base_call_stop and CALL_RX.search(wl) and not stop_poll_rx.search(wl) \
-                    and not wl.lstrip().startswith((":", "?")) \
+                    and k not in sibling \
                     and not _mutually_exclusive(_if_guard(lines[i - 1]), _if_guard(wl)):
                 stop = k
                 break
@@ -1382,6 +1546,68 @@ def selftest():
     buf.clear(); rc = census_safe_points("", [tpl_xf], out=buf.append, allocating=alloc)
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, polled=0, unpolled=1),
        "safe-points: a g_gc_pending poll in the NEXT routine, inside the line window, does NOT make this site polled (the false green of 2026-09-17)")
+    # ⛔ THE BASE WINDOW'S INTERVENING-CALL STOP (CEO-1119) AND ITS TWO ARM EXEMPTIONS, PLANTED IN BOTH DIRECTIONS.
+    # The stop is the direction that NOMINATES a site, the exemptions are the direction that CLEARS one, so both are
+    # planted: a fixture that MUST stop and a fixture that MUST NOT.
+    tpl_iv = os.path.join(w, "intervening.cpp")
+    open(tpl_iv, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n'
+                            '  + x86("call", "rt_other", fp)\n'
+                            '  + x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending");\n'
+                            '}\n')
+    buf.clear(); rc = census_safe_points("", [tpl_iv], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, polled=0, unpolled=1),
+       "safe-points: a poll that sits after a LATER emitted call is THAT call's safe point -- the site above it reads UNPOLLED (the base-window stop, CEO-1119)")
+    # ⛔ THE SIBLING ARM SPELLED OVER SEVERAL LINES -- the blind spot COO-143 named by hand rather than rounding away,
+    # and the only gap between the mechanical arm's 148 and the 149 the ceo published.  The site is the last line of
+    # the THEN arm; the ELSE arm opens with ':' and RUNS ON, carrying the intervening call on its last line.  A stop
+    # keyed on the leading character exempts the ':' line and then trips on the one after it.
+    tpl_sa = os.path.join(w, "siblingarm.cpp")
+    open(tpl_sa, "w").write('std::string a(){ return x86("mov", "rdi", fp)\n'
+                            '  + (cond()\n'
+                            '  ? x86("mov", "rsi", fp)\n'
+                            '  + x86("call", "rt_concat", fp)\n'
+                            '  : x86("lea", "rsi", fp)\n'
+                            '  + x86("mov32", "ecx", (long)n)\n'
+                            '  + (other() ? x86("call", "rt_other", fp) : x86("call", "rt_third", fp)))\n'
+                            '  + x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending");\n'
+                            '}\n')
+    buf.clear(); rc = census_safe_points("", [tpl_sa], out=buf.append, allocating=alloc)
+    ck(rc == 0 and _sp_has(buf, allocating_call_sites=1, polled=1, unpolled=0),
+       "safe-points: a MULTI-LINE sibling ternary arm is an ALTERNATIVE, not a successor -- its call does not stop the window (bb_call_value.cpp:130, the hand rejection COO-143 mechanized)")
+    # ⛔ AND THE EXEMPTION IS PAIRED, NOT A BARE ':' RULE: with no '?' opening the site's own arm, a later ternary's
+    # else arm IS a successor (exactly one arm runs after us) and must still stop the window.  Without this arm the
+    # sibling rule would clear sites standing in plain sequence -- the direction that needs the most evidence.
+    tpl_sq = os.path.join(w, "seqternary.cpp")
+    open(tpl_sq, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n'
+                            '  + (cond()\n'
+                            '  ? x86("mov", "rsi", fp)\n'
+                            '  : x86("call", "rt_other", fp))\n'
+                            '  + x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending");\n'
+                            '}\n')
+    buf.clear(); rc = census_safe_points("", [tpl_sq], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, polled=0, unpolled=1),
+       "safe-points: a ':' arm the site does NOT share a '?' with is a successor, not a sibling -- it still stops the window (the unpaired direction)")
+    # ⛔ AND THE ARM THE SITE LIVES IN IS NOT AN ARM IT IS EXCLUDED FROM -- the second wrong shape of this rule,
+    # which CLEARED THREE SITES A HAND READ CONVICTED (bb_match_capture.cpp:124/:163, bb_rev_assign_var.cpp:19).
+    # bb_rev_assign_var.cpp:14 is a guard ternary whose ':' on :15 OPENS the arm the site at :19 stands in, so every
+    # line below it is that same arm -- a SUCCESSOR -- and the real intervening call at :26 must still stop.
+    tpl_ea = os.path.join(w, "elsearm.cpp")
+    open(tpl_ea, "w").write('std::string a(){ return guard()\n'
+                            '  ? x86("mov", "rdi", fp)\n'
+                            '  : x86("mov", "rsi", fp)\n'
+                            '  + x86("call", "rt_concat", fp)\n'
+                            '  + x86("call", "rt_other", fp)\n'
+                            '  + x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending");\n'
+                            '}\n')
+    buf.clear(); rc = census_safe_points("", [tpl_ea], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, polled=0, unpolled=1),
+       "safe-points: a site standing IN a ':' arm still stops at an intervening call in that same arm -- an arm the site lives in is not one it is excluded from (bb_rev_assign_var.cpp:19)")
+    # ⛔ A CHAR LITERAL IS NOT A PAREN.  bb_scan_bal.cpp:61/:66 and :108/:113 hold (long)'(' and (long)')', and a
+    # naive depth count reads them as opening and closing the very group the sibling rule is tracking.
+    ck(_paren_delta("+ x86(\"cmp64\", \"rsi\", (long)'(')")[0] == 0
+       and _paren_delta("+ x86(\"cmp64\", \"rsi\", (long)')')")[0] == 0
+       and _paren_delta('+ (cond()')[0] == 1,
+       "safe-points: the arm reader counts parens LITERAL-FREE -- (long)'(' and (long)')' are balanced, not a group")
     # coverage on captured text
     buf.clear(); rc = census_coverage("", "", out=buf.append, cov_text="[GC-COV] ranges=3 words_scanned=0 interior_words=0 pz=1\n[GC-COV] ranges=3 words_scanned=0 interior_words=0 pz=1\n")
     ck(rc == 0, "coverage: every [GC-COV] line carrying words_scanned=0 AND interior_words=0 reads GREEN")
