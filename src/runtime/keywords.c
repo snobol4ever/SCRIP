@@ -73,6 +73,16 @@ static void kw_cset_hindex_insert(int idx) {
     for (int sl = (int)(kw_cset_hash(g_kw_cset_names[idx].ptr) & (unsigned)m);; sl = (sl + 1) & m)
         if (!g_kw_cset_hidx[sl]) { g_kw_cset_hidx[sl] = idx + 1; return; }
 }
+static long g_kw_cset_hidx_gen = -1;
+static void kw_cset_hindex_refresh(void) {
+    extern long rt_gc_runs_count(void);
+    long gen = rt_gc_runs_count();
+    if (gen == g_kw_cset_hidx_gen) return;
+    g_kw_cset_hidx_gen = gen;
+    if (!g_kw_cset_hidx || g_kw_cset_hcap <= 0) return;
+    memset(g_kw_cset_hidx, 0, (size_t)g_kw_cset_hcap * sizeof(int));
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) kw_cset_hindex_insert(i);
+}
 static void kw_cset_hindex_rebuild(void) {
     int want = 64; while (want < g_kw_cset_cap * 2) want <<= 1;
     if (want != g_kw_cset_hcap) { ct_drop(g_kw_cset_hidx); ct_drop(g_kw_cset_cidx); g_kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int)); g_kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int)); g_kw_cset_hcap = want; }
@@ -81,6 +91,7 @@ static void kw_cset_hindex_rebuild(void) {
 }
 static int kw_cset_find_ptr(const char *p) {
     if (!g_kw_cset_hidx || !p) return -1;
+    kw_cset_hindex_refresh();
     int m = g_kw_cset_hcap - 1;
     for (int sl = (int)(kw_cset_hash(p) & (unsigned)m);; sl = (sl + 1) & m) {
         int v = g_kw_cset_hidx[sl];
@@ -141,6 +152,12 @@ static void kw_cset_prime(void) {
     kw_cset_reg("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", "&letters", 52);
     { char a[128]; for (int c=0;c<128;c++) a[c]=(char)c; kw_cset_reg(a, "&ascii", 128); }
     { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kw_cset_slot_of(const char *kw_name) {
+    for (int i = 0; i < g_kw_cset_count; i++)
+        if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name)) return i;
+    return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void kw_errtext_gc_root(void)
@@ -405,28 +422,30 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"digits"))  return make_kw_cset("0123456789","&digits");
     if (!strcmp(kw,"alphabet")) return kw_read("cset");
     if (!strcmp(kw,"ascii")) {
-        static const char *cs = NULL;
-        if (!cs) {
+        static int csi = -1;
+        if (csi < 0) csi = kw_cset_slot_of("&ascii");
+        if (csi < 0) {
             char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
             extern void *rt_wsb_alloc(size_t);
             char *stable = (char *)rt_wsb_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
             kw_cset_append(stable, "&ascii", 128);
-            cs = stable;
+            csi = g_kw_cset_count - 1;
         }
-        return CSETVAL(cs);
+        return CSETVAL(g_kw_cset_names[csi].ptr);
     }
     if (!strcmp(kw,"cset")) {
-        static const char *cs = NULL;
-        if (!cs) {
+        static int csi = -1;
+        if (csi < 0) csi = kw_cset_slot_of("&cset");
+        if (csi < 0) {
             char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
             extern void *rt_wsb_alloc(size_t);
             char *stable = (char *)rt_wsb_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
             kw_cset_append(stable, "&cset", 256);
-            cs = stable;
+            csi = g_kw_cset_count - 1;
         }
-        return CSETVAL(cs);
+        return CSETVAL(g_kw_cset_names[csi].ptr);
     }
     { extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
