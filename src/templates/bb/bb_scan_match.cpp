@@ -24,6 +24,7 @@ std::string bb_scan_match() {
              + x86("add",     "rsp", (long)8)
              + x86("test",    "eax", "eax")
              + x86_omega("jne")
+             + x86_rt_gc_poll_rec_sigma(0)
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("push",    "r12")

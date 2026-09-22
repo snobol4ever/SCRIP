@@ -26,6 +26,7 @@ std::string bb_scan_any() {
              + x86("add",     "rsp", (long)8)
              + x86("test",    "eax", "eax")
              + x86_omega("jne")
+             + x86_rt_gc_poll_rec_sigma(0)
              + x86("mov",     "eax", "r14d")
              + x86("cmp",     "eax", "r15d")
              + x86_omega("jge")

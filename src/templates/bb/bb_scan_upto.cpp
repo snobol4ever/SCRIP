@@ -26,6 +26,7 @@ std::string bb_scan_upto() {
              + x86("add",     "rsp", (long)8)
              + x86("test",    "eax", "eax")
              + x86_omega("jne")
+             + x86_rt_gc_poll_rec_sigma(0)
              + x86("mov",     FRQ(_.op_off + 16), "r14")
              + x86("def",     L(0))
              + x86("mov",     "rax", FRQ(_.op_off + 16))
