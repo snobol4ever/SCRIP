@@ -2966,6 +2966,27 @@ Distill a real first step from the GOAL above (and a real DONE-WHEN — see the 
 ## LEDGER
 - [$ME·$(date -u +%F)] Minted via \`s4e_msg.sh mint\`.
 TASKEOF
+         # ⛔⭐ THE ONE-NEXT-BLOCK RULE IS ENFORCED WHERE A BATON IS WRITTEN, NOT BY A SWEEP (ceo, CEO-1116,
+         # 2026-09-22, on the coo's finding of 9 non-conforming live batons against a ratchet ceiling of 1 over
+         # 782 checked).  test_gate_baton_one_next_block.sh is unwired BY A ceo RULING OF 2026-09-03 because it
+         # reads the LIVE postoffice and reds whenever another seat is mid-edit, so the drift to nine is the
+         # PRICE of that ruling rather than an oversight -- and a periodic sweep over shared concurrently-edited
+         # state can only ever REPORT, while a writer-side check PREVENTS.  A mint cannot CREATE a second
+         # NEXT block from here on; the GOAL text is interpolated into this heredoc, so a goal carrying its own
+         # "## NEXT" line is the one way this path could ever have minted a non-conforming baton.
+         # ⛔ NOT `grep -c ... || printf 0`: grep -c on ZERO matches PRINTS "0" and still EXITS 1, so a || arm
+         # fires anyway and appends a SECOND "0" -- the trap this tree's own gate documents at its scanner.
+         _nn="$(grep -c '^## NEXT' "$b" 2>/dev/null || true)"; _nn="${_nn:-0}"
+         if [ "$_nn" != 1 ]; then
+           rm -f "$b"; rmdir "$lock" 2>/dev/null
+           printf '⛔ REFUSED (rc=2): this mint would write a baton carrying %s "## NEXT" heading(s), not exactly one.\n' "$_nn" >&2
+           printf '   The GOAL text is interpolated into the baton, so a GOAL containing its own "## NEXT" line is\n' >&2
+           printf '   the cause. Nothing was written: no baton, no QUEUE row. Re-mint with that line out of the GOAL.\n' >&2
+           printf '   WHY THIS REFUSES RATHER THAN WARNS: `next` tells every seat to work the ONE ## NEXT block, so a\n' >&2
+           printf '   baton with two hands the seat a FIRST block that may not be the live one -- hq_B measured five\n' >&2
+           printf '   Icon batons scrambled 3-1-2-5-4 on a LIVE rank-1 row (2026-08-29), which is this rule\x27s origin.\n' >&2
+           exit 2
+         fi
          printf '%s\t%s\t%s\tFREE\n' "$rank" "$topic" "$owner" >> "$q"
          rmdir "$lock" 2>/dev/null; trap 's4e_pid_release' EXIT
          echo "minted $topic (rank $rank, owner $owner, state FREE) -> $b"
