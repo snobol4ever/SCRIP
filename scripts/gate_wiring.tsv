@@ -59,6 +59,7 @@ test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
 test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh	WIRED	-	-	-
 test_gate_bus_verbs_refuse_with_usage.sh	WIRED	-	-	-
+test_gate_c2bb_the_generator_arm_is_a_coroutine_start_not_a_box_entry_from_c.sh	WIRED	-	-	-
 test_gate_c_allocators_are_eradicated_and_say_where_they_went.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
