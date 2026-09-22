@@ -23,12 +23,21 @@
 # ⛔ CRITERION CHANGED 2026-09-19 cfo, SCRIP this landing: CALLBACKS, BOTH DIRECTIONS. A DECLARATOR PREFIX BEGINS AT A STATEMENT BOUNDARY, NOT AT THE MARGIN. The ceo found the first instance (CEO-942): core.c:2382 is one line holding a block-local `extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs);` and then an assignment of that hook's ADDRESS, and the OUTBOUND census counted the DECLARATION's own parenthesis as a way out of the runtime into emitted code. The cure matches the declarator prefix against the statement the match belongs to -- the text after the last '{', '}' or ';' on the line -- with a blank statement head meaning a call at the start of a statement and never a fallback to the line above. It removes ONE outbound false positive (13 -> 12) and FIFTEEN inbound ones (52 -> 37), and every one of the fifteen was READ AND NAMED before the count moved: by_name_dispatch.c 336, 839, 846, 866, 894, 1107, 3202, 3212, 3897, 3945, 3976, 4676, 5221, 8021 and core.c 3819, each an `extern ... rt_call_proc_descr(...)` or `extern ... rt_call_arr(...)` prototype sharing its line with a statement. NO CURE LANDED AND NONE IS CLAIMED: this is the instrument getting honest in the direction that LOWERS a count, which is the direction that needs the most evidence, so two selftest arms plant both halves -- a shared-line block-local extern that must NOT count and a real call after the ';' on that same line that MUST (selftest 43 -> 45 arms, measured failing on the pre-cure reader: 2 inbound and 4 outbound where the cure reads 1 and 3).
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-19 cto, SCRIP this landing: maps.table_divergences 2 -> 0. The two were the blob frame's: PAT$0 reported a cell in neither medium, and the census's .Lgcmap_ label regexes refused the $ of PAT$n so the mode-4 table read n=-1 over 0 entries; the blob frame now carries its cell and its map in both media (ARCH-GC 6.2e) and the regexes admit the $.
 # CRITERION CHANGED 2026-09-19 ceo, SCRIP this landing: safe-points. THE CALL SPELLINGS call_rt AND call_bare ARE CALLS. CALL_RX read only x86("call", so six call_rt sites (the Icon concat family through the chooser bcs_rt_name(), Raku's str_repeat_d, three NV_GET_fn, rt_str_coerce) and the three call_bare arithmetic sites (rtop_name_s(op, strict): a chooser WITH ARGUMENTS that calls the nested chooser rtop_name(op), 22 allocating candidates) were OUTSIDE the denominator -- neither polled nor counted, the worst direction for this census. Widened, and with a chooser with arguments proven at its definition and the choosers it calls at theirs (a definition line: type, name, parameter list, brace -- never an if-statement that calls it): emitter_call_sites 362 -> 398, allocating 233 -> 250, unpolled 118 -> 133, unresolved 0 -> 0. The count going UP is the instrument getting honest, not a landing going backwards (the 2026-09-17 precedent above). The same landing polled two sites the old spelling could see or not: bb_scan_sequence.cpp's chained str_concat_d (counted, 119 -> 118) and bb_binop_xrep_slot.cpp's call_rt str_repeat_d (newly counted, polled).
+# COUNT EARNED 2026-09-22 (ceo): safe-points.unpolled 101 -> 97 earned by c60097828, four DESCR-returning
+#   sites polled after their store (bb_deref:19, bb_unop:46, bb_var_ref:70, bb_binop_concat_slot:64), cleared
+#   on IDENTICAL non-green NAME SETS on IcnM and SnoM. ⛔ THE LANDING THAT EARNED IT DID NOT CARRY THE
+#   BASELINE and left arm (c) RED ON ORIGIN; the coo found it and told me rather than lowering it a second
+#   time in one tick, which is the right call and is why this line is dated after the landing.
+# ⛔ NEXT MOVE ON THIS ROW IS A RISE, NOT A REGRESSION: the coo's base-predicate stop (a poll that follows a
+#   LATER call is that call's safe point) takes unpolled 97 -> 104 and polled 156 -> 149. That is a CRITERION
+#   CHANGE and carries a CRITERION CHANGED note; a ratchet reading it as a regression would be reading the
+#   instrument getting honest as the tree getting worse (ceo ruling, CEO-1119).
 conservative	gc_zeta_frame_calls	0	0
 conservative	cons_stack_uses	0	0
 conservative	rt_cas_live_span_uses	0	0
 conservative	hb_scan_interior_uses	0	0
 allocator	rt_gc_collect_calls_in_the_allocator	0	0
-safe-points	unpolled	101	0
+safe-points	unpolled	97	0
 safe-points	unresolved	0	0
 callbacks	unwrapped	0	0
 callbacks	unwrapped_outbound	0	0
