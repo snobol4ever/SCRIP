@@ -486,9 +486,13 @@ CALLBACK_RX = re.compile(r"(?<![A-Za-z0-9_])(rt_call_(?:proc_descr|arr[A-Za-z0-9
 
 
 def _marker_spans(src, marker):
-    """(start, end) offsets of every MARKER( ... ) span, paren-matched -- a call is wrapped only when it lies inside one"""
+    """(start, end) offsets of every MARKER( ... ) and MARKER_V( ... ) span, paren-matched -- a call is wrapped only when it lies inside one.
+       The _V variant COUNTS (ceo CEO-1104): a VOID callee cannot take the value form at all -- RT_GC_CALLBACK(rt_chain_enter(fn)) is
+       `error: variable or field _cb_r declared void`, proven by compiling it -- so a detector blind to _V makes one site permanently
+       uncountable and would force a wrap that does not build. Strictly widening: it can only turn UNWRAPPED into WRAPPED where a
+       sanctioned wrapper really encloses the call."""
     spans = []
-    for m in re.finditer(r"(?<![A-Za-z0-9_])" + re.escape(marker) + r"\s*\(", src):
+    for m in re.finditer(r"(?<![A-Za-z0-9_])" + re.escape(marker) + r"(?:_V)?\s*\(", src):
         depth = 0
         for j in range(m.end() - 1, len(src)):
             if src[j] == "(":
@@ -624,10 +628,11 @@ def census_callbacks(files, marker="RT_GC_CALLBACK", out=print, root=None):
     out(f"CENSUS callbacks INBOUND call_back_sites={in_sites} wrapped_in_{marker}={in_wrapped} "
         f"unwrapped={len(in_unwrapped)} want unwrapped=0 (Rule 4: a runtime frame holds no raw heap pointer across "
         f"a callback into emitted code)")
-    for u in in_unwrapped[:15]:
+    _cbcap = len(in_unwrapped) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 15
+    for u in in_unwrapped[:_cbcap]:
         out(f"  UNWRAPPED-INBOUND {u}")
-    if len(in_unwrapped) > 15:
-        out(f"  ... {len(in_unwrapped) - 15} more unwrapped INBOUND")
+    if len(in_unwrapped) > _cbcap:
+        out(f"  ... {len(in_unwrapped) - _cbcap} more unwrapped INBOUND -- SCRIP_GC_CENSUS_LIST_ALL=1 prints every one (a count without names cannot be triaged; the safe-point list above has honoured this since CEO-1039 and these two did not, ceo CEO-1104)")
 
     missing = [s for s, _why in OUTBOUND_SYMS if s not in seen_syms]
     out(f"CENSUS callbacks OUTBOUND set=DECLARED({','.join(s for s, _ in OUTBOUND_SYMS)}) -- a DECLARED set is a "
@@ -643,10 +648,11 @@ def census_callbacks(files, marker="RT_GC_CALLBACK", out=print, root=None):
     out(f"CENSUS callbacks OUTBOUND call_out_sites={out_sites} wrapped_in_{marker}={out_wrapped} "
         f"unwrapped={len(out_unwrapped)} want unwrapped=0 -- this is CEO-836's crash class: the raw heap name "
         f"pointer live across the call")
-    for u in out_unwrapped[:15]:
+    _cbcap = len(out_unwrapped) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 15
+    for u in out_unwrapped[:_cbcap]:
         out(f"  UNWRAPPED-OUTBOUND {u}")
-    if len(out_unwrapped) > 15:
-        out(f"  ... {len(out_unwrapped) - 15} more unwrapped OUTBOUND")
+    if len(out_unwrapped) > _cbcap:
+        out(f"  ... {len(out_unwrapped) - _cbcap} more unwrapped OUTBOUND -- SCRIP_GC_CENSUS_LIST_ALL=1 prints every one (a count without names cannot be triaged; the safe-point list above has honoured this since CEO-1039 and these two did not, ceo CEO-1104)")
 
     COUNTS.setdefault("callbacks", {})["unwrapped"] = len(in_unwrapped)
     COUNTS["callbacks"]["unwrapped_outbound"] = len(out_unwrapped)
@@ -1151,9 +1157,23 @@ def selftest():
        "callbacks: the OUTBOUND direction counts CEO-836's `out = APPLY_fn(fn, args, nargs);` site, wrapped and unwrapped apart -- and no INBOUND count contains it")
     ck("INBOUND call_back_sites=0" in j,
        "callbacks: that same fixture reads INBOUND 0 -- proof the two directions are two populations and the old single count could not see the crash")
+    cb_v = os.path.join(w, "cb_v.c")
+    open(cb_v, "w").write(
+        "static DESCR_t f(const char *fn, DESCR_t *args, int nargs) {\n"
+        "  DESCR_t out = APPLY_fn(fn, args, nargs);\n"
+        "  RT_GC_CALLBACK_V(rt_chain_enter(fn));\n"
+        "  _usercall_hook(fn);\n  rt_chain_enter_v(fn);\n  return out;\n}\n")
+    buf.clear(); rc = census_callbacks([cb_v], out=buf.append)
+    jv = "\n".join(buf)
+    ck(rc == 1 and "OUTBOUND call_out_sites=4 wrapped_in_RT_GC_CALLBACK=1 unwrapped=3" in jv,
+       "callbacks: the VOID variant RT_GC_CALLBACK_V counts as a wrap and the three bare calls beside it still count as unwrapped -- a void callee cannot take the value form (RT_GC_CALLBACK(rt_chain_enter(fn)) is `_cb_r declared void`, proven by compiling it), so a detector blind to _V leaves that site permanently uncountable (ceo CEO-1104)")
     # (iv) the marker's absence is PRINTED, never read as progress pending
-    ck("defined_in_tree=NO" in j and "would not compile" in j,
-       "callbacks: a marker with no #define anywhere in src/ is PRINTED as undefined beside wrapped=0")
+    nodef = os.path.join(w, "nodef"); os.makedirs(os.path.join(nodef, "src"), exist_ok=True)
+    buf2 = []; census_callbacks([cb_out], out=buf2.append, root=nodef); jnd = "\n".join(buf2)
+    ck("defined_in_tree=NO" in jnd and "would not compile" in jnd,
+       "callbacks: a marker with no #define anywhere in src/ is PRINTED as undefined beside wrapped=0 -- proven against a ROOT that has no definition, because RT_GC_CALLBACK now EXISTS in the real tree and this arm asserted its ABSENCE, so it went red the day the wrapper was written (ceo CEO-1104: a self-test must not be keyed on the state the work removes)")
+    ck("defined_in_tree=src/runtime/rt/gc_heap.h" in j,
+       "callbacks: and against the REAL root the same line NAMES the definition site, so a no-op macro cannot pass as a cure unnoticed -- both directions proven, not one")
     ck("defined_in_tree=" in "\n".join(buf) and "scripts" not in "",
        "callbacks: the marker's definition site is reported on every run, so a no-op macro cannot pass as a cure unnoticed")
     nogc = os.path.join(w, "nomaps"); os.makedirs(os.path.join(nogc, "src", "runtime", "rt"), exist_ok=True)

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "rt/rt_arena.h"
+#include "rt/gc_heap.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -232,7 +233,7 @@ static void eval_thunks_emit_from(int pc0)
           if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; }
         char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
-        { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
+        { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
         if (pfn) rt_proc_set_fn(pname, pfn);
         { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }
         if (b1c && pfn) { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
@@ -290,7 +291,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     emit_jmp_entry_for_chain((IR_graph_t *)g);
     g_rt_fragment_emit = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
-    { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
+    { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
     g_rt_fragment_emit = 0;
     emit_jmp_entry_clear();
     g_frame_active = fa; g_emit_cfg = cfg_sv;
@@ -489,7 +490,7 @@ int rt_goto_transfer(const char *name)
 {
     extern void rt_c2bb_hit(const char *site, const char *name);
     void *fn = rt_goto_resolve(name);
-    if (fn) { rt_c2bb_hit("chain.goto", name); rt_chain_enter((eval_chain_fn)fn); return 1; }
+    if (fn) { rt_c2bb_hit("chain.goto", name); RT_GC_CALLBACK_V(rt_chain_enter((eval_chain_fn)fn)); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -561,7 +562,7 @@ DESCR_t code_at(const char *src, long base)
             int rfe_sv = g_rt_fragment_emit; g_rt_fragment_emit = 1;
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
-            { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
+            { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
             emit_jmp_entry_clear();
             g_rt_fragment_emit = rfe_sv;
             g_frame_active = fa; g_emit_cfg = cfg_sv;

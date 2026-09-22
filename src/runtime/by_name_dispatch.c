@@ -335,7 +335,7 @@ static DESCR_t rk_elem_descr(const char *el, size_t L) {
 static int rk_block_cmp(const char *bn, const char *x, size_t xl, const char *y, size_t yl) {
     extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     g_call_args[0] = rk_elem_descr(x, xl); g_call_args[1] = rk_elem_descr(y, yl);
-    double d = to_real(rt_call_proc_descr(bn, 2));
+    double d = to_real(RT_GC_CALLBACK(rt_call_proc_descr(bn, 2)));
     return d < 0 ? -1 : (d > 0 ? 1 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -837,14 +837,14 @@ static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int t
     if (pi >= g_stage2.proc_count) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
-        return rt_call_proc_descr(procname, total);
+        return RT_GC_CALLBACK(rt_call_proc_descr(procname, total));
     }
     if (g_stage2.proc_table[pi].bb_idx >= 0) {
         extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); extern int rt_proc_has_native_fn(const char *name);
         if (rt_proc_has_native_fn(procname)) {
             extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
             for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
-            return rt_call_proc_descr(procname, total);
+            return RT_GC_CALLBACK(rt_call_proc_descr(procname, total));
         }
         return ir_call_proc(pi, callargs, total);
     }
@@ -1031,7 +1031,7 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
         int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
         if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
             extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            g_call_args[0] = self; rt_call_proc_descr(proc, 1);
+            g_call_args[0] = self; RT_GC_CALLBACK(rt_call_proc_descr(proc, 1));
         } else {
             extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); DESCR_t a0 = self; ir_call_proc(pi, &a0, 1);
         }
@@ -1059,7 +1059,7 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
         int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
         if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
             extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k]; rt_call_proc_descr(proc, total);
+            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k]; RT_GC_CALLBACK(rt_call_proc_descr(proc, total));
         } else {
             extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); ir_call_proc(pi, callargs, total);
         }
@@ -1279,7 +1279,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
-    return rt_call_arr_strict(nm, argv, n);
+    return RT_GC_CALLBACK(rt_call_arr_strict(nm, argv, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
@@ -1319,7 +1319,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         return first;
     }
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
-    return rt_call_value(callee, argv, n);
+    return RT_GC_CALLBACK(rt_call_value(callee, argv, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_data_type_name(DESCR_t v) { return (IS_DATA_INST_fn(v) && v.u && ((DATINST_t *)v.u)->type && ((DATINST_t *)v.u)->type->name) ? ((DATINST_t *)v.u)->type->name : ""; }
@@ -1350,7 +1350,7 @@ int rt_apply_unpack(DESCR_t lv, DESCR_t *buf, int cap) {
 DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot) {
     DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
     if (n < 0) { core_icn_error(126, lv); return FAILDESCR; }
-    return rt_call_value_gen_h(callee, buf, n, hslot);
+    return RT_GC_CALLBACK(rt_call_value_gen_h(callee, buf, n, hslot));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FILE *cvprep_log(void) { static FILE *f = (FILE *)0; static int tried = 0; if (!tried) { const char *e = getenv("SCRIP_CV_PREP_LOG"); tried = 1; if (e && *e) { f = fopen(e, "a"); if (f) setvbuf(f, (char *)0, _IOLBF, 0); } } return f; }
@@ -1375,7 +1375,7 @@ CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
 CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
     DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
     if (n < 0) return (CVSPINE_t){ 0, 0 };
-    return rt_call_value_spine_prep(callee, buf, n);
+    return RT_GC_CALLBACK(rt_call_value_spine_prep(callee, buf, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_goal_key(DESCR_t goal, int extra, char *out, size_t cap, DESCR_t **args_out, int *ar_out) {
@@ -3318,7 +3318,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             g_tap_planned = 0; g_tap_run = 0; g_tap_failed = 0; g_tap_no_plan = 1; g_tap_todo_upto = 0; g_tap_todo_reason[0] = 0; g_tap_done_run = 0;
             fflush(stdout); int saved = dup(fileno(stdout)); FILE *cap = tmpfile();
             if (saved >= 0 && cap) fflush(stdout), dup2(fileno(cap), fileno(stdout));
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); rt_call_proc_descr(bn, 0);
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); (void)RT_GC_CALLBACK(rt_call_proc_descr(bn, 0));
             if (g_tap_no_plan) { printf("1..%ld\n", g_tap_run); }
             fflush(stdout);
             if (saved >= 0 && cap) { dup2(saved, fileno(stdout)); close(saved); rewind(cap); char ln[4096];
@@ -3379,7 +3379,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *wname = acc_names[win]; (void)acc_idx;
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < na && k < 64; k++) g_call_args[k] = aa[k];
-        *out = rt_call_proc_descr(wname, na); return 1;
+        *out = RT_GC_CALLBACK(rt_call_proc_descr(wname, na)); return 1;
     }
     if (!strcmp(fn, "__blk_ref") && nargs == 1) {
         const char *bn = VARVAL_fn(args[0]); DESCR_t b; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : "");
@@ -3389,7 +3389,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *bn = (args[0].v == DT_BLK) ? args[0].s : VARVAL_fn(args[0]); if (!bn || !*bn) { *out = FAILDESCR; return 1; }
         int na = nargs - 1; extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < na && k < 64; k++) g_call_args[k] = args[k + 1];
-        *out = rt_call_proc_descr(bn, na); return 1;
+        *out = RT_GC_CALLBACK(rt_call_proc_descr(bn, na)); return 1;
     }
     if (!strcmp(fn, "__param_check") && nargs >= 2) {
         const char *ptype = VARVAL_fn(args[0]); if (!ptype) ptype = "Any";
@@ -3817,7 +3817,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else if (IS_REAL_fn(args[_ri])) { char *_rb = rt_wsb_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
             else tmp[_ri] = args[_ri];
         }
-        *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
+        *out = RT_GC_CALLBACK(rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs)); return 1;
     }
     if (!strcmp(fn, "note") && !rt_proc_is_registered(fn)) {
         DESCR_t *tmp = (DESCR_t *)rt_ws_alloc_descr((size_t)(nargs > 0 ? nargs : 1));
@@ -3836,7 +3836,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
         buf[p++] = ')'; buf[p] = '\0';
         DESCR_t tmp1 = STRVAL(buf);
-        *out = rt_call_arr("write", &tmp1, 1); return 1;
+        *out = RT_GC_CALLBACK(rt_call_arr("write", &tmp1, 1)); return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "rk_write_arr") && nargs == 1) {
@@ -3846,7 +3846,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
         buf[p++] = ']'; buf[p] = '\0';
         DESCR_t tmp1 = STRVAL(buf);
-        *out = rt_call_arr("write", &tmp1, 1); return 1;
+        *out = RT_GC_CALLBACK(rt_call_arr("write", &tmp1, 1)); return 1;
     }
     if (!strcmp(fn, "__rk_div") && nargs == 2) {
         extern void rt_script_die_surface(const char *msg);
@@ -4096,7 +4096,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             char *el = rt_wsb_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
             DESCR_t ed = rk_elem_descr(el, L);
             if (!have) { acc = ed; have = 1; }
-            else { g_call_args[0] = acc; g_call_args[1] = ed; acc = rt_call_proc_descr(bn, 2); }
+            else { g_call_args[0] = acc; g_call_args[1] = ed; acc = RT_GC_CALLBACK(rt_call_proc_descr(bn, 2)); }
             if (!nx) break;
             seg = nx + 1;
         }
@@ -4142,7 +4142,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             char *ep; long long ev = strtoll(el, &ep, 10);
             DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
             g_call_args[0] = ed;
-            DESCR_t rd = rt_call_proc_descr(bn, 1);
+            DESCR_t rd = RT_GC_CALLBACK(rt_call_proc_descr(bn, 1));
             const char *keep = NULL; char rscratch[64];
             if (want_map) keep = to_cstring(rd, rscratch, sizeof rscratch);
             else keep = rt_is_truthy(rd) ? el : NULL;
@@ -4172,7 +4172,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 char *ep; long long ev = strtoll(el, &ep, 10);
                 DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
                 g_call_args[0] = ed;
-                if (rt_is_truthy(rt_call_proc_descr(bn, 1))) { *out = ed; return 1; }
+                if (rt_is_truthy(RT_GC_CALLBACK(rt_call_proc_descr(bn, 1)))) { *out = ed; return 1; }
                 if (!nx) break;
                 seg = nx + 1;
             }
@@ -4713,7 +4713,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 extern DESCR_t g_call_args[];
                 extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
                 int total = nargs; for (int k = 0; k < total && k < 64; k++) g_call_args[k] = args[k];
-                *out = rt_call_proc_descr(newproc, total); return 1;
+                *out = RT_GC_CALLBACK(rt_call_proc_descr(newproc, total)); return 1;
             }
             extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
             *out = ir_call_proc(pi, args, nargs); return 1;
@@ -4866,7 +4866,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                     if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(tproc)) {
                         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
                         for (int k = 0; k < total && k < 64; k++) g_call_args[k] = ca[k];
-                        *out = rt_call_proc_descr(tproc, total); return 1;
+                        *out = RT_GC_CALLBACK(rt_call_proc_descr(tproc, total)); return 1;
                     }
                     extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
                     *out = ir_call_proc(pi, ca, total); return 1;
@@ -5359,20 +5359,20 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
-DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 0, 0); }
-DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0); }
-DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0); }
-DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0); }
-DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1); }
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 0, 0)); }
+DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0)); }
+DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0)); }
+DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0)); }
+DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
-    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4); return r0; }
+    if (g_core_errjmp_n >= 64) { DESCR_t r0 = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4)); return r0; }
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
-    DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4);
+    DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4));
     g_core_errjmp_n = my;
     return r;
 }
@@ -5415,7 +5415,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|")) {
                 extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern int FNCEX_fn(const char *);
                 if (core_call_registered_fn(fn, args, nargs, &out)) return out;
-                if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs);
+                if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
                 core_runtime_error(29, "undefined operator referenced");
                 return FAILDESCR;
             }
@@ -5430,7 +5430,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         if (!strcmp(fn, "-")) return na(a, b, BINOP_SUB);
         if (!strcmp(fn, "*")) return na(a, b, BINOP_MUL);
         if (!strcmp(fn, "/")) return na(a, b, BINOP_DIV);
-        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs); return na(a, b, BINOP_MOD); }
+        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return na(a, b, BINOP_MOD); }
         if (!strcmp(fn, "^")) return na(a, b, BINOP_POW);
         if (!strcmp(fn, "|||")) { extern DESCR_t rt_icn_lconcat_d(DESCR_t, DESCR_t); return rt_icn_lconcat_d(a, b); }
         if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
@@ -5452,7 +5452,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         DESCR_t cal = NV_GET_fn(fn);
         if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
     }
-    out = APPLY_fn(fn, args, nargs);
+    out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5471,10 +5471,10 @@ static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64
         if (try_call_builtin_by_name_bl_s(fn, a4, 4, &out, -1, strict) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
         return FAILDESCR;
     }
-    return rt_call_arr_bl_s(fn, args, nargs, -1, strict, 0);
+    return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, strict, 0));
 }
-DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return rt_call_arr_gen_s(fn, args, nargs, resume, 0); }
-DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return rt_call_arr_gen_s(fn, args, nargs, resume, 1); }
+DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 0)); }
+DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
@@ -6584,7 +6584,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_write) || (_bid == BID_writes)) {
         { DESCR_t _wv = NV_GET_fn(fn);
           int _is_self_default = (IS_PROCVAL_fn(_wv) && _wv.s && !strcmp(_wv.s, fn));
-          if (!_is_self_default) { *out = rt_call_value(_wv, args, nargs); return 1; } }
+          if (!_is_self_default) { *out = RT_GC_CALLBACK(rt_call_value(_wv, args, nargs)); return 1; } }
         L_write_body_5209: ;
         int nl = (fn[5] == '\0');
         int start = 0;
@@ -7590,7 +7590,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         DESCR_t callee = args[0]; DESCR_t lv = args[1];
         DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
         if (n < 0) return icn_argtype_raise(126, lv, out);
-        *out = rt_call_value(callee, buf, n); return 1;
+        *out = RT_GC_CALLBACK(rt_call_value(callee, buf, n)); return 1;
     }
     L_bidjmp_6162: ;
     if ((_bid == BID_push) && nargs >= 1) {

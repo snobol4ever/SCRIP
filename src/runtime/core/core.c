@@ -299,7 +299,7 @@ void rt_trace_label_hook(const char *name) {
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
-        (void)APPLY_fn(e->cbfn, cbargs, 2);
+        (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace; kw_ftrace = saved_ftrace;
         return;
@@ -322,7 +322,7 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(kw));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
-        (void)APPLY_fn(e->cbfn, cbargs, 2);
+        (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace; kw_ftrace = saved_ftrace;
         return;
@@ -358,7 +358,7 @@ void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, D
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
-        (void)APPLY_fn(e->cbfn, cbargs, 2);
+        (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace; kw_ftrace = saved_ftrace;
     } else {
@@ -1397,7 +1397,7 @@ static DESCR_t _APPLY_(DESCR_t *a, int n) {
             fname = NV_name_from_ptr((const DESCR_t *)a[0].ptr);
     }
     if (!fname) fname = VARVAL_fn(a[0]);
-    return APPLY_fn(fname, a + 1, n - 1);
+    return RT_GC_CALLBACK(APPLY_fn(fname, a + 1, n - 1));
 }
 static DESCR_t _ARG_(DESCR_t *a, int n);
 static DESCR_t _DEFINE_(DESCR_t *a, int n);
@@ -3820,7 +3820,7 @@ static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, D
     if (!rt_proc_is_registered(name)) return 0;
     for (int k = 0; k < nargs && k < 64; k++) g_call_args[k] = args[k];
     for (int k = (nargs < 0 ? 0 : nargs); k < 64; k++) g_call_args[k] = (DESCR_t){0};
-    *out = rt_call_proc_descr(name, nargs);
+    *out = RT_GC_CALLBACK(rt_call_proc_descr(name, nargs));
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
