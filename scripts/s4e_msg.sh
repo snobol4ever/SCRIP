@@ -767,6 +767,7 @@ s4e_lane_owner_of_language() {
       # table above was: the gate compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a default would
       # agree with a line 2 that had drifted on six of them without anything noticing. The DECTET mapping is
       # kept in the comment above so the flip back is a seven-line edit and not a reconstruction.
+      # ⛔ MODE CEO (CEO-1103, 2026-09-22, Lon in-chat to the ceo: "The fleet is quiet. It is just you, CEO. We will get GC 100%, you and me. Go to CEO mode only."): ONE SEAT HOLDS EVERY LANGUAGE again. Written out per language rather than collapsed to a default, for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE, and a default agrees with a line 2 that has drifted on six of them without anything noticing.
       # ⛔ MODE SEPTET (CEO-979, 2026-09-20, Lon: "Go to mode SEPTET, with the four current officers and 3 more HQ's as Opus"): THREE language HQs stand and they were chosen by GC DEBT, not by
       # language coverage -- hq_raku 31 of the 72 no_layout plus the 8,000,486-hit method road, hq_snobol4 31 no_layout plus SnoM's two tiny-arena reds, hq_prolog 10 no_layout plus the findall
       # enumeration defect. The four languages whose HQ is NOT standing stay with the ceo, and rebus stays the cfo's keep-green as under DECTET. Written out per language, never collapsed to a
@@ -836,13 +837,13 @@ s4e_lane_owner_of_language() {
       # the icon builtin root class, and keeps REBUS as keep-green. The ceo keeps SNOBOL4 and SNOCONE, where its half of
       # the C->BB population lives. Written out per language rather than collapsed to a default for the reason every
       # table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
-      icon)     printf 'cfo';;
-      prolog)   printf 'cto';;
-      snobol4)  printf 'ceo';;
-      pascal)   printf 'cto';;
-      snocone)  printf 'ceo';;
-      rebus)    printf 'cfo';;
-      raku)     printf 'cto';;
+       icon)     printf 'ceo';;
+       prolog)   printf 'ceo';;
+       snobol4)  printf 'ceo';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
+       rebus)    printf 'ceo';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
