@@ -177,16 +177,42 @@ fi
 # red rather than an improvement.  ⛔ THAT MOVE IS INVISIBLE TO EVERY OTHER NUMBER HERE: when a store stops being
 # shielded into the frame and starts being shielded into a fixed symbol, `members` falls and `shielded` falls, and
 # arms (e) and (h) both read a win.  The plant doctors the FIFTH COLUMN ALONE of one baseline row and requires MOVED.
-pl5="$(mktemp)"; trap 'rm -f "$pl5"' EXIT
-awk -F'\t' 'BEGIN{OFS="\t"} !/^#/ && NF>=5 && !done {$5=$5+1; done=1} {print}' "$BASE" > "$pl5"
-pmv="$(printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$pl5" 2>&1 | grep -c '^MOVED ')"
+# ⛔⭐ THE PLANT IS DIFFERENTIAL AND NOT ABSOLUTE, CORRECTED BY THE cto 2026-09-22 AFTER IT GRADED THE WRONG THING FOR
+# 92 COMMITS.  It asserted an ABSOLUTE `MOVED == 1`, which is true only while the tree's own reading matches the
+# baseline exactly -- so on a drifted tree it reads the DRIFT (17 rows on this origin, every one of them .icn,
+# every one shielded UP and unread_static UP) and reds for a reason that has nothing to do with the detector it
+# exists to prove.  Worse in the other direction: the instant anyone re-bases the floor the absolute form goes
+# GREEN WITHOUT THE DETECTOR EVER HAVING BEEN EXERCISED, which is an instrument reporting success while doing
+# nothing -- the failure THE INSTRUMENT LAWS exist to catch, in the arm written to catch it.  The plant now
+# doctors a row that has NOT already moved and requires exactly ONE MORE than the undoctored reading, with the
+# doctored witness NAMED; and when no unmoved row exists it REFUSES rather than grading, because a plant that
+# cannot be run has not passed.
+mvf="$(mktemp)"; rdf="$(mktemp)"; pl5="$(mktemp)"; trap 'rm -f "$mvf" "$rdf" "$pl5"' EXIT
+printf '%s\n' "$rat" | sed -n 's/^MOVED \([^ ]*\) .*/\1/p' > "$mvf"
+printf '%s\n' "$pop" | sed -n 's/^CENSUS unmapped-store WITNESS \([^ ]*\) .*/\1/p' > "$rdf"
+cand="$(awk -F'\t' -v mvf="$mvf" -v rdf="$rdf" '
+  FILENAME==mvf { if ($0!="") mv[$0]=1; next }
+  FILENAME==rdf { if ($0!="") rd[$0]=1; next }
+  /^#/ { next }
+  NF>=5 && !mv[$1] && rd[$1] { print $1; exit }' "$mvf" "$rdf" "$BASE")"
 p4="$(mktemp)"; cut -f1-4 "$BASE" > "$p4"
 printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$p4" >/dev/null 2>&1; p4rc=$?
 rm -f "$p4"
-if [ "${pmv:-0}" = 1 ] && [ "${p4rc:-0}" = 2 ]; then
-  ck ok "(j) PLANTED BOTH WAYS -- doctoring the reach column of ONE row reads MOVED (1 witness named), and a four-column baseline is REFUSED(2) rather than silently graded on four of its five facts"
+if [ -z "$cand" ]; then
+  ck no "(j) THE PLANT COULD NOT BE RUN AND THAT IS A REFUSAL, NOT A PASS: every baseline witness present in this reading has ALREADY MOVED (moved=${rmoved:-?} of $(grep -vc '^#' "$BASE") baseline row(s)), so there is no unmoved row to doctor and the fifth column's detector cannot be exercised on this tree at all. Cure arm (e) first -- a floor re-based while this plant is blind is how an exemption list becomes the new floor"
+elif ! printf '%s' "${rmoved:-x}" | grep -q '^[0-9][0-9]*$'; then
+  ck no "(j) the undoctored ratchet reading arm (e) took carries no numeric moved= count (${rmoved:-?}), so a differential plant has no base to differ from -- the ratchet REFUSED or printed no summary line"
 else
-  ck no "(j) the ratchet did not grade its fifth column: doctored-row MOVED count=${pmv:-?} (want 1), four-column baseline rc=${p4rc:-?} (want 2). A floor that cannot see shielding move to the unread road reads that loss of coverage as a win"
+  awk -F'\t' -v w="$cand" 'BEGIN{OFS="\t"} !/^#/ && NF>=5 && $1==w {$5=$5+1} {print}' "$BASE" > "$pl5"
+  pout="$(printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$pl5" 2>&1)"
+  pmv="$(printf '%s\n' "$pout" | grep -c '^MOVED ')"
+  pnm="$(printf '%s\n' "$pout" | grep -c "^MOVED $cand ")"
+  pwant="$((rmoved + 1))"
+  if [ "${pmv:-0}" = "$pwant" ] && [ "${pnm:-0}" = 1 ] && [ "${p4rc:-0}" = 2 ]; then
+    ck ok "(j) PLANTED BOTH WAYS, DIFFERENTIALLY -- doctoring the reach column of ONE UNMOVED row ($cand) takes MOVED from $rmoved to $pmv and NAMES that witness, and a four-column baseline is REFUSED(2) rather than silently graded on four of its five facts"
+  else
+    ck no "(j) the ratchet did not grade its fifth column: doctoring UNMOVED row $cand read MOVED=${pmv:-?} (want $pwant, one more than the undoctored $rmoved) and named it ${pnm:-?} time(s) (want 1), four-column baseline rc=${p4rc:-?} (want 2). A floor that cannot see shielding move to the unread road reads that loss of coverage as a win"
+  fi
 fi
 
 # (f) THE PROPERTY ITSELF, graded by ORACLE DIFF and not by rc (CEO-997), over a band that goes WELL ABOVE 5.
