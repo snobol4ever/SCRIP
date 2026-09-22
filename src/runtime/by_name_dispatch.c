@@ -4028,13 +4028,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *bn = args[1].s;
         char scratch0[64];
         const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
-        const char **els = rt_pvec_alloc(64);
-        size_t *lens = rt_wsb_alloc(64 * sizeof(size_t));
+        const char **els = (const char **)malloc(64 * sizeof(char *));
+        size_t *lens = (size_t *)malloc(64 * sizeof(size_t));
         int nel = 0, cap = 64;
         const char *seg = cs0;
         while (*cs0) {
             const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            if (nel < cap) { char *cp = rt_wsb_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+            if (nel < cap) { char *cp = (char *)malloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
             if (!nx) break;
             seg = nx + 1;
         }
@@ -4047,6 +4047,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
+        for (int i = 0; i < nel; i++) free((void *)els[i]);
+        free((void *)els); free(lens);
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
