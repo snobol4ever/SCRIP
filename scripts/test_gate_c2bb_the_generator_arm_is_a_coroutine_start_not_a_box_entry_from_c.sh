@@ -39,8 +39,19 @@
 # the unmapped-C-frame row, not this one.  What does not survive is the claim that these three sites ENTER A
 # BOX FROM C on the road they actually take.
 #
+# ⛔⭐ A CAPACITY REFUSAL IS NOT A RED (coo's telegram 2026-09-21 19:5x, CEO-1101, Lon: "Place a hard cap on the GC
+# HEAP. Do not extend it.").  The declared arena is now a HARD CAP and a tiny one CAN refuse a live set -- the coo
+# measured procedure_coexpr_suspend_replace_3 aborting rc=134 with [ZHP] HARD CAP REACHED at 64 and 128 KB against
+# the ceo's capped build, completing at 256 and 1024.  This gate runs at 1 MB, above that fuse on that witness, but
+# the fuse is general: an abort on capacity says NOTHING about whether the generator arm is a coroutine start, so it
+# REFUSES rc=2 and names the cap rather than reporting a red about a claim it never got to measure.  ⛔ The cure for
+# a capacity refusal is a ROW, never a bigger default here -- the tiny arena is the mandatory instrument (CEO-934).
+#
 # ⭐ FAIL-ONCE IS BUILT IN: FAIL_ONCE=1 plants one synthetic gen_h.enter record into the first witness's trace
-# and requires arm B to red on it.  A gate that cannot say no is the instrument this fleet keeps re-finding.
+# and requires arm B to red on it.  REFUSE_ONCE=1 plants a hard-cap abort and requires the capacity arm to
+# REFUSE rc=2 -- that arm cannot fire naturally on this tree, which does not carry the cap yet, and an arm proven
+# only by reading it is the thing these laws exist against.
+# A gate that cannot say no is the instrument this fleet keeps re-finding.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -69,6 +80,18 @@ for w in $WITNESSES; do
   rm -f "$tr"
   SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_C2BB_TRACE="$tr" timeout 120s "$ROOT/scrip" "$src" > "$out" 2>"$TMP/$w.err"
   rc=$?
+  if [ "${REFUSE_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
+    printf '[ZHP] HARD CAP REACHED (REFUSE_ONCE plant) -- THIS REQUEST wanted 32767 payload bytes of block kind 215\n' >> "$TMP/$w.err"
+    rc=134
+    plant_done=1
+    echo "   REFUSE_ONCE: planted a hard-cap abort into $w's stderr"
+  fi
+  if [ "$rc" -ne 0 ] && grep -q 'HARD CAP REACHED' "$TMP/$w.err" 2>/dev/null; then
+    echo "⛔ GATE REFUSES (2): $w hit the arena HARD CAP (rc=$rc) at SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1}, so it never finished and this gate measured NOTHING."
+    sed -n '/HARD CAP REACHED/p' "$TMP/$w.err" | head -2
+    echo "   ⛔ A CAPACITY VERDICT ABOUT THE ARENA IS NOT A COLLECTOR DEFECT AND IS NOT A FAILURE OF THIS CLAIM (coo, 2026-09-21, CEO-1101: the declared size is a HARD CAP and a tiny arena CAN refuse a live set). Grading it rc=1 would publish a false red about the generator arm every time the cap bites; raising this gate's arena to dodge it would be worse, because the tiny arena is the mandatory instrument. Re-run at a larger SCRIP_HEAP_MB to measure the claim, and row the capacity separately."
+    exit 2
+  fi
   [ -f "$tr" ] || { echo "⛔ GATE REFUSES (2): $w produced NO trace file at all (rc=$rc) -- the build carries no rt_c2bb_hit or the run died before one [$stamp]"; exit 2; }
 
   if [ "${FAIL_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
