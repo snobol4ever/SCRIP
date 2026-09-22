@@ -58,6 +58,7 @@ std::string bb_idx_set() {
          + IF(!_.op_num_real, x86("mov", "r8", (long)DT_I))
          + IF(!_.op_num_real, x86("mov", "r9", FRQ(_.op_sc)))
          + x86("call", "subscript_set", (uint64_t)(uintptr_t)(void *) subscript_set)
+         + x86_rt_gc_poll()
          + x86("cmp",  "eax", (long)0)
          + x86_omega("je")
          + x86_gamma()

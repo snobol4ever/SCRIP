@@ -85,6 +85,7 @@ std::string bb_binop_gvar_arith() {
                           + IF((_.op_name1 ? _.op_gva_k1 : _.op_gva_k2) < 0,
                               x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_name1 ? _.op_name1 : _.op_name2), (_.op_name1 ? _.op_parts_lbl[0] : _.op_parts_lbl[1]))
                             + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
+                            + x86_rt_gc_poll()
                           + IF( _.op_name1, x86("mov", "rcx", (long)_.op_sb))
                           + IF(!_.op_name1, x86("mov", "rcx", "rax"))
                           + IF(!_.op_name1, x86("mov", "rax", (long)_.op_sa))

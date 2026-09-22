@@ -22,6 +22,7 @@ std::string bb_gcc() {
          + x86("mov",     "rdi", ROQ(0))
          + x86("sub",     "rsp", (long)8)
          + x86("call",    "rt_icn_cset_member", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, int))rt_icn_cset_member)
+         + x86_rt_gc_poll()
          + x86("add",     "rsp", (long)8)
          + x86("test",    "rax", "rax")
          + x86_omega("je")

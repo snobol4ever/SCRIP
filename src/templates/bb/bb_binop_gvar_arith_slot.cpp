@@ -52,12 +52,14 @@ std::string bb_binop_gvar_arith_slot() {
                           + IF(_.bb_lk == (int)IR_LIT_INTEGER, x86("mov", "rax", (long)_.bb_li))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
+                          + x86_rt_gc_poll()
                           + IF(!(_.bb_lk == (int)IR_LIT_INTEGER) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
                             x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_EXCISED || _.bb_lk == (int)IR_EXCISED) ? 8 : 0))))
                           + IF(_.bb_rk == (int)IR_LIT_INTEGER, x86("mov", "rcx", (long)_.bb_ri))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("mov", FRQ(_.op_off), "rax"))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1]))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
+                          + x86_rt_gc_poll()
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("mov", "rcx", "rax"))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("mov", "rax", FRQ(_.op_off)))
                           + IF(!(_.bb_rk == (int)IR_LIT_INTEGER) && !(_.bb_rk == (int)IR_VAR && _.op_name2 != 0),
