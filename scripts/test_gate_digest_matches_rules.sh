@@ -218,5 +218,11 @@ check_rule "FINDING-FILES-ARE-PERMITTED-AGAIN" \
     '.github/RULES.md FACT RULE -- FINDING FILES ARE PERMITTED AGAIN (Lon 2026-09-18, in-chat to the cto, verbatim: "You can use as many FINDING files as you want. I will just delete them periodically. We should probably do a summarization when I delete."; CEO-859): the CEO-760/796 prohibition is RETIRED. Any seat may write one. The measured claims go into the citing baton or GOAL cursor IN THE SAME LANDING, because Lon deletes them periodically and a measurement living only in a FINDING has a deletion date.' \
     "FINDING FILES ARE GONE on Lon word 2026-09-16 (.github a2a311d0, CEO-760/796): never create a FINDING-*.md"
 
+check_rule "GC-HEAP-HARD-CAP" \
+    'refuses no (program|live set)|reserve grows to 8|reserve is the larger of 8x|grows to 8. (it|the window)|so a small (arena|window) refuses no|the window grows and collections FALL|PEAK of (collector )?exasperation|SMALLER IS NOT MONOTONICALLY MORE EXASPERATING|small window collects often and refuses no' \
+    'CEO-1101|hard cap|HARD CAP|does not extend past|lazy instantiat|cap_kb=' \
+    '.github/RULES.md FACT RULE -- THE GC HEAP HAS A HARD CAP AND DOES NOT EXTEND PAST IT (Lon 2026-09-21, in-chat to the ceo, verbatim: "Place a hard cap on the GC HEAP. Do not extend it." and "Do however use the lazy instantiation of memory as the heap grows."; CEO-1101): the DECLARED size is the CAP, memory inside it is committed page-granular as the heap grows, nothing above it is mapped, SCRIP_HEAP_MAX_MB names the cap itself, and A SMALL CAP CAN REFUSE A LIVE SET -- which is a row, never a reason to raise the default. The arena turn-over of CEO-1095 was an artifact of the retired 2 MB growth step.' \
+    'the reserve grows to 8x it or SCRIP_HEAP_MAX_MB, so a small arena refuses no program'
+
 gate_floor "$EXAMINED" 2 "root-digest checks (roots × rules)"
 gate_verdict "$VIOLATIONS" "root digest(s) asserting retired FACT RULE text uncorrected"

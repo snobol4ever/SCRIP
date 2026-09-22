@@ -13,6 +13,7 @@
 #define GC_HEAP_MB 1
 #define GC_HEAP_KB 128
 #define GC_RESERVE_FLOOR_MB 512
+#define GC_HEAP_CAP_KB 4096
 #define GC_HEAP_KB_FLOOR 64
 #include "descr.h"
 #include "pin_va.h"
@@ -42,6 +43,7 @@ static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
 static char *g_hp_cap_end = (char *)0;
 static size_t g_hp_chunk = 0;
+static long g_hp_capped = 0;
 static long g_hp_grown = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
@@ -149,10 +151,10 @@ static void rt_gcheap_report(void)
     long win_mb = (long)(g_hp_chunk >> 20), rsv_mb = (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 20) : 0L;
     long win_kb = (long)(g_hp_chunk >> 10);
     { const char *x = getenv("SCRIP_GC_EXERCISE"); const char *st = getenv("SCRIP_GC_STRESS");
-      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L); }
+      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld capped=%ld grew=%ld cap_kb=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L); }
     if (!getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
-    fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
+    fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld capped=%ld grew=%ldKB cap=%ldKB verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_huge_advise(char *a0, char *e0)
@@ -162,33 +164,42 @@ static void gc_huge_advise(char *a0, char *e0)
     { uintptr_t a = ((uintptr_t)a0 + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)e0) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_gcheap_cap_hit(uint64_t need);
 static int rt_gcheap_grow(uint64_t need)
 {
     size_t left = (size_t)(g_hp_cap_end - g_hp_end);
-    if (!left) return 0;
-    { size_t want = (size_t)need + 16u; if (want < (size_t)0x200000u) want = (size_t)0x200000u; want = (want + 0x1FFFFFu) & ~(size_t)0x1FFFFFu; if (want > left) want = left;
-      if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] soft end could not advance %ld MB at %p (reserve cap %ld MB)\n", (long)(want >> 20), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 20)); return 0; }
+    if (!left) { rt_gcheap_cap_hit(need); return 0; }
+    { size_t want = (size_t)need + sizeof(rt_hblk_t); want = (want + 0xFFFu) & ~(size_t)0xFFFu; if (want > left) want = left;
+      if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] lazy commit refused %ld KB at %p under a %ld KB hard cap\n", (long)(want >> 10), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 10)); return 0; }
       gc_huge_advise(g_hp_end, g_hp_end + want);
       g_hp_end += want;
       g_hp_grown += (long)want;
       if (!gc_line_paced()) g_hp_fr.line = g_hp_end;
-      if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZHP] soft end -> %ld MB committed of %ld MB reserved (grown %ld MB total)\n", (long)((g_hp_end - g_hp_arena) >> 20), (long)((g_hp_cap_end - g_hp_arena) >> 20), (long)(g_hp_grown >> 20));
+      if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZHP] lazy commit -> %ld KB of a %ld KB hard cap (committed %ld KB total)\n", (long)((g_hp_end - g_hp_arena) >> 10), (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)(g_hp_grown >> 10));
       return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_gcheap_cap_hit(uint64_t need)
+{
+    if (g_hp_capped++) return;
+    fprintf(stderr, "[ZHP] HARD CAP REACHED: %ld KB is committed, THE CAP IS %ld KB AND THE HEAP DOES NOT EXTEND PAST IT (Lon 2026-09-21, in-chat to the ceo, verbatim: \"Place a hard cap on the GC HEAP. Do not extend it.\" and \"Do however use the lazy instantiation of memory as the heap grows.\"; ceo CEO-1101). Memory inside the cap is instantiated LAZILY, a page at a time, as the heap grows into it; there is NOTHING BEYOND THE CAP -- the old 8x reserve is what let a point DECLARED at 64 KB grow to 2 MB and read as a 2 MB measurement wearing a 64 KB label (ceo CEO-1100, coo COO-139). A collection is ARMED for the next safe point and this request wanted %llu bytes; if the run now dies exhausted, read the distance to the next SAFE POINT before reading the size of the cap.\n", (long)((g_hp_end - g_hp_arena) >> 10), (long)((g_hp_cap_end - g_hp_arena) >> 10), (unsigned long long)need);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_init(void)
 {
-    long mb = (long)GC_HEAP_MB, cap_mb, kb = (long)GC_HEAP_KB;
+    long mb = (long)GC_HEAP_MB, cap_mb, cap_kb, kb = (long)GC_HEAP_KB;
     { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) { mb = v; kb = v * 1024L; } } }
     { const char *e = getenv("SCRIP_HEAP_KB"); if (e && *e) { long v = atol(e);
         if (v < (long)GC_HEAP_KB_FLOOR || v > 4096L * 1024L) { fprintf(stderr, "[ZHP] SCRIP_HEAP_KB=%ld is outside %d..%ld KB and is REFUSED -- the window is not silently clamped, because a run that grades at a size it was not asked for is a false reading (ceo CEO-1095)\n", v, (int)GC_HEAP_KB_FLOOR, 4096L * 1024L); abort(); }
         kb = v; } }
-    cap_mb = (mb * 8 > (long)GC_RESERVE_FLOOR_MB * 8) ? mb * 8 : (long)GC_RESERVE_FLOOR_MB * 8;
-    { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); if (v >= mb) cap_mb = v; } }
-    { void *rv = mmap((void *)0, (size_t)cap_mb << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-      if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap reserve mmap failed (%ld MB reserve) -- lower SCRIP_HEAP_MAX_MB\n", cap_mb); abort(); }
-      g_hp_arena = (char *)rv; }
-    g_hp_cap_end = g_hp_arena + ((size_t)cap_mb << 20);
+    cap_kb = (long)GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb;
+    { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); cap_kb = (v * 1024L >= kb) ? v * 1024L : kb; } }
+    { const char *e = getenv("SCRIP_HEAP_CAP_KB"); if (e && *e) { long v = atol(e); if (v < kb) { fprintf(stderr, "[ZHP] SCRIP_HEAP_CAP_KB=%ld is BELOW the %ld KB window and is REFUSED -- a cap under its own window is not a smaller heap, it is an unstatable one (ceo CEO-1101)\n", v, kb); abort(); } cap_kb = v; } }
+    cap_mb = (cap_kb + 1023L) / 1024L; if (cap_mb < 1) cap_mb = 1;
+    { size_t rsv = (((size_t)cap_kb << 10) + 0xFFFu) & ~(size_t)0xFFFu;
+      void *rv = mmap((void *)0, rsv, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+      if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap mmap failed at the %ld KB hard cap\n", cap_kb); abort(); }
+      g_hp_arena = (char *)rv; g_hp_cap_end = g_hp_arena + rsv; }
     g_hp_chunk = (((size_t)kb << 10) + 4095u) & ~(size_t)4095u;
     if (mprotect(g_hp_arena, g_hp_chunk, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] heap window commit failed (%ld KB of a %ld MB reserve)\n", kb, cap_mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + g_hp_chunk;
@@ -286,7 +297,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
         if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
         return r;
     }
-    fprintf(stderr, "[ZHP] heap exhausted at the reserve cap (%ld MB committed of %ld MB reserved, %ld blocks live) -- THIS REQUEST wanted %llu payload bytes (%llu with the header) of block kind %u. A request larger than the whole reserve is a CORRUPTED LENGTH, not a big program: a length computed from a pointer a collection moved asks for the world, so read the size before raising SCRIP_HEAP_MAX_MB -- which is IGNORED below the committed window anyway (rt_gcheap_init takes the env cap only when it is >= the window). If the size is sane, then a safe point is missing and nothing ever collected.\n", (long)((g_hp_end - g_hp_arena) >> 20), (long)((g_hp_cap_end - g_hp_arena) >> 20), g_hp_blocks, (unsigned long long)payload_bytes, (unsigned long long)total, (unsigned)type);
+    fprintf(stderr, "[ZHP] heap exhausted AT THE HARD CAP (%ld KB cap, %ld KB committed lazily so far, %ld blocks live, cap hit %ld times, COLLECTIONS RUN %ld) -- THIS REQUEST wanted %llu payload bytes (%llu with the header) of block kind %u. THE HEAP DOES NOT EXTEND ON LON'S ORDER, so this is one of exactly three things and never a fourth: a CORRUPTED LENGTH (a size computed from a pointer a collection moved asks for the world -- read the size FIRST), a MISSING SAFE POINT between this allocation and the last one (the collection is armed and never ran), or a live set that genuinely does not fit the window THIS RUN NAMED. SCRIP_HEAP_MAX_MB and SCRIP_HEAP_CAP_KB name the CAP ITSELF rather than a reserve above the window. \342\233\224 READ COLLECTIONS RUN FIRST: AN ABORT WITH ZERO COLLECTIONS IS NEVER A CAPACITY VERDICT -- nothing was ever reclaimed, so the cap was never full of LIVE data, and the cause is a MISSING SAFE POINT between two allocations. Capacity means the collector RAN, reclaimed what it could, and the survivors still did not fit (ceo CEO-1101, the classification the coo's item-4 rail buckets on).\n", (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)((g_hp_end - g_hp_arena) >> 10), g_hp_blocks, g_hp_capped, rt_gc_runs_count(), (unsigned long long)payload_bytes, (unsigned long long)total, (unsigned)type);
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

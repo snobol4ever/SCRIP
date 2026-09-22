@@ -2564,8 +2564,8 @@ def cmd_run(args):
     if not _arena_mb: _arena_mb = "0"
     _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
     print("ARENA SCRIP_HEAP_KB=%s%s%s" % (_arena_kb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
-          " (committed window in KB; unset means the shipped default 128 KB, which is the PEAK of collector exasperation and not the floor -- below it the live set stops fitting, the window grows and collections FALL (ceo CEO-1095). The reserve is the larger of 8x the window and the"
-          " default's, so a small window collects often and refuses no live set)"), flush=True)
+          " (THE HARD CAP in KB; unset means the shipped default 128 KB. Since ceo CEO-1101, on Lon's order, THE DECLARED SIZE IS A CAP AND THE HEAP DOES NOT EXTEND PAST IT -- memory inside the cap is committed page-granular as the heap grows, and NOTHING above it is mapped. SCRIP_HEAP_MAX_MB now names the CAP ITSELF, not a reserve. A SMALL CAP CAN REFUSE A LIVE SET, and that refusal is a row, never a reason to raise the"
+          " default; the run's own report carries capped= grew= cap_kb=, and grew>0 disqualifies a point as arena evidence)"), flush=True)
     def _bin_unmoved_or_refuse():
         _mv = _upa_bin.binary_moved_since_start()
         if _mv:
