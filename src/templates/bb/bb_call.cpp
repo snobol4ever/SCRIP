@@ -505,6 +505,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("rtcc_wb");
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call_bare", ((_.op_strict == 2) ? "rt_call_arr_bl_sn4" : _.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), fptr_bl);
+        s += x86_rt_gc_poll_res();
         s += x86("rtcc_rl");
     }
     s += x86("mov", FRQ(resoff), "rax");
@@ -550,6 +551,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     s += x86("lea", "rcx", FRQ(genoff));
     s += x86("rtcc_wb");
     s += x86("call_bare", (_.op_strict ? "rt_call_arr_gen_strict" : "rt_call_arr_gen"), fptr);
+    s += x86_rt_gc_poll_res();
     s += x86("rtcc_rl");
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
