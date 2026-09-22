@@ -36,6 +36,7 @@ std::string bb_deref() {
            + x86_omega("je")
            + x86("mov",     FRQ(_.op_off),     "rax")
            + x86("mov",     FRQ(_.op_off + 8), "rdx")
+           + x86_rt_gc_poll()
            + x86_gamma()
            + x86_beta_trampoline());
 }

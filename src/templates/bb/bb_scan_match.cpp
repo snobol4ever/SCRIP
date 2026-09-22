@@ -33,6 +33,7 @@ std::string bb_scan_match() {
              + x86("pop",     "r12")
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("mov",     FRQ(_.op_off + 24), "rdx")
+             + x86_rt_gc_poll()
              + x86("mov",     "rax", "r15")
              + x86("sub",     "rax", "r14")
              + x86("cmp",     "rax", "rdx")

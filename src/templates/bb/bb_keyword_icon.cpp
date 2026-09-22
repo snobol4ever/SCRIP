@@ -22,6 +22,7 @@ std::string bb_keyword_icon() {
              + x86("call",    "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
              + x86("mov",     FRQ(_.op_off),     "rax")
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma() + x86_beta() + x86_omega()
              + x86("def",     L(0))
              + x86(".quad",   LS(0), _.op_sval)

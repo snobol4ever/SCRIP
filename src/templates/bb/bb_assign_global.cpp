@@ -117,6 +117,7 @@ std::string bb_assign_global() {
             + x86("call_bare",   "NV_SET_fn", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(const char *, DESCR_t))NV_SET_fn)
             + IF(_.op_res_live && !stf(), x86("mov",    FRQ(_.op_off),     "rax")
                               + x86("mov",    FRQ(_.op_off + 8), "rdx"))
+                              + x86_rt_gc_poll()
             + x86("rtcc_rl")
             + x86_gamma()
             + x86_beta_trampoline()

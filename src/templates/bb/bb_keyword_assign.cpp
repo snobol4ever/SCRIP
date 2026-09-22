@@ -33,6 +33,7 @@ std::string bb_keyword_assign() {
              + x86_omega("je")
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
              + x86("mov",  "r14", "rdx")
              + x86("sub",  "r14", (long)1)
              + x86_gamma()
