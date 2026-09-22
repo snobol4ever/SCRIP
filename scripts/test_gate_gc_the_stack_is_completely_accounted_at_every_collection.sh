@@ -60,6 +60,23 @@ gate_require_fresh || exit 2
 # tripped reads as "there was never a bug here", and it is detector arms that fail OPEN (CEO-1099).
 WITNESSES="${GC_STACK_WITNESSES:-procedure_coexpr_every_replace_1 procedure_every_suspend_replace_3 procedure_coexpr_suspend_replace_3}"
 DEPTH_FLOOR="${GC_STACK_DEPTH_FLOOR:-10}"     # max frames the population MUST reach, or the reading is shallow
+# ⛔⭐⭐ THE WITNESS ARENA IS A VARIABLE BECAUSE THE HARD CAP IS COMING AND 64 KB DOES NOT SURVIVE IT.
+#   Lon 2026-09-21, in-chat to the ceo, verbatim: "Place a hard cap on the GC HEAP. Do not extend it."  The
+#   ceo's working tree already carries it, and MEASURED AGAINST THAT BUILD (read-only, their binary, 2026-09-21
+#   19:3x): procedure_coexpr_every_replace_1 and procedure_every_suspend_replace_3 complete at 64, 128, 256 and
+#   1024 KB, while procedure_coexpr_suspend_replace_3 ABORTS rc=134 at BOTH 64 and 128 KB -- "[ZHP] HARD CAP
+#   REACHED ... THIS REQUEST wanted 32767 payload bytes of block kind 215" -- and completes at 256 and 1024.
+#   With the arena hardcoded at 64 this gate would read UNPROVEN(2) on every capped tree FOREVER, because a
+#   crashing witness is rejected by design two blocks below.  That is how the gate's own DONE-WHEN refused on
+#   the ceo's root today.  ⛔ AND THE DISTINCTION THE CAP FORCES EVERYWHERE: an abort that says HARD CAP
+#   REACHED is a CAPACITY verdict about the arena, never a defect in the collector -- an item-4 band that
+#   counts it as a grading lost will publish hundreds of false losses the day the cap lands.
+#   ⭐ THE DEFAULT MOVES TO 256 AND THE EVIDENCE IS UNCHANGED, WHICH IS THE ONLY REASON IT MAY MOVE: measured
+#   here on this tree at 64 and at 256, both read 348 collections across 3 witnesses, max frames 11 against a
+#   floor of 10, THE SAME SEVEN NAMES, and PASS(0) -- only the word counts move (testio 879 vs 993, main 715
+#   vs 763), which is the spread this gate already refuses to pin.  Set GC_STACK_ARENA_KB=64 to reproduce the
+#   pre-cap reading.
+ARENA_KB="${GC_STACK_ARENA_KB:-256}"
 export MASTER_EXT=".icn" MASTER_DIR="$S4E/corpus/tests/icon"
 . "$REPO/scripts/lib_master_extract.sh" >/dev/null 2>&1 || {
     echo "GATE UNPROVEN(2) [$GATE_NAME]: scripts/lib_master_extract.sh is absent -- this gate materializes witnesses through the ONE authority and invents no extractor of its own"; exit 2; }
@@ -71,7 +88,7 @@ for w in $WITNESSES; do
     src="$TD/$w.icn"
     master_extract_name "$w" "$src" "$TD/$w.ref" >/dev/null 2>&1 || {
         echo "GATE UNPROVEN(2) [$GATE_NAME]: could not materialize witness '$w' from $MASTER_DIR -- a population that cannot be built is not a clean reading"; exit 2; }
-    env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 \
+    env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 \
         timeout 60 "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null
     wrc=$?
     if [ "$wrc" -ge 128 ] || [ "$wrc" -eq 124 ]; then
