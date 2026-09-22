@@ -263,6 +263,7 @@ def verdict_at(prog, labels, start, reg, budget=WALK_BUDGET, hops=2):
     A COPY is followed for `hops` more registers rather than answered, because `mov rbx, r13` then a dereference of
     rbx spends the same stale pointer -- stopping at the copy is how 78% of the first reading read PROPAGATED."""
     seen, work, best = set(), [(start, reg, hops)], None
+    copy_fallback = None
     steps = 0
     while work:
         i, r, h = work.pop()
@@ -278,8 +279,8 @@ def verdict_at(prog, labels, start, reg, budget=WALK_BUDGET, hops=2):
             if use.startswith("COPY:"):
                 nxt = use.split(":", 1)[1]
                 if h > 0:
-                    if best is None:
-                        best = ("PROPAGATED", raw.strip()[:88] + "   (copy, following %s)" % nxt)
+                    if copy_fallback is None:
+                        copy_fallback = ("PROPAGATED", raw.strip()[:88] + "   (copy, following %s)" % nxt)
                     work.append((i + 1, nxt, h - 1))
                     continue
                 use = "PROPAGATED"
@@ -293,7 +294,11 @@ def verdict_at(prog, labels, start, reg, budget=WALK_BUDGET, hops=2):
             continue
         for s in successors(prog, labels, i):
             work.append((s, r, h))
-    return best if best is not None else ("DEAD", "every path writes %s before reading it" % reg)
+    if best is not None:
+        return best
+    if copy_fallback is not None:
+        return copy_fallback
+    return ("DEAD", "every path writes %s before reading it" % reg)
 
 
 def grade_asm(text, regs, budget=WALK_BUDGET, hops=2):
@@ -360,6 +365,20 @@ PLANT_SPILL = """
 main_bx:                call             rt_gc_poll_asm@PLT
                         mov              qword ptr [rbp - 48], r13
                         mov              r13, 0
+                        ret
+"""
+PLANT_COPY_SPILL = """
+main_bx:                call             rt_gc_poll_asm@PLT
+                        mov              rbx, r13
+                        mov              r13, 0
+                        mov              qword ptr [rbp - 48], rbx
+                        ret
+"""
+PLANT_COPY_NARROW = """
+main_bx:                call             rt_gc_poll_asm@PLT
+                        mov              rbx, r13
+                        mov              r13, 0
+                        cmp              ebx, 5
                         ret
 """
 
@@ -430,7 +449,33 @@ def selftest():
        "(l) the budget is the MEASURED plateau (10000, the first value with zero exhaustion over 2152 pairs) and "
        "the decided floor is declared (95%%), both constants rather than inline guesses -- read %d and %d"
        % (WALK_BUDGET, DECIDED_FLOOR))
-    print("SELFTEST arms=12 fail=%d" % len(fails))
+    _p, s, rows = grade_asm(PLANT_COPY_SPILL, ["r13"])
+    ck(rows and rows[0][1]["r13"][0] == "SPILLED",
+       "(m) FAIL-ONCE ON THE BUCKET THAT COULD NOT BE CLEARED: a copy THEN a spill of the copy reads SPILLED. "
+       "PROPAGATED outranks SPILLED and NARROW, so seeding it at the first copy made every followed copy "
+       "UNRESOLVABLE -- decided stuck at 88%% and `--hops` was inert from 1 to 12, which made the reader's own "
+       "advice to widen the hops impossible to act on (read %s)" % (rows[0][1]["r13"][0] if rows else "nothing"))
+    _p, s, rows = grade_asm(PLANT_COPY_NARROW, ["r13"])
+    ck(rows and rows[0][1]["r13"][0] == "NARROW",
+       "(n) the same cure discriminates rather than painting every followed copy SPILLED: a copy then a D32 "
+       "compare of the copy reads NARROW (read %s)" % (rows[0][1]["r13"][0] if rows else "nothing"))
+    import contextlib, io as _io, tempfile as _tf, os as _os
+    _plant = PLANT_BAD + PLANT_CLEAN.replace("main_bx:", "main_cx:").replace(
+        "cmp              r13, 5", "mov              rbx, r13\n                        ret")
+    _fd, _path = _tf.mkstemp(suffix=".s")
+    with _os.fdopen(_fd, "w") as _f:
+        _f.write(_plant)
+    _buf = _io.StringIO()
+    with contextlib.redirect_stdout(_buf):
+        _rc = main(["--asm", _path, "--regs", "r13"])
+    _os.unlink(_path)
+    _out = _buf.getvalue()
+    ck(_rc == 2 and "REFUSE(2)" in _out and "POINTER" in _out and "LOWER BOUND" in _out,
+       "(o) FAIL-ONCE ON A REFUSAL THAT COULD NOT REJECT: under the decided floor the reader still NAMES its "
+       "POINTER findings. It used to return before the findings block, so on a sub-floor population it could "
+       "neither clear nor reject -- a screen with no reachable verdict (rc=%s, named=%s)"
+       % (_rc, "POINTER" in _out))
+    print("SELFTEST arms=15 fail=%d" % len(fails))
     return 1 if fails else 0
 
 
@@ -504,9 +549,19 @@ def main(argv):
           "DENOMINATOR" % (ndec, nall, pct,
                            sum(tot[(r, "BUDGET")] for r in regs), sum(tot[(r, "PROPAGATED")] for r in regs)))
     if pct < DECIDED_FLOOR:
+        under = [w for w in worst if w[2] not in NONCOLLECTED]
+        for w in under[:25]:
+            print("   POINTER %-34s site=%-6d %-4s %s" % w)
+        if len(under) > 25:
+            print("   ... %d more POINTER finding(s)" % (len(under) - 25))
+        print("   NAMED ABOVE AS A LOWER BOUND, NEVER AS A COUNT: %d POINTER finding(s) survive a %.0f%%-decided "
+              "reading. This reader REJECTS and never CLEARS, so a name it prints is a finding and its silence "
+              "is not a clearance." % (len(under), pct))
         print("REFUSE(2) decided %.0f%% is below the declared floor of %d%% -- this reader will not publish a "
-              "finding count it cannot stand behind. Raise --budget or widen the copy hops, then re-read."
-              % (pct, DECIDED_FLOOR))
+              "finding COUNT it cannot stand behind, and the names above are the reject signal it can. BUDGET is "
+              "%d and the copy hops SATURATE at 2 on this population, so neither knob lifts the residue: the "
+              "PROPAGATED that remain are copies whose destination no path reads in a classified way."
+              % (pct, DECIDED_FLOOR, sum(tot[(r, "BUDGET")] for r in regs)))
         return 2
     npointer = sum(tot[(r, "POINTER")] for r in regs)
     ndecl = sum(tot[(r, "POINTER")] for r in regs if r in NONCOLLECTED)
