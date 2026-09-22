@@ -28,12 +28,42 @@ WHAT SECTION 3 DECLARES, quoted, and the four clauses this file grades it into:
       them across the poll by the ABI; what matters is whether the callee returns something wide enough to be a
       pointer at all.  MEASURED over the shared witness set: all 72 are void (39) or int (33), so the clause is
       VACUOUS everywhere it does not apply and BLOCKING everywhere it does.
-  K3  THE SLOT IS MAPPED.  Every store of rax or rdx in the window lands inside a GC_LAY_DESCR or GC_LAY_PTR_GC
-      entry of the graph's own frame map.  This is the clause section 3b (CEO-996) found had never been enforced.
+  K3  THE SLOT IS ONE THE COLLECTOR COVERS, AND THERE ARE TWO MECHANISMS, NOT ONE.  A store of rax or rdx in
+      the window lands either inside a GC_LAY_DESCR / GC_LAY_PTR_GC entry of the graph's own frame map
+      (ARCH-GC section 2b RULE 1b, the RBP activation frames) or as a TAGGED CELL ON THE ζ-SPINE
+      (RULE 1a, `gc_cell_visit` inside `gc_walk_words`).  This is the clause section 3b (CEO-996) found had
+      never been enforced; ⛔ THE FIRST ENFORCEMENT OF IT ASSERTED RULE 1b OVER A POPULATION RULE 1a OWNS and
+      called 222 findings over 111 sites a defect.  See SPINE-CELL below -- the correction is MEASURED, not
+      argued, and the class is still NAMED so that nothing goes dark.
   K4  ON EVERY PATH.  No label joins the window AFTER the last result store.  A label between the store and the
       poll is a path that reaches the poll WITHOUT passing the store, so the clause holds on one path and says
       nothing about the collection that happens on the other.  This clause is the cto's 2026-09-21 reading and is
       not in the page's words; it is what the page's words MEAN once the emitted text has branches in it.
+
+⛔⭐⭐⭐ SPINE-CELL -- THE VERDICT THAT COST THIS FILE ITS FIRST 222 MEMBERS, AND THE A/B THAT PROVED IT
+(cto, 2026-09-22, MODE DUO).  A call result stored as `mov [b+k],rax` / `mov [b+k+8],rdx` at a 16-BYTE-ALIGNED k
+below the region base IS A WELL-FORMED DESCR: rax carries the tag word (`DESCR_t.v` is the low BYTE of the first
+eight) and rdx carries the union word.  ARCH-GC section 2b RULE 1a gives the ζ-SPINE its own covering mechanism
+for exactly this shape -- "the collector walks the spine from RSP to its base as an array of cells, reading
+tags" -- and `x86_rt_gc_poll_res` says so in the emitter's own words: "spilled as a DESCR cell under rsp across
+the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it".  Grading that store
+against the FRAME MAP alone is asking the wrong mechanism about it.
+
+⛔ THIS IS NOT A WEAKENING ON A READING.  It is held by an A/B ON THE MECHANISM ITSELF, and the gate
+test_gate_gc_the_spine_tagged_cell_walk_is_load_bearing.sh re-runs it: with SCRIP_GC_NO_SPINE_CELL=1 the spine
+cell visit is skipped and NOTHING ELSE CHANGES.  Over the declared 52-witness name set at SCRIP_HEAP_MB=1,
+SCRIP_GC_STRESS=3, SCRIP_GC_RELOC=1: 16 witnesses CHANGE THEIR ANSWER, 15 of them from the 23 that carry a
+BELOW-REGION store.  hb_datblk dumps core, hb_nv SIGSEGVs on a stale pointer through the ZGC-STALE trap, and
+hb_mkexpr_unmapped_spine_store -- the witness section 3b is named after -- goes `match` to `nomatch`.  The
+spine walk is LOAD-BEARING for this population; the frame map never covered it and was never meant to.
+
+⛔ AND WHAT SPINE-CELL DOES NOT SAY, because a verdict that quietly becomes a pass is the failure the INSTRUMENT
+LAWS exist against.  It is COUNTED IN ITS OWN COLUMN, declared in the floor and NAMED line by line -- it is not
+folded into the green.  It does not say Rule 1a is as strong as a map: the spine walk FINDS the cell by stepping
+8 bytes and trying, so a false cell earlier in the range can put it out of phase, and a tag word overwritten
+before the collection drops the cell to a raw word (measured: one of six member pointer-halves on hb_datblk read
+heap-RAW at one collection).  Making that coverage STATIC rather than discovered is the planner's row and it is
+still open.  What SPINE-CELL says is narrower and true: THIS STORE IS COVERED BY A MECHANISM THIS FILE CAN NAME.
 
 ⛔ THE REACH BOUNDARY, WRITTEN FIRST SO NO READER TAKES A GREEN FOR MORE THAN IT IS.  This file walks FORWARD from
 the call to the poll.  The unmapped-store census beside it walks BACKWARD from the poll and stops at a control
@@ -232,6 +262,18 @@ def is_static_result_store(ins):
     return None
 
 
+def spine_cell_pair(placed, src, k):
+    """True when this store is one half of a tagged ζ-SPINE DESCR cell -- rax at a 16-aligned k, rdx at k+8.
+
+    DESCR_t is {uint8 v; uint8 src_node[3]; uint32 slen; union}, so the FIRST eight bytes are the tag word and
+    the second eight are the pointer: a call returning DESCR_t hands them back in rax:rdx in exactly that order.
+    Two adjacent stores in that order at a 16-aligned offset therefore mint a cell whose tag is valid before the
+    poll runs, which is what ARCH-GC section 2b RULE 1a asks of every spine cell.  The alignment is required
+    rather than decorative -- an unaligned pair is not a cell and is left a MEMBER."""
+    base = k if src == "rax" else k - 8
+    return base % 16 == 0 and ("rax", base) in placed and ("rdx", base + 8) in placed
+
+
 def store_dominates(insns, pred, calls, region, i):
     """True when EVERY path from a reaching call to the poll passes a result store -- clause K4.
 
@@ -292,6 +334,11 @@ def grade_site(insns, pred, i, frames):
             out.append(("K2", "VACUOUS", "RESULT-NOT-STORED but there is no result to lose -- %s"
                         % "; ".join(d for _k, d in kinds)))
         return out
+    placed = {}
+    for (b, d, src, n) in frame_st:
+        g, k, undec = UC.owner_of(b, d, n, frames)
+        if not undec and g in frames:
+            placed[(g, src, k)] = n
     for (b, d, src, n) in frame_st:
         g, k, undec = UC.owner_of(b, d, n, frames)
         if undec or g not in frames:
@@ -299,8 +346,14 @@ def grade_site(insns, pred, i, frames):
             continue
         f = frames[g]
         v = UC.classify(k, f["layout"], f["map_off"], f["blob"])
-        if v != "MAPPED":
-            out.append(("K3", "MEMBER", "%s k=%+d src=%s graph=%s" % (v, k, src, g)))
+        if v == "MAPPED":
+            continue
+        if v == "BELOW-REGION" and spine_cell_pair({(s2, k2) for (g2, s2, k2) in placed if g2 == g}, src, k):
+            out.append(("K3", "SPINE-CELL", "%s k=%+d src=%s graph=%s -- a tagged DESCR cell on the ζ-SPINE, "
+                        "ARCH-GC 2b RULE 1a, covered by gc_cell_visit and NOT by this graph's frame map"
+                        % (v, k, src, g)))
+            continue
+        out.append(("K3", "MEMBER", "%s k=%+d src=%s graph=%s" % (v, k, src, g)))
     if not frame_st:
         out.append(("K3", "UNDECIDABLE",
                     "RESULT-STATIC-ONLY sym=%s -- a frame map describes a frame, so this store is outside every map "
@@ -337,7 +390,7 @@ FLOOR_HEADER = (
     "# scripts/gc_witnesses/ is written by five seats; a witness ARRIVING is a file addition and must never be\n"
     "# read as this tree getting worse, while a NAMED witness's own numbers MOVING is the whole thing this gate\n"
     "# exists to catch.  A witness not named here is REPORTED and never blocking.\n"
-    "# COLUMNS: witness  sites  k1  k2  k3  k4  undecidable\n"
+    "# COLUMNS: witness  sites  k1  k2  k3  k4  undecidable  spine_cell\n"
 )
 
 
@@ -351,7 +404,9 @@ def read_floor(path=FLOOR):
         f = ln.split("\t")
         if len(f) < 7:
             continue
-        rows[f[0].strip()] = [int(x) for x in f[1:7]]
+        r = [int(x) for x in f[1:7]]
+        r.append(int(f[7]) if len(f) >= 8 and f[7].strip() else 0)
+        rows[f[0].strip()] = r
     return rows
 
 
@@ -360,10 +415,11 @@ def write_floor(counts, path=FLOOR):
         fh.write(FLOOR_HEADER)
         for w in sorted(counts):
             c = counts[w]
-            fh.write("%s\t%d\t%d\t%d\t%d\t%d\t%d\n" % (w, c["sites"], c["K1"], c["K2"], c["K3"], c["K4"], c["UND"]))
+            fh.write("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n"
+                     % (w, c["sites"], c["K1"], c["K2"], c["K3"], c["K4"], c["UND"], c.get("SPINE", 0)))
 
 
-KEYS = ("K1", "K2", "K3", "K4", "UND")
+KEYS = ("K1", "K2", "K3", "K4", "UND", "SPINE")
 
 
 def compare(reading_path, floor_path):
@@ -390,13 +446,15 @@ def compare(reading_path, floor_path):
             now[f[2]][f[5]] += 1
         elif ln.startswith("CONTRACT UNDECIDABLE ") and len(f) >= 6:
             now[f[2]]["UND"] += 1
+        elif ln.startswith("CONTRACT SPINE-CELL ") and len(f) >= 6:
+            now[f[2]]["SPINE"] += 1
         elif ln.startswith("CONTRACT SITES "):
             sites_line = ln
     if sites_line is None:
         print("COMPARE REFUSED(2): the reading carries no CONTRACT SITES line -- it is not a reading")
         return 2
     graded = sum(int(x.split("=")[1]) for x in sites_line.split()
-                 if x.split("=")[0] in ("k1", "k2", "k3", "k4", "undecidable"))
+                 if x.split("=")[0] in ("k1", "k2", "k3", "k4", "undecidable", "spine_cell"))
     if graded > 0 and not now:
         print("COMPARE REFUSED(2): the reading says %d finding(s) and NOT ONE of them parsed -- the comparison would"
               " grade every declaration against nothing and call the floor stale. That is a defect in this probe,"
@@ -423,12 +481,14 @@ def compare(reading_path, floor_path):
 
 
 def tally(rows, sites):
-    c = {"sites": sites, "K1": 0, "K2": 0, "K3": 0, "K4": 0, "UND": 0}
+    c = {"sites": sites, "K1": 0, "K2": 0, "K3": 0, "K4": 0, "UND": 0, "SPINE": 0}
     for (_t, _g, _l, _n, clause, verdict, _d) in rows:
         if verdict == "MEMBER":
             c[clause] += 1
         elif verdict == "UNDECIDABLE":
             c["UND"] += 1
+        elif verdict == "SPINE-CELL":
+            c["SPINE"] += 1
     return c
 
 
@@ -458,6 +518,9 @@ def report(scrip, progs, workdir, out=print, name_cap=48):
     for (t, g, lbl, line, clause, verdict, detail) in allrows:
         if verdict == "MEMBER":
             out("CONTRACT MEMBER %s %s %s:%s %s %s" % (t, g, lbl, line, clause, detail))
+    for (t, g, lbl, line, clause, verdict, detail) in allrows:
+        if verdict == "SPINE-CELL":
+            out("CONTRACT SPINE-CELL %s %s %s:%s %s %s" % (t, g, lbl, line, clause, detail))
     named, held = 0, 0
     for (t, g, lbl, line, clause, verdict, detail) in allrows:
         if verdict == "UNDECIDABLE":
@@ -477,8 +540,13 @@ def report(scrip, progs, workdir, out=print, name_cap=48):
             % (sum(vac.values()), "; ".join("%s x%d" % (k, n) for k, n in vac.most_common(12))))
     mem_sites = len({(t, lbl, line) for (t, _g, lbl, line, _c, v, _d) in allrows if v == "MEMBER"})
     und_sites = len({(t, lbl, line) for (t, _g, lbl, line, _c, v, _d) in allrows if v == "UNDECIDABLE"})
-    out("CONTRACT SITES witnesses=%d sites=%d k1=%d k2=%d k3=%d k4=%d undecidable=%d refusals=%d"
-        % (len(counts), tot["sites"], tot["K1"], tot["K2"], tot["K3"], tot["K4"], tot["UND"], len(refusals)))
+    out("CONTRACT SITES witnesses=%d sites=%d k1=%d k2=%d k3=%d k4=%d undecidable=%d spine_cell=%d refusals=%d"
+        % (len(counts), tot["sites"], tot["K1"], tot["K2"], tot["K3"], tot["K4"], tot["UND"], tot["SPINE"],
+           len(refusals)))
+    out("CONTRACT SPINE-CELL IS NAMED, NOT FORGIVEN: %d finding(s) above are call results stored as tagged DESCR"
+        " cells on the ζ-SPINE, which ARCH-GC 2b RULE 1a covers and this graph's frame map does not. They are"
+        " counted in their own column and declared in the floor. The A/B that earns them the verdict is"
+        " test_gate_gc_the_spine_tagged_cell_walk_is_load_bearing.sh, NOT this reader's opinion." % tot["SPINE"])
     out("CONTRACT FINDINGS-ARE-PER-CLAUSE-NOT-PER-SITE: the numbers above count FINDINGS (one poll storing rax and"
         " rdx into the same unmapped region yields two), over %d distinct site(s) with a member and %d distinct"
         " site(s) this reader could not place. %d undecidable line(s) were HELD rather than printed -- pass"
@@ -530,8 +598,21 @@ def selftest():
     ck(rows == [], "K POSITIVE: a result stored into a MAPPED slot before the poll BREAKS NO CLAUSE (%s)" % (rows,))
 
     rows, _s, _r = run(ok_body.replace("[rsp + 0]", "[rsp - 64]").replace("[rsp + 8]", "[rsp - 56]"))
+    ck(any(r[4] == "K3" and r[5] == "SPINE-CELL" and "BELOW-REGION" in r[6] for r in rows)
+       and not any(r[5] == "MEMBER" for r in rows),
+       "SPINE-CELL PLANTED: rax at a 16-aligned k below the region base and rdx at k+8 is a TAGGED SPINE CELL, "
+       "ARCH-GC 2b RULE 1a, and is NAMED rather than counted a K3 member (%s)" % (rows,))
+
+    rows, _s, _r = run(ok_body.replace("[rsp + 0]", "[rsp - 56]").replace("[rsp + 8]", "[rsp - 48]"))
     ck(any(r[4] == "K3" and r[5] == "MEMBER" and "BELOW-REGION" in r[6] for r in rows),
-       "K3 PLANTED: a result stored BELOW the region base is NAMED a K3 member (%s)" % (rows,))
+       "K3 PLANTED: the SAME pair at an UNALIGNED k is not a cell -- the spine walk reads cells on a 16-byte "
+       "grid, so an unaligned pair stays a K3 member (%s)" % (rows,))
+
+    rows, _s, _r = run(ok_body.replace("[rsp + 0]", "[rsp - 64]").replace(
+        "        mov qword ptr [rsp + 8], rdx\n", ""))
+    ck(any(r[4] == "K3" and r[5] == "MEMBER" and "BELOW-REGION" in r[6] for r in rows),
+       "K3 PLANTED: a LONE tag word below the region base is half a cell and half a cell is not a cell (%s)"
+       % (rows,))
 
     rows, _s, _r = run("        call rt_call_arr_bl@PLT\n        call rt_gc_poll@PLT\n")
     ck(any(r[4] == "K2" and r[5] == "MEMBER" and "WIDE ENOUGH" in r[6] for r in rows),
@@ -605,11 +686,16 @@ def selftest():
             "CONTRACT MEMBER w.icn main .Lx:5 K3 BELOW-REGION k=-8 src=rax graph=main\n")
         ck(compare(worse, fl) == 0, "COMPARE grades a reading ABOVE the floor without refusing (the red is the gate's to print)")
 
-    a = {"w.icn": {"sites": 3, "K1": 0, "K2": 1, "K3": 2, "K4": 0, "UND": 4}}
+    a = {"w.icn": {"sites": 3, "K1": 0, "K2": 1, "K3": 2, "K4": 0, "UND": 4, "SPINE": 5}}
     with tempfile.TemporaryDirectory() as wd:
         f = os.path.join(wd, "floor.tsv")
         write_floor(a, f)
-        ck(read_floor(f) == {"w.icn": [3, 0, 1, 2, 0, 4]}, "FLOOR: a declared floor round-trips by NAME and not by total")
+        ck(read_floor(f) == {"w.icn": [3, 0, 1, 2, 0, 4, 5]}, "FLOOR: a declared floor round-trips by NAME and not by total")
+        legacy = os.path.join(wd, "legacy.tsv")
+        open(legacy, "w", encoding="utf-8").write(FLOOR_HEADER + "w.icn\t3\t0\t1\t2\t0\t4\n")
+        ck(read_floor(legacy) == {"w.icn": [3, 0, 1, 2, 0, 4, 0]},
+           "FLOOR: a SEVEN-column line written before the spine_cell column reads back with spine_cell=0 rather "
+           "than refusing -- the column was ADDED and an old floor is not a corrupt one")
         ck("NAME SET" in open(f, encoding="utf-8").read(), "FLOOR: the file says in its own head why it is a name set")
         ck(return_kind("extern void") == "VOID" and return_kind("static void") == "VOID"
            and return_kind("static inline int") == "NARROW" and return_kind("extern int") == "NARROW",

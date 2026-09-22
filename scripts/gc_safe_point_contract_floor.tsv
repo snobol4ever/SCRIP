@@ -5,56 +5,56 @@
 # scripts/gc_witnesses/ is written by five seats; a witness ARRIVING is a file addition and must never be
 # read as this tree getting worse, while a NAMED witness's own numbers MOVING is the whole thing this gate
 # exists to catch.  A witness not named here is REPORTED and never blocking.
-# COLUMNS: witness  sites  k1  k2  k3  k4  undecidable
-hb_aggt.icn	11	0	0	0	0	0
-hb_aggv.icn	7	0	0	0	0	0
-hb_arr.sno	9	0	0	18	0	0
-hb_big_in_aggregate.icn	26	0	0	0	0	0
-hb_bignum_length.icn	167	0	0	0	0	0
-hb_blob_span_defer.sno	6	0	0	10	0	2
-hb_coexpr_create.icn	20	0	0	0	0	0
-hb_coexpr_genp_scan.icn	8	0	0	0	0	2
-hb_coexpr_parked.icn	15	0	0	0	0	6
-hb_coexpr_refresh.icn	19	0	0	0	0	4
-hb_coexpr_sigma.icn	24	0	0	0	0	0
-hb_cv_spine_plain_redo.icn	24	0	0	0	0	0
-hb_datblk.sno	12	0	0	24	0	0
-hb_defer_subject.sno	4	0	0	6	0	2
-hb_deferexpr_a_dupl.sno	2	0	0	4	0	0
-hb_deferexpr_a_replace.sno	2	0	0	4	0	0
-hb_deferexpr_a_substr.sno	2	0	0	4	0	0
-hb_deferexpr_a_trim.sno	2	0	0	4	0	0
-hb_deferexpr_d_dupl.sno	2	0	0	2	0	2
-hb_deferexpr_d_replace.sno	2	0	0	2	0	2
-hb_deferexpr_d_substr.sno	2	0	0	2	0	2
-hb_deferexpr_d_trim.sno	2	0	0	2	0	2
-hb_deferexpr_nodefer.sno	3	0	0	6	0	0
-hb_dinst.icn	7	0	0	0	0	0
-hb_dtp.sno	3	0	0	6	0	0
-hb_dvec_data_convert.sno	17	0	0	34	0	0
-hb_dvec_list.icn	61	0	0	0	0	0
-hb_dvec_list_slice.icn	34	0	0	0	0	0
-hb_dvec_sort_match.sno	23	0	0	34	0	12
-hb_errtext_eval_capture.sno	3	0	0	6	0	0
-hb_errtext_keyword.sno	2	0	0	4	0	0
-hb_eval_names.sno	5	0	0	10	0	0
-hb_file_name_unrooted.icn	10	0	0	0	0	0
-hb_mkexpr_unmapped_spine_store.sno	3	0	0	6	0	0
-hb_nested_match_outer_subject.sno	6	0	0	6	0	6
-hb_nv.sno	6	0	0	12	0	0
-hb_pl_findall.pl	334	0	0	0	0	234
-hb_pl_root_cells.pl	356	0	0	0	0	214
-hb_pldb.pl	288	0	0	0	0	152
-hb_plj_batch_b.pl	315	0	0	0	0	210
-hb_scan_nested.icn	5	0	0	0	0	0
-hb_ws.icn	5	0	0	0	0	0
-hb_wsb.icn	7	0	0	0	0	0
-hb_wsb_bignum.icn	10	0	0	0	0	0
-hb_wsb_eval_define.sno	8	0	0	16	0	0
-hb_wsb_pl_atom_dup.pl	287	0	0	0	0	148
-hb_wsb_raku_junction.raku	23	0	0	0	0	0
-hb_wsb_raku_sprintf_multi.raku	26	0	0	0	0	0
-hb_wsb_rk_arr.raku	20	0	0	0	0	0
-hb_wsb_rk_gram_parse.raku	6	0	0	0	0	0
-hb_wsb_rk_iter_grep.raku	17	0	0	0	0	0
-hb_wsb_rk_iter_map.raku	17	0	0	0	0	0
+# COLUMNS: witness  sites  k1  k2  k3  k4  undecidable  spine_cell
+hb_aggt.icn	15	0	0	0	0	0	0
+hb_aggv.icn	11	0	0	0	0	0	0
+hb_arr.sno	11	0	0	0	0	0	18
+hb_big_in_aggregate.icn	39	0	0	0	0	0	0
+hb_bignum_length.icn	333	0	0	0	0	0	0
+hb_blob_span_defer.sno	6	0	0	0	0	2	10
+hb_coexpr_create.icn	25	0	0	0	0	2	0
+hb_coexpr_genp_scan.icn	13	0	0	0	0	8	0
+hb_coexpr_parked.icn	17	0	0	0	0	8	0
+hb_coexpr_refresh.icn	20	0	0	0	0	4	0
+hb_coexpr_sigma.icn	31	0	0	0	0	4	0
+hb_cv_spine_plain_redo.icn	32	0	0	0	0	0	0
+hb_datblk.sno	14	0	0	0	0	0	24
+hb_defer_subject.sno	4	0	0	0	0	2	6
+hb_deferexpr_a_dupl.sno	2	0	0	0	0	0	4
+hb_deferexpr_a_replace.sno	2	0	0	0	0	0	4
+hb_deferexpr_a_substr.sno	2	0	0	0	0	0	4
+hb_deferexpr_a_trim.sno	2	0	0	0	0	0	4
+hb_deferexpr_d_dupl.sno	2	0	0	0	0	2	2
+hb_deferexpr_d_replace.sno	2	0	0	0	0	2	2
+hb_deferexpr_d_substr.sno	2	0	0	0	0	2	2
+hb_deferexpr_d_trim.sno	2	0	0	0	0	2	2
+hb_deferexpr_nodefer.sno	3	0	0	0	0	0	6
+hb_dinst.icn	9	0	0	0	0	0	0
+hb_dtp.sno	5	0	0	0	0	0	6
+hb_dvec_data_convert.sno	23	0	0	0	0	0	34
+hb_dvec_list.icn	86	0	0	0	0	0	0
+hb_dvec_list_slice.icn	50	0	0	0	0	0	0
+hb_dvec_sort_match.sno	33	0	0	0	0	12	34
+hb_errtext_eval_capture.sno	3	0	0	0	0	0	6
+hb_errtext_keyword.sno	2	0	0	0	0	0	4
+hb_eval_names.sno	5	0	0	0	0	0	10
+hb_file_name_unrooted.icn	13	0	0	0	0	0	0
+hb_mkexpr_unmapped_spine_store.sno	3	0	0	0	0	0	6
+hb_nested_match_outer_subject.sno	6	0	0	0	0	6	6
+hb_nv.sno	10	0	0	0	0	0	12
+hb_pl_findall.pl	334	0	0	0	0	234	0
+hb_pl_root_cells.pl	356	0	0	0	0	214	0
+hb_pldb.pl	288	0	0	0	0	152	0
+hb_plj_batch_b.pl	315	0	0	0	0	210	0
+hb_scan_nested.icn	12	0	0	0	0	0	0
+hb_ws.icn	6	0	0	0	0	0	0
+hb_wsb.icn	9	0	0	0	0	0	0
+hb_wsb_bignum.icn	16	0	0	0	0	0	0
+hb_wsb_eval_define.sno	10	0	0	0	0	0	16
+hb_wsb_pl_atom_dup.pl	287	0	0	0	0	148	0
+hb_wsb_raku_junction.raku	23	0	0	0	0	0	0
+hb_wsb_raku_sprintf_multi.raku	26	0	0	0	0	0	0
+hb_wsb_rk_arr.raku	20	0	0	0	0	0	0
+hb_wsb_rk_gram_parse.raku	6	0	0	0	0	0	0
+hb_wsb_rk_iter_grep.raku	17	0	0	0	0	0	0
+hb_wsb_rk_iter_map.raku	17	0	0	0	0	0	0

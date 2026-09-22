@@ -1129,12 +1129,13 @@ static int gc_cell_visit(DESCR_t *d)
     if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); if (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     return 0;
 }
+static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
 {
     gc_walk_t *g = &g_gw[g_gc_rep_pop];
     for (const char *p = lo; p + 8 <= hi; p += 8) { const char **w = (const char **)p; rt_hblk_t *h = gc_blk_of(*w);
         if (cls == 0) g->s_words++; else if (cls == 1) g->h_words++; else g->a_words++;
-        if (cls != 2 && p + 16 <= hi && gc_cell_visit((DESCR_t *)p)) { if (gc_blk_of(*(const char *const *)(p + 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; } p += 8; if (cls == 0) g->s_words++; else g->h_words++; continue; }
+        if (cls != 2 && !(cls == 0 && gc_nospine_cell()) && p + 16 <= hi && gc_cell_visit((DESCR_t *)p)) { if (gc_blk_of(*(const char *const *)(p + 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; } p += 8; if (cls == 0) g->s_words++; else g->h_words++; continue; }
         if (!h) continue;
         if (cls == 2) { g->a_heap++; gc_walk_site("ABOVE", graph, (long)(p - base), w, h); continue; }
         if (p - 8 >= rlo && gc_tag_bears_ptr(*(const uint8_t *)(p - 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; continue; }
