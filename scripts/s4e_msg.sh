@@ -860,13 +860,13 @@ s4e_lane_owner_of_language() {
       # building or grading is void (the cfo's flakiness finding plus CEO-1107's own rebuild-under-a-board), which is
       # the second reason the layer split is the right one -- the cto's half is compile-and-gate work and needs almost
       # no master passes, and the ceo's half is what needs them.
-       icon)     printf 'ceo';;
-       prolog)   printf 'cto';;
-       snobol4)  printf 'ceo';;
-       pascal)   printf 'cto';;
-       snocone)  printf 'ceo';;
-       rebus)    printf 'ceo';;
-       raku)     printf 'cto';;
+       icon)     printf 'hq_icon';;
+       prolog)   printf 'hq_prolog';;
+       snobol4)  printf 'hq_snobol4';;
+       pascal)   printf 'hq_pascal';;
+       snocone)  printf 'hq_snocone';;
+       rebus)    printf 'cfo';;
+       raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
