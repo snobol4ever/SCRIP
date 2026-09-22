@@ -123,6 +123,7 @@ test_gate_gc_emitted_safe_point_matches_its_contract.sh	WIRED	-	-	-
 test_gate_gc_eval_built_names_survive_a_collection.sh	WIRED	-	-	-
 test_gate_gc_event_coverage_reports_and_ratchets.sh	WIRED	-	-	-
 test_gate_gc_every_allocating_runtime_entry_returns_to_a_safe_point.sh	WIRED	-	-	-
+test_gate_gc_every_asm_entry_shim_tags_its_callee_saved_pushes.sh	WIRED	-	-	-
 test_gate_gc_every_safe_point_has_a_compile_time_frame_shape.sh	WIRED	-	-	-
 test_gate_gc_forced_relocation_moves_every_live_block.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
