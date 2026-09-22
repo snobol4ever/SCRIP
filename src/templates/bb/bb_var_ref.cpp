@@ -70,7 +70,7 @@ std::string bb_var_ref() {
                       + x86("call", "rt_var_ref_cell_named", (uint64_t)(uintptr_t)(void *)rt_var_ref_cell_named);
         if (_.op_zres) s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
         else           s += x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx");
-        return s + x86_gamma() + x86_beta_trampoline();
+        return s + x86_rt_gc_poll() + x86_gamma() + x86_beta_trampoline();
     }
     if (_.op_zres && (_.op_sa >= 0 || _.op_gva_k >= 0))
         return x86("comment", "IR_VAR_REF icn cells zd: NAMETRAP{DT_N,slen=1,&____slot} -> ZRES")

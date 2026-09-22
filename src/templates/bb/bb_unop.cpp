@@ -52,6 +52,7 @@ std::string bb_unop() {
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", "rax", FRQ(_.op_sa + 8))
              + x86("mov", FRQ(_.op_off + 8), "rax")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()) :
                _.op_node_kind != IR_UNOP && _.op_node_kind != IR_UNOP_TEST ? std::string() :

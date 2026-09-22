@@ -23,6 +23,7 @@ std::string bb_deref() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
     return IF(_.op_off < 0 || _.op_a_slot < 0, x86_alpha() + x86_bomb("bb_deref: needs own slot + variable operand slot"))
