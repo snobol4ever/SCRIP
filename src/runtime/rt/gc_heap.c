@@ -1489,7 +1489,41 @@ void rt_gc_poll(void)
 }
 long rt_gc_polls_count(void) { return g_gc_polls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_poll_slow(void) { char here; g_gc_polls++; rt_gc_point_arr_c((DESCR_t *)0, 0, (const char **)0, &here); }
+void rt_gc_poll_slow(void);
+void rt_gc_poll_asm(void);
+__asm__(
+".text\n"
+".globl rt_gc_poll_slow\n"
+".type rt_gc_poll_slow,@function\n"
+"rt_gc_poll_slow:\n"
+"  pushq %rax\n"
+"  pushq %rcx\n"
+"  pushq %rdx\n"
+"  pushq %rsi\n"
+"  pushq %rdi\n"
+"  pushq %r8\n"
+"  pushq %r9\n"
+"  pushq %r10\n"
+"  pushq %r11\n"
+"  incq g_gc_polls(%rip)\n"
+"  xorl %edi, %edi\n"
+"  xorl %esi, %esi\n"
+"  xorl %edx, %edx\n"
+"  leaq 72(%rsp), %rcx\n"
+"  xorl %r8d, %r8d\n"
+"  call gc_point_arr_body\n"
+"  popq %r11\n"
+"  popq %r10\n"
+"  popq %r9\n"
+"  popq %r8\n"
+"  popq %rdi\n"
+"  popq %rsi\n"
+"  popq %rdx\n"
+"  popq %rcx\n"
+"  popq %rax\n"
+"  ret\n"
+".size rt_gc_poll_slow,.-rt_gc_poll_slow\n"
+);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __asm__(
 ".text\n"

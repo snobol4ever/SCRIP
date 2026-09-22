@@ -52,6 +52,23 @@ if [ -x "$R/scrip" ] && [ -r "$W" ]; then
 else
   echo "GATE REFUSE(2) [$G]: ./scrip or the witness is missing -- COULD NOT MEASURE that the collector still runs"; exit 2
 fi
-echo "population: $N arm(s) over the poll leaf, its emitter call site and one live witness"
+SBODY="$(awk '/"rt_gc_poll_slow:/{f=1} f{print} f&&/size rt_gc_poll_slow/{exit}' "$H")"
+[ -n "$SBODY" ]; ck $? "THE SLOW PATH IS AN ASM LEAF TOO, extractable between its label and its .size directive. ⛔ THIS ARM EXISTS BECAUSE THE ARMS ABOVE PROVED THE WRONG HALF: they measured rt_gc_poll_asm, saw it tail-JMP away, and never asked what it jumped INTO -- which was a C rt_gc_poll_slow that clobbered all nine caller-saved registers on the ONLY path that actually collects"
+SP="$(printf '%s\n' "$SBODY" | grep -oE 'pushq %[a-z0-9]+' | awk '{print $2}' | sort)"
+SQ="$(printf '%s\n' "$SBODY" | grep -oE 'popq %[a-z0-9]+'  | awk '{print $2}' | sort)"
+[ -n "$SP" ] && [ "$SP" = "$SQ" ]; ck $? "the slow path's pushed and popped register sets are identical: pushed={$(echo $SP)} popped={$(echo $SQ)}"
+MISS=""
+for r in rax rcx rdx rsi rdi r8 r9 r10 r11; do printf '%s\n' "$SP" | grep -qx "%$r" || MISS="$MISS $r"; done
+[ -z "$MISS" ]; ck $? "the slow path saves the WHOLE caller-saved set across the collector call, so a bare poll is transparent to emitted code${MISS:+ -- MISSING:$MISS}"
+printf '%s\n' "$SBODY" | grep -q 'fs:0x28'; ck $((1-$?)) "the slow path carries no %fs:0x28 canary either"
+printf '%s\n' "$SBODY" | grep -qE 'leaq +72\(%rsp\), *%rcx'; ck $? "the slow path hands the collector the ENTRY rsp as its walk floor (leaq 72(%rsp)), so the caller's spilled cells stay INSIDE the swept range and the leaf's own 9-register save area stays OUTSIDE it"
+printf '%s\n' "$SBODY" | grep -qE 'call +gc_point_arr_body'; ck $? "the slow path calls the collector body DIRECTLY, not through rt_gc_point_arr_c's -O0 argument spill-and-reload shim"
+if [ -r "$SO" ] && command -v objdump >/dev/null 2>&1; then
+  SN=$(objdump -d "$SO" --disassemble=rt_gc_poll_slow 2>/dev/null | grep -cE '^[[:space:]]+[0-9a-f]+:')
+  [ "$SN" -gt 0 ] && [ "$SN" -le 30 ]; ck $? "the built slow path is $SN instructions (was 25 C + an 18-instruction shim = 43 across two frames)"
+fi
+grep -q '^void rt_gc_poll_asm(void);' "$H"; ck $? "rt_gc_poll_asm carries a C declaration in gc_heap.c. ⛔ AN ASM-ONLY SYMBOL IS UNDECIDABLE TO util_gc_safe_point_contract.py, whose K2 resolves a callee's return type out of src/runtime's own declarations and names what it cannot find rather than guessing"
+grep -q '^void rt_gc_poll_slow(void);' "$H"; ck $? "rt_gc_poll_slow carries one too, for the same reason -- making it asm REMOVED the C definition the checker used to read"
+echo "population: $N arm(s) over the poll leaf, its slow path, its emitter call site and one live witness"
 if [ "$F" = 0 ]; then echo "GATE PASS(0) [$G]: the safe-point poll is a register-preserving asm leaf ($N arms)"; exit 0; fi
 echo "GATE FAIL(1) [$G]: $F of $N arm(s) red"; exit 1
