@@ -148,6 +148,36 @@ else
   ck no "(e) the checker ABSORBED a doctored safe point and still read the same population ($plant) -- an instrument that cannot fail here cannot pass here either"
 fi
 
+# (g) A NAME SET IS NOT A GRADEABLE SET, AND THE DIFFERENCE MUST BE DECLARED RATHER THAN DISCOVERED.
+# The contract arms above read EMITTED PATHS, so a witness with no .ref is a legitimate member there.  A
+# BEHAVIOURAL arm -- anything diffing a witness's stdout against its .ref -- can only reach the members that
+# have one, and will otherwise grade a SUBSET while reporting the whole name set.  That is what happened to
+# the cto's own A/B harness on 2026-09-22: it graded 43 of 52 and said nothing about the nine it skipped.
+# This arm holds the floor's UNGRADEABLE line in BOTH DIRECTIONS so the list cannot drift in either:
+# a ref-less member that is NOT declared is a silent drop arriving, and a DECLARED member that has GAINED a
+# ref is a declaration outliving its cure -- arm (d)'s expiry shape, applied to gradeability.
+decl="$(sed -n 's/^# UNGRADEABLE:[[:space:]]*//p' "$FLOOR" | head -1)"
+if [ -z "$decl" ]; then
+  ck no "(g) the floor carries no UNGRADEABLE: line -- a behavioural arm over this name set cannot say which members it is unable to reach"
+else
+  undeclared=""; expired=""
+  for w in $(grep -v '^#' "$FLOOR" | awk -F'\t' 'NF>=7 {print $1}'); do
+    if [ -f "$ROOT/scripts/gc_witnesses/${w%.*}.ref" ]; then
+      case " $decl " in *" $w "*) expired="$expired $w";; esac
+    else
+      case " $decl " in *" $w "*) ;; *) undeclared="$undeclared $w";; esac
+    fi
+  done
+  nd=$(printf '%s\n' $decl | wc -w)
+  if [ -n "$undeclared" ]; then
+    ck no "(g)$undeclared carry no .ref and are NOT on the floor's UNGRADEABLE line -- a behavioural arm would drop them silently and report the full name set. Declare them there or give them a ref."
+  elif [ -n "$expired" ]; then
+    ck no "(g)$expired now HAVE a .ref and are still declared UNGRADEABLE -- the declaration has outlived its cure. Shrink the UNGRADEABLE line in the landing that earned it."
+  else
+    ck ok "(g) the gradeable/ungradeable split is DECLARED and exact -- $nd of $(grep -v '^#' "$FLOOR" | awk -F'\t' 'NF>=7' | wc -l) named members carry no .ref and every one of them is on the floor's UNGRADEABLE line, so a behavioural arm can name what it cannot reach"
+  fi
+fi
+
 # (f) an instrument nobody runs is not an instrument
 if grep -q 'test_gate_gc_emitted_safe_point_matches_its_contract.sh' "$ROOT/Makefile" 2>/dev/null; then
   ck ok "(f) this gate is named in the Makefile"

@@ -5,6 +5,16 @@
 # scripts/gc_witnesses/ is written by five seats; a witness ARRIVING is a file addition and must never be
 # read as this tree getting worse, while a NAMED witness's own numbers MOVING is the whole thing this gate
 # exists to catch.  A witness not named here is REPORTED and never blocking.
+# ⛔ AND A NAME SET IS NOT THE SAME THING AS A GRADEABLE SET.  The CONTRACT arms read EMITTED PATHS and need
+# no oracle answer, so all 52 members below are legitimate there.  A BEHAVIOURAL arm -- anything comparing a
+# witness's stdout to its .ref -- can only reach the members that HAVE a .ref, and the nine named on the
+# UNGRADEABLE line below have none.  The cto's own A/B harness silently graded 43 and reported as if it had
+# graded the set (2026-09-22); it was caught only by asking why a row count came back 43.  A silent drop is
+# how a population quietly stops being the population (the coo, 2026-09-22), so the nine are DECLARED here
+# and arm (g) of test_gate_gc_emitted_safe_point_matches_its_contract.sh holds the declaration BOTH WAYS:
+# a ref-less member missing from this line is RED, and a member on this line that GAINS a ref is also RED,
+# so the list shrinks in the landing that earns it and can never outlive its cure.
+# UNGRADEABLE: hb_aggt.icn hb_aggv.icn hb_arr.sno hb_dinst.icn hb_dvec_list.icn hb_errtext_eval_capture.sno hb_pldb.pl hb_ws.icn hb_wsb.icn
 # COLUMNS: witness  sites  k1  k2  k3  k4  undecidable  spine_cell
 hb_aggt.icn	15	0	0	0	0	0	0
 hb_aggv.icn	11	0	0	0	0	0	0
