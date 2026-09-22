@@ -66,7 +66,6 @@ std::string bb_binop_concat_slot() {
              + x86("mov",  ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov",  ZRES(8), "rdx")
-             + x86_rt_gc_poll()
              + x86("rtcc_rl")
              + IF(_.op_ival == BINOP_LCONCAT, x86("note", ZRESN())
              + x86("mov", "eax", ZRESD(0))
