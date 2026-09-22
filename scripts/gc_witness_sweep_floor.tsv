@@ -1,0 +1,8 @@
+# DECLARED FLOOR for util_gc_witness_sweep.sh -- the non-green witness/stress pairs that are STANDING on origin
+# and predate the sweep, each with the reason that put it here. ⛔ A FLOOR IS NOT AN XFAIL LIST AND IT IS NOT A
+# PERMISSION: every line is a live defect that stays VISIBLE and countable, and the sweep prints it as DECLARED
+# rather than swallowing it. The sweep REDS on any pair NOT named here, and it also reds on a STALE line -- a pair
+# declared here that now passes -- because a floor that outlives its defect silences the next regression.
+# Move a line out of this file in the LANDING THAT CURES IT, never to make a board green.
+# pair	reason
+hb_coexpr_sigma.icn:s5	Standing on origin, PROVEN not caused by the poll asm leaf: identical DIFF on the pre-leaf binary (rt_md5 c67074652afc) and on the leaf binary (ced7e2d23f48). Same coexpression class as the four red GC gates of CEO-1107 -- test_gate_gc_emitted_safe_point_matches_its_contract names hb_coexpr_sigma.icn UND declared=0 read=4 with cause K3 NO-ANCHOR-REACHES-SITE, the section 3b store-into-an-unmapped-slot population on the coexpression road. Owner: the coexpression map work, not the safe-point conversions.
