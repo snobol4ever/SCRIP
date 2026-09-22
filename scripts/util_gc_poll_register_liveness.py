@@ -40,6 +40,16 @@ that hides its undecidables is the defect this file exists against:
               counted clean.
   DEAD        every path writes the register before reading it.  Nothing to protect.
 
+⛔⭐ A POINTER USE IS NOT A DEFECT UNLESS THE POINTEE IS COLLECTABLE, AND THAT COST ME 19 OF MY FIRST 26 FINDINGS.
+The first full reading named 19 POINTER findings on r12, all one instruction (`mov qword ptr [r12 + 0], rcx` in
+bb_match_capture phase 1), and every one is a FALSE POSITIVE: frame_layout.c calls head.dcap_mark "ZK_RAW -- points
+into the base-pinned dcap island, never GC-moved", and pattern_match.c:685 backs that with rt_slab_region() at the
+FIXED VA RT_DCAP_TOP = 0x70000000 (pinned by pin_va.h and hardcoded as an absolute disp32 in rtx_match.s).  A fixed-VA
+slab reserve is not the collected heap and is NOT the retired hb_pinned/rt_pinned_alloc heap pinning GC-5 rung 2
+deletes, so no collection can invalidate r12 there.  DECLARED_NONCOLLECTED is therefore its own bucket with its reason
+printed at the exclusion, never a silent subtraction: a register is excluded only where a declaration in the tree says
+where it points, and the POINTER total is printed BOTH ways so a reader cannot lose the difference.
+
 ⛔⛔ THE ARTIFACT THIS READER WAS BORN WITH, WRITTEN DOWN BECAUSE IT READ AS A CLEAN BILL OF HEALTH.  The rtcc
 reload (x86_asm.h 395-398) is the FIRST instruction after the poll call and it is itself a WRITE of r8.  A walk that
 starts at the call's next instruction therefore stops at once and calls r8 DEAD -- and the first reading over 54
@@ -226,6 +236,9 @@ def writes_reg(mnem, ops, reg):
 
 ORDER = {"POINTER": 4, "PROPAGATED": 3, "SPILLED": 2, "NARROW": 1}
 BUCKETS = ("POINTER", "PROPAGATED", "SPILLED", "NARROW", "DEAD")
+NONCOLLECTED = {"r12": "frame_layout.c head.dcap_mark declares it ZK_RAW pointing into the base-pinned dcap island, "
+                       "never GC-moved, and pattern_match.c:685 reserves that island with rt_slab_region() at the "
+                       "fixed VA RT_DCAP_TOP 0x70000000 -- a fixed-VA reserve is not the collected heap"}
 
 
 def verdict_at(prog, labels, start, reg, budget=400, hops=2):
@@ -449,13 +462,19 @@ def main(argv):
         print("REFUSE(2) the per-register buckets do not cover the printed denominator for %d register(s)" % short)
         return 2
     npointer = sum(tot[(r, "POINTER")] for r in regs)
-    print("   POINTER total=%d over %d safe point(s) -- each is a register the collector relocates by nothing"
-          % (npointer, sites_tot))
-    for w in worst[:25]:
+    ndecl = sum(tot[(r, "POINTER")] for r in regs if r in NONCOLLECTED)
+    print("   POINTER total=%d over %d safe point(s), of which %d are DECLARED_NONCOLLECTED -- %d POINTER finding(s) "
+          "name a register the collector relocates by nothing AND whose pointee it can move"
+          % (npointer, sites_tot, ndecl, npointer - ndecl))
+    for r in regs:
+        if r in NONCOLLECTED and tot[(r, "POINTER")]:
+            print("   DECLARED_NONCOLLECTED %s x%d: %s" % (r, tot[(r, "POINTER")], NONCOLLECTED[r]))
+    live = [w for w in worst if w[2] not in NONCOLLECTED]
+    for w in live[:25]:
         print("   POINTER %-34s site=%-6d %-4s %s" % w)
-    if len(worst) > 25:
-        print("   ... %d more POINTER finding(s)" % (len(worst) - 25))
-    return 1 if npointer else 0
+    if len(live) > 25:
+        print("   ... %d more POINTER finding(s)" % (len(live) - 25))
+    return 1 if (npointer - ndecl) else 0
 
 
 if __name__ == "__main__":
