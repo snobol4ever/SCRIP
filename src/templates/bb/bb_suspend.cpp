@@ -39,6 +39,7 @@ std::string bb_suspend() {
          + x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
          + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main"))
          + x86("call", "rt_trace_resume_hook", (uint64_t)(uintptr_t)(void *)rt_trace_resume_hook)
+         + x86_rt_gc_poll()
          + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax")
          + x86_scan_sync_in_rr()
          + (_.lbl_t0 && _.op_suspend_stmt_uclaim > 0 ? x86_sub("rsp", _.op_suspend_stmt_uclaim) : std::string())

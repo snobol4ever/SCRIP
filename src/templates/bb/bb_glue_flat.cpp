@@ -41,6 +41,7 @@ std::string bb_glue_outer_γ() {
          + IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(!bb_glue_outer_needs_ret(),
               x86("call_bare", "sno_setexit_fire_on_end", (uint64_t)(uintptr_t)(void(*)(void))sno_setexit_fire_on_end)
+            + x86_rt_gc_poll()
             + x86("xor", "edi", "edi")
             + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
          + IF( bb_glue_outer_needs_ret(),
