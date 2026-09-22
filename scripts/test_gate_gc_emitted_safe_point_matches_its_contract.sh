@@ -75,6 +75,13 @@ sl="$(grep -m1 '^CONTRACT SITES ' "$READ_OUT")"
 # below is the guard, and it is checked rather than trusted.
 cmp_out="$(timeout 120s python3 "$ROOT/scripts/util_gc_safe_point_contract.py" --compare "$READ_OUT" "$FLOOR" 2>&1)"
 worse="$(printf '%s\n' "$cmp_out" | sed -n 's/^WORSE \([0-9]*\).*/\1/p')"
+# SPINE is a MECHANISM CENSUS and not a defect floor: a cure that turns a bare poll into a tagged-cell poll
+# RAISES it, so grading it with the defect polarity reported the ceo's e42cc0909/c60097828 as a regression.
+# It is REPORTED here in both directions and never blocks -- the rationale is in util_gc_safe_point_contract.py.
+spinemoved="$(printf '%s\n' "$cmp_out" | sed -n 's/^SPINEMOVED \([0-9]*\).*/\1/p')"
+if [ -n "$spinemoved" ] && [ "$spinemoved" != 0 ]; then
+  echo "  note $spinemoved witness(es) moved in the SPINE census -- REPORTED, never blocking, because SPINE counts stores COVERED by RULE 1a and a cure RAISES it: $(printf '%s\n' "$cmp_out" | sed -n 's/^SPINEMOVED [0-9]* //p')"
+fi
 stale="$(printf '%s\n' "$cmp_out" | sed -n 's/^STALE \([0-9]*\).*/\1/p')"
 unlisted="$(printf '%s\n' "$cmp_out" | sed -n 's/^UNLISTED \([0-9]*\).*/\1/p')"
 [ -n "$worse" ] || refuse "(b) the floor comparison produced no verdict -- $cmp_out"
@@ -153,28 +160,45 @@ fi
 # BEHAVIOURAL arm -- anything diffing a witness's stdout against its .ref -- can only reach the members that
 # have one, and will otherwise grade a SUBSET while reporting the whole name set.  That is what happened to
 # the cto's own A/B harness on 2026-09-22: it graded 43 of 52 and said nothing about the nine it skipped.
-# This arm holds the floor's UNGRADEABLE line in BOTH DIRECTIONS so the list cannot drift in either:
-# a ref-less member that is NOT declared is a silent drop arriving, and a DECLARED member that has GAINED a
-# ref is a declaration outliving its cure -- arm (d)'s expiry shape, applied to gradeability.
-decl="$(sed -n 's/^# UNGRADEABLE:[[:space:]]*//p' "$FLOOR" | head -1)"
-if [ -z "$decl" ]; then
-  ck no "(g) the floor carries no UNGRADEABLE: line -- a behavioural arm over this name set cannot say which members it is unable to reach"
+# ⛔ THE REFLESS SET IS READ FROM util_refless_census.py (the coo, COO-129) AND NEVER RE-DERIVED HERE.  The
+# coo's rule, taken: two readers of one fact will disagree on a Tuesday.  This arm is a CONSUMER of that
+# census; it adds only the floor-shaped question the census does not ask, which is whether the floor DECLARES
+# what a behavioural arm cannot reach.  It holds the declaration in BOTH DIRECTIONS so it cannot drift either
+# way: a refless member that is NOT declared is a silent drop arriving, and a DECLARED member that has GAINED
+# a ref is a declaration outliving its cure -- arm (d)'s expiry shape, applied to gradeability.
+CENSUS="$ROOT/scripts/util_refless_census.py"
+if [ ! -f "$CENSUS" ]; then
+  ck no "(g) $CENSUS is missing -- this arm consults the refless census rather than re-deriving the set, and with no census there is no authority to consult"
 else
-  undeclared=""; expired=""
-  for w in $(grep -v '^#' "$FLOOR" | awk -F'\t' 'NF>=7 {print $1}'); do
-    if [ -f "$ROOT/scripts/gc_witnesses/${w%.*}.ref" ]; then
-      case " $decl " in *" $w "*) expired="$expired $w";; esac
-    else
-      case " $decl " in *" $w "*) ;; *) undeclared="$undeclared $w";; esac
-    fi
-  done
-  nd=$(printf '%s\n' $decl | wc -w)
-  if [ -n "$undeclared" ]; then
-    ck no "(g)$undeclared carry no .ref and are NOT on the floor's UNGRADEABLE line -- a behavioural arm would drop them silently and report the full name set. Declare them there or give them a ref."
-  elif [ -n "$expired" ]; then
-    ck no "(g)$expired now HAVE a .ref and are still declared UNGRADEABLE -- the declaration has outlived its cure. Shrink the UNGRADEABLE line in the landing that earned it."
+  refless="$(timeout 300s python3 "$CENSUS" 2>/dev/null | awk '/^=== gc_witnesses /{inb=1;next} /^=== /{inb=0} inb && /REFLESS[^:]*:/{sub(/^[^:]*: */,""); gsub(/,/," "); print}')"
+  refless="$(printf '%s ' $refless)"
+  decl="$(sed -n 's/^# UNGRADEABLE:[[:space:]]*//p' "$FLOOR" | head -1)"
+  if [ -z "$refless" ]; then
+    ck no "(g) the refless census named no gc_witnesses member at all -- either its output shape moved under this arm or it did not run; a reader that returns nothing grades nothing"
+  elif [ -z "$decl" ]; then
+    ck no "(g) the floor carries no UNGRADEABLE: line -- a behavioural arm over this name set cannot say which members it is unable to reach"
   else
-    ck ok "(g) the gradeable/ungradeable split is DECLARED and exact -- $nd of $(grep -v '^#' "$FLOOR" | awk -F'\t' 'NF>=7' | wc -l) named members carry no .ref and every one of them is on the floor's UNGRADEABLE line, so a behavioural arm can name what it cannot reach"
+    members="$(grep -v '^#' "$FLOOR" | awk -F'\t' 'NF>=7 {print $1}')"
+    undeclared=""; expired=""; orphan=""
+    for stem in $refless; do
+      hit=""; for w in $members; do [ "${w%.*}" = "$stem" ] && hit="$w"; done
+      if [ -z "$hit" ]; then orphan="$orphan $stem"
+      else case " $decl " in *" $hit "*) ;; *) undeclared="$undeclared $hit";; esac; fi
+    done
+    for w in $decl; do
+      case " $refless " in *" ${w%.*} "*) ;; *) expired="$expired $w";; esac
+    done
+    nm="$(printf '%s\n' $members | wc -w)"; nd="$(printf '%s\n' $decl | wc -w)"
+    if [ -n "$undeclared" ]; then
+      ck no "(g) the census calls$undeclared refless and the floor's UNGRADEABLE line does not name them -- a behavioural arm would drop them silently and report the full name set. Declare them there or cut them a ref."
+    elif [ -n "$expired" ]; then
+      ck no "(g)$expired are declared UNGRADEABLE and the census no longer calls them refless -- the declaration has outlived its cure. Shrink the UNGRADEABLE line in the landing that earned it."
+    else
+      ck ok "(g) the gradeable/ungradeable split is DECLARED and exact against the refless census -- $nd of $nm named members are refless and every one is on the floor's UNGRADEABLE line, so a behavioural arm can name what it cannot reach"
+    fi
+    if [ -n "$orphan" ]; then
+      echo "  note$orphan carry no .ref AND are absent from the declared floor -- INVISIBLE TWICE OVER (the coo, 2026-09-22), REPORTED and never blocking: each is either a floor member owed a declaration or an orphan witness nobody grades. Arm (c) above reports the unlisted; this names the subset that no behavioural arm could reach even if it were listed."
+    fi
   fi
 fi
 

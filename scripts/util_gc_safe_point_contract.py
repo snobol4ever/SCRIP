@@ -57,6 +57,17 @@ BELOW-REGION store.  hb_datblk dumps core, hb_nv SIGSEGVs on a stale pointer thr
 hb_mkexpr_unmapped_spine_store -- the witness section 3b is named after -- goes `match` to `nomatch`.  The
 spine walk is LOAD-BEARING for this population; the frame map never covered it and was never meant to.
 
+⛔⭐ AND SPINE-CELL IS NOT A DEFECT FLOOR, WHICH COST THE FLEET A RED BEFORE IT WAS NOTICED (cto 2026-09-22).
+The floor comparison graded every column with one polarity -- read ABOVE declared is WORSE -- and that rule owns
+K1..K4 and UND.  It does NOT own SPINE.  SPINE counts stores COVERED by RULE 1a's mechanism, so a cure that turns
+a bare poll into x86_rt_gc_poll_rec_sigma RAISES it: the ceo's e42cc0909 and c60097828 did exactly that and 14
+witness/clause pairs went "ABOVE the declared floor", reported as a REGRESSION IN THE EMITTED SAFE-POINT SEQUENCE
+when what had happened was the safe points getting better.  This is the same shape the ceo named law-shaped today
+after three retractions in one day: A CHECKER ASSERTING A RULE THAT DOES NOT OWN THE POPULATION IT IS GRADING.
+SPINE is therefore compared with BLOCKING_KEYS omitting it, and its movement is printed as SPINEMOVED in BOTH
+DIRECTIONS and never blocks.  Neither direction is unambiguously bad -- a store moving INTO the mapped region
+lowers it and is also a cure -- so the honest treatment is a census that is NAMED, not a floor that is enforced.
+
 ⛔ AND WHAT SPINE-CELL DOES NOT SAY, because a verdict that quietly becomes a pass is the failure the INSTRUMENT
 LAWS exist against.  It is COUNTED IN ITS OWN COLUMN, declared in the floor and NAMED line by line -- it is not
 folded into the green.  It does not say Rule 1a is as strong as a map: the spine walk FINDS the cell by stepping
@@ -420,6 +431,7 @@ def write_floor(counts, path=FLOOR):
 
 
 KEYS = ("K1", "K2", "K3", "K4", "UND", "SPINE")
+BLOCKING_KEYS = ("K1", "K2", "K3", "K4", "UND")
 
 
 def compare(reading_path, floor_path):
@@ -460,20 +472,23 @@ def compare(reading_path, floor_path):
               " grade every declaration against nothing and call the floor stale. That is a defect in this probe,"
               " never in the floor." % graded)
         return 2
-    worse, stale, unlisted = [], [], []
+    worse, stale, unlisted, spine_moved = [], [], [], []
     for w in sorted(now):
         c = now[w]
         if w not in floor:
             unlisted.append("%s %s" % (w, dict(c)))
             continue
         dec = dict(zip(KEYS, floor[w][1:]))
-        for k in KEYS:
+        for k in BLOCKING_KEYS:
             if c[k] > dec[k]:
                 worse.append("%s %s declared=%d read=%d" % (w, k, dec[k], c[k]))
+        if c["SPINE"] != dec["SPINE"]:
+            spine_moved.append("%s SPINE declared=%d read=%+d" % (w, dec["SPINE"], c["SPINE"] - dec["SPINE"]))
     for w in sorted(floor):
         dec = dict(zip(KEYS, floor[w][1:]))
         if any(dec[k] for k in KEYS) and w in now and not any(now[w][k] for k in KEYS):
             stale.append("%s declared=%s read=all-zero" % (w, {k: dec[k] for k in KEYS if dec[k]}))
+    print("SPINEMOVED %d %s" % (len(spine_moved), "|".join(spine_moved[:6])))
     print("WORSE %d %s" % (len(worse), "|".join(worse[:6])))
     print("STALE %d %s" % (len(stale), "|".join(stale[:6])))
     print("UNLISTED %d %s" % (len(unlisted), "|".join(unlisted[:6])))

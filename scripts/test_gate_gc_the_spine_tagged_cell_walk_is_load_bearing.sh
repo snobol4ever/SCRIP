@@ -73,15 +73,18 @@ fi
 # verdict when five seats write the directory).  Every member was measured to change its answer under the knob on
 # 2026-09-22.  hb_dvec_sort_match and hb_dvec_data_convert are DELIBERATELY OUT despite qualifying: they are the
 # two that reach tens of gigabytes in the B leg, and a landing gate is a shared resource.
-# ⛔ AND ONE MEASURED EXCLUSION, NAMED RATHER THAN QUIETLY DROPPED, BECAUSE IT IS A DEFECT AND NOT A GATE
-# PROBLEM.  hb_coexpr_sigma.icn qualifies for arm (b) -- it changes its answer under the knob -- but it CANNOT
-# pass arm (a) on this tree: at SCRIP_HEAP_MB=1 with SCRIP_GC_STRESS=3 it answers its ref exactly, 14 lines, and
-# adding SCRIP_GC_RELOC=1 alone takes it to 7 LINES AT rc=0, deterministic over five draws under setarch -R.
-# Forced relocation loses half a co-expression's output and exits zero.  That is the ceo's r13 co-expression row
-# (CEO-1112: the seven surviving LIVE pointer findings are all r13 in the two Icon coexpression witnesses), it is
-# not this gate's claim, and a witness whose CONTROL leg is red can prove nothing about a B leg.  It goes back in
-# the moment that row lands.
-POP="${SPINE_AB_POP:-hb_mkexpr_unmapped_spine_store.sno hb_datblk.sno hb_nv.sno hb_eval_names.sno hb_deferexpr_nodefer.sno hb_nested_match_outer_subject.sno}"
+# ⭐ AND ONE EXCLUSION RESTORED BY THE CURE THAT EARNED IT, KEPT HERE AS THE RECORD RATHER THAN DELETED.
+# hb_coexpr_sigma.icn was excluded on 2026-09-22 because it could not pass arm (a): at SCRIP_HEAP_MB=1 with
+# SCRIP_GC_STRESS=3 it answered its ref exactly at 14 lines, and adding SCRIP_GC_RELOC=1 alone took it to
+# 7 LINES AT rc=0 -- half a co-expression's output lost with a zero exit, and a witness whose CONTROL leg is
+# red proves nothing about a B leg.  That was the ceo's r13 row and the exclusion said in its own text that
+# it went back the moment the row landed.  IT LANDED: SCRIP e42cc0909 turned the bare polls at bb_deref.cpp:39
+# and bb_scan_upto.cpp:52 into x86_rt_gc_poll_rec_sigma with keep_rax zero, where the subject base was live in
+# r13 across the poll.  RE-MEASURED BY THIS SEAT AT faddd1a00, 80 draws, four cells of 20: relocation OFF and
+# ON, crossed with plain ASLR and setarch -R, 20 of 20 PASS AT 14 LINES IN EVERY CELL.  Arm (a) passes and the
+# spine knob still changes its answer, so it qualifies for arm (b) as well and is a member again -- which is a
+# reading of the ceo's board taken from the enforcement side and independent of it.
+POP="${SPINE_AB_POP:-hb_mkexpr_unmapped_spine_store.sno hb_datblk.sno hb_nv.sno hb_eval_names.sno hb_deferexpr_nodefer.sno hb_nested_match_outer_subject.sno hb_coexpr_sigma.icn}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [gc_the_spine_tagged_cell_walk_is_load_bearing]: $1"; exit 2; }
