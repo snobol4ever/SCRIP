@@ -29,16 +29,26 @@
 # is to RETIRE the SPINE-CELL verdict and re-cut the floor -- never to widen the population until the arm passes.
 #
 # ⛔ TWO OPERATIONAL FACTS THAT COST THE FLEET SOMETHING TODAY, BOTH MEASURED, BOTH BUILT IN HERE.
-# (1) THE MEMORY BOUND.  The B leg of this experiment on hb_dvec_sort_match read 26,857,344 KB peak RSS against
+# (1) THE MEMORY BOUND, AND THE LEVER IS A CGROUP RATHER THAN A ulimit BECAUSE THE cfo MEASURED THE ulimit AND IT
+#     IS A FORMALITY.  The B leg of this experiment on hb_dvec_sort_match read 26,857,344 KB peak RSS against
 #     19,712 KB for the A leg, AND EXITED ZERO -- a lost root does not only print a plausible wrong answer, it can
-#     commit the whole machine first, and no rc, no timeout and no arena cap sees it (the cfo caught this one as a
-#     1 GB-available box at 10:51 and could not name its owner; it was mine).  RLIMIT_RSS is a no-op on this
-#     kernel, so the lever is ulimit -v.  ⛔ AND THE NUMBER WAS MEASURED THREE TIMES BEFORE IT WAS BELIEVED,
-#     because ulimit -v bounds RESERVED ADDRESS SPACE and the reserve is not the thing being bounded: at 2 GB
-#     BOTH legs abort, which would have made a shared ceiling read as a difference; at 4 GB the SNOBOL4 legs are
-#     clean but hb_coexpr_sigma.icn SEGVs in the CONTROL arm, because a co-expression is a pthread with its own
-#     mmap'd stack and the cap refuses it -- a gate-made crash that looks exactly like a defect; at 8 GB every
-#     declared witness runs clean AND the known blowup is still capped, 26,857,344 KB falling to 4,206,252 KB.
+#     commit the whole machine first, and no rc, no timeout and no arena cap sees it, because the arena cap bounds
+#     the collected heap and not what the mutator asks malloc for (the cfo caught this one as a 1 GB-available box
+#     at 10:51 and could not name its owner; it was mine).  RLIMIT_RSS is a no-op on this kernel, so the obvious
+#     lever is ulimit -v -- and ulimit -v bounds RESERVED ADDRESS SPACE, which is not the quantity that hurt
+#     anyone.  ⛔ THE cfo's READING, ON THEIR TREE AND AGAINST MY FIRST CUT: hb_defer_subject at the DEFAULT arena
+#     aborts at 4 GB AND at 6 GB with the heap reserve mmap failing, runs at 8, and its actual peak RSS is 12,780
+#     KB -- so the smallest ulimit that does not produce a false abort is 640x the memory the run uses, and at
+#     that setting the 27 GB leg would still have been free to take 8.  A ceiling with 640x headroom is not a
+#     bound.  ⭐ THEIR LEVER, RE-MEASURED HERE BEFORE IT WAS ADOPTED: systemd-run --user --scope with
+#     MemoryMax=2G and MemorySwapMax=0 bounds RESIDENT pages, so the reserve passes straight through.  On this
+#     tree the B leg on hb_dvec_sort_match is SIGKILLed, rc=137, and the A leg is rc=0 with correct stdout.
+#     MemorySwapMax is load-bearing: with MemoryMax alone a 3 GB allocation SUCCEEDS by swapping and degrades
+#     every seat without tripping anything.  ulimit -v is kept ONLY as the fallback where systemd-run is absent,
+#     at 8 GB, which is the floor both trees agree on -- and the fallback SAYS SO in the population line rather
+#     than pretending the two bounds are the same thing.  ⛔ MY OWN FIRST CUT AT 4 GB CRASHED hb_coexpr_sigma.icn
+#     IN THE CONTROL ARM (a co-expression is a pthread with its own mmap'd stack), which is a gate-made crash that
+#     reads exactly like a defect, and it is the second reason the cgroup is the right home for this.
 # (2) setarch -R, ON THE coo's RULING OF THE SAME MORNING.  A cell graded once is a sample: 20 identical runs of
 #     one Icon cell read CRASH 18 PASS 2 under ASLR and SEGV 20 of 20 under setarch -R, while a genuinely green
 #     cell read rc=0 20 of 20 under both.  The flaky outcome is the PASS, so the variance runs in the direction
@@ -52,6 +62,13 @@ SCRIP="$ROOT/scrip"
 WITDIR="$ROOT/scripts/gc_witnesses"
 FLOOR="$ROOT/scripts/gc_safe_point_contract_floor.tsv"
 VBOUND="${SPINE_AB_VBOUND:-8388608}"
+if command -v systemd-run >/dev/null 2>&1 && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 /bin/true >/dev/null 2>&1; then
+    CAP="cgroup MemoryMax=2G MemorySwapMax=0 (the cfo's lever, CFO 2026-09-22: a RESIDENT bound, not an address-space formality)"
+    cap_run() { systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 "$@"; }
+else
+    CAP="ulimit -v $VBOUND KB of ADDRESS SPACE -- FALLBACK ONLY, systemd-run is absent; this admits any run whose RESIDENT set fits in 8 GB"
+    cap_run() { ( ulimit -v "$VBOUND" 2>/dev/null; exec "$@" ); }
+fi
 # THE DECLARED NAME SET (the coo's rule: a gate whose population is a directory glob cannot carry a blocking
 # verdict when five seats write the directory).  Every member was measured to change its answer under the knob on
 # 2026-09-22.  hb_dvec_sort_match and hb_dvec_data_convert are DELIBERATELY OUT despite qualifying: they are the
@@ -73,12 +90,11 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_the_spine_tagged_cell_walk_is_load_bear
 [ -f "$FLOOR" ] || refuse "the declared contract floor $FLOOR is missing -- the verdict this gate licenses has no population"
 command -v setarch >/dev/null 2>&1 || refuse "setarch is not on this box, so ASLR cannot be pinned and a single graded cell is a SAMPLE whose flaky outcome is the PASS (the coo, 2026-09-22) -- this gate refuses rather than publishing a coin flip"
 echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934)"
-echo "POPULATION (declared): $(printf '%s\n' $POP | wc -w) witness(es) NAMED above; ASLR pinned with setarch -R; each run bounded at ulimit -v $VBOUND KB of ADDRESS SPACE. SPINE_AB_POP= narrows it."
+echo "POPULATION (declared): $(printf '%s\n' $POP | wc -w) witness(es) NAMED above; ASLR pinned with setarch -R; each run bounded by $CAP. SPINE_AB_POP= narrows it."
 
 run_leg() { # $1 witness path, $2 knob value ("" or 1)
-    ( ulimit -v "$VBOUND" 2>/dev/null
-      if [ -n "$2" ]; then export SCRIP_GC_NO_SPINE_CELL=1; fi
-      SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 \
+    ( if [ -n "$2" ]; then k=1; else k=0; fi
+      cap_run env SCRIP_GC_NO_SPINE_CELL="$k" SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 \
         setarch -R timeout 60s "$SCRIP" "$1" 2>&1; echo "rc=$?" )
 }
 
@@ -125,11 +141,8 @@ else
 fi
 
 # (e) PLANTED.  An arm that has never failed is an arm proven by reading.
-plant="$(SPINE_AB_POP="hb_datblk.sno" SPINE_AB_PLANT_INERT=1 bash -c '
-  cd "$1" || exit 2
-  a=$( ulimit -v '"$VBOUND"'; SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 setarch -R timeout 60s ./scrip scripts/gc_witnesses/hb_datblk.sno 2>&1 )
-  b=$( ulimit -v '"$VBOUND"'; SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 setarch -R timeout 60s ./scrip scripts/gc_witnesses/hb_datblk.sno 2>&1 )
-  [ "$a" = "$b" ] && echo INERT || echo NOISY' _ "$ROOT")"
+pa="$(run_leg "$WITDIR/hb_datblk.sno" "")"; pb="$(run_leg "$WITDIR/hb_datblk.sno" "")"
+if [ "$pa" = "$pb" ]; then plant=INERT; else plant=NOISY; fi
 if [ "$plant" = INERT ]; then
     ck ok "(e) PLANTED -- the same witness run TWICE WITH THE KNOB OFF is byte-identical, so arm (b)'s difference is the knob and not run-to-run noise. This is the arm that fails if setarch stops pinning the address space."
 else
