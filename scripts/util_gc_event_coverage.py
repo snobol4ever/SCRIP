@@ -26,7 +26,7 @@ a count alone (CEO-997 batch 30 clause 2):
 read from telemetry that is already in the tree, and every OWED event is a one-line ask to the seat that owns
 the collector, not a change made here.
 """
-import argparse, os, re, subprocess, sys, time
+import argparse, io, os, re, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -40,9 +40,13 @@ OBSERVABLE = [
     ("collection_at_safe_point", "a collection runs at a safe point",
      "[ZGC] regeneration", r"regeneration #(\d+)", "gc_heap.c:1252",
      "emitted code reached a poll and collected"),
-    ("arena_grow", "the arena commits more of its reserve",
-     "[ZHP] soft end ->", r"grown (\d+) MB total", "gc_heap.c:163",
-     "the soft end advanced, so the heap window grew under load"),
+    ("arena_grow", "the heap commits more of its cap",
+     "[ZHP] arena=", r"grew=(\d+)KB", "gc_heap.c:175",
+     "the heap committed more pages under load. ⛔ THIS EVENT'S TELEMETRY WAS RENAMED UNDER THE INSTRUMENT "
+     "(aaa77634c, 2026-09-22): the old reserve-and-soft-end shape printed `[ZHP] soft end -> N MB committed "
+     "of M MB reserved (grown N MB total)` and the hard-cap shape prints `[ZHP] lazy commit -> N KB of a M KB "
+     "hard cap`. This entry now reads the SUMMARY line's own grew= field instead, which is printed on every "
+     "run and is 0 exactly when nothing grew, so it cannot be confused with an absent line"),
     ("slide_with_displacement", "the slide moves at least one live block",
      "[ZGC-WALK]", r"moved=(\d+)B", "gc_heap.c:1248",
      "a live block changed address, which is the only way a stale pointer can be exposed"),
@@ -208,6 +212,34 @@ def run_probe(scrip, wdir, name, mode, stress, timeout_s, extra=None):
     return p.stderr.decode("utf-8", "replace"), None
 
 
+def marker_liveness(events):
+    """⛔ A MARKER THAT NO LONGER EXISTS IN THE RUNTIME IS A RENAME, NOT AN UNEXERCISED EVENT.
+    This guard exists because arena_grow silently stopped being reachable when aaa77634c renamed its
+    telemetry: the event still happened (262 lazy-commit events on hb_arena_grow.sno, grew=1048KB) but the
+    instrument was grepping for text with ZERO occurrences in the tree, and the ratchet reported COVERAGE
+    FELL -- which reads as a collector regression and is a completely different verdict. Returns the list of
+    (key, missing-literal) so the caller can REFUSE(2) and name it."""
+    src = ""
+    for root, _d, fs in os.walk(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "runtime")):
+        for f in fs:
+            if f.endswith((".c", ".h")):
+                try:
+                    src += io.open(os.path.join(root, f), encoding="utf-8", errors="replace").read()
+                except OSError:
+                    pass
+    if not src:
+        return []          # no source to check against: say nothing rather than refuse wrongly
+    dead = []
+    for key, _n, marker, field, _s, _m in events:
+        if marker not in src:
+            dead.append((key, marker))
+            continue
+        lit = re.split(r"[(\\\[]", field)[0]
+        if len(lit) >= 4 and lit not in src:
+            dead.append((key, lit))
+    return dead
+
+
 def scan(text, events):
     """Return {key: max nonzero value seen}. A field present but zero is NOT an exercise."""
     hit = {}
@@ -273,6 +305,16 @@ def main():
     wdir = os.path.join(HERE, "gc_witnesses")
     if not os.path.isdir(wdir):
         print("⛔ REFUSE(2): no witness directory at %s" % wdir)
+        return 2
+
+    dead = marker_liveness(OBSERVABLE)
+    if dead:
+        print("⛔ REFUSE(2): %d event marker(s) name telemetry that NO LONGER EXISTS in src/runtime --" % len(dead))
+        for k, lit in dead:
+            print("     %-30s looks for %r, which has zero occurrences in the tree" % (k, lit))
+        print("   THIS IS A RENAME, NOT A COVERAGE LOSS. An event whose telemetry was renamed is still")
+        print("   happening; grepping for the old text would report COVERAGE FELL and read as a collector")
+        print("   regression. Re-point the marker at the current text, then re-run.")
         return 2
 
     t0 = time.time()
