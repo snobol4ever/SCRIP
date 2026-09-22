@@ -112,6 +112,33 @@ def runtime_return_index(root=None):
     return idx
 
 
+STORAGE_CLASS = ("extern", "static", "inline", "__inline", "__inline__", "_Noreturn")
+
+
+def strip_storage_class(t):
+    """the declared type with its storage-class specifiers removed -- `extern void` -> `void`
+
+    ⛔ THIS EXISTS BECAUSE ITS ABSENCE PRODUCED 132 FALSE K2 MEMBERS AND I ALMOST READ THEM AS A LANDING'S
+    DEFECT (cto 2026-09-22).  `runtime_return_index` captures whatever text precedes the symbol, so a tree that
+    writes `extern void rt_coerce_num2_d(...)` indexes the type as `extern void`, which is not equal to "void",
+    carries no `*` and is not in NARROW_TYPES -- so it fell through to WIDE and every call of a VOID entry was
+    reported as "RESULT-NOT-STORED and the result is WIDE ENOUGH TO BE A HEAP POINTER".  Measured over this
+    tree's own declarations: 684 of them changed class once the storage class was stripped, 258 WIDE->VOID and
+    426 WIDE->NARROW.  The safe-direction doctrine in return_kind is right and is UNCHANGED -- an UNKNOWN type
+    is still called wide -- but `extern void` is not an unknown type, it is void wearing a storage class, and a
+    reader that cannot tell the two apart reports a clean tree as dirty."""
+    t = " ".join(t.split())
+    changed = True
+    while changed:
+        changed = False
+        for kw in STORAGE_CLASS:
+            if t == kw or t.startswith(kw + " "):
+                t = t[len(kw):].strip()
+                changed = True
+                break
+    return t
+
+
 def return_kind(t):
     """VOID / NARROW / WIDE for one declared return type.
 
@@ -119,7 +146,7 @@ def return_kind(t):
     ZERO-EXTENDS: a 64-bit pointer cannot survive it".  So only a type that is provably too narrow to hold a
     64-bit pointer is cleared.  `long`, `size_t` and `uint64_t` are NOT cleared even though they are usually
     counts, because the wrong answer here is a LOST ROOT and the safe direction is to call them wide."""
-    t = " ".join(t.split())
+    t = strip_storage_class(t)
     if t == "void":
         return "VOID"
     if "*" in t:
@@ -584,6 +611,14 @@ def selftest():
         write_floor(a, f)
         ck(read_floor(f) == {"w.icn": [3, 0, 1, 2, 0, 4]}, "FLOOR: a declared floor round-trips by NAME and not by total")
         ck("NAME SET" in open(f, encoding="utf-8").read(), "FLOOR: the file says in its own head why it is a name set")
+        ck(return_kind("extern void") == "VOID" and return_kind("static void") == "VOID"
+           and return_kind("static inline int") == "NARROW" and return_kind("extern int") == "NARROW",
+           "RETURN KIND: a storage class is stripped before the width test -- `extern void` is VOID and not WIDE")
+        ck(return_kind("void *") == "WIDE" and return_kind("static char *") == "WIDE"
+           and return_kind("long") == "WIDE" and return_kind("size_t") == "WIDE",
+           "RETURN KIND: the SAFE DIRECTION survives the strip -- a pointer, and any type not provably narrow, is still WIDE")
+        ck(return_kind("externalise_t") == "WIDE" and return_kind("staticky") == "WIDE",
+           "RETURN KIND: the strip is WORD-WISE -- a type whose name merely BEGINS with a storage-class keyword is untouched")
 
     for good, what in checks:
         print("  %s   %s" % ("ok  " if good else "FAIL", what))
