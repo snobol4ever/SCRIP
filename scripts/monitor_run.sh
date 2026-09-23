@@ -9,9 +9,13 @@
 #
 # Every mode-3/mode-4 run is preceded by the MONITOR-SAFE CHECK (RULES.md: a monitor verdict is a verdict on a different program):
 # the untraced run's stdout must equal the traced run's stdout with the trace lines (****...) removed, else this REFUSES rc=2 --
-# the trace changed the program and no verdict from it is about the program you meant. Exit: 0 modes agree / trace printed,
-# 1 the modes DIVERGE (the controller's grid names the step), 2 could not measure (a participant never started, the source
-# does not compile, the witness is not monitor-safe, or no oracle bridge exists for the language).
+# the trace changed the program and no verdict from it is about the program you meant. Exit: 0 no graded event diverged /
+# trace printed, 1 the modes DIVERGE (the controller's grid names the step), 2 could not measure (a participant never started,
+# the source does not compile, the witness is not monitor-safe, or no oracle bridge exists for the language).
+# ⛔ rc 0 IS TWO VERDICTS, AND THE LINE SAYS WHICH (row monitor-the-controller-reads-an-untyped-value-as-agree-…, the coo,
+# 2026-09-23): "AGREE" only when the controller's VERDICT line reads UNGRADED=0; otherwise "UNGRADED=n", naming every step a
+# participant sent untyped (MWT_UNKNOWN) -- those values were never compared, so they are never a match. Until this landing the
+# controller wildcarded an untyped value and this line said "agree event-for-event" over a wrong SCRIP Rat against rkx.
 #
 # ⛔⭐ MODE-4 HAD NO EQUIVALENT CHECK UNTIL 2026-09-23 (hq_icon), and it was not a theoretical gap: on the IPL witness
 # unitgenr.icn, the harness's scr4 participant (built exactly as below, --trace --compile --monitor) reported an early
@@ -83,8 +87,16 @@ fi
 [ "$input" = /dev/null ] || export MONITOR_STDIN="$input"
 PARTICIPANTS="$parts" timeout 300 bash "$SD/scripts/test_monitor_3way_sync_step_auto.sh" "$src" > "$W/harness.out" 2>&1; hrc=$?
 steps=$(grep -oE 'all reached END after [0-9]+ steps' "$W/harness.out" | grep -oE '[0-9]+' | head -1)
+verdict=$(grep -aoE 'VERDICT AGREE=[0-9]+ DIVERGE=[0-9]+ UNGRADED=[0-9]+' "$W/harness.out" | head -1 | sed 's/^VERDICT //')
+ungraded=$(printf '%s' "$verdict" | sed -n 's/.*UNGRADED=\([0-9]*\).*/\1/p')
 if [ "$hrc" = 2 ] || [ "$hrc" = 124 ]; then echo "REFUSE(2): the harness could not measure (rc=$hrc): $(grep -E 'REFUS|FAIL' "$W/harness.out" | head -1 | cut -c1-140)"; exit 2; fi
-if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ]; then echo "[monitor_run] AGREE: participants $parts agree event-for-event, clean termination at step $steps"; exit 0; fi
+if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ -z "$verdict" ]; then echo "REFUSE(2): the controller printed no VERDICT line (AGREE= DIVERGE= UNGRADED=) -- an agreement whose UNGRADED count is unknown is not a pass"; exit 2; fi
+if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ "$ungraded" = 0 ]; then echo "[monitor_run] AGREE: participants $parts agree event-for-event, clean termination at step $steps ($verdict)"; exit 0; fi
+if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ]; then
+    echo "[monitor_run] UNGRADED=$ungraded: participants $parts -- no graded event diverged, clean termination at step $steps ($verdict); an UNGRADED step is NEVER a match: a participant sent that value untyped (MWT_UNKNOWN), so it was not compared:"
+    grep -a '^\[ctrl\]   UNGRADED ' "$W/harness.out" | sed 's/^\[ctrl\]  /  /'
+    exit 0
+fi
 if [ "$hrc" = 0 ]; then echo "REFUSE(2): the controller printed no lock-step termination line -- an empty agreement is not a pass"; exit 2; fi
-echo "[monitor_run] DIVERGE (rc=$hrc): participants $parts -- the controller's grid, last-agree trail then the first divergence:"; sed -n '/controller output/,/stdout (head)/p' "$W/harness.out" | grep -a -vE 'controller output|stdout \(head\)|^\s*$' | head -40
+echo "[monitor_run] DIVERGE (rc=$hrc): participants $parts${verdict:+ ($verdict)} -- the controller's grid, last-agree trail then the first divergence:"; sed -n '/controller output/,/stdout (head)/p' "$W/harness.out" | grep -a -vE 'controller output|stdout \(head\)|^\s*$' | head -40
 exit 1

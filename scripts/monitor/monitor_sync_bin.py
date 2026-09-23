@@ -28,10 +28,20 @@ The first PARTICIPANT is the consensus oracle.  Divergences are reported
 relative to it.
 
 Exit codes:
-    0   all participants reached END agreeing on every event
+    0   all participants reached END and no GRADED event diverged -- read the
+        VERDICT line beside it: AGREE=a DIVERGE=0 UNGRADED=u, and u > 0 means
+        u steps were never compared (an untyped value on one side), each named
     1   divergence — first disagreement reported, all participants stopped
     2   timeout / bad CLI
     3   protocol error (bad header, short read, etc.)
+
+⛔ THE VERDICT LINE (row monitor-the-controller-reads-an-untyped-value-as-agree-…,
+the coo on the ceo's dispatch, 2026-09-23): every lock-step the controller
+compares is graded AGREE, DIVERGE or UNGRADED, and every exit path prints
+    [ctrl] VERDICT AGREE=a DIVERGE=d UNGRADED=u of n compared step(s) ...
+with a + d + u == n.  An UNGRADED step is one where kind and name agree but a
+participant sent MWT_UNKNOWN, so its value was never compared; it is NEVER a
+match and never folded into AGREE (see grade_keys).
 """
 
 import errno
@@ -226,8 +236,14 @@ def event_key(ev, names_table):
     return (ev.kind, name_for_id(names_table, ev.name_id), ev.type, ev.value)
 
 
-# MWT_UNKNOWN sentinel — wildcard on type field.  See keys_match below.
+# MWT_UNKNOWN sentinel — an untyped value: the step is UNGRADED, never AGREE.
+# See grade_keys below.
 MWT_UNKNOWN = 255
+
+# The three grades of one compared pair (and of one lock-step).
+AGREE    = 'AGREE'
+DIVERGE  = 'DIVERGE'
+UNGRADED = 'UNGRADED'
 
 # <lval> sentinel — wildcard on name field.  See keys_match below.
 LVAL_SENTINEL = '<lval>'
@@ -344,20 +360,27 @@ PM_NAME_WILDCARD = os.environ.get('MONITOR_PM_NAME_WILDCARD', '').strip() in ('1
 PM_KINDS = (MWK_PM_CALL, MWK_PM_EXIT, MWK_PM_REDO, MWK_PM_FAIL)
 
 
-def keys_match(a, b, a_name_wild=False, b_name_wild=False):
-    """Compare two event_key tuples, with three principled wildcards:
+def grade_keys(a, b, a_name_wild=False, b_name_wild=False):
+    """Grade two event_key tuples: AGREE, DIVERGE or UNGRADED.
 
-      1. MWT_UNKNOWN on the type field — strictly less informative.
+      1. MWT_UNKNOWN on the type field — the pair is UNGRADED.
          A participant's bridge may not yet have full type-block
          discrimination (e.g. SPITBOL's spl_block_to_wire returns
          MWT_UNKNOWN for nmblk/ptblk/atblk/tbblk/cdblk/efblk because
-         the type-word externs are not exported in osint.h).  Until
-         SN-26-bridge-coverage extends the coverage, every aggregate
-         creation in beauty would trip a spurious DIVERGE on the type
-         byte alone while kind, name, and value bytes match.  Treating
-         UNKNOWN as a wildcard preserves divergence detection on real
-         disagreements; when two real typed tags disagree (STRING vs
-         INTEGER), this still flags DIVERGE.
+         the type-word externs are not exported in osint.h; rkx sends
+         a Rat as MWT_UNKNOWN with no bytes).  Such a pair cannot
+         DIVERGE on its type or value bytes -- the run must not stop on
+         a bridge's missing coverage -- but nothing about its value was
+         compared, so it is UNGRADED: counted and named on the VERDICT
+         line, never a match.
+         ⛔ THIS WAS A WILDCARD THAT READ AGREE until 2026-09-23 (row
+         monitor-the-controller-reads-an-untyped-value-as-agree-…, the
+         cfo's CFO-152 finding): a wrong SCRIP Rat against rkx's UNKNOWN
+         read AGREE, and so did anything SCRIP sent against a SPITBOL
+         TABLE/PATTERN/NAME -- a pass nobody measured.  Kind and name
+         are still graded under UNKNOWN (a mismatch there is DIVERGE),
+         and two real typed tags that disagree (STRING vs INTEGER)
+         still DIVERGE.
 
       2. '<lval>' on the name field — strictly less informative.
          The pure-observer protocol contract says aggregate-element
@@ -385,18 +408,18 @@ def keys_match(a, b, a_name_wild=False, b_name_wild=False):
          OFF by default; setting it is an explicit acknowledgment
          that one side's name-emission is untrusted.
 
-    All wildcards apply ONLY when kind, value bytes, and the unmasked
-    fields all match — they soften the comparison without ever masking
-    a value-byte or kind divergence.  Those are the load-bearing fields
-    of the protocol; the type and name fields are decorative metadata
-    once a real value-byte agreement has been established.
+    The name wildcards apply ONLY when kind, value bytes, and the
+    unmasked fields all match — they soften the comparison without ever
+    masking a value-byte or kind divergence.  Those are the load-bearing
+    fields of the protocol, and a pair whose value bytes were never
+    compared (1.) is UNGRADED, not AGREE.
     """
     if a is None or b is None:
-        return a is b
+        return AGREE if a is b else DIVERGE
     (ak, an, at, av) = a
     (bk, bn, bt, bv) = b
     if ak != bk:
-        return False
+        return DIVERGE
 
     # S-2-bridge-7-byrd-pattern: PM events get cursor-only value comparison
     # and a name-field wildcard when MONITOR_PM_NAME_WILDCARD is set.
@@ -404,29 +427,94 @@ def keys_match(a, b, a_name_wild=False, b_name_wild=False):
     # packs only the cursor.  Mask to low 32 bits before comparing.
     if PM_NAME_WILDCARD and ak in PM_KINDS:
         if at != bt:
-            return False
+            return DIVERGE
         a_cur = struct.unpack('<I', av[:4])[0] if len(av) >= 4 else 0
         b_cur = struct.unpack('<I', bv[:4])[0] if len(bv) >= 4 else 0
-        return a_cur == b_cur
-    # MWT_UNKNOWN wildcards type AND value bytes: when one side cannot
-    # discriminate the typed block (e.g. SPITBOL's spl_block_to_wire on
-    # nmblk/ptblk/atblk/tbblk/cdblk/efblk), it emits MWT_UNKNOWN with
-    # zero value bytes.  The other side may emit real type + real bytes
-    # (e.g. dot encodes NAME's symbol-name as value bytes).  Without
-    # the value-byte carve-out, a NAME-with-bytes from dot would diverge
-    # against UNKNOWN-with-no-bytes from spl on the value-byte field
-    # alone, even though the disagreement is purely the spl bridge's
-    # missing coverage.  Real value-byte divergence on real-typed
-    # events (STRING vs STRING, INTEGER vs INTEGER) is still flagged.
+        return AGREE if a_cur == b_cur else DIVERGE
+    # MWT_UNKNOWN on either side: type AND value bytes are not compared
+    # (an UNKNOWN side sends no bytes, e.g. spl on a TABLE, rkx on a Rat),
+    # so the pair cannot DIVERGE on them -- and cannot AGREE on them
+    # either.  The name is still graded below.
     unknown_present = (at == MWT_UNKNOWN) or (bt == MWT_UNKNOWN)
     if not unknown_present and av != bv:
-        return False
-    type_ok = (at == bt) or unknown_present
-    if not type_ok:
-        return False
+        return DIVERGE
+    if not unknown_present and at != bt:
+        return DIVERGE
     name_ok = (an == bn) or (an == LVAL_SENTINEL) or (bn == LVAL_SENTINEL) \
               or a_name_wild or b_name_wild
-    return name_ok
+    if not name_ok:
+        return DIVERGE
+    return UNGRADED if unknown_present else AGREE
+
+
+def keys_match(a, b, a_name_wild=False, b_name_wild=False):
+    """True iff grade_keys() grades the pair AGREE.  An UNGRADED pair is
+    NOT a match: use grade_keys() wherever UNGRADED must be told apart
+    from DIVERGE (the controller's lock-step does)."""
+    return grade_keys(a, b, a_name_wild, b_name_wild) == AGREE
+
+
+UNGRADED_NAMES_SHOWN = 12
+
+
+def ungraded_label(events):
+    """The name an UNGRADED step is counted under: the first real name any
+    participant resolved (an empty or '<lval>' name yields to a real one),
+    prefixed by the event kind unless the kind is VALUE."""
+    names = [name_for_id(f['names'], ev.name_id) for f, ev in events if ev is not None]
+    real = [n for n in names if n and n != LVAL_SENTINEL]
+    nm = real[0] if real else (names[0] if names else '')
+    kind = events[0][1].kind
+    kn = KIND_NAMES.get(kind, f'K{kind}')
+    if not nm:
+        return kn
+    return nm if kind == MWK_VALUE else f'{kn} {nm}'
+
+
+def print_verdict(tally, ungraded, how):
+    """THE VERDICT LINE: AGREE + DIVERGE + UNGRADED == the steps compared,
+    each UNGRADED name listed with its count -- an UNGRADED step was never
+    compared, so it is never a match.  Printed on every exit path once the
+    participants are open."""
+    n = tally[AGREE] + tally[DIVERGE] + tally[UNGRADED]
+    line = (f'[ctrl] VERDICT AGREE={tally[AGREE]} DIVERGE={tally[DIVERGE]} '
+            f'UNGRADED={tally[UNGRADED]} of {n} compared step(s) -- {how}')
+    names = list(ungraded)
+    if names:
+        shown = ', '.join(f'{nm} x{ungraded[nm][0]}' for nm in names[:UNGRADED_NAMES_SHOWN])
+        more = f' (+{len(names) - UNGRADED_NAMES_SHOWN} more)' if len(names) > UNGRADED_NAMES_SHOWN else ''
+        line += f'; UNGRADED is never a match: {shown}{more}'
+    print(line, file=sys.stderr)
+    for nm in names[:UNGRADED_NAMES_SHOWN]:
+        cnt, s, stno, cols = ungraded[nm]
+        where = f'step {s}' + (f' stno {stno}' if stno is not None else '')
+        print(f'[ctrl]   UNGRADED {nm} x{cnt}, first at {where}: {cols}', file=sys.stderr)
+
+
+def grade_step(events):
+    """Grade one lock-step: each non-oracle participant's event against the
+    oracle's (events[0]).  DIVERGE if any pair diverges or any side is at
+    EOF; else UNGRADED if any pair is ungraded -- or if there is no second
+    participant, since then nothing was compared; else AGREE."""
+    oracle_f, oracle_ev = events[0]
+    if oracle_ev is None:
+        return DIVERGE
+    if len(events) < 2:
+        return UNGRADED
+    oracle_key = event_key(oracle_ev, oracle_f['names'])
+    oracle_namewild = oracle_f['name'] in WILDCARD_NAMES_PARTICIPANTS
+    grade = AGREE
+    for f, ev in events[1:]:
+        if ev is None:
+            return DIVERGE
+        g = grade_keys(event_key(ev, f['names']), oracle_key,
+                       a_name_wild=f['name'] in WILDCARD_NAMES_PARTICIPANTS,
+                       b_name_wild=oracle_namewild)
+        if g == DIVERGE:
+            return DIVERGE
+        if g == UNGRADED:
+            grade = UNGRADED
+    return grade
 
 
 # ---------------------------------------------------------------------------
@@ -463,9 +551,13 @@ def fmt_event(ev, names_table, stno=None):
     if ev.kind == MWK_CALL:
         return f'{prefix}{kn} {nm}'
     if ev.kind == MWK_RETURN:
-        # Payload is the rtntype string ("RETURN"/"FRETURN"/"NRETURN"), not the
-        # function result value.  Show as RETURN fname (KIND) to avoid confusion
-        # with value-assignment display.  Result was already on the preceding VALUE.
+        # The SNOBOL4 bridges' payload is the rtntype string ("RETURN"/"FRETURN"/
+        # "NRETURN"), not the function result value.  Show as RETURN fname (KIND)
+        # to avoid confusion with value-assignment display.  The instrumented
+        # oracles (icx, fpx, rkx) and SCRIP's shared return hook send the result
+        # itself, typed: that renders as a value, never as raw bytes.
+        if ev.type not in (0, 1):
+            return f'{prefix}RETURN {nm} = {fmt_value(ev.type, ev.value)}'
         try:
             kind_str = ev.value.decode('utf-8', errors='replace') if ev.value else 'RETURN'
         except Exception:
@@ -628,7 +720,17 @@ def run(participants):
     # wire — no source file scanning required.
     last_agreed_stno = None
 
+    # The VERDICT line's counts (see print_verdict) and the UNGRADED steps by
+    # name: label -> [count, first step, first stno, that step's events].
+    tally = {AGREE: 0, DIVERGE: 0, UNGRADED: 0}
+    ungraded = {}
+
+    def finish(rc, how):
+        print_verdict(tally, ungraded, how)
+        return rc
+
     diverged = False
+    how = None
     step = 0
 
     while True:
@@ -660,14 +762,14 @@ def run(participants):
             for ff in fds:
                 try: os.write(ff['gw'], b'S')
                 except OSError: pass
-            return 3
+            return finish(3, f'PROTOCOL ERR at step {step}')
 
         # All EOF: clean termination (legacy path, when a runtime exits without
         # emitting MWK_END).
         if len(eof_set) == len(fds):
             print(f'[ctrl] all reached EOF at step {step} (clean termination)',
                   file=sys.stderr)
-            return 0
+            return finish(0, 'all reached EOF')
 
         # Mixed EOF: divergence in event count.
         if eof_set:
@@ -682,23 +784,15 @@ def run(participants):
             for ff in fds:
                 try: os.write(ff['gw'], b'S')
                 except OSError: pass
-            return 1
+            tally[DIVERGE] += 1
+            return finish(1, f'PARTIAL EOF at step {step}')
 
-        # Compare against oracle (events[0]) using per-participant name resolution.
-        # keys_match treats MWT_UNKNOWN as a wildcard on the type field — see
-        # the keys_match docstring for the rationale.
+        # Grade the step against the oracle (events[0]) using per-participant
+        # name resolution: AGREE, DIVERGE or UNGRADED.  An untyped value
+        # (MWT_UNKNOWN) on either side is UNGRADED -- see grade_keys.
         oracle_f, oracle_ev = events[0]
-        oracle_key = event_key(oracle_ev, oracle_f['names'])
-        oracle_namewild = oracle_f['name'] in WILDCARD_NAMES_PARTICIPANTS
-        agree = True
-        for f, ev in events[1:]:
-            other_namewild = f['name'] in WILDCARD_NAMES_PARTICIPANTS
-            if not keys_match(event_key(ev, f['names']), oracle_key,
-                              a_name_wild=other_namewild,
-                              b_name_wild=oracle_namewild):
-                agree = False
-                break
-
+        grade = grade_step(events)
+        agree = grade != DIVERGE
 
         # Opt-in skip — bounded read-ahead on the side(s) that emitted an
         # "extra" VALUE for a keyword (& assignment).  See
@@ -727,13 +821,13 @@ def run(participants):
                     try:
                         os.write(f['gw'], b'G')
                     except OSError:
-                        return 2
+                        return finish(2, f'write failed to {f["name"]} while skipping kw-VALUE at step {step}')
                     try:
                         new_ev = read_semantic_record(f, EVENT_TIMEOUT_S)
                     except ValueError as e:
                         print(f'[ctrl] PROTOCOL ERR while skipping kw-VALUE on {f["name"]}: {e}',
                               file=sys.stderr)
-                        return 3
+                        return finish(3, f'PROTOCOL ERR at step {step}')
                     if new_ev is None:
                         # EOF on the skipping side mid-skip — let normal
                         # divergence reporting handle it.
@@ -747,23 +841,12 @@ def run(participants):
                     advanced_any = True
                 if not advanced_any:
                     break  # nothing further to absorb; surface the divergence
-                # Recompare with refreshed events.
+                # Regrade with refreshed events.
                 oracle_f, oracle_ev = events[0]
-                oracle_key = event_key(oracle_ev, oracle_f['names'])
-                oracle_namewild = oracle_f['name'] in WILDCARD_NAMES_PARTICIPANTS
                 if oracle_ev is None:
                     break
-                agree = True
-                for f, ev in events[1:]:
-                    if ev is None:
-                        agree = False
-                        break
-                    other_namewild = f['name'] in WILDCARD_NAMES_PARTICIPANTS
-                    if not keys_match(event_key(ev, f['names']), oracle_key,
-                                      a_name_wild=other_namewild,
-                                      b_name_wild=oracle_namewild):
-                        agree = False
-                        break
+                grade = grade_step(events)
+                agree = grade != DIVERGE
 
         # Opt-in skip — bounded read-ahead on the side(s) whose current LABEL
         # event names a verified bare-label statement (no body).  See
@@ -798,13 +881,13 @@ def run(participants):
                     try:
                         os.write(f['gw'], b'G')
                     except OSError:
-                        return 2
+                        return finish(2, f'write failed to {f["name"]} while skipping a bare label at step {step}')
                     try:
                         new_ev = read_semantic_record(f, EVENT_TIMEOUT_S)
                     except ValueError as e:
                         print(f'[ctrl] PROTOCOL ERR while skipping bare-label stno={s} on {f["name"]}: {e}',
                               file=sys.stderr)
-                        return 3
+                        return finish(3, f'PROTOCOL ERR at step {step}')
                     if new_ev is None:
                         events[i] = (f, None)
                         break
@@ -817,27 +900,16 @@ def run(participants):
                 if not advanced_any:
                     break
                 oracle_f, oracle_ev = events[0]
-                oracle_key = event_key(oracle_ev, oracle_f['names'])
-                oracle_namewild = oracle_f['name'] in WILDCARD_NAMES_PARTICIPANTS
                 if oracle_ev is None:
                     break
-                agree = True
-                for f, ev in events[1:]:
-                    if ev is None:
-                        agree = False
-                        break
-                    other_namewild = f['name'] in WILDCARD_NAMES_PARTICIPANTS
-                    if not keys_match(event_key(ev, f['names']), oracle_key,
-                                      a_name_wild=other_namewild,
-                                      b_name_wild=oracle_namewild):
-                        agree = False
-                        break
+                grade = grade_step(events)
+                agree = grade != DIVERGE
 
         if not agree:
             div_cols = {f['name']: fmt_event(ev, f['names'], stno=last_agreed_stno)
                         for f, ev in events}
             pnames = [f['name'] for f in fds]
-            all_rows = list(trail) + [(step, last_agreed_stno, div_cols)]
+            all_rows = list(trail) + [(step, last_agreed_stno, div_cols, DIVERGE)]
             def src(n):
                 if n is None or n not in stno_map: return ''
                 fn, ln, txt = stno_map[n]
@@ -852,26 +924,39 @@ def run(participants):
             src_w  = max(6, max((len(src(r[1])) for r in all_rows), default=6))
             step_w = max(4, len(str(step)))
             stno_w = max(4, max((len(str(r[1])) for r in all_rows if r[1] is not None), default=4))
-            def row_line(s, n, cols, divrow=False):
-                marker = '**>**' if divrow else ''
+            def row_line(s, n, cols, divrow=False, ungr=False):
+                marker = '**>**' if divrow else ('(u)' if ungr else '')
                 cells = [marker + str(s), str(n) if n is not None else '']
                 cells += [cols.get(p, '') for p in pnames]
                 cells += [src(n)]
                 return md_row(*cells)
             hdrs = ['step', 'stno'] + pnames + ['source']
             widths = [step_w, stno_w] + [col_w[p] for p in pnames] + [src_w]
-            out = [f'\n[ctrl] DIVERGE step {step} — last {len(trail)} agreed rows + diverge (>):\n']
+            legend = ('; (u) = UNGRADED, never compared'
+                      if any(r[3] == UNGRADED for r in trail) else '')
+            out = [f'\n[ctrl] DIVERGE step {step} — last {len(trail)} agreed rows + diverge (>){legend}:\n']
             out.append(md_row(*hdrs))
             out.append(md_sep(*widths))
-            for i, (s, n, cols) in enumerate(all_rows):
+            for i, (s, n, cols, g) in enumerate(all_rows):
                 divrow = (i == len(all_rows) - 1)
-                out.append(row_line(s, n, cols, divrow))
+                out.append(row_line(s, n, cols, divrow, g == UNGRADED))
             print('\n'.join(out), file=sys.stderr)
             for f, ev in events:
                 try: os.write(f['gw'], b'S')
                 except OSError: pass
+            tally[DIVERGE] += 1
             diverged = True
+            how = f'DIVERGE at step {step}'
             break
+        tally[grade] += 1
+        if grade == UNGRADED:
+            label = ungraded_label(events)
+            if label in ungraded:
+                ungraded[label][0] += 1
+            else:
+                ungraded[label] = [1, step, last_agreed_stno,
+                                   ' | '.join(f'{f["name"]}: {fmt_event(ev, f["names"])}'
+                                              for f, ev in events)]
         # Update last-agreed stno from LABEL records (stno is on the wire).
         if oracle_ev.kind == MWK_LABEL:
             if len(oracle_ev.value) == 8:
@@ -880,7 +965,7 @@ def run(participants):
         # Store per-participant event strings in the circular trail.
         trail.append((step, last_agreed_stno,
                       {f['name']: fmt_event(ev, f['names'], stno=last_agreed_stno)
-                       for f, ev in events}))
+                       for f, ev in events}, grade))
 
         # If everyone sent END, we're done.
         if oracle_ev.kind == MWK_END:
@@ -888,6 +973,7 @@ def run(participants):
                 try: os.write(f['gw'], b'G')
                 except OSError: pass
             print(f'[ctrl] all reached END after {step} steps', file=sys.stderr)
+            how = 'all reached END'
             break
 
         # Otherwise GO to all.
@@ -897,6 +983,7 @@ def run(participants):
             except OSError:
                 print(f'[ctrl] write failed to {f["name"]}', file=sys.stderr)
                 diverged = True
+                how = f'write failed to {f["name"]} at step {step}'
                 break
         if diverged:
             break
@@ -908,7 +995,7 @@ def run(participants):
         try: os.close(f['gw'])
         except OSError: pass
 
-    return 1 if diverged else 0
+    return finish(1 if diverged else 0, how)
 
 
 def parse_argv(argv):
