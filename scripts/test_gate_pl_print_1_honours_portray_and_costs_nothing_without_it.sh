@@ -4,8 +4,11 @@
 # cto 2026-09-13: the LOWERER MINTS A WRAPPER CLAUSE and the existing goal dispatch finds it -- no new goal
 # machinery, no runtime-to-Prolog callback.
 #
-# print/1 is ( portray(X) -> true ; writeq(X) ), MINTED ONLY WHEN THE PROGRAM DEFINES portray/1. Otherwise
-# print/1 stays the $writeq det leaf it has always been.
+# print/1 is ( portray(X) -> true ; write(X) ), MINTED ONLY WHEN THE PROGRAM DEFINES portray/1. Otherwise
+# print/1 stays the $write det leaf it is today (GNU Prolog is canonical for print/1's own quoting, Lon's
+# word, SCRIP af74eb56e -- print/1 was $writeq at this gate's mint and moved to $write afterward; this gate
+# is updated to the current, oracle-verified baseline rather than the compiler reverted to satisfy a stale
+# gate, per CEO-589).
 #
 # ⛔⭐ ARM 1 IS THE POINT AND IT RUNS FIRST, BY ORDER, NOT BY CONVENTION. The cure's whole claim is that a
 # program WITHOUT portray/1 pays nothing -- no proc, no dispatch, no emitted byte. That claim is easy to
@@ -21,8 +24,8 @@
 # cto's Lon-ordered IR_MOVE_LABEL delete) was already queued behind it.
 #
 # ⭐ THE CURE IS TO STATE THE CLAIM DIFFERENTIALLY, IN ONE BUILD, SO NO CONSTANT EXISTS TO GO STALE. The
-# claim is not "this program emits these bytes"; it is "with no portray/1, print/1 IS the writeq det leaf".
-# So emit the SAME program twice in the SAME build -- once written with print/1, once with writeq/1 -- and
+# claim is not "this program emits these bytes"; it is "with no portray/1, print/1 IS the write det leaf".
+# So emit the SAME program twice in the SAME build -- once written with print/1, once with write/1 -- and
 # require the two path-normalised emissions to be IDENTICAL TO EACH OTHER. That is immune to every future
 # emitter change by construction, because both sides move together. ARM 1c is its control and it is what
 # gives the comparison teeth: with portray/1 DEFINED the same two programs must DIFFER, so a comparison
@@ -46,23 +49,23 @@ cat > "$D/noportray.pl" <<'PLEOF'
 main :- print(42), nl, print(foo), nl, print(a(b)), nl, print([1,2]), nl.
 PLEOF
 echo "=== ARM 1 (FIRST, and the one that can be faked by running it last): no portray/1 costs nothing ==="
-sed 's/print(/writeq(/g' "$D/noportray.pl" > "$D/nowriteq.pl"
+sed 's/print(/write(/g' "$D/noportray.pl" > "$D/nowrite.pl"
 gate_emit_md5() {   # $1 = .pl to compile, $2 = .s to write -- path- AND basename-normalised, so only CODE differs
   timeout 60 "$SCRIP" --compile -o "$2" "$1" >/dev/null 2>&1 || return 1
-  sed "s|$D|@|g; s|noportray|@PROG@|g; s|nowriteq|@PROG@|g; s|yesportray|@PROG@|g; s|yeswriteq|@PROG@|g" "$2" | md5sum | cut -d' ' -f1
+  sed "s|$D|@|g; s|noportray|@PROG@|g; s|nowrite|@PROG@|g; s|yesportray|@PROG@|g; s|yeswrite|@PROG@|g" "$2" | md5sum | cut -d' ' -f1
 }
 N=$((N+1))
 mp=$(gate_emit_md5 "$D/noportray.pl" "$D/np.s"); rcp=$?
-mq=$(gate_emit_md5 "$D/nowriteq.pl"  "$D/nq.s"); rcq=$?
+mq=$(gate_emit_md5 "$D/nowrite.pl"  "$D/nq.s"); rcq=$?
 if [ $rcp -ne 0 ] || [ $rcq -ne 0 ]; then
-  echo "  RED  a no-portray program failed to compile (print rc=$rcp writeq rc=$rcq)"; FAIL=$((FAIL+1))
+  echo "  RED  a no-portray program failed to compile (print rc=$rcp write rc=$rcq)"; FAIL=$((FAIL+1))
 elif [ -z "$mp" ] || [ -z "$mq" ]; then
   echo "⛔ REFUSE(2): an emission md5 came back EMPTY, so arm 1 graded nothing -- a comparison of two blanks is not a pass"; exit 2
 elif [ "$mp" = "$mq" ]; then PASS=$((PASS+1))
 else
-  echo "  RED  with NO portray/1 defined, print/1 did not emit identically to writeq/1, so the cure is not free:"
-  echo "       print md5 $mp  vs  writeq md5 $mq"
-  diff <(sed "s|$D|@|g; s|noportray|@PROG@|g" "$D/np.s") <(sed "s|$D|@|g; s|nowriteq|@PROG@|g" "$D/nq.s") | head -12 | sed 's/^/       /'
+  echo "  RED  with NO portray/1 defined, print/1 did not emit identically to write/1, so the cure is not free:"
+  echo "       print md5 $mp  vs  write md5 $mq"
+  diff <(sed "s|$D|@|g; s|noportray|@PROG@|g" "$D/np.s") <(sed "s|$D|@|g; s|nowrite|@PROG@|g" "$D/nq.s") | head -12 | sed 's/^/       /'
   FAIL=$((FAIL+1))
 fi
 N=$((N+1))
@@ -71,10 +74,10 @@ portray(A) :- atom(A), write(A), write(A).
 :- initialization(main).
 main :- print(42), nl, print(foo), nl, print(a(b)), nl, print([1,2]), nl.
 PLEOF
-sed 's/print(/writeq(/g' "$D/yesportray.pl" > "$D/yeswriteq.pl"
-yp=$(gate_emit_md5 "$D/yesportray.pl" "$D/yp.s"); yq=$(gate_emit_md5 "$D/yeswriteq.pl" "$D/yq.s")
+sed 's/print(/write(/g' "$D/yesportray.pl" > "$D/yeswrite.pl"
+yp=$(gate_emit_md5 "$D/yesportray.pl" "$D/yp.s"); yq=$(gate_emit_md5 "$D/yeswrite.pl" "$D/yq.s")
 if [ -n "$yp" ] && [ -n "$yq" ] && [ "$yp" != "$yq" ]; then PASS=$((PASS+1))
-else echo "  RED  ARM 1c CONTROL: with portray/1 DEFINED, print/1 emitted the SAME as writeq/1 ($yp vs $yq) -- so arm 1's comparison has no teeth and its pass means nothing"; FAIL=$((FAIL+1)); fi
+else echo "  RED  ARM 1c CONTROL: with portray/1 DEFINED, print/1 emitted the SAME as write/1 ($yp vs $yq) -- so arm 1's comparison has no teeth and its pass means nothing"; FAIL=$((FAIL+1)); fi
 N=$((N+1))
 if grep -qE '(^|[^A-Za-z0-9_])portray([^A-Za-z0-9_]|$)' "$D/np.s" 2>/dev/null; then
   echo "  RED  a program with no portray/1 emitted a reference to portray"; FAIL=$((FAIL+1))
