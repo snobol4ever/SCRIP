@@ -428,8 +428,8 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
     else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8)) + x86("mov", "rdx", RDQ("r11", 0)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
     else if (kind == 5) s += x86("mov", "rsi", "rbp") + x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
-    s += x86("def", sk) + x86_rt_gc_poll();
-    s += x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax");
+    s += x86_rt_gc_poll();
+    s += x86("def", sk) + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax");
     return s;
 }
 const char * xa_icn_trace_pname(void) { const char * f = g_emit.flat_fam; if (!f) return (g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (const char *)0; return (strncmp(f, "proc_", 5) == 0) ? f + 5 : f; }
