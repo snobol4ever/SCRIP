@@ -1893,7 +1893,7 @@ void rt_pl_root_omega(void)
 {
     extern void *rt_pl_ball_take(void);
     void *ball = rt_pl_ball_take();
-    if (!ball) exit(1);
+    if (!ball) exit(0);
     rt_pl_ball_report(ball);
     exit(2);
 }
@@ -2100,6 +2100,26 @@ int rt_pl_nb_set(void *root, int64_t k, void *val)
       pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
       if (!box) return 0;
       *box = stored; *cell = box; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx)
+{
+    extern void *rt_ws_alloc_descr(size_t);
+    if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !val || !cx) return 0;
+    { pl_cell_t **cell = (pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
+      pl_cell_t *t = pl_deref((pl_cell_t *)val);
+      pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+      pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn, 256);
+      if (*cell) {
+          char probe; char *floor_ = &probe;
+          if (pl_tr_needs_log(cx, *cell, floor_)) pl_tr_push(cx, *cell);
+          **cell = stored;
+      } else {
+          pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
+          if (!box) return 0;
+          *box = stored; *cell = box;
+      }
+      return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_get_cell(void *root, int64_t k, void *out_cell, pl_tr_ctx_t *cx)

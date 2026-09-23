@@ -655,6 +655,9 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "read", 1, "$read" },
     { "atom_to_term", 3, "$atom_to_term" }, { "read_term_from_atom", 3, "$read_term_from_atom" }, { "read_term_from_chars", 3, "$read_term_from_chars" }, { "read_term_from_codes", 3, "$read_term_from_codes" },
     { "writeq", 1, "$writeq" }, { "print", 1, "$writeq" }, { "write_term", 2, "$write_term" }, { "write_term", 3, "$write_term_s" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" },
+    { "display", 1, "$display" }, { "display", 2, "$display_s" }, { "unify_with_occurs_check", 2, "$unify_oc" }, { "$aggregate_reduce", 3, "$aggregate_reduce" },
+    { "$wot_open", 3, "$wot_open" }, { "$wot_capture", 4, "$wot_capture" }, { "$wot_discard", 3, "$wot_discard" },
+    { "$set_prolog_flag_declare", 2, "$set_prolog_flag_declare" },
     { "put_char", 1, "$put_char" },
     { "$db_bind", 3, "$db_bind" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" },
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
@@ -1232,6 +1235,49 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = be ? be : bl;
             return to;
         }
+        if (!strcmp(nm, "write_to_atom") && t->n == 2 && !pl_file_defines(nm, 2))
+            return goal(cx, pl_cc_fnc2("with_output_to", pl_cc_fnc1("atom", (tree_t *) t->c[0]), pl_cc_fnc1("write", (tree_t *) t->c[1])), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "format_to_atom") && t->n == 3 && !pl_file_defines(nm, 3))
+            return goal(cx, pl_cc_fnc2("with_output_to", pl_cc_fnc1("atom", (tree_t *) t->c[0]), pl_cc_fnc2("format", (tree_t *) t->c[1], (tree_t *) t->c[2])), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "read_from_atom") && t->n == 2 && !pl_file_defines(nm, 2))
+            return goal(cx, pl_cc_fnc3("atom_to_term", (tree_t *) t->c[0], (tree_t *) t->c[1], pl_cc_freshvar()), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "with_output_to") && t->n == 2 && !pl_file_defines(nm, 2)) {
+            tree_t * ti = pl_cc_freshvar(); tree_t * to = pl_cc_freshvar(); tree_t * th = pl_cc_freshvar();
+            tree_t * op = pl_cc_fnc3("$wot_open", ti, to, th);
+            tree_t * so = pl_cc_fnc1("set_output", ti);
+            tree_t * cg = pl_cc_fnc1("call", (tree_t *) t->c[1]);
+            tree_t * cap = pl_cc_fnc4("$wot_capture", ti, to, th, (tree_t *) t->c[0]);
+            tree_t * dis = pl_cc_fnc3("$wot_discard", ti, to, th);
+            tree_t * fb = pl_cc_fnc2(",", dis, pl_atom_goal("fail"));
+            tree_t * ite = pl_cc_fnc2(";", pl_cc_fnc2("->", cg, cap), fb);
+            tree_t * body = pl_cc_fnc2(",", op, pl_cc_fnc2(",", so, ite));
+            return goal(cx, body, γnext, ωfail, entry_out);
+        }
+        if (!strcmp(nm, "aggregate_all") && t->n == 3 && !pl_file_defines(nm, 3)) {
+            const tree_t * spec = t->c[0]; const char * kind = NULL; const tree_t * tmpl = NULL;
+            if (spec && spec->t == TT_FNC && spec->n == 1 && spec->v.sval) {
+                if (!strcmp(spec->v.sval, "count")) { kind = "count"; tmpl = spec->c[0]; }
+                else if (!strcmp(spec->v.sval, "max")) { kind = "max"; tmpl = spec->c[0]; }
+                else if (!strcmp(spec->v.sval, "min")) { kind = "min"; tmpl = spec->c[0]; }
+                else if (!strcmp(spec->v.sval, "sum")) { kind = "sum"; tmpl = spec->c[0]; }
+                else if (!strcmp(spec->v.sval, "bag")) { kind = "bag"; tmpl = spec->c[0]; }
+                else if (!strcmp(spec->v.sval, "set")) { kind = "set"; tmpl = spec->c[0]; }
+            } else if (spec && (spec->t == TT_NAME || spec->t == TT_QLIT) && spec->v.sval && !strcmp(spec->v.sval, "count")) {
+                kind = "count"; tmpl = pl_cc_ilit(0);
+            }
+            if (kind && !strcmp(kind, "set")) {
+                tree_t * lv = pl_cc_freshvar();
+                tree_t * fa = pl_cc_fnc3("findall", (tree_t *) tmpl, (tree_t *) t->c[1], lv);
+                tree_t * so = pl_cc_fnc2("sort", lv, (tree_t *) t->c[2]);
+                return goal(cx, pl_cc_fnc2(",", fa, so), γnext, ωfail, entry_out);
+            }
+            if (kind) {
+                tree_t * lv = pl_cc_freshvar();
+                tree_t * fa = pl_cc_fnc3("findall", (tree_t *) tmpl, (tree_t *) t->c[1], lv);
+                tree_t * rd = pl_cc_fnc3("$aggregate_reduce", (tree_t *) pl_atom_goal(kind), lv, (tree_t *) t->c[2]);
+                return goal(cx, pl_cc_fnc2(",", fa, rd), γnext, ωfail, entry_out);
+            }
+        }
         if (((!strcmp(nm, "findall") || !strcmp(nm, "bagof") || !strcmp(nm, "setof")) && t->n == 3) || (!strcmp(nm, "findall") && t->n == 4)) {
             int pl_find4 = t->n == 4;
             const char * fin = !strcmp(nm, "findall") ? (pl_find4 ? "$findall_result4" : "$findall_result") : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
@@ -1360,7 +1406,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "set_output") && t->n == 1) return pl_leaf_guarded1_dir(cx, "$set_output", "$pl_stream_guard", "output", t, γnext, ωfail, entry_out);
         if (!strcmp(nm, "set_input") && t->n == 1) return pl_leaf_guarded1_dir(cx, "$set_input", "$pl_stream_guard", "input", t, γnext, ωfail, entry_out);
         if (!strcmp(nm, "read_term") && t->n == 2 && pl_tree_is_nil(t->c[1])) return pl_leaf_lv(cx, "$read", t, 1, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "read_term") && t->n == 2) return pl_leaf_lv(cx, "$read_term_opts", t, 2, γnext, ωfail, entry_out);
         if (!strcmp(nm, "read_term") && t->n == 3 && pl_tree_is_nil(t->c[2])) return pl_leaf_lv(cx, "$read_s", t, 2, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "read_term") && t->n == 3) return pl_leaf_lv(cx, "$read_term_opts_s", t, 3, γnext, ωfail, entry_out);
         if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
             int ar = 0; const char * pn;
             { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 1), γnext, ωfail, entry_out); }
@@ -1419,12 +1467,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             { IR_t * le = NULL; IR_t * nd = pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
-        if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval")) && t->n == 2) {
+        if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval") || !strcmp(nm, "b_setval") || !strcmp(nm, "b_getval")) && t->n == 2) {
             const char * kk = pl_nb_key(t->c[0]);
             if (!kk) pl_refuse("global-variable key that is not an atom known at compile time -- a computed key goes through the runtime compiler (ARCH sec C); there is no key map --", nm, 10);
             { int k = pl_dyn_index_or_add(kk, -1);
               if (k < 0) pl_refuse("global variable needs a root cell but the 64 compile-time root cells are exhausted --", kk, 10);
               if (!strcmp(nm, "nb_setval")) return pl_db_leaf2(cx, "$nb_setval", k, t->c[1], γnext, ωfail, entry_out);
+              if (!strcmp(nm, "b_setval")) return pl_db_leaf2(cx, "$b_setval", k, t->c[1], γnext, ωfail, entry_out);
               { IR_t * body_entry = NULL; IR_t * nd = pl_nb_leaf_lv(cx, "$nb_getval", k, t->c[1], γnext, ωfail, &body_entry);
                 tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = (char *) kk;
                 IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$pl_nb_getval_guard", k, kt, body_entry, ωfail, &guard_entry);
@@ -1801,9 +1850,14 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             for (int k = 0; k < subj->n; k++) pl_decl_other_record(subj->c[k]); continue; }
         if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives)) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = subj; continue; }
+        { tree_t * dirgoal = (tree_t *) subj;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
             if (pl_flag_directive_is_default(subj) || pl_flag_directive_is_advisory(subj)) continue;
-            pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
+            { const tree_t * f = subj->c[0]; const tree_t * v = subj->c[1];
+              if (f && v && (f->t == TT_QLIT || f->t == TT_NAME) && (v->t == TT_QLIT || v->t == TT_NAME) && f->v.sval && v->v.sval
+                  && !strcmp(f->v.sval, "double_quotes") && (!strcmp(v->v.sval, "codes") || !strcmp(v->v.sval, "chars")))
+                  pl_refuse("directive set_prolog_flag", f->v.sval, 10);
+              dirgoal = pl_cc_fnc2("$set_prolog_flag_declare", (tree_t *) f, (tree_t *) v); } }
         { int dv_scope0 = dvc;
           tree_t * eb = ast_node_new(TT_VAR); eb->v.sval = (char *) "$DirBall";
           tree_t * eb2 = ast_node_new(TT_VAR); eb2->v.sval = (char *) "$DirBall";
@@ -1811,10 +1865,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           tree_t * rep = ast_node_new(TT_FNC); rep->v.sval = (char *) "format";
           ast_push(rep, (tree_t *) pl_atom_goal("user_error")); ast_push(rep, (tree_t *) pl_atom_goal("Warning: directive raised: ~q~n")); ast_push(rep, fargs);
           tree_t * cat = ast_node_new(TT_FNC); cat->v.sval = (char *) "catch";
-          ast_push(cat, (tree_t *) subj); ast_push(cat, eb); ast_push(cat, rep);
+          ast_push(cat, dirgoal); ast_push(cat, eb); ast_push(cat, rep);
           tree_t * ig = pl_cc_fnc1("ignore", cat);
           pl_dir_number_vars(ig, dvn, &dvc, dv_scope0);
-          if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = ig; continue; }
+          if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = ig; continue; } }
     }
     { const tree_t * all_goals[PL_INIT_GOALS_MAX * 2]; int nall = 0;
       { const tree_t * seeds[PL_INIT_GOALS_MAX * 4]; int nseed = 0; int save_base = g_pl_seed_var_base; g_pl_seed_var_base = 0;

@@ -101,6 +101,15 @@ static const OpEntry BIN_OPS[] = {
     { "as",    700, ASSOC_NONE  },
     { NULL,    0,   ASSOC_NONE  }
 };
+static const OpEntry PREFIX_OPS[] = {
+    { ":-",   1200, ASSOC_NONE,  FIX_PREFIX },
+    { "?-",   1200, ASSOC_NONE,  FIX_PREFIX },
+    { "\\+",   900, ASSOC_RIGHT, FIX_PREFIX },
+    { "-",     200, ASSOC_RIGHT, FIX_PREFIX },
+    { "+",     200, ASSOC_RIGHT, FIX_PREFIX },
+    { "\\",    200, ASSOC_RIGHT, FIX_PREFIX },
+    { NULL,    0,   ASSOC_NONE,  FIX_INFIX  }
+};
 static OpEntry *g_uinfix = NULL;
 static int g_uinfix_n = 0, g_uinfix_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -148,13 +157,14 @@ static const char *op_type_unclassify(Assoc assoc, Fixity fix) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bin_ops_count(void) { int n = 0; for (const OpEntry *op = BIN_OPS; op->name; op++) n++; return n; }
-int prolog_op_table_count(void) { return bin_ops_count() + g_uinfix_n; }
+static int prefix_ops_count(void) { int n = 0; for (const OpEntry *op = PREFIX_OPS; op->name; op++) n++; return n; }
+int prolog_op_table_count(void) { return bin_ops_count() + prefix_ops_count() + g_uinfix_n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out) {
-    int nbin = bin_ops_count();
+    int nbin = bin_ops_count(), npre = prefix_ops_count();
     const OpEntry *e;
-    if (idx < 0 || idx >= nbin + g_uinfix_n) return 0;
-    e = (idx < nbin) ? &BIN_OPS[idx] : &g_uinfix[idx - nbin];
+    if (idx < 0 || idx >= nbin + npre + g_uinfix_n) return 0;
+    e = (idx < nbin) ? &BIN_OPS[idx] : (idx < nbin + npre) ? &PREFIX_OPS[idx - nbin] : &g_uinfix[idx - nbin - npre];
     if (name_out) *name_out = e->name;
     if (prec_out) *prec_out = e->prec;
     if (type_out) *type_out = op_type_unclassify(e->assoc, e->fixity);
@@ -856,8 +866,8 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     if (pushback) {
         tree_t *s_mid = dcg_fresh_var(ts);
         n = dcg_expand_body(dcg_body, s0, s_mid, ts, buf, 0);
-        tree_t *pushback_with_tail = dcg_append_tail(ts, pushback, s);
-        buf[n++] = dcg_make_unify(ts, s_mid, pushback_with_tail);
+        tree_t *pushback_with_tail = dcg_append_tail(ts, pushback, s_mid);
+        buf[n++] = dcg_make_unify(ts, s, pushback_with_tail);
     } else {
         n = dcg_expand_body(dcg_body, s0, s, ts, buf, 0);
     }
