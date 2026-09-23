@@ -144,6 +144,7 @@ static void pas_caparm_add(const char *name, unsigned long long m, const long lo
 static int pas_is_rel(tree_t *e);
 static int pas_is_proc(const char *name);
 static tree_t *pas_addr_of_proc(tree_t *e);
+static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi);
 static int pas_proc_param_is_real(const char *name, int idx);
 static int pas_proc_param_is_string(const char *name, int idx);
 static tree_t *pas_bool(tree_t *e);
@@ -327,6 +328,12 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *fa = args->items[0]; int isstd = fa && fa->t == TT_VAR && fa->v.sval && pas_is_stdstream(fa->v.sval);
         if (fa && fa->t == TT_VAR && fa->v.sval && !isstd) return mk_fnc1("__pas_getbufch_f", pas_tree_clone(fa));
         return mk_fnc0("__pas_getbufch");
+    }
+    if (name && !strcmp(name, "readstr") && args && args->count >= 4) {
+        tree_t *sv = args->items[0]; tree_t *v = args->items[2];
+        tree_t *rhs = mk_fnc1("__pas_str_to_int", sv);
+        if (g_pas_range_check_on && v && v->t == TT_VAR && v->v.sval) { long long _lo, _hi; if (pas_subvar_get(v->v.sval, &_lo, &_hi)) rhs = pas_range_wrap(rhs, _lo, _hi); }
+        return mk_assign(v, rhs);
     }
     if (name && !strcmp(name, "readln") && (!args || args->count == 0)) return mk_fnc0("__pas_readln");
     if (name && (!strcmp(name, "readln") || !strcmp(name, "read")) && args && args->count >= 1) {

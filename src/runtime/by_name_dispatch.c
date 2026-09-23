@@ -3886,6 +3886,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (v < lo || v > hi) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
         *out = args[0]; return 1;
     }
+    if (!strcmp(fn, "__pas_str_to_int") && nargs == 1) {
+        const char *s = VARVAL_fn(args[0]);
+        *out = INTVAL(s ? strtoll(s, NULL, 10) : 0);
+        return 1;
+    }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {
         long e = pas_ord_of(args[0]);
         unsigned char bits[PAS_SET_BYTES]; pas_set_bits(args[1], bits);
