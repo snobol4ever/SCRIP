@@ -140,6 +140,7 @@ static inline void * rtop_addr_s(long long op, int strict) {
     + x86_omega("je") \
     + x86("mov", FRQ(_.op_off), "rax") \
     + x86("mov", FRQ(_.op_off + 8), "rdx") \
+    + x86_rt_gc_poll() \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
@@ -242,6 +243,7 @@ std::string bb_binop_arith() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
     }
@@ -321,6 +323,7 @@ std::string bb_binop_arith() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
     return IF(_.op_off >= 0 && inl_ok(),
