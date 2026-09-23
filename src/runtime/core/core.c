@@ -4173,9 +4173,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         return NULVCL;
     }
     int is_pipe = (fname[0] == '|');
-    if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
-        core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR;
-    }
+    if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) return NULVCL;
     FILE *f = is_pipe ? popen(fname + 1, "r") : fopen(fname, "r");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
