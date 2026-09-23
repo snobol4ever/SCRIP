@@ -1164,6 +1164,15 @@ static void pas_not_a_word_symbol(const char *n) {
     for (size_t i = 0; n && i < sizeof ws / sizeof ws[0]; i++) if (!strcmp(n, ws[i])) {
         fprintf(stderr, "pascal: ISO 7185 6.1.2 violation: '%s' is a word-symbol and cannot be defined as an identifier\n", n); g_pas_iso_errors++; return; }
 }
+static void pas_label_in_range(long long v) {
+    if (v < 0 || v > 9999) { fprintf(stderr, "pascal: ISO 7185 6.1.6 violation: the label %lld is not in the closed interval 0 to 9999\n", v); g_pas_iso_errors++; }
+}
+static void pas_program_params_distinct(PNodeList *ids) {
+    for (int i = 0; ids && i < ids->count; i++) for (int j = 0; j < i; j++)
+        if (ids->items[i] && ids->items[j] && ids->items[i]->v.sval && ids->items[j]->v.sval && !strcmp(ids->items[i]->v.sval, ids->items[j]->v.sval)) {
+            fprintf(stderr, "pascal: ISO 7185 6.10 violation: the program-parameter '%s' appears more than once in the program-heading\n", ids->items[i]->v.sval);
+            g_pas_iso_errors++; break; }
+}
 static PNodeList *pas_var_names_add(PNodeList *seen, PNodeList *ids) {
     if (ids) for (int i = 0; i < ids->count; i++) { const char *n = ids->items[i] ? ids->items[i]->v.sval : NULL; if (!n) continue;
         for (int j = 0; j < seen->count; j++) if (seen->items[j] && seen->items[j]->v.sval && !strcmp(seen->items[j]->v.sval, n)) {
@@ -1360,7 +1369,7 @@ program:
           pascal_prog_result = root; }
     ;
 file_id_list_opt:
-    LPARENT id_list RPARENT { if ($2) for (int i = 0; i < $2->count; i++) { tree_t *id = $2->items[i]; if (id && id->v.sval && strcmp(id->v.sval, "input") && strcmp(id->v.sval, "output")) { pas_filevar_add(id->v.sval); if (g_pas_nhdrfile < 32) g_pas_hdrfiles[g_pas_nhdrfile++] = ct_strdup(id->v.sval); } } }
+    LPARENT id_list RPARENT { pas_program_params_distinct($2); if ($2) for (int i = 0; i < $2->count; i++) { tree_t *id = $2->items[i]; if (id && id->v.sval && strcmp(id->v.sval, "input") && strcmp(id->v.sval, "output")) { pas_filevar_add(id->v.sval); if (g_pas_nhdrfile < 32) g_pas_hdrfiles[g_pas_nhdrfile++] = ct_strdup(id->v.sval); } } }
     |
     ;
 block:
@@ -1378,8 +1387,8 @@ decl_part:
     | procedure_decl
     ;
 label_list:
-    label_list COMMA INTCONST
-    | INTCONST
+    label_list COMMA INTCONST { pas_label_in_range($3); }
+    | INTCONST { pas_label_in_range($1); }
     ;
 const_decl_list:
     const_decl_list const_decl
@@ -1502,7 +1511,7 @@ statement_list:
 statement:
     statement_no_label { $$ = $1; }
     | INTCONST COLON statement_no_label
-        { char _lb[24]; snprintf(_lb, sizeof _lb, "%lld", (long long)$1);
+        { pas_label_in_range($1); char _lb[24]; snprintf(_lb, sizeof _lb, "%lld", (long long)$1);
           tree_t *L = ast_node_new(TT_LABEL_DEF); L->v.sval = ct_strdup(_lb); ast_push(L, $3); $$ = L; }
     ;
 statement_no_label:
