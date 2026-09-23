@@ -310,6 +310,13 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
         }
     }
+    if (name && !strcmp(name, "ismanagedtype") && args && args->count >= 1) {
+        tree_t *a = args->items[0];
+        const char *tn = (a && a->t == TT_VAR && a->v.sval) ? pas_scalarvartype_get(a->v.sval) : NULL;
+        { int _guard = 0; while (tn) { const char *_al = pas_typealias_get(tn); if (!_al || !strcmp(_al, tn) || _guard++ >= 8) break; tn = _al; } }
+        int managed = tn && (!strcmp(tn, "ansistring") || !strcmp(tn, "unicodestring") || !strcmp(tn, "widestring") || !strcmp(tn, "variant"));
+        return ilit(managed ? 1 : 0);
+    }
     if (name && !strcmp(name, "boolean") && args && args->count >= 1) return bin(TT_NE, mk_fnc2("iand", args->items[0], ilit(255)), ilit(0));
     if (name && strcmp(name, "char") && strcmp(name, "widechar") && strcmp(name, "boolean") && args && args->count >= 1) {
         long long _tsz;
