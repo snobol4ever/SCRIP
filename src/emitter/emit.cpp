@@ -2661,6 +2661,26 @@ static int zd_exit_pop_s(IR_e op, int mark, int full, int stmt, int mafter) { if
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_hook_release_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZD_HOOK_RELEASE"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_consumer_cut_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZD_CONSUMER_CUT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_consumers_build(IR_t **nodes, int n, int **off_out, int **adj_out) {
+    *off_out = (int *)0; *adj_out = (int *)0;
+    for (int i = 0; i < n; i++) if (nodes[i] && nidx(nodes, n, nodes[i]) != i) return 0;
+    int * off = (int *)ct_zalloc((size_t)n + 1, sizeof(int)); if (!off) return 0;
+    for (int pass = 0; pass < 2; pass++) {
+        int * cur = pass ? (int *)ct_alloc(sizeof(int) * ((size_t)n + 1)) : (int *)0; int * adj = (int *)0;
+        if (pass) { if (!cur) { ct_drop(off); return 0; } memcpy(cur, off, sizeof(int) * ((size_t)n + 1));
+            adj = (int *)ct_alloc(sizeof(int) * (size_t)(off[n] > 0 ? off[n] : 1)); if (!adj) { ct_drop(cur); ct_drop(off); return 0; } }
+        for (int k = 0; k < n; k++) { IR_t * c = nodes[k]; if (!c || strncmp(bb_op_name(c->op), "IR_MATCH_", 9) == 0) continue;
+            for (int a = 0; a < c->n_operands; a++) { IR_t * q = c->operands[a]; if (!q || q == c) continue;
+                int seen = 0; for (int b = 0; b < a; b++) if (c->operands[b] == q) { seen = 1; break; } if (seen) continue;
+                int i = nidx(nodes, n, q); if (i < 0) continue;
+                if (pass) adj[cur[i]++] = k; else off[i + 1]++; } }
+        if (!pass) { for (int i = 0; i < n; i++) off[i + 1] += off[i]; continue; }
+        ct_drop(cur); *off_out = off; *adj_out = adj; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm) {
     extern const char * bb_src_of(const IR_t *);
     static int _dg = -1, _zoh = -1, _zbe = -1, _zvd = -1; static const char * _zo; static const char * _zs;
@@ -2689,6 +2709,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 { int k = nidx(nodes, n, nodes[i]->operands[a]); if (k >= 0) { pi = k; } }
                 fprintf(stderr, "%s%d", a ? "," : "", pi); }
             fprintf(stderr, "] g=%d o=%d lit/nameptr=%lld src=%s\n", gi, oi, (long long)IR_LIT(nodes[i]).ival, bb_src_of(nodes[i]) ? bb_src_of(nodes[i]) : "-"); } } }
+    int * zc_off = (int *)0; int * zc_adj = (int *)0; if (zd_consumer_cut_on()) zd_consumers_build(nodes, n, &zc_off, &zc_adj);
     for (int pass = 0; pass < 2; pass++) {
     for (int hi = 0; hi < n; hi++) {
         if (pass == 0) { if (!(hi == 0 || bb_src_of(nodes[hi]))) continue; }
@@ -2720,10 +2741,12 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     }
                     if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; aent[ci] = 0; } rl = rl0; }
                 } } } }
-        { static int _zcc = -1; if (_zcc < 0) { const char * e = getenv("SCRIP_ZD_CONSUMER_CUT"); _zcc = (e && *e == '0') ? 0 : 1; }
-          if (_zcc) { int cut = 1; while (cut && rl > 0) { cut = 0;
+        { if (zd_consumer_cut_on()) { int cut = 1; while (cut && rl > 0) { cut = 0;
               for (int r = 0; r < rl && !cut; r++) { int i = run[r]; IR_t * p = nodes[i];
                   if (zd_k(p) != 16 || xop_frame_member(p)) continue;
+                  if (zc_off) { for (int e = zc_off[i]; e < zc_off[i + 1] && !cut; e++) { int k = zc_adj[e]; if (claim[k] == hi) continue;
+                          if (_dg) fprintf(stderr, "[ZD] run h=%d CUT at r=%d i=%d (%s): consumer i=%d (%s) is outside the run\n", hi, r, i, bb_op_name(p->op), k, bb_op_name(nodes[k]->op));
+                          for (int u = r; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; if (zarm) zarm[ci] = -1; aent[ci] = 0; } rl = r; cut = 1; } continue; }
                   for (int k = 0; k < n && !cut; k++) { IR_t * c = nodes[k]; if (!c || c == p || strncmp(bb_op_name(c->op), "IR_MATCH_", 9) == 0) continue;
                       for (int a = 0; a < c->n_operands; a++) if (c->operands[a] == p) { if (claim[k] != hi) { if (_dg) fprintf(stderr, "[ZD] run h=%d CUT at r=%d i=%d (%s): consumer i=%d (%s) is outside the run\n", hi, r, i, bb_op_name(p->op), k, bb_op_name(c->op));
                           for (int u = r; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; if (zarm) zarm[ci] = -1; aent[ci] = 0; } rl = r; cut = 1; } break; } } } } } }
@@ -2808,6 +2831,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
         for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d\n",
             i, bb_op_name(nodes[i]->op), claim[i], rpos[i], (int)zon[i], zout[i], zgpop[i], zwpop[i], zarm ? zarm[i] : -1); } }
+    ct_drop(zc_adj); ct_drop(zc_off);
 }
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
