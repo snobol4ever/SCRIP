@@ -17,33 +17,15 @@
 #
 # THIS GATE RATCHETS THE CLASS TO ZERO.  Every caller of a collector entry (rt_gc_point, rt_gc_point_arr, rt_gc_point_arr_c,
 # rt_gc_point_arr_probe_c, rt_gc_poll_slow, rt_gc_collect_now) OUTSIDE the collector's own files is counted from source.
-# The standing set is DECLARED BY NAME below: 19 functions (20 sites) on 2026-09-23 -- 18 in by_name_dispatch.c (the dop
-# entries and the Prolog rt_pl_dop_*_c leaves, the ceo's row gc-the-five-c-to-bb-entries-...-and-the-three-riders-in-by-
-# name-dispatch-c) and rt_scan_enter in gen_runtime.c.  Each is resolved to its ENCLOSING FUNCTION by the python pass
+# The standing set is DECLARED BY NAME below: ONE function since the by_name_dispatch.c landing of 2026-09-23 removed its 18
+# (19 sites: the dop entries, rt_call_arr_impl's conditional seam, the Prolog rt_pl_dop_*_c leaves and the PL_CX_LEAF_HEAD
+# macro) -- rt_scan_enter in gen_runtime.c, left for the landing after hq_icon's g_scan_subj_ptr row in the same file.  Each is resolved to its ENCLOSING FUNCTION by the python pass
 # below, so a site that moves within a function does not move the list.  A caller not on the list is a regression and
 # reds; a declared caller that is gone reds too, so the list moves in the landing that earns it.  FAIL_ONCE=1 plants one.
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
-DECLARED="src/runtime/builtins/gen_runtime.c:rt_scan_enter
-src/runtime/by_name_dispatch.c:dop_call
-src/runtime/by_name_dispatch.c:dop_call_ax
-src/runtime/by_name_dispatch.c:dop_write
-src/runtime/by_name_dispatch.c:pl_db_add_r
-src/runtime/by_name_dispatch.c:pl_format_body
-src/runtime/by_name_dispatch.c:pl_open_leaf
-src/runtime/by_name_dispatch.c:pl_split_text
-src/runtime/by_name_dispatch.c:rt_call_arr_impl
-src/runtime/by_name_dispatch.c:rt_pl_dop_close_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_is_v_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_mkc_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_nb_getval_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_pl_cp_count_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_pl_cp_nth_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_unify_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_unify_ci_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_unify_cs_c
-src/runtime/by_name_dispatch.c:rt_pl_dop_unify_oc_c"
+DECLARED="src/runtime/builtins/gen_runtime.c:rt_scan_enter"
 ENTRIES='rt_gc_point_arr_probe_c|rt_gc_point_arr_c|rt_gc_point_arr|rt_gc_point|rt_gc_poll_slow|rt_gc_collect_now'
 OWN='src/runtime/rt/gc_heap.c|src/runtime/rt/gc_heap.h|src/runtime/rt/rt_asm_helpers.S|src/runtime/rt/rtx/'
 RC=0

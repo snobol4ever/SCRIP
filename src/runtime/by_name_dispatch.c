@@ -2011,17 +2011,13 @@ typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef int (*dop_axbody_fn)(DESCR_t *, int, DESCR_t *, void **);
 static DESCR_t dop_call_ax(dop_axbody_fn body, DESCR_t *args, int nargs, void **ball) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
-    rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out, ball);
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
-    rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out);
     return out;
 }
@@ -2041,10 +2037,8 @@ static int dop_cmp_eq(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("eq", a, n
 static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n, o); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 2) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, 2, (const char **)0);
     { char *tr0 = cx->tr; DESCR_t out;
       if (plw_unify_vals(args[0], args[1], cx)) out = rt_pl_deref_val(args[0]);
       else { cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); out = FAILDESCR; }
@@ -2052,11 +2046,9 @@ DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern int prolog_atom_intern(const char *);
     if (nargs != 2) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, 2, (const char **)0);
     { char *tr0 = cx->tr; DESCR_t out; DESCR_t rc = rt_pl_deref_val(args[0]); DESCR_t tc = rt_pl_deref_val(args[1]);
       if (rc.v != (DTYPE_t)DT_PLREF || (int)(rc.slen & 0xFFFFu) != 2 || tc.v != (DTYPE_t)DT_PLREF || (int)(tc.slen & 0xFFFFu) != 2) out = FAILDESCR;
       else { DESCR_t *ra = (DESCR_t *)rc.p; DESCR_t *ta = (DESCR_t *)tc.p;
@@ -2071,11 +2063,9 @@ DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern int plw_unify_vals_oc(DESCR_t, DESCR_t, pl_tr_ctx_t *);
     if (nargs != 2) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, 2, (const char **)0);
     { char *tr0 = cx->tr; DESCR_t out;
       if (plw_unify_vals_oc(args[0], args[1], cx)) out = rt_pl_deref_val(args[0]);
       else { cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); out = FAILDESCR; }
@@ -2083,10 +2073,8 @@ DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_ci_c(DESCR_t *args, long long imm, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, 1, (const char **)0);
     { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
       if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; plw_bind(c, w, cx); out = w; }
       else if (c->v == DT_I && !c->slen) out = (c->i == imm) ? *c : FAILDESCR;
@@ -2098,10 +2086,8 @@ DESCR_t rt_pl_dop_unify_ci_c(DESCR_t *args, long long imm, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_cs_c(DESCR_t *args, const char *cs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, 1, (const char **)0);
     { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
       if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; plw_bind(c, w, cx); out = w; }
       else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
@@ -2112,18 +2098,14 @@ DESCR_t rt_pl_dop_unify_cs_c(DESCR_t *args, const char *cs, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs < 1) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, nargs, (const char **)0);
     { DESCR_t out = plw_mkc_build(args, nargs, cx); rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_is_v_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 2) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    rt_gc_point_arr(args, 2, (const char **)0);
     { DESCR_t v = rt_pl_deref_val(args[1]); DESCR_t out;
       if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(v, &ev, &bl)) v = ev; else { cx->ball = bl; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } }
       if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { pl_iso_evaluable(v); out = FAILDESCR; }
@@ -2182,10 +2164,8 @@ DESCR_t rt_pl_dop_cmp_ne_c(DESCR_t *args, int nargs, void **ball) { return nargs
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_val_unbound(DESCR_t d);
 DESCR_t dop_write(DESCR_t *args, int nargs) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern FILE *fh_cur_out_fp(void);
     if (nargs != 1) return FAILDESCR;
-    rt_gc_point_arr(args, 1, (const char **)0);
     { FILE *wd = fh_cur_out_fp(); DESCR_t v = rt_pl_deref_val(args[0]);
       if (pl_val_unbound(v)) { extern void rt_pl_write_cell_fp(void *, FILE *); rt_pl_write_cell_fp((void *)&args[0], wd); }
       else if (v.v == DT_R) { char fb[64]; fputs(pl_real_iso_str(v.r, fb, sizeof fb), wd); }
@@ -2263,9 +2243,9 @@ PL_TYPE_LEAF(atomic) PL_TYPE_LEAF(compound) PL_TYPE_LEAF(callable) PL_TYPE_LEAF(
 DESCR_t dop_pl_acyclic_term(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_acyclic_cell(&args[0])) ? pl_ok() : FAILDESCR; }
 #define PL_ATOP_LEAF(nm, op) DESCR_t dop_pl_atop_##nm(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 2 && rt_pl_atop_cell(op, &args[0], &args[1])) ? pl_ok() : FAILDESCR; }
 PL_ATOP_LEAF(lt, 0) PL_ATOP_LEAF(le, 1) PL_ATOP_LEAF(gt, 2) PL_ATOP_LEAF(ge, 3) PL_ATOP_LEAF(eq, 4) PL_ATOP_LEAF(ne, 5)
-DESCR_t dop_pl_writeq(DESCR_t *args, int nargs) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);if (nargs != 1) return FAILDESCR;rt_gc_point_arr(args, 1, (const char **)0);
+DESCR_t dop_pl_writeq(DESCR_t *args, int nargs) {if (nargs != 1) return FAILDESCR;
     rt_pl_writeq_cell(&args[0]);return pl_ok(); }
-DESCR_t dop_pl_write_canonical(DESCR_t *args, int nargs) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);if (nargs != 1) return FAILDESCR;rt_gc_point_arr(args, 1, (const char **)0);
+DESCR_t dop_pl_write_canonical(DESCR_t *args, int nargs) {if (nargs != 1) return FAILDESCR;
     rt_pl_write_canonical_cell(&args[0]);return pl_ok(); }
 DESCR_t dop_pl_writeln(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); if (nargs != 1) return FAILDESCR; dop_write(args, 1); fputc('\n', fh_cur_out_fp()); return pl_ok(); }
 DESCR_t dop_pl_tab(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void);if (nargs != 1) return FAILDESCR;{ DESCR_t v = rt_pl_deref_val(args[0]);if (v.v != DT_I) return FAILDESCR;
@@ -2278,11 +2258,11 @@ DESCR_t dop_pl_put_code(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(v
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_pl_flush_output(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); (void)args; (void)nargs; fflush(fh_cur_out_fp()); return pl_ok(); }
 static void *pl_format_body(DESCR_t *args, int nargs) {
-    extern void rt_gc_point_arr(DESCR_t *, int, const char **); extern void *rt_pl_format_run(const char *, void *);
+    extern void *rt_pl_format_run(const char *, void *);
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     char fb[8192]; const char *fmt; DESCR_t lst, d0;
     if (nargs < 1 || nargs > 2) return (void *)0;
-    pl_atoms_ready(); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready();
     d0 = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(d0)) return rt_pl_ball_instantiation();
     if (d0.v == DT_I || d0.v == DT_R) return rt_pl_ball_kind2("type_error", "atom", d0);
@@ -2499,8 +2479,8 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
             else if (bom_opt == 1 && (fmode[0] == 'w' || ftell(fp) == 0)) { fputs("\357\273\277", fp); fh_set_bom(idx, 1); } } }
       return plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
 }
-#define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);int ok; \
-    if (nargs != ar) return FAILDESCR;pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+#define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {int ok; \
+    if (nargs != ar) return FAILDESCR;pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr);
 #define PL_CX_LEAF_TAIL rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 PL_CX_LEAF_HEAD(compare, 3) ok = rt_pl_compare_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(functor, 3) ok = rt_pl_functor_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
@@ -2741,13 +2721,13 @@ static int pl_split_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     for (const char *p = txt;;) { const char *q = strstr(p, sep); size_t L = q ? (size_t)(q - p) : strlen(p); el[n++] = pl_mk_atom_dup(p, L); if (!q || n >= 4096) break; p = q + sl; }
     return plw_unify_vals(args[0], pl_list_from_arr(el, n), cx);
 }
-DESCR_t rt_pl_dop_atomic_list_concat_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **); int ok;
+DESCR_t rt_pl_dop_atomic_list_concat_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { int ok;
     if (nargs != 2 && nargs != 3) return FAILDESCR;
-    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     if (nargs == 3 && pl_val_unbound(rt_pl_deref_val(args[0]))) ok = pl_split_text(args, cx);
     else ok = rt_pl_atom_op_cell("atomic_list_concat", &args[0], &args[1], nargs == 3 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
-DESCR_t rt_pl_dop_concat_atom_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);int ok;if (nargs != 2 && nargs != 3) return FAILDESCR;
-    pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+DESCR_t rt_pl_dop_concat_atom_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {int ok;if (nargs != 2 && nargs != 3) return FAILDESCR;
+    pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr);
     ok = rt_pl_atom_op_cell("concat_atom", &args[0], &args[1], nargs == 3 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(char_code, 2) { char b[64]; const char *s; int adv; DESCR_t a = rt_pl_deref_val(args[0]), c = rt_pl_deref_val(args[1]);
     if (pl_atom_str(a) && pl_cell_text(a, b, sizeof b, &s) && s[0]) ok = plw_unify_vals(args[1], INTVAL((long long)rt_pl_u8_get(s, &adv)), cx);
@@ -3265,11 +3245,11 @@ DESCR_t dop_pl_told(DESCR_t *args, int nargs) { (void)args; if (nargs != 0) retu
 DESCR_t dop_pl_seen(DESCR_t *args, int nargs) { (void)args; if (nargs != 0) return FAILDESCR; pl_edin_revert(0); return pl_ok(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern void rt_gc_point_arr(DESCR_t *, int, const char **); extern FILE *fh_get(int); extern void fh_free(int);
+    extern FILE *fh_get(int); extern void fh_free(int);
     extern int fh_current_output(void); extern int fh_current_input(void); extern void fh_set_output(int); extern void fh_set_input(int);
     void *b1 = (void *)0, *b2 = (void *)0; int idx;
     if (nargs < 1 || nargs > 2) return FAILDESCR;
-    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     idx = pl_stream_resolve(args[0], 1, 0, &b1);
     if (idx < 0) idx = pl_stream_resolve(args[0], 0, 0, &b2);
     if (idx < 0) { cx->ball = b2 ? b2 : b1; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
@@ -5724,11 +5704,7 @@ static int sn4_call_in_scope(const char *fn) {
 }
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     DESCR_t out = FAILDESCR;
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
-    extern int g_gc_pending;
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
-    { static int _gcik = -1; if (_gcik == -1) { const char *ev = getenv("SCRIP_DISPATCH_GC_INLINE"); _gcik = (ev && *ev == '0') ? 0 : 1; }
-      if (!_gcik || g_gc_pending) rt_gc_point_arr(args, nargs, (const char **)0); }
     if (!fn) return out;
     if (fn[0] == 'S' && fn[1] == 'N' && !strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
@@ -8796,9 +8772,8 @@ DESCR_t rt_pl_dop_nb_setval_c(DESCR_t *args, int nargs, void *root) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_nb_getval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
-    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
     if (nargs != 2) return FAILDESCR;
-    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     { DESCR_t k = rt_pl_deref_val(args[0]); int ok;
       if (k.v != DT_I) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
       ok = rt_pl_nb_get_cell(root, k.i, (void *)&args[1], cx);
@@ -8925,18 +8900,16 @@ DESCR_t rt_pl_dop_db_decl_c(DESCR_t *args, int nargs, void *root) {
       return rt_pl_db_decl(root, nm, a.i, k.i) ? pl_ok() : FAILDESCR; }
 }
 DESCR_t rt_pl_dop_pl_cp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
-    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
     int ok;
     if (nargs != 1) return FAILDESCR;
-    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     ok = plw_unify_vals(args[0], INTVAL((long long)rt_pl_db_cp_count(root)), cx);
     rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
 }
 DESCR_t rt_pl_dop_pl_cp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
-    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
     int ok = 0; int ar = 0; const char *key; const char *sl;
     if (nargs != 3) return FAILDESCR;
-    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     { DESCR_t iv = rt_pl_deref_val(args[0]);
       if (iv.v == DT_I && (key = rt_pl_db_cp_nth(root, iv.i, &ar)) != (const char *)0 && (sl = strrchr(key, '/')) != (const char *)0)
           ok = plw_unify_vals(args[1], pl_mk_atom_dup(key, (size_t)(sl - key)), cx) && plw_unify_vals(args[2], INTVAL((long long)ar), cx); }
@@ -9031,14 +9004,13 @@ static void *pl_db_of_clref(DESCR_t r, void *root, int *ref_out) {
     return rt_pl_db_get_by_key(root, ks, 0);
 }
 static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root, int prepend) {
-    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
     extern void *rt_pl_compound_cell(const char *, int, void *);
     extern int rt_pl_db_assert_ref(void *, void *, int);
     extern int rt_pl_db_term_key(void *, char *, size_t, int *);
     extern void *rt_pl_db_get_by_key(void *, const char *, int);
     char key[264]; int ar = 0; int ref; int ok;
     if (nargs != 2) return FAILDESCR;
-    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
     { void *db = rt_pl_db_get_by_key(root, key, 1);
       if (!db) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
