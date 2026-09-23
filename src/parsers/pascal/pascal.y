@@ -74,6 +74,7 @@ extern int g_pas_seen_mode_directive;
 extern int pascal_seen_decl_start;
 extern int g_pas_min_enum_size;
 extern int g_pas_pack_set_size;
+extern int g_pas_range_check_on;
 static long long g_pas_pend_sub_low;
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
@@ -498,6 +499,12 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
 static struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; int nsp; int sp[16]; } g_pas_funcs[256]; static int g_pas_nfunc;
 static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = ct_strdup(name); g_pas_funcs[g_pas_nfunc].nvp = 0; g_pas_funcs[g_pas_nfunc].nrp = 0; g_pas_funcs[g_pas_nfunc].nsp = 0; g_pas_nfunc++; } }
 static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nfunc; i++) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return 1; return 0; }
+static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi) {
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, "__pas_range_check"));
+    ast_push(e, val); ast_push(e, ilit(lo)); ast_push(e, ilit(hi));
+    return e;
+}
 static tree_t *pas_addr_of_proc(tree_t *e) {
     if (!e) return e;
     const char *nm = NULL;
@@ -1309,7 +1316,9 @@ assignment:
               else _rhs = pas_bool($3);
               tree_t *_pk = ast_node_new(TT_FNC); ast_push(_pk, leaf_s(TT_VAR, "__pas_ca_pack")); ast_push(_pk, _rhs); ast_push(_pk, ilit(_flo));
               $$ = mk_assign($1, _pk);
-          } else { tree_t *_asn = mk_assign($1, pas_bool($3));
+          } else { tree_t *_rhs0 = pas_bool($3);
+              if (g_pas_range_check_on && $1 && $1->t == TT_VAR && $1->v.sval) { long long _rlo, _rhi; if (pas_subvar_get($1->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi); }
+              tree_t *_asn = mk_assign($1, _rhs0);
               if (pas_trace_enabled() && $1 && $1->t == TT_VAR && $1->v.sval) {
                   tree_t *_tv = mk_fnc2("__pas_trace_value", leaf_s(TT_QLIT, $1->v.sval), pas_trace_wrap_value(leaf_s(TT_VAR, $1->v.sval)));
                   PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); $$ = seq_of(_sl);

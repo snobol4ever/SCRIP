@@ -52,6 +52,7 @@ static char pascal_modebuf[64];
 static int  pascal_modepos;
 int g_pas_min_enum_size = 4;
 int g_pas_pack_set_size = 0;
+int g_pas_range_check_on = 0;
 static int g_pas_min_enum_stack[64];
 static int g_pas_pack_set_stack[64];
 static int g_pas_min_enum_sp;
@@ -130,6 +131,8 @@ ALNUM    [A-Za-z0-9_]
 <PACKSET_HDR>\n         { }
 "{$push}"               { pas_min_enum_size_push(); }
 "{$pop}"                { pas_min_enum_size_pop(); }
+"{$R+}"                 { g_pas_range_check_on = 1; }
+"{$R-}"                 { g_pas_range_check_on = 0; }
 "{$mode"                { pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
 <MODE_HDR>"}"           { if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
 <MODE_HDR>[ \t]         { }

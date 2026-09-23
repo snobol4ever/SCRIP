@@ -3879,6 +3879,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(s && s[0] ? (long long)(unsigned char)s[0] : 0);
         return 1;
     }
+    if (!strcmp(fn, "__pas_range_check") && nargs == 3) {
+        long long v = IS_INT_fn(args[0]) ? args[0].i : 0;
+        long long lo = IS_INT_fn(args[1]) ? args[1].i : 0;
+        long long hi = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if (v < lo || v > hi) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
+        *out = args[0]; return 1;
+    }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {
         long e = pas_ord_of(args[0]);
         unsigned char bits[PAS_SET_BYTES]; pas_set_bits(args[1], bits);
