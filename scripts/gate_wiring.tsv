@@ -510,6 +510,7 @@ test_gate_sno_trace_of_an_array_or_table_element_fires_and_spells_it_like_the_or
 test_gate_sno_trace_value_fires_at_every_sink_with_the_sinks_statement_number.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
+test_gate_snocone_beauty_suite_reads_every_test_in_both_modes_with_no_xfail.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_spitbol_x64_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-
 test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
