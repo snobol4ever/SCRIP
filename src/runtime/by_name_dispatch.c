@@ -5806,14 +5806,15 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
       return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_real_str(double r, char *buf, int bufsz, int prec) {
+static void pas_real_str(double r, char *buf, int bufsz, int prec, int lower) {
     if (prec < 1) prec = 1; if (prec > 16) prec = 16;
-    char tmp[64]; snprintf(tmp, sizeof tmp, "%.*E", prec, r);
-    char *ep = strchr(tmp, 'E');
+    char ec = lower ? 'e' : 'E';
+    char tmp[64]; snprintf(tmp, sizeof tmp, lower ? "%.*e" : "%.*E", prec, r);
+    char *ep = strchr(tmp, ec);
     if (!ep) { snprintf(buf, bufsz, "%s", tmp); return; }
     char sign = ep[1]; const char *digits = ep + 2; int ndig = (int)strlen(digits);
     char mant[48]; int ml = (int)(ep - tmp); if (ml >= 48) ml = 47; memcpy(mant, tmp, ml); mant[ml] = '\0';
-    if (ndig < 3) snprintf(buf, bufsz, "%sE%c%0*d", mant, sign, 3, atoi(digits));
+    if (ndig < 3) snprintf(buf, bufsz, "%s%c%c%0*d", mant, ec, sign, 3, atoi(digits));
     else snprintf(buf, bufsz, "%s", tmp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6754,10 +6755,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 fprintf(_dest, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
-                int _prec = (w < 0) ? 12 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
-                pas_real_str(av.r, _rb, sizeof _rb, _prec);
+                int _prec = (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
+                pas_real_str(av.r, _rb, sizeof _rb, _prec, w == -1);
                 int _pfmtlen = (int)strlen(_rb);
-                int _fw = (w < 0) ? 20 : (_pfmtlen + 1 > w ? _pfmtlen + 1 : w);
+                int _signpad = (_rb[0] == '-') ? 0 : 1;
+                int _basew = (w < 0) ? 20 : w;
+                int _fw = (_pfmtlen + _signpad > _basew) ? _pfmtlen + _signpad : _basew;
                 fprintf(_dest, "%*s", _fw, _rb);
             } else {
                 const char *_ps = VARVAL_fn(av);
