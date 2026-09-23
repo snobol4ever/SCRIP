@@ -101,12 +101,12 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot|scr3|scr4) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4|rko) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko)"; exit 2 ;;
     esac
 done
 
-want_csn=0; want_spl=0; want_scr=0; want_dot=0
+want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
         csn) want_csn=1 ;;
@@ -115,6 +115,7 @@ for p in "${PARTICIPANTS[@]}"; do
         scr3) want_scr3=1 ;;
         scr4) want_scr4=1 ;;
         dot) want_dot=1 ;;
+        rko) want_rko=1 ;;
     esac
 done
 
@@ -126,6 +127,7 @@ done
 [[ "$want_spl" = "1" ]] && [[ ! -x "$SPITBOL" ]]  && { echo "FAIL spitbol not built: $SPITBOL"; exit 2; }
 [[ "$want_dot" = "1" ]] && [[ ! -f "$SNO4_DLL" ]] && { echo "FAIL snobol4dotnet not built: $SNO4_DLL — dotnet build Snobol4/Snobol4.csproj -c Release -p:EnableWindowsTargeting=true"; exit 2; }
 [[ "$want_dot" = "1" ]] && ! command -v dotnet >/dev/null 2>&1 && { echo "FAIL dotnet command missing — apt-get install -y dotnet-sdk-10.0"; exit 2; }
+[[ "$want_rko" = "1" ]] && [[ ! -f "$MON_DIR/raku_oracle_bridge.py" ]] && { echo "FAIL raku_oracle_bridge.py missing"; exit 2; }
 :
 
 # ⛔ SCRATCH ON /home, NOT BARE /tmp, WITH CLEANUP THAT SURVIVES A KILL (row icon-sweep-scratch-hardening, s267).
@@ -279,6 +281,20 @@ if [[ "$want_dot" = "1" ]]; then
     ${MONITOR_PM:+MONITOR_PM_TRACE=1} \
         timeout "$((TIMEOUT*2))" dotnet "$SNO4_DLL" -bf "$SNO" \
         < "$STDIN_SRC" > "$TMP/dot.out" 2> "$TMP/dot.err" &
+    PIDS+=($!)
+fi
+
+# rko — raku oracle bridge (raku-monitor-oracle-bridge-...). No MONITOR_BIN/engine hook to set: real Rakudo has
+# no trace hook (MONITOR-BINARY-DESIGN.md THE ORACLE-SIDE BRIDGES ARE EACH HQ'S OWN), so this is an out-of-process
+# Python participant that runs the witness's hand-instrumented oracle twin to completion, parses its note()
+# stderr into events, then speaks the READY/GO wire itself (raku_oracle_bridge.py). Env-var driven like every
+# other participant so it drops into this harness without a special case anywhere else in this file.
+if [[ "$want_rko" = "1" ]]; then
+    MONITOR_READY_PIPE="$TMP/rko.ready" \
+    MONITOR_GO_PIPE="$TMP/rko.go" \
+    MONITOR_NAMES_OUT="$TMP/rko.names" \
+        timeout "$((TIMEOUT*2))" python3 "$MON_DIR/raku_oracle_bridge.py" "$SNO" \
+        < "$STDIN_SRC" > "$TMP/rko.out" 2> "$TMP/rko.err" &
     PIDS+=($!)
 fi
 

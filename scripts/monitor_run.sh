@@ -37,8 +37,11 @@ if ! cmp -s "$W/plain.out" "$W/traced.stripped" || [ "$prc" != "$trc" ]; then
 fi
 nev=$(grep -oE '\*\*\*\*[0-9]+' "$W/traced.out" | wc -l); echo "[monitor_run] monitor-safe: untraced output identical under trace; $nev trace event(s) in mode 3"
 if [ "$mode" = oracle ]; then
-    if [ "$ext" != sno ]; then echo "REFUSE(2): no oracle bridge for .$ext yet -- the design (MONITOR-BINARY-DESIGN.md § THE PLUG INTERFACE, layer 6) adds one only where it earns its cost; use --modes (mode 3 against mode 4) or --trace against the oracle's own output by hand"; exit 2; fi
-    parts="spl scr"
+    case "$ext" in
+        sno) parts="spl scr" ;;
+        raku) parts="rko scr" ;;
+        *) echo "REFUSE(2): no oracle bridge for .$ext yet -- the design (MONITOR-BINARY-DESIGN.md § THE PLUG INTERFACE, layer 6) adds one only where it earns its cost; use --modes (mode 3 against mode 4) or --trace against the oracle's own output by hand"; exit 2 ;;
+    esac
 else
     parts="scr3 scr4"
 fi
