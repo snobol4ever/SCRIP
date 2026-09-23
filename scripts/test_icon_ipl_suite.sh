@@ -250,6 +250,13 @@ echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$
 # lib_icon_ipl_isolation.sh, never a bare cd into $PKG/progs. ═══
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_icon_ipl_isolation.sh"
+# ⛔ CEO-1167 declared arena, the same reader arizona's and jcon's runners source. Four IPL entries carry
+# one: miu/kwic/ichartp/concord all die rc=139 with a [ZGC-STALE] report (a root the collector never
+# visited kept a pre-collection address) on the shipped 4096 KB default, and clear byte-identical at
+# 8192 KB -- a window that never triggers a collection for their small working sets sidesteps the gap
+# rather than curing it, so the underlying root-visitation defect is reported separately, not fixed here.
+. "$HERE/lib_declared_arena.sh"
+PKG_CSV="$PKG/ALL.csv"
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
 # ⛔ ipl DOES NOT RECORD AUTOMATICALLY, whatever the ALL.icn pair suggests. CEO-331 lists ipl among the
 # packages that "now record automatically" because they have an ALL.<ext> pair -- but this package's
@@ -271,6 +278,7 @@ M3_RUN_PASS=0; M3_RUN_FAIL=0; M3_RUN_CRASH=0; M3_RUN_HANG=0
 M4_RUN_PASS=0; M4_RUN_FAIL=0; M4_RUN_CRASH=0; M4_RUN_HANG=0
 M3_RUN_FAIL_NAMES=(); M4_RUN_FAIL_NAMES=()
 M3_RUN_CRASH_NAMES=(); M4_RUN_CRASH_NAMES=(); M3_RUN_HANG_NAMES=(); M4_RUN_HANG_NAMES=()
+ARENA_NAMES=""   # ⛔ initialized here, not merely appended-to in the loop -- an uninitialized ARENA_NAMES crashed test_icon_arizona_suite.sh under set -u the moment any entry declared heap_kb (same fix, two runners over)
 
 # ⛔⛔ MAX_BYTES gates every full-content read here too, checked via `wc -c` on the FILE before any
 # slurp into a bash variable -- same discipline, same incident, as util_cut_icon_ipl_refs.sh's own
@@ -314,6 +322,17 @@ for std in "${STDFILES[@]}"; do
     # here can never disagree about which files were present when it ran.
     IPL_ISO_FIXTURES="$icn"; export IPL_ISO_FIXTURES
 
+    # ⛔⭐ THE ENTRY KEY IS "$IPL_ISO_SUBDIR/$base", matching what util_build_package_suite.py writes into
+    # ALL.csv's entry column for a nested source (arizona's identical note at its own arena read applies
+    # here verbatim). _ARENA_PFX expands to nothing for an undeclared entry -- an undeclared program's
+    # invocation is byte-identical to what it was before this existed.
+    _arena_kb=""; _ARENA_PFX=""
+    if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$IPL_ISO_SUBDIR/$base"); then
+        echo "⛔ REFUSED TO GRADE rc=2: $IPL_ISO_SUBDIR/$base carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts" >&2
+        exit 2
+    fi
+    [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $IPL_ISO_SUBDIR/$base=${_arena_kb}KB"; }
+
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
     # ⛔ `--` separates SCRIP's own flags from the target program's argv; the oracle needs no separator
     # (`icon prog.icn a b`), and the m4 binary takes them bare. Three shapes, one declaration.
@@ -322,9 +341,9 @@ for std in "${STDFILES[@]}"; do
     # so SCRIP receives "-- x" as a single argument and the program sees one argv entry, not two. It
     # looks right, it runs, and every count downstream would have been quietly off.
     if [ "${#IPLARGV[@]}" -gt 0 ]; then
-        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn" -- "${IPLARGV[@]}"
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run "$icn" -- "${IPLARGV[@]}"
     else
-        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn"
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run "$icn"
     fi
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
@@ -341,9 +360,9 @@ for std in "${STDFILES[@]}"; do
     "$SCRIP" --compile "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
         if [ "${#IPLARGV[@]}" -gt 0 ]; then
-            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4" "${IPLARGV[@]}"
+            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$bin4" "${IPLARGV[@]}"
         else
-            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4"
+            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$bin4"
         fi
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
@@ -379,6 +398,7 @@ m3_RED_NAMES="$(printf '%s\n' ${M3_RUN_FAIL_NAMES[@]+"${M3_RUN_FAIL_NAMES[@]}"} 
 m4_RED_NAMES="$(printf '%s\n' ${M4_RUN_FAIL_NAMES[@]+"${M4_RUN_FAIL_NAMES[@]}"} ${M4_RUN_CRASH_NAMES[@]+"${M4_RUN_CRASH_NAMES[@]}"} ${M4_RUN_HANG_NAMES[@]+"${M4_RUN_HANG_NAMES[@]}"} | sed 's/(.*$//')"
 read -r AND_PASS AND_RED AND_NAMES <<<"$(gate_and_per_program "$RUN_GRADED" "$m3_RED_NAMES" "$m4_RED_NAMES")"
 echo "IPL_AND_PER_PROGRAM and_pass=${AND_PASS:-n/a} of $RUN_GRADED (m3 $M3_RUN_PASS · m4 $M4_RUN_PASS · union of reds ${AND_RED:-n/a}:${AND_NAMES:-})"
+declared_arena_receipt "$PKG_CSV"
 ipl_isolation_verify_clean "$S4E/corpus" || true
 
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
