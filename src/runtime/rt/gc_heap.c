@@ -1511,12 +1511,12 @@ long rt_gc_collect_c(char *floor)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_poll(void)
 {
-    char here;
     if (g_gc_in) return;
     if (!g_gc_pending && !(g_hp_gcline && g_hp_top > g_hp_gcline)) return;
     g_gc_polls++;
-    rt_gc_point_arr_c((DESCR_t *)0, 0, (const char **)0, &here);
+    rt_gc_point_arr_c((DESCR_t *)0, 0, (const char **)0, (char *)__builtin_frame_address(0) + 16);
 }
+_Static_assert(sizeof(void *) == 8, "rt_gc_poll's floor is its caller's stack pointer: the frame pointer plus the saved rbp and the return address, 16 bytes on x86-64 -- the walk steps 8-byte words from this floor and never aligns it, so a floor taken from a char local (an odd address) misreads every cell above it (cto 2026-09-23, user_function_opsyn_8 printed empty at the association tap's spilled-pair poll)");
 long rt_gc_polls_count(void) { return g_gc_polls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_poll_slow(void);

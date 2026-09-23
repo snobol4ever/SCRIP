@@ -144,7 +144,8 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
     if (a->op == IR_VAR && IR_LIT(a).sval) {
         char b1[80]; strtab_label(b1, sizeof b1, IR_LIT(a).sval);
         std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(a).sval, b1)
-                         + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
+                         + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int)
+                         + x86_rt_gc_poll();
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
         if (k >= 0)
             s += x86("note", gva_name(k)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 0) : ABSQ(RT_GVA_VA + k * 16))
@@ -178,7 +179,8 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
     if (b->op == IR_VAR && IR_LIT(b).sval) {
         char b2[80]; strtab_label(b2, sizeof b2, IR_LIT(b).sval);
         std::string slow = x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(b).sval, b2)
-                         + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
+                         + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int)
+                         + x86_rt_gc_poll();
         slow += x86("mov", "rcx", "rax");
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
         if (k >= 0)
@@ -295,6 +297,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = global VAR NV_GET -> [zr+" + std::to_string(aoff) + "]");
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)IR_LIT(lf).sval, b1);
         s += x86("call_rt", "NV_GET_fn", (long)aoff, (uint64_t)(uintptr_t)(void *)NV_GET_fn);
+        s += x86_rt_gc_poll();
         return s;
     }
     {
@@ -492,7 +495,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     bool scansync = x86_is_scan_builtin_name(fn);
     bool curmov = fn && (!strcmp(fn, "tab") || !strcmp(fn, "move"));
-    int  dsave  = argbase + 16 * (int)narg;
+    int  dsave  = argbase + 16 * (int)narg; int polled_in_arm = 0;
     if (curmov) s += x86("mov", FRQ(dsave), "r14");
     if (scansync) s += x86_scan_sync_out_force();
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, narg, &dsym);
@@ -501,6 +504,10 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("lea", "rdi", FRQ(argbase));
         s += x86("mov32", "esi", (long)narg);
         s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
+        s += x86_rt_gc_poll();
+        polled_in_arm = 1;
     } else {
         { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
           if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
@@ -517,8 +524,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86_rt_gc_poll_res();
         s += x86("rtcc_rl");
     }
-    s += x86("mov", FRQ(resoff), "rax");
-    s += x86("mov", FRQ(resoff + 8), "rdx");
+    if (!polled_in_arm) { s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx"); }
     if (scansync) s += x86_scan_sync_in_rr_force();
     s += x86("cmp", "al", (long)DT_FAIL);
     s += x86_omega("je");
@@ -631,6 +637,7 @@ static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
     s += x86("mov", "rcx", FRQ(rhs_slot + 8));
     s += x86("mov32", "r8d", (long)IR_LIT(relnd).ival);
     return s + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void *)rt_jct_relop)
+             + x86_rt_gc_poll()
              + x86("test", "eax", "eax") + x86_omega("je") + x86_gamma() + x86_beta() + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

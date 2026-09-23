@@ -91,6 +91,7 @@ std::string bb_assign_var_sub() {
              + x86_gamma()
              + x86("def", L(0))
              + x86("call",    (conly ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")), sub_fn)
+             + x86_rt_gc_poll_res()
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     "rdi", "rax")

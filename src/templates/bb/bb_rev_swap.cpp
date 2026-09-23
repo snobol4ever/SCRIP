@@ -20,6 +20,7 @@ static long rsw_eff(long k, int slot, const char *n) { return (k == 0 && slot < 
 static std::string rsw_cell(int lbl, int arm) {
     return x86("mov", "rdi", ROQ(lbl))
          + x86("call", "NV_PTR_fn", (uint64_t)(uintptr_t)(void *)NV_PTR_fn)
+         + x86_rt_gc_poll_rec_name("rax")
          + x86("test", "rax", "rax")
          + x86("jne", L(2 + arm * 2 + lbl))
          + x86_bomb("bb_rev_swap: NV_PTR_fn refuses this global by name, so <-> has no cell to exchange — the name is one the name table declines to hand out a pointer for (the SNOBOL4 keyword set), and an exchange that silently read &null and wrote nowhere is the failure this refusal replaces")

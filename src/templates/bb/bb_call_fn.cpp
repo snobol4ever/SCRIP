@@ -118,6 +118,7 @@ static int bcfn_result_slot(IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_fn_str(IR_t * pBB) {
+    int polled_in_arm = 0;
     const char * fn = _.op_sval ? _.op_sval : "";
     int nargs = (int) _.op_ival;
     if (_.op_zres) {
@@ -139,6 +140,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86_reg_disp32_lea64("rdi", "rsp", 0);
             s += x86("mov32", "esi", (long)nargs);
             s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp);
+            s += x86_rt_gc_poll_res();
+            polled_in_arm = 1;
         } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
         if (_mopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
@@ -166,7 +169,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
         if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }
-        s += x86_rt_gc_poll();
+        if (!polled_in_arm) s += x86_rt_gc_poll();
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
@@ -205,15 +208,27 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86_ro_seal_str(cui * 2, csval);
             s += x86_deflabel_id(cui * 2 + 1);
             s += x86("call", "rt_pl_dop_unify_cs", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_cs);
+            s += x86("mov", FRQ(resoff), "rax");
+            s += x86("mov", FRQ(resoff + 8), "rdx");
+            s += x86_rt_gc_poll();
+            polled_in_arm = 1;
         } else {
             s += x86_movabs_r64("rsi", (uint64_t)cival);
             s += x86("call", "rt_pl_dop_unify_ci", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_ci);
+            s += x86("mov", FRQ(resoff), "rax");
+            s += x86("mov", FRQ(resoff + 8), "rdx");
+            s += x86_rt_gc_poll();
+            polled_in_arm = 1;
         }
     } else if (dfp) {
         s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));
         s += x86("mov32", "esi", (long)nargs);
         s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
+        s += x86("mov", FRQ(resoff), "rax");
+        s += x86("mov", FRQ(resoff + 8), "rdx");
+        s += x86_rt_gc_poll();
+        polled_in_arm = 1;
     } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
         int _iopen = bcfn_opens_as_iter(fn, nargs);
@@ -235,11 +250,10 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("rtcc_rl");
         if (_mopen || _iopen || _aopen) s += x86_deflabel_id(29);
     }
-    s += x86("mov", FRQ(resoff), "rax");
-    s += x86("mov", FRQ(resoff + 8), "rdx");
+    if (!polled_in_arm) { s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx"); }
     s += x86("cmp", "al", (long)DT_FAIL);
     s += x86_omega("je");
-    s += x86_rt_gc_poll();
+    if (!polled_in_arm) s += x86_rt_gc_poll();
     s += x86_gamma();
     s += x86_beta();
     s += x86_omega();

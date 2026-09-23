@@ -68,6 +68,7 @@ std::string bb_call_value() {
             : x86("lea",   "rdx", FRQ(_.op_off + 16))
             + x86("mov32", "ecx", (long)n)
             + (cv_is_goal() ? x86("call", "rt_pl_goal_spine_prep", gprep_fp) : x86("call", "rt_call_value_spine_prep", vprep_fp)))
+       + x86_rt_gc_poll()
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
        + IF(!cv_is_goal(),  x86("mov", FRQ(H), "rdx"))

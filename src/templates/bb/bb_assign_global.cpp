@@ -37,7 +37,7 @@ static inline std::string mon_var_trace_tap() {
          + x86("call", "comm_var", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, DESCR_t, const char *, long, long long))comm_var)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
-         + x86("pop", "rax") + x86("pop", "rax");
+         + x86("pop", "rax") + x86("pop", "rax") + x86_rt_gc_poll_res();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_global() {

@@ -1058,6 +1058,33 @@ def _common_tail_poll(lines, i, unit, poll_rx):
     return (poll, at[i], at[poll], arm_calls)
 
 
+_NORETURN_CACHE = {}
+
+
+def declared_noreturn(sym, root=None):
+    """True when src/runtime DEFINES `sym` on a line carrying __attribute__((noreturn)) or _Noreturn -- read from the
+    tree at census time, never from a hand list, so the exclusion expires with its source (cto 2026-09-23: a call
+    that never returns has NO return point, and a poll "after" it is dead bytes that would read POLLED by presence;
+    rt_ab_undef_fn_stub is the one such site in the emitter today, bb_call_proc_staged's undefined-function stub)."""
+    r = root or ROOT
+    if r not in _NORETURN_CACHE:
+        found = set()
+        base = os.path.join(r, "src", "runtime")
+        rx = re.compile(r"(?:__attribute__\s*\(\s*\(\s*noreturn\s*\)\s*\)|_Noreturn)[^;{]*?\b([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+        for dp, _dn, fns in os.walk(base):
+            for fn in fns:
+                if not fn.endswith((".c", ".h")):
+                    continue
+                try:
+                    for ln in open(os.path.join(dp, fn), encoding="utf-8", errors="replace"):
+                        for m in rx.finditer(ln):
+                            found.add(m.group(1))
+                except OSError:
+                    pass
+        _NORETURN_CACHE[r] = found
+    return sym in _NORETURN_CACHE[r]
+
+
 def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=print, allocating=None, list_polled=False):
     if allocating is None:
         allocating = allocating_entries_from_binary(so, out)
@@ -1088,7 +1115,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     forms = collections.Counter()
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
-    partial = []; multi = []; tails = []
+    partial = []; multi = []; tails = []; noreturn_sites = []
     texts = {}
     for f in set(x[0] for x in sites):
         try:
@@ -1107,6 +1134,9 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                             + (f"{len(al)} allocating: {', '.join(al[:6])}" + (f" ... +{len(al) - 6} more" if len(al) > 6 else "")
                                if al else "none allocating"))
         if not any(s in allocating for s in syms):
+            continue
+        if all(declared_noreturn(s) for s in syms if s in allocating):
+            noreturn_sites.append(f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}")
             continue
         alloc_sites += 1
         # A POLL BELONGS TO THE CALL'S OWN FUNCTION.  The window is source lines after the call, so without a stop it
@@ -1222,9 +1252,11 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             forms[_poll_form(lines[poll_abs]) if poll_abs is not None else "unclassified"] += 1
             if list_polled and poll_abs is not None:
                 out(f"  POLLED {name} form={_poll_form(lines[poll_abs])} poll_at={os.path.relpath(f, ROOT)}:{poll_abs + 1}")
-    out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} partially_polled={len(partial)} unpolled={len(unpolled)} multi_path_sites={len(multi)} unresolved={len(unresolved)} want unpolled=0 partially_polled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
+    out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} partially_polled={len(partial)} unpolled={len(unpolled)} multi_path_sites={len(multi)} noreturn_sites={len(noreturn_sites)} unresolved={len(unresolved)} want unpolled=0 partially_polled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
     assert polled + len(partial) + len(unpolled) == alloc_sites, "safe-points: the four columns must partition the denominator"
     out(f"CENSUS safe-points IDENTITY polled + partially_polled + unpolled == allocating_call_sites ({polled} + {len(partial)} + {len(unpolled)} == {alloc_sites})")
+    for n in noreturn_sites:
+        out(f"  NORETURN {n} -- every allocating candidate is DEFINED __attribute__((noreturn)) in src/runtime: the call has no return point, so no safe point can stand at one; excluded from the denominator and NAMED")
     # ⛔⭐ THE FORM HISTOGRAM, BESIDE THE COUNT AND NOT IN A SEPARATE TOOL (item iv of this census's own row).
     # A polled/unpolled count is BLIND TO A FORM SWAP, which is how a contaminated tree read 177 exactly as the
     # clean one did.  The forms are not interchangeable and the histogram is what makes a swap visible at all.
@@ -1929,6 +1961,15 @@ def selftest():
     open(tpl_ok, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n + x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending")\n + x86("test", "eax", "eax"); }\nstd::string b(){ return x86("call", "rt_pure_cmp", fp); }\n')
     open(tpl_bad, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n + x86("mov", "rax", "rbx"); }\nstd::string c(){ return x86("call", (flag ? name_a : name_b), fp); }\n')
     alloc = {"rt_concat", "rt_gcheap_alloc"}
+    tpl_nr = os.path.join(w, "noreturn.cpp"); tpl_nr2 = os.path.join(w, "noreturn2.cpp")
+    open(tpl_nr, "w").write('std::string a(){ return x86("call", "rt_ab_undef_fn_stub", fp); }\n')
+    open(tpl_nr2, "w").write('std::string a(){ return x86("call", "rt_concat", fp); }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_nr], out=buf.append, allocating={"rt_ab_undef_fn_stub", "rt_concat"})
+    ck(_sp_has(buf, allocating_call_sites=0, polled=0, unpolled=0) and any("NORETURN " in x and "rt_ab_undef_fn_stub" in x for x in buf) and declared_noreturn("rt_ab_undef_fn_stub"),
+       "safe-points NORETURN: a call whose only allocating candidate is DEFINED __attribute__((noreturn)) in src/runtime leaves the denominator and is NAMED (rt_ab_undef_fn_stub)")
+    buf.clear(); rc = census_safe_points("", [tpl_nr2], out=buf.append, allocating={"rt_ab_undef_fn_stub", "rt_concat"})
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, unpolled=1) and not any("NORETURN " in x for x in buf) and not declared_noreturn("rt_concat"),
+       "safe-points NORETURN PLANTED THE OTHER WAY: the same unpolled call to a callee NOT declared noreturn stays in the denominator and reads unpolled")
     buf.clear(); rc = census_safe_points("", [tpl_ok], out=buf.append, allocating=alloc)
     ck(rc == 0 and _sp_has(buf, allocating_call_sites=1, polled=1, unpolled=0, unresolved=0), "safe-points: an allocating call followed by a g_gc_pending poll reads polled, a non-allocating call is not counted")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc)

@@ -363,22 +363,45 @@ static_assert(x86_rtcc_streq(PIN_SUBJLEN_REG, "r15"), "BLOB PIN DRIFT: r15 is th
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
     std::string wb;
+    if (m & RTCC_C_R11) {
+        wb += (char)0x41; wb += (char)0x53;
+        wb += (char)0x49; wb += (char)0xBB; wb += u64le(block);
+        if (m & RTCC_C_R8)  { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x43; wb += (char)40; }
+        if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x4B; wb += (char)48; }
+        if (m & RTCC_C_R10) { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x53; wb += (char)56; }
+        wb += (char)0x41; wb += (char)0x8F; wb += (char)0x43; wb += (char)64;
+        return wb;
+    }
     wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);
     if (m & RTCC_C_R8)  { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40; }
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }
     if (m & RTCC_C_R10) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56; }
-    if (m & RTCC_C_R11) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64; }
     return wb;
 }
+static_assert(RTCC_SLOT_R11 * 8 == 64, "RTCC ABI drift: the binary write-back pops r11's pre-call value straight into slot 8 (pop qword ptr [r11+64]) -- slot 8 must stay r11's, or the pop lands in another register's slot");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
     std::string rl;
+    if (m & RTCC_C_R11) {
+        rl += (char)0x49; rl += (char)0xBB; rl += u64le(block);
+        if (m & RTCC_C_R8)  { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40; }
+        if (m & RTCC_C_R9)  { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48; }
+        if (m & RTCC_C_R10) { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x53; rl += (char)56; }
+        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64;
+        return rl;
+    }
     rl += (char)0x48; rl += (char)0xB9; rl += u64le(block);
     if (m & RTCC_C_R8)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
     if (m & RTCC_C_R9)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
     if (m & RTCC_C_R10) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x51; rl += (char)56; }
-    if (m & RTCC_C_R11) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x59; rl += (char)64; }
     return rl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline std::string x86_rtcc_call_b(uint64_t ptr, unsigned m) {
+    std::string c;
+    if (m & RTCC_C_R11) { c += (char)0x49; c += (char)0xBB; c += u64le(ptr); c += (char)0x41; c += (char)0xFF; c += (char)0xD3; return c; }
+    c += (char)0x48; c += (char)0xB8; c += u64le(ptr); c += (char)0xFF; c += (char)0xD0;
+    return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_text(unsigned m = RTCC_C_ALL) {
@@ -404,9 +427,7 @@ inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
     if (m == 0) return x86_call_ro(sym, ptr);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
-        std::string call_b;
-        call_b += (char)0x48; call_b += (char)0xB8; call_b += u64le(ptr);
-        call_b += (char)0xFF; call_b += (char)0xD0;
+        std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + x86_rtcc_rl_text(m);
@@ -2096,9 +2117,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     if (MEDIUM_BINARY) {
-        std::string call_b;
-        call_b += (char)0x48; call_b += (char)0xB8; call_b += u64le(ptr);
-        call_b += (char)0xFF; call_b += (char)0xD0;
+        std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
@@ -2110,9 +2129,7 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
     if (m == 0) return x86_call_ro(sym, ptr) + cap;
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
-        std::string call_b;
-        call_b += (char)0x48; call_b += (char)0xB8; call_b += u64le(ptr);
-        call_b += (char)0xFF; call_b += (char)0xD0;
+        std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
@@ -2233,6 +2250,19 @@ inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32,
          + x86("add", "rsp", (long)32);
 }
 inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
+inline std::string x86_rt_gc_poll_rec_name(const char * preg) {
+    return  x86("sub", "rsp", (long)16)
+         + x86_rsp_store32_imm(0, (long)DT_N)
+         + x86_rsp_store32_imm(4, (long)1)
+         + x86_rsp_store64(8, preg)
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)1)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 16)
+         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rsp_load64(preg, 8)
+         + x86("add", "rsp", (long)16);
+}
 inline std::string x86_rt_gc_poll_rec2(const char * preg0, const char * lenreg32_0, const char * preg1, const char * lenreg32_1) {
     return  x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers across one poll, each written as a well-formed tagged DESCR cell -- the range walk relocates only what gc_cell_visit can TYPE, so a raw spilled pointer is reported and never rooted")
          + x86("sub", "rsp", (long)32)

@@ -112,7 +112,7 @@ CLAUSE_TEXT = {
 
 
 DECL_RX = re.compile(r"^\s*((?:(?:static|extern|inline|const|unsigned|signed|struct|enum)\s+)*"
-                     r"[A-Za-z_][A-Za-z0-9_]*(?:\s*\*+)?)\s+([A-Za-z_][A-Za-z0-9_$]*)\s*\(")
+                     r"[A-Za-z_][A-Za-z0-9_]*(?:\s*\*+)?)\s*(?<=[\s*])([A-Za-z_][A-Za-z0-9_$]*)\s*\(")
 C_KEYWORDS = {"return", "if", "while", "for", "switch", "sizeof", "else", "do", "case", "goto", "defined"}
 NARROW_TYPES = {"int", "unsigned", "unsigned int", "signed int", "short", "unsigned short", "char",
                 "signed char", "unsigned char", "_Bool", "bool", "int32_t", "uint32_t", "int16_t",
@@ -184,6 +184,38 @@ DECLARED_POINTER_FREE = {
     "CVSPINE_t": ("src/ir/descr.h", "DESCR_SASSERT(sizeof(CVSPINE_t) == 16",
                   "fn in rax is the callee box entry (a CODE address, 0 declines) and act0 in rdx is 0 or 2"),
 }
+DECLARED_POINTER_FREE_FN = {
+    "rt_proc_call_open":       ("src/runtime/rt/rt.c", "return (long)rt_proc_call_prologue_lex(p, nargs, wn);", "the prologue's int status widened to long: 0 declines, never a pointer"),
+    "rt_proc_call_open_slim":  ("src/runtime/rt/rt.c", "return (long)(uintptr_t)(void *)p->fn;", "the procedure's code entry, a CODE address"),
+    "rt_proc_call_open_det":   ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
+    "rt_proc_call_open_det0":  ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
+    "rt_proc_call_open_det1":  ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
+    "rt_proc_call_open_det2":  ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
+    "rt_proc_call_open_det3":  ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
+    "rt_pl_goal_spine_prep":   ("src/runtime/rt/rt.c", "nargs >= 0 && nargs <= 4) ? 1 : 0; } }", "1 or 0 carried in a void *: a yes/no, never a pointer"),
+    "dtp_fn_of":               ("src/runtime/pattern_match.c", "return h->fn;", "the DTP head's function pointer, a CODE address, 0 declines"),
+    "rt_goto_resolve":         ("src/runtime/runtime_eval.c", "return rt_goto_resolve_x(name, NULL); }", "a resolved label's CODE address, 0 declines"),
+    "rt_gvar_get_int":         ("src/runtime/rt/rt.c", "if (v.v == DT_I) return v.i;", "the global's integer VALUE, never a pointer"),
+    "rt_cap_open_plain":       ("src/runtime/rtx/rtx_match.s", ".Lcap_fastret:", "a status in eax (0 declines, -1 retreats, 2 opened); the capture itself is parked by the runtime, not returned"),
+    "rt_pl_exist_key_raise":   ("src/runtime/rtx/rtx_plunify.s", "RTX_ENDF(rt_pl_exist_key_raise)", "arms the ball and returns the FAIL descriptor {DT_FAIL, 0}: pointer-free by value"),
+}
+
+
+def declared_pointer_free_fn(name):
+    """the DECLARED reason a callee's return holds no heap pointer, by FUNCTION rather than by type, or None -- the same
+    contract as declared_pointer_free: the cited line must be on disk at reader time, so the declaration expires with
+    its source (cto 2026-09-23: the procedure-open family returns CODE addresses as long/void *, the goto resolver a label
+    address, the capture open a status, the gvar read an integer -- every one is WIDE by type and pointer-free by meaning,
+    and the reader must be told by a line it can check rather than by a paragraph)."""
+    d = DECLARED_POINTER_FREE_FN.get(name)
+    if not d:
+        return None
+    path, needle, why = d
+    try:
+        src = open(os.path.join(ROOT, path), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return None
+    return ("%s at %s: %s" % (needle, path, why)) if needle in src else None
 
 
 def declared_pointer_free(t):
@@ -223,6 +255,9 @@ def return_kind(t):
 
 def callee_return(name):
     """(kind, detail) for a called symbol: VOID, NARROW, WIDE or UNRESOLVED -- never a guess"""
+    fn_free = declared_pointer_free_fn(name)
+    if fn_free:
+        return "POINTER-FREE", "%s DECLARED POINTER-FREE by its own definition line -- %s" % (name, fn_free)
     idx = runtime_return_index()
     types = idx.get(name)
     if not types:

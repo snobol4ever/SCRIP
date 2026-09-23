@@ -88,7 +88,8 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
     uint64_t nm_fp; if (is_omega) { DESCR_t (*fp)(const char *) = rt_proc_call_epilogue_named_ω; nm_fp = (uint64_t)(uintptr_t)(void *)fp; }
     else               { DESCR_t (*fp)(const char *) = rt_proc_call_epilogue_named_γ; nm_fp = (uint64_t)(uintptr_t)(void *)fp; }
     if (!bcps_retfix()) return x86("call", is_omega ? "rt_proc_call_epilogue_ω" : "rt_proc_call_epilogue_γ", bare_fp);
-    return x86_ro_load_q("rdi", 0) + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ", nm_fp);
+    return x86_ro_load_q("rdi", 0) + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ", nm_fp)
+         + x86_rt_gc_poll_res();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SAI_L0 200
@@ -231,7 +232,9 @@ static bool bcps_is_pl_pi(const char * s) {
 static std::string bcps_undef_fallback(uint64_t undef_fp) {
     if (bcps_is_pl_pi(_.op_sval)) {
         uint64_t pl_fp; { DESCR_t (*fp)(const char *) = rt_pl_exist_key_raise; pl_fp = (uint64_t)(uintptr_t)(void*)fp; }
-        return x86_ro_load_q("rdi", 0) + x86("call", "rt_pl_exist_key_raise", pl_fp) + x86_omega();
+        return x86_ro_load_q("rdi", 0) + x86("call", "rt_pl_exist_key_raise", pl_fp)
+             + x86_rt_gc_poll()
+             + x86_omega();
     }
     return x86("call", "rt_ab_undef_fn_stub", undef_fp);
 }
@@ -354,6 +357,7 @@ static std::string bcps_det_arm() {
                         + x86("mov32", "esi", (long)scc_np_z)
                         + x86("mov32", "edx", (long)_.op_ival)
                         + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_oz)
+                        + x86_rt_gc_poll()
                         + x86("test", "rax", "rax")
                         + x86("je", L(5))
                         + x86("mov", "rdx", "rax")
@@ -407,6 +411,7 @@ static std::string bcps_det_arm() {
                         + x86_ro_load_q("rdi", 0)
                         + x86("mov32", "esi", (long)_.op_ival)
                         + x86("call", "rt_proc_call_open", open_fp_z))))
+                   + x86_rt_gc_poll()
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
                    + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
@@ -573,6 +578,7 @@ static std::string bcps_det_arm() {
                     + x86("mov32", "esi", (long)scc_np)
                     + x86("mov32", "edx", (long)_.op_ival)
                     + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_o)
+                    + x86_rt_gc_poll()
                     + x86("test", "rax", "rax")
                     + x86("je", L(5))
                     + x86("mov", "rdx", "rax")
@@ -629,6 +635,7 @@ static std::string bcps_det_arm() {
             : x86_ro_load_q("rdi", 0)
             + x86("mov32", "esi", (long)_.op_ival)
             + x86("call", "rt_proc_call_open", open_fp))
+         + IF(!dc, x86_rt_gc_poll())
          + IF(!dc, x86("test", "rax", "rax")
          + x86("je", L(1)))
          + (dc ? std::string("")
@@ -699,6 +706,7 @@ static std::string bcps_spine_gen_arm() {
             : x86_ro_load_q("rdi", 0)
             + x86("mov32", "esi", (long)_.op_ival)
             + x86("call", "rt_proc_call_open", open_fp))
+         + x86_rt_gc_poll()
          + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86("note", "N-2 ABI WORD (row icon-generator-call-path-enters-every-runtime-helper-8-bytes-off-the-sysv-abi, hq_I root-caused, hq_B authored): the REGION HAND-OFF push below is a LONE 8B word and therefore PARITY-FLIPPING, so the armed call site pushed 40 bytes (pad+L7+region+wire pair) where the unarmed one pushes 32. The callee body then ran at rsp0-40 = 8 mod 16 and EVERY call it made entered a helper at 0 mod 16 -- latent until some callee reached an aligned SSE store, which is why it read as a record bug (suspend a list, nothing; suspend a RECORD and dat_construct -> rt_fire_buildplan_tweak -> snprintf -> movaps -> dead). This word is pushed FIRST, above the pad, ON PURPOSE: every documented entry offset ([rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=pad) is UNCHANGED, and only the caller pre-pad rsp0 moves from [rsp+40] to [rsp+48] -- one constant in the alpha's ANCHOR lea and one in the beta re-creation. Placing it between L7 and the region instead would keep the region at +16 and silently move the pad, which is the slot the selfrec depth is read from at [entry rsp+32]."))
          + (x86("note", "CFO-36 (cfo 2026-09-09): the landing words (N-2 word, pad, L7) are pushed AFTER the prologue call, not before it -- in the generator regime they are an ODD count, so rt_proc_call_open_det ran at rsp 8-mod-16 and everything it reached did too (rt_trace_event_args -> image -> vsnprintf movaps: SIGSEGV on every traced generator call with an argument; Arizona coexpr and errors, master rung03). The entry layout the callee sees is byte-identical; only the prologue call moved above the words, and L7 goes through rcx because rax now carries the callee") + IF(!icn_gen_regime(), x86("sub", "rsp", 8L) + x86("note", "PL-CALL-ALIGN (NON-GENERATOR SITES ONLY since CEO-483): pad the lone L(7) push to a 16B unit -- one bare 8B push here left rsp 8-mod-16 into rt_proc_call_open_det and the callee jmp, a real ABI violation (SIGSEGV in a later vsnprintf movaps; witness prolog-call-n-user-predicate-segfault). L(7) stays at [rsp+0]; the matching add-rsp-8 landings become 16.")) + IF(icn_gen_regime(), x86("note", "CEO-483 (hq_U): NO PAD IN THE GENERATOR REGIME. The pad above is caller-side transient bookkeeping that had drifted into the callee ENTRY FRAME as a sixth word, and hq_U FINDING-2026-09-09 measured that NOTHING READS IT -- an injected 0x5EEDFACE store into [entry rsp+32] left parse byte-identical while the same store into [entry rsp+0] SIGSEGVd, so the experiment had a positive control and the slot is padding. The comment that used to sit here named a `selfrec depth` reader at [entry rsp+32]; `selfrec` occurred exactly once in the whole tree -- in that sentence. The 8 bytes are NOT deleted, they MOVE ACROSS THE CALL into the callee`s own carve (emit.cpp: carve gains 8, ANCHOR lea rsp+48 -> rsp+40), so the callee body still lands 0 mod 16. Dropping the pad WITHOUT that move was measured on 2026-09-10 and SIGSEGVs patchu -- the crash is parity, never a lost datum. Entry frame in the generator regime is now FIVE words: [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=N-2 ABI word, ANCHOR=[rsp+40]. rt_genp_spine_enter_n2 (rt.c) is the hand-written twin of this block and was shrunk by the same word in the same landing.")) + x86_lea_id("rcx", 7) + x86("push", "rcx"))
          + x86("test", "rax", "rax")
@@ -715,6 +723,7 @@ static std::string bcps_spine_gen_arm() {
             + x86("mov", "r10d", "eax")
             + x86("pop", "rax")
             + x86("add", "rsp", 8L)
+            + x86_rt_gc_poll()
             + x86("test", "r10", "r10")
             + x86("je", L(99))
             + x86("mov", "r10", RDQ("rbp", g_emit.flat_frame_bytes - 40))
