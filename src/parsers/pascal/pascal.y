@@ -1475,10 +1475,14 @@ assignment:
               $$ = mk_assign($1, _pk);
           } else { tree_t *_rhs0 = pas_bool($3);
               if (g_pas_range_check_on && $1 && $1->t == TT_VAR && $1->v.sval) { long long _rlo, _rhi; if (pas_subvar_get($1->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi); }
+              tree_t *_lvalclone = (pas_trace_enabled() && $1 && $1->t != TT_VAR) ? pas_tree_clone($1) : NULL;
               tree_t *_asn = mk_assign($1, _rhs0);
               const char *_tsn = pas_trace_enabled() ? pas_trace_store_name($1) : NULL;
               if (_tsn) {
                   tree_t *_tv = mk_fnc2("__trace_value", leaf_s(TT_QLIT, _tsn), pas_trace_wrap_value(leaf_s(TT_VAR, _tsn)));
+                  PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); $$ = seq_of(_sl);
+              } else if (_lvalclone) {
+                  tree_t *_tv = mk_fnc2("__trace_value", leaf_s(TT_QLIT, "<lval>"), pas_trace_wrap_value(_lvalclone));
                   PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); $$ = seq_of(_sl);
               } else { $$ = _asn; } } }
     ;
