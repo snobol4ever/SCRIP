@@ -168,9 +168,14 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
     case TT_ILIT:
         emit(c, "%lld", e->v.ival);
         break;
-    case TT_FLIT:
-        emit(c, "%s", sval_or(e, "0.0"));
+    case TT_FLIT: {
+        char rb[64];
+        snprintf(rb, sizeof rb, "%.15g", e->v.dval);
+        if (strtod(rb, NULL) != e->v.dval) snprintf(rb, sizeof rb, "%.17g", e->v.dval);
+        if (!strpbrk(rb, ".eEni")) strcat(rb, ".");
+        emit(c, "%s", rb);
         break;
+    }
     case TT_VAR:
         emit(c, "%s", label_sanitize(sval_or(e, "?VAR?")));
         break;
@@ -274,6 +279,22 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
         emit(c, ")");
         break;
     }
+    case TT_POS: case TT_RPOS: case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX:
+    case TT_LEN: case TT_TAB: case TT_RTAB: {
+        static const struct { tree_e k; const char *nm; } prim[] = {
+            {TT_POS,"POS"},{TT_RPOS,"RPOS"},{TT_ANY,"ANY"},{TT_NOTANY,"NOTANY"},{TT_SPAN,"SPAN"},{TT_BREAK,"BREAK"},
+            {TT_BREAKX,"BREAKX"},{TT_LEN,"LEN"},{TT_TAB,"TAB"},{TT_RTAB,"RTAB"}};
+        const char *nm = "?PRIM?";
+        int i;
+        for (i = 0; i < (int)(sizeof prim / sizeof prim[0]); i++) if (prim[i].k == e->t) nm = prim[i].nm;
+        emit(c, "%s(", nm);
+        for (i = 0; i < e->n; i++) {
+            if (i) emit(c, ",");
+            emit_expr(c, e->c[i]);
+        }
+        emit(c, ")");
+        break;
+    }
     case TT_ARB:     emit(c, "ARB"); break;
     case TT_REM:     emit(c, "REM"); break;
     case TT_BAL:     emit(c, "BAL"); break;
@@ -343,19 +364,19 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             c->pending_label = fname;
             for (j = 0; j < subj->c[2]->n; j++) emit_node(c, subj->c[2]->c[j]);
             if (c->pending_label) {
-                emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label));
+                emit(c, "%s", label_sanitize(c->pending_label));
                 emit_nl(c);
                 c->pending_label = NULL;
             }
         } else {
-            emit(c, "%s\tOUTPUT =", fname);
+            emit(c, "%s", fname);
             emit_nl(c);
         }
         if (!c->last_was_return) {
             emit(c, "\t:(RETURN)");
             emit_nl(c);
         }
-        emit(c, "%s_end\tOUTPUT =", fname);
+        emit(c, "%s_end", fname);
         emit_nl(c);
         return;
     }
@@ -394,16 +415,16 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
                     c->pending_label = Lelse;
                     for (j = 0; j < subj->c[2]->n; j++) emit_node(c, subj->c[2]->c[j]);
                     if (c->pending_label) {
-                        emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label));
+                        emit(c, "%s", label_sanitize(c->pending_label));
                         emit_nl(c);
                         c->pending_label = NULL;
                     }
                 } else {
-                    emit(c, "%s\tOUTPUT =", label_sanitize(Lelse));
+                    emit(c, "%s", label_sanitize(Lelse));
                     emit_nl(c);
                 }
             }
-            emit(c, "%s\tOUTPUT =", label_sanitize(Lendif));
+            emit(c, "%s", label_sanitize(Lendif));
             emit_nl(c);
             return;
         }
@@ -416,7 +437,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             Ltop = (subj->n >= 4 && subj->c[2]) ? sval_or(subj->c[2], Ltop_buf) : Ltop_buf;
             Lend = (subj->n >= 4 && subj->c[3]) ? sval_or(subj->c[3], Lend_buf) : Lend_buf;
             if (c->pending_label) {
-                emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                emit(c, "%s", label_sanitize(c->pending_label)); emit_nl(c);
                 c->pending_label = NULL;
             }
             emit(c, "%s\t", label_sanitize(Ltop));
@@ -436,7 +457,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             }
             if (c->loop_top > 0) c->loop_top--;
             emit(c, "\t:(%s)", label_sanitize(Ltop)); emit_nl(c);
-            emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
+            emit(c, "%s", label_sanitize(Lend)); emit_nl(c);
             return;
         }
         if (subj->t == TT_DO_WHILE && subj->n >= 2) {
@@ -449,7 +470,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             Lcont = (subj->n >= 4 && subj->c[2]) ? sval_or(subj->c[2], Lcont_buf) : Lcont_buf;
             Lend  = (subj->n >= 4 && subj->c[3]) ? sval_or(subj->c[3], Lend_buf)  : Lend_buf;
             if (c->pending_label) {
-                emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                emit(c, "%s", label_sanitize(c->pending_label)); emit_nl(c);
                 c->pending_label = NULL;
             }
             c->pending_label = NULL;
@@ -468,7 +489,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
                     emit_node(c, subj->c[0]);
                 }
                 if (c->pending_label) {
-                    emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label));
+                    emit(c, "%s", label_sanitize(c->pending_label));
                     emit_nl(c);
                     c->pending_label = NULL;
                 }
@@ -478,7 +499,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             emit_expr(c, subj->c[1]);
             emit(c, "\t:S(%s)", label_sanitize(Ltop));
             emit_nl(c);
-            emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
+            emit(c, "%s", label_sanitize(Lend)); emit_nl(c);
             return;
         }
         if (subj->t == TT_FOR && (subj->n == 4 || subj->n >= 5)) {
@@ -505,7 +526,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
                 Lend  = sval_or(subj->c[4], Lend_buf);
             }
             if (c->pending_label) {
-                emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                emit(c, "%s", label_sanitize(c->pending_label)); emit_nl(c);
                 c->pending_label = NULL;
             }
             if (init) {
@@ -533,7 +554,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             emit_expr(c, step);
             emit(c, "\t:(%s)", label_sanitize(Ltop));
             emit_nl(c);
-            emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
+            emit(c, "%s", label_sanitize(Lend)); emit_nl(c);
             return;
         }
         if (subj->t == TT_GOTO_U || subj->t == TT_GOTO_S || subj->t == TT_GOTO_F) {
@@ -568,7 +589,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             Lcase = (char (*)[32])ct_alloc((size_t)(npairs > 0 ? npairs : 1) * 32);
             for (k = 0; k < npairs; k++) snprintf(Lcase[k], 32, "_Lswc_%04d_%02d", seq, k);
             if (c->pending_label) {
-                emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                emit(c, "%s", label_sanitize(c->pending_label)); emit_nl(c);
                 c->pending_label = NULL;
             }
             emit(c, "\t%s = ", swd);
@@ -599,13 +620,13 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
                     emit_node(c, body);
                 }
                 if (c->pending_label) {
-                    emit(c, "%s\tOUTPUT =", label_sanitize(c->pending_label)); emit_nl(c);
+                    emit(c, "%s", label_sanitize(c->pending_label)); emit_nl(c);
                     c->pending_label = NULL;
                 }
                 emit(c, "\t:(%s)", label_sanitize(Lend)); emit_nl(c);
             }
             if (c->loop_top > 0) c->loop_top--;
-            emit(c, "%s\tOUTPUT =", label_sanitize(Lend)); emit_nl(c);
+            emit(c, "%s", label_sanitize(Lend)); emit_nl(c);
             ct_drop(Lcase);
             return;
         }
@@ -651,9 +672,6 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
         } else if (repl) {
             emit(c, " = "); emit_expr(c, repl);
         }
-    }
-    if (lbl && !subj && !go_s && !go_f && !go_u) {
-        emit(c, "OUTPUT =");
     }
     if (go_s || go_f || go_u) {
         emit(c, "\t:");

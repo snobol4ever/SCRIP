@@ -1,5 +1,4 @@
 &FULLSCAN = 1;
-&MAXLNGTH = 1024;
 &ALPHABET ? (POS(0)  LEN(1) . nul);
 &ALPHABET ? (POS(8)  LEN(1) . bs);
 &ALPHABET ? (POS(9)  LEN(1) . ht);

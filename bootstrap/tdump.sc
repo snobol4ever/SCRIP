@@ -5,7 +5,7 @@ function TValue(x, i) {
     if (TValue = IDENT(t(x), 'TT_QLIT')     '(' t(x) ' "' CQize(v(x)) '")')      { return; }
     if (TValue = IDENT(t(x), 'TT_CSET')     '(' t(x) ' "' CQize(v(x)) '")')      { return; }
     if (IDENT(t(x), 'TT_FLIT')) {
-        fval = '' REAL(v(x));
+        fval = '' CONVERT(v(x), 'REAL');
         fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
         while (DIFFER(zeros)) {
             fval = REPLACE(fval, zeros, '');
