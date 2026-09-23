@@ -45,9 +45,10 @@ WHAT IT MEASURES, PER MODE-4 .s:
       leave the register pointing at the old address.  "It came from a tagged cell" is therefore NOT an argument
       that the register is raw -- it is the argument that the register needs a tag OF ITS OWN at the site.
       HEAP:
-        SUBJECT  mov r13, rax after call rt_match_enter   the one collected-heap pointer section 6.5 names by hand
+        SUBJECT  mov r13, rax after a call to rt_match_enter, rt_scan_enter, rt_scan_reenter or rt_scan_reenter_live
+                 (the SET, cfo CFO-149)  the one collected-heap pointer section 6.5 names by hand
       AND ITS SIBLING, PROVABLY NOT A POINTER BY THE SAME EVIDENCE (cto 2026-09-18, section 6.5c):
-        LENGTH   mov <r>, rdx after call rt_match_enter    the SECOND half of the ScanSubjRegs pair that call
+        LENGTH   mov <r>, rdx after a call to the same SET  the SECOND half of the ScanSubjRegs pair that call
                  returns -- gen_runtime.h declares it `uint64_t len`, the same declaration that makes the rax half
                  SUBJECT.  This form is how the DEFERRED pattern blobs seed r15, and it is NOT the 32-bit seeding
                  section 6.5a measured on the seven hermetic witnesses: that population carries no deferred
@@ -79,7 +80,51 @@ for _r in ("r12", "r13", "r14", "r15"):
         ALIAS[_r + _s] = _r
 NARROW = set(a for a, r in ALIAS.items() if a != r)
 
-SUBJECT_SEED = "rt_match_enter"
+SUBJECT_SEEDS = ("rt_match_enter", "rt_scan_enter", "rt_scan_reenter", "rt_scan_reenter_live")
+_RET_ALIAS = {"rax": ("rax", "eax", "ax", "al", "ah"), "rdx": ("rdx", "edx", "dx", "dl", "dh")}
+def _call_target(text):
+    m = re.search(r"call\s+([A-Za-z_][A-Za-z0-9_]*)", text)
+    return m.group(1) if m else None
+def _defines_ret(ins, r):
+    """does this instruction WRITE the return register r (rax or rdx)? use_def() is restricted to the six callee-saved
+    registers on purpose, so the return pair needs its own reader: a call writes both, cqo/cdq write rdx, a read-only
+    form writes nothing, and any two-operand form whose FIRST operand is the register or one of its narrow aliases
+    writes it (a store of edx into memory is a read of edx, not a write)."""
+    mn = ins.mnem
+    if mn == "call": return True
+    if mn in ("cqo", "cdq"): return r == "rdx"
+    if mn in READ_ONLY or JCC.match(mn) or not ins.ops: return False
+    return ins.ops[0].strip() in _RET_ALIAS[r]
+def _return_seed(insns, i, r, hops=0):
+    """\u26d4 THE SEED IS FOUND BY ROUTE, NOT BY A WINDOW (cfo CFO-149, 2026-09-23, measured on concord.icn.s graph
+    n16_scan_enter_alpha): between `call rt_scan_enter` and `mov r13, rax` sit four rtccb reloads, the spill of rax and
+    rdx into the poll's record, the poll, four more reloads, the two reloads out of the record, add rsp 32 and test
+    rax -- fourteen instructions, never the two the old window looked back over, which is why 13 SNOBOL4 seedings
+    read SUBJECT and 270 Icon seedings of the SAME ScanSubjRegs pair read UNCLASSIFIED. So: walk back from i to the
+    nearest instruction that WRITES r. A call is the seed and its callee name is returned. A reload out of a stack
+    slot sends the walk to the nearest store INTO that same slot above it and on to the writer of the register that
+    store took, which is cell_class's see-through-the-record applied to the return pair. A change to rsp between the
+    store and the reload, any other writer, or a walk deeper than three records ends the route (None): unclassified
+    is the census working. The match is the whole call token, so rt_scan_enter_anything is not a seeding."""
+    if hops > 3: return None
+    for k in range(i - 1, max(-1, i - 80), -1):
+        ins = insns[k]
+        if ins.mnem == "call": return _call_target(ins.text)
+        if not _defines_ret(ins, r): continue
+        if ins.mnem == "mov" and len(ins.ops) == 2 and "[" in ins.ops[1]:
+            key = slot_key(ins.ops[1])
+            if key is None: return None
+            for j in range(k - 1, max(-1, k - 80), -1):
+                sj = insns[j]
+                if sj.mnem in ("add", "sub") and sj.ops and sj.ops[0].strip() == key[0]: return None
+                if sj.mnem == "mov" and len(sj.ops) == 2 and slot_key(sj.ops[0]) == key:
+                    src = sj.ops[1].strip()
+                    for r2, al in _RET_ALIAS.items():
+                        if src in al: return _return_seed(insns, j, r2, hops + 1)
+                    return None
+            return None
+        return None
+    return None
 """----------------------------------------------------------------------------------------------------------"""
 def allocating_entries(so):
     spec = importlib.util.spec_from_file_location("_gc_census", os.path.join(HERE, "util_gc_census.py"))
@@ -254,12 +299,8 @@ def classify_def(insns, i, reg, depth=0):
         if dst.strip() in NARROW and ALIAS.get(dst.strip()) == reg: return "D32"
         if src.strip() == "rsp": return "RSP"
         if re.fullmatch(r'-?\d+|0x[0-9a-fA-F]+', src.strip()): return "IMM"
-        if src.strip() == "rax" and reg == "r13":
-            for j in range(i - 1, max(-1, i - 3), -1):
-                if insns[j].mnem == "call" and SUBJECT_SEED in insns[j].text: return "SUBJECT"
-        if src.strip() == "rdx":
-            for j in range(i - 1, max(-1, i - 3), -1):
-                if insns[j].mnem == "call" and SUBJECT_SEED in insns[j].text: return "LENGTH"
+        if src.strip() == "rax" and reg == "r13" and _return_seed(insns, i, "rax") in SUBJECT_SEEDS: return "SUBJECT"
+        if src.strip() == "rdx" and _return_seed(insns, i, "rdx") in SUBJECT_SEEDS: return "LENGTH"
         if "[" in src: return cell_class(insns, i, src, reg, depth)
         if reg_of(src): return "REG"
         return "UNCLASSIFIED"
@@ -398,7 +439,12 @@ def bucket(k):
     joins (census() files it in the COPY list), so two readings at rt_dcap_land_\u03b3/\u03c9 in the SNOBOL4
     witness were counted in NEITHER of the two blocking arms: not in arm 5's copy ratchet, not in arm 3's
     unclassified.  Measured, not reasoned: the copy LIST held 289 while this tally reported 287.  The nesting is
-    bounded at CELL:CELL:<leaf> by classify_def's depth>2 cut, so the loop terminates at the leaf class."""
+    bounded at CELL:CELL:<leaf> by classify_def's depth>2 cut, so the loop terminates at the leaf class.
+    \u26d4 AND THE LISTS ARE FILED BY THIS SAME FUNCTION (cto 2026-09-23): census() kept a SECOND classification
+    for the copy/unclassified/heap LISTS, which filed CELL:UNCLASSIFIED under copies while this tally bucketed it
+    unclassified, and the census REFUSED on its own disagreement -- 2021 against 1732 over the 77-file corpus, on a
+    clean tree, before any edit. A reload of a value nobody could classify is not a copy of something known; it is
+    unclassified, and one function now says so for both routes."""
     t = k
     while t.startswith(CELL_PREFIX): t = t[len(CELL_PREFIX):]
     if t in HEAP: return "heap"
@@ -444,18 +490,11 @@ def census(paths, alloc, out=print):
                 owned[r] += 1
                 for c in cls:
                     classes[r][c] += 1
-                    if c.startswith(CELL_PREFIX):
-                        tail = c[len(CELL_PREFIX):]
-                        if tail in HEAP:
-                            heapsites.append((os.path.basename(path), g, ins.line, r, c, insns[i].text[:60]))
-                        elif tail not in PROVABLY_RAW:
-                            copies.append((os.path.basename(path), g, ins.line, r, c, insns[i].text[:60]))
-                    elif c in HEAP:
-                        heapsites.append((os.path.basename(path), g, ins.line, r, c, insns[i].text[:60]))
-                    elif c in COPY:
-                        copies.append((os.path.basename(path), g, ins.line, r, c, insns[i].text[:60]))
-                    elif c not in PROVABLY_RAW and c not in HEAP and c != "ENTRY":
-                        unclassified.append((os.path.basename(path), g, ins.line, r, c, insns[i].text[:60]))
+                    b = bucket(c)
+                    rec = (os.path.basename(path), g, ins.line, r, c, insns[i].text[:60])
+                    if b == "heap": heapsites.append(rec)
+                    elif b == "copy": copies.append(rec)
+                    elif b == "unclassified": unclassified.append(rec)
         for ins in insns:
             _, _, known = use_def(ins)
             if not known: unknown_mnem[ins.mnem] += 1
@@ -651,6 +690,120 @@ def selftest():
     tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
     ck(classes.get("r15", {}).get("LENGTH", 0) == 0 and any(u[3] == "r15" for u in unc),
        f"PLANTED: the SAME copy out of rdx after a call that is NOT rt_match_enter is refused the LENGTH class and reads UNCLASSIFIED, got {dict(classes.get('r15',{}))} unclassified={unc}")
+    for seed in ("rt_scan_enter", "rt_scan_reenter", "rt_scan_reenter_live"):
+        open(p, "w").write(
+            " .text\n"
+            "ks_\u03b1:\n"
+            " call " + seed + "\n"
+            " mov r13, rax\n"
+            " call rt_alloc_thing\n"
+            " mov rdi, r13\n"
+            " ret\n")
+        tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+        ck(classes.get("r13", {}).get("SUBJECT", 0) == 1,
+           f"the Icon scanning entry {seed} seeds r13 as SUBJECT exactly like rt_match_enter (cfo CFO-149: 270 readings sat in UNCLASSIFIED), got {dict(classes.get('r13',{}))}")
+        open(p, "w").write(
+            " .text\n"
+            "kt_\u03b1:\n"
+            " call " + seed + "\n"
+            " mov r15, rdx\n"
+            " call rt_alloc_thing\n"
+            " mov edi, r15d\n"
+            " ret\n")
+        tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+        ck(classes.get("r15", {}).get("LENGTH", 0) == 1 and not unc,
+           f"the rdx half after {seed} reads LENGTH, got {dict(classes.get('r15',{}))} unclassified={unc}")
+    open(p, "w").write(
+        " .text\n"
+        "ku_\u03b1:\n"
+        " call rt_scan_enter_shadow\n"
+        " mov r13, rax\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r13\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r13", {}).get("SUBJECT", 0) == 0 and any(u[3] == "r13" for u in unc),
+       f"PLANTED: a call whose name merely has a seed as its PREFIX (rt_scan_enter_shadow) is refused the SUBJECT class -- the match is the whole call token, got {dict(classes.get('r13',{}))} unclassified={unc}")
+    open(p, "w").write(
+        " .text\n"
+        "kv_\u03b1:\n"
+        " mov qword ptr [rbp + 96], r13\n"
+        " mov qword ptr [rbp + 112], r15\n"
+        " mov rdi, qword ptr [rbp + 1520]\n"
+        " mov qword ptr [rip + rtccb+40], r8\n"
+        " call rt_scan_enter\n"
+        " mov r8, qword ptr [rip + rtccb+40]\n"
+        " mov r9, qword ptr [rip + rtccb+48]\n"
+        " mov r10, qword ptr [rip + rtccb+56]\n"
+        " mov r11, qword ptr [rip + rtccb+64]\n"
+        " sub rsp, 32\n"
+        " mov dword ptr [rsp + 0], 2\n"
+        " mov dword ptr [rsp + 4], edx\n"
+        " mov qword ptr [rsp + 8], rax\n"
+        " mov qword ptr [rsp + 24], rdx\n"
+        " lea rdi, [rsp + 0]\n"
+        " mov esi, 1\n"
+        " mov edx, 0\n"
+        " lea rcx, [rsp + 32]\n"
+        " call rt_gc_point_arr_c\n"
+        " mov r8, qword ptr [rip + rtccb+40]\n"
+        " mov rax, qword ptr [rsp + 8]\n"
+        " mov rdx, qword ptr [rsp + 24]\n"
+        " add rsp, 32\n"
+        " test rax, rax\n"
+        " je kv_\u03c9\n"
+        " mov r13, rax\n"
+        " mov r15, rdx\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r13\n"
+        " mov esi, r15d\n"
+        " ret\n"
+        "kv_\u03c9:\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r13", {}).get("SUBJECT", 0) == 1 and classes.get("r15", {}).get("LENGTH", 0) == 1,
+       f"THE CONCORD SHAPE, VERBATIM (graph n16_scan_enter_alpha): the subject and length copies sit fourteen instructions below rt_scan_enter, reached only THROUGH the poll's spill record -- r13 reads SUBJECT and r15 reads LENGTH by route, got r13={dict(classes.get('r13',{}))} r15={dict(classes.get('r15',{}))}")
+    open(p, "w").write(
+        " .text\n"
+        "kv_\u03b1:\n"
+        " mov qword ptr [rbp + 96], r13\n"
+        " mov qword ptr [rbp + 112], r15\n"
+        " mov rdi, qword ptr [rbp + 1520]\n"
+        " mov qword ptr [rip + rtccb+40], r8\n"
+        " call rt_scan_enter\n"
+        " mov r8, qword ptr [rip + rtccb+40]\n"
+        " mov r9, qword ptr [rip + rtccb+48]\n"
+        " mov r10, qword ptr [rip + rtccb+56]\n"
+        " mov r11, qword ptr [rip + rtccb+64]\n"
+        " sub rsp, 32\n"
+        " mov dword ptr [rsp + 0], 2\n"
+        " mov dword ptr [rsp + 4], edx\n"
+        " mov qword ptr [rsp + 8], rax\n"
+        " mov qword ptr [rsp + 24], rdx\n"
+        " mov ecx, 7\n"
+        " mov qword ptr [rsp + 8], rcx\n"
+        " lea rdi, [rsp + 0]\n"
+        " mov esi, 1\n"
+        " mov edx, 0\n"
+        " lea rcx, [rsp + 32]\n"
+        " call rt_gc_point_arr_c\n"
+        " mov r8, qword ptr [rip + rtccb+40]\n"
+        " mov rax, qword ptr [rsp + 8]\n"
+        " mov rdx, qword ptr [rsp + 24]\n"
+        " add rsp, 32\n"
+        " test rax, rax\n"
+        " je kv_\u03c9\n"
+        " mov r13, rax\n"
+        " mov r15, rdx\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r13\n"
+        " mov esi, r15d\n"
+        " ret\n"
+        "kv_\u03c9:\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r13", {}).get("SUBJECT", 0) == 0 and any(u[3] == "r13" for u in unc) and classes.get("r15", {}).get("LENGTH", 0) == 1,
+       f"PLANTED: the record slot OVERWRITTEN from rcx between the spill and the reload -- the route ends at that store and r13 reads UNCLASSIFIED while r15 still reads LENGTH through its own untouched slot, got r13={dict(classes.get('r13',{}))} r15={dict(classes.get('r15',{}))}")
     open(p, "w").write(
         " .text\n"
         "v_α:\n"

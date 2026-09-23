@@ -449,10 +449,10 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         if (narg > 0) {
             s += x86("sub", "rsp", (long)(narg * 16));
             for (int i = 0; i < (int)narg; i++) {
-                s += x86("mov", "r8", ZOPQ(i, (int)narg * 16 + 0));
-                s += x86("mov", x86_zref(i * 16 + 0, 1), "r8");
-                s += x86("mov", "r8", ZOPQ(i, (int)narg * 16 + 8));
-                s += x86("mov", x86_zref(i * 16 + 8, 1), "r8");
+                s += x86("mov", "rax", ZOPQ(i, (int)narg * 16 + 0));
+                s += x86("mov", x86_zref(i * 16 + 0, 1), "rax");
+                s += x86("mov", "rax", ZOPQ(i, (int)narg * 16 + 8));
+                s += x86("mov", x86_zref(i * 16 + 8, 1), "rax");
             }
         }
         {

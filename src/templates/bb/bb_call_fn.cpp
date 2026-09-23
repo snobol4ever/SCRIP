@@ -126,10 +126,10 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (nargs > 0) {
             s += x86("sub", "rsp", (long)(nargs * 16));
             for (int i = 0; i < nargs; i++) {
-                s += x86("mov", "r8", ZOPQ(i, nargs * 16 + 0));
-                s += x86("mov", x86_zref(i * 16 + 0, 1), "r8");
-                s += x86("mov", "r8", ZOPQ(i, nargs * 16 + 8));
-                s += x86("mov", x86_zref(i * 16 + 8, 1), "r8");
+                s += x86("mov", "rax", ZOPQ(i, nargs * 16 + 0));
+                s += x86("mov", x86_zref(i * 16 + 0, 1), "rax");
+                s += x86("mov", "rax", ZOPQ(i, nargs * 16 + 8));
+                s += x86("mov", x86_zref(i * 16 + 8, 1), "rax");
             }
         }
         const char * zdsym = 0; void * zdfp = dop_direct_fp(fn, (int64_t)nargs, &zdsym);
