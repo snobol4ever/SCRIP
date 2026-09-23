@@ -1210,6 +1210,19 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     ct_drop(pre);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_prelude_defines(const char *nm, int ar) {
+    if (!nm) return 0;
+    PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
+    if (!pre) return 0;
+    int found = 0;
+    for (PlClause *cl = pre->head; cl; cl = cl->next) {
+        const char *cn; int car;
+        if (pl_clause_key(cl, &cn, &car) && cn && !strcmp(cn, nm) && car == ar) { found = 1; break; }
+    }
+    ct_drop(pre);
+    return found;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     prolog_atom_init();
     Parser p;

@@ -1688,6 +1688,11 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     if (nc < 1) nc = 1;
     IR_graph_t * g = IR_alloc(1024 + 1024 * nc);
     lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
+    const char * trace_key = key;
+    { extern int pl_prelude_defines(const char *, int);
+      const char * slash = key ? strrchr(key, '/') : NULL;
+      if (slash) { char nmbuf[256]; size_t nl = (size_t)(slash - key); if (nl >= sizeof nmbuf) nl = sizeof nmbuf - 1; memcpy(nmbuf, key, nl); nmbuf[nl] = 0;
+        if (pl_prelude_defines(nmbuf, atoi(slash + 1))) { cx.stmt_depth = 1; trace_key = NULL; } } }
     IR_t * step = build(&cx, IR_FAIL, NULL, NULL);
     cx.cutω = build(&cx, IR_FAIL, NULL, NULL); cx.clause_cutω = cx.cutω;
     pl_alt_alloc(g, nc);
@@ -1706,7 +1711,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
             for (int j = 0; j < i && !seen; j++) { int vs[256], nv = 0; pl_collect_vars(cl->c[j], vs, &nv, 256); if (nv >= 256) seen = 1; for (int q = 0; q < nv; q++) if (vs[q] == sl) seen = 1; }
             if (!seen) { cx.valias[sl] = (unsigned char)(i + 1); aliased[sl] = 1; } }
         IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
-        IR_t * tret = pl_trace_named_wrap(&cx, "__trace_return", key, succeed, step);
+        IR_t * tret = pl_trace_named_wrap(&cx, "__trace_return", trace_key, succeed, step);
         IR_t * bentry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
         if (pl_trace_wanted()) for (int i = ar; i < cl->n; i++) pl_trace_number_goals(cl->c[i]);
         IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
@@ -1726,7 +1731,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     }
     maxlocal = g_pl_fresh_next - 1; g_pl_fresh_next = fresh_saved;
     if (arity < 0) arity = 0;
-    g->entry = pl_trace_named_wrap(&cx, "__trace_call", key, g->alt_entry[0], step); g->alt_entry[0] = g->entry;
+    g->entry = pl_trace_named_wrap(&cx, "__trace_call", trace_key, g->alt_entry[0], step); g->alt_entry[0] = g->entry;
     pl_graph_stamp(g, arity, maxlocal, aliased);
     g->deterministic = (nc == 1);
     return g;
