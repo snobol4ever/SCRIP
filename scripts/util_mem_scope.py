@@ -61,6 +61,10 @@ UNIT_PREFIX = "s4e-mem-"
 # ⛔ BOTH GROW WITH THE PROGRESS TABLE (about 4 percent a day), so at that rate the blocking-set worst case reaches its cap in
 #   about three weeks: the cure is those two readers streaming the table, and the caps are re-derived from the peaks every
 #   scoped run now prints (the supervisor's line) the day either reader changes or a lane's board reports a heavier peak.
+# ⭐ LATER THE SAME DAY THE TWO READERS STREAMED (the coo, CEO-1212): 4556 MB -> 14 MB and 716 MB -> 146 MB, answers identical
+#   (test_gate_progress_readers_stream_and_answer_the_same.sh), and the 4556 MB arm left the serial list. Both caps are therefore
+#   LOOSE now, never tight: they stand until the next scoped make test prints its peak ([mem_scope] ... peak=), and the re-derivation
+#   uses that number, not these.
 CAP_MB = {"board": 3072, "blocking-set": 10240}
 
 
