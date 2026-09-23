@@ -106,11 +106,16 @@ echo "PASCAL_BENCH_BOARD total=$TOTAL both_pass=$BOTH m3_pass=${PASSN[m3]} m4_pa
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"
 echo "  evidence: every run's stdout and rusage line kept under $OUTDIR (scratch, not a corpus file -- OUT is REF, CEO-1222)"
 echo "  tree: SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null)$(git -C "$HERE/.." diff --quiet 2>/dev/null || echo -dirty) corpus=$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT/corpus" diff --quiet 2>/dev/null || echo -dirty) RT_OPT=-O0"
-# ⛔ NO SUITE-TABLE ROW YET: the grid's benchmark rows (their SUITES.tsv keys and the util_score_row.py path that writes them) are
-# being added by the coo's row instruments-benchmarks-enter-the-suite-grid-one-row-per-language-graded-by-ref-through-the-three-angle-
-# harness. Until that key exists this board publishes its per-program rows to the progress table and says plainly that it wrote no cell.
-echo "⚠ SCORE.md NOT UPDATED -- no Pascal benchmark row exists in SUITES.tsv yet (the coo's grid row adds it); per-program rows go to the progress table"
+# ⭐ PUBLISHING: the suite-table row is PasBench, key pascal-bench-ref -- the SAME name as this runner's progress suite, on purpose
+# (coo 2026-09-23: every key-to-DB map falls back to the key itself, so the bench rows need no map entry anywhere). The rows are
+# appended FIRST because util_score_row.py's CEO-750 cross-check reads the pascal-bench-ref rows on the tree the write stamps; the
+# write then lands the SUITES.tsv row and its SCORE.md line and no grid cell (the grid's B cell is the timing cell, which waits for
+# the quiet box). The writer reads all_pass/all_n from the board line BY NAME (CEO-827). Bookkeeping never turns a real
+# measurement into a red board, and never fails quietly: both steps say so when they do not land.
 if [ -s "$PROG_ROWS" ]; then
   progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
 fi
+LINE="SUITE_BOARD family=pascal-bench-ref total=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=wrap,iter,time"
+echo "$LINE"
+python3 "$HERE/util_score_row.py" write --lang pascal --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" 2>&1 | sed 's/^/    /'
 [ "$BOTH" = "$TOTAL" ] && exit 0 || exit 1
