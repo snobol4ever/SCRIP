@@ -56,6 +56,17 @@ int g_pas_range_check_on = 0;
 int g_pas_align_mac68k = 0;
 static char pascal_alignbuf[32];
 static int  pascal_alignpos;
+int g_pas_codepage = 0;
+static char pascal_codepagebuf[32];
+static int  pascal_codepagepos;
+static int pas_codepage_parse(const char *s) {
+    if (!s) return 0;
+    while (*s == ' ' || *s == '\t') s++;
+    if ((s[0] == 'c' || s[0] == 'C') && (s[1] == 'p' || s[1] == 'P') && isdigit((unsigned char)s[2])) return atoi(s + 2);
+    int alldig = *s != '\0';
+    for (const char *p = s; *p; p++) if (!isdigit((unsigned char)*p)) { alldig = 0; break; }
+    return alldig ? atoi(s) : 0;
+}
 static int g_pas_min_enum_stack[64];
 static int g_pas_pack_set_stack[64];
 static int g_pas_min_enum_sp;
@@ -87,7 +98,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR CODEPAGE_HDR
 %s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -146,6 +157,11 @@ ALNUM    [A-Za-z0-9_]
 <ALIGN_HDR>[ \t]        { }
 <ALIGN_HDR>.            { if (pascal_alignpos < (int)sizeof(pascal_alignbuf) - 1) { pascal_alignbuf[pascal_alignpos++] = pascal_yytext[0]; pascal_alignbuf[pascal_alignpos] = '\0'; } }
 <ALIGN_HDR>\n           { }
+"{$codepage"            { pascal_codepagebuf[0] = '\0'; pascal_codepagepos = 0; BEGIN CODEPAGE_HDR; }
+<CODEPAGE_HDR>"}"       { g_pas_codepage = pas_codepage_parse(pascal_codepagebuf); BEGIN INITIAL; }
+<CODEPAGE_HDR>[ \t]     { }
+<CODEPAGE_HDR>.         { if (pascal_codepagepos < (int)sizeof(pascal_codepagebuf) - 1) { pascal_codepagebuf[pascal_codepagepos++] = pascal_yytext[0]; pascal_codepagebuf[pascal_codepagepos] = '\0'; } }
+<CODEPAGE_HDR>\n        { }
 "{"                     { BEGIN BRACE; }
 <BRACE>"}"              { BEGIN INITIAL; }
 <BRACE>.                { }

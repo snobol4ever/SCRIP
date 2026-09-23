@@ -83,6 +83,7 @@ extern int g_pas_min_enum_size;
 extern int g_pas_pack_set_size;
 extern int g_pas_range_check_on;
 extern int g_pas_align_mac68k;
+extern int g_pas_codepage;
 static int pas_rectype_total_size(const char *rn, long long *out);
 static int pas_rectype_field_offset(const char *rn, int idx, long long *out);
 static const char *pas_typealias_get(const char *n);
@@ -311,6 +312,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
         }
     }
+    if (name && !strcmp(name, "stringcodepage") && args && args->count >= 1) return ilit(g_pas_codepage);
     if (name && !strcmp(name, "ismanagedtype") && args && args->count >= 1) {
         tree_t *a = args->items[0];
         const char *tn = (a && a->t == TT_VAR && a->v.sval) ? pas_scalarvartype_get(a->v.sval) : NULL;
