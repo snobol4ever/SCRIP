@@ -112,7 +112,29 @@ export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
 #   ⛔ AND THE RESIDUAL IS NOW NAMED BY FILE AND GRAPH in the census report (`COPY <file> total=N: <graph>=n ...`),
 #   because a residual nobody can attribute is a residual nobody cures: 166 of the 289 are the deferred-pattern
 #   witness's primitive and capture roads, 43 the SNOBOL4 witness, and the rest the ceo's frontends.
-COPY_CEILING=${COPY_CEILING:-289}
+#   289 -> 284 (cto 2026-09-23, CTO-143, row icon-gc-the-standing-chop-...; FIVE MOVES IN FOUR DAYS, EVERY ONE NAMED BY
+#   COMMIT, FILE, GRAPH AND REGISTER FROM A TWO-TREE CENSUS -- the gate's own eight witnesses compiled by a fresh worktree
+#   build at each commit and read by ONE census (HEAD's), bisected commit by commit, never a bracket): this ceiling stood at
+#   289 while origin read 271, 282, 293 and 295 in turn, and the red that finally fired (295) was three landings old.
+#   289 -> 271 at 25d0955d8 (rbx STEP 1, 09-20): the Icon witness 36 -> 18, the whole rbx/POP class of 18 gone -- the
+#   by-name call's rbx anchor left the register, so main, n31_to, the deref/coerce/binop/call_proc_staged sites each lost
+#   one reading. A FALL, the class shrinking. 271 -> 282 at 2344d2dc7 (ten of the ceo's twelve rejected safe-point sites take
+#   their poll form, 09-22): the Pascal witness 13 -> 24, r13/CELL 66 -> 77, sites unchanged at 612 -- main, n20_binop_test,
+#   n23_call, n24_assign, n27_binop, n28_assign, n31_call each read ONE MORE r13 copy, and the defining form is the new poll's
+#   own spill-record reload (mov r13,[rsp+N] after rt_gc_point_arr_c), which this census files as CELL. 282 -> 293 at
+#   e42cc0909 (two bare polls become rec_sigma where the subject base is live, 09-22): the Icon witness 18 -> 29, r13/CELL
+#   77 -> 88, the SAME shape at g, main, n37_deref, n39_call_proc_staged, n40_deref, n41/n42_coerce_numeric, n43_binop,
+#   n99_call_icon. 293 -> 295 at 3cc697fbc (hq_pascal, global integer/real scalars zero-initialised, 09-23): two NEW Pascal
+#   assign nodes n19_assign and n21_assign, one r12/CELL reading each, sites 618 -> 620. 295 -> 284 at 79b7aa13d (hq_icon,
+#   bb_deref's ordinary-branch poll no longer assumes r13/r15d hold the scan subject, 09-23): e42cc0909's eleven Icon
+#   readings gone again, r13/CELL 88 -> 77, the same nine graphs. ⛔ TWENTY-TWO OF THE 284 ARE THE SANCTIONED POLL'S OWN
+#   RELOAD OF r13 (the cfo's 92.8 percent class, CFO-149): a register reloaded out of the poll's tagged spill cell reads as
+#   "a copy of something else" under this census's rule, so a poll batch that ADDS polls RAISES this count while rooting more,
+#   and a poll batch that removes a wrong-assumption rec_sigma LOWERS it. The count therefore moves with the safe-point chop
+#   in BOTH directions and a move is not a verdict on the chop until its graphs are read; the ceiling is re-cut to the
+#   measurement, never held against a landing that added a sanctioned reload. By file at 284: defer.sno 166, sno 43, pas 26,
+#   pl 22, icn 18, raku 5, sc 2, reb 2.
+COPY_CEILING=${COPY_CEILING:-284}
 
 echo "  HOLDS: what sits in a callee-saved register at an allocating return is NAMED from the emitted code, not assumed from a paragraph -- and it is a property of the SITE, not of the graph, so it does not go in the per-graph map. gc_frame_map_t.reserved stays zero with no reader; the registers get a tag at the poll (section 6.5's spill record), which is the polls row's build."
 
