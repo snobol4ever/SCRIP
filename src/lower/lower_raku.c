@@ -340,6 +340,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->v.sval && strchr(t->v.sval, ':')) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval); *res = nd; return nd;
         }
+        if (t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
+            IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 3.141592653589793; *res = nd; return nd;
+        }
         if (rk_name_is_byref(cx, t->v.sval)) {
             IR_t * dr = build(cx, IR_DEREF, γ, ω);
             IR_t * v = build(cx, IR_VAR, dr, ω); IR_LIT(v).sval = t->v.sval;

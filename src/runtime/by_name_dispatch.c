@@ -630,6 +630,13 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
     if (!strcmp(meth, "round")) { *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
+    if (!strcmp(meth, "truncate")) { *out = INTVAL((long)to_real(recv)); return 1; }
+    if (!strcmp(meth, "sin")) { *out = REALVAL(sin(to_real(recv))); return 1; }
+    if (!strcmp(meth, "cos")) { *out = REALVAL(cos(to_real(recv))); return 1; }
+    if (!strcmp(meth, "tan")) { *out = REALVAL(tan(to_real(recv))); return 1; }
+    if (!strcmp(meth, "sqrt")) { *out = REALVAL(sqrt(to_real(recv))); return 1; }
+    if (!strcmp(meth, "log")) { *out = REALVAL(log(to_real(recv))); return 1; }
+    if (!strcmp(meth, "exp")) { *out = REALVAL(exp(to_real(recv))); return 1; }
     if (!strcmp(meth, "rand")) { *out = REALVAL((double)rand() / RAND_MAX * to_real(recv)); return 1; }
     if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) {
         int truthy; if (IS_INT_fn(recv)) truthy = (recv.i != 0); else if (IS_REAL_fn(recv)) truthy = (recv.r != 0.0); else truthy = (n > 0);
