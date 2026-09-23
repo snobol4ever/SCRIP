@@ -87,18 +87,18 @@ static int trace_type_parse(const char *type) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_register(const char *name, int kind, const char *tag, const char *cbfn) {
+static void trace_register(const char *name, int kind, const char *tag, const char *cbfn, int lit) {
     if (!name || !*name) return;
     trace_ent_t *e = trace_find(name, kind);
     if (!e) {
         for (int i = 0; i < TRACE_TAB_CAP; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
         if (!e) return;
-        e->used = 1; e->kind = kind; e->name = rt_heap_strdup_c(name); e->eid = 0;
+        e->used = 1; e->kind = kind; e->name = lit ? name : rt_heap_strdup_c(name); e->eid = 0;
         trace_set_n++;
         if (kind == TRK_ACCESS) trace_access_n++;
     }
-    e->tag  = (tag  && *tag)  ? rt_heap_strdup_c(tag)  : "";
-    e->cbfn = (cbfn && *cbfn) ? rt_heap_strdup_c(cbfn) : (const char *)0;
+    e->tag  = (tag  && *tag)  ? (lit ? tag  : rt_heap_strdup_c(tag))  : "";
+    e->cbfn = (cbfn && *cbfn) ? (lit ? cbfn : rt_heap_strdup_c(cbfn)) : (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void trace_unregister(const char *name, int kind) {
@@ -281,7 +281,7 @@ void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_seria
     trace_recursion_depth--;
 }
 void rt_trace_all_set(int on) {
-    if (on) { trace_register("*", TRK_CALL, "icn", (const char *)0); trace_register("*", TRK_RETURN, "icn", (const char *)0); }
+    if (on) { trace_register("*", TRK_CALL, "icn", (const char *)0, 1); trace_register("*", TRK_RETURN, "icn", (const char *)0, 1); }
     else { trace_unregister("*", TRK_CALL); trace_unregister("*", TRK_RETURN); }
 }
 void rt_trace_label_hook(const char *name) {
@@ -1981,7 +1981,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (kind == TRK_KEYWORD && !sno_kw_is_traceable(varname)) { core_runtime_error(198, "trace first argument is not appropriate name"); return FAILDESCR; }
     const char *tag  = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
     const char *cbfn = (n >= 4) ? VARVAL_fn(a[3]) : (const char *)0;
-    trace_register(varname, kind, tag, cbfn);
+    trace_register(varname, kind, tag, cbfn, 0);
     if (eid != 0) { trace_ent_t *ee = trace_find(varname, kind); if (ee) ee->eid = eid; }
     etrace_recount();
     return STRVAL(rt_heap_strdup_c(varname));
@@ -4279,5 +4279,10 @@ void core_gc_roots(void)
         if (t->fields) { rt_gc_visit_raw((const char **)&t->fields);
             for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw((const char **)&t->fields[i]); }
         if (t->next) rt_gc_visit_raw((const char **)&t->next); }
+    for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used) {
+        if (trace_tab[i].name) rt_gc_visit_raw((const char **)&trace_tab[i].name);
+        if (trace_tab[i].tag)  rt_gc_visit_raw((const char **)&trace_tab[i].tag);
+        if (trace_tab[i].cbfn) rt_gc_visit_raw((const char **)&trace_tab[i].cbfn);
+    }
 }
 int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }
