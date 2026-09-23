@@ -898,7 +898,7 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
 static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * er = NULL;
     if (erase) { er = build(cx, IR_CALL, γnext, ωfail); IR_LIT(er).sval = k < 0 ? "$db_erase_t" : "$db_erase"; }
-    IR_t * uni = build(cx, IR_CALL, er ? er : γnext, ωfail); IR_LIT(uni).sval = "$unify";
+    IR_t * uni = build(cx, IR_CALL, er ? er : γnext, ωfail); IR_LIT(uni).sval = erase ? "$unify" : "$clause_unify";
     IR_t * at = build(cx, IR_CALL, uni, ωfail); IR_LIT(at).sval = k < 0 ? "$db_at_t" : "$db_at";
     IR_t * to = build(cx, IR_TO, at, ωfail); IR_LIT(to).sval = (char *) "ag";
     IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = k < 0 ? "$db_n_t" : "$db_n";

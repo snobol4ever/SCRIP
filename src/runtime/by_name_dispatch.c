@@ -2048,6 +2048,25 @@ DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
       rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    extern int prolog_atom_intern(const char *);
+    if (nargs != 2) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    rt_gc_point_arr(args, 2, (const char **)0);
+    { char *tr0 = cx->tr; DESCR_t out; DESCR_t rc = rt_pl_deref_val(args[0]); DESCR_t tc = rt_pl_deref_val(args[1]);
+      if (rc.v != (DTYPE_t)DT_PLREF || (int)(rc.slen & 0xFFFFu) != 2 || tc.v != (DTYPE_t)DT_PLREF || (int)(tc.slen & 0xFFFFu) != 2) out = FAILDESCR;
+      else { DESCR_t *ra = (DESCR_t *)rc.p; DESCR_t *ta = (DESCR_t *)tc.p;
+        if (!plw_unify_vals(ra[0], ta[0], cx)) out = FAILDESCR;
+        else { DESCR_t bt = ra[1]; DESCR_t *rbp = plw_cell_deref(plw_entry(&bt)); DESCR_t bodyv;
+          if (plw_unbound_tag(rbp)) { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = *rbp;
+            bodyv.v = (DTYPE_t)DT_PLREF; bodyv.slen = (((uint32_t)prolog_atom_intern("call")) << 16) | 1u; bodyv.p = (void *)kids; }
+          else bodyv = *rbp;
+          out = plw_unify_vals(bodyv, ta[1], cx) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
+      if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+      rt_pl_tr_gc_sync(cx->tr); return out; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern int plw_unify_vals_oc(DESCR_t, DESCR_t, pl_tr_ctx_t *);

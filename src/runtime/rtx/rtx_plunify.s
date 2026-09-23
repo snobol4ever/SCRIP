@@ -139,6 +139,21 @@ RTX_FUNC(rt_pl_dop_unify)
 .Lpu_ret:
     ret
 RTX_ENDF(rt_pl_dop_unify)
+RTX_FUNC(rt_pl_dop_clause_unify)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    call    rt_pl_dop_clause_unify_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    cmp     al, DT_FAIL
+    jne     .Lpcu_ret
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpcu_ret:
+    ret
+RTX_ENDF(rt_pl_dop_clause_unify)
 RTX_FUNC(rt_pl_dop_unify_ci)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12
