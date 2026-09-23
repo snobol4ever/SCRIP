@@ -15,7 +15,7 @@ void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
 #include "x86_asm.h"
 std::string bb_binop_relop_val() {
-    if (_.op_zres && _.op_node_kind == IR_BINOP_TEST && !_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
+    if (_.op_zres && _.op_node_kind == IR_BINOP_TEST && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
         return x86_alpha()
              + x86("comment", "IR_BINOP_TEST zd")
              + x86("mov", "eax", ZOPD(0, 0))
@@ -58,7 +58,7 @@ std::string bb_binop_relop_val() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline();
-    if (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && !_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
+    if (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
         return x86_alpha()
              + x86("comment", "IR_BINOP_RELOP_VAL zd")
              + x86("mov", "eax", ZOPD(0, 0))
