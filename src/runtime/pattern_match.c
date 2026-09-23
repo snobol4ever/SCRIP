@@ -1566,7 +1566,6 @@ DESCR_t rt_deref_slow(DESCR_t d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
-    { DESCR_t sh[2]; sh[0] = var; sh[1] = val; rt_gc_point_arr(sh, 2, (const char **)0); var = sh[0]; val = sh[1]; }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
     if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }

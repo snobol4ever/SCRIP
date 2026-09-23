@@ -138,6 +138,7 @@ test_gate_gc_icon_allocating_boxes_poll_after_storing_the_result.sh	WIRED	-	-	-
 test_gate_gc_instrument_censuses_are_wired_and_trip.sh	WIRED	-	-	-
 test_gate_gc_map_table_present_in_both_media.sh	WIRED	-	-	-
 test_gate_gc_maps_reporter_runs_beside_the_scan.sh	WIRED	-	-	-
+test_gate_gc_no_collection_inside_a_runtime_call.sh	WIRED	-	-	-
 test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_nv_cell_caches_honour_the_memo_generation.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
