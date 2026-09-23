@@ -53,6 +53,9 @@ static int  pascal_modepos;
 int g_pas_min_enum_size = 4;
 int g_pas_pack_set_size = 0;
 int g_pas_range_check_on = 0;
+int g_pas_align_mac68k = 0;
+static char pascal_alignbuf[32];
+static int  pascal_alignpos;
 static int g_pas_min_enum_stack[64];
 static int g_pas_pack_set_stack[64];
 static int g_pas_min_enum_sp;
@@ -84,7 +87,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR
 %s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -138,6 +141,11 @@ ALNUM    [A-Za-z0-9_]
 <MODE_HDR>[ \t]         { }
 <MODE_HDR>.             { if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
 <MODE_HDR>\n            { }
+"{$align"               { pascal_alignbuf[0] = '\0'; pascal_alignpos = 0; BEGIN ALIGN_HDR; }
+<ALIGN_HDR>"}"          { g_pas_align_mac68k = (strcasecmp(pascal_alignbuf, "mac68k") == 0); BEGIN INITIAL; }
+<ALIGN_HDR>[ \t]        { }
+<ALIGN_HDR>.            { if (pascal_alignpos < (int)sizeof(pascal_alignbuf) - 1) { pascal_alignbuf[pascal_alignpos++] = pascal_yytext[0]; pascal_alignbuf[pascal_alignpos] = '\0'; } }
+<ALIGN_HDR>\n           { }
 "{"                     { BEGIN BRACE; }
 <BRACE>"}"              { BEGIN INITIAL; }
 <BRACE>.                { }
