@@ -95,7 +95,16 @@ while IFS= read -r ln; do
     if echo "$pre" | grep -q 'mov  *dword ptr \[rsp + 0\], 2' && echo "$pre" | grep -q 'mov  *dword ptr \[rsp + 4\], r15d' && echo "$pre" | grep -q 'mov  *qword ptr \[rsp + 8\], r13' && echo "$post" | grep -q 'mov  *r13, qword ptr \[rsp + 8\]'; then rec_ok=$((rec_ok+1)); else rec_bad=$((rec_bad+1)); fi
 done < <(grep -nE 'call +(scrip_coexpr_activate|scrip_coret)@PLT' "$T/sigma.s" | cut -d: -f1)
 SCRIP_GC_SWITCH_RECORD_PLANT=1 "$SCRIP" --compile "$WD/hb_coexpr_sigma.icn" > "$T/sigma_np.s" 2>/dev/null
-np=$(grep -c 'mov  *qword ptr \[rsp + 8\], r13' "$T/sigma_np.s")
+# ⛔ THE PLANTED COUNT IS TAKEN AT THE SWITCH SITES ONLY (cto 2026-09-23, CTO-149): a file-wide grep for the r13 spill counted
+# the sigma-recording safe-point polls (x86_rt_gc_poll_rec_sigma spills {DT_S, r15d, r13} at [rsp+0..8] before rt_gc_point_arr_c)
+# as switch records -- 12 of them on this witness once the match templates polled -- and this arm read FAIL on a tree where the
+# plant removed every switch record. The record is a property of the switch CALL, so it is read in the same eight-line window
+# before scrip_coexpr_activate/scrip_coret that arm 3's own rec_ok reading uses; a poll's spill is not a switch record.
+np=0
+while IFS= read -r ln; do
+    pre="$(sed -n "$((ln-8)),$((ln-1))p" "$T/sigma_np.s")"
+    if echo "$pre" | grep -q 'mov  *qword ptr \[rsp + 8\], r13'; then np=$((np+1)); fi
+done < <(grep -nE 'call +(scrip_coexpr_activate|scrip_coret)@PLT' "$T/sigma_np.s" | cut -d: -f1)
 if [ "$rec_ok" -gt 0 ] && [ "$rec_bad" = 0 ] && [ "$np" = 0 ]; then echo "  arm 3 PASS: $rec_ok switch site(s) carry the tagged r13 record before the call and the reload after it; SCRIP_GC_SWITCH_RECORD_PLANT=1 removes it ($np records)"
 else echo "  arm 3 FAIL: sites with record=$rec_ok without=$rec_bad, planted emission still carries $np record(s)"; RC=1; fi
 WIT="$WD/hb_coexpr_sigma.icn"; ref="$(cat "$WD/hb_coexpr_sigma.ref")"
