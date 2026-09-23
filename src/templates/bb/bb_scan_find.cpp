@@ -53,6 +53,7 @@ std::string bb_scan_find() {
              + x86("mov",     "rcx", FRQ(_.op_off + 16))
              + x86("mov",     "rsi", "r13")
              + x86("add",     "rsi", "rcx")
+             + x86("mov",     "rdx", FRQ(_.op_off + 24))
              + x86("sub",     "rsp", (long)8)
              + x86("call",    "memcmp", (uint64_t)(uintptr_t)(void*)(int (*)(const void *, const void *, size_t))memcmp)
              + x86("add",     "rsp", (long)8)
