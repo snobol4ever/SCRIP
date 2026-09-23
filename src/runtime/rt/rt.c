@@ -108,7 +108,7 @@ void rt_gvar_assign_str(const char *name, const char *str)
     d.s    = (char *)(str ? str : "");
     d.slen = descr_cstrlen(d.s);
     NV_SET_fn(name ? name : "", d);
-    if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
+    if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_indirect_assign_str(const char *holder, const char *str)
@@ -121,7 +121,7 @@ void rt_indirect_assign_var(const char *holder, const char *val_name)
     const char *target = rt_nv_cstr(holder ? holder : "");
     DESCR_t val = NV_GET_fn(val_name ? val_name : "");
     NV_SET_fn(target ? target : "", val);
-    if (g_monitor_bin) mon_emit_value_bin(target ? target : "", val);
+    if (g_trace_budget != 0) sno_trace_value(target ? target : "", val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_pat(const char *name, void *head)
@@ -190,7 +190,7 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
     d.slen = u.f.slen;
     d.i    = hi;
     NV_SET_fn(name ? name : "", d);
-    if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
+    if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rt_coerce_errmsg(int code) {
@@ -1361,19 +1361,6 @@ void rt_name_restore(int base)
 int rt_name_save_mark(void) { return g_name_save_top; }
 void rt_name_save_unwind(int base) { if (base >= 0 && g_name_save_top > base) rt_name_restore(base); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void mon_emit_call_bin(const char *fname) {
-    if (!g_monitor_bin || !fname) return;
-    int64_t saved = kw_ftrace; kw_ftrace = 1; comm_call(fname); kw_ftrace = saved;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void mon_emit_return_bin(const char *fname, DESCR_t retval) {
-    if (!g_monitor_bin || !fname) return;
-    char saved_rt[16]; memcpy(saved_rt, kw_rtntype, sizeof(saved_rt));
-    const char *disc = IS_FAIL_fn(retval) ? "FRETURN" : "RETURN";
-    size_t dl = strlen(disc); if (dl > 15) dl = 15; memcpy(kw_rtntype, disc, dl); kw_rtntype[dl] = '\0';
-    int64_t saved = kw_ftrace; kw_ftrace = 1; comm_return(fname, retval); kw_ftrace = saved;
-    memcpy(kw_rtntype, saved_rt, sizeof(saved_rt));
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
     char *base = (char *)base_p;
@@ -1418,7 +1405,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    if (g_monitor_bin) mon_emit_call_bin(p->name);
+    if (g_trace_budget != 0) sno_trace_call(p->name);
     { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, args, nargs, NULVCL, g_stno); }
     rt_lvl_open(0);
     rt_g_want_name = wn;
@@ -1457,7 +1444,7 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     { int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0; rt_name_restore(base); }
-    if (g_monitor_bin) mon_emit_return_bin(p->name, result);
+    if (g_trace_budget != 0) sno_trace_return(p->name, result);
     { extern long g_stno; rt_trace_event(TRK_RETURN, p->name, result, g_stno); }
     return result;
 }
@@ -1476,7 +1463,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     for (int k = nargs; k < np; k++) { if (p->pcells && p->pcells[k]) *p->pcells[k] = NULVCL; else if (p->pnames && p->pnames[k]) NV_SET_fn(p->pnames[k], NULVCL); }
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
-    if (g_monitor_bin) mon_emit_call_bin(p->name);
+    if (g_trace_budget != 0) sno_trace_call(p->name);
     { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->name, _ta, _tn, NULVCL, g_stno); }
     rt_k_level++; rt_k_level_mirror();
     return (long)(uintptr_t)(void *)p->fn;

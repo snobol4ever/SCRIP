@@ -20,8 +20,9 @@ extern long rt_stno_stack[];
 extern long g_stno;
 extern long g_line;
 void *rt_proc_get_fn(const char *name);
-void mon_emit_call_bin(const char *fname);
-void mon_emit_return_bin(const char *fname, DESCR_t retval);
+void sno_trace_call(const char *fname);
+void sno_trace_return(const char *fname, DESCR_t retval);
+extern long g_trace_budget;
 void rt_trace_call_hook(const char *fname);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_fail_hook(const char *fname);
@@ -202,11 +203,8 @@ static std::string bb_define_activate() {
             }
             return std::string();
         })
-      + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
-      + x86("mov",    "rax", RDQ("rax", 0))
-      + x86("test",   "rax", "rax")
-      + x86("je",  L(2))
-      + x86("push", "rdi")
+      + IF(g_trace_budget != 0,
+        x86("push", "rdi")
       + x86("push", "rsi")
       + x86("push", "rdx")
       + x86("push", "rcx")
@@ -216,7 +214,7 @@ static std::string bb_define_activate() {
       + x86("push", "rdi")
       + x86_align_enter()
       + x86_ro_load_q("rdi", 0)
-      + x86("call", "mon_emit_call_bin", (uint64_t)(uintptr_t)(void *)mon_emit_call_bin)
+      + x86("call", "sno_trace_call", (uint64_t)(uintptr_t)(void *)sno_trace_call)
       + x86_rt_gc_poll()
       + x86_align_leave()
       + x86("pop", "rdi")
@@ -226,8 +224,7 @@ static std::string bb_define_activate() {
       + x86("pop", "rcx")
       + x86("pop", "rdx")
       + x86("pop", "rsi")
-      + x86("pop", "rdi")
-      + x86("def", L(2))
+      + x86("pop", "rdi"))
       + x86("note", std::string("TRACE(name,'CALL'/'FUNCTION') tap -- shared activation entry, calling-convention-agnostic"))
       + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
       + x86("mov",  "rax", RDQ("rax", 0))
@@ -346,18 +343,14 @@ static std::string bb_define_activate() {
             return std::string();
         })
       + x86("mov", "rcx", RDQ("rsi", AB_OFF_ANCHOR))
-      + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
-      + x86("mov",    "rax", RDQ("rax", 0))
-      + x86("test",   "rax", "rax")
-      + x86("je",  L(5))
-      + x86_align_enter()
+      + IF(g_trace_budget != 0,
+        x86_align_enter()
       + x86_ro_load_q("rdi", 0)
       + x86("mov", "rdx", RDQ("rsi", AB_OFF_RES1))
       + x86("mov", "rsi", RDQ("rsi", AB_OFF_RES0))
-      + x86("call", "mon_emit_return_bin", (uint64_t)(uintptr_t)(void *)mon_emit_return_bin)
+      + x86("call", "sno_trace_return", (uint64_t)(uintptr_t)(void *)sno_trace_return)
       + x86_rt_gc_poll()
-      + x86_align_leave()
-      + x86("def", L(5))
+      + x86_align_leave())
       + x86("mov", "rsi", ABSQ(RT_AB_ANCHOR))
       + x86("mov", "rax", RDQ("rsi", AB_OFF_RES0))
       + x86("mov", "rdx", RDQ("rsi", AB_OFF_RES1))

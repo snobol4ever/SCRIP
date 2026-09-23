@@ -261,9 +261,10 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
 int  comm_var_active(void);
 const char * stmt_src_get_file(void);
 void mon_emit_label_bin(int64_t stno);
-void mon_emit_value_bin(const char *name, DESCR_t val);
-void mon_emit_call_bin(const char *fname);
-void mon_emit_return_bin(const char *fname, DESCR_t retval);
+void sno_trace_value(const char *name, DESCR_t val);
+void sno_trace_call(const char *fname);
+void sno_trace_return(const char *fname, DESCR_t retval);
+void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval);
 void comm_call(const char *fname);
 void comm_return(const char *fname, DESCR_t retval);
 int  trace_is_active(const char *name);

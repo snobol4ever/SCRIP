@@ -582,8 +582,10 @@ static void mon_send(const char *kind, const char *name, const char *value) {
 void mon_emit_label_bin(int64_t stno);
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val);
 long g_trace_budget = 0;
+static int g_trace_stmt_seen = 0;
 void rt_trace_stmt(long line) {
     if (g_trace_budget == 0) return;
+    g_trace_stmt_seen = 1;
     g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  L%ld\n", (long long)kw_stcount, line);
     fflush(stdout);
@@ -602,14 +604,15 @@ void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
     fflush(stdout);
     if (g_monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL); else if (monitor_fd >= 0) mon_send("CALL", name, vtext);
 }
-void rt_trace_return(const char *name, DESCR_t retval) {
+void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
     if (g_trace_budget == 0 || !name) return;
     g_trace_budget--; kw_stcount++;
     char vtext[512]; trace_spell_value(retval, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
-    if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, retval); else if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
+    if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval); else if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
 }
+void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_value(const char *name, DESCR_t val) {
     if (g_trace_budget == 0 || !name) return;
     g_trace_budget--; kw_stcount++;
@@ -803,6 +806,8 @@ void mon_emit_label_bin(int64_t stno) {
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int mon_synth_name(const char *n);
+static int sno_name_is_output_assoc(const char *name);
 static int mon_name_is_internal(const char *name)
 {
     if (!name || !name[0] || name[0] == '<') return 0;
@@ -810,29 +815,29 @@ static int mon_name_is_internal(const char *name)
     { const char *q = name + 1; while (*q && ((*q >= 'A' && *q <= 'Z') || (*q >= 'a' && *q <= 'z') || (*q >= '0' && *q <= '9') || *q == '_')) q++; return *q == '$'; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void mon_emit_value_bin(const char *name, DESCR_t val) {
-    if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
-    if (!name || !name[0] || name[0] == '_' || name[0] == '&' || NV_PTR_fn(name) == NULL) return;
+void sno_trace_value(const char *name, DESCR_t val) {
+    if (g_trace_budget == 0 || !g_trace_stmt_seen) return;
+    if (!name || !name[0] || name[0] == '_' || name[0] == '&') return;
+    if (name[0] != '<' && NV_PTR_fn(name) == NULL) return;
     if (mon_name_is_internal(name)) return;
-    uint32_t name_id = intern_name_bin(name, (int)strlen(name));
-    if (name_id == MW_NAME_ID_NONE) return;
-    uint8_t type = scrip_tag_to_wire(val.v);
-    const void *vp = NULL; uint32_t vlen = 0;
-    int64_t i_buf; double r_buf;
-    switch (type) {
-        case MWT_STRING: case MWT_NAME:
-            if (val.s) { vlen = val.slen; vp = vlen ? (const void *)val.s : NULL; } break;
-        case MWT_INTEGER: { int64_t iv = val.i; unsigned char *p = (unsigned char *)&i_buf;
-            for (int k = 0; k < 8; k++) p[k] = (unsigned char)((iv >> (k*8)) & 0xff); vp = &i_buf; vlen = 8; break; }
-        case MWT_REAL: { memcpy(&r_buf, &val.r, sizeof(r_buf)); vp = &r_buf; vlen = 8; break; }
-        default: break;
-    }
-    mon_send_bin(MWK_VALUE, name_id, type, vp, vlen);
+    if (sno_name_is_output_assoc(name)) return;
+    rt_trace_value(name, val);
+}
+void sno_trace_call(const char *fname) {
+    if (g_trace_budget == 0 || !fname || !*fname) return;
+    if (mon_synth_name(fname)) return;
+    rt_trace_call(fname, (DESCR_t *)0, 0);
+}
+void sno_trace_return(const char *fname, DESCR_t retval) {
+    if (g_trace_budget == 0 || !fname || !*fname) return;
+    if (mon_synth_name(fname)) return;
+    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : "RETURN"));
 }
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
     if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
     uint32_t name_id = MW_NAME_ID_NONE;
     if (name && name[0]) { name_id = intern_name_bin(name, (int)strlen(name)); if (name_id == MW_NAME_ID_NONE) return; }
+    if (kind == MWK_CALL) { mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
     uint8_t type = scrip_tag_to_wire(val.v);
     const void *vp = NULL; uint32_t vlen = 0;
     int64_t i_buf; double r_buf;
@@ -993,44 +998,10 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
     if (!g_monitor_bin) {
         rt_trace_event(TRK_VALUE, name, val, stno);
     }
+    if (g_trace_budget != 0) { if (g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value(name, val); return; }
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;
-    if (g_monitor_bin && mon_name_is_internal(name)) return;
-    if (g_monitor_bin) {
-        uint32_t name_id = intern_name_bin(name, (int)strlen(name));
-        if (name_id == MW_NAME_ID_NONE) return;
-        uint8_t type = scrip_tag_to_wire(val.v);
-        const void *vp = NULL;
-        uint32_t    vlen = 0;
-        int64_t i_buf;
-        double  r_buf;
-        switch (type) {
-            case MWT_STRING:
-            case MWT_NAME:
-                if (val.s) {
-                    vlen = (uint32_t)val.slen;
-                    vp   = (vlen > 0) ? (const void *)val.s : NULL;
-                }
-                break;
-            case MWT_INTEGER: {
-                int64_t iv = val.i;
-                unsigned char *p = (unsigned char *)&i_buf;
-                for (int k = 0; k < 8; k++) p[k] = (unsigned char)((iv >> (k*8)) & 0xff);
-                vp = &i_buf; vlen = 8;
-                break;
-            }
-            case MWT_REAL: {
-                double rv = val.r;
-                memcpy(&r_buf, &rv, sizeof(r_buf));
-                vp = &r_buf; vlen = 8;
-                break;
-            }
-            default: break;
-        }
-        mon_send_bin(MWK_VALUE, name_id, type, vp, vlen);
-        return;
-    }
     const char *s = VARVAL_fn(val);
     mon_send("VALUE", name, s ? s : "(undef)");
 }
@@ -1425,6 +1396,13 @@ static int _io_chan_find_by_var(const char *name) {
     for (int i = 0; i < IO_CHAN_MAX; i++)
         if (_io_chan[i].varname && strcmp(_io_chan[i].varname, name) == 0) return i;
     return -1;
+}
+static int sno_name_is_output_assoc(const char *name) {
+    if (!name || !name[0]) return 0;
+    if (strcmp(name, "OUTPUT") == 0 || strcmp(name, "TERMINAL") == 0) return 1;
+    _io_chan_setup();
+    int ch = _io_chan_find_by_var(name);
+    return ch >= 0 && _io_chan[ch].is_output;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch) {

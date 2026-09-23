@@ -4,7 +4,7 @@ extern "C" {
 #include "bb_template_common.h"
 }
 #include "x86_asm.h"
-extern "C" void mon_emit_label_bin(int64_t stno);
+extern "C" void rt_trace_stmt(long line);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_succeed() {
         return x86("comment", "IR_SUCCEED")
@@ -20,5 +20,5 @@ extern "C" void emit_mon_label_tap(int32_t stno) {
     bb_emit_x86(
           x86("comment", "MON LABEL tap")
         + x86("mov",  "rdi", (long)_.op_stno)
-        + x86("call", "mon_emit_label_bin", (uint64_t)(uintptr_t)(void *)mon_emit_label_bin));
+        + x86("call", "rt_trace_stmt", (uint64_t)(uintptr_t)(void *)rt_trace_stmt));
 }

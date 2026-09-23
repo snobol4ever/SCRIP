@@ -9,7 +9,7 @@
 # ⛔ SELF-PIN, NOT AN ORACLE DIFF: it proves the two modes agree event-for-event, never that either is right -- REPORTED, not blocking.
 # PASS rc=0 when every language's controller run ends in clean termination with events exchanged; FAIL rc=1 naming the language;
 # REFUSE rc=2 when the harness, the controller or the binary cannot run (a participant that never starts is a refusal, never a red).
-# Usage: bash scripts/test_monitor_2way_sync_step_all_langs.sh [--lang icon|prolog|pascal|raku]   (default: all four)
+# Usage: bash scripts/test_monitor_2way_sync_step_all_langs.sh [--lang icon|prolog|pascal|raku|snobol4]   (default: all five)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SD="$S4E/SCRIP"; H="$SD/scripts/test_monitor_3way_sync_step_auto.sh"; WD="$SD/scripts/monitor/witnesses"
 [ -x "$SD/scrip" ] || { echo "REFUSE(2): no $SD/scrip -- build first"; exit 2; }
@@ -17,9 +17,9 @@ SD="$S4E/SCRIP"; H="$SD/scripts/test_monitor_3way_sync_step_auto.sh"; WD="$SD/sc
 [ -f "$SD/scripts/monitor/monitor_sync_bin.py" ] || { echo "REFUSE(2): monitor_sync_bin.py missing"; exit 2; }
 if [ "$SD/scrip" -ot "$SD/src/runtime/core/core.c" ] || [ "$SD/scrip" -ot "$SD/src/lower/lower_icon.c" ]; then echo "REFUSE(2): ./scrip predates src/ -- run make"; exit 2; fi
 want="${2:-}"; [ "${1:-}" = "--lang" ] || want=""
-declare -A W=( [icon]=sync_step_icon.icn [prolog]=sync_step_prolog.pl [pascal]=sync_step_pascal.pas [raku]=sync_step_raku.raku )
+declare -A W=( [icon]=sync_step_icon.icn [prolog]=sync_step_prolog.pl [pascal]=sync_step_pascal.pas [raku]=sync_step_raku.raku [snobol4]=sync_step_snobol4.sno )
 pass=0; fail=0; refuse=0; langs=0
-for l in icon prolog pascal raku; do
+for l in icon prolog pascal raku snobol4; do
   [ -n "$want" ] && [ "$want" != "$l" ] && continue
   langs=$((langs+1)); f="$WD/${W[$l]}"; [ -f "$f" ] || { echo "REFUSE(2): witness missing for $l: $f"; refuse=$((refuse+1)); continue; }
   log=$(mktemp); PARTICIPANTS="scr3 scr4" timeout 240 bash "$H" "$f" > "$log" 2>&1; rc=$?

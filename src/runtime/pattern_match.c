@@ -386,7 +386,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
+int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict);
 static DESCR_t subscript_get2_ext_s(DESCR_t arr, DESCR_t i, DESCR_t end, int strict) {
@@ -457,7 +457,7 @@ static int subscript_set2_body(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { int ok = subscript_set2_body(arr, i, j, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
+int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { int ok = subscript_set2_body(arr, i, j, val); if (ok && g_trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
     (void)max_args;
@@ -978,7 +978,7 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
 {
     DESCR_t d = rt_concat_parts_d(parts, n);
     NV_SET_fn(dst ? dst : "", d);
-    if (g_monitor_bin) mon_emit_value_bin(dst ? dst : "", d);
+    if (g_trace_budget != 0) sno_trace_value(dst ? dst : "", d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)
@@ -1315,7 +1315,7 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
         return rt_assign_var(ref, val);
     }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
-    table_set_descr_d(base.tbl, idx, val); return val;
+    table_set_descr_d(base.tbl, idx, val); if (g_trace_budget != 0) sno_trace_value("<lval>", val); return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_nd2_fast(DESCR_t base, DESCR_t idx1, DESCR_t idx2, DESCR_t *out) {
@@ -1610,7 +1610,7 @@ static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict)
 {
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
     DESCR_t r = c_rt_assign_var_body(var, val, strict);
-    if (!simple && g_monitor_bin && !IS_FAIL_fn(r)) mon_emit_value_bin("<lval>", val);
+    if (!simple && g_trace_budget != 0 && !IS_FAIL_fn(r)) sno_trace_value("<lval>", val);
     { extern int g_sno_etrace_n; extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t);
       if (g_sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
     return r;

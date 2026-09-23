@@ -1546,7 +1546,7 @@ int main(int argc, char **argv)
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
             emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n");
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
-            { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
+            { extern int g_monitor_bin; extern long g_trace_budget; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
@@ -1614,7 +1614,7 @@ int main(int argc, char **argv)
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
-            { extern int g_monitor_bin; extern int g_mon_max_stno; if (g_monitor_bin) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
+            { extern int g_monitor_bin; extern long g_trace_budget; extern int g_mon_max_stno; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);

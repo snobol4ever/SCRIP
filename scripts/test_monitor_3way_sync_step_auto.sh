@@ -206,7 +206,7 @@ if [[ "$want_scr" = "1" ]]; then
         # --monitor so the inline WRITE taps + stmt/label/call taps BAKE into the .s
         # (shared codegen: identical instrumentation to m3), link against libscrip_rt.so
         # (whose core init reads MONITOR_READY_PIPE at run time), run the binary.
-        ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --compile --monitor -o "$TMP/scr.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr.cc.out" 2>&1 \
+        ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr.cc.out" 2>&1 \
             || { echo "FAIL m4 compile: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
         gcc -no-pie "$TMP/scr.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$TMP/scr.bin" >> "$TMP/scr.cc.out" 2>&1 \
             || { echo "FAIL m4 link: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
@@ -226,7 +226,7 @@ if [[ "$want_scr" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/scr.names" \
     SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
     SNO_LIB="$INC" \
-        timeout "$((TIMEOUT*2))" "$SCRIP" "$SCR_RUN_FLAG" "$SNO" \
+        timeout "$((TIMEOUT*2))" "$SCRIP" --trace "$SCR_RUN_FLAG" "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
     PIDS+=($!)
     fi
