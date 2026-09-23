@@ -76,7 +76,14 @@ fi
 
 # (e) THE CONSUMER REFUSES A ZLS-MAP LINE WITH NO KIND FIELDS rather than reading the absent field as zero.
 # ⛔ AN ABSENT FIELD READING AS ZERO IS HOW THE CONFLATION LOOKED LIKE A CLEAN SPLIT IN THE FIRST PLACE.
-mkdir -p "$T/fakeroot/scripts"
+mkdir -p "$T/fakeroot/scripts" "$T/fakeroot/src" "$T/fakeroot/out"
+# The consumer runs lib_build_currency.sh at its --root since the coo's 0176b35dd (a census of an unbuilt tree is a
+# statement about a different program), so the FAKE root must be a BUILT tree or every arm below refuses rc=2 for the
+# wrong reason -- which is exactly how arms e, f and g read red on origin at CEO-1161 (cto). The census's own selftest
+# satisfies the guard the same way: the real library sourced, one src/ file older than two fresh artifacts.
+cp "$ROOT/scripts/lib_build_currency.sh" "$T/fakeroot/scripts/"
+: > "$T/fakeroot/src/stub.c"; touch -t 202001010000 "$T/fakeroot/src/stub.c"
+: > "$T/fakeroot/scrip"; : > "$T/fakeroot/out/libscrip_rt.so"
 cat > "$T/fakeroot/scripts/util_zls_frame_map_census.py" <<'STUB'
 import sys
 print("ZLS-MAP lang=stub graphs=1 words=8 unkinded=0 holes=0 graded=1 no_layout=1 no_layout_declared=0")
