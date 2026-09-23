@@ -111,6 +111,7 @@ ALNUM    [A-Za-z0-9_]
 "*"                     { return MUL; }
 "/"                     { return RDIV; }
 "^"                     { return ARROW; }
+"@"                     { return ATSIGN; }
 "("                     { return LPARENT; }
 ")"                     { return RPARENT; }
 "["                     { return LBRACK; }

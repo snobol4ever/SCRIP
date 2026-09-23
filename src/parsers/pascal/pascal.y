@@ -212,6 +212,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (pas_sizeof_builtin_size(name, &_tsz)) return args->items[0];
     }
     if (name && !strcmp(name, "swapendian") && args && args->count >= 1) return args->items[0];
+    if (name && !strcmp(name, "addr") && args && args->count >= 1) return args->items[0];
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0]; tree_t *val = args->items[4];
         if (dst && dst->t == TT_VAR && dst->v.sval) {
@@ -886,7 +887,7 @@ static tree_t *mk_array_init(const char *name, long long high) {
 %token PROCEDURESY PACKEDSY OFSY FILESY ENDSY SETSY VARSY THENSY RECORDSY
 %token FUNCTIONSY BEGINSY BECOMES TYPESY IFSY ELSESY INOP NOTSY IDIV IMOD ANDOP OROP
 %token LTOP LEOP GTOP GEOP NEOP EQOP PLUS MINUS MUL RDIV
-%token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT
+%token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT ATSIGN
 %token <ival> INTCONST
 %token <dval> REALCONST
 %token <str>  STRINGCONST IDENT
@@ -1239,6 +1240,7 @@ factor:
     | STRINGCONST { if ($1 && strlen($1) == 1) { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit((long long)(unsigned char)$1[0])); $$ = _cl; } else $$ = leaf_s(TT_QLIT, $1); }
     | LPARENT expression RPARENT { $$ = $2; }
     | NOTSY factor { $$ = pas_flip_rel(pas_cond($2)); }
+    | ATSIGN factor { $$ = $2; }
     | LBRACK RBRACK { $$ = mk_set_ctor(NULL); }
     | LBRACK set_member_list RBRACK { $$ = $2; }
     ;
