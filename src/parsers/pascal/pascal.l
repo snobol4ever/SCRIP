@@ -86,6 +86,9 @@ ALNUM    [A-Za-z0-9_]
 {DIGIT}+"."{DIGIT}+([eE][+-]?{DIGIT}+)?   { pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
 {DIGIT}+[eE][+-]?{DIGIT}+                 { pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
 {DIGIT}+                { pascal_yylval.ival = strtoll(pascal_yytext, NULL, 10); return INTCONST; }
+"$"[0-9A-Fa-f]+          { pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext + 1, NULL, 16); return INTCONST; }
+"#"[0-9]+               { long long _cc = strtoll(pascal_yytext + 1, NULL, 10); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
+"#$"[0-9A-Fa-f]+         { long long _cc = strtoll(pascal_yytext + 2, NULL, 16); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
 '([^']|'')*'            { int n = (int)pascal_yyleng; pascal_strpos = 0;
                           for (int i = 1; i < n - 1; i++) {
                               if (pascal_yytext[i] == '\'' && i + 1 < n - 1 && pascal_yytext[i + 1] == '\'') { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = '\''; i++; }
