@@ -5,9 +5,19 @@
 # CLASS A -- a DONE-WHEN captures a runner's output and never consults that runner's rc. Under ONE RUNNER, ONE
 #   BOARD a runner answers any seat but the coo with rc=2 REFUSE; the criterion captures that TEXT, the marker
 #   grep misses, and a refusal degrades into rc=1 FAILED. The row is fine and the audit reads it as red.
-# CLASS B -- a DONE-WHEN hardcodes its author's root as its S4E_HOME fallback (${S4E_HOME:-/home/claude_cfo}).
-#   `s4e_msg.sh done` exports S4E_HOME so the fallback never fires there; it fires exactly when a seat runs the
-#   criterion BY HAND to audit it, and then it silently grades ANOTHER SEAT'S TREE and can print PASS.
+# CLASS B -- a DONE-WHEN pins a SEAT ROOT in the text the bus actually runs, so the criterion grades whichever
+#   tree that seat happens to hold rather than origin HEAD. TWO SPELLINGS, one class:
+#   (i) the S4E_HOME FALLBACK (${S4E_HOME:-/home/claude_cfo}) -- `s4e_msg.sh done` exports S4E_HOME so the
+#       fallback never fires there; it fires exactly when a seat runs the criterion BY HAND to audit it, and
+#       then it silently grades ANOTHER SEAT'S TREE and can print PASS.
+#   (ii) the BARE form (`cd /home/claude_ceo/SCRIP && ...`, `bash /home/claude_T/SCRIP/scripts/x.sh`) -- coo
+#       2026-09-23 on CEO-1163, RULES.md THE INSTRUMENT LAWS thirty-fourth batch clause 3: a criterion that
+#       names a seat root names a tree. It has NO fallback at all, so it does not even degrade.
+#   ⛔ 28 of the 46 found at that landing pin a root that HAS NOT EXISTED SINCE CEO-767 (the lettered
+#   /home/claude_{B,C,I,P,R,S,T,U} and the numbered /home/claude01..20). Those grade no tree whatever, and the
+#   direction they fail in is NOT always visible: `rung-gate-false-green-audit`'s criterion is
+#   `! grep -qi ... /home/claude10/.github/FINDING-...md`, and grep's rc=2 on a missing file INVERTS to rc=0 --
+#   a row that closes DONE on an evidence file that has not existed for a month. Measured, not reasoned.
 # +-- WHAT THIS DOES NOT CALL A DEFECT, WHICH IS THE HALF THAT TOOK THE WORK -------------------------------+
 # A capture that never looks at rc but REFUSES rc=2 when the expected marker is absent can already tell "never
 # ran" from "ran and red" -- it grades a marker instead of a status, which is a different correct answer, not a
@@ -21,7 +31,7 @@
 # The inserted guard is a BRACE GROUP ending in `[ "$_dwrc" = 0 ]` so a capture sitting inside an `&&` chain
 # keeps its short-circuit exactly; appending `; _dwrc=$?` bare would silently break the chain.
 # ⛔ IT NEVER EXECUTES A CRITERION and never expands one. Static text only.
-import re, os, glob, sys, json
+import re, os, glob, sys, json, subprocess
 TEXTTOOL = {'grep','egrep','fgrep','ls','sed','awk','cat','wc','find','head','tail','nm','git','printf',
             'echo','mktemp','date','stat','sort','uniq','cut','tr','basename','dirname','md5sum','readlink',
             'objdump','readelf','cmp','diff','jq','realpath','pwd','id','comm','xargs','true','false'}
@@ -100,7 +110,70 @@ def scan(seg):
         if all(ed[1] <= k[0] or ed[0] >= k[1] for k in kept):
             kept.append(ed)
     return kept, honest
-def classB(seg):
+BARE_ROOT = re.compile(r'/home/claude(?:_[A-Za-z0-9]+|[0-9]{2})')
+FALLBACK  = re.compile(r'\$\{S4E_HOME:-[^}]*\}')
+_EOF_ERR  = re.compile(r'here-document.*delimited by end-of-file'
+                       r'|unexpected EOF while looking for matching'
+                       r'|syntax error: unexpected end of file')
+def _incomplete(t):
+    """s4e_msg.sh's OWN discriminator (s4e_donewhen_incomplete), same two clauses in the same order."""
+    if re.search(r'(\\|&&|\|\||\|)\s*$', t.rstrip()): return True
+    try:
+        pr = subprocess.run(['bash', '-n', '/dev/stdin'], input=t,
+                            capture_output=True, text=True, timeout=20)
+    except Exception:
+        return False
+    return bool(_EOF_ERR.search(pr.stderr))
+def exec_span(seg):
+    """(start, end) of the text the BUS WILL ACTUALLY RUN, inside the DONE-WHEN field block.
+    ⛔⭐ THIS IS THE HALF THAT DECIDES WHETHER A BARE SEAT ROOT IS A DEFECT AT ALL, and it is measured:
+    s4e_msg.sh's s4e_field_criterion_text runs the FIRST LINE and reads the rest of the block ONLY when
+    that first line is INCOMPLETE SHELL -- everything else under it is PROSE ANNOTATION the shell never
+    sees, and the live convention puts exactly that there ("⛔ DONE-WHEN REWRITTEN 2026-08-24: the line
+    above used to be ..."). Scanning the whole block instead would have flagged SIX batons on 2026-09-23,
+    TWO of which are annotations RECORDING that the pin was already cured -- i.e. this census would have
+    called a cure receipt a defect and then rewritten the receipt. That is this file's own header lesson
+    ("what this does not call a defect") one class further down.
+    ⛔ A SECOND READER OF A RULE THAT LIVES IN ANOTHER FILE GOES STALE SILENTLY, which is why
+    test_gate_baton_donewhen_reads_its_runner_rc.sh arm D re-derives BOTH readings over the live tree and
+    REDS on any disagreement, rather than trusting this one to stay right."""
+    nl = seg.find('\n')
+    if nl < 0: return (0, len(seg))
+    return (0, len(seg)) if _incomplete(seg[:nl]) else (0, nl)
+def live_ranges(s):
+    """Ranges of s the shell EXECUTES: everything outside an UNQUOTED '#' comment. A seat root inside a
+    trailing comment is documentation, not a tree pin -- one live baton
+    (util-progress-flips-names-every-lost-since-base-program) carries exactly that and is not a defect."""
+    out = []; q = None; i = 0; start = 0
+    while i < len(s):
+        c = s[i]
+        if q:
+            if c == q: q = None
+        elif c in '"\'':
+            q = c
+        elif c == '#' and (i == 0 or s[i-1] in ' \t\n;&|('):
+            j = s.find('\n', i); out.append((start, i))
+            if j < 0: return out
+            start = j; i = j
+        i += 1
+    out.append((start, len(s)))
+    return out
+def bare_roots(seg):
+    """-> (roots, cure_spans) over the EXECUTED, UNCOMMENTED text only.
+    ⭐ S4E_DWRC_FAIL_ONCE=1 restores the PRE-2026-09-23 reader (fallback form only, bare form invisible) so
+    the gate can PROVE its bare arms are load-bearing instead of asserting it -- an arm that has never been
+    seen to go red reads as 'there was never a bug here'. The ${S4E_HOME:-...} form is NOT
+    counted here -- it is the older class-B half and is detected by classB_fallback below."""
+    if os.environ.get('S4E_DWRC_FAIL_ONCE') == '1': return [], []
+    a, b = exec_span(seg)
+    roots, spans_out = [], []
+    for (ls, le) in live_ranges(seg[a:b]):
+        chunk = seg[a+ls:a+le]
+        for m in BARE_ROOT.finditer(chunk):
+            if any(f.start() <= m.start() < f.end() for f in FALLBACK.finditer(chunk)): continue
+            roots.append(m.group(0)); spans_out.append((a+ls+m.start(), a+ls+m.end()))
+    return roots, spans_out
+def classB_fallback(seg):
     return [m.group(1).strip() for m in re.finditer(r'\$\{S4E_HOME:-([^}]*)\}', seg)
             if re.match(r'^/home/claude', m.group(1).strip())]
 def main():
@@ -131,15 +204,28 @@ def main():
     if not files:
         print(f"REFUSE(2): no *.task.md under {tasks} -- cannot measure")
         return 2
-    A, B, honest, touched = [], [], 0, 0
+    A, B, SUBJ, honest, touched = [], [], [], 0, 0
     for p in files:
         raw = open(p, encoding='utf-8', errors='replace').read()
         br = block(raw)
         if not br: continue
         s, e = br; seg = raw[s:e]; orig = seg
         base = os.path.basename(p)[:-len('.task.md')]
-        fbs = classB(seg)
-        if fbs: B.append({'baton': base, 'fallbacks': sorted(set(fbs))})
+        fbs = classB_fallback(seg)
+        brs, bspans = bare_roots(seg)
+        uniq = sorted(set(brs))
+        # ⛔⭐ THE SUBJECT EXEMPTION, AND IT IS NAMED RATHER THAN SILENT. A criterion that sweeps the
+        # ROSTER -- `for r in /home/claude03 /home/claude04 ... ; do [ -r "$r/CLAUDE.md" ] || continue`
+        # -- is ASKING A QUESTION ABOUT those roots, not standing in one, and $S4E_HOME would DELETE the
+        # test. One baton on the live tree is that shape (seat-digest-dead-map-sweep-and-computed-map, 14
+        # roots); every other names exactly ONE. The threshold is printed with its population so a reader
+        # can challenge it, and a subject baton is COUNTED AND NAMED, never rewritten -- the same
+        # treatment this file already gives the 50 honest class-A captures.
+        subject = len(uniq) >= 2
+        if subject and uniq: SUBJ.append({'baton': base, 'roots': uniq})
+        if fbs or (uniq and not subject):
+            B.append({'baton': base, 'fallbacks': sorted(set(fbs)), 'bare': ([] if subject else uniq),
+                      'dead': sorted(r for r in ([] if subject else uniq) if not os.path.isdir(r))})
         edits, h = scan(seg); honest += h
         for var_e in edits:
             A.append({'baton': base, 'piped': var_e[3], 'at': seg[var_e[0]:var_e[0]+70].strip()})
@@ -150,22 +236,52 @@ def main():
             # measured: it produced `g=$(cd "$R/S{ _dwraw=$(...`, two criteria that no longer parse. An
             # offset is only valid against the exact string it was computed from.
             seg = re.sub(r'(\$\{S4E_HOME:-)/home/claude[A-Za-z0-9_]*(\})', r'\1$PWD\2', seg)
+            # ⛔ THE BARE FORM, REWRITTEN TO THE ONE SPELLING ALREADY IN THE TREE. `${S4E_HOME:-$PWD}` and
+            # not a bare `$S4E_HOME`: the bus runs every criterion as `( cd "$S4E" && S4E_HOME="$S4E" ...
+            # bash -c "$dw" )` (s4e_msg.sh:2540), so under `done` the two are the SAME value and the
+            # fallback is dead text; it fires only in a HAND audit, where S4E_HOME is unset in a seat's
+            # ambient shell (measured) and a bare `$S4E_HOME/SCRIP` would read `/SCRIP`. Two spellings of
+            # one idea in one tree is how the next reader learns the wrong one, so this matches the
+            # fallback cure above exactly. ⛔ Recomputed AFTER the fallback substitution for the same
+            # offset reason stated there, and applied in REVERSE so earlier spans keep their offsets.
+            _brs, _bsp = bare_roots(seg)
+            # ⛔ THE SUBJECT EXEMPTION IS RE-APPLIED HERE, NOT ASSUMED FROM THE DETECT PASS. Measured by the
+            # gate's arm 2d on the first run of this cure: the roster-sweep fixture was rewritten anyway,
+            # because the cure called the raw reader and the exemption lived only in main()'s counting. An
+            # exemption that exists in the census but not in the rewriter is the worse half of the pair.
+            if len(set(_brs)) >= 2: _bsp = []
+            for _a, _b in reversed(_bsp):
+                seg = seg[:_a] + '${S4E_HOME:-$PWD}' + seg[_b:]
             edits, _h2 = scan(seg)
             for a, en, repl, _ in reversed(edits):
                 seg = seg[:a] + repl + seg[en:]
             if seg != orig:
                 open(p, 'w', encoding='utf-8').write(raw[:s] + seg + raw[e:]); touched += 1
     if '--json' in sys.argv:
-        print(json.dumps({'population': len(files), 'A': A, 'B': B, 'honest': honest}, indent=1)); return 0
+        print(json.dumps({'population': len(files), 'A': A, 'B': B, 'B_subject': SUBJ, 'honest': honest}, indent=1)); return 0
     print(f"DONE-WHEN rc/root census over {len(files)} batons at {tasks}")
     print(f"  CLASS A defective (captures a runner, cannot tell a refusal from a red): {len(A)}"
           f"  [piped, where rc=$? would read the pipe: {sum(1 for x in A if x['piped'])}]")
     print(f"  CLASS A honest   (no rc check, but refuses 2 when the marker is absent): {honest}  -- not a defect, never rewritten")
-    print(f"  CLASS B          (hardcodes a seat root as its S4E_HOME fallback):       {len(B)}")
+    _bare_n = sum(1 for x in B if x.get('bare'))
+    _dead_n = sum(1 for x in B if x.get('dead'))
+    # ⛔⭐ THE COUNT IS THE LAST THING ON THIS LINE AND THE BREAKDOWN GETS ITS OWN, because a LIVE criterion
+    # parses it: the row's DONE-WHEN reads `^ +CLASS B .*: +0$` for its green and `^ +CLASS B ` piped to
+    # `[0-9]+$` for its diagnostic. Appending `  [bare: N, ...]` here -- which this file did for one draft --
+    # made the green test unmatchable AT ZERO and blanked the diagnostic, i.e. an instrument edit turned a
+    # criterion into one that could never pass. Measured at this landing: `RED: 12 ... (census class B line: )`.
+    # ⭐ And the SUBJECT line is spelled `CLASS B-SUBJECT`, with no space after the B, so `^ +CLASS B ` still
+    # matches exactly ONE line and the diagnostic cannot silently start reporting two numbers.
+    print(f"  CLASS B defective (a seat root pinned in the EXECUTED criterion, fallback or bare): {len(B)}")
+    print(f"      of those {len(B)}: bare {_bare_n}, fallback {len(B) - _bare_n}, pinning a root that NO LONGER EXISTS {_dead_n}")
+    print(f"  CLASS B-SUBJECT  (sweeps >=2 roots, so the roots ARE the question):     {len(SUBJ)}  -- not a defect, never rewritten")
     if ap_cure:
         print(f"  CURED IN PLACE: {touched} baton file(s) rewritten"); return 0
     if '--list' in sys.argv:
         for x in A: print(f"    A{'|pipe' if x['piped'] else '     '} {x['baton']}  [{x['at']}]")
-        for x in B: print(f"    B       {x['baton']}  {x['fallbacks']}")
+        for x in B:
+            _d = f"  DEAD-ROOT{x['dead']}" if x.get('dead') else ""
+            print(f"    B       {x['baton']}  fallback={x['fallbacks']} bare={x.get('bare', [])}{_d}")
+        for x in SUBJ: print(f"    B|subj  {x['baton']}  {x['roots']}")
     return 1 if (A or B) else 0
 sys.exit(main())
