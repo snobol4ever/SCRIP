@@ -1405,7 +1405,12 @@ static long gc_collect_ex(void)
     gc_spine_lost_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld ceiling_bytes_skipped=%ld ceiling=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, g_gc_ceil_bytes, (void *)g_gc_emit_ceiling); }
-    { long shift = gc_plant_shift_bytes(); g_gc_shift_prefix = shift ? gc_plant_shift_prefix() : 0; dest = g_hp_arena + g_gc_shift_prefix + shift; g_gc_shift_now = shift; }
+    { long shift = gc_plant_shift_bytes(); long prefix = shift ? gc_plant_shift_prefix() : 0;
+      if (shift) { long live_total = 0; for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) live_total += (long)g_gc_idx[i]->size;
+        if (g_hp_arena + prefix + shift + live_total > g_hp_end) { static int said_room = 0; if (!said_room) { said_room = 1;
+            fprintf(stderr, "[GC-SHIFT] plant DECLINED at this collection: the fill prefix of %ld bytes left by earlier shifts plus the %ld-byte shift plus %ld live bytes would put the compacted live set past the committed window end at arena+%ld, and the plant moves nothing it cannot commit. Printed ONCE per process.\n", prefix, shift, live_total, (long)(g_hp_end - g_hp_arena)); }
+          shift = 0; prefix = 0; } }
+      g_gc_shift_prefix = prefix; dest = g_hp_arena + prefix + shift; g_gc_shift_now = shift; }
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
@@ -1427,6 +1432,7 @@ static long gc_collect_ex(void)
     if (w_tel) n_t0 = gc_walk_ns();
     dest = g_hp_arena;
     if (g_gc_shift_now) {
+        if (li > 0) gc_quar_release((char *)livef[li - 1] + liveo[li - 1]->size);
         for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] == (char *)h) w_unm++; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         for (long i = li - 1; i >= 0; i--) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         { rt_hblk_t *fl = (rt_hblk_t *)(g_hp_arena + g_gc_shift_prefix); fl->fwd = 0; fl->size = (uint32_t)g_gc_shift_now; fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
