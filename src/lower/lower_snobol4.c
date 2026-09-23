@@ -275,10 +275,19 @@ static IR_t * sno_arm_result(IR_t * rv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_idx_container(scx_t * cx, const tree_t * t, IR_t * ω, IR_t ** res) {
-    if (t->n < 2) sno_fatal("subscript with no index", NULL);
+    if (t->n < 1) sno_fatal("subscript with no container", NULL);
     IR_t * br = NULL; IR_t * entry = sx_lower(cx, t->c[0], NULL, ω, &br);
     IR_t * cur = br;
-    if (t->n == 3) {
+    if (t->n == 1) {
+        tree_t * ek = ast_node_new(TT_QLIT); ek->v.sval = (char *) "";
+        IR_t * ir = NULL; IR_t * ie = sx_lower(cx, ek, NULL, ω, &ir);
+        lc_γ_to(cur, ie);
+        IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+        sx_sub_container_only(sub);
+        lc_γ_to(ir, sub);
+        ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+        cur = sub;
+    } else if (t->n == 3) {
         IR_t * i1 = NULL; IR_t * e1 = sx_lower(cx, t->c[1], NULL, ω, &i1);
         lc_γ_to(cur, e1);
         IR_t * i2 = NULL; IR_t * e2 = sx_lower(cx, t->c[2], NULL, ω, &i2);
@@ -2471,6 +2480,28 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
             lc_γ_to(vv, asn);
             ir_operand_push(asn, nv); ir_operand_push(asn, vv);
+            lc_γ_to(anchor[i], e1);
+            continue;
+        }
+        if (subj->t == TT_IDX && subj->n == 1) {
+            tree_t * ek = ast_node_new(TT_QLIT); ek->v.sval = (char *) "";
+            const tree_t * ekp = ek;
+            IR_t * vr = NULL, * fb = NULL, * fi = NULL;
+            IR_t * e1 = sx_subscript_lv_fused(&cx, subj->c[0], (const tree_t * const *) &ekp, 1, fA, &vr, &fb, &fi);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
+            IR_t * asn;
+            if (fb) {
+                lc_γ_to(fi, e2);
+                asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
+                sx_sub_container_only(asn);
+            } else {
+                lc_γ_to(vr, e2);
+                asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            }
             lc_γ_to(anchor[i], e1);
             continue;
         }
