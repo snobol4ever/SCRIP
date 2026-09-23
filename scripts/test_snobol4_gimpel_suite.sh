@@ -202,11 +202,17 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # NO ROW AT ALL -- not a suite row and not a SCORE.md cell -- so gimpel's reading on the board had only ever been
 # set BY HAND, by the coo, from this runner's printed line. A number nobody's runner writes is a number nothing
 # re-measures. The table's reading is the ceo-372 AND per program over the SPITBOL baseline.
+# ⛔ CEO-749 SHAPE (row snobol4-four-package-rows-leave-their-outside-baseline-programs-out-of-the-denominator-ceo-749): the
+# row reads PASS over SHIPPED ($TOTAL = the graded drivers plus the $UNSCR the oracle refuses), OUTSIDE=$UNSCR named and
+# stamped through lib_outside_shape.sh -- the outside drivers stay in the denominator as debt to cure. Before this the
+# row published $BOTH/$SCORED, the graded set only, and nothing in the verdict instrument could see the difference.
 if [ "$SCORED" -gt 0 ] && [ -z "${GIMPEL_SUITE:-}" ]; then
+. "$HERE/lib_outside_shape.sh" || exit 2
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp gimpel "$TOTAL" "$UNSCR")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite gimpel --modes m3,m4 \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$SCORED" \
-    --text "gimpel baseline both_modes_pass=$BOTH/$SCORED (the table's reading: drivers SPITBOL answers · $UNSCR outside the SPITBOL baseline, named with the oracle's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped drivers · sbl -bf the one oracle)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_gimpel_suite.sh\`)" \
+    ${_cc:+--criterion-changed "$_cc"} \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$TOTAL" \
+    --text "gimpel both_modes_pass=$BOTH/$TOTAL shipped OUTSIDE=$UNSCR, graded $BOTH/$SCORED (CEO-749 shape: pass over shipped, the outside drivers stay in the denominator · drivers SPITBOL answers · $UNSCR outside the SPITBOL baseline, named with the oracle's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped drivers · sbl -bf the one oracle)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_gimpel_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

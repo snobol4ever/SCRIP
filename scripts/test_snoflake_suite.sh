@@ -437,10 +437,16 @@ else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NO
 # this one and csnobol4_suite's own runner were the two missing it (board-packages-into-make-test-
 # reported-then-blocking, seat13 2026-09-03).
 if [ "$SUITE" != "$CANON_SUITE" ]; then echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; else
+# ⛔ CEO-749 SHAPE (row snobol4-four-package-rows-leave-their-outside-baseline-programs-out-of-the-denominator-ceo-749): the
+# row publishes PASS over SHIPPED = the baseline fixtures plus the $OUTSIDE_N outside the SPITBOL baseline, OUTSIDE=k named and
+# stamped through lib_outside_shape.sh. Before this it read $BASE_BOTH/$BASE with 56 programs listed outside.
+SHIPPED=$((BASE + OUTSIDE_N))
+. "$HERE/lib_outside_shape.sh" || exit 2
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp snoflake "$SHIPPED" "$OUTSIDE_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BASE_BOTH" --suite-total "$BASE" \
-    --text "masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator) · baseline both_modes_pass=$BASE_BOTH/$BASE (the table's reading: fixtures SPITBOL runs clean; $OUTSIDE_N outside the SPITBOL baseline, Lon 2026-09-08) · both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the runner's own label, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
+    ${_cc:+--criterion-changed "$_cc"} \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BASE_BOTH" --suite-total "$SHIPPED" \
+    --text "both_modes_pass=$BASE_BOTH/$SHIPPED shipped OUTSIDE=$OUTSIDE_N, graded $BASE_BOTH/$BASE (CEO-749 shape: pass over shipped) · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator) · baseline both_modes_pass=$BASE_BOTH/$BASE (the table's reading: fixtures SPITBOL runs clean; $OUTSIDE_N outside the SPITBOL baseline, Lon 2026-09-08) · both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the runner's own label, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 

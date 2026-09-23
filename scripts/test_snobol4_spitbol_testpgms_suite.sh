@@ -197,9 +197,14 @@ fi
 # decline to guess and abort the whole write -- which is why this cell was hand-recorded before and still
 # showed retired --compat text. The table's reading is the ceo-372 AND per program over the SPITBOL
 # baseline: both_modes_pass/baseline, never a per-mode count.
+# ⛔ CEO-749 SHAPE (row snobol4-four-package-rows-leave-their-outside-baseline-programs-out-of-the-denominator-ceo-749):
+# PASS over SHIPPED ($TOTAL = graded plus the $UNSCR outside the SPITBOL baseline), OUTSIDE=$UNSCR named and stamped
+# through lib_outside_shape.sh; the outside programs stay in the denominator as debt to cure.
+. "$HERE/lib_outside_shape.sh" || exit 2
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp testpgms "$TOTAL" "$UNSCR")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite testpgms --modes m3,m4 \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$SCORED" \
-    --text "spitbol_testpgms baseline both_modes_pass=$BOTH/$SCORED (the table's reading: programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
+    ${_cc:+--criterion-changed "$_cc"} \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$TOTAL" \
+    --text "spitbol_testpgms both_modes_pass=$BOTH/$TOTAL shipped OUTSIDE=$UNSCR, graded $BOTH/$SCORED (CEO-749 shape: pass over shipped · programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

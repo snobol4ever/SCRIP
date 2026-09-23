@@ -423,11 +423,18 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # ⛔⭐ NAME THE SUITE FRACTION EXPLICITLY (cto 2026-09-08, the cure b2660262e gave the snoflake and ipl runners and
 # b7f48462a gave Arizona): without --suite-pass/--suite-total the writer REFUSED this row every time ("carries no N/M
 # fraction") and the Budne cell was hand-set (62/97 at 19162985f); the runner now writes its own AND-per-program count.
+# ⛔ CEO-749 SHAPE (row snobol4-four-package-rows-leave-their-outside-baseline-programs-out-of-the-denominator-ceo-749): TOTAL
+# above counts the GRADED fixtures only (an outside one takes its `continue` first), so the row publishes PASS over SHIPPED =
+# graded plus the OUTSIDE_LIST, OUTSIDE=k named and stamped through lib_outside_shape.sh. Before this it read 71/71 with 49
+# programs listed in OUTSIDE_SPITBOL_BASELINE.tsv -- a 100% the law does not allow.
+OUT_N="$(printf '%s\n' $OUTSIDE_LIST | grep -c .)"; SHIPPED=$((TOTAL + OUT_N))
+. "$HERE/lib_outside_shape.sh" || exit 2
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp csnobol4 "$SHIPPED" "$OUT_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
+    ${_cc:+--criterion-changed "$_cc"} \
+    --suite-pass "$BOTH_PASS" --suite-total "$SHIPPED" \
     --measurer "${S4E_SEAT:-}" \
-    --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
+    --text "both_modes_pass=$BOTH_PASS/$SHIPPED shipped OUTSIDE=$OUT_N, graded $BOTH_PASS/$TOTAL (CEO-749 shape: pass over shipped) · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
