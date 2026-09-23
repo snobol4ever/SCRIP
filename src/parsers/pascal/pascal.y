@@ -18,8 +18,7 @@ extern int  pascal_get_lineno(void);
 void pascal_yyerror(const char *msg) { fprintf(stderr, "pascal parse error line %d: %s\n", pascal_get_lineno(), msg); }
 tree_t   *pascal_prog_result = NULL;
 static PNodeList g_pascal_procs;
-static int g_pas_trace_on = -1;
-static int pas_trace_enabled(void) { if (g_pas_trace_on < 0) { const char *e = getenv("SCRIP_PAS_TRACE"); g_pas_trace_on = (e && e[0] && strcmp(e, "0")) ? 1 : 0; } return g_pas_trace_on; }
+static int pas_trace_enabled(void) { extern long g_trace_budget; return g_trace_budget != 0; }
 static PNodeList *pnl_new(void) { PNodeList *l = (PNodeList *)ct_zalloc(1, sizeof *l); return l; }
 static void pnl_push(PNodeList *l, tree_t *e) {
     if (!l) return;
@@ -107,7 +106,7 @@ static tree_t *pas_trace_wrap_value(tree_t *val);
 static tree_t *pas_trace_wrap_proc(const char *pname, PNodeList *params, tree_t *body, int isfunc) {
     if (!pas_trace_enabled() || !body) return body;
     tree_t *enter_call = ast_node_new(TT_FNC);
-    ast_push(enter_call, leaf_s(TT_VAR, "__pas_trace_call"));
+    ast_push(enter_call, leaf_s(TT_VAR, "__trace_call"));
     ast_push(enter_call, leaf_s(TT_QLIT, pname));
     if (params) for (int i = 0; i < params->count; i++) {
         tree_t *id = params->items[i];
@@ -117,7 +116,7 @@ static tree_t *pas_trace_wrap_proc(const char *pname, PNodeList *params, tree_t 
         }
     }
     tree_t *exit_call = ast_node_new(TT_FNC);
-    ast_push(exit_call, leaf_s(TT_VAR, "__pas_trace_return"));
+    ast_push(exit_call, leaf_s(TT_VAR, "__trace_return"));
     ast_push(exit_call, leaf_s(TT_QLIT, pname));
     if (isfunc) ast_push(exit_call, pas_trace_wrap_value(leaf_s(TT_VAR, pname)));
     tree_t *nb = ast_node_new(TT_PROGRAM);
@@ -1273,8 +1272,8 @@ body:
     BEGINSY statement_list ENDSY { $$ = prog_of($2); }
     ;
 statement_list:
-    statement_list SEMICOLON statement { if ($3) { if (pas_trace_enabled()) pnl_push($1, mk_fnc1("__pas_trace_line", ilit(pascal_get_lineno()))); pnl_push($1, $3); } $$ = $1; }
-    | statement { PNodeList *l = pnl_new(); if ($1) { if (pas_trace_enabled()) pnl_push(l, mk_fnc1("__pas_trace_line", ilit(pascal_get_lineno()))); pnl_push(l, $1); } $$ = l; }
+    statement_list SEMICOLON statement { if ($3) { if (pas_trace_enabled()) pnl_push($1, mk_fnc1("__trace_stmt", ilit(pascal_get_lineno()))); pnl_push($1, $3); } $$ = $1; }
+    | statement { PNodeList *l = pnl_new(); if ($1) { if (pas_trace_enabled()) pnl_push(l, mk_fnc1("__trace_stmt", ilit(pascal_get_lineno()))); pnl_push(l, $1); } $$ = l; }
     ;
 statement:
     statement_no_label { $$ = $1; }
@@ -1340,7 +1339,7 @@ assignment:
               if (g_pas_range_check_on && $1 && $1->t == TT_VAR && $1->v.sval) { long long _rlo, _rhi; if (pas_subvar_get($1->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi); }
               tree_t *_asn = mk_assign($1, _rhs0);
               if (pas_trace_enabled() && $1 && $1->t == TT_VAR && $1->v.sval) {
-                  tree_t *_tv = mk_fnc2("__pas_trace_value", leaf_s(TT_QLIT, $1->v.sval), pas_trace_wrap_value(leaf_s(TT_VAR, $1->v.sval)));
+                  tree_t *_tv = mk_fnc2("__trace_value", leaf_s(TT_QLIT, $1->v.sval), pas_trace_wrap_value(leaf_s(TT_VAR, $1->v.sval)));
                   PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); $$ = seq_of(_sl);
               } else { $$ = _asn; } } }
     ;

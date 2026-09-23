@@ -101,8 +101,8 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4)"; exit 2 ;;
     esac
 done
 
@@ -112,12 +112,14 @@ for p in "${PARTICIPANTS[@]}"; do
         csn) want_csn=1 ;;
         spl) want_spl=1 ;;
         scr) want_scr=1 ;;
+        scr3) want_scr3=1 ;;
+        scr4) want_scr4=1 ;;
         dot) want_dot=1 ;;
     esac
 done
 
 # ── Prerequisites ──────────────────────────────────────────────────────
-[[ -f "$SNO" ]]                          || { echo "FAIL .sno not found: $SNO"; exit 2; }
+[[ -f "$SNO" ]]                          || { echo "FAIL source not found: $SNO"; exit 2; }
 [[ -f "$MON_DIR/monitor_sync_bin.py" ]]  || { echo "FAIL monitor_sync_bin.py missing"; exit 2; }
 [[ "$want_scr" = "1" ]] && [[ ! -x "$SCRIP" ]]    && { echo "FAIL scrip not built: $SCRIP — run build_scrip.sh"; exit 2; }
 [[ "$want_csn" = "1" ]] && [[ ! -x "$CSNOBOL4" ]] && { echo "FAIL csnobol4 not built: $CSNOBOL4"; exit 2; }
@@ -143,9 +145,9 @@ trap monitor_auto_cleanup EXIT INT TERM
 MON_OUT_CAP="${MON_OUT_CAP:-268435456}"
 ulimit -f $(( MON_OUT_CAP / 512 )) 2>/dev/null || true
 
-base="$(basename "$SNO" .sno)"
+base="$(basename "$SNO")"; base="${base%.*}"
 STDIN_SRC="${STDIN_SRC:-/dev/null}"
-[[ "$STDIN_SRC" = "/dev/null" && -f "${SNO%.sno}.input" ]] && STDIN_SRC="${SNO%.sno}.input"
+[[ "$STDIN_SRC" = "/dev/null" && -f "${SNO%.*}.input" ]] && STDIN_SRC="${SNO%.*}.input"
 
 echo "[auto] program:    $base"
 echo "[auto] tmp:        $TMP"
@@ -238,6 +240,37 @@ fi
 #   - InitStatementMsil + OpCode.Init → LABEL on every stmt entry (coverage-f)
 #   - InternName → MWK_NAME_DEF on first id use (coverage-e, streaming intern)
 # Run with -bf for case-sensitive identifiers (matches csn/spl invocation).
+# ⭐ scr3 / scr4 (ceo 2026-09-23, CEO-1185, Lon: "Get IPC sync-step monitor working for all languages"): TWO SCRIP participants
+# facing each other -- mode 3 (--run) against mode 4 (the compiled binary) -- on ONE source of ANY frontend, both built with
+# --trace so the shared hooks (rt_trace_stmt/_value/_call/_return, MONITOR-BINARY-DESIGN.md § THE PLUG INTERFACE) put every
+# statement, assignment, call and return on the binary wire; the SNOBOL4 path's own events ride the same wire. No oracle bridge
+# is needed, which is why this is every language's FIRST arm: a mode-3/mode-4 divergence is a MODES-MAY-DIVERGE semantic drift.
+if [[ "${want_scr3:-0}" = "1" ]]; then
+    MONITOR_BIN=1 \
+    MONITOR_READY_PIPE="$TMP/scr3.ready" \
+    MONITOR_GO_PIPE="$TMP/scr3.go" \
+    MONITOR_NAMES_OUT="$TMP/scr3.names" \
+    SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+    SNO_LIB="$INC" \
+        timeout "$((TIMEOUT*2))" "$SCRIP" --trace --run "$SNO" \
+        < "$STDIN_SRC" > "$TMP/scr3.out" 2> "$TMP/scr3.err" &
+    PIDS+=($!)
+fi
+if [[ "${want_scr4:-0}" = "1" ]]; then
+    ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr4.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr4.cc.out" 2>&1 \
+        || { echo "FAIL scr4 compile: $(tail -2 "$TMP/scr4.cc.out")"; exit 2; }
+    gcc "$TMP/scr4.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$TMP/scr4.bin" >> "$TMP/scr4.cc.out" 2>&1 \
+        || { echo "FAIL scr4 link: $(tail -2 "$TMP/scr4.cc.out")"; exit 2; }
+    MONITOR_BIN=1 \
+    MONITOR_READY_PIPE="$TMP/scr4.ready" \
+    MONITOR_GO_PIPE="$TMP/scr4.go" \
+    MONITOR_NAMES_OUT="$TMP/scr4.names" \
+    SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+    SNO_LIB="$INC" \
+        timeout "$((TIMEOUT*2))" "$TMP/scr4.bin" \
+        < "$STDIN_SRC" > "$TMP/scr4.out" 2> "$TMP/scr4.err" &
+    PIDS+=($!)
+fi
 if [[ "$want_dot" = "1" ]]; then
     MONITOR_BIN=1 \
     MONITOR_READY_PIPE="$TMP/dot.ready" \
@@ -265,7 +298,7 @@ done
 # hang.  ⭐ The general form worth keeping: bounding N-1 of N cooperating processes bounds
 # NOTHING; the unbounded one becomes the duration of the job.
 CTRL_TIMEOUT="${MONITOR_CTRL_TIMEOUT:-$((TIMEOUT*4))}"
-MONITOR_SNO_FILE="$SNO" \
+MONITOR_SNO_FILE="$([[ "$SNO" == *.sno ]] && echo "$SNO")" \
 MONITOR_INC_DIR="$(dirname "$(realpath "$SNO")"):$INC" \
     timeout "$CTRL_TIMEOUT" python3 "$MON_DIR/monitor_sync_bin.py" "${SPECS[@]}" > "$TMP/ctrl.out" 2>&1 &
 CTRL_PID=$!

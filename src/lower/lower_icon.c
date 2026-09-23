@@ -14,6 +14,9 @@ typedef struct {
     IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
+static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω);
+static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_entry, IR_t * ω);
+static IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out);
 static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -666,8 +669,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (lhs && (lhs->t == TT_VAR || lhs->t == TT_KEYWORD) && lhs->v.sval && lhs->v.sval[0] == '&') {
             IR_t * ka = build(cx, IR_KW_ASSIGN, γ, ω); IR_LIT(ka).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, ka, ω, &vr); ir_operand_push(ka, vr); *res = ka; return entry; }
-        if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval;
-            IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); *res = asn; return entry; }
+        if (lhs && lhs->t == TT_VAR) { IR_t * vtc = NULL; IR_t * vt = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, γ, ω, &vtc); IR_t * asn = build(cx, IR_ASSIGN, vt ? vt : γ, ω); IR_LIT(asn).sval = lhs->v.sval;
+            IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); if (vr && vtc) ir_operand_push(vtc, vr); *res = asn; return entry; }
         { IR_t * b4 = cx->beta;
           IR_t * lv = NULL; IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
           if (lve && lv) {
@@ -734,11 +737,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     }
     case TT_RETURN: { IR_t * ret = build(cx, IR_RETURN, cx->psucc ? cx->psucc : γ, ω);
-        IR_t * vtgt = ret;
+        IR_t * rtc = NULL; IR_t * rtn = icn_trace_named_prep(cx, "__trace_return", cx->pname, ret, ω, &rtc);
+        IR_t * vtgt = rtn ? rtn : ret;
         if (cx->scan_sp > 0) { IR_t * tgt = ret;
             for (int _k = 0; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
             IR_t * tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(tramp, tgt); lc_ω_to(tramp, tgt); vtgt = tramp; }
-        if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, entry) : entry; }
+        if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); if (vr && rtc) ir_operand_push(rtc, vr); *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, entry) : entry; }
         *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, vtgt) : vtgt; }
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOOP_BREAK: {
@@ -879,7 +883,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]);
                     succ = SENT; failt = SENT;
                 }
-                if (t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = cx->want_lines ? icn_line_hook(cx, S[i]->line, ent[i]) : icn_line_mark(cx, S[i]->line, ent[i]); succ = ent[i]; failt = ent[i]; }
+                if (t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = cx->want_lines ? icn_line_hook(cx, S[i]->line, ent[i]) : icn_line_mark(cx, S[i]->line, ent[i]); ent[i] = icn_trace_stmt_wrap(cx, S[i]->line, ent[i], ω); succ = ent[i]; failt = ent[i]; }
             }
             if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
@@ -1521,6 +1525,29 @@ static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
     { const char * sf = stmt_src_get_file(); IR_LIT(mark).sval = (char *) (sf ? sf : ""); }
     return mark;
 }
+static int icn_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
+    if (line <= 0 || !icn_trace_wanted()) return stmt_entry;
+    IR_t * call = build(cx, IR_CALL, stmt_entry, ω); IR_LIT(call).sval = "__trace_stmt";
+    IR_t * lit = build(cx, IR_LIT_INTEGER, call, ω); IR_LIT(lit).ival = line;
+    ir_operand_push(call, lit);
+    return lit;
+}
+static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_entry, IR_t * ω) {
+    if (!name || !*name || !icn_trace_wanted()) return body_entry;
+    IR_t * call = build(cx, IR_CALL, body_entry, ω); IR_LIT(call).sval = "__trace_call";
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = (char *) name;
+    ir_operand_push(call, nm);
+    return nm;
+}
+static IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out) {
+    if (!name || !*name || !icn_trace_wanted()) { *call_out = NULL; return NULL; }
+    IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) hook;
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = (char *) name;
+    ir_operand_push(call, nm);
+    *call_out = call;
+    return nm;
+}
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
@@ -1535,9 +1562,10 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
             entry = tramp;
         }
         if (entry && sline > 0) entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry);
+        if (entry && sline > 0) entry = icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
         succ = entry; fail = entry;
     }
-    g->entry = succ;
+    g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     g->icn_cells_graph = 1;
     return g;
 }

@@ -345,7 +345,7 @@ int rt_builtin_is_known(const char *name)
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM",
         "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
         "$unify", "$unify_lst", "$ix_g",
-        "__rk_trace_stmt", "__rk_trace_call", "__rk_trace_return", "__rk_trace_value",
+        "__trace_stmt", "__trace_call", "__trace_return", "__trace_value",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -3378,25 +3378,25 @@ static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_S
 static void pas_set_bits(DESCR_t v, unsigned char out[PAS_SET_BYTES]) { memset(out, 0, PAS_SET_BYTES); if (IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s) { memcpy(out, v.s, PAS_SET_BYTES); return; } if (IS_INT_fn(v)) { long iv = v.i; for (int b = 0; b < 64; b++) if ((iv >> b) & 1L) out[b / 8] |= (unsigned char)(1u << (b % 8)); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (!strcmp(fn, "__rk_trace_stmt") && nargs == 1) {
-        extern void rt_rk_trace_stmt(long line);
-        rt_rk_trace_stmt(IS_INT_fn(args[0]) ? (long)args[0].i : 0L);
+    if (!strcmp(fn, "__trace_stmt") && nargs == 1) {
+        extern void rt_trace_stmt(long line);
+        rt_trace_stmt(IS_INT_fn(args[0]) ? (long)args[0].i : 0L);
         *out = NULVCL; return 1;
     }
-    if (!strcmp(fn, "__rk_trace_call") && nargs >= 1) {
-        extern void rt_rk_trace_call(const char *name, DESCR_t *args, int nargs);
+    if (!strcmp(fn, "__trace_call") && nargs >= 1) {
+        extern void rt_trace_call(const char *name, DESCR_t *args, int nargs);
         const char *nm = VARVAL_fn(args[0]);
-        rt_rk_trace_call(nm, args + 1, nargs - 1);
+        rt_trace_call(nm, args + 1, nargs - 1);
         *out = NULVCL; return 1;
     }
-    if (!strcmp(fn, "__rk_trace_return") && nargs == 2) {
-        extern void rt_rk_trace_return(const char *name, DESCR_t retval);
-        rt_rk_trace_return(VARVAL_fn(args[0]), args[1]);
+    if (!strcmp(fn, "__trace_return") && (nargs == 1 || nargs == 2)) {
+        extern void rt_trace_return(const char *name, DESCR_t retval);
+        rt_trace_return(VARVAL_fn(args[0]), (nargs == 2 ? args[1] : NULVCL));
         *out = NULVCL; return 1;
     }
-    if (!strcmp(fn, "__rk_trace_value") && nargs == 2) {
-        extern void rt_rk_trace_value(const char *name, DESCR_t val);
-        rt_rk_trace_value(VARVAL_fn(args[0]), args[1]);
+    if (!strcmp(fn, "__trace_value") && nargs == 2) {
+        extern void rt_trace_value(const char *name, DESCR_t val);
+        rt_trace_value(VARVAL_fn(args[0]), args[1]);
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "where") && nargs == 1) {
@@ -3843,35 +3843,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); }
         } else nm = VARVAL_fn(args[0]);
         if (nm && nm[0]) remove(nm);
-        *out = NULVCL; return 1;
-    }
-    if (!strcmp(fn, "__pas_trace_line") && nargs == 1) {
-        fprintf(stderr, "TRACE line %lld\n", IS_INT_fn(args[0]) ? (long long)args[0].i : 0);
-        *out = NULVCL; return 1;
-    }
-    if (!strcmp(fn, "__pas_trace_value") && nargs == 2) {
-        const char *nm = VARVAL_fn(args[0]);
-        fprintf(stderr, "TRACE %s = ", nm ? nm : "?");
-        pas_trace_print_value(stderr, args[1]);
-        fputc('\n', stderr);
-        *out = NULVCL; return 1;
-    }
-    if (!strcmp(fn, "__pas_trace_call") && nargs >= 1) {
-        const char *nm = VARVAL_fn(args[0]);
-        fprintf(stderr, "TRACE CALL %s(", nm ? nm : "?");
-        for (int _ti = 1; _ti + 1 < nargs; _ti += 2) {
-            if (_ti > 1) fputs(", ", stderr);
-            const char *anm = VARVAL_fn(args[_ti]);
-            fprintf(stderr, "%s=", anm ? anm : "?");
-            pas_trace_print_value(stderr, args[_ti + 1]);
-        }
-        fputs(")\n", stderr);
-        *out = NULVCL; return 1;
-    }
-    if (!strcmp(fn, "__pas_trace_return") && (nargs == 1 || nargs == 2)) {
-        const char *nm = VARVAL_fn(args[0]);
-        if (nargs == 2) { fprintf(stderr, "TRACE RETURN %s = ", nm ? nm : "?"); pas_trace_print_value(stderr, args[1]); fputc('\n', stderr); }
-        else fprintf(stderr, "TRACE RETURN %s\n", nm ? nm : "?");
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "__pas_pchar_deref") && nargs == 1) {

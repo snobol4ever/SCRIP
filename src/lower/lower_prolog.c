@@ -620,6 +620,21 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     return hc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static IR_t * pl_trace_stmt_wrap(lcx_t * cx, long line, IR_t * entry, IR_t * ωfail) {
+    if (line <= 0 || !pl_trace_wanted()) return entry;
+    IR_t * call = build(cx, IR_CALL, entry, ωfail); IR_LIT(call).sval = "__trace_stmt";
+    IR_t * lit = build(cx, IR_LIT_INTEGER, call, ωfail); IR_LIT(lit).ival = line;
+    ir_operand_push(call, lit);
+    return lit;
+}
+static IR_t * pl_trace_named_wrap(lcx_t * cx, const char * hook, const char * name, IR_t * entry, IR_t * ωfail) {
+    if (!name || !*name || !pl_trace_wanted()) return entry;
+    IR_t * call = build(cx, IR_CALL, entry, ωfail); IR_LIT(call).sval = (char *) hook;
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(nm).sval = (char *) name;
+    ir_operand_push(call, nm);
+    return nm;
+}
 static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
     IR_t * prev = NULL; IR_t * first = NULL;
@@ -630,7 +645,7 @@ static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs,
         prev = a; ir_operand_push(nd, a);
     }
     if (prev) lc_γ_to(prev, nd);
-    if (entry_out) *entry_out = first ? first : nd;
+    { IR_t * fe = first ? first : nd; IR_t * te = pl_trace_stmt_wrap(cx, t ? (long) t->line : 0L, fe, ωfail); if (entry_out) *entry_out = te; }
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1663,8 +1678,9 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
             for (int j = 0; j < i && !seen; j++) { int vs[256], nv = 0; pl_collect_vars(cl->c[j], vs, &nv, 256); if (nv >= 256) seen = 1; for (int q = 0; q < nv; q++) if (vs[q] == sl) seen = 1; }
             if (!seen) { cx.valias[sl] = (unsigned char)(i + 1); aliased[sl] = 1; } }
         IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
+        IR_t * tret = pl_trace_named_wrap(&cx, "__trace_return", key, succeed, step);
         IR_t * bentry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
-        IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, succeed, step, &bentry, &redo, &tnode);
+        IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
         if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
         IR_t * next = bentry ? bentry : (first ? first : succeed);
         for (int i = ar - 1; i >= 0; i--) {
@@ -1681,7 +1697,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     }
     maxlocal = g_pl_fresh_next - 1; g_pl_fresh_next = fresh_saved;
     if (arity < 0) arity = 0;
-    g->entry = g->alt_entry[0];
+    g->entry = pl_trace_named_wrap(&cx, "__trace_call", key, g->alt_entry[0], step); g->alt_entry[0] = g->entry;
     pl_graph_stamp(g, arity, maxlocal, aliased);
     g->deterministic = (nc == 1);
     return g;

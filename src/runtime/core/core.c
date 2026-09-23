@@ -579,17 +579,19 @@ static void mon_send(const char *kind, const char *name, const char *value) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long g_rk_trace = 0;
-void rt_rk_trace_stmt(long line) {
-    if (g_rk_trace == 0) return;
-    g_rk_trace--; kw_stcount++;
+void mon_emit_label_bin(int64_t stno);
+void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val);
+long g_trace_budget = 0;
+void rt_trace_stmt(long line) {
+    if (g_trace_budget == 0) return;
+    g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  L%ld\n", (long long)kw_stcount, line);
     fflush(stdout);
-    if (monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
+    if (g_monitor_bin) mon_emit_label_bin((int64_t)line); else if (monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
 }
-void rt_rk_trace_call(const char *name, DESCR_t *args, int nargs) {
-    if (g_rk_trace == 0 || !name) return;
-    g_rk_trace--; kw_stcount++;
+void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
+    if (g_trace_budget == 0 || !name) return;
+    g_trace_budget--; kw_stcount++;
     char vtext[512]; size_t o = 0; vtext[0] = '\0';
     for (int k = 0; k < nargs && o + 2 < sizeof vtext; k++) {
         if (k) vtext[o++] = ',';
@@ -598,23 +600,23 @@ void rt_rk_trace_call(const char *name, DESCR_t *args, int nargs) {
     }
     fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
-    if (monitor_fd >= 0) mon_send("CALL", name, vtext);
+    if (g_monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL); else if (monitor_fd >= 0) mon_send("CALL", name, vtext);
 }
-void rt_rk_trace_return(const char *name, DESCR_t retval) {
-    if (g_rk_trace == 0 || !name) return;
-    g_rk_trace--; kw_stcount++;
+void rt_trace_return(const char *name, DESCR_t retval) {
+    if (g_trace_budget == 0 || !name) return;
+    g_trace_budget--; kw_stcount++;
     char vtext[512]; trace_spell_value(retval, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
-    if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
+    if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, retval); else if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
 }
-void rt_rk_trace_value(const char *name, DESCR_t val) {
-    if (g_rk_trace == 0 || !name) return;
-    g_rk_trace--; kw_stcount++;
+void rt_trace_value(const char *name, DESCR_t val) {
+    if (g_trace_budget == 0 || !name) return;
+    g_trace_budget--; kw_stcount++;
     char vtext[512]; trace_spell_value(val, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
-    if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
+    if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, val); else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
 }
 static char  **g_bin_names      = NULL;
 static int    *g_bin_name_lens  = NULL;
@@ -826,6 +828,23 @@ void mon_emit_value_bin(const char *name, DESCR_t val) {
         default: break;
     }
     mon_send_bin(MWK_VALUE, name_id, type, vp, vlen);
+}
+void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
+    if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
+    uint32_t name_id = MW_NAME_ID_NONE;
+    if (name && name[0]) { name_id = intern_name_bin(name, (int)strlen(name)); if (name_id == MW_NAME_ID_NONE) return; }
+    uint8_t type = scrip_tag_to_wire(val.v);
+    const void *vp = NULL; uint32_t vlen = 0;
+    int64_t i_buf; double r_buf;
+    switch (type) {
+        case MWT_STRING: case MWT_NAME:
+            if (val.s) { vlen = val.slen; vp = vlen ? (const void *)val.s : NULL; } break;
+        case MWT_INTEGER: { int64_t iv = val.i; unsigned char *p = (unsigned char *)&i_buf;
+            for (int k = 0; k < 8; k++) p[k] = (unsigned char)((iv >> (k*8)) & 0xff); vp = &i_buf; vlen = 8; break; }
+        case MWT_REAL: { memcpy(&r_buf, &val.r, sizeof(r_buf)); vp = &r_buf; vlen = 8; break; }
+        default: break;
+    }
+    mon_send_bin(kind, name_id, type, vp, vlen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _arg_str(DESCR_t a, const char **out_p, int *out_len) {
@@ -2446,10 +2465,10 @@ void core_lib_init(void) {
             int64_t v = (int64_t)strtoll(ev_tr, NULL, 10);
             if (v > 0) kw_trace = v;
         }
-        const char *ev_rktr = getenv("SCRIP_RK_TRACE");
+        const char *ev_rktr = getenv("SCRIP_TRACE");
         if (ev_rktr && ev_rktr[0]) {
             long v = strtol(ev_rktr, NULL, 10);
-            if (v > 0) g_rk_trace = v;
+            if (v > 0) g_trace_budget = v;
         }
     }
     {
