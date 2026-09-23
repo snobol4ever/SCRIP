@@ -63,6 +63,7 @@ static long long pas_array_low(const char *name);
 static int pas_subvar_get(const char *n, long long *lo, long long *hi);
 static int pas_sizeof_lookup(const char *name, long long *out);
 static int pas_sizeof_builtin_size(const char *n, long long *out);
+static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *hi);
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 static int pas_tfcomp_nonchar(const char *n);
 static int pas_is_hdrfile(const char *n);
@@ -197,6 +198,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         long long hi;
         if (v && v->t == TT_VAR && v->v.sval && pas_array_high_get(v->v.sval, &hi)) {
             return ilit(!strcmp(name, "low") ? 0 : hi);
+        }
+        if (v && v->t == TT_VAR && v->v.sval) {
+            long long lo2, hi2;
+            if (pas_ordinal_bound_lookup(v->v.sval, &lo2, &hi2)) return ilit(!strcmp(name, "low") ? lo2 : hi2);
         }
     }
     if (name && !strcmp(name, "sizeof") && args && args->count >= 1) {
@@ -868,6 +873,34 @@ static int pas_sizeof_lookup(const char *name, long long *out) {
     if (pas_is_boolvar(name)) { *out = 1; return 1; }
     if (pas_ptrvar_target(name)) { *out = 8; return 1; }
     { const char *tn = pas_scalarvartype_get(name); if (tn && strcmp(tn, name)) return pas_sizeof_lookup(tn, out); }
+    return 0;
+}
+static int pas_ordinal_builtin_bound(const char *n, long long *lo, long long *hi) {
+    if (!n) return 0;
+    static const struct { const char *n; long long lo; long long hi; } T[] = {
+        {"byte",0,255},{"shortint",-128,127},{"word",0,65535},{"smallint",-32768,32767},
+        {"longword",0,4294967295LL},{"cardinal",0,4294967295LL},{"uint32",0,4294967295LL},
+        {"longint",-2147483648LL,2147483647LL},{"integer",-2147483648LL,2147483647LL},
+        {"int32",-2147483648LL,2147483647LL},{"int8",-128,127},{"uint8",0,255},
+        {"int16",-32768,32767},{"uint16",0,65535},
+        {"int64",(long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL},
+        {"qword",0,-1},{"uint64",0,-1},{"nativeint",(long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL},
+        {"nativeuint",0,-1},{"char",0,255},{"widechar",0,255},{"boolean",0,1},{"bytebool",0,255},
+    };
+    for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (!strcmp(n, T[i].n)) { *lo = T[i].lo; *hi = T[i].hi; return 1; }
+    return 0;
+}
+static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *hi) {
+    if (!name) return 0;
+    if (pas_ordinal_builtin_bound(name, lo, hi)) return 1;
+    { const char *al = pas_typealias_get(name); if (al && strcmp(al, name)) return pas_ordinal_bound_lookup(al, lo, hi); }
+    { long long sh = pas_subtype_high(name); if (sh >= 0) { *lo = pas_subtype_low(name); *hi = sh; return 1; } }
+    if (pas_subvar_get(name, lo, hi)) return 1;
+    for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return 0;
+    for (int i = 0; i < g_pas_nrecvar; i++) if (g_pas_recvars[i].vname && !strcmp(g_pas_recvars[i].vname, name)) return 0;
+    if (pas_is_charvar(name)) { *lo = 0; *hi = 255; return 1; }
+    if (pas_is_boolvar(name)) { *lo = 0; *hi = 1; return 1; }
+    { const char *tn = pas_scalarvartype_get(name); if (tn && strcmp(tn, name)) return pas_ordinal_bound_lookup(tn, lo, hi); }
     return 0;
 }
 static tree_t *mk_array_init(const char *name, long long high) {
