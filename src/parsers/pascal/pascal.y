@@ -142,6 +142,7 @@ static long long pas_caparm_lo(const char *name, int pos);
 static void pas_caparm_add(const char *name, unsigned long long m, const long long *lo);
 static int pas_is_rel(tree_t *e);
 static int pas_is_proc(const char *name);
+static tree_t *pas_addr_of_proc(tree_t *e);
 static int pas_proc_param_is_real(const char *name, int idx);
 static int pas_proc_param_is_string(const char *name, int idx);
 static tree_t *pas_bool(tree_t *e);
@@ -271,7 +272,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         ast_push(e, ilit(sz));
         return e;
     }
-    if (name && !strcmp(name, "addr") && args && args->count >= 1) return args->items[0];
+    if (name && !strcmp(name, "addr") && args && args->count >= 1) return pas_addr_of_proc(args->items[0]);
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0]; tree_t *val = args->items[4];
         if (dst && dst->t == TT_VAR && dst->v.sval) {
@@ -497,6 +498,16 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
 static struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; int nsp; int sp[16]; } g_pas_funcs[256]; static int g_pas_nfunc;
 static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = ct_strdup(name); g_pas_funcs[g_pas_nfunc].nvp = 0; g_pas_funcs[g_pas_nfunc].nrp = 0; g_pas_funcs[g_pas_nfunc].nsp = 0; g_pas_nfunc++; } }
 static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nfunc; i++) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return 1; return 0; }
+static tree_t *pas_addr_of_proc(tree_t *e) {
+    if (!e) return e;
+    const char *nm = NULL;
+    if (e->t == TT_VAR && e->v.sval && (pas_is_proc(e->v.sval) || pas_is_func(e->v.sval))) nm = e->v.sval;
+    else if (e->t == TT_FNC && e->n == 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_func(e->c[0]->v.sval)) nm = e->c[0]->v.sval;
+    if (!nm) return e;
+    unsigned long long h = 1469598103934665603ULL;
+    for (const char *p = nm; *p; p++) { h ^= (unsigned char)*p; h *= 1099511628211ULL; }
+    return ilit((long long)(1000000000ULL + (h % 1000000000ULL)));
+}
 static struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; int nsp; int sp[16]; } g_pas_procs[256]; static int g_pas_nproc;
 static void pas_proc_add(const char *name) { if (g_pas_nproc < 256 && name) { g_pas_procs[g_pas_nproc].name = ct_strdup(name); g_pas_procs[g_pas_nproc].nvp = 0; g_pas_procs[g_pas_nproc].nrp = 0; g_pas_procs[g_pas_nproc].nsp = 0; g_pas_nproc++; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1422,7 +1433,7 @@ factor:
     | STRINGCONST { if ($1 && strlen($1) == 1) { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit((long long)(unsigned char)$1[0])); $$ = _cl; } else $$ = leaf_s(TT_QLIT, $1); }
     | LPARENT expression RPARENT { $$ = $2; }
     | NOTSY factor { $$ = pas_flip_rel(pas_cond($2)); }
-    | ATSIGN factor { $$ = $2; }
+    | ATSIGN factor { $$ = pas_addr_of_proc($2); }
     | LBRACK RBRACK { $$ = mk_set_ctor(NULL); }
     | LBRACK set_member_list RBRACK { $$ = $2; }
     ;
