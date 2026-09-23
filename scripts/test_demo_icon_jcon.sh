@@ -40,6 +40,10 @@ TMO="${JCON_TIMEOUT:-600}"
 refuse() { echo "⛔ JCON DEMO GATE UNPROVEN(2): $*"; echo "    This is NOT a pass -- the gate could not measure, so it certifies nothing."; exit 2; }
 
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "cannot load lib_oracle_flags.sh -- the ONE oracle-path authority."
+# ⛔ ARGV COMES FROM THE ONE SHARED READER (lib_icon_ipl_isolation.sh:ipl_argv_read, the NAME.argv sidecar). This gate read a
+# NAME.args file until 2026-09-23; hq_V converted jtran.args to jtran.argv on 09-12 (CEO-609) and this reader was not moved,
+# so jtran was graded with NO arguments for eleven days -- oracle and SCRIP both printed a usage failure and the row said DIFF.
+. "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "cannot load lib_icon_ipl_isolation.sh -- the ONE argv-sidecar reader."
 ICONT="$(icont_bin)" || refuse "the Arizona icont oracle is missing (lib_oracle_flags.sh names the path). ⛔ Do NOT conclude this from \`command -v icont\` -- the oracles are not on PATH."
 [ -x "$SCRIP" ] || refuse "scrip is not built at $SCRIP -- run make."
 [ -d "$D" ]     || refuse "demo dir missing: $D"
@@ -65,7 +69,8 @@ for E in "$D"/*.icn; do
     N="$(basename "$E" .icn)"
     [ -n "$WANT" ] && ! grep -qw "$N" <<<"$WANT" && continue
     ROWS=$((ROWS+1))
-    ARGS=""; [ -f "$D/$N.args" ] && ARGS="$(cat "$D/$N.args")"
+    declare -a ARGV=(); ipl_argv_read "$E" ARGV; arc=$?
+    [ "$arc" -eq 2 ] && { echo "⛔ $N: $N.argv is malformed (the reader said why, above) -- FAIL, never run on a guessed argv."; BAD=1; continue; }
     IN=/dev/null; [ -f "$D/$N.stdin" ] && IN="$D/$N.stdin"
 
     # ---- oracle: icont over exactly the modules this entry links ------------------------------
@@ -79,24 +84,24 @@ for E in "$D"/*.icn; do
     # jlink's whole output is a diagnostic on stderr -- comparing stdout only would score it
     # VOID-EMPTY-ORACLE (measured, first cut of this gate) and read as a defect where there is none.
     # The oracle decides the stream once, and all three arms are then compared on that same stream.
-    o_out="$(cd "$W" && timeout "$TMO" "./$N.oracle" $ARGS <"$IN" 2>"$W/$N.oracle.err")"; o_rc=$?
+    o_out="$(cd "$W" && timeout "$TMO" "./$N.oracle" ${ARGV[@]+"${ARGV[@]}"} <"$IN" 2>"$W/$N.oracle.err")"; o_rc=$?
     STREAM=stdout
     if [ -z "$o_out" ] && [ -s "$W/$N.oracle.err" ]; then STREAM=stderr; o_out="$(cat "$W/$N.oracle.err")"; fi
 
     # ---- SCRIP mode 3 (default --run) ---------------------------------------------------------
     # ⛔ mode 3 needs `--` before PROGRAM args, or the driver reads them as its own flags -- and an
     # unrecognised flag is not diagnosed, it is treated as a FILENAME (scrip: cannot open '...').
-    M3ARGS=""; [ -n "$ARGS" ] && M3ARGS="-- $ARGS"
-    if [ "$STREAM" = stderr ]; then m3_out="$(cd "$D" && timeout "$TMO" "$SCRIP" "$E" $M3ARGS <"$IN" 2>&1 >/dev/null)"
-    else m3_out="$(cd "$D" && timeout "$TMO" "$SCRIP" "$E" $M3ARGS <"$IN" 2>"$W/$N.m3.err")"; fi; m3_rc=$?
+    declare -a M3ARGS=(); [ "${#ARGV[@]}" -gt 0 ] && M3ARGS=(-- "${ARGV[@]}")
+    if [ "$STREAM" = stderr ]; then m3_out="$(cd "$D" && timeout "$TMO" "$SCRIP" "$E" ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>&1 >/dev/null)"
+    else m3_out="$(cd "$D" && timeout "$TMO" "$SCRIP" "$E" ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>"$W/$N.m3.err")"; fi; m3_rc=$?
 
     # ---- SCRIP mode 4 (--compile -> as -> ld -> run) ------------------------------------------
     m4_out=""; m4_rc=""
     if ( cd "$D" && "$SCRIP" --compile -o "$W/$N.s" "$E" </dev/null ) >"$W/$N.m4c.log" 2>&1 \
        && as --64 -o "$W/$N.o" "$W/$N.s" 2>>"$W/$N.m4c.log" \
        && gcc -no-pie -o "$W/$N.m4bin" "$W/$N.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>>"$W/$N.m4c.log"; then
-        if [ "$STREAM" = stderr ]; then m4_out="$(cd "$D" && timeout "$TMO" "$W/$N.m4bin" $ARGS <"$IN" 2>&1 >/dev/null)"
-        else m4_out="$(cd "$D" && timeout "$TMO" "$W/$N.m4bin" $ARGS <"$IN" 2>/dev/null)"; fi; m4_rc=$?
+        if [ "$STREAM" = stderr ]; then m4_out="$(cd "$D" && timeout "$TMO" "$W/$N.m4bin" ${ARGV[@]+"${ARGV[@]}"} <"$IN" 2>&1 >/dev/null)"
+        else m4_out="$(cd "$D" && timeout "$TMO" "$W/$N.m4bin" ${ARGV[@]+"${ARGV[@]}"} <"$IN" 2>/dev/null)"; fi; m4_rc=$?
     else m4_rc="BUILD-ERR"; fi
 
     # ---- verdict: the ANSWER is the signal ----------------------------------------------------
