@@ -102,13 +102,18 @@ fi
 # graded here so the reading is printed rather than buried, WITH the limit stated: it is a syntactic read of
 # the *_gc_roots functions and a LIVE=0 from it is not a proof.
 # ⛔ (g) WHO OWNS THE BLOCK (CEO-850, RULES.md line 29 as amended).  A block libc owns handed to our arena or
-# our collector.  Graded and PRINTED rather than folded into a count, and ratcheted by arm (d) -- it reads 6
-# today and every one is named, because naming an open door is the opposite of printing a zero over one.
+# our collector.  Graded and PRINTED rather than folded into a count, and ratcheted by arm (d) -- it read 6 when
+# this arm landed and 0 on origin since a35750d9b, every one named, because naming an open door is the opposite of
+# printing a zero over one.  ⛔ AND THE DOORS THEMSELVES ARE COUNTED (coo 2026-09-23, row instruments-the-c-allocator-
+# census-knows-open-memstream-...): a libc heap block handed to NOTHING of ours -- a bare strdup in a static table --
+# was in no count, and open_memstream was not a door at all, so four live memstream drops read 0 here.  LIBC-DOORS
+# is ratcheted by arm (d) beside it, and an instrument silent on either reds this arm.
 lom="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators LIBC-OWNED-MISUSE=\([0-9]*\) .*/\1/p' | head -1)"
-if [ -z "$lom" ]; then
-  ck no "(g) the libc-ownership census did not print -- the test is WHO OWNS THE BLOCK and an instrument silent on it certifies every cross-allocator drop in the tree"
+doors="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators LIBC-DOORS=\([0-9]*\) .*/\1/p' | head -1)"
+if [ -z "$lom" ] || [ -z "$doors" ]; then
+  ck no "(g) the libc-ownership census or the libc-doors census did not print -- the test is WHO OWNS THE BLOCK and an instrument silent on it certifies every cross-allocator drop in the tree"
 else
-  ck ok "(g) ownership is GRADED and every mismatch named: LIBC-OWNED-MISUSE=$lom (ratcheted by arm (d); ct_drop on a libc pointer leaks and the MAGIC guard makes that safe rather than correct)"
+  ck ok "(g) ownership is GRADED and every mismatch named: LIBC-OWNED-MISUSE=$lom and LIBC-DOORS=$doors (both ratcheted by arm (d); ct_drop on a libc pointer reads 32 bytes it does not own -- it can segfault under ASLR and otherwise leaks, CFO-153)"
 fi
 
 # ⛔ (h) CLASS 3, RULED-PERMANENT (CEO-856, the cfo's shape).  Class 2 DEBT means "holder not yet rooted" and its

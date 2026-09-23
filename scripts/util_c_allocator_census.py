@@ -251,11 +251,14 @@ _ADDR_OF = re.compile(r"&\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?![\w\[])")
 # libc hands ownership out through more doors than the four names, and a block libc owns may not be handed to
 # OUR bookkeeping under any of them.  Two shapes, one root cause:
 #   ct_drop / ct_grow on a libc-owned pointer -- the arena reads the 32 bytes BEFORE the block looking for its
-#     magic header, which is memory it does not own, and then (the magic never matching) returns silently, so
-#     the buffer LEAKS.  The MAGIC guard makes it safe, not correct.
+#     magic header, which is memory it does not own.  ⛔ THAT READ IS NOT SAFE, MEASURED (the cfo, CFO-153, on the
+#     parent of a35750d9b): under ASLR the 32 bytes below a libc block can sit in an UNMAPPED gap and the read
+#     SEGFAULTS (rc 139); where they are mapped, the magic never matches, the drop returns silently and the buffer
+#     LEAKS (8 KB a call on the memstream sites).  The MAGIC guard makes it neither safe nor correct -- this line
+#     said "safe, not correct" until that measurement.
 #   a collector root over a libc-owned pointer -- the ceo's named hazard: the next getline reallocs it through
 #     libc and the root then names memory the collector never moved and libc has freed.
-_LIBC_OUT_PARAM = ("getline", "getdelim", "posix_memalign", "asprintf", "vasprintf")
+_LIBC_OUT_PARAM = ("getline", "getdelim", "posix_memalign", "asprintf", "vasprintf", "open_memstream", "open_wmemstream")
 _LIBC_RETURNS = ("strdup", "strndup", "strdupa", "malloc", "calloc", "realloc", "aligned_alloc",
                  "memalign", "valloc", "reallocarray")
 _OURS = {"ct_drop": "the arena's free", "ct_grow": "the arena's realloc", "ct_realloc": "the arena's realloc",
@@ -382,8 +385,9 @@ def libc_ownership_census(texts, out=print):
     out(f"CENSUS c-allocators LIBC-OWNED-MISUSE={len(uniq)} want=0 -- a block LIBC owns handed to OUR "
         f"bookkeeping (RULES.md line 29 as amended, CEO-850: the test is WHO OWNS THE BLOCK, never what the "
         f"function is called). ct_drop on a libc pointer reads the 32 bytes BEFORE the block hunting a magic "
-        f"header it does not own, then returns silently because the magic never matches -- so the buffer LEAKS, "
-        f"and the MAGIC guard makes that SAFE rather than CORRECT. A collector root over one is the same error "
+        f"header it does not own: under ASLR that read can land in an UNMAPPED gap and SEGFAULT (measured, the cfo "
+        f"CFO-153), and where it is mapped the magic never matches and the buffer LEAKS -- the MAGIC guard makes "
+        f"it neither safe nor correct. A collector root over one is the same error "
         f"wearing the opposite coat: the next getline reallocs it through libc and the root names memory the "
         f"collector never moved")
     for rel, ln, ours, expr, owner, what in uniq:
@@ -392,6 +396,39 @@ def libc_ownership_census(texts, out=print):
         f"a function-scoped reader merges by_name_dispatch.c's two `ln` variables and convicts the "
         f"arena-owned one -- but it cannot follow a pointer through a helper or across a struct assignment.")
     return uniq
+
+
+# ⛔⭐ THE LIBC DOORS (row instruments-the-c-allocator-census-knows-open-memstream-as-libc-owned-..., the coo 2026-09-23, the
+# cfo's CFO-153 item 4, ceo CEO-1208).  Lon's four names are not the only way a block reaches libc's heap: CEO-850 named the
+# other doors for the OWNERSHIP test above, but only a door whose block is later handed to OUR bookkeeping was ever counted --
+# a bare strdup kept in a static table (by_name_dispatch.c, 6a6983d9e) was in no count at all, and open_memstream was not even
+# a door, so four ct_drop()s on its buffers read LIBC-OWNED-MISUSE=0 while each leaked 8 KB a call and segfaulted under ASLR.
+# This is the twelve-name census the ownership arm's selftest promised, grown to thirteen: every CALL of a libc HEAP door
+# under src/ other than the four names FORBIDDEN already counts, named and ratcheted toward zero (Lon 2026-09-23 14:5x: "We,
+# of course, are using 100% GC heap and private arenas now").  strdupa is NOT a heap door -- alloca memory, freed with its
+# frame -- so it is not counted here; it stays in the ownership test, where a stack block handed to ct_drop is still the
+# wrong owner.  Comments and string literals are already blanked (strip_comments) and a prototype is not a call.
+_LIBC_HEAP_DOORS = ("strdup", "strndup", "aligned_alloc", "memalign", "valloc", "reallocarray", "getline", "getdelim",
+                    "posix_memalign", "asprintf", "vasprintf", "open_memstream", "open_wmemstream")
+_DOOR_RX = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(_LIBC_HEAP_DOORS) + r")\s*\(")
+
+
+def libc_doors_census(texts, out=print):
+    """Every call of a libc HEAP door other than the four forbidden names, one row each."""
+    hits = []
+    for rel, src in sorted(texts.items()):
+        if not any(d in src for d in _LIBC_HEAP_DOORS):
+            continue
+        for ln, line in enumerate(src.split("\n"), 1):
+            for m in _DOOR_RX.finditer(line):
+                if not is_declaration(line, m.start()):
+                    hits.append((rel, ln, m.group(1)))
+    out(f"CENSUS c-allocators LIBC-DOORS={len(hits)} want=0 -- a CALL of a libc HEAP door other than the four names "
+        f"({', '.join(_LIBC_HEAP_DOORS)}): a block libc's heap owns, outside the collector and every arena; ratcheted and "
+        f"named, driven to zero (strdupa is stack, not a door)")
+    for rel, ln, fn in hits:
+        out(f"  ⛔ LIBC-DOOR {rel}:{ln} {fn}()")
+    return hits
 
 
 def container_census(texts, out=print):
@@ -735,6 +772,7 @@ def census(root, by_dir=False, sites=False, out=print):
     # clause exists to stop).
     libc_misuse = libc_ownership_census(texts_for_container, out=out)
     COUNTS["libc_owned_misuse"] = len(libc_misuse)
+    COUNTS["libc_doors"] = len(libc_doors_census(texts_for_container, out=out))
     live_c, latent_c = container_census(texts_for_container, out=out)
     COUNTS["container_unmarked_live"] = len(live_c)
 
@@ -912,7 +950,7 @@ def census(root, by_dir=False, sites=False, out=print):
 # open.  If the ceo rules them in, the count falls to 0 and the ratchet reds asking for the win to be recorded.
 RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "alias_calls",
                 "arena_in_runtime_ratcheted", "arena_in_runtime_evasion", "arena_in_runtime_debt",
-                "container_unmarked_live", "libc_owned_misuse", "outside_src_sites"]
+                "container_unmarked_live", "libc_owned_misuse", "libc_doors", "outside_src_sites"]
 
 
 def ratchet(path, out=print):
@@ -957,7 +995,7 @@ def ratchet(path, out=print):
     out("RATCHET GREEN: every ratcheted count is exactly its baseline"); return 0
 
 
-ARMS_FLOOR = 38
+ARMS_FLOOR = 41   # 38 + the three door arms of row instruments-the-c-allocator-census-knows-open-memstream-... (coo 2026-09-23)
 
 
 def selftest():
@@ -1072,7 +1110,7 @@ def selftest():
         return libc_ownership_census({"src/runtime/t.c": src_}, out=b2.append)
     h = lc("void f(void){ char *ln = NULL; size_t cap = 0; getline(&ln, &cap, stdin); ct_drop(ln); }\n")
     ck(len(h) == 1 and h[0][2] == "ct_drop" and h[0][4] == "getline",
-       "A getline-OWNED BUFFER HANDED TO ct_drop IS NAMED -- the arena reads the bytes before a block it does not own, finds no magic, returns silently, and the buffer leaks; the MAGIC guard makes that safe, not correct")
+       "A getline-OWNED BUFFER HANDED TO ct_drop IS NAMED -- the arena reads the bytes before a block it does not own, hunting a magic header in memory it does not own -- under ASLR that read can segfault, and where it is mapped the magic never matches and the buffer leaks (CFO-153: neither safe nor correct)")
     h = lc("void f(void){ size_t cap = 128; char *ln = (char *)ct_alloc(cap); ct_drop(ln); }\n")
     ck(len(h) == 0,
        "and an ARENA-owned buffer of the same name handed to the same ct_drop is CLEAN -- this is the by_name_dispatch.c pair, where a function-scoped reader convicts the correct one")
@@ -1082,7 +1120,23 @@ def selftest():
        "A COLLECTOR ROOT LAID OVER A getline-OWNED BUFFER IS NAMED -- the ceo's hazard on holder 12: the next getline reallocs it through libc and the root names memory the collector never moved. This shape is NOT in the tree today and the arm reds the moment it is added")
     h = lc("static char *tbuf = NULL;\nvoid f(void){ static size_t tc = 0; getline(&tbuf, &tc, fp); }\n")
     ck(len(h) == 0,
-       "a getline-owned static that is never handed to our bookkeeping is NOT a hit -- libc owns it and keeps it, which is allowed until the twelve-name census lands with its cure")
+       "a getline-owned static that is never handed to our bookkeeping is NOT a misuse hit -- libc owns it and keeps it; the doors census below counts its getline() as a LIBC-DOOR instead")
+    h = lc("void f(void){ char *buf = NULL; size_t len = 0; FILE *m = open_memstream(&buf, &len); fclose(m); ct_drop(buf); }\n")
+    ck(len(h) == 1 and h[0][2] == "ct_drop" and h[0][4] == "open_memstream",
+       "AN open_memstream-OWNED BUFFER HANDED TO ct_drop IS NAMED -- the four memstream capture sites on a35750d9b's parent, each a ct_drop that leaked 8 KB a call and segfaulted under ASLR, read LIBC-OWNED-MISUSE=0 while this door was missing (CFO-153)")
+
+    # ⛔⭐ THE DOORS (row instruments-the-c-allocator-census-knows-open-memstream-...): a libc heap block handed to NOTHING of
+    # ours was in no count; planted on both sides, like the ownership arms above.
+    def dc(src_):
+        b2 = []
+        return libc_doors_census({"src/runtime/t.c": strip_comments(src_)}, out=b2.append)
+    d = dc("static char *nm_tab[8];\nvoid f(const char *nm){ char *persist = strdup(nm); nm_tab[0] = persist; }\n")
+    ck(len(d) == 1 and d[0][2] == "strdup",
+       "A BARE strdup IS A LIBC DOOR -- kept in a static table and handed to nothing of ours, it was in no count (by_name_dispatch.c, 6a6983d9e); the doors census names it")
+    d = dc('extern char *strdup(const char *);\nvoid f(const char *s){ char *a = ct_strdup(s); char *b = strdupa(s); '
+           'log("strdup(x) failed"); /* strdup( */ (void)a; (void)b; }\n')
+    ck(len(d) == 0,
+       "and a prototype, ct_strdup (our arena), strdupa (stack, freed with its frame), a string literal and a comment are NOT doors")
 
     # ⛔⭐ CEO-846: the class split is the arm that decides whether an honest sweep lands or a cfo-f62a33aed
     # shaped evasion does, so it is tested on BOTH sides -- a debt that must NOT red as an evasion, and an
