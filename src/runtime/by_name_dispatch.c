@@ -3156,7 +3156,7 @@ static int pl_edin_revert(int is_out) {
 typedef struct { const char *nm; char val[48]; int mod; const char *ok[6]; } pl_flag_t;
 enum { PL_FLAGS_MAX = 64 };
 static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
-    { "bounded", "true", 0, { 0 } },
+    { "bounded", "false", 0, { 0 } },
     { "integer_rounding_function", "toward_zero", 0, { 0 } },
     { "max_arity", "1024", 0, { 0 } },
     { "char_conversion", "off", 1, { "on", "off", 0 } },
