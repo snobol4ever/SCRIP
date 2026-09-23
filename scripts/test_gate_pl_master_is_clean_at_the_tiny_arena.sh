@@ -18,9 +18,20 @@
 # c_rt_gcheap_alloc reads SCRIP_GC_STRESS once into a static and raises g_gc_pending every N allocations, so it
 # is orthogonal to window size, and UNSET MEANS ZERO FORCED COLLECTIONS. A gate that pins the arena, leaves the
 # poll set unset and prints "tiny arena" certifies half of what a reader will take it to mean.
-#   ARM control  : shipped window, no forced collection  -- the baseline every other arm is diffed against
-#   ARM arena    : SCRIP_HEAP_MB=1                       -- does a SMALL WINDOW change an answer
-#   ARM stress:N : SCRIP_HEAP_MB=1 + SCRIP_GC_STRESS=N   -- does COLLECTING OFTEN change an answer, one arm per N
+#   ARM control  : SCRIP_HEAP_MB=512, no forced collection      -- the loose baseline every other arm is diffed against
+#   ARM arena    : compiled default (unset), no forced collection -- does the SMALL WINDOW change an answer
+#   ARM stress:N : compiled default (unset) + SCRIP_GC_STRESS=N -- does COLLECTING OFTEN change an answer, one arm per N
+#
+# ⛔⭐⭐ RE-POINTED 2026-09-22 (hq_prolog), CAUGHT BEFORE A RE-MEASURE COULD BE BUILT ON THE STALE READING, NOT
+# AFTER: ceo CEO-1095 (Lon 2026-09-21, "take the default GC arena down to 128 KB") made the compiled default
+# GC_HEAP_KB=128 the tiny/exasperating arena FOR EVERY SEAT, and made an explicit SCRIP_HEAP_MB=1 pin (1024 KB)
+# 8x LOOSER than that default, collecting 13x LESS (measured by the cfo on bench_icnstr_concat_table.icn: 1613
+# collections at 1 MB against 21362 at the 128 KB default). Before CEO-1095 an SCRIP_HEAP_MB=1 pin WAS the
+# exasperating arm; today it is the opposite one. This gate's "arena"/"stress:N" arms therefore leave
+# SCRIP_HEAP_MB/SCRIP_HEAP_KB UNSET ON PURPOSE, so they always track WHATEVER Lon's current tiny-arena default
+# is with no maintenance owed here when it moves again (the same reasoning the Makefile gives for `?=` over
+# `:=` on this knob). "control" is the one arm that now needs an EXPLICIT loose pin (512 MB) to keep a genuine
+# contrast to diff against, matching the value this gate's own DECIDABILITY probe already assumed for it.
 #
 # ⛔⭐⭐ A STRESS BAND, NEVER A STRESS POINT -- ceo CEO-1024, 2026-09-20, and it retired MY OWN first number.
 # hq_raku ran the raku master at SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=16 on the same tree and same binary as two
@@ -53,7 +64,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="${SCRIP:-$ROOT/scrip}"; P="${PL_SUITE_DIR:-$S4E/corpus/tests/prolog}"
-SHARDS="${SHARDS:-16}"; TINY_MB="${TINY_MB:-1}"
+SHARDS="${SHARDS:-16}"; CONTROL_MB="${CONTROL_MB:-512}"
 # ⛔ THE DEFAULT BAND GOES WELL ABOVE 5 AND ABOVE 16 ON PURPOSE (CEO-1024). 16 is where hq_raku found 36 silently
 # wrong raku programs; a band that STOPS at the highest value anyone has yet found a defect at is the same
 # circular choice this gate was just corrected for, so it carries a value ABOVE the known one.
@@ -65,7 +76,14 @@ SHARDS="${SHARDS:-16}"; TINY_MB="${TINY_MB:-1}"
 # The cto adds the shape that forbids a straight line in EITHER direction: hq_snobol4 has a witness RED at m4
 # stress 25 while GREEN at 10, 12, 16, 20, 35 AND 50. ⛔ WHATEVER A BAND FINDS IS A LOWER BOUND, NEVER A POPULATION.
 STRESS_BAND="${STRESS_BAND:-2 5 16 25}"
-STRESS_TIMEOUT="${STRESS_TIMEOUT:-600}"; SHARD_TIMEOUT="${SHARD_TIMEOUT:-5400}"
+STRESS_TIMEOUT="${STRESS_TIMEOUT:-1800}"; SHARD_TIMEOUT="${SHARD_TIMEOUT:-5400}"
+# ⛔ 600s -> 1800s (hq_prolog, 2026-09-22), MEASURED NOT GUESSED: after the arena-pin fix above raised how
+# often the corrected "arena"/"stress:N" arms genuinely collect, benchmark_queensn at stress:2 (both modes)
+# read INCONCLUSIVE-SLOW against the old 600s bound. Timed standalone, contention-free: 565s (m3) / 581s
+# (m4), both byte-exact against queensn.expected once they finished -- a correct program, not a hang, with
+# ZERO headroom under 600s. This box runs several seats' boards concurrently, so contention alone can push a
+# borderline case over a tight bound; 1800s gives ~3x headroom over the measured need. Re-run at 1500s on
+# this tree (control+stress:2 only, ARMS_OVERRIDE) confirmed clean: divergent=0 inconclusive=0 vanished=0.
 ARMS="control arena"; for _n in $STRESS_BAND; do ARMS="$ARMS stress:$_n"; done; ARMS="${ARMS_OVERRIDE:-$ARMS}"
 refuse(){ GATE_VERDICT=2; echo "⛔ REFUSED-TO-GRADE(2): $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "scrip not built at $SCRIP"
@@ -95,9 +113,9 @@ run_arm(){ # $1 = tag
   for k in $(seq 1 "$SHARDS"); do
     _before=$(wc -l < "$W/$fn.db")
     ( case "$tag" in
-        control)  unset SCRIP_HEAP_MB SCRIP_GC_STRESS ;;
-        arena)    export SCRIP_HEAP_MB="$TINY_MB"; unset SCRIP_GC_STRESS ;;
-        stress:*) export SCRIP_HEAP_MB="$TINY_MB" SCRIP_GC_STRESS="${tag#stress:}" TIMEOUT="$STRESS_TIMEOUT" ;;
+        control)  export SCRIP_HEAP_MB="$CONTROL_MB"; unset SCRIP_GC_STRESS ;;
+        arena)    unset SCRIP_HEAP_MB SCRIP_GC_STRESS ;;
+        stress:*) unset SCRIP_HEAP_MB; export SCRIP_GC_STRESS="${tag#stress:}" TIMEOUT="$STRESS_TIMEOUT" ;;
         *) exit 9 ;;
       esac
       S4E_PROGRESS_DB="$W/$fn.db" timeout "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
@@ -154,17 +172,19 @@ run_arm(){ # $1 = tag
 # [GC-WALK] shows the collector ran 8001 times. A seat copying it across languages gets a clean zero FOR THE
 # WRONG REASON and the output cannot tell the two apart. Hence the POSITIVE CONTROL below: this probe must show
 # the counter FIRING before a zero anywhere else may be read as "did not collect".
-collect_probe(){ # $1 = SCRIP_HEAP_MB, $2 = SCRIP_GC_STRESS -> prints the [GC-WALK] count
-  SCRIP_GC_MAPS=1 SCRIP_HEAP_MB="$1" SCRIP_GC_STRESS="$2" timeout 120 "$SCRIP" "$W/probe.pl" < /dev/null 2>&1 >/dev/null | grep -c '^\[GC-WALK\]' || true
+collect_probe(){ # $1 = SCRIP_HEAP_MB or empty (empty = compiled default, currently GC_HEAP_KB=128 per CEO-1095), $2 = SCRIP_GC_STRESS -> prints the [GC-WALK] count
+  ( [ -n "$1" ] && export SCRIP_HEAP_MB="$1"
+    export SCRIP_GC_MAPS=1 SCRIP_GC_STRESS="$2"
+    timeout 120 "$SCRIP" "$W/probe.pl" < /dev/null 2>&1 >/dev/null | grep -c '^\[GC-WALK\]' || true )
 }
 printf ':- initialization(main).\nmk(0,[]) :- !.\nmk(N,[N|T]) :- M is N-1, mk(M,T).\nmain :- mk(2000,L), length(L,X), write(X), nl.\n' > "$W/probe.pl"
-pos=$(collect_probe "$TINY_MB" 1)
-[ "${pos:-0}" -gt 0 ] || refuse "POSITIVE CONTROL FAILED: [GC-WALK] counted 0 at arena ${TINY_MB} MB stress 1, where the collector certainly runs. The decidability instrument is not reporting on this tree, so a zero anywhere below would be uninterpretable -- and an uninterpretable zero reported as 'did not collect' is exactly the false clean this arm exists to prevent."
-echo "DECIDABILITY positive-control [GC-WALK]=$pos at arena=${TINY_MB}MB stress=1 -- the counter fires, so a zero below is a MEASURED zero"
+pos=$(collect_probe "" 1)
+[ "${pos:-0}" -gt 0 ] || refuse "POSITIVE CONTROL FAILED: [GC-WALK] counted 0 at the compiled default arena stress 1, where the collector certainly runs. The decidability instrument is not reporting on this tree, so a zero anywhere below would be uninterpretable -- and an uninterpretable zero reported as 'did not collect' is exactly the false clean this arm exists to prevent."
+echo "DECIDABILITY positive-control [GC-WALK]=$pos at the compiled default arena (GC_HEAP_KB, currently 128 KB per CEO-1095), stress=1 -- the counter fires, so a zero below is a MEASURED zero"
 for _a in $ARMS; do
-  case "$_a" in control) _mb=512; _st=0 ;; arena) _mb="$TINY_MB"; _st=0 ;; stress:*) _mb="$TINY_MB"; _st="${_a#stress:}" ;; esac
+  case "$_a" in control) _mb="$CONTROL_MB"; _st=0 ;; arena) _mb=""; _st=0 ;; stress:*) _mb=""; _st="${_a#stress:}" ;; esac
   _w=$(collect_probe "$_mb" "$_st")
-  echo "DECIDABILITY arm=$_a arena=${_mb}MB stress=${_st} probe_gc_walks=${_w}$([ "${_w:-0}" -eq 0 ] && echo '  ⛔ THIS ARM DOES NOT COLLECT -- any green from it is a statement about the CORPUS, not the collector')"
+  echo "DECIDABILITY arm=$_a arena=${_mb:-compiled-default} stress=${_st} probe_gc_walks=${_w}$([ "${_w:-0}" -eq 0 ] && echo '  ⛔ THIS ARM DOES NOT COLLECT -- any green from it is a statement about the CORPUS, not the collector')"
   case "$_a" in stress:*) [ "${_w:-0}" -gt 0 ] || refuse "arm $_a produced ZERO collections on the probe -- a stress arm that does not collect cannot report on the collector, and a green from it would be the false clean CONDITION 1 exists to prevent" ;; esac
 done
 for a in $ARMS; do run_arm "$a"; done
@@ -212,5 +232,5 @@ if [ "$inconclusive" -ne 0 ]; then
   GATE_VERDICT=2; exit 2
 fi
 [ "$rc" -eq 0 ] && { echo "✅ RESULT: PASS -- every arm answers identically to control, per entry, BY ORACLE DIFF against ALL.ref."; \
-  echo "   Axes varied: window (${TINY_MB} MB) and poll set, as a BAND: SCRIP_GC_STRESS in {${STRESS_BAND}}. Prolog's master does not change its answer under collection."; }
+  echo "   Axes varied: window (control=${CONTROL_MB} MB vs the compiled tiny default) and poll set, as a BAND: SCRIP_GC_STRESS in {${STRESS_BAND}}. Prolog's master does not change its answer under collection."; }
 GATE_VERDICT=$rc; exit $rc
