@@ -2651,6 +2651,8 @@ static int zd_defer_exit_on(void) { static int v = -1; if (v < 0) { const char *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_close_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZD_CLOSE"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_repl_free_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZD_REPL_FREE"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_exit_pop_s(IR_e op, int mark, int full, int stmt, int mafter) { if (!(mark >= 0 && zd_stmt_exit_kind(op))) return full; int wm = mark;
     if (op == IR_GOTO_DEFERRED && stmt >= 0 && zd_defer_exit_on()) return full - (stmt - wm);
     return (mafter >= 0 && full > mafter) ? (wm + (full - mafter)) : wm; }
@@ -2758,6 +2760,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 { if (nodes[i]->op == IR_MATCH_REPLACE || nodes[i]->op == IR_MATCH_END) zdh_mafter = (int)zd + K; }
                 if (zarm && zarm[i] >= 0) { if (aent[i]) arm_zd = zout[zarm[i]] - zd_k(nodes[zarm[i]]); zon[i] = 1; zout[i] = arm_zd + K; arm_zd = arm_zd + K; }
                 else { zon[i] = 1; zout[i] = zd + K - REL; zd = zd + K - REL; }
+                { if (zd_close_on() && zd_repl_free_on() && zwt == 0 && nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0, _me = 0; for (int _rr = r - 1; _rr >= 0; _rr--) { int _j = run[_rr]; if (nodes[_j]->op == IR_MATCH_END) { _me = 1; break; } _zu += zd_k(nodes[_j]); } if (_me) { zd -= _zu; zdh_mafter = (int)zd; } } }
                 { if (zd_close_on() && zwt > 0 && (nodes[i]->op == IR_MATCH_REPLACE || nodes[i]->op == IR_MATCH_END)) { zd = zwms[--zwt]; zdh_match = (int)zd; zdh_mafter = (int)zd; } }
                 IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node);
                 int gin = 0; int oin = 0; int gback = -1; int oback = -1;
