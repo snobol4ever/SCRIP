@@ -1303,12 +1303,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * wce = NULL; IR_t * wc = mkc_node(cx, "$w", pl_nfv, wk, we, &wce);
                 IR_t * pkids[2]; IR_t * pkes[2]; pkids[0] = wc; pkes[0] = wce; pkids[1] = tv2; pkes[1] = te2;
                 IR_t * pe = NULL; IR_t * pr = mkc_node(cx, "-", 2, pkids, pkes, &pe);
-                IR_t * bc2 = build(cx, IR_CALL, lo, ωfail); IR_LIT(bc2).sval = "$ball_pending";
-                IR_t * gcutω2 = build(cx, IR_GOTO, lo, lo);
+                IR_t * mark2 = build(cx, IR_BOUND, NULL, ωfail);
+                IR_t * unmk2 = build(cx, IR_UNMARK, lo, ωfail); ir_operand_push(unmk2, mark2); IR_LIT(unmk2).ival = pl_fence_on() ? 5 : 1;
+                IR_t * bc2 = build(cx, IR_CALL, unmk2, ωfail); IR_LIT(bc2).sval = "$ball_pending";
+                IR_t * gcutω2 = build(cx, IR_GOTO, unmk2, unmk2);
                 IR_t * gsaveω2 = cx->cutω; cx->cutω = gcutω2; int gsave_scope2 = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
                 IR_t * first2 = pl_lower_conj(cx, (const tree_t * const *) glv2.data, glv2.n, pe ? pe : pr, bc2, &gentry, &gredo, NULL);
                 cx->cutω = gsaveω2; cx->cut_scope = gsave_scope2;
-                lc_γ_to(acc, gentry ? gentry : (first2 ? first2 : lo));
+                lc_γ_to(acc, mark2);
+                lc_γ_to(mark2, gentry ? gentry : (first2 ? first2 : unmk2));
                 lc_γ_to(pr, add); lc_ω_to(pr, lo);
                 ir_operand_push(add, acc); ir_operand_push(add, pr);
                 if (gredo) lc_γ_to_β(add, gredo); else lc_γ_to(add, lo);

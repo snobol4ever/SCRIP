@@ -183,14 +183,7 @@ static void pb_expand_bagof(tree_t *t) {
         tree_t *fin = is_setof ? pb_fnc2("sort", pb_var(b1), L) : pb_fnc2("=", pb_var(b1), L);
         inner = pb_fnc2(",", ne, fin);
     } else {
-        tree_t *k1 = ast_node_new(TT_FNC); k1->v.sval = ct_strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k1, pb_var(fv[i]));
-        tree_t *k2 = ast_node_new(TT_FNC); k2->v.sval = ct_strdup("$bagkey"); for (int i = 0; i < nfv; i++) ast_push(k2, pb_var(fv[i]));
-        snprintf(b1, sizeof b1, "_$B%d", g_pb_fresh_ctr++);
-        snprintf(b2, sizeof b2, "_$B%d", g_pb_fresh_ctr++);
-        fa = pb_fnc3("findall", pb_fnc2("-", k1, T), G1, pb_var(b1));
-        tree_t *prep = pb_fnc2(is_setof ? "$bag_prep_s" : "$bag_prep_b", pb_var(b1), pb_var(b2));
-        tree_t *grp = pb_fnc3("$bag_group", pb_var(b2), k2, L);
-        inner = pb_fnc2(",", prep, grp);
+        return;
     }
     t->v.sval = ct_strdup(","); t->n = 0;
     ast_push(t, fa); ast_push(t, inner);
