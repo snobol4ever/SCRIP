@@ -826,6 +826,14 @@ static void gc_visit_one(DESCR_t *d)
         gc_mark_blk(h, 0);
         gc_slot_reg((void *)&d->p);
         return; }
+    case DT_E: {
+        if (!IS_PROCVAL_fn(*d)) return;
+        rt_hblk_t *h = gc_blk_of(d->s);
+        if (!h) return;
+        gc_mark_blk(h, 0);
+        if (d->s != (char *)(h + 1)) g_gc_interior++;
+        gc_slot_reg((void *)&d->s);
+        return; }
     default: return;
     }
 }
