@@ -926,6 +926,7 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "true"))  return bin(TT_EQ, ilit(1), ilit(1));
     if (name && !strcmp(name, "false")) return bin(TT_EQ, ilit(0), ilit(1));
     if (name && !strcmp(name, "nil"))   return ilit(0);
+    if (name && !strcmp(name, "hinstance")) return ilit(0);
     if (name && !strcmp(name, "eof"))   return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln"))  return mk_fnc0("__pas_eoln");
     long long cv; if (pas_const_get(name, &cv)) return pas_is_charvar(name) ? mk_fnc1("__pas_chrlit", ilit(cv)) : ilit(cv);
