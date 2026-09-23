@@ -32,6 +32,16 @@
 # both modes rc=0 identical to the oracle across 4 collections on the deletion tree.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
+# ⛔⭐ THIS GATE NAMES ITS OWN ARENA, AND THAT IS THE RULE, NOT AN EXEMPTION (Lon 2026-09-19, ceo CEO-938; RULES.md § THE
+# INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2; declared in test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh).
+# The witness below keeps 30000 table entries LIVE by design (the property is that a live aggregate survives the slide), and
+# measured on 2026-09-23 (cto, CTO-149) that live set is 27509 blocks at the moment the 4096 KB HARD CAP refuses it under the
+# inherited SCRIP_HEAP_MB=1: rc=134 with COLLECTIONS RUN 494 in mode 3 and 1007 on a clean tree -- a CAPACITY verdict by the
+# collector's own classification (the collector ran, reclaimed, and the survivors did not fit), not a pin and not a skipped
+# forwarding. So both witness arms pin the arena the witness was calibrated at; the property arm and the plant arm still
+# read every collection the pinned run makes (measured 4 at 512 MB in both modes: the live set fits and the collections
+# come from the pacing line, so the count is whatever the pinned window yields and the arms require >= 1).
+export SCRIP_HEAP_MB=512
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $SCRIP"; exit 2; }
