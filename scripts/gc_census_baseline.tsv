@@ -61,7 +61,7 @@ conservative	cons_stack_uses	0	0
 conservative	rt_cas_live_span_uses	0	0
 conservative	hb_scan_interior_uses	0	0
 allocator	rt_gc_collect_calls_in_the_allocator	0	0
-safe-points	unpolled	1	0
+safe-points	unpolled	2	0
 safe-points	partially_polled	0	0
 safe-points	unresolved	0	0
 callbacks	unwrapped	0	0

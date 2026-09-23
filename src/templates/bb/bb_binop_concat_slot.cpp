@@ -82,7 +82,6 @@ std::string bb_binop_concat_slot() {
          + x86("mov", "rdx", FRQ(_.op_sb))
          + x86("mov", "rcx", FRQ(_.op_sb + 8))
          + x86("call_rt", bcs_rt_name(), (long)_.op_off, (uint64_t)(uintptr_t)bcs_rt_addr())
-         + x86_rt_gc_poll()
          + IF(_.op_ival == BINOP_LCONCAT, x86("mov", "eax", FR(_.op_off))
          + x86("cmp", "al", (long)DT_FAIL)
          + x86_omega("je"))
