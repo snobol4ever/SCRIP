@@ -4,7 +4,7 @@
 #
 #   bash scripts/monitor_run.sh <source>            # --modes: SCRIP mode 3 against SCRIP mode 4 in lock-step (every language)
 #   bash scripts/monitor_run.sh <source> --trace    # print the trace (statement / assignment / call / return) of a mode-3 run
-#   bash scripts/monitor_run.sh <source> --oracle   # SCRIP against the language's oracle in lock-step (SNOBOL4: SPITBOL fork; Icon: icx; Prolog: gpx, the GNU Prolog fork; Pascal: fpx, the Free Pascal fork)
+#   bash scripts/monitor_run.sh <source> --oracle   # SCRIP against the language's oracle in lock-step (SNOBOL4: SPITBOL fork; Icon: icx; Prolog: gpx, the GNU Prolog fork; Pascal: fpx, the Free Pascal fork; Raku: rkx, the Rakudo fork)
 #   [--input FILE] feeds stdin (default: <base>.input beside the source if present, else /dev/null)
 #
 # Every mode-3/mode-4 run is preceded by the MONITOR-SAFE CHECK (RULES.md: a monitor verdict is a verdict on a different program):
@@ -71,7 +71,7 @@ fi
 if [ "$mode" = oracle ]; then
     case "$ext" in
         sno) parts="spl scr" ;;
-        raku) parts="rko scr" ;;
+        raku) parts="rkx scr" ;;
         icn) parts="icx scr" ;;
         pl) parts="gpx scr" ;;
         pas) parts="fpx scr" ;;

@@ -53,7 +53,7 @@
 extern int raku_yydebug;
 #endif
 /* "%code requires" blocks.  */
-#line 2 "raku.y"
+#line 3 "raku.y"
 
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
@@ -245,7 +245,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 646 "raku.y"
+#line 648 "raku.y"
 
     long      ival;
     double    dval;
@@ -261,9 +261,23 @@ typedef union RAKU_YYSTYPE RAKU_YYSTYPE;
 # define RAKU_YYSTYPE_IS_DECLARED 1
 #endif
 
+/* Location type.  */
+#if ! defined RAKU_YYLTYPE && ! defined RAKU_YYLTYPE_IS_DECLARED
+typedef struct RAKU_YYLTYPE RAKU_YYLTYPE;
+struct RAKU_YYLTYPE
+{
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+};
+# define RAKU_YYLTYPE_IS_DECLARED 1
+# define RAKU_YYLTYPE_IS_TRIVIAL 1
+#endif
+
 
 extern RAKU_YYSTYPE raku_yylval;
-
+extern RAKU_YYLTYPE raku_yylloc;
 
 int raku_yyparse (void);
 

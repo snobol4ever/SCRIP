@@ -86,6 +86,7 @@ SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
 ICON_MON="${ICON_MON_ROOT:-$S4A/icon-mon}"
 GPROLOG_MON="${GPROLOG_MON_ROOT:-$S4A/gprolog-mon}"
 FPC_MON="${FPC_MON_ROOT:-$S4A/fpc-mon}"
+RAKUDO_MON="${RAKUDO_MON_ROOT:-$S4A/rakudo-mon}"
 INC="${INC:-$S4E/corpus/include}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
@@ -104,12 +105,12 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot|scr3|scr4|rko|icx|gpx|fpx) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko, icx, gpx, fpx)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4|rkx|icx|gpx|fpx) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rkx, icx, gpx, fpx)"; exit 2 ;;
     esac
 done
 
-want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0; want_icx=0; want_gpx=0; want_fpx=0
+want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rkx=0; want_icx=0; want_gpx=0; want_fpx=0
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
         csn) want_csn=1 ;;
@@ -118,7 +119,7 @@ for p in "${PARTICIPANTS[@]}"; do
         scr3) want_scr3=1 ;;
         scr4) want_scr4=1 ;;
         dot) want_dot=1 ;;
-        rko) want_rko=1 ;;
+        rkx) want_rkx=1 ;;
         icx) want_icx=1 ;;
         gpx) want_gpx=1 ;;
         fpx) want_fpx=1 ;;
@@ -133,7 +134,7 @@ done
 [[ "$want_spl" = "1" ]] && [[ ! -x "$SPITBOL" ]]  && { echo "FAIL spitbol not built: $SPITBOL"; exit 2; }
 [[ "$want_dot" = "1" ]] && [[ ! -f "$SNO4_DLL" ]] && { echo "FAIL snobol4dotnet not built: $SNO4_DLL — dotnet build Snobol4/Snobol4.csproj -c Release -p:EnableWindowsTargeting=true"; exit 2; }
 [[ "$want_dot" = "1" ]] && ! command -v dotnet >/dev/null 2>&1 && { echo "FAIL dotnet command missing — apt-get install -y dotnet-sdk-10.0"; exit 2; }
-[[ "$want_rko" = "1" ]] && [[ ! -f "$MON_DIR/raku_oracle_bridge.py" ]] && { echo "FAIL raku_oracle_bridge.py missing"; exit 2; }
+[[ "$want_rkx" = "1" ]] && [[ ! -x "$RAKUDO_MON/bin/raku" ]] && { echo "FAIL instrumented Rakudo fork not built at $RAKUDO_MON/bin/raku -- bash scripts/monitor/oracles/build_rakudo_mon.sh <prefix> (RAKUDO_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_icx" = "1" ]] && { [[ ! -x "$ICON_MON/bin/icont" ]] || [[ ! -x "$ICON_MON/bin/iconx" ]]; } && { echo "FAIL instrumented Icon fork not built at $ICON_MON/bin/{icont,iconx} -- bash scripts/monitor/oracles/build_icon_mon.sh <prefix> (ICON_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_gpx" = "1" ]] && [[ ! -x "$GPROLOG_MON/bin/gplc" ]] && { echo "FAIL instrumented GNU Prolog fork not built at $GPROLOG_MON/bin/gplc -- bash scripts/monitor/oracles/build_gprolog_mon.sh <prefix> (GPROLOG_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_fpx" = "1" ]] && [[ ! -x "$FPC_MON/bin/fpc" ]] && { echo "FAIL instrumented Free Pascal fork not built at $FPC_MON/bin/fpc -- bash scripts/monitor/oracles/build_fpc_mon.sh <prefix> (FPC_MON_ROOT names the prefix)"; exit 2; }
@@ -293,17 +294,20 @@ if [[ "$want_dot" = "1" ]]; then
     PIDS+=($!)
 fi
 
-# rko — raku oracle bridge (raku-monitor-oracle-bridge-...). No MONITOR_BIN/engine hook to set: real Rakudo has
-# no trace hook (MONITOR-BINARY-DESIGN.md THE ORACLE-SIDE BRIDGES ARE EACH HQ'S OWN), so this is an out-of-process
-# Python participant that runs the witness's hand-instrumented oracle twin to completion, parses its note()
-# stderr into events, then speaks the READY/GO wire itself (raku_oracle_bridge.py). Env-var driven like every
-# other participant so it drops into this harness without a special case anywhere else in this file.
-if [[ "$want_rko" = "1" ]]; then
-    MONITOR_READY_PIPE="$TMP/rko.ready" \
-    MONITOR_GO_PIPE="$TMP/rko.go" \
-    MONITOR_NAMES_OUT="$TMP/rko.names" \
-        timeout "$((TIMEOUT*2))" python3 "$MON_DIR/raku_oracle_bridge.py" "$SNO" \
-        < "$STDIN_SRC" > "$TMP/rko.out" 2> "$TMP/rko.err" &
+# ⭐ rkx (cfo 2026-09-23, Lon: "Build the Rakudo IPC sync-step monitor inside Rakudo just like CEO did for Icon and Prolog"):
+# the Rakudo 2026.05 fork built by scripts/monitor/oracles/build_rakudo_mon.sh -- the compiler injects four extops (monitor_rkx.c
+# beside perl6_ops.c) into the user's compilation unit only: p6monstmt before every statement of every statement list, p6moncall at
+# every named routine's entry, p6monret around every routine body, p6monval after every store to a named variable; CORE and every
+# precompilation are never instrumented. The extops speak the shared monitor_ipc_lib.c wire and are silent no-ops when the pipes
+# are unset (the fork's untraced output is the pristine oracle's, proven by the build script's control arm). No compile step: raku
+# compiles and runs the witness in one process.
+if [[ "${want_rkx:-0}" = "1" ]]; then
+    RKX_SRC="$(realpath "$SNO")"
+    MONITOR_READY_PIPE="$TMP/rkx.ready" \
+    MONITOR_GO_PIPE="$TMP/rkx.go" \
+    MONITOR_NAMES_OUT="$TMP/rkx.names" \
+        timeout "$((TIMEOUT*2))" "$RAKUDO_MON/bin/raku" "$RKX_SRC" \
+        < "$STDIN_SRC" > "$TMP/rkx.out" 2> "$TMP/rkx.err" &
     PIDS+=($!)
 fi
 

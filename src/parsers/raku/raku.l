@@ -16,6 +16,14 @@ void raku_lex_error(const char *msg) {
     fprintf(stderr, "raku lex error line %d: %s\n", raku_yylineno, msg);
 }
 int raku_get_lineno(void) { return raku_yylineno; }
+static int raku_str_line = 0;
+static void raku_stamp_yylloc(const char *text, int len) {
+    int nl = 0;
+    for (int k = 0; k < len; k++) if (text[k] == '\n') nl++;
+    raku_yylloc.first_line = raku_yylineno - nl; raku_yylloc.last_line = raku_yylineno;
+    raku_yylloc.first_column = raku_yylloc.last_column = 0;
+}
+#define YY_USER_ACTION raku_stamp_yylloc(yytext, yyleng);
 %}
 %option noyywrap noinput nounput
 %option prefix="raku_yy"
@@ -294,9 +302,10 @@ WS       [ \t\r]
 "\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return VAR_SCALAR; }
 {ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = ct_strdup(yytext); return IDENT; }
 {ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = ct_strdup(yytext); return IDENT; }
-"\""            { raku_strpos = 0; BEGIN(STR_DQ); }
+"\""            { raku_strpos = 0; raku_str_line = raku_yylineno; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
@@ -309,10 +318,11 @@ WS       [ \t\r]
 <STR_DQ>"\\\"" { raku_strbuf[raku_strpos++] = '"'; }
 <STR_DQ>\n     { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_DQ>.      { raku_strbuf[raku_strpos++] = yytext[0]; }
-"'"             { raku_strpos = 0; BEGIN(STR_SQ); }
+"'"             { raku_strpos = 0; raku_str_line = raku_yylineno; BEGIN(STR_SQ); }
 "｢"         { raku_strpos = 0; BEGIN(STR_CORNER); }
 <STR_CORNER>"｣"  {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
@@ -321,6 +331,7 @@ WS       [ \t\r]
 <STR_CORNER>.      { if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = yytext[0]; }
 <STR_SQ>"'"    {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
@@ -355,6 +366,7 @@ WS       [ \t\r]
 "/"             { if (raku_after_smatch) { raku_after_smatch=0; raku_strpos=0; BEGIN(STR_RE); } else { return '/'; } }
 <STR_RE>"/"    {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (raku_match_global) { raku_match_global=0; return LIT_MATCH_GLOBAL; }

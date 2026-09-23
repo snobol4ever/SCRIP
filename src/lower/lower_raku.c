@@ -135,6 +135,7 @@ static int rk_proc_known(const char * name);
 static IR_t * rk_excise(rcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) { IR_t * nd = build(cx, IR_EXCISED, γ, ω); if (res) *res = nd; return nd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static long trace_stmt_line(const tree_t * s) { return (s && s->t != TT_USE_DECL) ? s->line : 0; }
 static IR_t * trace_stmt_wrap(rcx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
     if (line <= 0 || !trace_wanted()) return stmt_entry;
     IR_t * call = build(cx, IR_CALL, stmt_entry, ω); IR_LIT(call).sval = "__trace_stmt";
@@ -165,7 +166,7 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     for (int i = t->n - 1; i >= 0; i--) {
         const tree_t * s = t->c[i];
         if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-        long line = s ? s->line : 0;
+        long line = trace_stmt_line(s);
         if (s && s->t == TT_CATCH) continue;
         if (s && (s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
         IR_t * gs = succ, * gw = ω;
@@ -403,12 +404,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * eb = lower_rv(cx, rhs->c[1], op, ω, &rr);
             γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
             ir_operand_push(nd, op); *res = nd; return ea; }
-        IR_t * vtrace_call = NULL; IR_t * vtrace = trace_value_prep(cx, t->c[0]->v.sval, γ, ω, &vtrace_call);
+        int decl_only = t->c[1] && t->c[1]->t == TT_NUL && t->c[1]->v.ival == 1;
+        IR_t * vtrace_call = NULL; IR_t * vtrace = decl_only ? NULL : trace_value_prep(cx, t->c[0]->v.sval, γ, ω, &vtrace_call);
         IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_DECL: if (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
-        IR_t * vtrace_call = NULL; IR_t * vtrace = trace_value_prep(cx, t->c[1]->v.sval, γ, ω, &vtrace_call);
+        int loop_bind = t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__decl");
+        IR_t * vtrace_call = NULL; IR_t * vtrace = (t->n > 2 && t->c[2] && !loop_bind) ? trace_value_prep(cx, t->c[1]->v.sval, γ, ω, &vtrace_call) : NULL;
         IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[1]->v.sval;
         IR_t * rr = NULL; IR_t * e; if (t->n > 2 && t->c[2]) { e = lower_rv(cx, t->c[2], nd, ω, &rr); }
         else { IR_t * u = build(cx, IR_CALL, nd, ω); IR_LIT(u).sval = "__rk_undef"; rr = u; e = u; }
@@ -1026,7 +1029,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
             if (s->t == TT_VAR) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
-            if (e) e = trace_stmt_wrap(&cx, s->line, e, fail);
+            if (e) e = trace_stmt_wrap(&cx, trace_stmt_line(s), e, fail);
             if (e) { entry = e; sentry = e; }
         }
         ct_drop(rk_plan); g->entry = trace_call_wrap(&cx, rk_proc_name, entry, fail); return g;
@@ -1037,7 +1040,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
         if (s->t == TT_VAR) continue;
         IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
-        if (e) e = trace_stmt_wrap(&cx, s->line, e, fail);
+        if (e) e = trace_stmt_wrap(&cx, trace_stmt_line(s), e, fail);
         if (e) { entry = e; sentry = e; }
     }
     if (pd && !is_multi) {
@@ -1395,14 +1398,14 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
                     if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
                     if (!ch || ch->t == TT_SUB_DECL) continue;
                     IR_t * r = NULL; IR_t * e = lower_rv(&tcx, ch, sentry, sentry, &r);
-                    if (e) e = trace_stmt_wrap(&tcx, ch->line, e, sentry);
+                    if (e) e = trace_stmt_wrap(&tcx, trace_stmt_line(ch), e, sentry);
                     if (e) { entry = e; sentry = e; }
                 }
                 continue;
             }
             if ((s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, sentry, &r);
-            if (e) e = trace_stmt_wrap(&tcx, s->line, e, sentry);
+            if (e) e = trace_stmt_wrap(&tcx, trace_stmt_line(s), e, sentry);
             if (e) { entry = e; sentry = e; }
         }
         tg->entry = trace_call_wrap(&tcx, "main", entry, fail);

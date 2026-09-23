@@ -1854,6 +1854,14 @@ void raku_lex_error(const char *msg) {
     fprintf(stderr, "raku lex error line %d: %s\n", raku_yylineno, msg);
 }
 int raku_get_lineno(void) { return raku_yylineno; }
+static int raku_str_line = 0;
+static void raku_stamp_yylloc(const char *text, int len) {
+    int nl = 0;
+    for (int k = 0; k < len; k++) if (text[k] == '\n') nl++;
+    raku_yylloc.first_line = raku_yylineno - nl; raku_yylloc.last_line = raku_yylineno;
+    raku_yylloc.first_column = raku_yylloc.last_column = 0;
+}
+#define YY_USER_ACTION raku_stamp_yylloc(yytext, yyleng);
 #define YY_NO_INPUT 1
 
 #define INITIAL 0
@@ -3365,12 +3373,13 @@ YY_RULE_SETUP
 	YY_BREAK
 case 259:
 YY_RULE_SETUP
-{ raku_strpos = 0; BEGIN(STR_DQ); }
+{ raku_strpos = 0; raku_str_line = raku_yylineno; BEGIN(STR_DQ); }
 	YY_BREAK
 case 260:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
@@ -3405,7 +3414,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 267:
 YY_RULE_SETUP
-{ raku_strpos = 0; BEGIN(STR_SQ); }
+{ raku_strpos = 0; raku_str_line = raku_yylineno; BEGIN(STR_SQ); }
 	YY_BREAK
 case 268:
 YY_RULE_SETUP
@@ -3415,6 +3424,7 @@ case 269:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
@@ -3433,6 +3443,7 @@ case 272:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     return LIT_STR;
@@ -3510,6 +3521,7 @@ case 286:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
+    raku_yylloc.first_line = raku_str_line;
     raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
     if (raku_match_global) { raku_match_global=0; return LIT_MATCH_GLOBAL; }

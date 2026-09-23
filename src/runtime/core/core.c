@@ -631,7 +631,9 @@ void rt_trace_value(const char *name, DESCR_t val) {
     g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
-    if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, val); else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
+    DESCR_t wire = val;
+    if ((name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
+    if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, wire); else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
 }
 static char  **g_bin_names      = NULL;
 static int    *g_bin_name_lens  = NULL;
