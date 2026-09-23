@@ -214,12 +214,17 @@ compile_mode4() {
 # instrument. ⛔ The DISCOVERED corpora (crosscheck, beauty) filter a ref-less .sno BEFORE calling here, so a
 # missing file can only ever mean a stale hardcoded path -- which is always a defect and never a legitimate skip.
 run_test() {
-    local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}"
+    local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}" heap_kb="${6:-}"
     if [ ! -f "$sno" ]; then MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  ${label}: no program at ${sno}\n"; return; fi
     if [ ! -f "$ref" ]; then MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  ${label}: no oracle ref at ${ref}\n"; return; fi
     local exp; exp=$(cat "$ref")
     local slug; slug=$(echo "$label" | tr '/: ' '_')
     local inp_arg; [ -n "$input" ] && [ -f "$input" ] && inp_arg="$input" || inp_arg=""
+    # ⛔⭐ THE DECLARED ARENA, FOR THIS LOOP PROGRAM ONLY (mirrors corpus_suite_harness.py's heap_kb column,
+    # CEO-1167): a hardcoded loop-program row has no ALL.csv cell to read, so its declared need is a 6th
+    # argv here instead. Empty means the shipped default, so every existing call above (5 args) is
+    # byte-identical to before this parameter existed.
+    local heap_env=(); [ -n "$heap_kb" ] && heap_env=("SCRIP_HEAP_KB=$heap_kb")
 
 
     # ── Mode 3: --run ──────────────────────────────────────────────────────
@@ -232,9 +237,9 @@ run_test() {
     local rc3=0
     local m3ok=0   # ⭐ the m3 half of this program's AND -- a TIMEOUT or a FAIL both leave it 0, because neither is green
     if [ -n "$inp_arg" ]; then
-        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
+        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
     else
-        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); rc3=$?
+        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); rc3=$?
     fi
     [ -n "$filter" ] && got3=$(printf '%s\n' "$got3" | grep -v "$filter" || true)
     T_M3=$((T_M3+SECONDS-T0m3))
@@ -251,9 +256,9 @@ run_test() {
     local got4
     local rc4=0
     if [ -n "$inp_arg" ]; then
-        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$inp_arg" 2>/dev/null); rc4=$?
+        got4=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$bin" < "$inp_arg" 2>/dev/null); rc4=$?
     else
-        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); rc4=$?
+        got4=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); rc4=$?
     fi
     [ -n "$filter" ] && got4=$(printf '%s\n' "$got4" | grep -v "$filter" || true)
     T_M4=$((T_M4+SECONDS-T0m4))
@@ -552,9 +557,9 @@ run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sn
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match_fence" "$DEMO/calculator/calculator-2-match-fence.sno" "$DEMO/calculator/calculator-2-match-fence.ref" "$DEMO/calculator/calculator.input" ""
-run_test "demo_json"                     "$DEMO/json/json.sno"                     "$DEMO/json/json.ref"                     "$DEMO/json/json.input"       ""
-run_test "demo_json_match"               "$DEMO/json/json-match.sno"               "$DEMO/json/json-match.ref"               "$DEMO/json/json.input"       ""
-run_test "demo_json_match_fence"         "$DEMO/json/json-match-fence.sno"         "$DEMO/json/json-match-fence.ref"         "$DEMO/json/json.input"       ""
+run_test "demo_json"                     "$DEMO/json/json.sno"                     "$DEMO/json/json.ref"                     "$DEMO/json/json.input"       "" 16384
+run_test "demo_json_match"               "$DEMO/json/json-match.sno"               "$DEMO/json/json-match.ref"               "$DEMO/json/json.input"       "" 16384
+run_test "demo_json_match_fence"         "$DEMO/json/json-match-fence.sno"         "$DEMO/json/json-match-fence.ref"         "$DEMO/json/json.input"       "" 16384
 # ⭐ s266 -- THE THREE json PROGRAMS ARE UN-SKIPPED. They were excluded on a comment reading "HANGS (m3 AND m4)
 # ... needs >30s (currently: forever)" and "wrong verdict on valid JSON". Both cures landed 2026-08-23: the hang
 # was multi-choice pattern blobs having no drift-immune choice record and no blob re-entry (SCRIP d6eafac3), and
