@@ -669,8 +669,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (lhs && (lhs->t == TT_VAR || lhs->t == TT_KEYWORD) && lhs->v.sval && lhs->v.sval[0] == '&') {
             IR_t * ka = build(cx, IR_KW_ASSIGN, γ, ω); IR_LIT(ka).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, ka, ω, &vr); ir_operand_push(ka, vr); *res = ka; return entry; }
-        if (lhs && lhs->t == TT_VAR) { IR_t * vtc = NULL; IR_t * vt = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, γ, ω, &vtc); IR_t * asn = build(cx, IR_ASSIGN, vt ? vt : γ, ω); IR_LIT(asn).sval = lhs->v.sval;
-            IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); if (vr && vtc) ir_operand_push(vtc, vr); *res = asn; return entry; }
+        if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval; IR_t * vtc = NULL; IR_t * vt = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, asn, ω, &vtc);
+            IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, vt ? vt : asn, ω, &vr); ir_operand_push(asn, vr); if (vr && vtc) ir_operand_push(vtc, vr); *res = asn; return entry; }
         { IR_t * b4 = cx->beta;
           IR_t * lv = NULL; IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
           if (lve && lv) {
@@ -1562,7 +1562,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
             entry = tramp;
         }
         if (entry && sline > 0) entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry);
-        if (entry && sline > 0) entry = icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
+        if (entry && sline > 0 && s->t != TT_LOCAL && s->t != TT_STATIC_DECL && s->t != TT_INITIAL) entry = icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
         succ = entry; fail = entry;
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);

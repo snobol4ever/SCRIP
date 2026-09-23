@@ -40,6 +40,7 @@ if [ "$mode" = oracle ]; then
     case "$ext" in
         sno) parts="spl scr" ;;
         raku) parts="rko scr" ;;
+        icn) parts="icx scr" ;;
         *) echo "REFUSE(2): no oracle bridge for .$ext yet -- the design (MONITOR-BINARY-DESIGN.md § THE PLUG INTERFACE, layer 6) adds one only where it earns its cost; use --modes (mode 3 against mode 4) or --trace against the oracle's own output by hand"; exit 2 ;;
     esac
 else

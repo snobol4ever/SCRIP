@@ -83,6 +83,7 @@ CSNOBOL4="$S4A/csnobol4/snobol4"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 SNO4_REPO="${SNO4_REPO:-$S4A/snobol4dotnet}"
 SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
+ICON_MON="${ICON_MON_ROOT:-$S4A/icon-mon}"
 INC="${INC:-$S4E/corpus/include}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
@@ -101,12 +102,12 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot|scr3|scr4|rko) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4|rko|icx) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko, icx)"; exit 2 ;;
     esac
 done
 
-want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0
+want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0; want_icx=0
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
         csn) want_csn=1 ;;
@@ -116,6 +117,7 @@ for p in "${PARTICIPANTS[@]}"; do
         scr4) want_scr4=1 ;;
         dot) want_dot=1 ;;
         rko) want_rko=1 ;;
+        icx) want_icx=1 ;;
     esac
 done
 
@@ -128,6 +130,7 @@ done
 [[ "$want_dot" = "1" ]] && [[ ! -f "$SNO4_DLL" ]] && { echo "FAIL snobol4dotnet not built: $SNO4_DLL — dotnet build Snobol4/Snobol4.csproj -c Release -p:EnableWindowsTargeting=true"; exit 2; }
 [[ "$want_dot" = "1" ]] && ! command -v dotnet >/dev/null 2>&1 && { echo "FAIL dotnet command missing — apt-get install -y dotnet-sdk-10.0"; exit 2; }
 [[ "$want_rko" = "1" ]] && [[ ! -f "$MON_DIR/raku_oracle_bridge.py" ]] && { echo "FAIL raku_oracle_bridge.py missing"; exit 2; }
+[[ "$want_icx" = "1" ]] && { [[ ! -x "$ICON_MON/bin/icont" ]] || [[ ! -x "$ICON_MON/bin/iconx" ]]; } && { echo "FAIL instrumented Icon fork not built at $ICON_MON/bin/{icont,iconx} -- bash scripts/monitor/oracles/build_icon_mon.sh <prefix> (ICON_MON_ROOT names the prefix)"; exit 2; }
 :
 
 # ⛔ SCRATCH ON /home, NOT BARE /tmp, WITH CLEANUP THAT SURVIVES A KILL (row icon-sweep-scratch-hardening, s267).
@@ -295,6 +298,22 @@ if [[ "$want_rko" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/rko.names" \
         timeout "$((TIMEOUT*2))" python3 "$MON_DIR/raku_oracle_bridge.py" "$SNO" \
         < "$STDIN_SRC" > "$TMP/rko.out" 2> "$TMP/rko.err" &
+    PIDS+=($!)
+fi
+
+# ⭐ icx (ceo 2026-09-23, Lon: "Each oracle must be INSTRUMENTED with IPC COMM calls"): the Arizona icont/iconx fork built by
+# scripts/monitor/oracles/build_icon_mon.sh -- icont emits a stmt opcode at every statement of every statement list, iconx fires
+# the four hooks (statement, value, call, return) through the shared monitor_ipc_lib.c on the READY/GO wire; silent no-op when the
+# pipes are unset (the fork's untraced output is the pristine oracle's, proven by the build script's control arm).
+if [[ "${want_icx:-0}" = "1" ]]; then
+    ICX_SRC="$(realpath "$SNO")"
+    ( cd "$(dirname "$ICX_SRC")" && timeout "$TIMEOUT" "$ICON_MON/bin/icont" -s -o "$TMP/icx.bin" "$ICX_SRC" ) > "$TMP/icx.cc.out" 2>&1 \
+        || { echo "FAIL icx compile: $(tail -2 "$TMP/icx.cc.out")"; exit 2; }
+    MONITOR_READY_PIPE="$TMP/icx.ready" \
+    MONITOR_GO_PIPE="$TMP/icx.go" \
+    MONITOR_NAMES_OUT="$TMP/icx.names" \
+        timeout "$((TIMEOUT*2))" "$ICON_MON/bin/iconx" "$TMP/icx.bin" \
+        < "$STDIN_SRC" > "$TMP/icx.out" 2> "$TMP/icx.err" &
     PIDS+=($!)
 fi
 
