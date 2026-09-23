@@ -15,7 +15,10 @@ uint64_t rt_scan_live_subj(void);
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj);
 }
 #include "x86_asm.h"
+#include <cstdlib>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static_assert(sizeof(uint64_t) == 8, "THE SUSPEND-LEAVE BANK LIVES IN THE SCAN NODE'S OWN FIELDS AT ITS RESULT SLOT +16 (delta, RAW) AND +24 (the live subject, PTR_GC), THE OFFSETS frame_layout.c GRANTS -- IR_SCAN is not a shifted-locals kind, so zls_off is the RESULT slot and the fields start 16 past it; banking at +0/+8 put the delta in a DESCR tag word and hid the subject pointer from the walker, and a collection during the suspension handed rt_scan_reenter_live vacated ground (unitgenr, cto 2026-09-23, CTO-154)");
+static int scan_bank_off() { const char * e = getenv("SCRIP_GC_PLANT_SCAN_BANK"); return (e && *e == '1') ? 0 : 16; }
 std::string bb_gen_scan() {
     x86_begin();
     return x86("comment", "IR_GEN_SCAN [N-3: outer Sigma/delta/Delta save-restore ONE HOME -- ENTER's own zls grant (FRQ off/+8/+16), the enclosing activation's own frame -- no C-global scan_stack]")
@@ -42,9 +45,9 @@ std::string bb_gen_scan() {
                  + x86("mov", "rax", FRQ(_.op_sa + 8))
                  + x86("mov", FRQ(_.op_ival + 8), "rax"))
              + IF(_.op_sb == 2,
-                   x86("mov", FRQ(_.op_ival), "r14")
+                   x86("mov", FRQ(_.op_ival + scan_bank_off()), "r14")
                  + x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
-                 + x86("mov", FRQ(_.op_ival + 8), "rax"))
+                 + x86("mov", FRQ(_.op_ival + scan_bank_off() + 8), "rax"))
              + x86("mov", "rdi", FRQ(_.op_off))
              + x86("mov", "rsi", FRQ(_.op_off + 8))
              + x86("comment", "the outer Delta travels with the outer Sigma: leave restores the length CACHE too, or an embedded/trailing NUL in the outer subject is lost to strlen on the way out")
@@ -60,11 +63,11 @@ std::string bb_gen_scan() {
              + IF(_.lbl_t0_p != 0 && _.op_sb == 2,
                    x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
                  + x86("mov", FRQ(_.op_off + 8), "rax")
-                 + x86("mov", "rdi", FRQ(_.op_ival + 8))
+                 + x86("mov", "rdi", FRQ(_.op_ival + scan_bank_off() + 8))
                  + x86("call", "rt_scan_reenter_live", (uint64_t)(uintptr_t)(void *)rt_scan_reenter_live)
                  + x86("mov", "r13", "rax")
                  + x86("mov", "r15", "rdx")
-                 + x86("mov", "r14", FRQ(_.op_ival))
+                 + x86("mov", "r14", FRQ(_.op_ival + scan_bank_off()))
                  + x86("mov", "rdi", "r14")
                  + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out)
                  + x86_jmp_tgt(X86T_TGT0))
