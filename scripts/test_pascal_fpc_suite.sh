@@ -176,21 +176,26 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # shape 4 -- which is why it was checked instead of cited.
 # ⛔ THE NUMBER DROPS FROM $M3_PASS (m3, as published) TO $BOTH_PASS -- 130 to 116 of 181, measured this
 # sitting -- AND THAT IS A CRITERION CHANGE, NOT A REGRESSION. The commit landing it says so in those words.
-python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
-    --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
-    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
-    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
-
-
+#
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
 # per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
 # of 497 pascal rows in that table every one was pascal-master -- ZERO from fpc or pat, so a Pascal PACKAGE
 # flip was invisible to the measure OCTET is run on. One bulk call, not 362. Non-fatal, never silent.
+#
+# ⛔ APPEND BEFORE WRITE, NOT AFTER (hq_pascal 2026-09-23): the write below's own db_crosscheck (CEO-750)
+# REFUSES unless this suite's per-program rows are ALREADY on the progress DB for this exact tree -- so
+# appending them after the write can never satisfy the write it is meant to unblock. Measured live: on
+# SCRIP d7a3c06fc this order refused every single time ("no progress rows for suite 'fpc' on tree
+# d7a3c06fc") despite the append succeeding moments later, 362-for-362, on the very next line.
 if [ -s "$PROG_ROWS" ]; then
     if ! progress_append_rows_tsv "$PROG_ROWS"; then
-        echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
+        echo "⚠ PROGRESS DB NOT UPDATED -- the score write below cannot cross-check and will refuse (reason above)" >&2
     fi
 fi
+python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
+    --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
+    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): M3_FAIL/M4_FAIL/REJECT all read 0 over TOTAL=0 too (empty discovery) --
