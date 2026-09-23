@@ -157,6 +157,7 @@ static tree_t *mk_deref(tree_t *ptr) {
 static tree_t *mk_fnc0(const char *fn) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); return e; }
 static tree_t *mk_fnc1(const char *fn, tree_t *a) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); return e; }
 static tree_t *mk_fnc2(const char *fn, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); return e; }
+static tree_t *mk_fnc3(const char *fn, tree_t *a, tree_t *b, tree_t *c) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); ast_push(e, c); return e; }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -328,6 +329,17 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *fa = args->items[0]; int isstd = fa && fa->t == TT_VAR && fa->v.sval && pas_is_stdstream(fa->v.sval);
         if (fa && fa->t == TT_VAR && fa->v.sval && !isstd) return mk_fnc1("__pas_getbufch_f", pas_tree_clone(fa));
         return mk_fnc0("__pas_getbufch");
+    }
+    if (name && !strcmp(name, "delete") && args && args->count >= 6) {
+        tree_t *sv = args->items[0]; tree_t *pos = args->items[2]; tree_t *cnt = args->items[4];
+        return mk_assign(sv, mk_fnc3("__pas_str_delete", pas_tree_clone(sv), pos, cnt));
+    }
+    if (name && !strcmp(name, "insert") && args && args->count >= 6) {
+        tree_t *src = args->items[0]; tree_t *sv = args->items[2]; tree_t *pos = args->items[4];
+        if (src && src->t == TT_FNC && src->n == 2 && src->c[0] && src->c[0]->v.sval && !strcmp(src->c[0]->v.sval, "__pas_chrlit") && src->c[1] && src->c[1]->t == TT_ILIT) {
+            char _cb[2]; _cb[0] = (char)src->c[1]->v.ival; _cb[1] = '\0'; src = leaf_s(TT_QLIT, ct_strdup(_cb));
+        }
+        return mk_assign(sv, mk_fnc3("__pas_str_insert", src, pas_tree_clone(sv), pos));
     }
     if (name && !strcmp(name, "readstr") && args && args->count >= 4) {
         tree_t *sv = args->items[0]; tree_t *v = args->items[2];

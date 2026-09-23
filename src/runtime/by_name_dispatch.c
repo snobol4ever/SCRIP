@@ -3891,6 +3891,35 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(s ? strtoll(s, NULL, 10) : 0);
         return 1;
     }
+    if (!strcmp(fn, "__pas_str_delete") && nargs == 3) {
+        const char *s = VARVAL_fn(args[0]); if (!s) s = "";
+        size_t len = strlen(s);
+        long long pos = IS_INT_fn(args[1]) ? args[1].i : 1;
+        long long cnt = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if (pos < 1) pos = 1;
+        if ((size_t)pos > len || cnt <= 0) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+        size_t start = (size_t)pos - 1;
+        size_t n = (size_t)cnt; if (start + n > len) n = len - start;
+        char *buf = rt_heap_alloc_c(len - n + 1);
+        memcpy(buf, s, start);
+        memcpy(buf + start, s + start + n, len - start - n);
+        buf[len - n] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__pas_str_insert") && nargs == 3) {
+        const char *src = VARVAL_fn(args[0]); if (!src) src = "";
+        const char *s = VARVAL_fn(args[1]); if (!s) s = "";
+        size_t slen = strlen(src), len = strlen(s);
+        long long pos = IS_INT_fn(args[2]) ? args[2].i : 1;
+        if (pos < 1) pos = 1; if ((size_t)pos > len + 1) pos = (long long)len + 1;
+        size_t at = (size_t)pos - 1;
+        char *buf = rt_heap_alloc_c(len + slen + 1);
+        memcpy(buf, s, at);
+        memcpy(buf + at, src, slen);
+        memcpy(buf + at + slen, s + at, len - at);
+        buf[len + slen] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {
         long e = pas_ord_of(args[0]);
         unsigned char bits[PAS_SET_BYTES]; pas_set_bits(args[1], bits);
