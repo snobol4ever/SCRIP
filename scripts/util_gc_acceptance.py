@@ -36,6 +36,29 @@ def num(pat, txt, default=None):
 def pct(n, d):
     return "n/a" if not d else "%.1f%%" % (100.0 * n / d)
 
+def reason_of(rc, txt, fallback):
+    """⛔⭐ A SUB-INSTRUMENT'S rc=2 IS AUTHORITATIVE AND ITS REASON IS REPEATED VERBATIM (the coo, 2026-09-22).
+
+    Three sub-instruments were invoked as `rc, out = sh(...)` and the rc was CAPTURED AND NEVER READ --
+    the name was then reused by the next section, which is how it hid.  Two costs, both measured:
+
+      1 THE WRONG CURE NAMED.  With a stale binary the census REFUSES(2) and prints no counts, and this
+        display said "the census did not print a line this reader needs" -- an instrument-shape defect,
+        sending the reader to edit util_gc_census.py when the actual cure is `make`.
+      2 A REFUSED MEASUREMENT PRINTED AS A PERFECT SCORE.  util_gc_event_coverage.py returns 2 at two
+        points AFTER its DENOMINATOR IDENTITY line is printed (no ratchet floor; unreadable gc_heap.c),
+        so ex and obs parse, the rc is dropped, and item 2 reads `16 / 16  100.0%`.  This file's own
+        docstring forbids exactly that: "It never prints 0 and never prints 100."
+
+    A percentage is never printed over an rc=2.  The reason travels from the instrument that has it."""
+    if rc != 2:
+        return None
+    for ln in txt.split("\n"):
+        t = ln.strip()
+        if "REFUSE" in t:
+            return re.sub(r"^[\u26d4\u2b50\s]+", "", t)[:140]
+    return fallback
+
 def main():
     tree = sh("git rev-parse --short HEAD")[1].strip()
     corpus = sh("git -C ../corpus rev-parse --short HEAD")[1].strip()
@@ -48,7 +71,7 @@ def main():
     refuse, fails = [], []
 
     # ---- 1 INSTRUMENTED -------------------------------------------------------------------------
-    rc, cen = sh("SCRIP_GC_CENSUS_LIST_ALL=1 python3 scripts/util_gc_census.py")
+    rc_cen, cen = sh("SCRIP_GC_CENSUS_LIST_ALL=1 python3 scripts/util_gc_census.py")
     polled   = num(r"allocating_call_sites=(\d+)", cen); pol_ok = num(r"\bpolled=(\d+)", cen)
     sp_part  = num(r"partially_polled=(\d+)", cen); sp_unp = num(r"\bunpolled=(\d+)", cen)
     inb      = num(r"INBOUND call_back_sites=(\d+)", cen); inb_w = num(r"INBOUND call_back_sites=\d+ wrapped_in_\w+=(\d+)", cen)
@@ -60,13 +83,20 @@ def main():
     # two different populations, with the 11 real hooks in rt/rt.c excluded by construction, so the fraction read
     # zero and meant nothing (CEO-1041/1071).  util_c2bb_coverage.py answers it against the denominator
     # test_gate_no_c_to_bb.sh itself prints, per site, by the proximity rule, and it is proven to fail once.
-    rc2, cov = sh("python3 scripts/util_c2bb_coverage.py")
+    rc_cov, cov = sh("python3 scripts/util_c2bb_coverage.py")
     c2bb_cov_n = num(r"C2BB_COVERAGE hooked=(\d+)", cov)
     c2bb_cov_d = num(r"C2BB_COVERAGE hooked=\d+ sites=(\d+)", cov)
-    c2bb_cov_refuse = ("REFUSE(2)" in cov) or (c2bb_cov_n is None) or (c2bb_cov_d is None)
+    cov_why = reason_of(rc_cov, cov, "util_c2bb_coverage.py exited 2 without naming a reason")
+    c2bb_cov_refuse = (cov_why is not None) or ("REFUSE(2)" in cov) or (c2bb_cov_n is None) or (c2bb_cov_d is None)
     print("\n  1 INSTRUMENTED")
-    if None in (polled, pol_ok, inb, outb, cons):
-        refuse.append("INSTRUMENTED: the census did not print a line this reader needs"); print("      REFUSE(2) -- census line missing")
+    cen_why = reason_of(rc_cen, cen, "util_gc_census.py exited 2 without naming a reason")
+    if cen_why:
+        refuse.append("INSTRUMENTED: the census REFUSED to measure -- %s" % cen_why)
+        print("      REFUSE(2) -- the census refused, and its own reason is:")
+        print("      %-46s %s" % ("", cen_why))
+    elif None in (polled, pol_ok, inb, outb, cons):
+        refuse.append("INSTRUMENTED: the census RAN (rc=%d) but printed no line this reader needs" % rc_cen)
+        print("      REFUSE(2) -- census line missing (the census exited %d, so this IS an output-shape defect)" % rc_cen)
     else:
         marker_absent = "marker=RT_GC_CALLBACK defined_in_tree=NO" in cen
         rows = [("safe-point polls at allocating call returns", pol_ok, polled),
@@ -90,8 +120,9 @@ def main():
                 continue
             if nm.startswith("C->BB"):
                 if c2bb_cov_refuse:
-                    print("      %-46s %s" % (nm, "REFUSE(2) -- util_c2bb_coverage.py did not print its line"))
-                    refuse.append("INSTRUMENTED/C->BB: util_c2bb_coverage.py printed no C2BB_COVERAGE line, so it did not measure")
+                    why = cov_why or "util_c2bb_coverage.py printed no C2BB_COVERAGE line, so it did not measure"
+                    print("      %-46s %s" % (nm, "REFUSE(2) -- %s" % why))
+                    refuse.append("INSTRUMENTED/C->BB: %s" % why)
                     continue
                 bad = (n < d)
                 print("      %-46s %5d / %-5d  %-7s %s" % (nm, n, d, pct(n, d), "" if not bad else "<- %d dark" % (d - n)))
@@ -131,12 +162,24 @@ def main():
         if cons: fails.append("INSTRUMENTED/conservative %d remain" % cons)
 
     # ---- 2 VISIBILITY ---------------------------------------------------------------------------
-    rc, ev = sh("python3 scripts/util_gc_event_coverage.py")
+    rc_ev, ev = sh("python3 scripts/util_gc_event_coverage.py")
     ex  = num(r"EXERCISED (\d+)", ev); obs = num(r"OBSERVABLE (\d+)", ev)
     owed = num(r"OWED -- real events this collector cannot distinguish \((\d+)\)", ev)
     print("\n  2 VISIBILITY")
-    if None in (ex, obs):
-        refuse.append("VISIBILITY: util_gc_event_coverage.py printed no denominator identity"); print("      REFUSE(2) -- no denominator identity line")
+    # ⛔ THE rc IS READ BEFORE THE NUMBERS ARE. util_gc_event_coverage.py returns 2 at two points AFTER
+    # its identity line is printed, so ex and obs parse from a run that REFUSED TO MEASURE. Reading the
+    # numbers first printed `16 / 16  100.0%` over it -- the one shape this file's docstring forbids.
+    ev_why = reason_of(rc_ev, ev, "util_gc_event_coverage.py exited 2 without naming a reason")
+    if ev_why:
+        refuse.append("VISIBILITY: the event-coverage instrument REFUSED to measure -- %s" % ev_why)
+        print("      REFUSE(2) -- the event-coverage instrument refused, and its own reason is:")
+        print("      %-46s %s" % ("", ev_why))
+        if None not in (ex, obs):
+            print("      %-46s %s" % ("", "⛔ it printed EXERCISED %d / OBSERVABLE %d anyway -- NOT shown as a" % (ex, obs)))
+            print("      %-46s %s" % ("", "   percentage: those counts are from a run that refused to measure."))
+    elif None in (ex, obs):
+        refuse.append("VISIBILITY: util_gc_event_coverage.py RAN (rc=%d) but printed no denominator identity" % rc_ev)
+        print("      REFUSE(2) -- no denominator identity line (it exited %d, so this IS an output-shape defect)" % rc_ev)
     else:
         print("      %-46s %5d / %-5d  %-7s %s" % ("declared events observed", ex, obs, pct(ex, obs),
                                                    "" if ex == obs else "<- %d not exercised" % (obs - ex)))
@@ -146,7 +189,7 @@ def main():
         if owed:      fails.append("VISIBILITY %d event(s) OWED -- unmeasurable, not merely unmeasured" % owed)
 
     # ---- 3 AUDITED ------------------------------------------------------------------------------
-    rc, aud = sh("grep -rln 'gc_audit_pass_b\\|GC_AUDIT_PASS_B\\|SCRIP_GC_AUDIT_B' src/runtime || true")
+    _rc_grep, aud = sh("grep -rln 'gc_audit_pass_b\\|GC_AUDIT_PASS_B\\|SCRIP_GC_AUDIT_B' src/runtime || true")
     print("\n  3 AUDITED (every collection checked by the exact-vs-conservative differential; its SILENCE is the proof)")
     if not aud.strip():
         print("      NOT BUILT -- the pass-B auditor does not exist in src/runtime.  This metric REFUSES rather")
