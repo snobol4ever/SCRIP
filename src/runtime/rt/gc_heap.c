@@ -1028,6 +1028,7 @@ static int gc_type_says_ref(const DESCR_t *d)
         case DT_A:    return 1;
         case DT_DATA: return 1;
         case DT_BIG:  return 1;
+        case DT_E:    return IS_PROCVAL_fn(*d);
         case DT_N:    return d->slen == 0 || d->slen == 2;
         default:      return 0;
     }
@@ -1041,6 +1042,7 @@ static int gc_sniff_would_take(const DESCR_t *d)
     if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) return 1; }
     if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) return 1; }
     if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) return 1;
+    if (d->v == DT_E && IS_PROCVAL_fn(*d)) { rt_hblk_t *eh = gc_blk_of(d->s); if (eh && d->s >= (char *)(eh + 1) && d->s < (char *)eh + eh->size) return 1; }
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN) return gc_dvec_ref_ok(d);
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
     return 0;
@@ -1080,7 +1082,7 @@ static void gc_spine_record(const char *graph, long off, const char *const *w, r
     g_gc_spine_rec[g_gc_spine_recn].h = h; g_gc_spine_rec[g_gc_spine_recn].graph = graph; g_gc_spine_rec[g_gc_spine_recn].off = off; g_gc_spine_rec[g_gc_spine_recn].at = w; g_gc_spine_recn++;
 }
 static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_MAP); }
-static int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF; }
+static int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E; }
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h)
 {
     if (!gc_maps_on()) return;
@@ -1130,6 +1132,7 @@ static int gc_cell_visit(DESCR_t *d)
     if (d->v == DT_N && d->slen != 0 && d->slen != 1 && d->slen != 2) { if (gc_blk_of(d->s)) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_N && d->slen == 1) { rt_hblk_t *ch = gc_blk_of((const char *)d->ptr); if (ch && (char *)d->ptr >= (char *)(ch + 1) && (char *)d->ptr + 16 <= (char *)ch + ch->size) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }
+    if (d->v == DT_E && IS_PROCVAL_fn(*d)) { rt_hblk_t *eh = gc_blk_of(d->s); if (eh && d->s >= (char *)(eh + 1) && d->s < (char *)eh + eh->size) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); return 1; }
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); return 1; }
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) { rt_gc_visit_descr(d); return 1; }
