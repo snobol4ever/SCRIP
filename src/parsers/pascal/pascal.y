@@ -1148,6 +1148,22 @@ static int pas_is_rel(tree_t *e) {
     switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; }
 }
 static tree_t *pas_cond(tree_t *e) { return pas_is_rel(e) ? e : bin(TT_NE, e, ilit(0)); }
+static const char *pas_cond_var_nonbool_type(tree_t *e) {
+    if (!e || e->t != TT_VAR || !e->v.sval || pas_is_boolvar(e->v.sval)) return NULL;
+    const char *found = NULL;
+    for (int i = 0; i < g_pas_nscalarvartype; i++) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, e->v.sval)) {
+        const char *t = g_pas_scalarvartype[i].tname;
+        for (int guard = 0; t && guard < 8; guard++) { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; }
+        if (!t || pas_is_booltype(t) || !(pas_enumtype_high(t) >= 0 || pas_is_int_typename(t) || pas_is_realtypename(t) || !strcmp(t, "char"))) return NULL;
+        found = g_pas_scalarvartype[i].tname; }
+    return found;
+}
+static tree_t *pas_cond_bool(tree_t *e, const char *stmt, const char *clause) {
+    const char *t = pas_cond_var_nonbool_type(e);
+    if (t) { fprintf(stderr, "pascal: ISO 7185 %s violation: the Boolean-expression of %s is the variable '%s' of type %s, which is not the required-type Boolean\n",
+                     clause, stmt, e->v.sval, t); g_pas_iso_errors++; }
+    return pas_cond(e);
+}
 static tree_t *pas_bool(tree_t *e) { return e; }
 static tree_t *pas_flip_rel(tree_t *e) {
     switch (e->t) { case TT_LT: e->t = TT_GE; break; case TT_GE: e->t = TT_LT; break; case TT_LE: e->t = TT_GT; break;
@@ -1545,8 +1561,8 @@ goto_statement:
           tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); $$ = G; }
     ;
 if_statement:
-    IFSY expression THENSY statement { $$ = bin(TT_IF, pas_cond($2), $4); }
-    | IFSY expression THENSY statement ELSESY statement { tree_t *e = ast_node_new(TT_IF); ast_push(e, pas_cond($2)); ast_push(e, $4); ast_push(e, $6); $$ = e; }
+    IFSY expression THENSY statement { $$ = bin(TT_IF, pas_cond_bool($2, "an if-statement", "6.8.3.4"), $4); }
+    | IFSY expression THENSY statement ELSESY statement { tree_t *e = ast_node_new(TT_IF); ast_push(e, pas_cond_bool($2, "an if-statement", "6.8.3.4")); ast_push(e, $4); ast_push(e, $6); $$ = e; }
     ;
 case_statement:
     CASESY expression OFSY { pas_case_push(); } case_list ENDSY
@@ -1571,10 +1587,10 @@ constant_list:
     | constant { $$ = bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit($1)); }
     ;
 while_statement:
-    WHILESY expression DOSY statement { $$ = bin(TT_WHILE, pas_cond($2), $4); }
+    WHILESY expression DOSY statement { $$ = bin(TT_WHILE, pas_cond_bool($2, "a while-statement", "6.8.3.8"), $4); }
     ;
 repeat_statement:
-    REPEATSY statement_list UNTILSY expression { $$ = bin(TT_REPEAT, seq_of($2), pas_cond($4)); }
+    REPEATSY statement_list UNTILSY expression { $$ = bin(TT_REPEAT, seq_of($2), pas_cond_bool($4, "a repeat-statement", "6.8.3.7")); }
     ;
 for_statement:
     FORSY IDENT BECOMES expression TOSY expression DOSY statement
