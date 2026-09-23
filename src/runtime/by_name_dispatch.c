@@ -5679,7 +5679,7 @@ static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bi
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
     if (g_core_errjmp_n >= 64) { DESCR_t r0 = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4)); return r0; }
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); core_unwind_pending(); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4));
     g_core_errjmp_n = my;
@@ -5842,7 +5842,7 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (g_core_errjmp_n >= 64) return rt_jct_relop_impl(lhs, rhs, op);
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return 0; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_unwind_pending(); return 0; }
     g_core_errjmp_n = my + 1;
     int r = rt_jct_relop_impl(lhs, rhs, op);
     g_core_errjmp_n = my;

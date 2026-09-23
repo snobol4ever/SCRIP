@@ -3,6 +3,10 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "ab_abi.h"
+extern int * const rt_k_level_p;
+extern long rt_stno_stack[];
+extern int g_core_errjmp_n;
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -75,9 +79,45 @@ std::string bb_glue_pass_wires(int gid, int wid) {
          + x86_jmp_reg("rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_lvl_slot_rcx(void) {
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", "ecx", RDD("rax", 0))
+         + x86("movsxd", "rcx", "ecx")
+         + x86("and", "rcx", (long)SNO_LVL_MASK)
+         + FOR(0, SNO_LVL_SHIFT, [&](int) { return x86("add", "rcx", "rcx"); })
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)rt_stno_stack, "rt_stno_stack")
+         + x86("add", "rcx", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_act_record(int keep_rax) {
+    int k = keep_rax ? 8 : 0;
+    return x86("comment", "ACTIVATION RECORD (row snobol4-a-setexit-handler-runs-at-top-level-so-freturn-from-it-is-error-242): the wire pair just pushed IS the activation base; a SETEXIT handler that RETURNs resumes here")
+         + IF(keep_rax, x86("push", "rax"))
+         + bb_glue_lvl_slot_rcx()
+         + x86("lea", "rax", RDQ("rsp", k))
+         + x86("mov", RDQ("rcx", SNO_LVL_ACT_RSP), "rax")
+         + x86("mov", RDQ("rcx", SNO_LVL_ACT_R12), "r12")
+         + x86("mov", "rax", RDQ("rsp", k))
+         + x86("mov", RDQ("rcx", SNO_LVL_GAMMA), "rax")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_core_errjmp_n, "g_core_errjmp_n")
+         + x86("mov", "eax", RDD("rax", 0))
+         + x86("movsxd", "rax", "eax")
+         + x86("mov", RDQ("rcx", SNO_LVL_ERRJMP), "rax")
+         + IF(keep_rax, x86("pop", "rax"))
+         + x86("mov", "rcx", RDQ("rsp", 0));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_pass_wires_blob(int gid, int wid) {
     return x86_lea_id("rcx", wid) + x86("push", "rcx")
          + x86_lea_id("rcx", gid) + x86("push", "rcx")
+         + x86_jmp_reg("rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_pass_wires_blob_act(int gid, int wid) {
+    return x86_lea_id("rcx", wid) + x86("push", "rcx")
+         + x86_lea_id("rcx", gid) + x86("push", "rcx")
+         + bb_glue_act_record(1)
          + x86_jmp_reg("rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -39,7 +39,7 @@ import re, sys
 
 want = 0          # required RSP mod 16 at the jmp into generated code
 entry = 8         # RSP mod 16 at a trampoline's first instruction, because a CALL got us here
-found, bad, refused, dyn = [], [], [], []
+found, bad, refused, dyn, loaded = [], [], [], [], []
 
 for path in sys.argv[1:]:
     text = open(path, encoding="utf-8").read()
@@ -54,7 +54,7 @@ for path in sys.argv[1:]:
             continue
         name = names[0]
         lines = re.findall(r'"([^"]*)\\n"', blk)
-        n_push, sub, seen_jmp, dynamic = 0, 0, False, False
+        n_push, sub, seen_jmp, dynamic, ld = 0, 0, False, False, None
         for ln in lines:
             s = ln.strip()
             if re.match(r'^jmp\s+\*%\w+', s):
@@ -74,8 +74,23 @@ for path in sys.argv[1:]:
             # gate exists to prevent -- measured 2026-09-14, it was this gate's own first output.
             if re.match(r'^(sub|add)q?\s+%\w+,\s*%rsp', s):
                 dynamic = True
+            # ⛔ AN RSP LOADED FROM A RECORDED BASE IS A THIRD CASE, NEITHER OK NOR OFF: rt_unwind_to_activation (row
+            # snobol4-a-setexit-handler-runs-at-top-level-so-freturn-from-it-is-error-242) does not arrive by CALL-and-push
+            # arithmetic at all -- it puts RSP back on an activation's wire pair that was recorded where that activation
+            # was entered, so its parity is the recorded base's. What this gate CAN hold statically is the displacement:
+            # it must be a multiple of 16, or the jump lands off the base's parity whatever the base was. The base's own
+            # alignment is checked at run time by the caller before the jump (core_setexit_handler_return refuses an
+            # unaligned base and keeps ERROR 242), and it is printed here as its own class, never counted green.
+            m = re.match(r'^(?:leaq?\s+(-?\d*)\(%\w+\)|movq?\s+%\w+),\s*%rsp$', s)
+            if m and 'rbp' not in s:
+                ld = int(m.group(1) or 0) if m.group(1) is not None else 0
         if not seen_jmp:
             continue                      # not an entry trampoline: nothing to hold
+        if ld is not None:
+            loaded.append((name, ld))
+            if ld % 16 != 0:
+                bad.append((name, 0, ld, ld % 16, path))
+            continue
         if dynamic:
             # It is held to a DIFFERENT property it can actually be held to: a frame-pointer trampoline must put
             # RSP back from RBP in EVERY exit path, or the pops below read the callee's leftovers.
@@ -99,6 +114,9 @@ for name, n, s, got in found:
 for name, nex, nres in dyn:
     print("  %-26s %6s %10s %8s  ---- NOT STATICALLY DECIDABLE (register-sized frame; %d exit(s), %d RSP-from-RBP restore(s))"
           % (name, "-", "dynamic", "-", nex, nres))
+
+for name, d in loaded:
+    print("  %-26s %6s %10s %8s  %s" % (name, "-", "load", "-", ("---- RSP LOADED FROM A RECORDED BASE + %d (parity inherited; displacement held to 0 mod 16, base checked at run time)" % d) if d % 16 == 0 else ("⛔ DISPLACEMENT %d IS NOT 0 (mod 16)" % d)))
 
 if refused:
     print()
@@ -126,6 +144,7 @@ if bad:
     sys.exit(1)
 print()
 print("✅ GATE OK: all %d statically-decidable trampoline(s) enter generated code with RSP ≡ 0 (mod 16), as a CALL would" % len(found))
-print("   leave it; %d dynamic trampoline(s) named above are held to the RBP-restore property instead, never counted green." % len(dyn))
+print("   leave it; %d dynamic trampoline(s) named above are held to the RBP-restore property instead, never counted green," % len(dyn))
+print("   and %d RSP-loading trampoline(s) are held to a 16-byte displacement, never counted green." % len(loaded))
 PY
 exit $?

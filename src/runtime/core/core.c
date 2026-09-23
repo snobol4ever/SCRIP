@@ -10,6 +10,7 @@
 #include "../snobol4_system_fns.h"
 #include "../keywords.h"
 #include "../builtins/gen.h"
+#include "../../ir/ab_abi.h"
 extern int g_protected_pat_vars_armed;
 int core_icn_error(int code, DESCR_t val);
 int rt_str_to_real(const char *s, double *out);
@@ -1918,6 +1919,32 @@ static DESCR_t _CLEAR_(DESCR_t *a, int n) {
 }
 static char _setexit_label[256];
 static int _setexit_resume = -1;
+extern jmp_buf g_core_errjmp_stk[64];
+extern int g_core_errjmp_n;
+extern long rt_stno_stack[];
+extern int * const rt_k_level_p;
+extern void rt_unwind_to_activation(void *act, void *r12, long wire) __attribute__((noreturn));
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long *core_lvl_rec(void) { return &rt_stno_stack[(long)(*rt_k_level_p & SNO_LVL_MASK) * SNO_LVL_LONGS]; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void core_unwind_next(void) __attribute__((noreturn));
+static void core_unwind_next(void) {
+    long *rec = core_lvl_rec();
+    if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 3);
+    long wire = (rec[SNO_LVL_UNWIND / 8] == 2) ? 8 : 0;
+    rec[SNO_LVL_UNWIND / 8] = 0;
+    rt_unwind_to_activation((void *)rec[SNO_LVL_ACT_RSP / 8], (void *)rec[SNO_LVL_ACT_R12 / 8], wire);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_unwind_pending(void) { if (rt_k_level_p && core_lvl_rec()[SNO_LVL_UNWIND / 8]) core_unwind_next(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void core_setexit_handler_return(void) {
+    if (_setexit_resume < 0 || !rt_k_level_p || *rt_k_level_p < 2) return;
+    long *rec = core_lvl_rec(); long act = rec[SNO_LVL_ACT_RSP / 8], floor = rec[SNO_LVL_ERRJMP / 8];
+    if (!act || (act & 15) || floor < 0 || floor > _setexit_resume || (char *)act <= (char *)__builtin_frame_address(0) || *(long *)act != rec[SNO_LVL_GAMMA / 8]) return;
+    rec[SNO_LVL_UNWIND / 8] = (kw_rtntype[0] == 'F') ? 2 : 1;
+    core_unwind_next();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1972,6 +1999,7 @@ void sno_setexit_fire_on_end(void) {
     int my = g_core_errjmp_n; int outer = _setexit_resume;
     if (setjmp(g_core_errjmp_stk[my]) == 0) { g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
     g_core_errjmp_n = my; _setexit_resume = outer;
+    core_unwind_pending();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_resume(const char *which) {
@@ -2778,7 +2806,7 @@ void core_runtime_error(int code, const char *msg) {
     { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       extern long g_error;
-      if (g_error != 0 && g_core_errjmp_n > 0 && !(core_setexit_on() && _setexit_label[0])) {
+      if (g_error != 0 && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && _setexit_label[0]))) {
           if (g_error > 0) g_error--;
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
@@ -2802,6 +2830,7 @@ void core_runtime_error(int code, const char *msg) {
               exit(0);
           }
           g_core_errjmp_n = my; _setexit_resume = outer;
+          core_unwind_pending();
           code = vcode; msg = vmsg;
           if (how == 1) return;
           aborting = 1;
@@ -2817,7 +2846,7 @@ void core_runtime_error(int code, const char *msg) {
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_return_level_zero(void) { core_runtime_error(242, "function return from level zero"); abort(); }
+__attribute__((force_align_arg_pointer)) void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

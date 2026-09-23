@@ -182,6 +182,30 @@ __asm__(
 );
 void rt_chain_enter_v(eval_chain_fn fn);
 void rt_chain_enter(eval_chain_fn fn);
+__asm__(
+".text\n"
+".globl rt_unwind_to_activation\n"
+"rt_unwind_to_activation:\n"
+"  movq (%rdi,%rdx), %rax\n"
+"  leaq 16(%rdi), %rsp\n"
+"  movq %rsi, %r12\n"
+"  movq Σ@GOTPCREL(%rip), %r10\n"
+"  movq (%r10), %r13\n"
+"  movq Σlen@GOTPCREL(%rip), %r10\n"
+"  movl (%r10), %r15d\n"
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 2f\n"
+"  movq rtccb@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"2:\n"
+"  jmp *%rax\n"
+);
 int g_rt_fragment_emit = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_thunks_emit_from(int pc0)
@@ -355,6 +379,7 @@ DESCR_t eval_string_transient(const char *s) {
         DESCR_t got = NV_GET_fn(EVAL_TMP);
         DESCR_t result = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
         NV_SET_fn(EVAL_TMP, saved);
+        if (!ok) core_unwind_pending();
         return result;
     }
     size_t mark = bb_pool_mark();
@@ -368,6 +393,7 @@ DESCR_t eval_string_transient(const char *s) {
     NV_SET_fn(EVAL_TMP, saved);
     if (mark < eval_retain_budget()) eval_cache_put(s, fn);
     else bb_pool_release(mark);
+    if (!ok) core_unwind_pending();
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -5,6 +5,7 @@
 #include "keywords.h"
 #include "rt/rt_coexpr.h"
 #include "rtx/rtcc.h"
+#include "../ir/ab_abi.h"
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
@@ -28,7 +29,8 @@ long g_stcount = 0;
 long g_lastno  = 0;
 long g_line    = 0;
 long g_lastline = 0;
-long rt_stno_stack[2 * 4096] = { 0 };
+long rt_stno_stack[SNO_LVL_LONGS * (SNO_LVL_MASK + 1)] = { 0 };
+_Static_assert((1L << SNO_LVL_SHIFT) == SNO_LVL_LONGS * (long)sizeof(long) && SNO_LVL_GAMMA < (1 << SNO_LVL_SHIFT), "rt_stno_stack: one level record is SNO_LVL_LONGS longs, addressed by a shift of SNO_LVL_SHIFT in bb_define.cpp");
 const char *g_file = NULL;
 const char *g_lastfile = NULL;
 const char *g_sno_errtext = NULL;

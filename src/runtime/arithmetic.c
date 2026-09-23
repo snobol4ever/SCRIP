@@ -272,7 +272,7 @@ static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
     }
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, op, strict);
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl_s(a, b, op, strict);
     g_core_errjmp_n = my;
@@ -293,7 +293,7 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, code, strict); \
     int my = g_core_errjmp_n; \
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); return FAILDESCR; } \
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; } \
     g_core_errjmp_n = my + 1; \
     DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); \
     g_core_errjmp_n = my; \

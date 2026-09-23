@@ -69,7 +69,7 @@ static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const cha
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_wire_stack_for(const char *fname) { return icn_wire_stack_on() && !bb_proc_target_zframe_graph(fname); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_wire_cross(int gid, int wid, const char *fname) { return icn_wire_stack_for(fname) ? bb_glue_pass_wires_blob(gid, wid) : bb_glue_pass_wires(gid, wid); }
+static std::string bcps_wire_cross(int gid, int wid, const char *fname) { return icn_wire_stack_for(fname) ? bb_glue_pass_wires_blob_act(gid, wid) : bb_glue_pass_wires(gid, wid); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_cross_gen(int gid, int wid) {
     if (!icn_wire_stack_on()) return bb_glue_pass_wires(gid, wid);

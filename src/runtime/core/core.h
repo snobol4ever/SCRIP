@@ -313,6 +313,7 @@ extern int64_t kw_errlimit;
 extern int64_t kw_code;
 extern int64_t kw_fnclevel;
 extern char    kw_rtntype[16];
+void core_unwind_pending(void);
 #include <setjmp.h>
 void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;
