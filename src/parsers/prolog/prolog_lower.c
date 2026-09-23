@@ -1,5 +1,6 @@
 #include "prolog_lower.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "prolog_atom.h"
 #include "scrip_cc.h"
 #include <stdio.h>
@@ -22,6 +23,19 @@ static char *pred_str(int functor, int arity) {
     char buf[256];
     snprintf(buf, sizeof buf, "%s/%d", fn, arity);
     return ct_strdup(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pred_add(cv_t *keys, cv_t *choices, PredKey k) {
+    tree_t *ch = ast_node_new(TT_CHOICE);
+    ch->v.sval = pred_str(k.functor, k.arity);
+    CV_PUSH(*keys, PredKey) = k;
+    CV_PUSH(*choices, tree_t *) = ch;
+    return (int) keys->len - 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pred_slot(cv_t *keys, cv_t *choices, PredKey k) {
+    for (uint32_t i = 0; i < keys->len; i++) if (pred_key_eq(CV_AT(*keys, PredKey, i), k)) return (int) i;
+    return pl_pred_add(keys, choices, k);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_flatten_conj(tree_t *t, tree_t *prog) {
@@ -86,23 +100,21 @@ static tree_t *pl_rewrite_control(tree_t *t) {
     }
     return t;
 }
-#define TR_SLOT_MAX 256
 typedef struct { const char *name; int slot; } TRSlot;
-typedef struct { TRSlot e[TR_SLOT_MAX]; int n; int next; } TRSlotMap;
+typedef struct { cv_t e; int next; } TRSlotMap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trslot_reset(TRSlotMap *m) { m->n = 0; m->next = 0; }
+static void trslot_reset(TRSlotMap *m) { memset(m, 0, sizeof *m); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void trslot_put(TRSlotMap *m, const char *name, int slot) { TRSlot t; t.name = name; t.slot = slot; CV_PUSH(m->e, TRSlot) = t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trslot_get(TRSlotMap *m, const char *name) {
     if (!name || strcmp(name, "_") == 0)
         return m->next++;
-    for (int i = 0; i < m->n; i++)
-        if (strcmp(m->e[i].name, name) == 0)
-            return m->e[i].slot;
-    if (m->n >= TR_SLOT_MAX) return m->next++;
+    for (uint32_t i = 0; i < m->e.len; i++)
+        if (strcmp(CV_AT(m->e, TRSlot, i).name, name) == 0)
+            return CV_AT(m->e, TRSlot, i).slot;
     int s = m->next++;
-    m->e[m->n].name = name;
-    m->e[m->n].slot = s;
-    m->n++;
+    trslot_put(m, name, s);
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -119,16 +131,17 @@ static void tr_assign_slots(tree_t *t, TRSlotMap *m) {
 static void pl_clause_assign_dense_slots(tree_t *ec, int arity) {
     if (!ec) return;
     TRSlotMap sm; trslot_reset(&sm);
-    for (int i = 0; i < arity && i < ec->n && sm.n < TR_SLOT_MAX; i++) {
+    for (int i = 0; i < arity && i < ec->n; i++) {
         tree_t *a = ec->c[i];
         if (a && a->t == TT_VAR && a->v.sval && strcmp(a->v.sval, "_") != 0) {
             int dup = 0;
-            for (int j = 0; j < sm.n; j++) if (sm.e[j].name && strcmp(sm.e[j].name, a->v.sval) == 0) { dup = 1; break; }
-            if (!dup) { sm.e[sm.n].name = a->v.sval; sm.e[sm.n].slot = i; sm.n++; }
+            for (uint32_t j = 0; j < sm.e.len; j++) if (CV_AT(sm.e, TRSlot, j).name && strcmp(CV_AT(sm.e, TRSlot, j).name, a->v.sval) == 0) { dup = 1; break; }
+            if (!dup) trslot_put(&sm, a->v.sval, i);
         }
     }
     sm.next = arity;
     for (int i = 0; i < ec->n; i++) tr_assign_slots(ec->c[i], &sm);
+    ct_drop(sm.e.p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void tr_head_key(tree_t *head, const char **fn_out, int *arity_out) {
@@ -213,12 +226,12 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite)
     {
         tree_t *hd = (tr->n > 0) ? tr->c[0] : NULL;
         if (hd && hd->t == TT_FNC) {
-            for (int i = 0; i < hd->n && sm.n < TR_SLOT_MAX; i++) {
+            for (int i = 0; i < hd->n; i++) {
                 tree_t *a = hd->c[i];
                 if (a && a->t == TT_VAR && a->v.sval && strcmp(a->v.sval, "_") != 0) {
                     int dup = 0;
-                    for (int j = 0; j < sm.n; j++) if (strcmp(sm.e[j].name, a->v.sval) == 0) { dup = 1; break; }
-                    if (!dup) { sm.e[sm.n].name = a->v.sval; sm.e[sm.n].slot = i; sm.n++; }
+                    for (uint32_t j = 0; j < sm.e.len; j++) if (strcmp(CV_AT(sm.e, TRSlot, j).name, a->v.sval) == 0) { dup = 1; break; }
+                    if (!dup) trslot_put(&sm, a->v.sval, i);
                 }
             }
         }
@@ -226,6 +239,7 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite)
     sm.next = key.arity;
     tr_assign_slots(tr, &sm);
     int n_vars = sm.next;
+    ct_drop(sm.e.p);
     (void) n_vars;
     tree_t *ec = ast_node_new(TT_CLAUSE);
     ec->v.sval = pred_str(key.functor, key.arity);
@@ -367,10 +381,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             }
         }
     }
-    #define MAX_PREDS 512
-    PredKey  keys[MAX_PREDS];
-    tree_t  *choices[MAX_PREDS];
-    int      nkeys = 0;
+    cv_t     keys = {0}, choices = {0};
     int      clause_idx = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next, clause_idx++) {
         int is_rule = (cl->tr != NULL && cl->tr->n > 0 &&
@@ -428,38 +439,18 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                         tree_t *syn = ast_node_new(TT_CLAUSE);
                         expr_add_child(syn, pj_head);
                         PredKey pk2 = { prolog_atom_intern("pj_test"), 4 };
-                        int found = -1;
-                        for (int i = 0; i < nkeys; i++)
-                            if (pred_key_eq(keys[i], pk2)) { found = i; break; }
-                        if (found < 0 && nkeys < MAX_PREDS) {
-                            keys[nkeys] = pk2;
-                            choices[nkeys] = ast_node_new(TT_CHOICE);
-                            choices[nkeys]->v.sval = pred_str(pk2.functor, pk2.arity);
-                            found = nkeys++;
-                        }
-                        if (found >= 0) {
+                        int found = pl_pred_slot(&keys, &choices, pk2);
+                        {
                             tree_t *ec = lower_clause_from_tree(syn, pk2, 0);
-                            expr_add_child(choices[found], ec);
+                            expr_add_child(CV_AT(choices, tree_t *, found), ec);
                         }
                     }
                 }
             }
         }
-        int found = -1;
-        for (int i = 0; i < nkeys; i++)
-            if (pred_key_eq(keys[i], k)) { found = i; break; }
-        if (found < 0) {
-            if (nkeys >= MAX_PREDS) {
-                fprintf(stderr, "prolog_lower: too many predicates\n");
-                continue;
-            }
-            keys[nkeys] = k;
-            choices[nkeys] = ast_node_new(TT_CHOICE);
-            choices[nkeys]->v.sval = pred_str(k.functor, k.arity);
-            found = nkeys++;
-        }
+        int found = pl_pred_slot(&keys, &choices, k);
         tree_t *ec = lower_clause_from_tree(cl->tr, k, cl->is_dcg);
-        expr_add_child(choices[found], ec);
+        expr_add_child(CV_AT(choices, tree_t *, found), ec);
     }
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         if (cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL) continue;
@@ -492,24 +483,17 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                     const char *aknm = prolog_atom_name(ak.functor);
                     if (aknm && pl_dyn_is_marked(aknm, ak.arity)) { (void) pld_seed; (void) pld_seed_n; }
                     else {
-                    int found = -1;
-                    for (int i = 0; i < nkeys; i++)
-                        if (pred_key_eq(keys[i], ak)) { found = i; break; }
-                    if (found < 0 && nkeys < MAX_PREDS) {
-                        keys[nkeys] = ak;
-                        choices[nkeys] = ast_node_new(TT_CHOICE);
-                        choices[nkeys]->v.sval = pred_str(ak.functor, ak.arity);
-                        found = nkeys++;
-                    }
-                    if (found >= 0) {
+                    int found = pl_pred_slot(&keys, &choices, ak);
+                    {
                         tree_t *ec = lower_clause_from_tree(syn, ak, 0);
+                        tree_t *fc = CV_AT(choices, tree_t *, found);
                         if (prepend) {
-                            expr_add_child(choices[found], ec);
-                            for (int j = choices[found]->n - 1; j > 0; j--)
-                                choices[found]->c[j] = choices[found]->c[j - 1];
-                            choices[found]->c[0] = ec;
+                            expr_add_child(fc, ec);
+                            for (int j = fc->n - 1; j > 0; j--)
+                                fc->c[j] = fc->c[j - 1];
+                            fc->c[0] = ec;
                         } else {
-                            expr_add_child(choices[found], ec);
+                            expr_add_child(fc, ec);
                         }
                         is_assert = 1;
                     }
@@ -536,13 +520,10 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 syn->n = 0;
                 expr_add_child(syn, helper_head);
                 expr_add_child(syn, goal_tr);
-                if (nkeys < MAX_PREDS) {
-                    keys[nkeys] = hk;
-                    choices[nkeys] = ast_node_new(TT_CHOICE);
-                    choices[nkeys]->v.sval = pred_str(hk.functor, hk.arity);
+                {
+                    int hi = pl_pred_add(&keys, &choices, hk);
                     tree_t *ec = lower_clause_from_tree(syn, hk, 0);
-                    expr_add_child(choices[nkeys], ec);
-                    nkeys++;
+                    expr_add_child(CV_AT(choices, tree_t *, hi), ec);
                     tree_t *init_arg = ast_node_new(TT_QLIT);
                     init_arg->v.sval = ct_strdup(hname);
                     tree_t *init_call = ast_node_new(TT_FNC);
@@ -584,10 +565,10 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         }
     }
     if (pld_seed_n > 0) {
-        for (int i = 0; i < nkeys; i++) {
-            const char *kn = prolog_atom_name(keys[i].functor);
-            if (!kn || strcmp(kn, "main") || keys[i].arity != 0) continue;
-            tree_t *mchoice = choices[i];
+        for (uint32_t i = 0; i < keys.len; i++) {
+            const char *kn = prolog_atom_name(CV_AT(keys, PredKey, i).functor);
+            if (!kn || strcmp(kn, "main") || CV_AT(keys, PredKey, i).arity != 0) continue;
+            tree_t *mchoice = CV_AT(choices, tree_t *, i);
             tree_t *mclause = (mchoice && mchoice->t == TT_CHOICE && mchoice->n >= 1) ? mchoice->c[0] : mchoice;
             if (!mclause || mclause->t != TT_CLAUSE) break;
             int arity0 = (int)mclause->v.dval; if (arity0 < 0) arity0 = 0;
@@ -600,14 +581,15 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             break;
         }
     }
-    for (int i = 0; i < nkeys; i++) {
+    for (uint32_t i = 0; i < keys.len; i++) {
         STMT_t *s = stmt_new();
-        s->subject = choices[i];
+        s->subject = CV_AT(choices, tree_t *, i);
         s->lineno  = 0;
         if (!prog->head) prog->head = s;
         else             prog->tail->next = s;
         prog->tail = s;
         prog->nstmts++;
     }
+    ct_drop(keys.p); ct_drop(choices.p);
     return prog;
 }

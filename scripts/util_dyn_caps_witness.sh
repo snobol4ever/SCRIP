@@ -4,6 +4,8 @@
 #          by a compile-time population cap in the census; runtime: the 70-argument Icon call vs iconx plus zero runtime tables
 #          bound by a runtime population cap; census: the ratchet -- file/static/field declarations may only fall from BASELINE.
 # rc 0 GREEN, 1 RED, 2 REFUSE (an oracle or the binary missing). The population regexes are the page's § 6 list, spelled once here.
+# The GNU Prolog oracle is gplc's native binary, never `gprolog --consult-file`: the top level prints a four-line banner and consult's two
+# "compiling ..." lines to STDOUT before the program runs, so that arm read 606 lines against a correct 600 and could never go green (cfo 2026-09-23).
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd); cd "$HERE/.." || exit 2
 mode=${1:-}; [ -n "$mode" ] || { echo "REFUSE(2): usage: util_dyn_caps_witness.sh compile|runtime|census"; exit 2; }
@@ -20,8 +22,9 @@ compile)
   SBL=/home/resources/x64/bin/sbl; [ -x "$SBL" ] || { echo "REFUSE(2): no SPITBOL oracle at $SBL"; exit 2; }
   "$SBL" -bf "$T/w/defines200.sno" < /dev/null > "$T/a.ref" 2>&1; timeout 60 ./scrip --run "$T/w/defines200.sno" < /dev/null > "$T/a.out" 2> "$T/a.err"
   if cmp -s "$T/a.ref" "$T/a.out"; then echo "PASS defines200.sno: 200 DEFINEs read $(tr -d '\n' < "$T/a.ref") in both"; else echo "RED defines200.sno: sbl -bf prints $(head -c 40 "$T/a.ref" | tr -d '\n'), scrip prints '$(head -c 40 "$T/a.out" | tr -d '\n')' -- $(head -c 140 "$T/a.err" | tr '\n' ' ')"; red=1; fi
-  command -v gprolog > /dev/null || { echo "REFUSE(2): no gprolog oracle"; exit 2; }
-  timeout 120 gprolog --consult-file "$T/w/preds600.pl" < /dev/null > "$T/b.ref" 2> /dev/null; timeout 120 ./scrip --run "$T/w/preds600.pl" < /dev/null > "$T/b.out" 2> "$T/b.err"
+  command -v gplc > /dev/null || { echo "REFUSE(2): no gplc, the GNU Prolog oracle's native compiler"; exit 2; }
+  ( cd "$T/w" && timeout 120 gplc preds600.pl -o preds600.gp > /dev/null 2>&1 ) || { echo "REFUSE(2): gplc could not compile preds600.pl"; exit 2; }
+  timeout 120 "$T/w/preds600.gp" < /dev/null > "$T/b.ref" 2> /dev/null; timeout 120 ./scrip --run "$T/w/preds600.pl" < /dev/null > "$T/b.out" 2> "$T/b.err"
   if cmp -s "$T/b.ref" "$T/b.out"; then echo "PASS preds600.pl: 600 predicates, $(wc -l < "$T/b.ref") lines identical to gprolog"; else echo "RED preds600.pl: gprolog prints $(wc -l < "$T/b.ref") lines, scrip $(wc -l < "$T/b.out") -- $(head -c 120 "$T/b.err" | tr '\n' ' ')"; red=1; fi
   L=$(count_caps '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); n=$(printf '%s' "$L" | grep -c .); echo "compile-time tables still bound by a population cap: $n"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
   ;;

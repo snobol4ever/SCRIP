@@ -1,5 +1,6 @@
 #include "prolog_parse.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "prolog_lex.h"
 #include "prolog_atom.h"
 #include <stdio.h>
@@ -378,28 +379,20 @@ static int dcg_flatten_conj(tree_t *t, tree_t **buf, int idx) {
     buf[idx++] = t;
     return idx;
 }
-#define TS_MAX_VARS 256
 typedef struct { char *name; int idx; } TSEntry;
-typedef struct { TSEntry e[TS_MAX_VARS]; int n; } TreeScope;
+typedef struct { cv_t e; } TreeScope;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void ts_reset(TreeScope *ts) { ts->n = 0; }
+static void ts_reset(TreeScope *ts) { memset(ts, 0, sizeof *ts); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *ts_get(TreeScope *ts, const char *name) {
-    for (int i = 0; i < ts->n; i++)
-        if (strcmp(ts->e[i].name, name) == 0) {
+    for (uint32_t i = 0; i < ts->e.len; i++)
+        if (strcmp(CV_AT(ts->e, TSEntry, i).name, name) == 0) {
             tree_t *v = ast_node_new(TT_VAR);
-            v->v.sval = ts->e[i].name;
+            v->v.sval = CV_AT(ts->e, TSEntry, i).name;
             return v;
         }
-    if (ts->n >= TS_MAX_VARS) {
-        tree_t *v = ast_node_new(TT_VAR);
-        v->v.sval = ct_strdup("_OVERFLOW");
-        return v;
-    }
     char *interned = ct_strdup(name);
-    ts->e[ts->n].name = interned;
-    ts->e[ts->n].idx  = ts->n;
-    ts->n++;
+    { TSEntry te; te.name = interned; te.idx = (int) ts->e.len; CV_PUSH(ts->e, TSEntry) = te; }
     tree_t *v = ast_node_new(TT_VAR);
     v->v.sval = interned;
     return v;
@@ -1009,14 +1002,14 @@ static PlClause *parse_clause(Parser *p) {
         if (if_currently_active(p)) register_op_directive(body_tr);
         if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
             cl->nbody = 0; cl->tr = NULL;
-            return cl;
+            ct_drop(ts.e.p); return cl;
         }
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
           if (body_tr) ast_push(_cl, body_tr);
           cl->tr = _cl; }
-        return cl;
+        ct_drop(ts.e.p); return cl;
     }
     tree_t *head_tr = pt_term(p, &ts, 1199);
     pk = lexer_peek(&p->lx);
@@ -1052,7 +1045,7 @@ static PlClause *parse_clause(Parser *p) {
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . at end of fact");
     }
-    return cl;
+    ct_drop(ts.e.p); return cl;
 }
 static const char *PL_PRELUDE_SRC =
     "member(X,[X|_]).\n"

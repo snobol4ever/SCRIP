@@ -1,5 +1,6 @@
 #include "rt/rt_arena.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -15,7 +16,6 @@ extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;
 typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; long prog_nstmt; } scx_t;
-#define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
 static int sno_fname_is_multiproto(const char * fname);
@@ -174,10 +174,10 @@ static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t *
     if (res) *res = op; return ea;
 }
 static int sno_def_entry_absent(const tree_t * subj, int argbase);
-static const char * g_sno_predef[SNO_DEF_MAX]; static int g_sno_npredef = 0;
+static cv_t g_sno_predef;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_predef_note(const char * fname) { for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return; if (g_sno_npredef < SNO_DEF_MAX) g_sno_predef[g_sno_npredef++] = fname; }
-static int sno_predef_registered(const char * fname) { if (!fname) return 0; for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return 1; return 0; }
+static void sno_predef_note(const char * fname) { for (uint32_t k = 0; k < g_sno_predef.len; k++) if (!strcmp(CV_AT(g_sno_predef, const char *, k), fname)) return; CV_PUSH(g_sno_predef, const char *) = fname; }
+static int sno_predef_registered(const char * fname) { if (!fname) return 0; for (uint32_t k = 0; k < g_sno_predef.len; k++) if (!strcmp(CV_AT(g_sno_predef, const char *, k), fname)) return 1; return 0; }
 static const char * sno_t4_target(const char * op, int nops);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_tree_has_define_call(const tree_t * t) {
@@ -1068,12 +1068,13 @@ static const char * sno_define_entry_opt(const tree_t * dsub, int argbase) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define SNO_MULTIPROTO_MAX 64
-static const char * g_sno_multiproto[SNO_MULTIPROTO_MAX]; static int g_sno_n_multiproto = 0;
-static int sno_fname_is_multiproto(const char * fname) { for (int k = 0; k < g_sno_n_multiproto; k++) if (!strcmp(g_sno_multiproto[k], fname)) return 1; return 0; }
+static cv_t g_sno_multiproto;
+static int sno_fname_is_multiproto(const char * fname) { for (uint32_t k = 0; k < g_sno_multiproto.len; k++) if (!strcmp(CV_AT(g_sno_multiproto, const char *, k), fname)) return 1; return 0; }
 static const char * sno_proto_encode(const sno_def_t * d) { char e[4096]; size_t need = sizeof e; int n = snprintf(e, need, "%d|", d->nformals); for (int k = 0; k < d->nnames && (size_t)n < need - 1; k++) n += snprintf(e + n, need - (size_t)n, "%s%s", k ? "," : "", d->names[k]); return lp_strdup(e); }
-static const char * g_sno_proto_fn[SNO_DEF_MAX]; static const char * g_sno_proto_enc[SNO_DEF_MAX]; static int g_sno_nproto = 0;
-static void sno_proto_note(const sno_def_t * d) { const char * enc = sno_proto_encode(d); for (int k = 0; k < g_sno_nproto; k++) if (!strcmp(g_sno_proto_fn[k], d->fname)) { if (strcmp(g_sno_proto_enc[k], enc) && !sno_fname_is_multiproto(d->fname) && g_sno_n_multiproto < SNO_MULTIPROTO_MAX) g_sno_multiproto[g_sno_n_multiproto++] = lp_strdup(d->fname); g_sno_proto_enc[k] = enc; return; } if (g_sno_nproto < SNO_DEF_MAX) { g_sno_proto_fn[g_sno_nproto] = lp_strdup(d->fname); g_sno_proto_enc[g_sno_nproto] = enc; g_sno_nproto++; } }
+static cv_t g_sno_proto_fn; static cv_t g_sno_proto_enc;
+static void sno_proto_note(const sno_def_t * d) { const char * enc = sno_proto_encode(d); for (uint32_t k = 0; k < g_sno_proto_fn.len; k++) if (!strcmp(CV_AT(g_sno_proto_fn, const char *, k), d->fname)) {
+    if (strcmp(CV_AT(g_sno_proto_enc, const char *, k), enc) && !sno_fname_is_multiproto(d->fname)) CV_PUSH(g_sno_multiproto, const char *) = lp_strdup(d->fname); CV_AT(g_sno_proto_enc, const char *, k) = enc; return; }
+    { const char * fn = lp_strdup(d->fname); CV_PUSH(g_sno_proto_fn, const char *) = fn; CV_PUSH(g_sno_proto_enc, const char *) = enc; } }
 static void sno_bind_attach_proto(IR_graph_t * g, IR_t * bind, const sno_def_t * d, IR_t * fail) { if (!sno_fname_is_multiproto(d->fname)) return; IR_t * pr = lc_build(g, IR_LIT_STRING, bind, fail); IR_LIT(pr).sval = (char *) sno_proto_encode(d); ir_operand_push(bind, pr); }
 static void sno_bind_attach_entry(IR_graph_t * g, IR_t * bind, const char * entry, IR_t * fail) {
     if (!g || !bind || !entry || !entry[0]) return;
@@ -2244,8 +2245,8 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * f
 static const tree_t * g_sno_prescan_top       = NULL;
 static int            g_sno_expr_define_seen  = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_exprdef_note(const char ** v, int * n, const char * f) { if (!f) return; for (int k = 0; k < *n; k++) if (!strcmp(v[k], f)) return; if (*n < SNO_DEF_MAX) v[(*n)++] = f; }
-static int sno_exprdef_seen(const char * const * v, int n, const char * f) { if (!f) return 0; for (int k = 0; k < n; k++) if (!strcmp(v[k], f)) return 1; return 0; }
+static void sno_exprdef_note(cv_t * v, const char * f) { if (!f) return; for (uint32_t k = 0; k < v->len; k++) if (!strcmp(CV_AT(*v, const char *, k), f)) return; CV_PUSH(*v, const char *) = f; }
+static int sno_exprdef_seen(const cv_t * v, const char * f) { if (!f) return 0; for (uint32_t k = 0; k < v->len; k++) if (!strcmp(CV_AT(*v, const char *, k), f)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name, long stno_base, long end_line) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
@@ -2688,7 +2689,9 @@ static const char * sno_litname(const tree_t * a) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, const char ** exprdef_names, int * n_exprdef) {
+static void sno_def_put(cv_t * defs, cv_t * bodies, const sno_def_t * d, const tree_t * body) { sno_def_t c = *d; CV_PUSH(*defs, sno_def_t) = c; CV_PUSH(*bodies, const tree_t *) = body; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t * exprdef_names) {
     if (!t) return;
     if (t->t == TT_FNC) {
         const char * name = t->v.sval; int argbase = 0;
@@ -2716,8 +2719,8 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
             const char * on = sno_litname(t->c[argbase + 1]);
             if (an && on) {
                 int fo = -1;
-                for (int k = 0; k < *ndefs; k++) if (!strcmp(defs[k].fname, on)) { fo = k; break; }
-                if (fo >= 0 && *ndefs < SNO_DEF_MAX) { sno_def_t d = defs[fo]; d.result_name = d.result_name ? d.result_name : d.fname; d.fname = lp_strdup(an); sno_reg_var(d.fname); defs[(*ndefs)++] = d; }
+                for (uint32_t k = 0; k < defs->len; k++) if (!strcmp(CV_AT(*defs, sno_def_t, k).fname, on)) { fo = (int) k; break; }
+                if (fo >= 0) { sno_def_t d = CV_AT(*defs, sno_def_t, fo); d.result_name = d.result_name ? d.result_name : d.fname; d.fname = lp_strdup(an); sno_reg_var(d.fname); sno_def_put(defs, bodies, &d, NULL); }
                 else { extern void rt_builtin_synonym_add(const char *, const char *); rt_builtin_synonym_add(lp_strdup(an), lp_strdup(on)); }
             }
         }
@@ -2731,16 +2734,15 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
             sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
             if (sn4_sysfn_protected(d.fname)) return;
             sno_proto_note(&d);
-            if (t != g_sno_prescan_top) { g_sno_expr_define_seen = 1; sno_exprdef_note(exprdef_names, n_exprdef, d.fname); }
+            if (t != g_sno_prescan_top) { g_sno_expr_define_seen = 1; sno_exprdef_note(exprdef_names, d.fname); }
             sno_predef_note(d.fname);
             int fo = -1;
-            for (int k = 0; k < *ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { fo = k; break; }
-            if (fo >= 0) defs[fo] = d;
-            else if (*ndefs < SNO_DEF_MAX) defs[(*ndefs)++] = d;
-            else sno_fatal("too many DEFINEs in one program", d.fname);
+            for (uint32_t k = 0; k < defs->len; k++) if (!strcmp(CV_AT(*defs, sno_def_t, k).fname, d.fname)) { fo = (int) k; break; }
+            if (fo >= 0) CV_AT(*defs, sno_def_t, fo) = d;
+            else sno_def_put(defs, bodies, &d, NULL);
         }
     }
-    for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, ndefs, exprdef_names, n_exprdef);
+    for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, bodies, exprdef_names);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_expr_mark(void) { return g_sno_nexpr; }
@@ -2877,10 +2879,10 @@ static void sno_register_entry_label(const char * el, int main_bb_idx) {
     g_stage2.proc_table[lpi].bb_idx = main_bb_idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_entry_seen_push(const char ** seen, int * nseen, const char * el) {
-    if (!el || !el[0] || *nseen >= SNO_DEF_MAX * 2) return;
-    for (int k = 0; k < *nseen; k++) if (!strcmp(seen[k], el)) return;
-    seen[(*nseen)++] = el;
+static void sno_entry_seen_push(cv_t * seen, const char * el) {
+    if (!el || !el[0]) return;
+    for (uint32_t k = 0; k < seen->len; k++) if (!strcmp(CV_AT(*seen, const char *, k), el)) return;
+    CV_PUSH(*seen, const char *) = el;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
@@ -2891,7 +2893,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_nexpr = 0;
     g_sno_npat = 0;
     g_sno_uses_stmtkw = 0;
-    g_sno_uses_code = 0; g_sno_calls_code = 0; g_sno_n_multiproto = 0; g_sno_nproto = 0;
+    g_sno_uses_code = 0; g_sno_calls_code = 0; g_sno_multiproto.len = 0; g_sno_proto_fn.len = 0; g_sno_proto_enc.len = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i]) { sno_scan_stmtkw(prog->c[i]); sno_scan_code_use(prog->c[i]); }
     { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (g_sno_uses_stmtkw) setenv("SCRIP_SNO_STMTKW", "1", 1); else if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
     sno_register_program(&g_stage2, prog);
@@ -2900,15 +2902,14 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fz_build_table(st, nst);
-    sno_def_t defs[SNO_DEF_MAX]; int ndefs = 0; g_sno_npredef = 0;
-    const char * def_entry_all[SNO_DEF_MAX * 2]; int n_def_entry_all = 0;
-    const tree_t * def_body[SNO_DEF_MAX]; for (int _k = 0; _k < SNO_DEF_MAX; _k++) def_body[_k] = NULL;
+    cv_t defs = {0}, def_body = {0}; g_sno_predef.len = 0;
+    cv_t def_entry_all = {0};
     int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
-    const char * stmt_bind_fname[SNO_DEF_MAX]; int n_stmt_bind = 0;
-    const char * exprdef_names[SNO_DEF_MAX]; int n_exprdef = 0;
+    cv_t stmt_bind_fname = {0};
+    cv_t exprdef_names = {0};
     for (int i = 0; i < nst; i++) {
         g_sno_prescan_top = lc_stmt_subj(st[i]);
-        sno_prescan_expr(g_sno_prescan_top, defs, &ndefs, exprdef_names, &n_exprdef);
+        sno_prescan_expr(g_sno_prescan_top, &defs, &def_body, &exprdef_names);
         const tree_t * dfn = lc_stmt_subj(st[i]);
         if (dfn && dfn->t == TT_DEFINE) {
             is_def[i] = 1;
@@ -2918,12 +2919,11 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             if (sn4_sysfn_protected(d.fname)) continue;
             const tree_t * body = (dfn->n > 2) ? dfn->c[2] : NULL;
             int found = -1;
-            for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
-            if (!body) sno_entry_seen_push(def_entry_all, &n_def_entry_all, d.entry);
-            if (found >= 0) { defs[found] = d; def_body[found] = body; }
-            else if (ndefs < SNO_DEF_MAX) { def_body[ndefs] = body; defs[ndefs++] = d; }
-            else sno_fatal("too many DEFINEs in one program", d.fname);
-            if (n_stmt_bind < SNO_DEF_MAX) stmt_bind_fname[n_stmt_bind++] = d.fname;
+            for (uint32_t k = 0; k < defs.len; k++) if (!strcmp(CV_AT(defs, sno_def_t, k).fname, d.fname)) { found = (int) k; break; }
+            if (!body) sno_entry_seen_push(&def_entry_all, d.entry);
+            if (found >= 0) { CV_AT(defs, sno_def_t, found) = d; CV_AT(def_body, const tree_t *, found) = body; }
+            else sno_def_put(&defs, &def_body, &d, body);
+            CV_PUSH(stmt_bind_fname, const char *) = d.fname;
             continue;
         }
         int argbase = 0;
@@ -2939,13 +2939,12 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), entry_opt, &d);
         if (sn4_sysfn_protected(d.fname)) continue;
         int found = -1;
-        for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
-        sno_entry_seen_push(def_entry_all, &n_def_entry_all, d.entry);
+        for (uint32_t k = 0; k < defs.len; k++) if (!strcmp(CV_AT(defs, sno_def_t, k).fname, d.fname)) { found = (int) k; break; }
+        sno_entry_seen_push(&def_entry_all, d.entry);
         sno_proto_note(&d);
-        if (found >= 0) defs[found] = d;
-        else if (ndefs < SNO_DEF_MAX) defs[ndefs++] = d;
-        else sno_fatal("too many DEFINEs in one program", d.fname);
-        if (n_stmt_bind < SNO_DEF_MAX) stmt_bind_fname[n_stmt_bind++] = d.fname;
+        if (found >= 0) CV_AT(defs, sno_def_t, found) = d;
+        else sno_def_put(&defs, &def_body, &d, NULL);
+        CV_PUSH(stmt_bind_fname, const char *) = d.fname;
     }
     int main_entry_idx = 0;
     for (int i = 0; i < prog->n; i++) {
@@ -2960,13 +2959,13 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     IR_graph_t * g = sno_build_graph(st, nst, main_entry_idx, is_def, NULL, 0, _end_line);
     {
         IR_t * prelude_head = NULL; IR_t * prelude_tail = NULL;
-        for (int di = 0; di < ndefs; di++) {
-            int covered = 0;
-            for (int k = 0; k < n_stmt_bind; k++) if (!strcmp(stmt_bind_fname[k], defs[di].fname)) { covered = 1; break; }
-            if (covered || !sno_exprdef_seen(exprdef_names, n_exprdef, defs[di].fname)) continue;
+        for (uint32_t di = 0; di < defs.len; di++) {
+            const char * dfn = CV_AT(defs, sno_def_t, di).fname; int covered = 0;
+            for (uint32_t k = 0; k < stmt_bind_fname.len; k++) if (!strcmp(CV_AT(stmt_bind_fname, const char *, k), dfn)) { covered = 1; break; }
+            if (covered || !sno_exprdef_seen(&exprdef_names, dfn)) continue;
             IR_t * pfail = lc_build(g, IR_FAIL, NULL, NULL);
             IR_t * pbind = lc_build(g, IR_DEFINE, NULL, pfail);
-            IR_LIT(pbind).sval = lp_strdup(defs[di].fname);
+            IR_LIT(pbind).sval = lp_strdup(dfn);
             if (!prelude_head) prelude_head = pbind; else lc_γ_to(prelude_tail, pbind);
             prelude_tail = pbind;
         }
@@ -3006,14 +3005,15 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     }
     if (!g_sno_uses_code) {
         int main_bb_idx2 = g_stage2.proc_table[pi].bb_idx;
-        for (int di = 0; di < ndefs; di++) if (!def_body[di]) sno_register_entry_label(defs[di].entry, main_bb_idx2);
-        for (int ei = 0; ei < n_def_entry_all; ei++) sno_register_entry_label(def_entry_all[ei], main_bb_idx2);
+        for (uint32_t di = 0; di < defs.len; di++) if (!CV_AT(def_body, const tree_t *, di)) sno_register_entry_label(CV_AT(defs, sno_def_t, di).entry, main_bb_idx2);
+        for (uint32_t ei = 0; ei < def_entry_all.len; ei++) sno_register_entry_label(CV_AT(def_entry_all, const char *, ei), main_bb_idx2);
     }
-    for (int di = 0; di < ndefs; di++) {
+    for (uint32_t di = 0; di < defs.len; di++) {
+        const sno_def_t d0 = CV_AT(defs, sno_def_t, di); const tree_t * dbody = CV_AT(def_body, const tree_t *, di);
         IR_graph_t * gf;
-        const char * rn = defs[di].result_name ? defs[di].result_name : defs[di].fname;
-        if (def_body[di]) {
-            const tree_t * bp = def_body[di];
+        const char * rn = d0.result_name ? d0.result_name : d0.fname;
+        if (dbody) {
+            const tree_t * bp = dbody;
             int bn = 0;
             for (int i = 0; i < bp->n; i++) if (bp->c[i] && bp->c[i]->t == TT_STMT) bn++;
             const tree_t ** bst = (const tree_t **) ct_zalloc((size_t)(bn > 0 ? bn : 1), sizeof(tree_t *));
@@ -3024,22 +3024,22 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             ct_drop((void *) bst); ct_drop(bis);
         } else {
             int eidx = -1;
-            for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
+            for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, d0.entry)) { eidx = i; break; } }
             if (eidx < 0) continue;
-            gf = sno_build_call_stub(defs[di].entry, defs[di].fname);
+            gf = sno_build_call_stub(d0.entry, d0.fname);
         }
         int fpi = stage2_proc_grow(&g_stage2);
-        g_stage2.proc_table[fpi].name = defs[di].fname;
+        g_stage2.proc_table[fpi].name = d0.fname;
         g_stage2.proc_table[fpi].proc = NULL;
         g_stage2.proc_table[fpi].entry_pc = -1;
-        g_stage2.proc_table[fpi].nparams = defs[di].nnames;
-        g_stage2.proc_table[fpi].nformals = defs[di].nformals;
-        for (int k = 0; k < defs[di].nnames && k < STAGE2_FRAME_SLOT_MAX; k++) g_stage2.proc_table[fpi].lower_sc.e[k].name = defs[di].names[k];
-        g_stage2.proc_table[fpi].lower_sc.n = defs[di].nnames < STAGE2_FRAME_SLOT_MAX ? defs[di].nnames : STAGE2_FRAME_SLOT_MAX;
+        g_stage2.proc_table[fpi].nparams = d0.nnames;
+        g_stage2.proc_table[fpi].nformals = d0.nformals;
+        for (int k = 0; k < d0.nnames && k < STAGE2_FRAME_SLOT_MAX; k++) g_stage2.proc_table[fpi].lower_sc.e[k].name = d0.names[k];
+        g_stage2.proc_table[fpi].lower_sc.n = d0.nnames < STAGE2_FRAME_SLOT_MAX ? d0.nnames : STAGE2_FRAME_SLOT_MAX;
         g_stage2.proc_table[fpi].is_generator = 0;
         g_stage2.proc_table[fpi].dyn_scope = 1;
         g_stage2.proc_table[fpi].result_name = rn;
-        gf->multi_proto = sno_fname_is_multiproto(defs[di].fname);
+        gf->multi_proto = sno_fname_is_multiproto(d0.fname);
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
     }
     sno_expr_thunks_build(0);
@@ -3048,11 +3048,12 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         int xn = sno_expr_mark(); if (xn > xdone) { sno_expr_thunks_build(xdone); xdone = xn; }
         if (sno_pat_count() == pdone && sno_expr_mark() == xdone) break; } }
     ct_drop((void *) st); ct_drop(is_def);
+    ct_drop(defs.p); ct_drop(def_body.p); ct_drop(def_entry_all.p); ct_drop(stmt_bind_fname.p); ct_drop(exprdef_names.p);
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fragment_reject_define(const tree_t ** st, int nst) {
-    g_sno_npredef = 0;
+    g_sno_predef.len = 0;
     for (int i = 0; i < nst; i++) {
         const tree_t * dfn = lc_stmt_subj(st[i]);
         if (dfn && dfn->t == TT_DEFINE) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
