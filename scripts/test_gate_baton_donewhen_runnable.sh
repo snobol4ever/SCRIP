@@ -38,7 +38,7 @@ echo "first-word extractor: $(tail -1 /tmp/.dw_selftest.$$)"; rm -f /tmp/.dw_sel
 # placeholder looks like is how two readers of one file come to disagree.
 _MSG_SH="$HERE/s4e_msg.sh"
 if [ -f "$_MSG_SH" ]; then
-    _PH="$(awk '/^s4e_donewhen_is_placeholder\(\)/ { grab=1 } /^# ⛔⭐⭐ THE ONE DONE-WHEN EXTRACTOR/ { grab=0 } grab { print }' "$_MSG_SH")"
+    _PH="$(awk '/^s4e_donewhen_is_placeholder\(\)/ { grab=1; print; next } grab && /^[^[:space:]]/ { grab=0 } grab { print }' "$_MSG_SH")"
     [ -n "$_PH" ] && eval "$_PH"
 fi
 type s4e_donewhen_is_placeholder >/dev/null 2>&1 || {

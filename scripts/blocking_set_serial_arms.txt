@@ -51,3 +51,11 @@ gc_every_allocating_runtime_entry_returns_to_a_safe_point
 #    sends signals at all. It is root-scoped and pattern-scoped to its own mktemp dir, so it cannot reach another
 #    arm; it runs alone because its own MEASUREMENT would otherwise be a measurement of the box.
 a_blocking_set_death_names_its_killer
+# 4. ARMS THAT MOVE THE WATCHED SURFACE BY DESIGN (ceo 2026-09-23, CEO-1197: one pass of 409 arms read 123 refused,
+#    121 of them RACED on exactly these two). gc_conservative_auditor builds its OWN library configuration into out/
+#    (out/rt_pic-<tag>, out/libscrip_rt-<tag>.so, and the Makefile archives the previous .so under out/attic) --
+#    101 concurrent arms shared that path in one pass; gc_acceptance_never_prints moves scripts/gc_event_coverage.floor
+#    in place to prove the display refuses -- 12 concurrent arms shared ./scripts. Each is correct alone and a race
+#    under any fan-out, so each runs in the parent.
+gc_conservative_auditor
+gc_acceptance_never_prints

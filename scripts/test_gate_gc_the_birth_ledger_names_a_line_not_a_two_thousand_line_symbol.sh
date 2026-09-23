@@ -54,7 +54,7 @@ else echo "  arm 1 FAIL: $total kind(s) declared, these carry no name:${missing:
 examined=$((examined + 1))
 W="$T/w.icn"
 if python3 "$ROOT/scripts/corpus_suite_harness.py" extract "$S4E/corpus/tests/icon/ALL.icn" "$S4E/corpus/tests/icon/ALL.ref" procedure_coexpr_suspend_replace_3 "$W" --out-ref "$T/w.ref" >/dev/null 2>&1 && [ -s "$W" ]; then
-  env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" </dev/null >/dev/null 2>"$T/w.err"
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" </dev/null >/dev/null 2>"$T/w.err" )
   line=$(grep -m1 'ZGC-BIRTH.*allocated by' "$T/w.err")
   off=$(printf '%s\n' "$line" | grep -oE 'libscrip_rt\.so\+0x[0-9a-f]+' | tail -1 | sed 's/.*+//')
   nm=$(printf '%s\n' "$line" | grep -oE 'kind=[0-9]+/HB_[A-Z0-9_]+' | head -1)

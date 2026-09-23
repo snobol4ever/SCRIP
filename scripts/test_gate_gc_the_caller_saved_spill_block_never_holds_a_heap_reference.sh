@@ -62,6 +62,7 @@ ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails
 refuse() { echo "⛔ GATE REFUSED(2) [gc_the_caller_saved_spill_block_never_holds_a_heap_reference]: $1"; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- build before grading"
 [ -d "$WD" ] || refuse "no $WD -- nothing to grade"
+RUNCWD=$(mktemp -d) || refuse "no mktemp for the run cwd"; trap 'rm -rf "$RUNCWD"' EXIT; cd "$RUNCWD" || refuse "cannot enter $RUNCWD -- a witness run from the checkout root litters it (tmp3/tmp4) and races every concurrent arm"
 echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob) · stress $STRESS"
 
 # (a) THE REPORTER EXISTS AND IS REACHED.  ⛔ AN ARM THAT GRADES A COUNTER NOTHING INCREMENTS PASSES BY NEVER
