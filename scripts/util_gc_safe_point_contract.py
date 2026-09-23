@@ -285,6 +285,42 @@ def spine_cell_pair(placed, src, k):
     return base % 16 == 0 and ("rax", base) in placed and ("rdx", base + 8) in placed
 
 
+def spine_cell_pair_multi(multi, g, src, ks):
+    """spine_cell_pair for a store the anchor reaches at several depths: rax on the grid at EVERY depth and rdx
+    exactly 8 above it at each -- the same cell test, asked once per depth, and one unaligned depth fails it."""
+    other = "rdx" if src == "rax" else "rax"
+    oks = multi.get((g, other))
+    if not oks:
+        return False
+    base = tuple(ks) if src == "rax" else tuple(k - 8 for k in ks)
+    obase = tuple(k - 8 for k in oks) if other == "rdx" else tuple(oks)
+    return all(k % 16 == 0 for k in base) and base == obase
+
+
+def poll_res_tag(insns, n):
+    """' POLL-RES-ENVELOPE' when this store is one half of x86_rt_gc_poll_res's spill -- sub rsp,16 / [rsp+0]=rax /
+    [rsp+8]=rdx / call rt_gc_poll (ARCH-GC 6.5b) -- so a finding this reader cannot PLACE still NAMES the form it
+    is looking at.  The cfo's bc1092d8f put that form at the two by-name call sites and the reading moved from
+    eight to twenty-two without one word saying what had arrived (cto 2026-09-22)."""
+    def is_store(j, disp, src):
+        if j < 0 or j >= len(insns):
+            return False
+        for (b, d, s) in UC._store_of(insns[j]):
+            if b == "rsp" and d == disp and s.strip() == src:
+                return True
+        return False
+    for j in (n, n - 1):
+        if is_store(j, 0, "rax") and is_store(j + 1, 8, "rdx") and j >= 1 \
+                and insns[j - 1].mnem == "sub" and len(insns[j - 1].ops) == 2 \
+                and insns[j - 1].ops[0].strip() == "rsp" and insns[j - 1].ops[1].strip() == "16":
+            for m in range(j + 2, min(len(insns), j + 12)):
+                if insns[m].mnem == "call" and insns[m].ops and "rt_gc_poll" in insns[m].ops[0]:
+                    return " POLL-RES-ENVELOPE"
+                if insns[m].mnem in ("jmp", "je", "jne", "ret"):
+                    break
+    return ""
+
+
 def store_dominates(insns, pred, calls, region, i):
     """True when EVERY path from a reaching call to the poll passes a result store -- clause K4.
 
@@ -345,15 +381,33 @@ def grade_site(insns, pred, i, frames):
             out.append(("K2", "VACUOUS", "RESULT-NOT-STORED but there is no result to lose -- %s"
                         % "; ".join(d for _k, d in kinds)))
         return out
-    placed = {}
+    placed, multi = {}, {}
     for (b, d, src, n) in frame_st:
         g, k, undec = UC.owner_of(b, d, n, frames)
         if not undec and g in frames:
             placed[(g, src, k)] = n
+        elif undec == "FRAME-DEPTH-MULTI-VALUED":
+            g2, ks = UC.owner_ks(b, d, n, frames)
+            if g2 in frames and ks:
+                multi[(g2, src)] = ks
     for (b, d, src, n) in frame_st:
         g, k, undec = UC.owner_of(b, d, n, frames)
+        if undec == "FRAME-DEPTH-MULTI-VALUED" and g in frames and (g, src) in multi:
+            ks = multi[(g, src)]
+            f = frames[g]
+            vs = {UC.classify(k2, f["layout"], f["map_off"], f["blob"]) for k2 in ks}
+            kss = ",".join("%+d" % k2 for k2 in ks)
+            if vs == {"BELOW-REGION"} and spine_cell_pair_multi(multi, g, src, ks):
+                out.append(("K3", "SPINE-CELL", "BELOW-REGION k in {%s} src=%s graph=%s -- a tagged DESCR cell on the "
+                            "ζ-SPINE at EVERY depth the anchor reaches this site, each on the 16-byte grid, ARCH-GC 2b "
+                            "RULE 1a, covered by gc_cell_visit and NOT by this graph's frame map" % (kss, src, g)))
+                continue
+            out.append(("K3", "UNDECIDABLE", "%s at [%s%+d] src=%s -- depths {%s} classify %s%s"
+                        % (undec, b, d, src, kss, "/".join(sorted(vs)), poll_res_tag(insns, n))))
+            continue
         if undec or g not in frames:
-            out.append(("K3", "UNDECIDABLE", "%s at [%s%+d] src=%s" % (undec or "NO-FRAME", b, d, src)))
+            out.append(("K3", "UNDECIDABLE", "%s at [%s%+d] src=%s%s"
+                        % (undec or "NO-FRAME", b, d, src, poll_res_tag(insns, n))))
             continue
         f = frames[g]
         v = UC.classify(k, f["layout"], f["map_off"], f["blob"])
@@ -401,6 +455,11 @@ FLOOR_HEADER = (
     "# scripts/gc_witnesses/ is written by five seats; a witness ARRIVING is a file addition and must never be\n"
     "# read as this tree getting worse, while a NAMED witness's own numbers MOVING is the whole thing this gate\n"
     "# exists to catch.  A witness not named here is REPORTED and never blocking.\n"
+    "# 2026-09-22 cto: hb_coexpr_genp_scan.icn undecidable 8 -> 14, spine_cell 8 -> 16.  The cfo's bc1092d8f put\n"
+    "# x86_rt_gc_poll_res at the two by-name call sites; the four reached at two depths are now PLACED as SPINE-CELL at\n"
+    "# every depth (owner_ks), and the six in the co-expression body plus one call_value beta site reach NO ANCHOR and\n"
+    "# are NAMED POLL-RES-ENVELOPE.  A poll ARRIVING at a site this reader cannot place is a site that was UNPOLLED before,\n"
+    "# not the tree getting worse; the RSP-parity screen (CEO-1151) grades those seven in the bare-poll row.\n"
     "# COLUMNS: witness  sites  k1  k2  k3  k4  undecidable  spine_cell\n"
 )
 
@@ -422,8 +481,20 @@ def read_floor(path=FLOOR):
 
 
 def write_floor(counts, path=FLOOR):
+    """rewrite the floor from a reading, CARRYING FORWARD the UNGRADEABLE declaration the file holds by hand.
+
+    The first rewrite after that line was added (faddd1a00) silently dropped it and arm (g) of the gate went red on
+    a floor the checker itself had just written -- a writer that erases a declaration it does not understand is a
+    silencer with an innocent name (cto 2026-09-22).  The line is a DECLARATION and shrinks only in the landing that
+    earns it, so the writer copies it verbatim and never computes it."""
+    keep = ""
+    if os.path.exists(path):
+        for ln in open(path, encoding="utf-8"):
+            if ln.startswith("# UNGRADEABLE:"):
+                keep = ln
+                break
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(FLOOR_HEADER)
+        fh.write(FLOOR_HEADER.replace("# COLUMNS: witness", keep + "# COLUMNS: witness") if keep else FLOOR_HEADER)
         for w in sorted(counts):
             c = counts[w]
             fh.write("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n"
@@ -622,6 +693,28 @@ def selftest():
     ck(any(r[4] == "K3" and r[5] == "MEMBER" and "BELOW-REGION" in r[6] for r in rows),
        "K3 PLANTED: the SAME pair at an UNALIGNED k is not a cell -- the spine walk reads cells on a 16-byte "
        "grid, so an unaligned pair stays a K3 member (%s)" % (rows,))
+
+    two_depths = ("        test eax, eax\n"
+                  "        je .Lpd2\n"
+                  "        sub rsp, 16\n"
+                  "        jmp .Lpd3\n"
+                  ".Lpd2:\n"
+                  "        sub rsp, %s\n"
+                  ".Lpd3:\n"
+                  "        call rt_call_arr_bl@PLT\n"
+                  "        mov qword ptr [rsp + 0], rax\n"
+                  "        mov qword ptr [rsp + 8], rdx\n"
+                  "        call rt_gc_poll@PLT\n")
+    rows, _s, _r = run(two_depths % "32")
+    ck(any(r[4] == "K3" and r[5] == "SPINE-CELL" and "k in {" in r[6] for r in rows)
+       and not any(r[5] in ("MEMBER", "UNDECIDABLE") for r in rows),
+       "SPINE-CELL AT TWO DEPTHS PLANTED: a pair the anchor reaches at k=-16 and k=-32 is a tagged cell at EVERY depth "
+       "and is PLACED, not left FRAME-DEPTH-MULTI-VALUED -- the cfo's by-name poll_res sites read this way (%s)" % (rows,))
+    rows, _s, _r = run(two_depths % "24")
+    ck(any(r[4] == "K3" and r[5] == "UNDECIDABLE" and "MULTI-VALUED" in r[6] and "BELOW-REGION" in r[6] for r in rows)
+       and not any(r[5] == "SPINE-CELL" for r in rows),
+       "TWO DEPTHS, ONE OFF THE GRID, PLANTED: the same pair at k=-16 and k=-24 is a cell on one path and not on the "
+       "other, so it stays UNDECIDABLE with both depths NAMED rather than being placed on the aligned one (%s)" % (rows,))
 
     rows, _s, _r = run(ok_body.replace("[rsp + 0]", "[rsp - 64]").replace(
         "        mov qword ptr [rsp + 8], rdx\n", ""))

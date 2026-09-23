@@ -664,6 +664,29 @@ def owner_of(base, d, i, frames):
     return g, next(iter(vals)), None
 
 
+def owner_ks(base, d, i, frames):
+    """(graph, every offset this store can take) for a site ONE graph's anchor reaches at MORE THAN ONE depth.
+
+    owner_of names FRAME-DEPTH-MULTI-VALUED and stops, which is right for a MAPPED verdict -- a map cell is one
+    offset -- and blind for a SPINE cell, which the walker finds by tag at every 16-aligned depth (cto 2026-09-22:
+    four by-name x86_rt_gc_poll_res sites in hb_coexpr_genp_scan.icn, each reached at two depths, both on the grid,
+    read UNDECIDABLE and put a blocking arm red for a poll that had ARRIVED).  A caller that can decide every
+    depth gets every depth; a caller that cannot keeps owner_of's verdict.  An empty tuple means NOT DECIDED."""
+    cand = [(g, f, f["frame"].get(i)) for g, f in frames.items() if f["frame"].get(i)]
+    if len(cand) != 1:
+        return None, ()
+    g, f, states = cand[0]
+    if f["blob"]:
+        return g, ()
+    vals = set()
+    for rsp, rbp, *_shadows in states:
+        anchor_rel = rsp if base == "rsp" else rbp
+        if anchor_rel is None:
+            return g, ()
+        vals.add(anchor_rel + d - f["cell"] + f["map_off"])
+    return g, tuple(sorted(vals))
+
+
 CELL = 16
 
 

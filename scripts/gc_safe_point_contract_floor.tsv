@@ -5,66 +5,62 @@
 # scripts/gc_witnesses/ is written by five seats; a witness ARRIVING is a file addition and must never be
 # read as this tree getting worse, while a NAMED witness's own numbers MOVING is the whole thing this gate
 # exists to catch.  A witness not named here is REPORTED and never blocking.
-# ⛔ AND A NAME SET IS NOT THE SAME THING AS A GRADEABLE SET.  The CONTRACT arms read EMITTED PATHS and need
-# no oracle answer, so all 52 members below are legitimate there.  A BEHAVIOURAL arm -- anything comparing a
-# witness's stdout to its .ref -- can only reach the members that HAVE a .ref, and the nine named on the
-# UNGRADEABLE line below have none.  The cto's own A/B harness silently graded 43 and reported as if it had
-# graded the set (2026-09-22); it was caught only by asking why a row count came back 43.  A silent drop is
-# how a population quietly stops being the population (the coo, 2026-09-22), so the nine are DECLARED here
-# and arm (g) of test_gate_gc_emitted_safe_point_matches_its_contract.sh holds the declaration BOTH WAYS:
-# a ref-less member missing from this line is RED, and a member on this line that GAINS a ref is also RED,
-# so the list shrinks in the landing that earns it and can never outlive its cure.
+# 2026-09-22 cto: hb_coexpr_genp_scan.icn undecidable 8 -> 14, spine_cell 8 -> 16.  The cfo's bc1092d8f put
+# x86_rt_gc_poll_res at the two by-name call sites; the four reached at two depths are now PLACED as SPINE-CELL at
+# every depth (owner_ks), and the six in the co-expression body plus one call_value beta site reach NO ANCHOR and
+# are NAMED POLL-RES-ENVELOPE.  A poll ARRIVING at a site this reader cannot place is a site that was UNPOLLED before,
+# not the tree getting worse; the RSP-parity screen (CEO-1151) grades those seven in the bare-poll row.
 # UNGRADEABLE: hb_aggt.icn hb_aggv.icn hb_arr.sno hb_dinst.icn hb_dvec_list.icn hb_errtext_eval_capture.sno hb_pldb.pl hb_ws.icn hb_wsb.icn
 # COLUMNS: witness  sites  k1  k2  k3  k4  undecidable  spine_cell
-hb_aggt.icn	15	0	0	0	0	0	0
-hb_aggv.icn	11	0	0	0	0	0	0
-hb_arr.sno	11	0	0	0	0	0	18
-hb_big_in_aggregate.icn	39	0	0	0	0	0	0
-hb_bignum_length.icn	333	0	0	0	0	0	0
-hb_blob_span_defer.sno	6	0	0	0	0	2	10
-hb_coexpr_create.icn	25	0	0	0	0	2	0
-hb_coexpr_genp_scan.icn	13	0	0	0	0	8	0
-hb_coexpr_parked.icn	17	0	0	0	0	8	0
-hb_coexpr_refresh.icn	20	0	0	0	0	4	0
-hb_coexpr_sigma.icn	31	0	0	0	0	4	0
-hb_cv_spine_plain_redo.icn	32	0	0	0	0	0	0
-hb_datblk.sno	14	0	0	0	0	0	24
-hb_defer_subject.sno	4	0	0	0	0	2	6
-hb_deferexpr_a_dupl.sno	2	0	0	0	0	0	4
-hb_deferexpr_a_replace.sno	2	0	0	0	0	0	4
-hb_deferexpr_a_substr.sno	2	0	0	0	0	0	4
-hb_deferexpr_a_trim.sno	2	0	0	0	0	0	4
-hb_deferexpr_d_dupl.sno	2	0	0	0	0	2	2
-hb_deferexpr_d_replace.sno	2	0	0	0	0	2	2
-hb_deferexpr_d_substr.sno	2	0	0	0	0	2	2
-hb_deferexpr_d_trim.sno	2	0	0	0	0	2	2
-hb_deferexpr_nodefer.sno	3	0	0	0	0	0	6
-hb_dinst.icn	9	0	0	0	0	0	0
-hb_dtp.sno	5	0	0	0	0	0	6
-hb_dvec_data_convert.sno	23	0	0	0	0	0	34
-hb_dvec_list.icn	86	0	0	0	0	0	0
-hb_dvec_list_slice.icn	50	0	0	0	0	0	0
-hb_dvec_sort_match.sno	33	0	0	0	0	12	34
-hb_errtext_eval_capture.sno	3	0	0	0	0	0	6
-hb_errtext_keyword.sno	2	0	0	0	0	0	4
-hb_eval_names.sno	5	0	0	0	0	0	10
+hb_aggt.icn	16	0	0	0	0	0	0
+hb_aggv.icn	12	0	0	0	0	0	0
+hb_arr.sno	14	0	0	0	0	0	22
+hb_big_in_aggregate.icn	33	0	0	0	0	0	0
+hb_bignum_length.icn	295	0	0	0	0	0	0
+hb_blob_span_defer.sno	11	0	0	0	0	2	10
+hb_coexpr_create.icn	25	0	0	0	0	0	0
+hb_coexpr_genp_scan.icn	34	0	0	0	0	14	16
+hb_coexpr_parked.icn	22	0	0	0	0	6	0
+hb_coexpr_refresh.icn	23	0	0	0	0	4	2
+hb_coexpr_sigma.icn	32	0	0	0	0	0	0
+hb_cv_spine_plain_redo.icn	39	0	0	0	0	0	0
+hb_datblk.sno	15	0	0	0	0	0	24
+hb_defer_subject.sno	9	0	0	0	0	2	6
+hb_deferexpr_a_dupl.sno	3	0	0	0	0	0	4
+hb_deferexpr_a_replace.sno	3	0	0	0	0	0	4
+hb_deferexpr_a_substr.sno	3	0	0	0	0	0	4
+hb_deferexpr_a_trim.sno	3	0	0	0	0	0	4
+hb_deferexpr_d_dupl.sno	3	0	0	0	0	2	2
+hb_deferexpr_d_replace.sno	3	0	0	0	0	2	2
+hb_deferexpr_d_substr.sno	3	0	0	0	0	2	2
+hb_deferexpr_d_trim.sno	3	0	0	0	0	2	2
+hb_deferexpr_nodefer.sno	4	0	0	0	0	0	6
+hb_dinst.icn	12	0	0	0	0	0	0
+hb_dtp.sno	6	0	0	0	0	0	6
+hb_dvec_data_convert.sno	27	0	0	0	0	0	40
+hb_dvec_list.icn	65	0	0	0	0	0	0
+hb_dvec_list_slice.icn	43	0	0	0	0	0	0
+hb_dvec_sort_match.sno	37	0	0	0	0	12	40
+hb_errtext_eval_capture.sno	4	0	0	0	0	0	6
+hb_errtext_keyword.sno	3	0	0	0	0	0	4
+hb_eval_names.sno	10	0	0	0	0	0	10
 hb_file_name_unrooted.icn	13	0	0	0	0	0	0
-hb_mkexpr_unmapped_spine_store.sno	3	0	0	0	0	0	6
-hb_nested_match_outer_subject.sno	6	0	0	0	0	6	6
-hb_nv.sno	10	0	0	0	0	0	12
+hb_mkexpr_unmapped_spine_store.sno	4	0	0	0	0	0	6
+hb_nested_match_outer_subject.sno	11	0	0	0	0	6	6
+hb_nv.sno	13	0	0	0	0	0	16
 hb_pl_findall.pl	334	0	0	0	0	234	0
 hb_pl_root_cells.pl	356	0	0	0	0	214	0
 hb_pldb.pl	288	0	0	0	0	152	0
 hb_plj_batch_b.pl	315	0	0	0	0	210	0
-hb_scan_nested.icn	12	0	0	0	0	0	0
-hb_ws.icn	6	0	0	0	0	0	0
-hb_wsb.icn	9	0	0	0	0	0	0
-hb_wsb_bignum.icn	16	0	0	0	0	0	0
-hb_wsb_eval_define.sno	10	0	0	0	0	0	16
+hb_scan_nested.icn	14	0	0	0	0	0	0
+hb_ws.icn	8	0	0	0	0	0	0
+hb_wsb.icn	10	0	0	0	0	0	0
+hb_wsb_bignum.icn	15	0	0	0	0	0	0
+hb_wsb_eval_define.sno	11	0	0	0	0	0	16
 hb_wsb_pl_atom_dup.pl	287	0	0	0	0	148	0
 hb_wsb_raku_junction.raku	23	0	0	0	0	0	0
 hb_wsb_raku_sprintf_multi.raku	26	0	0	0	0	0	0
-hb_wsb_rk_arr.raku	20	0	0	0	0	0	0
+hb_wsb_rk_arr.raku	21	0	0	0	0	0	2
 hb_wsb_rk_gram_parse.raku	6	0	0	0	0	0	0
 hb_wsb_rk_iter_grep.raku	17	0	0	0	0	0	0
 hb_wsb_rk_iter_map.raku	17	0	0	0	0	0	0
