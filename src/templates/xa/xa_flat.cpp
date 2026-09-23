@@ -345,7 +345,7 @@ static std::string xa_flat_wn_park_str(int kt, const char * fname) {
     return x86("comment", "name request rides THIS activation (HQV-12 protocol): park rt_g_want_name in write-only [kt-16], zero it")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "edx", RDD("rax", 0))
-         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
+         + x86("mov", RDQ("rsp", kt - 16), "rdx")
          + x86("mov", RDD("rax", 0), (long)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
