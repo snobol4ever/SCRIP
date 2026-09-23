@@ -18,6 +18,24 @@
 # about a second. Called with no suite_path, the run is judged a board, so a caller that does not say what it grades is refused
 # rather than waved through; every shell board runner above is exactly that caller. The python copy in corpus_suite_harness.py
 # carries the same rule, and passes args.sno with the corpus root, because the two copies must stay word for word.
+# ⛔⭐ ONE MEMORY SCOPE AT THE OUTERMOST BOARD (row instrument-698-runners-bound-the-clock-and-zero-bound-memory-..., the coo
+# 2026-09-23; scripts/util_mem_scope.py is the mechanism and its header the evidence). one_runner_guard calls this for a run it has
+# judged a BOARD -- after its "a suite outside the corpus tree is not a board" return, before admission, so a refusal is printed once
+# and inside the scope. The runner is re-run ONCE, with its original argv read from /proc (an argument it already shifted is not
+# lost), inside ONE cgroup scope -- MemoryMax, MemorySwapMax=0, OOMPolicy=continue -- whose supervisor prints the peak beside the
+# clock and turns a cgroup kill into a REFUSE rc=2 naming the cap and the peak, never a red. A runner already inside a scope (nested,
+# or under make test) enters nothing; a `bash -c "source ..."` probe is not a runner ($0 is not the file at the bottom of the source
+# stack); and a verb that never calls the guard -- scorecard_snobol4.sh oracle, whose last line util_ref_mint.sh parses -- is not a
+# board and is left exactly as it was (measured: the first shape, entered at source time, broke that verb's protocol line).
+one_runner_mem_scope() {
+  [ -f "$0" ] && [ "${BASH_SOURCE[-1]}" = "$0" ] || return 0
+  [ "${S4E_MEM_SCOPE:-}" != unbounded ] || return 0
+  grep -qs '/s4e-mem-' /proc/self/cgroup && return 0
+  [ -f "$(dirname "${BASH_SOURCE[0]}")/util_mem_scope.py" ] || return 0
+  local _s4e_mem_argv
+  mapfile -d '' _s4e_mem_argv < /proc/$$/cmdline
+  exec python3 "$(dirname "${BASH_SOURCE[0]}")/util_mem_scope.py" enter --kind board -- "${_s4e_mem_argv[@]}"
+}
 one_runner_seat() {
   if [ -n "${S4E_SEAT:-}" ]; then printf '%s\n' "$S4E_SEAT"; return 0; fi
   local here; here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -129,6 +147,8 @@ one_runner_guard() {
   if [ -z "${S4E_BIN_AT_START:-}" ]; then S4E_BIN_AT_START="$(one_runner_bin_fingerprint)" && export S4E_BIN_AT_START; fi
   local board="${1:-${0##*/}}" suite="${2:-}" seat who lang
   if [ -n "$suite" ] && ! one_runner_suite_is_a_board "$suite"; then return 0; fi
+  one_runner_mem_scope
+  if [ -z "${S4E_MEM_OOM_AT_START:-}" ]; then S4E_MEM_OOM_AT_START="$(python3 "$(dirname "${BASH_SOURCE[0]}")/util_mem_scope.py" oom-kills 2>/dev/null || echo 0)"; export S4E_MEM_OOM_AT_START; fi
   seat="$(one_runner_seat)"; lang="$(one_runner_lang "$board" "$suite")"; who="$(one_runner_who "$lang")"
   if [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$who"; then return 0; fi
   if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi

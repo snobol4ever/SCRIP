@@ -109,6 +109,21 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+# ⛔⭐ ONE MEMORY SCOPE AROUND THE WHOLE SET (row instrument-698-runners-..., the coo 2026-09-23; scripts/util_mem_scope.py): the
+# real declaration is run inside ONE cgroup scope at the blocking-set cap, re-run once from /proc with its original argv; every shard
+# is a child and inherits it. A fixture declaration (--arms-from, another --makefile or --target) and --list are left alone, and a
+# set already inside a scope enters nothing. A copy of this driver in a gate's scratch tree, with no util_mem_scope.py beside
+# it, says so on stderr and runs unscoped (test_gate_make_test_loops_and_reports.sh builds exactly that tree).
+if [ -z "$ARMS_FILE" ] && [ "$MAKEFILE" = "$ROOT/Makefile" ] && [ "$DECL_TARGET" = test-sequential ] && [ "$LIST_ONLY" = 0 ] \
+   && [ "${S4E_MEM_SCOPE:-}" != unbounded ] && ! grep -qs '/s4e-mem-' /proc/self/cgroup; then
+    if [ -f "$HERE/util_mem_scope.py" ]; then
+        mapfile -d '' _s4e_mem_argv < /proc/$$/cmdline
+        exec python3 "$HERE/util_mem_scope.py" enter --kind blocking-set -- "${_s4e_mem_argv[@]}"
+    fi
+    echo "⚠ [mem_scope] no util_mem_scope.py beside $HERE/run_blocking_set.sh -- this run carries no memory scope" >&2
+fi
+MEM_SCOPE_DIR="$(python3 "$HERE/util_mem_scope.py" dir 2>/dev/null)"
+mem_oom_kills() { [ -n "$MEM_SCOPE_DIR" ] && awk '$1=="oom_kill"{print $2}' "$MEM_SCOPE_DIR/memory.events" 2>/dev/null; }
 # ⛔ THE DECLARATION IS READ, NEVER GUESSED.  A recipe line is an arm; a `#`-only recipe line is prose and is
 # skipped; the trailing `   # ...` comment is the arm's provenance and is stripped from the command but kept
 # for nothing else -- it is a SHELL comment today (make passes recipe lines to sh verbatim), so leaving it in
@@ -380,8 +395,17 @@ arm_exec() {  # arm_exec <cmd>
     RUN_ARM_I=$((RUN_ARM_I + 1)); RUN_ARM_CMD="$1"; runstate_write running
     race_before
     t0=$SECONDS
+    local k0 k1; k0="$(mem_oom_kills)"
     ARM_OUT="$(cd "$ROOT" && bash -c "$1" </dev/null 2>&1)"; ARM_RC=$?
     ARM_SEC=$((SECONDS - t0))
+    # ⛔ A CGROUP KILL IN THIS ARM'S WINDOW TURNS A NON-GREEN ARM INTO A REFUSAL, NEVER A RED (row instrument-698-runners-...):
+    # the arm's own rc cannot say whether the cap killed its program, the scope's memory.events can. A green arm stays green.
+    k1="$(mem_oom_kills)"
+    if [ "$ARM_RC" != 0 ] && [ -n "$k0" ] && [ -n "$k1" ] && [ "$k1" -gt "$k0" ]; then
+        ARM_OUT="$ARM_OUT
+⛔ REFUSE(2) [mem_scope] this arm (rc=$ARM_RC): $(python3 "$HERE/util_mem_scope.py" kill-detail $((k1 - k0)))"
+        ARM_RC=2
+    fi
     race_after "$1"
 }
 race_load_surfaces

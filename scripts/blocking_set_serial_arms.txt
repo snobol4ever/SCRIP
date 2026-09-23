@@ -59,3 +59,10 @@ a_blocking_set_death_names_its_killer
 #    under any fan-out, so each runs in the parent.
 gc_conservative_auditor
 gc_acceptance_never_prints
+# 5. ARMS THAT HOLD THE WHOLE LIVE PROGRESS TABLE IN MEMORY (coo 2026-09-23, row instrument-698-runners-bound-the-clock-and-
+#    zero-bound-memory-..., measured on bda7691cc with each arm alone in its own cgroup scope): this one peaks at 4556 MB
+#    tree-wide (util_progress_flips.py --ratchet over the 619 MB, 4.13M-row table), and `make test` itself peaked at 6322 MB
+#    when it overlapped ~700 MB banner arms in other shards. Run in the parent it overlaps nothing, which is what lets the
+#    blocking-set memory cap (util_mem_scope.py CAP_MB) be derived from a worst case rather than from one run's shard timing.
+#    The cure is that reader streaming the table; until it does, it runs alone.
+progress_configuration_declarations_do_not_regress

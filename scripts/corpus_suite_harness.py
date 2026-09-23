@@ -479,7 +479,32 @@ class Verdict:
         return f"Verdict({self.kind}, rc={self.returncode}, detail={self.detail!r})"
 
 
+_MEM_SCOPE_MOD = None
+def _mem_scope_wanted(args, paths):
+    # True when cmd_run grades a corpus population -- a board by the one-runner guard's own test (CEO-547).
+    return args.sno is None or _suite_is_a_board(args.sno, paths["corpus"])
+class _NoMemScope:
+    # A copy of this harness with no util_mem_scope.py beside it (a gate's scratch tree): no scope, no reclassification.
+    @staticmethod
+    def enter(kind, argv): sys.stderr.write("\u26a0 [mem_scope] no util_mem_scope.py beside this harness -- no memory scope\n")
+    @staticmethod
+    def oom_kills(d=None): return None
+def _mem_scope():
+    global _MEM_SCOPE_MOD
+    if _MEM_SCOPE_MOD is None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        try:
+            import util_mem_scope as _m
+        except ImportError:
+            _m = _NoMemScope
+        _MEM_SCOPE_MOD = _m
+    return _MEM_SCOPE_MOD
 def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
+    # ⛔ A PROGRAM THE CGROUP MEMORY CAP KILLED IS UNPROVEN, NEVER A CRASH (row instrument-698-runners-..., the ceo's clause): a
+    # SIGKILL alone cannot say who sent it, so the enclosing scope's own oom_kill count is read on both sides of the run and only
+    # a rise converts the kill. Outside any s4e-mem scope the count is None and nothing changes.
+    _ms = _mem_scope()
+    _k0 = _ms.oom_kills()
     try:
         if stdin_text is None:
             r = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True,
@@ -491,6 +516,10 @@ def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
         return "HANG", (e.stdout or b""), (e.stderr or b""), None
     except FileNotFoundError as e:
         return "UNPROVEN", b"", str(e).encode(), None
+    if r.returncode == -9 and _k0 is not None:
+        _k1 = _ms.oom_kills()
+        if _k1 is not None and _k1 > _k0:
+            return "UNPROVEN", r.stdout, _ms.kill_detail(_k1 - _k0).encode(), None
     return "RAN", r.stdout, r.stderr, r.returncode
 
 
@@ -2573,6 +2602,14 @@ def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
 def cmd_run(args):
     paths = resolve_paths()
     _one_runner_guard(args.sno, paths["corpus"], getattr(args, "lang", None))
+    # ⛔⭐ ONE MEMORY SCOPE AT THE OUTERMOST RUN (row instrument-698-runners-..., the coo 2026-09-23; util_mem_scope.py): an
+    # ADMITTED run over a corpus population -- the guard's own test, just above -- re-runs itself once inside ONE cgroup scope at
+    # the board cap unless it is already inside one; a gate's mktemp fixture is not a board and is left alone (CEO-547). After the
+    # guard, not before, so a refused seat spends no scope and the guard stays the first thing cmd_run does.
+    if _mem_scope_wanted(args, paths):
+        _mem_scope().enter("board", sys.orig_argv)
+    if not os.environ.get("S4E_MEM_OOM_AT_START", "").strip():
+        os.environ["S4E_MEM_OOM_AT_START"] = str(_mem_scope().oom_kills() or 0)
     _progress_pin(paths)
     check_scrip(paths)
     # ⛔ THE BINARY IS STAMPED AT THE START AND CHECKED BEFORE ANY BOARD LINE IS PRINTED (coo 2026-09-16; hq_raku's RakM 764/927 graded

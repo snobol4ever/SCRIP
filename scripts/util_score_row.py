@@ -1555,6 +1555,16 @@ def cmd_write(a):
     # comparison that is the whole reason to run one: it is to preview BOTH halves, the cell AND the
     # verdict on whether it lands. Same principle as the --dry-run fix at the display/grid split below:
     # a preview that covers one of a command's two outcomes is a preview of a different command.
+    # ⛔ A CGROUP MEMORY KILL CUT THIS RUN -> no row (row instrument-698-runners-..., the coo 2026-09-23): a board whose scope's
+    # oom_kill count rose since the board started (S4E_MEM_OOM_AT_START) graded some program into a kill, which is COULD-NOT-
+    # MEASURE, so the row it would publish is DARK wearing a number (CEO-750's rule, one level up).
+    try:
+        sys.path.insert(0, HERE); import util_mem_scope as _ms
+        _mk = _ms.kills_since_start()
+    except Exception:
+        _mk = None
+    if _mk and not getattr(a, "dry_run", False):
+        die("A CGROUP MEMORY KILL CUT THE RUN THAT PRODUCED THIS ROW -- %s NOTHING WAS WRITTEN." % _mk)
     # ⛔ THE BINARY MOVED UNDER THIS BOARD -> no row (coo 2026-09-16, hq_raku's RakM 764/927 graded across a mid-run make): the stamp
     # one_runner_guard exported at the board's start is compared to the binary now, before anything is written.
     try:
