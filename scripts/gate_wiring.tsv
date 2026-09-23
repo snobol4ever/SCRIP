@@ -177,6 +177,7 @@ test_gate_gc_the_stack_is_completely_accounted_at_every_collection.sh	WIRED	-	-	
 test_gate_gc_the_stack_walk_stops_at_the_outermost_emitted_frame.sh	WIRED	-	-	-
 test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh	WIRED	-	-	-
 test_gate_gc_the_unmapped_spine_store_witness_answers_its_oracle_at_every_band_point.sh	WIRED	-	-	-
+test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-

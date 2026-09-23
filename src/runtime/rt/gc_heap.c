@@ -651,6 +651,8 @@ void rt_gc_point(DESCR_t *d0, const char **r0)
     rt_gc_point_arr(d0, d0 ? 1 : 0, r0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(sizeof(void *) == 8, "THE VISITED SET HAS THREE KEY SPACES IN ONE TABLE AND THEY MUST NOT COLLIDE (cto 2026-09-23, CTO-153; procedure_every_scan_replace_9 CRASH at every stress point once the assignment seam was gone): bit 0 marks a REGISTERED SLOT (gc_slot_reg), bit 1 marks a NAME-REFERENCED CELL (DT_N slen=1, the 16 bytes at d->ptr pushed to the worklist once), and an even key marks an AGGREGATE WHOSE CONTENTS WERE VISITED (table, array, record instance, variable cell). A DT_N cell reference whose ptr lands on a table's first word inserted the table's own address, every later DT_T visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one's DT_N slen=1 case is the only writer of bit 1");
+static int gc_plant_key_collision(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_KEY_COLLISION"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 static int gc_hins(void *p)
 {
     if (g_gc_hn * 10 >= g_gc_hcap * 7) {
@@ -820,7 +822,7 @@ static void gc_visit_one(DESCR_t *d)
         return; }
     case DT_N: {
         if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; if (!vc || !gc_block_exact((const char *)vc, HB_AGGV)) return; gc_slot_reg((void *)&d->p); if (!gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
-        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; rt_hblk_t *th = gc_blk_of((const char *)tc); if (!th || (const char *)tc < (const char *)(th + 1) || (const char *)tc + 16 > (const char *)th + th->size) return; gc_slot_reg((void *)&d->ptr); gc_mark_agg((const void *)tc); if (gc_hins((void *)tc)) gc_wl_push(tc); return; }
+        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; rt_hblk_t *th = gc_blk_of((const char *)tc); if (!th || (const char *)tc < (const char *)(th + 1) || (const char *)tc + 16 > (const char *)th + th->size) return; gc_slot_reg((void *)&d->ptr); gc_mark_agg((const void *)tc); if (gc_hins((void *)((uintptr_t)tc | (gc_plant_key_collision() ? 0u : 2u)))) gc_wl_push(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); gc_slot_reg((void *)&d->s); } }
         return; }
     case DT_P: {
