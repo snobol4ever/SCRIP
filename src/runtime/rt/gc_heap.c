@@ -704,6 +704,7 @@ void rt_gc_visit_raw(const char **loc)
     gc_slot_reg((void *)loc);
 }
 int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)0; }
+int rt_gc_in_arena(const char *p) { return (g_hp_arena && p >= g_hp_arena && p < g_hp_top) ? 1 : 0; }
 int rt_gc_slot_registered(const void *loc)
 {
     void *k = (void *)((uintptr_t)loc | 1);

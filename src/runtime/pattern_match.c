@@ -71,18 +71,18 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
 }
 extern tree_t *ast_stmt_new(tree_e kind);
+static int rtpat_plant_heapimm(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RTPAT_PLANT_HEAPIMM"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+_Static_assert(sizeof(tree_t *) == 8, "EVERY STRING A RUNTIME-COMPILED PATTERN BAKES INTO ITS CODE LIVES IN THE COMPILE-TIME ARENA, NEVER IN THE COLLECTED HEAP (cto 2026-09-23, CTO-152; site bb_match_defer.cpp:115): dtp_rcp_tree hands the runtime compiler a tree whose sval words become imm64 operands of code that outlives every collection, so a heap string there (the ARB$n deferred name was one, rt_heap_strdup_c; the literal copies were rt_str_alloc) is an address the collector never sees, reclaimed at the first collection after the compile -- arbno_fence_span_branch_1 read FAIL for MATCH at stress 1/3/5 in every arena and relocation configuration once the entry was polled. ct_strdup/ct_strndup own them for the code's lifetime, like the parser's own literals; SCRIP_RTPAT_PLANT_HEAPIMM=1 restores the heap name as the plant the gate fires on");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
     tree_t *t = ast_stmt_new((tree_e)r->tt);
     switch (r->tt) {
     case TT_QLIT: { uint32_t L = r->slen; const char *sp = r->s ? r->s : "";
-        if (sp[0] && (!L ? 0 : sp[L] != '\0')) { char *cp = rt_str_alloc((long)L); if (cp) { memcpy(cp, sp, L); cp[L] = '\0'; sp = cp; } }
-        t->v.sval = (char *)sp; break; }
+        t->v.sval = ct_strndup(sp, (size_t)L); break; }
     case TT_SEQ: case TT_ALT: ast_push(t, dtp_rcp_tree(r->l, self)); ast_push(t, dtp_rcp_tree(r->r, self)); break;
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: { tree_t *c = ast_stmt_new(TT_QLIT); uint32_t L = r->slen; const char *sp = r->s ? r->s : "";
-        if (sp[0] && (!L ? 0 : sp[L] != '\0')) { char *cp = rt_str_alloc((long)L); if (cp) { memcpy(cp, sp, L); cp[L] = '\0'; sp = cp; } }
-        c->v.sval = (char *)sp; ast_push(t, c); break; }
+        c->v.sval = ct_strndup(sp, (size_t)L); ast_push(t, c); break; }
     case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: { tree_t *c = ast_stmt_new(TT_ILIT); c->v.ival = r->ival; ast_push(t, c); break; }
     case TT_ARBNO: {
         static int arb_uid = 0; char nb[24]; snprintf(nb, sizeof nb, "ARB$%d", arb_uid++);
@@ -94,9 +94,9 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
         t->t = TT_ALT;
         { tree_t *nul = ast_stmt_new(TT_QLIT); nul->v.sval = (char *)""; ast_push(t, nul); }
         { tree_t *sq = ast_stmt_new(TT_SEQ); ast_push(sq, dtp_rcp_tree(r->l, self));
-          tree_t *df = ast_stmt_new(TT_DEFER); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = rt_heap_strdup_c(nb); ast_push(df, v); ast_push(sq, df); ast_push(t, sq); }
+          tree_t *df = ast_stmt_new(TT_DEFER); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = rtpat_plant_heapimm() ? rt_heap_strdup_c(nb) : ct_strdup(nb); ast_push(df, v); ast_push(sq, df); ast_push(t, sq); }
         break; }
-    case TT_DEFER: { tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
+    case TT_DEFER: { tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = ct_strdup(r->s ? r->s : ""); ast_push(t, v); break; }
     case TT_FENCE: if (r->ival) ast_push(t, dtp_rcp_tree(r->l, self)); break;
     case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: { ast_push(t, dtp_rcp_tree(r->l, self)); tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }
     case TT_CAPT_CURSOR: { tree_t *v = ast_stmt_new(TT_VAR); v->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, v); break; }

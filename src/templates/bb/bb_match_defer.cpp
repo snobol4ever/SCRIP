@@ -114,6 +114,7 @@ std::string bb_match_defer() {
              + x86_align_enter()
              + x86("call", "dtp_fn_of", (uint64_t)(uintptr_t)(void *)(void *(*)(void *))dtp_fn_of)
              + x86_align_leave()
+             + x86_rt_gc_poll()
              + x86("note", gva_name(_.op_gva_k))
              + x86("mov",  "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("jmp",  L(10))

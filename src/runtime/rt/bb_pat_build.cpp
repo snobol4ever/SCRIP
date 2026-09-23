@@ -2,6 +2,7 @@ extern "C" {
 #include "IR.h"
 #include "ast.h"
 #include "bb_pool.h"
+extern "C" int rt_gc_in_arena(const char *);
 }
 #include "emit.h"
 extern "C" void fc_tables_reset(void);
@@ -101,9 +102,14 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
     g_emit.flat_pat = 1;
     if (getenv("SCRIP_RTPAT_DIAG")) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d cro=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, sn4_choice_rbp_off(), 1, g_flat_frame_floor, _nc, _lf, _fn); }
+    size_t pool_before = bb_pool_mark();
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
+    size_t pool_after = bb_pool_mark();
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit.flat_pat = 0;
+    if (fn && getenv("SCRIP_RTPAT_DIAG")) { long heapimm = 0; const unsigned char *cb = (const unsigned char *)fn; size_t clen = pool_after > pool_before ? pool_after - pool_before : 0;
+        for (size_t i = 0; i + 8 <= clen; i++) { uint64_t w; memcpy(&w, cb + i, 8); if (rt_gc_in_arena((const char *)(uintptr_t)w)) heapimm++; }
+        fprintf(stderr, "[RTPAT-HEAPIMM] fn=%p bytes=%zu heapimm=%ld\n", (void *)fn, clen, heapimm); }
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
     g_gva_active = saved_gva;
