@@ -200,7 +200,9 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_tbl(const
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_data(const DESCR_t *k) {
     if (!k->u) return 0x3A5C17E9B24D6Full;
-    return (((unsigned long long)k->u->id ^ _tbl_rotl((unsigned long long)(uintptr_t)k->u->type, 32)) * 0xFF51AFD7ED558CCDull) >> 8;
+    unsigned long long th = 0xCBF29CE484222325ull;
+    if (k->u->type && k->u->type->name) { for (const unsigned char *p = (const unsigned char *)k->u->type->name; *p; p++) th = (th ^ (unsigned long long)*p) * 0x100000001B3ull; }
+    return (((unsigned long long)k->u->id ^ _tbl_rotl(th, 32)) * 0xFF51AFD7ED558CCDull) >> 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_ptr(const DESCR_t *k) { return (((unsigned long long)(uintptr_t)k->ptr >> 4) * 0xC2B2AE3D27D4EB4Full) >> 8; }
