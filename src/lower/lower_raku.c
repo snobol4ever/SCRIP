@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "lower.h"
-typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; } rcx_t;
+typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; } rcx_t;
 #define RK_GRAM_MAX 64
 static const char * g_rk_gram_names[RK_GRAM_MAX];
 static int          g_rk_gram_n = 0;
@@ -673,9 +673,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         *res = jv; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_RETURN: {
+        IR_t * exit_γ = cx->proc_exit ? cx->proc_exit : γ;
         if (t->n > 0 && t->c[0]) {
-            IR_t * nd = build(cx, IR_RETURN, γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e;
-        } IR_t * nd = build(cx, IR_RETURN, γ, ω);
+            IR_t * nd = build(cx, IR_RETURN, exit_γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e;
+        } IR_t * nd = build(cx, IR_RETURN, exit_γ, ω);
         *res = nd; return nd;
     }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -945,6 +946,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         cx.cur_byref_mask = g_stage2.proc_table[_pbi].byref_mask; cx.cur_nparams = g_stage2.proc_table[_pbi].nparams; break; }
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
+    cx.proc_exit = succ;
     int is_multi = (pd && pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$');
     int rk_np = 0; if (pd && !is_multi) for (int k = 1; k < pd->n && pd->c[k] && pd->c[k]->t == TT_VAR; k++) rk_np++;
     int rk_bstart = rk_np + 1, rk_bn = (pd && pd->n > rk_bstart) ? pd->n - rk_bstart : 0;
@@ -1319,6 +1321,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         tcx.cur_proc = NULL; tcx.cur_byref_mask = 0; tcx.cur_nparams = 0;
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;
+        tcx.proc_exit = succ;
         int has_rk_MAIN = 0;
         for (int pi = 0; pi < g_stage2.proc_count; pi++)
             if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "MAIN") == 0) { has_rk_MAIN = 1; break; }
