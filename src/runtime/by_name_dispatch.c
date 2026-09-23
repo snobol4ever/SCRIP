@@ -5924,7 +5924,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
       return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_real_str(double r, char *buf, int bufsz, int prec, int lower) {
+static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int lower, int expdig) {
     if (prec < 1) prec = 1; if (prec > 16) prec = 16;
     char ec = lower ? 'e' : 'E';
     char tmp[64]; snprintf(tmp, sizeof tmp, lower ? "%.*e" : "%.*E", prec, r);
@@ -5932,9 +5932,10 @@ static void pas_real_str(double r, char *buf, int bufsz, int prec, int lower) {
     if (!ep) { snprintf(buf, bufsz, "%s", tmp); return; }
     char sign = ep[1]; const char *digits = ep + 2; int ndig = (int)strlen(digits);
     char mant[48]; int ml = (int)(ep - tmp); if (ml >= 48) ml = 47; memcpy(mant, tmp, ml); mant[ml] = '\0';
-    if (ndig < 3) snprintf(buf, bufsz, "%s%c%c%0*d", mant, ec, sign, 3, atoi(digits));
+    if (ndig < expdig) snprintf(buf, bufsz, "%s%c%c%0*d", mant, ec, sign, expdig, atoi(digits));
     else snprintf(buf, bufsz, "%s", tmp);
 }
+static void pas_real_str(double r, char *buf, int bufsz, int prec, int lower) { pas_real_str_exp(r, buf, bufsz, prec, lower, 3); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t proc_as_value(const char *name) {
     if (!name || name[0] == '&') return FAILDESCR;
@@ -6875,7 +6876,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
-            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i >= 0 ? (int)aw.i : -1))) : -1;
+            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i >= 0 ? (int)aw.i : -1)))) : -1;
             if (w == -3) { double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
                 long _fw2 = 0, _fp2 = 0;
                 if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
@@ -6888,11 +6889,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 fprintf(_dest, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
-                int _prec = (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
-                pas_real_str(av.r, _rb, sizeof _rb, _prec, w == -1);
+                int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
+                pas_real_str_exp(av.r, _rb, sizeof _rb, _prec, w == -1 || w == -5, w == -5 ? 2 : 3);
                 int _pfmtlen = (int)strlen(_rb);
                 int _signpad = (_rb[0] == '-') ? 0 : 1;
-                int _basew = (w < 0) ? 20 : w;
+                int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;
                 int _fw = (_pfmtlen + _signpad > _basew) ? _pfmtlen + _signpad : _basew;
                 fprintf(_dest, "%*s", _fw, _rb);
             } else {
