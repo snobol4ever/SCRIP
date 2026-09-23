@@ -1163,8 +1163,18 @@ s4e_language_freeze_refuses() {
 # a CURED row PERMANENTLY UNCLOSEABLE because `D=$(mktemp -d)` splits into two fields. ⛔ IF THE LIB IS MISSING
 # THE NO-OP PROBE IS SKIPPED AND SAYS SO: the bus must not die for a missing helper, and it must not quietly
 # fall back to the defective line either -- that fallback is how four copies happened in the first place.
+# ⛔⭐⭐ THIS SOURCE IS LOAD-BEARING AND IS NO LONGER OPTIONAL (cto's ruling, 2026-09-23). It used to WARN and
+# continue, and that was right while the lib carried only the first-word rule and a no-op probe. It now also
+# carries THE ONE DONE-WHEN EXTRACTOR that `claim` and `done` read every criterion through, so continuing
+# without it would leave s4e_donewhen_text UNDEFINED and every criterion reading EMPTY -- which is the
+# false-green direction, not the loud one. A missing lib is a REFUSAL, never an approximation.
 if [ -r "$(dirname "${BASH_SOURCE[0]}")/lib_donewhen.sh" ]; then . "$(dirname "${BASH_SOURCE[0]}")/lib_donewhen.sh"
-else echo "⚠ lib_donewhen.sh not readable -- the decorated-no-op DONE-WHEN probe is SKIPPED this run (not silently approximated)" >&2; fi
+else printf '⛔ REFUSED (rc=2): %s/lib_donewhen.sh is not readable -- it holds the DONE-WHEN extractor and the\n   first-word rule, so this bus CANNOT MEASURE any criterion. Nothing was read and nothing was written.\n' "$(dirname "${BASH_SOURCE[0]}")" >&2; exit 2; fi
+# ⛔ AND THE DEFINITIONS ARE ASSERTED, NOT ASSUMED: a lib that is readable but truncated or edited to drop a
+# function would otherwise be indistinguishable from a good one until the first empty criterion.
+for _dw_fn in s4e_field_criterion_text s4e_donewhen_text s4e_premise_text s4e_donewhen_incomplete donewhen_first_word; do
+  command -v "$_dw_fn" >/dev/null 2>&1 || { printf '⛔ REFUSED (rc=2): lib_donewhen.sh sourced but %s is undefined -- the extractor is incomplete, so no criterion can be measured.\n' "$_dw_fn" >&2; exit 2; }
+done; unset _dw_fn
 s4e_strip_donewhen_comment() {
     awk '
     {
@@ -1266,105 +1276,15 @@ s4e_donewhen_is_placeholder() {   # $1 = raw column-0 DONE-WHEN text (already ex
     case "$dw" in "⛔ MUST BE MADE RUNNABLE"*) return 0;; esac
     printf '%s' "$dw" | grep -qE '^echo "⛔[^"]*"( *>&2)?; *(false|exit [1-9][0-9]*)$' && return 0
     return 1; }
-# ⛔⭐⭐ THE ONE DONE-WHEN EXTRACTOR, AND IT READS THE WHOLE CRITERION (hq_T 2026-09-05, ceo rank-0 ruling on
-# seat04's row s4e-msg-donewhen-truncation-false-closes-multiline-heredoc-batons; seat04 reproduced it end to end).
-# It used to be `sed -n 's/^DONE-WHEN:...//p' "$b" | head -1` at THREE sites -- one physical line, discarding
-# everything after it. ⛔ THAT IS A FALSE-GREEN ENGINE, NOT MERELY A TRUNCATION, and the direction is what makes it
-# lethal: for the heredoc witness shape this project actively encourages ("creates its own repro at check-time
-# rather than depending on this session's /tmp scratchpad"),
-#     DONE-WHEN: cat > /tmp/w.sno <<'EOF'
-#     <program>
-#     EOF
-#     out=$(scrip /tmp/w.sno); [ "$out" = want ] || exit 1; echo PASS
-# the truncated text is `cat > /tmp/w.sno <<'EOF'` with no closing delimiter. bash WARNS ("here-document
-# delimited by end-of-file"), treats the body as empty, writes a ZERO-BYTE file, and that cat -- the only command
-# reached -- exits 0. So the whole criterion exits 0 having run NOTHING: the real check never executes, and a
-# broken tree is byte-identical in verdict to a fixed one. ⭐ MEASURED CLOSURE: snobol4-pattern-primitive-as-
-# function-argument-always-fails-in-callee closed DONE 2026-09-05T15:33Z through exactly this path, while the
-# full untruncated text exits 1 on the same tree. 185 of 1128 live batons carry a multi-line DONE-WHEN.
-# ⭐ THE CONTINUATION RULE IS THE FILE FORMAT'S OWN, not a new convention: a baton field runs to the next column-0
-# field label or `## ` section -- which is exactly how GOAL: already carries paragraphs. The terminator set is the
-# MEASURED label census of the live tasks tree, not a guess, and it is deliberately the STRUCTURAL labels only:
-# prose labels that occur inside GOAL bodies (STEP 1:, Verified:, witness:) are NOT terminators, because a
-# criterion's heredoc body is program text and must never be cut by a word that happens to end in a colon.
-# Sets $_dw_backticked=1 when it stripped a markdown backtick pair, so a caller can still announce that.
-# ⛔⭐ GENERALISED TO A LABEL 2026-09-20 (coo, row instruments-claim-computes-the-rows-premise-the-way-done-
-# computes-its-done-when). PREMISE-WHEN is a criterion living in the SAME file format and read by the SAME rules --
-# multi-line only by evidence, heredoc-aware, one matched backtick pair stripped -- so it reads through THIS
-# extractor with the label as an argument. ⛔ A SECOND COPY IS THE THING BEING REFUSED HERE, and not as a style
-# preference: the truncation class this function exists to cure WAS a one-line `sed` repeated at THREE sites, and
-# a private premise extractor would be the fourth -- correct on the day it is written and silently divergent the
-# first time this one is sharpened. ⛔ PREMISE-WHEN JOINS THE TERMINATOR SET in the same edit, which is the
-# load-bearing half: without it a multi-line DONE-WHEN would SWALLOW the PREMISE-WHEN line printed under it and
-# run the premise as part of the completion test. No live baton carries the field yet, so this changes no
-# reading on today's tree -- it is written before the first one exists rather than after the first false green.
-s4e_field_criterion_text() {   # $1 = baton path, $2 = column-0 label (DONE-WHEN | PREMISE-WHEN); prints the WHOLE criterion
-    local b="$1" lbl="${2:-DONE-WHEN}" first rest line acc
-    _dw_backticked=""
-    first="$(sed -n "s/^${lbl}:[[:space:]]*//p" "$b" | head -1)"
-    [ -n "$first" ] || return 0
-    # \u26d4\u2b50\u2b50 A SECOND LABEL OF THE SAME NAME IS NOT A SECOND CRITERION, IT IS A SILENTLY DISCARDED ONE (ceo CEO-1079).
-    # `head -1` above takes the FIRST and drops the rest without a word.  The coo measured 17 batons carrying the
-    # PREMISE-WHEN placeholder and EIGHT carrying it BESIDE a real line, and observed that every one is harmless
-    # TODAY only because the real line happens to come first -- so the day a baton is edited in the other order,
-    # the row dispatches with its premise UNRUN while the file looks complete.  Measured on the live tree at this
-    # landing: NINE batons carry more than one PREMISE-WHEN.  `mint` is not the door -- it already suppresses its
-    # placeholder when the minted text supplies a real line -- so these were acquired by HAND EDITS after the
-    # mint, which a mint-time guard could never have caught.  This is the one choke point both `claim` and `done`
-    # read through, so it is where the ambiguity has to be surfaced.  It WARNS rather than REFUSES deliberately:
-    # refusing would redden nine live rows for a defect none of their owners can see, which is the fleet-wide
-    # cost this file spends the rest of its length avoiding.  The warning names the file and both texts so the
-    # owner can delete one; when the count reaches zero this can become a refusal and the comment says so.
-    { local _n; _n="$(grep -c "^${lbl}:" "$b" 2>/dev/null || echo 0)"
-      if [ "${_n:-0}" -gt 1 ]; then
-        printf '\u26a0 %s CARRIES %s LINES LABELLED %s AND ONLY THE FIRST IS READ -- the others are DISCARDED SILENTLY.\n' "$b" "$_n" "$lbl" >&2
-        printf '  READ : %s\n' "$first" >&2
-        sed -n "s/^${lbl}:[[:space:]]*//p" "$b" | tail -n +2 | while IFS= read -r _d; do printf '  DROPPED: %s\n' "$_d" >&2; done
-        printf '  Delete the one you do not mean.  A criterion that exists in the file and never runs is the\n' >&2
-        printf '  false-green shape this bus is built against (ceo CEO-1079).\n' >&2
-      fi; }
-    acc="$first"
-    # ⛔⭐⭐ CONTINUE ONLY WHILE THE TEXT IS INCOMPLETE SHELL, NEVER "UNTIL THE NEXT FIELD LABEL" -- and that
-    # distinction is the whole design, measured the hard way. The obvious rule (take every line to the next
-    # column-0 label, the way GOAL: carries paragraphs) is WRONG HERE and dangerous in the false-green direction
-    # it is trying to cure: the live convention puts PROSE ANNOTATION after a criterion -- "⛔ DONE-WHEN REWRITTEN
-    # 2026-08-24 (seat04): the line above used to be prose..." -- and 121 of the 122 DONE batons whose field spans
-    # lines are exactly that shape. Swallowing their annotation into `bash -c` would break rows that close
-    # correctly today, to fix one that does not.
-    # ⭐ THE DISCRIMINATOR IS MEASURED, not a heuristic about indentation or glyphs: bash tells you whether text is
-    # FINISHED. A complete line parses clean; a heredoc opener parses rc=0 WITH a "here-document ... delimited by
-    # end-of-file" warning; an unclosed quote is rc=2 "unexpected EOF while looking for matching"; and PROSE is
-    # rc=2 with a DIFFERENT error ("syntax error near unexpected token"), which must NOT pull the next line in.
-    # So: a complete first line IS the criterion, byte for byte as before, for every baton in the tree today.
-    # ⛔ RESIDUE, STATED RATHER THAN GUESSED AT: a criterion authored as two SYNTACTICALLY COMPLETE lines is
-    # indistinguishable from an annotated one in this file format, so it still runs only its first line. That is
-    # not curable by reading harder -- it needs a mint-time lint requiring one line, or an explicit continuation
-    # (a trailing \\, && or a heredoc), which is what every real multi-line criterion in the tree already uses.
-    if s4e_donewhen_incomplete "$acc"; then
-        # ⭐ MULTI-LINE MODE, ENTERED ONLY BY EVIDENCE: the first line does not finish, so the criterion is the
-        # WHOLE field block -- to the next column-0 field label or `## ` section, the baton format's own rule (it
-        # is how GOAL: already carries paragraphs). Taking the whole block matters and a "keep adding lines until
-        # it parses" loop is NOT enough: a heredoc becomes complete at its own delimiter, and seat04's measured
-        # shape puts the REAL CHECK on the lines AFTER that delimiter -- stopping at first-complete would capture
-        # the file write and drop the test, which is the original false green with two extra lines in it.
-        # ⛔ And if the block ends still unfinished, the incompleteness guard at both runner sites REFUSES rc=2
-        # rather than running it -- so a terminator that fires inside a heredoc body fails safe, never green.
-        acc="$acc
-$(awk -v lbl="$lbl" '
-            $0 ~ "^" lbl ":" && !seen { seen=1; next }
-            seen && /^## / { exit }
-            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|PREMISE-WHEN|PREMISE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }
-            seen { print }
-        ' "$b")"
-    fi
-    # ⛔ ONE matched OUTER pair only, and never a one-sided backtick: a lone ` is either real substitution or a
-    # typo, and both must fail LOUDLY rather than be silently rewritten. Normalised HERE, at the one extraction
-    # point, so the vacuity probe and the real run cannot disagree about what the criterion IS.
-    case "$acc" in '''`'''*'''`''') acc="${acc#\`}"; acc="${acc%\`}"; _dw_backticked=1;; esac
-    printf '%s' "$acc"; }
-# The two named readers. Every existing caller keeps calling s4e_donewhen_text and sees no change whatever.
-s4e_donewhen_text() { s4e_field_criterion_text "$1" DONE-WHEN; }
-s4e_premise_text()  { s4e_field_criterion_text "$1" PREMISE-WHEN; }
+# ⛔⭐⭐ THE DONE-WHEN EXTRACTOR MOVED TO lib_donewhen.sh (cto's ruling on their own file, 2026-09-23, relayed
+# to the coo: ONE implementation). s4e_field_criterion_text, s4e_donewhen_text, s4e_premise_text,
+# s4e_donewhen_incomplete and s4e_donewhen_unterminated_heredoc are DEFINED THERE and sourced above -- the
+# bus's private copy is DELETED in the same landing so no second reader can drift. The rule they carry is
+# unchanged: the criterion is the FIRST LINE, and the rest of the field block is read only when that line is
+# INCOMPLETE SHELL, because the live convention puts PROSE ANNOTATION under a complete one.
+# ⛔ THE SOURCE ABOVE IS NO LONGER OPTIONAL AND THE COMMENT THERE SAYS SO. It used to warn and continue,
+# because the only thing it carried was a no-op probe; it now carries the extractor `claim` and `done` read
+# every criterion through, so a missing lib is a REFUSAL (rc=2, could not measure) and never an approximation.
 # ⛔⭐ AND A SECOND, INDEPENDENT GUARD ON THE SAME FAILURE, because the extractor being right today is not a
 # property anyone can keep proving: bash does NOT fail on an unterminated heredoc -- `bash -n -c "cat <<'EOF'"`
 # exits 0 -- it only WARNS on stderr, which is precisely why the truncation could exit 0 for months. That warning
@@ -1415,15 +1335,6 @@ s4e_donewhen_multiple_contracts() {   # $1 = baton path
         | tr '\n' ' ' | sed 's/ $//')"
     unset _DWM_FIRST
     [ -n "$_dwm_lines" ]; }
-s4e_donewhen_incomplete() {   # $1 = criterion text; rc 0 = bash cannot finish reading it
-    # ⛔ A TRAILING BACKSLASH (or a dangling && / || / |) IS INCOMPLETE SHELL, though `bash -n` swallows it silently (coo 2026-09-16, found by
-    # CEO-786's rc rule: a two-line criterion 'test -f X \' + '&& test -f Y' ran only its first line -- `test -f X \` is a usage error, rc=2 --
-    # which the old `done` mapped to red, so test_gate_s4e_donewhen_runs_the_whole_criterion's arm (A) passed for weeks on a criterion
-    # whose second line never ran). The explicit continuation the format asks for must be READ as one.
-    case "$(printf '%s' "${1:-}" | sed -e 's/[[:space:]]*$//')" in *\\|*'&&'|*'||'|*'|') return 0;; esac
-    printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 \
-      | grep -qE 'here-document.*delimited by end-of-file|unexpected EOF while looking for matching|syntax error: unexpected end of file'; }
-s4e_donewhen_unterminated_heredoc() { s4e_donewhen_incomplete "${1:-}"; }
 # ⛔⭐⭐ THE MINT-TIME LINT (row mint-refuses-a-done-when-whose-first-word-is-not-a-command, hq_T's mint
 # 2026-09-13). THE SHAPE, and it is why this belongs at the MINT and not on the rows: a row whose DONE-WHEN
 # is prose can be cured PERFECTLY and still record no flip, because `done` executes the criterion and prose

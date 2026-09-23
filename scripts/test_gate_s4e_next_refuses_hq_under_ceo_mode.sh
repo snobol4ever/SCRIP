@@ -83,7 +83,12 @@ arm_allow  hq_B   NONE     "(E) hq_B with NO MODE file"
 # away from being committed by somebody else. So the mutant and the ONE sibling it sources are copied into the
 # scratch dir together, and nothing is ever written into the repo.
 MUT="$W/s4e_mutant.sh"
-cp "$HERE/lib_release_guard.sh" "$W/" 2>/dev/null || { echo "⛔ REFUSED: cannot copy lib_release_guard.sh -- the mutant could not source it"; exit 2; }
+# ⛔ EVERY SIBLING LIB, NOT ONE. The comment above said "the ONE sibling it sources" and that was true when it
+# was written; on 2026-09-23 the DONE-WHEN EXTRACTOR moved into lib_donewhen.sh (cto's ruling: one
+# implementation) and the bus began REFUSING rc=2 without it instead of warning, so a mutant staged with only
+# lib_release_guard.sh could not dispatch at all -- and a fail-once arm that refuses for a STAGING reason
+# reads exactly like a gate that cannot go red. Naming the libs one at a time is how that recurs.
+cp "$HERE"/lib_*.sh "$W/" 2>/dev/null || { echo "⛔ REFUSED: cannot copy the sibling lib_*.sh -- the mutant could not source them"; exit 2; }
 n=$(grep -c '^             exit 2; }$' "$MSG")
 [ "$n" = 1 ] || { echo "⛔ REFUSED: expected exactly 1 guard exit line to neuter, found $n -- the guard's shape moved and this gate is blind"; exit 2; }
 sed 's/^             exit 2; }$/             return 0; }/' "$MSG" > "$MUT"; chmod +x "$MUT"

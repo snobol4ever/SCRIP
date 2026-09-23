@@ -848,6 +848,16 @@ gate_stage_picker_lane_table() {
     ' "$_sut" > "$_out"; _rc=$?
     [ "$_rc" -eq 0 ] || return "$_rc"
     chmod +x "$_out" 2>/dev/null
+    # ⛔⭐⭐ THE LIBS GO WITH IT, because a staged bus resolves `dirname "${BASH_SOURCE[0]}"` to the SCRATCH
+    # directory and finds nothing beside it. This was survivable while the missing libs carried only optional
+    # helpers -- lib_release_guard.sh has been printing "No such file or directory" into these fixtures for as
+    # long as they have existed, and nobody read it because the arms still passed. It stopped being survivable
+    # on 2026-09-23, when THE DONE-WHEN EXTRACTOR MOVED INTO lib_donewhen.sh (cto's ruling: one implementation)
+    # and the bus began REFUSING rc=2 without it rather than warning: nine of ten arms in
+    # test_gate_next_honours_the_lane_cut.sh went red at once, none of them about the lane cut. ⭐ STAGING THEM
+    # IS THE FIX RATHER THAN SOFTENING THE REFUSAL: a bus that cannot read a criterion must not pretend it can,
+    # and a fixture is supposed to be the real script in a scratch tree, not a partial one.
+    cp "$(dirname "$_sut")"/lib_*.sh "$(dirname "$_out")"/ 2>/dev/null || return 5
     for _pair in "$@"; do
         _l="${_pair%%=*}"; _o="${_pair#*=}"
         [ "$(gate_lane_owner_of "$_out" "$_l")" = "$_o" ] || return 4

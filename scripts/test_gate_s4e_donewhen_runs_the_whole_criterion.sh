@@ -54,8 +54,8 @@ PO="$W/po"; ME=hq_T; HD="$W/hd.txt"
 mk_po() {
   rm -rf "$PO" "$HD"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" || return 2
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf "TRIO\n" > "$PO/MODE"
-  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph t-dup-contract; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
-  for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph t-dup-contract; do
+  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose t-receipt t-two-contracts t-stale-ph t-dup-contract; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
+  for t in t-two t-heredoc t-unterm t-green t-prose t-receipt t-two-contracts t-stale-ph t-dup-contract; do
     { printf '# TASK %s\nGOAL: gate fixture.\n' "$t"
       case "$t" in
         t-two)     printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh" \\\n'
@@ -75,6 +75,9 @@ mk_po() {
                    printf 'LINKS: none\nDONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n';;
         t-stale-ph) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
                    printf 'LINKS: none\nDONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test\n';;
+        t-receipt) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
+                   printf '  ⛔ rewritten by the cto on claim 2026-09-17: the minted line hardcoded /home/claude_icon/SCRIP\n'
+                   printf '  and graded whichever tree that seat happened to hold. Cured to $S4E_HOME.\n';;
         t-prose)   printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
                    printf '⛔ **DONE-WHEN REWRITTEN 2026-08-24 (seat04):** the line above used to be prose\n'
                    printf '(readable as a spec), but `done` runs it as literal `bash -c` and prose is not a command.\n';;
@@ -116,29 +119,58 @@ arm() {   # arm <label> <script> -> 0 iff all four contracts hold; 2 iff the fix
   run "$s" t-prose
   [ "$RC" = 0 ] || { echo "  [$lbl] (E) a COMPLETE one-line criterion followed by prose annotation returned $RC (want 0) -- the annotation was swallowed into the command"; say; ok=0; }
   closed t-prose || { echo "  [$lbl] (E) ⛔ a correctly-closing annotated row stopped closing -- the continuation rule is eating prose"; ok=0; }
+  # ---- ARM I: A CURE RECEIPT IS ANNOTATION AND MUST NEVER LEAVE THE EXTRACTOR (coo 2026-09-23, on the cto's
+  # ruling). The live convention records a cure IN the annotation -- "the minted line hardcoded
+  # /home/claude_icon/SCRIP" -- so any consumer that reads the field BLOCK instead of the executed text sees a
+  # seat root that the shell never runs. util_donewhen_rc_census.py's class B is exactly such a consumer, and
+  # the widening that landed this week would have called that receipt a defect and REWRITTEN IT: a false
+  # clearance minted on top of the evidence that the pin was already cured. Two contracts, not one -- the row
+  # closes green AND the extracted text does not contain the root.
+  run "$s" t-receipt
+  [ "$RC" = 0 ] || { echo "  [$lbl] (I) a criterion under a CURE RECEIPT annotation returned $RC (want 0)"; say; ok=0; }
+  closed t-receipt || { echo "  [$lbl] (I) ⛔ a row annotated with its own cure receipt stopped closing"; ok=0; }
+  _rx="$( ( . "$(dirname "$s")/lib_donewhen.sh" >/dev/null 2>&1 && s4e_donewhen_text "$PO/tasks/t-receipt.task.md" ) 2>/dev/null )"
+  case "$_rx" in
+    *"/home/claude_icon"*) echo "  [$lbl] (I) ⛔ THE RECEIPT REACHED THE CONSUMER: the extractor handed back annotation text naming a seat root"; ok=0;;
+    "") echo "  [$lbl] (I) ⛔ the extractor returned NOTHING for t-receipt -- it is not readable from its lib"; ok=0;;
+  esac
   [ "$ok" = 1 ]
 }
 echo "s4e done: the WHOLE DONE-WHEN runs, a heredoc body reaches its file, an unterminated one REFUSES (scratch postoffice under $W)"
-if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected; (F) two real contracts refuse; (G) a stale placeholder does not; (H) nor does a byte-identical duplicate"; pass=1
+if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected; (F) two real contracts refuse; (G) a stale placeholder does not; (H) nor does a byte-identical duplicate; (I) a cure-receipt annotation closes green and never reaches a consumer"; pass=1
 else pass=$?; [ "$pass" = 2 ] && { echo "⛔ REFUSED: fixture could not be built (rc=2)"; exit 2; }; pass=0; fi
 # FAIL-ONCE, one mutant per part of the cure. M1 restores the head -1 truncation (A and B must red -- the rows
 # close on criteria that never ran). M2 removes the unterminated-heredoc refusal (C must red -- rc=0 on an unreadable
 # one). M3 removes the ambiguous-contract refusal (F must red -- a row closes on half its own contract).
-sed 's|dw="$(s4e_donewhen_text "$tf")"|dw="$(sed -n '"'"'s/^DONE-WHEN:[[:space:]]*//p'"'"' "$tf" \| head -1)"|' "$MSG" > "$W/m1.sh"
-sed 's/here-document\.\*delimited by end-of-file/a-warning-string-that-never-appears-90124/' "$MSG" > "$W/m2.sh"
+# ⛔⭐⭐ A MUTANT IS A WHOLE SCRIPT DIRECTORY NOW, NOT A LONE FILE, and the reason is a landing: the DONE-WHEN
+# EXTRACTOR MOVED OUT OF THE BUS INTO lib_donewhen.sh (cto's ruling, 2026-09-23 -- one implementation, no second
+# reader to drift). A mutant written to $W/mN.sh resolves `dirname "${BASH_SOURCE[0]}"` to $W, so it would find
+# NO lib beside it; the bus used to warn and carry on, and now REFUSES rc=2 because the missing function is the
+# extractor itself. ⛔ M2's target string moved with it, so M2 must mutate THE LIB and leave the bus alone --
+# patching $MSG for it would silently produce an IDENTICAL script and a mutant that cannot red is a green arm
+# proving nothing. Each mutant therefore gets its own directory holding every lib the bus sources.
+mut_dir() {   # $1 = mutant name -> builds $W/$1 with the real libs beside it; prints nothing, rc 2 on failure
+  mkdir -p "$W/$1" || return 2
+  cp "$HERE"/lib_*.sh "$W/$1/" || return 2
+}
+for m in m1 m2 m3 m4; do mut_dir "$m" || { echo "⛔ REFUSED: could not stage mutant dir $m"; exit 2; }; done
+sed 's|dw="$(s4e_donewhen_text "$tf")"|dw="$(sed -n '"'"'s/^DONE-WHEN:[[:space:]]*//p'"'"' "$tf" \| head -1)"|' "$MSG" > "$W/m1/s4e_msg.sh"
+cp "$MSG" "$W/m2/s4e_msg.sh"
+sed 's/here-document\.\*delimited by end-of-file/a-warning-string-that-never-appears-90124/' "$HERE/lib_donewhen.sh" > "$W/m2/lib_donewhen.sh"
 # M3 removes the ambiguous-contract refusal: arm F must then CLOSE a row on half its own contract.
-sed 's/^s4e_donewhen_multiple_contracts() {   # \$1 = baton path/s4e_donewhen_multiple_contracts() { return 1; } \nunused_multiple_contracts() {/' "$MSG" > "$W/m3.sh"
-grep -q 'head -1' "$W/m1.sh" || { echo "⛔ REFUSED: could not build mutant M1 (the done-site extraction moved?)"; exit 2; }
-grep -q 'never-appears-90124' "$W/m2.sh" || { echo "⛔ REFUSED: could not build mutant M2 (the heredoc guard moved?)"; exit 2; }
-grep -q 'unused_multiple_contracts' "$W/m3.sh" || { echo "⛔ REFUSED: could not build mutant M3 (the ambiguous-contract guard moved?)"; exit 2; }
+sed 's/^s4e_donewhen_multiple_contracts() {   # \$1 = baton path/s4e_donewhen_multiple_contracts() { return 1; } \nunused_multiple_contracts() {/' "$MSG" > "$W/m3/s4e_msg.sh"
+grep -q 'head -1' "$W/m1/s4e_msg.sh" || { echo "⛔ REFUSED: could not build mutant M1 (the done-site extraction moved?)"; exit 2; }
+grep -q 'never-appears-90124' "$W/m2/lib_donewhen.sh" || { echo "⛔ REFUSED: could not build mutant M2 (the heredoc guard moved out of lib_donewhen.sh?)"; exit 2; }
+cmp -s "$MSG" "$W/m2/s4e_msg.sh" || { echo "⛔ REFUSED: M2 must leave the bus byte-identical -- it mutates the LIB"; exit 2; }
+grep -q 'unused_multiple_contracts' "$W/m3/s4e_msg.sh" || { echo "⛔ REFUSED: could not build mutant M3 (the ambiguous-contract guard moved?)"; exit 2; }
 # M4 removes ONLY the byte-identical exclusion, leaving the rest of F intact: arm H must then refuse a row that
 # asks no intent question. ⛔ It is a separate mutant from M3 on purpose -- M3 deletes the whole guard, so it can
 # never show that the narrow exclusion is load-bearing, and a cure whose own arm no mutant reds is untested.
-sed 's/txt == ENVIRON\["_DWM_FIRST"\]/txt == "no-such-first-90126"/' "$MSG" > "$W/m4.sh"
-grep -q 'no-such-first-90126' "$W/m4.sh" || { echo "⛔ REFUSED: could not build mutant M4 (the identical-duplicate exclusion moved?)"; exit 2; }
+sed 's/txt == ENVIRON\["_DWM_FIRST"\]/txt == "no-such-first-90126"/' "$MSG" > "$W/m4/s4e_msg.sh"
+grep -q 'no-such-first-90126' "$W/m4/s4e_msg.sh" || { echo "⛔ REFUSED: could not build mutant M4 (the identical-duplicate exclusion moved?)"; exit 2; }
 red=1
 for m in m1 m2 m3 m4; do
-  if arm "FAIL-ONCE:$m" "$W/$m.sh" >"$W/fo.$m" 2>&1; then echo "  [FAIL-ONCE:$m] ⛔ STAYED GREEN with that half of the cure removed -- it cannot detect the defect it exists for"; red=0
+  if arm "FAIL-ONCE:$m" "$W/$m/s4e_msg.sh" >"$W/fo.$m" 2>&1; then echo "  [FAIL-ONCE:$m] ⛔ STAYED GREEN with that half of the cure removed -- it cannot detect the defect it exists for"; red=0
   else echo "  [FAIL-ONCE:$m] red as required: $(grep -m1 '  \[' "$W/fo.$m" | sed 's/^ *//' | cut -c1-110)"; fi
 done
 if [ "$pass" = 1 ] && [ "$red" = 1 ]; then echo "✅ GATE OK: done runs the whole criterion, heredoc bodies included, and refuses one it cannot finish reading."; exit 0; fi

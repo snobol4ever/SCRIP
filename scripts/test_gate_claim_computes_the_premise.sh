@@ -153,39 +153,57 @@ echo "claim/next compute a row's PREMISE-WHEN and refuse the lock on a red one (
 cp "$HERE/lib_release_guard.sh" "$W/" 2>/dev/null || true
 if arm PASS "$MSG"; then echo "  [PASS] stale refuses and names it · live admits · absent admits loudly · vacuous never reads as verified · ASSIGNED gated at serve · next not silent · override loud and recorded · whole field read · DONE-WHEN not swallowed"; pass=1
 else pass=$?; [ "$pass" = 2 ] && { echo "⛔ REFUSED: fixture could not be built (rc=2)"; exit 2; }; pass=0; fi
-mut() {  # mut <name> <from> <to> -> writes $W/<name>.sh, verified actually changed
-  local n="$1" a="$2" b="$3"
-  awk -v a="$a" -v b="$b" '$0==a{print b; k++; next} {print} END{exit !k}' "$MSG" > "$W/$n.sh" \
-    || { echo "⛔ REFUSED: $n's anchor line is not where the mutant expects it -- the mutation would be a no-op"; exit 2; }
-  grep -qF "$b" "$W/$n.sh" || { echo "⛔ REFUSED: $n did not change the file"; exit 2; }
-  bash -n "$W/$n.sh" 2>/dev/null || { echo "⛔ REFUSED: the $n mutant does not parse -- fixture, not verdict"; exit 2; }; }
+# ⛔⭐⭐ A MUTANT IS A DIRECTORY, AND THE TARGET MAY BE A LIB. Two things changed on 2026-09-23 when the
+# DONE-WHEN EXTRACTOR MOVED INTO lib_donewhen.sh (cto's ruling: one implementation, no second reader to drift).
+# FIRST, a mutant written to $W/<n>.sh resolves `dirname "${BASH_SOURCE[0]}"` to $W and finds no lib beside it;
+# the bus now REFUSES rc=2 without the extractor rather than warning, so EVERY mutant here would have gone red
+# for a staging reason while printing "red as required" -- a fail-once that proves nothing, which is the exact
+# false green this mechanism exists to disprove. SECOND, m4's anchor line moved with the extractor, so its
+# target is the LIB and not the bus.
+mut() {  # mut <name> <from> <to> [target-basename] -> stages $W/<name>/ with every lib + the bus, mutates one
+  local n="$1" a="$2" b="$3" tgt="${4:-s4e_msg.sh}" src
+  mkdir -p "$W/$n" || { echo "⛔ REFUSED: cannot stage the $n mutant directory"; exit 2; }
+  cp "$HERE"/lib_*.sh "$MSG" "$W/$n/" || { echo "⛔ REFUSED: cannot stage the siblings the $n mutant sources"; exit 2; }
+  src="$HERE/$tgt"; [ -f "$src" ] || { echo "⛔ REFUSED: $n names a target that does not exist: $tgt"; exit 2; }
+  awk -v a="$a" -v b="$b" '$0==a{print b; k++; next} {print} END{exit !k}' "$src" > "$W/$n/$tgt" \
+    || { echo "⛔ REFUSED: $n's anchor line is not where the mutant expects it (target $tgt) -- the mutation would be a no-op"; exit 2; }
+  grep -qF "$b" "$W/$n/$tgt" || { echo "⛔ REFUSED: $n did not change $tgt"; exit 2; }
+  bash -n "$W/$n/$tgt" 2>/dev/null || { echo "⛔ REFUSED: the $n mutant does not parse -- fixture, not verdict"; exit 2; }
+  # ⛔ EXACTLY ONE FILE MAY DIFFER: a mutant that also perturbed a sibling would attribute its red to the wrong
+  # change, and staging by copy makes that mistake silent rather than loud.
+  for _f in "$W/$n"/*; do
+    case "${_f##*/}" in "$tgt") continue;; esac
+    cmp -s "$_f" "$HERE/${_f##*/}" || { echo "⛔ REFUSED: $n perturbed ${_f##*/} as well as $tgt"; exit 2; }
+  done; }
 # ⛔ EXACT-STRING awk, never regex sed: these lines are dense in $ | * ( ) and a mutation that silently matched
 # nothing would hand back an unmutated copy, the arm would pass, and the gate would report a fail-once it never
 # performed -- a false green inside the mechanism that exists to disprove one.
 mut m1 '              s4e_premise_gate "$topic" claim || exit 1' '              :'
-if arm M1-claim-unwired "$W/m1.sh" >"$W/m1.log" 2>&1; then echo "  [FAIL-ONCE M1] ⛔ GREEN with claim's premise gate removed -- the gate cannot detect an unchecked claim"; m1=0
+if arm M1-claim-unwired "$W/m1/s4e_msg.sh" >"$W/m1.log" 2>&1; then echo "  [FAIL-ONCE M1] ⛔ GREEN with claim's premise gate removed -- the gate cannot detect an unchecked claim"; m1=0
 else echo "  [FAIL-ONCE M1] red as required, claim unwired: $(grep -m1 '(1)' "$W/m1.log" | sed 's/^ *//' | cut -c1-100)"; m1=1; fi
 # ⛔ M2 UNWIRES ONLY THE ASSIGNED PATH -- the exact half-wired state a cure wired into `claim` alone ships in,
 # and the one every sibling gate would pass straight through. If arm 6 cannot see this, the arm is decoration.
 mut m2 '           s4e_premise_gate "$t" next || continue' '           :'
-if arm M2-assigned-unwired "$W/m2.sh" >"$W/m2.log" 2>&1; then echo "  [FAIL-ONCE M2] ⛔ GREEN with the ASSIGNED->RUNNING path unwired -- arm 6 cannot see a half-wired cure"; m2=0
+if arm M2-assigned-unwired "$W/m2/s4e_msg.sh" >"$W/m2.log" 2>&1; then echo "  [FAIL-ONCE M2] ⛔ GREEN with the ASSIGNED->RUNNING path unwired -- arm 6 cannot see a half-wired cure"; m2=0
 else echo "  [FAIL-ONCE M2] red as required, assigned path unwired: $(grep -m1 '(6)' "$W/m2.log" | sed 's/^ *//' | cut -c1-100)"; m2=1; fi
 # ⛔ M3 short-circuits the BODY rather than replacing the header: swapping the header would need a second
 # function to absorb the orphaned body, and a mutant that will not PARSE goes red for a reason having nothing
 # to do with the cure -- a fail-once that proves nothing.
 mut m3 '    local t="$1" verb="${2:-claim}" b="$PO/tasks/$1.task.md" pw log rc to t0 el' '    return 0'
-if arm M3-gate-blinded "$W/m3.sh" >"$W/m3.log" 2>&1; then echo "  [FAIL-ONCE M3] ⛔ GREEN with the premise gate blinded to always-admit"; m3=0
+if arm M3-gate-blinded "$W/m3/s4e_msg.sh" >"$W/m3.log" 2>&1; then echo "  [FAIL-ONCE M3] ⛔ GREEN with the premise gate blinded to always-admit"; m3=0
 else echo "  [FAIL-ONCE M3] red as required, gate blinded: $(grep -m1 -E '\(1\)|\(6\)|\(7\)' "$W/m3.log" | sed 's/^ *//' | cut -c1-100)"; m3=1; fi
 # ⛔ M4 drops PREMISE-WHEN from the extractor's terminator set: the multi-line DONE-WHEN then swallows the
 # premise line under it. Only arm 10 can see this, and it is the reason arm 10 exists.
 mut m4 '            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|PREMISE-WHEN|PREMISE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }' \
-       '            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }'
-if arm M4-terminator-dropped "$W/m4.sh" >"$W/m4.log" 2>&1; then echo "  [FAIL-ONCE M4] ⛔ GREEN with PREMISE-WHEN dropped from the terminator set -- a DONE-WHEN may swallow the premise unseen"; m4=0
+       '            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }' \
+       lib_donewhen.sh
+if arm M4-terminator-dropped "$W/m4/s4e_msg.sh" >"$W/m4.log" 2>&1; then echo "  [FAIL-ONCE M4] ⛔ GREEN with PREMISE-WHEN dropped from the terminator set -- a DONE-WHEN may swallow the premise unseen"; m4=0
 else echo "  [FAIL-ONCE M4] red as required, terminator dropped: $(grep -m1 '(10)' "$W/m4.log" | sed 's/^ *//' | cut -c1-100)"; m4=1; fi
 # ⛔ M5 re-imports the truncation class on the new label only: the premise is read one physical line at a time.
 mut m5 's4e_premise_text()  { s4e_field_criterion_text "$1" PREMISE-WHEN; }' \
-       's4e_premise_text()  { sed -n "s/^PREMISE-WHEN:[[:space:]]*//p" "$1" | head -1; }'
-if arm M5-premise-truncated "$W/m5.sh" >"$W/m5.log" 2>&1; then echo "  [FAIL-ONCE M5] ⛔ GREEN with the premise truncated to one line -- the heredoc false green is back and arm 9 is blind to it"; m5=0
+       's4e_premise_text()  { sed -n "s/^PREMISE-WHEN:[[:space:]]*//p" "$1" | head -1; }' \
+       lib_donewhen.sh
+if arm M5-premise-truncated "$W/m5/s4e_msg.sh" >"$W/m5.log" 2>&1; then echo "  [FAIL-ONCE M5] ⛔ GREEN with the premise truncated to one line -- the heredoc false green is back and arm 9 is blind to it"; m5=0
 else echo "  [FAIL-ONCE M5] red as required, premise truncated: $(grep -m1 '(9)' "$W/m5.log" | sed 's/^ *//' | cut -c1-100)"; m5=1; fi
 if [ "$pass" = 1 ] && [ "$m1" = 1 ] && [ "$m2" = 1 ] && [ "$m3" = 1 ] && [ "$m4" = 1 ] && [ "$m5" = 1 ]; then
   echo "✅ GATE OK: claim and next compute the row's PREMISE-WHEN, refuse the lock on a measured red one and say the row needs rewriting, admit every premise they could not measure, and never read silence as verification."; exit 0; fi
