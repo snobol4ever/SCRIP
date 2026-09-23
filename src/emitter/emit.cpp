@@ -2935,6 +2935,8 @@ static int gc_maps_plant_on(void) { static int v = -1; if (v < 0) v = gc_maps_kn
 static int gc_maps_report_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_REPORT"); return v; }
 static int gc_maptab_plant_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPTAB_PLANT"); return v; }
 extern "C" void rt_gc_frame_map_check(const DESCR_t * cell);
+static_assert(sizeof(void *) == 8, "A PROCEDURE OR GENERATOR PROLOGUE CLEARS ITS WHOLE VALUE REGION, NOT ONLY ITS LOCALS (cto 2026-09-23, CTO-157): the collector finds a frame by the first valid DT_MAP cell scanning up from the floor, and when main calls p4 then p5 (same caller rsp, so both frames end at the same top) p4's dead cell survives sixteen bytes below p5's live cell inside p5's larger region -- the walker took it, applied p4's layout to p5's frame and stepped over p5's live cell, so p5's value cells were never visited (procedure_record_every_replace_14: write's image() argument read vacated ground at line 62 under the flip plant). A geometric rule in the walker cannot tell which of two sibling cells is live (the dead one sits below the live one or above it depending on header sizes); clearing the region at entry makes a dead cell inside a live frame impossible. SCRIP_GC_PLANT_STALE_FRAME=1 restores the locals-only clear at emission");
+static int gc_plant_stale_frame(void) { static int v = -1, said = 0; if (v < 0) { const char * e = getenv("SCRIP_GC_PLANT_STALE_FRAME"); v = (e && *e == '1') ? 1 : 0; } if (v && !said) { said = 1; fprintf(stderr, "[GC-STALEFRAME] plant: procedure and generator prologues clear only their locals again, so a dead activation's map cell can survive inside a live frame (SCRIP_GC_PLANT_STALE_FRAME=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first prologue emitted under it.\n"); } return v; }
 extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel) {
     if (frame_rel == 2 ? (map_off < 16 || map_off != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes)) { fprintf(stderr, "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d frame_rel=%d (the map cell must be a 16-aligned cell inside the frame; a blob's cell is the frame's bottom cell at [rbp - frame_bytes] and carries GC_FRAME_MAP_BLOB)\n", map_off, frame_bytes, frame_rel); abort(); }
     g_gc_map_pending = 1; g_gc_map_off = map_off; g_gc_map_fb = frame_bytes; g_gc_map_hdr = header_bytes; g_gc_map_flags = flags;
@@ -3215,6 +3217,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           static int _en = -1; if (_en < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); _en = (_e && *_e == '0') ? 0 : 1; }
           int _lo = (_en && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
           int _rg = (_en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
+          if (_lo >= 0 && _rg > 0 && !gc_plant_stale_frame()) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total)
               _gseed =  x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
         bb_emit_x86( x86("lea", "rax", RDQ("rsp", 0 - carve))
@@ -3252,8 +3255,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           static int _en = -1; if (_en < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); _en = (_e && *_e == '0') ? 0 : 1; }
           int _lo = (_en && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
           int _rg = (_en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
+          if (_lo >= 0 && _rg > 0 && !gc_plant_stale_frame()) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total - 32)
-              _lseed = x86("comment", "LCL-SEED: NULVCL the named-local vslot suffix [___+lo, ___+rg) so lexical locals read unbound, not stack residue")
+              _lseed = x86("comment", "LCL-SEED: NULVCL the whole value region [___+0, ___+rg) so no dead activation's map cell or pointer survives inside this frame, and lexical locals read unbound")
                      + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
         static int _iws = -1; if (_iws < 0) { const char * _e = getenv("SCRIP_ICN_WIRE_STACK"); _iws = (_e && *_e == (char)48) ? 0 : 1; }
         if (g_is_text) {
