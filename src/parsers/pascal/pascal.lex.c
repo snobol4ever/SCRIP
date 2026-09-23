@@ -997,6 +997,8 @@ char *yytext;
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
+#include <errno.h>
+#include <math.h>
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char pascal_ifdefbuf[256];
@@ -1005,6 +1007,18 @@ int pas_const_get(const char *name, long long *out);
 int pas_rconst_get(const char *name, double *out);
 const char *pas_sconst_get(const char *name);
 extern int g_pas_iso_errors;
+static long long pascal_int_lit(const char *t) {
+    errno = 0; unsigned long long v = strtoull(t, NULL, 10);
+    if (errno == ERANGE) { fprintf(stderr, "pascal: ISO 7185 6.1.5 violation line %d: the integer literal '%.24s%s' is beyond the largest integer SCRIP represents\n",
+                                   pascal_yylineno, t, strlen(t) > 24 ? "..." : ""); g_pas_iso_errors++; }
+    return (long long)v;
+}
+static double pascal_real_lit(const char *t) {
+    errno = 0; double d = strtod(t, NULL);
+    if (errno == ERANGE && isinf(d)) { fprintf(stderr, "pascal: ISO 7185 6.1.5 violation line %d: the real literal '%.24s%s' is beyond the largest real SCRIP represents\n",
+                                               pascal_yylineno, t, strlen(t) > 24 ? "..." : ""); g_pas_iso_errors++; }
+    return d;
+}
 static int pascal_if_declared(const char *name) {
     long long iv; double rv;
     return pas_const_get(name, &iv) || pas_rconst_get(name, &rv) || pas_sconst_get(name) != NULL;
@@ -1782,15 +1796,15 @@ YY_RULE_SETUP
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
-{ pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
+{ pascal_yylval.dval = pascal_real_lit(pascal_yytext); return REALCONST; }
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
-{ pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
+{ pascal_yylval.dval = pascal_real_lit(pascal_yytext); return REALCONST; }
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
-{ pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
+{ pascal_yylval.ival = pascal_int_lit(pascal_yytext); return INTCONST; }
 	YY_BREAK
 case 101:
 YY_RULE_SETUP
