@@ -490,10 +490,20 @@ def census(paths, alloc, out=print):
                 owned[r] += 1
                 for c in cls:
                     classes[r][c] += 1
-                    b = bucket(c)
+                    # ⛔ ONE FILING RULE AND IT IS bucket() (cfo 2026-09-23).  This chain peeled ONE `CELL:` prefix
+                    # while bucket() peels every one, so the LISTS and the TALLY were two rules rather than two views of
+                    # one, and they disagreed on four class shapes: CELL:*:UNCLASSIFIED was filed in the COPY list while
+                    # tallied as unclassified, CELL:CELL:SUBJECT filed as a copy against a HEAP tally, CELL:CELL:RSP
+                    # filed as a copy against a RAW tally.  Measured on the 77-file corpus at b9ef5f056: the tally
+                    # bucketed 2021 owned readings as unclassified while the LIST held 1732 -- 289 readings in NEITHER
+                    # blocking arm, which is the residual-behind-a-green-gate shape the refusal in report() names.  It
+                    # was never reconcilable before now because both wired gates run only the 8-witness population,
+                    # where unclassified=0 and the two routes agree trivially.  Selftest arm 15-17 plant the nine-line
+                    # witness that REDS on the one-prefix peel, so the rule cannot be re-split silently.
                     rec = (os.path.basename(path), g, ins.line, r, c, insns[i].text[:60])
-                    if b == "heap": heapsites.append(rec)
-                    elif b == "copy": copies.append(rec)
+                    b = bucket(c)
+                    if   b == "heap":         heapsites.append(rec)
+                    elif b == "copy":         copies.append(rec)
                     elif b == "unclassified": unclassified.append(rec)
         for ins in insns:
             _, _, known = use_def(ins)
@@ -563,13 +573,24 @@ def report(paths, alloc, out=print):
         f"would invent site-dependence.")
     for k, r in varies[:12]:
         out(f"      {k[0]} graph={k[1]} register={r}: live across one allocating return and dead across another")
-    drift = tally["unclassified"] - len(unc)
-    if drift:
-        out(f"  \u26d4 INSTRUMENT REFUSAL: the class tally buckets {tally['unclassified']} owned reading(s) as unclassified "
-            f"while the unclassified LIST holds {len(unc)}.  The two are counts of the SAME class by two routes and a "
-            f"disagreement means a class name reached the tally that no bucket can place -- those readings are then in "
-            f"neither the copy ratchet nor the unclassified arm, which is the exact shape of a residual growing behind a "
-            f"green gate.  The census REFUSES rather than print a number it cannot reconcile.")
+    # ⛔ RECONCILE ALL THREE LISTS, NOT ONLY THE UNCLASSIFIED ONE (cfo 2026-09-23).  This check graded one bucket of
+    # three, so a disagreement in the COPY or the HEAP list was unmeasurable -- and the HEAP list is the COVERAGE
+    # POPULATION of test_gate_gc_the_spill_record_carries_a_callee_saved_heap_pointer_across_an_allocating_return, where
+    # a short list reads as full coverage.  Widening it is what keeps the check from going INERT now that one filing
+    # rule cannot disagree with itself: a future route into the tally, or a re-split of the filing, is caught in
+    # whichever bucket it lands in rather than only in the one that happened to be graded.  The SUMMARY line is
+    # deliberately left byte-stable -- two gates parse it by exact key and a new field is not worth the risk.
+    recon = (("unclassified", tally["unclassified"], len(unc)), ("copy", tally["copy"], len(cop)),
+             ("heap", tally["heap"], len(heaps)))
+    bad = [(n, t, l) for n, t, l in recon if t != l]
+    drift = sum(abs(t - l) for _, t, l in bad)
+    if bad:
+        out("  \u26d4 INSTRUMENT REFUSAL: the class tally and the named list disagree for "
+            + ", ".join(f"{n} (tally {t} against list {l})" for n, t, l in bad)
+            + ".  Each pair counts the SAME class by two routes and a disagreement means a class name reached the tally "
+            "that the list's filing could not place -- those readings are then in neither the copy ratchet nor the "
+            "unclassified arm, which is the exact shape of a residual growing behind a green gate.  The census REFUSES "
+            "rather than print a number it cannot reconcile.")
     out(f"SUMMARY sites={tot} raw={raw_n} copies={copy_n} heap={heap_n} unclassified={len(unc)} bucket_unclassified={tally['unclassified']} "
         f"unknown_mnemonics={sum(unknown.values())} site_dependent_pairs={len(varies)} graphs={len(per_graph)} "
         f"unattributed_sites={unattr} files={len(paths)}")
@@ -838,6 +859,39 @@ def selftest():
        f"PLANTED: a reload whose slot was stored from a register that was itself reloaded out of a slot composes the NESTED class CELL:CELL:POP, got {dict(classes.get('r12',{}))}")
     ck(bucket("CELL:CELL:POP") == "copy" and _tal["copy"] == len(cop) and _tal["unclassified"] == len(unc),
        f"PLANTED: the nested class is counted as a COPY and the tally reconciles with the lists -- one CELL: prefix peeled instead of every one hid it from BOTH blocking arms, got tally={dict(_tal)} copies={len(cop)} unclassified={len(unc)}")
+    # ⛔⭐ THE FILING-RULE PLANT (cfo 2026-09-23).  Nine lines that made the two routes DISAGREE before the rule
+    # was unified: a copy out of rdx after a call that is not the seeding entry reads UNCLASSIFIED, a store of it into a
+    # slot and a reload out of that slot composes CELL:UNCLASSIFIED, and the one-prefix peel filed that reading in the
+    # COPY list while bucket() tallied it as unclassified -- so it was in NEITHER blocking arm.  The arm 14 plant above
+    # cannot catch this: CELL:CELL:POP is a shape the two routes AGREE on, so its reconciliation check passed over a
+    # broken rule.  These three arms RED on the one-prefix peel and are the reason the unified rule cannot be reverted
+    # without a measured refusal.
+    open(p, "w").write(
+        " .text\n"
+        "cu_\u03b1:\n"
+        " mov rbp, rsp\n"
+        " call rt_other_entry\n"
+        " mov r14, rdx\n"
+        " mov qword ptr [rbp - 40], r14\n"
+        " mov r12, qword ptr [rbp - 40]\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r12\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    _tal2 = defaultdict(int)
+    for r in CS:
+        for k, v in classes.get(r, {}).items(): _tal2[bucket(k)] += v
+    ck(classes.get("r12", {}).get("CELL:UNCLASSIFIED", 0) == 1 and bucket("CELL:UNCLASSIFIED") == "unclassified",
+       f"PLANTED: a reload out of a slot whose store came from an un-whitelisted form composes CELL:UNCLASSIFIED and "
+       f"buckets as unclassified, got {dict(classes.get('r12',{}))} bucket={bucket('CELL:UNCLASSIFIED')}")
+    ck(any(u[3] == "r12" and u[4] == "CELL:UNCLASSIFIED" for u in unc)
+       and not any(c[4] == "CELL:UNCLASSIFIED" for c in cop),
+       f"PLANTED: that reading is filed in the UNCLASSIFIED list and NOT in the copy list -- one filing rule, so the "
+       f"list a reading joins is the bucket it is tallied into, got unc={[(u[3], u[4]) for u in unc]} "
+       f"cop={[(c[3], c[4]) for c in cop]}")
+    ck(_tal2["unclassified"] == len(unc) and _tal2["copy"] == len(cop) and _tal2["heap"] == len(heaps),
+       f"PLANTED: all THREE lists reconcile with the tally on a population that DIVERGED under the one-prefix peel, "
+       f"got tally={dict(_tal2)} unclassified={len(unc)} copies={len(cop)} heap={len(heaps)}")
     print(f"SELFTEST {ok[0]}/{ok[1]} arms green")
     return 0 if ok[0] == ok[1] else 1
 
