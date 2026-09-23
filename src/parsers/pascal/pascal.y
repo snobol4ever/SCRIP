@@ -70,6 +70,8 @@ static int pas_is_hdrfile(const char *n);
 extern int g_pas_iso_errors;
 extern int g_pas_seen_mode_directive;
 extern int pascal_seen_decl_start;
+extern int g_pas_min_enum_size;
+extern int g_pas_pack_set_size;
 static long long g_pas_pend_sub_low;
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
@@ -103,6 +105,7 @@ static long long pas_caparm_lo(const char *name, int pos);
 static void pas_caparm_add(const char *name, unsigned long long m, const long long *lo);
 static int pas_is_rel(tree_t *e);
 static int pas_is_proc(const char *name);
+static int pas_proc_param_is_real(const char *name, int idx);
 static tree_t *pas_bool(tree_t *e);
 static tree_t *pas_tree_clone(tree_t *e);
 static tree_t *mk_deref(tree_t *ptr) {
@@ -125,10 +128,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         int ispack = !strcmp(name, "pack");
         tree_t *a = args->items[ispack ? 0 : 2]; tree_t *i = args->items[ispack ? 2 : 4]; tree_t *z = args->items[ispack ? 4 : 0];
         long long zhi = -1; long long zlo = 1;
-        if (z && z->t == TT_VAR && z->v.sval) { if (!pas_array_high_get(z->v.sval, &zhi)) zhi = -1; if (pas_is_chararr(z->v.sval)) { long long _cl = pas_chararr_lo(z->v.sval); if (_cl > 0) zlo = _cl; } else { long long _zl = pas_array_low(z->v.sval); if (_zl > 0) zlo = _zl; } }
+        if (z && z->t == TT_VAR && z->v.sval) { if (!pas_array_high_get(z->v.sval, &zhi)) zhi = -1; if (pas_is_chararr(z->v.sval)) { long long _cl = pas_chararr_lo(z->v.sval); if (_cl > 0) zlo = _cl; } else { zlo = pas_array_low(z->v.sval); } }
         if (a && a->t == TT_VAR && a->v.sval && z && z->t == TT_VAR && z->v.sval && zhi >= 0) {
             long long ahi = -1; int _ahok = pas_array_high_get(a->v.sval, &ahi);
-            long long alo = pas_array_low(a->v.sval); if (alo <= 0) alo = 1;
+            long long alo = pas_array_low(a->v.sval);
             long long cnt = zhi - zlo + 1;
             if (i && (pas_is_charexpr(i) || (i->t == TT_FNC && i->n >= 2 && i->c[0] && i->c[0]->v.sval && !strcmp(i->c[0]->v.sval, "__pas_chrlit")))) {
                 fprintf(stderr, "pascal: ISO 7185 6.6.5.4 violation: the ordinal parameter of %s is not assignment-compatible with the index-type of the unpacked array '%s'\n", name, a->v.sval);
@@ -214,6 +217,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
         }
     }
+    if (name && !strcmp(name, "boolean") && args && args->count >= 1) return bin(TT_NE, mk_fnc2("iand", args->items[0], ilit(255)), ilit(0));
     if (name && strcmp(name, "char") && strcmp(name, "widechar") && strcmp(name, "boolean") && args && args->count >= 1) {
         long long _tsz;
         int _isboolfam = !strcmp(name, "bytebool") || !strcmp(name, "wordbool") || !strcmp(name, "longbool") || !strcmp(name, "qwordbool");
@@ -235,7 +239,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (dst && dst->t == TT_VAR && dst->v.sval) {
             long long fhi;
             if (pas_array_high_get(dst->v.sval, &fhi)) {
-                long long flo = pas_array_low(dst->v.sval); if (flo <= 0) flo = 1;
+                long long flo = pas_array_low(dst->v.sval);
                 static int _fcn = 0; char _fcb[24]; snprintf(_fcb, sizeof _fcb, "__pas_fc%d", _fcn++); const char *_fcv = ct_strdup(_fcb);
                 tree_t *fidx = ast_node_new(TT_IDX); ast_push(fidx, leaf_s(TT_VAR, dst->v.sval)); ast_push(fidx, leaf_s(TT_VAR, _fcv));
                 tree_t *fbody = mk_assign(fidx, val);
@@ -293,6 +297,16 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         PNodeList *stmts = pnl_new();
         for (int i = start; i + 1 < args->count; i += 2) {
             tree_t *v = args->items[i];
+            if (v && v->t == TT_VAR && v->v.sval && pas_is_chararr(v->v.sval)) {
+                long long rlo = pas_array_low(v->v.sval); long long rhi = -1; pas_array_high_get(v->v.sval, &rhi);
+                static int _rdcn = 0; char _rdcb[24]; snprintf(_rdcb, sizeof _rdcb, "__pas_rdi%d", _rdcn++); const char *_rdcv = ct_strdup(_rdcb);
+                tree_t *ridx = ast_node_new(TT_IDX); ast_push(ridx, leaf_s(TT_VAR, v->v.sval)); ast_push(ridx, leaf_s(TT_VAR, _rdcv));
+                tree_t *rval = fstream ? mk_fnc1("__pas_read_c_f", pas_tree_clone(fstream)) : mk_fnc0("__pas_read_c");
+                tree_t *rloop = ast_node_new(TT_FOR); ast_push(rloop, leaf_s(TT_VAR, _rdcv)); ast_push(rloop, ilit(rlo)); ast_push(rloop, ilit(rhi));
+                ast_push(rloop, mk_assign(ridx, rval));
+                pnl_push(stmts, rloop);
+                continue;
+            }
             int isc = v && ((v->t == TT_VAR && v->v.sval && pas_is_charvar(v->v.sval)) || pas_is_charexpr(v));
             if (fstream) { const char *rfn = isc ? "__pas_read_c_f" : "__pas_read_i_f"; pnl_push(stmts, mk_assign(v, mk_fnc1(rfn, pas_tree_clone(fstream)))); }
             else { const char *rfn = isc ? "__pas_read_c" : "__pas_read_i"; pnl_push(stmts, mk_assign(v, mk_fnc0(rfn))); }
@@ -319,12 +333,19 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *fv = args->items[0];
         return mk_assign(fv, (fv && fv->t == TT_VAR && fv->v.sval) ? mk_set_bin("__pas_rewrite", pas_tree_clone(fv), leaf_s(TT_QLIT, fv->v.sval)) : mk_fnc1("__pas_rewrite", pas_tree_clone(fv)));
     }
+    if (name && !strcmp(name, "append") && args && args->count >= 1) {
+        tree_t *fv = args->items[0];
+        return mk_assign(fv, (fv && fv->t == TT_VAR && fv->v.sval) ? mk_set_bin("__pas_append", pas_tree_clone(fv), leaf_s(TT_QLIT, fv->v.sval)) : mk_fnc1("__pas_append", pas_tree_clone(fv)));
+    }
     if (name && !strcmp(name, "reset") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
         return mk_assign(fv, (fv && fv->t == TT_VAR && fv->v.sval) ? mk_set_bin("__pas_reset", pas_tree_clone(fv), leaf_s(TT_QLIT, fv->v.sval)) : mk_fnc1("__pas_reset", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "close") && args && args->count >= 1) {
         return mk_fnc1("__pas_fclose", args->items[0]);
+    }
+    if (name && !strcmp(name, "erase") && args && args->count >= 1) {
+        return mk_fnc1("__pas_ferase", args->items[0]);
     }
     if (name && !strcmp(name, "new") && args && args->count >= 1) {
         tree_t *pv = args->items[0];
@@ -374,6 +395,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             for (int i = 0; i < args->count; i += 2) {
                 tree_t *val = args->items[i]; int _pidx = i / 2;
                 if (val && val->t == TT_QLIT && val->v.sval && _pidx < 64 && ((_cam >> _pidx) & 1ULL)) { long long _lo = pas_caparm_lo(name, _pidx); val = pas_str_to_alpha(val->v.sval, _lo, _lo + (long long)strlen(val->v.sval) - 1); }
+                if (val && val->t != TT_FLIT && pas_proc_param_is_real(name, _pidx)) val = bin(TT_ADD, val, flit(0.0));
                 ast_push(e, val);
             }
         }
@@ -431,25 +453,33 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
     ast_push(proc, locals);
     return proc;
 }
-static struct { const char *name; int nvp; int vp[16]; } g_pas_funcs[256]; static int g_pas_nfunc;
-static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = ct_strdup(name); g_pas_funcs[g_pas_nfunc].nvp = 0; g_pas_nfunc++; } }
+static struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; } g_pas_funcs[256]; static int g_pas_nfunc;
+static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = ct_strdup(name); g_pas_funcs[g_pas_nfunc].nvp = 0; g_pas_funcs[g_pas_nfunc].nrp = 0; g_pas_nfunc++; } }
 static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nfunc; i++) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return 1; return 0; }
-static struct { const char *name; int nvp; int vp[16]; } g_pas_procs[256]; static int g_pas_nproc;
-static void pas_proc_add(const char *name) { if (g_pas_nproc < 256 && name) { g_pas_procs[g_pas_nproc].name = ct_strdup(name); g_pas_procs[g_pas_nproc].nvp = 0; g_pas_nproc++; } }
+static struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; } g_pas_procs[256]; static int g_pas_nproc;
+static void pas_proc_add(const char *name) { if (g_pas_nproc < 256 && name) { g_pas_procs[g_pas_nproc].name = ct_strdup(name); g_pas_procs[g_pas_nproc].nvp = 0; g_pas_procs[g_pas_nproc].nrp = 0; g_pas_nproc++; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_vparam_scan(PNodeList *params, int *out) { int nv = 0; if (!params) return 0;
     for (int j = 0; j < params->count && nv < 16; j++) { tree_t *it = params->items[j]; int isvar = 0;
         if (it) for (int c = 0; c < it->n; c++) if (it->c[c] && it->c[c]->t == TT_SUCCEED) { isvar = 1; break; }
         out[nv++] = isvar; }
     return nv; }
+static int pas_realparam_scan(PNodeList *params, int *out) { int nv = 0; if (!params) return 0;
+    for (int j = 0; j < params->count && nv < 16; j++) { tree_t *it = params->items[j]; int isreal = 0;
+        if (it) for (int c = 0; c < it->n; c++) if (it->c[c] && it->c[c]->t == TT_FLIT) { isreal = 1; break; }
+        out[nv++] = isreal; }
+    return nv; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_proc_vparams(const char *name, PNodeList *params) { if (!name || !params) return;
-    for (int i = g_pas_nproc - 1; i >= 0; i--) if (g_pas_procs[i].name && !strcmp(g_pas_procs[i].name, name)) { g_pas_procs[i].nvp = pas_vparam_scan(params, g_pas_procs[i].vp); return; }
-    for (int i = g_pas_nfunc - 1; i >= 0; i--) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) { g_pas_funcs[i].nvp = pas_vparam_scan(params, g_pas_funcs[i].vp); return; } }
+    for (int i = g_pas_nproc - 1; i >= 0; i--) if (g_pas_procs[i].name && !strcmp(g_pas_procs[i].name, name)) { g_pas_procs[i].nvp = pas_vparam_scan(params, g_pas_procs[i].vp); g_pas_procs[i].nrp = pas_realparam_scan(params, g_pas_procs[i].rp); return; }
+    for (int i = g_pas_nfunc - 1; i >= 0; i--) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) { g_pas_funcs[i].nvp = pas_vparam_scan(params, g_pas_funcs[i].vp); g_pas_funcs[i].nrp = pas_realparam_scan(params, g_pas_funcs[i].rp); return; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_proc_param_is_var(const char *name, int idx) { if (!name || idx < 0 || idx >= 16) return 0;
     for (int i = g_pas_nproc - 1; i >= 0; i--) if (g_pas_procs[i].name && !strcmp(g_pas_procs[i].name, name)) return (idx < g_pas_procs[i].nvp) ? g_pas_procs[i].vp[idx] : 0;
     for (int i = g_pas_nfunc - 1; i >= 0; i--) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return (idx < g_pas_funcs[i].nvp) ? g_pas_funcs[i].vp[idx] : 0; return 0; }
+static int pas_proc_param_is_real(const char *name, int idx) { if (!name || idx < 0 || idx >= 16) return 0;
+    for (int i = g_pas_nproc - 1; i >= 0; i--) if (g_pas_procs[i].name && !strcmp(g_pas_procs[i].name, name)) return (idx < g_pas_procs[i].nrp) ? g_pas_procs[i].rp[idx] : 0;
+    for (int i = g_pas_nfunc - 1; i >= 0; i--) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return (idx < g_pas_funcs[i].nrp) ? g_pas_funcs[i].rp[idx] : 0; return 0; }
 static int pas_is_proc(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nproc; i++) if (g_pas_procs[i].name && !strcmp(g_pas_procs[i].name, name)) return 1; return 0; }
 static struct { char *name; unsigned long long camask; long long lo[64]; } g_pas_caparm[256]; static int g_pas_ncaparm;
 static void pas_caparm_add(const char *name, unsigned long long m, const long long *lo) { if (g_pas_ncaparm < 256 && name && m) { g_pas_caparm[g_pas_ncaparm].name = ct_strdup(name); g_pas_caparm[g_pas_ncaparm].camask = m; for (int i = 0; i < 64; i++) g_pas_caparm[g_pas_ncaparm].lo[i] = lo ? lo[i] : 0; g_pas_ncaparm++; } }
@@ -483,9 +513,11 @@ static long long pas_arrtype_high(const char *name) { if (!name) return -1; for 
 static long long pas_arrtype_ncols(const char *name) { if (!name) return -1; for (int i = 0; i < g_pas_narrtype; i++) if (g_pas_arrtypes[i].name && !strcmp(g_pas_arrtypes[i].name, name)) return g_pas_arrtypes[i].ndim2 ? g_pas_arrtypes[i].ncols : -1; return -1; }
 static long long pas_arrtype_lo(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_narrtype; i++) if (g_pas_arrtypes[i].name && !strcmp(g_pas_arrtypes[i].name, name)) return g_pas_arrtypes[i].lo; return 0; }
 static int pas_arrtype_ischar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_narrtype; i++) if (g_pas_arrtypes[i].name && !strcmp(g_pas_arrtypes[i].name, name)) return g_pas_arrtypes[i].ischar; return 0; }
-static struct { char *name; long long high; } g_pas_enumtypes[64]; static int g_pas_nenum; static long long g_pas_pend_enum_max;
-static void pas_enumtype_add(const char *n, long long h) { if (g_pas_nenum < 64 && n) { g_pas_enumtypes[g_pas_nenum].name = ct_strdup(n); g_pas_enumtypes[g_pas_nenum].high = h; g_pas_nenum++; } }
+static struct { char *name; long long high; long long min_size; } g_pas_enumtypes[64]; static int g_pas_nenum; static long long g_pas_pend_enum_max;
+static long long g_pas_pend_set_hi = -1;
+static void pas_enumtype_add(const char *n, long long h) { if (g_pas_nenum < 64 && n) { g_pas_enumtypes[g_pas_nenum].name = ct_strdup(n); g_pas_enumtypes[g_pas_nenum].high = h; g_pas_enumtypes[g_pas_nenum].min_size = g_pas_min_enum_size; g_pas_nenum++; } }
 static long long pas_enumtype_high(const char *n) { if (!n) return -1; for (int i = 0; i < g_pas_nenum; i++) if (g_pas_enumtypes[i].name && !strcmp(g_pas_enumtypes[i].name, n)) return g_pas_enumtypes[i].high; return -1; }
+static int pas_enumtype_min_size(const char *n, long long *out) { if (!n) return 0; for (int i = 0; i < g_pas_nenum; i++) if (g_pas_enumtypes[i].name && !strcmp(g_pas_enumtypes[i].name, n)) { *out = g_pas_enumtypes[i].min_size; return 1; } return 0; }
 static struct { char *tname; char *names; } g_pas_enumnames[64]; static int g_pas_nenumname; static char g_pas_pend_enum_names[512];
 static void pas_enumnames_add(const char *tn, const char *names) { if (g_pas_nenumname < 64 && tn && names && names[0]) { g_pas_enumnames[g_pas_nenumname].tname = ct_strdup(tn); g_pas_enumnames[g_pas_nenumname].names = ct_strdup(names); g_pas_nenumname++; } }
 static int pas_enumnames_idx(const char *tn) { if (!tn) return -1; for (int i = 0; i < g_pas_nenumname; i++) if (g_pas_enumnames[i].tname && !strcmp(g_pas_enumnames[i].tname, tn)) return i; return -1; }
@@ -543,7 +575,7 @@ static void pas_fwd_save(const char *pn, PNodeList *params) { if (!pn || g_pas_n
 static PNodeList *pas_fwd_params(const char *pn, PNodeList *given) { if (given && given->count > 0) return given; if (pn) for (int i = 0; i < g_pas_nfwdpv; i++) if (g_pas_fwdpv[i].pname && !strcmp(g_pas_fwdpv[i].pname, pn) && g_pas_fwdpv[i].params) return g_pas_fwdpv[i].params; return given; }
 static void pas_fwd_restore(const char *pn) { if (!pn) return; for (int i = 0; i < g_pas_nfwdpv; i++) if (g_pas_fwdpv[i].pname && !strcmp(g_pas_fwdpv[i].pname, pn)) { for (int j = 0; j < g_pas_fwdpv[i].n; j++) pas_ptrvar_add(g_pas_fwdpv[i].vnames[j], g_pas_fwdpv[i].rnames[j]);
     for (int j = 0; j < g_pas_fwdpv[i].rvn && g_pas_nrecvar < PAS_REC_MAX; j++) g_pas_recvars[g_pas_nrecvar++] = g_pas_fwdpv[i].rvsave[j]; return; } }
-static void pas_pend_reset(void) { g_pas_pend_isarr = 0; g_pas_pend_isbool = 0; g_pas_pend_istfile = 0; g_pas_pend_nf = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_arr_ptrto = NULL; g_pas_pend_typename = NULL; g_pas_pend_ischar = 0; g_pas_pend_arr_ischar = 0; g_pas_pend_enum_max = -1; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1; g_pas_pend_arr_ncols = -1; g_pas_pend_arr_wrap = 0; }
+static void pas_pend_reset(void) { g_pas_pend_isarr = 0; g_pas_pend_isbool = 0; g_pas_pend_istfile = 0; g_pas_pend_nf = 0; g_pas_pend_ptrtarget = NULL; g_pas_pend_arr_ptrto = NULL; g_pas_pend_typename = NULL; g_pas_pend_ischar = 0; g_pas_pend_arr_ischar = 0; g_pas_pend_enum_max = -1; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1; g_pas_pend_arr_ncols = -1; g_pas_pend_arr_wrap = 0; g_pas_pend_set_hi = -1; }
 static void pas_pend_add(const char *f) {
     if (f && g_pas_pend_nf >= PAS_FIELD_MAX) { static int said = 0; if (!said) { said = 1;
         fprintf(stderr, "pascal: record has more than %d fields; field '%s' and any after it are not resolvable -- raise PAS_FIELD_MAX\n", (int)PAS_FIELD_MAX, f); } }
@@ -605,9 +637,11 @@ static void pas_curfunc_push(const char *fname) { if (g_pas_ldepth > 0 && g_pas_
 static const char *pas_curfunc_name(void) { return (g_pas_ldepth > 0 && g_pas_ldepth <= PAS_NEST_MAX) ? g_pas_lstk[g_pas_ldepth - 1].func_name : NULL; }
 static int pas_is_declared_local_here(const char *name) { if (!name || g_pas_ldepth <= 0) return 0; int d = g_pas_ldepth - 1; for (int i = 0; i < g_pas_lstk[d].n; i++) if (g_pas_lstk[d].names[i] && !strcmp(g_pas_lstk[d].names[i], name)) return 1; return 0; }
 static struct { char *name; } g_pas_setvars[256]; static int g_pas_nsetvar;
-static struct { char *name; } g_pas_settypes[64]; static int g_pas_nsettype;
-static void pas_settype_add(const char *name) { if (g_pas_nsettype < 64 && name) { g_pas_settypes[g_pas_nsettype++].name = ct_strdup(name); } }
+static struct { char *name; long long hi; long long pack; } g_pas_settypes[64]; static int g_pas_nsettype;
+static void pas_settype_add(const char *name, long long hi) { if (g_pas_nsettype < 64 && name) { g_pas_settypes[g_pas_nsettype].name = ct_strdup(name); g_pas_settypes[g_pas_nsettype].hi = hi; g_pas_settypes[g_pas_nsettype].pack = g_pas_pack_set_size; g_pas_nsettype++; } }
 static int pas_is_settype(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsettype; i++) if (g_pas_settypes[i].name && !strcmp(g_pas_settypes[i].name, name)) return 1; return 0; }
+static long long pas_settype_hi(const char *name) { if (!name) return -1; for (int i = 0; i < g_pas_nsettype; i++) if (g_pas_settypes[i].name && !strcmp(g_pas_settypes[i].name, name)) return g_pas_settypes[i].hi; return -1; }
+static long long pas_settype_pack(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsettype; i++) if (g_pas_settypes[i].name && !strcmp(g_pas_settypes[i].name, name)) return g_pas_settypes[i].pack; return 0; }
 static void pas_setvar_add(const char *name) { if (g_pas_nsetvar < 256 && name) { g_pas_setvars[g_pas_nsetvar++].name = ct_strdup(name); } }
 static int pas_is_setvar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsetvar; i++) if (g_pas_setvars[i].name && !strcmp(g_pas_setvars[i].name, name)) return 1; return 0; }
 static struct { char *name; } g_pas_charvars[256]; static int g_pas_ncharvar;
@@ -668,7 +702,7 @@ static tree_t *pas_arrrec_flatten(tree_t *idxsel, long long fi) {
     tree_t *e = ast_node_new(TT_IDX); ast_push(e, base); ast_push(e, flat); return e;
 }
 static tree_t *mk_chr_wrap(tree_t *e) { tree_t *r = ast_node_new(TT_FNC); ast_push(r, leaf_s(TT_VAR, "__pas_chr")); ast_push(r, e); return r; }
-static int pas_is_charexpr(tree_t *e) { if (!e) return 0; if (e->t == TT_VAR && e->v.sval && pas_is_charvar(e->v.sval)) return 1; if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[1]->t == TT_ILIT && pas_recvar_field_is_char(e->c[0]->v.sval, e->c[1]->v.ival)) return 1; if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_chr") || !strcmp(e->c[0]->v.sval, "__pas_chrlit"))) return 1; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_charvar(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_chararr(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 2 && e->c[0] && pas_is_cafield(e->c[0])) return 1; if (pas_is_cvfield(e)) return 1; return 0; }
+static int pas_is_charexpr(tree_t *e) { if (!e) return 0; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_tbuf_get"))) return 1; if (e->t == TT_VAR && e->v.sval && pas_is_charvar(e->v.sval)) return 1; if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[1]->t == TT_ILIT && pas_recvar_field_is_char(e->c[0]->v.sval, e->c[1]->v.ival)) return 1; if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_chr") || !strcmp(e->c[0]->v.sval, "__pas_chrlit"))) return 1; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_charvar(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_chararr(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 2 && e->c[0] && pas_is_cafield(e->c[0])) return 1; if (pas_is_cvfield(e)) return 1; return 0; }
 static int pas_is_strtyped(tree_t *e) { if (!e) return 0; if (e->t == TT_QLIT) return 1; if (pas_ca_is_read(e)) return 1; if (e->t == TT_VAR && e->v.sval && pas_is_chararr(e->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (pas_is_chararr(e->c[0]->v.sval) || pas_is_strarr(e->c[0]->v.sval))) return 1; return 0; }
 static tree_t *pas_alpha_wrap(tree_t *x) { if (x && x->t == TT_VAR && x->v.sval && pas_is_chararr(x->v.sval)) { tree_t *f = ast_node_new(TT_FNC); ast_push(f, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(f, x); ast_push(f, ilit(pas_chararr_lo(x->v.sval))); return f; } if (x && x->t == TT_IDX && x->n >= 2 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && pas_is_strarr(x->c[0]->v.sval)) { tree_t *f = ast_node_new(TT_FNC); ast_push(f, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(f, x); ast_push(f, ilit(pas_strarr_lo(x->c[0]->v.sval))); return f; } return x; }
 static int pas_func_returns_stringish(const char *fname) {
@@ -681,7 +715,7 @@ static int pas_func_returns_stringish(const char *fname) {
     }
     return 0;
 }
-static int pas_is_strval(tree_t *e) { if (!e) return 0; if (pas_ca_is_read(e)) return 1; if (e->t == TT_VAR && e->v.sval && (pas_is_chararr(e->v.sval) || pas_is_strarr(e->v.sval))) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_strarr(e->c[0]->v.sval)) return 1; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_func_returns_stringish(e->c[0]->v.sval)) return 1; return 0; }
+static int pas_is_strval(tree_t *e) { if (!e) return 0; if (e->t == TT_QLIT) return 1; if (pas_ca_is_read(e)) return 1; if (e->t == TT_VAR && e->v.sval && (pas_is_chararr(e->v.sval) || pas_is_strarr(e->v.sval))) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_strarr(e->c[0]->v.sval)) return 1; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_func_returns_stringish(e->c[0]->v.sval)) return 1; return 0; }
 static tree_t *mk_set_bin(const char *fn, tree_t *a, tree_t *b);
 static tree_t *pas_rel(tree_e tt, tree_t *a, tree_t *b) { int lex = pas_is_strval(a) || pas_is_strval(b); if (pas_is_strtyped(a) || pas_is_strtyped(b)) { a = pas_alpha_wrap(a); b = pas_alpha_wrap(b); } return lex ? bin(tt, mk_set_bin("__pas_strcmp", a, b), ilit(0)) : bin(tt, a, b); }
 static int pas_is_setexpr(tree_t *e);
@@ -915,6 +949,8 @@ static int pas_sizeof_lookup(const char *name, long long *out) {
     if (!name) return 0;
     if (pas_sizeof_builtin_size(name, out)) return 1;
     { const char *al = pas_typealias_get(name); if (al && strcmp(al, name)) return pas_sizeof_lookup(al, out); }
+    { long long eh = pas_enumtype_high(name); if (eh >= 0) { long long ms; if (!pas_enumtype_min_size(name, &ms)) ms = 4; long long fit = pas_range_fit_size(0, eh); *out = fit > ms ? fit : ms; return 1; } }
+    if (pas_is_settype(name)) { long long pk = pas_settype_pack(name); if (pk > 0) { *out = pk; return 1; } long long sh = pas_settype_hi(name); *out = (sh >= 0 && sh <= 31) ? 4 : 32; return 1; }
     { long long sh = pas_subtype_high(name); if (sh >= 0) { *out = pas_range_fit_size(pas_subtype_low(name), sh); return 1; } }
     { long long lo, hi; if (pas_subvar_get(name, &lo, &hi)) { *out = pas_range_fit_size(lo, hi); return 1; } }
     for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return 0;
@@ -1047,14 +1083,14 @@ type_decl_list:
     type_decl_list type_decl
     | type_decl
     ;
-type_decl: IDENT EQOP type SEMICOLON { long long _ty3 = ($3 == -4) ? -1 : $3; int _pk3 = ($3 == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if (_ty3 < 0 && g_pas_pend_istfile) pas_tfiletype_add($1); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_booltype_add($1); if (_ty3 == -2) pas_settype_add($1); if (g_pas_pend_ptrtarget) pas_ptrtype_add($1, g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add($1, _pk3); if (g_pas_pend_enum_max >= 0) { pas_enumtype_add($1, g_pas_pend_enum_max); pas_enumnames_add($1, g_pas_pend_enum_names); } if (g_pas_pend_sub_high >= 0 && _ty3 < 0 && g_pas_pend_arr_ncols < 0) pas_subtype_add($1, g_pas_pend_sub_low, g_pas_pend_sub_high); if (_ty3 >= 0 && !g_pas_pend_ptrtarget) { pas_arrtype_add($1, _ty3, g_pas_pend_arr_ncols >= 0 ? 1 : 0, g_pas_pend_arr_ncols); } if (_ty3 == -1 && !g_pas_pend_ptrtarget && g_pas_pend_nf == 0 && g_pas_pend_enum_max < 0 && g_pas_pend_sub_high < 0 && g_pas_pend_typename) pas_typealias_add($1, g_pas_pend_typename); pas_pend_reset(); } ;
+type_decl: IDENT EQOP type SEMICOLON { long long _ty3 = ($3 == -4) ? -1 : $3; int _pk3 = ($3 == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if (_ty3 < 0 && g_pas_pend_istfile) pas_tfiletype_add($1); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_booltype_add($1); if (_ty3 == -2) pas_settype_add($1, g_pas_pend_set_hi); if (g_pas_pend_ptrtarget) pas_ptrtype_add($1, g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add($1, _pk3); if (g_pas_pend_enum_max >= 0) { pas_enumtype_add($1, g_pas_pend_enum_max); pas_enumnames_add($1, g_pas_pend_enum_names); } if (g_pas_pend_sub_high >= 0 && _ty3 < 0 && g_pas_pend_arr_ncols < 0) pas_subtype_add($1, g_pas_pend_sub_low, g_pas_pend_sub_high); if (_ty3 >= 0 && !g_pas_pend_ptrtarget) { pas_arrtype_add($1, _ty3, g_pas_pend_arr_ncols >= 0 ? 1 : 0, g_pas_pend_arr_ncols); } if (_ty3 == -1 && !g_pas_pend_ptrtarget && g_pas_pend_nf == 0 && g_pas_pend_enum_max < 0 && g_pas_pend_sub_high < 0 && g_pas_pend_typename) pas_typealias_add($1, g_pas_pend_typename); pas_pend_reset(); } ;
 type:
     simple_type { if (g_pas_pend_ptrtarget) { $$ = -3; } else if ($1 == -2) { $$ = -2; } else if ($1 >= 0 && g_pas_pend_typename && pas_arrtype_high(g_pas_pend_typename) >= 0) { long long _tnc = pas_arrtype_ncols(g_pas_pend_typename); if (_tnc >= 0) g_pas_pend_arr_ncols = _tnc; $$ = $1; } else { $$ = -1; } }
     | ARROW IDENT { g_pas_pend_ptrtarget = ct_strdup($2); $$ = -3; }
     | packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY type { int _eic = g_pas_pend_ischar; int _wr = g_pas_pend_arr_ischar || (g_pas_pend_typename && pas_arrtype_ischar(g_pas_pend_typename)); g_pas_pend_arr_wrap = _wr; g_pas_pend_arr_ptrto = g_pas_pend_ptrtarget ? g_pas_pend_ptrtarget : (g_pas_pend_typename ? (char *)pas_ptrtype_target(g_pas_pend_typename) : NULL); g_pas_pend_ptrtarget = NULL; g_pas_pend_arr_ncols = -1; g_pas_pend_arr_ischar = _eic; g_pas_pend_isarr = 1; $$ = $4; }
     | packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type { int _eic = g_pas_pend_ischar; g_pas_pend_ptrtarget = NULL; long long r = $4; long long c = $6; g_pas_pend_arr_ncols = c + 1; g_pas_pend_arr_ischar = _eic; g_pas_pend_isarr = 1; $$ = (r + 1) * (c + 1) - 1; }
     | packed_opt RECORDSY { g_pas_recbody_depth++; } record_body ENDSY { g_pas_recbody_depth--; g_pas_pend_ptrtarget = NULL; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1; g_pas_pend_enum_max = -1; g_pas_pend_arr_ncols = -1; g_pas_pend_ischar = 0; g_pas_pend_arr_ischar = 0; $$ = $1 ? -4 : -1; }
-    | packed_opt SETSY OFSY simple_type { g_pas_pend_ptrtarget = NULL; $$ = -2; }
+    | packed_opt SETSY OFSY simple_type { g_pas_pend_ptrtarget = NULL; g_pas_pend_set_hi = $4; $$ = -2; }
     | packed_opt FILESY { g_pas_pend_ptrtarget = NULL; $$ = -1; }
     | packed_opt FILESY OFSY type { int _cf = g_pas_pend_istfile || (g_pas_pend_typename && (!strcmp(g_pas_pend_typename, "text") || pas_rectype_has_file(g_pas_pend_typename)));
         for (int _i = 0; !_cf && _i < g_pas_pend_nf; _i++) if (g_pas_pend_fldfile[_i]) _cf = 1;
@@ -1136,7 +1172,7 @@ parameter_decl:
     PROCEDURESY id_list { $$ = $2; }
     | FUNCTIONSY id_list COLON IDENT { $$ = $2; }
     | VARSY id_list COLON IDENT { if (pas_is_booltype($4)) for (int i = 0; i < $2->count; i++) if ($2->items[i] && $2->items[i]->v.sval) pas_boolvar_add($2->items[i]->v.sval); if (pas_is_settype($4)) for (int i = 0; i < $2->count; i++) if ($2->items[i] && $2->items[i]->v.sval) pas_setvar_add($2->items[i]->v.sval); const char *_pt = pas_ptrtype_target($4); if (_pt) for (int i = 0; i < $2->count; i++) if ($2->items[i] && $2->items[i]->v.sval) pas_ptrvar_add($2->items[i]->v.sval, _pt); { long long _ah = pas_arrtype_high($4); long long _nc = pas_arrtype_ncols($4); int _nf = pas_rectype_nf($4); for (int i = 0; i < $2->count; i++) if ($2->items[i] && $2->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type($2->items[i]->v.sval, $4); pas_array_add2d_param($2->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param($2->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param($2->items[i]->v.sval, _ah, -1); } } } for (int i = 0; i < $2->count; i++) if ($2->items[i]) ast_push($2->items[i], ast_node_new(TT_SUCCEED)); $$ = $2; }
-    | id_list COLON IDENT { if (pas_is_booltype($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_boolvar_add($1->items[i]->v.sval); if (pas_is_settype($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_setvar_add($1->items[i]->v.sval); const char *_pt = pas_ptrtype_target($3); if (_pt) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_ptrvar_add($1->items[i]->v.sval, _pt); if (!strcmp($3, "char")) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_charvar_add($1->items[i]->v.sval); { long long _ah = pas_arrtype_high($3); long long _nc = pas_arrtype_ncols($3); int _nf = pas_rectype_nf($3); int _aic = pas_arrtype_ischar($3); for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type($1->items[i]->v.sval, $3); pas_array_add2d_param($1->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param($1->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param($1->items[i]->v.sval, _ah, -1); if (_aic) pas_chararr_add2($1->items[i]->v.sval, pas_arrtype_lo($3)); } } } $$ = $1; }
+    | id_list COLON IDENT { if (pas_is_booltype($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_boolvar_add($1->items[i]->v.sval); if (pas_is_settype($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_setvar_add($1->items[i]->v.sval); const char *_pt = pas_ptrtype_target($3); if (_pt) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_ptrvar_add($1->items[i]->v.sval, _pt); if (!strcmp($3, "char")) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_charvar_add($1->items[i]->v.sval); if (pas_is_realtypename($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i]) ast_push($1->items[i], ast_node_new(TT_FLIT)); { long long _ah = pas_arrtype_high($3); long long _nc = pas_arrtype_ncols($3); int _nf = pas_rectype_nf($3); int _aic = pas_arrtype_ischar($3); for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type($1->items[i]->v.sval, $3); pas_array_add2d_param($1->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param($1->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param($1->items[i]->v.sval, _ah, -1); if (_aic) pas_chararr_add2($1->items[i]->v.sval, pas_arrtype_lo($3)); } } } $$ = $1; }
     ;
 id_list:
     id_list COMMA IDENT { pnl_push($1, leaf_s(TT_VAR, $3)); $$ = $1; }

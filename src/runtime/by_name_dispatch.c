@@ -3745,11 +3745,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_rewrite") && (nargs == 1 || nargs == 2)) {
         extern int fh_alloc(FILE *);
+        const char *stale_nm = NULL;
         if (IS_FH_fn(args[0])) {
-            FILE *ofp = fh_get((int)args[0].i);
+            int oidx = (int)args[0].i;
+            FILE *ofp = fh_get(oidx);
             if (ofp) { rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
+            if (oidx >= 0 && oidx < FH_MAX) stale_nm = g_fh[oidx].name;
         }
-        const char *nm = VARVAL_fn(args[0]);
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
         FILE *fp;
@@ -3762,22 +3765,56 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        if (nm && nm[0]) g_fh[idx].name = rt_heap_strdup_c(nm);
+        *out = FHVAL(idx); return 1;
+    }
+    if (!strcmp(fn, "__pas_append") && (nargs == 1 || nargs == 2)) {
+        extern int fh_alloc(FILE *);
+        const char *stale_nm = NULL;
+        if (IS_FH_fn(args[0])) {
+            int oidx = (int)args[0].i;
+            FILE *ofp = fh_get(oidx);
+            if (ofp) { *out = args[0]; return 1; }
+            if (oidx >= 0 && oidx < FH_MAX) stale_nm = g_fh[oidx].name;
+        }
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        FILE *fp = fopen(nm, "a+");
+        if (!fp) { *out = FAILDESCR; return 1; }
+        int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        g_fh[idx].name = rt_heap_strdup_c(nm);
         *out = FHVAL(idx); return 1;
     }
     if (!strcmp(fn, "__pas_reset") && (nargs == 1 || nargs == 2)) {
         extern int fh_alloc(FILE *);
+        const char *stale_nm = NULL;
         if (IS_FH_fn(args[0])) {
-            FILE *ofp = fh_get((int)args[0].i);
+            int oidx = (int)args[0].i;
+            FILE *ofp = fh_get(oidx);
             if (ofp) { rewind(ofp); *out = args[0]; return 1; }
+            if (oidx >= 0 && oidx < FH_MAX) stale_nm = g_fh[oidx].name;
         }
-        const char *nm = VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r"); if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        g_fh[idx].name = rt_heap_strdup_c(nm);
         *out = FHVAL(idx); return 1;
     }
     if (!strcmp(fn, "__pas_fclose") && nargs == 1) {
         extern FILE *fh_get(int); extern void fh_free(int);
         if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_ferase") && nargs == 1) {
+        extern FILE *fh_get(int); extern void fh_free(int);
+        const char *nm = NULL;
+        if (IS_FH_fn(args[0])) {
+            int idx = (int)args[0].i;
+            if (idx >= 0 && idx < FH_MAX) nm = g_fh[idx].name;
+            FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); }
+        } else nm = VARVAL_fn(args[0]);
+        if (nm && nm[0]) remove(nm);
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {

@@ -50,6 +50,19 @@ int g_pas_seen_mode_directive = 0;
 int pascal_seen_decl_start = 0;
 static char pascal_modebuf[64];
 static int  pascal_modepos;
+int g_pas_min_enum_size = 4;
+int g_pas_pack_set_size = 0;
+static int g_pas_min_enum_stack[64];
+static int g_pas_pack_set_stack[64];
+static int g_pas_min_enum_sp;
+static char pascal_minenumbuf[16];
+static int  pascal_minenumpos;
+static char pascal_packsetbuf[16];
+static int  pascal_packsetpos;
+static void pas_min_enum_size_set(int n) { if (n > 0) g_pas_min_enum_size = n; }
+static void pas_pack_set_size_set(int n) { if (n > 0) g_pas_pack_set_size = n; }
+static void pas_min_enum_size_push(void) { if (g_pas_min_enum_sp < (int)(sizeof(g_pas_min_enum_stack) / sizeof(g_pas_min_enum_stack[0]))) { g_pas_min_enum_stack[g_pas_min_enum_sp] = g_pas_min_enum_size; g_pas_pack_set_stack[g_pas_min_enum_sp] = g_pas_pack_set_size; g_pas_min_enum_sp++; } }
+static void pas_min_enum_size_pop(void) { if (g_pas_min_enum_sp > 0) { g_pas_min_enum_sp--; g_pas_min_enum_size = g_pas_min_enum_stack[g_pas_min_enum_sp]; g_pas_pack_set_size = g_pas_pack_set_stack[g_pas_min_enum_sp]; } }
 static int pascal_mode_is_known(const char *m) {
     static const char *K[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
     for (size_t i = 0; i < sizeof(K) / sizeof(K[0]); i++) if (!strcasecmp(m, K[i])) return 1;
@@ -70,7 +83,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR
 %s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -105,6 +118,18 @@ ALNUM    [A-Za-z0-9_]
 <IFDEF_END>"}"          { BEGIN INITIAL; }
 <IFDEF_END>.            { }
 <IFDEF_END>\n           { }
+"{$MinEnumSize"         { pascal_minenumbuf[0] = '\0'; pascal_minenumpos = 0; BEGIN MINENUM_HDR; }
+<MINENUM_HDR>"}"        { pas_min_enum_size_set(atoi(pascal_minenumbuf)); BEGIN INITIAL; }
+<MINENUM_HDR>[ \t]      { }
+<MINENUM_HDR>.          { if (pascal_minenumpos < (int)sizeof(pascal_minenumbuf) - 1) { pascal_minenumbuf[pascal_minenumpos++] = pascal_yytext[0]; pascal_minenumbuf[pascal_minenumpos] = '\0'; } }
+<MINENUM_HDR>\n         { }
+"{$PackSet"             { pascal_packsetbuf[0] = '\0'; pascal_packsetpos = 0; BEGIN PACKSET_HDR; }
+<PACKSET_HDR>"}"        { pas_pack_set_size_set(atoi(pascal_packsetbuf)); BEGIN INITIAL; }
+<PACKSET_HDR>[ \t]      { }
+<PACKSET_HDR>.          { if (pascal_packsetpos < (int)sizeof(pascal_packsetbuf) - 1) { pascal_packsetbuf[pascal_packsetpos++] = pascal_yytext[0]; pascal_packsetbuf[pascal_packsetpos] = '\0'; } }
+<PACKSET_HDR>\n         { }
+"{$push}"               { pas_min_enum_size_push(); }
+"{$pop}"                { pas_min_enum_size_pop(); }
 "{$mode"                { pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
 <MODE_HDR>"}"           { if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
 <MODE_HDR>[ \t]         { }
@@ -151,7 +176,7 @@ ALNUM    [A-Za-z0-9_]
 "in"                    { return INOP; }
 {DIGIT}+"."{DIGIT}+([eE][+-]?{DIGIT}+)?   { pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
 {DIGIT}+[eE][+-]?{DIGIT}+                 { pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
-{DIGIT}+                { pascal_yylval.ival = strtoll(pascal_yytext, NULL, 10); return INTCONST; }
+{DIGIT}+                { pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
 "$"[0-9A-Fa-f]+          { pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext + 1, NULL, 16); return INTCONST; }
 "#"[0-9]+               { long long _cc = strtoll(pascal_yytext + 1, NULL, 10); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
 "#$"[0-9A-Fa-f]+         { long long _cc = strtoll(pascal_yytext + 2, NULL, 16); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
