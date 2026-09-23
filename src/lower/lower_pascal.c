@@ -213,31 +213,44 @@ static tree_t * pas_vptmp_var(void) {
     tree_t * v = ast_node_new(TT_VAR); v->v.sval = lp_strdup(buf); return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω) {
+static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω, int rtl) {
     IR_t * entry = call; IR_t * prevres = NULL;
-    for (int k = 0; k < nargs; k++) {
+    IR_t ** ar_slot = (IR_t **) ct_zalloc((size_t) (nargs > 0 ? nargs : 1), sizeof(IR_t *));
+    for (int i = 0; i < nargs; i++) {
+        int k = rtl ? (nargs - 1 - i) : i;
         IR_t * ar = NULL; IR_t * ae;
         if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
             pas_res_t r; pas_resolve2(cx, args[k]->v.sval, &r);
-            IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (k == nargs - 1) ? call : NULL, ω)
-                                  : build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω);
+            IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (i == nargs - 1) ? call : NULL, ω)
+                                  : build(cx, IR_VAR_REF, (i == nargs - 1) ? call : NULL, ω);
             IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
-            IR_t * vr = build(cx, IR_VAR, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
+            IR_t * vr = build(cx, IR_VAR, (i == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
-        } else ae = lower(cx, args[k], (k == nargs - 1) ? call : NULL, ω, &ar);
-        if (k == 0) entry = ae ? ae : call;
+        } else ae = lower(cx, args[k], (i == nargs - 1) ? call : NULL, ω, &ar);
+        if (i == 0) entry = ae ? ae : call;
         if (prevres) γ_to(prevres, ae ? ae : call);
-        ir_operand_push(call, ar);
+        ar_slot[k] = ar;
         prevres = ar;
     }
+    for (int k = 0; k < nargs; k++) ir_operand_push(call, ar_slot[k]);
     return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω) {
+    return pas_call_args_brm_dir(cx, call, brm, args, nargs, ω, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_call_args(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs, IR_t * ω) {
     (void) dv;
     return pas_call_args_brm(cx, call, 0, args, nargs, ω);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_callee_is_user_proc(const char * name) {
+    if (!name) return 0;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -268,7 +281,8 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         }
     }
     IR_t * nd = build(cx, IR_CALL, γ, ω);
-    IR_t * e = pas_call_args_brm(cx, nd, brm, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0, ω);
+    int rtl = pas_callee_is_user_proc(c0 ? c0->v.sval : NULL);
+    IR_t * e = pas_call_args_brm_dir(cx, nd, brm, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0, ω, rtl);
     IR_LIT(nd).sval = (c0 && c0->v.sval) ? c0->v.sval : NULL;
     *res = nd; return e;
 }
