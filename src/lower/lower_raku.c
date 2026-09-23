@@ -2,6 +2,7 @@
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 #include "lower.h"
 typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; } rcx_t;
 #define RK_GRAM_MAX 64
@@ -342,6 +343,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         if (t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 3.141592653589793; *res = nd; return nd;
+        }
+        if (t->v.sval && !strcmp(t->v.sval, "Inf") && !rk_is_class_name("Inf")) {
+            IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) INFINITY; *res = nd; return nd;
+        }
+        if (t->v.sval && !strcmp(t->v.sval, "NaN") && !rk_is_class_name("NaN")) {
+            IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) NAN; *res = nd; return nd;
         }
         if (rk_name_is_byref(cx, t->v.sval)) {
             IR_t * dr = build(cx, IR_DEREF, γ, ω);
