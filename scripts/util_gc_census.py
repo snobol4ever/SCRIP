@@ -1058,7 +1058,7 @@ def _common_tail_poll(lines, i, unit, poll_rx):
     return (poll, at[i], at[poll], arm_calls)
 
 
-def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=print, allocating=None):
+def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=print, allocating=None, list_polled=False):
     if allocating is None:
         allocating = allocating_entries_from_binary(so, out)
         if allocating is None:
@@ -1194,6 +1194,8 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         elif hit and npaths == 1:
             polled += 1
             forms[_poll_form(lines[poll_abs])] += 1
+            if list_polled:
+                out(f"  POLLED {name} form={_poll_form(lines[poll_abs])} poll_at={os.path.relpath(f, ROOT)}:{poll_abs + 1}")
         elif not hit:
             # THE OTHER HALF OF THE SAME DEFECT, AND THE ONE A FIXER MEETS FIRST.  The natural cure for the cto's
             # case is to poll the SAFE expansion paths and leave the unrooted one alone -- and then the shared body
@@ -1218,6 +1220,8 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         else:
             polled += 1
             forms[_poll_form(lines[poll_abs]) if poll_abs is not None else "unclassified"] += 1
+            if list_polled and poll_abs is not None:
+                out(f"  POLLED {name} form={_poll_form(lines[poll_abs])} poll_at={os.path.relpath(f, ROOT)}:{poll_abs + 1}")
     out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} partially_polled={len(partial)} unpolled={len(unpolled)} multi_path_sites={len(multi)} unresolved={len(unresolved)} want unpolled=0 partially_polled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
     assert polled + len(partial) + len(unpolled) == alloc_sites, "safe-points: the four columns must partition the denominator"
     out(f"CENSUS safe-points IDENTITY polled + partially_polled + unpolled == allocating_call_sites ({polled} + {len(partial)} + {len(unpolled)} == {alloc_sites})")
@@ -2289,6 +2293,7 @@ def main(argv):
     ap.add_argument("--root", default=ROOT)
     ap.add_argument("--poll-window", type=int, default=12)
     ap.add_argument("--poll-helper", default="")
+    ap.add_argument("--list-polled", action="store_true", help="print one `  POLLED <site> form=<form> poll_at=<template:line>` line per credited site, the join key the bare-poll re-screen (util_gc_safe_point_contract.py --bare-poll) reads")
     ap.add_argument("--zls-langs", default="fast", help="fast (rebus,snocone,pascal ~2.7s), all (the seven, ~32s), or a comma list")
     ap.add_argument("--map-witness", default="", help="comma list of programs the table half reads (default: the two fixtures)")
     ap.add_argument("--callback-marker", default="RT_GC_CALLBACK")
@@ -2335,7 +2340,7 @@ def main(argv):
         elif c == "allocator":
             rcs.append(census_allocator(gc))
         elif c == "safe-points":
-            rcs.append(census_safe_points(so, emitter_files, a.poll_window, a.poll_helper))
+            rcs.append(census_safe_points(so, emitter_files, a.poll_window, a.poll_helper, list_polled=a.list_polled))
         elif c == "coverage":
             prog = a.witness
             if not prog:

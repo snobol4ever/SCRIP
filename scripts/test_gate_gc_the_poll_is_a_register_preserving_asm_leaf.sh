@@ -20,7 +20,7 @@ G="${0##*/}"; R="$(cd "$(dirname "$0")/.." && pwd)"; F=0; N=0
 ck() { N=$((N+1)); if [ "$1" = 0 ]; then printf '  ok    %s\n' "$2"; else F=$((F+1)); printf '  FAIL  %s\n' "$2"; fi; }
 H="$R/src/runtime/rt/gc_heap.c"; X="$R/src/templates/x86/x86_asm.h"
 [ -r "$H" ] && [ -r "$X" ] || { echo "GATE REFUSE(2) [$G]: gc_heap.c or x86_asm.h unreadable"; exit 2; }
-grep -q 'x86_rt_gc_poll() { return x86("call", "rt_gc_poll_asm"' "$X"; ck $? "the emitter's bare poll calls rt_gc_poll_asm, not the C rt_gc_poll"
+grep -q 'x86_rt_gc_poll_at(const char \* f, int l) {.*x86("call", "rt_gc_poll_asm"' "$X"; ck $? "the emitter's bare poll calls rt_gc_poll_asm, not the C rt_gc_poll (the helper carries its template site as a note since 2026-09-23; x86_rt_gc_poll() is the macro that stamps it)"
 grep -q '".globl rt_gc_poll_asm' "$H";                               ck $? "rt_gc_poll_asm is defined as a file-scope __asm__ leaf in gc_heap.c"
 BODY="$(awk '/"rt_gc_poll_asm:/{f=1} f{print} f&&/size rt_gc_poll_asm/{exit}' "$H")"
 [ -n "$BODY" ]; ck $? "the leaf body is extractable between its label and its .size directive"
@@ -72,7 +72,7 @@ printf '%s\n' "$SBODY" | grep -qE 'movq +\(%rsp\), *%r13'; ck $? "AND IT RELOADS
 printf '%s\n' "$SBODY" | grep -qE 'call +gc_point_arr_body'; ck $? "the slow path calls the collector body DIRECTLY, not through rt_gc_point_arr_c's -O0 argument spill-and-reload shim"
 if [ -r "$SO" ] && command -v objdump >/dev/null 2>&1; then
   SN=$(objdump -d "$SO" --disassemble=rt_gc_poll_slow 2>/dev/null | grep -cE '^[[:space:]]+[0-9a-f]+:')
-  [ "$SN" -gt 0 ] && [ "$SN" -le 30 ]; ck $? "the built slow path is $SN instructions (was 25 C + an 18-instruction shim = 43 across two frames)"
+  [ "$SN" -gt 0 ] && [ "$SN" -le 32 ]; ck $? "the built slow path is $SN instructions (was 25 C + an 18-instruction shim = 43 across two frames; the bound moved 30 -> 32 at CTO-145, SCRIP 7b74d4022, which captures the return PC into the anchor cell in two instructions before the body call)"
 fi
 grep -q '^void rt_gc_poll_asm(void);' "$H"; ck $? "rt_gc_poll_asm carries a C declaration in gc_heap.c. ⛔ AN ASM-ONLY SYMBOL IS UNDECIDABLE TO util_gc_safe_point_contract.py, whose K2 resolves a callee's return type out of src/runtime's own declarations and names what it cannot find rather than guessing"
 grep -q '^void rt_gc_poll_slow(void);' "$H"; ck $? "rt_gc_poll_slow carries one too, for the same reason -- making it asm REMOVED the C definition the checker used to read"

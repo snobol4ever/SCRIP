@@ -2191,7 +2191,8 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);
-inline std::string x86_rt_gc_poll() { return x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm); }
+inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/'); return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm); }
+#define x86_rt_gc_poll() x86_rt_gc_poll_at(__FILE__, __LINE__)
 inline std::string x86_rt_gc_poll_res() {
     return x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell under rsp across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it")
          + x86("sub", "rsp", (long)16)

@@ -92,7 +92,7 @@ classify; that class is the cfo's calling-convention decision and this file cann
 thing: the emitted side of the section 3 contract is CHECKED at every safe point this reader can place, and the
 sites it cannot place are NAMED and ratcheted rather than counted green.
 """
-import sys, os, re, tempfile, collections
+import sys, os, re, tempfile, collections, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -816,6 +816,8 @@ def selftest():
     def ck(cond, what):
         checks.append((bool(cond), what))
 
+    bare_selftest(ck)
+
     def run(body, tag="plant"):
         with tempfile.TemporaryDirectory() as wd:
             asm, rep = _plant(body)
@@ -986,6 +988,327 @@ def selftest():
     return 1 if bad else 0
 
 
+# ======================================================================================================================
+# THE BARE-POLL RE-SCREEN (the ceo's DONE-WHEN clause for row gc-the-116-bare-poll-sites-already-counted-as-done-are-
+# re-screened-by-the-zero-collection-arm, CEO-1137/1144; cto 2026-09-23).
+#
+# THE QUESTION.  The census credits a site as POLLED when a poll is EMITTED after its allocating call; the bare form
+# (x86_rt_gc_poll, 131 of 195 credited sites on 2026-09-23) roots nothing and had TWO convictions as a silent wrong
+# answer with the collector never run (bb_binop_concat_slot 69 reverted at 58820a280, bb_goto_deferred 26/47 reverted
+# at 7a1361373) and one as a wrong number (six rt_scan_needle sites answering 0 for 3000).  Presence is not evidence.
+# This clause asks, per credited bare site: is there a NAMED witness whose EMISSION reaches that site and whose run at
+# STRESS 0 in a large arena -- collections 0, grew 0, read from the run's own [GC-EXERCISE] line and never assumed --
+# prints exactly its oracle-cut .ref, in mode 3 AND in mode 4?  A site with no such witness is UNWITNESSED and NAMED,
+# never counted green; a witness whose run differs from its ref is DIVERGING and every site it covers is DIVERGING.
+#
+# THE JOIN.  The census names a site by its call line and prints (--list-polled) the poll line it credited, poll_at=
+# <template>:<line>.  Since 2026-09-23 the bare poll helper stamps that same template:line into the emitted text as a
+# note (x86_rt_gc_poll() is a macro over x86_rt_gc_poll_at(__FILE__, __LINE__); the note renders as a trailing
+# "# gc_poll <base>:<line>" on the instruction before the call), so the reach of a witness is READ from its .s rather
+# than inferred from a box kind.  ⛔ The text renderer drops a note when the instruction already carries one, so the
+# reading counts notes against `call rt_gc_poll_asm` per witness and REFUSES (rc 2) on any mismatch: an instrument that
+# could lose a site silently must say so instead.
+#
+# THE TABLE.  scripts/gc_bare_poll_witnesses.tsv is the DECLARED name set: one row per credited bare site, naming its
+# witness or UNWITNESSED.  --write-bare-poll-table writes it from the programs on argv (the smallest ref-carrying witness
+# that reaches each site wins); the reading grades the declared rows and names a row whose witness no longer reaches its
+# site STALE and a row the census no longer credits RETIRED.  A pin is not a default: the stress-0 arm runs at
+# SCRIP_HEAP_MB=512 with SCRIP_HEAP_KB removed, because the quantity it measures is the poll's PRESENCE with the collector
+# never running, and a tiny arena would make every reading NOT-ZERO by construction (CEO-931 pin rule; the gate that runs
+# this declares itself in the tiny-arena gate's pinned set).
+# ======================================================================================================================
+BARE_TABLE = os.path.join(HERE, "gc_bare_poll_witnesses.tsv")
+BARE_NOTE_RX = re.compile(r"gc_poll ([A-Za-z0-9_]+\.cpp):(\d+)")
+BARE_CALL_RX = re.compile(r"\bcall\s+rt_gc_poll_asm\b")
+BARE_EXERCISE_RX = re.compile(r"\[GC-EXERCISE\].*?\bcollections=(\d+)\b.*?\bgrew=(\d+)\b")
+BARE_ARENA_MB = "512"
+BARE_TABLE_HEADER = (
+    "# gc_bare_poll_witnesses.tsv -- THE DECLARED WITNESS OF EVERY CREDITED BARE-POLL SITE (cto, row gc-the-116-bare-poll-\n"
+    "# sites-already-counted-as-done-are-re-screened-by-the-zero-collection-arm; ceo CEO-1137/1144).  Written by\n"
+    "# `util_gc_safe_point_contract.py <witnesses> --write-bare-poll-table`, read by `--bare-poll`.  ONE ROW PER SITE the\n"
+    "# census credits with the bare form (util_gc_census.py safe-points --list-polled, form=x86_rt_gc_poll); the join key\n"
+    "# is poll_at, the template line the emitted note names.  A witness is the smallest ref-carrying program whose\n"
+    "# emission reaches the site; UNWITNESSED is a site no program in the set reaches, NAMED and never counted green.\n"
+    "# COLUMNS: site  poll_at  witness\n"
+)
+
+
+def bare_key(poll_at):
+    """'src/templates/bb/x.cpp:39' -> 'x.cpp:39', the basename form the emitted note spells"""
+    path, _, line = poll_at.rpartition(":")
+    return os.path.basename(path) + ":" + line
+
+
+def bare_sites_from_census(root=ROOT):
+    """[(site, poll_at)] for every site the census credits with the BARE form, in census order; None on refusal"""
+    r = subprocess.run([sys.executable, os.path.join(HERE, "util_gc_census.py"), "safe-points", "--list-polled",
+                        "--root", root], capture_output=True, text=True, timeout=300)
+    out = r.stdout + r.stderr
+    rows = []
+    for ln in out.splitlines():
+        if ln.startswith("  POLLED ") and " form=x86_rt_gc_poll " in ln and " poll_at=" in ln:
+            site = ln.split()[1]
+            rows.append((site, ln.split("poll_at=", 1)[1].strip()))
+    if not rows and "CENSUS safe-points" not in out:
+        return None
+    return rows
+
+
+def bare_reach(asm_text):
+    """(calls, notes, set of 'base.cpp:line' the emission reaches) -- calls != len(notes) is a refusal upstream"""
+    notes = BARE_NOTE_RX.findall(asm_text)
+    return len(BARE_CALL_RX.findall(asm_text)), len(notes), {"%s:%s" % (b, l) for b, l in notes}
+
+
+def bare_verdict(rc, stderr_text, stdout_bytes, ref_bytes):
+    """(VERDICT, detail) of ONE stress-0 run against its ref, decided in this order and never short-circuited into a
+    friendlier word: NO-REF (nothing to compare against), NO-EXERCISE (the run printed no report line -- a reading is
+    never assumed), NOT-ZERO (the collector ran or the heap grew, so the poll's presence was not the only variable),
+    DIVERGING (rc != 0 or stdout != ref), WITNESSED."""
+    if ref_bytes is None:
+        return "NO-REF", "no .ref beside the witness -- a ref is cut from the oracle, never from our output"
+    m = BARE_EXERCISE_RX.search(stderr_text or "")
+    if not m:
+        return "NO-EXERCISE", "no [GC-EXERCISE] line in the run's stderr -- collections were NOT read, so nothing is asserted"
+    col, grew = int(m.group(1)), int(m.group(2))
+    if col != 0 or grew != 0:
+        return "NOT-ZERO", "collections=%d grew=%d -- the collector ran, so this is not a zero-collection reading" % (col, grew)
+    if rc != 0:
+        return "DIVERGING", "rc=%d with collections=0 grew=0 -- the run failed with the collector never run" % rc
+    if stdout_bytes != ref_bytes:
+        return "DIVERGING", "stdout differs from the ref with collections=0 grew=0 (%d vs %d bytes)" % (len(stdout_bytes), len(ref_bytes))
+    return "WITNESSED", "collections=0 grew=0 stdout identical to the ref"
+
+
+def bare_run_env():
+    env = dict(os.environ)
+    env.pop("SCRIP_HEAP_KB", None)
+    env["SCRIP_HEAP_MB"] = BARE_ARENA_MB
+    env["SCRIP_GC_STRESS"] = "0"
+    env["SCRIP_GC_EXERCISE"] = "1"
+    return env
+
+
+def bare_run_witness(scrip, prog, workdir, asm_path):
+    """{'m3': (verdict, detail), 'm4': (verdict, detail)} for one witness at stress 0 in the large arena"""
+    base = os.path.basename(prog)
+    stem = base.rsplit(".", 1)[0]
+    d = os.path.dirname(prog)
+    ref_p = os.path.join(d, stem + ".ref")
+    in_p = os.path.join(d, stem + ".in")
+    ref = open(ref_p, "rb").read() if os.path.exists(ref_p) else None
+    env = bare_run_env()
+    res = {}
+
+    def run(cmd):
+        stdin = open(in_p, "rb") if os.path.exists(in_p) else subprocess.DEVNULL
+        try:
+            r = subprocess.run(cmd, capture_output=True, env=env, timeout=120, stdin=stdin, cwd=workdir)
+            return r.returncode, r.stderr.decode("utf-8", errors="replace"), r.stdout
+        except subprocess.TimeoutExpired:
+            return 124, "", b""
+        finally:
+            if stdin is not subprocess.DEVNULL:
+                stdin.close()
+
+    rc, err, out = run([scrip, prog])
+    res["m3"] = bare_verdict(rc, err, out, ref)
+    obj = os.path.join(workdir, base + ".o")
+    exe = os.path.join(workdir, base + ".m4")
+    rt = os.path.join(ROOT, "out")
+    c = subprocess.run(["gcc", "-c", asm_path, "-o", obj], capture_output=True)
+    if c.returncode != 0:
+        res["m4"] = ("REFUSED", "gcc -c refused the emitted .s: %s" % c.stderr.decode("utf-8", errors="replace").strip().splitlines()[:1])
+        return res
+    l = subprocess.run(["gcc", obj, "-L", rt, "-lscrip_rt", "-lm", "-Wl,-rpath," + rt, "-o", exe], capture_output=True)
+    if l.returncode != 0:
+        res["m4"] = ("REFUSED", "link refused: %s" % l.stderr.decode("utf-8", errors="replace").strip().splitlines()[:1])
+        return res
+    rc, err, out = run([exe])
+    res["m4"] = bare_verdict(rc, err, out, ref)
+    return res
+
+
+def read_bare_table(path=BARE_TABLE):
+    rows = []
+    if not os.path.exists(path):
+        return rows
+    for ln in open(path, encoding="utf-8"):
+        if ln.startswith("#") or not ln.strip():
+            continue
+        f = ln.rstrip("\n").split("\t")
+        if len(f) >= 3:
+            rows.append((f[0], f[1], f[2]))
+    return rows
+
+
+def write_bare_table(sites, reach_by_witness, refs, path=BARE_TABLE):
+    """one row per credited site: the smallest ref-carrying witness reaching poll_at, else UNWITNESSED"""
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(BARE_TABLE_HEADER)
+        for site, poll_at in sites:
+            k = bare_key(poll_at)
+            cands = [w for w in reach_by_witness if k in reach_by_witness[w][2] and w.rsplit(".", 1)[0] in refs]
+            cands.sort(key=lambda w: (reach_by_witness[w][3], w))
+            fh.write("%s\t%s\t%s\n" % (site, poll_at, cands[0] if cands else "UNWITNESSED"))
+    return path
+
+
+def bare_poll_report(scrip, progs, workdir, out=print, write_table=False, clean_scrip=None):
+    """the BARE-POLL clause over the declared table; returns rc (0 read, 2 refused)"""
+    sites = bare_sites_from_census()
+    if sites is None:
+        out("CONTRACT BARE-POLL REFUSED(2): the census printed no safe-points reading -- nothing to re-screen")
+        return 2
+    progs = [os.path.abspath(p) for p in progs]
+    by_name = {os.path.basename(p): p for p in progs}
+    for w in sorted(os.listdir(os.path.join(HERE, "gc_witnesses"))):
+        if w.rsplit(".", 1)[-1] in ("icn", "sno", "pl", "raku", "sc") and w not in by_name:
+            by_name.setdefault(w, os.path.join(HERE, "gc_witnesses", w))
+    refs = {w.rsplit(".", 1)[0] for w in os.listdir(os.path.join(HERE, "gc_witnesses")) if w.endswith(".ref")}
+    reach, refused, mism = {}, [], []
+    emit_set = [os.path.basename(p) for p in progs] if not write_table else sorted(by_name)
+    asm_of = {}
+    for w in emit_set:
+        p = by_name.get(w)
+        if not p:
+            continue
+        asm, rep, err = UC.emit_and_read(scrip, p, workdir)
+        if err:
+            refused.append(err)
+            continue
+        text = open(asm, encoding="utf-8", errors="replace").read()
+        calls, nnotes, keys = bare_reach(text)
+        if calls != nnotes:
+            mism.append("%s calls=%d notes=%d" % (w, calls, nnotes))
+        reach[w] = (calls, nnotes, keys, os.path.getsize(p))
+        asm_of[w] = asm
+    out("CONTRACT BARE-POLL-NOTES witnesses=%d calls=%d notes=%d mismatched=%d%s" % (
+        len(reach), sum(v[0] for v in reach.values()), sum(v[1] for v in reach.values()), len(mism),
+        (" -- " + "; ".join(mism[:6])) if mism else ""))
+    if mism:
+        out("CONTRACT BARE-POLL REFUSED(2): a witness carries more bare poll calls than site notes, so a site could be "
+            "read UNREACHED that the emission reaches -- the renderer drops a note when the instruction already carries "
+            "one; cure the emission, never the reader")
+        return 2
+    if write_table:
+        path = write_bare_table(sites, reach, refs)
+        out("CONTRACT BARE-POLL TABLE written to %s over %d credited site(s) and %d witness(es)" % (path, len(sites), len(reach)))
+    table = read_bare_table()
+    if not table:
+        out("CONTRACT BARE-POLL REFUSED(2): no declared table at %s -- run --write-bare-poll-table first" % BARE_TABLE)
+        return 2
+    credited = {s: pa for s, pa in sites}
+    declared = {s for s, _pa, _w in table}
+    verdict_of, runs = {}, {}
+    needed = sorted({w for _s, _pa, w in table if w != "UNWITNESSED"})
+    for w in needed:
+        p = by_name.get(w)
+        if not p:
+            verdict_of[w] = {"m3": ("MISSING", "the declared witness is not on disk"), "m4": ("MISSING", "")}
+            continue
+        if w not in reach:
+            asm, rep, err = UC.emit_and_read(scrip, p, workdir)
+            if err:
+                verdict_of[w] = {"m3": ("REFUSED", err), "m4": ("REFUSED", err)}
+                continue
+            text = open(asm, encoding="utf-8", errors="replace").read()
+            calls, nnotes, keys = bare_reach(text)
+            if calls != nnotes:
+                out("CONTRACT BARE-POLL REFUSED(2): %s calls=%d notes=%d" % (w, calls, nnotes))
+                return 2
+            reach[w] = (calls, nnotes, keys, os.path.getsize(p))
+            asm_of[w] = asm
+        verdict_of[w] = bare_run_witness(scrip, p, workdir, asm_of[w])
+    clean_div = None
+    if clean_scrip:
+        clean_div = 0
+        env = bare_run_env()
+        for w in needed:
+            p = by_name.get(w)
+            if not p:
+                continue
+            stem = os.path.basename(p).rsplit(".", 1)[0]
+            in_p = os.path.join(os.path.dirname(p), stem + ".in")
+            outs = []
+            for b in (scrip, clean_scrip):
+                stdin = open(in_p, "rb") if os.path.exists(in_p) else subprocess.DEVNULL
+                r = subprocess.run([b, p], capture_output=True, env=env, timeout=120, stdin=stdin, cwd=workdir)
+                if stdin is not subprocess.DEVNULL:
+                    stdin.close()
+                outs.append((r.returncode, r.stdout))
+            if outs[0] != outs[1]:
+                clean_div += 1
+                verdict_of[w]["clean"] = ("DIVERGING", "this tree's stress-0 stdout differs from the clean binary's")
+            else:
+                verdict_of[w]["clean"] = ("SAME", "")
+    for w in needed:
+        v = verdict_of[w]
+        out("CONTRACT BARE-POLL-WITNESS %s m3=%s m4=%s%s -- m3: %s; m4: %s" % (
+            w, v["m3"][0], v["m4"][0], (" clean=%s" % v["clean"][0]) if "clean" in v else "", v["m3"][1], v["m4"][1]))
+    c = collections.Counter()
+    for s, pa, w in table:
+        if s not in credited:
+            c["retired"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s RETIRED the census no longer credits this site with the bare form" % (s, pa, w))
+            continue
+        if w == "UNWITNESSED":
+            c["unwitnessed"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=- UNWITNESSED no program in the set reaches this site" % (s, pa))
+            continue
+        k = bare_key(pa)
+        if w not in reach or k not in reach[w][2]:
+            c["stale"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s STALE the declared witness's emission no longer reaches this site" % (s, pa, w))
+            continue
+        v = verdict_of[w]
+        vs = [v["m3"][0], v["m4"][0]] + ([v["clean"][0]] if "clean" in v else [])
+        if all(x in ("WITNESSED", "SAME") for x in vs):
+            c["witnessed"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s WITNESSED" % (s, pa, w))
+        elif "DIVERGING" in vs:
+            c["diverging"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s DIVERGING m3=%s m4=%s" % (s, pa, w, v["m3"][0], v["m4"][0]))
+        elif "NOT-ZERO" in vs:
+            c["notzero"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s NOT-ZERO m3=%s m4=%s" % (s, pa, w, v["m3"][0], v["m4"][0]))
+        else:
+            c["unread"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s UNREAD m3=%s m4=%s -- a NO-REF, NO-EXERCISE, REFUSED or MISSING arm asserts nothing" % (s, pa, w, v["m3"][0], v["m4"][0]))
+    for s, pa in sites:
+        if s not in declared:
+            c["undeclared"] += 1
+            out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=- UNDECLARED the census credits a bare site the table does not name -- rewrite the table" % (s, pa))
+    unwit = c["unwitnessed"] + c["stale"] + c["notzero"] + c["unread"] + c["undeclared"]
+    out("CONTRACT BARE-POLL sites=%d witnessed=%d unwitnessed=%d diverging=%d notzero=%d stale=%d unread=%d undeclared=%d retired=%d distinct_poll_lines=%d clean_diverging=%s -- "
+        "a site is WITNESSED only when its named witness's stress-0 run (SCRIP_HEAP_MB=%s, collections 0, grew 0 read from the "
+        "run's own [GC-EXERCISE] line) prints its oracle ref in mode 3 AND mode 4; unwitnessed sums the sites no valid "
+        "zero-collection witness covers (unwitnessed + stale + notzero + unread + undeclared) and every one is NAMED above"
+        % (len(sites), c["witnessed"], unwit, c["diverging"], c["notzero"], c["stale"], c["unread"], c["undeclared"],
+           c["retired"], len({bare_key(pa) for _s, pa in sites}), "-" if clean_div is None else str(clean_div), BARE_ARENA_MB))
+    return 0
+
+
+def bare_selftest(ck):
+    """the clause's own plants: every verdict word above is reached from a road whose input was built to reach it"""
+    ex = "[GC-EXERCISE] arena_kb=524288 arena_mb=512 reserve_mb=512 stress=0 collections=%d blocks=1 bytes=1 capped=0 grew=%d cap_kb=1\n"
+    ck(bare_verdict(0, ex % (0, 0), b"a\n", b"a\n")[0] == "WITNESSED", "BARE-POLL POSITIVE: rc 0, collections 0, grew 0, stdout == ref reads WITNESSED")
+    ck(bare_verdict(0, ex % (1, 0), b"a\n", b"a\n")[0] == "NOT-ZERO", "BARE-POLL PLANTED: collections=1 reads NOT-ZERO, not WITNESSED")
+    ck(bare_verdict(0, ex % (0, 132), b"a\n", b"a\n")[0] == "NOT-ZERO", "BARE-POLL PLANTED: grew=132 reads NOT-ZERO, not WITNESSED")
+    ck(bare_verdict(0, ex % (0, 0), b"a\n", b"b\n")[0] == "DIVERGING", "BARE-POLL PLANTED: stdout != ref with the collector never run reads DIVERGING")
+    ck(bare_verdict(139, ex % (0, 0), b"a\n", b"a\n")[0] == "DIVERGING", "BARE-POLL PLANTED: rc 139 with collections 0 reads DIVERGING")
+    ck(bare_verdict(0, ex % (0, 0), b"a\n", None)[0] == "NO-REF", "BARE-POLL PLANTED: a witness with no .ref reads NO-REF, never WITNESSED")
+    ck(bare_verdict(0, "", b"a\n", b"a\n")[0] == "NO-EXERCISE", "BARE-POLL PLANTED: a run with no [GC-EXERCISE] line reads NO-EXERCISE -- collections are read, never assumed")
+    asm_ok = "        mov qword ptr [rip + rtccb+40], r8       # gc_poll bb_x.cpp:12\n        call rt_gc_poll_asm@PLT\n" \
+             "        mov qword ptr [rip + rtccb+40], r8       # gc_poll bb_y.cpp:7\n        call rt_gc_poll_asm@PLT\n"
+    calls, notes, keys = bare_reach(asm_ok)
+    ck(calls == 2 and notes == 2 and keys == {"bb_x.cpp:12", "bb_y.cpp:7"}, "BARE-POLL REACH: two stamped polls read two calls, two notes, two site keys (%s)" % (keys,))
+    calls, notes, keys = bare_reach(asm_ok + "        call rt_gc_poll_asm@PLT\n")
+    ck(calls == 3 and notes == 2, "BARE-POLL PLANTED: a poll call WITHOUT its note reads calls=3 notes=2, the mismatch the reading refuses on")
+    ck(bare_key("src/templates/bb/bb_x.cpp:39") == "bb_x.cpp:39", "BARE-POLL JOIN: the census poll_at path folds to the basename:line the note spells")
+
+
+
 def main(argv):
     if "--selftest" in argv:
         return selftest()
@@ -997,12 +1320,23 @@ def main(argv):
         return compare(argv[i + 1], argv[i + 2])
     progs = [a for a in argv if not a.startswith("--")]
     if not progs:
-        print("usage: util_gc_safe_point_contract.py <program>... [--write-floor]")
+        print("usage: util_gc_safe_point_contract.py <program>... [--write-floor] [--bare-poll [--clean-scrip <bin>]] [--write-bare-poll-table]")
         return 2
     scrip = os.path.join(ROOT, "scrip")
     if not os.path.exists(scrip):
         print("CONTRACT REFUSED(2): no scrip binary at %s -- build before grading" % scrip)
         return 2
+    if "--bare-poll" in argv or "--write-bare-poll-table" in argv:
+        clean = None
+        if "--clean-scrip" in argv:
+            i = argv.index("--clean-scrip")
+            if len(argv) < i + 2 or not os.path.exists(argv[i + 1]):
+                print("CONTRACT BARE-POLL REFUSED(2): --clean-scrip needs an existing binary")
+                return 2
+            clean = argv[i + 1]
+            progs = [a for a in progs if a != clean]
+        with tempfile.TemporaryDirectory() as wd:
+            return bare_poll_report(scrip, progs, wd, write_table="--write-bare-poll-table" in argv, clean_scrip=clean)
     with tempfile.TemporaryDirectory() as wd:
         counts, refusals, rows = report(scrip, progs, wd, name_cap=None if "--name-all" in argv else 48)
     if refusals and not counts:
