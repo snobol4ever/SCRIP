@@ -997,6 +997,67 @@ def _ternary_sibling_offsets(lines, i, window_lines):
     return off
 
 
+# ⛔⭐ THE COMMON-TAIL POLL, AND IT IS THE FIRST MEASURED SHAPE THAT MAKES THIS COUNT TOO *SMALL* (cfo 2026-09-23,
+# CFO-151, chunk B).  Every upper-bound reason the headline names can only INFLATE the number; this one DEFLATES it,
+# so the headline's own sentence -- "each of which can only inflate it" -- is true of those three reasons and false
+# of the count.
+# THE SHAPE: a template whose branches are BRACED BLOCKS -- `if (a) { call X; } else if (b) { call Y; } else { call
+# Z; }` with ONE spill and ONE poll BELOW the whole chain -- emits, on every arm, call -> spill -> poll.  The window
+# stops at the first intervening emitted call, and the two sibling-arm exemptions above it read TERNARY arms
+# (_ternary_sibling_offsets) and single-line `else if` statements (_stmt_sibling_offsets), neither of which is a
+# braced block one chain out from the site, so X's window stops at Y and the common tail is never reached.
+# MEASURED, NOT ARGUED, on SCRIP 5bcb99a7b: bb_call_fn.cpp:207 reads UNPOLLED at EVERY --poll-window from 12 to 120
+# (the knob is INERT on this tree, which is worth knowing on its own), and the EMITTED mode-4 output for
+# `p(hello). q(42). main :- p(hello), q(42), write(ok), nl.` is
+#     call rt_pl_dop_unify_cs@PLT | 3 rtccb reloads | mov [rbp+64], rax | mov [rbp+72], rdx |
+#     cmp al, 104 ; je p$2F1_step | 3 rtccb writebacks | call rt_gc_poll_asm@PLT
+# -- the poll is SIX instructions after the call, and [rbp+64] is inside `.Lgcmap_p$2F1`'s `[0 .. 80) GC_LAY_DESCR`
+# run (frame_bytes 192, header 80, map_off 96, flags GC_FRAME_MAP_LAYOUT), which gc_walk_interior visits by KIND at
+# every 16 bytes with no reference to the slot's declared role -- the role text is --dump-zeta commentary and
+# frame_layout.c MERGES adjacent same-kind runs, so it cannot survive into the map at all.  :210 and :216 (the
+# latter reached with SCRIP_NO_CU=1) are byte-identical in shape.
+# ⛔ IT NOMINATES A SITE FOR A HAND READ AND CLEARS NOTHING, and two reasons why are already known: the `je` to
+# ω above the tail means the FAIL path skips the poll, so the honest column for those three is partially_polled
+# and not polled; and bb_call_fn.cpp:141's ZD arm carries `if (_.op_sb) { ... return s; }` ABOVE its tail, an early
+# return no brace-depth reader can see.  Nothing here moves a count, by design -- CEO-1116 set the stop and the
+# headline is the ceo's to move.
+def _brace_depth_at(lines, lo, hi):
+    """depth at the START of each 1-based line in [lo, hi], relative to lo, counted LITERAL-FREE so that a template's
+    (long)'{' is a character and not a brace (the same reason _paren_delta exists)."""
+    at = {}; d = 0
+    for k in range(lo, min(hi, len(lines)) + 1):
+        at[k] = d
+        for ch in _lit_free(lines[k - 1])[0]:
+            if ch == "}":
+                d -= 1
+            elif ch == "{":
+                d += 1
+    return at
+
+
+def _common_tail_poll(lines, i, unit, poll_rx):
+    """(poll_line, site_depth, tail_depth, arm_calls) when the poll below this site's whole if/else chain is the
+    site's own emitted successor, else None.  THE RULE IS TWO INEQUALITIES AND NO PATTERN MATCH: the poll stands
+    STRICTLY SHALLOWER than the call (every arm of the chain closed above it) and EVERY intervening emitted call
+    stands STRICTLY DEEPER than the poll (each had to enter a block that closed again before the tail).  Both
+    directions are planted in --selftest: the nested braced chain must be NAMED, and a plain successor standing at
+    the tail's own depth must NOT be -- that second arm is the one that keeps this from clearing sites in sequence."""
+    end = unit[3] if unit and len(unit) > 3 else None
+    if end is None:
+        end = next((k for k in range(i, len(lines) + 1) if lines[k - 1].startswith("}")), len(lines))
+    at = _brace_depth_at(lines, i, end)
+    poll = next((k for k in range(i + 1, end + 1) if poll_rx.search(lines[k - 1])), None)
+    if poll is None or at.get(poll, 0) >= at.get(i, 0):
+        return None
+    arm_calls = 0
+    for k in range(i + 1, poll):
+        if CALL_RX.search(lines[k - 1]) and not poll_rx.search(lines[k - 1]):
+            if at.get(k, 0) <= at[poll]:
+                return None
+            arm_calls += 1
+    return (poll, at[i], at[poll], arm_calls)
+
+
 def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=print, allocating=None):
     if allocating is None:
         allocating = allocating_entries_from_binary(so, out)
@@ -1027,7 +1088,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     forms = collections.Counter()
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
-    partial = []; multi = []
+    partial = []; multi = []; tails = []
     texts = {}
     for f in set(x[0] for x in sites):
         try:
@@ -1112,6 +1173,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         unit = unit_of(units_by_file.get(f, []), i)
         paths = expansion_lines(unit, f, texts) if unit else []
         npaths = max(1, len(paths))
+        tail = _common_tail_poll(lines, i, unit, poll_rx)
         name = f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}" \
                + (f" [{rule}, {len(syms)} candidate(s)]" if rule else "")
         if npaths > 1:
@@ -1127,6 +1189,8 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                            f"x86(\"def\", {guard[0]}) below, so it runs only when that guard holds")
         elif not hit and npaths == 1:
             unpolled.append(name)
+            if tail:
+                tails.append((name, tail))
         elif hit and npaths == 1:
             polled += 1
             forms[_poll_form(lines[poll_abs])] += 1
@@ -1140,6 +1204,8 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                            if poll_rx.search("\n".join(_window_after(texts[pf].split("\n"), pl, poll_window))))
             if n_polled == 0:
                 unpolled.append(name)
+                if tail:
+                    tails.append((name, tail))
             elif n_polled == len(paths):
                 polled += 1
                 forms["(polled on every expansion path)"] += 1
@@ -1192,6 +1258,20 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         out(f"  UNPOLLED {u}")
     if len(unpolled) > cap:
         out(f"  ... {len(unpolled) - cap} more unpolled -- SCRIP_GC_CENSUS_LIST_ALL=1 prints every one (a count without names cannot be triaged, and 208 sites is a worklist, not a verdict)")
+    # ⛔⭐ THE COMMON-TAIL NOMINATIONS, BESIDE THE COUNT AND MOVING NOTHING.  See _common_tail_poll above for the
+    # emitted-asm measurement that earned this block and for what a nomination does and does not claim.
+    if tails:
+        out("CENSUS safe-points \u26d4\u2b50 COMMON-TAIL POLL: {} of the {} UNPOLLED site(s) stand in an if/else chain of "
+            "BRACED BLOCKS whose ONE poll sits BELOW the whole chain, so the emitted code for every arm is call -> spill -> "
+            "poll while this reader stops at the first intervening ARM's call. THIS IS THE FIRST MEASURED SHAPE THAT MAKES "
+            "THE HEADLINE TOO SMALL -- the three upper-bound reasons above can only inflate it, so the count is not a bound "
+            "in either direction. \u26d4 IT NOMINATES A SITE FOR A HAND READ AND CLEARS NOTHING: no count moves here, and "
+            "the cfo measured the emitted mode-4 output of three of the four POLLED ON THE SUCCESS PATH AND SKIPPED ON THE "
+            "FAIL PATH (the `je` to \u03c9 sits above the tail), which is partially_polled and not polled. \u26d4\u26d4 "
+            "BEFORE POLLING A SITE NAMED HERE, READ ITS EMITTED ASM: a second poll six instructions after the first moves "
+            "this census BY PRESENCE ALONE, which is the class CEO-1169 named one level up.".format(len(tails), len(unpolled)))
+        for _name, (_p, _d0, _dp, _nc) in tails:
+            out(f"  COMMON-TAIL {_name} -> poll at line {_p} (site depth {_d0}, tail depth {_dp}, {_nc} exclusive-arm call(s) between)")
     _pcap = len(partial) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 25
     for u in partial[:_pcap]:
         out(f"  PARTIAL {u}")
@@ -2020,6 +2100,43 @@ def selftest():
     buf.clear(); rc = census_safe_points("", [tpl_ea], out=buf.append, allocating=alloc)
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, polled=0, unpolled=1),
        "safe-points: a site standing IN a ':' arm still stops at an intervening call in that same arm -- an arm the site lives in is not one it is excluded from (bb_rev_assign_var.cpp:19)")
+    # ⛔⭐ THE COMMON-TAIL NOMINATION, PLANTED IN BOTH DIRECTIONS (cfo, CFO-151).  The named direction is a
+    # NESTED braced chain -- the real bb_call_fn.cpp:207 shape, where the intervening call sits in a sibling of the
+    # chain ONE OUT from the site's own -- and it must be nominated; the unnamed direction is a plain successor
+    # standing at the tail's own depth, which must not be, or this reader would clear sites in sequence.
+    tpl_ct = os.path.join(w, "commontail.cpp")
+    open(tpl_ct, "w").write('std::string a(){ std::string s = x86("mov", "rdi", fp);\n'
+                            '  if (cui()) {\n'
+                            '    if (csval()) {\n'
+                            '      s += x86("call", "rt_concat", fp);\n'
+                            '    } else {\n'
+                            '      s += x86("call", "rt_other", fp);\n'
+                            '    }\n'
+                            '  } else if (dfp()) {\n'
+                            '    s += x86("call", "rt_third", fp);\n'
+                            '  } else {\n'
+                            '    s += x86("call", "rt_fourth", fp);\n'
+                            '  }\n'
+                            '  s += x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending");\n'
+                            '  return s;\n'
+                            '}\n')
+    buf.clear(); rc = census_safe_points("", [tpl_ct], out=buf.append, allocating=alloc)
+    _ct = "\n".join(buf)
+    ck(rc == 1 and "COMMON-TAIL POLL:" in _ct and "commontail.cpp:4" in _ct,
+       "safe-points: a site in a NESTED braced if/else chain whose ONE poll sits below the whole chain is NOMINATED as a common tail -- the shape bb_call_fn.cpp:207 reads UNPOLLED at every window from 12 to 120 while its emitted asm polls six instructions after the call (cfo, CFO-151)")
+    tpl_cs = os.path.join(w, "commontailseq.cpp")
+    open(tpl_cs, "w").write('std::string a(){ std::string s = x86("mov", "rdi", fp);\n'
+                            '  if (cui()) {\n'
+                            '    s += x86("call", "rt_concat", fp);\n'
+                            '  }\n'
+                            '  s += x86("call", "rt_other", fp);\n'
+                            '  s += x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending");\n'
+                            '  return s;\n'
+                            '}\n')
+    buf.clear(); rc = census_safe_points("", [tpl_cs], out=buf.append, allocating=alloc)
+    _cs = "\n".join(buf)
+    ck(rc == 1 and "COMMON-TAIL POLL:" not in _cs,
+       "safe-points: a poll whose only intervening call stands at the TAIL'S OWN DEPTH is that call's safe point, not a common tail -- the nomination declines it (the direction that would clear sites in plain sequence)")
     # ⛔ A CHAR LITERAL IS NOT A PAREN.  bb_scan_bal.cpp:61/:66 and :108/:113 hold (long)'(' and (long)')', and a
     # naive depth count reads them as opening and closing the very group the sibling rule is tracking.
     ck(_paren_delta("+ x86(\"cmp64\", \"rsi\", (long)'(')")[0] == 0
