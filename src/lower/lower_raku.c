@@ -66,6 +66,9 @@ static const char * rk_fld_bare(const char * s) { return (s && (s[0] == '.' || s
 static int rk_fld_priv(const char * s) { return (s && s[0] == '!') ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_rk_user_write_meth = 0;
+static const char * RK_LISTLIKE_METHNAMES[] = { "keys", "values", "kv", "sort", "reverse", "grep", "map", "split", "words", "comb", NULL };
+static int g_rk_listlike_overridden[10];
+static int rk_listlike_idx(const char * nm) { if (!nm) return -1; for (int i = 0; RK_LISTLIKE_METHNAMES[i]; i++) if (!strcmp(RK_LISTLIKE_METHNAMES[i], nm)) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
     if (!prog || !name) return NULL;
@@ -85,7 +88,10 @@ static int rk_type_provides_real_method(const tree_t * decl, const char * mname)
         const tree_t * ch = decl->c[j];
         if (!ch || ch->t != TT_SUB_DECL || rk_method_is_stub(ch)) continue;
         const char * nm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
-        if (nm && !strcmp(nm, mname)) return 1;
+        if (!nm) continue;
+        const char * dollar = strchr(nm, '$');
+        size_t nl = dollar ? (size_t)(dollar - nm) : strlen(nm);
+        if (strlen(mname) == nl && !strncmp(nm, mname, nl)) return 1;
     }
     return 0;
 }
@@ -112,9 +118,8 @@ static int rk_yields_list(const tree_t * t) {
         return !strcmp(f, "__rk_arr_slice") || !strcmp(f, "__rk_arr_pick");
     }
     if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) {
-        const char * m = t->c[1]->v.sval;
-        return !strcmp(m, "keys") || !strcmp(m, "values") || !strcmp(m, "kv") || !strcmp(m, "sort") || !strcmp(m, "reverse")
-            || !strcmp(m, "grep") || !strcmp(m, "map") || !strcmp(m, "split") || !strcmp(m, "words") || !strcmp(m, "comb");
+        int li = rk_listlike_idx(t->c[1]->v.sval);
+        return li >= 0 && !g_rk_listlike_overridden[li];
     }
     if (t->t == TT_SORT || t->t == TT_REVERSE) return 1;
     return 0;
@@ -738,7 +743,7 @@ static void rk_discover_grammars(const tree_t * prog) {
 static void rk_register_classes(const tree_t * prog) {
     extern void record_register(const char *spec);
     if (!prog) return;
-    g_rk_class_n = 0; g_rk_user_write_meth = 0;
+    g_rk_class_n = 0; g_rk_user_write_meth = 0; memset(g_rk_listlike_overridden, 0, sizeof g_rk_listlike_overridden);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
@@ -746,6 +751,7 @@ static void rk_register_classes(const tree_t * prog) {
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!cname || !*cname) continue;
         if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_rk_user_write_meth = 1;
+        for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_rk_listlike_overridden[li] = 1;
         if (g_rk_class_n < RK_GRAM_MAX && !rk_is_class_name(cname)) g_rk_class_names[g_rk_class_n++] = cname;
         char spec[512]; int pos = 0;
         pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
