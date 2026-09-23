@@ -516,7 +516,11 @@ def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
 # the fixture that prints nothing would match the fixture that prints a clock. Line count and position are
 # preserved by rewriting the matched line to a canonical marker in BOTH streams.
 def read_mask_sidecar(ref_path):
-    """<stem>.mask beside the ref: `entry<TAB>python-regex<TAB>reason`. Missing file -> no masks, and that is
+    """<stem>.mask beside the ref: `entry<TAB>python-regex<TAB>reason`, or `entry<TAB>L<n><TAB>reason` for a
+    fixed OUTPUT line number (1-indexed), when content alone cannot reach the value (CEO-1167 ruling on
+    gc2.icn): apply_line_mask sees one line at a time, with no neighbor and no position, so a value sharing
+    its digit alphabet with legitimate surrounding output cannot be isolated by a content regex without also
+    matching most of the file, which guardrail 4 correctly refuses. Missing file -> no masks, and that is
     the overwhelmingly common case: seven masters and every package carry none today."""
     mp = Path(str(ref_path).rsplit(".", 1)[0] + ".mask")
     if not mp.is_file():
@@ -534,9 +538,12 @@ def read_mask_sidecar(ref_path):
             # ⭐ THE GENERAL FORM: a diagnostic that NAMES its own exit code is not evidence it uses that code, and
             # it is the most convincing possible evidence to a reader, because the number is right there. This file's
             # refuse() is the one authority (CEO-233, one refusal code and it is 2); the local raise bypassed it.
-            refuse("%s: every mask row needs entry<TAB>regex<TAB>reason, and a reason that "
+            refuse("%s: every mask row needs entry<TAB>regex-or-L<n><TAB>reason, and a reason that "
                    "is empty is a mask nobody can audit -- got %r" % (mp, ln))
-        out.setdefault(parts[0].strip(), []).append((re.compile(parts[1]), parts[2].strip()))
+        pat = parts[1].strip()
+        m = re.match(r"^L(\d+)$", pat)
+        key = ("line", int(m.group(1))) if m else ("regex", re.compile(pat))
+        out.setdefault(parts[0].strip(), []).append((key, parts[2].strip()))
     return out
 def masks_for(masks, name):
     """⛔⭐ THE ONE PLACE THE ENTRY COLUMN IS RESOLVED, so the python harness and the bash runners (through
@@ -550,14 +557,17 @@ def masks_for(masks, name):
     entries a row is offered to, never WHAT a row is allowed to hide."""
     return list(masks.get("*", [])) + list(masks.get(name, []))
 def apply_line_mask(text, patterns):
-    """Rewrite every line matching any pattern to a canonical marker. Returns (text, masked_line_count)."""
+    """Rewrite every line matching any pattern to a canonical marker. A ("regex", rx) pattern matches by
+    content against the line; a ("line", n) pattern matches by OUTPUT POSITION against line n (1-indexed),
+    regardless of content -- see read_mask_sidecar's L<n> form. Returns (text, masked_line_count)."""
     if not patterns or text is None:
         return text, 0
     n = 0
     lines = text.split("\n")
     for i, ln in enumerate(lines):
-        for rx, _reason in patterns:
-            if rx.search(ln):
+        for key, _reason in patterns:
+            kind, val = key
+            if val.search(ln) if kind == "regex" else (val == i + 1):
                 lines[i] = "<<CEO-409 MASKED IMPLEMENTATION-DEFINED LINE>>"
                 n += 1
                 break

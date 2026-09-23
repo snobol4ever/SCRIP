@@ -48,6 +48,25 @@ printf 'e\ttime = [0-9.]+$\t\n' > "$W/e.mask"
 printf '%s' "$IN" | python3 "$SHIM" "$W/e.ref" e "$W/n" >/dev/null 2>&1; rc=$?
 [ "$rc" = 2 ]; arm $? "a mask row with an empty reason REFUSES rc=2 (not rc=1, which would read as a measured red)"
 
+# (G) A LINE-NUMBER KEY, L<n>, MASKS BY POSITION (CEO-1167): gc2.icn's &collections output shares its digit
+# alphabet with legitimate surrounding grammar-generation lines, so no content regex can reach it without
+# also matching most of the file (guardrail 4). L2 masks OUTPUT line 2 (1-indexed) regardless of content.
+printf 'e\tL2\tampersand-collections is implementation-defined (Icon book, appendix)\n' > "$W/e.mask"
+OUT="$(printf '%s' "$IN" | python3 "$SHIM" "$W/e.ref" e "$W/n" 2>/dev/null)"
+[ "$(printf '%s\n' "$OUT" | wc -l)" = "$(printf '%s\n' "$IN" | wc -l)" ] \
+  && [ "$(printf '%s' "$OUT" | sed -n 2p)" != "time = 9.99" ] \
+  && [ "$(printf '%s' "$OUT" | sed -n 1p)" = alpha ] && [ "$(printf '%s' "$OUT" | sed -n 3p)" = beta ] \
+  && [ "$(cat "$W/n")" = 1 ]; arm $? "an L<n> line-number key masks OUTPUT line n by position, not by content, count=1"
+
+# (H) L<n> MASKS ONLY LINE n -- a different line carrying the SAME text as line n's original content is left
+# alone, proving this is a position match and not a content match that happens to key off line 2's old text.
+printf 'e\tL1\tsingle-line position mask, named\n' > "$W/e.mask"
+OUT="$(printf '%s' "$IN" | python3 "$SHIM" "$W/e.ref" e "$W/n" 2>/dev/null)"
+[ "$(printf '%s' "$OUT" | sed -n 1p)" != "alpha" ] \
+  && [ "$(printf '%s' "$OUT" | sed -n 2p)" = "time = 9.99" ] \
+  && [ "$(printf '%s' "$OUT" | sed -n 3p)" = beta ] \
+  && [ "$(cat "$W/n")" = 1 ]; arm $? "L1 masks only line 1, leaving lines 2 and 3 untouched"
+
 # (E) THE BASH RUNNER READS IT AT ALL -- the inertness this gate is named for. Asserted on the runner's source,
 # because the alternative is a twenty-minute suite run to learn a fact a parse settles.
 R="$HERE/test_snobol4_csnobol4_suite.sh"
