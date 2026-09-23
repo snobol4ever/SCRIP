@@ -76,6 +76,10 @@ static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 static int pas_tfcomp_nonchar(const char *n);
 static int pas_is_hdrfile(const char *n);
+static void pas_assigned_add(const char *n);
+static int pas_assigned_get(const char *n);
+static int pas_array_is_param(const char *name);
+static const char *pas_selector_base_name(tree_t *e);
 extern int g_pas_iso_errors;
 extern int g_pas_seen_mode_directive;
 extern int pascal_seen_decl_start;
@@ -239,6 +243,12 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                     g_pas_iso_errors++;
                 }
             }
+        }
+        { tree_t *src = ispack ? a : z;
+          if (src && src->t == TT_VAR && src->v.sval && !pas_array_is_param(src->v.sval) && !pas_assigned_get(src->v.sval)) {
+              fprintf(stderr, "pascal: ISO 7185 6.6.5.4 violation: %s reads the array '%s', whose components have never been assigned a value\n", name, src->v.sval);
+              g_pas_iso_errors++;
+          }
         }
         static int _pkn = 0; char _cvb[24]; snprintf(_cvb, sizeof _cvb, "__pas_pk%d", _pkn++); const char *_cv = ct_strdup(_cvb);
         tree_t *zi = ast_node_new(TT_IDX); ast_push(zi, pas_tree_clone(z)); ast_push(zi, leaf_s(TT_VAR, _cv));
@@ -668,6 +678,11 @@ static void pas_array_add2d(const char *name, long long high, long long ncols) {
 static void pas_array_add2d_param(const char *name, long long high, long long ncols) { if (g_pas_narray < 256 && name) { g_pas_arrays[g_pas_narray].name = ct_strdup(name); g_pas_arrays[g_pas_narray].high = high; g_pas_arrays[g_pas_narray].ncols = ncols; g_pas_arrays[g_pas_narray].is_param = 1; g_pas_arrays[g_pas_narray].is_local = 0; g_pas_arrays[g_pas_narray].low = 0; g_pas_narray++; } }
 static long long pas_array_ncols(const char *name) { if (!name) return -1; for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return g_pas_arrays[i].ncols; return -1; }
 static long long pas_array_low(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return g_pas_arrays[i].low; return 0; }
+static int pas_array_is_param(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return g_pas_arrays[i].is_param; return 0; }
+static struct { char *name; } g_pas_assigned[512]; static int g_pas_nassigned;
+static void pas_assigned_add(const char *n) { if (!n) return; for (int i = 0; i < g_pas_nassigned; i++) if (g_pas_assigned[i].name && !strcmp(g_pas_assigned[i].name, n)) return; if (g_pas_nassigned < 512) { g_pas_assigned[g_pas_nassigned].name = ct_strdup(n); g_pas_nassigned++; } }
+static int pas_assigned_get(const char *n) { if (!n) return 0; for (int i = 0; i < g_pas_nassigned; i++) if (g_pas_assigned[i].name && !strcmp(g_pas_assigned[i].name, n)) return 1; return 0; }
+static const char *pas_selector_base_name(tree_t *e) { while (e) { if (e->t == TT_VAR) return e->v.sval; if ((e->t == TT_IDX || e->t == TT_FIELD) && e->n >= 1 && e->c[0]) { e = e->c[0]; continue; } if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_deref") && e->c[1]) { e = e->c[1]; continue; } break; } return NULL; }
 int g_pas_iso_errors = 0;
 int pascal_iso_error_count(void) { return g_pas_iso_errors; }
 void pascal_iso_error_reset(void) { g_pas_iso_errors = 0; }
@@ -1039,6 +1054,7 @@ static int pas_var_typename_is(const char *name, int (*pred)(const char *)) {
 }
 static int pas_var_is_real(const char *name) { return pas_var_typename_is(name, pas_is_realtypename); }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    { const char *_abn = pas_selector_base_name(sel); if (_abn) pas_assigned_add(_abn); }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
     { int lnf = pas_recspan_nf(sel); int rnf = pas_recspan_nf(rhs);
       int has_idx = ((sel && sel->t == TT_IDX) || (rhs && rhs->t == TT_IDX));
