@@ -148,10 +148,39 @@ echo "=== NCB GATE — C→BB transfers outside the sanctioned MAIN sites ==="
 echo "    sanctioned: scrip.c:main (2 exclusive MAIN branches through the driver's rt_outer_call / rt_outer_call_delta0 thunks) · rt_coexpr.c:scrip_coexpr_trampoline_entry · scrip.c:icn_zf_main_call (3rd MAIN branch)"
 VGRPS=""
 UNLEDGERED=0
+# ⛔⭐ "NEW" IS A MEASURED WORD, NOT A GUESS (coo 2026-09-23, row instrument-the-no-c-to-bb-gate-reports-a-13-day-old-transfer-
+# as-a-new-violation-...). This gate printed rt_pl_goal_gen_h_c as "a NEW violation" for thirteen days while git dated the site to
+# b4736aa3d (2026-09-06): the ledger lagged the tree and its loudest line was false. So every UNLEDGERED site now carries the commit
+# that LANDED it (the oldest commit whose diff adds its enclosing function's name to that file, `git log -S`) and a verdict against
+# the LEDGER'S OWN LAST EDIT (the last commit to this file): NEW only when the site landed after the ledger last changed -- the
+# ledger could not have known it -- and LEDGER LAG when it landed before, which is a ledger to fix, not an alarm. With no history to
+# read, the site says UNMEASURED and is never called NEW.
+NCB_LEDGER_REV="$(git -C "$REPO" log -1 --format='%h' -- scripts/test_gate_no_c_to_bb.sh 2>/dev/null)"
+NCB_LEDGER_DATE="$(git -C "$REPO" log -1 --format='%cs' -- scripts/test_gate_no_c_to_bb.sh 2>/dev/null)"
+NCB_NEW=0; NCB_LAG=0; NCB_UNMEASURED=0
+landing_of() { # landing_of <file> <function> -> "landed <hash> <date> (<N> day(s) ago) -- NEW: ..." / "-- LEDGER LAG: ..." / "landing UNMEASURED ..."
+    local f="$1" fn="$2" rev when age
+    rev="$(git -C "$REPO" log --reverse --format='%h' -S"$fn" -- "$f" 2>/dev/null | head -1)"
+    if [ -z "$rev" ] || [ -z "$NCB_LEDGER_REV" ]; then
+        echo "landing UNMEASURED (no git history names $fn in $f) -- not called NEW"; return
+    fi
+    when="$(git -C "$REPO" log -1 --format='%cs' "$rev" 2>/dev/null)"
+    age=$(( ( $(date -u +%s) - $(git -C "$REPO" log -1 --format='%ct' "$rev" 2>/dev/null) ) / 86400 ))
+    if git -C "$REPO" merge-base --is-ancestor "$NCB_LEDGER_REV" "$rev" 2>/dev/null && [ "$rev" != "$NCB_LEDGER_REV" ]; then
+        echo "landed $rev $when ($age day(s) ago) -- NEW: after the ledger's last edit $NCB_LEDGER_REV $NCB_LEDGER_DATE"
+    else
+        echo "landed $rev $when ($age day(s) ago) -- LEDGER LAG: before the ledger's last edit $NCB_LEDGER_REV $NCB_LEDGER_DATE, so the ledger missed it"
+    fi
+}
 for V in V1 V2 V3 V4 V5 V6 V7 UNLEDGERED; do
     VLNS=""
     while IFS=: read -r f l fn shape; do
-        [ "$(ledger_of "$fn")" = "$V" ] && VLNS="${VLNS}    ${f}:${l}  (${fn}, ${shape})"$'\n'
+        [ "$(ledger_of "$fn")" = "$V" ] || continue
+        if [ "$V" = UNLEDGERED ]; then
+            _land="$(landing_of "$f" "$fn")"   # a subshell: the counts are kept here, in the loop's own shell
+            case "$_land" in *"-- NEW:"*) NCB_NEW=$((NCB_NEW+1)) ;; *"LEDGER LAG"*) NCB_LAG=$((NCB_LAG+1)) ;; *) NCB_UNMEASURED=$((NCB_UNMEASURED+1)) ;; esac
+            VLNS="${VLNS}    ${f}:${l}  (${fn}, ${shape})  ${_land}"$'\n'
+        else VLNS="${VLNS}    ${f}:${l}  (${fn}, ${shape})"$'\n'; fi
     done < "$TMP"
     if [ -n "$VLNS" ]; then
         VGRPS="${VGRPS}${V} "
@@ -162,6 +191,6 @@ for V in V1 V2 V3 V4 V5 V6 V7 UNLEDGERED; do
 done
 N=$(echo $VGRPS | wc -w)
 echo "LEDGER GROUPS REMAINING: $N   (NCB-1 → 4, NCB-2 → 1, NCB-3 → 0)"
-[ "$UNLEDGERED" = "1" ] && echo "⚠ UNLEDGERED C→BB transfer present — a NEW violation of the one-entry convention; read it before anything else."
+[ "$UNLEDGERED" = "1" ] && echo "⚠ UNLEDGERED C→BB transfer present — $NCB_NEW NEW since the ledger's last edit ($NCB_LEDGER_REV $NCB_LEDGER_DATE), $NCB_LAG LEDGER LAG (landed before it: ledger them), $NCB_UNMEASURED UNMEASURED; read it before anything else."
 if [ "$STRICT" = "1" ] && [ "$N" -gt 0 ]; then echo "STRICT: FAIL (convention not yet sealed)"; exit 1; fi
 exit 0
