@@ -697,6 +697,28 @@ def _governing_if_cond(lines, lo, jl, jpos):
     return None
 
 
+POLL_FORM_RX = re.compile(r'\b(x86_rt_gc_poll[A-Za-z0-9_]*)\s*\(')
+
+
+def _poll_form(line):
+    """WHICH poll form this line spells -- the helper's own name, or the raw shapes it lowers to.
+
+    ⛔ THE CENSUS COUNTED POLLED AGAINST UNPOLLED AND NOTHING ELSE, SO SWAPPING ONE FORM FOR ANOTHER READ THE SAME
+    NUMBER (the cto, 2026-09-22): their sed round-trip converted five sites it had never analysed and the census read
+    177 on the CONTAMINATED tree exactly as on the clean one -- only `git diff` caught it.  A count that cannot tell
+    two trees apart is not measuring the difference between them, and the forms are NOT interchangeable: poll_res
+    reconstructs a DESCR pair from rax:rdx, the rec_sigma family lowers to rt_gc_point_arr_c instead of rt_gc_poll,
+    and a bare poll roots nothing at all.  The histogram is printed beside the count so a swap is visible."""
+    m = POLL_FORM_RX.search(line)
+    if m:
+        return m.group(1)
+    if "g_gc_pending" in line:
+        return "g_gc_pending (raw lea)"
+    if "rt_gc_poll" in line:
+        return "rt_gc_poll (raw call)"
+    return "unclassified"
+
+
 def _stmt_sibling_offsets(lines, i, window_lines):
     """Offsets into `window_lines` standing in a DIFFERENT ARM of the same C `if / else if / else` chain as the call
     at 1-based line `i` -- an ALTERNATIVE to the site, never a successor, so such a call must not stop the poll
@@ -986,6 +1008,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     # the exposure was latent, not live.  IT IS USED ONLY FOR THE STOP EXEMPTION, NEVER FOR THE POLLED DECISION:
     # widening what counts as a poll would move the published headline, which is not this knob's business.
     stop_poll_rx = re.compile(poll_rx.pattern + r"|rt_gc_point_arr")
+    forms = collections.Counter()
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
     resolved = []
     partial = []; multi = []
@@ -1090,6 +1113,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             unpolled.append(name)
         elif hit and npaths == 1:
             polled += 1
+            forms[_poll_form(lines[poll_abs])] += 1
         elif not hit:
             # THE OTHER HALF OF THE SAME DEFECT, AND THE ONE A FIXER MEETS FIRST.  The natural cure for the cto's
             # case is to poll the SAFE expansion paths and leave the unrooted one alone -- and then the shared body
@@ -1102,6 +1126,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                 unpolled.append(name)
             elif n_polled == len(paths):
                 polled += 1
+                forms["(polled on every expansion path)"] += 1
             else:
                 partial.append(f"{name} in {unit[0]} {unit[1]}(): {n_polled} of {len(paths)} expansion site(s) poll")
         elif _poll_is_guarded(window_lines[:stop], poll_rx, sibling):
@@ -1110,9 +1135,29 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             partial.append(f"{name} in {unit[0]} {unit[1]}(): poll is guarded and the unit emits <= {npaths} paths")
         else:
             polled += 1
+            forms[_poll_form(lines[poll_abs]) if poll_abs is not None else "unclassified"] += 1
     out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} partially_polled={len(partial)} unpolled={len(unpolled)} multi_path_sites={len(multi)} unresolved={len(unresolved)} want unpolled=0 partially_polled=0 unresolved=0 (poll = g_gc_pending or rt_gc_poll{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
     assert polled + len(partial) + len(unpolled) == alloc_sites, "safe-points: the four columns must partition the denominator"
     out(f"CENSUS safe-points IDENTITY polled + partially_polled + unpolled == allocating_call_sites ({polled} + {len(partial)} + {len(unpolled)} == {alloc_sites})")
+    # ⛔⭐ THE FORM HISTOGRAM, BESIDE THE COUNT AND NOT IN A SEPARATE TOOL (item iv of this census's own row).
+    # A polled/unpolled count is BLIND TO A FORM SWAP, which is how a contaminated tree read 177 exactly as the
+    # clean one did.  The forms are not interchangeable and the histogram is what makes a swap visible at all.
+    out("CENSUS safe-points POLL FORMS over the {} polled site(s): ".format(polled)
+        + ("; ".join(f"{k}={v}" for k, v in sorted(forms.items(), key=lambda kv: (-kv[1], kv[0]))) or "none"))
+    # ⛔⭐ AND THE HEADLINE NAMES ITS OWN UPPER-BOUND REASONS RATHER THAN LEAVING THEM IN A LEDGER (item: "the
+    # headline prints its own three upper-bound reasons").  Two of the four species found on 2026-09-22 are CURED
+    # in the reader and are not listed here -- listing a cured reason is how a caveat outlives its cause.  These
+    # three are LIVE, and each one can only make the number TOO BIG.
+    out("CENSUS safe-points \u26d4 THE COUNT IS AN UPPER BOUND, FOR THREE LIVE REASONS, EACH OF WHICH CAN ONLY "
+        "INFLATE IT: (1) PRESENCE, NOT CORRECTNESS (ceo CEO-1133) -- this census reads whether a poll is EMITTED, "
+        "never whether it FIRES; the cfo measured x86_rt_gc_poll_res at bb_call_value 67/70 adding ZERO collections "
+        "over 818 cells with a name set identical to no poll at all, and a site can be credited POLLED, never fire, "
+        "and still be broken by the poll's presence. (2) MULTI-PATH ({} site(s) here): a poll in a body that is "
+        "SPLICED INTO SEVERAL emitted paths is not evidence that every path carries it; the path count is itself an "
+        "upper bound. (3) LINE PROXIMITY: the window is {} SOURCE LINES after the call, not a control-flow proof, so "
+        "a poll separated from its call by an unmodelled branch still reads as that call's safe point -- the "
+        "conditional-skip reader closes the one shape of that which was measured, not the class."
+        .format(len(multi), poll_window))
     out("CENSUS safe-points MULTI-PATH NOTE (the cto's finding, the coo's reader, 2026-09-22): multi_path_sites counts "
         "allocating call sites written ONCE in a unit that is EXPANDED MORE THAN ONCE, so one source line is spliced "
         "into every one of those paths. THE PATH COUNT IS AN UPPER BOUND, not an exact figure -- emit.cpp's icn_trace_tap "
@@ -1844,6 +1889,32 @@ def selftest():
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=1, partially_polled=1, unpolled=0),
        "safe-points: a BARE else carries no condition, so it can never be PROVEN disjoint from the guard and stays "
        "PARTIAL -- the unprovable case lands in the column that demands a human, never in polled")
+    # ⛔ ITEM (iv): A FORM SWAP MUST CHANGE THE READING.  The count alone cannot tell two trees apart, which is how a
+    # contaminated tree read 177 exactly as the clean one did; the histogram is the column that can.
+    tpl_f1 = os.path.join(w, "form1.cpp"); tpl_f2 = os.path.join(w, "form2.cpp")
+    open(tpl_f1, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n + x86_rt_gc_poll(); }\n')
+    open(tpl_f2, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n + x86_rt_gc_poll_res(); }\n')
+    buf.clear(); census_safe_points("", [tpl_f1], out=buf.append, allocating=alloc); t1 = "\n".join(buf)
+    buf.clear(); census_safe_points("", [tpl_f2], out=buf.append, allocating=alloc); t2 = "\n".join(buf)
+    ck("POLL FORMS" in t1 and "x86_rt_gc_poll=1" in t1 and "x86_rt_gc_poll_res=1" in t2
+       and _sp_fields(t1.split("\n")).get("polled") == _sp_fields(t2.split("\n")).get("polled"),
+       "safe-points: swapping the poll FORM leaves polled identical and CHANGES the form histogram -- the column that "
+       "makes the cto's sed round-trip visible, which a polled/unpolled count could not see at all")
+    # ⛔ ITEM (iii): THE BUILD-CURRENCY REFUSAL, exercised through main() against a FABRICATED root, so the arm is
+    # hermetic and never touches this tree's own mtimes.  rc=2 is "could not measure", never red and never green.
+    fake = tempfile.mkdtemp(prefix="gc_census_stale.")
+    os.makedirs(os.path.join(fake, "scripts")); os.makedirs(os.path.join(fake, "src")); os.makedirs(os.path.join(fake, "out"))
+    import shutil
+    shutil.copy(os.path.join(ROOT, "scripts", "lib_build_currency.sh"), os.path.join(fake, "scripts"))
+    open(os.path.join(fake, "scrip"), "w").write("x"); open(os.path.join(fake, "out", "libscrip_rt.so"), "w").write("x")
+    os.utime(os.path.join(fake, "scrip"), (1000, 1000)); os.utime(os.path.join(fake, "out", "libscrip_rt.so"), (1000, 1000))
+    open(os.path.join(fake, "src", "newer.c"), "w").write("int x;\n")
+    _pr = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "util_gc_census.py"), "safe-points",
+                          "--root", fake], capture_output=True, text=True)
+    ck(_pr.returncode == 2 and "REFUSED-TO-GRADE" in (_pr.stdout + _pr.stderr),
+       "safe-points: a binary OLDER than src/ REFUSES rc=2 and measures nothing -- this census derives its "
+       "DENOMINATOR from the built runtime, so a stale artifact changes WHICH CALLS ARE COUNTED, and a DONE-WHEN "
+       "read GREEN on an uncompiled tree before this refusal existed")
     tpl_xf = os.path.join(w, "crossfn.cpp")
     open(tpl_xf, "w").write('std::string a(){ return x86("call", "rt_concat", fp);\n'
                             '}\n'

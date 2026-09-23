@@ -116,6 +116,15 @@ def main():
                                           % (d - n, sp_unp if sp_unp is not None else -1, sp_part)))
                 print("      %-46s %s" % ("", "   (a poll IS emitted and a conditional jump steps over it -- cure is to"))
                 print("      %-46s %s" % ("", "   MOVE the poll past the landing pad, never to add a second one)"))
+            if nm.startswith("safe-point"):
+                # ⛔⭐ WHAT THIS COMPONENT MEASURES, SAID IN ITS OWN OUTPUT (ceo CEO-1133, ruling two).  It was said
+                # in rulings and ledgers while the display printed a bare percentage, and a reader who meets only
+                # the percentage reads a claim nobody made.  A component that cannot tell a poll that FIRES from one
+                # that never does must say so where the number is, not where the argument was.
+                print("      %-46s %s" % ("", "\u26d4 THIS LINE MEASURES PRESENCE, NOT CORRECTNESS: it reads whether a"))
+                print("      %-46s %s" % ("", "   poll is EMITTED at the site, never whether it FIRES, roots the right"))
+                print("      %-46s %s" % ("", "   value, or is the right FORM.  100% here is necessary and NOT"))
+                print("      %-46s %s" % ("", "   sufficient -- see the census's own POLL FORMS and UPPER BOUND lines."))
             if bad: fails.append("INSTRUMENTED/%s %d of %d" % (nm.split()[0], n, d))
         print("      %-46s %5d / %-5d  %-7s %s" % ("conservative visits deleted (want 0 remaining)", cons, 0, "100.0%" if cons == 0 else "n/a",
                                                    "" if cons == 0 else "<- %d remain" % cons))
