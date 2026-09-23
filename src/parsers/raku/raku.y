@@ -145,6 +145,12 @@ static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
     expr_add_child(e, r);
     return e;
 }
+static tree_t *rk_adverb_bool(int v) {
+    tree_t *b = make_call("__rk_mkbool");
+    tree_t *iv = ast_node_new(TT_ILIT); iv->v.ival = v;
+    expr_add_child(b, iv);
+    return b;
+}
 static const char *rk_multi_mangle(const char *base, ExprList *params) {
     static char buf[512]; int np = params ? params->count : 0;
     int pos = snprintf(buf, sizeof buf, "%s$%d", base, np);
@@ -1036,6 +1042,19 @@ stmt
         { $$=rk_phaser_mark($1,$2); ct_drop($1); }
     | PHASER block ';'
         { $$=rk_phaser_mark($1,$2); ct_drop($1); }
+    | PHASER expr ';'
+        { $$=rk_phaser_mark($1,seq1($2)); ct_drop($1); }
+    | PHASER VAR_SCALAR '=' expr ';'
+        { $$=rk_phaser_mark($1,seq1(expr_binary(TT_ASSIGN,var_node($2),rk_scalar_rhs($4)))); ct_drop($1); }
+    | PHASER VAR_ARRAY '=' expr ';'
+        { $$=rk_phaser_mark($1,seq1(expr_binary(TT_ASSIGN,var_node($2),rk_arr_rhs($4)))); ct_drop($1); }
+    | PHASER VAR_HASH '=' expr ';'
+        { $$=rk_phaser_mark($1,seq1(expr_binary(TT_ASSIGN,var_node($2),$4))); ct_drop($1); }
+    | PHASER VAR_HASH '<' IDENT '>' '=' expr ';'
+        { tree_t *c=ast_node_new(TT_HASH_SET); ast_push(c,var_node($2)); ast_push(c,leaf_sval(TT_QLIT,$4)); ast_push(c,$7);
+          $$=rk_phaser_mark($1,seq1(c)); ct_drop($1); }
+    | PHASER KW_SAY expr ';'
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,$3); $$=rk_phaser_mark($1,seq1(s)); ct_drop($1); }
     | unless_stmt       { $$=$1; }
     | until_stmt        { $$=$1; }
     | repeat_stmt       { $$=$1; }
@@ -2220,6 +2239,16 @@ arg_list
     : expr              { $$=exprlist_append(exprlist_new(),$1); }
     | arg_list ',' expr { $$=exprlist_append($1,$3); }
     | arg_list ','      { $$=$1; }
+    | ':' IDENT               { $$=exprlist_append(exprlist_new(),rk_adverb_bool(1)); ct_drop($2); }
+    | ':' '!' IDENT           { $$=exprlist_append(exprlist_new(),rk_adverb_bool(0)); ct_drop($3); }
+    | ':' IDENT '(' expr ')'  { $$=exprlist_append(exprlist_new(),$4); ct_drop($2); }
+    | ':' IDENT '(' ')'       { $$=exprlist_append(exprlist_new(),make_call("__rk_undef")); ct_drop($2); }
+    | ':' IDENT '<' IDENT '>' { $$=exprlist_append(exprlist_new(),leaf_sval(TT_QLIT,$4)); ct_drop($2); ct_drop($4); }
+    | arg_list ',' ':' IDENT              { $$=exprlist_append($1,rk_adverb_bool(1)); ct_drop($4); }
+    | arg_list ',' ':' '!' IDENT          { $$=exprlist_append($1,rk_adverb_bool(0)); ct_drop($5); }
+    | arg_list ',' ':' IDENT '(' expr ')' { $$=exprlist_append($1,$6); ct_drop($4); }
+    | arg_list ',' ':' IDENT '(' ')'      { $$=exprlist_append($1,make_call("__rk_undef")); ct_drop($4); }
+    | arg_list ',' ':' IDENT '<' IDENT '>' { $$=exprlist_append($1,leaf_sval(TT_QLIT,$6)); ct_drop($4); ct_drop($6); }
     ;
 paren_group
     : '(' ')'         { $$=make_call("__rk_arr"); }

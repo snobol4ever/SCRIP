@@ -51,20 +51,20 @@ WS       [ \t\r]
 <POD><<EOF>>         { BEGIN(INITIAL); yyterminate(); }
 "my"            { return KW_MY; }
 "our"           { return KW_MY; }
-"BEGIN"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"CHECK"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"INIT"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"END"/{PHB}     { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"ENTER"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"LEAVE"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"KEEP"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"UNDO"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"PRE"/{PHB}     { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"POST"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"FIRST"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"LAST"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"NEXT"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
-"TEMP"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"BEGIN"         { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"CHECK"         { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"INIT"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"END"           { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"ENTER"         { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"LEAVE"         { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"KEEP"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"UNDO"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"PRE"           { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"POST"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"FIRST"         { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"LAST"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"NEXT"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
+"TEMP"          { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
 "once"/{PHB}    { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
 "quietly"/{PHB} { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
 "react"/{PHB}   { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
