@@ -51,7 +51,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
 CORPUS = os.path.join(S4E, "corpus")
 LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
-PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"]
+# ⛔⭐ heap_kb JOINED THIS PREFIX 2026-09-23 (Lon / CEO-1167) AND THAT IS NOT A COSMETIC ENTRY. This
+# list binds BY POSITION, once, and read_master() treats everything after it as a feature column by
+# construction -- so the instant the column landed in ALL.csv without this line moving, all seven
+# languages REFUSED with "1/40 feature column(s) declared but NEVER FILLED: heap_kb". That refusal is
+# the design working: an attribute column silently counted as an unfilled feature would have dragged
+# every language's coverage denominator without one number changing its name. Measured, in that order.
+PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb"]
 DEFAULT_FLOOR = 10   # the GOAL text's own worked example: SNOBOL4, the model shape, flags "below 10".
 
 

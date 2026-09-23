@@ -735,7 +735,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -753,6 +753,13 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     if prog_argv:
         argv = argv + ["--"] + [str(a) for a in prog_argv]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
+    # ⛔⭐ THE DECLARED ARENA IS EXPORTED HERE, FOR THIS PROGRAM ONLY (Lon 2026-09-23, "each test
+    # should have the needed amount of memory in the attribute TSV/CSV files"; CEO-1167). heap_kb
+    # None means the cell was empty, and an empty cell is the SHIPPED DEFAULT -- so the env of an
+    # undeclared program is byte-identical to what it was before this parameter existed, which is
+    # what keeps this from being a fleet-wide re-grade wearing a reader's name.
+    if heap_kb:
+        env["SCRIP_HEAP_KB"] = str(heap_kb)
     # ⛔⭐ cwd IS THE SOURCE FILE'S OWN DIRECTORY, NOT THE HARNESS'S. A corpus program's relative
     # opens (Icon `open("X")`, and any read of a data companion) resolve against the RUNNING file's
     # directory -- that is how a loose file is run by hand and by test_corpus_snobol4.sh. Without
@@ -804,7 +811,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -849,6 +856,12 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     _same = out_bin.parent.resolve() == run_dir.resolve()
     argv = stdbuf_wrap(paths, [out_bin.name]) + [str(a) for a in (prog_argv or [])]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]), PATH=str(out_bin.parent) + os.pathsep + os.environ.get("PATH", ""))
+    # ⛔⭐ EXPORTED AT THE RUN AND DELIBERATELY NOT AT THE COMPILE. `scrip --compile` runs the COMPILER
+    # in this same process image, so setting the arena there would grade the compiler at the test's
+    # declared window instead of the test -- a number wearing the wrong subject's name. The declaration
+    # is about the program's live set, so it is applied where the program lives.
+    if heap_kb:
+        env["SCRIP_HEAP_KB"] = str(heap_kb)
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
     return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
@@ -1006,6 +1019,11 @@ class Entry:
                                    # grading. DECLARED beside the data, never inferred, never in a runner.
         self.want_rc = want_rc    # int: the exit code a CORRECT run of this entry produces. 0 unless the
                                    # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
+        self.heap_kb = None       # int KB this entry DECLARES it needs, or None = the shipped default.
+                                   # Lon 2026-09-23 / CEO-1167. DECLARED in ALL.csv's heap_kb column (or a
+                                   # travelling <stem>.heap sidecar), never inferred -- a program's own text
+                                   # cannot say how much live set it has, and a runner that guessed would be
+                                   # pinning an arena, which is the one thing this column exists to replace.
         self.xfail_reason = xfail_reason  # str: WHY this entry is expected red, or None. Carried in the
                                    # family.xfail sidecar, NEVER in the banner -- boolean and reason live in
                                    # different layers (see the reason-sidecar section). ⛔ DOCUMENTATION ONLY:
@@ -1119,7 +1137,7 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, moderef=None, where="", bin_dir=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, moderef=None, where="", bin_dir=None, heap_kb=None):
     """⛔⭐ THE PER-MODE REF IS RESOLVED HERE AND NOWHERE ELSE (CEO-581), at the single point where this
     harness already knows BOTH the expected text and which mode is about to be run. Resolving it in the
     caller would mean every caller resolving it, which is how one question gets three written answers --
@@ -1134,13 +1152,16 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
         exp, _n = apply_moderef(expected_text, rows, where=f"{where or Path(sno_path).stem} [{mode}]")
         return exp
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, _exp_for("m3"), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask)
+        out["m3"] = run_m3(paths, sno_path, _exp_for("m3"), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, _exp_for("m4"), Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir)
+            out["m4"] = run_m4(paths, sno_path, _exp_for("m4"), Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
+        # ⛔ heap_kb is NOT threaded here for the identical reason: --dump-ast never runs the program, so
+        # it has no live set and a declared arena could not change its verdict. An ast-graded suite whose
+        # csv carries a declaration is not an error -- the declaration simply has nothing to act on.
         out["ast"] = run_ast(paths, sno_path, expected_text, want_rc=want_rc)
     return out
 
@@ -1929,7 +1950,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
                              mask=getattr(entry, 'mask', None), moderef=getattr(entry, 'moderef', None),
-                             where=entry.name, bin_dir=Path(td))
+                             where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None))
 
 
 # ================================================================== CLI ===
@@ -2662,6 +2683,25 @@ def cmd_run(args):
         if not entries:
             refuse(f"--shard {args.shard} selects zero of the {_all} entries -- N exceeds the suite; a shard that grades nothing is not a board")
         shard_tag = f"shard={_k}/{_n}"
+    # ⛔⭐⭐ HONOUR THE heap_kb COLUMN -- UNCONDITIONALLY, AND THAT IS THE WHOLE DESIGN (Lon 2026-09-23,
+    # verbatim: "Well, each test should have the needed amount of memory in the attribute TSV/CSV files.";
+    # CEO-1167). There is deliberately NO --by-heap-column flag beside --by-modes-column, because the two
+    # columns answer different kinds of question. `modes` says HOW to grade an entry, so a caller may
+    # legitimately want the other grading. `heap_kb` says what the entry NEEDS IN ORDER TO RUN AT ALL: a
+    # declared need is an attribute of the test, so it IS the shipped configuration for that test, and a
+    # board that could be asked to ignore it would be a board that can be asked to grade a program at an
+    # arena its own suite says is too small. That is not a second opinion, it is a known-false reading.
+    # ⛔ A SUITE WITH NO COLUMN, OR A COLUMN THAT IS EMPTY EVERYWHERE, CHANGES NOTHING: heap_declarations()
+    # returns {} and every entry keeps heap_kb=None, so the env of every existing run is byte-identical.
+    _heap_decl, _heap_src = heap_declarations(args.sno)
+    if _heap_decl:
+        for _e in entries:
+            if _e.name in _heap_decl:
+                _e.heap_kb = _heap_decl[_e.name]
+        _named = sum(1 for _e in entries if _e.heap_kb)
+        print(f"DECLARED ARENA: {_named} of {len(entries)} entr(y/ies) carry a heap_kb declaration from "
+              f"{_heap_src} and run at it; the rest run at the shipped default. "
+              + ", ".join(f"{_e.name}={_e.heap_kb}KB" for _e in entries if _e.heap_kb), file=sys.stderr)
     # ⛔⭐ HONOUR THE modes COLUMN (row board-icon-master-runs-the-ast-graded-parser-fixtures, ceo mint 2026-09-03).
     # MEASURED cause: 153 of the icon master's 534 entries are parser-ladder fixtures whose .ref is a --dump-ast
     # DUMP, and this runner graded them by RUNNING them. Their reds were inevitable and meant nothing, and the
@@ -3339,6 +3379,111 @@ def cmd_extract(args):
     refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
 
 
+# ====================================================== declared arena ===
+# ⛔⭐ THESE THREE MIRROR src/runtime/rt/gc_heap.c AND A GATE HOLDS THEM TO IT. They are not a style
+# choice and they are not a guess: GC_HEAP_CAP_KB is the SHIPPED HARD CAP, GC_HEAP_KB_FLOOR the lowest
+# window the runtime will accept, and GC_HEAP_KB_MAX the highest. A copy of a runtime constant that
+# nothing checks is the false-label class this whole column exists to close, so
+# test_gate_suite_runners_honour_the_tests_declared_memory.sh re-reads the #defines and reds on drift.
+GC_HEAP_CAP_KB = 4096          # #define GC_HEAP_CAP_KB 4096
+GC_HEAP_KB_FLOOR = 64          # #define GC_HEAP_KB_FLOOR 64
+GC_HEAP_KB_MAX = 4096 * 1024   # the ceiling SCRIP_HEAP_KB itself refuses past
+
+
+def heap_sidecar_path(sno_path):
+    """The WRITE target for an extracted suite's arena declaration: <stem>.heap beside the pair, named the
+    same way .modes/.in/.xfail are. ⛔⭐ THE SIDECAR IS NOT OPTIONAL POLISH. CEO-1127's evidence bar has every
+    seat grading ENTRIES EXTRACTED STANDALONE, and an extracted entry has no sibling ALL.csv -- so a
+    declaration that lived only in the csv would be silently dropped by exactly the workflow the fleet uses
+    to cure, and a program that needs 16384 KB would abort in its own cure loop while passing on the board.
+    Declaration travels with the entry or it is not a declaration."""
+    return str(Path(sno_path).with_suffix(".heap"))
+
+
+def validate_heap_kb(raw, where):
+    """Parse ONE heap_kb cell into an int, or refuse rc=2 naming the cell. Returns None for the empty
+    cell, which is the documented "absent means the shipped default" and is never an error.
+
+    ⛔⭐⭐ A DECLARATION AT OR BELOW THE SHIPPED CAP IS REFUSED, AND THE REASON IS MEASURED, NOT REASONED.
+    gc_heap.c reads `cap_kb = GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb;` -- so SCRIP_HEAP_KB moves the
+    INITIAL WINDOW always and the HARD CAP only once it climbs past GC_HEAP_CAP_KB. Measured by the coo
+    2026-09-23 on one binary and one 60000-element Icon witness: SCRIP_HEAP_KB at 128, 2048 and 4096 all
+    die rc=134 at a cap the runtime itself prints as 4096 KB, 4097 moves it to 4100, and 8192 completes
+    rc=0. So a cell reading 2048 declares NOTHING ABOUT CAPACITY -- the program it names can reach 4096 KB
+    with or without it -- while looking exactly like a capacity declaration to every reader downstream.
+    That is the pin-the-runtime-overrides class COO-151 caught one instrument ago, and the baton's own
+    guardrail (matched at that arena, NOT matched one step below) is unprovable for such a cell: one step
+    below has the same cap, so both arms read the same and the "evidence" is vacuous. The cell is refused
+    with this sentence rather than accepted as a silent no-op. A run that wants a SMALLER window than the
+    default is asking for collection pressure, and CEO-1158's first clause already names the knob for
+    that: STRESS, never the arena."""
+    if raw is None:
+        return None
+    t = str(raw).strip()
+    if not t:
+        return None
+    if not re.fullmatch(r"[0-9]+", t):
+        refuse(f"{where}: heap_kb={t!r} is not a plain integer count of KB -- a declaration is a "
+               f"measurement, and a cell this reader cannot parse is not one")
+    v = int(t)
+    if v <= GC_HEAP_CAP_KB:
+        refuse(f"{where}: heap_kb={v} is at or below the shipped hard cap of {GC_HEAP_CAP_KB} KB and is "
+               f"REFUSED. gc_heap.c raises the cap only once the window passes {GC_HEAP_CAP_KB} "
+               f"(cap_kb = GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb), so this cell changes the INITIAL "
+               f"WINDOW and nothing about what the program can reach -- it would read as a capacity "
+               f"declaration while granting no capacity. Measured 2026-09-23: 128/2048/4096 all abort at a "
+               f"printed 4096 KB cap on one witness, 8192 completes. Declare a number ABOVE "
+               f"{GC_HEAP_CAP_KB}, or leave the cell empty for the shipped default and reach for "
+               f"SCRIP_GC_STRESS if the intent was collection pressure (CEO-1158)")
+    if v > GC_HEAP_KB_MAX:
+        refuse(f"{where}: heap_kb={v} is above the {GC_HEAP_KB_MAX} KB ceiling SCRIP_HEAP_KB itself "
+               f"refuses -- the runtime would abort on this value rather than run at it")
+    return v
+
+
+def heap_declarations(sno_path):
+    """{entry: declared arena in KB} for the suite at `sno_path`, plus the name of the evidence used.
+
+    ⛔⭐ TWO SOURCES IN ONE ORDER, THE SAME ORDER AND FOR THE SAME REASON AS modes_declarations() ONE
+    FUNCTION UP: a `<stem>.heap` sidecar TRAVELS with an extracted family, a sibling `ALL.csv` only exists
+    for a suite still sitting in the corpus. Returns ({}, None) when neither is reachable, which is an
+    honest "nobody declared" and never a guess -- and an undeclared program runs at the shipped default,
+    which is the whole point of the column being sparse.
+    ⛔ AN ALL.csv WITH NO heap_kb COLUMN IS NOT AN ERROR HERE. It is a suite nobody has converted yet, and
+    every one of its entries takes the shipped default -- the same verdict it got before this column
+    existed. Only --by-heap-column, which asks to be graded BY the declaration, refuses on its absence."""
+    _p = Path(heap_sidecar_path(sno_path))
+    if _p.is_file():
+        out = {}
+        for ln, line in enumerate(_p.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            name, _, kb = line.partition("\t")
+            v = validate_heap_kb(kb, f"{_p}:{ln}")
+            if v is not None:
+                out[name.strip()] = v
+        if out:
+            return out, _p.name
+    _csv_path = Path(sno_path).parent / "ALL.csv"
+    if _csv_path.is_file():
+        import csv as _csvm
+        out = {}
+        try:
+            with open(_csv_path, newline="") as _f:
+                rdr = _csvm.DictReader(_f)
+                if not rdr.fieldnames or "heap_kb" not in rdr.fieldnames:
+                    return {}, None
+                for _n, _row in enumerate(rdr, 2):
+                    v = validate_heap_kb(_row.get("heap_kb"), f"{_csv_path}:{_n}")
+                    if v is not None:
+                        out[_row.get("entry")] = v
+        except OSError:
+            return {}, None
+        if out:
+            return out, _csv_path.name
+    return {}, None
+
+
 def modes_sidecar_path(sno_path):
     """The WRITE target for an extracted suite's modes declaration: <stem>.modes beside the pair, named the
     same way .in and .xfail are. Kept separate from the discovery form below for the reason the extractor
@@ -3458,6 +3603,29 @@ def cmd_extract_family(args):
             _decl_all = {r["entry"]: (r.get("modes") or "").strip() for r in _csv.DictReader(_cf)}
         for _e in sel:
             _mf.write("%s\t%s\n" % (_e.name, _decl_all.get(_e.name, "")))
+    # ⛔⭐⭐ AND SO DOES heap_kb, FOR A HARDER REASON THAN modes. CEO-1127's evidence bar has every one of the
+    # ten seats grading ENTRIES EXTRACTED STANDALONE -- that is the whole reason a seat can clear its lane
+    # without taking the box from the other nine. An extracted pair has no sibling ALL.csv, so a declaration
+    # left behind here would mean a program that needs 16384 KB runs at the shipped 128 in EXACTLY the
+    # workflow the fleet cures in, while passing on the board it is published from. The two arms would then
+    # disagree for a reason neither arm names, and the seat would be handed a phantom capacity red in its own
+    # cure loop. Written for the SELECTED entries only, same population as the modes sidecar above, and only
+    # when at least one of them actually declares -- an all-empty sidecar is noise that reads like evidence.
+    _heap_sel = {}
+    with open(args.csv, newline="") as _cf:
+        for _r in _csv.DictReader(_cf):
+            _v = (_r.get("heap_kb") or "").strip()
+            if _v:
+                _heap_sel[_r["entry"]] = _v
+    _mine = [(_e.name, _heap_sel[_e.name]) for _e in sel if _e.name in _heap_sel]
+    if _mine:
+        with open(heap_sidecar_path(args.out_sno), "w", encoding="utf-8") as _hf:
+            _hf.write("# heap_kb declaration carried out of %s by extract-family (family=%s). entry<TAB>KB.\n"
+                      % (Path(args.csv).name, args.family))
+            for _n, _v in _mine:
+                _hf.write("%s\t%s\n" % (_n, _v))
+    elif os.path.exists(heap_sidecar_path(args.out_sno)):
+        os.remove(heap_sidecar_path(args.out_sno))
 
 
 def cmd_list(args):

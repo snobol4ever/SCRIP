@@ -936,10 +936,16 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
                          % (len(set(before)), len(set(after)))); return 2
     csv_origin = {}
     csv_modes = {}
+    # ⛔⭐ heap_kb IS CARRIED FORWARD, NEVER RE-DERIVED (Lon 2026-09-23 / CEO-1167). A declaration is a
+    # MEASUREMENT a seat paid for with two readings; nothing in an entry's text can regenerate it, so a
+    # rebuild or a resort that dropped the cell would silently return a 16384 KB program to the shipped
+    # 128 and turn a cured row back into a capacity red with no diff naming the cause.
+    csv_heap = {}
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
             csv_modes[row["entry"]] = (row.get("modes") or "").strip()
+            csv_heap[row["entry"]] = (row.get("heap_kb") or "").strip()
     _resort_modes = _make_resort_modes(csv_modes, modes_decl)
     _tag = ".tmp-%d" % os.getpid()
     tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv = out_sno + _tag, out_ref + _tag, out_in + _tag, out_x + _tag, out_csv + _tag
@@ -1008,12 +1014,12 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
             _cleanup(); return 2
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb"] + [c for c, _ in COLS])
             for rank, e in enumerate(ordered, 1):
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            _resort_modes(e.name, fam)] + [flags_of[e.name][c] for c, _ in COLS])
+                            _resort_modes(e.name, fam), csv_heap.get(e.name, "")] + [flags_of[e.name][c] for c, _ in COLS])
     except BaseException:
         _cleanup(); raise
     os.replace(tmp_sno, out_sno); os.replace(tmp_ref, out_ref); os.replace(tmp_csv, out_csv)
@@ -1074,23 +1080,29 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
         return 2
     csv_origin = {}
     csv_modes = {}
+    # ⛔⭐ heap_kb IS CARRIED FORWARD, NEVER RE-DERIVED (Lon 2026-09-23 / CEO-1167). A declaration is a
+    # MEASUREMENT a seat paid for with two readings; nothing in an entry's text can regenerate it, so a
+    # rebuild or a resort that dropped the cell would silently return a 16384 KB program to the shipped
+    # 128 and turn a cured row back into a capacity red with no diff naming the cause.
+    csv_heap = {}
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
             csv_modes[row["entry"]] = (row.get("modes") or "").strip()
+            csv_heap[row["entry"]] = (row.get("heap_kb") or "").strip()
     _resort_modes = _make_resort_modes(csv_modes, modes_decl)
     tmp_csv = out_csv + ".tmp-%d" % os.getpid()
     try:
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb"] + [c for c, _ in COLS])
             for rank, e in enumerate(entries, 1):
                 text = "\n".join(e.sno_lines)
                 flags = {c: fn(text) for c, fn in COLS}
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            _resort_modes(e.name, fam)] + [flags[c] for c, _ in COLS])
+                            _resort_modes(e.name, fam), csv_heap.get(e.name, "")] + [flags[c] for c, _ in COLS])
     except BaseException:
         if os.path.exists(tmp_csv):
             os.remove(tmp_csv)
@@ -1631,7 +1643,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
             raise SystemExit(2)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in cols])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb"] + [c for c, _ in cols])
             for rank, e in enumerate(all_entries, 1):
                 text = "\n".join(e.sno_lines)
                 flags_e = {c: fn(text) for c, fn in cols}
@@ -1639,7 +1651,8 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
                 origin = getattr(e, "origin", None) or old_row.get("origin") or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 modes = modes_for_origin.get(origin) or old_row.get("modes") or "UNKNOWN"
-                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), modes]
+                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), modes,
+                            (old_row.get("heap_kb") or "").strip()]
                            + [flags_e[c] for c, _ in cols])
     except BaseException:
         for q in (tmp_sno, tmp_ref, tmp_csv, tmp_in):
@@ -1913,6 +1926,8 @@ def main():
         except Exception:
             pass
     _csv_modes = {}   # per-entry `modes` carried forward; empty when there is no master CSV yet
+    _csv_heap = {}    # per-entry `heap_kb` carried forward, same contract and for the sharper reason: see
+                      # the carried-forward note above -- a dropped declaration is a silent capacity red
     if os.path.isfile(master_sno_path) and os.path.isfile(os.path.join(OUTDIR, "ALL.ref")):
         if lang == "snobol4":
             base_entries = h.read_suite(master_sno_path, os.path.join(OUTDIR, "ALL.ref"),
@@ -1925,6 +1940,7 @@ def main():
             for _row in csv.DictReader(open(master_csv_path)):
                 _csv_origin[_row["entry"]] = _row.get("origin", "")
                 _csv_modes[_row["entry"]] = (_row.get("modes") or "").strip()
+                _csv_heap[_row["entry"]] = (_row.get("heap_kb") or "").strip()
         for e in base_entries:
             e.origin = _csv_origin.get(e.name) or ("master__%s" % e.name)
             e.src_mode = "base"
@@ -2426,10 +2442,10 @@ def main():
         _merge_modes = _make_resort_modes(_csv_modes, _modes_decl)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb"] + [c for c, _ in COLS])
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]
-                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _merge_modes(e.name, fam)] + [flags[c] for c, _ in COLS])
+                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _merge_modes(e.name, fam), _csv_heap.get(e.name, "")] + [flags[c] for c, _ in COLS])
         # ⛔⭐ MERGE, NEVER OVERWRITE (hq_P seat08 2026-09-04, row snobol4-every-non-package-source-...): this
         # run only ever discovers tests/<lang>/ loose-pair exclusions -- it has no opinion on additive
         # (demos/benchmarks) exclusions a DIFFERENT run of this same builder (--additive) already wrote, and a

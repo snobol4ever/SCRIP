@@ -29,6 +29,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⛔⭐ THE DECLARED ARENA (Lon 2026-09-23, "each test should have the needed amount of memory in the
+# attribute TSV/CSV files"; CEO-1167). SOURCED, never reimplemented -- this runner, its two Icon siblings
+# and corpus_suite_harness.py must not be able to disagree about what one cell means.
+. "$HERE/lib_declared_arena.sh"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
@@ -41,6 +45,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
 PKG="$CORPUS/packages/icon/arizona_tests"
+PKG_CSV="$PKG/ALL.csv"   # the attribute file the heap_kb declaration lives in (CEO-1167)
 SUITE_SUBDIRS="general special"   # ⛔ every subdirectory the package ships; add a new one here, not to a private list elsewhere
 # ⛔⭐⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-527, landed CEO-578 by hq_T 2026-09-11). A program
 # whose ground truth is not Arizona ICON but the Arizona DISTRIBUTION has no baseline answer here, so it is OUT of
@@ -189,6 +194,17 @@ for std in "$SUITE"/*.std; do
   stdin_file="/dev/null"
   [ -f "$dat" ] && stdin_file="$dat"
 
+  # ⛔⭐ THE ENTRY KEY IS "$sub/$name", WHICH IS EXACTLY WHAT util_build_package_suite.py WRITES INTO THE
+  # entry COLUMN for a nested source (it qualifies as "parentdir/stem"). Using the bare $name here would
+  # silently match nothing and every declaration would read as absent -- a default that looks like a
+  # decision. _ARENA_PFX expands to NOTHING for an undeclared entry, so an undeclared program's command
+  # line is byte-identical to what it was before this existed.
+  _ARENA_PFX=""
+  if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$sub/$name"); then
+    echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts"; exit 2
+  fi
+  [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="$ARENA_NAMES $sub/$name=${_arena_kb}KB"; }
+
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
   # ⛔ CWD FIDELITY (RULES.md THE INSTRUMENT LAWS): upstream's own Test-icon runs every program with the
   # test directory AS its CWD (that's how relative opens like open("gc1.icn") and io.icn's "./tmp1"/
@@ -208,7 +224,7 @@ for std in "$SUITE"/*.std; do
   # three route to different cures: a wrong answer is a semantics bug to diff against the oracle, a crash is a
   # box or runtime fault to open under gdb, and a hang is neither. Collapsing them costs the reader the first
   # and cheapest classification of the defect, and the board that hides it looks tidier for doing so.
-  m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  m3out=$(cd "$SUITE" && $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   if printf '%s' "$m3out" | grep -q 'parse error'; then
@@ -245,7 +261,7 @@ for std in "$SUITE"/*.std; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" timeout "$TIMEOUT" "$name" < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" $_ARENA_PFX timeout "$TIMEOUT" "$name" < "$stdin_file" 2>&1); m4rc=$?
       m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi
@@ -370,6 +386,13 @@ GATE_NAME=test_icon_arizona_suite gate_bin_unmoved
 # onto a number that describes no single tree.
 GATE_NAME=test_icon_arizona_suite gate_tree_unmoved
 echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m3_crash=$M3_CRASH m3_hang=$M3_HANG m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL m4_crash=$M4_CRASH m4_hang=$M4_HANG"
+# ⛔⭐ THE ARENA IS PART OF THE ROW'S LABEL. RULES.md THE INSTRUMENT LAWS: a number is not labelled until it
+# carries its tree, mode, oracle and RT_OPT -- and since CEO-1167 a board may grade two programs at two
+# different arenas, so the arena joins that list or the row cannot be reproduced from its own output. The
+# receipt prints even when nothing declares, because "0 declared" is the reading that says the whole board
+# ran at the shipped default, and its ABSENCE would be indistinguishable from a runner that forgot to look.
+declared_arena_receipt "$PKG_CSV"
+[ -n "$ARENA_NAMES" ] && echo "    DECLARED ARENA HONOURED THIS RUN:$ARENA_NAMES"
 [ -n "$MODEREF_NAMES" ] && echo "    PER-MODE REF (CEO-581: an invocation-determined line, graded in full against the oracle's answer for THIS invocation; receipt in the .moderef row):$MODEREF_NAMES"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the

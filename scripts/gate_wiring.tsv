@@ -501,6 +501,7 @@ test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
 test_gate_suite_banner_check_writes_nothing_and_render_is_scoped.sh	WIRED	-	-	-
 test_gate_suite_board_line_prints_shipped_with_outside_named.sh	WIRED	-	-	-
 test_gate_suite_population_diff_reds_on_a_moved_skip.sh	WIRED	-	-	-
+test_gate_suite_runners_honour_the_tests_declared_memory.sh	WIRED	-	-	-
 test_gate_suite_set_does_not_move_another_suites_row.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-

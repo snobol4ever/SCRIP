@@ -404,14 +404,32 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     # relitigate a settled call but because it is strictly more informative for zero behaviour difference
     # (a human or future tool reading the CSV sees the real grading modes instead of a blank that looks
     # identical to "nobody declared anything"), and it is already measured working (jcon_tests, gimpel).
+    # ⛔⭐⭐ READ THE OLD CSV BEFORE OVERWRITING IT, FOR heap_kb AND heap_kb ALONE (Lon 2026-09-23 /
+    # CEO-1167). Every other column in this file is DERIVED -- re-run the builder and it regenerates
+    # byte-identically from the package sources. heap_kb is the one column that is not: it is a
+    # MEASUREMENT a seat paid for with two readings (matched at that arena, not matched one step below),
+    # and nothing in a program's text can regenerate it. This builder overwrote out_csv unconditionally,
+    # so without this read a routine rebuild would silently return a declared 65536 KB program to the
+    # shipped default -- a capacity red reappearing with no diff naming the cause, which is precisely the
+    # failure the master builder's own MERGE-NEVER-OVERWRITE note was written about one file over.
+    _old_heap = {}
+    if out_csv.exists():
+        with open(out_csv, newline="") as _f:
+            for _row in csv.DictReader(_f):
+                _v = (_row.get("heap_kb") or "").strip()
+                if _v:
+                    _old_heap[_row.get("entry")] = _v
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes"] + [c for c, _fn in cols])
+        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes", "heap_kb"] + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, pkg_modes] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, pkg_modes, _old_heap.get(e.name, "")] + [flags_row[c] for c, _fn in cols])
+    if _old_heap:
+        print("    heap_kb: %d declaration(s) carried forward across this rebuild: %s"
+              % (len(_old_heap), ", ".join("%s=%sKB" % kv for kv in sorted(_old_heap.items()))), file=sys.stderr)
 
     if excluded:
         out_excl.write_text("\n".join(f"{name}: {reason}" for name, reason in sorted(excluded)) + "\n")

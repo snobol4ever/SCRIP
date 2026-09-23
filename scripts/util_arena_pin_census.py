@@ -25,7 +25,7 @@ read gc2 0 of 5 under an outer KB=64 while passing at its own default.  A pin th
 therefore NOT A PIN, and this census grades that per gate (PIN-UNSAFE) instead of treating every pin as equal.
 CEO-1153 makes `env -u` a condition of the sweep; two-knobs-set-refuses-rc2 is the ceo's 33rd batch.
 """
-import os, re, subprocess, sys
+import glob, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 
@@ -144,6 +144,54 @@ def scan(gatedir):
     return gates, rows, ambiguous, mentions_only
 
 
+def declarations():
+    """Every heap_kb DECLARATION shipped in a corpus attribute file, as (path, entry, value, verdict).
+
+    ⛔⭐⭐ A DECLARATION IS NOT A PIN, AND THIS FUNCTION EXISTS SO THE TWO ARE TOLD APART BY EVIDENCE RATHER
+    THAN BY WHICH FILE THE NUMBER HAPPENS TO SIT IN (Lon 2026-09-23 / CEO-1167).  A PIN is a gate or a runner
+    deciding an arena for a program FROM THE OUTSIDE -- that is the population everything above this line
+    hunts, and it is a defect because the program never asked and the number is invisible to anyone reading
+    the test.  A DECLARATION is the TEST ITSELF saying what live set it has, in its own attribute row, in a
+    reviewable diff, carried forward across every rebuild by both suite builders.  Same environment variable,
+    opposite direction of authority.  Without this section a reader who cured the 18 pins would go looking
+    for the declarations next and find them indistinguishable from the thing they just removed.
+
+    ⛔ THE VERDICT COLUMN APPLIES lib_declared_arena.sh's OWN FLOOR, because a cell the runners REFUSE must
+    never be counted here as a declaration in force -- a census that counts what the cure does not apply is
+    the worse half of the pair (COO-153)."""
+    import csv as _csv
+    root = os.environ.get("S4E_HOME") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(HERE))))
+    corpus = os.path.join(root, "corpus")
+    if not os.path.isdir(corpus):
+        corpus = os.path.join(os.path.dirname(os.path.dirname(HERE)), "corpus")
+    out, nocol, total_files = [], [], 0
+    pats = [os.path.join(corpus, "tests", "*", "ALL.csv"), os.path.join(corpus, "packages", "*", "*", "ALL.csv")]
+    for pat in pats:
+        for f in sorted(glob.glob(pat)):
+            total_files += 1
+            try:
+                with open(f, newline="", encoding="utf-8") as fh:
+                    rdr = _csv.DictReader(fh)
+                    if not rdr.fieldnames or "heap_kb" not in rdr.fieldnames:
+                        nocol.append(f); continue
+                    for row in rdr:
+                        v = (row.get("heap_kb") or "").strip()
+                        if not v:
+                            continue
+                        if not v.isdigit():
+                            verdict = "REFUSED (unparseable)"
+                        elif int(v) <= 4096:
+                            verdict = "REFUSED (<= the 4096 KB shipped cap: grants no capacity)"
+                        elif int(v) > 4096 * 1024:
+                            verdict = "REFUSED (above the ceiling SCRIP_HEAP_KB accepts)"
+                        else:
+                            verdict = "in force"
+                        out.append((os.path.relpath(f, corpus), row.get("entry"), v, verdict))
+            except OSError:
+                nocol.append(f)
+    return out, nocol, total_files
+
+
 def main():
     blocking = blocking_set()
     if blocking is None:
@@ -173,6 +221,24 @@ def main():
             tagged = "AMBIGUOUS(heredoc)" if (i, ln) in ambig else "code"
             print("        %-5s %-18s %s" % ("L%d" % i, tagged, ln[:80]))
         print("        %s" % pin)
+
+    decls, nocol, nfiles = declarations()
+    print()
+    print("  DECLARED IN A SUITE'S ATTRIBUTE FILE (%d) -- ⛔ NOT PINS, AND THE DISTINCTION IS THE POINT." % len(decls))
+    print("    A pin above is a gate deciding an arena for a program from the OUTSIDE, invisible to anyone reading")
+    print("    the test.  A declaration is the TEST saying what it needs, in its own row, in a reviewable diff,")
+    print("    carried forward by both suite builders (Lon 2026-09-23, CEO-1167).  Same variable, opposite authority.")
+    if decls:
+        for path, entry, val, verdict in decls:
+            print("      %-46s %-40s %8s KB  %s" % (path, (entry or "")[:40], val, verdict))
+    else:
+        print("      (none yet -- the column landed across all %d attribute file(s) in one landing and every cell is" % nfiles)
+        print("       empty, which means every entry runs at the shipped default.  Each HQ writes the values for its")
+        print("       own suites in its own lane, with the two readings that justify each number.)")
+    if nocol:
+        print("    ⛔ %d attribute file(s) carry NO heap_kb column -- no entry in them can declare anything:" % len(nocol))
+        for f in nocol:
+            print("      %s" % f)
     print()
     print("  MENTIONED ONLY IN A COMMENT, SO NOT PINNED (%d) -- THIS IS THE SET A LINE-STRIPPED grep AND A RAW grep"
           % len(mentions_only))
