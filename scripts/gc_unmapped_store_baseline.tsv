@@ -49,10 +49,11 @@ hb_kw_cset_index_across_a_collection.icn	0	0	12	51
 hb_mkexpr_unmapped_spine_store.sno	6	0	6	12
 hb_nested_match_outer_subject.sno	6	6	12	33
 hb_nv.sno	16	0	16	39
-hb_pl_findall.pl	0	54	70	1002
-hb_pl_root_cells.pl	0	42	58	1068
-hb_pldb.pl	0	46	62	864
-hb_plj_batch_b.pl	0	46	62	945
+hb_pl_findall.pl	0	54	70	1011
+hb_pl_root_cells.pl	0	42	58	1077
+hb_pldb.pl	0	46	62	873
+hb_plj_batch_b.pl	0	46	62	954
+hb_procval_in_aggregate.icn	0	0	42	114
 hb_scan_nested.icn	0	0	4	42
 hb_scan_subject_across_allocating_poll.icn	0	0	12	54
 hb_trace_wildcard_registry_root.icn	0	0	4	27
@@ -60,7 +61,7 @@ hb_ws.icn	0	0	4	24
 hb_wsb.icn	0	0	10	30
 hb_wsb_bignum.icn	0	0	8	45
 hb_wsb_eval_define.sno	16	0	16	33
-hb_wsb_pl_atom_dup.pl	0	54	74	861
+hb_wsb_pl_atom_dup.pl	0	54	74	870
 hb_wsb_raku_junction.raku	0	0	4	69
 hb_wsb_raku_sprintf_multi.raku	0	0	4	78
 hb_wsb_rk_arr.raku	2	0	2	63
