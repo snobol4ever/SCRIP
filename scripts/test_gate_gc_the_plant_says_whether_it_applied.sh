@@ -73,7 +73,10 @@ else echo "  arm 2 FAIL: the plant applied 0 times yet a count reads anchored=$d
 TBL='SCRIP_GC_PLANT_SHIFT|GC-SHIFT|test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh test_gate_gc_pas_heap_cells_survive_forced_movement.sh test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh
 SCRIP_GC_PLANT_RTCCB|GC-RTCCB|test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh
 SCRIP_GC_PLANT_PIN_SKIP|ZGC-PIN|test_gate_gc_no_pinned_lifetime_class.sh test_gate_gc_the_decidable_test.sh
-SCRIP_GC_PLANT_PIN_TYPE|ZGC-PIN|'
+SCRIP_GC_PLANT_PIN_TYPE|ZGC-PIN|
+SCRIP_GC_PLANT_KEY_COLLISION|GC-KEYSPACE|test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh
+SCRIP_GC_PLANT_SCAN_BANK|GC-SCANBANK|test_gate_gc_a_suspended_scan_banks_its_subject_where_the_walker_relocates_it.sh test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh
+SCRIP_GC_PLANT_FLIP|GC-FLIP|test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh'
 scan="$(cd "$HERE" && grep -HnE 'SCRIP_GC_PLANT_[A-Z_]+=' test_gate_*.sh 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#')"
 bad=""; rows=0; gates=0
 while IFS='|' read -r knob lit want; do

@@ -38,8 +38,8 @@ else echo "  FAIL (a) the mode-4 witness did not build"; RC=1; fi
 if [ "$bad" = 0 ]; then echo "  ok   (a) THE PROPERTY: the table witness answers its iconx ref at stress 1/3/5 under forced relocation in both modes --$band"
 else echo "  FAIL (a) a table lost its buckets across collections --$band"; RC=1; fi
 ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_KEY_COLLISION=1 SCRIP_GC_STRESS=1 SCRIP_GC_RELOC=1 timeout 60s "$SCRIP" --run "$W.icn" </dev/null > p.out 2> p.err ); pr=$?
-if [ $pr != 0 ] || ! cmp -s "$T/p.out" "$W.ref"; then echo "  ok   (b) PLANTED: SCRIP_GC_PLANT_KEY_COLLISION=1 shares the cell key with the aggregate key again and the witness is lost (rc=$pr) -- the cure is seen to be load-bearing"
-else echo "  FAIL (b) the plant did not reproduce the loss -- the witness no longer exercises a name-referenced cell on a table's first word"; RC=1; fi
+if { [ $pr != 0 ] || ! cmp -s "$T/p.out" "$W.ref"; } && grep -q "^\[GC-KEYSPACE\] plant:" "$T/p.err"; then echo "  ok   (b) PLANTED (the GC-KEYSPACE banner proves the plant applied): SCRIP_GC_PLANT_KEY_COLLISION=1 shares the cell key with the aggregate key again and the witness is lost (rc=$pr) -- the cure is seen to be load-bearing"
+else echo "  FAIL (b) the plant did not reproduce the loss, or its GC-KEYSPACE banner is missing so it never applied -- the witness no longer exercises a name-referenced cell on a table's first word"; RC=1; fi
 if grep -q 'gc_hins((void \*)((uintptr_t)tc | (gc_plant_key_collision() ? 0u : 2u)))' "$ROOT/src/runtime/rt/gc_heap.c"; then echo "  ok   (c) the name-cell key carries bit 1 in gc_visit_one (gc_heap.c)"; else echo "  FAIL (c) the name-cell key no longer carries bit 1 -- the key spaces collide again"; RC=1; fi
 echo "population: 3 arm(s) graded"
 if [ $RC = 0 ]; then echo "✅ GATE PASS(0) [$G]: the visited set's three key spaces are distinct and the table witness survives forced relocation"; else echo "⛔ GATE FAIL(1) [$G]: a visited-set key collision (examined 3 arms)"; fi

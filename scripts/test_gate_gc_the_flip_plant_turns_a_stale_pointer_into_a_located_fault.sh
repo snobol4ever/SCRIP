@@ -40,15 +40,15 @@ for b in hb_scan_suspend_bank_across_a_collection hb_table_dump_every_key_ref hb
     if [ $r = 0 ] && cmp -s "$T/a4.out" "$WD/$b.ref"; then band="$band $b/m4:ok"; else band="$band $b/m4:RED(rc=$r)"; bad=$((bad+1)); fi
   else band="$band $b/m4:NOBUILD"; bad=$((bad+1)); fi
 done
-if [ "$bad" = 0 ] && [ "$flips_seen" = 4 ]; then echo "  ok   (a) NO FALSE POSITIVE: four witnesses answer their refs under the flip plant at stress 1, both modes, and the plant applied in every run --$band"
+if [ "$bad" = 0 ] && [ "$flips_seen" = 4 ] && grep -q "^\[GC-FLIP\] plant:" "$T/a3.err"; then echo "  ok   (a) NO FALSE POSITIVE: four witnesses answer their refs under the flip plant at stress 1, both modes, and the plant applied in every run --$band"
 else echo "  FAIL (a) a correct witness faulted or differed under the flip plant, or the plant did not apply (flips seen in $flips_seen of 4) --$band"; RC=1; fi
 S="$(wit hb_scan_suspend_bank_across_a_collection)"; K="$(wit hb_table_dump_every_key_ref)"
 flipb="SCRIP_GC_PLANT_FLIP=1"; [ "${FAIL_ONCE:-0}" = 1 ] && flipb="SCRIP_GC_PLANT_FLIP=0"
 ( cd "$T" && env -u SCRIP_HEAP_MB $flipb SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$S" </dev/null > b.out 2> b.err ); rb=$?
-if [ $rb != 0 ] && grep -q '^\[ZGC-STALE\] SIGSEGV touching GC heap ground' "$T/b.err" && grep -q 'it was MOVED to' "$T/b.err"; then echo "  ok   (b) LOCATED: the scan-bank plant faults under the flip plant (rc=$rb) and the report names the moved block: $(grep -m1 'the block that lived here' "$T/b.err" | cut -c1-140)"
+if [ $rb != 0 ] && grep -q '^\[ZGC-STALE\] SIGSEGV touching GC heap ground' "$T/b.err" && grep -q 'it was MOVED to' "$T/b.err" && grep -q "^\[GC-SCANBANK\] plant:" "$T/b.err"; then echo "  ok   (b) LOCATED: the scan-bank plant faults under the flip plant (rc=$rb) and the report names the moved block: $(grep -m1 'the block that lived here' "$T/b.err" | cut -c1-140)"
 else echo "  FAIL (b) the scan-bank plant did not fault with a located MOVED report (rc=$rb) -- a stale pointer is no longer trapped"; RC=1; fi
 ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_PLANT_KEY_COLLISION=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$K" </dev/null > c.out 2> c.err ); rc_=$?
-if [ $rc_ != 0 ] && grep -q 'POINTER WAS READ FROM VACATED GROUND' "$T/c.err"; then echo "  ok   (c) LOCATED: the key-collision plant faults (rc=$rc_) and the report names a register holding the poison: $(grep -m1 'holding the 0xDB POISON' "$T/c.err" | sed 's/.*POISON[^:]*://' | cut -c1-80)"
+if [ $rc_ != 0 ] && grep -q 'POINTER WAS READ FROM VACATED GROUND' "$T/c.err" && grep -q "^\[GC-KEYSPACE\] plant:" "$T/c.err"; then echo "  ok   (c) LOCATED: the key-collision plant faults (rc=$rc_) and the report names a register holding the poison: $(grep -m1 'holding the 0xDB POISON' "$T/c.err" | sed 's/.*POISON[^:]*://' | cut -c1-80)"
 else echo "  FAIL (c) the key-collision plant did not fault with a poison report (rc=$rc_)"; RC=1; fi
 ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=0 SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$S" </dev/null > d.out 2> d.err ); rd=$?
 if [ $rd = 0 ] && ! cmp -s "$T/d.out" "$WD/hb_scan_suspend_bank_across_a_collection.ref"; then echo "  ok   (d) THE CONTRAST: without the flip plant the same defect is a SILENT wrong answer (rc=0, stdout differs from the ref) -- the plant is what makes it loud"

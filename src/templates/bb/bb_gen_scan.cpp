@@ -16,9 +16,10 @@ ScanSubjRegs rt_scan_reenter_live(uint64_t subj);
 }
 #include "x86_asm.h"
 #include <cstdlib>
+#include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static_assert(sizeof(uint64_t) == 8, "THE SUSPEND-LEAVE BANK LIVES IN THE SCAN NODE'S OWN FIELDS AT ITS RESULT SLOT +16 (delta, RAW) AND +24 (the live subject, PTR_GC), THE OFFSETS frame_layout.c GRANTS -- IR_SCAN is not a shifted-locals kind, so zls_off is the RESULT slot and the fields start 16 past it; banking at +0/+8 put the delta in a DESCR tag word and hid the subject pointer from the walker, and a collection during the suspension handed rt_scan_reenter_live vacated ground (unitgenr, cto 2026-09-23, CTO-154)");
-static int scan_bank_off() { const char * e = getenv("SCRIP_GC_PLANT_SCAN_BANK"); return (e && *e == '1') ? 0 : 16; }
+static int scan_bank_off() { static int said = 0; const char * e = getenv("SCRIP_GC_PLANT_SCAN_BANK"); if (!(e && *e == '1')) return 16; if (!said) { said = 1; fprintf(stderr, "[GC-SCANBANK] plant: the suspend-leave bank is emitted at the scan node's RESULT slot again, delta in the tag word and the live subject invisible to the walker (SCRIP_GC_PLANT_SCAN_BANK=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first suspend-leave box emitted.\n"); } return 0; }
 std::string bb_gen_scan() {
     x86_begin();
     return x86("comment", "IR_GEN_SCAN [N-3: outer Sigma/delta/Delta save-restore ONE HOME -- ENTER's own zls grant (FRQ off/+8/+16), the enclosing activation's own frame -- no C-global scan_stack]")

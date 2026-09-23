@@ -39,8 +39,8 @@ done; done
 if [ "$bad" = 0 ] && [ -x "$T/w4" ]; then echo "  ok   (a) THE PROPERTY: the suspended scan's subject survives collections during the suspension, stress 1/3/5 x reloc 0/1, both modes --$band"
 else echo "  FAIL (a) a suspended scan resumed on a stale subject --$band"; RC=1; fi
 build4 "SCRIP_GC_PLANT_SCAN_BANK=1" p4 || true
-( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$W.icn" </dev/null > p3.out 2>/dev/null ); p3=$?; ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=1 timeout 60s ./p4 </dev/null > p4.out 2>/dev/null ); p4=$?
-if { [ $p3 != 0 ] || ! cmp -s "$T/p3.out" "$W.ref"; } && { [ $p4 != 0 ] || ! cmp -s "$T/p4.out" "$W.ref"; }; then echo "  ok   (b) PLANTED: SCRIP_GC_PLANT_SCAN_BANK=1 banks at the result slot again and the witness is lost in both modes at stress 1 -- the cure is load-bearing"
+( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$W.icn" </dev/null > p3.out 2>p3.err ); p3=$?; ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=1 timeout 60s ./p4 </dev/null > p4.out 2>/dev/null ); p4=$?
+if { [ $p3 != 0 ] || ! cmp -s "$T/p3.out" "$W.ref"; } && { [ $p4 != 0 ] || ! cmp -s "$T/p4.out" "$W.ref"; } && grep -q "^\[GC-SCANBANK\] plant:" "$T/p3.err"; then echo "  ok   (b) PLANTED: SCRIP_GC_PLANT_SCAN_BANK=1 banks at the result slot again and the witness is lost in both modes at stress 1 -- the cure is load-bearing"
 else echo "  FAIL (b) the plant did not lose the answer (m3 rc=$p3, m4 rc=$p4) -- the witness no longer suspends inside a scan across a collection"; RC=1; fi
 z=$( cd "$T" && "$SCRIP" --dump-zeta "$W.icn" 2>&1 | grep -c 'PTR_GC   scan.suspend-leave live subject' || true )
 if [ "${z:-0}" -ge 1 ]; then echo "  ok   (c) the map declares the banked subject PTR_GC ($z field(s) in the witness's graphs)"; else echo "  FAIL (c) no PTR_GC scan.suspend-leave live subject field in the witness's layout -- the bank is invisible to the walker again"; RC=1; fi
