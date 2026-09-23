@@ -503,8 +503,9 @@ static int pas_subvar_get(const char *n, long long *lo, long long *hi) { if (!n)
 static struct { char *name; char *target; } g_pas_typealias[64]; static int g_pas_ntypealias;
 static void pas_typealias_add(const char *n, const char *t) { if (g_pas_ntypealias < 64 && n && t && strcmp(n, t)) { g_pas_typealias[g_pas_ntypealias].name = ct_strdup(n); g_pas_typealias[g_pas_ntypealias].target = ct_strdup(t); g_pas_ntypealias++; } }
 static const char *pas_typealias_get(const char *n) { if (!n) return NULL; for (int i = g_pas_ntypealias - 1; i >= 0; i--) if (g_pas_typealias[i].name && !strcmp(g_pas_typealias[i].name, n)) return g_pas_typealias[i].target; return NULL; }
-static struct { char *vname; char *tname; } g_pas_scalarvartype[512]; static int g_pas_nscalarvartype;
-static void pas_scalarvartype_add(const char *vn, const char *tn) { if (g_pas_nscalarvartype < 512 && vn && tn) { g_pas_scalarvartype[g_pas_nscalarvartype].vname = ct_strdup(vn); g_pas_scalarvartype[g_pas_nscalarvartype].tname = ct_strdup(tn); g_pas_nscalarvartype++; } }
+static int g_pas_ldepth;
+static struct { char *vname; char *tname; int is_global; } g_pas_scalarvartype[512]; static int g_pas_nscalarvartype;
+static void pas_scalarvartype_add(const char *vn, const char *tn) { if (g_pas_nscalarvartype < 512 && vn && tn) { g_pas_scalarvartype[g_pas_nscalarvartype].vname = ct_strdup(vn); g_pas_scalarvartype[g_pas_nscalarvartype].tname = ct_strdup(tn); g_pas_scalarvartype[g_pas_nscalarvartype].is_global = (g_pas_ldepth == 0); g_pas_nscalarvartype++; } }
 static const char *pas_scalarvartype_get(const char *vn) { if (!vn) return NULL; for (int i = g_pas_nscalarvartype - 1; i >= 0; i--) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, vn)) return g_pas_scalarvartype[i].tname; return NULL; }
 static struct { char *name; long long low; long long high; int ischar; } g_pas_tfcomp[128]; static int g_pas_ntfcomp;
 static void pas_tfcomp_add(const char *n, long long lo, long long hi, int ischar) { if (g_pas_ntfcomp < 128 && n) { g_pas_tfcomp[g_pas_ntfcomp].name = ct_strdup(n); g_pas_tfcomp[g_pas_ntfcomp].low = lo; g_pas_tfcomp[g_pas_ntfcomp].high = hi; g_pas_tfcomp[g_pas_ntfcomp].ischar = ischar; g_pas_ntfcomp++; } }
@@ -752,16 +753,21 @@ static tree_t *pas_recspan_slot(tree_t *e, long long fi) {
 static int pas_is_realtypename(const char *t) {
     return t && (!strcmp(t, "real") || !strcmp(t, "single") || !strcmp(t, "double") || !strcmp(t, "extended") || !strcmp(t, "comp"));
 }
-static int pas_var_is_real(const char *name) {
+static int pas_is_int_typename(const char *t) {
+    return t && (!strcmp(t, "integer") || !strcmp(t, "longint") || !strcmp(t, "shortint") || !strcmp(t, "byte") || !strcmp(t, "word") ||
+                 !strcmp(t, "cardinal") || !strcmp(t, "int64") || !strcmp(t, "qword") || !strcmp(t, "smallint") || !strcmp(t, "longword"));
+}
+static int pas_var_typename_is(const char *name, int (*pred)(const char *)) {
     const char *t = name ? pas_scalarvartype_get(name) : NULL;
     for (int guard = 0; t && guard < 8; guard++) {
-        if (pas_is_realtypename(t)) return 1;
+        if (pred(t)) return 1;
         const char *al = pas_typealias_get(t);
         if (!al || !strcmp(al, t)) break;
         t = al;
     }
     return 0;
 }
+static int pas_var_is_real(const char *name) { return pas_var_typename_is(name, pas_is_realtypename); }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
     { int lnf = pas_recspan_nf(sel); int rnf = pas_recspan_nf(rhs);
@@ -986,10 +992,14 @@ static tree_t *mk_array_init(const char *name, long long high) {
 program:
     PROGRAMSY IDENT file_id_list_opt SEMICOLON block PERIOD
         { tree_t *body = $5;
-          if (g_pas_narray > 0 || g_pas_nhdrfile > 0) {
+          if (g_pas_narray > 0 || g_pas_nhdrfile > 0 || g_pas_nscalarvartype > 0) {
               tree_t *combined = ast_node_new(TT_PROGRAM);
               for (int i = 0; i < g_pas_nhdrfile; i++) if (g_pas_hdrfiles[i]) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, g_pas_hdrfiles[i]), leaf_s(TT_QLIT, g_pas_hdrfiles[i])));
               for (int i = 0; i < g_pas_narray; i++) if (!g_pas_arrays[i].is_param && !g_pas_arrays[i].is_local) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, g_pas_arrays[i].name), mk_array_init(g_pas_arrays[i].name, g_pas_arrays[i].high)));
+              for (int i = 0; i < g_pas_nscalarvartype; i++) { const char *vn = g_pas_scalarvartype[i].vname; long long _ah;
+                  if (!vn || !g_pas_scalarvartype[i].is_global || pas_is_func(vn) || pas_is_proc(vn) || pas_array_high_get(vn, &_ah)) continue;
+                  if (pas_var_typename_is(vn, pas_is_int_typename)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), ilit(0)));
+                  else if (pas_var_typename_is(vn, pas_is_realtypename)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), flit(0.0))); }
               if (body && body->t == TT_PROGRAM) { for (int i = 0; i < body->n; i++) ast_push(combined, body->c[i]); }
               else if (body) ast_push(combined, body);
               body = combined;
