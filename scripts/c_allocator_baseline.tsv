@@ -69,6 +69,7 @@
 #       temp-dir copies at lines 46 and 52 (`gcc -O0 -Wall -o .../prec_test ...prec_test.c` and the hll pair).
 #       Neither names ct_arena today, so a conversion that only edits the .c files will not link.
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-19 cto, SCRIP this landing: arena_in_runtime 114 -> 112. THE CO-EXPRESSION CREATE PATH NO LONGER COPIES THE CREATOR'S ACTIVATION FRAME INTO A ct_alloc BLOCK (rt_coexpr.c: the snapshot `ct_alloc(span)` and its `ct_drop` are gone -- the new thread copies the creator's live frame onto its OWN stack at create time, ARCH-GC 6.2g, Lon's word that frame bytes never leave the RSP/RBP stack). NOTHING ABOUT THE CRITERION MOVED: same census, same spelling; two arena sites left the tree because the object they held is a frame image, which lives on a stack.
+# CRITERION UNCHANGED, TWO COUNTS RECORDED 2026-09-23 coo (ceo CEO-1213/CEO-1215, the cfo's 15:33 finding): arena_in_runtime 107 -> 111 is the cto's d363c713e (CTO-151: the runtime-compiled pattern strings moved to the compile-time arena ON PURPOSE) -- class-2 DEBT, ratcheted, and never class-1 evasion (arena_in_runtime_evasion stays 0); it is recorded here, with its reason, because the landing that made it never was. outside_src_sites 20 -> 25 is scripts/monitor/oracles/monitor_ipc_lib.c from the ceo's d85e6186d, the IPC library linked into the Icon and GNU Prolog ORACLE forks -- COUNTED, NOT DECLARED OUT (CEO-1215 on CEO-878's precedent, which refused a host-tool exemption for monitor_ipc_bin_csn.c, the csnobol4 oracle's library): it joins that convert-then-park population. The regenerated file moves exactly these three keys; every other count reads unchanged.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -76,9 +77,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	107
+arena_in_runtime_ratcheted	111
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	107
+arena_in_runtime_debt	111
 container_unmarked_live	1
 libc_owned_misuse	0
-outside_src_sites	20
+outside_src_sites	25
