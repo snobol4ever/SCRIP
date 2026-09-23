@@ -2286,7 +2286,8 @@ static void *pl_format_body(DESCR_t *args, int nargs) {
     d0 = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(d0)) return rt_pl_ball_instantiation();
     if (d0.v == DT_I || d0.v == DT_R) return rt_pl_ball_kind2("type_error", "atom", d0);
-    if (!pl_cell_text(args[0], fb, sizeof fb, &fmt)) return rt_pl_ball_kind2("type_error", "atom", d0);
+    if (pl_is_nil(d0)) fmt = "";
+    else if (!pl_cell_text(args[0], fb, sizeof fb, &fmt)) return rt_pl_ball_kind2("type_error", "atom", d0);
     lst = pl_nil();
     if (nargs == 2) { DESCR_t cur = rt_pl_deref_val(args[1]);
         while (pl_is_cons(cur)) cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]);
