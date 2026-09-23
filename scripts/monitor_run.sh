@@ -12,6 +12,14 @@
 # the trace changed the program and no verdict from it is about the program you meant. Exit: 0 modes agree / trace printed,
 # 1 the modes DIVERGE (the controller's grid names the step), 2 could not measure (a participant never started, the source
 # does not compile, the witness is not monitor-safe, or no oracle bridge exists for the language).
+#
+# ⛔⭐ MODE-4 HAD NO EQUIVALENT CHECK UNTIL 2026-09-23 (hq_icon), and it was not a theoretical gap: on the IPL witness
+# unitgenr.icn, the harness's scr4 participant (built exactly as below, --trace --compile --monitor) reported an early
+# PROTOCOL ERR "divergence" during options() parsing that did NOT correspond to the real defect -- the real bug was a
+# GC-triggered crash much later, present in the PLAIN shipped --compile build and absent when trace instrumentation
+# happened to shift allocation timing enough to avoid it (a heisenbug). A --modes run would have pointed straight at
+# the wrong code with no warning. --oracle's default "scr" participant runs mode-3 (already covered above); only
+# --modes needs scr4, so the check below runs only for that path.
 set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"; SD="$S4E/SCRIP"; SCRIP="$SD/scrip"
 src="${1:-}"; [ -n "$src" ] && [ -f "$src" ] || { echo "REFUSE(2): usage: monitor_run.sh <source> [--modes|--trace|--oracle] [--input FILE]"; exit 2; }
@@ -36,6 +44,30 @@ if ! cmp -s "$W/plain.out" "$W/traced.stripped" || [ "$prc" != "$trc" ]; then
     diff "$W/plain.out" "$W/traced.stripped" | head -6; exit 2
 fi
 nev=$(grep -oE '\*\*\*\*[0-9]+' "$W/traced.out" | wc -l); echo "[monitor_run] monitor-safe: untraced output identical under trace; $nev trace event(s) in mode 3"
+if [ "$mode" = modes ]; then
+    ( cd "$(dirname "$src")" && timeout 60 "$SCRIP" --compile -o "$W/plain4.s" "$src" < /dev/null ) > "$W/plain4.cc.out" 2>&1; pcc=$?
+    [ "$pcc" = 0 ] || { echo "REFUSE(2): mode-4 plain compile failed (rc=$pcc): $(tail -2 "$W/plain4.cc.out")"; exit 2; }
+    gcc "$W/plain4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$W/plain4.bin" > "$W/plain4.link.out" 2>&1
+    [ -x "$W/plain4.bin" ] || { echo "REFUSE(2): mode-4 plain link failed: $(tail -2 "$W/plain4.link.out")"; exit 2; }
+    timeout 60 "$W/plain4.bin" < "$input" > "$W/plain4.out" 2> "$W/plain4.err"; prc4=$?
+
+    ( cd "$(dirname "$src")" && timeout 60 "$SCRIP" --trace --compile --monitor -o "$W/traced4.s" "$src" < /dev/null ) > "$W/traced4.cc.out" 2>&1; tcc=$?
+    [ "$tcc" = 0 ] || { echo "REFUSE(2): mode-4 traced compile failed (rc=$tcc): $(tail -2 "$W/traced4.cc.out")"; exit 2; }
+    gcc "$W/traced4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$W/traced4.bin" > "$W/traced4.link.out" 2>&1
+    [ -x "$W/traced4.bin" ] || { echo "REFUSE(2): mode-4 traced link failed: $(tail -2 "$W/traced4.link.out")"; exit 2; }
+    # No MONITOR_READY_PIPE/MONITOR_BIN set here on purpose: this mirrors the safety-check's own logic, not the
+    # harness's -- core.c only opens the IPC pipe when MONITOR_READY_PIPE is present, so a lone traced binary run
+    # without it never blocks on an ack partner and its trace hook calls execute as (intended) no-ops. That is
+    # exactly the property under test: does the mere PRESENCE of the instrumentation change real behavior.
+    timeout 60 "$W/traced4.bin" < "$input" > "$W/traced4.out" 2> "$W/traced4.err"; trc4=$?
+
+    if [ "$prc4" = 124 ] || [ "$trc4" = 124 ]; then echo "REFUSE(2): the mode-4 witness did not finish in 60 s (plain rc=$prc4, traced rc=$trc4) -- pick a shorter witness"; exit 2; fi
+    if ! cmp -s "$W/plain4.out" "$W/traced4.out" || [ "$prc4" != "$trc4" ]; then
+        echo "REFUSE(2): NOT MONITOR-SAFE IN MODE 4 -- the --trace --compile --monitor binary's real output differs from the plain --compile binary's (plain rc=$prc4, traced rc=$trc4); a divergence (or an agreement) reported by scr4 under this build would be a verdict about a different program than the one that ships. First difference:"
+        diff "$W/plain4.out" "$W/traced4.out" | head -6; exit 2
+    fi
+    echo "[monitor_run] monitor-safe: untraced mode-4 output identical under --trace --compile --monitor"
+fi
 if [ "$mode" = oracle ]; then
     case "$ext" in
         sno) parts="spl scr" ;;
