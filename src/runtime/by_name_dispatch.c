@@ -371,6 +371,8 @@ static char *itos(long long v, char *buf, size_t cap) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *rtos(double r, char *buf, size_t cap) {
+    if (isnan(r)) { snprintf(buf, cap, "%s", "NaN"); return buf; }
+    if (isinf(r)) { snprintf(buf, cap, "%s", r < 0 ? "-Inf" : "Inf"); return buf; }
     gcvt(r, 14, buf); (void)cap; return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1267,7 +1269,8 @@ extern const char *icon_real_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz) {
     if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
-    if (!isfinite(r)) return icon_real_str(r, buf, bufsz);
+    if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "NaN"); return buf; }
+    if (isinf(r)) { snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-Inf" : "Inf"); return buf; }
     for (int prec = 15; prec <= 17; prec++) { snprintf(buf, (size_t)bufsz, "%.*g", prec, r); if (strtod(buf, (char **)0) == r) return buf; }
     return buf;
 }
@@ -4947,8 +4950,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             fh_ensure_init();
             fp = fh_get((int)args[0].i);
         } else {
-            const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
-            fp = fopen(path, "r"); need_close = 1;
+            const char *s = VARVAL_fn(args[0]); size_t n = s ? strlen(s) : 0;
+            char *r = (char *)rt_str_alloc(2 * n); int op = 0, first = 1; size_t i = 0;
+            while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; }
+            r[op] = '\0'; *out = STRVAL(r); return 1;
         }
         if (!fp) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         char *acc = rt_wsb_alloc(65536); acc[0] = '\0'; size_t cap = 65536, used = 0; int first = 1;
