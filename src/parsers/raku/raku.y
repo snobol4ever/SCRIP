@@ -542,12 +542,13 @@ static tree_t *rk_interp_primary(const char *s, int *ip, int len) {
     int i = *ip;
     while (i<len && s[i]==' ') i++;
     if (i<len && (s[i]=='$'||s[i]=='@')) {
+        char sig = s[i];
         i++;
-        char nm[256]; int nl=0;
+        char nm[258]; int nl=0; nm[nl++]=sig;
         while (i<len&&(s[i]=='_'||(s[i]>='A'&&s[i]<='Z')||(s[i]>='a'&&s[i]<='z')||(s[i]>='0'&&s[i]<='9')))
-            { if(nl<255) nm[nl++]=s[i]; i++; }
+            { if(nl<257) nm[nl++]=s[i]; i++; }
         nm[nl]='\0'; *ip=i;
-        return leaf_sval(TT_VAR,nm);
+        return var_node(nm);
     }
     if (i<len && s[i]>='0' && s[i]<='9') {
         long v=0;
