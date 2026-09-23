@@ -18,6 +18,8 @@ extern int  pascal_get_lineno(void);
 void pascal_yyerror(const char *msg) { fprintf(stderr, "pascal parse error line %d: %s\n", pascal_get_lineno(), msg); }
 tree_t   *pascal_prog_result = NULL;
 static PNodeList g_pascal_procs;
+static int g_pas_trace_on = -1;
+static int pas_trace_enabled(void) { if (g_pas_trace_on < 0) { const char *e = getenv("SCRIP_PAS_TRACE"); g_pas_trace_on = (e && e[0] && strcmp(e, "0")) ? 1 : 0; } return g_pas_trace_on; }
 static PNodeList *pnl_new(void) { PNodeList *l = (PNodeList *)ct_zalloc(1, sizeof *l); return l; }
 static void pnl_push(PNodeList *l, tree_t *e) {
     if (!l) return;
@@ -99,6 +101,40 @@ static int pas_is_strarr(const char *name);
 static long long pas_strarr_lo(const char *name);
 static tree_t *pas_alpha_wrap(tree_t *x);
 static int pas_ca_is_read(const tree_t *e);
+static tree_t *pas_trace_wrap_value(tree_t *val);
+static tree_t *pas_trace_wrap_proc(const char *pname, PNodeList *params, tree_t *body, int isfunc) {
+    if (!pas_trace_enabled() || !body) return body;
+    tree_t *enter_call = ast_node_new(TT_FNC);
+    ast_push(enter_call, leaf_s(TT_VAR, "__pas_trace_call"));
+    ast_push(enter_call, leaf_s(TT_QLIT, pname));
+    if (params) for (int i = 0; i < params->count; i++) {
+        tree_t *id = params->items[i];
+        if (id && id->v.sval) {
+            ast_push(enter_call, leaf_s(TT_QLIT, id->v.sval));
+            ast_push(enter_call, pas_trace_wrap_value(leaf_s(TT_VAR, id->v.sval)));
+        }
+    }
+    tree_t *exit_call = ast_node_new(TT_FNC);
+    ast_push(exit_call, leaf_s(TT_VAR, "__pas_trace_return"));
+    ast_push(exit_call, leaf_s(TT_QLIT, pname));
+    if (isfunc) ast_push(exit_call, pas_trace_wrap_value(leaf_s(TT_VAR, pname)));
+    tree_t *nb = ast_node_new(TT_PROGRAM);
+    ast_push(nb, enter_call);
+    for (int i = 0; i < body->n; i++) ast_push(nb, body->c[i]);
+    ast_push(nb, exit_call);
+    return nb;
+}
+static tree_t *pas_trace_wrap_value(tree_t *val) {
+    if (!val) return val;
+    const char *_enm = (val->t == TT_IDX && val->v.ival > 0) ? pas_enumnames_by_idx((int)(val->v.ival - 1)) : NULL;
+    if (_enm) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, _enm)); return _w; }
+    if (pas_is_charexpr(val)) return mk_chr_wrap(val);
+    if (pas_is_boolexpr(val)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, "false,true")); return _w; }
+    if (val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) return pas_alpha_wrap(val);
+    if (pas_ca_is_read(val)) return pas_alpha_wrap(val);
+    if (val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[0]->t == TT_VAR && val->c[0]->v.sval && pas_is_strarr(val->c[0]->v.sval)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(_w, val); ast_push(_w, ilit(pas_strarr_lo(val->c[0]->v.sval))); return _w; }
+    return val;
+}
 static tree_t *pas_str_to_alpha(const char *s, long long lo, long long high);
 static unsigned long long pas_caparm_mask(const char *name);
 static long long pas_caparm_lo(const char *name, int pos);
@@ -1147,15 +1183,15 @@ procedure_decl:
     | PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { pas_proc_add($2); pas_proc_vparams($2, $4); pas_proc_enter(); pas_fwd_restore($2); } block SEMICOLON
         { int d = g_pas_ldepth - 1; int d_ok = (d >= 0 && d < PAS_NEST_MAX); int dl = d_ok ? g_pas_lstk[d].decl_level : 1;
           const char **ln = d_ok ? g_pas_lstk[d].names : NULL; int lc = d_ok ? g_pas_lstk[d].n : 0;
-          tree_t *p = mk_proc($2, pas_fwd_params($2, $4), $7, 0, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
+          tree_t *p = mk_proc($2, pas_fwd_params($2, $4), pas_trace_wrap_proc($2, $4, $7, 0), 0, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
     | FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { pas_func_add($2); pas_proc_vparams($2, $4); if ($6 && !strcmp($6, "char")) pas_charvar_add($2); if (pas_is_booltype($6)) pas_boolvar_add($2); if ($6) pas_scalarvartype_add($2, $6); pas_proc_enter(); pas_curfunc_push($2); pas_fwd_restore($2); } block SEMICOLON
         { int d = g_pas_ldepth - 1; int d_ok = (d >= 0 && d < PAS_NEST_MAX); int dl = d_ok ? g_pas_lstk[d].decl_level : 1;
           const char **ln = d_ok ? g_pas_lstk[d].names : NULL; int lc = d_ok ? g_pas_lstk[d].n : 0;
-          tree_t *p = mk_proc($2, pas_fwd_params($2, $4), $9, 1, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
+          tree_t *p = mk_proc($2, pas_fwd_params($2, $4), pas_trace_wrap_proc($2, $4, $9, 1), 1, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
     | FUNCTIONSY IDENT pv_mark SEMICOLON { pas_func_add($2); pas_proc_enter(); pas_curfunc_push($2); pas_fwd_restore($2); } block SEMICOLON
         { int d = g_pas_ldepth - 1; int d_ok = (d >= 0 && d < PAS_NEST_MAX); int dl = d_ok ? g_pas_lstk[d].decl_level : 1;
           const char **ln = d_ok ? g_pas_lstk[d].names : NULL; int lc = d_ok ? g_pas_lstk[d].n : 0;
-          tree_t *p = mk_proc($2, pas_fwd_params($2, pnl_new()), $6, 1, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
+          tree_t *p = mk_proc($2, pas_fwd_params($2, pnl_new()), pas_trace_wrap_proc($2, NULL, $6, 1), 1, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
     ;
 pv_mark:
     { pas_ptrvar_mark(); pas_recvar_mark(); }
@@ -1182,8 +1218,8 @@ body:
     BEGINSY statement_list ENDSY { $$ = prog_of($2); }
     ;
 statement_list:
-    statement_list SEMICOLON statement { if ($3) pnl_push($1, $3); $$ = $1; }
-    | statement { PNodeList *l = pnl_new(); if ($1) pnl_push(l, $1); $$ = l; }
+    statement_list SEMICOLON statement { if ($3) { if (pas_trace_enabled()) pnl_push($1, mk_fnc1("__pas_trace_line", ilit(pascal_get_lineno()))); pnl_push($1, $3); } $$ = $1; }
+    | statement { PNodeList *l = pnl_new(); if ($1) { if (pas_trace_enabled()) pnl_push(l, mk_fnc1("__pas_trace_line", ilit(pascal_get_lineno()))); pnl_push(l, $1); } $$ = l; }
     ;
 statement:
     statement_no_label { $$ = $1; }
@@ -1245,7 +1281,11 @@ assignment:
               else _rhs = pas_bool($3);
               tree_t *_pk = ast_node_new(TT_FNC); ast_push(_pk, leaf_s(TT_VAR, "__pas_ca_pack")); ast_push(_pk, _rhs); ast_push(_pk, ilit(_flo));
               $$ = mk_assign($1, _pk);
-          } else { $$ = mk_assign($1, pas_bool($3)); } }
+          } else { tree_t *_asn = mk_assign($1, pas_bool($3));
+              if (pas_trace_enabled() && $1 && $1->t == TT_VAR && $1->v.sval) {
+                  tree_t *_tv = mk_fnc2("__pas_trace_value", leaf_s(TT_QLIT, $1->v.sval), pas_trace_wrap_value(leaf_s(TT_VAR, $1->v.sval)));
+                  PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); $$ = seq_of(_sl);
+              } else { $$ = _asn; } } }
     ;
 selector:
     selector LBRACK expression_list RBRACK { tree_t *e = NULL; if ($3 && $3->count == 2 && $1 && $1->t == TT_VAR && $1->v.sval) { long long _nc = pas_array_ncols($1->v.sval); if (_nc > 0) { tree_t *flat = bin(TT_ADD, bin(TT_MUL, $3->items[0], ilit(_nc)), $3->items[1]); e = ast_node_new(TT_IDX); ast_push(e, $1); ast_push(e, flat); } } if (!e && $3 && $3->count == 1 && $1 && $1->t == TT_IDX && $1->n == 2 && $1->c[0] && $1->c[0]->t == TT_VAR && $1->c[0]->v.sval && !pas_is_nafield($1)) {
