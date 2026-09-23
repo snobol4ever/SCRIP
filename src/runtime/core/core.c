@@ -35,6 +35,7 @@ int monitor_fd  = -1;
 int monitor_ack_fd = -1;
 int monitor_ready = 0;
 int monitor_quiet_depth = 0;
+int g_trace_tap_off = 0;
 int g_monitor_bin = 0;
 int g_mon_max_stno = 0;
 static void  mon_at_exit(void);
@@ -615,6 +616,7 @@ void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
     if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval); else if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
 }
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
+void rt_trace_tap_off(void) { g_trace_tap_off = 1; }
 void rt_trace_value(const char *name, DESCR_t val) {
     if (g_trace_budget == 0 || !name) return;
     char vtext[512]; trace_spell_value(val, vtext, sizeof vtext);
@@ -1008,7 +1010,7 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
     if (!g_monitor_bin) {
         rt_trace_event(TRK_VALUE, name, val, stno);
     }
-    if (g_trace_budget != 0) { if (g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value(name, val); return; }
+    if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value(name, val); return; }
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;

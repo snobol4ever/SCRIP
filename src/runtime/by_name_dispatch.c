@@ -345,7 +345,7 @@ int rt_builtin_is_known(const char *name)
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM",
         "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
         "$unify", "$unify_lst", "$ix_g",
-        "__trace_stmt", "__trace_call", "__trace_return", "__trace_value",
+        "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -3397,6 +3397,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__trace_value") && nargs == 2) {
         extern void rt_trace_value(const char *name, DESCR_t val);
         rt_trace_value(VARVAL_fn(args[0]), args[1]);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__trace_tap_off") && nargs == 0) {
+        extern void rt_trace_tap_off(void);
+        rt_trace_tap_off();
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "where") && nargs == 1) {
@@ -6746,7 +6751,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         long long cv = IS_INT_fn(args[0]) ? args[0].i : 0;
         if (cv < 0) cv = 0; if (cv > 255) cv = 255;
         char *s = (char *)rt_wsb_alloc(2); s[0] = (char)(unsigned char)cv; s[1] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
+        *out = (DESCR_t){ .v = DT_S, .s = s, .slen = 1 }; return 1;
     }
     L_bidjmp_5109: ;
     if ((_bid == BID___pas_chrlit) && nargs == 1) {
@@ -6760,7 +6765,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         while (*p && k < ord) { if (*p == ',') k++; p++; }
         const char *st = p; while (*p && *p != ',') p++;
         size_t L = (size_t)(p - st); char *s = (char *)rt_wsb_alloc(L + 1); memcpy(s, st, L); s[L] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
+        *out = (DESCR_t){ .v = DT_S, .s = s, .slen = (uint32_t)L }; return 1;
     }
     L_bidjmp_5121: ;
     if ((_bid == BID___pas_read_i) && nargs == 0) {

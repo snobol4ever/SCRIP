@@ -4,7 +4,7 @@
 #
 #   bash scripts/monitor_run.sh <source>            # --modes: SCRIP mode 3 against SCRIP mode 4 in lock-step (every language)
 #   bash scripts/monitor_run.sh <source> --trace    # print the trace (statement / assignment / call / return) of a mode-3 run
-#   bash scripts/monitor_run.sh <source> --oracle   # SCRIP against the language's oracle in lock-step (SNOBOL4: SPITBOL fork; Icon: icx; Prolog: gpx, the GNU Prolog fork)
+#   bash scripts/monitor_run.sh <source> --oracle   # SCRIP against the language's oracle in lock-step (SNOBOL4: SPITBOL fork; Icon: icx; Prolog: gpx, the GNU Prolog fork; Pascal: fpx, the Free Pascal fork)
 #   [--input FILE] feeds stdin (default: <base>.input beside the source if present, else /dev/null)
 #
 # Every mode-3/mode-4 run is preceded by the MONITOR-SAFE CHECK (RULES.md: a monitor verdict is a verdict on a different program):
@@ -74,6 +74,7 @@ if [ "$mode" = oracle ]; then
         raku) parts="rko scr" ;;
         icn) parts="icx scr" ;;
         pl) parts="gpx scr" ;;
+        pas) parts="fpx scr" ;;
         *) echo "REFUSE(2): no oracle bridge for .$ext yet -- the design (MONITOR-BINARY-DESIGN.md § THE PLUG INTERFACE, layer 6) adds one only where it earns its cost; use --modes (mode 3 against mode 4) or --trace against the oracle's own output by hand"; exit 2 ;;
     esac
 else
@@ -85,5 +86,5 @@ steps=$(grep -oE 'all reached END after [0-9]+ steps' "$W/harness.out" | grep -o
 if [ "$hrc" = 2 ] || [ "$hrc" = 124 ]; then echo "REFUSE(2): the harness could not measure (rc=$hrc): $(grep -E 'REFUS|FAIL' "$W/harness.out" | head -1 | cut -c1-140)"; exit 2; fi
 if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ]; then echo "[monitor_run] AGREE: participants $parts agree event-for-event, clean termination at step $steps"; exit 0; fi
 if [ "$hrc" = 0 ]; then echo "REFUSE(2): the controller printed no lock-step termination line -- an empty agreement is not a pass"; exit 2; fi
-echo "[monitor_run] DIVERGE (rc=$hrc): participants $parts -- the controller's grid, last-agree trail then the first divergence:"; sed -n '/controller output/,/stdout (head)/p' "$W/harness.out" | grep -vE 'controller output|stdout \(head\)|^\s*$' | head -40
+echo "[monitor_run] DIVERGE (rc=$hrc): participants $parts -- the controller's grid, last-agree trail then the first divergence:"; sed -n '/controller output/,/stdout (head)/p' "$W/harness.out" | grep -a -vE 'controller output|stdout \(head\)|^\s*$' | head -40
 exit 1

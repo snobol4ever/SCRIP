@@ -15,6 +15,14 @@ typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 #include <string.h>
 extern int  pascal_yylex(void);
 extern int  pascal_get_lineno(void);
+#define PAS_STMT_STACK 512
+static int pas_stmt_line_stk[PAS_STMT_STACK];
+static int pas_stmt_sp = 0;
+static void pas_stmt_mark(void) { if (pas_stmt_sp < PAS_STMT_STACK) pas_stmt_line_stk[pas_stmt_sp] = -1; pas_stmt_sp++; }
+static void pas_stmt_line_fill(void) { if (pas_stmt_sp > 0 && pas_stmt_sp <= PAS_STMT_STACK && pas_stmt_line_stk[pas_stmt_sp - 1] < 0) pas_stmt_line_stk[pas_stmt_sp - 1] = pascal_get_lineno(); }
+static int  pas_stmt_line_pop(void) { int l = -1; if (pas_stmt_sp > 0) { pas_stmt_sp--; if (pas_stmt_sp < PAS_STMT_STACK) l = pas_stmt_line_stk[pas_stmt_sp]; } return l >= 0 ? l : pascal_get_lineno(); }
+int pascal_lex_wrapped(void) { int t = pascal_yylex(); pas_stmt_line_fill(); return t; }
+#define pascal_yylex pascal_lex_wrapped
 void pascal_yyerror(const char *msg) { fprintf(stderr, "pascal parse error line %d: %s\n", pascal_get_lineno(), msg); }
 tree_t   *pascal_prog_result = NULL;
 static PNodeList g_pascal_procs;
@@ -103,6 +111,28 @@ static long long pas_strarr_lo(const char *name);
 static tree_t *pas_alpha_wrap(tree_t *x);
 static int pas_ca_is_read(const tree_t *e);
 static tree_t *pas_trace_wrap_value(tree_t *val);
+static const char *pas_scalarvartype_get(const char *vn);
+static const char *pas_typealias_get(const char *n);
+static const char *pas_curfunc_name(void);
+static int pas_enumnames_idx(const char *tn);
+static const char *pas_trace_enum_names_of_var(const char *vn) {
+    const char *t = vn ? pas_scalarvartype_get(vn) : NULL;
+    for (int guard = 0; t && guard < 8; guard++) {
+        int ei = pas_enumnames_idx(t);
+        if (ei >= 0) return pas_enumnames_by_idx(ei);
+        const char *al = pas_typealias_get(t);
+        if (!al || !strcmp(al, t)) break;
+        t = al;
+    }
+    return NULL;
+}
+static const char *pas_trace_store_name(const tree_t *lhs) {
+    if (!lhs) return NULL;
+    if (lhs->t == TT_VAR && lhs->v.sval) return lhs->v.sval;
+    const char *cf = pas_curfunc_name();
+    if (cf && lhs->t == TT_FNC && lhs->n >= 1 && lhs->c[0] && lhs->c[0]->t == TT_VAR && lhs->c[0]->v.sval && !strcmp(lhs->c[0]->v.sval, cf)) return cf;
+    return NULL;
+}
 static tree_t *pas_trace_wrap_proc(const char *pname, PNodeList *params, tree_t *body, int isfunc) {
     if (!pas_trace_enabled() || !body) return body;
     tree_t *enter_call = ast_node_new(TT_FNC);
@@ -128,6 +158,7 @@ static tree_t *pas_trace_wrap_proc(const char *pname, PNodeList *params, tree_t 
 static tree_t *pas_trace_wrap_value(tree_t *val) {
     if (!val) return val;
     const char *_enm = (val->t == TT_IDX && val->v.ival > 0) ? pas_enumnames_by_idx((int)(val->v.ival - 1)) : NULL;
+    if (!_enm && val->t == TT_VAR && val->v.sval) _enm = pas_trace_enum_names_of_var(val->v.sval);
     if (_enm) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, _enm)); return _w; }
     if (pas_is_charexpr(val)) return mk_chr_wrap(val);
     if (pas_is_boolexpr(val)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, "false,true")); return _w; }
@@ -135,6 +166,23 @@ static tree_t *pas_trace_wrap_value(tree_t *val) {
     if (pas_ca_is_read(val)) return pas_alpha_wrap(val);
     if (val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[0]->t == TT_VAR && val->c[0]->v.sval && pas_is_strarr(val->c[0]->v.sval)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(_w, val); ast_push(_w, ilit(pas_strarr_lo(val->c[0]->v.sval))); return _w; }
     return val;
+}
+static tree_t *mk_fnc2(const char *fn, tree_t *a, tree_t *b);
+static tree_t *pas_trace_wrap_for_body(const char *var, tree_t *body) {
+    if (!pas_trace_enabled() || !var) return body;
+    PNodeList *l = pnl_new();
+    pnl_push(l, mk_fnc2("__trace_value", leaf_s(TT_QLIT, var), pas_trace_wrap_value(leaf_s(TT_VAR, var))));
+    if (body) pnl_push(l, body);
+    return seq_of(l);
+}
+static tree_t *pas_trace_prepend_tap_off(tree_t *body) {
+    if (!pas_trace_enabled()) return body;
+    tree_t *off = ast_node_new(TT_FNC); ast_push(off, leaf_s(TT_VAR, "__trace_tap_off"));
+    tree_t *nb = ast_node_new(TT_PROGRAM);
+    ast_push(nb, off);
+    if (body && body->t == TT_PROGRAM) { for (int i = 0; i < body->n; i++) ast_push(nb, body->c[i]); }
+    else if (body) ast_push(nb, body);
+    return nb;
 }
 static tree_t *pas_str_to_alpha(const char *s, long long lo, long long high);
 static unsigned long long pas_caparm_mask(const char *name);
@@ -1130,6 +1178,7 @@ program:
               else if (body) ast_push(combined, body);
               body = combined;
           }
+          body = pas_trace_prepend_tap_off(body);
           tree_t *mainp = mk_proc("main", NULL, body, 0, 0, NULL, 0); emit_proc(&g_pascal_procs, mainp);
           tree_t *root = ast_stmt_new(TT_PROGRAM);
           for (int i = 0; i < g_pascal_procs.count; i++) ast_push(root, g_pascal_procs.items[i]);
@@ -1272,8 +1321,8 @@ body:
     BEGINSY statement_list ENDSY { $$ = prog_of($2); }
     ;
 statement_list:
-    statement_list SEMICOLON statement { if ($3) { if (pas_trace_enabled()) pnl_push($1, mk_fnc1("__trace_stmt", ilit(pascal_get_lineno()))); pnl_push($1, $3); } $$ = $1; }
-    | statement { PNodeList *l = pnl_new(); if ($1) { if (pas_trace_enabled()) pnl_push(l, mk_fnc1("__trace_stmt", ilit(pascal_get_lineno()))); pnl_push(l, $1); } $$ = l; }
+    statement_list SEMICOLON { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); if ($4) { if (pas_trace_enabled() && $4->t != TT_SUCCEED) pnl_push($1, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push($1, $4); } $$ = $1; }
+    | { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); PNodeList *l = pnl_new(); if ($2) { if (pas_trace_enabled() && $2->t != TT_SUCCEED) pnl_push(l, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push(l, $2); } $$ = l; }
     ;
 statement:
     statement_no_label { $$ = $1; }
@@ -1338,8 +1387,9 @@ assignment:
           } else { tree_t *_rhs0 = pas_bool($3);
               if (g_pas_range_check_on && $1 && $1->t == TT_VAR && $1->v.sval) { long long _rlo, _rhi; if (pas_subvar_get($1->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi); }
               tree_t *_asn = mk_assign($1, _rhs0);
-              if (pas_trace_enabled() && $1 && $1->t == TT_VAR && $1->v.sval) {
-                  tree_t *_tv = mk_fnc2("__trace_value", leaf_s(TT_QLIT, $1->v.sval), pas_trace_wrap_value(leaf_s(TT_VAR, $1->v.sval)));
+              const char *_tsn = pas_trace_enabled() ? pas_trace_store_name($1) : NULL;
+              if (_tsn) {
+                  tree_t *_tv = mk_fnc2("__trace_value", leaf_s(TT_QLIT, _tsn), pas_trace_wrap_value(leaf_s(TT_VAR, _tsn)));
                   PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); $$ = seq_of(_sl);
               } else { $$ = _asn; } } }
     ;
@@ -1406,10 +1456,10 @@ repeat_statement:
 for_statement:
     FORSY IDENT BECOMES expression TOSY expression DOSY statement
         { if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
-          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, $8); $$ = e; }
+          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); $$ = e; }
     | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement
         { if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
-          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, $8); e->v.ival = 1; $$ = e; }
+          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; $$ = e; }
     ;
 with_statement:
     WITHSY with_open DOSY statement { long long n = $2; for (long long i = 0; i < n; i++) pas_with_pop(); $$ = $4; }

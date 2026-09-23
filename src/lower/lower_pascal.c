@@ -30,6 +30,7 @@ static int g_pas_has_nesting = 0;
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
+static int pas_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
 extern void global_register(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_reg_var(const char * nm) { if (nm && nm[0]) global_register(lp_strdup(nm)); }
@@ -405,8 +406,19 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     γ_to(iv, one);
     ir_operand_push(inc_op, iv); ir_operand_push(inc_op, one);
     ir_operand_push(inc_asn, inc_op);
-    IR_t * be = lower(cx, body, iv, iv, NULL);
-    γ_to(cmp, be ? be : iv);
+    IR_t * cont = iv;
+    if (pas_trace_wanted()) {
+        IR_t * xt = build(cx, IR_BINOP_TEST, γ, iv);
+        IR_LIT(xt).ival = is_downto ? 6 : 8;
+        IR_t * xi = lower_var(cx, vname, NULL, ω);
+        IR_t * xtr = NULL;
+        IR_t * xto = lower(cx, to, xt, ω, &xtr);
+        γ_to(xi, xto ? xto : xt);
+        ir_operand_push(xt, xi); ir_operand_push(xt, xtr);
+        cont = xi;
+    }
+    IR_t * be = lower(cx, body, cont, cont, NULL);
+    γ_to(cmp, be ? be : cont);
     IR_t * init_asn = lower_assign_var(cx, vname, lim_var, ω);
     IR_t * fr = NULL;
     IR_t * fe = lower(cx, from, init_asn, ω, &fr);

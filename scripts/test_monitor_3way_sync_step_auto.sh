@@ -85,6 +85,7 @@ SNO4_REPO="${SNO4_REPO:-$S4A/snobol4dotnet}"
 SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
 ICON_MON="${ICON_MON_ROOT:-$S4A/icon-mon}"
 GPROLOG_MON="${GPROLOG_MON_ROOT:-$S4A/gprolog-mon}"
+FPC_MON="${FPC_MON_ROOT:-$S4A/fpc-mon}"
 INC="${INC:-$S4E/corpus/include}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
@@ -103,12 +104,12 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot|scr3|scr4|rko|icx|gpx) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko, icx, gpx)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4|rko|icx|gpx|fpx) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko, icx, gpx, fpx)"; exit 2 ;;
     esac
 done
 
-want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0; want_icx=0; want_gpx=0
+want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0; want_icx=0; want_gpx=0; want_fpx=0
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
         csn) want_csn=1 ;;
@@ -120,6 +121,7 @@ for p in "${PARTICIPANTS[@]}"; do
         rko) want_rko=1 ;;
         icx) want_icx=1 ;;
         gpx) want_gpx=1 ;;
+        fpx) want_fpx=1 ;;
     esac
 done
 
@@ -134,6 +136,7 @@ done
 [[ "$want_rko" = "1" ]] && [[ ! -f "$MON_DIR/raku_oracle_bridge.py" ]] && { echo "FAIL raku_oracle_bridge.py missing"; exit 2; }
 [[ "$want_icx" = "1" ]] && { [[ ! -x "$ICON_MON/bin/icont" ]] || [[ ! -x "$ICON_MON/bin/iconx" ]]; } && { echo "FAIL instrumented Icon fork not built at $ICON_MON/bin/{icont,iconx} -- bash scripts/monitor/oracles/build_icon_mon.sh <prefix> (ICON_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_gpx" = "1" ]] && [[ ! -x "$GPROLOG_MON/bin/gplc" ]] && { echo "FAIL instrumented GNU Prolog fork not built at $GPROLOG_MON/bin/gplc -- bash scripts/monitor/oracles/build_gprolog_mon.sh <prefix> (GPROLOG_MON_ROOT names the prefix)"; exit 2; }
+[[ "$want_fpx" = "1" ]] && [[ ! -x "$FPC_MON/bin/fpc" ]] && { echo "FAIL instrumented Free Pascal fork not built at $FPC_MON/bin/fpc -- bash scripts/monitor/oracles/build_fpc_mon.sh <prefix> (FPC_MON_ROOT names the prefix)"; exit 2; }
 :
 
 # ⛔ SCRATCH ON /home, NOT BARE /tmp, WITH CLEANUP THAT SURVIVES A KILL (row icon-sweep-scratch-hardening, s267).
@@ -335,6 +338,25 @@ if [[ "${want_gpx:-0}" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/gpx.names" \
         timeout "$((TIMEOUT*2))" "$TMP/gpx.bin" \
         < "$STDIN_SRC" > "$TMP/gpx.out" 2> "$TMP/gpx.err" &
+    PIDS+=($!)
+fi
+
+# ⭐ fpx (coo 2026-09-23, on Lon's word to the coo at 06:32 CDT: "Build the Free Pascal Compiler (FPC) IPC sync-step monitor inside
+# FPC just like CEO did for Icon and Prolog"): the Free Pascal fork built by scripts/monitor/oracles/build_fpc_mon.sh -- under -gi
+# its compiler injects a fire-point at every element of every statement list (statement, the statement's own source line), after
+# every store to a named variable and at the top of every for-loop iteration (value), at every user procedure's entry (call) and
+# exit label (return, with the function's result); the fire-points (rtl/inc/monipc.inc, Pascal over the system unit's own
+# syscalls) speak the shared monitor_ipc_lib.c wire and are silent no-ops when the pipes are unset (the build script's control
+# arm). The witness is compiled -Miso as the Pascal board compiles it, into the harness's scratch (-FE), never beside the source.
+if [[ "${want_fpx:-0}" = "1" ]]; then
+    FPX_SRC="$(realpath "$SNO")"
+    ( cd "$TMP" && timeout "$TIMEOUT" "$FPC_MON/bin/fpc" -Miso -gi -v0 -FE"$TMP" -o"$TMP/fpx.bin" "$FPX_SRC" ) > "$TMP/fpx.cc.out" 2>&1 \
+        || { echo "FAIL fpx compile: $(tail -2 "$TMP/fpx.cc.out")"; exit 2; }
+    MONITOR_READY_PIPE="$TMP/fpx.ready" \
+    MONITOR_GO_PIPE="$TMP/fpx.go" \
+    MONITOR_NAMES_OUT="$TMP/fpx.names" \
+        timeout "$((TIMEOUT*2))" "$TMP/fpx.bin" \
+        < "$STDIN_SRC" > "$TMP/fpx.out" 2> "$TMP/fpx.err" &
     PIDS+=($!)
 fi
 
