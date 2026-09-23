@@ -4,6 +4,10 @@
 # live for EVERY graded suite. Cheap, no build, hermetic (reads the checkout only). PASS rc=0, FAIL rc=1 naming each missing
 # file, REFUSE rc=2 when SUITES.tsv cannot be read or maps a key this table does not know (a suite this gate cannot place is
 # not silently green). The key->directory table is DECLARED here because SUITES.tsv carries no path column.
+# ⛔ A BENCHMARK ROW (key *-bench-ref, CEO-1221) HAS NO ALL.csv BY RULING: the coo 2026-09-23, answering hq_snocone -- a benchmark
+# declares its memory in a per-program NAME.heap sidecar beside the program (the harness's own heap_sidecar_path format), never a
+# per-tree attribute file. So a *-bench-ref key is PLACED when its benchmark directory exists, counted apart from the ALL.csv
+# suites. Its first row (snocone-bench-ref) refused this gate for every seat's preflight for one push -- hq_pascal's report.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 T="$S4E/.github/SUITES.tsv"
 [ -r "$T" ] || { echo "REFUSE(2): cannot read $T"; exit 2; }
@@ -15,19 +19,21 @@ declare -A DIR=(
   [gnu_fd]=corpus/packages/prolog/gnu_fd [logtalk]=corpus/packages/prolog/logtalk_iso [fpc]=corpus/packages/pascal/fpc_tests [pat]=corpus/packages/pascal/pat
   [roast]=corpus/packages/raku/roast [sno-master]=corpus/tests/snobol4 [icn-master]=corpus/tests/icon [pl-master]=corpus/tests/prolog
   [pas-master]=corpus/tests/pascal [raku-master]=corpus/tests/raku [snc-master]=corpus/tests/snocone [reb-master]=corpus/tests/rebus
+  [snocone-bench-ref]=corpus/benchmarks/snocone
 )
-rows=0; ok=0; missing=(); unknown=()
+rows=0; ok=0; okb=0; missing=(); unknown=()
 while IFS=$'\t' read -r key rest; do
   [ -z "$key" ] && continue; case "$key" in \#*|key) continue;; esac
   rows=$((rows+1))
   d="${DIR[$key]:-}"
   if [ -z "$d" ]; then unknown+=("$key"); continue; fi
+  case "$key" in *-bench-ref) if [ -d "$S4E/$d" ]; then okb=$((okb+1)); else missing+=("$key -> $d (its benchmark tree)"); fi; continue;; esac
   if [ -s "$S4E/$d/ALL.csv" ]; then ok=$((ok+1)); else missing+=("$key -> $d/ALL.csv"); fi
 done < "$T"
-echo "ATTRIBUTE-FILES suites=$rows with_all_csv=$ok missing=${#missing[@]} unknown=${#unknown[@]}"
+echo "ATTRIBUTE-FILES suites=$rows with_all_csv=$ok benchmark_rows_by_sidecar=$okb missing=${#missing[@]} unknown=${#unknown[@]}"
 for m in "${missing[@]}"; do echo "  MISSING $m"; done
 for u in "${unknown[@]}"; do echo "  UNKNOWN-KEY $u (add it to this gate's table)"; done
 [ "$rows" -gt 0 ] || { echo "REFUSE(2): SUITES.tsv has no rows -- a denominator of zero is a refusal"; exit 2; }
 [ "${#unknown[@]}" -eq 0 ] || { echo "REFUSE(2): ${#unknown[@]} suite key(s) this gate cannot place"; exit 2; }
-[ "${#missing[@]}" -eq 0 ] && { echo "GATE PASS(0) [every_graded_suite_has_an_attribute_csv]: $ok of $rows suites carry ALL.csv"; exit 0; }
+[ "${#missing[@]}" -eq 0 ] && { echo "GATE PASS(0) [every_graded_suite_has_an_attribute_csv]: $ok of $rows suites carry ALL.csv and $okb benchmark row(s) declare memory by NAME.heap sidecar"; exit 0; }
 echo "GATE FAIL(1) [every_graded_suite_has_an_attribute_csv]: ${#missing[@]} of $rows suites have no attribute file"; exit 1
