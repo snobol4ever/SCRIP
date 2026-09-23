@@ -337,6 +337,29 @@ static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, 
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int xa_flat_wn_park(const char * fname) { return !g_rt_fragment_emit && fname && fname[0] && !strchr(fname, '$') && strncmp(fname, "LBL__", 5) != 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_wn_park_str(int kt, const char * fname) {
+    extern int rt_g_want_name;
+    if (!xa_flat_wn_park(fname)) return std::string();
+    return x86("comment", "name request rides THIS activation (HQV-12 protocol): park rt_g_want_name in write-only [kt-16], zero it")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+         + x86("mov", "edx", RDD("rax", 0))
+         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
+         + x86("mov", RDD("rax", 0), (long)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_wn_restore_str(int kt, const char * fname) {
+    extern int rt_g_want_name;
+    if (!xa_flat_wn_park(fname)) return std::string();
+    return x86("comment", "name request: put the parked request back so the call site's by-name consult reads THIS call's")
+         + x86("push", "rax")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+         + x86("mov", "rcx", RDQ("rsp", kt - 16 + 8))
+         + x86("mov", RDD("rax", 0), "ecx")
+         + x86("pop", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_prologue_str(const char * fname) {
     if (!xa_flat_class_c()) return std::string();
     { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; } if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
@@ -346,7 +369,8 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp");
+         + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+         + xa_flat_wn_park_str(kt, fname);
     int nf = 0, nsave = 0; int gk[29];
     if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
         int argkt = 16 * nsave;
@@ -398,6 +422,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
     return pre + x86("comment", is_gamma
                    ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] (bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx carry the typed result -- reloaded from res_gk just above (nreturn-after-indirect-assign-wrong-value fix) whenever this graph's signature info is known, otherwise still whatever the last node to reach this exit staged. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults (measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
                    : "CLASS-C chain epilogue-ω, det-arm signature form (s272 snocone-returns-codegen): same signature reload as epilogue-γ, but the ω continuation lives at sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
+         + xa_flat_wn_restore_str(kt, fname)
          + x86("mov", "rcx", RDQ("rsp", kt - 24))
          + x86("mov", "rcx", RDQ("rcx", is_gamma ? 8 : 16))
          + (is_gamma ? std::string() : (x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")))
