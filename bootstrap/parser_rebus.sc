@@ -219,4 +219,5 @@ if (Src ? Compiland) {
         TDump(ITEM(c(ptree), i));
         i = i + 1;
     }
+    if (EQ(n_kids, 0)) TDump(ptree);
 } else OUTPUT = 'Parse Error';

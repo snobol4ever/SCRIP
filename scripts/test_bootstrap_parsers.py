@@ -50,6 +50,9 @@ LANGS = {
     "pascal":  {"exts": [".pas", ".pp"], "master": "ALL.pas", "harness_lang": "pascal"},
 }
 SPITBOL_ERR = re.compile(r"\bERROR \d+ --")
+# SPITBOL's default stack (-s4m) is too small for a recursive grammar on a 1000-line source (ERROR 246 on beauty.sc and
+# beauty_modules.sc, both clean at -s16m); 64m is the knob, printed on the board line. -s256m exceeds this box's limit.
+SBL_STACK = os.environ.get("SBL_STACK") or "64m"
 SCRIP_ERR = re.compile(r"^(?:\S+:\d+: )?(?:Error \d+|error:|FATAL|scrip: )", re.M)
 
 
@@ -135,7 +138,7 @@ def build_arm(lang, arm, work):
     if arm == "sbl":
         if not SBL.is_file():
             refuse(f"no SPITBOL oracle at {SBL}")
-        return [str(SBL), "-bf", str(prog)], d
+        return [str(SBL), "-bf", "-s" + SBL_STACK, str(prog)], d
     if arm in ("m3", "sc3"):
         return [str(SCRIP), str(prog)], d
     exe = d / f"{prog.stem}.{arm}.bin"
@@ -154,7 +157,9 @@ def classify(arm, rc, text, timed_out):
     if timed_out:
         return "TIMEOUT", "timeout"
     lines = [l for l in text.splitlines() if l.strip()]
-    if any("Parse Error" in l for l in lines):
+    # the parser's own refusal is a line that IS "Parse Error" -- a program that prints the words (beauty.sc does) parses
+    # to a tree CONTAINING them, and a substring test called that tree a refusal
+    if any(re.fullmatch(r"Parse Error\.?", l.strip()) for l in lines):
         return "REFUSED", "Parse Error"
     m = SPITBOL_ERR.search(text) or (SCRIP_ERR.search(text) if arm != "sbl" else None)
     if m:
@@ -227,7 +232,8 @@ def main():
         for c, _, _ in results.values():
             counts[c] += 1
         nfile = sum(1 for n, _ in pop if not n.startswith("master:"))
-        print(f"bootstrap parser {lang} arm={a.arm} SCRIP {git_head(SCRIP_DIR)} corpus {git_head(CORPUS)} work={work / lang}")
+        print(f"bootstrap parser {lang} arm={a.arm}" + (f" sbl -s{SBL_STACK}" if a.arm == "sbl" else "")
+              + f" SCRIP {git_head(SCRIP_DIR)} corpus {git_head(CORPUS)} work={work / lang}")
         print(f"POPULATION {lang}: files={nfile} master={len(pop) - nfile} total={len(pop)}")
         print(f"BOARD {lang} {a.arm}: PARSED={counts['PARSED']} REFUSED={counts['REFUSED']} CRASH={counts['CRASH']} "
               f"TIMEOUT={counts['TIMEOUT']} EMPTY={counts['EMPTY']} / {len(pop)}")
