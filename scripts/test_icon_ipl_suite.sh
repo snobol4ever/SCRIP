@@ -84,7 +84,14 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 PKG="$S4E/corpus/packages/icon/ipl"
-TIMEOUT="${IPL_SUITE_TIMEOUT:-8}"
+TIMEOUT="${IPL_SUITE_TIMEOUT:-30}"
+# ⛔⭐ RAISED FROM 8 TO 30 (hq_icon, 2026-09-23), measured, not guessed: ibrow and vnq were reading RUN_HANG
+# at 8s while both are CORRECT and byte-identical to their .std -- ibrow completes in ~8.5s, vnq (92 real
+# n-queens solutions, genuinely compute-heavy backtracking) in ~24s. An 8s ceiling was tighter than either
+# program's real, deterministic runtime, so it was misclassifying two passing programs as hangs rather than
+# catching an actual one. 30s covers both with headroom and still catches a true hang an order of magnitude
+# faster than a real one would need to run. Genuine hangs/crashes in this suite (fileprnt, unitgenr) are
+# unaffected by this -- they are real defects with their own findings, not timeout artifacts.
 # ⛔⭐ THE COMPILE TIER MUST SEE THE LIBRARY'S OWN SHAPE, AND UNTIL 2026-09-05 IT DID NOT (hq_I).
 # lib_icon_ipl_isolation.sh has always exported ICONPATH for the RUN tier, but the COMPILE tier below
 # invoked scrip with no path at all, so a progs/ program linking a procs/ helper could only ever fail --
