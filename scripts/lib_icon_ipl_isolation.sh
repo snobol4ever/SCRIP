@@ -24,13 +24,13 @@
 #       before returning, pass or fail -- a self-mutating program can only ever damage a copy already
 #       bound for deletion, never the tracked tree.
 #       ⭐ NAME.dat STDIN SIDECAR (hq_I 2026-09-05): callers grading a progs/NAME.icn against a
-#       NAME.std should pass "$PKG/progs/NAME.dat" (falling back to /dev/null if absent) -- the same
+#       NAME.ref should pass "$PKG/progs/NAME.dat" (falling back to /dev/null if absent) -- the same
 #       convention test_icon_arizona_suite.sh/test_icon_jcon_suite.sh already use, and the one
 #       util_cut_icon_ipl_refs.sh's own run_isolated() now mints refs under; see its header.
 #   ipl_isolation_baseline "$CORPUS_ROOT"    # BEFORE the first program runs
 #   ipl_isolation_verify_clean "$CORPUS_ROOT"  # after the last one
 #       belt-and-suspenders: confirms nothing in the tracked ipl progs/gprogs/procs/gprocs/incl/gincl
-#       subtree CHANGED between the two calls (a newly minted untracked *.std excepted). Prints a loud ⛔
+#       subtree CHANGED between the two calls (a newly minted untracked *.ref excepted). Prints a loud ⛔
 #       to stderr, names what moved, and returns 1 if it did -- call it at the end of any script that
 #       uses ipl_isolation_run, so a breach is caught by the harness itself rather than by the next
 #       `git status` a human happens to run. Skipping the baseline call still gives a guard, comparing
@@ -50,7 +50,7 @@ ipl_isolation_init() {
 ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEMPLATE"; }
 
 # ⛔⭐ THE CWD SUBDIRECTORY IS A PARAMETER, defaulting to progs/ (hq_I 2026-09-06, CEO-316). ipl refs
-# are no longer progs-only: gprogs/ now carries .std files too, and this helper hardcoded BOTH the cwd
+# are no longer progs-only: gprogs/ now carries .ref files too, and this helper hardcoded BOTH the cwd
 # and an ICONPATH with no gprogs entry. Left alone it would have run every gprogs entry from the wrong
 # directory, with its own package subdirectory missing from the link path -- and, because the caller
 # passes the .icn by its TRACKED absolute path, the self-mutation hazard this whole file exists to
@@ -101,7 +101,7 @@ ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEM
 # never loaded". ⛔ THE TWO ANSWERS ARE NOT EQUALLY WRONG: a missing oracle is a fact about the box, while an
 # unloaded helper is a fact about the caller, and the second one is the common case here --
 # test_icon_ipl_suite.sh, THE RUN-GRADED BOARD ITSELF, sources this lib and has never sourced
-# lib_oracle_flags.sh, so every run-graded IPL entry was executed with the oracle OFF PATH while its .std was
+# lib_oracle_flags.sh, so every run-graded IPL entry was executed with the oracle OFF PATH while its .ref was
 # cut with the oracle ON it. For the 108 entries that never resolve a name through PATH that is invisible;
 # for progs/qei, which shells out to `icont` and to its own compiled `qei_`, it is a SILENT FALSE FAIL -- the
 # graded run answers `sh: 1: icont: not found` in place of the evaluation, a well-formed 111-byte output that
@@ -180,9 +180,9 @@ ipl_isolation_run() {
 # ⛔ WITH NO BASELINE the old HEAD comparison is kept -- a caller that never snapshotted still gets a
 # guard -- but it SAYS SO in the refusal, because "you have untracked fixtures" and "a program rewrote
 # the tree" must not print the same sentence.
-# ⭐ The exemption narrowed while it moved: it was `grep -v '\.std$'`, which exempted a .std at ANY
+# ⭐ The exemption narrowed while it moved: it was `grep -v '\.ref$'`, which exempted a .ref at ANY
 # status -- including ` M` on a TRACKED ref, i.e. a pinned ref overwritten mid-run, the single most
-# damaging thing that could happen here. Only an UNTRACKED NEW .std (`?? …`, what --apply legitimately
+# damaging thing that could happen here. Only an UNTRACKED NEW .ref (`?? …`, what --apply legitimately
 # mints) is exempt now; the old form leaned on the separate `git diff --quiet` arm to catch that case.
 _ipl_iso_state() {
   git -C "$1" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | LC_ALL=C sort
@@ -196,10 +196,10 @@ ipl_isolation_verify_clean() {
   now="$(mktemp "${TMPDIR:-/tmp}/ipl_iso_now.XXXXXX")" || return 1
   _ipl_iso_state "$corpus" > "$now"
   if [ -n "${IPL_ISO_BASELINE:-}" ] && [ -f "$IPL_ISO_BASELINE" ]; then
-    changed="$(LC_ALL=C comm -13 "$IPL_ISO_BASELINE" "$now" | grep -v '^?? .*\.std$')"
+    changed="$(LC_ALL=C comm -13 "$IPL_ISO_BASELINE" "$now" | grep -v '^?? .*\.ref$')"
     scope="since this run's baseline"
   else
-    changed="$(grep -v '^?? .*\.std$' "$now")"
+    changed="$(grep -v '^?? .*\.ref$' "$now")"
     scope="against HEAD -- NO BASELINE WAS CAPTURED, so a fixture that was already untracked before this run reads as a breach here; call ipl_isolation_baseline before the first program runs to get the real answer"
   fi
   rm -f "$now"

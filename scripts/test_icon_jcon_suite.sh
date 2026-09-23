@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # scripts/test_icon_jcon_suite.sh — grades SCRIP m3+m4 against the vendored JCON test suite
-# (corpus/packages/icon/jcon_tests/: 91 .icn, 83 with a .std oracle, 21 with a .dat companion, plus link1 graded by a .ref we cut from icont/iconx with its .args).
+# (corpus/packages/icon/jcon_tests/: 91 .icn, 83 with a .ref oracle, 21 with a .dat companion, plus link1 graded by a .ref we cut from icont/iconx with its .args).
 # Row jcon-tests-vendor-script-run. Self-contained. Run from anywhere with no env vars.
 #
 # FOUR-WAY VERDICT, not the usual PASS/FAIL/REFUSED: a jcon test is real, unmodified upstream Icon
@@ -13,7 +13,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # print it verbatim and both exit rc=1 on the identical construct).
 #
 # .dat COMPANION CONVENTION: JCON's own `addtest` harness feeds a .dat file BOTH as argv[1] AND as
-# stdin (`./prog file.dat <file.dat >file.std`) -- reproduced here exactly, not stdin-only (a jcon test
+# stdin (`./prog file.dat <file.dat >file.ref`) -- reproduced here exactly, not stdin-only (a jcon test
 # reading *args as well as reading stdin would silently see an empty argv otherwise).
 #
 # CWD FIX (seat02, 2026-09-05, icon-jcon-suite-39 11th pass): a jcon program may ALSO open its own .dat
@@ -27,19 +27,19 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # `open("recent.dat")` remain unaddressed -- moot today since it dies earlier on an unrelated sortf bug,
 # see FINDING-2026-09-05-seat02-icon-jcon-suite-census-11th-pass*.md).
 #
-# ⛔⭐ THE GRADED STREAM IS STDOUT **AND** STDERR, COMBINED, BECAUSE THAT IS THE CONTRACT THE .std FILES
+# ⛔⭐ THE GRADED STREAM IS STDOUT **AND** STDERR, COMBINED, BECAUSE THAT IS THE CONTRACT THE .ref FILES
 # WERE CUT UNDER (hq_P 2026-09-09, ceo CEO-445). Upstream's own harness is `prog < in > out 2>&1` and
 # test_icon_arizona_suite.sh already reproduces it (`2>&1` at its :146/:163); this runner alone diffed
 # STDOUT ONLY. Four programs write their ENTIRE output to stderr -- cxtrace, loadfunc, traceback, tracing
 # (icont's runtime error and &trace reports go there) -- so this runner compared an EMPTY stdout against a
-# full .std and called it a wrong answer, forever, with nothing able to notice: the ref was right, the
+# full .ref and called it a wrong answer, forever, with nothing able to notice: the ref was right, the
 # program was right, and the instrument was reading the wrong pipe. MEASURED before the change: all four
 # FAIL/CRASH in both modes. ⛔ The stream and the rc rule are ONE defect with two halves -- see the rc note
 # in verdict_of() -- and fixing either alone leaves all four still red, which is why they land together.
 #
-# NO-ORACLE SOURCES EXCLUDED, NOT GRADED AS MISSING: link2/load1/load2/tpp1-5 have no .std by
+# NO-ORACLE SOURCES EXCLUDED, NOT GRADED AS MISSING: link2/load1/load2/tpp1-5 have no .ref by
 # design (link targets and dynamic-load targets with no main; template-preprocessor inputs, not
-# standalone programs -- see README.md). Globbing only *.icn with a matching *.std (or a *.ref we cut
+# standalone programs -- see README.md). Globbing only *.icn with a matching *.ref (or a *.ref we cut
 # from the oracle -- link1, cfo 2026-09-07) sidesteps them without a hardcoded exclude list that would
 # silently go stale.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -71,18 +71,18 @@ CORPUS_PUBLISHED="$S4E/corpus/packages/icon/jcon_tests"   # ⛔ the ONE populati
 # cap, but rt_gcheap_grow commits only the triggering allocation per grow, never geometrically, so reaching
 # a several-hundred-KB working set from the 128 KB default cost thousands of tiny mprotect+collect cycles
 # and the program never finished inside this runner's timeout. A window that starts above the cap removes
-# the growth ladder entirely -- measured 0.09-0.12s either way, byte-identical to geddump.std.
+# the growth ladder entirely -- measured 0.09-0.12s either way, byte-identical to geddump.ref.
 . "$(dirname "${BASH_SOURCE[0]}")/lib_declared_arena.sh"
 OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
 # ⛔⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-470 on hq_P's measurement, 2026-09-09). A program
 # ARIZONA icont cannot run has no ground truth, so it is OUT of the graded denominator and NAMED -- never
 # hidden and never counted either way. The reader is the same shape test_snobol4_csnobol4_suite.sh uses for
 # OUTSIDE_SPITBOL_BASELINE.tsv. ⛔ IT COSTS US TWO PASSES AND THAT IS THE POINT: htprep and prepro diffed
-# ZERO against .std files icont REFUSES to compile, so they were green cells resting on jcon's answers --
+# ZERO against .ref files icont REFUSES to compile, so they were green cells resting on jcon's answers --
 # the same defect as the sixteen jcon-cut refs re-cut this morning, except these three cannot be re-cut
 # because the oracle will not run them. A false green is worth less than a smaller honest denominator.
 # ⛔⭐ MODES.tsv -- WHICH INSTRUMENT GRADES AN ENTRY (ceo CEO-561, 2026-09-11, hq_V). A program that prints
-# &progname has an output that is A FUNCTION OF ITS INVOCATION: jcon's kwds.std is a ONE-STEP cut reading
+# &progname has an output that is A FUNCTION OF ITS INVOCATION: jcon's kwds.ref is a ONE-STEP cut reading
 # `&progname: kwds.icn`, and a mode-4 binary IS the program and reports its own argv[0], so NO single ref can
 # be right for both modes and no better ref or pinned name can close it. The modes column says which arm can
 # answer the question. ⛔ THIS IS NOT OUTSIDE_ARIZONA_BASELINE.tsv AND MUST NEVER BECOME IT: an outside-baseline
@@ -184,7 +184,7 @@ run_one() {
     # lines that looked exactly like an I/O defect. MEASURED both ways on this tree: 14 diff lines without
     # the source beside it, ZERO with it, same binary and same ref. ⛔ Only the entry's OWN source is copied,
     # never the whole package: the ref for that `ls` expects to see io.dat and io.icn and NOTHING ELSE, so
-    # copying more would break the very test this fixes. The .std is deliberately NOT copied for the same
+    # copying more would break the very test this fixes. The .ref is deliberately NOT copied for the same
     # reason. This is the same class the .dat line above already cures, one filename over.
     cp "$icn" "$rundir/$(basename "$icn")" 2>/dev/null || true
     # ⭐ TWO MORE SIDECARS, BOTH OURS AND BOTH DECLARED, NEVER INFERRED (cfo 2026-09-07, row every-package-runner-
@@ -231,7 +231,7 @@ run_one() {
             # a-mktemp-path-so-diagnostic-programs-cannot-be-graded: "Bare name in argv, explicit cwd so it still
             # resolves"); this runner never got it. ⛔ SCOPE, MEASURED BEFORE THE CHANGE rather than asserted: the
             # only programs whose output can turn on the spelling are the ones that print their own invocation or
-            # their own filename -- sources naming &progname/&file (kwds, profsum, tgrlink) and .std files quoting
+            # their own filename -- sources naming &progname/&file (kwds, profsum, tgrlink) and .ref files quoting
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
@@ -252,7 +252,7 @@ run_one() {
             # ⛔ INTO THE RUNDIR AND NOT BESIDE THE SOURCE, and the bare stem is load-bearing: io.icn lists its
             # own directory through `ls io.[ids][tca][dnt]` and `ls io.i?n io.d?t io.s?d`, patterns that require a
             # dot plus three characters -- a binary named `io` cannot match either, which is why this may land at
-            # all. Measured across every .std in the package: io is the ONLY program that lists its directory.
+            # all. Measured across every .ref in the package: io is the ONLY program that lists its directory.
             local s="$WORK/$name.s" o="$WORK/$name.o" bin="$rundir/$name"
             if ! timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
@@ -275,7 +275,7 @@ run_one() {
     if [ "$rc" -ge 128 ]; then echo "CRASH"; return; fi
     # ⛔⭐ A NONZERO rc IS NOT A FAILURE IN THIS SUITE, AND MAKING IT ONE HID FOUR PROGRAMS (hq_P 2026-09-09,
     # CEO-445). Upstream's own contract -- tests/general/Test-icon, which is also what
-    # test_icon_arizona_suite.sh reproduces -- runs `prog < in > out 2>&1` and diffs out against .std. It
+    # test_icon_arizona_suite.sh reproduces -- runs `prog < in > out 2>&1` and diffs out against .ref. It
     # never reads the exit status, because a jcon/Icon test that ENDS IN A RUNTIME ERROR is a legitimate
     # test whose expected output IS the error report: traceback.icn exits 1 under icont by design, and so
     # do errors.icn and loadfunc.icn. Blanket-failing a nonzero rc marked all three FAIL before their text
@@ -284,7 +284,7 @@ run_one() {
     # timeout firing (HANG) and >=128 is a signal (CRASH), neither of which upstream can express because it
     # has no timeout and no crash bucket. Everything else is decided by the text, as upstream decides it.
     # ⛔⭐ ONE ERROR VOICE (Lon 2026-09-12, RULES.md § ONE ERROR VOICE, CEO-625): the runtime prints SCRIP's own error shape;
-    # the .std pins icont's. The captured stream is rendered through the Icon EQUIVALENCE LIST (util_render_error_voice.py)
+    # the .ref pins icont's. The captured stream is rendered through the Icon EQUIVALENCE LIST (util_render_error_voice.py)
     # and THAT is diffed -- every field SCRIP printed is carried, a block the list cannot render stays as it is and reads red.
     python3 "$HERE/util_render_error_voice.py" icon < "$outfile" > "$outfile.icon" 2>/dev/null || cp "$outfile" "$outfile.icon"
     if diff -q "$outfile.icon" "$want" >/dev/null 2>&1; then echo "PASS"; else echo "FAIL"; fi
@@ -299,11 +299,11 @@ run_mode() {
     for icn in "$CORPUS"/*.icn; do
         [ -f "$icn" ] || continue
         case "$(basename "$icn")" in ALL.*) continue ;; esac   # our own generated container is not a shipped program -- see the census loop below
-        std="${icn%.icn}.std"
-        [ -f "$std" ] || std="${icn%.icn}.ref"   # `.ref` is a ref WE cut from icont/iconx with `<name>.args` (README.md), for a shipped program upstream ships no .std for
+        std="${icn%.icn}.ref"
+        [ -f "$std" ] || std="${icn%.icn}.ref"   # `.ref` is a ref WE cut from icont/iconx with `<name>.args` (README.md), for a shipped program upstream ships no .ref for
         [ -f "$std" ] || continue   # no-oracle source (link2/load*/tpp*) — excluded, not MISSING
         is_outside_baseline "$(basename "$icn" .icn)" && continue
-        case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.std is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.std sources above
+        case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.ref is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.ref sources above
         outfile="$WORK/out.txt"
         name=$(basename "$icn" .icn)
         _dm=$(declared_modes "$name")
@@ -361,8 +361,8 @@ run_mode() {
     # total minus two pass counts, which double-subtracts a program red in both modes. These four arrays
     # were already built for the printed fail lists one screen up; only their scope was missing.
     eval "${mode}_RED_NAMES=\"${fail_names[*]:-} ${reject_names[*]:-} ${crash_names[*]:-} ${hang_names[*]:-}\""
-    # ⛔ TOTAL IS THE LOOP'S OWN DENOMINATOR, NEVER A SEPARATE `ls *.std` RECOUNT: jcon_tests carries one
-    # orphaned .std (linking.std) with no matching .icn -- a stray in the vendored upstream, harmless to
+    # ⛔ TOTAL IS THE LOOP'S OWN DENOMINATOR, NEVER A SEPARATE `ls *.ref` RECOUNT: jcon_tests carries one
+    # orphaned .ref (linking.ref) with no matching .icn -- a stray in the vendored upstream, harmless to
     # leave in place (provenance), but counting it as part of TOTAL would assert a witness this suite
     # never actually graded. RULES.md § A PROBE ASSERTS ITS NAMED WITNESS, NEVER A POSITIONAL DENOMINATOR.
     eval "${mode}_TOTAL=$mode_total"
@@ -370,7 +370,7 @@ run_mode() {
 
 # ⛔⭐ POPULATION LAW (Lon, ruled 2026-09-04 via hq_B for the Arizona suite; brought to jcon by hq_I
 # 2026-09-05 on ceo ruling CEO-294 "jcon onto the arizona population shape"). THE COUNTED POPULATION IS
-# EVERY .icn THIS PACKAGE SHIPS, not merely the subset carrying a .std oracle today. A shipped program with
+# EVERY .icn THIS PACKAGE SHIPS, not merely the subset carrying a .ref oracle today. A shipped program with
 # no oracle is UNGRADED -- zero of the population, never PASS -- and it may NEVER be silently dropped from
 # the denominator. SHIPPED/GRADED/GAP are computed fresh on every run, never hand-maintained, and the GAP is
 # NAMED rather than merely counted, so a reader can see exactly which programs are carrying a zero.
@@ -389,8 +389,8 @@ for _icn in "$CORPUS"/*.icn; do
 case "$(basename "$_icn")" in ALL.*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     _b="$(basename "$_icn" .icn)"
-    if [ ! -f "${_icn%.icn}.std" ] && [ ! -f "${_icn%.icn}.ref" ]; then GAP_NAMES="$GAP_NAMES $_b(no .std shipped upstream, no .ref cut by us)"; continue; fi
-    case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.std is jcon PREPROCESSOR text, not program output)"; continue;; esac
+    if [ ! -f "${_icn%.icn}.ref" ] && [ ! -f "${_icn%.icn}.ref" ]; then GAP_NAMES="$GAP_NAMES $_b(no .ref shipped upstream, no .ref cut by us)"; continue; fi
+    case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.ref is jcon PREPROCESSOR text, not program output)"; continue;; esac
     if is_outside_baseline "$_b"; then GAP_NAMES="$GAP_NAMES $_b(outside the Arizona baseline: $(outside_reason "$_b"))"; OUTSIDE_LIST="$OUTSIDE_LIST $_b"; continue; fi
     GRADED=$((GRADED+1))
 done

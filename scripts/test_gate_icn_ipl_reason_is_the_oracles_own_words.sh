@@ -234,20 +234,20 @@ fi
 # that commit onward. ⛔ The guard for this ALREADY EXISTED -- lib_inventory.sh sums the four buckets and
 # would have REFUSED -- but the suite had not been run since, so the defect sat in the tree while the
 # instrument that convicts it was idle. ⭐ AND IT SURVIVED MY OWN CHECK: I confirmed "851 = 64 + 233 + 554"
-# using the 64 from a ledger instead of counting the .std files, which is the transcription failure this
+# using the 64 from a ledger instead of counting the .ref files, which is the transcription failure this
 # package polices, committed inside the act of verifying an identity. This arm counts the files.
 overlap=""
 while IFS= read -r rel; do
   [ -z "$rel" ] && continue
-  [ -f "$PKG/${rel%.icn}.std" ] && overlap="$overlap $rel"
+  [ -f "$PKG/${rel%.icn}.ref" ] && overlap="$overlap $rel"
 done < <(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$PKG/UNGRADED.tsv")
-if [ -n "$overlap" ]; then red "ARM 10: these ipl programs have a .std ref AND are still listed as work owed in UNGRADED.tsv:$overlap"
+if [ -n "$overlap" ]; then red "ARM 10: these ipl programs have a .ref ref AND are still listed as work owed in UNGRADED.tsv:$overlap"
 else
-  g=$(find "$PKG" -name '*.std' | wc -l)
+  g=$(find "$PKG" -name '*.ref' ! -name ALL.ref | wc -l)
   u=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADED.tsv")
   d=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADABLE.tsv")
   sh=$(find "$PKG" -name '*.icn' ! -name 'ALL.icn' | wc -l)
-  if [ "$((g+u+d))" -ne "$sh" ]; then red "ARM 10: buckets do not sum -- graded($g) + ungraded($u) + ungradable($d) = $((g+u+d)), shipped=$sh. ⛔ COUNTED, never quoted: graded is the .std files on disk, not a number carried from a ledger."
+  if [ "$((g+u+d))" -ne "$sh" ]; then red "ARM 10: buckets do not sum -- graded($g) + ungraded($u) + ungradable($d) = $((g+u+d)), shipped=$sh. ⛔ COUNTED, never quoted: graded is the .ref files on disk, not a number carried from a ledger."
   else green "ARM 10: no graded program is still listed as owed, and $g + $u + $d = $sh shipped, every count measured on disk"; fi
 fi
 

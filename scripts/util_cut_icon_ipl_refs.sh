@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # util_cut_icon_ipl_refs.sh -- STEP 1 of task icon-ipl-851-run-graded-against-iconx-refs-and-cured-by-class:
-# cut a RUN ref (NAME.std) from the real Icon oracle (icon_bin, lib_oracle_flags.sh -- the ONE authority,
+# cut a RUN ref (NAME.ref) from the real Icon oracle (icon_bin, lib_oracle_flags.sh -- the ONE authority,
 # never re-derived here) for every corpus/packages/icon/ipl/progs/*.icn with a deterministic, input-free
 # `procedure main`. Same discipline as util_ref_mint.sh's SNOBOL4 LIVE/DEAD_REPORT/EMPTY classes, adapted:
-# CENSUS ONLY by default (classifies, writes nothing); --apply mints a .std beside every LIVE program.
+# CENSUS ONLY by default (classifies, writes nothing); --apply mints a .ref beside every LIVE program.
 #
 #   bash scripts/util_cut_icon_ipl_refs.sh [--apply] [-v] [--dir <subdir>] [--mains-only] [--only NAME]...
 #
@@ -26,9 +26,9 @@
 # (STEP 3, running SCRIP against these programs) -- test_icon_ipl_suite.sh's own RUN tier must use the
 # identical isolation, not cd into $PKG/progs directly, or every future grading run re-corrupts the tree.
 #
-# ⛔ A .std MINTED FROM A RUN THAT ISN'T A GENUINE CLEAN EXECUTION PINS A LIE -- there are SIX ways to
+# ⛔ A .ref MINTED FROM A RUN THAT ISN'T A GENUINE CLEAN EXECUTION PINS A LIE -- there are SIX ways to
 # pin one here, not one, so every progs/ file gets exactly one NAMED outcome, never a silent skip:
-#   EMPTY          -- rc=0, zero bytes of stdout. A 0-byte .std would grade "produced nothing" as correct.
+#   EMPTY          -- rc=0, zero bytes of stdout. A 0-byte .ref would grade "produced nothing" as correct.
 #   ORACLE_FAIL    -- rc!=0 under /dev/null stdin, and none of the named classes below explains it. The
 #                      row carries THE ORACLE'S OWN FIRST NON-BLANK LINE as its reason, never a sentence
 #                      this script composed -- see the arm's own note on the 212 rows that shared one
@@ -44,7 +44,7 @@
 #                      it into a bash variable (second incident this session: a timing-out program that
 #                      is NOT quiet while it waits can still print gigabytes before `timeout` kills it --
 #                      see the MAX_BYTES comment below for the full incident). A program whose output
-#                      doesn't fit in a small pinned .std is not a good ref candidate regardless.
+#                      doesn't fit in a small pinned .ref is not a good ref candidate regardless.
 #   SUSPECT_USAGE  -- rc=0, non-empty, but the first line reads like a usage/error banner printed on a
 #                      clean exit (the exact DEAD_REPORT trap util_ref_mint.sh names for SNOBOL4's sbl,
 #                      adapted for Icon: a program that prints "usage: prog file" and exits 0 would
@@ -53,7 +53,7 @@
 #   NONDETERMINISTIC -- run twice, independently (fresh scratch copy each time); the two stdouts disagree
 #                      (time/date/rand/table-order etc.). Pinning either run would fail the OTHER forever.
 #   LIVE           -- rc=0 both runs, non-empty, byte-identical across the two runs, no usage-banner
-#                      shape. Minted as progs/NAME.std with --apply; otherwise "would mint".
+#                      shape. Minted as progs/NAME.ref with --apply; otherwise "would mint".
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
@@ -279,12 +279,12 @@ trap 'cleanup_template; rm -f "$OUT1" "$OUT2" "$OUT1.link" "$OUT2.link"; rm -rf 
 # to be killed from outside -- on a shared 30G box with other seats actively running SCRIP concurrently
 # at the time. Fix: `wc -c` the FILE first (cheap, no full read) and refuse to slurp past MAX_BYTES,
 # same discipline as the EMPTY/SUSPECT_USAGE classes -- a program whose output doesn't fit in a small
-# pinned .std is not a good ref candidate anyway, oversized or not.
+# pinned .ref is not a good ref candidate anyway, oversized or not.
 MAX_BYTES=1048576
 printf 'STATUS\tPROGRAM\tRC\tBYTES\tACTION\n'
 for f in "${FILES[@]}"; do
   base="${f%.icn}"
-  std="$PROGS/$base.std"
+  std="$PROGS/$base.ref"
   if [ -f "$std" ]; then
     n_havestd=$((n_havestd+1)); printf 'HAVE_STD\t%s\t-\t-\tkept (pre-existing pin, never overwritten)\n' "$f"
     continue
@@ -434,7 +434,7 @@ for f in "${FILES[@]}"; do
     continue
   fi
   if [ "$by1" -eq 0 ]; then
-    n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .std pins "produced nothing" as correct\n' "$f"
+    n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .ref pins "produced nothing" as correct\n' "$f"
     continue
   fi
   # ⛔⭐⭐ THE CONTENT ASSERTION -- the FIFTH property, and the one that would have caught the 27
@@ -524,7 +524,7 @@ for f in "${FILES[@]}"; do
   # already in the tree). Every determinism arm above -- four sub-second runs plus the minute-crossing
   # second pass -- catches variation whose period is SHORTER than the observation window. A program that
   # prints the DATE is byte-stable across all of them and its ref is correct until midnight.
-  # ⛔ THE WITNESS IS NOT HYPOTHETICAL: progs/gftrace.std was cut on 2026-09-05 pinning
+  # ⛔ THE WITNESS IS NOT HYPOTHETICAL: progs/gftrace.ref was cut on 2026-09-05 pinning
   # `#	Date:     September 5, 2026`; run on 09-06 the ORACLE ITSELF prints September 6, so the ref had
   # been red for every reader since midnight, and the failure presents as an ordinary RUN-tier FAIL that
   # a seat would reasonably charge to SCRIP. And progs/daystil.icn -- whose whole job is "days until a
@@ -582,11 +582,11 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
     # what it captures. rows2blp.icn's real, deterministic, 1-byte oracle output IS a single newline --
     # by1=1 correctly cleared the EMPTY guard (rc=0, non-empty), and the program was correctly ruled
     # LIVE, but `$(cat "$cand")` then silently collapsed that byte to an empty string before printf ever
-    # ran, minting a 0-byte .std that pins "produced nothing" for a program that provably did not. The
+    # ran, minting a 0-byte .ref that pins "produced nothing" for a program that provably did not. The
     # guard tested the INPUT to a transformation that came after it, not what the transformation actually
     # produced. `cp` moves the exact bytes verified above with no shell string handling in between.
     if [ -n "$APPLY" ]; then
-      cp "$cand" "$PROGS/$cb.std"; n_mint=$((n_mint+1)); act="MINTED"
+      cp "$cand" "$PROGS/$cb.ref"; n_mint=$((n_mint+1)); act="MINTED"
     else
       act="would mint"
     fi

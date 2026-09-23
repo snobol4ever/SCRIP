@@ -4,12 +4,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # official Arizona Icon test suite (corpus/packages/icon/arizona_tests, upstream 9.5).
 #
 # GROUND TRUTH FOR THE CONTRACT: upstream's own general/Test-icon — compile NAME.icn, feed NAME.dat
-# as stdin if present else /dev/null, capture stdout+stderr combined, diff against NAME.std. This
+# as stdin if present else /dev/null, capture stdout+stderr combined, diff against NAME.ref. This
 # script reproduces that exactly for SCRIP's two native execution modes instead of icont/iconx.
 #
 # ⛔ POPULATION LAW (Lon, ruled 2026-09-04, routed via hq_B): the counted population is every .icn
 # this package SHIPS across ALL its subdirectories, not merely the subset that happens to carry a
-# .std oracle reference today. A shipped program with no .std is UNGRADED (counts as ZERO of the
+# .ref oracle reference today. A shipped program with no .ref is UNGRADED (counts as ZERO of the
 # population, never PASS) until it is brought into the graded set -- it may NEVER be silently
 # excluded from the denominator (RULES.md THE INSTRUMENT LAWS: "names beside every count"; the
 # earlier form of this script hardcoded "of 99 vendored" in its own banner -- itself wrong and a
@@ -20,10 +20,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # bare statements and does zero newline processing — RULES.md FACT RULE,
 # test_gate_icn_semicolon_required.sh — so these unmodified upstream standard-Icon-dialect programs
 # are expected to hit this in large numbers):
-#   PASS   — parses, runs, output byte-identical to .std.
+#   PASS   — parses, runs, output byte-identical to .ref.
 #   REJECT — fails to *parse* at all ("parse error" from SCRIP, always on stderr). Named per-file,
 #            counted separately, never silently folded into FAIL.
-#   FAIL   — parses and runs, output does not match .std. The genuine correctness signal.
+#   FAIL   — parses and runs, output does not match .ref. The genuine correctness signal.
 #
 # Usage: bash scripts/test_icon_arizona_suite.sh [-v]   (-v prints every REJECT/FAIL name inline)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
@@ -36,14 +36,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ⛔⭐ CEO-409 LINE MASKS, READ HERE THROUGH THE HARNESS'S OWN SHIM (util_apply_ceo409_mask.py), never a
 # second implementation -- see test_snobol4_csnobol4_suite.sh for the reasoning (the regex dialect is
 # python's, and a re-implementation in sed/awk agrees on every mask anyone tested and diverges on the
-# first one using \d or a lazy quantifier). A per-program sidecar is $SUITE/$name.mask beside $name.std;
+# first one using \d or a lazy quantifier). A per-program sidecar is $SUITE/$name.mask beside $name.ref;
 # there is no package-wide ALL.mask convention here because this suite's masks (so far, just gc2's
 # implementation-defined &collections line) are program-specific, not a property every program shares.
 # ⛔ DEFAULT-OFF AND BYTE-IDENTICAL: no $name.mask and mask_apply is a no-op, which is every arizona
 # program today except gc2.
 mask_apply() { # $1=std_path $2=name $3=text -> echoes the masked text; count lands in $RUNDIR/mask_n
     printf '0' > "$RUNDIR/mask_n"
-    local mp="${1%.std}.mask"
+    local mp="${1%.ref}.mask"
     [ -f "$mp" ] || { printf '%s' "$3"; return 0; }
     local out
     if ! out="$(printf '%s' "$3" | python3 "$HERE/util_apply_ceo409_mask.py" "$1" "$2" "$RUNDIR/mask_n" 2>"$RUNDIR/mask_err")"; then
@@ -176,9 +176,9 @@ m3rc=0; m4rc=0
 for sub in $SUITE_SUBDIRS; do
 SUITE="$PKG/$sub"
 [ -d "$SUITE" ] || continue
-for std in "$SUITE"/*.std; do
+for std in "$SUITE"/*.ref; do
   [ -f "$std" ] || continue
-  name=$(basename "$std" .std)
+  name=$(basename "$std" .ref)
   icn="$SUITE/$name.icn"
   [ -f "$icn" ] || continue
   # ⛔ OUT OF THE DENOMINATOR BEFORE IT IS COUNTED, NEVER SUBTRACTED AFTER: a program excluded after TOTAL++ would
@@ -190,9 +190,9 @@ for std in "$SUITE"/*.std; do
   GRADED_NAMES="$GRADED_NAMES $sub/$name"
   exp=$(cat "$std")
   # ⛔⭐ THE PER-MODE REF (ceo CEO-581): a line whose value the INVOCATION determines gets one ref per mode, declared in
-  # NAME.moderef beside NAME.std with its oracle receipt, rendered THROUGH THE SHARED SHIM (util_apply_moderef.py imports
+  # NAME.moderef beside NAME.ref with its oracle receipt, rendered THROUGH THE SHARED SHIM (util_apply_moderef.py imports
   # the harness's own reader) so this runner, the jcon runner and the master cannot disagree about what one means.
-  # kwds prints &progname: the shipped .std was cut under "icont kwds.icn; ./kwds" and answers ./kwds, which is what m4
+  # kwds prints &progname: the shipped .ref was cut under "icont kwds.icn; ./kwds" and answers ./kwds, which is what m4
   # reproduces; m3 is handed the SOURCE (scrip --run kwds.icn) and &progname IS argv[0] verbatim, so it answers kwds.icn
   # -- exactly what icont answers for the one-step "icon kwds.icn" (hq_V's 09-11 receipt on jcon's own kwds). Nothing is
   # hidden: the line is graded in full against the answer for THAT invocation, and a sidecar that cannot be rendered
@@ -235,7 +235,7 @@ for std in "$SUITE"/*.std; do
   # Litter this creates in $SUITE is swept by the PRE-RUN SNAPSHOT diff below, so fidelity costs nothing.
   # ⛔ THE BARE NAME, NOT $icn: &file (and so the &trace showline column) is the source path AS GIVEN, in iconx and in
   # SCRIP alike (measured 2026-09-08 against icont 9.5.25a: "large.icn    :", "sub/large.icn:", "ral/large.icn:" for the
-  # bare, subdir and absolute forms). The .std files were cut with the bare name from inside $SUITE; an absolute $icn
+  # bare, subdir and absolute forms). The .ref files were cut with the bare name from inside $SUITE; an absolute $icn
   # here read `large` red on a compiler that matched the oracle byte for byte.
   # ⛔⭐ THE EXIT STATUS IS CAPTURED, AND UNTIL 2026-09-09 IT WAS THROWN AWAY (hq_T, CEO-445 item 2). This
   # runner counted PASS / REJECT / FAIL only, so a SIGSEGV and a TIMEOUT both landed in FAIL, indistinguishable
@@ -270,7 +270,7 @@ for std in "$SUITE"/*.std; do
   # argv[0], so a program printing it has an output that is A FUNCTION OF HOW IT WAS INVOKED. This built to
   # `mktemp /tmp/ariz_XXXXXX.bin` and ran it by that absolute path -- a name that matches NO ref cut from any
   # real invocation and CANNOT be made to by choosing a better ref. Upstream's Test-icon, cited as GROUND
-  # TRUTH at the head of this file, compiles NAME.icn to NAME and runs ./NAME; that is what the .std files
+  # TRUTH at the head of this file, compiles NAME.icn to NAME and runs ./NAME; that is what the .ref files
   # were cut under, so that is what we reproduce. The binary is litter like any other and is removed by name
   # below, both explicitly and by the pre-run snapshot sweep.
   s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4="$SUITE/$name"
@@ -376,12 +376,12 @@ while IFS=$'\t' read -r _on _oc _orest; do
     case "$_oc" in
         NEEDS_VENDORED_SOURCE|ORACLE_CONTRACT_NOT_IMPLEMENTED)
             _osub="${_on%%/*}"; _ob="$(basename "$_on" .icn)"
-            if [ -f "$PKG/$_osub/$_ob.std" ]; then
+            if [ -f "$PKG/$_osub/$_ob.ref" ]; then
                 _odat="$PKG/$_osub/$_ob.dat"; _ostdin="/dev/null"; [ -f "$_odat" ] && _ostdin="$_odat"
                 _oout=$(cd "$PKG/$_osub" && timeout "$TIMEOUT" "$SCRIP" --run "$_ob.icn" < "$_ostdin" 2>&1)
                 OUT_RECHECKED=$((OUT_RECHECKED+1))
-                [ "$_oout" = "$(cat "$PKG/$_osub/$_ob.std")" ] && OUT_STALE="$OUT_STALE $_on(m3 matches .std NOW)"
-            else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no .std)"; fi ;;
+                [ "$_oout" = "$(cat "$PKG/$_osub/$_ob.ref")" ] && OUT_STALE="$OUT_STALE $_on(m3 matches .ref NOW)"
+            else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no .ref)"; fi ;;
         *) OUT_UNCHECKED="$OUT_UNCHECKED $_on($_oc)" ;;
     esac
 done <<EOF
@@ -395,7 +395,7 @@ EOF
 # the compiler and what it did not.
 if [ -z "$OUT_UNSHIPPED$OUT_UNMIRRORED$OUT_STALE" ]; then
     if [ "$OUT_RECHECKED" -gt 0 ]; then
-        echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets and with this compiler (re-measured $OUT_RECHECKED row(s) in m3 against their own .std; NOT re-measured:${OUT_UNCHECKED:- none})"
+        echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets and with this compiler (re-measured $OUT_RECHECKED row(s) in m3 against their own .ref; NOT re-measured:${OUT_UNCHECKED:- none})"
     else
         echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets; NO ROW WAS RE-MEASURED, so every row stands on its recorded reason alone:${OUT_UNCHECKED:- none}"
     fi

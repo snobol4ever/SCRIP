@@ -47,7 +47,7 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/icnrefprov.XXXXXX")" || exit 2; trap 'rm -rf "$W
 
 repro=0; differ=0; refuse=0; nondet=0; D=""; R=""; N=""
 for src in $(find "$PK" -name '*.icn' | sort); do
-    n="$(basename "$src" .icn)"; d="$(dirname "$src")"; std="$d/$n.std"
+    n="$(basename "$src" .icn)"; d="$(dirname "$src")"; std="$d/$n.ref"
     [ -f "$std" ] || continue
     mods=""
     for m in $(sed -nE 's/^[[:space:]]*link[[:space:]]+"?([A-Za-z0-9_.-]+)"?.*$/\1/p' "$src"); do

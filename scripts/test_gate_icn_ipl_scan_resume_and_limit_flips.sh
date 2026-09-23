@@ -17,7 +17,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"; ipl_isolation_cleanup' EXIT
 ipl_isolation_init "$PKG"
 rc=0
 for base in datmerge ibrow miu; do
-  icn=$(ls "$PKG"/*/"$base".icn | head -1); std="${icn%.icn}.std"
+  icn=$(ls "$PKG"/*/"$base".icn | head -1); std="${icn%.icn}.ref"
   declare -a A=(); ipl_argv_read "$icn" A
   export IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")" IPL_ISO_FIXTURES="$icn"
   sin=/dev/null; [ -f "${icn%.icn}.in" ] && sin="${icn%.icn}.in"

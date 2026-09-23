@@ -104,8 +104,8 @@ else
 fi
 MASTER="$S4E/corpus/tests/icon"; JC="$S4E/corpus/packages/icon/jcon_tests"; AZ="$S4E/corpus/packages/icon/arizona_tests/general"
 if grep -q '^   &progname: procedure_every_alt_replace_4$' "$MASTER/ALL.ref"; then say_ok "IcnM entry procedure_every_alt_replace_4: the ref line reads the bare stem"; else say_fail "IcnM entry procedure_every_alt_replace_4: the ref line does not read the bare stem"; fi
-if grep -q '^   &progname: kwds$' "$JC/kwds.std"; then say_ok "jcon kwds.std: the ref line reads the bare stem"; else say_fail "jcon kwds.std: the ref line does not read the bare stem"; fi
-if grep -q '^   &progname: kwds$' "$AZ/kwds.std"; then say_ok "arizona kwds.std: the ref line reads the bare stem"; else say_fail "arizona kwds.std: the ref line does not read the bare stem"; fi
+if grep -q '^   &progname: kwds$' "$JC/kwds.ref"; then say_ok "jcon kwds.ref: the ref line reads the bare stem"; else say_fail "jcon kwds.ref: the ref line does not read the bare stem"; fi
+if grep -q '^   &progname: kwds$' "$AZ/kwds.ref"; then say_ok "arizona kwds.ref: the ref line reads the bare stem"; else say_fail "arizona kwds.ref: the ref line does not read the bare stem"; fi
 n_decl=$(awk -F'\t' '!/^#/ && NF>1 && index($0,"progname")' "$MASTER/ALL.moderef" 2>/dev/null | wc -l)
 if [ "$n_decl" -eq 0 ] && [ ! -f "$JC/kwds.moderef" ] && [ ! -f "$AZ/kwds.moderef" ]; then
   say_ok "no per-mode &progname declaration remains (ALL.moderef rows naming progname: 0; jcon and arizona kwds.moderef absent)"
@@ -129,7 +129,7 @@ if MASTER_EXT=.icn MASTER_DIR="$MASTER" bash -c "source '$HERE/lib_master_extrac
 else
   echo "REFUSED rc=2: could not extract entry 924 from the Icon master -- cannot measure"; exit 2
 fi
-KD="$W/kwds"; mkdir -p "$KD"; cp "$JC/kwds.icn" "$KD/"; run_both "jcon kwds" "$KD" kwds "$JC/kwds.std"
+KD="$W/kwds"; mkdir -p "$KD"; cp "$JC/kwds.icn" "$KD/"; run_both "jcon kwds" "$KD" kwds "$JC/kwds.ref"
 
 echo
 if [ "$RED" -eq 0 ]; then echo "GATE PASS(0) [icon_m4_invocation_is_pinned]: $GREEN/$GREEN checks -- the program name is the bare stem in both modes."; exit 0

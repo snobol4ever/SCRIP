@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# util_recut_truncated_ipl_refs.sh -- re-cut ipl .std refs that the 2026-09-05 cutter wrote one byte short.
+# util_recut_truncated_ipl_refs.sh -- re-cut ipl .ref refs that the 2026-09-05 cutter wrote one byte short.
 #
 # THE DEFECT THIS REPAIRS (hq_I 2026-09-06, FINDING-2026-09-06-hq_I-the-cutter-was-fixed-and-its-artifacts-
 # were-not-so-58-of-89-refs-are-one-byte-short.md). util_cut_icon_ipl_refs.sh at da466d28f wrote each ref as
@@ -49,9 +49,9 @@ run_oracle() {
 }
 n_scan=0; n_short=0; n_recut=0; n_skip=0
 printf 'STATUS\tPROGRAM\tRC\tACTION\n'
-for std in "$PROGS"/*.std; do
+for std in "$PROGS"/*.ref; do
   [ -e "$std" ] || continue
-  base="$(basename "$std" .std)"; f="$base.icn"
+  base="$(basename "$std" .ref)"; f="$base.icn"
   [ -n "$ONLY" ] && [ "$base" != "$ONLY" ] && continue
   [ -f "$PROGS/$f" ] || continue
   n_scan=$((n_scan+1))

@@ -6,7 +6,7 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the ipl ref cutter invoked as
 # nondeterministic program."
 #
 # ⛔⭐ WHY THIS GATE EXISTS AT ALL. The cutter already HAD a determinism arm -- four sub-second runs plus a
-# minute-crossing second pass -- and nothing anywhere proved it could fail. An undetected-flake mints a .std
+# minute-crossing second pass -- and nothing anywhere proved it could fail. An undetected-flake mints a .ref
 # from one arbitrary run, and a ref pinned off a flaky run is the worst artifact this project produces: a
 # plausible-looking pin that grades every future run against a lie, indistinguishable downstream from a good
 # one. That is the same class the sibling gate test_gate_ref_cutters_refuse_a_dead_oracle.sh was built for,
@@ -23,7 +23,7 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the ipl ref cutter invoked as
 #                         would pass while proving nothing about the thing it names.
 #   (b) the SOURCE arm -- greps the source for &dateline/&date/&clock/&now/&time and refuses WITHOUT running,
 #                         because a date-valued output is byte-stable across every window anyone watches and
-#                         goes red at midnight (the cutter's own gftrace.std witness). Planted by
+#                         goes red at midnight (the cutter's own gftrace.ref witness). Planted by
 #                         flaky_date.icn, which is otherwise perfectly well-behaved.
 # ⛔⭐ THE SOURCE-ARM WITNESS MUST USE &date, NOT &clock, AND THE FIRST DRAFT OF THIS GATE USED &clock AND
 # PASSED FOR THE WRONG REASON. &clock has SECOND granularity, so whether the cutter's four sub-second runs
@@ -52,11 +52,11 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the ipl ref cutter invoked as
 # mechanism removed: four-run comparison -> `if false` reds ARM 1 ALONE, 5/6, and its message names the
 # minute-crossing backstop that caught the flake instead; the clock grep -> a never-matching pattern reds
 # ARM 2 **and** ARM 4, 4/6, because flaky_date is then LIVE and MINTED -- a date-valued ref pinned as ground
-# truth, which is the gftrace.std incident reproduced on demand. The real cutter reads 6/6.
+# truth, which is the gftrace.ref incident reproduced on demand. The real cutter reads 6/6.
 # ARMS: 1 the run-arm flake is classified NONDETERMINISTIC · 2 the source-arm flake is classified
 # NONDETERMINISTIC and names its marker · 3 CONTROL: the well-behaved program is still classified LIVE and
-# minted (so the arms can disagree) · 4 neither flake left a .std behind under --apply · 5 the control's
-# minted .std holds the program's exact bytes · 6 the printed denominator covers the whole planted population.
+# minted (so the arms can disagree) · 4 neither flake left a .ref behind under --apply · 5 the control's
+# minted .ref holds the program's exact bytes · 6 the printed denominator covers the whole planted population.
 # EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (could not measure: no oracle, cutter missing, mktemp failed).
 # RUNTIME ~70s, dominated by the cutter's own minute-crossing sleep -- one sleep for the whole population, so
 # all three witnesses go through a SINGLE cutter invocation rather than one run each.
@@ -132,12 +132,12 @@ fi
 [ "$c_std" = LIVE ] && ck ok "ARM 3 CONTROL: the well-behaved program is still LIVE (the arms can disagree)" \
     || ck FAIL "ARM 3 CONTROL: the well-behaved program classified '$c_std', expected LIVE -- a cutter that refuses EVERYTHING passes arms 1 and 2 while detecting nothing"
 nostd=1
-for b in flaky_run flaky_date; do [ -f "$PKG/progs/$b.std" ] && { nostd=0; ck FAIL "ARM 4 --apply MINTED $b.std for a planted flake -- a ref pinned off a varying run, which is the gftrace.std harm itself: either the classification never reached the mint path, or the flake was never classified at all (see ARM 1/2 for which)"; }; done
-[ "$nostd" -eq 1 ] && ck ok "ARM 4 neither flake left a .std behind under --apply"
-if [ -f "$PKG/progs/steady.std" ]; then
-    if cmp -s "$PKG/progs/steady.std" "$W/steady.expected"; then ck ok "ARM 5 the control's minted .std holds the program's exact bytes"
-    else ck FAIL "ARM 5 steady.std was minted but its bytes differ from the program's real output"; fi
-else ck FAIL "ARM 5 the control was classified LIVE but --apply minted no steady.std"; fi
+for b in flaky_run flaky_date; do [ -f "$PKG/progs/$b.ref" ] && { nostd=0; ck FAIL "ARM 4 --apply MINTED $b.ref for a planted flake -- a ref pinned off a varying run, which is the gftrace.ref harm itself: either the classification never reached the mint path, or the flake was never classified at all (see ARM 1/2 for which)"; }; done
+[ "$nostd" -eq 1 ] && ck ok "ARM 4 neither flake left a .ref behind under --apply"
+if [ -f "$PKG/progs/steady.ref" ]; then
+    if cmp -s "$PKG/progs/steady.ref" "$W/steady.expected"; then ck ok "ARM 5 the control's minted .ref holds the program's exact bytes"
+    else ck FAIL "ARM 5 steady.ref was minted but its bytes differ from the program's real output"; fi
+else ck FAIL "ARM 5 the control was classified LIVE but --apply minted no steady.ref"; fi
 tot="$(grep -c . <(cd "$PKG/progs" && ls -1 *.icn))"
 seen="$(awk -F'\t' 'NF>1 && $2 ~ /\.icn$/{print $2}' "$LOG" | sort -u | grep -c .)"
 [ "$seen" -eq "$tot" ] && ck ok "ARM 6 census covers the printed denominator: $seen of $tot planted entries named" \

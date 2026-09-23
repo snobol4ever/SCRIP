@@ -2,13 +2,13 @@
 # test_gate_icon_vendored_sources_compile_under_icont.sh -- THE SEMICOLON-FORM GATE (CEO-321 (a), rank 1,
 # hq_I 2026-09-06). Lon's vendoring question, ruled by the ceo:
 #
-#   "the semicolon form may stand only where icont COMPILES it and REPRODUCES the .std -- then it is
+#   "the semicolon form may stand only where icont COMPILES it and REPRODUCES the .ref -- then it is
 #    standard Icon in a dialect-neutral form, not a shim; a rewrite icont REFUSES is a defect."
 #
 # So a converted vendor source has to clear TWO bars, and this gate is two arms because ONE WOULD LIE:
 #   ARM 1  icont accepts our copy.               A file icont refuses is a defect in OUR conversion.
 #   ARM 2  the binary icont produced reproduces  Compiling is not running. A conversion can compile
-#          the .std we grade SCRIP against.      and still change behavior -- and then the .std we
+#          the .ref we grade SCRIP against.      and still change behavior -- and then the .ref we
 #                                                grade SCRIP against is OUR artifact, not the oracle's,
 #                                                and every SCRIP pass over it is self-referential.
 #
@@ -16,7 +16,7 @@
 # the 12 files it touched while the SCRIP board stayed BYTE-IDENTICAL either side. Arm 1 alone would have
 # called that a win and said nothing about whether the programs still DO the same thing. Arm 2 is the arm
 # that can actually catch a conversion that silently changed behavior, and it is the one the ruling's
-# "and reproduces the .std" clause exists for.
+# "and reproduces the .ref" clause exists for.
 #
 # ⛔⛔ THIS GATE GRADES OUR VENDORING, NOT SCRIP. It never runs ./scrip. A red here means we edited a
 # vendored source into something the upstream implementation no longer accepts or no longer agrees with;
@@ -42,17 +42,17 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/az_semicolon_gate.XXXXXX")" || { echo "⛔ mk
 trap 'rm -rf "$WORK"' EXIT
 cp -r "$PKG"/. "$WORK"/ || { echo "⛔ GATE REFUSES rc=2: could not stage the package" >&2; exit 2; }
 
-# ── THE POPULATION IS THE GRADED ONE: every vendored source that carries a .std. A file with no .std has
+# ── THE POPULATION IS THE GRADED ONE: every vendored source that carries a .ref. A file with no .ref has
 # no second bar to clear, and inventing one would grade files the package never claimed were gradable.
-mapfile -t STDS < <(find "$WORK" -name '*.std' | sort)
+mapfile -t STDS < <(find "$WORK" -name '*.ref' ! -name ALL.ref | sort)
 GRADED=${#STDS[@]}
 # ⛔ REFUSE ON A ZERO POPULATION rather than print the success shape over nothing (util_require_population's
 # rule): "examined and clean" and "examined nothing" must never print the same string.
-[ "$GRADED" -gt 0 ] || { echo "⛔ $GATE REFUSES rc=2: zero .std refs found under $PKG -- graded nothing" >&2; exit 2; }
+[ "$GRADED" -gt 0 ] || { echo "⛔ $GATE REFUSES rc=2: zero .ref refs found under $PKG -- graded nothing" >&2; exit 2; }
 
 n_ok=0; n_refused=0; n_diverged=0; REFUSED=(); DIVERGED=()
 for std in "${STDS[@]}"; do
-    base="$(basename "$std" .std)"; dir="$(dirname "$std")"; icn="$dir/$base.icn"
+    base="$(basename "$std" .ref)"; dir="$(dirname "$std")"; icn="$dir/$base.icn"
     [ -f "$icn" ] || continue
     # ARM 1 -- icont accepts our copy. -s silences informational chatter; rc is the verdict.
     cerr="$(cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s "$base.icn" 2>&1)"; crc=$?
@@ -77,10 +77,10 @@ done
 echo "-- $GATE: $GRADED graded vendored source(s) under arizona_tests, oracle icont/iconx 9.5.25a --"
 echo "VENDORED_SEMICOLON_FORM_GATE graded=$GRADED ok=$n_ok icont_refused=$n_refused std_diverged=$n_diverged"
 [ "$n_refused" -eq 0 ] || { echo "⛔ ICONT REFUSES OUR COPY ($n_refused) -- a rewrite the upstream implementation rejects is a defect in our vendoring, never a dialect:"; printf '   %s\n' "${REFUSED[@]}"; }
-[ "$n_diverged" -eq 0 ] || { echo "⛔ COMPILES BUT DOES NOT REPRODUCE ITS .std ($n_diverged) -- the ref we grade SCRIP against is then OUR artifact, not the oracle's:"; printf '   %s\n' "${DIVERGED[@]}"; }
+[ "$n_diverged" -eq 0 ] || { echo "⛔ COMPILES BUT DOES NOT REPRODUCE ITS .ref ($n_diverged) -- the ref we grade SCRIP against is then OUR artifact, not the oracle's:"; printf '   %s\n' "${DIVERGED[@]}"; }
 if [ "$n_refused" -eq 0 ] && [ "$n_diverged" -eq 0 ]; then
-    echo "✅ GATE PASS [$GATE]: all $GRADED graded vendored sources compile under icont AND reproduce their .std"
+    echo "✅ GATE PASS [$GATE]: all $GRADED graded vendored sources compile under icont AND reproduce their .ref"
     exit 0
 fi
-echo "⛔ GATE FAIL [$GATE]: $n_refused refused by icont, $n_diverged diverged from their .std"
+echo "⛔ GATE FAIL [$GATE]: $n_refused refused by icont, $n_diverged diverged from their .ref"
 exit 1

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # util_ipl_grade_programs.sh -- grade one or more corpus/packages/icon/ipl/progs/<name>.icn programs in BOTH
-# modes against their own .std, using test_icon_ipl_suite.sh's EXACT semantics, and exit 0 only if every
+# modes against their own .ref, using test_icon_ipl_suite.sh's EXACT semantics, and exit 0 only if every
 # named program passes both. hq_I 2026-09-06.
 #
 # WHY IT EXISTS. A baton's DONE-WHEN has to be a runnable command, and three rows of one entangled cure were
@@ -41,7 +41,7 @@ ipl_isolation_init "$PKG" || { echo "⛔ REFUSES(2): ipl_isolation_init failed" 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
 GRADED=0; BAD=0
 for name in "$@"; do
-    # ⛔ THE PROGRAM'S DIRECTORY IS DISCOVERED, NEVER ASSUMED TO BE progs/. The suite grades every .std
+    # ⛔ THE PROGRAM'S DIRECTORY IS DISCOVERED, NEVER ASSUMED TO BE progs/. The suite grades every .ref
     # in the package and takes each entry's cwd from ITS OWN directory (its line 300); this file hardcoded
     # progs/ and so REFUSED(2) on ichartp -- a procs/ entry the suite has been grading and failing for
     # days -- with "no such program", which reads as "that program does not exist" rather than "I only
@@ -49,10 +49,10 @@ for name in "$@"; do
     # grades is measuring a different population than the board it is supposed to agree with.
     icn=""; std=""
     for d in progs gprogs procs gprocs incl gincl; do
-        if [ -f "$PKG/$d/$name.icn" ]; then icn="$PKG/$d/$name.icn"; std="$PKG/$d/$name.std"; break; fi
+        if [ -f "$PKG/$d/$name.icn" ]; then icn="$PKG/$d/$name.icn"; std="$PKG/$d/$name.ref"; break; fi
     done
     [ -n "$icn" ] || { echo "⛔ REFUSES(2): no such program $name.icn under $PKG/{progs,gprogs,procs,gprocs,incl,gincl}" >&2; exit 2; }
-    [ -f "$std" ] || { echo "⛔ REFUSES(2): $name has no .std -- ungradable, not failing" >&2; exit 2; }
+    [ -f "$std" ] || { echo "⛔ REFUSES(2): $name has no .ref -- ungradable, not failing" >&2; exit 2; }
     IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
     GRADED=$((GRADED+1))
     exp="$(cat "$std")"
@@ -74,5 +74,5 @@ for name in "$@"; do
     { [ "$v3" = PASS ] && [ "$v4" = PASS ]; } || BAD=$((BAD+1))
 done
 [ "$GRADED" -gt 0 ] || { echo "⛔ REFUSES(2): graded zero programs" >&2; exit 2; }
-echo "IPL_PROGRAM_GRADE graded=$GRADED bad=$BAD (both modes, against each program's own .std)"
+echo "IPL_PROGRAM_GRADE graded=$GRADED bad=$BAD (both modes, against each program's own .ref)"
 [ "$BAD" -eq 0 ]

@@ -15,7 +15,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # ever breaks, so the two instruments in this package can no longer disagree in silence. That is RULES.md
 # TRANSCRIPTION IS WHERE PROVENANCE DIES, committed
 # inside the very script that measures the thing correctly) -- a REAL upstream code library, not a test
-# suite: it ships ZERO .std reference outputs (confirmed: `find $PKG -iname '*.std'` -> 0 files, every
+# suite: it ships ZERO .ref reference outputs (confirmed: `find $PKG -iname '*.ref'` -> 0 files, every
 # run re-confirms this structurally rather than assuming it). Task icon-ipl-runner-and-denominator
 # (hq_T mint, 2026-09-03): "a package suite with no runner is not a suite, it is a directory."
 #
@@ -25,9 +25,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #                      EXACTLY the expected "no entry point" signal after real, non-trivial emission --
 #                      i.e. the file's own content parsed/lowered/emitted cleanly; it is a library
 #                      module, not a program, and that is not a defect.
-#   run-graded     -- diffs execution output against a NAME.std oracle ref, both modes, independently
+#   run-graded     -- diffs execution output against a NAME.ref oracle ref, both modes, independently
 #                      (RUN_PASS/RUN_FAIL/RUN_CRASH/RUN_HANG). The population is counted structurally
-#                      (progs/*.std files, cut by util_cut_icon_ipl_refs.sh from the real Icon oracle --
+#                      (progs/*.ref files, cut by util_cut_icon_ipl_refs.sh from the real Icon oracle --
 #                      see that script's own header for the classification discipline: only a
 #                      deterministic, input-free, non-usage-banner clean run gets pinned), not hardcoded,
 #                      so this self-corrects the day the population changes.
@@ -86,7 +86,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 PKG="$S4E/corpus/packages/icon/ipl"
 TIMEOUT="${IPL_SUITE_TIMEOUT:-30}"
 # ⛔⭐ RAISED FROM 8 TO 30 (hq_icon, 2026-09-23), measured, not guessed: ibrow and vnq were reading RUN_HANG
-# at 8s while both are CORRECT and byte-identical to their .std -- ibrow completes in ~8.5s, vnq (92 real
+# at 8s while both are CORRECT and byte-identical to their .ref -- ibrow completes in ~8.5s, vnq (92 real
 # n-queens solutions, genuinely compute-heavy backtracking) in ~24s. An 8s ceiling was tighter than either
 # program's real, deterministic runtime, so it was misclassifying two passing programs as hangs rather than
 # catching an actual one. 30s covers both with headroom and still catches a true hang an order of magnitude
@@ -154,7 +154,7 @@ if [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
     fi
 fi
 
-mapfile -t STDFILES < <(find "$PKG" -name "*.std")
+mapfile -t STDFILES < <(find "$PKG" -name "*.ref" ! -name ALL.ref)
 RUN_GRADED=${#STDFILES[@]}
 
 COMPILE_PASS=0; COMPILE_FAIL=0
@@ -252,7 +252,7 @@ GATE_NAME=test_icon_ipl_suite gate_bin_unmoved
 GATE_NAME=test_icon_ipl_suite gate_tree_unmoved
 echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL run_graded=$RUN_GRADED nomain_total=$NOMAIN_TOTAL hasmain_total=$HASMAIN_TOTAL nomain_ok=$NOMAIN_OK linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER"
 
-# ═══ RUN TIER -- every progs/*.icn with a NAME.std (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,
+# ═══ RUN TIER -- every progs/*.icn with a NAME.ref (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,
 # both modes independently, and diffed against it. See file header: execution goes through
 # lib_icon_ipl_isolation.sh, never a bare cd into $PKG/progs. ═══
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
@@ -268,7 +268,7 @@ PKG_CSV="$PKG/ALL.csv"
 # ⛔ ipl DOES NOT RECORD AUTOMATICALLY, whatever the ALL.icn pair suggests. CEO-331 lists ipl among the
 # packages that "now record automatically" because they have an ALL.<ext> pair -- but this package's
 # ALL.icn/ALL.ref are consumed by NO runner (measured 2026-09-06: this script opens ALL.csv only for its
-# container identity check and grades by per-program .std; board_packages.sh's runner_for() has no
+# container identity check and grades by per-program .ref; board_packages.sh's runner_for() has no
 # icon/ipl case; ALL.ref has ONE commit in its whole history, and a ref nothing regenerates is a ref
 # nothing grades). So the automatic path would record a suite nobody runs. This runner has its own loop
 # and appends from it. ⭐ A package can satisfy the STRUCTURAL condition for a mechanism and be outside it.
@@ -292,13 +292,13 @@ ARENA_NAMES=""   # ⛔ initialized here, not merely appended-to in the loop -- a
 # MAX_BYTES (see that script's header): a timing-out process is not necessarily quiet while it waits, so
 # `out3="$(cat ...)"` run UNCONDITIONALLY before checking rc==124 can slurp gigabytes for a result about
 # to be discarded as HANG anyway. Here the risk is SCRIP's own output on a genuine bug (an infinite-
-# output loop from a miscompiled pattern), not the oracle's -- same shape, same fix. Every .std this
+# output loop from a miscompiled pattern), not the oracle's -- same shape, same fix. Every .ref this
 # tier reads is itself already capped at ref-cutting time, so oversized ACTUAL output can never equal
 # `$exp` regardless; it is graded RUN_FAIL without ever being read into memory.
 MAX_BYTES=1048576
 
 for std in "${STDFILES[@]}"; do
-    base="$(basename "$std" .std)"
+    base="$(basename "$std" .ref)"
     icn="$(dirname "$std")/$base.icn"
     [ -f "$icn" ] || continue
     exp="$(cat "$std")"
@@ -320,7 +320,7 @@ for std in "${STDFILES[@]}"; do
         continue
     fi
     # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
-    # (gprogs/ carries .std files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
+    # (gprogs/ carries .ref files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
     # against the wrong directory and grades a program that never ran properly.
     IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
     # ⭐ NAME.fixtures/ FIXTURE-FILE SIDECAR (seat07 2026-09-06): staged by ipl_isolation_run itself when
@@ -386,7 +386,7 @@ for std in "${STDFILES[@]}"; do
 done
 
 echo ""
-echo "-- RUN tier: $RUN_GRADED progs/ programs graded against a .std cut from the real Icon oracle (util_cut_icon_ipl_refs.sh --apply) --"
+echo "-- RUN tier: $RUN_GRADED progs/ programs graded against a .ref cut from the real Icon oracle (util_cut_icon_ipl_refs.sh --apply) --"
 echo "mode-3 (--run):     RUN_PASS=$M3_RUN_PASS RUN_FAIL=$M3_RUN_FAIL RUN_CRASH=$M3_RUN_CRASH RUN_HANG=$M3_RUN_HANG / $RUN_GRADED"
 echo "mode-4 (--compile): RUN_PASS=$M4_RUN_PASS RUN_FAIL=$M4_RUN_FAIL RUN_CRASH=$M4_RUN_CRASH RUN_HANG=$M4_RUN_HANG / $RUN_GRADED"
 [ "$VERBOSE" -eq 1 ] && [ ${#M3_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm3 RUN_FAIL:%s\n' "$(printf ' %s' "${M3_RUN_FAIL_NAMES[@]}")"
@@ -411,7 +411,7 @@ ipl_isolation_verify_clean "$S4E/corpus" || true
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic (CEO-321: this row is hq_I's). ipl was the LAST Icon runner without it; arizona and
 # jcon already print one.
-# ⛔ THE GRADED POPULATION IS THE PACKAGE-WIDE .std COUNT ($RUN_GRADED, from `find "$PKG" -name '*.std'`),
+# ⛔ THE GRADED POPULATION IS THE PACKAGE-WIDE .ref COUNT ($RUN_GRADED, from `find "$PKG" -name '*.ref'`),
 # NOT progs/ alone. gprogs/ briefly carried refs on 2026-09-06; they were wrong and were reverted, but the
 # discovery is package-wide by construction and lib_icon_ipl_isolation.sh is now subdirectory-aware
 # (IPL_ISO_SUBDIR), so a future non-progs ref grades from its own directory instead of silently from progs/.

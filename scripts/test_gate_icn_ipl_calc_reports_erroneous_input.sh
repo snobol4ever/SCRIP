@@ -5,10 +5,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
 ICONT="${ICONT_BIN:-/home/resources/icon-master/bin/icont}"; [ -x "$ICONT" ] || { echo "⛔ REFUSE(2): no icont at $ICONT -- the refs are CUT FROM THE ORACLE, never pinned by hand"; exit 2; }
 PROGS="$ROOT/../corpus/packages/icon/ipl/progs"
-for f in calc.icn calc.dat calc.std; do [ -f "$PROGS/$f" ] || { echo "⛔ REFUSE(2): $PROGS/$f is missing -- this gate cannot measure the class it names"; exit 2; }; done
+for f in calc.icn calc.dat calc.ref; do [ -f "$PROGS/$f" ] || { echo "⛔ REFUSE(2): $PROGS/$f is missing -- this gate cannot measure the class it names"; exit 2; }; done
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
-cp "$PROGS/calc.icn" "$PROGS/calc.dat" "$PROGS/calc.std" "$T/" || exit 2
-grep -q 'erroneous input' "$T/calc.std" || { echo "⛔ REFUSE(2): calc.std no longer carries an 'erroneous input' line -- the fixture moved and this gate is asserting the wrong thing"; exit 2; }
+cp "$PROGS/calc.icn" "$PROGS/calc.dat" "$PROGS/calc.ref" "$T/" || exit 2
+grep -q 'erroneous input' "$T/calc.ref" || { echo "⛔ REFUSE(2): calc.ref no longer carries an 'erroneous input' line -- the fixture moved and this gate is asserting the wrong thing"; exit 2; }
 cat > "$T/contract.icn" <<'ICN'
 global gv
 procedure helper(x); return x; end
@@ -38,7 +38,7 @@ for M in m3 m4; do
        ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 30 ./contract.bin </dev/null ) >"$T/contract.$M" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i '5d' "$T/calc.$M"; sed -i 's/^variable("nosuchname") -> FAILED/variable("nosuchname") -> \&null/' "$T/contract.$M"; fi
-  for pair in "calc.std:calc.$M:calc.icn against its own .std" "contract.ref:contract.$M:the variable()/numeric() contract against icont"; do
+  for pair in "calc.ref:calc.$M:calc.icn against its own .ref" "contract.ref:contract.$M:the variable()/numeric() contract against icont"; do
     want="${pair%%:*}"; rest="${pair#*:}"; got="${rest%%:*}"; what="${rest#*:}"
     if diff -q "$T/$want" "$T/$got" >/dev/null; then echo "  $M PASS -- $what"
     else echo "  $M FAIL ($(diff -u "$T/$want" "$T/$got" | grep -c '^[-+][^-+]') diff lines) -- $what"; diff -u "$T/$want" "$T/$got" | sed -n '3,12p' | sed 's/^/      /'; RC=1; fi

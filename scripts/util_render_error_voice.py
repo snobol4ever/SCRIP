@@ -16,7 +16,7 @@ THE SCRIP VOICE (src/runtime/core/core.c core_error_voice):
                                                     builtin frames at that level and the operator in flight)
 
 THE LISTS (each row is what the oracle prints for the SCRIP field, measured on the oracle named):
-  icon     Arizona icont/iconx 9.5.25a (corpus/packages/icon/jcon_tests/errors.std, loadfunc.std are the receipts):
+  icon     Arizona icont/iconx 9.5.25a (corpus/packages/icon/jcon_tests/errors.ref, loadfunc.ref are the receipts):
              "\\nRun-time error <code>\\nFile <basename(file)>; Line <line>\\n<text>\\n"
              "offending value: <image>\\n"                      when present
              "Traceback:\\n" then each frame on its own line, verbatim
