@@ -88,7 +88,7 @@ static void pl_decl_other_record(const tree_t * spec) {
         && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT && g_pl_decl_other_n < 256) {
         g_pl_decl_other_name[g_pl_decl_other_n] = spec->c[0]->v.sval; g_pl_decl_other_arity[g_pl_decl_other_n] = (int) spec->c[1]->v.ival; g_pl_decl_other_n++; }
 }
-typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; unsigned char valias[1024]; } lcx_t;
+typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; int stmt_depth; unsigned char valias[1024]; } lcx_t;
 static const char * pl_vname(const lcx_t * cx, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
@@ -653,7 +653,7 @@ static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs,
         prev = a; ir_operand_push(nd, a);
     }
     if (prev) lc_γ_to(prev, nd);
-    { IR_t * fe = first ? first : nd; IR_t * te = pl_trace_wanted() ? pl_trace_stmt_wrap(cx, (t && t->line > 0) ? (long) t->line : ++g_pl_trace_stmtno, fe, ωfail) : fe; if (entry_out) *entry_out = te; }
+    { IR_t * fe = first ? first : nd; if (entry_out) *entry_out = fe; }
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1101,7 +1101,26 @@ static const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extr
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+static int pl_trace_stmt_control(const tree_t * t) {
+    if (!t) return 1;
+    if (t->t == TT_PROGRAM || t->t == TT_MAKELIST || t->t == TT_IF) return 1;
+    if (t->t != TT_FNC || t->n != 2 || !t->v.sval) return 0;
+    return !strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->") || !strcmp(t->v.sval, "*->");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    if (!t || !pl_trace_wanted() || cx->stmt_depth > 0 || pl_trace_stmt_control(t)) return goal_inner(cx, t, γnext, ωfail, entry_out);
+    IR_t * e = NULL;
+    cx->stmt_depth++;
+    IR_t * nd = goal_inner(cx, t, γnext, ωfail, &e);
+    cx->stmt_depth--;
+    IR_t * te = pl_trace_stmt_wrap(cx, (t->line > 0) ? (long) t->line : ++g_pl_trace_stmtno, e ? e : nd, ωfail);
+    if (entry_out) *entry_out = te;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
     if (pl_tree_number(t)) return goal(cx, pl_cc_type_error("callable", t, "call", 1), γnext, ωfail, entry_out);
@@ -1644,7 +1663,7 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(4096);
-    lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
+    lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0; cx.stmt_depth = 1;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * step    = build(&cx, IR_FAIL, NULL, NULL);
@@ -1654,7 +1673,7 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     int fresh_saved = g_pl_fresh_next; g_pl_fresh_next = maxlocal + 1;
     if (pl_trace_wanted()) for (int i = 0; i < ng; i++) pl_trace_number_goals(gl[i]);
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo, &tnode);
-    if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
+    if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
     maxlocal = g_pl_fresh_next - 1; g_pl_fresh_next = fresh_saved;
     g->entry = entry ? entry : (first ? first : succeed);
     pl_alt_alloc(g, 1);
@@ -1691,7 +1710,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         IR_t * bentry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
         if (pl_trace_wanted()) for (int i = ar; i < cl->n; i++) pl_trace_number_goals(cl->c[i]);
         IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
-        if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
+        if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
         IR_t * next = bentry ? bentry : (first ? first : succeed);
         for (int i = ar - 1; i >= 0; i--) {
             if (cl->c[i] && cl->c[i]->t == TT_VAR && (int) cl->c[i]->v.ival >= 0 && (int) cl->c[i]->v.ival < 1024 && cx.valias[(int) cl->c[i]->v.ival] == i + 1) continue;

@@ -84,6 +84,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 SNO4_REPO="${SNO4_REPO:-$S4A/snobol4dotnet}"
 SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
 ICON_MON="${ICON_MON_ROOT:-$S4A/icon-mon}"
+GPROLOG_MON="${GPROLOG_MON_ROOT:-$S4A/gprolog-mon}"
 INC="${INC:-$S4E/corpus/include}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
@@ -102,12 +103,12 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot|scr3|scr4|rko|icx) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko, icx)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4|rko|icx|gpx) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rko, icx, gpx)"; exit 2 ;;
     esac
 done
 
-want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0; want_icx=0
+want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rko=0; want_icx=0; want_gpx=0
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
         csn) want_csn=1 ;;
@@ -118,6 +119,7 @@ for p in "${PARTICIPANTS[@]}"; do
         dot) want_dot=1 ;;
         rko) want_rko=1 ;;
         icx) want_icx=1 ;;
+        gpx) want_gpx=1 ;;
     esac
 done
 
@@ -131,6 +133,7 @@ done
 [[ "$want_dot" = "1" ]] && ! command -v dotnet >/dev/null 2>&1 && { echo "FAIL dotnet command missing — apt-get install -y dotnet-sdk-10.0"; exit 2; }
 [[ "$want_rko" = "1" ]] && [[ ! -f "$MON_DIR/raku_oracle_bridge.py" ]] && { echo "FAIL raku_oracle_bridge.py missing"; exit 2; }
 [[ "$want_icx" = "1" ]] && { [[ ! -x "$ICON_MON/bin/icont" ]] || [[ ! -x "$ICON_MON/bin/iconx" ]]; } && { echo "FAIL instrumented Icon fork not built at $ICON_MON/bin/{icont,iconx} -- bash scripts/monitor/oracles/build_icon_mon.sh <prefix> (ICON_MON_ROOT names the prefix)"; exit 2; }
+[[ "$want_gpx" = "1" ]] && [[ ! -x "$GPROLOG_MON/bin/gplc" ]] && { echo "FAIL instrumented GNU Prolog fork not built at $GPROLOG_MON/bin/gplc -- bash scripts/monitor/oracles/build_gprolog_mon.sh <prefix> (GPROLOG_MON_ROOT names the prefix)"; exit 2; }
 :
 
 # ⛔ SCRATCH ON /home, NOT BARE /tmp, WITH CLEANUP THAT SURVIVES A KILL (row icon-sweep-scratch-hardening, s267).
@@ -314,6 +317,24 @@ if [[ "${want_icx:-0}" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/icx.names" \
         timeout "$((TIMEOUT*2))" "$ICON_MON/bin/iconx" "$TMP/icx.bin" \
         < "$STDIN_SRC" > "$TMP/icx.out" 2> "$TMP/icx.err" &
+    PIDS+=($!)
+fi
+
+# ⭐ gpx (ceo 2026-09-23, CEO-1189; Lon: "Build IPC sync-step monitor into GNU Prolog just like you did for Icon"): the GNU Prolog
+# fork built by scripts/monitor/oracles/build_gprolog_mon.sh -- its pl2wam injects a call_c fire-point at every user predicate's
+# entry (call), before every body goal of every user clause (statement, the clause's source line) and at the end of every clause
+# (return); the fire-points (monitor_gpx.c in EnginePl) speak the shared monitor_ipc_lib.c wire and are silent no-ops when the
+# pipes are unset (the build script's control arm). gplc finds pl2wam/wam2ma/ma2asm by PATH search, so the fork's bin is
+# prepended; the witness is compiled into a no-top-level binary (the initialization goal runs, then the process exits).
+if [[ "${want_gpx:-0}" = "1" ]]; then
+    GPX_SRC="$(realpath "$SNO")"
+    ( cd "$(dirname "$GPX_SRC")" && PATH="$GPROLOG_MON/bin:$PATH" timeout "$TIMEOUT" "$GPROLOG_MON/bin/gplc" --no-top-level -o "$TMP/gpx.bin" "$GPX_SRC" ) > "$TMP/gpx.cc.out" 2>&1 \
+        || { echo "FAIL gpx compile: $(tail -2 "$TMP/gpx.cc.out")"; exit 2; }
+    MONITOR_READY_PIPE="$TMP/gpx.ready" \
+    MONITOR_GO_PIPE="$TMP/gpx.go" \
+    MONITOR_NAMES_OUT="$TMP/gpx.names" \
+        timeout "$((TIMEOUT*2))" "$TMP/gpx.bin" \
+        < "$STDIN_SRC" > "$TMP/gpx.out" 2> "$TMP/gpx.err" &
     PIDS+=($!)
 fi
 

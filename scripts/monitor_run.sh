@@ -4,7 +4,7 @@
 #
 #   bash scripts/monitor_run.sh <source>            # --modes: SCRIP mode 3 against SCRIP mode 4 in lock-step (every language)
 #   bash scripts/monitor_run.sh <source> --trace    # print the trace (statement / assignment / call / return) of a mode-3 run
-#   bash scripts/monitor_run.sh <source> --oracle   # SCRIP against the language's oracle in lock-step (SNOBOL4 only today: SPITBOL)
+#   bash scripts/monitor_run.sh <source> --oracle   # SCRIP against the language's oracle in lock-step (SNOBOL4: SPITBOL fork; Icon: icx; Prolog: gpx, the GNU Prolog fork)
 #   [--input FILE] feeds stdin (default: <base>.input beside the source if present, else /dev/null)
 #
 # Every mode-3/mode-4 run is preceded by the MONITOR-SAFE CHECK (RULES.md: a monitor verdict is a verdict on a different program):
@@ -41,6 +41,7 @@ if [ "$mode" = oracle ]; then
         sno) parts="spl scr" ;;
         raku) parts="rko scr" ;;
         icn) parts="icx scr" ;;
+        pl) parts="gpx scr" ;;
         *) echo "REFUSE(2): no oracle bridge for .$ext yet -- the design (MONITOR-BINARY-DESIGN.md § THE PLUG INTERFACE, layer 6) adds one only where it earns its cost; use --modes (mode 3 against mode 4) or --trace against the oracle's own output by hand"; exit 2 ;;
     esac
 else
