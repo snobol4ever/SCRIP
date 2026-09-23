@@ -3451,7 +3451,15 @@ TASKEOF
          # it blew the Stop hook's 100s timeout and Lon saw NO banner — precisely on SUCCESS. The check is WARN-ONLY by design
          # (cannot flip the verdict), so skipping it here changes nothing the banner asserts. The FULL check still runs on a
          # direct handoff_status.sh invocation — the real handoff verdict, where HQ-27 wants the pristine.
-         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
+         # ⛔ THE BANNER IS BOUNDED (ceo 2026-09-23 CEO-1173, on Lon's ask "is there a problem with the automatic display of the
+         # test suite banner"): a ten-seat sweep with a 90 s ceiling read the banner COMPLETE in six seats and TIMED OUT with NO
+         # suite table in four (ceo, snocone, prolog, pascal). handoff_status.sh took 107 s on a clean tree at load 9 against the
+         # Stop hook's 120 s: 29 s with the seven-language slot-kind sweep (timeout 300) skipped, 11 s with the GC acceptance
+         # display skipped too. Both are WARN-ONLY with their own honest skip switches (each prints SKIPPED, never a green). The
+         # banner skips the sweep (it runs on a direct handoff_status.sh invocation, the boundary it was wired for), keeps the
+         # acceptance display, and bounds the whole call at 75 s; a timeout is a REFUSAL that names the load, never a lost banner.
+         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 SKIP_ZLS_ALL=1 timeout 75 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
+         if [ "$hrc" = 124 ]; then hout="$hout"$'\n'"⛔ handoff_status.sh NOT MEASURED — timed out at the banner's 75 s budget (load $(cut -d' ' -f1 /proc/loadavg)); this is a refusal, not a red: run bash scripts/handoff_status.sh by hand"; hrc=2; fi
          # ⭐ fix-dispatch-bus-two-failure-modes (s266, seat07's q-s4e-msg-banner-attribution-undercount):
          # `held` used to be "whichever of my OPEN claims sorts first ALPHABETICALLY" -- a seat holding two
          # open claims could run `done <topic>` to close ONE and have its OWN banner report the OTHER.
