@@ -552,7 +552,7 @@ s4e_seat_name() {
 # caller who obeys it loses data while the caller who ignores it is right.  Pass it through; a runner
 # writing a whole cell simply omits it, exactly as before.
 gate_score_row() {
-    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _suite="${5:-}" _py _out _rc
+    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _suite="${5:-}" _crit="${6:-}" _py _out _rc
     # ⛔ A DELIBERATE STALE RUN NEVER REACHES THE LEADERBOARD (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-
     # the-artifact-regen-does, hq_T 2026-09-04): SCRIP_ALLOW_STALE=1 is the operator's own declaration that this run's
     # binary currency was NOT enforced, and a SCORE.md row stamps the tree's hash on whatever number it carries. Checked on
@@ -569,7 +569,8 @@ gate_score_row() {
         return 0
     fi
     _out="$(python3 "$_py" write --lang "$_lang" --column "$_col" --text "$_text" \
-            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} ${_suite:+--suite "$_suite"} 2>&1)"; _rc=$?
+            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} ${_suite:+--suite "$_suite"} \
+            ${_crit:+--criterion-changed "$_crit"} 2>&1)"; _rc=$?
     if [ "$_rc" -ne 0 ]; then
         echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] (rc=$_rc) -- the measurement below stands, the leaderboard row does not:"
         echo "$_out" | sed 's/^/    /'

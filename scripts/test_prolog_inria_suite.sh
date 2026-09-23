@@ -536,7 +536,12 @@ if [ -n "$_oc" ]; then
         set -- $_bs
         _txt="inriasuite (ISO/IEC 13211-1) $3/$2 m3 · $4/$2 m4 by the suite's OWN criterion (outcome class AND declared bindings) — $_oc is the OUTCOME-CLASS-ONLY upper bound, which ignores what a goal bound and can only move down when tightened"
     fi
-    gate_score_row prolog vendor "$_txt" m3,m4 INRIA
+    # ⛔ DENOMINATOR MOVES 445 -> 442 ON THIS LANDING: 3 file_manip entries newly named OUTSIDE THE
+    # BASELINE (CEO-749, this same commit) -- util_score_row.py REFUSES a silent denominator move
+    # (CEO-546/749 dishonest-denominator class), so every write from here on stamps the reason. Harmless
+    # once the denominator is already 442 in SUITES.tsv; the writer only enforces the check on a MOVE.
+    gate_score_row prolog vendor "$_txt" m3,m4 INRIA \
+        "2026-09-23:file_manip's 3 entries (aux=in(my_file)) need the unvendored run_forest/bips-ex fixture from prologsuite.tar.gz, never fetched -- named OUTSIDE THE BASELINE per CEO-749 rather than graded against a fabricated verdict, denominator 445 -> 442"
 else
     # A missing board line is not a zero -- say so rather than writing a row for a run that produced nothing.
     echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no INRIA_SUITE_BOARD line, so there is no measurement to record"
