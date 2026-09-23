@@ -1161,6 +1161,21 @@ static PNodeList *pas_var_names_add(PNodeList *seen, PNodeList *ids) {
         pnl_push(seen, ids->items[i]); }
     return seen;
 }
+static void pas_for_const_bounds(const char *cv, tree_t *from, tree_t *to, int down) {
+    if (!cv || !from || !to || from->t != TT_ILIT || to->t != TT_ILIT) return;
+    long long lo = 0, hi = -1, a = from->v.ival, b = to->v.ival; int n = 0;
+    for (int i = 0; i < g_pas_nsubvar; i++) if (g_pas_subvars[i].name && !strcmp(g_pas_subvars[i].name, cv)) {
+        if (n && (g_pas_subvars[i].low != lo || g_pas_subvars[i].high != hi)) return;
+        lo = g_pas_subvars[i].low; hi = g_pas_subvars[i].high; n++; }
+    if (!n) return;
+    for (int i = 0; i < g_pas_nscalarvartype; i++)
+        if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, cv) && pas_subtype_high(g_pas_scalarvartype[i].tname) < 0) return;
+    if (down ? a < b : a > b) return;
+    if (a >= lo && a <= hi && b >= lo && b <= hi) return;
+    fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the for-statement over '%s' (of type %lld..%lld) runs from %lld to %lld, and a value outside the"
+                    " control-variable's type is not assignment-compatible with it\n", cv, lo, hi, a, b);
+    g_pas_iso_errors++;
+}
 static tree_t *pas_cond(tree_t *e) { return pas_is_rel(e) ? e : bin(TT_NE, e, ilit(0)); }
 static const char *pas_cond_var_nonbool_type(tree_t *e) {
     if (!e || e->t != TT_VAR || !e->v.sval || pas_is_boolvar(e->v.sval)) return NULL;
@@ -1610,9 +1625,11 @@ repeat_statement:
 for_statement:
     FORSY IDENT BECOMES expression TOSY expression DOSY statement
         { if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
+          pas_for_const_bounds($2, $4, $6, 0);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); $$ = e; }
     | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement
         { if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
+          pas_for_const_bounds($2, $4, $6, 1);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; $$ = e; }
     ;
 with_statement:
