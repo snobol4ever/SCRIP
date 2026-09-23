@@ -3828,6 +3828,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (args[_ri].v == DT_BOOL) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i ? "True" : "False"));
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
+            else if (args[_ri].v == DT_SNUL) tmp[_ri] = STRVAL(rt_heap_strdup_c("Nil"));
             else if (IS_REAL_fn(args[_ri])) { char *_rb = rt_wsb_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
             else tmp[_ri] = args[_ri];
         }
@@ -4381,7 +4382,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (from < 0) from = 0;
         if (*n == '\0') { *out = INTVAL(from); return 1; }
         const char *p = strstr(s + from, n);
-        *out = p ? INTVAL((long)(p - s)) : INTVAL(-1); return 1;
+        *out = p ? INTVAL((long)(p - s)) : NULVCL; return 1;
     }
     if (!strcmp(fn, "str_rindex") || (!strcmp(fn, "rindex") && nargs >= 2)) {
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
@@ -4393,7 +4394,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         long best = -1;
         for (long i = 0; i <= slen - (long)nlen && i <= from; i++)
             if (memcmp(s + i, n, nlen) == 0) best = i;
-        *out = INTVAL(best); return 1;
+        *out = (best >= 0) ? INTVAL(best) : NULVCL; return 1;
     }
     if ((!strcmp(fn, "uc") || !strcmp(fn, "str_uc")) && nargs == 1) {
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
