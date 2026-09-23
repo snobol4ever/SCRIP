@@ -6,9 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
+static char pascal_ifdefbuf[256];
+static int  pascal_ifdefpos;
 static char *pascal_raw_dup(const char *s, int n) {
     char *b = (char *)ct_alloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
 }
@@ -34,9 +37,10 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>"*)"           { BEGIN INITIAL; }
 <COMMENT>.              { }
 <COMMENT>\n             { }
-"{$ifdef"               { BEGIN IFDEF_HDR; }
-<IFDEF_HDR>"}"          { BEGIN IFDEF_BODY; }
-<IFDEF_HDR>.            { }
+"{$ifdef"               { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IFDEF_HDR; }
+<IFDEF_HDR>"}"          { BEGIN (strcasecmp(pascal_ifdefbuf, "fpc") == 0 ? INITIAL : IFDEF_BODY); }
+<IFDEF_HDR>[ \t]        { }
+<IFDEF_HDR>.            { if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
 <IFDEF_HDR>\n           { }
 <IFDEF_BODY>"{$endif"   { BEGIN IFDEF_END; }
 <IFDEF_BODY>.           { }

@@ -211,10 +211,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
         }
     }
-    if (name && strcmp(name, "char") && strcmp(name, "widechar") && strcmp(name, "boolean") && strcmp(name, "bytebool")
-        && strcmp(name, "wordbool") && strcmp(name, "longbool") && args && args->count >= 1) {
+    if (name && strcmp(name, "char") && strcmp(name, "widechar") && strcmp(name, "boolean") && args && args->count >= 1) {
         long long _tsz;
-        if (pas_sizeof_builtin_size(name, &_tsz)) return args->items[0];
+        int _isboolfam = !strcmp(name, "bytebool") || !strcmp(name, "wordbool") || !strcmp(name, "longbool") || !strcmp(name, "qwordbool");
+        if ((!_isboolfam || pas_is_boolexpr(args->items[0])) && pas_sizeof_builtin_size(name, &_tsz)) return args->items[0];
     }
     if (name && !strcmp(name, "swapendian") && args && args->count >= 1) return args->items[0];
     if (name && !strcmp(name, "addr") && args && args->count >= 1) return args->items[0];
@@ -853,7 +853,7 @@ static int pas_sizeof_builtin_size(const char *n, long long *out) {
         {"integer",4},{"longint",4},{"shortint",1},{"byte",1},{"word",2},{"smallint",2},
         {"cardinal",4},{"longword",4},{"int64",8},{"qword",8},{"single",4},{"real",8},
         {"double",8},{"extended",10},{"comp",8},{"char",1},{"widechar",1},
-        {"boolean",1},{"bytebool",1},{"wordbool",2},{"longbool",4},{"pointer",8},
+        {"boolean",1},{"bytebool",1},{"wordbool",2},{"longbool",4},{"qwordbool",8},{"pointer",8},
         {"ptruint",8},{"ptrint",8},{"int8",1},{"int16",2},{"int32",4},{"uint8",1},
         {"uint16",2},{"uint32",4},{"uint64",8},{"nativeint",8},{"nativeuint",8},
         {"codepointer",8},
