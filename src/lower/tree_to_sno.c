@@ -255,7 +255,7 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
         break;
     case TT_FNC: {
         int i;
-        emit(c, "%s(", sval_or(e, "?FN?"));
+        emit(c, "%s(", label_sanitize(sval_or(e, "?FN?")));
         for (i = 0; i < e->n; i++) {
             if (i) emit(c, ",");
             emit_expr(c, e->c[i]);
@@ -357,7 +357,20 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
     if (subj && subj->t == TT_DEFINE && subj->n >= 3) {
         const char *fname = (subj->c[0] && subj->c[0]->v.sval) ? subj->c[0]->v.sval : "_fn";
         const char *proto = (subj->c[1] && subj->c[1]->v.sval) ? subj->c[1]->v.sval : "_fn()";
-        emit(c, "\tDEFINE('%s')\t:(%s_end)", proto, fname);
+        char sproto[1024]; int sp = 0;
+        {
+            char nm[256]; int nl = 0;
+            for (const char *q = proto; ; q++) {
+                if (*q && *q != '(' && *q != ')' && *q != ',') { if (nl < (int)sizeof nm - 1) nm[nl++] = *q; continue; }
+                nm[nl] = '\0';
+                sp += snprintf(sproto + sp, sizeof sproto - (size_t)sp, "%s", nl ? label_sanitize(nm) : "");
+                nl = 0;
+                if (!*q || sp >= (int)sizeof sproto - 2) break;
+                sproto[sp++] = *q; sproto[sp] = '\0';
+            }
+        }
+        fname = ct_strdup(label_sanitize(fname));
+        emit(c, "\tDEFINE('%s')\t:(%s_end)", sproto, fname);
         emit_nl(c);
         if (subj->c[2] && subj->c[2]->t == TT_PROGRAM && subj->c[2]->n > 0) {
             int j;
