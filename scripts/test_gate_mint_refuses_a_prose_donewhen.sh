@@ -128,7 +128,16 @@ arms "REAL TOOL (all seven arms must hold)" "$MSG" || RC=1
 # ⛔⭐ FAIL-ONCE. A gate nobody has seen go red is a gate nobody has tested. The mutant removes the guard's
 # CALL SITE -- not the helper -- because a cure can be present and unwired, which is the failure mode the
 # sibling next-runs-done-when-at-dispatch cure actually shipped with on one of its two paths.
-MUT="$W/mutant.sh"
+# ⛔⭐⭐ THE MUTANT IS STAGED WITH ITS SIBLINGS, and the direction this failed in is why it is spelled out.
+# A mutant at $W/mutant.sh resolves `dirname "${BASH_SOURCE[0]}"` to $W and finds no lib beside it. That was
+# survivable until 2026-09-23, when the DONE-WHEN EXTRACTOR MOVED INTO lib_donewhen.sh (cto's ruling: one
+# implementation) and the bus began REFUSING rc=2 without it. ⛔ THE REFUSAL LOOKS LIKE THE CURE: arms 1-3
+# assert the mutant FAILS TO REFUSE a prose criterion, so a mutant that refuses EVERYTHING for a staging
+# reason reads as "the guard still works" and the gate printed "mutant stayed green on 3 of 3". A fixture
+# fault wearing a verdict, in the one arm built to tell a cure from its absence.
+MUTD="$W/mut"; MUT="$MUTD/s4e_msg.sh"
+mkdir -p "$MUTD" || { echo "⛔ REFUSED(2): cannot stage the mutant directory"; exit 2; }
+cp "$HERE"/lib_*.sh "$MUTD/" || { echo "⛔ REFUSED(2): cannot stage the sibling lib_*.sh the mutant sources"; exit 2; }
 sed 's/^\( *\)_dw_why="\$(s4e_donewhen_unrunnable_why/\1_dw_why="" \&\& false \&\& _dw_why="$(s4e_donewhen_unrunnable_why/' "$MSG" > "$MUT"
 if ! bash -n "$MUT" 2>/dev/null; then echo "⛔ REFUSED(2): the mutant does not parse -- the sed no longer matches the call site, so FAIL-ONCE proves nothing"; exit 2; fi
 if cmp -s "$MSG" "$MUT"; then echo "⛔ REFUSED(2): the mutant is byte-identical to the real script -- the call site moved and this gate would pass vacuously"; exit 2; fi

@@ -64,8 +64,13 @@ echo "s4e park: additive blocker merge + refuse-unresolvable-topic (scratch post
 a_ok=1; b_ok=1
 if arm_a "$MSG"; then echo "  [PASS A] BLOCKED-ON:t-b1 + BLOCKED-ON:t-b2 merge to BLOCKED-ON:t-b1+t-b2; t-b1 DONE alone self-heals and serves the row"; else a_ok=$?; [ "$a_ok" = 2 ] && { echo "⛔ REFUSED: arm A fixture could not be built (rc=2)"; exit 2; }; a_ok=0; fi
 if arm_b "$MSG"; then echo "  [PASS B] park on a topic absent from QUEUE.tsv/QUEUE.done.tsv REFUSES rc=2, column left FREE"; else b_ok=$?; [ "$b_ok" = 2 ] && { echo "⛔ REFUSED: arm B fixture could not be built (rc=2)"; exit 2; }; b_ok=0; fi
-sed 's/if \[ "\$_dup" = 0 \]; then st="BLOCKED-ON:\${_old}+\${_new}"; else st="BLOCKED-ON:\${_old}"; fi/st="BLOCKED-ON:\${_new}"/' "$MSG" > "$W/msg_nocure.sh"
-grep -q 'st="BLOCKED-ON:\${_new}"' "$W/msg_nocure.sh" || { echo "⛔ REFUSED: could not remove the additive-merge cure for the fail-once arm (the merge line moved?)"; exit 2; }
-if arm_a "$W/msg_nocure.sh" >"$W/failonce" 2>&1; then echo "  [FAIL-ONCE] ⛔ arm A stayed GREEN with the additive-merge cure removed -- it cannot detect the defect it exists for"; red=0; else echo "  [FAIL-ONCE] red as required with the additive-merge cure removed: $(grep -m1 '\[A\]' "$W/failonce" | sed 's/^ *//' | cut -c1-120)"; red=1; fi
+# ⛔ THE MUTANT IS STAGED WITH ITS SIBLING LIBS. Since the DONE-WHEN extractor moved into lib_donewhen.sh
+# (cto's ruling, 2026-09-23) the bus REFUSES rc=2 when that lib is not beside it, so a mutant dropped into a
+# bare $W refuses EVERY verb -- and this gate's fail-once then prints "red as required" over a refusal that
+# has nothing to do with the additive-merge cure. A fail-once red for a staging reason proves nothing.
+mkdir -p "$W/nocure" && cp "$HERE"/lib_*.sh "$W/nocure/" || { echo "⛔ REFUSED(2): cannot stage the mutant's sibling libs"; exit 2; }
+sed 's/if \[ "\$_dup" = 0 \]; then st="BLOCKED-ON:\${_old}+\${_new}"; else st="BLOCKED-ON:\${_old}"; fi/st="BLOCKED-ON:\${_new}"/' "$MSG" > "$W/nocure/s4e_msg.sh"
+grep -q 'st="BLOCKED-ON:\${_new}"' "$W/nocure/s4e_msg.sh" || { echo "⛔ REFUSED: could not remove the additive-merge cure for the fail-once arm (the merge line moved?)"; exit 2; }
+if arm_a "$W/nocure/s4e_msg.sh" >"$W/failonce" 2>&1; then echo "  [FAIL-ONCE] ⛔ arm A stayed GREEN with the additive-merge cure removed -- it cannot detect the defect it exists for"; red=0; else echo "  [FAIL-ONCE] red as required with the additive-merge cure removed: $(grep -m1 '\[A\]' "$W/failonce" | sed 's/^ *//' | cut -c1-120)"; red=1; fi
 if [ "$a_ok" = 1 ] && [ "$b_ok" = 1 ] && [ "$red" = 1 ]; then echo "✅ GATE OK: park adds a blocker instead of replacing one, self-clears on any recorded blocker resolving, refuses an unresolvable topic, and goes red when the additive-merge cure is removed."; exit 0; fi
 echo "⛔ GATE FAILED (arm-A=$a_ok arm-B=$b_ok fail-once-red=$red)"; exit 1
