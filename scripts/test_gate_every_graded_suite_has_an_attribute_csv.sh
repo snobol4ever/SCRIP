@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# test_gate_every_graded_suite_has_an_attribute_csv.sh -- every row of SUITES.tsv (the machine-read SUITE TABLE) names a suite
+# whose attribute file ALL.csv exists, so a program's declared memory (heap_kb, Lon 2026-09-23 CEO-1167/1168) has a place to
+# live for EVERY graded suite. Cheap, no build, hermetic (reads the checkout only). PASS rc=0, FAIL rc=1 naming each missing
+# file, REFUSE rc=2 when SUITES.tsv cannot be read or maps a key this table does not know (a suite this gate cannot place is
+# not silently green). The key->directory table is DECLARED here because SUITES.tsv carries no path column.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+T="$S4E/.github/SUITES.tsv"
+[ -r "$T" ] || { echo "REFUSE(2): cannot read $T"; exit 2; }
+declare -A DIR=(
+  [gimpel]=corpus/packages/snobol4/gimpel [csnobol4]=corpus/packages/snobol4/csnobol4_suite [snoflake]=corpus/packages/snobol4/snoflake_suite
+  [aisnobol]=corpus/packages/snobol4/aisnobol [dotnet]=corpus/packages/snobol4/dotnet [testpgms]=corpus/packages/snobol4/spitbol_testpgms
+  [x64tests]=corpus/packages/snobol4/spitbol_x64_tests [arizona]=corpus/packages/icon/arizona_tests [jcon]=corpus/packages/icon/jcon_tests
+  [ipl]=corpus/packages/icon/ipl [inria]=corpus/packages/prolog/inriasuite [swi]=corpus/packages/prolog/swi_tests [gnu]=corpus/packages/prolog/gnu_prolog
+  [gnu_fd]=corpus/packages/prolog/gnu_fd [logtalk]=corpus/packages/prolog/logtalk_iso [fpc]=corpus/packages/pascal/fpc_tests [pat]=corpus/packages/pascal/pat
+  [roast]=corpus/packages/raku/roast [sno-master]=corpus/tests/snobol4 [icn-master]=corpus/tests/icon [pl-master]=corpus/tests/prolog
+  [pas-master]=corpus/tests/pascal [raku-master]=corpus/tests/raku [snc-master]=corpus/tests/snocone [reb-master]=corpus/tests/rebus
+)
+rows=0; ok=0; missing=(); unknown=()
+while IFS=$'\t' read -r key rest; do
+  [ -z "$key" ] && continue; case "$key" in \#*|key) continue;; esac
+  rows=$((rows+1))
+  d="${DIR[$key]:-}"
+  if [ -z "$d" ]; then unknown+=("$key"); continue; fi
+  if [ -s "$S4E/$d/ALL.csv" ]; then ok=$((ok+1)); else missing+=("$key -> $d/ALL.csv"); fi
+done < "$T"
+echo "ATTRIBUTE-FILES suites=$rows with_all_csv=$ok missing=${#missing[@]} unknown=${#unknown[@]}"
+for m in "${missing[@]}"; do echo "  MISSING $m"; done
+for u in "${unknown[@]}"; do echo "  UNKNOWN-KEY $u (add it to this gate's table)"; done
+[ "$rows" -gt 0 ] || { echo "REFUSE(2): SUITES.tsv has no rows -- a denominator of zero is a refusal"; exit 2; }
+[ "${#unknown[@]}" -eq 0 ] || { echo "REFUSE(2): ${#unknown[@]} suite key(s) this gate cannot place"; exit 2; }
+[ "${#missing[@]}" -eq 0 ] && { echo "GATE PASS(0) [every_graded_suite_has_an_attribute_csv]: $ok of $rows suites carry ALL.csv"; exit 0; }
+echo "GATE FAIL(1) [every_graded_suite_has_an_attribute_csv]: ${#missing[@]} of $rows suites have no attribute file"; exit 1

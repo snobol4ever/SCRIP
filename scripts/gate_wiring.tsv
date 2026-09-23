@@ -88,6 +88,7 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_every_c_to_bb_box_entry_carries_its_hit.sh	WIRED	-	-	-
+test_gate_every_graded_suite_has_an_attribute_csv.sh	WIRED	-	-	-
 test_gate_fc_side_tables_are_reset_at_every_runtime_compile_entry.sh	WIRED	-	-	-
 test_gate_finding_claims_are_folded_before_delete.sh	WIRED	-	-	-
 test_gate_findings_live_in_the_findings_directory.sh	WIRED	-	-	-
