@@ -410,6 +410,7 @@ test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
 test_gate_raku_unicode_lexemes.sh	WIRED	-	-	-
 test_gate_readme_grid_cell_is_a_multiple_not_the_ratio.sh	WIRED	-	-	-
+test_gate_readme_suite_table_matches_suites_tsv.sh	WIRED	-	-	-
 test_gate_reb_port_trace.sh	WIRED	-	-	-
 test_gate_rebus_derived_refs_match_their_rival_oracle.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
