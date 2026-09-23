@@ -10,6 +10,9 @@ usage: util_gc_population_machine.py <lang> <control_root|-> <cure_root> [--arms
   arms   nogc  = SCRIP_HEAP_KB=524288 stress 0 reloc 0 (the no-collection baseline: a big window, nothing forced)
          sN    = SCRIP_HEAP_KB=128 (the shipped window) SCRIP_GC_STRESS=N SCRIP_GC_RELOC=0 (ordinary compaction)
          rN    = SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=N SCRIP_GC_RELOC=1 (every live block displaced at every collection)
+         fN    = SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=N SCRIP_GC_PLANT_FLIP=1 (every live block COPIED to disjoint ground and ALL old
+                 ground PROT_NONE until the next collection: a stale pointer FAULTS where it is used, with a located [ZGC-STALE]
+                 report -- the arm that turns a silent wrong answer into a crash, CTO-155)
          default r0,r1 -- the CEO-1165 form (stress 0 and 1 under forced relocation), kept for comparability
 ⛔ WHY BOTH RELOCATION SETTINGS: forced relocation makes a stale copy of a MOVED block wrong at once, but it also moves every
    block, which can hide a word that points at a RECLAIMED block whose ground ordinary compaction refills (hq_icon's unitgenr,
@@ -43,10 +46,10 @@ while a:
     else: print('unknown argument %s' % k); sys.exit(2)
 if ctl == '-': single = True
 def arm_env(n):
-    if n == 'nogc': return {'SCRIP_HEAP_KB': '524288', 'SCRIP_GC_STRESS': '0', 'SCRIP_GC_RELOC': '0'}
-    m = re.fullmatch(r'([sr])(\d+)', n)
-    if not m: print('REFUSED(2): arm %r is not nogc, sN or rN' % n); sys.exit(2)
-    return {'SCRIP_HEAP_KB': '128', 'SCRIP_GC_STRESS': m.group(2), 'SCRIP_GC_RELOC': '1' if m.group(1) == 'r' else '0'}
+    if n == 'nogc': return {'SCRIP_HEAP_KB': '524288', 'SCRIP_GC_STRESS': '0', 'SCRIP_GC_RELOC': '0', 'SCRIP_GC_PLANT_FLIP': '0'}
+    m = re.fullmatch(r'([srf])(\d+)', n)
+    if not m: print('REFUSED(2): arm %r is not nogc, sN, rN or fN' % n); sys.exit(2)
+    return {'SCRIP_HEAP_KB': '128', 'SCRIP_GC_STRESS': m.group(2), 'SCRIP_GC_RELOC': '1' if m.group(1) == 'r' else '0', 'SCRIP_GC_PLANT_FLIP': '1' if m.group(1) == 'f' else '0'}
 ARMS = [(n, arm_env(n)) for n in arm_names]
 roots = [cure] if single else [ctl, cure]
 for r in roots:

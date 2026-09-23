@@ -56,6 +56,11 @@ static long g_gc_vacn = 0, g_gc_vaccap = 0, g_gc_vacover = 0, g_gc_vacgen = 0;
 static gc_vac_t *gc_vac_ledger(void);
 static int gc_birth_on(void);
 static char *g_hp_qlo = (char *)0;
+static char *g_hp_flo = (char *)0;
+static char *g_hp_fhi = (char *)0;
+static char *g_gc_flip_to = (char *)0;
+static long g_gc_flips = 0, g_gc_flip_declined = 0, g_gc_flip_live = 0;
+static int gc_plant_flip(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_FLIP"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 static char *g_hp_qhi = (char *)0;
 static long g_hp_qgen = 0, g_hp_qarm = 0, g_hp_qbytes = 0;
 static void gc_quar_release(char *need_end);
@@ -156,7 +161,7 @@ static void rt_gcheap_report(void)
     long win_mb = (long)(g_hp_chunk >> 20), rsv_mb = (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 20) : 0L;
     long win_kb = (long)(g_hp_chunk >> 10);
     { const char *x = getenv("SCRIP_GC_EXERCISE"); const char *st = getenv("SCRIP_GC_STRESS");
-      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld capped=%ld grew=%ld cap_kb=%ld grows=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L, g_hp_grows); }
+      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld capped=%ld grew=%ld cap_kb=%ld grows=%ld flips=%ld flip_declined=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L, g_hp_grows, g_gc_flips, g_gc_flip_declined); }
     if (!getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
     fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld capped=%ld grew=%ldKB cap=%ldKB grows=%ld verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L, g_hp_grows);
@@ -552,13 +557,24 @@ static void gc_vac_record(char *vlo)
         { gc_vac_t *v = &g_gc_vac[g_gc_vacn++]; v->at = (char *)h; v->fwd = h->fwd ? (char *)(uintptr_t)h->fwd : (char *)0; v->size = h->size; v->gen = (uint32_t)g_gc_vacgen; v->type = h->type; v->pad = 0; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(sizeof(long long) == 8, "A REGISTER HOLDING THE 0xDB POISON AT A FAULT IS A POINTER READ FROM VACATED GROUND (cto 2026-09-23, CTO-155): the collector fills the ground it vacates with 0xDB, a pointer loaded from there is 0xDBDB..., non-canonical, and the kernel reports a general-protection fault with si_addr 0 -- so the stale-address report above cannot see it and the crash printed nothing; the registers carry the evidence instead");
+int rt_gc_poison_reg_report(const long long *gregs, int n, void *ip)
+{
+    static const char *const rn[] = { "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rdi", "rsi", "rbp", "rbx", "rdx", "rax", "rcx", "rsp", "rip" };
+    char bf[1024]; int k, m = 0, hit = 0;
+    for (k = 0; k < n && k < 16; k++) { uint64_t v = (uint64_t)gregs[k]; if ((v >> 32) == 0xDBDBDBDBu) { if (!hit) m += snprintf(bf + m, sizeof bf - (size_t)m, "[ZGC-STALE] fault at instruction %p with a register holding the 0xDB POISON the collector writes over vacated ground:", ip); hit = 1; m += snprintf(bf + m, sizeof bf - (size_t)m, " %s=%#llx", rn[k], (unsigned long long)v); if (m > 900) break; } }
+    if (!hit) return 0;
+    m += snprintf(bf + m, sizeof bf - (size_t)m, "\n[ZGC-STALE]   a POINTER WAS READ FROM VACATED GROUND and dereferenced: the block that held it was moved or reclaimed by collection #%ld and whatever still points there was NEVER VISITED%s\n", g_gc_runs, g_gc_in ? " -- AND THE FAULT HAPPENED INSIDE A COLLECTION, so the stale holder is a root the previous collection did not repair" : "");
+    { ssize_t w = write(2, bf, (size_t)m); (void)w; }
+    return 1;
+}
 int rt_gc_stale_addr_report(void *fault, void *ip)
 {
     char bf[4096]; int n = 0; char *f = (char *)fault; long off, i, hit = -1;
     if (!g_hp_arena || f < g_hp_arena || f >= g_hp_cap_end) return 0;
     off = (long)(f - g_hp_arena);
     n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE] SIGSEGV touching GC heap ground at %p (arena+%ld) from instruction %p -- a STALE HEAP POINTER was used, not a wild address\n", fault, off, ip);
-    if (g_hp_qlo && f >= g_hp_qlo && f < g_hp_qhi) {
+    if ((g_hp_qlo && f >= g_hp_qlo && f < g_hp_qhi) || (g_hp_flo && f >= g_hp_flo && f < g_hp_fhi)) {
         n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   this page is QUARANTINED PROT_NONE: collection #%ld (or an earlier one) vacated arena+%ld..arena+%ld and no allocation has taken it back; the live top is arena+%ld\n", g_hp_qgen, (long)(g_hp_qlo - g_hp_arena), (long)(g_hp_qhi - g_hp_arena), (long)(g_hp_top - g_hp_arena));
         for (i = g_gc_vacn - 1; i >= 0; i--) if (f >= g_gc_vac[i].at && f < g_gc_vac[i].at + g_gc_vac[i].size) { hit = i; break; }
         if (hit >= 0 && g_gc_vac[hit].fwd) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was MOVED to arena+%ld by collection #%ld, so the holder of this pointer was NEVER VISITED and kept the pre-move address\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)(g_gc_vac[hit].fwd - g_hp_arena), (long)g_gc_vac[hit].gen);
@@ -679,6 +695,7 @@ static rt_hblk_t *gc_blk_of(const char *p)
 static int gc_type_moves(uint16_t t) { return (t == HB_DVEC || (t >= HB_PLDB && t <= HB_DTPRCP) || t == HB_ARR || t == HB_DINST || HB_IS_AGG(t)) ? 1 : 0; }
 static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
 {
+    if (h->type == HB_FILL) return;
     uint16_t old = h->flags;
     h->flags = (uint16_t)(old | HBF_MARK | addf);
     if (!(old & HBF_MARK) && gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
@@ -1366,6 +1383,8 @@ static long gc_collect_ex(void)
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
     gc_quar_release(g_hp_cap_end);
+    if (g_hp_flo) { if (mprotect(g_hp_flo, (size_t)(g_hp_fhi - g_hp_flo), PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[GC-FLIP] could not re-open the protected from-space arena+%ld..arena+%ld for the collection -- the plant refuses the run rather than collect over ground it cannot read\n", (long)(g_hp_flo - g_hp_arena), (long)(g_hp_fhi - g_hp_arena)); abort(); } g_hp_flo = (char *)0; g_hp_fhi = (char *)0; }
+    g_gc_flip_to = (char *)0;
     g_hp_win = (char *)0; g_hp_wend = (char *)0;
     n_t0 = w_tel ? gc_walk_ns() : 0;
     g_gc_nblk = 0;
@@ -1439,6 +1458,14 @@ static long gc_collect_ex(void)
             fprintf(stderr, "[GC-SHIFT] plant DECLINED at this collection: the fill prefix of %ld bytes left by earlier shifts plus the %ld-byte shift plus %ld live bytes would put the compacted live set past the committed window end at arena+%ld, and the plant moves nothing it cannot commit. Printed ONCE per process.\n", prefix, shift, live_total, (long)(g_hp_end - g_hp_arena)); }
           shift = 0; prefix = 0; } }
       g_gc_shift_prefix = prefix; dest = g_hp_arena + prefix + shift; g_gc_shift_now = shift; }
+    if (gc_plant_flip() && !g_gc_shift_now) { long lt = 0; char *fl0 = (char *)0; size_t pg = gc_pg();
+        for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) { lt += (long)g_gc_idx[i]->size; if (!fl0) fl0 = (char *)g_gc_idx[i]; }
+        { char *up = (char *)(((uintptr_t)g_hp_top + pg - 1) & ~(uintptr_t)(pg - 1));
+          if (up + lt <= g_hp_end && (size_t)(up - g_hp_arena) < (size_t)0xFFFFFFF0u) g_gc_flip_to = up;
+          else if (!fl0 || g_hp_arena + lt <= fl0) g_gc_flip_to = g_hp_arena;
+          else { static int said_flip = 0; g_gc_flip_declined++;
+              if (!said_flip) { said_flip = 1; fprintf(stderr, "[GC-FLIP] plant DECLINED at a collection: %ld live bytes fit neither above the page-rounded top (arena+%ld, committed end arena+%ld) nor below the first live block (arena+%ld), so THAT collection compacted in place and its stale copies were not trapped; the count is flip_declined= on the GC-EXERCISE line. Printed ONCE per process.\n", lt, (long)(up - g_hp_arena), (long)(g_hp_end - g_hp_arena), (long)(fl0 - g_hp_arena)); } } }
+        if (g_gc_flip_to) { dest = g_gc_flip_to; g_gc_flip_live = lt; } }
     { int fold = 1;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
@@ -1450,7 +1477,7 @@ static long gc_collect_ex(void)
     if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     gc_displace_census(liveo, livef, li, g_gc_runs + 1, reloc);
     if (reloc && n_rfz) fprintf(stderr, "[GC-RELOC] REFUSED to displace %ld live block(s): no room for a minimum legal block (32 bytes) of gap, so they kept their address and THIS COLLECTION IS NOT A FORCED-RELOCATION MEASUREMENT\n", n_rfz);
-    gc_vac_record(dest); }
+    gc_vac_record(g_gc_flip_to ? g_hp_arena : dest); }
     if (pl_blk) { pl_mark = (pl_blk->flags & HBF_MARK) ? 1 : 0; pl_fwd = pl_blk->fwd; }
     for (int z = 0; z < st_n; z++) st_fwd[z] = st_blk[z]->fwd;
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
@@ -1459,7 +1486,15 @@ static long gc_collect_ex(void)
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
     dest = g_hp_arena;
-    if (g_gc_shift_now) {
+    if (g_gc_flip_to) {
+        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; memcpy((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
+        dest = g_gc_flip_to + g_gc_flip_live;
+        if (g_gc_flip_to > g_hp_arena) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_arena; fl->fwd = 0; fl->size = (uint32_t)(g_gc_flip_to - g_hp_arena); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++; }
+        g_gc_flips++;
+        { static int said_applied = 0;
+          if (w_tel || gc_maps_on() || !said_applied) { said_applied = 1;
+              fprintf(stderr, "[GC-FLIP] plant: every live block copied to ground disjoint from its old address (%ld live bytes to arena+%ld) and ALL of the old ground poisoned and PROT_NONE until the next collection, so a stale copy of ANY heap address faults at the instruction that uses it. THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS with nothing asked for.\n", g_gc_flip_live, (long)(g_gc_flip_to - g_hp_arena)); } }
+    } else if (g_gc_shift_now) {
         if (li > 0) gc_quar_release((char *)livef[li - 1] + liveo[li - 1]->size);
         for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] == (char *)h) w_unm++; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         for (long i = li - 1; i >= 0; i--) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
@@ -1483,7 +1518,7 @@ static long gc_collect_ex(void)
         if ((char *)livef[i] == (char *)h) { w_unm++; if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
             if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = dest; g_hp_wend = (char *)h; } } dest = (char *)h + sz; }
         else { memmove((void *)livef[i], (void *)h, (size_t)sz); dest = (char *)livef[i] + sz; if (w_tel) w_mov += (long)sz; } }
-    g_hp_top = dest; g_hp_blocks = nlive + nfill; g_hp_live = (long)(dest - g_hp_arena); rt_gcheap_line_reset();
+    g_hp_top = dest; g_hp_blocks = nlive + nfill; g_hp_live = g_gc_flip_to ? g_gc_flip_live : (long)(dest - g_hp_arena); if (g_gc_flip_to && g_hp_top > g_hp_virgin) g_hp_virgin = g_hp_top; rt_gcheap_line_reset();
     for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~HBF_MARK); }
     after_b = (long)(g_hp_top - g_hp_arena);
     if (st_n) { static int said_stale = 0; long mv = 0, un = 0, sw = 0;
@@ -1513,6 +1548,9 @@ static long gc_collect_ex(void)
     if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
+    if (g_gc_flip_to && g_gc_flip_to > g_hp_arena + sizeof(rt_hblk_t)) { size_t pg = gc_pg(); char *a = (char *)(((uintptr_t)g_hp_arena + sizeof(rt_hblk_t) + pg - 1) & ~(uintptr_t)(pg - 1)), *b = (char *)((uintptr_t)g_gc_flip_to & ~(uintptr_t)(pg - 1));
+        memset(g_hp_arena + sizeof(rt_hblk_t), 0xDB, (size_t)(g_gc_flip_to - g_hp_arena - (long)sizeof(rt_hblk_t)));
+        if (b > a && mprotect(a, (size_t)(b - a), PROT_NONE) == 0) { g_hp_flo = a; g_hp_fhi = b; } }
     gc_quar_arm(g_hp_top);
     if (w_tel) fprintf(stderr, "[ZGC-TRAP] quarantine arena+%ld..arena+%ld (%ld pages PROT_NONE) ledger=%ld entries over=%ld arms=%ld\n", g_hp_qlo ? (long)(g_hp_qlo - g_hp_arena) : -1L, g_hp_qhi ? (long)(g_hp_qhi - g_hp_arena) : -1L, g_hp_qlo ? (long)((g_hp_qhi - g_hp_qlo) / (long)gc_pg()) : 0L, g_gc_vacn, g_gc_vacover, g_hp_qarm);
     g_gc_idx = (rt_hblk_t **)0;
