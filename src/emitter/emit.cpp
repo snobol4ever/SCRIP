@@ -2653,6 +2653,8 @@ static int zd_close_on(void) { static int v = -1; if (v < 0) { const char * e = 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_repl_free_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZD_REPL_FREE"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_oback_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZD_OBACK"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_exit_pop_s(IR_e op, int mark, int full, int stmt, int mafter) { if (!(mark >= 0 && zd_stmt_exit_kind(op))) return full; int wm = mark;
     if (op == IR_GOTO_DEFERRED && stmt >= 0 && zd_defer_exit_on()) return full - (stmt - wm);
     return (mafter >= 0 && full > mafter) ? (wm + (full - mafter)) : wm; }
@@ -2766,7 +2768,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int gin = 0; int oin = 0; int gback = -1; int oback = -1;
                 int gib = port_sz_beta(nodes[i]->γ.sz); { int _gg = 0; IR_t * _g = nodes[i]->γ.node; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = port_sz_beta(_g->γ.sz); _g = _g->γ.node; } } gib = gib && !beta_is_stmt_land(gt);
                 if (nblob > 0) { for (int k = 0; k < n; k++) if (cm[k]) { if (nodes[k] == gt) gin = 1; if (nodes[k] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; } }
-                else for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && (k > r || gib)) gin = 1; if (nodes[run[k]] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
+                else for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && (k > r || gib)) gin = 1; if (nodes[run[k]] == ot && (k > r || !zd_oback_on() || port_sz_beta(nodes[i]->ω.sz)) && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
                 if (_zbe && gt) { { int tk = nidx(nodes, n, gt); if (tk >= 0 && (zon[tk])) { gback = tk; } } }
                 if (_zbe && ot) { { int tk = nidx(nodes, n, ot); if (tk >= 0 && (zon[tk])) { oback = tk; } } }
                 { if (!gin && gt && gt->op == IR_SUCCEED && g_emit_cfg && g_emit_cfg->icn_cells_graph && port_sz_beta(nodes[i]->ω.sz)) gin = 1; }
