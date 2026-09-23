@@ -33,6 +33,24 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # attribute TSV/CSV files"; CEO-1167). SOURCED, never reimplemented -- this runner, its two Icon siblings
 # and corpus_suite_harness.py must not be able to disagree about what one cell means.
 . "$HERE/lib_declared_arena.sh"
+# ⛔⭐ CEO-409 LINE MASKS, READ HERE THROUGH THE HARNESS'S OWN SHIM (util_apply_ceo409_mask.py), never a
+# second implementation -- see test_snobol4_csnobol4_suite.sh for the reasoning (the regex dialect is
+# python's, and a re-implementation in sed/awk agrees on every mask anyone tested and diverges on the
+# first one using \d or a lazy quantifier). A per-program sidecar is $SUITE/$name.mask beside $name.std;
+# there is no package-wide ALL.mask convention here because this suite's masks (so far, just gc2's
+# implementation-defined &collections line) are program-specific, not a property every program shares.
+# ⛔ DEFAULT-OFF AND BYTE-IDENTICAL: no $name.mask and mask_apply is a no-op, which is every arizona
+# program today except gc2.
+mask_apply() { # $1=std_path $2=name $3=text -> echoes the masked text; count lands in $RUNDIR/mask_n
+    printf '0' > "$RUNDIR/mask_n"
+    local mp="${1%.std}.mask"
+    [ -f "$mp" ] || { printf '%s' "$3"; return 0; }
+    local out
+    if ! out="$(printf '%s' "$3" | python3 "$HERE/util_apply_ceo409_mask.py" "$1" "$2" "$RUNDIR/mask_n" 2>"$RUNDIR/mask_err")"; then
+        echo "⛔ REFUSED TO GRADE rc=2: $2's mask sidecar could not be applied -- $(cat "$RUNDIR/mask_err" 2>/dev/null)"; exit 2
+    fi
+    printf '%s' "$out"
+}
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
@@ -228,6 +246,8 @@ for std in "$SUITE"/*.std; do
   m3out=$(cd "$SUITE" && $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
+  # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
+  m3out="$(mask_apply "$std" "$name" "$m3out")"; exp3="$(mask_apply "$std" "$name" "$exp3")"
   if printf '%s' "$m3out" | grep -q 'parse error'; then
     M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"; arizona_progress "$name" m3 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
@@ -266,6 +286,8 @@ for std in "$SUITE"/*.std; do
       m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi
+  # CEO-409: same marker, same reasoning as the m3 arm above.
+  m4out="$(mask_apply "$std" "$name" "$m4out")"; exp4="$(mask_apply "$std" "$name" "$exp4")"
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
     M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $name"; arizona_progress "$name" m4 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m4 REJECT] $name"
