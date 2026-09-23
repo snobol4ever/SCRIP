@@ -80,7 +80,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_the_spine_cell_grid_is_anchored_at_the_
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- build before grading"
 [ -f "$CENSUS" ] || refuse "the census $CENSUS is missing -- nothing to grade"
 [ -f "$WIT" ] || refuse "the row's witness $WIT is missing"
-echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob)"
 echo "POPULATION (declared): $(printf '%s\n' $POP | wc -w) witness(es), the shared GC witness set in four"
 echo "languages -- MEASURED at 4.8s for the whole gate, which is why it is the WHOLE set and not a sample"
 echo "(MODE TENET CONDITION 2: the landing gate is the shared resource; a cheap arm may be wide). GRID_POP= narrows it."
@@ -96,7 +96,7 @@ else
 fi
 
 # (b) THE READING: every decidable call site begins its collection on the grid
-pop="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" timeout 900s python3 "$CENSUS" $POP 2>&1)"; prc=$?
+pop="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" timeout 900s python3 "$CENSUS" $POP 2>&1)"; prc=$?
 [ "$prc" = 2 ] && refuse "the census refused over the declared population: $(printf '%s\n' "$pop" | grep -m1 REFUSED)"
 gl="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store GRID calls=')"
 ong="$(printf '%s\n' "$gl" | sed -n 's/.* on_grid=\([0-9]*\) .*/\1/p')"
@@ -145,7 +145,7 @@ else
 fi
 
 # (d) THE SECOND ROAD: the anchor read from the RUNNING collector, not from the text
-rt="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_MAPS=3 SCRIP_GC_STRESS=1 timeout 180s "$SCRIP" "$WIT" 2>&1 | grep -m4 '^\[GC-WALK-CELL\]')"
+rt="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_MAPS=3 SCRIP_GC_STRESS=1 timeout 180s "$SCRIP" "$WIT" 2>&1 | grep -m4 '^\[GC-WALK-CELL\]')"
 bad=0; seen=0
 while read -r line; do
   [ -z "$line" ] && continue

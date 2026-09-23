@@ -78,7 +78,7 @@ for w in $WITNESSES; do
 
   tr="$TMP/$w.tr"; out="$TMP/$w.out"
   rm -f "$tr"
-  SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_C2BB_TRACE="$tr" timeout 120s "$ROOT/scrip" "$src" > "$out" 2>"$TMP/$w.err"
+  SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_C2BB_TRACE="$tr" timeout 120s "$ROOT/scrip" "$src" > "$out" 2>"$TMP/$w.err"
   rc=$?
   if [ "${REFUSE_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
     printf '[ZHP] HARD CAP REACHED (REFUSE_ONCE plant) -- THIS REQUEST wanted 32767 payload bytes of block kind 215\n' >> "$TMP/$w.err"
@@ -87,7 +87,7 @@ for w in $WITNESSES; do
     echo "   REFUSE_ONCE: planted a hard-cap abort into $w's stderr"
   fi
   if [ "$rc" -ne 0 ] && grep -q 'HARD CAP REACHED' "$TMP/$w.err" 2>/dev/null; then
-    echo "⛔ GATE REFUSES (2): $w hit the arena HARD CAP (rc=$rc) at SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1}, so it never finished and this gate measured NOTHING."
+    echo "⛔ GATE REFUSES (2): $w hit the arena HARD CAP (rc=$rc) at SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64}, so it never finished and this gate measured NOTHING."
     sed -n '/HARD CAP REACHED/p' "$TMP/$w.err" | head -2
     echo "   ⛔ A CAPACITY VERDICT ABOUT THE ARENA IS NOT A COLLECTOR DEFECT AND IS NOT A FAILURE OF THIS CLAIM (coo, 2026-09-21, CEO-1101: the declared size is a HARD CAP and a tiny arena CAN refuse a live set). Grading it rc=1 would publish a false red about the generator arm every time the cap bites; raising this gate's arena to dodge it would be worse, because the tiny arena is the mandatory instrument. Re-run at a larger SCRIP_HEAP_MB to measure the claim, and row the capacity separately."
     exit 2

@@ -56,7 +56,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_the_unmapped_spine_store_witness_answer
 SBL="$(sbl_correctness_bin)" || refuse "the GRADING oracle is not reachable by its accessor; a missing oracle prints a full, plausible, entirely false table"
 FLAGS="$(sbl_lang_flags)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob)"
 echo "    oracle $SBL $FLAGS (ref re-cut live, this run) · band: $PTS · modes m3 m4"
 
 # (a) THE EXPECTATION IS THE ORACLE'S, RE-CHECKED LIVE.  A committed ref is a SNAPSHOT of the oracle, and a gate
@@ -78,7 +78,7 @@ fi
 # `.` and the gate would pass while measuring nothing.  A deliberately wrong expectation must read X everywhere.
 bad=""; badn=0
 for s in $PTS; do
-  got="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$s" timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "${live}-PLANTED-NOT-THE-ORACLE" ]; then bad="$bad ."; else bad="$bad X"; badn=$((badn+1)); fi
 done
 np="$(printf '%s\n' $PTS | wc -l)"
@@ -91,7 +91,7 @@ fi
 # (c) MODE 3, the default road.
 m3=""; d3=0
 for s in $PTS; do
-  got="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$s" timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "$live" ]; then m3="$m3 ."; else m3="$m3 X"; d3=$((d3+1)); fi
 done
 if [ "$d3" = 0 ]; then
@@ -106,7 +106,7 @@ fi
     || refuse "mode-4 compile or link failed, so the m4 arm measured nothing ($(head -c 160 "$T/w.ld.log" 2>/dev/null))"
 m4=""; d4=0
 for s in $PTS; do
-  got="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$s" timeout 120s "$T/w.x4" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout 120s "$T/w.x4" 2>/dev/null)"
   if [ "$got" = "$live" ]; then m4="$m4 ."; else m4="$m4 X"; d4=$((d4+1)); fi
 done
 if [ "$d4" = 0 ]; then

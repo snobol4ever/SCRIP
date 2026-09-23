@@ -104,12 +104,12 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_the_spine_tagged_cell_walk_is_load_bear
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- build before grading"
 [ -f "$FLOOR" ] || refuse "the declared contract floor $FLOOR is missing -- the verdict this gate licenses has no population"
 command -v setarch >/dev/null 2>&1 || refuse "setarch is not on this box, so ASLR cannot be pinned and a single graded cell is a SAMPLE whose flaky outcome is the PASS (the coo, 2026-09-22) -- this gate refuses rather than publishing a coin flip"
-echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob)"
 echo "POPULATION (declared): $(printf '%s\n' $POP | wc -w) witness(es) NAMED above; ASLR pinned with setarch -R; each run bounded by $CAP. SPINE_AB_POP= narrows it."
 
 run_leg() { # $1 witness path, $2 knob value ("" or 1)
     ( if [ -n "$2" ]; then k=1; else k=0; fi
-      cap_run env SCRIP_GC_NO_SPINE_CELL="$k" SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 \
+      cap_run env SCRIP_GC_NO_SPINE_CELL="$k" SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 \
         setarch -R timeout 60s "$SCRIP" "$1" 2>&1; echo "rc=$?" )
 }
 

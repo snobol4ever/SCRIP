@@ -53,14 +53,14 @@ names=0; for nm in gc_zeta_frame cons_stack rt_cas_live_span hb_scan_interior; d
 if [ "${tot:-x}" = 0 ] && [ "$names" = 0 ]; then echo "  arm 1 PASS: conservative total=0 (10 at ba216c34f) and none of the four deleted constructs is named in gc_heap.c"
 else echo "  arm 1 FAIL: conservative total=${tot:-unread} deleted-construct mentions=$names"; RC=1; fi
 examined=$((examined + 1))
-cov=$( ( cd "$T" && SCRIP_GC_COVERAGE=1 SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS=1 timeout 120 "$SCRIP" "$WD/hb_nv.sno" 2>&1 >/dev/null </dev/null ) | grep '^\[GC-COV\]' )
+cov=$( ( cd "$T" && SCRIP_GC_COVERAGE=1 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS=1 timeout 120 "$SCRIP" "$WD/hb_nv.sno" 2>&1 >/dev/null </dev/null ) | grep '^\[GC-COV\]' )
 ncov=$(printf '%s\n' "$cov" | grep -c 'GC-COV'); nbad=$(printf '%s\n' "$cov" | grep -vc 'cas_scanned_bytes=0 words_scanned=0 interior_words=0')
 if [ "$ncov" -ge 50 ] && [ "$nbad" = 0 ]; then echo "  arm 2 PASS: $ncov collection(s) on hb_nv.sno at stress 1, every one words_scanned=0 cas_scanned_bytes=0 interior_words=0"
 else echo "  arm 2 FAIL: collections=$ncov lines_with_a_nonzero_scan=$nbad"; RC=1; fi
 run_w() { local mode="$1" st="$2" src="$3" n="$4" in=/dev/null out; [ -f "$WD/$n.in" ] && in="$WD/$n.in"
-    if [ "$mode" = 3 ]; then ( cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_POISON=1 SCRIP_GC_STRESS="$st" timeout 120 "$SCRIP" "$src" < "$in" 2>/dev/null | tr -d '\0' > "$T/o.txt" ); else ( cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_POISON=1 SCRIP_GC_STRESS="$st" timeout 120 "$T/$n.m4" < "$in" 2>/dev/null | tr -d '\0' > "$T/o.txt" ); fi
+    if [ "$mode" = 3 ]; then ( cd "$T" && SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_HEAP_MAX_MB=512 SCRIP_GC_POISON=1 SCRIP_GC_STRESS="$st" timeout 120 "$SCRIP" "$src" < "$in" 2>/dev/null | tr -d '\0' > "$T/o.txt" ); else ( cd "$T" && SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_HEAP_MAX_MB=512 SCRIP_GC_POISON=1 SCRIP_GC_STRESS="$st" timeout 120 "$T/$n.m4" < "$in" 2>/dev/null | tr -d '\0' > "$T/o.txt" ); fi
     cmp -s "$T/o.txt" "$WD/$n.ref"; }
-base_w() { local src="$1" n="$2" in=/dev/null; [ -f "$WD/$n.in" ] && in="$WD/$n.in"; ( cd "$T" && SCRIP_HEAP_MB=512 SCRIP_GC_STRESS=0 timeout 120 "$SCRIP" "$src" < "$in" 2>/dev/null | tr -d '\0' > "$T/b.txt" ); cmp -s "$T/b.txt" "$WD/$n.ref"; }
+base_w() { local src="$1" n="$2" in=/dev/null; [ -f "$WD/$n.in" ] && in="$WD/$n.in"; ( cd "$T" && env -u SCRIP_HEAP_KB SCRIP_HEAP_MB=512 SCRIP_GC_STRESS=0 timeout 120 "$SCRIP" "$src" < "$in" 2>/dev/null | tr -d '\0' > "$T/b.txt" ); cmp -s "$T/b.txt" "$WD/$n.ref"; }
 # ⛔⭐ DECLARED-OPEN WITNESSES (cto CTO-160, 2026-09-20, hq_icon declaring its own). THIS GATE'S POPULATION IS A DIRECTORY GLOB OVER A DIRECTORY FIVE SEATS LAND INTO, AND IT CARRIES A BLOCKING VERDICT: the moment any seat
 # commits a witness for an OPEN defect, `make test` goes red for all ten seats and names a cause nobody intended. That is what happened here -- hb_file_name_unrooted is doing exactly what it was cut to do (hq_icon
 # edf3bddf7: an open file's NAME is a collected-heap block held only by the C global g_fh, which is named in ZERO visit or root calls, proven A/B/A) and a witness for an open defect is SUPPOSED to be red until its cure lands.
@@ -89,13 +89,13 @@ done
 [ -n "$reported" ] && echo "  REPORTED, NOT GRADED (misses its ref at the shipped arena with SCRIP_GC_STRESS=0, so no collection is in the reading):$reported"
 [ -n "$declared" ] && echo "  DECLARED OPEN, RUN AND COUNTED IN THE DENOMINATOR, NOT FAILING THIS GATE (a witness for an open defect is supposed to be red until its cure lands; every arm is printed above with its row):$declared"
 if [ -n "$dec_all_ok" ]; then echo "  arm 3/4 FAIL: DECLARED-OPEN witness(es) now read ok on EVERY graded arm --$dec_all_ok. The cure landed, so the declaration is STALE: delete it from DECLARED_OPEN and let the witness be graded like every other. A declaration that outlives its cure is how an exemption list becomes the new floor."; RC=1; fi
-if [ "$nw" -ge 20 ] && [ "$bad3" = 0 ]; then echo "  arm 3 PASS: $nw witnesses match their refs in mode 3 at SCRIP_GC_STRESS=1,5 under SCRIP_HEAP_MB=1 SCRIP_GC_POISON=1 --$band3"
+if [ "$nw" -ge 20 ] && [ "$bad3" = 0 ]; then echo "  arm 3 PASS: $nw witnesses match their refs in mode 3 at SCRIP_GC_STRESS=1,5 under SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} SCRIP_GC_POISON=1 --$band3"
 else echo "  arm 3 FAIL: witnesses=$nw red_arms=$bad3 --$band3"; RC=1; fi
-if [ "$nw" -ge 20 ] && [ "$bad4" = 0 ]; then echo "  arm 4 PASS: $nw witnesses match their refs in mode 4 at SCRIP_GC_STRESS=5 under SCRIP_HEAP_MB=1 SCRIP_GC_POISON=1 --$band4"
+if [ "$nw" -ge 20 ] && [ "$bad4" = 0 ]; then echo "  arm 4 PASS: $nw witnesses match their refs in mode 4 at SCRIP_GC_STRESS=5 under SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} SCRIP_GC_POISON=1 --$band4"
 else echo "  arm 4 FAIL: witnesses=$nw red_arms=$bad4 --$band4"; RC=1; fi
 examined=$((examined + 1)); ok3=0; ok4=0
 ( cd "$T" && "$SCRIP" --compile -o gc2.s "$GC2" </dev/null 2>/dev/null && gcc gc2.s -L "$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o gc2.m4 2>/dev/null ) || echo "  arm 5 note: gc2 did not build in mode 4"
-for i in 1 2 3 4 5; do ( cd "$T" && SCRIP_HEAP_MB=512 timeout 120 "$SCRIP" "$GC2" </dev/null > g3.txt 2>/dev/null ) && cmp -s "$T/g3.txt" "${GC2%.icn}.std" && ok3=$((ok3 + 1)); [ -x "$T/gc2.m4" ] && ( cd "$T" && SCRIP_HEAP_MB=512 timeout 120 ./gc2.m4 </dev/null > g4.txt 2>/dev/null ) && cmp -s "$T/g4.txt" "${GC2%.icn}.std" && ok4=$((ok4 + 1)); done
+for i in 1 2 3 4 5; do ( cd "$T" && env -u SCRIP_HEAP_KB SCRIP_HEAP_MB=512 timeout 120 "$SCRIP" "$GC2" </dev/null > g3.txt 2>/dev/null ) && cmp -s "$T/g3.txt" "${GC2%.icn}.std" && ok3=$((ok3 + 1)); [ -x "$T/gc2.m4" ] && ( cd "$T" && SCRIP_HEAP_MB=512 timeout 120 ./gc2.m4 </dev/null > g4.txt 2>/dev/null ) && cmp -s "$T/g4.txt" "${GC2%.icn}.std" && ok4=$((ok4 + 1)); done
 if [ "$ok3" = 5 ] && [ "$ok4" = 5 ]; then echo "  arm 5 PASS: gc2 byte-identical to its .std 5 of 5 in both media at the shipped arena (the arena is named here because &collections is what it prints)"
 else echo "  arm 5 FAIL: gc2 m3 $ok3 of 5, m4 $ok4 of 5 at the shipped arena"; RC=1; fi
 examined=$((examined + 1))

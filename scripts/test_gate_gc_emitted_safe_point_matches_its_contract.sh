@@ -45,7 +45,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_emitted_safe_point_matches_its_contract
 [ -f "$CHK" ]   || refuse "the checker $CHK is missing -- nothing to grade"
 [ -f "$FLOOR" ] || refuse "the declared floor $FLOOR is missing; a gate with no floor either reds the fleet over a known class or passes over everything, and both are worse than refusing"
 [ -f "$PLANT_WIT" ] || refuse "the plant's witness $PLANT_WIT is missing -- arm (c) could not run, and an unplanted instrument is not graded"
-echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob)"
 echo "POPULATION (declared): $(grep -vc '^#' "$FLOOR") witness(es) NAMED in $(basename "$FLOOR"); $(printf '%s\n' $POP | wc -w) file(s) present on disk."
 echo "CONTRACT_POP= narrows the run; CONTRACT_PLANT= names the plant's witness."
 
@@ -62,7 +62,7 @@ fi
 # (b) THE READING against the DECLARED floor
 READ_OUT="$(mktemp -t gc_contract_reading.XXXXXX)"
 trap 'rm -f "$READ_OUT" "$READ_OUT".cmp' EXIT
-SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" timeout 900s python3 "$CHK" $POP --name-all > "$READ_OUT" 2>&1; rrc=$?
+SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" timeout 900s python3 "$CHK" $POP --name-all > "$READ_OUT" 2>&1; rrc=$?
 rd="$(cat "$READ_OUT")"
 [ "$rrc" = 2 ] && refuse "the checker refused over the declared population: $(grep -m1 REFUSED "$READ_OUT")"
 sl="$(grep -m1 '^CONTRACT SITES ' "$READ_OUT")"

@@ -52,7 +52,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_a_safe_point_stores_into_a_mapped_slot]
 [ -f "$CENSUS" ] || refuse "the census $CENSUS is missing -- nothing to grade"
 [ -f "$WIT" ] || refuse "the row's witness $WIT is missing"
 [ -f "$REF" ] || refuse "the witness has no oracle-cut ref at $REF -- a ref is cut from the oracle, never from our output"
-echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob)"
 
 # (a) the instrument grades itself before it grades the tree
 st="$(timeout 120s python3 "$CENSUS" --selftest 2>&1)"; src=$?
@@ -229,7 +229,7 @@ fi
 want="$(cat "$REF")"
 diffs=0; band=""
 for s in 0 1 2 3 4 5 6 8 10 12 16 20 25; do
-  got="$(SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS=$s timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=$s timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "$want" ]; then band="$band ."; else band="$band X"; diffs=$((diffs+1)); fi
 done
 if [ "$diffs" = 0 ]; then

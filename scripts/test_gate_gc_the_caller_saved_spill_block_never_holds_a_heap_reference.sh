@@ -62,7 +62,7 @@ ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails
 refuse() { echo "⛔ GATE REFUSED(2) [gc_the_caller_saved_spill_block_never_holds_a_heap_reference]: $1"; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- build before grading"
 [ -d "$WD" ] || refuse "no $WD -- nothing to grade"
-echo "ARENA SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-1} (the tiny arena is the default of GC testing -- CEO-931/934) · stress $STRESS"
+echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob) · stress $STRESS"
 
 # (a) THE REPORTER EXISTS AND IS REACHED.  ⛔ AN ARM THAT GRADES A COUNTER NOTHING INCREMENTS PASSES BY NEVER
 # LOOKING, which is the failure THE INSTRUMENT LAWS exist to catch and the reason this arm comes first.
@@ -80,7 +80,7 @@ witn=0; coll=0; hits=0; named=""; slots=""; unrep=0; swept=0; movd=0; stale_name
 for f in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.sc; do
   [ -f "$f" ] || continue
   witn=$((witn+1))
-  err="$(env -u SCRIP_GC_PLANT_RTCCB SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$f" 2>&1 >/dev/null)"
+  err="$(env -u SCRIP_GC_PLANT_RTCCB SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$f" 2>&1 >/dev/null)"
   n="$(printf '%s\n' "$err" | grep -c '^\[GC-WALK\]')"
   [ "${n:-0}" -gt 0 ] && coll=$((coll+1))
   h="$(printf '%s\n' "$err" | grep -c 'GC-WALK-RTCCB')"
@@ -95,7 +95,7 @@ for f in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.sc; do
   fi
 done
 [ "$witn" -gt 0 ] || refuse "no witness matched under $WD -- a census over an empty population reads zero by never looking"
-[ "$coll" -gt 0 ] || refuse "ZERO of $witn witness(es) collected at arena ${SCRIP_HEAP_MB:-1} MB stress $STRESS -- this arm would be a statement about a population that never ran the collector, not about the spill block"
+[ "$coll" -gt 0 ] || refuse "ZERO of $witn witness(es) collected at arena ${SCRIP_HEAP_KB:-64} KB stress $STRESS -- this arm would be a statement about a population that never ran the collector, not about the spill block"
 uslots="$(printf '%s' "$slots" | tr ', ' '\n\n' | grep -E '^[0-9]+$' | sort -un | tr '\n' ' ')"
 if [ "$hits" = 0 ]; then
   ck ok "(b) THE INVARIANT HOLDS: over $witn witness(es), $coll of which actually collected, NO rtccb slot held a pointer into a heap block at any collection"
@@ -160,16 +160,16 @@ if [ ! -f "$PW" ]; then
   ck no "(g) the plant witness $PW is missing, so the detector cannot be proven to fire and arm (b) grades on trust"
 else
   pon="$(mktemp)"; poff="$(mktemp)"; eon="$(mktemp)"; eoff="$(mktemp)"; bare="$(mktemp)"
-  env -u SCRIP_GC_PLANT_RTCCB SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$PW" >"$poff" 2>"$eoff"
-  SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$PW" >"$pon" 2>"$eon"
-  SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$PW" >/dev/null 2>"$bare"
+  env -u SCRIP_GC_PLANT_RTCCB SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$PW" >"$poff" 2>"$eoff"
+  SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$PW" >"$pon" 2>"$eon"
+  SCRIP_GC_PLANT_RTCCB=7 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$PW" >/dev/null 2>"$bare"
   nap="$(grep -c '^\[GC-RTCCB\] plant:' "$eon")"; nab="$(grep -c '^\[GC-RTCCB\] plant:' "$bare")"
   s7on="$(grep -c '^\[GC-WALK-RTCCB\] slot=7 ' "$eon")"; s7off="$(grep -c '^\[GC-WALK-RTCCB\] slot=[78] ' "$eoff")"
   stale="$(grep '^\[GC-RTCCB\] plant:' "$eon" | grep -o 'unrepaired=[01] swept=[01]' | grep -c '^unrepaired=1')"; swept="$(grep '^\[GC-RTCCB\] plant:' "$eon" | grep -o 'unrepaired=[01] swept=[01]' | grep -c 'swept=1$')"
   cens="$(grep '^\[GC-RTCCB-STALE\] slot=7 ' "$eon" | grep -c 'unrepaired=1')"
   if [ "${nap:-0}" = 0 ]; then
     rm -f "$pon" "$poff" "$eon" "$eoff" "$bare"
-    refuse "PREMISE UNMET -- SCRIP_GC_PLANT_RTCCB=7 applied 0 times on $(basename "$PW") at arena ${SCRIP_HEAP_MB:-1} MB stress $STRESS, so this configuration cannot prove the detector fires. That is a statement about the run (no collection, or a declined plant), not a defect: a plant that cannot be made to apply here is a configuration fact and this gate refuses rather than reporting a finding (the coo's signed rule, 2026-09-21)"
+    refuse "PREMISE UNMET -- SCRIP_GC_PLANT_RTCCB=7 applied 0 times on $(basename "$PW") at arena ${SCRIP_HEAP_KB:-64} KB stress $STRESS, so this configuration cannot prove the detector fires. That is a statement about the run (no collection, or a declined plant), not a defect: a plant that cannot be made to apply here is a configuration fact and this gate refuses rather than reporting a finding (the coo's signed rule, 2026-09-21)"
   fi
   if [ "${s7on:-0}" -ge 1 ] && [ "${s7off:-0}" = 0 ] && [ "${nab:-0}" -ge 1 ] && [ "${cens:-0}" = "${stale:-x}" ] && cmp -s "$poff" "$pon"; then
     ck ok "(g) FAIL-ONCE HOLDS: with a heap pointer planted in slot 7 the detector NAMES it $s7on time(s) over $nap planted collection(s); with the plant off the same witness reads ZERO at slots 7 and 8; the plant announces itself $nab time(s) with no telemetry asked for; and stdout is BYTE-IDENTICAL either way, so the instrument has no footprint on the answer. ⭐ AND THE PLANT MEASURES THE HAZARD RATHER THAN ASSERTING IT: $stale of $nap collection(s) left the slot UNREPAIRED after forwarding the block it names (moved, and nothing rewrote the word, because no root walk visits this block), $swept left it pointing at swept ground. ⭐⭐ AND IT IS ARM (i)'s POSITIVE CONTROL, CHECKED BY AGREEMENT RATHER THAN ASSUMED: the staleness census -- a different reader, counting GC-RTCCB-STALE lines over every slot -- reports $cens unrepaired sightings at slot 7 against the plant's own $stale, and the two agree to the unit. Two readers of one run that disagree would mean one of them is wrong, and this arm would say so"
@@ -184,7 +184,7 @@ fi
 # references already there, and a decline that spells the applied banner's literal is counted as an application by
 # an unanchored grep, which is exactly backwards (the coo, 2026-09-21, on SCRIP_GC_PLANT_SHIFT).
 dec="$(mktemp)"
-SCRIP_GC_PLANT_RTCCB=5 SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$WD/hb_nv.sno" >/dev/null 2>"$dec"
+SCRIP_GC_PLANT_RTCCB=5 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" timeout 120s "$SCRIP" "$WD/hb_nv.sno" >/dev/null 2>"$dec"
 nd="$(grep -c 'plant DECLINED' "$dec")"; nlit="$(grep -cF '[GC-RTCCB] plant:' "$dec")"
 if [ "${nd:-0}" -ge 1 ] && [ "${nlit:-0}" = 0 ]; then
   ck ok "(h) the plant REFUSES slot 5 (RTCC_SLOT_R8, the declared anchor and the whole standing population) and slot 6 (the GVA base), says so once with its reason, and its decline spells no literal an application count would match -- $nd decline line(s), $nlit application literal(s)"
