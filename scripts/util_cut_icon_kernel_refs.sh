@@ -273,7 +273,9 @@ for root in "${ROOTS[@]}"; do
     # benchmarks/icon/rtx/* write "ms: <&time delta>" -- two of three fields, and one of two lines, are
     # machine-dependent by construction. benchmarks/icon/micro.icn is the same shape at suite scale and is
     # why it read TIMEOUT at 20s: it is a self-timing micro-benchmark suite, not a program with an answer.
-    if grep -qE '&time|&clock|&now' "$icn"; then
+    # ⛔ ON CODE, NEVER ON COMMENTS (hq_icon 2026-09-23): a kernel whose header EXPLAINS that its timing moved to the
+    # generated wrapper names &time in prose and was refused as TIMING_IN_KERNEL. Icon comments run from # to end of line.
+    if sed 's/#.*//' "$icn" | grep -qE '&time|&clock|&now'; then
       row "$root" "$rel" TIMING_IN_KERNEL - "the kernel calls a timing builtin (&time/&clock/&now) and writes the reading to stdout -- CEO-567 clause 1 unmet (RULES.md: 'no source in it calls a timing or iteration builtin'), so clause 3 is unreachable until the wrapping is generated around a pristine kernel instead"; continue
     fi
     o1="$W/$b.1"; o2="$W/$b.2"
@@ -295,14 +297,17 @@ for root in "${ROOTS[@]}"; do
     # perfectly good program a ref on the strength of a diagnostic about nothing. ⭐ The evidence is NOT
     # thrown away: it still preempts when the run also failed or produced nothing, which is every case
     # where it could actually be the cause, and the reason column still carries the oracle's own words.
-    if grep -q 'undeclared identifier' "$o1" 2>/dev/null || grep -q 'undeclared identifier' "$o1.link" 2>/dev/null; then
+    # ⛔ MATCH ICONT'S OWN SHAPE, `"name": undeclared identifier` (hq_icon 2026-09-23): a bare substring matched a PROGRAM'S
+    # OUTPUT -- benchmarks/icon/concord builds a concordance of icont's man page, whose -u entry reads 'undeclared identifiers',
+    # and the cutter refused a clean 61565-byte run as a diagnostic. The quote-colon prefix is the warning's, never prose's.
+    if grep -q '": undeclared identifier' "$o1" 2>/dev/null || grep -q '": undeclared identifier' "$o1.link" 2>/dev/null; then
       # ⛔ THE DISCRIMINATOR IS WHICH STREAM CARRIES IT, and it is the one thing that separates a cause from
       # a comment. In the RUN stream at any rc it IS the failure (Icon error 106, calling through a name that
       # never resolved). In the LINK stream with rc=0 it is icont warning about a resolution it went on to
       # make anyway. Keying on "rc!=0 OR empty output" instead -- which this script did for one draft --
       # relabelled demos/icon/demo/icon_parser.icn, whose real outcome is EMPTY because it is a parser handed
       # /dev/null, as a diagnostic about an identifier that provably changed nothing.
-      if grep -q 'undeclared identifier' "$o1" 2>/dev/null || [ "$rc1" -ne 0 ]; then
+      if grep -q '": undeclared identifier' "$o1" 2>/dev/null || [ "$rc1" -ne 0 ]; then
         row "$root" "$rel" UNDECLARED_IDENTIFIER - "$(first_diag "$o1.link")"; continue
       fi
       [ "$VERBOSE" -eq 1 ] && echo "   note: $rel links with an undeclared identifier that did not affect the run: $(first_diag "$o1.link")"
