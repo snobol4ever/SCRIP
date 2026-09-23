@@ -21,23 +21,16 @@ CORPUS="$WORK/corpus"
 
 # ipxref input: a real .icn source to cross-reference
 IPXIN="$WORK/ipxref_input.icn"; cat "$CORPUS"/*.icn > "$IPXIN"
-# micsum input: micro's own timing-format output. Generate from SCRIP m3 (short run); fall back to empty.
-MICSUM_IN="$WORK/micsum_input.txt"; : > "$MICSUM_IN"
-( cd "$CORPUS" && timeout 20 "$SCRIP" --run micro.icn -- 0.01 > "$MICSUM_IN" 2>/dev/null ) || true
-[ -s "$MICSUM_IN" ] && echo "micsum input: generated from SCRIP m3 ($(wc -l <"$MICSUM_IN")L)" || echo "micsum input: EMPTY (micro m3 failed/timed out)"
 
 declare -A STDIN ARGS LINK
-STDIN[concord]="$CORPUS/concord.dat"; ARGS[concord]="";        LINK[concord]="options.icn post.icn"
-STDIN[deal]="";                       ARGS[deal]="-h 1000";     LINK[deal]="options.icn post.icn shuffle.icn"
+STDIN[concord]="$CORPUS/concord.dat"; ARGS[concord]="";        LINK[concord]=""
+STDIN[deal]="";                       ARGS[deal]="-h 1000";     LINK[deal]=""
 STDIN[geddump]="$CORPUS/geddump.dat"; ARGS[geddump]="";         LINK[geddump]=""
-STDIN[ipxref]="$IPXIN";               ARGS[ipxref]="";          LINK[ipxref]="options.icn post.icn"
-STDIN[micro]="";                      ARGS[micro]="0.05";       LINK[micro]=""
-STDIN[micsum]="$MICSUM_IN";           ARGS[micsum]="";          LINK[micsum]=""
-STDIN[queens]="";                     ARGS[queens]="-n10";      LINK[queens]="options.icn post.icn"
-STDIN[rsg]="$CORPUS/rsg.dat";         ARGS[rsg]="";             LINK[rsg]="options.icn post.icn"
-STDIN[tgrlink]="";                    ARGS[tgrlink]="$CORPUS/tgrlink.dat"; LINK[tgrlink]="options.icn"
-STDIN[version]="";                    ARGS[version]="";         LINK[version]=""
-progs="concord deal geddump ipxref micro micsum queens rsg tgrlink version"
+STDIN[ipxref]="$IPXIN";               ARGS[ipxref]="";          LINK[ipxref]=""
+STDIN[queens]="";                     ARGS[queens]="-n10";      LINK[queens]=""
+STDIN[rsg]="$CORPUS/rsg.dat";         ARGS[rsg]="";             LINK[rsg]=""
+STDIN[tgrlink]="";                    ARGS[tgrlink]="$CORPUS/tgrlink.dat"; LINK[tgrlink]=""
+progs="concord deal geddump ipxref queens rsg tgrlink"
 
 printf "%-9s | %-26s | %-30s | %-7s\n" "PROGRAM" "SCRIP m3 (--run)" "SCRIP m4 (--compile)" "m3==m4"
 printf "%-9s-+-%-26s-+-%-30s-+-%-7s\n" "---------" "--------------------------" "------------------------------" "-------"

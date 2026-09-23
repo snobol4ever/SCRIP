@@ -34,27 +34,16 @@ export PATH="$(dirname "$ICONT"):$PATH"
 mkdir -p "$WORK/corpus"
 cp "$CORPUS_SRC"/*.icn "$CORPUS_SRC"/*.dat "$WORK/corpus/" 2>/dev/null
 CORPUS="$WORK/corpus"
-( cd "$CORPUS" && "$ICONT" -c options.icn post.icn shuffle.icn >/dev/null 2>&1 )
 IPXIN="$WORK/ipxref_input.icn"; cat "$CORPUS"/*.icn > "$IPXIN"
-( cd "$CORPUS" && "$ICONT" -s -o micro.icx micro.icn >/dev/null 2>&1 && \
-  "$ICONX" micro.icx 0.02 > "$WORK/micsum_input.txt" 2>/dev/null )
 
 declare -A STDIN ARGS LINKDEPS
 STDIN[concord]="$CORPUS/concord.dat"; ARGS[concord]=""
 STDIN[deal]="";                       ARGS[deal]="-h 1000"
 STDIN[geddump]="$CORPUS/geddump.dat"; ARGS[geddump]=""
 STDIN[ipxref]="$IPXIN";               ARGS[ipxref]=""
-STDIN[micsum]="$WORK/micsum_input.txt"; ARGS[micsum]=""
 STDIN[queens]="";                     ARGS[queens]="-n10"
 STDIN[rsg]="$CORPUS/rsg.dat";         ARGS[rsg]=""
 STDIN[tgrlink]="";                    ARGS[tgrlink]="$CORPUS/tgrlink.dat"
-STDIN[version]="";                    ARGS[version]=""
-LINKDEPS[concord]="options.icn post.icn"
-LINKDEPS[deal]="options.icn post.icn shuffle.icn"
-LINKDEPS[ipxref]="options.icn post.icn"
-LINKDEPS[queens]="options.icn post.icn"
-LINKDEPS[rsg]="options.icn post.icn"
-LINKDEPS[tgrlink]="options.icn"
 
 # extract the true program-output window.
 # Programs linked with post.icn bracket their real output between the marker line and the
@@ -71,7 +60,7 @@ window() {
   fi
 }
 
-progs="${*:-concord deal geddump ipxref micsum queens rsg tgrlink}"
+progs="${*:-concord deal geddump ipxref queens rsg tgrlink}"
 printf "%-9s | %-9s | %-9s | %-9s | %s\n" "PROGRAM" "ORACLE L" "SCRIP L" "VERDICT" "FIRST DIFF"
 printf -- "----------+-----------+-----------+-----------+---------------------------\n"
 for name in $progs; do

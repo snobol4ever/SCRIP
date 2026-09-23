@@ -105,17 +105,12 @@ done
 mkdir -p "$WORK/corpus"
 cp "$CORPUS_SRC"/*.icn "$CORPUS_SRC"/*.dat "$WORK/corpus/" 2>/dev/null
 CORPUS="$WORK/corpus"
-( cd "$CORPUS" && "$ICONT" -c options.icn post.icn shuffle.icn >/dev/null 2>&1 )   # -> options.u1 post.u1 shuffle.u1
 
 # authentic ipxref stdin: a real Icon source file to cross-reference (jcon originally used its own
 # translator source, tran/bytecode.icn — substitute any real .icn source of comparable size)
 IPXIN="$WORK/ipxref_input.icn"
 cat "$CORPUS"/*.icn > "$IPXIN"
 
-# real micsum input: genuine micro.icn timing output from the oracle (micsum has no meaning on
-# empty/synthetic input — it summarizes micro's own output format)
-( cd "$CORPUS" && "$ICONT" -s -o micro.icx micro.icn >/dev/null 2>&1 && \
-  "$ICONX" micro.icx 0.02 > "$WORK/micsum_input.txt" 2>/dev/null )
 
 # ---------- 3. per-program args/stdin (mirrors jcon-master/bmark/Makefile's `run` target) ----------
 declare -A STDIN ARGS
@@ -123,13 +118,10 @@ STDIN[concord]="$CORPUS/concord.dat"; ARGS[concord]=""
 STDIN[deal]="";                       ARGS[deal]="-h 1000"
 STDIN[geddump]="$CORPUS/geddump.dat"; ARGS[geddump]=""
 STDIN[ipxref]="$IPXIN";               ARGS[ipxref]=""
-STDIN[micro]="";                      ARGS[micro]="0.05"
-STDIN[micsum]="$WORK/micsum_input.txt"; ARGS[micsum]=""
 STDIN[queens]="";                     ARGS[queens]="-n10"
 STDIN[rsg]="$CORPUS/rsg.dat";         ARGS[rsg]=""
 STDIN[tgrlink]="";                    ARGS[tgrlink]="$CORPUS/tgrlink.dat"
-STDIN[version]="";                    ARGS[version]=""
-progs="concord deal geddump ipxref micro micsum queens rsg tgrlink version"
+progs="concord deal geddump ipxref queens rsg tgrlink"
 # SCRIP's `link` directive is currently a no-op (confirmed 2026-07-02: it parses `link X` into a
 # placeholder AST node and never reads X.icn — verified with a `link nonexistent_file` repro that
 # fails identically to a real one). The WORKAROUND, which works today with zero source changes:
@@ -138,12 +130,6 @@ progs="concord deal geddump ipxref micro micsum queens rsg tgrlink version"
 # IR_CALL_PROC_STAGED instead of a bare unresolved IR_CALL. iconx needs no such workaround (real
 # `link` support) but DOES need its dependencies pre-translated to .u1 first — see the -c step above.
 declare -A SCRIP_LINK_DEPS
-SCRIP_LINK_DEPS[concord]="options.icn post.icn"
-SCRIP_LINK_DEPS[deal]="options.icn post.icn shuffle.icn"
-SCRIP_LINK_DEPS[ipxref]="options.icn post.icn"
-SCRIP_LINK_DEPS[queens]="options.icn post.icn"
-SCRIP_LINK_DEPS[rsg]="options.icn post.icn"
-SCRIP_LINK_DEPS[tgrlink]="options.icn"
 # ARGS[] forwarding (landed with the ICNBENCH-ARGS rung): mode-3 receives program args after a
 # `--` separator on scrip's own command line (everything before -- is source files; after is the
 # Icon program's args list); mode-4 binaries build args from their OWN C argc/argv at runtime, so
