@@ -1147,6 +1147,13 @@ static int pas_is_rel(tree_t *e) {
     if (!e) return 0;
     switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; }
 }
+static void pas_not_a_word_symbol(const char *n) {
+    const char *ws[] = { "and", "array", "begin", "case", "const", "div", "do", "downto", "else", "end", "file", "for", "function", "goto", "if", "in", "label",
+                         "mod", "nil", "not", "of", "or", "packed", "procedure", "program", "record", "repeat", "set", "then", "to", "type", "until", "var",
+                         "while", "with" };
+    for (size_t i = 0; n && i < sizeof ws / sizeof ws[0]; i++) if (!strcmp(n, ws[i])) {
+        fprintf(stderr, "pascal: ISO 7185 6.1.2 violation: '%s' is a word-symbol and cannot be defined as an identifier\n", n); g_pas_iso_errors++; return; }
+}
 static PNodeList *pas_var_names_add(PNodeList *seen, PNodeList *ids) {
     if (ids) for (int i = 0; i < ids->count; i++) { const char *n = ids->items[i] ? ids->items[i]->v.sval : NULL; if (!n) continue;
         for (int j = 0; j < seen->count; j++) if (seen->items[j] && seen->items[j]->v.sval && !strcmp(seen->items[j]->v.sval, n)) {
@@ -1457,8 +1464,8 @@ parameter_decl:
     | id_list COLON IDENT { if (pas_is_booltype($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_boolvar_add($1->items[i]->v.sval); if (pas_is_settype($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_setvar_add($1->items[i]->v.sval); const char *_pt = pas_ptrtype_target($3); if (_pt) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_ptrvar_add($1->items[i]->v.sval, _pt); if (!strcmp($3, "char")) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_charvar_add($1->items[i]->v.sval); if (!strcmp($3, "single")) for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) pas_singlevar_add($1->items[i]->v.sval); if (pas_is_realtypename($3)) for (int i = 0; i < $1->count; i++) if ($1->items[i]) ast_push($1->items[i], ast_node_new(TT_FLIT)); if (!strcmp($3, "pchar")) for (int i = 0; i < $1->count; i++) if ($1->items[i]) { ast_push($1->items[i], ast_node_new(TT_QLIT)); if ($1->items[i]->v.sval) pas_pcharvar_add($1->items[i]->v.sval); } { long long _ah = pas_arrtype_high($3); long long _nc = pas_arrtype_ncols($3); int _nf = pas_rectype_nf($3); int _aic = pas_arrtype_ischar($3); for (int i = 0; i < $1->count; i++) if ($1->items[i] && $1->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type($1->items[i]->v.sval, $3); pas_array_add2d_param($1->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param($1->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param($1->items[i]->v.sval, _ah, -1); if (_aic) pas_chararr_add2($1->items[i]->v.sval, pas_arrtype_lo($3)); } } } $$ = $1; }
     ;
 id_list:
-    id_list COMMA IDENT { pnl_push($1, leaf_s(TT_VAR, $3)); $$ = $1; }
-    | IDENT { PNodeList *l = pnl_new(); pnl_push(l, leaf_s(TT_VAR, $1)); $$ = l; }
+    id_list COMMA IDENT { pas_not_a_word_symbol($3); pnl_push($1, leaf_s(TT_VAR, $3)); $$ = $1; }
+    | IDENT { pas_not_a_word_symbol($1); PNodeList *l = pnl_new(); pnl_push(l, leaf_s(TT_VAR, $1)); $$ = l; }
     ;
 body:
     BEGINSY statement_list ENDSY { $$ = prog_of($2); }
