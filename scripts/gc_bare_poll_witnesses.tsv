@@ -6,7 +6,7 @@
 # emission reaches the site; UNWITNESSED is a site no program in the set reaches, NAMED and never counted green.
 # COLUMNS: site  poll_at  witness
 src/templates/bb/bb_activate.cpp:34:scrip_coexpr_activate	src/templates/bb/bb_activate.cpp:39	hb_coexpr_refresh.icn
-src/templates/bb/bb_assign_global.cpp:117:NV_SET_fn	src/templates/bb/bb_assign_global.cpp:120	hb_concat_slot_capture_across_a_collection.sc
+src/templates/bb/bb_assign_global.cpp:117:NV_SET_fn	src/templates/bb/bb_assign_global.cpp:120	UNWITNESSED
 src/templates/bb/bb_assign_var.cpp:24:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:31	hb_nv.sno
 src/templates/bb/bb_assign_var.cpp:42:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:47	hb_concat_augmented_then_subscript.icn
 src/templates/bb/bb_assign_var_sub.cpp:41:c_rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:48	hb_arena_grow.sno
@@ -95,9 +95,9 @@ src/templates/bb/bb_keyword_icon.cpp:22:rt_keyword_var	src/templates/bb/bb_keywo
 src/templates/bb/bb_keyword_icon.cpp:123:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:128	hb_kw_cset_index_across_a_collection.icn
 src/templates/bb/bb_keyword_snobol4.cpp:47:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:52	UNWITNESSED
 src/templates/bb/bb_keyword_snobol4.cpp:84:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:87	UNWITNESSED
-src/templates/bb/bb_limit.cpp:25:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:35	UNWITNESSED
-src/templates/bb/bb_limit.cpp:40:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:45	UNWITNESSED
-src/templates/bb/bb_limit.cpp:62:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:65	UNWITNESSED
+src/templates/bb/bb_limit.cpp:25:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:35	hb_sibling_frames_leave_no_dead_map_cell.icn
+src/templates/bb/bb_limit.cpp:40:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:45	hb_sibling_frames_leave_no_dead_map_cell.icn
+src/templates/bb/bb_limit.cpp:62:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:65	hb_sibling_frames_leave_no_dead_map_cell.icn
 src/templates/bb/bb_lit_scalar.cpp:87:rt_icn_cset_register	src/templates/bb/bb_lit_scalar.cpp:90	hb_scan_suspend_bank_across_a_collection.icn
 src/templates/bb/bb_make_list.cpp:30:rt_make_list	src/templates/bb/bb_make_list.cpp:36	UNWITNESSED
 src/templates/bb/bb_make_list.cpp:54:rt_make_list	src/templates/bb/bb_make_list.cpp:57	hb_procval_in_aggregate.icn
@@ -161,7 +161,7 @@ src/templates/xa/xa_flat.cpp:452:rt_trace_call_hook_f	src/templates/xa/xa_flat.c
 src/templates/xa/xa_flat.cpp:453:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
 src/templates/xa/xa_flat.cpp:454:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
 src/templates/xa/xa_flat.cpp:455:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
-src/emitter/emit.cpp:2912:rt_trace_call_hook_f	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn
-src/emitter/emit.cpp:2913:rt_trace_return_hook	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn
-src/emitter/emit.cpp:2914:rt_trace_gen_fail_hook	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn
-src/emitter/emit.cpp:2915:rt_trace_fail_hook	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn
+src/emitter/emit.cpp:2917:rt_trace_call_hook_f	src/emitter/emit.cpp:2921	hb_concat_augmented_then_subscript.icn
+src/emitter/emit.cpp:2918:rt_trace_return_hook	src/emitter/emit.cpp:2921	hb_concat_augmented_then_subscript.icn
+src/emitter/emit.cpp:2919:rt_trace_gen_fail_hook	src/emitter/emit.cpp:2921	hb_concat_augmented_then_subscript.icn
+src/emitter/emit.cpp:2920:rt_trace_fail_hook	src/emitter/emit.cpp:2921	hb_concat_augmented_then_subscript.icn

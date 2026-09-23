@@ -19,7 +19,7 @@
 # notes-vs-calls count matches (a poll whose note the renderer dropped would read UNREACHED);  (c) DIVERGING is zero --
 # a witness that prints the wrong answer with the collector never run is the conviction this row exists for;
 # (d) the unwitnessed count is at or below the DECLARED CEILING, which falls with witnesses and RISES ONLY with a landing that ADDS credited bare sites, naming the arrivals (65 over 131 sites at the first landing; 82 over 158 when the 36-to-zero landing of 2026-09-23 added 27 credited bare sites of which 10 the existing witnesses reach:
-# the 61 witnesses on disk reach 66; the other 65 are named in the reading and are the row's open work).
+# the 61 witnesses on disk reach 66; the other 65 are named in the reading and are the row's open work; 79 over 160 at SCRIP 66c79e918; 77 over 160 on 6fe560abc, where the sibling-frames witness reaches the three bb_limit sites and the zd depth planner (5b228d355 73214b8e0 fb66a2cb2) moved the Snocone concat witness's five OUTPUT assignments onto the recording zd path, leaving bb_assign_global.cpp:120 UNWITNESSED).
 # FAIL_ONCE=1 plants a lower ceiling and requires arm (d) to red.
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -28,7 +28,7 @@ ROOT="$PWD"
 G="$(basename "$0" .sh)"
 CHK="$ROOT/scripts/util_gc_safe_point_contract.py"
 TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-79}"
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-77}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
