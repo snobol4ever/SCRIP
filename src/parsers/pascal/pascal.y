@@ -112,6 +112,7 @@ static tree_t *mk_deref(tree_t *ptr) {
 }
 static tree_t *mk_fnc0(const char *fn) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); return e; }
 static tree_t *mk_fnc1(const char *fn, tree_t *a) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); return e; }
+static tree_t *mk_fnc2(const char *fn, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -1293,7 +1294,7 @@ simple_expression:
     | MINUS term { $$ = mk_neg($2); }
     | simple_expression PLUS term { $$ = pas_arith_or_set(TT_ADD, "__pas_setuni", $1, $3); }
     | simple_expression MINUS term { $$ = pas_arith_or_set(TT_SUB, "__pas_setdif", $1, $3); }
-    | simple_expression OROP term { $$ = bin(TT_ADD, $1, $3); }
+    | simple_expression OROP term { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_ADD, $1, $3) : mk_fnc2("ior", $1, $3); }
     ;
 term:
     factor { $$ = $1; }
@@ -1301,7 +1302,7 @@ term:
     | term RDIV factor { $$ = pas_rdiv($1, $3); }
     | term IDIV factor { $$ = bin(TT_DIV, $1, $3); }
     | term IMOD factor { $$ = pas_mod($1, $3); }
-    | term ANDOP factor { $$ = bin(TT_MUL, $1, $3); }
+    | term ANDOP factor { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_MUL, $1, $3) : mk_fnc2("iand", $1, $3); }
     ;
 factor:
     selector { if (pas_is_nrec_idx($1) && $1->n >= 2 && $1->c[0] && $1->c[0]->t == TT_IDX && $1->c[0]->n >= 2) {
