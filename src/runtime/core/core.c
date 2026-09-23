@@ -4030,11 +4030,13 @@ DESCR_t input_read(void) {
     if (!_input_fp) _input_fp = stdin;
     if (_input_rlen > 0) {
         extern char *rt_str_alloc(long n);
-        char *b = rt_str_alloc(_input_rlen);
-        size_t got = fread(b, 1, (size_t)_input_rlen, _input_fp);
+        if (!rt_line_cap(&_input_buf, &_input_cap, (size_t)_input_rlen + 1)) return FAILDESCR;
+        size_t got = fread(_input_buf, 1, (size_t)_input_rlen, _input_fp);
         if (got == 0) return FAILDESCR;
-        b[got] = '\0';
-        { DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; }
+        { char *b = rt_str_alloc((long)got);
+          memcpy(b, _input_buf, got);
+          b[got] = '\0';
+          { DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; } }
     }
     ssize_t nread = rt_line_read(&_input_buf, &_input_cap, _input_fp);
     if (nread < 0) return FAILDESCR;
