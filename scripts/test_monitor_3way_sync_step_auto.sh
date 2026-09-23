@@ -147,6 +147,7 @@ ulimit -f $(( MON_OUT_CAP / 512 )) 2>/dev/null || true
 
 base="$(basename "$SNO")"; base="${base%.*}"
 STDIN_SRC="${STDIN_SRC:-/dev/null}"
+[[ -n "${MONITOR_STDIN:-}" && -f "${MONITOR_STDIN}" ]] && STDIN_SRC="$MONITOR_STDIN"
 [[ "$STDIN_SRC" = "/dev/null" && -f "${SNO%.*}.input" ]] && STDIN_SRC="${SNO%.*}.input"
 
 echo "[auto] program:    $base"

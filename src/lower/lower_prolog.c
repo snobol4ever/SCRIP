@@ -621,6 +621,14 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static long g_pl_trace_stmtno = 0;
+static int pl_trace_is_control(const tree_t * t, int n, const char * f) { return t && t->t == TT_FNC && t->n == n && t->v.sval && !strcmp(t->v.sval, f); }
+static void pl_trace_number_goals(const tree_t * t) {
+    if (!t) return;
+    if (pl_trace_is_control(t, 2, ",") || pl_trace_is_control(t, 2, ";") || pl_trace_is_control(t, 2, "->") || pl_trace_is_control(t, 2, "*->")) { pl_trace_number_goals(t->c[0]); pl_trace_number_goals(t->c[1]); return; }
+    if (pl_trace_is_control(t, 1, "\\+") || pl_trace_is_control(t, 1, "call") || pl_trace_is_control(t, 1, "once")) { pl_trace_number_goals(t->c[0]); return; }
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME || t->t == TT_CUT) && t->line <= 0) ((tree_t *) t)->line = (int) ++g_pl_trace_stmtno;
+}
 static IR_t * pl_trace_stmt_wrap(lcx_t * cx, long line, IR_t * entry, IR_t * ωfail) {
     if (line <= 0 || !pl_trace_wanted()) return entry;
     IR_t * call = build(cx, IR_CALL, entry, ωfail); IR_LIT(call).sval = "__trace_stmt";
@@ -645,7 +653,7 @@ static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs,
         prev = a; ir_operand_push(nd, a);
     }
     if (prev) lc_γ_to(prev, nd);
-    { IR_t * fe = first ? first : nd; IR_t * te = pl_trace_stmt_wrap(cx, t ? (long) t->line : 0L, fe, ωfail); if (entry_out) *entry_out = te; }
+    { IR_t * fe = first ? first : nd; IR_t * te = pl_trace_wanted() ? pl_trace_stmt_wrap(cx, (t && t->line > 0) ? (long) t->line : ++g_pl_trace_stmtno, fe, ωfail) : fe; if (entry_out) *entry_out = te; }
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1644,6 +1652,7 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_t * entry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
     int maxlocal = -1; for (int i = 0; i < ng; i++) maxlocal = max_var_slot(gl[i], maxlocal);
     int fresh_saved = g_pl_fresh_next; g_pl_fresh_next = maxlocal + 1;
+    if (pl_trace_wanted()) for (int i = 0; i < ng; i++) pl_trace_number_goals(gl[i]);
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo, &tnode);
     if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
     maxlocal = g_pl_fresh_next - 1; g_pl_fresh_next = fresh_saved;
@@ -1680,6 +1689,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
         IR_t * tret = pl_trace_named_wrap(&cx, "__trace_return", key, succeed, step);
         IR_t * bentry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
+        if (pl_trace_wanted()) for (int i = ar; i < cl->n; i++) pl_trace_number_goals(cl->c[i]);
         IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
         if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
         IR_t * next = bentry ? bentry : (first ? first : succeed);

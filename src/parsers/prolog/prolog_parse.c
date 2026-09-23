@@ -219,6 +219,7 @@ static int prefix_arg_starts(Token pk) {
         default: return 0;
     }
 }
+static tree_t *pt_stamp(tree_t *t, int ln) { if (t && t->line <= 0 && ln > 0) t->line = ln; return t; }
 static tree_t *mk_atom(int atom_id) {
     if (atom_id == ATOM_CUT) return ast_node_new(TT_CUT);
     tree_t *e = ast_node_new(TT_FNC);
@@ -295,7 +296,7 @@ static tree_t *tls(tree_t *t) {
         case TT_VAR: case TT_ILIT: case TT_FLIT: case TT_CUT:
             return t;
         case TT_QLIT:
-            return mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : ""));
+            return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
         case TT_MAKELIST: {
             int nelem = t->v.ival ? t->n - 1 : t->n;
             tree_t *result = t->v.ival ? tls(t->c[t->n - 1]) : mk_atom(ATOM_NIL);
@@ -303,14 +304,14 @@ static tree_t *tls(tree_t *t) {
                 tree_t *dargs[2] = { tls(t->c[i]), result };
                 result = mk_call(ATOM_DOT, dargs, 2);
             }
-            return result;
+            return pt_stamp(result, t->line);
         }
         default: {
             int fid = prolog_atom_intern(t->v.sval ? t->v.sval : "");
             int arity = t->n;
             tree_t **args = arity > 0 ? (tree_t **)rt_wsb_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
             for (int i = 0; i < arity; i++) args[i] = tls(t->c[i]);
-            return mk_call(fid, args, arity);
+            return pt_stamp(mk_call(fid, args, arity), t->line);
         }
     }
 }
@@ -340,7 +341,7 @@ static tree_t *rls(tree_t *t) {
         case TT_ILIT: case TT_FLIT: case TT_CUT:
             return t;
         case TT_QLIT:
-            return mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : ""));
+            return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
         case TT_MAKELIST: {
             int nelem = t->v.ival ? t->n - 1 : t->n;
             tree_t *result = t->v.ival ? rls(t->c[t->n - 1]) : mk_atom(ATOM_NIL);
@@ -348,14 +349,14 @@ static tree_t *rls(tree_t *t) {
                 tree_t *dargs[2] = { rls(t->c[i]), result };
                 result = mk_raw(ATOM_DOT, dargs, 2);
             }
-            return result;
+            return pt_stamp(result, t->line);
         }
         default: {
             int fid = prolog_atom_intern(t->v.sval ? t->v.sval : "");
             int arity = t->n;
             tree_t **args = arity > 0 ? (tree_t **)rt_wsb_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
             for (int i = 0; i < arity; i++) args[i] = rls(t->c[i]);
-            return mk_raw(fid, args, arity);
+            return pt_stamp(mk_raw(fid, args, arity), t->line);
         }
     }
 }
@@ -476,25 +477,25 @@ static tree_t *pt_binop(const char *op, tree_t *lhs, tree_t *rhs) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pt_primary(Parser *p, TreeScope *ts) {
-    Token tk = lexer_next(&p->lx);
+    Token tk = lexer_next(&p->lx); int ln = tk.line;
     switch (tk.kind) {
         case TK_VAR:
-            return ts_get(ts, tk.text);
+            return pt_stamp(ts_get(ts, tk.text), ln);
         case TK_ANON: {
             tree_t *v = ast_node_new(TT_VAR);
             v->v.sval = ct_strdup("_");
-            return v;
+            return pt_stamp(v, ln);
         }
         case TK_INT: {
-            if (tk.big && tk.text) return pt_big_lit(tk.text);
+            if (tk.big && tk.text) return pt_stamp(pt_big_lit(tk.text), ln);
             tree_t *n = ast_node_new(TT_ILIT);
             n->v.ival = tk.ival;
-            return n;
+            return pt_stamp(n, ln);
         }
         case TK_FLOAT: {
             tree_t *n = ast_node_new(TT_FLIT);
             n->v.dval = tk.fval;
-            return n;
+            return pt_stamp(n, ln);
         }
         case TK_STRING: {
             extern int rt_pl_double_quotes_mode(void);
@@ -502,7 +503,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             if (dqm == 0) {
                 tree_t *n = ast_node_new(TT_QLIT);
                 n->v.sval = ct_strdup(tk.text);
-                return n;
+                return pt_stamp(n, ln);
             }
             tree_t *n = ast_node_new(TT_MAKELIST);
             n->v.ival = 0;
@@ -512,7 +513,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 else { char one[2]; one[0] = (char)*q; one[1] = 0; e = ast_node_new(TT_QLIT); e->v.sval = ct_strdup(one); }
                 ast_push(n, e);
             }
-            return n;
+            return pt_stamp(n, ln);
         }
         case TK_ATOM: {
             Token pk = lexer_peek(&p->lx);
@@ -524,7 +525,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                 else perror_at(p, rp.line, "expected ) to close argument list");
-                return fnc;
+                return pt_stamp(fnc, ln);
             }
             if (strcmp(tk.text, "dynamic") == 0 ||
                 strcmp(tk.text, "discontiguous") == 0 ||
@@ -545,25 +546,25 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     fnc->v.sval = ct_strdup(tk.text);
                     tree_t *arg = pt_term(p, ts, 1150);
                     if (arg) ast_push(fnc, arg);
-                    return fnc;
+                    return pt_stamp(fnc, ln);
                 }
             }
             if (strcmp(tk.text, "[]") == 0)
-                return ast_node_new(TT_MAKELIST);
+                return pt_stamp(ast_node_new(TT_MAKELIST), ln);
             const OpEntry *pre_a = find_prefix(tk.text);
             if (pre_a && prefix_arg_starts(pk)) {
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup(tk.text);
                 tree_t *arg = pt_term(p, ts, (pre_a->assoc == ASSOC_RIGHT) ? pre_a->prec : pre_a->prec - 1);
                 if (arg) ast_push(fnc, arg);
-                return fnc;
+                return pt_stamp(fnc, ln);
             }
             tree_t *n = ast_node_new(TT_QLIT);
             n->v.sval = ct_strdup(tk.text);
-            return n;
+            return pt_stamp(n, ln);
         }
         case TK_CUT: {
-            return ast_node_new(TT_CUT);
+            return pt_stamp(ast_node_new(TT_CUT), ln);
         }
         case TK_NECK: {
             Token pkn = lexer_peek(&p->lx);
@@ -572,11 +573,11 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup(":-");
                 if (arg) ast_push(fnc, arg);
-                return fnc;
+                return pt_stamp(fnc, ln);
             }
             tree_t *n = ast_node_new(TT_QLIT);
             n->v.sval = ct_strdup(":-");
-            return n;
+            return pt_stamp(n, ln);
         }
         case TK_LPAREN: {
             int saved = p->in_args;
@@ -586,10 +587,10 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             Token rp = lexer_peek(&p->lx);
             if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
             else perror_at(p, rp.line, "expected )");
-            return inner;
+            return pt_stamp(inner, ln);
         }
         case TK_LBRACKET:
-            return pt_list(p, ts);
+            return pt_stamp(pt_list(p, ts), ln);
         case TK_COMMA:
         case TK_SEMI: {
             const char *opname = (tk.kind == TK_COMMA) ? "," : ";";
@@ -602,11 +603,11 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                 else perror_at(p, rp.line, "expected ) to close argument list");
-                return fnc;
+                return pt_stamp(fnc, ln);
             }
-            if (tk.kind == TK_SEMI) { tree_t *n = ast_node_new(TT_QLIT); n->v.sval = ct_strdup(opname); return n; }
+            if (tk.kind == TK_SEMI) { tree_t *n = ast_node_new(TT_QLIT); n->v.sval = ct_strdup(opname); return pt_stamp(n, ln); }
             perror_at(p, tk.line, "unexpected , (a bare comma is not a term)");
-            return NULL;
+            return pt_stamp(NULL, ln);
         }
         case TK_OP: {
             if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && prefix_arg_starts(lexer_peek(&p->lx))) {
@@ -614,14 +615,14 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup(tk.text);
                 if (arg) ast_push(fnc, arg);
-                return fnc;
+                return pt_stamp(fnc, ln);
             }
             if (strcmp(tk.text, "\\") == 0 && prefix_arg_starts(lexer_peek(&p->lx))) {
                 tree_t *arg = pt_term(p, ts, 200);
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup("\\");
                 if (arg) ast_push(fnc, arg);
-                return fnc;
+                return pt_stamp(fnc, ln);
             }
             if (strcmp(tk.text, "-") == 0) {
                 Token pk3 = lexer_peek(&p->lx);
@@ -631,29 +632,29 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                         size_t dn = strlen(num.text);
                         char *nb = (char *) ct_alloc(dn + 2);
                         tree_t *n;
-                        if (!nb) return ast_node_new(TT_ILIT);
+                        if (!nb) return pt_stamp(ast_node_new(TT_ILIT), ln);
                         nb[0] = '-';
                         memcpy(nb + 1, num.text, dn + 1);
                         n = pt_big_lit(nb);
                         ct_drop(nb);
-                        return n;
+                        return pt_stamp(n, ln);
                     }
                     tree_t *n = ast_node_new(TT_ILIT);
                     n->v.ival = -num.ival;
-                    return n;
+                    return pt_stamp(n, ln);
                 }
                 if (pk3.kind == TK_FLOAT) {
                     Token num = lexer_next(&p->lx);
                     tree_t *n = ast_node_new(TT_FLIT);
                     n->v.dval = -num.fval;
-                    return n;
+                    return pt_stamp(n, ln);
                 }
                 if (pk3.kind == TK_ATOM || pk3.kind == TK_OP || pk3.kind == TK_VAR || pk3.kind == TK_LPAREN) {
                     tree_t *arg = pt_term(p, ts, 200);
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup("-");
                     if (arg) ast_push(fnc, arg);
-                    return fnc;
+                    return pt_stamp(fnc, ln);
                 }
             }
             if (strcmp(tk.text, "+") == 0) {
@@ -664,7 +665,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup("+");
                     if (arg) ast_push(fnc, arg);
-                    return fnc;
+                    return pt_stamp(fnc, ln);
                 }
             }
             {
@@ -677,7 +678,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     Token rp = lexer_peek(&p->lx);
                     if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                     else perror_at(p, rp.line, "expected ) to close argument list");
-                    return fnc;
+                    return pt_stamp(fnc, ln);
                 }
                 const OpEntry *pre_o = find_prefix(tk.text);
                 if (pre_o && prefix_arg_starts(pk3)) {
@@ -685,11 +686,11 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     fnc->v.sval = ct_strdup(tk.text);
                     tree_t *arg = pt_term(p, ts, (pre_o->assoc == ASSOC_RIGHT) ? pre_o->prec : pre_o->prec - 1);
                     if (arg) ast_push(fnc, arg);
-                    return fnc;
+                    return pt_stamp(fnc, ln);
                 }
                 tree_t *n = ast_node_new(TT_QLIT);
                 n->v.sval = ct_strdup(tk.text);
-                return n;
+                return pt_stamp(n, ln);
             }
         }
         case TK_LBRACE: {
@@ -698,7 +699,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 lexer_next(&p->lx);
                 tree_t *n = ast_node_new(TT_FNC);
                 n->v.sval = ct_strdup("{}");
-                return n;
+                return pt_stamp(n, ln);
             }
             tree_t *inner;
             { int saved = p->in_args; p->in_args = 0; inner = pt_term(p, ts, 1200); p->in_args = saved; }
@@ -708,15 +709,16 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             tree_t *fnc = ast_node_new(TT_FNC);
             fnc->v.sval = ct_strdup("{}");
             if (inner) ast_push(fnc, inner);
-            return fnc;
+            return pt_stamp(fnc, ln);
         }
         default:
             perror_at(p, tk.line, "unexpected token, expected a term");
-            return NULL;
+            return pt_stamp(NULL, ln);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
+    int ln = lexer_peek(&p->lx).line;
     tree_t *lhs = pt_primary(p, ts);
     if (!lhs) return NULL;
     for (;;) {
@@ -732,14 +734,14 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
         const OpEntry *op = optext ? find_binop(optext) : NULL;
         if (!op || op->prec > max_prec) {
             const OpEntry *po = optext ? find_postfix(optext) : NULL;
-            if (po && po->prec <= max_prec) { lexer_next(&p->lx); tree_t *pf = ast_node_new(TT_FNC); pf->v.sval = ct_strdup(po->name); ast_push(pf, lhs); lhs = pf; continue; }
+            if (po && po->prec <= max_prec) { lexer_next(&p->lx); tree_t *pf = ast_node_new(TT_FNC); pf->v.sval = ct_strdup(po->name); ast_push(pf, lhs); lhs = pt_stamp(pf, ln); continue; }
             break;
         }
         lexer_next(&p->lx);
         int rprec = (op->assoc == ASSOC_LEFT) ? op->prec - 1 : op->prec;
         tree_t *rhs = pt_term(p, ts, rprec);
         if (!rhs) break;
-        tree_t *node = pt_binop(op->name, lhs, rhs);
+        tree_t *node = pt_stamp(pt_binop(op->name, lhs, rhs), ln);
         lhs = node;
     }
     return lhs;

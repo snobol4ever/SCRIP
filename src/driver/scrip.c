@@ -1025,8 +1025,8 @@ int main(int argc, char **argv)
         else if (strncmp(argv[argi], "--compat=", 9)   == 0) { fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n"); return 2; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }
         else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }
-        else if (strcmp(argv[argi], "--trace")         == 0) { extern long g_trace_budget; g_trace_budget = 2000000000L; argi++; }
-        else if (strncmp(argv[argi], "--trace=", 8)    == 0) { extern long g_trace_budget; g_trace_budget = atol(argv[argi] + 8); argi++; }
+        else if (strcmp(argv[argi], "--trace")         == 0) { extern long g_trace_budget; extern int64_t kw_trace; g_trace_budget = 2000000000L; kw_trace = 2000000000L; argi++; }
+        else if (strncmp(argv[argi], "--trace=", 8)    == 0) { extern long g_trace_budget; extern int64_t kw_trace; g_trace_budget = atol(argv[argi] + 8); kw_trace = (int64_t) g_trace_budget; argi++; }
         else break;
     }
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == 'L') {
