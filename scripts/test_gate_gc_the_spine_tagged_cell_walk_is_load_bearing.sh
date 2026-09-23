@@ -84,7 +84,19 @@ fi
 # ON, crossed with plain ASLR and setarch -R, 20 of 20 PASS AT 14 LINES IN EVERY CELL.  Arm (a) passes and the
 # spine knob still changes its answer, so it qualifies for arm (b) as well and is a member again -- which is a
 # reading of the ceo's board taken from the enforcement side and independent of it.
-POP="${SPINE_AB_POP:-hb_mkexpr_unmapped_spine_store.sno hb_datblk.sno hb_nv.sno hb_eval_names.sno hb_deferexpr_nodefer.sno hb_nested_match_outer_subject.sno hb_coexpr_sigma.icn}"
+# ⛔ AND ONE HELD OUT, NAMED HERE WITH ITS ROW, REPORTED ON EVERY RUN AND NEVER SILENTLY DROPPED (cto 2026-09-22, evening).
+# hb_nested_match_outer_subject.sno prints NO for OK-3-y2y under SCRIP_GC_RELOC=1 at stress 1, 3, 4, 6 and 8 and answers
+# right at 0, 2, 5, 10 and 16 and at every stress WITHOUT relocation, at MB=1 and at the shipped 128 KB alike.  Bisected
+# twice with a build per step: on main the first bad commit is the cfo's 58820a280 (the concat-slot bare poll REMOVED),
+# and with that poll patched out at every step it is fa1dc84a5 (the asm poll's r13 probe) -- yet REVERTING fa1dc84a5 on
+# HEAD leaves this witness red at 4 of 5 stress points and breaks hb_scan_subject_across_allocating_poll.icn at all 5.
+# So neither commit is the cause; each only moved WHICH poll collects.  The walker's own telemetry reads s_raw_heap=1
+# divergence=1 on main's C-stack walk: ONE RAW HEAP WORD the typed walk cannot see -- the outer match's subject across
+# the deferred *GC() call, the unrooted deferred-call class hq_snobol4 owns (the standing chop's blocked bb_match_defer
+# site).  A control leg red for a defect another lane owns proves nothing about the B leg, so the witness is HELD OUT:
+# its control leg still runs and prints REPORTED below, and it returns to POP in the landing that roots that subject.
+HELD_OUT="${SPINE_AB_HELD_OUT:-hb_nested_match_outer_subject.sno}"
+POP="${SPINE_AB_POP:-hb_mkexpr_unmapped_spine_store.sno hb_datblk.sno hb_nv.sno hb_eval_names.sno hb_deferexpr_nodefer.sno hb_coexpr_sigma.icn}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [gc_the_spine_tagged_cell_walk_is_load_bearing]: $1"; exit 2; }
@@ -115,6 +127,15 @@ if [ -z "$ctl_bad" ]; then
 else
     ck no "(a) CONTROL BROKEN, so nothing this gate says about the B leg means anything:$ctl_bad"
 fi
+for w in $HELD_OUT; do
+    p="$WITDIR/$w"; r="$WITDIR/${w%.*}.ref"
+    if [ -f "$p" ] && [ -f "$r" ]; then
+        a="$(run_leg "$p" "" | sed '$d')"
+        if [ "$a" = "$(cat "$r")" ]; then v="ANSWERS ITS REF -- the hold-out can be lifted, put it back in POP"
+        else v="still red ($(printf '%s' "$a" | head -c 40 | tr '\n' '|')) -- the unrooted deferred-call subject, hq_snobol4's row"; fi
+    else v="missing on disk"; fi
+    echo "  REPORTED, NOT GRADED (held out, cto 2026-09-22): $w control leg $v"
+done
 
 # (b)+(c) THE LOAD-BEARING ARM, and the expiry that rides with it.
 differ=0; same_names=""; differ_names=""

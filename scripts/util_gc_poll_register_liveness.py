@@ -235,7 +235,14 @@ def writes_reg(mnem, ops, reg):
 
 
 ORDER = {"POINTER": 5, "BUDGET": 4, "PROPAGATED": 3, "SPILLED": 2, "NARROW": 1}
-BUCKETS = ("POINTER", "BUDGET", "PROPAGATED", "SPILLED", "NARROW", "DEAD")
+BUCKETS = ("POINTER", "PROBED", "BUDGET", "PROPAGATED", "SPILLED", "NARROW", "DEAD")
+PROBED_REASON = ("rt_gc_poll_slow saves r13 into its own frame and hands that word to the shield as its PROBE (r8d=1), and "
+                 "gc_heap.c's r0 branch forwards it ONLY when it equals the runtime's Σ or scan_subj -- an equality test against "
+                 "a pointer the collector already roots, never a guess (fa1dc84a5).  So an r13 read after a BARE asm poll is "
+                 "safe exactly when r13 was the subject base at the poll, which is the scan spine's convention and which "
+                 "hb_scan_subject_across_allocating_poll.icn holds under relocation at stress 1..8.  It is NOT a clearance: an "
+                 "r13 that is not the subject (an interior cursor, a stale value the box will re-derive) is not forwarded and this "
+                 "reader cannot tell the two apart statically, so the bucket is COUNTED and NAMED, never folded into DEAD.")
 WALK_BUDGET = 10000
 DECIDED_FLOOR = 95
 """⛔⭐ WALK_BUDGET IS MEASURED, NOT CHOSEN, AND THE FIRST VALUE I SHIPPED WAS A GUESS THAT DECIDED HALF THE
@@ -310,6 +317,8 @@ def grade_asm(text, regs, budget=WALK_BUDGET, hops=2):
         per = {}
         for r in regs:
             per[r] = verdict_at(prog, labels, after if r in defined else i + 1, r, budget=budget, hops=hops)
+            if r == "r13" and per[r][0] == "POINTER" and "rt_gc_poll_asm" in prog[i][2]:
+                per[r] = ("PROBED",) + tuple(per[r][1:])
         rows.append((i, per))
     return prog, sites, rows
 
@@ -390,6 +399,11 @@ def R_verdict_budget1(text, reg):
     return verdict_at(prog, labels, sites[0] + 1, reg, budget=1)[0]
 
 
+def C_POLL(plant):
+    """the same plant at the C poll, which has no probe: what a POINTER arm must plant now that the asm poll PROBES r13"""
+    return plant.replace("rt_gc_poll_asm@PLT", "rt_gc_poll@PLT")
+
+
 def selftest():
     fails = []
 
@@ -404,10 +418,15 @@ def selftest():
        "(b) a compare against an immediate reads NARROW, so the D32 rule is applied and not merely quoted (read %s)"
        % (rows[0][1]["r13"][0] if rows else "nothing"))
     _p, s, rows = grade_asm(PLANT_BAD, ["r13"])
-    ck(rows and rows[0][1]["r13"][0] == "POINTER",
-       "(c) FAIL-ONCE: r13 used as a memory base after the poll reads POINTER (read %s)"
+    ck(rows and rows[0][1]["r13"][0] == "PROBED",
+       "(c0) r13 used as a memory base after the BARE ASM poll reads PROBED, not POINTER and not DEAD -- the poll's own "
+       "probe forwards it when it is the subject, and the bucket is counted and named (read %s)"
        % (rows[0][1]["r13"][0] if rows else "nothing"))
-    _p, s, rows = grade_asm(PLANT_JUMP, ["r13"])
+    _p, s, rows = grade_asm(C_POLL(PLANT_BAD), ["r13"])
+    ck(rows and rows[0][1]["r13"][0] == "POINTER",
+       "(c) FAIL-ONCE: r13 used as a memory base after the C poll, which probes nothing, reads POINTER (read %s)"
+       % (rows[0][1]["r13"][0] if rows else "nothing"))
+    _p, s, rows = grade_asm(C_POLL(PLANT_JUMP), ["r13"])
     ck(rows and rows[0][1]["r13"][0] == "POINTER",
        "(d) the walk FOLLOWS THE JUMP -- our polls sit before an rtcc reload that ends in jmp, so a reader that "
        "stopped at the jump would clear every site by never looking (read %s)"
@@ -431,7 +450,7 @@ def selftest():
     ck(rows and rows[0][1]["r9"][0] == "DEAD",
        "(h) a reloaded register the stream then overwrites is DEAD, so arm (g) is discriminating rather than "
        "painting every reload red (read %s)" % (rows[0][1]["r9"][0] if rows else "nothing"))
-    _p, s, rows = grade_asm(PLANT_COPY_DEREF, ["r13"])
+    _p, s, rows = grade_asm(C_POLL(PLANT_COPY_DEREF), ["r13"])
     ck(rows and rows[0][1]["r13"][0] == "POINTER",
        "(i) a copy THEN a dereference of the copy reads POINTER -- the same stale pointer is spent either way "
        "(read %s)" % (rows[0][1]["r13"][0] if rows else "nothing"))
@@ -571,6 +590,9 @@ def main(argv):
     for r in regs:
         if r in NONCOLLECTED and tot[(r, "POINTER")]:
             print("   DECLARED_NONCOLLECTED %s x%d: %s" % (r, tot[(r, "POINTER")], NONCOLLECTED[r]))
+    if tot[("r13", "PROBED")]:
+        print("   PROBED r13 x%d -- r13 read after a BARE asm poll, forwarded by the poll's own probe when it is the subject: %s"
+              % (tot[("r13", "PROBED")], PROBED_REASON))
     live = [w for w in worst if w[2] not in NONCOLLECTED]
     for w in live[:25]:
         print("   POINTER %-34s site=%-6d %-4s %s" % w)
