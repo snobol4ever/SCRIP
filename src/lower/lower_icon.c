@@ -1583,6 +1583,8 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_vec_reuse(lc_vec * v, int esz) { if (v->data && v->esz == esz) v->n = 0; else lc_vec_init(v, esz); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_procs_vec(const tree_t * t, lc_vec * out) {
     if (!t) return;
     if (t->t == TT_STMT) { collect_procs_vec(stmt_subj(t), out); return; }
@@ -1591,7 +1593,7 @@ static void collect_procs_vec(const tree_t * t, lc_vec * out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fill_pnames(const tree_t * prog, lc_vec * pn) {
-    lc_vec ps; lc_vec_init(&ps, (int) sizeof(const tree_t *));
+    static lc_vec ps; icn_vec_reuse(&ps, (int) sizeof(const tree_t *));
     collect_procs_vec(prog, &ps);
     for (int i = 0; i < ps.n; i++) if (LC_AT(&ps, const tree_t *, i)->v.sval) lc_vec_push(pn, &LC_AT(&ps, const tree_t *, i)->v.sval);
 }
@@ -1692,9 +1694,9 @@ static void icn_init_reassigned_procs(icx_t * cx, IR_graph_t * g) {
 }
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     icn_collect_reassigned_procs(prog);
-    lc_vec_init(&g_icn_synth_excl, (int) sizeof(const char *));
+    icn_vec_reuse(&g_icn_synth_excl, (int) sizeof(const char *));
     icn_progname_as_global(prog, pd);
-    static lc_vec pnv; lc_vec_init(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
+    static lc_vec pnv; icn_vec_reuse(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
     icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
     static lc_vec lnv; lc_vec_init(&lnv, (int) sizeof(const char *)); lnv.n = 0;
     if (pd) {
@@ -1709,7 +1711,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         }
     }
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
-    { static lc_vec gnv; lc_vec_init(&gnv, (int) sizeof(const char *)); gnv.n = 0; icn_collect_own_globals(prog, &gnv); cx.gn = (const char **) gnv.data; cx.ngn = gnv.n; cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon"; }
+    { static lc_vec gnv; icn_vec_reuse(&gnv, (int) sizeof(const char *)); icn_collect_own_globals(prog, &gnv); cx.gn = (const char **) gnv.data; cx.ngn = gnv.n; cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon"; }
     cx.want_lines = icn_tree_mentions_kw(prog, "&trace"); cx.end_line = pd ? pd->slen : 0;
     if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g && cx.pname && !strcmp(cx.pname, "main")) icn_init_reassigned_procs(&cx, g); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; if (pd->v.sval && !strcmp(pd->v.sval, "main")) g->root_graph = 1; } return g; }
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
@@ -1838,12 +1840,12 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
               if (nl > 0) { _ln = (const char **)ct_zalloc((size_t)nl, sizeof(const char *));
                   for (int i = 0; body && i < body->n && _ln; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
                       if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); } }
-              lc_vec _excl; lc_vec_init(&_excl, (int) sizeof(const char *));
+              static lc_vec _excl; icn_vec_reuse(&_excl, (int) sizeof(const char *));
               for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&_excl, &LC_AT(&_icn_own_globals, const char *, k));
               for (int k = 0; k < sc->n; k++) lc_vec_push(&_excl, &sc->e[k].name);
               for (int k = 0; k < w; k++) lc_vec_push(&_excl, &_ln[k]);
               for (int k = 0; k < g_icn_synth_excl.n; k++) lc_vec_push(&_excl, &LC_AT(&g_icn_synth_excl, const char *, k));
-              lc_vec _impl; lc_vec_init(&_impl, (int) sizeof(const char *));
+              static lc_vec _impl; icn_vec_reuse(&_impl, (int) sizeof(const char *));
               icn_collect_implicit_locals(body, (const char **)_excl.data, _excl.n, &_impl);
               if (w > 0 || _impl.n > 0) {
                   int total = w + _impl.n;
