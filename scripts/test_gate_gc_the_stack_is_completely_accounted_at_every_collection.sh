@@ -58,7 +58,27 @@ gate_require_fresh || exit 2
 #    from it cannot be distinguished from a reading that never got deep enough to see anything.
 # GC_STACK_WITNESSES overrides the population FOR THE FAIL-ONCE ARMS ONLY -- a detector arm that has never
 # tripped reads as "there was never a bug here", and it is detector arms that fail OPEN (CEO-1099).
-WITNESSES="${GC_STACK_WITNESSES:-procedure_coexpr_every_replace_1 procedure_every_suspend_replace_3 procedure_coexpr_suspend_replace_3}"
+# ⛔⭐⭐ A WITNESS TOKEN IS name[:stress] AND THE STRESS IS PER WITNESS, WHICH IS A MEASUREMENT AND NOT A
+#   PREFERENCE (coo 2026-09-22).  SCRIP_GC_STRESS=n arms a collection at every n-th allocation
+#   (gc_heap.c:283) and the collection is TAKEN AT THE NEXT SAFE POINT -- so a run's collection count is a
+#   property of HOW MANY POLLS THE TREE EMITS, and the fleet's own order of work raises that number every
+#   landing.  MEASURED: procedure_coexpr_suspend_replace_3 ran 262 collections when this gate landed on
+#   2026-09-21 and runs 3222 on origin HEAD today, on identical program text (corpus ALL.icn last touched
+#   09-13) -- which took the witness from ~2s to 169s and pushed it straight through a 60s ceiling.
+#   ⛔ THE COST IS NOT AN ARENA ARTEFACT, CONTROLLED BEFORE IT WAS BLAMED: the same witness reads 3222
+#   collections at BOTH 256 KB (grew=412, 168.9s) and at the 4096 KB cap (grew=0, 171.5s).
+#   ⭐ ITS NAME SET IS INVARIANT ACROSS THE STRESS AXIS, WHICH IS THE ONLY REASON ITS STRESS MAY MOVE:
+#   measured at stress 1, 4, 8 and 16 (3222/822/428/230 collections, 169/39/20/10s) the observed set is
+#   BYTE-IDENTICAL at all four -- {RAW/textgen, SPINE/bingen, SPINE/main, SPINE/testio, SPINE/textgen}.  So
+#   stress is a COST knob for THIS witness and not a verdict knob.
+#   ⛔ AND IT IS NOT A COST KNOB FOR THE OTHER TWO -- MEASURED BEFORE RELYING ON IT, WHICH IS THE WHOLE
+#   REASON IT IS PER WITNESS RATHER THAN GLOBAL: at stress 16 procedure_coexpr_every_replace_1 collapses
+#   from frames=11 to frames=1 with an EMPTY name set, and procedure_every_suspend_replace_3 loses
+#   SPINE/param and SPINE/stat.  A global stress bump would have bought its speed by deleting the
+#   population's depth and three of its pinned names, and a collection COUNT would never have said so.
+WITNESSES="${GC_STACK_WITNESSES:-procedure_coexpr_every_replace_1:1 procedure_every_suspend_replace_3:1 procedure_coexpr_suspend_replace_3:16}"
+DEFAULT_STRESS="${GC_STACK_STRESS:-1}"        # for a token written without its :stress suffix
+CEILING="${GC_STACK_TIMEOUT:-120}"            # per-witness wall-clock ceiling; a hit is a TIMEOUT, never a crash
 DEPTH_FLOOR="${GC_STACK_DEPTH_FLOOR:-10}"     # max frames the population MUST reach, or the reading is shallow
 # ⛔⭐⭐ THE WITNESS ARENA IS A VARIABLE BECAUSE THE HARD CAP IS COMING AND 64 KB DOES NOT SURVIVE IT.
 #   Lon 2026-09-21, in-chat to the ceo, verbatim: "Place a hard cap on the GC HEAP. Do not extend it."  The
@@ -83,16 +103,43 @@ export MASTER_EXT=".icn" MASTER_DIR="$S4E/corpus/tests/icon"
 
 TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
 LOG="$TD/walk.log"; : > "$LOG"
-NCOLL=0; MAXFRAMES=0; SUPPRESSED=0; NRUN=0
-for w in $WITNESSES; do
+NCOLL=0; MAXFRAMES=0; SUPPRESSED=0; NRUN=0; TRUNCATED=""; RUNPLAN=""
+# ⛔⭐⭐ A CRASH AND A TIMEOUT ARE NOT THE SAME VERDICT, AND COLLAPSING THEM COST THIS GATE ITS OWN RED
+#   (coo 2026-09-22, measured).  The single line this loop used to carry -- `[ "$wrc" -ge 128 ] || [ "$wrc"
+#   -eq 124 ]` into one UNPROVEN(2) reading "its stack evidence stops at an unknown point" -- fired on origin
+#   HEAD 4a1cecc84 against a witness that COMPLETES rc=0 in 169s.  The sentence was FALSE about that run
+#   (nothing stopped; the ceiling did), and because the refusal came BEFORE the verdict it HID two genuinely
+#   new unaccounted regions this gate exists to name.  A refusal that outranks a finding the instrument
+#   ALREADY HOLDS is the instrument law's own failure shape wearing an rc=2.
+# ⭐ THE ASYMMETRY THAT REPLACES IT, AND IT IS THE POINT.  "This frame is unaccounted" is an EXISTENCE claim
+#   and a partial log settles it, so A TRUNCATED RUN CAN PROVE A RED.  "No unpinned frame exists" is a
+#   UNIVERSAL claim over the whole run, so A TRUNCATED RUN CAN NEVER PROVE A GREEN.  The gate therefore KEEPS
+#   a timed-out witness's evidence, reds on it when it already names one, and refuses rc=2 only when the
+#   truncated population came back clean.
+for tok in $WITNESSES; do
+    case "$tok" in
+        *:*) w="${tok%%:*}"; wstress="${tok##*:}" ;;
+        *)   w="$tok";       wstress="$DEFAULT_STRESS" ;;
+    esac
     src="$TD/$w.icn"
     master_extract_name "$w" "$src" "$TD/$w.ref" >/dev/null 2>&1 || {
         echo "GATE UNPROVEN(2) [$GATE_NAME]: could not materialize witness '$w' from $MASTER_DIR -- a population that cannot be built is not a clean reading"; exit 2; }
-    env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 \
-        timeout 60 "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null
+    t0=$(date +%s)
+    env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS="$wstress" SCRIP_GC_EXERCISE=1 \
+        timeout "$CEILING" "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null
     wrc=$?
-    if [ "$wrc" -ge 128 ] || [ "$wrc" -eq 124 ]; then
-        echo "GATE UNPROVEN(2) [$GATE_NAME]: witness '$w' ended rc=$wrc (crash or timeout) -- its stack evidence stops at an unknown point, and a clean reading from a truncated run cannot be told from a run that never got deep enough to see anything"; exit 2; fi
+    el=$(( $(date +%s) - t0 ))
+    RUNPLAN="$RUNPLAN $w(stress=$wstress,${el}s,rc=$wrc)"
+    if [ "$wrc" -ge 128 ]; then
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: witness '$w' CRASHED rc=$wrc (signal $((wrc - 128))) after ${el}s of its ${CEILING}s ceiling at stress=$wstress -- its stack evidence stops at an unknown point, and a clean reading from a truncated run cannot be told from a run that never got deep enough to see anything"; exit 2; fi
+    if [ "$wrc" -eq 124 ]; then
+        TRUNCATED="$TRUNCATED $w"
+        echo "  ⛔ witness '$w' HIT THE CEILING: ${el}s of ${CEILING}s at stress=$wstress. rc=124 is a TIMEOUT, NOT a crash."
+        echo "     Its partial evidence is KEPT and still counts toward a RED below; it cannot support a GREEN."
+        echo "     Cures in order: lower this witness's :stress suffix (its name set is invariant on that axis,"
+        echo "     measured at 1/4/8/16), or raise GC_STACK_TIMEOUT.  Do NOT drop the witness -- it is the sole"
+        echo "     source of three pinned names, and shrinking the population to get green is the defect."
+    fi
     NRUN=$((NRUN + 1))
 done
 
@@ -124,6 +171,10 @@ TOTAL=$((NOMAP + NOTAB + IRH + HRH + SRH))
 #   very reading the gate is built to earn.
 gate_floor "$NCOLL" 1 "collection(s) walked across $NRUN witness(es)"
 echo "── population: $NRUN witness(es), $NCOLL collection(s), max frames=$MAXFRAMES (floor $DEPTH_FLOOR) ──"
+# ⛔ A NUMBER IS NOT LABELLED UNTIL IT CARRIES THE CONFIGURATION THAT PRODUCED IT (RULES.md INSTRUMENT LAWS).
+#    The per-witness stress is part of this gate's reading and used to be invisible, so two runs of the same
+#    gate could differ by a knob no line of the output named.
+printf "   configuration: arena=%s KB, ceiling=%ss, per-witness%s\n" "$ARENA_KB" "$CEILING" "$RUNPLAN"
 echo "── the five completeness quantities, summed over every collection ──"
 printf '   nomap=%-7s notab=%-7s i_raw_heap=%-8s h_raw_heap=%-8s s_raw_heap=%-8s  TOTAL=%s\n' \
     "$NOMAP" "$NOTAB" "$IRH" "$HRH" "$SRH" "$TOTAL"
@@ -193,4 +244,18 @@ echo "    the NAME SET is what is ratcheted, and it is stable.)"
 # ONE_LINER -- regenerate the pins; never retype a number you did not produce (RULES.md § TRANSCRIPTION).
 #   cd "$S4E_HOME/SCRIP" && bash scripts/test_gate_gc_the_stack_is_completely_accounted_at_every_collection.sh --informational 2>&1 \
 #     | sed -n 's/^[^A-Z]*\([A-Z][A-Z]*\)  *graph=\([^ ]*\).*/\1\t\2/p' | sort -u > scripts/gc_stack_accounting_pins.tsv
+# ⛔⭐⭐ DO NOT RUN THAT ONE_LINER TO MAKE A RED GO AWAY, AND IT IS LIVE BAIT TODAY, NOT A HYPOTHETICAL (coo
+#   2026-09-22).  On origin HEAD this gate is RED naming RAW/textgen and SPINE/bingen; the one-liner scrapes
+#   the SAME output it reds on, so running it right now would write both new frames into the baseline and
+#   return PASS(0) having measured nothing and cured nothing -- a false clearance minted by the gate's own
+#   documentation.  PINS ARE REGENERATED ONLY IN THE COMMIT THAT EARNED THE TIGHTENING, never to clear a red.
+#   ⛔ AND `--informational` IS NOT A FLAG THIS SCRIPT PARSES -- there is no argument handling here at all, so
+#   the word is inert and the pipeline scrapes an ordinary run.  Named rather than quietly deleted, because a
+#   documented flag that does nothing is how a reader concludes a mode exists that does not.
+# ⛔ A TRUNCATED POPULATION MAY NOT RETURN A CLEAN VERDICT -- the asymmetry declared at the witness loop.
+#    This is the ONLY place a timeout still refuses, and it refuses for the reason that is actually true:
+#    not "the evidence stopped somewhere unknown", but "the surviving evidence named nothing and a partial
+#    run cannot carry a universal claim".
+if [ -n "$TRUNCATED" ] && [ "$VIOL" -eq 0 ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: witness(es)$TRUNCATED hit the ${CEILING}s ceiling and the surviving population named NO unpinned frame -- a truncated run can prove a red and can never prove a green, so this reads COULD NOT MEASURE and not a clean stack"; exit 2; fi
 gate_verdict "$VIOL" "named frame(s) newly unaccounted on the hardware stack"
