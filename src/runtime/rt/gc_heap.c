@@ -1316,6 +1316,7 @@ static int gc_plant_rtccb_slot(void)
       s = (int)v; }
     return s;
 }
+_Static_assert(sizeof(long) == 8, "THE FORCED-RELOCATION PLANT ADDS A GAP ONLY WHILE EVERY REMAINING LIVE BYTE STILL FITS THE COMMITTED WINDOW (cto 2026-09-23, CTO-156): the gap was checked against the ONE block it displaced, so on a mostly-live heap the gaps accumulated and the last blocks were forwarded past g_hp_end into uncommitted reserve -- the up-mover memmove faulted inside the collection (benchmark_nrev, benchmark_nreverse, last_call_nreverse_large_1 and benchmark_meta_qsort read CRASH under SCRIP_GC_RELOC=1 in mode 4 on every tree, red under the plant and green without it and under the flip plant); rel_rem is the live bytes not yet forwarded, this block included");
 static int gc_reloc_forced(void)
 {
     const char *e = getenv("SCRIP_GC_RELOC");
@@ -1466,11 +1467,12 @@ static long gc_collect_ex(void)
           else { static int said_flip = 0; g_gc_flip_declined++;
               if (!said_flip) { said_flip = 1; fprintf(stderr, "[GC-FLIP] plant DECLINED at a collection: %ld live bytes fit neither above the page-rounded top (arena+%ld, committed end arena+%ld) nor below the first live block (arena+%ld), so THAT collection compacted in place and its stale copies were not trapped; the count is flip_declined= on the GC-EXERCISE line. Printed ONCE per process.\n", lt, (long)(up - g_hp_arena), (long)(g_hp_end - g_hp_arena), (long)(fl0 - g_hp_arena)); } } }
         if (g_gc_flip_to) { dest = g_gc_flip_to; g_gc_flip_live = lt; } }
-    { int fold = 1;
+    { int fold = 1; long rel_rem = 0;
+    if (reloc && !g_gc_flip_to) for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) rel_rem += (long)g_gc_idx[i]->size;
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
         if (h->flags & HBF_MARK) { n_mk++; { int _pt = (gc_plant_pin_type() < 0 || (long)h->type == gc_plant_pin_type()) ? 1 : 0; if (_pt) n_plant++; if (n_plant == gc_plant_pin_skip() && _pt) { h->fwd = 0; dest += h->size; }
-            else { if (reloc && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + h->size <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } h->fwd = (uint64_t)dest; dest += h->size; nlive++; } } }
+            else { if (reloc && !g_gc_flip_to && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + rel_rem <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } if (reloc) rel_rem -= (long)h->size; h->fwd = (uint64_t)dest; dest += h->size; nlive++; } } }
         else h->fwd = 0;
         if (h->fwd) n_fw++;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } }
