@@ -84,7 +84,13 @@ def sidecar_stems(corpus, key):
         for l in open(os.path.join(corpus, sc), encoding="utf-8", errors="replace"):
             if l.startswith("#") or not l.strip():
                 continue
-            out.add(stem(l.split("\t")[0].strip()))
+            name = l.split("\t")[0].strip()
+            # a name carrying ':' is a ROW inside an already-graded program, not a program of its own (ceo
+            # CEO-516: lgint's three unbounded bigexp arms are named this way so lgint stays in the graded
+            # population) -- counting it here double-counts the program as an extra OUTSIDE entry.
+            if ":" in name:
+                continue
+            out.add(stem(name))
         for fn, dst in (("UNGRADABLE.tsv", ungradable), ("UNGRADED.tsv", ungraded)):
             fp = os.path.join(corpus, os.path.dirname(sc), fn)
             if os.path.exists(fp):
