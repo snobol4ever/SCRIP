@@ -3063,58 +3063,54 @@ PL_CX_LEAF_HEAD(write_term, 2) { extern void rt_pl_write_term_cell(void *, void 
 PL_OUT_CX_LEAF(write_term, 3)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(wot_open, 3) {
-    extern int fh_alloc(FILE *); extern int fh_current_output(void);
+    extern int fh_alloc(FILE *); extern int fh_current_output(void); extern FILE *fh_memsink_open_slot(int *); extern char *fh_memsink_take(int, size_t *);
     ok = 0;
-    { char **hbuf = (char **)malloc(sizeof(char *) + sizeof(size_t));
-      if (hbuf) { size_t *hlen = (size_t *)((char *)hbuf + sizeof(char *)); FILE *fp;
-        *hbuf = (char *)0; *hlen = 0; fp = open_memstream(hbuf, hlen);
-        if (!fp) { free(hbuf); }
-        else { int idx = fh_alloc(fp);
-          if (idx < 0) { fclose(fp); free(hbuf); }
-          else { int oldout = fh_current_output(); long long handle = (long long)(intptr_t)hbuf;
-            ok = plw_unify_vals(args[0], pl_mk_stream(idx), cx) && plw_unify_vals(args[1], INTVAL((long long)oldout), cx)
-              && plw_unify_vals(args[2], INTVAL(handle), cx); } } } }
+    { int si = -1; FILE *fp = fh_memsink_open_slot(&si);
+      if (fp) { int idx = fh_alloc(fp);
+        if (idx < 0) { fclose(fp); fh_memsink_take(si, (size_t *)0); }
+        else { int oldout = fh_current_output();
+          ok = plw_unify_vals(args[0], pl_mk_stream(idx), cx) && plw_unify_vals(args[1], INTVAL((long long)oldout), cx)
+            && plw_unify_vals(args[2], INTVAL((long long)si), cx); } } }
 } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(wot_capture, 4) {
-    extern void fh_set_output(int); extern void fh_free(int); extern FILE *fh_get(int); extern int prolog_atom_intern(const char *);
+    extern void fh_set_output(int); extern void fh_free(int); extern FILE *fh_get(int); extern int prolog_atom_intern(const char *); extern char *fh_memsink_take(int, size_t *);
     ok = 0;
     { int idx = pl_stream_idx(args[0], 1); DESCR_t oo = rt_pl_deref_val(args[1]); int oldout = (oo.v == DT_I) ? (int)oo.i : 1;
       DESCR_t hv = rt_pl_deref_val(args[2]);
       fh_set_output(oldout);
       if (idx >= 0 && hv.v == DT_I) {
-        FILE *fp = fh_get(idx); char **hbuf = (char **)(intptr_t)hv.i; size_t *hlen = (size_t *)((char *)hbuf + sizeof(char *));
+        FILE *fp = fh_get(idx);
         if (fp) fclose(fp);
         fh_free(idx);
-        { char *buf = *hbuf; size_t len = *hlen; free(hbuf);
+        { size_t len = 0; char *buf = fh_memsink_take((int)hv.i, &len);
           DESCR_t sink = rt_pl_deref_val(args[3]);
           if (sink.v == (DTYPE_t)DT_PLREF && (sink.slen & 0xFFFFu) == 1) {
             int fid = (int)(sink.slen >> 16); DESCR_t *sa = (DESCR_t *)sink.p;
             if (fid == prolog_atom_intern("atom") || fid == prolog_atom_intern("string"))
               ok = plw_unify_vals(sa[0], pl_mk_atom_dup(buf ? buf : "", len), cx);
             else if (fid == prolog_atom_intern("codes")) {
-              DESCR_t *el = (DESCR_t *)malloc((len ? len : 1) * sizeof(DESCR_t)); size_t n = 0;
-              if (el) { for (size_t i = 0; i < len; i++) el[n++] = INTVAL((unsigned char)buf[i]);
-                ok = plw_unify_vals(sa[0], pl_list_from_arr(el, (int)n), cx); free(el); }
+              DESCR_t acc = pl_nil();
+              for (size_t i = len; i > 0; i--) acc = pl_cons(INTVAL((unsigned char)buf[i - 1]), acc);
+              ok = plw_unify_vals(sa[0], acc, cx);
             } else if (fid == prolog_atom_intern("chars")) {
-              DESCR_t *el = (DESCR_t *)malloc((len ? len : 1) * sizeof(DESCR_t)); size_t n = 0;
-              if (el) { for (size_t i = 0; i < len; i++) { char c1[2]; c1[0] = buf[i]; c1[1] = 0; el[n++] = pl_mk_atom_dup(c1, 1); }
-                ok = plw_unify_vals(sa[0], pl_list_from_arr(el, (int)n), cx); free(el); }
+              DESCR_t *el = (DESCR_t *)rt_ws_alloc_descr(len ? len : 1); size_t n = 0;
+              for (size_t i = 0; i < len; i++) { char c1[2]; c1[0] = buf[i]; c1[1] = 0; el[n++] = pl_mk_atom_dup(c1, 1); }
+              ok = plw_unify_vals(sa[0], pl_list_from_arr(el, (int)n), cx);
             }
           }
-          if (buf) free(buf);
         }
       }
     }
 } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(wot_discard, 3) {
-    extern void fh_set_output(int); extern void fh_free(int); extern FILE *fh_get(int);
+    extern void fh_set_output(int); extern void fh_free(int); extern FILE *fh_get(int); extern char *fh_memsink_take(int, size_t *);
     { int idx = pl_stream_idx(args[0], 1); DESCR_t oo = rt_pl_deref_val(args[1]); int oldout = (oo.v == DT_I) ? (int)oo.i : 1;
       DESCR_t hv = rt_pl_deref_val(args[2]);
       fh_set_output(oldout);
       if (idx >= 0) { FILE *fp = fh_get(idx); if (fp) fclose(fp); fh_free(idx); }
-      if (hv.v == DT_I) { char **hbuf = (char **)(intptr_t)hv.i; if (*hbuf) free(*hbuf); free(hbuf); }
+      if (hv.v == DT_I) fh_memsink_take((int)hv.i, (size_t *)0);
       ok = 1;
     }
 } PL_CX_LEAF_TAIL
@@ -3348,7 +3344,7 @@ PL_CX_LEAF_HEAD(format3, 3) { extern int fh_current_output(void); extern void fh
             if (cap >= 0) { DESCR_t r = rt_pl_dop_format_c(args + 1, 2, cx); fh_capture_end(cap, sv);
                 if (r.v == (DTYPE_t)DT_I) ok =
                     plw_unify_vals(((DESCR_t *)d.p)[0], kind == 1 ? pl_mk_atom_dup(buf ? buf : "", sz) : pl_text_list(buf ? buf : "", kind == 2), cx);
-                ct_drop(buf); } } } } PL_CX_LEAF_TAIL
+                } } } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(term_string, 2) { char b[65536]; const char *txt; DESCR_t t; pl_vtab_t vt;
     if (pl_val_unbound(rt_pl_deref_val(args[0])) && pl_cell_text(args[1], b, sizeof b, &txt)) ok = pl_parse_term_text(txt, &t, &vt, (PlProgram **)0) && plw_unify_vals(args[0], t, cx);
     else ok = rt_pl_term_string_cell(&args[0], &args[1], cx); } PL_CX_LEAF_TAIL

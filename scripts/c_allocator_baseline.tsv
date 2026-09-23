@@ -76,9 +76,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	112
+arena_in_runtime_ratcheted	107
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	112
+arena_in_runtime_debt	107
 container_unmarked_live	1
 libc_owned_misuse	0
 outside_src_sites	20

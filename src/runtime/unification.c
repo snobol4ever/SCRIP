@@ -968,7 +968,7 @@ static void plc_fb_stop(plc_fb *f, long target)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignore_ops)
 {
-    char *bp = (char *)0; size_t bn = 0; FILE *ms = open_memstream(&bp, &bn); plc_vmap m;
+    extern FILE *fh_memsink_open(char **, size_t *); char *bp = (char *)0; size_t bn = 0; FILE *ms = fh_memsink_open(&bp, &bn); plc_vmap m;
     if (!ms) return;
     m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
     if (kind == 4) { extern int rt_proc_is_registered(const char *); m.portray = rt_proc_is_registered("portray/1") ? plc_portray_hit : (int (*)(pl_cell_t *, plc_vmap *))0; plc_write(t, &m); }
@@ -978,7 +978,6 @@ static void plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignor
     else plc_wt(t, quoted, ignore_ops, 1, -1, 0, 1200, &m);
     fclose(ms);
     plc_fb_add(f, bp ? bp : "", bn);
-    ct_drop(bp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_A || (int)d->v == DT_S) && !pl_cell_unbound(d); }
@@ -1721,14 +1720,13 @@ int rt_pl_acyclic_cell(void *term_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
 {
-    char *buf = (char *)0; size_t len = 0;
-    FILE *ms = open_memstream(&buf, &len);
+    extern FILE *fh_memsink_open(char **, size_t *); char *buf = (char *)0; size_t len = 0;
+    FILE *ms = fh_memsink_open(&buf, &len);
     if (!ms) { return 0; }
     plc_vmap m; m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
     plc_writeq((pl_cell_t *)term_cell, &m);
-    if (fclose(ms) != 0) { ct_drop(buf); return 0; }
+    if (fclose(ms) != 0) { return 0; }
     int ok = plc_unify_into_cell_cx((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""), cx);
-    ct_drop(buf);
     if (!ok) { return 0; }
     return 1;
 }

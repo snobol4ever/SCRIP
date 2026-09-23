@@ -486,7 +486,10 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
     fprintf(stderr, "scrip: error %d: %s\n  at %s:%ld", code, msg ? msg : "", g_file ? g_file : "", g_line);
     if (g_stno > 0) fprintf(stderr, "; statement %ld", g_stno);
     fputc('\n', stderr);
-    if (has_val && val.v != DT_FAIL) { char *vb = (char *)0; size_t vn = 0; FILE *vf = open_memstream(&vb, &vn); if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); } if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); ct_drop(vb); }
+    if (has_val && val.v != DT_FAIL) {
+        extern FILE *fh_memsink_open(char **, size_t *); char *vb = (char *)0; size_t vn = 0; FILE *vf = fh_memsink_open(&vb, &vn);
+        if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
+        if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); }
     if (rt_k_level >= 1 && g_icn_act[1].name) core_icn_traceback();
     fflush(stderr);
 }
