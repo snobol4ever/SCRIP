@@ -75,14 +75,20 @@ void *ct_zalloc(size_t n, size_t sz) {
 void *ct_grow(void *p, size_t n) {
     ct_head_t *h;
     void *q;
-    size_t old;
+    size_t old, cap;
+    int cls;
     if (!p) return ct_alloc(n);
     h = (ct_head_t *)((uint8_t *)p - CT_ALIGN);
     if (h->magic != CT_MAGIC_BIN && h->magic != CT_MAGIC_BIG) { fprintf(stderr, "ct_arena: ct_grow on a block this allocator did not hand out (%p)\n", p); _exit(3); }
     old = h->magic == CT_MAGIC_BIN ? (size_t)h->size : (size_t)h->size - CT_ALIGN;
     if (n <= old) return p;
+    cls = ct_class_of(n);
+    if (h->magic == CT_MAGIC_BIN && cls >= 0 && (uint8_t *)p + old == ct_cur && (size_t)(ct_end - (uint8_t *)p) >= (cap = ct_cap_of(cls))) {
+        ct_cur = (uint8_t *)p + cap; ct_taken += cap - old; h->size = cap; return p;
+    }
     q = ct_alloc(n);
     memcpy(q, p, old);
+    ct_drop(p);
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -95,8 +101,8 @@ void ct_drop(void *p) {
         cls = ct_class_of((size_t)h->size);
         if (cls < 0) return;
         if (ct_poison < 0) ct_poison = getenv("SCRIP_CT_POISON") ? 1 : 0;
-        if (getenv("SCRIP_CT_NORECYCLE")) return;
         if (ct_poison) memset(p, 0xDD, (size_t)h->size);
+        if (getenv("SCRIP_CT_NORECYCLE")) { if (ct_poison) h->magic = 0; return; }
         h->magic = 0;
         ct_taken -= (size_t)h->size;
         h->next = ct_bin[cls];
