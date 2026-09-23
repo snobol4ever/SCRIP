@@ -33,6 +33,7 @@ std::string bb_scan_alternate() {
              + x86("sub", "rsp", (long)16)
              + x86("call", "rt_substr", (uint64_t)(uintptr_t)(void*)rt_substr)
              + x86("add", "rsp", (long)16)
+             + x86_rt_gc_poll_rec_sigma_res()
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()

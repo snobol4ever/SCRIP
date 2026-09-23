@@ -2251,6 +2251,26 @@ inline std::string x86_rt_gc_poll_rec2(const char * preg0, const char * lenreg32
          + x86("add", "rsp", (long)32);
 }
 inline std::string x86_rt_gc_poll_rec_sigma_needle() { return x86_rt_gc_poll_rec2("r13", "r15d", "rax", "edx"); }
+inline std::string x86_rt_gc_poll_rec2_res(const char * preg0, const char * lenreg32_0) {
+    return  x86("comment", "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t return arrives as rax={v,src,slen} rdx={ptr}, so the register pair IS a well-formed cell and writing DT_S over it would forge the tag instead of carrying it")
+         + x86("sub", "rsp", (long)32)
+         + x86_rsp_store32_imm(0,  (long)DT_S)
+         + x86_rsp_store32(4,  lenreg32_0)
+         + x86_rsp_store64(8,  preg0)
+         + x86_rsp_store64(16, "rax")
+         + x86_rsp_store64(24, "rdx")
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)2)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 32)
+         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rsp_load64(preg0, 8)
+         + x86_rsp_load64("rax", 16)
+         + x86_rsp_load64("rdx", 24)
+         + x86("add", "rsp", (long)32);
+}
+inline std::string x86_rt_gc_poll_rec_sigma_res() { return x86_rt_gc_poll_rec2_res("r13", "r15d"); }
+inline std::string x86_rt_gc_poll_rec_subject_new() { return x86_rt_gc_poll_rec1("rax", "edx", 0, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return  x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
     return  x86("sub", "rsp", (long)48)
