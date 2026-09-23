@@ -796,7 +796,23 @@ def _emitted_guard_skips_poll(lines, i, poll_abs):
 
     ⛔ THE ERROR IS ONE-DIRECTIONAL THE OTHER WAY FROM THE SIBLING RULE, AND THAT IS DELIBERATE: firing moves a site
     to PARTIAL, which is a DEBT the bar still demands be zero; failing to fire leaves today's reading untouched.  A
-    label whose definition this cannot find, or a computed jump target, simply yields None."""
+    label whose definition this cannot find, or a computed jump target, simply yields None.
+
+    ⛔⭐⭐ THE SECOND CONDITION, AND THE SIX SITES IT GIVES BACK (cto 2026-09-22 late, ceo CEO-1160 overturning
+    CEO-1132 for them).  The first cut asked whether the POLL runs on every path and never asked whether the CALL
+    does.  Read from the emitted bytes of hb_coexpr_genp_scan.icn, the trace taps are the first instructions of the
+    procedure ports recogn_γ and recogn_ω: push rax, push rdx, align-enter, cmp g_trace, je sk, lea rdi, call
+    rt_trace_*_hook, call rt_gc_poll_asm, sk: align-leave, pop rdx, pop rax.  The guard sits ABOVE the hook call,
+    so the taken path skips the call AND its poll together, and no allocating call precedes the tap in that frame
+    (a procedure return is not one).  A safe point is owed only at an allocating call's RETURN: on the non-tracing
+    path nothing allocates, on the tracing path the poll dominates the hook's return.  THOSE SIX SITES ARE WHOLE.
+    A guard on the PAIR is a guarded allocation with its own poll; the partial shape this rule was written for is a
+    jump emitted BETWEEN the call and the poll that lands below the poll -- the poll skipped, the call not.  So the
+    jump search now runs from the line after the call to the poll, never above the call.  The cost of the first cut
+    was measured before it was withdrawn: it minted a row on the six, hq_icon's 8f26f80a0 cured them into a real
+    bug (hb_bignum_length.icn wrong 5 of 5 at stress 1, the fourth conviction of the CEO-1107 shape), and two
+    further literal poll_res swaps failed on the same crash.  The selftest plants both shapes: the pair-guard reads
+    WHOLE and the between-jump reads PARTIAL, fail-once on the latter."""
     lo, hi = 0, len(lines)
     for j in range(i - 2, -1, -1):                 # the unit above: same boundary style as the poll window
         if lines[j].startswith("}") or lines[j].startswith("/*---"):
@@ -814,7 +830,7 @@ def _emitted_guard_skips_poll(lines, i, poll_abs):
     # that arm would be a false PARTIAL invented by reading the source instead of the bytes.
     arm = _stmt_arm_cond(lines[i - 1])
     jumps = {}
-    for j in range(lo, i - 1):
+    for j in range(i, poll_abs):
         for m in EMIT_JCC_RX.finditer(lines[j]):
             gov = _governing_if_cond(lines, lo, j, m.start())
             if gov is not None and _disjoint_conds(arm, gov):
@@ -1755,6 +1771,24 @@ def selftest():
             fails += 1
     w = tempfile.mkdtemp(prefix="gc_census_selftest.")
     buf = []
+    # THE FOURTH-SPECIES RULE, BOTH SHAPES PLANTED (cto 2026-09-22, CEO-1160): a guard ABOVE the call that lands
+    # below the poll skips the PAIR and is WHOLE; a jump emitted BETWEEN the call and the poll is the PARTIAL shape.
+    pair = ['/*----*/', 'std::string s = x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()',
+            '    + x86("cmp", "rax", (long)0) + x86("je", sk);',
+            's += x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);',
+            's += x86_rt_gc_poll();',
+            's += x86("def", sk) + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax");',
+            '}']
+    between = ['/*----*/', 'std::string s = x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter();',
+               's += x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);',
+               's += x86("cmp", "rax", (long)0) + x86("je", sk);',
+               's += x86_rt_gc_poll();',
+               's += x86("def", sk) + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax");',
+               '}']
+    ck(_emitted_guard_skips_poll(pair, 4, 4) is None,
+       "fourth species: a guard ABOVE the call that lands below the poll skips call and poll TOGETHER -- the pair is whole and the rule does not fire (the six trace-tap sites, CEO-1160)")
+    ck(_emitted_guard_skips_poll(between, 3, 4) == ("sk", 4),
+       "fourth species FAIL-ONCE: a jump emitted BETWEEN the call and the poll that lands below the poll skips the poll alone and reads PARTIAL, named with its label and line")
     # conservative + allocator, on a fixture collector
     clean = "static void gc_zeta_frame(const char *lo, const char *hi);\nvoid *rt_gcheap_alloc(size_t n) {\n  if (over) { g_gc_pending = 1; grow(); }\n  return carve(n);\n}\n/* gc_zeta_frame( in a comment is not a call */\n"
     dirty = "static void gc_zeta_frame(const char *lo, const char *hi);\nvoid *rt_gcheap_alloc(size_t n) {\n  if (over) rt_gc_collect();\n  return carve(n);\n}\nstatic long gc_collect_ex(int cons_stack) { if (cons_stack) gc_zeta_frame(lo, hi); if (hb_scan_interior(t)) gc_zeta_frame(a, b); rt_cas_live_span(0, &b, &n); }\n"
@@ -1872,23 +1906,31 @@ def selftest():
     tpl_skip = os.path.join(w, "skip.cpp")
     open(tpl_skip, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s = x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk);\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else if (kind == 2) s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
     buf.clear(); rc = census_safe_points("", [tpl_skip], out=buf.append, allocating=alloc)
+    ck(rc == 0 and _sp_has(buf, allocating_call_sites=2, polled=2, partially_polled=0, unpolled=0)
+       and not any(l.lstrip().startswith("PARTIAL") for l in buf),
+       "safe-points: a guard ABOVE the calls whose landing pad stands below the poll skips the call AND the poll on "
+       "the taken path -- the PAIR is a guarded allocation with its own poll, WHOLE and polled (CEO-1160 overturning "
+       "CEO-1132's reading for exactly this shape: the six trace-tap sites, measured from the emitted bytes)")
+    tpl_between = os.path.join(w, "between.cpp")
+    open(tpl_between, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s;\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else if (kind == 2) s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
+    buf.clear(); rc = census_safe_points("", [tpl_between], out=buf.append, allocating=alloc)
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=0, partially_polled=2, unpolled=0)
        and any("PARTIAL" in l and "conditional skip" in l for l in buf),
-       "safe-points: a poll whose EMITTED jump stands above the call and whose landing pad stands below the poll is "
-       "PARTIAL, never polled -- the only species of this census's blindness that made the number too BIG (CEO-1132)")
+       "safe-points FAIL-ONCE: a jump emitted BETWEEN the call and the poll whose landing pad stands below the poll "
+       "skips the poll and NOT the call -- the partial shape the fourth-species rule exists for, PARTIAL and named")
     tpl_armskip = os.path.join(w, "armskip.cpp")
     open(tpl_armskip, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s = IF(kind == 2 || kind == 3, x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk));\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else if (kind == 2) s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
     buf.clear(); rc = census_safe_points("", [tpl_armskip], out=buf.append, allocating=alloc)
-    ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=1, partially_polled=1, unpolled=0),
-       "safe-points: the GUARD IS ITSELF CONDITIONAL -- IF(kind == 2 || kind == 3, ... je) is not emitted on the "
-       "kind == 1 arm, so that arm keeps its unconditional poll while the kind == 2 arm is PARTIAL; measured from "
-       "emitted bytes, where the kind 1 tap carries no branch at all and the kind 2/3/5 taps each carry one")
+    ck(rc == 0 and _sp_has(buf, allocating_call_sites=2, polled=2, partially_polled=0, unpolled=0),
+       "safe-points: a guard ABOVE the calls that is itself conditional (IF(kind == 2 || kind == 3, ... je)) guards "
+       "the pair on the arms it is emitted on and nothing on the others -- every arm is WHOLE either way, so the "
+       "disjointness of guard and arm decides nothing for a guard above the call (CEO-1160)")
     tpl_else = os.path.join(w, "elsearm.cpp")
     open(tpl_else, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s = IF(kind == 2, x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk));\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
     buf.clear(); rc = census_safe_points("", [tpl_else], out=buf.append, allocating=alloc)
-    ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=1, partially_polled=1, unpolled=0),
-       "safe-points: a BARE else carries no condition, so it can never be PROVEN disjoint from the guard and stays "
-       "PARTIAL -- the unprovable case lands in the column that demands a human, never in polled")
+    ck(rc == 0 and _sp_has(buf, allocating_call_sites=2, polled=2, partially_polled=0, unpolled=0),
+       "safe-points: a BARE else under a guard ABOVE the calls is whole like its siblings -- a pair guard needs no "
+       "proof of disjointness because it skips the call with the poll (CEO-1160)")
     # ⛔ ITEM (iv): A FORM SWAP MUST CHANGE THE READING.  The count alone cannot tell two trees apart, which is how a
     # contaminated tree read 177 exactly as the clean one did; the histogram is the column that can.
     tpl_f1 = os.path.join(w, "form1.cpp"); tpl_f2 = os.path.join(w, "form2.cpp")

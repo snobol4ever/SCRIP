@@ -180,6 +180,30 @@ def strip_storage_class(t):
     return t
 
 
+DECLARED_POINTER_FREE = {
+    "CVSPINE_t": ("src/ir/descr.h", "DESCR_SASSERT(sizeof(CVSPINE_t) == 16",
+                  "fn in rax is the callee box entry (a CODE address, 0 declines) and act0 in rdx is 0 or 2"),
+}
+
+
+def declared_pointer_free(t):
+    """the DECLARED reason a WIDE type holds no heap pointer, or None -- decided from the type's OWN assert, checked
+    present on disk at reader time, never from sizeof (the cfo, 2026-09-22: K2 convicted rt_call_value_spine_prep's
+    CVSPINE_t on width alone, which would push a seat toward poll_res at a site where poll_res mints a spine cell
+    whose tag word is a code address -- the declared return class deciding a site's form is CEO-1107's shape living
+    inside the reader).  A table entry whose cited assert is gone from the file is NOT honoured: the declaration
+    expired with its source."""
+    d = DECLARED_POINTER_FREE.get(t)
+    if not d:
+        return None
+    path, needle, why = d
+    try:
+        src = open(os.path.join(ROOT, path), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return None
+    return ("%s at %s: %s" % (needle, path, why)) if needle in src else None
+
+
 def return_kind(t):
     """VOID / NARROW / WIDE for one declared return type.
 
@@ -192,7 +216,9 @@ def return_kind(t):
         return "VOID"
     if "*" in t:
         return "WIDE"
-    return "NARROW" if t in NARROW_TYPES else "WIDE"
+    if t in NARROW_TYPES:
+        return "NARROW"
+    return "POINTER-FREE" if declared_pointer_free(t) else "WIDE"
 
 
 def callee_return(name):
@@ -205,6 +231,8 @@ def callee_return(name):
     if len(kinds) != 1:
         return "UNRESOLVED", "%s is declared with more than one return type %s -- ambiguous, and an ambiguity is named rather than broken by order" % (name, sorted(types))
     k = kinds.pop()
+    if k == "POINTER-FREE":
+        return k, "%s returns %s, DECLARED POINTER-FREE by its own assert -- %s" % (name, sorted(types)[0], declared_pointer_free(strip_storage_class(sorted(types)[0])))
     return k, "%s returns %s" % (name, sorted(types)[0])
 
 
@@ -375,7 +403,7 @@ def grade_site(insns, pred, i, frames):
             out.append(("K2", "UNDECIDABLE", "RESULT-NOT-STORED and %s"
                         % "; ".join(d for k, d in kinds if k == "UNRESOLVED")))
         elif any(k == "WIDE" for k, _d in kinds):
-            out.append(("K2", "MEMBER", "RESULT-NOT-STORED and the result is WIDE ENOUGH TO BE A HEAP POINTER -- %s"
+            out.append(("K2", "MEMBER", "RESULT-NOT-STORED and the result is WIDE ENOUGH TO BE A HEAP POINTER (decided on WIDTH alone: no assert in the tree declares this type pointer-free) -- %s"
                         % "; ".join(d for k, d in kinds if k == "WIDE")))
         else:
             out.append(("K2", "VACUOUS", "RESULT-NOT-STORED but there is no result to lose -- %s"
@@ -855,6 +883,13 @@ def selftest():
     rows, _s, _r = run("        call rt_call_arr_bl@PLT\n        call rt_gc_poll@PLT\n")
     ck(any(r[4] == "K2" and r[5] == "MEMBER" and "WIDE ENOUGH" in r[6] for r in rows),
        "K2 PLANTED: a poll storing no result from a DESCR_t-returning entry is a K2 MEMBER (%s)" % (rows,))
+    rows, _s, _r = run("        call rt_call_value_spine_prep@PLT\n        call rt_gc_poll@PLT\n")
+    ck(any(r[4] == "K2" and r[5] == "VACUOUS" and "DECLARED POINTER-FREE" in r[6] for r in rows) and not any(r[5] == "MEMBER" for r in rows),
+       "K2 DECLARED POINTER-FREE: a poll storing no result from a CVSPINE_t-returning entry is VACUOUS by the type's own assert, not a MEMBER by its width (%s)" % (rows,))
+    ck(declared_pointer_free("CVSPINE_t") is not None and declared_pointer_free("DESCR_t") is None
+       and (DECLARED_POINTER_FREE.__setitem__("_plant_t", ("src/ir/descr.h", "NO SUCH ASSERT PLANTED", "plant")) or declared_pointer_free("_plant_t") is None),
+       "K2 FAIL-ONCE: the pointer-free declaration is honoured only while its cited assert is on disk -- a planted entry citing text descr.h does not carry reads None")
+    DECLARED_POINTER_FREE.pop("_plant_t", None)
     rows, _s, _r = run("        call rt_icn_cset_register@PLT\n        call rt_gc_poll@PLT\n")
     ck(any(r[4] == "K2" and r[5] == "VACUOUS" for r in rows) and not any(r[5] == "MEMBER" for r in rows),
        "K2 NEGATIVE: a VOID-returning entry has no result to lose and must NOT be a member (%s)" % (rows,))
