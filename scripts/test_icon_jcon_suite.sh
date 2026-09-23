@@ -65,6 +65,14 @@ CORPUS_PUBLISHED="$S4E/corpus/packages/icon/jcon_tests"   # ⛔ the ONE populati
 # exists" into a digest. The staleness arm below is the only consumer here, and it degrades to NAMING the
 # rows it could not re-check rather than silently passing them.
 . "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh"
+# ⛔ CEO-1167 declared arena, same authority arizona's runner sources -- see lib_declared_arena.sh's own
+# header for why every non-harness runner reads the SAME reader rather than growing its own SCRIP_HEAP_KB
+# rule. geddump is the first entry here to carry one (heap_kb=8192): its live set fits the shipped 4096 KB
+# cap, but rt_gcheap_grow commits only the triggering allocation per grow, never geometrically, so reaching
+# a several-hundred-KB working set from the 128 KB default cost thousands of tiny mprotect+collect cycles
+# and the program never finished inside this runner's timeout. A window that starts above the cap removes
+# the growth ladder entirely -- measured 0.09-0.12s either way, byte-identical to geddump.std.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_declared_arena.sh"
 OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
 # ⛔⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-470 on hq_P's measurement, 2026-09-09). A program
 # ARIZONA icont cannot run has no ground truth, so it is OUT of the graded denominator and NAMED -- never
@@ -91,6 +99,7 @@ declared_modes() { [ -f "$MODES_TSV" ] && awk -F"\t" -v n="$1" '$1==n {print $2;
 is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
 outside_reason() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$OUTSIDE"; }
 OUTSIDE_LIST=""
+ARENA_NAMES=""   # ⛔ initialized here, not merely appended-to in run_one -- an uninitialized ARENA_NAMES crashed test_icon_arizona_suite.sh under set -u the moment any entry declared heap_kb (same fix, one runner over)
 MODE="all"
 TIMEOUT=20
 
@@ -111,6 +120,7 @@ done
 # line; the fix belongs to both, since one of them being right by accident is not a contract.
 OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
 MODES_TSV="$CORPUS/MODES.tsv"
+PKG_CSV="$CORPUS/ALL.csv"   # the attribute file the heap_kb declaration lives in (CEO-1167) -- rebound here, not at load time, for the identical reason OUTSIDE/MODES_TSV are (see the comment just above)
 if [ -f "$MODES_TSV" ]; then
     while IFS=$'\t' read -r _mname _mmodes _mrest; do
         case "$_mname" in ''|'#'*) continue ;; esac
@@ -201,6 +211,15 @@ run_one() {
     # entry `link`s are copied, so io's rundir -- whose ref lists its directory and expects io.dat and io.icn
     # and nothing else -- is untouched, because io links nothing.
     local _mm; for _mm in ${mods[@]+"${mods[@]}"}; do cp "$_mm" "$rundir/$(basename "$_mm")" 2>/dev/null || true; done
+    # ⛔⭐ THE ENTRY KEY IS THE BARE NAME: jcon_tests is a flat package (no nested subdirs), unlike arizona's
+    # general/mega -- util_build_package_suite.py writes the bare stem into ALL.csv's entry column here, and
+    # using anything else would silently match nothing (see arizona's identical note at its own arena read).
+    local _arena_kb _ARENA_PFX=""
+    if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$name"); then
+        echo "⛔ REFUSED TO GRADE rc=2: $name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts" >&2
+        exit 2
+    fi
+    [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $name=${_arena_kb}KB"; }
     case "$mode" in
         m3)
             # ⛔⭐ THE PROGRAM'S OWN NAME IN argv IS THE BARE NAME, NEVER THE ABSOLUTE PATH (hq_V 2026-09-11,
@@ -216,7 +235,7 @@ run_one() {
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
-            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            ( cd "$rundir" && $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -246,7 +265,7 @@ run_one() {
             else
                 # ⭐ BARE RELATIVE NAME, matching run_m4 in corpus_suite_harness.py exactly: a mode-4
                 # binary's argv IS the program's argv, so what we type here is what &progname answers.
-                ( cd "$rundir" && PATH="$rundir:$PATH" timeout "$TIMEOUT" "$name" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+                ( cd "$rundir" && PATH="$rundir:$PATH" $_ARENA_PFX timeout "$TIMEOUT" "$name" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
                 rc=$?
             fi
             ;;
@@ -469,6 +488,7 @@ EOF
 # that appears only when something is excluded tells the reader nothing on the day one is added and
 # everything on the day one is removed. Names AND the oracle's own class ride on it so the six stay visible.
 echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of the graded denominator, named in $OUTSIDE):${OUTSIDE_LIST:- none}"
+declared_arena_receipt "$PKG_CSV"
 # ⛔ THE RECONCILIATION PRINTS UNCONDITIONALLY TOO, and for a sharper reason than the list above it: a
 # silent agreement line is the only way a reader can tell "the arm ran and the record holds" apart from
 # "the arm did not run", and those two have opposite meanings for every number on the board line below.
