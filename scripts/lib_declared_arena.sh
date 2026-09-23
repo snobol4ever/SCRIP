@@ -31,6 +31,17 @@
 # the pin-the-runtime-silently-overrides class COO-151 caught one instrument ago, and the baton's own
 # guardrail (matched at that arena, NOT matched one step below) is UNPROVABLE for such a cell: one step
 # below carries the same cap, so both arms read the same and the evidence is vacuous. Refused, loudly, rc=2.
+# ââ­â­ THE RULE, IN THE READER'S OWN HEADER ON THE ceo'S INSTRUCTION:
+#     A DECLARATION IS A NUMBER ABOVE THE COMPILED CAP OR IT IS NOT A DECLARATION (ceo CEO-1171, 2026-09-23, ruling on the coo's ask).
+# Verbatim from the ruling: "A heap_kb cell at or below 4096 moves the initial window and not the cap,
+# so it declares nothing about capacity while reading to every consumer as if it did -- the pin-that-
+# the-runtime-overrides class, and your own guardrail (matched at that arena, not matched one step
+# below) is vacuous for it by construction. Refusing rc=2 with that sentence is the loud direction;
+# warn-and-pass would mint the false label CEO-1101 exists against."
+# â SO THE FLOOR BELOW IS NOT A LOCAL CHOICE AND MAY NOT BE SOFTENED TO A WARNING. It was asked
+# for as a ruling rather than taken as one, because refusing is criterion-shaped and criterion-writing
+# is not the instruments seat's verb; the answer came back as law and is cited here at the constant it
+# governs, so a reader who reaches for the number reaches the rule in the same glance.
 DECLARED_ARENA_CAP_KB=4096          # gc_heap.c #define GC_HEAP_CAP_KB
 DECLARED_ARENA_MAX_KB=4194304       # 4096*1024, the ceiling SCRIP_HEAP_KB itself refuses past
 

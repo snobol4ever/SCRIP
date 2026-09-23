@@ -20,6 +20,10 @@
 # copy of gc_heap.c's GC_HEAP_CAP_KB / GC_HEAP_KB_FLOOR.  A copy of a runtime constant that nothing checks is the
 # false-label class this column exists to close, so the #defines are re-read from source here and compared.
 #
+# ââ­â­ ARM D ENFORCES A RULING, NOT A PREFERENCE: A DECLARATION IS A NUMBER ABOVE THE COMPILED CAP OR IT IS NOT A DECLARATION (ceo CEO-1171, 2026-09-23, ruling on the coo's ask).
+# The refusal was asked for rather than assumed -- criterion-writing is not the instruments seat's verb --
+# and the answer was that warn-and-pass would mint the false label CEO-1101 exists against. So arm D may
+# not be relaxed to a warning by anyone reading this file later; it is law, cited, with its measurement.
 # ⛔⭐⭐ ARM D IS THE MEASUREMENT THAT MADE THIS COLUMN HONEST, AND IT IS NOT A STYLE CHECK.  gc_heap.c reads
 #     cap_kb = (long)GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb;
 # so SCRIP_HEAP_KB moves the INITIAL WINDOW always and the HARD CAP only once it climbs past 4096.  Measured by the

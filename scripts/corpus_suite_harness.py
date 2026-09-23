@@ -3404,6 +3404,12 @@ def validate_heap_kb(raw, where):
     """Parse ONE heap_kb cell into an int, or refuse rc=2 naming the cell. Returns None for the empty
     cell, which is the documented "absent means the shipped default" and is never an error.
 
+    ⛔⭐⭐ A DECLARATION IS A NUMBER ABOVE THE COMPILED CAP OR IT IS NOT A DECLARATION (ceo CEO-1171, 2026-09-23, ruling on the coo's ask).
+    Asked as a ruling rather than taken as one, because refusing is criterion-shaped and criterion-writing is
+    not this seat's verb; it came back as law, so the floor below is not a local choice and may not be
+    softened to a warning. The ruling's own words: warn-and-pass "would mint the false label CEO-1101 exists
+    against."
+
     ⛔⭐⭐ A DECLARATION AT OR BELOW THE SHIPPED CAP IS REFUSED, AND THE REASON IS MEASURED, NOT REASONED.
     gc_heap.c reads `cap_kb = GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb;` -- so SCRIP_HEAP_KB moves the
     INITIAL WINDOW always and the HARD CAP only once it climbs past GC_HEAP_CAP_KB. Measured by the coo
