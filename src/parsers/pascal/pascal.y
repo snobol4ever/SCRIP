@@ -62,6 +62,7 @@ static int pas_array_high_get(const char *name, long long *out);
 static long long pas_array_low(const char *name);
 static int pas_subvar_get(const char *n, long long *lo, long long *hi);
 static int pas_sizeof_lookup(const char *name, long long *out);
+static int pas_sizeof_builtin_size(const char *n, long long *out);
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 static int pas_tfcomp_nonchar(const char *n);
 static int pas_is_hdrfile(const char *n);
@@ -204,6 +205,11 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             long long sz;
             if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
         }
+    }
+    if (name && strcmp(name, "char") && strcmp(name, "widechar") && strcmp(name, "boolean") && strcmp(name, "bytebool")
+        && strcmp(name, "wordbool") && strcmp(name, "longbool") && args && args->count >= 1) {
+        long long _tsz;
+        if (pas_sizeof_builtin_size(name, &_tsz)) return args->items[0];
     }
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0]; tree_t *val = args->items[4];
