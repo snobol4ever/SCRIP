@@ -65,6 +65,7 @@ trap 'rm -rf "$TMP"' EXIT
 stamp="SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)"
 
 [ -x "$ROOT/scrip" ] || { echo "⛔ GATE REFUSES (2): no ./scrip to run -- nothing was measured [$stamp]"; exit 2; }
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 
 count_site() { awk -F'\t' -v s="$2" '$1 == s { n++ } END { print n + 0 }' "$1"; }
 
