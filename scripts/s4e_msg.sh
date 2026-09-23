@@ -865,7 +865,9 @@ s4e_lane_owner_of_language() {
        snobol4)  printf 'hq_snobol4';;
        pascal)   printf 'hq_pascal';;
        snocone)  printf 'hq_snocone';;
-       rebus)    printf 'cfo';;
+       # ⛔ 2026-09-23 02:4x CDT ceo (CEO-1178, Lon verbatim: "All officers are stood down."): the cfo is stood down, so the closed
+       # Rebus lane (43/43) is the ceo's custody -- MODE line 2 THE SEATS reads REBUS -- the ceo and LANES: rebus=ceo; this table agrees.
+       rebus)    printf 'ceo';;
        raku)     printf 'hq_raku';;
     esac
 }
