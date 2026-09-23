@@ -721,7 +721,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_main.cpp \
     $(SRC)/templates/bb/bb_glue_framed.cpp \
     $(SRC)/templates/bb/bb_match_lambda.cpp \
-    $(SRC)/templates/bb/bb_lit.cpp \
     $(SRC)/templates/bb/bb_keyword_assign_snobol4.cpp \
     $(SRC)/templates/bb/bb_define.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
@@ -751,7 +750,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_keyword_assign.cpp \
     $(SRC)/templates/bb/bb_unop.cpp \
     $(SRC)/templates/bb/bb_succeed.cpp \
-    $(SRC)/templates/bb/bb_every.cpp \
     $(SRC)/templates/bb/bb_to.cpp \
     $(SRC)/templates/bb/bb_match_len.cpp \
     $(SRC)/templates/bb/bb_match_lit.cpp \
@@ -918,24 +916,8 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/pascal/pascal.lex.c \
     $(SRC)/parsers/pascal/pascal_driver.c \
     $(SRC)/parsers/pascal/pascal_sem.c \
-    $(SRC)/templates/bb/bb_arith.cpp \
-    $(SRC)/templates/bb/bb_binop_gvar_arith.cpp \
-    $(SRC)/templates/bb/bb_binop_gvar_arith_slot.cpp \
-    $(SRC)/templates/bb/bb_call_define.cpp \
-    $(SRC)/templates/bb/bb_case_arm.cpp \
-    $(SRC)/templates/bb/bb_det_nl.cpp \
-    $(SRC)/templates/bb/bb_idx_get.cpp \
-    $(SRC)/templates/bb/bb_idx_set.cpp \
-    $(SRC)/templates/bb/bb_indirect_assign_lit_s.cpp \
-    $(SRC)/templates/bb/bb_indirect_assign_var.cpp \
-    $(SRC)/templates/bb/bb_initial.cpp \
-    $(SRC)/templates/bb/bb_key_gen.cpp \
-    $(SRC)/templates/bb/bb_ref_invariant.cpp \
-    $(SRC)/templates/bb/bb_subject.cpp \
-    $(SRC)/templates/bb/bb_unop_gvar_slot.cpp \
     $(SRC)/templates/bb/bb_assign_frame.cpp \
-    $(SRC)/templates/bb/bb_var_frame.cpp \
-    $(SRC)/templates/bb/bb_var_frame_ref.cpp
+    $(SRC)/templates/bb/bb_var_frame.cpp
 
 # ⛔ RT_OPT IS DEFINED ONCE, AT LINE 34. A SECOND `RT_OPT ?=` stood here carrying the RETIRED O0-DEV-O2-BENCH text (s179) — inert by `?=` but read as law by anyone who greps for the flag and lands on the wrong one, which is how a NO-O2-BUILDS violation gets written in good faith. Deleted hq_P s269; the s262 FACT RULE lives at :34 and nowhere else.
 RT_INCS := -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \

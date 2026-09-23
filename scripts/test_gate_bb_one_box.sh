@@ -44,14 +44,12 @@ ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
 fail=0
 PL_BOX_FILES="
-src/templates/bb/bb_arith.cpp
 src/templates/bb/bb_cut.cpp
 src/templates/bb/bb_fail.cpp
 "
 PL_HELPER_FILES="
 "
 ICN_BOX_FILES="
-src/templates/bb/bb_every.cpp
 src/templates/bb/bb_to.cpp
 src/templates/bb/bb_iterate.cpp
 src/templates/bb/bb_scan_pos.cpp
@@ -67,7 +65,6 @@ src/templates/bb/bb_lit_scalar.cpp
 src/templates/bb/bb_var.cpp
 src/templates/bb/bb_var_global.cpp
 src/templates/bb/bb_var_frame.cpp
-src/templates/bb/bb_var_frame_ref.cpp
 src/templates/bb/bb_assign_local.cpp
 src/templates/bb/bb_unop.cpp
 src/templates/bb/bb_succeed.cpp
@@ -76,8 +73,6 @@ src/templates/bb/bb_call.cpp
 src/templates/bb/bb_binop_arith.cpp
 src/templates/bb/bb_binop_relop.cpp
 src/templates/bb/bb_binop_relop_val.cpp
-src/templates/bb/bb_binop_gvar_arith.cpp
-src/templates/bb/bb_binop_gvar_arith_slot.cpp
 src/templates/bb/bb_binop_concat_slot.cpp
 "
 ICN_HELPER_FILES="

@@ -27,6 +27,14 @@
 #   op_parts_lbl   — read by bb_idx_get (a template bb_templates.h declares and emit.cpp never calls)
 #                    and by three gvar-arith arms whose IF therefore never fires
 #
+# ⭐ FLOOR 3 -> 0 (cto 2026-09-23, CEO-1169, THE DELETION OF THE DEAD TEMPLATES): all three readers above
+#   lived in templates with NO CALLER anywhere in src/ -- bb_idx_get.cpp, bb_binop_gvar_arith.cpp and
+#   bb_binop_gvar_arith_slot.cpp -- and they went with the other fifteen dead definition files and the
+#   fifteen header-only prototypes in that landing (a caller census over every bb_* name declared in
+#   bb_templates.h, definition and header excluded; IR kinds absent from IR.h, the emitter's switch and every
+#   lowerer).  The gate read "0 field(s) read with no writer, floor 3 -- FELL by 3" on that tree, which is
+#   the one direction this floor may move.  Nothing else may lower it silently: a NEW dead reader is RED.
+#
 # ⛔ HOW TO CONTROL-ARM IT, AND THE WRONG WAY THAT LOOKS RIGHT.  Remove every writer of a field and it
 # must go RED naming that field.  ⛔ Rename the write to a name that SHARES ITS PREFIX and the census
 # still sees it: the pattern takes the longest run of [a-z0-9_], so `g_emit.op_activate_procZZ` yields
@@ -45,7 +53,7 @@ cd "$(dirname "$0")/.." || exit 2
 [ -f src/emitter/emit.h ] || { echo "⛔ GATE REFUSES(2): src/emitter/emit.h missing"; exit 2; }
 [ -d src/templates/bb ]   || { echo "⛔ GATE REFUSES(2): src/templates/bb missing"; exit 2; }
 
-FLOOR=3
+FLOOR=0
 PINNED="op_bounded op_kind op_parts_lbl"
 
 readers=$(grep -rhoE '_\.op_[a-z0-9_]+' src/templates/bb/*.cpp src/templates/x86/*.h 2>/dev/null | sed 's/^_\.//' | sort -u)
