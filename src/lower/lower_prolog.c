@@ -1688,7 +1688,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     if (nc < 1) nc = 1;
     IR_graph_t * g = IR_alloc(1024 + 1024 * nc);
     lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
-    const char * trace_key = key;
+    const char * trace_key = key ? ct_strdup(key) : NULL;
     { extern int pl_prelude_defines(const char *, int);
       const char * slash = key ? strrchr(key, '/') : NULL;
       if (slash) { char nmbuf[256]; size_t nl = (size_t)(slash - key); if (nl >= sizeof nmbuf) nl = sizeof nmbuf - 1; memcpy(nmbuf, key, nl); nmbuf[nl] = 0;
