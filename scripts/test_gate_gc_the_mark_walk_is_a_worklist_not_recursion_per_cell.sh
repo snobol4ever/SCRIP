@@ -47,12 +47,20 @@ SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2)
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; examined=0
 # THE ARENA AND ITS CEILINGS, PRINTED: a number is not labelled until it carries the arena it was measured at.
-ARENA_MB="${SCRIP_HEAP_MB:-}"
-if [ -n "$ARENA_MB" ] && [ "$ARENA_MB" -le 8 ] 2>/dev/null; then
-  CEIL_CHAIN=600; CEIL_SCALE=900; CEIL_WHY="tiny arena SCRIP_HEAP_MB=$ARENA_MB -- the scaling arm needs 651s here (cfo CFO-122, measured), the 600s pair is declared headroom"
-else
-  CEIL_CHAIN=180; CEIL_SCALE=300; CEIL_WHY="shipped arena (SCRIP_HEAP_MB ${ARENA_MB:+=$ARENA_MB}${ARENA_MB:-unset}) -- the ceilings this gate was calibrated against"
-fi
+# ⛔ THIS GATE PINS ITS ARENA, AND THE PIN IS DECLARED in test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh
+# (cto 2026-09-23, CEO-1161 routing). Its subject is the DEPTH of the mark walk over a chain that must SURVIVE, and the
+# chain is 600000 cells of 48 bytes (28.8 MB live by construction; the scaling arm's 1.5M cells are 72 MB). Since
+# CEO-1101 the declared size is a HARD CAP: the unset default is a 4096 KB cap and make's SCRIP_HEAP_MB=1 is 1024 KB,
+# and under either the chain arm dies rc=134 'heap exhausted AT THE HARD CAP' after 5962 collections with 87011 blocks
+# live -- measured 2026-09-23 on 89956530b, which is how this gate read red at CEO-1161. A mark-walk depth is not an
+# arena-dependent quantity, so the pin below names a window the witness fits and the ceilings stay the ones this gate
+# was calibrated against at the old shipped reserve. The outer KB knob is unset because gc_heap.c reads it LAST and
+# it would silently defeat the pin (CEO-1153, 33rd batch clause 6).
+unset SCRIP_HEAP_KB
+export SCRIP_HEAP_MB=256
+ARENA_MB="$SCRIP_HEAP_MB"
+CEIL_CHAIN=180; CEIL_SCALE=300; CEIL_WHY="PINNED arena SCRIP_HEAP_MB=$ARENA_MB (a 28.8 MB / 72 MB live chain cannot fit the 4096 KB default cap or make's 1024 KB; the pin is declared) -- the ceilings this gate was calibrated against"
+echo "ARENA SCRIP_HEAP_MB=$ARENA_MB (PINNED, declared: the witness is a 28.8 MB live chain by construction and dies rc=134 at the hard cap under the 4096 KB default and the 1024 KB make default; a mark-walk depth is not an arena-dependent quantity)"
 # ⭐ THE SANCTIONED SEAM (ceo CEO-560): a guard whose only proof of firing is doing the forbidden thing is tested
 # that way OR NOT AT ALL. The refusal below cannot be reached in a tick without burning 651 seconds at a 1 MB arena,
 # so the CEILING -- an instrument's clock, never the collector's behaviour -- is overridable and LOUD when it is.
