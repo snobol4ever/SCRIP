@@ -211,6 +211,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         long long _tsz;
         if (pas_sizeof_builtin_size(name, &_tsz)) return args->items[0];
     }
+    if (name && !strcmp(name, "swapendian") && args && args->count >= 1) return args->items[0];
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0]; tree_t *val = args->items[4];
         if (dst && dst->t == TT_VAR && dst->v.sval) {
@@ -847,7 +848,9 @@ static int pas_sizeof_builtin_size(const char *n, long long *out) {
         {"cardinal",4},{"longword",4},{"int64",8},{"qword",8},{"single",4},{"real",8},
         {"double",8},{"extended",10},{"comp",8},{"char",1},{"widechar",1},
         {"boolean",1},{"bytebool",1},{"wordbool",2},{"longbool",4},{"pointer",8},
-        {"ptruint",8},{"ptrint",8},
+        {"ptruint",8},{"ptrint",8},{"int8",1},{"int16",2},{"int32",4},{"uint8",1},
+        {"uint16",2},{"uint32",4},{"uint64",8},{"nativeint",8},{"nativeuint",8},
+        {"codepointer",8},
     };
     for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (!strcmp(n, T[i].n)) { *out = T[i].sz; return 1; }
     return 0;
