@@ -507,6 +507,10 @@ if [ -n "$SHARDS" ]; then
         arm_exec "${CMDS[$i]}"
         printf 'ARMRESULT\t%s\t%s\t%s\t%s\n' "$ARM_RC" "$ARM_SEC" "$([ -n "${FLAGS[$i]}" ] && echo R || echo B)" "${CMDS[$i]}" >> "$WORK/results.tsv"
         printf '[serial] rc=%-3s %4ds  %s\n' "$ARM_RC" "$ARM_SEC" "${CMDS[$i]}"
+        # ⛔ A RED WITH NO OUTPUT IS A NAME WITHOUT EVIDENCE (ceo CEO-1197): the death gate was red in the serial
+        # phase of two full passes and green alone, and nothing said which of its twelve arms failed, because this
+        # line threw the arm's output away.  The tail of a non-green serial arm travels with its name.
+        [ "$ARM_RC" -eq 0 ] || printf '%s\n' "$ARM_OUT" | tail -8 | sed 's/^/       | /'
     done
     for k in $(seq 1 "$SHARDS"); do
         ( echo "shardpid=$BASHPID" > "$WORK/shard.$k.pid"; bash "${BASH_SOURCE[0]}" --shard "$k/$SHARDS" --target "$DECL_TARGET" --makefile "$MAKEFILE" \
@@ -574,6 +578,14 @@ if [ -n "$SHARDS" ]; then
             [ "$kind" = B ] && bref=$((bref + 1))
         else r=$((r + 1)); printf '  RED  rc=%-3s %s%s\n' "$rc" "$cmd" "$_rep"; [ "$kind" = B ] && bred=$((bred + 1)); fi
     done < "$WORK/results.tsv"
+    # ⛔ THE SHARDS' EVIDENCE IS RE-EMITTED, NOT ONLY THEIR MACHINE LINES (ceo CEO-1197): each child printed the
+    # output tail of every arm it reds or refuses; the parent used to keep the child's ARMRESULT lines and delete
+    # the rest with $WORK, so a fan-out red arrived as a bare name.  Each line is prefixed so no consumer of the
+    # report's own RED/REFUSED lines can read a child's line as a second verdict.
+    for k in $(seq 1 "$SHARDS"); do
+        sed -n '/^⛔ RED -- examined and FAILED/,/^$/p; /^⛔ REFUSED -- COULD NOT MEASURE/,/^$/p' "$WORK/shard.$k.out" 2>/dev/null \
+            | sed '/^$/d' | sed "s/^/  [shard $k] | /"
+    done
     tot=$((g + r + f))
     printf 'blocking set: arms=%d  green=%d  red=%d  refused=%d   (%d+%d+%d=%d)  shards=%s  wall=%ds\n' \
         "$N" "$g" "$r" "$f" "$g" "$r" "$f" "$tot" "$SHARDS" "$((SECONDS - t_all))"
