@@ -153,6 +153,7 @@ DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
 int        table_has_d(TBBLK_t *tbl, DESCR_t k);
 int        table_delete_d(TBBLK_t *tbl, DESCR_t k);
 void       table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val);
+void       table_copy_in_order(TBBLK_t *dst, TBBLK_t *src);
 TBBLK_t  *set_union(TBBLK_t *x, TBBLK_t *y);
 TBBLK_t  *set_diff(TBBLK_t *x, TBBLK_t *y);
 TBBLK_t  *set_inter(TBBLK_t *x, TBBLK_t *y);

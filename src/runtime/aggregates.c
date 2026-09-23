@@ -325,6 +325,7 @@ static void _tbl_rehash(TBBLK_t *tbl) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned long _icn_hash(DESCR_t k);
 void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (!tbl) return;
     if (val.v == DT_S) rt_sxt_break_fast(val.s);
@@ -339,7 +340,12 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;
     if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc_descr((size_t)nc); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
-    if (tbl->ord_dead > 0u) { for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (!_tbl_eq_d(&_op, k)) continue; tbl->ord[oi] = k; tbl->ord_dead--; goto _ord_placed; } }
+    if (tbl->ord_dead > 0u) { unsigned dead = tbl->ord_len;
+        for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (_tbl_eq_d(&_op, k)) { dead = oi; break; } }
+        if (dead < tbl->ord_len) { unsigned long hk = _icn_hash(k); int later = 0;
+            for (unsigned oj = dead + 1u; oj < tbl->ord_len && !later; oj++) if (tbl->ord[oj].v != DT_RAW && _icn_hash(tbl->ord[oj]) == hk && table_find_pair_d(tbl, tbl->ord[oj])) later = 1;
+            if (!later) { tbl->ord[dead] = k; tbl->ord_dead--; goto _ord_placed; }
+            tbl->ord[dead] = (DESCR_t){ .v = DT_RAW }; } }
     tbl->ord[tbl->ord_len++] = k;
 _ord_placed: ;
     if ((unsigned long)tbl->size > 5ul * (tbl->icn_mask + 1ul) && tbl->icn_mask < (16ul << 19) - 1ul) tbl->icn_mask = (tbl->icn_mask << 1) | 1ul;
@@ -347,6 +353,12 @@ _ord_placed: ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned long _icn_hash(DESCR_t k) {
+    if (IS_CSET_fn(k)) {
+        uint32_t w[8] = { 0 }; size_t n = descr_slen(k); const unsigned char *s = (const unsigned char *)k.s; unsigned long i = 0;
+        for (size_t j = 0; s && j < n; j++) w[s[j] >> 5] |= 1u << (s[j] & 31u);
+        for (int j = 7; j >= 0; j--) { i += w[j]; i *= 37ul; }
+        return i % 1048583ul;
+    }
     if (k.v == DT_S) {
         unsigned long i = 0; size_t n = descr_slen(k), j = n > 10 ? 10 : n; const unsigned char *s = (const unsigned char *)k.s;
         while (j-- > 0) { i += *s++; i *= 37ul; }
@@ -381,6 +393,7 @@ static int _icn_key_lt(unsigned long aseg, unsigned long aslot, unsigned long ah
 static int _icn_succ(TBBLK_t *tbl, TBPAIR_t **out) {
     TBPAIR_t *be = (TBPAIR_t *)0; unsigned long bseg = 0ul, bslot = 0ul, bhn = 0ul; unsigned bseq = 0u; int have = 0;
     for (unsigned oi = 0; oi < tbl->ord_len; oi++) {
+        if (tbl->ord[oi].v == DT_RAW) continue;
         TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]); if (!e) continue;
         unsigned long hn = _icn_hash(tbl->ord[oi]), seg, slot; _icn_slot(hn, tbl->gen_mask, &seg, &slot);
         if (tbl->gen_have && !_icn_key_lt(tbl->gen_lseg, tbl->gen_lslot, tbl->gen_lhn, tbl->gen_lseq, seg, slot, hn, oi)) continue;
@@ -401,26 +414,35 @@ int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static TBPAIR_t *_tbl_live_at(TBBLK_t *t, unsigned oi) { return t->ord[oi].v == DT_RAW ? (TBPAIR_t *)0 : table_find_pair_d(t, t->ord[oi]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void table_copy_in_order(TBBLK_t *dst, TBBLK_t *src) {
+    if (!dst || !src) return;
+    for (unsigned oi = 0; oi < src->ord_len; oi++) { TBPAIR_t *e = _tbl_live_at(src, oi); if (e) table_set_descr_d(dst, e->key_descr, e->val); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
     if (!dst || !src) return;
-    TBPAIR_t *e; TBL_FOREACH(src, e) table_set_descr_d(dst, e->key_descr, e->key_descr);
+    for (unsigned oi = 0; oi < src->ord_len; oi++) { TBPAIR_t *e = _tbl_live_at(src, oi); if (e) table_set_descr_d(dst, e->key_descr, e->key_descr); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
     TBBLK_t *r = set_new();
+    if (x && y && y->size > x->size) { TBBLK_t *t = x; x = y; y = t; }
     set_copy_all(r, x); set_copy_all(r, y);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y) {
     TBBLK_t *r = set_new();
-    TBPAIR_t *e; if (x) TBL_FOREACH(x, e) if (!table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
+    if (x) for (unsigned oi = 0; oi < x->ord_len; oi++) { TBPAIR_t *e = _tbl_live_at(x, oi); if (e && !table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr); }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y) {
     TBBLK_t *r = set_new();
-    TBPAIR_t *e; if (x) TBL_FOREACH(x, e) if (table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
+    if (x && y && x->size > y->size) { TBBLK_t *t = x; x = y; y = t; }
+    if (x) for (unsigned oi = 0; oi < x->ord_len; oi++) { TBPAIR_t *e = _tbl_live_at(x, oi); if (e && table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr); }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

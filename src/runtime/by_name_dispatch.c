@@ -7612,7 +7612,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             nt->dflt = src.tbl->dflt;
             nt->init = src.tbl->init;
             nt->inc  = src.tbl->inc;
-            { TBPAIR_t *p; TBL_FOREACH(src.tbl, p) table_set_descr_d(nt, p->key_descr, p->val); }
+            table_copy_in_order(nt, src.tbl);
             DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = nt;
             *out = d; return 1;
         }
