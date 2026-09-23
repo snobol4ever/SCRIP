@@ -50,6 +50,7 @@ def main():
     # ---- 1 INSTRUMENTED -------------------------------------------------------------------------
     rc, cen = sh("SCRIP_GC_CENSUS_LIST_ALL=1 python3 scripts/util_gc_census.py")
     polled   = num(r"allocating_call_sites=(\d+)", cen); pol_ok = num(r"\bpolled=(\d+)", cen)
+    sp_part  = num(r"partially_polled=(\d+)", cen); sp_unp = num(r"\bunpolled=(\d+)", cen)
     inb      = num(r"INBOUND call_back_sites=(\d+)", cen); inb_w = num(r"INBOUND call_back_sites=\d+ wrapped_in_\w+=(\d+)", cen)
     outb     = num(r"OUTBOUND call_out_sites=(\d+)", cen); out_w = num(r"OUTBOUND call_out_sites=\d+ wrapped_in_\w+=(\d+)", cen)
     cons     = num(r"CENSUS conservative total=(\d+)", cen)
@@ -104,6 +105,17 @@ def main():
                 continue
             bad = (n < d)
             print("      %-46s %5d / %-5d  %-7s %s" % (nm, n, d, pct(n, d), "" if not bad else "<- %d open" % (d - n)))
+            # ⛔ THE OPEN COUNT IS TWO DIFFERENT DEBTS AND THEY TAKE DIFFERENT CURES (the coo, 2026-09-22).  An
+            # UNPOLLED site has no safe point and needs one written.  A PARTIALLY POLLED site HAS one and it is
+            # stepped over -- the jump emitted above the call, its landing pad below the poll -- so the cure is to
+            # move the existing poll below the pad, and writing a second poll there would be the wrong repair.
+            # Printing one number for both invites the wrong fix, which is why the split is stated here and not
+            # left in the census's own output for a reader to go and find.
+            if nm.startswith("safe-point") and bad and sp_part:
+                print("      %-46s %s" % ("", "\u26d4 of those %d: %d UNPOLLED (no safe point) and %d PARTIALLY POLLED"
+                                          % (d - n, sp_unp if sp_unp is not None else -1, sp_part)))
+                print("      %-46s %s" % ("", "   (a poll IS emitted and a conditional jump steps over it -- cure is to"))
+                print("      %-46s %s" % ("", "   MOVE the poll past the landing pad, never to add a second one)"))
             if bad: fails.append("INSTRUMENTED/%s %d of %d" % (nm.split()[0], n, d))
         print("      %-46s %5d / %-5d  %-7s %s" % ("conservative visits deleted (want 0 remaining)", cons, 0, "100.0%" if cons == 0 else "n/a",
                                                    "" if cons == 0 else "<- %d remain" % cons))

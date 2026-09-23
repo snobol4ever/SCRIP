@@ -179,6 +179,33 @@ CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
 # started counting something it could not see before, so a reader never reads the step as a regression or a win
 # (SUITES.tsv's criterion_changed column, the same rule).  The baseline writer prints them into the file it writes.
 CRITERION_CHANGES = [
+    "2026-09-22 coo, SCRIP this landing (CEO-1147, row instruments-the-safe-point-census-reader-...): safe-points. "
+    "FOUR READER DEFECTS, AND THEY CANCELLED ON THE HEADLINE WHILE FOUR INDIVIDUAL SITES WERE WRONG IN BOTH "
+    "DIRECTIONS. polled 190 -> 190, partially_polled 0 -> 6, unpolled 63 -> 57, identity 190 + 6 + 57 == 253. "
+    "(a) MUTUALLY EXCLUSIVE STATEMENT ARMS: emit.cpp's icn_trace_tap and xa_flat.cpp's xa_icn_trace_tap are an "
+    "if/else-if/else chain of allocating hook calls followed by ONE poll; the base predicate read each arm's "
+    "SUCCESSOR ARM as a later call and stopped the window, so six sites read UNPOLLED. _stmt_sibling_offsets is "
+    "the statement-level twin of _ternary_sibling_offsets, which COO-146 named and did not mechanize. "
+    "(b) THE CONDITIONAL SKIP, THE ONLY SPECIES THAT MADE THE NUMBER TOO BIG (ceo, CEO-1132): the guard's `je` is "
+    "emitted ABOVE the call and its landing pad BELOW the poll, so a reader looking only BETWEEN them sees nothing "
+    "and credits a poll that is stepped over whenever g_trace == 0 -- which is every program that never assigns "
+    "&trace. Two sites were credited that way; they are PARTIAL now, not polled. "
+    "(c) THE GUARD IS ITSELF CONDITIONAL: IF(kind == 2 || kind == 3 || kind == 5, ... je) in emit.cpp and "
+    "IF(kind != 1, ...) in xa_flat.cpp are NOT emitted on the kind == 1 arm, whose poll is unconditional. Reading "
+    "(b) without (c) would have condemned two sound arms. "
+    "(d) A SIBLING ARM IS NOT A GUARD: _poll_is_guarded matched `else if (kind == 2)` with its plain `if (` test "
+    "and called xa_flat.cpp:427 PARTIAL although its poll is unconditional -- the same alternatives-as-sequence "
+    "confusion at a FOURTH level. "
+    "⭐ MEASURED FROM EMITTED BYTES BEFORE A LINE OF THE READER WAS WRITTEN, and the reader then reproduced the "
+    "predicted 190/6/57 independently: `./scrip --compile` on a two-procedure Icon witness shows each kind 2/3 tap "
+    "as cmp/je -> hook -> rt_gc_poll_asm -> landing pad (lines 131/142/149/153), and each kind 1 tap as hook -> "
+    "rt_gc_poll_asm with no branch at all. `long g_trace = 0` is src/runtime/keywords.c:17. "
+    "⛔ partially_polled IS NOW RATCHETED. It was printed, demanded zero by the census header, and watched by "
+    "NOTHING; six sites could have become sixty with every gate green. "
+    "⛔ AND THE CENSUS NOW REFUSES rc=2 ON A STALE BUILD (ceo CEO-1147 calls this the sharpest of the four): "
+    "census_safe_points derives its DENOMINATOR from out/libscrip_rt.so via allocating_entries_from_binary, so an "
+    "unbuilt tree does not merely date the verdict, it changes WHICH CALLS ARE COUNTED. Witnessed both ways at the "
+    "landing. lib_build_currency.sh is SOURCED, never reimplemented, and there is deliberately no escape hatch.",
     "2026-09-22 coo, SCRIP this landing (CEO-1119, on the coo's measured delta): safe-points. A POLL THAT FOLLOWS "
     "A LATER CALL IS THAT CALL'S SAFE POINT. The base predicate's poll window now stops at the first intervening "
     "emitted call, the stop the expansion-site window has carried since CEO-1116 -- the SAME defect one level up, "
@@ -570,17 +597,235 @@ def _mutually_exclusive(a, b):
     return a[2] == b[2]
 
 
-def _poll_is_guarded(window_lines, poll_rx):
-    """A poll inside a multi-path unit reaches EVERY path only when nothing selects it.  This tree spells a
+STMT_ARM_RX = re.compile(r'^\s*\}?\s*else\b')
+STMT_OPENS_ARM_RX = re.compile(r'^\s*(\}\s*)?(else\s+if\b|else\b|if\s*\()')
+# ⛔ A CONDITIONAL JUMP EMITTED AROUND A POLL, AND ITS SKIP LABEL.  x86("je", sk) ... x86("def", sk) is how this
+# tree spells "run this only when the condition holds"; `jmp` is deliberately NOT in the alternation, because an
+# UNCONDITIONAL jump over a poll makes it dead rather than partial and deserves its own reading, not this one.
+EMIT_JCC_RX = re.compile(r'x86\(\s*"(jne|jnz|jns|jae|jbe|jge|jle|je|jz|jl|jg|ja|jb|js)"\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)')
+EMIT_DEF_RX = re.compile(r'x86\(\s*"def"\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)')
+
+
+def _balanced_after(text, open_pos):
+    """The text inside the parenthesis opened at `open_pos`, or None when it does not close on this line."""
+    d = 0
+    for k in range(open_pos, len(text)):
+        if text[k] == "(":
+            d += 1
+        elif text[k] == ")":
+            d -= 1
+            if d == 0:
+                return text[open_pos + 1:k]
+    return None
+
+
+def _stmt_arm_cond(line):
+    """The condition text of the C `if (...)` / `else if (...)` arm this line opens, "" for a bare `else`, or None."""
+    c, _ = _lit_free(line, None)
+    m = re.match(r'^\s*(\}\s*)?(else\s+if|if|else)\b', c)
+    if not m:
+        return None
+    if m.group(2) == "else":
+        return ""                                  # a bare else carries no condition and can never be proven disjoint
+    o = c.find("(", m.end() - (2 if m.group(2) == "if" else 0))
+    o = c.find("(", m.start())
+    while o != -1 and o < m.end() - 1:
+        o = c.find("(", o + 1)
+    return _balanced_after(c, o) if o != -1 else None
+
+
+def _disjoint_conds(a, b):
+    """True when two compile-time condition TEXTS can be PROVEN to never hold together.  Each side is split on `||`
+    and every disjunct pair must be provably exclusive by the same narrow rule _mutually_exclusive already uses --
+    same left-hand expression, `==` against different constants or `==`/`!=` against the same one.
+
+    ⛔ WIDENED TO DISJUNCTIONS BECAUSE THE REAL GUARD IS ONE (the coo, 2026-09-22): emit.cpp spells the trace guard
+    `IF(kind == 2 || kind == 3 || kind == 5, ... x86("je", sk))`, so an arm asking `kind == 1` must be compared
+    against all three disjuncts and cleared only when it is exclusive with EVERY one.  Anything unparsed is NOT
+    disjoint, which keeps the site in the column that demands a human."""
+    if a is None or b is None or a == "" or b == "":
+        return False
+    pa = [_parse_rel(x) for x in a.split("||")]
+    pb = [_parse_rel(x) for x in b.split("||")]
+    if any(x is None for x in pa) or any(x is None for x in pb):
+        return False
+    return all(_mutually_exclusive(x, y) for x in pa for y in pb)
+
+
+def _parse_rel(text):
+    r = REL_RX.match(text.strip())
+    return (r.group(1).strip(), r.group(2), r.group(3).strip()) if r else None
+
+
+def _governing_if_cond(lines, lo, jl, jpos):
+    """The condition of the emitter's `IF(cond, ...)` macro still OPEN where the jump at line index `jl`, column
+    `jpos` is emitted -- or None when no IF encloses it.  Enclosure is proven by a single paren scan from the unit's
+    first line to the jump, never inferred from proximity: an `IF(...)` that has already CLOSED earlier in the same
+    expression is not this jump's guard, and mistaking one for the other would exonerate a genuinely skipped poll."""
+    q = None
+    parts = []
+    for j in range(lo, jl):
+        c, q = _lit_free(lines[j], q)
+        parts.append(c)
+    # ⛔ SLICE THE RAW LINE, THEN STRIP -- NEVER THE OTHER WAY ROUND.  `jpos` is a column in the RAW source, and
+    # _lit_free SHORTENS the line by emptying every string literal, so slicing the stripped text at a raw column
+    # reads PAST the jump and swallows the `))` that closes the guard -- which silently reports NO governing IF and
+    # would have re-condemned the two unguarded arms this reader exists to spare.
+    c, q = _lit_free(lines[jl][:jpos], q)
+    parts.append(c)
+    text = "\n".join(parts)
+    stack = []
+    for k, ch in enumerate(text):
+        if ch == "(":
+            is_if = k >= 2 and text[k - 2:k] == "IF" and (k < 3 or not (text[k - 3].isalnum() or text[k - 3] == "_"))
+            stack.append((k, is_if))
+        elif ch == ")" and stack:
+            stack.pop()
+    for pos, is_if in reversed(stack):
+        if not is_if:
+            continue
+        tail = text[pos + 1:]
+        d = 0
+        for t, ch in enumerate(tail):              # the condition runs to this IF's own top-level comma
+            if ch == "(":
+                d += 1
+            elif ch == ")":
+                d -= 1
+            elif ch == "," and d == 0:
+                return " ".join(tail[:t].split())
+        return " ".join(tail.split())
+    return None
+
+
+def _stmt_sibling_offsets(lines, i, window_lines):
+    """Offsets into `window_lines` standing in a DIFFERENT ARM of the same C `if / else if / else` chain as the call
+    at 1-based line `i` -- an ALTERNATIVE to the site, never a successor, so such a call must not stop the poll
+    window.
+
+    ⛔ THIS IS THE STATEMENT-LEVEL TWIN OF _ternary_sibling_offsets, AND COO-146 NAMED IT WITHOUT MECHANIZING IT.
+    The expression-level rule reads `a ? X : Y`; this one reads the same exclusivity spelled as statements, which is
+    how emit.cpp's icn_trace_tap and xa_flat.cpp's xa_icn_trace_tap are written: four allocating hook calls in one
+    if/else-if/else chain followed by ONE unconditional poll.  Without this rule the first three arms each stop their
+    own window at the next arm's call -- reading an ALTERNATIVE as a LATER CALL -- and report UNPOLLED.  MEASURED, not
+    argued: `./scrip --compile` on a two-procedure Icon witness emits `call rt_trace_call_hook_f` then
+    `call rt_gc_poll_asm` seven lines later with no branch between them, so the kind==1 arm is polled on every path.
+
+    ⛔ DELIBERATELY NARROW AND ONE-DIRECTIONAL IN THE DIRECTION THAT KEEPS A STOP.  Removing a stop is the CLEARING
+    direction -- the dangerous one, the one that mints a false POLLED -- so this fires only when the SITE'S OWN LINE
+    opens an arm (`if (`, `else if (`, `else`).  A site inside a braced arm body spanning several lines is not seen
+    and keeps every stop it had.  The complementary guard reader below then catches an arm whose poll is real in the
+    source but jumped over in the emitted bytes, so opening the window here cannot by itself clear a site."""
+    site = i - 1
+    if site < 0 or site >= len(lines):
+        return set()
+    if CALL_RX.search(lines[site]) is None:
+        return set()
+    q = None
+    lo = max(0, site - TERNARY_LOOKBACK)
+    for j in range(lo, site):                      # carry the quote state in, exactly as the ternary rule does
+        _, q = _lit_free(lines[j], q)
+    head, q = _lit_free(lines[site], q)
+    if not STMT_OPENS_ARM_RX.match(head):
+        return set()
+
+    offs = set()
+    depth = head.count("{") - head.count("}")
+    arm_open = depth > 0 or not head.rstrip().endswith(";")
+    sibling = False
+    for k, wl in enumerate(window_lines):
+        c, q = _lit_free(wl, q)
+        if arm_open:                               # still inside an arm: the site's own (successor) or a sibling's
+            if sibling:
+                offs.add(k)
+            depth += c.count("{") - c.count("}")
+            if depth <= 0 and re.search(r'[;}]\s*$', c.rstrip()):
+                arm_open = False
+            continue
+        if STMT_ARM_RX.match(c):                   # the chain continues: a new arm, exclusive with the site's
+            sibling = True
+            offs.add(k)
+            depth = c.count("{") - c.count("}")
+            arm_open = depth > 0 or not c.rstrip().endswith(";")
+            continue
+        break                                      # the chain is over; everything below is a genuine successor
+    return offs
+
+
+def _emitted_guard_skips_poll(lines, i, poll_abs):
+    """(label, 1-based line of the emitted jump) when a CONDITIONAL JUMP emitted ABOVE the call targets a label
+    DEFINED BELOW the poll -- so the emitted poll sits inside the skipped region and executes only when the guard's
+    condition holds.  None when no such envelope is provable.
+
+    ⛔ THIS IS THE FOURTH SPECIES OF CENSUS BLINDNESS AND THE ONLY ONE THAT MAKES THE NUMBER TOO BIG (ceo, CEO-1132).
+    The other three under-count; this one CREDITS A POLL THAT NEVER RUNS.  The shape is invisible to every reader that
+    looks only BETWEEN the call and the poll -- _poll_is_guarded does exactly that -- because the branch is emitted
+    ABOVE the call and its landing pad BELOW the poll, so the span between them is perfectly innocent.
+
+    ⛔ MEASURED FROM EMITTED BYTES, NOT FROM THE EMITTER SOURCE (the coo, 2026-09-22, SCRIP built at this landing).
+    `./scrip --compile` on a two-procedure Icon witness puts, in EVERY kind 2/3/5 trace tap:
+        cmp rax, 0 ; je .Lhelper_α_12_248      <- line 131, the guard on g_trace
+        call rt_trace_return_hook              <- line 142, the allocating call
+        call rt_gc_poll_asm                    <- line 149, the poll the census was crediting
+      .Lhelper_α_12_248:                       <- line 153, the landing pad BELOW the poll
+    and `long g_trace = 0` (src/runtime/keywords.c:17) is written only by an explicit &trace assignment
+    (builtins/gen_runtime.c:306), so in effectively every program the jump is TAKEN and the poll is stepped over.
+    The kind==1 arm carries no guard at all in either file and its poll is unconditional -- the two readings are
+    measured from the same assembly file, which is why this rule separates them instead of condemning the whole unit.
+
+    ⛔ THE ERROR IS ONE-DIRECTIONAL THE OTHER WAY FROM THE SIBLING RULE, AND THAT IS DELIBERATE: firing moves a site
+    to PARTIAL, which is a DEBT the bar still demands be zero; failing to fire leaves today's reading untouched.  A
+    label whose definition this cannot find, or a computed jump target, simply yields None."""
+    lo, hi = 0, len(lines)
+    for j in range(i - 2, -1, -1):                 # the unit above: same boundary style as the poll window
+        if lines[j].startswith("}") or lines[j].startswith("/*---"):
+            lo = j + 1
+            break
+    for j in range(poll_abs + 1, len(lines)):
+        if lines[j].startswith("}") or lines[j].startswith("/*---"):
+            hi = j
+            break
+    # ⛔ AND THE JUMP MUST ACTUALLY BE EMITTED ON THIS ARM'S PATH, WHICH IS THE HALF A SOURCE READER GETS WRONG.
+    # The guard itself is conditional: emit.cpp wraps it `IF(kind == 2 || kind == 3 || kind == 5, ... x86("je", sk))`
+    # and xa_flat.cpp wraps it `IF(kind != 1, ...)`.  A call standing in the `kind == 1` arm is therefore NOT jumped
+    # over -- measured in the same assembly file that convicted the others: `call rt_trace_call_hook_f` is followed
+    # seven lines later by `call rt_gc_poll_asm` with NO branch between them and no landing pad after it.  Condemning
+    # that arm would be a false PARTIAL invented by reading the source instead of the bytes.
+    arm = _stmt_arm_cond(lines[i - 1])
+    jumps = {}
+    for j in range(lo, i - 1):
+        for m in EMIT_JCC_RX.finditer(lines[j]):
+            gov = _governing_if_cond(lines, lo, j, m.start())
+            if gov is not None and _disjoint_conds(arm, gov):
+                continue                           # this guard is not emitted on the arm the call stands in
+            jumps.setdefault(m.group(2), j)
+    if not jumps:
+        return None
+    for j in range(poll_abs + 1, hi):
+        for m in EMIT_DEF_RX.finditer(lines[j]):
+            if m.group(1) in jumps:
+                return (m.group(1), jumps[m.group(1)] + 1)
+    return None
+
+
+def _poll_is_guarded(window_lines, poll_rx, skip=()):
+    r"""A poll inside a multi-path unit reaches EVERY path only when nothing selects it.  This tree spells a
     conditional emission `IF(cond, ...)`, so a poll under an IF( -- or under a plain C `if (` -- reaches SOME paths.
     ⛔ THE ERROR IS DELIBERATELY ONE-DIRECTIONAL: an unrecognised guard would report a partial cure as whole, which is
-    the defect this row cures, so anything conditional-looking between the call and the poll reads PARTIAL."""
+    the defect this row cures, so anything conditional-looking between the call and the poll reads PARTIAL.
+
+    ⛔ AND A SIBLING ARM IS NOT A GUARD ON THE POLL BELOW IT (the coo, 2026-09-22).  `skip` carries the offsets
+    _stmt_sibling_offsets/_ternary_sibling_offsets proved are ALTERNATIVES to the call, and an `else if (kind == 2)`
+    line matches `\bif\s*\(` exactly as a real guard does.  Counting one made xa_flat.cpp:427 read PARTIAL although
+    its poll is unconditional in the emitted bytes -- the same confusion of exclusive arms with sequence that this
+    census has now met at four levels, here on the LAST reader that had not been taught it."""
     seen = False
-    for wl in window_lines:
+    for k, wl in enumerate(window_lines):
         m = poll_rx.search(wl)
         if m:
             head = wl[:m.start()]
             return seen or "IF(" in head or bool(re.search(r'\bif\s*\(', head))
+        if k in skip:
+            continue
         if "IF(" in wl or re.search(r'\bif\s*\(', wl):
             seen = True
     return False
@@ -778,6 +1023,11 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         # bb_call_value.cpp:130, which is the whole gap between the mechanical arm's 148 and the hand-read 149 the
         # ceo published (CEO-1119).  Empty unless base_call_stop, so the pre-stop census is untouched by it.
         sibling = _ternary_sibling_offsets(lines, i, window_lines) if base_call_stop else set()
+        # ⛔ AND THE SAME EXCLUSIVITY SPELLED AS STATEMENTS, WHICH COO-146 NAMED AND DID NOT MECHANIZE.  See
+        # _stmt_sibling_offsets: an `else if` arm is an ALTERNATIVE, never a successor.  MEASURED SCOPE at this
+        # landing: it moves the six trace-tap arms in emit.cpp and xa_flat.cpp and nothing else in the tree.
+        if base_call_stop:
+            sibling = sibling | _stmt_sibling_offsets(lines, i, window_lines)
         for k, wl in enumerate(window_lines):
             if wl.startswith("}") or wl.startswith("/*---"):
                 stop = k
@@ -808,6 +1058,15 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                 break
         window = "\n".join(window_lines[:stop])
         hit = poll_rx.search(window)
+        # ⛔ WHERE the poll is, not merely THAT it is -- the guard reader below needs its line to ask what jumps
+        # over it.  window_lines[k] is lines[i + k], the call standing at lines[i - 1].
+        poll_abs = None
+        if hit:
+            for _k, _wl in enumerate(window_lines[:stop]):
+                if poll_rx.search(_wl):
+                    poll_abs = i + _k
+                    break
+        guard = _emitted_guard_skips_poll(lines, i, poll_abs) if poll_abs is not None else None
         # ⛔ HOW MANY PATHS DOES THIS ONE SOURCE LINE EMIT?  A site inside a unit that expands more than once is
         # spliced into every one of those paths, and a poll in the shared body is not evidence that all of them
         # carry it.  See the block above emission_units for what this bound does and does not claim.
@@ -820,7 +1079,14 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
             multi.append(f"{name} in {unit[0]} {unit[1]}() <= {npaths} emitted path(s) at "
                          + ", ".join(f"{os.path.relpath(pf, ROOT)}:{pl}" for pf, pl in paths[:6])
                          + (f" ... +{npaths - 6} more" if npaths > 6 else ""))
-        if not hit and npaths == 1:
+        if hit and guard:
+            # ⛔ THE POLL IS EMITTED AND IS STEPPED OVER.  Crediting it is the ONE species of this census's blindness
+            # that makes the headline TOO BIG (ceo, CEO-1132), so it lands in the column the bar still wants at zero
+            # rather than in polled.  The cure is to move the poll below the landing pad, not to change this reader.
+            partial.append(f"{name}: the poll is emitted INSIDE a conditional skip -- "
+                           f"x86(\"j..\", {guard[0]}) at {os.path.relpath(f, ROOT)}:{guard[1]} jumps PAST it to "
+                           f"x86(\"def\", {guard[0]}) below, so it runs only when that guard holds")
+        elif not hit and npaths == 1:
             unpolled.append(name)
         elif hit and npaths == 1:
             polled += 1
@@ -838,7 +1104,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                 polled += 1
             else:
                 partial.append(f"{name} in {unit[0]} {unit[1]}(): {n_polled} of {len(paths)} expansion site(s) poll")
-        elif _poll_is_guarded(window_lines[:stop], poll_rx):
+        elif _poll_is_guarded(window_lines[:stop], poll_rx, sibling):
             # The poll is selected by something; it reaches SOME of the unit's paths.  A declared partial is honest,
             # a partial counted as whole is DARK wearing a number (ceo, CEO-1109).
             partial.append(f"{name} in {unit[0]} {unit[1]}(): poll is guarded and the unit emits <= {npaths} paths")
@@ -849,10 +1115,17 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
     out(f"CENSUS safe-points IDENTITY polled + partially_polled + unpolled == allocating_call_sites ({polled} + {len(partial)} + {len(unpolled)} == {alloc_sites})")
     out("CENSUS safe-points MULTI-PATH NOTE (the cto's finding, the coo's reader, 2026-09-22): multi_path_sites counts "
         "allocating call sites written ONCE in a unit that is EXPANDED MORE THAN ONCE, so one source line is spliced "
-        "into several emitted paths. THE PATH COUNT IS AN UPPER BOUND, not an exact figure -- emit.cpp's icn_trace_tap "
-        "expands at six sites but its call lines sit in mutually exclusive arms selected by the caller, so the kind==2 "
-        "call at :2914 is reached by one of the six. partially_polled is NOT counted in polled, so the headline is no "
-        "longer an upper bound wherever a guarded poll sits in a shared body.")
+        "into every one of those paths. THE PATH COUNT IS AN UPPER BOUND, not an exact figure -- emit.cpp's icn_trace_tap "
+        "expands at six sites but its call lines sit in mutually exclusive arms selected by the caller, so the kind==5 "
+        "call at :2914 is reached by one of the six. "
+        "\u26d4 THIS NOTE MISNAMED THAT SITE AS kind==2 UNTIL 2026-09-22 (kind 2 is :2913, rt_trace_return_hook; :2914 "
+        "is rt_trace_gen_fail_hook) -- corrected in place by the coo, because an instrument's own prose is read as "
+        "evidence and a wrong name in it is a wrong measurement waiting to be quoted. "
+        "\u26d4\u2b50 AND partially_polled IS NOW ACTUALLY POPULATED: it read 0 at every site for as long as it existed, "
+        "so the sentence promising it protected the headline was TRUE OF THE CODE AND FALSE OF THE READING. Since this "
+        "landing a poll emitted INSIDE a conditional skip -- the jump above the call, its landing pad below the poll -- "
+        "lands there instead of in polled, which is the one species of this census's blindness that made the number too "
+        "BIG (ceo CEO-1132).")
     cap = len(unpolled) if os.environ.get("SCRIP_GC_CENSUS_LIST_ALL") == "1" else 25
     for u in unpolled[:cap]:
         out(f"  UNPOLLED {u}")
@@ -1325,7 +1598,8 @@ RATCHET_KEYS = [   # (census, key, is_population) -- a population may only FALL;
     ("conservative", "hb_scan_interior_uses", True),
     ("allocator", "rt_gc_collect_calls_in_the_allocator", True),
     ("safe-points", "unpolled", True),
-    ("safe-points", "unresolved", True),
+    ("safe-points", "partially_polled", True),   # ⛔ ADDED 2026-09-22 (coo): the header has demanded this be ZERO
+    ("safe-points", "unresolved", True),         # since it existed, and NOTHING WATCHED IT -- it could grow silently
     ("callbacks", "unwrapped", True),
     ("callbacks", "unwrapped_outbound", True),
     ("coverage", "red", False),
@@ -1539,6 +1813,37 @@ def selftest():
     txt = "\n".join(buf)
     ck(rc == 1 and "via macro pick_sym(): 2 candidate(s), none allocating" in txt and _sp_has(buf, allocating_call_sites=1),
        "safe-points: a macro chooser reads ITS OWN replacement text -- not the literals of the next routine in the file (the mis-resolution of 2026-09-17, which hid two allocating rt_cap_open_plain sites)")
+    # ⛔⭐ THE STATEMENT-LEVEL ARMS AND THE CONDITIONAL-SKIP READER (the coo, 2026-09-22, row
+    # instruments-the-safe-point-census-reader-...).  Four arms, because the two rules are only correct TOGETHER:
+    # opening the window on exclusive arms is the CLEARING direction, and the guard reader is what stops that from
+    # minting a false POLLED.  An edit that keeps one and drops the other trips these.
+    tpl_arm = os.path.join(w, "arms.cpp")
+    open(tpl_arm, "w").write("std::string t(int kind){ std::string s = x86(\"push\", \"rax\");\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else if (kind == 2) s += x86(\"call\", \"rt_concat\", fp);\n    else s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    return s;\n}\n")
+    buf.clear(); rc = census_safe_points("", [tpl_arm], out=buf.append, allocating=alloc)
+    ck(rc == 0 and _sp_has(buf, allocating_call_sites=3, polled=3, partially_polled=0, unpolled=0),
+       "safe-points: three allocating calls in ONE if/else-if/else chain share the unconditional poll below it -- an "
+       "else-if arm is an ALTERNATIVE, not a later call, so none of the three stops the others' window (COO-146 named "
+       "this and did not mechanize it; six real sites read UNPOLLED until it was)")
+    tpl_skip = os.path.join(w, "skip.cpp")
+    open(tpl_skip, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s = x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk);\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else if (kind == 2) s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
+    buf.clear(); rc = census_safe_points("", [tpl_skip], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=0, partially_polled=2, unpolled=0)
+       and any("PARTIAL" in l and "conditional skip" in l for l in buf),
+       "safe-points: a poll whose EMITTED jump stands above the call and whose landing pad stands below the poll is "
+       "PARTIAL, never polled -- the only species of this census's blindness that made the number too BIG (CEO-1132)")
+    tpl_armskip = os.path.join(w, "armskip.cpp")
+    open(tpl_armskip, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s = IF(kind == 2 || kind == 3, x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk));\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else if (kind == 2) s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
+    buf.clear(); rc = census_safe_points("", [tpl_armskip], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=1, partially_polled=1, unpolled=0),
+       "safe-points: the GUARD IS ITSELF CONDITIONAL -- IF(kind == 2 || kind == 3, ... je) is not emitted on the "
+       "kind == 1 arm, so that arm keeps its unconditional poll while the kind == 2 arm is PARTIAL; measured from "
+       "emitted bytes, where the kind 1 tap carries no branch at all and the kind 2/3/5 taps each carry one")
+    tpl_else = os.path.join(w, "elsearm.cpp")
+    open(tpl_else, "w").write("std::string g(int kind){ std::string sk = \"L1\";\n    std::string s = IF(kind == 2, x86(\"cmp\", \"rax\", (long)0) + x86(\"je\", sk));\n    if (kind == 1) s += x86(\"call\", \"rt_concat\", fp);\n    else s += x86(\"call\", \"rt_concat\", fp);\n    s += x86(\"lea\", \"r8\", \"[rip + __]\", (uint64_t)&g_gc_pending, \"g_gc_pending\");\n    s += x86(\"def\", sk);\n    return s;\n}\n")
+    buf.clear(); rc = census_safe_points("", [tpl_else], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=1, partially_polled=1, unpolled=0),
+       "safe-points: a BARE else carries no condition, so it can never be PROVEN disjoint from the guard and stays "
+       "PARTIAL -- the unprovable case lands in the column that demands a human, never in polled")
     tpl_xf = os.path.join(w, "crossfn.cpp")
     open(tpl_xf, "w").write('std::string a(){ return x86("call", "rt_concat", fp);\n'
                             '}\n'
@@ -1770,6 +2075,28 @@ def main(argv):
         dd = os.path.join(R, d)
         if os.path.isdir(dd):
             emitter_files += [os.path.join(dd, f) for f in sorted(os.listdir(dd)) if f.endswith((".cpp", ".c", ".h"))]
+    # ⛔⭐ BUILD CURRENCY FIRST, AND THIS CENSUS WENT NINE DAYS WITHOUT IT.  A DONE-WHEN READ GREEN ON AN UNCOMPILED
+    # TREE (the coo, 2026-09-22; ceo CEO-1147 calls it the sharpest of this row's four items).  It is not a courtesy
+    # check here: census_safe_points derives its DENOMINATOR from the built runtime -- allocating_entries_from_binary
+    # reads out/libscrip_rt.so for the allocating symbol set -- so a stale .so does not merely date the verdict, it
+    # silently changes WHICH CALLS ARE COUNTED and hands back a confident number for a program nobody is shipping.
+    # The coverage and maps censuses RUN ./scrip outright.  ⛔ SOURCED, NEVER REIMPLEMENTED (CLAUDE.md: lib_* are
+    # sourced authorities); a second copy of this rule is how one of them keeps the old rule after the rule changes.
+    # ⛔ AND THERE IS DELIBERATELY NO ESCAPE HATCH.  Every other knob in this file has one for an auditor comparing
+    # across a criterion change; a bypass HERE would re-admit the exact false green the refusal exists to stop.
+    bc = subprocess.run(["bash", "-c",
+                         'set -e; . "$1/scripts/lib_build_currency.sh"; '
+                         'assert_binary_current "$1/scrip" "$1"; assert_so_current "$1/out/libscrip_rt.so" "$1"',
+                         "_", R], capture_output=True, text=True)
+    if bc.returncode != 0:
+        sys.stdout.write(bc.stdout)
+        sys.stderr.write(bc.stderr)
+        print("population: 0 census(es) run -- rc=2 (REFUSED TO MEASURE: the artifacts predate src/; "
+              "a census of an unbuilt tree is a statement about a different program, not a stale one)")
+        return 2
+    for _l in bc.stdout.splitlines():
+        if _l.strip():
+            print(_l)
     rcs = []
     want = [a.census] if a.census != "all" else ["conservative", "allocator", "safe-points", "coverage", "callbacks", "maps"]
     for c in want:
