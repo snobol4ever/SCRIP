@@ -312,6 +312,7 @@ test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
 test_gate_pas_a_file_carries_its_iso_mode_and_says_so.sh	WIRED	-	-	-
 test_gate_pas_a_file_component_is_never_itself_a_file.sh	WIRED	-	-	-
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
+test_gate_pas_a_goto_never_enters_a_structured_statement.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
 test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-
 test_gate_pas_a_variable_is_defined_once_per_variable_declaration_part.sh	WIRED	-	-	-

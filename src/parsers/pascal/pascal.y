@@ -1566,7 +1566,7 @@ compound_statement:
 goto_statement:
     GOTOSY INTCONST
         { char _gb[24]; snprintf(_gb, sizeof _gb, "%lld", (long long)$2);
-          tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); $$ = G; }
+          tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); G->line = pascal_get_lineno(); $$ = G; }
     ;
 if_statement:
     IFSY expression THENSY statement { $$ = bin(TT_IF, pas_cond_bool($2, "an if-statement", "6.8.3.4"), $4); }

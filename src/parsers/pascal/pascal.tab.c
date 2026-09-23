@@ -3334,7 +3334,7 @@ yyreduce:
   case 114: /* goto_statement: GOTOSY INTCONST  */
 #line 1568 "pascal.y"
         { char _gb[24]; snprintf(_gb, sizeof _gb, "%lld", (long long)(yyvsp[0].ival));
-          tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); (yyval.node) = G; }
+          tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); G->line = pascal_get_lineno(); (yyval.node) = G; }
 #line 3339 "pascal.tab.c"
     break;
 
