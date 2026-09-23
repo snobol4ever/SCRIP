@@ -32,6 +32,7 @@ typedef enum {
     DT_ORDER = 0x90,
     DT_RAW  = 0x98,
     DT_MAP  = 0xA0,
+    DT_CPLX = 0xA8,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)

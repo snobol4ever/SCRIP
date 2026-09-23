@@ -666,7 +666,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (!s || !on) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
-    if (!strcmp(meth, "abs")) { if (IS_INT_fn(recv)) { long v = (long)recv.i; *out = INTVAL(v < 0 ? -v : v); } else { *out = REALVAL(fabs(to_real(recv))); } return 1; }
+    if (!strcmp(meth, "abs")) { if (recv.v == DT_CPLX) { extern double rt_cplx_abs(DESCR_t); *out = REALVAL(rt_cplx_abs(recv)); } else if (IS_INT_fn(recv)) { long v = (long)recv.i; *out = INTVAL(v < 0 ? -v : v); } else { *out = REALVAL(fabs(to_real(recv))); } return 1; }
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
     if (!strcmp(meth, "round")) { *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
@@ -3437,6 +3437,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
           *out = INTVAL((a0 && a1 && !strcmp(a0, a1)) ? 1 : 0); return 1; }
     }
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__rk_mkcplx_i")) { (void) args; (void) nargs; extern DESCR_t rt_cplx_make(double, double); *out = rt_cplx_make(0.0, 1.0); return 1; }
     if (!strcmp(fn, "__rk_exit") && nargs == 1) {
         long code = IS_INT_fn(args[0]) ? args[0].i : 0;
         exit((int) code);
@@ -5905,6 +5906,13 @@ static const char *rk_match_render(DESCR_t d, int use_gist) {
     b[bp] = '\0'; return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rk_cplx_str(DESCR_t d) {
+    extern void rt_cplx_parts(DESCR_t, double *, double *);
+    double re, im; rt_cplx_parts(d, &re, &im);
+    char rb[64], ib[64]; rk_real_str(re, rb, sizeof rb); rk_real_str(fabs(im), ib, sizeof ib);
+    char *out = rt_wsb_alloc(160); snprintf(out, 160, "%s%s%si", rb, im < 0 ? "-" : "+", ib);
+    return out;
+}
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
     if (IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name) {
@@ -7393,6 +7401,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5747: ;
     if ((_bid == BID_abs) && nargs == 1) {
+        if (args[0].v == DT_CPLX) { extern double rt_cplx_abs(DESCR_t); *out = REALVAL(rt_cplx_abs(args[0])); return 1; }
         extern void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
         extern int rt_big_is(DESCR_t); extern int rt_big_sign(DESCR_t); extern DESCR_t rt_big_neg(DESCR_t);
         DESCR_t av = args[0]; DESCR_t nv;

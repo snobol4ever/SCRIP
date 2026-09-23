@@ -78,7 +78,9 @@ static const char *rk_var_ident(const char *s) {
 static tree_t *var_node(const char *name) {
     const char *id = rk_var_ident(name);
     if (name && name[0] == '@') rk_mark_array_name(id);
-    return leaf_sval(TT_VAR, id);
+    tree_t *e = leaf_sval(TT_VAR, id);
+    if (name && name[0] != '$' && name[0] != '@' && name[0] != '%') e->slen = 1;
+    return e;
 }
 static const char *testop_rt(const char *s) {
     if (!s) return "__rk_test_ok";

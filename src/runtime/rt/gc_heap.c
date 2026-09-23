@@ -830,6 +830,12 @@ static void gc_visit_one(DESCR_t *d)
         gc_mark_blk(h, 0);
         gc_slot_reg((void *)&d->p);
         return; }
+    case DT_CPLX: {
+        rt_hblk_t *h = gc_blk_of((const char *)d->p);
+        if (!h) return;
+        gc_mark_blk(h, 0);
+        gc_slot_reg((void *)&d->p);
+        return; }
     case DT_E: {
         if (!IS_PROCVAL_fn(*d)) return;
         rt_hblk_t *h = gc_blk_of(d->s);
@@ -1032,6 +1038,7 @@ static int gc_type_says_ref(const DESCR_t *d)
         case DT_A:    return 1;
         case DT_DATA: return 1;
         case DT_BIG:  return 1;
+        case DT_CPLX: return 1;
         case DT_E:    return IS_PROCVAL_fn(*d);
         case DT_N:    return d->slen == 0 || d->slen == 2;
         default:      return 0;
@@ -1142,6 +1149,7 @@ static int gc_cell_visit(DESCR_t *d)
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) { rt_gc_visit_descr(d); return 1; }
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { if (gc_blk_of((const char *)d->p)) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); if (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_CPLX) { rt_hblk_t *ch = gc_blk_of((const char *)d->p); if (ch && ch->type == HB_WSB && (char *)d->p == (char *)(ch + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     return 0;
 }
 static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }

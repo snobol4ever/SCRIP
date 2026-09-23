@@ -230,6 +230,33 @@ int operand_is_real_str(DESCR_t v) {
 static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict);
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_impl_s(a, b, op, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct RK_CPLX_t { double re, im; } RK_CPLX_t;
+DESCR_t rt_cplx_make(double re, double im) {
+    extern void *rt_wsb_alloc(size_t);
+    RK_CPLX_t *c = (RK_CPLX_t *) rt_wsb_alloc(sizeof(RK_CPLX_t));
+    if (!c) return FAILDESCR;
+    c->re = re; c->im = im;
+    DESCR_t d; d.v = DT_CPLX; descr_set_src_node(&d, DESCR_SRC_NODE_UNSTAMPED); d.slen = 0; d.p = (void *) c;
+    return d;
+}
+void rt_cplx_parts(DESCR_t d, double *re, double *im) {
+    if (d.v == DT_CPLX && d.p) { RK_CPLX_t *c = (RK_CPLX_t *) d.p; *re = c->re; *im = c->im; return; }
+    *re = to_real(d); *im = 0.0;
+}
+double rt_cplx_abs(DESCR_t d) { double re, im; rt_cplx_parts(d, &re, &im); return sqrt(re * re + im * im); }
+static DESCR_t rt_cplx_arith(DESCR_t a, DESCR_t b, int op) {
+    double ar, ai, br, bi; rt_cplx_parts(a, &ar, &ai); rt_cplx_parts(b, &br, &bi);
+    switch (op) {
+        case BINOP_ADD: return rt_cplx_make(ar + br, ai + bi);
+        case BINOP_SUB: return rt_cplx_make(ar - br, ai - bi);
+        case BINOP_MUL: return rt_cplx_make(ar * br - ai * bi, ar * bi + ai * br);
+        case BINOP_DIV: { double dnm = br * br + bi * bi;
+            if (dnm == 0.0) { core_runtime_error(2, "division by zero (Complex)"); return FAILDESCR; }
+            return rt_cplx_make((ar * br + ai * bi) / dnm, (ai * br - ar * bi) / dnm); }
+        default: core_runtime_error(1, "unsupported operation on Complex"); return FAILDESCR;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (a.v == DT_I && b.v == DT_I) {
@@ -370,6 +397,7 @@ static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {
     return r;
 }
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
+    if (a.v == DT_CPLX || b.v == DT_CPLX) return rt_cplx_arith(a, b, op);
     DESCR_t oa = a, ob = b;
     a = big_str_operand(a); b = big_str_operand(b);
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);

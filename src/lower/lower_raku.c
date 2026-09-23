@@ -341,14 +341,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->v.sval && strchr(t->v.sval, ':')) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval); *res = nd; return nd;
         }
-        if (t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
+        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 3.141592653589793; *res = nd; return nd;
         }
-        if (t->v.sval && !strcmp(t->v.sval, "Inf") && !rk_is_class_name("Inf")) {
+        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "Inf") && !rk_is_class_name("Inf")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) INFINITY; *res = nd; return nd;
         }
-        if (t->v.sval && !strcmp(t->v.sval, "NaN") && !rk_is_class_name("NaN")) {
+        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "NaN") && !rk_is_class_name("NaN")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) NAN; *res = nd; return nd;
+        }
+        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "i") && !rk_is_class_name("i")) {
+            IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_mkcplx_i"; *res = nd; return nd;
         }
         if (rk_name_is_byref(cx, t->v.sval)) {
             IR_t * dr = build(cx, IR_DEREF, γ, ω);

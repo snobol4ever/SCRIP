@@ -1041,6 +1041,7 @@ char alphabet[257];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_numeric_like(DESCR_t d) {
     if (d.v == DT_BIG) return 1;
+    if (d.v == DT_CPLX) return 1;
     if (d.v == DT_BOOL) return 1;
     if (d.v == DT_ORDER) return 1;
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
@@ -2584,6 +2585,7 @@ char *c_VARVAL_fn(DESCR_t v) {
             return rt_heap_strdup_c(buf);
         }
         case DT_BIG: { extern char *rt_big_str(DESCR_t); return rt_big_str(v); }
+        case DT_CPLX: { extern const char *rk_cplx_str(DESCR_t); return rt_heap_strdup_c(rk_cplx_str(v)); }
         case DT_DATA:
             return v.u ? rt_heap_strdup_c(v.u->type->name) : rt_heap_strdup_c("");
         case DT_P:
