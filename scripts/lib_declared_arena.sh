@@ -44,6 +44,7 @@
 # governs, so a reader who reaches for the number reaches the rule in the same glance.
 DECLARED_ARENA_CAP_KB=4096          # gc_heap.c #define GC_HEAP_CAP_KB
 DECLARED_ARENA_MAX_KB=4194304       # 4096*1024, the ceiling SCRIP_HEAP_KB itself refuses past
+_LDA_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # declared_arena_kb <all_csv> <entry>
 #   Echoes the declared KB for <entry>, or NOTHING when the file, the column or the cell is absent --
@@ -93,6 +94,38 @@ try:
             sys.exit(0)
 except OSError:
     sys.exit(0)
+PY
+}
+
+# declared_arena_kb_beside <program>
+#   Echoes the declared KB for a STANDALONE program -- a benchmark, an extracted entry -- from the <stem>.heap
+#   sidecar beside it, or NOTHING when there is none. ⭐ WHY A SECOND FUNCTION AND NOT A SECOND FORMAT (coo
+#   2026-09-23, row instruments-benchmarks-enter-the-suite-grid-..., on hq_snocone's ask): a benchmark tree has no
+#   ALL.csv, and demo/json.sc needs 16384 KB (two ARRAY(262144) abort at the 4096 KB cap). The harness already
+#   defines this sidecar (heap_sidecar_path, written by extract-family: one line NAME<TAB>KB), so the benchmark
+#   runners read THAT file through THAT code -- corpus_suite_harness.heap_declarations() is CALLED, never copied,
+#   and its validator carries CEO-1171's floor. ⛔ A .heap FILE THAT DECLARES NOTHING FOR THE PROGRAM BESIDE IT IS
+#   REFUSED rc=2, never read as "no declaration": a bare `16384` line splits on TAB into a name and an EMPTY kb,
+#   which the harness reads as absent, so the declaration would vanish while the file sat there claiming it.
+#   rc 2 with nothing echoed on any unusable sidecar, so a caller testing the exit code gets the refusal.
+declared_arena_kb_beside() {
+  local prog="$1"
+  [ -n "$prog" ] && [ -f "${prog%.*}.heap" ] || return 0
+  python3 - "$prog" "$_LDA_HERE" <<'PY'
+import os, sys
+prog, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, here)
+import corpus_suite_harness as h
+side = h.heap_sidecar_path(prog)
+decl, src = h.heap_declarations(prog)
+stem = os.path.splitext(os.path.basename(prog))[0]
+if src != os.path.basename(side) or stem not in decl:
+    sys.stderr.write("⛔ REFUSE(2) %s declares no heap for %s: the sidecar's format is one line NAME<TAB>KB with NAME=%s "
+                     "(the harness's own, heap_sidecar_path) -- a bare number or another program's name is not a "
+                     "declaration for this one, and reading it as absent would drop the declaration silently\n"
+                     % (side, os.path.basename(prog), stem))
+    sys.exit(2)
+print(decl[stem])
 PY
 }
 

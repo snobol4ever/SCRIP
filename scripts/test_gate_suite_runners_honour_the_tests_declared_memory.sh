@@ -40,10 +40,12 @@
 # runs at the shipped 128 in EXACTLY the workflow the fleet cures in, while passing on the board it is published
 # from -- two arms disagreeing for a reason neither names.
 #
-# FAIL_ONCE=1 restores the pre-column world -- the shell reader returns nothing for everybody AND the travelling
-# sidecar is not written -- and MEASURED 2026-09-23 it reds exactly five arms: B, C3, D1, D1b, E2.  The other eight
-# are green BY CONSTRUCTION under the mutant and are named here so nobody reads their green as coverage: A1..A3 and
-# D2 read the runtime, F reads the shipped tree, E1 names a path, and C1/C2 describe the reader-off world itself.
+# FAIL_ONCE=1 restores the pre-column world -- both shell readers (declared_arena_kb, declared_arena_kb_beside) return
+# nothing for everybody AND the travelling sidecar is not written -- and MEASURED 2026-09-23 18:4x (coo, arm H added) it
+# reds exactly seven arms: B, C3, D1, D1b, E2, H1, H2.  The other ten are green BY CONSTRUCTION under the mutant and are
+# named here so nobody reads their green as coverage: A1..A3 and D2 read the runtime, F reads the shipped tree, E1 names
+# a path, C1/C2/H3 describe the reader-off world itself, and G drives the Python harness, which the mutant leaves alone
+# (the first count of this paragraph said five red and eight green, and G, one of the eight, was never named).
 # An arm that has never been seen to fail is an arm that reads "there was never a bug here" (this gate's own law,
 # COO-152), and a fail-once that reds for a STAGING reason while claiming to have proved the property is the shape
 # COO-153 found three of inside the mechanism built to disprove exactly that -- so the five are listed, not counted.
@@ -132,6 +134,7 @@ echo "  PREMISE MEASURED: hungry.icn rc=$base_rc (hard-cap abort) at the shipped
 if [ "${FAIL_ONCE:-0}" = 1 ]; then
   # Restore the pre-column world: the reader returns nothing for everybody.
   declared_arena_kb() { return 0; }
+  declared_arena_kb_beside() { return 0; }
 fi
 b_rc=0
 ( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ) || b_rc=$?
@@ -235,6 +238,27 @@ case "$g_out" in
   "")      ck bad "G  the harness could not be exercised at all (no output) -- the export is unmeasured, which is not the same as working" ;;
   *)       ck bad "G  harness verdicts did not change across the declaration ($g_out) -- heap_kb was parsed and threaded nowhere" ;;
 esac
+
+# ── arm H: a STANDALONE program (a benchmark) declares through the <stem>.heap sidecar beside it ───────────────
+# ⭐ (coo 2026-09-23, row instruments-benchmarks-enter-the-suite-grid-...): a benchmark tree has no ALL.csv, so its runners read
+# the harness's own sidecar through declared_arena_kb_beside, which CALLS heap_declarations(). H1 requires the verdict to DIFFER
+# across the declaration, as B does; H2 requires a bare number to be REFUSED, because the harness reads `16384` with no name as
+# an absent declaration and a runner would then grade the program at the shipped default while the file claimed otherwise.
+mkdir -p "$T/solo" "$T/solo2" && cp "$T/pkg/hungry.icn" "$T/solo/hungry.icn" && cp "$T/pkg/hungry.icn" "$T/solo2/hungry.icn"
+printf 'hungry\t%s\n' "$DECL_KB" > "$T/solo/hungry.heap"
+h_kb=$(declared_arena_kb_beside "$T/solo/hungry.icn" 2>/dev/null); h_rc=0
+( cd "$T/solo" && if [ -n "$h_kb" ]; then export SCRIP_HEAP_KB="$h_kb"; fi
+  env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ) || h_rc=$?
+[ "$h_rc" != 124 ] || refuse "arm H1 TIMED OUT (rc=124) -- the ceiling fired, so this run cannot say whether the sidecar was honoured"
+[ "$h_rc" = 0 ] && ck ok "H1 a standalone program's hungry.heap (hungry TAB $DECL_KB) is read beside it and the run COMPLETES (rc=0) where the shipped default reads rc=$base_rc" \
+  || ck bad "H1 the standalone program still fails (rc=$h_rc, read '$h_kb') -- its .heap sidecar was not honoured"
+printf '%s\n' "$DECL_KB" > "$T/solo2/hungry.heap"
+declared_arena_kb_beside "$T/solo2/hungry.icn" >/dev/null 2>"$T/bare.err"; h2=$?
+[ "$h2" = 2 ] && grep -q 'declares no heap for hungry.icn' "$T/bare.err" && ck ok "H2 a bare-number .heap sidecar is REFUSED rc=2 by name -- never read as 'no declaration'" \
+  || ck bad "H2 a bare-number .heap sidecar returned rc=$h2 -- the declaration would vanish silently while the file claimed it"
+h3=$(declared_arena_kb_beside "$T/pkg/frugal.icn"); h3_rc=$?
+[ "$h3_rc" = 0 ] && [ -z "$h3" ] && ck ok "H3 a program with no sidecar reads nothing (rc=0): the shipped default, not an error" \
+  || ck bad "H3 a program with no sidecar read '$h3' rc=$h3_rc"
 
 # ── arm F: every shipped attribute file carries the column ─────────────────────────────────────────────────────
 CORPUS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus"

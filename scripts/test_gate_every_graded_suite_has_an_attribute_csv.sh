@@ -19,7 +19,9 @@ declare -A DIR=(
   [gnu_fd]=corpus/packages/prolog/gnu_fd [logtalk]=corpus/packages/prolog/logtalk_iso [fpc]=corpus/packages/pascal/fpc_tests [pat]=corpus/packages/pascal/pat
   [roast]=corpus/packages/raku/roast [sno-master]=corpus/tests/snobol4 [icn-master]=corpus/tests/icon [pl-master]=corpus/tests/prolog
   [pas-master]=corpus/tests/pascal [raku-master]=corpus/tests/raku [snc-master]=corpus/tests/snocone [reb-master]=corpus/tests/rebus
-  [snocone-bench-ref]=corpus/benchmarks/snocone
+  [snocone-bench-ref]=corpus/benchmarks/snocone [snobol4-bench-ref]=corpus/benchmarks/snobol4 [icon-bench-ref]=corpus/benchmarks/icon
+  [prolog-bench-ref]=corpus/benchmarks/prolog [pascal-bench-ref]=corpus/benchmarks/pascal [raku-bench-ref]=corpus/benchmarks/raku
+  [rebus-bench-ref]=corpus/benchmarks/rebus
 )
 rows=0; ok=0; okb=0; missing=(); unknown=()
 while IFS=$'\t' read -r key rest; do

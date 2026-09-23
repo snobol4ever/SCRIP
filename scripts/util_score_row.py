@@ -1167,7 +1167,17 @@ def write_grid_direct(a):
 SUITES_TSV = os.path.join(S4E, ".github", "SUITES.tsv")
 SUITE_BANNER = os.path.join(S4E, ".github", "scripts", "util_suite_banner.py")
 SUITE_SYNC_ROW = "suite-table-row-rewritten-by-the-runner-through-util-suite-banner-set"
-SUITE_SYNC_COLUMNS = ("board", "vendor")
+# ⭐⭐ A COLUMN THAT IS A SUITE-TABLE ROW AND NO GRID CELL (Lon 2026-09-23 17:2x, in-chat to the ceo, verbatim: "You messed up and
+# forgot to have the benchmarks in the test suite grid." -- "The reason to force a benchmark to also be a test is to guarantee it is
+# not vacuous."; CEO-1221; row instruments-benchmarks-enter-the-suite-grid-one-row-per-language-graded-by-ref-through-the-three-
+# angle-harness, the coo). Each language's benchmark programs, graded as tests -- a program passes when it prints its REF under all
+# three angles in both modes -- are a row of THE SUITE TABLE. They have NO cell of their own in SCORE.md's grids, and they must not
+# borrow one: the September-10 grid's B cell (`--column bench`) is the TIMING reading and waits for the quiet-box re-run (CEO-1219),
+# and V feeds the PROGRESS percent, so a correctness fraction in either would give one cell two meanings. The key resolves from
+# --lang alone: the ONE SUITES.tsv row of that language whose key ends in the suffix. The key IS the progress table's suite name,
+# so the CEO-750 cross-check reads `<lang>-bench-ref` rows and no key-to-DB map anywhere needs an entry.
+SUITE_ONLY = {"bench-ref": "-bench-ref"}
+SUITE_SYNC_COLUMNS = ("board", "vendor") + tuple(SUITE_ONLY)
 
 
 def suite_tree_stamp():
@@ -1204,6 +1214,12 @@ def resolve_suite_key(lang, column, suite, explicit):
             return hits[0], None
         return None, ("--column board --lang %s matches %d master rows in SUITES.tsv (%s); name it with --suite-key"
                       % (lang, len(hits), ", ".join(hits) or "none"))
+    if column in SUITE_ONLY:
+        hits = [r["key"] for r in rows if r.get("lang") == lang and r["key"].endswith(SUITE_ONLY[column])]
+        if len(hits) == 1:
+            return hits[0], None
+        return None, ("--column %s --lang %s matches %d rows whose key ends in %s in SUITES.tsv (%s)"
+                      % (column, lang, len(hits), SUITE_ONLY[column], ", ".join(hits) or "none"))
     if not suite:
         return None, "--column vendor writes ONE measurement inside a shared cell, so the suite row cannot be inferred -- pass --suite (or --suite-key)"
     want = suite.strip().lower()
@@ -1529,6 +1545,70 @@ def suite_sync(a, tree, dry_run, decided=None):
     return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call%s" % (key, p, t, day, tree, (" · criterion stamped and read back" if _stamp else ""))
 
 
+def write_suite_row_only(a):
+    """--column bench-ref: the SUITES.tsv row and its SCORE.md suite-table line, and NO grid cell (see SUITE_ONLY).
+
+    Every guard a board write passes is kept, in the same order: the roster, the cgroup kill and the moved binary are
+    checked by cmd_write before this is reached; here the clean pushed tree, then suite_sync_decide (every refusal settled
+    before a byte moves -- the denominator stamp, the CEO-750 cross-check against the progress rows on the stamped tree),
+    then per-row TREE ANCESTRY (CEO-492, read from the row's own tree column, since this path has no cell to read it
+    from), then the write, which util_suite_banner.py --set makes, re-rendering the one table line, and READS BACK; then
+    the verbatim board line is archived (CEO-827)."""
+    suffix = SUITE_ONLY[a.column]
+    text = (a.text or "").strip()
+    if "\n" in text:
+        die("--text spans lines; a board line is one line")
+    if not re.search(r"\d", text):
+        die("--text carries no digit (%r). A suite row states a measurement; pass the runner's own board line" % text)
+    if os.path.abspath(SUITES_TSV) == os.path.abspath(os.path.join(S4E, ".github", "SUITES.tsv")):
+        dirty = tree_is_dirty()
+        if dirty:
+            print("⚠ SUITE ROW SKIPPED — %s %s uncommitted; this run measured a tree nobody else can check out."
+                  % (", ".join(dirty), "has" if len(dirty) == 1 else "have"))
+            print("  The number above stands as a scouting datum. Commit the tree and re-run to land the row (ceo CEO-174).")
+            return 0
+        unpushed = tree_is_unpushed()
+        if unpushed:
+            print("⚠ SUITE ROW SKIPPED — %s %s on a local commit no remote branch contains; this run measured a tree nobody else can check out."
+                  % (", ".join(unpushed), "is" if len(unpushed) == 1 else "are"))
+            print("  The number above stands as a scouting datum. Push the branch and re-run to land the row.")
+            return 0
+    key, why = resolve_suite_key(a.lang, a.column, a.suite, getattr(a, "suite_key", "") or "")
+    rows, _err = suites_rows()
+    row = next((r for r in rows if r.get("key") == key), None) if key else None
+    # ⛔ THIS PATH WRITES A ROW WITH NO GRID CELL, SO IT WRITES ONLY THE ROWS THAT HAVE NONE: an explicit --suite-key naming a master
+    # or a package row would publish that row while its grid cell kept the old number -- the two-records split CEO-363 closed.
+    if key and (not key.endswith(suffix) or row is None or row.get("lang") != a.lang):
+        die("--column %s writes only a %s-language row whose key ends in %s, and %r is %s. A master or a package row is written\n"
+            "        with its grid cell (--column board / vendor), never through this path.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched."
+            % (a.column, a.lang, suffix, key, ("not a SUITES.tsv key" if row is None else "language %r" % row.get("lang"))))
+    decided = suite_sync_decide(a)
+    tree = suite_tree_stamp()
+    old_tree = (row or {}).get("tree", "").strip()
+    rel = tree_ancestry(tree.replace("-DIRTY", ""), re.sub(r"-(DIRTY|dirty)$", "", old_tree)) if old_tree else "newer"
+    if rel == "older":
+        die("suite row %r is ALREADY STAMPED ON A NEWER TREE than the one this write measured: this write measured SCRIP `%s`, the row\n"
+            "        reads `%s`, and `%s` is a strict ANCESTOR of it. Rewriting it would move the board BACKWARDS while looking like an\n"
+            "        update (CEO-492). Pull, re-run on the tree you now hold, and write THAT number.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (key, tree, old_tree, tree))
+    if rel is None:
+        print("  ⚠ ancestry NOT checked against SCRIP `%s` (the row's tree): this checkout does not know that commit, so whether "
+              "this write moves the row forward or backward was not established." % old_tree)
+    if a.dry_run:
+        print(suite_sync(a, tree, True, decided))
+        archive_board_line(a.text, key, a.measurer, tree, dry=True)
+        print("  grid: --column %s is a suite-table row only; no SCORE.md grid cell is written (the B cell is the timing reading)" % a.column)
+        print("  (DRY RUN -- nothing written)")
+        return 0
+    print(suite_sync(a, tree, False, decided))
+    _arch = archive_board_line(a.text, key, a.measurer, tree)
+    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SUITES.tsv AND .github/SCORE.md (its suite-table line, re-rendered in this call)"
+          + (" AND %s" % os.path.relpath(_arch, os.path.join(S4E, ".github")) if _arch else "")
+          + " with the landing that carried this measurement.")
+    return 0
+
+
 def cmd_write(a):
     if not a.measurer or a.measurer.strip().lower() in _PLACEHOLDER_MEASURERS:
         stale = a.measurer
@@ -1603,6 +1683,8 @@ def cmd_write(a):
         print("--- preview follows (nothing is written under --dry-run) ---")
     if a.column in GRID_DIRECT:
         return write_grid_direct(a)
+    if a.column in SUITE_ONLY:
+        return write_suite_row_only(a)
     if a.column not in COLUMNS:
         die("unknown --column %r. Known: %s" % (a.column, ", ".join(sorted(COLUMNS))))
     text = a.text.strip()
@@ -3257,6 +3339,58 @@ def cmd_selftest(a):
             print("SELFTEST: citation_kind reads the Raku master runner as M (its name ends in the vendor suffix), a vendor runner as V, the Prolog rung runner as L")
         else:
             print("SELFTEST FAIL: citation_kind gave %r for (raku master, ipl vendor, prolog rung), wanted ('M', 'V', 'L')" % (_ck,)); ok = False
+        # ⭐⭐ --column bench-ref: A SUITE-TABLE ROW WITH NO GRID CELL (coo 2026-09-23, CEO-1221; row instruments-benchmarks-enter-the-
+        # suite-grid-...). The fixture PLANTS its own empty rebus-bench-ref row in the scratch table, so these arms read the same on a
+        # root whose real SUITES.tsv predates the benchmark rows. Proven: the first write sets the row AND its first_* (a row that
+        # entered empty), the grid and display cells for the language stay byte-identical, a second write moves today_* and never
+        # first_*, a master key forced through this path refuses byte-identical, a language with no bench row refuses, and a dry run
+        # writes nothing.
+        _tl = [l for l in open(SUITES_TSV, encoding="utf-8").read().split("\n") if not l.startswith("rebus-bench-ref\t")]
+        while _tl and _tl[-1] == "":
+            _tl.pop()
+        _tl.append("\t".join(["rebus-bench-ref", "RebBench", "⏱️", "rebus"] + [""] * 8))
+        open(SUITES_TSV, "w", encoding="utf-8").write("\n".join(_tl) + "\n")
+        def _rebus_cells():
+            _ls = open(SCORE_MD, encoding="utf-8").read().split("\n")
+            _gh, _gr, _ = find_grid(_ls); _th, _tr, _ = find_table(_ls)
+            return (_gr.get("rebus"), _tr.get("rebus", (None, None))[1])
+        _cells0 = _rebus_cells()
+        _bl = "SUITE_BOARD family=rebus-bench-ref total=3 shipped=3 all_pass=2 all_n=3 m3_pass=2 m4_pass=3 (selftest, not a measurement)"
+        if not _arm("--column bench-ref resolves rebus-bench-ref from --lang and WRITES the suite row (a board line read by name)",
+                    lambda: cmd_write(_A(column="bench-ref", text=_bl)), False): ok = False
+        _r = _tsv_row("rebus-bench-ref") or {}
+        if (_r.get("today_pass"), _r.get("today_total"), _r.get("first_pass"), _r.get("first_total")) == ("2", "3", "2", "3") and _r.get("first_date"):
+            print("SELFTEST: ...the row reads 2/3 and its FIRST reading is filled by the same write (it entered the table empty)")
+        else:
+            print("SELFTEST FAIL: bench-ref first write -- row %r" % ({k: _r.get(k) for k in ("first_date", "first_pass", "first_total", "today_pass", "today_total")},)); ok = False
+        if _rebus_cells() == _cells0:
+            print("SELFTEST: ...and the rebus grid row and display row are byte-identical: no grid cell is written for a benchmark row")
+        else:
+            print("SELFTEST FAIL: a bench-ref write moved a rebus grid or display cell -- the B cell is the timing reading and must not be touched"); ok = False
+        if any(l.startswith("| RebBench | rebus | 2/3 |") for l in open(SCORE_MD, encoding="utf-8").read().split("\n")):
+            print("SELFTEST: ...and SCORE.md's suite table carries the RebBench line, rendered by the same call")
+        else:
+            print("SELFTEST FAIL: the bench-ref write left no '| RebBench | rebus | 2/3 |' line in the suite table"); ok = False
+        if not _arm("a second bench-ref write lands", lambda: cmd_write(_A(column="bench-ref", text=_bl.replace("all_pass=2", "all_pass=3"))), False): ok = False
+        _r = _tsv_row("rebus-bench-ref") or {}
+        if (_r.get("today_pass"), _r.get("first_pass")) == ("3", "2"):
+            print("SELFTEST: ...today moved to 3/3 and the first reading stayed 2/3 (never re-baselined)")
+        else:
+            print("SELFTEST FAIL: second bench-ref write -- today_pass %r first_pass %r" % (_r.get("today_pass"), _r.get("first_pass"))); ok = False
+        _b_md = open(SCORE_MD, "rb").read(); _b_tsv = open(SUITES_TSV, "rb").read()
+        # ⛔ THE FORCED WRITE CARRIES THE MASTER'S OWN DENOMINATOR, so the ONLY guard that can refuse it is the one under test. The
+        # first cut used the bench fixture's 2/3, and a mutant with the guard removed stayed GREEN: CEO-785's stampless-denominator
+        # refusal (48 -> 3) fired instead -- an arm green for a reason other than the one its label names (COO-153's shape).
+        _mt = (_tsv_row("reb-master") or {}).get("today_total", "48")
+        _ml = "SUITE_BOARD family=ALL total=%s shipped=%s all_pass=7 all_n=%s (selftest, not a measurement)" % (_mt, _mt, _mt)
+        if not _arm("a MASTER key forced through --column bench-ref (--suite-key reb-master, its own denominator %s) REFUSES" % _mt,
+                    lambda: cmd_write(_A(column="bench-ref", suite_key="reb-master", text=_ml)), True): ok = False
+        if not _arm("a language with no bench row (--lang cobol) REFUSES", lambda: cmd_write(_A(column="bench-ref", lang="cobol", text=_bl)), True): ok = False
+        if not _arm("a bench-ref --dry-run lands nothing", lambda: cmd_write(_A(column="bench-ref", dry_run=True, text=_bl.replace("all_pass=2", "all_pass=1"))), False): ok = False
+        if open(SCORE_MD, "rb").read() == _b_md and open(SUITES_TSV, "rb").read() == _b_tsv:
+            print("SELFTEST: ...the two refusals and the dry run left SCORE.md and SUITES.tsv byte-identical")
+        else:
+            print("SELFTEST FAIL: a bench-ref refusal or dry run wrote something"); ok = False
         # ⛔⭐ CEO-785 -- A CRITERION CHANGE IS STAMPED BY THE WRITER, AND A DENOMINATOR MOVE WITHOUT ITS STAMP REFUSES BEFORE
         # ANY WRITE (coo 2026-09-16; row instruments-util-score-row-cannot-stamp-a-criterion-change-so-every-denominator-move-
         # is-hand-edited-or-unstamped). Last in the selftest because it leaves the fixture row at 49.
@@ -4638,7 +4772,7 @@ def main():
     sub = p.add_subparsers(dest="cmd")
     w = sub.add_parser("write", help="rewrite one language's one column, in place, with provenance")
     w.add_argument("--lang", required=True)
-    w.add_argument("--column", required=True, help="one of: " + ", ".join(sorted(COLUMNS)) + " (display, mirrored to the grid) or " + ", ".join(sorted(GRID_DIRECT)) + " (the September-10 grid L/B cells directly)")
+    w.add_argument("--column", required=True, help="one of: " + ", ".join(sorted(COLUMNS)) + " (display, mirrored to the grid) or " + ", ".join(sorted(GRID_DIRECT)) + " (the September-10 grid L/B cells directly) or " + ", ".join(sorted(SUITE_ONLY)) + " (a suite-table row with no grid cell: the language's benchmarks graded as tests)")
     w.add_argument("--text", required=True, help="the runner's OWN printed board line, verbatim where possible")
     w.add_argument("--measurer", required=True, help="seat/HQ identity that ran it")
     w.add_argument("--modes", default="", help="e.g. m3,m4")
