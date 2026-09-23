@@ -429,19 +429,126 @@ def grade_site(insns, pred, i, frames):
     return out
 
 
+def parity_step(ins, p, prbp, pr11, pslot):
+    """one instruction's effect on the RSP PARITY state (rsp, rbp, r11, [rsp+0]) -- each 0, 8 or None (unknown).
+
+    Only the residue mod 16 is tracked, which is why `and rsp, -16` is a KNOWN 0 here while the depth fixpoint of
+    the shared census must poison it: the alignment mask destroys the depth and fixes the parity.  The align
+    envelope's restore (`mov r11, rsp` ... `mov [rsp+0], r11` ... `mov rsp, [rsp+0]`) is read through the same
+    two shadows the census carries, reduced to parity."""
+    m, ops = ins.mnem, [o.strip() for o in ins.ops]
+    def m16(x):
+        return None if x is None else x % 16
+    if m == "and" and len(ops) == 2 and ops[0] == "rsp":
+        return (0, prbp, pr11, pslot) if ops[1] in ("-16", "0xfffffffffffffff0", "-0x10") else (None, prbp, pr11, pslot)
+    if m == "mov" and len(ops) == 2:
+        if ops[0] == "rsp":
+            if ops[1] == "rbp":
+                return (prbp, prbp, pr11, pslot)
+            if UC.rsp_slot_of(ops[1]) == 0:
+                return (pslot, prbp, pr11, pslot)
+            return (None, prbp, pr11, pslot)
+        if ops[0] == "rbp":
+            return (p, p if ops[1] == "rsp" else None, pr11, pslot)
+        if ops[0] == "r11":
+            return (p, prbp, p if ops[1] == "rsp" else None, pslot)
+        if UC.rsp_slot_of(ops[0]) == 0:
+            return (p, prbp, pr11, pr11 if ops[1] == "r11" else None)
+    if m == "pop" and ops and ops[0] == "rbp":
+        return (m16(p + 8) if p is not None else None, None, pr11, pslot)
+    if m == "pop" and ops and ops[0] == "r11":
+        return (m16(p + 8) if p is not None else None, prbp, None, pslot)
+    d = UC.rsp_move(ins)
+    if d is None:
+        return (None, prbp, pr11, pslot)
+    return (m16(p + d) if p is not None else None, prbp, pr11, pslot)
+
+
+BOX_ENTRY_RX = re.compile(r"^n\d+_\w+_bx$")
+PORT_ENTRY_RX = re.compile(r"^(n\d+_\w+|main)_[αβγω]$")
+
+
+def parity_walk(insns, succ, asm_text):
+    """K5 -- the RSP parity at every poll call, walked from each function's OWN entry (CEO-1151).
+
+    ⛔ WHY NOT THE ANCHOR WALK: the grid census places a call site only where a graph's map-cell anchor reaches
+    it, and in procedure_write_253 -- the cfo's misaligned-stack witness -- it UNREACHES 40 of 74 call sites and
+    leaves 9 undecidable, because the wired regime enters boxes through indirect jumps no anchor path crosses.
+    So this walk starts at every `.type X, @function` label, every box port label, every procedure port label and
+    `main`, with the parity the road fixes there.  MEASURED, NOT ASSUMED, AT THE ONE PLACE C ENTERS EMITTED CODE
+    (cto 2026-09-22): the four hand-written entry shims in rt.c all JUMP into the port after their own pushes --
+    rt_proc_enter moves rsp by -56, rt_proc_enter_named by -72, rt_proc_enter_barrier and rt_proc_enter_frag by
+    -72 -- so from a C call's 8 mod 16 every one lands the port at 0 mod 16; the wiring's own jumps carry the grid
+    the grid census holds at every decidable floor (3790 of 3790, CTO-103); and `main` is the ONE label libc
+    calls, entered at 8, whose 65544-byte prologue puts it back on the grid.  A first cut called every column-0
+    procedure label a called function and read TWELVE define-port polls MISALIGNED that the shims prove aligned;
+    the rule is now: `main` (and the plant's `main_bx`) enter at 8, everything else enters on the grid, and every
+    verdict names which.  Successors are the census's CFG restricted to the function's own text
+    range; a call falls through (the callee returns to the same rsp).  The ABI requires rsp 0 mod 16 AT the call
+    instruction, so a poll call at parity 8 is MISALIGNED: every C callee on that path runs misaligned and the
+    first aligned SSE store faults -- the movaps in vsnprintf that convicted bb_call_value 67/70 with the
+    collector never run (CEO-1151).  Returns {poll index: (entry label, set of parities)}."""
+    fn_labels = set(re.findall(r"^\s*\.type\s+([\w.$]+)\s*,\s*@function", asm_text, re.M))
+    entries = {}
+    for i, ins in enumerate(insns):
+        for lab in ins.labels:
+            head = i == 0 or insns[i - 1].mnem in ("ret", "jmp", "ud2", "hlt")
+            if lab in fn_labels or lab in ("main", "main_bx") or PORT_ENTRY_RX.match(lab) \
+                    or (not lab.startswith(".") and head):
+                entries[i] = lab
+    order = sorted(entries)
+    res = {}
+    for j, i0 in enumerate(order):
+        name = entries[i0]
+        end = order[j + 1] if j + 1 < len(order) else len(insns)
+        p0 = 8 if name in ("main", "main_bx") else 0
+        st = collections.defaultdict(set)
+        st[i0].add((p0, None, None, None))
+        work = [i0]
+        while work:
+            i = work.pop()
+            ins = insns[i]
+            if ins.mnem == "call" and ins.ops and any(q in ins.ops[0] for q in UC.POLL_NAMES):
+                res.setdefault(i, (name, set()))[1].update(s[0] for s in st[i])
+            nxt = {parity_step(ins, *s) for s in st[i]}
+            for tgt in succ.get(i, ()):
+                if i0 <= tgt < end and not nxt <= st[tgt]:
+                    st[tgt] |= nxt
+                    work.append(tgt)
+    return res
+
+
+def parity_rows(par, i):
+    """the K5 row(s) for one poll site from the walk's reading -- ALIGNED is a row too, so the count is measured"""
+    if i not in par:
+        return [("K5", "UNDECIDABLE", "PARITY-UNREACHED -- no function entry reaches this poll inside its own text range")]
+    name, ps = par[i]
+    lab = ("function %s (entered by call, 8 mod 16)" % name if name in ("main", "main_bx")
+           else "box %s (entered by the wiring's jump, on the grid)" % name if BOX_ENTRY_RX.match(name)
+           else "port %s (entered by a jump from the wiring or an entry shim, on the grid)" % name)
+    if None in ps:
+        return [("K5", "UNDECIDABLE", "PARITY-UNKNOWN from %s -- an rsp write this walk cannot read on some path" % lab)]
+    if 8 in ps:
+        return [("K5", "MEMBER", "MISALIGNED rsp is 8 mod 16 at this call on %s path(s) from %s -- every C callee on "
+                 "that path is misaligned and the first aligned SSE store faults (CEO-1151)"
+                 % ("every" if ps == {8} else "some", lab))]
+    return [("K5", "ALIGNED", "rsp is 0 mod 16 at this call on every path from %s" % lab)]
+
+
 def contract_asm(asm_path, report_text, tag):
     """(rows, sites, refusal); a row is (tag, graph, label, line, clause, verdict, detail), one per BROKEN clause"""
     insns, succ, maps, layouts, frames, refusal = UC.build_frames(asm_path, report_text, tag)
     if refusal:
         return None, 0, refusal
     pred = preds_from(succ)
+    par = parity_walk(insns, succ, open(asm_path, encoding="utf-8", errors="replace").read())
     rows, sites = [], 0
     for i, ins in enumerate(insns):
         if not (ins.mnem == "call" and ins.ops and any(q in ins.ops[0] for q in UC.POLL_NAMES)):
             continue
         sites += 1
         g, _k, _w = UC.owner_of("rsp", 0, i, frames)
-        for (clause, verdict, detail) in grade_site(insns, pred, i, frames):
+        for (clause, verdict, detail) in grade_site(insns, pred, i, frames) + parity_rows(par, i):
             rows.append((tag, g or "-", UC.site_label(insns, i), ins.line, clause, verdict, detail))
     return rows, sites, None
 
@@ -460,7 +567,9 @@ FLOOR_HEADER = (
     "# every depth (owner_ks), and the six in the co-expression body plus one call_value beta site reach NO ANCHOR and\n"
     "# are NAMED POLL-RES-ENVELOPE.  A poll ARRIVING at a site this reader cannot place is a site that was UNPOLLED before,\n"
     "# not the tree getting worse; the RSP-parity screen (CEO-1151) grades those seven in the bare-poll row.\n"
-    "# COLUMNS: witness  sites  k1  k2  k3  k4  undecidable  spine_cell\n"
+    "# k5 is the RSP-PARITY clause (CEO-1151, cto 2026-09-22): a poll call at rsp 8 mod 16 on any path from its function's\n"
+    "# own entry (a box entry ASSUMED on the grid, a called function at 8), which misaligns every C callee on that path.\n"
+    "# COLUMNS: witness  sites  k1  k2  k3  k4  k5  undecidable  spine_cell\n"
 )
 
 
@@ -471,12 +580,14 @@ def read_floor(path=FLOOR):
     for ln in open(path, encoding="utf-8"):
         if ln.startswith("#") or not ln.strip():
             continue
-        f = ln.split("\t")
+        f = [x.strip() for x in ln.split("\t")]
         if len(f) < 7:
             continue
-        r = [int(x) for x in f[1:7]]
-        r.append(int(f[7]) if len(f) >= 8 and f[7].strip() else 0)
-        rows[f[0].strip()] = r
+        if len(f) >= 9:
+            r = [int(x) for x in f[1:9]]
+        else:
+            r = [int(x) for x in f[1:6]] + [0, int(f[6]), int(f[7]) if len(f) >= 8 and f[7] else 0]
+        rows[f[0]] = r
     return rows
 
 
@@ -497,12 +608,12 @@ def write_floor(counts, path=FLOOR):
         fh.write(FLOOR_HEADER.replace("# COLUMNS: witness", keep + "# COLUMNS: witness") if keep else FLOOR_HEADER)
         for w in sorted(counts):
             c = counts[w]
-            fh.write("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n"
-                     % (w, c["sites"], c["K1"], c["K2"], c["K3"], c["K4"], c["UND"], c.get("SPINE", 0)))
+            fh.write("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n"
+                     % (w, c["sites"], c["K1"], c["K2"], c["K3"], c["K4"], c.get("K5", 0), c["UND"], c.get("SPINE", 0)))
 
 
-KEYS = ("K1", "K2", "K3", "K4", "UND", "SPINE")
-BLOCKING_KEYS = ("K1", "K2", "K3", "K4", "UND")
+KEYS = ("K1", "K2", "K3", "K4", "K5", "UND", "SPINE")
+BLOCKING_KEYS = ("K1", "K2", "K3", "K4", "K5", "UND")
 
 
 def compare(reading_path, floor_path):
@@ -537,7 +648,7 @@ def compare(reading_path, floor_path):
         print("COMPARE REFUSED(2): the reading carries no CONTRACT SITES line -- it is not a reading")
         return 2
     graded = sum(int(x.split("=")[1]) for x in sites_line.split()
-                 if x.split("=")[0] in ("k1", "k2", "k3", "k4", "undecidable", "spine_cell"))
+                 if x.split("=")[0] in ("k1", "k2", "k3", "k4", "k5", "undecidable", "spine_cell"))
     if graded > 0 and not now:
         print("COMPARE REFUSED(2): the reading says %d finding(s) and NOT ONE of them parsed -- the comparison would"
               " grade every declaration against nothing and call the floor stale. That is a defect in this probe,"
@@ -567,7 +678,7 @@ def compare(reading_path, floor_path):
 
 
 def tally(rows, sites):
-    c = {"sites": sites, "K1": 0, "K2": 0, "K3": 0, "K4": 0, "UND": 0, "SPINE": 0}
+    c = {"sites": sites, "K1": 0, "K2": 0, "K3": 0, "K4": 0, "K5": 0, "UND": 0, "SPINE": 0, "ALIGNED": 0}
     for (_t, _g, _l, _n, clause, verdict, _d) in rows:
         if verdict == "MEMBER":
             c[clause] += 1
@@ -575,6 +686,8 @@ def tally(rows, sites):
             c["UND"] += 1
         elif verdict == "SPINE-CELL":
             c["SPINE"] += 1
+        elif verdict == "ALIGNED":
+            c["ALIGNED"] += 1
     return c
 
 
@@ -626,9 +739,14 @@ def report(scrip, progs, workdir, out=print, name_cap=48):
             % (sum(vac.values()), "; ".join("%s x%d" % (k, n) for k, n in vac.most_common(12))))
     mem_sites = len({(t, lbl, line) for (t, _g, lbl, line, _c, v, _d) in allrows if v == "MEMBER"})
     und_sites = len({(t, lbl, line) for (t, _g, lbl, line, _c, v, _d) in allrows if v == "UNDECIDABLE"})
-    out("CONTRACT SITES witnesses=%d sites=%d k1=%d k2=%d k3=%d k4=%d undecidable=%d spine_cell=%d refusals=%d"
-        % (len(counts), tot["sites"], tot["K1"], tot["K2"], tot["K3"], tot["K4"], tot["UND"], tot["SPINE"],
+    out("CONTRACT SITES witnesses=%d sites=%d k1=%d k2=%d k3=%d k4=%d k5=%d undecidable=%d spine_cell=%d refusals=%d"
+        % (len(counts), tot["sites"], tot["K1"], tot["K2"], tot["K3"], tot["K4"], tot["K5"], tot["UND"], tot["SPINE"],
            len(refusals)))
+    par_und = sum(1 for r in allrows if r[4] == "K5" and r[5] == "UNDECIDABLE")
+    out("CONTRACT PARITY sites=%d aligned=%d misaligned=%d undecided=%d -- rsp parity at every poll call, walked from"
+        " each function's OWN entry (a box entered by the wiring's jump is ASSUMED on the grid, a called function enters"
+        " at 8 mod 16); a misaligned poll misaligns every C callee on its path (CEO-1151), and an undecided one is"
+        " NAMED above, never counted green" % (tot["sites"], tot["ALIGNED"], tot["K5"], par_und))
     out("CONTRACT SPINE-CELL IS NAMED, NOT FORGIVEN: %d finding(s) above are call results stored as tagged DESCR"
         " cells on the ζ-SPINE, which ARCH-GC 2b RULE 1a covers and this graph's frame map does not. They are"
         " counted in their own column and declared in the floor. The A/B that earns them the verdict is"
@@ -653,11 +771,13 @@ def _plant(body):
            "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
     asm = (".text\n"
            "main_bx:\n"
+           "        push rbp\n"
            "        sub rsp, 64\n"
            "        lea r11, [rip + .Lgcmap_main]\n"
            "        mov qword ptr [rsp + 24], r11\n"
            + body +
            "        add rsp, 64\n"
+           "        pop rbp\n"
            "        ret\n")
     return asm, rep
 
@@ -681,7 +801,17 @@ def selftest():
                "        call rt_gc_poll@PLT\n")
     rows, sites, refusal = run(ok_body)
     ck(refusal is None and sites == 1, "PLANT: a well-formed safe point is read at all (refusal=%s sites=%s)" % (refusal, sites,))
-    ck(rows == [], "K POSITIVE: a result stored into a MAPPED slot before the poll BREAKS NO CLAUSE (%s)" % (rows,))
+    ck([r for r in rows if r[4] != "K5"] == [], "K POSITIVE: a result stored into a MAPPED slot before the poll BREAKS NO CLAUSE (%s)" % (rows,))
+    ck(any(r[4] == "K5" and r[5] == "ALIGNED" for r in rows) and not any(r[4] == "K5" and r[5] != "ALIGNED" for r in rows),
+       "K5 POSITIVE: a poll in an ABI-aligned frame (entry 8, push rbp, sub 64) reads ALIGNED and nothing else (%s)" % ([r for r in rows if r[4] == "K5"],))
+    rows, _s, _r = run("        push rax\n" + ok_body)
+    ck(any(r[4] == "K5" and r[5] == "MEMBER" and "MISALIGNED" in r[6] for r in rows),
+       "K5 PLANTED: one extra push before the poll puts rsp at 8 mod 16 and the poll reads MISALIGNED (%s)" % ([r for r in rows if r[4] == "K5"],))
+    rows, _s, _r = run("        push rax\n        mov r11, rsp\n        and rsp, -16\n        sub rsp, 16\n"
+                       "        mov qword ptr [rsp + 0], r11\n" + ok_body + "        mov rsp, qword ptr [rsp + 0]\n")
+    ck(any(r[4] == "K5" and r[5] == "ALIGNED" for r in rows) and not any(r[4] == "K5" and r[5] == "MEMBER" for r in rows),
+       "K5 RE-ALIGNED: the same misaligned path inside an align envelope (and rsp,-16) reads ALIGNED, and the envelope's "
+       "restore through [rsp+0] is read rather than poisoned (%s)" % ([r for r in rows if r[4] == "K5"],))
 
     rows, _s, _r = run(ok_body.replace("[rsp + 0]", "[rsp - 64]").replace("[rsp + 8]", "[rsp - 56]"))
     ck(any(r[4] == "K3" and r[5] == "SPINE-CELL" and "BELOW-REGION" in r[6] for r in rows)
@@ -798,10 +928,10 @@ def selftest():
     with tempfile.TemporaryDirectory() as wd:
         f = os.path.join(wd, "floor.tsv")
         write_floor(a, f)
-        ck(read_floor(f) == {"w.icn": [3, 0, 1, 2, 0, 4, 5]}, "FLOOR: a declared floor round-trips by NAME and not by total")
+        ck(read_floor(f) == {"w.icn": [3, 0, 1, 2, 0, 0, 4, 5]}, "FLOOR: a declared floor round-trips by NAME and not by total")
         legacy = os.path.join(wd, "legacy.tsv")
         open(legacy, "w", encoding="utf-8").write(FLOOR_HEADER + "w.icn\t3\t0\t1\t2\t0\t4\n")
-        ck(read_floor(legacy) == {"w.icn": [3, 0, 1, 2, 0, 4, 0]},
+        ck(read_floor(legacy) == {"w.icn": [3, 0, 1, 2, 0, 0, 4, 0]},
            "FLOOR: a SEVEN-column line written before the spine_cell column reads back with spine_cell=0 rather "
            "than refusing -- the column was ADDED and an old floor is not a corrupt one")
         ck("NAME SET" in open(f, encoding="utf-8").read(), "FLOOR: the file says in its own head why it is a name set")
