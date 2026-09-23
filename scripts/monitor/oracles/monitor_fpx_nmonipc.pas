@@ -29,6 +29,7 @@ interface
     function mon_ipc_proc_wanted(pd: tprocdef): boolean;
     function mon_ipc_stmt_node(line: longint): tnode;
     function mon_ipc_call_node(pd: tprocdef): tnode;
+    function mon_ipc_param_nodes(pd: tprocdef): tnode;
     function mon_ipc_return_node(pd: tprocdef): tnode;
     function mon_ipc_store_name(lhs: tnode; out name: string): boolean;
     function mon_ipc_value_node(kind: longint; const name: string; valnode: tnode): tnode;
@@ -92,6 +93,32 @@ implementation
     function mon_ipc_call_node(pd: tprocdef): tnode;
       begin
         result:=ccallnode.createintern('fpc_mon_call',ccallparanode.create(mon_pchar_node(mon_proc_name(pd)),nil));
+      end;
+
+
+    { THE BIND EVENTS (coo 2026-09-23, row monitor-a-value-event-fires-per-parameter-at-call-argument-bind-time-...): one VALUE
+      per visible parameter, in declaration order, right after the call event -- which value landed in which parameter slot.
+      Without it an argument-evaluation-order bug read AGREE: both engines call the producing function the same number of
+      times with the same results, and only the BINDING differs (hq_pascal, tbs_tb0207, SCRIP a3dd15832). Hidden parameters
+      (self, result, high(), the parent frame) are not the program's; an untyped (formal) parameter cannot be loaded as a
+      value, so it reports UNKNOWN without a load. }
+    function mon_ipc_param_nodes(pd: tprocdef): tnode;
+      var
+        i       : longint;
+        para    : tparavarsym;
+        newstat : tstatementnode;
+      begin
+        result:=internalstatements(newstat);
+        for i:=0 to pd.paras.count-1 do
+          begin
+            para:=tparavarsym(pd.paras[i]);
+            if vo_is_hidden_para in para.varoptions then
+              continue;
+            if para.vardef.typ=formaldef then
+              addstatement(newstat,ccallnode.createintern('fpc_mon_ev_unknown',mon_params2(MON_KIND_VALUE,lower(para.realname),nil)))
+            else
+              addstatement(newstat,mon_ipc_value_node(MON_KIND_VALUE,lower(para.realname),cloadnode.create(para,para.owner)));
+          end;
       end;
 
 

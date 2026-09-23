@@ -130,17 +130,20 @@
         pass_1,
      {$ifdef state_tracking}
         nstate,
-@@ -933,6 +933,9 @@
+@@ -933,6 +933,12 @@
              procdef.parentfpinitblock:=nil;
            end;
          addstatement(newstatement,bodyentrycode);
-+        { fpc-mon: the call event at every user procedure's entry }
++        { fpc-mon: the call event at every user procedure's entry, then one bind event per parameter }
 +        if mon_ipc_proc_wanted(procdef) then
-+          addstatement(newstatement,mon_ipc_call_node(procdef));
++          begin
++            addstatement(newstatement,mon_ipc_call_node(procdef));
++            addstatement(newstatement,mon_ipc_param_nodes(procdef));
++          end;
  
          if (cs_implicit_exceptions in current_settings.moduleswitches) and
             (pi_needs_implicit_finally in flags) and
-@@ -967,6 +970,9 @@
+@@ -967,6 +973,9 @@
              maybe_add_constructor_wrapper(wrappedbody,true);
              addstatement(newstatement,wrappedbody);
              addstatement(newstatement,exitlabel_asmnode);
@@ -150,7 +153,7 @@
              addstatement(newstatement,bodyexitcode);
              { set flag the implicit finally has been generated }
              include(flags,pi_has_implicit_finally);
-@@ -983,6 +989,9 @@
+@@ -983,6 +992,9 @@
              if assigned(nestedexitlabel) then
                addstatement(newstatement,clabelnode.create(cnothingnode.create,nestedexitlabel));
              addstatement(newstatement,exitlabel_asmnode);
