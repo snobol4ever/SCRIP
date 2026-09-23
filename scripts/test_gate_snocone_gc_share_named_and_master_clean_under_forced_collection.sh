@@ -42,7 +42,7 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the snocone master graded as 
 #
 # ⛔⭐⭐ EXTENDED 2026-09-21 (hq_snocone, MODE TENET, ceo-1040 "item 4 of the GC commitment": ZERO GRADINGS LOST
 # TO THE COLLECTOR, axes named not counted). What was here before this date tested ONE axis: SCRIP_GC_STRESS,
-# arena PINNED at SNC_GC_ARENA (default 1 MB) for every point. That is exactly the hole hq_snobol4 found in
+# arena PINNED at SNC_GC_ARENA (default 64 KB, the floor) for every point. That is exactly the hole hq_snobol4 found in
 # hq_prolog's FIRST cut of SCRIP 46f348488: "a band varying the arena alone reads GREEN over an arena-insensitive
 # stress-sensitive class" -- the mirror hole here is a band varying STRESS ALONE, which reads green over an
 # ARENA-sensitive class, because it never once asks whether the shipped (512 MB) arena would have answered the
@@ -58,6 +58,24 @@ export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the snocone master graded as 
 # exact false-clean this gate's own ARM 1 exists to catch. So arena is tested where it is DECIDABLE: composed
 # with a forcing stress, one axis moved against the other, never alone against an inert cell.
 #
+# ⛔⭐ CORRECTED 2026-09-22 (hq_snocone, measured post CEO-1095/Makefile:644 buildinfo) -- THE "TINY" ARM USED TO
+# PIN SCRIP_HEAP_MB=1, WHICH IS NOW THE WRONG DIRECTION. Since CEO-1095 (Lon 2026-09-21) the shipped, compiled-in
+# default committed window is GC_HEAP_KB=128 (gc_heap.c:14), and an MB pin now RAISES the window rather than
+# lowering it: SCRIP_HEAP_MB=1 sets a 1024 KB window, 8x the 128 KB shipped default, and the cfo measured it
+# collecting 13x LESS often than leaving the knob unset entirely (1613 vs 21362 regenerations, one binary,
+# bench_icnstr_concat_table.icn). A gate that still pinned SCRIP_HEAP_MB=1 believing it was "tiny" was therefore
+# grading an arena LOOSER than what we ship and calling that the exasperation arm -- the same false-clean shape
+# ARM 1 exists to catch, just on the other axis. The fleet's sanctioned tiny-arena knob is now SCRIP_HEAP_KB
+# (Makefile SCRIP_HEAP_KB_TINY, default 128 -- which as of CEO-1095 equals the shipped default, so it can no
+# longer stand in for "smaller than shipped"). The only value that is both legal (gc_heap.c aborts below
+# GC_HEAP_KB_FLOOR=64) and strictly BELOW the 128 KB shipped default is the floor itself, so ARM 3 below now pins
+# SCRIP_HEAP_KB=64 by default -- genuinely tiny relative to what we ship, not merely tiny relative to a retired
+# convention. This is a ONE-FILE, in-lane fix (rule 7): the underlying collector default is a shared node and is
+# untouched here; only this gate's own knob usage changed. The wider fact -- that every OTHER fleet gate still
+# hardcoding SCRIP_HEAP_MB=1 directly (bypassing `make test-arena`'s SCRIP_HEAP_KB export) is equally inverted --
+# is out of this lane's file scope and is routed to the cfo as an ASK with this same measurement, never landed
+# here.
+#
 # Commit identity: LCherryholmes / lcherryh@yahoo.com  (RULES.md)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 set -uo pipefail
@@ -66,7 +84,7 @@ SCRIP_DIR="$S4E/SCRIP"
 SCRIP="${SCRIP:-$SCRIP_DIR/scrip}"
 M="$S4E/corpus/tests/snocone"
 BAND="${SNC_GC_BAND:-1 3 5 8 16}"
-ARENA="${SNC_GC_ARENA:-1}"
+ARENA="${SNC_GC_ARENA:-64}"   # KB, not MB, since CEO-1095 -- 64 is GC_HEAP_KB_FLOOR, the smallest legal window and the only one still BELOW the 128 KB shipped default
 fail() { echo "⛔ RED: $*" >&2; exit 1; }
 refuse() { echo "REFUSES rc=2: $*" >&2; exit 2; }
 [ -x "$SCRIP" ] || refuse "scrip not built at $SCRIP -- cannot measure"
@@ -125,25 +143,26 @@ echo "ARM 0 BASELINE NAME-SET: <none> (as SncM's own 100% board requires)"
 # --- ARM 3 (tiny arena) + ARM 4 (shipped arena), SAME stress band -- ONE AXIS MOVES AT A TIME (CEO-1040
 # precondition 1). ARM4(N) vs ARM0 isolates STRESS ALONE; ARM3(N) vs ARM4(N) isolates ARENA ALONE.
 bad=0; arena_bad=0
-run_band_arm() { # $1=label(tiny|shipped) $2=MB ("" = shipped/unset) $3=STRESS
+run_band_arm() { # $1=label(tiny|shipped) $2=KB ("" = shipped/unset, since CEO-1095) $3=STRESS
     local label="$1" mb="$2" st="$3" coll=0 regens=0 f b in n out board tot names
+    local albl="shipped(128KB compiled-in)"; [ -n "$mb" ] && albl="${mb}KB"
     for f in "$W/e"/*.sc; do
         b="${f%.sc}"; in="$b.in"; [ -f "$in" ] || in=/dev/null
-        if [ -n "$mb" ]; then n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$mb" SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
+        if [ -n "$mb" ]; then n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_KB="$mb" SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
         else n=$(SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration'); fi
         [ "$n" -gt 0 ] && { coll=$((coll + 1)); regens=$((regens + n)); }
     done
-    echo "ARM $label DECIDABILITY arena=${mb:-shipped} stress=$st entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
-    [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected under ARM $label (arena=${mb:-shipped} stress=$st) -- not reported: this board would be a statement about the corpus, not the collector"
-    if [ -n "$mb" ]; then out="$(SCRIP_HEAP_MB="$mb" SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
+    echo "ARM $label DECIDABILITY arena=${albl} stress=$st entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
+    [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected under ARM $label (arena=${albl} stress=$st) -- not reported: this board would be a statement about the corpus, not the collector"
+    if [ -n "$mb" ]; then out="$(SCRIP_HEAP_KB="$mb" SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
     else out="$(SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"; fi
-    board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "ARM $label at arena=${mb:-shipped} stress=$st printed no SUITE_BOARD line"; }
-    echo "ARM $label arena=${mb:-shipped} stress=$st $board"
+    board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "ARM $label at arena=${albl} stress=$st printed no SUITE_BOARD line"; }
+    echo "ARM $label arena=${albl} stress=$st $board"
     tot=$(printf '%s\n' "$board" | grep -o 'total=[0-9]*' | cut -d= -f2)
-    [ "${tot:-0}" -eq "$rows" ] || refuse "ARM $label at arena=${mb:-shipped} stress=$st graded total=$tot, not $rows -- the population moved"
+    [ "${tot:-0}" -eq "$rows" ] || refuse "ARM $label at arena=${albl} stress=$st graded total=$tot, not $rows -- the population moved"
     printf '%s\n' "$out" | grep -E '^ +(FAIL|CRASH|HANG|UNPROVEN) ' | awk '{print $2"/"$3}' | sort -u > "$W/ns_${label}_${st}"
     names="$(tr '\n' ' ' < "$W/ns_${label}_${st}")"
-    echo "ARM $label arena=${mb:-shipped} stress=$st NAME-SET: ${names:-<none>}"
+    echo "ARM $label arena=${albl} stress=$st NAME-SET: ${names:-<none>}"
 }
 for STRESS in $BAND; do
     run_band_arm tiny "$ARENA" "$STRESS"
@@ -159,6 +178,6 @@ for STRESS in $BAND; do
         echo "  arena-axis clean at stress=$STRESS: tiny and shipped arenas NAME the same set at matched stress (stress is the axis that moved, if either did)"
     fi
 done
-[ "$bad" -eq 0 ] || fail "$bad non-pass (entry,mode) verdict(s) named above across arena={${ARENA}MB,shipped} x stress=\"$BAND\" over the printed denominator -- read the per-point NAME-SET lines, never a total"
+[ "$bad" -eq 0 ] || fail "$bad non-pass (entry,mode) verdict(s) named above across arena={${ARENA}KB,shipped(128KB)} x stress=\"$BAND\" over the printed denominator -- read the per-point NAME-SET lines, never a total"
 [ "$arena_bad" -eq 0 ] || fail "$arena_bad stress point(s) where the arena axis ALONE moved the answer (tiny vs shipped disagreed at matched stress), named above"
-echo "✅ snocone GC share named (NO-MAP=0) and the master is clean under BOTH axes, tested ONE AT A TIME: arena {${ARENA} MB, shipped} x stress {$BAND} x modes {m3,m4}, $rows entries per configuration, zero divergent pairs"
+echo "✅ snocone GC share named (NO-MAP=0) and the master is clean under BOTH axes, tested ONE AT A TIME: arena {${ARENA}KB, shipped(128KB)} x stress {$BAND} x modes {m3,m4}, $rows entries per configuration, zero divergent pairs"
