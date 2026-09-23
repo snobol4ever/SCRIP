@@ -47,12 +47,12 @@ if grep -q 'argv = stdbuf_wrap(paths, \[out_bin.name\])' "$HARNESS" && grep -q '
 else
   say_fail "master harness: run_m4 no longer invokes the bare <stem> through PATH"
 fi
-if grep -q 'PATH="\$rundir:\$PATH" timeout "\$TIMEOUT" "\$name"' "$JCON"; then
+if grep -qE 'PATH="\$rundir:\$PATH" .*timeout "\$TIMEOUT" "\$name"' "$JCON"; then
   say_ok "jcon runner: invokes <stem> with the rundir first on PATH"
 else
   say_fail "jcon runner: the mode-4 binary is not invoked by its bare stem through PATH"
 fi
-if grep -q 'PATH="\$SUITE:\$PATH" timeout "\$TIMEOUT" "\$name"' "$ARIZ"; then
+if grep -qE 'PATH="\$SUITE:\$PATH" .*timeout "\$TIMEOUT" "\$name"' "$ARIZ"; then
   say_ok "arizona runner: invokes <stem> with the suite directory first on PATH"
 else
   say_fail "arizona runner: the mode-4 binary is not invoked by its bare stem through PATH"

@@ -1429,6 +1429,7 @@ CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_BUILTIN_fn(callee)) return cvprep_decline("builtin", nm);
+    if (IS_PROCVAL_EXTERNAL_fn(callee)) return cvprep_decline("external", nm);
     if (!nm) return cvprep_decline("noname", nm);
     if (!rt_proc_is_registered(nm)) return cvprep_decline("unregistered", nm);
     if (!rt_proc_jmp_entry(nm)) return cvprep_decline("nojmpentry", nm);
