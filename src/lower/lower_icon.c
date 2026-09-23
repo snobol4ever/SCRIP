@@ -1056,9 +1056,16 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             }
         }
         IR_t * nd = build(cx, IR_SWAP, γ, ω);
-        IR_t * lr = NULL; lower(cx, lt, nd, ω, &lr);
-        IR_t * rr = NULL; lower(cx, rt2, nd, ω, &rr);
-        ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
+        IR_t * r_tc = NULL;
+        IR_t * r_vt = (rt2 && rt2->t == TT_VAR) ? icn_trace_named_prep(cx, "__trace_value", rt2->v.sval, nd, ω, &r_tc) : NULL;
+        IR_t * lr = NULL; IR_t * lr_entry = lower(cx, lt, r_vt ? r_vt : nd, ω, &lr);
+        if (r_tc && lr) ir_operand_push(r_tc, lr);
+        IR_t * l_tc = NULL;
+        IR_t * l_vt = (lt && lt->t == TT_VAR) ? icn_trace_named_prep(cx, "__trace_value", lt->v.sval, lr_entry, ω, &l_tc) : NULL;
+        IR_t * rr = NULL; IR_t * rr_entry = lower(cx, rt2, l_vt ? l_vt : lr_entry, ω, &rr);
+        if (l_tc && rr) ir_operand_push(l_tc, rr);
+        ir_operand_push(nd, lr); ir_operand_push(nd, rr);
+        *res = nd; return rr_entry; }
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
         if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM || lhs->t == TT_NULL || lhs->t == TT_NONNULL || lhs->t == TT_CONJ || lhs->t == TT_ASSIGN || lhs->t == TT_SWAP || lhs->t == TT_REVSWAP || lhs->t == TT_REVASSIGN || lhs->t == TT_AUGOP)) {
@@ -1088,6 +1095,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             lc_γ_to(rr, nd);
             ir_operand_push(nd, rr);
             ir_operand_push(nd, lr);
+            IR_t * tvc = NULL; IR_t * tv = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, γ, ω, &tvc);
+            if (tv) {
+                IR_t * tval = NULL; IR_t * tval_entry = lower(cx, lhs, tv, ω, &tval);
+                if (tval) ir_operand_push(tvc, tval);
+                lc_γ_to(nd, tval_entry);
+            }
             cx->beta = nd; *res = nd; return le;
         }
         if (icn_tree_is_literal(lhs)) return lower_runerr_111(cx, rhs, lhs, γ, ω, res);

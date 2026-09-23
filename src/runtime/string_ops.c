@@ -75,8 +75,8 @@ DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
         DESCR_t bad = core_icn_str_ok(a) ? b : a;
         core_icn_op_ctx("||", 2, a, b); core_icn_error(103, bad); core_icn_op_ctx_clear(); return FAILDESCR;
     }
-    if (a.v == DT_R) a = descr_to_str_fracdigit(a);
-    if (b.v == DT_R) b = descr_to_str_fracdigit(b);
+    if (a.v == DT_R || a.v == DT_I || a.v == DT_BOOL) a = descr_to_str_fracdigit(a);
+    if (b.v == DT_R || b.v == DT_I || b.v == DT_BOOL) b = descr_to_str_fracdigit(b);
     if (a.v == DT_BIG && a.p) a = STRVAL(rt_big_str(a));
     if (b.v == DT_BIG && b.p) b = STRVAL(rt_big_str(b));
     return str_concat_d(a, b);
