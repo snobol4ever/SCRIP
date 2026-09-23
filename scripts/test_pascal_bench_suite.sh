@@ -20,8 +20,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # reps would fail angle 2 or 3 here, loudly, which is the non-vacuity check doing its job.
 # ⛔ TIMING IS RECORDED, NOT PUBLISHED: each run's elapsed time goes into the per-run OUT directory, but no rate enters the grid until
 # the quiet-box re-run (CEO-1219); this board's verdict is correctness only.
-# OUT: each run's stdout is kept as <kernel>.<mode>.<angle>[.<n>].out in the run directory printed below -- NOT beside the kernel,
-# because an untracked file in the corpus marks every other runner's tree dirty. Where OUT lives is open with Lon (CEO-1221).
+# OUT IS REF (Lon, in-chat to the ceo: "Oh. Yeah. OUT is really REF. My bad."; CEO-1222): a benchmark carries a .ref and a .in where
+# it reads input, and no third file -- no .out, .std or .expected anywhere in the corpus. What this runner keeps of each run is scratch
+# evidence, not a corpus file: <kernel>.<mode>.<angle>[.<n>].stdout plus its rusage line, in the run directory printed on the board.
 set -u
 GATE_NAME=test_pascal_bench_suite
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,7 +41,7 @@ WRAP="$HERE/../tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$HERE/../tools/bench_rusage.c" || refuse "tools/bench_rusage failed to build -- angle 1 has no wrapper"
 case "$ITER_N" in ''|*[!0-9]*|0) refuse "BENCH_ITER_N must be a positive integer (got '$ITER_N')";; esac
 case "$TIME_LIMIT" in ''|*[!0-9]*|0) refuse "BENCH_TIME_LIMIT must be a positive whole number of seconds (got '$TIME_LIMIT')";; esac
-OUTDIR="${BENCH_OUT_DIR:-$(mktemp -d -t pascal_bench_out.XXXXXX)}"; mkdir -p "$OUTDIR" || refuse "cannot create $OUTDIR"
+OUTDIR="${BENCH_OUT_DIR:-$(mktemp -d -t pascal_bench_runs.XXXXXX)}"; mkdir -p "$OUTDIR" || refuse "cannot create $OUTDIR"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
 mapfile -t KERNELS < <(find "$B" -maxdepth 1 -type f -name '*.pas' -printf '%f\n' | sed 's/\.pas$//' | sort)
@@ -72,20 +73,20 @@ for k in "${KERNELS[@]}"; do
     a1=FAIL; a2=FAIL; a3=FAIL; why=""
     if [ "$m" = m4 ] && [ "$m4ok" = 0 ]; then why="m4 compile/link failed: $(head -c 120 "$TMP/$k.cc.err" | tr '\n' ' ')"
     else
-      o="$OUTDIR/$k.$m.wrap.out"; run_kernel "$m" "$k" "$in" "$o" "$WRAP"; rc=$?
+      o="$OUTDIR/$k.$m.wrap.stdout"; run_kernel "$m" "$k" "$in" "$o" "$WRAP"; rc=$?
       grep -h '^BENCH_RUSAGE:' "$o.err" >"$o.rusage" 2>/dev/null
       if [ "$rc" = 0 ] && same_as_ref "$o" "$k"; then a1=PASS; else why="wrap: $(failed "$rc")"; fi
       a2=PASS
       if [ "$knob" = 1 ]; then
-        printf '%s\n' "$ITER_N" >"$TMP/reps"; o="$OUTDIR/$k.$m.iter.out"; run_kernel "$m" "$k" "$TMP/reps" "$o"; rc=$?
+        printf '%s\n' "$ITER_N" >"$TMP/reps"; o="$OUTDIR/$k.$m.iter.stdout"; run_kernel "$m" "$k" "$TMP/reps" "$o"; rc=$?
         { [ "$rc" = 0 ] && same_as_ref "$o" "$k"; } || { a2=FAIL; why="$why; iter(reps=$ITER_N): $(failed "$rc")"; }
       else
-        for n in $(seq 1 "$ITER_N"); do o="$OUTDIR/$k.$m.iter.$n.out"; run_kernel "$m" "$k" "$in" "$o"; rc=$?
+        for n in $(seq 1 "$ITER_N"); do o="$OUTDIR/$k.$m.iter.$n.stdout"; run_kernel "$m" "$k" "$in" "$o"; rc=$?
           { [ "$rc" = 0 ] && same_as_ref "$o" "$k"; } || { a2=FAIL; why="$why; iter(run $n of $ITER_N): $(failed "$rc")"; break; }; done
       fi
       a3=PASS; t0=$(now); reps=1; n=0
       while :; do
-        n=$((n+1)); o="$OUTDIR/$k.$m.time.$n.out"
+        n=$((n+1)); o="$OUTDIR/$k.$m.time.$n.stdout"
         if [ "$knob" = 1 ]; then printf '%s\n' "$reps" >"$TMP/reps"; run_kernel "$m" "$k" "$TMP/reps" "$o"; else run_kernel "$m" "$k" "$in" "$o"; fi; rc=$?
         { [ "$rc" = 0 ] && same_as_ref "$o" "$k"; } || { a3=FAIL; why="$why; time(run $n, reps=$reps): $(failed "$rc")"; break; }
         [ "$(echo "$(now) - $t0 >= $TIME_LIMIT" | bc)" = 1 ] && break
@@ -103,7 +104,7 @@ done
 echo
 echo "PASCAL_BENCH_BOARD total=$TOTAL both_pass=$BOTH m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} (three angles each: process wrapper, fixed iterations N=$ITER_N, fixed time limit ${TIME_LIMIT}s; every run diffed against its .ref)"
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"
-echo "  OUT: every run's output and rusage line kept under $OUTDIR"
+echo "  evidence: every run's stdout and rusage line kept under $OUTDIR (scratch, not a corpus file -- OUT is REF, CEO-1222)"
 echo "  tree: SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null)$(git -C "$HERE/.." diff --quiet 2>/dev/null || echo -dirty) corpus=$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT/corpus" diff --quiet 2>/dev/null || echo -dirty) RT_OPT=-O0"
 # ⛔ NO SUITE-TABLE ROW YET: the grid's benchmark rows (their SUITES.tsv keys and the util_score_row.py path that writes them) are
 # being added by the coo's row instruments-benchmarks-enter-the-suite-grid-one-row-per-language-graded-by-ref-through-the-three-angle-
