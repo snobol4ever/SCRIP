@@ -60,6 +60,9 @@ static void gc_quar_release(char *need_end);
 static void gc_quar_arm(char *lo);
 int g_gc_pending;
 static long g_gc_polls = 0;
+static const char *g_gc_top_graph = (const char *)0;
+static const char *g_gc_poll_site = (const char *)0;
+extern long g_line;
 static int g_gc_in;
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.s bakes g_sxt_fr.owner @0");
@@ -623,6 +626,7 @@ static void gc_point_arr_body(DESCR_t *arr, int n, const char **r0, char *floor,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor)
 {
+    g_gc_poll_site = (const char *)__builtin_return_address(0);
     gc_point_arr_body(arr, n, r0, floor, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1187,7 +1191,7 @@ static void gc_walk_range(const char *lo0, const char *hi0)
         const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
         while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
         if (!m) { if (nf == 0) g->nomap++; if (above && g_gc_seg_main && gc_ceiling_on() && !gc_maps_on()) { g_gc_ceil_bytes += (long)(hi - p); return; } gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
-        nf++; g->frames++;
+        nf++; g->frames++; if (nf == 1 && !above && !g_gc_top_graph) g_gc_top_graph = m->graph_name ? m->graph_name : "?";
         if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
@@ -1348,7 +1352,7 @@ static long gc_collect_ex(void)
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 511) >> 9);
             for (char *gs = gs0; gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
-    g_gc_mhead = (rt_hblk_t *)0; g_gc_spine_recn = 0;
+    g_gc_mhead = (rt_hblk_t *)0; g_gc_spine_recn = 0; g_gc_top_graph = (const char *)0;
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
     if (pl_slot >= 0 && g_gc_nblk > 0) { pl_blk = g_gc_idx[g_gc_nblk - 1]; pl_addr = (char *)(pl_blk + 1); pl_save = rtccb[pl_slot]; rtccb[pl_slot] = (uint64_t)(uintptr_t)pl_addr; }
@@ -1371,7 +1375,7 @@ static long gc_collect_ex(void)
       if (au) { extern void gen_gc_audit_scan_slots(long *, long *); long hp = 0, un = 0; gen_gc_audit_scan_slots(&hp, &un);
         fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un); } }
     { for (int ci = 0; ci < 32; ci++) { rt_hblk_t *hb = gc_blk_of((const char *)rtccb[ci]); if (!hb) continue; g_gc_rtccb_heap++;
-        if (gc_maps_on()) fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p\n", ci, (const void *)rtccb[ci]);
+        if (gc_maps_on()) fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p graph=%s line=%ld site=%p\n", ci, (const void *)rtccb[ci], g_gc_top_graph ? g_gc_top_graph : "?", g_line, (const void *)g_gc_poll_site);
         if (st_n < 32 && (w_tel || gc_maps_on())) { st_slot[st_n] = ci; st_word[st_n] = rtccb[ci]; st_blk[st_n] = hb; st_fwd[st_n] = 0; st_n++; } } }
     if (g_gc_shield_r && *g_gc_shield_r) { extern const char *Σ; extern const char *scan_subj; if (*g_gc_shield_r == Σ || *g_gc_shield_r == scan_subj) rt_gc_visit_raw(g_gc_shield_r); else if (!g_gc_shield_r_is_probe) { fprintf(stderr, "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor scan_subj, so this shield cannot reach it and honouring the call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this road.\n", (const void *)*g_gc_shield_r); abort(); } }
     { extern const char *Σ; rt_gc_visit_raw(&Σ); }
@@ -1451,8 +1455,8 @@ static long gc_collect_ex(void)
     if (st_n) { static int said_stale = 0; long mv = 0, un = 0, sw = 0;
         for (int z = 0; z < st_n; z++) { int moved = (st_fwd[z] && st_fwd[z] != (uint64_t)(uintptr_t)st_blk[z]) ? 1 : 0, kept = (rtccb[st_slot[z]] == st_word[z]) ? 1 : 0;
             if (moved) mv++; if (moved && kept) un++; if (!st_fwd[z] && kept) sw++;
-            if (gc_maps_on()) fprintf(stderr, "[GC-RTCCB-STALE] slot=%d word=%p block=type%d/%ldB forwarded=%d moved=%d unrepaired=%d swept=%d\n",
-                st_slot[z], (const void *)(uintptr_t)st_word[z], (int)st_blk[z]->type, (long)st_blk[z]->size, st_fwd[z] ? 1 : 0, moved, (moved && kept) ? 1 : 0, (!st_fwd[z] && kept) ? 1 : 0); }
+            if (gc_maps_on()) fprintf(stderr, "[GC-RTCCB-STALE] slot=%d word=%p block=type%d/%ldB forwarded=%d moved=%d unrepaired=%d swept=%d graph=%s line=%ld site=%p\n",
+                st_slot[z], (const void *)(uintptr_t)st_word[z], (int)st_blk[z]->type, (long)st_blk[z]->size, st_fwd[z] ? 1 : 0, moved, (moved && kept) ? 1 : 0, (!st_fwd[z] && kept) ? 1 : 0, g_gc_top_graph ? g_gc_top_graph : "?", g_line, (const void *)g_gc_poll_site); }
         if ((un || sw) && (w_tel || gc_maps_on() || !said_stale)) { said_stale = 1;
             fprintf(stderr, "[GC-RTCCB-STALE] SUMMARY collection=%ld slots-holding-a-heap-pointer=%d moved=%ld UNREPAIRED=%ld SWEPT=%ld. This is the STANDING population and not a plant: these are words the emitter itself spilled into the caller-saved block before a safe point (x86_asm.h 386-389), and the block is registered as a GC root by rtcc_init.c while the collector's only walk over the range table skips exactly that shape, so nothing visits them. UNREPAIRED means the collector FORWARDED the block the word names and left the word holding the pre-move address, which the emitted reload after the poll then restores into a register; SWEPT means the block was not forwarded at all and the word names ground the arena will re-issue. A pointer in an unvisited slot is necessary but not sufficient for a lost value -- the same block may be rooted elsewhere, which is how these witnesses still answer their oracles -- but UNREPAIRED and SWEPT are the two ways it stops being merely necessary, and they are counted here rather than argued.\n",
                 g_gc_runs + 1, st_n, mv, un, sw); } }
@@ -1520,6 +1524,8 @@ __asm__(
 "  subq  $16, %rsp\n"
 "  movq  %r13, (%rsp)\n"
 "  incq g_gc_polls(%rip)\n"
+"  movq 88(%rsp), %rax\n"
+"  movq %rax, g_gc_poll_site(%rip)\n"
 "  xorl %edi, %edi\n"
 "  xorl %esi, %esi\n"
 "  movq %rsp, %rdx\n"
