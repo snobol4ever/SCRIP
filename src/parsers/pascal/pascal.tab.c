@@ -893,7 +893,7 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "nil"))   return ilit(0);
     if (name && !strcmp(name, "eof"))   return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln"))  return mk_fnc0("__pas_eoln");
-    long long cv; if (pas_const_get(name, &cv)) return ilit(cv);
+    long long cv; if (pas_const_get(name, &cv)) return pas_is_charvar(name) ? mk_fnc1("__pas_chrlit", ilit(cv)) : ilit(cv);
     double rv; if (pas_rconst_get(name, &rv)) return flit(rv);
     const char *sv = pas_sconst_get(name); if (sv) return leaf_s(TT_QLIT, sv);
     if (pas_is_func(name)) return mk_call(name, NULL);
@@ -2426,7 +2426,7 @@ yyreduce:
 
   case 20: /* const_decl: IDENT EQOP STRINGCONST SEMICOLON  */
 #line 1016 "pascal.y"
-                                       { if ((yyvsp[-1].str) && strlen((yyvsp[-1].str))==1) pas_const_add((yyvsp[-3].str),(long long)(unsigned char)(yyvsp[-1].str)[0]); else pas_sconst_add((yyvsp[-3].str),(yyvsp[-1].str)); }
+                                       { if ((yyvsp[-1].str) && strlen((yyvsp[-1].str))==1) { pas_const_add((yyvsp[-3].str),(long long)(unsigned char)(yyvsp[-1].str)[0]); pas_charvar_add((yyvsp[-3].str)); } else pas_sconst_add((yyvsp[-3].str),(yyvsp[-1].str)); }
 #line 2431 "pascal.tab.c"
     break;
 

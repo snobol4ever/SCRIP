@@ -821,7 +821,7 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "nil"))   return ilit(0);
     if (name && !strcmp(name, "eof"))   return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln"))  return mk_fnc0("__pas_eoln");
-    long long cv; if (pas_const_get(name, &cv)) return ilit(cv);
+    long long cv; if (pas_const_get(name, &cv)) return pas_is_charvar(name) ? mk_fnc1("__pas_chrlit", ilit(cv)) : ilit(cv);
     double rv; if (pas_rconst_get(name, &rv)) return flit(rv);
     const char *sv = pas_sconst_get(name); if (sv) return leaf_s(TT_QLIT, sv);
     if (pas_is_func(name)) return mk_call(name, NULL);
@@ -1013,7 +1013,7 @@ const_decl_list:
 const_decl: IDENT EQOP REALCONST SEMICOLON { pas_rconst_add($1, $3); }
     | IDENT EQOP PLUS REALCONST SEMICOLON { pas_rconst_add($1, $4); }
     | IDENT EQOP MINUS REALCONST SEMICOLON { pas_rconst_add($1, -$4); }
-    | IDENT EQOP STRINGCONST SEMICOLON { if ($3 && strlen($3)==1) pas_const_add($1,(long long)(unsigned char)$3[0]); else pas_sconst_add($1,$3); }
+    | IDENT EQOP STRINGCONST SEMICOLON { if ($3 && strlen($3)==1) { pas_const_add($1,(long long)(unsigned char)$3[0]); pas_charvar_add($1); } else pas_sconst_add($1,$3); }
     | IDENT EQOP constant SEMICOLON { pas_const_add($1, $3); } ;
 constant:
     scalar_constant { $$ = $1; } | PLUS scalar_constant { $$ = $2; } | MINUS scalar_constant { $$ = -$2; } ;
