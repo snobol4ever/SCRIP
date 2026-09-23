@@ -748,7 +748,21 @@ static tree_t *pas_recspan_slot(tree_t *e, long long fi) {
     if (e->t == TT_IDX && e->n == 2) return pas_arrrec_flatten(pas_tree_clone(e), fi);
     tree_t *s = ast_node_new(TT_IDX); ast_push(s, pas_tree_clone(e)); ast_push(s, ilit(fi)); return s;
 }
+static int pas_is_realtypename(const char *t) {
+    return t && (!strcmp(t, "real") || !strcmp(t, "single") || !strcmp(t, "double") || !strcmp(t, "extended") || !strcmp(t, "comp"));
+}
+static int pas_var_is_real(const char *name) {
+    const char *t = name ? pas_scalarvartype_get(name) : NULL;
+    for (int guard = 0; t && guard < 8; guard++) {
+        if (pas_is_realtypename(t)) return 1;
+        const char *al = pas_typealias_get(t);
+        if (!al || !strcmp(al, t)) break;
+        t = al;
+    }
+    return 0;
+}
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
     { int lnf = pas_recspan_nf(sel); int rnf = pas_recspan_nf(rhs);
       int has_idx = ((sel && sel->t == TT_IDX) || (rhs && rhs->t == TT_IDX));
       if (lnf > 1 && lnf == rnf && has_idx) {
