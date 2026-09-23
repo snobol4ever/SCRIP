@@ -12,6 +12,40 @@ static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char pascal_ifdefbuf[256];
 static int  pascal_ifdefpos;
+int pas_const_get(const char *name, long long *out);
+int pas_rconst_get(const char *name, double *out);
+const char *pas_sconst_get(const char *name);
+static int pascal_if_declared(const char *name) {
+    long long iv; double rv;
+    return pas_const_get(name, &iv) || pas_rconst_get(name, &rv) || pas_sconst_get(name) != NULL;
+}
+static int pascal_if_eval(const char *expr) {
+    char buf[256]; int bn = 0;
+    for (const char *s = expr; *s && bn < (int)sizeof(buf) - 1; s++) buf[bn++] = (char)tolower((unsigned char)*s);
+    buf[bn] = '\0';
+    char *p = buf; while (*p == ' ' || *p == '\t') p++;
+    int neg = 0;
+    if (!strncmp(p, "not ", 4)) { neg = 1; p += 4; while (*p == ' ') p++; }
+    int result = 0;
+    char ident[128];
+    if (sscanf(p, "declared(%127[^)])", ident) == 1) {
+        result = pascal_if_declared(ident);
+    } else {
+        char op[3] = { 0, 0, 0 }; long long rhs;
+        if (sscanf(p, "%127[a-z_0-9] %2[<>=] %lld", ident, op, &rhs) == 3) {
+            long long lv;
+            if (pas_const_get(ident, &lv)) {
+                if      (!strcmp(op, ">=")) result = lv >= rhs;
+                else if (!strcmp(op, "<=")) result = lv <= rhs;
+                else if (!strcmp(op, ">"))  result = lv > rhs;
+                else if (!strcmp(op, "<"))  result = lv < rhs;
+                else if (!strcmp(op, "="))  result = lv == rhs;
+                else if (!strcmp(op, "<>")) result = lv != rhs;
+            }
+        }
+    }
+    return neg ? !result : result;
+}
 int g_pas_seen_mode_directive = 0;
 int pascal_seen_decl_start = 0;
 static char pascal_modebuf[64];
@@ -36,7 +70,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR
 %s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -47,6 +81,10 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>"*)"           { BEGIN INITIAL; }
 <COMMENT>.              { }
 <COMMENT>\n             { }
+"{$if"[ \t]             { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IF_HDR; }
+<IF_HDR>"}"             { BEGIN (pascal_if_eval(pascal_ifdefbuf) ? IFDEF_TRUE : IFDEF_BODY); }
+<IF_HDR>.               { if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
+<IF_HDR>\n              { }
 "{$ifdef"               { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IFDEF_HDR; }
 <IFDEF_HDR>"}"          { BEGIN (strcasecmp(pascal_ifdefbuf, "fpc") == 0 ? IFDEF_TRUE : IFDEF_BODY); }
 <IFDEF_HDR>[ \t]        { }
@@ -61,6 +99,7 @@ ALNUM    [A-Za-z0-9_]
 <IFDEF_ELSE2>.          { }
 <IFDEF_ELSE2>\n         { }
 <IFDEF_BODY>"{$endif"   { BEGIN IFDEF_END; }
+<IFDEF_BODY>"{$ifend"   { BEGIN IFDEF_END; }
 <IFDEF_BODY>.           { }
 <IFDEF_BODY>\n          { }
 <IFDEF_END>"}"          { BEGIN INITIAL; }
