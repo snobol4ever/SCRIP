@@ -3162,7 +3162,7 @@ static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
     { "char_conversion", "off", 1, { "on", "off", 0 } },
     { "debug", "off", 1, { "on", "off", 0 } },
     { "unknown", "error", 1, { "error", "fail", "warning", 0 } },
-    { "double_quotes", "atom", 1, { "atom", "chars", "codes", 0 } },
+    { "double_quotes", "codes", 1, { "atom", "chars", "codes", 0 } },
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
     { 0, "", 0, { 0 } } };

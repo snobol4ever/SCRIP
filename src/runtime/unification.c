@@ -673,6 +673,7 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, p
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_atom_op_list_text(pl_cell_t *d, char *buf, size_t bufsz);
 static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
 {
     if (!t) return (const char *)0;
@@ -680,6 +681,7 @@ static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
     if ((int)d->v == DT_A || (int)d->v == DT_S) return plc_atom_text(d);
     if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
     if ((int)d->v == DT_R) { extern const char *pl_real_iso_str(double, char *, int); return pl_real_iso_str(d->r, buf, (int)bufsz); }
+    if ((int)d->v == DT_PLREF && plc_atom_op_list_text(d, buf, bufsz)) return buf;
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -714,6 +716,25 @@ int rt_pl_u8_put(char *o, int cp) {
     if (cp < 0x800) { o[0] = (char)(0xC0 | (cp >> 6)); o[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
     if (cp < 0x10000) { o[0] = (char)(0xE0 | (cp >> 12)); o[1] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[2] = (char)(0x80 | (cp & 0x3F)); return 3; }
     o[0] = (char)(0xF0 | (cp >> 18)); o[1] = (char)(0x80 | ((cp >> 12) & 0x3F)); o[2] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[3] = (char)(0x80 | (cp & 0x3F)); return 4;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_atom_op_list_text(pl_cell_t *d, char *buf, size_t bufsz)
+{
+    extern int ATOM_DOT, ATOM_NIL;
+    size_t oi = 0;
+    while (d && (int)d->v == DT_PLREF && (int)(d->slen >> 16) == ATOM_DOT && (int)(d->slen & 0xFFFFu) == 2 && d->p) {
+        pl_cell_t *pr = (pl_cell_t *)d->p;
+        pl_cell_t *el = pl_deref(&pr[0]);
+        if (oi + 8 >= bufsz) return 0;
+        if ((int)el->v == DT_I) { oi += (size_t)rt_pl_u8_put(buf + oi, (int)el->i); }
+        else if (plc_is_atomlike(el)) { const char *cn = plc_atom_text(el); size_t cl = cn ? strlen(cn) : 0;
+            if (!cn || !cl || oi + cl >= bufsz) return 0; memcpy(buf + oi, cn, cl); oi += cl; }
+        else return 0;
+        d = pl_deref(&pr[1]);
+    }
+    if (!(d && plc_is_atomlike(d) && plc_atom_id_of(d) == ATOM_NIL)) return 0;
+    buf[oi] = '\0';
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell, pl_tr_ctx_t *cx)
