@@ -161,6 +161,16 @@ static tree_t *pas_trace_wrap_proc(const char *pname, PNodeList *params, tree_t 
     if (isfunc) ast_push(exit_call, pas_trace_wrap_value(leaf_s(TT_VAR, pname)));
     tree_t *nb = ast_node_new(TT_PROGRAM);
     ast_push(nb, enter_call);
+    if (params) for (int i = 0; i < params->count; i++) {
+        tree_t *id = params->items[i];
+        if (id && id->v.sval) {
+            tree_t *bind = ast_node_new(TT_FNC);
+            ast_push(bind, leaf_s(TT_VAR, "__trace_value"));
+            ast_push(bind, leaf_s(TT_QLIT, id->v.sval));
+            ast_push(bind, pas_trace_wrap_value(leaf_s(TT_VAR, id->v.sval)));
+            ast_push(nb, bind);
+        }
+    }
     for (int i = 0; i < body->n; i++) ast_push(nb, body->c[i]);
     ast_push(nb, exit_call);
     return nb;
