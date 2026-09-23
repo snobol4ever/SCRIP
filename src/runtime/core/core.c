@@ -4302,6 +4302,7 @@ void core_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
+    for (int i = 0; i < IO_CHAN_MAX; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
     for (int b = 0; b < VAR_BUCKETS; b++) {
         if (_var_buckets[b]) rt_gc_visit_raw((const char **)&_var_buckets[b]);
         for (NV_t *e = _var_buckets[b]; e; e = e->next) {
