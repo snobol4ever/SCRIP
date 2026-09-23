@@ -1077,7 +1077,7 @@ static void gc_maps_report_range(const char *lo0, const char *hi0)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GC_WALK_LINE_CAP 48
-typedef struct gc_walk_t { long frames, roots, nomap, notab, i_descr, i_heap, i_badtag, i_ptr, i_ptr_heap, i_raw, i_raw_heap, i_gap, h_words, h_cell_heap, h_raw_heap, s_words, s_cell_heap, s_raw_heap, a_words, a_heap; } gc_walk_t;
+typedef struct gc_walk_t { long frames, roots, nomap, notab, i_descr, i_heap, i_badtag, i_phase, i_ptr, i_ptr_heap, i_raw, i_raw_heap, i_gap, h_words, h_cell_heap, h_raw_heap, s_words, s_cell_heap, s_raw_heap, a_words, a_heap; } gc_walk_t;
 static gc_walk_t g_gw[GC_REP_POPS];
 static long g_gw_lines, g_gw_suppressed;
 #define GC_SPINE_REC_CAP 32
@@ -1171,12 +1171,12 @@ static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const 
     if (blob) g_gc_blob_frames++;
     long span = (m->flags & GC_FRAME_MAP_BLOB) ? (long)m->frame_bytes + 8 : (long)m->map_off;
     for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); const char *w = anchor + off, *e = w + size;
-        if (w < lo) w = lo;
+        if (w < lo) w = (kind == GC_LAY_DESCR) ? w + (((lo - w) + 15) & ~15L) : lo;
         if (e > hi) e = hi;
         if (w >= e) continue;
         covered += e - w;
         if (blob) { g_gc_blob_entries++; if (kind == GC_LAY_DESCR) g_gc_blob_descr++; else if (kind == GC_LAY_PTR_GC) g_gc_blob_ptr++; else if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++; }
-        if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else { if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; rt_gc_visit_descr(d); } } continue; }
+        if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; if (gc_tag_known((uint8_t)(uintptr_t)d->p)) g->i_phase++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else { if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; rt_gc_visit_descr(d); } } continue; }
         for (const char *c = w; c + 8 <= e; c += 8) { const char **pw = (const char **)c; rt_hblk_t *h = gc_blk_of(*pw);
             if (kind == GC_LAY_PTR_GC) { g->i_ptr++; if (h) { g->i_ptr_heap++; rt_gc_visit_raw(pw); } continue; }
             g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } } }
@@ -1203,8 +1203,8 @@ static void gc_walk_range(const char *lo0, const char *hi0)
         if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
-        else { const char *base = c - (long)m->map_off, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (base < p) base = p; if (hhi > hi) hhi = hi;
-            { long before = g->s_raw_heap; gc_walk_words(p, base, above ? 2 : 0, lo, above ? last : m->graph_name, base); if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, base, m->graph_name); }
+        else { const char *base = c - (long)m->map_off, *slo = (base < p) ? p : base, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (hhi > hi) hhi = hi;
+            { long before = g->s_raw_heap; gc_walk_words(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base); if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, slo, m->graph_name); }
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
@@ -1218,8 +1218,8 @@ static void gc_walk_print(void)
     if (!gc_maps_on()) { memset(g_gw, 0, sizeof g_gw); g_gw_lines = 0; g_gw_suppressed = 0; return; }
     if (g_gc_rtccb_heap) fprintf(stderr, "[GC-RTCCB] heap=%ld\n", g_gc_rtccb_heap);
     for (int k = 0; k < GC_REP_POPS; k++) { gc_walk_t *g = &g_gw[k]; if (!g->frames && !g->nomap && !g->s_words && !g->a_words) continue;
-        fprintf(stderr, "[GC-WALK] pop=%-7s frames=%ld roots=%ld nomap=%ld notab=%ld i_descr=%ld i_heap=%ld i_badtag=%ld i_ptr=%ld i_ptr_heap=%ld i_raw=%ld i_raw_heap=%ld i_gap=%ld h_words=%ld h_cell_heap=%ld h_raw_heap=%ld s_words=%ld s_cell_heap=%ld s_raw_heap=%ld a_words=%ld a_heap=%ld divergence=%ld\n",
-            g_gc_rep_popname[k], g->frames, g->roots, g->nomap, g->notab, g->i_descr, g->i_heap, g->i_badtag, g->i_ptr, g->i_ptr_heap, g->i_raw, g->i_raw_heap, g->i_gap, g->h_words, g->h_cell_heap, g->h_raw_heap, g->s_words, g->s_cell_heap, g->s_raw_heap, g->a_words, g->a_heap, g->i_raw_heap + g->h_raw_heap + g->s_raw_heap + g->a_heap); }
+        fprintf(stderr, "[GC-WALK] pop=%-7s frames=%ld roots=%ld nomap=%ld notab=%ld i_descr=%ld i_heap=%ld i_badtag=%ld i_phase=%ld i_ptr=%ld i_ptr_heap=%ld i_raw=%ld i_raw_heap=%ld i_gap=%ld h_words=%ld h_cell_heap=%ld h_raw_heap=%ld s_words=%ld s_cell_heap=%ld s_raw_heap=%ld a_words=%ld a_heap=%ld divergence=%ld\n",
+            g_gc_rep_popname[k], g->frames, g->roots, g->nomap, g->notab, g->i_descr, g->i_heap, g->i_badtag, g->i_phase, g->i_ptr, g->i_ptr_heap, g->i_raw, g->i_raw_heap, g->i_gap, g->h_words, g->h_cell_heap, g->h_raw_heap, g->s_words, g->s_cell_heap, g->s_raw_heap, g->a_words, g->a_heap, g->i_raw_heap + g->h_raw_heap + g->s_raw_heap + g->a_heap); }
     if (g_gw_suppressed) fprintf(stderr, "[GC-WALK] site lines suppressed=%ld cap=%d\n", g_gw_suppressed, GC_WALK_LINE_CAP);
     memset(g_gw, 0, sizeof g_gw); g_gw_lines = 0; g_gw_suppressed = 0;
 }
