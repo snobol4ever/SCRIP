@@ -3614,6 +3614,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             emit_jmp_label(&lbl_γ, JMP_JMP);
         }
         emit_sep_rule('-'); emit_label_define_bb(pl_step_lbl);
+        bb_label_t * pl_step_ball_lbl = emit_label_alloc("%s_step_ball", fam);
+        bb_emit_x86(x86("test", "r15", "r15"));
+        emit_jmp_label(pl_step_ball_lbl, JMP_JNE);
         bb_emit_x86( x86("mov", "rdi", RDQ("rbp", _kt0 - 64))
                   + x86("call", "rt_pl_tr_unwind", _uwfp)
                   + x86("mov", RDQ("rbp", _kt0 - 48), 0L)
@@ -3622,6 +3625,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("test", "rax", "rax"));
         emit_jmp_label(&lbl_ω, JMP_JE);
         bb_emit_x86(x86_jmp_reg("rax"));
+        emit_sep_rule('-'); emit_label_define_bb(pl_step_ball_lbl);
+        bb_emit_x86(x86("comment", "PL EXCEPTION IN FLIGHT (r15 armed): a thrown ball received at a clause's own failure port must propagate past every remaining sibling clause, never retry one -- restore the outer choice barrier this predicate's own choice point had saved, then concede.")
+                  + x86("mov", "r13", RDQ("rbp", _kt0 - 40)));
+        emit_jmp_label(&lbl_ω, JMP_JMP);
         for (int _ak = 1; _ak < n_alt; _ak++) {
             int _kt = g_emit.flat_frame_bytes;
             emit_sep_rule('-'); emit_label_define_bb(alt_tr[_ak]);
