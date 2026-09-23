@@ -724,7 +724,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %left  OP_CMP3 OP_CMPG OP_LEG
 %left  OP_DIVIS
 %left  '|' '&' OP_SETINT OP_SETMUL OP_SETUNI OP_SETSUM OP_SETDIF OP_SETSYM OP_XORJ
-%left  OP_RANGE OP_RANGE_EX OP_RANGE_XL OP_RANGE_XB OP_BUT OP_DOESW OP_COLL OP_UNICMP
+%left  OP_RANGE OP_RANGE_EX OP_RANGE_XL OP_RANGE_XB OP_BUT OP_DOESW OP_COLL OP_UNICMP YADA
 %left  '~' OP_COMPOSE OP_COMPOSEU
 %left  OP_REP_X OP_REP_XX
 %left  '+' '-' OP_BORT OP_NBOR OP_QBOR OP_QBXOR OP_UMINUS_I
@@ -1957,6 +1957,7 @@ dor_expr
     ;
 range_expr
     : add_expr OP_RANGE    add_expr { $$=expr_binary(TT_TO,$1,$3); }
+    | add_expr YADA        add_expr { $$=expr_binary(TT_TO,$1,$3); }
     | range_expr OP_UNICMP add_expr  { tree_t *c=make_call("__rk_unicmp"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
     | range_expr OP_COLL add_expr  { tree_t *c=make_call("__rk_coll"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
     | range_expr OP_RANGE_XB add_expr  { tree_t *c=make_call("__rk_range_xb"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }

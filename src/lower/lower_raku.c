@@ -18,6 +18,13 @@ static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (int i = 0
 static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base) || g_rk_multi_n >= RK_GRAM_MAX) return; snprintf(g_rk_multi_names[g_rk_multi_n++], 128, "%s", base); }
 static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_gram_n; i++) if (!strcmp(g_rk_gram_names[i], nm)) return 1; return 0; }
 static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_class_n; i++) if (!strcmp(g_rk_class_names[i], nm)) return 1; return 0; }
+static const char * rk_qualified_type_gist(const char * nm) {
+    const char * p = strrchr(nm, ':'); const char * shortname = p ? p + 1 : nm;
+    size_t ln = strlen(shortname);
+    char * buf = (char *)ct_alloc(ln + 3);
+    buf[0] = '('; memcpy(buf + 1, shortname, ln); buf[ln + 1] = ')'; buf[ln + 2] = '\0';
+    return buf;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_modeled_type(const char * ty) {
     if (!ty) return 0; static const char * k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(ty, k[i])) return 1;
@@ -324,6 +331,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_VAR: {
         if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
+        }
+        if (t->v.sval && strchr(t->v.sval, ':')) {
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval); *res = nd; return nd;
         }
         if (rk_name_is_byref(cx, t->v.sval)) {
             IR_t * dr = build(cx, IR_DEREF, γ, ω);
