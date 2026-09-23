@@ -45,6 +45,8 @@ static char *g_hp_cap_end = (char *)0;
 static size_t g_hp_chunk = 0;
 static long g_hp_capped = 0;
 static long g_hp_grown = 0;
+static long g_hp_grows = 0;
+static long g_hp_live = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from);
@@ -154,10 +156,10 @@ static void rt_gcheap_report(void)
     long win_mb = (long)(g_hp_chunk >> 20), rsv_mb = (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 20) : 0L;
     long win_kb = (long)(g_hp_chunk >> 10);
     { const char *x = getenv("SCRIP_GC_EXERCISE"); const char *st = getenv("SCRIP_GC_STRESS");
-      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld capped=%ld grew=%ld cap_kb=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L); }
+      if (x && *x && *x != '0') fprintf(stderr, "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld capped=%ld grew=%ld cap_kb=%ld grows=%ld\n", win_kb, win_mb, rsv_mb, (st && *st) ? st : "0", rt_gc_runs_count(), g_hp_blocks, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L, g_hp_grows); }
     if (!getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
-    fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld capped=%ld grew=%ldKB cap=%ldKB verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L);
+    fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld capped=%ld grew=%ldKB cap=%ldKB grows=%ld verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L, g_hp_grows);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_huge_advise(char *a0, char *e0)
@@ -168,16 +170,26 @@ static void gc_huge_advise(char *a0, char *e0)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_cap_hit(uint64_t need);
+_Static_assert(sizeof(long) == 8, "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap): the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, half of what is free) at init, after every grow and after every collection -- a line fixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left the window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
+static void rt_gcheap_line_reset(void)
+{
+    long half = (long)((size_t)(g_hp_end - g_hp_top) >> 1);
+    g_hp_gcline = g_hp_top + gc_line_span(half);
+    g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_gcheap_grow(uint64_t need)
 {
     size_t left = (size_t)(g_hp_cap_end - g_hp_end);
     if (!left) { rt_gcheap_cap_hit(need); return 0; }
-    { size_t want = (size_t)need + sizeof(rt_hblk_t); want = (want + 0xFFFu) & ~(size_t)0xFFFu; if (want > left) want = left;
+    { size_t want = (size_t)need + sizeof(rt_hblk_t), committed = (size_t)(g_hp_end - g_hp_arena); want = (want + 0xFFFu) & ~(size_t)0xFFFu;
+      if ((size_t)g_hp_live * 2u > committed && want < committed) want = committed;
+      if (want > left) want = left;
       if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] lazy commit refused %ld KB at %p under a %ld KB hard cap\n", (long)(want >> 10), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 10)); return 0; }
       gc_huge_advise(g_hp_end, g_hp_end + want);
       g_hp_end += want;
-      g_hp_grown += (long)want;
-      if (!gc_line_paced()) g_hp_fr.line = g_hp_end;
+      g_hp_grown += (long)want; g_hp_grows++;
+      rt_gcheap_line_reset();
       if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZHP] lazy commit -> %ld KB of a %ld KB hard cap (committed %ld KB total)\n", (long)((g_hp_end - g_hp_arena) >> 10), (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)(g_hp_grown >> 10));
       return 1; }
 }
@@ -208,8 +220,7 @@ static void rt_gcheap_init(void)
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + g_hp_chunk;
     gc_huge_advise(g_hp_arena, g_hp_end);
     g_hp_virgin = g_hp_arena;
-    g_hp_gcline = g_hp_arena + gc_line_span((long)(g_hp_chunk >> 1));
-    g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
+    rt_gcheap_line_reset();
     gc_static_segs_init();
     { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }
 }
@@ -978,7 +989,8 @@ static void gc_seg_begin(gc_seg_it_t *it, char *floor)
 }
 static char *g_gc_emit_ceiling = (char *)0;
 static int   g_gc_seg_main = 0;
-static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() == 2 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
+_Static_assert(sizeof(void *) == 8, "A PARKED STACK IS A SEGMENT FROM ITS RECORDED STACK POINTER, NOT FROM ITS MAPPING (cto, 2026-09-23, row gc-heap-growth-...; law CEO-812 THE COLLECTOR GUESSES NOTHING): scrip_coswitch records rsp in park_sp before it posts the semaphore, every word of the mutator's lives at or above it, and the words below it are glibc's sem_wait frames -- the whole-mapping walk read those raw words as cells (the accident test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh names) and cost geddump 5.5 s per collection walking 8 MB per parked co-expression; SCRIP_GC_COEXPR_PLANT=3 restores the whole-mapping walk as the plant");
+static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() != 3 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
 static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
 {
     if (it->stage == 0) { it->stage = 1;
@@ -1463,7 +1475,7 @@ static long gc_collect_ex(void)
         if ((char *)livef[i] == (char *)h) { w_unm++; if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
             if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = dest; g_hp_wend = (char *)h; } } dest = (char *)h + sz; }
         else { memmove((void *)livef[i], (void *)h, (size_t)sz); dest = (char *)livef[i] + sz; if (w_tel) w_mov += (long)sz; } }
-    g_hp_top = dest; g_hp_blocks = nlive + nfill;
+    g_hp_top = dest; g_hp_blocks = nlive + nfill; g_hp_live = (long)(dest - g_hp_arena); rt_gcheap_line_reset();
     for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~HBF_MARK); }
     after_b = (long)(g_hp_top - g_hp_arena);
     if (st_n) { static int said_stale = 0; long mv = 0, un = 0, sw = 0;
