@@ -15,6 +15,7 @@ static int  pascal_ifdefpos;
 int pas_const_get(const char *name, long long *out);
 int pas_rconst_get(const char *name, double *out);
 const char *pas_sconst_get(const char *name);
+extern int g_pas_iso_errors;
 static int pascal_if_declared(const char *name) {
     long long iv; double rv;
     return pas_const_get(name, &iv) || pas_rconst_get(name, &rv) || pas_sconst_get(name) != NULL;
@@ -204,6 +205,10 @@ ALNUM    [A-Za-z0-9_]
 {DIGIT}+"."{DIGIT}+([eE][+-]?{DIGIT}+)?   { pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
 {DIGIT}+[eE][+-]?{DIGIT}+                 { pascal_yylval.dval = strtod(pascal_yytext, NULL); return REALCONST; }
 {DIGIT}+                { pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
+{DIGIT}+{ALPHA}{ALNUM}* { int nd = 0; while (isdigit((unsigned char)pascal_yytext[nd])) nd++;
+                          fprintf(stderr, "pascal: ISO 7185 6.1.8 violation line %d: the unsigned-number '%.*s' is directly followed by '%s' -- a separator shall occur between them\n",
+                                  pascal_yylineno, nd, pascal_yytext, pascal_yytext + nd);
+                          g_pas_iso_errors++; yyless(nd); pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
 "$"[0-9A-Fa-f]+          { pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext + 1, NULL, 16); return INTCONST; }
 "#"[0-9]+               { long long _cc = strtoll(pascal_yytext + 1, NULL, 10); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
 "#$"[0-9A-Fa-f]+         { long long _cc = strtoll(pascal_yytext + 2, NULL, 16); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
