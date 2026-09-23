@@ -157,10 +157,10 @@ src/templates/bb/bb_unop.cpp:114:rt_num_pos	src/templates/bb/bb_unop.cpp:117	hb_
 src/templates/bb/bb_var_global.cpp:32:NV_GET_fn	src/templates/bb/bb_var_global.cpp:39	hb_dvec_sort_match.sno
 src/templates/bb/bb_var_ref.cpp:51:rt_pl_fresh_var_ref	src/templates/bb/bb_var_ref.cpp:54	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:70:rt_var_ref_cell_named	src/templates/bb/bb_var_ref.cpp:73	UNWITNESSED
-src/templates/xa/xa_flat.cpp:427:rt_trace_call_hook_f	src/templates/xa/xa_flat.cpp:431	hb_cv_spine_plain_redo.icn
-src/templates/xa/xa_flat.cpp:428:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:431	hb_cv_spine_plain_redo.icn
-src/templates/xa/xa_flat.cpp:429:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:431	hb_cv_spine_plain_redo.icn
-src/templates/xa/xa_flat.cpp:430:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:431	hb_cv_spine_plain_redo.icn
+src/templates/xa/xa_flat.cpp:452:rt_trace_call_hook_f	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
+src/templates/xa/xa_flat.cpp:453:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
+src/templates/xa/xa_flat.cpp:454:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
+src/templates/xa/xa_flat.cpp:455:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:456	hb_cv_spine_plain_redo.icn
 src/emitter/emit.cpp:2912:rt_trace_call_hook_f	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn
 src/emitter/emit.cpp:2913:rt_trace_return_hook	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn
 src/emitter/emit.cpp:2914:rt_trace_gen_fail_hook	src/emitter/emit.cpp:2916	hb_concat_augmented_then_subscript.icn

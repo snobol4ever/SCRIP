@@ -85,7 +85,7 @@ while IFS='|' read -r knob lit want; do
   found="$(printf '%s\n' "$scan" | grep -F "${knob}=" | cut -d: -f1 | grep -v "^${G}.sh$" | sort -u | tr '\n' ' ' | sed 's/ $//')"
   wantn="$(printf '%s' "$want" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ' | sed 's/ $//')"
   [ "$found" = "$wantn" ] || bad="$bad [$knob: declared='$wantn' found='${found:-none}']"
-  for f in $found; do gates=$((gates+1)); grep -vE '^[[:space:]]*#' "$HERE/$f" | grep -qF "$lit" || bad="$bad [$knob: $f plants and never reads the '$lit' banner on any line the shell executes]"; done
+  for f in $found; do gates=$((gates+1)); grep -vE '^[[:space:]]*#' "$HERE/$f" | grep -F "$lit" >/dev/null || bad="$bad [$knob: $f plants and never reads the '$lit' banner on any line the shell executes]"; done
 done <<EOF
 $TBL
 EOF
