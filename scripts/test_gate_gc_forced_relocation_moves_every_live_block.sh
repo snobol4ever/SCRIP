@@ -33,7 +33,7 @@ LIBDIR="$ROOT/out"
 WITDIR="$ROOT/scripts/gc_witnesses"
 WITS="${GC_RELOC_WITS:-hb_big_in_aggregate.icn hb_dvec_list_slice.icn hb_scan_nested.icn hb_cv_spine_plain_redo.icn hb_datblk.sno hb_blob_span_defer.sno hb_deferexpr_a_dupl.sno}"
 PTS="${GC_RELOC_BAND:-0 3 16}"
-ARENA="${SCRIP_HEAP_MB:-1}"
+ARENA_KB="${SCRIP_HEAP_KB:-128}"; unset SCRIP_HEAP_MB
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [gc_forced_relocation_moves_every_live_block]: $1"; exit 2; }
@@ -41,7 +41,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_forced_relocation_moves_every_live_bloc
 [ -f "$LIBDIR/libscrip_rt.so" ] || refuse "no out/libscrip_rt.so -- the m4 arm would have measured nothing"
 . scripts/util_require_fresh.sh 2>/dev/null || true
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-echo "ARENA SCRIP_HEAP_MB=$ARENA (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=$ARENA_KB (the SHIPPED window -- CEO-931/934, converted off the MB=1 spelling by the CEO-1146 sweep because MB=1 is 1024 KB, EIGHT TIMES the shipped window, and collects ZERO times on four of six witnesses)"
 echo "    band: $PTS · modes m3 m4 · knob SCRIP_GC_RELOC off/on ON ONE BINARY · census SCRIP_GC_DISPLACE=1"
 # unmoved_of <errfile> -> "collections unmoved live"; a census line per collection, aggregated here rather than
 # in the runtime, because RULES.md line 231 covers function-scope statics and this seat holds no grant.
@@ -49,9 +49,9 @@ unmoved_of() { awk '/GC-DISPLACE/{for(i=1;i<=NF;i++){split($i,a,"=");v[a[1]]=a[2
 run_one() {
   local bin="$1" src="$2" st="$3" reloc="$4" out="$5" err="$6"
   if [ "$bin" = m3 ]; then
-    SCRIP_HEAP_MB="$ARENA" SCRIP_GC_DISPLACE=1 SCRIP_GC_RELOC="$reloc" SCRIP_GC_STRESS="$st" timeout 120s "$SCRIP" "$src" > "$out" 2> "$err"
+    env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_DISPLACE=1 SCRIP_GC_RELOC="$reloc" SCRIP_GC_STRESS="$st" timeout 120s "$SCRIP" "$src" > "$out" 2> "$err"
   else
-    SCRIP_HEAP_MB="$ARENA" SCRIP_GC_DISPLACE=1 SCRIP_GC_RELOC="$reloc" SCRIP_GC_STRESS="$st" timeout 120s "$bin" > "$out" 2> "$err"
+    env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_DISPLACE=1 SCRIP_GC_RELOC="$reloc" SCRIP_GC_STRESS="$st" timeout 120s "$bin" > "$out" 2> "$err"
   fi
 }
 tot_off_un=0; tot_off_fw=0; tot_on_un=0; tot_on_fw=0; arms=0; coll_arms=0; zero_coll=""; refused_lines=0; idle_wits=""

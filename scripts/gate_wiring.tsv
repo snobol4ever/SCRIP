@@ -117,6 +117,7 @@ test_gate_gc_a_stale_read_of_vacated_ground_faults_and_names_its_block.sh	WIRED	
 test_gate_gc_acceptance_never_prints_a_number_over_a_refusal.sh	WIRED	-	-	-
 test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
+test_gate_gc_an_arena_pin_names_the_shipped_window_and_the_record_can_see_it.sh	WIRED	-	-	-
 test_gate_gc_blob_carve_invariant_is_named_and_held.sh	WIRED	-	-	-
 test_gate_gc_carve_advances_the_virgin_mark_past_a_straddling_block.sh	WIRED	-	-	-
 test_gate_gc_collector_visits_only_mapped_slots.sh	WIRED	-	-	-

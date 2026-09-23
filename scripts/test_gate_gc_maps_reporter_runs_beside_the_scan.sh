@@ -143,9 +143,9 @@ walk_arm7() {
 for dsn in $DSN; do
     DS="$ROOT/scripts/gc_witnesses/$dsn.sno"; DSREF="$ROOT/scripts/gc_witnesses/$dsn.ref"
     [ -f "$DS" ] && [ -f "$DSREF" ] || { echo "  arm 7 RED [$dsn]: witness or ref missing -- cannot measure"; bad=1; continue; }
-    walk_arm7 "m3 $dsn" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_MB=1 timeout 300 "$ROOT/scrip" "$DS"
+    walk_arm7 "m3 $dsn" env -u SCRIP_HEAP_MB SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=128 timeout 300 "$ROOT/scrip" "$DS"
     if "$ROOT/scrip" --compile -o "$W/ds.s" "$DS" < /dev/null 2>"$W/dsc.txt" && gcc "$W/ds.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ds.m4" 2>>"$W/dsc.txt"; then
-        walk_arm7 "m4 $dsn" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_MB=1 timeout 300 "$W/ds.m4"
+        walk_arm7 "m4 $dsn" env -u SCRIP_HEAP_MB SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=128 timeout 300 "$W/ds.m4"
     else echo "  arm 7 RED [m4 $dsn]: the witness did not compile or link -- $(tail -1 "$W/dsc.txt")"; bad=1; fi
 done
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_maps_reporter_runs_beside_the_scan]: the step-3 reporter is not measuring"; exit 1; fi

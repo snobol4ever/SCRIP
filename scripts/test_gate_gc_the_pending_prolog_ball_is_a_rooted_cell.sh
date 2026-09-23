@@ -45,7 +45,7 @@
 # sibling root grades your neighbour's checkout and reports PASS or REFUSE for reasons nobody in this lane can act on).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
-: "${SCRIP_HEAP_MB:=1}"; export SCRIP_HEAP_MB
+unset SCRIP_HEAP_MB; : "${SCRIP_HEAP_KB:=128}"; export SCRIP_HEAP_KB
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
 ASM="$ROOT/src/runtime/rtx/rtx_plunify.s"; TRC="$ROOT/src/runtime/rt/rt_pl_trail.c"; GCH="$ROOT/src/runtime/rt/gc_heap.c"
@@ -57,7 +57,7 @@ cat > "$T/w.pl" <<'PL'
 main :- catch(( X is foo + 1, write(X) ), error(type_error(evaluable, foo/0), _), write(caught_type_error)), nl.
 PL
 RC=0; examined=0
-echo "ARM 1 -- BEHAVIOUR: the structured catcher catches under collection (arena SCRIP_HEAP_MB=$SCRIP_HEAP_MB)"
+echo "ARM 1 -- BEHAVIOUR: the structured catcher catches under collection (arena SCRIP_HEAP_KB=$SCRIP_HEAP_KB)"
 "$SCRIP" --compile -o "$T/w.s" "$T/w.pl" >/dev/null 2>&1 || { echo "⛔ REFUSE(2): --compile refused the witness"; exit 2; }
 gcc "$T/w.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/w.bin" 2>/dev/null \
   || { echo "⛔ REFUSE(2): the mode 4 witness would not link"; exit 2; }

@@ -176,7 +176,7 @@ examined=$((examined + 1))
 # ⛔ THE FIXTURE MUST COLLECT UNDER THE REFERENCE CONFIGURATION or NO-COLLECTION preempts UNDISTINGUISHED and
 # the arm passes for the wrong reason. hb_arr.sno collects 0 times at arena1 and was the first draft's mistake;
 # hb_bignum_length.icn collects once, so the twins genuinely collapse rather than never running.
-printf 'twinA\tSCRIP_HEAP_MB=1\tdeliberate twin\ntwinB\tSCRIP_HEAP_MB=1\tthe SAME configuration under a second name\n' > "$T/twin.tsv"
+printf 'twinA\tSCRIP_HEAP_KB=128\tdeliberate twin\ntwinB\tSCRIP_HEAP_KB=128\tthe SAME configuration under a second name\n' > "$T/twin.tsv"
 p3="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --configs "$T/twin.tsv" \
       --timeout 60 2>&1)"; rc3=$?
 if [ "$rc3" != 2 ]; then
@@ -318,8 +318,8 @@ fi
 # telemetry does not change the program's answer -- otherwise the instrument perturbs what it measures.
 examined=$((examined + 1))
 w="$HERE/gc_witnesses/hb_bignum_length.icn"
-a="$(cd "$ROOT" && SCRIP_HEAP_MB=1 timeout 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
-b="$(cd "$ROOT" && SCRIP_HEAP_MB=1 SCRIP_ZETA_TELEM=1 timeout 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
+a="$(cd "$ROOT" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 timeout 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
+b="$(cd "$ROOT" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_ZETA_TELEM=1 timeout 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
 if [ "$a" != "$b" ]; then
   echo "  RED  ARM 7: SCRIP_ZETA_TELEM changes the program's stdout ($a vs $b) -- holding it on across the"
   echo "       matrix would make the instrument a variable of its own measurement"; RC=1

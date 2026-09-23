@@ -30,7 +30,7 @@ REF=scripts/gc_witnesses/hb_concat_slot_capture_across_a_collection.ref
 TMP=$(mktemp -d) || exit 2; trap 'rm -rf "$TMP"' EXIT
 fail=0; collected=0
 for st in 0 1 3 5; do
-  env SCRIP_GC_EXERCISE=1 SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=$st timeout 60 ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
+  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout 60 ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
   rc=$?
   col=$(grep -o 'collections=[0-9]*' "$TMP/e.$st" | tail -1); col=${col#collections=}; col=${col:-0}
   [ "${col:-0}" -gt 0 ] && collected=1

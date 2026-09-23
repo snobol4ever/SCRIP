@@ -102,7 +102,7 @@ n=$(awk -F'\t' '$8=="gate_a2"' "$S4E_PROGRESS_DB" 2>/dev/null | wc -l)
 
 echo "--- ARM 3: a declared configuration reaches the column and reads back BY NAME ---"
 seed_old_table
-SCRIP_GC_STRESS=3 SCRIP_HEAP_MB=1 python3 "$PY" append --class master --suite snobol4-master --lang snobol4 \
+env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=3 SCRIP_HEAP_KB=128 python3 "$PY" append --class master --suite snobol4-master --lang snobol4 \
   --program gate_a3 --mode m3 --outcome PASS --config 'arena=1,stress=3' >/dev/null 2>&1
 got=$(python3 - "$S4E_PROGRESS_DB" <<'PY'
 import csv, sys
@@ -178,9 +178,9 @@ got=$(awk -F'\t' '$8=="gate_alive"{print $14}' "$S4E_PROGRESS_DB" | tail -1)
 [ "$got" = "shipped" ] && ck ok "no axis set: the harness declares 'shipped' -- a positive statement the writer cannot make for it" \
   || ck no "no axis set: the harness declared '$got', not 'shipped'"
 seed_old_table
-SCRIP_GC_STRESS=3 SCRIP_HEAP_MB=1 python3 "$HERE/corpus_suite_harness.py" run "$C/ALL.sno" "$C/ALL.ref" --modes m3 >/dev/null 2>&1
+env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=3 SCRIP_HEAP_KB=128 python3 "$HERE/corpus_suite_harness.py" run "$C/ALL.sno" "$C/ALL.ref" --modes m3 >/dev/null 2>&1
 got=$(awk -F'\t' '$8=="gate_alive"{print $14}' "$S4E_PROGRESS_DB" | tail -1)
-[ "$got" = "SCRIP_GC_STRESS=3,SCRIP_HEAP_MB=1" ] && ck ok "axis set: the harness declares it verbatim ($got)" \
+[ "$got" = "SCRIP_GC_STRESS=3,SCRIP_HEAP_KB=128" ] && ck ok "axis set: the harness declares it verbatim ($got) -- AND THIS ARM NOW HOLDS THE ARENA HALF OF THE AXIS: SCRIP_HEAP_KB was in NEITHER GC_AXIS_EXACT nor the SCRIP_GC prefix until the CEO-1146 sweep put it there, so a KB-pinned run declared NO ARENA AT ALL while the sweep was moving 18 gates onto exactly that spelling" \
   || ck no "axis set: the harness declared '$got' -- a board under a forced collection recording itself as anything else is the whole defect"
 
 echo

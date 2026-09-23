@@ -105,15 +105,15 @@ done
 [ -s "$T/$ORACLE_WIT.live" ] || refuse "the oracle's answer for $ORACLE_WIT is EMPTY; an empty expectation makes every arm pass"
 cmp -s "$T/$ORACLE_WIT.live" "$WIT/$ORACLE_WIT.ref" || refuse "the committed ref for $ORACLE_WIT has DRIFTED from the oracle -- committed [$(tr '\n' '|' < "$WIT/$ORACLE_WIT.ref")] vs live [$(tr '\n' '|' < "$T/$ORACLE_WIT.live")]; a ref is cut from the oracle, never from our output"
 echo "=== gate: the &ERRTEXT keyword's value survives a collection ==="
-echo "    oracle $SBL $FLAGS (ref re-checked live, this run) · SCRIP_HEAP_MB=1 · band: $PTS · modes m3 m4"
+echo "    oracle $SBL $FLAGS (ref re-checked live, this run) · SCRIP_HEAP_KB=128 · band: $PTS · modes m3 m4"
 fails=0
 run_band(){ # $1 witness  $2 want  $3 label
   local n="$1" want="$2" lbl="$3" m N got rc row
   for m in m3 m4; do
     printf '    %-24s %-3s' "$n" "$m"; row=""
     for N in $PTS; do
-      if [ "$m" = m3 ]; then got="$(cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
-      else got="$(cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
+      if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
+      else got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
       arms=$((arms+1))
       if [ "$got" = "$want" ] && [ "$rc" = 0 ]; then row="$row   ."
       else row="$row   X"; fails=$((fails+1)); redset="$redset $n/$m/$N(rc=$rc,${#got}B)"; fi
@@ -126,7 +126,7 @@ arms=0; redset=""
 ORACLE_WANT="$(cat "$WIT/$ORACLE_WIT.ref")"
 [ -n "$ORACLE_WANT" ] || refuse "the expectation for $ORACLE_WIT came back EMPTY -- an empty expectation makes every arm pass, and this guard exists because the first version of this gate read the ref from a path it had never copied to and graded 68 arms against nothing"
 run_band "$ORACLE_WIT" "$ORACLE_WANT" "ORACLE"
-STABLE_REF="$(cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 timeout 60s "$OLDPWD/scrip" "$STABLE_WIT.sno" < /dev/null 2>&1)"
+STABLE_REF="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 timeout 60s "$OLDPWD/scrip" "$STABLE_WIT.sno" < /dev/null 2>&1)"
 [ -n "$STABLE_REF" ] || refuse "$STABLE_WIT produced an EMPTY answer with no collection forced; an empty expectation makes every stability arm pass"
 run_band "$STABLE_WIT" "$STABLE_REF" "STABILITY vs own stress-0, NOT the oracle -- see header"
 echo "------------------------------------------------------------"

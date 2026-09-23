@@ -30,7 +30,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"; G="gc_a_stale_read_of_vacated_ground_faults_and_names_its_block"
-export SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}"
+unset SCRIP_HEAP_MB; export SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-128}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [$G]: $1"; exit 2; }
@@ -39,7 +39,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [$G]: $1"; exit 2; }
 command -v gcc >/dev/null 2>&1 || refuse "no gcc -- this gate plants its own fixture and cannot build it"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 TRAPENV=""; [ "${FAIL_ONCE:-0}" = 1 ] && TRAPENV="SCRIP_GC_TRAP=0"
-echo "ARENA SCRIP_HEAP_MB=$SCRIP_HEAP_MB (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=$SCRIP_HEAP_KB (the shipped window -- CEO-931/934; the CEO-1146 sweep moved this off MB=1, which named 1024 KB and ran the collector ZERO times on four of six witnesses. The exasperation knob is SCRIP_GC_STRESS, never the arena -- 33rd batch clause 1)"
 cat > "$T/plant.c" <<'PLANTC'
 #include <stdio.h>
 #include <stdlib.h>

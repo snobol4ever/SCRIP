@@ -41,12 +41,19 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; examined=0
 # receipt <file> <arena> <stress> <program> -- one run, stdout discarded, the receipt kept.  ⛔ Each run gets its OWN
 # scratch file: a shared one between two configurations reports false flips (cfo, measured).
-receipt() { env SCRIP_HEAP_MB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
+# ⛔ env -u SCRIP_HEAP_KB IS LOAD-BEARING, NOT TIDINESS (CEO-1153, 33rd batch clause 6; coo 2026-09-22 under the
+# CEO-1146 sweep, which SPLIT THIS GATE OUT rather than converting it -- the three MB windows below are this
+# instrument's own test vector and converting them would delete its subject).  rt_gcheap_init reads SCRIP_HEAP_MB
+# at gc_heap.c:191 and SCRIP_HEAP_KB at :192 and LAST WRITER WINS, so an outer KB export silently defeated EVERY
+# window named here: arm 2 would have read one arena three times and called the field broken, arm 3 would have
+# read one collection count twice, and arm 4 would have compared a reserve against itself.  The cto measured this
+# exact defeat on collector_visits arm 5 (gc2 read 0 of 5 under an outer KB=64 while passing at its own default).
+receipt() { env -u SCRIP_HEAP_KB SCRIP_HEAP_MB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
 fld() { printf '%s\n' "$1" | grep -oE "$2=[0-9]+" | head -1 | cut -d= -f2; }
 # ARM 1 -- SILENT WHEN UNASKED.  A receipt that prints unconditionally changes the stderr of every board and witness in
 # the tree, and a gate somewhere is grading stderr byte for byte.  The knob is the whole contract.
 examined=$((examined + 1))
-env SCRIP_HEAP_MB=1 timeout 120s "$ROOT/scrip" "$THIN" 2>"$T/quiet.txt" >/dev/null
+env -u SCRIP_HEAP_KB SCRIP_HEAP_MB=1 timeout 120s "$ROOT/scrip" "$THIN" 2>"$T/quiet.txt" >/dev/null
 if [ "$(grep -c 'GC-EXERCISE' "$T/quiet.txt")" = 0 ]; then echo "  arm 1 PASS: no receipt without SCRIP_GC_EXERCISE -- existing boards and stderr-grading gates are untouched"
 else echo "  arm 1 FAIL: the receipt printed with the knob unset, so it is spam and it changes what every other instrument reads"; RC=1; fi
 # ARM 2 -- THE ARENA FIELD TRACKS THE WINDOW.  This is the arm the pre-cure code fails: it read (int)GC_HEAP_MB, a

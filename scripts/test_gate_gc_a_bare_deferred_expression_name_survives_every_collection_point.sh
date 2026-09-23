@@ -111,7 +111,7 @@ for n in $NAMES; do
       || refuse "mode-4 compile or link failed for $n, so every m4 arm measured nothing ($(head -c 160 "$T/$n.ld.log" 2>/dev/null))"
 done
 echo "=== gate: a bare deferred expression's DT_X name survives every collection point ==="
-echo "    oracle $SBL $FLAGS (refs cut live, this run) · SCRIP_HEAP_MB=1 · band: $PTS · modes m3 m4"
+echo "    oracle $SBL $FLAGS (refs cut live, this run) · SCRIP_HEAP_KB=128 · band: $PTS · modes m3 m4"
 printf '    %-11s %-3s' "" ""; for N in $PTS; do printf '%4s' "$N"; done; echo
 arms=0; red=0; redset=""; wit_red=0; sib_red=0; ctl_red=0
 for n in $NAMES; do
@@ -119,8 +119,8 @@ for n in $NAMES; do
   for m in m3 m4; do
     printf '    %-11s %-3s' "$n" "$m"; row=""
     for N in $PTS; do
-      if [ "$m" = m3 ]; then got="$(cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
-      else got="$(cd "$T" && SCRIP_HEAP_MB=1 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
+      if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
+      else got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
       arms=$((arms+1))
       if [ "$got" = "$want" ] && [ "$rc" = 0 ]; then row="$row   ."
       else
@@ -146,5 +146,5 @@ fi
 [ "$ctl_red" != 0 ] && echo "    ⛔ THE CONTROL IS RED. nodefer carries no deferred expression, so this is NOT the DT_X recognizer hole -- do not cure that; something wider is broken and this gate's population can no longer isolate anything."
 [ "$ctl_red" = 0 ] && [ "$sib_red" != 0 ] && echo "    ⛔ A SIBLING IS RED WITH THE CONTROL GREEN: the defect is no longer confined to the bare-deferred-expression road. Re-ablate before curing -- the witness is no longer a witness for a single ingredient."
 [ "$ctl_red" = 0 ] && [ "$sib_red" = 0 ] && echo "    ⭐ WITNESS-ONLY REDS WITH EIGHT SIBLINGS AND THE CONTROL GREEN: this is the expected shape of the defect. The cure is DT_X in gc_cell_visit (the cfo's file, CFO-138) -- see this gate's header, and do NOT add DT_SNUL with it."
-echo "⛔ GATE FAIL [$G]: $red of $arms arms diverge from the oracle at SCRIP_HEAP_MB=1"
+echo "⛔ GATE FAIL [$G]: $red of $arms arms diverge from the oracle at SCRIP_HEAP_KB=128"
 exit 1

@@ -48,19 +48,19 @@ steady() {
         if (n++ == 0) { fb=by } lb=by; lr=r }
         END { if (n < 3 || lr < 2) { print "REFUSE" } else { printf "%d\n", (lb-fb)/(lr-1) } }'
 }
-M3=$(steady env SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$SCRIP" "$W" < /dev/null)
-M4=$(steady env SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$T/w" < /dev/null)
-OFF=$(steady env SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null)
+M3=$(steady env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$SCRIP" "$W" < /dev/null)
+M4=$(steady env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$T/w" < /dev/null)
+OFF=$(steady env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null)
 for v in "$M3" "$M4" "$OFF"; do [ "$v" = "REFUSE" ] && { echo "⛔ GATE REFUSE(2) [$G]: fewer than 3 collections seen -- the witness did not exercise the walker"; exit 2; }; done
 echo "  steady-state stack bytes per collection: m3=$M3 m4=$M4 plant(SCRIP_GC_CEILING=0,m3)=$OFF"
 if [ "$M3" -lt 65536 ] && [ "$M4" -lt 65536 ] && [ "$M3" -lt $((M4 * 2 + 64)) ] && [ "$M4" -lt $((M3 * 2 + 64)) ]; then echo "  arm 1 PASS (the two modes read the same bounded region)"; else echo "  arm 1 FAIL (m3=$M3 m4=$M4; want both under 65536 and within 2x)"; RC=1; fi
 if [ "$OFF" -gt 1048576 ]; then echo "  arm 2 PASS (planted: the unbounded walk still reads $OFF bytes per collection, so this gate can see the defect it was built for)"; else echo "  arm 2 FAIL (SCRIP_GC_CEILING=0 read $OFF bytes per collection, want over 1048576 -- the plant no longer reproduces the old walk and arm 1 proves nothing)"; RC=1; fi
-h1=$(SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 "$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
-h2=$(SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+h1=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 "$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+h2=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
 h3=$("$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
-h4=$(SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 "$T/w" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+h4=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 "$T/w" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
 if [ "$h1" = "$h2" ] && [ "$h1" = "$h3" ] && [ "$h1" = "$h4" ]; then echo "  arm 3 PASS (output byte-identical across ceiling on/off, both arenas, both modes)"; else echo "  arm 3 FAIL (on=$h1 off=$h2 default-arena=$h3 m4=$h4)"; RC=1; fi
-cov=$(SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 SCRIP_GC_COVERAGE=1 "$SCRIP" "$W" < /dev/null 2>&1 | grep -m1 '^\[GC-COV\]' | sed -n 's/.*ceiling_bytes_skipped=\([0-9]*\).*/\1/p')
+cov=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_COVERAGE=1 "$SCRIP" "$W" < /dev/null 2>&1 | grep -m1 '^\[GC-COV\]' | sed -n 's/.*ceiling_bytes_skipped=\([0-9]*\).*/\1/p')
 if [ -n "$cov" ] && [ "$cov" -gt 0 ]; then echo "  arm 4 PASS (the saving is reported: ceiling_bytes_skipped=$cov)"; else echo "  arm 4 FAIL (no ceiling_bytes_skipped on the coverage line -- a saving nobody can read is dark)"; RC=1; fi
 [ $RC -eq 0 ] && echo "GATE PASS [$G]" || echo "GATE FAIL [$G]"
 exit $RC

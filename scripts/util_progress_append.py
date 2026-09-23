@@ -54,7 +54,17 @@ COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "p
 # going to build, NOT what the loaded out/libscrip_rt.so was actually built with -- and those differ the moment a
 # caller exports the flag without rebuilding. The binary's own identity is the `fingerprint` column; this is the
 # runner's STATEMENT about it, and a statement nobody made must not be invented (CEO-812 applied to the record).
-GC_AXIS_EXACT = ("SCRIP_HEAP_MB", "RT_OPT")
+# ⛔⭐⭐ SCRIP_HEAP_KB IS AN AXIS BECAUSE IT IS THE ARENA KNOB THAT WINS (coo 2026-09-22, the CEO-1146 arena sweep).
+# rt_gcheap_init reads SCRIP_HEAP_MB at gc_heap.c:191 and SCRIP_HEAP_KB at :192, LAST WRITER WINS, so KB is the knob
+# that decides the window -- and it was in NEITHER half of this predicate: it is not in this tuple, and GC_AXIS_PREFIX
+# is "SCRIP_GC", which "SCRIP_HEAP_KB" does not start with.  MEASURED before the line was written:
+# SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=3 yielded {"SCRIP_GC_STRESS": "3"} -- A RUN AT A 64 KB ARENA DECLARING NO ARENA AT
+# ALL.  ⛔ THE SWEEP IS WHAT MADE IT URGENT RATHER THAN MERELY WRONG: eighteen gates are moving OFF SCRIP_HEAP_MB=1
+# and ONTO a KB pin in the same landing, so without this line the sweep would trade a WRONG arena (MB=1 is 1024 KB,
+# eight times the shipped 128) for an INVISIBLE one, and the record would get worse while every number in it looked
+# fine.  The second reader pays too: util_gc_differential.py strips exactly this set before every run so a stale knob
+# from the caller's shell cannot join a configuration silently, and the knob it could not strip was the one that wins.
+GC_AXIS_EXACT = ("SCRIP_HEAP_KB", "SCRIP_HEAP_MB", "RT_OPT")
 GC_AXIS_PREFIX = "SCRIP_GC"
 CONFIG_UNDECLARED = "undeclared"
 # ⛔ THE MACHINE TOKEN FOR A DEVELOPMENT PASS.  A reader asking "was this a board pass?" greps the note for

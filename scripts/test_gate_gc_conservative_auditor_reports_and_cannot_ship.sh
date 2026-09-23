@@ -33,7 +33,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"; G="gc_conservative_auditor_reports_and_cannot_ship"
-export SCRIP_HEAP_MB="${SCRIP_HEAP_MB:-1}"
+unset SCRIP_HEAP_MB; export SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-128}"
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [$G]: $1"; exit 2; }
@@ -41,7 +41,7 @@ SRC="src/runtime/rt/gc_audit_b.c"; HDR="src/runtime/rt/gc_audit_b.h"; DECL="scri
 for f in "$SRC" "$HDR" "$DECL" src/runtime/rt/gc_heap.c; do [ -f "$ROOT/$f" ] || refuse "$f is missing -- it is part of this rung's deliverable"; done
 command -v nm >/dev/null 2>&1 || refuse "no nm -- this gate resolves a holder OFFSET to a SYMBOL and cannot key a declaration on an offset"
 [ -f "$ROOT/out/libscrip_rt.so" ] || refuse "no out/libscrip_rt.so -- there is no shipped library to census"
-echo "ARENA SCRIP_HEAP_MB=$SCRIP_HEAP_MB (the tiny arena is the default of GC testing -- CEO-931/934)"
+echo "ARENA SCRIP_HEAP_KB=$SCRIP_HEAP_KB (the shipped window -- CEO-931/934; the CEO-1146 sweep moved this off MB=1, which named 1024 KB and ran the collector ZERO times on four of six witnesses. The exasperation knob is SCRIP_GC_STRESS, never the arena -- 33rd batch clause 1)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 
 echo "-- (a) THE SHIPPED BUILD CARRIES ZERO CONSERVATIVE SCAN"

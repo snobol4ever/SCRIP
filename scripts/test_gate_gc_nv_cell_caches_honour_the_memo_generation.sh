@@ -35,7 +35,7 @@
 # FAIL_ONCE=1 drops the generation check from the structure arm's view to prove arm 2 trips.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
-: "${SCRIP_HEAP_MB:=1}"; export SCRIP_HEAP_MB
+unset SCRIP_HEAP_MB; : "${SCRIP_HEAP_KB:=128}"; export SCRIP_HEAP_KB
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
 SUITE="$ROOT/../corpus/tests/snobol4/ALL.sno"; SREF="$ROOT/../corpus/tests/snobol4/ALL.ref"
@@ -50,7 +50,7 @@ python3 "$HERE/corpus_suite_harness.py" extract "$SUITE" "$SREF" "$ENTRY" "$T/w.
 nincl=$(grep -c -- '-INCLUDE' "$T/w.sno" || true)
 [ "$nincl" -ge 16 ] || { echo "⛔ REFUSE(2): witness carries $nincl -INCLUDE lines, expected >= 16 -- a witness without its companions is a different program"; exit 2; }
 RC=0; examined=0
-echo "ARM 1 -- BEHAVIOUR: no signal death under collection (arena SCRIP_HEAP_MB=$SCRIP_HEAP_MB, entry $ENTRY)"
+echo "ARM 1 -- BEHAVIOUR: no signal death under collection (arena SCRIP_HEAP_KB=$SCRIP_HEAP_KB, entry $ENTRY)"
 for ST in 21 35; do
   for i in 1 2 3; do
     examined=$((examined+1))

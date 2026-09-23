@@ -124,8 +124,8 @@ for w in $WITNESSES; do
   for st in $BAND; do
     for sh in $SHIFTS; do
       for mode in m3 m4; do
-        if [ "$mode" = m3 ]; then out=$( cd "$W" && SCRIP_HEAP_MB=1 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_SHIFT="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" "$w.pas" < /dev/null 2>"$W/err.txt" ); rc=$?
-        else out=$( cd "$W" && SCRIP_HEAP_MB=1 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_SHIFT="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "./${w}_m4" < /dev/null 2>"$W/err.txt" ); rc=$?; fi
+        if [ "$mode" = m3 ]; then out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_SHIFT="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" "$w.pas" < /dev/null 2>"$W/err.txt" ); rc=$?
+        else out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_SHIFT="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "./${w}_m4" < /dev/null 2>"$W/err.txt" ); rc=$?; fi
         col=$(grep -c 'regeneration #' "$W/err.txt"); col=${col:-0}
         mv=$(grep -o 'moved=[0-9]*B' "$W/err.txt" | grep -o '[0-9]*' | awk '{s+=$1} END{print s+0}')
         GRADED=$((GRADED+1))
@@ -134,7 +134,7 @@ for w in $WITNESSES; do
         if [ "$col" -eq 0 ]; then echo "INERT   $tag -- collections=0: this point never ran a collector, so its answer is a statement about the program and not about the collector"; INERT=$((INERT+1)); continue; fi
         if [ "$mv" -eq 0 ]; then echo "NO-MOVE $tag -- collections=$col but moved=0B: nothing relocated, so forwarding was never exercised"; NOMOVE=$((NOMOVE+1)); continue; fi
         pl=$(grep -c '^\[GC-SHIFT\] plant:' "$W/err.txt"); pl=${pl:-0}
-        if [ "$sh" -ne 0 ] && [ "$pl" -eq 0 ]; then echo "UNPLANTED $tag -- collections=$col moved=${mv}B but the shift plant applied ZERO times: gc_plant_shift_bytes() returns 0 whenever the arena headroom is not strictly greater than the shift, and it used to do so SILENTLY. This point relocated blocks by ordinary compaction alone, which is the very thing the plant exists to go beyond, so it is NOT a green and NOT a no-move. Measured by the cto 2026-09-21 on the cfo's flag, pasrec at SCRIP_HEAP_MB=1 stress 3: shift 4096 applies 495 times, 65536 applies 466, 262144 applies 373, 1048576 applies ZERO with rc=0 and byte-identical stdout -- so before this arm existed, a big-enough shift under the mandated tiny arena made this gate PASS having planted nothing at all"; UNPLANTED=$((UNPLANTED+1)); continue; fi
+        if [ "$sh" -ne 0 ] && [ "$pl" -eq 0 ]; then echo "UNPLANTED $tag -- collections=$col moved=${mv}B but the shift plant applied ZERO times: gc_plant_shift_bytes() returns 0 whenever the arena headroom is not strictly greater than the shift, and it used to do so SILENTLY. This point relocated blocks by ordinary compaction alone, which is the very thing the plant exists to go beyond, so it is NOT a green and NOT a no-move. Measured by the cto 2026-09-21 on the cfo's flag, pasrec at a 1024 KB window (the MB-spelled pin of the day, which the CEO-1146 sweep retired; this figure is CITED at the configuration it was measured under and not re-measured here) stress 3: shift 4096 applies 495 times, 65536 applies 466, 262144 applies 373, 1048576 applies ZERO with rc=0 and byte-identical stdout -- so before this arm existed, a big-enough shift under the mandated tiny arena made this gate PASS having planted nothing at all"; UNPLANTED=$((UNPLANTED+1)); continue; fi
         if [ "$rc" -ne 0 ]; then echo "RED     $tag -- rc=$rc collections=$col moved=${mv}B"; RED=$((RED+1)); continue; fi
         if [ "$out" = "$REF" ]; then MATCH=$((MATCH+1)); else echo "RED     $tag -- ORACLE DIFF, collections=$col moved=${mv}B"; echo "$out" | head -3 | sed 's/^/          got: /'; echo "$REF" | head -3 | sed 's/^/          want:/'; RED=$((RED+1)); fi
       done
@@ -144,10 +144,10 @@ done
 DET_FAIL=0
 for w in $WITNESSES; do
   REF=$(cat "$W/$w.ref")
-  c0=$(date +%s); ( cd "$W" && SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 timeout 300 "$SCRIP" "$w.pas" < /dev/null >/dev/null 2>&1 ); c1=$(date +%s)
+  c0=$(date +%s); ( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 timeout 300 "$SCRIP" "$w.pas" < /dev/null >/dev/null 2>&1 ); c1=$(date +%s)
   clean=$((c1-c0)); [ "$clean" -lt 1 ] && clean=1
   det_to=$((clean*20)); [ "$det_to" -lt 20 ] && det_to=20
-  out=$( cd "$W" && SCRIP_TEST_PLANT_PAS_ROOT_SKIP=1 SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=3 timeout "$det_to" "$SCRIP" "$w.pas" < /dev/null 2>/dev/null ); rc=$?
+  out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_TEST_PLANT_PAS_ROOT_SKIP=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 timeout "$det_to" "$SCRIP" "$w.pas" < /dev/null 2>/dev/null ); rc=$?
   if [ "$out" = "$REF" ] && [ "$rc" -eq 0 ]; then echo "DETECTOR-DEAD $w -- SCRIP_TEST_PLANT_PAS_ROOT_SKIP=1 drops the Pascal root walk entirely and the answer was STILL right: this witness cannot see a lost root, so its green means nothing"; DET_FAIL=$((DET_FAIL+1)); else echo "detector $w: planted root-loss DIVERGES (rc=$rc) -- this witness can see a lost root (clean arm ${clean}s, detector bound ${det_to}s = 20x it, so a timeout here is a hang and not slowness -- hq_prolog 2026-09-20: a timeout cannot tell needs-8.1s from never-finishes unless the bound is derived from a measurement in the same run)"; fi
 done
 echo "pas-heap-forced-movement: graded=$GRADED match=$MATCH red=$RED inert=$INERT no_move=$NOMOVE unplanted=$UNPLANTED nostart=$NOSTART detector_dead=$DET_FAIL (denominator: match+red+inert+no_move+unplanted+nostart = $((MATCH+RED+INERT+NOMOVE+UNPLANTED+NOSTART)) of $GRADED)"
