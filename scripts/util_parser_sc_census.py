@@ -69,10 +69,17 @@ def parse_one(scrip, chain, prog, timeout):
             break
     if tag:
         return "CRASH", tag
+    # ⛔ THE EXIT CODE AND EVERY LINE ARE READ, NOT THE FIRST LINE ALONE (hq_snocone 2026-09-23, measured): on SCRIP the
+    # rebus parser prints its first tree and then SIGSEGVs, rc=139, which a first-line test called PARSED; and the parser's
+    # refusal is a line that IS "Parse Error" -- beauty.sc prints the words, so its correct tree contains them.
+    lines = [l.strip() for l in text.splitlines() if l.strip() and not SEQ.match(l)]
+    if any(re.fullmatch(r"Parse Error\.?", l) for l in lines):
+        return "REFUSED", "Parse Error"
+    err = next((l for l in lines if re.search(r"\bERROR \d+ --|^Error \d+|FATAL|ZGC-STALE|CORRUPT CAPTURE", l)), "")
+    if r.returncode != 0 or err:
+        return "CRASH", "%s (rc=%d)" % (err or first or "no output", r.returncode)
     if first.startswith("("):
         return "PARSED", first
-    if "Parse Error" in first:
-        return "REFUSED", first
     return "CRASH", first or "(no output, rc=%d)" % r.returncode
 
 
