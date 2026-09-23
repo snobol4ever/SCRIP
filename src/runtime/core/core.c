@@ -583,9 +583,11 @@ void mon_emit_label_bin(int64_t stno);
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val);
 long g_trace_budget = 0;
 static int g_trace_stmt_seen = 0;
+static long g_trace_stmt_gen = 0;
 void rt_trace_stmt(long line) {
     if (g_trace_budget == 0) return;
     g_trace_stmt_seen = 1;
+    g_trace_stmt_gen++;
     g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  L%ld\n", (long long)kw_stcount, line);
     fflush(stdout);
@@ -615,8 +617,16 @@ void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_value(const char *name, DESCR_t val) {
     if (g_trace_budget == 0 || !name) return;
-    g_trace_budget--; kw_stcount++;
     char vtext[512]; trace_spell_value(val, vtext, sizeof vtext);
+    static long g_trace_value_last_gen = -1;
+    static char g_trace_value_last_name[256] = "";
+    static char g_trace_value_last_text[512] = "";
+    if (g_trace_stmt_gen == g_trace_value_last_gen && !strcmp(name, g_trace_value_last_name) && !strcmp(vtext, g_trace_value_last_text))
+        return;
+    g_trace_value_last_gen = g_trace_stmt_gen;
+    snprintf(g_trace_value_last_name, sizeof g_trace_value_last_name, "%s", name);
+    snprintf(g_trace_value_last_text, sizeof g_trace_value_last_text, "%s", vtext);
+    g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
     if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, val); else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
