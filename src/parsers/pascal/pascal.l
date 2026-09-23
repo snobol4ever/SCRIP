@@ -12,6 +12,15 @@ static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char pascal_ifdefbuf[256];
 static int  pascal_ifdefpos;
+int g_pas_seen_mode_directive = 0;
+int pascal_seen_decl_start = 0;
+static char pascal_modebuf[64];
+static int  pascal_modepos;
+static int pascal_mode_is_known(const char *m) {
+    static const char *K[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
+    for (size_t i = 0; i < sizeof(K) / sizeof(K[0]); i++) if (!strcasecmp(m, K[i])) return 1;
+    return 0;
+}
 static char *pascal_raw_dup(const char *s, int n) {
     char *b = (char *)ct_alloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
 }
@@ -27,7 +36,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR
 %s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -57,18 +66,23 @@ ALNUM    [A-Za-z0-9_]
 <IFDEF_END>"}"          { BEGIN INITIAL; }
 <IFDEF_END>.            { }
 <IFDEF_END>\n           { }
+"{$mode"                { pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
+<MODE_HDR>"}"           { if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
+<MODE_HDR>[ \t]         { }
+<MODE_HDR>.             { if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
+<MODE_HDR>\n            { }
 "{"                     { BEGIN BRACE; }
 <BRACE>"}"              { BEGIN INITIAL; }
 <BRACE>.                { }
 <BRACE>\n               { }
 "program"               { return PROGRAMSY; }
-"begin"                 { return BEGINSY; }
+"begin"                 { pascal_seen_decl_start = 1; return BEGINSY; }
 "end"                   { return ENDSY; }
-"var"                   { return VARSY; }
-"const"                 { return CONSTSY; }
-"type"                  { return TYPESY; }
-"procedure"             { return PROCEDURESY; }
-"function"              { return FUNCTIONSY; }
+"var"                   { pascal_seen_decl_start = 1; return VARSY; }
+"const"                 { pascal_seen_decl_start = 1; return CONSTSY; }
+"type"                  { pascal_seen_decl_start = 1; return TYPESY; }
+"procedure"             { pascal_seen_decl_start = 1; return PROCEDURESY; }
+"function"              { pascal_seen_decl_start = 1; return FUNCTIONSY; }
 "if"                    { return IFSY; }
 "then"                  { return THENSY; }
 "else"                  { return ELSESY; }

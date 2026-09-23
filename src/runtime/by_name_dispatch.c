@@ -6741,7 +6741,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
-            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i >= 0 ? (int)aw.i : -1)) : -1;
+            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i >= 0 ? (int)aw.i : -1))) : -1;
             if (w == -3) { double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
                 long _fw2 = 0, _fp2 = 0;
                 if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
@@ -6750,7 +6750,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (IS_INT_fn(av)) {
                 char _pb[32];
                 int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
-                int _fw = (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
+                int _fw = (w == -4) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
                 fprintf(_dest, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
