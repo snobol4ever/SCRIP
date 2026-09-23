@@ -6814,7 +6814,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]", 0 };
           static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
           const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
-          if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_heap_strdup_c(pname); *out = bv; return 1; } }
+          if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)tbl[oi]; *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
     }
     if ((_bid == BID_image) && nargs == 1) {
