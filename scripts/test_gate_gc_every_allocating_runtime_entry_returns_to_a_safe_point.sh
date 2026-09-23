@@ -31,6 +31,10 @@
 # safe point. With the Icon allocating-box polls landed that loop COLLECTS instead of growing (soft-end advances 0), so
 # the arms read red on a tree that is strictly better. The witness is now 400000 LIVE lists held by one list: growth is
 # unavoidable there whatever the collector does, which is what these two arms actually grade -- 30 soft-end advances at
+# (RE-READ 2026-09-23 cto: the telemetry the two arms grep moved under CEO-1101 -- a grow prints `[ZHP] lazy commit -> N KB of a M KB
+# hard cap` and the cap abort says `heap exhausted AT THE HARD CAP`; the arms grepped the retired `soft end ->` and `reserve cap`
+# wordings and read red on every tree since, which no landing was allowed to see through the count arm. The greps follow the
+# telemetry; the properties they grade are unchanged.)
 # SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512, and a cap-named abort (rc=134) when the cap equals the window.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -47,12 +51,12 @@ if [ "$n" -eq 0 ]; then echo "  census PASS (the allocator contains 0 collect-fr
 else echo "  census FAIL ($n collect call(s) inside gc_heap.c: a collection with live unmapped C frames is back)"; RC=1; fi
 examined=$((examined+1))
 printf 'procedure main()\n   local i, L;\n   L := [];\n   every i := 1 to 400000 do put(L, [i, i+1, i+2]);\n   write("done ", *L);\nend\n' > "$T/grow.icn"
-out=$(cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout 120 "$SCRIP" grow.icn 2>&1); g=$(printf '%s\n' "$out" | grep -c 'soft end ->')
+out=$(cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout 120 "$SCRIP" grow.icn 2>&1); g=$(printf '%s\n' "$out" | grep -c 'lazy commit ->')
 if [ "$(printf '%s\n' "$out" | grep -c '^done 400000$')" = 1 ] && [ "$g" -gt 0 ]; then echo "  reserve PASS (an 8 MB window inside a 512 MB reserve grew its soft end $g time(s) into the reserve instead of collecting, answer intact)"
 else echo "  reserve FAIL (soft-end advances=$g, answer=[$(printf '%s\n' "$out" | grep '^done' | head -1)] -- the arena did not grow when the allocator refused to collect)"; RC=1; fi
 examined=$((examined+1))
 out=$(cd "$T" && SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout 120 "$SCRIP" grow.icn 2>&1); r=$?
-if [ "$r" -ne 0 ] && printf '%s\n' "$out" | grep -q 'heap exhausted at the reserve cap'; then echo "  cap PASS (cap == window: growth is refused at the cap and the abort names it, rc=$r)"
+if [ "$r" -ne 0 ] && printf '%s\n' "$out" | grep -q 'heap exhausted AT THE HARD CAP'; then echo "  cap PASS (cap == window: growth is refused at the cap and the abort names it, rc=$r)"
 else echo "  cap FAIL (rc=$r, no cap-named exhaustion -- the reserve is unbounded or the abort does not name the cap)"; RC=1; fi
 examined=$((examined+1))
 printf 'procedure main()\n   local i, L;\n   every i := 1 to 4000000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/churn.icn"
