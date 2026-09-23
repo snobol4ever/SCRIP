@@ -578,6 +578,44 @@ static void mon_send(const char *kind, const char *name, const char *value) {
         if (r != 1 || ack[0] == 'S') exit(0);
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long g_rk_trace = 0;
+void rt_rk_trace_stmt(long line) {
+    if (g_rk_trace == 0) return;
+    g_rk_trace--; kw_stcount++;
+    fprintf(stdout, "****%-7lld  L%ld\n", (long long)kw_stcount, line);
+    fflush(stdout);
+    if (monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
+}
+void rt_rk_trace_call(const char *name, DESCR_t *args, int nargs) {
+    if (g_rk_trace == 0 || !name) return;
+    g_rk_trace--; kw_stcount++;
+    char vtext[512]; size_t o = 0; vtext[0] = '\0';
+    for (int k = 0; k < nargs && o + 2 < sizeof vtext; k++) {
+        if (k) vtext[o++] = ',';
+        trace_spell_value(args ? args[k] : NULVCL, vtext + o, sizeof vtext - o);
+        o += strlen(vtext + o);
+    }
+    fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)kw_stcount, name, vtext);
+    fflush(stdout);
+    if (monitor_fd >= 0) mon_send("CALL", name, vtext);
+}
+void rt_rk_trace_return(const char *name, DESCR_t retval) {
+    if (g_rk_trace == 0 || !name) return;
+    g_rk_trace--; kw_stcount++;
+    char vtext[512]; trace_spell_value(retval, vtext, sizeof vtext);
+    fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)kw_stcount, name, vtext);
+    fflush(stdout);
+    if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
+}
+void rt_rk_trace_value(const char *name, DESCR_t val) {
+    if (g_rk_trace == 0 || !name) return;
+    g_rk_trace--; kw_stcount++;
+    char vtext[512]; trace_spell_value(val, vtext, sizeof vtext);
+    fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
+    fflush(stdout);
+    if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
+}
 static char  **g_bin_names      = NULL;
 static int    *g_bin_name_lens  = NULL;
 static int     g_bin_n_names    = 0;
@@ -2407,6 +2445,11 @@ void core_lib_init(void) {
         if (ev_tr && ev_tr[0]) {
             int64_t v = (int64_t)strtoll(ev_tr, NULL, 10);
             if (v > 0) kw_trace = v;
+        }
+        const char *ev_rktr = getenv("SCRIP_RK_TRACE");
+        if (ev_rktr && ev_rktr[0]) {
+            long v = strtol(ev_rktr, NULL, 10);
+            if (v > 0) g_rk_trace = v;
         }
     }
     {

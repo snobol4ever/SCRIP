@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "lower.h"
-typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; } rcx_t;
+typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; const char * cur_proc_name; } rcx_t;
 #define RK_GRAM_MAX 64
 static const char * g_rk_gram_names[RK_GRAM_MAX];
 static int          g_rk_gram_n = 0;
@@ -134,6 +134,29 @@ static int rk_proc_known(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_excise(rcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) { IR_t * nd = build(cx, IR_EXCISED, γ, ω); if (res) *res = nd; return nd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_trace_wanted(void) { extern long g_rk_trace; return g_rk_trace != 0; }
+static IR_t * rk_trace_stmt_wrap(rcx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
+    if (line <= 0 || !rk_trace_wanted()) return stmt_entry;
+    IR_t * call = build(cx, IR_CALL, stmt_entry, ω); IR_LIT(call).sval = "__rk_trace_stmt";
+    IR_t * lit = build(cx, IR_LIT_INTEGER, call, ω); IR_LIT(lit).ival = line;
+    ir_operand_push(call, lit);
+    return lit;
+}
+static IR_t * rk_trace_call_wrap(rcx_t * cx, const char * name, IR_t * body_entry, IR_t * ω) {
+    if (!name || !*name || !rk_trace_wanted()) return body_entry;
+    IR_t * call = build(cx, IR_CALL, body_entry, ω); IR_LIT(call).sval = "__rk_trace_call";
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = name;
+    ir_operand_push(call, nm);
+    return nm;
+}
+static IR_t * rk_trace_value_prep(rcx_t * cx, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out) {
+    if (!name || !*name || !rk_trace_wanted()) { *call_out = NULL; return NULL; }
+    IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__rk_trace_value";
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = name;
+    ir_operand_push(call, nm);
+    *call_out = call;
+    return nm;
+}
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (!t) return build(cx, IR_SUCCEED, γ, ω);
     if (t->t != TT_SEQ && t->t != TT_PROGRAM && t->t != TT_SEQ_EXPR) { IR_t * r = NULL; return lower_rv(cx, t, γ, ω, &r); }
@@ -142,6 +165,7 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     for (int i = t->n - 1; i >= 0; i--) {
         const tree_t * s = t->c[i];
         if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
+        long line = s ? s->line : 0;
         if (s && s->t == TT_CATCH) continue;
         if (s && (s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
         IR_t * gs = succ, * gw = ω;
@@ -152,6 +176,7 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
         }
         IR_t * r = NULL; IR_t * e = lower_rv(cx, s, gs, gw, &r);
         if (e && ir_is_generator_kind(e->op)) { IR_t * tramp = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(tramp, e); lc_ω_to(tramp, e); e = tramp; }
+        if (e) e = rk_trace_stmt_wrap(cx, line, e, gw);
         if (e) { entry = e; succ = e; }
     }
     return entry;
@@ -378,14 +403,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * eb = lower_rv(cx, rhs->c[1], op, ω, &rr);
             γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
             ir_operand_push(nd, op); *res = nd; return ea; }
-        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
-        IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); *res = nd; return e; }
+        IR_t * vtrace_call = NULL; IR_t * vtrace = rk_trace_value_prep(cx, t->c[0]->v.sval, γ, ω, &vtrace_call);
+        IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
+        IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_DECL: if (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
-        IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[1]->v.sval;
+        IR_t * vtrace_call = NULL; IR_t * vtrace = rk_trace_value_prep(cx, t->c[1]->v.sval, γ, ω, &vtrace_call);
+        IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[1]->v.sval;
         IR_t * rr = NULL; IR_t * e; if (t->n > 2 && t->c[2]) { e = lower_rv(cx, t->c[2], nd, ω, &rr); }
         else { IR_t * u = build(cx, IR_CALL, nd, ω); IR_LIT(u).sval = "__rk_undef"; rr = u; e = u; }
-        if (rr) ir_operand_push(nd, rr); *res = nd; return e; }
+        if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_ARR_SET: if (t->n > 2 && t->c[0] && t->c[0]->t == TT_VAR) {
         const char * vn = t->c[0]->v.sval;
@@ -685,7 +712,19 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_RETURN: {
         IR_t * exit_γ = cx->proc_exit ? cx->proc_exit : γ;
         if (t->n > 0 && t->c[0]) {
-            IR_t * nd = build(cx, IR_RETURN, exit_γ, ω); IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r ? r : e); *res = nd; return e;
+            IR_t * nd = build(cx, IR_RETURN, exit_γ, ω);
+            IR_t * trace = NULL; IR_t * trace_entry = nd;
+            if (cx->cur_proc_name && *cx->cur_proc_name && rk_trace_wanted()) {
+                trace = build(cx, IR_CALL, nd, ω); IR_LIT(trace).sval = "__rk_trace_return";
+                IR_t * nm = build(cx, IR_LIT_STRING, trace, ω); IR_LIT(nm).sval = cx->cur_proc_name;
+                ir_operand_push(trace, nm);
+                trace_entry = nm;
+            }
+            IR_t * value_γ = trace_entry;
+            IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], value_γ, ω, &r);
+            ir_operand_push(nd, r ? r : e);
+            if (trace) ir_operand_push(trace, r ? r : e);
+            *res = nd; return e;
         } IR_t * nd = build(cx, IR_RETURN, exit_γ, ω);
         *res = nd; return nd;
     }
@@ -952,8 +991,10 @@ static const char * rk_prologue_target(const tree_t * s) {
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL; cx.loop_exit = NULL; cx.loop_next = NULL;
     cx.cur_proc = pd; cx.cur_byref_mask = 0; cx.cur_nparams = 0;
+    const char * rk_proc_name = NULL;
     for (int _pbi = 0; pd && _pbi < g_stage2.proc_count; _pbi++) if (g_stage2.proc_table[_pbi].proc == pd) {
-        cx.cur_byref_mask = g_stage2.proc_table[_pbi].byref_mask; cx.cur_nparams = g_stage2.proc_table[_pbi].nparams; break; }
+        cx.cur_byref_mask = g_stage2.proc_table[_pbi].byref_mask; cx.cur_nparams = g_stage2.proc_table[_pbi].nparams; rk_proc_name = g_stage2.proc_table[_pbi].name; break; }
+    cx.cur_proc_name = rk_proc_name;
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
     cx.proc_exit = succ;
@@ -985,9 +1026,10 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
             if (s->t == TT_VAR) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
+            if (e) e = rk_trace_stmt_wrap(&cx, s->line, e, fail);
             if (e) { entry = e; sentry = e; }
         }
-        ct_drop(rk_plan); g->entry = entry; return g;
+        ct_drop(rk_plan); g->entry = rk_trace_call_wrap(&cx, rk_proc_name, entry, fail); return g;
     }
     for (int i = (pd ? pd->n : 0) - 1; i >= 1; i--) {
         const tree_t * s = pd->c[i];
@@ -995,6 +1037,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
         if (s->t == TT_VAR) continue;
         IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
+        if (e) e = rk_trace_stmt_wrap(&cx, s->line, e, fail);
         if (e) { entry = e; sentry = e; }
     }
     if (pd && !is_multi) {
@@ -1014,7 +1057,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             if (e) { entry = e; sentry = e; }
         }
     }
-    g->entry = entry; return g;
+    g->entry = rk_trace_call_wrap(&cx, rk_proc_name, entry, fail); return g;
 }
 #include "stage2.h"
 #include "bb_program.h"
@@ -1328,7 +1371,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
     if (!has_main) {
         IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
-        tcx.cur_proc = NULL; tcx.cur_byref_mask = 0; tcx.cur_nparams = 0;
+        tcx.cur_proc = NULL; tcx.cur_byref_mask = 0; tcx.cur_nparams = 0; tcx.cur_proc_name = "main";
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;
         tcx.proc_exit = succ;
@@ -1352,15 +1395,17 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
                     if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
                     if (!ch || ch->t == TT_SUB_DECL) continue;
                     IR_t * r = NULL; IR_t * e = lower_rv(&tcx, ch, sentry, sentry, &r);
+                    if (e) e = rk_trace_stmt_wrap(&tcx, ch->line, e, sentry);
                     if (e) { entry = e; sentry = e; }
                 }
                 continue;
             }
             if ((s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, sentry, &r);
+            if (e) e = rk_trace_stmt_wrap(&tcx, s->line, e, sentry);
             if (e) { entry = e; sentry = e; }
         }
-        tg->entry = entry;
+        tg->entry = rk_trace_call_wrap(&tcx, "main", entry, fail);
         int bb_idx = bb_program_add(&g_stage2.bbp, tg);
         if (bb_idx >= 0) {
             int pi = stage2_proc_grow(&g_stage2);

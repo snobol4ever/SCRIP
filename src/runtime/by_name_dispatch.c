@@ -345,6 +345,7 @@ int rt_builtin_is_known(const char *name)
         "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM",
         "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
         "$unify", "$unify_lst", "$ix_g",
+        "__rk_trace_stmt", "__rk_trace_call", "__rk_trace_return", "__rk_trace_value",
         NULL
     };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
@@ -3377,6 +3378,27 @@ static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_S
 static void pas_set_bits(DESCR_t v, unsigned char out[PAS_SET_BYTES]) { memset(out, 0, PAS_SET_BYTES); if (IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s) { memcpy(out, v.s, PAS_SET_BYTES); return; } if (IS_INT_fn(v)) { long iv = v.i; for (int b = 0; b < 64; b++) if ((iv >> b) & 1L) out[b / 8] |= (unsigned char)(1u << (b % 8)); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (!strcmp(fn, "__rk_trace_stmt") && nargs == 1) {
+        extern void rt_rk_trace_stmt(long line);
+        rt_rk_trace_stmt(IS_INT_fn(args[0]) ? (long)args[0].i : 0L);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__rk_trace_call") && nargs >= 1) {
+        extern void rt_rk_trace_call(const char *name, DESCR_t *args, int nargs);
+        const char *nm = VARVAL_fn(args[0]);
+        rt_rk_trace_call(nm, args + 1, nargs - 1);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__rk_trace_return") && nargs == 2) {
+        extern void rt_rk_trace_return(const char *name, DESCR_t retval);
+        rt_rk_trace_return(VARVAL_fn(args[0]), args[1]);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__rk_trace_value") && nargs == 2) {
+        extern void rt_rk_trace_value(const char *name, DESCR_t val);
+        rt_rk_trace_value(VARVAL_fn(args[0]), args[1]);
+        *out = NULVCL; return 1;
+    }
     if (!strcmp(fn, "where") && nargs == 1) {
         extern void  fh_ensure_init(void);
         extern FILE *fh_get(int);

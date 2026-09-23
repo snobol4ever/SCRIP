@@ -456,7 +456,7 @@ static tree_t *rk_arr_all(const char *arr) {
 }
 static tree_t *rk_tree_clone(tree_t *e) {
     if (!e) return NULL;
-    tree_t *c = ast_node_new(e->t); c->v = e->v;
+    tree_t *c = ast_node_new(e->t); c->v = e->v; c->line = e->line;
     if ((e->t == TT_VAR || e->t == TT_QLIT || e->t == TT_FNC) && e->v.sval) c->v.sval = ct_strdup(e->v.sval);
     for (int i = 0; i < e->n; i++) expr_add_child(c, rk_tree_clone(e->c[i]));
     return c;
@@ -749,7 +749,7 @@ program
     ;
 stmt_list
     :    { $$ = exprlist_new(); }
-    | stmt_list stmt { $$ = exprlist_append($1, $2); }
+    | stmt_list stmt { if ($2 && $2->line == 0) $2->line = raku_get_lineno(); $$ = exprlist_append($1, $2); }
     ;
 stmt
     : KW_MY VAR_SCALAR '=' expr ';'

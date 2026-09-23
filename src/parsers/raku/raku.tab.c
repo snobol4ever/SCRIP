@@ -524,7 +524,7 @@ static tree_t *rk_arr_all(const char *arr) {
 }
 static tree_t *rk_tree_clone(tree_t *e) {
     if (!e) return NULL;
-    tree_t *c = ast_node_new(e->t); c->v = e->v;
+    tree_t *c = ast_node_new(e->t); c->v = e->v; c->line = e->line;
     if ((e->t == TT_VAR || e->t == TT_QLIT || e->t == TT_FNC) && e->v.sval) c->v.sval = ct_strdup(e->v.sval);
     for (int i = 0; i < e->n; i++) expr_add_child(c, rk_tree_clone(e->c[i]));
     return c;
@@ -4003,7 +4003,7 @@ yyreduce:
 
   case 4: /* stmt_list: stmt_list stmt  */
 #line 752 "raku.y"
-                     { (yyval.list) = exprlist_append((yyvsp[-1].list), (yyvsp[0].node)); }
+                     { if ((yyvsp[0].node) && (yyvsp[0].node)->line == 0) (yyvsp[0].node)->line = raku_get_lineno(); (yyval.list) = exprlist_append((yyvsp[-1].list), (yyvsp[0].node)); }
 #line 4008 "raku.tab.c"
     break;
 
