@@ -39,13 +39,7 @@ SRC="$ROOT/src/runtime/rt/gc_heap.c"
 # it green in their own battery, and spent four minutes re-running twelve blocking reds with their cure stashed to
 # prove the red was not theirs.  It was never theirs and it was never a regression -- it is this row's STANDING
 # DECLARED RED, and the gate did not say so in a way a reader could act on.  The banner now does.
-DECLARED_STANDING="gc_sniff_would_take lacks DT_BIG
-gc_sniff_would_take lacks DT_P
-gc_sniff_would_take lacks DT_PLREF
-gc_sniff_would_take lacks DT_PLVAR
-gc_type_says_ref lacks DT_P
-gc_type_says_ref lacks DT_PLREF
-gc_type_says_ref lacks DT_PLVAR"
+DECLARED_STANDING=""
 declared_red=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

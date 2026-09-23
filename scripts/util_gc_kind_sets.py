@@ -52,9 +52,6 @@ DECLARED = {
                                    "cell and get REGISTERED FOR FORWARDING. A DT_SNUL that owns heap bytes is a "
                                    "contradiction in terms: if adding it ever changed an outcome, the defect is one "
                                    "level up in whatever minted that descriptor."),
-    ("gc_tag_bears_ptr", "DT_BIG"): ("UNDECLARED-BY-MEASUREMENT", "no reason is on the record. gc_visit_one and "
-                                     "gc_cell_visit both take DT_BIG (HB_WSB payload); this test does not, so a "
-                                     "bignum descriptor's payload word on the spine is classified RAW."),
     ("gc_sniff_would_take", "DT_SNUL"): ("EXCLUDED", "same reason as gc_cell_visit's: this function MODELS the "
                                          "speculative recognizer, so it must diverge from the authority exactly "
                                          "where the recognizer does or the census stops describing it."),
