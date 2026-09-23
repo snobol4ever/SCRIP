@@ -27,7 +27,8 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2
+%s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
 ALNUM    [A-Za-z0-9_]
@@ -38,10 +39,18 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>.              { }
 <COMMENT>\n             { }
 "{$ifdef"               { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IFDEF_HDR; }
-<IFDEF_HDR>"}"          { BEGIN (strcasecmp(pascal_ifdefbuf, "fpc") == 0 ? INITIAL : IFDEF_BODY); }
+<IFDEF_HDR>"}"          { BEGIN (strcasecmp(pascal_ifdefbuf, "fpc") == 0 ? IFDEF_TRUE : IFDEF_BODY); }
 <IFDEF_HDR>[ \t]        { }
 <IFDEF_HDR>.            { if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
 <IFDEF_HDR>\n           { }
+<IFDEF_TRUE>"{$else"    { BEGIN IFDEF_ELSE1; }
+<IFDEF_ELSE1>"}"        { BEGIN IFDEF_BODY; }
+<IFDEF_ELSE1>.          { }
+<IFDEF_ELSE1>\n         { }
+<IFDEF_BODY>"{$else"    { BEGIN IFDEF_ELSE2; }
+<IFDEF_ELSE2>"}"        { BEGIN IFDEF_TRUE; }
+<IFDEF_ELSE2>.          { }
+<IFDEF_ELSE2>\n         { }
 <IFDEF_BODY>"{$endif"   { BEGIN IFDEF_END; }
 <IFDEF_BODY>.           { }
 <IFDEF_BODY>\n          { }
