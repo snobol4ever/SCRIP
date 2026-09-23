@@ -218,7 +218,16 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         int _isboolfam = !strcmp(name, "bytebool") || !strcmp(name, "wordbool") || !strcmp(name, "longbool") || !strcmp(name, "qwordbool");
         if ((!_isboolfam || pas_is_boolexpr(args->items[0])) && pas_sizeof_builtin_size(name, &_tsz)) return args->items[0];
     }
-    if (name && !strcmp(name, "swapendian") && args && args->count >= 1) return args->items[0];
+    if (name && !strcmp(name, "swapendian") && args && args->count >= 1) {
+        tree_t *a = args->items[0];
+        long long sz = 4;
+        if (a && a->t == TT_VAR && a->v.sval) pas_sizeof_lookup(a->v.sval, &sz);
+        tree_t *e = ast_node_new(TT_FNC);
+        ast_push(e, leaf_s(TT_VAR, "__pas_swapendian"));
+        ast_push(e, a);
+        ast_push(e, ilit(sz));
+        return e;
+    }
     if (name && !strcmp(name, "addr") && args && args->count >= 1) return args->items[0];
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0]; tree_t *val = args->items[4];

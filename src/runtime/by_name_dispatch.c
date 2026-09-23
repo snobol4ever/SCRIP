@@ -6726,6 +6726,14 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         char sb[256]; const char *d = to_cstring(args[0], sb, sizeof sb);
         rmdir(d); *out = NULVCL; return 1;
     }
+    if ((_bid == BID___pas_swapendian) && nargs == 2) {
+        unsigned long long v = (unsigned long long)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        long long w = IS_INT_fn(args[1]) ? args[1].i : 4;
+        if (w < 1) w = 1; if (w > 8) w = 8;
+        unsigned long long r = 0;
+        for (long long b = 0; b < w; b++) r = (r << 8) | ((v >> (8 * b)) & 0xFFu);
+        *out = INTVAL((long long)r); return 1;
+    }
     if ((_bid == BID___pas_pos) && nargs == 2) {
         char nb[64]; const char *needle = to_cstring(args[0], nb, sizeof nb);
         char hb[64]; const char *hay = to_cstring(args[1], hb, sizeof hb);
