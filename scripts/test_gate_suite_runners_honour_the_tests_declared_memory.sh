@@ -76,10 +76,27 @@ grep -q "^GC_HEAP_KB_FLOOR = $rt_flr\b" "$HERE/corpus_suite_harness.py" && ck ok
 
 # ── the fixture: a program that does NOT fit the shipped cap, and a neighbour that does ────────────────────────
 mkdir -p "$T/pkg"
-cat > "$T/pkg/hungry.icn" <<'EOF'
+# ⛔⭐⭐ FEW BIG BLOCKS, NOT MANY SMALL ONES, AND THE FIRST CUT OF THIS GATE GOT IT WRONG IN A WAY THAT COST
+# A `done` RUN. The first fixture was 60000 small strings. MEASURED: at the shipped default that does not
+# abort quickly -- it THRASHES, because a 128 KB window growing toward the 4096 KB cap collects on almost
+# every allocation, and the cost grows superlinearly with the count (8000 entries 1.4s, 15000 4.6s, 25000
+# 17.3s, all rc=0; only at 60000 does it finally abort, after ~90s). Four such runs under load 28 blew the
+# criterion's own `timeout 300` and the gate returned rc=124. ⛔ AND THE REAL DEFECT WAS NOT THE DURATION:
+# the premise arm tested `rc != 0`, so rc=124 (THE TIMEOUT FIRING) read as "the fixture does not fit" --
+# a loaded box would have been recorded as a capacity measurement. That is the timeout-and-crash-in-one-
+# branch shape the coo cured in this same seat's stack gate one tick earlier (COO-152), reappearing in a
+# file written the day after. 200 blocks of 32 KB carry the same 6400 KB live set with ~200 allocations
+# instead of 60000: it aborts rc=134 in ~1.5s at the default and completes rc=0 in ~75ms at 16384 KB, so
+# the two verdicts are far apart, unambiguous, and cheap enough to sit in the blocking set.
+# ⛔ FIX_N IS THE SINGLE SOURCE FOR BOTH THE FIXTURE AND THE STRING ARM G GRADES AGAINST. They were two
+# literals for one run of this gate and arm G promptly read FAIL when the fixture was resized -- a gate
+# grading its own witness against the PREVIOUS witness's output, which is a red that says nothing about
+# the subject. One name, expanded into both.
+FIX_N=200
+cat > "$T/pkg/hungry.icn" <<EOF
 procedure main()
    L := list();
-   every i := 1 to 60000 do put(L, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" || string(i));
+   every i := 1 to $FIX_N do put(L, repl("x", 32768));
    write(*L);
 end
 EOF
@@ -93,13 +110,19 @@ printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb\n1,hungry,
 # The premise this whole gate rests on, measured rather than assumed: hungry must genuinely NOT fit the default
 # and must genuinely fit the declaration. If either stops being true the fixture has stopped being a witness and
 # every arm below would be grading a tautology -- so this is a REFUSAL, never a red.
-( cd "$T/pkg" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 120s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
+( cd "$T/pkg" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
 base_rc=$?
-( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$DECL_KB" timeout 120s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
+( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$DECL_KB" timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
 decl_rc=$?
-[ "$base_rc" != 0 ] || refuse "the fixture COMPLETES at the shipped default (rc=0) -- it is no longer a witness for a declared arena, so every arm below would grade a tautology. Grow it or re-measure the cap."
+# ⛔⭐ A TIMEOUT IS NOT A CAPACITY VERDICT AND IS REFUSED HERE RATHER THAN COUNTED. rc=124 says the ceiling
+# fired; it cannot tell "this program does not fit" from "this box is at load 28". Testing rc != 0 would
+# accept a loaded machine as evidence of a live set, which is the false-label direction. The abort we are
+# claiming is rc=134 (SIGABRT from the hard cap), and nothing else will do.
+[ "$base_rc" != 124 ] || refuse "the fixture TIMED OUT at the shipped default rather than aborting -- rc=124 is the ceiling firing and cannot be told from a loaded box, so this run measured nothing about capacity (load: $(uptime | sed 's/.*load average: //'))"
+[ "$decl_rc" != 124 ] || refuse "the fixture TIMED OUT at ${DECL_KB} KB -- same reason: a ceiling is not a verdict (load: $(uptime | sed 's/.*load average: //'))"
+[ "$base_rc" = 134 ] || refuse "the fixture exited rc=$base_rc at the shipped default, not the rc=134 hard-cap abort this gate claims -- it is no longer a witness for a declared arena and every arm below would grade a tautology. Grow it or re-measure the cap."
 [ "$decl_rc" = 0 ] || refuse "the fixture does not complete even at ${DECL_KB} KB (rc=$decl_rc) -- the declaration cannot be shown to buy anything, so a green here would mean nothing"
-echo "  PREMISE MEASURED: hungry.icn rc=$base_rc at the shipped default, rc=$decl_rc at ${DECL_KB} KB -- the two verdicts differ, so the arms below can tell a honoured declaration from a dropped one"
+echo "  PREMISE MEASURED: hungry.icn rc=$base_rc (hard-cap abort) at the shipped default, rc=$decl_rc at ${DECL_KB} KB -- the two verdicts differ and neither is a timeout, so the arms below can tell a honoured declaration from a dropped one"
 
 # ── arm B: the runner's reader actually changes the verdict ────────────────────────────────────────────────────
 if [ "${FAIL_ONCE:-0}" = 1 ]; then
@@ -107,7 +130,8 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then
   declared_arena_kb() { return 0; }
 fi
 b_rc=0
-( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 120s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ) || b_rc=$?
+( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ) || b_rc=$?
+[ "$b_rc" != 124 ] || refuse "arm B TIMED OUT (rc=124) -- the ceiling fired, so this run cannot say whether the declaration was honoured"
 [ "$b_rc" = 0 ] && ck ok "B  the declared entry COMPLETES through the runner's reader (rc=0) where the same program rc=$base_rc at the shipped default -- the declaration is honoured, and a reader that silently did nothing could not pass this" \
   || ck bad "B  the declared entry still fails through the runner's reader (rc=$b_rc) -- heap_kb=${DECL_KB} was not exported for it"
 
@@ -128,9 +152,10 @@ declared_arena_kb "$T/pkg/BAD.csv" hungry >/dev/null 2>"$T/bad.err"; d_rc=$?
 [ "$d_rc" = 2 ] && ck ok "D1 heap_kb=2048 (<= the ${rt_cap} KB shipped cap) is REFUSED rc=2 rather than accepted as a silent no-op" \
   || ck bad "D1 heap_kb=2048 returned rc=$d_rc -- a cell that grants no capacity was accepted, and it would read downstream as a capacity declaration"
 grep -q "granting no capacity" "$T/bad.err" && ck ok "D1b the refusal names WHY, not just THAT" || ck bad "D1b the refusal does not say why"
-( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB=2048 timeout 120s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
+( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB=2048 timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
 d2=$?
-[ "$d2" != 0 ] && ck ok "D2 the runtime STILL caps a 2048 KB window at ${rt_cap} KB (rc=$d2, same verdict as the default) -- the measurement arm D enforces is still true of this tree" \
+[ "$d2" != 124 ] || refuse "arm D2 TIMED OUT (rc=124) -- a ceiling is not evidence about the cap rule"
+[ "$d2" = 134 ] && ck ok "D2 the runtime STILL caps a 2048 KB window at ${rt_cap} KB (rc=$d2, the same hard-cap abort as the default) -- the measurement arm D enforces is still true of this tree" \
   || ck bad "D2 a 2048 KB window now COMPLETES (rc=0) -- gc_heap.c's cap rule changed, so arm D is enforcing a rule the runtime no longer has and the floor must be re-derived, not left standing"
 
 # ── arm E: the declaration travels with an extracted family (CEO-1127's evidence bar) ──────────────────────────
@@ -186,7 +211,7 @@ print('%s|%s' % (d.get('e_one'), 'e_two' in d))
 # value into the environment of the process it runs.  A reader that parses perfectly and threads the value
 # nowhere is the exact silent shape this gate was written against, and it would pass A..F.  So arm G runs
 # the SAME fixture through run_m3() twice and requires the two verdicts to differ.
-g_out=$(python3 - "$T" "$DECL_KB" "$HERE" 2>/dev/null <<'PY'
+g_out=$(python3 - "$T" "$DECL_KB" "$HERE" "$FIX_N" 2>/dev/null <<'PY'
 import importlib.util, sys, os
 T, kb, HERE = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 spec = importlib.util.spec_from_file_location("h", os.path.join(HERE, "corpus_suite_harness.py"))
@@ -194,8 +219,9 @@ m = importlib.util.module_from_spec(spec)
 try: spec.loader.exec_module(m)
 except SystemExit: pass
 paths = m.resolve_paths()
-a = m.run_m3(paths, os.path.join(T, "pkg", "hungry.icn"), "60000", heap_kb=None).kind
-b = m.run_m3(paths, os.path.join(T, "pkg", "hungry.icn"), "60000", heap_kb=kb).kind
+want = sys.argv[4]
+a = m.run_m3(paths, os.path.join(T, "pkg", "hungry.icn"), want, heap_kb=None).kind
+b = m.run_m3(paths, os.path.join(T, "pkg", "hungry.icn"), want, heap_kb=kb).kind
 print("%s|%s" % (a, b))
 PY
 )
