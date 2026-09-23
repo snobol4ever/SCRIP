@@ -22,7 +22,8 @@ static std::string to_by_int_operand_guard(int slot) {
          + x86("mov",  "rsi", FRQ(slot + 8))
          + x86("call", "core_icn_int_operand_ok", fp)
          + x86("test", "eax", "eax")
-         + x86_omega("jz");
+         + x86_omega("jz")
+         + x86_rt_gc_poll();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to_by() {
@@ -84,22 +85,27 @@ std::string bb_to_by() {
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sa),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sa + 8), "rax")
+             + x86_rt_gc_poll()
              + to_by_int_operand_guard(_.op_sb)
              + x86("mov",     "rdi", FRQ(_.op_sb))
              + x86("mov",     "rsi", FRQ(_.op_sb + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sb),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sb + 8), "rax")
+             + x86_rt_gc_poll()
              + to_by_int_operand_guard(_.op_sc)
              + x86("mov",     "rdi", FRQ(_.op_sc))
              + x86("mov",     "rsi", FRQ(_.op_sc + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sc),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sc + 8), "rax")
+             + x86_rt_gc_poll()
+             + x86("mov",     "rax", FRQ(_.op_sc + 8))
              + x86("mov",     "rdi", "rax")
              + x86("call",    "core_icn_by_zero_check", (uint64_t)(uintptr_t)(void*)core_icn_by_zero_check)
              + x86("cmp",     "eax", (long)0)
              + x86_omega("jne")
+             + x86_rt_gc_poll()
              + x86("mov",     "rax", FRQ(_.op_sa + 8))
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("def",     L(0))

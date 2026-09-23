@@ -42,6 +42,7 @@ std::string bb_limit() {
            + x86("mov",   "rax", FRQ(_.op_off + 16))
            + x86("cmp",   "rax", "rcx")
            + x86_omega("jge")
+           + x86_rt_gc_poll()
            + x86("mov",   FRQ(_.op_off + 24), (long)1)
            + x86_jmp_tgt(X86T_TGT0));
 }
@@ -61,5 +62,6 @@ std::string bb_limit_gate() {
            + x86("call",  "core_icn_limit_count_check", (uint64_t)(uintptr_t)(void*)core_icn_limit_count_check)
            + x86("test",  "rax", "rax")
            + x86_omega("jz")
+           + x86_rt_gc_poll()
            + x86_gamma());
 }
