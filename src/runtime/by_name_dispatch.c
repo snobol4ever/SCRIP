@@ -786,6 +786,18 @@ static int pas_seg_span(const char *cur, long idx, size_t *pre, size_t *flen, si
           if (!nx) return 0; s = nx + 1; k++; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_field_idx_splice(const char *cur, long fidx, long eidx, unsigned char ch, char **out) {
+    size_t pre, flen, post;
+    if (eidx < 1 || !pas_seg_span(cur, fidx, &pre, &flen, &post)) return 0;
+    { size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen;
+      char *o = rt_str_alloc((long)(pre + nflen + post));
+      memcpy(o, cur, pre);
+      for (size_t j = 0; j < nflen; j++) o[pre + j] = (j < flen) ? cur[pre + j] : ' ';
+      o[pre + (size_t)eidx - 1] = (char)ch;
+      memcpy(o + pre + nflen, cur + pre + flen, post); o[pre + nflen + post] = '\0';
+      *out = o; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *resolve_method_chain(const char *cls, const char *mname, char *buf, int bufsz, int *pfound) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int dat_roles(const char *name, const char **out, int max);
@@ -3447,15 +3459,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
-        size_t sl = strlen(sa); char *o = rt_str_alloc((long)sl);
-        for (size_t i = 0; i < sl; i++) o[i] = (sa[i] == SOH) ? '\x1e' : sa[i];
-        o[sl] = '\0'; *out = STRVAL(o); return 1;
+        long lo = (nargs >= 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 0; if (lo < 0) lo = 0;
+        size_t sl = strlen(sa); char *o = rt_str_alloc((long)(sl + 1)); size_t oi = 0; const char *pp = sa; long k = 0;
+        while (*pp) { char *ep = NULL; long v = strtol(pp, &ep, 10); if (ep == pp) break; if (k >= lo) o[oi++] = (char)v; k++; pp = ep; if (*pp == SOH) pp++; else break; }
+        o[oi] = '\0'; *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "__pas_ca_unpack") && nargs >= 1) {
-        const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
-        size_t sl = strlen(sa); char *o = rt_str_alloc((long)sl);
-        for (size_t i = 0; i < sl; i++) o[i] = (sa[i] == '\x1e') ? SOH : sa[i];
-        o[sl] = '\0'; *out = STRVAL(o); return 1;
+        *out = args[0]; return 1;
     }
     if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
@@ -3487,21 +3497,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__pas_field_idx_set") && nargs == 4) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
         DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[3]; return 1; }
-        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0; long eidx = IS_INT_fn(args[2]) ? args[2].i : 0; if (eidx < 1) { *out = args[3]; return 1; }
+        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0; long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
         unsigned char ch;
         if (IS_INT_fn(args[3])) {
             long cv = args[3].i; if (cv < 0) cv = 0; if (cv > 255) cv = 255; ch = (unsigned char)cv;
         } else { const char *vs = VARVAL_fn(args[3]); ch = (unsigned char)((vs && vs[0]) ? vs[0] : ' '); }
-        size_t pre, flen, post;
-        if (!pas_seg_span(pas_cell_str(hc), fidx, &pre, &flen, &post)) { *out = args[3]; return 1; }
-        { size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen;
-          char *o = rt_str_alloc((long)(pre + nflen + post)); const char *cur = pas_cell_str(hc);
-          memcpy(o, cur, pre);
-          for (size_t j = 0; j < nflen; j++) o[pre + j] = (j < flen) ? cur[pre + j] : ' ';
-          o[pre + (size_t)eidx - 1] = (char)ch;
-          memcpy(o + pre + nflen, cur + pre + flen, post); o[pre + nflen + post] = '\0';
-          *hc = STRVAL(o); }
+        char *o;
+        if (pas_field_idx_splice(pas_cell_str(hc), fidx, eidx, ch, &o)) *hc = STRVAL(o);
         *out = args[3]; return 1;
+    }
+    if (!strcmp(fn, "__pas_field_idx_update") && nargs == 4) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0; long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
+        unsigned char ch;
+        if (IS_INT_fn(args[3])) {
+            long cv = args[3].i; if (cv < 0) cv = 0; if (cv > 255) cv = 255; ch = (unsigned char)cv;
+        } else { const char *vs = VARVAL_fn(args[3]); ch = (unsigned char)((vs && vs[0]) ? vs[0] : ' '); }
+        char *o;
+        if (pas_field_idx_splice(cur, fidx, eidx, ch, &o)) { *out = STRVAL(o); return 1; }
+        *out = args[0]; return 1;
     }
     if (!strcmp(fn, "__pas_deref") && nargs == 1) {
         long n = IS_INT_fn(args[0]) ? args[0].i : 0;
