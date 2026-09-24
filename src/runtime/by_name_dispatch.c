@@ -9516,6 +9516,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
         for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (!pl_iso_unbound(v) && v.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", v); }
         if (!pl_iso_unbound(s) && !pl_anum_is_text(s)) return rt_pl_ball_kind2("type_error", "atom", s);
+        for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (v.v == DT_I && v.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", v); }
         return (void *)0; }
     if (!strcmp(nm, "arg") && n == 3) {
         DESCR_t k = rt_pl_deref_val(a[0]), t = rt_pl_deref_val(a[1]);
