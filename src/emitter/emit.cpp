@@ -884,10 +884,29 @@ int emit_binop_opnd_slot(IR_t *o) {
     return nd_slot(o);
 }
 static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth);
-static IR_t *g_bnr_vnode[4096]; static int g_bnr_vn = 0; static const char *g_bnr_vname[4096]; static int g_bnr_vnn = 0;
+typedef struct { const void *k; uint32_t gen; } bnr_slot_t;
+static cv_t g_bnr_vnode, g_bnr_vname; static uint32_t g_bnr_gen = 0, g_bnr_nn = 0, g_bnr_nm = 0;
+static uint64_t bnr_hash(const void *k, int by_name) { uint64_t h = 1469598103934665603ull; if (!by_name) return ((uint64_t)(uintptr_t)k >> 4) * 11400714819323198485ull; for (const unsigned char *s = (const unsigned char *)k; *s; s++) h = (h ^ *s) * 1099511628211ull; return h; }
+static int bnr_same(const void *a, const void *b, int by_name) { return a == b || (by_name && strcmp((const char *)a, (const char *)b) == 0); }
+static void bnr_reset(void) { g_bnr_gen++; g_bnr_nn = 0; g_bnr_nm = 0; }
+static void bnr_grow(cv_t *v, int by_name) {
+    uint32_t oc = v->cap, nc = oc ? oc * 2 : 64; cv_t o = *v; cv_t n = { 0, 0, 0, 0 };
+    cv_reserve(&n, (uint32_t)sizeof(bnr_slot_t), nc, by_name ? "bnr_vname" : "bnr_vnode"); memset(n.p, 0, (size_t)nc * sizeof(bnr_slot_t)); n.len = nc;
+    for (uint32_t i = 0; i < oc; i++) { bnr_slot_t s = CV_AT(o, bnr_slot_t, i); if (s.gen != g_bnr_gen || !s.k) continue;
+        uint64_t h = bnr_hash(s.k, by_name) & (nc - 1); while (CV_AT(n, bnr_slot_t, h).gen == g_bnr_gen && CV_AT(n, bnr_slot_t, h).k) h = (h + 1) & (nc - 1); CV_AT(n, bnr_slot_t, h) = s; }
+    *v = n;
+}
+static int bnr_seen(cv_t *v, uint32_t *cnt, const void *k, int by_name) {
+    if ((uint64_t)(*cnt + 1) * 2 > v->len) bnr_grow(v, by_name);
+    uint64_t h = bnr_hash(k, by_name) & (v->len - 1);
+    for (;;) { bnr_slot_t *s = &CV_AT(*v, bnr_slot_t, h);
+        if (s->gen != g_bnr_gen || !s->k) { s->k = k; s->gen = g_bnr_gen; (*cnt)++; return 0; }
+        if (bnr_same(s->k, k, by_name)) return 1;
+        h = (h + 1) & (v->len - 1); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bnr_node_seen(IR_t *o) { for (int i = 0; i < g_bnr_vn; i++) if (g_bnr_vnode[i] == o) return 1; if (g_bnr_vn < 4096) g_bnr_vnode[g_bnr_vn++] = o; return 0; }
-static int bnr_name_seen(const char *n) { for (int i = 0; i < g_bnr_vnn; i++) if (g_bnr_vname[i] == n || (g_bnr_vname[i] && !strcmp(g_bnr_vname[i], n))) return 1; if (g_bnr_vnn < 4096) g_bnr_vname[g_bnr_vnn++] = n; return 0; }
+static int bnr_node_seen(IR_t *o) { return bnr_seen(&g_bnr_vnode, &g_bnr_nn, o, 0); }
+static int bnr_name_seen(const char *n) { return bnr_seen(&g_bnr_vname, &g_bnr_nm, n, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int var_assigned_real_static(IR_graph_t *g, const char *name, int depth) {
     if (!g || !g->all || !name || depth > 8) return 0;
@@ -919,8 +938,8 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     if (op == BINOP_POW || op == BINOP_POW_PROMOTE) return 1;
     int is_num = (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || (op >= BINOP_LT && op <= BINOP_NE));
     if (!is_num) return 0;
-    g_bnr_vn = 0; g_bnr_vnn = 0;
-    int r = binop_operand_real_static(g, bb_child0(nd), 0); if (!r) { g_bnr_vn = 0; g_bnr_vnn = 0; r = binop_operand_real_static(g, bb_child1(nd), 0); }
+    bnr_reset();
+    int r = binop_operand_real_static(g, bb_child0(nd), 0); if (!r) { bnr_reset(); r = binop_operand_real_static(g, bb_child1(nd), 0); }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2507,7 +2526,7 @@ extern "C" int sn4_choice_rbp_off(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
 static cv_t g_blob_lay;
-extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); }
+extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); cv_gc_root(&g_bnr_vnode); cv_gc_root(&g_bnr_vname); }
 static uint64_t g_zls_lay[32768]; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
 extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
 static void blob_lay_push(int off, unsigned kind, int size) { CV_PUSH(g_blob_lay, uint64_t) = GC_LAY_Q(off, kind, size); }

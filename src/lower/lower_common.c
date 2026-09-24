@@ -266,6 +266,32 @@ IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static struct { const IR_t ** nd; const char ** src; int * line; int n; int max; } g_bb_src = { 0, 0, 0, 0, 0 };
+typedef struct { const IR_t * k; int v; } bb_src_slot_t;
+static struct { bb_src_slot_t * s; int cap; int n; long runs; } g_bb_src_ix = { 0, 0, -1, -1 };
+static void bb_src_ix_build(int cap) {
+    extern void * rt_wsb_alloc(size_t); extern long rt_gc_runs_count(void);
+    bb_src_slot_t * t = (bb_src_slot_t *) rt_wsb_alloc((size_t) cap * sizeof(bb_src_slot_t)); if (!t) { g_bb_src_ix.n = -1; return; }
+    memset(t, 0, (size_t) cap * sizeof(bb_src_slot_t)); g_bb_src_ix.s = t; g_bb_src_ix.cap = cap; g_bb_src_ix.runs = rt_gc_runs_count();
+    for (int i = 0; i < g_bb_src.n; i++) { const IR_t * k = g_bb_src.nd[i]; size_t h = ((size_t)(uintptr_t) k >> 4) & (size_t)(cap - 1);
+        while (t[h].k && t[h].k != k) h = (h + 1) & (size_t)(cap - 1);
+        if (!t[h].k) { t[h].k = k; t[h].v = i; } }
+    g_bb_src_ix.n = g_bb_src.n;
+}
+static int bb_src_ix_get(const IR_t * nd) {
+    extern long rt_gc_runs_count(void);
+    if (g_bb_src_ix.n != g_bb_src.n || g_bb_src_ix.runs != rt_gc_runs_count() || !g_bb_src_ix.s) { int cap = 64; while (cap < 2 * g_bb_src.n + 2) cap <<= 1; bb_src_ix_build(cap); }
+    if (g_bb_src_ix.n < 0) { for (int i = 0; i < g_bb_src.n; i++) if (g_bb_src.nd[i] == nd) return i; return -1; }
+    size_t h = ((size_t)(uintptr_t) nd >> 4) & (size_t)(g_bb_src_ix.cap - 1);
+    while (g_bb_src_ix.s[h].k) { if (g_bb_src_ix.s[h].k == nd) return g_bb_src_ix.s[h].v; h = (h + 1) & (size_t)(g_bb_src_ix.cap - 1); }
+    return -1;
+}
+static void bb_src_ix_add(const IR_t * nd, int i) {
+    if (g_bb_src_ix.n != i || !g_bb_src_ix.s || 2 * (i + 1) > g_bb_src_ix.cap) { g_bb_src_ix.n = -2; return; }
+    size_t h = ((size_t)(uintptr_t) nd >> 4) & (size_t)(g_bb_src_ix.cap - 1);
+    while (g_bb_src_ix.s[h].k && g_bb_src_ix.s[h].k != nd) h = (h + 1) & (size_t)(g_bb_src_ix.cap - 1);
+    if (!g_bb_src_ix.s[h].k) { g_bb_src_ix.s[h].k = nd; g_bb_src_ix.s[h].v = i; }
+    g_bb_src_ix.n = i + 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_gc_roots(void)
 {
@@ -273,13 +299,13 @@ void bb_src_gc_roots(void)
     if (g_bb_src.nd) rt_gc_visit_raw((const char **) &g_bb_src.nd);
     if (g_bb_src.src) rt_gc_visit_raw((const char **) &g_bb_src.src);
     if (g_bb_src.line) rt_gc_visit_raw((const char **) &g_bb_src.line);
+    if (g_bb_src_ix.s) rt_gc_visit_raw((const char **) &g_bb_src_ix.s);
     for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i]) rt_gc_visit_raw((const char **) &g_bb_src.nd[i]); if (g_bb_src.src[i]) rt_gc_visit_raw((const char **) &g_bb_src.src[i]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_note(const IR_t * nd, const char * src, int line) {
     if (!nd || !src || !src[0]) return;
-    for (int i = 0; i < g_bb_src.n; i++) {
-        if (g_bb_src.nd[i] != nd) continue;
+    { int i = bb_src_ix_get(nd); if (i >= 0) {
         { const char * h = g_bb_src.src[i]; size_t ls = strlen(src);
           while (h) { const char * e = strchr(h, '\n'); size_t seg = e ? (size_t)(e - h) : strlen(h);
                       if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }
@@ -290,7 +316,7 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
         memcpy(j, g_bb_src.src[i], la); j[la] = '\n'; memcpy(j + la + 1, src, lb); j[la + 1 + lb] = 0;
         g_bb_src.src[i] = lp_strdup(j);
         return;
-    }
+    } }
     if (g_bb_src.n >= g_bb_src.max) {
         int m = g_bb_src.max ? g_bb_src.max * 2 : 256;
         const IR_t ** a = (const IR_t **) rt_wsb_realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
@@ -302,21 +328,22 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
     g_bb_src.nd[g_bb_src.n] = nd;
     g_bb_src.src[g_bb_src.n] = lp_strdup(src);
     g_bb_src.line[g_bb_src.n] = line;
+    bb_src_ix_add(nd, g_bb_src.n);
     g_bb_src.n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_src_of(const IR_t * nd) {
     if (!nd) return 0;
     { static int _sd = -1; if (_sd < 0) { const char * e = getenv("SCRIP_SRC_DIAG"); _sd = (e && e[0] == '1') ? 1 : 0; }
-      for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i] != nd) continue;
+      { int i = bb_src_ix_get(nd); if (i >= 0) {
           if (_sd) fprintf(stderr, "[SRC] hit nd=%p i=%d/%d src=%.44s\n", (const void *) nd, i, g_bb_src.n, g_bb_src.src[i] ? g_bb_src.src[i] : "-");
-          return g_bb_src.src[i]; } }
+          return g_bb_src.src[i]; } } }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_line_of(const IR_t * nd) {
     if (!nd) return 0;
-    for (int i = 0; i < g_bb_src.n; i++) if (g_bb_src.nd[i] == nd) return g_bb_src.line[i];
+    { int i = bb_src_ix_get(nd); if (i >= 0) return g_bb_src.line[i]; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

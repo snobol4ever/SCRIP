@@ -890,17 +890,25 @@ static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const 
     return j;
 }
 static int zls_reuse_reader_ok(IR_e op) { return zls_reuse_straight(op) || op == IR_CALL || op == IR_CALL_PROC_STAGED; }
-static int zls_reuse_index(const IR_graph_t * g, const IR_t * nd) { for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return i; return -1; }
+typedef struct { const IR_t ** k; int * v; size_t cap; } zls_nidx_t;
+static void zls_nidx_build(zls_nidx_t * m, const IR_graph_t * g) {
+    size_t cap = 16; while (cap < (size_t)g->n * 2 + 2) cap <<= 1;
+    m->k = (const IR_t **)ct_zalloc(cap, sizeof(*m->k)); m->v = (int *)ct_alloc(sizeof(int) * cap); m->cap = cap;
+    for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; size_t h = ((size_t)(uintptr_t)nd >> 4) & (cap - 1);
+        while (m->k[h] && m->k[h] != nd) h = (h + 1) & (cap - 1);
+        if (!m->k[h]) { m->k[h] = nd; m->v[h] = i; } }
+}
+static int zls_reuse_index(const zls_nidx_t * m, const IR_t * nd) { size_t h = ((size_t)(uintptr_t)nd >> 4) & (m->cap - 1); while (m->k[h]) { if (m->k[h] == nd) return m->v[h]; h = (h + 1) & (m->cap - 1); } return -1; }
 static int zls_reuse_dynamic(const IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { const IR_t * d = g->all[i]; if (!d) continue;
         if (d->op == IR_GOTO_DEFERRED || d->op == IR_GATE || d->op == IR_MATCH_DEFER || d->op == IR_MATCH_FENCE1) return 1;
         if ((d->op == IR_CALL || d->op == IR_CALL_BUILTIN || d->op == IR_CALL_SNOBOL4) && IR_LIT(d).sval && strcmp(IR_LIT(d).sval, "CODE") == 0) return 1; }
     return 0;
 }
-static int zls_reuse_walk(const IR_graph_t * g, const IR_t * start, int * pos, int * step, int * loop_lo, int * loop_hi, int * nloop) {
+static int zls_reuse_walk(const zls_nidx_t * m, const IR_t * start, int * pos, int * step, int * loop_lo, int * loop_hi, int * nloop) {
     const IR_t * c = start;
     while (c) {
-        int i = zls_reuse_index(g, c);
+        int i = zls_reuse_index(m, c);
         if (i < 0) return 1;
         if (pos[i] >= 0) { if (pos[i] < *loop_lo) *loop_lo = pos[i]; if (*step - 1 > *loop_hi) *loop_hi = *step - 1; (*nloop)++; return 0; }
         pos[i] = (*step)++;
@@ -910,35 +918,45 @@ static int zls_reuse_walk(const IR_graph_t * g, const IR_t * start, int * pos, i
 }
 static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_out, int * nloop_out) {
     int n = g->n;
-    int * pos = (int *)ct_alloc(sizeof(int) * (size_t)n); int * cp = (int *)ct_alloc(sizeof(int) * (size_t)n);
+    int * pos = (int *)ct_alloc(sizeof(int) * (size_t)n); int * cp = (int *)ct_alloc(sizeof(int) * (size_t)n); zls_nidx_t nx; zls_nidx_build(&nx, g);
     for (int i = 0; i < n; i++) { pos[i] = -1; cp[i] = 0; rec[i] = (zls_reuse_t){ g->all[i], ZR_NONE, -1, -1, -1, (const IR_t *)0, 0, -1, -1, -1, -1 }; }
     int step = 0, loop_lo = 0x7fffffff, loop_hi = -1, nloop = 0, opaque = 0;
-    opaque |= zls_reuse_walk(g, g->entry, pos, &step, &loop_lo, &loop_hi, &nloop);
-    if (g->n_alts > 1 && g->alt_entry) for (int k = 1; k < g->n_alts; k++) if (g->alt_entry[k]) opaque |= zls_reuse_walk(g, g->alt_entry[k], pos, &step, &loop_lo, &loop_hi, &nloop);
+    opaque |= zls_reuse_walk(&nx, g->entry, pos, &step, &loop_lo, &loop_hi, &nloop);
+    if (g->n_alts > 1 && g->alt_entry) for (int k = 1; k < g->n_alts; k++) if (g->alt_entry[k]) opaque |= zls_reuse_walk(&nx, g->alt_entry[k], pos, &step, &loop_lo, &loop_hi, &nloop);
     int dynamic = zls_reuse_dynamic(g) || opaque;
     int ncp = 0;
     for (int i = 0; i < n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
-        const IR_t * t = c->ω.node; if (t && !zls_is_wiring(t->op)) { int j = zls_reuse_index(g, t); if (j >= 0 && !cp[j]) { cp[j] = 1; ncp++; } }
+        const IR_t * t = c->ω.node; if (t && !zls_is_wiring(t->op)) { int j = zls_reuse_index(&nx, t); if (j >= 0 && !cp[j]) { cp[j] = 1; ncp++; } }
         if (pos[i] >= 0 && !zls_is_wiring(c->op) && !zls_reuse_straight(c->op) && !zls_reuse_detleaf(c) && !cp[i]) { cp[i] = 1; ncp++; } }
+    int * rd_n = (int *)ct_zalloc((size_t)n, sizeof(int)); int * rd_max = (int *)ct_alloc(sizeof(int) * (size_t)n); char * rd_bad = (char *)ct_zalloc((size_t)n, 1); char * rd_bop = (char *)ct_zalloc((size_t)n, 1);
+    for (int i = 0; i < n; i++) rd_max[i] = -1;
+    int gsz = 1; while (gsz < step) gsz <<= 1; int * gst = (int *)ct_alloc(sizeof(int) * 2 * (size_t)gsz);
+    for (int q = 0; q < 2 * gsz; q++) gst[q] = 0x7fffffff;
+    for (int q = 0; q < n; q++) if (cp[q] && pos[q] >= 0 && q < gst[gsz + pos[q]]) gst[gsz + pos[q]] = q;
+    for (int q = gsz - 1; q >= 1; q--) gst[q] = gst[2 * q] < gst[2 * q + 1] ? gst[2 * q] : gst[2 * q + 1];
+    for (int k = 0; k < n; k++) { const IR_t * d = g->all[k]; if (!d) continue;
+        for (int j = 0; j < d->n_operands; j++) { int t = d->operands[j] ? zls_reuse_index(&nx, d->operands[j]) : -1; if (t < 0) continue;
+            rd_n[t]++; if (pos[k] < 0) rd_bad[t] = 1; else { if (pos[k] > rd_max[t]) rd_max[t] = pos[k]; if (!zls_reuse_reader_ok(d->op)) rd_bop[t] = 1; } } }
     for (int i = 0; i < n; i++) {
         const IR_t * c = g->all[i]; if (!c || zls_is_wiring(c->op)) continue;
         rec[i].w = pos[i]; rec[i].llo = loop_lo; rec[i].lhi = loop_hi;
         if (dynamic) { rec[i].cls = ZR_DYNAMIC; continue; }
         if (pos[i] < 0) { rec[i].cls = ZR_UNPLACED; continue; }
         if (!zls_reuse_straight(c->op) && !zls_reuse_detleaf(c)) { rec[i].cls = ZR_SELF; continue; }
-        int last = pos[i], badreader = 0, badop = 0, nread = 0;
-        for (int k = 0; k < n; k++) { const IR_t * d = g->all[k]; if (!d) continue;
-            for (int j = 0; j < d->n_operands; j++) if (d->operands[j] == c) { nread++; if (pos[k] < 0) badreader = 1; else { if (pos[k] > last) last = pos[k]; if (!zls_reuse_reader_ok(d->op)) badop = 1; } } }
+        int ci = zls_reuse_index(&nx, c);
+        int last = pos[i] > rd_max[ci] ? pos[i] : rd_max[ci], badreader = rd_bad[ci], badop = rd_bop[ci], nread = rd_n[ci];
         rec[i].last = last; rec[i].nread = nread;
         if (badreader) { rec[i].cls = ZR_UNPLACED; continue; }
         int guard = -1;
-        for (int m = 0; m < n && guard < 0; m++) if (cp[m] && pos[m] > pos[i] && pos[m] < last) guard = m;
+        { int lo = pos[i] + 1 + gsz, hi = last + gsz, best = 0x7fffffff;
+          for (; lo < hi; lo >>= 1, hi >>= 1) { if (lo & 1) { if (gst[lo] < best) best = gst[lo]; lo++; } if (hi & 1) { hi--; if (gst[hi] < best) best = gst[hi]; } }
+          if (best != 0x7fffffff) guard = best; }
         if (guard >= 0) { rec[i].cls = ZR_GUARD; rec[i].gpos = pos[guard]; rec[i].guard = g->all[guard]; continue; }
         if (nloop && pos[i] < loop_lo && last >= loop_lo) { rec[i].cls = ZR_LOOP; continue; }
         if (badop) { rec[i].cls = ZR_READER; continue; }
         rec[i].cls = ZR_CANDIDATE;
     }
-    ct_drop(pos); ct_drop(cp);
+    ct_drop(pos); ct_drop(cp); ct_drop(rd_n); ct_drop(rd_max); ct_drop(rd_bad); ct_drop(rd_bop); ct_drop(nx.k); ct_drop(nx.v); ct_drop(gst);
     if (ncp_out) *ncp_out = ncp; if (nloop_out) *nloop_out = nloop;
 }
 static const zls_reuse_t * zls_reuse_find(const zls_graph_t * r, const IR_t * nd) { for (int i = 0; i < r->n_reuse; i++) if (r->reuse[i].nd == nd) return &r->reuse[i]; return (const zls_reuse_t *)0; }
