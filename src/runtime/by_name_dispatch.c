@@ -3854,6 +3854,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(s && s[0] ? (long long)(unsigned char)s[0] : 0);
         return 1;
     }
+    if (!strcmp(fn, "__pas_rterr") && nargs == 2) { pas_file_err(VARVAL_fn(args[0]), VARVAL_fn(args[1]), NULL); *out = NULVCL; return 1; }
     if (!strcmp(fn, "__pas_range_check") && nargs == 3) {
         long long v = IS_INT_fn(args[0]) ? args[0].i : 0;
         long long lo = IS_INT_fn(args[1]) ? args[1].i : 0;

@@ -1702,9 +1702,10 @@ case_statement:
     CASESY expression OFSY { pas_case_push(); } case_list ENDSY
         { tree_t *seq = ast_node_new(TT_SEQ_EXPR);
           ast_push(seq, bin(TT_ASSIGN, leaf_s(TT_VAR, pas_case_cur()), $2));
-          tree_t *chain = NULL;
-          if ($5) for (int i = $5->count - 1; i >= 0; i--) { tree_t *e = $5->items[i]; if (!e) continue; if (chain) ast_push(e, chain); chain = e; }
-          ast_push(seq, chain ? chain : ast_node_new(TT_SUCCEED));
+          tree_t *chain = ast_node_new(TT_FNC); ast_push(chain, leaf_s(TT_VAR, "__pas_rterr")); ast_push(chain, leaf_s(TT_QLIT, "6.8.3.5"));
+          ast_push(chain, leaf_s(TT_QLIT, "no case-constant of the case-statement is equal to the value of its case-index"));
+          if ($5) for (int i = $5->count - 1; i >= 0; i--) { tree_t *e = $5->items[i]; if (!e) continue; ast_push(e, chain); chain = e; }
+          ast_push(seq, chain);
           pas_case_pop();
           $$ = seq; }
     ;
