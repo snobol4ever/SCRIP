@@ -168,7 +168,7 @@ AssignTarget    =   *Primary FENCE(nPush() *IdxTail reduce("'TT_IDX'", 'nTop() +
 assign_cmd      =   *AssignTarget $':=' *Expr0 reduce("'TT_ASSIGN'", 2);
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command nInc();
-StmtRest        =   $';' FENCE(*Command nInc() | epsilon);
+StmtRest        =   $';' (*Command nInc() | epsilon);
 compound_cmd    =   nPush() $'begin' (*StmtFirst ARBNO(*StmtRest) | epsilon) $'end'
                     reduce("'TT_SEQ_EXPR'", 'nTop()') nPop();
 /* if C then S [else S] -> TT_IF(C, S[, S])                                              */
