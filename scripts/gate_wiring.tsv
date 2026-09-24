@@ -182,6 +182,7 @@ test_gate_gc_the_spine_cell_grid_is_anchored_at_the_region_base.sh	WIRED	-	-	-
 test_gate_gc_the_spine_tagged_cell_walk_is_load_bearing.sh	WIRED	-	-	-
 test_gate_gc_the_stack_is_completely_accounted_at_every_collection.sh	WIRED	-	-	-
 test_gate_gc_the_stack_walk_stops_at_the_outermost_emitted_frame.sh	WIRED	-	-	-
+test_gate_gc_the_stack_walk_survives_valgrind.sh	WIRED	-	-	-
 test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh	WIRED	-	-	-
 test_gate_gc_the_unmapped_spine_store_witness_answers_its_oracle_at_every_band_point.sh	WIRED	-	-	-
 test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh	WIRED	-	-	-
