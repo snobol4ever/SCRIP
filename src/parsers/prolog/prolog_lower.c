@@ -159,6 +159,7 @@ static void tr_head_key(tree_t *head, const char **fn_out, int *arity_out) {
 static tree_t *pb_var(const char *nm) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = ct_strdup(nm); return v; }
 static tree_t *pb_fnc2(const char *f, tree_t *a, tree_t *b) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = ct_strdup(f); ast_push(n, a); ast_push(n, b); return n; }
 static tree_t *pb_fnc1(const char *f, tree_t *a) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = ct_strdup(f); ast_push(n, a); return n; }
+static tree_t *pb_copy(const tree_t *t) { if (!t) return NULL; tree_t *n = ast_node_new(t->t); n->v = t->v; n->line = t->line; n->slen = t->slen; for (int i = 0; i < t->n; i++) ast_push(n, pb_copy(t->c[i])); return n; }
 static tree_t *pb_fnc3(const char *f, tree_t *a, tree_t *b, tree_t *c) { tree_t *n = ast_node_new(TT_FNC); n->v.sval = ct_strdup(f); ast_push(n, a); ast_push(n, b); ast_push(n, c); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pb_collect_names(const tree_t *t, const char **names, int *n, int cap) {
@@ -198,7 +199,7 @@ static void pb_expand_bagof(tree_t *t) {
         return;
     }
     t->v.sval = ct_strdup(","); t->n = 0;
-    ast_push(t, fa); ast_push(t, inner);
+    ast_push(t, pb_fnc1("$pl_list_guard", pb_copy(L))); ast_push(t, pb_fnc2(",", fa, inner));
     pb_expand_goal(fa->c[1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

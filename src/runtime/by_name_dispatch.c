@@ -2493,8 +2493,23 @@ PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_L
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(plus, 3) ok = rt_pl_succ_plus_cell(3, &args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(sort, 2) ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(msort, 2) ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); PL_CX_LEAF_TAIL
+static int pl_is_pair(DESCR_t d) { extern int prolog_atom_intern(const char *); return d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("-") && (d.slen & 0xFFFFu) == 2; }
+static void *pl_sort_args_ball(DESCR_t *args, int pairs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_dop_list_guard_c(DESCR_t *, int);
+    DESCR_t orig = rt_pl_deref_val(args[0]), cur = orig, e; void *b;
+    while (pl_is_cons(cur)) cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]);
+    if (pl_val_unbound(cur)) return rt_pl_ball_instantiation();
+    if (!pl_is_nil(cur)) return rt_pl_ball_kind2("type_error", "list", orig);
+    for (cur = orig; pairs && pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) { e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+        if (pl_val_unbound(e)) return rt_pl_ball_instantiation();
+        if (!pl_is_pair(e)) return rt_pl_ball_kind2("type_error", "pair", e); }
+    if ((b = rt_pl_dop_list_guard_c(&args[1], 1))) return b;
+    for (cur = rt_pl_deref_val(args[1]); pairs && pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) { e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+        if (!pl_val_unbound(e) && !pl_is_pair(e)) return rt_pl_ball_kind2("type_error", "pair", e); }
+    return (void *)0;
+}
+PL_CX_LEAF_HEAD(sort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 static long pl_sub_atom_count(DESCR_t a) {
     char sb[8192]; DESCR_t av = rt_pl_deref_val(a);
@@ -3273,7 +3288,7 @@ PL_CX_LEAF_HEAD(current_output, 1) { extern int fh_current_output(void); ok = pl
 PL_CX_LEAF_HEAD(current_input, 1) { extern int fh_current_input(void); ok = plw_unify_vals(args[0], pl_mk_stream(fh_current_input()), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open, 3) ok = pl_open_leaf(args, 3, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open4, 4) ok = pl_open_leaf(args, 4, cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(keysort, 2) ok = rt_pl_keysort_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(keysort, 2) { void *b = pl_sort_args_ball(args, 1); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_keysort_cell(&args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(set_stream_position, 2) { extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     extern FILE *fh_get(int); extern int prolog_atom_intern(const char *); extern int fh_repos(int);
     DESCR_t sd = rt_pl_deref_val(args[0]); DESCR_t pd = rt_pl_deref_val(args[1]); const char *nm; int si = -1; ok = 0;
