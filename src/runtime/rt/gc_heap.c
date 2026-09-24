@@ -645,7 +645,7 @@ static int g_gc_shield_n = 0;
 static const char **g_gc_shield_r = (const char **)0;
 static int g_gc_shield_r_is_probe = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_point_arr_body(DESCR_t *arr, int n, const char **r0, char *floor, int is_probe)
+static __attribute__((used, noinline)) void gc_point_arr_body(DESCR_t *arr, int n, const char **r0, char *floor, int is_probe)
 {
     int pv = g_gc_pending;
     if (!pv && g_hp_gcline && g_hp_top > g_hp_gcline) pv = 1;
