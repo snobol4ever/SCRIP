@@ -117,7 +117,12 @@ grep -qE "graded ZERO|scored rows|UNMEASURED" <<<"$out" && grep -q "rc=3" <<<"$o
 echo "--- ARM 6 (CENSUS, PRINTED DENOMINATOR, three-way): every test_*_suite.sh is WIRED, ALREADY-ADEQUATE, or a NAMED GAP ---"
 # WIRED: calls this row's shim directly, OR calls gate_floor directly (the pre-existing authority this
 # row's shim wraps), OR delegates its grading to corpus_suite_harness.py's `run` (which this row wired).
-ALREADY_ADEQUATE="test_prolog_swi_suite.sh test_snocone_hand_suite.sh test_snobol4_spitbol_testpgms_suite.sh"
+ALREADY_ADEQUATE="test_prolog_swi_suite.sh test_snocone_hand_suite.sh test_snobol4_spitbol_testpgms_suite.sh test_icon_bench_suite.sh test_pascal_bench_suite.sh test_prolog_bench_suite.sh test_rebus_bench_suite.sh"
+# the four BENCHMARK runners (landed 2026-09-23 by four seats; classified by the coo the same day, when their arrival turned this
+# arm red): each refuses rc=2 on an empty kernel population with its own line -- icon :67 `[ "${#POP[@]}" -gt 0 ] || refuse`,
+# pascal :48, prolog :41 and rebus :52 `[ "${#KERNELS[@]}" -gt 0 ] || refuse` -- and each refuse() exits 2. MEASURED for the
+# two that take a directory override (BENCH_REBUS_DIR, BENCH_PROLOG_DIR pointed at an empty dir): rc=2, "a population of zero
+# is not a green board". A kernel found is a kernel graded (compile failures grade FAIL), so the discovery floor is the floor.
 # test_prolog_swi_suite.sh: run_one_mode() already has `[ "$TOTAL" -gt 0 ] || { REFUSED-TO-GRADE; exit 2; }`
 #   (verified by hand, predates this row) -- does not match the grep below because it never calls the
 #   shim, gate_floor, or the harness; it is a fourth, bespoke-but-correct mechanism.
