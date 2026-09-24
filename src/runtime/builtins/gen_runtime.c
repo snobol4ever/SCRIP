@@ -141,13 +141,11 @@ ScanSubjRegs rt_scan_reenter(void) {
 void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(scan_subj ? scan_subj : ""); }
-ScanSubjRegs rt_scan_reenter_live(uint64_t subj) {
+ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
-    long n = (s == g_scan_empty) ? 0 : -1;
-    if (n < 0 && scan_depth >= 0 && scan_depth < SCAN_STACK_MAX && scan_saved[scan_depth].subj == s && scan_saved[scan_depth].len >= 0) n = scan_saved[scan_depth].len;
+    long n = (s == g_scan_empty) ? 0 : (long)(uint32_t)len;
     scan_depth++;
     scan_subj = s;
-    if (n < 0) n = rt_scan_subj_len();
     rt_scan_subj_len_set(s, n);
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)n;
     return r;
