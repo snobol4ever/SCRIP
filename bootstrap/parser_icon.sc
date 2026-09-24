@@ -190,7 +190,7 @@ Expr11 = (   If  |  Until  |  While  |  Every  |  Repeat  |  Case
          |   Call  |  Paren  |  Compound
          |   $' ' cset_pat assign(.t_imm, csetbody) shift(t_imm, 'TT_CSET')
          |   $' ' str_pat  assign(.t_imm, strbody)  shift(t_imm, 'TT_QLIT')
-         |   $' ' real_pat . rval assign(.t_imm, REAL(rval)) shift(t_imm, 'TT_FLIT')
+         |   $' ' real_pat . rval assign(.t_imm, CONVERT(rval, 'REAL')) shift(t_imm, 'TT_FLIT')
          |   $' ' shift(int_pat, 'TT_ILIT')
          |   $' ' '&' id_pat . kwname assign(.t_imm, '&' kwname) shift(t_imm, 'TT_VAR')
          |   $' ' shift(id_pat, 'TT_VAR')
