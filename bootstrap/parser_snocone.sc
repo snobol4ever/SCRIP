@@ -235,7 +235,10 @@ stmt_cmd        =   *stmt_body;
 /* empty_cmd */
 empty_cmd       =   $';';
 /* Command dispatcher */
-Command         =   $' ' FENCE( *if_cmd
+Command         =   $' ' FENCE( *empty_cmd
+                    | $'case' *CaseArm
+                    | *DefaultArm
+                    | nInc() ( *if_cmd
                     | *while_cmd
                     | *do_cmd
                     | *for_cmd
@@ -248,12 +251,9 @@ Command         =   $' ' FENCE( *if_cmd
                     | *continue_cmd
                     | *struct_cmd
                     | *switch_cmd
-                    | $'case' *CaseArm
-                    | *DefaultArm
                     | *label_prefix
-                    | *empty_cmd
-                    | nInc() *stmt_cmd
-                    );
+                    | *stmt_cmd
+                    ) );
 /* Compiland — top-level program */
 Compiland       =   nPush() POS(0) ARBNO(*Command) $' ' RPOS(0)
                     reduce("'Parse'", 'nTop()') nPop();
