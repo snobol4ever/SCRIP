@@ -12,10 +12,10 @@ int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bs_cset_words(const char *s, uint64_t w[4]) { w[0] = w[1] = w[2] = w[3] = 0; for (const unsigned char *p = (const unsigned char *)(s ? s : ""); *p; p++) w[*p >> 6] |= 1ull << (*p & 63); }
+static void bs_cset_words(const char *s, long n, uint64_t w[4]) { w[0] = w[1] = w[2] = w[3] = 0; for (long i = 0; s && i < n; i++) { unsigned c = (unsigned char)s[i]; w[c >> 6] |= 1ull << (c & 63); } }
 std::string bb_scan_many() {
     x86_begin();
-    uint64_t bsw[4]; bs_cset_words(_.op_name1, bsw);
+    uint64_t bsw[4]; bs_cset_words(_.op_name1, _.op_ival, bsw);
     return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
             x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_sa))
@@ -87,6 +87,6 @@ std::string bb_scan_many() {
          + x86("def",     L(2))
          + x86(".quad",   LS(2), _.op_name1)
          + x86("label",   LS(2))
-         + x86(".string", _.op_name1)
+         + x86(".string", _.op_name1, (unsigned long)_.op_ival)
          + x86_ro_seal_q(3, bsw[0]) + x86_ro_seal_q(4, bsw[1]) + x86_ro_seal_q(5, bsw[2]) + x86_ro_seal_q(6, bsw[3]);
 }

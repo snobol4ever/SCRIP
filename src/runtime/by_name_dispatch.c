@@ -7345,7 +7345,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t fd = args[2];
             if (!IS_FAIL_fn(fd) && fd.v != DT_SNUL) {
                 const char *fs = VARVAL_fn(fd);
-                if (fs && *fs) { fill = fs; fl = (int)strlen(fs); }
+                { int _fl = fs ? icn_true_len(fd, fs) : 0; if (_fl > 0) { fill = fs; fl = _fl; } }
             }
         }
         char *buf=rt_wsb_alloc(n+1);
@@ -7374,7 +7374,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t fd = args[2];
             if (!IS_FAIL_fn(fd) && fd.v != DT_SNUL) {
                 const char *fs = VARVAL_fn(fd);
-                if (fs && *fs) { fill = fs; fl = (int)strlen(fs); }
+                { int _fl = fs ? icn_true_len(fd, fs) : 0; if (_fl > 0) { fill = fs; fl = _fl; } }
             }
         }
         char *buf=rt_wsb_alloc(n+1);
@@ -7401,7 +7401,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t fd = args[2];
             if (!IS_FAIL_fn(fd) && fd.v != DT_SNUL) {
                 const char *fs = VARVAL_fn(fd);
-                if (fs && *fs) { fill = fs; fl = (int)strlen(fs); }
+                { int _fl = fs ? icn_true_len(fd, fs) : 0; if (_fl > 0) { fill = fs; fl = _fl; } }
             }
         }
         char *buf=rt_wsb_alloc(n+1);

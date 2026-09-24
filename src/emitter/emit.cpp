@@ -1324,9 +1324,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0));   g_emit.op_off = nd_slot(_en); g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : (_bv ? nd_slot(_bv) : -1); g_emit.op_sc = (g_emit.op_sb == 4 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
-    case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
-    case IR_SCAN_ANY:             bb_emit_x86(bb_scan_any());    return 0;
-    case IR_SCAN_MANY:            bb_emit_x86(bb_scan_many());   return 0;
+    case IR_SCAN_UPTO:            { IR_t * _ca = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; if (g_emit.op_name1 && _ca) g_emit.op_ival = (_ca->n_operands > 0 && _ca->operands[0] && _ca->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(_ca->operands[0]).ival : (int64_t)strlen(g_emit.op_name1); bb_emit_x86(bb_scan_upto()); } return 0;
+    case IR_SCAN_ANY:             { IR_t * _ca = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; if (g_emit.op_name1 && _ca) g_emit.op_ival = (_ca->n_operands > 0 && _ca->operands[0] && _ca->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(_ca->operands[0]).ival : (int64_t)strlen(g_emit.op_name1); bb_emit_x86(bb_scan_any()); } return 0;
+    case IR_SCAN_MANY:            { IR_t * _ca = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; if (g_emit.op_name1 && _ca) g_emit.op_ival = (_ca->n_operands > 0 && _ca->operands[0] && _ca->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(_ca->operands[0]).ival : (int64_t)strlen(g_emit.op_name1); bb_emit_x86(bb_scan_many()); } return 0;
     case IR_SCAN_FIND:            { IR_t * _fa = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
                                     if (g_emit.op_name1 && _fa) g_emit.op_ival = (_fa->n_operands > 0 && _fa->operands[0] && _fa->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(_fa->operands[0]).ival : (int64_t)strlen(g_emit.op_name1);
                                     bb_emit_x86(bb_scan_find()); } return 0;

@@ -7,6 +7,7 @@ extern "C" {
 #include "descr.h"
 const char * rt_nv_cstr(const char * name);
 int rt_icn_cset_member(const char *needle, int ch);
+int rt_icn_cset_member_n(const char *needle, long len, int ch);
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
@@ -59,10 +60,11 @@ std::string bb_scan_any() {
          + x86("cmp",     "eax", "r15d")
          + x86_omega("jge")
          + x86("movsxd",  "rcx", "r14d")
-         + x86("movzx",   "esi", "[r13+rcx]")
+         + x86("movzx",   "edx", "[r13+rcx]")
          + x86("mov",     "rdi", ROQ(0))
+         + x86("mov",     "rsi", (long)_.op_ival)
          + x86("sub",     "rsp", (long)8)
-         + x86("call",    "rt_icn_cset_member", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, int))rt_icn_cset_member)
+         + x86("call",    "rt_icn_cset_member_n", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, long, int))rt_icn_cset_member_n)
          + x86("add",     "rsp", (long)8)
          + x86("test",    "rax", "rax")
          + x86_omega("je")
@@ -76,5 +78,5 @@ std::string bb_scan_any() {
          + x86("def",     L(0))
          + x86(".quad",   LS(0), _.op_name1)
          + x86("label",   LS(0))
-         + x86(".string", _.op_name1);
+         + x86(".string", _.op_name1, (unsigned long)_.op_ival);
 }
