@@ -76,6 +76,12 @@ SCRIP="${SCRIP:-$ROOT/scrip}"; RT_DIR="${RT_DIR:-$ROOT/out}"; SWIPL="${SWIPL:-/u
 ATOMC="$ROOT/src/parsers/prolog/prolog_atom.c"
 QUICK=0; for a in "$@"; do case "$a" in --quick) QUICK=1 ;; esac; done
 ITERS="${ITERS:-$([ "$QUICK" = 1 ] && echo 2 || echo 20)}"; STRESS="${SCRIP_GC_STRESS_VALUE:-1}"; CHURN="${WITNESS_CHURN:-300}"; MODES="${MODES:-m3,m4}"
+# ⛔ A STRESSED RUN THAT DOES NOT FINISH IS NOT A DIVERGENCE (hq_prolog 2026-09-24, row prolog-an-atom-name-does-not-survive-a-
+# collection-mid-operation-...): the per-run bound was 60 s and scored a kill as a wrong answer. At load 23 one correct m3 run
+# measured 38.6/58.8/54.6 s wall and 39.0 s of CPU over 6040 collections (it was ~19.4 s wall on 09-20), so the bound sat ON
+# the measurement and the ceo's pass at load 10-45 read RED on a tree where the gate passes 4/4. The bound is now an order of
+# magnitude above the measurement, and a run that still hits it REFUSES rc=2 with the load stamped -- never a FAIL.
+RUN_TIMEOUT="${RUN_TIMEOUT:-600}"
 refuse(){ echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip at $SCRIP -- a missing binary prints a full, plausible, entirely false board"
 [ -x "$SWIPL" ] || refuse "no swipl oracle at $SWIPL -- the ref is cut from the oracle at run time or not at all"
@@ -141,7 +147,7 @@ fi
 grep -qx 'nm_22' "$REF" || refuse "the oracle's own answer is not the expected shape; witness or oracle changed"
 echo "ORACLE REF (swipl, cut at run time): $(tr '\n' ' ' < "$REF")"
 echo "POSITIVE CONTROL -- the collector must really move blocks AND really poison what it vacates"
-TEL="$(SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 timeout 60 "$SCRIP" "$W/w.pl" </dev/null 2>&1 >/dev/null || true)"
+TEL="$(SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 timeout "$RUN_TIMEOUT" "$SCRIP" "$W/w.pl" </dev/null 2>&1 >/dev/null || true)"
 MOVED="$(printf '%s' "$TEL" | grep -oE 'moved=[0-9]+B' | sed 's/[^0-9]//g' | awk '{s+=$1} END{print s+0}')"
 VACD="$(printf '%s' "$TEL" | grep -oE 'vacated=[0-9]+B' | sed 's/[^0-9]//g' | awk '{s+=$1} END{print s+0}')"
 [ "$MOVED" -gt 0 ] || refuse "moved=${MOVED}B under SCRIP_GC_STRESS=$STRESS -- nothing relocated, so a green below would prove nothing (this row's first witness died exactly here)"
@@ -157,15 +163,16 @@ m4_build(){
     [ -x "$M4DIR/w.bin" ] || return 1
     return 0
 }
-run_mode_m3(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout 60 "$SCRIP" "$W/w.pl" </dev/null 2>&1; }
-run_mode_m4(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout 60 "$M4DIR/w.bin" </dev/null 2>&1; }
+run_mode_m3(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout "$RUN_TIMEOUT" "$SCRIP" "$W/w.pl" </dev/null 2>&1; }
+run_mode_m4(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout "$RUN_TIMEOUT" "$M4DIR/w.bin" </dev/null 2>&1; }
 for m in ${MODES//,/ }; do
     if [ "$m" = m4 ]; then
         m4_build || refuse "mode 4 could not build the witness -- refusing rather than grading a stale or absent artifact: $(tail -3 "$M4DIR/compile.log" 2>/dev/null | tr '\n' ' ')"
     fi
     bad=0; first=""
     for i in $(seq 1 "$ITERS"); do
-        out="$(run_mode_$m)"
+        out="$(run_mode_$m)"; rrc=$?
+        [ "$rrc" = 124 ] && refuse "$m run $i did not finish in ${RUN_TIMEOUT}s at load $(cut -d' ' -f1-3 /proc/loadavg) -- a kill is not a divergence"
         if [ "$out" != "$(cat "$REF")" ]; then bad=$((bad+1)); [ -n "$first" ] || first="iter $i: $(printf '%s' "$out" | head -2 | tr '\n' ' ')"; fi
     done
     if [ "$bad" -eq 0 ]; then ck ok "$m: $ITERS/$ITERS runs byte-equal to the swipl ref under SCRIP_GC_STRESS=$STRESS SCRIP_GC_POISON=1"
