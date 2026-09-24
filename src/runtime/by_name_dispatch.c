@@ -9439,7 +9439,7 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
         if (codes >= 0 && !strcmp(atom_type, "atom") && !pl_anum_is_text(a)) return rt_pl_ball_kind2("type_error", "atom", a);
         if (!strcmp(atom_type, "number") && !pl_anum_is_num(a)) return rt_pl_ball_kind2("type_error", "number", a); }
     if (lk == -1) return rt_pl_ball_kind2("type_error", "list", l);
-    { void *b = pl_anum_elems(l, codes); if (b) return b; }
+    if (pl_iso_unbound(a)) { void *b = pl_anum_elems(l, codes); if (b) return b; }
     if (pl_iso_unbound(a) && lk == 0) return rt_pl_ball_instantiation();
     if (lk == 1 && !strcmp(atom_type, "number")) { void *b = pl_anum_number_syntax(l, codes); if (b) return b; }
     return (void *)0;
