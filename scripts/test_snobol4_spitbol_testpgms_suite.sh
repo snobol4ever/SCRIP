@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SPITBOL_TESTPGMS_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/spitbol_testpgms}" || exit 2
 # test_snobol4_spitbol_testpgms_suite.sh -- SPITBOL's OWN test programs 1-4, graded in both modes against refs
 # cut LIVE from the shared correctness oracle (row snobol4-spitbol-testpgms-vendored-as-a-package-suite-with-a-
 # runner-and-a-score-cell, Lon 2026-09-04 17:57 CDT via ceo: "SPITBOL's own testpgms 1-4 must run").
@@ -55,6 +55,13 @@ FLAGS="$(sbl_lang_flags)"
 W="$(mktemp -d "${TMPDIR:-/tmp}/spitbol_testpgms.XXXXXX")" || { echo "⛔ REFUSE(rc=2): mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 cp -a "$SUITE"/. "$W/" || { echo "⛔ REFUSE(rc=2): could not copy the suite to a scratch cwd -- refusing to grade in the vendored dir"; exit 2; }
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each program runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing; a refused cell refuses the board. The oracle runs as before.
+# Line 2 hands the guard the same suite this runner grades (SPITBOL_TESTPGMS_SUITE), so a scratch fixture is judged as one.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSE(rc=2): lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$W/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
@@ -134,7 +141,7 @@ for p in $progs; do
     fi
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
-    m3="$W/$p.m3"; (cd "$W" && timeout "$T" "$SCRIP" $cmpt "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
+    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
     _p3=0
     if cmp -s "$ora" "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, first diff: $(diff "$ora" "$m3" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
 "; fi
@@ -142,7 +149,7 @@ for p in $progs; do
     (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile "$p.spt" > "$s4" 2>/dev/null) </dev/null
     m4="$W/$p.m4"; r4=0
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
-        (cd "$W" && timeout "$T" "$b4" < "$W/testpgms.in" > "$m4" 2>/dev/null); r4=$?
+        (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$b4" < "$W/testpgms.in" > "$m4" 2>/dev/null); r4=$?
     else
         : > "$m4"; r4=125
     fi

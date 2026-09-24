@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus}/packages/prolog/swi_tests" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}/packages/prolog/swi_tests" || exit 2
 # test_prolog_swi_suite.sh -- THE SWI-PROLOG TEST SUITE BOARD: every plunit CASE the vendored swipl-devel src/Tests tree
 # declares, graded by AGREEMENT with real swipl's own verdict, in mode 3 and mode 4.
 #
@@ -35,7 +35,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 SCRIP="$HERE/../scrip"
 RT="${RT_DIR:-$HERE/../out}"
-SWIT="$S4E/corpus/packages/prolog/swi_tests"
+SWIT="${S4E_CORPUS:-$S4E/corpus}/packages/prolog/swi_tests"   # the expression line 2 hands the guard, so it judges the suite graded here
 PLUNIT="$S4E/corpus/tests/prolog/plunit.pl"
 MATCH_PY="$HERE/util_swi_match.py"
 MODES="m3,m4"; JOBS="${SWI_JOBS:-12}"; ONLY_FILE=""; NAME_REDS=0; VERBOSE=0

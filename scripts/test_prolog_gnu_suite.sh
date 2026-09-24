@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${GNU_PROLOG_SUITE:=${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus/packages/prolog/gnu_prolog}" || exit 2
 # test_prolog_gnu_suite.sh -- grades corpus/packages/prolog/gnu_prolog: GNU Prolog's OWN vendored
 # compiler/library source (62 .pl files -- BipsPl/ = the built-in-predicates library, Pl2Wam/ = the
 # Prolog-to-WAM compiler), NOT test programs. There is no external .ref oracle for these files; the
@@ -53,7 +53,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ $# -eq 0 ] || flaggate_reject "$1" "(none -- set GNU_SUITE_VERBOSE / GNU_SUITE_CLASSIFY_TIMEOUT / GNU_SUITE_RUN_TIMEOUT via environment instead)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
-PKG="$S4E/corpus/packages/prolog/gnu_prolog"
+PKG="${GNU_PROLOG_SUITE:-$S4E/corpus/packages/prolog/gnu_prolog}"   # line 2 sets it to this default, so the guard judges the suite graded here
 CLASSIFY_TIMEOUT="${GNU_SUITE_CLASSIFY_TIMEOUT:-10}"
 RUN_TIMEOUT="${GNU_SUITE_RUN_TIMEOUT:-15}"
 GPROLOG_BIN="$(command -v gprolog || true)"
@@ -86,6 +86,13 @@ is_bootstrap_only() {  # $1 = rel path (for the named list), $2 = full path (for
 
 TMP="$(mktemp -d /tmp/gnu_suite_XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each file runs in BOTH modes at what its row in ALL.csv declares (entry = its path under the package without .pl) -- heap_kb,
+# stack_kb, read once through lib_declared_arena.sh, the one reader -- and at the shipped default when it declares nothing; a refused
+# cell refuses the board. The classifying compile and the gprolog oracle run as before.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSED-TO-GRADE: lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$TMP/declared_memory.tsv"
+declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a declared-memory cell in $PKG/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 
 mapfile -t FILES < <(find "$PKG" -name "*.pl" | sort)
 TOTAL=${#FILES[@]}
@@ -121,11 +128,11 @@ for f in "${FILES[@]}"; do
     if [ "$rc" -eq 0 ]; then
         OK_TOTAL=$((OK_TOTAL+1))
         # -- triangulate: SCRIP m3, SCRIP m4 (link+run the .s this classify pass already produced), gprolog --
-        m3_out=$(timeout "$RUN_TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
         bin="$TMP/${base}.bin"
         m4_out=""
         if gcc -no-pie "$out" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin" 2>/dev/null; then
-            m4_out=$(timeout "$RUN_TIMEOUT" "$bin" < /dev/null 2>/dev/null)
+            m4_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$bin" < /dev/null 2>/dev/null)
         fi
         # ⛔⭐ --init-goal RUNS *BEFORE* --consult-file, SO THE FILE'S OWN `:- initialization(...)`
         # DIRECTIVE NEVER FIRES (verified by hand: --init-goal halt produces silent empty output on a

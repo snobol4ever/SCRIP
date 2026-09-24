@@ -115,6 +115,12 @@ fi
 # includes), so a run in place would both dirty the corpus checkout and let one program's output become
 # the next one's input.  The copy is made once and both engines run inside it.
 RUN="$W/run"; mkdir -p "$RUN"; cp -R "$SUITE"/. "$RUN"/ 2>/dev/null
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each program runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing; a refused cell refuses the board.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSE(rc=2): lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$W/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; D4=0; BOTH=0; SELF=0; STREAM=0
 FL3=""; FL4=""; UNG_LIST=""; DEFER_LIST=""; SELF_LIST=""
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
@@ -169,7 +175,7 @@ for sno in "$SUITE"/*.sbl; do
     oracle_v="$(verdict_lines "$W/o.out")"; oracle_p="$(pass_lines "$W/o.out")"; oracle_f="$(fail_lines "$W/o.out")"
     if [ "$oracle_v" -gt 0 ]; then ARM=self; SELF=$((SELF+1)); SELF_LIST="${SELF_LIST}${base}\n"; else ARM=stream; STREAM=$((STREAM+1)); fi
     # --- mode 3
-    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" 2>/dev/null; rc3=$?
+    run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" 2>/dev/null; rc3=$?
     if [ "$rc3" -eq 124 ] || [ "$rc3" -ge 128 ]; then OUT3="$(verdict_of "$rc3")"; N3="rc=$rc3: $(head -1 "$W/m3.err" | cut -c1-90)"
     elif [ "$ARM" = self ]; then
         sp="$(pass_lines "$W/m3.out")"; sf="$(fail_lines "$W/m3.out")"
@@ -182,7 +188,7 @@ for sno in "$SUITE"/*.sbl; do
     if [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
     m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin")"; then
-        timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
+        run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
         if [ "$rc4" -eq 124 ] || [ "$rc4" -ge 128 ]; then OUT4="$(verdict_of "$rc4")"; N4="rc=$rc4: $(head -1 "$W/m4.err" | cut -c1-90)"
         elif [ "$ARM" = self ]; then
             sp="$(pass_lines "$W/m4.out")"; sf="$(fail_lines "$W/m4.out")"

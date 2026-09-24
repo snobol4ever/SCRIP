@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${INRIA_SUITE:=${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus/packages/prolog/inriasuite}" || exit 2
 # test_prolog_inria_suite.sh — THE ISO/IEC 13211-1 PROLOG DENOMINATOR (row prolog-iso-conformance-inria-suite-vendored-and-graded).
 # Lon 2026-09-03 20:45: "100% means 100% of the industry standard language." For Prolog the standard is ISO/IEC 13211-1
 # and the public suite that grades it is the INRIA suite (Deransart / Ed-Dbali / Cervoni), vendored at
@@ -14,7 +14,7 @@ set -u
 GATE_NAME=test_prolog_inria_suite
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
-SUITE="$ROOT/corpus/packages/prolog/inriasuite"
+SUITE="${INRIA_SUITE:-$ROOT/corpus/packages/prolog/inriasuite}"   # line 2 sets it to this default, so the guard judges the suite graded here
 SCRIP="$HERE/../scrip"
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -d "$SUITE" ] || refuse "no vendored suite at $SUITE -- a suite that is absent is not a suite that is failing"
@@ -32,7 +32,14 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 # it can happen: a vendor number that costs ten minutes to produce and is then thrown away, so the next person
 # who wants it runs the suite again instead of reading the board.
 . "$HERE/lib_gate.sh"
-export INRIA_SUITE="$SUITE" INRIA_SCRIP="$SCRIP"
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each case runs in BOTH modes at what its row in ALL.csv declares (entry = <file>#<case index>, util_prolog_iso_attributes.py's
+# numbering) -- heap_kb, stack_kb, read once through lib_declared_arena.sh, the one reader, into the table the python side reads --
+# and at the shipped default when it declares nothing; a refused cell refuses the board.
+. "$HERE/lib_declared_arena.sh" || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
+_inria_decl="$(mktemp "${TMPDIR:-/tmp}/inria_decl.XXXXXX")"
+declared_memory_begin "$SUITE/ALL.csv" "$_inria_decl" || { rm -f "$_inria_decl"; refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; }
+export INRIA_SUITE="$SUITE" INRIA_SCRIP="$SCRIP" INRIA_DECL="$_inria_decl"
 # ⛔ THE HEREDOC DELIMITER IS QUOTED and every value crosses by ENVIRONMENT, never by interpolation. This repo has
 # measured the alternative three times in one day: an unquoted heredoc hands the shell the whole program and every
 # backtick in it runs as a command. The trap lives in the medium, not in the language you think you are writing.
@@ -166,6 +173,31 @@ for fn in sorted(os.listdir(suite)):
 if not tests:
     sys.stderr.write("⛔ REFUSED(2) [test_prolog_inria_suite]: parsed ZERO goals from %s -- refusing to print a board with no denominator\n" % suite)
     raise SystemExit(2)
+# ⭐ THE DECLARED HEAP AND STACK, per case (the table the shell side built through lib_declared_arena.sh). ⛔ THE KEY IS A NUMBER,
+# SO THE NUMBERING IS CHECKED BEFORE ONE DECLARATION IS APPLIED: ALL.csv's entries are <file>#<index> in util_prolog_iso_attributes.py's
+# order, this loop's are <file>#<index in tests>; measured identical on all 445 cases 2026-09-23, and if they ever part a declaration
+# would land on a different case -- so the board refuses rather than grade anything at a borrowed arena.
+DECL = {}
+for _ln in open(os.environ["INRIA_DECL"]):
+    _e, _kb, _st = _ln.rstrip("\n").split("\t")
+    DECL[_e] = (_kb, _st)
+if DECL:
+    import csv as _csv
+    _ids = ["%s#%d" % (fn, i) for i, (fn, g, e) in enumerate(tests)]
+    _csv_ids = [r["entry"] for r in _csv.DictReader(open(os.path.join(suite, "ALL.csv"), newline=""))]
+    if _ids != _csv_ids:
+        sys.stderr.write("⛔ REFUSED(2) [test_prolog_inria_suite]: ALL.csv declares memory for %d case(s), but its entries are not this runner's "
+                         "cases in this runner's order (%d here, %d there) -- a declaration would be applied to a different case\n"
+                         % (len(DECL), len(_ids), len(_csv_ids)))
+        raise SystemExit(2)
+def decl_env(idx, fam):
+    kb, st = DECL.get("%s#%d" % (fam, idx), ("", ""))
+    if not kb and not st:
+        return None
+    env = dict(os.environ)
+    if kb: env["SCRIP_HEAP_KB"] = kb
+    if st: env["SCRIP_STACK"] = st + "k"
+    return env
 # ⛔⭐ OUTCOME_ERRATA (row inria-three-functor-bis-cells-graded-on-iso-through-a-named-outcome-erratum-sibling-of-
 # known-suite-errata, hq_R 2026-09-06, ceo-370; hq_T co-signs the runner change). SIBLING of KNOWN_SUITE_ERRATA
 # below, and deliberately NOT the same mechanism: that one relaxes the BINDINGS comparison to outcome-class-only
@@ -260,7 +292,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
     for mode in ("m3", "m4"):
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
             else:
                 s = os.path.join(tmp, "t.s"); b = os.path.join(tmp, "t.bin")
                 c = subprocess.run([scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
@@ -269,7 +301,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                                     "-lscrip_rt", "-Wl,-rpath," + os.path.join(os.path.dirname(scrip), "out"), "-lm"],
                                    capture_output=True, text=True, timeout=60, cwd=tmp)
                 if g.returncode != 0: res[mode][1] += 1; named.append("%s:%s:m4:NOLINK" % (fam, goal[:28])); continue
-                r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
         except subprocess.TimeoutExpired:
             res[mode][2] += 1; named.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         if want == "impl_defined":
@@ -470,7 +502,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                      % (goal, disj))
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
             else:
                 s = os.path.join(tmp, "t.s"); b = os.path.join(tmp, "t.bin")
                 c = subprocess.run([scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
@@ -479,7 +511,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                                     "-lscrip_rt", "-Wl,-rpath," + os.path.join(os.path.dirname(scrip), "out"), "-lm"],
                                    capture_output=True, text=True, timeout=60, cwd=tmp)
                 if g.returncode != 0: bres[mode][1] += 1; bnamed.append("%s:%s:m4:NOLINK" % (fam, goal[:28])); continue
-                r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
         except subprocess.TimeoutExpired:
             bres[mode][1] += 1; bnamed.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         o = r.stdout
@@ -546,5 +578,5 @@ else
     # A missing board line is not a zero -- say so rather than writing a row for a run that produced nothing.
     echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no INRIA_SUITE_BOARD line, so there is no measurement to record"
 fi
-rm -f "$_inria_out"
+rm -f "$_inria_out" "$_inria_decl"
 exit "$_prc"

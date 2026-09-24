@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus}/packages/prolog/logtalk_iso" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}/packages/prolog/logtalk_iso" || exit 2
 # test_prolog_logtalk_suite.sh — THE LOGTALK ISO/IEC 13211-1 CONFORMANCE BOARD
 # (row prolog-logtalk-iso-3268-conformance-cases-have-no-runner, hq_R 2026-09-12; Lon 2026-09-11: "Let's
 # get those Prolog programs graded.").
@@ -79,15 +79,22 @@ case "$_pfout" in
     Every case program embeds this shim, so grading now would publish a complete, plausible board that measures the harness and not the language." ;;
 esac
 
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# ALL.csv's heap_kb and stack_kb are read ONCE through lib_declared_arena.sh (the one reader; a refused cell refuses the board) and the
+# validated table goes to the grader, which runs each case in both modes at its own declaration (util_logtalk_grade.py decl_env).
+# Line 2 hands the guard the same suite this runner grades -- S4E_CORPUS, else S4E_HOME's corpus, exactly as SUITE above.
+. "$HERE/lib_declared_arena.sh" || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
+_decl="$(mktemp "${TMPDIR:-/tmp}/lgt_decl.XXXXXX")"
+declared_memory_begin "$SUITE/ALL.csv" "$_decl" || { rm -f "$_decl"; refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; }
 _out="$(mktemp "${TMPDIR:-/tmp}/lgt_board.XXXXXX")"
-python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "$JOBS" $NAME_REDS | tee "$_out"
+python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "$JOBS" --decl "$_decl" $NAME_REDS | tee "$_out"
 # ⛔ PIPESTATUS[0], NEVER $? -- the pipeline ends in `tee`, so $? reports the pager and a python that died
 # reads as a clean run (CLAUDE.md, measured live on this box).
 _rc=${PIPESTATUS[0]}
-[ "$_rc" -eq 0 ] || { rm -f "$_out"; exit "$_rc"; }
+[ "$_rc" -eq 0 ] || { rm -f "$_out" "$_decl"; exit "$_rc"; }
 
 _shell="$(grep -m1 '^BOARD_FOR_SHELL ' "$_out" || true)"
-[ -n "$_shell" ] || { echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no BOARD_FOR_SHELL line, so there is no measurement to record"; rm -f "$_out"; exit 1; }
+[ -n "$_shell" ] || { echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no BOARD_FOR_SHELL line, so there is no measurement to record"; rm -f "$_out" "$_decl"; exit 1; }
 set -- $_shell
 _pop="$2"; _both="$3"; _m3p="$4"; _m3f="$5"; _m4p="${6:-}"; _m4f="${7:-}"
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
@@ -95,7 +102,7 @@ _pop="$2"; _both="$3"; _m3p="$4"; _m3f="$5"; _m4p="${6:-}"; _m4f="${7:-}"
 # util_logtalk_grade.py only refuses on an empty population when --group is passed; this runner never
 # passes --group, so a suite directory that came back empty (a vendoring accident, a bad --suite path)
 # would otherwise print "population=0, identity 0 == 0 ✓" and read as a clean board.
-"$HERE/util_require_population.sh" --gate "$GATE_NAME" "$_pop" 1 "logtalk_iso cases graded (BOARD_FOR_SHELL population)" || { rm -f "$_out"; exit 2; }
+"$HERE/util_require_population.sh" --gate "$GATE_NAME" "$_pop" 1 "logtalk_iso cases graded (BOARD_FOR_SHELL population)" || { rm -f "$_out" "$_decl"; exit 2; }
 
 # ⛔⭐ ONE ROW PER CASE PER MODE (CEO-331), appended from what the grader just wrote. NON-FATAL BY DESIGN,
 # exactly like gate_score_row: a runner that gets red-ed by its own bookkeeping is a runner people stop
@@ -134,5 +141,5 @@ _sc="$HERE/util_score_row.py"
 python3 "$_sc" write --lang prolog --column vendor --text "$_txt${_iv:+ · $_iv (\`$GATE_NAME.sh\`)}" \
     --measurer "${S4E_SEAT:-}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" \
     || echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] -- the board above stands on its own measurement; the leaderboard row does not"
-rm -f "$_out"
+rm -f "$_out" "$_decl"
 exit 0

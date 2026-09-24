@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SNOFLAKE_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/snoflake_suite}" || exit 2
 # test_snoflake_suite.sh — run Ori Livneh's snoflake fixture suite against SCRIP m3 + m4, plus a
 # SPITBOL comparison arm (ARM_SBL=0 to disable).
 #
@@ -93,6 +93,13 @@ GIMPEL="$SUITE/gimpel"
 # which dirties whatever tree the runner happened to be launched from. Symlinked INCs keep the
 # gimpel includes resolvable for the sbl arm, whose include search is cwd-relative.
 RUN="$W/run"; mkdir -p "$RUN"; ln -s "$GIMPEL"/*.INC "$GIMPEL"/*.IN "$RUN"/ 2>/dev/null || true
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each fixture runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing; a refused cell refuses the board. The oracle runs as before.
+# Line 2 hands the guard the same suite this runner grades (SNOFLAKE_SUITE), so a scratch fixture is judged as one.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSE(rc=2): lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$W/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 # ⭐ THE PROGRESS DATABASE (CEO-319/331; CEO-383 ruling 2; row snobol4-snoflake-aisnobol-and-dotnet-runners-wired-onto-
 # lib-inventory-with-their-sidecars, coo 2026-09-07): ONE ROW PER FIXTURE PER MODE, on the STREAM-EQUAL basis --
 # PASS only when SCRIP's stream equals the oracle's byte for byte; an error-number-only match is UNGRADED (this
@@ -268,8 +275,8 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         # `scrip --run f.sno` both print `FILE=f.sno`; `scrip --run <abspath>` prints the abspath.
         # Identical class to the Arizona runner's cure (SCRIP 3bb0a210c).
         m3)  ln -sf "$2" "$RUN/f.sno"
-             GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run f.sno < "$inp" 2>&1)"; RC=$?;;
-        m4)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
+             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run f.sno < "$inp" 2>&1)"; RC=$?;;
+        m4)  GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
         # ⛔⭐ THE ORACLE IS HANDED A SHORT NAME, NEVER THE ABSOLUTE PATH, AND IT IS A GRADING BUG IF YOU
         # "TIDY" THIS BACK (hq_B 2026-09-04, measured). SPITBOL formats its diagnostic as
         # `<path>(<line>) : ERROR <n> -- <text>`, wraps it at column 119 into the LISTING, and spills only

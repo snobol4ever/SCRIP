@@ -274,3 +274,69 @@ except OSError:
     pass
 PY
 }
+
+# ⭐ THE TABLE, FOR A RUNNER THAT GRADES HUNDREDS OF PROGRAMS (CEO-1229, the ceo to the coo 2026-09-23: "wire the ten remaining package
+# runners yourself on the SWI pattern, each proven on a fixture"). run_at_declared_arena starts python twice per run, about 80 ms, which
+# is over a minute of a 427-program board graded in two modes. declared_memory_table reads the attribute file ONCE and validates every
+# cell through corpus_suite_harness.validate_heap_kb() and validate_stack_kb() -- the harness's own validators, CALLED, never copied --
+# and run_at_declared_table looks one entry up in the result with one awk. ⛔ NOT heap_declarations(): that reader takes a SUITE path
+# and reads the ALL.csv beside it, so handed any other file it read a different one, silently -- caught by this function's own
+# refusal arm before it landed. ⛔ A REFUSED CELL REFUSES THE TABLE: every cell is validated before one line is written, the validator
+# exits rc=2 naming the cell, and the runner refuses its board; it never grades around a cell it cannot honour. A declaring entry
+# named twice is refused too: the awk below would honour the first, the harness the last.
+
+# declared_memory_table <all_csv> -- one line "entry<TAB>heap_kb<TAB>stack_kb" per entry declaring either (the other cell empty);
+#   nothing when the file or both columns are absent (every entry at the shipped default); rc 2 naming the cell on a refused cell.
+declared_memory_table() {
+  local csv="$1"
+  [ -n "$csv" ] && [ -f "$csv" ] || return 0
+  python3 - "$csv" "$_LDA_HERE" <<'PY'
+import csv, sys
+csv_path, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, here)
+import corpus_suite_harness as h
+with open(csv_path, newline="") as f:
+    rdr = csv.DictReader(f)
+    cols = rdr.fieldnames or []
+    rows = list(enumerate(rdr, 2))
+out, seen = [], {}
+for n, r in rows:
+    where = "%s:%d" % (csv_path, n)
+    kb = h.validate_heap_kb(r.get("heap_kb"), where) if "heap_kb" in cols else None
+    st = h.validate_stack_kb(r.get("stack_kb"), where) if "stack_kb" in cols else None
+    if kb is None and st is None:
+        continue
+    e = (r.get("entry") or "").strip()
+    if not e or "\t" in e:
+        sys.stderr.write("⛔ REFUSE(2) %s declares memory for an entry with no usable name (%r)\n" % (where, e)); sys.exit(2)
+    if e in seen:
+        sys.stderr.write("⛔ REFUSE(2) %s declares memory for %s, already declared at line %d -- one entry, one declaration\n" % (where, e, seen[e])); sys.exit(2)
+    seen[e] = n
+    out.append((e, "" if kb is None else kb, "" if st is None else st))
+for e, kb, st in out:
+    print("%s\t%s\t%s" % (e, kb, st))
+PY
+}
+
+# declared_memory_begin <all_csv> <table_file> -- what a runner calls once, before its loop: prints the receipt (the published board
+#   says at which heap and stack its programs ran) and writes the table; rc 2 on a refused cell, the table removed so no run can use it.
+declared_memory_begin() {
+  local csv="$1" tbl="$2"
+  declared_arena_receipt "$csv"
+  declared_memory_table "$csv" > "$tbl" || { rm -f "$tbl"; return 2; }
+}
+
+# run_at_declared_table <table_file> <entry> -- <command...>
+#   Runs the command with SCRIP_HEAP_KB and SCRIP_STACK exported for <entry> alone when the table declares them, the caller's
+#   environment otherwise untouched -- a subshell, as in run_at_declared_arena, so no declaration leaks to the next program.
+#   ⛔ rc 2 when the table FILE is missing: a runner that never built it would grade every program at the default while its receipt
+#   named the declarations. ⛔ NOT `IFS=$'\t' read`: a TAB is IFS whitespace, so an empty heap cell before a stack cell would
+#   collapse and hand the stack's KB to the heap.
+run_at_declared_table() {
+  local tbl="$1" entry="$2" rec kb st; shift 2
+  [ "${1:-}" = "--" ] && shift
+  [ -n "$tbl" ] && [ -f "$tbl" ] || { echo "⛔ REFUSE(2) run_at_declared_table: no declared-memory table at '${tbl}' -- build it with declared_memory_begin first" >&2; return 2; }
+  rec="$(awk -F'\t' -v e="$entry" '$1 == e { print $2 "|" $3; exit }' "$tbl")"
+  kb="${rec%%|*}"; st="${rec#*|}"
+  ( [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
+}

@@ -412,8 +412,33 @@ def program_text(plan, db, shim_src, loaded=()):
     return "\n".join(parts) + "\n"
 
 
-def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=()):
-    """Run one planned case in one mode. Returns (outcome, detail)."""
+# ⭐ THE DECLARED HEAP AND STACK, per case (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's
+# pattern). test_prolog_logtalk_suite.sh reads ALL.csv's heap_kb and stack_kb ONCE through lib_declared_arena.sh -- the one reader, its
+# floors and refusals -- and hands the validated table here with --decl; a case runs in both modes at its own declaration, keyed
+# <group>:<case name> exactly as util_prolog_iso_attributes.py writes the entry, and at the shipped default when it declares nothing.
+def load_decl(path):
+    """{"group:name": (heap_kb, stack_kb)} from the table lib_declared_arena.sh wrote (entry<TAB>heap<TAB>stack, validated there)."""
+    out = {}
+    for ln in open(path, encoding="utf-8"):
+        e, kb, st = ln.rstrip("\n").split("\t")
+        out[e] = (kb, st)
+    return out
+
+
+def decl_env(decl, fc, plan):
+    kb, st = (decl or {}).get("%s:%s" % (fc.group, plan.case.name), ("", ""))
+    if not kb and not st:
+        return None
+    env = dict(os.environ)
+    if kb:
+        env["SCRIP_HEAP_KB"] = kb
+    if st:
+        env["SCRIP_STACK"] = st + "k"
+    return env
+
+
+def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=(), env=None):
+    """Run one planned case in one mode. Returns (outcome, detail). `env` is the case's declared heap and stack (decl_env)."""
     d = tempfile.mkdtemp(prefix="lgtcase.", dir=workroot)
     try:
         # ⛔⭐ tests.lgt IS COPIED, AND THAT IS DELIBERATE (hq_R 2026-09-13, row prolog-logtalk-eleven-
@@ -437,7 +462,7 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
         try:
             if mode == "m3":
                 r = subprocess.run([scrip, prog], capture_output=True, text=True, errors="replace", timeout=timeout,
-                                   stdin=subprocess.DEVNULL, cwd=d)
+                                   stdin=subprocess.DEVNULL, cwd=d, env=env)
             else:
                 s_out = os.path.join(d, "case.s")
                 b_out = os.path.join(d, "case.bin")
@@ -451,7 +476,7 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
                 if g.returncode != 0:
                     return "nolink", (g.stderr or "").strip()[:160]
                 r = subprocess.run([b_out], capture_output=True, text=True, errors="replace", timeout=timeout,
-                                   stdin=subprocess.DEVNULL, cwd=d)
+                                   stdin=subprocess.DEVNULL, cwd=d, env=env)
         except subprocess.TimeoutExpired:
             return "timeout", ""
         for line in r.stdout.splitlines():
@@ -486,7 +511,7 @@ def _rewrite_hook(clean, name, supported):
     return False
 
 
-def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs):
+def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs, decl=None):
     """THE DIAGNOSTIC THAT FINDS THE NEXT ONE -- never a grading path, and it can never move the board.
     Every case that FAILS in every graded mode is re-run ONCE with its file's earlier cases ahead of it; the
     ones that flip to PASS are the candidates for a lib_logtalk_sequenced.tsv line, printed for a human to
@@ -507,7 +532,7 @@ def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot
             i, fc, q = t
             try:
                 return i, run_one(q, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                  loaded=fc.loaded or ())
+                                  loaded=fc.loaded or (), env=decl_env(decl, fc, q))
             except Exception as e:                          # noqa: BLE001 -- one case never takes a run down
                 return i, ("harness", "%s: %s" % (type(e).__name__, e))
         with ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -681,7 +706,7 @@ def assign_outside(work, dbs, supported, root):
             unresolved.extend(pending)
     return assigned, unresolved, None
 
-def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False):
+def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False, decl=None):
     # ⛔ ABSOLUTE, AND CHECKED HERE. Every case runs with cwd set to its own scratch directory, so a
     # relative binary path ("./scrip", the obvious thing to type) resolves against the scratch dir and is
     # not there. Measured 2026-09-12: it does not raise anything a reader would notice -- every case comes
@@ -778,6 +803,13 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         if g in graded_groups and (g, nm) not in seqseen:
             seqerr.append((g, nm, "is declared order-dependent and its group was graded, but no case of that "
                            "name is in it -- the case was renamed or deleted and the declaration is stale"))
+    # ⛔ A DECLARATION THAT NAMES NO GRADED CASE IS REFUSED, the table's twin of the order-dependence check above: a renamed or
+    # deleted case would otherwise leave its heap or stack declared for nothing while the receipt counted it as honoured.
+    _keys = {"%s:%s" % (fc.group, p.case.name) for fc, p in work}
+    _orphan = sorted(k for k in (decl or {}) if k.split(":", 1)[0] in graded_groups and k not in _keys)
+    if _orphan:
+        return None, [(k, "ALL.csv declares a heap or stack for this case and no case of that name is graded in its group -- "
+                          "the declaration would apply to nothing") for k in _orphan]
     if limit:
         work = work[:limit]
         probes = [(i, q) for i, q in probes if i < limit]
@@ -800,13 +832,13 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 k, fc, p = t
                 try:
                     return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                      loaded=fc.loaded or ())
+                                      loaded=fc.loaded or (), env=decl_env(decl, fc, p))
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
                     return k, ("harness", "%s: %s" % (type(e).__name__, e))
             with ThreadPoolExecutor(max_workers=jobs) as pool:
                 for k, res in pool.map(job, todo):
                     (results if k[0] == "w" else probe_results)[(k[1], mode)] = res
-        cands = _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs) \
+        cands = _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs, decl=decl) \
             if sweep else []
     finally:
         shutil.rmtree(workroot, ignore_errors=True)
@@ -842,6 +874,8 @@ def main(argv):
     ap.add_argument("--jobs", type=int, default=12)
     ap.add_argument("--group", default=None, help="grade one directory only (a development aid, never a board)")
     ap.add_argument("--name-reds", action="store_true")
+    ap.add_argument("--decl", default=None,
+                    help="the declared heap/stack table lib_declared_arena.sh wrote from ALL.csv (entry<TAB>heap_kb<TAB>stack_kb)")
     ap.add_argument("--sequenced", default=SEQ_TABLE,
                     help="the order-dependent-case declaration table (default: lib_logtalk_sequenced.tsv)")
     ap.add_argument("--sweep-sequenced", action="store_true",
@@ -850,7 +884,7 @@ def main(argv):
     args = ap.parse_args(argv[1:])
     modes = [m for m in args.modes.split(",") if m]
     out, bad = grade(args.suite, args.scrip, modes, jobs=args.jobs, only_group=args.group,
-                     seq_table=args.sequenced, sweep=args.sweep_sequenced)
+                     seq_table=args.sequenced, sweep=args.sweep_sequenced, decl=load_decl(args.decl) if args.decl else None)
     if bad:
         # ⛔ THE DONE-WHEN'S REFUSAL: an input this instrument cannot read -- a tests.lgt that will not parse,
         # or a malformed line in the declaration table -- is NAMED and the run publishes nothing. A partial

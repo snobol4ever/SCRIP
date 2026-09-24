@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${PAT_SUITE:=${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus/packages/pascal/pat}" || exit 2
 # test_pascal_pat_suite.sh — THE ISO 7185 PASCAL DENOMINATOR (row pascal-iso-7185-validation-suite-pat-vendored-and-graded).
 # Lon 2026-09-03 20:45: "100% means 100% of the industry standard language." For Pascal the standard is ISO 7185 and the
 # public suite that grades it is the Pascal-P5 validation suite, vendored at corpus/packages/pascal/pat (see its README).
@@ -20,7 +20,7 @@ set -u
 GATE_NAME=test_pascal_pat_suite
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
-SUITE="$ROOT/corpus/packages/pascal/pat"
+SUITE="${PAT_SUITE:-$ROOT/corpus/packages/pascal/pat}"   # line 2 sets it to this default, so the guard judges the suite graded here
 SCRIP="$HERE/../scrip"
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -d "$SUITE" ] || refuse "no vendored suite at $SUITE -- a suite that is absent is not a suite that is failing"
@@ -35,6 +35,13 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || refuse "lib_inventory.sh unloadable"
 . "$HERE/lib_progress.sh" 2>/dev/null || refuse "lib_progress.sh unloadable"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each program runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing (the acceptance programs carry no row today); a refused cell
+# refuses the board. The oracle (fpc -Miso) runs as before.
+. "$HERE/lib_declared_arena.sh" || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
+DECL="$TMP/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"
 declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
 TOTAL=0; NAMED=""; UNGRADABLE=0
@@ -71,11 +78,11 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # get louder as the cure lands -- it gets quieter, because the cure it cannot see keeps arriving.
         # ⛔ A LINK FAILURE IS NOT A REFUSAL: the compiler accepted the program, so the witness FAILS (it was not
         # refused) rather than passing on a toolchain accident. test_gate_pas_pat_m4_arm_links_and_runs.sh pins this.
-        if [ "$m" = m3 ]; then ( cd "$TMP" && exec timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
+        if [ "$m" = m3 ]; then ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
         else ( cd "$TMP" && exec timeout 8s "$SCRIP" --compile -o "$TMP/rj.s" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
              if [ "$rc" = 0 ]; then
                  if ( cd "$TMP" && cc -m64 -no-pie rj.s -o rj -L"$HERE/../out" -lscrip_rt -lm -Wl,-rpath,"$HERE/../out" >/dev/null 2>&1 ); then
-                     ( cd "$TMP" && exec timeout 2s ./rj </dev/null >"$TMP/o" 2>&1 ); rc=$?
+                     ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- timeout 2s ./rj </dev/null >"$TMP/o" 2>&1 ); rc=$?
                  else : ; fi
              fi; fi
         # ⛔⭐ THE VERDICT IS STABLE; ONLY THE DIAGNOSIS VARIES (ceo ruling 2026-09-03, after their audit read
@@ -156,10 +163,10 @@ for f in "$SUITE"/iso7185pat*.pas; do
     # taken from the verdicts themselves rather than reconstructed from two counts afterwards, which cannot be done.
     okboth=1
     for m in m3 m4; do
-        if [ "$m" = m3 ]; then timeout 20s "$SCRIP" "$f" <"$in" >"$TMP/got" 2>&1; rc=$?
+        if [ "$m" = m3 ]; then run_at_declared_table "$DECL" "$b" -- timeout 20s "$SCRIP" "$f" <"$in" >"$TMP/got" 2>&1; rc=$?
         else timeout 20s "$SCRIP" --compile -o "$TMP/b.s" "$f" </dev/null >/dev/null 2>&1 && \
              gcc -m64 -no-pie "$TMP/b.s" -o "$TMP/bin" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -lm 2>/dev/null && \
-             timeout 20s "$TMP/bin" <"$in" >"$TMP/got" 2>&1; rc=$?; fi
+             run_at_declared_table "$DECL" "$b" -- timeout 20s "$TMP/bin" <"$in" >"$TMP/got" 2>&1; rc=$?; fi
         # ⛔ A CRASHED ACCEPTANCE TEST IS A FAIL AND MUST BE COUNTED AS ONE. Before this line it incremented
         # the crash column ALONE, so a crash left P+F one short of TOTAL and the board's own denominator
         # stopped adding up -- latent today only because both acceptance fixtures are ungradable by the

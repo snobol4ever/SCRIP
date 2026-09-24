@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${CSNOBOL4_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/csnobol4_suite}" || exit 2
 # test_snobol4_csnobol4_suite.sh — Phil Budne's CSNOBOL4 test suite, graded against its OWN oracle.
 #
 # Suite: corpus/packages/snobol4/csnobol4_suite (vendored, unmodified). A NAME.sno with a sibling NAME.ref
@@ -246,6 +246,13 @@ PY
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 RUN="$W/run"; mkdir -p "$RUN"
 cp -rp "$SUITE"/. "$RUN"/ 2>/dev/null || true
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each program runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing; a refused cell refuses the board. The oracle runs as before.
+# Line 2 hands the guard the same suite this runner grades (CSNOBOL4_SUITE), so a scratch fixture is judged as one.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSE(rc=2): lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$W/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 # ⛔⭐ RECORD THE TREE THIS RUN GRADES, AT ITS START (hq_T 2026-09-08). A board takes ten to forty minutes and its
 # SCORE.md write happens at the END; a seat who commits and pushes mid-run -- which the CEO-174 dirty-tree guard
 # actively pushes you toward, since a dirty tree skips the write entirely -- moves HEAD under a measurement that
@@ -329,7 +336,7 @@ for sno in "$SUITE"/*.sno; do
         rm -f "$prog"; split_at_end "$sno" "$prog" "$W/stdin"; inp="$W/stdin"
     fi
     dep="$(setup_dep_for "$name")"
-    [ -n "$dep" ] && (cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$dep.sno" > /dev/null 2>&1)
+    [ -n "$dep" ] && (cd "$RUN" && run_at_declared_table "$DECL" "$dep" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$dep.sno" > /dev/null 2>&1)
     xargs_extra="$(argv_for "$name")"
     pre_extra="$(preload_for "$name")"
     if [ "$RECUT" != 0 ]; then
@@ -344,7 +351,7 @@ for sno in "$SUITE"/*.sno; do
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
@@ -357,7 +364,7 @@ for sno in "$SUITE"/*.sno; do
     esac
 
     if (cd "$RUN" && compile_m4 "$relprog" "$W/prog.bin"); then
-        got4="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
+        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"
         progress_append package csnobol4 snobol4 "$name" m4 "$st4" >/dev/null 2>&1 || true

@@ -132,6 +132,31 @@ sc_libpath() {  # $1 = lib spec  $2 = program dir -> colon list of real dirs
 # labels walk into -- a genuine duplicate label SIGSEGVs under `-bf` too (measured s189).
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
 sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from the ONE authority (lib_oracle_flags.sh); ONLY the sizing is local
+# ⭐ THE DECLARED HEAP AND STACK, PER PROGRAM (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229 -- the
+# gimpel runner grades through run_one below, and so do csnobol4_suite and the dotnet and aisnobol programs under misc). A program
+# runs in BOTH modes at what it declares -- its row in the ALL.csv beside it (heap_kb, stack_kb), else its NAME.heap / NAME.stack
+# sidecar -- and at the shipped default when it declares nothing. sc_decl_build reads every declaration ONCE, before grading,
+# through lib_declared_arena.sh (the one reader) into one table keyed by program path, which run_one's parallel children look up
+# with one awk; a refused cell refuses the whole run before one program is graded.
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_declared_arena.sh -- the one reader of a declared heap and stack"; exit 2; }
+sc_decl_build() {  # $1 = table out  $2.. = program paths (or - to read them from stdin) -> "path<TAB>heap_kb<TAB>stack_kb" per declaring program; rc 2 on a refused cell
+  local out="$1" p d n kb st rc=0; shift; : > "$out" || return 2
+  local -a progs=(); if [ "${1:-}" = - ]; then mapfile -t progs; else progs=("$@"); fi
+  local -A dt=()
+  for p in "${progs[@]}"; do
+    [ -n "$p" ] || continue; d="$(dirname "$p")"; n="$(basename "$p" .sno)"
+    if [ -f "$d/ALL.csv" ]; then
+      if [ -z "${dt[$d]:-}" ]; then dt[$d]="$(mktemp)"; declared_memory_table "$d/ALL.csv" > "${dt[$d]}" || { rc=2; break; }; fi
+      awk -F'\t' -v e="$n" -v p="$p" '$1 == e { print p "\t" $2 "\t" $3; exit }' "${dt[$d]}" >> "$out"
+    else
+      kb="$(declared_arena_kb_beside "$p")" || { rc=2; break; }
+      st="$(declared_stack_kb_beside "$p")" || { rc=2; break; }
+      [ -z "$kb$st" ] || printf '%s\t%s\t%s\n' "$p" "$kb" "$st" >> "$out"
+    fi
+  done
+  [ "${#dt[@]}" -eq 0 ] || rm -f "${dt[@]}"
+  return "$rc"
+}
 # ---------------------------------------------------------------- oracle LIVENESS -- `rc -eq 0` IS NOT A LIVENESS SIGNAL (s191, row `gimpel-suite-harness`)
 # ⛔ `sbl` EXITS 0 AFTER A FATAL ERROR, so testing rc alone ADMITS A DEAD ORACLE and the board then grades SCRIP against SPITBOL's
 # error dump instead of against program output.  SMALLEST REPRO, and its one-ingredient passing sibling: `INPUT(.INPUT,5,,"nosuch.in")`
@@ -309,7 +334,7 @@ run_one() {  # suite lib prog norm run_to
   }
   # ---- m3
   t0=$SECONDS
-  (cd "$d" && SNO_LIB="$lib" timeout "$rto" "$SCRIP" $cflag --run "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
+  (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$SCRIP" $cflag --run "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
   if [ ! -s "$W/m3" ] && [ $rc -ne 0 ] && grep -q 'emit_chain.*FAILED\|unresolved forward\|bb_emit_end\|[Pp]arse error\|syntax error\|COMPILE' "$W/m3e" 2>/dev/null; then st3=COMPILE_FAIL; else st3="$(grade "$W/m3" $rc)"; fi
   t3=$((SECONDS-t0))
   # ---- m4
@@ -317,7 +342,7 @@ run_one() {  # suite lib prog norm run_to
   if ! (cd "$d" && SNO_LIB="$lib" timeout 60 "$SCRIP" $cflag --compile "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
   elif ! gcc -no-pie "$W/p.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/p.bin" 2>/dev/null; then st4=ASM_FAIL
   else
-    (cd "$d" && SNO_LIB="$lib" timeout "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?
+    (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?
     st4="$(grade "$W/m4" $rc)"
   fi
   t4=$((SECONDS-t0))
@@ -326,7 +351,7 @@ run_one() {  # suite lib prog norm run_to
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run; export CORPUS SBL SCRIP SC DEMO
+export -f run_one stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
@@ -394,7 +419,11 @@ cmd_run() {
     esac
     [ "$fargs" = "-" ] && true
     echo "== $name: $(wc -l < "$list") programs (w=$w lib=$lib rto=$rto norm=$norm)  $(date +%H:%M:%S)"
-    xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
+    if ! sc_decl_build "$out/decl.$name" - < "$list" 2>"$out/decl.$name.err"; then
+      { cat "$out/decl.$name.err"; echo "   suite $name: a declared-memory cell is refused (named above) -- this board does not grade around it"; } > "$out/declared_memory.refused"; break
+    fi
+    echo "   declared memory: $(grep -c . "$out/decl.$name") of $(wc -l < "$list") program(s) run at a declared heap or stack$(awk -F'\t' '{n=$1; sub(/.*\//,"",n); printf "%s%s(heap=%s,stack=%s)", (NR>1?", ":" -- "), n, ($2==""?"-":$2"KB"), ($3==""?"-":$3"KB")}' "$out/decl.$name")"
+    SC_DECL="$out/decl.$name" xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
     # ⛔ SCOPED TO probes_misc/bb_probes DELIBERATELY (row scorecard-probes-misc-suite-awareness, extended
     # row probe-consolidate-bb 2026-08-28): these are the two rows whose root has a live sibling
     # suite-consolidation destination TODAY (tests/snobol4/probe/), and they PARTITION that one shared
@@ -411,6 +440,11 @@ cmd_run() {
       sc_suite_family_rows "$name" "$CORPUS/tests/snobol4/probe" '-name bb*.sno' >> "$out/results.tsv" 2>>"$out/noise.log"
     fi
   done
+  if [ -f "$out/declared_memory.refused" ]; then
+    kill "$samp" 2>/dev/null; trap - EXIT INT TERM; sc_board_release
+    echo "⛔ REFUSED: a declared heap or stack cannot be honoured -- nothing after that suite was graded:" >&2; sed 's/^/    /' "$out/declared_memory.refused" >&2
+    exit 2
+  fi
   # ⛔ SUITE-FILE GUARD, overall verdict (row probe-suite-grading-path): run_one's own per-program guard above
   # refuses to grade a suite-format file wrong, but a per-row REFUSED status buried in results.tsv is exactly the
   # kind of silent-shrink signal RULES.md warns against if nothing surfaces it at the command's own exit code.
@@ -564,8 +598,11 @@ cmd_one() {  # <suite> <program-basename-or-path> [N]
       *)         full="$(find "$CORPUS/$root" $fargs 2>/dev/null | grep -m1 "/$prog\(\.sno\)\?$")";;
     esac; fi
     [ -n "$full" ] && [ -f "$full" ] || { echo "⛔ not found in suite $want: $prog" >&2; exit 2; }
-    echo "# suite=$name lib=$lib rto=$rto norm=$norm prog=${full#$CORPUS/}  reps=$reps  (rep, load1, runnable, then the board TSV line)"
+    SC_DECL="$(mktemp)"; export SC_DECL
+    sc_decl_build "$SC_DECL" "$full" || { rm -f "$SC_DECL"; echo "⛔ REFUSED: $full declares a heap or stack that cannot be honoured (named above)" >&2; exit 2; }
+    echo "# suite=$name lib=$lib rto=$rto norm=$norm prog=${full#$CORPUS/}  reps=$reps  declared=$(if [ -s "$SC_DECL" ]; then awk -F'\t' '{printf "heap=%s,stack=%s", ($2==""?"-":$2"KB"), ($3==""?"-":$3"KB")}' "$SC_DECL"; else printf 'none'; fi)  (rep, load1, runnable, then the board TSV line)"
     for i in $(seq 1 "$reps"); do L="$(sc_load)"; printf '%s\t%s\t%s\t' "$i" "${L%% *}" "${L##* }"; run_one "$name" "$lib" "$full" "$norm" "$rto"; done
+    rm -f "$SC_DECL"
   }
 }
 # ---------------------------------------------------------------- the oracle's own answer (row `ref-the-ungraded-suites`, s191)

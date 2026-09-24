@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${FPC_SUITE:=${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus/packages/pascal/fpc_tests}" || exit 2
 # test_pascal_fpc_suite.sh -- Phase 3 of row `fpc-tests-vendor-script-run`: grades the vendored
 # subset of Free Pascal's own test suite (corpus/packages/pascal/fpc_tests/, 181 .pas/.ref pairs)
 # both SCRIP modes against refs captured from the ruled fpc -Miso oracle (util_census_fpc_tests.sh
@@ -24,7 +24,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ $# -eq 0 ] || flaggate_reject "$1" "(none -- set FPC_SUITE_RUN_TIMEOUT / FPC_SUITE_VERBOSE via environment instead)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
-SUITE="$S4E/corpus/packages/pascal/fpc_tests"
+SUITE="${FPC_SUITE:-$S4E/corpus/packages/pascal/fpc_tests}"   # line 2 sets it to this default, so the guard judges the suite graded here
 WANTRC="${WANTRC:-$SUITE/ALL.wantrc}"
 RUN_TIMEOUT="${FPC_SUITE_RUN_TIMEOUT:-10}"
 VERBOSE="${FPC_SUITE_VERBOSE:-0}"
@@ -53,6 +53,12 @@ NREF=0
 
 TMP="$(mktemp -d /tmp/fpc_suite_XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each program runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing; a refused cell refuses the board.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSED-TO-GRADE: lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$TMP/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 cd "$TMP"   # master harness convention (test_gate_em_beauty_subsystems_mode4.sh): graded programs run
             # against a scratch cwd, never the invoker's -- some vendored fpc tests (tisobuf1/tisoread)
             # write scratch files relative to cwd and were leaking them into the caller's directory
@@ -77,7 +83,7 @@ for name in "${PAIRS[@]}"; do
     inp="$SUITE/$name.in"; [ -f "$inp" ] || inp=/dev/null
     if [ -n "${REFUSE_SET[$name]:-}" ]; then
         NREF=$((NREF+1)); m3ok=0
-        _e3="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" <"$inp" 2>&1 >/dev/null)"; _r3=$?
+        _e3="$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" <"$inp" 2>&1 >/dev/null)"; _r3=$?
         if [ "$_r3" -ne 0 ] && [ "$_r3" -lt 124 ] && printf '%s' "$_e3" | grep -q 'ISO 7185'; then
             M3_PASS=$((M3_PASS+1)); m3ok=1; printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\texpected-refusal-iso-7185\n' "$name" >>"$PROG_ROWS"
         else
@@ -86,7 +92,7 @@ for name in "${PAIRS[@]}"; do
         fi
         _e4="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$TMP/$name.s" </dev/null 2>&1 >/dev/null)"; _r4=$?
         if [ "$_r4" = 0 ] && gcc -no-pie "$TMP/$name.s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$TMP/$name.bin" 2>/dev/null; then
-            _e4="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$TMP/$name.bin" <"$inp" 2>&1 >/dev/null)"; _r4=$?
+            _e4="$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$TMP/$name.bin" <"$inp" 2>&1 >/dev/null)"; _r4=$?
         fi
         if [ "$_r4" -ne 0 ] && [ "$_r4" -lt 124 ] && printf '%s' "$_e4" | grep -q 'ISO 7185'; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
@@ -117,7 +123,7 @@ for name in "${PAIRS[@]}"; do
     # ⛔ THE EXPECTED rc IS CUT FROM THE ORACLE, NEVER FROM US: corpus/packages/pascal/fpc_tests/ALL.wantrc
     # carries fpc's own exit status for every entry that is not 0, same filename and format as the Icon
     # master's. An entry absent from that file expects 0. A line there is the oracle's answer, not a waiver.
-    m3out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
+    m3out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
     wantrc=$(awk -F'\t' -v n="$name" '$1==n{print $2; exit}' "$WANTRC" 2>/dev/null); [ -n "$wantrc" ] || wantrc=0
     if [ "$m3out" = "$exp" ] && [ "$m3rc" = "$wantrc" ]; then
         M3_PASS=$((M3_PASS+1)); m3ok=1
@@ -133,7 +139,7 @@ for name in "${PAIRS[@]}"; do
     m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"
     if timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
-        m4out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
+        m4out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
         if [ "$m4out" = "$exp" ] && [ "$m4rc" = "$wantrc" ]; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
             printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"

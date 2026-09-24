@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${DOTNET_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/dotnet}" || exit 2
 # test_snobol4_dotnet_suite.sh -- dedicated gate for corpus/packages/snobol4/dotnet (14 programs),
 # minted for row snobol4-gimpel-aisnobol-dotnet-measured-with-dedicated-gates (hq_T 2026-09-03): this
 # suite was previously counted only in prose and folded into scorecard_snobol4.sh's MISC bucket
@@ -85,6 +85,13 @@ compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; }
 RUN="$W/run"; mkdir -p "$RUN"
+# ⭐ THE DECLARED HEAP AND STACK (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229, the SWI runner's pattern):
+# each program runs in BOTH modes at what its row in ALL.csv declares -- heap_kb, stack_kb, read once through lib_declared_arena.sh,
+# the one reader -- and at the shipped default when it declares nothing; a refused cell refuses the board. Line 2 hands the guard the
+# same suite this loop grades (DOTNET_SUITE), so a scratch fixture is judged as one and the canonical suite as a board.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSE(rc=2): lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
+DECL="$W/declared_memory.tsv"
+declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 # ⭐ THE PROGRESS DATABASE (CEO-319/331; CEO-383 ruling 2; row snobol4-snoflake-aisnobol-and-dotnet-runners-wired-onto-
 # lib-inventory-with-their-sidecars, coo 2026-09-07): one row per program per mode -- PASS on a byte-equal stream against
 # the live sbl -bf run, HANG/CRASH/FAIL by rc otherwise, SKIP when mode 4 could not compile or link, UNGRADED with the
@@ -127,7 +134,7 @@ for sno in "$SUITE"/*.sno; do
         if [ "$rcS" -ge 128 ]; then FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; else FLU="$FLU $name(oracle-died)"; prog_unscr "$name" "unscored: oracle died mid-report"; fi
         continue
     fi
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp" 2>/dev/null)"; rc3=$?
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp" 2>/dev/null)"; rc3=$?
     if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
     # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder): measured 2026-09-07 (coo) on code/palin/temp -- the
     # oracle reads TERMINAL from /dev/null, sees EOF and exits rc=0 with 0 bytes in 0 s; SCRIP spins to the timeout
@@ -135,7 +142,7 @@ for sno in "$SUITE"/*.sno; do
     # progress row and the AND line say HANG, which is what happened.
     [ "$rc3" -eq 124 ] && OUT3=HANG
     rc4=""; if compile_m4 "$sno" "$W/prog.bin"; then
-        got4="$(cd "$RUN" && timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>/dev/null)"; rc4=$?
+        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>/dev/null)"; rc4=$?
         if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
         [ "$rc4" -eq 124 ] && OUT4=HANG
     else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP

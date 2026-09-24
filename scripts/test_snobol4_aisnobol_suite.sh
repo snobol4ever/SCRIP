@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${AISNOBOL_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/aisnobol}" || exit 2
 # test_snobol4_aisnobol_suite.sh -- thin face over corpus_suite_harness.py for corpus/packages/snobol4/aisnobol
 # (task every-vendored-package-absorbed-into-the-one-liner-or-multi-liner-python-harness-with-oracle-cut-refs,
 # hq_T doorbell 2026-09-04, Lon verbatim: "You make the programs run, you measure the output, make a REF file,
@@ -37,6 +37,9 @@ if [ ! -f "$SUITE/ALL.sno" ] || [ ! -f "$SUITE/ALL.ref" ]; then
   exit 2
 fi
 
+# ⭐ THE DECLARED HEAP AND STACK are honoured INSIDE the harness: corpus_suite_harness.py reads the ALL.csv beside ALL.sno (heap_kb,
+# stack_kb -- heap_declarations(), stack_declarations()) and runs each entry in both modes at its own declaration (CEO-1167, CEO-1225;
+# proven for this runner on a fixture by the coo on CEO-1229). Line 2 hands the guard the suite this runner grades (AISNOBOL_SUITE).
 OUT="$(python3 scripts/corpus_suite_harness.py run "$SUITE/ALL.sno" "$SUITE/ALL.ref" --modes m3,m4 2>&1)"
 rc=$?
 printf '%s\n' "$OUT"

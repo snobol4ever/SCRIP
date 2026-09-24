@@ -40,13 +40,14 @@
 # runs at the shipped 128 in EXACTLY the workflow the fleet cures in, while passing on the board it is published
 # from -- two arms disagreeing for a reason neither names.
 #
-# FAIL_ONCE=1 restores the pre-column world -- all four shell readers (declared_arena_kb, declared_arena_kb_beside,
-# declared_stack_kb, declared_stack_kb_beside) return nothing for everybody AND the travelling sidecar is not written -- and
-# MEASURED 2026-09-23 20:0x (coo, the stack arms S added on CEO-1225) it reds exactly ten arms: B, C3, D1, D1b, E2, H1, H2 and
-# S1, S3, S6. The other fourteen are green BY CONSTRUCTION under the mutant and are named so nobody reads their green as
-# coverage: A1..A4, D2 and S4 read the runtime, F reads the shipped tree, E1 names a path, C1/C2/H3/S2 describe the reader-off
-# world itself, and G and S5 drive the Python harness, which the mutant leaves alone (an earlier count of this paragraph said
-# five red and eight green, and G, one of the eight, was never named).
+# FAIL_ONCE=1 restores the pre-column world -- all five shell readers (declared_arena_kb, declared_arena_kb_beside,
+# declared_stack_kb, declared_stack_kb_beside, declared_memory_table) return nothing for everybody AND the travelling sidecar is not
+# written -- and MEASURED 2026-09-23 21:5x (coo, the table arms T and the runner census R added on CEO-1229) it reds exactly fourteen
+# arms: B, C3, D1, D1b, E2, H1, H2, S1, S3, S6, T1, T2, T3 and T5. The other sixteen are green BY CONSTRUCTION under the mutant and
+# are named so nobody reads their green as coverage: A1..A4, D2 and S4 read the runtime, F reads the shipped tree, E1 names a path,
+# C1/C2/H3/S2 describe the reader-off world itself, G and S5 drive the Python harness, which the mutant leaves alone, T4 refuses a
+# run that has no table (no reader involved), and R is a census of the runners' source -- its own fail-once is a scratch tree
+# holding origin's unwired PAT runner and logtalk grader, where R reds naming exactly those two files and nothing else.
 # An arm that has never been seen to fail is an arm that reads "there was never a bug here" (this gate's own law,
 # COO-152), and a fail-once that reds for a STAGING reason while claiming to have proved the property is the shape
 # COO-153 found three of inside the mechanism built to disprove exactly that -- so the ten are listed, not counted.
@@ -138,6 +139,7 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then
   declared_arena_kb_beside() { return 0; }
   declared_stack_kb() { return 0; }
   declared_stack_kb_beside() { return 0; }
+  declared_memory_table() { return 0; }
 fi
 b_rc=0
 ( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ) || b_rc=$?
@@ -325,6 +327,61 @@ mkdir -p "$T/stk2" && cp "$T/stk/deep.icn" "$T/stk2/deep.icn" && printf 'deep\t%
 s6=$(declared_stack_kb_beside "$T/stk2/deep.icn" 2>/dev/null); printf '%s\n' "$STK_KB" > "$T/stk2/deep.stack"; declared_stack_kb_beside "$T/stk2/deep.icn" >/dev/null 2>&1; s6b=$?
 [ "$s6" = "$STK_KB" ] && [ "$s6b" = 2 ] && ck ok "S6 a standalone program's deep.stack (deep TAB $STK_KB) is read beside it, and a bare-number .stack is REFUSED rc=2" \
   || ck bad "S6 the .stack sidecar read '$s6' (want $STK_KB) and a bare number returned rc=$s6b (want 2)"
+
+# ── arm T: THE ONE-READ TABLE the package runners grade through (CEO-1229, the coo 2026-09-23) ─────────────────────────────
+# declared_memory_table / declared_memory_begin / run_at_declared_table (lib_declared_arena.sh): the harness's own validators, one
+# python start per suite and one awk per run, because run_at_declared_arena's two python starts per run are over a minute of a
+# 427-program board in two modes. T2 drives a REAL run through the table. T5 is the defect the table's first cut shipped to itself
+# and its own refusal arm caught: handed any file, heap_declarations() read the ALL.csv BESIDE it.
+mkdir -p "$T/tbl"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,m3,%s,\n2,b,p__b,p,1,0,0,m3,,262144\n3,c,p__c,p,1,0,0,m3,,\n' "$DECL_KB" > "$T/tbl/ALL.csv"
+declared_memory_begin "$T/tbl/ALL.csv" "$T/tbl/t.tsv" >/dev/null 2>&1; t1rc=$?
+t1=""; for e in a b c; do t1="$t1$(run_at_declared_table "$T/tbl/t.tsv" "$e" -- bash -c 'printf "%s=[%s|%s] " "$0" "${SCRIP_HEAP_KB:-}" "${SCRIP_STACK:-}"' "$e" 2>/dev/null)"; done
+[ "$t1rc" = 0 ] && [ "$t1" = "a=[$DECL_KB|] b=[|262144k] c=[|] " ] && [ -z "${SCRIP_HEAP_KB:-}${SCRIP_STACK:-}" ] \
+  && ck ok "T1 the table exports each entry's own heap and stack and nothing else (a heap only, b stack only, c neither), and nothing leaks into the caller" \
+  || ck bad "T1 the table exported '$t1' (begin rc=$t1rc) -- want 'a=[$DECL_KB|] b=[|262144k] c=[|] '"
+t2=0; { declared_memory_begin "$T/pkg/ALL.csv" "$T/tbl/pkg.tsv" >/dev/null 2>&1 && ( cd "$T/pkg" && run_at_declared_table "$T/tbl/pkg.tsv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ); } || t2=$?
+[ "$t2" != 124 ] || refuse "arm T2 TIMED OUT (rc=124) -- a ceiling is not a verdict"
+[ "$t2" = 0 ] && ck ok "T2 the declared entry COMPLETES through the table (rc=0) where it aborts rc=$base_rc at the shipped default -- the runners' path carries the declaration to a real run" \
+  || ck bad "T2 the declared entry still fails through the table (rc=$t2) -- heap_kb=${DECL_KB} did not reach the run"
+t3=""; n3=0
+for bad in "1,a,p__a,p,1,0,0,m3,2048," "1,a,p__a,p,1,0,0,m3,,16384" "1,a,p__a,p,1,0,0,m3,$DECL_KB,
+2,a,p__a,p,1,0,0,m3,$DECL_KB,"; do
+  n3=$((n3+1)); printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n%s\n' "$bad" > "$T/tbl/bad.csv"; echo stale > "$T/tbl/bad.tsv"
+  declared_memory_begin "$T/tbl/bad.csv" "$T/tbl/bad.tsv" >/dev/null 2>&1; r=$?
+  { [ "$r" = 2 ] && [ ! -f "$T/tbl/bad.tsv" ]; } || t3="$t3 case$n3(rc=$r)"
+done
+[ -z "$t3" ] && ck ok "T3 a heap cell at the cap, a stack cell below the floor and a declaring entry named twice each REFUSE rc=2 and leave no table for a run to use" \
+  || ck bad "T3 a refused cell was accepted:$t3 (1 heap 2048, 2 stack 16384, 3 a duplicate entry)"
+run_at_declared_table "$T/tbl/no_such_table.tsv" a -- true 2>/dev/null; t4=$?
+[ "$t4" = 2 ] && ck ok "T4 a run with no table REFUSES rc=2 -- a runner that never built its table cannot grade at the default under a receipt naming declarations" \
+  || ck bad "T4 run_at_declared_table without a table returned rc=$t4, want 2"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,m3,,\n' > "$T/tbl/ALL.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,m3,%s,\n' "$DECL_KB" > "$T/tbl/OTHER.csv"
+t5="$(declared_memory_table "$T/tbl/OTHER.csv" 2>/dev/null)"
+[ "$t5" = "$(printf 'a\t%s\t' "$DECL_KB")" ] && ck ok "T5 the table reads the FILE IT IS HANDED -- OTHER.csv's heap_kb=$DECL_KB, not the undeclared ALL.csv beside it" \
+  || ck bad "T5 the table of OTHER.csv read '$t5' -- it read something other than the file it was handed"
+
+# ── arm R: EVERY PACKAGE RUNNER READS THE DECLARATION (CEO-1229: "wire the ten remaining package runners yourself on the SWI pattern,
+# each proven on a fixture") ────────────────────────────────────────────────────────────────────────────────────────────
+# STRUCTURAL, AND NAMED AS SUCH: it holds each runner's wiring against a later edit that drops it -- every one was PROVEN on a
+# fixture by the coo 2026-09-23 (a declared entry passes, the same entry emptied fails, a refused cell refuses; the receipts are in
+# the row's baton) -- and it cannot show that the wiring works; arms B, S and T do that.
+r_miss=""; r_n=0
+need() { local f="$HERE/$1" c; r_n=$((r_n+1)); [ -f "$f" ] || { r_miss="$r_miss $1(missing)"; return; }; c=$(grep -c -- "$3" "$f"); [ "$c" -ge "$4" ] || r_miss="$r_miss $1($2: $c of $4)"; }
+for r in test_snobol4_dotnet_suite.sh test_snobol4_spitbol_testpgms_suite.sh test_snobol4_csnobol4_suite.sh test_snoflake_suite.sh test_snobol4_spitbol_x64_suite.sh test_prolog_gnu_suite.sh test_pascal_fpc_suite.sh test_pascal_pat_suite.sh; do
+  need "$r" begin 'declared_memory_begin "\$[A-Z_]*/ALL.csv"' 1; need "$r" runs 'run_at_declared_table "\$DECL"' 2
+done
+need scorecard_snobol4.sh table 'sc_decl_build' 3; need scorecard_snobol4.sh runs 'run_at_declared_table "\$SC_DECL"' 2
+need test_snobol4_gimpel_suite.sh through-the-scorecard 'scorecard_snobol4.sh" run --suites gimpel' 1
+need test_snobol4_aisnobol_suite.sh through-the-harness 'corpus_suite_harness.py run "\$SUITE/ALL.sno"' 1
+need test_prolog_inria_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 1; need test_prolog_inria_suite.sh runs 'env=decl_env(_tidx, fam)' 4
+need test_prolog_logtalk_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 1; need test_prolog_logtalk_suite.sh hands-it-over '--decl "\$_decl"' 1
+need util_logtalk_grade.py per-case 'env=decl_env(decl' 2; need util_logtalk_grade.py runs 'cwd=d, env=env)' 2
+need test_prolog_swi_suite.sh runs 'run_at_declared_arena "\$SWIT/ALL.csv"' 2
+for r in test_icon_arizona_suite.sh test_icon_ipl_suite.sh test_icon_jcon_suite.sh; do need "$r" heap declared_arena_kb 1; need "$r" stack declared_stack_kb 1; done
+[ -z "$r_miss" ] && ck ok "R  every package runner reads the declared heap and stack ($r_n wiring points across 17 runners and graders: the eight SNOBOL4, Prolog and Pascal loops, the scorecard behind gimpel, the harness behind aisnobol, inria, logtalk and its grader, SWI, and the three Icon runners)" \
+  || ck bad "R  a runner lost its wiring:$r_miss"
 
 # ── arm F: every shipped attribute file carries the column ─────────────────────────────────────────────────────
 CORPUS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus"

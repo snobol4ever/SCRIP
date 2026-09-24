@@ -70,10 +70,17 @@ arm "7 harness detector: a wrong-language run of a CORPUS suite is refused rc=2 
 arm "8 a suite OUTSIDE the corpus tree is not a board and is not refused" 'out=$(S4E_SEAT=hq_pascal bash -c "source $L; one_runner_guard test_x_suite.sh /tmp/fixture_not_a_board/ALL.icn" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
 arm "9 control: a suite UNDER the corpus tree is still refused rc=2 to a seat its lane does not name" 'out=$(S4E_SEAT=hq_pascal bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/icon/ALL.icn" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 arm "10 harness: a gate own mktemp fixture is graded, not refused" 'T=$(mktemp -d) || exit 1; printf "* one\nline\n" > "$T/f.sno"; printf "* one\nline\n" > "$T/f.ref"; out=$(cd "$H/.." && S4E_SEAT=hq_B python3 scripts/corpus_suite_harness.py run "$T/f.sno" "$T/f.ref" --lang snobol4 2>&1); rc=$?; rm -rf "$T"; [ $rc -ne 2 ] || ! grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
-arm "11 census: BOTH copies carry the narrowing, word for word is the promise in the header" 'grep -q "one_runner_suite_is_a_board" "$L" && grep -q "_suite_is_a_board" "$H/corpus_suite_harness.py"'
+arm "11 census: BOTH copies carry the narrowing, word for word is the promise in the header" 'grep -q "one_runner_suite_is_a_board" "$L" && grep -q "_suite_is_a_board" "$H/corpus_suite_harness.py" && grep -q "one_runner_in_a_shared_checkout" "$L" && grep -q "def _in_a_shared_checkout" "$H/corpus_suite_harness.py"'
 arm "12 a caller that does not say what it grades (no language in its name, no suite path) is still refused, never waved through" 'out=$(S4E_SEAT=hq_icon bash -c "source $L; one_runner_guard test_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 arm "13 this gate pins its own environment, so a computed done cannot flip its verdict" 'grep -q "^unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_SEAT$" "$H/test_gate_one_runner_one_board.sh"'
+# ⛔⭐ OUTSIDE THE CONFIGURED ROOT IS NOT OUTSIDE THE SHARED CORPUS (coo 2026-09-23, CEO-1229's runner wiring). The root is whatever
+# S4E_CORPUS or S4E_HOME say, so pointing either at an EXISTING scratch directory made a real corpus suite read "outside the corpus
+# tree, not a board": measured on origin 2352905c5, hq_pascal was admitted rc=0 to tests/icon/ALL.icn under S4E_CORPUS=<scratch>, and
+# the harness under S4E_HOME=<scratch> went on to grade with no refusal. Both arms point at the suite's own checkout; the harness arm
+# names a suite that does not exist, so on a guard without the fix it stops on the missing file -- it never grades a real board.
+arm "14 a suite inside the shared checkout is a board even when S4E_CORPUS names an existing scratch root" 'E=$(mktemp -d) || exit 1; out=$(S4E_SEAT=hq_pascal S4E_CORPUS="$E" bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/icon/ALL.icn" 2>&1); rc=$?; rm -rf "$E"; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
+arm "15 harness: the same under S4E_HOME=<existing scratch> -- refused rc=2 by the guard, not by a missing file" 'E=$(mktemp -d) || exit 1; out=$(cd "$H/.." && S4E_SEAT=hq_pascal S4E_HOME="$E" SCRIP="$H/../scrip" RT_DIR="$H/../out" timeout 60 python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/icon/NO_SUCH_SUITE.icn" "$CORPUS/tests/icon/NO_SUCH_SUITE.ref" --lang icon 2>&1); rc=$?; rm -rf "$E"; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 echo "$G: examined=$examined fail=$fail"
-[ $examined -ge 21 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 21 declared arms"; exit 2; }
+[ $examined -ge 23 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 23 declared arms"; exit 2; }
 [ $fail -eq 0 ] && { echo "GATE PASS(0) [$G]: $examined/$examined -- one runner PER LANGUAGE, one board"; exit 0; }
 echo "GATE FAIL(1) [$G]: $fail of $examined arms red"; exit 1

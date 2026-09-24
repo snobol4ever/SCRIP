@@ -2517,6 +2517,20 @@ def _writes_the_live_progress_table():
         return True
 
 
+def _in_a_shared_checkout(sp):
+    """⛔⭐ OUTSIDE THE CONFIGURED ROOT IS NOT OUTSIDE THE SHARED CORPUS (coo 2026-09-23; lib_one_runner.sh's
+    one_runner_in_a_shared_checkout, the same rule). paths["corpus"] is S4E_HOME/corpus, so pointing S4E_HOME at a scratch
+    directory made every real corpus suite read "outside the corpus tree, not a board" and admitted a seat no lane names.
+    The suite's OWN checkout answers instead: inside a checkout of the shared corpus it is a board, whatever S4E_HOME says.
+    A directory outside every checkout (a gate's mktemp fixture) is not; git that cannot run at all answers TRUE."""
+    d = sp if sp.is_dir() else sp.parent
+    try:
+        r = subprocess.run(["git", "-C", str(d), "remote", "-v"], capture_output=True, text=True, timeout=10)
+    except Exception:
+        return True
+    return r.returncode == 0 and SHARED_CORPUS_REMOTE in r.stdout
+
+
 def _suite_is_a_board(suite_path, corpus_root):
     """⛔⭐ WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT (ceo CEO-547 part 1, on the cfo's
     measurement). A suite living under the corpus tree is a board: it grades a shared population, publishes rows and writes a
@@ -2539,7 +2553,7 @@ def _suite_is_a_board(suite_path, corpus_root):
     try:
         sp.relative_to(cr)
     except ValueError:
-        return False
+        return _in_a_shared_checkout(sp)
     if not _corpus_is_the_shared_population(cr) and not _writes_the_live_progress_table():
         print("ONE-RUNNER: FIXTURE, not a board -- %s is under %s, which is not a checkout of %s, and this run appends "
               "to a scratch progress table. No row reaches the shared record (CEO-547 part 1)." % (sp, cr, SHARED_CORPUS_REMOTE),

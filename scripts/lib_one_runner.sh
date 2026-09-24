@@ -62,13 +62,25 @@ one_runner_writes_the_live_progress_table() {
   local db="${S4E_PROGRESS_DB:-$ONE_RUNNER_LIVE_PROGRESS_DB}"
   [ "$(readlink -f "$db" 2>/dev/null || printf '%s' "$db")" = "$(readlink -f "$ONE_RUNNER_LIVE_PROGRESS_DB" 2>/dev/null || printf '%s' "$ONE_RUNNER_LIVE_PROGRESS_DB")" ]
 }
+# ⛔⭐ OUTSIDE THE CONFIGURED ROOT IS NOT OUTSIDE THE SHARED CORPUS (coo 2026-09-23, found wiring the package runners for CEO-1229).
+# The root below is whatever S4E_CORPUS or S4E_HOME say, so pointing either at a scratch directory made EVERY real corpus suite read
+# "outside the corpus tree, not a board" -- and a seat no lane names was admitted to it, the harness too (its paths["corpus"] is
+# S4E_HOME/corpus). The suite's OWN checkout answers instead, whatever the environment says: a suite inside a checkout of the shared
+# corpus is a board. A directory outside every checkout (a gate's mktemp fixture) still is not.
+one_runner_in_a_shared_checkout() {  # rc 0 = inside a checkout of the shared corpus; git that cannot run at all (127) answers yes
+  local d="$1" out rc
+  out="$(git -C "$d" remote -v 2>/dev/null)"; rc=$?
+  [ "$rc" = 127 ] && return 0
+  [ "$rc" = 0 ] || return 1
+  case "$out" in *"$ONE_RUNNER_SHARED_CORPUS_REMOTE"*) return 0;; *) return 1;; esac
+}
 one_runner_suite_is_a_board() {
   local suite="$1" corpus sp cr
   corpus="${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}"
   sp="$(cd "$(dirname "$suite")" 2>/dev/null && pwd)/$(basename "$suite")" || return 0
   cr="$(cd "$corpus" 2>/dev/null && pwd)" || return 0
   [ -n "$cr" ] || return 0
-  case "$sp" in "$cr"/*|"$cr") ;; *) return 1;; esac
+  case "$sp" in "$cr"/*|"$cr") ;; *) one_runner_in_a_shared_checkout "$(dirname "$sp")" && return 0; return 1;; esac
   if ! one_runner_corpus_is_the_shared_population "$cr" && ! one_runner_writes_the_live_progress_table; then
     printf 'ONE-RUNNER: FIXTURE, not a board -- %s is under %s, which is not a checkout of %s, and this run appends to a scratch progress table. No row reaches the shared record (CEO-547 part 1).\n' "$sp" "$cr" "$ONE_RUNNER_SHARED_CORPUS_REMOTE"
     return 1
