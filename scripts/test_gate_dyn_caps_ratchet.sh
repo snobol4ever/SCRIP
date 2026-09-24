@@ -34,8 +34,21 @@
 #   8 THE WITNESS VERB (CEO-1231: the refusal read at cap+1) CAN RED: util_dyn_caps_witness.sh witness on a scratch WITNESSES.tsv reads
 #     the Prolog trail's refusal at 1200000 conditional bindings, counts a program that never reaches g_capo's cap as SILENT, names a
 #     row for no LOUD guard STALE, and exits 1 -- the verb itself is the row's DONE-WHEN, graded there, not here
+#   9 THE NOT-SHIPPED DECLARATION (ceo CEO-1235 (3)): scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv sets aside the unit tests, tools and
+#     demos no program's run reaches, and on the real tree every row passes its check against the scrip and libscrip_rt link lines
+#  10 FAIL-ONCE FOR IT: a scratch declaration of only wrong rows -- src/driver/scrip.c (the scrip link), src/runtime/rtx/rtx_str.s (the
+#     libscrip_rt link), a header and a missing file -- names each RED and sets NOTHING aside, so the census reads exactly the real
+#     counts plus what the real declaration sets aside: the exclusion removes what it says and nothing else
+#  11 0 OF 0 IS GREEN (ceo CEO-1235 (1)): with an empty witness table the verb reds on the LOUD guards that remain; with every one of
+#     them declared on a scratch CLASS_AB.tsv it reads 0 of 0, says no LOUD guard remains, and exits 0
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
+# ⛔ BASELINE 392 -> 384 AND BASELINE_FUNCTION_SCOPE 522 -> 483, THE NOT-SHIPPED DECLARATION (the coo, 2026-09-24, CEO-1235 (3)): the
+# census read every compilation unit under src/, and 11 of them are linked by neither the scrip nor the libscrip_rt link line. On one
+# tree (cb1bc6d1b) NOT_SHIPPED.tsv sets aside exactly the 8 tables (rtx_str_test.c 3, emit_per_kind_audit.c 5) and 39 locals a program
+# fills (icon_lex_test.c 20, test_lex.c 7, emit_per_kind_audit.c 5, icn_main.c 4, icon_parse_test.c 2, prolog_parse_test.c 1) of those
+# units and nothing else: 392 - 8 = 384, 522 - 39 = 483; no-guard 259 -> 253, drop 89 unchanged, locals unguarded 521 -> 482. The two
+# CLASS_AB.tsv rows for emit_per_kind_audit.c (g_audit_nodes, g_audit_sm) leave with their file.
 # ⛔ BASELINE 352 -> 366, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo, stage 2): the census scoped a declaration by the brace depth at
 # the START of its line, counted in RAW text. A '{' char literal or a "{}" string drifted the depth (re.c, unification.c, emit_str.cpp,
 # by_name_dispatch.c ended off 0), emit.cpp's `extern "C" {` made every later global a local, PL_CX_LEAF_HEAD/TAIL (a function body
@@ -78,6 +91,8 @@ gate_require "$C" "audit_fixed_caps_census.py" || exit 2
 gate_require "$WIT" "util_dyn_caps_witness.sh" || exit 2
 gate_require "$B" "scripts/fixtures/dyn_caps/BASELINE" || exit 2
 gate_require "$BF" "scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" || exit 2
+NSF="$HERE/fixtures/dyn_caps/NOT_SHIPPED.tsv"
+gate_require "$NSF" "scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv" || exit 2
 SCRATCH="${S4E_SCRATCH:-$(cd "$ROOT/.." && pwd)/.scratch}"
 mkdir -p "$SCRATCH" || { echo "REFUSING(2) [$GATE_NAME]: cannot create $SCRATCH"; exit 2; }
 WORK=$(mktemp -d "$SCRATCH/gate_dyn_caps_XXXXXX") || exit 2
@@ -106,6 +121,7 @@ echo "  function-scope population: $fn locals a program fills, baseline $fb; $fu
 mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src" && cp "$C" "$WIT" "$WORK/r/scripts/" \
   && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" && printf '%s\n' "$fn" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" \
   && cp "$HERE/fixtures/dyn_caps/CLASS_AB.tsv" "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
+  && cp "$NSF" "$WORK/r/scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv" && cp "$ROOT/Makefile" "$WORK/r/Makefile" \
   && printf 'src/planted_by_the_ratchet_gate.c\tg_planted_classab_by_the_ratchet_gate\tA\tthe gate plants it never compared and declares it\nsrc/planted_by_the_ratchet_gate.c\tg_no_such_table_by_the_ratchet_gate\tA\ta stale row the gate plants\n' >> "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
   || { echo "REFUSING(2) [$GATE_NAME]: cannot stage the scratch tree"; exit 2; }
 cat > "$WORK/r/src/planted_by_the_ratchet_gate.c" <<'PLANT'
@@ -144,5 +160,23 @@ printf 'main :- write(hello), nl.\n:- initialization(main).\n' > "$WORK/silent.p
 wo=$(cd "$ROOT" && DYN_CAPS_WITNESSES="$WORK/witnesses.tsv" bash "$WIT" witness 2>&1); wrc=$?
 wsum=$(grep -m1 '^refusal read at the cap: ' <<<"$wo")
 ck "8 THE WITNESS VERB CAN RED (CEO-1231): on a scratch table the trail's cap+1 is READ, a program that never reaches g_capo's cap is SILENT, a row naming no LOUD guard is STALE, and the verb reds ($wsum, rc $wrc)" '[ "$wrc" = 1 ] && grep -q "^  READ .*PL_TR_ARENA_BYTES rc=2: .*trail arena exhausted" <<<"$wo" && grep -q "^  SILENT .*:g_capo rc=0" <<<"$wo" && grep -q "^  STALE .*g_no_such_guard_by_the_ratchet_gate" <<<"$wo" && grep -qE "^refusal read at the cap: 1 of [1-9][0-9]* guards, silent: 1$" <<<"$wo"'
-if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 8 arms -- $n fixed tables and $fn locals a program fills, each exactly its baseline; a planted one of each reds; the classifier tells a drop from no guard and a program's fill from a number's digits; $nab tables declared class A/B, none stale"; gate_stamp; exit 0; fi
-echo "GATE FAIL(1) [$GATE_NAME]: $fails of 8 arms red"; gate_stamp; exit 1
+nsk=$(sed -n 's/^set aside as not shipped by .*: \([0-9]*\) table(s) and \([0-9]*\) local(s) a program fills, in \([0-9]*\) of \([0-9]*\) declared file(s); linked, header or stale declarations: \([0-9]*\)$/\1 \2 \3 \4 \5/p' <<<"$out")
+read -r nst nsl nsf nsn nsx <<<"${nsk:-- - - - -}"
+ck "9 THE NOT-SHIPPED DECLARATION (CEO-1235 (3)): the real tree sets aside $nst tables and $nsl locals a program fills in $nsf of $nsn declared units, every row checked against the scrip and libscrip_rt link lines (linked, header or stale: $nsx)" '[ -n "$nsk" ] && [ "$nsx" = 0 ] && [ "$nsn" -gt 0 ]'
+printf 'src/driver/scrip.c\tthe scrip link\nsrc/runtime/rtx/rtx_str.s\tthe libscrip_rt link\nsrc/ir/IR.h\ta header\nsrc/no_such_unit_by_the_ratchet_gate.c\ta file the tree does not have\n' > "$WORK/ns_bad.tsv"
+bo=$(cd "$ROOT" && DYN_CAPS_NOT_SHIPPED="$WORK/ns_bad.tsv" bash "$WIT" census 2>&1); brc=$?
+bn=$(sed -n 's/^fixed-bound declarations[^:]*: \([0-9]*\) (baseline.*/\1/p' <<<"$bo"); bfn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline.*/\1/p' <<<"$bo")
+ck "10 FAIL-ONCE: a declaration of only wrong rows names each RED and sets nothing aside -- the census reads the real counts plus what the real declaration sets aside ($n + $nst -> ${bn:-?}, $fn + $nsl -> ${bfn:-?}), rc $brc" '[ "$brc" = 1 ] && [ -n "$bn" ] && [ "$bn" = "$((n + nst))" ] && [ "$bfn" = "$((fn + nsl))" ] && grep -q "^  LINKED  src/driver/scrip.c " <<<"$bo" && grep -q "^  LINKED  src/runtime/rtx/rtx_str.s " <<<"$bo" && grep -q "^  HEADER  src/ir/IR.h " <<<"$bo" && grep -q "^  STALE   src/no_such_unit_by_the_ratchet_gate.c " <<<"$bo" && grep -q "linked, header or stale declarations: 4$" <<<"$bo"'
+: > "$WORK/no_witnesses.tsv"
+zo=$(cd "$ROOT" && DYN_CAPS_WITNESSES="$WORK/no_witnesses.tsv" bash "$WIT" witness 2>&1); zrc=$?
+zn=$(grep -c '^  NO WITNESS  ' <<<"$zo")
+{ grep -v '^#' "$HERE/fixtures/dyn_caps/CLASS_AB.tsv"; sed -n 's/^  NO WITNESS  \(.*\):\([^:]*\)$/\1\t\2\tA\tthe gate declares every LOUD guard so the verb reads 0 of 0/p' <<<"$zo"; } > "$WORK/ab_all.tsv"
+zo2=$(cd "$ROOT" && DYN_CAPS_CLASS_AB="$WORK/ab_all.tsv" DYN_CAPS_WITNESSES="$WORK/no_witnesses.tsv" bash "$WIT" witness 2>&1); zrc2=$?
+# ⛔ AND IN THAT STATE A LEFTOVER WITNESS ROW IS STALE: with no LOUD guard the list of guards is an EMPTY file, and an awk reading two files
+# with FNR==NR takes the SECOND file's rows as the first's when the first is empty -- the stale check read every row as a live guard and
+# a 0 of 0 with the whole witness table left behind read GREEN. The verb reads FILENAME==ARGV[1]; this run holds it.
+wr=$(grep -v '^#' "$HERE/fixtures/dyn_caps/WITNESSES.tsv" | awk -F'\t' 'NF >= 6' | wc -l)
+zo3=$(cd "$ROOT" && DYN_CAPS_CLASS_AB="$WORK/ab_all.tsv" bash "$WIT" witness 2>&1); zrc3=$?
+ck "11 0 OF 0 IS GREEN (CEO-1235 (1)): with no witness the verb reds on the $zn LOUD guards that remain (rc $zrc); with every one of them declared on a scratch CLASS_AB.tsv it reads 0 of 0 and exits $zrc2; and there the $wr rows of the real witness table read STALE, rc $zrc3" '{ [ "$zn" = 0 ] || { [ "$zrc" = 1 ] && grep -q "^refusal read at the cap: 0 of $zn guards, silent: 0$" <<<"$zo"; }; } && [ "$zrc2" = 0 ] && grep -q "^refusal read at the cap: 0 of 0 guards, silent: 0$" <<<"$zo2" && grep -q "^  no LOUD guard remains" <<<"$zo2" && grep -q "^GREEN \[witness\]$" <<<"$zo2" && { [ "$wr" = 0 ] || { [ "$zrc3" = 1 ] && [ "$(grep -c "^  STALE " <<<"$zo3")" = "$wr" ]; }; }'
+if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 11 arms -- $n fixed tables and $fn locals a program fills, each exactly its baseline; a planted one of each reds; the classifier tells a drop from no guard and a program's fill from a number's digits; $nab tables declared class A/B, none stale; $nst tables and $nsl locals set aside in $nsn not-shipped units, each checked against the link lines; 0 of 0 reads green"; gate_stamp; exit 0; fi
+echo "GATE FAIL(1) [$GATE_NAME]: $fails of 11 arms red"; gate_stamp; exit 1
