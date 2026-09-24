@@ -28,17 +28,17 @@ SUITE="$S4E/corpus/packages/pascal/fpc_tests"
 WANTRC="${WANTRC:-$SUITE/ALL.wantrc}"
 RUN_TIMEOUT="${FPC_SUITE_RUN_TIMEOUT:-10}"
 VERBOSE="${FPC_SUITE_VERBOSE:-0}"
-# ⛔⭐ THE CEO-749 SHAPE FOR AN ISO RULING (Lon 2026-09-23, in-chat to the ceo, verbatim: "use ISO as oracle"; CEO-1225). This suite's
-# refs were cut from fpc -Miso, and where fpc -Miso and ISO 7185 disagree ISO wins. OUTSIDE_ISO_BASELINE.tsv beside the package names
-# the programs ISO 7185 refuses though fpc -Miso runs them (first: the 6.2.1 declaration-order programs, 2026-09-23), each with its
-# measurement; UNGRADABLE.tsv mirrors it row for row for the lockdown inventory. A listed program stays in the denominator (PASS over
-# SHIPPED, OUTSIDE=k named and stamped through lib_outside_shape.sh) and is not graded against its .ref -- but it is CROSS-CHECKED on
-# every run: this compiler must refuse it with an ISO 7185 diagnostic, and one it ACCEPTS is reported STALE and graded like any other.
-OUTSIDE_TSV="$SUITE/OUTSIDE_ISO_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"; declare -A OUTSIDE_SET=()
-if [ -f "$OUTSIDE_TSV" ]; then
-    while IFS=$'\t' read -r _on _orest; do case "$_on" in ''|'#'*) continue;; esac; OUTSIDE_SET[${_on%.pas}]=1; done < "$OUTSIDE_TSV"
+# ⛔⭐ ISO IS THE ORACLE, SO A PROGRAM ISO REFUSES IS GRADED AS AN EXPECTED REFUSAL (Lon 2026-09-23, in-chat to the ceo, verbatim:
+# "use ISO as oracle", CEO-1225; the grading ruled by the ceo as CEO-1228). This suite's refs were cut from fpc -Miso, and where fpc -Miso
+# and ISO 7185 disagree ISO wins. ISO_EXPECTED_REFUSALS.tsv beside the package names each program fpc -Miso runs but ISO 7185 refuses,
+# with its ISO clause and the measurement; such a program is graded exactly as a PAT rejection test is: PASS in a mode when that mode
+# refuses it WITH an ISO 7185 diagnostic, and an acceptance, or a refusal without the ISO diagnostic, is red. The denominator stays the
+# whole shipped suite; the fpc-cut .ref of a listed program is never compared, because the oracle's verdict on it is the refusal.
+REFUSAL_TSV="$SUITE/ISO_EXPECTED_REFUSALS.tsv"; declare -A REFUSE_SET=()
+if [ -f "$REFUSAL_TSV" ]; then
+    while IFS=$'\t' read -r _rn _rrest; do case "$_rn" in ''|'#'*) continue;; esac; REFUSE_SET[${_rn%.pas}]=1; done < "$REFUSAL_TSV"
 fi
-OUTSIDE=0; OUTSIDE_NAMES=(); STALE_NAMES=()
+NREF=0
 
 [ -d "$SUITE" ]  || { echo "⛔ REFUSED-TO-GRADE: $SUITE missing"; exit 2; }
 [ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
@@ -75,14 +75,27 @@ echo "=== FPC vendored-suite grade ($TOTAL pairs, $SUITE) ==="
 for name in "${PAIRS[@]}"; do
     pas="$SUITE/$name.pas"; ref="$SUITE/$name.ref"
     inp="$SUITE/$name.in"; [ -f "$inp" ] || inp=/dev/null
-    if [ -n "${OUTSIDE_SET[$name]:-}" ]; then
-        _oerr="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --dump-ast "$pas" </dev/null 2>&1 >/dev/null)"; _orc=$?
-        if [ "$_orc" -ne 0 ] && [ "$_orc" -lt 124 ] && printf '%s' "$_oerr" | grep -q 'ISO 7185'; then
-            OUTSIDE=$((OUTSIDE+1)); OUTSIDE_NAMES+=("$name")
-            for m in m3 m4; do printf 'package\tfpc\tpascal\t%s\t%s\tUNGRADED\t0\toutside-iso-baseline\n' "$name" "$m" >>"$PROG_ROWS"; done
-            continue
+    if [ -n "${REFUSE_SET[$name]:-}" ]; then
+        NREF=$((NREF+1)); m3ok=0
+        _e3="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" <"$inp" 2>&1 >/dev/null)"; _r3=$?
+        if [ "$_r3" -ne 0 ] && [ "$_r3" -lt 124 ] && printf '%s' "$_e3" | grep -q 'ISO 7185'; then
+            M3_PASS=$((M3_PASS+1)); m3ok=1; printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\texpected-refusal-iso-7185\n' "$name" >>"$PROG_ROWS"
+        else
+            M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name(expected-refusal)")
+            printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\texpected-refusal-not-refused-with-an-iso-diagnostic(rc=%s)\n' "$name" "$_r3" >>"$PROG_ROWS"
         fi
-        STALE_NAMES+=("$name")
+        _e4="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$TMP/$name.s" </dev/null 2>&1 >/dev/null)"; _r4=$?
+        if [ "$_r4" = 0 ] && gcc -no-pie "$TMP/$name.s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$TMP/$name.bin" 2>/dev/null; then
+            _e4="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$TMP/$name.bin" <"$inp" 2>&1 >/dev/null)"; _r4=$?
+        fi
+        if [ "$_r4" -ne 0 ] && [ "$_r4" -lt 124 ] && printf '%s' "$_e4" | grep -q 'ISO 7185'; then
+            M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
+            printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\texpected-refusal-iso-7185\n' "$name" >>"$PROG_ROWS"
+        else
+            M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name(expected-refusal)")
+            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\texpected-refusal-not-refused-with-an-iso-diagnostic(rc=%s)\n' "$name" "$_r4" >>"$PROG_ROWS"
+        fi
+        continue
     fi
     if [ ! -f "$ref" ]; then
         REJECT=$((REJECT+1)); REJECT_NAMES+=("$name (no .ref)")
@@ -150,19 +163,14 @@ if [ "$VERBOSE" -ne 1 ] && [ "$M4_FAIL" -gt 0 ]; then
     echo "-- m4 FAIL ($M4_FAIL): ${M4_FAIL_NAMES[*]:0:10}$([ "$M4_FAIL" -gt 10 ] && echo ' ...')"
 fi
 
-if [ "$OUTSIDE" -gt 0 ]; then echo "-- OUTSIDE the ISO baseline ($OUTSIDE, named in OUTSIDE_ISO_BASELINE.tsv, refused per ISO 7185, not graded against fpc's ref): ${OUTSIDE_NAMES[*]}"; fi
-if [ "${#STALE_NAMES[@]}" -gt 0 ]; then echo "⚠ OUTSIDE_ISO_BASELINE.tsv STALE -- listed as refused by the ISO oracle, but this compiler ACCEPTED them, so they were graded normally: ${STALE_NAMES[*]}"; fi
-if [ -f "$OUTSIDE_TSV" ] && [ -f "$MIRROR_TSV" ]; then
-    _rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"; _mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$MIRROR_TSV" | sort)"
-    [ "$_rec" = "$_mir" ] || echo "⚠ UNGRADABLE.tsv does not mirror OUTSIDE_ISO_BASELINE.tsv row for row -- the lockdown bucket and the record have drifted; edit them together"
-fi
+[ "$NREF" -gt 0 ] && echo "-- $NREF program(s) graded as EXPECTED REFUSALS (ISO_EXPECTED_REFUSALS.tsv: fpc -Miso runs them, ISO 7185 refuses them; CEO-1228)"
 echo ""
-echo "FPC_SUITE_BOARD total=$TOTAL both_pass=$BOTH_PASS m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT outside=$OUTSIDE"
+echo "FPC_SUITE_BOARD total=$TOTAL both_pass=$BOTH_PASS m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT expected_refusals=$NREF"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. REJECT here is "shipped .pas with no .ref yet" -- real owed work (REF_NOT_CUT), not
 # an oracle ruling -- so a nonzero REJECT with no UNGRADED.tsv beside $SUITE correctly REFUSES below
 # rather than being silently folded into ungradable the way the old ad hoc line did.
-FPC_GRADED=$((TOTAL - REJECT - OUTSIDE))
+FPC_GRADED=$((TOTAL - REJECT))
 INV_PACKAGE=fpc; INV_DIR="$SUITE"; INV_EXT=".pas"
 INV_LINE="$(inventory_line "$FPC_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
@@ -218,17 +226,21 @@ if [ -s "$PROG_ROWS" ]; then
         echo "⚠ PROGRESS DB NOT UPDATED -- the score write below cannot cross-check and will refuse (reason above)" >&2
     fi
 fi
-. "$HERE/lib_outside_shape.sh" || exit 2
+# ⭐ THE ROW'S CRITERION IS STAMPED WHEN IT MOVES: the banner renders the LAST OUTSIDE=N token of SUITES.tsv column 12, and this row
+# carried OUTSIDE=15 for one run under the CEO-749 reading, so the first run under CEO-1228 records OUTSIDE=0 with its reason.
 _cc="${S4E_CRITERION_CHANGED:-}"
-if [ -z "$_cc" ]; then _cc="$(outside_shape_stamp fpc "$TOTAL" "$OUTSIDE")" || exit 2; _cc="${_cc//OUTSIDE_SPITBOL_BASELINE/OUTSIDE_ISO_BASELINE}"; fi
+_lastout="$(awk -F'\t' '$1=="fpc"{print $12; exit}' "$S4E/.github/SUITES.tsv" 2>/dev/null | grep -oE 'OUTSIDE=[0-9]+' | tail -1 | cut -d= -f2)"
+if [ -z "$_cc" ] && [ -n "$_lastout" ] && [ "$_lastout" != 0 ]; then
+    _cc="$(date +%F):CEO-1228-programs-iso-7185-refuses-and-fpc-Miso-runs-are-graded-as-expected-refusals-$NREF-named-in-ISO_EXPECTED_REFUSALS.tsv-denominator-$TOTAL-OUTSIDE=0"
+fi
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
-    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL shipped OUTSIDE=$OUTSIDE · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
+    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT expected_refusals=$NREF${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): M3_FAIL/M4_FAIL/REJECT all read 0 over TOTAL=0 too (empty discovery) --
 # refuse before the vacuous-clean verdict below can be reached.
 "$HERE/util_require_population.sh" --gate test_pascal_fpc_suite "$TOTAL" 1 "pascal witnesses" || exit 2
-[ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ] && [ "$REJECT" -eq 0 ] && [ "$OUTSIDE" -eq 0 ]
+[ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ] && [ "$REJECT" -eq 0 ]
