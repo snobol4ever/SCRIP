@@ -93,6 +93,35 @@ def split(lines, path):
     return uses, hoist, body
 
 
+def joined(expr):
+    """`a, b, c` (top-level commas, outside parens, brackets, braces and quotes) as `(a) ~ (b) ~ (c)` -- print/say
+    concatenate their arguments without a separator, where a list in string context would insert spaces."""
+    parts, depth, q, cur = [], 0, None, ''
+    i = 0
+    while i < len(expr):
+        ch = expr[i]
+        if q:
+            cur += ch
+            if ch == '\\' and i + 1 < len(expr):
+                cur += expr[i + 1]; i += 1
+            elif ch == q:
+                q = None
+        elif ch in '"\'':
+            q = ch; cur += ch
+        elif ch in '([{':
+            depth += 1; cur += ch
+        elif ch in ')]}':
+            depth -= 1; cur += ch
+        elif ch == ',' and depth == 0:
+            parts.append(cur.strip()); cur = ''
+        else:
+            cur += ch
+        i += 1
+    parts.append(cur.strip())
+    parts = [p for p in parts if p]
+    return ' ~ '.join('(%s)' % p for p in parts) if len(parts) > 1 else '(%s)' % expr.strip()
+
+
 def quiet_line(l, path, ln):
     c = code(l)
     if not OUT_WORD.search(c) and not METHOD_OUT.search(c):
@@ -109,7 +138,7 @@ def quiet_line(l, path, ln):
         refuse('%s:%d: an output call that is not a whole `say E;` / `put E;` / `print E;` line: %r' % (path, ln, l.strip()))
     ind, verb, expr, mod = m.group(1), m.group(2), m.group(3), m.group(4) or ''
     nl = ' ~ "\\n"' if verb in ('say', 'put') else ''
-    return '%s$bench_c = $bench_c ~ (%s)%s%s;' % (ind, expr, nl, mod)
+    return '%s$bench_c = $bench_c ~ %s%s%s;' % (ind, joined(expr), nl, mod)
 
 
 def prints(block):
