@@ -2923,6 +2923,8 @@ static int pl_text_is_unbalanced(const char *s) {
             continue; }
         if (c == '\'' || c == '"' || c == '`') { char q = c; i++;
             for (;;) { if (!s[i]) return 1;
+                if (s[i] == '\\' && s[i + 1] >= '0' && s[i + 1] <= '7') { size_t j = i + 1; while (s[j] >= '0' && s[j] <= '7') j++; if (s[j] == '\\') j++; i = j; continue; }
+                if (s[i] == '\\' && (s[i + 1] == 'x' || s[i + 1] == 'X')) { size_t j = i + 2; while (isxdigit((unsigned char)s[j])) j++; if (s[j] == '\\') j++; i = j; continue; }
                 if (s[i] == '\\' && s[i + 1]) { i += 2; continue; }
                 if (s[i] == q) { if (s[i + 1] == q) { i += 2; continue; } break; }
                 i++; }
