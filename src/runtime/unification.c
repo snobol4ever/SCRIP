@@ -1211,23 +1211,6 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell, pl_tr_ctx_t *cx)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { pl_cell_t *seen[256]; int idx[256]; int n; int next; } pl_vord_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_pl_vord_of(pl_vord_t *m, pl_cell_t *d) {
-    for (int i = 0; i < m->n; i++) if (m->seen[i] == d) return m->idx[i];
-    int k = m->next++;
-    if (m->n < 256) { m->seen[m->n] = d; m->idx[m->n] = k; m->n++; }
-    return k;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_pl_vord_walk(pl_cell_t *c, pl_vord_t *m) {
-    pl_cell_t *d = pl_deref(c);
-    int t = (int)d->v;
-    if (pl_cell_unbound(d)) { rt_pl_vord_of(m, d); return; }
-    if (t == DT_PLREF) { int ar = (int)(d->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_vord_walk(&aa[i], m); return; }
-    if (t != DT_I && t != DT_A && t != DT_S && t != DT_R) m->next++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_cell_class(pl_cell_t *d) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) return 0;
@@ -1243,11 +1226,11 @@ static const char *rt_pl_cell_name(pl_cell_t *d) {
     return n ? n : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb, pl_vord_t *m) {
+static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) {
     pl_cell_t *a = pl_deref(ca), *b = pl_deref(cb);
     int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
     if (cla != clb) return cla < clb ? -1 : 1;
-    if (cla == 0) { int ia = rt_pl_vord_of(m, a), ib = rt_pl_vord_of(m, b); return ia == ib ? 0 : (ia < ib ? -1 : 1); }
+    if (cla == 0) return a == b ? 0 : ((uintptr_t)a < (uintptr_t)b ? -1 : 1);
     if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R)) return ((int)a->v == DT_R) ? -1 : 1;
     if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
     if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
@@ -1257,15 +1240,12 @@ static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb, pl_vord_t *m) {
     const char *na = prolog_atom_name((int)(a->slen >> 16)), *nb = prolog_atom_name((int)(b->slen >> 16));
     int c = strcmp(na ? na : "", nb ? nb : ""); if (c) return c < 0 ? -1 : 1;
     pl_cell_t *aa = (pl_cell_t *)a->p, *bb = (pl_cell_t *)b->p;
-    for (int i = 0; i < ara; i++) { int r = rt_pl_cell_compare(&aa[i], &bb[i], m); if (r) return r; }
+    for (int i = 0; i < ara; i++) { int r = rt_pl_cell_compare(&aa[i], &bb[i]); if (r) return r; }
     return 0;
 }
 int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
 {
-    pl_vord_t m; m.n = 0; m.next = 0;
-    rt_pl_vord_walk((pl_cell_t *)a_cell, &m);
-    rt_pl_vord_walk((pl_cell_t *)b_cell, &m);
-    int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
+    int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell);
     if (op == 0) return c < 0;
     if (op == 1) return c <= 0;
     if (op == 2) return c > 0;
@@ -1276,14 +1256,11 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell, pl_tr_ctx_t *cx)
 {
-    pl_vord_t m; m.n = 0; m.next = 0;
-    rt_pl_vord_walk((pl_cell_t *)a_cell, &m);
-    rt_pl_vord_walk((pl_cell_t *)b_cell, &m);
     pl_cell_t *o = pl_deref((pl_cell_t *)order_cell);
     if (!pl_cell_unbound(o)) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); const char *on = plc_is_atomlike(o) ? rt_pl_cell_name(o) : (const char *)0;
         if (!on) { if (cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "atom", *o); return 0; }
         if (strcmp(on, "<") && strcmp(on, "=") && strcmp(on, ">")) { if (cx && !cx->ball) cx->ball = rt_pl_ball_kind2("domain_error", "order", *o); return 0; } }
-    int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
+    int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell);
     const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
     const char *an = prolog_atom_name(prolog_atom_intern(nm));
     pl_cell_t ord; ord.v = DT_S; ord.slen = (uint32_t)(an ? strlen(an) : 0); ord.s = an ? an : nm;
@@ -1365,16 +1342,14 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_
         elems[n++] = &aa[0];
         cur = pl_deref(&aa[1]);
     }
-    pl_vord_t vm; vm.n = 0; vm.next = 0;
-    for (int i = 0; i < n; i++) rt_pl_vord_walk(elems[i], &vm);
     for (int i = 1; i < n; i++) {
         pl_cell_t *key = elems[i]; int j = i - 1;
-        while (j >= 0 && rt_pl_cell_compare(elems[j], key, &vm) > 0) { elems[j + 1] = elems[j]; j--; }
+        while (j >= 0 && rt_pl_cell_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; }
         elems[j + 1] = key;
     }
     int m = 0; int out_idx[4096];
     for (int i = 0; i < n; i++) {
-        if (!do_msort && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i], &vm) == 0) continue;
+        if (!do_msort && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
         out_idx[m++] = i;
     }
     pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
@@ -1422,17 +1397,15 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
     pl_cell_t *elems[4096];
     int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
     if (n < 0) return 0;
-    pl_vord_t vm; vm.n = 0; vm.next = 0;
-    for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     for (int i = 1; i < n; i++) {
         pl_cell_t *key = elems[i]; int j = i - 1;
-        if (is_setof) { while (j >= 0 && rt_pl_cell_compare(elems[j], key, &vm) > 0) { elems[j + 1] = elems[j]; j--; } }
-        else { while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, (pl_cell_t *)key->p, &vm) > 0) { elems[j + 1] = elems[j]; j--; } }
+        if (is_setof) { while (j >= 0 && rt_pl_cell_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; } }
+        else { while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, (pl_cell_t *)key->p) > 0) { elems[j + 1] = elems[j]; j--; } }
         elems[j + 1] = key;
     }
     int m = 0; int out_idx[4096];
     for (int i = 0; i < n; i++) {
-        if (is_setof && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i], &vm) == 0) continue;
+        if (is_setof && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
         out_idx[m++] = i;
     }
     pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
@@ -1452,11 +1425,9 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx)
     pl_cell_t *elems[4096];
     int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
     if (n < 0) return 0;
-    pl_vord_t vm; vm.n = 0; vm.next = 0;
-    for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     for (int i = 1; i < n; i++) {
         pl_cell_t *key = elems[i]; pl_cell_t *kkey = (pl_cell_t *)key->p; int j = i - 1;
-        while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, kkey, &vm) > 0) { elems[j + 1] = elems[j]; j--; }
+        while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, kkey) > 0) { elems[j + 1] = elems[j]; j--; }
         elems[j + 1] = key;
     }
     pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
@@ -1476,15 +1447,13 @@ int rt_pl_group_pairs_by_key_cell(void *list_cell, void *result_cell)
     pl_cell_t *elems[4096];
     int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
     if (n < 0) return 0;
-    pl_vord_t vm; vm.n = 0; vm.next = 0;
-    for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     pl_cell_t groups[4096]; int ng = 0;
     pl_cell_t nil = plc_nil_cell();
     int i = 0;
     while (i < n) {
         pl_cell_t *key = pl_deref(&((pl_cell_t *)elems[i]->p)[0]);
         pl_cell_t *vlist[4096]; int nv = 0; int j = i;
-        while (j < n && rt_pl_cell_compare(pl_deref(&((pl_cell_t *)elems[j]->p)[0]), key, &vm) == 0 && nv < 4096) { vlist[nv++] = &((pl_cell_t *)elems[j]->p)[1]; j++; }
+        while (j < n && rt_pl_cell_compare(pl_deref(&((pl_cell_t *)elems[j]->p)[0]), key) == 0 && nv < 4096) { vlist[nv++] = &((pl_cell_t *)elems[j]->p)[1]; j++; }
         pl_cell_t vals = nil;
         for (int k = nv - 1; k >= 0; k--) vals = plc_cons(dot_id, pl_make_ref(vlist[k], (int)vlist[k]->slen), vals);
         groups[ng++] = plc_cons(dash_id, pl_make_ref(key, (int)key->slen), vals);
