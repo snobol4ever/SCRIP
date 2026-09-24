@@ -1167,6 +1167,11 @@ static void pas_not_a_word_symbol(const char *n) {
 static void pas_label_in_range(long long v) {
     if (v < 0 || v > 9999) { fprintf(stderr, "pascal: ISO 7185 6.1.6 violation: the label %lld is not in the closed interval 0 to 9999\n", v); g_pas_iso_errors++; }
 }
+static void pas_real_is_not_ordinal(double v) {
+    if (g_pas_case_depth > 0) fprintf(stderr, "pascal: ISO 7185 6.8.3.5 violation: the case-constant %g is of type real, which is not an ordinal-type\n", v);
+    else fprintf(stderr, "pascal: ISO 7185 6.4.2.4 violation: the constant %g is of type real, and a subrange bound or a variant's case-constant (6.4.3.3) shall be of an ordinal-type\n", v);
+    g_pas_iso_errors++;
+}
 static void pas_program_params_distinct(PNodeList *ids) {
     for (int i = 0; ids && i < ids->count; i++) for (int j = 0; j < i; j++)
         if (ids->items[i] && ids->items[j] && ids->items[i]->v.sval && ids->items[j]->v.sval && !strcmp(ids->items[i]->v.sval, ids->items[j]->v.sval)) {
@@ -1408,7 +1413,7 @@ const_decl: IDENT EQOP REALCONST SEMICOLON { pas_rconst_add($1, $3); }
     | IDENT EQOP constant SEMICOLON { pas_const_add($1, $3); } ;
 constant:
     scalar_constant { $$ = $1; } | PLUS scalar_constant { $$ = $2; } | MINUS scalar_constant { $$ = -$2; } ;
-scalar_constant: IDENT { long long cv = 0; if ($1 && !strcmp($1, "true")) cv = 1; else if ($1 && !strcmp($1, "false")) cv = 0; else pas_const_get($1, &cv); $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } ;
+scalar_constant: IDENT { long long cv = 0; if ($1 && !strcmp($1, "true")) cv = 1; else if ($1 && !strcmp($1, "false")) cv = 0; else pas_const_get($1, &cv); $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { pas_real_is_not_ordinal($1); $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } ;
 type_decl_list:
     type_decl_list type_decl
     | type_decl
