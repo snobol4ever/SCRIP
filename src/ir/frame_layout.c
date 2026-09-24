@@ -260,10 +260,21 @@ static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int of
 static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN; }
 static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const IR_t ** k; int * v; size_t cap; } zls_nidx_t;
+static void zls_nidx_build(zls_nidx_t * m, const IR_graph_t * g) {
+    size_t cap = 16; while (cap < (size_t)g->n * 2 + 2) cap <<= 1;
+    m->k = (const IR_t **)ct_zalloc(cap, sizeof(*m->k)); m->v = (int *)ct_alloc(sizeof(int) * cap); m->cap = cap;
+    for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; size_t h = ((size_t)(uintptr_t)nd >> 4) & (cap - 1);
+        while (m->k[h] && m->k[h] != nd) h = (h + 1) & (cap - 1);
+        if (!m->k[h]) { m->k[h] = nd; m->v[h] = i; } }
+}
+static int zls_reuse_index(const zls_nidx_t * m, const IR_t * nd) { size_t h = ((size_t)(uintptr_t)nd >> 4) & (m->cap - 1); while (m->k[h]) { if (m->k[h] == nd) return m->v[h]; h = (h + 1) & (m->cap - 1); } return -1; }
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
+    zls_nidx_t nx; zls_nidx_build(&nx, g);
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
         if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_FENCE0 || c->op == IR_MATCH_FENCE1 || c->op == IR_GATE_ARM || c->op == IR_GATE) continue;
-        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
+        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; { int i = zls_reuse_index(&nx, p); if (i >= 0) live[i] = 1; } } }
+    ct_drop(nx.k); ct_drop(nx.v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant_elide(const IR_graph_t * g, const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
@@ -903,15 +914,6 @@ static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const 
     return j;
 }
 static int zls_reuse_reader_ok(IR_e op) { return zls_reuse_straight(op) || op == IR_CALL || op == IR_CALL_PROC_STAGED; }
-typedef struct { const IR_t ** k; int * v; size_t cap; } zls_nidx_t;
-static void zls_nidx_build(zls_nidx_t * m, const IR_graph_t * g) {
-    size_t cap = 16; while (cap < (size_t)g->n * 2 + 2) cap <<= 1;
-    m->k = (const IR_t **)ct_zalloc(cap, sizeof(*m->k)); m->v = (int *)ct_alloc(sizeof(int) * cap); m->cap = cap;
-    for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; size_t h = ((size_t)(uintptr_t)nd >> 4) & (cap - 1);
-        while (m->k[h] && m->k[h] != nd) h = (h + 1) & (cap - 1);
-        if (!m->k[h]) { m->k[h] = nd; m->v[h] = i; } }
-}
-static int zls_reuse_index(const zls_nidx_t * m, const IR_t * nd) { size_t h = ((size_t)(uintptr_t)nd >> 4) & (m->cap - 1); while (m->k[h]) { if (m->k[h] == nd) return m->v[h]; h = (h + 1) & (m->cap - 1); } return -1; }
 static int zls_reuse_dynamic(const IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { const IR_t * d = g->all[i]; if (!d) continue;
         if (d->op == IR_GOTO_DEFERRED || d->op == IR_GATE || d->op == IR_MATCH_DEFER || d->op == IR_MATCH_FENCE1) return 1;

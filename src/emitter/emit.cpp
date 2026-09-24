@@ -518,6 +518,16 @@ extern "C" int sno_name_prologue_bound(const char *);
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 static bb_slotmap_ent_t *g_bb_slotmap = NULL;
 static int g_bb_slotmap_n = 0;
+typedef struct { IR_t *key; int idx; uint32_t gen; } bb_slotix_t;
+static bb_slotix_t *g_bb_slotix = NULL; static uint32_t g_bb_slotix_cap = 0, g_bb_slotix_gen = 1;
+static void bb_slotix_insert(IR_t *nd, int i) { uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 11400714819323198485ull) & (g_bb_slotix_cap - 1);
+    while (g_bb_slotix[h].gen == g_bb_slotix_gen) { if (g_bb_slotix[h].key == nd) return; h = (h + 1) & (g_bb_slotix_cap - 1); }
+    g_bb_slotix[h].key = nd; g_bb_slotix[h].idx = i; g_bb_slotix[h].gen = g_bb_slotix_gen; }
+static void bb_slotix_add(IR_t *nd, int i) {
+    if ((uint64_t)g_bb_slotmap_n * 2 > g_bb_slotix_cap) { uint32_t nc = g_bb_slotix_cap ? g_bb_slotix_cap * 2 : 1024; while ((uint64_t)nc < (uint64_t)g_bb_slotmap_n * 2) nc *= 2;
+        ct_drop(g_bb_slotix); g_bb_slotix = (bb_slotix_t *)ct_zalloc(nc, sizeof(bb_slotix_t)); g_bb_slotix_cap = nc; g_bb_slotix_gen = 1;
+        for (int k = 0; k < g_bb_slotmap_n; k++) bb_slotix_insert(g_bb_slotmap[k].key, k); return; }
+    bb_slotix_insert(nd, i); }
 static int g_bb_slotmap_max = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_slotmap_push(IR_t *nd, int off) {
@@ -528,10 +538,13 @@ static void bb_slotmap_push(IR_t *nd, int off) {
         g_bb_slotmap = g; g_bb_slotmap_max = new_max;
     }
     g_bb_slotmap[g_bb_slotmap_n].key = nd; g_bb_slotmap[g_bb_slotmap_n].off = off; g_bb_slotmap_n++;
+    bb_slotix_add(nd, g_bb_slotmap_n - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_slot_get(IR_t *nd) {
-    for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off;
+    if (!g_bb_slotix || !g_bb_slotmap_n) { for (int i = 0; i < g_bb_slotmap_n; i++) if (g_bb_slotmap[i].key == nd) return g_bb_slotmap[i].off; return -1; }
+    uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 11400714819323198485ull) & (g_bb_slotix_cap - 1);
+    while (g_bb_slotix[h].gen == g_bb_slotix_gen) { if (g_bb_slotix[h].key == nd) return g_bb_slotmap[g_bb_slotix[h].idx].off; h = (h + 1) & (g_bb_slotix_cap - 1); }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4003,7 +4016,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     emit_chain_mark_entry_emitted(entry);
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);
-    g_bb_slotmap_n = 0;
+    g_bb_slotmap_n = 0; g_bb_slotix_gen++;
     g_flat_chain_set_n = 0;
     { extern void bb_scc_handoff_reset(void); bb_scc_handoff_reset(); }
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }
