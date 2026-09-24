@@ -49,11 +49,21 @@ census)
   # neither. ⛔ ONE line ends "never compared in its file: N", on purpose: the row's DONE-WHEN greps that suffix, and two lines ending in
   # it would let either one's zero pass the criterion for both.
   [ "$(head -1 "$T/c.tsv" | cut -f8-9,11)" = "$(printf 'guard\tconst\tfill')" ] || { echo "REFUSE(2): the census TSV carries no guard/const/fill columns -- an older census cannot be read by these lines"; exit 2; }
+  # ⭐ THE CLASS A/B DECLARATION IS A FIXTURE (ceo CEO-1234 (1)): a table CLASS_AB.tsv names, with the measurement that earned its class,
+  # leaves the no-guard and drop lines as a const table does by rule; the ratchet COUNT is unchanged; a row naming a table the tree no
+  # longer declares is RED (a stale keep-list is one nobody notices has stopped applying).
+  AB=scripts/fixtures/dyn_caps/CLASS_AB.tsv; [ -f "$AB" ] || { echo "REFUSE(2): no class A/B declaration at $AB"; exit 2; }
+  abad=$(awk -F'\t' '!/^#/ && NF && (NF < 4 || ($3 != "A" && $3 != "B") || $4 == "") {print "  line " FNR ": " substr($0, 1, 100)}' "$AB")
+  [ -z "$abad" ] || { echo "REFUSE(2): $AB rows that are not file<TAB>name<TAB>A|B<TAB>reason:"; printf '%s\n' "$abad"; exit 2; }
   base=$(cat "$B"); n=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field")' "$T/c.tsv" | wc -l)
-  u=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="NONE" && $9==""' "$T/c.tsv" | wc -l)
-  d=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="DROP" && $9==""' "$T/c.tsv" | wc -l)
+  u=$(awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="NONE" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
+  d=$(awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="DROP" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
+  nab=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && (($1 SUBSEP $2) in have)' "$T/c.tsv" "$AB" | wc -l)
+  stale=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && !(($1 SUBSEP $2) in have) {print "  " $1 ":" $2}' "$T/c.tsv" "$AB")
   echo "fixed-bound declarations at file, static or field scope: $n (baseline $base); with no capacity guard at a fill, by a macro or a literal bound -- compared only as an index or an iteration, or never compared in its file: $u"
   echo "guards that drop or truncate at the cap: $d"
+  echo "declared class A or B by $AB (out of the two lines above, in the count): $nab table(s); stale declarations: $(printf '%s' "$stale" | grep -c .)"
+  [ -z "$stale" ] || { echo "RED: $AB declares a table the tree no longer declares -- remove the row in the landing that removed the table:"; printf '%s\n' "$stale"; red=1; }
   # ⭐ THE SECOND POPULATION (CEO-1231 (1), stage 2): every local a program's data fills -- the census's fill column names how (COUNTER,
   # CALLEE:f, FORMAT:f, COPY:f, READ:f, PATH:f); B:<why> is fixed by construction and out; const is read-only and out. Unguarded is DROP
   # and NONE together (CEO-1231 (2): a drop is not a guard); guarded is LOUD, which the reader also gives a GROW (the at-cap path

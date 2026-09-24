@@ -1,0 +1,26 @@
+# CLASS_AB.tsv -- the fixed tables that STAY FIXED, declared (ceo CEO-1234 (1), 2026-09-24, on the coo's ask; the page
+# .github/ARCH-DYNAMIC-STORAGE.md section 2 is the rule, this file is its machine form and the page points here).
+# FORMAT: file<TAB>name<TAB>class<TAB>reason -- class A (bounded by the machine or the language definition) or B (scratch for one
+# value of fixed width); the reason carries THE MEASUREMENT THAT EARNED THE CLASS, never an opinion.
+# READ BY util_dyn_caps_witness.sh census: a declared table leaves the no-guard and drop lines (only a const table leaves them by
+# rule, CEO-1234); the ratchet COUNT is unchanged (a class-A table still lands with its BASELINE step). A row naming a table the
+# tree no longer declares is a ratchet RED -- a stale declaration is a keep-list nobody notices has stopped applying.
+# ⛔ NOT HERE: a table the page lists as class C (convert it), and instrumentation the page says must refuse loudly (guard it).
+src/ir/scrip_ir.c	kind_names	A	an enum's count (IR_OP_COUNT, the page's own example): one name per IR op, initialized at its declaration and never written (2 references in src/, the declaration and one read at scrip_ir.c:148, bounds-checked k < IR_OP_COUNT)
+src/tools/emit_per_kind_audit.c	g_audit_nodes	A	an enum's count (IR_OP_COUNT): one scratch node per IR op in the per-kind audit tool, indexed only by the enum (emit_per_kind_audit.c:520, &g_audit_nodes[(int)ke->kind])
+src/tools/emit_per_kind_audit.c	g_audit_sm	A	an enum's count (SM_OPCODE_COUNT): one scratch instruction per SM opcode in the per-kind audit tool, indexed only by the enum (emit_per_kind_audit.c:539, &g_audit_sm[(int)oe->op])
+src/runtime/core/core.c	g_nv_memo_key	A	an and-masked cache (the cto 2026-09-23 22:1x: the and-masked caches go on the page): NV_MEMO_N 2048 is a power of two and the one index is a hash & (NV_MEMO_N - 1) (core.c:3218); a full slot is overwritten and a miss takes the full lookup, so no program datum is dropped
+src/runtime/core/core.c	g_nv_memo_val	A	the value column of the same and-masked cache as g_nv_memo_key (core.c:3218 index, :3224 the one write)
+src/runtime/core/core.c	g_nv_memo_seen	A	the generation column of the same and-masked cache as g_nv_memo_key (core.c:3218 index, :3224 the one write)
+src/runtime/pattern_match.c	g_dcap_nv_key	A	an and-masked cache (the cto 2026-09-23 22:1x): RT_DCAP_NVCACHE_N 16 is a power of two and both index sites are a hash & (RT_DCAP_NVCACHE_N - 1) (pattern_match.c:721 and :799); a full slot is overwritten and a miss returns 0 to the uncached path
+src/runtime/pattern_match.c	g_dcap_nv_cell	A	the cell column of the same and-masked cache as g_dcap_nv_key (pattern_match.c:721, :799)
+src/runtime/pattern_match.c	g_dcap_nv_seen	A	the generation column of the same and-masked cache as g_dcap_nv_key (pattern_match.c:721, :799)
+src/runtime/rt/gc_heap.c	g_gc_rep_ranges	A	GC_REP_POPS 5 (the page names it): one slot per heap-walk population, the five of g_gc_rep_popname {other, cstack, seam, heapblk, parked} (gc_heap.c:1073); the index g_gc_rep_pop is only ever assigned 0..4 by gc_seg_next (gc_heap.c:1033-1050)
+src/runtime/rt/gc_heap.c	g_gc_rep_bytes	A	GC_REP_POPS 5: a column of the same five-population report as g_gc_rep_ranges (gc_heap.c:1074)
+src/runtime/rt/gc_heap.c	g_gc_rep_agree	A	GC_REP_POPS 5: a column of the same five-population report as g_gc_rep_ranges (gc_heap.c:1074)
+src/runtime/rt/gc_heap.c	g_gc_rep_map_only	A	GC_REP_POPS 5: a column of the same five-population report as g_gc_rep_ranges (gc_heap.c:1074)
+src/runtime/rt/gc_heap.c	g_gc_rep_sniff_only	A	GC_REP_POPS 5: a column of the same five-population report as g_gc_rep_ranges (gc_heap.c:1074)
+src/runtime/rt/gc_heap.c	g_gc_rep_raw	A	GC_REP_POPS 5: a column of the same five-population report as g_gc_rep_ranges (gc_heap.c:1074)
+src/runtime/rt/gc_heap.c	g_gw	A	GC_REP_POPS 5: one walk record per population, indexed by g_gc_rep_pop (0..4) and by loops k < GC_REP_POPS (gc_heap.c:1202, 1214, 1264)
+src/runtime/rt/rt_slab.c	g_free	A	NKLASS 3 (the page names it): one free list per slab size class, every index checked k < NKLASS (rt_slab.c:21) or a slab's own klass, which is assigned only that k (rt_slab.c:32, 44-45)
+src/runtime/rt/bbprof.c	g_altstack	A	the machine: the profiler's signal alternate stack, whose one use is ss.ss_sp for sigaltstack (bbprof.c:73) -- the kernel writes it on signal delivery; no program datum enters it
