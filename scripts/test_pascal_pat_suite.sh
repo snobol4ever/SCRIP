@@ -46,6 +46,17 @@ declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
 TOTAL=0; NAMED=""; UNGRADABLE=0
 PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
+# ⛔⭐ THE CEO-749 SHAPE FOR A REJECTION TEST THAT CARRIES NO ISO VIOLATION (ceo CEO-1231, 2026-09-24, on hq_pascal's ask
+# q-pascal-pat-1834-and-1850-carry-no-iso-violation). OUTSIDE_ISO_BASELINE.tsv beside the package names each iso7185prt program whose
+# supposed violation ISO 7185 does not make an error (CLASS not-an-iso-error; Pascal-P5's own transcript reads "Errors in program: 0"),
+# with that measurement. A listed program STAYS IN THE DENOMINATOR (PASS over SHIPPED, OUTSIDE=k named and stamped through
+# lib_outside_shape.sh) and is not graded as a rejection -- but it is CROSS-CHECKED on every run the other way round: a conforming
+# compiler ACCEPTS it, so SCRIP must compile it without an ISO diagnostic, and one SCRIP refuses is reported STALE and graded like any
+# other rejection test. The ceiling is TOTAL - OUTSIDE by ruling, never by silence.
+OUTSIDE_TSV="$SUITE/OUTSIDE_ISO_BASELINE.tsv"; declare -A OUTSIDE_SET=(); OUTSIDE=0; OUTSIDE_NAMES=(); STALE_NAMES=()
+if [ -f "$OUTSIDE_TSV" ]; then
+    while IFS=$'\t' read -r _on _orest; do case "$_on" in ''|'#'*) continue;; esac; OUTSIDE_SET[${_on%.pas}]=1; done < "$OUTSIDE_TSV"
+fi
 # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06), accumulated across BOTH populations below -- the rejection
 # tests and the acceptance tests -- because both feed the one TOTAL this row is stated over. A per-program
 # accumulator is the only shape that survives two loops; a post-hoc min() of P[m3] and P[m4] would not even be
@@ -55,6 +66,15 @@ BOTH=0
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
     b="$(basename "$f" .pas)"; TOTAL=$((TOTAL+1)); okboth=1
+    if [ -n "${OUTSIDE_SET[$b]:-}" ]; then
+        _oerr="$(cd "$TMP" && timeout 8s "$SCRIP" --dump-ast "$f" </dev/null 2>&1 >/dev/null)"; _orc=$?
+        if [ "$_orc" -eq 0 ] && ! printf '%s' "$_oerr" | grep -q 'ISO 7185'; then
+            OUTSIDE=$((OUTSIDE+1)); OUTSIDE_NAMES+=("$b")
+            for m in m3 m4; do printf 'package\tpat\tpascal\t%s\t%s\tUNGRADED\t0\toutside-iso-baseline-not-an-iso-error\n' "$b" "$m" >>"$PROG_ROWS"; done
+            continue
+        fi
+        STALE_NAMES+=("$b")
+    fi
     for m in m3 m4; do
         # ⛔⭐ A TIMEOUT ON A REJECTION TEST IS "ACCEPTED", NOT "CRASHED" — and the 2s bound is a CONSEQUENCE of that,
         # not a guess. A program the front end refuses dies in ~10ms; one that reaches the timeout is one scrip
@@ -182,7 +202,9 @@ for f in "$SUITE"/iso7185pat*.pas; do
 done
 # ⛔ A RUNNER THAT GRADED NOTHING MUST NEVER PRINT THE SUCCESS SHAPE (the seven-point standard, point 3).
 [ "$TOTAL" -gt 0 ] || refuse "graded ZERO programs over $SUITE -- refusing to print a board with no denominator"
-echo "PAT_SUITE_BOARD total=$TOTAL both_pass=$BOTH m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]}"
+echo "PAT_SUITE_BOARD total=$TOTAL both_pass=$BOTH m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]} outside=$OUTSIDE"
+if [ "$OUTSIDE" -gt 0 ]; then echo "-- OUTSIDE the ISO baseline ($OUTSIDE, named in OUTSIDE_ISO_BASELINE.tsv, CLASS not-an-iso-error, accepted as ISO 7185 requires, kept in the denominator): ${OUTSIDE_NAMES[*]}"; fi
+if [ "${#STALE_NAMES[@]}" -gt 0 ]; then echo "⚠ OUTSIDE_ISO_BASELINE.tsv STALE -- listed as carrying no ISO violation, but this compiler REFUSED them, so they were graded as rejection tests: ${STALE_NAMES[*]}"; fi
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is measured
 # FRESH from the vendored dir every run (both iso7185prt* and iso7185pat* globs), never assumed from
 # TOTAL alone -- a file added to $SUITE after this script was last touched must show up as ungraded,
@@ -254,9 +276,13 @@ fi
 # ⭐ AND THIS TEXT ALSO CARRIES A FRACTION-SHAPED DIAGNOSTIC -- the "(N/M crash)" counts -- which any
 # text-parsing rule would read as one more distinct fraction. Declaring the pair makes the parse moot: the
 # overrides short-circuit it entirely, so no diagnostic that merely LOOKS like a fraction can move this row.
+. "$HERE/lib_outside_shape.sh" || exit 2
+_cc="${S4E_CRITERION_CHANGED:-}"
+if [ -z "$_cc" ]; then _cc="$(outside_shape_stamp pat "$TOTAL" "$OUTSIDE")" || exit 2; _cc="${_cc//OUTSIDE_SPITBOL_BASELINE/OUTSIDE_ISO_BASELINE}"; fi
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
     --suite-pass "$BOTH" --suite-total "$TOTAL" \
+    ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" \
-    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $BOTH/$TOTAL · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}) — $TOTAL programs, of which 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
+    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $BOTH/$TOTAL shipped OUTSIDE=$OUTSIDE · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}) — $TOTAL programs, of which 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 exit 0
