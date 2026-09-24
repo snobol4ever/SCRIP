@@ -32,6 +32,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_icn_rundir.sh" || { echo "⛔ REFUSES rc=2: cannot load lib_icn_rundir.sh -- THE ONE run-directory contract reader" >&2; exit 2; }
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="$(cd "$HERE/.." && pwd)/out"
 RT_SO="$RT_DIR/libscrip_rt.so"
@@ -48,21 +49,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ⛔ A RUNNER THAT CANNOT MEASURE REFUSES rc=2 -- these three exited 0 as "SKIP", which a caller reads as a green board
 if [ ! -x "$SCRIP" ]; then
-    echo "SKIP scrip binary not found at $SCRIP" >&2
-    exit 0
+    echo "⛔ REFUSES rc=2: scrip binary not found at $SCRIP -- nothing was examined" >&2
+    exit 2
 fi
 if [ ! -f "$RT_SO" ]; then
-    echo "SKIP libscrip_rt.so not found at $RT_SO (run: make libscrip_rt)" >&2
-    exit 0
+    echo "⛔ REFUSES rc=2: libscrip_rt.so not found at $RT_SO (run: make) -- nothing was examined" >&2
+    exit 2
 fi
 if [ ! -d "$CORPUS" ]; then
-    echo "SKIP corpus not found at $CORPUS" >&2
-    echo "     clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
-    exit 0
+    echo "⛔ REFUSES rc=2: corpus not found at $CORPUS -- nothing was examined" >&2
+    exit 2
 fi
 
-PASS=0; FAIL=0; XFAIL=0
+PASS=0; FAIL=0; XFAIL=0; MISSING=0; INVALID=0
 D_EMIT=0; D_LINK=0; D_CRASH=0; D_TIMEOUT=0; D_OUTPUT=0; D_DIRTYPASS=0
 declare -a SUITE_FILES=()
 # converted-family discriminator (see header note): a .ref sibling AND corpus_suite_harness.py's section banners
@@ -113,32 +114,44 @@ run_one() {
     local icn="$1"
     local tmo="${2:-8}"
     local exp="${icn%.icn}.ref"
-    [ -f "$exp" ] || return 0
     local base="${icn%.icn}"
     local name
     name=$(basename "$icn" .icn)
+    # the m3 twin's MISSING/INVALID law: a pairless file icont refuses is not a board member, one it compiles owes a ref
+    if [ ! -f "$exp" ]; then
+        if icn_oracle_refuses "$icn"; then echo "INVALID $name (no .ref, and icont refuses the source: not a board member)"; INVALID=$((INVALID+1)); return 0; fi
+        echo "MISSING $name (no .ref oracle)"; MISSING=$((MISSING+1)); return 0
+    fi
     if [ -f "${base}.xfail" ]; then
         echo "XFAIL $name"
         XFAIL=$((XFAIL+1))
         r36_tally "$name" XFAIL
         return 0
     fi
-    local stdin_file="${base}.stdin"
-    local tdir tfn
-    tdir=$(dirname "$icn"); tfn=$(basename "$icn")
-    local asm="$WORK/$name.s" bin="$WORK/$name"
-    if ! (cd "$tdir" && timeout "$tmo" "$SCRIP" --compile "$tfn" < /dev/null) > "$asm" 2>"$WORK/$name.emit_err" || [ ! -s "$asm" ]; then
+    # ⛔ THE RUN-DIRECTORY CONTRACT, THE M3 TWIN'S OWN (lib_icn_rundir.sh): stdin from NAME.stdin or config/NAME.stdin, argv,
+    # fixtures and env as declared, run from a scratch cwd. This twin read only NAME.stdin beside the source, so every tests/icon
+    # stdin witness (all of them live in config/) ran starved -- seven loose rung36 programs red in m4 and green in m3 on one
+    # binary -- and it ran from the corpus directory, so what a program wrote landed in the source tree.
+    local stdin_file; stdin_file="$(icn_rundir_stdin "$icn")"
+    local -a rd_argv=() rd_env=(); local rd_rc
+    local sdir tdir="$WORK/cwd"; sdir=$(dirname "$icn"); mkdir -p "$tdir"
+    if icn_rundir_declares "$icn"; then
+        rd_rc=0; icn_rundir_argv "$icn" rd_argv || rd_rc=$?
+        if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed argv declaration" >&2; exit 2; fi
+        rd_rc=0; icn_rundir_env "$icn" rd_env || rd_rc=$?
+        if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed env declaration" >&2; exit 2; fi
+        tdir="$(icn_rundir_make "$icn" "$WORK")" || { echo "⛔ REFUSE(2) $name: could not stage the declared fixtures" >&2; exit 2; }
+    fi
+    local asm="$WORK/$name.s" bin="$WORK/bin/$name"; mkdir -p "$WORK/bin"
+    if ! (cd "$sdir" && timeout "$tmo" "$SCRIP" --compile "$(basename "$icn")" < /dev/null) > "$asm" 2>"$WORK/$name.emit_err" || [ ! -s "$asm" ]; then
         D_EMIT=$((D_EMIT+1)); fail_one "$name" "emit"; return 0
     fi
     if ! timeout 30 gcc -no-pie "$asm" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$bin" 2>"$WORK/$name.link_err"; then
         D_LINK=$((D_LINK+1)); fail_one "$name" "link"; return 0
     fi
     local got rc
-    if [ -f "$stdin_file" ]; then
-        got=$( (cd "$tdir" && timeout "$tmo" "$bin") < "$stdin_file" 2>/dev/null); rc=$?
-    else
-        got=$( (cd "$tdir" && timeout "$tmo" "$bin") < /dev/null     2>/dev/null); rc=$?
-    fi
+    # the binary runs under its BARE STEM found on PATH (CEO-624: &progname is the stem in both modes), argv after it
+    got=$( (cd "$tdir" && PATH="$WORK/bin:$PATH" timeout "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$name" ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null); rc=$?
     local want
     want=$(cat "$exp")
     local dirty="" 
@@ -227,5 +240,5 @@ echo "--- rung36 by category ---"
 done
 
 echo "--- m4 dirt: EMIT=$D_EMIT LINK=$D_LINK CRASH=$D_CRASH TIMEOUT=$D_TIMEOUT OUTPUT=$D_OUTPUT DIRTYPASS=$D_DIRTYPASS ---"
-echo "--- Icon --compile: PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
-[ "$FAIL" -eq 0 ]
+echo "--- Icon --compile: PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL MISSING=$MISSING INVALID=$INVALID TOTAL=$((PASS+FAIL+XFAIL)) ---"
+[ "$FAIL" -eq 0 ] && [ "$MISSING" -eq 0 ]

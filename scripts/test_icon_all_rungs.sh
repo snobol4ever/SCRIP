@@ -58,7 +58,7 @@ if [ ! -d "$CORPUS" ]; then
     exit 0
 fi
 
-PASS=0; FAIL=0; XFAIL=0; XPASS=0; BADEXIT=0; MISSING=0
+PASS=0; FAIL=0; XFAIL=0; XPASS=0; BADEXIT=0; MISSING=0; INVALID=0
 ICN_SCRATCH=$(mktemp -d)
 trap 'rm -rf "$ICN_SCRATCH"' EXIT
 declare -a SUITE_FILES=()
@@ -107,6 +107,8 @@ run_one() {
     local name
     name=$(basename "$icn" .icn)
     if [ ! -f "$exp" ]; then
+        # a pairless file the ORACLE refuses is not a board member (lib_icn_rundir.sh icn_oracle_refuses); one it compiles owes a ref
+        if icn_oracle_refuses "$icn"; then echo "INVALID $name (no .ref, and icont refuses the source: not a board member)"; INVALID=$((INVALID+1)); return 0; fi
         echo "MISSING $name (no .ref oracle)"
         MISSING=$((MISSING+1))
         return 0
@@ -268,7 +270,7 @@ done
 # printing "XPASS=0" on every green board forever would just be noise on top of noise.
 summary_line="--- Icon --run: PASS=$PASS FAIL=$FAIL BADEXIT=$BADEXIT XFAIL=$XFAIL"
 [ "$XPASS" -gt 0 ] && summary_line="$summary_line XPASS=$XPASS"
-summary_line="$summary_line MISSING=$MISSING TOTAL=$((PASS+FAIL+BADEXIT+XFAIL+XPASS)) ---"
+summary_line="$summary_line MISSING=$MISSING INVALID=$INVALID TOTAL=$((PASS+FAIL+BADEXIT+XFAIL+XPASS)) ---"
 echo "$summary_line"
 if [ "$BADEXIT" -gt 0 ]; then
     echo "--- BADEXIT = stdout matched .ref but the process exit status did not. Before hq_P s272 these"

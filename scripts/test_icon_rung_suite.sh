@@ -40,6 +40,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_icn_rundir.sh" || { echo "⛔ REFUSES rc=2: cannot load lib_icn_rundir.sh" >&2; exit 2; }
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
@@ -85,19 +86,31 @@ trap 'rm -rf "$WORK"' EXIT
 # run a single program in a given mode, echoing its stdout; stderr captured separately to /tmp banner probe.
 # For compile: emit .s -> assemble -> link libscrip_rt.so -> run. Any toolchain failure yields empty stdout
 # (so a non-[SMX] toolchain failure shows up as a FAIL, exactly as silent-wrong would — honest).
+# ⛔ THE RUN-DIRECTORY CONTRACT (lib_icn_rundir.sh, the m3 twin's own): run_contract sets RP_TDIR/RP_ARGV/RP_ENV for one witness
+# in THIS shell, so a malformed declaration refuses the whole board -- run_prog runs inside $( ), where an exit only ends the
+# subshell. This runner fed stdin but no argv, fixtures or env and ran from the caller's cwd, so rung36_jcon_io and
+# rung36_jcon_recent read red in all three modes for the harness's reasons, not SCRIP's.
+declare -a RP_ARGV=() RP_ENV=(); RP_TDIR=""
+run_contract() {
+    local icn="$1" name rd_rc; name=$(basename "$icn" .icn)
+    RP_ARGV=(); RP_ENV=(); RP_TDIR="$WORK/cwd"; mkdir -p "$RP_TDIR"
+    icn_rundir_declares "$icn" || return 0
+    rd_rc=0; icn_rundir_argv "$icn" RP_ARGV || rd_rc=$?
+    if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed argv declaration" >&2; exit 2; fi
+    rd_rc=0; icn_rundir_env "$icn" RP_ENV || rd_rc=$?
+    if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed env declaration" >&2; exit 2; fi
+    RP_TDIR="$(icn_rundir_make "$icn" "$WORK")" || { echo "⛔ REFUSE(2) $name: could not stage the declared fixtures" >&2; exit 2; }
+}
 run_prog() {
     local mode="$1" icn="$2" tmo="$3" errf="$4"
-    local base name s o bin stdin_file
+    local name s o bin
     name=$(basename "$icn" .icn)
-    base="${icn%.icn}"
-    stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
-    local IN=/dev/null
-    [ -f "$stdin_file" ] && IN="$stdin_file"
+    local IN; IN="$(icn_rundir_stdin "$icn")"
     case "$mode" in
-        interp)  timeout "$tmo" "$SCRIP" --run "$icn" < "$IN" 2>"$errf" ;;
-        run)     timeout "$tmo" "$SCRIP" --run    "$icn" < "$IN" 2>"$errf" ;;
+        interp)  (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
+        run)     (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
         compile)
-            s="$WORK/$name.s"; o="$WORK/$name.o"; bin="$WORK/${name}_bin"
+            s="$WORK/$name.s"; o="$WORK/$name.o"; mkdir -p "$WORK/bin"; bin="$WORK/bin/$name"
             if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
                 return 1   # emit failed; a loud [SMX] banner in errf still wins (REFUSED) in run_corpus
             fi
@@ -105,7 +118,7 @@ run_prog() {
             if grep -qE "$SMX_SIG" "$errf"; then return 0; fi
             if ! as "$s" -o "$o" 2>>"$errf"; then return 1; fi
             if ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then return 1; fi
-            timeout "$tmo" "$bin" < "$IN" 2>>"$errf"
+            (cd "$RP_TDIR" && PATH="$WORK/bin:$PATH" timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$name" ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>>"$errf"
             ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac
@@ -141,7 +154,7 @@ collect_files() {
 # run the whole collected set in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 XPASS=0 REFUSED=0 BADEXIT=0 MISSING=0
+    local PASS=0 FAIL=0 XFAIL=0 XPASS=0 REFUSED=0 BADEXIT=0 MISSING=0 INVALID=0
     MODE_FAIL=0
     local icn base name exp got want errf rc want_rc is_xfail
     errf="$WORK/err.txt"
@@ -150,6 +163,8 @@ run_corpus() {
         base="${icn%.icn}"
         name=$(basename "$icn" .icn)
         if [ ! -f "$exp" ]; then
+            # a pairless file the ORACLE refuses is not a board member (lib_icn_rundir.sh icn_oracle_refuses); one it compiles owes a ref
+            if icn_oracle_refuses "$icn"; then [ "$VERBOSE" = 1 ] && echo "INVALID $name (no .ref, and icont refuses the source)"; INVALID=$((INVALID+1)); continue; fi
             [ "$VERBOSE" = 1 ] && echo "MISSING $name (no .ref oracle)"
             MISSING=$((MISSING+1)); MODE_FAIL=1; continue
         fi
@@ -162,6 +177,7 @@ run_corpus() {
         is_xfail=0
         [ -f "${base}.xfail" ] && is_xfail=1
         : > "$errf"
+        run_contract "$icn"
         got=$(run_prog "$mode" "$icn" 8 "$errf"); rc=$?
         # loud-refuse -> REFUSED (expected mid-Ground-Zero, NOT a FAIL). interp never refuses.
         if [ "$mode" != interp ] && grep -qE "$SMX_SIG" "$errf"; then
@@ -263,6 +279,7 @@ run_corpus() {
     if [ "$XPASS" -gt 0 ]; then line="$line XPASS=$XPASS"; fi
     if [ "$REFUSED" -gt 0 ]; then line="$line REFUSED=$REFUSED"; total=$((total+REFUSED)); fi
     if [ "$MISSING" -gt 0 ]; then line="$line MISSING=$MISSING"; fi
+    if [ "$INVALID" -gt 0 ]; then line="$line INVALID=$INVALID"; fi
     echo "--- Icon ($mode): $line TOTAL=$total ---"
 }
 

@@ -139,3 +139,21 @@ icn_rundir_make() {
   ipl_fixtures_stage "$icn" "$dir" || { rm -rf "$dir"; return 2; }
   printf '%s\n' "$dir"
 }
+
+# icn_oracle_refuses "$icn" -- 0 when Arizona icont REFUSES to compile the source, 1 when it compiles it, 2 when the oracle
+# cannot be reached. ⛔ A PAIRLESS FILE THE ORACLE REFUSES IS NOT A BOARD MEMBER (tests/icon KEEP.md "DELIBERATELY-INVALID
+# ICON": rung16_seqexpr_gen_basic, rung20_section_seqexpr_excluded): with no .ref and no program the oracle accepts there is
+# nothing to grade either way, and the rung runners counted both as MISSING, which kept every rung board red forever on two
+# declared keepers (the ruling-xfail-stays-loose-and-your-2-files-are-a-runner-defect mail). A pairless file icont COMPILES
+# stays MISSING -- an oracle answer exists and its ref is owed. An unreachable oracle answers 2, and callers treat that as
+# "not refused", so a missing oracle can only ever keep a file MISSING, never excuse it.
+icn_oracle_refuses() {
+  local icn="$1" ic t rc
+  . "$_ICN_RUNDIR_HERE/lib_oracle_flags.sh" 2>/dev/null || return 2
+  ic="$(icont_bin 2>/dev/null)" || return 2
+  t="$(mktemp -d)" || return 2
+  ( cd "$t" && "$ic" -s -o x "$icn" ) >/dev/null 2>&1; rc=$?
+  rm -rf "$t"
+  [ "$rc" -ne 0 ] && return 0
+  return 1
+}
