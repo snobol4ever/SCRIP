@@ -860,15 +860,19 @@ s4e_lane_owner_of_language() {
       # building or grading is void (the cfo's flakiness finding plus CEO-1107's own rebuild-under-a-board), which is
       # the second reason the layer split is the right one -- the cto's half is compile-and-gate work and needs almost
       # no master passes, and the ceo's half is what needs them.
-       icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
-       snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'hq_pascal';;
-       snocone)  printf 'hq_snocone';;
-       # ⛔ 2026-09-23 02:4x CDT ceo (CEO-1178, Lon verbatim: "All officers are stood down."): the cfo is stood down, so the closed
-       # Rebus lane (43/43) is the ceo's custody -- MODE line 2 THE SEATS reads REBUS -- the ceo and LANES: rebus=ceo; this table agrees.
+       # ⛔ MODE CEO (CEO-1247, 2026-09-24 18:4x CDT, Lon in-chat to the ceo, verbatim: "The fleet is in CEO only mode." and "You, CEO, are
+       # seated as Fable 5.1 with max effort."): ONE SEAT HOLDS EVERY LANGUAGE for the SNOBOL4 speed campaign (CEO-1246). Written out per
+       # language, never collapsed to a default, for the reason every table above gives: the gate beside this compares it to MODE line 2
+       # LANGUAGE BY LANGUAGE. The DECTET mapping it replaces (icon=hq_icon prolog=hq_prolog snobol4=hq_snobol4 pascal=hq_pascal
+       # snocone=hq_snocone raku=hq_raku rebus=ceo, the last since CEO-1178) is the flip-back template; this table moves BEFORE the MODE
+       # file (CEO-1051's order: a flip that forgets its table reds make preflight for every seat).
+       icon)     printf 'ceo';;
+       prolog)   printf 'ceo';;
+       snobol4)  printf 'ceo';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
