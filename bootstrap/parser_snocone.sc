@@ -174,13 +174,11 @@ Expr0           =   *Expr1 FENCE(
 /* Recurring body shape: brace-delimited list of Commands → TT_PROGRAM node. */
 ThenBlock       =   nPush() $'{' ARBNO(*Command) $'}' reduce("'TT_PROGRAM'", 'nTop()') nPop();
 /* if_cmd → TT_IF(cond, then_block) or TT_IF(cond, then_block, else_block) */
-ElseBranch      =   $'else' ( *ThenBlock
-                             | *if_cmd
-                             );
-if_cmd          =   $'if' $'(' *Expr0 $')' *ThenBlock
+ElseBranch      =   $'else' *ForBody;
+if_cmd          =   $'if' $'(' *Expr0 $')' *ForBody
                     FENCE(*ElseBranch reduce("'TT_IF'", 3) | reduce("'TT_IF'", 2));
 /* while_cmd → TT_WHILE(cond, body) */
-while_cmd       =   $'while' $'(' *Expr0 $')' *ThenBlock reduce("'TT_WHILE'", 2);
+while_cmd       =   $'while' $'(' *Expr0 $')' *ForBody reduce("'TT_WHILE'", 2);
 /* do_cmd → TT_DO_WHILE(body, cond) */
 do_cmd          =   $'do' *ThenBlock $'while' $'(' *Expr0 $')' ($';' | epsilon)
                     reduce("'TT_DO_WHILE'", 2);
