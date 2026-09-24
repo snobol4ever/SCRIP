@@ -10,16 +10,17 @@
 # The tag-type is checked when it resolves to Boolean, an enumerated type or a subrange of at most 4096 values; integer and char
 # tag-types are left alone.
 #
-# ⛔ THE OTHER HALF OF THE SAME SENTENCE IS NOT HERE, AND IT IS HELD FOR A RULING, NOT FORGOTTEN: "equal to the set of values" also
-# refuses a variant-part that OMITS a value (PAT iso7185prt1856). Measured with that half enabled: Pascal-P4 comp.pas (the where,
-# attrkind and vaccess variants), int.pas (datatype), the P4-derived pcom.pas and pint.pas, and TWO MASTER ENTRIES
-# (program_record_array_replace_2, program_record_packed_replace_1, both P4-shaped fragments) are refused -- fpc -Miso accepts all of
-# them, and upstream Pascal-P5 itself ADDED a blck: arm to P4's where variant to satisfy this rule (P5 pcom.pas line 517). Asked the
-# ceo, with the master edits and a P4 PATCHES item proposed; until the ruling, 1856 stays red and named.
+# ⭐ THE OTHER HALF OF THE SAME SENTENCE -- "equal to the set of values", a variant-part that OMITS a tag value (PAT iso7185prt1856)
+# -- WAS HELD FOR A RULING AND IS NOW HERE: ceo CEO-1231 (2026-09-24), ISO wins. Measured before it landed, it refused exactly six
+# acceptance programs, each now carrying empty arms for the values it omitted, behaviour unchanged: two master entries,
+# program_record_array_replace_2 (blck) and program_record_packed_replace_1 (scalar, pointer), their outputs byte-identical under
+# the oracle that cut their refs (fpc default mode for the first, whose enum write fpc -Miso cannot build; fpc -Miso for the second);
+# Pascal-P4 comp.pas (expr, inxd, blck and rec -- PATCHES.md item 7, generation-1 listing, stderr and P-code byte-identical) and int.pas
+# (undef -- item 8, emitted assembly byte-identical); and the P4-derived pcom.pas and pint.pas, with the same arms.
 # Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before.
 #
-# ARMS: one vendored PAT witness, required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is
+# ARMS: two vendored PAT witnesses (a value omitted, a value outside the tag-type), each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is
 # accepted, links and runs). A second arm proves the check DISCRIMINATES: variant-parts over enumerated, Boolean and subrange tag-types,
 # with a tag-field and without, with constant lists, run byte-identical to fpc -Miso in both modes. FAIL_ONCE=1 flips the witness.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -38,11 +39,11 @@ m4_run() { M4O=$( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/w.s" "$1" </d
     ( cd "$T" && cc -m64 -no-pie w.s -o w -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: $1 compiled but would not link -- cannot grade the m4 arm"; exit 2; }
     M4O=$( cd "$T" && timeout 20s ./w </dev/null 2>&1 ); M4RC=$?
   fi; }
-for b in iso7185prt1857; do
+for b in iso7185prt1856 iso7185prt1857; do
   f="$SRC/$b.pas"; [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing vendored witness $f"; exit 2; }
   N=$((N+1)); bad=""
   o3=$( cd "$T" && timeout 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
-  if [ -n "${FAIL_ONCE:-}" ] && [ "$b" = iso7185prt1857 ]; then rc3=0; o3=""; fi
+  if [ -n "${FAIL_ONCE:-}" ] && [ "$b" = iso7185prt1856 ]; then rc3=0; o3=""; fi
   { [ "$rc3" -ne 0 ] && [ "$rc3" -lt 124 ] && [ -n "$o3" ]; } || bad="m3 (rc=$rc3, ${#o3} bytes of diagnostic)"
   m4_run "$f"; o4="$M4O"; rc4=$M4RC
   { [ "$rc4" -ne 0 ] && [ "$rc4" -lt 124 ] && [ -n "$o4" ]; } || bad="$bad m4 (rc=$rc4, ${#o4} bytes of diagnostic)"
@@ -72,7 +73,7 @@ PAS
 ok3=$( cd "$T" && timeout 20s "$SCRIP" --run ok.pas </dev/null 2>&1 ); m4_run "$T/ok.pas"; ok4="$M4O"
 if [ "$ok3" = "$(cat "$T/ok.ref")" ] && [ "$ok4" = "$(cat "$T/ok.ref")" ]; then echo "  control arm: variant-parts over enumerated, Boolean and subrange tag-types run byte-identical to fpc -Miso in both modes"
 else echo "  ⛔ control arm FAILED -- the check refuses or miscompiles a LEGAL program"; echo "      want: $(tr '\n' '|' < "$T/ok.ref")"; echo "      m3  : $(printf '%s' "$ok3" | tr '\n' '|')"; echo "      m4  : $(printf '%s' "$ok4" | tr '\n' '|')"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N variant-parts with a case-constant outside their tag-type refused with a NAMED diagnostic in both modes, and legal ones are untouched"
+if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N variant-parts whose case-constants are not exactly the values of their tag-type refused with a NAMED diagnostic in both modes, and legal ones are untouched"
 else echo "GATE FAIL(1) [$G]: examined $N vendored PAT witnesses plus one legal control"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  oracle: $FPC $($FPC -iV 2>/dev/null)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

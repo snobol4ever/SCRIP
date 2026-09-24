@@ -1225,6 +1225,9 @@ static void pas_variant_constants_in_tag_type(const char *tag_type, PNodeList *a
     for (int i = 0; i < n; i++) {
         if (v[i] < lo || v[i] > hi) { fprintf(stderr, "pascal: ISO 7185 6.4.3.3 violation: a case-constant of the variant-part denotes %lld, which is not a value of its tag-type %s (%lld..%lld)\n", v[i], tag_type, lo, hi); g_pas_iso_errors++; return; }
         if (seen[v[i] - lo]++) { fprintf(stderr, "pascal: ISO 7185 6.4.3.3 violation: the value %lld of the tag-type %s is denoted by more than one case-constant of the variant-part\n", v[i], tag_type); g_pas_iso_errors++; return; } }
+    for (long long x = lo; x <= hi; x++) if (!seen[x - lo]) {
+        fprintf(stderr, "pascal: ISO 7185 6.4.3.3 violation: the case-constants of the variant-part do not denote the value %lld of its tag-type %s, and they shall denote every value of it\n", x, tag_type);
+        g_pas_iso_errors++; return; }
 }
 static void pas_type_not_self_applied(const char *name) {
     int self = name && g_pas_pend_typename && !strcmp(g_pas_pend_typename, name) && !g_pas_pend_ptrtarget;
