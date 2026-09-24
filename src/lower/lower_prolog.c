@@ -590,11 +590,16 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+static const tree_t * pl_tree_number(const tree_t * t); static tree_t * pl_cc_throw_ar(tree_t * formal, const char * nm, int ar);
+static tree_t * pl_cc_type_error(const char * type, const tree_t * culprit, const char * nm, int ar);
 static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     tree_t * ball = pl_meta_var("$SccBall");
     tree_t * quiet = pl_cc_fnc2(",", pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_meta_var("$SccIgn"), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", ball));
-    tree_t * ran = pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet), pl_cc_fnc1("once", (tree_t *) C),
+    tree_t * ran = pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet), pl_cc_ite(pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("true"), (tree_t *) pl_atom_goal("true")),
                              pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("fail")));
+    if (pl_tree_number(C)) return goal(cx, pl_cc_type_error("callable", C, "setup_call_cleanup", 3), γnext, ωfail, entry_out);
+    if (C && C->t == TT_VAR) ran = pl_cc_fnc2(",", pl_cc_ite(pl_cc_fnc1("var", (tree_t *) C), pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), "setup_call_cleanup", 3),
+                                                         (tree_t *) pl_atom_goal("true")), ran);
     return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) S), ran), γnext, ωfail, entry_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
