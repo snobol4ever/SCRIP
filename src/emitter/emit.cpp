@@ -2727,7 +2727,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             cur = zd_chase(cur->γ.node);
         }
-        { static int _z5bd = -1; if (_z5bd < 0) { const char * e = getenv("SCRIP_ZD_5B"); _z5bd = (e && *e == '0') ? 0 : 1; }
+        { static int _z5bd = -1; if (_z5bd < 0) { const char * e = getenv("SCRIP_ZD_5B"); _z5bd = (e && *e == '1') ? 1 : 0; }
           for (int k = 0; k < n; k++) aent[k] = 0;
           if (_z5bd && zarm) { int rl_main = rl;
             for (int r0 = 0; r0 < rl_main; r0++) { IR_t * env = nodes[run[r0]]; if ((int)env->op != IR_MATCH_ALTERNATE) continue; int ei = run[r0];
