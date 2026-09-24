@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # run_parser_sync_monitor.sh — GOAL-PARSER-SC-TRANSPILE.md SCT-7.
 #
-# Transpiles a parser_<lang>.sc to portable SNOBOL4 via `scrip --dump-sno`,
-# then drives the existing 2-way IPC sync-step monitor with the resulting
-# .sno file as input.  Both SPITBOL x64 and SCRIP --run execute the
-# SAME transpiled .sno; the monitor reports the first divergence.
+# LON'S METHOD (2026-09-24, verbatim: "You transpile to *.sno, then run the *.sno with IPC sync-step monitor to
+# compare SCRIP to SPITBOL. But first you get the transpiled program working is SPITBOL."), end to end:
+#   1. transpile the bootstrap runtime chain + parser_<lang>.sc to ONE portable .sno with `scrip --transpile`
+#      (the switch takes every file and merges them; --dump-sno, which this script used to call, no longer exists);
+#   2. run that .sno on SPITBOL FIRST with the sample on stdin -- if the oracle refuses or errors, STOP: the fault is
+#      the transpiler's or the parser's, and a monitor run against a failing oracle measures nothing (rc 4);
+#   3. then drive scripts/monitor_run.sh <.sno> --oracle --input <sample>: SPITBOL and SCRIP mode 3 in lock-step on the
+#      SAME .sno, the first divergence being the SCRIP defect.
 #
 # The transpiler is the new piece; the monitor harness was built earlier
 # (see scripts/test_monitor_2way_spitbol_vs_sm.sh and friends).  This
@@ -23,25 +27,26 @@
 #   bash scripts/run_parser_sync_monitor.sh prolog   corpus/tests/prolog/rung01_hello_hello.pl
 #
 # Exit codes:
-#   0 — both runtimes agreed throughout
+#   0 — both runtimes agreed throughout (monitor_run.sh's verdict)
 #   1 — divergence detected (monitor prints last-agree + first-disagree)
-#   2 — transpile failed (the .sc → .sno step itself failed)
+#   2 — transpile failed, or the monitor could not measure
 #   3 — usage error
+#   4 — step 2 not done: SPITBOL itself does not parse the sample through the transpiled .sno
 set -uo pipefail
 
-LANG=${1:?Usage: run_parser_sync_monitor.sh <lang> <sample-input>}
+PLANG=${1:?Usage: run_parser_sync_monitor.sh <lang> <sample-input>}
 SAMPLE=${2:?Usage: run_parser_sync_monitor.sh <lang> <sample-input>}
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/.." && pwd)"
 
-PARSER_SC="$REPO_ROOT/bootstrap/parser_${LANG}.sc"
+PARSER_SC="$REPO_ROOT/bootstrap/parser_${PLANG}.sc"
 if [[ ! -f "$PARSER_SC" ]]; then
     # Try alternative layout
-    PARSER_SC="${CORPUS_ROOT:-$REPO_ROOT/../corpus}/SCRIP/parser_${LANG}.sc"
+    PARSER_SC="$REPO_ROOT/bootstrap/parser_${PLANG}.sc"
 fi
 if [[ ! -f "$PARSER_SC" ]]; then
-    echo "run_parser_sync_monitor: cannot find parser_${LANG}.sc" >&2
+    echo "run_parser_sync_monitor: cannot find parser_${PLANG}.sc" >&2
     exit 3
 fi
 if [[ ! -f "$SAMPLE" ]]; then
@@ -55,7 +60,7 @@ if [[ ! -x "$SCRIP" ]]; then
     exit 2
 fi
 
-SNO_OUT="/tmp/parser_${LANG}.sno"
+SNO_OUT="/tmp/parser_${PLANG}.sno"
 
 # SCT-1c-2: dump the full Snocone runtime prelude alongside parser_<lang>.sc so
 # the resulting .sno is self-contained.  Order mirrors run_scrip_parser.sh exactly
@@ -63,7 +68,7 @@ SNO_OUT="/tmp/parser_${LANG}.sno"
 # PIVOT (2026-05-17, Claude Sonnet 4.6): include gen.sc and language-specific helpers
 # alongside the parser so all six languages transpile cleanly.  Helpers will be
 # eliminated in a later cleanup session (SCT-4/5/6); for now they are included.
-CORPUS_SCRIP="${CORPUS_ROOT:-$REPO_ROOT/../corpus}/SCRIP"
+CORPUS_SCRIP="$REPO_ROOT/bootstrap"   # the runtime moved here from the retired corpus/SCRIP/ (s267 REPO BOUNDARY)
 RUNTIME=(
     "$CORPUS_SCRIP/global.sc"
     "$CORPUS_SCRIP/case.sc"
@@ -90,15 +95,15 @@ done
 # Load language-specific helpers if they exist (icon_helpers.sc, raku_helpers.sc).
 # These are loaded between runtime and parser, matching run_scrip_parser.sh behaviour.
 HELPERS=()
-HELPER_FILE="$CORPUS_SCRIP/${LANG}_helpers.sc"
+HELPER_FILE="$CORPUS_SCRIP/${PLANG}_helpers.sc"
 if [[ -f "$HELPER_FILE" ]]; then
     HELPERS=("$HELPER_FILE")
     echo "[run_parser_sync_monitor] including helpers: $HELPER_FILE"
 fi
 
 echo "[run_parser_sync_monitor] transpiling runtime + $PARSER_SC -> $SNO_OUT"
-if ! "$SCRIP" --dump-sno "${RUNTIME[@]}" "${HELPERS[@]}" "$PARSER_SC" > "$SNO_OUT"; then
-    echo "run_parser_sync_monitor: --dump-sno failed for $PARSER_SC" >&2
+if ! "$SCRIP" --transpile "${RUNTIME[@]}" "${HELPERS[@]}" "$PARSER_SC" > "$SNO_OUT"; then
+    echo "run_parser_sync_monitor: --transpile failed for $PARSER_SC" >&2
     exit 2
 fi
 
@@ -118,9 +123,16 @@ if [[ "$OVERLEN" -gt 0 ]]; then
     echo "[run_parser_sync_monitor] WARNING: $OVERLEN line(s) exceed SPITBOL's 1024-char limit"
 fi
 
-# The actual sync-step is delegated to the existing harness (which knows
-# how to launch SPITBOL and SCRIP --run with the IPC monitor wired up).
-# That script takes the .sno as its argument and reads SAMPLE from stdin.
-echo "[run_parser_sync_monitor] driving 2-way monitor: SPITBOL vs SCRIP --run"
-echo "[run_parser_sync_monitor] sample: $SAMPLE"
-exec bash "$HERE/test_monitor_2way_spitbol_vs_sm.sh" "$SNO_OUT" < "$SAMPLE"
+# STEP 2 -- the oracle first. SPITBOL exits 0 even on an ERROR, so its TEXT is read, never its rc.
+SBL="${SBL:-/home/resources/x64/bin/sbl}"
+ORACLE_OUT="$(timeout 60 "$SBL" -bf -s64m "$SNO_OUT" < "$SAMPLE" 2>&1)"
+if printf '%s\n' "$ORACLE_OUT" | grep -qE '^Parse Error\.?$|ERROR [0-9]+ --'; then
+    echo "[run_parser_sync_monitor] STEP 2 NOT DONE: SPITBOL itself does not parse $SAMPLE through $SNO_OUT:"
+    printf '%s\n' "$ORACLE_OUT" | grep -v '^$' | head -5 | sed 's/^/    /'
+    echo "  fix the transpile (src/lower/tree_to_sno.c) or, by a few characters, the parser -- then monitor"
+    exit 4
+fi
+echo "[run_parser_sync_monitor] step 2: SPITBOL parses the sample ($(printf '%s\n' "$ORACLE_OUT" | grep -vc '^$') output lines)"
+# STEP 3 -- the IPC sync-step monitor through its one sanctioned entry point (CEO-1186).
+echo "[run_parser_sync_monitor] step 3: monitor_run.sh $SNO_OUT --oracle --input $SAMPLE"
+exec bash "$HERE/monitor_run.sh" "$SNO_OUT" --oracle --input "$SAMPLE"
