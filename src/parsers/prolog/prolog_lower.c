@@ -141,7 +141,6 @@ static void pl_clause_assign_dense_slots(tree_t *ec, int arity) {
     }
     sm.next = arity;
     for (int i = 0; i < ec->n; i++) tr_assign_slots(ec->c[i], &sm);
-    ct_drop(sm.e.p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void tr_head_key(tree_t *head, const char **fn_out, int *arity_out) {
@@ -220,8 +219,8 @@ static void pb_expand_goal(tree_t *t) {
     if (t->t == TT_PROGRAM || t->t == TT_IF) for (int i = 0; i < t->n; i++) pb_expand_goal(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite) {
-    TRSlotMap sm; trslot_reset(&sm);
+static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite, TRSlotMap *smp) {
+    TRSlotMap sm = *smp; sm.e.len = 0; sm.next = 0;
     if (!skip_rewrite && tr->n > 1) pb_expand_goal(tr->c[1]);
     {
         tree_t *hd = (tr->n > 0) ? tr->c[0] : NULL;
@@ -239,7 +238,7 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite)
     sm.next = key.arity;
     tr_assign_slots(tr, &sm);
     int n_vars = sm.next;
-    ct_drop(sm.e.p);
+    *smp = sm;
     (void) n_vars;
     tree_t *ec = ast_node_new(TT_CLAUSE);
     ec->v.sval = pred_str(key.functor, key.arity);
@@ -339,7 +338,7 @@ tree_t *pl_runtime_clause_tree(tree_t *raw) {
     syn = ast_node_new(TT_CLAUSE);
     expr_add_child(syn, head);
     if (body) expr_add_child(syn, body);
-    return lower_clause_from_tree(syn, k, 0);
+    { TRSlotMap sm; trslot_reset(&sm); return lower_clause_from_tree(syn, k, 0, &sm); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
@@ -382,6 +381,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         }
     }
     cv_t     keys = {0}, choices = {0};
+    TRSlotMap csm; trslot_reset(&csm);
     int      clause_idx = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next, clause_idx++) {
         int is_rule = (cl->tr != NULL && cl->tr->n > 0 &&
@@ -441,7 +441,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                         PredKey pk2 = { prolog_atom_intern("pj_test"), 4 };
                         int found = pl_pred_slot(&keys, &choices, pk2);
                         {
-                            tree_t *ec = lower_clause_from_tree(syn, pk2, 0);
+                            tree_t *ec = lower_clause_from_tree(syn, pk2, 0, &csm);
                             expr_add_child(CV_AT(choices, tree_t *, found), ec);
                         }
                     }
@@ -449,7 +449,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             }
         }
         int found = pl_pred_slot(&keys, &choices, k);
-        tree_t *ec = lower_clause_from_tree(cl->tr, k, cl->is_dcg);
+        tree_t *ec = lower_clause_from_tree(cl->tr, k, cl->is_dcg, &csm);
         expr_add_child(CV_AT(choices, tree_t *, found), ec);
     }
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
@@ -485,7 +485,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                     else {
                     int found = pl_pred_slot(&keys, &choices, ak);
                     {
-                        tree_t *ec = lower_clause_from_tree(syn, ak, 0);
+                        tree_t *ec = lower_clause_from_tree(syn, ak, 0, &csm);
                         tree_t *fc = CV_AT(choices, tree_t *, found);
                         if (prepend) {
                             expr_add_child(fc, ec);
@@ -522,7 +522,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 expr_add_child(syn, goal_tr);
                 {
                     int hi = pl_pred_add(&keys, &choices, hk);
-                    tree_t *ec = lower_clause_from_tree(syn, hk, 0);
+                    tree_t *ec = lower_clause_from_tree(syn, hk, 0, &csm);
                     expr_add_child(CV_AT(choices, tree_t *, hi), ec);
                     tree_t *init_arg = ast_node_new(TT_QLIT);
                     init_arg->v.sval = ct_strdup(hname);
@@ -590,6 +590,5 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         prog->tail = s;
         prog->nstmts++;
     }
-    ct_drop(keys.p); ct_drop(choices.p);
     return prog;
 }

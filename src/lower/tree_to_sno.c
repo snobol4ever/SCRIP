@@ -1,18 +1,18 @@
 #include "lower_snobol4.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "ast.h"
 #include "../parsers/icon/icon_lex.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#define SNO_LOOP_STACK_MAX 64
 typedef struct {
     FILE *out;
     int   lines;
     int   in_stmt;
     const char *pending_label;
-    const char *break_lbl[SNO_LOOP_STACK_MAX];
-    const char *cont_lbl [SNO_LOOP_STACK_MAX];
+    cv_t  break_lbl;
+    cv_t  cont_lbl;
     int   loop_top;
     int   if_seq;
     char  linebuf[16384];
@@ -20,6 +20,14 @@ typedef struct {
     int   last_was_return;
 } core_ctx_t;
 static void emit(core_ctx_t *c, const char *fmt, ...);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void loop_push(core_ctx_t *c, const char *brk, const char *cont) {
+    cv_reserve(&c->break_lbl, (uint32_t) sizeof(const char *), (uint64_t) c->loop_top + 1, "break_lbl");
+    cv_reserve(&c->cont_lbl, (uint32_t) sizeof(const char *), (uint64_t) c->loop_top + 1, "cont_lbl");
+    CV_AT(c->break_lbl, const char *, c->loop_top) = brk;
+    CV_AT(c->cont_lbl, const char *, c->loop_top) = cont;
+    c->loop_top++;
+}
 static void emit_nl(core_ctx_t *c);
 static void emit_node(core_ctx_t *c, const tree_t *n);
 static void emit_stmt(core_ctx_t *c, const tree_t *stmt);
@@ -457,11 +465,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             emit_expr(c, subj->c[0]);
             emit(c, "\t:F(%s)", label_sanitize(Lend));
             emit_nl(c);
-            if (c->loop_top < SNO_LOOP_STACK_MAX) {
-                c->break_lbl[c->loop_top] = Lend;
-                c->cont_lbl [c->loop_top] = Ltop;
-                c->loop_top++;
-            }
+            loop_push(c, Lend, Ltop);
             if (subj->c[1] && subj->c[1]->t == TT_PROGRAM) {
                 int j;
                 for (j = 0; j < subj->c[1]->n; j++) emit_node(c, subj->c[1]->c[j]);
@@ -487,11 +491,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
                 c->pending_label = NULL;
             }
             c->pending_label = NULL;
-            if (c->loop_top < SNO_LOOP_STACK_MAX) {
-                c->break_lbl[c->loop_top] = Lend;
-                c->cont_lbl [c->loop_top] = Lcont;
-                c->loop_top++;
-            }
+            loop_push(c, Lend, Lcont);
             {
                 const char *Ltop_dup = ct_strdup(Ltop);
                 c->pending_label = Ltop_dup;
@@ -551,11 +551,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             emit_expr(c, cond);
             emit(c, "\t:F(%s)", label_sanitize(Lend));
             emit_nl(c);
-            if (c->loop_top < SNO_LOOP_STACK_MAX) {
-                c->break_lbl[c->loop_top] = Lend;
-                c->cont_lbl [c->loop_top] = Lcont;
-                c->loop_top++;
-            }
+            loop_push(c, Lend, Lcont);
             if (body && body->t == TT_PROGRAM) {
                 int j;
                 for (j = 0; j < body->n; j++) emit_node(c, body->c[j]);
@@ -618,11 +614,7 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             }
             if (default_idx >= 0) { emit(c, "\t:(%s)", label_sanitize(Lcase[default_idx])); emit_nl(c); }
             else                  { emit(c, "\t:(%s)", label_sanitize(Lend));             emit_nl(c); }
-            if (c->loop_top < SNO_LOOP_STACK_MAX) {
-                c->break_lbl[c->loop_top] = Lend;
-                c->cont_lbl [c->loop_top] = (c->loop_top > 0) ? c->cont_lbl[c->loop_top - 1] : NULL;
-                c->loop_top++;
-            }
+            loop_push(c, Lend, (c->loop_top > 0) ? CV_AT(c->cont_lbl, const char *, c->loop_top - 1) : NULL);
             for (k = 0; k < npairs; k++) {
                 const tree_t *body = subj->c[2 + 2 * k];
                 c->pending_label = ct_strdup(Lcase[k]);
@@ -647,8 +639,8 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             const char *tgt = NULL;
             if (c->loop_top > 0) {
                 tgt = (subj->t == TT_LOOP_BREAK)
-                    ? c->break_lbl[c->loop_top - 1]
-                    : c->cont_lbl [c->loop_top - 1];
+                    ? CV_AT(c->break_lbl, const char *, c->loop_top - 1)
+                    : CV_AT(c->cont_lbl, const char *, c->loop_top - 1);
             }
             if (!tgt) tgt = (subj->t == TT_LOOP_BREAK) ? "BREAK_NOLOOP" : "CONT_NOLOOP";
             if (c->pending_label) { emit(c, "%s\t", label_sanitize(c->pending_label)); c->pending_label = NULL; }

@@ -15,6 +15,8 @@ typedef struct {
     int parent_active;
     int line;
 } IfFrame;
+typedef struct { char *name; int idx; } TSEntry;
+typedef struct { cv_t e; } TreeScope;
 typedef struct {
     Lexer      lx;
     const char *filename;
@@ -24,6 +26,7 @@ typedef struct {
     int         quiet;
     IfFrame     ifst[IF_STACK_MAX];
     int         ifst_top;
+    TreeScope   ts;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -379,10 +382,6 @@ static int dcg_flatten_conj(tree_t *t, tree_t **buf, int idx) {
     buf[idx++] = t;
     return idx;
 }
-typedef struct { char *name; int idx; } TSEntry;
-typedef struct { cv_t e; } TreeScope;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void ts_reset(TreeScope *ts) { memset(ts, 0, sizeof *ts); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *ts_get(TreeScope *ts, const char *name) {
     for (uint32_t i = 0; i < ts->e.len; i++)
@@ -990,32 +989,32 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
 static PlClause *parse_clause(Parser *p) {
     Token pk = lexer_peek(&p->lx);
     if (pk.kind == TK_EOF) return NULL;
-    TreeScope ts; ts_reset(&ts);
+    TreeScope *ts = &p->ts; ts->e.len = 0;
     PlClause *cl = ct_zalloc(1, sizeof(PlClause));
     cl->lineno = pk.line;
     if (pk.kind == TK_NECK) {
         lexer_next(&p->lx);
-        tree_t *body_tr = pt_term(p, &ts, 1200);
+        tree_t *body_tr = pt_term(p, ts, 1200);
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
         if (if_currently_active(p)) register_op_directive(body_tr);
         if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
             cl->nbody = 0; cl->tr = NULL;
-            ct_drop(ts.e.p); return cl;
+            return cl;
         }
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
           if (body_tr) ast_push(_cl, body_tr);
           cl->tr = _cl; }
-        ct_drop(ts.e.p); return cl;
+        return cl;
     }
-    tree_t *head_tr = pt_term(p, &ts, 1199);
+    tree_t *head_tr = pt_term(p, ts, 1199);
     pk = lexer_peek(&p->lx);
     if (pk.kind == TK_NECK) {
         lexer_next(&p->lx);
-        tree_t *body_tr = pt_term(p, &ts, 1200);
+        tree_t *body_tr = pt_term(p, ts, 1200);
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, head_tr);
           if (body_tr) ast_push(_cl, body_tr);
@@ -1025,7 +1024,7 @@ static PlClause *parse_clause(Parser *p) {
             perror_at(p, dot.line, "expected . at end of clause");
     } else if (pk.kind == TK_OP && strcmp(pk.text, "-->") == 0) {
         lexer_next(&p->lx);
-        tree_t *dcg_body = rls(pt_term(p, &ts, 1200));
+        tree_t *dcg_body = rls(pt_term(p, ts, 1200));
         tree_t *head_reshaped = rls(head_tr);
         tree_t *pushback = NULL;
         if (head_reshaped->t == TT_FNC && head_reshaped->v.sval &&
@@ -1033,7 +1032,7 @@ static PlClause *parse_clause(Parser *p) {
             pushback = head_reshaped->c[1];
             head_reshaped = head_reshaped->c[0];
         }
-        dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts);
+        dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, ts);
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . at end of DCG clause");
@@ -1045,7 +1044,7 @@ static PlClause *parse_clause(Parser *p) {
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . at end of fact");
     }
-    ct_drop(ts.e.p); return cl;
+    return cl;
 }
 static const char *PL_PRELUDE_SRC =
     "member(X,[X|_]).\n"
@@ -1226,6 +1225,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.ifst_top = 0;
     p.in_args  = 0;
     p.quiet    = quiet;
+    memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     for (;;) {
         Token pk = lexer_peek(&p.lx);

@@ -1,24 +1,23 @@
 #include <string.h>
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
 #include "lower.h"
 typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; const char * cur_proc_name; } rcx_t;
-#define RK_GRAM_MAX 64
-static const char * g_rk_gram_names[RK_GRAM_MAX];
-static int          g_rk_gram_n = 0;
-static const char * g_rk_class_names[RK_GRAM_MAX];
-static int          g_rk_class_n = 0;
-static char         g_rk_multi_names[RK_GRAM_MAX][128];
-static int          g_rk_multi_n = 0;
+static cv_t         g_rk_gram_names;
+static cv_t         g_rk_class_names;
+static cv_t         g_rk_multi_names;
 extern int rk_is_arrlit_scalar(const char * nm);
 extern int rk_is_array_name(const char * nm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_multi_n; i++) if (!strcmp(g_rk_multi_names[i], nm)) return 1; return 0; }
-static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base) || g_rk_multi_n >= RK_GRAM_MAX) return; snprintf(g_rk_multi_names[g_rk_multi_n++], 128, "%s", base); }
-static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_gram_n; i++) if (!strcmp(g_rk_gram_names[i], nm)) return 1; return 0; }
-static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_class_n; i++) if (!strcmp(g_rk_class_names[i], nm)) return 1; return 0; }
+static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_multi_names.len; i++) if (!strcmp(CV_AT(g_rk_multi_names, const char *, i), nm)) return 1; return 0; }
+static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_rk_multi_names, const char *) = nm; } }
+static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_gram_names.len; i++) if (!strcmp(CV_AT(g_rk_gram_names, const char *, i), nm)) return 1; return 0; }
+static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_class_names.len; i++) if (!strcmp(CV_AT(g_rk_class_names, const char *, i), nm)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_lower_gc_roots(void) { cv_gc_root(&g_rk_gram_names); cv_gc_root(&g_rk_class_names); cv_gc_root(&g_rk_multi_names); }
 static const char * rk_qualified_type_gist(const char * nm) {
     const char * p = strrchr(nm, ':'); const char * shortname = p ? p + 1 : nm;
     size_t ln = strlen(shortname);
@@ -776,7 +775,7 @@ static int rk_proc_known(const char * name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_discover_grammars(const tree_t * prog) {
     extern void rt_grammar_register(const char *qname, const char *body, int flavor);
-    g_rk_gram_n = 0;
+    g_rk_gram_names.len = 0;
     if (!prog) return;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
@@ -784,7 +783,7 @@ static void rk_discover_grammars(const tree_t * prog) {
         if (!d || d->t != TT_GRAMMAR_DECL) continue;
         const char * gname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!gname || !*gname) continue;
-        if (g_rk_gram_n < RK_GRAM_MAX && !rk_is_grammar_name(gname)) g_rk_gram_names[g_rk_gram_n++] = gname;
+        if (!rk_is_grammar_name(gname)) CV_PUSH(g_rk_gram_names, const char *) = gname;
         for (int j = 1; j < d->n; j++) {
             const tree_t * rd = d->c[j];
             if (!rd || rd->t != TT_REGEX_DECL) continue;
@@ -800,7 +799,7 @@ static void rk_discover_grammars(const tree_t * prog) {
 static void rk_register_classes(const tree_t * prog) {
     extern void record_register(const char *spec);
     if (!prog) return;
-    g_rk_class_n = 0; g_rk_user_write_meth = 0; memset(g_rk_listlike_overridden, 0, sizeof g_rk_listlike_overridden);
+    g_rk_class_names.len = 0; g_rk_user_write_meth = 0; memset(g_rk_listlike_overridden, 0, sizeof g_rk_listlike_overridden);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
@@ -809,7 +808,7 @@ static void rk_register_classes(const tree_t * prog) {
         if (!cname || !*cname) continue;
         if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_rk_user_write_meth = 1;
         for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_rk_listlike_overridden[li] = 1;
-        if (g_rk_class_n < RK_GRAM_MAX && !rk_is_class_name(cname)) g_rk_class_names[g_rk_class_n++] = cname;
+        if (!rk_is_class_name(cname)) CV_PUSH(g_rk_class_names, const char *) = cname;
         char spec[512]; int pos = 0;
         pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
         int first_field = 1;
@@ -1308,7 +1307,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);
     rk_register_classes(prog);
-    g_rk_multi_n = 0;
+    g_rk_multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
