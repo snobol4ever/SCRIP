@@ -3373,6 +3373,21 @@ PL_CX_LEAF_HEAD(pl_cs_nth, 4) { DESCR_t iv = rt_pl_deref_val(args[0]); int si; o
         if (si >= 3 && si < FH_MAX && pl_sp_stream_live(si) && g_fh[si].name)
             ok = plw_unify_vals(args[1], pl_mk_atom_dup(g_fh[si].name, strlen(g_fh[si].name)), cx)
               && plw_unify_vals(args[2], pl_mk_atom(pl_sp_mode_name(si)), cx) && plw_unify_vals(args[3], pl_mk_stream(si), cx); } } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_ioarg, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_kind1(const char *, const char *);
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t); extern int fh_current_output(void); extern int fh_current_input(void);
+    const char *k = pl_atom_str(rt_pl_deref_val(args[0])); DESCR_t c = rt_pl_deref_val(args[1]); const char *cs; int out, sx; ok = 1;
+    if (!k) return pl_ok();
+    out = !strncmp(k, "put_", 4); sx = out ? fh_current_output() : fh_current_input();
+    if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_MAX && g_fh[sx].type == 'b') cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", pl_mk_stream(sx));
+    else if (!strncmp(k, "put_code", 8)) { if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation(); else if (c.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", c);
+        else if (c.i < 0 || c.i > 0x10FFFF) cx->ball = rt_pl_ball_kind1("representation_error", "character_code"); }
+    else if (!strncmp(k, "put_char", 8)) { if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation();
+        else if (!(cs = pl_atom_str(c)) || pl_is_nil(c) || !cs[0] || utf8_seqlen((unsigned char)cs[0]) != (int)strlen(cs)) cx->ball = rt_pl_ball_kind2("type_error", "character", c); }
+    else if (!strncmp(k, "in_code", 7)) { if (!pl_val_unbound(c) && c.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", c);
+        else if (!pl_val_unbound(c) && (c.i < -1 || c.i > 0x10FFFF)) cx->ball = rt_pl_ball_kind1("representation_error", "in_character_code"); }
+    else if (!strncmp(k, "in_char", 7) && !pl_val_unbound(c)) { cs = pl_atom_str(c);
+        if (!cs || pl_is_nil(c) || (strcmp(cs, "end_of_file") && (!cs[0] || utf8_seqlen((unsigned char)cs[0]) != (int)strlen(cs)))) cx->ball = rt_pl_ball_kind2("type_error", "in_character", c); }
+    if (cx->ball) ok = 0; } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_sp_check, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern int prolog_atom_intern(const char *);
     static const char *const pn[] = { "file_name", "mode", "input", "output", "alias", "position", "end_of_stream", "eof_action", "reposition", "type", "encoding", "bom", "newline", 0 };
     DESCR_t s = rt_pl_deref_val(args[0]), p = rt_pl_deref_val(args[1]); const char *nm = (const char *)0; int i; ok = 1;
