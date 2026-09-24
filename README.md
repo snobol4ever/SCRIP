@@ -221,42 +221,42 @@ published only when all three print its ref in both modes; with `BENCH_ORACLE_AR
 same twins run under the clean SPITBOL oracle, so the two engines are timed on the same generated program, on the same
 box, in the same minute.
 
-*Measured 2026-09-24 16:37–16:43 CDT on SCRIP `d752e30eb` / corpus `6b145b60a`, **RT_OPT=-O0**, load 1.1–1.2 on 16 cores with the
-fleet quiet, **5 seconds of repetitions per point** (`BENCH_BUD_MS=5000 BENCH_ITER_N=5`, one warm-up repetition first; the
-repetition counts run from about 750 on name_indirection to eight million on test_icon), oracle `spitbol-bench-oracle/sbl -bf`
-(the clean benchmark oracle, never the monitor-hooked correctness fork). 23 of 23 kernels printed their ref on every angle in
-all three engines.* The per-repetition figure is the fixed-time twin's (microseconds per repetition of the kernel's own
-function); the x-factor is SPITBOL time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as
-fast). The last column is the same twin under the 2026-09-03 tree `380cc4162`, rebuilt and run the same afternoon, for the
-regression story below.
+*Measured 2026-09-24 16:56–17:02 CDT on SCRIP `d28041744` (whose SNOBOL4 emission is byte-identical, labels normalized, to the pushed
+`ea0c115b5`) / corpus `6b145b60a`, **RT_OPT=-O0**, load 0.6–1.3 on 16 cores with the fleet quiet, **5 seconds of repetitions per
+point** (`BENCH_BUD_MS=5000 BENCH_ITER_N=5`, one warm-up repetition first; the repetition counts run from about 750 on
+name_indirection to eight million on test_icon), oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the
+monitor-hooked correctness fork). 23 of 23 kernels printed their ref on every angle in all three engines.* The per-repetition
+figure is the fixed-time twin's (microseconds per repetition of the kernel's own function); the x-factor is SPITBOL time / SCRIP
+time on that same twin (1.5x is one and a half times faster, 0.5x half as fast). The last column is the same twin under the
+2026-09-03 tree `380cc4162`, rebuilt and run the same afternoon, for the regression story below.
 
 | kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 | `380cc4162` m4 |
 |---|---:|---:|---:|:---:|:---:|:---:|
-| arith_loop | 24.4 | 8.7 | 7.3 | 2.82x | 3.35x | 4.03x |
-| arith_loop_twin | 7401.4 | 2583.2 | 2234.0 | 2.87x | 3.31x | 3.47x |
-| array_sum | 608.8 | 5250.9 | 4287.3 | 0.12x | 0.14x | 0.27x |
-| eval_fixed | 142.8 | 375.5 | 340.9 | 0.38x | 0.42x | 0.96x |
-| fib_recur | 3714.6 | 3173.0 | 3167.7 | 1.17x | 1.17x | 1.78x |
-| fibonacci | 236.9 | 201.6 | 210.0 | 1.17x | 1.13x | 1.66x |
-| func_call | 34.4 | 23.4 | 24.1 | 1.47x | 1.42x | 2.01x |
-| ident_call1 | 28.5 | 14.6 | 13.0 | 1.95x | 2.19x | 2.46x |
-| ident_call2 | 30.0 | 15.8 | 14.7 | 1.90x | 2.03x | 2.36x |
-| indirect_dispatch | 26.5 | 291.7 | 288.8 | 0.09x | 0.09x | 0.62x |
-| mixed_workload | 30.6 | 225.0 | 204.3 | 0.14x | 0.15x | 0.28x |
-| name_indirection | 975.0 | 6677.1 | 6608.1 | 0.15x | 0.15x | — |
-| op_dispatch | 53.3 | 18.2 | 16.2 | 2.93x | 3.29x | 3.73x |
-| pattern_bt | 220.6 | 188.1 | 182.4 | 1.17x | 1.21x | 1.47x |
-| roman | 158.3 | 688.3 | 681.6 | 0.23x | 0.23x | 0.78x |
-| string_concat | 34.3 | 41.8 | 44.3 | 0.82x | 0.77x | 0.65x |
-| string_concat_twin | 200.4 | 165.0 | 182.9 | 1.21x | 1.10x | 0.98x |
-| string_manip | 63.9 | 825.4 | 695.7 | 0.08x | 0.09x | 0.66x |
-| string_pattern | 66.7 | 94.0 | 96.2 | 0.71x | 0.69x | 0.92x |
-| table_access | 769.8 | 5420.6 | 3673.8 | 0.14x | 0.21x | 1.29x |
-| table_variety | 582.5 | 2648.4 | 2122.7 | 0.22x | 0.27x | 0.68x |
-| test_icon | 1.1 | 0.7 | 0.6 | 1.44x | 1.71x | 4.12x |
-| var_access | 60.4 | 19.1 | 16.2 | 3.16x | 3.74x | 4.25x |
+| arith_loop | 24.1 | 7.9 | 7.3 | 3.04x | 3.31x | 4.03x |
+| arith_loop_twin | 7204.9 | 2567.3 | 2397.3 | 2.81x | 3.01x | 3.47x |
+| array_sum | 610.7 | 5225.8 | 4293.5 | 0.12x | 0.14x | 0.27x |
+| eval_fixed | 134.2 | 339.4 | 333.8 | 0.40x | 0.40x | 0.96x |
+| fib_recur | 3776.8 | 2980.3 | 3026.8 | 1.27x | 1.25x | 1.78x |
+| fibonacci | 232.6 | 192.2 | 192.1 | 1.21x | 1.21x | 1.66x |
+| func_call | 34.2 | 21.7 | 22.0 | 1.57x | 1.55x | 2.01x |
+| ident_call1 | 28.0 | 13.8 | 13.1 | 2.02x | 2.13x | 2.46x |
+| ident_call2 | 29.1 | 15.0 | 14.5 | 1.93x | 2.00x | 2.36x |
+| indirect_dispatch | 25.8 | 233.2 | 232.7 | 0.11x | 0.11x | 0.62x |
+| mixed_workload | 30.0 | 214.9 | 193.1 | 0.14x | 0.16x | 0.28x |
+| name_indirection | 931.5 | 6815.7 | 6534.0 | 0.14x | 0.14x | — |
+| op_dispatch | 51.8 | 17.2 | 14.9 | 3.02x | 3.49x | 3.73x |
+| pattern_bt | 214.5 | 184.1 | 178.7 | 1.16x | 1.20x | 1.47x |
+| roman | 152.7 | 691.4 | 651.9 | 0.22x | 0.23x | 0.78x |
+| string_concat | 34.0 | 41.0 | 41.8 | 0.83x | 0.81x | 0.65x |
+| string_concat_twin | 193.9 | 159.6 | 165.3 | 1.21x | 1.17x | 0.98x |
+| string_manip | 61.7 | 766.1 | 695.9 | 0.08x | 0.09x | 0.66x |
+| string_pattern | 67.3 | 91.9 | 99.0 | 0.73x | 0.68x | 0.92x |
+| table_access | 783.7 | 5463.3 | 3761.9 | 0.14x | 0.21x | 1.29x |
+| table_variety | 585.1 | 2692.6 | 2133.6 | 0.22x | 0.27x | 0.68x |
+| test_icon | 1.0 | 0.7 | 0.6 | 1.54x | 1.65x | 4.12x |
+| var_access | 60.2 | 18.6 | 16.4 | 3.23x | 3.66x | 4.25x |
 
-Geometric mean over the 23 kernels: **0.64x** in mode 3, **0.69x** in mode 4; SCRIP is ahead of SPITBOL on 12 of 23
+Geometric mean over the 23 kernels: **0.65x** in mode 3, **0.70x** in mode 4; SCRIP is ahead of SPITBOL on 12 of 23
 kernels. The tight loops of cheap statements are back where the old tree had them (arith_loop, var_access, op_dispatch
 3.3–3.7x; the ident_call pair 2.0–2.2x); what remains behind is the indirect, string, table and array work
 (indirect_dispatch, string_manip 0.09x; array_sum, table_access, mixed_workload, name_indirection 0.14–0.21x; roman,
@@ -273,10 +273,14 @@ two commits of the evening of 2026-09-04 carried most of it. `1e2773d98` (19:17)
 hook for any program that mentioned `&STLIMIT`, and 19 of these 23 kernels wrote `&STLIMIT = -1`, the SPITBOL idiom for an
 unlimited run (7.1 → 74 µs/rep at that commit alone). `c3e6b16bb` (21:17) emitted the monitor's per-assignment VALUE tap
 `comm_var` on every global assignment — ten pushes, a spill block and a C call, 444 M of the 750 M extra instructions on that
-twin. The rest is a creep across 09-05 → 09-24 with no single step. Two landings the same day: `2a81a02db` makes the statement
+twin. The rest is a creep across 09-05 → 09-24 with no single step. Three landings the same day: `2a81a02db` makes the statement
 instrumentation the `--stlimit` switch, off by default and never inferred from the source (an `EVAL` or `CODE` can introduce a
-keyword behind the compiler's back), with the correctness graders passing it because the oracle always has the feature; and
-`d752e30eb` puts the variable tap under the same switch (`--monitor` and `--trace` imply it). corpus `723e5aa08` drops the
+keyword behind the compiler's back), with the correctness graders passing it because the oracle always has the feature;
+`d752e30eb` puts the variable tap under the same switch (`--monitor` and `--trace` imply it); and `ea0c115b5` puts every
+remaining monitor hook — the DEFINE call/return/fail hooks, the Icon procedure return/fail taps, suspend/resume and
+generator-return hooks, the statement mark's &STCOUNT count — behind it too, for every language (Icon's `&trace` rides the same
+hooks, so the Icon graders pass the switch as well; the Icon call tap alone stays on by default because `display()` reads the
+activation record it writes, which is hq_icon's row to inline). corpus `723e5aa08` drops the
 `&STLIMIT = -1` line from the kernels. With the switch on, the same twins read 0.05x: the instrumented mode's cost is the next
 landing (an inline count, the compare once per statement, the hook only on the slow path). What remains on the default path is
 the GC poll, emitted after runtime calls that cannot allocate and wrapped in a 7-instruction spill where an inline compare
