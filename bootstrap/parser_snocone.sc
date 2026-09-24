@@ -10,7 +10,7 @@ white       =   (  SPAN(' ' tab nl)
                 |  '/*' BREAKX('*') '*/'
                 );
 White       =   white ARBNO(white);
-Gray        =   ARBNO(white);
+Gray        =   White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
 Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('.' digits &UCASE '_' &LCASE) | epsilon);
