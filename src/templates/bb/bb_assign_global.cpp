@@ -16,7 +16,7 @@ const char * stmt_src_get_file(void);
 static inline int stf() { return _.flat_stmt_frame; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int mon_vars_on() { static int v = -1; if (v < 0)
-{ const char * e = getenv("SCRIP_MON_VARS"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
+{ const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN"); v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_monitor_bin) ? 1 : 0); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string mon_var_trace_tap() {
     const char * srcfile = stmt_src_get_file();

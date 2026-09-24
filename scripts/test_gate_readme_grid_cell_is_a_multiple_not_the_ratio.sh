@@ -53,7 +53,7 @@ for i in range(len(sections) - 1):
             if l.startswith("#") or l.startswith("kernel"): continue
             f = l.rstrip("\n").split("\t")
             if len(f) >= 5:
-                data.setdefault(f[0], {})[f[1]] = (float(f[2]) if f[2] else 0.0, float(f[4]) if f[4] else 0.0)
+                data.setdefault(f[0], {})[f[1]] = (float(f[2]) if f[2] not in ("", "-") else 0.0, float(f[4]) if f[4] not in ("", "-") else 0.0)
     for kernel, c3, c4 in rows:
         for eng, cell in (("m3", c3), ("m4", c4)):
             graded += 1
