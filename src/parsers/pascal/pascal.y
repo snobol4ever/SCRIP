@@ -320,6 +320,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *v = bin(up ? TT_ADD : TT_SUB, a, ilit(1));
         if (a && a->t == TT_VAR && pas_ord_var_bounds(a->v.sval, &lo, &hi))
             v = pas_ord_check(v, lo, hi, up ? "succ(x) of the largest value of its type" : "pred(x) of the smallest value of its type");
+        if (a && ((a->t == TT_FNC && a->n >= 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_chrlit")) || pas_is_charexpr(a))) return mk_fnc1("__pas_chrlit", v);
+        if (a && pas_is_boolexpr(a)) return bin(TT_NE, v, ilit(0));
         return v; }
     if (name && (!strcmp(name, "inc") || !strcmp(name, "dec")) && args && args->count >= 1) {
         tree_t *v = args->items[0];

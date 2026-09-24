@@ -366,6 +366,7 @@ test_gate_pas_readln_and_writeln_require_a_textfile.sh	WIRED	-	-	-
 test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
 test_gate_pas_record_variables_are_scoped_to_their_procedure.sh	WIRED	-	-	-
 test_gate_pas_set_constructor_takes_a_subrange_member.sh	WIRED	-	-	-
+test_gate_pas_succ_and_pred_keep_their_arguments_type.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
