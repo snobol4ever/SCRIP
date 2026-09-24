@@ -203,9 +203,11 @@ ParamFirst      =   shift(*Ident, "'TT_VAR'") nInc();
 ParamRest       =   $',' shift(*Ident, "'TT_VAR'") nInc();
 Params          =   nPush() (*ParamFirst ARBNO(*ParamRest) | epsilon)
                     reduce("'TT_PARAMS'", 'nTop()') nPop();
+Locals          =   nPush() ($' ' *ParamFirst ARBNO(*ParamRest) | epsilon)
+                    reduce("'TT_LOCALS'", 'nTop()') nPop();
 func_cmd        =   $'function' shift(*Ident, "'TT_QLIT'")
-                    $'(' *Params $')' *ThenBlock
-                    reduce("'TT_DEFINE'", 3);
+                    $'(' *Params $')' *Locals *ThenBlock
+                    reduce("'TT_DEFINE'", 4);
 /* return_cmd / freturn_cmd / nreturn_cmd */
 return_cmd      =   $'return' ( *Expr0 $';' reduce("'TT_RETURN'", 1)
                                |        $';' reduce("'TT_RETURN'", 0) );
