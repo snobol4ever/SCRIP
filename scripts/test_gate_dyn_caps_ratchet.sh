@@ -31,6 +31,9 @@
 #   7 THE CLASS A/B FIXTURE (ceo CEO-1234 (1)): scripts/fixtures/dyn_caps/CLASS_AB.tsv names the tables that stay fixed, each with the
 #     measurement that earned its class; the scratch copy declares a third planted table (which must leave the no-guard line: arm 4's
 #     +1 holds with two never-compared plants) and one table the tree does not declare, which must read RED by name
+#   8 THE WITNESS VERB (CEO-1231: the refusal read at cap+1) CAN RED: util_dyn_caps_witness.sh witness on a scratch WITNESSES.tsv reads
+#     the Prolog trail's refusal at 1200000 conditional bindings, counts a program that never reaches g_capo's cap as SILENT, names a
+#     row for no LOUD guard STALE, and exits 1 -- the verb itself is the row's DONE-WHEN, graded there, not here
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
 # ⛔ BASELINE 352 -> 366, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo, stage 2): the census scoped a declaration by the brace depth at
@@ -134,5 +137,12 @@ pfn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline.*/\
 ck "6 FAIL-ONCE for the second population: the list-walk local reads RED, grown by exactly one ($fn -> ${pfn:-?}, the radix buffer out), unguarded $fu -> ${pfu:-?}" '[ "$pfn" = "$((fn + 1))" ] && [ "$pfu" = "$((fu + 1))" ] && grep -q "function-scope population grew from $fn to $((fn + 1))" <<<"$po"'
 nab=$(sed -n 's/^declared class A or B by .*: \([0-9]*\) table(s); stale declarations: \([0-9]*\)$/\1/p' <<<"$out"); pnab=$(sed -n 's/^declared class A or B by .*: \([0-9]*\) table(s); stale declarations: \([0-9]*\)$/\1 \2/p' <<<"$po")
 ck "7 THE CLASS A/B FIXTURE (CEO-1234 (1)): the planted declaration counts ($nab -> ${pnab%% *}) and a row naming a table the tree does not declare reads RED by name (stale ${pnab##* })" '[ -n "$nab" ] && [ "$pnab" = "$((nab + 1)) 1" ] && grep -q "^  src/planted_by_the_ratchet_gate.c:g_no_such_table_by_the_ratchet_gate$" <<<"$po"'
-if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 7 arms -- $n fixed tables and $fn locals a program fills, each exactly its baseline; a planted one of each reds; the classifier tells a drop from no guard and a program's fill from a number's digits; $nab tables declared class A/B, none stale"; gate_stamp; exit 0; fi
-echo "GATE FAIL(1) [$GATE_NAME]: $fails of 7 arms red"; gate_stamp; exit 1
+printf 'main :- write(hello), nl.\n:- initialization(main).\n' > "$WORK/silent.pl"
+{ grep -v '^#' "$HERE/fixtures/dyn_caps/WITNESSES.tsv" | grep 'PL_TR_ARENA_BYTES'
+  printf 'src/runtime/pattern_match.c\tg_capo\t%s\t\t2\tnever printed\n' "$WORK/silent.pl"
+  printf 'src/planted_by_the_ratchet_gate.c\tg_no_such_guard_by_the_ratchet_gate\t%s\t\t2\tnever printed\n' "$WORK/silent.pl"; } > "$WORK/witnesses.tsv"
+wo=$(cd "$ROOT" && DYN_CAPS_WITNESSES="$WORK/witnesses.tsv" bash "$WIT" witness 2>&1); wrc=$?
+wsum=$(grep -m1 '^refusal read at the cap: ' <<<"$wo")
+ck "8 THE WITNESS VERB CAN RED (CEO-1231): on a scratch table the trail's cap+1 is READ, a program that never reaches g_capo's cap is SILENT, a row naming no LOUD guard is STALE, and the verb reds ($wsum, rc $wrc)" '[ "$wrc" = 1 ] && grep -q "^  READ .*PL_TR_ARENA_BYTES rc=2: .*trail arena exhausted" <<<"$wo" && grep -q "^  SILENT .*:g_capo rc=0" <<<"$wo" && grep -q "^  STALE .*g_no_such_guard_by_the_ratchet_gate" <<<"$wo" && grep -qE "^refusal read at the cap: 1 of [1-9][0-9]* guards, silent: 1$" <<<"$wo"'
+if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 8 arms -- $n fixed tables and $fn locals a program fills, each exactly its baseline; a planted one of each reds; the classifier tells a drop from no guard and a program's fill from a number's digits; $nab tables declared class A/B, none stale"; gate_stamp; exit 0; fi
+echo "GATE FAIL(1) [$GATE_NAME]: $fails of 8 arms red"; gate_stamp; exit 1

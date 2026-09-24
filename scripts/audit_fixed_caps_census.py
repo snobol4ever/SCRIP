@@ -893,8 +893,9 @@ class LocalReader:
 
     @staticmethod
     def verdict(sites, default):
+        # GROW is its own reading (the witness verb reads a refusal at a LOUD guard's cap; a guard that grows has no refusal to read)
         k = Counter(c.split("-")[0] for _, c, _ in sites)
-        return "DROP" if k["DROP"] else ("LOUD" if (k["LOUD"] or k["GROW"]) else default)
+        return "DROP" if k["DROP"] else ("LOUD" if k["LOUD"] else ("GROW" if k["GROW"] else default))
 
     def local_size(self, p, fa, fb, ident):
         """the resolved size of the local array ident declared in s[fa:fb], or None."""
@@ -1045,7 +1046,7 @@ class LocalReader:
             guards.append(sub[1] or "NONE")
             ev.append("%d:%s->%s{%s}" % (ln, f, sub[1], sub[2][:160]))
         if fills:
-            res = (",".join(sorted(set(fills))), "DROP" if "DROP" in guards else ("NONE" if "NONE" in guards else "LOUD"), " ".join(ev))
+            res = (",".join(sorted(set(fills))), "DROP" if "DROP" in guards else ("NONE" if "NONE" in guards else ("LOUD" if "LOUD" in guards else "GROW")), " ".join(ev))
         else:
             res = (sorted(set(fixed))[0] if fixed else "", "", "")
         self._memo[key] = res

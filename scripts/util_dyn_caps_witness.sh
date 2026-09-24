@@ -3,13 +3,14 @@
 # compile: the three compile-time witnesses (200 DEFINEs and a 608-entry blob layout vs sbl -bf, 600 predicates vs gprolog) plus zero compiler tables bound
 #          by a compile-time population cap in the census; runtime: the 70-argument Icon call vs iconx plus zero runtime tables
 #          bound by a runtime population cap; census: the ratchet -- file/static/field declarations may only fall from BASELINE, and the
-#          locals a program fills (CEO-1231 stage 2) may only fall from BASELINE_FUNCTION_SCOPE.
+#          locals a program fills (CEO-1231 stage 2) may only fall from BASELINE_FUNCTION_SCOPE; witness: every LOUD guard's refusal read
+#          at its cap+1 by the program scripts/fixtures/dyn_caps/WITNESSES.tsv names for it.
 # rc 0 GREEN, 1 RED, 2 REFUSE (an oracle or the binary missing). The population regexes are the page's § 6 list, spelled once here.
 # The GNU Prolog oracle is gplc's native binary, never `gprolog --consult-file`: the top level prints a four-line banner and consult's two
 # "compiling ..." lines to STDOUT before the program runs, so that arm read 606 lines against a correct 600 and could never go green (cfo 2026-09-23).
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd); cd "$HERE/.." || exit 2
-mode=${1:-}; [ -n "$mode" ] || { echo "REFUSE(2): usage: util_dyn_caps_witness.sh compile|runtime|census"; exit 2; }
+mode=${1:-}; [ -n "$mode" ] || { echo "REFUSE(2): usage: util_dyn_caps_witness.sh compile|runtime|census|witness"; exit 2; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 python3 scripts/audit_fixed_caps_census.py --tsv "$T/c.tsv" --no-report > "$T/census.txt" 2>&1 || { echo "REFUSE(2): the census refused -- $(tail -2 "$T/census.txt" | tr '\n' ' ')"; exit 2; }
 red=0
@@ -71,13 +72,42 @@ census)
   # and NONE together (CEO-1231 (2): a drop is not a guard); guarded is LOUD, which the reader also gives a GROW (the at-cap path
   # allocates). The population is ratcheted like the file-scope one, against its own BASELINE_FUNCTION_SCOPE.
   bf=$(cat "$BF")
-  read -r fn fl fd fx <<<"$(awk -F'\t' 'NR>1 && $3=="local" && $9=="" && $11!="" && $11 !~ /^B:/ {n++; if ($8=="LOUD") l++; else if ($8=="DROP") d++; else x++}
+  read -r fn fl fd fx <<<"$(awk -F'\t' 'NR>1 && $3=="local" && $9=="" && $11!="" && $11 !~ /^B:/ {n++; if ($8=="LOUD" || $8=="GROW") l++; else if ($8=="DROP") d++; else x++}
                                     END {print n+0, l+0, d+0, x+0}' "$T/c.tsv")"
   fk=$(awk -F'\t' 'NR>1 && $3=="local" && $11 ~ /^B:/' "$T/c.tsv" | wc -l)
   echo "function-scope arrays a program fills: $fn (baseline $bf) -- guarded by a loud refusal or a growth $fl, dropping at the cap $fd, with no guard $fx; fixed by construction and out (class B, read by machine): $fk"
   echo "function-scope arrays a program fills, unguarded: $((fd + fx))"
   if [ "$n" -gt "$base" ]; then echo "RED: the population of fixed tables grew from $base to $n -- a new fixed limit landed; make it dynamic or declare it class A/B on the page and lower nothing"; red=1; elif [ "$n" -lt "$base" ]; then echo "NOTE: $n is below the baseline $base -- lower BASELINE in the same landing (the ratchet only tightens)"; fi
   if [ "$fn" -gt "$bf" ]; then echo "RED: the function-scope population grew from $bf to $fn -- a new fixed local that a program fills landed; make it grow, and list it: python3 scripts/audit_fixed_caps_census.py --tsv FILE (column fill)"; red=1; elif [ "$fn" -lt "$bf" ]; then echo "NOTE: the function-scope population $fn is below its baseline $bf -- lower BASELINE_FUNCTION_SCOPE in the same landing"; fi
+  ;;
+witness)
+  # ⭐ THE WITNESS VERB (CEO-1231: the refusal read at cap+1). N = the census's LOUD guards (tables, arenas and the locals a program
+  # fills) that CLASS_AB.tsv does not declare; each needs a WITNESSES.tsv row whose program reaches its cap+1 and whose run ends in
+  # the row's rc with the row's refusal on stderr. SILENT: the run ended rc 0 past the cap and nothing refused. A row whose guard is no
+  # longer LOUD (converted, or never) is STALE and RED. GREEN only when K = N > 0, silent 0 and nothing stale.
+  SB="${SCRIP_BIN:-./scrip}"; [ -x "$SB" ] || { echo "REFUSE(2): no scrip binary at $SB"; exit 2; }
+  WT="${DYN_CAPS_WITNESSES:-scripts/fixtures/dyn_caps/WITNESSES.tsv}"; [ -f "$WT" ] || { echo "REFUSE(2): no witness table at $WT"; exit 2; }
+  AB=scripts/fixtures/dyn_caps/CLASS_AB.tsv; [ -f "$AB" ] || { echo "REFUSE(2): no class A/B declaration at $AB"; exit 2; }
+  wbad=$(awk -F'\t' '!/^#/ && NF && (NF < 6 || $5 !~ /^[0-9]+$/ || $6 == "")' "$WT")
+  [ -z "$wbad" ] || { echo "REFUSE(2): $WT rows that are not file<TAB>name<TAB>program<TAB>switches<TAB>rc<TAB>refusal:"; printf '%s\n' "$wbad" | cut -c1-160; exit 2; }
+  awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && $8=="LOUD" && $9=="" && !(($1 SUBSEP $4) in ab) &&
+      ($3=="file"||$3=="static"||$3=="field"||$3=="arena"||($3=="local" && $11!="" && $11 !~ /^B:/)) {print $1 "\t" $4}' "$AB" "$T/c.tsv" | sort -u > "$T/loud"
+  N=$(wc -l < "$T/loud"); K=0; S=0; X=0
+  while IFS=$'\t' read -r gf gn; do
+    row=$(awk -F'\t' -v f="$gf" -v n="$gn" '!/^#/ && $1==f && $2==n' "$WT" | head -1)
+    if [ -z "$row" ]; then echo "  NO WITNESS  $gf:$gn"; continue; fi
+    # cut, not read: tab is IFS whitespace, so `read` collapses an EMPTY switches column and shifts every field after it
+    prog=$(cut -f3 <<<"$row"); sw=$(cut -f4 <<<"$row"); wrc=$(cut -f5 <<<"$row"); refusal=$(cut -f6 <<<"$row")
+    [ -f "$prog" ] || { echo "  NO PROGRAM  $gf:$gn -- $prog is not there"; continue; }
+    timeout 300 "$SB" --run $sw "$prog" < /dev/null > "$T/w.out" 2> "$T/w.err"; rc=$?
+    if [ "$rc" = "$wrc" ] && grep -qF -- "$refusal" "$T/w.err"; then K=$((K + 1)); echo "  READ        $gf:$gn rc=$rc: $(grep -F -- "$refusal" "$T/w.err" | head -1 | cut -c1-140)"
+    elif [ "$rc" = 0 ]; then S=$((S + 1)); echo "  SILENT      $gf:$gn rc=0 -- the witness ran past the cap and nothing refused: $(head -c 100 "$T/w.out" | tr '\n' ' ')"
+    else echo "  UNREAD      $gf:$gn rc=$rc (want $wrc): $(head -c 160 "$T/w.err" | tr '\n' ' ')"; fi
+  done < "$T/loud"
+  stale=$(awk -F'\t' 'FNR==NR {have[$1 SUBSEP $2] = 1; next} !/^#/ && NF >= 6 && !(($1 SUBSEP $2) in have) {print "  STALE       " $1 ":" $2 " -- not a LOUD guard of this census"}' "$T/loud" "$WT")
+  [ -z "$stale" ] || { printf '%s\n' "$stale"; X=$(printf '%s\n' "$stale" | grep -c .); }
+  echo "refusal read at the cap: $K of $N guards, silent: $S"
+  { [ "$N" -gt 0 ] && [ "$K" = "$N" ] && [ "$S" = 0 ] && [ "$X" = 0 ]; } || red=1
   ;;
 *) echo "REFUSE(2): unknown mode $mode"; exit 2;;
 esac
