@@ -213,62 +213,58 @@ Every one is graded against the one oracle, `sbl -bf` (our SPITBOL x64 fork with
 modes; **SnoM** is our own flat master suite with refs cut from that oracle, and **SnoBench** the benchmark kernels graded as
 tests. The numbers are in the table and nowhere else: a count typed here would have no writer.
 
-**Benchmarks.** Every number below is cross-checked before publication: each kernel
-is timed two independent ways — a fixed time window counting iterations, and a fixed
-iteration count measuring time — and the two rates must agree within that kernel's
-measured noise tolerance; a process-level wrapper separately verifies that no disk
-activity leaks into the number, and startup is excluded by construction (the kernel
-times its own work). Where the two clocks disagree — as they do under machine load —
-the kernel is listed as unverified rather than published. Output is byte-verified
-against SPITBOL before any arm is timed.
+**Benchmarks.** SnoBench is the 23 kernels under `corpus/benchmarks/snobol4/`, each a standalone program with
+its `.ref` cut from SPITBOL. The three-angle harness `scripts/test_snobol4_bench_suite.sh` runs every kernel three
+ways in each mode — the pristine program under the external stopwatch `tools/bench_rusage`, a generated fixed-iteration
+twin and a generated fixed-time twin (`scripts/bench_wrap_snobol4.py`, the kernel never edited) — and a kernel is
+published only when all three print its ref in both modes; with `BENCH_ORACLE_ARM=1` the same pristine program and the
+same twins run under the clean SPITBOL oracle, so the two engines are timed on the same generated program, on the same
+box, in the same minute.
 
-**SNOBOL4 kernels × vs SPITBOL** — the two-number basis (RULES.md § THE TWO-NUMBER
-BENCHMARK BASIS). Triangulator: `scripts/bench_triangulate_snobol4.sh` (angle 1
-`test_bench_snobol4_timed.sh` fixed TIME, angle 2 `bench_snobol4_fixed_iter.sh` fixed
-ITERATIONS, angle 3 disk telemetry via `tools/bench_rusage`).
-*Measured 2026-09-04 on SCRIP 380cc4162 / corpus `201d9e021`, **RT_OPT=-O0**, modes
-m3 and m4, oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the
-monitor-hooked correctness one).* A kernel is published only when angle 1 and angle 2
-AGREE on **both** the SPITBOL arm and the SCRIP arm; 12 of 19 kernels qualified.
+*Measured 2026-09-24 14:58 CDT on SCRIP `239521c25` (the binary built from `0cfdf0101`, identical source) / corpus
+`d97a2d591`, **RT_OPT=-O0**, load 0.3 on 16 cores with the fleet quiet, `BENCH_ITER_N=5 BENCH_BUD_MS=500`, oracle
+`spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the monitor-hooked correctness fork). 23 of 23
+kernels printed their ref on every angle in all three engines.* The per-repetition figure is the fixed-time twin's
+(microseconds per repetition of the kernel's own function after one warm-up repetition); each x-factor is SCRIP
+against SPITBOL on that same twin:
 
-**WORK** is the per-iteration rate: these kernels expose a `*BENCH kernel=` entry the
-harness loops, so the published multiple is a SLOPE and process startup is divided away
-by construction — it is not subtracted, so the CEO-173 subtraction-noise refusal cannot
-arise here. **OVERHEAD** is therefore a separate per-engine constant, measured once on
-an empty program (best of 15, `tools/bench_rusage`): **SPITBOL 741 µs · SCRIP m3
-3827 µs · m4 2162 µs**. Each cell is the x-factor with its direction (SCRIP against SPITBOL):
+| kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 |
+|---|---:|---:|---:|:---:|:---:|
+| arith_loop | 24.4 | 154.1 | 154.6 | 6.3x slower | 6.3x slower |
+| arith_loop_twin | 7285.9 | 8400.5 | 8053.1 | 1.2x slower | 1.1x slower |
+| array_sum | 563.6 | 8253.2 | 7473.5 | 14.6x slower | 13.3x slower |
+| eval_fixed | 138.0 | 527.2 | 503.4 | 3.8x slower | 3.6x slower |
+| fib_recur | 3852.6 | 5039.5 | 5243.2 | 1.3x slower | 1.4x slower |
+| fibonacci | 233.5 | 1264.1 | 1311.0 | 5.4x slower | 5.6x slower |
+| func_call | 34.6 | 248.0 | 248.7 | 7.2x slower | 7.2x slower |
+| ident_call1 | 28.6 | 239.5 | 229.7 | 8.4x slower | 8.0x slower |
+| ident_call2 | 30.6 | 222.2 | 226.6 | 7.3x slower | 7.4x slower |
+| indirect_dispatch | 26.7 | 420.1 | 422.2 | 15.8x slower | 15.8x slower |
+| mixed_workload | 30.6 | 368.1 | 346.3 | 12.0x slower | 11.3x slower |
+| name_indirection | 965.7 | 10553.9 | 9564.4 | 10.9x slower | 9.9x slower |
+| op_dispatch | 53.5 | 370.1 | 380.7 | 6.9x slower | 7.1x slower |
+| pattern_bt | 222.2 | 373.4 | 365.2 | 1.7x slower | 1.6x slower |
+| roman | 161.5 | 982.2 | 1017.9 | 6.1x slower | 6.3x slower |
+| string_concat | 34.9 | 206.3 | 200.8 | 5.9x slower | 5.7x slower |
+| string_concat_twin | 193.7 | 258.0 | 280.7 | 1.3x slower | 1.4x slower |
+| string_manip | 63.2 | 1016.7 | 1009.8 | 16.1x slower | 16.0x slower |
+| string_pattern | 65.5 | 237.6 | 251.2 | 3.6x slower | 3.8x slower |
+| table_access | 783.1 | 8324.4 | 6760.2 | 10.6x slower | 8.6x slower |
+| table_variety | 582.5 | 4335.4 | 3434.6 | 7.4x slower | 5.9x slower |
+| test_icon | 1.0 | 1.6 | 1.6 | 1.6x slower | 1.6x slower |
+| var_access | 64.2 | 439.3 | 450.6 | 6.8x slower | 7.0x slower |
 
-| kernel | m3 | m4 |
-|---|:---:|:---:|
-| var_access | **3.7x faster** | **4.1x faster** |
-| arith_loop | **3.4x faster** | **3.9x faster** |
-| op_dispatch | — | **3.1x faster** |
-| fibonacci | **1.8x faster** | — |
-| func_call | **1.7x faster** | — |
-| pattern_bt | **1.5x faster** | **1.5x faster** |
-| eval_fixed | **1.0x faster** | **1.0x faster** |
-| string_pattern | 1.1x slower | — |
-| table_variety | 1.5x slower | — |
-| indirect_dispatch | 1.6x slower | 1.5x slower |
-| string_manip | 1.8x slower | 1.8x slower |
-| mixed_workload | 3.1x slower | 3.1x slower |
+Geometric mean over the 23 kernels: **5.4x slower** in mode 3, **5.3x slower** in mode 4; SCRIP is behind on every kernel, and the
+two modes read the same within noise, so the gap is not the medium. It is smallest where each statement does heavy
+work (arith_loop_twin, fib_recur, string_concat_twin, pattern_bt: 1.1x to 1.7x slower) and largest on tight loops of
+cheap statements — calls, name indirection, dispatch, table and string work read 7x to 16x slower — which names
+per-statement and per-call overhead rather than one slow builtin. End to end under the stopwatch the pristine
+programs read SPITBOL 0.6–8 ms, SCRIP mode 4 2–12 ms, mode 3 7–20 ms with its compile inside.
 
-A dash is an arm whose two clocks disagreed on this run; a disagreement is reported,
-never averaged away. The seven withheld kernels are withheld for that reason alone.
-⭐ This run supersedes the 2026-08-31 table, which published six kernels: the earlier
-re-run under a 16-seat fleet load agreed on only two, and this one — taken at load
-~2.8 on 16 cores — agreed on twelve, confirming that table was load-limited rather
-than engine-limited.
-
-**Instruction-count cross-check** (`scripts/bench_ir_slope.sh`, same tree, callgrind Ir
-regression `Ir(n) = OVERHEAD + n·WORK` fitted at n/2n/4n, linearity-checked): 16 of 19
-kernels fit linearly and are contention-immune, so they cover kernels the wall clock
-could not publish. ⛔ **It is a cross-check, not a substitute, and the two instruments
-genuinely disagree**: `op_dispatch` is **3.1x faster** on the clock but **1.8x faster** on
-instructions retired, and `pattern_bt` **1.5x faster** against **1.3x slower**. Both are correct —
-SCRIP executes *more* instructions than SPITBOL on those kernels but retires them
-faster (better ILP and locality). Ir counts instructions, not cycles; the headline
-multiples above are the timed ones, because time is what the basis is defined in.
+⛔ This grid supersedes the 2026-09-04 grid that stood here (twelve kernels, SCRIP read ahead on seven): the
+triangulation TSV committed the next day on that grid's own instrument (`corpus/benchmarks/snobol4/triangulation-
+20260905T194704Z.tsv`) already read SCRIP behind on every kernel, and today's same-twin reading agrees with the
+TSV, not with that grid. The instruction-count cross-check that accompanied it is retired with it.
 
 **SNOBOL4 real-program workloads × vs SPITBOL** (callgrind instruction counts, fixed
 work, startup excluded — SCRIP mode 4, 2026-08-23):
