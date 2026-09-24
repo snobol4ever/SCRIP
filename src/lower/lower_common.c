@@ -22,7 +22,7 @@ void bb_label_registry_reset(void) { g_bb_labels.n = 0; }
 void lower_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **);
-    extern void bb_src_gc_roots(void); extern void sno_lower_gc_roots(void); extern void rk_lower_gc_roots(void); extern void emit_gc_roots(void);
+    extern void bb_src_gc_roots(void); extern void sno_lower_gc_roots(void); extern void rk_lower_gc_roots(void); extern void emit_gc_roots(void); extern void zls_gc_roots(void);
     if (g_bb_labels.data) {
         rt_gc_visit_raw((const char **) &g_bb_labels.data);
         for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
@@ -32,6 +32,7 @@ void lower_gc_roots(void)
     sno_lower_gc_roots();
     rk_lower_gc_roots();
     emit_gc_roots();
+    zls_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

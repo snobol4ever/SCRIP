@@ -2526,7 +2526,6 @@ extern "C" int sn4_choice_rbp_off(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
 static cv_t g_blob_lay;
-extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); cv_gc_root(&g_bnr_vnode); cv_gc_root(&g_bnr_vname); }
 static uint64_t g_zls_lay[32768]; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
 extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
 static void blob_lay_push(int off, unsigned kind, int size) { CV_PUSH(g_blob_lay, uint64_t) = GC_LAY_Q(off, kind, size); }
@@ -2630,11 +2629,26 @@ static int zd_map_on(void) { static int _m = -1; if (_m < 0) { const char * e = 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_test_kind(IR_e op) { static int _tf = -1; if (_tf < 0) { const char * e = getenv("SCRIP_ZD_TESTFAM"); _tf = (e && *e == '0') ? 0 : 1; } static int _mb = -1; if (_mb < 0) { const char * e = getenv("SCRIP_ZD_MATCHDIAMOND"); _mb = (e && *e == '0') ? 0 : 1; } return (op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || (_tf && op == IR_BINOP_TEST) || (_mb && op == IR_MATCH_BEGIN)) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return 1; return 0; }
+typedef struct { const IR_t *k; int v; uint32_t gen; } zdo_slot_t;
+static cv_t g_zdo; static uint32_t g_zdo_gen = 0, g_zdo_cnt = 0; static IR_t **g_zdo_nodes = 0; static int g_zdo_n = -1;
+static zdo_slot_t *zdo_probe(const IR_t *k) { uint64_t h = (((uint64_t)(uintptr_t)k >> 4) * 11400714819323198485ull) & (g_zdo.len - 1);
+    for (;;) { zdo_slot_t *q = &CV_AT(g_zdo, zdo_slot_t, h); if (q->gen != g_zdo_gen || q->k == k) return q; h = (h + 1) & (g_zdo.len - 1); } }
+static void zdo_build(IR_t **nodes, int n) {
+    g_zdo_gen++; g_zdo_cnt = 0; g_zdo_nodes = nodes; g_zdo_n = n;
+    uint32_t need = 64; while (need < (uint32_t)n * 2 + 2) need <<= 1;
+    if (g_zdo.len < need) { cv_t z = { 0, 0, 0, 0 }; cv_reserve(&z, (uint32_t)sizeof(zdo_slot_t), need, "zdo"); memset(z.p, 0, (size_t)need * sizeof(zdo_slot_t)); z.len = need; g_zdo = z; }
+    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op)) { IR_t *t = zd_chase(nodes[k]->ω.node); if (!t) continue; zdo_slot_t *q = zdo_probe(t); if (q->gen != g_zdo_gen) { q->k = t; q->v = k; q->gen = g_zdo_gen; g_zdo_cnt++; } }
+}
+static int zdo_first(IR_t **nodes, int n, IR_t *t) {
+    if (t && nodes == g_zdo_nodes && n == g_zdo_n && g_zdo.len) { zdo_slot_t *q = zdo_probe(t); return q->gen == g_zdo_gen ? q->v : -1; }
+    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
+}
+static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
+extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); cv_gc_root(&g_bnr_vnode); cv_gc_root(&g_bnr_vname); cv_gc_root(&g_zdo); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout) { for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return zon[k] ? zout[k] : 0; return 0; }
+static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout) { int k = zdo_first(nodes, n, t); return k >= 0 ? (zon[k] ? zout[k] : 0) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return k; return -1; }
+static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_stmt_exit_kind(IR_e op) { return (op == IR_STATEMENT_END || op == IR_STATEMENT || op == IR_GOTO_DEFERRED) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2680,6 +2694,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     if (_dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); _dg = (d && *d == '1') ? 1 : 0; _zo = getenv("SCRIP_ZD_ONLY"); _zs = getenv("SCRIP_ZD_SKIP"); }
     if (_zoh < 0) { const char * oh = getenv("SCRIP_ZD_OMEGA_HEAD"); _zoh = (oh && *oh == '0') ? 0 : 1; const char * be = getenv("SCRIP_ZD_BACKEDGE"); _zbe = (be && *be == '0') ? 0 : 1; }
     if (_zvd < 0) { const char * vd = getenv("SCRIP_ZD_VALDIAMOND"); _zvd = (vd && *vd == '0') ? 0 : 1; }
+    zdo_build(nodes, n);
     IR_t ** zgt = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n); IR_t ** zot = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n);
     unsigned char * zgin = (unsigned char *)alloca((size_t)n); unsigned char * zoin = (unsigned char *)alloca((size_t)n); int * zmatch = (int *)alloca(sizeof(int) * (size_t)n);
     int * zstmt = (int *)alloca(sizeof(int) * (size_t)n); for (int _q = 0; _q < n; _q++) zstmt[_q] = -1;

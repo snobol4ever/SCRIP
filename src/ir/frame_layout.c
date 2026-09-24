@@ -1,5 +1,6 @@
 #include <string.h>
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include <stdlib.h>
 #include "frame_layout.h"
 #include "gc_frame_map.h"
@@ -24,6 +25,20 @@ typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_
 typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; struct zls_reuse_s * reuse; int n_reuse; int scratch_pool; const IR_t * scratch_hit_w; const IR_t * scratch_hit_t; } zls_graph_t;
 static zls_entry_t  ze[FL_MAX_ENTRIES];  static int ze_n = 0;
 static zls_pfield_t zf[FL_MAX_FIELDS];   static int zf_n = 0;
+typedef struct { const IR_t * nd; int scope; int end; uint32_t gen; } znb_slot_t;
+static cv_t g_znb; static uint32_t g_znb_gen = 1, g_znb_n = 0;
+static znb_slot_t * znb_probe(cv_t * v, const IR_t * nd, int scope) {
+    uint64_t h = ((((uint64_t)(uintptr_t)nd >> 4) ^ ((uint64_t)(uint32_t)scope * 0x9e3779b97f4a7c15ull)) * 0xff51afd7ed558ccdull) & (v->len - 1);
+    for (;;) { znb_slot_t * t = &CV_AT(*v, znb_slot_t, h); if (t->gen != g_znb_gen || (t->nd == nd && t->scope == scope)) return t; h = (h + 1) & (v->len - 1); }
+}
+static void znb_note(const IR_t * nd, int scope, int end) {
+    if ((uint64_t)(g_znb_n + 1) * 2 > g_znb.len) { uint32_t nc = g_znb.len ? g_znb.len * 2 : 256; cv_t o = g_znb, n = { 0, 0, 0, 0 };
+        cv_reserve(&n, (uint32_t)sizeof(znb_slot_t), nc, "znb"); memset(n.p, 0, (size_t)nc * sizeof(znb_slot_t)); n.len = nc; g_znb = n;
+        for (uint32_t i = 0; i < o.len; i++) { znb_slot_t q = CV_AT(o, znb_slot_t, i); if (q.gen == g_znb_gen) *znb_probe(&g_znb, q.nd, q.scope) = q; } }
+    znb_slot_t * t = znb_probe(&g_znb, nd, scope);
+    if (t->gen != g_znb_gen) { t->nd = nd; t->scope = scope; t->end = end; t->gen = g_znb_gen; g_znb_n++; } else if (end > t->end) t->end = end;
+}
+void zls_gc_roots(void) { cv_gc_root(&g_znb); }
 static zls_scope_t  zs[FL_MAX_SCOPES];   static int zs_n = 0;
 static zls_graph_t  zg[FL_MAX_GRAPHS];   static int zg_n = 0;
 static zls_vslot_t  zv[FL_MAX_VSLOTS];   static int zv_n = 0;
@@ -48,7 +63,7 @@ static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; }
+void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; g_znb_gen++; g_znb_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
@@ -88,6 +103,7 @@ static const zls_entry_t * zx_find(const IR_t * nd) {
 static void zls_field(int scope_id, int off, int size, int kind, int audit, const char * what, const IR_t * nd) {
     if (zf_n >= FL_MAX_FIELDS) { fprintf(stderr, "zls: field table overflow (%d)\n", FL_MAX_FIELDS); abort(); }
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
+    if (nd) znb_note(nd, scope_id, off + size);
 }
 static int zls_fence_widen(const IR_graph_t * g) { return g && g->zframe_pinned_base && g->zframe_graph; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -805,12 +821,9 @@ int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) retu
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_act_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].what && !strncmp(zf[i].what, "callgen.act +0", 14)) return zf[i].off; return -1; }
 int zls_argv_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->aoff >= 0 ? e->aoff : e->off + 16; }
-#define ZNB_MEMO 65536
-static struct { const IR_t * nd; int stamp; int bytes; } znb_memo[ZNB_MEMO];
 int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return 0;
-    size_t h = (((size_t)(uintptr_t)nd) >> 4) & (ZNB_MEMO - 1); if (znb_memo[h].nd == nd && znb_memo[h].stamp == zf_n) return znb_memo[h].bytes;
-    int end = e->off; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].off + zf[i].size > end) end = zf[i].off + zf[i].size; int b = end - e->off; b = (b + 15) & ~15;
-    znb_memo[h].nd = nd; znb_memo[h].stamp = zf_n; znb_memo[h].bytes = b; return b; }
+    int end = e->off; if (g_znb.len) { const znb_slot_t * t = znb_probe(&g_znb, nd, e->scope_id); if (t->gen == g_znb_gen && t->end > end) end = t->end; }
+    int b = end - e->off; b = (b + 15) & ~15; return b; }
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
