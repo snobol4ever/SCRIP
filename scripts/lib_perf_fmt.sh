@@ -4,10 +4,6 @@
 # THE RULE IT IMPLEMENTS (Lon, 2026-08-23 s266; authority .github/RULES.md § FACT RULES):
 #   THE UNIT IS `x`, A MULTIPLE, ON THE FASTER AXIS.  multiple = reference / ours.
 #   2.00x is twice the reference's speed, 0.50x is half.  THE NUMBER IS THE DIRECTION.
-#   ⛔⭐ SUPERSEDED 2026-09-24 (Lon, in-chat to the ceo, verbatim: "Always show the x-factor in a consistent manner. That is
-#      1.5x faster for example."; CEO-1241; RULES.md FACT RULE at the head of THE UNIT IS x): perf_mult prints ONE spelling,
-#      "<factor>x faster" when the reference takes longer than we do and "<factor>x slower" when we take longer, the factor
-#      at or above 1.0 with one decimal (the reciprocal of a multiple below 1.0). The s266 note that follows is the record.
 #   ⛔ FASTER and SLOWER are NOT UNITS and never attach to a multiple: "0.666 slower" is
 #      self-contradictory, because *slower* has its own multiple (1.5x as slow), so the
 #      phrase names two answers at once.  "2x slower" is the same disease from the other
@@ -155,7 +151,7 @@ perf_mult() {
     local out
     out="$(awk -v r="$1" -v o="$2" -v c="$(perf_color_on && echo 1 || echo 0)" 'BEGIN{
         m = r / o
-        s = (m >= 1.0) ? sprintf("%.1fx faster", m) : sprintf("%.1fx slower", 1.0 / m)
+        s = sprintf("%.3fx", m)
         if (c) { print (m >= 1.0 ? "\033[92m" : "\033[31m") s "\033[0m" } else { print s }
     }')"
     printf '%s%s\n' "$out" "$(perf_stamp_suffix)"

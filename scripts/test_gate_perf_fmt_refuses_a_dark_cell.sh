@@ -51,14 +51,14 @@ dark "zero both"                  0   0       "crypt m3 vs gnu"
 echo "B. a measurable subject still prints its multiple, unchanged"
 # PERF_STAMP_OFF=1 HERE IS NOT THE TEST BEING BENT TO PASS -- it is this section testing the thing it was
 # always about. CEO-743 welded a load stamp onto every standalone number, so a bare perf_mult now prints
-# "2.0x faster   . load 3.21 on 16 cores" (the direction word since Lon 2026-09-24, CEO-1241); B pins the VALUE FORMATTING, and PERF_STAMP_OFF is the documented
+# "2.000x   . load 3.21 on 16 cores"; B pins the VALUE FORMATTING, and PERF_STAMP_OFF is the documented
 # composition path for a caller building its own line. The stamp law itself is pinned in section I below.
 m() { local want="$1" got; got="$(PERF_STAMP_OFF=1 perf_mult "$2" "$3" 2>/dev/null)"
       [ "$got" = "$want" ] && ok "perf_mult $2 $3 = $want" || bad "perf_mult $2 $3" "$want" "$got"; }
-m "2.0x faster"  100 50
-m "2.0x slower"  50  100
-m "1.0x faster"  7   7
-m "1.6x faster"  1628 1000
+m "2.000x"  100 50
+m "0.500x"  50  100
+m "1.000x"  7   7
+m "1.628x"  1628 1000
 p() { local want="$1" got; got="$(PERF_STAMP_OFF=1 perf_pct "$2" "$3" 2>/dev/null)"
       [ "$got" = "$want" ] && ok "perf_pct $2 $3 = $want" || bad "perf_pct $2 $3" "$want" "$got"; }
 p "100.0% faster" 200 100
@@ -159,7 +159,7 @@ echo "I. every number carries the load it was measured under (CEO-743)"
 PERF_GRID_OPEN=0; PERF_ROWS_STAMPED=0
 got="$(perf_mult 100 50 2>/dev/null)"
 case "$got" in *load*core*) ok "a standalone perf_mult carries its load stamp" ;;
-    *) bad "standalone perf_mult must carry a load stamp" "2.0x faster ... load N on C cores" "$got" ;; esac
+    *) bad "standalone perf_mult must carry a load stamp" "2.000x ... load N on C cores" "$got" ;; esac
 got="$(perf_pct 200 100 2>/dev/null)"
 case "$got" in *load*core*) ok "a standalone perf_pct carries its load stamp" ;;
     *) bad "standalone perf_pct must carry a load stamp" "100.0% faster ... load N on C cores" "$got" ;; esac
