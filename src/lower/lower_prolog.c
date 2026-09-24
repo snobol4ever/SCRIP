@@ -429,6 +429,13 @@ static IR_t * pl_disj_entry(lcx_t * cx, IR_t * e, IR_t * dj) {
       return g; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_conj_top_cut(const lc_vec * v) {
+    for (int i = 0; i < v->n; i++) { const tree_t * g = ((const tree_t * const *) v->data)[i];
+        if (g && (g->t == TT_CUT || ((g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval && !strcmp(g->v.sval, "!")))) return 1; }
+    return 0;
+}
+static IR_t * pl_cut_redo(lcx_t * cx) { return build(cx, IR_GOTO, cx->cutω, cx->cutω); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     lc_vec bv; lc_vec_init(&bv, (int) sizeof(const tree_t *));
     collect_disj(t, &bv);
@@ -448,10 +455,8 @@ static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * 
             if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) memcpy(x->γ.sz, "φ", 3); else memcpy(x->γ.sz, "σ", 3); x->γ.sz[3] = 0; }
             if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
         }
-        int cut_in_branch = 0;
-        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { cut_in_branch = 1; break; }
         ir_operand_push(dj, pl_disj_entry(cx, bentry ? bentry : (first ? first : dj), dj));
-        ir_operand_push(dj, cut_in_branch ? cx->cutω : (redo ? redo : dj));
+        ir_operand_push(dj, redo ? redo : (pl_conj_top_cut(&glv) ? pl_cut_redo(cx) : dj));
     }
     for (int j = 0; j < nb; j++) ir_operand_push(dj, NULL);
     IR_LIT(dj).ival = (long) nb;
@@ -509,17 +514,15 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
     arms[nb++] = T; if (E) arms[nb++] = E;
     for (int j = 0; j < nb; j++) {
         IR_t * ml = build(cx, IR_GATE_ARM, NULL, ωfail);
-        int before = cx->g->n;
         lc_vec av; lc_vec_init(&av, (int) sizeof(const tree_t *));
         collect_conj(arms[j], &av);
         IR_t * ae = NULL; IR_t * redo = NULL;
         IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, unmk_c, &ae, &redo, NULL);
-        int cut_in_arm = 0;
-        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { cut_in_arm = 1; break; }
-        ir_operand_push(ml, cut_in_arm ? cx->cutω : (redo ? redo : ig));
+        IR_t * rt = redo ? redo : (pl_conj_top_cut(&av) ? pl_cut_redo(cx) : ig);
+        ir_operand_push(ml, rt);
         ir_operand_push(ml, ig);
         ir_operand_push(ig, ml); IR_LIT(ig).ival = ig->n_operands;
-        ml->seal = (redo || cut_in_arm) ? 1 : 0; IR_LIT(ml).ival = ig->n_operands - 1;
+        ml->seal = (rt != ig) ? 1 : 0; IR_LIT(ml).ival = ig->n_operands - 1;
         arm_entry[j] = ae ? ae : (first ? first : ml);
     }
     { int before = cx->g->n;
@@ -527,8 +530,8 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
       collect_conj(C, &cv);
       IR_t * ce = NULL;
       lc_γ_to(unmk_f, (nb > 1) ? arm_entry[1] : ig);
-      IR_t * saveω = cx->cutω; cx->cutω = unmk_f;
-      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
+      IR_t * saveω = cx->cutω; IR_t * ccut = build(cx, IR_GOTO, unmk_f, unmk_f); cx->cutω = ccut;
+      IR_t * savecutω = cx->cutω; cx->cutω = ccut; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
       IR_t * fence = pl_fence_on() ? build(cx, IR_UNMARK, arm_entry[0], unmk_c) : (IR_t *) 0;
       if (fence) { ir_operand_push(fence, mark); IR_LIT(fence).ival = 2; }
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? fence : arm_entry[0], unmk_f, &ce, NULL, NULL);
@@ -555,17 +558,17 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
     { lc_vec cv; lc_vec_init(&cv, (int) sizeof(const tree_t *));
       collect_conj(C, &cv);
       IR_t * ce = NULL;
-      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
+      IR_t * savecutω = cx->cutω; cx->cutω = build(cx, IR_GOTO, unmk_f, unmk_f); int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, ml_c, unmk_f, &ce, &credo, NULL);
       cx->cutω = savecutω; cx->cut_scope = save_scope;
       lc_γ_to(ml_e, pl_sc_entry(ce ? ce : (cfirst ? cfirst : ml_c))); }
-    IR_t * tredo = NULL; int sc_cut_in_then = 0; int sc_cut_in_else = 0;
+    IR_t * tredo = NULL; int sc_cut_in_then = 0; int sc_cut_in_else = 0; IR_t * sc_then_cut = NULL; IR_t * sc_else_cut = NULL;
     { lc_vec tv; lc_vec_init(&tv, (int) sizeof(const tree_t *));
       collect_conj(T, &tv);
       int before = cx->g->n;
       IR_t * te = NULL;
       IR_t * tfirst = pl_lower_conj(cx, (const tree_t * const *) tv.data, tv.n, ml_t, credo ? credo : unmk_c, &te, &tredo, NULL);
-      for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { sc_cut_in_then = 1; break; }
+      sc_cut_in_then = !tredo && pl_conj_top_cut(&tv); if (sc_cut_in_then) sc_then_cut = pl_cut_redo(cx);
       if (credo) pl_mark_into(cx, before, credo, "β", "β");
       lc_γ_to(ml_c, pl_sc_entry(te ? te : (tfirst ? tfirst : ml_t))); }
     IR_t * ee = NULL;
@@ -574,16 +577,15 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
         lc_vec ev; lc_vec_init(&ev, (int) sizeof(const tree_t *));
         collect_conj(E, &ev);
         IR_t * eredo = NULL;
-        int ebefore = cx->g->n;
         IR_t * efirst = pl_lower_conj(cx, (const tree_t * const *) ev.data, ev.n, ml_ee, unmk_c, &ee, &eredo, NULL);
-        for (int k = ebefore; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { sc_cut_in_else = 1; break; }
-        ir_operand_push(ml_ee, sc_cut_in_else ? cx->cutω : (eredo ? eredo : ig)); ir_operand_push(ml_ee, ig); ir_operand_push(ig, ml_ee); IR_LIT(ig).ival = ig->n_operands; ml_ee->seal = (eredo || sc_cut_in_else) ? 1 : 0; IR_LIT(ml_ee).ival = ig->n_operands - 1;
+        sc_cut_in_else = !eredo && pl_conj_top_cut(&ev); if (sc_cut_in_else) sc_else_cut = pl_cut_redo(cx);
+        ir_operand_push(ml_ee, sc_cut_in_else ? sc_else_cut : (eredo ? eredo : ig)); ir_operand_push(ml_ee, ig); ir_operand_push(ig, ml_ee); IR_LIT(ig).ival = ig->n_operands; ml_ee->seal = (eredo || sc_cut_in_else) ? 1 : 0; IR_LIT(ml_ee).ival = ig->n_operands - 1;
         ee = pl_sc_entry(ee ? ee : (efirst ? efirst : ml_ee));
         if (!ee) ee = ml_ee;
     }
     ir_operand_push(ml_e, E ? ee : eg); ir_operand_push(ml_e, eg); ir_operand_push(eg, ml_e); IR_LIT(eg).ival = eg->n_operands; ml_e->seal = 0; IR_LIT(ml_e).ival = eg->n_operands - 1;
     ir_operand_push(ml_c, eg); ir_operand_push(ml_c, eg); ir_operand_push(eg, ml_c); IR_LIT(eg).ival = eg->n_operands; ml_c->seal = 0; IR_LIT(ml_c).ival = eg->n_operands - 1;
-    ir_operand_push(ml_t, sc_cut_in_then ? cx->cutω : (tredo ? tredo : (credo ? credo : ig))); ir_operand_push(ml_t, ig); ir_operand_push(ig, ml_t); IR_LIT(ig).ival = ig->n_operands; ml_t->seal = (tredo || credo || sc_cut_in_then) ? 1 : 0; IR_LIT(ml_t).ival = ig->n_operands - 1;
+    ir_operand_push(ml_t, sc_cut_in_then ? sc_then_cut : (tredo ? tredo : (credo ? credo : ig))); ir_operand_push(ml_t, ig); ir_operand_push(ig, ml_t); IR_LIT(ig).ival = ig->n_operands; ml_t->seal = (tredo || credo || sc_cut_in_then) ? 1 : 0; IR_LIT(ml_t).ival = ig->n_operands - 1;
     lc_γ_to(mark, ml_e);
     if (entry_out) *entry_out = mark;
     return ig;
@@ -615,19 +617,16 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     const tree_t * arms[2] = { G, R };
     for (int j = 0; j < 2; j++) {
         IR_t * ml = build(cx, IR_GATE_ARM, NULL, ig);
-        int before = cx->g->n;
-        IR_t * saveω = cx->cutω; int save_scope = cx->cut_scope; cx->cutω = ig; cx->cut_scope = ++cx->scope_seq;
+        IR_t * saveω = cx->cutω; int save_scope = cx->cut_scope; cx->cutω = build(cx, IR_GOTO, ig, ig); cx->cut_scope = ++cx->scope_seq;
         lc_vec av; lc_vec_init(&av, (int) sizeof(const tree_t *));
         collect_conj(arms[j], &av);
         IR_t * ae = NULL; IR_t * redo = NULL;
         IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, j ? ig : unmk, &ae, &redo, NULL);
-        int cut_in_arm = 0;
-        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { cut_in_arm = 1; break; }
         cx->cutω = saveω; cx->cut_scope = save_scope;
-        ir_operand_push(ml, (redo && !cut_in_arm) ? redo : ig);
+        ir_operand_push(ml, redo ? redo : ig);
         ir_operand_push(ml, ig);
         ir_operand_push(ig, ml); IR_LIT(ig).ival = ig->n_operands;
-        ml->seal = (redo && !cut_in_arm) ? 1 : 0; IR_LIT(ml).ival = ig->n_operands - 1;
+        ml->seal = redo ? 1 : 0; IR_LIT(ml).ival = ig->n_operands - 1;
         arm_entry[j] = ae ? ae : (first ? first : ml);
     }
     lc_γ_to(hc, arm_entry[1]);
