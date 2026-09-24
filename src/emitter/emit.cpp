@@ -2980,7 +2980,7 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
            + x86("call", "rt_gc_frame_map_check", fp)
            + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8") + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");
     }
-    return s;
+    return s + x86("mov", "eax", 0L);
 }
 static void emit_gc_map_data(const char * fam) {
     { extern const char * zls_graph_name_get(const IR_graph_t *); const char * ef = gc_map_entry_fam(fam);

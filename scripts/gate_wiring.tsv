@@ -349,6 +349,7 @@ test_gate_perf_fmt_refuses_a_dark_cell.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
 test_gate_picker_lane_table_agrees_with_mode.sh	WIRED	-	-	-
 test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
+test_gate_pl_a_body_less_procedure_returns_a_defined_result.sh	WIRED	-	-	-
 test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_a_shift_outside_the_int64_window_is_computed_not_wrapped.sh	WIRED	-	-	-
