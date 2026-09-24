@@ -87,7 +87,7 @@ __asm__(
 "  movq %rdi, %rax\n"
 "  leaq 1f(%rip), %rcx\n"
 "  movq %rcx, %rdx\n"
-"  movq rt_kw_return_level_zero@GOTPCREL(%rip), %r10\n"
+"  leaq 9f(%rip), %r10\n"
 "  pushq %r10\n"
 "  pushq %r10\n"
 "  movq g_dcap_base@GOTPCREL(%rip), %r10\n"
@@ -127,6 +127,9 @@ __asm__(
 "  popq %r12\n"
 "  popq %rbx\n"
 "  ret\n"
+"9:\n"
+"  call rt_kw_return_level_zero@PLT\n"
+"  ud2\n"
 );
 __asm__(
 ".text\n"

@@ -2891,7 +2891,7 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
     fprintf(stderr, "scrip: the out-of-memory error handler returned and the allocation cannot proceed\n");
     exit(1);
 }
-__attribute__((force_align_arg_pointer)) void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
+void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
