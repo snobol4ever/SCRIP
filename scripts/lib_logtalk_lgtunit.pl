@@ -111,17 +111,43 @@ lgt_clean_text_output :- lgt_close_out, catch(lgt_delete('lgt_capture_out.txt'),
 % delete a text capture some other case is still asserting over, and a shared name made the two cleanups
 % order-dependent. It reuses lgt_cap_out/1 and lgt_prev_out/1 so lgt_close_out restores the real handle
 % exactly as the text path does -- never via the user_output alias, which was measured not to restore.
-% ⭐ These four cases do NOT ask the shim to read binary back. They ask only that the current output, or an
-% aliased stream, BE binary, so that a text write to it raises permission_error(output, binary_stream, _)
-% from the system under test. So binary_output_assertion and check_binary_input stay deliberately absent
-% and their cases stay UNGRADED-with-a-name; implementing only what the cases need is what keeps that
-% honest, rather than writing four more helpers nothing grades.
-lgt_set_binary_output(Opts) :-
+% ⛔ THE ARGUMENT IS THE STREAM'S INITIAL BYTES, NOT ITS OPTIONS (lgtunit: set_binary_output(Bytes),
+% set_binary_output(Alias, Bytes), set_binary_output(Alias, Bytes, Options)): they are written THROUGH the
+% stream the case then uses, so its position starts after them. Never a write-then-reopen-for-append: under
+% append every put lands at the end whatever set_stream_position/2 said, and lgt_set_stream_position_2_10
+% (reposition to 0, then put_byte) expects the byte to overwrite. An earlier shim read the list as options,
+% which only agreed with lgtunit while every list was [].
+lgt_put_bytes(_, []).
+lgt_put_bytes(S, [B|Bs]) :- put_byte(S, B), lgt_put_bytes(S, Bs).
+lgt_read_bytes(S, L) :- get_byte(S, B), ( B == -1 -> L = [] ; L = [B|T], lgt_read_bytes(S, T) ).
+lgt_bytes_to_file(F, Bytes) :- open(F, write, S, [type(binary)]), lgt_put_bytes(S, Bytes), close(S).
+lgt_file_to_bytes(F, Bytes) :- open(F, read, S, [type(binary)]), lgt_read_bytes(S, Bytes), close(S).
+lgt_set_binary_output(Bytes) :-
     current_output(Prev), assertz(lgt_prev_out(Prev)),
-    open('lgt_capture_out.bin', write, S, [type(binary)|Opts]), assertz(lgt_cap_out(S)), set_output(S).
-lgt_set_binary_output(Alias, Opts) :-
-    open('lgt_capture_out.bin', write, S, [type(binary), alias(Alias)|Opts]), assertz(lgt_cap_out(S)).
+    open('lgt_capture_out.bin', write, S, [type(binary)]), assertz(lgt_cap_out(S)), lgt_put_bytes(S, Bytes), set_output(S).
+lgt_set_binary_output(Alias, Bytes) :- lgt_set_binary_output(Alias, Bytes, []).
+lgt_set_binary_output(Alias, Bytes, Opts) :-
+    open('lgt_capture_out.bin', write, S, [type(binary), alias(Alias)|Opts]), assertz(lgt_cap_out(S)), lgt_put_bytes(S, Bytes).
+lgt_binary_output_assertion(Expected, Assertion) :-
+    lgt_close_out, lgt_file_to_bytes('lgt_capture_out.bin', Got), Assertion = (Got == Expected).
+lgt_binary_output_assertion(_Alias, Expected, Assertion) :- lgt_binary_output_assertion(Expected, Assertion).
 lgt_clean_binary_output :- lgt_close_out, catch(lgt_delete('lgt_capture_out.bin'), _, true).
+
+% ---- binary input ----------------------------------------------------------------------------------
+% lgtunit: set_binary_input(Bytes) makes a binary stream over the bytes the current input; the Alias forms
+% open it under that alias with the case's extra options. check_binary_input reads what is LEFT, exactly as
+% check_text_input does -- it asserts how far the reader under test consumed.
+lgt_set_binary_input(Bytes) :-
+    lgt_bytes_to_file('lgt_capture_in.bin', Bytes),
+    current_input(Prev), assertz(lgt_prev_in(Prev)),
+    open('lgt_capture_in.bin', read, S, [type(binary)]), assertz(lgt_cap_in(S)), set_input(S).
+lgt_set_binary_input(Alias, Bytes) :- lgt_set_binary_input(Alias, Bytes, []).
+lgt_set_binary_input(Alias, Bytes, Opts) :-
+    lgt_bytes_to_file('lgt_capture_in.bin', Bytes),
+    open('lgt_capture_in.bin', read, S, [type(binary), alias(Alias)|Opts]), assertz(lgt_cap_in(S)).
+lgt_check_binary_input(Expected) :- current_input(S), lgt_read_bytes(S, Got), Got == Expected.
+lgt_check_binary_input(Alias, Expected) :- lgt_read_bytes(Alias, Got), Got == Expected.
+lgt_clean_binary_input :- lgt_close_in, catch(lgt_delete('lgt_capture_in.bin'), _, true).
 
 % ---- input ------------------------------------------------------------------------------------------
 lgt_close_in :- ( retract(lgt_cap_in(S)) -> catch(close(S), _, true) ; true ),
@@ -150,6 +176,7 @@ lgt_clean_text_input :- lgt_close_in, catch(lgt_delete('lgt_capture_in.txt'), _,
 % creates a file must not be able to write outside its own scratch directory.
 lgt_file_path(Name, Name).
 lgt_create_text_file(File, Contents) :- lgt_atom_to_file(File, Contents).
+lgt_create_binary_file(File, Bytes) :- lgt_bytes_to_file(File, Bytes).
 lgt_check_text_file(File, Expected) :- lgt_file_to_atom(File, Text), Text == Expected.
 lgt_clean_file(File) :- catch(lgt_delete(File), _, true).
 lgt_delete(File) :- ( catch(delete_file(File), _, fail) -> true ; true ).
@@ -158,6 +185,8 @@ lgt_delete(File) :- ( catch(delete_file(File), _, fail) -> true ; true ).
 % A CLOSED stream handle, which is what the permission_error/existence_error cases need to be handed.
 lgt_closed_output_stream(S, Opts) :- open('lgt_closed.txt', write, S, Opts), close(S).
 lgt_closed_input_stream(S, Opts) :- lgt_atom_to_file('lgt_closed.txt', ''), open('lgt_closed.txt', read, S, Opts), close(S).
+% lgtunit: a position term this system accepts, read off a freshly opened stream.
+lgt_stream_position(P) :- open('lgt_position.txt', write, S), stream_property(S, position(P)), close(S), lgt_delete('lgt_position.txt').
 
 % ---- term relations ---------------------------------------------------------------------------------
 % ⛔ NOT subsumes_term/2 AND NOT =@=/2 -- neither exists in this engine (existence_error, measured
