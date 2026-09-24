@@ -589,21 +589,25 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx)
         if (!plc_unify_cells_cx((pl_cell_t *)list_cell, &lst, cx)) { return 0; }
         return 1;
     }
-    pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
-    pl_cell_t *elems[64]; int ne = 0;
-    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == ATOM_DOT && (int)(cur->slen & 0xFFFFu) == 2 && cur->p) {
-        if (ne >= 64) break;
-        elems[ne++] = pl_deref(&((pl_cell_t *)cur->p)[0]);
-        cur = pl_deref(&((pl_cell_t *)cur->p)[1]);
-    }
-    if (ne == 0) { return 0; }
+    extern int ATOM_NIL; extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind1(const char *, const char *);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    pl_cell_t *l0 = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0, *cur = l0; void *b = (void *)0; int ne = 0;
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == ATOM_DOT && (int)(cur->slen & 0xFFFFu) == 2 && cur->p) { ne++; cur = pl_deref(&((pl_cell_t *)cur->p)[1]); }
+    if (!cur || pl_cell_unbound(cur)) b = rt_pl_ball_instantiation();
+    else if (!(plc_is_atomlike(cur) && plc_atom_id_of(cur) == ATOM_NIL)) b = rt_pl_ball_kind2("type_error", "list", *l0);
+    else if (ne == 0) b = rt_pl_ball_kind2("domain_error", "non_empty_list", *l0);
+    if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
+    pl_cell_t *h = pl_deref(&((pl_cell_t *)l0->p)[0]);
+    if (pl_cell_unbound(h)) b = rt_pl_ball_instantiation();
+    else if (ne == 1 && (int)h->v == DT_PLREF) b = rt_pl_ball_kind2("type_error", "atomic", *h);
+    else if (ne > 1 && !plc_is_atomlike(h)) b = rt_pl_ball_kind2("type_error", "atom", *h);
+    else if (ne - 1 > 1024) b = rt_pl_ball_kind1("representation_error", "max_arity");
+    if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
     pl_cell_t built;
-    if (ne == 1) { built = *elems[0]; }
+    if (ne == 1) { built = *h; }
     else {
-        pl_cell_t *h = elems[0];
-        if (!h || !plc_is_atomlike(h)) { return 0; }
-        pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)(ne - 1) * sizeof(pl_cell_t));
-        for (int i = 1; i < ne; i++) args[i - 1] = *elems[i];
+        pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)(ne - 1) * sizeof(pl_cell_t)); int i = 0;
+        for (cur = pl_deref(&((pl_cell_t *)l0->p)[1]); i < ne - 1; cur = pl_deref(&((pl_cell_t *)cur->p)[1])) args[i++] = *pl_deref(&((pl_cell_t *)cur->p)[0]);
         built = pl_make_compound(plc_atom_id_of(h), ne - 1, args);
     }
     if (!plc_unify_cells_cx((pl_cell_t *)t0_cell, &built, cx)) { return 0; }
