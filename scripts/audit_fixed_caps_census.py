@@ -8,7 +8,10 @@ literal or UPPER_CASE macro -- with its scope (file/static, struct field, local,
 tree's #defines where it can be, and whether the bound's macro is ever compared against in the same file (a loud guard) or
 never (a silent overrun); (2) every #define whose name ends in MAX/CAP/LIMIT/SIZE/DEPTH/ENTRIES/SLOTS/COUNT/LEN with a
 numeric value and its use count.  It is a census, not a verdict: the classification (bounded by the machine vs a
-population cap a program can outgrow) is the reader's, written beside each row in the design page.
+population cap a program can outgrow) is the reader's, written beside each row in the design page.  Since CEO-1231 stage 2 each
+LOCAL also carries a fill column -- how a program's data fills it (COUNTER, CALLEE:f, FORMAT:f, COPY:f, READ:f, PATH:f), or B:<why>
+when it is fixed by construction -- and a guard read like a table's; the TSV columns are file line scope name bound size dims guard
+const sites fill.  A declaration is scoped at its own position in text whose comments and strings are blanked.
 """
 import os
 import re
@@ -93,8 +96,22 @@ OP_BEFORE = re.compile(r"(<=|>=|==|!=|(?<![<\-])<|(?<![>\-])>)\s*\(?\s*$")
 OP_AFTER = re.compile(r"\s*\)?\s*(<=|>=|==|!=|<(?![<=])|>(?![>=]))")
 
 
-def strip_c(t):
-    """t with comment and string-literal contents and preprocessor lines blanked -- every newline and offset kept."""
+_MEMO = {}
+
+
+def memo(f):
+    """one computation per (function, text): the census strips and splits each file into functions from three readers."""
+    def g(*a, **k):
+        key = (f.__name__,) + a + tuple(sorted(k.items()))
+        if key not in _MEMO:
+            _MEMO[key] = f(*a, **k)
+        return _MEMO[key]
+    return g
+
+
+@memo
+def strip_c(t, pp=True):
+    """t with comment and string-literal contents and (pp) preprocessor lines blanked -- every newline and offset kept."""
     out = list(t)
     i, n = 0, len(t)
     while i < n:
@@ -124,7 +141,7 @@ def strip_c(t):
                 if t[k] != "\n":
                     out[k] = " "
             i = j + 1
-        elif c == "#" and (i == 0 or t[i - 1] == "\n"):
+        elif pp and c == "#" and (i == 0 or t[i - 1] == "\n"):
             e = i
             while True:
                 e = t.find("\n", e)
@@ -156,6 +173,7 @@ def match_close(s, i, o, c):
     return -1
 
 
+@memo
 def functions(s):
     """name -> [(start, end)] of each function body in stripped text s; extern "C" and namespace blocks are transparent."""
     out = {}
@@ -449,6 +467,525 @@ def classify_guards(rows, texts):
     return out, gr
 
 
+# ==================================================================== the function-scope reader (CEO-1231 (1), stage 2) ===
+# ⭐⭐ THE SECOND POPULATION: FUNCTION-SCOPE ARRAYS A PROGRAM FILLS (ceo CEO-1231 (1), 2026-09-24, on the coo's ask of 09-23 21:08). The
+# file/static/field census could not see msort/2 of a 5000-element list come back with 4096 elements: the array that drops them,
+# rt_pl_sort_cell's `pl_cell_t *elems[4096]`, is a LOCAL. A local counts when a PROGRAM'S DATA SETS ITS OCCUPANCY -- the fill column:
+#   COUNTER   NAME[k] written with k incremented, inside a loop the data drives (or a recursive function)
+#   CALLEE:f  NAME handed to f, beside its bound or not, and f fills its parameter by one of these same rules (read two calls deep:
+#             pl_list_to_arr(arg, elems, 4096) fills `out` until n >= max and returns -1 -- a silent FAIL, DROP)
+#   FORMAT:f  snprintf/sprintf/vsnprintf into NAME with a %s conversion or a format that is not a literal (program text)
+#   COPY:f    strcpy/strcat/strncpy/memcpy... of a source that is not a literal, or a length that is not a constant
+#   READ:f    fgets, or one read/fread outside a loop; PATH:f getcwd/readlink/realpath
+# and it stays OUT, fixed BY CONSTRUCTION (the page's class A/B, read by machine; fill column B:<why>), when every fill is bounded by
+# the code or the type: B:code (a write outside any loop -- at most one per site), B:trip (a for whose own variable counts up to a
+# constant no larger than the array, or down from one), B:radix (the loop's variable is divided or shifted each trip: the digits of
+# one number), B:fmt (a literal format with no %s), B:const (a literal source), B:fixed-copy (a constant length no larger than the
+# array), B:chunk (read/fread in a loop -- a stream, not a population), B:copy (filled from another local that is itself fixed by
+# construction and no larger), B:<libc> (strftime). A local with no fill evidence at all carries an empty fill and is out.
+# THE GUARD of a local in the population reads like a file-scope table's (LOUD / DROP / NONE), from comparisons of its capacity
+# (the literal N or N-1, its macro, sizeof NAME, or -- inside a callee -- the parameter that carries it) whose operand is the fill's
+# counter, the loop's count variable, the copy's length or the call's result, with `k + 1 >= n` and `strlen(src)` read as operands.
+# GROW (the at-cap path allocates) counts as guarded. A bounded libc fill that nothing checks is a DROP (it truncates silently); an
+# unbounded one (strcpy, sprintf, memcpy with a data length) is NONE. ⛔ A DROP IS UNGUARDED (CEO-1231 (2)), so the criterion line
+# "function-scope arrays a program fills, unguarded: N" counts DROP and NONE together. ⛔ THIS READER NEVER TOUCHES THE FILE-SCOPE
+# ROWS: their guard reading, the 355 and the no-guard and drop lines are byte-identical with it and without it.
+LOCAL_LIBC = {  # name: (dest arg, size arg, source-or-format arg, kind)
+    "snprintf": (0, 1, 2, "FORMAT"), "vsnprintf": (0, 1, 2, "FORMAT"), "sprintf": (0, None, 1, "FORMAT"), "vsprintf": (0, None, 1, "FORMAT"),
+    "strcpy": (0, None, 1, "COPY"), "stpcpy": (0, None, 1, "COPY"), "strcat": (0, None, 1, "COPY"),
+    "strncpy": (0, 2, 1, "COPY"), "stpncpy": (0, 2, 1, "COPY"), "strncat": (0, 2, 1, "COPY"), "memcpy": (0, 2, 1, "COPY"), "memmove": (0, 2, 1, "COPY"),
+    "fgets": (0, 1, None, "READ"), "read": (1, 2, None, "READ"), "fread": (0, 2, None, "READ"),
+    "getcwd": (0, 1, None, "PATH"), "readlink": (1, 2, None, "PATH"), "realpath": (1, None, None, "PATH"), "strftime": (0, 1, 2, "FIXED"),
+}
+UNBOUNDED = {"sprintf", "vsprintf", "strcpy", "stpcpy", "strcat", "realpath"}
+CONV = re.compile(r"%(?:%|[-+ #0'I]*(?:\*|\d+)?(?:\.(?:\*|\d+))?(?:hh|h|ll|l|L|q|j|z|Z|t)?([a-zA-Z]))")
+LITERAL = re.compile(r'\s*(?:(?:L|u8|u|U)?"(?:[^"\\\n]|\\.)*"\s*)+')
+ALLOCS = re.compile(r"\b(malloc|calloc|realloc|strdup|ct_alloc|ct_zalloc|ct_grow|rt_wsb_alloc|rt_wsb_realloc|gv_reserve|cv_reserve|cv_push|gv_push)\s*\(")
+LVAR = r"\(?\*?\s*[A-Za-z_]\w*(?:\s*(?:->|\.)\s*\w+)*\s*\)?"
+_LOP = r"(?:\(\s*)*\*?\s*[A-Za-z_]\w*(?:\s*(?:->|\.)\s*[A-Za-z_]\w*|\s*\[[^\]\[]{0,60}\]|\s*\([^()]{0,80}\))*(?:\s*\))*"
+CMP_OP = re.compile(r"(?<![<>=!\-])(<=|>=|==|<(?![<=])|>(?![>=]))(?!=)")
+LOP_END = re.compile(r"(?P<x>" + _LOP + r"(?:\s*[-+]\s*(?:" + _LOP + r"|[0-9]+))*)\s*\)?\s*$")
+LOP_START = re.compile(r"\s*\(?\s*(?:\(\s*\w+\s*\)\s*)?(?P<x>" + _LOP + r"(?:\s*[-+]\s*(?:" + _LOP + r"|[0-9]+))*)")
+
+
+def arg_spans(s, par):
+    """[(a, b)] of each top-level argument of the call whose '(' is at par, and the index of its ')'."""
+    pe = match_close(s, par, "(", ")")
+    if pe < 0:
+        return [], -1
+    spans, d, a = [], 0, par + 1
+    for k in range(par + 1, pe):
+        ch = s[k]
+        if ch in "([{":
+            d += 1
+        elif ch in ")]}":
+            d -= 1
+        elif ch == "," and d == 0:
+            spans.append((a, k))
+            a = k + 1
+    spans.append((a, pe))
+    return spans, pe
+
+
+def enclosing_block(s, off):
+    d, k = 0, off - 1
+    while k >= 0:
+        if s[k] == "}":
+            d += 1
+        elif s[k] == "{":
+            if d == 0:
+                e = match_close(s, k, "{", "}")
+                return k, (e if e > 0 else len(s))
+            d -= 1
+        k -= 1
+    return 0, len(s)
+
+
+def loops_of(s, fa, fb):
+    """(kw, condition, body_a, body_b, cond_a, cond_b) of every for/while/do in s[fa:fb]."""
+    out = []
+    for m in re.finditer(r"\b(for|while)\s*\(", s[fa:fb]):
+        par = fa + m.end() - 1
+        pe = match_close(s, par, "(", ")")
+        if pe < 0 or (m.group(1) == "while" and re.match(r"\s*;", s[pe + 1:pe + 8])):
+            continue
+        a, b = GuardReader.stmt_after(s, pe + 1)
+        out.append((m.group(1), s[par + 1:pe], a, b, par + 1, pe))
+    for m in re.finditer(r"\bdo\b", s[fa:fb]):
+        a, b = GuardReader.stmt_after(s, fa + m.end())
+        mw = re.match(r"\s*while\s*\(", s[b:b + 40])
+        cond, ca, cb = "", b, b
+        if mw:
+            pe = match_close(s, b + mw.end() - 1, "(", ")")
+            if pe > 0:
+                cond, ca, cb = s[b + mw.end():pe], b + mw.end(), pe
+        out.append(("do", cond, a, b, ca, cb))
+    return out
+
+
+def conjuncts(cond):
+    d, cur, out, i = 0, [], [], 0
+    while i < len(cond):
+        ch = cond[i]
+        if ch in "([{":
+            d += 1
+        elif ch in ")]}":
+            d -= 1
+        if d == 0 and cond.startswith("&&", i):
+            out.append("".join(cur))
+            cur = []
+            i += 2
+            continue
+        cur.append(ch)
+        i += 1
+    out.append("".join(cur))
+    return [c.strip() for c in out if c.strip()]
+
+
+def loop_kind(lp, size, defines, s):
+    """('B:trip' | 'B:radix' | 'DATA', count variables): B:trip when a for's own variable counts up to a constant no larger than the
+    array (or down from one smaller), B:radix when the controlling variable is divided or shifted each trip; else DATA, with the
+    variables the loop's trip count comes from."""
+    kw, cond, a, b = lp[:4]
+    counts = set()
+    parts = cond.split(";") if kw == "for" else []
+    if len(parts) >= 3:
+        init, test, incr = parts[0], parts[1], parts[2]
+        up = {x or y for x, y in re.findall(r"([A-Za-z_]\w*)\s*(?:\+\+|\+=)|\+\+\s*([A-Za-z_]\w*)", incr)}
+        down = {x or y for x, y in re.findall(r"([A-Za-z_]\w*)\s*(?:--|-=)|--\s*([A-Za-z_]\w*)", incr)}
+        for c in conjuncts(test):
+            for lv in up:
+                m1 = re.fullmatch(r"\(?\s*" + re.escape(lv) + r"\s*\)?\s*(<|<=|!=)\s*(.+)", c)
+                m2 = re.fullmatch(r"(.+?)\s*(>|>=)\s*\(?\s*" + re.escape(lv) + r"\s*\)?", c)
+                if not (m1 or m2):
+                    continue
+                op, k = (m1.group(1), m1.group(2)) if m1 else (("<" if m2.group(2) == ">" else "<="), m2.group(1))
+                v = resolve(k.strip().strip("()").strip(), defines) if re.fullmatch(BOUND_RE, k.strip().strip("()").strip()) else None
+                if v is not None and size is not None and (v <= size if op in ("<", "!=") else v < size):
+                    return "B:trip", counts
+                if v is None and re.fullmatch(LVAR, _norm(k)):
+                    counts.add(_norm(k).strip("()"))
+        for lv in down:
+            mi = re.search(r"\b" + re.escape(lv) + r"\s*=\s*([^,;]+)", init)
+            if mi:
+                v = resolve(mi.group(1).strip(), defines) if re.fullmatch(BOUND_RE, mi.group(1).strip()) else None
+                if v is not None and size is not None and v < size:
+                    return "B:trip", counts
+                counts |= {w for w in re.findall(r"\b([A-Za-z_]\w*)\b", mi.group(1)) if not re.fullmatch(r"[A-Z0-9_]+", w)}
+    for v in set(re.findall(r"\b([A-Za-z_]\w*)\b", cond)):
+        if re.search(r"\b" + re.escape(v) + r"\s*(?:/=|>>=)\s*\w+|\b" + re.escape(v) + r"\s*=\s*\(?\s*" + re.escape(v) + r"\s*(?:/|>>)\s*\w+", s[a:b] + ";" + cond):
+            return "B:radix", counts
+    return "DATA", counts
+
+
+def formats_program_text(fmt, args, fits=lambda a: False):
+    """True when a literal format's %s takes an argument that is not a string literal or a choice between two -- rtos's
+    snprintf(buf, cap, "%s", r < 0 ? "-Inf" : "Inf") prints a constant; "proc_%s" of a procedure name prints the program's text --
+    and that does not FIT (fits(arg): a local array no larger than the destination holds a string shorter than it)."""
+    k = 0
+    for m in CONV.finditer(fmt):
+        if m.group(0) == "%%":
+            continue
+        k += m.group(0).count("*")
+        if m.group(1) == "s":
+            a = args[k] if k < len(args) else ""
+            choice = re.fullmatch(r"[^?]*\?\s*(" + LITERAL.pattern + r")\s*:\s*(" + LITERAL.pattern + r")\s*", a, re.S)
+            if not (LITERAL.fullmatch(a) or choice or fits(a)):
+                return True
+        k += 1
+    return False
+
+
+def local_bound_pattern(bound, name):
+    if re.fullmatch(r"[0-9]+", bound):
+        base = re.escape(bound) + (("|" + str(int(bound) - 1)) if int(bound) > 1 else "")
+    else:
+        base = re.escape(bound)
+    return r"(?:" + base + r"|sizeof\s*\(?\s*" + re.escape(name) + r"\b\s*\)?(?:\s*/\s*sizeof\s*\(?[^)]*\)?)?)"
+
+
+class LocalReader:
+    """Reads every local array's fill and guard by the rules in the header above; `read` answers (fill, guard, evidence)."""
+
+    def __init__(self, texts, stripped, gr, defines, rows):
+        self.raw, self.s, self.gr, self.defines = texts, stripped, gr, defines
+        self.defs = defaultdict(list)
+        self._loops, self._memo, self._cmps = {}, {}, {}
+        self.locals = defaultdict(list)
+        for r in rows:
+            if r[2] == "local":
+                self.locals[r[0]].append((r[1], r[3], r[4], r[5]))
+        for p, s in stripped.items():
+            for name, spans in functions(s).items():
+                for a, b in spans:
+                    j = a - 1
+                    while j >= 0 and s[j] in " \t\n":
+                        j -= 1
+                    dd, k = 0, j
+                    while k >= 0:
+                        if s[k] == ")":
+                            dd += 1
+                        elif s[k] == "(":
+                            dd -= 1
+                            if dd == 0:
+                                break
+                        k -= 1
+                    params = []
+                    for x, y in arg_spans(s, k)[0]:
+                        m = re.search(r"([A-Za-z_]\w*)\s*(?:\[[^\]]*\]\s*)*$", s[x:y].strip())
+                        params.append(m.group(1) if m else "")
+                    self.defs[name].append((p, a, b, params))
+
+    def callee(self, name, prefer):
+        c = self.defs.get(name, [])
+        return next((x for x in c if x[0] == prefer), c[0] if len(c) == 1 else None)
+
+    def loops(self, p, fa, fb):
+        if (p, fa) not in self._loops:
+            self._loops[(p, fa)] = loops_of(self.s[p], fa, fb)
+        return self._loops[(p, fa)]
+
+    def decl_off(self, p, line, name):
+        s, off = self.s[p], 0
+        for _ in range(line - 1):
+            off = s.find("\n", off) + 1
+        m = re.compile(r"\b" + re.escape(name) + r"\s*\[").search(s, off)
+        return m.start() if m else off
+
+    def calls_with(self, s, a, b, name):
+        """(callee, '(' offset, argument spans, index of the argument that is NAME, NAME + k, &NAME[k] or a cast of one)."""
+        for m in re.compile(r"\b([A-Za-z_]\w*)\s*\(").finditer(s, a, b):
+            if m.group(1) in KEYWORDS:
+                continue
+            spans, pe = arg_spans(s, m.end() - 1)
+            for i, (x, y) in enumerate(spans if pe > 0 else ()):
+                t = re.sub(r"^\((?:const)?[A-Za-z_]\w*\*+\)", "", re.sub(r"\s", "", s[x:y]))
+                if re.fullmatch(re.escape(name) + r"(?:\+.+)?|&" + re.escape(name) + r"\[.*\]", t):
+                    yield m.group(1), m.end() - 1, spans, i
+                    break
+
+    def comparisons(self, p, fa, fb):
+        """every comparison in s[fa:fb] as (left_a, op_a, op, op_b, right_b): each operand runs to the nearest top-level &&, ||, ;, ,,
+        ?, :, brace, assignment or unmatched paren -- read once per function, so `(int)sizeof digits - 1` and `k + 1` are whole
+        operands and a local in a 5000-line function costs a filter, not a scan."""
+        if (p, fa) in self._cmps:
+            return self._cmps[(p, fa)]
+        s, out = self.s[p], []
+        for m in CMP_OP.finditer(s, fa, fb):
+            i, j = m.start(), m.end()
+            d, k = 0, i - 1
+            while k >= fa:
+                c = s[k]
+                if c in ")]":
+                    d += 1
+                elif c in "([":
+                    if d == 0:
+                        break
+                    d -= 1
+                elif d == 0 and (c in ";,?:{}" or (c in "&|" and s[k - 1] == c) or (c == "=" and s[k - 1] not in "<>=!" and s[k + 1] != "=")):
+                    break
+                k -= 1
+            d, e = 0, j
+            while e < fb:
+                c = s[e]
+                if c in "([":
+                    d += 1
+                elif c in ")]":
+                    if d == 0:
+                        break
+                    d -= 1
+                elif d == 0 and (c in ";,?:{}" or (c in "&|" and s[e + 1:e + 2] == c)):
+                    break
+                e += 1
+            out.append((k + 1, i, m.group(1), j, e))
+        self._cmps[(p, fa)] = out
+        return out
+
+    def sites(self, p, fa, fb, bre, name, xs, size=None):
+        """(offset, class, operand) of every comparison in s[fa:fb] of the capacity (bre, cast or offset by a constant) against an
+        operand that names one of xs or indexes NAME -- and of one of xs against a literal no larger than the array (size): `if (sp <
+        60) spec[sp++] = *p;` guards spec[64]."""
+        s, out = self.s[p], []
+        idx = {_norm(m.group(1)).strip("()").rstrip("+-").lstrip("+-") for m in re.finditer(r"\b" + re.escape(name) + r"\s*\[([^\]\[]{0,80})\]", s[fa:fb])}
+        cap = re.compile(r"(?:\(\s*\w+\s*\)|\(|\s)*(?:(?P<b>" + bre + r")|(?P<lit>[0-9]+))(?:\s*[-+]\s*[0-9]+)?[\s)]*")
+        for la, oa, op, ob, rb in self.comparisons(p, fa, fb):
+            left, right = s[la:oa], s[ob:rb]
+            for side, const, x, at, b in (("right", right, left, la, rb), ("left", left, right, ob, rb)):
+                mc = cap.fullmatch(const)
+                if not mc:
+                    continue
+                words = {re.sub(r"\s", "", w) for w in re.findall(r"[A-Za-z_]\w*(?:\s*(?:->|\.)\s*\w+)*", re.sub(r"\b[A-Za-z_]\w*\s*\(", "", x))}
+                if mc.group("lit") is not None:
+                    if not (size and 1 <= int(mc.group("lit")) <= size and words & xs):
+                        continue
+                    cpat = re.escape(mc.group("lit"))
+                elif words & xs or words & idx:
+                    cpat = bre
+                else:
+                    continue
+                lead = len(x) - len(x.lstrip("( \t\n")) if side == "right" else 0
+                out.append(self.site_class(s, at + lead, b, x.strip(), op, side, cpat, words & xs))
+                break
+        # a count clamped by assignment: driver_data.c dat_mro's `n = (t->mro_len < max) ? t->mro_len : max;`, or MIN(len, CAP)
+        for w in xs:
+            for m in re.finditer(r"(?<![\w.>])" + re.escape(w) + r"\s*=(?!=)\s*([^;]*);", s[fa:fb]):
+                rhs = m.group(1)
+                if re.search(r"\?[^:;]*:\s*\(?\s*(?:" + bre + r")\s*\)?\s*$|\?\s*\(?\s*(?:" + bre + r")\s*\)?\s*:", rhs) \
+                        or re.search(r"\b(?:MIN|min|imin|umin)\s*\([^;]*\b(?:" + bre + r")\b", rhs):
+                    out.append((fa + m.start(), "DROP-clamp", w))
+        return out
+
+    def site_class(self, s, at, b, x, op, side, cpat, counted):
+        """(offset, class, operand) for one comparison of a capacity (cpat) at `at`: a clamp of one of `counted` to it, a GROW or LOUD
+        at-cap path, a silent at-cap path (DROP), a loop condition (DROP-truncate), or none of these (NEUTRAL)."""
+        nx = _norm(x).strip("()")
+        full = (side == "right" and op in (">=", ">", "==")) or (side == "left" and op in ("<=", "<", "=="))
+        kw, par = GuardReader.enclosing(s, at)
+        if full and kw == "if":
+            pe = match_close(s, par, "(", ")")
+            sa, sb = GuardReader.stmt_after(s, pe + 1)
+            if any(re.search(re.escape(w) + r"=\(?(?:" + cpat + r")\b", re.sub(r"\s", "", s[sa:sb])) for w in counted):
+                return at, "DROP-clamp", nx
+        if full and re.match(r"[^;?]*\?\s*\(?\s*(?:" + cpat + r")\b", s[b:b + 200]):
+            return at, "DROP-clamp", nx
+        if kw == "if":
+            pe = match_close(s, par, "(", ")")
+            sa, sb = GuardReader.stmt_after(s, pe + 1)
+            atcap = s[sa:sb]
+            if not full:
+                me = re.match(r"\s*else\b", s[sb:sb + 20])
+                atcap = s[slice(*GuardReader.stmt_after(s, sb + me.end()))] if me else ""
+            if atcap and ALLOCS.search(atcap):
+                return at, "GROW", nx
+            if atcap and self.gr.loud(atcap):
+                return at, "LOUD", nx
+            return at, ("DROP-silent" if atcap.strip() else "DROP-skip"), nx
+        if kw in ("for", "while"):
+            return at, "DROP-truncate", nx
+        return at, "NEUTRAL", nx
+
+    @staticmethod
+    def verdict(sites, default):
+        k = Counter(c.split("-")[0] for _, c, _ in sites)
+        return "DROP" if k["DROP"] else ("LOUD" if (k["LOUD"] or k["GROW"]) else default)
+
+    def local_size(self, p, fa, fb, ident):
+        """the resolved size of the local array ident declared in s[fa:fb], or None."""
+        for line, nm, bnd, sz in self.locals.get(p, ()):
+            if nm == ident and str(sz).isdigit() and fa <= self.decl_off(p, int(line), nm) < fb:
+                return int(sz)
+        return None
+
+    def counts_fixed(self, p, fa, fb, c, size):
+        """True when c counts the fill of another local of this function that is fixed by construction and no larger than size --
+        lower_prolog.c's `arms[nb++] = T; if (E) arms[nb++] = E;` bounds the `j < nb` loop that fills arm_entry[2]."""
+        for m in re.finditer(r"\b([A-Za-z_]\w*)\s*\[\s*" + re.escape(c) + r"\s*\+\+\s*\]\s*=(?!=)", self.s[p][fa:fb]):
+            for line, nm, bnd, sz in self.locals.get(p, ()):
+                if nm == m.group(1) and str(sz).isdigit() and size is not None and int(sz) <= size and fa <= self.decl_off(p, int(line), nm) < fb:
+                    f = self.read(p, int(line), nm, bnd, int(sz))[0]
+                    if f.startswith("B:") or f == "":
+                        return True
+        return False
+
+    def fixed_source(self, p, fa, fb, rhs, size):
+        """True when rhs reads another local of this function that is fixed by construction and no larger than size."""
+        m = re.match(r"\s*\(?\s*(?:\(\s*\w+\s*\)\s*)?([A-Za-z_]\w*)\s*\[", rhs)
+        if not m or size is None:
+            return False
+        for line, nm, bnd, sz in self.locals.get(p, ()):
+            if nm == m.group(1):
+                off = self.decl_off(p, int(line), nm)
+                if fa <= off < fb and str(sz).isdigit() and int(sz) <= size:
+                    f = self.read(p, int(line), nm, bnd, int(sz))[0]
+                    return f.startswith("B:") or f == ""
+        return False
+
+    def read(self, p, line, name, bound, size, depth=0, region=None):
+        """(fill, guard, evidence) for one array: a local of p declared at line, or (region = (fa, fb, callee)) a callee's parameter."""
+        key = (p, line, name, bound, size, depth, region)
+        if key in self._memo:
+            return self._memo[key]
+        self._memo[key] = ("", "", "")
+        s = self.s[p]
+        if region is None:
+            off = self.decl_off(p, line, name)
+            fa, fb = self.gr.span(p, off)
+            ra, rb = off, min(enclosing_block(s, off)[1], fb)
+            recursive, bre = False, local_bound_pattern(bound, name)
+            # a variable assigned the capacity IS the capacity: sno_proto_encode's `size_t need = sizeof e;` then snprintf(e, need, ...)
+            alias = {m.group(1) for m in re.finditer(r"\b([A-Za-z_]\w*)\s*=\s*(?:\(\s*\w+\s*\)\s*)?(?:" + bre + r")\s*;", s[ra:rb])}
+            if alias:
+                bre = r"(?:" + bre + "|" + "|".join(r"\b" + re.escape(x) + r"\b" for x in sorted(alias)) + r")"
+        else:
+            fa, fb, fname = region
+            ra, rb, bre = fa, fb, bound
+            recursive = bool(re.search(r"\b" + re.escape(fname) + r"\s*\(", s[fa:fb]))
+        fills, fixed, guards, ev, xs = [], [], [], [], set()
+        lps = self.loops(p, fa, fb)
+        wr = re.compile(r"\b" + re.escape(name) + r"\s*\[([^\]\[]{0,80})\]\s*(?:\[[^\]]*\]\s*)*(?:=(?!=)|\+=|-=|\|=|(?:\.|->)\s*\w+\s*(?:\[[^\]]*\]\s*)?=(?!=))")
+        for m in wr.finditer(s, ra, rb):
+            v = re.sub(r"^(?:\+\+|--)|(?:\+\+|--)$", "", _norm(m.group(1)))
+            if not re.fullmatch(LVAR, v) or not GuardReader.incremented(s[fa:fb], v):
+                continue
+            # a loop that encloses the DECLARATION gives each trip a fresh array (frame_layout.c's `const char * vns[2]` inside its
+            # node loop): only a loop inside the local's own scope repeats its fill
+            encl = [lp for lp in lps if lp[2] <= m.start() < lp[3] and (region is not None or lp[2] > ra)]
+            if not encl and not recursive:
+                fixed.append("B:code")
+                continue
+            kinds = [loop_kind(lp, size, self.defines, s) for lp in encl]
+            kinds = [("B:count", cs) if k == "DATA" and cs and all(self.counts_fixed(p, fa, fb, c, size) for c in cs) else (k, cs) for k, cs in kinds]
+            fx = [k for k, _ in kinds if k != "DATA"]
+            if fx:
+                fixed.append(fx[0])
+                continue
+            if self.fixed_source(p, fa, fb, s[m.end():s.find(";", m.end())], size):
+                fixed.append("B:copy")
+                continue
+            xs |= {v.strip("()"), v.strip("()").lstrip("*")}
+            for _, cs in kinds:
+                xs |= cs
+        if xs:
+            fills.append("COUNTER")
+            st = self.sites(p, fa, fb, bre, name, xs, size)
+            guards.append(self.verdict(st, "NONE"))
+            ev += ["%d:%s(%s)" % (s.count("\n", 0, o) + 1, c, x) for o, c, x in st if c != "NEUTRAL"]
+        for f, par, spans, i in self.calls_with(s, ra, rb, name):
+            ln = s.count("\n", 0, par) + 1
+            if f in LOCAL_LIBC:
+                di, si, fi, kind = LOCAL_LIBC[f]
+                if di != i:
+                    continue
+                arg = lambda j: self.raw[p][spans[j][0]:spans[j][1]] if j is not None and j < len(spans) else ""
+                sized = si is not None and si < len(spans) and re.search(bre, s[spans[si][0]:spans[si][1]])
+                if kind == "FIXED":
+                    fixed.append("B:" + f)
+                    continue
+                fits = lambda a: bool(re.fullmatch(r"\s*[A-Za-z_]\w*\s*", a)) and self.local_size(p, fa, fb, a.strip()) is not None \
+                    and size is not None and self.local_size(p, fa, fb, a.strip()) <= size
+                if kind == "FORMAT" and LITERAL.fullmatch(arg(fi)) and not formats_program_text(arg(fi), [arg(j) for j in range(fi + 1, len(spans))], fits):
+                    fixed.append("B:fmt")
+                    continue
+                if kind == "COPY" and LITERAL.fullmatch(arg(fi)):
+                    fixed.append("B:const")
+                    continue
+                if f in ("strcpy", "stpcpy", "strncpy", "stpncpy") and fits(arg(fi)):
+                    # real_str's snprintf(buf, bufsz, "%s", out) and a strcpy of a local no larger than the destination cannot truncate
+                    fixed.append("B:fits")
+                    continue
+                if f in ("memcpy", "memmove") and si is not None and si < len(spans):
+                    n = s[spans[si][0]:spans[si][1]].strip()
+                    v = resolve(n, self.defines) if re.fullmatch(BOUND_RE, n) else None
+                    if (v is not None and size is not None and v <= size) or re.fullmatch(r"sizeof\s*\(?[^;]*\)?|[0-9]+\s*\*\s*sizeof\s*\(?[^;]*\)?", n):
+                        fixed.append("B:fixed-copy")
+                        continue
+                if f in ("read", "fread") and any(lp[2] <= par < lp[3] or lp[4] <= par < lp[5] for lp in lps):
+                    fixed.append("B:chunk")
+                    continue
+                if f == "realpath" and (re.fullmatch(r"PATH_MAX(?:\s*\+\s*1)?", bound) or (size or 0) >= 4096):
+                    fixed.append("B:path-max")
+                    continue
+                fills.append("%s:%s" % (kind, f))
+                lx = set()
+                ma = re.search(r"([A-Za-z_]\w*)\s*=\s*(?:\(\s*\w+\s*\)\s*)?$", s[max(fa, par - len(f) - 80):par - len(f)])
+                if ma:
+                    lx.add(ma.group(1))
+                for j in (si, fi if kind == "COPY" else None):
+                    if j is not None and j < len(spans):
+                        lx |= {re.sub(r"\s", "", w) for w in re.findall(r"[A-Za-z_]\w*(?:\s*(?:->|\.)\s*\w+)*", re.sub(r"\bsizeof\b.*", "", s[spans[j][0]:spans[j][1]]))}
+                st = self.sites(p, fa, fb, bre, name, lx - {name}, size) if lx else []
+                kw, kpar = GuardReader.enclosing(s, par - len(f))
+                pe = match_close(s, par, "(", ")")
+                if kw == "if" and re.match(r"\s*\)?\s*(>=|>)\s*\(?\s*(?:\(\s*\w+\s*\)\s*)?(?:" + bre + r")", s[pe + 1:pe + 80]):
+                    sa, sb = GuardReader.stmt_after(s, match_close(s, kpar, "(", ")") + 1)
+                    st.append((par, "LOUD" if self.gr.loud(s[sa:sb]) else "DROP-silent", f))
+                bounded = (sized or kind in ("READ", "PATH")) and f not in UNBOUNDED
+                guards.append(self.verdict(st, "DROP" if bounded else "NONE"))
+                ev += ["%d:%s(%s)" % (s.count("\n", 0, o) + 1, c, x) for o, c, x in st if c != "NEUTRAL"] + ["%d:%s" % (ln, f)]
+                continue
+            d = self.callee(f, p) if depth < 2 else None
+            if not d or i >= len(d[3]) or not d[3][i]:
+                continue
+            q, ca, cb, params = d
+            bidx = next((j for j, (x, y) in enumerate(spans) if j != i and j < len(params) and params[j]
+                         and re.fullmatch(r"\s*\(?\s*(?:\(\s*\w+\s*\)\s*)?(?:" + bre + r")\s*\)?\s*", s[x:y])), None)
+            sub = self.read(q, 0, params[i], (r"\b" + re.escape(params[bidx]) + r"\b") if bidx is not None else bre, size, depth + 1, (ca, cb, f))
+            if sub[0].startswith("B:"):
+                fixed.append(sub[0].split("@")[0] + "@" + f)
+            if not sub[0] or sub[0].startswith("B:"):
+                continue
+            fills.append("CALLEE:" + f)
+            guards.append(sub[1] or "NONE")
+            ev.append("%d:%s->%s{%s}" % (ln, f, sub[1], sub[2][:160]))
+        if fills:
+            res = (",".join(sorted(set(fills))), "DROP" if "DROP" in guards else ("NONE" if "NONE" in guards else "LOUD"), " ".join(ev))
+        else:
+            res = (sorted(set(fixed))[0] if fixed else "", "", "")
+        self._memo[key] = res
+        return res
+
+
+def classify_locals(rows, texts, gr, defines):
+    """rows as classify_guards returns them -> each extended with its fill column; a local's guard, const and sites come from
+    LocalReader (a local out of the population keeps an empty guard); every other row's first ten columns are untouched."""
+    lr = LocalReader(texts, gr.s, gr, defines, rows)
+    lines_of, out = {}, []
+    for r in rows:
+        if r[2] != "local":
+            out.append(tuple(r) + ("",))
+            continue
+        if r[0] not in lines_of:
+            lines_of[r[0]] = texts[r[0]].split("\n")
+        i = int(r[1])
+        c = is_const_table(lines_of[r[0]][i - 1] if 0 < i <= len(lines_of[r[0]]) else "", r[3])
+        if c:
+            out.append(tuple(r[:7]) + ("", "const", "", ""))
+            continue
+        fill, g, ev = lr.read(r[0], i, r[3], r[4], r[5] if isinstance(r[5], int) else None)
+        out.append(tuple(r[:7]) + (g, "", ev, fill))
+    return out
+
+
 def selftest():
     """Planted fixtures, every form the census must count or refuse to count, graded by NAME. rc 0 / 1."""
     import tempfile
@@ -481,28 +1018,77 @@ def selftest():
             "static void t15_full(const char *w) { fprintf(stderr, \"%s\\n\", w); exit(2); }\n"
             "#define T15_MAX 8\nstatic int t15_wrapped[T15_MAX]; static int t15_wrapped_n;\n"
             "void t15_put(int v) { if (t15_wrapped_n >= T15_MAX) t15_full(\"t15\"); t15_wrapped[t15_wrapped_n++] = v; }\n")
+        # ⭐ CEO-1231 stage 2: one local per fill shape and guard shape, graded by NAME on (fill, guard) below
+        open(os.path.join(d, "b.c"), "w").write(
+            "static void l_fatal(const char *w) { fprintf(stderr, \"%s\\n\", w); exit(2); }\n"
+            "struct node { struct node *next; int v; };\n"
+            "void l1(struct node *h) { int l1_none[16]; int n = 0; for (struct node *p = h; p; p = p->next) l1_none[n++] = p->v; }\n"
+            "void l2(struct node *h) { int l2_skip[16]; int n = 0; for (struct node *p = h; p; p = p->next) if (n < 16) l2_skip[n++] = p->v; }\n"
+            "void l3(struct node *h) { int l3_loud[16]; int n = 0; for (struct node *p = h; p; p = p->next) { if (n >= 16) l_fatal(\"l3\"); l3_loud[n++] = p->v; } }\n"
+            "void l4(const int *v, int np) { int l4_clamp[16]; if (np > 16) np = 16; for (int i = 0; i < np; i++) l4_clamp[i] = v[i]; }\n"
+            "void l5(unsigned long u) { char l5_radix[24]; int n = 0; do { l5_radix[n++] = (char)('0' + u % 10); u /= 10; } while (u); }\n"
+            "void l6(int a, int b) { int l6_code[2]; int n = 0; l6_code[n++] = a; l6_code[n++] = b; }\n"
+            "void l7(int v) { int l7_trip[8]; for (int i = 0; i < 8; i++) l7_trip[i] = v; }\n"
+            "void l8(long v) { char l8_numfmt[32]; snprintf(l8_numfmt, sizeof l8_numfmt, \"%ld\", v); }\n"
+            "void l9(const char *name) { char l9_textfmt[64]; snprintf(l9_textfmt, sizeof l9_textfmt, \"proc_%s\", name); }\n"
+            "void l10(const char *name) { char l10_strcpy[64]; strcpy(l10_strcpy, name); }\n"
+            "static int l11_fill(struct node *h, int *out, int max) { int n = 0; for (; h; h = h->next) { if (n >= max) return -1; out[n++] = h->v; } return n; }\n"
+            "void l11(struct node *h) { int l11_callee[4096]; int n = l11_fill(h, l11_callee, 4096); (void)n; }\n"
+            "static void l12_flat(struct node *h, int *out, int *ne) { if (!h) return; if (*ne >= 128) l_fatal(\"l12\"); out[(*ne)++] = h->v; l12_flat(h->next, out, ne); }\n"
+            "void l12(struct node *h) { int l12_callee_loud[128]; int ne = 0; l12_flat(h, l12_callee_loud, &ne); }\n"
+            "static char *l13_itos(long v, char *buf, size_t cap) { char tmp[24]; int n = 0; unsigned long u = (unsigned long)v;\n"
+            "    do { tmp[n++] = (char)('0' + u % 10); u /= 10; } while (u);\n"
+            "    size_t len = (size_t)n; if (len >= cap) len = cap - 1; for (size_t i = 0; i < len; i++) buf[i] = tmp[len - 1 - i]; buf[len] = 0; return buf; }\n"
+            "void l13(long v) { char l13_callee_fixed[64]; l13_itos(v, l13_callee_fixed, sizeof l13_callee_fixed); }\n"
+            "void l14(int neg) { char l14_constfmt[16]; snprintf(l14_constfmt, sizeof l14_constfmt, \"%s\", neg ? \"-inf\" : \"inf\"); }\n"
+            "void l15(const int *v, int len) { int l15_minclamp[16]; int n = (len < 16) ? len : 16; for (int i = 0; i < n; i++) l15_minclamp[i] = v[i]; }\n"
+            "static int l16_text(struct node *h, char *buf, size_t n) { size_t k = 0; for (; h; h = h->next) { if (k + 1 >= n) return 0; buf[k++] = (char)h->v; } buf[k] = 0; return 1; }\n"
+            "void l16(struct node *h) { char l16_callee_plus[64]; l16_text(h, l16_callee_plus, sizeof l16_callee_plus); }\n"
+            "void l17(struct node *t, struct node *e) { struct node *l17_arms[2]; int nb = 0; l17_arms[nb++] = t; if (e) l17_arms[nb++] = e;\n"
+            "    int l17_count[2]; for (int j = 0; j < nb; j++) l17_count[j] = l17_arms[j]->v; }\n"
+            "const char *l18(const char *name) { char l18_alias[64]; size_t need = sizeof l18_alias; snprintf(l18_alias, need, \"n_%s\", name); return strdup(l18_alias); }\n"
+            "void l19(double r) { char out[32]; snprintf(out, sizeof out, \"%g\", r); char l19_fits[64]; snprintf(l19_fits, sizeof l19_fits, \"%s\", out); }\n"
+            "void l20(struct node *h) { for (; h; h = h->next) { int l20_fresh[2]; int n = 0; l20_fresh[n++] = h->v; if (h->next) l20_fresh[n++] = h->next->v; } }\n")
+        open(os.path.join(d, "e.cpp"), "w").write(
+            "extern \"C\" {\n"
+            "int e1_after_extern_c[8];\n"
+            "}\n")
+        # ⭐ the scope reading (stage 2): a string is not a declaration, a one-line typedef's array is a field, a macro body's array is
+        # storage at the macro's level, a HEAD/TAIL macro pair and a '{' char literal leave the next table at file scope
+        open(os.path.join(d, "c.c"), "w").write(
+            "static const char *s1_msg = \"u32[] ([0]=cap, frames from [1]; not a table)\";\n"
+            "typedef struct { char s2_field[64]; int n; } s2_t;\n"
+            "#define S3_LEAF(nm) void nm(void) { char s3_macro_local[64]; s3_macro_local[0] = 0; }\n"
+            "#define S4_TAIL }\n"
+            "void s4_fn(void) { int z = 0; (void)z; S4_TAIL\n"
+            "static int s4_after_tail[8];\n"
+            "static int s5_brace_chr(void) { return '{'; }\n"
+            "static int s5_after_brace[8];\n")
         out = os.path.join(d, "c.tsv")
         import io, contextlib
         with contextlib.redirect_stdout(io.StringIO()):
             main(["x", "--dir", d, "--tsv", out])
-        got, guard = {}, {}
+        got, guard, fill = {}, {}, {}
         for ln in open(out).read().split("\n")[1:]:
             if ln:
                 f = ln.split("\t")
                 got.setdefault(f[3], []).append(f[2])
                 guard[f[3]] = (f[7], f[8])
+                fill[f[3]] = (f[10], f[7]) if len(f) > 10 else None
         want = {"t1_oneline": ["file"], "t2_multiline": ["file"], "t5_plain": ["file"], "t6_local_static": ["static"],
                 "t8_drop": ["file"], "t9_loud": ["file"], "t10_clamp": ["file"], "t11_trunc": ["file"], "t12_none": ["file"],
-                "t13_const": ["file"], "t14_lit": ["file"], "t15_wrapped": ["file"]}
+                "t13_const": ["file"], "t14_lit": ["file"], "t15_wrapped": ["file"],
+                "s2_field": ["field"], "s3_macro_local": ["local"], "s4_after_tail": ["file"], "s5_after_brace": ["file"],
+                "e1_after_extern_c": ["file"]}
         ok = True
         for n, sc in want.items():
             if got.get(n) != sc:
                 print("SELFTEST FAIL: %s counted as %r, want %r" % (n, got.get(n), sc)); ok = False
             else:
                 print("SELFTEST: %s counted once, scope %s" % (n, sc[0]))
-        for n in ("t3_is_a_type", "t4_extern", "e"):
+        for n in ("t3_is_a_type", "t4_extern", "e", "from"):
             if n in got:
-                print("SELFTEST FAIL: %s was counted %r -- a typedef, an extern and a comparison (e && e[0] == '0') are not storage" % (n, got[n])); ok = False
+                print("SELFTEST FAIL: %s was counted %r -- a typedef, an extern, a comparison (e && e[0] == '0') and a string (\"frames from [1]\") are not storage" % (n, got[n])); ok = False
             else:
                 print("SELFTEST: %s not counted (not storage)" % n)
         gwant = {"t8_drop": ("DROP", ""), "t9_loud": ("LOUD", ""), "t10_clamp": ("DROP", ""), "t11_trunc": ("DROP", ""),
@@ -512,6 +1098,17 @@ def selftest():
                 print("SELFTEST FAIL: %s reads guard %r, want %r" % (n, guard.get(n), w)); ok = False
             else:
                 print("SELFTEST: %s guard %s%s" % (n, w[0], (" " + w[1]) if w[1] else ""))
+        lwant = {"l1_none": ("COUNTER", "NONE"), "l2_skip": ("COUNTER", "DROP"), "l3_loud": ("COUNTER", "LOUD"), "l4_clamp": ("COUNTER", "DROP"),
+                 "l5_radix": ("B:radix", ""), "l6_code": ("B:code", ""), "l7_trip": ("B:trip", ""), "l8_numfmt": ("B:fmt", ""),
+                 "l9_textfmt": ("FORMAT:snprintf", "DROP"), "l10_strcpy": ("COPY:strcpy", "NONE"), "l11_callee": ("CALLEE:l11_fill", "DROP"),
+                 "l12_callee_loud": ("CALLEE:l12_flat", "LOUD"), "l13_callee_fixed": ("B:copy@l13_itos", ""), "l14_constfmt": ("B:fmt", ""),
+                 "l15_minclamp": ("COUNTER", "DROP"), "l16_callee_plus": ("CALLEE:l16_text", "DROP"), "l17_count": ("B:count", ""),
+                 "l18_alias": ("FORMAT:snprintf", "DROP"), "l19_fits": ("B:fmt", ""), "l20_fresh": ("B:code", "")}
+        for n, w in lwant.items():
+            if fill.get(n) != w:
+                print("SELFTEST FAIL: local %s reads (fill, guard) %r, want %r" % (n, fill.get(n), w)); ok = False
+            else:
+                print("SELFTEST: local %s fill %s%s" % (n, w[0], (" guard " + w[1]) if w[1] else ""))
         print("SELFTEST %s" % ("PASS" if ok else "FAIL"))
         return 0 if ok else 1
     finally:
@@ -551,16 +1148,41 @@ def main(argv):
                 defines[m.group(1)] = m.group(2)
                 define_sites[m.group(1)] = "%s:%d" % (p, i)
     rows = []
+    # ⛔⭐ A DECLARATION'S SCOPE IS READ FROM CODE, AT ITS OWN POSITION (coo 2026-09-24, stage 2 of CEO-1231, found calibrating the
+    # function-scope reader): the census counted braces in RAW lines and scoped every declaration by the depth at the START of its line.
+    # So (1) a `'{'` char literal or a "{}" in a string skewed the depth for the rest of the file -- re.c, unification.c, emit_str.cpp
+    # and by_name_dispatch.c ended off 0 -- and typedef'd struct fields there read as locals; (2) a local on the line that opens its
+    # function read as FILE scope -- pl_text_list's `DESCR_t el[4096]` (by_name_dispatch.c:2212, which truncates atom_codes at 4096) and
+    # lower_snobol4.c's `e[4096]` sat inside the file-scope ratchet while nothing read them as the locals they are; (3) a declaration in
+    # a string ("frames from [1]") was counted. Now declarations are matched on the text with comments and strings blanked, a macro body
+    # kept (PL_READ_TERM_LEAF's `char b[65536]` is storage wherever the macro expands), each is scoped by the brace level AT ITS NAME,
+    # file depth counts code lines only, and a macro body's braces count inside that macro (PL_CX_LEAF_HEAD opens a body that
+    # PL_CX_LEAF_TAIL closes, which drifted the depth when counted as code). Every file's depth now returns to 0.
+    _depth_end = {}
+    # a macro whose body does not balance its braces moves the depth wherever it is used: PL_CX_LEAF_HEAD opens a function body and
+    # PL_CX_LEAF_TAIL, written at the end of a code line, closes it
+    mdelta = {}
+    for t in texts.values():
+        for m in re.finditer(r"^#\s*define\s+([A-Za-z_]\w*)((?:\\\n|[^\n])*)", strip_c(t, pp=False), re.M):
+            k = m.group(2).count("{") - m.group(2).count("}")
+            if k:
+                mdelta[m.group(1)] = k
+    mdelta_re = re.compile(r"\b(" + "|".join(sorted(map(re.escape, mdelta), key=len, reverse=True)) + r")\b") if mdelta else None
     for p, t in texts.items():
-        lines = t.split("\n")
+        lines = strip_c(t, pp=False).split("\n")
+        raw = t.split("\n")
         depth = 0
         struct_depth = None
         struct_open = ""
+        in_pp, mdepth = False, 0
         for i, l in enumerate(lines, 1):
             s = l
-            line_depth = depth
-            if re.search(r"\b(typedef\s+)?(struct|union)\b[^;(]*\{", s) and struct_depth is None:
-                struct_depth = depth
+            if raw[i - 1].startswith("#"):
+                in_pp, mdepth = True, 0
+            line_depth = depth + (mdepth if in_pp else 0)
+            ms = re.search(r"\b(typedef\s+)?(struct|union)\b[^;()]*\{", s)
+            if ms and struct_depth is None:
+                struct_depth = line_depth + s[:ms.end() - 1].count("{") - s[:ms.end() - 1].count("}")
                 struct_open = s
             for m in CLOSE.finditer(s):
                 name, bound = m.group("name"), m.group("bound").strip()
@@ -598,11 +1220,12 @@ def main(argv):
                 bound = m.group("bound").strip()
                 if not re.fullmatch(r"[0-9]+|0x[0-9a-fA-F]+|[A-Z][A-Z0-9_]*(?:\s*[*+]\s*[A-Z0-9_]+)*", bound):
                     continue
-                if depth == 0:
+                level = line_depth + s[:m.start("name")].count("{") - s[:m.start("name")].count("}")
+                if level <= 0:
                     scope = "file"
-                elif struct_depth is not None and depth == struct_depth + 1:
+                elif struct_depth is not None and level == struct_depth + 1:
                     scope = "field"
-                elif m.group("post") == ")" or (pre.strip().endswith(",") or pre.strip().endswith("(")) and depth == 0:
+                elif m.group("post") == ")" or (pre.strip().endswith(",") or pre.strip().endswith("(")) and level <= 0:
                     scope = "param"
                 else:
                     scope = "local"
@@ -616,20 +1239,33 @@ def main(argv):
                 if macro:
                     guarded = "guarded" if re.search(r"[<>=!]=?\s*\(?\s*" + re.escape(macro) + r"\b|\b" + re.escape(macro) + r"\s*\)?\s*[<>=!]=?", t) else "UNGUARDED"
                 rows.append((p, i, scope, name, bound, size if size is not None else "", m.group("dims").replace(" ", ""), guarded))
-            opens = s.count("{")
-            closes = s.count("}")
-            depth += opens - closes
-            if struct_depth is not None and depth <= struct_depth:
+            if in_pp:
+                mdepth += s.count("{") - s.count("}")
+                in_pp = raw[i - 1].rstrip().endswith("\\")
+            else:
+                # an extern "C" or namespace block is transparent (functions() reads it so): emit.cpp opens `extern "C" {` at line
+                # 14, and every global after it -- g_flat_data_buf[FLAT_DATA_BUF_MAX] among them -- read as a LOCAL
+                depth += s.count("{") - s.count("}") - len(re.findall(r'\b(?:extern\s*"\s*"|namespace(?:\s+\w+)?)\s*\{', s)) \
+                    + (sum(mdelta[u] for u in mdelta_re.findall(s)) if mdelta_re else 0)
+            if struct_depth is not None and depth + (mdepth if in_pp else 0) <= struct_depth:
                 struct_depth = None
             if depth < 0:
                 depth = 0
+        _depth_end[p] = depth
+    # a file whose code braces do not balance is a file this census cannot scope: named, never silently mis-scoped
+    _drift = sorted(q for q, d in _depth_end.items() if d)
+    if _drift:
+        print("FIXED-CAPS CENSUS: brace depth does not return to 0 in %d file(s), their scopes are suspect: %s" % (len(_drift), ", ".join(_drift)))
     # ⭐ THE GUARD COLUMN IS THE CLASSIFIER'S (CEO-1231): LOUD / DROP / NONE for every bound, macro or literal, with the evidence sites
     # in the last column; `const` marks a read-only table. The old guarded/UNGUARDED reading (the macro compared anywhere in the file)
     # is retired with it.
     rows, _gr = classify_guards(rows, texts)
+    # ⭐ AND THE FILL COLUMN, the function-scope reader's (CEO-1231 (1), stage 2): a local's fill kind, B:<why> when it is fixed by
+    # construction, empty when nothing fills it; empty for every other scope.
+    rows = classify_locals(rows, texts, _gr, defines)
     if out:
         with open(out, "w", encoding="utf-8", newline="\n") as f:
-            f.write("file\tline\tscope\tname\tbound\tsize\tdims\tguard\tconst\tsites\n")
+            f.write("file\tline\tscope\tname\tbound\tsize\tdims\tguard\tconst\tsites\tfill\n")
             for r in rows:
                 f.write("\t".join(str(x) for x in r) + "\n")
     if "--no-report" in argv:
@@ -661,6 +1297,15 @@ def main(argv):
         print("\n%s: %d" % (label, len(sel)))
         for r in sorted(sel, key=lambda r: (r[0], r[1]))[:top]:
             print("  %s:%d %s %s[%s]  %s" % (r[0], r[1], r[2], r[3], r[4], r[9][:160]))
+    fsc = [r for r in rows if r[2] == "local" and not r[8] and r[10] and not r[10].startswith("B:")]
+    kinds = Counter((k.split(":")[0], r[7]) for r in fsc for k in r[10].split(","))
+    print("\nFUNCTION-SCOPE ARRAYS A PROGRAM FILLS (CEO-1231 stage 2; a drop is not a guard): %d -- %d guarded (a loud refusal or a growth), "
+          "%d dropping at the cap, %d with no guard; %d more fixed by construction (class B, read by machine), %d locals nothing fills"
+          % (len(fsc), sum(1 for r in fsc if r[7] == "LOUD"), sum(1 for r in fsc if r[7] == "DROP"), sum(1 for r in fsc if r[7] == "NONE"),
+             sum(1 for r in rows if r[2] == "local" and r[10].startswith("B:")), sum(1 for r in rows if r[2] == "local" and not r[10] and not r[8])))
+    print("  by fill and guard: " + ", ".join("%s %s %d" % (k, g, n) for (k, g), n in sorted(kinds.items())))
+    for r in sorted((r for r in fsc if r[7] != "LOUD"), key=lambda r: (r[7] != "NONE", r[0], r[1]))[:top]:
+        print("  %s:%d %s[%s] %s %s  %s" % (r[0], r[1], r[3], r[4], r[10], r[7], r[9][:140]))
     lits = [r for r in rows if re.fullmatch(r"[0-9]+", r[4]) and r[2] in ("file", "static", "field") and int(r[4]) >= 8]
     print("\nFILE-SCOPE OR FIELD ARRAYS WITH A BARE LITERAL BOUND >= 8: %d" % len(lits))
     for r in sorted(lits, key=lambda r: -int(r[4]))[:top]:

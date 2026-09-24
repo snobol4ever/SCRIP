@@ -2,7 +2,8 @@
 # util_dyn_caps_witness.sh compile|runtime|census -- the criteria of ARCH-DYNAMIC-STORAGE.md (Lon 2026-09-23: no fixed limits).
 # compile: the three compile-time witnesses (200 DEFINEs and a 608-entry blob layout vs sbl -bf, 600 predicates vs gprolog) plus zero compiler tables bound
 #          by a compile-time population cap in the census; runtime: the 70-argument Icon call vs iconx plus zero runtime tables
-#          bound by a runtime population cap; census: the ratchet -- file/static/field declarations may only fall from BASELINE.
+#          bound by a runtime population cap; census: the ratchet -- file/static/field declarations may only fall from BASELINE, and the
+#          locals a program fills (CEO-1231 stage 2) may only fall from BASELINE_FUNCTION_SCOPE.
 # rc 0 GREEN, 1 RED, 2 REFUSE (an oracle or the binary missing). The population regexes are the page's § 6 list, spelled once here.
 # The GNU Prolog oracle is gplc's native binary, never `gprolog --consult-file`: the top level prints a four-line banner and consult's two
 # "compiling ..." lines to STDOUT before the program runs, so that arm read 606 lines against a correct 600 and could never go green (cfo 2026-09-23).
@@ -41,19 +42,30 @@ runtime)
   ;;
 census)
   B=scripts/fixtures/dyn_caps/BASELINE; [ -f "$B" ] || { echo "REFUSE(2): no baseline at $B"; exit 2; }
+  BF=scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE; [ -f "$BF" ] || { echo "REFUSE(2): no function-scope baseline at $BF"; exit 2; }
   # ⭐ THE GUARD LINES READ THE CLASSIFIER (audit_fixed_caps_census.py, CEO-1231): u is every file/static/field table, macro OR literal
   # bound, with no capacity guard at a fill (never compared, or compared only as an index or an iteration) and not read-only; d is
   # every such table whose guard DROPS -- skips, truncates, clamps or fails silently at the cap. A const table is class A by rule and in
   # neither. ⛔ ONE line ends "never compared in its file: N", on purpose: the row's DONE-WHEN greps that suffix, and two lines ending in
   # it would let either one's zero pass the criterion for both.
-  [ "$(head -1 "$T/c.tsv" | cut -f8-9)" = "$(printf 'guard\tconst')" ] || { echo "REFUSE(2): the census TSV carries no guard/const columns -- an older census cannot be read by these lines"; exit 2; }
+  [ "$(head -1 "$T/c.tsv" | cut -f8-9,11)" = "$(printf 'guard\tconst\tfill')" ] || { echo "REFUSE(2): the census TSV carries no guard/const/fill columns -- an older census cannot be read by these lines"; exit 2; }
   base=$(cat "$B"); n=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field")' "$T/c.tsv" | wc -l)
   u=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="NONE" && $9==""' "$T/c.tsv" | wc -l)
   d=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="DROP" && $9==""' "$T/c.tsv" | wc -l)
   echo "fixed-bound declarations at file, static or field scope: $n (baseline $base); with no capacity guard at a fill, by a macro or a literal bound -- compared only as an index or an iteration, or never compared in its file: $u"
   echo "guards that drop or truncate at the cap: $d"
-  echo "function-scope arrays a program fills, unguarded: NOT YET COUNTED -- CEO-1231's second population, its reader not landed"
+  # ⭐ THE SECOND POPULATION (CEO-1231 (1), stage 2): every local a program's data fills -- the census's fill column names how (COUNTER,
+  # CALLEE:f, FORMAT:f, COPY:f, READ:f, PATH:f); B:<why> is fixed by construction and out; const is read-only and out. Unguarded is DROP
+  # and NONE together (CEO-1231 (2): a drop is not a guard); guarded is LOUD, which the reader also gives a GROW (the at-cap path
+  # allocates). The population is ratcheted like the file-scope one, against its own BASELINE_FUNCTION_SCOPE.
+  bf=$(cat "$BF")
+  read -r fn fl fd fx <<<"$(awk -F'\t' 'NR>1 && $3=="local" && $9=="" && $11!="" && $11 !~ /^B:/ {n++; if ($8=="LOUD") l++; else if ($8=="DROP") d++; else x++}
+                                    END {print n+0, l+0, d+0, x+0}' "$T/c.tsv")"
+  fk=$(awk -F'\t' 'NR>1 && $3=="local" && $11 ~ /^B:/' "$T/c.tsv" | wc -l)
+  echo "function-scope arrays a program fills: $fn (baseline $bf) -- guarded by a loud refusal or a growth $fl, dropping at the cap $fd, with no guard $fx; fixed by construction and out (class B, read by machine): $fk"
+  echo "function-scope arrays a program fills, unguarded: $((fd + fx))"
   if [ "$n" -gt "$base" ]; then echo "RED: the population of fixed tables grew from $base to $n -- a new fixed limit landed; make it dynamic or declare it class A/B on the page and lower nothing"; red=1; elif [ "$n" -lt "$base" ]; then echo "NOTE: $n is below the baseline $base -- lower BASELINE in the same landing (the ratchet only tightens)"; fi
+  if [ "$fn" -gt "$bf" ]; then echo "RED: the function-scope population grew from $bf to $fn -- a new fixed local that a program fills landed; make it grow, and list it: python3 scripts/audit_fixed_caps_census.py --tsv FILE (column fill)"; red=1; elif [ "$fn" -lt "$bf" ]; then echo "NOTE: the function-scope population $fn is below its baseline $bf -- lower BASELINE_FUNCTION_SCOPE in the same landing"; fi
   ;;
 *) echo "REFUSE(2): unknown mode $mode"; exit 2;;
 esac

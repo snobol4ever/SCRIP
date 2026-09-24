@@ -22,7 +22,25 @@
 #   4 THE GUARD CLASSIFIER CAN RED (CEO-1231): of the two planted tables one is never compared and one drops at its cap, and the
 #     census's no-guard count and its drop count must each rise by exactly one -- a classifier that read every table the same could
 #     not pass both
-# The no-guard and drop counts are PRINTED, not graded here: bringing each to zero is the row's criterion (CEO-1231), not this gate's.
+#   5 THE SECOND POPULATION (CEO-1231 (1), stage 2): the locals a program's data fills -- the census's fill column -- read EXACTLY
+#     scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE, with the same rule: above it a new fixed local landed, below it a conversion
+#     lowers the baseline in the same landing
+#   6 FAIL-ONCE BUILT IN FOR IT: two planted locals, one filled by a list walk with no guard and one the digits of a number (class B by
+#     construction, a radix loop), raise the function-scope population by exactly ONE -- the radix buffer stays out -- and the
+#     unguarded count by one, and the census names the growth RED
+# The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
+# (CEO-1231), not this gate's.
+# ⛔ BASELINE 352 -> 366, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo, stage 2): the census scoped a declaration by the brace depth at
+# the START of its line, counted in RAW text. A '{' char literal or a "{}" string drifted the depth (re.c, unification.c, emit_str.cpp,
+# by_name_dispatch.c ended off 0), emit.cpp's `extern "C" {` made every later global a local, PL_CX_LEAF_HEAD/TAIL (a function body
+# opened in one macro and closed in another) drifted by_name_dispatch.c, and a local on its function's opening line read as FILE scope
+# -- which is why the ratchet read 353 against BASELINE 352 on origin 4c88f60c9: 411f4dbc6 wrote `char nmb[24]` inside the one-line
+# sno_scan_tmp (lower_snobol4.c:140), a local, and HEAD's census counted it as a new file-scope table. On that one tree the corrected
+# census moves exactly 9 locals OUT (that nmb[24], emit_str.cpp b, lower_snobol4.c e[4096], by_name_dispatch.c el[4096] b[64] qn[256],
+# core.c eb, icn_extfn.c b, rt_coexpr.c w) and 22 file-scope tables and fields IN that the drift read as locals (emit.cpp
+# g_flat_data_buf and bb_patch_list after the extern "C", by_name_dispatch.c g_bidprof after the macro drift, 19 one-line or drifted
+# struct fields), 353 - 9 + 22 = 366, and drops one phantom declaration inside a string (frame_layout.c "frames from [1]").
+# BASELINE_FUNCTION_SCOPE 506 is the new population's first reading on that tree.
 # ⛔ BASELINE 363 -> 355, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo): the census counted 8 COMPARISONS as file-scope tables -- the
 # one-line getenv switches `return (e && e[0] == '0');`, read as type `e`, separator `&&`, name `e`, initializer `== '0'` -- and 87
 # such phantoms in all scopes. On one tree (c2cdd7480) the corrected census drops exactly those 87 rows, every one a NAME[0]
@@ -35,10 +53,11 @@ ROOT="$(cd "$HERE/.." && pwd)"
 GATE_NAME=dyn_caps_ratchet
 GATE_STRICT=1
 gate_parse_args "$@"
-C="$HERE/audit_fixed_caps_census.py"; WIT="$HERE/util_dyn_caps_witness.sh"; B="$HERE/fixtures/dyn_caps/BASELINE"
+C="$HERE/audit_fixed_caps_census.py"; WIT="$HERE/util_dyn_caps_witness.sh"; B="$HERE/fixtures/dyn_caps/BASELINE"; BF="$HERE/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE"
 gate_require "$C" "audit_fixed_caps_census.py" || exit 2
 gate_require "$WIT" "util_dyn_caps_witness.sh" || exit 2
 gate_require "$B" "scripts/fixtures/dyn_caps/BASELINE" || exit 2
+gate_require "$BF" "scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" || exit 2
 SCRATCH="${S4E_SCRATCH:-$(cd "$ROOT/.." && pwd)/.scratch}"
 mkdir -p "$SCRATCH" || { echo "REFUSING(2) [$GATE_NAME]: cannot create $SCRATCH"; exit 2; }
 WORK=$(mktemp -d "$SCRATCH/gate_dyn_caps_XXXXXX") || exit 2
@@ -59,8 +78,14 @@ ck "2 the tree reads EXACTLY the baseline ($n vs $b)" '[ -n "$n" ] && [ "$n" = "
 d=$(sed -n 's/^guards that drop or truncate at the cap: \([0-9]*\)$/\1/p' <<<"$out")
 [ -n "$d" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the witness printed no drop line -- $(printf '%s\n' "$out" | head -3 | tr '\n' ' ')"; gate_stamp; exit 2; }
 echo "  guards that drop or truncate at the cap: $d (CEO-1231; printed, not graded here)"
+fline=$(grep -m1 '^function-scope arrays a program fills: ' <<<"$out")
+fn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline \([0-9]*\)).*/\1/p' <<<"$fline"); fb=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline \([0-9]*\)).*/\2/p' <<<"$fline")
+fu=$(sed -n 's/^function-scope arrays a program fills, unguarded: \([0-9]*\)$/\1/p' <<<"$out")
+[ -n "$fn" ] && [ -n "$fb" ] && [ -n "$fu" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the witness printed no function-scope lines -- $(printf '%s\n' "$out" | tail -3 | tr '\n' ' ')"; gate_stamp; exit 2; }
+echo "  function-scope population: $fn locals a program fills, baseline $fb; $fu of them unguarded (CEO-1231; printed, not graded here)"
 mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src" && cp "$C" "$WIT" "$WORK/r/scripts/" \
-  && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" || { echo "REFUSING(2) [$GATE_NAME]: cannot stage the scratch tree"; exit 2; }
+  && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" && printf '%s\n' "$fn" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" \
+  || { echo "REFUSING(2) [$GATE_NAME]: cannot stage the scratch tree"; exit 2; }
 cat > "$WORK/r/src/planted_by_the_ratchet_gate.c" <<'PLANT'
 #define PLANTED_BY_THE_RATCHET_GATE_MAX 8
 static int g_planted_by_the_ratchet_gate[PLANTED_BY_THE_RATCHET_GATE_MAX];
@@ -68,10 +93,24 @@ static int g_planted_by_the_ratchet_gate[PLANTED_BY_THE_RATCHET_GATE_MAX];
 static int g_planted_drop_by_the_ratchet_gate[PLANTED_DROP_BY_THE_RATCHET_GATE_MAX];
 static int g_planted_drop_by_the_ratchet_gate_n;
 void planted_drop_by_the_ratchet_gate(int v) { if (g_planted_drop_by_the_ratchet_gate_n < PLANTED_DROP_BY_THE_RATCHET_GATE_MAX) g_planted_drop_by_the_ratchet_gate[g_planted_drop_by_the_ratchet_gate_n++] = v; }
+struct planted_node_by_the_ratchet_gate { struct planted_node_by_the_ratchet_gate *next; int v; };
+void planted_local_by_the_ratchet_gate(struct planted_node_by_the_ratchet_gate *h) {
+    int planted_local_by_the_ratchet_gate[16]; int n = 0;
+    for (; h; h = h->next) planted_local_by_the_ratchet_gate[n++] = h->v;
+}
+void planted_radix_by_the_ratchet_gate(unsigned long u) {
+    char planted_radix_by_the_ratchet_gate[24]; int n = 0;
+    do { planted_radix_by_the_ratchet_gate[n++] = (char)('0' + u % 10); u /= 10; } while (u);
+}
 PLANT
 po=$(cd "$WORK/r" && bash scripts/util_dyn_caps_witness.sh census 2>&1); prc=$?
 pu=$(sed -n 's/.*never compared in its file: \([0-9]*\)$/\1/p' <<<"$po"); pd=$(sed -n 's/^guards that drop or truncate at the cap: \([0-9]*\)$/\1/p' <<<"$po")
 ck "3 FAIL-ONCE: two planted file-scope tables read RED, grown from the unplanted count ($n -> $((n + 2)))" '[ "$prc" != 0 ] && grep -q "grew from $n to $((n + 2))" <<<"$po"'
 ck "4 the guard classifier can red: the never-compared plant raises the no-guard count by one ($u -> ${pu:-?}) and the dropping plant the drop count by one ($d -> ${pd:-?})" '[ "$pu" = "$((u + 1))" ] && [ "$pd" = "$((d + 1))" ]'
-if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 4 arms -- $n fixed tables, exactly the baseline; a planted one reds; the classifier tells a drop from no guard"; gate_stamp; exit 0; fi
-echo "GATE FAIL(1) [$GATE_NAME]: $fails of 4 arms red"; gate_stamp; exit 1
+ck "5 the function-scope population reads EXACTLY its baseline ($fn vs $fb)" '[ "$fn" = "$fb" ]'
+[ "$fn" -gt "$fb" ] && echo "      a new fixed local that a program fills landed ($fb -> $fn): make it grow -- list them: python3 scripts/audit_fixed_caps_census.py --tsv FILE, column fill"
+[ "$fn" -lt "$fb" ] && echo "      the function-scope population FELL ($fb -> $fn): lower scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE to $fn in this landing"
+pfn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline.*/\1/p' <<<"$po"); pfu=$(sed -n 's/^function-scope arrays a program fills, unguarded: \([0-9]*\)$/\1/p' <<<"$po")
+ck "6 FAIL-ONCE for the second population: the list-walk local reads RED, grown by exactly one ($fn -> ${pfn:-?}, the radix buffer out), unguarded $fu -> ${pfu:-?}" '[ "$pfn" = "$((fn + 1))" ] && [ "$pfu" = "$((fu + 1))" ] && grep -q "function-scope population grew from $fn to $((fn + 1))" <<<"$po"'
+if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 6 arms -- $n fixed tables and $fn locals a program fills, each exactly its baseline; a planted one of each reds; the classifier tells a drop from no guard and a program's fill from a number's digits"; gate_stamp; exit 0; fi
+echo "GATE FAIL(1) [$GATE_NAME]: $fails of 6 arms red"; gate_stamp; exit 1
