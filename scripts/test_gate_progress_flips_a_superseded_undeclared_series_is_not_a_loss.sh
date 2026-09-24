@@ -64,9 +64,9 @@ grade() {
   local out rc
   out=$(python3 "$1" --db "$WORK/r.tsv" --since 5h --names 2>&1); rc=$?
   printf '%s\n' "$out" > "$WORK/$2.out"
-  if [ "$rc" != 0 ] || ! printf '%s\n' "$out" | grep -q '^NET distinct programs'; then echo "ARM run UNMEASURED rc=$rc"; return; fi
+  if [ "$rc" != 0 ] || ! grep -q '^NET distinct programs' <<<"$out"; then echo "ARM run UNMEASURED rc=$rc"; return; fi
   a() { if eval "$2"; then echo "ARM $1 ok"; else echo "ARM $1 RED"; fi; }
-  has() { printf '%s\n' "$out" | grep -qE "$1"; }
+  has() { grep -qE "$1" <<<"$out"; }
   a P_not_lost      '! has "^ +lost fx:P "'
   a P2_lost         'has "^ +lost fx:P2 "'
   a R_lost          'has "^ +lost fx:R "'
@@ -88,7 +88,7 @@ bad=$(printf '%s\n' "$new" | grep -c ' RED$\| UNMEASURED')
 want="M1_gained P_not_lost T_stopped superseded_5"
 got=$(printf '%s\n' "$old" | awk '$3=="RED"{print $2}' | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//')
 echo "  the old reader, the built-in fail-once: red on [$got]; must be exactly [$want] (P2_lost R_lost S_lost T_lost M2_not_gained A_differential are green on it by construction)"
-if printf '%s\n' "$old" | grep -q 'UNMEASURED'; then fails=$((fails+1)); echo "  FAIL: the old reader could not be run -- the fail-once is unproven"; sed 's/^/      /' "$WORK/old.out" | tail -5
+if grep -q 'UNMEASURED' <<<"$old"; then fails=$((fails+1)); echo "  FAIL: the old reader could not be run -- the fail-once is unproven"; sed 's/^/      /' "$WORK/old.out" | tail -5
 elif [ "$got" != "$want" ]; then fails=$((fails+1)); echo "  FAIL: the arms the old reader reds are not the arms the cure changed -- the assertions no longer see the defect they were written for"; fi
 examined=2
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 10 arms green on the reader under test, and the old reader reds exactly the 4 the cure changed (examined $examined readers)"; gate_stamp; exit 0; fi

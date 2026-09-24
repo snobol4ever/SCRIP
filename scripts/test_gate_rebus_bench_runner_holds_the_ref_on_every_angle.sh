@@ -31,7 +31,7 @@ cp "$K.reb" "$F/badref.reb"; echo 99 > "$F/badref.ref"
 out=$(BENCH_REBUS_DIR="$F" BENCH_BUD_MS=50 bash "$R" 2>&1); rc=$?
 fails=0
 ck() { if eval "$2"; then echo "  ok   $1"; else fails=$((fails+1)); echo "  FAIL $1"; fi; }
-has() { printf '%s\n' "$out" | grep -qE "$1"; }
+has() { grep -qE "$1" <<<"$out"; }
 [ "$rc" = 2 ] && { echo "GATE UNPROVEN(2) [$GATE_NAME]: the runner refused -- $(printf '%s\n' "$out" | grep -m1 -E 'REFUS|UNPROVEN')"; gate_stamp; exit 2; }
 ck "the runner exits 1 over a population with reds (rc=$rc)" '[ "$rc" = 1 ]'
 ck "good passes all three angles in m3" 'has "^good +m3 +PASS +PASS +PASS +PASS"'
