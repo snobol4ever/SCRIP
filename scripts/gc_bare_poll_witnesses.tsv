@@ -69,11 +69,11 @@ src/templates/bb/bb_define.cpp:219:sno_trace_call	src/templates/bb/bb_define.cpp
 src/templates/bb/bb_define.cpp:250:rt_trace_call_hook	src/templates/bb/bb_define.cpp:251	UNWITNESSED
 src/templates/bb/bb_define.cpp:353:sno_trace_return	src/templates/bb/bb_define.cpp:354	UNWITNESSED
 src/templates/bb/bb_define.cpp:381:rt_trace_return_hook	src/templates/bb/bb_define.cpp:382	UNWITNESSED
-src/templates/bb/bb_define.cpp:430:rt_define_site	src/templates/bb/bb_define.cpp:431	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:708:rt_trace_call_hook	src/templates/bb/bb_define.cpp:709	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:757:rt_trace_return_hook	src/templates/bb/bb_define.cpp:758	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:805:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:806	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:944:rt_proc_call_open_slim	src/templates/bb/bb_define.cpp:945	UNWITNESSED
+src/templates/bb/bb_define.cpp:428:rt_define_site	src/templates/bb/bb_define.cpp:429	hb_match_value_close_polled.sno
+src/templates/bb/bb_define.cpp:706:rt_trace_call_hook	src/templates/bb/bb_define.cpp:707	hb_match_value_close_polled.sno
+src/templates/bb/bb_define.cpp:755:rt_trace_return_hook	src/templates/bb/bb_define.cpp:756	hb_match_value_close_polled.sno
+src/templates/bb/bb_define.cpp:803:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:804	hb_match_value_close_polled.sno
+src/templates/bb/bb_define.cpp:942:rt_proc_call_open_slim	src/templates/bb/bb_define.cpp:943	UNWITNESSED
 src/templates/bb/bb_deref.cpp:19:rt_deref	src/templates/bb/bb_deref.cpp:26	hb_nv.sno
 src/templates/bb/bb_deref.cpp:35:rt_deref	src/templates/bb/bb_deref.cpp:40	hb_concat_augmented_then_subscript.icn
 src/templates/bb/bb_field_get.cpp:21:rt_field_var_strict/rt_field_var	src/templates/bb/bb_field_get.cpp:29	UNWITNESSED
