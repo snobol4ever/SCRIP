@@ -200,10 +200,9 @@ while_stmt = $'while'  *match_or_expr $'do'   *opt_nl *stmt_body reduce(WHILE,  
 unless_stmt = $'unless' *match_or_expr $'then' *opt_nl *stmt_body reduce(UNLESS, 2);
 until_stmt  = $'until'  *match_or_expr $'do'   *opt_nl *stmt_body reduce(UNTIL,  2);
 repeat_stmt = $'repeat' *opt_nl *stmt_body reduce(REPEAT, 1);
-for_body = $'do' BREAK(nl);
+for_body = $'do' *opt_nl *stmt_body;
 for_stmt = $'for' shift(*Id, 'TT_VAR') $'from' *match_or_expr $'to' *match_or_expr
-           FENCE($'by' *match_or_expr reduce(RB_FOR, 4) | reduce(RB_FOR, 3))
-           *for_body;
+           FENCE($'by' *match_or_expr *for_body reduce(RB_FOR, 5) | *for_body reduce(RB_FOR, 4));
 return_stmt = $'return' FENCE(*match_or_expr reduce(RB_RETURN_VAL, 1) | reduce(RB_RETURN, 0));
 exit_stmt   = $'exit'   reduce(RB_EXIT, 0);
 fail_stmt   = $'fail'   reduce(RB_FAIL, 0);
