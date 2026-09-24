@@ -1539,6 +1539,23 @@ int rt_var_substring(DESCR_t d, DESCR_t *base_out, long *pos_out, long *len_out)
     if (base_out) *base_out = base; if (pos_out) *pos_out = pos; if (len_out) *len_out = len;
     return 1;
 }
+static const char k_one_char_str[513] =
+    "\000\000" "\001\000" "\002\000" "\003\000" "\004\000" "\005\000" "\006\000" "\007\000" "\010\000" "\011\000" "\012\000" "\013\000" "\014\000" "\015\000" "\016\000" "\017\000" "\020\000"
+    "\021\000" "\022\000" "\023\000" "\024\000" "\025\000" "\026\000" "\027\000" "\030\000" "\031\000" "\032\000" "\033\000" "\034\000" "\035\000" "\036\000" "\037\000" "\040\000" "\041\000"
+    "\042\000" "\043\000" "\044\000" "\045\000" "\046\000" "\047\000" "\050\000" "\051\000" "\052\000" "\053\000" "\054\000" "\055\000" "\056\000" "\057\000" "\060\000" "\061\000" "\062\000"
+    "\063\000" "\064\000" "\065\000" "\066\000" "\067\000" "\070\000" "\071\000" "\072\000" "\073\000" "\074\000" "\075\000" "\076\000" "\077\000" "\100\000" "\101\000" "\102\000" "\103\000"
+    "\104\000" "\105\000" "\106\000" "\107\000" "\110\000" "\111\000" "\112\000" "\113\000" "\114\000" "\115\000" "\116\000" "\117\000" "\120\000" "\121\000" "\122\000" "\123\000" "\124\000"
+    "\125\000" "\126\000" "\127\000" "\130\000" "\131\000" "\132\000" "\133\000" "\134\000" "\135\000" "\136\000" "\137\000" "\140\000" "\141\000" "\142\000" "\143\000" "\144\000" "\145\000"
+    "\146\000" "\147\000" "\150\000" "\151\000" "\152\000" "\153\000" "\154\000" "\155\000" "\156\000" "\157\000" "\160\000" "\161\000" "\162\000" "\163\000" "\164\000" "\165\000" "\166\000"
+    "\167\000" "\170\000" "\171\000" "\172\000" "\173\000" "\174\000" "\175\000" "\176\000" "\177\000" "\200\000" "\201\000" "\202\000" "\203\000" "\204\000" "\205\000" "\206\000" "\207\000"
+    "\210\000" "\211\000" "\212\000" "\213\000" "\214\000" "\215\000" "\216\000" "\217\000" "\220\000" "\221\000" "\222\000" "\223\000" "\224\000" "\225\000" "\226\000" "\227\000" "\230\000"
+    "\231\000" "\232\000" "\233\000" "\234\000" "\235\000" "\236\000" "\237\000" "\240\000" "\241\000" "\242\000" "\243\000" "\244\000" "\245\000" "\246\000" "\247\000" "\250\000" "\251\000"
+    "\252\000" "\253\000" "\254\000" "\255\000" "\256\000" "\257\000" "\260\000" "\261\000" "\262\000" "\263\000" "\264\000" "\265\000" "\266\000" "\267\000" "\270\000" "\271\000" "\272\000"
+    "\273\000" "\274\000" "\275\000" "\276\000" "\277\000" "\300\000" "\301\000" "\302\000" "\303\000" "\304\000" "\305\000" "\306\000" "\307\000" "\310\000" "\311\000" "\312\000" "\313\000"
+    "\314\000" "\315\000" "\316\000" "\317\000" "\320\000" "\321\000" "\322\000" "\323\000" "\324\000" "\325\000" "\326\000" "\327\000" "\330\000" "\331\000" "\332\000" "\333\000" "\334\000"
+    "\335\000" "\336\000" "\337\000" "\340\000" "\341\000" "\342\000" "\343\000" "\344\000" "\345\000" "\346\000" "\347\000" "\350\000" "\351\000" "\352\000" "\353\000" "\354\000" "\355\000"
+    "\356\000" "\357\000" "\360\000" "\361\000" "\362\000" "\363\000" "\364\000" "\365\000" "\366\000" "\367\000" "\370\000" "\371\000" "\372\000" "\373\000" "\374\000" "\375\000" "\376\000"
+    "\377\000";
 void rt_trace_deref_slot(DESCR_t *p) { if (p) *p = rt_deref(*p); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_deref_slow(DESCR_t d) {
@@ -1559,6 +1576,7 @@ DESCR_t rt_deref_slow(DESCR_t d) {
         if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
         const char *sp = sd.s ? sd.s : ""; long slen = sd.slen ? (long)sd.slen : (long)strlen(sp);
         if (vc->pos + vc->len - 1 > slen) return FAILDESCR;
+        if (vc->len == 1) return (DESCR_t){ .v = DT_S, .slen = 1, .s = (char *)&k_one_char_str[2 * (unsigned char)sp[vc->pos - 1]] };
         char *out = rt_str_alloc(vc->len); memcpy(out, sp + vc->pos - 1, (size_t)vc->len); out[vc->len] = 0;
         return (DESCR_t){ .v = DT_S, .slen = (uint32_t)vc->len, .s = out };
     }
@@ -1623,6 +1641,11 @@ static VCELL_t * vcell_ultimate(DESCR_t d) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t *swap_base_cell(DESCR_t sv) {
+    if (sv.v == DT_N && sv.slen == 1) return (DESCR_t *)sv.ptr;
+    if (IS_NAMETRAP_fn(sv)) { VCELL_t *u = (VCELL_t *)sv.p; if (u && u->cellp && !u->tbl) return u->cellp; }
+    return (DESCR_t *)0;
+}
 DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     if (!IS_VARREF_fn(va) || !IS_VARREF_fn(vb)) return FAILDESCR;
     if (!IS_NAMETRAP_fn(va) || !IS_NAMETRAP_fn(vb)) {
@@ -1634,11 +1657,28 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
         return rt_deref(va);
     }
     VCELL_t *xc = (VCELL_t *)va.p, *yc = (VCELL_t *)vb.p; if (!xc || !yc) return FAILDESCR;
+    { extern int g_sno_etrace_n;
+      if (xc->len == 1 && yc->len == 1 && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp && !xc->tbl && !yc->tbl
+          && g_trace_budget == 0 && g_sno_etrace_n == 0 && monitor_fd < 0) {
+          DESCR_t *cx_cell = swap_base_cell(xc->sv), *cy_cell = swap_base_cell(yc->sv);
+          if (cx_cell && cx_cell == cy_cell) {
+              DESCR_t sd = *cx_cell;
+              if (sd.v == DT_S && !IS_CSET_fn(sd) && sd.s) {
+                  long slen = sd.slen ? (long)sd.slen : (long)strlen(sd.s);
+                  if (xc->pos <= slen && yc->pos <= slen) {
+                      char *ns = rt_str_alloc(slen); memcpy(ns, sd.s, (size_t)slen); ns[slen] = 0;
+                      char cx = sd.s[xc->pos - 1], cy = sd.s[yc->pos - 1]; ns[xc->pos - 1] = cy; ns[yc->pos - 1] = cx;
+                      rt_sxt_break_fast(ns); *cx_cell = (DESCR_t){ .v = DT_S, .slen = (uint32_t)slen, .s = ns };
+                      return (DESCR_t){ .v = DT_S, .slen = 1, .s = (char *)&k_one_char_str[2 * (unsigned char)cy] };
+                  } } } } }
     DESCR_t dx = rt_deref(va), dy = rt_deref(vb);
     { extern void rt_sxt_break(const char *); if (dx.v == DT_S) rt_sxt_break(dx.s); if (dy.v == DT_S) rt_sxt_break(dy.s); }
     if (dx.v == DT_FAIL || dy.v == DT_FAIL) return FAILDESCR;
     long adj1 = 0, adj2 = 0;
-    if (IS_NAMETRAP_fn(xc->sv) && IS_NAMETRAP_fn(yc->sv)) {
+    { DESCR_t *bx = swap_base_cell(xc->sv); if (bx && bx == swap_base_cell(yc->sv) && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp) {
+          if (xc->pos > yc->pos) adj1 = xc->len - yc->len;
+          else if (yc->pos > xc->pos) adj2 = yc->len - xc->len; } }
+    if (!adj1 && !adj2 && IS_NAMETRAP_fn(xc->sv) && IS_NAMETRAP_fn(yc->sv)) {
         VCELL_t *ux = vcell_ultimate(xc->sv), *uy = vcell_ultimate(yc->sv);
         int same_slot = 0;
         if (ux && uy) {
