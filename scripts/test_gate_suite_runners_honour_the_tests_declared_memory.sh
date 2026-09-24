@@ -45,7 +45,8 @@
 # written -- and MEASURED 2026-09-23 21:5x (coo, the table arms T and the runner census R added on CEO-1229) it reds exactly fourteen
 # arms: B, C3, D1, D1b, E2, H1, H2, S1, S3, S6, T1, T2, T3 and T5. The other sixteen are green BY CONSTRUCTION under the mutant and
 # are named so nobody reads their green as coverage: A1..A4, D2 and S4 read the runtime, F reads the shipped tree, E1 names a path,
-# C1/C2/H3/S2 describe the reader-off world itself, G and S5 drive the Python harness, which the mutant leaves alone, T4 refuses a
+# C1/C2/H3/S2 describe the reader-off world itself, G, S5 and O1-O4 drive the Python harness, which the mutant leaves alone (arm O's
+# own fail-once is measured against a harness without the OOM verdict and recorded at the arm), T4 refuses a
 # run that has no table (no reader involved), and R is a census of the runners' source -- its own fail-once is a scratch tree
 # holding origin's unwired PAT runner and logtalk grader, where R reds naming exactly those two files and nothing else.
 # An arm that has never been seen to fail is an arm that reads "there was never a bug here" (this gate's own law,
@@ -118,19 +119,25 @@ printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb\n1,hungry,
 # The premise this whole gate rests on, measured rather than assumed: hungry must genuinely NOT fit the default
 # and must genuinely fit the declaration. If either stops being true the fixture has stopped being a witness and
 # every arm below would be grading a tautology -- so this is a REFUSAL, never a red.
-( cd "$T/pkg" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
+( cd "$T/pkg" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/base.err" )
 base_rc=$?
 ( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$DECL_KB" timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
 decl_rc=$?
 # ⛔⭐ A TIMEOUT IS NOT A CAPACITY VERDICT AND IS REFUSED HERE RATHER THAN COUNTED. rc=124 says the ceiling
 # fired; it cannot tell "this program does not fit" from "this box is at load 28". Testing rc != 0 would
-# accept a loaded machine as evidence of a live set, which is the false-label direction. The abort we are
-# claiming is rc=134 (SIGABRT from the hard cap), and nothing else will do.
+# accept a loaded machine as evidence of a live set, which is the false-label direction. What we claim is the
+# RUNTIME'S OWN OUT-OF-MEMORY REPORT naming the shipped cap -- rc 1..127 with `(the GC heap's hard cap is <cap> KB, -d;`
+# on stderr (the cto, SCRIP dc739c38a, CTO-164) -- and nothing else will do. ⛔ UNTIL 2026-09-23 22:20 CDT THIS LINE
+# DEMANDED rc=134, the SIGABRT the cap used to be, and the cto's cure of that abort made this gate REFUSE rc=2 on
+# origin -- in the blocking set, with the row's DONE-WHEN reading "could not measure" -- until the coo re-cut it
+# 2026-09-24 (measured 07:0x on 8b6cb3607). A premise that names the old failure's SHAPE dies with its cure; one
+# that names the runtime's own statement of the cap does not.
 [ "$base_rc" != 124 ] || refuse "the fixture TIMED OUT at the shipped default rather than aborting -- rc=124 is the ceiling firing and cannot be told from a loaded box, so this run measured nothing about capacity (load: $(uptime | sed 's/.*load average: //'))"
 [ "$decl_rc" != 124 ] || refuse "the fixture TIMED OUT at ${DECL_KB} KB -- same reason: a ceiling is not a verdict (load: $(uptime | sed 's/.*load average: //'))"
-[ "$base_rc" = 134 ] || refuse "the fixture exited rc=$base_rc at the shipped default, not the rc=134 hard-cap abort this gate claims -- it is no longer a witness for a declared arena and every arm below would grade a tautology. Grow it or re-measure the cap."
+[ "$base_rc" -ge 1 ] && [ "$base_rc" -lt 128 ] && grep -q "(the GC heap's hard cap is ${rt_cap} KB, -d;" "$T/base.err" \
+  || refuse "the fixture exited rc=$base_rc at the shipped default without the runtime's out-of-memory report naming the ${rt_cap} KB cap [$(grep -m1 -E 'scrip: error|Aborted' "$T/base.err" | cut -c1-160)] -- it is no longer a witness for a declared arena and every arm below would grade a tautology. Grow it or re-measure the cap."
 [ "$decl_rc" = 0 ] || refuse "the fixture does not complete even at ${DECL_KB} KB (rc=$decl_rc) -- the declaration cannot be shown to buy anything, so a green here would mean nothing"
-echo "  PREMISE MEASURED: hungry.icn rc=$base_rc (hard-cap abort) at the shipped default, rc=$decl_rc at ${DECL_KB} KB -- the two verdicts differ and neither is a timeout, so the arms below can tell a honoured declaration from a dropped one"
+echo "  PREMISE MEASURED: hungry.icn rc=$base_rc (the runtime's out-of-memory report at the ${rt_cap} KB cap) at the shipped default, rc=$decl_rc at ${DECL_KB} KB -- the two verdicts differ and neither is a timeout, so the arms below can tell a honoured declaration from a dropped one"
 
 # ── arm B: the runner's reader actually changes the verdict ────────────────────────────────────────────────────
 if [ "${FAIL_ONCE:-0}" = 1 ]; then
@@ -164,11 +171,14 @@ declared_arena_kb "$T/pkg/BAD.csv" hungry >/dev/null 2>"$T/bad.err"; d_rc=$?
 [ "$d_rc" = 2 ] && ck ok "D1 heap_kb=2048 (<= the ${rt_cap} KB shipped cap) is REFUSED rc=2 rather than accepted as a silent no-op" \
   || ck bad "D1 heap_kb=2048 returned rc=$d_rc -- a cell that grants no capacity was accepted, and it would read downstream as a capacity declaration"
 grep -q "granting no capacity" "$T/bad.err" && ck ok "D1b the refusal names WHY, not just THAT" || ck bad "D1b the refusal does not say why"
-( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB=2048 timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 )
+( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB=2048 timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/d2.err" )
 d2=$?
 [ "$d2" != 124 ] || refuse "arm D2 TIMED OUT (rc=124) -- a ceiling is not evidence about the cap rule"
-[ "$d2" = 134 ] && ck ok "D2 the runtime STILL caps a 2048 KB window at ${rt_cap} KB (rc=$d2, the same hard-cap abort as the default) -- the measurement arm D enforces is still true of this tree" \
-  || ck bad "D2 a 2048 KB window now COMPLETES (rc=0) -- gc_heap.c's cap rule changed, so arm D is enforcing a rule the runtime no longer has and the floor must be re-derived, not left standing"
+# ⭐ the RUNTIME'S OWN REPORT names the cap it enforced (dc739c38a), which is stronger evidence than an exit status ever was: it says
+# WHICH cap, where rc=134 only said that one was hit (the older form of this arm, re-cut with the premise above 2026-09-24).
+d2cap="$(sed -n "s/.*(the GC heap's hard cap is \([0-9]*\) KB, -d;.*/\1/p" "$T/d2.err" | head -1)"
+[ "$d2" -ge 1 ] && [ "$d2" -lt 128 ] && [ "$d2cap" = "$rt_cap" ] && ck ok "D2 the runtime STILL caps a 2048 KB window at ${rt_cap} KB (rc=$d2, its own report names the ${d2cap} KB cap, the same as the default) -- the measurement arm D enforces is still true of this tree" \
+  || ck bad "D2 a 2048 KB window read rc=$d2 with the report naming cap '${d2cap:-none}' KB, not ${rt_cap} -- gc_heap.c's cap rule changed, so arm D is enforcing a rule the runtime no longer has and the floor must be re-derived, not left standing"
 
 # ── arm E: the declaration travels with an extracted family (CEO-1127's evidence bar) ──────────────────────────
 cat > "$T/fam.icn" <<'EOF'
@@ -383,6 +393,70 @@ for r in test_icon_arizona_suite.sh test_icon_ipl_suite.sh test_icon_jcon_suite.
 [ -z "$r_miss" ] && ck ok "R  every package runner reads the declared heap and stack ($r_n wiring points across 17 runners and graders: the eight SNOBOL4, Prolog and Pascal loops, the scorecard behind gimpel, the harness behind aisnobol, inria, logtalk and its grader, SWI, and the three Icon runners)" \
   || ck bad "R  a runner lost its wiring:$r_miss"
 
+# ── arm O: A PROPERLY REPORTED OUT-OF-MEMORY IS ITS OWN OUTCOME, RECORDED WITH THE HEAP IT RAN UNDER (CEO-1229 (2)) ───────────
+# ⭐⭐ The ceo on this row, 2026-09-23 20:2x, verbatim: "THE PROGRESS WORD IS OOM: a run that ends in a properly reported out-of-memory
+# at the heap it ran under, recorded with that heap. It is not PASS and it is not FAIL or CRASH ... the harness lists every OOM program
+# by name". The runtime's report is the cto's (dc739c38a). This arm grades the HARNESS end to end on a four-entry Icon suite under
+# mktemp (a fixture, never a board, CEO-547; its own scratch progress table): O1 an entry past its DECLARED heap and an undeclared
+# one past the shipped cap each read OOM in m3 AND m4, the progress row naming the cap the runtime reported -- the declared heap for
+# the first, the shipped cap for the second; O2 THE NEGATIVE CONTROL, an rc=1 wrong answer with no report reads FAIL, and the entry
+# that fits its declaration reads PASS -- a classifier that called every rc=1 an OOM, or that ate the declaration, reds here;
+# O3 the SUITE_BOARD line keeps each OOM INSIDE <m>_fail and prints <m>_fail_oom beside it (the boards that read that line take
+# fail+crash as their red, so an OOM folded out of fail would read green to each of them); O4 OOM_PROGRAMS names each with its cap.
+# ⛔ One-line programs: SCRIP's Icon parser refuses a statement that begins a new line after `L := list()` where icont accepts it
+# (the cto's report to hq_icon, dc739c38a), and a fixture that does not compile would read FAIL for a reason this arm is not about.
+# ⛔ FAIL-ONCE, MEASURED 2026-09-24 by the coo: this arm run against origin 8b6cb3607's harness (no OOM verdict) reds O1, O3 and O4
+# and keeps O2 green -- the negative control has nothing to catch on a harness that never says OOM, which is its job, not a gap.
+OVER_KB=$((rt_cap * 2))
+[ $((2 * FIX_N * 32)) -gt "$OVER_KB" ] || refuse "arm O's over-declared witness (2 x $FIX_N blocks of 32 KB) no longer exceeds its ${OVER_KB} KB declaration -- grow FIX_N or re-derive OVER_KB"
+mkdir -p "$T/oom/tests/icon"
+python3 - "$T/oom/tests/icon" "$HERE" "$DECL_KB" "$OVER_KB" "$FIX_N" <<'PY2' || refuse "arm O could not write its fixture suite"
+import sys
+sys.path.insert(0, sys.argv[2])
+import corpus_suite_harness as h
+d, kb, over, n = sys.argv[1], sys.argv[3], sys.argv[4], int(sys.argv[5])
+grow = 'procedure main(); L := list(); every i := 1 to %d do put(L, repl("x", 32768)); write(*L); end'
+ents = [("fits_declared", grow % n, str(n), kb), ("over_declared", grow % (2 * n), str(2 * n), over),
+        ("hungry_undeclared", grow % n, str(n), ""), ("wrong_answer", 'procedure main(); write("a"); stop("boom"); end', "b", "")]
+src, ref, csv = [], [], ["rank,entry,origin,family,kind,xfail,n_lines,modes,heap_kb,stack_kb"]
+for i, (name, prog, want, decl) in enumerate(ents, 1):
+    b = h.make_banner_cfg(i, name, "#", "")
+    src += [b, prog]; ref += [b, want]
+    csv.append('%d,%s,fx__%s,fx,block,0,1,"m3,m4",%s,' % (i, name, name, decl))
+for ext, lines in (("icn", src), ("ref", ref), ("csv", csv)):
+    with open("%s/ALL.%s" % (d, ext), "w") as f:
+        f.write("\n".join(lines) + "\n")
+PY2
+o_env=(env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u RT_OPT)
+for v in $(env | sed -n 's/^\(SCRIP_GC[A-Z0-9_]*\)=.*/\1/p'); do o_env+=(-u "$v"); done
+o_out="$("${o_env[@]}" S4E_PROGRESS_DB="$T/oom/db.tsv" timeout 300 python3 "$HERE/corpus_suite_harness.py" run "$T/oom/tests/icon/ALL.icn" "$T/oom/tests/icon/ALL.ref" --lang icon --modes m3,m4 2>/dev/null)"; o_rc=$?
+[ "$o_rc" != 124 ] || refuse "arm O's harness run TIMED OUT (rc=124) -- a ceiling is not a verdict (load: $(uptime | sed 's/.*load average: //'))"
+[ "$o_rc" = 1 ] || refuse "arm O's harness run exited rc=$o_rc, not the rc=1 a board with non-PASS entries ends in -- it could not grade the fixture"
+[ -s "$T/oom/db.tsv" ] || refuse "arm O's harness run appended no progress rows to its scratch table -- nothing to grade"
+o_row() { awk -F'\t' -v p="$1" -v m="$2" 'NR==1{for(i=1;i<=NF;i++)c[$i]=i;next} $c["program"]==p && $c["mode"]==m {print $c["outcome"] "|" $c["note"]}' "$T/oom/db.tsv" | tail -1; }
+o1=""; for m in m3 m4; do
+  r="$(o_row over_declared $m)"; case "$r" in OOM\|*heap_cap_kb=${OVER_KB}\ *|OOM\|*heap_cap_kb=${OVER_KB}) ;; *) o1="$o1 over_declared/$m=[$r]";; esac
+  r="$(o_row hungry_undeclared $m)"; case "$r" in OOM\|*heap_cap_kb=${rt_cap}\ *|OOM\|*heap_cap_kb=${rt_cap}) ;; *) o1="$o1 hungry_undeclared/$m=[$r]";; esac
+done
+[ -z "$o1" ] && ck ok "O1 a program past its declared ${OVER_KB} KB and one past the shipped ${rt_cap} KB cap each read OOM in m3 and m4, the progress row carrying heap_cap_kb= the cap the runtime reported" \
+  || ck bad "O1 an out-of-memory run was not recorded as OOM with its heap:$o1"
+o2=""; for m in m3 m4; do
+  r="$(o_row wrong_answer $m)"; [ "${r%%|*}" = FAIL ] || o2="$o2 wrong_answer/$m=[$r]"
+  r="$(o_row fits_declared $m)"; [ "${r%%|*}" = PASS ] || o2="$o2 fits_declared/$m=[$r]"
+done
+[ -z "$o2" ] && ck ok "O2 NEGATIVE CONTROL: an rc=1 wrong answer with no out-of-memory report reads FAIL, and the entry that fits its ${DECL_KB} KB declaration reads PASS, in both modes" \
+  || ck bad "O2 the classifier reached past the runtime's report:$o2"
+o_board="$(grep -m1 '^SUITE_BOARD ' <<<"$o_out")"
+o_f() { sed -n "s/.* $1=\([0-9]*\).*/\1/p" <<<"$o_board"; }
+[ "$(o_f m3_fail)" = 3 ] && [ "$(o_f m4_fail)" = 3 ] && [ "$(o_f m3_fail_oom)" = 2 ] && [ "$(o_f m4_fail_oom)" = 2 ] \
+  && ck ok "O3 the SUITE_BOARD line keeps each OOM inside fail and splits it out beside it (m3_fail=3 m3_fail_oom=2, m4_fail=3 m4_fail_oom=2)" \
+  || ck bad "O3 the SUITE_BOARD line reads m3_fail=$(o_f m3_fail) m3_fail_oom=$(o_f m3_fail_oom) m4_fail=$(o_f m4_fail) m4_fail_oom=$(o_f m4_fail_oom), want 3/2 in each mode"
+o_list="$(grep -m1 '^OOM_PROGRAMS ' <<<"$o_out")"
+case "$o_list" in *" n=4: "*"over_declared m3 cap=${OVER_KB}KB"*"over_declared m4 cap=${OVER_KB}KB"*"hungry_undeclared m3 cap=${rt_cap}KB"*"hungry_undeclared m4 cap=${rt_cap}KB"*)
+  ck ok "O4 OOM_PROGRAMS names each out-of-memory program by name, mode and the cap it ran under (n=4)" ;;
+  *) ck bad "O4 OOM_PROGRAMS does not name the four out-of-memory runs with their caps: [$(cut -c1-220 <<<"${o_list:-no OOM_PROGRAMS line}")]" ;;
+esac
+
 # ── arm F: every shipped attribute file carries the column ─────────────────────────────────────────────────────
 CORPUS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus"
 miss=0; tot=0
@@ -394,6 +468,6 @@ done
 [ "$miss" = 0 ] && ck ok "F  all $tot shipped attribute file(s) carry the heap_kb and stack_kb columns, side by side (each converted in ONE landing, so no runner can read a file that lacks one)" \
   || ck bad "F  $miss of $tot attribute file(s) lack the heap_kb,stack_kb columns"
 
-echo "GATE $G: $checks check(s), $fails failure(s) -- population: $tot attribute file(s); heap: 1 planted declared entry, 1 planted neighbour, arena ${DECL_KB} KB vs shipped default (cap ${rt_cap} KB, floor ${rt_flr} KB); stack: a depth-$DEPTH witness at ${STK_KB} KB vs the runtime's ${c_flr_kb} KB floor"
+echo "GATE $G: $checks check(s), $fails failure(s) -- population: $tot attribute file(s); heap: 1 planted declared entry, 1 planted neighbour, arena ${DECL_KB} KB vs shipped default (cap ${rt_cap} KB, floor ${rt_flr} KB); stack: a depth-$DEPTH witness at ${STK_KB} KB vs the runtime's ${c_flr_kb} KB floor; OOM: a 4-entry suite through the harness in m3 and m4 (one past its ${OVER_KB} KB declaration, one past the ${rt_cap} KB cap, one fitting ${DECL_KB} KB, one rc=1 wrong answer)"
 [ "$fails" = 0 ] || exit 1
 exit 0

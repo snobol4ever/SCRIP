@@ -473,11 +473,48 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=
 
 
 # ==================================================================== exec ===
+# ⭐⭐ OOM IS ITS OWN OUTCOME (ceo CEO-1229 (2), 2026-09-23 20:2x, on the coo's row
+# instruments-suite-attribute-files-declare-stack-and-heap-per-program-and-every-runner-honours-both, verbatim: "THE PROGRESS WORD IS
+# OOM: a run that ends in a properly reported out-of-memory at the heap it ran under, recorded with that heap. It is not PASS and it is
+# not FAIL or CRASH (Lon: a properly reported out of memory is not a failure); the suite table counts it outside the numerator, and the
+# harness lists every OOM program by name so each one gets its heap declaration, or a leak cure if its live set is garbage.").
+# THE REPORT IS THE RUNTIME'S OWN, landed by the cto at SCRIP dc739c38a (CTO-164): a live set past the hard cap ends rc 1 with
+# `scrip: error <code>: <text> (the GC heap's hard cap is <cap> KB, -d; <committed> KB committed; this request <n> bytes)` -- 204
+# "memory overflow" in every voice but Icon's, which says 306/307. MEASURED 2026-09-24 07:1x by the coo at the default cap, mode 3, one
+# witness each: SNOBOL4 204, Icon 307 (a list) and 307 (a string table), Prolog 204, Pascal 204 -- every one rc 1 and every one this
+# line. ⛔ THE PARENTHESIS IS THE MATCH, NEVER THE ERROR NUMBER: 204 is also Icon's "real overflow, underflow, or division by zero",
+# so a number alone would call an Icon wrong answer an OOM. ⛔ AND ONLY A POSITIVE rc: a signal is a CRASH whatever stderr says (the
+# start-up refusals -- an out-of-range SCRIP_HEAP_KB, a bad -d or -i, a failed mmap -- still abort, by the cto's design), and a run
+# that trapped the error with SETEXIT and went on to end rc 0 answered, so it is graded on its output like any other run.
+_OOM_REPORT_RE = re.compile(rb"^scrip: error (\d+): [^\n]*\(the GC heap's hard cap is (\d+) KB, -d; (\d+) KB committed; "
+                            rb"this request (\d+) bytes\)", re.M)
+
+
+def oom_report(err):
+    """(code, cap_kb, committed_kb, request_bytes) of the FIRST properly reported out-of-memory in a run's stderr, else None."""
+    m = _OOM_REPORT_RE.search(err or b"")
+    return tuple(int(g) for g in m.groups()) if m else None
+
+
+def _oom_verdict(out, err, rc, masked_n=0):
+    """An OOM Verdict when the run ended rc > 0 with the runtime's own report on stderr, else None."""
+    if rc is None or rc <= 0:
+        return None
+    r = oom_report(err)
+    if r is None:
+        return None
+    code, cap, committed, req = r
+    v = Verdict("OOM", out, err, rc, detail=f"out of memory: error {code} at the GC heap's hard cap of {cap} KB (-d), {committed} KB "
+                                          f"committed, a request of {req} bytes -- declare heap_kb above {cap}, or cure a leak")
+    v.masked_lines = masked_n
+    return v
+
+
 class Verdict:
     __slots__ = ("kind", "stdout", "stderr", "returncode", "detail", "masked_lines")
 
     def __init__(self, kind, stdout=b"", stderr=b"", returncode=None, detail=""):
-        self.kind = kind  # PASS FAIL CRASH HANG UNPROVEN SKIP
+        self.kind = kind  # PASS FAIL CRASH HANG UNPROVEN SKIP OOM
         self.stdout = stdout
         self.stderr = stderr
         self.returncode = returncode
@@ -781,11 +818,15 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     # that is right on today's two languages and silently wrong on the next one.
     if exp is not None and got == exp:
         if rc is not None and rc != want_rc:
-            return Verdict("FAIL", out, err, rc,
+            return _oom_verdict(out, err, rc, masked_n) or Verdict("FAIL", out, err, rc,
                            detail=f"output matched but rc={rc}, expected {want_rc} (declare want_rc if this is correct)")
         v = Verdict("PASS", out, err, rc)
         v.masked_lines = masked_n
         return v
+    # ⭐ OOM BEFORE FAIL (CEO-1229 (2)): a run that did not answer and ended in the runtime's own out-of-memory report is that report.
+    oom = _oom_verdict(out, err, rc, masked_n)
+    if oom is not None:
+        return oom
     v = Verdict("FAIL", out, err, rc, detail="output mismatch" if exp is not None else "no expected text")
     v.masked_lines = masked_n
     return v
@@ -3002,10 +3043,19 @@ def cmd_run(args):
     # hides a PER-MODE split as well as a per-debt one. XFAIL stays as the total, so every existing reader is
     # untouched; the split rides beside it and costs one dict key per kind.
     _XK = ("PASS", "FAIL", "CRASH", "HANG", "UNPROVEN", "SKIP")
+    # ⭐⭐ OOM ON THE BOARD LINE (CEO-1229 (2); the verdict is _oom_verdict's). The PROGRESS ROW says OOM. The SUITE_BOARD line keeps
+    # an OOM inside <m>_fail and prints how many of them were OOM beside it as <m>_fail_oom, the way the xfail split rides beside
+    # xfail (CEO-432 item 2) -- because 89 files under scripts/ name this line on 2026-09-24, the boards among them read fail (+crash)
+    # as their red (test_corpus_snobol4.sh FAIL = m3_fail + m3_crash, board_icon_master.sh, the Pascal gates' bad sums), and none of
+    # them knows the new word: folding OOM OUT of fail would turn each such board green on a program that did not answer, silently. Since dc739c38a an OOM already read as fail here (rc 1, output mismatch), so no reader's verdict moves by a unit.
+    # Whether a landing gate should stop counting an OOM as red is a ruling, asked of the ceo, not taken here.
+    _OOMK = "OOM"
     def _fresh():
         d = {k: 0 for k in _XK}; d["XFAIL"] = 0; d["XPASS"] = 0
         d.update({"XFAIL_" + k: 0 for k in _XK})
+        d[_OOMK] = 0
         return d
+    oom_named = []
     counts = {m: _fresh() for m in modes}
     ast_counts = {"ast": _fresh()}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
@@ -3021,14 +3071,19 @@ def cmd_run(args):
             verdicts = run_suite_entry(paths, e, tmp_root, ["ast"], ext=ext, companion_dir=Path(args.sno).parent)
             kind = verdicts["ast"].kind
             _progress_rows.append((e.name, "ast", kind, 0, _entry_note(e.xfail, verdicts["ast"], shard_tag)))
+            if kind == _OOMK:
+                oom_named.append((e.name, "ast", verdicts["ast"], e.xfail))
+            ck = "FAIL" if kind == _OOMK else kind   # the board line's fail keeps an OOM (see _OOMK above)
             if e.xfail:
                 if kind == "PASS":
                     ast_counts["ast"]["XPASS"] += 1; fails.append((e.name, "ast", verdicts["ast"]))
                 else:
                     ast_counts["ast"]["XFAIL"] += 1
-                    ast_counts["ast"]["XFAIL_" + kind] = ast_counts["ast"].get("XFAIL_" + kind, 0) + 1
+                    ast_counts["ast"]["XFAIL_" + ck] = ast_counts["ast"].get("XFAIL_" + ck, 0) + 1
             else:
-                ast_counts["ast"][kind] += 1
+                ast_counts["ast"][ck] += 1
+                if kind == _OOMK:
+                    ast_counts["ast"][_OOMK] += 1
                 if kind != "PASS":
                     fails.append((e.name, "ast", verdicts["ast"]))
         for e in run_entries:
@@ -3041,6 +3096,9 @@ def cmd_run(args):
                 mode_n[m] += 1
                 kind = verdicts[m].kind
                 _progress_rows.append((e.name, m, kind, 0, _entry_note(e.xfail, verdicts[m], shard_tag)))
+                if kind == _OOMK:
+                    oom_named.append((e.name, m, verdicts[m], e.xfail))
+                ck = "FAIL" if kind == _OOMK else kind   # the board line's fail keeps an OOM (see _OOMK above)
                 # ⛔ An XFAIL entry (probe/passthru's law-0d witnesses: non-green at conversion time,
                 # see convert_one()) is EXPECTED to stay red -- bucketing it as XFAIL/XPASS instead of
                 # FAIL/PASS keeps a documented, pre-existing defect from inflating a caller's FAIL count
@@ -3057,9 +3115,11 @@ def cmd_run(args):
                         # ⛔ the OUTCOME, not merely the exemption: the marker says "expected red" and says nothing
                         # about WHICH red, and a crash, a hang, a wrong answer and a compile refusal are four
                         # different repairs. Bucketed by the verdict's own kind so a new kind cannot go uncounted.
-                        counts[m]["XFAIL_" + kind] = counts[m].get("XFAIL_" + kind, 0) + 1
+                        counts[m]["XFAIL_" + ck] = counts[m].get("XFAIL_" + ck, 0) + 1
                 else:
-                    counts[m][kind] += 1
+                    counts[m][ck] += 1
+                    if kind == _OOMK:
+                        counts[m][_OOMK] += 1
                     if kind != "PASS":
                         fails.append((e.name, m, verdicts[m]))
             # ⛔ AN XFAIL ENTRY IS NOT GREEN. It is EXPECTED red, which is why it is kept out of every mode's
@@ -3083,7 +3143,8 @@ def cmd_run(args):
               f"ast_hang={a['HANG']} ast_unproven={a['UNPROVEN']} ast_skip={a['SKIP']} "
               f"ast_xfail={a['XFAIL']} ast_xpass={a['XPASS']} "
               f"ast_xfail_wrong={a['XFAIL_FAIL']} ast_xfail_crash={a['XFAIL_CRASH']} "
-              f"ast_xfail_hang={a['XFAIL_HANG']} ast_xfail_unproven={a['XFAIL_UNPROVEN']} ast_xfail_skip={a['XFAIL_SKIP']}")
+              f"ast_xfail_hang={a['XFAIL_HANG']} ast_xfail_unproven={a['XFAIL_UNPROVEN']} ast_xfail_skip={a['XFAIL_SKIP']} "
+              f"ast_fail_oom={a[_OOMK]}")
         print(f"MODES_COLUMN ast_graded={len(ast_entries)}/{len(entries)} run_graded={len(run_entries)}/{len(entries)} "
               f"unknown_defaulted_to_run={unknown_defaulted}")
     # total= is the GRADED run denominator on both paths (it used to be len(entries) -- the outside entries still inside
@@ -3108,10 +3169,24 @@ def cmd_run(args):
     # has it. Shards partition the entries, so these two sum across shards exactly as every other field does.
     fields.append(f"all_pass={all_pass} all_n={all_n}")
     fields.append(f"rt_md5={_rt_md5} arena_kb={_arena_kb} arena_mb={_arena_mb}" + (f" arena_cap_mb={_arena_cap}" if _arena_cap else ""))
+    # ⭐ <m>_fail_oom: how many of <m>_fail were a properly reported out-of-memory (CEO-1229 (2)) -- INSIDE fail, never beside it
+    # (see _OOMK), and at the end of the line, after every field a reader already knows, so none meets a new one between two it knows.
+    fields.append(" ".join(f"{m}_fail_oom={counts[m][_OOMK]}" for m in modes))
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
     _bin_unmoved_or_refuse()
     print("SUITE_BOARD " + " ".join(fields))
+    # ⭐⭐ THE HARNESS LISTS EVERY OOM PROGRAM BY NAME (CEO-1229 (2): "so each one gets its heap declaration, or a leak cure if its
+    # live set is garbage"), each with the hard cap the runtime ITSELF named in its report -- the heap the run had, never re-derived
+    # from the attribute file, because the report is the measurement and the file is only the request. Printed on EVERY board, with
+    # n=0 stated, so a reader can tell "no program ran out" from "this harness predates the word".
+    _oom_items = []
+    for _n, _m, _v, _xf in oom_named:
+        _r = oom_report(_v.stderr)
+        _oom_items.append(f"{_n} {_m} cap={_r[1] if _r else '?'}KB" + (" xfail" if _xf else ""))
+    print(f"OOM_PROGRAMS family={family} n={len(oom_named)}" + (": " + "; ".join(_oom_items) if _oom_items else "")
+          + " (each a properly reported out-of-memory at the heap it ran under: outside the numerator, counted inside <mode>_fail on"
+          " the SUITE_BOARD line and split out as <mode>_fail_oom; it wants a heap_kb declaration above its cap, or a leak cure)")
     _progress_record(args.sno, paths, _progress_rows)
     # ⛔ the 40-line sample is a SUMMARY, not a listing: the 5 FAIL / 8 XPASS / 10 HANG entries of a 371-entry
     # board never appeared in it, so nothing could be rowed from names. SUITE_LIST_ALL=1 lists every non-PASS
@@ -3139,6 +3214,12 @@ def _entry_note(xfail, v, shard_tag=""):
     if v is not None and v.kind != "PASS":
         toks.append("fp=%s" % hashlib.md5(v.stdout or b"").hexdigest()[:8])
         toks.append("rc=%s" % ("-" if v.returncode is None else v.returncode))
+    if v is not None and v.kind == "OOM":
+        # ⭐ "recorded with that heap" (CEO-1229 (2)): the hard cap the runtime named in its own report, and the error it raised.
+        _r = oom_report(v.stderr)
+        if _r:
+            toks.append("heap_cap_kb=%d" % _r[1])
+            toks.append("oom_error=%d" % _r[0])
     if shard_tag:
         toks.append(shard_tag)
     return " ".join(toks)
@@ -3301,7 +3382,7 @@ def cmd_pin_ref(args):
             v = run_m3(paths, one, "\n".join(old_ref), stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv)
         else:
             v = run_m4(paths, one, "\n".join(old_ref), tmp, stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv)
-        if v.kind in ("CRASH", "HANG", "UNPROVEN", "SKIP"):
+        if v.kind in ("CRASH", "HANG", "UNPROVEN", "SKIP", "OOM"):
             refuse(f"{args.mode} on {args.entry} came back {v.kind} ({v.detail}) -- a pin records what the "
                    f"compiler DOES, and a run that crashed or could not be made says nothing about that")
         # ⭐ Verdict.text is a METHOD here, not a property -- and the whole file calls it as one. Reading the
@@ -3879,7 +3960,7 @@ def main():
     b.add_argument("--skip-reason", default="", help="mandatory-in-spirit reason printed for every --skip name")
     b.set_defaults(func=cmd_convert_blocks)
 
-    r = sub.add_parser("run", help="run a suite .sno/.ref pair (or --lang dialect pair) and print PASS/FAIL/CRASH/HANG/UNPROVEN/SKIP counts")
+    r = sub.add_parser("run", help="run a suite .sno/.ref pair (or --lang dialect pair) and print PASS/FAIL/CRASH/HANG/UNPROVEN/SKIP counts, OOM split out of FAIL")
     r.add_argument("sno")
     r.add_argument("ref")
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")

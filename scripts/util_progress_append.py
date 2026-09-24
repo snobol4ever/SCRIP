@@ -71,8 +71,12 @@ CONFIG_UNDECLARED = "undeclared"
 # this prefix; a row without it is a board pass and IS expected to have a published suite row behind it.
 DEVPASS_TOKEN = "dev-pass="
 CLASSES = ("master", "package", "benchmark")
+# ⭐ OOM (ceo CEO-1229 (2), 2026-09-23, verbatim: "THE PROGRESS WORD IS OOM: a run that ends in a properly reported out-of-memory at
+# the heap it ran under, recorded with that heap. It is not PASS and it is not FAIL or CRASH"): the runtime's own report since SCRIP
+# dc739c38a, classified by corpus_suite_harness._oom_verdict, the note carrying heap_cap_kb= (the cap the runtime named) and
+# oom_error= (its error number). Not green: a PASS that becomes OOM is a loss to every reader of this table.
 OUTCOMES = ("PASS", "FAIL", "CRASH", "HANG", "SKIP", "REFUSE", "UNGRADED", "UNPROVEN", "MISSING", "REJECT", "XFAIL", "XPASS",
-            "DEFERRED", "OUTSIDE", "UNGRADABLE")
+            "DEFERRED", "OUTSIDE", "UNGRADABLE", "OOM")
 DB_DEFAULT = "/home/resources/progress/results.tsv"
 HERE = os.path.dirname(os.path.abspath(__file__))
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
