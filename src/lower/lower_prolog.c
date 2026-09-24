@@ -852,6 +852,18 @@ static const tree_t * pl_clause_ill_typed(const tree_t * cl) {
     }
     return pl_tree_number(cl);
 }
+static const char * pl_pred_props[] = { "built_in", "dynamic", "static", "defined", "multifile", "discontiguous", "meta_predicate", "exported", "imported_from",
+    "foreign", "iso", "number_of_clauses", "public", "private", "native", "tabled", "volatile", "transparent", "nodebug", "visible", "template", "alias",
+    "declared_in", "defined_in", "scope", "synchronized", "file", "line_count", "notrace", "thread_local", "non_terminal", "ssu", "quasi_quotation_syntax", NULL };
+static const char * pl_meta_template(const char * pn, int ar) {
+    static const struct { const char * n; int a; const char * t; } m[] = { { ",", 2, "00" }, { ";", 2, "00" }, { "->", 2, "00" }, { "*->", 2, "00" }, { "\\+", 1, "0" },
+        { "call", 1, "0" }, { "call", 2, "1?" }, { "call", 3, "2??" }, { "call", 4, "3???" }, { "call", 5, "4????" }, { "call", 6, "5?????" }, { "call", 7, "6??????" },
+        { "call", 8, "7???????" }, { "once", 1, "0" }, { "ignore", 1, "0" }, { "not", 1, "0" }, { "catch", 3, "0?0" }, { "findall", 3, "?0?" }, { "findall", 4, "?0??" },
+        { "bagof", 3, "?^?" }, { "setof", 3, "?^?" }, { "forall", 2, "00" }, { "aggregate_all", 3, "?0?" }, { "setup_call_cleanup", 3, "000" }, { "call_cleanup", 2, "00" },
+        { "call_nth", 2, "0?" }, { NULL, 0, NULL } };
+    for (int i = 0; m[i].n; i++) if (m[i].a == ar && !strcmp(m[i].n, pn)) return m[i].t;
+    return (const char *) 0;
+}
 static tree_t * pl_cc_throw_ar(tree_t * formal, const char * nm, int ar) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", formal, pl_cc_pi_ar(nm, ar))); }
 static tree_t * pl_cc_type_error(const char * type, const tree_t * culprit, const char * nm, int ar) { return pl_cc_throw_ar(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal(type), (tree_t *) culprit), nm, ar); }
 static tree_t * pl_cc_perm_access(const char * pn, int ar) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc3("permission_error", (tree_t *) pl_atom_goal("access"), (tree_t *) pl_atom_goal("private_procedure"), pl_cc_pi_ar(pn, ar)), pl_cc_pi_ar("clause", 2))); }
@@ -1553,16 +1565,24 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             return goal(cx, pl_cc_gen2("$pl_sp_count", "$pl_sp_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) 0), γnext, ωfail, entry_out);
         if (!strcmp(nm, "predicate_property") && t->n == 2 && !pl_file_defines(nm, 2)) {
             const tree_t * h = t->c[0]; const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;
-            int ar = (h && h->t == TT_FNC) ? h->n : 0;
+            int ar = (h && h->t == TT_FNC) ? h->n : 0; const tree_t * pp = t->c[1];
+            if (pl_tree_number(h)) return goal(cx, pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
+            if (h && h->t == TT_VAR && h->v.sval && !strcmp(h->v.sval, "_")) return goal(cx, pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), nm, 2), γnext, ωfail, entry_out);
+            if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
+                return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
             if (!pn) pl_refuse("predicate_property/2 whose head is not a callable term known at compile time -- ISO's backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);
             { int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar); int def = dyn || pl_file_defines(pn, ar);
-              int bi = !def && (pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
-              const char * props[4]; int np = 0;
-              if (dyn) props[np++] = "dynamic"; else if (def) props[np++] = "static";
-              if (def) props[np++] = "defined"; if (bi) { props[np++] = "built_in"; props[np++] = "defined"; }
+              const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
+              int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
+              const tree_t * props[5]; int np = 0;
+              if (dyn) props[np++] = pl_atom_goal("dynamic"); else if (def) props[np++] = pl_atom_goal("static");
+              if (def) props[np++] = pl_atom_goal("defined"); if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); }
+              if (meta) { tree_t * tm = ast_node_new(TT_FNC); tm->v.sval = (char *) pn;
+                  for (int i = 0; i < ar; i++) ast_push(tm, meta[i] >= '0' && meta[i] <= '9' ? pl_cc_ilit(meta[i] - '0') : (tree_t *) pl_atom_goal(meta[i] == '^' ? "^" : "?"));
+                  props[np++] = pl_cc_fnc1("meta_predicate", tm); }
               if (!np) return build(cx, IR_GOTO, ωfail, ωfail);
-              { tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) pl_atom_goal(props[np - 1]));
-                for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) pl_atom_goal(props[i])), alt);
+              { tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
+                for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[i]), alt);
                 return goal(cx, alt, γnext, ωfail, entry_out); } } }
         if (!strcmp(nm, "current_predicate") && t->n == 1 && !pl_file_defines(nm, 1)) {
             tree_t * s = (tree_t *) t->c[0]; tree_t * n; tree_t * a; tree_t * body;
