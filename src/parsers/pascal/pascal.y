@@ -562,7 +562,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     return e;
 }
-static tree_t *pas_mod(tree_t *a, tree_t *b) { return bin(TT_MOD, bin(TT_ADD, bin(TT_MOD, a, b), pas_tree_clone(b)), pas_tree_clone(b)); }
+static tree_t *pas_mod(tree_t *a, tree_t *b) {
+    tree_t *b1 = b;
+    if (!b || b->t != TT_ILIT || b->v.ival <= 0) { b1 = pas_ord_check(b, 1, 9223372036854775807LL, "i mod j with j zero or negative"); ast_push(b1, leaf_s(TT_QLIT, "6.7.2.2")); }
+    return bin(TT_MOD, bin(TT_ADD, bin(TT_MOD, a, b1), pas_tree_clone(b)), pas_tree_clone(b)); }
 static tree_t *mk_in(tree_t *elem, tree_t *set) {
     tree_t *e = ast_node_new(TT_FNC);
     ast_push(e, leaf_s(TT_VAR, "__pas_in")); ast_push(e, elem); ast_push(e, set);
