@@ -1358,7 +1358,7 @@ void rt_cmdline_switches_apply(void) {
     char tok[4096]; long win_kb = 0, cap_kb = 0;
     for (int i = 1; host_cmdline_arg(i, tok, (int)sizeof(tok)) == i; i++) {
         if (tok[0] != '-' || tok[1] == '\0') break;
-        if (tok[1] == '-') continue;
+        if (tok[1] == '-') { if (tok[2] == '\0') break; continue; }
         if (tok[1] == 'u') { if (tok[2] == '\0') i++; continue; }
         if (tok[1] == 'd' || tok[1] == 'i' || tok[1] == 's' || tok[1] == 'm') {
             const char *val = tok + 2; if (*val == '\0') { if (host_cmdline_arg(i + 1, tok, (int)sizeof(tok)) != i + 1) break; val = tok; i++; }
@@ -2881,6 +2881,16 @@ void core_runtime_error(int code, const char *msg) {
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_kb, long committed_kb) {
+    extern int rt_k_level;
+    int icon = (rt_k_level >= 1 && g_icn_act[1].name) ? 1 : 0;
+    int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
+    char mb[320];
+    snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);
+    core_runtime_error(code, mb);
+    fprintf(stderr, "scrip: the out-of-memory error handler returned and the allocation cannot proceed\n");
+    exit(1);
+}
 __attribute__((force_align_arg_pointer)) void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
