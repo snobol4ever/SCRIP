@@ -50,6 +50,8 @@ static int trace_set_n = 0;
 static int trace_access_n = 0;
 static int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int trace_idle(void) { extern long g_trace; extern int64_t kw_trace; if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0; return !g_comm_dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && g_trace == 0; }
 int g_sno_etrace_n = 0;
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out);
 static void etrace_recount(void);
@@ -267,6 +269,7 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
+    if (trace_idle()) return;
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
     if (g_trace == 0) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
@@ -293,6 +296,7 @@ void rt_trace_all_set(int on) {
     else { trace_unregister("*", TRK_CALL); trace_unregister("*", TRK_RETURN); }
 }
 void rt_trace_label_hook(const char *name) {
+    if (trace_idle()) return;
     extern long g_stno;
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
@@ -317,6 +321,7 @@ void rt_trace_label_hook(const char *name) {
     trace_recursion_depth--;
 }
 void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
+    if (trace_idle()) return;
     if (!kw || !*kw) return;
     if (trace_recursion_depth > 0) return;
     trace_ent_t *e = trace_find(kw, TRK_KEYWORD);
@@ -343,6 +348,7 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
     trace_recursion_depth--;
 }
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) {
+    if (trace_idle()) return;
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
     if (kind == TRK_CALL || kind == TRK_RETURN) {
@@ -376,6 +382,7 @@ void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, D
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { rt_trace_event_args(kind, name, (DESCR_t *)0, 0, value, stno); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_call_hook(const char *fname) {
+    if (trace_idle()) return;
     extern long g_stno; extern int rt_proc_nparams(const char *name); extern const char *rt_proc_pname(const char *name, int k); extern DESCR_t NV_GET_fn(const char *);
     int np = fname ? rt_proc_nparams(fname) : 0; if (np < 0) np = 0; if (np > 16) np = 16;
     DESCR_t a[16];
@@ -511,12 +518,13 @@ void core_icn_act_record(const char *fname, int np, void *base) {
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     extern long g_stno; extern int rt_k_level; extern long g_line; extern const char *g_file;
     if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; r->name = fname; r->base = base; r->np = np; r->line = g_line; r->file = g_file; }
-    if (g_trace == 0) return;
+    if (trace_idle()) return;
     DESCR_t a[16]; if (np < 0) np = 0; if (np > 16) np = 16;
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
 void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line) {
+    if (trace_idle()) return;
     extern long g_line;
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
@@ -530,6 +538,7 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *g_icn_gen_ret[256]; static int g_icn_gen_ret_n;
 void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) {
+    if (trace_idle()) return;
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
@@ -540,11 +549,13 @@ void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void 
     g_icn_gen_ret[g_icn_gen_ret_n++] = h;
 }
 void rt_trace_gen_fail_hook(const char *fname, void *h) {
+    if (trace_idle()) return;
     for (int i = g_icn_gen_ret_n - 1; i >= 0; i--) if (g_icn_gen_ret[i] == h) { for (int j = i + 1; j < g_icn_gen_ret_n; j++) g_icn_gen_ret[j - 1] = g_icn_gen_ret[j]; g_icn_gen_ret_n--; return; }
     rt_trace_fail_hook(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_resume_hook(const char *pname) {
+    if (trace_idle()) return;
     extern int rt_k_level; extern long g_line;
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
@@ -561,13 +572,14 @@ static void icn_act_restore_call_line(void) {
     if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; if (r->line > 0) { g_line = r->line; if (r->file) g_file = r->file; } }
 }
 void rt_trace_fail_hook(const char *fname) {
+    if (trace_idle()) return;
     extern long g_stno;
     rt_trace_event(TRK_RETURN, fname, FAILDESCR, g_stno);
     icn_act_restore_call_line();
 }
 void rt_trace_return_hook(const char *fname, DESCR_t retval) {
     extern long g_stno;
-    rt_trace_event(TRK_RETURN, fname, retval, g_stno);
+    if (!trace_idle()) rt_trace_event(TRK_RETURN, fname, retval, g_stno);
     icn_act_restore_call_line();
 }
 int64_t kw_stcount = 0;
@@ -596,6 +608,7 @@ long g_trace_budget = 0;
 static int g_trace_stmt_seen = 0;
 static long g_trace_stmt_gen = 0;
 void rt_trace_stmt(long line) {
+    if (trace_idle()) return;
     if (g_trace_budget == 0) return;
     g_trace_stmt_seen = 1;
     g_trace_stmt_gen++;
