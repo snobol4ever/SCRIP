@@ -2771,7 +2771,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 { if (!gin && gt && gt->op == IR_SUCCEED && g_emit_cfg && g_emit_cfg->icn_cells_graph && port_sz_beta(nodes[i]->ω.sz)) gin = 1; }
                 { (void)0; }
                 { int oib = port_sz_beta(nodes[i]->ω.sz); if (!oin && oib && K == 0 && !beta_is_stmt_land(ot)) oin = 1; }
-                { if (!oin && K == 0) { int _io = !ot; if (!_io) { for (int _ik = 0; _ik <= r; _ik++) { if (nodes[run[_ik]] == ot) { _io = 1; break; } } } if (_io) oin = 1; } }
+                { if (!oin && K == 0) { int _io = !ot; static int _sl = -1; if (_sl < 0) { const char *_e = getenv("SCRIP_ZD_OMEGA_STMTLAND"); _sl = (_e && *_e == '0') ? 0 : 1; }
+                  if (!_io && !(_sl && port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) { for (int _ik = 0; _ik <= r; _ik++) { if (nodes[run[_ik]] == ot) { _io = 1; break; } } } if (_io) oin = 1; } }
                 if (_zvd) { zgt[i] = gt; zot[i] = ot; zgin[i] = (unsigned char)gin; zoin[i] = (unsigned char)oin; zmatch[i] = zdh_match; zstmt[i] = zdh_stmt; zmafter[i] = zdh_mafter; }
                                 { long kc = 0;
                 int _wzdepth = (zarm && zarm[i] >= 0) ? zout[i] : (int)zd;
