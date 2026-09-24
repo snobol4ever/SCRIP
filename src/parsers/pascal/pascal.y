@@ -1314,6 +1314,12 @@ static tree_t *mk_array_init(const char *name, long long high) {
     if (pas_array_is_pure_num(name)) return mk_fnc1("arr_make", ilit(high));
     return mk_array_fill(high);
 }
+static long long pas_decl_part_order(long long prev, long long cur) {
+    const char *nm[] = { "", "label-declaration-part", "constant-definition-part", "type-definition-part", "variable-declaration-part", "procedure-and-function-declaration-part" };
+    if (cur < prev) { fprintf(stderr, "pascal: ISO 7185 6.2.1 violation: a block's %s shall precede its %s\n", nm[cur], nm[prev]); g_pas_iso_errors++; }
+    else if (cur == prev && cur < 5) { fprintf(stderr, "pascal: ISO 7185 6.2.1 violation: a block has more than one %s\n", nm[cur]); g_pas_iso_errors++; }
+    return cur > prev ? cur : prev;
+}
 %}
 %union {
     tree_t    *node;
@@ -1345,6 +1351,7 @@ static tree_t *mk_array_init(const char *name, long long high) {
 %type <ival> with_open
 %type <ival> packed_opt
 %type <list> var_decl var_decl_list
+%type <ival> decl_part_list decl_part
 %start program
 %%
 program:
@@ -1376,15 +1383,15 @@ block:
     decl_part_list body { $$ = $2; }
     ;
 decl_part_list:
-    decl_part_list decl_part
-    |
+    decl_part_list decl_part { $$ = pas_decl_part_order($1, $2); }
+    | { $$ = 0; }
     ;
 decl_part:
-    LABELSY label_list SEMICOLON
-    | CONSTSY const_decl_list
-    | TYPESY type_decl_list
-    | VARSY var_decl_list
-    | procedure_decl
+    LABELSY label_list SEMICOLON { $$ = 1; }
+    | CONSTSY const_decl_list { $$ = 2; }
+    | TYPESY type_decl_list { $$ = 3; }
+    | VARSY var_decl_list { $$ = 4; }
+    | procedure_decl { $$ = 5; }
     ;
 label_list:
     label_list COMMA INTCONST { pas_label_in_range($3); }

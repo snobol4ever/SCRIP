@@ -28,6 +28,17 @@ SUITE="$S4E/corpus/packages/pascal/fpc_tests"
 WANTRC="${WANTRC:-$SUITE/ALL.wantrc}"
 RUN_TIMEOUT="${FPC_SUITE_RUN_TIMEOUT:-10}"
 VERBOSE="${FPC_SUITE_VERBOSE:-0}"
+# ⛔⭐ THE CEO-749 SHAPE FOR AN ISO RULING (Lon 2026-09-23, in-chat to the ceo, verbatim: "use ISO as oracle"; CEO-1225). This suite's
+# refs were cut from fpc -Miso, and where fpc -Miso and ISO 7185 disagree ISO wins. OUTSIDE_ISO_BASELINE.tsv beside the package names
+# the programs ISO 7185 refuses though fpc -Miso runs them (first: the 6.2.1 declaration-order programs, 2026-09-23), each with its
+# measurement; UNGRADABLE.tsv mirrors it row for row for the lockdown inventory. A listed program stays in the denominator (PASS over
+# SHIPPED, OUTSIDE=k named and stamped through lib_outside_shape.sh) and is not graded against its .ref -- but it is CROSS-CHECKED on
+# every run: this compiler must refuse it with an ISO 7185 diagnostic, and one it ACCEPTS is reported STALE and graded like any other.
+OUTSIDE_TSV="$SUITE/OUTSIDE_ISO_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"; declare -A OUTSIDE_SET=()
+if [ -f "$OUTSIDE_TSV" ]; then
+    while IFS=$'\t' read -r _on _orest; do case "$_on" in ''|'#'*) continue;; esac; OUTSIDE_SET[${_on%.pas}]=1; done < "$OUTSIDE_TSV"
+fi
+OUTSIDE=0; OUTSIDE_NAMES=(); STALE_NAMES=()
 
 [ -d "$SUITE" ]  || { echo "⛔ REFUSED-TO-GRADE: $SUITE missing"; exit 2; }
 [ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
@@ -64,6 +75,15 @@ echo "=== FPC vendored-suite grade ($TOTAL pairs, $SUITE) ==="
 for name in "${PAIRS[@]}"; do
     pas="$SUITE/$name.pas"; ref="$SUITE/$name.ref"
     inp="$SUITE/$name.in"; [ -f "$inp" ] || inp=/dev/null
+    if [ -n "${OUTSIDE_SET[$name]:-}" ]; then
+        _oerr="$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --dump-ast "$pas" </dev/null 2>&1 >/dev/null)"; _orc=$?
+        if [ "$_orc" -ne 0 ] && [ "$_orc" -lt 124 ] && printf '%s' "$_oerr" | grep -q 'ISO 7185'; then
+            OUTSIDE=$((OUTSIDE+1)); OUTSIDE_NAMES+=("$name")
+            for m in m3 m4; do printf 'package\tfpc\tpascal\t%s\t%s\tUNGRADED\t0\toutside-iso-baseline\n' "$name" "$m" >>"$PROG_ROWS"; done
+            continue
+        fi
+        STALE_NAMES+=("$name")
+    fi
     if [ ! -f "$ref" ]; then
         REJECT=$((REJECT+1)); REJECT_NAMES+=("$name (no .ref)")
         # ⭐ RECORDED, NOT DROPPED: a shipped .pas with no .ref is owed work (REF_NOT_CUT), and THE PACKAGE
@@ -130,13 +150,19 @@ if [ "$VERBOSE" -ne 1 ] && [ "$M4_FAIL" -gt 0 ]; then
     echo "-- m4 FAIL ($M4_FAIL): ${M4_FAIL_NAMES[*]:0:10}$([ "$M4_FAIL" -gt 10 ] && echo ' ...')"
 fi
 
+if [ "$OUTSIDE" -gt 0 ]; then echo "-- OUTSIDE the ISO baseline ($OUTSIDE, named in OUTSIDE_ISO_BASELINE.tsv, refused per ISO 7185, not graded against fpc's ref): ${OUTSIDE_NAMES[*]}"; fi
+if [ "${#STALE_NAMES[@]}" -gt 0 ]; then echo "⚠ OUTSIDE_ISO_BASELINE.tsv STALE -- listed as refused by the ISO oracle, but this compiler ACCEPTED them, so they were graded normally: ${STALE_NAMES[*]}"; fi
+if [ -f "$OUTSIDE_TSV" ] && [ -f "$MIRROR_TSV" ]; then
+    _rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"; _mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$MIRROR_TSV" | sort)"
+    [ "$_rec" = "$_mir" ] || echo "⚠ UNGRADABLE.tsv does not mirror OUTSIDE_ISO_BASELINE.tsv row for row -- the lockdown bucket and the record have drifted; edit them together"
+fi
 echo ""
-echo "FPC_SUITE_BOARD total=$TOTAL both_pass=$BOTH_PASS m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT"
+echo "FPC_SUITE_BOARD total=$TOTAL both_pass=$BOTH_PASS m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT outside=$OUTSIDE"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. REJECT here is "shipped .pas with no .ref yet" -- real owed work (REF_NOT_CUT), not
 # an oracle ruling -- so a nonzero REJECT with no UNGRADED.tsv beside $SUITE correctly REFUSES below
 # rather than being silently folded into ungradable the way the old ad hoc line did.
-FPC_GRADED=$((TOTAL - REJECT))
+FPC_GRADED=$((TOTAL - REJECT - OUTSIDE))
 INV_PACKAGE=fpc; INV_DIR="$SUITE"; INV_EXT=".pas"
 INV_LINE="$(inventory_line "$FPC_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
@@ -192,13 +218,17 @@ if [ -s "$PROG_ROWS" ]; then
         echo "⚠ PROGRESS DB NOT UPDATED -- the score write below cannot cross-check and will refuse (reason above)" >&2
     fi
 fi
+. "$HERE/lib_outside_shape.sh" || exit 2
+_cc="${S4E_CRITERION_CHANGED:-}"
+if [ -z "$_cc" ]; then _cc="$(outside_shape_stamp fpc "$TOTAL" "$OUTSIDE")" || exit 2; _cc="${_cc//OUTSIDE_SPITBOL_BASELINE/OUTSIDE_ISO_BASELINE}"; fi
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
+    ${_cc:+--criterion-changed "$_cc"} \
     --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
-    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
+    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL shipped OUTSIDE=$OUTSIDE · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): M3_FAIL/M4_FAIL/REJECT all read 0 over TOTAL=0 too (empty discovery) --
 # refuse before the vacuous-clean verdict below can be reached.
 "$HERE/util_require_population.sh" --gate test_pascal_fpc_suite "$TOTAL" 1 "pascal witnesses" || exit 2
-[ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ] && [ "$REJECT" -eq 0 ]
+[ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ] && [ "$REJECT" -eq 0 ] && [ "$OUTSIDE" -eq 0 ]
