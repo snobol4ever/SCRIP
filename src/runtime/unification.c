@@ -1775,7 +1775,9 @@ pl_cell_t rt_pl_cell_snapshot(void *cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_make(DESCR_t *a, int n)
 {
+    extern void *rt_pl_ball_instantiation(void);
     if (!a || n < 1) return (void *)0;
+    if (pl_cell_unbound(pl_deref((pl_cell_t *)&a[0]))) return rt_pl_ball_instantiation();
     pl_cell_t *b = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t));
     if (!b) return (void *)0;
     *b = rt_pl_cell_snapshot(&a[0]);
