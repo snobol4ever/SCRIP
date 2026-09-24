@@ -1895,6 +1895,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "log"))   { if (ad <= 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 1); return 1; }
             *out = REALVAL(log(ad)); return 1; }
         if (!strcmp(op, "exp"))   { return pl_ax_float_result(exp(ad), ad, 0.0, "exp", 1, out, ball); }
+        if ((!strcmp(op, "fip") || !strcmp(op, "ffp")) && (int)a.v != DT_R) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a); *out = FAILDESCR; return 1; }
         if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
         if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
         if (!strcmp(op, "msb"))   { if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; } if (a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
@@ -1967,6 +1968,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "div")) { extern void *rt_pl_ball_eval_error(const char *, const char *, int);
             if (bd == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "/", 2); return 1; }
             return pl_ax_float_result(ad / bd, ad, bd, "/", 2, out, ball); } }
+    if (!strcmp(op, "div") && ai && bi && b.i == 0) { extern void *rt_pl_ball_eval_error(const char *, const char *, int); *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "/", 2); return 1; }
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9489,6 +9491,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (pl_iso_unbound(x)) return rt_pl_ball_instantiation();
         if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
         if (!pl_iso_unbound(l) && l.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", l);
+        if (!pl_iso_unbound(l) && l.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", l);
         return (void *)0; }
     if (!strcmp(nm, "number_string") && n == 2) {
         DESCR_t x = rt_pl_deref_val(a[0]), s = rt_pl_deref_val(a[1]);
