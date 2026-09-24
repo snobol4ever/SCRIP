@@ -1611,7 +1611,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
         const char *sp = sd.s ? sd.s : ""; long slen = sd.slen ? (long)sd.slen : (long)strlen(sp);
         long prelen = vc->pos - 1, poststrt = prelen + vc->len;
-        if (poststrt > slen) return FAILDESCR;
+        if (poststrt > slen) { if (strict) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(205, FAILDESCR); } return FAILDESCR; }
         long nlen = prelen + srclen + (slen - poststrt);
         char *ns = rt_str_alloc(nlen);
         memcpy(ns, sp, (size_t)prelen); memcpy(ns + prelen, src, (size_t)srclen); memcpy(ns + prelen + srclen, sp + poststrt, (size_t)(slen - poststrt)); ns[nlen] = 0;
@@ -1646,9 +1646,18 @@ static DESCR_t *swap_base_cell(DESCR_t sv) {
     if (IS_NAMETRAP_fn(sv)) { VCELL_t *u = (VCELL_t *)sv.p; if (u && u->cellp && !u->tbl) return u->cellp; }
     return (DESCR_t *)0;
 }
+static int swap_tvsubs_fits(const VCELL_t *c) {
+    if (c->cellp || c->tbl || !IS_VARREF_fn(c->sv)) return 1;
+    DESCR_t sd = rt_deref(c->sv);
+    if (sd.v != DT_S && sd.v != DT_SNUL) return 1;
+    long slen = sd.slen ? (long)sd.slen : (sd.s ? (long)strlen(sd.s) : 0);
+    return c->pos + c->len - 1 <= slen;
+}
 DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     if (!IS_VARREF_fn(va) || !IS_VARREF_fn(vb)) return FAILDESCR;
     if (!IS_NAMETRAP_fn(va) || !IS_NAMETRAP_fn(vb)) {
+        if ((IS_NAMETRAP_fn(va) && va.p && !swap_tvsubs_fits((VCELL_t *)va.p)) || (IS_NAMETRAP_fn(vb) && vb.p && !swap_tvsubs_fits((VCELL_t *)vb.p))) {
+            extern void core_icn_fatal(int code, DESCR_t val); core_icn_fatal(205, FAILDESCR); return FAILDESCR; }
         DESCR_t dx = rt_deref(va), dy = rt_deref(vb);
         { extern void rt_sxt_break(const char *); if (dx.v == DT_S) rt_sxt_break(dx.s); if (dy.v == DT_S) rt_sxt_break(dy.s); }
         if (dx.v == DT_FAIL || dy.v == DT_FAIL) return FAILDESCR;
@@ -1671,6 +1680,7 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
                       rt_sxt_break_fast(ns); *cx_cell = (DESCR_t){ .v = DT_S, .slen = (uint32_t)slen, .s = ns };
                       return (DESCR_t){ .v = DT_S, .slen = 1, .s = (char *)&k_one_char_str[2 * (unsigned char)cy] };
                   } } } } }
+    if (!swap_tvsubs_fits(xc) || !swap_tvsubs_fits(yc)) { extern void core_icn_fatal(int code, DESCR_t val); core_icn_fatal(205, FAILDESCR); return FAILDESCR; }
     DESCR_t dx = rt_deref(va), dy = rt_deref(vb);
     { extern void rt_sxt_break(const char *); if (dx.v == DT_S) rt_sxt_break(dx.s); if (dy.v == DT_S) rt_sxt_break(dy.s); }
     if (dx.v == DT_FAIL || dy.v == DT_FAIL) return FAILDESCR;
