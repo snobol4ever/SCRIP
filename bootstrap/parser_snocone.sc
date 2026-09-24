@@ -233,8 +233,10 @@ stmt_body       =   *Expr0 ($';' | epsilon);
 stmt_cmd        =   *stmt_body;
 /* empty_cmd */
 empty_cmd       =   $';';
+block_cmd       =   $'{' ARBNO(*Command) $'}';
 /* Command dispatcher */
 Command         =   $' ' FENCE( *empty_cmd
+                    | *block_cmd
                     | $'case' *CaseArm
                     | *DefaultArm
                     | nInc() ( *if_cmd
