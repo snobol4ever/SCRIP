@@ -70,7 +70,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
     if (!prog) return;
     char dir[1024]; const char * slash = strrchr(filename, '/');
     if (slash) { size_t dl = (size_t)(slash - filename); if (dl >= sizeof dir) dl = sizeof dir - 1; memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
-    const char * loaded[64]; int nloaded = 0;
+    const char ** loaded = (const char **) ct_grow(NULL, 16 * sizeof *loaded); int nloaded = 0, nloadcap = 16;
     { const char * base = slash ? slash + 1 : filename; const char * dot = strrchr(base, '.'); size_t bl = dot ? (size_t)(dot - base) : strlen(base);
       char * own = (char *) ct_alloc(bl + 1); memcpy(own, base, bl); own[bl] = '\0'; loaded[nloaded++] = own; }
     for (int scan = 0; scan < prog->n; scan++) {
@@ -81,7 +81,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             if (!nm) continue;
             int dup = 0; for (int d = 0; d < nloaded; d++) if (!strcmp(loaded[d], nm)) { dup = 1; break; }
             if (dup) continue;
-            if (nloaded >= 64) { fprintf(stderr, "icon: link: more than 64 linked files (at %s)\n", nm); exit(1); }
+            if (nloaded == nloadcap) { nloadcap *= 2; loaded = (const char **) ct_grow((void *) loaded, (size_t) nloadcap * sizeof *loaded); }
             loaded[nloaded++] = nm;
             char path[1200]; char tried[4096]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
             if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
@@ -94,6 +94,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) ast_push(prog, sub_ast->c[j]);
         }
     }
+    ct_drop((void *) loaded);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * icn_top_subject(const tree_t * s) {
