@@ -2823,11 +2823,17 @@ PL_CX_LEAF_HEAD(peek_code, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int
 static void *pl_byte_cur_ball(int out) { extern int fh_current_output(void); extern int fh_current_input(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = out ? fh_current_output() : fh_current_input();
     return (ix >= 0 && ix < FH_MAX && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", pl_mk_stream(ix)) : (void *)0; }
-PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0))) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
+static void *pl_past_eos_ball(void) { extern int fh_current_input(void); extern int fh_eof(int); extern FILE *fh_cur_in_fp(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+    int ix = fh_current_input(); FILE *fp = fh_cur_in_fp();
+    return (ix >= 3 && ix < FH_MAX && fp && feof(fp) && fh_eof(ix) == 'e') ? rt_pl_ball_permission3("input", "past_end_of_stream", pl_mk_stream(ix)) : (void *)0; }
+static void *pl_text_cur_ball(void) { extern int fh_current_input(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+    int ix = fh_current_input();
+    return (ix >= 0 && ix < FH_MAX && g_fh[ix].type == 'b') ? rt_pl_ball_permission3("input", "binary_stream", pl_mk_stream(ix)) : (void *)0; }
+PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0)) || (cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(peek_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0))) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
-    if (c != EOF) ungetc(c, fh_cur_in_fp());
+PL_CX_LEAF_HEAD(peek_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0)) || (cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
+    if (c != EOF) ungetc(c, fh_cur_in_fp()); else clearerr(fh_cur_in_fp());
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(unget_char, 1) { extern FILE *fh_cur_in_fp(void); char b[64]; const char *t;
@@ -2959,8 +2965,10 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
       if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) return 0;
       vt->n = 0; *out = pl_tree_cell(tr->c[0], vt); return 1; }
 }
-PL_CX_LEAF_HEAD(read, 1) { static char text[65536]; int got = pl_read_term_text(text, sizeof text - 8); DESCR_t t; pl_vtab_t vt;
+PL_CX_LEAF_HEAD(read, 1) { static char text[65536]; int got; DESCR_t t; pl_vtab_t vt;
     extern void *rt_pl_ball_kind1(const char *, const char *);
+    if ((cx->ball = pl_text_cur_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    got = pl_read_term_text(text, sizeof text - 8);
     if (got == 0) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
     else if (got != 1) { cx->ball = rt_pl_ball_kind1("syntax_error", got < 0 ? "term_too_long" : "end_of_file"); ok = 0; }
     else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) { cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
@@ -3009,7 +3017,7 @@ static void *pl_read_opts_ball(DESCR_t opts) { extern void *rt_pl_ball_kind2(con
     return (void *)0; }
 PL_CX_LEAF_HEAD(read_term_opts, 2) { static char text[65536]; int got; DESCR_t t; pl_vtab_t vt; void *ob = pl_read_opts_ball(args[1]);
     extern void *rt_pl_ball_kind1(const char *, const char *);
-    if (ob) { cx->ball = ob; ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    if (ob || (ob = pl_text_cur_ball())) { cx->ball = ob; ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
     got = pl_read_term_text(text, sizeof text - 8);
     if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); }
     else if (got != 1) { cx->ball = rt_pl_ball_kind1("syntax_error", got < 0 ? "term_too_long" : "end_of_file"); ok = 0; }
@@ -3421,7 +3429,8 @@ PL_CX_LEAF_HEAD(pl_ioarg, 2) { extern void *rt_pl_ball_kind2(const char *, const
     const char *k = pl_atom_str(rt_pl_deref_val(args[0])); DESCR_t c = rt_pl_deref_val(args[1]); const char *cs; int out, sx; ok = 1;
     if (!k) return pl_ok();
     out = !strncmp(k, "put_", 4); sx = out ? fh_current_output() : fh_current_input();
-    if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_MAX && g_fh[sx].type == 'b') cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", pl_mk_stream(sx));
+    if (!strncmp(k, "in_byte", 7)) { if (!pl_val_unbound(c) && (c.v != DT_I || c.i < -1 || c.i > 255)) cx->ball = rt_pl_ball_kind2("type_error", "in_byte", c); }
+    else if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_MAX && g_fh[sx].type == 'b') cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", pl_mk_stream(sx));
     else if (!strncmp(k, "put_code", 8)) { if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation(); else if (c.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", c);
         else if (c.i < 0 || c.i > 0x10FFFF) cx->ball = rt_pl_ball_kind1("representation_error", "character_code"); }
     else if (!strncmp(k, "put_char", 8)) { if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation();
