@@ -427,6 +427,7 @@ void flex_lex_open(Lex *lx, FILE *f, const char *fname) {
 #define SNO_END_NONE   ((void *)0)
 #define SNO_END_ARMED  ((void *)1)
 #define SNO_END_CLOSED ((void *)2)
+int sno_end_lineno = 0;
 Token flex_lex_next(Lex *lx) {
     yyscan_t sc = (yyscan_t)lx->_scanner;
     for (;;) {
@@ -439,7 +440,7 @@ Token flex_lex_next(Lex *lx) {
         t.dval   = 0.0;
         t.sval   = NULL;
         t.kind   = r;
-        if (r == T_STMT_END && lx->_extra == SNO_END_ARMED) lx->_extra = SNO_END_CLOSED;
+        if (r == T_STMT_END && lx->_extra == SNO_END_ARMED) { lx->_extra = SNO_END_CLOSED; sno_end_lineno = lineno; }
         switch (r) {
         case T_EOF:
             t.kind = T_EOF; return t;

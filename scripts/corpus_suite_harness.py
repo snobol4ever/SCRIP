@@ -385,6 +385,16 @@ def resolve_oracle_bin(paths, lang=""):
     refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal/raku so far)")
 
 
+def _host_u_switch(sno_path, prog_args):
+    """SPITBOL's HOST(0) is the -u string and nothing else (sbl -h; Lon 2026-09-23, CEO-1224), so a SNOBOL4 entry's
+    DECLARED argv reaches HOST(0) the way CSNOBOL4-targeted programs read it (aisnobol HSORT, ATN) by being passed as
+    `-u "<argv joined by spaces>"` before the source -- to sbl, to scrip --run, and to the mode-4 binary alike -- while
+    the same tokens still follow the file for HOST(2,n). Other languages, and entries with no argv, get nothing."""
+    if not prog_args: return []
+    if not str(sno_path).lower().endswith((".sno", ".spt", ".sbl")): return []
+    return ["-u", " ".join(str(a) for a in prog_args)]
+
+
 def oracle_diagnostic(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None):
     """ONE extra oracle invocation whose ONLY product is the oracle's OWN first diagnostic line, for a caller
     that is about to EXCLUDE a program and must name the measured cause rather than a theory about it.
@@ -402,7 +412,7 @@ def oracle_diagnostic(oracle_bin, flags, sno_path, timeout, stdin_text=None, pro
     a human sentence instead. ⭐ THE GENERAL FORM: when an instrument excludes something, the excluder's prose is
     a hypothesis and the tool's own stderr is the measurement; write down the measurement."""
     sno_path = Path(sno_path)
-    argv = [oracle_bin] + flags.split() + [sno_path.name] + (list(prog_args) if prog_args else [])
+    argv = [oracle_bin] + flags.split() + _host_u_switch(sno_path, prog_args) + [sno_path.name] + (list(prog_args) if prog_args else [])
     _kind, _out, err, _rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
     err = (err or b"").decode("utf-8", "replace")   # ⛔ _run_raw returns BYTES on all four arms, never str
     for line in err.splitlines():
@@ -426,7 +436,7 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=
     will echo later for the SAME witness. Passing just the name, from the right cwd, is what makes
     that echoed text reproducible and comparable to a frozen .ref at all."""
     sno_path = Path(sno_path)
-    argv = [oracle_bin] + flags.split() + [sno_path.name] + (list(prog_args) if prog_args else [])
+    argv = [oracle_bin] + flags.split() + _host_u_switch(sno_path, prog_args) + [sno_path.name] + (list(prog_args) if prog_args else [])
     kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
     # ⛔⭐ AN ORACLE KILLED BY A SIGNAL IS A CRASH, NOT A RUN -- and until 2026-09-04 this returned "RAN" for one
     # (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on seat07's finding that
@@ -781,7 +791,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # ERROR NNN line naming the file) would otherwise embed this run's own ever-changing mktemp
     # directory, which no frozen .ref can ever match. cwd (set below) is what makes the bare name
     # still resolve to the right file.
-    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run", Path(sno_path).name])
+    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
     # ⛔⭐ THE `--` SEPARATOR IS MANDATORY AND IS WHAT MAKES THIS SAFE. The driver has NO unknown-flag
     # diagnostic: any unrecognised argument falls through to being treated as a FILENAME, so a declared
     # program argument spelled like a flag (`-n10`, the exact shape the first witness used) would be
@@ -898,7 +908,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # declared list, two spellings, one observable result (verified: identical argc/args in m3 and m4).
     run_dir = Path(sno_path).parent
     _same = out_bin.parent.resolve() == run_dir.resolve()
-    argv = stdbuf_wrap(paths, [out_bin.name]) + [str(a) for a in (prog_argv or [])]
+    argv = stdbuf_wrap(paths, [out_bin.name]) + _host_u_switch(sno_path, prog_argv) + [str(a) for a in (prog_argv or [])]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]), PATH=str(out_bin.parent) + os.pathsep + os.environ.get("PATH", ""))
     # ⛔⭐ EXPORTED AT THE RUN AND DELIBERATELY NOT AT THE COMPILE. `scrip --compile` runs the COMPILER
     # in this same process image, so setting the arena there would grade the compiler at the test's

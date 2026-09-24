@@ -1330,6 +1330,8 @@ static DESCR_t _LNE_(DESCR_t *a, int n) {
     return lex_cmp_pair(a[0], a[1]) != 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *_host_u = NULL;
+void rt_host_u_set(const char *s) { _host_u = s; }
 static int host_cmdline_arg(int want, char *out, int outsz) {
     FILE *f = fopen("/proc/self/cmdline", "rb"); if (!f) return -1;
     int idx = 0, oi = 0, found = -1, c;
@@ -1349,13 +1351,10 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
     if (selector == 0) {
-        extern int rt_main_args_count(void); extern const char *rt_main_arg_at(int);
-        int cnt = rt_main_args_count(); char jb[4096]; size_t used = 0; jb[0] = '\0';
-        for (int i = 0; i < cnt; i++) { const char *v = rt_main_arg_at(i); if (!v) continue;
-            size_t need = strlen(v) + (used ? 1 : 0); if (used + need >= sizeof jb) break;
-            if (used) jb[used++] = ' ';
-            memcpy(jb + used, v, strlen(v)); used += strlen(v); jb[used] = '\0'; }
-        return STRVAL(rt_heap_strdup_c(jb));
+        if (_host_u) return *_host_u ? STRVAL(rt_heap_strdup_c(_host_u)) : NULVCL;
+        char ub[4096];
+        if (host_cmdline_arg(1, ub, (int)sizeof(ub)) == 1 && strcmp(ub, "-u") == 0 && host_cmdline_arg(2, ub, (int)sizeof(ub)) == 2) return STRVAL(rt_heap_strdup_c(ub));
+        return NULVCL;
     }
     if (selector == 1) {
         char buf[32]; snprintf(buf, sizeof(buf), "%d", (int)getpid());
@@ -1397,6 +1396,7 @@ typedef struct {
     int    is_popen;
     char  *buf;
     size_t cap;
+    const char *prebind;
 } io_chan_t;
 static io_chan_t _io_chan[IO_CHAN_MAX];
 static int _io_chan_init = 0;
@@ -1408,12 +1408,23 @@ static void _io_chan_setup(void) {
     memset(_io_chan, 0, sizeof(_io_chan));
     _io_chan_init = 1;
 }
+void rt_io_chan_prebind(int ch, const char *path) { if (ch < 0 || ch >= IO_CHAN_MAX || ch == 5 || ch == 6) return; _io_chan_setup(); _io_chan[ch].prebind = path; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void _io_chan_close(int ch);
 static int _io_chan_find_by_var(const char *name) {
     _io_chan_setup();
     for (int i = 0; i < IO_CHAN_MAX; i++)
         if (_io_chan[i].varname && strcmp(_io_chan[i].varname, name) == 0) return i;
     return -1;
+}
+void rt_terminal_to_file(const char *path) {
+    _io_chan_setup();
+    FILE *f = fopen(path, "w");
+    if (!f) { fprintf(stderr, "scrip: -T=%s: cannot open TERMINAL file\n", path); return; }
+    int c = 7;
+    _io_chan_close(c);
+    _io_chan[c].fp = f; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
+    _io_chan[c].varname = rt_heap_strdup_c("TERMINAL"); g_call_fastpath_off = 1;
 }
 static int sno_name_is_output_assoc(const char *name) {
     if (!name || !name[0]) return 0;
@@ -4093,6 +4104,13 @@ const char *FUNC_ENTRY_fn(const char *fname) {
 }
 static FILE *_input_fp = NULL;
 static int _input_fp_is_popen = 0;
+void rt_input_from_file_at(const char *path, long off) {
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    if (fseek(f, off, SEEK_SET) != 0) { fclose(f); return; }
+    if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
+    _input_fp = f; _input_fp_is_popen = 0;
+}
 static char *_input_buf = NULL;
 static size_t _input_cap = 0;
 static long _input_rlen = 0;
@@ -4242,7 +4260,8 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
-    if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
+    if ((!fname || !fname[0]) && ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].prebind) fname = _io_chan[ch].prebind;
+    else if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
         core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
     if (!fname || !fname[0]) {
         extern int dup(int);
@@ -4284,11 +4303,13 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
-    if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
-        core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     char fname_buf[4096];
     const char *fname = NULL;
-    if (n >= 4) {
+    { int pch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1; if (n < 3 && pch >= 0 && pch < IO_CHAN_MAX && _io_chan[pch].prebind) fname = _io_chan[pch].prebind; }
+    if (!fname && !core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
+        core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
+    if (fname) {
+    } else if (n >= 4) {
         fname = VARVAL_fn(a[3]);
     } else if (n >= 3) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));

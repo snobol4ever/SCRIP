@@ -998,6 +998,7 @@ int main(int argc, char **argv)
         return 1;
     }
     int mode_run           = 0;
+    int opt_no_exec = 0, opt_input_after_end = 0; const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0;
     int mode_compile       = 0;
     int dump_ast           = 0;
     int dump_ir            = 0;
@@ -1035,9 +1036,21 @@ int main(int argc, char **argv)
         if (n_preload >= (int)(sizeof preload_path / sizeof *preload_path)) { fprintf(stderr, "scrip: too many -L files (max %d)\n", (int)(sizeof preload_path / sizeof *preload_path)); return 2; }
         preload_path[n_preload++] = lp; argi++;
     }
-    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimo", argv[argi][1])) {
+    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthek0123456789", argv[argi][1])) {
         char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
+        if (sw == 'o' && *rest == '=') { fprintf(stderr, "scrip: -o=%s: SPITBOL's -o=file names a compilation LISTING file and SCRIP produces no listing; the switch is refused, not ignored (SCRIP's assembly output is -o FILE until it moves to --out=FILE)\n", rest + 1); return 2; }
         if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
+        if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
+        if (sw == 'r') { opt_input_after_end = 1; argi++; continue; }
+        if (sw == 'b' || sw == 'f') { argi++; continue; }
+        if (sw == 'x') { opt_bench = 1; argi++; continue; }
+        if (sw == 'u') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -u needs a string (SPITBOL: -u \"string\" is what HOST(0) returns)\n"); return 2; } rest = argv[++argi]; } opt_host_u = rest; argi++; continue; }
+        if (sw == 'T') { if (*rest != '=' || rest[1] == '\0') { fprintf(stderr, "scrip: -T needs =file (SPITBOL: -T=file writes TERMINAL output to the file)\n"); return 2; } opt_terminal_file = rest + 1; argi++; continue; }
+        if (sw >= '0' && sw <= '9') { long chn = strtol(argv[argi] + 1, (char **)&rest, 10); if (*rest != '=' || rest[1] == '\0') { fprintf(stderr, "scrip: -%ld needs =file (SPITBOL: -#=file associates the file with I/O channel #)\n", chn); return 2; } { extern void rt_io_chan_prebind(int, const char *); rt_io_chan_prebind((int)chn, rest + 1); } argi++; continue; }
+        if (sw == 'F') { fprintf(stderr, "scrip: -F (fold source case) is refused: SNOBOL4 and Snocone are case-sensitive in SCRIP by law (2026-09-08) and SCRIP carries no compatibility switches; Lon 2026-09-23 (CEO-1227): reject -F with stated reason\n"); return 2; }
+        if (sw == 'y') { fprintf(stderr, "scrip: -y (write a save .spx file) is refused: SCRIP writes no save file; rejected for now (Lon 2026-09-23, CEO-1227)\n"); return 2; }
+        if (sw == 'k') { fprintf(stderr, "scrip: -k (run with compilation errors) is refused: SCRIP compiles the whole program to machine code and does not run one that failed to compile; the switch is refused, not ignored\n"); return 2; }
+        if (sw == 'c' || sw == 'a' || sw == 'l' || sw == 'p' || sw == 'z' || sw == 'g' || sw == 't' || sw == 'h' || sw == 'e') { fprintf(stderr, "scrip: -%c is a SPITBOL compilation-listing or compiler-statistics switch and SCRIP produces no listing; the switch is refused, not ignored (-x, execution statistics, is honoured)\n", sw); return 2; }
         if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
         v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
         if (sw == 's') { if (apply_stack_limit(v) != 0) { fprintf(stderr, "scrip: -s%ld: could not raise stack limit\n", v); return 2; } }
@@ -1053,6 +1066,7 @@ int main(int argc, char **argv)
     }
     if (!mode_run && !mode_compile)
         mode_run = 1;
+    { extern void rt_host_u_set(const char *); extern void rt_terminal_to_file(const char *); rt_host_u_set(opt_host_u); if (opt_terminal_file) rt_terminal_to_file(opt_terminal_file); }
     { const char *_pm = getenv("SCRIP_PERF_MAP");
       if (_pm && *_pm && *_pm != '0')
           fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
@@ -1085,6 +1099,17 @@ int main(int argc, char **argv)
             "  -sN              max stack space; raises RLIMIT_STACK for deep pattern backtracking (default: OS, 8m)\n"
             "  -mN              max object size -> &MAXLNGTH (default 5m)\n"
             "  -dN -iN          accepted for SPITBOL invocation compatibility (SCRIP's GC arena is not byte-sized)\n"
+            "\n"
+            "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, CEO-1224/1227):\n"
+            "  -n               compile, suppress execution (exit 231 as sbl does)\n"
+            "  -u \"string\"      the string HOST(0) returns (null without -u; a compiled program takes a leading -u string too)\n"
+            "  -r               INPUT reads the source file after the END statement\n"
+            "  -T=file          TERMINAL output to the file\n"
+            "  -#=file          associate the file with I/O channel # (INPUT(.v,#) / OUTPUT(.v,#) then open it)\n"
+            "  -b -f            no signon message, do not fold case: SCRIP's behaviour already, accepted\n"
+            "  -x               execution statistics (SCRIP's --bench)\n"
+            "  -F -y -k         REFUSED with a stated reason (case folding; save files; running with compilation errors)\n"
+            "  -c -a -l -p -z -g# -t# -h -e -o=file   listing and compiler-statistics switches: SCRIP produces no listing, REFUSED with the reason\n"
             "\n"
             "Frontend inferred from file extension; an extension not in this list is REFUSED (rc=2), never guessed at:\n"
         );
@@ -1269,6 +1294,7 @@ int main(int argc, char **argv)
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
             ct_drop(_pre_buf);
+            if (opt_input_after_end) { extern int sno_end_lineno; extern void rt_input_from_file_at(const char *, long); FILE *rf = fopen(input_path, "r"); long want = (long)sno_end_lineno - 1 - (long)n_preload, seen = 0, off = 0; if (rf) { int c; while (seen < want && (c = fgetc(rf)) != EOF) { off++; if (c == '\n') seen++; } fclose(rf); if (seen == want) rt_input_from_file_at(input_path, off); } }
             RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
         }
@@ -1757,6 +1783,7 @@ int main(int argc, char **argv)
             ir_delete_all(s2);
             void *mf = NULL;
             { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); char _pnb[4096]; if (_pn) { const char *_sl = strrchr(_pn, '/'); const char *_dt = strrchr(_pn, '.'); if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1) && (size_t)(_dt - _pn) < sizeof _pnb) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; } } rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
+            if (opt_no_exec) return 231;
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
