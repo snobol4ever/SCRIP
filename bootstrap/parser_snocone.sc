@@ -163,6 +163,7 @@ Expr2           =   *Expr3 FENCE($'&&' *Expr2 reduce("'TT_SEQ'", 2) | epsilon);
 Expr1           =   *Expr2 FENCE($'?' *Expr1 reduce("'TT_SCAN'", 2) | epsilon);
 Expr0           =   *Expr1 FENCE(
                       $'='  FENCE(*Expr0 | shift(epsilon, "'TT_QLIT'")) reduce("'TT_ASSIGN'", 2)
+                    | $'  ' '=' $';' shift(epsilon, "'TT_QLIT'") reduce("'TT_ASSIGN'", 2)
                     | $'+=' *Expr0 reduce("'TT_AUGOP'", 2)
                     | $'-=' *Expr0 reduce("'TT_AUGOP'", 2)
                     | $'*=' *Expr0 reduce("'TT_AUGOP'", 2)
