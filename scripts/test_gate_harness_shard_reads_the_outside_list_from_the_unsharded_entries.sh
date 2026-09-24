@@ -30,6 +30,8 @@ H="$HERE/corpus_suite_harness.py"; MASTER="${S4E_CORPUS_ROOT:-$HERE/../../corpus
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -f "$H" ] || refuse "no harness at $H"
 [ -x "$HERE/../scrip" ] || refuse "no ./scrip binary beside scripts/ -- make first"
+"$HERE/util_require_fresh.sh" --gate test_gate_harness_shard_reads_the_outside_list_from_the_unsharded_entries >/dev/null 2>&1 \
+  || refuse "this tree's binary is stale or unbuilt -- the harness would refuse every run for that, and arms (a)/(b) would read its refusal as the defect. Run 'make'."
 [ -f "$MASTER/ALL.sno" ] && [ -f "$MASTER/ALL.ref" ] || refuse "no master pair under $MASTER to cut a fixture from"
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_shard_outside.XXXXXX")" || refuse "mktemp failed"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tests/snobol4"; F="$W/tests/snobol4/ALL.sno"; R="$W/tests/snobol4/ALL.ref"; O="$W/tests/snobol4/ALL.outside.tsv"
