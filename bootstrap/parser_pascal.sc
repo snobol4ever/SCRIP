@@ -76,7 +76,7 @@ Real        =   ( SPAN(digits)
                     SPAN(digits)
                   )
                 ) . token;
-String      =   "'" ARBNO(BREAK("'") "''") BREAK("'") . token "'";
+String      =   "'" shift(ARBNO(BREAK("'") "''") BREAK("'"), "'TT_QLIT'") "'";
 Ident       =   Id $ tx $ *notmatch(lwr(tx), reserved) . token;
 /* Punctuation.                                                                          */
 $'('        =   '(' $' ';
@@ -126,11 +126,11 @@ Primary         =   ( $'(' *Expr0 $')'
                     | *WriteCall
                     | $'true'   shift_value('1', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
                     | $'false'  shift_value('0', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
-                    | *Real     shift(epsilon, "'TT_FLIT'")
-                    | *Integer  shift(epsilon, "'TT_ILIT'")
-                    | *String   shift(epsilon, "'TT_QLIT'")
+                    | shift(*Real, "'TT_FLIT'")
+                    | shift(*Integer, "'TT_ILIT'")
+                    | *String
                     | *ProcCall
-                    | *Ident    shift(epsilon, "'TT_VAR'")
+                    | shift(*Ident, "'TT_VAR'")
                     );
 Expr4           =   *Primary FENCE(nPush() *IdxTail reduce("'TT_IDX'", 'nTop() + 1') nPop() | epsilon);
 Expr3           =   $'-'   *Expr3 reduce("'TT_MNS'", 1)
