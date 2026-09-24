@@ -1,6 +1,7 @@
 #ifdef __cplusplus
 #include <unordered_map>
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include <string>
 #include "emit.h"
 #include "gc_frame_map.h"
@@ -2540,10 +2541,11 @@ extern "C" int sn4_choice_rbp_off(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
-static uint64_t g_blob_lay[512]; static int g_blob_lay_n = 0;
+static cv_t g_blob_lay;
+extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); }
 static uint64_t g_zls_lay[32768]; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
 extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
-static void blob_lay_push(int off, unsigned kind, int size) { if (g_blob_lay_n < 512) g_blob_lay[g_blob_lay_n++] = GC_LAY_Q(off, kind, size); }
+static void blob_lay_push(int off, unsigned kind, int size) { CV_PUSH(g_blob_lay, uint64_t) = GC_LAY_Q(off, kind, size); }
 static void blob_layout_slot(const IR_t * m, int k, int units) {
     extern int zdp_scratch_cell(const IR_t *); int o0 = frame_slot_off(2, k); (void)units;
     if (m->op == IR_MATCH_ALTERNATE) { int r = frame_slot_off(2, k + 1); blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 24, GC_LAY_RAW, 8); return; }
@@ -2554,19 +2556,19 @@ static void blob_layout_slot(const IR_t * m, int k, int units) {
 static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
 static int blob_layout_plant(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_BLOB_LAYOUT_PLANT"); v = e ? atoi(e) : 0; } return v; }
 static int blob_layout_build(int bfb) {
-    int count = 0; g_blob_lay_n = 0;
+    int count = 0; g_blob_lay.len = 0;
     blob_lay_push(0, GC_LAY_RAW, 8); blob_lay_push(8, GC_LAY_PTR_CODE, 8); blob_lay_push(16, GC_LAY_PTR_CODE, 8);
     blob_lay_push(-8, GC_LAY_PTR_CODE, 8); blob_lay_push(-16, GC_LAY_PTR_CODE, 8); blob_lay_push(-24, GC_LAY_PTR_GC, 8);
     if (sn4_blob_casmark()) blob_lay_push(-32, GC_LAY_RAW, 8);
     g_frame_slot_visitor = blob_layout_slot; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) count = 0; g_frame_slot_visitor = (void (*)(const IR_t *, int, int))0;
     blob_lay_push(-(blob_head_bytes() + 16 * count), GC_LAY_RAW, 8);
     if (blob_choice_rbp_scan()) { int r = -bfb; blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 24, GC_LAY_RAW, 8); }
-    if (blob_layout_plant() == 1 && g_blob_lay_n > 0) g_blob_lay_n--;
-    if (blob_layout_plant() == 2) for (int i = 0; i < g_blob_lay_n; i++) { unsigned k = GC_LAY_KIND(g_blob_lay[i]); if (k == GC_LAY_DESCR || k == GC_LAY_PTR_GC) g_blob_lay[i] = GC_LAY_Q(GC_LAY_OFF(g_blob_lay[i]), GC_LAY_RAW, GC_LAY_SIZE(g_blob_lay[i])); }
-    qsort(g_blob_lay, (size_t)g_blob_lay_n, sizeof g_blob_lay[0], blob_lay_cmp);
-    { int expect = -bfb; for (int i = 0; i < g_blob_lay_n; i++) { int o = GC_LAY_OFF(g_blob_lay[i]); if (o != expect) { fprintf(stderr, "FATAL blob_layout_build: graph %s entry %d at rbp%+d, expected rbp%+d -- the static layout does not tile the blob frame [%d, 24) and a layout that does not cover its frame is a guess (ARCH-GC section 6.2e)\n", g_emit.flat_fam ? g_emit.flat_fam : "?", i, o, expect, -bfb); abort(); } expect += GC_LAY_SIZE(g_blob_lay[i]); }
+    if (blob_layout_plant() == 1 && g_blob_lay.len > 0) g_blob_lay.len--;
+    if (blob_layout_plant() == 2) for (uint32_t i = 0; i < g_blob_lay.len; i++) { uint64_t & q = CV_AT(g_blob_lay, uint64_t, i); unsigned k = GC_LAY_KIND(q); if (k == GC_LAY_DESCR || k == GC_LAY_PTR_GC) q = GC_LAY_Q(GC_LAY_OFF(q), GC_LAY_RAW, GC_LAY_SIZE(q)); }
+    qsort(g_blob_lay.p, (size_t)g_blob_lay.len, sizeof(uint64_t), blob_lay_cmp);
+    { int expect = -bfb; for (int i = 0; i < (int)g_blob_lay.len; i++) { int o = GC_LAY_OFF(CV_AT(g_blob_lay, uint64_t, i)); if (o != expect) { fprintf(stderr, "FATAL blob_layout_build: graph %s entry %d at rbp%+d, expected rbp%+d -- the static layout does not tile the blob frame [%d, 24) and a layout that does not cover its frame is a guess (ARCH-GC section 6.2e)\n", g_emit.flat_fam ? g_emit.flat_fam : "?", i, o, expect, -bfb); abort(); } expect += GC_LAY_SIZE(CV_AT(g_blob_lay, uint64_t, i)); }
       if (expect != 24) { fprintf(stderr, "FATAL blob_layout_build: graph %s layout ends at rbp%+d, expected rbp+24 (frame [%d, 24))\n", g_emit.flat_fam ? g_emit.flat_fam : "?", expect, -bfb); abort(); } }
-    return g_blob_lay_n;
+    return (int)g_blob_lay.len;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int choice_frame_slot(const IR_t * alt_nd) {
@@ -2994,7 +2996,7 @@ static void emit_gc_map_data(const char * fam) {
     if (!g_gc_map_pending) { g_gc_map_last_off = -1; return; }
     g_gc_map_pending = 0;
     const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_zls_lay_gaps = 0; g_zls_lay_conf = 0;
-    if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = g_blob_lay; lay_n = g_blob_lay_n; }
+    if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_blob_lay.p; lay_n = (int)g_blob_lay.len; }
     else if (g_emit_cfg) { int gaps = 0, conf = 0; int n = zls_g_layout_q(g_emit_cfg, g_zls_lay, 32768, &gaps, &conf);
         if (n > 32768) { fprintf(stderr, "FATAL emit_gc_map_data: graph %s needs more than 32768 kind-table entries -- the sealed table is bounded and a truncated table is a guess (ARCH-GC section 6.2h)\n", fam ? fam : "?"); abort(); }
         if (n >= 0 && g_emit_cfg->root_graph) { int rg = zls_g_region(g_emit_cfg), nc = g_emit_cfg->standing_cells, clo = g_gc_map_off - 8 * nc;
@@ -3018,7 +3020,7 @@ static void emit_gc_map_data(const char * fam) {
         g_gc_map_last_off = g_gc_map_lbl.offset;
     }
     if (gc_maps_report_on() && lay) { fprintf(stderr, "[GC-MAP-LAYOUT] graph=%s n=%d", fam ? fam : "?", lay_n); for (int i = 0; i < lay_n; i++) fprintf(stderr, " %d:%u:%d", GC_LAY_OFF(lay[i]), GC_LAY_KIND(lay[i]), GC_LAY_SIZE(lay[i])); fprintf(stderr, " gaps=%d conflicts=%d\n", g_zls_lay_gaps, g_zls_lay_conf); }
-    if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay_n = 0;
+    if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay.len = 0;
     if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = ct_strdup(g_gc_map_lbl.name);
     if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
 }
