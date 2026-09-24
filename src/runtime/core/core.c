@@ -1435,6 +1435,7 @@ void rt_io_chan_prebind(int ch, const char *path) { if (ch < 0 || ch >= IO_CHAN_
 static void _io_chan_close(int ch);
 static int _io_chan_find_by_var(const char *name) {
     _io_chan_setup();
+    if (!g_call_fastpath_off) return -1;
     for (int i = 0; i < IO_CHAN_MAX; i++)
         if (_io_chan[i].varname && strcmp(_io_chan[i].varname, name) == 0) return i;
     return -1;
