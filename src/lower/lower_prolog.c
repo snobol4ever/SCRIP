@@ -1657,7 +1657,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
         const char * nm = t->v.sval ? t->v.sval : "?";
         if (!strcmp(nm, "true")) return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
-        if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "nl")) { IR_t * ne = NULL; IR_t * nd = pl_leaf(cx, "$nl", t, 0, γnext, ωfail, &ne); IR_t * ge = NULL;
+            IR_t * g = goal(cx, pl_cc_fnc2("$pl_ioarg", (tree_t *) pl_atom_goal("put_nl1"), (tree_t *) pl_atom_goal("[]")), ne ? ne : nd, ωfail, &ge);
+            if (entry_out) *entry_out = ge ? ge : g; return nd; }
         if (!strcmp(nm, "repeat") && !pl_file_defines(nm, 0)) return goal(cx, pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar()), γnext, ωfail, entry_out);
         if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
