@@ -604,24 +604,36 @@ static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, const tree_t * R, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
-    IR_t * mark = build(cx, IR_BOUND, NULL, ωfail);
-    IR_t * unmk = build(cx, IR_UNMARK, NULL, ωfail); ir_operand_push(unmk, mark);
+    IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
+    IR_t * mark = build(cx, IR_BOUND, NULL, ig);
+    IR_t * unmk = build(cx, IR_UNMARK, NULL, ig); ir_operand_push(unmk, mark);
     tree_t * ct = ast_node_new(TT_FNC); ct->v.sval = (char *) "$catch_handle"; ast_push(ct, (tree_t *) C);
     IR_t * he = NULL;
-    IR_t * hc = pl_leaf_lv(cx, "$catch_handle", ct, 1, NULL, ωfail, &he);
+    IR_t * hc = pl_leaf_lv(cx, "$catch_handle", ct, 1, NULL, ig, &he);
     lc_γ_to(unmk, he ? he : hc);
-    { lc_vec rv; lc_vec_init(&rv, (int) sizeof(const tree_t *));
-      collect_conj(R, &rv);
-      IR_t * re = NULL;
-      IR_t * rfirst = pl_lower_conj(cx, (const tree_t * const *) rv.data, rv.n, γnext, ωfail, &re, NULL, NULL);
-      lc_γ_to(hc, re ? re : (rfirst ? rfirst : γnext)); }
-    { lc_vec gv; lc_vec_init(&gv, (int) sizeof(const tree_t *));
-      collect_conj(G, &gv);
-      IR_t * ge = NULL;
-      IR_t * gfirst = pl_lower_conj(cx, (const tree_t * const *) gv.data, gv.n, γnext, unmk, &ge, NULL, NULL);
-      lc_γ_to(mark, ge ? ge : (gfirst ? gfirst : unmk)); }
+    IR_t * arm_entry[2] = { NULL, NULL };
+    const tree_t * arms[2] = { G, R };
+    for (int j = 0; j < 2; j++) {
+        IR_t * ml = build(cx, IR_GATE_ARM, NULL, ig);
+        int before = cx->g->n;
+        IR_t * saveω = cx->cutω; int save_scope = cx->cut_scope; cx->cutω = ig; cx->cut_scope = ++cx->scope_seq;
+        lc_vec av; lc_vec_init(&av, (int) sizeof(const tree_t *));
+        collect_conj(arms[j], &av);
+        IR_t * ae = NULL; IR_t * redo = NULL;
+        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, j ? ig : unmk, &ae, &redo, NULL);
+        int cut_in_arm = 0;
+        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { cut_in_arm = 1; break; }
+        cx->cutω = saveω; cx->cut_scope = save_scope;
+        ir_operand_push(ml, (redo && !cut_in_arm) ? redo : ig);
+        ir_operand_push(ml, ig);
+        ir_operand_push(ig, ml); IR_LIT(ig).ival = ig->n_operands;
+        ml->seal = (redo && !cut_in_arm) ? 1 : 0; IR_LIT(ml).ival = ig->n_operands - 1;
+        arm_entry[j] = ae ? ae : (first ? first : ml);
+    }
+    lc_γ_to(hc, arm_entry[1]);
+    lc_γ_to(mark, arm_entry[0]);
     if (entry_out) *entry_out = mark;
-    return hc;
+    return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }

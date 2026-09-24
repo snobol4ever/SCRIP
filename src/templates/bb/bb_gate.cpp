@@ -20,6 +20,7 @@ std::string bb_gate() {
          + x86_alpha()
          + x86_omega()
          + x86_beta()
+         + IF(x86_fb_pinned(), x86("test", "r15", "r15") + x86_omega("jne"))
          + x86("mov", "eax", FR(_.op_off + 16))
          + gate_dispatch_chain((int) _.op_ival)
          + x86_omega();
