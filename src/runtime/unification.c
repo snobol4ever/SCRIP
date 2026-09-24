@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "rt/rt_arena.h"
 #include "ct_arena.h"
 #include "rt/rt.h"
@@ -684,9 +685,20 @@ static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
     pl_cell_t *d = pl_deref(t);
     if ((int)d->v == DT_A || (int)d->v == DT_S) return plc_atom_text(d);
     if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
+    if ((int)d->v == DT_BIG) { extern char *rt_big_str(DESCR_t); return rt_big_str(*d); }
     if ((int)d->v == DT_R) { extern const char *pl_real_iso_str(double, char *, int); return pl_real_iso_str(d->r, buf, (int)bufsz); }
     if ((int)d->v == DT_PLREF && plc_atom_op_list_text(d, buf, bufsz)) return buf;
     return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_num_of_text(const char *s, pl_cell_t *out)
+{
+    char *end; long iv; errno = 0; iv = strtol(s, &end, 10);
+    if (end != s && *end == '\0') {
+        if (errno != ERANGE) { *out = pl_make_int(iv); return 1; }
+        { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(s); if ((int)bg.v == DT_FAIL) return 0; *out = bg; return 1; } }
+    { double dv = strtod(s, &end); if (end != s && *end == '\0') { *out = pl_make_float(dv); return 1; } }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_make_atom_cell(const char *name)
@@ -862,21 +874,13 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         }
         const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { return 0; }
-        char *end; long iv = strtol(s, &end, 10);
-        if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, pl_make_int(iv), cx)) { return 0; } return 1; }
-        double dv = strtod(s, &end);
-        if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, pl_make_float(dv), cx)) { return 0; } return 1; }
-        return 0;
+        { pl_cell_t nv; if (!plc_num_of_text(s, &nv)) return 0; return plc_unify_into_cell_cx((pl_cell_t *)a0_cell, nv, cx) ? 1 : 0; }
     }
     if (!strcmp(fn, "atom_number")) {
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
-            char *end; long iv = strtol(s, &end, 10);
-            if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int(iv), cx)) { return 0; } return 1; }
-            double dv = strtod(s, &end);
-            if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_float(dv), cx)) { return 0; } return 1; }
-            return 0;
+            { pl_cell_t nv; if (!plc_num_of_text(s, &nv)) return 0; return plc_unify_into_cell_cx((pl_cell_t *)a1_cell, nv, cx) ? 1 : 0; }
         }
         const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { return 0; }

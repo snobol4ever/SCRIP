@@ -2207,6 +2207,7 @@ static int pl_cell_text(DESCR_t v, char *buf, size_t n, const char **out) {
     DESCR_t d = rt_pl_deref_val(v); const char *s = pl_atom_str(d);
     if (s) { *out = s; return 1; }
     if (d.v == DT_I) { snprintf(buf, n, "%lld", (long long)d.i); *out = buf; return 1; }
+    if (d.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = rt_big_str(d); return *out != (const char *)0; }
     if (d.v == DT_R) { *out = pl_real_iso_str(d.r, buf, (int)n); return 1; }
     if (pl_is_cons(d) || pl_is_nil(d)) { if (!pl_list_text(d, buf, n)) return 0; *out = buf; return 1; }
     return 0;
@@ -2222,7 +2223,9 @@ static int pl_parse_number_radix(const char *s, DESCR_t *out) { char *e = 0; int
         return 0; }
     if (s[0] == '0' && s[1] == 'x') base = 16; else if (s[0] == '0' && s[1] == 'o') base = 8; else if (s[0] == '0' && s[1] == 'b') base = 2;
     if (!base) return 0;
-    { long long v = strtoll(s + 2, &e, base); if (e && e != s + 2 && !*e) { *out = INTVAL(v); return 1; } }
+    { long long v; errno = 0; v = strtoll(s + 2, &e, base); if (e && e != s + 2 && !*e) {
+        if (errno == ERANGE) { extern DESCR_t rt_big_from_str_base(const char *, int); DESCR_t bg = rt_big_from_str_base(s + 2, base); if (bg.v == DT_FAIL) return 0; *out = bg; return 1; }
+        *out = INTVAL(v); return 1; } }
     return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * pl_skip_layout(const char *s) { if (!s) return s; while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == '\f' || *s == '\v') s++; return s; }
@@ -2232,7 +2235,9 @@ static int pl_parse_number(const char *s, DESCR_t *out) { char *e = 0;
     { const char *p = pl_skip_layout(s);
       if (*p && pl_parse_number_radix(p, out)) return 1;
       if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X' || p[1] == 'o' || p[1] == 'O' || p[1] == 'b' || p[1] == 'B')) return 0; }
-    { long long iv = strtoll(s, &e, 10);if (e && e != s && !*e) { *out = INTVAL(iv);return 1;} }
+    { long long iv; errno = 0; iv = strtoll(s, &e, 10); if (e && e != s && !*e) {
+        if (errno == ERANGE) { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(pl_skip_layout(s)); if (bg.v == DT_FAIL) return 0; *out = bg; return 1; }
+        *out = INTVAL(iv); return 1; } }
     { double dv = strtod(s, &e);
     if (e && e != s && !*e) { const char *b = pl_skip_layout(s); const char *d = strchr(b, '.');
         if (d && (d[1] < '0' || d[1] > '9')) return 0;
@@ -2745,12 +2750,12 @@ PL_CX_LEAF_HEAD(char_code, 2) { char b[64]; const char *s; int adv; DESCR_t a = 
     else if (c.v == DT_I) { char c2[8]; int bl = rt_pl_u8_put(c2, (int)c.i); c2[bl] = 0; ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, (size_t)bl), cx); } else ok = 0; } PL_CX_LEAF_TAIL
 static int pl_number_text_leaf(DESCR_t *args, int codes, pl_tr_ctx_t *cx) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
     { DESCR_t num; if (pl_list_text(args[1], b, sizeof b) && pl_parse_number(b, &num)) return plw_unify_vals(args[0], num, cx); }
-    if (a.v == DT_I || a.v == DT_R) { pl_cell_text(a, b, sizeof b, &s); return plw_unify_vals(args[1], pl_text_list(s, codes), cx); }
+    if (a.v == DT_I || a.v == DT_R || a.v == DT_BIG) { if (!pl_cell_text(a, b, sizeof b, &s)) return 0; return plw_unify_vals(args[1], pl_text_list(s, codes), cx); }
     return 0; }
 PL_CX_LEAF_HEAD(number_codes, 2) ok = pl_number_text_leaf(args, 1, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(number_chars, 2) ok = pl_number_text_leaf(args, 0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(name, 2) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
-    if (a.v == DT_I || a.v == DT_R || pl_atom_str(a)) { pl_cell_text(a, b, sizeof b, &s); ok = plw_unify_vals(args[1], pl_text_list(s, 1), cx); }
+    if (a.v == DT_I || a.v == DT_R || a.v == DT_BIG || pl_atom_str(a)) { pl_cell_text(a, b, sizeof b, &s); ok = plw_unify_vals(args[1], pl_text_list(s, 1), cx); }
     else { DESCR_t num; if (!pl_list_text(args[1], b, sizeof b)) ok = 0; else ok = plw_unify_vals(args[0], pl_parse_number(b, &num) ? num : pl_mk_atom_dup(b, strlen(b)), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_in_is_text(void) { extern int fh_current_input(void); extern int fh_is_untranslated(int); int ix = fh_current_input();
@@ -9336,7 +9341,7 @@ static int pl_anum_list_kind(DESCR_t d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_anum_is_text(DESCR_t d) { return pl_atom_str(d) != (const char *)0; }
-static int pl_anum_is_num(DESCR_t d) { return d.v == DT_I || d.v == DT_R; }
+static int pl_anum_is_num(DESCR_t d) { return d.v == DT_I || d.v == DT_R || d.v == DT_BIG; }
 static int pl_anum_is_compound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLREF && (int)(d.slen & 0xFFFFu) > 0; }
 static int pl_anum_code_ok(long c) { return c >= 0 && c <= 0x10FFFF; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
