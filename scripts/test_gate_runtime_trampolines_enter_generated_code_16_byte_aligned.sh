@@ -57,7 +57,11 @@ for path in sys.argv[1:]:
         n_push, sub, seen_jmp, dynamic, ld = 0, 0, False, False, None
         for ln in lines:
             s = ln.strip()
-            if re.match(r'^jmp\s+\*%\w+', s):
+            # ⛔ A JUMP INTO rt_chain_enter's SEED TAIL IS AN ENTRY TOO (row snobol4-the-setexit-landing-2b89a5ef2-added-a-third-asm-
+            # transfer-...): rt_unwind_to_activation loads RSP from its recorded base and then shares rt_chain_enter's one
+            # `jmp *%rax` through .Lrt_chain_seed instead of carrying a third. Without this arm its block would read as
+            # 'not an entry trampoline' and the RSP-LOADED class below would stop holding its displacement, in silence.
+            if re.match(r'^jmp\s+(\*%\w+|\.Lrt_chain_seed\b)', s):
                 seen_jmp = True
                 break
             if re.match(r'^pushq?\s+%\w+', s):
