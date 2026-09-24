@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1876
+#define GC_ALLOC_TAB_N 1878
 #define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 986
-#define GC_ALLOC_TAB_N_OTHER 647
+#define GC_ALLOC_TAB_N_OTHER 649
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -846,6 +846,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_parse_number", GC_RET_OTHER },
     { "pl_parse_number_radix", GC_RET_OTHER },
     { "pl_parse_term_text", GC_RET_OTHER },
+    { "pl_past_eos_ball", GC_RET_OTHER },
     { "pl_pred_add", GC_RET_OTHER },
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_pred_slot", GC_RET_OTHER },
@@ -865,6 +866,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_stream_idx_ball", GC_RET_OTHER },
     { "pl_stream_resolve", GC_RET_OTHER },
     { "pl_sub_atom_count", GC_RET_OTHER },
+    { "pl_text_cur_ball", GC_RET_OTHER },
     { "pl_text_list", GC_RET_DESCR },
     { "pl_tree_cell", GC_RET_DESCR },
     { "pl_unify", GC_RET_OTHER },
