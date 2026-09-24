@@ -1100,6 +1100,40 @@ static void pas_ordinal_fn_arg(const char *name, PNodeList *args) {
                  name, a->v.sval, name, is_chr ? "integer-type" : "an ordinal-type");
     g_pas_iso_errors++;
 }
+static char pas_expr_lit_class(tree_t *e) {
+    if (!e) return 0;
+    if (e->t == TT_FLIT) return 'r';
+    if (e->t == TT_QLIT) return (e->v.sval && strlen(e->v.sval) == 1) ? 'c' : 's';
+    if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_chrlit")) return 'c';
+    if (e->t == TT_EQ && e->n == 2 && e->c[0] && e->c[1] && e->c[0]->t == TT_ILIT && e->c[1]->t == TT_ILIT) return 'b';
+    return 0;
+}
+static char pas_var_decl_class(const char *name) {
+    char k = 0;
+    if (!name || pas_is_chararr(name) || pas_is_strarr(name)) return 0;
+    for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return 0;
+    for (int i = 0; name && i < g_pas_nscalarvartype; i++) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, name)) {
+        const char *t = g_pas_scalarvartype[i].tname; char c = 0;
+        for (int guard = 0; t && guard < 8 && !c; guard++) {
+            if (pas_is_int_typename(t)) c = 'i'; else if (pas_is_realtypename(t)) c = 'r'; else if (!strcmp(t, "char")) c = 'c';
+            else if (pas_is_booltype(t)) c = 'b'; else if (pas_enumtype_high(t) >= 0) c = 'e';
+            else { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; } }
+        if (!c || (k && k != c)) return 0;
+        k = c; }
+    return k;
+}
+static const char *pas_class_name(char k) {
+    switch (k) { case 'i': return "integer-type"; case 'r': return "real-type"; case 'c': return "char-type"; case 'b': return "Boolean-type";
+                 case 'e': return "an enumerated-type"; case 's': return "a string-type"; default: return "?"; }
+}
+static int pas_class_compatible(char to, char from) { return to == from || (to == 'r' && from == 'i'); }
+static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, const char *what) {
+    char to = pas_var_decl_class(vn), from = pas_expr_lit_class(rhs);
+    if (!to || !from || pas_class_compatible(to, from)) return;
+    fprintf(stderr, "pascal: ISO 7185 %s violation: %s '%s' is given a value of %s, which is not assignment-compatible with its %s (6.4.6)\n",
+            clause, what, vn, pas_class_name(from), pas_class_name(to));
+    g_pas_iso_errors++;
+}
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     { const char *_abn = pas_selector_base_name(sel); if (_abn) pas_assigned_add(_abn); }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
@@ -1598,7 +1632,8 @@ argument:
     ;
 assignment:
     selector BECOMES expression
-        { if ($1 && $1->t == TT_FNC && $1->n == 2 && $1->c[0] && $1->c[0]->v.sval && (!strcmp($1->c[0]->v.sval, "__pas_fbuf_get") || !strcmp($1->c[0]->v.sval, "__pas_tbuf_get"))) {
+        { if ($1 && $1->t == TT_VAR && $1->v.sval) pas_value_compat($1->v.sval, $3, "6.8.2.2", "the variable");
+          if ($1 && $1->t == TT_FNC && $1->n == 2 && $1->c[0] && $1->c[0]->v.sval && (!strcmp($1->c[0]->v.sval, "__pas_fbuf_get") || !strcmp($1->c[0]->v.sval, "__pas_tbuf_get"))) {
               int _isqlit = $3 && ($3->t == TT_QLIT || ($3->t == TT_FNC && $3->n >= 1 && $3->c[0] && $3->c[0]->v.sval && !strcmp($3->c[0]->v.sval, "__pas_chrlit")));
               if (!strcmp($1->c[0]->v.sval, "__pas_fbuf_get") && $1->c[1] && $1->c[1]->t == TT_VAR && $1->c[1]->v.sval
                   && _isqlit && pas_tfcomp_nonchar($1->c[1]->v.sval)) {
@@ -1693,11 +1728,13 @@ repeat_statement:
     ;
 for_statement:
     FORSY IDENT BECOMES expression TOSY expression DOSY statement
-        { if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
+        { pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
+          if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 0);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); $$ = e; }
     | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement
-        { if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
+        { pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
+          if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 1);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; $$ = e; }
     ;
