@@ -42,7 +42,8 @@ RTX_GATE_DEF(str)
 209:
 .endm
 RTX_FUNC(str_concat_d)
-    RTX_GATE(str, c_str_concat_d)
+    RTX_SAVE
+    RTX_GATE(str, .Lsc_slow)
     cmp     dil, DT_S
     jne     .Lsc_null
     cmp     dl, DT_S
@@ -115,7 +116,7 @@ RTX_FUNC(str_concat_d)
     shl     rax, 32
     or      rax, DT_S
     mov     rdx, r10
-    ret
+    RTX_RET
 .Lsc_null:
     mov     rax, [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
@@ -130,7 +131,7 @@ RTX_FUNC(str_concat_d)
     je      .Lsc_slow
     mov     rax, rdx
     mov     rdx, rcx
-    ret
+    RTX_RET
 .Lsc_nb:
     test    edx, edx
     jne     .Lsc_slow
@@ -148,32 +149,36 @@ RTX_FUNC(str_concat_d)
     je      .Lsc_slow
     mov     rax, rdi
     mov     rdx, rsi
-    ret
+    RTX_RET
 .Lsc_slow:
-    jmp     c_str_concat_d
+    RTX_CTAIL_SAVED(c_str_concat_d)
 RTX_ENDF(str_concat_d)
 RTX_FUNC(VARVAL_fn)
-    RTX_GATE(str, c_VARVAL_fn)
+    RTX_GATE(str, .Lvv_c)
     cmp     dil, DT_S
-    jne     c_VARVAL_fn
+    jne     .Lvv_c
     test    rsi, rsi
-    jz      c_VARVAL_fn
+    jz      .Lvv_c
     mov     rax, rsi
     ret
+.Lvv_c:
+    RTX_CTAIL(c_VARVAL_fn)
 RTX_ENDF(VARVAL_fn)
 RTX_FUNC(rt_translate_bytes)
-    RTX_GATE(str, c_rt_translate_bytes)
+    RTX_GATE(str, .Ltrb_c)
     test    rdx, rdx
     je      .Ltrb_done
 .Ltrb_loop:
-    movzx   r8d, byte ptr [rsi]
-    movzx   r8d, byte ptr [rcx + r8]
-    mov     [rdi], r8b
+    movzx   eax, byte ptr [rsi]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     [rdi], al
     inc     rsi
     inc     rdi
     dec     rdx
     jnz     .Ltrb_loop
 .Ltrb_done:
     ret
+.Ltrb_c:
+    RTX_CTAIL(c_rt_translate_bytes)
 RTX_ENDF(rt_translate_bytes)
 .section .note.GNU-stack,"",@progbits

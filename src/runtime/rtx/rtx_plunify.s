@@ -6,16 +6,16 @@ RTX_GATE_DEF(plunify)
 #define CTX_FRAME        24
 #define PL_TR_ARENA_MASK  -33554432
 #define PL_TR_BALL_SLOT   8
-#define PL_BALL_ARM(r)  mov r15, r; mov r10, r12; and r10, PL_TR_ARENA_MASK; mov qword ptr [r10 + PL_TR_BALL_SLOT], r
-#define PL_BALL_DROP    xor r15d, r15d; mov r10, r12; and r10, PL_TR_ARENA_MASK; mov qword ptr [r10 + PL_TR_BALL_SLOT], 0
+#define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
+#define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0
 #define PL_BALL_GET(d)  mov d, r12; and d, PL_TR_ARENA_MASK; mov d, qword ptr [d + PL_TR_BALL_SLOT]
 RTX_FUNC(rt_pl_quad_seed)
     sub     rsp, 8
     mov     r14, rdi
     xor     r13d, r13d
-    call    rt_pl_tr_init
+    RTX_CCALL(rt_pl_tr_init)
     mov     r12, rax
-    PL_BALL_DROP
+    PL_BALL_DROP(rcx)
     add     rsp, 8
     ret
 RTX_ENDF(rt_pl_quad_seed)
@@ -23,7 +23,7 @@ RTX_FUNC(rt_pl_tr_unwind)
     sub     rsp, 8
     mov     rsi, rdi
     mov     rdi, r12
-    call    rt_pl_tr_unwind_sync
+    RTX_CCALL(rt_pl_tr_unwind_sync)
     mov     r12, rax
     add     rsp, 8
     ret
@@ -42,8 +42,8 @@ RTX_FUNC(rt_pl_fence_commit)
 RTX_ENDF(rt_pl_fence_commit)
 RTX_FUNC(rt_pl_throw_raise)
     sub     rsp, 8
-    call    rt_pl_ball_make
-    PL_BALL_ARM(rax)
+    RTX_CCALL(rt_pl_ball_make)
+    PL_BALL_ARM(rax, rcx)
     add     rsp, 8
     mov     eax, DT_FAIL
     xor     edx, edx
@@ -51,8 +51,8 @@ RTX_FUNC(rt_pl_throw_raise)
 RTX_ENDF(rt_pl_throw_raise)
 RTX_FUNC(rt_pl_exist_raise)
     sub     rsp, 8
-    call    rt_pl_ball_existence
-    PL_BALL_ARM(rax)
+    RTX_CCALL(rt_pl_ball_existence)
+    PL_BALL_ARM(rax, rcx)
     add     rsp, 8
     mov     eax, DT_FAIL
     xor     edx, edx
@@ -60,14 +60,15 @@ RTX_FUNC(rt_pl_exist_raise)
 RTX_ENDF(rt_pl_exist_raise)
 RTX_FUNC(rt_pl_exist_key_raise)
     sub     rsp, 8
-    call    rt_pl_ball_existence_key
-    PL_BALL_ARM(rax)
+    RTX_CCALL(rt_pl_ball_existence_key)
+    PL_BALL_ARM(rax, rcx)
     add     rsp, 8
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_key_raise)
 RTX_FUNC(rt_pl_goal_gen_h)
+    RTX_SAVE
     sub     rsp, 24
     mov     qword ptr [rsp + 8], 0
     lea     r9, [rsp + 8]
@@ -76,11 +77,11 @@ RTX_FUNC(rt_pl_goal_gen_h)
     add     rsp, 24
     test    rcx, rcx
     jz      .Lggh_ret
-    PL_BALL_ARM(rcx)
+    PL_BALL_ARM(rcx, rax)
     mov     eax, DT_FAIL
     xor     edx, edx
 .Lggh_ret:
-    ret
+    RTX_RET
 RTX_ENDF(rt_pl_goal_gen_h)
 RTX_FUNC(rt_pl_catch_handle)
     test    r15, r15
@@ -90,12 +91,12 @@ RTX_FUNC(rt_pl_catch_handle)
     mov     qword ptr [rsp + CTX_B], r13
     PL_BALL_GET(rdx)
     mov     rcx, rsp
-    call    rt_pl_catch_handle_c
+    RTX_CCALL(rt_pl_catch_handle_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     test    eax, eax
     jz      .Lch_fail
-    PL_BALL_DROP
+    PL_BALL_DROP(rdx)
     mov     eax, DT_I
     mov     edx, 1
     ret
@@ -106,12 +107,12 @@ RTX_FUNC(rt_pl_catch_handle)
 RTX_ENDF(rt_pl_catch_handle)
 RTX_FUNC(rt_pl_ball_take)
     PL_BALL_GET(rax)
-    PL_BALL_DROP
+    PL_BALL_DROP(rcx)
     ret
 RTX_ENDF(rt_pl_ball_take)
 RTX_FUNC(rt_pl_dop_ball_pending)
     PL_BALL_GET(rdi)
-    jmp     rt_pl_dop_ball_pending_c
+    RTX_CTAIL(rt_pl_dop_ball_pending_c)
 RTX_ENDF(rt_pl_dop_ball_pending)
 RTX_FUNC(rt_pl_disj_open)
     mov     qword ptr [rdi + 32], rsi
@@ -129,7 +130,7 @@ RTX_FUNC(rt_pl_dop_unify)
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
     mov     rdx, rsp
-    call    rt_pl_dop_unify_c
+    RTX_CCALL(rt_pl_dop_unify_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     cmp     al, DT_FAIL
@@ -144,7 +145,7 @@ RTX_FUNC(rt_pl_dop_clause_unify)
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
     mov     rdx, rsp
-    call    rt_pl_dop_clause_unify_c
+    RTX_CCALL(rt_pl_dop_clause_unify_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     cmp     al, DT_FAIL
@@ -159,7 +160,7 @@ RTX_FUNC(rt_pl_dop_unify_ci)
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
     mov     rdx, rsp
-    call    rt_pl_dop_unify_ci_c
+    RTX_CCALL(rt_pl_dop_unify_ci_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     ret
@@ -169,7 +170,7 @@ RTX_FUNC(rt_pl_dop_unify_cs)
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
     mov     rdx, rsp
-    call    rt_pl_dop_unify_cs_c
+    RTX_CCALL(rt_pl_dop_unify_cs_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     ret
@@ -179,7 +180,7 @@ RTX_FUNC(rt_pl_dop_mkc)
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
     mov     rdx, rsp
-    call    rt_pl_dop_mkc_c
+    RTX_CCALL(rt_pl_dop_mkc_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     ret
@@ -190,23 +191,23 @@ RTX_FUNC(rt_pl_dop_is_v)
     mov     qword ptr [rsp + CTX_B], r13
     mov     qword ptr [rsp + CTX_BALL], 0
     mov     rdx, rsp
-    call    rt_pl_dop_is_v_c
+    RTX_CCALL(rt_pl_dop_is_v_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     mov     rcx, qword ptr [rsp + CTX_BALL]
     add     rsp, CTX_FRAME
     test    rcx, rcx
     jz      .Lisv_ret
-    PL_BALL_ARM(rcx)
+    PL_BALL_ARM(rcx, rax)
     mov     eax, DT_FAIL
     xor     edx, edx
 .Lisv_ret:
     ret
 RTX_ENDF(rt_pl_dop_is_v)
 #define PL_CTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; \
-    call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
+    RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
 #define PL_CTX_LEAF_BALL(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; \
-    mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; add rsp, CTX_FRAME; \
-    test rcx, rcx; jz 99f; PL_BALL_ARM(rcx); mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
+    mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; add rsp, CTX_FRAME; \
+    test rcx, rcx; jz 99f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_CTX_LEAF(sub_atom_at)
 PL_CTX_LEAF(atom_concat_at)
 PL_CTX_LEAF(bagof_group_at)
@@ -328,7 +329,7 @@ PL_CTX_LEAF(pl_cs_count)
 PL_CTX_LEAF(pl_cs_nth)
 PL_CTX_LEAF_BALL(pl_cp_guard)
 PL_CTX_LEAF_BALL(halt)
-#define PL_ROOT_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); mov rdx, r14; jmp rt_pl_dop_##nm##_c; RTX_ENDF(rt_pl_dop_##nm)
+#define PL_ROOT_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); mov rdx, r14; RTX_CTAIL(rt_pl_dop_##nm##_c); RTX_ENDF(rt_pl_dop_##nm)
 PL_ROOT_LEAF(db_assertz)
 PL_ROOT_LEAF(db_asserta)
 PL_ROOT_LEAF(db_erase)
@@ -353,15 +354,15 @@ PL_ROOT_LEAF(db_abolish_t)
 PL_ROOT_LEAF(db_retractall_t)
 PL_ROOT_LEAF(db_decl)
 #define PL_ROOTCTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; mov rcx, r14; \
-    call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
+    RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_ROOTCTX_LEAF(nb_getval)
 PL_ROOTCTX_LEAF(b_setval)
 PL_ROOTCTX_LEAF(pl_cp_count)
 PL_ROOTCTX_LEAF(pl_cp_nth)
 PL_ROOTCTX_LEAF(db_assertz_r)
 PL_ROOTCTX_LEAF(db_asserta_r)
-#define PL_AX_VENEER(nm, NM) RTX_FUNC(rt_pl_dop_ax_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_ax_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
-    test rcx, rcx; jz 9f; PL_BALL_ARM(rcx); mov eax, DT_FAIL; xor edx, edx; 9: ret; RTX_ENDF(rt_pl_dop_ax_##nm)
+#define PL_AX_VENEER(nm, NM) RTX_FUNC(rt_pl_dop_ax_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; RTX_CCALL(rt_pl_dop_ax_##nm##_c); mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
+    test rcx, rcx; jz 9f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL; xor edx, edx; 9: ret; RTX_ENDF(rt_pl_dop_ax_##nm)
 PL_AX_VENEER(add, ADD)
 PL_AX_VENEER(sub, SUB)
 PL_AX_VENEER(mul, MUL)
@@ -402,8 +403,8 @@ PL_AX_VENEER(fip, FIP)
 PL_AX_VENEER(ffp, FFP)
 PL_AX_VENEER(pi, PI)
 PL_AX_VENEER(e, E)
-#define PL_CMP_LEAF(nm, NM) RTX_FUNC(rt_pl_dop_cmp_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_cmp_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
-    test rcx, rcx; jz 8f; PL_BALL_ARM(rcx); mov eax, DT_FAIL; xor edx, edx; 8: ret; RTX_ENDF(rt_pl_dop_cmp_##nm)
+#define PL_CMP_LEAF(nm, NM) RTX_FUNC(rt_pl_dop_cmp_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; RTX_CCALL(rt_pl_dop_cmp_##nm##_c); mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
+    test rcx, rcx; jz 8f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL; xor edx, edx; 8: ret; RTX_ENDF(rt_pl_dop_cmp_##nm)
 PL_CMP_LEAF(lt, LT)
 PL_CMP_LEAF(gt, GT)
 PL_CMP_LEAF(le, LE)
@@ -412,11 +413,11 @@ PL_CMP_LEAF(eq, EQ)
 PL_CMP_LEAF(ne, NE)
 RTX_FUNC(rt_pl_dop_ax_zguard)
     sub     rsp, 8
-    call    rt_pl_dop_ax_zguard_c
+    RTX_CCALL(rt_pl_dop_ax_zguard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lzg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -428,11 +429,11 @@ RTX_ENDF(rt_pl_dop_ax_zguard)
 RTX_FUNC(rt_pl_dop_db_alive)
     sub     rsp, 8
     mov     rdx, r14
-    call    rt_pl_dop_db_alive_c
+    RTX_CCALL(rt_pl_dop_db_alive_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lda_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -444,11 +445,11 @@ RTX_ENDF(rt_pl_dop_db_alive)
 RTX_FUNC(rt_pl_dop_db_t_guard)
     sub     rsp, 8
     mov     rdx, r14
-    call    rt_pl_dop_db_t_guard_c
+    RTX_CCALL(rt_pl_dop_db_t_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Ldtg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -459,11 +460,11 @@ RTX_FUNC(rt_pl_dop_db_t_guard)
 RTX_ENDF(rt_pl_dop_db_t_guard)
 RTX_FUNC(rt_pl_dop_goal_guard)
     sub     rsp, 8
-    call    rt_pl_dop_goal_guard_c
+    RTX_CCALL(rt_pl_dop_goal_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lgg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -474,11 +475,11 @@ RTX_FUNC(rt_pl_dop_goal_guard)
 RTX_ENDF(rt_pl_dop_goal_guard)
 RTX_FUNC(rt_pl_dop_list_guard)
     sub     rsp, 8
-    call    rt_pl_dop_list_guard_c
+    RTX_CCALL(rt_pl_dop_list_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Llg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -490,11 +491,11 @@ RTX_ENDF(rt_pl_dop_list_guard)
 PL_ROOT_LEAF(pl_declared)
 RTX_FUNC(rt_pl_dop_char_guard)
     sub     rsp, 8
-    call    rt_pl_dop_char_guard_c
+    RTX_CCALL(rt_pl_dop_char_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lcg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -506,11 +507,11 @@ RTX_ENDF(rt_pl_dop_char_guard)
 RTX_FUNC(rt_pl_dop_nb_getval_guard)
     sub     rsp, 8
     mov     rdx, r14
-    call    rt_pl_dop_nb_getval_guard_c
+    RTX_CCALL(rt_pl_dop_nb_getval_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lnbgg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -521,11 +522,11 @@ RTX_FUNC(rt_pl_dop_nb_getval_guard)
 RTX_ENDF(rt_pl_dop_nb_getval_guard)
 RTX_FUNC(rt_pl_dop_anum_guard2)
     sub     rsp, 8
-    call    rt_pl_dop_anum_guard2_c
+    RTX_CCALL(rt_pl_dop_anum_guard2_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lag2_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -536,11 +537,11 @@ RTX_FUNC(rt_pl_dop_anum_guard2)
 RTX_ENDF(rt_pl_dop_anum_guard2)
 RTX_FUNC(rt_pl_dop_anum_guard3)
     sub     rsp, 8
-    call    rt_pl_dop_anum_guard3_c
+    RTX_CCALL(rt_pl_dop_anum_guard3_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lag3_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -551,11 +552,11 @@ RTX_FUNC(rt_pl_dop_anum_guard3)
 RTX_ENDF(rt_pl_dop_anum_guard3)
 RTX_FUNC(rt_pl_dop_anum_guard5)
     sub     rsp, 8
-    call    rt_pl_dop_anum_guard5_c
+    RTX_CCALL(rt_pl_dop_anum_guard5_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lag5_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -566,11 +567,11 @@ RTX_FUNC(rt_pl_dop_anum_guard5)
 RTX_ENDF(rt_pl_dop_anum_guard5)
 RTX_FUNC(rt_pl_dop_ax_eguard)
     sub     rsp, 8
-    call    rt_pl_dop_ax_eguard_c
+    RTX_CCALL(rt_pl_dop_ax_eguard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Leg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -581,11 +582,11 @@ RTX_FUNC(rt_pl_dop_ax_eguard)
 RTX_ENDF(rt_pl_dop_ax_eguard)
 RTX_FUNC(rt_pl_dop_between_guard)
     sub     rsp, 8
-    call    rt_pl_dop_between_guard_c
+    RTX_CCALL(rt_pl_dop_between_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lbg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -596,11 +597,11 @@ RTX_FUNC(rt_pl_dop_between_guard)
 RTX_ENDF(rt_pl_dop_between_guard)
 RTX_FUNC(rt_pl_dop_stream_guard)
     sub     rsp, 8
-    call    rt_pl_dop_stream_guard_c
+    RTX_CCALL(rt_pl_dop_stream_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lsg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
@@ -611,11 +612,11 @@ RTX_FUNC(rt_pl_dop_stream_guard)
 RTX_ENDF(rt_pl_dop_stream_guard)
 RTX_FUNC(rt_pl_dop_curstream_guard)
     sub     rsp, 8
-    call    rt_pl_dop_curstream_guard_c
+    RTX_CCALL(rt_pl_dop_curstream_guard_c)
     add     rsp, 8
     test    rax, rax
     jz      .Lcsg_ok
-    PL_BALL_ARM(rax)
+    PL_BALL_ARM(rax, rcx)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret

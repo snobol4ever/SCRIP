@@ -3,22 +3,22 @@ RTX_GATE_DEF(icnvar)
 #define VCELL_TBL        8
 #define VCELL_KEY_D      24
 RTX_FUNC(rt_assign_var)
-    RTX_GATE(icnvar, c_rt_assign_var)
-    mov     r10, [rip + g_gc_pending@GOTPCREL]
-    cmp     dword ptr [r10], 0
+    RTX_GATE(icnvar, .Lav_c)
+    mov     rax, [rip + g_gc_pending@GOTPCREL]
+    cmp     dword ptr [rax], 0
     jne     .Lav_c
     cmp     dl, DT_S
     je      .Lav_sxt
 .Lav_sxt_done:
     cmp     dil, DT_N
     jne     .Lav_c
-    mov     r11, rdi
-    shr     r11, 32
-    cmp     r11d, 1
+    mov     rax, rdi
+    shr     rax, 32
+    cmp     eax, 1
     je      .Lav_cell
-    test    r11d, r11d
+    test    eax, eax
     je      .Lav_named
-    cmp     r11d, 2
+    cmp     eax, 2
     je      .Lav_nametrap
     jmp     .Lav_c
 .Lav_cell:
@@ -32,37 +32,37 @@ RTX_FUNC(rt_assign_var)
 .Lav_nametrap:
     test    rsi, rsi
     je      .Lav_c
-    mov     r10, [rip + g_sno_etrace_n@GOTPCREL]
-    cmp     dword ptr [r10], 0
+    mov     rax, [rip + g_sno_etrace_n@GOTPCREL]
+    cmp     dword ptr [rax], 0
     jne     .Lav_c
-    mov     r10, [rsi]
-    test    r10, r10
+    mov     rax, [rsi]
+    test    rax, rax
     jne     .Lav_cellp_store
-    mov     r11, [rsi + VCELL_TBL]
-    test    r11, r11
+    mov     rax, [rsi + VCELL_TBL]
+    test    rax, rax
     je      .Lav_c
     jmp     .Lav_table_store
 .Lav_cellp_store:
-    mov     [r10], rdx
-    mov     [r10 + 8], rcx
+    mov     [rax], rdx
+    mov     [rax + 8], rcx
     mov     rax, rdx
     mov     rdx, rcx
     ret
 .Lav_table_store:
-    mov     r9,  [rsi + VCELL_KEY_D]
-    mov     r10, [rsi + VCELL_KEY_D + 8]
+    RTX_SAVE
     RTX_CALL_ALIGN
     push    rdx
     push    rcx
-    mov     rdi, r11
-    mov     rsi, r9
-    mov     rdx, r10
+    mov     rdi, rax
+    mov     rdx, [rsi + VCELL_KEY_D + 8]
+    mov     rsi, [rsi + VCELL_KEY_D]
     mov     rcx, [rsp + 8]
     mov     r8,  [rsp]
     call    table_set_descr_d@PLT
     pop     rcx
     pop     rdx
     RTX_CALL_UNALIGN
+    RTX_RESTORE
     mov     rax, rdx
     mov     rdx, rcx
     ret
@@ -71,6 +71,7 @@ RTX_FUNC(rt_assign_var)
     je      .Lav_c
     cmp     byte ptr [rsi], 0
     je      .Lav_c
+    RTX_SAVE
     RTX_CALL_ALIGN
     push    rdx
     push    rcx
@@ -81,8 +82,10 @@ RTX_FUNC(rt_assign_var)
     pop     rdx
     pop     rax
     RTX_CALL_UNALIGN
+    RTX_RESTORE
     ret
 .Lav_sxt:
+    RTX_SAVE
     RTX_CALL_ALIGN
     push    rdi
     push    rsi
@@ -95,8 +98,9 @@ RTX_FUNC(rt_assign_var)
     pop     rsi
     pop     rdi
     RTX_CALL_UNALIGN
+    RTX_RESTORE
     jmp     .Lav_sxt_done
 .Lav_c:
-    jmp     c_rt_assign_var
+    RTX_CTAIL(c_rt_assign_var)
 RTX_ENDF(rt_assign_var)
 .section .note.GNU-stack,"",@progbits

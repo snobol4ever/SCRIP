@@ -133,9 +133,7 @@ static inline void * rtop_addr_s(long long op, int strict) {
     + x86("mov", "rdx", FRQ(_.op_sb)) \
     + x86("mov", "rcx", FRQ(_.op_sb + 8)) \
     + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival)) \
-    + x86("rtcc_wb") \
-    + x86("call_bare", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict)) \
-    + x86("rtcc_rl") \
+    + x86("call", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict)) \
     + x86("cmp", "al", (long)DT_FAIL) \
     + x86_omega("je") \
     + x86("mov", FRQ(_.op_off), "rax") \
@@ -234,9 +232,7 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("rtcc_wb")
-             + x86("call_bare", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
-             + x86("rtcc_rl")
+             + x86("call", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -314,9 +310,7 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("rtcc_wb")
-             + x86("call_bare", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
-             + x86("rtcc_rl")
+             + x86("call", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())

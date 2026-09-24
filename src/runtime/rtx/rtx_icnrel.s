@@ -13,7 +13,7 @@ RTX_GATE_DEF(icnrel)
 #define OP_EQV  22
 #define OP_NEQV 23
 RTX_FUNC(rt_jct_relop)
-    RTX_GATE(icnrel, c_rt_jct_relop)
+    RTX_GATE(icnrel, .Lbail)
     cmp     r8d, OP_EQV
     je      .Leqv
     cmp     r8d, OP_NEQV
@@ -42,29 +42,31 @@ RTX_FUNC(rt_jct_relop)
     je      .Lbail
     cmp     byte ptr [rcx], 3
     je      .Lbail
-    mov     r9, rsi
-    mov     r10, rcx
     shr     rdi, 32
     shr     rdx, 32
-    mov     rcx, rdi
-    cmp     rcx, rdx
-    cmova   rcx, rdx
+    mov     rax, rdi
+    cmp     rax, rdx
+    cmova   rax, rdx
+    cmp     rdi, rdx
+    seta    dil
+    setb    dl
+    sub     dil, dl
+    movsx   edi, dil
+    mov     rdx, rax
 .Lstrloop:
-    test    rcx, rcx
+    test    rdx, rdx
     jz      .Lstrtail
-    movzx   r11d, byte ptr [r9]
-    movzx   eax, byte ptr [r10]
-    cmp     r11d, eax
+    movzx   eax, byte ptr [rsi]
+    cmp     al, byte ptr [rcx]
     jne     .Lstrdiff
-    inc     r9
-    inc     r10
-    dec     rcx
+    inc     rsi
+    inc     rcx
+    dec     rdx
     jmp     .Lstrloop
 .Lstrtail:
-    cmp     rdi, rdx
-    jb      .Lless
-    ja      .Lstrgt
-    jmp     .Lstreq
+    test    edi, edi
+    js      .Lless
+    jnz     .Lstrgt
 .Lstreq:
     xor     eax, eax
     cmp     r8d, OP_SEQ
@@ -75,7 +77,6 @@ RTX_FUNC(rt_jct_relop)
     je      .Lret1
     ret
 .Lstrdiff:
-    cmp     r11d, eax
     jb      .Lless
 .Lstrgt:
     xor     eax, eax
@@ -122,19 +123,21 @@ RTX_FUNC(rt_jct_relop)
     mov     eax, 1
     ret
 .Lbail:
-    jmp     c_rt_jct_relop
+    RTX_CTAIL(c_rt_jct_relop)
 RTX_ENDF(rt_jct_relop)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_str_coerce)
-    RTX_GATE(icnrel, c_rt_str_coerce)
+    RTX_GATE(icnrel, .Lsco_c)
     cmp     dil, DT_S
-    jne     c_rt_str_coerce
+    jne     .Lsco_c
     mov     rax, rdi
     shr     rax, 32
     cmp     eax, -1
-    je      c_rt_str_coerce
+    je      .Lsco_c
     mov     rax, rdi
     mov     rdx, rsi
     ret
+.Lsco_c:
+    RTX_CTAIL(c_rt_str_coerce)
 RTX_ENDF(rt_str_coerce)
 .section .note.GNU-stack,"",@progbits

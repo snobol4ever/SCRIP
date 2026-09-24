@@ -44,7 +44,7 @@ scripts/test_gate_pl_no_value_stack.sh
 scripts/test_gate_pl_trail_mechanism.sh
 scripts/test_gate_pl_xfail_marker_consistent.sh
 scripts/test_gate_queue_census_placeholder_arm.sh
-scripts/test_gate_rtcc_callee_class.sh
+scripts/test_gate_rtx_entries_keep_the_rtcc_four.sh
 scripts/test_gate_rtcc_claimed_regs.sh
 scripts/test_gate_same_suite_ref_agreement.sh
 scripts/test_gate_score_column_semantics.sh

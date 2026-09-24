@@ -12,6 +12,7 @@ extern "C" {
 extern uint64_t rtccb[32];
 extern unsigned char g_rtcc_on;
 long *rt_anchor_ptr(void);
+int rtx_entry_is(const char *sym);
 }
 #include "rtx/rtcc.h"
 #ifndef _
@@ -302,17 +303,26 @@ inline std::string x86_load_got(const char * dst, const char * label, uint64_t p
 }
 inline std::string x86_align_assert();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int x86_rtx_plant(const char * name, int * cache) { if (*cache < 0) { const char * e = getenv(name); *cache = (e && *e == '1') ? 1 : 0; } return *cache; }
+static inline int x86_rtx_plant_veneer(void) { static int v = -1; return x86_rtx_plant("SCRIP_RTX_PLANT_VENEER", &v); }
+static inline int x86_rtx_plant_clobber(void) { static int v = -1; return x86_rtx_plant("SCRIP_RTX_PLANT_CLOBBER", &v); }
+inline std::string x86_rtx_after_bare(const char * sym) {
+    if (!x86_rtx_plant_clobber() || !rtx_entry_is(sym)) return std::string();
+    return x86_movabs_r64("r10", ~(uint64_t)0) + x86_movabs_r64("r11", ~(uint64_t)0);
+}
+inline std::string x86_call_text(const char * sym, const char * sfx) {
+    if (rtx_entry_is(sym)) return x86_rec("call") + "qword ptr [rip + " + sym + "@GOTPCREL]\n";
+    return x86_rec("call") + sym + sfx + "\n";
+}
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
-    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code); }
-    return x86_align_assert() + x86_rec("call") + sym + "@PLT\n";
+    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code) + x86_rtx_after_bare(sym); }
+    return x86_align_assert() + x86_call_text(sym, "@PLT") + x86_rtx_after_bare(sym);
 }
 #define RTCC_C_R8   1u
 #define RTCC_C_R9   2u
 #define RTCC_C_R10  4u
 #define RTCC_C_R11  8u
 #define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 | RTCC_C_R11)
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline bool x86_rtcc_noclob_on(void) { const char * e = getenv("SCRIP_RTCC_NOCLOB"); return !(e && *e == '0'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL; } return (unsigned)v; }
 static inline int x86_rtcc_veneer_on(void) { return x86_rtcc_veneer_mask() != 0; }
@@ -324,20 +334,7 @@ static inline unsigned x86_rtcc_clob_raw(const char * sym);
 static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_raw(sym) & x86_rtcc_live_mask(); }
 static inline unsigned x86_rtcc_clob_raw(const char * sym) {
     if (!sym) return RTCC_C_ALL;
-    static const struct { const char * n; unsigned m; } LEAF[] = {
-        { "rt_cmp_d", RTCC_C_R10 | RTCC_C_R11 },
-    };
-    if (x86_rtcc_noclob_on()) for (size_t i = 0; i < sizeof(LEAF) / sizeof(LEAF[0]); i++) if (strcmp(sym, LEAF[i].n) == 0) return LEAF[i].m;
-    static const struct { const char * n; unsigned m; } T[] = {
-        { "rt_dcap_end_ok_close",       0 }, { "rt_faildescr",              0 },
-        { "rt_is_truthy",               0 }, { "rt_proc_value",             0 },
-        { "rt_patstk_lazy_init",        0 }, { "rt_gen_spine_resume_enter", 0 },
-        { "rt_gen_spine_pass_\u03b3",   0 }, { "rt_gen_spine_pass_\u03c9",  0 },
-        { "rt_cap_match_begin", RTCC_C_R10 }, { "rt_cap_pop",      RTCC_C_R10 },
-        { "rt_cap_top",         RTCC_C_R10 }, { "rt_match_ctx_restore", RTCC_C_R10 },
-    };
-    for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return T[i].m;
-    return RTCC_C_ALL;
+    return (rtx_entry_is(sym) && !x86_rtx_plant_veneer()) ? 0 : RTCC_C_ALL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
@@ -430,7 +427,7 @@ inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
         std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
-    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + x86_rtcc_rl_text(m);
+    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + x86_rtcc_rl_text(m);
 }
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1547,7 +1544,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
                                                     : (x86_rec("call") + x86_portname(a.port) + "\n"));
         if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_rec("call") + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_call_text(a.sym, "");
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
             return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("call") + a.txt + "\n"));
@@ -1562,7 +1559,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }
     if (!strcmp(mnem, "call_bare")) {
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_rec("call") + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_call_text(a.sym, "");
         return std::string();
     }
     if (!strcmp(mnem, "rtcc_wb")) {
@@ -2120,7 +2117,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
         std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
-    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
+    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + cap + x86_rtcc_rl_text(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const std::string & r0, const std::string & r8) {
@@ -2132,7 +2129,7 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
         std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
-    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
+    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + cap + x86_rtcc_rl_text(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

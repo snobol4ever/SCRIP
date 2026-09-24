@@ -31,32 +31,33 @@ RTX_GATE_DEF(icnsub)
 #define ARBLK_NDIM        8
 #define ARBLK_DATA       32
 RTX_FUNC(rt_subscript_var)
-    RTX_GATE(icnsub, c_rt_subscript_var)
+    RTX_SAVE
+    RTX_GATE(icnsub, .Lsv_c)
     cmp     dl, DT_I
     je      .Lsub_tag_ok
     cmp     dl, DT_S
-    jne     c_rt_subscript_var
+    jne     .Lsv_c
 .Lsub_tag_ok:
     cmp     dil, DT_A
     jne     .Lsub_not_array
     cmp     dl, DT_I
-    jne     c_rt_subscript_var
+    jne     .Lsv_c
     jmp     .Lsub_array
 .Lsub_not_array:
     cmp     dil, DT_T
     jne     .Lsub_not_table_direct
     cmp     dl, DT_I
-    jne     c_rt_subscript_var
+    jne     .Lsv_c
     jmp     .Lsub_table_direct
 .Lsub_not_table_direct:
     cmp     dil, DT_N
-    jne     c_rt_subscript_var
+    jne     .Lsv_c
     mov     rax, rdi
     shr     rax, 32
     cmp     eax, 1
-    jne     c_rt_subscript_var
+    jne     .Lsv_c
     test    rsi, rsi
-    je      c_rt_subscript_var
+    je      .Lsv_c
     sub     rsp, 88
     mov     [rsp + 0], rdi
     mov     [rsp + 8], rsi
@@ -148,7 +149,7 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    ret
+    RTX_RET
 .Lsub_table:
     jmp     .Lsub_bail
     cmp     al, DT_T
@@ -219,7 +220,7 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    ret
+    RTX_RET
 .Lsub_tbl_miss:
     mov     [rsp + 32], rsi
     mov     [rsp + 48], rdi
@@ -245,7 +246,7 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rcx
     mov     rax, DT_NAMETRAP_LO
-    ret
+    RTX_RET
 .Lsub_string:
     mov     r8, rax
     shr     r8, 32
@@ -285,12 +286,12 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    ret
+    RTX_RET
 .Lsub_array:
     test    rsi, rsi
-    je      c_rt_subscript_var
+    je      .Lsv_c
     cmp     dword ptr [rsi + ARBLK_NDIM], 1
-    jne     c_rt_subscript_var
+    jne     .Lsv_c
     mov     eax, ecx
     mov     r10d, dword ptr [rsi + ARBLK_LO]
     sub     eax, r10d
@@ -302,7 +303,7 @@ RTX_FUNC(rt_subscript_var)
     jge     .Lsub_arr_fail
     mov     r9, [rsi + ARBLK_DATA]
     test    r9, r9
-    je      c_rt_subscript_var
+    je      .Lsv_c
     movsxd  rax, eax
     shl     rax, 4
     add     rax, r9
@@ -328,14 +329,14 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    ret
+    RTX_RET
 .Lsub_arr_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
-    ret
+    RTX_RET
 .Lsub_table_direct:
     test    rsi, rsi
-    je      c_rt_subscript_var
+    je      .Lsv_c
     sub     rsp, 24
     mov     [rsp + 0], rsi
     mov     [rsp + 8], rdx
@@ -358,7 +359,7 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 24
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    ret
+    RTX_RET
 .Lsub_table_int:
     jmp     .Lsub_bail
     mov     rsi, rdx
@@ -397,13 +398,15 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     eax, DT_FAIL
     xor     edx, edx
-    ret
+    RTX_RET
 .Lsub_bail:
     mov     rdi, [rsp + 0]
     mov     rsi, [rsp + 8]
     mov     rdx, [rsp + 16]
     mov     rcx, [rsp + 24]
     add     rsp, 88
-    jmp     c_rt_subscript_var
+    jmp     .Lsv_c
+.Lsv_c:
+    RTX_CTAIL_SAVED(c_rt_subscript_var)
 RTX_ENDF(rt_subscript_var)
 .section .note.GNU-stack,"",@progbits

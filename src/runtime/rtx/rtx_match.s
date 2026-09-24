@@ -5,19 +5,19 @@ RTX_FUNC(rt_cap_match_begin)
     add     eax, 1
     je      .Lcmb_wrap
     mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [r10], eax
+    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     dword ptr [rcx], eax
     ret
 .Lcmb_wrap:
     mov     eax, 1
     mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [r10], eax
+    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     dword ptr [rcx], eax
     ret
 RTX_ENDF(rt_cap_match_begin)
 RTX_FUNC(rt_cap_pop)
-    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     eax, dword ptr [r10]
+    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     eax, dword ptr [rcx]
     cmp     eax, dword ptr [rdi + 8]
     jne     .Lcp_ret
     mov     eax, dword ptr [rdi + 12]
@@ -30,8 +30,8 @@ RTX_FUNC(rt_cap_pop)
 RTX_ENDF(rt_cap_pop)
 RTX_FUNC(rt_cap_top)
     xor     eax, eax
-    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     ecx, dword ptr [r10]
+    mov     rsi, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     ecx, dword ptr [rsi]
     cmp     ecx, dword ptr [rdi + 8]
     jne     .Lct_ret
     mov     ecx, dword ptr [rdi + 12]
@@ -43,61 +43,60 @@ RTX_FUNC(rt_cap_top)
     ret
 RTX_ENDF(rt_cap_top)
 RTX_FUNC(rt_defer_close)
-    RTX_GATE(match, c_rt_defer_close)
+    RTX_GATE(match, .Ldc_c)
     mov     eax, dword ptr [rip + g_dfx_top]
     test    eax, eax
     jle     .Ldc_empty
-    mov     r10, qword ptr [rip + g_dfx]
-    test    r10, r10
-    jz      c_rt_defer_close
-    lea     r11d, [rax - 1]
-    lea     r11, [r11 + r11*2]
-    lea     r11, [r10 + r11*8]
-    cmp     dword ptr [r11 + 16], 0
+    mov     rsi, qword ptr [rip + g_dfx]
+    test    rsi, rsi
+    jz      .Ldc_c
+    lea     ecx, [rax - 1]
+    lea     rcx, [rcx + rcx*2]
+    lea     rsi, [rsi + rcx*8]
+    cmp     dword ptr [rsi + 16], 0
     jne     .Ldc_pop_fail
-    mov     ecx, dword ptr [r11]
+    mov     ecx, dword ptr [rsi]
     cmp     cl, DT_FAIL
     je      .Ldc_pop_fail
     cmp     cl, DT_S
     je      .Ldc_str
     cmp     cl, DT_SNUL
-    jne     c_rt_defer_close
+    jne     .Ldc_c
 .Ldc_str:
-    mov     ecx, dword ptr [r11 + 4]
+    mov     ecx, dword ptr [rsi + 4]
     test    ecx, ecx
-    jz      c_rt_defer_close
+    jz      .Ldc_c
     test    ecx, 0x80000000
-    jnz     c_rt_defer_close
-    mov     rdx, qword ptr [r11 + 8]
+    jnz     .Ldc_c
+    mov     rdx, qword ptr [rsi + 8]
     test    rdx, rdx
-    jz      c_rt_defer_close
+    jz      .Ldc_c
     sub     dword ptr [rip + g_dfx_top], 1
-    mov     r10, qword ptr [rip + Σlen@GOTPCREL]
-    mov     r10d, dword ptr [r10]
+    mov     rsi, qword ptr [rip + Σlen@GOTPCREL]
+    mov     esi, dword ptr [rsi]
     mov     eax, edi
     add     eax, ecx
-    cmp     eax, r10d
+    cmp     eax, esi
     jg      .Ldc_fail
-    mov     r10, qword ptr [rip + Σ@GOTPCREL]
-    mov     r10, qword ptr [r10]
-    mov     esi, edi
-    add     r10, rsi
+    mov     rsi, qword ptr [rip + Σ@GOTPCREL]
+    mov     rsi, qword ptr [rsi]
+    add     rsi, rax
+    sub     rsi, rcx
     cmp     ecx, 1
     jne     .Ldc_cmpn
-    mov     sil, byte ptr [r10]
-    cmp     sil, byte ptr [rdx]
+    mov     cl, byte ptr [rsi]
+    cmp     cl, byte ptr [rdx]
     jne     .Ldc_fail
     ret
 .Ldc_cmpn:
-    mov     r8, rdi
-    mov     rsi, r10
-    mov     rdi, rdx
+    push    rdi
     push    rax
+    mov     rdi, rdx
     mov     ecx, ecx
     cld
     repe    cmpsb
     pop     rax
-    mov     rdi, r8
+    pop     rdi
     jne     .Ldc_fail
     ret
 .Ldc_pop_fail:
@@ -106,16 +105,18 @@ RTX_FUNC(rt_defer_close)
 .Ldc_empty:
     mov     eax, -1
     ret
+.Ldc_c:
+    RTX_CTAIL(c_rt_defer_close)
 RTX_ENDF(rt_defer_close)
 .section .rodata
 .align 1
 .Lrtx_dfx_nul:
     .byte 0
 RTX_FUNC(rt_match_ctx_restore)
-    mov     r10, qword ptr [rip + Σ@GOTPCREL]
-    mov     qword ptr [r10], rdi
-    mov     r10, qword ptr [rip + Σlen@GOTPCREL]
-    mov     dword ptr [r10], esi
+    mov     rax, qword ptr [rip + Σ@GOTPCREL]
+    mov     qword ptr [rax], rdi
+    mov     rax, qword ptr [rip + Σlen@GOTPCREL]
+    mov     dword ptr [rax], esi
     ret
 RTX_ENDF(rt_match_ctx_restore)
 RTX_FUNC(rt_patstk_lazy_init)
@@ -123,16 +124,16 @@ RTX_FUNC(rt_patstk_lazy_init)
 RTX_ENDF(rt_patstk_lazy_init)
 #define RTX_DCAP_TOP_VA 0x70000000
 RTX_FUNC(rt_match_enter)
-    RTX_GATE(match, c_rt_match_enter)
+    RTX_GATE(match, .Lme_c)
     cmp     dil, DT_S
-    jne     c_rt_match_enter
+    jne     .Lme_c
     test    rsi, rsi
-    jz      c_rt_match_enter
-    mov     r8, rdi
-    shr     r8, 32
+    jz      .Lme_c
+    mov     rdx, rdi
+    shr     rdx, 32
     jnz     .Lme_mutate
     cmp     byte ptr [rsi], 0
-    je      c_rt_match_enter
+    je      .Lme_c
 .Lme_mutate:
     mov     eax, dword ptr [rip + g_cap_gen_next]
     add     eax, 1
@@ -140,46 +141,47 @@ RTX_FUNC(rt_match_enter)
     mov     eax, 1
 .Lme_gen_ok:
     mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [r10], eax
+    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     dword ptr [rcx], eax
     test    r12, r12
     je      .Lme_dcap_cold
 .Lme_dcap_done:
-    test    r8d, r8d
+    test    edx, edx
     jnz     .Lme_store
     mov     rdi, rsi
     push    rsi
-    call    strlen@PLT
+    RTX_CCALL(strlen@PLT)
     pop     rsi
-    mov     r8, rax
+    mov     rdx, rax
 .Lme_store:
-    mov     r10, qword ptr [rip + Σ@GOTPCREL]
-    mov     qword ptr [r10], rsi
-    mov     r10, qword ptr [rip + Σlen@GOTPCREL]
-    mov     dword ptr [r10], r8d
+    mov     rcx, qword ptr [rip + Σ@GOTPCREL]
+    mov     qword ptr [rcx], rsi
+    mov     rcx, qword ptr [rip + Σlen@GOTPCREL]
+    mov     dword ptr [rcx], edx
     mov     rax, rsi
-    mov     rdx, r8
     ret
 .Lme_dcap_cold:
     push    rsi
-    push    r8
+    push    rdx
     sub     rsp, 8
-    call    rt_dcap_lazy_init
+    RTX_CCALL(rt_dcap_lazy_init)
     add     rsp, 8
-    pop     r8
+    pop     rdx
     pop     rsi
     jmp     .Lme_dcap_done
+.Lme_c:
+    RTX_CTAIL(c_rt_match_enter)
 RTX_ENDF(rt_match_enter)
 RTX_FUNC(rt_dcap_end_ok_open)
-    RTX_GATE(match, c_rt_dcap_end_ok_open)
+    RTX_GATE(match, .Ldeoo_c)
     cmp     dword ptr [rip + g_dcap_trace], 0
-    jne     c_rt_dcap_end_ok_open
+    jne     .Ldeoo_c
     mov     rax, qword ptr [rip + g_dcf]
     test    rax, rax
-    jz      c_rt_dcap_end_ok_open
+    jz      .Ldeoo_c
     mov     ecx, dword ptr [rip + g_dcf_top]
     cmp     ecx, dword ptr [rip + g_dcf_cap]
-    jge     c_rt_dcap_end_ok_open
+    jge     .Ldeoo_c
 .Ldeoo_mutate:
     shl     rcx, 6
     add     rax, rcx
@@ -193,7 +195,9 @@ RTX_FUNC(rt_dcap_end_ok_open)
     mov     qword ptr [rax + 40], 0
     mov     qword ptr [rax + 48], 0
     mov     qword ptr [rax + 56], 0
-    jmp     rt_dcap_pump
+    RTX_CTAIL(rt_dcap_pump)
+.Ldeoo_c:
+    RTX_CTAIL(c_rt_dcap_end_ok_open)
 RTX_ENDF(rt_dcap_end_ok_open)
 RTX_FUNC(rt_dcap_end_ok_close)
     cmp     dword ptr [rip + g_dcf_top], 0
@@ -203,22 +207,23 @@ RTX_FUNC(rt_dcap_end_ok_close)
     ret
 RTX_ENDF(rt_dcap_end_ok_close)
 RTX_FUNC(rt_match_replace)
-    RTX_GATE(match, c_rt_match_replace)
+    RTX_SAVE
+    RTX_GATE(match, .Lmr_c)
     cmp     dword ptr [rip + g_repl_trace], 0
-    jne     c_rt_match_replace
+    jne     .Lmr_c
     test    rdi, rdi
-    jz      c_rt_match_replace
+    jz      .Lmr_c
     cmp     byte ptr [rdi], 0
-    je      c_rt_match_replace
+    je      .Lmr_c
     cmp     sil, DT_S
-    jne     c_rt_match_replace
+    jne     .Lmr_c
     test    rdx, rdx
-    jz      c_rt_match_replace
+    jz      .Lmr_c
     mov     r11, rsi
     shr     r11, 32
     jnz     .Lmr_subj_ok
     cmp     byte ptr [rdx], 0
-    je      c_rt_match_replace
+    je      .Lmr_c
 .Lmr_subj_ok:
     xor     r10d, r10d
     test    r9, r9
@@ -227,10 +232,10 @@ RTX_FUNC(rt_match_replace)
     cmp     al, DT_SNUL
     je      .Lmr_repl_done
     cmp     al, DT_S
-    jne     c_rt_match_replace
+    jne     .Lmr_c
     mov     r10, qword ptr [r9 + 8]
     test    r10, r10
-    jz      c_rt_match_replace
+    jz      .Lmr_c
     cmp     dword ptr [r9 + 4], 0
     jnz     .Lmr_repl_done
     cmp     byte ptr [r10], 0
@@ -331,19 +336,19 @@ RTX_FUNC(rt_match_replace)
     add     rsp, 88
     pop     r13
     pop     r12
-    ret
+    RTX_RET_GVA
+.Lmr_c:
+    RTX_CTAIL_SAVED_GVA(c_rt_match_replace)
 RTX_ENDF(rt_match_replace)
 RTX_FUNC(rt_cap_open)
     test    rdi, rdi
-    jz      c_rt_cap_open
+    jz      .Lco_c
     cmp     byte ptr [rdi], 0
-    je      c_rt_cap_open
+    je      .Lco_c
     cmp     byte ptr [rdi], 42
-    je      c_rt_cap_open
-    .globl  rt_cap_open_plain
-    .type   rt_cap_open_plain,@function
-rt_cap_open_plain:
-    endbr64
+    je      .Lco_c
+RTX_ENTRY(rt_cap_open_plain)
+    RTX_SAVE
     mov     eax, edx
     sub     eax, esi
     test    eax, eax
@@ -471,7 +476,7 @@ rt_cap_open_plain:
     RTX_CALL_UNALIGN
 .Lcap_fastret:
     xor     eax, eax
-    ret
+    RTX_RET
 .Lcap_slow:
     RTX_CALL_ALIGN
     mov     rdi, r11
@@ -482,7 +487,9 @@ rt_cap_open_plain:
     call    NV_SET_fn@PLT
     RTX_CALL_UNALIGN
     xor     eax, eax
-    ret
+    RTX_RET
+.Lco_c:
+    RTX_CTAIL(c_rt_cap_open)
 RTX_ENDF(rt_cap_open)
     .size rt_cap_open_plain, .-rt_cap_open_plain
 .section .rodata

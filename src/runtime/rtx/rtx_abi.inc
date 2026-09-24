@@ -41,11 +41,38 @@
  * graph is live above you — it is free, not scratch-by-fiat.
  *
  * RTX WORKING SET — free at every entry, zero boundary cost:
- *   rax rcx rdx rsi rdi r8 r9 r10 r11 + xmm0-15
+ *   rax rcx rdx rsi rdi + xmm0-15
+ * THE RTCC FOUR SURVIVE EVERY RTX ENTRY (Lon 2026-09-23, "get rid of veneer for all RT
+ * ASM instances"; CEO-1224; ARCH-SNOBOL4-RTX.md section 2). Emitted code calls an RTX
+ * entry BARE -- no rtccb write-back before, no reload after -- so the entry itself owes
+ * what the veneer used to buy:
+ *   r8 r10 r11  returned exactly as received (r10 = statement number and r11 = box id
+ *               are the crash telemetry; r8 is whatever the caller left there, the
+ *               fifth argument included)
+ *   r9          returned as the GVA base, rtccb slot 6 -- the caller may have loaned it
+ *               out as a sixth argument (rt_match_replace), and the veneer's reload was
+ *               what handed it back
+ * A body keeps the promise one of three ways, and the static gate
+ * test_gate_rtx_entries_keep_the_rtcc_four.sh proves which by walking every entry:
+ *   (1) it never writes them;
+ *   (2) it opens with RTX_SAVE and leaves by RTX_RET (RTX_RET_GVA when r9 came in as
+ *       an argument), so every write in between is its own business;
+ *   (3) it saves them around the one place it needs them (its own push/pop pairs).
+ * EVERY EXIT INTO C IS WRAPPED, because gcc-compiled C clobbers all four: a call in an
+ * unsaved body is RTX_CCALL(fn); a tail exit lands on a local stub that is RTX_CTAIL(fn)
+ * (or RTX_CTAIL_SAVED(fn) inside a saved body, which reloads the fifth and sixth
+ * arguments from the save area first); RTX_GATE's gate-off arm lands on such a stub.
+ * AN RTX ENTRY IS NEVER REACHED THROUGH A PLT: a lazily bound PLT slot resolves through
+ * _dl_runtime_resolve, which jumps to the target through r11 and runs _dl_fixup, so the
+ * FIRST call of every symbol would hand the callee a clobbered r10/r11 to "preserve".
+ * Nested calls and tail jumps between RTX entries use RTX_CALL / RTX_JMP (through the
+ * GOT, which the loader fills eagerly); mode 4 emits call qword ptr [rip + sym@GOTPCREL]
+ * for the same reason; mode 3 already calls by address.
+ * THE ENTRY LIST IS DERIVED, NEVER WRITTEN: RTX_FUNC and RTX_ENTRY append the name to
+ * section rtx_entry_names, and rtx_entry_is() (rtx_init.c) is what the emitter asks.
  * Internal roles (SPITBOL lessons, ARCH section 2):
  *   rax value/result (W0) . rdx tag word + mul/div companion . rsi/rdi string
  *   src/dst (movs/lods/stos/scas/cmps native) . rcx length/count, cl char work
- *   r10 idiv divisor scratch, keeping rdx clear of the div blast zone
  * Conditions use EFLAGS + setcc/jcc, never a memory flag byte.
  * cld is a global invariant: any std user restores it before returning.
  *
@@ -91,23 +118,40 @@
 
 /* CET/IBT is enabled on this toolchain, so every externally reachable entry
  * needs endbr64 (a 4-byte nop where CET is absent). RTX_FUNC plants it. */
-#define RTX_FUNC(name)   .text; .globl name; .type name,@function; .align 16; name: ; endbr64
+#define RTX_NAME(name)   .pushsection rtx_entry_names,"a",@progbits; .asciz #name; .popsection
+#define RTX_FUNC(name)   .text; .globl name; .type name,@function; .align 16; name: ; endbr64; RTX_NAME(name)
+#define RTX_ENTRY(name)  .globl name; .type name,@function; name: ; endbr64; RTX_NAME(name)
 #define RTX_ENDF(name)   .size name, .-name
+
+#define RTX_SAVE              push r8; push r9; push r10; push r11
+#define RTX_RESTORE           pop r11; pop r10; pop r9; pop r8
+#define RTX_RET               RTX_RESTORE; ret
+#define RTX_GVA_R9            mov r9, qword ptr [rip + rtccb@GOTPCREL]; mov r9, qword ptr [r9 + 48]
+#define RTX_RET_GVA           RTX_RESTORE; RTX_GVA_R9; ret
+#define RTX_CCALL(fn)         push r8; push r9; push r10; push r11; call fn; pop r11; pop r10; pop r9; pop r8
+#define RTX_CTAIL(fn)         push r8; push r9; push r10; push r11; sub rsp, 8; call fn; add rsp, 8; pop r11; pop r10; pop r9; pop r8; ret
+#define RTX_CTAIL_GVA(fn)     push r8; push r9; push r10; push r11; sub rsp, 8; call fn; add rsp, 8; pop r11; pop r10; pop r9; pop r8; RTX_GVA_R9; ret
+#define RTX_CTAIL_SAVED(fn)   mov r8, qword ptr [rsp + 24]; mov r9, qword ptr [rsp + 16]; sub rsp, 8; call fn; add rsp, 8; RTX_RET
+#define RTX_CTAIL_SAVED_GVA(fn) mov r8, qword ptr [rsp + 24]; mov r9, qword ptr [rsp + 16]; sub rsp, 8; call fn; add rsp, 8; RTX_RET_GVA
+#define RTX_CALL(fn)          call qword ptr [rip + fn@GOTPCREL]
+#define RTX_JMP(fn)           jmp qword ptr [rip + fn@GOTPCREL]
 
 /* Per-family kill-switch (ARCH section 4). The gate byte is HIDDEN: scrip links
  * dynamically against libscrip_rt.so (Makefile:343, Lon 2026-07-25), so there is
  * exactly ONE runtime copy and hidden visibility makes [rip+sym] direct and
- * interposition-proof. Gate 0 => tail-jump to the untouched C body, which still
- * has the identical signature, so the args are already in place and its return
- * goes straight to our caller. That tail jump IS the byte-identity proof path. */
+ * interposition-proof. Gate 0 => jump to a LOCAL STUB (RTX_CTAIL of the untouched
+ * C body), which still has the identical signature, so the args are already in
+ * place; the stub saves the RTCC four around the call, because the C body clobbers
+ * them and our caller no longer reloads them. The second argument names that stub. */
 #define RTX_GATE_DEF(fam)  .data; .align 1; .globl rtx_gate_##fam; .hidden rtx_gate_##fam; \
                            .type rtx_gate_##fam,@object; .size rtx_gate_##fam,1; rtx_gate_##fam: .byte 0; .text
-#define RTX_GATE(fam, cfallback)  cmp byte ptr [rip + rtx_gate_##fam], 0; je cfallback
+#define RTX_GATE(fam, stub)  cmp byte ptr [rip + rtx_gate_##fam], 0; je stub
 
 /* libc boundary (ARCH section 3). Entry from a call leaves rsp == 8 (mod 16),
  * so one push realigns. Save live volatiles yourself; the pins are callee-saved
- * and libc preserves them for free. We do NOT need SPITBOL's global reg_block:
- * libc never inspects SCRIP state, unlike SPITBOL's osint functions. */
+ * and libc preserves them for free, but r8-r11 are the caller's (see above), so
+ * a libc call inside an unsaved body is RTX_CCALL like any other C. We do NOT
+ * need SPITBOL's global reg_block: libc never inspects SCRIP state. */
 #define RTX_CALL_ALIGN     push rsp; push qword ptr [rsp]; and rsp, -16
 #define RTX_CALL_UNALIGN   mov rsp, [rsp + 8]
 

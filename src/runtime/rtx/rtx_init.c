@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_table;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_misc;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_alloc;
@@ -20,6 +21,10 @@ extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icngen;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icncall;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icnsub;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_plunify;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern const char __start_rtx_entry_names[] __attribute__((visibility("hidden")));
+extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")));
+int rtx_entry_is(const char *sym) { if (!sym) return 0; for (const char *p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) if (strcmp(p, sym) == 0) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char rtx_env_on(const char *name, unsigned char dflt) { const char *e = getenv(name); if (!e || !*e) return dflt; return (unsigned char)(e[0] != '0'); }
 static unsigned char rtx_mon_dflt(void) { const char *m = getenv("MONITOR_BIN"); return (unsigned char)((m && *m && m[0] != '0') ? 0 : 1); }

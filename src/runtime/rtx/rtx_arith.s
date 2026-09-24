@@ -4,8 +4,8 @@ RTX_GATE_DEF(arith)
 #define RTX_REAL_FINITE_OR(slow) \
     movq    rax, xmm0 ; \
     add     rax, rax ; \
-    mov     r11, 0xFFE0000000000000 ; \
-    cmp     rax, r11 ; \
+    shr     rax, 53 ; \
+    cmp     eax, 0x7FF ; \
     jae     slow
 .section .rodata
 .align 1
@@ -21,84 +21,93 @@ RTX_FUNC(rt_cmp_d)
     jne     .Lcd_notint
     mov     rdx, qword ptr [rdi + 8]
     cmp     rdx, qword ptr [rsi + 8]
-    setg    r11b
-    setl    r10b
-    sub     r11b, r10b
-    movsx   eax, r11b
+    setg    al
+    setl    cl
+    sub     al, cl
+    movsx   eax, al
     ret
 .Lcd_notint:
-    mov     r10d, eax
-    or      r10d, ecx
-    test    r10b, (DT_NOTSTR_MASK & 0xFF)
+    test    al, (DT_NOTSTR_MASK & 0xFF)
+    jnz     .Lcd_real
+    test    cl, (DT_NOTSTR_MASK & 0xFF)
     jnz     .Lcd_real
     xor     edx, edx
-    xor     r11d, r11d
     cmp     al, DT_S
-    jne     .Lcd_a_fix
+    jne     .Lcd_a_nots
     mov     rdx, qword ptr [rdi + 8]
-    mov     r11d, dword ptr [rdi + 4]
+    mov     edi, dword ptr [rdi + 4]
+    jmp     .Lcd_a_fix
+.Lcd_a_nots:
+    xor     edi, edi
 .Lcd_a_fix:
     test    rdx, rdx
     jnz     .Lcd_a_len
     lea     rdx, [rip + .Lcd_empty]
-    xor     r11d, r11d
+    xor     edi, edi
 .Lcd_a_len:
-    test    r11d, r11d
+    test    edi, edi
     jz      .Lcd_a_scan
-    cmp     r11d, -1
+    cmp     edi, -1
     jne     .Lcd_a_known
-    xor     r11d, r11d
+    xor     edi, edi
 .Lcd_a_scan:
-    cmp     byte ptr [rdx + r11], 0
+    cmp     byte ptr [rdx + rdi], 0
     je      .Lcd_a_known
-    inc     r11
+    inc     rdi
     jmp     .Lcd_a_scan
 .Lcd_a_known:
-    mov     rdi, r11
-    xor     r10d, r10d
-    xor     r11d, r11d
+    xor     eax, eax
     cmp     cl, DT_S
-    jne     .Lcd_b_fix
-    mov     r10, qword ptr [rsi + 8]
-    mov     r11d, dword ptr [rsi + 4]
+    jne     .Lcd_b_nots
+    mov     rax, qword ptr [rsi + 8]
+    mov     esi, dword ptr [rsi + 4]
+    jmp     .Lcd_b_fix
+.Lcd_b_nots:
+    xor     esi, esi
 .Lcd_b_fix:
-    test    r10, r10
+    test    rax, rax
     jnz     .Lcd_b_len
-    lea     r10, [rip + .Lcd_empty]
-    xor     r11d, r11d
+    lea     rax, [rip + .Lcd_empty]
+    xor     esi, esi
 .Lcd_b_len:
-    test    r11d, r11d
+    test    esi, esi
     jz      .Lcd_b_scan
-    cmp     r11d, -1
+    cmp     esi, -1
     jne     .Lcd_b_known
-    xor     r11d, r11d
+    xor     esi, esi
 .Lcd_b_scan:
-    cmp     byte ptr [r10 + r11], 0
+    cmp     byte ptr [rax + rsi], 0
     je      .Lcd_b_known
-    inc     r11
+    inc     rsi
     jmp     .Lcd_b_scan
 .Lcd_b_known:
-    mov     rsi, r11
-    cmp     r11, rdi
-    cmova   r11, rdi
+    mov     rcx, rsi
+    cmp     rcx, rdi
+    cmova   rcx, rdi
+    cmp     rdi, rsi
+    seta    dil
+    setb    sil
+    sub     dil, sil
+    movsx   edi, dil
+    mov     rsi, rax
 .Lcd_strloop:
-    test    r11, r11
+    test    rcx, rcx
     jz      .Lcd_strtie
     movzx   eax, byte ptr [rdx]
-    movzx   ecx, byte ptr [r10]
-    cmp     al, cl
+    cmp     al, byte ptr [rsi]
     jne     .Lcd_strdiff
     inc     rdx
-    inc     r10
-    dec     r11
+    inc     rsi
+    dec     rcx
     jmp     .Lcd_strloop
 .Lcd_strtie:
-    cmp     rdi, rsi
+    mov     eax, edi
+    ret
 .Lcd_strdiff:
-    seta    r11b
-    setb    r10b
-    sub     r11b, r10b
-    movsx   eax, r11b
+    seta    al
+    setb    cl
+    sub     al, cl
+    movsx   eax, al
     ret
 .Lcd_real:
     cmp     al, DT_R
@@ -116,15 +125,15 @@ RTX_FUNC(rt_cmp_d)
     movsd   xmm1, qword ptr [rsi + 8]
 .Lcd_cmp:
     comisd  xmm0, xmm1
-    seta    r11b
+    seta    al
     comisd  xmm1, xmm0
-    seta    r10b
-    sub     r11b, r10b
-    movsx   eax, r11b
+    seta    cl
+    sub     al, cl
+    movsx   eax, al
     ret
 RTX_ENDF(rt_cmp_d)
 RTX_FUNC(rt_add)
-    RTX_GATE(arith, c_rt_add)
+    RTX_GATE(arith, .Ladd_slow)
     cmp     dil, DT_I
     jne     .Ladd_notii
     cmp     dl, DT_I
@@ -147,11 +156,11 @@ RTX_FUNC(rt_add)
     mov     eax, DT_R
     ret
 .Ladd_slow:
-    jmp     c_rt_add
+    RTX_CTAIL(c_rt_add)
 RTX_ENDF(rt_add)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_sub)
-    RTX_GATE(arith, c_rt_sub)
+    RTX_GATE(arith, .Lsub_slow)
     cmp     dil, DT_I
     jne     .Lsub_notii
     cmp     dl, DT_I
@@ -174,11 +183,11 @@ RTX_FUNC(rt_sub)
     mov     eax, DT_R
     ret
 .Lsub_slow:
-    jmp     c_rt_sub
+    RTX_CTAIL(c_rt_sub)
 RTX_ENDF(rt_sub)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_mul)
-    RTX_GATE(arith, c_rt_mul)
+    RTX_GATE(arith, .Lmul_slow)
     cmp     dil, DT_I
     jne     .Lmul_notii
     cmp     dl, DT_I
@@ -201,6 +210,6 @@ RTX_FUNC(rt_mul)
     mov     eax, DT_R
     ret
 .Lmul_slow:
-    jmp     c_rt_mul
+    RTX_CTAIL(c_rt_mul)
 RTX_ENDF(rt_mul)
 .section .note.GNU-stack,"",@progbits

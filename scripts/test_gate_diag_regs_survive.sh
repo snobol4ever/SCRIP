@@ -9,12 +9,15 @@
 # worse than no answer at all (ARCH-SNOBOL4-RTX.md #2's honesty clause). 53819b4a widened the
 # RTCC veneer to write-back/reload r10/r11 around every protected runtime call, closing the
 # specific clobber that clause measured (rt_match_enter) -- but nothing PROVED it stayed closed.
-# THIS GATE IS THAT PROOF, and it is NEGATIVE-TESTED: SCRIP_RTCC_VENEER=3 rebuilds the SAME
-# witness with r8/r9 protection intact (so the run does not crash for an unrelated reason -- r9
-# is the live GVA base register by default, ARCH-SNOBOL4-RTX.md #2) and r10/r11 protection
-# SPECIFICALLY withheld, forces the identical fault, and asserts the reading comes back WRONG --
-# reproducing the exact defect the honesty clause originally measured. If that arm ever reads
-# correct too, this gate is measuring nothing and must fail loudly, not pass quietly.
+# THIS GATE IS THAT PROOF, and it is NEGATIVE-TESTED. ⛔ RE-POINTED 2026-09-23 (cto, CEO-1224, row
+# spine-no-rtccb-veneer-on-any-call-into-the-asm-runtime-the-rtx-abi-preserves-r8-to-r11): the protected
+# call is rt_match_enter, an ASM-RUNTIME entry, and those are now called BARE -- the callee keeps r8-r11
+# itself (rtx_abi.inc, proven by test_gate_rtx_entries_keep_the_rtcc_four.sh) -- so the old negative
+# arm, SCRIP_RTCC_VENEER=3 withholding the call-site veneer's r10/r11 slots, withholds nothing and read
+# correct. The negative arm is now SCRIP_RTX_PLANT_CLOBBER=1, which makes the emitter write -1 into r10
+# and r11 right after every bare asm-runtime call: exactly what a callee that broke the contract would
+# leave. It rebuilds the SAME witness, forces the identical fault, and asserts the reading comes back
+# WRONG. If that arm ever reads correct too, this gate is measuring nothing and must fail loudly.
 #
 # Method: compile tests/snobol4/probe/diag_regs_witness.{sno,ref} (mode-4), link it, set a breakpoint at
 # n*_match_break's alpha (reached only after rt_match_enter's protected call has returned), and
@@ -55,7 +58,7 @@ WITNESS="$WORK/diag_regs_witness.sno"
 master_extract_origin probe_diag_regs_witness__diag_regs_witness "$WITNESS" >/dev/null 2>&1
 if [ ! -f "$WITNESS" ]; then echo "⛔ REFUSED: could not extract diag_regs_witness from the master"; exit 2; fi
 
-compile_and_link() {   # $1 = output basename; caller sets/unsets SCRIP_RTCC_VENEER first
+compile_and_link() {   # $1 = output basename; caller sets/unsets SCRIP_RTX_PLANT_CLOBBER first
     local name="$1"
     ( cd "$WORK" && "$ROOT/scrip" --compile -o "$name.s" "$WITNESS" < /dev/null ) || return 1
     gcc -no-pie -g -o "$WORK/$name" "$WORK/$name.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" \
@@ -76,16 +79,16 @@ read_r10_at_crash() {   # $1 = binary path -> prints r10 decimal on stdout, empt
         "$bin" 2>/dev/null | sed -n 's/^R10=//p'
 }
 
-echo "=== positive arm: default build (today's tree, veneer live) ==="
-unset SCRIP_RTCC_VENEER
+echo "=== positive arm: default build (today's tree, the callee keeps r10/r11) ==="
+unset SCRIP_RTX_PLANT_CLOBBER SCRIP_RTCC_VENEER
 if ! compile_and_link good; then echo "⛔ FAIL: could not build the positive-arm witness"; exit 1; fi
 got_good="$(read_r10_at_crash "$WORK/good")"
 echo "  r10 at forced crash = ${got_good:-<none>}  (expect 2)"
 
-echo "=== negative arm: r8/r9 protected, r10/r11 protection WITHHELD (SCRIP_RTCC_VENEER=3) ==="
-export SCRIP_RTCC_VENEER=3
+echo "=== negative arm: a callee that breaks the contract (SCRIP_RTX_PLANT_CLOBBER=1) ==="
+export SCRIP_RTX_PLANT_CLOBBER=1
 if ! compile_and_link bad; then echo "⛔ FAIL: could not build the negative-arm witness"; exit 1; fi
-unset SCRIP_RTCC_VENEER
+unset SCRIP_RTX_PLANT_CLOBBER
 got_bad="$(read_r10_at_crash "$WORK/bad")"
 echo "  r10 at forced crash = ${got_bad:-<none>}  (expect NOT 2 -- proves this gate can fail)"
 
@@ -95,12 +98,12 @@ if [ "$got_good" != "2" ]; then
     pass=0
 fi
 if [ "$got_bad" = "2" ]; then
-    echo "⛔ FAIL: negative arm ALSO read r10=2 -- this gate is not measuring anything (SCRIP_RTCC_VENEER=3 no longer isolates the defect)."
+    echo "⛔ FAIL: negative arm ALSO read r10=2 -- this gate is not measuring anything (SCRIP_RTX_PLANT_CLOBBER=1 no longer reaches the protected call)."
     pass=0
 fi
 
 if [ "$pass" = "1" ]; then
-    echo "✅ PASS: r10 survives to a forced crash after a protected runtime call returns, and the negative arm proves the check is real."
+    echo "✅ PASS: r10 survives to a forced crash after the bare asm-runtime call returns, and the negative arm proves the check is real."
     exit 0
 fi
 exit 1

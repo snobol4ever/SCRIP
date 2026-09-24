@@ -2,24 +2,26 @@
 RTX_GATE_DEF(icnagg)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_size_d)
-    RTX_GATE(icnagg, c_rt_size_d)
+    RTX_GATE(icnagg, .Lsz_c)
     cmp     dil, DT_S
-    jne     c_rt_size_d
+    jne     .Lsz_c
     mov     rax, rdi
     shr     rax, 32
     test    eax, eax
-    je      c_rt_size_d
+    je      .Lsz_c
     cmp     eax, -1
-    je      c_rt_size_d
+    je      .Lsz_c
     mov     rdx, rax
     mov     eax, DT_I
     ret
+.Lsz_c:
+    RTX_CTAIL(c_rt_size_d)
 RTX_ENDF(rt_size_d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_list_bang_at)
     sub     rsp, 24
     mov     rcx, rsp
-    call    list_bang_at@PLT
+    RTX_CCALL(list_bang_at@PLT)
     test    eax, eax
     je      .Lbang_fail
     mov     rax, [rsp]
@@ -34,24 +36,25 @@ RTX_FUNC(rt_list_bang_at)
 RTX_ENDF(rt_list_bang_at)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(dat_field_get)
-    RTX_GATE(icnagg, c_dat_field_get)
+    RTX_SAVE
+    RTX_GATE(icnagg, .Ldfg_c)
     cmp     sil, DT_DATA
-    jl      c_dat_field_get
+    jl      .Ldfg_c
     mov     r8, rsi
     shr     r8, 32
     test    r8d, r8d
-    jne     c_dat_field_get
+    jne     .Ldfg_c
     test    rdx, rdx
-    je      c_dat_field_get
+    je      .Ldfg_c
     mov     r8, [rdx]
     test    r8, r8
-    je      c_dat_field_get
+    je      .Ldfg_c
     mov     ecx, [r8 + 8]
     test    ecx, ecx
-    jle     c_dat_field_get
+    jle     .Ldfg_c
     mov     r9, [r8 + 16]
     test    r9, r9
-    je      c_dat_field_get
+    je      .Ldfg_c
     xor     r10d, r10d
 .Ldfg_field:
     mov     r11, [r9 + r10*8]
@@ -70,15 +73,17 @@ RTX_FUNC(dat_field_get)
     inc     r10d
     cmp     r10d, ecx
     jl      .Ldfg_field
-    jmp     c_dat_field_get
+    jmp     .Ldfg_c
 .Ldfg_hit:
     mov     r8, [rdx + 8]
     test    r8, r8
-    je      c_dat_field_get
+    je      .Ldfg_c
     shl     r10, 4
     add     r8, r10
     mov     rax, [r8]
     mov     rdx, [r8 + 8]
-    ret
+    RTX_RET
+.Ldfg_c:
+    RTX_CTAIL_SAVED(c_dat_field_get)
 RTX_ENDF(dat_field_get)
 .section .note.GNU-stack,"",@progbits

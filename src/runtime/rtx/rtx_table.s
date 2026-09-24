@@ -19,7 +19,8 @@
 #define TBL_LINEAR_MAX   12
 RTX_GATE_DEF(table)
 RTX_FUNC(table_find_pair_d)
-    RTX_GATE(table, c_table_find_pair_d)
+    RTX_SAVE
+    RTX_GATE(table, .Ltf_c)
     test    rdi, rdi
     je      .Ltf_null
     movzx   eax, sil
@@ -32,13 +33,13 @@ RTX_FUNC(table_find_pair_d)
     cmp     al, DT_R
     je      .Ltf_h_real
     cmp     al, DT_A
-    je      c_table_find_pair_d
+    je      .Ltf_c
     cmp     al, DT_T
-    je      c_table_find_pair_d
+    je      .Ltf_c
     cmp     al, DT_DATA
-    je      c_table_find_pair_d
+    je      .Ltf_c
     cmp     al, DT_BIG
-    je      c_table_find_pair_d
+    je      .Ltf_c
 .Ltf_h_ptr:
     mov     r11, rdx
     shr     r11, 4
@@ -269,30 +270,38 @@ RTX_FUNC(table_find_pair_d)
     jmp     .Ltf_hit
 .Ltf_hit:
     mov     rax, r10
-    ret
+    RTX_RET
 .Ltf_null:
     xor     eax, eax
-    ret
+    RTX_RET
+.Ltf_c:
+    RTX_CTAIL_SAVED(c_table_find_pair_d)
 RTX_ENDF(table_find_pair_d)
 RTX_FUNC(rt_subscript_var_container_only)
-    RTX_GATE(table, c_rt_subscript_var_container_only)
+    RTX_GATE(table, .Lsvco_c)
     cmp     dil, DT_T
     je      .Lsvco_tbl
     cmp     dil, DT_A
-    je      rt_subscript_var
-    jmp     c_rt_subscript_var_container_only
+    je      .Lsvco_sv
+    jmp     .Lsvco_c
 .Lsvco_tbl:
     test    rsi, rsi
-    je      c_rt_subscript_var_container_only
+    je      .Lsvco_c
     push    rsi
     mov     rdi, rsi
     mov     rsi, rdx
     mov     rdx, rcx
-    call    table_find_pair_d
+    RTX_CALL(table_find_pair_d)
     pop     rdi
     test    rax, rax
-    je      c_rt_svco_miss_d
+    je      .Lsvco_miss
     mov     rdx, [rax + 32]
     mov     rax, [rax + 24]
     ret
+.Lsvco_sv:
+    RTX_JMP(rt_subscript_var)
+.Lsvco_miss:
+    RTX_CTAIL(c_rt_svco_miss_d)
+.Lsvco_c:
+    RTX_CTAIL(c_rt_subscript_var_container_only)
 RTX_ENDF(rt_subscript_var_container_only)
