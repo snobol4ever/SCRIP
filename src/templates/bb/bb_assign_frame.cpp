@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -22,6 +23,14 @@ std::string bb_assign_frame() {
     x86_begin();
     int lvl = _.node ? _.node->seal : 0;
     const char * dreg = lvl == 1 ? "r13" : lvl == 2 ? "r14" : lvl == 3 ? "r15" : (const char *)0;
+    if (_.op_sval && !strcmp(_.op_sval, "__pas_display")) {
+        if (!dreg || _.op_a_slot < 0) return x86_alpha() + x86_bomb("bb_assign_frame: display[L] write needs L in 1..3 and an rhs slot") + x86_beta_trampoline();
+        return x86("comment", "IR_ASSIGN_FRAME __pas_display: display[L] = a closure's captured frame, or its saved value back (ISO 7185 6.6.3.4)")
+             + x86_alpha()
+             + x86("mov", dreg, FRQ(_.op_a_slot + 8))
+             + x86_gamma()
+             + x86_beta_trampoline();
+    }
     int off = (_.op_a_sval && _.op_sval) ? stage2_owner_varslot(_.op_a_sval, _.op_sval) : -1;
     if (off < 0)           return x86_alpha() + x86_bomb("bb_assign_frame: owner vslot unresolved") + x86_beta_trampoline();
     if (_.op_a_slot < 0)   return x86_alpha() + x86_bomb("bb_assign_frame: rhs slot unresolved") + x86_beta_trampoline();

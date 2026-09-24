@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -24,6 +25,15 @@ std::string bb_var_frame() {
     x86_begin();
     int lvl = _.node ? _.node->seal : 0;
     const char * dreg = frame_display_reg(lvl);
+    if (_.op_sval && !strcmp(_.op_sval, "__pas_display")) {
+        if (!dreg || _.op_off < 0) return x86_alpha() + x86_bomb("bb_var_frame: display[L] read needs L in 1..3 and a result slot") + x86_beta_trampoline();
+        return x86("comment", "IR_VAR_FRAME __pas_display: display[L] itself, as an integer, for a procedural parameter's closure (ISO 7185 6.6.3.4)")
+             + x86_alpha()
+             + x86("mov", FRQ(_.op_off), (long)DT_I)
+             + x86("mov", FRQ(_.op_off + 8), dreg)
+             + x86_gamma()
+             + x86_beta_trampoline();
+    }
     int off = (_.op_a_sval && _.op_sval) ? stage2_owner_varslot(_.op_a_sval, _.op_sval) : -1;
     if (!dreg) {
         int disp_off = frame_display_mem_off(lvl, _.op_a_sval);

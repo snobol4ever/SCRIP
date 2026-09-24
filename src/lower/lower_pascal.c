@@ -213,24 +213,24 @@ static tree_t * pas_vptmp_var(void) {
     tree_t * v = ast_node_new(TT_VAR); v->v.sval = lp_strdup(buf); return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω, int rtl) {
-    IR_t * entry = call; IR_t * prevres = NULL;
+static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, IR_t * tgt, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω, int rtl) {
+    IR_t * entry = tgt; IR_t * prevres = NULL;
     IR_t ** ar_slot = (IR_t **) ct_zalloc((size_t) (nargs > 0 ? nargs : 1), sizeof(IR_t *));
     for (int i = 0; i < nargs; i++) {
         int k = rtl ? (nargs - 1 - i) : i;
         IR_t * ar = NULL; IR_t * ae;
         if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
             pas_res_t r; pas_resolve2(cx, args[k]->v.sval, &r);
-            IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (i == nargs - 1) ? call : NULL, ω)
-                                  : build(cx, IR_VAR_REF, (i == nargs - 1) ? call : NULL, ω);
+            IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (i == nargs - 1) ? tgt : NULL, ω)
+                                  : build(cx, IR_VAR_REF, (i == nargs - 1) ? tgt : NULL, ω);
             IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
-            IR_t * vr = build(cx, IR_VAR, (i == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
+            IR_t * vr = build(cx, IR_VAR, (i == nargs - 1) ? tgt : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
-        } else ae = lower(cx, args[k], (i == nargs - 1) ? call : NULL, ω, &ar);
-        if (i == 0) entry = ae ? ae : call;
-        if (prevres) γ_to(prevres, ae ? ae : call);
+        } else ae = lower(cx, args[k], (i == nargs - 1) ? tgt : NULL, ω, &ar);
+        if (i == 0) entry = ae ? ae : tgt;
+        if (prevres) γ_to(prevres, ae ? ae : tgt);
         ar_slot[k] = ar;
         prevres = ar;
     }
@@ -239,7 +239,7 @@ static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, uint64_t brm, const
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω) {
-    return pas_call_args_brm_dir(cx, call, brm, args, nargs, ω, 0);
+    return pas_call_args_brm_dir(cx, call, call, brm, args, nargs, ω, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_call_args(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs, IR_t * ω) {
@@ -253,22 +253,43 @@ static int pas_callee_is_user_proc(const char * name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_display_node(pcx_t * cx, IR_e op, int lvl, IR_t * γ, IR_t * ω) {
+    pas_res_t r = { -1, 1, lvl, "__pas_display" };
+    return pas_frame_node(cx, op, "__pas_display", &r, γ, ω);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_envcall_wrap(pcx_t * cx, const tree_t * t, IR_t * call, IR_t * γ, IR_t * ω) {
+    int lv = (int) t->c[1]->v.ival; IR_t * set[4] = { NULL, NULL, NULL, NULL }; IR_t * after = γ; IR_t * pre = call;
+    for (int k = lv - 1; k >= 1; k--) {
+        IR_t * asn = pas_display_node(cx, IR_ASSIGN_FRAME, k, after, ω); IR_t * rr = NULL;
+        IR_t * re = lower_var_r(cx, t->c[4 + k]->v.sval, asn, ω, &rr); ir_operand_push(asn, rr); after = re;
+    }
+    γ_to(call, after);
+    for (int k = lv - 1; k >= 1; k--) { set[k] = pas_display_node(cx, IR_ASSIGN_FRAME, k, pre, ω); pre = set[k]; }
+    for (int k = lv - 1; k >= 1; k--) { IR_t * rr = NULL; IR_t * re = lower_var_r(cx, t->c[1 + k]->v.sval, pre, ω, &rr); ir_operand_push(set[k], rr); pre = re; }
+    for (int k = lv - 1; k >= 1; k--) { IR_t * asn = lower_assign_var(cx, t->c[4 + k]->v.sval, pre, ω); IR_t * g = pas_display_node(cx, IR_VAR_FRAME, k, asn, ω); ir_operand_push(asn, g); pre = g; }
+    return pre;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
+    if (c0 && c0->v.sval && !strcmp(c0->v.sval, "__pas_display_get") && t->n == 2 && t->c[1]) { IR_t * nd = pas_display_node(cx, IR_VAR_FRAME, (int) t->c[1]->v.ival, γ, ω); *res = nd; return nd; }
+    int env = (c0 && c0->v.sval && !strcmp(c0->v.sval, "__pas_envcall") && t->n >= 9) ? 8 : 0;
+    const tree_t * cn = t->c[env];
     if (c0 && c0->v.sval && !strcmp(c0->v.sval, "arr_make")) {
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_make";
         IR_t * e = pas_call_args(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0, ω);
         *res = nd; return e;
     }
-    uint64_t brm = pas_callee_byref_mask(c0 ? c0->v.sval : NULL);
-    if (brm) { int rw = 0; for (int i = 1; i < t->n; i++) { if (((brm >> (i - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
+    uint64_t brm = pas_callee_byref_mask(cn ? cn->v.sval : NULL);
+    if (brm) { int rw = 0; for (int i = env + 1; i < t->n; i++) { if (((brm >> (i - env - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
         if (rw) {
             tree_t * seq = ast_node_new(TT_SEQ_EXPR);
-            tree_t * call = ast_node_new(TT_FNC); ast_push(call, pas_lc_leaf(TT_VAR, c0 && c0->v.sval ? c0->v.sval : ""));
+            tree_t * call = ast_node_new(TT_FNC); for (int i = 0; i < env; i++) ast_push(call, t->c[i]); ast_push(call, pas_lc_leaf(TT_VAR, cn && cn->v.sval ? cn->v.sval : ""));
             tree_t * outs[64]; int nout = 0;
-            for (int i = 1; i < t->n; i++) {
+            for (int i = env + 1; i < t->n; i++) {
                 tree_t * arg = t->c[i];
-                if (((brm >> (i - 1)) & 1ULL) && arg && arg->t == TT_IDX && nout < 64) {
+                if (((brm >> (i - env - 1)) & 1ULL) && arg && arg->t == TT_IDX && nout < 64) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
@@ -281,9 +302,10 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         }
     }
     IR_t * nd = build(cx, IR_CALL, γ, ω);
-    int rtl = pas_callee_is_user_proc(c0 ? c0->v.sval : NULL);
-    IR_t * e = pas_call_args_brm_dir(cx, nd, brm, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0, ω, rtl);
-    IR_LIT(nd).sval = (c0 && c0->v.sval) ? c0->v.sval : NULL;
+    IR_t * tgt = env ? pas_envcall_wrap(cx, t, nd, γ, ω) : nd;
+    int rtl = pas_callee_is_user_proc(cn ? cn->v.sval : NULL);
+    IR_t * e = pas_call_args_brm_dir(cx, nd, tgt, brm, (const tree_t * const *) (t->n > env + 1 ? &t->c[env + 1] : NULL), (t->n > env) ? t->n - env - 1 : 0, ω, rtl);
+    IR_LIT(nd).sval = (cn && cn->v.sval) ? cn->v.sval : NULL;
     *res = nd; return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
