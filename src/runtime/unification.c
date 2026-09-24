@@ -1237,13 +1237,8 @@ static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb, pl_vord_t *m) {
     int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
     if (cla != clb) return cla < clb ? -1 : 1;
     if (cla == 0) { int ia = rt_pl_vord_of(m, a), ib = rt_pl_vord_of(m, b); return ia == ib ? 0 : (ia < ib ? -1 : 1); }
-    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG) && (int)a->v != DT_R && (int)b->v != DT_R) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
-    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) {
-        extern char *rt_big_str(DESCR_t);
-        double x = ((int)a->v == DT_BIG) ? strtod(rt_big_str(*a), (char **)0) : (((int)a->v == DT_I) ? (double)a->i : a->r);
-        double y = ((int)b->v == DT_BIG) ? strtod(rt_big_str(*b), (char **)0) : (((int)b->v == DT_I) ? (double)b->i : b->r);
-        if (x < y) return -1; if (x > y) return 1;
-        return ((int)a->v == DT_R) ? -1 : 1; }
+    if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R)) return ((int)a->v == DT_R) ? -1 : 1;
+    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
     if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
     if (cla == 2) { int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     int ara = (int)(a->slen & 0xFFFFu), arb = (int)(b->slen & 0xFFFFu);
@@ -1273,6 +1268,10 @@ int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell, pl_tr_ctx_t
     pl_vord_t m; m.n = 0; m.next = 0;
     rt_pl_vord_walk((pl_cell_t *)a_cell, &m);
     rt_pl_vord_walk((pl_cell_t *)b_cell, &m);
+    pl_cell_t *o = pl_deref((pl_cell_t *)order_cell);
+    if (!pl_cell_unbound(o)) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); const char *on = plc_is_atomlike(o) ? rt_pl_cell_name(o) : (const char *)0;
+        if (!on) { if (cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "atom", *o); return 0; }
+        if (strcmp(on, "<") && strcmp(on, "=") && strcmp(on, ">")) { if (cx && !cx->ball) cx->ball = rt_pl_ball_kind2("domain_error", "order", *o); return 0; } }
     int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
     const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
     const char *an = prolog_atom_name(prolog_atom_intern(nm));
