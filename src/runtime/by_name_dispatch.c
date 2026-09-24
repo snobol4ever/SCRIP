@@ -6196,10 +6196,6 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
         return 1;
     }
     const char *s = VARVAL_fn(v); if (!s) { *out = INTVAL(0); return 1; }
-    if (strchr(s,'\x01')) {
-        long n=1; for(const char *p=s;*p;p++) if(*p=='\x01') n++;
-        *out = INTVAL(n); return 1;
-    }
     long len = v.slen > 0 ? v.slen : (long)strlen(s);
     *out = INTVAL(len); return 1;
 }
