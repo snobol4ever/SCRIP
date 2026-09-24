@@ -387,7 +387,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             }
         }
     }
-    if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
+    if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc2("__pas_trunc", args->items[0], ilit(1));
     if (name && !strcmp(name, "int") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
     if (name && !strcmp(name, "round") && args && args->count >= 1) return mk_fnc1("__pas_round", args->items[0]);
     if (name && !strcmp(name, "halt") && (!args || args->count == 0)) return mk_fnc0("__pas_halt");

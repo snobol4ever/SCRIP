@@ -3622,6 +3622,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
         if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d * d; *out = r; return 1; }
         long v = IS_INT_fn(args[0]) ? args[0].i : 0;
+        if (v > 46340 || v < -46340) pas_file_err("6.6.6.2", "sqr(x) of an integer whose square exceeds maxint, so no such value exists", NULL);
         *out = INTVAL(v * v); return 1;
     }
     if (!strcmp(fn, "__pas_alloc") && nargs == 0) {
@@ -6812,8 +6813,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         int c = getchar(); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, stdin); *out = INTVAL((long long)(unsigned char)c); return 1;
     }
     L_bidjmp_5152: ;
-    if ((_bid == BID___pas_trunc) && nargs == 1) {
+    if ((_bid == BID___pas_trunc) && (nargs == 1 || nargs == 2)) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        if (nargs == 2 && !(trunc(d) >= -2147483647.0 && trunc(d) <= 2147483647.0)) pas_file_err("6.6.6.3", "trunc(x) of a value whose integer part is not in -maxint..maxint, so no such integer value exists", NULL);
         *out = INTVAL((long long)d); return 1;
     }
     L_bidjmp_5156: ;
@@ -6827,13 +6829,14 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if      ((_bid == BID___pas_sin))    r = sin(d);
         else if ((_bid == BID___pas_cos))    r = cos(d);
         else if ((_bid == BID___pas_exp))    r = exp(d);
-        else if ((_bid == BID___pas_sqrt))   r = sqrt(d);
-        else if ((_bid == BID___pas_ln))     r = log(d);
+        else if ((_bid == BID___pas_sqrt))   { if (d < 0) pas_file_err("6.6.6.2", "sqrt(x) of a negative x", NULL); r = sqrt(d); }
+        else if ((_bid == BID___pas_ln))     { if (!(d > 0)) pas_file_err("6.6.6.2", "ln(x) of an x that is not greater than zero", NULL); r = log(d); }
         else                                 r = atan(d);
         DESCR_t rv; rv.v = DT_R; rv.r = r; *out = rv; return 1;
     }
     if ((_bid == BID___pas_round) && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        if (!(round(d) >= -2147483647.0 && round(d) <= 2147483647.0)) pas_file_err("6.6.6.3", "round(x) of a value that rounds outside -maxint..maxint, so no such integer value exists", NULL);
         *out = INTVAL((long long)round(d)); return 1;
     }
     if ((_bid == BID___pas_halt) && (nargs == 0 || nargs == 1)) {
