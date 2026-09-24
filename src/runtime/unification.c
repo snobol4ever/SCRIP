@@ -188,7 +188,12 @@ static int plc_atom_needs_quoting(const char *name)
     if (!name || !name[0]) return 1;
     if (!strcmp(name, "[]") || !strcmp(name, "{}") || !strcmp(name, "!") || !strcmp(name, ";")) return 0;
     if (isupper((unsigned char)name[0]) || name[0] == '_') return 1;
-    if (islower((unsigned char)name[0])) { for (const char *q = name+1; *q; q++) if (!isalnum((unsigned char)*q) && *q != '_') return 1; return 0; }
+    { extern int prolog_u_letter(const char *, int *); int adv, k = ((unsigned char)name[0] >= 0x80) ? prolog_u_letter(name, &adv) : 0;
+      if (islower((unsigned char)name[0]) || k == 2) {
+        for (const char *q = name + (k ? adv : 1); *q; ) { if (isalnum((unsigned char)*q) || *q == '_') { q++; continue; }
+            if ((unsigned char)*q >= 0x80 && prolog_u_letter(q, &adv)) { q += adv; continue; } return 1; }
+        return 0; }
+      if (k == 1) return 1; }
     { int all_graphic = 1;
       for (const char *q = name; *q; q++) if (!strchr(graphic, *q)) { all_graphic = 0; break; }
       if (all_graphic) { if (!strcmp(name, ".")) return 1; if (name[0] == '/' && name[1] == '*') return 1; return 0; } }

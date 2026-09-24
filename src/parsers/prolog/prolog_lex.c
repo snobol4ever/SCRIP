@@ -270,11 +270,35 @@ static Token scan_number(Lexer *lx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_u_letter(const char *s, int *adv) {
+    const unsigned char *u = (const unsigned char *)s; int cp, n;
+    if (u[0] < 0x80) { *adv = 1; return 0; }
+    if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { n = 2; cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); }
+    else if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { n = 3; cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); }
+    else if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80) { n = 4; cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); }
+    else { *adv = 1; return 0; }
+    *adv = n;
+    if (cp < 0xC0 || cp == 0xD7 || cp == 0xF7 || (cp >= 0x2000 && cp < 0x2C00) || (cp >= 0x3000 && cp < 0x3040) || (cp >= 0xFE00 && cp < 0xFE70) || (cp >= 0xFF00 && cp < 0xFF10)) return 0;
+    if (cp <= 0xDE) return 1;
+    if (cp <= 0xFF) return 2;
+    if (cp < 0x180) { if (cp < 0x138) return (cp & 1) ? 2 : 1; if (cp >= 0x139 && cp < 0x149) return (cp & 1) ? 1 : 2; if (cp >= 0x14A && cp < 0x178) return (cp & 1) ? 2 : 1;
+        if (cp == 0x178) return 1; if (cp >= 0x179 && cp < 0x17F) return (cp & 1) ? 1 : 2; return 2; }
+    if (cp == 0x386 || (cp >= 0x388 && cp <= 0x38F && cp != 0x38B && cp != 0x38D) || (cp >= 0x391 && cp <= 0x3AB && cp != 0x3A2)) return 1;
+    if (cp >= 0x400 && cp < 0x430) return 1;
+    if (cp >= 0x460 && cp < 0x500) return (cp & 1) ? 2 : 1;
+    if (cp >= 0x531 && cp <= 0x556) return 1;
+    return 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ident_len(Lexer *lx) { int adv; unsigned char c = (unsigned char)cur(lx);
+    if (isalnum(c) || c == '_') return 1;
+    if (c >= 0x80 && prolog_u_letter(lx->src + lx->pos, &adv)) return adv;
+    return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_word(Lexer *lx) {
     int line = lx->line;
-    char *buf = NULL; int len = 0, cap = 0;
-    while (isalnum((unsigned char)cur(lx)) || cur(lx) == '_')
-        buf_push(&buf, &len, &cap, advance(lx));
+    char *buf = NULL; int len = 0, cap = 0, n;
+    while ((n = ident_len(lx)) > 0) while (n--) buf_push(&buf, &len, &cap, advance(lx));
     if (!buf) buf = ct_strdup("");
     return make_tok(TK_ATOM, buf, line);
 }
@@ -309,21 +333,21 @@ static Token lexer_next_raw(Lexer *lx) {
     if (c == '\0') return make_tok(TK_EOF, ct_strdup(""), line);
     if (c == '\'') return scan_quoted_atom(lx);
     if (c == '"') return scan_string(lx);
-    if (isupper((unsigned char)c)) {
-        char *buf = NULL; int len = 0, cap = 0;
-        while (isalnum((unsigned char)cur(lx)) || cur(lx) == '_')
-            buf_push(&buf, &len, &cap, advance(lx));
+    { int uadv, uk = ((unsigned char)c >= 0x80) ? prolog_u_letter(lx->src + lx->pos, &uadv) : 0;
+      if (isupper((unsigned char)c) || uk == 1) {
+        char *buf = NULL; int len = 0, cap = 0, n;
+        while ((n = ident_len(lx)) > 0) while (n--) buf_push(&buf, &len, &cap, advance(lx));
         if (!buf) buf = ct_strdup("");
         return make_tok(TK_VAR, buf, line);
-    }
+      }
+      if (uk == 2) return scan_word(lx); }
     if (c == '_') {
         advance(lx);
-        if (!isalnum((unsigned char)cur(lx)) && cur(lx) != '_')
+        if (!ident_len(lx))
             return make_tok(TK_ANON, ct_strdup("_"), line);
-        char *buf = NULL; int len = 0, cap = 0;
+        char *buf = NULL; int len = 0, cap = 0, n;
         buf_push(&buf, &len, &cap, '_');
-        while (isalnum((unsigned char)cur(lx)) || cur(lx) == '_')
-            buf_push(&buf, &len, &cap, advance(lx));
+        while ((n = ident_len(lx)) > 0) while (n--) buf_push(&buf, &len, &cap, advance(lx));
         return make_tok(TK_VAR, buf, line);
     }
     if (isdigit((unsigned char)c)) return scan_number(lx);
