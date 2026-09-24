@@ -33,7 +33,7 @@ ROOT="$PWD"
 G="$(basename "$0" .sh)"
 CHK="$ROOT/scripts/util_gc_safe_point_contract.py"
 TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-78}"
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-75}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

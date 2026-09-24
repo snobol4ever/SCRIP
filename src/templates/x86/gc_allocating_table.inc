@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1885
-#define GC_ALLOC_TAB_N_VOID 253
+#define GC_ALLOC_TAB_N 1859
+#define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 977
-#define GC_ALLOC_TAB_N_OTHER 653
+#define GC_ALLOC_TAB_N_OTHER 639
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -359,11 +359,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bb_compile_pat_tree", GC_RET_OTHER },
     { "bb_compile_pat_tree_sz", GC_RET_OTHER },
     { "bb_label_registry_add", GC_RET_VOID },
-    { "bb_line_of", GC_RET_OTHER },
-    { "bb_src_ix_build", GC_RET_VOID },
-    { "bb_src_ix_get", GC_RET_OTHER },
     { "bb_src_note", GC_RET_VOID },
-    { "bb_src_of", GC_RET_OTHER },
     { "big_addsub", GC_RET_OTHER },
     { "big_alloc", GC_RET_OTHER },
     { "big_bitwise", GC_RET_DESCR },
@@ -376,8 +372,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "big_umul", GC_RET_OTHER },
     { "big_usub", GC_RET_OTHER },
     { "binop_apply", GC_RET_DESCR },
-    { "binop_is_num_real", GC_RET_OTHER },
-    { "binop_operand_real_static", GC_RET_OTHER },
     { "blob_lay_push", GC_RET_VOID },
     { "blob_layout_build", GC_RET_OTHER },
     { "blob_layout_slot", GC_RET_VOID },
@@ -398,10 +392,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bn_substr", GC_RET_OTHER },
     { "bn_trim", GC_RET_OTHER },
     { "bn_type_datatype", GC_RET_OTHER },
-    { "bnr_grow", GC_RET_VOID },
-    { "bnr_name_seen", GC_RET_OTHER },
-    { "bnr_node_seen", GC_RET_OTHER },
-    { "bnr_seen", GC_RET_OTHER },
     { "c_VARVAL_fn", GC_RET_OTHER },
     { "c_dat_field_get", GC_RET_DESCR },
     { "c_rt_add", GC_RET_DESCR },
@@ -592,7 +582,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "dump_contents", GC_RET_VOID },
     { "elem_to_descr", GC_RET_DESCR },
     { "emit_chain", GC_RET_OTHER },
-    { "emit_drive", GC_RET_VOID },
     { "emit_node", GC_RET_VOID },
     { "emit_stmt", GC_RET_VOID },
     { "etrace_spell_of_cell", GC_RET_OTHER },
@@ -611,9 +600,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "fh_sink_open", GC_RET_OTHER },
     { "fh_sink_write", GC_RET_OTHER },
     { "fill_pnames", GC_RET_VOID },
-    { "flat_drive_gate", GC_RET_VOID },
-    { "flat_drive_match_alt", GC_RET_VOID },
-    { "flat_drive_repalt", GC_RET_VOID },
     { "ge", GC_RET_OTHER },
     { "goal", GC_RET_OTHER },
     { "goal_inner", GC_RET_OTHER },
@@ -654,7 +640,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "input_read", GC_RET_DESCR },
     { "intern_name_bin", GC_RET_OTHER },
     { "invoke_method_proc", GC_RET_DESCR },
-    { "ir_drive_slot_assign", GC_RET_VOID },
     { "is_numeric_like", GC_RET_OTHER },
     { "junction_collapse", GC_RET_OTHER },
     { "key_of_head_tree", GC_RET_OTHER },
@@ -1878,18 +1863,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "try_call_builtin_by_name_bl", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl_s", GC_RET_OTHER },
     { "ts_get", GC_RET_OTHER },
-    { "var_assigned_real_static", GC_RET_OTHER },
     { "var_dump", GC_RET_VOID },
     { "var_dump_at_exit", GC_RET_VOID },
-    { "walk_bb_node", GC_RET_OTHER },
-    { "walk_bb_node_inner", GC_RET_OTHER },
-    { "zd_plan", GC_RET_VOID },
-    { "zdo_build", GC_RET_VOID },
-    { "zls_build", GC_RET_VOID },
-    { "zls_field", GC_RET_VOID },
-    { "zls_grant", GC_RET_OTHER },
-    { "zls_grant_elide", GC_RET_OTHER },
-    { "zls_grant_locals", GC_RET_OTHER },
-    { "znb_note", GC_RET_VOID },
 };
 #endif
