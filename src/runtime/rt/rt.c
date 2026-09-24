@@ -1413,8 +1413,7 @@ void rt_gc_ws_roots(void)
 static unsigned char g_lvl_own[1 << 16];
 static inline void rt_lvl_open(int own) {
     int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 2) | (own ? 1 : 0)); else own = 0;
-    if (!own) { rt_k_level++; rt_lvl_retire(); }
-    rt_k_level_mirror();
+    if (!own) { rt_k_level++; rt_lvl_retire(); } rt_k_level_mirror();
 }
 static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 1)) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
