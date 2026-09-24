@@ -225,6 +225,12 @@ static tree_t *mk_fnc0(const char *fn) { tree_t *e = ast_node_new(TT_FNC); ast_p
 static tree_t *mk_fnc1(const char *fn, tree_t *a) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); return e; }
 static tree_t *mk_fnc2(const char *fn, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *mk_fnc3(const char *fn, tree_t *a, tree_t *b, tree_t *c) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); ast_push(e, c); return e; }
+static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi);
+static tree_t *pas_ord_check(tree_t *v, long long lo, long long hi, const char *what) {
+    tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, "__pas_ord_check"));
+    ast_push(e, v); ast_push(e, ilit(lo)); ast_push(e, ilit(hi)); ast_push(e, leaf_s(TT_QLIT, what));
+    return e;
+}
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -305,9 +311,16 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             return seq_of(stmts);
         }
     }
-    if (name && !strcmp(name, "chr") && args && args->count >= 1) return mk_fnc1("__pas_chrlit", args->items[0]);
-    if (name && !strcmp(name, "pred") && args && args->count >= 1) return bin(TT_SUB, args->items[0], ilit(1));
-    if (name && !strcmp(name, "succ") && args && args->count >= 1) return bin(TT_ADD, args->items[0], ilit(1));
+    if (name && !strcmp(name, "chr") && args && args->count >= 1) {
+        tree_t *a = args->items[0];
+        if (a && a->t != TT_ILIT) a = pas_ord_check(a, 0, 255, "chr(x) of a value that is the ordinal number of no char-type value");
+        return mk_fnc1("__pas_chrlit", a); }
+    if (name && (!strcmp(name, "pred") || !strcmp(name, "succ")) && args && args->count >= 1) {
+        int up = !strcmp(name, "succ"); long long lo, hi; tree_t *a = args->items[0];
+        tree_t *v = bin(up ? TT_ADD : TT_SUB, a, ilit(1));
+        if (a && a->t == TT_VAR && pas_ord_var_bounds(a->v.sval, &lo, &hi))
+            v = pas_ord_check(v, lo, hi, up ? "succ(x) of the largest value of its type" : "pred(x) of the smallest value of its type");
+        return v; }
     if (name && (!strcmp(name, "inc") || !strcmp(name, "dec")) && args && args->count >= 1) {
         tree_t *v = args->items[0];
         tree_t *delta = (args->count >= 3) ? args->items[2] : ilit(1);
@@ -1121,6 +1134,23 @@ static char pas_var_decl_class(const char *name) {
         if (!c || (k && k != c)) return 0;
         k = c; }
     return k;
+}
+static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi) {
+    int n = 0; long long l = 0, h = -1;
+    if (!name || pas_is_chararr(name) || pas_is_strarr(name)) return 0;
+    for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return 0;
+    for (int i = 0; i < g_pas_nscalarvartype; i++) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, name)) {
+        const char *t = g_pas_scalarvartype[i].tname; long long cl = 0, ch = -1; int ok = 0;
+        for (int guard = 0; t && guard < 8 && !ok; guard++) {
+            if (!strcmp(t, "integer")) { cl = -2147483647LL; ch = 2147483647LL; ok = 1; }
+            else if (!strcmp(t, "char")) { cl = 0; ch = 255; ok = 1; }
+            else if (pas_is_booltype(t)) { cl = 0; ch = 1; ok = 1; }
+            else if (pas_enumtype_high(t) >= 0 && pas_subtype_high(t) < 0) { cl = 0; ch = pas_enumtype_high(t); ok = 1; }
+            else { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; } }
+        if (!ok || (n && (cl != l || ch != h))) return 0;
+        l = cl; h = ch; n++; }
+    if (!n) return 0;
+    *lo = l; *hi = h; return 1;
 }
 static const char *pas_class_name(char k) {
     switch (k) { case 'i': return "integer-type"; case 'r': return "real-type"; case 'c': return "char-type"; case 'b': return "Boolean-type";

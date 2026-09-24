@@ -297,6 +297,12 @@ static tree_t *mk_fnc0(const char *fn) { tree_t *e = ast_node_new(TT_FNC); ast_p
 static tree_t *mk_fnc1(const char *fn, tree_t *a) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); return e; }
 static tree_t *mk_fnc2(const char *fn, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *mk_fnc3(const char *fn, tree_t *a, tree_t *b, tree_t *c) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); ast_push(e, c); return e; }
+static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi);
+static tree_t *pas_ord_check(tree_t *v, long long lo, long long hi, const char *what) {
+    tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, "__pas_ord_check"));
+    ast_push(e, v); ast_push(e, ilit(lo)); ast_push(e, ilit(hi)); ast_push(e, leaf_s(TT_QLIT, what));
+    return e;
+}
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -377,9 +383,16 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             return seq_of(stmts);
         }
     }
-    if (name && !strcmp(name, "chr") && args && args->count >= 1) return mk_fnc1("__pas_chrlit", args->items[0]);
-    if (name && !strcmp(name, "pred") && args && args->count >= 1) return bin(TT_SUB, args->items[0], ilit(1));
-    if (name && !strcmp(name, "succ") && args && args->count >= 1) return bin(TT_ADD, args->items[0], ilit(1));
+    if (name && !strcmp(name, "chr") && args && args->count >= 1) {
+        tree_t *a = args->items[0];
+        if (a && a->t != TT_ILIT) a = pas_ord_check(a, 0, 255, "chr(x) of a value that is the ordinal number of no char-type value");
+        return mk_fnc1("__pas_chrlit", a); }
+    if (name && (!strcmp(name, "pred") || !strcmp(name, "succ")) && args && args->count >= 1) {
+        int up = !strcmp(name, "succ"); long long lo, hi; tree_t *a = args->items[0];
+        tree_t *v = bin(up ? TT_ADD : TT_SUB, a, ilit(1));
+        if (a && a->t == TT_VAR && pas_ord_var_bounds(a->v.sval, &lo, &hi))
+            v = pas_ord_check(v, lo, hi, up ? "succ(x) of the largest value of its type" : "pred(x) of the smallest value of its type");
+        return v; }
     if (name && (!strcmp(name, "inc") || !strcmp(name, "dec")) && args && args->count >= 1) {
         tree_t *v = args->items[0];
         tree_t *delta = (args->count >= 3) ? args->items[2] : ilit(1);
@@ -1194,6 +1207,23 @@ static char pas_var_decl_class(const char *name) {
         k = c; }
     return k;
 }
+static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi) {
+    int n = 0; long long l = 0, h = -1;
+    if (!name || pas_is_chararr(name) || pas_is_strarr(name)) return 0;
+    for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return 0;
+    for (int i = 0; i < g_pas_nscalarvartype; i++) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, name)) {
+        const char *t = g_pas_scalarvartype[i].tname; long long cl = 0, ch = -1; int ok = 0;
+        for (int guard = 0; t && guard < 8 && !ok; guard++) {
+            if (!strcmp(t, "integer")) { cl = -2147483647LL; ch = 2147483647LL; ok = 1; }
+            else if (!strcmp(t, "char")) { cl = 0; ch = 255; ok = 1; }
+            else if (pas_is_booltype(t)) { cl = 0; ch = 1; ok = 1; }
+            else if (pas_enumtype_high(t) >= 0 && pas_subtype_high(t) < 0) { cl = 0; ch = pas_enumtype_high(t); ok = 1; }
+            else { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; } }
+        if (!ok || (n && (cl != l || ch != h))) return 0;
+        l = cl; h = ch; n++; }
+    if (!n) return 0;
+    *lo = l; *hi = h; return 1;
+}
 static const char *pas_class_name(char k) {
     switch (k) { case 'i': return "integer-type"; case 'r': return "real-type"; case 'c': return "char-type"; case 'b': return "Boolean-type";
                  case 'e': return "an enumerated-type"; case 's': return "a string-type"; default: return "?"; }
@@ -1470,7 +1500,7 @@ static long long pas_decl_part_order(long long prev, long long cur) {
     return cur > prev ? cur : prev;
 }
 
-#line 1474 "pascal.tab.c"
+#line 1504 "pascal.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -2019,23 +2049,23 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,  1435,  1435,  1456,  1457,  1460,  1463,  1464,  1467,  1468,
-    1469,  1470,  1471,  1474,  1475,  1478,  1479,  1481,  1482,  1483,
-    1484,  1485,  1487,  1487,  1487,  1488,  1488,  1488,  1488,  1490,
-    1491,  1493,  1495,  1496,  1497,  1498,  1499,  1499,  1500,  1501,
-    1502,  1510,  1510,  1512,  1519,  1520,  1523,  1526,  1527,  1530,
-    1531,  1534,  1535,  1536,  1539,  1540,  1543,  1544,  1547,  1548,
-    1550,  1552,  1553,  1554,  1554,  1558,  1558,  1562,  1562,  1568,
-    1571,  1572,  1575,  1576,  1579,  1580,  1581,  1582,  1585,  1586,
-    1589,  1592,  1592,  1593,  1593,  1596,  1597,  1602,  1603,  1604,
-    1605,  1606,  1607,  1608,  1609,  1610,  1611,  1612,  1615,  1616,
-    1619,  1626,  1627,  1630,  1631,  1632,  1635,  1671,  1679,  1683,
-    1684,  1687,  1688,  1691,  1694,  1699,  1700,  1703,  1703,  1714,
-    1715,  1718,  1719,  1722,  1723,  1726,  1729,  1732,  1737,  1744,
-    1747,  1748,  1755,  1756,  1757,  1758,  1759,  1760,  1761,  1762,
-    1765,  1766,  1767,  1768,  1769,  1770,  1773,  1774,  1775,  1776,
-    1777,  1778,  1781,  1787,  1788,  1789,  1790,  1791,  1792,  1793,
-    1794,  1795,  1798,  1799,  1802,  1803
+       0,  1465,  1465,  1486,  1487,  1490,  1493,  1494,  1497,  1498,
+    1499,  1500,  1501,  1504,  1505,  1508,  1509,  1511,  1512,  1513,
+    1514,  1515,  1517,  1517,  1517,  1518,  1518,  1518,  1518,  1520,
+    1521,  1523,  1525,  1526,  1527,  1528,  1529,  1529,  1530,  1531,
+    1532,  1540,  1540,  1542,  1549,  1550,  1553,  1556,  1557,  1560,
+    1561,  1564,  1565,  1566,  1569,  1570,  1573,  1574,  1577,  1578,
+    1580,  1582,  1583,  1584,  1584,  1588,  1588,  1592,  1592,  1598,
+    1601,  1602,  1605,  1606,  1609,  1610,  1611,  1612,  1615,  1616,
+    1619,  1622,  1622,  1623,  1623,  1626,  1627,  1632,  1633,  1634,
+    1635,  1636,  1637,  1638,  1639,  1640,  1641,  1642,  1645,  1646,
+    1649,  1656,  1657,  1660,  1661,  1662,  1665,  1701,  1709,  1713,
+    1714,  1717,  1718,  1721,  1724,  1729,  1730,  1733,  1733,  1744,
+    1745,  1748,  1749,  1752,  1753,  1756,  1759,  1762,  1767,  1774,
+    1777,  1778,  1785,  1786,  1787,  1788,  1789,  1790,  1791,  1792,
+    1795,  1796,  1797,  1798,  1799,  1800,  1803,  1804,  1805,  1806,
+    1807,  1808,  1811,  1817,  1818,  1819,  1820,  1821,  1822,  1823,
+    1824,  1825,  1828,  1829,  1832,  1833
 };
 #endif
 
@@ -2843,7 +2873,7 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* program: PROGRAMSY IDENT file_id_list_opt SEMICOLON block PERIOD  */
-#line 1436 "pascal.y"
+#line 1466 "pascal.y"
         { tree_t *body = (yyvsp[-1].node);
           if (g_pas_narray > 0 || g_pas_nhdrfile > 0 || g_pas_nscalarvartype > 0) {
               tree_t *combined = ast_node_new(TT_PROGRAM);
@@ -2862,203 +2892,203 @@ yyreduce:
           tree_t *root = ast_stmt_new(TT_PROGRAM);
           for (int i = 0; i < g_pascal_procs.count; i++) ast_push(root, g_pascal_procs.items[i]);
           pascal_prog_result = root; }
-#line 2866 "pascal.tab.c"
-    break;
-
-  case 3: /* file_id_list_opt: LPARENT id_list RPARENT  */
-#line 1456 "pascal.y"
-                            { pas_program_params_distinct((yyvsp[-1].list)); if ((yyvsp[-1].list)) for (int i = 0; i < (yyvsp[-1].list)->count; i++) { tree_t *id = (yyvsp[-1].list)->items[i]; if (id && id->v.sval && strcmp(id->v.sval, "input") && strcmp(id->v.sval, "output")) { pas_filevar_add(id->v.sval); if (g_pas_nhdrfile < 32) g_pas_hdrfiles[g_pas_nhdrfile++] = ct_strdup(id->v.sval); } } }
-#line 2872 "pascal.tab.c"
-    break;
-
-  case 5: /* block: decl_part_list body  */
-#line 1460 "pascal.y"
-                        { (yyval.node) = (yyvsp[0].node); }
-#line 2878 "pascal.tab.c"
-    break;
-
-  case 6: /* decl_part_list: decl_part_list decl_part  */
-#line 1463 "pascal.y"
-                             { (yyval.ival) = pas_decl_part_order((yyvsp[-1].ival), (yyvsp[0].ival)); }
-#line 2884 "pascal.tab.c"
-    break;
-
-  case 7: /* decl_part_list: %empty  */
-#line 1464 "pascal.y"
-      { (yyval.ival) = 0; }
-#line 2890 "pascal.tab.c"
-    break;
-
-  case 8: /* decl_part: LABELSY label_list SEMICOLON  */
-#line 1467 "pascal.y"
-                                 { (yyval.ival) = 1; }
 #line 2896 "pascal.tab.c"
     break;
 
-  case 9: /* decl_part: CONSTSY const_decl_list  */
-#line 1468 "pascal.y"
-                              { (yyval.ival) = 2; }
+  case 3: /* file_id_list_opt: LPARENT id_list RPARENT  */
+#line 1486 "pascal.y"
+                            { pas_program_params_distinct((yyvsp[-1].list)); if ((yyvsp[-1].list)) for (int i = 0; i < (yyvsp[-1].list)->count; i++) { tree_t *id = (yyvsp[-1].list)->items[i]; if (id && id->v.sval && strcmp(id->v.sval, "input") && strcmp(id->v.sval, "output")) { pas_filevar_add(id->v.sval); if (g_pas_nhdrfile < 32) g_pas_hdrfiles[g_pas_nhdrfile++] = ct_strdup(id->v.sval); } } }
 #line 2902 "pascal.tab.c"
     break;
 
-  case 10: /* decl_part: TYPESY type_decl_list  */
-#line 1469 "pascal.y"
-                            { (yyval.ival) = 3; }
+  case 5: /* block: decl_part_list body  */
+#line 1490 "pascal.y"
+                        { (yyval.node) = (yyvsp[0].node); }
 #line 2908 "pascal.tab.c"
     break;
 
-  case 11: /* decl_part: VARSY var_decl_list  */
-#line 1470 "pascal.y"
-                          { (yyval.ival) = 4; }
+  case 6: /* decl_part_list: decl_part_list decl_part  */
+#line 1493 "pascal.y"
+                             { (yyval.ival) = pas_decl_part_order((yyvsp[-1].ival), (yyvsp[0].ival)); }
 #line 2914 "pascal.tab.c"
     break;
 
-  case 12: /* decl_part: procedure_decl  */
-#line 1471 "pascal.y"
-                     { (yyval.ival) = 5; }
+  case 7: /* decl_part_list: %empty  */
+#line 1494 "pascal.y"
+      { (yyval.ival) = 0; }
 #line 2920 "pascal.tab.c"
     break;
 
-  case 13: /* label_list: label_list COMMA INTCONST  */
-#line 1474 "pascal.y"
-                              { pas_label_in_range((yyvsp[0].ival)); }
+  case 8: /* decl_part: LABELSY label_list SEMICOLON  */
+#line 1497 "pascal.y"
+                                 { (yyval.ival) = 1; }
 #line 2926 "pascal.tab.c"
     break;
 
-  case 14: /* label_list: INTCONST  */
-#line 1475 "pascal.y"
-               { pas_label_in_range((yyvsp[0].ival)); }
+  case 9: /* decl_part: CONSTSY const_decl_list  */
+#line 1498 "pascal.y"
+                              { (yyval.ival) = 2; }
 #line 2932 "pascal.tab.c"
     break;
 
-  case 17: /* const_decl: IDENT EQOP REALCONST SEMICOLON  */
-#line 1481 "pascal.y"
-                                           { pas_rconst_add((yyvsp[-3].str), (yyvsp[-1].dval)); }
+  case 10: /* decl_part: TYPESY type_decl_list  */
+#line 1499 "pascal.y"
+                            { (yyval.ival) = 3; }
 #line 2938 "pascal.tab.c"
     break;
 
-  case 18: /* const_decl: IDENT EQOP PLUS REALCONST SEMICOLON  */
-#line 1482 "pascal.y"
-                                          { pas_rconst_add((yyvsp[-4].str), (yyvsp[-1].dval)); }
+  case 11: /* decl_part: VARSY var_decl_list  */
+#line 1500 "pascal.y"
+                          { (yyval.ival) = 4; }
 #line 2944 "pascal.tab.c"
     break;
 
-  case 19: /* const_decl: IDENT EQOP MINUS REALCONST SEMICOLON  */
-#line 1483 "pascal.y"
-                                           { pas_rconst_add((yyvsp[-4].str), -(yyvsp[-1].dval)); }
+  case 12: /* decl_part: procedure_decl  */
+#line 1501 "pascal.y"
+                     { (yyval.ival) = 5; }
 #line 2950 "pascal.tab.c"
     break;
 
-  case 20: /* const_decl: IDENT EQOP STRINGCONST SEMICOLON  */
-#line 1484 "pascal.y"
-                                       { if ((yyvsp[-1].str) && strlen((yyvsp[-1].str))==1) { pas_const_add((yyvsp[-3].str),(long long)(unsigned char)(yyvsp[-1].str)[0]); pas_charvar_add((yyvsp[-3].str)); } else pas_sconst_add((yyvsp[-3].str),(yyvsp[-1].str)); }
+  case 13: /* label_list: label_list COMMA INTCONST  */
+#line 1504 "pascal.y"
+                              { pas_label_in_range((yyvsp[0].ival)); }
 #line 2956 "pascal.tab.c"
     break;
 
-  case 21: /* const_decl: IDENT EQOP constant SEMICOLON  */
-#line 1485 "pascal.y"
-                                    { pas_const_add((yyvsp[-3].str), (yyvsp[-1].ival)); }
+  case 14: /* label_list: INTCONST  */
+#line 1505 "pascal.y"
+               { pas_label_in_range((yyvsp[0].ival)); }
 #line 2962 "pascal.tab.c"
     break;
 
-  case 22: /* constant: scalar_constant  */
-#line 1487 "pascal.y"
-                    { (yyval.ival) = (yyvsp[0].ival); }
+  case 17: /* const_decl: IDENT EQOP REALCONST SEMICOLON  */
+#line 1511 "pascal.y"
+                                           { pas_rconst_add((yyvsp[-3].str), (yyvsp[-1].dval)); }
 #line 2968 "pascal.tab.c"
     break;
 
-  case 23: /* constant: PLUS scalar_constant  */
-#line 1487 "pascal.y"
-                                                        { (yyval.ival) = (yyvsp[0].ival); }
+  case 18: /* const_decl: IDENT EQOP PLUS REALCONST SEMICOLON  */
+#line 1512 "pascal.y"
+                                          { pas_rconst_add((yyvsp[-4].str), (yyvsp[-1].dval)); }
 #line 2974 "pascal.tab.c"
     break;
 
-  case 24: /* constant: MINUS scalar_constant  */
-#line 1487 "pascal.y"
-                                                                                             { (yyval.ival) = -(yyvsp[0].ival); }
+  case 19: /* const_decl: IDENT EQOP MINUS REALCONST SEMICOLON  */
+#line 1513 "pascal.y"
+                                           { pas_rconst_add((yyvsp[-4].str), -(yyvsp[-1].dval)); }
 #line 2980 "pascal.tab.c"
     break;
 
-  case 25: /* scalar_constant: IDENT  */
-#line 1488 "pascal.y"
-                       { long long cv = 0; if ((yyvsp[0].str) && !strcmp((yyvsp[0].str), "true")) cv = 1; else if ((yyvsp[0].str) && !strcmp((yyvsp[0].str), "false")) cv = 0; else if (!pas_const_get((yyvsp[0].str), &cv) && (yyvsp[0].str) && !strcmp((yyvsp[0].str), "maxint")) cv = 2147483647; (yyval.ival) = cv; }
+  case 20: /* const_decl: IDENT EQOP STRINGCONST SEMICOLON  */
+#line 1514 "pascal.y"
+                                       { if ((yyvsp[-1].str) && strlen((yyvsp[-1].str))==1) { pas_const_add((yyvsp[-3].str),(long long)(unsigned char)(yyvsp[-1].str)[0]); pas_charvar_add((yyvsp[-3].str)); } else pas_sconst_add((yyvsp[-3].str),(yyvsp[-1].str)); }
 #line 2986 "pascal.tab.c"
     break;
 
-  case 26: /* scalar_constant: INTCONST  */
-#line 1488 "pascal.y"
-                                                                                                                                                                                                                                       { (yyval.ival) = (yyvsp[0].ival); }
+  case 21: /* const_decl: IDENT EQOP constant SEMICOLON  */
+#line 1515 "pascal.y"
+                                    { pas_const_add((yyvsp[-3].str), (yyvsp[-1].ival)); }
 #line 2992 "pascal.tab.c"
     break;
 
-  case 27: /* scalar_constant: REALCONST  */
-#line 1488 "pascal.y"
-                                                                                                                                                                                                                                                                { pas_real_is_not_ordinal((yyvsp[0].dval)); (yyval.ival) = (long long)(yyvsp[0].dval); }
+  case 22: /* constant: scalar_constant  */
+#line 1517 "pascal.y"
+                    { (yyval.ival) = (yyvsp[0].ival); }
 #line 2998 "pascal.tab.c"
     break;
 
-  case 28: /* scalar_constant: STRINGCONST  */
-#line 1488 "pascal.y"
-                                                                                                                                                                                                                                                                                                                                   { (yyval.ival) = ((yyvsp[0].str) && strlen((yyvsp[0].str)) == 1) ? (long long)(unsigned char)(yyvsp[0].str)[0] : 0; }
+  case 23: /* constant: PLUS scalar_constant  */
+#line 1517 "pascal.y"
+                                                        { (yyval.ival) = (yyvsp[0].ival); }
 #line 3004 "pascal.tab.c"
     break;
 
-  case 31: /* type_decl: IDENT EQOP type SEMICOLON  */
-#line 1493 "pascal.y"
-                                     { long long _ty3 = ((yyvsp[-1].ival) == -4) ? -1 : (yyvsp[-1].ival); int _pk3 = ((yyvsp[-1].ival) == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if (_ty3 < 0 && g_pas_pend_istfile) pas_tfiletype_add((yyvsp[-3].str)); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_booltype_add((yyvsp[-3].str)); if (_ty3 == -2) pas_settype_add((yyvsp[-3].str), g_pas_pend_set_hi); if (g_pas_pend_ptrtarget) pas_ptrtype_add((yyvsp[-3].str), g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add((yyvsp[-3].str), _pk3); if (g_pas_pend_enum_max >= 0) { pas_enumtype_add((yyvsp[-3].str), g_pas_pend_enum_max); pas_enumnames_add((yyvsp[-3].str), g_pas_pend_enum_names); } if (g_pas_pend_sub_high >= 0 && _ty3 < 0 && g_pas_pend_arr_ncols < 0) pas_subtype_add((yyvsp[-3].str), g_pas_pend_sub_low, g_pas_pend_sub_high); if (_ty3 >= 0 && !g_pas_pend_ptrtarget) { pas_arrtype_add((yyvsp[-3].str), _ty3, g_pas_pend_arr_ncols >= 0 ? 1 : 0, g_pas_pend_arr_ncols); } if (_ty3 == -1 && !g_pas_pend_ptrtarget && g_pas_pend_nf == 0 && g_pas_pend_enum_max < 0 && g_pas_pend_sub_high < 0 && g_pas_pend_typename) pas_typealias_add((yyvsp[-3].str), g_pas_pend_typename); pas_pend_reset(); }
+  case 24: /* constant: MINUS scalar_constant  */
+#line 1517 "pascal.y"
+                                                                                             { (yyval.ival) = -(yyvsp[0].ival); }
 #line 3010 "pascal.tab.c"
     break;
 
-  case 32: /* type: simple_type  */
-#line 1495 "pascal.y"
-                { if (g_pas_pend_ptrtarget) { (yyval.ival) = -3; } else if ((yyvsp[0].ival) == -2) { (yyval.ival) = -2; } else if ((yyvsp[0].ival) >= 0 && g_pas_pend_typename && pas_arrtype_high(g_pas_pend_typename) >= 0) { long long _tnc = pas_arrtype_ncols(g_pas_pend_typename); if (_tnc >= 0) g_pas_pend_arr_ncols = _tnc; (yyval.ival) = (yyvsp[0].ival); } else { (yyval.ival) = -1; } }
+  case 25: /* scalar_constant: IDENT  */
+#line 1518 "pascal.y"
+                       { long long cv = 0; if ((yyvsp[0].str) && !strcmp((yyvsp[0].str), "true")) cv = 1; else if ((yyvsp[0].str) && !strcmp((yyvsp[0].str), "false")) cv = 0; else if (!pas_const_get((yyvsp[0].str), &cv) && (yyvsp[0].str) && !strcmp((yyvsp[0].str), "maxint")) cv = 2147483647; (yyval.ival) = cv; }
 #line 3016 "pascal.tab.c"
     break;
 
-  case 33: /* type: ARROW IDENT  */
-#line 1496 "pascal.y"
-                  { g_pas_pend_ptrtarget = ct_strdup((yyvsp[0].str)); (yyval.ival) = -3; }
+  case 26: /* scalar_constant: INTCONST  */
+#line 1518 "pascal.y"
+                                                                                                                                                                                                                                       { (yyval.ival) = (yyvsp[0].ival); }
 #line 3022 "pascal.tab.c"
     break;
 
-  case 34: /* type: packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY type  */
-#line 1497 "pascal.y"
-                                                             { int _eic = g_pas_pend_ischar; int _wr = g_pas_pend_arr_ischar || (g_pas_pend_typename && pas_arrtype_ischar(g_pas_pend_typename)); g_pas_pend_arr_wrap = _wr; g_pas_pend_arr_ptrto = g_pas_pend_ptrtarget ? g_pas_pend_ptrtarget : (g_pas_pend_typename ? (char *)pas_ptrtype_target(g_pas_pend_typename) : NULL); g_pas_pend_ptrtarget = NULL; g_pas_pend_arr_ncols = -1; g_pas_pend_arr_ischar = _eic; g_pas_pend_isarr = 1; (yyval.ival) = (yyvsp[-3].ival); }
+  case 27: /* scalar_constant: REALCONST  */
+#line 1518 "pascal.y"
+                                                                                                                                                                                                                                                                { pas_real_is_not_ordinal((yyvsp[0].dval)); (yyval.ival) = (long long)(yyvsp[0].dval); }
 #line 3028 "pascal.tab.c"
     break;
 
-  case 35: /* type: packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type  */
-#line 1498 "pascal.y"
-                                                                               { int _eic = g_pas_pend_ischar; g_pas_pend_ptrtarget = NULL; long long r = (yyvsp[-5].ival); long long c = (yyvsp[-3].ival); g_pas_pend_arr_ncols = c + 1; g_pas_pend_arr_ischar = _eic; g_pas_pend_isarr = 1; (yyval.ival) = (r + 1) * (c + 1) - 1; }
+  case 28: /* scalar_constant: STRINGCONST  */
+#line 1518 "pascal.y"
+                                                                                                                                                                                                                                                                                                                                   { (yyval.ival) = ((yyvsp[0].str) && strlen((yyvsp[0].str)) == 1) ? (long long)(unsigned char)(yyvsp[0].str)[0] : 0; }
 #line 3034 "pascal.tab.c"
     break;
 
-  case 36: /* $@1: %empty  */
-#line 1499 "pascal.y"
-                          { g_pas_recbody_depth++; }
+  case 31: /* type_decl: IDENT EQOP type SEMICOLON  */
+#line 1523 "pascal.y"
+                                     { long long _ty3 = ((yyvsp[-1].ival) == -4) ? -1 : (yyvsp[-1].ival); int _pk3 = ((yyvsp[-1].ival) == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if (_ty3 < 0 && g_pas_pend_istfile) pas_tfiletype_add((yyvsp[-3].str)); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_booltype_add((yyvsp[-3].str)); if (_ty3 == -2) pas_settype_add((yyvsp[-3].str), g_pas_pend_set_hi); if (g_pas_pend_ptrtarget) pas_ptrtype_add((yyvsp[-3].str), g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add((yyvsp[-3].str), _pk3); if (g_pas_pend_enum_max >= 0) { pas_enumtype_add((yyvsp[-3].str), g_pas_pend_enum_max); pas_enumnames_add((yyvsp[-3].str), g_pas_pend_enum_names); } if (g_pas_pend_sub_high >= 0 && _ty3 < 0 && g_pas_pend_arr_ncols < 0) pas_subtype_add((yyvsp[-3].str), g_pas_pend_sub_low, g_pas_pend_sub_high); if (_ty3 >= 0 && !g_pas_pend_ptrtarget) { pas_arrtype_add((yyvsp[-3].str), _ty3, g_pas_pend_arr_ncols >= 0 ? 1 : 0, g_pas_pend_arr_ncols); } if (_ty3 == -1 && !g_pas_pend_ptrtarget && g_pas_pend_nf == 0 && g_pas_pend_enum_max < 0 && g_pas_pend_sub_high < 0 && g_pas_pend_typename) pas_typealias_add((yyvsp[-3].str), g_pas_pend_typename); pas_pend_reset(); }
 #line 3040 "pascal.tab.c"
     break;
 
-  case 37: /* type: packed_opt RECORDSY $@1 record_body ENDSY  */
-#line 1499 "pascal.y"
-                                                                       { g_pas_recbody_depth--; g_pas_pend_ptrtarget = NULL; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1; g_pas_pend_enum_max = -1; g_pas_pend_arr_ncols = -1; g_pas_pend_ischar = 0; g_pas_pend_arr_ischar = 0; (yyval.ival) = (yyvsp[-4].ival) ? -4 : -1; }
+  case 32: /* type: simple_type  */
+#line 1525 "pascal.y"
+                { if (g_pas_pend_ptrtarget) { (yyval.ival) = -3; } else if ((yyvsp[0].ival) == -2) { (yyval.ival) = -2; } else if ((yyvsp[0].ival) >= 0 && g_pas_pend_typename && pas_arrtype_high(g_pas_pend_typename) >= 0) { long long _tnc = pas_arrtype_ncols(g_pas_pend_typename); if (_tnc >= 0) g_pas_pend_arr_ncols = _tnc; (yyval.ival) = (yyvsp[0].ival); } else { (yyval.ival) = -1; } }
 #line 3046 "pascal.tab.c"
     break;
 
-  case 38: /* type: packed_opt SETSY OFSY simple_type  */
-#line 1500 "pascal.y"
-                                        { g_pas_pend_ptrtarget = NULL; g_pas_pend_set_hi = (yyvsp[0].ival); (yyval.ival) = -2; }
+  case 33: /* type: ARROW IDENT  */
+#line 1526 "pascal.y"
+                  { g_pas_pend_ptrtarget = ct_strdup((yyvsp[0].str)); (yyval.ival) = -3; }
 #line 3052 "pascal.tab.c"
     break;
 
-  case 39: /* type: packed_opt FILESY  */
-#line 1501 "pascal.y"
-                        { g_pas_pend_ptrtarget = NULL; (yyval.ival) = -1; }
+  case 34: /* type: packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY type  */
+#line 1527 "pascal.y"
+                                                             { int _eic = g_pas_pend_ischar; int _wr = g_pas_pend_arr_ischar || (g_pas_pend_typename && pas_arrtype_ischar(g_pas_pend_typename)); g_pas_pend_arr_wrap = _wr; g_pas_pend_arr_ptrto = g_pas_pend_ptrtarget ? g_pas_pend_ptrtarget : (g_pas_pend_typename ? (char *)pas_ptrtype_target(g_pas_pend_typename) : NULL); g_pas_pend_ptrtarget = NULL; g_pas_pend_arr_ncols = -1; g_pas_pend_arr_ischar = _eic; g_pas_pend_isarr = 1; (yyval.ival) = (yyvsp[-3].ival); }
 #line 3058 "pascal.tab.c"
     break;
 
+  case 35: /* type: packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type  */
+#line 1528 "pascal.y"
+                                                                               { int _eic = g_pas_pend_ischar; g_pas_pend_ptrtarget = NULL; long long r = (yyvsp[-5].ival); long long c = (yyvsp[-3].ival); g_pas_pend_arr_ncols = c + 1; g_pas_pend_arr_ischar = _eic; g_pas_pend_isarr = 1; (yyval.ival) = (r + 1) * (c + 1) - 1; }
+#line 3064 "pascal.tab.c"
+    break;
+
+  case 36: /* $@1: %empty  */
+#line 1529 "pascal.y"
+                          { g_pas_recbody_depth++; }
+#line 3070 "pascal.tab.c"
+    break;
+
+  case 37: /* type: packed_opt RECORDSY $@1 record_body ENDSY  */
+#line 1529 "pascal.y"
+                                                                       { g_pas_recbody_depth--; g_pas_pend_ptrtarget = NULL; g_pas_pend_sub_low = 0; g_pas_pend_sub_high = -1; g_pas_pend_enum_max = -1; g_pas_pend_arr_ncols = -1; g_pas_pend_ischar = 0; g_pas_pend_arr_ischar = 0; (yyval.ival) = (yyvsp[-4].ival) ? -4 : -1; }
+#line 3076 "pascal.tab.c"
+    break;
+
+  case 38: /* type: packed_opt SETSY OFSY simple_type  */
+#line 1530 "pascal.y"
+                                        { g_pas_pend_ptrtarget = NULL; g_pas_pend_set_hi = (yyvsp[0].ival); (yyval.ival) = -2; }
+#line 3082 "pascal.tab.c"
+    break;
+
+  case 39: /* type: packed_opt FILESY  */
+#line 1531 "pascal.y"
+                        { g_pas_pend_ptrtarget = NULL; (yyval.ival) = -1; }
+#line 3088 "pascal.tab.c"
+    break;
+
   case 40: /* type: packed_opt FILESY OFSY type  */
-#line 1502 "pascal.y"
+#line 1532 "pascal.y"
                                   { int _cf = g_pas_pend_istfile || (g_pas_pend_typename && (!strcmp(g_pas_pend_typename, "text") || pas_rectype_has_file(g_pas_pend_typename)));
         for (int _i = 0; !_cf && _i < g_pas_pend_nf; _i++) if (g_pas_pend_fldfile[_i]) _cf = 1;
         if (_cf) { fprintf(stderr, "pascal: ISO 7185 6.4.3.5 violation: the component-type of a file-type shall not be a file-type nor a structured-type having a file-type as a component -- 'file of %s'\n", g_pas_pend_typename ? g_pas_pend_typename : "<file>"); g_pas_iso_errors++; }
@@ -3066,363 +3096,363 @@ yyreduce:
         else if (g_pas_pend_typename && pas_subtype_high(g_pas_pend_typename) >= 0) { g_pas_pend_frng_lo = pas_subtype_low(g_pas_pend_typename); g_pas_pend_frng_hi = pas_subtype_high(g_pas_pend_typename); }
         g_pas_pend_frng_ischar = g_pas_pend_ischar;
         pas_pend_reset(); g_pas_pend_istfile = 1; (yyval.ival) = -1; }
-#line 3070 "pascal.tab.c"
+#line 3100 "pascal.tab.c"
     break;
 
   case 41: /* packed_opt: PACKEDSY  */
-#line 1510 "pascal.y"
+#line 1540 "pascal.y"
                      { (yyval.ival) = 1; }
-#line 3076 "pascal.tab.c"
+#line 3106 "pascal.tab.c"
     break;
 
   case 42: /* packed_opt: %empty  */
-#line 1510 "pascal.y"
+#line 1540 "pascal.y"
                                    { (yyval.ival) = 0; }
-#line 3082 "pascal.tab.c"
+#line 3112 "pascal.tab.c"
     break;
 
   case 43: /* simple_type: LPARENT id_list RPARENT  */
-#line 1513 "pascal.y"
+#line 1543 "pascal.y"
         { int _eo = 0; g_pas_pend_enum_names[0] = '\0';
           if ((yyvsp[-1].list)) for (int i = 0; i < (yyvsp[-1].list)->count; i++) {
               tree_t *_id = (yyvsp[-1].list)->items[i];
               if (_id && _id->v.sval) { if (_eo > 0) strncat(g_pas_pend_enum_names, ",", sizeof g_pas_pend_enum_names - strlen(g_pas_pend_enum_names) - 1); strncat(g_pas_pend_enum_names, _id->v.sval, sizeof g_pas_pend_enum_names - strlen(g_pas_pend_enum_names) - 1); pas_const_add(_id->v.sval, (long long)(_eo++)); } }
           g_pas_pend_enum_max = (long long)(_eo - 1);
           (yyval.ival) = _eo > 0 ? (long long)(_eo - 1) : -1; }
-#line 3093 "pascal.tab.c"
-    break;
-
-  case 44: /* simple_type: IDENT  */
-#line 1519 "pascal.y"
-            { g_pas_pend_typename = ct_strdup((yyvsp[0].str)); g_pas_pend_isbool = pas_is_booltype((yyvsp[0].str)); g_pas_pend_istfile = pas_is_tfiletype((yyvsp[0].str)); g_pas_pend_ischar = !strcmp((yyvsp[0].str), "char") || !strcmp((yyvsp[0].str), "widechar"); const char *_pt = pas_ptrtype_target((yyvsp[0].str)); if (_pt) { g_pas_pend_ptrtarget = ct_strdup(_pt); (yyval.ival) = -3; } else { if (!strcmp((yyvsp[0].str), "char") || !strcmp((yyvsp[0].str), "widechar")) { (yyval.ival) = 255; } else if (pas_is_settype((yyvsp[0].str))) { (yyval.ival) = -2; } else { long long _eh = pas_enumtype_high((yyvsp[0].str)); long long _sh = pas_subtype_high((yyvsp[0].str)); long long _ah = pas_arrtype_high((yyvsp[0].str)); if (_eh >= 0) { (yyval.ival) = _eh; } else if (_sh >= 0) { (yyval.ival) = _sh; } else if (_ah >= 0) { (yyval.ival) = _ah; } else { if (g_pas_recbody_depth == 0) pas_rectype_to_pend((yyvsp[0].str)); g_pas_pend_typename = ct_strdup((yyvsp[0].str)); (yyval.ival) = -1; } } } }
-#line 3099 "pascal.tab.c"
-    break;
-
-  case 45: /* simple_type: constant DOTDOT constant  */
-#line 1520 "pascal.y"
-                               { g_pas_pend_sub_low = (yyvsp[-2].ival); g_pas_pend_sub_high = (yyvsp[0].ival); (yyval.ival) = (yyvsp[0].ival); }
-#line 3105 "pascal.tab.c"
-    break;
-
-  case 49: /* record_field: id_list COLON type  */
-#line 1530 "pascal.y"
-                       { if ((yyvsp[-2].list)) { char *_svp = g_pas_pend_ptrtarget; int _svc = g_pas_pend_ischar; int _sva = g_pas_pend_arr_ischar; int _svr = g_pas_pend_isarr; for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) { g_pas_pend_ptrtarget = _svp; g_pas_pend_ischar = _svc; g_pas_pend_arr_ischar = _sva; g_pas_pend_isarr = _svr; pas_pend_add((yyvsp[-2].list)->items[i]->v.sval); } } }
-#line 3111 "pascal.tab.c"
-    break;
-
-  case 51: /* record_case_opt: CASESY IDENT COLON IDENT OFSY record_case_list  */
-#line 1534 "pascal.y"
-                                                   { if ((yyvsp[-4].str)) { g_pas_pend_typename = ct_strdup((yyvsp[-2].str)); pas_pend_add((yyvsp[-4].str)); } }
-#line 3117 "pascal.tab.c"
-    break;
-
-  case 52: /* record_case_opt: CASESY IDENT OFSY record_case_list  */
-#line 1535 "pascal.y"
-                                         { if ((yyvsp[-2].str)) pas_pend_add((yyvsp[-2].str)); }
 #line 3123 "pascal.tab.c"
     break;
 
-  case 58: /* var_decl_list: var_decl_list var_decl  */
-#line 1547 "pascal.y"
-                           { (yyval.list) = pas_var_names_add((yyvsp[-1].list), (yyvsp[0].list)); }
+  case 44: /* simple_type: IDENT  */
+#line 1549 "pascal.y"
+            { g_pas_pend_typename = ct_strdup((yyvsp[0].str)); g_pas_pend_isbool = pas_is_booltype((yyvsp[0].str)); g_pas_pend_istfile = pas_is_tfiletype((yyvsp[0].str)); g_pas_pend_ischar = !strcmp((yyvsp[0].str), "char") || !strcmp((yyvsp[0].str), "widechar"); const char *_pt = pas_ptrtype_target((yyvsp[0].str)); if (_pt) { g_pas_pend_ptrtarget = ct_strdup(_pt); (yyval.ival) = -3; } else { if (!strcmp((yyvsp[0].str), "char") || !strcmp((yyvsp[0].str), "widechar")) { (yyval.ival) = 255; } else if (pas_is_settype((yyvsp[0].str))) { (yyval.ival) = -2; } else { long long _eh = pas_enumtype_high((yyvsp[0].str)); long long _sh = pas_subtype_high((yyvsp[0].str)); long long _ah = pas_arrtype_high((yyvsp[0].str)); if (_eh >= 0) { (yyval.ival) = _eh; } else if (_sh >= 0) { (yyval.ival) = _sh; } else if (_ah >= 0) { (yyval.ival) = _ah; } else { if (g_pas_recbody_depth == 0) pas_rectype_to_pend((yyvsp[0].str)); g_pas_pend_typename = ct_strdup((yyvsp[0].str)); (yyval.ival) = -1; } } } }
 #line 3129 "pascal.tab.c"
     break;
 
-  case 59: /* var_decl_list: var_decl  */
-#line 1548 "pascal.y"
-               { (yyval.list) = pas_var_names_add(pnl_new(), (yyvsp[0].list)); }
+  case 45: /* simple_type: constant DOTDOT constant  */
+#line 1550 "pascal.y"
+                               { g_pas_pend_sub_low = (yyvsp[-2].ival); g_pas_pend_sub_high = (yyvsp[0].ival); (yyval.ival) = (yyvsp[0].ival); }
 #line 3135 "pascal.tab.c"
     break;
 
-  case 60: /* var_decl: id_list COLON type SEMICOLON  */
-#line 1550 "pascal.y"
-                                       { long long _ty3 = ((yyvsp[-1].ival) == -4) ? -1 : (yyvsp[-1].ival); int _pk3 = ((yyvsp[-1].ival) == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if ((yyvsp[-3].list)) for (int i = 0; i < (yyvsp[-3].list)->count; i++) { tree_t *id = (yyvsp[-3].list)->items[i]; if (id && id->v.sval) { if (_ty3 == -3) { if (g_pas_pend_ptrtarget) pas_ptrvar_add(id->v.sval, g_pas_pend_ptrtarget); } else { if (_ty3 >= 0 && g_pas_pend_nf > 0) { pas_array_add2d(id->v.sval, (_ty3 + 1) * g_pas_pend_nf - 1, (long long)g_pas_pend_nf); pas_arrrec_add(id->v.sval, g_pas_pend_typename, g_pas_pend_nf); } else if (_ty3 >= 0) { long long _varnc = (g_pas_pend_arr_ncols >= 0) ? g_pas_pend_arr_ncols : pas_arrtype_ncols(g_pas_pend_typename); if (g_pas_pend_ischar && !g_pas_pend_arr_ischar && _varnc < 0 && g_pas_pend_nf == 0) { pas_charvar_add(id->v.sval); } else if (_varnc >= 0) { pas_array_add2d(id->v.sval, _ty3, _varnc); } else { pas_array_add(id->v.sval, _ty3); if (g_pas_pend_arr_ptrto) pas_arrptr_add(id->v.sval, g_pas_pend_arr_ptrto); int _aic = g_pas_pend_arr_ischar || (g_pas_pend_typename && pas_arrtype_ischar(g_pas_pend_typename)); if (_aic && g_pas_pend_arr_wrap) pas_strarr_add2(id->v.sval, (g_pas_pend_typename && pas_arrtype_lo(g_pas_pend_typename) > 0) ? pas_arrtype_lo(g_pas_pend_typename) : 1); else if (_aic) pas_chararr_add2(id->v.sval, g_pas_pend_arr_ischar ? (g_pas_pend_sub_low > 0 ? g_pas_pend_sub_low : 0) : pas_arrtype_lo(g_pas_pend_typename)); else if (g_pas_pend_typename && pas_enumnames_idx(g_pas_pend_typename) >= 0) pas_enumarr_add(id->v.sval, g_pas_pend_typename); } } if (_ty3 == -2) pas_setvar_add(id->v.sval); if (_ty3 < 0 && g_pas_pend_ischar) pas_charvar_add(id->v.sval); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_boolvar_add(id->v.sval); if (_ty3 < 0 && g_pas_pend_istfile) { pas_tfilevar_add(id->v.sval); pas_tfcomp_add(id->v.sval, g_pas_pend_frng_lo, g_pas_pend_frng_hi, g_pas_pend_frng_ischar); } if (_ty3 < 0 && !g_pas_pend_istfile && g_pas_pend_nf == 0 && !g_pas_pend_isarr && g_pas_pend_sub_high >= 0) { pas_subvar_add(id->v.sval, g_pas_pend_sub_low, g_pas_pend_sub_high); } else if (_ty3 < 0 && !g_pas_pend_istfile && g_pas_pend_nf == 0 && !g_pas_pend_isarr && g_pas_pend_typename && pas_subtype_high(g_pas_pend_typename) >= 0) { pas_subvar_add(id->v.sval, pas_subtype_low(g_pas_pend_typename), pas_subtype_high(g_pas_pend_typename)); } if (_ty3 < 0 && g_pas_pend_nf > 0) { pas_recvar_add(id->v.sval, _pk3); pas_array_add(id->v.sval, (long long)(g_pas_pend_nf - 1)); } if (g_pas_pend_typename && !strcmp(g_pas_pend_typename, "text")) pas_filevar_add(id->v.sval); if (g_pas_pend_typename && !strcmp(g_pas_pend_typename, "pchar")) pas_pcharvar_add(id->v.sval); if (g_pas_pend_typename) pas_scalarvartype_add(id->v.sval, g_pas_pend_typename); } pas_local_add(id->v.sval); } } g_pas_pend_frng_lo = 0; g_pas_pend_frng_hi = -1; g_pas_pend_frng_ischar = 0; pas_pend_reset(); (yyval.list) = (yyvsp[-3].list); }
+  case 49: /* record_field: id_list COLON type  */
+#line 1560 "pascal.y"
+                       { if ((yyvsp[-2].list)) { char *_svp = g_pas_pend_ptrtarget; int _svc = g_pas_pend_ischar; int _sva = g_pas_pend_arr_ischar; int _svr = g_pas_pend_isarr; for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) { g_pas_pend_ptrtarget = _svp; g_pas_pend_ischar = _svc; g_pas_pend_arr_ischar = _sva; g_pas_pend_isarr = _svr; pas_pend_add((yyvsp[-2].list)->items[i]->v.sval); } } }
 #line 3141 "pascal.tab.c"
     break;
 
-  case 61: /* procedure_decl: PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON  */
-#line 1552 "pascal.y"
-                                                                               { pas_proc_add((yyvsp[-5].str)); pas_proc_vparams((yyvsp[-5].str), (yyvsp[-3].list)); pas_fwd_save((yyvsp[-5].str), (yyvsp[-3].list)); pas_ptrvar_release(); pas_recvar_release(); }
+  case 51: /* record_case_opt: CASESY IDENT COLON IDENT OFSY record_case_list  */
+#line 1564 "pascal.y"
+                                                   { if ((yyvsp[-4].str)) { g_pas_pend_typename = ct_strdup((yyvsp[-2].str)); pas_pend_add((yyvsp[-4].str)); } }
 #line 3147 "pascal.tab.c"
     break;
 
-  case 62: /* procedure_decl: FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON  */
-#line 1553 "pascal.y"
-                                                                                            { pas_func_add((yyvsp[-7].str)); pas_proc_vparams((yyvsp[-7].str), (yyvsp[-5].list)); if ((yyvsp[-3].str) && !strcmp((yyvsp[-3].str), "char")) pas_charvar_add((yyvsp[-7].str)); if (pas_is_booltype((yyvsp[-3].str))) pas_boolvar_add((yyvsp[-7].str)); if ((yyvsp[-3].str)) pas_scalarvartype_add((yyvsp[-7].str), (yyvsp[-3].str)); pas_fwd_save((yyvsp[-7].str), (yyvsp[-5].list)); pas_ptrvar_release(); pas_recvar_release(); }
+  case 52: /* record_case_opt: CASESY IDENT OFSY record_case_list  */
+#line 1565 "pascal.y"
+                                         { if ((yyvsp[-2].str)) pas_pend_add((yyvsp[-2].str)); }
 #line 3153 "pascal.tab.c"
     break;
 
-  case 63: /* $@2: %empty  */
-#line 1554 "pascal.y"
-                                                             { pas_proc_add((yyvsp[-3].str)); pas_proc_vparams((yyvsp[-3].str), (yyvsp[-1].list)); pas_proc_enter(); pas_fwd_restore((yyvsp[-3].str)); }
+  case 58: /* var_decl_list: var_decl_list var_decl  */
+#line 1577 "pascal.y"
+                           { (yyval.list) = pas_var_names_add((yyvsp[-1].list), (yyvsp[0].list)); }
 #line 3159 "pascal.tab.c"
     break;
 
+  case 59: /* var_decl_list: var_decl  */
+#line 1578 "pascal.y"
+               { (yyval.list) = pas_var_names_add(pnl_new(), (yyvsp[0].list)); }
+#line 3165 "pascal.tab.c"
+    break;
+
+  case 60: /* var_decl: id_list COLON type SEMICOLON  */
+#line 1580 "pascal.y"
+                                       { long long _ty3 = ((yyvsp[-1].ival) == -4) ? -1 : (yyvsp[-1].ival); int _pk3 = ((yyvsp[-1].ival) == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if ((yyvsp[-3].list)) for (int i = 0; i < (yyvsp[-3].list)->count; i++) { tree_t *id = (yyvsp[-3].list)->items[i]; if (id && id->v.sval) { if (_ty3 == -3) { if (g_pas_pend_ptrtarget) pas_ptrvar_add(id->v.sval, g_pas_pend_ptrtarget); } else { if (_ty3 >= 0 && g_pas_pend_nf > 0) { pas_array_add2d(id->v.sval, (_ty3 + 1) * g_pas_pend_nf - 1, (long long)g_pas_pend_nf); pas_arrrec_add(id->v.sval, g_pas_pend_typename, g_pas_pend_nf); } else if (_ty3 >= 0) { long long _varnc = (g_pas_pend_arr_ncols >= 0) ? g_pas_pend_arr_ncols : pas_arrtype_ncols(g_pas_pend_typename); if (g_pas_pend_ischar && !g_pas_pend_arr_ischar && _varnc < 0 && g_pas_pend_nf == 0) { pas_charvar_add(id->v.sval); } else if (_varnc >= 0) { pas_array_add2d(id->v.sval, _ty3, _varnc); } else { pas_array_add(id->v.sval, _ty3); if (g_pas_pend_arr_ptrto) pas_arrptr_add(id->v.sval, g_pas_pend_arr_ptrto); int _aic = g_pas_pend_arr_ischar || (g_pas_pend_typename && pas_arrtype_ischar(g_pas_pend_typename)); if (_aic && g_pas_pend_arr_wrap) pas_strarr_add2(id->v.sval, (g_pas_pend_typename && pas_arrtype_lo(g_pas_pend_typename) > 0) ? pas_arrtype_lo(g_pas_pend_typename) : 1); else if (_aic) pas_chararr_add2(id->v.sval, g_pas_pend_arr_ischar ? (g_pas_pend_sub_low > 0 ? g_pas_pend_sub_low : 0) : pas_arrtype_lo(g_pas_pend_typename)); else if (g_pas_pend_typename && pas_enumnames_idx(g_pas_pend_typename) >= 0) pas_enumarr_add(id->v.sval, g_pas_pend_typename); } } if (_ty3 == -2) pas_setvar_add(id->v.sval); if (_ty3 < 0 && g_pas_pend_ischar) pas_charvar_add(id->v.sval); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_boolvar_add(id->v.sval); if (_ty3 < 0 && g_pas_pend_istfile) { pas_tfilevar_add(id->v.sval); pas_tfcomp_add(id->v.sval, g_pas_pend_frng_lo, g_pas_pend_frng_hi, g_pas_pend_frng_ischar); } if (_ty3 < 0 && !g_pas_pend_istfile && g_pas_pend_nf == 0 && !g_pas_pend_isarr && g_pas_pend_sub_high >= 0) { pas_subvar_add(id->v.sval, g_pas_pend_sub_low, g_pas_pend_sub_high); } else if (_ty3 < 0 && !g_pas_pend_istfile && g_pas_pend_nf == 0 && !g_pas_pend_isarr && g_pas_pend_typename && pas_subtype_high(g_pas_pend_typename) >= 0) { pas_subvar_add(id->v.sval, pas_subtype_low(g_pas_pend_typename), pas_subtype_high(g_pas_pend_typename)); } if (_ty3 < 0 && g_pas_pend_nf > 0) { pas_recvar_add(id->v.sval, _pk3); pas_array_add(id->v.sval, (long long)(g_pas_pend_nf - 1)); } if (g_pas_pend_typename && !strcmp(g_pas_pend_typename, "text")) pas_filevar_add(id->v.sval); if (g_pas_pend_typename && !strcmp(g_pas_pend_typename, "pchar")) pas_pcharvar_add(id->v.sval); if (g_pas_pend_typename) pas_scalarvartype_add(id->v.sval, g_pas_pend_typename); } pas_local_add(id->v.sval); } } g_pas_pend_frng_lo = 0; g_pas_pend_frng_hi = -1; g_pas_pend_frng_ischar = 0; pas_pend_reset(); (yyval.list) = (yyvsp[-3].list); }
+#line 3171 "pascal.tab.c"
+    break;
+
+  case 61: /* procedure_decl: PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON  */
+#line 1582 "pascal.y"
+                                                                               { pas_proc_add((yyvsp[-5].str)); pas_proc_vparams((yyvsp[-5].str), (yyvsp[-3].list)); pas_fwd_save((yyvsp[-5].str), (yyvsp[-3].list)); pas_ptrvar_release(); pas_recvar_release(); }
+#line 3177 "pascal.tab.c"
+    break;
+
+  case 62: /* procedure_decl: FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON  */
+#line 1583 "pascal.y"
+                                                                                            { pas_func_add((yyvsp[-7].str)); pas_proc_vparams((yyvsp[-7].str), (yyvsp[-5].list)); if ((yyvsp[-3].str) && !strcmp((yyvsp[-3].str), "char")) pas_charvar_add((yyvsp[-7].str)); if (pas_is_booltype((yyvsp[-3].str))) pas_boolvar_add((yyvsp[-7].str)); if ((yyvsp[-3].str)) pas_scalarvartype_add((yyvsp[-7].str), (yyvsp[-3].str)); pas_fwd_save((yyvsp[-7].str), (yyvsp[-5].list)); pas_ptrvar_release(); pas_recvar_release(); }
+#line 3183 "pascal.tab.c"
+    break;
+
+  case 63: /* $@2: %empty  */
+#line 1584 "pascal.y"
+                                                             { pas_proc_add((yyvsp[-3].str)); pas_proc_vparams((yyvsp[-3].str), (yyvsp[-1].list)); pas_proc_enter(); pas_fwd_restore((yyvsp[-3].str)); }
+#line 3189 "pascal.tab.c"
+    break;
+
   case 64: /* procedure_decl: PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON $@2 block SEMICOLON  */
-#line 1555 "pascal.y"
+#line 1585 "pascal.y"
         { int d = g_pas_ldepth - 1; int d_ok = (d >= 0 && d < PAS_NEST_MAX); int dl = d_ok ? g_pas_lstk[d].decl_level : 1;
           const char **ln = d_ok ? g_pas_lstk[d].names : NULL; int lc = d_ok ? g_pas_lstk[d].n : 0;
           tree_t *p = mk_proc((yyvsp[-6].str), pas_fwd_params((yyvsp[-6].str), (yyvsp[-4].list)), pas_trace_wrap_proc((yyvsp[-6].str), (yyvsp[-4].list), (yyvsp[-1].node), 0), 0, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
-#line 3167 "pascal.tab.c"
+#line 3197 "pascal.tab.c"
     break;
 
   case 65: /* $@3: %empty  */
-#line 1558 "pascal.y"
+#line 1588 "pascal.y"
                                                                         { pas_func_add((yyvsp[-5].str)); pas_proc_vparams((yyvsp[-5].str), (yyvsp[-3].list)); if ((yyvsp[-1].str) && !strcmp((yyvsp[-1].str), "char")) pas_charvar_add((yyvsp[-5].str)); if (pas_is_booltype((yyvsp[-1].str))) pas_boolvar_add((yyvsp[-5].str)); if ((yyvsp[-1].str)) pas_scalarvartype_add((yyvsp[-5].str), (yyvsp[-1].str)); pas_proc_enter(); pas_curfunc_push((yyvsp[-5].str)); pas_fwd_restore((yyvsp[-5].str)); }
-#line 3173 "pascal.tab.c"
+#line 3203 "pascal.tab.c"
     break;
 
   case 66: /* procedure_decl: FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON $@3 block SEMICOLON  */
-#line 1559 "pascal.y"
+#line 1589 "pascal.y"
         { int d = g_pas_ldepth - 1; int d_ok = (d >= 0 && d < PAS_NEST_MAX); int dl = d_ok ? g_pas_lstk[d].decl_level : 1;
           const char **ln = d_ok ? g_pas_lstk[d].names : NULL; int lc = d_ok ? g_pas_lstk[d].n : 0;
           tree_t *p = mk_proc((yyvsp[-8].str), pas_fwd_params((yyvsp[-8].str), (yyvsp[-6].list)), pas_trace_wrap_proc((yyvsp[-8].str), (yyvsp[-6].list), (yyvsp[-1].node), 1), 1, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
-#line 3181 "pascal.tab.c"
+#line 3211 "pascal.tab.c"
     break;
 
   case 67: /* $@4: %empty  */
-#line 1562 "pascal.y"
+#line 1592 "pascal.y"
                                          { pas_func_add((yyvsp[-2].str)); pas_proc_enter(); pas_curfunc_push((yyvsp[-2].str)); pas_fwd_restore((yyvsp[-2].str)); }
-#line 3187 "pascal.tab.c"
+#line 3217 "pascal.tab.c"
     break;
 
   case 68: /* procedure_decl: FUNCTIONSY IDENT pv_mark SEMICOLON $@4 block SEMICOLON  */
-#line 1563 "pascal.y"
+#line 1593 "pascal.y"
         { int d = g_pas_ldepth - 1; int d_ok = (d >= 0 && d < PAS_NEST_MAX); int dl = d_ok ? g_pas_lstk[d].decl_level : 1;
           const char **ln = d_ok ? g_pas_lstk[d].names : NULL; int lc = d_ok ? g_pas_lstk[d].n : 0;
           tree_t *p = mk_proc((yyvsp[-5].str), pas_fwd_params((yyvsp[-5].str), pnl_new()), pas_trace_wrap_proc((yyvsp[-5].str), NULL, (yyvsp[-1].node), 1), 1, dl, ln, lc); pas_proc_exit(); pas_ptrvar_release(); pas_recvar_release(); emit_proc(&g_pascal_procs, p); }
-#line 3195 "pascal.tab.c"
-    break;
-
-  case 69: /* pv_mark: %empty  */
-#line 1568 "pascal.y"
-    { pas_ptrvar_mark(); pas_recvar_mark(); }
-#line 3201 "pascal.tab.c"
-    break;
-
-  case 70: /* parameter_list_opt: LPARENT parameter_decl_list RPARENT  */
-#line 1571 "pascal.y"
-                                        { (yyval.list) = (yyvsp[-1].list); }
-#line 3207 "pascal.tab.c"
-    break;
-
-  case 71: /* parameter_list_opt: %empty  */
-#line 1572 "pascal.y"
-      { (yyval.list) = pnl_new(); }
-#line 3213 "pascal.tab.c"
-    break;
-
-  case 72: /* parameter_decl_list: parameter_decl_list SEMICOLON parameter_decl  */
-#line 1575 "pascal.y"
-                                                 { (yyval.list) = pnl_concat((yyvsp[-2].list), (yyvsp[0].list)); }
-#line 3219 "pascal.tab.c"
-    break;
-
-  case 73: /* parameter_decl_list: parameter_decl  */
-#line 1576 "pascal.y"
-                     { (yyval.list) = (yyvsp[0].list); }
 #line 3225 "pascal.tab.c"
     break;
 
-  case 74: /* parameter_decl: PROCEDURESY id_list  */
-#line 1579 "pascal.y"
-                        { (yyval.list) = (yyvsp[0].list); }
+  case 69: /* pv_mark: %empty  */
+#line 1598 "pascal.y"
+    { pas_ptrvar_mark(); pas_recvar_mark(); }
 #line 3231 "pascal.tab.c"
     break;
 
-  case 75: /* parameter_decl: FUNCTIONSY id_list COLON IDENT  */
-#line 1580 "pascal.y"
-                                     { (yyval.list) = (yyvsp[-2].list); }
+  case 70: /* parameter_list_opt: LPARENT parameter_decl_list RPARENT  */
+#line 1601 "pascal.y"
+                                        { (yyval.list) = (yyvsp[-1].list); }
 #line 3237 "pascal.tab.c"
     break;
 
-  case 76: /* parameter_decl: VARSY id_list COLON IDENT  */
-#line 1581 "pascal.y"
-                                { if (pas_is_booltype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_boolvar_add((yyvsp[-2].list)->items[i]->v.sval); if (pas_is_settype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_setvar_add((yyvsp[-2].list)->items[i]->v.sval); const char *_pt = pas_ptrtype_target((yyvsp[0].str)); if (_pt) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_ptrvar_add((yyvsp[-2].list)->items[i]->v.sval, _pt); { long long _ah = pas_arrtype_high((yyvsp[0].str)); long long _nc = pas_arrtype_ncols((yyvsp[0].str)); int _nf = pas_rectype_nf((yyvsp[0].str)); for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type((yyvsp[-2].list)->items[i]->v.sval, (yyvsp[0].str)); pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, -1); } } } for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i]) ast_push((yyvsp[-2].list)->items[i], ast_node_new(TT_SUCCEED)); (yyval.list) = (yyvsp[-2].list); }
+  case 71: /* parameter_list_opt: %empty  */
+#line 1602 "pascal.y"
+      { (yyval.list) = pnl_new(); }
 #line 3243 "pascal.tab.c"
     break;
 
-  case 77: /* parameter_decl: id_list COLON IDENT  */
-#line 1582 "pascal.y"
-                          { if (pas_is_booltype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_boolvar_add((yyvsp[-2].list)->items[i]->v.sval); if (pas_is_settype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_setvar_add((yyvsp[-2].list)->items[i]->v.sval); const char *_pt = pas_ptrtype_target((yyvsp[0].str)); if (_pt) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_ptrvar_add((yyvsp[-2].list)->items[i]->v.sval, _pt); if (!strcmp((yyvsp[0].str), "char")) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_charvar_add((yyvsp[-2].list)->items[i]->v.sval); if (!strcmp((yyvsp[0].str), "single")) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_singlevar_add((yyvsp[-2].list)->items[i]->v.sval); if (pas_is_realtypename((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i]) ast_push((yyvsp[-2].list)->items[i], ast_node_new(TT_FLIT)); if (!strcmp((yyvsp[0].str), "pchar")) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i]) { ast_push((yyvsp[-2].list)->items[i], ast_node_new(TT_QLIT)); if ((yyvsp[-2].list)->items[i]->v.sval) pas_pcharvar_add((yyvsp[-2].list)->items[i]->v.sval); } { long long _ah = pas_arrtype_high((yyvsp[0].str)); long long _nc = pas_arrtype_ncols((yyvsp[0].str)); int _nf = pas_rectype_nf((yyvsp[0].str)); int _aic = pas_arrtype_ischar((yyvsp[0].str)); for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type((yyvsp[-2].list)->items[i]->v.sval, (yyvsp[0].str)); pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, -1); if (_aic) pas_chararr_add2((yyvsp[-2].list)->items[i]->v.sval, pas_arrtype_lo((yyvsp[0].str))); } } } (yyval.list) = (yyvsp[-2].list); }
+  case 72: /* parameter_decl_list: parameter_decl_list SEMICOLON parameter_decl  */
+#line 1605 "pascal.y"
+                                                 { (yyval.list) = pnl_concat((yyvsp[-2].list), (yyvsp[0].list)); }
 #line 3249 "pascal.tab.c"
     break;
 
-  case 78: /* id_list: id_list COMMA IDENT  */
-#line 1585 "pascal.y"
-                        { pas_not_a_word_symbol((yyvsp[0].str)); pnl_push((yyvsp[-2].list), leaf_s(TT_VAR, (yyvsp[0].str))); (yyval.list) = (yyvsp[-2].list); }
+  case 73: /* parameter_decl_list: parameter_decl  */
+#line 1606 "pascal.y"
+                     { (yyval.list) = (yyvsp[0].list); }
 #line 3255 "pascal.tab.c"
     break;
 
-  case 79: /* id_list: IDENT  */
-#line 1586 "pascal.y"
-            { pas_not_a_word_symbol((yyvsp[0].str)); PNodeList *l = pnl_new(); pnl_push(l, leaf_s(TT_VAR, (yyvsp[0].str))); (yyval.list) = l; }
+  case 74: /* parameter_decl: PROCEDURESY id_list  */
+#line 1609 "pascal.y"
+                        { (yyval.list) = (yyvsp[0].list); }
 #line 3261 "pascal.tab.c"
     break;
 
-  case 80: /* body: BEGINSY statement_list ENDSY  */
-#line 1589 "pascal.y"
-                                 { (yyval.node) = prog_of((yyvsp[-1].list)); }
+  case 75: /* parameter_decl: FUNCTIONSY id_list COLON IDENT  */
+#line 1610 "pascal.y"
+                                     { (yyval.list) = (yyvsp[-2].list); }
 #line 3267 "pascal.tab.c"
     break;
 
-  case 81: /* $@5: %empty  */
-#line 1592 "pascal.y"
-                             { pas_stmt_mark(); }
+  case 76: /* parameter_decl: VARSY id_list COLON IDENT  */
+#line 1611 "pascal.y"
+                                { if (pas_is_booltype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_boolvar_add((yyvsp[-2].list)->items[i]->v.sval); if (pas_is_settype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_setvar_add((yyvsp[-2].list)->items[i]->v.sval); const char *_pt = pas_ptrtype_target((yyvsp[0].str)); if (_pt) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_ptrvar_add((yyvsp[-2].list)->items[i]->v.sval, _pt); { long long _ah = pas_arrtype_high((yyvsp[0].str)); long long _nc = pas_arrtype_ncols((yyvsp[0].str)); int _nf = pas_rectype_nf((yyvsp[0].str)); for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type((yyvsp[-2].list)->items[i]->v.sval, (yyvsp[0].str)); pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, -1); } } } for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i]) ast_push((yyvsp[-2].list)->items[i], ast_node_new(TT_SUCCEED)); (yyval.list) = (yyvsp[-2].list); }
 #line 3273 "pascal.tab.c"
     break;
 
-  case 82: /* statement_list: statement_list SEMICOLON $@5 statement  */
-#line 1592 "pascal.y"
-                                                            { int _ln = pas_stmt_line_pop(); if ((yyvsp[0].node)) { if (pas_trace_enabled() && (yyvsp[0].node)->t != TT_SUCCEED) pnl_push((yyvsp[-3].list), mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push((yyvsp[-3].list), (yyvsp[0].node)); } (yyval.list) = (yyvsp[-3].list); }
+  case 77: /* parameter_decl: id_list COLON IDENT  */
+#line 1612 "pascal.y"
+                          { if (pas_is_booltype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_boolvar_add((yyvsp[-2].list)->items[i]->v.sval); if (pas_is_settype((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_setvar_add((yyvsp[-2].list)->items[i]->v.sval); const char *_pt = pas_ptrtype_target((yyvsp[0].str)); if (_pt) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_ptrvar_add((yyvsp[-2].list)->items[i]->v.sval, _pt); if (!strcmp((yyvsp[0].str), "char")) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_charvar_add((yyvsp[-2].list)->items[i]->v.sval); if (!strcmp((yyvsp[0].str), "single")) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) pas_singlevar_add((yyvsp[-2].list)->items[i]->v.sval); if (pas_is_realtypename((yyvsp[0].str))) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i]) ast_push((yyvsp[-2].list)->items[i], ast_node_new(TT_FLIT)); if (!strcmp((yyvsp[0].str), "pchar")) for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i]) { ast_push((yyvsp[-2].list)->items[i], ast_node_new(TT_QLIT)); if ((yyvsp[-2].list)->items[i]->v.sval) pas_pcharvar_add((yyvsp[-2].list)->items[i]->v.sval); } { long long _ah = pas_arrtype_high((yyvsp[0].str)); long long _nc = pas_arrtype_ncols((yyvsp[0].str)); int _nf = pas_rectype_nf((yyvsp[0].str)); int _aic = pas_arrtype_ischar((yyvsp[0].str)); for (int i = 0; i < (yyvsp[-2].list)->count; i++) if ((yyvsp[-2].list)->items[i] && (yyvsp[-2].list)->items[i]->v.sval) { if (_nf > 0) { pas_recvar_add_from_type((yyvsp[-2].list)->items[i]->v.sval, (yyvsp[0].str)); pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, (long long)(_nf - 1), -1); } else if (_ah >= 0) { if (_nc >= 0) pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, _nc); else pas_array_add2d_param((yyvsp[-2].list)->items[i]->v.sval, _ah, -1); if (_aic) pas_chararr_add2((yyvsp[-2].list)->items[i]->v.sval, pas_arrtype_lo((yyvsp[0].str))); } } } (yyval.list) = (yyvsp[-2].list); }
 #line 3279 "pascal.tab.c"
     break;
 
-  case 83: /* $@6: %empty  */
-#line 1593 "pascal.y"
-      { pas_stmt_mark(); }
+  case 78: /* id_list: id_list COMMA IDENT  */
+#line 1615 "pascal.y"
+                        { pas_not_a_word_symbol((yyvsp[0].str)); pnl_push((yyvsp[-2].list), leaf_s(TT_VAR, (yyvsp[0].str))); (yyval.list) = (yyvsp[-2].list); }
 #line 3285 "pascal.tab.c"
     break;
 
-  case 84: /* statement_list: $@6 statement  */
-#line 1593 "pascal.y"
-                                     { int _ln = pas_stmt_line_pop(); PNodeList *l = pnl_new(); if ((yyvsp[0].node)) { if (pas_trace_enabled() && (yyvsp[0].node)->t != TT_SUCCEED) pnl_push(l, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push(l, (yyvsp[0].node)); } (yyval.list) = l; }
+  case 79: /* id_list: IDENT  */
+#line 1616 "pascal.y"
+            { pas_not_a_word_symbol((yyvsp[0].str)); PNodeList *l = pnl_new(); pnl_push(l, leaf_s(TT_VAR, (yyvsp[0].str))); (yyval.list) = l; }
 #line 3291 "pascal.tab.c"
     break;
 
-  case 85: /* statement: statement_no_label  */
-#line 1596 "pascal.y"
-                       { (yyval.node) = (yyvsp[0].node); }
+  case 80: /* body: BEGINSY statement_list ENDSY  */
+#line 1619 "pascal.y"
+                                 { (yyval.node) = prog_of((yyvsp[-1].list)); }
 #line 3297 "pascal.tab.c"
     break;
 
+  case 81: /* $@5: %empty  */
+#line 1622 "pascal.y"
+                             { pas_stmt_mark(); }
+#line 3303 "pascal.tab.c"
+    break;
+
+  case 82: /* statement_list: statement_list SEMICOLON $@5 statement  */
+#line 1622 "pascal.y"
+                                                            { int _ln = pas_stmt_line_pop(); if ((yyvsp[0].node)) { if (pas_trace_enabled() && (yyvsp[0].node)->t != TT_SUCCEED) pnl_push((yyvsp[-3].list), mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push((yyvsp[-3].list), (yyvsp[0].node)); } (yyval.list) = (yyvsp[-3].list); }
+#line 3309 "pascal.tab.c"
+    break;
+
+  case 83: /* $@6: %empty  */
+#line 1623 "pascal.y"
+      { pas_stmt_mark(); }
+#line 3315 "pascal.tab.c"
+    break;
+
+  case 84: /* statement_list: $@6 statement  */
+#line 1623 "pascal.y"
+                                     { int _ln = pas_stmt_line_pop(); PNodeList *l = pnl_new(); if ((yyvsp[0].node)) { if (pas_trace_enabled() && (yyvsp[0].node)->t != TT_SUCCEED) pnl_push(l, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push(l, (yyvsp[0].node)); } (yyval.list) = l; }
+#line 3321 "pascal.tab.c"
+    break;
+
+  case 85: /* statement: statement_no_label  */
+#line 1626 "pascal.y"
+                       { (yyval.node) = (yyvsp[0].node); }
+#line 3327 "pascal.tab.c"
+    break;
+
   case 86: /* statement: INTCONST COLON statement_no_label  */
-#line 1598 "pascal.y"
+#line 1628 "pascal.y"
         { pas_label_in_range((yyvsp[-2].ival)); char _lb[24]; snprintf(_lb, sizeof _lb, "%lld", (long long)(yyvsp[-2].ival));
           tree_t *L = ast_node_new(TT_LABEL_DEF); L->v.sval = ct_strdup(_lb); ast_push(L, (yyvsp[0].node)); (yyval.node) = L; }
-#line 3304 "pascal.tab.c"
-    break;
-
-  case 87: /* statement_no_label: assignment  */
-#line 1602 "pascal.y"
-               { (yyval.node) = (yyvsp[0].node); }
-#line 3310 "pascal.tab.c"
-    break;
-
-  case 88: /* statement_no_label: call  */
-#line 1603 "pascal.y"
-           { (yyval.node) = (yyvsp[0].node); }
-#line 3316 "pascal.tab.c"
-    break;
-
-  case 89: /* statement_no_label: compound_statement  */
-#line 1604 "pascal.y"
-                         { (yyval.node) = (yyvsp[0].node); }
-#line 3322 "pascal.tab.c"
-    break;
-
-  case 90: /* statement_no_label: goto_statement  */
-#line 1605 "pascal.y"
-                     { (yyval.node) = (yyvsp[0].node); }
-#line 3328 "pascal.tab.c"
-    break;
-
-  case 91: /* statement_no_label: if_statement  */
-#line 1606 "pascal.y"
-                   { (yyval.node) = (yyvsp[0].node); }
 #line 3334 "pascal.tab.c"
     break;
 
-  case 92: /* statement_no_label: case_statement  */
-#line 1607 "pascal.y"
-                     { (yyval.node) = (yyvsp[0].node); }
+  case 87: /* statement_no_label: assignment  */
+#line 1632 "pascal.y"
+               { (yyval.node) = (yyvsp[0].node); }
 #line 3340 "pascal.tab.c"
     break;
 
-  case 93: /* statement_no_label: while_statement  */
-#line 1608 "pascal.y"
-                      { (yyval.node) = (yyvsp[0].node); }
+  case 88: /* statement_no_label: call  */
+#line 1633 "pascal.y"
+           { (yyval.node) = (yyvsp[0].node); }
 #line 3346 "pascal.tab.c"
     break;
 
-  case 94: /* statement_no_label: repeat_statement  */
-#line 1609 "pascal.y"
-                       { (yyval.node) = (yyvsp[0].node); }
+  case 89: /* statement_no_label: compound_statement  */
+#line 1634 "pascal.y"
+                         { (yyval.node) = (yyvsp[0].node); }
 #line 3352 "pascal.tab.c"
     break;
 
-  case 95: /* statement_no_label: for_statement  */
-#line 1610 "pascal.y"
-                    { (yyval.node) = (yyvsp[0].node); }
+  case 90: /* statement_no_label: goto_statement  */
+#line 1635 "pascal.y"
+                     { (yyval.node) = (yyvsp[0].node); }
 #line 3358 "pascal.tab.c"
     break;
 
-  case 96: /* statement_no_label: with_statement  */
-#line 1611 "pascal.y"
-                     { (yyval.node) = (yyvsp[0].node); }
+  case 91: /* statement_no_label: if_statement  */
+#line 1636 "pascal.y"
+                   { (yyval.node) = (yyvsp[0].node); }
 #line 3364 "pascal.tab.c"
     break;
 
-  case 97: /* statement_no_label: %empty  */
-#line 1612 "pascal.y"
-      { (yyval.node) = ast_node_new(TT_SUCCEED); }
+  case 92: /* statement_no_label: case_statement  */
+#line 1637 "pascal.y"
+                     { (yyval.node) = (yyvsp[0].node); }
 #line 3370 "pascal.tab.c"
     break;
 
-  case 98: /* call: IDENT  */
-#line 1615 "pascal.y"
-          { if (pas_is_proc((yyvsp[0].str))) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, (yyvsp[0].str))); (yyval.node) = e; } else (yyval.node) = mk_call((yyvsp[0].str), NULL); }
+  case 93: /* statement_no_label: while_statement  */
+#line 1638 "pascal.y"
+                      { (yyval.node) = (yyvsp[0].node); }
 #line 3376 "pascal.tab.c"
     break;
 
-  case 99: /* call: call_with_args  */
-#line 1616 "pascal.y"
-                     { (yyval.node) = (yyvsp[0].node); }
+  case 94: /* statement_no_label: repeat_statement  */
+#line 1639 "pascal.y"
+                       { (yyval.node) = (yyvsp[0].node); }
 #line 3382 "pascal.tab.c"
     break;
 
+  case 95: /* statement_no_label: for_statement  */
+#line 1640 "pascal.y"
+                    { (yyval.node) = (yyvsp[0].node); }
+#line 3388 "pascal.tab.c"
+    break;
+
+  case 96: /* statement_no_label: with_statement  */
+#line 1641 "pascal.y"
+                     { (yyval.node) = (yyvsp[0].node); }
+#line 3394 "pascal.tab.c"
+    break;
+
+  case 97: /* statement_no_label: %empty  */
+#line 1642 "pascal.y"
+      { (yyval.node) = ast_node_new(TT_SUCCEED); }
+#line 3400 "pascal.tab.c"
+    break;
+
+  case 98: /* call: IDENT  */
+#line 1645 "pascal.y"
+          { if (pas_is_proc((yyvsp[0].str))) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, (yyvsp[0].str))); (yyval.node) = e; } else (yyval.node) = mk_call((yyvsp[0].str), NULL); }
+#line 3406 "pascal.tab.c"
+    break;
+
+  case 99: /* call: call_with_args  */
+#line 1646 "pascal.y"
+                     { (yyval.node) = (yyvsp[0].node); }
+#line 3412 "pascal.tab.c"
+    break;
+
   case 100: /* call_with_args: IDENT LPARENT argument_list RPARENT  */
-#line 1619 "pascal.y"
+#line 1649 "pascal.y"
                                         { if ((yyvsp[-1].list)) for (int i = 0; i < (yyvsp[-1].list)->count; i++) if (pas_proc_param_is_var((yyvsp[-3].str), i) && pas_actual_is_packed_component((yyvsp[-1].list)->items[i])) {
             fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: a component of a packed structure is passed as the variable parameter %d of '%s'\n", i + 1, (yyvsp[-3].str));
             g_pas_iso_errors++; }
         pas_call_arity((yyvsp[-3].str), (yyvsp[-1].list)); pas_ordinal_fn_arg((yyvsp[-3].str), (yyvsp[-1].list));
         (yyval.node) = mk_call((yyvsp[-3].str), (yyvsp[-1].list)); }
-#line 3392 "pascal.tab.c"
-    break;
-
-  case 101: /* argument_list: argument_list COMMA argument  */
-#line 1626 "pascal.y"
-                                 { (yyval.list) = pnl_concat((yyvsp[-2].list), (yyvsp[0].list)); }
-#line 3398 "pascal.tab.c"
-    break;
-
-  case 102: /* argument_list: argument  */
-#line 1627 "pascal.y"
-               { (yyval.list) = (yyvsp[0].list); }
-#line 3404 "pascal.tab.c"
-    break;
-
-  case 103: /* argument: expression  */
-#line 1630 "pascal.y"
-               { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool((yyvsp[0].node))); pnl_push(_al, ilit(-1)); (yyval.list) = _al; }
-#line 3410 "pascal.tab.c"
-    break;
-
-  case 104: /* argument: expression COLON expression  */
-#line 1631 "pascal.y"
-                                  { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool((yyvsp[-2].node))); pnl_push(_al, (yyvsp[0].node)); (yyval.list) = _al; }
-#line 3416 "pascal.tab.c"
-    break;
-
-  case 105: /* argument: expression COLON expression COLON expression  */
-#line 1632 "pascal.y"
-                                                   { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool((yyvsp[-4].node))); pnl_push(_al, ilit(-3)); pnl_push(_al, (yyvsp[-2].node)); pnl_push(_al, (yyvsp[0].node)); (yyval.list) = _al; }
 #line 3422 "pascal.tab.c"
     break;
 
+  case 101: /* argument_list: argument_list COMMA argument  */
+#line 1656 "pascal.y"
+                                 { (yyval.list) = pnl_concat((yyvsp[-2].list), (yyvsp[0].list)); }
+#line 3428 "pascal.tab.c"
+    break;
+
+  case 102: /* argument_list: argument  */
+#line 1657 "pascal.y"
+               { (yyval.list) = (yyvsp[0].list); }
+#line 3434 "pascal.tab.c"
+    break;
+
+  case 103: /* argument: expression  */
+#line 1660 "pascal.y"
+               { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool((yyvsp[0].node))); pnl_push(_al, ilit(-1)); (yyval.list) = _al; }
+#line 3440 "pascal.tab.c"
+    break;
+
+  case 104: /* argument: expression COLON expression  */
+#line 1661 "pascal.y"
+                                  { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool((yyvsp[-2].node))); pnl_push(_al, (yyvsp[0].node)); (yyval.list) = _al; }
+#line 3446 "pascal.tab.c"
+    break;
+
+  case 105: /* argument: expression COLON expression COLON expression  */
+#line 1662 "pascal.y"
+                                                   { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool((yyvsp[-4].node))); pnl_push(_al, ilit(-3)); pnl_push(_al, (yyvsp[-2].node)); pnl_push(_al, (yyvsp[0].node)); (yyval.list) = _al; }
+#line 3452 "pascal.tab.c"
+    break;
+
   case 106: /* assignment: selector BECOMES expression  */
-#line 1636 "pascal.y"
+#line 1666 "pascal.y"
         { if ((yyvsp[-2].node) && (yyvsp[-2].node)->t == TT_VAR && (yyvsp[-2].node)->v.sval) pas_value_compat((yyvsp[-2].node)->v.sval, (yyvsp[0].node), "6.8.2.2", "the variable");
           if ((yyvsp[-2].node) && (yyvsp[-2].node)->t == TT_FNC && (yyvsp[-2].node)->n == 2 && (yyvsp[-2].node)->c[0] && (yyvsp[-2].node)->c[0]->v.sval && (!strcmp((yyvsp[-2].node)->c[0]->v.sval, "__pas_fbuf_get") || !strcmp((yyvsp[-2].node)->c[0]->v.sval, "__pas_tbuf_get"))) {
               int _isqlit = (yyvsp[0].node) && ((yyvsp[0].node)->t == TT_QLIT || ((yyvsp[0].node)->t == TT_FNC && (yyvsp[0].node)->n >= 1 && (yyvsp[0].node)->c[0] && (yyvsp[0].node)->c[0]->v.sval && !strcmp((yyvsp[0].node)->c[0]->v.sval, "__pas_chrlit")));
@@ -3456,11 +3486,11 @@ yyreduce:
                   tree_t *_tv = mk_fnc2("__trace_value", leaf_s(TT_QLIT, "<lval>"), pas_trace_wrap_value(_lvalclone));
                   PNodeList *_sl = pnl_new(); pnl_push(_sl, _asn); pnl_push(_sl, _tv); (yyval.node) = seq_of(_sl);
               } else { (yyval.node) = _asn; } } }
-#line 3460 "pascal.tab.c"
+#line 3490 "pascal.tab.c"
     break;
 
   case 107: /* selector: selector LBRACK expression_list RBRACK  */
-#line 1671 "pascal.y"
+#line 1701 "pascal.y"
                                            { tree_t *e = NULL; if ((yyvsp[-1].list) && (yyvsp[-1].list)->count == 2 && (yyvsp[-3].node) && (yyvsp[-3].node)->t == TT_VAR && (yyvsp[-3].node)->v.sval) { long long _nc = pas_array_ncols((yyvsp[-3].node)->v.sval); if (_nc > 0) { tree_t *flat = bin(TT_ADD, bin(TT_MUL, (yyvsp[-1].list)->items[0], ilit(_nc)), (yyvsp[-1].list)->items[1]); e = ast_node_new(TT_IDX); ast_push(e, (yyvsp[-3].node)); ast_push(e, flat); } } if (!e && (yyvsp[-1].list) && (yyvsp[-1].list)->count == 1 && (yyvsp[-3].node) && (yyvsp[-3].node)->t == TT_IDX && (yyvsp[-3].node)->n == 2 && (yyvsp[-3].node)->c[0] && (yyvsp[-3].node)->c[0]->t == TT_VAR && (yyvsp[-3].node)->c[0]->v.sval && !pas_is_nafield((yyvsp[-3].node))) {
         long long _nc2 = pas_array_ncols((yyvsp[-3].node)->c[0]->v.sval);
         if (_nc2 > 0) { tree_t *flat2 = bin(TT_ADD, bin(TT_MUL, (yyvsp[-3].node)->c[1], ilit(_nc2)), (yyvsp[-1].list)->items[0]);
@@ -3469,75 +3499,75 @@ yyreduce:
         if (_nlo != 0) _ei = bin(TT_SUB, _ei, ilit(_nlo));
         e = ast_node_new(TT_IDX); ast_push(e, (yyvsp[-3].node)); ast_push(e, _ei); pas_nrec_mark_add(e); }
       if (!e) { e = ast_node_new(TT_IDX); ast_push(e, (yyvsp[-3].node)); if ((yyvsp[-1].list)) for (int i = 0; i < (yyvsp[-1].list)->count; i++) ast_push(e, (yyvsp[-1].list)->items[i]); } if (e && (yyvsp[-3].node) && (yyvsp[-3].node)->t == TT_VAR && (yyvsp[-3].node)->v.sval) { const char *_et = pas_enumarr_get((yyvsp[-3].node)->v.sval); if (_et) { int _ei = pas_enumnames_idx(_et); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } } (yyval.node) = e; }
-#line 3473 "pascal.tab.c"
+#line 3503 "pascal.tab.c"
     break;
 
   case 108: /* selector: selector PERIOD IDENT  */
-#line 1679 "pascal.y"
+#line 1709 "pascal.y"
                             { int _fi = -1; const char *_rt = pas_selector_rectype((yyvsp[-2].node)); if (_rt) _fi = pas_rectype_field_index(_rt, (yyvsp[0].str)); else if ((yyvsp[-2].node) && (yyvsp[-2].node)->t == TT_VAR && (yyvsp[-2].node)->v.sval) _fi = pas_recvar_field_index((yyvsp[-2].node)->v.sval, (yyvsp[0].str));
         if (_fi < 0 && (yyvsp[-2].node) && (yyvsp[-2].node)->t == TT_IDX && (yyvsp[-2].node)->n == 2 && (yyvsp[-2].node)->c[0] && (yyvsp[-2].node)->c[0]->t == TT_VAR) { const char *_arn = NULL; int _anf = pas_arrrec_find((yyvsp[-2].node)->c[0]->v.sval, &_arn); if (_anf > 0) { int _afi = _arn ? pas_rectype_field_index(_arn, (yyvsp[0].str)) : -1; if (_afi < 0) { _afi = pas_arrrec_field_index((yyvsp[-2].node)->c[0]->v.sval, (yyvsp[0].str)); } if (_afi < 0) { for (int _ri = 0; _ri < g_pas_nrectype; _ri++) { int _t = pas_rectype_field_index(g_pas_rectypes[_ri].tname, (yyvsp[0].str)); if (_t >= 0 && g_pas_rectypes[_ri].nf == _anf) { _afi = _t; break; } } } if (_afi >= 0) { (yyval.node) = pas_arrrec_flatten((yyvsp[-2].node), _afi); if (pas_arrrec_field_is_char((yyvsp[-2].node)->c[0]->v.sval, _afi) || (_arn && pas_rectype_field_is_char(_arn, _afi))) pas_cvfield_mark_add((yyval.node)); const char *_fe = pas_arrrec_field_enum((yyvsp[-2].node)->c[0]->v.sval, _afi); if (!_fe && _arn) _fe = pas_rectype_field_enum_by_index(_arn, _afi); if (_fe && (yyval.node)) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) (yyval.node)->v.ival = (long long)(_ei + 1); } } else { (yyval.node) = bin(TT_FIELD, (yyvsp[-2].node), leaf_s(TT_VAR, (yyvsp[0].str))); } } else { (yyval.node) = pas_nested_field_resolve((yyvsp[-2].node), (yyvsp[0].str)); } }
         else if (_fi >= 0) { tree_t *e = ast_node_new(TT_IDX); ast_push(e, (yyvsp[-2].node)); ast_push(e, ilit(_fi)); if (_rt) { const char *_fe = pas_rectype_field_enum_by_index(_rt, _fi); if (_fe) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } } { const char *_mrt = _rt ? _rt : pas_with_sel_rtype((yyvsp[-2].node)); if (_mrt && pas_rectype_field_is_ca(_mrt, _fi)) pas_cafield_mark_add(e, pas_rectype_field_ca_lo(_mrt, _fi), pas_rectype_field_ca_hi(_mrt, _fi)); if (_mrt && pas_rectype_field_is_char(_mrt, _fi)) pas_cvfield_mark_add(e);
             if (_mrt && pas_rectype_field_is_na(_mrt, _fi)) pas_nafield_mark_add(e, pas_rectype_field_na_lo(_mrt, _fi)); } (yyval.node) = e; } else { (yyval.node) = pas_nested_field_resolve((yyvsp[-2].node), (yyvsp[0].str)); } }
-#line 3482 "pascal.tab.c"
-    break;
-
-  case 109: /* selector: selector ARROW  */
-#line 1683 "pascal.y"
-                     { (yyval.node) = pas_is_tfile_node((yyvsp[-1].node)) ? mk_fnc1("__pas_fbuf_get", (yyvsp[-1].node)) : (((yyvsp[-1].node) && (yyvsp[-1].node)->t == TT_VAR && (yyvsp[-1].node)->v.sval && pas_is_filevar((yyvsp[-1].node)->v.sval) && !pas_is_stdstream((yyvsp[-1].node)->v.sval)) ? mk_fnc1("__pas_tbuf_get", (yyvsp[-1].node)) : (((yyvsp[-1].node) && (yyvsp[-1].node)->t == TT_VAR && (yyvsp[-1].node)->v.sval && pas_is_pcharvar((yyvsp[-1].node)->v.sval)) ? mk_fnc1("__pas_pchar_deref", (yyvsp[-1].node)) : mk_deref((yyvsp[-1].node)))); }
-#line 3488 "pascal.tab.c"
-    break;
-
-  case 110: /* selector: IDENT  */
-#line 1684 "pascal.y"
-            { (yyval.node) = mk_ident((yyvsp[0].str)); }
-#line 3494 "pascal.tab.c"
-    break;
-
-  case 111: /* expression_list: expression_list COMMA expression  */
-#line 1687 "pascal.y"
-                                     { pnl_push((yyvsp[-2].list), (yyvsp[0].node)); (yyval.list) = (yyvsp[-2].list); }
-#line 3500 "pascal.tab.c"
-    break;
-
-  case 112: /* expression_list: expression  */
-#line 1688 "pascal.y"
-                 { PNodeList *l = pnl_new(); pnl_push(l, (yyvsp[0].node)); (yyval.list) = l; }
-#line 3506 "pascal.tab.c"
-    break;
-
-  case 113: /* compound_statement: BEGINSY statement_list ENDSY  */
-#line 1691 "pascal.y"
-                                 { (yyval.node) = seq_of((yyvsp[-1].list)); }
 #line 3512 "pascal.tab.c"
     break;
 
+  case 109: /* selector: selector ARROW  */
+#line 1713 "pascal.y"
+                     { (yyval.node) = pas_is_tfile_node((yyvsp[-1].node)) ? mk_fnc1("__pas_fbuf_get", (yyvsp[-1].node)) : (((yyvsp[-1].node) && (yyvsp[-1].node)->t == TT_VAR && (yyvsp[-1].node)->v.sval && pas_is_filevar((yyvsp[-1].node)->v.sval) && !pas_is_stdstream((yyvsp[-1].node)->v.sval)) ? mk_fnc1("__pas_tbuf_get", (yyvsp[-1].node)) : (((yyvsp[-1].node) && (yyvsp[-1].node)->t == TT_VAR && (yyvsp[-1].node)->v.sval && pas_is_pcharvar((yyvsp[-1].node)->v.sval)) ? mk_fnc1("__pas_pchar_deref", (yyvsp[-1].node)) : mk_deref((yyvsp[-1].node)))); }
+#line 3518 "pascal.tab.c"
+    break;
+
+  case 110: /* selector: IDENT  */
+#line 1714 "pascal.y"
+            { (yyval.node) = mk_ident((yyvsp[0].str)); }
+#line 3524 "pascal.tab.c"
+    break;
+
+  case 111: /* expression_list: expression_list COMMA expression  */
+#line 1717 "pascal.y"
+                                     { pnl_push((yyvsp[-2].list), (yyvsp[0].node)); (yyval.list) = (yyvsp[-2].list); }
+#line 3530 "pascal.tab.c"
+    break;
+
+  case 112: /* expression_list: expression  */
+#line 1718 "pascal.y"
+                 { PNodeList *l = pnl_new(); pnl_push(l, (yyvsp[0].node)); (yyval.list) = l; }
+#line 3536 "pascal.tab.c"
+    break;
+
+  case 113: /* compound_statement: BEGINSY statement_list ENDSY  */
+#line 1721 "pascal.y"
+                                 { (yyval.node) = seq_of((yyvsp[-1].list)); }
+#line 3542 "pascal.tab.c"
+    break;
+
   case 114: /* goto_statement: GOTOSY INTCONST  */
-#line 1695 "pascal.y"
+#line 1725 "pascal.y"
         { char _gb[24]; snprintf(_gb, sizeof _gb, "%lld", (long long)(yyvsp[0].ival));
           tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); G->line = pascal_get_lineno(); (yyval.node) = G; }
-#line 3519 "pascal.tab.c"
+#line 3549 "pascal.tab.c"
     break;
 
   case 115: /* if_statement: IFSY expression THENSY statement  */
-#line 1699 "pascal.y"
+#line 1729 "pascal.y"
                                      { (yyval.node) = bin(TT_IF, pas_cond_bool((yyvsp[-2].node), "an if-statement", "6.8.3.4"), (yyvsp[0].node)); }
-#line 3525 "pascal.tab.c"
+#line 3555 "pascal.tab.c"
     break;
 
   case 116: /* if_statement: IFSY expression THENSY statement ELSESY statement  */
-#line 1700 "pascal.y"
+#line 1730 "pascal.y"
                                                         { tree_t *e = ast_node_new(TT_IF); ast_push(e, pas_cond_bool((yyvsp[-4].node), "an if-statement", "6.8.3.4")); ast_push(e, (yyvsp[-2].node)); ast_push(e, (yyvsp[0].node)); (yyval.node) = e; }
-#line 3531 "pascal.tab.c"
+#line 3561 "pascal.tab.c"
     break;
 
   case 117: /* $@7: %empty  */
-#line 1703 "pascal.y"
+#line 1733 "pascal.y"
                            { pas_case_push(); }
-#line 3537 "pascal.tab.c"
+#line 3567 "pascal.tab.c"
     break;
 
   case 118: /* case_statement: CASESY expression OFSY $@7 case_list ENDSY  */
-#line 1704 "pascal.y"
+#line 1734 "pascal.y"
         { tree_t *seq = ast_node_new(TT_SEQ_EXPR);
           ast_push(seq, bin(TT_ASSIGN, leaf_s(TT_VAR, pas_case_cur()), (yyvsp[-4].node)));
           tree_t *chain = ast_node_new(TT_FNC); ast_push(chain, leaf_s(TT_VAR, "__pas_rterr")); ast_push(chain, leaf_s(TT_QLIT, "6.8.3.5"));
@@ -3546,304 +3576,304 @@ yyreduce:
           ast_push(seq, chain);
           pas_case_pop();
           (yyval.node) = seq; }
-#line 3550 "pascal.tab.c"
-    break;
-
-  case 119: /* case_list: case_list SEMICOLON case_elem  */
-#line 1714 "pascal.y"
-                                  { if ((yyvsp[0].node)) pnl_push((yyvsp[-2].list), (yyvsp[0].node)); (yyval.list) = (yyvsp[-2].list); }
-#line 3556 "pascal.tab.c"
-    break;
-
-  case 120: /* case_list: case_elem  */
-#line 1715 "pascal.y"
-                { PNodeList *l = pnl_new(); if ((yyvsp[0].node)) pnl_push(l, (yyvsp[0].node)); (yyval.list) = l; }
-#line 3562 "pascal.tab.c"
-    break;
-
-  case 121: /* case_elem: constant_list COLON statement  */
-#line 1718 "pascal.y"
-                                  { (yyval.node) = bin(TT_IF, pas_cond((yyvsp[-2].node)), (yyvsp[0].node)); }
-#line 3568 "pascal.tab.c"
-    break;
-
-  case 122: /* case_elem: %empty  */
-#line 1719 "pascal.y"
-      { (yyval.node) = NULL; }
-#line 3574 "pascal.tab.c"
-    break;
-
-  case 123: /* constant_list: constant_list COMMA constant  */
-#line 1722 "pascal.y"
-                                 { (yyval.node) = bin(TT_ADD, (yyvsp[-2].node), bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit((yyvsp[0].ival)))); }
 #line 3580 "pascal.tab.c"
     break;
 
-  case 124: /* constant_list: constant  */
-#line 1723 "pascal.y"
-               { (yyval.node) = bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit((yyvsp[0].ival))); }
+  case 119: /* case_list: case_list SEMICOLON case_elem  */
+#line 1744 "pascal.y"
+                                  { if ((yyvsp[0].node)) pnl_push((yyvsp[-2].list), (yyvsp[0].node)); (yyval.list) = (yyvsp[-2].list); }
 #line 3586 "pascal.tab.c"
     break;
 
-  case 125: /* while_statement: WHILESY expression DOSY statement  */
-#line 1726 "pascal.y"
-                                      { (yyval.node) = bin(TT_WHILE, pas_cond_bool((yyvsp[-2].node), "a while-statement", "6.8.3.8"), (yyvsp[0].node)); }
+  case 120: /* case_list: case_elem  */
+#line 1745 "pascal.y"
+                { PNodeList *l = pnl_new(); if ((yyvsp[0].node)) pnl_push(l, (yyvsp[0].node)); (yyval.list) = l; }
 #line 3592 "pascal.tab.c"
     break;
 
-  case 126: /* repeat_statement: REPEATSY statement_list UNTILSY expression  */
-#line 1729 "pascal.y"
-                                               { (yyval.node) = bin(TT_REPEAT, seq_of((yyvsp[-2].list)), pas_cond_bool((yyvsp[0].node), "a repeat-statement", "6.8.3.7")); }
+  case 121: /* case_elem: constant_list COLON statement  */
+#line 1748 "pascal.y"
+                                  { (yyval.node) = bin(TT_IF, pas_cond((yyvsp[-2].node)), (yyvsp[0].node)); }
 #line 3598 "pascal.tab.c"
     break;
 
+  case 122: /* case_elem: %empty  */
+#line 1749 "pascal.y"
+      { (yyval.node) = NULL; }
+#line 3604 "pascal.tab.c"
+    break;
+
+  case 123: /* constant_list: constant_list COMMA constant  */
+#line 1752 "pascal.y"
+                                 { (yyval.node) = bin(TT_ADD, (yyvsp[-2].node), bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit((yyvsp[0].ival)))); }
+#line 3610 "pascal.tab.c"
+    break;
+
+  case 124: /* constant_list: constant  */
+#line 1753 "pascal.y"
+               { (yyval.node) = bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit((yyvsp[0].ival))); }
+#line 3616 "pascal.tab.c"
+    break;
+
+  case 125: /* while_statement: WHILESY expression DOSY statement  */
+#line 1756 "pascal.y"
+                                      { (yyval.node) = bin(TT_WHILE, pas_cond_bool((yyvsp[-2].node), "a while-statement", "6.8.3.8"), (yyvsp[0].node)); }
+#line 3622 "pascal.tab.c"
+    break;
+
+  case 126: /* repeat_statement: REPEATSY statement_list UNTILSY expression  */
+#line 1759 "pascal.y"
+                                               { (yyval.node) = bin(TT_REPEAT, seq_of((yyvsp[-2].list)), pas_cond_bool((yyvsp[0].node), "a repeat-statement", "6.8.3.7")); }
+#line 3628 "pascal.tab.c"
+    break;
+
   case 127: /* for_statement: FORSY IDENT BECOMES expression TOSY expression DOSY statement  */
-#line 1733 "pascal.y"
+#line 1763 "pascal.y"
         { pas_value_compat((yyvsp[-6].str), (yyvsp[-4].node), "6.8.3.9", "the control-variable"); pas_value_compat((yyvsp[-6].str), (yyvsp[-2].node), "6.8.3.9", "the control-variable");
           if (pas_var_is_real((yyvsp[-6].str))) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", (yyvsp[-6].str)); g_pas_iso_errors++; }
           pas_for_const_bounds((yyvsp[-6].str), (yyvsp[-4].node), (yyvsp[-2].node), 0);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, (yyvsp[-6].str))); ast_push(e, (yyvsp[-4].node)); ast_push(e, (yyvsp[-2].node)); ast_push(e, pas_trace_wrap_for_body((yyvsp[-6].str), (yyvsp[0].node))); (yyval.node) = e; }
-#line 3607 "pascal.tab.c"
+#line 3637 "pascal.tab.c"
     break;
 
   case 128: /* for_statement: FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement  */
-#line 1738 "pascal.y"
+#line 1768 "pascal.y"
         { pas_value_compat((yyvsp[-6].str), (yyvsp[-4].node), "6.8.3.9", "the control-variable"); pas_value_compat((yyvsp[-6].str), (yyvsp[-2].node), "6.8.3.9", "the control-variable");
           if (pas_var_is_real((yyvsp[-6].str))) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", (yyvsp[-6].str)); g_pas_iso_errors++; }
           pas_for_const_bounds((yyvsp[-6].str), (yyvsp[-4].node), (yyvsp[-2].node), 1);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, (yyvsp[-6].str))); ast_push(e, (yyvsp[-4].node)); ast_push(e, (yyvsp[-2].node)); ast_push(e, pas_trace_wrap_for_body((yyvsp[-6].str), (yyvsp[0].node))); e->v.ival = 1; (yyval.node) = e; }
-#line 3616 "pascal.tab.c"
-    break;
-
-  case 129: /* with_statement: WITHSY with_open DOSY statement  */
-#line 1744 "pascal.y"
-                                    { long long n = (yyvsp[-2].ival); for (long long i = 0; i < n; i++) pas_with_pop(); (yyval.node) = (yyvsp[0].node); }
-#line 3622 "pascal.tab.c"
-    break;
-
-  case 130: /* with_open: with_open COMMA selector  */
-#line 1747 "pascal.y"
-                             { pas_with_push((yyvsp[0].node)); (yyval.ival) = (yyvsp[-2].ival) + 1; }
-#line 3628 "pascal.tab.c"
-    break;
-
-  case 131: /* with_open: selector  */
-#line 1748 "pascal.y"
-               { pas_with_push((yyvsp[0].node)); (yyval.ival) = 1; }
-#line 3634 "pascal.tab.c"
-    break;
-
-  case 132: /* expression: simple_expression  */
-#line 1755 "pascal.y"
-                      { (yyval.node) = (yyvsp[0].node); }
-#line 3640 "pascal.tab.c"
-    break;
-
-  case 133: /* expression: expression INOP simple_expression  */
-#line 1756 "pascal.y"
-                                        { (yyval.node) = mk_in((yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3646 "pascal.tab.c"
     break;
 
-  case 134: /* expression: expression LTOP simple_expression  */
-#line 1757 "pascal.y"
-                                        { (yyval.node) = pas_rel(TT_LT, (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 129: /* with_statement: WITHSY with_open DOSY statement  */
+#line 1774 "pascal.y"
+                                    { long long n = (yyvsp[-2].ival); for (long long i = 0; i < n; i++) pas_with_pop(); (yyval.node) = (yyvsp[0].node); }
 #line 3652 "pascal.tab.c"
     break;
 
-  case 135: /* expression: expression LEOP simple_expression  */
-#line 1758 "pascal.y"
-                                        { (yyval.node) = pas_rel_or_set(TT_LE, "__pas_subset", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 130: /* with_open: with_open COMMA selector  */
+#line 1777 "pascal.y"
+                             { pas_with_push((yyvsp[0].node)); (yyval.ival) = (yyvsp[-2].ival) + 1; }
 #line 3658 "pascal.tab.c"
     break;
 
-  case 136: /* expression: expression GTOP simple_expression  */
-#line 1759 "pascal.y"
-                                        { (yyval.node) = pas_rel(TT_GT, (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 131: /* with_open: selector  */
+#line 1778 "pascal.y"
+               { pas_with_push((yyvsp[0].node)); (yyval.ival) = 1; }
 #line 3664 "pascal.tab.c"
     break;
 
-  case 137: /* expression: expression GEOP simple_expression  */
-#line 1760 "pascal.y"
-                                        { (yyval.node) = pas_rel_or_set(TT_GE, "__pas_super", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 132: /* expression: simple_expression  */
+#line 1785 "pascal.y"
+                      { (yyval.node) = (yyvsp[0].node); }
 #line 3670 "pascal.tab.c"
     break;
 
-  case 138: /* expression: expression NEOP simple_expression  */
-#line 1761 "pascal.y"
-                                        { (yyval.node) = pas_rel_or_set(TT_NE, "__pas_setne", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 133: /* expression: expression INOP simple_expression  */
+#line 1786 "pascal.y"
+                                        { (yyval.node) = mk_in((yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3676 "pascal.tab.c"
     break;
 
-  case 139: /* expression: expression EQOP simple_expression  */
-#line 1762 "pascal.y"
-                                        { (yyval.node) = pas_rel_or_set(TT_EQ, "__pas_seteq", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 134: /* expression: expression LTOP simple_expression  */
+#line 1787 "pascal.y"
+                                        { (yyval.node) = pas_rel(TT_LT, (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3682 "pascal.tab.c"
     break;
 
-  case 140: /* simple_expression: term  */
-#line 1765 "pascal.y"
-         { (yyval.node) = (yyvsp[0].node); }
+  case 135: /* expression: expression LEOP simple_expression  */
+#line 1788 "pascal.y"
+                                        { (yyval.node) = pas_rel_or_set(TT_LE, "__pas_subset", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3688 "pascal.tab.c"
     break;
 
-  case 141: /* simple_expression: PLUS term  */
-#line 1766 "pascal.y"
-                { (yyval.node) = (yyvsp[0].node); }
+  case 136: /* expression: expression GTOP simple_expression  */
+#line 1789 "pascal.y"
+                                        { (yyval.node) = pas_rel(TT_GT, (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3694 "pascal.tab.c"
     break;
 
-  case 142: /* simple_expression: MINUS term  */
-#line 1767 "pascal.y"
-                 { (yyval.node) = mk_neg((yyvsp[0].node)); }
+  case 137: /* expression: expression GEOP simple_expression  */
+#line 1790 "pascal.y"
+                                        { (yyval.node) = pas_rel_or_set(TT_GE, "__pas_super", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3700 "pascal.tab.c"
     break;
 
-  case 143: /* simple_expression: simple_expression PLUS term  */
-#line 1768 "pascal.y"
-                                  { (yyval.node) = pas_arith_or_set(TT_ADD, "__pas_setuni", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 138: /* expression: expression NEOP simple_expression  */
+#line 1791 "pascal.y"
+                                        { (yyval.node) = pas_rel_or_set(TT_NE, "__pas_setne", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3706 "pascal.tab.c"
     break;
 
-  case 144: /* simple_expression: simple_expression MINUS term  */
-#line 1769 "pascal.y"
-                                   { (yyval.node) = pas_arith_or_set(TT_SUB, "__pas_setdif", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 139: /* expression: expression EQOP simple_expression  */
+#line 1792 "pascal.y"
+                                        { (yyval.node) = pas_rel_or_set(TT_EQ, "__pas_seteq", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3712 "pascal.tab.c"
     break;
 
-  case 145: /* simple_expression: simple_expression OROP term  */
-#line 1770 "pascal.y"
-                                  { (yyval.node) = (pas_is_boolexpr((yyvsp[-2].node)) && pas_is_boolexpr((yyvsp[0].node))) ? bin(TT_ADD, (yyvsp[-2].node), (yyvsp[0].node)) : mk_fnc2("ior", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 140: /* simple_expression: term  */
+#line 1795 "pascal.y"
+         { (yyval.node) = (yyvsp[0].node); }
 #line 3718 "pascal.tab.c"
     break;
 
-  case 146: /* term: factor  */
-#line 1773 "pascal.y"
-           { (yyval.node) = (yyvsp[0].node); }
+  case 141: /* simple_expression: PLUS term  */
+#line 1796 "pascal.y"
+                { (yyval.node) = (yyvsp[0].node); }
 #line 3724 "pascal.tab.c"
     break;
 
-  case 147: /* term: term MUL factor  */
-#line 1774 "pascal.y"
-                      { (yyval.node) = pas_arith_or_set(TT_MUL, "__pas_setint", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 142: /* simple_expression: MINUS term  */
+#line 1797 "pascal.y"
+                 { (yyval.node) = mk_neg((yyvsp[0].node)); }
 #line 3730 "pascal.tab.c"
     break;
 
-  case 148: /* term: term RDIV factor  */
-#line 1775 "pascal.y"
-                       { (yyval.node) = pas_rdiv((yyvsp[-2].node), (yyvsp[0].node)); }
+  case 143: /* simple_expression: simple_expression PLUS term  */
+#line 1798 "pascal.y"
+                                  { (yyval.node) = pas_arith_or_set(TT_ADD, "__pas_setuni", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3736 "pascal.tab.c"
     break;
 
-  case 149: /* term: term IDIV factor  */
-#line 1776 "pascal.y"
-                       { (yyval.node) = bin(TT_DIV, (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 144: /* simple_expression: simple_expression MINUS term  */
+#line 1799 "pascal.y"
+                                   { (yyval.node) = pas_arith_or_set(TT_SUB, "__pas_setdif", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3742 "pascal.tab.c"
     break;
 
-  case 150: /* term: term IMOD factor  */
-#line 1777 "pascal.y"
-                       { (yyval.node) = pas_mod((yyvsp[-2].node), (yyvsp[0].node)); }
+  case 145: /* simple_expression: simple_expression OROP term  */
+#line 1800 "pascal.y"
+                                  { (yyval.node) = (pas_is_boolexpr((yyvsp[-2].node)) && pas_is_boolexpr((yyvsp[0].node))) ? bin(TT_ADD, (yyvsp[-2].node), (yyvsp[0].node)) : mk_fnc2("ior", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 3748 "pascal.tab.c"
     break;
 
-  case 151: /* term: term ANDOP factor  */
-#line 1778 "pascal.y"
-                        { (yyval.node) = (pas_is_boolexpr((yyvsp[-2].node)) && pas_is_boolexpr((yyvsp[0].node))) ? bin(TT_MUL, (yyvsp[-2].node), (yyvsp[0].node)) : mk_fnc2("iand", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 146: /* term: factor  */
+#line 1803 "pascal.y"
+           { (yyval.node) = (yyvsp[0].node); }
 #line 3754 "pascal.tab.c"
     break;
 
+  case 147: /* term: term MUL factor  */
+#line 1804 "pascal.y"
+                      { (yyval.node) = pas_arith_or_set(TT_MUL, "__pas_setint", (yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3760 "pascal.tab.c"
+    break;
+
+  case 148: /* term: term RDIV factor  */
+#line 1805 "pascal.y"
+                       { (yyval.node) = pas_rdiv((yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3766 "pascal.tab.c"
+    break;
+
+  case 149: /* term: term IDIV factor  */
+#line 1806 "pascal.y"
+                       { (yyval.node) = bin(TT_DIV, (yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3772 "pascal.tab.c"
+    break;
+
+  case 150: /* term: term IMOD factor  */
+#line 1807 "pascal.y"
+                       { (yyval.node) = pas_mod((yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3778 "pascal.tab.c"
+    break;
+
+  case 151: /* term: term ANDOP factor  */
+#line 1808 "pascal.y"
+                        { (yyval.node) = (pas_is_boolexpr((yyvsp[-2].node)) && pas_is_boolexpr((yyvsp[0].node))) ? bin(TT_MUL, (yyvsp[-2].node), (yyvsp[0].node)) : mk_fnc2("iand", (yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3784 "pascal.tab.c"
+    break;
+
   case 152: /* factor: selector  */
-#line 1781 "pascal.y"
+#line 1811 "pascal.y"
              { if (pas_is_nrec_idx((yyvsp[0].node)) && (yyvsp[0].node)->n >= 2 && (yyvsp[0].node)->c[0] && (yyvsp[0].node)->c[0]->t == TT_IDX && (yyvsp[0].node)->c[0]->n >= 2) {
           tree_t *g = ast_node_new(TT_FNC); ast_push(g, leaf_s(TT_VAR, "__pas_nrec_get"));
           ast_push(g, (yyvsp[0].node)->c[0]->c[0]); ast_push(g, (yyvsp[0].node)->c[0]->c[1]); ast_push(g, (yyvsp[0].node)->c[1]);
           if (pas_is_cvfield((yyvsp[0].node))) pas_cvfield_mark_add(g);
           (yyval.node) = g; }
       else if (pas_is_cafield((yyvsp[0].node))) { tree_t *u = ast_node_new(TT_FNC); ast_push(u, leaf_s(TT_VAR, "__pas_ca_unpack")); ast_push(u, (yyvsp[0].node)); ast_push(u, ilit(pas_cafield_lo_get((yyvsp[0].node)))); (yyval.node) = u; } else (yyval.node) = (yyvsp[0].node); }
-#line 3765 "pascal.tab.c"
-    break;
-
-  case 153: /* factor: call_with_args  */
-#line 1787 "pascal.y"
-                     { (yyval.node) = (yyvsp[0].node); }
-#line 3771 "pascal.tab.c"
-    break;
-
-  case 154: /* factor: INTCONST  */
-#line 1788 "pascal.y"
-               { (yyval.node) = ilit((yyvsp[0].ival)); }
-#line 3777 "pascal.tab.c"
-    break;
-
-  case 155: /* factor: REALCONST  */
-#line 1789 "pascal.y"
-                { (yyval.node) = flit((yyvsp[0].dval)); }
-#line 3783 "pascal.tab.c"
-    break;
-
-  case 156: /* factor: STRINGCONST  */
-#line 1790 "pascal.y"
-                  { if ((yyvsp[0].str) && strlen((yyvsp[0].str)) == 1) { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit((long long)(unsigned char)(yyvsp[0].str)[0])); (yyval.node) = _cl; } else (yyval.node) = leaf_s(TT_QLIT, (yyvsp[0].str)); }
-#line 3789 "pascal.tab.c"
-    break;
-
-  case 157: /* factor: LPARENT expression RPARENT  */
-#line 1791 "pascal.y"
-                                 { (yyval.node) = (yyvsp[-1].node); }
 #line 3795 "pascal.tab.c"
     break;
 
-  case 158: /* factor: NOTSY factor  */
-#line 1792 "pascal.y"
-                   { (yyval.node) = pas_flip_rel(pas_cond((yyvsp[0].node))); }
+  case 153: /* factor: call_with_args  */
+#line 1817 "pascal.y"
+                     { (yyval.node) = (yyvsp[0].node); }
 #line 3801 "pascal.tab.c"
     break;
 
-  case 159: /* factor: ATSIGN factor  */
-#line 1793 "pascal.y"
-                    { (yyval.node) = pas_addr_of_proc((yyvsp[0].node)); }
+  case 154: /* factor: INTCONST  */
+#line 1818 "pascal.y"
+               { (yyval.node) = ilit((yyvsp[0].ival)); }
 #line 3807 "pascal.tab.c"
     break;
 
-  case 160: /* factor: LBRACK RBRACK  */
-#line 1794 "pascal.y"
-                    { (yyval.node) = mk_set_ctor(NULL); }
+  case 155: /* factor: REALCONST  */
+#line 1819 "pascal.y"
+                { (yyval.node) = flit((yyvsp[0].dval)); }
 #line 3813 "pascal.tab.c"
     break;
 
-  case 161: /* factor: LBRACK set_member_list RBRACK  */
-#line 1795 "pascal.y"
-                                    { (yyval.node) = (yyvsp[-1].node); }
+  case 156: /* factor: STRINGCONST  */
+#line 1820 "pascal.y"
+                  { if ((yyvsp[0].str) && strlen((yyvsp[0].str)) == 1) { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit((long long)(unsigned char)(yyvsp[0].str)[0])); (yyval.node) = _cl; } else (yyval.node) = leaf_s(TT_QLIT, (yyvsp[0].str)); }
 #line 3819 "pascal.tab.c"
     break;
 
-  case 162: /* set_member_list: set_member  */
-#line 1798 "pascal.y"
-               { (yyval.node) = (yyvsp[0].node); }
+  case 157: /* factor: LPARENT expression RPARENT  */
+#line 1821 "pascal.y"
+                                 { (yyval.node) = (yyvsp[-1].node); }
 #line 3825 "pascal.tab.c"
     break;
 
-  case 163: /* set_member_list: set_member_list COMMA set_member  */
-#line 1799 "pascal.y"
-                                       { (yyval.node) = mk_set_bin("__pas_setuni", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 158: /* factor: NOTSY factor  */
+#line 1822 "pascal.y"
+                   { (yyval.node) = pas_flip_rel(pas_cond((yyvsp[0].node))); }
 #line 3831 "pascal.tab.c"
     break;
 
-  case 164: /* set_member: expression  */
-#line 1802 "pascal.y"
-               { PNodeList *_l = pnl_new(); pnl_push(_l, (yyvsp[0].node)); (yyval.node) = mk_set_ctor(_l); }
+  case 159: /* factor: ATSIGN factor  */
+#line 1823 "pascal.y"
+                    { (yyval.node) = pas_addr_of_proc((yyvsp[0].node)); }
 #line 3837 "pascal.tab.c"
     break;
 
-  case 165: /* set_member: expression DOTDOT expression  */
-#line 1803 "pascal.y"
-                                   { (yyval.node) = mk_set_bin("__pas_setrange", (yyvsp[-2].node), (yyvsp[0].node)); }
+  case 160: /* factor: LBRACK RBRACK  */
+#line 1824 "pascal.y"
+                    { (yyval.node) = mk_set_ctor(NULL); }
 #line 3843 "pascal.tab.c"
     break;
 
+  case 161: /* factor: LBRACK set_member_list RBRACK  */
+#line 1825 "pascal.y"
+                                    { (yyval.node) = (yyvsp[-1].node); }
+#line 3849 "pascal.tab.c"
+    break;
 
-#line 3847 "pascal.tab.c"
+  case 162: /* set_member_list: set_member  */
+#line 1828 "pascal.y"
+               { (yyval.node) = (yyvsp[0].node); }
+#line 3855 "pascal.tab.c"
+    break;
+
+  case 163: /* set_member_list: set_member_list COMMA set_member  */
+#line 1829 "pascal.y"
+                                       { (yyval.node) = mk_set_bin("__pas_setuni", (yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3861 "pascal.tab.c"
+    break;
+
+  case 164: /* set_member: expression  */
+#line 1832 "pascal.y"
+               { PNodeList *_l = pnl_new(); pnl_push(_l, (yyvsp[0].node)); (yyval.node) = mk_set_ctor(_l); }
+#line 3867 "pascal.tab.c"
+    break;
+
+  case 165: /* set_member: expression DOTDOT expression  */
+#line 1833 "pascal.y"
+                                   { (yyval.node) = mk_set_bin("__pas_setrange", (yyvsp[-2].node), (yyvsp[0].node)); }
+#line 3873 "pascal.tab.c"
+    break;
+
+
+#line 3877 "pascal.tab.c"
 
       default: break;
     }
@@ -4036,7 +4066,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1809 "pascal.y"
+#line 1839 "pascal.y"
 
 extern void *pascal_yy_scan_string(const char *);
 extern void  pascal_yy_delete_buffer(void *);

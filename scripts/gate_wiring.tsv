@@ -335,6 +335,7 @@ test_gate_pas_a_variable_is_defined_once_per_variable_declaration_part.sh	WIRED	
 test_gate_pas_a_word_symbol_is_never_defined_as_an_identifier.sh	WIRED	-	-	-
 test_gate_pas_an_if_while_or_until_condition_must_be_boolean.sh	WIRED	-	-	-
 test_gate_pas_an_ordinal_function_never_takes_a_real.sh	WIRED	-	-	-
+test_gate_pas_an_ordinal_function_result_exists_in_its_type.sh	WIRED	-	-	-
 test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
