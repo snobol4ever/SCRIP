@@ -255,7 +255,7 @@ Command         =   $' ' ( *if_cmd
                     | nInc() *stmt_cmd
                     );
 /* Compiland — top-level program */
-Compiland       =   nPush() POS(0) ARBNO(*Command) RPOS(0)
+Compiland       =   nPush() POS(0) ARBNO(*Command) $' ' RPOS(0)
                     reduce("'Parse'", 'nTop()') nPop();
 /* ==================================================================================================================== */
 /* Driver                                                                                  */
