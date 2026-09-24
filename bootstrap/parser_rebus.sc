@@ -234,8 +234,8 @@ X_fields  = nInc() shift(*Id, 'TT_VAR') FENCE($',' *X_fields | epsilon);
 opt_fields = nPush() FENCE(*X_fields | epsilon) reduce(FIELDS, nTop_count) nPop();
 X_locals   = nInc() shift(*Id, 'TT_VAR') FENCE($',' *X_locals | epsilon);
 opt_locals = nPush() FENCE($'local' *X_locals FENCE($';' | epsilon) $' ' nl | epsilon) reduce(LOCALS, nTop_count) nPop();
-init_expr   = $' ' *match_or_expr $' ';
-opt_initial = FENCE(nPush() $'initial' *init_expr $';' $' ' nl reduce(RB_INITIAL, 1) nPop() | reduce(RB_INITIAL, 0));
+init_expr   = *stmt_inline;
+opt_initial = FENCE(nPush() $'initial' *init_expr FENCE($';' | epsilon) $' ' nl reduce(RB_INITIAL, 1) nPop() | reduce(RB_INITIAL, 0));
 function_decl =
     $'function' shift(*Id, 'TT_VAR') $'(' *opt_params $')' $' ' nl
     *opt_locals
