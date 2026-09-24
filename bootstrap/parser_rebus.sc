@@ -6,7 +6,7 @@ white       =   (  SPAN(' ' tab)
                 |  '/*' BREAKX('*') '*/'
                 );
 White       =   white ARBNO(white);
-Gray        =   ARBNO(white);
+Gray        =   White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
 Id      = ANY(&UCASE &LCASE '_') (SPAN(&UCASE &LCASE digits '_' '.') | epsilon);
