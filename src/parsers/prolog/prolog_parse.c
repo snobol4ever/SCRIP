@@ -710,6 +710,13 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 lexer_next(&p->lx);
                 tree_t *n = ast_node_new(TT_FNC);
                 n->v.sval = ct_strdup("{}");
+                if (lexer_peek(&p->lx).kind == TK_LPAREN) {
+                    lexer_next(&p->lx);
+                    pt_args(p, ts, n);
+                    Token rp = lexer_peek(&p->lx);
+                    if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                    else perror_at(p, rp.line, "expected ) to close argument list");
+                }
                 return pt_stamp(n, ln);
             }
             tree_t *inner;

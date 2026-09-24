@@ -353,7 +353,9 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
         if (wrap) fputc('(', fp);
         if (ar == 2) {
             plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lmax, m);
-            if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s ", fn); else plc_wt_atom(fp, fn, quoted);
+            if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s ", fn);
+            else if (!strcmp(fn, ",")) fputc(',', fp);
+            else { plc_wt_atom(fp, fn, quoted); if (plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars))) fputc(' ', fp); }
             plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, rmax, m);
         } else if (plc_op_is_postfix(fn)) {
             plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lmax, m);
