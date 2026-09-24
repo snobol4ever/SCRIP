@@ -65,8 +65,9 @@ def resolve(bound, defines, depth=0):
 # read a table as "guarded" when its bound macro appeared in ANY comparison in its file -- so pl_list_to_arr's n < 4096, which keeps the
 # write in bounds by failing silently, read the same as frame_layout.c's zv table, which aborts naming itself. Each comparison of a
 # table's bound is now a SITE with a class:
-#   LOUD      the at-cap path refuses: it reaches abort/exit/longjmp, or calls a function that refuses (REFUSING, below), or calls an
-#             error-shaped function (a name with err/error/fatal/die/abort/refuse/panic/overflow/full) -- re_err(p, "too many ...")
+#   LOUD      the at-cap path refuses: it reaches abort/exit/longjmp itself, or calls a function that refuses (error-shaped by name --
+#             err/error/fatal/die/abort/refuse/panic/overflow/full -- AND reaching a primitive, refusing_functions below); a call that only
+#             prints or records an error and returns is NOT a refusal (fc_reg_full's "TABLE FULL ... DROPPED", the cfo's reading)
 #   DROP      the at-cap path does not refuse: a silent return/break/continue (DROP-silent), no else at all (DROP-skip), a loop that
 #             stops early (`&& n < CAP`, DROP-truncate) or an assignment of the bound (DROP-clamp)
 #   NEUTRAL   not a capacity guard: an index checked before a READ, or a loop over the whole table (`i < CAP` alone)
@@ -245,9 +246,12 @@ class GuardReader:
         self._spans, self._idx = {}, {}
 
     def loud(self, text):
-        if PRIM.search(text) or (self.refpat and self.refpat.search(text)):
-            return True
-        return any(ERRV.search(c) for c in CALL.findall(text))
+        # ⛔ A NAME IS NOT A REFUSAL (the cfo's reading, 2026-09-24): frame_layout.c's fc_reg_full("vdj", 256) is error-shaped by name,
+        # prints "TABLE FULL ... further registrations are being DROPPED" and returns -- a warned DROP -- and the first cut of this
+        # reader called it LOUD because it accepted any error-shaped call. The at-cap path must REACH a primitive, itself or through a
+        # refusing function; a call that only records an error (raku re.c's re_err sets p->ok = 0) is read as a drop until it is shown
+        # to stop the run.
+        return bool(PRIM.search(text) or (self.refpat and self.refpat.search(text)))
 
     def span(self, p, off):
         if p not in self._spans:
@@ -358,7 +362,12 @@ class GuardReader:
                 a2, b2 = self.stmt_after(s, b + me.end())
                 els = s[a2:b2]
             atcap = then if full else els
-            if atcap and self.loud(atcap):
+            # ⛔ LOUD NEEDS THE AT-CAP PATH TO BE THIS COMPARISON'S: either the compared variable is the table's counter, or the comparison
+            # is the WHOLE condition of `if (x >= CAP) refuse`. core.c's `if (... && ch >= 0 && ch < IO_CHAN_MAX && ...) ... else ...`
+            # takes its else when ANY clause fails -- an index check with an unrelated else read LOUD in the first cut.
+            cond = s[par + 1:match_close(s, par, "(", ")")]
+            sole = not re.search(r"&&|\|\|", cond)
+            if atcap and self.loud(atcap) and (counter or (full and sole)):
                 return "LOUD"
             if not counter:
                 return "NEUTRAL"
