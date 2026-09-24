@@ -2428,14 +2428,18 @@ def main(argv):
     # sourced authorities); a second copy of this rule is how one of them keeps the old rule after the rule changes.
     # ⛔ AND THERE IS DELIBERATELY NO ESCAPE HATCH.  Every other knob in this file has one for an auditor comparing
     # across a criterion change; a bypass HERE would re-admit the exact false green the refusal exists to stop.
-    # THE QUESTION IS ASKED OF THE TREE THAT BUILT THE ARTIFACTS (ROOT), NEVER OF --root (cto 2026-09-24, the
-    # seventeen-red row): the emitted-paths gate censuses a SCRATCH root that symlinks ROOT's .so and COPIES the
-    # templates it doctors, so that root has no scripts/ and its copies are newer than any binary by construction;
-    # asked there the check refused every run (rc=2, "census printed no headline") while grading nothing.
+    # THE QUESTION IS ASKED OF THE TREE THAT OWNS THE RUNTIME ARTIFACT (cto 2026-09-24, the seventeen-red row): when
+    # --root's out/libscrip_rt.so is a SYMLINK into ROOT -- the emitted-paths gate censuses a scratch root that links
+    # ROOT's .so and COPIES the templates it doctors, so that root has no scripts/ and its copies are newer than any
+    # binary by construction, and asked there the check refused every run (rc=2, "census printed no headline") while
+    # grading nothing -- the artifacts are ROOT's and ROOT's src is what built them; a scratch whose .so is its own
+    # file (this file's selftest plants one with 1970 mtimes beside a newer src/) is asked about itself and refuses.
+    _so = os.path.join(R, "out", "libscrip_rt.so")
+    _owner = ROOT if (os.path.islink(_so) and os.path.realpath(_so).startswith(os.path.realpath(ROOT) + os.sep)) else R
     bc = subprocess.run(["bash", "-c",
                          'set -e; . "$1/scripts/lib_build_currency.sh"; '
                          'assert_binary_current "$1/scrip" "$1"; assert_so_current "$1/out/libscrip_rt.so" "$1"',
-                         "_", ROOT], capture_output=True, text=True)
+                         "_", _owner], capture_output=True, text=True)
     if bc.returncode != 0:
         sys.stdout.write(bc.stdout)
         sys.stderr.write(bc.stderr)
