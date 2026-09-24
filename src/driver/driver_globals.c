@@ -28,9 +28,11 @@ void fh_set_bom(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[i
 int fh_bom(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].bom?1:0; }
 void fh_set_repos(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].repos=(char)(v?1:0); }
 int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].repos?1:0; }
+void fh_set_eof(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].eof=(char)v; }
+int fh_eof(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].eof; }
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;g_fh[i].closed=0;return i;}
+    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;g_fh[i].closed=0;g_fh[i].eof=0;return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -41,7 +43,7 @@ FILE *fh_get(int idx){
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){
-    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; }
+    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
 }
 int   fh_cur_in  = 0;
 int   fh_cur_out = 1;
