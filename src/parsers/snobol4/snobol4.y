@@ -128,7 +128,7 @@ goto_label_expr
 expr0      : expr1 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
            | expr1                                                                                 { $$=$1; }
            ;
-expr1      : expr2 T_2QUEST      expr1                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
+expr1      : expr1 T_2QUEST      expr2                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
            | expr2                                                                                 { $$=$1; }
            ;
 expr2      : expr2 T_2AMP  expr3                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("&"); $$=_e; }
