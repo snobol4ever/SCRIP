@@ -2654,6 +2654,11 @@ def cmd_run(args):
         print("CEO-409 MASKS ACTIVE: %d of %d entries carry a declared implementation-defined line mask (%s)"
               % (len(_seen), len(entries), ", ".join(sorted(_seen))))
     require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
+    # ⛔ THE SUITE'S NAMES ARE TAKEN BEFORE THE SHARD CUTS THEM: the outside list's presence check below asks whether a name is in
+    # THIS SUITE, never in this shard -- read from the sharded list, every outside name graded by another shard read as a stale row
+    # and 6 of 6 SnoM shards refused rc=2 (hq_snobol4 2026-09-24; row instruments-the-harness-shard-filter-cuts-the-entry-list-
+    # before-the-outside-list-presence-check-so-every-sharded-run-of-a-suite-with-an-outside-list-refuses).
+    _suite_names = {e.name for e in entries}
     shard_tag = ""
     if getattr(args, "shard", ""):
         _m = re.fullmatch(r"(\d+)/(\d+)", args.shard.strip())
@@ -2757,8 +2762,7 @@ def cmd_run(args):
                 refuse(f"{_flag} {_outside_path}: line is not name<TAB>CLASS<TAB>reason: {_ln[:80]}")
             outside[_f[0].strip()] = (_f[1].strip(), _f[2].strip())
         _named = set(outside)
-        _present = {e.name for e in entries}
-        _absent = sorted(_named - _present)
+        _absent = sorted(_named - _suite_names)
         if _absent:
             refuse(f"{_flag} {_outside_path}: declares entries that are not in this suite: {_absent} -- a stale outside list silently shrinks nothing and hides that it is stale")
         print(f"OUTSIDE_BASELINE_LIST {_outside_path} ({'DERIVED from the suite directory -- --outside was not given' if _outside_derived else 'passed with --outside'}), "
