@@ -41,6 +41,13 @@
 # g_flat_data_buf and bb_patch_list after the extern "C", by_name_dispatch.c g_bidprof after the macro drift, 19 one-line or drifted
 # struct fields), 353 - 9 + 22 = 366, and drops one phantom declaration inside a string (frame_layout.c "frames from [1]").
 # BASELINE_FUNCTION_SCOPE 506 is the new population's first reading on that tree.
+# ⛔ BASELINE 366 -> 384 AND BASELINE_FUNCTION_SCOPE 506 -> 528, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo): ARRAY needs a type word
+# before each name, so every array after the first declarator of one statement was invisible -- `static long g_gc_rep_ranges[..],
+# g_gc_rep_bytes[..], ...;` counted one table of six, and `static int g_zd_stage, ..., g_zd_read[ZD_NOPS_MAX], g_zd_kind[..];` (a
+# scalar first) counted none; and a `static const struct { const char *nm; ... } g_bid_tab[..]` read as writable because of its first
+# field's `*`. On one tree (096684141) the corrected census adds exactly 18 file-scope tables and fields (15 comma declarators, 3
+# after a scalar: emit.cpp g_zd_read g_zd_kind, frame_layout.c zop_hist) and 22 locals a program fills, removes none, and reads
+# g_bid_tab const: 366 + 18 = 384, 506 + 22 = 528.
 # ⛔ BASELINE 363 -> 355, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo): the census counted 8 COMPARISONS as file-scope tables -- the
 # one-line getenv switches `return (e && e[0] == '0');`, read as type `e`, separator `&&`, name `e`, initializer `== '0'` -- and 87
 # such phantoms in all scopes. On one tree (c2cdd7480) the corrected census drops exactly those 87 rows, every one a NAME[0]
