@@ -204,7 +204,7 @@ Comment     =  '*' BREAK(nl);
 StmtLabel   =  shift(BREAK(' ' tab nl ';'), "'TT_LABEL'");
 StmtRepl    =  $'=' $' ' *Expr reduce("'TT_EQ'", 2)
             |  $'  ' '=' $' ' shift(epsilon, "'TT_EQ'");
-StmtGoto    =  FENCE(*Goto | epsilon);
+StmtGoto    =  FENCE(*Goto nInc() nInc() | epsilon);
 Stmt        =  nPush()
                FENCE(nInc() *StmtLabel | epsilon)
                FENCE(
