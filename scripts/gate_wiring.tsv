@@ -192,6 +192,7 @@ test_gate_harness_shard_reads_the_outside_list_from_the_unsharded_entries.sh	WIR
 test_gate_heap_exhaustion_at_the_cap_is_a_reported_error_not_an_abort.sh	WIRED	-	-	-
 test_gate_icn_a_closed_file_raises_212_on_read_and_213_on_write.sh	WIRED	-	-	-
 test_gate_icn_a_one_character_substring_swap_builds_one_string.sh	WIRED	-	-	-
+test_gate_icn_a_procedure_returns_its_variable_when_its_result_is_one.sh	WIRED	-	-	-
 test_gate_icn_a_record_field_under_a_subscript_section_bang_or_random_is_a_variable.sh	WIRED	-	-	-
 test_gate_icn_a_spine_opened_plain_procedure_fails_forward_on_redo.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
