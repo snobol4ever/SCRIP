@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""audit_fixed_caps_census.py [--tsv OUT] [--top N] [--dir src]
+"""audit_fixed_caps_census.py [--tsv OUT] [--top N] [--dir src] [--no-report] [--selftest]
 
 Census of FIXED-SIZE storage in the SCRIP compiler and runtime (Lon 2026-09-23, in-chat to the ceo: "we must still handle
 almost everything without a FIXED LIMIT ... Scan the SCRIP for all fixed arrays, fixed buffers, etc.").  It reads every
@@ -17,7 +17,12 @@ from collections import Counter, defaultdict
 
 CAP_NAME = re.compile(r"_(MAX|CAP|LIMIT|SIZE|DEPTH|ENTRIES|SLOTS|COUNT|LEN|BUCKETS|N)\b|^(MAX|N)[A-Z_]*$")
 DEFINE = re.compile(r"^\s*#\s*define\s+([A-Z][A-Z0-9_]*)\s+\(?\s*([0-9]+|0x[0-9a-fA-F]+|[A-Z][A-Z0-9_]*(?:\s*[*+]\s*[0-9A-Z_]+)*)\s*\)?\s*$")
-ARRAY = re.compile(r"(?P<pre>(?:^|[;{,(]|\)\s*)\s*(?:static\s+|const\s+|volatile\s+|unsigned\s+|signed\s+|struct\s+|enum\s+|extern\s+)*(?:[A-Za-z_][A-Za-z0-9_:<>]*\s*[*&\s]+))(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(?P<bound>[A-Z0-9_][A-Za-z0-9_+*\- ]*?)\s*\](?P<dims>(?:\s*\[[^\]]*\])*)\s*(?P<post>[;=,)]|\[)")
+# ⛔ A COMPARISON IS NOT A DECLARATION (coo 2026-09-24, CEO-1231's re-derivation): `return (e && e[0] == '0');` read as the type
+# word `e`, the separator `&&`, the name `e` and the "initializer" `== '0'`, so every one-line getenv switch of that shape was a
+# phantom table -- 87 of them in the census on c2cdd7480, 8 at file scope inside the ratchet's population (frame_layout.c zc_nofc,
+# lower_icon.c icn_kw_assignable, lower_raku.c rk_fld_priv, lower_snobol4.c sno_setexit_on, by_name_dispatch.c plw_vvb_on, core.c
+# core_setexit_on, rt.c rt_byname_alpha_on, runtime_eval.c's EVAL_TMP_MARK switch). `&&` is no type separator and `==` no initializer.
+ARRAY = re.compile(r"(?P<pre>(?:^|[;{,(]|\)\s*)\s*(?:static\s+|const\s+|volatile\s+|unsigned\s+|signed\s+|struct\s+|enum\s+|extern\s+)*(?:[A-Za-z_][A-Za-z0-9_:<>]*\s*(?:[*\s]|&(?!&))+))(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(?P<bound>[A-Z0-9_][A-Za-z0-9_+*\- ]*?)\s*\](?P<dims>(?:\s*\[[^\]]*\])*)\s*(?P<post>[;,)]|=(?!=)|\[)")
 # ⭐ A TABLE NAMED AFTER A CLOSING BRACE (coo 2026-09-23, the cfo's finding on this row): `static struct { fields } name[CAP];` -- one
 # line or several -- names its array after the `}`, where ARRAY needs a type word before the name, so the census never saw it. In
 # lower_snobol4.c alone that hid five population caps (g_sno_exprs[SNO_EXPR_MAX] FATAL past 4096, g_sno_pats[SNO_PAT_MAX] FATAL past
@@ -55,6 +60,386 @@ def resolve(bound, defines, depth=0):
     return None
 
 
+# ==================================================================== guard classification (CEO-1231) ===
+# ⭐⭐ A GUARD IS A GROWTH OR A LOUD REFUSAL, NEVER A DROP (ceo CEO-1231 (2), 2026-09-24, on the coo's ask). Until this section the census
+# read a table as "guarded" when its bound macro appeared in ANY comparison in its file -- so pl_list_to_arr's n < 4096, which keeps the
+# write in bounds by failing silently, read the same as frame_layout.c's zv table, which aborts naming itself. Each comparison of a
+# table's bound is now a SITE with a class:
+#   LOUD      the at-cap path refuses: it reaches abort/exit/longjmp, or calls a function that refuses (REFUSING, below), or calls an
+#             error-shaped function (a name with err/error/fatal/die/abort/refuse/panic/overflow/full) -- re_err(p, "too many ...")
+#   DROP      the at-cap path does not refuse: a silent return/break/continue (DROP-silent), no else at all (DROP-skip), a loop that
+#             stops early (`&& n < CAP`, DROP-truncate) or an assignment of the bound (DROP-clamp)
+#   NEUTRAL   not a capacity guard: an index checked before a READ, or a loop over the whole table (`i < CAP` alone)
+# and a table is LOUD when some site is LOUD and none DROPs, DROP when any site drops, NONE when no site guards a fill at all (never
+# compared, or compared only as an index or an iteration). ⛔ A SITE BELONGS TO A TABLE ONLY BY EVIDENCE, never by sharing a number:
+# its compared variable indexes the table (NAME[x], NAME[x++]) or carries the table's name as its stem (g_ab_fn_cell_n for
+# g_ab_fn_cells), or the comparison is against sizeof NAME. Without that rule `256` in two hundred unrelated comparisons of one file was
+# every 256-entry table's "guard". A DROP further needs the compared variable incremented AND the table written (NAME[...] =, &NAME[...],
+# a copy into it) inside the SAME FUNCTION as the site -- a data-driven index checked before a read (`g >= MAX_GROUPS) continue;`) is
+# NEUTRAL. A literal bound N matches N and N-1 (the NUL a char buffer keeps). A const table is reported, and read by the census lines as
+# class A by rule: a program cannot write it. CALIBRATED 2026-09-24 against the cases named on the row: frame_layout.c's zls tables,
+# emit.cpp g_strtab/g_csettab and g_ab_fn_cells, raku re.c group_name LOUD; driver_call.c call_stack (return FAILDESCR), emit.cpp
+# g_gc_map_names (the cfo: drops past 8192), lower_snobol4.c DEFINE names, prolog_driver.c g_pl_consulted and rt.c g_call_args (past 64
+# arguments, the defect hq_snobol4 isolated by hand the same morning) DROP.
+PRIM = re.compile(r"\b(abort|exit|_exit|_Exit|longjmp|siglongjmp|__builtin_trap)\s*\(")
+CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+ERRV = re.compile(r"(?:^|_)(err|error|errors|fatal|die|abort|refuse|refused|panic|overflow|full)(?:_|$)", re.I)
+KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof", "do", "else"}
+OPND = r"(?P<x>(?:\*\s*)?\(?\s*\*?\s*[A-Za-z_]\w*(?:\s*(?:->|\.)\s*[A-Za-z_]\w*|\s*\[[^\]\[]{0,60}\])*\s*\)?)"
+OPND_END = re.compile(OPND + r"\s*$")
+OPND_START = re.compile(r"\s*" + OPND)
+OP_BEFORE = re.compile(r"(<=|>=|==|!=|(?<![<\-])<|(?<![>\-])>)\s*\(?\s*$")
+OP_AFTER = re.compile(r"\s*\)?\s*(<=|>=|==|!=|<(?![<=])|>(?![>=]))")
+
+
+def strip_c(t):
+    """t with comment and string-literal contents and preprocessor lines blanked -- every newline and offset kept."""
+    out = list(t)
+    i, n = 0, len(t)
+    while i < n:
+        c = t[i]
+        if c == "/" and i + 1 < n and t[i + 1] == "/":
+            j = t.find("\n", i)
+            j = n if j < 0 else j
+            for k in range(i, j):
+                out[k] = " "
+            i = j
+        elif c == "/" and i + 1 < n and t[i + 1] == "*":
+            j = t.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            for k in range(i, j):
+                if t[k] != "\n":
+                    out[k] = " "
+            i = j
+        elif c in "\"'":
+            j = i + 1
+            while j < n and t[j] != c:
+                if t[j] == "\\":
+                    j += 1
+                if j < n and t[j] == "\n" and c == "'":
+                    break
+                j += 1
+            for k in range(i + 1, min(j, n)):
+                if t[k] != "\n":
+                    out[k] = " "
+            i = j + 1
+        elif c == "#" and (i == 0 or t[i - 1] == "\n"):
+            e = i
+            while True:
+                e = t.find("\n", e)
+                if e < 0:
+                    e = n
+                    break
+                if t[e - 1] == "\\":
+                    e += 1
+                    continue
+                break
+            for k in range(i, e):
+                if t[k] != "\n":
+                    out[k] = " "
+            i = e
+        else:
+            i += 1
+    return "".join(out)
+
+
+def match_close(s, i, o, c):
+    d = 0
+    for k in range(i, len(s)):
+        if s[k] == o:
+            d += 1
+        elif s[k] == c:
+            d -= 1
+            if d == 0:
+                return k
+    return -1
+
+
+def functions(s):
+    """name -> [(start, end)] of each function body in stripped text s; extern "C" and namespace blocks are transparent."""
+    out = {}
+    d = 0
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if ch == "{":
+            if d == 0 and re.search(r"\b(extern\s*\"\s*\"|namespace(\s+\w+)?)\s*$", s[max(0, i - 60):i]):
+                i += 1
+                continue
+            if d == 0:
+                j = i - 1
+                while j >= 0 and s[j] in " \t\n":
+                    j -= 1
+                if j >= 0 and s[j] == ")":
+                    dd, k = 0, j
+                    while k >= 0:
+                        if s[k] == ")":
+                            dd += 1
+                        elif s[k] == "(":
+                            dd -= 1
+                            if dd == 0:
+                                break
+                        k -= 1
+                    m = re.search(r"([A-Za-z_]\w*)\s*$", s[max(0, k - 200):k])
+                    e = match_close(s, i, "{", "}")
+                    if m and m.group(1) not in KEYWORDS and e > 0:
+                        out.setdefault(m.group(1), []).append((i, e))
+                        i = e + 1
+                        continue
+            d += 1
+        elif ch == "}":
+            d = max(0, d - 1)
+        i += 1
+    return out
+
+
+def refusing_functions(stripped):
+    """Functions that REFUSE: error-shaped by name (ERRV) and reaching a primitive, directly or through other error-shaped functions.
+    ⛔ NOT every function that can reach longjmp: most builtins raise an argument error somewhere, and taking all of them (1880 on
+    c2cdd7480) called any at-cap branch that happened to call a builtin LOUD."""
+    calls, prim = defaultdict(set), set()
+    for s in stripped.values():
+        for name, spans in functions(s).items():
+            for a, b in spans:
+                body = s[a:b]
+                if PRIM.search(body):
+                    prim.add(name)
+                calls[name].update(CALL.findall(body))
+    errshaped = {f for f in calls if ERRV.search(f)}
+    callers = defaultdict(set)
+    for f, cs in calls.items():
+        for c in cs:
+            callers[c].add(f)
+    ref = {f for f in prim if f in errshaped}
+    work = list(ref)
+    while work:
+        f = work.pop()
+        for g in callers.get(f, ()):
+            if g in errshaped and g not in ref:
+                ref.add(g)
+                work.append(g)
+    return ref
+
+
+def _norm(x):
+    return re.sub(r"[\s()]", "", x)
+
+
+def _xpat(x):
+    nx = _norm(x)
+    toks = [t for t in re.split(r"(->|\.|\[|\])", nx.lstrip("*")) if t]
+    if not toks:
+        return None
+    pat = r"\s*".join(re.escape(t) for t in toks)
+    return (r"\(\s*\*\s*" + pat + r"\s*\)") if nx.startswith("*") else pat
+
+
+class GuardReader:
+    """Classifies every comparison of a table's bound in the stripped tree, with the evidence rules in the header above."""
+
+    def __init__(self, stripped):
+        self.s = stripped
+        ref = refusing_functions(stripped)
+        self.refpat = re.compile(r"\b(" + "|".join(sorted(map(re.escape, ref), key=len, reverse=True)) + r")\s*\(") if ref else None
+        self.refusing = ref
+        self._spans, self._idx = {}, {}
+
+    def loud(self, text):
+        if PRIM.search(text) or (self.refpat and self.refpat.search(text)):
+            return True
+        return any(ERRV.search(c) for c in CALL.findall(text))
+
+    def span(self, p, off):
+        if p not in self._spans:
+            self._spans[p] = sorted(sp for spans in functions(self.s[p]).values() for sp in spans)
+        for a, b in self._spans[p]:
+            if a <= off <= b:
+                return a, b
+        return 0, len(self.s[p])
+
+    def indexes(self, p, name, x):
+        key = (p, name)
+        if key not in self._idx:
+            self._idx[key] = {_norm(m.group(1)).rstrip("+-") for m in re.finditer(r"\b" + re.escape(name) + r"\s*\[([^\]\[]{0,80})\]", self.s[p])}
+        return _norm(x).rstrip("+-") in self._idx[key] or ("(" + _norm(x) + ")") in self._idx[key]
+
+    @staticmethod
+    def stem(name, x):
+        core = re.split(r"->|\.", _norm(x).lstrip("*"))[-1]
+        st = name[:-1] if name.endswith("s") else name
+        return len(st) >= 4 and (core.startswith(st) or core.startswith(name))
+
+    @staticmethod
+    def incremented(text, x):
+        xp = _xpat(x)
+        return bool(xp) and bool(re.search(r"(?:" + xp + r")\s*(?:\+\+|\+=)|\+\+\s*(?:" + xp + r")(?!\w)", text))
+
+    @staticmethod
+    def writes(text, name):
+        n = re.escape(name)
+        return bool(re.search(r"\b" + n + r"\s*\[[^\]]*\]\s*(?:\[[^\]]*\]\s*)*(?:=(?!=)|\+=|-=|\|=|(?:\.|->)\s*\w+\s*(?:\[[^\]]*\]\s*)?=(?!=))", text)
+                    or re.search(r"&\s*(?:\w+\s*(?:->|\.)\s*)*" + n + r"\s*\[", text)
+                    or re.search(r"\b(?:memcpy|memmove|strcpy|strncpy|strcat|snprintf|sprintf)\s*\(\s*&?\s*(?:\w+\s*(?:->|\.)\s*)*" + n + r"\b", text))
+
+    @staticmethod
+    def sites(s, bound_pat):
+        for m in re.finditer(r"(?<![\w.>])(?:" + bound_pat + r")(?![\w(])", s):
+            a, b = m.start(), m.end()
+            pre = s[max(0, a - 160):a]
+            mo = OP_BEFORE.search(pre)
+            if mo:
+                mx = OPND_END.search(pre[:mo.start()])
+                if mx:
+                    x = mx.group("x")
+                    lead = len(x) - len(x.lstrip("(* \t\n"))
+                    yield a - len(pre) + mx.start() + lead, x.lstrip("( \t\n"), mo.group(1), "right"
+                    continue
+            mo = OP_AFTER.match(s, b)
+            if mo:
+                mx = OPND_START.match(s, mo.end())
+                if mx:
+                    yield a, mx.group("x").lstrip("( \t\n"), mo.group(1), "left"
+
+    @staticmethod
+    def enclosing(s, off):
+        d, k = 0, off - 1
+        while k >= 0:
+            c = s[k]
+            if c == ")":
+                d += 1
+            elif c == "(":
+                if d == 0:
+                    m = re.search(r"([A-Za-z_]\w*)\s*$", s[max(0, k - 40):k])
+                    return (m.group(1) if m else None), k
+                d -= 1
+            elif c in "{}" and d == 0:
+                return None, -1
+            k -= 1
+        return None, -1
+
+    @staticmethod
+    def stmt_after(s, i):
+        while i < len(s) and s[i] in " \t\n":
+            i += 1
+        if i < len(s) and s[i] == "{":
+            return i, match_close(s, i, "{", "}") + 1
+        d = 0
+        for k in range(i, len(s)):
+            c = s[k]
+            if c in "([{":
+                d += 1
+            elif c in ")]}":
+                d -= 1
+            elif c == ";" and d <= 0:
+                return i, k + 1
+        return i, len(s)
+
+    def site_class(self, p, off, x, op, side, bound_pat, name):
+        s = self.s[p]
+        full = (side == "right" and op in (">=", ">", "==")) or (side == "left" and op in ("<=", "<", "=="))
+        kw, par = self.enclosing(s, off)
+        nx = _norm(x)
+        if kw == "if" and full:
+            pe = match_close(s, par, "(", ")")
+            a, b = self.stmt_after(s, pe + 1)
+            if re.search(re.escape(nx.lstrip("*")) + r"=\(?(?:" + bound_pat + r")\b", re.sub(r"\s", "", s[a:b])):
+                return "DROP-clamp"
+        if full and re.match(r"[^;?]*\?\s*\(?\s*(?:" + bound_pat + r")\b", s[off:off + 200]):
+            return "DROP-clamp"
+        fa, fb = self.span(p, off)
+        fs = s[fa:fb]
+        counter = self.incremented(fs, x) and self.writes(fs, name)
+        if kw == "if":
+            pe = match_close(s, par, "(", ")")
+            a, b = self.stmt_after(s, pe + 1)
+            then, els = s[a:b], ""
+            me = re.match(r"\s*else\b", s[b:b + 20])
+            if me:
+                a2, b2 = self.stmt_after(s, b + me.end())
+                els = s[a2:b2]
+            atcap = then if full else els
+            if atcap and self.loud(atcap):
+                return "LOUD"
+            if not counter:
+                return "NEUTRAL"
+            return "DROP-silent" if atcap.strip() else "DROP-skip"
+        if not counter:
+            return "NEUTRAL"
+        if kw in ("for", "while"):
+            pe = match_close(s, par, "(", ")")
+            cond = s[par + 1:pe]
+            if kw == "for":
+                parts = cond.split(";")
+                cond = parts[1] if len(parts) > 1 else cond
+            return "DROP-truncate" if ("&&" in cond or "||" in cond) else "NEUTRAL"
+        return "NEUTRAL"
+
+    def table(self, path, name, bound, scan):
+        """(guard, [evidence]) for one table: guard LOUD/DROP/NONE, evidence 'file:line:CLASS(var)' per attributed site."""
+        if re.fullmatch(r"[A-Z][A-Z0-9_]*", bound):
+            bp = re.escape(bound)
+        elif re.fullmatch(r"[0-9]+", bound):
+            bp = re.escape(bound) + (("|" + str(int(bound) - 1)) if int(bound) > 1 else "") \
+                + r"|sizeof\s*\(?\s*" + re.escape(name) + r"\b\s*\)?(?:\s*/\s*sizeof\s*\(?[^)]*\)?)?"
+        else:
+            return "NONE", []
+        kinds, ev = Counter(), []
+        for q in scan:
+            s = self.s.get(q)
+            if s is None:
+                continue
+            for off, x, op, side in self.sites(s, bp):
+                via_sizeof = s.startswith("sizeof", off) or bool(re.search(r"sizeof\s*\(?\s*" + re.escape(name) + r"\b", s[off:off + 60]))
+                if not via_sizeof and not self.indexes(q, name, x) and not self.stem(name, x):
+                    continue
+                k = self.site_class(q, off, x, op, side, bp, name)
+                kinds[k.split("-")[0]] += 1
+                ev.append("%s%d:%s(%s)" % (("" if q == path else os.path.basename(q) + ":"), s.count("\n", 0, off) + 1, k, _norm(x)))
+        g = "DROP" if kinds["DROP"] else ("LOUD" if kinds["LOUD"] else "NONE")
+        return g, ev
+
+
+def is_const_table(decl_line, name):
+    """True when the ARRAY is read-only: a const that is not followed by a pointer star before the name (`const char *names[N]` is a
+    writable array of pointers; `static const uint8_t tbl[N]` and `char *const names[N]` are not)."""
+    i = decl_line.find(name + "[")
+    if i < 0:
+        m = re.search(r"\b" + re.escape(name) + r"\s*\[", decl_line)
+        i = m.start() if m else len(decl_line)
+    pre = decl_line[:i]
+    return "const" in pre and "*" not in pre[pre.rfind("const"):]
+
+
+def classify_guards(rows, texts):
+    """rows (as main builds them) -> rows extended with (guard, const, evidence). Macro bounds are read in the declaring file and in
+    every file that #includes it by name (a struct field declared in a header is filled elsewhere); literal bounds in the declaring
+    file only, because a number is not a name."""
+    stripped = {p: strip_c(t) for p, t in texts.items()}
+    gr = GuardReader(stripped)
+    includers = defaultdict(set)
+    for p, t in texts.items():
+        for m in re.finditer(r'^\s*#\s*include\s*"([^"]+)"', t, re.M):
+            includers[os.path.basename(m.group(1))].add(p)
+    lines_of = {}
+    out = []
+    for r in rows:
+        p, i, scope, name, bound = r[0], r[1], r[2], r[3], r[4]
+        if scope not in ("file", "static", "field"):
+            # function-scope arrays are CEO-1231's second population and get their own reader; until it lands they carry no guard
+            # reading at all, rather than one the file-scope rules were never calibrated for
+            out.append(tuple(r[:7]) + ("", "", ""))
+            continue
+        scan = [p]
+        if re.fullmatch(r"[A-Z][A-Z0-9_]*", bound) and p.endswith((".h", ".hpp")):
+            scan += sorted(includers.get(os.path.basename(p), ()))
+        g, ev = gr.table(p, name, bound, scan)
+        if p not in lines_of:
+            lines_of[p] = texts[p].split("\n")
+        c = is_const_table(lines_of[p][i - 1] if 0 < i <= len(lines_of[p]) else "", name)
+        out.append(tuple(r[:7]) + (g, "const" if c else "", " ".join(ev)))
+    return out, gr
+
+
 def selftest():
     """Planted fixtures, every form the census must count or refuse to count, graded by NAME. rc 0 / 1."""
     import tempfile
@@ -67,28 +452,57 @@ def selftest():
             "typedef struct { int a; } t3_is_a_type[4];\n"
             "extern int t4_extern[T5_MAX];\n"
             "int t5_plain[T5_MAX];\n"
-            "void f(void) {\n    extern int t4_extern[T5_MAX];\n    static struct { int q; } t6_local_static[T6_MAX];\n    (void)t6_local_static;\n}\n")
+            "void f(void) {\n    extern int t4_extern[T5_MAX];\n    static struct { int q; } t6_local_static[T6_MAX];\n    (void)t6_local_static;\n}\n"
+            # ⭐ CEO-1231: a comparison that is not a declaration, and one table per guard shape, graded by NAME below
+            "static int t7_switch(void) { const char *e = getenv(\"X\"); return (e && e[0] == '0'); }\n"
+            "#define T8_MAX 8\nstatic int t8_drop[T8_MAX]; static int t8_drop_n;\n"
+            "void t8_put(int v) { if (t8_drop_n < T8_MAX) t8_drop[t8_drop_n++] = v; }\n"
+            "#define T9_MAX 8\nstatic int t9_loud[T9_MAX]; static int t9_loud_n;\n"
+            "void t9_put(int v) { if (t9_loud_n >= T9_MAX) { fprintf(stderr, \"t9 overflow\\n\"); abort(); } t9_loud[t9_loud_n++] = v; }\n"
+            "#define T10_MAX 8\nstatic int t10_clamp[T10_MAX]; static int t10_clamp_n;\n"
+            "void t10_set(int n) { t10_clamp_n = n; if (t10_clamp_n > T10_MAX) t10_clamp_n = T10_MAX; t10_clamp[0] = t10_clamp_n; }\n"
+            "#define T11_MAX 8\nstatic int t11_trunc[T11_MAX]; static int t11_trunc_n;\n"
+            "void t11_fill(const int *v, int n) { for (int i = 0; i < n && t11_trunc_n < T11_MAX; i++) t11_trunc[t11_trunc_n++] = v[i]; }\n"
+            "#define T12_MAX 8\nstatic int t12_none[T12_MAX]; static int t12_none_n;\n"
+            "void t12_put(int v) { t12_none[t12_none_n++] = v; }\n"
+            "int t12_get(int i) { return (i >= 0 && i < T12_MAX) ? t12_none[i] : 0; }\n"
+            "static const int t13_const[4] = {1, 2, 3, 4};\n"
+            "static char t14_lit[64]; static int t14_lit_n;\n"
+            "void t14_put(char c) { if (t14_lit_n < 63) t14_lit[t14_lit_n++] = c; }\n"
+            "static void t15_full(const char *w) { fprintf(stderr, \"%s\\n\", w); exit(2); }\n"
+            "#define T15_MAX 8\nstatic int t15_wrapped[T15_MAX]; static int t15_wrapped_n;\n"
+            "void t15_put(int v) { if (t15_wrapped_n >= T15_MAX) t15_full(\"t15\"); t15_wrapped[t15_wrapped_n++] = v; }\n")
         out = os.path.join(d, "c.tsv")
         import io, contextlib
         with contextlib.redirect_stdout(io.StringIO()):
             main(["x", "--dir", d, "--tsv", out])
-        got = {}
+        got, guard = {}, {}
         for ln in open(out).read().split("\n")[1:]:
             if ln:
                 f = ln.split("\t")
                 got.setdefault(f[3], []).append(f[2])
-        want = {"t1_oneline": ["file"], "t2_multiline": ["file"], "t5_plain": ["file"], "t6_local_static": ["static"]}
+                guard[f[3]] = (f[7], f[8])
+        want = {"t1_oneline": ["file"], "t2_multiline": ["file"], "t5_plain": ["file"], "t6_local_static": ["static"],
+                "t8_drop": ["file"], "t9_loud": ["file"], "t10_clamp": ["file"], "t11_trunc": ["file"], "t12_none": ["file"],
+                "t13_const": ["file"], "t14_lit": ["file"], "t15_wrapped": ["file"]}
         ok = True
         for n, sc in want.items():
             if got.get(n) != sc:
                 print("SELFTEST FAIL: %s counted as %r, want %r" % (n, got.get(n), sc)); ok = False
             else:
                 print("SELFTEST: %s counted once, scope %s" % (n, sc[0]))
-        for n in ("t3_is_a_type", "t4_extern"):
+        for n in ("t3_is_a_type", "t4_extern", "e"):
             if n in got:
-                print("SELFTEST FAIL: %s was counted %r -- a typedef and an extern are not storage" % (n, got[n])); ok = False
+                print("SELFTEST FAIL: %s was counted %r -- a typedef, an extern and a comparison (e && e[0] == '0') are not storage" % (n, got[n])); ok = False
             else:
                 print("SELFTEST: %s not counted (not storage)" % n)
+        gwant = {"t8_drop": ("DROP", ""), "t9_loud": ("LOUD", ""), "t10_clamp": ("DROP", ""), "t11_trunc": ("DROP", ""),
+                 "t12_none": ("NONE", ""), "t13_const": ("NONE", "const"), "t14_lit": ("DROP", ""), "t15_wrapped": ("LOUD", "")}
+        for n, w in gwant.items():
+            if guard.get(n) != w:
+                print("SELFTEST FAIL: %s reads guard %r, want %r" % (n, guard.get(n), w)); ok = False
+            else:
+                print("SELFTEST: %s guard %s%s" % (n, w[0], (" " + w[1]) if w[1] else ""))
         print("SELFTEST %s" % ("PASS" if ok else "FAIL"))
         return 0 if ok else 1
     finally:
@@ -200,11 +614,21 @@ def main(argv):
                 struct_depth = None
             if depth < 0:
                 depth = 0
+    # ⭐ THE GUARD COLUMN IS THE CLASSIFIER'S (CEO-1231): LOUD / DROP / NONE for every bound, macro or literal, with the evidence sites
+    # in the last column; `const` marks a read-only table. The old guarded/UNGUARDED reading (the macro compared anywhere in the file)
+    # is retired with it.
+    rows, _gr = classify_guards(rows, texts)
     if out:
         with open(out, "w", encoding="utf-8", newline="\n") as f:
-            f.write("file\tline\tscope\tname\tbound\tsize\tdims\tguard\n")
+            f.write("file\tline\tscope\tname\tbound\tsize\tdims\tguard\tconst\tsites\n")
             for r in rows:
                 f.write("\t".join(str(x) for x in r) + "\n")
+    if "--no-report" in argv:
+        # the witness reads only the TSV; the report's define-use counts cost 9 s a run (every cap-shaped #define searched through
+        # the whole tree) inside a blocking gate that runs the census twice
+        print("FIXED-CAPS CENSUS: %d array declarations with a constant bound in %d files -- report skipped (--no-report), TSV %s"
+              % (len(rows), len(texts), out or "not written"))
+        return 0
     by_dir = defaultdict(Counter)
     for r in rows:
         by_dir[os.path.dirname(r[0])][r[2]] += 1
@@ -217,10 +641,17 @@ def main(argv):
     print("\nBOUND MACROS (%d distinct), by declarations using them:" % len(macros))
     for mname, n in macros.most_common(top):
         print("  %-40s uses=%-3d value=%-10s defined %s" % (mname, n, resolve(mname, defines) if resolve(mname, defines) is not None else defines.get(mname, "?"), define_sites.get(mname, "?")))
-    ung = [r for r in rows if r[7] == "UNGUARDED" and r[2] in ("file", "static", "field")]
-    print("\nFILE-SCOPE OR FIELD ARRAYS WHOSE BOUND MACRO IS NEVER COMPARED IN ITS FILE (silent overrun candidates): %d" % len(ung))
-    for r in sorted(ung, key=lambda r: -(r[5] or 0))[:top]:
-        print("  %s:%d %s %s[%s] size=%s" % r[:6])
+    fsf = [r for r in rows if r[2] in ("file", "static", "field")]
+    g = Counter((r[7], bool(r[8])) for r in fsf)
+    print("\nGUARDS AT FILE, STATIC OR FIELD SCOPE (CEO-1231: a guard is a growth or a loud refusal, never a drop): %d LOUD, %d DROP, "
+          "%d with no capacity guard; const (read-only, class A by rule) %d of them; the refusing functions the LOUD reading accepts: %d"
+          % (g[("LOUD", False)], g[("DROP", False)], g[("NONE", False)], sum(v for (k, c), v in g.items() if c), len(_gr.refusing)))
+    for label, want in (("DROP -- the cap is reached and the write is skipped, truncated, clamped or failed silently", "DROP"),
+                        ("NO CAPACITY GUARD -- the bound is never compared, or compared only as an index or an iteration", "NONE")):
+        sel = [r for r in fsf if r[7] == want and not r[8]]
+        print("\n%s: %d" % (label, len(sel)))
+        for r in sorted(sel, key=lambda r: (r[0], r[1]))[:top]:
+            print("  %s:%d %s %s[%s]  %s" % (r[0], r[1], r[2], r[3], r[4], r[9][:160]))
     lits = [r for r in rows if re.fullmatch(r"[0-9]+", r[4]) and r[2] in ("file", "static", "field") and int(r[4]) >= 8]
     print("\nFILE-SCOPE OR FIELD ARRAYS WITH A BARE LITERAL BOUND >= 8: %d" % len(lits))
     for r in sorted(lits, key=lambda r: -int(r[4]))[:top]:
