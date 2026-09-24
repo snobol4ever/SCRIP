@@ -31,7 +31,7 @@ if [ ! -d "$CORPUS" ]; then echo "⛔ REFUSES rc=2: corpus not found at $CORPUS 
 run() {
     local base="$CORPUS/$1"
     [ -f "${base}.xfail" ] && { echo "  XFAIL $1"; XFAIL=$((XFAIL+1)); return; }
-    [ -f "${base}.expected" ] || { echo "  SKIP  $1 (no .expected)"; return; }
+    [ -f "${base}.ref" ] || { echo "  SKIP  $1 (no .ref)"; return; }
     local stdin_f="${base}.stdin"; [ -f "$stdin_f" ] || stdin_f="$(dirname "$base")/config/$(basename "$base").stdin"
     local got want
     # ⛔⭐ A CORPUS PROGRAM RUNS IN ITS OWN DIRECTORY (seat06, 2026-08-29; same cure corpus_suite_harness.py
@@ -48,7 +48,7 @@ run() {
     else
         got=$(cd "$_pdir" && timeout 30 "$SCRIP" --run "$_pfile" < /dev/null   2>/dev/null) || true
     fi
-    want=$(cat "${base}.expected")
+    want=$(cat "${base}.ref")
     if [ "$got" = "$want" ]; then
         echo "  PASS $1"; PASS=$((PASS+1))
     else
@@ -60,7 +60,7 @@ run() {
 }
 
 # ⛔⭐ A NAME THAT MOVED INTO THE MASTER IS ASSERTED HERE, NEVER SILENTLY SKIPPED (hq_V, 2026-09-11).
-# run() above prints "SKIP (no .expected)" and returns SUCCESS when a file is gone, so absorbing a loose
+# run() above prints "SKIP (no .ref)" and returns SUCCESS when a file is gone, so absorbing a loose
 # rung36 witness into ALL.icn and deleting its pair -- the correct, routine end of a conversion -- takes this
 # script one witness smaller with no message and no failing exit code. That is the same false-green shape
 # test_icon_ir_rung_34's REFUSAL was written to kill. moved() states where the coverage went and PROVES it is

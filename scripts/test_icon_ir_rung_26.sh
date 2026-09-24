@@ -5,7 +5,7 @@ PASS=0; FAIL=0; XFAIL=0
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 RUNG_DIR="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 for icn in "$RUNG_DIR"/rung26_pow_*.icn; do
-  base="${icn%.icn}"; exp="$base.expected"; [ -f "$exp" ] || continue
+  base="${icn%.icn}"; exp="$base.ref"; [ -f "$exp" ] || continue
   [ -f "$base.xfail" ] && { XFAIL=$((XFAIL+1)); echo "XFAIL: $(basename $icn)"; continue; }
   ${1:-/tmp/scrip-cc} -jvm "$icn" -o /tmp/t26.j 2>/dev/null
   timeout 30 java -jar miscellaneous/jasmin.jar /tmp/t26.j -d /tmp/ 2>/dev/null

@@ -7,7 +7,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 RUNG_DIR="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 for icn in "$RUNG_DIR"/rung02_arith_gen_*.icn; do
   [ -f "$icn" ] || continue
-  base="${icn%.icn}"; exp="$base.expected"; [ -f "$exp" ] || continue
+  base="${icn%.icn}"; exp="$base.ref"; [ -f "$exp" ] || continue
   xfail_file="$base.xfail"
   $DRIVER -jvm "$icn" -o /tmp/t02_arith_.j 2>/dev/null
   timeout 30 java -jar miscellaneous/jasmin.jar /tmp/t02_arith_.j -d /tmp/ >/dev/null 2>&1

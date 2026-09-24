@@ -5,7 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # Usage: bash scripts/test_icon_all_rungs.sh [--rung RUNG] [--scrip PATH] [--corpus PATH]
 #
 # Runs rung01–rung36 (or a specific rung) of the Icon corpus against
-# scrip --run and reports PASS/FAIL/XFAIL vs .expected files.
+# scrip --run and reports PASS/FAIL/XFAIL vs .ref files.
 # Files with a matching .xfail marker are skipped as known-unimplemented (XFAIL).
 # All rungs use timeout 8s. rung36_jcon_subjpos quarantined via .xfail (infinite
 # loop in --run subject/&pos path, hangs to timeout; see GOAL-ICON-BB). No
@@ -16,9 +16,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # SUITE-FORMAT DELEGATION (tests-consolidate-icon, 2026-08-28): a family converted by
 # corpus_suite_harness.py loses its loose rungNN_*.icn files and becomes one <family>.icn+.ref
-# pair (discriminator: has a .ref sibling and NO .expected sibling). Left in the raw per-file glob
+# pair (discriminator: a .ref sibling AND section banners in the source). Left in the raw per-file glob
 # it would either vanish silently (empty-glob false-green) or, since a suite file's name still
-# matches the glob, get misread as MISSING (this script counts a missing .expected as MISSING and
+# matches the glob, get misread as MISSING (this script counts a missing .ref as MISSING and
 # fails the gate on it -- see the MISSING branch below). Converted families are routed into
 # SUITE_FILES instead and folded into the same PASS/FAIL totals via `corpus_suite_harness.py run`
 # after the per-file loops. This script runs under `set -e`, unlike its interp/run/compile twin
@@ -62,8 +62,10 @@ PASS=0; FAIL=0; XFAIL=0; XPASS=0; BADEXIT=0; MISSING=0
 ICN_SCRATCH=$(mktemp -d)
 trap 'rm -rf "$ICN_SCRATCH"' EXIT
 declare -a SUITE_FILES=()
-# converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
-is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
+# converted-family discriminator (see header note): a .ref sibling AND corpus_suite_harness.py's section banners
+# (`#---- <seq> <name>`) in the source. The sibling alone decided while loose programs carried a .expected; since
+# CEO-1222 every loose expected output is a .ref as well, so the source's own shape is what tells a container.
+is_suite_file() { [ -f "${1%.icn}.ref" ] && grep -qE '^#-{3,} [0-9]+ [^[:space:]]' "$1"; }
 
 # rung36 per-category tally (sidecar map at corpus/rung36_categories.txt)
 declare -A R36_CAT_P R36_CAT_F R36_CAT_X R36_CAT_XP
@@ -100,12 +102,12 @@ r36_tally() {
 run_one() {
     local icn="$1"
     local tmo="${2:-8}"
-    local exp="${icn%.icn}.expected"
+    local exp="${icn%.icn}.ref"
     local base="${icn%.icn}"
     local name
     name=$(basename "$icn" .icn)
     if [ ! -f "$exp" ]; then
-        echo "MISSING $name (no .expected oracle)"
+        echo "MISSING $name (no .ref oracle)"
         MISSING=$((MISSING+1))
         return 0
     fi
@@ -269,12 +271,12 @@ summary_line="--- Icon --run: PASS=$PASS FAIL=$FAIL BADEXIT=$BADEXIT XFAIL=$XFAI
 summary_line="$summary_line MISSING=$MISSING TOTAL=$((PASS+FAIL+BADEXIT+XFAIL+XPASS)) ---"
 echo "$summary_line"
 if [ "$BADEXIT" -gt 0 ]; then
-    echo "--- BADEXIT = stdout matched .expected but the process exit status did not. Before hq_P s272 these"
+    echo "--- BADEXIT = stdout matched .ref but the process exit status did not. Before hq_P s272 these"
     echo "--- counted as PASS (rc was discarded), which is why this board previously read PASS=$((PASS+BADEXIT))."
     echo "--- This is NOT a regression: it is the same tree, graded on exit status for the first time."
 fi
 if [ "$MISSING" -gt 0 ]; then
-    echo "--- MISSING = a .icn with no .expected oracle at all -- previously invisible (counted in nothing,"
+    echo "--- MISSING = a .icn with no .ref oracle at all -- previously invisible (counted in nothing,"
     echo "--- board stayed green). Give it an oracle or an .xfail marker; see FINDING/mail"
     echo "--- ruling-xfail-stays-loose-and-your-2-files-are-a-runner-defect."
 fi

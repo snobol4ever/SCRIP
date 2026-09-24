@@ -19,7 +19,7 @@ pass=0; wo=0; ve=0; ce=0; xpass=0; xfail=0; total=0
 for icn in "$CORPUS"/t*.icn; do
     base="${icn%.icn}"
     name=$(basename "$base")
-    [ -f "${base}.expected" ] || continue
+    [ -f "${base}.ref" ] || continue
     total=$((total+1))
 
     is_xfail=0; [ -f "${base}.xfail" ] && is_xfail=1
@@ -46,7 +46,7 @@ for icn in "$CORPUS"/t*.icn; do
 
     if echo "$out" | grep -q "VerifyError\|LinkageError\|ClassFormatError\|Unable to initialize"; then
         [ $is_xfail -eq 1 ] && { printf "XFAIL%-26s (VE)%s\n" " $name" "$tag"; xfail=$((xfail+1)); } || { printf "VE   %-26s%s\n" "$name" "$tag"; ve=$((ve+1)); }
-    elif [ "$out" = "$(cat "${base}.expected")" ]; then
+    elif [ "$out" = "$(cat "${base}.ref")" ]; then
         [ $is_xfail -eq 1 ] && { printf "XPASS%-26s%s\n" " $name" "$tag"; xpass=$((xpass+1)); } || { printf "PASS %-26s%s\n" "$name" "$tag"; pass=$((pass+1)); }
     else
         [ $is_xfail -eq 1 ] && { printf "XFAIL%-26s (WO)%s\n" " $name" "$tag"; xfail=$((xfail+1)); } || { printf "WO   %-26s%s\n" "$name" "$tag"; wo=$((wo+1)); }

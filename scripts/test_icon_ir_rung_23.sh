@@ -6,7 +6,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 RUNG_DIR="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 for icn in "$RUNG_DIR"/rung23_table_*.icn; do
   [ -f "$icn" ] || continue
-  base="${icn%.icn}"; exp="$base.expected"; [ -f "$exp" ] || continue
+  base="${icn%.icn}"; exp="$base.ref"; [ -f "$exp" ] || continue
   ${1:-/tmp/scrip-cc} -jvm "$icn" -o /tmp/t23.j 2>/dev/null
   timeout 30 java -jar miscellaneous/jasmin.jar /tmp/t23.j -d /tmp/ >/dev/null 2>&1
   cls=$(grep -m1 '\.class' /tmp/t23.j | awk '{print $NF}')

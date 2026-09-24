@@ -30,7 +30,7 @@
 #     ref-drift artifact. Its binary is kept OUTSIDE the rundir -- inside, it would be a directory entry on
 #     one side only, which is the confound wearing a smaller face (hq_I's one-directory-same-inode rule).
 #   3 KILLSWITCH -- with the contract suppressed the answer MUST differ. Negative-tested, see below.
-#   4 REF AGREEMENT -- the checked-in .expected must equal the contracted oracle answer, EXCEPT for the
+#   4 REF AGREEMENT -- the checked-in .ref must equal the contracted oracle answer, EXCEPT for the
 #     rows pinned in REF_DISPUTED below, which must still DIFFER. A pinned row that starts matching is an
 #     XPASS and FAILS, so a ref cure can never land and leave a stale pin behind.
 #
@@ -43,6 +43,8 @@
 #   remove recogn.dat from rung36_jcon_recent.fixtures/  -> ARM1 rc=1 (oracle 442 < floor 443)
 #   remove io.std from rung36_jcon_io.fixtures/          -> ARM1 rc=1 (oracle 133 < floor 135) ⭐ the
 #       REF-DISPUTED row, where ARM4 is muted -- so this is the case that proves ARM1 is not redundant
+#       (2026-09-23, CEO-1222: that fixture is now RETIRED -- no .std may remain, and it served only as a NAME
+#       io.icn lists -- so its ref was re-cut and its floor re-pinned 133 in the landing that retired it)
 #   set JCONT=WRONG in rung36_jcon_recent.env            -> ARM4 rc=1. ⛔ ARM2 stayed GREEN, correctly:
 #       both arms read the same wrong environment and agreed about it. That is the whole thesis of this
 #       gate reproduced on demand, and it is why ARM2 is never allowed to be the only guard.
@@ -64,7 +66,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 ICONT="$(icont_bin)"
 
-# ⛔ ROWS WHOSE CHECKED-IN .expected DISAGREES WITH THE ARIZONA ORACLE AND IS KNOWN TO COME FROM A DIFFERENT
+# ⛔ ROWS WHOSE CHECKED-IN .ref DISAGREES WITH THE ARIZONA ORACLE AND IS KNOWN TO COME FROM A DIFFERENT
 # ONE. ⭐⭐ EMPTY AS OF 2026-09-10, AND THE ENTRY THAT EMPTIED IT IS THE ARGUMENT FOR THE MECHANISM: this held
 # `rung36_jcon_io` because its .expected was a BYTE-FOR-BYTE COPY OF JCON'S OWN io.std -- a JVM-jcon
 # reference, not an icont/iconx cut -- disagreeing on 9 `nonseq:` rows where jcon FAILS a seek past
@@ -95,7 +97,7 @@ REF_DISPUTED=""
 # with the oracle on all eight at the tree that pinned them.
 contract_floor() {
     case "$1" in
-        rung36_jcon_io)      echo 135 ;;
+        rung36_jcon_io)      echo 133 ;;   # 135 until 2026-09-23: the retired io.std fixture was two listed names
         rung36_jcon_recent)  echo 443 ;;
         rung36_jcon_btrees)  echo 30  ;;
         rung36_jcon_geddump) echo 313 ;;
@@ -193,7 +195,7 @@ for icn in "${WITNESSES[@]}"; do
     fi
 
     # ---- ARM 4: ref agreement, with the disputed rows pinned as an XPASS trap
-    exp="${icn%.icn}.expected"
+    exp="${icn%.icn}.ref"
     if [ -f "$exp" ]; then
         if printf '%s\n' "$REF_DISPUTED" | grep -qx "$name"; then
             if [ "$(cat "$exp")" = "$o_out" ]; then
@@ -239,7 +241,12 @@ done
 sweep=0; suspects=0; undecided=0
 for icn in "$CORPUS"/*.icn; do
     b="$(basename "$icn" .icn)"
-    [ -f "$CORPUS/$b.expected" ] || continue                      # ungraded: no verdict depends on its stdin
+    [ -f "$CORPUS/$b.ref" ] || continue                           # ungraded: no verdict depends on its stdin
+    # ⛔ THE SAME POPULATION AS BEFORE CEO-1222, STATED INSTEAD OF IMPLIED BY AN EXTENSION: a .expected here meant a
+    # loose rung witness graded by the rung runners, and now that every expected output is a .ref the extension alone
+    # would also sweep the containers (fed their NAME.in by the suite harness) and the loose non-rung pairs.
+    case "$b" in rung[0-9][0-9]_*) ;; *) continue ;; esac
+    grep -qE '^#-{3,} [0-9]+ [^[:space:]]' "$icn" && continue
     [ "$(icn_rundir_stdin "$icn")" = /dev/null ] || continue      # already declares one; arms 1-4 own it
     sweep=$((sweep+1))
     (cd "$WORK" && "$ICONT" -s -o "$WORK/$b.a5" "$icn") >/dev/null 2>&1 || continue

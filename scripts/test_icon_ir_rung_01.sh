@@ -27,7 +27,7 @@ fi
 
 for icn in "$CORPUS"/rung01_paper_*.icn; do
     base=$(basename "$icn" .icn)
-    expected="$CORPUS/${base}.expected"
+    expected="$CORPUS/${base}.ref"
 
     if [[ "$BINARY" == "oracle" ]]; then
         cp "$icn" /tmp/_icon_test_${base}.icn

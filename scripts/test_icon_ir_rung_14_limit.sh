@@ -15,7 +15,7 @@ run() {
     local base="$CORPUS/$1"
     local got want
     got=$(timeout 8 "$SCRIP" --run "${base}.icn" < /dev/null 2>/dev/null) || true
-    want=$(cat "${base}.expected")
+    want=$(cat "${base}.ref")
     if [ "$got" = "$want" ]; then
         echo "  PASS $1"; PASS=$((PASS+1))
     else

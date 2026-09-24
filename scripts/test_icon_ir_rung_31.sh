@@ -15,7 +15,7 @@ if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
 run() {
     local base="$CORPUS/$1"
     [ -f "${base}.xfail" ] && { echo "  XFAIL $1"; XFAIL=$((XFAIL+1)); return; }
-    [ -f "${base}.expected" ] || { echo "  SKIP  $1 (no .expected)"; return; }
+    [ -f "${base}.ref" ] || { echo "  SKIP  $1 (no .ref)"; return; }
     local stdin_f="${base}.stdin"; [ -f "$stdin_f" ] || stdin_f="$(dirname "$base")/config/$(basename "$base").stdin"
     local got want
     if [ -f "$stdin_f" ]; then
@@ -23,7 +23,7 @@ run() {
     else
         got=$(timeout 8 "$SCRIP" --run "${base}.icn" < /dev/null   2>/dev/null) || true
     fi
-    want=$(cat "${base}.expected")
+    want=$(cat "${base}.ref")
     if [ "$got" = "$want" ]; then
         echo "  PASS $1"; PASS=$((PASS+1))
     else
@@ -58,7 +58,7 @@ echo "PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL"
 # existed and the same shape hid 143 real gradings. Re-pointing this at the absorbed data would duplicate
 # the aggregate; refusing is the honest state, and whether to retire it outright is a corpus-layout call.
 if [ $((PASS+FAIL+XFAIL)) -eq 0 ]; then
-    echo "REFUSE (rc=2): graded ZERO witnesses -- every named witness lacks its .expected (consolidated away). Coverage lives in test_icon_all_rungs.sh as SUITE pairs AND, since 2026-08-30, in board_icon_master.sh, which grades the whole 534-entry ALL.icn set and prints its own denominator -- so a family that stops being graded is now caught at the SET level, which is the guarantee the family-by-family graders never gave. This script is redundant, not a hole. Cannot measure, not a pass."
+    echo "REFUSE (rc=2): graded ZERO witnesses -- every named witness lacks its .ref (consolidated away). Coverage lives in test_icon_all_rungs.sh as SUITE pairs AND, since 2026-08-30, in board_icon_master.sh, which grades the whole 534-entry ALL.icn set and prints its own denominator -- so a family that stops being graded is now caught at the SET level, which is the guarantee the family-by-family graders never gave. This script is redundant, not a hole. Cannot measure, not a pass."
     exit 2
 fi
 [ "$FAIL" -eq 0 ]

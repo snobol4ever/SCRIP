@@ -3,7 +3,7 @@
 # Self-contained. Run from anywhere with no env vars.
 # Usage: bash scripts/test_icon_mode4_rung.sh [--rung RUNG] [--scrip PATH] [--corpus PATH] [--keep]
 #
-# For each Icon program with a matching .expected file, runs the FULL mode-4
+# For each Icon program with a matching .ref file, runs the FULL mode-4
 # native pipeline — scrip --compile --target=x86 file.icn > file.s ; as file.s ;
 # gcc -no-pie file.o -L out -lscrip_rt -Wl,-rpath,out -lm — then executes the
 # binary and diffs its stdout against scrip --run (the mode-2 oracle).
@@ -65,8 +65,11 @@ PASS=0; FAIL=0; SKIP=0
 run_one() {
     local icn="$1"
     local tmo="${2:-8}"
-    local exp="${icn%.icn}.expected"
+    local exp="${icn%.icn}.ref"
     [ -f "$exp" ] || return 0
+    # a container (corpus_suite_harness.py's `#---- <seq> <name>` banners) is the harness's to grade, never this
+    # per-file loop -- it was out of reach while loose programs carried a .expected; since CEO-1222 both are .ref
+    grep -qE '^#-{3,} [0-9]+ [^[:space:]]' "$icn" && return 0
     local base="${icn%.icn}"
     local name
     name=$(basename "$icn" .icn)

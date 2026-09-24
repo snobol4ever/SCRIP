@@ -11,7 +11,7 @@ PASS=0; FAIL=0
 run_test() {
     local t="$1"
     local icn="$CORPUS/${t}.icn"
-    local exp="$CORPUS/${t}.expected"
+    local exp="$CORPUS/${t}.ref"
     local jfile="$TMPDIR_OUT/${t}.j"
     "$DRIVER" -jvm "$icn" -o "$jfile" 2>/dev/null
     timeout 30 java -jar "$JASMIN" "$jfile" -d "$TMPDIR_OUT/" 2>/dev/null

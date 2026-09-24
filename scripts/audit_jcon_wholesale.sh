@@ -6,7 +6,7 @@
 #
 # WHAT: for each probe in test/icon/jcon_audit/NN_name.icn (one per JCON ir_a_* + SCRIP TT extras):
 #   ORC  — canonical icont/iconx oracle output (refs upload build), if ICONT is set/found. Ground truth.
-#   EXP  — the hand-derived .expected beside the probe. If ORC disagrees with EXP, the PROBE is wrong.
+#   EXP  — the checked-in .ref beside the probe. If ORC disagrees with EXP, the PROBE is wrong.
 #   M3   — scrip --run      (in-process native x86)
 #   M4   — scrip --compile  (x86 text asm -> gcc -no-pie + libscrip_rt.so -> run)
 # Verdict: OK (M3==M4==truth) | M3-BAD | M4-BAD | BOTH-BAD | HANG3/HANG4 | CRASH3/CRASH4 | PROBE-BAD.
@@ -26,17 +26,16 @@ SCRIP="$ROOT/scrip"; RT="$ROOT/out"
 # relocated to corpus/tests/icon/unresolved/ (see its KEEP.md) once tests/scrip_test/icon/ was
 # otherwise fully drained -- this audit's own coverage must include both: 91 extracted fresh from
 # the master, plus the 3 permanent-residue files, combined into one scratch dir so the rest of this
-# script (which globs [0-9][0-9]_*.icn and expects a sibling .expected) is unchanged below this point.
+# script (which globs [0-9][0-9]_*.icn and expects a sibling .ref) is unchanged below this point.
 DIR="$(mktemp -d)"
 MASTER_DIR="$ROOT/../corpus/tests/icon" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
 master_extract_origin_prefix "scrip_test_icon_jcon_audit_" "$DIR" >/dev/null || { echo "AUDIT REFUSED: could not extract jcon_audit probes from the icon master"; exit 2; }
-for f in "$DIR"/*.ref; do [ -f "$f" ] && cp "$f" "${f%.ref}.expected"; done
 UNRESOLVED="$ROOT/../corpus/tests/icon/unresolved"
 for f in "$UNRESOLVED"/jcon_audit_*.icn; do
     [ -f "$f" ] || continue
     b="$(basename "$f" .icn)"; b="${b#jcon_audit_}"
     cp "$f" "$DIR/$b.icn"
-    [ -f "$UNRESOLVED/jcon_audit_${b}.expected" ] && cp "$UNRESOLVED/jcon_audit_${b}.expected" "$DIR/$b.expected"
+    [ -f "$UNRESOLVED/jcon_audit_${b}.ref" ] && cp "$UNRESOLVED/jcon_audit_${b}.ref" "$DIR/$b.ref"
 done
 trap 'rm -rf "$DIR"' EXIT
 FILTER="${1:-}"
@@ -44,10 +43,10 @@ ICONT="${ICONT:-}"
 # ⛔ THIS PROBE USED TO NAME TWO DEAD PATHS -- $S4A/workspace/refs-src/... (never existed) and $ROOT/refs/...
 # (SCRIP/refs deleted org-wide, CEO-765) -- and it did NOT refuse when both missed: it left ICONT empty, skipped
 # the oracle block entirely, printed "-" in the ORACLE column and silently graded every probe against the
-# checked-in .expected files instead of ground truth. The oracle was reachable the whole time at
+# checked-in .ref files instead of ground truth. The oracle was reachable the whole time at
 # /home/resources/icon-master/bin/icont. icont_bin() is the ONE authority for that path.
 if [ -z "$ICONT" ]; then ICONT="$(icont_bin 2>/dev/null)" || ICONT=""; fi
-[ -n "$ICONT" ] || echo "⚠ ORACLE UNREACHABLE: the ORACLE column reads '-' and every VERDICT below is graded against the checked-in .expected files, NOT against icont. This is not ground truth." >&2
+[ -n "$ICONT" ] || echo "⚠ ORACLE UNREACHABLE: the ORACLE column reads '-' and every VERDICT below is graded against the checked-in .ref files, NOT against icont. This is not ground truth." >&2
 [ -n "$ICONT" ] && export PATH="$(dirname "$ICONT"):$PATH"
 W=/tmp/jcon_audit_work; rm -rf "$W"; mkdir -p "$W"
 pass=0; fail=0; probebad=0; skip=0
@@ -56,7 +55,7 @@ printf "%-22s %-9s %-9s %-9s %s\n" "-----" "------" "-----" "-----" "-------"
 for f in "$DIR"/[0-9][0-9]_*.icn; do
   name="$(basename "$f" .icn)"
   case "$name" in *"$FILTER"*) ;; *) continue;; esac
-  exp="$(cat "${f%.icn}.expected")"
+  exp="$(cat "${f%.icn}.ref")"
   # oracle
   orc_status="-"; truth="$exp"
   if [ -n "$ICONT" ]; then

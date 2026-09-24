@@ -3,7 +3,7 @@
 # Self-contained. Run from anywhere with no env vars.
 # Usage: bash scripts/test_icon_x64_all_rungs.sh [--rung RUNG] [--scrip PATH] [--corpus PATH] [CORPUS_DIR]
 #
-# THE M4 TWIN OF test_icon_all_rungs.sh (Z-0(a), s230). Same corpus selection, same .expected /
+# THE M4 TWIN OF test_icon_all_rungs.sh (Z-0(a), s230). Same corpus selection, same .ref /
 # .stdin / .xfail law, SAME 293 DENOMINATOR — the only difference is the pipeline: --compile emits
 # standalone x86-64 asm, gcc -no-pie links it against out/libscrip_rt.so, and the binary runs with
 # cwd = the corpus dir (so relative data-file reads resolve exactly as they do under --run).
@@ -20,7 +20,7 @@
 #
 # SUITE-FORMAT DELEGATION (tests-consolidate-icon, 2026-08-28): a family converted by
 # corpus_suite_harness.py loses its loose rungNN_*.icn files and becomes one <family>.icn+.ref
-# pair (discriminator: has a .ref sibling and NO .expected sibling). run_one()'s own `[ -f "$exp" ]
+# pair (discriminator: a .ref sibling AND section banners in the source). run_one()'s own `[ -f "$exp" ]
 # || return 0` guard means a suite file landing here would just vanish from the board silently
 # (no FAIL, but no PASS either -- the family's coverage disappears with no error printed). Converted
 # families are routed into SUITE_FILES instead and folded into PASS/FAIL via
@@ -65,8 +65,10 @@ fi
 PASS=0; FAIL=0; XFAIL=0
 D_EMIT=0; D_LINK=0; D_CRASH=0; D_TIMEOUT=0; D_OUTPUT=0; D_DIRTYPASS=0
 declare -a SUITE_FILES=()
-# converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
-is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
+# converted-family discriminator (see header note): a .ref sibling AND corpus_suite_harness.py's section banners
+# (`#---- <seq> <name>`) in the source. The sibling alone decided while loose programs carried a .expected; since
+# CEO-1222 every loose expected output is a .ref as well, so the source's own shape is what tells a container.
+is_suite_file() { [ -f "${1%.icn}.ref" ] && grep -qE '^#-{3,} [0-9]+ [^[:space:]]' "$1"; }
 
 WORK="$(mktemp -d /tmp/icon_m4_rungs.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
@@ -110,7 +112,7 @@ fail_one() {
 run_one() {
     local icn="$1"
     local tmo="${2:-8}"
-    local exp="${icn%.icn}.expected"
+    local exp="${icn%.icn}.ref"
     [ -f "$exp" ] || return 0
     local base="${icn%.icn}"
     local name

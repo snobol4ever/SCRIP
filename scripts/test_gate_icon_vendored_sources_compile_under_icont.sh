@@ -35,6 +35,7 @@ GATE="test_gate_icon_vendored_sources_compile_under_icont"
 PKG="$S4E/corpus/packages/icon/arizona_tests"
 [ -d "$PKG" ] || { echo "⛔ $GATE REFUSES rc=2: package missing: $PKG" >&2; exit 2; }
 ICONT="$(icont_bin)" || exit 2
+ICONX="$(iconx_bin)" || exit 2
 TIMEOUT="${TIMEOUT:-25}"
 
 # ⛔ EVERY RUN IS SANDBOXED. icont writes its executable beside the source, and these are TRACKED files.
@@ -44,15 +45,15 @@ cp -r "$PKG"/. "$WORK"/ || { echo "⛔ GATE REFUSES rc=2: could not stage the pa
 
 # ── THE POPULATION IS THE GRADED ONE: every vendored source that carries a .ref. A file with no .ref has
 # no second bar to clear, and inventing one would grade files the package never claimed were gradable.
-mapfile -t STDS < <(find "$WORK" -name '*.ref' ! -name ALL.ref | sort)
-GRADED=${#STDS[@]}
+mapfile -t REFS < <(find "$WORK" -name '*.ref' ! -name ALL.ref | sort)
+GRADED=${#REFS[@]}
 # ⛔ REFUSE ON A ZERO POPULATION rather than print the success shape over nothing (util_require_population's
 # rule): "examined and clean" and "examined nothing" must never print the same string.
 [ "$GRADED" -gt 0 ] || { echo "⛔ $GATE REFUSES rc=2: zero .ref refs found under $PKG -- graded nothing" >&2; exit 2; }
 
 n_ok=0; n_refused=0; n_diverged=0; REFUSED=(); DIVERGED=()
-for std in "${STDS[@]}"; do
-    base="$(basename "$std" .ref)"; dir="$(dirname "$std")"; icn="$dir/$base.icn"
+for ref in "${REFS[@]}"; do
+    base="$(basename "$ref" .ref)"; dir="$(dirname "$ref")"; icn="$dir/$base.icn"
     [ -f "$icn" ] || continue
     # ARM 1 -- icont accepts our copy. -s silences informational chatter; rc is the verdict.
     cerr="$(cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s "$base.icn" 2>&1)"; crc=$?
@@ -66,8 +67,10 @@ for std in "${STDS[@]}"; do
     # ⛔ The .dat stdin sidecar convention is the same one the suites and the ref-cutter use; they must
     # not disagree (RULES.md FACT RULE), so it is read here identically.
     stdin_src=/dev/null; [ -f "$dir/$base.dat" ] && stdin_src="$dir/$base.dat"
-    got="$(cd "$dir" && timeout "$TIMEOUT" "./$base" < "$stdin_src" 2>&1)"
-    if [ "$got" != "$(cat "$std")" ]; then
+    # ⛔ RUN UNDER `iconx <stem>`, THE INVOCATION EVERY REF WAS CUT UNDER (CEO-624): &progname is a function of the
+    # invocation, so `./kwds` answers `./kwds` against a ref reading `kwds` -- a divergence of the gate, not of the ref.
+    got="$(cd "$dir" && timeout "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"
+    if [ "$got" != "$(cat "$ref")" ]; then
         n_diverged=$((n_diverged+1)); DIVERGED+=("$base")
         continue
     fi
@@ -75,7 +78,7 @@ for std in "${STDS[@]}"; do
 done
 
 echo "-- $GATE: $GRADED graded vendored source(s) under arizona_tests, oracle icont/iconx 9.5.25a --"
-echo "VENDORED_SEMICOLON_FORM_GATE graded=$GRADED ok=$n_ok icont_refused=$n_refused std_diverged=$n_diverged"
+echo "VENDORED_SEMICOLON_FORM_GATE graded=$GRADED ok=$n_ok icont_refused=$n_refused ref_diverged=$n_diverged"
 [ "$n_refused" -eq 0 ] || { echo "⛔ ICONT REFUSES OUR COPY ($n_refused) -- a rewrite the upstream implementation rejects is a defect in our vendoring, never a dialect:"; printf '   %s\n' "${REFUSED[@]}"; }
 [ "$n_diverged" -eq 0 ] || { echo "⛔ COMPILES BUT DOES NOT REPRODUCE ITS .ref ($n_diverged) -- the ref we grade SCRIP against is then OUR artifact, not the oracle's:"; printf '   %s\n' "${DIVERGED[@]}"; }
 if [ "$n_refused" -eq 0 ] && [ "$n_diverged" -eq 0 ]; then

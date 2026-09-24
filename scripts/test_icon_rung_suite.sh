@@ -6,7 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # GOAL-ICON-BB mandates running ALL modes on every gate run (the "ALWAYS TEST ALL THREE MODES" policy,
 # adopted from GOAL-PROLOG-BB's session-sync three-mode stepping). With no --mode (or --mode all, the
-# DEFAULT) every corpus program is run through all three engine paths against its .expected:
+# DEFAULT) every corpus program is run through all three engine paths against its .ref:
 #   interp  (Mode 2, --run)                 — reference oracle — HARD GATE (PASS must be >= previous).
 #   run     (Mode 3, --run, stackless native)  — TRACKED. A shape with no native template REFUSES LOUD
 #                                                 with the [SMX] banner -> counted REFUSED (NOT a FAIL).
@@ -22,15 +22,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # corpus_suite_harness.py loses its loose rungNN_*.icn files and becomes one <family>.icn+.ref pair.
 # Globbing loose files directly would silently lose that family the moment its loose originals are
 # removed (empty-glob false-green -- the same class test_prolog_rung_suite.sh fixed for Prolog).
-# collect_files() also gathers converted families into SUITE_FILES (discriminator: has a .ref sibling
-# and NO .expected sibling -- loose files always carry both); run_corpus() delegates those to
+# collect_files() also gathers converted families into SUITE_FILES (discriminator: a .ref sibling AND
+# section banners in the source -- since CEO-1222 a loose file's expected output is a .ref too); run_corpus() delegates those to
 # `corpus_suite_harness.py run` for EVERY mode, unlike the Prolog twin which withholds compile --
 # Icon's m4 is proven live (tests-consolidate-icon ledger, seat01 2026-08-28: verified round-trip
 # before adding the LANG_CONFIGS entry), so there is no untested-grading caveat to withhold it for.
 # ⛔ A suite file's name still matches the raw rungNN_*.icn glob (e.g. rung04_string.icn matches
 # rung0[1-9]_*.icn) -- collect_files() MUST route it to SUITE_FILES, never FILES: unlike Prolog's
 # per-file loop (which just `continue`s past a missing .expected), THIS script's FILES loop counts
-# a missing .expected as MISSING and trips MODE_FAIL -- leaving a suite file in FILES would self-
+# a missing .ref as MISSING and trips MODE_FAIL -- leaving a suite file in FILES would self-
 # inflict a false failure, not merely skip silently.
 #
 # Authors: LCherryholmes · Jeffrey Cooper M.D. · Claude Opus 4.8 · Claude Sonnet 5
@@ -113,8 +113,10 @@ run_prog() {
 
 declare -a FILES
 declare -a SUITE_FILES
-# converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
-is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
+# converted-family discriminator (see header note): a .ref sibling AND corpus_suite_harness.py's section banners
+# (`#---- <seq> <name>`) in the source. The sibling alone decided while loose programs carried a .expected; since
+# CEO-1222 every loose expected output is a .ref as well, so the source's own shape is what tells a container.
+is_suite_file() { [ -f "${1%.icn}.ref" ] && grep -qE '^#-{3,} [0-9]+ [^[:space:]]' "$1"; }
 collect_files() {
     FILES=()
     SUITE_FILES=()
@@ -144,11 +146,11 @@ run_corpus() {
     local icn base name exp got want errf rc want_rc is_xfail
     errf="$WORK/err.txt"
     for icn in "${FILES[@]}"; do
-        exp="${icn%.icn}.expected"
+        exp="${icn%.icn}.ref"
         base="${icn%.icn}"
         name=$(basename "$icn" .icn)
         if [ ! -f "$exp" ]; then
-            [ "$VERBOSE" = 1 ] && echo "MISSING $name (no .expected oracle)"
+            [ "$VERBOSE" = 1 ] && echo "MISSING $name (no .ref oracle)"
             MISSING=$((MISSING+1)); MODE_FAIL=1; continue
         fi
         # ⭐ XPASS DETECTION (seat15, xpass-promotion-xfail-hygiene, 2026-08-29): an .xfail marker records a
@@ -171,8 +173,8 @@ run_corpus() {
             REFUSED=$((REFUSED+1)); continue
         fi
         # SUITE-HONESTY (GOAL-ICON-BB 2026-06-03): a nonzero exit without the [SMX] banner is a FAIL in
-        # EVERY mode (m2 included), even when stdout happens to match .expected — kills the vacuous pass
-        # where an aborting program with empty stdout matched an empty .expected (rung36_jcon_proto).
+        # EVERY mode (m2 included), even when stdout happens to match .ref — kills the vacuous pass
+        # where an aborting program with empty stdout matched an empty .ref (rung36_jcon_proto).
         # ⭐ GRADED AGAINST THE ORACLE, NOT AGAINST 0 (ported from test_icon_all_rungs.sh f5dd74af — item 2
         # of task icon-regression-232-to-169): a `<base>.exitcode` sidecar names the expected code where it
         # is not 0. Wrong-rc-but-right-stdout lands in its own BADEXIT bucket, never silently inside FAIL
