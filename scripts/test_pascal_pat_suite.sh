@@ -196,6 +196,23 @@ if [ -n "${PAT_NAME_REDS:-}" ]; then
     else for x in $NAMED; do echo "    $x"; done | head -"${PAT_NAME_REDS_MAX:-40}"; fi
 fi
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
+# ⛔⭐ THE PROGRESS APPEND COMES FIRST (hq_pascal 2026-09-23, the twin of the FPC runner's own cure). util_score_row.py write
+# REFUSES unless this suite's per-program rows are ALREADY on the progress DB for this exact tree (CEO-750), and this runner
+# appended them AFTER the write, so the write refused on every clean run and the PAT row was set by hand. Measured on SCRIP
+# 42665301c: "no progress rows for suite 'pat' on tree 42665301c", then 854 rows appended one line later.
+# ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show
+# that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent
+# no-op and this call is removed so the intent is visible rather than inferred from an empty output.
+# ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
+# per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
+# 497 pascal rows stood in that table and every one was pascal-master -- ZERO from pat or fpc, so no Pascal
+# PACKAGE flip had ever been visible to the measure OCTET is actually run on. One bulk call, not 854.
+# ⛔ NON-FATAL, LOUDLY: bookkeeping must never turn a real measurement into a red board, and it must never fail quietly either.
+if [ -s "$PROG_ROWS" ]; then
+    if ! progress_append_rows_tsv "$PROG_ROWS"; then
+        echo "⚠ PROGRESS DB NOT UPDATED -- the score write below cannot cross-check and will refuse (reason above)" >&2
+    fi
+fi
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
 # this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
 # carries several fractions over the same denominator -- so there is no fact of the matter about which one a
@@ -235,18 +252,4 @@ python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PA
     --measurer "${S4E_SEAT:-}" \
     --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $BOTH/$TOTAL · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}) — $TOTAL programs, of which 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
-# ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show
-# that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent
-# no-op and this call is removed so the intent is visible rather than inferred from an empty output.
-# ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
-# per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
-# 497 pascal rows stood in that table and every one was pascal-master -- ZERO from pat or fpc, so no Pascal
-# PACKAGE flip had ever been visible to the measure OCTET is actually run on. One bulk call, not 854.
-# ⛔ NON-FATAL, LOUDLY (same reasoning as the score write above): bookkeeping must never turn a real
-# measurement into a red board, and it must never fail quietly either.
-if [ -s "$PROG_ROWS" ]; then
-    if ! progress_append_rows_tsv "$PROG_ROWS"; then
-        echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
-    fi
-fi
 exit 0
