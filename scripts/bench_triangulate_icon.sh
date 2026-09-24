@@ -17,6 +17,8 @@
 #   ANGLE 1    fixed time: iterate until $BUDGET_MS of in-process work time is spent (at least once).
 #   ANGLE 3    every process runs under tools/bench_rusage: CPU (user+sys), elapsed, exit -- independent of the kernel's clock.
 #   stdout must equal k copies of the .ref on EVERY run of every angle; a mismatch is a FAIL of that row whatever its speed.
+# SIDECARS, the same as test_icon_bench_suite.sh (the correctness row): stdin NAME.in, else NAME.stdin, else NAME.dat; argv
+# NAME.argv; the SCRIP engines run at the arena NAME.heap declares (declared_arena_kb_beside), iconx at its own.
 # THE NUMBERS: WORK = the wrapper's own work_ms (compile phase and startup outside it), per iteration in microseconds; angle 1
 # and angle 2 AGREE when within TOL_PCT, else the row is NOT CITABLE -- reported, never a correctness failure. ⛔ Timing grids
 # wait for the quiet box (CEO-1219): --quick (200 ms budget, N=2) proves the machinery and the refs under all three angles now.
@@ -36,11 +38,13 @@ while [ $# -gt 0 ]; do case "$1" in --quick) BUDGET_MS=200; NDEF=2;; --out) OUT=
 refuse() { echo "⛔ ICON BENCH TRIANGULATION REFUSED(2): $*"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "cannot load lib_oracle_flags.sh -- the ONE oracle-path authority."
 . "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "cannot load lib_icon_ipl_isolation.sh -- the ONE argv-sidecar reader."
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "cannot load lib_declared_arena.sh -- the ONE declared-arena reader."
 ICONT="$(icont_bin)" || refuse "the Arizona icont oracle is missing (not a command -v verdict: the oracles are not on PATH)."
 [ -x "$SCRIP" ] || refuse "scrip is not built at $SCRIP -- run make."
 [ -d "$BD" ] || refuse "no Icon benchmark tree at $BD"
-WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || refuse "tools/bench_rusage did not build."
 W="$(mktemp -d "${TMPDIR:-/tmp}/icnbench.XXXXXX")" || refuse "cannot make a work dir"; trap 'rm -rf "$W"' EXIT
+# built fresh into the work dir, plain gcc: never an -O2 build, and never a binary written into the tree
+WRAP="$W/bench_rusage"; gcc -o "$WRAP" "$ROOT/tools/bench_rusage.c" 2>"$W/rusage.err" || refuse "tools/bench_rusage.c did not build: $(head -1 "$W/rusage.err")"
 POP=()
 while IFS= read -r f; do grep -q '^[[:space:]]*procedure[[:space:]]\+main' "$f" || continue
   n="$(basename "$f" .icn)"; [ -n "$WANT" ] && ! grep -qw -- "$n" <<<"$WANT" && continue; POP+=("$f")
@@ -51,7 +55,7 @@ refx() { local i; : > "$2"; for ((i=0; i<$3; i++)); do cat "$1" >> "$2"; done; }
 # run MODE COUNT_OR_BUDGET TAG -> sets R_ITERS R_WORK R_CPU R_ELAPSED R_EXIT, stdout in $W/$TAG.out
 run() {
   local e
-  ( cd "$KD" && env BENCH_MODE="$1" BENCH_N="$2" BENCH_BUDGET_MS="$2" timeout "$RTO" "$WRAP" "${CMD[@]}" <"$IN" >"$W/$3.out" 2>"$W/$3.err" )
+  ( cd "$KD" && env "${HEAPENV[@]}" BENCH_MODE="$1" BENCH_N="$2" BENCH_BUDGET_MS="$2" "$WRAP" timeout "$RTO" "${CMD[@]}" <"$IN" >"$W/$3.out" 2>"$W/$3.err" )
   e="$(grep -m1 '^BENCH_RUSAGE:' "$W/$3.err")"
   fld() { local v; v="$(sed -n "s/.*[ :]$1=\([0-9]*\).*/\1/p" <<<"$e")"; echo "${v:-0}"; }
   R_EXIT="$(sed -n 's/.* exit=\([0-9-]*\).*/\1/p' <<<"$e")"; R_EXIT="${R_EXIT:-124}"
@@ -65,12 +69,14 @@ printf '%s\n' "-----------------------------------------------------------------
 [ -n "$OUT" ] && printf 'kernel\tengine\tloop\ta2_n\ta2_work_ms\ta2_cpu_ms\ta2_elapsed_ms\ta1_k\ta1_work_ms\ta1_cpu_ms\ta1_elapsed_ms\tagree\tverdict\n' > "$OUT"
 for K in "${POP[@]}"; do
   KD="$(dirname "$K")"; NM="$(basename "$K" .icn)"; B="${K%.icn}"; REF="$B.ref"
-  IN=/dev/null; [ -f "$B.stdin" ] && IN="$B.stdin"; [ "$IN" = /dev/null ] && [ -f "$B.dat" ] && IN="$B.dat"
+  IN=/dev/null; for X in in stdin dat; do [ -f "$B.$X" ] && { IN="$B.$X"; break; }; done   # the suite's order (test_icon_bench_suite.sh)
+  KB="$(declared_arena_kb_beside "$K")" || { echo "⛔ $NM: a malformed $NM.heap (the reader said why above)"; BAD=1; continue; }
   declare -a AV=(); if [ -f "$B.argv" ] && ! ipl_argv_read "$K" AV; then echo "⛔ $NM: malformed $NM.argv"; BAD=1; continue; fi
   mkdir -p "$W/$NM"; python3 "$HERE/util_icon_bench_wrap.py" "$K" > "$W/$NM/$NM.icn" || { echo "⛔ $NM: the wrapper generator refused"; BAD=1; continue; }
   N="$(scale_of "$NM")"
   for EN in $ENGINES; do
     ROWS=$((ROWS+1)); V=PASS; CMD=()
+    HEAPENV=(); [ "$EN" != iconx ] && { HEAPENV=(-u SCRIP_HEAP_MB); [ -n "$KB" ] && HEAPENV+=("SCRIP_HEAP_KB=$KB"); }   # SCRIP engines only
     if [ ! -s "$REF" ]; then printf '%-30s %-6s %s\n' "$NM" "$EN" "FAIL -- no .ref: a kernel with no expected output is vacuous"; BAD=1; continue; fi
     case "$EN" in
       iconx) ( cd "$W/$NM" && "$ICONT" -s -o w.x "$NM.icn" ) >"$W/$NM/icont.log" 2>&1 && CMD=("$W/$NM/w.x" ${AV[@]+"${AV[@]}"});;
