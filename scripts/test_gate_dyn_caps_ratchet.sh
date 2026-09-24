@@ -59,7 +59,7 @@ ck "2 the tree reads EXACTLY the baseline ($n vs $b)" '[ -n "$n" ] && [ "$n" = "
 d=$(sed -n 's/^guards that drop or truncate at the cap: \([0-9]*\)$/\1/p' <<<"$out")
 [ -n "$d" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the witness printed no drop line -- $(printf '%s\n' "$out" | head -3 | tr '\n' ' ')"; gate_stamp; exit 2; }
 echo "  guards that drop or truncate at the cap: $d (CEO-1231; printed, not graded here)"
-mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -r "$ROOT/src" "$WORK/r/src" && cp "$C" "$WIT" "$WORK/r/scripts/" \
+mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src" && cp "$C" "$WIT" "$WORK/r/scripts/" \
   && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" || { echo "REFUSING(2) [$GATE_NAME]: cannot stage the scratch tree"; exit 2; }
 cat > "$WORK/r/src/planted_by_the_ratchet_gate.c" <<'PLANT'
 #define PLANTED_BY_THE_RATCHET_GATE_MAX 8
