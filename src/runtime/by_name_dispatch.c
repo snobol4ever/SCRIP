@@ -2494,8 +2494,14 @@ PL_CX_LEAF_HEAD(functor, 3) ok = rt_pl_functor_cell(&args[0], &args[1], &args[2]
 PL_CX_LEAF_HEAD(arg, 3) ok = rt_pl_arg_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(univ, 2) ok = rt_pl_univ_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(copy_term, 2) ok = rt_pl_copy_term_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(term_variables, 2) ok = rt_pl_term_variables_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(numbervars3, 3) ok = rt_pl_numbervars_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(term_variables, 2) { extern void *rt_pl_dop_list_guard_c(DESCR_t *, int); void *b = rt_pl_dop_list_guard_c(&args[1], 1);
+    if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_term_variables_cell(&args[0], &args[1], (void *)0, cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(numbervars3, 3) { extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t s = rt_pl_deref_val(args[1]), e = rt_pl_deref_val(args[2]); ok = 0;
+    if (pl_val_unbound(s)) cx->ball = rt_pl_ball_instantiation();
+    else if (s.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", s);
+    else if (!pl_val_unbound(e) && e.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", e);
+    else ok = rt_pl_numbervars_cell(&args[0], &args[1], &args[2], cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(numbervars1, 1) ok = rt_pl_numbervars1_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
