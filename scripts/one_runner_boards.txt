@@ -23,3 +23,4 @@ scorecard_icon.sh
 scorecard_snobol4.sh
 raku_roast_scoreboard.sh
 test_corpus_snobol4.sh
+test_rebus_bench_suite.sh

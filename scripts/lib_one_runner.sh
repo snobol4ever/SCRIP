@@ -84,11 +84,17 @@ one_runner_suite_is_a_board() {
 # line, never a name baked in here (CEO-756 still binds). A board with no language (board_packages.sh) is admitted to any LANES seat;
 # its per-language runners refuse the seats that do not own them.
 one_runner_lang() {
-  local board="${1:-}" suite="${2:-}" sp
+  local board="${1:-}" suite="${2:-}" sp l
   if [ -n "$suite" ]; then
     sp="$(cd "$(dirname "$suite")" 2>/dev/null && pwd)/$(basename "$suite")"
+    # ⛔ A BARE LANGUAGE DIRECTORY IS A SUITE PATH TOO (coo 2026-09-23, found building test_rebus_bench_suite.sh): the pattern needed a
+    # component BELOW the language directory, so corpus/benchmarks/rebus printed the WHOLE PATH as its "language", its slashes broke
+    # one_runner_who's sed ("unknown option to `s'"), and the guard refused every seat -- the lane owner included -- under "the LANES
+    # line names none for this language". A token that is not a bare name falls through to the board-name rules below, never to sed.
     case "$sp" in */corpus/tests/*|*/corpus/packages/*|*/corpus/benchmarks/*|*/corpus/demos/*)
-      printf '%s\n' "$sp" | sed -E 's#.*/corpus/(tests|packages|benchmarks|demos)/([^/]+)/.*#\2#'; return 0;; esac
+      l="$(printf '%s\n' "$sp" | sed -E 's#.*/corpus/(tests|packages|benchmarks|demos)/([^/]+)(/.*)?$#\2#')"
+      case "$l" in ''|*[!a-z0-9_]*) ;; *) printf '%s\n' "$l"; return 0;; esac;;
+    esac
   fi
   case "$board" in
     *icon*|*jcon*|*ipl*|*arizona*) printf 'icon';;

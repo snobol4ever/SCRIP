@@ -52,6 +52,8 @@ arm "1c detector: $NOT_ICON is refused rc=2 on an icon board -- a seat the icon 
 arm "2a the lane owner the LANES line names for icon ($OWN_ICON) passes rc=0 silently on an icon board" 'out=$(S4E_SEAT=$OWN_ICON bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
 arm "2b the owner is read from the LANES line, not baked in: the rebus owner $OWN_REBUS passes on a rebus master path" 'out=$(S4E_SEAT=$OWN_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
 arm "2c control: $NOT_REBUS is refused rc=2 on that same rebus master path" 'out=$(S4E_SEAT=$NOT_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ]'
+arm "2d a BARE language directory is a suite path: the rebus owner $OWN_REBUS passes on $CORPUS/benchmarks/rebus with nothing below it (it printed the whole path as the language and refused the owner too, coo 2026-09-23)" 'out=$(S4E_SEAT=$OWN_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/benchmarks/rebus" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
+arm "2e control: $NOT_REBUS is refused rc=2 on that bare directory, naming the rebus owner, and no sed error reaches the reader" 'out=$(S4E_SEAT=$NOT_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/benchmarks/rebus" 2>&1); [ $? -eq 2 ] && printf "%s" "$out" | grep -q "is not $OWN_REBUS" && ! printf "%s" "$out" | grep -q "unknown option"'
 arm "3 the bus computed done is exempt and says so" 'out=$(S4E_SEAT=hq_B S4E_DONE_WHEN_RUN=1 bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && grep -q "computed done" <<<"$out"'
 arm "4 a loud override passes and prints its reason" 'out=$(S4E_SEAT=cto S4E_ONE_RUNNER_OVERRIDE="ceo audit CEO-999" bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && grep -q "OVERRIDE by cto" <<<"$out" && grep -q "CEO-999" <<<"$out"'
 arm "5 --check <board>: 2 for $REF_A and for $REF_B on an icon board, 0 for the lane owner $OWN_ICON" 'S4E_SEAT=$REF_A bash "$L" --check test_icon_x_suite.sh; a=$?; S4E_SEAT=$REF_B bash "$L" --check test_icon_x_suite.sh; c=$?; S4E_SEAT=$OWN_ICON bash "$L" --check test_icon_x_suite.sh; b=$?; [ $a -eq 2 ] && [ $c -eq 2 ] && [ $b -eq 0 ]'
@@ -72,6 +74,6 @@ arm "11 census: BOTH copies carry the narrowing, word for word is the promise in
 arm "12 a caller that does not say what it grades (no language in its name, no suite path) is still refused, never waved through" 'out=$(S4E_SEAT=hq_icon bash -c "source $L; one_runner_guard test_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 arm "13 this gate pins its own environment, so a computed done cannot flip its verdict" 'grep -q "^unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_SEAT$" "$H/test_gate_one_runner_one_board.sh"'
 echo "$G: examined=$examined fail=$fail"
-[ $examined -ge 19 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 19 declared arms"; exit 2; }
+[ $examined -ge 21 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 21 declared arms"; exit 2; }
 [ $fail -eq 0 ] && { echo "GATE PASS(0) [$G]: $examined/$examined -- one runner PER LANGUAGE, one board"; exit 0; }
 echo "GATE FAIL(1) [$G]: $fail of $examined arms red"; exit 1
