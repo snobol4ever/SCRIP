@@ -145,6 +145,22 @@ def shim_helpers(path=SHIM):
     return out
 
 
+def lgtunit_aliases(path, supported):
+    """Alias clauses for the names a file imports with `:- uses(lgtunit, [Name/Arity, ...])` (hq_prolog 2026-09-24).
+    In Logtalk that directive makes a bare assertion(...) or variant(...) a call to lgtunit's own predicate; the extractor
+    drops the directive with the rest of the object's scaffolding, so the bare call reached SCRIP as an undefined procedure
+    and read as existence_error(procedure, assertion/2) -- 40 of the operators group's 44 reds were this, and none was the
+    engine's. Each imported name the shim implements becomes `Name(A0,..) :- lgt_Name(A0,..)` beside the file's database:
+    the call the directive routes, scoped to the file that declares it. An op(...) item is a declaration, not a predicate."""
+    m = re.search(r":-\s*uses\(\s*lgtunit\s*,\s*\[(.*?)\]\s*\)", open(path, encoding="utf-8").read(), re.S)
+    out = []
+    for name, ar in (re.findall(r"(?<![\w(])([a-z_]+)/(\d+)", m.group(1)) if m else ()):
+        if name in supported:
+            a = ", ".join("A%d" % i for i in range(int(ar)))
+            out.append("%s(%s) :- lgt_%s(%s)" % (name, a, name, a) if a else "%s :- lgt_%s" % (name, name))
+    return out
+
+
 def _braces_to_parens(s):
     """Logtalk's {Goal} escape -> plain (Goal). Quote-aware: a brace inside a quoted atom is data."""
     out = []
@@ -738,6 +754,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         if only_group and fc.group != only_group:
             continue
         clean, dropped = split_db(fc.db)
+        clean = clean + lgtunit_aliases(fc.path, supported)
         dbs[fc.path] = clean
         drops[fc.path] = dropped
         # lgtunit runs the object's own setup/0 before its tests and cleanup/0 after them; every case here is
