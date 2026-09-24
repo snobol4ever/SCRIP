@@ -55,9 +55,9 @@ for pl in "$BD"/*.pl; do
   grep -qE '^% \*BENCH kernel='"$k"'\b' "$pl" || why="$why no-BENCH-marker"
   grep -qE '^bench_work\(' "$pl"             || why="$why no-bench_work/1"
   grep -qE '^main :- bench_work\(Res\), write\(Res\), nl\.$' "$pl" || why="$why no-standalone-main"
-  # 3. A REF, SO THE RUN THAT IS TIMED IS ALSO GRADED. Named .expected here because that is the extension
-  #    lib_prolog_bench.sh and nine other harnesses already read; the requirement is the ref, not the spelling.
-  [ -s "$BD/$k.expected" ] || why="$why no-ref"
+  # 3. A REF, SO THE RUN THAT IS TIMED IS ALSO GRADED -- <k>.ref, the one expected-output spelling (CEO-1222, Lon:
+  #    "do not use *.expected or other, just *.ref"), which lib_prolog_bench.sh and every harness beside it read.
+  [ -s "$BD/$k.ref" ] || why="$why no-ref"
   [ -n "$why" ] && { echo "⛔ NOT PRISTINE: $k --$why"; bad=$((bad+1)); }
 done
 # 4. NO CHECKED-IN WRAPPED FORM MAY REAPPEAR ANYWHERE UNDER benchmarks/prolog/ (hq_P 2026-09-13, CEO-567).

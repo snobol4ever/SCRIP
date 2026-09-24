@@ -2,9 +2,9 @@
 # test_bench_prolog_4way.sh — 4-way Prolog benchmark comparison.
 # Columns: GNU (gprolog) · SWI (swipl) · m3 (scrip --run, in-process x86 binary)
 #          · m4 (scrip --compile x86 -> as+gcc -> exec).
-# Each program has a <name>.expected signature (the corpus benchmark convention).
-# A cell is PASS iff that engine's stdout equals .expected, else FAIL/FENCE/etc.
-# CONSENSUS = all four agree with .expected. The .expected file is itself derived
+# Each program has a <name>.ref signature (the corpus benchmark convention).
+# A cell is PASS iff that engine's stdout equals .ref, else FAIL/FENCE/etc.
+# CONSENSUS = all four agree with .ref. The .ref file is itself derived
 # from a real Prolog, so PASS means "matches the reference observable semantics."
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -23,7 +23,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 printf "%-14s %-7s %-7s %-7s %-7s  %s\n" BENCH GNU SWI m3 m4 "consensus / result"
 consensus=0; divergent=0; tot=0
 for pl in "$B"/*.pl; do
-  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.expected"; tot=$((tot+1))
+  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.ref"; tot=$((tot+1))
   [ -f "$exp" ] || { printf "%-14s %-7s\n" "$s" "NO-REF"; continue; }
   want=$(cat "$exp")
   # --- GNU Prolog (gprolog): consult fires :- initialization(main), then halt. ---

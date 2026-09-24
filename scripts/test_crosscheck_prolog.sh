@@ -2,7 +2,7 @@
 # test_crosscheck_prolog.sh — 2-mode oracle crosscheck for PROLOG (GOAL-LANG-PROLOG)
 #
 # Runs the prolog test corpus through m3 (--run) and m4 (--compile via run_prolog_via_x86_backend.sh),
-# grading EACH MODE INDEPENDENTLY against its .expected/.ref oracle.
+# grading EACH MODE INDEPENDENTLY against its .ref oracle.
 # Run on every major push. Mode-consistency check, not regression.
 # If .ref present alongside test file: diffs vs oracle too.
 # Exits 0 only if BOTH modes have FAIL=0 against the oracle.
@@ -38,7 +38,6 @@ xcheck() {
     # against the oracle on their own; a divergence between them is reported but is NOT itself a failure.
     local m3_out m3_rc m4_out m4_rc exp=""
     [ -n "$ref" ] && [ -f "$ref" ] && exp="$ref"
-    [ -z "$exp" ] && [ -f "${file%.pl}.expected" ] && exp="${file%.pl}.expected"
     [ -z "$exp" ] && [ -f "${file%.pl}.ref" ]      && exp="${file%.pl}.ref"
     m3_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null); m3_rc=$?
     m4_out=$(timeout $TIMEOUT bash "$HERE/run_prolog_via_x86_backend.sh" "$file" </dev/null 2>/dev/null); m4_rc=$?
@@ -97,13 +96,13 @@ if [ -d "$RUNGS" ]; then
         # ⛔ THE PRE-SKIP IS DELETED (seat15 2026-09-01): it ran --run first and `continue`d on any non-zero
         # rc, converting every crashing program into a SKIP instead of a failure -- 25 of 38 rungs vanished
         # that way, and a crash is precisely what this corpus exists to catch. Grade it; do not skip it.
-        ref="${f%.pl}.expected"; [ -f "$ref" ] || ref="${f%.pl}.ref"
+        ref="${f%.pl}.ref"
         xcheck "$(basename $f .pl)" "$f" "$ref"
     done
 fi
 
 echo ""
 echo "PL-CROSSCHECK m3: PASS=$M3_PASS FAIL=$M3_FAIL   m4: PASS=$M4_PASS FAIL=$M4_FAIL   DIVERGE=$DIVERGE NO-ORACLE=$NOORACLE SKIP=$SKIP"
-echo "(per-mode INDEPENDENT grading vs .expected/.ref oracle — RULES.md MODES MAY DIVERGE; DIVERGE is reported, never failed)"
-echo "(NO-ORACLE counts programs with no .expected/.ref on disk: ungraded, deliberately NOT counted as passes)"
+echo "(per-mode INDEPENDENT grading vs .ref oracle — RULES.md MODES MAY DIVERGE; DIVERGE is reported, never failed)"
+echo "(NO-ORACLE counts programs with no .ref on disk: ungraded, deliberately NOT counted as passes)"
 [ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ]

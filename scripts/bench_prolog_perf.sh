@@ -108,7 +108,7 @@ basis1() {
   [ "$xc" -ge 128 ] && { echo "- - CRASH(signal $((xc-128)))"; return; }
   [ "$xc" -ne 0 ] && { echo "- - NONZERO($xc)"; return; }
   # ⛔ GRADED, NOT ASSUMED: --mode=single's stdout is the kernel's real answer, so the very run that is
-  #   being timed is also the run that is graded against the oracle-cut .expected (N=1 copy).
+  #   being timed is also the run that is graded against the oracle-cut .ref (N=1 copy).
   r=$(loop_check "$eng" "$W/b.out" 1 "$exp") || { echo "- - $r"; return; }
   elns=$(echo "$rl" | grep -oE 'elapsed_ns=[0-9]+' | cut -d= -f2)
   work=$(grep -oE 'work_us=[0-9]+' "$W/b.err" 2>/dev/null | tail -1 | cut -d= -f2)
@@ -134,7 +134,7 @@ printf "%-20s %8s %8s %8s %8s %8s\n" BENCH GNU_ms SWI_ms m3_ms m4r_ms m4c_ms
 tot_ok=0; tot_skip=0
 declare -A BWORK=(); declare -A BOVH=(); declare -A BEL=(); basis_rows=()
 for pl in "$B"/*.pl; do
-  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.expected"
+  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.ref"
   [ -f "$exp" ] || continue
   want=$(cat "$exp")
   # correctness pre-flight (one run per engine); any FAIL => SKIP row

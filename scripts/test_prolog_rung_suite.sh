@@ -9,7 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #   interp  (mode 3, --run)             — HARD GATE (this script's exit status)
 #   compile (mode 4, --compile x86)     — emit→assemble→link→exec via run_prolog_via_x86_backend.sh — TRACKED
 # A mode whose probe prints the Stack-Machine-eXcision banner is reported REFUSED and its per-file loop is skipped.
-# ⛔ A PASS NEEDS stdout == .expected AND rc == 0 (hq_B 2026-09-02, row prolog-rung-suite-reds-rowed-by-class). On the post-cut tree
+# ⛔ A PASS NEEDS stdout == .ref AND rc == 0 (hq_B 2026-09-02, row prolog-rung-suite-reds-rowed-by-class). On the post-cut tree
 # the driver REFUSES every construct above the landed ladder rung with rc=2 and EMPTY stdout, so a witness whose expected output is
 # empty (the three rung15_abolish_* files — their swipl output IS empty) graded PASS on a refusal: 3 of 3 greens were vacuous.
 # stderr is kept (ERRF) and a driver refusal names its class on the RED line, `REFUSED-LADDER rung N -- <construct>` (the text of
@@ -93,9 +93,12 @@ mode_is_refused() {
 }
 
 # collect the corpus file list into the FILES array (loose) and SUITE_FILES (converted families).
-# Discriminator for a converted family .pl: has a .ref sibling AND no same-stem .expected sibling
+# Discriminator for a converted family .pl: its .ref sibling carries the harness's banner lines (CEO-1222: every expected
+# output is a .ref, so a plain .ref beside a loose witness no longer means "converted family" -- the banners do, as in
+# the Icon runners' twin cure). A .ref with no banner line is a loose witness's expected output.
 # (the OLD dual-extension individual files, e.g. rung05/29/30's per-entry .pl, always carry BOTH —
 # that is what tells a suite family apart from those, since both use the .pl extension).
+pl_ref_banners() { grep -cE '^[^A-Za-z0-9]*-{10,}[[:space:]]+[0-9]+[[:space:]]+[A-Za-z0-9_]' "$1"; }
 collect_files() {
     FILES=()
     SUITE_FILES=()
@@ -104,7 +107,7 @@ collect_files() {
         for pl in "$CORPUS"/${RUNG}.pl "$CORPUS"/${RUNG}_*.pl; do
             [ -f "$pl" ] || continue
             [ -f "${pl%.pl}.ref" ] || continue
-            [ -f "${pl%.pl}.expected" ] && continue
+            [ "$(pl_ref_banners "${pl%.pl}.ref")" -gt 0 ] || continue
             SUITE_FILES+=("$pl")
         done
     else
@@ -122,7 +125,7 @@ collect_files() {
         for pl in "$CORPUS"/rung[0-9][0-9]*.pl; do
             [ -f "$pl" ] || continue
             [ -f "${pl%.pl}.ref" ] || continue
-            [ -f "${pl%.pl}.expected" ] && continue
+            [ "$(pl_ref_banners "${pl%.pl}.ref")" -gt 0 ] || continue
             SUITE_FILES+=("$pl")
         done
     fi
@@ -134,7 +137,7 @@ run_corpus() {
     local PASS=0 FAIL=0 XFAIL=0 REFUSED=0
     # ⛔ MODE_FAIL's SIBLING, DELIBERATELY NOT `local` FOR THE SAME REASON (row every-board-wrapper-
     # refuses-on-a-zero-population-instead-of-passing-vacuously, hq_T 2026-09-04): a FILE matched by
-    # collect_files but missing BOTH .expected and a usable .ref hits `[ -f "$exp" ] || continue` below
+    # collect_files but missing a usable .ref hits `[ -f "$exp" ] || continue` below
     # with NO counter incremented at all -- unlike Icon's twin, which counts this as MISSING and sets
     # MODE_FAIL=1. If every collected FILE lacks an oracle, PASS=FAIL=XFAIL=0, MODE_FAIL stays its
     # initialized 0, and HARD_FAIL reads exactly like a clean board -- the collect_files-level floor
@@ -144,7 +147,7 @@ run_corpus() {
     MODE_FAIL=0; MODE_TOTAL=0
     if mode_is_refused "$mode"; then
         local pend=0 f
-        for f in "${FILES[@]}"; do { [ -f "${f%.pl}.expected" ] || [ -f "${f%.pl}.ref" ]; } && pend=$((pend+1)); done
+        for f in "${FILES[@]}"; do [ -f "${f%.pl}.ref" ] && pend=$((pend+1)); done
         echo "--- Prolog ($mode): REFUSED (Stack Machine refused) — $pend files pending regrow ---"
         return 0
     fi
@@ -159,10 +162,11 @@ run_corpus() {
         # holds several programs' outputs plus their banners and belongs to corpus_suite_harness.py, which the interp arm already delegates to and which
         # this arm explicitly does not get (see the header note).  Reading one of those as a single pin would compare one program's output against the
         # whole family's -- a guaranteed, and confusingly plausible, FAIL.
-        exp="${pl%.pl}.expected"; _isref=0
-        if [ ! -f "$exp" ] && [ -f "${pl%.pl}.ref" ] \
-           && [ "$(grep -cE '^[^A-Za-z0-9]*-{10,}[[:space:]]+[0-9]+[[:space:]]+[A-Za-z0-9_]' "${pl%.pl}.ref")" = "1" ]; then
-            exp="${pl%.pl}.ref"; _isref=1
+        # a plain .ref (no banner) is this witness's whole expected output; a SINGLE-banner .ref is a one-entry suite read
+        # as a single pin past its banner; a multi-banner .ref is a container and belongs to the harness, never to this arm.
+        exp="${pl%.pl}.ref"; _isref=0
+        if [ -f "$exp" ]; then
+            case "$(pl_ref_banners "$exp")" in 0) ;; 1) _isref=1 ;; *) continue ;; esac
         fi
         [ -f "$exp" ] || continue
         base="${pl%.pl}"

@@ -11,15 +11,15 @@
 # after its second iteration. Angle 1 and angle 2 then AGREED on it to within 1% -- the two angles share the defect, so the
 # cross-proof certified the fabrication (the "engines agreed at reps=0" witness of RULES.md THE INSTRUMENT LAWS §2, again).
 # The cure is not a SCRIP-specific guard (NO PER-ENGINE FILTER): every engine's loop stdout is compared byte-for-byte against N
-# copies of the kernel's .expected, and a run whose output is not exactly N answers is reported as what it IS --
+# copies of the kernel's .ref, and a run whose output is not exactly N answers is reported as what it IS --
 # LOOP-OUTPUT-MISMATCH(lines=<seen>/<wanted>) -- and never as a rate. The observation prints first, the belief nowhere.
 gnu_filter() { grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined'; }
 # loop_check <engine> <stdout-file> <N> <expected-file>: rc=0 when stdout == N x expected (gnu stdout banner-filtered first, the
-# same filter the single-shot correctness gate uses); otherwise echoes the reason and returns 1. No N or no .expected is UNGRADED,
+# same filter the single-shot correctness gate uses); otherwise echoes the reason and returns 1. No N or no .ref is UNGRADED,
 # also rc=1: a loop whose iteration count cannot be verified has no rate.
 loop_check() {
   local eng="$1" o="$2" n="$3" exp="$4"
-  [ -n "$n" ] && [ -f "$exp" ] || { echo "UNGRADED(no N or no .expected)"; return 1; }
+  [ -n "$n" ] && [ -f "$exp" ] || { echo "UNGRADED(no N or no .ref)"; return 1; }
   awk -v n="$n" '{a[NR]=$0} END{for(i=1;i<=n;i++) for(j=1;j<=NR;j++) print a[j]}' "$exp" > "$o.want"
   case "$eng" in gnu) gnu_filter < "$o" > "$o.f" ;; *) cp "$o" "$o.f" ;; esac
   cmp -s "$o.f" "$o.want" && return 0
@@ -51,7 +51,7 @@ gen_counted_set() {
     "$gen" "$src" --mode=iter --n="$n" --engine="$eng" -o "$out/$k.pl" >/dev/null 2>&1 \
       || { echo "⛔ REFUSED (rc=2): $(basename "$gen") failed to wrap $k at n=$n" >&2; return 2; }
     # ⭐ THE N SIDECAR (hq_P 2026-09-13).  N is what makes the run GRADEABLE: loop_check needs it to build
-    # the N x .expected it compares stdout against.  Without it every consumer of this set is left grading
+    # the N x .ref it compares stdout against.  Without it every consumer of this set is left grading
     # "did it exit 0", which scored ten silent no-ops as passes for months.  Written beside the kernel so a
     # consumer cannot reach the program without also being able to reach its iteration count.
     printf '%s\n' "$n" > "$out/$k.n" || return 2

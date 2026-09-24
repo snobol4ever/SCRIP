@@ -2,7 +2,7 @@
 # run_prolog_jvm_rung.sh — Prolog JVM backend corpus ladder driver
 #
 # Compiles each .pro in a given directory via scrip -pl -jvm, assembles
-# with jasmin.jar, runs with java, diffs vs .expected oracle.
+# with jasmin.jar, runs with java, diffs vs .ref oracle.
 #
 # Usage:
 #   bash test/parser/prolog/run_prolog_jvm_rung.sh <dir> [dir2 ...]
@@ -38,7 +38,7 @@ run_test() {
     local pro="$1"
     local base; base=$(basename "$pro" .pro)
     local dir;  dir=$(dirname "$pro")
-    local expected="$dir/$base.expected"
+    local expected="$dir/$base.ref"
     local xfail="$dir/$base.xfail"
 
     [[ -f "$expected" ]] || return 0

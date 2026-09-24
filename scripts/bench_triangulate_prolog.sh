@@ -80,7 +80,7 @@ echo
 # correctness gate (which, on a corpus this broken, spends most of its wall-clock timing out on kernels
 # already known to crash). Unset (bare use) keeps discovering the live set from the full corpus each run.
 A1_OUT="$(KERNELS="${KERNELS:-}" bash "$HERE/test_bench_prolog_timed.sh" 2>/dev/null)"
-# angle 1's own correctness gate names the live kernel set (bench/ with .expected, minus correctness-skips) --
+# angle 1's own correctness gate names the live kernel set (bench/ with .ref, minus correctness-skips) --
 # angle 2 is restricted to exactly that set so it never wastes wall-clock re-timing a kernel angle 1 already
 # knows is unmeasurable, and the two tables describe the identical kernel set by construction.
 # ⛔ SAME FIRST-BLOCK-ONLY RULE AS parse() BELOW, AND FOR THE SAME REASON.  NF>=6 happens to exclude

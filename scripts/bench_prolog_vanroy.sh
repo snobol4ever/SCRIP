@@ -154,7 +154,7 @@ two_number_board() {
   DECL=$(grep -v '^#' "$EXC" | awk -F'\t' 'NF{print $1}' | sort -u)
   echo "VAN ROY 21-KERNEL BOARD -- TWO-NUMBER BASIS"
   echo "BASIS: WORK = the kernel's own wall_us(T0)/wall_us(T1) delta, printed to user_error so stdout stays"
-  echo "       byte-comparable and every .expected still verifies. OVERHEAD = external total - WORK, per engine."
+  echo "       byte-comparable and every .ref still verifies. OVERHEAD = external total - WORK, per engine."
   echo "       Multiples are reference/ours via lib_perf_fmt.sh (RED below 1.00x, GREEN at or above). One axis."
   echo "⛔ PRECISION IS NOT UNIFORM AND IS NOT PAPERED OVER: gprolog real_time and swipl statistics(walltime) are"
   echo "   1 ms sources, so a rival work_us is that many WHOLE TICKS x1000, not a us measurement. SCRIP's wall_us"

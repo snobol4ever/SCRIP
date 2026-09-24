@@ -14,7 +14,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 printf "%-16s %-8s %-8s %-8s  %s\n" BENCH m3 m4 ORACLE "result/status"
 ok=0; fence=0; fail=0; tot=0
 for pl in "$B"/*.pl; do
-  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.expected"; tot=$((tot+1))
+  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.ref"; tot=$((tot+1))
   [ -f "$exp" ] || { printf "%-16s %-8s\n" "$s" "NO-REF"; continue; }
   want=$(cat "$exp")
   # mode 3 (--run): EMIT BINARY -> RX slab, in-process.
@@ -32,7 +32,7 @@ for pl in "$B"/*.pl; do
       if [ "$m4out" = "$want" ]; then m4=PASS; else m4=FAIL; fi
     else m4=BUILD; fi
   elif grep -q 'PL-GZ FENCE' "$W/$s.m4err" 2>/dev/null; then m4=FENCE; else m4=NOEMIT; fi
-  # oracle cross-check (informational): does a real prolog agree with .expected?
+  # oracle cross-check (informational): does a real prolog agree with .ref?
   orc="-"
   if command -v gprolog >/dev/null 2>&1; then
     go=$(timeout "$T" gprolog --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \

@@ -23,7 +23,7 @@
 # the counted form per engine into a temp file. One authority for the wrapper shape, none of it on disk.
 #
 # ⛔ CORRECTNESS IS NOT RE-VERIFIED HERE, but it is no longer taken on trust either: loop_check()
-# compares this run's stdout byte-for-byte against N copies of bench/<k>.expected (the oracle-cut ref), so
+# compares this run's stdout byte-for-byte against N copies of bench/<k>.ref (the oracle-cut ref), so
 # a kernel whose loop did not loop N times reports LOOP-OUTPUT-MISMATCH and never a rate. The single-shot
 # answer check remains angle 1's job -- one authority, not two copies of the correctness check.
 #
@@ -160,7 +160,7 @@ for k in "${order[@]}"; do
         [ "$ckstat" = ok ] && ckstat="$eng:GEN-REFUSED($(head -1 "$W/gen.err" | cut -c1-48))"; continue
       fi
     fi
-    res=$(run1 "$eng" "$gpl" "$N" "$B/$k.expected"); cpu=$(awk '{print $1}' <<<"$res")
+    res=$(run1 "$eng" "$gpl" "$N" "$B/$k.ref"); cpu=$(awk '{print $1}' <<<"$res")
     if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; WORK[$eng]="NA"; OVH[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res")
       # ⛔ ONE BUMP PER UNMEASURED (kernel, engine) PAIR, not per printed cell: one failed run darkens
       #   the same measurement in the rate, work and overhead grids, and counting it three times would

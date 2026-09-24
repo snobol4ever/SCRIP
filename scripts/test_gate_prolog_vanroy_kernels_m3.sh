@@ -25,7 +25,7 @@ n=$(gen_counted_set "$d" scrip) || exit 2
 #   generated from pre-conversion sources, raised existence_error at their first goal, and never reached the
 #   computation.  All ten scored as passes for months.  `nrev` and `qsort` exit 0 having printed 1438 and
 #   1338 lines where N=65536 and 16384 were asked -- truncated runs scored as clean.  loop_check() compares
-#   stdout against N copies of the kernel's .expected, which is the only evidence the loop ran N times.
+#   stdout against N copies of the kernel's .ref, which is the only evidence the loop ran N times.
 #   A pass criterion weaker than the claim the gate is read as making is the same defect as a blank cell.
 . "$here/scripts/lib_perf_fmt.sh" 2>/dev/null || { echo "REFUSE: cannot source lib_perf_fmt.sh -- the one authority for stamping a measurement with its load"; exit 2; }
 bench="$root/corpus/benchmarks/prolog/bench"
@@ -37,7 +37,7 @@ for f in "$d"/*.pl; do
     bad=$((bad+1)); printf 'FAIL %-16s rc=%-4s %s\n' "$b" "$rc" "$(head -1 "$d/$k.stderr" 2>/dev/null | cut -c1-72)"; continue
   fi
   # rc=0 is NOT the verdict -- prove the loop actually ran N times and printed N answers
-  why=$(loop_check scrip "$d/$k.stdout" "$(cat "$d/$k.n" 2>/dev/null)" "$bench/$k.expected") || {
+  why=$(loop_check scrip "$d/$k.stdout" "$(cat "$d/$k.n" 2>/dev/null)" "$bench/$k.ref") || {
     dark=$((dark+1)); printf 'FAIL %-16s rc=0 BUT %s\n' "$b" "$why"; }
 done
 echo "van Roy m3 census (counted form, generated): kernels=$n non-zero-exit=$bad rc0-but-wrong-output=$dark"

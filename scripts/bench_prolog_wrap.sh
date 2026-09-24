@@ -32,12 +32,12 @@
 #
 #   bench_work/1 is the bracket's content: the timing bracket encloses the CALL TO IT and nothing else,
 #   so the published number is work-on-work and the write stays outside.  main/0 is what makes the file
-#   a program rather than a fragment, and its stdout is what <name>.expected grades.
+#   a program rather than a fragment, and its stdout is what <name>.ref grades.
 #
 # ⭐ THREE ANGLES OVER ONE PRISTINE SOURCE (the same three bench_wrap.sh gives SNOBOL4):
 #     --mode=single  the work ONCE, self-timed.  stdout is the kernel's real answer, so the run is
 #                    GRADED and TIMED at once; work_us/work_ms go to user_error and stdout stays
-#                    byte-comparable against <name>.expected.
+#                    byte-comparable against <name>.ref.
 #     --mode=iter    exactly --n=N iterations, no wall-clock deadline anywhere.  This is the arm for
 #                    callgrind/cachegrind, where a deadline measures the INSTRUMENT's throughput
 #                    instead of the kernel's (FINDING-2026-08-22-bench-harness-unmeasurable).
@@ -187,7 +187,7 @@ if grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\(' "$KPL"; the
   sed -e '/^:- *initialization(main)\./d' -e '/^main *:- *bench_work(Res), *write(Res), *nl\./d' "$KPL"
   echo ":- initialization(main)."
   # ⛔ one write per iteration ON PURPOSE in --mode=iter: lib_prolog_bench.sh's loop_check() compares
-  # stdout against N copies of the .expected, which is the ONLY proof the loop ran N times before the
+  # stdout against N copies of the .ref, which is the ONLY proof the loop ran N times before the
   # time is divided by N. MEASURED s-history: without it, a wrapper that stopped after TWO iterations was
   # divided by N=65536 and published m3 at 3,102,442 iter/s against gprolog's 485 -- and angle 1 and
   # angle 2 AGREED on the fabrication to within 1%, because they shared the defect.
@@ -211,9 +211,9 @@ if grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\(' "$KPL"; the
       #   fabrication it prevented is the one its own header records: a wrapper that stopped after two
       #   iterations divided by N=65536 and published m3 at 3,102,442 iter/s.
       #   ⛔ COMMITTING TO THE FIRST SOLUTION IS SEMANTICALLY TRANSPARENT ON A DETERMINISTIC KERNEL, which
-      #   is what the other 19 are -- their .expected is a single answer, so taking the first solution is
+      #   is what the other 19 are -- their .ref is a single answer, so taking the first solution is
       #   what the reference already says the program computes.  It is not a tolerance and it hides no
-      #   red: a kernel whose FIRST solution is wrong still fails the loop-output check against .expected.
+      #   red: a kernel whose FIRST solution is wrong still fails the loop-output check against .ref.
       #   ⛔⭐ AND IT IS A CUT IN A ONE-LINE HELPER, NOT once/1, FOR A MEASURED REASON -- once/1 WAS TRIED
       #   FIRST AND REGRESSED 18 GREEN KERNELS (hq_P 2026-09-13).  On m3/m4 a failure-driven loop calling
       #   once/1 dies after exactly 121 iterations: nrev at N=64 printed 64 lines rc=0, at N=256 printed

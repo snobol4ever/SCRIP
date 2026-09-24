@@ -10,7 +10,7 @@
 # different SOURCE for N -- live-derived here, historically-committed there.
 #
 # ⛔ CORRECTNESS GATES THE TIMING (binding, ARCH-BENCH-CAMPAIGN-README-TABLES.md): this script re-verifies
-# each kernel's SINGLE-SHOT output against corpus/benchmarks/prolog/bench/<k>.expected on gnu/swi/m3 before
+# each kernel's SINGLE-SHOT output against corpus/benchmarks/prolog/bench/<k>.ref on gnu/swi/m3 before
 # ever timing it -- a kernel that fails this is SKIPped, never silently timed anyway.
 #
 # ⛔⭐ THE exit= FIELD IS THE ONLY TRUSTED CRASH SIGNAL (row bench-rivals-prolog, found live 2026-08-27):
@@ -115,7 +115,7 @@ search() {
     if ! genwrap "$src" "$N" "$W/s.pl" "$eng"; then
       echo "$N - GEN-REFUSED($(head -1 "$W/gen.err" 2>/dev/null | cut -c1-40))"; return
     fi
-    res=$(run1 "$eng" "$W/s.pl" "$N" "${src%.pl}.expected")
+    res=$(run1 "$eng" "$W/s.pl" "$N" "${src%.pl}.ref")
     cpu=$(awk '{print $1}' <<<"$res")
     case "$cpu" in
       -) echo "$N - $(cut -d' ' -f2- <<<"$res")"; return ;;   # first failure at this N -- report it, caller decides
@@ -142,7 +142,7 @@ tot_ok=0; tot_skip=0; tot_dark_rows=0
 declare -A BWORK=(); declare -A BOVH=(); declare -A BN=(); basis_rows=()
 for pl in "$B"/*.pl; do
   [ -e "$pl" ] || continue
-  k=$(basename "${pl%.pl}"); exp="${pl%.pl}.expected"
+  k=$(basename "${pl%.pl}"); exp="${pl%.pl}.ref"
   [ -f "$exp" ] || continue
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
   want=$(cat "$exp")

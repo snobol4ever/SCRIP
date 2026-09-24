@@ -85,7 +85,7 @@ for f in "$D"/*.pl; do
       1) other=$((other+1));  other_l="$other_l $b[$seen]$flap" ;;
       0) clean=$((clean+1))
          # rc=0 on every rep. Now ask the STRONGER question the board is read as answering: did it print its N answers?
-         if why=$(loop_check scrip "$D/$b.stdout" "$(cat "$D/$b.n" 2>/dev/null)" "$BENCH/$b.expected" 2>/dev/null)
+         if why=$(loop_check scrip "$D/$b.stdout" "$(cat "$D/$b.n" 2>/dev/null)" "$BENCH/$b.ref" 2>/dev/null)
          then clean_graded=$((clean_graded+1)); else ungraded_l="$ungraded_l $b($why)"; fi ;;
     esac
 done
