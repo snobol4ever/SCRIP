@@ -440,6 +440,7 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
+    if (kind != 1 && !x86_trace_hooks_on()) return std::string();
     if (!pname) return std::string();
     pname = xa_icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);

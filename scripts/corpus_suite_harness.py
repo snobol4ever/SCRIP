@@ -1941,7 +1941,7 @@ def cmd_capture_oracle_refs(args):
     paths = resolve_paths()
     check_scrip(paths)
     lang = args.lang or "snobol4"
-    paths["scrip_extra"] = ["--stlimit"] if lang in ("snobol4", "snocone", "rebus") else []
+    paths["scrip_extra"] = ["--stlimit"] if lang in ("snobol4", "snocone", "rebus", "icon") else []
     ext = LANG_CONFIGS[lang]["ext"] if lang != "snobol4" else ".sno"
     oracle_bin, flags = resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)

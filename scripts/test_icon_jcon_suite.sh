@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # scripts/test_icon_jcon_suite.sh — grades SCRIP m3+m4 against the vendored JCON test suite
 # (corpus/packages/icon/jcon_tests/: 91 .icn, 83 with a .ref oracle, 21 with a .dat companion, plus link1 graded by a .ref we cut from icont/iconx with its .args).

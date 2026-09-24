@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 # test_gate_icn_generator_exhaustion_traces_failed.sh -- a traced generator that EXHAUSTS prints "NAME failed".
 #
 # WHY THIS EXISTS (CEO-459): under &trace, iconx prints five lines for a generator -- call, suspended,

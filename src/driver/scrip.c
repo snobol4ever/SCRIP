@@ -1100,7 +1100,7 @@ int main(int argc, char **argv)
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n"
             "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
-            "  --stlimit        SNOBOL4 statement instrumentation on EVERY statement: &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE -- and the per-assignment variable tap the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace imply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n"
+            "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variable tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace imply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n"
             "\n"
             "Memory options (SPITBOL-compatible; value may end in k or m, e.g. -s256m -m8m):\n"
             "  -sN              max stack space; raises RLIMIT_STACK for deep pattern backtracking (default: OS, 8m)\n"

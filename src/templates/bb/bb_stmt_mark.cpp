@@ -17,8 +17,8 @@ std::string bb_stmt_mark(long stno, long line) {
          + x86("mov", RDQ("rax", 0), (long)stno)
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
          + x86("mov", RDQ("rax", 0), (long)line)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stcount, "g_stcount")
-         + x86("inc", RDQ("rax", 0))
+         + IF(x86_trace_hooks_on(), x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stcount, "g_stcount")
+         + x86("inc", RDQ("rax", 0)))
          + x86_gamma()
          + x86_beta_trampoline();
 }

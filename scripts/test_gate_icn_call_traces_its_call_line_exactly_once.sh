@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 # test_gate_icn_call_traces_its_call_line_exactly_once.sh -- one call, one TRK_CALL event, one bar depth.
 #
 # WHY THIS EXISTS (hq_B found it 2026-09-10 while curing the Icon trace value renderer; hq_U cured it):

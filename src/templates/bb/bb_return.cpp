@@ -39,7 +39,7 @@ std::string bb_return() {
              + x86("mov", FRQ(8), 0L)
              + x86("mov", "rax", FRQ(0))
              + x86("mov", "rdx", FRQ(8)))
-         + IF(_.op_dval != 2.0 && _.flat_gen,
+         + IF(_.op_dval != 2.0 && _.flat_gen && x86_trace_hooks_on(),
                x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
              + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0)) + x86("mov", "rdx", FRQ(8))
          + x86("mov", "rcx", "rbp")

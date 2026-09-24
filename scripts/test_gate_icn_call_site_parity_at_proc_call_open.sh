@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 # test_gate_icn_call_site_parity_at_proc_call_open.sh -- SysV call-site parity at rt_proc_call_open{,_det}.
 #
 # WHY THIS EXISTS (CEO-458): the Icon generator call site entered rt_proc_call_open_det at rsp 8-mod-16,

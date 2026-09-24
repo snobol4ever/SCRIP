@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 # test_gate_icn_a_procedure_returns_its_variable_when_its_result_is_one.sh -- hq_icon, 2026-09-24, MODE DECTET.
 #
 # WHAT WAS THERE. TT_RETURN lowered its operand as a VALUE, so a procedure that executes `return t` for a global t handed
