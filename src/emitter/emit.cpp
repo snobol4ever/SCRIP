@@ -1327,8 +1327,12 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
     case IR_SCAN_ANY:             bb_emit_x86(bb_scan_any());    return 0;
     case IR_SCAN_MANY:            bb_emit_x86(bb_scan_many());   return 0;
-    case IR_SCAN_FIND:            bb_emit_x86(bb_scan_find());   return 0;
-    case IR_SCAN_MATCH:           bb_emit_x86(bb_scan_match());  return 0;
+    case IR_SCAN_FIND:            { IR_t * _fa = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+                                    if (g_emit.op_name1 && _fa) g_emit.op_ival = (_fa->n_operands > 0 && _fa->operands[0] && _fa->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(_fa->operands[0]).ival : (int64_t)strlen(g_emit.op_name1);
+                                    bb_emit_x86(bb_scan_find()); } return 0;
+    case IR_SCAN_MATCH:           { IR_t * _ma = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+                                    if (g_emit.op_name1 && _ma) g_emit.op_ival = (_ma->n_operands > 0 && _ma->operands[0] && _ma->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(_ma->operands[0]).ival : (int64_t)strlen(g_emit.op_name1);
+                                    bb_emit_x86(bb_scan_match()); } return 0;
     case IR_SCAN_POS:             bb_emit_x86(bb_scan_pos());    return 0;
     case IR_SCAN_BAL:             bb_emit_x86(bb_scan_bal());    return 0;
     case IR_GLIT:                 { g_emit.op_name1 = IR_LIT(nd).sval; bb_emit_x86(bb_glit()); } return 0;
@@ -2168,7 +2172,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_SCAN_FIND: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : NULL;
         g_emit.op_off = drive_value_slot(nd);
-        if (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) {
+        int64_t _fl = (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) ? ((a0->n_operands > 0 && a0->operands[0] && a0->operands[0]->op == IR_LIT_INTEGER) ? IR_LIT(a0->operands[0]).ival : (int64_t)strlen(IR_LIT(a0).sval)) : -1;
+        if (_fl >= 1 && _fl <= 32) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
             int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;

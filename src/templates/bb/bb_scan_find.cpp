@@ -30,12 +30,8 @@ std::string bb_scan_find() {
              + x86("sub",     "rsp", (long)8)
              + x86("call",    "rt_scan_needle", (uint64_t)(uintptr_t)(void*)rt_scan_needle)
              + x86("add",     "rsp", (long)8)
+             + x86("mov",     FRQ(_.op_off + 24), "rdx")
              + x86_rt_gc_poll_rec_sigma_needle()
-             + x86("mov",     "rdi", "rax")
-             + x86("sub",     "rsp", (long)8)
-             + x86("call",    "strlen", (uint64_t)(uintptr_t)(void*)(size_t (*)(const char *))strlen)
-             + x86("add",     "rsp", (long)8)
-             + x86("mov",     FRQ(_.op_off + 24), "rax")
              + x86("def",     L(0))
              + x86("mov",     "rax", FRQ(_.op_off + 16))
              + x86("mov",     "rcx", "r15")
@@ -70,18 +66,18 @@ std::string bb_scan_find() {
              + x86_beta()
              + x86("inc",     FRQ(_.op_off + 16))
              + x86("jmp",     L(0)) :
-           (!(_.op_off >= 0 && _.op_name1 && _.op_name1[0] && strlen(_.op_name1) <= 32)) ?
-           x86_alpha() + x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)") :
+           (!(_.op_off >= 0 && _.op_name1 && _.op_ival >= 1 && _.op_ival <= 32)) ?
+           x86_alpha() + x86_bomb("bb_scan_find: unhandled (needs nonempty literal needle <=32 + descr flat-chain slot)") + x86_beta() + x86_bomb("bb_scan_find: unhandled") :
            x86("comment", "IR_SCAN_FIND")
          + x86_alpha()
          + x86("mov",     FRQ(_.op_off + 16), "r14")
          + x86("def",     L(0))
          + x86("mov",     "rax", FRQ(_.op_off + 16))
          + x86("mov",     "rcx", "r15")
-         + x86("sub",     "rcx", (long)strlen(_.op_name1))
+         + x86("sub",     "rcx", (long)_.op_ival)
          + x86("cmp",     "rax", "rcx")
          + x86_omega("jg")
-         + FOR(0, (int)strlen(_.op_name1), [&](int i) -> std::string {
+         + FOR(0, (int)_.op_ival, [&](int i) -> std::string {
                return x86("mov",   "rcx", "rax")
                     + IF(i != 0, x86("add", "rcx", (long)i))
                     + x86("movzx", "esi", "[r13+rcx]")
