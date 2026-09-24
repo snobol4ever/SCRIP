@@ -890,11 +890,11 @@ static uint64_t bnr_hash(const void *k, int by_name) { uint64_t h = 146959810393
 static int bnr_same(const void *a, const void *b, int by_name) { return a == b || (by_name && strcmp((const char *)a, (const char *)b) == 0); }
 static void bnr_reset(void) { g_bnr_gen++; g_bnr_nn = 0; g_bnr_nm = 0; }
 static void bnr_grow(cv_t *v, int by_name) {
-    uint32_t oc = v->cap, nc = oc ? oc * 2 : 64; cv_t o = *v; cv_t n = { 0, 0, 0, 0 };
-    cv_reserve(&n, (uint32_t)sizeof(bnr_slot_t), nc, by_name ? "bnr_vname" : "bnr_vnode"); memset(n.p, 0, (size_t)nc * sizeof(bnr_slot_t)); n.len = nc;
+    uint32_t oc = v->len, nc = oc ? oc * 2 : 64; cv_t o = *v; cv_t n = { 0, 0, 0, 0 };
+    n.p = ct_zalloc(nc, sizeof(bnr_slot_t)); n.len = nc; n.cap = nc; n.esz = (uint32_t)sizeof(bnr_slot_t);
     for (uint32_t i = 0; i < oc; i++) { bnr_slot_t s = CV_AT(o, bnr_slot_t, i); if (s.gen != g_bnr_gen || !s.k) continue;
         uint64_t h = bnr_hash(s.k, by_name) & (nc - 1); while (CV_AT(n, bnr_slot_t, h).gen == g_bnr_gen && CV_AT(n, bnr_slot_t, h).k) h = (h + 1) & (nc - 1); CV_AT(n, bnr_slot_t, h) = s; }
-    *v = n;
+    *v = n; if (o.p) ct_drop(o.p);
 }
 static int bnr_seen(cv_t *v, uint32_t *cnt, const void *k, int by_name) {
     if ((uint64_t)(*cnt + 1) * 2 > v->len) bnr_grow(v, by_name);
@@ -2636,7 +2636,7 @@ static zdo_slot_t *zdo_probe(const IR_t *k) { uint64_t h = (((uint64_t)(uintptr_
 static void zdo_build(IR_t **nodes, int n) {
     g_zdo_gen++; g_zdo_cnt = 0; g_zdo_nodes = nodes; g_zdo_n = n;
     uint32_t need = 64; while (need < (uint32_t)n * 2 + 2) need <<= 1;
-    if (g_zdo.len < need) { cv_t z = { 0, 0, 0, 0 }; cv_reserve(&z, (uint32_t)sizeof(zdo_slot_t), need, "zdo"); memset(z.p, 0, (size_t)need * sizeof(zdo_slot_t)); z.len = need; g_zdo = z; }
+    if (g_zdo.len < need) { if (g_zdo.p) ct_drop(g_zdo.p); g_zdo.p = ct_zalloc(need, sizeof(zdo_slot_t)); g_zdo.len = need; g_zdo.cap = need; g_zdo.esz = (uint32_t)sizeof(zdo_slot_t); }
     for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op)) { IR_t *t = zd_chase(nodes[k]->ω.node); if (!t) continue; zdo_slot_t *q = zdo_probe(t); if (q->gen != g_zdo_gen) { q->k = t; q->v = k; q->gen = g_zdo_gen; g_zdo_cnt++; } }
 }
 static int zdo_first(IR_t **nodes, int n, IR_t *t) {
@@ -2644,7 +2644,7 @@ static int zdo_first(IR_t **nodes, int n, IR_t *t) {
     for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
 }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
-extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); cv_gc_root(&g_bnr_vnode); cv_gc_root(&g_bnr_vname); cv_gc_root(&g_zdo); }
+extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout) { int k = zdo_first(nodes, n, t); return k >= 0 ? (zon[k] ? zout[k] : 0) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

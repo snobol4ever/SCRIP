@@ -22,7 +22,7 @@ void bb_label_registry_reset(void) { g_bb_labels.n = 0; }
 void lower_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **);
-    extern void bb_src_gc_roots(void); extern void sno_lower_gc_roots(void); extern void rk_lower_gc_roots(void); extern void emit_gc_roots(void); extern void zls_gc_roots(void);
+    extern void bb_src_gc_roots(void); extern void sno_lower_gc_roots(void); extern void rk_lower_gc_roots(void); extern void emit_gc_roots(void);
     if (g_bb_labels.data) {
         rt_gc_visit_raw((const char **) &g_bb_labels.data);
         for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
@@ -32,7 +32,6 @@ void lower_gc_roots(void)
     sno_lower_gc_roots();
     rk_lower_gc_roots();
     emit_gc_roots();
-    zls_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -270,9 +269,9 @@ static struct { const IR_t ** nd; const char ** src; int * line; int n; int max;
 typedef struct { const IR_t * k; int v; } bb_src_slot_t;
 static struct { bb_src_slot_t * s; int cap; int n; long runs; } g_bb_src_ix = { 0, 0, -1, -1 };
 static void bb_src_ix_build(int cap) {
-    extern void * rt_wsb_alloc(size_t); extern long rt_gc_runs_count(void);
-    bb_src_slot_t * t = (bb_src_slot_t *) rt_wsb_alloc((size_t) cap * sizeof(bb_src_slot_t)); if (!t) { g_bb_src_ix.n = -1; return; }
-    memset(t, 0, (size_t) cap * sizeof(bb_src_slot_t)); g_bb_src_ix.s = t; g_bb_src_ix.cap = cap; g_bb_src_ix.runs = rt_gc_runs_count();
+    extern long rt_gc_runs_count(void);
+    bb_src_slot_t * t = (bb_src_slot_t *) ct_zalloc((size_t) cap, sizeof(bb_src_slot_t)); if (!t) { g_bb_src_ix.n = -1; return; }
+    if (g_bb_src_ix.s) ct_drop(g_bb_src_ix.s); g_bb_src_ix.s = t; g_bb_src_ix.cap = cap; g_bb_src_ix.runs = rt_gc_runs_count();
     for (int i = 0; i < g_bb_src.n; i++) { const IR_t * k = g_bb_src.nd[i]; size_t h = ((size_t)(uintptr_t) k >> 4) & (size_t)(cap - 1);
         while (t[h].k && t[h].k != k) h = (h + 1) & (size_t)(cap - 1);
         if (!t[h].k) { t[h].k = k; t[h].v = i; } }
@@ -300,7 +299,6 @@ void bb_src_gc_roots(void)
     if (g_bb_src.nd) rt_gc_visit_raw((const char **) &g_bb_src.nd);
     if (g_bb_src.src) rt_gc_visit_raw((const char **) &g_bb_src.src);
     if (g_bb_src.line) rt_gc_visit_raw((const char **) &g_bb_src.line);
-    if (g_bb_src_ix.s) rt_gc_visit_raw((const char **) &g_bb_src_ix.s);
     for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i]) rt_gc_visit_raw((const char **) &g_bb_src.nd[i]); if (g_bb_src.src[i]) rt_gc_visit_raw((const char **) &g_bb_src.src[i]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
