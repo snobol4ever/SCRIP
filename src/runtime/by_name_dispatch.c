@@ -1806,6 +1806,11 @@ static int pl_big_unop(const char *op, DESCR_t a, DESCR_t *out) {
     if (!strcmp(op, "pos")) { *out = a; return 1; }
     if (!strcmp(op, "abs")) { *out = pl_big_sign(a) < 0 ? rt_big_neg(a) : a; return 1; }
     if (!strcmp(op, "sign")) { int s = pl_big_sign(a); *out = INTVAL(s < 0 ? -1 : (s > 0 ? 1 : 0)); return 1; }
+    if ((!strcmp(op, "msb") || !strcmp(op, "lsb") || !strcmp(op, "popc")) && pl_big_sign(a) > 0) {
+        extern DESCR_t rt_big_div(DESCR_t, DESCR_t); extern DESCR_t rt_big_mod(DESCR_t, DESCR_t); extern int rt_big_cmp(DESCR_t, DESCR_t);
+        long long bits = 0, low = -1, pop = 0; DESCR_t q = a;
+        while (rt_big_cmp(q, INTVAL(0)) > 0) { if (rt_big_cmp(rt_big_mod(q, INTVAL(2)), INTVAL(1)) == 0) { pop++; if (low < 0) low = bits; } q = rt_big_div(q, INTVAL(2)); bits++; }
+        *out = INTVAL(!strcmp(op, "msb") ? bits - 1 : !strcmp(op, "lsb") ? low : pop); return 1; }
     if (!strcmp(op, "intg") || !strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) { *out = a; return 1; }
     return 0;
 }
