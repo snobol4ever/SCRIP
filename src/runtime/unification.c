@@ -1035,15 +1035,15 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fmt_dec(plc_fb *f, long long iv, long places, int group)
 {
-    char dig[32]; int nd = 0, neg = iv < 0; unsigned long long u = neg ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv; char outb[96]; int oi = 0, i, ip;
+    char dig[24]; int nd = 0, neg = iv < 0; unsigned long long u = neg ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv; long tot, ip, i;
     if (!u) dig[nd++] = '0';
     while (u) { dig[nd++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; }
-    while (nd <= places) dig[nd++] = '0';
-    if (neg) outb[oi++] = '-';
-    ip = nd - (int)places;
-    for (i = 0; i < ip; i++) { if (group && i && !((ip - i) % 3)) outb[oi++] = ','; outb[oi++] = dig[nd - 1 - i]; }
-    if (places > 0) { outb[oi++] = '.'; for (; i < nd; i++) outb[oi++] = dig[nd - 1 - i]; }
-    plc_fb_add(f, outb, (size_t)oi);
+    tot = nd > places ? nd : places + 1; ip = tot - places;
+    if (neg) plc_fb_add(f, "-", 1);
+    for (i = 0; i < tot; i++) { char c = i < tot - nd ? '0' : dig[tot - 1 - i];
+        if (i == ip && places > 0) plc_fb_add(f, ".", 1);
+        if (group && i && i < ip && !((ip - i) % 3)) plc_fb_add(f, ",", 1);
+        plc_fb_add(f, &c, 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper)
