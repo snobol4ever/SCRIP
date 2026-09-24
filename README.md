@@ -221,50 +221,69 @@ published only when all three print its ref in both modes; with `BENCH_ORACLE_AR
 same twins run under the clean SPITBOL oracle, so the two engines are timed on the same generated program, on the same
 box, in the same minute.
 
-*Measured 2026-09-24 14:58 CDT on SCRIP `239521c25` (the binary built from `0cfdf0101`, identical source) / corpus
-`d97a2d591`, **RT_OPT=-O0**, load 0.3 on 16 cores with the fleet quiet, `BENCH_ITER_N=5 BENCH_BUD_MS=500`, oracle
-`spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the monitor-hooked correctness fork). 23 of 23
-kernels printed their ref on every angle in all three engines.* The per-repetition figure is the fixed-time twin's
-(microseconds per repetition of the kernel's own function after one warm-up repetition); the x-factor is
-SPITBOL time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as fast):
+*Measured 2026-09-24 16:37–16:43 CDT on SCRIP `d752e30eb` / corpus `6b145b60a`, **RT_OPT=-O0**, load 1.1–1.2 on 16 cores with the
+fleet quiet, **5 seconds of repetitions per point** (`BENCH_BUD_MS=5000 BENCH_ITER_N=5`, one warm-up repetition first; the
+repetition counts run from about 750 on name_indirection to eight million on test_icon), oracle `spitbol-bench-oracle/sbl -bf`
+(the clean benchmark oracle, never the monitor-hooked correctness fork). 23 of 23 kernels printed their ref on every angle in
+all three engines.* The per-repetition figure is the fixed-time twin's (microseconds per repetition of the kernel's own
+function); the x-factor is SPITBOL time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as
+fast). The last column is the same twin under the 2026-09-03 tree `380cc4162`, rebuilt and run the same afternoon, for the
+regression story below.
 
-| kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 |
-|---|---:|---:|---:|:---:|:---:|
-| arith_loop | 24.4 | 154.1 | 154.6 | 0.16x | 0.16x |
-| arith_loop_twin | 7285.9 | 8400.5 | 8053.1 | 0.87x | 0.90x |
-| array_sum | 563.6 | 8253.2 | 7473.5 | 0.07x | 0.08x |
-| eval_fixed | 138.0 | 527.2 | 503.4 | 0.26x | 0.27x |
-| fib_recur | 3852.6 | 5039.5 | 5243.2 | 0.76x | 0.73x |
-| fibonacci | 233.5 | 1264.1 | 1311.0 | 0.18x | 0.18x |
-| func_call | 34.6 | 248.0 | 248.7 | 0.14x | 0.14x |
-| ident_call1 | 28.6 | 239.5 | 229.7 | 0.12x | 0.12x |
-| ident_call2 | 30.6 | 222.2 | 226.6 | 0.14x | 0.13x |
-| indirect_dispatch | 26.7 | 420.1 | 422.2 | 0.06x | 0.06x |
-| mixed_workload | 30.6 | 368.1 | 346.3 | 0.08x | 0.09x |
-| name_indirection | 965.7 | 10553.9 | 9564.4 | 0.09x | 0.10x |
-| op_dispatch | 53.5 | 370.1 | 380.7 | 0.14x | 0.14x |
-| pattern_bt | 222.2 | 373.4 | 365.2 | 0.60x | 0.61x |
-| roman | 161.5 | 982.2 | 1017.9 | 0.16x | 0.16x |
-| string_concat | 34.9 | 206.3 | 200.8 | 0.17x | 0.17x |
-| string_concat_twin | 193.7 | 258.0 | 280.7 | 0.75x | 0.69x |
-| string_manip | 63.2 | 1016.7 | 1009.8 | 0.06x | 0.06x |
-| string_pattern | 65.5 | 237.6 | 251.2 | 0.28x | 0.26x |
-| table_access | 783.1 | 8324.4 | 6760.2 | 0.09x | 0.12x |
-| table_variety | 582.5 | 4335.4 | 3434.6 | 0.13x | 0.17x |
-| test_icon | 1.0 | 1.6 | 1.6 | 0.61x | 0.64x |
-| var_access | 64.2 | 439.3 | 450.6 | 0.15x | 0.14x |
+| kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 | `380cc4162` m4 |
+|---|---:|---:|---:|:---:|:---:|:---:|
+| arith_loop | 24.4 | 8.7 | 7.3 | 2.82x | 3.35x | 4.03x |
+| arith_loop_twin | 7401.4 | 2583.2 | 2234.0 | 2.87x | 3.31x | 3.47x |
+| array_sum | 608.8 | 5250.9 | 4287.3 | 0.12x | 0.14x | 0.27x |
+| eval_fixed | 142.8 | 375.5 | 340.9 | 0.38x | 0.42x | 0.96x |
+| fib_recur | 3714.6 | 3173.0 | 3167.7 | 1.17x | 1.17x | 1.78x |
+| fibonacci | 236.9 | 201.6 | 210.0 | 1.17x | 1.13x | 1.66x |
+| func_call | 34.4 | 23.4 | 24.1 | 1.47x | 1.42x | 2.01x |
+| ident_call1 | 28.5 | 14.6 | 13.0 | 1.95x | 2.19x | 2.46x |
+| ident_call2 | 30.0 | 15.8 | 14.7 | 1.90x | 2.03x | 2.36x |
+| indirect_dispatch | 26.5 | 291.7 | 288.8 | 0.09x | 0.09x | 0.62x |
+| mixed_workload | 30.6 | 225.0 | 204.3 | 0.14x | 0.15x | 0.28x |
+| name_indirection | 975.0 | 6677.1 | 6608.1 | 0.15x | 0.15x | — |
+| op_dispatch | 53.3 | 18.2 | 16.2 | 2.93x | 3.29x | 3.73x |
+| pattern_bt | 220.6 | 188.1 | 182.4 | 1.17x | 1.21x | 1.47x |
+| roman | 158.3 | 688.3 | 681.6 | 0.23x | 0.23x | 0.78x |
+| string_concat | 34.3 | 41.8 | 44.3 | 0.82x | 0.77x | 0.65x |
+| string_concat_twin | 200.4 | 165.0 | 182.9 | 1.21x | 1.10x | 0.98x |
+| string_manip | 63.9 | 825.4 | 695.7 | 0.08x | 0.09x | 0.66x |
+| string_pattern | 66.7 | 94.0 | 96.2 | 0.71x | 0.69x | 0.92x |
+| table_access | 769.8 | 5420.6 | 3673.8 | 0.14x | 0.21x | 1.29x |
+| table_variety | 582.5 | 2648.4 | 2122.7 | 0.22x | 0.27x | 0.68x |
+| test_icon | 1.1 | 0.7 | 0.6 | 1.44x | 1.71x | 4.12x |
+| var_access | 60.4 | 19.1 | 16.2 | 3.16x | 3.74x | 4.25x |
 
-Geometric mean over the 23 kernels: **0.18x** in mode 3, **0.19x** in mode 4; SCRIP is behind on every kernel, and the
-two modes read the same within noise, so the gap is not the medium. It is smallest where each statement does heavy
-work (arith_loop_twin, fib_recur, string_concat_twin, pattern_bt: 0.60x to 0.90x) and largest on tight loops of
-cheap statements — calls, name indirection, dispatch, table and string work read 0.06x to 0.15x — which names
-per-statement and per-call overhead rather than one slow builtin. End to end under the stopwatch the pristine
-programs read SPITBOL 0.6–8 ms, SCRIP mode 4 2–12 ms, mode 3 7–20 ms with its compile inside.
+Geometric mean over the 23 kernels: **0.64x** in mode 3, **0.69x** in mode 4; SCRIP is ahead of SPITBOL on 12 of 23
+kernels. The tight loops of cheap statements are back where the old tree had them (arith_loop, var_access, op_dispatch
+3.3–3.7x; the ident_call pair 2.0–2.2x); what remains behind is the indirect, string, table and array work
+(indirect_dispatch, string_manip 0.09x; array_sum, table_access, mixed_workload, name_indirection 0.14–0.21x; roman,
+table_variety 0.23–0.27x), where the old tree read 0.27x–1.29x.
 
-⛔ This grid supersedes the 2026-09-04 grid that stood here (twelve kernels, SCRIP read ahead on seven): the
-triangulation TSV committed the next day on that grid's own instrument (`corpus/benchmarks/snobol4/triangulation-
-20260905T194704Z.tsv`) already read SCRIP behind on every kernel, and today's same-twin reading agrees with the
-TSV, not with that grid. The instruction-count cross-check that accompanied it is retired with it.
+⛔ **The regression story, measured the same afternoon.** This grid replaces the one issued at 14:58 on `239521c25`, which read
+**0.19x / 0.19x** and SCRIP behind on every kernel — and which also said the 2026-09-04 grid that stood here before it (twelve
+kernels, SCRIP ahead on seven) had been an instrument artifact. It had not: the old grid's tree `380cc4162` (2026-09-03) rebuilt
+and run through this same harness on the same twins reads **1.25x m3 / 1.33x m4**, ahead on 11 of 23, and reproduces the old
+cells. The engine had regressed 6.6x–7.0x on the geometric mean, 21–29x on the tight loops, and a 512 MB arena recovered none of
+it. Bisected on arith_loop (7.5 µs/rep at `380cc4162`, 95.8 at `7481d1337` of 09-05 14:57, 154 that morning), then attributed
+with callgrind and perf on one fixed-iteration twin (266 M instructions / 63 M cycles on the old tree against 1,016 M / 262 M):
+two commits of the evening of 2026-09-04 carried most of it. `1e2773d98` (19:17) armed the per-statement `SNO$STMT` by-name
+hook for any program that mentioned `&STLIMIT`, and 19 of these 23 kernels wrote `&STLIMIT = -1`, the SPITBOL idiom for an
+unlimited run (7.1 → 74 µs/rep at that commit alone). `c3e6b16bb` (21:17) emitted the monitor's per-assignment VALUE tap
+`comm_var` on every global assignment — ten pushes, a spill block and a C call, 444 M of the 750 M extra instructions on that
+twin. The rest is a creep across 09-05 → 09-24 with no single step. Two landings the same day: `2a81a02db` makes the statement
+instrumentation the `--stlimit` switch, off by default and never inferred from the source (an `EVAL` or `CODE` can introduce a
+keyword behind the compiler's back), with the correctness graders passing it because the oracle always has the feature; and
+`d752e30eb` puts the variable tap under the same switch (`--monitor` and `--trace` imply it). corpus `723e5aa08` drops the
+`&STLIMIT = -1` line from the kernels. With the switch on, the same twins read 0.05x: the instrumented mode's cost is the next
+landing (an inline count, the compare once per statement, the hook only on the slow path). What remains on the default path is
+the GC poll, emitted after runtime calls that cannot allocate and wrapped in a 7-instruction spill where an inline compare
+belongs (8% of that twin), the statement mark's three GOT indirections per statement in mode 4 (3%), and the indirect, string
+and table classes above, each to be treated the way this one was: emitted `.s` side by side, callgrind attribution, cure. The
+2026-09-05 triangulation TSV (`corpus/benchmarks/snobol4/triangulation-20260905T194704Z.tsv`) already carried the regressed engine
+one day after the old grid.
 
 **SNOBOL4 real-program workloads × vs SPITBOL** (callgrind instruction counts, fixed
 work, startup excluded — SCRIP mode 4, 2026-08-23):
