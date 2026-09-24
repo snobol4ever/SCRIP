@@ -48,6 +48,11 @@ static std::string disj_step_unwind() {
          + x86("call_bare", "rt_pl_tr_unwind", fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string disj_step_ball() {
+    if (!x86_fb_pinned()) return std::string();
+    return x86("test", "r15", "r15") + x86_omega("jne");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_disjunction() {
     x86_begin();
     return _.op_off < 0
@@ -67,6 +72,7 @@ std::string bb_disjunction() {
              + x86("jmp", PAIR((int)(_.op_ival + _.op_ival - 1)))
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
              + x86("def", PAIR((int)(2 * _.op_ival + 2)))
+             + disj_step_ball()
              + disj_step_unwind()
              + x86("add", FR(_.op_off + 16), 1)
              + x86("mov", "eax", FR(_.op_off + 16))
