@@ -33,7 +33,9 @@ for i in range(len(sections) - 1):
     cites = re.findall(r"(triangulation-[0-9TZ]+\.tsv)", sec)
     if not cites:
         continue
-    rows = re.findall(r"^\|\s*([a-z_0-9]+)\s*\|\s*(?:\*\*)?([0-9.]+)x(?:\*\*)?\s*\|\s*(?:\*\*)?([0-9.]+)x(?:\*\*)?\s*\|", sec, re.M)
+    # a cell is the x-factor WITH ITS DIRECTION WORD (Lon 2026-09-24, CEO-1241: "1.5x faster" / "6.3x slower"); the multiple
+    # against the reference is the factor when faster and its reciprocal when slower
+    rows = re.findall(r"^\|\s*([a-z_0-9]+)\s*\|\s*(?:\*\*)?([0-9.]+)x (faster|slower)(?:\*\*)?\s*\|\s*(?:\*\*)?([0-9.]+)x (faster|slower)(?:\*\*)?\s*\|", sec, re.M)
     if not rows:
         continue
     tsvs = []
@@ -54,18 +56,19 @@ for i in range(len(sections) - 1):
             f = l.rstrip("\n").split("\t")
             if len(f) >= 5:
                 data.setdefault(f[0], {})[f[1]] = (float(f[2]) if f[2] else 0.0, float(f[4]) if f[4] else 0.0)
-    for kernel, c3, c4 in rows:
-        for eng, cell in (("m3", c3), ("m4", c4)):
+    for kernel, c3, d3, c4, d4 in rows:
+        for eng, cell, word in (("m3", c3, d3), ("m4", c4, d4)):
             graded += 1
+            cellmult = float(cell) if word == "faster" else (1.0 / float(cell) if float(cell) else 0.0)
             k = data.get(kernel, {})
             refs = [e for e in k if e not in ("m3", "m4", "ast")]
             if eng not in k or not refs:
                 graded -= 1
-                unverifiable.append(f"{kernel}/{eng}: cell {cell}x -- the cited TSV carries no {eng} row or no reference-engine row for this kernel"); continue
+                unverifiable.append(f"{kernel}/{eng}: cell {cell}x {word} -- the cited TSV carries no {eng} row or no reference-engine row for this kernel"); continue
             rate, ratio = k[eng]; ref = k[refs[0]][0]
             mult = rate / ref if ref else 0.0
-            if round(float(cell), 2) == round(ratio, 2) and round(float(cell), 2) != round(mult, 2):
-                bad.append(f"{kernel}/{eng}: published {cell}x IS the TSV's self-agreement ratio {ratio:.4f}, not the multiple {mult:.6f}x against {refs[0]}")
+            if round(cellmult, 1) == round(ratio, 1) and round(cellmult, 1) != round(mult, 1):
+                bad.append(f"{kernel}/{eng}: published {cell}x {word} IS the TSV's self-agreement ratio {ratio:.4f}, not the multiple {mult:.6f} against {refs[0]}")
 print(f"population: {graded} grid cell(s) graded against their cited TSV(s)" + (f"; {len(unverifiable)} cell(s) UNVERIFIABLE (kernel not in the cited TSV)" if unverifiable else "") + (f"; {len(missing)} cited TSV(s) missing: {', '.join(missing)}" if missing else ""))
 for u in unverifiable: print("    unverifiable: " + u)
 if missing and graded == 0:
@@ -82,15 +85,15 @@ if [ "${1:-}" = "--selftest" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; mkdir -p "$W/corpus/benchmarks/pascal"
   printf 'kernel\tengine\tangle1_rate\tangle2_rate\tratio\tverdict\n' > "$W/corpus/benchmarks/pascal/triangulation-20990101T000000Z.tsv"
   printf 'queens\tfpc\t1000\t1010\t1.0100\tAGREE\nqueens\tm3\t10\t9.9\t0.9900\tAGREE\nqueens\tm4\t20\t21.4\t1.0700\tAGREE\n' >> "$W/corpus/benchmarks/pascal/triangulation-20990101T000000Z.tsv"
-  M4="0.02x"; [ -n "${FAIL_ONCE:-}" ] && M4="1.07x"
-  printf '## Pascal\n\nrun triangulation-20990101T000000Z.tsv\n\n| kernel | m3 | m4 |\n|---|---|---|\n| queens | **0.99x** | **%s** |\n' "$M4" > "$W/README.md"
+  M4="50.0x slower"; [ -n "${FAIL_ONCE:-}" ] && M4="1.1x faster"
+  printf '## Pascal\n\nrun triangulation-20990101T000000Z.tsv\n\n| kernel | m3 | m4 |\n|---|---|---|\n| queens | **1.0x slower** | **%s** |\n' "$M4" > "$W/README.md"
   fails=0; ck(){ if [ "$1" = ok ]; then echo "  ok    $2"; else echo "  FAIL  $2"; fails=$((fails+1)); fi; }
   out="$(grade "$W/README.md" "$W/corpus")"; rc=$?
-  [ "$rc" = 1 ] && grep -q 'queens/m3: published 0.99x IS the TSV' <<<"$out" && ! grep -q 'queens/m4:' <<<"$out" && ck ok "(a) the planted ratio cell (m3 0.99x = ratio) is RED by name; the multiple cell (m4 0.02x) is not" || ck no "(a) rc=$rc -- got: $out"
-  printf '## Pascal\n\nrun triangulation-20990101T000000Z.tsv\n\n| kernel | m3 | m4 |\n|---|---|---|\n| queens | **0.01x** | **0.02x** |\n' > "$W/README.md"
+  [ "$rc" = 1 ] && grep -q 'queens/m3: published 1.0x slower IS the TSV' <<<"$out" && ! grep -q 'queens/m4:' <<<"$out" && ck ok "(a) the planted ratio cell (m3 1.0x slower = the ratio 0.99) is RED by name; the multiple cell (m4 50.0x slower = 0.02) is not" || ck no "(a) rc=$rc -- got: $out"
+  printf '## Pascal\n\nrun triangulation-20990101T000000Z.tsv\n\n| kernel | m3 | m4 |\n|---|---|---|\n| queens | **100.0x slower** | **50.0x slower** |\n' > "$W/README.md"
   out="$(grade "$W/README.md" "$W/corpus")"; rc=$?
   [ "$rc" = 0 ] && grep -q 'population: 2' <<<"$out" && ck ok "(b) both cells the multiples: rc=0, population 2" || ck no "(b) rc=$rc -- got: $out"
-  printf '## Pascal\n\nrun triangulation-20000101T000000Z.tsv\n\n| kernel | m3 | m4 |\n|---|---|---|\n| queens | **0.01x** | **0.02x** |\n' > "$W/README.md"
+  printf '## Pascal\n\nrun triangulation-20000101T000000Z.tsv\n\n| kernel | m3 | m4 |\n|---|---|---|\n| queens | **100.0x slower** | **50.0x slower** |\n' > "$W/README.md"
   out="$(grade "$W/README.md" "$W/corpus")"; rc=$?
   [ "$rc" = 2 ] && ck ok "(c) a cited TSV missing from the corpus: rc=2 REFUSES" || ck no "(c) rc=$rc -- got: $out"
   echo "population: 3 selftest arm(s), $fails FAIL"; [ "$fails" = 0 ] && { echo "GATE PASS [readme_grid_cell_is_a_multiple_not_the_ratio --selftest]: 3 of 3"; exit 0; }; echo "⛔ GATE RED [selftest]: $fails FAIL"; exit 1
