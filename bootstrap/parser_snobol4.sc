@@ -40,8 +40,8 @@ SpecialNm   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match(SpecialNms,  
 ProtKwd     =  SPAN(&UCASE &LCASE)                $ tx $ *sn_match(ProtKwds,    TxInList);
 UnprotKwd   =  SPAN(&UCASE &LCASE)                $ tx $ *sn_match(UnprotKwds,  TxInList);
 Integer     =  SPAN(digits);
-DQ          =  '"' BREAK('"' nl) . str_body '"';
-SQ          =  "'" BREAK("'" nl) . str_body "'";
+DQ          =  '"' shift(BREAK('"' nl), "'TT_QLIT'") '"';
+SQ          =  "'" shift(BREAK("'" nl), "'TT_QLIT'") "'";
 String      =  *SQ | *DQ;
 Real        =  (  SPAN(digits)
                   ('.' FENCE(SPAN(digits) | epsilon) | epsilon)
@@ -166,7 +166,7 @@ Expr17      =  FENCE(
                |  shift(*BuiltinVar, "'TT_VAR'")
                |  shift(*SpecialNm, "'TT_VAR'")
                |  shift(*Id, "'TT_VAR'") FENCE(nPush() $'(' FENCE(*FnArgList | epsilon) reduce("'TT_FNC'", 'nTop()') nPop() $')' | epsilon)
-               |  *String shift(str_body, "'TT_QLIT'")
+               |  *String
                |  shift(*Real, "'TT_RLIT'")
                |  shift(*Integer, "'TT_ILIT'")
                );
