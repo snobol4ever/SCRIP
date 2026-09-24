@@ -282,8 +282,7 @@ static int pl_flag_directive_is_advisory(const tree_t * subj) {
 static int pl_flag_directive_is_default(const tree_t * subj) {
     const tree_t * f = subj->c[0]; const tree_t * v = subj->c[1];
     if (!f || !v || !(f->t == TT_QLIT || f->t == TT_NAME) || !(v->t == TT_QLIT || v->t == TT_NAME) || !f->v.sval || !v->v.sval) return 0;
-    if (!strcmp(f->v.sval, "double_quotes")) return !strcmp(v->v.sval, "atom") || !strcmp(v->v.sval, "string");
-    return 0;
+    return !strcmp(f->v.sval, "double_quotes") && !strcmp(v->v.sval, "string");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_cmp_op_suffix(const char * s) {
@@ -1906,11 +1905,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         { tree_t * dirgoal = (tree_t *) subj;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
             if (pl_flag_directive_is_default(subj) || pl_flag_directive_is_advisory(subj)) continue;
-            { const tree_t * f = subj->c[0]; const tree_t * v = subj->c[1];
-              if (f && v && (f->t == TT_QLIT || f->t == TT_NAME) && (v->t == TT_QLIT || v->t == TT_NAME) && f->v.sval && v->v.sval
-                  && !strcmp(f->v.sval, "double_quotes") && (!strcmp(v->v.sval, "codes") || !strcmp(v->v.sval, "chars")))
-                  pl_refuse("directive set_prolog_flag", f->v.sval, 10);
-              dirgoal = pl_cc_fnc2("$set_prolog_flag_declare", (tree_t *) f, (tree_t *) v); } }
+            dirgoal = pl_cc_fnc2("$set_prolog_flag_declare", subj->c[0], subj->c[1]); }
         { int dv_scope0 = dvc;
           tree_t * eb = ast_node_new(TT_VAR); eb->v.sval = (char *) "$DirBall";
           tree_t * eb2 = ast_node_new(TT_VAR); eb2->v.sval = (char *) "$DirBall";

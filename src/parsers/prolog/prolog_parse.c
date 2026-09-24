@@ -8,6 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 extern void *rt_wsb_alloc(size_t);
+extern int rt_pl_double_quotes_mode(void);
 #define IF_STACK_MAX 32
 typedef struct {
     int active;
@@ -24,6 +25,7 @@ typedef struct {
     int         clause_errs;
     int         in_args;
     int         quiet;
+    int         dq;
     IfFrame     ifst[IF_STACK_MAX];
     int         ifst_top;
     TreeScope   ts;
@@ -490,8 +492,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             return pt_stamp(n, ln);
         }
         case TK_STRING: {
-            extern int rt_pl_double_quotes_mode(void);
-            int dqm = rt_pl_double_quotes_mode();
+            int dqm = p->dq;
             if (dqm == 0) {
                 tree_t *n = ast_node_new(TT_QLIT);
                 n->v.sval = ct_strdup(tk.text);
@@ -986,6 +987,13 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dq_directive(Parser *p, const tree_t *goal) {
+    if (!goal || goal->t != TT_FNC || !goal->v.sval || strcmp(goal->v.sval, "set_prolog_flag") || goal->n != 2) return;
+    const tree_t *f = goal->c[0], *v = goal->c[1];
+    if (!f || !v || f->t != TT_QLIT || v->t != TT_QLIT || !f->v.sval || !v->v.sval || strcmp(f->v.sval, "double_quotes")) return;
+    if (!strcmp(v->v.sval, "atom")) p->dq = 0; else if (!strcmp(v->v.sval, "chars")) p->dq = 1; else if (!strcmp(v->v.sval, "codes")) p->dq = 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static PlClause *parse_clause(Parser *p) {
     Token pk = lexer_peek(&p->lx);
     if (pk.kind == TK_EOF) return NULL;
@@ -998,7 +1006,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
-        if (if_currently_active(p)) register_op_directive(body_tr);
+        if (if_currently_active(p)) { register_op_directive(body_tr); dq_directive(p, body_tr); }
         if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
             cl->nbody = 0; cl->tr = NULL;
             return cl;
@@ -1225,6 +1233,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.ifst_top = 0;
     p.in_args  = 0;
     p.quiet    = quiet;
+    p.dq       = rt_pl_double_quotes_mode();
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     for (;;) {

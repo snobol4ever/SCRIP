@@ -281,15 +281,27 @@ HARNESS_PRELUDE = (
     "make_list1(N,[_|L1]) :- N1 is N-1, make_list(N1,L1).\n"
     "run_tests(_).\n"
 )
+# ⭐ THE DOUBLE_QUOTES CARRY (hq_prolog 2026-09-24). The vendored driver READS each entry after RUNNING the one before it, so
+# set_prolog_flag(double_quotes, V) changes how the next entry's "fred" is read -- set_prolog_flag's last three entries grade
+# exactly that. This runner compiles each goal alone, so an entry of that shape that SUCCEEDED in a mode is carried, in that
+# mode, as a leading directive into the later entries of the SAME family -- the driver's own read-after-run order, and only
+# for the one flag that changes reading. A carried directive is SCRIP's own parse-time reading of it, never the runner's.
+DQ_SET = re.compile(r"^\s*set_prolog_flag\(\s*double_quotes\s*,\s*([a-z]+)\s*\)\s*$")
+def dq_lead(tidx, mode):
+    fam, lead = tests[tidx][0], ""
+    for j in range(tidx):
+        m = DQ_SET.match(tests[j][1])
+        if tests[j][0] == fam and m and outcome_ok.get((j, mode), False): lead = ":- set_prolog_flag(double_quotes, %s).\n" % m.group(1)
+    return lead
 tmp = tempfile.mkdtemp()
 prog = os.path.join(tmp, "t.pl")
 for _tidx, (fam, goal, exp) in enumerate(tests):
     if _tidx in OUTSIDE: continue
     want, wfun = expected_class(exp)
-    with open(prog, "w") as f:
-        f.write(HARNESS_PRELUDE)
-        f.write(":- catch( ( %s -> write('@OK') ; write('@NO') ), E, ( write('@ER('), write(E), write(')') ) ), nl.\n" % goal)
     for mode in ("m3", "m4"):
+        with open(prog, "w") as f:
+            f.write(HARNESS_PRELUDE + dq_lead(_tidx, mode))
+            f.write(":- catch( ( %s -> write('@OK') ; write('@NO') ), E, ( write('@ER('), write(E), write(')') ) ), nl.\n" % goal)
         try:
             if mode == "m3":
                 r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
@@ -497,7 +509,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
         # than reported as a false defect -- see excluded_fresh_named.
         disj = " ; ".join(("(" + ",".join(("var(%s)" % v) if t == "_" else "%s == %s" % (v, t) for v, t in sol) + ")") if sol else "true" for sol in sols)
         with open(prog, "w") as f:
-            f.write(HARNESS_PRELUDE)
+            f.write(HARNESS_PRELUDE + dq_lead(_tidx, mode))
             f.write(":- catch( ( %s -> ( (%s) -> write('@BOK') ; write('@BFAIL') ) ; write('@BNO') ), E, ( write('@BER('), write(E), write(')') ) ), nl.\n"
                      % (goal, disj))
         try:
