@@ -1,0 +1,3 @@
+snocone	tests/snocone/ladder/prog/amp_seq.sc	not a Snocone program: a single binary & ("'ab' ? 'a' & 'b'") is refused by the C frontend too (scrip --dump-ast: snocone parse error); concatenation is && (snocone_lex.c LX_AMP -> T_2AMP)
+snocone	tests/snocone/ladder/prog/arith_unary.sc	not SNOBOL4: "OUTPUT = - 3 + 4" (a blank after a unary operator) is SPITBOL ERROR 221 missing operand; the C lexer is lenient, the self-hosted parser follows SPITBOL (Lon 2026-09-24: expressions are SNOBOL4's)
+snocone	library/FENCE.sc	no statements (two comment lines): the parser prints an empty tree, as scrip --dump-ast prints nothing
