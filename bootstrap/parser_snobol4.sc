@@ -84,8 +84,8 @@ $')'        =  $' ' ')';
 $']'        =  $' ' ']';
 $'>'        =  $' ' '>';
 /* ==================================================================================================================== */
-FnArgList   =  nInc() *Expr FENCE(*FnArgTail | epsilon);
-FnArgTail   =  $',' nInc() *Expr FENCE(*FnArgTail | epsilon);
+FnArgList   =  nInc() (*Expr | shift(epsilon, "'TT_NUL'")) FENCE(*FnArgTail | epsilon);
+FnArgTail   =  $',' nInc() (*Expr | shift(epsilon, "'TT_NUL'")) FENCE(*FnArgTail | epsilon);
 ExprList    =  nPush()
                *XList
                reduce("'ExprList'", '*(GT(nTop(), 1) nTop())')
