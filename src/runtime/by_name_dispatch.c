@@ -9399,14 +9399,14 @@ static int pl_anum_code_ok(long c) { return c >= 0 && c <= 0x10FFFF; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_anum_one_char(const char *es) { int adv; if (!es || !es[0]) return 0; (void)rt_pl_u8_get(es, &adv); return es[adv] == '\0'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void * pl_anum_elems(DESCR_t lst, int codes) {
+static void * pl_anum_elems(DESCR_t lst, int codes, int allow_var) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_kind1(const char *, const char *);
     DESCR_t cur = rt_pl_deref_val(lst);
     while (pl_is_cons(cur)) {
         DESCR_t e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
-        if (pl_iso_unbound(e)) return rt_pl_ball_instantiation();
+        if (pl_iso_unbound(e)) { if (!allow_var) return rt_pl_ball_instantiation(); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); continue; }
         if (codes) {
             if (e.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", e);
             if (!pl_anum_code_ok((long)e.i)) return rt_pl_ball_kind1("representation_error", "character_code"); }
@@ -9439,7 +9439,7 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
         if (codes >= 0 && !strcmp(atom_type, "atom") && !pl_anum_is_text(a)) return rt_pl_ball_kind2("type_error", "atom", a);
         if (!strcmp(atom_type, "number") && !pl_anum_is_num(a)) return rt_pl_ball_kind2("type_error", "number", a); }
     if (lk == -1) return rt_pl_ball_kind2("type_error", "list", l);
-    if (pl_iso_unbound(a)) { void *b = pl_anum_elems(l, codes); if (b) return b; }
+    { void *b = pl_anum_elems(l, codes, !pl_iso_unbound(a)); if (b) return b; }
     if (pl_iso_unbound(a) && lk == 0) return rt_pl_ball_instantiation();
     if (lk == 1 && !strcmp(atom_type, "number")) { void *b = pl_anum_number_syntax(l, codes); if (b) return b; }
     return (void *)0;
