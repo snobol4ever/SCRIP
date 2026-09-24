@@ -686,9 +686,9 @@ static int load_names_file_bin(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     int   cap = 64;
-    char **names = (char **)rt_pvec_alloc(cap);
-    int   *lens  = (int  *)rt_wsb_alloc(cap * sizeof(int));
-    if (!names || !lens) { fclose(f); return -1; }
+    char **names = (char **)malloc((size_t)cap * sizeof(char *));
+    int   *lens  = (int  *)malloc((size_t)cap * sizeof(int));
+    if (!names || !lens) { fclose(f); free(names); free(lens); return -1; }
     int n = 0;
     char *line = NULL; size_t lcap = 0;
     ssize_t got;
@@ -697,11 +697,11 @@ static int load_names_file_bin(const char *path) {
         if (got > 0 && line[got-1] == '\r') { line[got-1] = '\0'; got--; }
         if (n == cap) {
             cap *= 2;
-            names = (char **)rt_pvec_realloc(names, cap);
-            lens  = (int  *)rt_wsb_realloc(lens,  cap * sizeof(int));
+            names = (char **)realloc(names, cap * sizeof(char *));
+            lens  = (int  *)realloc(lens,  cap * sizeof(int));
             if (!names || !lens) { fclose(f); ct_drop(line); return -1; }
         }
-        char *copy = (char *)rt_wsb_alloc((size_t)got + 1);
+        char *copy = (char *)malloc((size_t)got + 1);
         if (!copy) { fclose(f); ct_drop(line); return -1; }
         memcpy(copy, line, (size_t)got + 1);
         names[n] = copy;
@@ -734,8 +734,8 @@ static uint32_t intern_name_bin(const char *p, int len) {
     }
     if (g_bin_n_names == g_bin_names_cap) {
         int new_cap = g_bin_names_cap ? g_bin_names_cap * 2 : 64;
-        char **nn = (char **)rt_pvec_realloc(g_bin_names, (size_t)new_cap);
-        int   *nl = (int  *)rt_wsb_realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
+        char **nn = (char **)realloc(g_bin_names, (size_t)new_cap * sizeof(char *));
+        int   *nl = (int  *)realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
         if (!nn || !nl) {
             if (nn) g_bin_names = nn;
             if (nl) g_bin_name_lens = nl;
@@ -745,7 +745,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
         g_bin_name_lens = nl;
         g_bin_names_cap = new_cap;
     }
-    char *copy = (char *)rt_wsb_alloc((size_t)len + 1);
+    char *copy = (char *)malloc((size_t)len + 1);
     if (!copy) return MW_NAME_ID_NONE;
     if (len > 0) memcpy(copy, p, (size_t)len);
     copy[len] = '\0';
