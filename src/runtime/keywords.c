@@ -76,12 +76,21 @@ static void kw_cset_hindex_insert(int idx) {
         if (!g_kw_cset_hidx[sl]) { g_kw_cset_hidx[sl] = idx + 1; return; }
 }
 static long g_kw_cset_hidx_gen = -1;
+static __attribute__((noinline)) void kw_cset_compact(void) {
+    int j = 0;
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr || g_kw_cset_names[i].name) { if (j != i) g_kw_cset_names[j] = g_kw_cset_names[i]; j++; }
+    if (j == g_kw_cset_count) return;
+    g_kw_cset_count = j;
+    memset(g_kw_cset_cidx, 0, (size_t)g_kw_cset_hcap * sizeof(int));
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) kw_cset_cindex_insert(i);
+}
 static void kw_cset_hindex_refresh(void) {
     extern long rt_gc_runs_count(void);
     long gen = rt_gc_runs_count();
     if (gen == g_kw_cset_hidx_gen) return;
     g_kw_cset_hidx_gen = gen;
     if (!g_kw_cset_hidx || g_kw_cset_hcap <= 0) return;
+    kw_cset_compact();
     memset(g_kw_cset_hidx, 0, (size_t)g_kw_cset_hcap * sizeof(int));
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) kw_cset_hindex_insert(i);
 }
@@ -168,19 +177,41 @@ void kw_errtext_gc_root(void)
     if (g_sno_errtext) rt_gc_visit_raw(&g_sno_errtext);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kw_cset_plant_strong(void)
+{
+    static int v = -1, said = 0;
+    if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_CSET_STRONG"); v = (e && *e && *e != '0') ? 1 : 0; }
+    if (v && !said) { said = 1; fprintf(stderr, "[GC-CSET] plant: every interned cset is a STRONG root again, as before the registry went weak, so no computed cset ever dies and every "
+                                                "collection visits and slides all of them (SCRIP_GC_PLANT_CSET_STRONG=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints "
+                                                "ONCE PER PROCESS.\n"); }
+    return v;
+}
 void kw_cset_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **loc);
     kw_errtext_gc_root();
     if (!g_kw_cset_names) return;
     rt_gc_visit_raw((const char **)&g_kw_cset_names);
+    int strong = kw_cset_plant_strong();
     for (int i = 0; i < g_kw_cset_count; i++) {
-        if (g_kw_cset_names[i].ptr)  rt_gc_visit_raw(&g_kw_cset_names[i].ptr);
-        if (g_kw_cset_names[i].name) rt_gc_visit_raw(&g_kw_cset_names[i].name);
+        if (!g_kw_cset_names[i].name && !strong) continue;
+        if (g_kw_cset_names[i].ptr) rt_gc_visit_raw(&g_kw_cset_names[i].ptr);
+        rt_gc_visit_raw(&g_kw_cset_names[i].name);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
+void kw_cset_gc_weak(void)
+{
+    extern int rt_gc_weak_keep(const char **loc);
+    int dead = 0;
+    for (int i = 0; i < g_kw_cset_count; i++) {
+        kw_cset_ent_t *e = &g_kw_cset_names[i];
+        if (e->name || !e->ptr || rt_gc_weak_keep(&e->ptr)) continue;
+        e->ptr = (const char *)0; e->len = -1; dead++;
+    }
+    if (dead) memset(g_kw_cset_regc_ptr, 0, sizeof g_kw_cset_regc_ptr);
+}
 const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
     if (!canon) canon = "";

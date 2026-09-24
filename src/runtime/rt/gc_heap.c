@@ -729,6 +729,14 @@ void rt_gc_visit_raw(const char **loc)
     gc_mark_blk(h, 0);
     gc_slot_reg((void *)loc);
 }
+int rt_gc_weak_keep(const char **loc)
+{
+    rt_hblk_t *h = gc_blk_of(*loc);
+    if (!h) return 1;
+    if (!(h->flags & HBF_MARK)) return 0;
+    gc_slot_reg((void *)loc);
+    return 1;
+}
 int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)0; }
 int rt_gc_in_arena(const char *p) { return (g_hp_arena && p >= g_hp_arena && p < g_hp_top) ? 1 : 0; }
 int rt_gc_slot_registered(const void *loc)
@@ -1454,6 +1462,7 @@ static long gc_collect_ex(void)
         rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
     }
+    { extern void kw_cset_gc_weak(void); kw_cset_gc_weak(); }
 #ifdef SCRIP_GC_AUDIT_B
     gc_audit_b_shim(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
 #endif
