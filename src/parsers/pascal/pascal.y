@@ -1166,6 +1166,13 @@ static void pas_sign_operand(tree_t *e, char op) {
     fprintf(stderr, "pascal: ISO 7185 6.7.2.2 violation: the monadic %c is applied to an operand of %s, and it takes only integer-type or real-type (table 4)\n", op, pas_class_name(k));
     g_pas_iso_errors++;
 }
+static void pas_set_member_ordinal(tree_t *e) {
+    char k = pas_expr_lit_class(e);
+    if (!k && e && e->t == TT_VAR && e->v.sval) k = pas_var_decl_class(e->v.sval);
+    if (k != 'r' && k != 's') return;
+    fprintf(stderr, "pascal: ISO 7185 6.7.1 violation: a member-designator of a set-constructor is of %s, and the type of its expressions shall be an ordinal-type\n", pas_class_name(k));
+    g_pas_iso_errors++;
+}
 static int pas_class_compatible(char to, char from) { return to == from || (to == 'r' && from == 'i'); }
 static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, const char *what) {
     char to = pas_var_decl_class(vn), from = pas_expr_lit_class(rhs);
@@ -1839,8 +1846,8 @@ set_member_list:
     | set_member_list COMMA set_member { $$ = mk_set_bin("__pas_setuni", $1, $3); }
     ;
 set_member:
-    expression { PNodeList *_l = pnl_new(); pnl_push(_l, $1); $$ = mk_set_ctor(_l); }
-    | expression DOTDOT expression { $$ = mk_set_bin("__pas_setrange", $1, $3); }
+    expression { pas_set_member_ordinal($1); PNodeList *_l = pnl_new(); pnl_push(_l, $1); $$ = mk_set_ctor(_l); }
+    | expression DOTDOT expression { pas_set_member_ordinal($1); pas_set_member_ordinal($3); $$ = mk_set_bin("__pas_setrange", $1, $3); }
     ;
 expression_list_opt:
     expression_list { $$ = $1; }
