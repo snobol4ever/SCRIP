@@ -132,10 +132,37 @@ def census_allocator(path, out=print):
 # the target, the target may allocate, and it returns past us to OUR caller, so the allocation happens with
 # the caller's frame live.  objdump prints a jump to a local label as <fn+0xNN>, and the symbol pattern below
 # refuses a '+', so only true inter-function transfers are recorded; a self-edge is dropped.
-EDGE_RXS = (re.compile(r"\bcall\s+[0-9a-f]+ <([^>@+]+)"), re.compile(r"\bjmp\s+[0-9a-f]+ <([^>@+]+)"))
+# ⛔⭐ AND A CONDITIONAL TAIL JUMP IS ONE TOO, AND SO IS A TRANSFER THROUGH THE GOT (cto 2026-09-23, CEO-1224, row
+# spine-no-rtccb-veneer-on-any-call-into-the-asm-runtime-the-rtx-abi-preserves-r8-to-r11).  The 09-18 cure above
+# named `je c_rt_str_alloc` and then matched `jmp` alone, so an asm entry whose ONLY road to its allocating C twin
+# was a CONDITIONAL exit -- VARVAL_fn (jne/jz c_VARVAL_fn), rt_size_d, rt_str_coerce, rt_match_enter, rt_defer_close,
+# table_find_pair_d -- read NON-ALLOCATING, and 66 functions with them (every C caller whose only road to the heap
+# ran through one of them).  The row that made emitted code call the asm runtime bare turned every such exit into
+# a CALL from a local stub (the stub keeps r8-r11), which is how the gap surfaced: the same tree read 66 more
+# allocating functions with no change to what allocates.  The same row added calls and tail jumps THROUGH THE GOT
+# (RTX_CALL / RTX_JMP, call *slot(%rip)), which objdump labels with the nearest symbol, not the target; the target
+# is the GLOB_DAT relocation at that slot, so the walk resolves it through `objdump -R`.  A PLT STUB (a header named
+# sym@plt) is not a function a caller names -- its callers are recorded against sym itself -- and its own jump goes
+# through the same GLOB_DAT slot when the symbol's address is also taken, so resolving it would enter 44 stubs into the
+# set with no return class; the GOT walk skips them.
+EDGE_RXS = (re.compile(r"\bcall\s+[0-9a-f]+ <([^>@+]+)"), re.compile(r"\bj[a-z]{1,4}\s+[0-9a-f]+ <([^>@+]+)"))
+GOT_EDGE_RX = re.compile(r"\b(?:call|jmp)\s+\*0x[0-9a-f]+\(%rip\)\s+#\s+([0-9a-f]+)\b")
 
-def _alloc_reach_from_disasm(txt, seed="rt_gcheap_alloc"):
-    """the reverse-reachable set of seed over call AND inter-function tail-jump edges; (set, funcs) or (None, funcs)"""
+def _got_slots(so):
+    """GOT slot address -> the symbol its GLOB_DAT relocation names, from `objdump -R`; {} if it cannot be read"""
+    try:
+        txt = subprocess.run(["objdump", "-R", so], capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return {}
+    slots = {}
+    for line in txt.split("\n"):
+        m = re.match(r"^([0-9a-f]+)\s+R_X86_64_GLOB_DAT\s+([^\s@]+)", line)
+        if m: slots[int(m.group(1), 16)] = m.group(2)
+    return slots
+
+def _alloc_reach_from_disasm(txt, seed="rt_gcheap_alloc", got=None):
+    """the reverse-reachable set of seed over call AND inter-function jump edges (conditional ones and GOT slots
+    included); (set, funcs) or (None, funcs)"""
     fn = None; edges = collections.defaultdict(set); funcs = set()
     for line in txt.split("\n"):
         m = re.match(r"^[0-9a-f]+ <([^>]+)>:$", line)
@@ -146,6 +173,11 @@ def _alloc_reach_from_disasm(txt, seed="rt_gcheap_alloc"):
             m = rx.search(line)
             if m and m.group(1) != fn:
                 edges[fn].add(m.group(1))
+        if got and "@" not in fn:
+            m = GOT_EDGE_RX.search(line)
+            if m:
+                tgt = got.get(int(m.group(1), 16))
+                if tgt and tgt != fn: edges[fn].add(tgt)
     if seed not in funcs:
         return None, funcs
     rev = collections.defaultdict(set)
@@ -166,7 +198,7 @@ def allocating_entries_from_binary(so, out=print):
         txt = subprocess.run(["objdump", "-d", "--no-show-raw-insn", so], capture_output=True, text=True, check=True).stdout
     except (OSError, subprocess.CalledProcessError) as e:
         out(f"CENSUS safe-points REFUSED(2): objdump on {so} failed: {e}"); return None
-    seen, funcs = _alloc_reach_from_disasm(txt)
+    seen, funcs = _alloc_reach_from_disasm(txt, got=_got_slots(so))
     if seen is None:
         out(f"CENSUS safe-points REFUSED(2): {so} defines no rt_gcheap_alloc (renamed? tell the census)"); return None
     out(f"CENSUS safe-points allocating_entries={len(seen)} of {len(funcs)} runtime functions reach rt_gcheap_alloc ({so})")
@@ -179,6 +211,21 @@ CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
 # started counting something it could not see before, so a reader never reads the step as a regression or a win
 # (SUITES.tsv's criterion_changed column, the same rule).  The baseline writer prints them into the file it writes.
 CRITERION_CHANGES = [
+    "2026-09-23 cto, SCRIP this landing (CEO-1224, row spine-no-rtccb-veneer-on-any-call-into-the-asm-runtime-the-rtx-abi-"
+    "preserves-r8-to-r11): safe-points. A CONDITIONAL TAIL EXIT IS A CALL-GRAPH EDGE, AND SO IS A TRANSFER THROUGH A GOT "
+    "SLOT. The 09-18 cure made `jmp` an edge and left `je/jne/...` out, so every asm entry whose only road to its allocating C "
+    "twin was a conditional exit read NON-ALLOCATING -- VARVAL_fn, rt_size_d, rt_str_coerce, rt_match_enter, rt_defer_close, "
+    "table_find_pair_d, rt_cap_open -- and 67 functions with them (the checked-in allocating table 1698 -> 1765, none "
+    "removed). allocating_call_sites 230 -> 236, polled 230 -> 232, unpolled 0 -> 4, identity 232 + 0 + 4 == 236, "
+    "MEASURED ON THE PARENT TREE 8a2e9bdff (its own binary, this census) BEFORE the row that surfaced it, so the rise is the "
+    "instrument getting honest about a standing tree, not a landing going backwards (the CEO-1119 shape; the ratchet refuses "
+    "a rise, so the baseline is raised here). THE FOUR, EACH A ROW: bb_match_begin.cpp rt_match_enter, bb_match_defer.cpp and "
+    "bb_match_value.cpp rt_defer_close, bb_unop.cpp rt_size_d -- allocating calls with no safe point after them. The same row "
+    "made emitted code call the asm runtime bare and turned every such exit into a CALL from a local stub, which is how the "
+    "gap surfaced, and it added calls and tail jumps THROUGH THE GOT (RTX_CALL / RTX_JMP), which objdump labels with the "
+    "nearest symbol rather than the target: the walk resolves the slot through its GLOB_DAT relocation and skips PLT stubs. "
+    "Selftest 65 -> 69 arms (a conditional exit, a GOT slot to the allocator and one to a stranger, a GOT call with no map, a "
+    "PLT stub).",
     "2026-09-22 coo, SCRIP this landing (CEO-1147, row instruments-the-safe-point-census-reader-...): safe-points. "
     "FOUR READER DEFECTS, AND THEY CANCELLED ON THE HEADLINE WHILE FOUR INDIVIDUAL SITES WERE WRONG IN BOTH "
     "DIRECTIONS. polled 190 -> 190, partially_polled 0 -> 6, unpolled 63 -> 57, identity 190 + 6 + 57 == 253. "
@@ -1952,6 +1999,27 @@ def selftest():
     ck(seen3 == {"rt_gcheap_alloc"},
        f"allocating-set PLANTED: an intra-function jump to a local label (<fn+0xNN>) is NOT an edge -- widening to "
        f"tail jumps must not sweep every looping function into the set, got {seen3}")
+    seen5, _ = _alloc_reach_from_disasm(DIS_CALL + ("0000000000006000 <cond_exiter>:\n    6000:\tcmp    $0x2,%dil\n"
+                                                     "    6004:\tjne    1000 <rt_gcheap_alloc>\n    6006:\tret\n"))
+    ck("cond_exiter" in seen5,
+       "allocating-set PLANTED: a function whose ONLY road to the allocator is a CONDITIONAL tail exit is in the set "
+       "(cto 2026-09-23: VARVAL_fn, rt_size_d, rt_str_coerce, rt_match_enter, rt_defer_close and table_find_pair_d "
+       f"reached their allocating C twins only by jcc, and 66 functions read NON-ALLOCATING), got {sorted(seen5)}")
+    DIS_GOT = DIS_CALL + ("0000000000007000 <got_caller>:\n    7000:\tcall   *0x1234(%rip)        # 9000 <stranger+0x6000>\n"
+                          "    7006:\tret\n0000000000008000 <got_miss>:\n    8000:\tcall   *0x1234(%rip)        # 9008 <stranger+0x6008>\n"
+                          "    8006:\tret\n")
+    seen6, _ = _alloc_reach_from_disasm(DIS_GOT, got={0x9000: "rt_gcheap_alloc", 0x9008: "stranger"})
+    ck("got_caller" in seen6 and "got_miss" not in seen6,
+       "allocating-set PLANTED: a call THROUGH A GOT SLOT is an edge to the symbol the slot's GLOB_DAT relocation names, "
+       "never to the nearest symbol objdump prints beside it -- the slot to the allocator is in, the slot to a "
+       f"non-allocating function is not, got {sorted(seen6)}")
+    seen8, _ = _alloc_reach_from_disasm(DIS_CALL + ("0000000000009100 <rt_gcheap_alloc@plt>:\n    9100:\tjmp    *0x1234(%rip)        # 9000 <stranger+0x6000>\n"),
+                                        got={0x9000: "rt_gcheap_alloc"})
+    ck("rt_gcheap_alloc@plt" not in seen8,
+       f"allocating-set: a PLT stub's own jump through the GOT is not an edge -- the stub is never a callee's name, got {sorted(seen8)}")
+    seen7, _ = _alloc_reach_from_disasm(DIS_GOT)
+    ck("got_caller" not in seen7,
+       f"allocating-set: without the relocation map a GOT call names nothing (the nearest-symbol label is not a target), got {sorted(seen7)}")
     seen4, _ = _alloc_reach_from_disasm("0000000000002000 <only_this>:\n    2000:\tret\n")
     ck(seen4 is None,
        "allocating-set: a binary that defines no rt_gcheap_alloc REFUSES rather than returning an empty set, because "
