@@ -11,7 +11,7 @@
 #
 # WHAT IS HERE. A one-character trapped substring reads as the constant one-character string for its byte (a 256-entry
 # static table; a trap of any other length still copies). Two one-character traps over the same variable cell -- a local,
-# a global, a list or record slot, reached through either form of variable reference -- are swapped by building ONE new
+# a global, a list slot, reached through either form of variable reference -- are swapped by building ONE new
 # subject with the two bytes exchanged and storing it once; every other shape takes the two-assignment path, whose
 # same-variable test now reads the base cell through either form too.
 #
