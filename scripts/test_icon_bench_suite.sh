@@ -161,7 +161,7 @@ LINE="SUITE_BOARD family=icon-bench-ref total=$N shipped=$N all_pass=$PASS all_n
 echo "$LINE"
 [ "$PREFUSED" = 0 ] || echo "⚠ $PREFUSED progress row(s) REFUSED (named above) -- the board stands, but it cannot be published until they are recorded"
 if [ "$WRITE" = 1 ]; then
-  python3 "$HERE/util_score_row.py" write --lang icon --column bench-ref --measurer "$(one_runner_seat)" --text "$LINE" \
+  python3 "$HERE/util_score_row.py" write --lang icon --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
     || echo "⚠ SCORE.md NOT UPDATED -- util_score_row.py refused (the line above says why); the row stays as last published"
 fi
 [ "$PASS" = "$N" ] && exit 0
