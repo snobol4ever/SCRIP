@@ -1159,6 +1159,13 @@ static const char *pas_class_name(char k) {
     switch (k) { case 'i': return "integer-type"; case 'r': return "real-type"; case 'c': return "char-type"; case 'b': return "Boolean-type";
                  case 'e': return "an enumerated-type"; case 's': return "a string-type"; default: return "?"; }
 }
+static void pas_sign_operand(tree_t *e, char op) {
+    char k = pas_expr_lit_class(e);
+    if (!k && e && e->t == TT_VAR && e->v.sval) k = pas_var_decl_class(e->v.sval);
+    if (!k || k == 'i' || k == 'r') return;
+    fprintf(stderr, "pascal: ISO 7185 6.7.2.2 violation: the monadic %c is applied to an operand of %s, and it takes only integer-type or real-type (table 4)\n", op, pas_class_name(k));
+    g_pas_iso_errors++;
+}
 static int pas_class_compatible(char to, char from) { return to == from || (to == 'r' && from == 'i'); }
 static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, const char *what) {
     char to = pas_var_decl_class(vn), from = pas_expr_lit_class(rhs);
@@ -1796,8 +1803,8 @@ expression:
     ;
 simple_expression:
     term { $$ = $1; }
-    | PLUS term { $$ = $2; }
-    | MINUS term { $$ = mk_neg($2); }
+    | PLUS term { pas_sign_operand($2, '+'); $$ = $2; }
+    | MINUS term { pas_sign_operand($2, '-'); $$ = mk_neg($2); }
     | simple_expression PLUS term { $$ = pas_arith_or_set(TT_ADD, "__pas_setuni", $1, $3); }
     | simple_expression MINUS term { $$ = pas_arith_or_set(TT_SUB, "__pas_setdif", $1, $3); }
     | simple_expression OROP term { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_ADD, $1, $3) : mk_fnc2("ior", $1, $3); }
