@@ -114,7 +114,7 @@ procedure main()
    write("frugal");
 end
 EOF
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb\n1,hungry,p__hungry,p,5,0,0,m3,%s\n2,frugal,p__frugal,p,3,0,0,m3,\n' "$DECL_KB" > "$T/pkg/ALL.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb\n1,hungry,p__hungry,p,5,0,0,%s\n2,frugal,p__frugal,p,3,0,0,\n' "$DECL_KB" > "$T/pkg/ALL.csv"
 
 # The premise this whole gate rests on, measured rather than assumed: hungry must genuinely NOT fit the default
 # and must genuinely fit the declaration. If either stops being true the fixture has stopped being a witness and
@@ -166,7 +166,7 @@ seen2=$(run_at_declared_arena "$T/pkg/ALL.csv" hungry -- bash -c 'echo "[${SCRIP
   || ck bad "C3 the declared entry saw $seen2, expected [$DECL_KB]"
 
 # ── arm D: a cell that grants no capacity is REFUSED, and the runtime still says why ───────────────────────────
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb\n1,hungry,p__hungry,p,5,0,0,m3,2048\n' > "$T/pkg/BAD.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb\n1,hungry,p__hungry,p,5,0,0,2048\n' > "$T/pkg/BAD.csv"
 declared_arena_kb "$T/pkg/BAD.csv" hungry >/dev/null 2>"$T/bad.err"; d_rc=$?
 [ "$d_rc" = 2 ] && ck ok "D1 heap_kb=2048 (<= the ${rt_cap} KB shipped cap) is REFUSED rc=2 rather than accepted as a silent no-op" \
   || ck bad "D1 heap_kb=2048 returned rc=$d_rc -- a cell that grants no capacity was accepted, and it would read downstream as a capacity declaration"
@@ -189,9 +189,9 @@ import csv, sys
 T, kb = sys.argv[1], sys.argv[2]
 with open(T + "/famcsv.csv", "w", newline="") as f:
     w = csv.writer(f, lineterminator="\n")
-    w.writerow(["rank","entry","origin","family","kind","xfail","n_lines","modes","heap_kb"])
-    w.writerow([1,"e_one","fam__e_one","fam","block",0,3,"m3",kb])
-    w.writerow([2,"e_two","fam__e_two","fam","block",0,3,"m3",""])
+    w.writerow(["rank","entry","origin","family","kind","xfail","n_lines","heap_kb"])
+    w.writerow([1,"e_one","fam__e_one","fam","block",0,3,kb])
+    w.writerow([2,"e_two","fam__e_two","fam","block",0,3,""])
 PY
 e_have=$(python3 -c "
 import sys; sys.path.insert(0,'$HERE')
@@ -207,7 +207,7 @@ print(m.heap_sidecar_path('$T/fam.icn'))
 [ "$e_have" = "$T/fam.heap" ] && ck ok "E1 the harness names a travelling sidecar for an extracted pair ($e_have)" \
   || ck bad "E1 heap_sidecar_path() did not name <stem>.heap beside the pair (got '$e_have')"
 # ⛔ UNDER FAIL_ONCE THE SIDECAR IS NOT WRITTEN AT ALL -- that is exactly the pre-column world for an
-# extracted pair (extract-family carried modes and not heap_kb), so E2 must red. Neutering only the SHELL
+# extracted pair (extract-family did not carry heap_kb), so E2 must red. Neutering only the SHELL
 # reader above would leave this arm green on the Python path and the header's claim that "arms B and E go
 # red" would be false about its own mutant, which is the fail-once-that-proves-nothing shape COO-153 found
 # three of inside the very mechanism built to disprove it.
@@ -291,7 +291,7 @@ STK_KB=262144; DEPTH=200000
 mkdir -p "$T/stk"
 printf 'procedure f(n)\n   if n = 0 then return 0\n   return 1 + f(n - 1)\nend\nprocedure main()\n   write(f(%d))\nend\n' "$DEPTH" > "$T/stk/deep.icn"
 printf 'procedure f(n)\n   if n = 0 then return 0\n   return 1 + f(n - 1)\nend\nprocedure main()\n   write(f(%d))\nend\n' $((DEPTH / 2)) > "$T/stk/shallow.icn"
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,m3,,%s\n2,shallow,p__shallow,p,7,0,0,m3,,\n' "$STK_KB" > "$T/stk/ALL.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,,%s\n2,shallow,p__shallow,p,7,0,0,,\n' "$STK_KB" > "$T/stk/ALL.csv"
 runstk() { ( cd "$T/stk" && env -u SCRIP_STACK -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB "$@" timeout 60s "$ROOT/scrip" --run "$STK_PROG" </dev/null >/dev/null 2>"$T/stk/err" ); }
 STK_PROG=deep.icn; runstk; s_base=$?; grep -q 'ERROR 246' "$T/stk/err"; s_base246=$?
 STK_PROG=deep.icn; runstk SCRIP_STACK="${STK_KB}k"; s_decl=$?
@@ -306,7 +306,7 @@ s1=0; ( cd "$T/stk" && run_at_declared_arena "$T/stk/ALL.csv" deep -- env -u SCR
 s2=$(run_at_declared_arena "$T/stk/ALL.csv" shallow -- bash -c 'echo "[${SCRIP_STACK:-UNSET}]"')
 [ "$s2" = "[UNSET]" ] && ck ok "S2 the undeclared neighbour sees SCRIP_STACK UNSET -- the stack export is per program" \
   || ck bad "S2 the undeclared neighbour saw SCRIP_STACK=$s2 -- a stack declaration leaked over the loop"
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,m3,,16384\n' > "$T/stk/BAD.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,,16384\n' > "$T/stk/BAD.csv"
 declared_stack_kb "$T/stk/BAD.csv" deep >/dev/null 2>"$T/stk/bad.err"; s3=$?
 [ "$s3" = 2 ] && grep -q 'SHRINKS the stack' "$T/stk/bad.err" && ck ok "S3 stack_kb=16384 (below the ${c_flr_kb} KB floor) is REFUSED rc=2, naming that it would SHRINK the stack" \
   || ck bad "S3 stack_kb=16384 returned rc=$s3 -- a cell that shrinks the stack was accepted"
@@ -344,7 +344,7 @@ s6=$(declared_stack_kb_beside "$T/stk2/deep.icn" 2>/dev/null); printf '%s\n' "$S
 # 427-program board in two modes. T2 drives a REAL run through the table. T5 is the defect the table's first cut shipped to itself
 # and its own refusal arm caught: handed any file, heap_declarations() read the ALL.csv BESIDE it.
 mkdir -p "$T/tbl"
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,m3,%s,\n2,b,p__b,p,1,0,0,m3,,262144\n3,c,p__c,p,1,0,0,m3,,\n' "$DECL_KB" > "$T/tbl/ALL.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,%s,\n2,b,p__b,p,1,0,0,,262144\n3,c,p__c,p,1,0,0,,\n' "$DECL_KB" > "$T/tbl/ALL.csv"
 declared_memory_begin "$T/tbl/ALL.csv" "$T/tbl/t.tsv" >/dev/null 2>&1; t1rc=$?
 t1=""; for e in a b c; do t1="$t1$(run_at_declared_table "$T/tbl/t.tsv" "$e" -- bash -c 'printf "%s=[%s|%s] " "$0" "${SCRIP_HEAP_KB:-}" "${SCRIP_STACK:-}"' "$e" 2>/dev/null)"; done
 [ "$t1rc" = 0 ] && [ "$t1" = "a=[$DECL_KB|] b=[|262144k] c=[|] " ] && [ -z "${SCRIP_HEAP_KB:-}${SCRIP_STACK:-}" ] \
@@ -355,9 +355,9 @@ t2=0; { declared_memory_begin "$T/pkg/ALL.csv" "$T/tbl/pkg.tsv" >/dev/null 2>&1 
 [ "$t2" = 0 ] && ck ok "T2 the declared entry COMPLETES through the table (rc=0) where it aborts rc=$base_rc at the shipped default -- the runners' path carries the declaration to a real run" \
   || ck bad "T2 the declared entry still fails through the table (rc=$t2) -- heap_kb=${DECL_KB} did not reach the run"
 t3=""; n3=0
-for bad in "1,a,p__a,p,1,0,0,m3,2048," "1,a,p__a,p,1,0,0,m3,,16384" "1,a,p__a,p,1,0,0,m3,$DECL_KB,
-2,a,p__a,p,1,0,0,m3,$DECL_KB,"; do
-  n3=$((n3+1)); printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n%s\n' "$bad" > "$T/tbl/bad.csv"; echo stale > "$T/tbl/bad.tsv"
+for bad in "1,a,p__a,p,1,0,0,2048," "1,a,p__a,p,1,0,0,,16384" "1,a,p__a,p,1,0,0,$DECL_KB,
+2,a,p__a,p,1,0,0,$DECL_KB,"; do
+  n3=$((n3+1)); printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n%s\n' "$bad" > "$T/tbl/bad.csv"; echo stale > "$T/tbl/bad.tsv"
   declared_memory_begin "$T/tbl/bad.csv" "$T/tbl/bad.tsv" >/dev/null 2>&1; r=$?
   { [ "$r" = 2 ] && [ ! -f "$T/tbl/bad.tsv" ]; } || t3="$t3 case$n3(rc=$r)"
 done
@@ -366,8 +366,8 @@ done
 run_at_declared_table "$T/tbl/no_such_table.tsv" a -- true 2>/dev/null; t4=$?
 [ "$t4" = 2 ] && ck ok "T4 a run with no table REFUSES rc=2 -- a runner that never built its table cannot grade at the default under a receipt naming declarations" \
   || ck bad "T4 run_at_declared_table without a table returned rc=$t4, want 2"
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,m3,,\n' > "$T/tbl/ALL.csv"
-printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,m3,%s,\n' "$DECL_KB" > "$T/tbl/OTHER.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,,\n' > "$T/tbl/ALL.csv"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,a,p__a,p,1,0,0,%s,\n' "$DECL_KB" > "$T/tbl/OTHER.csv"
 t5="$(declared_memory_table "$T/tbl/OTHER.csv" 2>/dev/null)"
 [ "$t5" = "$(printf 'a\t%s\t' "$DECL_KB")" ] && ck ok "T5 the table reads the FILE IT IS HANDED -- OTHER.csv's heap_kb=$DECL_KB, not the undeclared ALL.csv beside it" \
   || ck bad "T5 the table of OTHER.csv read '$t5' -- it read something other than the file it was handed"

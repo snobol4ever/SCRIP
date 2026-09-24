@@ -661,128 +661,6 @@ def apply_line_mask(text, patterns):
                 n += 1
                 break
     return "\n".join(lines), n
-# ================================================== CEO-581 per-mode refs ===
-# ⛔⭐ A LINE THE INVOCATION DETERMINES GETS ONE REF PER MODE, AND THE PAIR IS EARNED BY AN ORACLE
-# MEASUREMENT, NEVER BY A FAILING DIFF (ceo CEO-581, 2026-09-11, on hq_V's three-option ask; the
-# measurement behind it is FINDING-2026-09-11-hq_V-progname-is-argv-zero-verbatim-so-pinning-makes-it-
-# gradable-and-cannot-make-it-equal.md).  `&progname` is argv[0] VERBATIM: mode 3 is handed a SOURCE and
-# the oracle answers `<stem>.icn`, mode 4 IS the program and the oracle answers `./<stem>`, and NO
-# invocation of a compiled binary can ever produce the string `<stem>.icn`.  A single ref for such a
-# program therefore ASSERTS A FALSEHOOD -- that one string is correct for two different invocations --
-# and a red raised against it means nothing is wrong, which is the one thing a red must never mean.
-#
-# ⛔ IT IS NOT THE MASK MECHANISM AND MUST NOT BECOME IT.  CEO-409 masks hide a line from BOTH streams
-# because the ORACLE'S OWN value moves BETWEEN RUNS (a clock, an allocator count).  Here the oracle is
-# perfectly deterministic and its value moves BETWEEN INVOCATIONS, which is determinism answering a
-# different question -- so nothing is hidden: the line is still graded, in full, against what the oracle
-# prints for THAT invocation.  Masking widens by analogy; this states a measurement.  (CEO-581 refused
-# option two for exactly this reason, and refused a permanent red because the board would carry a lie.)
-#
-# ⛔ MODES MAY DIVERGE IS ALREADY LAW (Lon 2026-08-28, RULES.md): the m3==m4 identity restriction was
-# lifted and each mode is graded against the oracle INDEPENDENTLY.  The REF MODEL never caught up -- it
-# still assumed one mode-invariant expected text.  This is not a new allowance, it is the ref model
-# finally obeying a standing law, which is why the default stays ONE ref and the pair names itself.
-#
-# THE FOUR MECHANICAL GUARDRAILS, all enforced below, mirroring CEO-409's shape because it is the same
-# family of machine (something that could hide a red) and it is built accordingly:
-#   (1) EARNED BY MEASUREMENT -- the receipt column is MANDATORY and an empty one is REFUSED.  This code
-#       cannot run icont for you; it can refuse a declaration nobody can audit, and it does.
-#   (2) NAMED BESIDE THE DATA -- `<stem>.moderef` sits next to `<stem>.ref`, never inside a runner, and
-#       the SAME derivation serves the python harness and the bash runners (util_apply_moderef.py).
-#   (3) MINIMAL OR REFUSED -- only the lines the invocation genuinely determines.  A declaration whose
-#       ref-line is absent, ambiguous, or a majority of the entry, is REFUSED rather than honoured.
-#   (4) NEVER A WILDCARD -- `*` is legal for a mask (one implementation quantity, every entry) and is
-#       REFUSED here: a pair is earned by measuring ONE program, and an entry nobody measured would
-#       inherit a substitution nobody cut.
-_MODEREF_MODES = ("m3", "m4", "ast")
-def moderef_sidecar_path(ref_path):
-    """`<stem>.moderef` beside the ref -- the identical derivation read_mask_sidecar() makes, so the two
-    sidecars cannot disagree about where a suite's declarations live."""
-    return Path(str(ref_path).rsplit(".", 1)[0] + ".moderef")
-def read_moderef_sidecar(ref_path, sidecar=None):
-    """Parse `<stem>.moderef`: `entry<TAB>mode<TAB>ref-line<TAB>mode-line<TAB>receipt`, one per line, `#`
-    comments and blanks ignored.  Missing file -> {} and that is the overwhelmingly common case.
-    ⛔ TAB-SEPARATED WITH NO QUOTING LANGUAGE AT ALL, and the two line columns are taken VERBATIM --
-    never .strip()ed -- because the thing being declared IS a line of oracle output and its leading
-    whitespace is part of it (the icon master's own row is `    &progname: ...`, four spaces).  A parser
-    that trims here would silently declare a line the ref does not contain, and guardrail 3 would then
-    refuse a pair that was actually right.  Same argument read_argv_sidecar makes for its own columns."""
-    # ⛔⭐ `sidecar` NAMES THE DECLARATION FILE EXPLICITLY, for the one caller that cannot derive it: a gate or
-    # runner grading an entry EXTRACTED from a master container holds `<entry>.ref` in a tempdir, and the
-    # declarations live beside the container as `ALL.moderef`. The alternative is copying the sidecar next to
-    # the extraction, which is a second copy of a declaration -- exactly the drift this fleet keeps paying for.
-    # Derivation stays the default and the rule; the override is named at the call site, never guessed.
-    mp = Path(sidecar) if sidecar else moderef_sidecar_path(ref_path)
-    if sidecar and not mp.is_file():
-        refuse("%s: the per-mode ref declaration file was named explicitly and does not exist -- a caller that "
-               "states where the declarations live and is wrong must not be silently graded as having none" % mp)
-    if not mp.is_file():
-        return {}
-    out, seen = {}, set()
-    for ln in mp.read_text(encoding="utf-8").splitlines():
-        if not ln.strip() or ln.lstrip().startswith("#"):
-            continue
-        parts = ln.split("\t")
-        if len(parts) != 5:
-            refuse("%s: every row needs entry<TAB>mode<TAB>ref-line<TAB>mode-line<TAB>receipt (5 tab-separated "
-                   "fields); got %d in %r" % (mp, len(parts), ln))
-        name, mode, frm, to, why = parts[0].strip(), parts[1].strip(), parts[2], parts[3], parts[4].strip()
-        if name == "*":
-            refuse("%s: `*` is refused here (it is legal for a CEO-409 mask and is not legal for a per-mode ref): "
-                   "a per-mode ref is EARNED BY MEASURING ONE PROGRAM under both invocations, and a wildcard would "
-                   "hand that measurement to entries nobody measured" % mp)
-        if mode not in _MODEREF_MODES:
-            refuse("%s: row %r declares mode %r; only %s can be honoured -- guessing which arm was meant is how a "
-                   "wrong ref becomes a green cell" % (mp, name, mode, "/".join(_MODEREF_MODES)))
-        if not frm.strip() or not to.strip():
-            refuse("%s: row %r/%s has an empty ref-line or mode-line -- a per-mode ref STATES what the oracle "
-                   "prints for that invocation, and an empty statement is not a measurement" % (mp, name, mode))
-        if frm == to:
-            refuse("%s: row %r/%s declares a substitution that changes nothing -- if the two invocations answer "
-                   "the same string then this entry needs no per-mode ref at all" % (mp, name, mode))
-        if not why:
-            refuse("%s: row %r/%s carries no receipt -- CEO-581 makes the ORACLE MEASUREMENT mandatory (the run "
-                   "under BOTH invocations showing it answers differently), and a pair nobody can audit is exactly "
-                   "the paper-over this guard exists to stop" % (mp, name, mode))
-        key = (name, mode, frm)
-        if key in seen:
-            refuse("%s: row %r/%s declares the same ref-line twice -- two answers for one line is not a "
-                   "measurement, and picking one would be a precedence rule invented here" % (mp, name, mode))
-        seen.add(key)
-        out.setdefault(name, []).append((mode, frm, to, why))
-    return out
-def moderefs_for(decls, name, mode):
-    """⛔⭐ THE ONE PLACE THE entry AND mode COLUMNS ARE RESOLVED, so the python harness and the bash
-    runners (through util_apply_moderef.py) cannot disagree about which rows apply to a cell."""
-    return [(f, t, w) for (m, f, t, w) in decls.get(name, []) if m == mode]
-def apply_moderef(text, rows, where=""):
-    """Substitute the declared lines into the expected text for ONE mode.  Returns (text, n).
-    ⛔ THE REF-LINE MUST OCCUR EXACTLY ONCE, OR THIS REFUSES rc=2.  Zero occurrences is the decay class
-    this fleet keeps paying for -- a declaration that outlived the ref it declares withdraws a guarantee
-    silently -- and more than one is an ambiguity, which in this harness is always a refusal and never a
-    precedence rule (loose_stdin_companion's two-companion case, the same judgement).
-    ⛔ AND IT REFUSES A MAJORITY, guardrail 3: an entry whose expected text is mostly invocation-determined
-    is not a one-line divergence, it is a different program under the two modes, and it belongs outside the
-    baseline NAMED rather than reconciled line by line here.
-    ⭐ IT TOUCHES THE EXPECTED SIDE ONLY.  A mask rewrites BOTH streams because it is declining to grade a
-    line; this rewrites only what the oracle is expected to say, so the line stays graded in full."""
-    if not rows or text is None:
-        return text, 0
-    lines = text.split("\n")
-    n = 0
-    for frm, to, _why in rows:
-        hits = [i for i, ln in enumerate(lines) if ln == frm]
-        if len(hits) != 1:
-            refuse("%s: the per-mode ref declares the line %r, and the stored ref contains it %d time(s) -- "
-                   "exactly one is required: zero means the declaration outlived the ref it declares, and more "
-                   "than one means nobody can say which line was measured" % (where or "moderef", frm, len(hits)))
-        lines[hits[0]] = to
-        n += 1
-    if n * 2 >= len([l for l in lines if l != ""]) and n > 0:
-        refuse("%s: the per-mode ref rewrites %d of %d non-empty ref lines -- a majority-substituted entry is not "
-               "one invocation-determined line and CEO-581's pair must be MINIMAL; such a fixture belongs outside "
-               "the baseline, named" % (where or "moderef", n, len([l for l in lines if l != ""])))
-    return "\n".join(lines), n
 def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None):
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
     if kind == "HANG":
@@ -1240,25 +1118,14 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, moderef=None, where="", bin_dir=None, heap_kb=None, stack_kb=None):
-    """⛔⭐ THE PER-MODE REF IS RESOLVED HERE AND NOWHERE ELSE (CEO-581), at the single point where this
-    harness already knows BOTH the expected text and which mode is about to be run. Resolving it in the
-    caller would mean every caller resolving it, which is how one question gets three written answers --
-    the defect cured on 2026-09-11 in stdin_companion_candidates(), one function over. An entry with no
-    declaration takes the byte-identical path it took before this existed: _exp_for() returns the same
-    object when moderef is empty."""
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None):
+    """Every mode is graded against the ONE ref: the two modes are one machine in two media (Lon 2026-09-23, CEO-1218/1230)."""
     out = {}
-    def _exp_for(mode):
-        rows = [(f, t, w) for (m, f, t, w) in (moderef or []) if m == mode]
-        if not rows:
-            return expected_text
-        exp, _n = apply_moderef(expected_text, rows, where=f"{where or Path(sno_path).stem} [{mode}]")
-        return exp
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, _exp_for("m3"), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, _exp_for("m4"), Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
@@ -1340,7 +1207,7 @@ def write_suite(entries, out_sno, out_ref, out_in=None, lang=""):
     # comment chars via read_block_suite), never the SNOBOL4-flavored read_suite() default -- otherwise this
     # check "passes" by reading back its own wrong assumption instead of the file it actually wrote.
     # ⛔ MUST ALSO PASS in_path WHEN A SIDECAR WAS WRITTEN -- "A CHECK THAT DOES NOT CARRY EVERY FIELD THE
-    # GRADER READS IS NOT A CHECK" (hq_C, on the identical principle for the .modes sidecar): a round-trip
+    # GRADER READS IS NOT A CHECK" (hq_C): a round-trip
     # that never re-reads the .in file it just wrote cannot catch a defect in it, which is exactly how the
     # stdin-sidecar banner bug above shipped past this same self-check undetected.
     _in_for_check = str(out_in) if wrote_in else None
@@ -2052,7 +1919,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
                 (Path(td) / _tok).write_bytes((Path(companion_dir) / _tok).read_bytes())
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
-                             mask=getattr(entry, 'mask', None), moderef=getattr(entry, 'moderef', None),
+                             mask=getattr(entry, 'mask', None),
                              where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None), stack_kb=getattr(entry, 'stack_kb', None))
 
 
@@ -2670,10 +2537,19 @@ def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
     who = _one_runner_who(blang)
     if seat and seat in who:
         return
-    if os.environ.get("S4E_DONE_WHEN_RUN") == "1":
-        print("ONE-RUNNER: master run under the bus computed done for seat %s (exempt, one run per closure)" % (seat or "?")); return
-    if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
-        print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
+    # ⛔⭐ ONE SEAT, ONE LANGUAGE (Lon 2026-09-24, verbatim: "Just have each seat run only their own test suites." / "We can not have
+    # all 5 HQ's deciding to run all seven test suites simultaneously. Fix that."): an hq_* seat the LANES: line names gets neither
+    # exemption below and falls through to the refusal. Mirrors lib_one_runner.sh:one_runner_seat_is_language_hq.
+    if os.environ.get("S4E_ONE_RUNNER_FIXTURE"):
+        print("ONE-RUNNER FIXTURE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_FIXTURE"])); return
+    if seat.startswith("hq_") and seat in _one_runner_who("all"):
+        sys.stderr.write("\u26d4 ONE SEAT, ONE LANGUAGE: %s is a language HQ -- no S4E_ONE_RUNNER_OVERRIDE and no DONE-WHEN admits it to "
+                         "a %s board (Lon 2026-09-24: \"Just have each seat run only their own test suites.\")\n" % (seat, blang))
+    else:
+        if os.environ.get("S4E_DONE_WHEN_RUN") == "1":
+            print("ONE-RUNNER: master run under the bus computed done for seat %s (exempt, one run per closure)" % (seat or "?")); return
+        if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
+            print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
     sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: a %s master/package run is a board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ.\n" % (blang, seat or "?", " or ".join(who) if who else "<no seat -- the LANES line names none>", blang))
     sys.exit(2)
 
@@ -2777,25 +2653,6 @@ def cmd_run(args):
                    % ", ".join(_unknown))
         print("CEO-409 MASKS ACTIVE: %d of %d entries carry a declared implementation-defined line mask (%s)"
               % (len(_seen), len(entries), ", ".join(sorted(_seen))))
-    _moderefs = read_moderef_sidecar(args.ref)
-    if _moderefs:
-        _mseen = set()
-        for _e in entries:
-            _rows = _moderefs.get(_e.name)
-            if _rows:
-                _e.moderef = _rows
-                _mseen.add(_e.name)
-        # ⛔ THE SAME REFUSAL THE .mask SIDECAR MAKES, FOR THE SAME CAUSE: a declaration naming an entry this
-        # suite does not contain is either a rename or a leftover, and both withdraw a guarantee in silence --
-        # here the guarantee is that a mode-determined line is graded against what the oracle answers for THAT
-        # invocation, so a stale row leaves the cell graded against the OTHER mode's string and red forever.
-        _munknown = sorted(set(_moderefs) - _mseen)
-        if _munknown:
-            refuse("the .moderef sidecar names entries this suite does not contain: %s -- a per-mode ref that "
-                   "matches nothing is a pair nobody notices has stopped applying, and CEO-581 is audited or it "
-                   "is not a measurement" % ", ".join(_munknown))
-        print("CEO-581 PER-MODE REFS ACTIVE: %d of %d entries declare an invocation-determined line, graded in "
-              "full against the oracle's answer for each mode (%s)" % (len(_mseen), len(entries), ", ".join(sorted(_mseen))))
     require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
     shard_tag = ""
     if getattr(args, "shard", ""):
@@ -2810,9 +2667,7 @@ def cmd_run(args):
         shard_tag = f"shard={_k}/{_n}"
     # ⛔⭐⭐ HONOUR THE heap_kb COLUMN -- UNCONDITIONALLY, AND THAT IS THE WHOLE DESIGN (Lon 2026-09-23,
     # verbatim: "Well, each test should have the needed amount of memory in the attribute TSV/CSV files.";
-    # CEO-1167). There is deliberately NO --by-heap-column flag beside --by-modes-column, because the two
-    # columns answer different kinds of question. `modes` says HOW to grade an entry, so a caller may
-    # legitimately want the other grading. `heap_kb` says what the entry NEEDS IN ORDER TO RUN AT ALL: a
+    # CEO-1167). There is deliberately NO --by-heap-column flag: `heap_kb` says what the entry NEEDS IN ORDER TO RUN AT ALL: a
     # declared need is an attribute of the test, so it IS the shipped configuration for that test, and a
     # board that could be asked to ignore it would be a board that can be asked to grade a program at an
     # arena its own suite says is too small. That is not a second opinion, it is a known-false reading.
@@ -2837,97 +2692,10 @@ def cmd_run(args):
         print(f"DECLARED STACK: {_nst} of {len(entries)} entr(y/ies) carry a stack_kb declaration from "
               f"{_stack_src} and run at it; the rest run at the runtime's {GC_STACK_FLOOR_KB} KB floor. "
               + ", ".join(f"{_e.name}={_e.stack_kb}KB" for _e in entries if _e.stack_kb), file=sys.stderr)
-    # ⛔⭐ HONOUR THE modes COLUMN (row board-icon-master-runs-the-ast-graded-parser-fixtures, ceo mint 2026-09-03).
-    # MEASURED cause: 153 of the icon master's 534 entries are parser-ladder fixtures whose .ref is a --dump-ast
-    # DUMP, and this runner graded them by RUNNING them. Their reds were inevitable and meant nothing, and the
-    # printed 398/534 was not a count of anything -- it mixed two populations graded against two different kinds
-    # of expected output. Splitting them is not a presentation choice: a denominator that spans two grading
-    # regimes cannot be read at all.
-    entry_modes = {}
-    if getattr(args, "by_modes_column", False):
-        entry_modes, csv_path = modes_declarations(args.sno)
-        if not entry_modes:
-            refuse(f"--by-modes-column needs the suite's modes declaration; neither {Path(args.sno).with_suffix('.modes').name} "
-                   f"nor a sibling ALL.csv with a `modes` column is beside {Path(args.sno).name} -- a column that is not there cannot be honoured")
-        _uncovered = [e.name for e in entries if e.name not in entry_modes]
-        if _uncovered:
-            refuse(f"--by-modes-column: {len(_uncovered)} entr(y/ies) are absent from {csv_path} "
-                   f"(first: {_uncovered[0]}) -- grading them by a default while calling it 'the modes column' is the defect this flag exists to remove")
-        # ⛔⭐ AND THE RUN POPULATION MUST NOT ITSELF BE `ast`, OR THE SPLIT COLLAPSES SILENTLY INTO ONE
-        # BUCKET AND PRINTS A FULL, PLAUSIBLE, ENTIRELY FALSE BOARD.  _modes_for() below reads "ast if the
-        # column says ast, else `modes`" -- correct on its face, and a trap when `modes` is ITSELF ["ast"],
-        # which is exactly what --lang raku/rebus/prolog/snocone give you (LANG_CONFIGS default modes="ast")
-        # when the caller omits --modes.  Every entry then satisfies "== ['ast']", ast_graded reads N/N, and
-        # every run-graded entry is diffed against `--dump-ast` output it was never meant to match.
-        #
-        # MEASURED, NOT REASONED (hq_T 2026-09-03, on the Raku master): `run --lang raku --by-modes-column`
-        # reported ast_graded=139/139 and ast_fail=42 -- and the suite declares exactly 42 entries as
-        # "m3,m4".  All 42 "failures" were the wrong instrument, not a wrong answer.  Adding --modes m3,m4
-        # to the same command on the same tree returned the true board: ast 97 entries 83 pass / 14 xfail /
-        # FAIL=0, run 42 entries 41/42 both modes.  Nothing about the false board looked false: it had a
-        # denominator, a fail list and a stamp, and it disagreed with SCORE.md's stale cell in the direction
-        # a reader would have believed (a suite that had "gotten worse").
-        #
-        # ⛔ IT REFUSES RATHER THAN PICKING m3,m4 FOR YOU.  Guessing the run modes would make this flag
-        # succeed by inventing the one input the caller failed to state -- the same class of defect one
-        # comment up.  The two existing callers (board_icon_master.sh, test_gate_icon_board_honours_modes_
-        # column.sh) both already pass --modes explicitly and are untouched by this.
-        if modes == ["ast"] and not args.modes:
-            _declared = sorted({v for v in entry_modes.values() if v and v not in ("ast", "UNKNOWN")})
-            if _declared:
-                refuse(f"--by-modes-column cannot be honoured: {csv_path} declares {len(_declared)} non-ast "
-                       f"modes value(s) ({', '.join(_declared)}) but the run population's own modes resolved to "
-                       f"'ast' (from --lang {args.lang}'s default), so BOTH populations would be graded by "
-                       f"--dump-ast and every run-graded entry would fail against a ref it was never meant to "
-                       f"match. Pass the run modes explicitly, e.g. --modes {_declared[0]}")
-    else:
-        # ⛔⭐⭐ THE MIRROR TRAP, AND THE ONE WITH THREE INDEPENDENT WITNESSES IN A SINGLE DAY. The block
-        # above guards `--by-modes-column` WITHOUT `--modes`. This guards `--modes` WITHOUT
-        # `--by-modes-column`: the suite declares `modes=ast` entries whose .ref is a --dump-ast DUMP, the
-        # caller asks for m3,m4, and every one of those entries is EXECUTED and diffed against an AST
-        # dump it was never meant to match. The reds are inevitable and mean nothing.
-        # MEASURED THREE TIMES, 2026-09-03/04, by three seats who did not know of each other:
-        #   Pascal   (seat11) -- 5 of the "eleven reds" were parser__* modes=ast entries, force-graded
-        #   Snocone  (seat12) -- the 175/273 false board; the real one is 7 of 206
-        #   Raku     (hq_T)   -- the 42-ast_fail false board, the mirror direction of the same root
-        # ⭐ Three suite-level fixes were proposed for what is ONE harness defect. The tell that it was
-        # one defect and not three: the same shape appeared in languages whose only shared component is
-        # this file. A defect that reproduces across independent lanes is in the thing they share.
-        # ⛔ REFUSES, and does not silently pick --by-modes-column for the caller: honouring a column the
-        # caller did not ask to honour would change which oracle grades an entry, which is exactly the
-        # decision that must never be made implicitly. Scoped to entries ACTUALLY IN THIS RUN, so a shard
-        # or family filter that excludes every ast entry is unaffected and never refuses.
-        # ⛔⭐⭐ AND THE EVIDENCE MUST TRAVEL WITH THE SUITE, OR THIS GUARD IS BLIND EXACTLY WHERE IT IS NEEDED.
-        # It used to read `Path(args.sno).parent / "ALL.csv"` and nothing else, so its activation depended on
-        # WHERE THE CALLER HAPPENED TO PUT THE FILE. Every runner that grades an EXTRACTED family in a
-        # tempdir -- the documented bridge, test_snocone_corpus_suite.sh's own shape -- has no ALL.csv beside
-        # it, and a guard that cannot see its subject says nothing, which is indistinguishable from a pass.
-        # MEASURED BOTH WAYS ON ONE PAIR OF COMMANDS (hq_T 2026-09-05, pascal's 5 modes=ast parser entries):
-        # graded IN PLACE, rc=2 REFUSING; the SAME entries extracted to a tempdir and graded the same way,
-        # rc=1 with a full plausible board -- total=5 m3_fail=5 m4_fail=5, five manufactured reds.
-        # ⭐ The other half of the same defect: --by-modes-column REFUSED on an extracted pair for want of
-        # that sibling csv, so on an extraction the CORRECT call was impossible and the incorrect one was
-        # silent. extract-family now carries a `.modes` sidecar the way it already carries `.in` and
-        # `.xfail`, under the law written in its own docstring: A CHECK THAT DOES NOT CARRY EVERY FIELD THE
-        # GRADER READS IS NOT A CHECK (hq_C). `modes` was the one field it did not carry.
-        _decl, _csvp = modes_declarations(args.sno)
-        if _decl and modes and [m for m in modes if m != "ast"]:
-            _forced = [e.name for e in entries if _decl.get(e.name) == "ast"]
-            if _forced:
-                refuse(f"{_csvp} declares {len(_forced)} entr(y/ies) as modes=ast (first: {_forced[0]}), "
-                       f"whose .ref is a --dump-ast dump, but this run was asked for --modes {','.join(modes)} "
-                       f"WITHOUT --by-modes-column -- so those entries would be EXECUTED and diffed against an "
-                       f"AST dump they were never meant to match, manufacturing reds that mean nothing. "
-                       f"Pass --by-modes-column so each entry is graded by the modes it declares.")
-    def _modes_for(e):
-        # ⭐ UNKNOWN is a DEFAULT, never a declaration, and it is COUNTED separately below so it can never be
-        # mistaken for one. The alternative -- refusing on UNKNOWN -- would block the honest board on 17 icon
-        # entries whose families simply have no MODES.tsv line yet; the alternative to THAT, silently folding
-        # them into the run population with no trace, is how a default becomes an unexamined fact.
-        declared = entry_modes.get(e.name, "")
-        return ["ast"] if declared == "ast" else modes
-    ast_entries = [e for e in entries if _modes_for(e) == ["ast"]] if entry_modes else []
-    run_entries = [e for e in entries if _modes_for(e) != ["ast"]] if entry_modes else entries
+    # ⛔⭐ THERE IS NO MODES COLUMN AND NO PER-ENTRY MODE (Lon 2026-09-23, in-chat to hq_prolog, verbatim: "Get rid of those m3 and
+    # and m4 specific columns. We do not do that here." and "mode 3 and 4 are the same with only different MEDIA, binary versus
+    # text"). Every entry is graded in every mode the caller asked for; nothing in a suite can narrow that.
+    run_entries = entries
     # ⛔⭐ OUTSIDE THE BASELINE (ceo ruling 2026-09-08 on the cfo's find; the master half of the rule
     # OUTSIDE_SPITBOL_BASELINE.tsv already carries for a package). A MASTER entry the language's ORACLE
     # CANNOT RUN is outside the master's baseline exactly as a package program is: it leaves the graded
@@ -3002,31 +2770,14 @@ def cmd_run(args):
         # total= (graded) shipped= (graded + outside) outside= (removed) side by side. Each removed entry is also recorded in
         # the progress DB as OUTSIDE with the oracle's own class and reason, so the CEO-749 identity is checkable from the DB.
         _out_run = [e.name for e in run_entries if e.name in outside]
-        _out_ast = [e.name for e in ast_entries if e.name in outside]
         run_entries = [e for e in run_entries if e.name not in outside]
-        ast_entries = [e for e in ast_entries if e.name not in outside]
-        for _n in sorted(set(_out_run) | set(_out_ast)):
+        for _n in sorted(_out_run):
             print(f"OUTSIDE_BASELINE {_n} {outside[_n][0]}: {outside[_n][1]}")
-        print(f"OUTSIDE_BASELINE_COUNT {len(_out_run) + len(_out_ast)} entr(ies) out of the graded denominator and IN the shipped one, named above with the oracle's own reason")
+        print(f"OUTSIDE_BASELINE_COUNT {len(_out_run)} entr(ies) out of the graded denominator and IN the shipped one, named above with the oracle's own reason")
     else:
-        _out_run, _out_ast = [], []
+        _out_run = []
         if not _outside_none:
             print("OUTSIDE_BASELINE_LIST NONE (no ALL.outside.tsv beside this suite, and --outside was not given)")
-    unknown_defaulted = sum(1 for e in run_entries if entry_modes.get(e.name, "") == "UNKNOWN") if entry_modes else 0
-    # ⛔⭐ HONOUR THE DECLARATION PER ENTRY, WHICH IS WHAT THIS FLAG'S OWN --help PROMISES. Before this, every run
-    # entry was graded with the CALLER'S modes and the `modes` column only ever chose ast-vs-run, so a family whose
-    # runner grades m3 ONLY (19 of prolog's 28 per-rung runners do) was still EXECUTED in m4 by the master and its
-    # m4 verdicts were manufactured -- reds for a mode no runner ever claimed. A declared set is intersected with
-    # the caller's --modes (never widened past what the caller asked for); an entry whose whole declaration falls
-    # outside the request is NOT graded and is reported by name, because silently grading it in the caller's modes
-    # is precisely the substitution this flag exists to stop.
-    def _run_modes_for(e):
-        d = (entry_modes.get(e.name, "") or "").strip() if entry_modes else ""
-        if not d or d in ("UNKNOWN", "ast"):
-            return list(modes)
-        want = {x.strip() for x in d.split(",") if x.strip()}
-        return [m for m in modes if m in want]
-    mode_n = {m: 0 for m in modes}
     # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): a suite row's single number states the entries green in
     # EVERY mode they were graded in -- never one mode alone, and never min(m3_pass, m4_pass), which is not a count
     # of anything: two entries, one red only in m3 and one red only in m4, give min()=1 while the AND is 0, so the
@@ -3035,7 +2786,6 @@ def cmd_run(args):
     # the callers could not do it themselves. `all_n` is its denominator: entries graded in at least one mode.
     all_pass = 0
     all_n = 0
-    declared_not_requested = []
     # ⛔⭐ THE XFAIL BUCKET IS SPLIT BY OUTCOME (ceo CEO-432 item 2, on hq_U's census: an xfail marker is a CHECK
     # THAT CANNOT FAIL -- a SIGSEGV reads xfail, a hang reads xfail, a silently wrong answer reads xfail, and a
     # mode-4 that produces no binary at all reads xfail). Four different repairs behind one identical count, and
@@ -3057,43 +2807,16 @@ def cmd_run(args):
         return d
     oom_named = []
     counts = {m: _fresh() for m in modes}
-    ast_counts = {"ast": _fresh()}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     _progress_rows = []
     for _n in _out_run:
         for _m in modes:
             _progress_rows.append((_n, _m, "OUTSIDE", 0, f"{outside[_n][0]}: {outside[_n][1][:160]}"))
-    for _n in _out_ast:
-        _progress_rows.append((_n, "ast", "OUTSIDE", 0, f"{outside[_n][0]}: {outside[_n][1][:160]}"))
     try:
-        for e in ast_entries:
-            verdicts = run_suite_entry(paths, e, tmp_root, ["ast"], ext=ext, companion_dir=Path(args.sno).parent)
-            kind = verdicts["ast"].kind
-            _progress_rows.append((e.name, "ast", kind, 0, _entry_note(e.xfail, verdicts["ast"], shard_tag)))
-            if kind == _OOMK:
-                oom_named.append((e.name, "ast", verdicts["ast"], e.xfail))
-            ck = "FAIL" if kind == _OOMK else kind   # the board line's fail keeps an OOM (see _OOMK above)
-            if e.xfail:
-                if kind == "PASS":
-                    ast_counts["ast"]["XPASS"] += 1; fails.append((e.name, "ast", verdicts["ast"]))
-                else:
-                    ast_counts["ast"]["XFAIL"] += 1
-                    ast_counts["ast"]["XFAIL_" + ck] = ast_counts["ast"].get("XFAIL_" + ck, 0) + 1
-            else:
-                ast_counts["ast"][ck] += 1
-                if kind == _OOMK:
-                    ast_counts["ast"][_OOMK] += 1
-                if kind != "PASS":
-                    fails.append((e.name, "ast", verdicts["ast"]))
         for e in run_entries:
-            _em = _run_modes_for(e)
-            if not _em:
-                declared_not_requested.append(e.name)
-                continue
-            verdicts = run_suite_entry(paths, e, tmp_root, _em, ext=ext, companion_dir=Path(args.sno).parent)
-            for m in _em:
-                mode_n[m] += 1
+            verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=Path(args.sno).parent)
+            for m in modes:
                 kind = verdicts[m].kind
                 _progress_rows.append((e.name, m, kind, 0, _entry_note(e.xfail, verdicts[m], shard_tag)))
                 if kind == _OOMK:
@@ -3125,39 +2848,18 @@ def cmd_run(args):
             # ⛔ AN XFAIL ENTRY IS NOT GREEN. It is EXPECTED red, which is why it is kept out of every mode's
             # PASS bucket above -- so counting it here would let the AND exceed the per-mode counts it summarises.
             all_n += 1
-            if not e.xfail and all(verdicts[m].kind == "PASS" for m in _em):
+            if not e.xfail and all(verdicts[m].kind == "PASS" for m in modes):
                 all_pass += 1
     finally:
         import shutil
         shutil.rmtree(tmp_root, ignore_errors=True)
 
     family = Path(args.sno).stem
-    if entry_modes:
-        # ⛔ TWO POPULATIONS, TWO DENOMINATORS, PRINTED SEPARATELY AND NEVER SUMMED. The ast board's total is
-        # the ast population, not the suite; likewise the run board. A caller that wants "the suite" adds them
-        # deliberately and can see what it is adding.
-        a = ast_counts["ast"]
-        _bin_unmoved_or_refuse()
-        print(f"SUITE_BOARD_AST family={family} " + (f"{shard_tag} " if shard_tag else "") +
-              f"total={len(ast_entries)} ast_pass={a['PASS']} ast_fail={a['FAIL']} ast_crash={a['CRASH']} "
-              f"ast_hang={a['HANG']} ast_unproven={a['UNPROVEN']} ast_skip={a['SKIP']} "
-              f"ast_xfail={a['XFAIL']} ast_xpass={a['XPASS']} "
-              f"ast_xfail_wrong={a['XFAIL_FAIL']} ast_xfail_crash={a['XFAIL_CRASH']} "
-              f"ast_xfail_hang={a['XFAIL_HANG']} ast_xfail_unproven={a['XFAIL_UNPROVEN']} ast_xfail_skip={a['XFAIL_SKIP']} "
-              f"ast_fail_oom={a[_OOMK]}")
-        print(f"MODES_COLUMN ast_graded={len(ast_entries)}/{len(entries)} run_graded={len(run_entries)}/{len(entries)} "
-              f"unknown_defaulted_to_run={unknown_defaulted}")
-    # total= is the GRADED run denominator on both paths (it used to be len(entries) -- the outside entries still inside
-    # it -- whenever --by-modes-column was absent, and the graded count when it was present: one word, two arithmetics);
-    # shipped= adds the outside entries back, outside= is their count. A row quotes all_pass over shipped with OUTSIDE named.
+    # total= is the GRADED denominator; shipped= adds the outside entries back, outside= is their count. A row quotes all_pass over shipped with OUTSIDE named.
     fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(run_entries)} shipped={len(run_entries) + len(_out_run)} outside={len(_out_run)}"]
     for m in modes:
         c = counts[m]
-        # ⛔ `<m>_n` is the DENOMINATOR FOR THAT MODE and it is printed because it is no longer `total`: once each
-        # entry is graded in its own declared modes, a mode's verdicts count only the entries that declared it, and
-        # a reader dividing by `total` would understate every rate. A board that changed its arithmetic silently is
-        # the defect this whole flag exists to prevent.
-        fields.append(f"{m}_n={mode_n[m] if entry_modes else len(run_entries)} "
+        fields.append(f"{m}_n={len(run_entries)} "
                        f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
                        f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
                        f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']} "
@@ -3172,8 +2874,6 @@ def cmd_run(args):
     # ⭐ <m>_fail_oom: how many of <m>_fail were a properly reported out-of-memory (CEO-1229 (2)) -- INSIDE fail, never beside it
     # (see _OOMK), and at the end of the line, after every field a reader already knows, so none meets a new one between two it knows.
     fields.append(" ".join(f"{m}_fail_oom={counts[m][_OOMK]}" for m in modes))
-    if entry_modes and declared_not_requested:
-        fields.append(f"declared_not_requested={len(declared_not_requested)}")
     _bin_unmoved_or_refuse()
     print("SUITE_BOARD " + " ".join(fields))
     # ⭐⭐ THE HARNESS LISTS EVERY OOM PROGRAM BY NAME (CEO-1229 (2): "so each one gets its heap declaration, or a leak cure if its
@@ -3569,7 +3269,7 @@ GC_STACK_KB_MAX = 4096 * 1024  # a declared stack past 4 GB is refused as a typo
 
 def heap_sidecar_path(sno_path):
     """The WRITE target for an extracted suite's arena declaration: <stem>.heap beside the pair, named the
-    same way .modes/.in/.xfail are. ⛔⭐ THE SIDECAR IS NOT OPTIONAL POLISH. CEO-1127's evidence bar has every
+    same way .in/.xfail are. ⛔⭐ THE SIDECAR IS NOT OPTIONAL POLISH. CEO-1127's evidence bar has every
     seat grading ENTRIES EXTRACTED STANDALONE, and an extracted entry has no sibling ALL.csv -- so a
     declaration that lived only in the csv would be silently dropped by exactly the workflow the fleet uses
     to cure, and a program that needs 16384 KB would abort in its own cure loop while passing on the board.
@@ -3627,8 +3327,7 @@ def validate_heap_kb(raw, where):
 def heap_declarations(sno_path):
     """{entry: declared arena in KB} for the suite at `sno_path`, plus the name of the evidence used.
 
-    ⛔⭐ TWO SOURCES IN ONE ORDER, THE SAME ORDER AND FOR THE SAME REASON AS modes_declarations() ONE
-    FUNCTION UP: a `<stem>.heap` sidecar TRAVELS with an extracted family, a sibling `ALL.csv` only exists
+    ⛔⭐ TWO SOURCES IN ONE ORDER, AND THE ORDER IS THE POINT: a `<stem>.heap` sidecar TRAVELS with an extracted family, a sibling `ALL.csv` only exists
     for a suite still sitting in the corpus. Returns ({}, None) when neither is reachable, which is an
     honest "nobody declared" and never a guess -- and an undeclared program runs at the shipped default,
     which is the whole point of the column being sparse.
@@ -3735,54 +3434,6 @@ def stack_declarations(sno_path):
             return out, _csv_path.name
     return {}, None
 
-def modes_sidecar_path(sno_path):
-    """The WRITE target for an extracted suite's modes declaration: <stem>.modes beside the pair, named the
-    same way .in and .xfail are. Kept separate from the discovery form below for the reason the extractor
-    already documents about its other sidecars -- a discovery function returns None until the file exists,
-    which is right for reading and useless for naming one to create."""
-    return str(Path(sno_path).with_suffix(".modes"))
-
-
-def modes_declarations(sno_path):
-    """{entry: declared modes} for the suite at `sno_path`, plus the name of the evidence used.
-
-    ⛔⭐ TWO SOURCES, IN THIS ORDER, AND THE ORDER IS THE POINT. A `<stem>.modes` sidecar TRAVELS with an
-    extracted family; a sibling `ALL.csv` only exists for a suite still sitting in the corpus. Reading the
-    csv alone made every guard below depend on where the caller put the file rather than on what the suite
-    declares -- see the measured pascal witness at the mirror-trap guard. Returns ({}, None) when neither is
-    present, which is an honest "no declaration was reachable" and never a guess.
-    ⛔ THE EMPTY STRING IS NOT A DECLARATION EITHER, and it is the third spelling of "nobody said": UNKNOWN
-    (loud, counted separately on every board), `` (silent -- what every corpus/packages/*/ALL.csv carries
-    today), and an absent row (which --by-modes-column refuses on). Only one of the three is loud. Kept as
-    data rather than normalised away, so a reader can see which spelling a suite used."""
-    _p = Path(modes_sidecar_path(sno_path))
-    if _p.is_file():
-        out = {}
-        for line in _p.read_text(encoding="utf-8").splitlines():
-            if not line.strip() or line.lstrip().startswith("#"):
-                continue
-            name, _, m = line.partition("\t")
-            out[name.strip()] = m.strip()
-        if out:
-            return out, _p.name
-    _csv_path = Path(sno_path).parent / "ALL.csv"
-    if _csv_path.is_file():
-        import csv as _csvm
-        out = {}
-        try:
-            with open(_csv_path, newline="") as _f:
-                rdr = _csvm.DictReader(_f)
-                if rdr.fieldnames and "modes" not in rdr.fieldnames:
-                    refuse(f"{_csv_path} has no `modes` column -- nothing to honour")
-                for _row in rdr:
-                    out[_row.get("entry")] = (_row.get("modes") or "").strip()
-        except OSError:
-            return {}, None
-        if out:
-            return out, _csv_path.name
-    return {}, None
-
-
 def cmd_extract_family(args):
     """Materialize every entry of ONE family back out as a standalone SUITE PAIR (still banner-block or
     one-line, matching the master's own format) rather than loose individual files -- the bridge for a
@@ -3841,20 +3492,7 @@ def cmd_extract_family(args):
         os.remove(out_in)
     if not write_xfail_sidecar(sel, out_x, _copen, _cclose) and os.path.exists(out_x):
         os.remove(out_x)
-    # ⛔⭐ AND THE `modes` DECLARATION TRAVELS TOO -- the field this extractor did not carry, under the law
-    # its own docstring already states: a check that does not carry every field the grader reads is not a
-    # check. Without it, `run --modes m3,m4` over an extracted family could not be guarded (the mirror-trap
-    # guard had no evidence to read) and `--by-modes-column` could not be honoured (it refused for want of a
-    # sibling ALL.csv), so the correct call was impossible and the incorrect one was silent. Written for the
-    # SELECTED entries only, because that is exactly the population this pair will be graded over.
-    with open(modes_sidecar_path(args.out_sno), "w", encoding="utf-8") as _mf:
-        _mf.write("# modes declaration carried out of %s by extract-family (family=%s). entry<TAB>modes.\n"
-                  % (Path(args.csv).name, args.family))
-        with open(args.csv, newline="") as _cf:
-            _decl_all = {r["entry"]: (r.get("modes") or "").strip() for r in _csv.DictReader(_cf)}
-        for _e in sel:
-            _mf.write("%s\t%s\n" % (_e.name, _decl_all.get(_e.name, "")))
-    # ⛔⭐⭐ AND SO DOES heap_kb, FOR A HARDER REASON THAN modes. CEO-1127's evidence bar has every one of the
+    # ⛔⭐⭐ AND SO DOES heap_kb. CEO-1127's evidence bar has every one of the
     # ten seats grading ENTRIES EXTRACTED STANDALONE -- that is the whole reason a seat can clear its lane
     # without taking the box from the other nine. An extracted pair has no sibling ALL.csv, so a declaration
     # left behind here would mean a program that needs 16384 KB runs at the shipped 128 in EXACTLY the
@@ -3965,11 +3603,6 @@ def main():
     r.add_argument("ref")
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
     r.add_argument("--lang", default="", choices=LANG_CHOICES, help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
-    r.add_argument("--by-modes-column", action="store_true",
-                   help="grade each entry by the `modes` column of the suite's sibling ALL.csv instead of grading every entry the same way: "
-                        "modes=ast entries are graded by `scrip --dump-ast` diffed as text, everything else by --modes (default m3,m4). "
-                        "Prints the two populations as SEPARATE boards with their OWN denominators. REFUSES rc=2 if the CSV is missing or "
-                        "does not cover every entry -- a column that cannot be read is not a column that can be honoured.")
     r.add_argument("--outside", default="", help="TSV of entries OUTSIDE this suite's baseline (name<TAB>CLASS<TAB>reason), each dropped from the graded denominator and printed with its reason -- for a program the language's own oracle refuses to run")
     r.add_argument("--outside-none", action="store_true", dest="outside_none",
                    help="grade the SHIPPED set: do NOT pick up the sibling ALL.outside.tsv that a master suite would otherwise "

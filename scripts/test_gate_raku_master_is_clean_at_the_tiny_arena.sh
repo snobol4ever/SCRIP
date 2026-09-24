@@ -88,7 +88,7 @@ run_arm(){ # $1 = tag
         *) exit 9 ;;
       esac
       S4E_PROGRESS_DB="$W/$fn.db" timeout "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
-        "$P/ALL.raku" "$P/ALL.ref" --lang raku --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" ) \
+        "$P/ALL.raku" "$P/ALL.ref" --lang raku --modes m3,m4 --shard "$k/$SHARDS" ) \
       >> "$W/$fn.raw" 2>&1
     # ⛔⭐⭐ "DID THIS SHARD RECORD ANYTHING", NOT "WHAT WAS ITS rc" (ported lesson, hq_prolog -- rc conflates
     # "this board has failing entries" with "this board did not happen"; only the progress-row count separates them.

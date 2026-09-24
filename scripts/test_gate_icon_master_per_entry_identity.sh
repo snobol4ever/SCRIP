@@ -85,7 +85,7 @@ else
     MEAS="$T/progress.tsv"
     echo "running the master in m3+m4 (per-entry rows -> a SCRATCH progress table, never the live one) ..."
     S4E_PROGRESS_DB="$MEAS" timeout "$BUDGET" python3 "$HARNESS" run "$CORPUS/ALL.icn" "$CORPUS/ALL.ref" \
-        --lang icon --modes m3,m4 --by-modes-column >"$T/out" 2>"$T/err"
+        --lang icon --modes m3,m4 >"$T/out" 2>"$T/err"
     hrc=$?
     if [ "$hrc" -eq 124 ]; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: the master did not finish within ${BUDGET}s -- cannot measure."

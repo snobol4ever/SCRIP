@@ -320,7 +320,7 @@ done < <(python3 - "$CORPUS/ALL.csv" scan <<'PY'
 import csv, sys
 path, col = sys.argv[1], sys.argv[2]
 for r in csv.DictReader(open(path)):
-    if r.get(col, "0") not in ("", "0") and r.get("modes", "") == "m3,m4" and r.get("xfail", "0") in ("", "0"):
+    if r.get(col, "0") not in ("", "0") and r.get("xfail", "0") in ("", "0"):
         print(r["origin"])
 PY
 )

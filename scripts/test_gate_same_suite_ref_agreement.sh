@@ -25,9 +25,8 @@
 #
 # METHOD: within each language's own master, group entries by their SOURCE BODY (banner/name excluded --
 # that is what the shared reader already returns as `Entry.sno_lines`). Two or more entries sharing one
-# body are, by construction, the same program under different names. For every such group, sharing the
-# same `modes` value (ALL.csv) -- never comparing an ast-graded entry's parse-tree dump against a
-# run-graded entry's program output, which would be a real difference for a fake reason -- their ref
+# body are, by construction, the same program under different names. For every such group (every entry is
+# run-graded in both modes -- there is no modes column, CEO-1230) their ref
 # bodies (progname-normalized, same reasoning as the cross-suite gate: a program that echoes
 # &progname/its own name is not disagreeing, it is naming itself) and their `want_rc` must all agree. A
 # group that does not is a contradiction: at least one ref or want_rc is wrong, named entry-vs-entry so
@@ -82,12 +81,6 @@ for lang in langs:
         unreadable.append((lang, "parsed to ZERO entries"))
         continue
 
-    modes = {}
-    csvp = os.path.join(d, "ALL.csv")
-    if os.path.exists(csvp):
-        with io.open(csvp, encoding='utf-8', errors='replace', newline='') as fh:
-            for row in csv.DictReader(fh):
-                modes[row.get('entry', '')] = row.get('modes', '')
     checked_langs += 1
 
     def body_of(e):
@@ -110,12 +103,8 @@ for lang in langs:
     for (body, _stdin), es in groups.items():
         if len(es) < 2:
             continue
-        by_mode = defaultdict(list)
-        for e in es:
-            by_mode[modes.get(e.name, '')].append(e)
-        for mode, mes in by_mode.items():
-            if len(mes) < 2:
-                continue
+        mode = ''
+        for mes in (es,):
             total_groups += 1
             total_pairs += len(mes) * (len(mes) - 1) // 2
             entry_refs = {e.name: ref_of(e).replace(e.name, '<PROGNAME>') for e in mes}
@@ -131,7 +120,7 @@ if unreadable:
 if bad:
     sys.stderr.write("⛔ GATE FAIL (rc=1): CONTRADICTORY REFS/want_rc for byte-identical programs WITHIN ONE master:\n")
     for lang, mode, names, entry_refs, entry_rc in bad:
-        sys.stderr.write("    [%s] (modes=%s) %s\n" % (lang, mode, ", ".join(names)))
+        sys.stderr.write("    [%s] %s\n" % (lang, ", ".join(names)))
         for n in names:
             sys.stderr.write("        %-40s want_rc=%d ref=%r\n" % (n, entry_rc[n], entry_refs[n][:100]))
     sys.stderr.write("  ⛔ This gate cannot say WHICH side is right -- run the ORACLE on the program and re-cut the loser.\n")

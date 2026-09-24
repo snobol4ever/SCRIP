@@ -16,7 +16,7 @@ set -u
 # a bare shell, ON THE SAME TREE. A verdict that depends on who called it measures the caller, not the subject. Every arm that
 # asserts a REFUSAL is one of the arms that flipped, so the failure ran in the flattering direction for the seat invoking it.
 # Arms 3 and 4 set the exemption they test, explicitly, one arm at a time.
-unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_SEAT
+unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_ONE_RUNNER_FIXTURE S4E_SEAT
 H="$(cd "$(dirname "$0")" && pwd)"; L="$H/lib_one_runner.sh"; G=one_runner_one_board; fail=0; examined=0
 CORPUS="${S4E_CORPUS:-${S4E_HOME:-$(cd "$H/../.." && pwd)}/corpus}"
 [ -r "$CORPUS/tests/icon/ALL.icn" ] || { echo "REFUSE(2) [$G]: no corpus master at $CORPUS/tests/icon/ALL.icn -- the board/not-a-board arms cannot be measured"; exit 2; }
@@ -60,7 +60,7 @@ arm "5 --check <board>: 2 for $REF_A and for $REF_B on an icon board, 0 for the 
 arm "6a census: every listed board runner sources the guard on line 2 and calls it (raku_roast_scoreboard calls it after argument parsing, hq_T 09-14)" 'miss=""; while read -r b; do [ -n "$b" ] || continue; { sed -n 2p "$H/$b" | grep -q "lib_one_runner.sh" && grep -q "one_runner_guard" "$H/$b"; } || miss="$miss $b"; done < "$H/one_runner_boards.txt"; [ -z "$miss" ] || { echo "     missing:$miss"; false; }'
 arm "6b census: the master harness guards cmd_run before it grades, with the suite it holds" 'grep -A2 "^def cmd_run(args):" "$H/corpus_suite_harness.py" | grep -q "_one_runner_guard(args.sno, paths\\[.corpus.\\], getattr(args, .lang., None))"'
 arm "6c the bus done run exports S4E_DONE_WHEN_RUN=1" 'grep -q "S4E_DONE_WHEN_RUN=1 timeout" "$H/s4e_msg.sh"'
-arm "7 harness detector: a wrong-language run of a CORPUS suite is refused rc=2 before any grading" 'out=$(cd "$H/.." && S4E_SEAT=hq_pascal python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/icon/ALL.icn" "$CORPUS/tests/icon/ALL.ref" --lang icon --by-modes-column 2>&1); rc=$?; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
+arm "7 harness detector: a wrong-language run of a CORPUS suite is refused rc=2 before any grading" 'out=$(cd "$H/.." && S4E_SEAT=hq_pascal python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/icon/ALL.icn" "$CORPUS/tests/icon/ALL.ref" --lang icon 2>&1); rc=$?; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 
 # ⛔⭐ CEO-547 PART 1 -- WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT. The guard used to fire at the
 # top of cmd_run before it knew which it was holding, so a gate feeding the harness its own two-entry mktemp fixture was refused
@@ -72,7 +72,7 @@ arm "9 control: a suite UNDER the corpus tree is still refused rc=2 to a seat it
 arm "10 harness: a gate own mktemp fixture is graded, not refused" 'T=$(mktemp -d) || exit 1; printf "* one\nline\n" > "$T/f.sno"; printf "* one\nline\n" > "$T/f.ref"; out=$(cd "$H/.." && S4E_SEAT=hq_B python3 scripts/corpus_suite_harness.py run "$T/f.sno" "$T/f.ref" --lang snobol4 2>&1); rc=$?; rm -rf "$T"; [ $rc -ne 2 ] || ! grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 arm "11 census: BOTH copies carry the narrowing, word for word is the promise in the header" 'grep -q "one_runner_suite_is_a_board" "$L" && grep -q "_suite_is_a_board" "$H/corpus_suite_harness.py" && grep -q "one_runner_in_a_shared_checkout" "$L" && grep -q "def _in_a_shared_checkout" "$H/corpus_suite_harness.py"'
 arm "12 a caller that does not say what it grades (no language in its name, no suite path) is still refused, never waved through" 'out=$(S4E_SEAT=hq_icon bash -c "source $L; one_runner_guard test_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
-arm "13 this gate pins its own environment, so a computed done cannot flip its verdict" 'grep -q "^unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_SEAT$" "$H/test_gate_one_runner_one_board.sh"'
+arm "13 this gate pins its own environment, so a computed done cannot flip its verdict" 'grep -q "^unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_ONE_RUNNER_FIXTURE S4E_SEAT$" "$H/test_gate_one_runner_one_board.sh"'
 # ⛔⭐ OUTSIDE THE CONFIGURED ROOT IS NOT OUTSIDE THE SHARED CORPUS (coo 2026-09-23, CEO-1229's runner wiring). The root is whatever
 # S4E_CORPUS or S4E_HOME say, so pointing either at an EXISTING scratch directory made a real corpus suite read "outside the corpus
 # tree, not a board": measured on origin 2352905c5, hq_pascal was admitted rc=0 to tests/icon/ALL.icn under S4E_CORPUS=<scratch>, and
@@ -80,7 +80,14 @@ arm "13 this gate pins its own environment, so a computed done cannot flip its v
 # names a suite that does not exist, so on a guard without the fix it stops on the missing file -- it never grades a real board.
 arm "14 a suite inside the shared checkout is a board even when S4E_CORPUS names an existing scratch root" 'E=$(mktemp -d) || exit 1; out=$(S4E_SEAT=hq_pascal S4E_CORPUS="$E" bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/icon/ALL.icn" 2>&1); rc=$?; rm -rf "$E"; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 arm "15 harness: the same under S4E_HOME=<existing scratch> -- refused rc=2 by the guard, not by a missing file" 'E=$(mktemp -d) || exit 1; out=$(cd "$H/.." && S4E_SEAT=hq_pascal S4E_HOME="$E" SCRIP="$H/../scrip" RT_DIR="$H/../out" timeout 60 python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/icon/NO_SUCH_SUITE.icn" "$CORPUS/tests/icon/NO_SUCH_SUITE.ref" --lang icon 2>&1); rc=$?; rm -rf "$E"; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
+# ⛔⭐ ONE SEAT, ONE LANGUAGE (Lon 2026-09-24, verbatim: "Just have each seat run only their own test suites." / "We can not have all
+# 5 HQ's deciding to run all seven test suites simultaneously. Fix that."): a language HQ on another language's board is refused
+# EVEN with the override and EVEN under a computed done -- both copies of the guard. Arms 4 and 3 above keep the officer override and
+# the done exemption alive for seats that are not language HQs (cto, the legacy hq_B).
+arm "16 a language HQ ($OWN_ICON) is refused rc=2 on a rebus board even with the override AND a computed done set" 'out=$(S4E_SEAT=$OWN_ICON S4E_ONE_RUNNER_OVERRIDE="probe" S4E_DONE_WHEN_RUN=1 bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ] && grep -q "ONE SEAT, ONE LANGUAGE" <<<"$out"'
+arm "17 harness: the same language HQ with the override is refused rc=2 by the guard before any grading" 'out=$(cd "$H/.." && S4E_SEAT=$OWN_ICON S4E_ONE_RUNNER_OVERRIDE="probe" python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/rebus/NO_SUCH_SUITE.reb" "$CORPUS/tests/rebus/NO_SUCH_SUITE.ref" --lang rebus --modes m3 2>&1); [ $? -eq 2 ] && grep -q "ONE SEAT, ONE LANGUAGE" <<<"$out"'
+arm "18 a GATE's instrument fixture (S4E_ONE_RUNNER_FIXTURE) still admits a language HQ -- the blocking set's slices are not a seat's board run" 'out=$(S4E_SEAT=$OWN_ICON S4E_ONE_RUNNER_FIXTURE="probe fixture" bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 0 ] && grep -q "ONE-RUNNER FIXTURE" <<<"$out"'
 echo "$G: examined=$examined fail=$fail"
-[ $examined -ge 23 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 23 declared arms"; exit 2; }
+[ $examined -ge 26 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 26 declared arms"; exit 2; }
 [ $fail -eq 0 ] && { echo "GATE PASS(0) [$G]: $examined/$examined -- one runner PER LANGUAGE, one board"; exit 0; }
 echo "GATE FAIL(1) [$G]: $fail of $examined arms red"; exit 1

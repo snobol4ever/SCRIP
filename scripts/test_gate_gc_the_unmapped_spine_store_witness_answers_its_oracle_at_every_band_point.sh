@@ -26,7 +26,7 @@
 # closed while leaving the witness wrong; hq_raku's map family lives at stress 1..6 and is INVISIBLE at 8 and
 # above; hq_snobol4's ERRTEXT witness is red at 25 while green at 10, 12, 16, 20, 35 and 50.  The thirteen points
 # below span all three regions.  BOTH MODES ARE WALKED because the modes diverge in WHERE: hq_snobol4 measured
-# their family's base reds as m3 {1,2,4,8} and m4 {1,2}, so an m3-only arm is a band with a hole in it.
+# their family's base reds as m3 {1,2,4,8} and m4 {1,2}, so an arm that grades m3 alone is a band with a hole in it.
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"

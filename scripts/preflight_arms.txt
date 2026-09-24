@@ -17,8 +17,7 @@
 # whole defect this target exists to cure -- the instrument was one second and it was bolted to a full build.
 scripts/strip_comments.py --check
 scripts/test_gate_absent_line_is_unproven_not_red.sh
-scripts/test_gate_ast_declared_refs_are_ast_dumps.sh
-scripts/test_gate_ast_shaped_refs_are_declared_ast.sh
+scripts/test_gate_no_master_ref_is_an_ast_dump.sh
 scripts/test_gate_coexpr_stack_of_uncreated_thread.sh
 scripts/test_gate_cross_suite_ref_agreement.sh
 scripts/test_gate_done_manifest_handoff.sh
@@ -29,7 +28,6 @@ scripts/test_gate_icn_one_reg_frame.sh
 scripts/test_gate_icn_tag_single_source.sh
 scripts/test_gate_icon_features_and_preprocessor_symbols_agree.sh
 scripts/test_gate_ladder_walk_v4_exempts_package_class_rows.sh
-scripts/test_gate_master_resort_preserves_modes.sh
 scripts/test_gate_no_bb_bin_t.sh
 scripts/test_gate_no_handencoded_bytes.sh
 scripts/test_gate_no_o2_arm_in_scripts.sh

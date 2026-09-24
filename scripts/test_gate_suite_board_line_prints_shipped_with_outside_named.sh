@@ -6,7 +6,7 @@
 #
 # THE DEFECT: corpus_suite_harness.py dropped every --outside entry from its SUITE_BOARD total= (1972 for a 1980-entry
 # master) and recorded nothing for them, so test_corpus_snobol4.sh published 1961/1972 and the SUITES.tsv row had to be
-# hand-set to 1961/1980 OUTSIDE=8 (COO-82); on the plain path (no --by-modes-column) total= still carried the outside
+# hand-set to 1961/1980 OUTSIDE=8 (COO-82); on one of the harness's two paths total= still carried the outside
 # entries while the mode counts did not -- one word, two arithmetics. Every board write dropped OUTSIDE (hq_snobol4).
 #
 # THE CURE UNDER TEST: the SUITE_BOARD prints total= (graded) shipped= (graded + outside) outside= (the entries THIS run

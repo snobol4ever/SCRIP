@@ -27,7 +27,7 @@ fed. It is deliberately reported as "owes a declaration", not as "is wrong".
 and a tool that invented plausible input would manufacture exactly the self-pinned ref this census exists to
 find -- a green cell proving only that the instrument agreed with itself.
 """
-import argparse, csv, importlib.util, json, os, re, sys
+import argparse, importlib.util, json, os, re, sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -204,14 +204,7 @@ def census(tests_dir, langs):
             refuse(f"{d}: {sorted(_both)} are declared in BOTH ALL.argv and ALL.argv.bare -- one file says "
                    f"pass these arguments and the other says this entry is graded bare on purpose, and a "
                    f"reader cannot be asked to pick")
-        ast_only = set()
-        _csv = d / "ALL.csv"
-        if _csv.is_file():
-            with open(_csv, encoding="utf-8", newline="") as _fh:
-                for _row in csv.DictReader(_fh):
-                    if (_row.get("modes") or "").strip() == "ast": ast_only.add((_row.get("entry") or "").strip())
         for e in entries:
-            if e.name in ast_only: continue
             examined += 1
             text = "\n".join(e.sno_lines)
             owes_in = bool(rs.search(text)) and e.stdin is None

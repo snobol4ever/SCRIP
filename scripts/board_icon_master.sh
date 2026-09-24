@@ -196,7 +196,7 @@ echo "=== Icon MASTER board — corpus/tests/icon/ALL.icn ==="
 # "measured a red suite"; the exit status of the harness never does.
 # ⛔⭐⭐ STDERR IS CAPTURED, NOT DISCARDED -- IT IS WHERE THE FAILURE NAMES LIVE. This line read
 # `2>/dev/null` and therefore threw away the only per-entry information the run produces: the harness
-# DOES print `FAIL <mode> <entry>: <why>` rows in --by-modes-column mode, on stderr, and this board was
+# DOES print `FAIL <mode> <entry>: <why>` rows on stderr, and this board was
 # deleting them before anyone could read them. hq_C measured the consequence from the other end
 # (2026-09-03): the icon row accumulated THREE readings of one board in one day -- 377/381, 378/381, and
 # a pinned floor of 379, on three different trees -- and none of them could be reconciled against the
@@ -231,7 +231,7 @@ _errf=$(mktemp); trap 'rm -f "$_errf"' EXIT
 # oracle's own words and never masked per line).
 OUTSIDE_TSV="$CORPUS/ALL.outside.tsv"
 _outside_arg=""; [ -f "$OUTSIDE_TSV" ] && _outside_arg="--outside $OUTSIDE_TSV"
-_raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang icon --modes m3,m4 --by-modes-column $_outside_arg 2>"$_errf" || true)
+_raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang icon --modes m3,m4 $_outside_arg 2>"$_errf" || true)
 # ⛔ THE OUTSIDE SET IS ECHOED, NEVER SWALLOWED. This board captures the harness into $_raw and prints only
 # what it greps, so without this the entries dropped from the denominator would be INVISIBLE on the very
 # board whose number they changed -- which is precisely the masking the ruling forbids. Printed before the
@@ -247,27 +247,13 @@ GATE_NAME=board_icon_master gate_bin_unmoved
 GATE_NAME=board_icon_master gate_tree_unmoved
 printf '%s\n' "$_raw" | grep '^OUTSIDE_BASELINE' || true
 board=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD ' | tail -1 || true)
-astboard=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD_AST ' | tail -1 || true)
-split=$(printf '%s\n' "$_raw" | grep '^MODES_COLUMN ' | tail -1 || true)
-if [ -z "$astboard" ] || [ -z "$split" ]; then
-    echo "⛔ BOARD REFUSES (rc=2): the harness printed no ast board / no MODES_COLUMN split."
-    echo "   This board grades BY THE MASTER'S modes COLUMN; without that split the only number available"
-    echo "   is the old one that ran the 153 self-pinned AST-shape fixtures and counted their inevitable reds."
-    # ⛔⭐ THE HARNESS'S OWN WORDS, ECHOED HERE BECAUSE THIS PATH USED TO THROW THEM AWAY. $_errf holds the
-    # harness's stderr and was first consulted ~80 lines below, which this early exit never reaches -- so the
-    # commonest cause of this refusal, the stale-binary REFUSAL ("binary older than the tree it names -- make
-    # scrip"), reached the reader as "the harness printed no MODES_COLUMN split" and, one caller further out,
-    # as a row DONE-WHEN reporting "icon master board not green". ⭐ Three layers, each one converting a
-    # COULD-NOT-MEASURE into something more specific and more wrong, ending in a DEFECT VERDICT against the
-    # compiler when the true instruction was `make`. A refusal that does not carry the refusing layer's own
-    # message is indistinguishable from a red by the time anyone reads it (hq_C 2026-09-10, measured while
-    # closing row icon-generator-comma-conjunction-in-an-every-operand-resumes-once). No number moves here.
-    if [ -s "$_errf" ]; then echo "   --- what the harness actually said (last 12 lines of its stderr) ---"; tail -12 "$_errf" | sed 's/^/   /'; fi
-    exit 2
-fi
 if [ -z "$board" ]; then
     echo "⛔ BOARD REFUSES (rc=2): harness produced no SUITE_BOARD line for the Icon master suite"
     echo "   Measured nothing. That is NOT a pass — see RULES.md: a test that cannot measure refuses."
+    # ⛔⭐ THE HARNESS'S OWN WORDS, ECHOED HERE: the commonest cause of this refusal is the stale-binary REFUSAL ("binary older
+    # than the tree it names -- make scrip"), and a refusal that does not carry the refusing layer's own message is
+    # indistinguishable from a red by the time anyone reads it (hq_C 2026-09-10).
+    if [ -s "$_errf" ]; then echo "   --- what the harness actually said (last 12 lines of its stderr) ---"; tail -12 "$_errf" | sed 's/^/   /'; fi
     exit 2
 fi
 field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
@@ -313,26 +299,9 @@ if [ -z "$mt" ] || [ "$mt" -eq 0 ]; then
     echo "⛔ BOARD REFUSES (rc=2): the harness graded ZERO entries over a master file that exists"; exit 2
 fi
 
-astfield() { echo "$astboard" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
-at=$(astfield total); ap=$(astfield ast_pass); af=$(astfield ast_fail); ac=$(astfield ast_crash); ah=$(astfield ast_hang); axp=$(astfield ast_xpass)
-_astdecl=$(echo "$split" | grep -oE 'ast_graded=[0-9]+' | cut -d= -f2); _astdecl=${_astdecl:-}
-if [ -z "$at" ]; then
-    echo "⛔ BOARD REFUSES (rc=2): SUITE_BOARD_AST carries no total= field -- the ast population cannot be read at all"; exit 2
-fi
-if [ -z "$_astdecl" ]; then
-    echo "⛔ BOARD REFUSES (rc=2): MODES_COLUMN carries no ast_graded= field, so a zero ast board cannot be told apart from an ungraded one"; exit 2
-fi
-if [ "$at" -eq 0 ] && [ "$_astdecl" -gt 0 ]; then
-    echo "⛔ BOARD REFUSES (rc=2): the modes column declares $_astdecl ast entr(y/ies) but the ast board graded zero"; exit 2
-fi
-if [ "$at" -eq 0 ]; then
-    echo "note: this suite declares NO ast entries (MODES_COLUMN ast_graded=0); it is graded wholly by the run population below, and the AST-shape line reads 0/0 because there is nothing of that kind to drift."
-fi
-graded=$(( mt + at ))
-echo "entries=$graded  (run-graded $mt + ast-graded $at; ALL.csv rows=$CSV_ENTRIES, floor=$ENTRY_FLOOR)"
-echo "$split"
-echo "AST-shape drift check (self-pinned dump, parser-ladder fixtures, INFORMATIONAL -- never part of this board's verdict): $ap/$at match  DRIFTED=$af CRASH=$ac HANG=$ah XPASS=$axp"
-echo "run-graded population: $mt entries (the ast fixtures are NOT in these two lines and are never summed into them)"
+graded=$mt
+echo "entries=$graded  (every entry graded in both modes -- there is no modes column; ALL.csv rows=$CSV_ENTRIES, floor=$ENTRY_FLOOR)"
+echo "population: $mt entries, each graded in both modes"
 echo "mode-3 (--run):     PASS=$m3p FAIL=$m3f CRASH=$m3c HANG=$m3h UNPROVEN=$m3u XFAIL=$m3x ($m3xs) XPASS=$m3xp   / $mt"
 echo "mode-4 (--compile): PASS=$m4p FAIL=$m4f CRASH=$m4c HANG=$m4h UNPROVEN=$m4u SKIP=$m4s XFAIL=$m4x ($m4xs) XPASS=$m4xp   / $mt"
 echo "rerun a single mode: python3 $HARNESS run $MASTER_ICN $MASTER_REF --lang icon --modes m3   (per-entry attributes: ALL.csv)"
@@ -391,9 +360,6 @@ fi
 # 122 m3 failures are real and belong to hq_C's lane; this board's job is to notice movement.
 if [ "$m3p" -lt "$M3_PASS_FLOOR" ]; then echo "⛔ RED: m3 PASS $m3p regressed below watermark $M3_PASS_FLOOR"; RED=1; fi
 if [ "$m4p" -lt "$M4_PASS_FLOOR" ]; then echo "⛔ RED: m4 PASS $m4p regressed below watermark $M4_PASS_FLOOR"; RED=1; fi
-# ⛔ NEVER RED: a self-pin has nothing to regress below (see the AST-SHAPE note above) -- reported so
-# drift is visible, but it cannot fail this board. A mismatch means RE-DECIDE THE SHAPE AND REGENERATE.
-if [ "$ap" -lt "$at" ]; then echo "⚠️  AST-shape drift: $((at-ap)) parser-ladder fixture(s) no longer match their pinned dump — re-decide the shape and regenerate (ast-dump-refs-are-self-pins-not-oracles), NOT a correctness regression"; fi
 if [ "$((m3p+m4p))" -gt "$((M3_PASS_FLOOR+M4_PASS_FLOOR))" ]; then
     echo "⭐ WATERMARK MOVED UP (m3 $m3p vs $M3_PASS_FLOOR, m4 $m4p vs $M4_PASS_FLOOR) — re-pin the floors in the commit that earned it."
 fi

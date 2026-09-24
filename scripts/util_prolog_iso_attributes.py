@@ -4,8 +4,8 @@ cto, verbatim: "Has a full feature attribute TSV/CSV file been created for all t
 did for SNOBOL4 master suite with 100's of attributes. It help to triage failure sets.").
 
 WHAT IT WRITES. One ALL.csv per ISO package, in the shape every other package table already has
-(corpus/packages/snobol4/gimpel/ALL.csv, corpus/packages/icon/ipl/ALL.csv): the eight fixed leading columns
-    rank,entry,origin,package,n_lines,stdin,want_rc,modes
+(corpus/packages/snobol4/gimpel/ALL.csv, corpus/packages/icon/ipl/ALL.csv): the seven fixed leading columns
+    rank,entry,origin,package,n_lines,stdin,want_rc
 then the Prolog attribute columns:
     section   the suite's own section (Logtalk: the directory basename, INRIA: the builtin-family file)
     kind      what the case expects -- succ / fail / error (Logtalk also: ungradable, the runner's own named refusal)
@@ -50,7 +50,7 @@ INRIA_POPULATION = 445
 
 sys.path.insert(0, HERE)
 
-FIXED = ["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes", "section", "kind", "err", "err_arg"]
+FIXED = ["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "section", "kind", "err", "err_arg"]
 
 CONTROL = ["call", "call_N", "catch", "throw", "cut", "ite", "softcut", "negation", "disj", "conj", "once", "ignore",
            "forall", "findall", "findall_4", "bagof", "setof", "aggregate_all", "between", "succ", "plus", "halt",
@@ -354,7 +354,7 @@ def logtalk_rows():
             f = features_of(text + " " + helper_text)
             rel = os.path.relpath(fc.path, LOGTALK)
             rows.append(dict(entry="%s:%s" % (c.group, c.name), origin=rel, package="logtalk_iso",
-                             n_lines=str((c.raw or "").count("\n") + 1), stdin="0", want_rc="0", modes="m3,m4",
+                             n_lines=str((c.raw or "").count("\n") + 1), stdin="0", want_rc="0",
                              section=c.group, kind=kind, err=err, err_arg=err_arg, **f))
     rows.sort(key=lambda r: (r["origin"], r["entry"]))
     return rows
@@ -431,7 +431,7 @@ def inria_rows():
                 err, err_arg = _err_of([e])
             f = features_of(goal)
             rows.append(dict(entry="%s#%d" % (fn, idx), origin=fn, package="inriasuite", n_lines="1", stdin="0",
-                             want_rc="0", modes="m3,m4", section=fn, kind=kind, err=err, err_arg=err_arg, **f))
+                             want_rc="0", section=fn, kind=kind, err=err, err_arg=err_arg, **f))
             idx += 1
     return rows
 

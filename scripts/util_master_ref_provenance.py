@@ -23,8 +23,6 @@ CLASSES (every entry lands in exactly one; the summary REFUSES rc=2 if they do n
   RULED_PIN           the ref disagrees with the oracle ON A STATED RULING recorded in ALL.refpins.tsv (pin-ref
                       --ruling).  Not a self-pin: a decision with a ledger.
   DECLARED_OUTSIDE    the entry is named in ALL.outside.tsv with the oracle's refusal recorded.
-  AST_GRADED          ALL.csv declares modes=ast: the ref is SCRIP's own AST dump BY DESIGN (no oracle emits it;
-                      row ast-dump-refs-are-self-pins-not-oracles).  Counted for population, never compared.
   ORACLE_REFUSES      the oracle ran and printed NOTHING with a non-zero rc, or was killed/hung/absent: there is
                       no oracle answer, so the ref cannot be the oracle's -- it belongs in ALL.outside.tsv with
                       that refusal named, never in the graded denominator.
@@ -117,14 +115,8 @@ def main():
                                      in_path=h.sidecar_in_path(str(src)), x_path=h.sidecar_xfail_path(str(src)),
                                      w_path=h.sidecar_wantrc_path(str(src)), a_path=h.sidecar_argv_path(str(src)))
     masks = h.read_mask_sidecar(str(ref))
-    moderefs = h.read_moderef_sidecar(str(ref))
     pins = h.read_refpins(str(src))
     outside = read_outside(str(src))
-    entry_modes = {}
-    try:
-        entry_modes, _csv = h.modes_declarations(str(src))
-    except SystemExit:
-        entry_modes = {}
     if args.limit:
         entries = entries[: args.limit]
     if not entries:
@@ -132,16 +124,14 @@ def main():
     print(f"oracle: {oracle_bin} {flags}".rstrip(), file=sys.stderr)
     print(f"master: {src} ({len(entries)} entries) timeout={paths['timeout']}s", file=sys.stderr)
     rows = []
-    counts = {k: 0 for k in ("ORACLE_REPRODUCES", "RULED_PIN", "DECLARED_OUTSIDE", "AST_GRADED", "ORACLE_REFUSES",
+    counts = {k: 0 for k in ("ORACLE_REPRODUCES", "RULED_PIN", "DECLARED_OUTSIDE", "ORACLE_REFUSES",
                              "NONDETERMINISTIC", "ORACLE_DIFFERS")}
     with tempfile.TemporaryDirectory(prefix="mrefprov.") as td:
         for i, e in enumerate(entries, 1):
             name = e.name
             ref_text = e.ref if isinstance(e.ref, str) else "\n".join(e.ref)
             ref_text = ref_text.rstrip("\n")
-            if entry_modes.get(name, "") == "ast":
-                cls, detail = "AST_GRADED", "modes=ast in ALL.csv"
-            elif name in pins:
+            if name in pins:
                 cls, detail = "RULED_PIN", f"{pins[name]['measurer']} {pins[name]['date']}: {pins[name]['ruling'][:80]}"
             elif name in outside:
                 cls, detail = "DECLARED_OUTSIDE", outside[name]
@@ -164,19 +154,10 @@ def main():
                 exp0 = apply_masks(ref_text, mrows)
                 got = apply_masks(text, mrows)
                 candidates = [("ref", exp0)]
-                for mode in ("m3", "m4"):
-                    mr = h.moderefs_for(moderefs, name, mode) if moderefs else []
-                    if mr:
-                        try:
-                            exp_m, _n = h.apply_moderef(ref_text, mr, where=f"{name} [{mode}]")
-                            candidates.append((mode, apply_masks(exp_m, mrows)))
-                        except SystemExit:
-                            pass
                 if kind != "RAN":
                     cls, detail = "ORACLE_REFUSES", f"oracle {kind}; stderr: {err1[:120]}"
                 elif any(got == exp for _lbl, exp in candidates):
-                    lbl = next(l for l, exp in candidates if got == exp)
-                    cls, detail = "ORACLE_REPRODUCES", (f"via {lbl} per-mode ref" if lbl != "ref" else "") + (f" rc={rc} wantrc={want_rc}" if rc != want_rc else "")
+                    cls, detail = "ORACLE_REPRODUCES", (f" rc={rc} wantrc={want_rc}" if rc != want_rc else "")
                     detail = detail.strip()
                 elif rc != 0 and not text.strip():
                     cls, detail = "ORACLE_REFUSES", f"rc={rc}, no stdout -- no oracle answer exists for this entry; stderr: {err1[:120]}"

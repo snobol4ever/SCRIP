@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the rebus shard below is a runner invoked as an INSTRUMENT FIXTURE and never a board -- it exists only to make corpus_suite_harness.py print its ARENA line, its result is discarded, and without this the one-runner guard makes the gate grade green for the ceo and FAIL(1) for every other seat (the cfo reproduced it as seat cfo; CEO-956, CEO-523)"
+export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: the rebus shard below is a runner invoked as an INSTRUMENT FIXTURE and never a board -- it exists only to make corpus_suite_harness.py print its ARENA line, its result is discarded, and without this the one-runner guard makes the gate grade green for the ceo and FAIL(1) for every other seat (the cfo reproduced it as seat cfo; CEO-956, CEO-523)"
 # test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh -- LON'S RULE HELD BY ITS MECHANISM, NOT BY DISCIPLINE.
 #
 # ⛔⭐ THE RULE (Lon 2026-09-19 16:1x CDT, in-chat to the ceo, verbatim: "Actually, for all GC testing all seats should
@@ -73,8 +73,8 @@ else echo "  arm 1 FAIL: the tiny-arena pass is missing, does not announce a tra
 examined=$((examined + 1))
 a2=""; a2bad=0
 run_one() { # $1 = arena or "unset"; prints the harness's stdout for ONE graded entry
-    if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --by-modes-column --modes m3 --shard 1/43 2>&1 )
-    else ( cd "$ROOT" && SCRIP_HEAP_KB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --by-modes-column --modes m3 --shard 1/43 2>&1 ); fi
+    if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 )
+    else ( cd "$ROOT" && SCRIP_HEAP_KB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 ); fi
 }
 for want in 256 512 unset; do
     exp="$want"; [ "$want" = unset ] && exp=128

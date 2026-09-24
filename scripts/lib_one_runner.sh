@@ -131,6 +131,11 @@ one_runner_lang() {
 # one_runner_who now returns EMPTY, and one_runner_guard refuses rc=2 on an empty owner NAMING THE MISSING
 # LANES LINE specifically -- a missing line and a line that names no owner for this language are DIFFERENT
 # faults and a reader must not have to guess which one they are looking at.
+one_runner_seat_is_language_hq() {   # an hq_* seat the LANES: line names for a language (Lon: "all 5 HQ's")
+  case "$1" in hq_*) ;; *) return 1;; esac
+  local lanes; lanes="$(one_runner_lanes_line)"; [ -n "$lanes" ] || return 1
+  printf '%s' "$lanes" | tr ' ' '\n' | sed -n 's/^[a-z0-9]*=//p' | grep -qx -- "$1"
+}
 one_runner_lanes_line() {
   grep -m1 '^LANES:' "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | sed 's/^LANES://'
 }
@@ -169,8 +174,20 @@ one_runner_guard() {
   if [ -z "${S4E_MEM_OOM_AT_START:-}" ]; then S4E_MEM_OOM_AT_START="$(python3 "$(dirname "${BASH_SOURCE[0]}")/util_mem_scope.py" oom-kills 2>/dev/null || echo 0)"; export S4E_MEM_OOM_AT_START; fi
   seat="$(one_runner_seat)"; lang="$(one_runner_lang "$board" "$suite")"; who="$(one_runner_who "$lang")"
   if [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$who"; then return 0; fi
-  if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
-  if [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; then printf '⚠ ONE-RUNNER OVERRIDE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_OVERRIDE"; return 0; fi
+  # ⛔⭐ ONE SEAT, ONE LANGUAGE: A LANGUAGE HQ NEVER RUNS ANOTHER LANGUAGE'S BOARD -- NEITHER EXEMPTION BELOW ADMITS IT (Lon 2026-09-24,
+  # in-chat to hq_prolog, verbatim: "Just have each seat run only their own test suites." / "We can not have all 5 HQ's deciding to
+  # run all seven test suites simultaneously. Fix that."). An hq_* seat the LANES: line names falls through to the refusal; a
+  # shared-code landing is graded by its lander on its OWN language and every other language reads it on its own next pass (CEO-775).
+  # A GATE running a runner as an instrument fixture (a tiny slice inside the blocking set, never a seat's board run) says so with
+  # S4E_ONE_RUNNER_FIXTURE="why" and is admitted for every seat; S4E_ONE_RUNNER_OVERRIDE is the SEAT's override and is not an HQ's.
+  if [ -n "${S4E_ONE_RUNNER_FIXTURE:-}" ]; then printf 'ONE-RUNNER FIXTURE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_FIXTURE"; return 0; fi
+  local _hq=0; [ -n "$seat" ] && one_runner_seat_is_language_hq "$seat" && _hq=1
+  if [ "$_hq" = 0 ]; then
+    if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
+    if [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; then printf '⚠ ONE-RUNNER OVERRIDE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_OVERRIDE"; return 0; fi
+  else
+    printf '⛔ ONE SEAT, ONE LANGUAGE: %s is a language HQ -- no S4E_ONE_RUNNER_OVERRIDE and no DONE-WHEN admits it to a %s board (Lon 2026-09-24: "Just have each seat run only their own test suites.")\n' "$seat" "${lang:-unknown}" >&2
+  fi
   local _noseat
   if [ -z "$(one_runner_lanes_line)" ]; then
     _noseat="<NO SEAT: the MODE file carries NO LANES: line at all, so no language has an owner. This REFUSES and no longer resolves to a baked name (ceo CEO-957). Fix MODE, or, in a fixture, declare a lane table the way gate_stage_picker_lane_table does>"
@@ -192,13 +209,13 @@ one_runner_guard() {
 ONE_RUNNER_PROBE_SEAT='__one_runner_probe_not_a_seat__'
 one_runner_prove_seam() {
   local out rc fails=0 outside
-  out=$(S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' one_runner_guard 'one-runner-seam-probe' "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}" 2>&1); rc=$?
+  out=$(S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' S4E_ONE_RUNNER_FIXTURE='' one_runner_guard 'one-runner-seam-probe' "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}" 2>&1); rc=$?
   if [ "$rc" = 2 ] && printf '%s' "$out" | grep -q 'REFUSE(2) ONE RUNNER'; then printf '  OK   ARM 1 the guard REFUSES a board to a seat its language LANE does not name (rc=2, message asserted)
 '
   else printf '  FAIL ARM 1 expected rc=2 and a REFUSE message on a corpus-rooted board, got rc=%s: %s
 ' "$rc" "${out:-<silent>}"; fails=$((fails+1)); fi
   outside="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' one_runner_guard 'one-runner-seam-probe' "$outside" >/dev/null 2>&1; rc=$?
+  S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' S4E_ONE_RUNNER_FIXTURE='' one_runner_guard 'one-runner-seam-probe' "$outside" >/dev/null 2>&1; rc=$?
   if [ "$rc" = 0 ]; then printf '  OK   ARM 2 the guard ADMITS a suite path OUTSIDE the corpus tree (a gate fixture is not a board)
 '
   else printf '  FAIL ARM 2 expected rc=0 for a non-corpus suite path, got rc=%s
@@ -210,7 +227,7 @@ one_runner_prove_seam() {
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-}" in
     --prove-seam) one_runner_prove_seam; exit $?;;
-    --check) seat="$(one_runner_seat)"; lang="$(one_runner_lang "${2:-}" "${3:-}")"; { { [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$(one_runner_who "$lang")"; } || [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; } && exit 0; exit 2;;
+    --check) seat="$(one_runner_seat)"; lang="$(one_runner_lang "${2:-}" "${3:-}")"; { { [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$(one_runner_who "$lang")"; } || [ -n "${S4E_ONE_RUNNER_FIXTURE:-}" ] || { ! one_runner_seat_is_language_hq "$seat" && { [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; }; }; } && exit 0; exit 2;;
     --who) one_runner_who "$(one_runner_lang "${2:-}" "${3:-}")"; echo; exit 0;;
     --lang) one_runner_lang "${2:-}" "${3:-}"; echo; exit 0;;
     --seat) one_runner_seat; exit 0;;

@@ -38,7 +38,6 @@ reset_icon() {
   # one thing to scope --absorb-only against, independent of how much of the real corpus has been absorbed.
   printf 'procedure main()\n    write("contract gate synthetic witness")\nend\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.icn"
   printf 'contract gate synthetic witness\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.ref"
-  printf '%s\tm3,m4\t# planted by this gate'"'"'s arm D on every reset, never a real fixture\n' "$SYNTH_ABS" >>"$T/corpus/tests/icon/config/MODES.tsv"
 }
 F=0
 added=""   # bound up front: arm D's UNPROVEN branch (population empty) must not leave arm E's read of $added unbound under `set -u`

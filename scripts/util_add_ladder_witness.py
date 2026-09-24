@@ -12,7 +12,7 @@ the master suite -- ALL.<ext>/ALL.ref get the new banner-delimited block (via co
 OWN Entry/read_block_suite/write_block_suite, never a hand-rolled marker writer, so formatting is
 byte-identical to the other N entries by construction, not by care), and ALL.csv gets a new row with
 EVERY column DERIVED from the source + the oracle's own verdict -- rank, entry, family, kind, xfail,
-n_lines, modes, want_rc and all ~61 per-construct feature flags. Nothing is typed by the caller except
+n_lines, want_rc and all ~61 per-construct feature flags. Nothing is typed by the caller except
 the origin and the source text.
 
 ⛔⛔ THE REF IS ORACLE-CUT, NEVER HAND-TYPED AND NEVER FROM SCRIP (hq_B's own constraint, verbatim: "refs
@@ -109,7 +109,8 @@ SPECIAL_ORDER = ["scan", "alternation", "element_gen", "limitation", "to_by", "a
     "gen_with_alternation"]
 FLAG_ORDER = SIMPLE_WORDS + SPECIAL_ORDER
 assert len(FLAG_ORDER) == 61, len(FLAG_ORDER)
-CSV_FIELDS = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + FLAG_ORDER
+FIXED = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines"]
+CSV_FIELDS = FIXED + FLAG_ORDER
 WORD_RE = {w: re.compile(r"\b%s\b" % re.escape(w)) for w in SIMPLE_WORDS}
 
 
@@ -217,18 +218,24 @@ def _builder():
 def lang_schema(lang, rows):
     """The CSV schema is READ FROM THE FILE THIS TOOL IS ABOUT TO APPEND TO, never hardcoded twice. Icon keeps
     its compiled-in assertion (its 61 columns are this script's own contract); every other language takes the
-    header as written, because the builder owns that header and a second copy of it here would drift."""
+    builder's own flag columns as the header names them, because the builder owns that header and a second copy
+    of it here would drift. A column this tool does not derive (a per-entry declaration such as heap_kb) is
+    left BLANK on the new row -- a new witness declares nothing -- and the dry-run names it."""
     if not rows:
         refuse("%s master ALL.csv has no rows -- nothing to derive a schema from" % lang)
     fields = list(rows[0].keys())
+    if fields[:len(FIXED)] != FIXED:
+        refuse("%s ALL.csv does not open with the %d fixed columns %s -- do not proceed blind" % (lang, len(FIXED), FIXED))
+    rest = fields[len(FIXED):]
     if lang == "icon":
-        if fields != CSV_FIELDS:
-            refuse("ALL.csv header does not match this script's known schema -- do not proceed blind")
-        return CSV_FIELDS, FLAG_ORDER
-    fixed = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"]
-    if fields[:len(fixed)] != fixed:
-        refuse("%s ALL.csv does not open with the 8 fixed columns %s -- do not proceed blind" % (lang, fixed))
-    return fields, fields[len(fixed):]
+        if [f for f in rest if f in FLAG_ORDER] != FLAG_ORDER:
+            refuse("ALL.csv header does not carry this script's 61 known flag columns in order -- do not proceed blind")
+        return fields, FLAG_ORDER
+    b = _builder()
+    if lang not in b.LANG_TABLES:
+        refuse("util_build_master_suite.py has no LANG_TABLES entry for %r" % lang)
+    derived = {name for name, _ in b.LANG_TABLES[lang][0]}
+    return fields, [f for f in rest if f in derived]
 
 
 def builder_flags(lang, sno_lines):
@@ -328,7 +335,7 @@ def main():
     # not have). Its three facts are spelled here, beside the code that uses them, rather than added to the
     # shared table where they would claim membership of a family this master is not in.
     cfg = csh.LANG_CONFIGS[lang] if lang in csh.LANG_CONFIGS else {
-        "ext": ".sno", "comment_open": "*", "comment_close": "", "modes": "m3,m4"}
+        "ext": ".sno", "comment_open": "*", "comment_close": ""}
     master_dir = S4E / "corpus" / "tests" / lang
     master_src, master_ref, master_csv = (master_dir / ("ALL" + cfg["ext"]), master_dir / "ALL.ref",
                                            master_dir / "ALL.csv")
@@ -433,19 +440,6 @@ def main():
                "through read_suite without a wantrc sidecar path -- extend that arm before minting a "
                "nonzero-rc witness for it" % (want_rc, lang))
 
-    # ⛔⭐ THE MODES CELL IS DERIVED FROM THE POPULATION THIS WITNESS IS JOINING, NOT FROM LANG_CONFIGS
-    # (hq_I 2026-09-13). LANG_CONFIGS["snocone"]["modes"] is "ast" -- correct for the parser-fixture
-    # family that entry was written for, and WRONG for a ladder witness, every one of which is graded m3+m4
-    # by lib_ladder.sh. Taking it from cfg would have minted every Snocone ladder row claiming to be an
-    # AST-only entry, which the ladder runner would then grade in two modes anyway: a cell that disagrees
-    # with how the row is actually graded is worse than an absent one. So read it off the existing
-    # family==ladder rows and REFUSE if they disagree among themselves rather than picking a winner.
-    _lm = sorted({(r.get("modes") or "").strip() for r in rows
-                  if (r.get("family") or "").strip() == "ladder" and (r.get("modes") or "").strip()})
-    if len(_lm) > 1:
-        refuse("family==ladder rows of %s disagree on the modes cell (%s) -- a new witness cannot pick a "
-               "winner; reconcile the master first" % (master_csv, ", ".join(_lm)))
-    ladder_modes = _lm[0] if _lm else cfg["modes"]
     flags = derive_flags(sno_lines) if lang == "icon" else builder_flags(lang, sno_lines)
 
     # ⛔⭐ THE READER IS CHOSEN BY SUITE SHAPE, NOT BY LANGUAGE NAME (hq_I 2026-09-13). This read `lang ==
@@ -479,7 +473,7 @@ def main():
         # ⛔⭐ THE REFUSAL IS CORRECT; ITS EXPLANATION WAS FALSE, AND THAT COST FOUR LANES A DIAGNOSIS EACH
         # (hq_T 2026-09-13, on the cfo's routed brief). This message used to say only "this language's
         # reader+writer pair does not reproduce the existing master" -- which accuses THE TOOL, while by far
-        # the likeliest fault is in THE FILE: corpus a6646f04c removed the 620 modes=ast entries from all
+        # the likeliest fault is in THE FILE: corpus a6646f04c removed the 620 AST-graded entries from all
         # seven masters without renumbering, leaving banner numbers that no longer equal their positions, and
         # this proof went red on five of the seven at once. Three lanes each paid the same unaided diagnosis
         # and then each hand-renumbered their own master. So before accusing itself, the proof now SEPARATES
@@ -519,15 +513,18 @@ def main():
     # e.seq back out -- so "banner number == position" is an invariant of every file the reader has touched,
     # and an entry whose seq is its rank makes the master fail this tool's OWN round-trip proof on the very
     # next invocation. It was invisible for as long as rank and position coincided; corpus a6646f04c removed
-    # the 620 modes=ast entries from all seven masters and separated them permanently (hq_T 2026-09-13).
+    # the 620 AST-graded entries from all seven masters and separated them permanently (hq_T 2026-09-13).
     new_entry = csh.Entry("block", len(entries) + 1, entry_name, sno_lines, ref_lines, want_rc=want_rc)
     new_row = {"rank": str(rank), "entry": entry_name, "origin": args.origin, "family": "ladder",
-               "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines)), "modes": ladder_modes}
+               "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines))}
     for k in flag_order:
         new_row[k] = str(flags[k])
 
-    print("would add: rank=%s entry=%s origin=%s want_rc=%s n_lines=%s modes=%s"
-          % (rank, entry_name, args.origin, want_rc, len(sno_lines), ladder_modes))
+    print("would add: rank=%s entry=%s origin=%s want_rc=%s n_lines=%s"
+          % (rank, entry_name, args.origin, want_rc, len(sno_lines)))
+    _blank = [f for f in fields if f not in new_row]
+    if _blank:
+        print("  left blank (not derived here):", ", ".join(_blank))
     nz = [k for k in flag_order if flags[k]]
     print("  non-zero flags:", ", ".join(nz) if nz else "(none)")
     print("  oracle stdout:", repr(ref_text))

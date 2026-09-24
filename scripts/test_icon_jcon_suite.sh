@@ -81,21 +81,6 @@ OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
 # ZERO against .ref files icont REFUSES to compile, so they were green cells resting on jcon's answers --
 # the same defect as the sixteen jcon-cut refs re-cut this morning, except these three cannot be re-cut
 # because the oracle will not run them. A false green is worth less than a smaller honest denominator.
-# ⛔⭐ MODES.tsv -- WHICH INSTRUMENT GRADES AN ENTRY (ceo CEO-561, 2026-09-11, hq_V). A program that prints
-# &progname has an output that is A FUNCTION OF ITS INVOCATION: jcon's kwds.ref is a ONE-STEP cut reading
-# `&progname: kwds.icn`, and a mode-4 binary IS the program and reports its own argv[0], so NO single ref can
-# be right for both modes and no better ref or pinned name can close it. The modes column says which arm can
-# answer the question. ⛔ THIS IS NOT OUTSIDE_ARIZONA_BASELINE.tsv AND MUST NEVER BECOME IT: an outside-baseline
-# name leaves the graded denominator because no ground truth exists; a declared entry KEEPS its place in
-# SHIPPED, in GRADED and in the published fraction and is graded by the arm that can grade it. ⛔ AND THE
-# NOT-GRADED CELLS ARE NAMED ON THE BOARD, because a per-mode TOTAL that quietly shrinks is the false-green
-# shape this tree keeps paying for -- a reader must be able to see the cell that was not measured.
-MODES_TSV="$CORPUS/MODES.tsv"
-declared_modes() { [ -f "$MODES_TSV" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$MODES_TSV"; }
-# ⛔ A DECLARATION THAT NAMES NO SHIPPED PROGRAM REFUSES THIS RUNNER rc=2, and the reason is measured, not
-# theoretical: corpus tests/snocone/scrip/sm_lower_test.ref's own KEEP.md still DECLARES a pair whose source
-# left the tree (hq_T, 2026-09-11), a keeper declaration that outlived the file it keeps and that nothing
-# could see. A modes row for a deleted program would silently grade nothing while reading as a live rule.
 is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
 outside_reason() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$OUTSIDE"; }
 OUTSIDE_LIST=""
@@ -112,22 +97,11 @@ while [[ $# -gt 0 ]]; do
         *) flaggate_reject "$1" "--mode --scrip --corpus --timeout" ;;
     esac
 done
-# ⛔⭐ THE SIDECAR PATHS ARE RE-BOUND HERE, AFTER --corpus IS PARSED, AND THE FIRST VERSION OF THE MODES
-# WIRING ABOVE SHIPPED THIS BUG FOR TEN MINUTES BEFORE A SCRATCH ARM CAUGHT IT (hq_V 2026-09-11): both
-# OUTSIDE and MODES_TSV were bound from the DEFAULT $CORPUS at load time, so `--corpus <scratch>` graded the
-# scratch tree while reading the PACKAGE's declarations -- a run that silently mixes two trees' rules and
-# reports one number. It is invisible at the default path, which is exactly why it survived in the OUTSIDE
-# line; the fix belongs to both, since one of them being right by accident is not a contract.
+# ⛔⭐ THE SIDECAR PATHS ARE RE-BOUND HERE, AFTER --corpus IS PARSED (hq_V 2026-09-11): bound from the DEFAULT
+# $CORPUS at load time, `--corpus <scratch>` graded the scratch tree while reading the PACKAGE's declarations --
+# a run that silently mixes two trees' rules and reports one number, invisible at the default path.
 OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
-MODES_TSV="$CORPUS/MODES.tsv"
-PKG_CSV="$CORPUS/ALL.csv"   # the attribute file the heap_kb declaration lives in (CEO-1167) -- rebound here, not at load time, for the identical reason OUTSIDE/MODES_TSV are (see the comment just above)
-if [ -f "$MODES_TSV" ]; then
-    while IFS=$'\t' read -r _mname _mmodes _mrest; do
-        case "$_mname" in ''|'#'*) continue ;; esac
-        [ -f "$CORPUS/$_mname.icn" ] || { echo "⛔ REFUSED TO GRADE rc=2: $MODES_TSV declares modes for '$_mname' but $CORPUS/$_mname.icn does not exist -- a declaration that outlived its program cannot be a live rule; delete the row or restore the file" >&2; exit 2; }
-        case "$_mmodes" in m3|m4|m3,m4) ;; *) echo "⛔ REFUSED TO GRADE rc=2: $MODES_TSV row '$_mname' declares modes '$_mmodes'; only m3, m4 or m3,m4 can be honoured -- guessing which arm was meant is how a wrong exclusion becomes permanent" >&2; exit 2 ;; esac
-    done < "$MODES_TSV"
-fi
+PKG_CSV="$CORPUS/ALL.csv"   # the attribute file the heap_kb declaration lives in (CEO-1167) -- rebound here, not at load time, for the identical reason OUTSIDE is (see the comment just above)
 
 if [ ! -x "$SCRIP" ]; then
     echo "⛔ REFUSED TO GRADE: no scrip binary at $SCRIP — run make" >&2
@@ -297,8 +271,8 @@ run_one() {
 
 run_mode() {
     local mode="$1"
-    local pass=0 fail=0 reject=0 crash=0 hang=0 notgraded=0
-    local -a reject_names=() fail_names=() crash_names=() hang_names=() notgraded_names=() moderef_names=()
+    local pass=0 fail=0 reject=0 crash=0 hang=0
+    local -a reject_names=() fail_names=() crash_names=() hang_names=()
     local _want _nsub
     local icn std kind outfile
     for icn in "$CORPUS"/*.icn; do
@@ -311,32 +285,7 @@ run_mode() {
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.ref is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.ref sources above
         outfile="$WORK/out.txt"
         name=$(basename "$icn" .icn)
-        _dm=$(declared_modes "$name")
-        if [ -n "$_dm" ] && [[ ",$_dm," != *",$mode,"* ]]; then
-            notgraded=$((notgraded+1)); notgraded_names+=("$name")
-            continue
-        fi
-        # ⛔⭐ THE PER-MODE REF IS RESOLVED HERE, NOT INSIDE run_one (ceo CEO-581, 2026-09-11). A line whose value
-        # the INVOCATION determines gets one ref per mode: kwds prints &progname, m3 is handed a SOURCE and the
-        # oracle answers kwds.icn, m4 IS the program and the oracle answers ./kwds, and BOTH are what icont
-        # prints -- measured on this package's own kwds.icn under both invocations (see kwds.moderef's receipt).
-        # Nothing is hidden: the line is graded in full, against the answer for THAT invocation.
-        # ⛔ THROUGH THE SHARED SHIM, NEVER A LOCAL sed: util_apply_moderef.py imports the harness's own reader,
-        # so this runner and the master cannot disagree about what a per-mode ref means -- the defect this lane
-        # cured one day earlier, when "does this program have stdin?" had three written answers.
-        # ⛔ AND IT IS RESOLVED IN run_mode AND NOT IN run_one BECAUSE run_one'S STDOUT IS THE VERDICT: it runs in
-        # a command substitution, so a refusal echoed there would be READ AS A KIND and an `exit 2` would leave
-        # only the subshell, with $kind empty and the program silently uncounted. A refusal must be able to stop
-        # the runner, so it lives where the runner can stop.
         _want="$std"
-        if [ -f "${icn%.icn}.moderef" ]; then
-            _want="$WORK/$name.$mode.want"
-            if ! python3 "$HERE/util_apply_moderef.py" "$std" "$name" "$mode" "$WORK/$name.$mode.nsub" > "$_want"; then
-                echo "⛔ REFUSED TO GRADE rc=2: $(basename "${icn%.icn}.moderef") could not be rendered for $name/$mode -- a declaration that cannot be applied is not a ref, and grading this cell against the OTHER mode's string would manufacture a red"; exit 2
-            fi
-            _nsub=$(cat "$WORK/$name.$mode.nsub" 2>/dev/null || echo 0)
-            [ "${_nsub:-0}" -gt 0 ] && moderef_names+=("$name:$_nsub line(s)")
-        fi
         kind=$(run_one "$mode" "$icn" "$_want" "$outfile")
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
@@ -353,9 +302,7 @@ run_mode() {
     done
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
     local mode_total=$((pass+fail+reject+crash+hang))
-    echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang NOTGRADED=$notgraded TOTAL=$mode_total ---"
-    [ "${#moderef_names[@]}" -gt 0 ] && echo "    PER-MODE REF IN $mode (CEO-581: an invocation-determined line, graded in full against the oracle's answer for THIS invocation; receipt in the .moderef row): ${moderef_names[*]}"
-    [ "$notgraded" -gt 0 ] && echo "    NOT GRADED IN $mode by declaration in $(basename "$MODES_TSV") (in the denominator, graded by the other arm; reason in the row): ${notgraded_names[*]}"
+    echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang TOTAL=$mode_total ---"
     [ "$reject" -gt 0 ] && echo "    REJECT (dialect gap, semicolon-required): ${reject_names[*]}"
     [ "$fail" -gt 0 ]   && echo "    FAIL (wrong output): ${fail_names[*]}"
     [ "$crash" -gt 0 ]  && echo "    CRASH: ${crash_names[*]}"

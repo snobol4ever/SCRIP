@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # board_patterns_2mode.sh -- two-mode (m3 --run / m4 --compile) census over crosscheck/patterns.
-# Reports per-program AGREE (both modes match .ref) / m3-only-fail / m4-only-fail / both-fail,
+# Reports per-program AGREE (both modes match .ref) / m3-fail-m4-pass / m4-fail-m3-pass / both-fail,
 # with failure-mode tags (DIFF/HANG/SIGnn/rcN). Self-contained per RULES.md.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
@@ -47,7 +47,7 @@ compile_m4() {
 }
 
 : > "$OUT"
-AGREE=0; M3ONLY=0; M4ONLY=0; BOTHFAIL=0; TOTAL=0
+AGREE=0; M3FAIL_M4PASS=0; M4FAIL_M3PASS=0; BOTHFAIL=0; TOTAL=0
 cd "$DIR" || exit 1
 for s in *.sno; do
   b="${s%.sno}"
@@ -70,11 +70,11 @@ for s in *.sno; do
   echo -e "$b\t$m3\t$m4" >> "$OUT"
 
   if   [ "$m3" = PASS ] && [ "$m4" = PASS ]; then AGREE=$((AGREE+1))
-  elif [ "$m3" = PASS ] && [ "$m4" != PASS ]; then M4ONLY=$((M4ONLY+1))
-  elif [ "$m3" != PASS ] && [ "$m4" = PASS ]; then M3ONLY=$((M3ONLY+1))
+  elif [ "$m3" = PASS ] && [ "$m4" != PASS ]; then M4FAIL_M3PASS=$((M4FAIL_M3PASS+1))
+  elif [ "$m3" != PASS ] && [ "$m4" = PASS ]; then M3FAIL_M4PASS=$((M3FAIL_M4PASS+1))
   else BOTHFAIL=$((BOTHFAIL+1))
   fi
 done
 
-echo "TOTAL $TOTAL  AGREE(both PASS) $AGREE  m4-only-fail $M4ONLY  m3-only-fail $M3ONLY  both-fail $BOTHFAIL"
+echo "TOTAL $TOTAL  AGREE(both PASS) $AGREE  m4-fail-m3-pass $M4FAIL_M3PASS  m3-fail-m4-pass $M3FAIL_M4PASS  both-fail $BOTHFAIL"
 echo "tsv: $OUT"

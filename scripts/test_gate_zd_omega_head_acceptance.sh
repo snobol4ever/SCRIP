@@ -1,5 +1,5 @@
 #!/bin/bash
-export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
+export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_zd_omega_head_acceptance.sh — acceptance gate for the row
@@ -190,7 +190,7 @@ else
     if [ "$f3" -eq 0 ] && [ "$f4" -eq 0 ]; then
         report snobol4-blocking 0 "$(printf '%s\n' "$out" | tail -1)"
     else
-        report snobol4-blocking 1 "m3 FAIL=$f3 m4 FAIL=$f4 -- both modes must read 0 (informational-only m3 FAIL is not a pass for this row)"
+        report snobol4-blocking 1 "m3 FAIL=$f3 m4 FAIL=$f4 -- both modes must read 0 (an m3 FAIL is never informational for this row)"
     fi
 fi
 

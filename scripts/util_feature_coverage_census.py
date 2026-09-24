@@ -9,9 +9,9 @@ entries-per-feature and entries-per-feature-PAIR, names every feature below its 
 feature with no pair at all, and rewrites its row on the leaderboard. It does NOT write test cases --
 that is each lane's own walk.
 
-THE SCHEMA: corpus/tests/<lang>/ALL.csv carries a fixed 8-column prefix (rank, entry, origin, family,
-kind, xfail, n_lines, modes) -- verified identical across all seven languages before a line of this was
-written -- followed by one 0/1 column per feature (snobol4/snocone/rebus 39, icon 61, prolog 39, raku
+THE SCHEMA: corpus/tests/<lang>/ALL.csv carries a fixed prefix (rank, entry, origin, family, kind, xfail,
+n_lines, heap_kb) -- verified identical across all seven languages before a line of this was written --
+followed by one 0/1 column per feature (snobol4/snocone/rebus 39, icon 61, prolog 39, raku
 39, pascal 50; measured against the real trees, matches GOAL-TEST-SUITE-CONSISTENCY.md's own count).
 A cell is boolean presence, not a count (measured max cell value across the whole snobol4 master is 1).
 
@@ -51,13 +51,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
 CORPUS = os.path.join(S4E, "corpus")
 LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
-# ⛔⭐ heap_kb JOINED THIS PREFIX 2026-09-23 (Lon / CEO-1167) AND THAT IS NOT A COSMETIC ENTRY. This
-# list binds BY POSITION, once, and read_master() treats everything after it as a feature column by
+# ⛔⭐ heap_kb JOINED THIS PREFIX 2026-09-23 (Lon / CEO-1167) AND THAT IS NOT A COSMETIC ENTRY. read_master()
+# locates these columns BY NAME, in order, and treats everything after the last of them as a feature column by
 # construction -- so the instant the column landed in ALL.csv without this line moving, all seven
 # languages REFUSED with "1/40 feature column(s) declared but NEVER FILLED: heap_kb". That refusal is
 # the design working: an attribute column silently counted as an unfilled feature would have dragged
 # every language's coverage denominator without one number changing its name. Measured, in that order.
-PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb", "stack_kb"]
+PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"]
 DEFAULT_FLOOR = 10   # the GOAL text's own worked example: SNOBOL4, the model shape, flags "below 10".
 
 
@@ -113,12 +113,13 @@ def read_master(lang):
             hdr = next(r)
         except StopIteration:
             return None, None, "ALL.csv at %s is empty" % p
-        if hdr[:len(PREFIX)] != PREFIX:
-            return None, None, ("ALL.csv header prefix mismatch at %s -- expected %s, got %s "
-                                 "(binds by position deliberately, once, right here: everything after "
-                                 "this fixed prefix is a feature column by construction)"
-                                 % (p, PREFIX, hdr[:len(PREFIX)]))
-        feat_cols = hdr[len(PREFIX):]
+        _pos = [hdr.index(c) if c in hdr else -1 for c in PREFIX]
+        if -1 in _pos or _pos != sorted(_pos) or _pos[0] != 0:
+            return None, None, ("ALL.csv header prefix mismatch at %s -- expected the fixed columns %s in order, got %s "
+                                 "(everything after the last fixed column is a feature column by construction)"
+                                 % (p, PREFIX, hdr[:len(PREFIX) + 1]))
+        first_feat = _pos[-1] + 1
+        feat_cols = hdr[first_feat:]
         if not feat_cols:
             return [], [], None
         rows = []
@@ -128,7 +129,7 @@ def read_master(lang):
             if len(rec) < len(hdr):
                 return None, None, "ALL.csv at %s line %d has %d field(s), header has %d" % (p, lineno, len(rec), len(hdr))
             vals = {}
-            for f, v in zip(feat_cols, rec[len(PREFIX):]):
+            for f, v in zip(feat_cols, rec[first_feat:]):
                 v = v.strip()
                 try:
                     vals[f] = int(v) if v else 0
@@ -222,7 +223,7 @@ def selftest():
                 w = csv.writer(fh, lineterminator="\n")   # OUR FILES ARE LF; csv defaults to CRLF.
                 w.writerow(PREFIX + feat_cols)
                 for i, vals in enumerate(entry_rows, start=1):
-                    w.writerow([str(i), "e%d" % i, "e%d" % i, "fam", "line", "0", "1", "UNKNOWN"] + vals)
+                    w.writerow([str(i), "e%d" % i, "e%d" % i, "fam", "line", "0", "1", ""] + vals)
             if floors:
                 cd = os.path.join(td, "config")
                 os.makedirs(cd, exist_ok=True)

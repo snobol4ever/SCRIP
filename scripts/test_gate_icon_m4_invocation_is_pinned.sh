@@ -17,8 +17,7 @@
 #     master harness, the jcon runner and the arizona runner all put the binary's directory first on PATH and invoke
 #     `<stem>`), so argv[0] is `<stem>` and the oracle under the same invocation (`iconx <stem>`) answers the same;
 #   * therefore ONE ref line is right for both modes, cut from the oracle under `iconx <stem>`, and NO per-mode
-#     declaration for &progname exists any more (the .moderef MECHANISM stays for a line the invocation genuinely
-#     determines; this gate asserts no &progname row is left in it).
+#     declaration exists at all -- the .moderef mechanism is gone (CEO-1218/1230: one machine in two media, one ref).
 #
 # ⛔ IT GRADES ON ITS OWN FIXTURES, NEVER ON A BOARD (CEO-547 part 2, ONE RUNNER ONE BOARD): a source-level assertion
 # over the three graders, a live round trip on a witness it compiles itself, the one-entry master graded THROUGH the
@@ -106,11 +105,11 @@ MASTER="$S4E/corpus/tests/icon"; JC="$S4E/corpus/packages/icon/jcon_tests"; AZ="
 if grep -q '^   &progname: procedure_every_alt_replace_4$' "$MASTER/ALL.ref"; then say_ok "IcnM entry procedure_every_alt_replace_4: the ref line reads the bare stem"; else say_fail "IcnM entry procedure_every_alt_replace_4: the ref line does not read the bare stem"; fi
 if grep -q '^   &progname: kwds$' "$JC/kwds.ref"; then say_ok "jcon kwds.ref: the ref line reads the bare stem"; else say_fail "jcon kwds.ref: the ref line does not read the bare stem"; fi
 if grep -q '^   &progname: kwds$' "$AZ/kwds.ref"; then say_ok "arizona kwds.ref: the ref line reads the bare stem"; else say_fail "arizona kwds.ref: the ref line does not read the bare stem"; fi
-n_decl=$(awk -F'\t' '!/^#/ && NF>1 && index($0,"progname")' "$MASTER/ALL.moderef" 2>/dev/null | wc -l)
-if [ "$n_decl" -eq 0 ] && [ ! -f "$JC/kwds.moderef" ] && [ ! -f "$AZ/kwds.moderef" ]; then
-  say_ok "no per-mode &progname declaration remains (ALL.moderef rows naming progname: 0; jcon and arizona kwds.moderef absent)"
+n_decl=$(find "$S4E/corpus" -name '*.moderef' -not -path '*/.git/*' 2>/dev/null | wc -l)
+if [ "$n_decl" -eq 0 ]; then
+  say_ok "no per-mode ref declaration (.moderef) exists anywhere in the corpus -- one ref serves both modes"
 else
-  say_fail "a per-mode &progname declaration survives (ALL.moderef rows: $n_decl; jcon kwds.moderef: $([ -f "$JC/kwds.moderef" ] && echo present || echo absent); arizona: $([ -f "$AZ/kwds.moderef" ] && echo present || echo absent)) -- CEO-624 made the modes identical, so the declaration is a second answer"
+  say_fail "$n_decl per-mode ref declaration file(s) (.moderef) survive in the corpus: $(find "$S4E/corpus" -name '*.moderef' -not -path '*/.git/*' | head -3 | tr '\n' ' ')"
 fi
 
 echo "CLAUSE 5 -- the two shipped programs that print &progname reproduce their refs in BOTH modes, run the way the graders run them"

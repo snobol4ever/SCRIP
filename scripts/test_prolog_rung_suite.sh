@@ -23,8 +23,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # moment its loose originals are removed (empty-glob false-green — the exact bug this same
 # task found and fixed in 7 other per-rung scripts). collect_files() also gathers converted
 # families into SUITE_FILES; run_corpus() delegates those to `corpus_suite_harness.py run`
-# for interp/run modes ONLY. compile mode does NOT get suite delegation — m4/Prolog grading
-# is untested/premature per this task's own ledger; adding it needs a separate check first.
+# in the mode being graded -- m3 for interp/run, m4 for compile. The two modes are one machine in two media
+# (Lon 2026-09-23), so every family is graded in both.
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7 · Claude Sonnet
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
@@ -209,33 +209,34 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
-    # suite-format families (see header note): interp/run delegate to the harness, one family at a
-    # time, folding its per-entry board into these same totals. compile does NOT get this — see header.
-    if [ "$mode" != compile ]; then
+    # suite-format families (see header note): delegated to the harness in this mode, one family at a
+    # time, folding its per-entry board into these same totals.
+    local hm=m3; [ "$mode" = compile ] && hm=m4
+    {
         local sf sfname raw board spass sfail scrash shang sunproven sbad eline etag erest ename edetail
         for sf in "${SUITE_FILES[@]}"; do
             sfname=$(basename "$sf" .pl)
             # SUITE_LIST_ALL=1 + full (unfiltered) capture: the harness already prints one line per
-            # non-PASS entry ("  TAG m3 name: detail", cmd_run's own `fails` listing) -- it was being
+            # non-PASS entry ("  TAG <mode> name: detail", cmd_run's own `fails` listing) -- it was being
             # thrown away by piping straight into `grep '^SUITE_BOARD'`. Reformat each into this
             # script's own RED shape instead of re-deriving per-entry identity a second way.
-            raw=$(SUITE_LIST_ALL=1 python3 "$HERE/corpus_suite_harness.py" run "$sf" "${sf%.pl}.ref" --lang prolog --modes m3 2>&1)
+            raw=$(SUITE_LIST_ALL=1 python3 "$HERE/corpus_suite_harness.py" run "$sf" "${sf%.pl}.ref" --lang prolog --modes "$hm" 2>&1)
             board=$(printf '%s\n' "$raw" | grep '^SUITE_BOARD')
-            spass=$(echo "$board" | grep -oP 'm3_pass=\K[0-9]+')
+            spass=$(echo "$board" | grep -oP "${hm}_pass=\\K[0-9]+")
             if [ -z "$spass" ]; then
                 echo "RED $mode $sfname: SUITE-RUN-ERROR (harness produced no SUITE_BOARD line)"
                 FAIL=$((FAIL+1)); MODE_FAIL=1
                 continue
             fi
-            sfail=$(echo "$board" | grep -oP 'm3_fail=\K[0-9]+')
-            scrash=$(echo "$board" | grep -oP 'm3_crash=\K[0-9]+')
-            shang=$(echo "$board" | grep -oP 'm3_hang=\K[0-9]+')
-            sunproven=$(echo "$board" | grep -oP 'm3_unproven=\K[0-9]+')
+            sfail=$(echo "$board" | grep -oP "${hm}_fail=\\K[0-9]+")
+            scrash=$(echo "$board" | grep -oP "${hm}_crash=\\K[0-9]+")
+            shang=$(echo "$board" | grep -oP "${hm}_hang=\\K[0-9]+")
+            sunproven=$(echo "$board" | grep -oP "${hm}_unproven=\\K[0-9]+")
             sbad=$((sfail+scrash+shang+sunproven))
             while IFS= read -r eline; do
                 [ -n "$eline" ] || continue
-                etag="${eline%% m3 *}"; etag="${etag#  }"
-                erest="${eline#* m3 }"
+                etag="${eline%% $hm *}"; etag="${etag#  }"
+                erest="${eline#* $hm }"
                 ename="${erest%%:*}"
                 edetail="${erest#*: }"
                 echo "RED $mode $sfname/$ename: $etag ($edetail)"
@@ -244,7 +245,7 @@ run_corpus() {
             PASS=$((PASS+spass)); FAIL=$((FAIL+sbad))
             [ "$sbad" -gt 0 ] && MODE_FAIL=1
         done
-    fi
+    }
     MODE_TOTAL=$((PASS+FAIL+XFAIL+REFUSED))
     if [ "$REFUSED" -gt 0 ]; then
         echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$MODE_TOTAL ---"

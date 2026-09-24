@@ -217,21 +217,6 @@ printf 'zzz_invented_family\tI WAS ADDED BY HAND AND NOTHING JUSTIFIES ME\n' >> 
 out="$(S4E_HOME="$W/h" S4E_POST="$W/h/postoffice" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
 if [ "$rc" -eq 2 ]; then good "an INVENTED line REFUSES rc=2 (was: survived every rebuild, unchallenged)"
 else bad "⛔ rc=$rc, expected 2 -- an invented exclusion still survives: $out"; fi
-echo "== I. MODES.tsv IS HAND-MAINTAINED AND MUST NOT BE GUARDED (the non-regression that matters most) =="
-# ⛔ The same merge helper writes MODES.tsv, whose whole contract is DECLARED, NEVER DERIVED -- every row is
-# hand-written with its evidence. Guarding it would refuse the file's own intended use on the next build.
-mkscratch "$W/i"
-MODES="$W/i/corpus/tests/snobol4/config/MODES.tsv"
-[ -f "$MODES" ] || MODES="$W/i/corpus/tests/snobol4/MODES.tsv"
-S4E_HOME="$W/i" S4E_POST="$W/i/postoffice" python3 "$BUILDER" --lang snobol4 >/dev/null 2>&1
-printf 'zzz_hand_declared_family\tm3,m4\t# a human wrote this, which is what this file is FOR\n' >> "$MODES"
-out="$(S4E_HOME="$W/i" S4E_POST="$W/i/postoffice" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ]; then good "a hand-written MODES.tsv declaration does NOT refuse the next build"
-else bad "⛔ rc=$rc -- the exclusion guard leaked onto the hand-maintained sidecar: $out"; fi
-if grep -q '^zzz_hand_declared_family' "$MODES"; then good "the hand-written MODES.tsv row survives the rebuild"
-else bad "⛔ the builder erased a hand-written MODES.tsv declaration"; fi
-if ! grep -q 'builder-digest' "$MODES"; then good "no digest line leaked into MODES.tsv"
-else bad "⛔ a builder-digest was written into the hand-maintained sidecar"; fi
 
 GATE_EXAMINED=$ASSERTIONS
 gate_verdict "$FAILS" "failed assertion(s)"

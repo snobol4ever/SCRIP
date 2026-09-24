@@ -123,20 +123,11 @@ PYEOF
 # ⛔ These three invocations are copied from the boards that already grade these masters in production
 # (test_corpus_snobol4.sh, board_icon_master.sh, test_gate_pl_master_board_floor.sh), not re-derived --
 # this codebase has three independent documented incidents (Pascal/Snocone/Raku, 2026-09-03/04) of a
-# false-but-plausible board from getting one language's modes/--by-modes-column pairing wrong.
+# false-but-plausible board from getting one language's --lang/--modes pairing wrong.
 lang_src()  { case "$1" in snobol4) echo "$CORPUS/tests/snobol4/ALL.sno";; icon) echo "$CORPUS/tests/icon/ALL.icn";; prolog) echo "$CORPUS/tests/prolog/ALL.pl";; esac; }
 lang_ref()  { case "$1" in snobol4) echo "$CORPUS/tests/snobol4/ALL.ref";; icon) echo "$CORPUS/tests/icon/ALL.ref";; prolog) echo "$CORPUS/tests/prolog/ALL.ref";; esac; }
-lang_args() { case "$1" in snobol4) echo "--modes m3,m4 --by-modes-column";; icon) echo "--lang icon --modes m3,m4 --by-modes-column";; prolog) echo "--lang prolog --modes m3,m4 --by-modes-column";; esac; }
-# ⛔ CORRECTED 2026-09-05 (seat17, first real exercise of this tool -- hq_U's rt_goto_transfer cure):
-# prolog dropped --by-modes-column at write time because test_gate_pl_master_board_floor.sh, the gate
-# this line was copied from, didn't carry it -- and didn't need to, because corpus/tests/prolog/ALL.csv
-# had no modes=ast population when that gate was last measured against it. It does now (a same-hour
-# corpus repair added 134 modes=ast entries): the harness correctly REFUSED rc=2 rather than executing
-# them and diffing against a --dump-ast dump they were never meant to match -- exactly the "mirror trap"
-# this file's own header already names for Pascal/Snocone/Raku. The fourth language, caught by the tool
-# refusing on its own first real use rather than printing a false board. Precedent copied at write time
-# can go stale under this corpus the same way a hand-typed flag can; this line's job is done once the
-# corpus stops moving under it, which by this project's own admission is not yet.
+lang_args() { case "$1" in snobol4) echo "--modes m3,m4";; icon) echo "--lang icon --modes m3,m4";; prolog) echo "--lang prolog --modes m3,m4";; esac; }
+# Every entry of every master is graded in both modes: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
 
 run_master() {  # $1=lang $2=stdout-file $3=stderr-file ; returns the harness's own exit code
     local lang="$1" out="$2" err="$3" src ref
@@ -252,7 +243,7 @@ run_selftest() {
     # ⭐ REAL-PIPELINE CHECK (seat18's concurrent build had this and this file's earlier revision did
     # not -- adopted here): the checks above are pure unit tests of classify_deltas/check_measured and
     # never touch `make` or the harness, so a real flag/argv regression in run_master (e.g. one
-    # language's --modes/--by-modes-column pairing breaking) would still pass every check above. Build
+    # language's --lang/--modes pairing breaking) would still pass every check above. Build
     # once for real, then measure the SAME freshly-built binary against itself on a small shard: if
     # comparing a binary to itself ever reports a delta, the measure+parse+diff pipeline is broken, not
     # the compiler -- mirrors board_icon_master.sh's own "0 changed can mean I diffed one arm against

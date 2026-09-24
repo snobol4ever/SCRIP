@@ -282,7 +282,7 @@ BUCKET_TMP="$(mktemp -d)"; trap 'rm -rf "$BUCKET_TMP"' EXIT
 MASTER_DIR="$CORPUS" MASTER_EXT=.icn
 . "$HERE/lib_master_extract.sh"
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
-while IFS= read -r origin; do
+while IFS=$'\t' read -r origin heapkb; do
     [ -n "$origin" ] || continue
     safe="$(printf '%s' "$origin" | tr -c 'A-Za-z0-9_' '_')"
     out="$BUCKET_TMP/$safe.icn"; ref="$BUCKET_TMP/$safe.expected"
@@ -290,17 +290,19 @@ while IFS= read -r origin; do
     [ -f "${out%.icn}.in" ] && cp "${out%.icn}.in" "${out%.icn}.stdin"   # run3 looks for .stdin, extract writes .in
     CN=$((CN+1))
     exp=$(cat "$ref" 2>/dev/null || true)
-    run3 "$out" 30
+    # the entry runs at the heap its ALL.csv row declares (heap_kb, CEO-1167/1225), as every suite runner does -- an undeclared
+    # entry runs at the shipped default, unchanged
+    if [ -n "$heapkb" ]; then SCRIP_HEAP_KB="$heapkb" run3 "$out" 30; else run3 "$out" 30; fi
     if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
     if [ "$SMX3" = 1 ]; then r3=REFUSED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
     if [ "$SMX4" = 1 ]; then r4=REFUSED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
     printf "  %-46s m2=%-4s m3=%-7s m4=%s\n" "$origin" "$r2" "$r3" "$r4"
-done < <(python3 - "$CORPUS/ALL.csv" assign <<'PY' | grep -vxF -f <(printf '%s\n' "rung36_all__rung36_jcon_kwds" "rung36_all__rung36_jcon_fncs1")
+done < <(python3 - "$CORPUS/ALL.csv" assign <<'PY' | grep -vP '^(rung36_all__rung36_jcon_kwds|rung36_all__rung36_jcon_fncs1)\t'
 import csv, sys
 path, col = sys.argv[1], sys.argv[2]
 for r in csv.DictReader(open(path)):
-    if r.get(col, "0") not in ("", "0") and r.get("modes", "") == "m3,m4" and r.get("xfail", "0") in ("", "0"):
-        print(r["origin"])
+    if r.get(col, "0") not in ("", "0") and r.get("xfail", "0") in ("", "0"):
+        print(r["origin"] + "\t" + (r.get("heap_kb") or "").strip())
 PY
 )
 # ⛔ THE TWO EXCLUSIONS ABOVE ARE VERIFIED BUCKET-EXTRACTION ARTIFACTS, NOT SCRIP DEFECTS (2026-09-04,

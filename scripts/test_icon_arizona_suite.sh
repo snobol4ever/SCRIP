@@ -164,7 +164,6 @@ for sub in $SUITE_SUBDIRS; do
 done
 
 TOTAL=0
-MODEREF_NAMES=""
 ARENA_NAMES=""
 GRADED_NAMES=""
 M3_PASS=0; M3_REJECT=0; M3_FAIL=0; M3_CRASH=0; M3_HANG=0
@@ -189,26 +188,7 @@ for std in "$SUITE"/*.ref; do
   TOTAL=$((TOTAL+1))
   GRADED_NAMES="$GRADED_NAMES $sub/$name"
   exp=$(cat "$std")
-  # ⛔⭐ THE PER-MODE REF (ceo CEO-581): a line whose value the INVOCATION determines gets one ref per mode, declared in
-  # NAME.moderef beside NAME.ref with its oracle receipt, rendered THROUGH THE SHARED SHIM (util_apply_moderef.py imports
-  # the harness's own reader) so this runner, the jcon runner and the master cannot disagree about what one means.
-  # kwds prints &progname: the shipped .ref was cut under "icont kwds.icn; ./kwds" and answers ./kwds, which is what m4
-  # reproduces; m3 is handed the SOURCE (scrip --run kwds.icn) and &progname IS argv[0] verbatim, so it answers kwds.icn
-  # -- exactly what icont answers for the one-step "icon kwds.icn" (hq_V's 09-11 receipt on jcon's own kwds). Nothing is
-  # hidden: the line is graded in full against the answer for THAT invocation, and a sidecar that cannot be rendered
-  # REFUSES rc=2 rather than grading a cell against the other mode's string.
   exp3="$exp"; exp4="$exp"
-  if [ -f "$SUITE/$name.moderef" ]; then
-    for _mm in m3 m4; do
-      _want="$RUNDIR/$name.$_mm.want"
-      if ! python3 "$HERE/util_apply_moderef.py" "$std" "$name" "$_mm" "$RUNDIR/$name.$_mm.nsub" > "$_want"; then
-        echo "⛔ REFUSED TO GRADE rc=2: $name.moderef could not be rendered for $name/$_mm -- a declaration that cannot be applied is not a ref, and grading this cell against the OTHER mode's string would manufacture a red"; exit 2
-      fi
-      _nsub=$(cat "$RUNDIR/$name.$_mm.nsub" 2>/dev/null || echo 0)
-      [ "${_nsub:-0}" -gt 0 ] && MODEREF_NAMES="$MODEREF_NAMES $name:$_mm:$_nsub line(s)"
-      if [ "$_mm" = m3 ]; then exp3=$(cat "$_want"); else exp4=$(cat "$_want"); fi
-    done
-  fi
   dat="$SUITE/$name.dat"
   stdin_file="/dev/null"
   [ -f "$dat" ] && stdin_file="$dat"
@@ -421,7 +401,6 @@ echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PA
 # ran at the shipped default, and its ABSENCE would be indistinguishable from a runner that forgot to look.
 declared_arena_receipt "$PKG_CSV"
 [ -n "$ARENA_NAMES" ] && echo "    DECLARED ARENA HONOURED THIS RUN:$ARENA_NAMES"
-[ -n "$MODEREF_NAMES" ] && echo "    PER-MODE REF (CEO-581: an invocation-determined line, graded in full against the oracle's answer for THIS invocation; receipt in the .moderef row):$MODEREF_NAMES"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
 # GAP printed above; graded_narrow=0, this suite compares full output, never by error-number-only.

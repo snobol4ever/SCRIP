@@ -12,7 +12,7 @@
 # test_gate_bench_rivals_coverage.sh's basename kernel-count (the same false-denominator class documented in
 # that gate for src/ and vanroy/), so only the N NUMBER is committed, not generated source.
 #
-# ⛔ N IS CALIBRATED AGAINST m3 ONLY, NOT PER-ENGINE -- documented, not hidden: SCRIP's own two modes (m3,
+# ⛔ N IS CALIBRATED AGAINST m3, NOT PER-ENGINE -- documented, not hidden: SCRIP's own two modes (m3,
 # m4) are the thing angles 1-3 exist to measure, so m3's cost is the one this harness must never blow a
 # timeout on. Measured 2026-09-02: this is SAFE for all 4 currently self-timed kernels even though their
 # per-unit costs span >5 orders of magnitude (point_class_add1 ~20-26s of m3 CPU time for a SINGLE run,

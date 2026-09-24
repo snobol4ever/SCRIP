@@ -85,7 +85,7 @@ for arm in \
   ran=$((ran + 1)); [ "$arc" = 0 ] || { rc=1; printf '%s\n' "$out" | grep -E '^(FAIL|[<>])' | head -8 | sed "s/^/⛔ RED ${arm%%:*}: /"; }
 done
 [ "$ran" = 4 ] || { echo "⛔ REFUSE(2): measured $ran of 4 oracle arms"; exit 2; }
-# ⛔⭐ THE ISLAND-OFF CONTROL, m3 only because SCRIP_M3_GVA is an m3 knob, on a source with NO TRACE: this is the
+# ⛔⭐ THE ISLAND-OFF CONTROL, in m3 because SCRIP_M3_GVA is an m3 knob, on a source with NO TRACE: this is the
 # arm that isolates the slim path from anything to do with tracing. It refuses rc=2 unless the island really is
 # gone under the knob and really is present without it -- an absence arm that cannot see presence proves nothing.
 want="$(timeout 8s "$O" -bf "$T/nested.sno" </dev/null 2>&1)" || true

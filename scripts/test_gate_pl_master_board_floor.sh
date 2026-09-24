@@ -28,13 +28,7 @@ refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -f "$P/ALL.pl" ] && [ -f "$P/ALL.ref" ] || refuse "master suite not found at $P"
 W="$(mktemp -d)" || refuse "mktemp failed"; trap 'rm -rf "$W"' EXIT
 for k in $(seq 1 "$SHARDS"); do
-  # ⛔ --by-modes-column IS REQUIRED AND ITS ABSENCE MADE THIS GATE UNGRADABLE (hq_U, 2026-09-06). The prolog
-  # master declares its grading mode per entry, and 134 entries are `ast` (measured on ALL.csv; hq_U's report
-  # said 8, the diagnosis was right and the count was not). Without the flag the harness REFUSES -- correctly,
-  # because it will not execute AST fixtures against a dump diff and manufacture reds that mean nothing -- so
-  # this gate refused rc=2 on HEAD with no codegen change anywhere near it. ⭐ SAME CLASS AS THE ICON AND
-  # PASCAL CASES: the corpus moved and the runner did not. A gate pinned to a suite whose SHAPE is declared in
-  # the suite must read that declaration, or it is grading a population that no longer exists.
+  # Every entry is graded in both modes: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
   # ⛔⭐ KEEP THE WHOLE HARNESS OUTPUT, NOT ONLY THE LINES THIS GATE WANTS (hq_B routed this to me 2026-09-13,
   # and it is my file). Piping straight into `grep SUITE_BOARD` discards every other line the harness emitted --
   # including the ONE RUNNER refusal, which is the single most likely reason a shard prints no board line at
@@ -42,19 +36,12 @@ for k in $(seq 1 "$SHARDS"); do
   # honest refusal that names nothing actionable. A refusal whose cause was on stdout and got filtered out is
   # the ABSENT-DECLARATION half of hq_B's pair -- uncertain rather than falsely confident, which is much the
   # better failure, and still a reader left guessing. The full text is kept and quoted on the refusal below.
-  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" > "$W/raw.$k.txt" 2>&1
+  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --shard "$k/$SHARDS" > "$W/raw.$k.txt" 2>&1
   grep '^SUITE_BOARD' "$W/raw.$k.txt" >> "$W/all.txt" || true
 done
 cat "$W"/raw.*.txt > "$W/raw.txt" 2>/dev/null || : 
-# ⛔⭐ ANCHOR ON THE TRAILING SPACE, OR THE PATTERN MATCHES ITS OWN SIBLING. --by-modes-column makes the harness
-# print TWO board lines per shard -- SUITE_BOARD_AST for the ast population and SUITE_BOARD for the run one --
-# and `^SUITE_BOARD` is a PREFIX, so it collects both: 32 lines for 16 shards, which tripped the shard count
-# ("only 32 of 16 shards") and, worse, would have summed the AST line's own `total=` into the run total. The
-# refusal is what caught it; the silent half was the arithmetic. ⭐ Same unanchored-pattern family this root
-# already records for `ls <dir>/*.<ext>` and for `command -v`: the instrument answered a WIDER question than
-# it was asked, and only the count made that visible.
+# ⛔ ANCHOR ON THE TRAILING SPACE: `^SUITE_BOARD` is a prefix, and an unanchored pattern answers a wider question than it was asked.
 grep '^SUITE_BOARD '     "$W/all.txt" > "$W/b.txt"   || true
-grep '^SUITE_BOARD_AST ' "$W/all.txt" > "$W/a.txt"   || true
 # ⛔⭐ `grep -c ... || echo 0` PRINTS "0\n0" ON NO MATCH, NEVER "0" (hq_U, measured; reproduced here). grep -c
 # writes its count to stdout AND exits 1 when nothing matched, so BOTH branches fire and the substitution is a
 # two-line string. The `[ "$got" -eq ... ]` below then dies with an integer-expression error, and the refusal
@@ -67,12 +54,7 @@ if [ "$got" -ne "$SHARDS" ]; then
   refuse "only $got of $SHARDS shards printed a SUITE_BOARD line -- the board was not fully measured. WHAT THE HARNESS ACTUALLY SAID: ${cause:-NOTHING AT ALL ON STDOUT OR STDERR, which is itself the finding}"
 fi
 read -r tot m3 m4 <<<"$(awk '{for(i=1;i<=NF;i++){split($i,a,"=");if(a[1]=="total")t+=a[2];if(a[1]=="m3_pass")p3+=a[2];if(a[1]=="m4_pass")p4+=a[2]}} END{print t, p3, p4}' "$W/b.txt")"
-# The ast population is REPORTED beside the run one rather than folded into it: they are different
-# populations graded different ways, and a single number over both would be the denominator defect this gate
-# exists to avoid. hq_U's point stands -- it is a real Prolog number nobody currently has.
-read -r atot apass <<<"$(awk '{for(i=1;i<=NF;i++){split($i,a,"=");if(a[1]=="total")t+=a[2];if(a[1]=="ast_pass")p+=a[2]}} END{print t+0, p+0}' "$W/a.txt")"
 echo "=== prolog master board floor: total=$tot  m3_pass=$m3 (pin $PIN_M3)  m4_pass=$m4 (pin $PIN_M4) ==="
-echo "    ast population (reported, not pinned here): $apass/$atot"
 fail=0
 [ "$m3" -ge "$PIN_M3" ] && echo "  ok    m3 $m3 >= $PIN_M3" || { echo "  FAIL  m3 $m3 BELOW pin $PIN_M3"; fail=1; }
 [ "$m4" -ge "$PIN_M4" ] && echo "  ok    m4 $m4 >= $PIN_M4" || { echo "  FAIL  m4 $m4 BELOW pin $PIN_M4"; fail=1; }

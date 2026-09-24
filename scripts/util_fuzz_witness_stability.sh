@@ -11,7 +11,7 @@
 # A witness can be perfectly stable in its output and cycling in its rc.  Each of us called our own
 # instrument "the witness".  So this runner fixes all three axes that were left implicit:
 #   (1) N repeats, refuse on ANY disagreement -- never "looks the same, ship it";
-#   (2) BOTH modes -- an m3-only sample cannot see an m4 crash-signal effect;
+#   (2) BOTH modes -- a sample drawn from m3 alone cannot see an m4 crash-signal effect;
 #   (3) (stdout, rc) AS A PAIR -- either alone reproduces the exact ambiguity this exists to remove.
 # ⭐ The catch that produced this script was not vigilance: hq_B got lucky that an accidental second
 # sample existed minutes later.  Vigilance does not transfer; repeat-and-refuse does.  That is the

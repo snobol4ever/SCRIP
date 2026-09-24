@@ -382,28 +382,6 @@ def build(pkg_dir, lang, out_prefix="ALL"):
 
     table_lang = lang or "snobol4"
     cols, _ = m.LANG_TABLES[table_lang]
-    # ⛔⭐ THE `modes` COLUMN (row every-vendored-package-..., hq_T 2026-09-05) -- cmd_run's MIRROR TRAP
-    # guard (this same file, row board-icon-master-runs-the-ast-graded-parser-fixtures /
-    # test_gate_modes_declaration_travels.sh, landed the same day) now REFUSES to grade ANY suite whose
-    # ALL.csv lacks a `modes` column at all, run() called with or without --by-modes-column -- measured
-    # AFTER this fix's need surfaced: `run gimpel/ALL.sno gimpel/ALL.ref --modes m3,m4` (no --lang, an
-    # already-DONE, already-committed SNOBOL4 package) refuses identically. Every package this builder
-    # ever wrote (aisnobol/dotnet/csnobol4_suite/gimpel, all pre-dating that guard) is silently
-    # ungradeable until its ALL.csv is rebuilt with this column -- not an Icon-specific gap. Every entry
-    # this builder ever produces is a normal runnable program (never an ast-only fixture mixed in with
-    # run-graded ones the way the Icon MASTER suite is), so ONE constant value for the whole package is
-    # honest, not a per-entry guess: the language's own LANG_CONFIGS declaration, or "m3,m4" for
-    # blank/snobol4 (every package graded so far was always run `--modes m3,m4`, never `--lang`).
-    pkg_modes = h.LANG_CONFIGS[lang]["modes"] if lang in h.LANG_CONFIGS else "m3,m4"
-    # ⛔ MERGE NOTE (two seats found the identical bug independently the same day -- this row and task
-    # snobol4-aisnobol-csv-missing-modes-column-blocks-measurement): the other fix left `modes` PRESENT
-    # but always "" ("this builder has no ast-graded entries, so empty is the honest declaration").
-    # Traced `_modes_for()`/the MIRROR TRAP guard in corpus_suite_harness.py to settle it rather than
-    # guess: both arms test the string EXACTLY EQUALS "ast", nothing tests presence/absence of a value --
-    # "" and pkg_modes are provably equivalent to every current guard. Kept pkg_modes anyway, not to
-    # relitigate a settled call but because it is strictly more informative for zero behaviour difference
-    # (a human or future tool reading the CSV sees the real grading modes instead of a blank that looks
-    # identical to "nobody declared anything"), and it is already measured working (jcon_tests, gimpel).
     # ⛔⭐⭐ READ THE OLD CSV BEFORE OVERWRITING IT, FOR heap_kb AND heap_kb ALONE (Lon 2026-09-23 /
     # CEO-1167). Every other column in this file is DERIVED -- re-run the builder and it regenerates
     # byte-identically from the package sources. heap_kb is the one column that is not: it is a
@@ -425,12 +403,12 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                     _old_stack[_row.get("entry")] = _s
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes", "heap_kb", "stack_kb"] + [c for c, _fn in cols])
+        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "heap_kb", "stack_kb"] + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, pkg_modes, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [flags_row[c] for c, _fn in cols])
     if _old_heap:
         print("    heap_kb: %d declaration(s) carried forward across this rebuild: %s"
               % (len(_old_heap), ", ".join("%s=%sKB" % kv for kv in sorted(_old_heap.items()))), file=sys.stderr)

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-export S4E_ONE_RUNNER_OVERRIDE="${S4E_ONE_RUNNER_OVERRIDE:-gate arm test_gate_icon_gc_share_named_and_master_clean_under_forced_collection.sh: the icon master graded as this lane OWN board under CEO-775, LANES icon=hq_icon}"
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icon_gc_share_named_and_master_clean_under_forced_collection.sh
 #
@@ -93,7 +92,7 @@ done < <(awk -F, 'NR>1{print $3}' "$M/ALL.csv")
 # than left for the next seat to discover in the way hq_icon discovered the 815.
 nargv=$(grep -v '^#' "$M/ALL.argv" 2>/dev/null | awk -F'\t' 'NF>1' | wc -l)
 echo "ARM 0 population=$got/$rows materialized whole; argv-bearing entries run WITHOUT argv in ARM 1: $nargv (declared, inside the denominator, biases ARM 1 toward refusal only)"
-echo "ARM 0 DECLARED: ARM 1 measures decidability in m3 ONLY; ARM 3 grades m3+m4. The m4 half of every band point is UNLICENSED by ARM 1 -- owed, and not a refusal"
+echo "ARM 0 DECLARED: ARM 1 measures decidability in m3 and not yet in m4; ARM 3 grades m3+m4. The m4 half of every band point is UNLICENSED by ARM 1 -- owed, and not a refusal"
 # --- ARM 2: static reads, independent of the plant ---
 python3 "$HERE/util_gc_unmapped_store_census.py" "$W/e"/*.icn > "$W/census.txt" 2>&1
 crc=$?

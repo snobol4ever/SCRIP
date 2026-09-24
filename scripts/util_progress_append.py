@@ -217,7 +217,7 @@ def context():
     # qualifier no reader can key on.  `devpass` stays in the note because it is genuinely free text about
     # the run; `config` is a KEY, and a key belongs in a column.  See COLUMNS and migrate_header().  The token is first in the note so
     # it survives truncation, and the human reason follows it.
-    _CTX["devpass"] = _clean(os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "").strip(), "devpass")
+    _CTX["devpass"] = _clean((os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "") or os.environ.get("S4E_ONE_RUNNER_FIXTURE", "")).strip(), "devpass")
     return _CTX
 
 

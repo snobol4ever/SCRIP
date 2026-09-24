@@ -64,10 +64,7 @@ done
 
 MASTER_PASS=0; MASTER_FAIL=0; MASTER_EXAMINED=0
 if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
-    # ⭐ --by-modes-column (seat11, row pascal-master-eleven-reds-cured, 2026-09-04): ALL.csv marks the 5
-    # `parser__*` entries `modes=ast` (graded by --dump-ast diff, never executed) — invoking plain `--modes m4`
-    # silently ran them as m4 anyway and misreported all 5 as output-mismatch FAILs. Same bug class already hit
-    # Raku once (SCORE.md's raku row: a modes-blind invocation collapsed run-graded entries into the ast bucket).
+    # Every master entry is graded in this gate's mode: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
     # ⛔⭐ CAPTURE THE HARNESS rc AND ITS stderr -- A REFUSAL IS NOT A RED AND IS NOT A CORPUS DEFECT (hq_B 2026-09-13,
     # row pascal-gates-report-a-one-runner-refusal-as-an-unpopulated-master). `2>/dev/null` here threw away the ONE sentence
     # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the master IS a board, so the harness
@@ -76,7 +73,7 @@ if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
     # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
     # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
     # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
-    HERR=$(mktemp); board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --by-modes-column --modes m4 2>"$HERR"); hrc=$?
+    HERR=$(mktemp); board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --modes m4 2>"$HERR"); hrc=$?
     if [ $hrc -eq 2 ]; then
         echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the master, so M4 has NO master verdict. This gate does not know the master is bad and does not say so." >&2
         sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
@@ -88,35 +85,52 @@ if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
     crash=$(grep -oP '(?<=m4_crash=)\d+' <<<"$board"); hang=$(grep -oP '(?<=m4_hang=)\d+' <<<"$board")
     unproven=$(grep -oP '(?<=m4_unproven=)\d+' <<<"$board")
     total=$(grep '^SUITE_BOARD ' <<<"$board" | grep -oP '(?<=total=)\d+')
-    ast_p=$(grep -oP '(?<=ast_pass=)\d+' <<<"$board"); ast_f=$(grep -oP '(?<=ast_fail=)\d+' <<<"$board")
-    ast_crash=$(grep -oP '(?<=ast_crash=)\d+' <<<"$board"); ast_hang=$(grep -oP '(?<=ast_hang=)\d+' <<<"$board")
-    ast_unproven=$(grep -oP '(?<=ast_unproven=)\d+' <<<"$board")
-    ast_total=$(grep '^SUITE_BOARD_AST ' <<<"$board" | grep -oP '(?<=total=)\d+')
     if [ -z "$p" ]; then
         echo -e "master:ALL\tHARNESS_UNPROVEN\t" >> "$RESULTS"
         FAIL=$((FAIL+1))
     else
-        ast_bad=$(( ${ast_f:-0} + ${ast_crash:-0} + ${ast_hang:-0} + ${ast_unproven:-0} ))
-        MASTER_EXAMINED=$(( ${total:-0} + ${ast_total:-0} ))
-        bad=$((f + crash + hang + unproven + ast_bad))
-        echo -e "master:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven AST_PASS=${ast_p:-0} AST_FAIL=${ast_f:-0}\t" >> "$RESULTS"
-        PASS=$((PASS+p+${ast_p:-0})); FAIL=$((FAIL+bad))
-        MASTER_PASS=$((p+${ast_p:-0})); MASTER_FAIL=$bad
+        MASTER_EXAMINED=${total:-0}
+        bad=$((f + crash + hang + unproven))
+        echo -e "master:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven\t" >> "$RESULTS"
+        PASS=$((PASS+p)); FAIL=$((FAIL+bad))
+        MASTER_PASS=$p; MASTER_FAIL=$bad
     fi
 else
     echo -e "master:ALL\tMISSING\t" >> "$RESULTS"
     FAIL=$((FAIL+1))
 fi
 
+# --- THE SAME WITNESS PAIRS AS test_gate_pascal_m3.sh, IN MODE 4 (corpus/benchmarks/pascal; measured 11/11, 2026-09-24).
+# ⛔ 7 of them open with `readln(reps)`; /dev/null yields reps=0 and a plausible all-zero board, so each is fed `1`.
+WCORPUS="${WCORPUS:-$S4E/corpus/benchmarks/pascal}"
+W_PASS=0; W_FAIL=0; W_EXAMINED=0
+if [ -f "$WCORPUS/uplevel2.pas" ]; then
+    for wpas in "$WCORPUS"/*.pas; do
+        wname=$(basename "$wpas" .pas); wref="$WCORPUS/$wname.ref"
+        [ -f "$wref" ] || continue
+        W_EXAMINED=$((W_EXAMINED+1)); wexe="$TMP/w_$wname"
+        if timeout 60s "$SCRIP" --compile "$wpas" < /dev/null > "$wexe.s" 2>/dev/null && [ -s "$wexe.s" ] \
+           && gcc -c -o "$wexe.o" "$wexe.s" 2>/dev/null && gcc -o "$wexe" "$wexe.o" "$RT" -no-pie -Wl,-rpath,"$(dirname $RT)" 2>/dev/null; then
+            wout=$(printf '1\n' | timeout 120s "$wexe" 2>/dev/null); wrc=$?
+        else wout=""; wrc=254; fi
+        if [ $wrc -eq 0 ] && [ "$wout" = "$(cat "$wref")" ]; then
+            echo -e "witness:$wname\tPASS\t" >> "$RESULTS"; W_PASS=$((W_PASS+1)); PASS=$((PASS+1))
+        else
+            echo -e "witness:$wname\tWRONG_rc$wrc\t" >> "$RESULTS"; W_FAIL=$((W_FAIL+1)); FAIL=$((FAIL+1))
+        fi
+    done
+fi
+
 echo "M4: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (master: $MASTER_EXAMINED entries, $MASTER_PASS pass / $MASTER_FAIL fail; stdin-loose: $EXAMINED examined)"
+echo "M4 witnesses (benchmarks/pascal): EXAMINED=$W_EXAMINED PASS=$W_PASS FAIL=$W_FAIL"
 # ⛔ MASTER_EXAMINED refuses ON ITS OWN (seat11's finding, see test_gate_pascal_m3.sh) -- the stdin-loose loop
 # always examines >0, so a master-path defect used to hide completely behind it.
 if [ $MASTER_EXAMINED -eq 0 ]; then
     echo "⛔ UNPROVEN: 0 master entries examined under $MASTER_SRC / $MASTER_REF -- path defect or unpopulated master, not a clean pass (this arm cannot hide behind the other)" >&2
     exit 2
 fi
-if [ $EXAMINED -eq 0 ]; then
-    echo "⛔ UNPROVEN: 0 stdin-loose files examined under $CORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
+if [ $EXAMINED -eq 0 ] && [ $W_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 stdin-loose files and 0 benchmark witnesses examined under $CORPUS / $WCORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
     exit 2
 fi
 [ $FAIL -eq 0 ]

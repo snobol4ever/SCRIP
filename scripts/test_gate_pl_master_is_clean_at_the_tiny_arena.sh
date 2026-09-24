@@ -119,7 +119,7 @@ run_arm(){ # $1 = tag
         *) exit 9 ;;
       esac
       S4E_PROGRESS_DB="$W/$fn.db" timeout "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
-        "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" ) \
+        "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --shard "$k/$SHARDS" ) \
       >> "$W/$fn.raw" 2>&1
     # ⛔⭐⭐ THE HONEST QUESTION IS "DID THIS SHARD RECORD ANYTHING", NOT "WHAT WAS ITS rc" -- and this gate got
     # that wrong twice in one sitting, in opposite directions. First it DISCARDED the shard rc entirely, and a

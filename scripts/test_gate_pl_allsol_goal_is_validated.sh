@@ -146,12 +146,16 @@ for line in [l for l in OK.split("\n") if l.strip()]:
 for goal, want in (("bagof(X,Y^(X=1;X=2),L), write(L)", "[1,2]"),
                    ("setof(X,Y^member(X,[b,a]),L), write(L)", "[a,b]"),
                    ("catch(bagof(X,Y^foo(X,Y),L),error(existence_error(procedure,foo/2),_),write(ex))", "ex")):
-    graded += 1
     with open(prog, "w") as f: f.write(":- %s, nl.\n" % goal)
-    r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
-    got = (r.stdout or "").strip()
-    if r.returncode != 0 or got != want:
-        fails += 1; rows.append((goal, "m3", "%s (rung 8b landed: these RUN now)" % want, "rc=%d %r" % (r.returncode, got[:60])))
+    b, why = build_m4()
+    for mode in ("m3", "m4"):
+        graded += 1
+        if mode == "m4" and b is None:
+            fails += 1; rows.append((goal, mode, "%s (rung 8b landed: these RUN now)" % want, why)); continue
+        r = subprocess.run([scrip, prog] if mode == "m3" else [b], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
+        got = (r.stdout or "").strip()
+        if r.returncode != 0 or got != want:
+            fails += 1; rows.append((goal, mode, "%s (rung 8b landed: these RUN now)" % want, "rc=%d %r" % (r.returncode, got[:60])))
 if graded == 0:
     print("⛔ REFUSED(2) [test_gate_pl_allsol_goal_is_validated]: graded ZERO witnesses -- a runner that cannot measure never prints the success shape"); sys.exit(2)
 for goal, mode, want, got in rows[:80]:

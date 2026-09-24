@@ -33,14 +33,14 @@
 #
 # ⛔ WHY THE m4 ARM IS NOT OPTIONAL (s222).  ARCH §7 step 3 has mandated "BOTH modes"
 # since s217; this script shipped with `--run` only, so s219/s220/s221 each recorded a
-# suite-wide PASS that was m3-ONLY while the contract read "both".  That gap matters far
+# suite-wide PASS that covered m3 alone while the contract read "both".  That gap matters far
 # more than it looks, because mode 4 is exactly where this codebase's worst silent
 # failure class lives: pattern_match.c:737 records that giving g_cap_gen hidden
 # visibility cost 173/316 mode-4 LINK failures while mode 3 stayed green — mode 3 bakes
 # the address in-process and is structurally incapable of seeing it.  Any rung that
 # touches templates or symbol visibility (RTX-11 collapses call sites in
 # bb_match_end; every static->hidden promotion a port needs) is precisely the class
-# whose signature failure an m3-only gate cannot detect.  ⇒ DEFAULT IS NOW `both`.
+# whose signature failure a gate grading m3 alone cannot detect.  ⇒ DEFAULT IS NOW `both`.
 # Pass `m3` explicitly to reproduce the s219-s221 historical numbers.
 #
 # ⭐ WHY THE m4 ARM IS CHEAP, MEASURED NOT ASSUMED (s222): `--compile` output is
@@ -65,7 +65,7 @@ DIR="${2:-$ROOT/../corpus/tests/scrip_test/snobol4}"
 N="${3:-4}"
 MODE="${4:-both}"
 # EXT added s223-PL: this gate was hardcoded to *.sno, so it had NO PROLOG OR ICON ARM AT ALL while three
-# RTX ladders depend on it — the same shape as the m3-only gap this script documents about itself above.
+# RTX ladders depend on it — the same shape as the m3-alone gap this script documents about itself above.
 # The per-program logic is already language-agnostic (first dispatch selects the frontend from the
 # extension), so one parameter generalizes it; default stays `sno` so every existing invocation is unmoved.
 EXT="${5:-sno}"

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the snocone master graded as this lane's OWN board under CEO-775 (LANES: snocone=hq_snocone)"
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_snocone_gc_share_named_and_master_clean_under_forced_collection.sh
 #

@@ -22,7 +22,7 @@
 # ⭐ EVERY TARGET HERE IS A PLAIN LABEL. That is deliberate. The special-transfer targets (RETURN/FRETURN/NRETURN)
 # are the sibling gate test_gate_sno_goto_special_transfer_target.sh.
 #
-# ✅ THE b-ARMS GRADE BOTH MODES (widened 2026-09-06 by hq_S, 8 graded arms -> 12). They graded m3 ONLY until
+# ✅ THE b-ARMS GRADE BOTH MODES (widened 2026-09-06 by hq_S, 8 graded arms -> 12). They graded m3 alone until
 # then, and the reason was honest at the time: in m4 all four b-arms SEGV'd, identically with the want-name cure
 # ON and OFF, so that crash was a SECOND defect one layer down and grading it here would have held this gate
 # permanently red for something it does not test. That second defect is CURED ON MAIN by 6f3852fd1 ("AIS: the

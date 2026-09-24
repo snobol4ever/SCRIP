@@ -526,39 +526,6 @@ def _pending_deferral(path, root, basename_counts, po_dir):
 # between two copies of the same rule. One function, two callers, or the comparison is not worth making.
 # ⚠️ A profile is a LEXICAL approximation. It can show a construct is ABSENT from every master entry; it
 # cannot show that the behaviour is adequately tested. Callers must treat it as one-directional.
-# ⛔⭐⭐ `modes` IS A DECLARED FIELD, NEVER A DERIVED ONE (hq_C's FORMAT RULING, TRIO 2026-08-29, on hq_B's
-# four-for-four evidence). The grading mode is a property of THE RUNNER and is recorded nowhere in the corpus,
-# so the builder cannot know it -- it can only carry a declaration someone wrote down.
-# ⛔ WHY NOT DERIVE IT FROM THE FAMILY NAME, when `family.startswith("parser") -> ast` is exactly right on all
-# four languages measured (prolog 134/134, raku 83/83, snocone 67/67, rebus 15/15): BECAUSE THAT EXACTNESS IS
-# THE ARGUMENT AGAINST IT. A heuristic right on every case you have is maximally tempting and gives NO SIGNAL
-# when it starts being wrong -- RULES.md § A CORRECT PROCEDURE WITH A FALSE EXPLANATION, where every
-# successful use appears to confirm the rule and the rule is never once under test. A name is a proxy that is
-# right today by coincidence of naming discipline.
-# ⛔ DEFAULT IS `UNKNOWN` AND IT MUST BE LOUD. An unknown-mode entry may NOT be quietly graded in a default
-# mode -- that reproduces the original defect with a schema field on top, which is WORSE because the field
-# now looks like the question was answered. Unknown is UNPROVEN at grading time, never pass and never fail.
-# DECLARATION FILE: tests/<lang>/config/MODES.tsv (or tests/<lang>/MODES.tsv until the flat/config end state
-# lands), lines of `family<TAB>modes`, `#` comments ignored. One human-maintained file per language, in the
-# folder ceo's flat layout reserves for exactly this kind of companion.
-def read_modes_decl(root):
-    """{family: modes} from the per-language declaration. Absent file or absent family -> UNKNOWN."""
-    decl = {}
-    for cand in (os.path.join(root, "config", "MODES.tsv"), os.path.join(root, "MODES.tsv")):
-        if not os.path.isfile(cand):
-            continue
-        with open(cand) as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                parts = line.split("\t")
-                if len(parts) >= 2 and parts[1].strip():
-                    decl[parts[0].strip()] = parts[1].strip()
-        break
-    return decl
-
-
 def attrs_for_text(text, lang="snobol4"):
     """Construct profile for arbitrary source text, in `lang`'s attribute vocabulary. -> {column: 0|1}"""
     if lang not in LANG_TABLES:
@@ -814,7 +781,7 @@ def _build_arg_parser():
                          "from the language's oracle through lib_oracle_flags.sh and cross-checked against scrip "
                          "m3 AND m4 -- the same three-way agreement cmd_capture_oracle_refs already uses, reused "
                          "rather than re-invented. A sibling <stem>.ast-only marker absorbs a parser-only fixture "
-                         "via --dump-ast instead, as a modes=ast entry (never sent to the oracle). Anything that "
+                         "via --dump-ast instead (never sent to the oracle). Anything that "
                          "cannot run with output -- module, non-deterministic (oracle/m3/m4 disagree), or over "
                          "budget -- is named in ALL.excluded.txt with a reason, never silently dropped.")
     p.add_argument("--from", dest="from_cats", default="demos,benchmarks", metavar="CAT1,CAT2,...",
@@ -876,20 +843,7 @@ def master_file_key(entry, flags):
     return (0 if entry.kind == "line" else 1,) + master_sort_key(entry, flags)
 
 
-def _make_resort_modes(csv_modes, modes_decl):
-    """The `modes` value a CSV rewrite writes for one entry: the DECLARATION when the entry's family is declared
-    (`modes` is a DECLARED field, never derived -- hq_C's FORMAT RULING above), otherwise the value the CSV
-    ALREADY RECORDED for that ENTRY, and only then UNKNOWN.  Every CSV writer in this file used to go straight
-    to `modes_decl.get(fam, "UNKNOWN")`, so every entry of an UNDECLARED family lost its recorded value to
-    UNKNOWN -- and the harness run-grades UNKNOWN, which turns a `--dump-ast` fixture into a program sent to the
-    oracle.  ⭐ The UNKNOWN default was designed to be LOUD ("Unknown is UNPROVEN at grading time") and it is;
-    what was silent was OVERWRITING a known value WITH it."""
-    def _f(name, fam):
-        if fam in modes_decl:
-            return modes_decl[fam]
-        return csv_modes.get(name) or "UNKNOWN"
-    return _f
-def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
+def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, acknowledged):
     """Re-sort the master already on disk into the builder's own order and rewrite ALL.<ext>/ALL.ref/ALL.csv.
 
     WHY (ceo ruling 2026-09-03 on hq_B's routed question): Lon's level law says a level is a PREFIX of the
@@ -935,7 +889,6 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
         sys.stderr.write("REFUSED: the sort changed the ENTRY SET (%d -> %d unique) -- that is not a reorder.\n"
                          % (len(set(before)), len(set(after)))); return 2
     csv_origin = {}
-    csv_modes = {}
     # ⛔⭐ heap_kb IS CARRIED FORWARD, NEVER RE-DERIVED (Lon 2026-09-23 / CEO-1167). A declaration is a
     # MEASUREMENT a seat paid for with two readings; nothing in an entry's text can regenerate it, so a
     # rebuild or a resort that dropped the cell would silently return a 16384 KB program to the shipped
@@ -945,10 +898,8 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
-            csv_modes[row["entry"]] = (row.get("modes") or "").strip()
             csv_heap[row["entry"]] = (row.get("heap_kb") or "").strip()
             csv_stack[row["entry"]] = (row.get("stack_kb") or "").strip()
-    _resort_modes = _make_resort_modes(csv_modes, modes_decl)
     _tag = ".tmp-%d" % os.getpid()
     tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv = out_sno + _tag, out_ref + _tag, out_in + _tag, out_x + _tag, out_csv + _tag
     def _cleanup():
@@ -979,49 +930,14 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
             _bad = [n for n in body_before if body_before[n] != body_after.get(n)]
             sys.stderr.write("REFUSED: %d entr(y/ies) changed CONTENT during a reorder (first: %s) -- not committing.\n"
                              % (len(_bad), _bad[0] if _bad else "?")); _cleanup(); return 2
-        # ⛔⭐⭐ `modes` IS AN INVARIANT OF A RESORT, AND IT WAS NOT ONE UNTIL 2026-09-05 (hq_T, on hq_B's
-        # measurement).  This CSV was rewritten from `modes_decl.get(fam, "UNKNOWN")`, which DERIVES the column
-        # from the family declaration and DISCARDS whatever the CSV recorded per entry, so every entry of an
-        # UNDECLARED family became UNKNOWN -- and the harness run-grades UNKNOWN, sending `--dump-ast` fixtures
-        # to the oracle as programs.  MEASURED on corpus a6e836ea6: snobol4 ast 28 -> 0 (every test_parser_*
-        # entry), which IS the master board's FAIL=26/21 against a recorded FAIL=0; pascal ast 5 -> 0 plus 40
-        # ladder rungs losing m3,m4; prolog GAINING 134 bogus `ast` on simple_assign_* run tests -- it moves in
-        # both directions, so "it only ever loses information" would have been the wrong summary too.
-        # ⭐ THE COMMIT ASSERTED CONTENT-INVARIANCE AND WAS TELLING THE TRUTH ABOUT WHAT IT CHECKED: the check
-        # above covers the entry SET and the per-entry BODY BYTES, and `modes` is in neither -- so a column the
-        # GRADER READS was rewritten inside a guard built to prove nothing was.  This file already carried the
-        # rule that would have caught it ("A round trip that does not carry every field the grader reads is not
-        # a round trip"); `modes` was the field it did not carry.  ⛔ THE GENERAL FORM, worth more than the
-        # instance: an invariance proof names the fields it compares, and every field it does not name is
-        # SILENTLY EXEMPT.  A reviewer reads "content-invariant, verified" and cannot see the gap from a diff.
-        # ⛔ REFUSE rather than repair: a resort is ORDER-ONLY, and changing what a suite is graded by is a real
-        # decision that belongs in a deliberate reindex, never as a side effect of sorting.
-        _modes_moved = []
-        for _e in ordered:
-            _o = csv_origin.get(_e.name) or ("master__%s" % _e.name)
-            _was = csv_modes.get(_e.name, "")
-            _now = _resort_modes(_e.name, _o.split("__", 1)[0])
-            if _was and _was != _now:
-                _modes_moved.append((_e.name, _was, _now))
-        if _modes_moved:
-            sys.stderr.write("REFUSED: --resort would change the `modes` column of %d entr(y/ies).  A resort is\n"
-                             "   ORDER-ONLY, and `modes` is what the harness grades by, so this is not a reorder:\n"
-                             % len(_modes_moved))
-            for _n, _a, _b in _modes_moved[:20]:
-                sys.stderr.write("     %-46s %s -> %s\n" % (_n, _a or "(none)", _b))
-            if len(_modes_moved) > 20:
-                sys.stderr.write("     ... and %d more\n" % (len(_modes_moved) - 20))
-            sys.stderr.write("   Fix tests/%s/config/MODES.tsv so the declaration agrees with the recorded column,\n"
-                             "   or change it deliberately with the reindex path -- then resort.\n" % lang)
-            _cleanup(); return 2
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
             for rank, e in enumerate(ordered, 1):
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            _resort_modes(e.name, fam), csv_heap.get(e.name, ""), csv_stack.get(e.name, "")] + [flags_of[e.name][c] for c, _ in COLS])
+                            csv_heap.get(e.name, ""), csv_stack.get(e.name, "")] + [flags_of[e.name][c] for c, _ in COLS])
     except BaseException:
         _cleanup(); raise
     os.replace(tmp_sno, out_sno); os.replace(tmp_ref, out_ref); os.replace(tmp_csv, out_csv)
@@ -1038,7 +954,7 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
           % (len(ordered), moved), file=sys.stderr)
     return 0
 
-def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
+def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, acknowledged):
     """Recompute ALL.csv from the master pair already on disk. Writes ONE file and reorders nothing.
 
     WHY THIS EXISTS (row master-builder-needs-a-csv-only-reindex-path, hq_B 2026-09-02): a promotion that
@@ -1081,7 +997,6 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
         sys.stderr.write("REFUSED: --reindex read 0 entries from %s -- refusing to write an empty index over a real one.\n" % master_sno)
         return 2
     csv_origin = {}
-    csv_modes = {}
     # ⛔⭐ heap_kb IS CARRIED FORWARD, NEVER RE-DERIVED (Lon 2026-09-23 / CEO-1167). A declaration is a
     # MEASUREMENT a seat paid for with two readings; nothing in an entry's text can regenerate it, so a
     # rebuild or a resort that dropped the cell would silently return a 16384 KB program to the shipped
@@ -1091,22 +1006,20 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
-            csv_modes[row["entry"]] = (row.get("modes") or "").strip()
             csv_heap[row["entry"]] = (row.get("heap_kb") or "").strip()
             csv_stack[row["entry"]] = (row.get("stack_kb") or "").strip()
-    _resort_modes = _make_resort_modes(csv_modes, modes_decl)
     tmp_csv = out_csv + ".tmp-%d" % os.getpid()
     try:
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
             for rank, e in enumerate(entries, 1):
                 text = "\n".join(e.sno_lines)
                 flags = {c: fn(text) for c, fn in COLS}
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            _resort_modes(e.name, fam), csv_heap.get(e.name, ""), csv_stack.get(e.name, "")] + [flags[c] for c, _ in COLS])
+                            csv_heap.get(e.name, ""), csv_stack.get(e.name, "")] + [flags[c] for c, _ in COLS])
     except BaseException:
         if os.path.exists(tmp_csv):
             os.remove(tmp_csv)
@@ -1246,7 +1159,7 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
         # Twenty lines down, an oracle that prints nothing is refused as "a vacuous ref is worse than none".
         # --dump-ast printing nothing is the SAME defect and was absorbed happily: SCRIP writes its parse error
         # to STDERR and exits 1, so a fixture our own parser cannot read yields kind=PASS with EMPTY text, and
-        # the entry lands declared modes=ast with a ref it can never match. MEASURED: 13 raku parser-coverage
+        # the entry lands with an empty ref it can never match. MEASURED: 13 raku parser-coverage
         # fixtures absorbed exactly that way in this row's first pass -- `QUIT { say "quit"; }` and friends,
         # where scrip answers "raku parse error line 1: syntax error" -- and
         # test_gate_ast_declared_refs_are_ast_dumps.sh caught every one ("graded by --dump-ast against nothing").
@@ -1324,8 +1237,7 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
     # party, so anyone auditing the exclusion list would have gone looking at the programs instead of at us.
     # ⭐ RULES.md:214 (Lon 2026-09-03, "there is no such thing now as XFAIL... we are shooting for 100%") is the
     # law this restores: a program we fail is a FAIL on the board, never a name in a sidecar. The absorbed entry
-    # is declared m3,m4 in MODES.tsv like any other -- MODES.tsv says WHICH modes grade an entry, never whether
-    # it is allowed to fail -- so it reads red until the emitter covers it, which is the entire point.
+    # is graded in both modes like any other, so it reads red until the emitter covers it, which is the entire point.
     if not (agree3 and agree4):
         if ref_confirmed:
             return ("run", name, body_lines, ora_text, stdin_text)
@@ -1408,18 +1320,15 @@ def _excl_guard(path, existing):
 
 
 def _additive_write_sidecar_merge(path, new_lines, digest=False, fresh_wins=False, retract=()):
-    """Merge {key: value} into a TAB-separated sidecar (MODES.tsv, ALL.excluded.txt), keyed on column 1 --
+    """Merge {key: value} into a TAB-separated sidecar (ALL.excluded.txt), keyed on column 1 --
     new/changed keys win, everything else already on disk survives. Never a blind overwrite: a second
     --additive run (a different --lang, a different --from) must not erase the first run's lines.
     ⛔⭐ THE HEADER IS DATA TOO. This used to drop every line without a TAB, which is every comment line,
-    so each --additive run silently deleted the sidecar's own governing text -- MODES.tsv's "DECLARED,
-    NEVER DERIVED" ruling and the per-line (evidence) column that ruling REQUIRES were erased by the
-    tool that the ruling governs. The file then read as 39 bare declarations with no law and no evidence,
-    and nothing in it said that anything had been removed. Comments are preserved verbatim, in place.
+    so each --additive run silently deleted the sidecar's own governing text, and nothing in it said that
+    anything had been removed. Comments are preserved verbatim, in place.
     ⛔⭐⭐ `fresh_wins` AND `retract` EXIST BECAUSE CEO-545 CHANGED WHAT THE NEVER-OVERWRITE RULE PROTECTS, AND
     NOBODY MOVED THE RULE (hq_S 2026-09-12, measured on raku scrip_test). The `if k not in existing` below was
-    written to protect A HAND-WRITTEN DECLARATION AND ITS EVIDENCE -- correct for MODES.tsv, which is DECLARED
-    NEVER DERIVED. But CEO-545 made ALL.excluded.txt GENERATED and _excl_guard now REFUSES a hand edit to it,
+    written to protect A HAND-WRITTEN DECLARATION AND ITS EVIDENCE. But CEO-545 made ALL.excluded.txt GENERATED and _excl_guard now REFUSES a hand edit to it,
     so in that file there is no hand-written line left to protect: the only thing never-overwrite preserves
     there is THIS TOOL'S OWN STALE TEXT. Both arms measured on the same 15 rows: (1) eight programs absorbed
     into the master stayed NAMED AS EXCLUDED FROM IT -- the exact contradiction the non-additive writer's own
@@ -1430,7 +1339,7 @@ def _additive_write_sidecar_merge(path, new_lines, digest=False, fresh_wins=Fals
     ruled, and the real cause was five different constructs rakudo refuses. A stale reason is worse than a
     blunt one: it names the wrong cause with the authority of a measurement. So for the generated sidecar the
     current run's measurement REPLACES the old one (`fresh_wins`) and a key now in the graded denominator is
-    DELETED (`retract`); MODES.tsv passes neither and keeps never-overwrite exactly as before."""
+    DELETED (`retract`); a caller passing neither keeps never-overwrite."""
     existing, header = {}, []
     if os.path.isfile(path):
         seen_data = False
@@ -1448,7 +1357,7 @@ def _additive_write_sidecar_merge(path, new_lines, digest=False, fresh_wins=Fals
     for k in retract:                    # ⛔ in the graded denominator: it cannot also be named as excluded from it
         existing.pop(k, None)
     for k, v in new_lines.items():
-        if fresh_wins or k not in existing:   # ⛔ never overwrite a hand-written DECLARATION (MODES.tsv); a GENERATED
+        if fresh_wins or k not in existing:   # ⛔ never overwrite a hand-written line; a GENERATED
             existing[k] = v                   #    reason is replaced by this run's measurement (ALL.excluded.txt)
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         for line in header:
@@ -1584,7 +1493,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     taken_names = {e.name for e in base_entries}
     base_origins = {(csv_row_by_name.get(e.name) or {}).get("origin") or ("master__%s" % e.name) for e in base_entries}
 
-    new_entries, modes_for_origin, modes_for_family = [], {}, {}
+    new_entries = []
     for name, cat, kind, body_lines, ref_or_ast, stdin_text in absorbed:
         singular = cat[:-1] if cat.endswith("s") else cat
         fam = "%s_%s_%s" % (singular, lang, name)      # one family per additive entry -- see discover_pairs's
@@ -1600,14 +1509,6 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
         e.origin = origin
         e.src_mode = "additive"
         new_entries.append(e)
-        modes_for_origin[origin] = "ast" if kind == "ast" else "m3,m4"
-        # ⛔⭐ THE SIDECAR IS KEYED ON THE FAMILY, NEVER THE ORIGIN, AND THE CSV IS KEYED ON THE ORIGIN. Both are
-        # needed and they are NOT the same string: read_modes_decl() keys MODES.tsv on ALL.csv's `family` column
-        # while the CSV row above is looked up by `origin` (fam + "__" + name). Writing the sidecar from the
-        # origin-keyed dict gave every additively-absorbed family a declaration that matched nothing -- inert,
-        # yet indistinguishable from a real one to any reader. 37 of prolog's 39 keys were exactly this.
-        # ⭐ An orphaned key is worse than an absent one: an absent family is UNKNOWN and reports itself.
-        modes_for_family[fam] = "ast" if kind == "ast" else "m3,m4"
 
     if not new_entries:
         print("--additive %s --from %s: 0 new entries (%d candidate(s) checked, %d excluded) -- nothing written."
@@ -1647,15 +1548,14 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
             raise SystemExit(2)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb", "stack_kb"] + [c for c, _ in cols])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in cols])
             for rank, e in enumerate(all_entries, 1):
                 text = "\n".join(e.sno_lines)
                 flags_e = {c: fn(text) for c, fn in cols}
                 old_row = csv_row_by_name.get(e.name) or {}
                 origin = getattr(e, "origin", None) or old_row.get("origin") or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
-                modes = modes_for_origin.get(origin) or old_row.get("modes") or "UNKNOWN"
-                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), modes,
+                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
                             (old_row.get("heap_kb") or "").strip(), (old_row.get("stack_kb") or "").strip()]
                            + [flags_e[c] for c, _ in cols])
     except BaseException:
@@ -1670,13 +1570,10 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     elif os.path.exists(master_in):
         os.remove(master_in)
     os.replace(tmp_csv, master_csv)
-    cfg_dir = os.path.join(OUTDIR, "config")
-    modes_path = os.path.join(cfg_dir, "MODES.tsv") if os.path.isdir(cfg_dir) else os.path.join(OUTDIR, "MODES.tsv")
-    _additive_write_sidecar_merge(modes_path, modes_for_family)
     _additive_write_excluded(OUTDIR, absorbed, excluded_rows)
     print("--additive %s --from %s: %d new entries absorbed (%d candidate(s) checked, %d excluded) -- "
-          "ALL%s/ALL.ref/ALL.csv/%s updated." % (lang, ",".join(categories), len(new_entries),
-          len(absorbed) + len(excluded_rows), len(excluded_rows), EXT, os.path.basename(modes_path)), file=sys.stderr)
+          "ALL%s/ALL.ref/ALL.csv updated." % (lang, ",".join(categories), len(new_entries),
+          len(absorbed) + len(excluded_rows), len(excluded_rows), EXT), file=sys.stderr)
     return absorbed, excluded_rows, programs_named
 
 
@@ -1690,7 +1587,7 @@ def run_additive_selftest(timeout):
                           -- proves the stdin-recipe path (and the pre-existing .input convention, reused
                           from corpus/demos/snobol4/claws5/claws5.input rather than invented fresh).
       - parser_fixture_x  a sibling .ast-only marker -- absorbed via --dump-ast, never executed -- proves
-                          requirement 3 (modes=ast).
+                          requirement 3 (an --dump-ast ref).
       - hangs_forever     an unconditional backward branch that computes but never prints -- proves the
                           over-budget/HANG exclusion never absorbs a program that cannot finish, and never
                           blocks the run past its own timeout doing so.
@@ -1727,11 +1624,11 @@ def run_additive_selftest(timeout):
         excluded_names = {e[0] for e in excluded_rows}
 
         master_csv = os.path.join(scratch, "corpus", "tests", "snobol4", "ALL.csv")
-        ast_modes_ok = False
+        ast_row_ok = False
         if os.path.isfile(master_csv):
             for row in csv.DictReader(open(master_csv)):
-                if row.get("origin", "").split("__")[-1] == "parser_fixture_x" and row.get("modes") == "ast":
-                    ast_modes_ok = True
+                if row.get("origin", "").split("__")[-1] == "parser_fixture_x":
+                    ast_row_ok = True
 
         # ⛔⭐ "ABSORBED" IS NOT "GRADES CORRECTLY" (hq_P seat08 2026-09-04): the check above only asks whether
         # bench_count's NAME appears in the in-memory `absorbed` list from THIS call -- it never re-reads the
@@ -1755,7 +1652,7 @@ def run_additive_selftest(timeout):
             ("demo (no stdin) absorbed",                        "demo_hello" in absorbed_names),
             ("benchmark (stdin recipe via .input) absorbed",     "bench_count" in absorbed_names),
             ("benchmark stdin recipe SURVIVES to ALL.in (grading-time reread, not just absorption)", stdin_roundtrip_ok),
-            ("parser-only fixture absorbed as modes=ast",        "parser_fixture_x" in absorbed_names and ast_modes_ok),
+            ("parser-only fixture absorbed via --dump-ast",      "parser_fixture_x" in absorbed_names and ast_row_ok),
             ("non-terminating program excluded, never absorbed", "hangs_forever" in excluded_names and "hangs_forever" not in absorbed_names),
         ]
         for label, ok in checks:
@@ -1797,7 +1694,6 @@ def main():
     global COLS, NAME_FEATURES
     COLS, NAME_FEATURES = LANG_TABLES[lang]
     os.makedirs(OUTDIR, exist_ok=True)
-    _modes_decl = read_modes_decl(ROOT)   # declared, never derived -- absent family => UNKNOWN
     delete_absorbed = args.delete_absorbed
     # ⛔ SURGICAL AND NAMED, never a blanket --force. A deliberate retirement is spelled out origin by
     # origin so it lands in the shell history and the commit that performs it, which is the floor doctrine's
@@ -1850,7 +1746,7 @@ def main():
         for _flag, _val in (("--delete-absorbed", delete_absorbed), ("--family", family_prefix), ("--only", only_families), ("--split-write", args.split_write), ("--reindex", args.reindex)):
             if _val:
                 sys.stderr.write("REFUSED: %s cannot be combined with --resort.\n" % _flag); raise SystemExit(2)
-        raise SystemExit(resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, _modes_decl,
+        raise SystemExit(resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS,
                                        {fam for fam, _, _, _ in pairs}, absorb_only_families or set()))
     if args.reindex:
         # ⛔ --reindex is a TERMINAL mode: it never reaches the absorb machinery below, so --absorb-only here
@@ -1861,7 +1757,7 @@ def main():
             if _val:
                 sys.stderr.write("REFUSED: %s describes ABSORPTION and --reindex absorbs nothing -- drop one.\n" % _flag)
                 raise SystemExit(2)
-        raise SystemExit(reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, _modes_decl,
+        raise SystemExit(reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS,
                                           {fam for fam, _, _, _ in pairs}, absorb_only_families or set()))
     if absorb_only_families is not None:
         # ⛔ A SELECTOR NAMING SOMETHING THIS RUN CANNOT ABSORB REFUSES rc=2 -- never silently absorbs a
@@ -1929,7 +1825,6 @@ def main():
                           "as the collapse-check baseline." % len(csv_origins), file=sys.stderr)
         except Exception:
             pass
-    _csv_modes = {}   # per-entry `modes` carried forward; empty when there is no master CSV yet
     _csv_stack = {}   # per-entry `stack_kb` carried forward on the same contract (CEO-1225)
     _csv_heap = {}    # per-entry `heap_kb` carried forward, same contract and for the sharper reason: see
                       # the carried-forward note above -- a dropped declaration is a silent capacity red
@@ -1944,7 +1839,6 @@ def main():
         if os.path.isfile(master_csv_path):
             for _row in csv.DictReader(open(master_csv_path)):
                 _csv_origin[_row["entry"]] = _row.get("origin", "")
-                _csv_modes[_row["entry"]] = (_row.get("modes") or "").strip()
                 _csv_heap[_row["entry"]] = (_row.get("heap_kb") or "").strip()
                 _csv_stack[_row["entry"]] = (_row.get("stack_kb") or "").strip()
         for e in base_entries:
@@ -2077,31 +1971,11 @@ def main():
                     excluded.append((fam, "stdin companion cannot be carried faithfully (%s): %s" % (_stdin_sidecar_names(sno), _stdin_why)))
                     continue
                 mode = "plain"
-                # ⭐ AUTO-XFAIL BY SOURCE VERDICT, EXTENDED PAST SNOBOL4 (the "named follow-up" this comment used
-                # to ask for -- row raku-smoke-724-inline-probes-absorbed-into-the-master-with-rakudo-refs, seat15
-                # 2026-09-03). Mirrors the snobol4 "plain" path above exactly: a bannerless single-program pair
-                # that does not reproduce its own ref under scrip is a DOCUMENTED red, not a silent one -- xfail
-                # marks it so it never inflates a caller's FAIL count, and a future XPASS is what polices the
-                # marker once the underlying divergence is cured. ⛔ ONLY when this family's grading mode is
-                # KNOWN (declared in MODES.tsv, as fam or as its CSV-family prefix): guessing ast vs m3/m4 here
-                # would silently mis-grade the verdict itself, which is worse than the old no-xfail gap this
-                # replaces. Undeclared falls back to the PRIOR behaviour (xfail left False) rather than guess.
-                _csv_fam = fam.split("__", 1)[0] if "__" in fam else fam
-                _declared = (_modes_decl.get(fam) or _modes_decl.get(_csv_fam) or "").strip()
-                _run_modes = [m.strip() for m in _declared.split(",") if m.strip()] if _declared and _declared != "UNKNOWN" else []
-                _xfail = False
-                if _run_modes:
-                    import tempfile as _tf
-                    _paths = h.resolve_paths()
-                    _tmp = _tf.mkdtemp(prefix="mstr_")
-                    try:
-                        from pathlib import Path as _P
-                        _v = h.run_all_modes(_paths, _P(sno), open(ref, encoding="utf-8", errors="replace").read(), _P(_tmp), _run_modes, stdin_text=_stdin_txt)
-                        _xfail = not all(x.kind == "PASS" for x in _v.values())
-                    finally:
-                        import shutil as _sh
-                        _sh.rmtree(_tmp, ignore_errors=True)
-                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines, stdin=_stdin_txt, xfail=_xfail)]
+                # ⛔ NO AUTO-XFAIL ON THE DIALECT PATH (CEO-753: there is no xfail, and a builder that mints one is the defect;
+                # CEO-1230: the modes sweep must not WIDEN the probing). The probe here used to run only for a family declared
+                # in MODES.tsv; with the declaration gone, the undeclared path it always took is the one left: xfail stays False,
+                # and a pair that does not reproduce its ref reads red on the board, which is where a defect belongs.
+                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines, stdin=_stdin_txt, xfail=False)]
             else:
                 # ⛔⭐ READ THE SIDECARS, exactly as the snobol4 path does. This call passed no in_path/x_path,
                 # so a dialect SUITE pair's stdin and xfail sidecars were silently DROPPED -- the entries
@@ -2445,13 +2319,12 @@ def main():
             h.refuse("re-read ORDER does not match the written order -- the master's physical file and its "
                      "CSV rank would silently disagree; NOT trusting the merge (validated in a scratch copy, "
                      "the real tree was never touched)")
-        _merge_modes = _make_resort_modes(_csv_modes, _modes_decl)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]
-                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _merge_modes(e.name, fam), _csv_heap.get(e.name, ""), _csv_stack.get(e.name, "")] + [flags[c] for c, _ in COLS])
+                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _csv_heap.get(e.name, ""), _csv_stack.get(e.name, "")] + [flags[c] for c, _ in COLS])
         # ⛔⭐ MERGE, NEVER OVERWRITE (hq_P seat08 2026-09-04, row snobol4-every-non-package-source-...): this
         # run only ever discovers tests/<lang>/ loose-pair exclusions -- it has no opinion on additive
         # (demos/benchmarks) exclusions a DIFFERENT run of this same builder (--additive) already wrote, and a
@@ -2622,47 +2495,6 @@ def main():
     for fam, why in excluded:
         print("  ⛔ %s: %s" % (fam, why), file=sys.stderr)
     print("attribute columns: %d" % (6 + len(COLS)), file=sys.stderr)
-    # ⛔⭐ UNKNOWN MODE IS LOUD, per hq_C's FORMAT RULING (3). A recorded-but-unknown mode is only an
-    # improvement if the reader is TOLD it is unknown; a silent UNKNOWN is worse than no column at all,
-    # because the field makes the question look answered. These entries are UNPROVEN at grading time --
-    # never PASS, never FAIL -- and any consumer that grades them in a default mode reproduces the exact
-    # defect the column exists to expose.
-    # ⛔⭐ REPORT IN THE VOCABULARY THE CONSUMER KEYS ON. This used to name `origin.split("__")[0]` -- an ORIGIN
-    # PREFIX -- while read_modes_decl() keys on ALL.csv's `family`. When the two differ, this message named a
-    # string that could never be a valid key, and a reader who did exactly as told produced an inert line. That
-    # is how prolog's MODES.tsv came to hold 37 origin-shaped keys: not carelessness, but a tool naming one
-    # vocabulary and keying on another. Families come from the CSV column itself, with the prefix kept only as
-    # the documented fallback the writer at the xfail site already honours.
-    _fam_of = {}
-    for e in all_entries:
-        _fam_of[e.origin] = getattr(e, "family", None) or e.origin.split("__", 1)[0]
-    _fams = sorted(set(_fam_of.values()))
-    def _declared_for(f):
-        return _modes_decl.get(f) or _modes_decl.get(f.split("__", 1)[0])
-    _unk = [f for f in _fams if not _declared_for(f)]
-    _unk_entries = sum(1 for e in all_entries if not _declared_for(_fam_of[e.origin]))
-    # ⭐ AN ORPHANED KEY IS UNKNOWN THAT LOOKS ANSWERED, so it is reported as loudly as an absent one.
-    _orphan = sorted(k for k in _modes_decl if k not in set(_fams) and k.split("__", 1)[0] not in set(_fams))
-    if _orphan:
-        print("⛔ %d MODES.tsv key(s) match NO family in this suite -- they declare NOTHING while reading as a"
-              % len(_orphan), file=sys.stderr)
-        print("   declaration. Column 1 is ALL.csv's `family`, not `origin`:", file=sys.stderr)
-        for k in _orphan[:10]:
-            print("     %s" % k, file=sys.stderr)
-        if len(_orphan) > 10:
-            print("     ... and %d more" % (len(_orphan) - 10), file=sys.stderr)
-    if _unk:
-        print("⛔ MODE UNKNOWN for %d of %d families (%d entries) -- these are UNPROVEN, not passes:"
-              % (len(_unk), len(_fams), _unk_entries), file=sys.stderr)
-        for f in _unk[:10]:
-            print("     %s" % f, file=sys.stderr)
-        if len(_unk) > 10:
-            print("     ... and %d more (the full set is the `modes` column = UNKNOWN in ALL.csv)" % (len(_unk) - 10), file=sys.stderr)
-        print("   Declare them in %s/config/MODES.tsv as `family<TAB>modes`. ⛔ Do NOT guess from the family"
-              % ROOT, file=sys.stderr)
-        print("   name: a heuristic that is right on every case you have gives no signal when it starts being wrong.", file=sys.stderr)
-    else:
-        print("mode: declared for all %d families" % len(_fams), file=sys.stderr)
     # -- BYTE-EQUAL-OR-NO-DELETE verification and the selector refusal already ran, BEFORE the write above
     # (requirement 3, extended) -- `verified`/`unverified`/`to_delete`/`selector_label` are in scope from there.
     if selector_label is not None:

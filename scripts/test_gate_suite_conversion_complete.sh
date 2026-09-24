@@ -121,8 +121,8 @@ pending_sections() { awk '/^##[[:space:]]+DEFERRED([[:space:]]|$)/{h=$0; sub(/^#
 pending_deferred_block() { pending_sections "$1" | cut -f2-; }
 mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
 # ⭐⭐ config/*KEEP.md ALSO DECLARES (seat07 2026-08-30, on the zero-subfolders end state going live for
-# real trees). The flat-layout ruling reserves tests/<lang>/config/ for exactly this kind of companion
-# (hq_C's MODES.tsv ruling names it explicitly), and SNOBOL4's own tree already carries a dozen
+# real trees). The flat-layout ruling reserves tests/<lang>/config/ for exactly this kind of companion,
+# and SNOBOL4's own tree already carries a dozen
 # `<prefix>_KEEP.md` files there -- but this gate only ever looked for a literal per-ancestor-directory
 # `KEEP.md`, so config/ was invisible to it (MEASURED: `test_gate_suite_conversion_complete.sh snobol4`
 # itself reports 95 undeclared today, entirely because its own config/*_KEEP.md files are never read).

@@ -71,7 +71,6 @@ for SUF in $SUFFIXES; do
       printf "\tOUTPUT = 'plain'\nEND\n" > "$D/gate_plain_probe$EXT"
     fi
     printf 'plain\n' > "$D/gate_plain_probe.ref"
-    printf 'gate_stdin_probe\tm3,m4\ngate_plain_probe\tm3,m4\n' > "$D/config/MODES.tsv"
     if [ "$WHERE" = beside ]; then CP="$D/gate_stdin_probe$SUF"; else CP="$D/config/gate_stdin_probe$SUF"; fi
     printf 'alpha\nbeta\n' > "$CP"
     OUT="$(S4E_HOME="$T" timeout 120s python3 "$HERE/util_build_master_suite.py" --lang "$LANG" --write 2>&1)" || true

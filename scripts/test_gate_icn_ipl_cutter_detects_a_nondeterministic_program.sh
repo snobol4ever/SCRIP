@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: the ipl ref cutter invoked as an instrument fixture over a SCRATCH package, not a board (CEO-523)"
+export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: the ipl ref cutter invoked as an instrument fixture over a SCRATCH package, not a board (CEO-523)"
 # test_gate_icn_ipl_cutter_detects_a_nondeterministic_program.sh -- proves util_cut_icon_ipl_refs.sh's flake
 # detector ACTUALLY DETECTS. Instrument side of row icon-ipl-qei-nested-icont-nondeterminism-neither-cutter-
 # detects (ceo mint CEO-516 -> hq_R): "the cutter's flake detector (an N-rep arm) fails once against a planted
