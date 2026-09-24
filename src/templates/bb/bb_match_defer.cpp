@@ -294,6 +294,7 @@ std::string bb_match_defer() {
          + x86_xfer_leave()
          + x86("mov",  "edi", "r14d")
          + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int))rt_defer_close)
+         + x86_rt_gc_poll_rec_sigma(1)
          + x86("def",  L(49))
          + x86("test", "eax", "eax")
          + x86_omega("js")

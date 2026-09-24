@@ -43,6 +43,7 @@ std::string bb_call_write_slot_str(IR_t * pBB) {
 #define bcws_binop_int(off, beta_tgt) (x86_alpha() \
      + x86("mov", "rdi", FRQ(off)) \
      + x86("call", "rt_write_int_nl", (uint64_t)(uintptr_t)(void*)rt_write_int_nl) \
+     + x86_rt_gc_poll() \
      + x86_gamma() \
      + x86_beta() \
      + ((beta_tgt) == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0)))

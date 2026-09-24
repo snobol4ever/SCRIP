@@ -37,6 +37,7 @@ std::string bb_match_begin() {
          + x86("push", "r15")
          + x86("sub",  "rsp", (long)(24 + _.op_frame_extra))
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
+         + x86_rt_gc_poll_rec_subject_new()
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
          + x86("note", "start_δ")

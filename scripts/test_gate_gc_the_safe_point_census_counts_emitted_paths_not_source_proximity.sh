@@ -49,7 +49,7 @@ ln -s "$ROOT/src/templates/xa"   "$D/src/templates/xa"        || exit 2
 ln -s "$ROOT/src/templates/x86"  "$D/src/templates/x86"       || exit 2
 cp -r "$ROOT/src/templates/bb"   "$D/src/templates/bb"        || exit 2
 
-run_census() { SCRIP_GC_CENSUS_LIST_ALL=1 timeout 600 python3 "$ROOT/$CENSUS" safe-points --root "$1" 2>&1; }
+run_census() { SCRIP_GC_CENSUS_LIST_ALL=1 timeout 600 python3 "$ROOT/$CENSUS" safe-points --list-polled --root "$1" 2>&1; }
 
 # ---- ARM A: the columns exist at all, and they partition the denominator -------------------------------
 base=$(run_census "$D") || true
@@ -61,11 +61,24 @@ grep -q '^CENSUS safe-points IDENTITY' <<<"$base" || { echo "GATE safe-point-emi
 mp=$(grep -oE 'multi_path_sites=[0-9]+' <<<"$line" | head -1 | cut -d= -f2)
 [ "${mp:-0}" -gt 0 ] || { echo "GATE safe-point-emitted-paths RED: multi_path_sites=0 -- a tree with spliced helpers cannot have none; the reader is blind"; exit 1; }
 
-# ---- ARM B: the cto's own tap reads UNPOLLED unplanted, which is their account of what they did ---------
-grep -qE '^  UNPOLLED .*bb_assign_global\.cpp:37:comm_var' <<<"$base" \
-  || { echo "GATE safe-point-emitted-paths RED: the unplanted comm_var tap does not read UNPOLLED -- the cto left it unpolled and the census must agree"; exit 1; }
+# ---- ARM B: the comm_var tap reads POLLED unplanted (the cto polled it in dc6c47216, form poll_res), and a copy
+# ---- with that poll REMOVED reads UNPOLLED -- the reader can see an unpolled site, proven on a doctored copy and
+# ---- no longer asserted on the real tree, which since 2026-09-24 has none (cto, the seventeen-red row) ---------
+grep -qE '^  POLLED .*bb_assign_global\.cpp:37:comm_var form=x86_rt_gc_poll_res' <<<"$base" \
+  || { echo "GATE safe-point-emitted-paths RED: the unplanted comm_var tap does not read POLLED with form x86_rt_gc_poll_res -- the tap's poll (dc6c47216) moved or the reader lost the site"; grep -E 'bb_assign_global' <<<"$base" | head -3; exit 1; }
+python3 - "$D/src/templates/bb/bb_assign_global.cpp" <<'UNPLANT' || { echo "GATE safe-point-emitted-paths REFUSED(2): the unpoll doctoring failed"; exit 2; }
+import io,sys
+p=sys.argv[1]; s=io.open(p,encoding='utf-8').read()
+b='+ x86("pop", "rax") + x86("pop", "rax") + x86_rt_gc_poll_res();\n'
+assert b in s, "unpoll anchor missing"
+s=s.replace(b, '+ x86("pop", "rax") + x86("pop", "rax");\n', 1)
+io.open(p,'w',encoding='utf-8').write(s)
+UNPLANT
+unpolled=$(run_census "$D") || true
+grep -qE '^  UNPOLLED .*bb_assign_global\.cpp:37:comm_var' <<<"$unpolled" \
+  || { echo "GATE safe-point-emitted-paths RED: with the tap's poll removed on a copy the census still does not read it UNPOLLED -- the reader is blind to an unpolled site"; grep -E 'bb_assign_global' <<<"$unpolled" | head -3; exit 1; }
 
-# ---- ARM C: FAIL ONCE. Plant a poll that genuinely reaches two of the four expansions ------------------
+# ---- ARM C: FAIL ONCE. On that copy plant a poll that genuinely reaches two of the four expansions ---------
 python3 - "$D/src/templates/bb/bb_assign_global.cpp" <<'PLANT' || { echo "GATE safe-point-emitted-paths REFUSED(2): plant failed"; exit 2; }
 import io,sys
 p=sys.argv[1]; s=io.open(p,encoding='utf-8').read()
@@ -92,10 +105,11 @@ awk 'NR>=38 && NR<=49' "$D/src/templates/bb/bb_assign_global.cpp" | grep -q 'g_g
 pp=$(grep -oE 'partially_polled=[0-9]+' <<<"$pline" | head -1 | cut -d= -f2)
 [ "${pp:-0}" -ge 1 ] || { echo "GATE safe-point-emitted-paths RED: PARTIAL named but partially_polled=$pp"; exit 1; }
 
-# ---- ARM D: a partial is NOT counted as polled --------------------------------------------------------
+# ---- ARM D: a partial is NOT counted as polled: the copy took the tap OUT of the polled column (one fewer than
+# ---- the real tree) and the guarded poll must not put it back ----------------------------------------------
 bp=$(grep -oE ' polled=[0-9]+' <<<"$line"  | head -1 | tr -d ' ' | cut -d= -f2)
 np=$(grep -oE ' polled=[0-9]+' <<<"$pline" | head -1 | tr -d ' ' | cut -d= -f2)
-[ "$np" = "$bp" ] || { echo "GATE safe-point-emitted-paths RED: polled moved $bp -> $np under a plant that cures nothing; a guarded poll must not buy a polled cell"; exit 1; }
+[ "$np" = "$((bp - 1))" ] || { echo "GATE safe-point-emitted-paths RED: polled reads $np on the doctored copy against $bp on the tree (want $((bp - 1)): the tap left the column and a guarded poll must not buy it back)"; exit 1; }
 
 echo "GATE safe-point-emitted-paths GREEN: allocating_call_sites=$(grep -oE 'allocating_call_sites=[0-9]+' <<<"$line" | head -1 | cut -d= -f2)"\
 " polled=$bp partially_polled=$(grep -oE 'partially_polled=[0-9]+' <<<"$line" | head -1 | cut -d= -f2)"\

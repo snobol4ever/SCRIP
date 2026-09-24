@@ -2428,10 +2428,14 @@ def main(argv):
     # sourced authorities); a second copy of this rule is how one of them keeps the old rule after the rule changes.
     # ⛔ AND THERE IS DELIBERATELY NO ESCAPE HATCH.  Every other knob in this file has one for an auditor comparing
     # across a criterion change; a bypass HERE would re-admit the exact false green the refusal exists to stop.
+    # THE QUESTION IS ASKED OF THE TREE THAT BUILT THE ARTIFACTS (ROOT), NEVER OF --root (cto 2026-09-24, the
+    # seventeen-red row): the emitted-paths gate censuses a SCRATCH root that symlinks ROOT's .so and COPIES the
+    # templates it doctors, so that root has no scripts/ and its copies are newer than any binary by construction;
+    # asked there the check refused every run (rc=2, "census printed no headline") while grading nothing.
     bc = subprocess.run(["bash", "-c",
                          'set -e; . "$1/scripts/lib_build_currency.sh"; '
                          'assert_binary_current "$1/scrip" "$1"; assert_so_current "$1/out/libscrip_rt.so" "$1"',
-                         "_", R], capture_output=True, text=True)
+                         "_", ROOT], capture_output=True, text=True)
     if bc.returncode != 0:
         sys.stdout.write(bc.stdout)
         sys.stderr.write(bc.stderr)
