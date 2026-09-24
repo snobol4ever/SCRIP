@@ -398,7 +398,7 @@ fi
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
     --suite-pass "$mall" --suite-total "$mt" \
     --measurer "${S4E_SEAT:-}" \
-    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt xfail=$m4x ($m4xs) xpass=$m4xp (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at xpass=$axp (informational, not scored)$_named" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt xfail=$m4x ($m4xs) xpass=$m4xp (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through
 # lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,
@@ -408,4 +408,4 @@ python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4
 # that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent
 # no-op and this call is removed so the intent is visible rather than inferred from an empty output.
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
-echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded both-modes PASS=$mall/$mt (the AND, what the leaderboard row states) · m3 PASS=$m3p m4 PASS=$m4p / $mt (watermarks held) · ast-shape check $ap/$at (informational)"
+echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded both-modes PASS=$mall/$mt (the AND, what the leaderboard row states) · m3 PASS=$m3p m4 PASS=$m4p / $mt (watermarks held)"
