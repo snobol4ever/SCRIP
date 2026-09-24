@@ -1503,6 +1503,31 @@ def db_crosscheck(key, p, t):
         print("  ⚠ the newest rows on %s are PARTIAL (%s) -- a shard, not a board" % (tree, ", ".join(sorted(shards))))
 
 
+def _box_clock_day():
+    """The day SUITES.tsv's rows are dated in: the BOX's zone (/etc/timezone, else the /etc/localtime link), never this process's
+    TZ (coo 2026-09-23, CEO-1229). The banner REFUSES a date later than its own box_clock_day(), and this writer used to pass its
+    own datetime.now(): a caller in another zone would be refused AFTER a board write had already rewritten SCORE.md -- a
+    PARTIAL. ⛔ COMPUTED HERE, NOT BORROWED BY EXECUTING THE BANNER FILE: the first cut exec'd util_suite_banner.py to call its
+    function, and a stub banner whose body calls sys.exit(0) (test_gate_score_row_criterion_change_is_stamped.sh arm g) ended
+    THIS process with rc=0 -- a false success. The two functions must agree; the date-guard gate holds them to each other."""
+    tz = ""
+    try:
+        tz = open("/etc/timezone", encoding="utf-8").read().strip()
+    except OSError:
+        pass
+    if not tz:
+        try:
+            _l = os.readlink("/etc/localtime")
+            tz = _l.split("zoneinfo/", 1)[1] if "zoneinfo/" in _l else ""
+        except OSError:
+            pass
+    try:
+        from zoneinfo import ZoneInfo
+        return (datetime.datetime.now(ZoneInfo(tz)) if tz else datetime.datetime.now()).strftime("%Y-%m-%d")
+    except Exception:
+        return datetime.datetime.now().strftime("%Y-%m-%d")
+
+
 def suite_sync(a, tree, dry_run, decided=None):
     """Mirror this write into SUITES.tsv.  Every refusal is already settled by suite_sync_decide."""
     key, p, t, note = decided if decided is not None else suite_sync_decide(a)
@@ -1512,7 +1537,7 @@ def suite_sync(a, tree, dry_run, decided=None):
         return "  suite table: WOULD set %s -> %s/%s (tree %s) via util_suite_banner.py --set" % (key, p, t, tree)
     if not os.path.exists(SUITE_BANNER):
         die("suite row %r is owed but %s is missing.\n        Row %s." % (key, SUITE_BANNER, SUITE_SYNC_ROW))
-    day = datetime.datetime.now().strftime("%Y-%m-%d")
+    day = _box_clock_day()
     env = dict(os.environ); env["S4E_SUITES_TSV"] = SUITES_TSV
     cmd = [sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree]
     if getattr(a, "criterion_changed", None):

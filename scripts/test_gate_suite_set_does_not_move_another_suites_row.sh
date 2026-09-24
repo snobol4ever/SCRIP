@@ -53,10 +53,18 @@ subject_row() { grep -oE "^\| $(nick_of "$SUBJECT") \|[^|]*\|[^|]*\|[^|]*" "$W/S
 echo "== test_gate_suite_set_does_not_move_another_suites_row =="
 echo "   victim=$VICTIM (local TSV deliberately staled to 1/999) · subject=$SUBJECT · hermetic scratch under mktemp"
 
+# ⛔ THE SUBJECT'S NUMBERS ARE READ FROM ITS OWN ROW, NEVER TYPED (coo 2026-09-23): this arm set snoflake to a hardcoded 107/124, and
+# when hq_snobol4 re-graded snoflake over 180 the --set became a DENOMINATOR MOVE (180 -> 124) that the CEO-785 rule refuses without a
+# stamp -- so arm 2 read "scoped away entirely" for every seat's make test, a gate anchored on a live value (the CEO-554 class). The
+# write now keeps the subject's own total and moves only its pass count, so it is never a denominator move whatever the row reads.
+reset_fixture
+SUB_T="$(awk -F'\t' -v k="$SUBJECT" '!/^#/ && $1 == k {print $10; exit}' "$W/SUITES.tsv")"; SUB_P0="$(awk -F'\t' -v k="$SUBJECT" '!/^#/ && $1 == k {print $9; exit}' "$W/SUITES.tsv")"
+case "$SUB_T" in ''|*[!0-9]*) echo "REFUSING(2): $SUBJECT has no numeric total in SUITES.tsv to build the fixture on"; exit 2;; esac
+SUB_P=$(( ${SUB_P0:-0} > 0 ? ${SUB_P0:-0} - 1 : 1 ))
 # ARM 1 — THE INVARIANT: --set on SUBJECT leaves VICTIM's rendered row byte-identical.
-reset_fixture; before="$(victim_row)"
+before="$(victim_row)"
 S4E_SUITES_TSV="$W/SUITES.tsv" S4E_SCORE_MD="$W/SCORE.md" \
-  python3 "$BANNER" --set "$SUBJECT" 107 124 2026-09-08 gate0test1 >/dev/null 2>&1
+  python3 "$BANNER" --set "$SUBJECT" "$SUB_P" "$SUB_T" 2026-09-08 gate0test1 >/dev/null 2>&1
 after="$(victim_row)"; ARMS=$((ARMS+1))
 if [ "$before" = "$after" ]; then echo "  ✓ arm 1: --set $SUBJECT left $VICTIM's row byte-identical"
 else echo "  ⛔ arm 1: --set $SUBJECT REWROTE $VICTIM's row from a stale local TSV"; echo "      before: $before"; echo "      after : $after"; RED=$((RED+1)); fi
@@ -64,8 +72,8 @@ else echo "  ⛔ arm 1: --set $SUBJECT REWROTE $VICTIM's row from a stale local 
 # ARM 2 — THE POSITIVE CONTROL, and it is load-bearing: an implementation that writes NOTHING would
 # pass arm 1 perfectly. The subject's own row must actually carry the new numbers.
 ARMS=$((ARMS+1))
-if subject_row | grep -q '107/124'; then echo "  ✓ arm 2: $SUBJECT's own row carries the numbers it was set to (107/124)"
-else echo "  ⛔ arm 2: $SUBJECT's row does NOT carry 107/124 -- the write was scoped away entirely"; echo "      row: $(subject_row)"; RED=$((RED+1)); fi
+if subject_row | grep -q "| $SUB_P/$SUB_T"; then echo "  ✓ arm 2: $SUBJECT's own row carries the numbers it was set to ($SUB_P/$SUB_T)"
+else echo "  ⛔ arm 2: $SUBJECT's row does NOT carry $SUB_P/$SUB_T -- the write was scoped away entirely"; echo "      row: $(subject_row)"; RED=$((RED+1)); fi
 
 # ARM 3 — FAIL-ONCE / DETECTOR PROOF: the UNSCOPED path (--render --all-rows, which is what --set used to do; a bare --render refuses since 2026-09-16)
 # must still move the victim on this same fixture. If it does not, the fixture stopped reproducing the
