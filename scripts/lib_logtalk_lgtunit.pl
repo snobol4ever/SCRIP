@@ -205,18 +205,20 @@ lgt_assertion(_Label, G) :- call(G).
 % arithmetic families, acos_1 01/02 among them, and it was invisible precisely because those groups also
 % had real defects beside it.
 %
-% ⛔ THE TOLERANCE IS FIXED BY THE SUITE'S OWN CASES, NOT CHOSEN. log_1's iso_log_1_02 asserts
-% `E is log(2.71828)` then `E =~= 1.0`; the true value is 0.999999327347282, a RELATIVE error of 6.73e-7
-% against the constant the case writes. So any threshold tighter than that reds a case the suite says is
-% green. 1.0e-6 is the loosest-needed value and is what lgtunit itself uses. ⭐ Note what that costs and
-% do not pretend otherwise: at 1.0e-6 this predicate accepts about six correct significant digits, while
-% the suite's constants carry eight -- so a cure that got seven digits right would pass here. That is a
-% real false-green surface, it is forced by the corpus, and it is named here rather than left implicit.
+% ⛔ THE TOLERANCE IS FIXED BY THE SUITE'S OWN CASES, NOT CHOSEN -- and it is lgtunit's own: an absolute
+% bound of 100*epsilon first (meaningful near zero), then a RELATIVE bound of 1.0e-5. The cases set the floor:
+% iso_tan_1_01 asserts tan(0.5) =~= 0.5463 (true value 0.5463024898..., relative 8.8e-6 off the constant),
+% lgt_asinh_1_01, lgt_cosh_1_01 and lgt_acosh_1_01 sit at 2.7e-6, 2.5e-6 and 1.6e-6, iso_integer_power_2_09
+% at 1.1e-6 -- all green on every conforming system under lgtunit, all red here while this bound was 1.0e-6,
+% which an earlier revision of this comment called lgtunit's value -- the suite's own cases show it cannot be,
+% since lgtunit runs them green. ⭐ Name what the bound costs:
+% five significant digits, while the suite's constants often carry six -- a real false-green surface, forced
+% by the corpus and by lgtunit itself, named here rather than left implicit.
 :- op(700, xfx, =~=).
 '=~='(A, B) :- number(A), number(B), !, lgt_near(A, B).
 '=~='([], []) :- !.
 '=~='([A|As], [B|Bs]) :- !, '=~='(A, B), '=~='(As, Bs).
 '=~='(A, B) :- A == B.
 lgt_near(A, B) :- A =:= B, !.
-lgt_near(A, B) :- D is abs(A - B), D =< 1.0e-9, !.
-lgt_near(A, B) :- D is abs(A - B), M is max(abs(A), abs(B)), M > 0.0, R is D / M, R =< 1.0e-6.
+lgt_near(A, B) :- D is abs(A - B), E is 100 * epsilon, D < E, !.
+lgt_near(A, B) :- D is abs(A - B), M is max(abs(A), abs(B)), R is 1.0e-5 * M, D < R.
