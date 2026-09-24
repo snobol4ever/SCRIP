@@ -1186,8 +1186,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
               pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, callω, &ientry, &iredo, NULL);
               cx->cutω = saveω; cx->cut_scope = save_scope;
               cx->meta_redo = iredo; cx->meta_redo_set = 1;
-              if (nextra == 0 && pl_tree_is_control(t->c[0]) && pl_tree_control_var_leaf(t->c[0])) {
-                  IR_t * gge = NULL; IR_t * gg = goal(cx, pl_cc_fnc1("$pl_goal_guard", (tree_t *) t->c[0]), ientry ? ientry : γnext, ωfail, &gge);
+              if (pl_tree_is_control(ext) && pl_tree_control_var_leaf(ext)) {
+                  IR_t * gge = NULL; IR_t * gg = goal(cx, pl_cc_fnc1("$pl_goal_guard", (tree_t *) ext), ientry ? ientry : γnext, ωfail, &gge);
                   ientry = gge ? gge : gg; }
               if (entry_out) *entry_out = ientry;
               return callω; }
