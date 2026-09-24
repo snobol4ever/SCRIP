@@ -8894,7 +8894,7 @@ DESCR_t rt_pl_dop_db_nonempty_c(DESCR_t *args, int nargs, void *root) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_n_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
-    { void *db = pl_db_cell_of(args, root); return INTVAL(db ? rt_pl_db_count(db) : 0); }
+    { void *db = pl_db_cell_of(args, root); return INTVAL(db ? rt_pl_db_count(db) - 1 : -1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_at_c(DESCR_t *args, int nargs, void *root) {
@@ -9094,7 +9094,7 @@ DESCR_t rt_pl_dop_db_n_r_c(DESCR_t *args, int nargs, void *root) {
     char key[264];
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); return INTVAL(db ? rt_pl_db_count(db) : 0); }
+    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); return INTVAL(db ? rt_pl_db_count(db) - 1 : -1); }
 }
 DESCR_t rt_pl_dop_db_at_r_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_clause_at(void *, int, void *);
@@ -9146,7 +9146,7 @@ DESCR_t rt_pl_dop_db_asserta_t_c(DESCR_t *args, int nargs, void *root) { return 
 DESCR_t rt_pl_dop_db_n_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_of_term(&args[0], root, 0); return INTVAL(db ? rt_pl_db_count(db) : 0); }
+    { void *db = pl_db_of_term(&args[0], root, 0); return INTVAL(db ? rt_pl_db_count(db) - 1 : -1); }
 }
 DESCR_t rt_pl_dop_db_at_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
