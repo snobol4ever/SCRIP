@@ -36,6 +36,10 @@ typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
+typedef struct { DESCR_t saved; DESCR_t res; char *key; int depth; } eval_frame_t;
+static eval_frame_t     *g_eval_frames = NULL;
+static int               g_eval_frames_n = 0;
+static int               g_eval_frames_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *eval_tmp_name(void)
     { static int m = -1; if (m < 0) { const char *e = getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; } return m ? EVAL_TMP_MARKED : EVAL_TMP_LEGACY; }
@@ -57,7 +61,7 @@ static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eva
     tab[i].key = key; tab[i].fn = fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void eval_cache_put(const char *s, eval_chain_fn fn) {
+static void eval_cache_put(char *key, eval_chain_fn fn) {
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
         int ncap = g_eval_cache_cap ? g_eval_cache_cap * 2 : 16;
         eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
@@ -66,8 +70,6 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
         for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn);
         g_eval_cache = ntab; g_eval_cache_cap = ncap;
     }
-    char *key = rt_heap_strdup_c(s);
-    if (!key) return;
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn);
     g_eval_cache_n++;
 }
@@ -369,30 +371,53 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
     g_core_errjmp_n = my; g_error = esv; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_frame_push(DESCR_t saved, const char *key_src) {
+    extern int g_core_errjmp_n;
+    while (g_eval_frames_n > 0 && g_eval_frames[g_eval_frames_n - 1].depth > g_core_errjmp_n) g_eval_frames_n--;
+    if (g_eval_frames_n >= g_eval_frames_cap) {
+        int nc = g_eval_frames_cap ? g_eval_frames_cap * 2 : 8;
+        eval_frame_t *nf = (eval_frame_t *)rt_wsb_realloc(g_eval_frames, (size_t)nc * sizeof(eval_frame_t));
+        if (!nf) return -1;
+        g_eval_frames = nf; g_eval_frames_cap = nc;
+    }
+    char *key = key_src ? rt_heap_strdup_c(key_src) : NULL;
+    if (key_src && !key) return -1;
+    eval_frame_t *f = &g_eval_frames[g_eval_frames_n];
+    f->saved = saved; f->res = FAILDESCR; f->key = key; f->depth = g_core_errjmp_n;
+    return g_eval_frames_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
     if (cached) {
-        DESCR_t saved = NV_GET_fn(EVAL_TMP);
+        int my = eval_frame_push(NV_GET_fn(EVAL_TMP), NULL);
+        if (my < 0) return FAILDESCR;
         NV_SET_fn(EVAL_TMP, FAILDESCR);
         int ok = eval_chain_run_guarded(cached);
         DESCR_t got = NV_GET_fn(EVAL_TMP);
-        DESCR_t result = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
-        NV_SET_fn(EVAL_TMP, saved);
+        g_eval_frames[my].res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
+        NV_SET_fn(EVAL_TMP, g_eval_frames[my].saved);
+        DESCR_t result = g_eval_frames[my].res;
+        g_eval_frames_n = my;
         if (!ok) core_unwind_pending();
         return result;
     }
     size_t mark = bb_pool_mark();
     eval_chain_fn fn = eval_build_chain(s);
     if (!fn) { bb_pool_release(mark); return FAILDESCR; }
-    DESCR_t saved = NV_GET_fn(EVAL_TMP);
+    int keep = mark < eval_retain_budget();
+    int my = eval_frame_push(NV_GET_fn(EVAL_TMP), keep ? s : NULL);
+    if (my < 0) { bb_pool_release(mark); return FAILDESCR; }
     NV_SET_fn(EVAL_TMP, FAILDESCR);
     int ok = eval_chain_run_guarded(fn);
     DESCR_t got = NV_GET_fn(EVAL_TMP);
-    DESCR_t result = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
-    NV_SET_fn(EVAL_TMP, saved);
-    if (mark < eval_retain_budget()) eval_cache_put(s, fn);
+    g_eval_frames[my].res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
+    NV_SET_fn(EVAL_TMP, g_eval_frames[my].saved);
+    if (keep) eval_cache_put(g_eval_frames[my].key, fn);
     else bb_pool_release(mark);
+    DESCR_t result = g_eval_frames[my].res;
+    g_eval_frames_n = my;
     if (!ok) core_unwind_pending();
     return result;
 }
@@ -422,6 +447,8 @@ void eval_gc_roots(void)
     extern void rt_gc_visit_raw(const char **loc);
     if (g_eval_cache) { rt_gc_visit_raw((const char **)&g_eval_cache);
         for (int i = 0; i < g_eval_cache_cap; i++) if (g_eval_cache[i].key) rt_gc_visit_raw((const char **)&g_eval_cache[i].key); }
+    if (g_eval_frames) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_raw((const char **)&g_eval_frames);
+        for (int i = 0; i < g_eval_frames_n; i++) { rt_gc_visit_descr(&g_eval_frames[i].saved); rt_gc_visit_descr(&g_eval_frames[i].res); if (g_eval_frames[i].key) rt_gc_visit_raw((const char **)&g_eval_frames[i].key); } }
     if (g_lbl_tab) { rt_gc_visit_raw((const char **)&g_lbl_tab);
         for (int i = 0; i < g_lbl_n; i++) if (g_lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_lbl_tab[i].key); }
 }
