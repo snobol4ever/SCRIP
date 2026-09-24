@@ -126,25 +126,22 @@ static void user_op_add(const char *name, int prec, Assoc assoc, Fixity fixity) 
     g_uinfix[g_uinfix_n].name = ct_strdup(name); g_uinfix[g_uinfix_n].prec = prec; g_uinfix[g_uinfix_n].assoc = assoc; g_uinfix[g_uinfix_n].fixity = fixity; g_uinfix_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const OpEntry *find_user(const char *name, Fixity fix) {
+    for (int i = 0; i < g_uinfix_n; i++) if (g_uinfix[i].fixity == fix && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_binop(const char *name) {
+    const OpEntry *u = find_user(name, FIX_INFIX);
+    if (u) return u->prec > 0 ? u : NULL;
     for (const OpEntry *op = BIN_OPS; op->name; op++)
         if (strcmp(op->name, name) == 0) return op;
-    for (int i = 0; i < g_uinfix_n; i++)
-        if (g_uinfix[i].fixity == FIX_INFIX && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const OpEntry *find_prefix(const char *name) {
-    for (int i = 0; i < g_uinfix_n; i++)
-        if (g_uinfix[i].fixity == FIX_PREFIX && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
-    return NULL;
-}
+static const OpEntry *find_prefix(const char *name) { const OpEntry *u = find_user(name, FIX_PREFIX); return (u && u->prec > 0) ? u : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const OpEntry *find_postfix(const char *name) {
-    for (int i = 0; i < g_uinfix_n; i++)
-        if (g_uinfix[i].fixity == FIX_POSTFIX && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
-    return NULL;
-}
+static const OpEntry *find_postfix(const char *name) { const OpEntry *u = find_user(name, FIX_POSTFIX); return (u && u->prec > 0) ? u : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int op_type_classify(const char *type, Assoc *assoc_out, Fixity *fix_out) {
     if (strcmp(type, "xfx") == 0) { *fix_out = FIX_INFIX;   *assoc_out = ASSOC_NONE;  return 1; }
@@ -172,10 +169,22 @@ int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const cha
     const OpEntry *e;
     if (idx < 0 || idx >= nbin + npre + g_uinfix_n) return 0;
     e = (idx < nbin) ? &BIN_OPS[idx] : (idx < nbin + npre) ? &PREFIX_OPS[idx - nbin] : &g_uinfix[idx - nbin - npre];
+    if (e->prec <= 0 || (idx < nbin + npre && find_user(e->name, e->fixity))) return 0;
     if (name_out) *name_out = e->name;
     if (prec_out) *prec_out = e->prec;
     if (type_out) *type_out = op_type_unclassify(e->assoc, e->fixity);
     return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_op_permission(const char *name, int prec, const char *type) {
+    Assoc assoc; Fixity fix;
+    if (!name || !type || !op_type_classify(type, &assoc, &fix)) return 0;
+    if (!strcmp(name, ",")) return 1;
+    if (!strcmp(name, "[]") || !strcmp(name, "{}")) return 2;
+    if (!strcmp(name, "|") && prec != 0 && (fix != FIX_INFIX || prec < 1001)) return 2;
+    if (prec > 0 && fix == FIX_INFIX && find_postfix(name)) return 2;
+    if (prec > 0 && fix == FIX_POSTFIX && find_binop(name)) return 2;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_table_add(const char *name, int prec, const char *type) {
@@ -199,7 +208,7 @@ int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char *
 static void register_op_one(int prec, const char *type, tree_t *namenode) {
     if (!namenode) return;
     if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i]); return; }
-    if (namenode->t != TT_QLIT || !namenode->v.sval) return;
+    if (namenode->t != TT_QLIT || !namenode->v.sval || prec < 0 || prec > 1200 || prolog_op_permission(namenode->v.sval, prec, type)) return;
     Assoc assoc; Fixity fix;
     if (op_type_classify(type, &assoc, &fix)) user_op_add(namenode->v.sval, prec, assoc, fix);
 }
