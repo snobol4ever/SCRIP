@@ -235,7 +235,7 @@ stmt_cmd        =   *stmt_body;
 /* empty_cmd */
 empty_cmd       =   $';';
 /* Command dispatcher */
-Command         =   $' ' ( *if_cmd
+Command         =   $' ' FENCE( *if_cmd
                     | *while_cmd
                     | *do_cmd
                     | *for_cmd
