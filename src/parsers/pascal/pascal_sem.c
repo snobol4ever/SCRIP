@@ -72,14 +72,13 @@ static void pas_sem_walk(const tree_t *root, int k, const tree_t *node, const ch
 #define PAS_SEM_PATH_MAX 64
 typedef struct { const tree_t *n; int i; } pas_sem_step_t;
 static int pas_sem_is_seq(const tree_t *n) { return n->t == TT_PROGRAM || n->t == TT_SEQ_EXPR || n->t == TT_LABEL_DEF; }
-static int pas_sem_label_at(const tree_t *node, const char *lab, const pas_sem_step_t *gp, int glen, int len, int m, int sib, int root_only) {
+static int pas_sem_label_at(const tree_t *node, const char *lab, const pas_sem_step_t *gp, int glen, int len, int m, int root_only) {
     if (!node) return 0;
-    if (node->t == TT_LABEL_DEF && node->v.sval && !strcmp(node->v.sval, lab)) return (root_only ? len == 0 : (len == m || (len == m + 1 && sib))) ? 1 : 2;
+    if (node->t == TT_LABEL_DEF && node->v.sval && !strcmp(node->v.sval, lab)) return (root_only ? len == 0 : len == m) ? 1 : 2;
     for (int i = 0; i < node->n; i++) { int r;
-        if (pas_sem_is_seq(node)) r = pas_sem_label_at(node->c[i], lab, gp, glen, len, m, sib, root_only);
-        else if (m != len) r = pas_sem_label_at(node->c[i], lab, gp, glen, len + 1, m, sib, root_only);
-        else if (len < glen && gp[len].n == node && gp[len].i == i) r = pas_sem_label_at(node->c[i], lab, gp, glen, len + 1, len + 1, 0, root_only);
-        else r = pas_sem_label_at(node->c[i], lab, gp, glen, len + 1, len, len < glen && gp[len].n == node, root_only);
+        if (pas_sem_is_seq(node)) r = pas_sem_label_at(node->c[i], lab, gp, glen, len, m, root_only);
+        else if (m == len && len < glen && gp[len].n == node && gp[len].i == i) r = pas_sem_label_at(node->c[i], lab, gp, glen, len + 1, len + 1, root_only);
+        else r = pas_sem_label_at(node->c[i], lab, gp, glen, len + 1, m, root_only);
         if (r) return r; }
     return 0;
 }
@@ -90,12 +89,12 @@ static int pas_sem_parent(const tree_t *root, int j) {
 }
 static void pas_sem_goto_check(const tree_t *root, int k, const tree_t *g, const pas_sem_step_t *gp, int glen, const char *fname, int *nerr) {
     const char *lab = g->v.sval; const char *pn = pas_sem_name(pas_sem_proc_at(root, k));
-    int r = pas_sem_label_at(pas_sem_body(pas_sem_proc_at(root, k)), lab, gp, glen, 0, 0, 0, 0);
+    int r = pas_sem_label_at(pas_sem_body(pas_sem_proc_at(root, k)), lab, gp, glen, 0, 0, 0);
     if (r == 2) { fprintf(stderr, "pascal: ISO 7185 6.8.1 violation in %s line %d: goto %s enters a structured statement -- label %s prefixes a statement outside every"
                                   " statement-sequence that contains the goto (in %s)\n", fname, g->line, lab, lab, pn ? pn : "main"); (*nerr)++; return; }
     if (r == 1) return;
     for (int a = pas_sem_parent(root, k); a >= 0; a = pas_sem_parent(root, a)) {
-        r = pas_sem_label_at(pas_sem_body(pas_sem_proc_at(root, a)), lab, gp, glen, 0, 0, 0, 1);
+        r = pas_sem_label_at(pas_sem_body(pas_sem_proc_at(root, a)), lab, gp, glen, 0, 0, 1);
         if (r == 1) return;
         if (r == 2) { const char *an = pas_sem_name(pas_sem_proc_at(root, a));
             fprintf(stderr, "pascal: ISO 7185 6.8.1 violation in %s line %d: goto %s leaves %s for label %s of the enclosing block %s, which does not prefix a statement"

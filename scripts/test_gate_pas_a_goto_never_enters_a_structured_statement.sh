@@ -10,16 +10,18 @@
 # statement-sequences (TT_PROGRAM, TT_SEQ_EXPR, a label's own TT_LABEL_DEF) add no step. The label's path must be a prefix of the
 # goto's. A goto whose label is not in its own block searches the enclosing blocks (children precede parents in the procedure list),
 # where the label must sit in the outermost sequence. The goto node now carries its source line, so the diagnostic names it.
-# ⛔⭐ ONE DELIBERATE LENIENCY, NAMED SO NOBODY MISTAKES IT FOR CONFORMANCE: a goto from one branch of a structured statement into a
-# labelled statement that is directly ANOTHER branch of that same statement (then -> else) is accepted. ISO forbids it -- an else-part
-# is not a statement of a statement-sequence -- but Pascal-P4 does exactly that (insymbol's goto 3 in pcom.pas and p4/comp.pas), P4
-# predates ISO 7185, fpc -Miso accepts it, and refusing it would break the P4 self-host. No PAT test exercises that shape, so both
-# populations read full with it. Before landing, every acceptance program in the corpus was compiled with the check (PasM, the FPC
-# suite, P4, P5, the benchmarks; 38 of them use goto): zero tripped; the only trips were the P5 copies of these same seven tests.
+# ⛔⭐ NO LENIENCY, BY RULING (ceo CEO-1228, 2026-09-23, on hq_pascal's question): this check once accepted one non-ISO shape by
+# name -- a goto from one branch of a structured statement into a statement that is directly another branch (then -> else) --
+# because Pascal-P4's insymbol does exactly that (goto 3). A by-name exception is the per-program accommodation the one-oracle law
+# forbids, so it is gone: P4's vendored comp.pas carries a documented source patch instead (corpus/packages/pascal/p4/PATCHES.md,
+# patch 6; SCRIP runs the patched and original compilers to byte-identical generation-1 output), and corpus/packages/pascal/pcom.pas,
+# a P4-lineage copy no suite grades, is now refused at that line. Before landing, every acceptance program in the corpus was compiled
+# with the check (PasM, the FPC suite, P4, P5, the benchmarks; 38 of them use goto): zero tripped but pcom.pas, named above; the
+# other trips were the P5 copies of these same seven tests.
 #
 # ARMS: seven vendored PAT witnesses, each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is
 # accepted, links and runs). An eighth arm proves the check DISCRIMINATES: backward and forward gotos in one sequence, a goto out of a
-# for body, the P4 then -> else shape, and a (compiled, not taken) non-local goto to main's outermost sequence run byte-identical to
+# for body, a forward goto out of an if branch, and a (compiled, not taken) non-local goto to main's outermost sequence run byte-identical to
 # fpc -Miso in both modes. The non-local goto is NOT taken because SCRIP does not yet perform one (it falls through; row
 # pascal-fpc-class-nonlocal-control-transfer) -- this gate grades the compile-time rule, not that. FAIL_ONCE=1 flips the first witness.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -67,7 +69,9 @@ begin
   end;
   2: writeln('scan done ', j);
   if j = 3 then begin writeln('then branch'); goto 3 end
-  else 3: writeln('else branch reached by goto')
+  else writeln('else branch');
+  writeln('skipped by goto');
+  3: writeln('forward goto out of a branch landed')
 end;
 begin
   n := 0; scan;
@@ -79,7 +83,7 @@ PAS
 ( cd "$T" && "$FPC" -Miso -v0 ok.pas >/dev/null 2>&1 && ./ok ) > "$T/ok.ref" 2>&1
 [ -s "$T/ok.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no control-arm output"; exit 2; }
 ok3=$( cd "$T" && timeout 20s "$SCRIP" --run ok.pas </dev/null 2>&1 ); m4_run "$T/ok.pas"; ok4="$M4O"
-if [ "$ok3" = "$(cat "$T/ok.ref")" ] && [ "$ok4" = "$(cat "$T/ok.ref")" ]; then echo "  control arm: legal local, outward, then->else and non-local gotos run byte-identical to fpc -Miso in both modes"
+if [ "$ok3" = "$(cat "$T/ok.ref")" ] && [ "$ok4" = "$(cat "$T/ok.ref")" ]; then echo "  control arm: legal local, outward, out-of-branch and non-local gotos run byte-identical to fpc -Miso in both modes"
 else echo "  ⛔ control arm FAILED -- the check refuses or miscompiles LEGAL gotos"; echo "      want: $(tr '\n' '|' < "$T/ok.ref")"; echo "      m3  : $(printf '%s' "$ok3" | tr '\n' '|')"; echo "      m4  : $(printf '%s' "$ok4" | tr '\n' '|')"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N illegal gotos refused with a NAMED diagnostic in both modes, and legal gotos are untouched"
 else echo "GATE FAIL(1) [$G]: examined $N vendored PAT witnesses plus one legal control"; fi
