@@ -25,3 +25,5 @@ raku_roast_scoreboard.sh
 test_corpus_snobol4.sh
 test_rebus_bench_suite.sh
 test_prolog_bench_suite.sh
+test_snobol4_bench_suite.sh
+test_raku_bench_suite.sh
