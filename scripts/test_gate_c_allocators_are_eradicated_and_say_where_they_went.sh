@@ -61,7 +61,22 @@ else
   ck no "(a) the census selftest did not pass (rc=$strc, arms=${arms:-none}): $(printf '%s\n' "$st" | grep -m2 '  FAIL  ' | tr '\n' ';')"
 fi
 
-out="$(timeout 300s python3 "$CEN" --by-dir 2>&1)"; crc=$?
+# ⛔ ONE SCAN, NOT TWO (row instruments-the-allocator-census-preflight-arm-runs-7-to-14-s-..., the cfo 2026-09-24): this
+# arm ran `--by-dir` and then `--ratchet`, and each CLI run walked the whole tree again (3.8 s and 4.0 s at load 27, the
+# arm 12-14 s against its 5 s preflight budget). The census is now run once, in-process: census(ROOT, by_dir) prints
+# exactly what `--by-dir` printed and fills COUNTS, then ratchet(BASE) grades those same counts -- the two functions the
+# two runs called, in the same order, so every arm below reads the lines and return codes it read before. A process that
+# dies before printing its rc marker keeps its exit status, as a crashed CLI run did.
+both="$(timeout 300s python3 - "$CEN" "$BASE" 2>&1 <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("c_allocator_census", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print("@@CENSUS-RC " + str(m.census(m.ROOT, True, False)), flush=True)
+print("@@RATCHET-RC " + str(m.ratchet(sys.argv[2])), flush=True)
+PY
+)"; prc=$?
+out="$(printf '%s\n' "$both" | sed '/^@@CENSUS-RC /,$d')"
+crc="$(printf '%s\n' "$both" | sed -n 's/^@@CENSUS-RC \([0-9]*\)$/\1/p' | head -1)"; crc="${crc:-$prc}"
+rout="$(printf '%s\n' "$both" | sed -n '/^@@CENSUS-RC /,/^@@RATCHET-RC /p' | sed '1d;/^@@RATCHET-RC /d')"
 if [ "$crc" = 2 ]; then
   ck no "(b) the census REFUSED rc=2 on this tree -- it could not measure, which is not a clean zero: $(printf '%s\n' "$out" | grep -m1 'REFUSED')"
 else
@@ -155,7 +170,6 @@ else
   ck no "(e) the census went QUIET on a CEO-844 clause -- aliases='${al:-missing}' prose='${pr:-missing}' forbidden='${ft:-missing}'; an instrument that stops reporting a population reads green while that population walks past it"
 fi
 
-rout="$(timeout 300s python3 "$CEN" --ratchet "$BASE" 2>&1)"; rrc=$?
 if printf '%s\n' "$rout" | grep -q '^RATCHET GREEN'; then
   ck ok "(d) the ratchet holds: $(printf '%s\n' "$rout" | grep -m1 '^population: .*ratcheted count')"
 else

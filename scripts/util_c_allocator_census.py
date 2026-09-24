@@ -167,6 +167,12 @@ def scan(files, root):
         if n_prose > 0:
             prose[rel] = n_prose
         lines = src.split("\n")
+        # ⛔ AND THE SAME TEST ONCE PER FILE (the cfo 2026-09-24, row instruments-the-allocator-census-preflight-arm-...):
+        # a name absent from the file is absent from each of its lines, so only the names this file contains are tried
+        # per line, in their original order, and a file with none of the four names cannot yield a bare reference.
+        rxs_here = [(n, rx) for n, rx in rxs if n in src]
+        drx_here = [(d, n, rx) for d, n, rx in drx if n in src]
+        bare_here = any(n in src for n in FORBIDDEN)
         # ⛔ THE SUBSTRING TEST IS A PRE-FILTER, NOT A CRITERION (COO-80, row
         # instrument-the-nineteen-non-gc-blocking-arms). Every pattern here is call_rx(name), which cannot
         # match a line that does not contain `name` literally, so `name not in line` skips only lines the
@@ -174,14 +180,14 @@ def scan(files, root):
         # each of the forbidden and destination patterns against EVERY line of src/, 2.5 million finditer
         # calls on a --by-dir pass. The census output is byte-identical across the change.
         for i, line in enumerate(lines, 1):
-            for name, rx in rxs:
+            for name, rx in rxs_here:
                 if name not in line:
                     continue
                 for m in rx.finditer(line):
                     if is_declaration(line, m.start()):
                         continue
                     forb.append((rel, i, name))
-            for d, name, rx in drx:
+            for d, name, rx in drx_here:
                 if name not in line:
                     continue
                 for m in rx.finditer(line):
@@ -191,6 +197,8 @@ def scan(files, root):
             m = _DEFINE_RX.match(line)
             if m:
                 defines.append((rel, i, m.group(1), m.group(2)))
+                continue
+            if not bare_here:
                 continue
             for m in _BARE_RX.finditer(line):
                 if is_declaration(line, m.start()):
@@ -300,6 +308,31 @@ def _libc_returns_rx(fn, esym):
     return re.compile(r"(?<![A-Za-z0-9_])" + esym + r"\s*=\s*(?:\([^)]*\)\s*)?" + fn + r"\s*\(")
 
 
+# ⛔ THE CANDIDATE PASS (cfo 2026-09-24, row instruments-the-allocator-census-preflight-arm-runs-7-to-14-s-...): the two
+# patterns above with the symbol GENERALISED to any identifier, wrapped in a zero-width lookahead so finditer tries every
+# position and no overlapping occurrence is skipped. A match inside a scope is a match in its file -- a scope starts at
+# its declared name, which follows `*` or whitespace, or at 0 -- so an identifier absent from this set can never be given
+# an owner, and its scope need not be built or searched. That was 1146 regex searches and 8044 block walks per pass.
+@functools.lru_cache(maxsize=None)
+def _libc_returns_any_rx(fns):
+    return re.compile(r"(?=(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\([^)]*\)\s*)?(?:" + "|".join(fns) + r")\s*\()")
+
+
+@functools.lru_cache(maxsize=None)
+def _libc_outparam_any_rx(fns):
+    return re.compile(r"(?=(?:" + "|".join(fns) + r")\s*\(\s*&\s*([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])"
+                      r"(?:\s*\[[^\]]*\]|\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*\s*,)")
+
+
+def _libc_owner_syms(src, out_fns, ret_fns):
+    syms = set()
+    if ret_fns:
+        syms.update(m.group(1) for m in _libc_returns_any_rx(tuple(ret_fns)).finditer(src))
+    if out_fns:
+        syms.update(m.group(1) for m in _libc_outparam_any_rx(tuple(out_fns)).finditer(src))
+    return syms
+
+
 def _norm_lvalue(e):
     return re.sub(r"\[[^\]]*\]", "[]", re.sub(r"\s+", "", e))
 
@@ -354,24 +387,39 @@ def _enclosing_block(src, p):
 def libc_ownership_census(texts, out=print):
     """Every site where a block libc owns is handed to our allocator or our collector."""
     hits = []
+    # ⛔ CHEAP, AND EXACTLY AS BLIND AS BEFORE (row instruments-the-allocator-census-preflight-arm-runs-7-to-14-s-...,
+    # the cfo 2026-09-24): every test below asks whether a name occurs inside a scope, and a scope is a slice of its
+    # file, so a name absent from the file is absent from every scope in it. A file with no libc owner name or none
+    # of our bookkeeping names can yield no hit and is skipped before its scopes are built -- 336 of 386 files today,
+    # the whole cost of this arm being over the preflight budget. The name lists keep their order, so the last
+    # matching owner still wins and the output is byte-identical in every mode.
     for rel, src in sorted(texts.items()):
-        scopes = [(m.group(1), m.start(1), _enclosing_block(src, m.start(1))[1]) for m in _PTR_DECL.finditer(src)]
-        scopes += [(m.group(1), 0, len(src)) for m in _STATIC_ARR.finditer(src)]
+        out_fns = [fn for fn in _LIBC_OUT_PARAM if fn in src]
+        ret_fns = [fn for fn in _LIBC_RETURNS if fn in src]
+        ours_here = [(ours, what) for ours, what in _OURS.items() if ours in src]
+        if not (out_fns or ret_fns) or not ours_here:
+            continue
+        cand = _libc_owner_syms(src, out_fns, ret_fns)
+        if not cand:
+            continue
+        scopes = [(m.group(1), m.start(1), _enclosing_block(src, m.start(1))[1]) for m in _PTR_DECL.finditer(src)
+                  if m.group(1) in cand]
+        scopes += [(m.group(1), 0, len(src)) for m in _STATIC_ARR.finditer(src) if m.group(1) in cand]
         for sym, a, b in scopes:
             seg = src[a:b]
             owner = None
             esym = re.escape(sym)
             if sym not in seg:
                 continue
-            for fn in _LIBC_OUT_PARAM:
+            for fn in out_fns:
                 if fn in seg and _libc_outparam_rx(fn, esym).search(seg):
                     owner = fn
-            for fn in _LIBC_RETURNS:
+            for fn in ret_fns:
                 if fn in seg and _libc_returns_rx(fn, esym).search(seg):
                     owner = fn
             if not owner:
                 continue
-            for ours, what in _OURS.items():
+            for ours, what in ours_here:
                 # ⛔ THE CAST IS NOT OPTIONAL TO HANDLE: every root in core.c is written
                 # rt_gc_visit_raw((const char **)&X), so a reader that only matches a bare &X misses the
                 # exact hazard it was built for.  A planted arm caught this before it shipped.
@@ -417,9 +465,12 @@ def libc_doors_census(texts, out=print):
     """Every call of a libc HEAP door other than the four forbidden names, one row each."""
     hits = []
     for rel, src in sorted(texts.items()):
-        if not any(d in src for d in _LIBC_HEAP_DOORS):
+        doors_here = [d for d in _LIBC_HEAP_DOORS if d in src]
+        if not doors_here:
             continue
         for ln, line in enumerate(src.split("\n"), 1):
+            if not any(d in line for d in doors_here):
+                continue
             for m in _DOOR_RX.finditer(line):
                 if not is_declaration(line, m.start()):
                     hits.append((rel, ln, m.group(1)))
@@ -563,10 +614,19 @@ def ruling_resolves(ruling, root=None):
         if not os.path.exists(record):
             return None, record
     try:
-        text = open(record, encoding="utf-8", errors="replace").read()
+        st = os.stat(record)
+        text = _read_record(record, st.st_mtime_ns, st.st_size)
     except Exception:
         return None, record
     return (ruling in text), record
+
+
+@functools.lru_cache(maxsize=8)
+def _read_record(path, mtime_ns, size):
+    """The record is read ONCE per process for a given (path, mtime, size): the selftest resolves 35 rulings against
+    a 2.8 MB GOAL-CEO.md, and decoding it 35 times was 0.6 s of the preflight arm's budget (cfo 2026-09-24). A record
+    that changes on disk changes its key, so no stale text is ever graded."""
+    return open(path, encoding="utf-8", errors="replace").read()
 
 
 def split_ruled_permanent(viol, rows):
