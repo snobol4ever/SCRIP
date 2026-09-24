@@ -340,3 +340,33 @@ run_at_declared_table() {
   kb="${rec%%|*}"; st="${rec#*|}"
   ( [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
 }
+
+# ⭐ THE DECLARATION AS SWITCHES (row instruments-ninety-two-scripts-and-the-makefile-size-the-arena-through-the-env-not-the-d-switch;
+# CEO-1225/1226: SCRIP sizes the heap with -d and -i and the stack with -s, as SPITBOL does, and a switch is recorded with the run where
+# an environment knob is invisible in a transcript). These print the words a runner puts on its OWN scrip command line -- after --run
+# for mode 3, leading the compiled binary's arguments for mode 4 -- spelled exactly as corpus_suite_harness.py's _size_switches spells
+# them: a declared heap is both the cap and the initial window (-d<kb>k -i<kb>k), a declared stack is -s<kb>k, nothing declared prints
+# nothing. test_gate_declared_arena_switches_agree_with_the_harness.sh holds the two spellings together. MEASURED 2026-09-24: every
+# heap_kb declared in the corpus is 8192 KB or more, where -d/-i and the old SCRIP_HEAP_KB export read the same window AND the same cap.
+_declared_switch_words() {  # <heap_kb> <stack_kb> -> the words
+  local kb="$1" st="$2" sw=""
+  [ -n "$kb" ] && sw="-d${kb}k -i${kb}k"
+  [ -n "$st" ] && sw="${sw:+$sw }-s${st}k"
+  printf '%s\n' "$sw"
+}
+
+# declared_arena_switches <all_csv> <entry> -- the entry's declared heap and stack as switches; rc 2 on a refused cell.
+declared_arena_switches() {
+  local kb st
+  kb=$(declared_arena_kb "$1" "$2") || return 2
+  st=$(declared_stack_kb "$1" "$2") || return 2
+  _declared_switch_words "$kb" "$st"
+}
+
+# declared_switches_from_table <table_file> <entry> -- the same, from the table declared_memory_begin wrote; rc 2 when it is missing.
+declared_switches_from_table() {
+  local tbl="$1" entry="$2" rec
+  [ -n "$tbl" ] && [ -f "$tbl" ] || { echo "⛔ REFUSE(2) declared_switches_from_table: no declared-memory table at '${tbl}' -- build it with declared_memory_begin first" >&2; return 2; }
+  rec="$(awk -F'\t' -v e="$entry" '$1 == e { print $2 "|" $3; exit }' "$tbl")"
+  _declared_switch_words "${rec%%|*}" "${rec#*|}"
+}

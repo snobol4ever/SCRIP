@@ -1,0 +1,15 @@
+# arena_env_setters_allowlist.txt -- the files that may still spell SCRIP_HEAP_KB / SCRIP_HEAP_MB / SCRIP_HEAP_MAX_MB / SCRIP_STACK with an
+# `=` after it (row instruments-ninety-two-scripts-and-the-makefile-size-the-arena-through-the-env-not-the-d-switch, the coo). FORMAT:
+# path<TAB>reason, one per line. A file belongs here only while its reason is true; the row's DONE-WHEN reads "outside the allowlist 0".
+# MEASURED 2026-09-24 on ee1654d5c: 84 files match; these 7 SET NOTHING -- every match is a comment, or a report line that prints the
+# arena a run used (which is the transcript naming its arena, the row's own goal). The other 77 set the arena for a run and are the
+# row's work, sequenced by the ceo (asked 2026-09-24): each lane's runner at its own next board run, the GC gates after the GC home
+# stretch with the cto.
+scripts/test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	sets nothing: its one match is a report line naming the arena the run used
+scripts/test_gate_gc_event_coverage_reports_and_ratchets.sh	sets nothing: its matches are comments
+scripts/test_gate_gc_no_pinned_lifetime_class.sh	sets nothing: its matches are comments
+scripts/test_gate_gc_pacing_bounds_a_churning_program.sh	sets nothing: its matches are comments
+scripts/test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	sets nothing: its matches are comments
+scripts/test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh	sets nothing: its one match is a report line naming the arena the run used
+scripts/util_progress_append.py	sets nothing: its matches are comments describing the configuration a progress row records
+scripts/test_gate_declared_arena_switches_agree_with_the_harness.sh	control arm: arm 2 runs a declared heap as the old SCRIP_HEAP_KB export beside the -d/-i switches to prove both read the same arena line -- the export is the subject of that comparison
