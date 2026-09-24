@@ -28,6 +28,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # suite snobol4-bench-ref, config declared) is appended when the population is the corpus tree; --write then calls util_score_row.py
 # write --lang snobol4 --column bench-ref, whose lane check admits only the lane's seat. A population OUTSIDE the corpus tree
 # (a fixture, BENCH_SNOBOL4_DIR) is not a board (CEO-547): it is graded, and nothing is appended or written.
+# THE ORACLE ARM (BENCH_ORACLE_ARM=1; Lon 2026-09-24 15:1x: run the same 23 on SPITBOL using the 3-angle harness and show the
+# comparison): the same pristine kernel and the SAME generated twins run under the CLEAN SPITBOL benchmark oracle (sbl_clean_bin,
+# lib_oracle_flags.sh -- official upstream plus its two class-A patches, TIME() in nanoseconds; never the monitor-hooked x64/bin/sbl,
+# which costs ~2.3x), printed as `scouting <k> sbl:` lines beside the m3/m4 ones and an informational `<k> sbl PASS|FAIL` line
+# (stdout == .ref on every angle, mismatched=0). The oracle arm never enters the board line: the row grades SCRIP.
 # EXIT 0 every kernel PASS; 1 any kernel not PASS; 2 REFUSED.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,6 +56,11 @@ WRAP="$HERE/../tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O0 -o "$WRAP" "$HERE/../tools/bench_rusage.c" || refuse "tools/bench_rusage failed to build -- angle 1 has no wrapper"
 case "$ITER_N" in ''|*[!0-9]*|0) refuse "BENCH_ITER_N must be a positive integer (got '$ITER_N')";; esac
 case "$BUD_MS" in ''|*[!0-9]*|0) refuse "BENCH_BUD_MS must be a positive whole number of milliseconds (got '$BUD_MS')";; esac
+ORACLE_ARM="${BENCH_ORACLE_ARM:-0}"; SBL=""
+if [ "$ORACLE_ARM" = 1 ]; then
+  . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- the one oracle-flag authority"
+  SBL="$(sbl_clean_bin 2>/dev/null)"; [ -n "$SBL" ] && [ -x "$SBL" ] || refuse "BENCH_ORACLE_ARM=1 but sbl_clean_bin names no executable ($SBL)"
+fi
 IS_BOARD=0; one_runner_suite_is_a_board "$BD" && IS_BOARD=1
 mapfile -t KERNELS < <(find "$BD" -maxdepth 1 -type f -name "*.$EXT" -printf '%f\n' | sed "s/\.$EXT\$//" | LC_ALL=C sort)
 [ "${#KERNELS[@]}" -gt 0 ] || refuse "no *.$EXT under $BD -- a population of zero is not a green board"
@@ -116,6 +126,18 @@ for k in "${KERNELS[@]}"; do
     printf '%-20s %-4s %-7s %-7s %-7s %s\n' "$k" "$m" "$r1" "$r2" "$r3" "$v${why:+ -- $(echo "$why" | sed 's/^[; ]*//')}"
   done
   [ "$okboth" = 1 ] && BOTH=$((BOTH+1))
+  if [ "$ORACLE_ARM" = 1 ] && [ "$gen_ok" = 1 ]; then
+    o1=FAIL; o2=FAIL; o3=FAIL; owhy=""
+    run1 "$T/$k.sbl.p" "" "$WRAP" "$SBL" -bf "$f"; rc=$?
+    if [ "$rc" = 0 ] && cmp -s "$T/$k.sbl.p.out" "$ref"; then o1=PASS; else owhy="process: rc=$rc$(cmp -s "$T/$k.sbl.p.out" "$ref" || echo ', output differs from .ref')"; fi
+    run1 "$T/$k.sbl.i" "" "$SBL" -bf "$T/$k.iter.$EXT"; rc=$?; w="$(bench_ok "$T/$k.sbl.i.err" iter)"
+    if [ "$rc" = 0 ] && cmp -s "$T/$k.sbl.i.out" "$ref" && [ -z "$w" ]; then o2=PASS; else owhy="$owhy; iter: rc=$rc${w:+, $w}"; fi
+    run1 "$T/$k.sbl.t" "" "$SBL" -bf "$T/$k.time.$EXT"; rc=$?; w="$(bench_ok "$T/$k.sbl.t.err" time)"
+    if [ "$rc" = 0 ] && cmp -s "$T/$k.sbl.t.out" "$ref" && [ -z "$w" ]; then o3=PASS; else owhy="$owhy; time: rc=$rc${w:+, $w}"; fi
+    grep -h '^BENCH_RUSAGE' "$T/$k.sbl.p.err" | sed "s/^/    scouting $k sbl: /"
+    for x in i t; do grep -h '^BENCH mode=' "$T/$k.sbl.$x.err" | sed "s/^/    scouting $k sbl: /"; done
+    printf '%-20s %-4s %-7s %-7s %-7s %s\n' "$k" sbl "$o1" "$o2" "$o3" "$([ "$o1$o2$o3" = PASSPASSPASS ] && echo PASS || echo "FAIL -- $(echo "$owhy" | sed 's/^[; ]*//')") (oracle arm, informational)"
+  fi
 done
 LINE="SUITE_BOARD family=$SUITE_KEY total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
 echo
