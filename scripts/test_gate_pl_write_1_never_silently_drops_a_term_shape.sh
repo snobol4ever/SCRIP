@@ -36,13 +36,15 @@ trap 'rm -rf "$D"' EXIT
 PASS=0; FAIL=0; N=0
 # goal <TAB> want.  VAR = must be a variable name: non-empty, starts with _, at least 2 chars (what the ISO suite's
 # subsumes(['_', _| _], Chars) demands). Anything else is an exact expected string.
+# write("str") is [115,116,114]: double_quotes defaults to codes (ISO 7.10.2.2, SCRIP 6a6983d9e), and gprolog 1.6.0 prints exactly
+# that; the old pin str was swipl's SWI-7 string default, which the superset does not take as core (GOAL-PROLOG-100.md line 5).
 W=$(cat <<'TEOF'
 X = X, write(X)	VAR
 write(a(b))	a(b)
 write([1,2])	[1,2]
 write('A b')	A b
 write(1+2)	1+2
-write("str")	str
+write("str")	[115,116,114]
 write(3.14)	3.14
 write({x})	{x}
 write(a-b)	a-b

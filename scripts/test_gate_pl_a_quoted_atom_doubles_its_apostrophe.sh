@@ -32,9 +32,11 @@ trap 'rm -rf "$D"' EXIT
 PASS=0; FAIL=0; N=0
 # goal <TAB> want.  The want is the EXACT bytes between two @ markers, so "wrote nothing" and "wrote the wrong
 # thing" and "died before printing" stay three distinguishable outcomes rather than one diff.
+# print/1 is GNU's unquoted write (SCRIP 5b6ebef7c; gprolog 1.6.0 prints it's) -- its arm pins the bare text, and the
+# doubling is graded on the five writers that quote: writeq, write_canonical, write_term quoted(true), format ~q.
 W=$(cat <<'TEOF'
 writeq('it''s')	'it''s'
-print('it''s')	'it''s'
+print('it''s')	it's
 write_canonical('it''s')	'it''s'
 write_term('it''s', [quoted(true)])	'it''s'
 format("~q", ['it''s'])	'it''s'
