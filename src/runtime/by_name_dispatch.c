@@ -3174,7 +3174,10 @@ static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
     { "double_quotes", "codes", 1, { "atom", "chars", "codes", 0 } },
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
+    { "dialect", "scrip", 0, { 0 } },
+    { "version_data", "", 0, { 0 } },
     { 0, "", 0, { 0 } } };
+const char *rt_pl_flag_name(int i) { return (i >= 0 && i < PL_FLAGS_MAX) ? pl_flags[i].nm : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) {
     for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
@@ -3212,6 +3215,9 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const ch
     else if (!(fl = pl_flag_find(fn))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); }
     else if (!strcmp(fl->nm, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
     else if (!strcmp(fl->nm, "max_arity")) { ok = plw_unify_vals(args[1], INTVAL(1024), cx); }
+    else if (!strcmp(fl->nm, "version_data")) { extern int prolog_atom_intern(const char *); DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(4), c;
+        kk[0] = INTVAL(0); kk[1] = INTVAL(0); kk[2] = INTVAL(0); kk[3] = pl_nil();
+        c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("scrip")) << 16) | 4u; c.p = (void *)kk; ok = plw_unify_vals(args[1], c, cx); }
     else { ok = plw_unify_vals(args[1], pl_mk_atom_dup(fl->val, strlen(fl->val)), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(set_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
