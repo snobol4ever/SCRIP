@@ -60,7 +60,7 @@ extern const char  *scan_subj;
 extern int          scan_pos;
 typedef struct { const char *subj; int pos; long len; } ScanEntry;
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
-typedef struct { const char *subj; int pos; int depth; int saved_depth; ScanEntry saved[SCAN_STACK_MAX]; } ScanState;
+typedef struct { const char *subj; int pos; int depth; int saved_depth; long len; ScanEntry saved[SCAN_STACK_MAX]; } ScanState;
 void  *rt_scan_state_capture(void *prev);
 void   rt_scan_state_apply(void *saved);
 void   rt_scan_state_reset(void);

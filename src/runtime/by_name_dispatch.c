@@ -7729,11 +7729,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     extern int         scan_depth;
     L_bidjmp_5900: ;
     if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
-        const char *s;
-        if (IS_REAL_fn(args[0])) { char _rb[64]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_heap_strdup_c(_rb); }
-        else { s = VARVAL_fn(args[0]); if (!s) s = ""; }
+        const char *s; long n;
+        if (IS_REAL_fn(args[0])) { char _rb[64]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_heap_strdup_c(_rb); n = (long)strlen(_rb); }
+        else { s = VARVAL_fn(args[0]); if (!s) s = ""; n = (args[0].v == DT_S && args[0].s == s && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : (long)strlen(s); }
         scan_depth++;
-        scan_subj = rt_heap_strdup_c(s); scan_pos = 1;
+        { char *c = rt_wsb_alloc(n + 1); memcpy(c, s, (size_t)n); c[n] = '\0'; scan_subj = c; } scan_pos = 1;
+        { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(scan_subj, n); }
         *out = args[0]; return 1;
     }
     L_bidjmp_5912: ;
@@ -7776,7 +7777,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5978: ;
     if ((_bid == BID_tab) && nargs == 1 && scan_pos > 0) {
         if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int slen = (int)strlen(scan_subj);
+        int slen; { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
         int target = (int)to_int(args[0]);
         if (target <= 0) target = slen + 1 + target;
         if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
@@ -7785,12 +7786,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         int len = hi - lo;
         char *buf = rt_wsb_alloc(len + 1);
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, len); return 1;
     }
     L_bidjmp_5991: ;
     if ((_bid == BID_move) && nargs == 1 && scan_pos > 0) {
         if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int slen; { extern long rt_scan_subj_len(void); long _a = rt_scan_subj_len(); slen = (_a >= 0) ? (int)_a : (int)strlen(scan_subj); }
+        int slen; { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
         int n = (int)to_int(args[0]);
         int target = scan_pos + n;
         if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
@@ -7804,7 +7805,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_6004: ;
     if ((_bid == BID_pos) && nargs == 1 && scan_pos > 0) {
         if (!scan_subj) { *out = FAILDESCR; return 1; }
-        int slen = (int)strlen(scan_subj);
+        int slen; { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
         int target = (int)to_int(args[0]);
         if (target <= 0) target = slen + 1 + target;
         if (target < 1 || target > slen + 1 || target != scan_pos) { *out = FAILDESCR; return 1; }

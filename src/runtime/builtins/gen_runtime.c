@@ -19,7 +19,12 @@ GenFrame frame_stack[FRAME_STACK_MAX];
 int      frame_depth = 0;
 tree_t  *drive_node = NULL;
 DESCR_t  drive_val;
-const char *scan_subj  = "";
+static const char g_scan_empty[1] = "";
+const char *scan_subj  = g_scan_empty;
+long g_scan_subj_len = 0;
+const char *g_scan_subj_ptr = g_scan_empty;
+long rt_scan_subj_len(void);
+void rt_scan_subj_len_set(const char *p, long n);
 int         scan_pos   = 1;
 int         scan_depth = 0;
 ScanEntry scan_saved[SCAN_STACK_MAX];
@@ -33,7 +38,7 @@ int rt_scan_active(void)
 void *rt_scan_state_capture(void *prev) {
     ScanState *s = (ScanState *)prev;
     if (!s) { s = (ScanState *)ct_zalloc(1, sizeof(ScanState)); if (!s) return NULL; }
-    s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->saved_depth = scan_saved_depth;
+    s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->saved_depth = scan_saved_depth; s->len = rt_scan_subj_len();
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) s->saved[i] = scan_saved[i];
     return s;
 }
@@ -41,23 +46,24 @@ void *rt_scan_state_capture(void *prev) {
 void rt_scan_state_apply(void *saved) {
     ScanState *s = (ScanState *)saved;
     if (!s) return;
-    scan_subj = s->subj ? s->subj : ""; scan_pos = s->pos; scan_depth = s->depth; scan_saved_depth = s->saved_depth;
+    scan_subj = s->subj ? s->subj : g_scan_empty; scan_pos = s->pos; scan_depth = s->depth; scan_saved_depth = s->saved_depth;
+    rt_scan_subj_len_set(scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) scan_saved[i] = s->saved[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_state_reset(void) {
-    scan_subj = ""; scan_pos = 1; scan_depth = 0; scan_saved_depth = 0;
+    scan_subj = g_scan_empty; scan_pos = 1; scan_depth = 0; scan_saved_depth = 0; rt_scan_subj_len_set(scan_subj, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long g_scan_subj_len = -1;
-const char *g_scan_subj_ptr = 0;
-void rt_scan_subj_len_set(const char *p, long n);
 long rt_scan_subj_len(void) {
     extern const char *scan_subj; if (!scan_subj) return -1;
     if (g_scan_subj_ptr == scan_subj && g_scan_subj_len >= 0) return g_scan_subj_len;
-    return (long)strlen(scan_subj);
+    fflush(stdout);
+    fprintf(stderr, "scrip: internal error: the scan subject's length was not carried (subject %p, cached %p len %ld) -- a subject was set without "
+                    "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)scan_subj, (const void *)g_scan_subj_ptr, g_scan_subj_len);
+    abort();
 }
 void rt_scan_subj_len_set(const char *p, long n) { g_scan_subj_ptr = p; g_scan_subj_len = n; }
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
@@ -123,11 +129,12 @@ ScanSubjRegs rt_scan_reenter(void) {
     if (scan_depth < 0 || scan_depth >= SCAN_STACK_MAX || scan_depth >= scan_saved_depth) return r;
     scan_subj = scan_saved[scan_depth].subj;
     scan_pos  = scan_saved[scan_depth].pos;
-    { long n = scan_saved[scan_depth].len; if (scan_subj && n >= 0) rt_scan_subj_len_set(scan_subj, n); }
+    long n = scan_saved[scan_depth].len;
     scan_depth++;
-    if (!scan_subj) scan_subj = "";
-    r.ptr = (uint64_t)(uintptr_t)scan_subj;
-    { long n = rt_scan_subj_len(); r.len = (uint64_t)((n >= 0) ? n : (long)strlen(scan_subj)); }
+    if (!scan_subj) { scan_subj = g_scan_empty; n = 0; }
+    rt_scan_subj_len_set(scan_subj, n);
+    if (n < 0) n = rt_scan_subj_len();
+    r.ptr = (uint64_t)(uintptr_t)scan_subj; r.len = (uint64_t)n;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -135,13 +142,12 @@ void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(scan_subj ? scan_subj : ""); }
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj) {
-    const char *s = subj ? (const char *)(uintptr_t)subj : "";
-    long n = -1;
-    if (scan_depth >= 0 && scan_depth < SCAN_STACK_MAX && scan_saved[scan_depth].subj == s && scan_saved[scan_depth].len >= 0) n = scan_saved[scan_depth].len;
+    const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
+    long n = (s == g_scan_empty) ? 0 : -1;
+    if (n < 0 && scan_depth >= 0 && scan_depth < SCAN_STACK_MAX && scan_saved[scan_depth].subj == s && scan_saved[scan_depth].len >= 0) n = scan_saved[scan_depth].len;
     scan_depth++;
     scan_subj = s;
     if (n < 0) n = rt_scan_subj_len();
-    if (n < 0) n = (long)strlen(s);
     rt_scan_subj_len_set(s, n);
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)n;
     return r;
@@ -236,7 +242,7 @@ static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     if (kind == 0) { if (vp) *vp = v; return 1; }
-    if (kind == 1) { long len = spill ? (long)spill[1] : (scan_subj ? (long)strlen(scan_subj) : 0); int ok; long p = cvpos_of(v, len, &ok); if (!ok) return 0; if (spill) spill[0] = (int64_t)(p - 1); else scan_pos = (int)p; return 1; }
+    if (kind == 1) { long len = spill ? (long)spill[1] : (scan_subj ? rt_scan_subj_len() : 0); int ok; long p = cvpos_of(v, len, &ok); if (!ok) return 0; if (spill) spill[0] = (int64_t)(p - 1); else scan_pos = (int)p; return 1; }
     fprintf(stderr, "[REVSWAP] FATAL: <-> write of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -320,6 +326,7 @@ void gen_gc_roots(void)
     extern void rt_gc_visit_descr(DESCR_t *d); extern void rt_gc_visit_raw(const char **loc);
     rt_gc_visit_descr(&drive_val);
     for (int f = 0; f < frame_depth; f++) { GenFrame *fr = &frame_stack[f]; for (int i = 0; i < fr->env_n; i++) rt_gc_visit_descr(&fr->env[i]); rt_gc_visit_descr(&fr->return_val); for (int g = 0; g < fr->gen_depth; g++) rt_gc_visit_raw(&fr->gen[g].sval); }
+    if (g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
     rt_gc_visit_raw(&scan_subj);
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) if (scan_saved[i].subj) rt_gc_visit_raw(&scan_saved[i].subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
