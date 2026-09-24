@@ -54,6 +54,8 @@ src/runtime/pattern_match.c	c_rt_subscript_var_s	-	subscripting a variable; same
 src/runtime/pattern_match.c	c_rt_subscript_var_container_only_s	-	subscripting restricted to containers; a Bool is explicitly not one
 src/runtime/pattern_match.c	rt_deref_slow	-	dereferences a name; a Bool is a value, never a name
 src/runtime/pattern_match.c	c_rt_assign_var_body	-	assignment target resolution; a Bool is never an lvalue
+src/runtime/pattern_match.c	rt_section_var_s	-	the s[i:j] variable; tests the base for a string that is not a cset (a subscripted cset is a value, hq_icon 2026-09-24), and a Bool is neither, so it takes the value path with FAILDESCR-or-value as before
+src/runtime/pattern_match.c	rt_swap_var	-	the :=: swap; its one-character fast path tests the base cell for a string that is not a cset (hq_icon 2026-09-24) and hands every other value to the two-assignment path, so a Bool is never coerced here
 src/runtime/pattern_match.c	rt_list_bang_var_body	-	list-bang over a container; a Bool is not one
 src/runtime/pattern_match.c	rt_random_var_body	-	random selection from a container; a Bool is not one
 src/runtime/pattern_match.c	EVAL_fn	-	EVAL of a string or expression value; a Bool is neither

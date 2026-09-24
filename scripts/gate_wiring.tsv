@@ -189,6 +189,8 @@ test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_heap_exhaustion_at_the_cap_is_a_reported_error_not_an_abort.sh	WIRED	-	-	-
 test_gate_icn_a_closed_file_raises_212_on_read_and_213_on_write.sh	WIRED	-	-	-
+test_gate_icn_a_one_character_substring_swap_builds_one_string.sh	WIRED	-	-	-
+test_gate_icn_a_record_field_under_a_subscript_section_bang_or_random_is_a_variable.sh	WIRED	-	-	-
 test_gate_icn_a_spine_opened_plain_procedure_fails_forward_on_redo.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
@@ -213,6 +215,7 @@ test_gate_icn_call_site_parity_at_proc_call_open.sh	WIRED	-	-	-
 test_gate_icn_call_traces_its_call_line_exactly_once.sh	WIRED	-	-	-
 test_gate_icn_coexpression_image_counts_activations_like_icont.sh	WIRED	-	-	-
 test_gate_icn_converted_arith_error_reports_its_own_number.sh	WIRED	-	-	-
+test_gate_icn_cset_operations_and_a_substring_assignment_follow_iconx.sh	WIRED	-	-	-
 test_gate_icn_display_reads_every_activations_locals.sh	WIRED	-	-	-
 test_gate_icn_dump_ast_shows_the_parsed_program_and_pruning_stays_a_lowering_step.sh	WIRED	-	-	-
 test_gate_icn_errorvalue_is_absent_when_the_error_carries_none.sh	WIRED	-	-	-
