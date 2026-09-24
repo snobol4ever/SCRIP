@@ -1202,6 +1202,10 @@ static void pas_type_not_self_applied(const char *name) {
     fprintf(stderr, "pascal: ISO 7185 6.4.1 violation: the type-denoter of the type-definition of '%s' contains an applied occurrence of '%s' outside the domain-type of a pointer-type\n", name, name);
     g_pas_iso_errors++;
 }
+static int pas_typealias_is_char(const char *t) {
+    for (int guard = 0; t && guard < 8; guard++) { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) return 0; if (!strcmp(al, "char")) return 1; t = al; }
+    return 0;
+}
 static int pas_class_compatible(char to, char from) { return to == from || (to == 'r' && from == 'i'); }
 static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, const char *what) {
     char to = pas_var_decl_class(vn), from = pas_expr_lit_class(rhs);
@@ -1568,7 +1572,7 @@ type_decl_list:
     type_decl_list type_decl
     | type_decl
     ;
-type_decl: IDENT EQOP type SEMICOLON { pas_type_not_self_applied($1); long long _ty3 = ($3 == -4) ? -1 : $3; int _pk3 = ($3 == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if (_ty3 < 0 && g_pas_pend_istfile) pas_tfiletype_add($1); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_booltype_add($1); if (_ty3 == -2) pas_settype_add($1, g_pas_pend_set_hi); if (g_pas_pend_ptrtarget) pas_ptrtype_add($1, g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add($1, _pk3); if (g_pas_pend_enum_max >= 0) { pas_enumtype_add($1, g_pas_pend_enum_max); pas_enumnames_add($1, g_pas_pend_enum_names); } if (g_pas_pend_sub_high >= 0 && _ty3 < 0 && g_pas_pend_arr_ncols < 0) pas_subtype_add($1, g_pas_pend_sub_low, g_pas_pend_sub_high); if (_ty3 >= 0 && !g_pas_pend_ptrtarget) { pas_arrtype_add($1, _ty3, g_pas_pend_arr_ncols >= 0 ? 1 : 0, g_pas_pend_arr_ncols); } if (_ty3 == -1 && !g_pas_pend_ptrtarget && g_pas_pend_nf == 0 && g_pas_pend_enum_max < 0 && g_pas_pend_sub_high < 0 && g_pas_pend_typename) pas_typealias_add($1, g_pas_pend_typename); pas_pend_reset(); } ;
+type_decl: IDENT EQOP type SEMICOLON { pas_type_not_self_applied($1); if (g_pas_pend_ischar && g_pas_pend_sub_high >= 0 && !g_pas_pend_isarr && g_pas_pend_nf == 0) pas_typealias_add($1, "char"); long long _ty3 = ($3 == -4) ? -1 : $3; int _pk3 = ($3 == -4) || (g_pas_pend_typename && pas_rectype_is_packed(g_pas_pend_typename)); if (_ty3 < 0 && g_pas_pend_istfile) pas_tfiletype_add($1); if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_pas_pend_isbool) pas_booltype_add($1); if (_ty3 == -2) pas_settype_add($1, g_pas_pend_set_hi); if (g_pas_pend_ptrtarget) pas_ptrtype_add($1, g_pas_pend_ptrtarget); else if (g_pas_pend_nf > 0) pas_rectype_add($1, _pk3); if (g_pas_pend_enum_max >= 0) { pas_enumtype_add($1, g_pas_pend_enum_max); pas_enumnames_add($1, g_pas_pend_enum_names); } if (g_pas_pend_sub_high >= 0 && _ty3 < 0 && g_pas_pend_arr_ncols < 0) pas_subtype_add($1, g_pas_pend_sub_low, g_pas_pend_sub_high); if (_ty3 >= 0 && !g_pas_pend_ptrtarget) { pas_arrtype_add($1, _ty3, g_pas_pend_arr_ncols >= 0 ? 1 : 0, g_pas_pend_arr_ncols); } if (_ty3 == -1 && !g_pas_pend_ptrtarget && g_pas_pend_nf == 0 && g_pas_pend_enum_max < 0 && g_pas_pend_sub_high < 0 && g_pas_pend_typename) pas_typealias_add($1, g_pas_pend_typename); pas_pend_reset(); } ;
 type:
     simple_type { if (g_pas_pend_ptrtarget) { $$ = -3; } else if ($1 == -2) { $$ = -2; } else if ($1 >= 0 && g_pas_pend_typename && pas_arrtype_high(g_pas_pend_typename) >= 0) { long long _tnc = pas_arrtype_ncols(g_pas_pend_typename); if (_tnc >= 0) g_pas_pend_arr_ncols = _tnc; $$ = $1; } else { $$ = -1; } }
     | ARROW IDENT { g_pas_pend_ptrtarget = ct_strdup($2); $$ = -3; }
@@ -1594,8 +1598,10 @@ simple_type:
               if (_id && _id->v.sval) { if (_eo > 0) strncat(g_pas_pend_enum_names, ",", sizeof g_pas_pend_enum_names - strlen(g_pas_pend_enum_names) - 1); strncat(g_pas_pend_enum_names, _id->v.sval, sizeof g_pas_pend_enum_names - strlen(g_pas_pend_enum_names) - 1); pas_const_add(_id->v.sval, (long long)(_eo++)); } }
           g_pas_pend_enum_max = (long long)(_eo - 1);
           $$ = _eo > 0 ? (long long)(_eo - 1) : -1; }
-    | IDENT { g_pas_pend_typename = ct_strdup($1); g_pas_pend_isbool = pas_is_booltype($1); g_pas_pend_istfile = pas_is_tfiletype($1); g_pas_pend_ischar = !strcmp($1, "char") || !strcmp($1, "widechar"); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = ct_strdup(_pt); $$ = -3; } else { if (!strcmp($1, "char") || !strcmp($1, "widechar")) { $$ = 255; } else if (pas_is_settype($1)) { $$ = -2; } else { long long _eh = pas_enumtype_high($1); long long _sh = pas_subtype_high($1); long long _ah = pas_arrtype_high($1); if (_eh >= 0) { $$ = _eh; } else if (_sh >= 0) { $$ = _sh; } else if (_ah >= 0) { if (g_pas_recbody_depth == 0 && pas_rectype_nf($1) > 0) { pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); } $$ = _ah; } else { if (g_pas_recbody_depth == 0) pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); $$ = -1; } } } }
-    | constant DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; $$ = $3; }
+    | IDENT { g_pas_pend_typename = ct_strdup($1); g_pas_pend_isbool = pas_is_booltype($1); g_pas_pend_istfile = pas_is_tfiletype($1); g_pas_pend_ischar = !strcmp($1, "char") || !strcmp($1, "widechar") || pas_typealias_is_char($1); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = ct_strdup(_pt); $$ = -3; } else { if (!strcmp($1, "char") || !strcmp($1, "widechar")) { $$ = 255; } else if (pas_is_settype($1)) { $$ = -2; } else { long long _eh = pas_enumtype_high($1); long long _sh = pas_subtype_high($1); long long _ah = pas_arrtype_high($1); if (_eh >= 0) { $$ = _eh; } else if (_sh >= 0) { $$ = _sh; } else if (_ah >= 0) { if (g_pas_recbody_depth == 0 && pas_rectype_nf($1) > 0) { pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); } $$ = _ah; } else { if (g_pas_recbody_depth == 0) pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); $$ = -1; } } } }
+    | constant DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 0; $$ = $3; }
+    | STRINGCONST DOTDOT constant { long long _l = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0;
+          g_pas_pend_sub_low = _l; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 1; $$ = $3; }
     ;
 record_body:
     record_field_list record_case_opt
