@@ -593,7 +593,7 @@ rather than a filled-in guess.
 
 **The reading:** ahead of GNU Prolog on startup, far ahead of SWI-Prolog on startup,
 and — on work — competitive only on the deep-recursion kernel (`tak`), with the
-term-rewriting kernels running 20–35x slower than SWI-Prolog. That inverts the old
+term-rewriting kernels at 0.03x–0.05x against SWI-Prolog. That inverts the old
 grid's conclusion and names the real lever. Twelve further kernels are not timed
 because SCRIP's output does not yet match the reference — a wrong answer is never
 timed.
