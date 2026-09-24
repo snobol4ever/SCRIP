@@ -30,10 +30,10 @@ $'return'   =   $' ' Id $ tx *IDENT(tx, 'return')   $' ';
 $'struct'   =   $' ' Id $ tx *IDENT(tx, 'struct')   $' ';
 $'switch'   =   $' ' Id $ tx *IDENT(tx, 'switch')   $' ';
 $'while'    =   $' ' Id $ tx *IDENT(tx, 'while')    $' ';
-Keyword     =   '&' SPAN(&UCASE '_' &LCASE) . token;
+Keyword     =   '&' shift(SPAN(&UCASE '_' &LCASE), "'TT_KEYWORD'");
 Integer     =   SPAN(digits) . token;
-DQ_lit      =   '"' BREAK('"') . token '"';
-SQ_lit      =   "'" BREAK("'") . token "'";
+DQ_lit      =   '"' shift(BREAK('"'), "'TT_QLIT'") '"';
+SQ_lit      =   "'" shift(BREAK("'"), "'TT_QLIT'") "'";
 String      =   (*SQ_lit | *DQ_lit);
 Ident       =   Id $ tx $ *notmatch(tx, reserved) . token;
 Real        =   ( SPAN(digits)
@@ -110,11 +110,11 @@ Expr17          =   FENCE(
                         $')'
                       | $')' shift(epsilon, "'TT_NUL'")
                       )
-                    | *String   shift(epsilon, "'TT_QLIT'")
-                    | *Real     shift(epsilon, "'TT_FLIT'")
-                    | *Integer  shift(epsilon, "'TT_ILIT'")
-                    | *Keyword  shift(epsilon, "'TT_KEYWORD'")
-                    | *Ident    shift(epsilon, "'TT_VAR'")
+                    | *String
+                    | shift(*Real, "'TT_FLIT'")
+                    | shift(*Integer, "'TT_ILIT'")
+                    | *Keyword
+                    | shift(*Ident, "'TT_VAR'")
                     );
 Expr16          =   nInc() $'[' *ExprList $']' FENCE(*Expr16 | epsilon);
 Expr15          =   *Expr17 FENCE(nPush() *Expr16 reduce("'TT_IDX'", 'nTop() + 1') nPop() | epsilon);
