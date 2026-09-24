@@ -57,6 +57,13 @@ done
 . "$HERE/lib_gate.sh"
 . "$HERE/lib_inventory.sh"
 [ -f "$HERE/lib_progress.sh" ] && . "$HERE/lib_progress.sh"
+# ⭐ DECLARED MEMORY, BOTH HALVES (Lon 2026-09-23 18:3x, CEO-1225; the coo): each case file runs at the heap and the stack its row
+# in ALL.csv declares -- heap_kb, stack_kb, read through lib_declared_arena.sh, the one reader -- for THAT file only. This board read
+# neither until now. Every cell is checked here, once, before anything is graded: a refused cell refuses the board rather than
+# quietly grading its program at the default.
+. "$HERE/lib_declared_arena.sh" || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
+_decl_rcpt="$(declared_arena_receipt "$SWIT/ALL.csv")"; printf '%s\n' "$_decl_rcpt"
+case "$_decl_rcpt" in *REFUSED*) refuse "a declared-memory cell in $SWIT/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it";; esac
 WORK="$(mktemp -d /tmp/swi_board_XXXXXX)"; trap 'rm -rf "$WORK"' EXIT
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$WORK/wrap.pl"
 FILES="$WORK/files.txt"
@@ -67,17 +74,18 @@ NFILES=$(wc -l < "$FILES")
 cat > "$WORK/grade_one.sh" <<'GEOF'
 #!/usr/bin/env bash
 f="$1"; mode="$2"
+. "$LIB_DECL" || exit 2
 rel="${f#"$SWIT"/}"; ref="${f%.pl}.ref"; od="$WORK/out/${rel%.pl}"; mkdir -p "$od"
 act="$od/$mode.actual"; : > "$act"
 if [ ! -f "$ref" ]; then echo "NOREF" > "$od/$mode.tsv"; exit 0; fi
 if [ "$mode" = "m4" ]; then
     if timeout 60 "$SCRIP" --compile "$PLUNIT" "$f" "$WORK/wrap.pl" > "$od/m4.s" 2>"$od/m4.err" && [ -s "$od/m4.s" ] \
        && gcc -no-pie "$od/m4.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$od/m4.bin" 2>>"$od/m4.err"; then
-        timeout 60 "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"
+        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"
     fi
     rm -f "$od/m4.s" "$od/m4.bin"
 else
-    timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"
+    run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"
 fi
 python3 "$MATCH_PY" "$f" "$ref" "$act" > "$od/$mode.tsv"
 GEOF
@@ -85,7 +93,8 @@ chmod +x "$WORK/grade_one.sh"
 : > "$WORK/jobs.txt"
 for m in ${MODES//,/ }; do while IFS= read -r f; do printf '%s %s\n' "$f" "$m" >> "$WORK/jobs.txt"; done < "$FILES"; done
 echo "grading $NFILES file(s) x modes=$MODES with $JOBS job(s), oracle refs beside the sources"
-export SCRIP RT PLUNIT WORK SWIT MATCH_PY
+LIB_DECL="$HERE/lib_declared_arena.sh"
+export SCRIP RT PLUNIT WORK SWIT MATCH_PY LIB_DECL
 xargs -P "$JOBS" -n 2 -a "$WORK/jobs.txt" bash "$WORK/grade_one.sh"
 python3 - "$WORK" "$FILES" "$MODES" "$SWIT" "$NAME_REDS" <<'PY'
 import sys, os, collections

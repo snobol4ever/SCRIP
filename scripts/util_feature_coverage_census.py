@@ -57,7 +57,7 @@ LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
 # languages REFUSED with "1/40 feature column(s) declared but NEVER FILLED: heap_kb". That refusal is
 # the design working: an attribute column silently counted as an unfilled feature would have dragged
 # every language's coverage denominator without one number changing its name. Measured, in that order.
-PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb"]
+PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes", "heap_kb", "stack_kb"]
 DEFAULT_FLOOR = 10   # the GOAL text's own worked example: SNOBOL4, the model shape, flags "below 10".
 
 

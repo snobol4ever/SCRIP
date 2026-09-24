@@ -214,7 +214,7 @@ compile_mode4() {
 # instrument. ⛔ The DISCOVERED corpora (crosscheck, beauty) filter a ref-less .sno BEFORE calling here, so a
 # missing file can only ever mean a stale hardcoded path -- which is always a defect and never a legitimate skip.
 run_test() {
-    local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}" heap_kb="${6:-}"
+    local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}" heap_kb="${6:-}" stack_kb="${7:-}"
     if [ ! -f "$sno" ]; then MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  ${label}: no program at ${sno}\n"; return; fi
     if [ ! -f "$ref" ]; then MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  ${label}: no oracle ref at ${ref}\n"; return; fi
     local exp; exp=$(cat "$ref")
@@ -225,6 +225,8 @@ run_test() {
     # argv here instead. Empty means the shipped default, so every existing call above (5 args) is
     # byte-identical to before this parameter existed.
     local heap_env=(); [ -n "$heap_kb" ] && heap_env=("SCRIP_HEAP_KB=$heap_kb")
+    # ⭐ AND THE DECLARED STACK AS AN OPTIONAL 7th argv, the same way (CEO-1225): SCRIP_STACK sizes the m3 process and the m4 binary.
+    [ -n "$stack_kb" ] && heap_env+=("SCRIP_STACK=${stack_kb}k")
 
 
     # ── Mode 3: --run ──────────────────────────────────────────────────────

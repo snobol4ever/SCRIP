@@ -223,6 +223,11 @@ for std in "$SUITE"/*.ref; do
     echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts"; exit 2
   fi
   [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="$ARENA_NAMES $sub/$name=${_arena_kb}KB"; }
+  # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
+  if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$sub/$name"); then
+    echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
+  fi
+  [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $sub/$name=stack:${_stack_kb}KB"; }
 
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
   # ⛔ CWD FIDELITY (RULES.md THE INSTRUMENT LAWS): upstream's own Test-icon runs every program with the

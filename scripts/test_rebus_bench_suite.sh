@@ -16,8 +16,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #       quiet repetitions; its BENCH line must read iters=N, mismatched=0, and value= the .ref.
 #   (3) FIXED TIME LIMIT -- the same generator (--mode time): quiet repetitions until BENCH_BUD_MS is spent; at least one, mismatched=0,
 #       value= the .ref. A wrapper run with no BENCH line is UNMEASURED, and that is a FAIL here, never a pass.
-# MEMORY: a kernel that needs more than the shipped arena declares it in NAME.heap beside it (NAME TAB KB), read through
-# lib_declared_arena.sh declared_arena_kb_beside (the harness's own reader, CEO-1171's floor), exported for THAT program only.
+# MEMORY: a kernel that needs more than the shipped arena or stack declares it beside itself -- NAME.heap and NAME.stack, one line
+# NAME TAB KB each -- read through lib_declared_arena.sh (declared_arena_kb_beside, declared_stack_kb_beside: the harness's own
+# readers, CEO-1171's floors), exported for THAT program only (SCRIP_HEAP_KB, SCRIP_STACK; CEO-1225).
 # ⛔ TIMING IS SCOUTING, NOT PUBLISHED: the BENCH and BENCH_RUSAGE numbers are printed per run; no rate enters the grid until the
 # quiet-box re-run (CEO-1219). CEO-1222: REF and IN only -- each run's stdout lives in a temp dir that is deleted.
 # PUBLISH: the board is the Rebus lane's (MODE LANES rebus=ceo). One progress row per program per mode (class benchmark, suite
@@ -54,8 +55,8 @@ PROG_ROWS="$T/progress.tsv"; : >"$PROG_ROWS"
 # run1 <out-prefix> <heap-kb|''> <cmd...> -- one run, stdout/stderr kept under the prefix; returns the run's rc
 run1() {
   local o="$1" kb="$2"; shift 2
-  if [ -n "$kb" ]; then ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$kb" timeout 300s "$@" </dev/null >"$o.out" 2>"$o.err" )
-  else ( cd "$T" && timeout 300s "$@" </dev/null >"$o.out" 2>"$o.err" ); fi
+  ( cd "$T" && [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb" && unset SCRIP_HEAP_MB; [ -n "${st:-}" ] && export SCRIP_STACK="${st}k"
+    timeout 300s "$@" </dev/null >"$o.out" 2>"$o.err" )
 }
 # build4 <src.reb> <bin> -- the mode-4 binary of one program; returns 0 when it links
 build4() {
@@ -78,7 +79,9 @@ declare -A PASSN; PASSN[m3]=0; PASSN[m4]=0; BOTH=0; TOTAL=0; NAMED=""; HEAPD=0
 for k in "${KERNELS[@]}"; do
   TOTAL=$((TOTAL+1)); f="$BD/$k.reb"; ref="$BD/$k.ref"
   kb="$(declared_arena_kb_beside "$f")" || refuse "$k: its .heap sidecar is refused (the reader said why above)"
+  st="$(declared_stack_kb_beside "$f")" || refuse "$k: its .stack sidecar is refused (the reader said why above)"
   cfg="shipped"; [ -n "$kb" ] && { cfg="SCRIP_HEAP_KB=$kb"; HEAPD=$((HEAPD+1)); }
+  [ -n "$st" ] && { cfg="$([ "$cfg" = shipped ] || printf '%s,' "$cfg")SCRIP_STACK=${st}k"; HEAPD=$((HEAPD+1)); }
   if [ ! -s "$ref" ]; then
     for m in m3 m4; do printf 'benchmark\trebus-bench-ref\trebus\t%s\t%s\tFAIL\t0\tno-ref\t%s\n' "$k" "$m" "$cfg" >>"$PROG_ROWS"; done
     printf '%-16s %-4s %s\n' "$k" both "FAIL no .ref -- a benchmark without a REF cannot be graded, and is counted, not skipped"; NAMED="$NAMED $k(no-ref)"; continue
@@ -113,7 +116,7 @@ for k in "${KERNELS[@]}"; do
   done
   [ "$okboth" = 1 ] && BOTH=$((BOTH+1))
 done
-LINE="SUITE_BOARD family=rebus-bench-ref total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS heap_declared=$HEAPD"
+LINE="SUITE_BOARD family=rebus-bench-ref total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
 echo
 echo "$LINE"
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"

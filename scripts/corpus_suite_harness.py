@@ -774,7 +774,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -799,6 +799,11 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # what keeps this from being a fleet-wide re-grade wearing a reader's name.
     if heap_kb:
         env["SCRIP_HEAP_KB"] = str(heap_kb)
+    # ⭐ AND THE DECLARED STACK, the same way (Lon 2026-09-23 18:3x, CEO-1225: "an attribute of stack and heap sizes"): the runtime
+    # raises RLIMIT_STACK at init to SCRIP_STACK when it is set, else to its 64 MB floor (core.c), in both modes -- so this one
+    # variable is the stack's declaration for m3 AND for the m4 binary until the cto's switch row makes it -s. None = the default.
+    if stack_kb:
+        env["SCRIP_STACK"] = "%dk" % stack_kb
     # ⛔⭐ cwd IS THE SOURCE FILE'S OWN DIRECTORY, NOT THE HARNESS'S. A corpus program's relative
     # opens (Icon `open("X")`, and any read of a data companion) resolve against the RUNNING file's
     # directory -- that is how a loose file is run by hand and by test_corpus_snobol4.sh. Without
@@ -850,7 +855,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -901,6 +906,8 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # is about the program's live set, so it is applied where the program lives.
     if heap_kb:
         env["SCRIP_HEAP_KB"] = str(heap_kb)
+    if stack_kb:
+        env["SCRIP_STACK"] = "%dk" % stack_kb
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
     return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
@@ -1058,6 +1065,7 @@ class Entry:
                                    # grading. DECLARED beside the data, never inferred, never in a runner.
         self.want_rc = want_rc    # int: the exit code a CORRECT run of this entry produces. 0 unless the
                                    # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
+        self.stack_kb = None      # int KB of STACK this entry declares (CEO-1225), or None = the runtime's 64 MB floor.
         self.heap_kb = None       # int KB this entry DECLARES it needs, or None = the shipped default.
                                    # Lon 2026-09-23 / CEO-1167. DECLARED in ALL.csv's heap_kb column (or a
                                    # travelling <stem>.heap sidecar), never inferred -- a program's own text
@@ -1176,7 +1184,7 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, moderef=None, where="", bin_dir=None, heap_kb=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, moderef=None, where="", bin_dir=None, heap_kb=None, stack_kb=None):
     """⛔⭐ THE PER-MODE REF IS RESOLVED HERE AND NOWHERE ELSE (CEO-581), at the single point where this
     harness already knows BOTH the expected text and which mode is about to be run. Resolving it in the
     caller would mean every caller resolving it, which is how one question gets three written answers --
@@ -1191,10 +1199,10 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
         exp, _n = apply_moderef(expected_text, rows, where=f"{where or Path(sno_path).stem} [{mode}]")
         return exp
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, _exp_for("m3"), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb)
+        out["m3"] = run_m3(paths, sno_path, _exp_for("m3"), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, _exp_for("m4"), Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb)
+            out["m4"] = run_m4(paths, sno_path, _exp_for("m4"), Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
@@ -1989,7 +1997,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
                              mask=getattr(entry, 'mask', None), moderef=getattr(entry, 'moderef', None),
-                             where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None))
+                             where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None), stack_kb=getattr(entry, 'stack_kb', None))
 
 
 # ================================================================== CLI ===
@@ -2749,6 +2757,16 @@ def cmd_run(args):
         print(f"DECLARED ARENA: {_named} of {len(entries)} entr(y/ies) carry a heap_kb declaration from "
               f"{_heap_src} and run at it; the rest run at the shipped default. "
               + ", ".join(f"{_e.name}={_e.heap_kb}KB" for _e in entries if _e.heap_kb), file=sys.stderr)
+    # ⭐ AND THE stack_kb COLUMN, the same way and for the same reason (CEO-1225): what the entry needs in order to run at all.
+    _stack_decl, _stack_src = stack_declarations(args.sno)
+    if _stack_decl:
+        for _e in entries:
+            if _e.name in _stack_decl:
+                _e.stack_kb = _stack_decl[_e.name]
+        _nst = sum(1 for _e in entries if _e.stack_kb)
+        print(f"DECLARED STACK: {_nst} of {len(entries)} entr(y/ies) carry a stack_kb declaration from "
+              f"{_stack_src} and run at it; the rest run at the runtime's {GC_STACK_FLOOR_KB} KB floor. "
+              + ", ".join(f"{_e.name}={_e.stack_kb}KB" for _e in entries if _e.stack_kb), file=sys.stderr)
     # ⛔⭐ HONOUR THE modes COLUMN (row board-icon-master-runs-the-ast-graded-parser-fixtures, ceo mint 2026-09-03).
     # MEASURED cause: 153 of the icon master's 534 entries are parser-ladder fixtures whose .ref is a --dump-ast
     # DUMP, and this runner graded them by RUNNING them. Their reds were inevitable and meant nothing, and the
@@ -3435,6 +3453,8 @@ def cmd_extract(args):
 GC_HEAP_CAP_KB = 4096          # #define GC_HEAP_CAP_KB 4096
 GC_HEAP_KB_FLOOR = 64          # #define GC_HEAP_KB_FLOOR 64
 GC_HEAP_KB_MAX = 4096 * 1024   # the ceiling SCRIP_HEAP_KB itself refuses past
+GC_STACK_FLOOR_KB = 64 * 1024  # src/runtime/core/core.c: `long floor = 64L * 1024 * 1024;` -- the stack RLIMIT_STACK is raised to at init
+GC_STACK_KB_MAX = 4096 * 1024  # a declared stack past 4 GB is refused as a typo, never honoured
 
 
 def heap_sidecar_path(sno_path):
@@ -3536,6 +3556,74 @@ def heap_declarations(sno_path):
             return out, _csv_path.name
     return {}, None
 
+
+
+def stack_sidecar_path(sno_path):
+    """<stem>.stack beside an extracted pair, the stack's twin of heap_sidecar_path (CEO-1225): the declaration travels with the
+    entry, one line NAME<TAB>KB, or it is not a declaration."""
+    return str(Path(sno_path).with_suffix(".stack"))
+
+
+def validate_stack_kb(raw, where):
+    """Parse ONE stack_kb cell into an int, or refuse rc=2 naming the cell; None for the empty cell (the shipped floor).
+
+    ⛔⭐ THE FLOOR IS CEO-1171's RULE APPLIED TO THE STACK, AND HERE IT IS SHARPER THAN FOR THE HEAP. core.c raises RLIMIT_STACK at
+    init to SCRIP_STACK when it is set and to 64 MB when it is not -- the variable REPLACES the floor -- so a cell at 16384 would
+    run the program on a SMALLER stack than an undeclared neighbour, and a cell at 65536 changes nothing while reading as a
+    declaration. Either way the label is false, so a declaration is a number above the runtime's floor or it is refused."""
+    if raw is None:
+        return None
+    t = str(raw).strip()
+    if not t:
+        return None
+    if not t.isdigit():
+        refuse(f"{where}: stack_kb={t!r} is not a plain integer count of KB -- a declaration is a measurement, and a cell "
+               f"no reader can parse is not one")
+    v = int(t)
+    if v <= GC_STACK_FLOOR_KB:
+        refuse(f"{where}: stack_kb={v} is at or below the runtime's {GC_STACK_FLOOR_KB} KB stack floor and is REFUSED. core.c "
+               f"raises RLIMIT_STACK to SCRIP_STACK INSTEAD of its floor, so a smaller cell SHRINKS the stack below every "
+               f"undeclared program's and an equal one changes nothing -- either reads as a declaration and grants none. "
+               f"Declare above {GC_STACK_FLOOR_KB}, or leave the cell empty for the shipped floor")
+    if v > GC_STACK_KB_MAX:
+        refuse(f"{where}: stack_kb={v} is above the {GC_STACK_KB_MAX} KB ceiling a stack declaration may name")
+    return v
+
+
+def stack_declarations(sno_path):
+    """{entry: declared stack in KB} for the suite at `sno_path`, and the name of the evidence -- heap_declarations' twin
+    (CEO-1225), in the same order for the same reason: a travelling <stem>.stack sidecar first, then the sibling ALL.csv's
+    stack_kb column. ({}, None) when neither declares anything: every entry runs at the runtime's floor, as before."""
+    _p = Path(stack_sidecar_path(sno_path))
+    if _p.is_file():
+        out = {}
+        for ln, line in enumerate(_p.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            name, _, kb = line.partition("\t")
+            v = validate_stack_kb(kb, f"{_p}:{ln}")
+            if v is not None:
+                out[name.strip()] = v
+        if out:
+            return out, _p.name
+    _csv_path = Path(sno_path).parent / "ALL.csv"
+    if _csv_path.is_file():
+        import csv as _csvm
+        out = {}
+        try:
+            with open(_csv_path, newline="") as _f:
+                rdr = _csvm.DictReader(_f)
+                if not rdr.fieldnames or "stack_kb" not in rdr.fieldnames:
+                    return {}, None
+                for _n, _row in enumerate(rdr, 2):
+                    v = validate_stack_kb(_row.get("stack_kb"), f"{_csv_path}:{_n}")
+                    if v is not None:
+                        out[_row.get("entry")] = v
+        except OSError:
+            return {}, None
+        if out:
+            return out, _csv_path.name
+    return {}, None
 
 def modes_sidecar_path(sno_path):
     """The WRITE target for an extracted suite's modes declaration: <stem>.modes beside the pair, named the
@@ -3679,6 +3767,22 @@ def cmd_extract_family(args):
                 _hf.write("%s\t%s\n" % (_n, _v))
     elif os.path.exists(heap_sidecar_path(args.out_sno)):
         os.remove(heap_sidecar_path(args.out_sno))
+    # ⭐ AND stack_kb TRAVELS THE SAME WAY (CEO-1225): an extracted pair carries its stack declaration in <stem>.stack.
+    _stack_sel = {}
+    with open(args.csv, newline="") as _cf:
+        for _r in _csv.DictReader(_cf):
+            _v = (_r.get("stack_kb") or "").strip()
+            if _v:
+                _stack_sel[_r["entry"]] = _v
+    _mine = [(_e.name, _stack_sel[_e.name]) for _e in sel if _e.name in _stack_sel]
+    if _mine:
+        with open(stack_sidecar_path(args.out_sno), "w", encoding="utf-8") as _sf:
+            _sf.write("# stack_kb declaration carried out of %s by extract-family (family=%s). entry<TAB>KB.\n"
+                      % (Path(args.csv).name, args.family))
+            for _n, _v in _mine:
+                _sf.write("%s\t%s\n" % (_n, _v))
+    elif os.path.exists(stack_sidecar_path(args.out_sno)):
+        os.remove(stack_sidecar_path(args.out_sno))
 
 
 def cmd_list(args):

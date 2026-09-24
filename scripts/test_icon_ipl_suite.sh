@@ -339,6 +339,11 @@ for std in "${STDFILES[@]}"; do
         exit 2
     fi
     [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $IPL_ISO_SUBDIR/$base=${_arena_kb}KB"; }
+    # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
+    if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$IPL_ISO_SUBDIR/$base"); then
+      echo "⛔ REFUSED TO GRADE rc=2: $IPL_ISO_SUBDIR/$base carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
+    fi
+    [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $IPL_ISO_SUBDIR/$base=stack:${_stack_kb}KB"; }
 
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
     # ⛔ `--` separates SCRIP's own flags from the target program's argv; the oracle needs no separator

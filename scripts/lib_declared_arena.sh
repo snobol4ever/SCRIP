@@ -138,9 +138,77 @@ PY
 run_at_declared_arena() {
   local csv="$1" entry="$2"; shift 2
   [ "$1" = "--" ] && shift
-  local kb; kb=$(declared_arena_kb "$csv" "$entry") || return 2
-  if [ -n "$kb" ]; then ( export SCRIP_HEAP_KB="$kb"; "$@" )
-  else ( "$@" ); fi
+  local kb st; kb=$(declared_arena_kb "$csv" "$entry") || return 2
+  st=$(declared_stack_kb "$csv" "$entry") || return 2
+  ( [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
+}
+
+# ⭐ THE STACK, THE HEAP'S TWIN (Lon 2026-09-23 18:3x, in-chat to the ceo: "an attribute of stack and heap sizes be added to the TSV
+# admin files for the test suites"; CEO-1225; the coo). The runtime raises RLIMIT_STACK at init to SCRIP_STACK when it is set and to
+# its 64 MB floor when it is not (src/runtime/core/core.c), in BOTH modes -- the one variable sizes the m3 process and the m4 binary
+# alike until the cto's switch row makes it -s. ⛔ THE FLOOR IS CEO-1171's RULE, AND FOR THE STACK IT CUTS BOTH WAYS: the variable
+# REPLACES the floor, so a cell below 65536 SHRINKS the stack under every undeclared neighbour's -- MEASURED 2026-09-23 on one binary:
+# a 100000-deep Icon recursion completes at the default and dies with ERROR 246 at SCRIP_STACK=16384k, while a 200000-deep one dies
+# at the default and completes at 262144k, in m3 and m4 -- and a cell AT the floor changes nothing while reading as a declaration.
+DECLARED_STACK_FLOOR_KB=65536       # core.c: long floor = 64L * 1024 * 1024
+DECLARED_STACK_MAX_KB=4194304       # a declared stack past 4 GB is refused as a typo
+
+# declared_stack_kb <all_csv> <entry> -- the stack_kb twin of declared_arena_kb: the KB, nothing (absent = the floor), or rc 2.
+declared_stack_kb() {
+  local csv="$1" entry="$2"
+  [ -n "$csv" ] && [ -f "$csv" ] || return 0
+  python3 - "$csv" "$entry" "$DECLARED_STACK_FLOOR_KB" "$DECLARED_STACK_MAX_KB" <<'PY'
+import csv, sys
+path, want, flr, mx = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+try:
+    with open(path, newline="") as f:
+        rdr = csv.DictReader(f)
+        if not rdr.fieldnames or "stack_kb" not in rdr.fieldnames:
+            sys.exit(0)
+        for n, row in enumerate(rdr, 2):
+            if row.get("entry") != want:
+                continue
+            v = (row.get("stack_kb") or "").strip()
+            if not v:
+                sys.exit(0)
+            if not v.isdigit():
+                sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%r is not a plain integer count of KB\n" % (path, n, v)); sys.exit(2)
+            k = int(v)
+            if k <= flr:
+                sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%d is at or below the runtime's %d KB stack floor. SCRIP_STACK REPLACES "
+                                 "the floor, so a smaller cell SHRINKS the stack below every undeclared program's and an equal one "
+                                 "changes nothing -- either reads as a declaration and grants none. Declare above %d or leave it "
+                                 "empty\n" % (path, n, k, flr, flr))
+                sys.exit(2)
+            if k > mx:
+                sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%d is above the %d KB ceiling a stack declaration may name\n" % (path, n, k, mx))
+                sys.exit(2)
+            print(k); sys.exit(0)
+except OSError:
+    sys.exit(0)
+PY
+}
+
+# declared_stack_kb_beside <program> -- the <stem>.stack sidecar of a standalone program (a benchmark, an extracted entry), read
+# through corpus_suite_harness.stack_declarations(), exactly as declared_arena_kb_beside reads <stem>.heap; rc 2 on a sidecar that
+# declares nothing for the program beside it.
+declared_stack_kb_beside() {
+  local prog="$1"
+  [ -n "$prog" ] && [ -f "${prog%.*}.stack" ] || return 0
+  python3 - "$prog" "$_LDA_HERE" <<'PY'
+import os, sys
+prog, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, here)
+import corpus_suite_harness as h
+side = h.stack_sidecar_path(prog)
+decl, src = h.stack_declarations(prog)
+stem = os.path.splitext(os.path.basename(prog))[0]
+if src != os.path.basename(side) or stem not in decl:
+    sys.stderr.write("⛔ REFUSE(2) %s declares no stack for %s: the sidecar's format is one line NAME<TAB>KB with NAME=%s\n"
+                     % (side, os.path.basename(prog), stem))
+    sys.exit(2)
+print(decl[stem])
+PY
 }
 
 # declared_arena_receipt <all_csv> -- one line naming every declaration a board is about to honour, so the
@@ -150,7 +218,7 @@ run_at_declared_arena() {
 declared_arena_receipt() {
   local csv="$1"
   [ -n "$csv" ] && [ -f "$csv" ] || return 0
-  python3 - "$csv" "$DECLARED_ARENA_CAP_KB" "$DECLARED_ARENA_MAX_KB" <<'PY'
+  python3 - "$csv" "$DECLARED_ARENA_CAP_KB" "$DECLARED_ARENA_MAX_KB" "$DECLARED_STACK_FLOOR_KB" "$DECLARED_STACK_MAX_KB" <<'PY'
 import csv, sys
 cap, mx = int(sys.argv[2]), int(sys.argv[3])
 try:
@@ -189,6 +257,19 @@ try:
         print("    ⛔ DECLARED ARENA REFUSED (%d): these cells are present and are NOT honoured by the runner, "
               "so they are named here rather than counted above -- %s"
               % (len(refused), ", ".join("%s=%s (%s)" % r for r in refused)))
+    # ⭐ THE STACK, SAME SHAPE (CEO-1225): the same file's stack_kb cells, the reader's own floor applied, so the receipt
+    # never counts a cell the runner refuses.
+    with open(sys.argv[1], newline="") as f:
+        rdr = csv.DictReader(f)
+        if rdr.fieldnames and "stack_kb" in rdr.fieldnames:
+            st = [(r.get("entry"), (r.get("stack_kb") or "").strip()) for r in rdr]
+            flr, smx = int(sys.argv[4]), int(sys.argv[5])
+            ok_s = [(n, v) for n, v in st if v.isdigit() and flr < int(v) <= smx]
+            bad_s = [(n, v) for n, v in st if v and (n, v) not in ok_s]
+            print("    DECLARED STACK (CEO-1225): %d of %d entr(y/ies) graded at a declared stack, the rest at the runtime's "
+                  "%d KB floor%s" % (len(ok_s), len(st), flr, (" -- " + ", ".join("%s=%sKB" % x for x in ok_s)) if ok_s else ""))
+            if bad_s:
+                print("    ⛔ DECLARED STACK REFUSED (%d): present and NOT honoured -- %s" % (len(bad_s), ", ".join("%s=%s" % x for x in bad_s)))
 except OSError:
     pass
 PY

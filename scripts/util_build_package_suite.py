@@ -413,23 +413,30 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     # shipped default -- a capacity red reappearing with no diff naming the cause, which is precisely the
     # failure the master builder's own MERGE-NEVER-OVERWRITE note was written about one file over.
     _old_heap = {}
+    _old_stack = {}   # stack_kb: the same kind of paid-for measurement, carried forward the same way (CEO-1225)
     if out_csv.exists():
         with open(out_csv, newline="") as _f:
             for _row in csv.DictReader(_f):
                 _v = (_row.get("heap_kb") or "").strip()
                 if _v:
                     _old_heap[_row.get("entry")] = _v
+                _s = (_row.get("stack_kb") or "").strip()
+                if _s:
+                    _old_stack[_row.get("entry")] = _s
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes", "heap_kb"] + [c for c, _fn in cols])
+        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes", "heap_kb", "stack_kb"] + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, pkg_modes, _old_heap.get(e.name, "")] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, pkg_modes, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [flags_row[c] for c, _fn in cols])
     if _old_heap:
         print("    heap_kb: %d declaration(s) carried forward across this rebuild: %s"
               % (len(_old_heap), ", ".join("%s=%sKB" % kv for kv in sorted(_old_heap.items()))), file=sys.stderr)
+    if _old_stack:
+        print("    stack_kb: %d declaration(s) carried forward across this rebuild: %s"
+              % (len(_old_stack), ", ".join("%s=%sKB" % kv for kv in sorted(_old_stack.items()))), file=sys.stderr)
 
     if excluded:
         out_excl.write_text("\n".join(f"{name}: {reason}" for name, reason in sorted(excluded)) + "\n")

@@ -39,11 +39,13 @@ def main():
         files = [f for f in files if rx.search(open(f, encoding='utf-8', errors='replace').read())]
     if not files: print(f"REFUSE(2): the enumeration matched no file under {d} -- a suite with zero programs is not a suite"); return 2
     preserved = {}
+    preserved_stack = {}   # stack_kb, preserved the same way (CEO-1225)
     if os.path.exists(out):
         if not a.refresh: print(f"REFUSE(2): {out} exists; --refresh rewrites it preserving heap_kb"); return 2
         with open(out, newline='', encoding='utf-8') as fh:
             for row in csv.DictReader(fh):
                 if row.get('heap_kb'): preserved[row['entry']] = row['heap_kb']
+                if row.get('stack_kb'): preserved_stack[row['entry']] = row['stack_kb']
     wantrc = {}
     wr = os.path.join(d, 'ALL.wantrc')
     if os.path.exists(wr):
@@ -54,7 +56,7 @@ def main():
             if len(parts) >= 2: wantrc[parts[0]] = parts[1]
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator='\n')
-    w.writerow(['rank', 'entry', 'origin', 'package', 'n_lines', 'stdin', 'want_rc', 'modes', 'heap_kb'])
+    w.writerow(['rank', 'entry', 'origin', 'package', 'n_lines', 'stdin', 'want_rc', 'modes', 'heap_kb', 'stack_kb'])
     n_stdin = n_wantrc = n_pres = 0
     for i, f in enumerate(files, 1):
         rel = os.path.relpath(f, root)
@@ -64,7 +66,7 @@ def main():
         rc = wantrc.get(entry, wantrc.get(os.path.basename(entry), '0'))
         hk = preserved.get(entry, '')
         n_stdin += has_in; n_wantrc += (rc != '0'); n_pres += bool(hk)
-        w.writerow([i, entry, f"{a.package}__{entry}", a.package, n_lines, has_in, rc, a.modes, hk])
+        w.writerow([i, entry, f"{a.package}__{entry}", a.package, n_lines, has_in, rc, a.modes, hk, preserved_stack.get(entry, '')])
     with open(out, 'w', encoding='utf-8', newline='\n') as fh: fh.write(buf.getvalue())
     print(f"ATTRIBUTE-CSV package={a.package} entries={len(files)} stdin={n_stdin} wantrc={n_wantrc} preserved_heap={n_pres} written={out}")
     return 0

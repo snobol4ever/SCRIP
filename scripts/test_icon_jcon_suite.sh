@@ -214,12 +214,17 @@ run_one() {
     # ⛔⭐ THE ENTRY KEY IS THE BARE NAME: jcon_tests is a flat package (no nested subdirs), unlike arizona's
     # general/mega -- util_build_package_suite.py writes the bare stem into ALL.csv's entry column here, and
     # using anything else would silently match nothing (see arizona's identical note at its own arena read).
-    local _arena_kb _ARENA_PFX=""
+    local _arena_kb _stack_kb _ARENA_PFX=""
     if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$name"); then
         echo "⛔ REFUSED TO GRADE rc=2: $name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts" >&2
         exit 2
     fi
     [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $name=${_arena_kb}KB"; }
+    # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
+    if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$name"); then
+      echo "⛔ REFUSED TO GRADE rc=2: $name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
+    fi
+    [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $name=stack:${_stack_kb}KB"; }
     case "$mode" in
         m3)
             # ⛔⭐ THE PROGRAM'S OWN NAME IN argv IS THE BARE NAME, NEVER THE ABSOLUTE PATH (hq_V 2026-09-11,

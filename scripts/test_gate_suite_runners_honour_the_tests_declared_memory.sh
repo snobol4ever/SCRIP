@@ -40,15 +40,16 @@
 # runs at the shipped 128 in EXACTLY the workflow the fleet cures in, while passing on the board it is published
 # from -- two arms disagreeing for a reason neither names.
 #
-# FAIL_ONCE=1 restores the pre-column world -- both shell readers (declared_arena_kb, declared_arena_kb_beside) return
-# nothing for everybody AND the travelling sidecar is not written -- and MEASURED 2026-09-23 18:4x (coo, arm H added) it
-# reds exactly seven arms: B, C3, D1, D1b, E2, H1, H2.  The other ten are green BY CONSTRUCTION under the mutant and are
-# named here so nobody reads their green as coverage: A1..A3 and D2 read the runtime, F reads the shipped tree, E1 names
-# a path, C1/C2/H3 describe the reader-off world itself, and G drives the Python harness, which the mutant leaves alone
-# (the first count of this paragraph said five red and eight green, and G, one of the eight, was never named).
+# FAIL_ONCE=1 restores the pre-column world -- all four shell readers (declared_arena_kb, declared_arena_kb_beside,
+# declared_stack_kb, declared_stack_kb_beside) return nothing for everybody AND the travelling sidecar is not written -- and
+# MEASURED 2026-09-23 20:0x (coo, the stack arms S added on CEO-1225) it reds exactly ten arms: B, C3, D1, D1b, E2, H1, H2 and
+# S1, S3, S6. The other fourteen are green BY CONSTRUCTION under the mutant and are named so nobody reads their green as
+# coverage: A1..A4, D2 and S4 read the runtime, F reads the shipped tree, E1 names a path, C1/C2/H3/S2 describe the reader-off
+# world itself, and G and S5 drive the Python harness, which the mutant leaves alone (an earlier count of this paragraph said
+# five red and eight green, and G, one of the eight, was never named).
 # An arm that has never been seen to fail is an arm that reads "there was never a bug here" (this gate's own law,
 # COO-152), and a fail-once that reds for a STAGING reason while claiming to have proved the property is the shape
-# COO-153 found three of inside the mechanism built to disprove exactly that -- so the five are listed, not counted.
+# COO-153 found three of inside the mechanism built to disprove exactly that -- so the ten are listed, not counted.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -135,6 +136,8 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then
   # Restore the pre-column world: the reader returns nothing for everybody.
   declared_arena_kb() { return 0; }
   declared_arena_kb_beside() { return 0; }
+  declared_stack_kb() { return 0; }
+  declared_stack_kb_beside() { return 0; }
 fi
 b_rc=0
 ( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>&1 ) || b_rc=$?
@@ -260,17 +263,80 @@ h3=$(declared_arena_kb_beside "$T/pkg/frugal.icn"); h3_rc=$?
 [ "$h3_rc" = 0 ] && [ -z "$h3" ] && ck ok "H3 a program with no sidecar reads nothing (rc=0): the shipped default, not an error" \
   || ck bad "H3 a program with no sidecar read '$h3' rc=$h3_rc"
 
+# ── arm S: THE STACK, THE HEAP'S TWIN (CEO-1225, the coo 2026-09-23) ─────────────────────────────────────────────────────────
+# The runtime raises RLIMIT_STACK at init to SCRIP_STACK when set, else to its 64 MB floor (core.c), in BOTH modes. The witness:
+# a DEPTH-deep Icon recursion dies with ERROR 246 at the default floor and completes at STK_KB; its neighbour (half as deep)
+# completes at the default and dies at 16384k -- the measurement behind the floor rule: SCRIP_STACK REPLACES the floor, so a cell
+# below it SHRINKS the stack. A timeout is a refusal here too, never a verdict.
+core="$ROOT/src/runtime/core/core.c"; [ -f "$core" ] || refuse "no $core to read the stack floor back out of"
+c_flr=$(sed -n 's/^[[:space:]]*long floor = \([0-9]*\)L \* 1024 \* 1024;.*/\1/p' "$core" | head -1)
+[ -n "$c_flr" ] || refuse "could not read the stack floor (long floor = NL * 1024 * 1024) out of $core -- the drift alarm cannot be armed"
+c_flr_kb=$((c_flr * 1024))
+[ "$DECLARED_STACK_FLOOR_KB" = "$c_flr_kb" ] && grep -q "^GC_STACK_FLOOR_KB = 64 \* 1024 " "$HERE/corpus_suite_harness.py" && [ "$c_flr_kb" = 65536 ] \
+  && ck ok "A4 the stack floor copied into lib_declared_arena.sh ($DECLARED_STACK_FLOOR_KB) and corpus_suite_harness.py matches core.c's ($c_flr_kb KB)" \
+  || ck bad "A4 stack floor drift: lib $DECLARED_STACK_FLOOR_KB, core.c ${c_flr_kb} KB -- a copied runtime constant moved"
+STK_KB=262144; DEPTH=200000
+mkdir -p "$T/stk"
+printf 'procedure f(n)\n   if n = 0 then return 0\n   return 1 + f(n - 1)\nend\nprocedure main()\n   write(f(%d))\nend\n' "$DEPTH" > "$T/stk/deep.icn"
+printf 'procedure f(n)\n   if n = 0 then return 0\n   return 1 + f(n - 1)\nend\nprocedure main()\n   write(f(%d))\nend\n' $((DEPTH / 2)) > "$T/stk/shallow.icn"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,m3,,%s\n2,shallow,p__shallow,p,7,0,0,m3,,\n' "$STK_KB" > "$T/stk/ALL.csv"
+runstk() { ( cd "$T/stk" && env -u SCRIP_STACK -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB "$@" timeout 60s "$ROOT/scrip" --run "$STK_PROG" </dev/null >/dev/null 2>"$T/stk/err" ); }
+STK_PROG=deep.icn; runstk; s_base=$?; grep -q 'ERROR 246' "$T/stk/err"; s_base246=$?
+STK_PROG=deep.icn; runstk SCRIP_STACK="${STK_KB}k"; s_decl=$?
+[ "$s_base" != 124 ] && [ "$s_decl" != 124 ] || refuse "the stack witness TIMED OUT (rc=124) -- a ceiling is not a stack verdict (load: $(uptime | sed 's/.*load average: //'))"
+[ "$s_base246" = 0 ] || refuse "the stack witness at the default did not die with ERROR 246 (rc=$s_base) -- it no longer overflows the floor, so it witnesses nothing; deepen it"
+[ "$s_decl" = 0 ] || refuse "the stack witness does not complete even at ${STK_KB} KB (rc=$s_decl) -- the declaration cannot be shown to buy anything"
+echo "  STACK PREMISE MEASURED: deep.icn (depth $DEPTH) rc=$s_base with ERROR 246 at the runtime's floor, rc=$s_decl at SCRIP_STACK=${STK_KB}k"
+s1=0; ( cd "$T/stk" && run_at_declared_arena "$T/stk/ALL.csv" deep -- env -u SCRIP_HEAP_KB timeout 60s "$ROOT/scrip" --run deep.icn </dev/null >/dev/null 2>&1 ) || s1=$?
+[ "$s1" != 124 ] || refuse "arm S1 TIMED OUT (rc=124)"
+[ "$s1" = 0 ] && ck ok "S1 the stack_kb=${STK_KB} entry COMPLETES through the runner's reader (rc=0) where it dies at the floor (rc=$s_base, ERROR 246)" \
+  || ck bad "S1 the stack_kb entry still fails through the runner's reader (rc=$s1) -- the stack declaration was not exported"
+s2=$(run_at_declared_arena "$T/stk/ALL.csv" shallow -- bash -c 'echo "[${SCRIP_STACK:-UNSET}]"')
+[ "$s2" = "[UNSET]" ] && ck ok "S2 the undeclared neighbour sees SCRIP_STACK UNSET -- the stack export is per program" \
+  || ck bad "S2 the undeclared neighbour saw SCRIP_STACK=$s2 -- a stack declaration leaked over the loop"
+printf 'rank,entry,origin,package,n_lines,stdin,want_rc,modes,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,m3,,16384\n' > "$T/stk/BAD.csv"
+declared_stack_kb "$T/stk/BAD.csv" deep >/dev/null 2>"$T/stk/bad.err"; s3=$?
+[ "$s3" = 2 ] && grep -q 'SHRINKS the stack' "$T/stk/bad.err" && ck ok "S3 stack_kb=16384 (below the ${c_flr_kb} KB floor) is REFUSED rc=2, naming that it would SHRINK the stack" \
+  || ck bad "S3 stack_kb=16384 returned rc=$s3 -- a cell that shrinks the stack was accepted"
+STK_PROG=shallow.icn; runstk; s4a=$?; STK_PROG=shallow.icn; runstk SCRIP_STACK=16384k; s4b=$?; grep -q 'ERROR 246' "$T/stk/err"; s4b246=$?
+[ "$s4a" != 124 ] && [ "$s4b" != 124 ] || refuse "arm S4 TIMED OUT (rc=124)"
+[ "$s4a" = 0 ] && [ "$s4b" != 0 ] && [ "$s4b246" = 0 ] && ck ok "S4 the runtime STILL replaces its floor: the half-depth witness completes at the default and dies with ERROR 246 at SCRIP_STACK=16384k -- the measurement S3 enforces is true of this tree" \
+  || ck bad "S4 the floor rule's premise moved (half-depth: default rc=$s4a, 16384k rc=$s4b) -- re-derive the stack floor rule, do not leave S3 standing on it"
+s5=$(python3 - "$T/stk" "$STK_KB" "$HERE" "$DEPTH" 2>/dev/null <<'PY'
+import importlib.util, sys, os
+T, kb, HERE, want = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
+spec = importlib.util.spec_from_file_location("h", os.path.join(HERE, "corpus_suite_harness.py"))
+m = importlib.util.module_from_spec(spec)
+try: spec.loader.exec_module(m)
+except SystemExit: pass
+paths = m.resolve_paths()
+a = m.run_m3(paths, os.path.join(T, "deep.icn"), want, stack_kb=None).kind
+b = m.run_m3(paths, os.path.join(T, "deep.icn"), want, stack_kb=kb).kind
+print("%s|%s" % (a, b))
+PY
+)
+case "$s5" in
+  PASS\|*) ck bad "S5 the harness read $s5 -- the witness PASSES at the floor under run_m3, so this arm proves nothing" ;;
+  *\|PASS) ck ok  "S5 corpus_suite_harness.py run_m3 verdicts DIFFER across stack_kb ($s5) -- the stack reaches the process, not just the parser" ;;
+  "")      ck bad "S5 the harness could not be exercised (no output)" ;;
+  *)       ck bad "S5 harness verdicts did not change across stack_kb ($s5)" ;;
+esac
+mkdir -p "$T/stk2" && cp "$T/stk/deep.icn" "$T/stk2/deep.icn" && printf 'deep\t%s\n' "$STK_KB" > "$T/stk2/deep.stack"
+s6=$(declared_stack_kb_beside "$T/stk2/deep.icn" 2>/dev/null); printf '%s\n' "$STK_KB" > "$T/stk2/deep.stack"; declared_stack_kb_beside "$T/stk2/deep.icn" >/dev/null 2>&1; s6b=$?
+[ "$s6" = "$STK_KB" ] && [ "$s6b" = 2 ] && ck ok "S6 a standalone program's deep.stack (deep TAB $STK_KB) is read beside it, and a bare-number .stack is REFUSED rc=2" \
+  || ck bad "S6 the .stack sidecar read '$s6' (want $STK_KB) and a bare number returned rc=$s6b (want 2)"
+
 # ── arm F: every shipped attribute file carries the column ─────────────────────────────────────────────────────
 CORPUS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus"
 miss=0; tot=0
 for f in "$CORPUS"/tests/*/ALL.csv "$CORPUS"/packages/*/*/ALL.csv; do
   [ -f "$f" ] || continue
-  tot=$((tot+1)); head -1 "$f" | grep -q ',heap_kb' || { miss=$((miss+1)); echo "     NO heap_kb: $f"; }
+  tot=$((tot+1)); h1="$(head -1 "$f")"; case "$h1" in *,heap_kb,stack_kb*) ;; *) miss=$((miss+1)); echo "     NO heap_kb,stack_kb: $f";; esac
 done
 [ "$tot" -gt 0 ] || refuse "found no attribute files under $CORPUS -- cannot measure the population"
-[ "$miss" = 0 ] && ck ok "F  all $tot shipped attribute file(s) carry the heap_kb column (converted in ONE landing, so no runner can read a file that lacks it)" \
-  || ck bad "F  $miss of $tot attribute file(s) lack the heap_kb column"
+[ "$miss" = 0 ] && ck ok "F  all $tot shipped attribute file(s) carry the heap_kb and stack_kb columns, side by side (each converted in ONE landing, so no runner can read a file that lacks one)" \
+  || ck bad "F  $miss of $tot attribute file(s) lack the heap_kb,stack_kb columns"
 
-echo "GATE $G: $checks check(s), $fails failure(s) -- population: $tot attribute file(s), 1 planted declared entry, 1 planted neighbour, arena ${DECL_KB} KB vs shipped default (cap ${rt_cap} KB, floor ${rt_flr} KB)"
+echo "GATE $G: $checks check(s), $fails failure(s) -- population: $tot attribute file(s); heap: 1 planted declared entry, 1 planted neighbour, arena ${DECL_KB} KB vs shipped default (cap ${rt_cap} KB, floor ${rt_flr} KB); stack: a depth-$DEPTH witness at ${STK_KB} KB vs the runtime's ${c_flr_kb} KB floor"
 [ "$fails" = 0 ] || exit 1
 exit 0
