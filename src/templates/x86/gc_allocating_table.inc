@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1859
+#define GC_ALLOC_TAB_N 1863
 #define GC_ALLOC_TAB_N_VOID 241
-#define GC_ALLOC_TAB_N_DESCR 977
+#define GC_ALLOC_TAB_N_DESCR 981
 #define GC_ALLOC_TAB_N_OTHER 639
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1419,6 +1419,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_numbervars1_c", GC_RET_DESCR },
     { "rt_pl_dop_numbervars3", GC_RET_DESCR },
     { "rt_pl_dop_numbervars3_c", GC_RET_DESCR },
+    { "rt_pl_dop_op", GC_RET_DESCR },
+    { "rt_pl_dop_op_c", GC_RET_DESCR },
     { "rt_pl_dop_open", GC_RET_DESCR },
     { "rt_pl_dop_open4", GC_RET_DESCR },
     { "rt_pl_dop_open4_c", GC_RET_DESCR },
@@ -1447,6 +1449,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_pl_cs_nth_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_declared", GC_RET_DESCR },
     { "rt_pl_dop_pl_declared_c", GC_RET_DESCR },
+    { "rt_pl_dop_pl_op_check", GC_RET_DESCR },
+    { "rt_pl_dop_pl_op_check_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_op_count", GC_RET_DESCR },
     { "rt_pl_dop_pl_op_count_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_op_nth", GC_RET_DESCR },
