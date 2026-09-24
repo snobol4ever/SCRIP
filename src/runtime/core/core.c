@@ -122,7 +122,13 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
         case DT_R: snprintf(buf, bufsz, "%g", val.r); return;
         case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
         case DT_FAIL: buf[0] = '\0'; return;
-        case DT_S: case DT_SNUL: { const char *s = rt_cstr_d(val); snprintf(buf, bufsz, "'%s'", s ? s : ""); return; }
+        case DT_S: case DT_SNUL: {
+            const char *s = rt_cstr_d(val); size_t o = 0;
+            if (bufsz > 2) buf[o++] = '\'';
+            for (; s && *s && o + 3 < bufsz; s++) { if (*s == '\n') { buf[o++] = '\\'; buf[o++] = 'n'; } else if (*s == '\r') { buf[o++] = '\\'; buf[o++] = 'r'; } else buf[o++] = *s; }
+            if (o + 1 < bufsz) buf[o++] = '\'';
+            buf[o < bufsz ? o : bufsz - 1] = '\0'; return;
+        }
         case DT_A: case DT_T: case DT_DATA: { char hb[192]; dump_obj_head(val, hb, (int)sizeof hb); if (hb[0]) { snprintf(buf, bufsz, "%s", hb); return; } }
         default: { const char *s = VARVAL_fn(val); snprintf(buf, bufsz, "%s", s ? s : ""); return; }
     }
