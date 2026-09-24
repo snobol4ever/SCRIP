@@ -149,15 +149,15 @@ pow_expr = *unary_expr FENCE(  $'**' *pow_expr reduce('TT_POW', 2)
                               | $'^'  *pow_expr reduce('TT_POW', 2)
                               | epsilon
                              );
-mul_expr = *pow_expr
-           ( $'*' *pow_expr reduce('TT_MUL', 2) ($'*' *pow_expr reduce('TT_MUL', 2) | epsilon)
-           | $'/' *pow_expr reduce('TT_DIV', 2) ($'/' *pow_expr reduce('TT_DIV', 2) | epsilon)
-           | $'%' *pow_expr reduce(REMDR,  2) ($'%' *pow_expr reduce(REMDR,  2) | epsilon)
+mul_expr = *pow_expr *mul_tail;
+mul_tail = ( $'*' *pow_expr reduce('TT_MUL', 2) *mul_tail
+           | $'/' *pow_expr reduce('TT_DIV', 2) *mul_tail
+           | $'%' *pow_expr reduce(REMDR,  2) *mul_tail
            | epsilon
            );
-add_expr = *mul_expr
-           ( $'+' *mul_expr reduce('TT_ADD', 2) ($'+' *mul_expr reduce('TT_ADD', 2) | epsilon)
-           | $'-' *mul_expr reduce('TT_SUB', 2) ($'-' *mul_expr reduce('TT_SUB', 2) | epsilon)
+add_expr = *mul_expr *add_tail;
+add_tail = ( $'+' *mul_expr reduce('TT_ADD', 2) *add_tail
+           | $'-' *mul_expr reduce('TT_SUB', 2) *add_tail
            | epsilon
            );
 cmp_expr = *add_expr FENCE(  $'~==' *add_expr reduce(CMP_SNE, 2)
@@ -174,9 +174,9 @@ cmp_expr = *add_expr FENCE(  $'~==' *add_expr reduce(CMP_SNE, 2)
                              | $'>'   *add_expr reduce(CMP_GT,  2)
                              | epsilon
                             );
-cat_expr = *cmp_expr
-           ( $'||' *cmp_expr reduce('TT_CAT', 2) ($'||' *cmp_expr reduce('TT_CAT', 2) | epsilon)
-           | $'&'  *cmp_expr reduce('TT_CAT', 2) ($'&'  *cmp_expr reduce('TT_CAT', 2) | epsilon)
+cat_expr = *cmp_expr *cat_tail;
+cat_tail = ( $'||' *cmp_expr reduce('TT_CAT', 2) *cat_tail
+           | $'&'  *cmp_expr reduce('TT_CAT', 2) *cat_tail
            | epsilon
            );
 X_alt = nInc() *cat_expr FENCE($'|' *X_alt | epsilon);
