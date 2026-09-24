@@ -4,8 +4,8 @@
 # Usage:
 #   bash ../corpus/demos/scrip/run_demo.sh DEMO_DIR [EXPECTED_FILE]
 #
-# DEMO_DIR      path to a demoN/ directory containing *.md + *.expected
-# EXPECTED_FILE optional override (default: DEMO_DIR/*.expected)
+# DEMO_DIR      path to a demoN/ directory containing *.md + *.ref
+# EXPECTED_FILE optional override (default: DEMO_DIR/*.ref)
 #
 # Exit codes:
 #   0  all available backends PASS (missing backends are SKIP, not FAIL)
@@ -45,14 +45,14 @@ if [ -z "$SCRIP_FILE" ]; then
     exit 1
 fi
 
-# Locate .expected file
+# Locate .ref file
 if [ -n "${2:-}" ]; then
     EXPECTED="$2"
 else
-    EXPECTED="$(ls "$DEMO_DIR"/*.expected 2>/dev/null | head -1)"
+    EXPECTED="$(ls "$DEMO_DIR"/*.ref 2>/dev/null | head -1)"
 fi
 if [ -z "$EXPECTED" ] || [ ! -f "$EXPECTED" ]; then
-    echo "ERROR: no .expected file found (tried: ${EXPECTED:-$DEMO_DIR/*.expected})" >&2
+    echo "ERROR: no .ref file found (tried: ${EXPECTED:-$DEMO_DIR/*.ref})" >&2
     exit 1
 fi
 

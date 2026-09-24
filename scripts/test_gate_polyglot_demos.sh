@@ -3,7 +3,7 @@
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_polyglot_demos.sh -- DONE-WHEN for polyglot-scrip-demos-10-working.
 # Sweeps all 10 corpus/demos/scrip/demoNN/*.scrip polyglot demos in BOTH modes (m3 --run, m4
-# --compile) against their .expected files. Prints "m3 PASS=N" / "m4 PASS=N" lines (the
+# --compile) against their .ref files. Prints "m3 PASS=N" / "m4 PASS=N" lines (the
 # umbrella's own DONE-WHEN greps for these verbatim) and exits 0 only when both read 10.
 #
 # rc=0 both modes 10/10 (CLEAN); rc=1 examined all 10 in both modes, at least one FAIL (VIOLATION);
@@ -13,7 +13,7 @@
 # was current and pointed DEMO_DIR there; a later same-day Lon-ordered move (corpus commit
 # `23e65c0e`, "MOVE scrip/ -> demo/scrip/") relocated it back to corpus/demos/scrip/ before seat15's
 # fix ever got exercised by a session after that move landed. Verified THIS session, fresh:
-# corpus/demos/scrip/demoNN/ exists (10 dirs, each one *.scrip + *.expected); corpus/scrip/ does
+# corpus/demos/scrip/demoNN/ exists (10 dirs, each one *.scrip + *.ref); corpus/scrip/ does
 # NOT exist. ⛔ DO NOT "fix" this back to corpus/scrip/ on the strength of seat15's comment alone --
 # that comment was correct when written and is not now. If this gate starts reporting UNPROVEN(2)
 # unexpectedly, run `find corpus -ipath '*demoNN*'` AND `git log --oneline -3 -- <the dir it's
@@ -69,7 +69,7 @@ for demo_dir in "$DEMO_DIR"/demo*/; do
     [ -d "$demo_dir" ] || continue
     dname=$(basename "$demo_dir")
     src=$(ls "$demo_dir"*.scrip 2>/dev/null | head -1)
-    exp=$(ls "$demo_dir"*.expected 2>/dev/null | head -1)
+    exp=$(ls "$demo_dir"*.ref 2>/dev/null | head -1)
     [ -n "$src" ] && [ -n "$exp" ] || continue
     n_demos=$((n_demos+1))
     expected=$(cat "$exp")
