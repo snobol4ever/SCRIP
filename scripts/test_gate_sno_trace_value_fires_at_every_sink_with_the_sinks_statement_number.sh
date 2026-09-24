@@ -1,4 +1,5 @@
 #!/bin/bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # ⭐ WITNESS GATE for rung18 of row snobol4-ladder-every-feature-in-isolation-with-variations (cfo 2026-09-13).
 # The SPITBOL manual's 'V'/'VALUE' entry (Ch10 p.147) names THREE sink classes -- "Assignment statements, as

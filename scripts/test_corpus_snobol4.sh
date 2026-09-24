@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # scripts/test_corpus_snobol4.sh — SNOBOL4 broad corpus, modes 2+3+4
 # Mode-4 gate (hard). Modes 2+3 informational. Reinstated 2026-06-08.

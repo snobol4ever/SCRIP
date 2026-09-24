@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # lib_port_trace.sh -- THE ONE PORT-TRACE GATE BODY, shared by every language's test_gate_<lang>_port_trace.sh
 # (GOAL-TEST-SUITE-CONSISTENCY.md standard point 6; row test-suite-consistency-seven-languages-one-standard,
 # hq_T 2026-09-03). Extracted from the PAIR test_gate_pl_port_trace.sh (hq_P 2026-09-02, the only instance that

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh -- A PROGRAM THAT READS A
 # ⛔ ROMAN ARM (cfo 2026-09-16, hq_snobol4's batch find within the hour): the first cure released the RAW residue (zd) at the
 # statement boundary and that OVER-RELEASED by 16 wherever a MATCH_REPLACE box had already popped its own hook on the success

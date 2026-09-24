@@ -29,21 +29,6 @@ typedef struct { const char * name; const tree_t * pat; int salt; } sno_pat_ent_
 static cv_t g_sno_pats;
 static int g_sno_uses_stmtkw = 0;
 static int g_sno_traces_a_label = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_kw_is_stmt(const char * s) {
-    if (!s) return 0; if (s[0] == '&') s++;
-    char lk[16]; size_t i = 0; for (; s[i] && i < sizeof(lk) - 1; i++) lk[i] = (s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] - 'A' + 'a') : s[i]; lk[i] = 0;
-    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline") || !strcmp(lk, "file") || !strcmp(lk, "lastfile") || !strcmp(lk, "stlimit") || !strcmp(lk, "dump") || !strcmp(lk, "trace") || !strcmp(lk, "ftrace");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_scan_stmtkw(const tree_t * t) {
-    if (!t || (g_sno_uses_stmtkw && g_sno_traces_a_label)) return;
-    if (t->t == TT_KEYWORD && sno_kw_is_stmt(t->v.sval)) { g_sno_uses_stmtkw = 1; }
-    if (t->t == TT_FNC) { const char * fn = t->v.sval; if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval; if (fn && (!strcmp(fn, "TRACE") || !strcmp(fn, "DUMP"))) { g_sno_uses_stmtkw = 1;
-            if (!strcmp(fn, "TRACE")) { int ab = t->v.sval ? 1 : 2; if (t->n > ab && t->c[ab] && t->c[ab]->t == TT_QLIT) { const char * ty = t->c[ab]->v.sval; if (ty && (!strcmp(ty, "LABEL") || !strcmp(ty, "L"))) g_sno_traces_a_label = 1; } }
-            return; } }
-    for (int i = 0; i < t->n; i++) sno_scan_stmtkw(t->c[i]);
-}
 static int g_sno_uses_code = 0;
 static int g_sno_calls_code = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2262,7 +2247,6 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     IR_t ** fail_tgt = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
     IR_t ** match_land = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
     IR_t ** asgn_land = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
-    for (int _skw = 0; _skw < nst; _skw++) sno_scan_stmtkw(st[_skw]);
     bb_label_registry_reset();
     IR_t * endnd = exitnd;
     if (g_sno_uses_stmtkw && end_line > 0) {
@@ -2590,7 +2574,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }
         }
     }
-    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
+    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') { g_sno_uses_stmtkw = 1; g_sno_traces_a_label = 1; } }
     if (g_sno_uses_stmtkw) {
         const char * _stmtkw_cur_file = (const char *) 0;
         for (int i = 0; i < nst; i++) {
@@ -2882,10 +2866,10 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_exprs.len = 0;
     g_sno_pats.len = 0;
-    g_sno_uses_stmtkw = 0;
+    g_sno_uses_stmtkw = 0; g_sno_traces_a_label = 0;
     g_sno_uses_code = 0; g_sno_calls_code = 0; g_sno_multiproto.len = 0; g_sno_proto_fn.len = 0; g_sno_proto_enc.len = 0;
-    for (int i = 0; i < prog->n; i++) if (prog->c[i]) { sno_scan_stmtkw(prog->c[i]); sno_scan_code_use(prog->c[i]); }
-    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (g_sno_uses_stmtkw) setenv("SCRIP_SNO_STMTKW", "1", 1); else if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
+    for (int i = 0; i < prog->n; i++) if (prog->c[i]) sno_scan_code_use(prog->c[i]);
+    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') { g_sno_uses_stmtkw = 1; g_sno_traces_a_label = 1; } }
     sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;

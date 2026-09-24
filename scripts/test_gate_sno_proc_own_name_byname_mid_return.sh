@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # test_gate_sno_proc_own_name_byname_mid_return.sh -- a DEFINE'd proc's own name reads BLANK through an
 # external by-name ($NAME) lookup while that proc is in the middle of returning.
 #

@@ -723,7 +723,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # ERROR NNN line naming the file) would otherwise embed this run's own ever-changing mktemp
     # directory, which no frozen .ref can ever match. cwd (set below) is what makes the bare name
     # still resolve to the right file.
-    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
+    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + list(paths.get("scrip_extra", [])) + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
     # ⛔⭐ THE `--` SEPARATOR IS MANDATORY AND IS WHAT MAKES THIS SAFE. The driver has NO unknown-flag
     # diagnostic: any unrecognised argument falls through to being treated as a FILENAME, so a declared
     # program argument spelled like a flag (`-n10`, the exact shape the first witness used) would be
@@ -766,7 +766,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     # and so a -INCLUDE (compile-time, unlike run_m3's runtime open() concern) resolves relative to
     # the file's own directory too, not wherever the caller happened to stand.
     with open(s_path, "wb") as f:
-        r = subprocess.run([str(paths["scrip_bin"]), "--compile", sno_path.name],
+        r = subprocess.run([str(paths["scrip_bin"]), "--compile"] + list(paths.get("scrip_extra", [])) + [sno_path.name],
                             stdout=f, stderr=subprocess.DEVNULL, env=env, cwd=str(sno_path.parent))
     if r.returncode != 0:
         return Verdict("SKIP", detail="scrip --compile failed")
@@ -1941,6 +1941,7 @@ def cmd_capture_oracle_refs(args):
     paths = resolve_paths()
     check_scrip(paths)
     lang = args.lang or "snobol4"
+    paths["scrip_extra"] = ["--stlimit"] if lang in ("snobol4", "snocone", "rebus") else []
     ext = LANG_CONFIGS[lang]["ext"] if lang != "snobol4" else ".sno"
     oracle_bin, flags = resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)

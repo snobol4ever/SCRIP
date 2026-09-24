@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # test_gate_no_bench_kernel_qualifies_for_gva_demotion.sh -- ⭐ THE GVA-DEMOTION CLIFF, ASSERTED INSTEAD OF
 # LEFT AS A COINCIDENCE (hq_P 2026-09-13; SPEED lane, CONCERN 2 under NONET. Route ruled by cfo, who owns
 # the trigger -- see THE OBSERVABLE below; their canary is SCRIP 5a6aa3461, the cure bbb77e2a1).

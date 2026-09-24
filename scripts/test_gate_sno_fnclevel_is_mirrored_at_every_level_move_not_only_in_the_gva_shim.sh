@@ -1,4 +1,5 @@
 #!/bin/bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # ⭐ CURE GATE for row snobol4-fnclevel-not-incremented-entering-a-defined-function (cfo 2026-09-13, released to
 # cfo by hq_P the same hour: under NONET hq_P is CONCERN 2 SPEED and SNOBOL4 completeness is CONCERN 1, cfo's).

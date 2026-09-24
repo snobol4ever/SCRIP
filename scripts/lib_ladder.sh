@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # lib_ladder.sh -- THE ONE CONSTRUCT-LADDER RUNNER BODY, shared by every language's test_<lang>_ladder.sh
 # (GOAL-TEST-SUITE-CONSISTENCY.md standard point 1; row test-suite-consistency-seven-languages-one-standard,
 # hq_T 2026-09-03). Extracted from test_prolog_ladder.sh (hq_P/hq_C) and test_raku_ladder.sh (seat11), whose

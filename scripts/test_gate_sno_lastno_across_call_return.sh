@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # test_gate_sno_lastno_across_call_return.sh -- &LASTNO (backed by g_stno) is never saved/restored across a
 # CALL/RETURN boundary in any calling convention. Real SPITBOL semantics: after a call returns, &LASTNO reads
 # the CALLER's own last-executed statement number, not the callee's. rt_stmt_enter (src/runtime/keywords.c)

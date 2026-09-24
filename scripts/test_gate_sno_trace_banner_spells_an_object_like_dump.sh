@@ -1,4 +1,5 @@
 #!/bin/bash
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # ⭐ WITNESS GATE for the rung17 form `trace_banner_spells_an_object_with_its_prototype_and_serial` of row
 # snobol4-ladder-every-feature-in-isolation-with-variations (cfo 2026-09-13).  A TRACE banner spells an
