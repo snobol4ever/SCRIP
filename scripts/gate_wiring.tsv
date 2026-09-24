@@ -312,6 +312,7 @@ test_gate_outside_baseline_rows_name_a_live_measurement.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
 test_gate_pas_a_blocks_declaration_parts_come_in_iso_order.sh	WIRED	-	-	-
+test_gate_pas_a_call_carries_as_many_actuals_as_formals.sh	WIRED	-	-	-
 test_gate_pas_a_file_carries_its_iso_mode_and_says_so.sh	WIRED	-	-	-
 test_gate_pas_a_file_component_is_never_itself_a_file.sh	WIRED	-	-	-
 test_gate_pas_a_for_statement_stays_inside_its_control_variables_type.sh	WIRED	-	-	-
