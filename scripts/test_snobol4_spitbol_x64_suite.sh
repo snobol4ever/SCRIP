@@ -54,9 +54,19 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # MODE 4 HAS A DECLARED, MEASURED BUDGET.  These programs are enormous by generated-code standards --
 # math_minus emits a 55 MB .s in 9 s, and math_pow was still writing at 128 MB after 47 s.  The compile
-# runs under `ulimit -f` (SPITBOL_X64_M4_ASM_MB, default 64) and a timeout, so a program whose asm does
+# runs under `ulimit -f` (SPITBOL_X64_M4_ASM_MB, default 128) and a timeout, so a program whose asm does
 # not fit is DEFERRED WITH ITS MEASURED SIZE in the record, never silently dropped and never allowed to
-# fill the disk.
+# fill the disk.  ⭐ 64 -> 128 MB (hq_snobol4 2026-09-23 on the cfo's economy answer re-q-x64t-mode-4-asm-budget,
+# "the verdict should grade what we can prove correct"): once the zd_plan hang was cured (SCRIP ae2a9e433),
+# math_sum/math_diff/math_div/math_prod passed mode 3 and were DEFERRED in mode 4 on size alone.  math_sum emits
+# 105.3 MB of asm in 32 s, links in 3.7 s at 834 MB peak RSS, and runs 15376/15376 -- correct, and too big for
+# 64.  The box: 30 GB RAM, 19 GB free disk, builds serial; each .s and .o is deleted the moment its link
+# succeeds, so the transient disk is one program's worth.  The size itself (about 7 KB per chks() line) is its
+# own finding on the code-size axis, routed to the ceo -- never a reason to leave a correct program ungraded.
+# ⛔ THE PER-STEP TIMEOUT IS 600 s (was 120), FOR THE SAME FOUR PROGRAMS, MEASURED THE SAME DAY: math_diff/div/prod
+# need about 50 s of CPU per mode-3 run and per mode-4 compile. At load 27 on 16 cores a run read rc=124 at 120 s
+# and printed HANG over a program that passes -- 120 s sat within about 2x of the real duration, the flaky-timeout
+# shape RULES.md names. A timeout exists to catch a HANG, so it sits an order of magnitude above the measurement.
 # ⛔⭐ SKIP IS RETIRED AS A LEAF AND SPLITS BY WHO DECIDED (hq_T ruling 2026-09-12, GOAL-TEST-SUITE-
 # CONSISTENCY.md, .github 8fda2878, on this runner's own ask).  One word was carrying two facts that want
 # opposite readings, and the instrument HAD the distinction and threw it away:
@@ -74,7 +84,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SUITE="${SPITBOL_X64_SUITE:-$ROOT/corpus/packages/snobol4/spitbol_x64_tests}"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
-TIMEOUT="${TIMEOUT:-120}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-64}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
+TIMEOUT="${TIMEOUT:-600}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-128}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
 [ -d "$SUITE" ] || { echo "⛔ REFUSE(rc=2): suite dir missing: $SUITE"; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
 # ⛔⭐ STALE-BINARY PREFLIGHT.  NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
@@ -136,6 +146,7 @@ compile_m4() {  # compile_m4 <src> <out>; on failure echoes "<OUTCOME>\t<reason>
     if [ "$rc" != 0 ]; then printf 'COMPILE_FAIL\tOUR compiler refused a graded program, rc=%s: %s\n' "$rc" "$(head -1 "$W/p.cerr" 2>/dev/null | cut -c1-100)"; return 1; fi
     gcc -c "$W/p.s" -o "$W/p.o" 2>"$W/p.cerr" || { printf 'COMPILE_FAIL\tOUR assembler refused %s bytes of our own asm: %s\n' "$sz" "$(head -1 "$W/p.cerr" | cut -c1-100)"; return 1; }
     gcc "$W/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>"$W/p.cerr" || { printf 'LINK_FAIL\tOUR link of a graded program failed: %s\n' "$(grep -m1 'undefined reference' "$W/p.cerr" | sed 's/.*undefined reference/undefined reference/' | cut -c1-80)"; return 1; }
+    rm -f "$W/p.s" "$W/p.o"
     return 0
 }
 for sno in "$SUITE"/*.sbl; do
