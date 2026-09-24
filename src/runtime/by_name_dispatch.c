@@ -3255,6 +3255,15 @@ DESCR_t rt_pl_dop_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     void *b1 = (void *)0, *b2 = (void *)0; int idx;
     if (nargs < 1 || nargs > 2) return FAILDESCR;
     pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
+    if (nargs == 2 && !pl_val_unbound(rt_pl_deref_val(args[0]))) { extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern int prolog_atom_intern(const char *); DESCR_t o = rt_pl_deref_val(args[1]), cur, e, v; const char *vs;
+        for (cur = o; pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) { e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+            if (pl_val_unbound(e)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+            if (!(e.v == (DTYPE_t)DT_PLREF && (int)(e.slen >> 16) == prolog_atom_intern("force") && (e.slen & 0xFFFFu) == 1
+                  && (vs = pl_atom_str(v = rt_pl_deref_val(((DESCR_t *)e.p)[0]))) && (!strcmp(vs, "true") || !strcmp(vs, "false"))))
+                { cx->ball = rt_pl_ball_kind2("domain_error", "close_option", e); return FAILDESCR; } }
+        if (pl_val_unbound(cur)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+        if (!pl_is_nil(cur)) { cx->ball = rt_pl_ball_kind2("type_error", "list", o); return FAILDESCR; } }
     idx = pl_stream_resolve(args[0], 1, 0, &b1);
     if (idx < 0) idx = pl_stream_resolve(args[0], 0, 0, &b2);
     if (idx < 0) { cx->ball = b2 ? b2 : b1; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
