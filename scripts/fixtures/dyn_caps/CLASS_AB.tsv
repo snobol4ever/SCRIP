@@ -24,3 +24,4 @@ src/runtime/rt/gc_heap.c	g_gc_rep_raw	A	GC_REP_POPS 5: a column of the same five
 src/runtime/rt/gc_heap.c	g_gw	A	GC_REP_POPS 5: one walk record per population, indexed by g_gc_rep_pop (0..4) and by loops k < GC_REP_POPS (gc_heap.c:1202, 1214, 1264)
 src/runtime/rt/rt_slab.c	g_free	A	NKLASS 3 (the page names it): one free list per slab size class, every index checked k < NKLASS (rt_slab.c:21) or a slab's own klass, which is assigned only that k (rt_slab.c:32, 44-45)
 src/runtime/rt/bbprof.c	g_altstack	A	the machine: the profiler's signal alternate stack, whose one use is ss.ss_sp for sigaltstack (bbprof.c:73) -- the kernel writes it on signal delivery; no program datum enters it
+src/runtime/rt/rt_stack_overflow.c	arena@ct_alloc	A	the machine: the stack-overflow handler's signal alternate stack, 65536 bytes whose one use is ss.ss_sp for sigaltstack (rt_stack_overflow.c:30-32) -- the kernel writes it on SIGSEGV delivery; no program datum enters it

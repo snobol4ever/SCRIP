@@ -13,7 +13,7 @@ mode=${1:-}; [ -n "$mode" ] || { echo "REFUSE(2): usage: util_dyn_caps_witness.s
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 python3 scripts/audit_fixed_caps_census.py --tsv "$T/c.tsv" --no-report > "$T/census.txt" 2>&1 || { echo "REFUSE(2): the census refused -- $(tail -2 "$T/census.txt" | tr '\n' ' ')"; exit 2; }
 red=0
-count_caps() { awk -F'\t' -v dirs="$1" -v caps="$2" 'NR>1 && ($3=="file"||$3=="static"||$3=="field") && $1 ~ dirs && $5 ~ caps {print "  " $1 ":" $2 " " $4 "[" $5 "]"}' "$T/c.tsv"; }
+count_caps() { awk -F'\t' -v dirs="$1" -v caps="$2" 'NR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $1 ~ dirs && $5 ~ caps {print "  " $1 ":" $2 " " $4 "[" $5 "]"}' "$T/c.tsv"; }
 COMPILE_CAPS='^(SNO_DEF_MAX|SNO_PAT_MAX|SNO_EXPR_MAX|SNO_FZW_MAX|SNO_LOOP_STACK_MAX|MAX_PREDS|PL_BB_TABLE_MAX|PL_INIT_GOALS_MAX|PL_CONSULT_FILES_MAX|FL_MAX_ENTRIES|FL_MAX_FIELDS|FL_MAX_SCOPES|FL_MAX_GRAPHS|ZDP_CAP|BB_PATCH_MAX|SMX_STRTAB_CAP|SMX_CSETTAB_CAP|AB_FNCELL_MAX|XA_BB_EMIT_PAIR_MAX|ZD_NOPS_MAX|FLAT_CHAIN_SET_MAX|FLAT_DATA_LBL_MAX|WASM_STRTAB_MAX|WASM_USERFNS_MAX|STAGE2_LABEL_MAX|STAGE2_PROC_TABLE_MAX|STAGE2_PL_PRED_TABLE_SIZE|STAGE2_FRAME_SLOT_MAX|STAGE2_MOD_MAX|MAX_STATES|MAX_GROUPS|MAX_CAPLOG|RK_GRAM_MAX|SC_DAT_MAX_TYPES|INIT_MAX|SHADOW_MAX|CALL_STACK_MAX)$'
 RUNTIME_CAPS='^(CALL_ARGS_MAX|RT_FRAME_STACK_MAX|RT_FRAME_SLOT_MAX|FH_MAX|GLOBAL_MAX|RT_MAX_CAPTURES|VSTACK_MAX|SAVE_MAX|FRAME_STACK_MAX|FRAME_SLOT_MAX|FRAME_DEPTH_MAX|EVERY_GEN_SLOT_MAX|SCAN_STACK_MAX|RT_INITIAL_MAX|RT_DC_FNS_MAX|RT_PROC_LOC_MAX|FIELD_ACCESSOR_MAX|RT_CAS_CAPO_MAX|VAR_BUCKETS|ZSM_N|ZDP_RBP_TAB_N|EXPRESSION_REG_MAX|BB_DCAP_MAX|SEQ_CACHE_MAX|SUSP_GEN_CACHE_MAX|ICN_STACK_MAX|NV_MEMO_N|RT_DCAP_NVCACHE_N)$'
 case "$mode" in
@@ -49,18 +49,20 @@ census)
   # neither. ⛔ ONE line ends "never compared in its file: N", on purpose: the row's DONE-WHEN greps that suffix, and two lines ending in
   # it would let either one's zero pass the criterion for both.
   [ "$(head -1 "$T/c.tsv" | cut -f8-9,11)" = "$(printf 'guard\tconst\tfill')" ] || { echo "REFUSE(2): the census TSV carries no guard/const/fill columns -- an older census cannot be read by these lines"; exit 2; }
+  # ⭐ ARENAS (CEO-1231 (1), stage 2 (b)): the census's scope `arena` rows -- a constant 64 KiB or more from an allocator -- count with the
+  # file-scope tables in all three lines below, and CLASS_AB.tsv may declare them (the sigaltstack).
   # ⭐ THE CLASS A/B DECLARATION IS A FIXTURE (ceo CEO-1234 (1)): a table CLASS_AB.tsv names, with the measurement that earned its class,
   # leaves the no-guard and drop lines as a const table does by rule; the ratchet COUNT is unchanged; a row naming a table the tree no
   # longer declares is RED (a stale keep-list is one nobody notices has stopped applying).
   AB=scripts/fixtures/dyn_caps/CLASS_AB.tsv; [ -f "$AB" ] || { echo "REFUSE(2): no class A/B declaration at $AB"; exit 2; }
   abad=$(awk -F'\t' '!/^#/ && NF && (NF < 4 || ($3 != "A" && $3 != "B") || $4 == "") {print "  line " FNR ": " substr($0, 1, 100)}' "$AB")
   [ -z "$abad" ] || { echo "REFUSE(2): $AB rows that are not file<TAB>name<TAB>A|B<TAB>reason:"; printf '%s\n' "$abad"; exit 2; }
-  base=$(cat "$B"); n=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field")' "$T/c.tsv" | wc -l)
-  u=$(awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="NONE" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
-  d=$(awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field") && $8=="DROP" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
-  nab=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && (($1 SUBSEP $2) in have)' "$T/c.tsv" "$AB" | wc -l)
-  stale=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && !(($1 SUBSEP $2) in have) {print "  " $1 ":" $2}' "$T/c.tsv" "$AB")
-  echo "fixed-bound declarations at file, static or field scope: $n (baseline $base); with no capacity guard at a fill, by a macro or a literal bound -- compared only as an index or an iteration, or never compared in its file: $u"
+  base=$(cat "$B"); n=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")' "$T/c.tsv" | wc -l)
+  u=$(awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $8=="NONE" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
+  d=$(awk -F'\t' 'FNR==NR {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $8=="DROP" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
+  nab=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && (($1 SUBSEP $2) in have)' "$T/c.tsv" "$AB" | wc -l)
+  stale=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && !(($1 SUBSEP $2) in have) {print "  " $1 ":" $2}' "$T/c.tsv" "$AB")
+  echo "fixed-bound declarations at file, static or field scope and fixed-size arenas: $n (baseline $base); with no capacity guard at a fill, by a macro or a literal bound -- compared only as an index or an iteration, or never compared in its file: $u"
   echo "guards that drop or truncate at the cap: $d"
   echo "declared class A or B by $AB (out of the two lines above, in the count): $nab table(s); stale declarations: $(printf '%s' "$stale" | grep -c .)"
   [ -z "$stale" ] || { echo "RED: $AB declares a table the tree no longer declares -- remove the row in the landing that removed the table:"; printf '%s\n' "$stale"; red=1; }

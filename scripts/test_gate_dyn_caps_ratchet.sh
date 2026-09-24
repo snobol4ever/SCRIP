@@ -51,6 +51,13 @@
 # field's `*`. On one tree (096684141) the corrected census adds exactly 18 file-scope tables and fields (15 comma declarators, 3
 # after a scalar: emit.cpp g_zd_read g_zd_kind, frame_layout.c zop_hist) and 22 locals a program fills, removes none, and reads
 # g_bid_tab const: 366 + 18 = 384, 506 + 22 = 528.
+# ⛔ BASELINE 384 -> 392, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo, stage 2 (b)): a bound written as a shift was unreadable (rt.c
+# g_lvl_own[1 << 16]; emit_per_kind_audit.c bin_buf[16 * 1024] as a product), and FIXED-SIZE ARENAS -- storage a program fills that no
+# declaration names, a constant 64 KiB or more from an allocator (CEO-1231 (1): arenas sized by a shift constant join the class) -- were
+# not counted: the Prolog trail PL_TR_ARENA_BYTES (LOUD, rt_pl_trail.h:30), the CAS island (LOUD), the GVA island (LOUD), bb_pool's
+# BB_POOL_SIZE (DROP: bb_alloc returns NULL past pool_limit), the DCAP island RT_DCAP_ISLAND_BYTES (NONE: its bump and bound live in
+# the emitted asm, no C comparison) and the stack-overflow sigaltstack (declared class A in CLASS_AB.tsv). On one tree (c15438d71):
+# 384 + 2 + 6 = 392; no-guard 256 -> 259 (g_lvl_own, bin_buf, the DCAP island), drop 88 -> 89 (BB_POOL_SIZE).
 # ⛔ BASELINE 363 -> 355, RE-DERIVED LIKE-FOR-LIKE 2026-09-24 (the coo): the census counted 8 COMPARISONS as file-scope tables -- the
 # one-line getenv switches `return (e && e[0] == '0');`, read as type `e`, separator `&&`, name `e`, initializer `== '0'` -- and 87
 # such phantoms in all scopes. On one tree (c2cdd7480) the corrected census drops exactly those 87 rows, every one a NAME[0]
@@ -79,7 +86,7 @@ ck "1 the census selftest: every declared form counted once, a typedef, an exter
 [ "$st_rc" = 0 ] || printf '%s\n' "$st" | grep FAIL | sed 's/^/      /'
 out=$(cd "$ROOT" && bash "$WIT" census 2>&1); line=$(grep -m1 '^fixed-bound declarations' <<<"$out")
 [ -n "$line" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the witness printed no census line -- $(printf '%s\n' "$out" | head -2)"; gate_stamp; exit 2; }
-n=$(sed -n 's/.*scope: \([0-9]*\) (baseline \([0-9]*\)).*/\1/p' <<<"$line"); b=$(sed -n 's/.*scope: \([0-9]*\) (baseline \([0-9]*\)).*/\2/p' <<<"$line")
+n=$(sed -n 's/^fixed-bound declarations[^:]*: \([0-9]*\) (baseline \([0-9]*\)).*/\1/p' <<<"$line"); b=$(sed -n 's/^fixed-bound declarations[^:]*: \([0-9]*\) (baseline \([0-9]*\)).*/\2/p' <<<"$line")
 u=$(sed -n 's/.*never compared in its file: \([0-9]*\)$/\1/p' <<<"$line")
 echo "  census: $n fixed-bound declarations at file, static or field scope, baseline $b; $u with no capacity guard at a fill, macro or literal bound (never compared, or compared only as an index or an iteration) -- CEO-1231, printed, not graded here"
 ck "2 the tree reads EXACTLY the baseline ($n vs $b)" '[ -n "$n" ] && [ "$n" = "$b" ]'
