@@ -52,9 +52,17 @@ else echo "  arm 1 FAIL: $total kind(s) declared, these carry no name:${missing:
 # ARM 2 -- THE LEDGER NAMES A RESOLVABLE OFFSET, AND IT RESOLVES TO THE RIGHT FILE.  A symbol alone cannot
 # discriminate 26 call sites in one function; module+offset can, and addr2line is the reader.
 examined=$((examined + 1))
-W="$T/w.icn"
-if python3 "$ROOT/scripts/corpus_suite_harness.py" extract "$S4E/corpus/tests/icon/ALL.icn" "$S4E/corpus/tests/icon/ALL.ref" procedure_coexpr_suspend_replace_3 "$W" --out-ref "$T/w.ref" >/dev/null 2>&1 && [ -s "$W" ]; then
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" </dev/null >/dev/null 2>"$T/w.err" )
+# THE BIRTH LINE IS MADE BY A PLANT, NOT AWAITED FROM A DEFECT (cto 2026-09-24, the seventeen-red row): this arm was cut
+# on procedure_coexpr_suspend_replace_3 faulting under the ledger, and once that entry was cured no birth line printed
+# and every field read [none] -- a gate that needs a live defect to grade its instrument goes red the day the defect
+# is cured.  SCRIP_GC_PLANT_STALE_SIGMA=1 leaves the scan subject base unreloaded after a call inside a scan and
+# SCRIP_GC_PLANT_FLIP=1 makes the stale read fault where it is used, so the witness of CTO-165 faults on purpose and
+# the ledger names the block (HB_WSB) and its allocating site in by_name_dispatch.c; both banners are required.
+W="$ROOT/scripts/gc_witnesses/hb_scan_subject_across_a_failing_callee.icn"; WIN="${W%.icn}.in"
+if [ -s "$W" ] && [ -s "$WIN" ]; then
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_PLANT_STALE_SIGMA=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" <"$WIN" >/dev/null 2>"$T/w.err" )
+  grep -q "^\[GC-STALESIGMA\] plant:" "$T/w.err" || { echo "  arm 2 REFUSE: the GC-STALESIGMA banner is missing -- the plant never applied, so no fault was made and nothing was graded"; RC=1; }
+  grep -q "^\[GC-FLIP\] plant:" "$T/w.err" || { echo "  arm 2 REFUSE: the GC-FLIP banner is missing -- the plant never applied, so no fault was made and nothing was graded"; RC=1; }
   line=$(grep -m1 'ZGC-BIRTH.*allocated by' "$T/w.err")
   off=$(printf '%s\n' "$line" | grep -oE 'libscrip_rt\.so\+0x[0-9a-f]+' | tail -1 | sed 's/.*+//')
   nm=$(printf '%s\n' "$line" | grep -oE 'kind=[0-9]+/HB_[A-Z0-9_]+' | head -1)

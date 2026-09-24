@@ -253,6 +253,16 @@ def return_kind(t):
     return "POINTER-FREE" if declared_pointer_free(t) else "WIDE"
 
 
+CALLEE_GOT_RX = re.compile(r"qword\s+ptr\s+\[\s*rip\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)@GOTPCREL\s*\]")
+def callee_of(ins):
+    """the callee name of a call in EITHER spelling the emitter uses (cto 2026-09-24, the seventeen-red row):
+    `SYM@PLT` / `SYM` for a C entry, and since af1d0e856 `qword ptr [rip + SYM@GOTPCREL]` for every entry into the
+    asm runtime.  The old split at '@' handed the GOT form back as `qword ptr [rip + SYM`, callee_return found no
+    declaration for it, and six witness/clause pairs read UNDECIDABLE above their floor on a tree whose contract
+    was kept -- an instrument reading a spelling as a regression."""
+    op = (ins.ops[0] if ins.ops else "?").strip()
+    m = CALLEE_GOT_RX.search(op)
+    return m.group(1) if m else op.split("@")[0].strip()
 def callee_return(name):
     """(kind, detail) for a called symbol: VOID, NARROW, WIDE or UNRESOLVED -- never a guess"""
     fn_free = declared_pointer_free_fn(name)
@@ -420,7 +430,7 @@ def grade_site(insns, pred, i, frames):
     calls, region, why = reaching_region(insns, pred, i)
     if why:
         return [("K1", "UNDECIDABLE", why)]
-    callees = sorted({(insns[c].ops[0] if insns[c].ops else "?").split("@")[0].strip() for c in calls})
+    callees = sorted({callee_of(insns[c]) for c in calls})
     if any(any(q in c for q in UC.POLL_NAMES) for c in callees):
         out.append(("K1", "MEMBER", "A POLL IS REACHED FROM ANOTHER POLL'S RETURN with no allocating call between: %s"
                     % ",".join(callees)))

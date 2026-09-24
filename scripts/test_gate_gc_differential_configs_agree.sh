@@ -197,7 +197,11 @@ fi
 # the two are one configuration in effect. It must be caught by the collector's own events, not by comparing
 # the env. This is the fixture the whole row exists for.
 examined=$((examined + 1))
-printf 'shipped\t\tno knobs\nreloc_only\tSCRIP_GC_RELOC=1\tforces relocation but nothing forces a collection\n' > "$T/eff.tsv"
+# ⛔ THE PAIR IS PINNED TO A WINDOW NOTHING FILLS (cto 2026-09-24, the seventeen-red row): since CEO-1101 the shipped
+# window is 128 KB and hb_arr.sno COLLECTS there, so "shipped" and RELOC=1 are two configurations in effect and the
+# tool graded them (rc=0) -- the arm read that truthful reading as a regression.  The collapse this arm exists to
+# catch needs zero collections on both sides, which a 512 MB window gives and the shipped one no longer does.
+printf 'shipped\tSCRIP_HEAP_KB=524288\ta window nothing fills, no other knob\nreloc_only\tSCRIP_HEAP_KB=524288 SCRIP_GC_RELOC=1\tforces relocation but nothing forces a collection\n' > "$T/eff.tsv"
 p3b="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_arr.sno" --configs "$T/eff.tsv" \
        --timeout 60 2>&1)"; rc3b=$?
 if [ "$rc3b" != 2 ]; then

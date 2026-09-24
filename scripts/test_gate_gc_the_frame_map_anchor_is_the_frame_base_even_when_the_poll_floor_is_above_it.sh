@@ -29,14 +29,24 @@
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$R" || exit 2
-W=scripts/gc_witnesses/hb_concat_slot_capture_across_a_collection.sc
-REF=scripts/gc_witnesses/hb_concat_slot_capture_across_a_collection.ref
+# THE WITNESS IS THE ONE THAT STILL PRODUCES THE SHAPE (cto 2026-09-24, the seventeen-red row): the Snocone concat
+# witness this gate was cut on stopped producing a cstack walk with the poll floor above the frame base once the zd
+# planner moved its assignments onto the recording poll form (CTO-159), so both stress points read exercised=0 and
+# the gate was red for want of a shape, not for a phase.  A sweep of the witness set at stress 1 found hb_scan_nested
+# producing it in 6021 of 12023 walks (1204 of 2405 at stress 5), phase 0 throughout, answering its iconx ref.
+W=scripts/gc_witnesses/hb_scan_nested.icn
+REF=scripts/gc_witnesses/hb_scan_nested.ref
 M=scripts/gc_witnesses/hb_frame_map_anchor_recursive_marklists_mode4
 [ -f "$W" ] && [ -f "$REF" ] && [ -f "$M.icn" ] && [ -f "$M.in" ] && [ -f "$M.ref" ] || { echo "REFUSE(2): a witness or ref is missing"; exit 2; }
 TMP=$(mktemp -d) || exit 2; trap 'rm -rf "$TMP"' EXIT
 fail=0; exercised=0
+# ⛔ THE LAYOUT IS FIXED (setarch -R) BECAUSE THE PHASE COUNT IS LAYOUT-SENSITIVE BY CONSTRUCTION (cto 2026-09-24): a
+# slot the map declares DESCR that holds a STACK ADDRESS (hb_scan_nested main+464, v=0xc0 slen=0x7ffd p=nil under one
+# ASLR draw) reads as a bad tag only when that address's low byte is not a known tag, so the same tree read 12021 of
+# 12023 walks out of phase in one run and 0 in the next; the slot is a map-declaration finding with its own row, and
+# this gate grades the anchor's phase under one layout so its verdict is the tree's, not the draw's.
 for st in 1 5; do
-  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_MAPS=3 timeout 60 ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
+  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_MAPS=3 timeout 60 setarch -R ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
   rc=$?
   col=$(grep -o 'collections=[0-9]*' "$TMP/e.$st" | tail -1); col=${col#collections=}; col=${col:-0}
   walks=$(grep -c 'GC-WALK\] pop=cstack' "$TMP/e.$st"); nofield=$(grep 'GC-WALK\] pop=cstack' "$TMP/e.$st" | grep -vc 'i_phase='); phased=$(grep 'GC-WALK\] pop=cstack' "$TMP/e.$st" | grep -vc 'i_phase=0 '); above=$(grep 'GC-WALK\] pop=cstack' "$TMP/e.$st" | grep -c ' s_words=0 ')

@@ -65,13 +65,16 @@ if [ "$d_all" -gt 0 ] && [ "$d_other" = 0 ]; then echo "  carve-only PASS (the p
 else echo "  carve-only FAIL (base vs perturbed differ in $d_all line(s) of which $d_other are not sub rsp -- the knob is changing more than the carve and arm 2 no longer isolates it)"; RC=1; fi
 pump_shape_ok() {
     local f="$1"
-    grep -q 'call *rt_dcap_end_ok_open' "$f" && grep -q 'call *rt_dcap_land_γ' "$f" && grep -q 'call *rt_dcap_land_ω' "$f" && ! grep -q 'rt_match_end_all' "$f"
+    grep -qE 'call .*rt_dcap_end_ok_open@' "$f" && grep -qE 'call .*rt_dcap_land_γ@' "$f" && grep -qE 'call .*rt_dcap_land_ω@' "$f" && ! grep -q 'rt_match_end_all' "$f"
 }
+# the three pump entries are read in EITHER spelling the emitter uses -- `call SYM@PLT` for a C entry and, since
+# af1d0e856, `call qword ptr [rip + SYM@GOTPCREL]` for an entry into the asm runtime -- because rt_dcap_end_ok_open
+# moved into the asm runtime and the PLT-only grep read open=0 on a tree whose pump was whole (cto 2026-09-24).
 grep -v 'rt_dcap_land_' "$T/base.s" > "$T/doctored.s"; echo '                        call             rt_match_end_all@PLT' >> "$T/doctored.s"
 if pump_shape_ok "$T/base.s"; then
     if pump_shape_ok "$T/doctored.s"; then echo "  pump-shape FAIL (the checker passed a doctored emission that reintroduces rt_match_end_all and drops the landings -- the arm is inert)"; RC=1
     else echo "  pump-shape PASS (the witness's match-end carries rt_dcap_end_ok_open + rt_dcap_land_γ/ω and no rt_match_end_all; the doctored copy FAILS the same checker, so the arm discriminates)"; fi
-else echo "  pump-shape FAIL (the emitted match-end lacks the box-driven pump: open=$(grep -c 'call *rt_dcap_end_ok_open' "$T/base.s") landγ=$(grep -c 'call *rt_dcap_land_γ' "$T/base.s") landω=$(grep -c 'call *rt_dcap_land_ω' "$T/base.s") end_all=$(grep -c 'rt_match_end_all' "$T/base.s"))"; RC=1; fi
+else echo "  pump-shape FAIL (the emitted match-end lacks the box-driven pump: open=$(grep -cE 'call .*rt_dcap_end_ok_open@' "$T/base.s") landγ=$(grep -cE 'call .*rt_dcap_land_γ@' "$T/base.s") landω=$(grep -cE 'call .*rt_dcap_land_ω@' "$T/base.s") end_all=$(grep -c 'rt_match_end_all' "$T/base.s"))"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the capture pump is box-driven, the blob carve is a size and not a depth, and the witness is green in both modes (examined 4 arms, one with a planted violation)"
 else echo "GATE FAIL(1) [$G]: a C frame is back between an emitted box and an emitted body, or an arm stopped discriminating (examined 4 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"

@@ -162,6 +162,9 @@ for ln in open(errf, errors='replace'):
         name = hit[0][2] if hit else (tail if tail != 'writable-PT_LOAD' else 'UNRESOLVED+0x%x' % off)
     else:
         name = h
+    # a function-local static is named by nm with a per-translation-unit serial (lnv.3, _excl.1) that moves whenever
+    # its file gains or loses a static, so the ledger is keyed by the base name (cto 2026-09-24, the seventeen-red row)
+    name = re.sub(r'\.\d+$', '', name)
     seen[name] = seen.get(name,0)+1
 declared = {}
 for ln in open(decl):

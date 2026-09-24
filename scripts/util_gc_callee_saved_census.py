@@ -83,6 +83,12 @@ NARROW = set(a for a, r in ALIAS.items() if a != r)
 SUBJECT_SEEDS = ("rt_match_enter", "rt_scan_enter", "rt_scan_reenter", "rt_scan_reenter_live")
 _RET_ALIAS = {"rax": ("rax", "eax", "ax", "al", "ah"), "rdx": ("rdx", "edx", "dx", "dl", "dh")}
 def _call_target(text):
+    """the callee of a call in EITHER spelling the emitter uses (cto 2026-09-24, the seventeen-red row): `call SYM@PLT`
+    and `call SYM` for a C entry, and since af1d0e856 `call qword ptr [rip + SYM@GOTPCREL]` for every entry into the
+    asm runtime -- rt_match_enter among them, so the old regex read the token `qword`, no seeding matched, 13 SNOBOL4
+    subject seedings read UNCLASSIFIED and the heap tally read 0 on a tree where the class it exists to hold is present."""
+    m = re.search(r"call\s+qword\s+ptr\s+\[\s*rip\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)@GOTPCREL\s*\]", text)
+    if m: return m.group(1)
     m = re.search(r"call\s+([A-Za-z_][A-Za-z0-9_]*)", text)
     return m.group(1) if m else None
 def _defines_ret(ins, r):
