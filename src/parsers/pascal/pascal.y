@@ -1079,6 +1079,27 @@ static int pas_var_typename_is(const char *name, int (*pred)(const char *)) {
     return 0;
 }
 static int pas_var_is_real(const char *name) { return pas_var_typename_is(name, pas_is_realtypename); }
+static int pas_var_every_decl_real(const char *name) {
+    int n = 0;
+    for (int i = 0; name && i < g_pas_nscalarvartype; i++) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, name)) {
+        const char *t = g_pas_scalarvartype[i].tname;
+        for (int guard = 0; t && guard < 8 && !pas_is_realtypename(t); guard++) { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; }
+        if (!t || !pas_is_realtypename(t)) return 0;
+        n++; }
+    return n > 0;
+}
+static void pas_ordinal_fn_arg(const char *name, PNodeList *args) {
+    if (!name || !args || args->count < 1 || pas_is_func(name) || pas_is_proc(name)) return;
+    int is_chr = !strcmp(name, "chr");
+    if (!is_chr && strcmp(name, "ord") && strcmp(name, "succ") && strcmp(name, "pred")) return;
+    tree_t *a = args->items[0];
+    if (!a || !(a->t == TT_FLIT || (a->t == TT_VAR && a->v.sval && pas_var_every_decl_real(a->v.sval)))) return;
+    if (a->t == TT_FLIT) fprintf(stderr, "pascal: ISO 7185 6.6.6.4 violation: the argument of %s is the real constant %g, and %s requires an expression of %s\n",
+                                 name, a->v.dval, name, is_chr ? "integer-type" : "an ordinal-type");
+    else fprintf(stderr, "pascal: ISO 7185 6.6.6.4 violation: the argument of %s is the variable '%s' of type real, and %s requires an expression of %s\n",
+                 name, a->v.sval, name, is_chr ? "integer-type" : "an ordinal-type");
+    g_pas_iso_errors++;
+}
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     { const char *_abn = pas_selector_base_name(sel); if (_abn) pas_assigned_add(_abn); }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
@@ -1563,7 +1584,7 @@ call_with_args:
     IDENT LPARENT argument_list RPARENT { if ($3) for (int i = 0; i < $3->count; i++) if (pas_proc_param_is_var($1, i) && pas_actual_is_packed_component($3->items[i])) {
             fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: a component of a packed structure is passed as the variable parameter %d of '%s'\n", i + 1, $1);
             g_pas_iso_errors++; }
-        pas_call_arity($1, $3);
+        pas_call_arity($1, $3); pas_ordinal_fn_arg($1, $3);
         $$ = mk_call($1, $3); }
     ;
 argument_list:
