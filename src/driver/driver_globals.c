@@ -17,6 +17,7 @@ void fh_ensure_init(void) {
     fh_init=1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int fh_is_closed(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? g_fh[idx].closed : 0; }
 int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? g_fh[idx].untrans : 0; }
 void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) g_fh[idx].untrans=(char)(v?1:0); }
 int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_MAX;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
@@ -29,7 +30,7 @@ void fh_set_repos(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh
 int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].repos?1:0; }
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;return i;}
+    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;g_fh[i].closed=0;return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

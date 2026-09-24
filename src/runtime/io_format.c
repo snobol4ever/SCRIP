@@ -22,6 +22,7 @@ void output_str(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_write_int_nl(int64_t v)
 {
+    { extern int fh_is_closed(int); if (fh_is_closed(1)) { extern int core_icn_error(int, DESCR_t); core_icn_error(213, FAILDESCR); return; } }
     fprintf(stdout, "%lld\n", (long long)v);
 }
 static void rt_format_float(char *buf, size_t bufsz, double d);
@@ -29,6 +30,7 @@ void out_write_str(FILE *dest, const char *s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_write_any_nl(DESCR_t d)
 {
+    { extern int fh_is_closed(int); if (fh_is_closed(1)) { extern int core_icn_error(int, DESCR_t); core_icn_error(213, FAILDESCR); return; } }
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (d.v == DT_I)       fprintf(stdout, "%lld\n", (long long)d.i);
     else if (d.v == DT_R)  { char b[64]; rt_format_float(b, sizeof b, d.r); fprintf(stdout, "%s\n", b); }
@@ -47,6 +49,7 @@ void rt_write_any_nl(DESCR_t d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_write_strz_nl(const char *s)
 {
+    { extern int fh_is_closed(int); if (fh_is_closed(1)) { extern int core_icn_error(int, DESCR_t); core_icn_error(213, FAILDESCR); return; } }
     if (s) fwrite(s, 1, strlen(s), stdout);
     fputc('\n', stdout);
 }

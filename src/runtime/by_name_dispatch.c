@@ -6915,11 +6915,13 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         L_write_body_5209: ;
         int nl = (fn[5] == '\0');
         int start = 0;
-        FILE *dest = stdout;
+        FILE *dest = stdout; int _wdi = 1;
         for (int _wi = start; _wi < nargs; _wi++) {
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (IS_FH_fn(av)) {
+                if ((int)av.i >= 0 && (int)av.i < FH_MAX && g_fh[(int)av.i].closed) { core_icn_error(213, av); *out = FAILDESCR; return 1; }
+                _wdi = (int)av.i;
                 FILE *fp = fh_get((int)av.i);
                 if (fp) {
                     if (nl && _wi > 0) fputc('\n', dest);
@@ -6929,10 +6931,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 continue;
             }
             if (av.v == DT_SNUL) continue;
+            if (_wdi == 1 && g_fh[1].closed) { core_icn_error(213, FAILDESCR); *out = FAILDESCR; return 1; }
             if (IS_STR_fn(av) && !IS_CSET_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u);
                 if ((dest != stdout && dest != stderr) || (_bs && _bn && memchr(_bs, 0, _bn))) { if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; } }
             out_write_descr(dest, av, nl);
         }
+        if (nl && _wdi == 1 && g_fh[1].closed) { core_icn_error(213, FAILDESCR); *out = FAILDESCR; return 1; }
         if (nl) fputc('\n', dest);
         *out = nargs > start ? args[nargs-1] : (nargs > 0 ? args[0] : NULVCL);
         return 1;
@@ -7696,6 +7700,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5874: ;
     if ((_bid == BID_read) && nargs == 0) {
+        if (g_fh[0].closed) { core_icn_error(212, FHVAL(0)); *out = FAILDESCR; return 1; }
         char *ln = NULL; size_t cap = 0; ssize_t got = rt_line_read(&ln, &cap, stdin);
         if (got < 0) { ct_drop(ln); *out = FAILDESCR; return 1; }
         size_t len = (size_t)got;
@@ -8204,6 +8209,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             FILE *fp = fh_get(idx);
             int pst = -1;
             if (fp && idx > 2) { if (g_fh[idx].type == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); g_fh[idx].type = 0; fh_free(idx); }
+            else if (fp) fflush(fp);
+            if (idx >= 0 && idx < FH_MAX) g_fh[idx].closed = 1;
             if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         }
         *out = args[0]; return 1;
@@ -8232,6 +8239,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     if ((_bid == BID_read) && nargs == 1) {
         int _fi = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
+        if (_fi >= 0 && _fi < FH_MAX && g_fh[_fi].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; }
         FILE *fp = (_fi >= 0) ? fh_get(_fi) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
         extern int fh_is_untranslated(int);
@@ -8251,6 +8259,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     if ((_bid == BID_reads) && nargs >= 1) {
+        { int _ri = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
+          if (_ri >= 0 && _ri < FH_MAX && g_fh[_ri].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; } }
         FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
         int n = (nargs >= 2 && args[1].v != DT_SNUL && !IS_FAIL_fn(args[1])) ? (int)to_int(args[1]) : 1;

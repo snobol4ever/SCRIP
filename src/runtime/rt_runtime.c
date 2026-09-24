@@ -244,7 +244,8 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         }
     }
     if (obj.v == DT_FH) {
-        extern FILE *fh_get(int);
+        extern FILE *fh_get(int); extern int fh_is_closed(int);
+        if (fh_is_closed((int)obj.i)) { extern int core_icn_error(int, DESCR_t); core_icn_error(212, obj); return 0; }
         FILE *fp = fh_get((int)obj.i);
         if (!fp) return 0;
         char buf[4096];
