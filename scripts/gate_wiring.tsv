@@ -187,6 +187,7 @@ test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_a_closed_file_raises_212_on_read_and_213_on_write.sh	WIRED	-	-	-
 test_gate_icn_a_spine_opened_plain_procedure_fails_forward_on_redo.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
@@ -202,6 +203,7 @@ test_gate_icn_augmented_scan_over_an_alternation.sh	WIRED	-	-	-
 test_gate_icn_bal_argument_types_raise_as_icont.sh	WIRED	-	-	-
 test_gate_icn_bal_generates_every_balance_point.sh	WIRED	-	-	-
 test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
+test_gate_icn_bang_on_a_file_generates_whole_lines.sh	WIRED	-	-	-
 test_gate_icn_bounded_expression_releases_suspended_frame.sh	WIRED	-	-	-
 test_gate_icn_builtin_name_in_lvalue_base_position_carries_its_value.sh	WIRED	-	-	-
 test_gate_icn_byname_generator_call_inherits_the_scanning_environment.sh	WIRED	-	-	-
@@ -216,6 +218,7 @@ test_gate_icn_errorvalue_is_absent_when_the_error_carries_none.sh	WIRED	-	-	-
 test_gate_icn_field_access_on_a_non_record_raises_107.sh	WIRED	-	-	-
 test_gate_icn_find_takes_negative_positions.sh	WIRED	-	-	-
 test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
+test_gate_icn_gc_a_scanned_subject_with_an_embedded_nul_keeps_its_length_across_a_collection.sh	WIRED	-	-	-
 test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-
 test_gate_icn_generator_records_its_activation.sh	WIRED	-	-	-
 test_gate_icn_generator_regime_calls_the_runtime_at_c_parity.sh	WIRED	-	-	-
@@ -244,11 +247,13 @@ test_gate_icn_return_from_inside_a_scan_block_restores_the_enclosing_scan.sh	WIR
 test_gate_icn_reversible_exchange_on_a_global.sh	WIRED	-	-	-
 test_gate_icn_rundir_contract.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
+test_gate_icn_scan_find_and_match_carry_a_literals_length.sh	WIRED	-	-	-
 test_gate_icn_scan_subject_must_be_string_convertible.sh	WIRED	-	-	-
 test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_seq_takes_a_variable_step.sh	WIRED	-	-	-
 test_gate_icn_string_builtins_refuse_a_non_string_argument.sh	WIRED	-	-	-
 test_gate_icn_string_escapes_match_icont_including_unknown_and_uppercase.sh	WIRED	-	-	-
+test_gate_icn_string_functions_carry_an_embedded_nul.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-

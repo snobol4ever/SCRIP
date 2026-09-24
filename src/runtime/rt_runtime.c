@@ -248,13 +248,12 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         if (fh_is_closed((int)obj.i)) { extern int core_icn_error(int, DESCR_t); core_icn_error(212, obj); return 0; }
         FILE *fp = fh_get((int)obj.i);
         if (!fp) return 0;
-        extern ssize_t rt_line_read(char **, size_t *, FILE *); extern void ct_drop(void *);
-        char *ln = NULL; size_t cap = 0; ssize_t got = rt_line_read(&ln, &cap, fp);
-        if (got < 0) { ct_drop(ln); return 0; }
-        size_t len = (size_t)got;
-        if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
-        if (len > 0 && ln[len-1] == '\r') ln[--len] = '\0';
-        char *cp = rt_wsb_alloc(len + 1); memcpy(cp, ln, len); cp[len] = '\0'; ct_drop(ln);
+        extern void *rt_wsb_realloc(void *, size_t);
+        size_t cap = 256, len = 0; char *cp = rt_wsb_alloc(cap); int c, any = 0;
+        while ((c = getc(fp)) != EOF) { any = 1; if (c == '\n') break; if (len + 2 > cap) { cap *= 2; cp = (char *)rt_wsb_realloc(cp, cap); } cp[len++] = (char)c; }
+        if (!any) return 0;
+        if (len > 0 && cp[len-1] == '\r') len--;
+        cp[len] = '\0';
         *out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = cp };
         return 1;
     }
