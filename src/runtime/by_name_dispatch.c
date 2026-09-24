@@ -1922,7 +1922,13 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     int bi = (b.v == DT_I), brl = (b.v == DT_R);
     double bd = brl ? b.r : (b.v == DT_BIG ? pl_big_as_real(b) : (double)b.i);
     if ((a.v == DT_BIG || b.v == DT_BIG) && !arl && !brl && pl_big_binop(op, a, b, out, ball)) return 1;
-    if (!strcmp(op, "fpow") || !strcmp(op, "pow")) { if (ai && bi && b.i >= 0) { long long r = 1, bs = a.i, e = b.i; int ovf = 0; while (e) { if (e & 1) ovf |= __builtin_mul_overflow(r, bs, &r); e >>= 1; if (e) ovf |= __builtin_mul_overflow(bs, bs, &bs); } if (!ovf) { *out = INTVAL(r); return 1; } if (!strcmp(op, "pow")) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); *out = rt_big_pow(a, b.i); return 1; } } *out = REALVAL(pow(ad, bd)); return 1; }
+    if (!strcmp(op, "fpow") || !strcmp(op, "pow")) { if (ai && bi && b.i >= 0) { long long r = 1, bs = a.i, e = b.i; int ovf = 0; while (e) { if (e & 1) ovf |= __builtin_mul_overflow(r, bs, &r); e >>= 1; if (e) ovf |= __builtin_mul_overflow(bs, bs, &bs); } if (!ovf) { *out = INTVAL(r); return 1; } if (!strcmp(op, "pow")) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); *out = rt_big_pow(a, b.i); return 1; } }
+        { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_eval_error(const char *, const char *, int);
+          const char *pn = !strcmp(op, "pow") ? "^" : "**";
+          if (!strcmp(op, "pow") && ai && bi) { if (a.i == 1) { *out = INTVAL(1); return 1; } if (a.i == -1) { *out = INTVAL((b.i & 1) ? -1 : 1); return 1; }
+              *out = FAILDESCR; if (ball && !*ball) *ball = a.i == 0 ? rt_pl_ball_eval_error("undefined", pn, 2) : rt_pl_ball_kind2("type_error", "float", a); return 1; }
+          if ((ad == 0.0 && bd < 0.0) || (ad < 0.0 && bd != floor(bd))) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", pn, 2); return 1; }
+          return pl_ax_float_result(pow(ad, bd), ad, bd, pn, 2, out, ball); } }
     if (!strcmp(op, "atan2")) { if (ad == 0.0 && bd == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "atan2", 2); return 1; }
         *out = REALVAL(atan2(ad, bd)); return 1; }
     if (!strcmp(op, "logb")) { if (ad <= 0.0 || bd <= 0.0 || ad == 1.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 2); return 1; }
