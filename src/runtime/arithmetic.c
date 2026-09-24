@@ -386,7 +386,7 @@ static DESCR_t rt_real_zero_divisor(int strict) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_cset_operand_ok(DESCR_t v) {
-    return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R;
+    return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R || v.v == DT_BIG;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict);
@@ -396,19 +396,43 @@ static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {
     core_icn_op_ctx_clear();
     return r;
 }
+static const char *rt_cset_operand_chars(DESCR_t d, char *buf, int bufsz, int *len) {
+    extern const char *icon_real_str(double r, char *buf, int bufsz); extern int kw_cset_len(const char *);
+    if (IS_CSET_fn(d)) { const char *s = d.s ? d.s : ""; int kl = kw_cset_len(s); *len = kl >= 0 ? kl : (int)strlen(s); return s; }
+    if (d.v == DT_S || d.v == DT_SNUL) { *len = (int)descr_slen(d); return d.s ? d.s : ""; }
+    if (IS_INT_fn(d)) { snprintf(buf, (size_t)bufsz, "%lld", (long long)d.i); *len = (int)strlen(buf); return buf; }
+    if (IS_REAL_fn(d)) { icon_real_str(d.r, buf, bufsz); *len = (int)strlen(buf); return buf; }
+    { const char *s = VARVAL_fn(d); if (!s) s = ""; *len = (int)strlen(s); return s; }
+}
+static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
+    if (a.v == DT_T && a.tbl && a.tbl->is_set && b.v == DT_T && b.tbl && b.tbl->is_set) {
+        if (op == BINOP_CUNION) return TABLE_VAL(set_union(a.tbl, b.tbl));
+        if (op == BINOP_CDIFF)  return TABLE_VAL(set_diff(a.tbl, b.tbl));
+        return TABLE_VAL(set_inter(a.tbl, b.tbl));
+    }
+    { extern int core_icn_error(int code, DESCR_t val);
+      if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
+      if (!icn_cset_operand_ok(b)) { core_icn_error(120, b); return FAILDESCR; } }
+    char _ab[64], _bb[64]; int aslen, bslen, outlen; const char *ur;
+    const char *as = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen), *bs = rt_cset_operand_chars(b, _bb, sizeof _bb, &bslen);
+    if (op == BINOP_CUNION)     ur = cset_union(as, aslen, bs, bslen, &outlen);
+    else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, bs, bslen, &outlen);
+    else                        ur = cset_inter(as, aslen, bs, bslen, &outlen);
+    return CSETVAL(outlen > 0 ? ur : "");
+}
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (a.v == DT_CPLX || b.v == DT_CPLX) return rt_cplx_arith(a, b, op);
+    if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return rt_cset_arith(a, b, op);
     DESCR_t oa = a, ob = b;
     a = big_str_operand(a); b = big_str_operand(b);
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
-    int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
-    if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
-    if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
-    if (!csop && (!is_numeric_like(a) || !is_numeric_like(b))) return FAILDESCR;
+    if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
+    if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
+    if (!is_numeric_like(a) || !is_numeric_like(b)) return FAILDESCR;
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
-    double ld = csop ? 0.0 : to_real(a), rd = csop ? 0.0 : to_real(b);
-    int64_t li = csop ? 0 : to_int(a), ri = csop ? 0 : to_int(b);
+    double ld = to_real(a), rd = to_real(b);
+    int64_t li = to_int(a), ri = to_int(b);
     switch (op) {
         case BINOP_ADD: if (anyf) { double _r = ld + rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(261, "addition caused real overflow", ld); return REALVAL(_r); } { int64_t _z; if (__builtin_add_overflow(li, ri, &_z)) { extern DESCR_t rt_big_add(DESCR_t, DESCR_t); return rt_big_add(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
         case BINOP_SUB: if (anyf) { double _r = ld - rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(264, "subtraction caused real overflow", ld); return REALVAL(_r); } { int64_t _z; if (__builtin_sub_overflow(li, ri, &_z)) { extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); return rt_big_sub(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
@@ -424,47 +448,14 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
             { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rp); }
         }
         case BINOP_POW_PROMOTE: if (anyf) { double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rq); } return rt_ipow_promote_descr(li, ri);
-        case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
-            extern const char *icon_real_str(double r, char *buf, int bufsz);
-            char _ab[64], _bb[64]; const char *as, *bs;
-            if (a.v == DT_T && a.tbl && a.tbl->is_set && b.v == DT_T && b.tbl && b.tbl->is_set) {
-                if (op == BINOP_CUNION) return TABLE_VAL(set_union(a.tbl, b.tbl));
-                if (op == BINOP_CDIFF)  return TABLE_VAL(set_diff(a.tbl, b.tbl));
-                return TABLE_VAL(set_inter(a.tbl, b.tbl));
-            }
-            { extern int core_icn_error(int code, DESCR_t val);
-              if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
-              if (!icn_cset_operand_ok(b)) { core_icn_error(120, b); return FAILDESCR; } }
-            if (IS_CSET_fn(a) || a.v == DT_S || a.v == DT_SNUL) as = a.s ? a.s : "";
-            else if (IS_INT_fn(a))  { snprintf(_ab, sizeof _ab, "%lld", (long long)a.i); as = _ab; }
-            else if (IS_REAL_fn(a)) { icon_real_str(a.r, _ab, sizeof _ab); as = _ab; }
-            else { as = VARVAL_fn(a); if (!as) as = ""; }
-            if (IS_CSET_fn(b) || b.v == DT_S || b.v == DT_SNUL) bs = b.s ? b.s : "";
-            else if (IS_INT_fn(b))  { snprintf(_bb, sizeof _bb, "%lld", (long long)b.i); bs = _bb; }
-            else if (IS_REAL_fn(b)) { icon_real_str(b.r, _bb, sizeof _bb); bs = _bb; }
-            else { bs = VARVAL_fn(b); if (!bs) bs = ""; }
-            extern int kw_cset_len(const char *);
-            int aslen = IS_CSET_fn(a) ? kw_cset_len(as) : -1; if (aslen < 0) aslen = (int)strlen(as);
-            int bslen = IS_CSET_fn(b) ? kw_cset_len(bs) : -1; if (bslen < 0) bslen = (int)strlen(bs);
-            int outlen; const char *ur;
-            if (op == BINOP_CUNION) { ur = cset_union(as, aslen, bs, bslen, &outlen); return CSETVAL(cset_canonical(ur, outlen)); }
-            if (op == BINOP_CDIFF)  { ur = cset_diff(as, aslen, bs, bslen, &outlen); return CSETVAL(cset_canonical(ur, outlen)); }
-            ur = cset_inter(as, aslen, bs, bslen, &outlen); return CSETVAL(cset_canonical(ur, outlen));
-        }
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_cset_compl(DESCR_t a) {
-    extern const char *icon_real_str(double r, char *buf, int bufsz);
-    char _cbuf[64]; const char *raw;
+    char _cbuf[64]; int rawlen;
     if (IS_FAIL_fn(a)) return FAILDESCR;
-    if (IS_CSET_fn(a)) raw = a.s ? a.s : "";
-    else if (IS_INT_fn(a))  { snprintf(_cbuf, sizeof _cbuf, "%lld", (long long)a.i); raw = _cbuf; }
-    else if (IS_REAL_fn(a)) { icon_real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
-    else { raw = VARVAL_fn(a); if (!raw) raw = ""; }
-    extern int kw_cset_len(const char *);
-    int rawlen = IS_CSET_fn(a) ? kw_cset_len(raw) : -1; if (rawlen < 0) rawlen = (int)strlen(raw);
+    const char *raw = rt_cset_operand_chars(a, _cbuf, sizeof _cbuf, &rawlen);
     unsigned char in[256] = {0}; for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;
     char *outs = rt_str_alloc(257); int n = 0; for (int c = 0; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
     return CSETVAL(cset_canonical(outs, n));

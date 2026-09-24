@@ -1273,7 +1273,7 @@ static DESCR_t c_rt_subscript_var_s(DESCR_t base, DESCR_t idx, int strict) {
         }
         return subscript_get_s(base, idx, strict);
     }
-    if ((base.v == DT_S || base.v == DT_SNUL) && IS_VARREF_fn(bvar)) {
+    if ((base.v == DT_S || base.v == DT_SNUL) && !IS_CSET_fn(base) && IS_VARREF_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         if (!icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
         long i = (long)to_int(idx);
@@ -1497,7 +1497,7 @@ static DESCR_t rt_random_var_body(DESCR_t base, int strict) {
 static DESCR_t rt_section_var_s(DESCR_t base, DESCR_t i1d, DESCR_t i2d, int strict) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
-    if ((base.v == DT_S || (base.v == DT_SNUL && base.s)) && IS_VARREF_fn(bvar)) {
+    if ((base.v == DT_S || (base.v == DT_SNUL && base.s)) && !IS_CSET_fn(base) && IS_VARREF_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         if (!icn_section_operands_ok(base, i1d, i2d, strict)) return FAILDESCR;
         long ii = (long)to_int(i1d), jj = (long)to_int(i2d);
@@ -1582,10 +1582,12 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
     if (vc->tbl) { table_set_descr_d(vc->tbl, vc->key_d, val); return val; }
     if (IS_VARREF_fn(vc->sv)) {
-        char nb[64]; const char *src; long srclen;
-        if (val.v == DT_S || val.v == DT_SNUL) { src = val.s ? val.s : ""; srclen = val.slen ? (long)val.slen : (long)strlen(src); }
-        else if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); src = nb; srclen = (long)strlen(nb); }
-        else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); src = nb; srclen = (long)strlen(nb); }
+        char nb[64]; const char *src; long srclen; int owned = 1;
+        if (IS_CSET_fn(val)) { src = val.s ? val.s : ""; srclen = (long)descr_slen(val); owned = 0; }
+        else if (val.v == DT_S || val.v == DT_SNUL) { src = val.s ? val.s : ""; srclen = val.slen ? (long)val.slen : (long)strlen(src); }
+        else if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); src = nb; srclen = (long)strlen(nb); owned = 0; }
+        else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); src = nb; srclen = (long)strlen(nb); owned = 0; }
+        else if (val.v == DT_BIG) { src = VARVAL_fn(val); if (!src) src = ""; srclen = (long)strlen(src); owned = 0; }
         else { fprintf(stderr, "[IDX] tvsubs assign: value not string-convertible (dtype=%d)\n", (int)val.v); return FAILDESCR; }
         DESCR_t sd = rt_deref(vc->sv);
         if (sd.v != DT_S && sd.v != DT_SNUL) return FAILDESCR;
@@ -1599,6 +1601,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         DESCR_t wr = rt_assign_var(vc->sv, nsd);
         if (wr.v == DT_FAIL) return FAILDESCR;
         vc->len = srclen;
+        if (owned) return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = (char *)src };
         char *rs = rt_str_alloc(srclen); memcpy(rs, src, (size_t)srclen); rs[srclen] = 0;
         return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = rs };
     }

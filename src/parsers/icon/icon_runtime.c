@@ -23,7 +23,7 @@ static const char *cset_from_bits(const unsigned char w[32], int *outlen) {
         for (int by = base; by < base + 8; by++) { unsigned m = w[by]; while (m) { int bit = __builtin_ctz(m); buf[n++] = (char)(by * 8 + bit); m &= m - 1; } } }
     buf[n] = '\0';
     if (outlen) *outlen = n;
-    return kw_cset_intern(buf, n);
+    return n ? kw_cset_intern(buf, n) : "";
 }
 static int cset_is_canonical(const char *s, int len) {
     for (int i = 1; i < len; i++) if ((unsigned char)s[i] <= (unsigned char)s[i - 1]) return 0;
