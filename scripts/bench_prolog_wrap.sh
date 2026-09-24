@@ -236,11 +236,17 @@ if grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\(' "$KPL"; the
       # died at "global stack overflow (reached: 32765 Kb)" on nrev before the 1000 ms budget was spent --
       # the deadline arm was measuring how fast the engine could exhaust its own stack. between/3 is
       # constant space on all three engines and yields the iteration count for free, with no assert.
-      echo "bench__until(Deadline, I) :- between(1, 1000000000, I), bench_work(_), wall_ms(M), M >= Deadline, !."
-      echo "main :- wall_ms(M0), wall_us(T0), Deadline is M0 + $BUD,"
-      echo "        ( bench__until(Deadline, I) -> true ; I = exhausted ),"
+      # ⛔⭐ THE ANSWER IS PRINTED AND EVERY REPETITION IS HELD TO IT (CEO-1221, Lon: "The reason to force a benchmark to also be
+      #   a test is to guarantee it is not vacuous."). The first solution is written once -- stdout is byte-comparable with
+      #   <name>.ref, like single -- and each repetition's result must be == to it or the run throws bench__mismatch and
+      #   fails, so a repetition that computed something else, or nothing, can never be counted. bench__one/1 commits to the
+      #   first solution for the reason the iter arm records. == is sound here: every bench/*.ref is ground (measured, 23/23).
+      echo "bench__one(Res) :- bench_work(Res), !."
+      echo "bench__until(Deadline, R0, I) :- between(1, 1000000000, I), bench__one(R), ( R == R0 -> true ; throw(bench__mismatch(I, R)) ), wall_ms(M), M >= Deadline, !."
+      echo "main :- bench__one(R0), write(R0), nl, wall_ms(M0), wall_us(T0), Deadline is M0 + $BUD,"
+      echo "        ( bench__until(Deadline, R0, I) -> true ; I = exhausted ),"
       echo "        wall_us(T1), wall_ms(M1), W is T1 - T0, WM is M1 - M0,"
-      echo "        format(user_error, \"BENCH kernel=$K mode=time bud_ms=$BUD iters=~w work_us=~w work_ms=~w~n\", [I, W, WM])." ;;
+      echo "        format(user_error, \"BENCH kernel=$K mode=time bud_ms=$BUD iters=~w mismatched=0 work_us=~w work_ms=~w~n\", [I, W, WM])." ;;
   esac
 } > "$OUT" || exit 2
 echo "$OUT"
