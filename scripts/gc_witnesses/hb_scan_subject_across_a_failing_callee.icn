@@ -1,0 +1,16 @@
+procedure main()
+   while line := trim(read()) do write(braces(line))
+end
+procedure braces(line)
+   line ? {
+      s := "";
+      while s ||:= tab(upto('{}')) do {
+         move(1);
+         s ||:= newtag()
+         };
+      return s ||:= tab(0)
+      }
+end
+procedure newtag()
+   tab(many(&letters))
+end

@@ -1827,6 +1827,7 @@ inline std::string x86_return_floater()  { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
 extern "C" void rt_scan_sync_out(uint64_t delta);
 extern "C" uint64_t rt_scan_sync_in(void);
+extern "C" uint64_t rt_scan_live_subj(void);
 extern "C" int g_scan_regs_live;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_out() {
@@ -1834,11 +1835,19 @@ inline std::string x86_scan_sync_out() {
     return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_scan_sigma_reload() {
+    static int said = 0; const char * e = getenv("SCRIP_GC_PLANT_STALE_SIGMA");
+    if (e && *e == '1') { if (!said) { said = 1; fprintf(stderr, "[GC-STALESIGMA] plant: the call successor inside a scan body reloads the position from the runtime but NOT the subject base, so r13 keeps the pre-collection address of a subject the callee's allocation moved (SCRIP_GC_PLANT_STALE_SIGMA=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first scan-synced call successor emitted.\n"); } return std::string(); }
+    return x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
+         + x86("mov", "r13", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_in_rr() {
     if (!g_scan_regs_live) return std::string();
     return x86("push", "rax") + x86("push", "rdx")
          + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
          + x86("mov", "r14", "rax")
+         + x86_scan_sigma_reload()
          + x86("pop", "rdx") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1850,6 +1859,7 @@ inline std::string x86_scan_sync_in_rr_force() {
     return x86("push", "rax") + x86("push", "rdx")
          + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
          + x86("mov", "r14", "rax")
+         + (g_scan_regs_live ? x86_scan_sigma_reload() : std::string())
          + x86("pop", "rdx") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

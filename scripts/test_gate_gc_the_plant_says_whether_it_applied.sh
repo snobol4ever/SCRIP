@@ -76,8 +76,9 @@ SCRIP_GC_PLANT_PIN_SKIP|ZGC-PIN|test_gate_gc_no_pinned_lifetime_class.sh test_ga
 SCRIP_GC_PLANT_PIN_TYPE|ZGC-PIN|
 SCRIP_GC_PLANT_KEY_COLLISION|GC-KEYSPACE|test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh
 SCRIP_GC_PLANT_SCAN_BANK|GC-SCANBANK|test_gate_gc_a_suspended_scan_banks_its_subject_where_the_walker_relocates_it.sh test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh
-SCRIP_GC_PLANT_FLIP|GC-FLIP|test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh
-SCRIP_GC_PLANT_STALE_FRAME|GC-STALEFRAME|test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh'
+SCRIP_GC_PLANT_FLIP|GC-FLIP|test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh test_gate_gc_the_scan_subject_base_is_reloaded_after_a_call_inside_a_scan.sh
+SCRIP_GC_PLANT_STALE_FRAME|GC-STALEFRAME|test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh
+SCRIP_GC_PLANT_STALE_SIGMA|GC-STALESIGMA|test_gate_gc_the_scan_subject_base_is_reloaded_after_a_call_inside_a_scan.sh'
 scan="$(cd "$HERE" && grep -HnE 'SCRIP_GC_PLANT_[A-Z_]+=' test_gate_*.sh 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#')"
 bad=""; rows=0; gates=0
 while IFS='|' read -r knob lit want; do
