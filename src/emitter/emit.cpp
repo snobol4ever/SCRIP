@@ -324,41 +324,6 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
 #include "emit_ir.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_limit_init(int limit_slot_off) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_emit_limit_init"); abort(); }
-#define WASM_STRTAB_MAX 4096
-#define WASM_STR_DATA_BASE 0x100000
-typedef struct { const char * s; int addr; int len; } WasmStrEntry;
-static WasmStrEntry g_wasm_strtab[WASM_STRTAB_MAX];
-static int g_wasm_strtab_n = 0;
-static int g_wasm_str_next = WASM_STR_DATA_BASE;
-#ifdef __cplusplus
-extern "C++" {
-#endif
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string wasm_emit_data_segments_str(void) {
-    std::string r;
-    for (int i = 0; i < g_wasm_strtab_n; i++) {
-        const char * s   = g_wasm_strtab[i].s;
-        int          len = g_wasm_strtab[i].len;
-        int          adr = g_wasm_strtab[i].addr;
-        r += emit_fmt("  (data (i32.const 0x%x) \"", adr);
-        for (int j = 0; j < len; j++) {
-            unsigned char c = (unsigned char)s[j];
-            if (c == '"' || c == '\\') r += emit_fmt("\\%02x", (unsigned)c);
-            else if (c < 32 || c > 126) r += emit_fmt("\\%02x", (unsigned)c);
-            else r += emit_fmt("%c", (int)c);
-        }
-        r += emit_fmt("\\00\")  ;; len=%d\n", len);
-    }
-    return r;
-}
-#ifdef __cplusplus
-}
-#endif
-#define WASM_USERFNS_MAX 256
-#define WASM_MAX_PARAMS  16
-typedef struct { char name[128]; int entry_pc; int nparams; char params[WASM_MAX_PARAMS][128]; } WasmUserFn;
-static WasmUserFn g_wasm_userfns[WASM_USERFNS_MAX];
-static int        g_wasm_userfns_n = 0;
 int g_m4_dense_nid = 0;
 static IR_t * g_nid_key[262144];
 static int    g_nid_val[262144];

@@ -691,7 +691,6 @@ std::string jvm_push_int2_str(long v);
 std::string jvm_emit_ldc_string_str(const char * s);
 std::string js_escape_string_str(const char * s);
 std::string gas_escape_str(const char * s);
-std::string wasm_emit_data_segments_str(void);
 std::string jvm_class_hdr_str(const char * name);
 std::string jvm_init_ms_str_str(const char * name, const char * field);
 std::string jvm_init_ms_only_str(const char * name);
