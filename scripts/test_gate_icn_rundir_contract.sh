@@ -95,13 +95,13 @@ REF_DISPUTED=""
 # method this gate uses; the two pre-existing pins (io 135, recent 443) were RE-DERIVED by that method first
 # and reproduced exactly, which is what makes the six trustworthy rather than merely plausible. SCRIP agrees
 # with the oracle on all eight at the tree that pinned them.
+# (2026-09-24: seven. rung36_jcon_others is master entry 824 since 09-11 and its loose pair is deleted; its floor went with it.)
 contract_floor() {
     case "$1" in
         rung36_jcon_io)      echo 133 ;;   # 135 until 2026-09-23: the retired io.std fixture was two listed names
         rung36_jcon_recent)  echo 443 ;;
         rung36_jcon_btrees)  echo 30  ;;
         rung36_jcon_geddump) echo 313 ;;
-        rung36_jcon_others)  echo 183 ;;
         rung36_jcon_prefix)  echo 8   ;;
         rung36_jcon_profsum) echo 62  ;;
         rung36_jcon_recogn)  echo 8   ;;

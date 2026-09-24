@@ -103,7 +103,7 @@ run rung36_jcon_level
 run rung36_jcon_lgint
 run rung36_jcon_misc
 run rung36_jcon_nargs
-run rung36_jcon_others
+moved rung36_jcon_others rung36_jcon_others
 run rung36_jcon_prefix
 run rung36_jcon_prepro
 run rung36_jcon_profsum
