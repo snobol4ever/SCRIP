@@ -2451,7 +2451,10 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
         { DESCR_t a = rt_pl_deref_val(((DESCR_t *)opt.p)[0]); const char *as = pl_atom_str(a);
           if (pl_val_unbound(a)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
           if (on && !strcmp(on, "alias")) { extern void fh_set_alias(int, const char *);
-              if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } fh_set_alias(idx, as); }
+              if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+              { extern int fh_alias_idx(const char *); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t); int ex = fh_alias_idx(as);
+                if ((ex >= 0 && ex != idx) || !strcmp(as, "user_input") || !strcmp(as, "user_output") || !strcmp(as, "user_error")) { cx->ball = rt_pl_ball_permission3("open", "source_sink", opt); return 0; } }
+              fh_set_alias(idx, as); }
           else if (on && !strcmp(on, "type")) { if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               if (idx >= 0 && idx < FH_MAX) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
           else if (on && !strcmp(on, "reposition")) { extern void fh_set_repos(int, int); if (!as || (strcmp(as, "true") && strcmp(as, "false"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
@@ -2476,6 +2479,8 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     char fb[4096], mb[64]; const char *fn, *md; FILE *fp; const char *fmode;
     DESCR_t f = rt_pl_deref_val(args[0]); DESCR_t m = rt_pl_deref_val(args[1]);
     if (pl_val_unbound(f) || pl_val_unbound(m)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+    if (m.v != (DTYPE_t)DT_S && m.v != (DTYPE_t)DT_A) { cx->ball = rt_pl_ball_kind2("type_error", "atom", m); return 0; }
+    if (!pl_val_unbound(rt_pl_deref_val(args[2]))) { extern void *rt_pl_ball_culprit1(const char *, DESCR_t); cx->ball = rt_pl_ball_culprit1("uninstantiation_error", rt_pl_deref_val(args[2])); return 0; }
     if (f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_A) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn) || !pl_cell_text(args[1], mb, sizeof mb, &md)) return 0;
     fmode = !strcmp(md, "read") ? "r" : !strcmp(md, "write") ? "w" : !strcmp(md, "append") ? "a" : !strcmp(md, "update") ? "r+" : (const char *)0;
