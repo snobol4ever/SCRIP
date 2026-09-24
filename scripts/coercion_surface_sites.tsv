@@ -62,6 +62,7 @@ src/runtime/pattern_match.c	EVAL_fn	-	EVAL of a string or expression value; a Bo
 src/runtime/by_name_dispatch.c	rt_call_value	-	calls a value as a function; a Bool is not callable
 src/runtime/by_name_dispatch.c	rt_call_value_gen_h	-	generator half of rt_call_value; same reason
 src/runtime/by_name_dispatch.c	rt_pl_dop_is_v_c	-	Prolog is/2 arithmetic; Prolog cannot hold a DT_BOOL
+src/runtime/by_name_dispatch.c	pl_anum_is_num	-	Prolog's ISO number test behind number_codes/number_chars (DT_I, DT_R, DT_BIG); Prolog cannot hold a DT_BOOL (hq_prolog 2026-09-24)
 src/runtime/by_name_dispatch.c	dop_cmp_fast	-	Prolog term comparison fast path; same reason
 src/runtime/builtins/gen_runtime.c	rt_keyword_random_set	-	SNOBOL4 &RANDOM setter; unreachable from Raku
 src/runtime/builtins/gen_runtime.c	rt_keyword_error_set	-	SNOBOL4 &ERROR setter; unreachable from Raku
