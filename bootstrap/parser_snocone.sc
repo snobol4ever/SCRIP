@@ -95,6 +95,7 @@ Call            =   shift(*Ident, "'TT_QLIT'")
                     FENCE(
                       $'('
                       *CallArgs
+                      $')'
                       reduce("'TT_FNC'", 2)
                     );
 ExprList        =   nPush() *XList reduce("'TT_VLIST'", 'nTop()') nPop();
