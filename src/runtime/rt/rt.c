@@ -1411,8 +1411,15 @@ void rt_gc_ws_roots(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char g_lvl_own[1 << 16];
-static inline void rt_lvl_open(int own) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = own ? 1 : 0; else own = 0; if (!own) { rt_k_level++; rt_lvl_retire(); } rt_k_level_mirror(); }
-static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && g_lvl_own[L]) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
+static inline void rt_lvl_open(int own) {
+    int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 2) | (own ? 1 : 0)); else own = 0;
+    if (!own) { rt_k_level++; rt_lvl_retire(); }
+    rt_k_level_mirror();
+}
+static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 1)) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
+static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
+static inline void rt_lvl_park_wn(int wn) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 1) | (wn ? 2 : 0)); }
+static inline int rt_lvl_parked_wn(void) { int L = rt_k_level; return (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 2)) ? 1 : 0; }
 int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
     rt_proc_resolve_cells(p);
@@ -1430,7 +1437,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     if (g_trace_budget != 0) sno_trace_call(p->name);
     { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, args, nargs, NULVCL, g_stno); }
     rt_lvl_open(0);
-    rt_g_want_name = wn;
+    if (rt_wn_park_on()) { rt_lvl_park_wn(wn); rt_g_want_name = 0; } else rt_g_want_name = wn;
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1458,6 +1465,7 @@ static int rt_proc_save_count(rt_proc_t *p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
 {
+    int wn_parked = rt_wn_park_on() ? rt_lvl_parked_wn() : -1;
     rt_lvl_close();
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p && name) p = rt_proc_find_alias(name);
@@ -1468,6 +1476,7 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
     { int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0; rt_name_restore(base); }
     if (g_trace_budget != 0) sno_trace_return(p->name, result);
     { extern long g_stno; rt_trace_event(TRK_RETURN, p->name, result, g_stno); }
+    if (wn_parked >= 0) rt_g_want_name = wn_parked;
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

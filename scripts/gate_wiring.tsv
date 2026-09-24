@@ -555,6 +555,7 @@ test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-
 test_gate_sno_trace_keyword_name_is_validated.sh	WIRED	-	-	-
 test_gate_sno_trace_of_an_array_or_table_element_fires_and_spells_it_like_the_oracle.sh	WIRED	-	-	-
 test_gate_sno_trace_value_fires_at_every_sink_with_the_sinks_statement_number.sh	WIRED	-	-	-
+test_gate_sno_tracing_does_not_change_a_match_result.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_beauty_suite_reads_every_test_in_both_modes_with_no_xfail.sh	WIRED	-	-	-
