@@ -998,7 +998,7 @@ int main(int argc, char **argv)
         return 1;
     }
     int mode_run           = 0;
-    int opt_no_exec = 0, opt_input_after_end = 0; const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0;
+    int opt_no_exec = 0, opt_input_after_end = 0; const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0; long opt_heap_win_kb = 0, opt_heap_cap_kb = 0;
     int mode_compile       = 0;
     int dump_ast           = 0;
     int dump_ir            = 0;
@@ -1055,6 +1055,8 @@ int main(int argc, char **argv)
         v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
         if (sw == 's') { if (apply_stack_limit(v) != 0) { fprintf(stderr, "scrip: -s%ld: could not raise stack limit\n", v); return 2; } }
         else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
+        else if (sw == 'd') { opt_heap_cap_kb = v >> 10; if (opt_heap_cap_kb < 1) { fprintf(stderr, "scrip: -d%ld: the maximum heap must be at least 1k\n", v); return 2; } }
+        else if (sw == 'i') { opt_heap_win_kb = v >> 10; if (opt_heap_win_kb < 1) { fprintf(stderr, "scrip: -i%ld: the initial heap must be at least 1k\n", v); return 2; } }
         argi++;
     }
     if (argi == before_argi) break; }
@@ -1066,7 +1068,7 @@ int main(int argc, char **argv)
     }
     if (!mode_run && !mode_compile)
         mode_run = 1;
-    { extern void rt_host_u_set(const char *); extern void rt_terminal_to_file(const char *); rt_host_u_set(opt_host_u); if (opt_terminal_file) rt_terminal_to_file(opt_terminal_file); }
+    { extern void rt_host_u_set(const char *); extern void rt_terminal_to_file(const char *); extern void rt_heap_size_set(long, long); rt_host_u_set(opt_host_u); if (opt_terminal_file) rt_terminal_to_file(opt_terminal_file); if (opt_heap_win_kb > 0 || opt_heap_cap_kb > 0) rt_heap_size_set(opt_heap_win_kb, opt_heap_cap_kb); }
     { const char *_pm = getenv("SCRIP_PERF_MAP");
       if (_pm && *_pm && *_pm != '0')
           fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
@@ -1098,7 +1100,9 @@ int main(int argc, char **argv)
             "Memory options (SPITBOL-compatible; value may end in k or m, e.g. -s256m -m8m):\n"
             "  -sN              max stack space; raises RLIMIT_STACK for deep pattern backtracking (default: OS, 8m)\n"
             "  -mN              max object size -> &MAXLNGTH (default 5m)\n"
-            "  -dN -iN          accepted for SPITBOL invocation compatibility (SCRIP's GC arena is not byte-sized)\n"
+            "  -dN              max heap: the GC heap's HARD CAP (SPITBOL -d#; default 4m; a live set above it is a reported out-of-memory)\n"
+            "  -iN              initial heap and enlarge amount: the first committed window and the least each growth commits (SPITBOL -i#; default 128k)\n"
+            "                   -d -i -s -m reach a compiled (--compile) program the same way: it reads them as leading switches on its own command line\n"
             "\n"
             "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, CEO-1224/1227):\n"
             "  -n               compile, suppress execution (exit 231 as sbl does)\n"

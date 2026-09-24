@@ -1347,6 +1347,28 @@ static int host_cmdline_arg(int want, char *out, int outsz) {
     return found;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long _sw_stack_bytes = 0;
+static long _sw_mem_arg(const char *t) {
+    char *e = (char *)0; long v = strtol(t, &e, 10); if (e == t || v < 0) return -1;
+    if (*e == 'k' || *e == 'K') { v *= 1024L; e++; } else if (*e == 'm' || *e == 'M') { v *= 1024L * 1024L; e++; }
+    return *e ? -1 : v;
+}
+void rt_cmdline_switches_apply(void) {
+    static int done = 0; if (done) return; done = 1;
+    char tok[4096]; long win_kb = 0, cap_kb = 0;
+    for (int i = 1; host_cmdline_arg(i, tok, (int)sizeof(tok)) == i; i++) {
+        if (tok[0] != '-' || tok[1] == '\0') break;
+        if (tok[1] == '-') continue;
+        if (tok[1] == 'u') { if (tok[2] == '\0') i++; continue; }
+        if (tok[1] == 'd' || tok[1] == 'i' || tok[1] == 's' || tok[1] == 'm') {
+            const char *val = tok + 2; if (*val == '\0') { if (host_cmdline_arg(i + 1, tok, (int)sizeof(tok)) != i + 1) break; val = tok; i++; }
+            long v = _sw_mem_arg(val); if (v < 0) continue;
+            if (tok[0] == '-' && tok[1] == 'd') cap_kb = v >> 10; else if (tok[0] == '-' && tok[1] == 'i') win_kb = v >> 10; else if (tok[0] == '-' && tok[1] == 's') _sw_stack_bytes = v; else if (tok[0] == '-' && tok[1] == 'm') { extern long g_maxlngth; g_maxlngth = v; }
+            continue;
+        }
+    }
+    if (win_kb > 0 || cap_kb > 0) { extern void rt_heap_size_set(long, long); rt_heap_size_set(win_kb, cap_kb); }
+}
 static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
@@ -2462,6 +2484,7 @@ void core_lib_init(void) {
         const char *e = getenv("SCRIP_STACK");
         if (e && e[0]) { char *ep = NULL; long ev = strtol(e, &ep, 10);
             if (ev > 0) { if (ep && (*ep == 'k' || *ep == 'K')) ev *= 1024L; else if (ep && (*ep == 'm' || *ep == 'M')) ev *= 1024L * 1024L; floor = ev; } }
+        rt_cmdline_switches_apply(); if (_sw_stack_bytes > 0) floor = _sw_stack_bytes;
         struct rlimit rl;
         if (getrlimit(RLIMIT_STACK, &rl) == 0) {
             if (rl.rlim_max != RLIM_INFINITY && (rlim_t)floor > rl.rlim_max) floor = (long)rl.rlim_max;

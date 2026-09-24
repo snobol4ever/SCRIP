@@ -43,6 +43,8 @@ static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
 static char *g_hp_cap_end = (char *)0;
 static size_t g_hp_chunk = 0;
+static long g_hp_sw_win_kb = 0, g_hp_sw_cap_kb = 0;
+void rt_heap_size_set(long win_kb, long cap_kb) { if (win_kb > 0) g_hp_sw_win_kb = win_kb; if (cap_kb > 0) g_hp_sw_cap_kb = cap_kb; }
 static long g_hp_capped = 0;
 static long g_hp_grown = 0;
 static long g_hp_grows = 0;
@@ -189,6 +191,7 @@ static int rt_gcheap_grow(uint64_t need)
     if (!left) { rt_gcheap_cap_hit(need); return 0; }
     { size_t want = (size_t)need + sizeof(rt_hblk_t), committed = (size_t)(g_hp_end - g_hp_arena); want = (want + 0xFFFu) & ~(size_t)0xFFFu;
       if ((size_t)g_hp_live * 2u > committed && want < committed) want = committed;
+      if (g_hp_sw_win_kb > 0 && want < ((size_t)g_hp_sw_win_kb << 10)) want = (size_t)g_hp_sw_win_kb << 10;
       if (want > left) want = left;
       if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] lazy commit refused %ld KB at %p under a %ld KB hard cap\n", (long)(want >> 10), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 10)); return 0; }
       gc_huge_advise(g_hp_end, g_hp_end + want);
@@ -208,6 +211,7 @@ static void rt_gcheap_cap_hit(uint64_t need)
 static void rt_gcheap_init(void)
 {
     long mb = (long)GC_HEAP_MB, cap_mb, cap_kb, kb = (long)GC_HEAP_KB;
+    { extern void rt_cmdline_switches_apply(void); rt_cmdline_switches_apply(); }
     { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) { mb = v; kb = v * 1024L; } } }
     { const char *e = getenv("SCRIP_HEAP_KB"); if (e && *e) { long v = atol(e);
         if (v < (long)GC_HEAP_KB_FLOOR || v > 4096L * 1024L) { fprintf(stderr, "[ZHP] SCRIP_HEAP_KB=%ld is outside %d..%ld KB and is REFUSED -- the window is not silently clamped, because a run that grades at a size it was not asked for is a false reading (ceo CEO-1095)\n", v, (int)GC_HEAP_KB_FLOOR, 4096L * 1024L); abort(); }
@@ -215,6 +219,8 @@ static void rt_gcheap_init(void)
     cap_kb = (long)GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb;
     { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); cap_kb = (v * 1024L >= kb) ? v * 1024L : kb; } }
     { const char *e = getenv("SCRIP_HEAP_CAP_KB"); if (e && *e) { long v = atol(e); if (v < kb) { fprintf(stderr, "[ZHP] SCRIP_HEAP_CAP_KB=%ld is BELOW the %ld KB window and is REFUSED -- a cap under its own window is not a smaller heap, it is an unstatable one (ceo CEO-1101)\n", v, kb); abort(); } cap_kb = v; } }
+    if (g_hp_sw_win_kb > 0) { if (g_hp_sw_win_kb < (long)GC_HEAP_KB_FLOOR || g_hp_sw_win_kb > 4096L * 1024L) { fprintf(stderr, "[ZHP] -i%ldk is outside %d..%ld KB and is REFUSED (the initial heap window is not silently clamped)\n", g_hp_sw_win_kb, GC_HEAP_KB_FLOOR, 4096L * 1024L); abort(); } kb = g_hp_sw_win_kb; if (cap_kb < kb) cap_kb = kb; }
+    if (g_hp_sw_cap_kb > 0) { if (g_hp_sw_cap_kb < kb) { fprintf(stderr, "[ZHP] -d%ldk is BELOW the %ld KB initial window (-i) and is REFUSED\n", g_hp_sw_cap_kb, kb); abort(); } cap_kb = g_hp_sw_cap_kb; }
     cap_mb = (cap_kb + 1023L) / 1024L; if (cap_mb < 1) cap_mb = 1;
     { size_t rsv = (((size_t)cap_kb << 10) + 0xFFFu) & ~(size_t)0xFFFu;
       void *rv = mmap((void *)0, rsv, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);

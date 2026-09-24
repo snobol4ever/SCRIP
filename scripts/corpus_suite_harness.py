@@ -385,6 +385,19 @@ def resolve_oracle_bin(paths, lang=""):
     refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal/raku so far)")
 
 
+def _size_switches(heap_kb, stack_kb):
+    """A program's DECLARED heap and stack reach the run as SPITBOL's switches, not as environment variables (Lon
+    2026-09-23, CEO-1225: SCRIP sizes the heap with -d and -i and the stack with -s, as SPITBOL does; an environment knob
+    is invisible in a transcript, a switch is recorded with the run). heap_kb is the heap the program NEEDS, so it is both
+    the hard cap (-d) and the initial window (-i), which is exactly what SCRIP_HEAP_KB=<kb> used to mean here; stack_kb is
+    -s. They go before the source for scrip --run and lead the compiled binary's own command line, which reads them at its
+    first allocation. None = the shipped default, so an undeclared program's command line is byte-identical to before."""
+    sw = []
+    if heap_kb: sw += ["-d%dk" % heap_kb, "-i%dk" % heap_kb]
+    if stack_kb: sw += ["-s%dk" % stack_kb]
+    return sw
+
+
 def _host_u_switch(sno_path, prog_args):
     """SPITBOL's HOST(0) is the -u string and nothing else (sbl -h; Lon 2026-09-23, CEO-1224), so a SNOBOL4 entry's
     DECLARED argv reaches HOST(0) the way CSNOBOL4-targeted programs read it (aisnobol HSORT, ATN) by being passed as
@@ -791,7 +804,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # ERROR NNN line naming the file) would otherwise embed this run's own ever-changing mktemp
     # directory, which no frozen .ref can ever match. cwd (set below) is what makes the bare name
     # still resolve to the right file.
-    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
+    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
     # ⛔⭐ THE `--` SEPARATOR IS MANDATORY AND IS WHAT MAKES THIS SAFE. The driver has NO unknown-flag
     # diagnostic: any unrecognised argument falls through to being treated as a FILENAME, so a declared
     # program argument spelled like a flag (`-n10`, the exact shape the first witness used) would be
@@ -807,13 +820,8 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # None means the cell was empty, and an empty cell is the SHIPPED DEFAULT -- so the env of an
     # undeclared program is byte-identical to what it was before this parameter existed, which is
     # what keeps this from being a fleet-wide re-grade wearing a reader's name.
-    if heap_kb:
-        env["SCRIP_HEAP_KB"] = str(heap_kb)
-    # ⭐ AND THE DECLARED STACK, the same way (Lon 2026-09-23 18:3x, CEO-1225: "an attribute of stack and heap sizes"): the runtime
-    # raises RLIMIT_STACK at init to SCRIP_STACK when it is set, else to its 64 MB floor (core.c), in both modes -- so this one
-    # variable is the stack's declaration for m3 AND for the m4 binary until the cto's switch row makes it -s. None = the default.
-    if stack_kb:
-        env["SCRIP_STACK"] = "%dk" % stack_kb
+    # ⭐ THE DECLARED HEAP AND STACK ARE ON THE COMMAND LINE (-d -i -s, _size_switches above), no longer in env: the cto's switch
+    # row (CEO-1225) made SCRIP read them as SPITBOL does, and a switch is recorded with the run where an env knob is not.
     # ⛔⭐ cwd IS THE SOURCE FILE'S OWN DIRECTORY, NOT THE HARNESS'S. A corpus program's relative
     # opens (Icon `open("X")`, and any read of a data companion) resolve against the RUNNING file's
     # directory -- that is how a loose file is run by hand and by test_corpus_snobol4.sh. Without
@@ -908,16 +916,13 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # declared list, two spellings, one observable result (verified: identical argc/args in m3 and m4).
     run_dir = Path(sno_path).parent
     _same = out_bin.parent.resolve() == run_dir.resolve()
-    argv = stdbuf_wrap(paths, [out_bin.name]) + _host_u_switch(sno_path, prog_argv) + [str(a) for a in (prog_argv or [])]
+    argv = stdbuf_wrap(paths, [out_bin.name]) + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [str(a) for a in (prog_argv or [])]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]), PATH=str(out_bin.parent) + os.pathsep + os.environ.get("PATH", ""))
     # ⛔⭐ EXPORTED AT THE RUN AND DELIBERATELY NOT AT THE COMPILE. `scrip --compile` runs the COMPILER
     # in this same process image, so setting the arena there would grade the compiler at the test's
     # declared window instead of the test -- a number wearing the wrong subject's name. The declaration
     # is about the program's live set, so it is applied where the program lives.
-    if heap_kb:
-        env["SCRIP_HEAP_KB"] = str(heap_kb)
-    if stack_kb:
-        env["SCRIP_STACK"] = "%dk" % stack_kb
+    # the declared heap and stack ride the binary's command line as -d -i -s (see _size_switches), read at its first allocation
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
     return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
