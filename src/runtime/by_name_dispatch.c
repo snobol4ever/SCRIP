@@ -2334,7 +2334,8 @@ static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
     { int is_in = (g_fh[idx].mode == 'r');
       if (out && is_in) { *ball = rt_pl_ball_permission3("output", "stream", d); return -1; }
       if (!out && !is_in && idx != 0) { *ball = rt_pl_ball_permission3("input", "stream", d); return -1; }
-      if (textop && g_fh[idx].type == 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", d); return -1; } }
+      if (textop > 0 && g_fh[idx].type == 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", d); return -1; }
+      if (textop < 0 && g_fh[idx].type != 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "text_stream", d); return -1; } }
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2819,10 +2820,13 @@ PL_CX_LEAF_HEAD(get_code, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int 
 PL_CX_LEAF_HEAD(peek_code, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int sn = 0; int c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+static void *pl_byte_cur_ball(int out) { extern int fh_current_output(void); extern int fh_current_input(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+    int ix = out ? fh_current_output() : fh_current_input();
+    return (ix >= 0 && ix < FH_MAX && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", pl_mk_stream(ix)) : (void *)0; }
+PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0))) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(peek_byte, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+PL_CX_LEAF_HEAD(peek_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0))) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
     if (c != EOF) ungetc(c, fh_cur_in_fp());
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3019,9 +3023,9 @@ PL_CX_LEAF_HEAD(read_term_opts, 2) { static char text[65536]; int got; DESCR_t t
 #define PL_TEXTOP_peek_code 1
 #define PL_TEXTOP_unget_char 1
 #define PL_TEXTOP_unget_code 1
-#define PL_TEXTOP_get_byte 0
-#define PL_TEXTOP_peek_byte 0
-#define PL_TEXTOP_unget_byte 0
+#define PL_TEXTOP_get_byte (-1)
+#define PL_TEXTOP_peek_byte (-1)
+#define PL_TEXTOP_unget_byte (-1)
 #define PL_IN_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_input(void); extern void fh_set_input(int); int idx = pl_stream_idx_ball(args[0], 0, PL_TEXTOP_##nm, cx); ok = 0; \
     if (idx >= 0) { int sv = fh_current_input(); fh_set_input(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_input(sv); \
         ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
@@ -3033,6 +3037,7 @@ PL_CX_LEAF_HEAD(put_byte, 1) { extern FILE *fh_cur_out_fp(void); extern void *rt
     if (pl_val_unbound(v)) { extern void *rt_pl_ball_instantiation(void); cx->ball = rt_pl_ball_instantiation(); }
     else if (v.v != (DTYPE_t)DT_I) cx->ball = rt_pl_ball_kind2("type_error", "byte", v);
     else if (v.i < 0 || v.i > 255) cx->ball = rt_pl_ball_kind2("type_error", "byte", v);
+    else if ((cx->ball = pl_byte_cur_ball(1))) ok = 0;
     else { fputc((int)v.i, fh_cur_out_fp()); ok = 1; } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_OUT_CX_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_output(void); extern void fh_set_output(int); int idx = pl_stream_idx_ball(args[0], 1, PL_TEXTOP_##nm, cx); ok = 0; \
@@ -3051,7 +3056,7 @@ PL_OUT_BALL_LEAF(put_char, dop_pl_put_char, 2)
 PL_OUT_BALL_LEAF(put_code, dop_pl_put_code, 2)
 PL_OUT_BALL_LEAF(flush_output, dop_pl_flush_output, 1)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_TEXTOP_put_byte 0
+#define PL_TEXTOP_put_byte (-1)
 #define PL_TEXTOP_put_char_c 1
 #define PL_TEXTOP_write_term 1
 PL_OUT_CX_LEAF(put_byte, 2)
