@@ -1173,6 +1173,25 @@ static void pas_set_member_ordinal(tree_t *e) {
     fprintf(stderr, "pascal: ISO 7185 6.7.1 violation: a member-designator of a set-constructor is of %s, and the type of its expressions shall be an ordinal-type\n", pas_class_name(k));
     g_pas_iso_errors++;
 }
+static void pas_variant_values(tree_t *e, long long *v, int *n, int cap) {
+    if (!e) return;
+    if (e->t == TT_ADD && e->n == 2) { pas_variant_values(e->c[0], v, n, cap); pas_variant_values(e->c[1], v, n, cap); return; }
+    if (e->t == TT_EQ && e->n == 2 && e->c[1] && e->c[1]->t == TT_ILIT && *n < cap) v[(*n)++] = e->c[1]->v.ival;
+}
+static void pas_variant_constants_in_tag_type(const char *tag_type, PNodeList *arms) {
+    const char *t = tag_type; long long lo = 0, hi = -1;
+    for (int guard = 0; t && guard < 8 && hi < lo; guard++) {
+        if (pas_is_booltype(t)) { lo = 0; hi = 1; }
+        else if (pas_subtype_high(t) >= 0) { lo = pas_subtype_low(t); hi = pas_subtype_high(t); }
+        else if (pas_enumtype_high(t) >= 0) { lo = 0; hi = pas_enumtype_high(t); }
+        else { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; } }
+    if (hi < lo || hi - lo >= 4096 || !arms) return;
+    long long v[4096]; int n = 0; unsigned char seen[4096]; memset(seen, 0, sizeof seen);
+    for (int i = 0; i < arms->count; i++) pas_variant_values(arms->items[i], v, &n, 4096);
+    for (int i = 0; i < n; i++) {
+        if (v[i] < lo || v[i] > hi) { fprintf(stderr, "pascal: ISO 7185 6.4.3.3 violation: a case-constant of the variant-part denotes %lld, which is not a value of its tag-type %s (%lld..%lld)\n", v[i], tag_type, lo, hi); g_pas_iso_errors++; return; }
+        if (seen[v[i] - lo]++) { fprintf(stderr, "pascal: ISO 7185 6.4.3.3 violation: the value %lld of the tag-type %s is denoted by more than one case-constant of the variant-part\n", v[i], tag_type); g_pas_iso_errors++; return; } }
+}
 static int pas_class_compatible(char to, char from) { return to == from || (to == 'r' && from == 'i'); }
 static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, const char *what) {
     char to = pas_var_decl_class(vn), from = pas_expr_lit_class(rhs);
@@ -1471,6 +1490,8 @@ static long long pas_decl_part_order(long long prev, long long cur) {
 %type <list> statement_list argument_list expression_list expression_list_opt id_list argument
 %type <list> parameter_list_opt parameter_decl_list parameter_decl
 %type <list> selector_list
+%type <list> record_case_list
+%type <node> record_case_arm
 %type <ival> constant scalar_constant simple_type type
 %type <ival> with_open
 %type <ival> packed_opt
@@ -1578,17 +1599,17 @@ record_field:
     |
     ;
 record_case_opt:
-    CASESY IDENT COLON IDENT OFSY record_case_list { if ($2) { g_pas_pend_typename = ct_strdup($4); pas_pend_add($2); } }
-    | CASESY IDENT OFSY record_case_list { if ($2) pas_pend_add($2); }
+    CASESY IDENT COLON IDENT OFSY record_case_list { pas_variant_constants_in_tag_type($4, $6); if ($2) { g_pas_pend_typename = ct_strdup($4); pas_pend_add($2); } }
+    | CASESY IDENT OFSY record_case_list { pas_variant_constants_in_tag_type($2, $4); if ($2) pas_pend_add($2); }
     |
     ;
 record_case_list:
-    record_case_list SEMICOLON record_case_arm
-    | record_case_arm
+    record_case_list SEMICOLON record_case_arm { if ($3) pnl_push($1, $3); $$ = $1; }
+    | record_case_arm { PNodeList *l = pnl_new(); if ($1) pnl_push(l, $1); $$ = l; }
     ;
 record_case_arm:
-    constant_list COLON LPARENT record_body RPARENT
-    |
+    constant_list COLON LPARENT record_body RPARENT { $$ = $1; }
+    | { $$ = NULL; }
     ;
 var_decl_list:
     var_decl_list var_decl { $$ = pas_var_names_add($1, $2); }
