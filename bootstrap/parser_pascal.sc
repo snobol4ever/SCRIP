@@ -201,7 +201,8 @@ Command         =   $' ' ( *compound_cmd
 /* ==================================================================================================================== */
 TypeName        =   $' ' Id $' ' FENCE($'[' BREAK(']') ']' $' ' | epsilon);
 VarGroup        =   *Ident ARBNO($',' *Ident) $':' *TypeName $';';
-var_part        =   FENCE($'var' *VarGroup ARBNO(*VarGroup) | epsilon);
+VarGroups       =   *VarGroup FENCE(*VarGroups | epsilon);
+var_part        =   FENCE($'var' *VarGroups | epsilon);
 /* A parameter list contributes TT_VAR leaves to the procedure's TT_VLIST.                */
 ParamFirst      =   FENCE($'var' | epsilon) shift(*Ident, "'TT_VAR'") nInc()
                     ARBNO($',' shift(*Ident, "'TT_VAR'") nInc()) $':' *TypeName;
