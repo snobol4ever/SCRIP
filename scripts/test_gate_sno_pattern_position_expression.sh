@@ -5,7 +5,7 @@
 # THE CLASS. A SNOBOL4 statement `SUBJECT PATTERN` may carry, as its PATTERN, any expression whose VALUE is
 # the pattern -- SNOBOL4 evaluates the pattern expression first, then matches. lower_snobol4.c has always had
 # the correct general machinery for this (the runtime-pattern fallback at the sno_pat_supported() miss: stage
-# the expression into PATTMP$n, match the subject against the deferred temp, omega wired to the statement's
+# the expression into SCP$n (a subject that is not a variable or literal first into SCS$n, as SPITBOL evaluates subject before pattern), match the subject against the deferred temp, omega wired to the statement's
 # failure branch). Until 2026-09-06 that fallback was gated on a PER-OP ALLOWLIST --
 # `ptt->t == TT_FNC || ptt->t == TT_INDIRECT || sno_is_pattern_rhs(ptt)` -- and every expression kind not
 # enumerated there died at sno_fatal instead, WITH A MESSAGE BLAMING "Pattern matching, EVAL and CODE".
