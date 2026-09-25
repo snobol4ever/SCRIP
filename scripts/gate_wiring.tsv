@@ -393,6 +393,7 @@ test_gate_picker_autounblock.sh	WIRED	-	-	-
 test_gate_picker_lane_table_agrees_with_mode.sh	WIRED	-	-	-
 test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
 test_gate_pl_a_body_less_procedure_returns_a_defined_result.sh	WIRED	-	-	-
+test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-
 test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_a_shift_outside_the_int64_window_is_computed_not_wrapped.sh	WIRED	-	-	-
@@ -443,6 +444,7 @@ test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
+test_gate_pl_two_variables_compare_one_way_only.sh	WIRED	-	-	-
 test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
 test_gate_pl_write_1_never_silently_drops_a_term_shape.sh	WIRED	-	-	-
 test_gate_pl_xfail_marker_consistent.sh	WIRED	-	-	-
