@@ -27,9 +27,9 @@ static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L
     return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
 extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
-static const char * sn4_byname_sym(const char * fn, int strict, uint64_t * fp) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; return "rt_call_bid_sn4"; }
-    if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; return "rt_call_name_sn4"; }
-    if (strict == 2) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; return "rt_call_arr_bl_sn4"; } if (strict) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; return "rt_call_arr_bl_strict"; } *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; return "rt_call_arr_bl"; }
+static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
+static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
+static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
 DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_divf(DESCR_t *, int); DESCR_t rt_pl_dop_ax_add(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sub(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mul(DESCR_t *, int); DESCR_t rt_pl_dop_ax_div(DESCR_t *, int); DESCR_t rt_pl_dop_ax_idiv(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mod(DESCR_t *, int);
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
@@ -479,7 +479,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         else          s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)narg);
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call", sn4_byname_sym(fn, _.op_strict, &fptr_bl), fptr_bl);
+        s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
         s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
@@ -527,7 +527,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)narg);
         s += x86("rtcc_wb");
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call_bare", sn4_byname_sym(fn, _.op_strict, &fptr_bl), fptr_bl);
+        s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         s += x86_rt_gc_poll_res();
         s += x86("rtcc_rl");
     }

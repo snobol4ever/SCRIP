@@ -492,6 +492,82 @@ RTX_ENTRY(rt_cap_open_plain)
     RTX_CTAIL(c_rt_cap_open)
 RTX_ENDF(rt_cap_open)
     .size rt_cap_open_plain, .-rt_cap_open_plain
+RTX_FUNC(rt_cap_open_gva)
+    mov     rax, qword ptr [rip + g_call_fastpath_off@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lcg_plain
+    mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jge     .Lcg_plain
+    cmp     dword ptr [rip + trace_set_n], 0
+    jne     .Lcg_plain
+    cmp     dword ptr [rip + g_comm_dbg], 0
+    jne     .Lcg_plain
+    RTX_SAVE
+    mov     r11, rdi
+    mov     eax, edx
+    sub     eax, esi
+    jns     .Lcg_len_ok
+    xor     eax, eax
+.Lcg_len_ok:
+    push    r11
+    push    rsi
+    push    rax
+    movsxd  rdi, eax
+    call    rt_str_alloc@PLT
+    pop     rcx
+    pop     rsi
+    pop     r11
+    test    rax, rax
+    jz      .Lcg_nul
+    mov     r8, rax
+    test    ecx, ecx
+    jz      .Lcg_copied
+    mov     r10, qword ptr [rip + Σ@GOTPCREL]
+    mov     r10, qword ptr [r10]
+    movsxd  rsi, esi
+    add     r10, rsi
+    cmp     ecx, 16
+    ja      .Lcg_rep
+    xor     edx, edx
+.Lcg_byte:
+    movzx   eax, byte ptr [r10 + rdx]
+    mov     byte ptr [r8 + rdx], al
+    add     edx, 1
+    cmp     edx, ecx
+    jb      .Lcg_byte
+    jmp     .Lcg_copied
+.Lcg_rep:
+    mov     rdi, r8
+    mov     rsi, r10
+    push    rcx
+    rep movsb
+    pop     rcx
+.Lcg_copied:
+    mov     byte ptr [r8 + rcx], 0
+.Lcg_store:
+    mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    cmp     qword ptr [r9], r8
+    jne     .Lcg_sxt_skip
+    mov     qword ptr [r9], 0
+.Lcg_sxt_skip:
+    mov     eax, DT_S
+    mov     rdx, rcx
+    shl     rdx, 32
+    or      rax, rdx
+    mov     qword ptr [r11], rax
+    mov     qword ptr [r11 + 8], r8
+    xor     eax, eax
+    RTX_RET
+.Lcg_nul:
+    lea     r8, [rip + .Lcap_empty]
+    xor     ecx, ecx
+    jmp     .Lcg_store
+.Lcg_plain:
+    mov     rdi, rcx
+    mov     ecx, 1
+    RTX_JMP(rt_cap_open_plain)
+RTX_ENDF(rt_cap_open_gva)
 .section .rodata
 .Ldfpf_empty: .byte 0
 .Lcap_empty:  .byte 0

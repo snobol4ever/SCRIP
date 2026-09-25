@@ -18,9 +18,9 @@ static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L
     return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
 extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
-static const char * sn4_byname_sym(const char * fn, int strict, uint64_t * fp) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; return "rt_call_bid_sn4"; }
-    if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; return "rt_call_name_sn4"; }
-    if (strict == 2) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; return "rt_call_arr_bl_sn4"; } if (strict) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; return "rt_call_arr_bl_strict"; } *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; return "rt_call_arr_bl"; }
+static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
+static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
+static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
 DESCR_t rt_pl_dop_unify_ci(DESCR_t * args, long long imm);
 DESCR_t rt_pl_dop_unify_cs(DESCR_t * args, const char * cs);
 int bb_slot_get(IR_t * nd);
@@ -166,7 +166,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        { uint64_t _fp = 0; const char * _sym = sn4_byname_sym(fn, _.op_strict, &_fp); s += x86("call", _sym, _fp); }
+        s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         if (_mopen || _aopen) s += x86_deflabel_id(29);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
@@ -253,7 +253,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)nargs);
         s += x86("rtcc_wb");
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        { uint64_t _fp = 0; const char * _sym = sn4_byname_sym(fn, _.op_strict, &_fp); s += x86("call_bare", _sym, _fp); }
+        s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         s += x86("rtcc_rl");
         if (_mopen || _iopen || _aopen) s += x86_deflabel_id(29);
     }

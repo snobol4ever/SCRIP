@@ -160,6 +160,7 @@ typedef struct { long fn; long how; } rt_call_next_t;
 rt_call_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);
+long rt_cap_open_gva(DESCR_t *cell, int saved_delta, int cur_delta, const char *varname);
 long rt_cap_land_γ(DESCR_t frame0, long word);
 long rt_cap_land_ω(long word);
 void rt_cap_match_begin(void);

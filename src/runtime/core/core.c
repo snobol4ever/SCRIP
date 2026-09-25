@@ -46,9 +46,9 @@ static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 #define TRACE_TAB_CAP 256
 typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 static trace_ent_t trace_tab[TRACE_TAB_CAP];
-static int trace_set_n = 0;
+__attribute__((visibility("hidden"))) int trace_set_n = 0;
 static int trace_access_n = 0;
-static int g_comm_dbg = -1;
+__attribute__((visibility("hidden"))) int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) { extern long g_trace; extern int64_t kw_trace; extern int64_t kw_ftrace; if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0; return !g_comm_dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0; }

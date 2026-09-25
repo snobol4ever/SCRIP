@@ -12,6 +12,9 @@ extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" long rt_cap_land_γ(DESCR_t frame0, long word);
 extern "C" long rt_cap_land_ω(long word);
+extern "C" long rt_cap_open_gva(DESCR_t *cell, int saved_delta, int cur_delta, const char *varname);
+extern "C" int is_protected_pat_name(const char *name);
+extern "C" int g_gva_active;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define havehome() (_.op_zres || _.op_cap_anchor || _.op_off >= 0)
@@ -27,6 +30,26 @@ static inline int nret_cap_live(void) {
     if (v < 0)
         { const char * e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; }
     return v;
+}
+static int cap_gva_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_GVA"); v = (e && *e == '0') ? 0 : 1; } return v; }
+#define cap_gva() (cap_gva_on() && g_gva_active && _.op_gva_k >= 0 && cap_name_plain() && !is_protected_pat_name(_.op_sval))
+static const char * gva_cell_addr(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], sizeof b[i], "[" RTCC_GVA_REG " + %d]", k * 16); return b[i]; }
+static std::string cap_imm_gva(const std::string & homeop) {
+    static char b[24];
+    return x86("comment", "IR_MATCH_CAPTURE_IMM gva")
+         + x86_alpha()
+         + x86("mov",  "eax", homeop.c_str())
+         + x86_anchor_enter()
+         + x86("note", gva_name(_.op_gva_k))
+         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k)) : x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
+         + x86("mov",  "esi", "eax")
+         + x86("mov",  "edx", "r14d")
+         + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(b, sizeof b, _.op_sval), b))
+         + x86("call", "rt_cap_open_gva", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t *, int, int, const char *))rt_cap_open_gva)
+         + x86_rt_gc_poll()
+         + x86_anchor_leave()
+         + x86_gamma()
+         + x86_beta_trampoline();
 }
 #define writehome() (_.op_zres ? ZRESD(0) : FR(_.op_off))
 #define readhome() (_.op_zres ? ZOPD(1, 0) : FR(_.op_off))
@@ -112,6 +135,8 @@ std::string bb_match_capture() {
          : (_.op_sval && _.op_sval[0] == '*' && !nret_cap_live())
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment") )
+         : (int)_.op_phase == 2 && _.op_frame_need && _.op_cap_frame_off != -1 && cap_gva()
+         ? cap_imm_gva(CFC(0))
          : (int)_.op_phase == 2 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()
@@ -152,6 +177,8 @@ std::string bb_match_capture() {
            + x86_bomb("IR_MATCH_CAPTURE_IMM: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see "
                       "IR_MATCH_CAPTURE_SAVE's bomb for the full rationale.")
            + x86_beta_trampoline() )
+         : havehome() && cap_gva()
+         ? cap_imm_gva(readhome())
          : havehome()
          ? ( x86("comment", "IR_MATCH_CAPTURE_IMM")
            + x86_alpha()

@@ -5835,13 +5835,13 @@ DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
         DATBLK_t *idb = args[0].u->type; const char _f0 = fn[0];
         for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) { extern DESCR_t dat_field_get(const char *field, DESCR_t obj); return dat_field_get(fn, args[0]); }
     }
-    return rt_call_arr_bl_sn4(fn, args, nargs, bidlen);
+    return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
 }
 DESCR_t rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern long g_error; extern int64_t kw_errlimit;
-    if (g_error != 0 || kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return rt_call_arr_bl_sn4(fn, args, nargs, bidlen);
+    if (g_error != 0 || kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
     { DESCR_t out = FAILDESCR; if (try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, 0)) return out; }
-    return APPLY_fn(fn, args, nargs);
+    return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {

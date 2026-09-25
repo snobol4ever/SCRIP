@@ -1054,6 +1054,10 @@ def selftest():
 # reading counts notes against `call rt_gc_poll_asm` per witness and REFUSES (rc 2) on any mismatch: an instrument that
 # could lose a site silently must say so instead.
 #
+# THE ENVIRONMENT IS PINNED (ceo 2026-09-24, CEO-1250): the reach reading compiles every witness with SCRIP_SNO_STMTKW=1 and
+# the stress-0 runs carry it too -- the masters' configuration, under which the trace-hook sites (bb_define.cpp, bb_suspend.cpp,
+# xa_flat.cpp) are emitted. Read from a bare shell, nine WITNESSED rows turned STALE and the ceiling arm went red on a tree
+# nobody had changed; a reading that depends on the caller's shell is not a reading.
 # THE TABLE.  scripts/gc_bare_poll_witnesses.tsv is the DECLARED name set: one row per credited bare site, naming its
 # witness or UNWITNESSED.  --write-bare-poll-table writes it from the programs on argv (the smallest ref-carrying witness
 # that reaches each site wins); the reading grades the declared rows and names a row whose witness no longer reaches its
@@ -1128,6 +1132,7 @@ def bare_verdict(rc, stderr_text, stdout_bytes, ref_bytes):
 def bare_run_env():
     env = dict(os.environ)
     env.pop("SCRIP_HEAP_KB", None)
+    env["SCRIP_SNO_STMTKW"] = "1"
     env["SCRIP_HEAP_MB"] = BARE_ARENA_MB
     env["SCRIP_GC_STRESS"] = "0"
     env["SCRIP_GC_EXERCISE"] = "1"
@@ -1218,7 +1223,7 @@ def bare_poll_report(scrip, progs, workdir, out=print, write_table=False, clean_
         p = by_name.get(w)
         if not p:
             continue
-        asm, rep, err = UC.emit_and_read(scrip, p, workdir)
+        asm, rep, err = UC.emit_and_read(scrip, p, workdir, env_extra={"SCRIP_SNO_STMTKW": "1"})
         if err:
             refused.append(err)
             continue
