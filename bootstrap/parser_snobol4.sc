@@ -229,7 +229,7 @@ Compiland   =  nPush()
 InitCounter();
 InitStack();
 Src = '';
-while ((Line = INPUT)) Src = Src Line nl ;
+while ((Line = INPUT)) { Src = Src Line nl; if (Line ? POS(0) 'END' (ANY(' ' tab) | RPOS(0))) break; }
 if (Src ? Compiland) {
     /* SCT-fix: $'[' and $']' are OPSYN binary operators (Expr16) that override
      * SPITBOL's built-in array-indexing brackets.  Use ITEM(array, index) which
