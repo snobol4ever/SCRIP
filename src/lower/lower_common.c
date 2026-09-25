@@ -217,31 +217,40 @@ const tree_t * lc_stmt_subj(const tree_t * s) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static cv_t g_gname_v, g_gname_ix;
+typedef struct { cv_t v, ix; } gname_set_t;
+static gname_set_t g_gnames, g_icn_gnames, g_rbi_names;
 const char ** global_names = NULL;
 int global_count = 0;
 static uint64_t gname_hash(const char * s) { uint64_t h = 1469598103934665603ull; for (; *s; s++) h = (h ^ (unsigned char) *s) * 1099511628211ull; return h; }
-static void gname_ix_put(int k) { uint32_t m = g_gname_ix.len - 1; uint64_t h = gname_hash(global_names[k]) & m; while (CV_AT(g_gname_ix, int, h)) h = (h + 1) & m; CV_AT(g_gname_ix, int, h) = k + 1; }
-static void gname_ix_grow(void) {
-    uint32_t nc = g_gname_ix.len ? g_gname_ix.len * 2 : 256; while ((uint64_t) nc < (uint64_t) global_count * 2) nc *= 2;
-    cv_t n = { 0, 0, 0, 0 }; n.p = ct_zalloc(nc, sizeof(int)); n.len = nc; n.cap = nc; n.esz = (uint32_t) sizeof(int); g_gname_ix = n;
-    for (int k = 0; k < global_count; k++) gname_ix_put(k);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int is_global(const char * name) {
-    if (!name || !g_gname_ix.len) return 0;
-    { uint32_t m = g_gname_ix.len - 1; uint64_t h = gname_hash(name) & m; int k;
-      while ((k = CV_AT(g_gname_ix, int, h)) != 0) { if (!strcmp(global_names[k - 1], name)) return 1; h = (h + 1) & m; } }
+static void gset_ix_put(gname_set_t * g, uint32_t k) { uint32_t m = g->ix.len - 1; uint64_t h = gname_hash(CV_AT(g->v, const char *, k)) & m; while (CV_AT(g->ix, uint32_t, h)) h = (h + 1) & m; CV_AT(g->ix, uint32_t, h) = k + 1; }
+static int gset_has(const gname_set_t * g, const char * name) {
+    if (!name || !g->ix.len) return 0;
+    { uint32_t m = g->ix.len - 1, k; uint64_t h = gname_hash(name) & m;
+      while ((k = CV_AT(g->ix, uint32_t, h)) != 0) { if (!strcmp(CV_AT(g->v, const char *, k - 1), name)) return 1; h = (h + 1) & m; } }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void global_register(const char * name) {
-    if (!name || is_global(name)) return;
-    CV_PUSH(g_gname_v, const char *) = name; global_names = (const char **) g_gname_v.p; global_count = (int) g_gname_v.len;
-    if ((uint64_t) global_count * 2 > g_gname_ix.len) gname_ix_grow(); else gname_ix_put(global_count - 1);
+static int gset_add(gname_set_t * g, const char * name) {
+    if (!name || gset_has(g, name)) return 0;
+    CV_PUSH(g->v, const char *) = name;
+    if ((uint64_t) g->v.len * 2 > g->ix.len) {
+        uint32_t nc = g->ix.len ? g->ix.len * 2 : 256; while ((uint64_t) nc < (uint64_t) g->v.len * 2) nc *= 2;
+        cv_t n = { 0, 0, 0, 0 }; n.p = ct_zalloc(nc, sizeof(uint32_t)); n.len = nc; n.cap = nc; n.esz = (uint32_t) sizeof(uint32_t); g->ix = n;
+        for (uint32_t k = 0; k < g->v.len; k++) gset_ix_put(g, k);
+    } else gset_ix_put(g, g->v.len - 1);
+    return 1;
 }
+static void gset_reset(gname_set_t * g) { g->v.len = 0; if (g->ix.p) memset(g->ix.p, 0, (size_t) g->ix.len * sizeof(uint32_t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void global_reset(void) { g_gname_v.len = 0; global_count = 0; if (g_gname_ix.p) memset(g_gname_ix.p, 0, (size_t) g_gname_ix.len * sizeof(int)); }
+int is_global(const char * name) { return gset_has(&g_gnames, name); }
+void global_register(const char * name) { if (gset_add(&g_gnames, name)) { global_names = (const char **) g_gnames.v.p; global_count = (int) g_gnames.v.len; } }
+void global_reset(void) { gset_reset(&g_gnames); global_count = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_icn_global_note(const char * name) { if (name && name[0]) gset_add(&g_icn_gnames, name); }
+int rt_icn_global_count(void) { return (int) g_icn_gnames.v.len; }
+const char * rt_icn_global_name(int k) { return (k >= 0 && (uint32_t) k < g_icn_gnames.v.len) ? CV_AT(g_icn_gnames.v, const char *, k) : (const char *) 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_note_reassigned_builtin(const char * name) { gset_add(&g_rbi_names, name); }
+int rt_is_reassigned_builtin(const char * name) { return gset_has(&g_rbi_names, name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v->esz = esz; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

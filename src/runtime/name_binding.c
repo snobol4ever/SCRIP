@@ -3,32 +3,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-static const char *icn_gnames[GLOBAL_MAX];
-static int icn_gcount = 0;
-void rt_icn_global_note(const char *name) {
-    if (!name || !name[0]) return;
-    for (int i = 0; i < icn_gcount; i++) if (icn_gnames[i] && !strcmp(icn_gnames[i], name)) return;
-    if (icn_gcount >= GLOBAL_MAX) return;
-    icn_gnames[icn_gcount++] = name;
-}
-int rt_icn_global_count(void) { return icn_gcount; }
-const char *rt_icn_global_name(int k) { return (k >= 0 && k < icn_gcount) ? icn_gnames[k] : (const char *)0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rbi_names[GLOBAL_MAX];
-static int rbi_count = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_note_reassigned_builtin(const char *name) {
-    if (!name) return;
-    for (int i = 0; i < rbi_count; i++) if (rbi_names[i] && strcmp(rbi_names[i], name) == 0) return;
-    if (rbi_count >= GLOBAL_MAX) return;
-    rbi_names[rbi_count++] = name;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_is_reassigned_builtin(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < rbi_count; i++) if (rbi_names[i] && strcmp(rbi_names[i], name) == 0) return 1;
-    return 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scope_add(Scope *sc, const char *name) {
     if (!name) return -1;
