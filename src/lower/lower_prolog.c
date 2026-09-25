@@ -1741,7 +1741,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     { extern int pl_prelude_defines(const char *, int);
       const char * slash = key ? strrchr(key, '/') : NULL;
       if (slash) { char nmbuf[256]; size_t nl = (size_t)(slash - key); if (nl >= sizeof nmbuf) nl = sizeof nmbuf - 1; memcpy(nmbuf, key, nl); nmbuf[nl] = 0;
-        if (pl_prelude_defines(nmbuf, atoi(slash + 1))) { cx.stmt_depth = 1; trace_key = NULL; } } }
+        if (pl_prelude_defines(nmbuf, atoi(slash + 1)) || pl_db_owned(nmbuf, atoi(slash + 1))) { cx.stmt_depth = 1; trace_key = NULL; } } }
     IR_t * step = build(&cx, IR_FAIL, NULL, NULL);
     cx.cutω = build(&cx, IR_FAIL, NULL, NULL); cx.clause_cutω = cx.cutω;
     pl_alt_alloc(g, nc);

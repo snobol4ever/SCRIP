@@ -432,6 +432,7 @@ test_gate_pl_max_integer_is_not_an_evaluable_functor.sh	WIRED	-	-	-
 test_gate_pl_max_integer_min_integer_absent_when_bounded_is_false.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
+test_gate_pl_monitor_dynamic_and_asserted_predicates_are_no_events.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
