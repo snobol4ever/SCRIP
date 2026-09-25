@@ -3510,9 +3510,11 @@ DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
     if (nargs <= 0 || !args) { char *e = rt_wsb_alloc(1); e[0] = '\0'; return STRVAL(e); }
-    const char **els = rt_pvec_alloc((size_t)nargs * 64);
-    size_t *lens = rt_wsb_alloc((size_t)nargs * 64 * sizeof(size_t));
-    int nel = 0, cap = nargs * 64;
+    size_t cap = 0;
+    for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); cap++; for (; *cs; cs++) if (*cs == SOH) cap++; }
+    const char **els = rt_pvec_alloc(cap);
+    size_t *lens = rt_wsb_alloc(cap * sizeof(size_t));
+    size_t nel = 0;
     for (int i = 0; i < nargs; i++) {
         char scratch[64];
         const char *cs = to_cstring(args[i], scratch, sizeof scratch);
@@ -3525,9 +3527,9 @@ DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
             seg = nx + 1;
         }
     }
-    size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
+    size_t total = 0; for (size_t i = 0; i < nel; i++) total += lens[i] + 1;
     char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
-    for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
+    for (size_t i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
     buf[p] = '\0';
     return STRVAL(buf);
 }
@@ -3536,6 +3538,11 @@ static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_S
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PAS_SET_BYTES 32
 static void pas_set_bits(DESCR_t v, unsigned char out[PAS_SET_BYTES]) { memset(out, 0, PAS_SET_BYTES); if (IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s) { memcpy(out, v.s, PAS_SET_BYTES); return; } if (IS_INT_fn(v)) { long iv = v.i; for (int b = 0; b < 64; b++) if ((iv >> b) & 1L) out[b / 8] |= (unsigned char)(1u << (b % 8)); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_list_coercion_meth(const char *m, int nargs) {
+    static const char *const names[] = { "list", "flat", "Array", "List", "Slip", "Seq", "eager", "cache", NULL };
+    if (nargs != 2 || !m) return 0; for (int i = 0; names[i]; i++) if (!strcmp(m, names[i])) return 1; return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!strcmp(fn, "__trace_stmt") && nargs == 1) {
@@ -5309,13 +5316,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
                            || (!strcmp(mname0, "reduce") && nargs == 3 && args[2].v == DT_BLK)
-                           || !strcmp(mname0, "keys") || !strcmp(mname0, "values");
+                           || !strcmp(mname0, "keys") || !strcmp(mname0, "values") || rk_list_coercion_meth(mname0, nargs);
                 if (is_arrm) {
                     const char *afn = !strcmp(mname0, "map") ? "__rk_arr_map" : !strcmp(mname0, "grep") ? "__rk_arr_grep"
                                     : !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
                                     : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
                                     : !strcmp(mname0, "reduce") ? "__rk_arr_reduce"
-                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
+                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : (!strcmp(mname0, "values") || rk_list_coercion_meth(mname0, nargs)) ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
                     DESCR_t *fa = rt_ws_alloc_descr((size_t)total);

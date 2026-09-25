@@ -314,6 +314,11 @@ WS       [ \t\r]
 }
 <STR_DQ>"\\n"  { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_DQ>"\\t"  { raku_strbuf[raku_strpos++] = '\t'; }
+<STR_DQ>"\\b"  { raku_strbuf[raku_strpos++] = '\b'; }
+<STR_DQ>"\\r"  { raku_strbuf[raku_strpos++] = '\r'; }
+<STR_DQ>"\\a"  { raku_strbuf[raku_strpos++] = '\a'; }
+<STR_DQ>"\\e"  { raku_strbuf[raku_strpos++] = '\033'; }
+<STR_DQ>"\\f"  { raku_strbuf[raku_strpos++] = '\f'; }
 <STR_DQ>"\\\\" { raku_strbuf[raku_strpos++] = '\\'; }
 <STR_DQ>"\\\"" { raku_strbuf[raku_strpos++] = '"'; }
 <STR_DQ>\n     { raku_strbuf[raku_strpos++] = '\n'; }

@@ -998,7 +998,8 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         cx.cur_byref_mask = g_stage2.proc_table[_pbi].byref_mask; cx.cur_nparams = g_stage2.proc_table[_pbi].nparams; rk_proc_name = g_stage2.proc_table[_pbi].name; break; }
     cx.cur_proc_name = rk_proc_name;
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
-    IR_t * sentry = succ; IR_t * entry = succ;
+    IR_t * fall = build(&cx, IR_RETURN, succ, fail);
+    IR_t * sentry = fall; IR_t * entry = fall;
     cx.proc_exit = succ;
     int is_multi = (pd && pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$');
     int rk_np = 0; if (pd && !is_multi) for (int k = 1; k < pd->n && pd->c[k] && pd->c[k]->t == TT_VAR; k++) rk_np++;
