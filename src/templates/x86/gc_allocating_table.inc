@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1896
+#define GC_ALLOC_TAB_N 1897
 #define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 993
-#define GC_ALLOC_TAB_N_OTHER 660
+#define GC_ALLOC_TAB_N_OTHER 661
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1806,6 +1806,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sno_goto_branch", GC_RET_OTHER },
     { "sno_goto_computed_target", GC_RET_OTHER },
     { "sno_goto_direct_target", GC_RET_OTHER },
+    { "sno_label_trace_wrap", GC_RET_OTHER },
     { "sno_lower_fragment_at", GC_RET_OTHER },
     { "sno_lower_match", GC_RET_OTHER },
     { "sno_pat_carrier_build", GC_RET_OTHER },
