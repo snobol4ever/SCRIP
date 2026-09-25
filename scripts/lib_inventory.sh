@@ -172,7 +172,10 @@ INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORAC
 # anyway until someone measures. One failure mode hides work forever; the other costs a row that stays open.
 # So the missing measurement never blocks the landing: it can only ever move a row FROM ungraded TO ungradable,
 # and that direction is the one a human is forced to justify. Same asymmetry ARM 8 protects one level up.
-INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING NEEDS_VENDORED_SOURCE REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE"
+# NEEDS_DRIVER (coo 2026-09-25, ceo CEO-1269): a LIBRARY is the program and NAME_driver is its grading vehicle, so a library
+#   that ships no driver is OWED one -- in the denominator, a non-pass, named -- never ungradable for being a library.
+#   Measured at the ruling: gimpel ships 148 libraries and 144 drivers, and BALX, FLOORCEI, PHRASES and stringout have none.
+INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING NEEDS_VENDORED_SOURCE REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE NEEDS_DRIVER"
 # LEGACY: accepted with a WARN so no lane's board breaks on the ruling, and named so the debt is one sed
 # wide and visible. ⛔ Do not add to this list -- a new file uses the closed vocabulary above.
 INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPPED:NO_ORACLE_SHIPPED NO-ORACLE:NO_ORACLE_SHIPPED ORACLE-IS-NOT-PROGRAM-OUTPUT:NO_ORACLE_SHIPPED NEEDS_MULTIFILE_LINK:NEEDS_RUNNER_WIRING"
@@ -398,6 +401,11 @@ inventory_line() {
             # excludes ALL.icn) and this body (which did not): two correct instruments answering two
             # different questions, and neither able to say so.
             case "${f##*/}" in ALL.*) continue ;; esac
+            # ⛔⭐ A DRIVER IS A GRADING VEHICLE, NEVER A SHIPPED PROGRAM (ceo CEO-1269, CEO-700 applied; coo 2026-09-25, row
+            # instruments-the-arizona-jcon-and-gimpel-runners-grade-a-library-through-its-driver-...): NAME_driver<ext> tests
+            # the library NAME<ext>, and the library is the program. The runners grade the library by its driver and record
+            # it under the library's name. gimpel counted 144 drivers AND 148 libraries here, and 292 was two populations.
+            case "${f##*/}" in *_driver"$e") continue ;; esac
             _rel["$rel"]=1
             _base["${f##*/}"]=$(( ${_base["${f##*/}"]:-0} + 1 ))
             shipped=$((shipped + 1))

@@ -147,6 +147,9 @@ for sub in $SUITE_SUBDIRS; do
     # wrote. CEO-331 asks for an ALL.csv on this package next, which creates exactly that container here --
     # so the census excludes it BEFORE the file exists, not after the number moves.
     case "$(basename "$icn")" in ALL.*) continue ;; esac
+    # ⛔⭐ A DRIVER IS NOT A SHIPPED PROGRAM, IT IS ITS LIBRARY'S GRADING VEHICLE (ceo CEO-1269; coo 2026-09-25): NAME_driver.icn
+    # links NAME.icn and exercises it, the library is the program, and it is graded below by its driver under its own name.
+    case "$(basename "$icn")" in *_driver.icn) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     SHIPPED_NAMES="$SHIPPED_NAMES $sub/$(basename "$icn" .icn)"
   done
@@ -181,13 +184,23 @@ for std in "$SUITE"/*.ref; do
   name=$(basename "$std" .ref)
   icn="$SUITE/$name.icn"
   [ -f "$icn" ] || continue
+  # ⛔⭐ THE IDENTITY IS THE LIBRARY, THE EXECUTABLE IS ITS DRIVER (ceo CEO-1269). $name stays the file that RUNS -- the ref was
+  # cut from iconx running NAME_driver, and &progname/&file answer to it -- while $id is the program being graded: every count,
+  # name list, progress row and outside-baseline lookup below keys on $id. A driver whose library is not shipped, or a library
+  # carrying its own ref AND a driver, is two answers to one question and refuses rather than choosing.
+  id="$name"
+  case "$name" in *_driver)
+    id="${name%_driver}"
+    [ -f "$SUITE/$id.icn" ] || { echo "⛔ REFUSED TO GRADE rc=2: $sub/$name.icn is a driver whose library $sub/$id.icn is not shipped -- a vehicle with nothing to carry (CEO-1269)" >&2; exit 2; }
+    [ -f "$SUITE/$id.ref" ] && { echo "⛔ REFUSED TO GRADE rc=2: $sub/$id has its own .ref AND a driver $sub/$name -- two grading vehicles for one library (CEO-1269)" >&2; exit 2; } ;;
+  esac
   # ⛔ OUT OF THE DENOMINATOR BEFORE IT IS COUNTED, NEVER SUBTRACTED AFTER: a program excluded after TOTAL++ would
   # ride in the fraction the board publishes and be named as excluded in the same breath, which is two answers.
   # It stays in SHIPPED (POPULATION LAW) and so falls into the GAP, where the UNGRADED/UNGRADABLE split accounts
   # for it -- the mirror check below refuses to let it be excluded here and invisible there.
-  if is_outside_baseline "$sub/$name.icn"; then OUTSIDE_LIST="$OUTSIDE_LIST $sub/$name"; continue; fi
+  if is_outside_baseline "$sub/$id.icn"; then OUTSIDE_LIST="$OUTSIDE_LIST $sub/$id"; continue; fi
   TOTAL=$((TOTAL+1))
-  GRADED_NAMES="$GRADED_NAMES $sub/$name"
+  GRADED_NAMES="$GRADED_NAMES $sub/$id"
   exp=$(cat "$std")
   exp3="$exp"; exp4="$exp"
   dat="$SUITE/$name.dat"
@@ -200,15 +213,15 @@ for std in "$SUITE"/*.ref; do
   # decision. _ARENA_PFX expands to NOTHING for an undeclared entry, so an undeclared program's command
   # line is byte-identical to what it was before this existed.
   _ARENA_PFX=""
-  if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$sub/$name"); then
+  if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$sub/$id"); then
     echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts"; exit 2
   fi
-  [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="$ARENA_NAMES $sub/$name=${_arena_kb}KB"; }
+  [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="$ARENA_NAMES $sub/$id=${_arena_kb}KB"; }
   # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
-  if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$sub/$name"); then
+  if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$sub/$id"); then
     echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
   fi
-  [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $sub/$name=stack:${_stack_kb}KB"; }
+  [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $sub/$id=stack:${_stack_kb}KB"; }
 
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
   # ⛔ CWD FIDELITY (RULES.md THE INSTRUMENT LAWS): upstream's own Test-icon runs every program with the
@@ -235,18 +248,18 @@ for std in "$SUITE"/*.ref; do
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
   m3out="$(mask_apply "$std" "$name" "$m3out")"; exp3="$(mask_apply "$std" "$name" "$exp3")"
   if printf '%s' "$m3out" | grep -q 'parse error'; then
-    M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"; arizona_progress "$name" m3 REJECT
+    M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $id"; arizona_progress "$id" m3 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
   elif [ "$m3out" = "$exp3" ]; then
-    M3_PASS=$((M3_PASS+1)); arizona_progress "$name" m3 PASS
+    M3_PASS=$((M3_PASS+1)); arizona_progress "$id" m3 PASS
   elif [ "$m3rc" -eq 124 ]; then
-    M3_HANG=$((M3_HANG+1)); M3_HANG_NAMES="$M3_HANG_NAMES $name"; arizona_progress "$name" m3 HANG
+    M3_HANG=$((M3_HANG+1)); M3_HANG_NAMES="$M3_HANG_NAMES $id"; arizona_progress "$id" m3 HANG
     [ "$VERBOSE" = 1 ] && echo "  [m3 HANG] $name"
   elif [ "$m3rc" -ge 128 ]; then
-    M3_CRASH=$((M3_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $name"; arizona_progress "$name" m3 CRASH
+    M3_CRASH=$((M3_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $id"; arizona_progress "$id" m3 CRASH
     [ "$VERBOSE" = 1 ] && echo "  [m3 CRASH rc=$m3rc] $name"
   else
-    M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $name"; arizona_progress "$name" m3 FAIL
+    M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $id"; arizona_progress "$id" m3 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m3 FAIL] $name"
   fi
 
@@ -275,18 +288,18 @@ for std in "$SUITE"/*.ref; do
   # CEO-409: same marker, same reasoning as the m3 arm above.
   m4out="$(mask_apply "$std" "$name" "$m4out")"; exp4="$(mask_apply "$std" "$name" "$exp4")"
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
-    M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $name"; arizona_progress "$name" m4 REJECT
+    M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $id"; arizona_progress "$id" m4 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m4 REJECT] $name"
   elif [ "$m4out" = "$exp4" ]; then
-    M4_PASS=$((M4_PASS+1)); arizona_progress "$name" m4 PASS
+    M4_PASS=$((M4_PASS+1)); arizona_progress "$id" m4 PASS
   elif [ "$m4rc" -eq 124 ]; then
-    M4_HANG=$((M4_HANG+1)); M4_HANG_NAMES="$M4_HANG_NAMES $name"; arizona_progress "$name" m4 HANG
+    M4_HANG=$((M4_HANG+1)); M4_HANG_NAMES="$M4_HANG_NAMES $id"; arizona_progress "$id" m4 HANG
     [ "$VERBOSE" = 1 ] && echo "  [m4 HANG] $name"
   elif [ "$m4rc" -ge 128 ]; then
-    M4_CRASH=$((M4_CRASH+1)); M4_CRASH_NAMES="$M4_CRASH_NAMES $name"; arizona_progress "$name" m4 CRASH
+    M4_CRASH=$((M4_CRASH+1)); M4_CRASH_NAMES="$M4_CRASH_NAMES $id"; arizona_progress "$id" m4 CRASH
     [ "$VERBOSE" = 1 ] && echo "  [m4 CRASH rc=$m4rc] $name"
   else
-    M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES="$M4_FAIL_NAMES $name"; arizona_progress "$name" m4 FAIL
+    M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES="$M4_FAIL_NAMES $id"; arizona_progress "$id" m4 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m4 FAIL] $name"
   fi
   rm -f "$s4" "$bin4"

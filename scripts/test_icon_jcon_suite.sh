@@ -279,15 +279,24 @@ run_mode() {
     for icn in "$CORPUS"/*.icn; do
         [ -f "$icn" ] || continue
         case "$(basename "$icn")" in ALL.*) continue ;; esac   # our own generated container is not a shipped program -- see the census loop below
+        case "$(basename "$icn")" in *_driver.icn) continue ;; esac   # a driver is its library's grading vehicle, graded below under the library's name (CEO-1269)
         std="${icn%.icn}.ref"
         [ -f "$std" ] || std="${icn%.icn}.ref"   # `.ref` is a ref WE cut from icont/iconx with `<name>.args` (README.md), for a shipped program upstream ships no .ref for
+        # ⛔⭐ A LIBRARY IS GRADED BY ITS DRIVER, UNDER ITS OWN NAME (ceo CEO-1269; coo 2026-09-25): when NAME_driver.icn and its .ref
+        # ship beside NAME.icn, the driver is what RUNS (run_one copies the linked NAME.icn into its rundir) and NAME is what is
+        # counted and recorded. A library with its own .ref AND a driver is two vehicles for one program and refuses.
+        exe="$icn"; _drv="${icn%.icn}_driver"
+        if [ -f "$_drv.icn" ] && [ -f "$_drv.ref" ]; then
+            [ -f "${icn%.icn}.ref" ] && { echo "⛔ GATE REFUSES(2): $(basename "$icn" .icn) has its own .ref AND a driver $(basename "$_drv") -- two grading vehicles for one library (CEO-1269)" >&2; exit 2; }
+            exe="$_drv.icn"; std="$_drv.ref"
+        fi
         [ -f "$std" ] || continue   # no-oracle source (link2/load*/tpp*) — excluded, not MISSING
         is_outside_baseline "$(basename "$icn" .icn)" && continue
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.ref is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.ref sources above
         outfile="$WORK/out.txt"
         name=$(basename "$icn" .icn)
         _want="$std"
-        kind=$(run_one "$mode" "$icn" "$_want" "$outfile")
+        kind=$(run_one "$mode" "$exe" "$_want" "$outfile")
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
         # the same value -- a second classification here would be a second opinion that drifts. $kind is
@@ -340,9 +349,13 @@ for _icn in "$CORPUS"/*.icn; do
 # wrote. CEO-331 asks for an ALL.csv on this package next, which creates exactly that container here --
 # so the census excludes it BEFORE the file exists, not after the number moves.
 case "$(basename "$_icn")" in ALL.*) continue ;; esac
+    # ⛔⭐ A DRIVER IS NOT A SHIPPED PROGRAM (CEO-1269): it is counted as its library, and a driver with no library refuses.
+    case "$(basename "$_icn")" in *_driver.icn)
+        [ -f "${_icn%_driver.icn}.icn" ] || { echo "⛔ GATE REFUSES(2): $(basename "$_icn") is a driver whose library $(basename "${_icn%_driver.icn}").icn is not shipped -- a vehicle with nothing to carry (CEO-1269)" >&2; exit 2; }
+        continue ;; esac
     SHIPPED=$((SHIPPED+1))
     _b="$(basename "$_icn" .icn)"
-    if [ ! -f "${_icn%.icn}.ref" ] && [ ! -f "${_icn%.icn}.ref" ]; then GAP_NAMES="$GAP_NAMES $_b(no .ref shipped upstream, no .ref cut by us)"; continue; fi
+    if [ ! -f "${_icn%.icn}.ref" ] && ! { [ -f "${_icn%.icn}_driver.icn" ] && [ -f "${_icn%.icn}_driver.ref" ]; }; then GAP_NAMES="$GAP_NAMES $_b(no .ref shipped upstream, no .ref cut by us, no driver)"; continue; fi
     case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.ref is jcon PREPROCESSOR text, not program output)"; continue;; esac
     if is_outside_baseline "$_b"; then GAP_NAMES="$GAP_NAMES $_b(outside the Arizona baseline: $(outside_reason "$_b"))"; OUTSIDE_LIST="$OUTSIDE_LIST $_b"; continue; fi
     GRADED=$((GRADED+1))

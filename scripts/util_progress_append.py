@@ -430,7 +430,10 @@ def rows_from_results_tsv(path, suite, lang):
         f = raw.split("\t")
         if len(f) < 4:
             continue
-        prog = f[1]
+        # ⛔⭐ A DRIVER'S ROW IS ITS LIBRARY'S ROW (ceo CEO-1269; coo 2026-09-25): NAME_driver<ext> is the grading vehicle of the
+        # library NAME<ext>, which is the program, so the verdict is recorded under the library's name. gimpel's 144 drivers were
+        # recorded as packages/snobol4/gimpel/NAME_driver.sno, and the 148 libraries they grade appeared nowhere in this table.
+        prog = re.sub(r"_driver(\.[A-Za-z0-9]+)$", r"\1", f[1])
         row_suite = suite
         if suite == "auto":
             row_suite = SCORECARD_SUITE_KEYS.get(f[0].strip().lower(), "")
