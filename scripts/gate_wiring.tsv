@@ -37,7 +37,8 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 166
+# TASK-CEILING: 165
+# 166 -> 165 (coo 2026-09-25): test_gate_diag_regs_survive.sh retired -- its r10 statement number was removed by design at 2a81a02db, and r11 cannot stand in, because a later box stamp masks a planted clobber; the survival property is test_gate_rtx_entries_keep_the_rtcc_four.sh's.
 test_gate_a_blocking_set_death_names_its_killer.sh	WIRED	-	-	-
 test_gate_a_cgroup_kill_is_a_refusal_not_a_red.sh	WIRED	-	-	-
 test_gate_a_compiled_program_runs_on_a_stack_it_maps_itself.sh	WIRED	-	-	-
@@ -657,7 +658,6 @@ test_gate_const_graph.sh	TASK	-	-	-
 test_gate_crosscheck_family_list_autodiscovers.sh	TASK	-	-	-
 test_gate_dangling_blocker_refused.sh	TASK	-	-	-
 test_gate_defect_c_vlist_ladder.sh	TASK	-	-	-
-test_gate_diag_regs_survive.sh	TASK	-	-	-
 test_gate_digest_matches_rules.sh	TASK	-	-	-
 test_gate_done_donewhen_backtick_normalised.sh	TASK	-	-	-
 test_gate_ec_uni_complete.sh	TASK	-	-	-
