@@ -369,10 +369,9 @@ void rt_kw_publish_error(int code, const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
-    static const char *const names[3] = { "RETURN", "FRETURN", "NRETURN" };
-    const char *s = (which >= 0 && which <= 2) ? names[which] : "";
-    size_t n = strlen(s); if (n > sizeof(kw_rtntype) - 1) n = sizeof(kw_rtntype) - 1;
-    memcpy(kw_rtntype, s, n); kw_rtntype[n] = '\0';
+    static const uint64_t words[4] = { 0x00004E5255544552ull, 0x004E525554455246ull, 0x004E52555445524Eull, 0ull };
+    _Static_assert(sizeof(kw_rtntype) >= 8, "rt_kw_set_rtntype stores RETURN / FRETURN / NRETURN as one little-endian 8-byte word");
+    *(uint64_t *)(void *)kw_rtntype = words[(which >= 0 && which <= 2) ? which : 3];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype_role(int role) {

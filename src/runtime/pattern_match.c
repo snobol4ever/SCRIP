@@ -1746,7 +1746,7 @@ DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx) {
     extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_subscript_var_container_only(DESCR_t, DESCR_t);
     if (IS_VARREF_fn(base)) base = rt_deref(base);
     if (base.v == DT_A && idx.v == DT_I) { ARBLK_t *a = base.arr; if (a && a->ndim == 1 && a->data) { long off = (long)idx.i - (long)a->lo; if (off >= 0 && off <= (long)a->hi - (long)a->lo) return a->data[off]; } }
-    return rt_deref(rt_subscript_var_container_only(base, idx));
+    { DESCR_t r = rt_subscript_var_container_only(base, idx); return (r.v == DT_N && r.slen != 0) ? rt_deref(r) : r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }

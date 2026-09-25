@@ -536,8 +536,7 @@ DESCR_t *rt_gva_island(int n) {
 int rt_proc_is_registered(const char *name)
 {
     if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return 1; }
-    return 0;
+    return rt_proc_find(name) != (rt_proc_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sno_dtx_value(const char *name)

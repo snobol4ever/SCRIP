@@ -13,6 +13,14 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # stores -- prints the oracle's lines in m3 and m4 under both arms; (3) a 20,000-element read/store loop runs at the shipped
 # arena with ZERO collections under the cure (SCRIP_ZETA_TELEM counts them; the control arm collects), so the allocation is gone,
 # not merely cheaper. EXIT 0 all arms; 1 a red (named); 2 REFUSED (oracle or binary missing).
+# ⛔ A NAME VALUE STORED IN AN ELEMENT MUST COME BACK AS A NAME (ceo 2026-09-24, CEO-1251): the first cut of this cure left the lowerer's
+# IR_DEREF after the value-context subscript, so A[3] = .hold; q = A[3] read q as hold's VALUE (STRING) where SPITBOL keeps the NAME --
+# rt_subscript_val already returns the element (the table arm derefs the trap once), and the second deref read a stored name through.
+# The lowerer now wires the subscript's result straight to its consumer under the cure (the control arm keeps the deref because its
+# container-only entry returns a name trap for arrays); the witness reads a name back from an array and IDENT-compares it. The TABLE
+# case is graded under the cure arm only (arm 4, tbl.sno): rt_subscript_var_container_only returns the pair's VALUE on a table hit,
+# so the control arm's deref box reads a stored name through -- a pre-existing divergence, the row
+# snobol4-a-name-value-read-from-a-table-element-is-dereferenced; rt_subscript_val now derefs only a trap or a cell pointer.
 # ⛔ A subscript on a string is left out of the witness on purpose: SPITBOL raises ERROR 235 (fatal without &ERRLIMIT) where SCRIP
 # fails the statement -- a pre-existing divergence on both arms, the row snobol4-a-subscript-on-a-non-aggregate-is-error-235-not-a-statement-failure.
 set -u
@@ -50,6 +58,10 @@ n3      B = ARRAY('0:3')
         nm = .A[2]
         $nm = 22
         OUTPUT = A[2] ' ' COPY(A)[2]
+        hold = 'held'
+        A[3] = .hold
+        q = A[3]
+        OUTPUT = DATATYPE(q) ' ' DATATYPE(A[3]) ' ' $q ' ' (IDENT(A[3], .hold) 'same' | 'other')
         V = ARRAY(100)
         I = 0
 fill    I = I + 1
@@ -58,6 +70,15 @@ fill    I = I + 1
 read    I = LT(I, 100) I + 1                            :F(done)
         SUM = SUM + V[I]                                :(read)
 done    OUTPUT = SUM
+END
+SNO
+cat > "$W/tbl.sno" <<'SNO'
+        hold = 'held'
+        T = TABLE()
+        T['n'] = .hold
+        r = T['n']
+        OUTPUT = DATATYPE(r) ' ' DATATYPE(T['n']) ' ' $r ' ' (IDENT(T['n'], .hold) 'same' | 'other')
+        U = TABLE(); U['a'] = 1; U['b'] = U['a'] + 1; OUTPUT = U['b'] ' ' DATATYPE(U['zz']) ' ' (DIFFER(U['zz']) 'set' | 'null')
 END
 SNO
 cat > "$W/loop.sno" <<'SNO'
@@ -92,5 +113,9 @@ for arm in on off; do
     else [ "$nc" -ge 1 ] && echo "ok  arm off: the same loop collects ($nc) -- the control arm still mints the cells" || { echo "RED arm off: 0 collections under SCRIP_SUB_VAL=0 -- the control arm is not a control"; red=1; }; fi
 done
 unset SCRIP_SUB_VAL
+"$SBL" $(sbl_lang_flags) "$W/tbl.sno" < /dev/null > "$W/tbl.ref" 2>&1 || true
+[ -s "$W/tbl.ref" ] || { echo "REFUSED(2): the oracle printed nothing for tbl.sno"; exit 2; }
+( cd "$W" && timeout 20 "$ROOT/scrip" tbl.sno < /dev/null > "$W/tbl.m3" 2>&1 ); cmp -s "$W/tbl.m3" "$W/tbl.ref" && echo "ok  m3 cure: a name read from a table element is a NAME" || { echo "RED m3 cure: tbl.sno differs from the oracle:"; diff "$W/tbl.ref" "$W/tbl.m3" | head -6; red=1; }
+( cd "$W" && "$ROOT/scrip" --compile -o "$W/tbl.s" tbl.sno < /dev/null > /dev/null 2>&1 && gcc "$W/tbl.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/tbl.bin" 2>/dev/null && timeout 20 "./tbl.bin" < /dev/null > "$W/tbl.m4" 2>&1 ); cmp -s "$W/tbl.m4" "$W/tbl.ref" && echo "ok  m4 cure: a name read from a table element is a NAME" || { echo "RED m4 cure: tbl.sno differs from the oracle:"; diff "$W/tbl.ref" "$W/tbl.m4" | head -6; red=1; }
 [ "$red" -eq 0 ] && { echo "GATE OK: element reads and stores allocate nothing, the control arm restores the cell path, and both arms match the oracle in both modes"; exit 0; }
 echo "GATE FAILED: see the RED lines above"; exit 1

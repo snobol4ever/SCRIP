@@ -2217,17 +2217,27 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);
-inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/'); return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm); }
+extern "C" int g_gc_pending;
+inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k; } else if (t == 'J' || t == 'F') { i += 1; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D' || t == 'E') { i += 1; } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else return -1; } return n; }
+inline std::string x86_gc_gate(const std::string & body) {
+    std::string test = x86("push", "rax") + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", "eax", RDD("rax", 0)) + x86("test", "eax", "eax") + x86("pop", "rax");
+    if (!MEDIUM_BINARY) return test + x86("directive", "\tje 1f") + body + x86("directive", "1:");
+    { long n = x86_rec_bytes(body);
+      if (n <= 0) { static int said; if (!said++ && getenv("SCRIP_GATE_DIAG")) fprintf(stderr, "[GATE-DIAG] a poll body carries a record kind x86_rec_bytes does not size; the site is emitted ungated\n"); return body; }
+      std::string je = (n <= 127) ? x86_b2(0x74, (uint8_t)n) : (x86_b2(0x0F, 0x84) + x86_b4((uint8_t)(n & 255), (uint8_t)((n >> 8) & 255), (uint8_t)((n >> 16) & 255), (uint8_t)((n >> 24) & 255)));
+      return test + x86_Lrec(je) + body; }
+}
+inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/'); return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)); }
 #define x86_rt_gc_poll() x86_rt_gc_poll_at(__FILE__, __LINE__)
 inline std::string x86_rt_gc_poll_res() {
-    return x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell under rsp across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it")
+return x86_gc_gate(x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell under rsp across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it")
          + x86("sub", "rsp", (long)16)
          + x86_reg_disp32_store64("rsp", 0, "rax")
          + x86_reg_disp32_store64("rsp", 8, "rdx")
          + x86("call", "rt_gc_poll", (uint64_t)(uintptr_t)(void *)rt_gc_poll)
          + x86_reg_disp32_load64("rax", "rsp", 0)
          + x86_reg_disp32_load64("rdx", "rsp", 8)
-         + x86("add", "rsp", (long)16);
+         + x86("add", "rsp", (long)16));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
@@ -2241,7 +2251,7 @@ inline std::string x86_align_call_leave() {
     return  x86_rsp_load64("rsp", 0);
 }
 inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
-    return  x86("sub", "rsp", (long)32)
+return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86_rsp_store32_imm(0, (long)DT_S)
          + IF(lenreg32 != NULL, x86_rsp_store32(4, lenreg32))
          + IF(lenreg32 == NULL, x86_rsp_store32_imm(4, (long)0))
@@ -2256,11 +2266,11 @@ inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32,
          + x86_rsp_load64(preg, 8)
          + IF(keep_rax, x86_rsp_load64("rax", 16))
          + IF(keep_rdx, x86_rsp_load64("rdx", 24))
-         + x86("add", "rsp", (long)32);
+         + x86("add", "rsp", (long)32));
 }
 inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
 inline std::string x86_rt_gc_poll_rec_name(const char * preg) {
-    return  x86("sub", "rsp", (long)16)
+return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86_rsp_store32_imm(0, (long)DT_N)
          + x86_rsp_store32_imm(4, (long)1)
          + x86_rsp_store64(8, preg)
@@ -2270,10 +2280,10 @@ inline std::string x86_rt_gc_poll_rec_name(const char * preg) {
          + x86_reg_disp32_lea64("rcx", "rsp", 16)
          + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
          + x86_rsp_load64(preg, 8)
-         + x86("add", "rsp", (long)16);
+         + x86("add", "rsp", (long)16));
 }
 inline std::string x86_rt_gc_poll_rec2(const char * preg0, const char * lenreg32_0, const char * preg1, const char * lenreg32_1) {
-    return  x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers across one poll, each written as a well-formed tagged DESCR cell -- the range walk relocates only what gc_cell_visit can TYPE, so a raw spilled pointer is reported and never rooted")
+return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers across one poll, each written as a well-formed tagged DESCR cell -- the range walk relocates only what gc_cell_visit can TYPE, so a raw spilled pointer is reported and never rooted")
          + x86("sub", "rsp", (long)32)
          + x86_rsp_store32_imm(0,  (long)DT_S)
          + x86_rsp_store32(4,  lenreg32_0)
@@ -2288,11 +2298,11 @@ inline std::string x86_rt_gc_poll_rec2(const char * preg0, const char * lenreg32
          + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
          + x86_rsp_load64(preg0, 8)
          + x86_rsp_load64(preg1, 24)
-         + x86("add", "rsp", (long)32);
+         + x86("add", "rsp", (long)32));
 }
 inline std::string x86_rt_gc_poll_rec_sigma_needle() { return x86_rt_gc_poll_rec2("r13", "r15d", "rax", "edx"); }
 inline std::string x86_rt_gc_poll_rec2_res(const char * preg0, const char * lenreg32_0) {
-    return  x86("comment", "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t return arrives as rax={v,src,slen} rdx={ptr}, so the register pair IS a well-formed cell and writing DT_S over it would forge the tag instead of carrying it")
+return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t return arrives as rax={v,src,slen} rdx={ptr}, so the register pair IS a well-formed cell and writing DT_S over it would forge the tag instead of carrying it")
          + x86("sub", "rsp", (long)32)
          + x86_rsp_store32_imm(0,  (long)DT_S)
          + x86_rsp_store32(4,  lenreg32_0)
@@ -2307,13 +2317,13 @@ inline std::string x86_rt_gc_poll_rec2_res(const char * preg0, const char * lenr
          + x86_rsp_load64(preg0, 8)
          + x86_rsp_load64("rax", 16)
          + x86_rsp_load64("rdx", 24)
-         + x86("add", "rsp", (long)32);
+         + x86("add", "rsp", (long)32));
 }
 inline std::string x86_rt_gc_poll_rec_sigma_res() { return x86_rt_gc_poll_rec2_res("r13", "r15d"); }
 inline std::string x86_rt_gc_poll_rec_subject_new() { return x86_rt_gc_poll_rec1("rax", "edx", 0, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return  x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
-    return  x86("sub", "rsp", (long)48)
+return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "rax")
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
@@ -2327,10 +2337,10 @@ inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
          + x86_rsp_load64("r13", 8)
          + x86_rsp_load64("rax", 24)
          + x86_rsp_load64("rdx", 40)
-         + x86("add", "rsp", (long)48);
+         + x86("add", "rsp", (long)48));
 }
 inline std::string x86_rt_gc_poll_rec_res() {
-    return  x86("sub", "rsp", (long)16)
+return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86_rsp_store64(0, "rax")
          + x86_rsp_store64(8, "rdx")
          + x86_reg_disp32_lea64("rdi", "rsp", 0)
@@ -2340,6 +2350,6 @@ inline std::string x86_rt_gc_poll_rec_res() {
          + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
          + x86_rsp_load64("rax", 0)
          + x86_rsp_load64("rdx", 8)
-         + x86("add", "rsp", (long)16);
+         + x86("add", "rsp", (long)16));
 }
 #endif

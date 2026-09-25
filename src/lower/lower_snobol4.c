@@ -10,6 +10,7 @@
 #include "parsers/icon/icon_lex.h"
 #include "snobol4_system_fns.h"
 int rt_kw_index(const char * kw);
+static int sno_sub_val_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_SUB_VAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -1; }
 extern void global_register(const char * name);
@@ -464,7 +465,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_IDX: {
         IR_t * cur = NULL; IR_t * entry = sx_idx_container(cx, t, ω, &cur);
-        if (cur && cur->op == IR_SUBSCRIPT && t->n == 2 && IR_LIT(cur).sval && !strcmp(IR_LIT(cur).sval, "container-only")) IR_LIT(cur).sval = "container-value";
+        if (cur && cur->op == IR_SUBSCRIPT && t->n == 2 && IR_LIT(cur).sval && !strcmp(IR_LIT(cur).sval, "container-only")) { IR_LIT(cur).sval = "container-value"; if (sno_sub_val_on()) { lc_γ_to(cur, γ); if (res) *res = cur; return entry; } }
         IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
         lc_γ_to(cur, dr);
         ir_operand_push(dr, cur);
