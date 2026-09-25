@@ -6,7 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
-void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
+uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 extern "C" long *rt_anchor_ptr(void);
 }
 #include "x86_asm.h"
@@ -87,6 +87,10 @@ std::string bb_match_begin() {
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
+         + x86("note", HKN(1))
+         + x86("mov", RDQ("rbp", -16), "rax")
+         + x86("note", HKN(1))
+         + x86("mov", "r13", RDQ("rbp", -16))
          + x86("mov", "rsp", "rbp")
          + x86("pop", "rbp")
          + x86_omega();
