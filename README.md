@@ -221,7 +221,7 @@ published only when all three print its ref in both modes; with `BENCH_ORACLE_AR
 same twins run under the clean SPITBOL oracle, so the two engines are timed on the same generated program, on the same
 box, in the same minute.
 
-*Measured 2026-09-25 00:4x CDT on SCRIP `6134f316c` / corpus `247d66220`, **RT_OPT=-O0**, load 0.6–1.0 on 16 cores under MODE CEO (the
+*Measured 2026-09-25 02:2x CDT on SCRIP `40a7bac3c` / corpus `7f59d99f7`, **RT_OPT=-O0**, load 0.3–1.2 on 16 cores under MODE CEO (the
 fleet stood down), 500 ms of repetitions per point (`BENCH_BUD_MS=500 BENCH_ITER_N=5`, one warm-up repetition first; the 500 ms
 budget was proven against 5 s points kernel for kernel on 444e9893d), oracle `spitbol-bench-oracle/sbl -bf`
 (the clean benchmark oracle, never the monitor-hooked correctness fork). 23 of 23 kernels printed their ref on every angle in all
@@ -231,32 +231,32 @@ is the same twin under the 2026-09-03 tree `380cc4162`, rebuilt and run the same
 
 | kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 | `380cc4162` m4 |
 |---|---:|---:|---:|:---:|:---:|:---:|
-| arith_loop | 25.0 | 7.9 | 7.3 | 3.16x | 3.44x | 4.03x |
-| arith_loop_twin | 7545.0 | 2646.8 | 2311.7 | 2.85x | 3.26x | 3.47x |
-| array_sum | 620.0 | 540.9 | 473.3 | 1.15x | 1.31x | 0.27x |
-| eval_fixed | 142.6 | 224.7 | 213.8 | 0.63x | 0.67x | 0.96x |
-| fib_recur | 3928.2 | 2414.4 | 2393.6 | 1.63x | 1.64x | 1.78x |
-| fibonacci | 260.0 | 153.8 | 154.8 | 1.69x | 1.68x | 1.66x |
-| func_call | 34.3 | 18.6 | 17.5 | 1.84x | 1.97x | 2.01x |
-| ident_call1 | 29.4 | 13.0 | 11.8 | 2.26x | 2.48x | 2.46x |
-| ident_call2 | 30.9 | 12.1 | 10.7 | 2.55x | 2.89x | 2.36x |
-| indirect_dispatch | 27.5 | 60.2 | 59.4 | 0.46x | 0.46x | 0.62x |
-| mixed_workload | 32.5 | 174.5 | 152.9 | 0.19x | 0.21x | 0.28x |
-| name_indirection | 1037.1 | 2384.9 | 2423.9 | 0.43x | 0.43x | — |
-| op_dispatch | 61.1 | 18.6 | 16.1 | 3.29x | 3.79x | 3.73x |
-| pattern_bt | 231.2 | 214.8 | 200.3 | 1.08x | 1.15x | 1.47x |
-| roman | 162.5 | 358.7 | 323.9 | 0.45x | 0.50x | 0.78x |
-| string_concat | 35.9 | 43.6 | 42.6 | 0.82x | 0.84x | 0.65x |
-| string_concat_twin | 214.7 | 167.6 | 166.5 | 1.28x | 1.29x | 0.98x |
-| string_manip | 66.7 | 159.9 | 148.4 | 0.42x | 0.45x | 0.66x |
-| string_pattern | 70.3 | 85.1 | 90.0 | 0.83x | 0.78x | 0.92x |
-| table_access | 805.7 | 4457.7 | 2959.2 | 0.18x | 0.27x | 1.29x |
-| table_variety | 615.9 | 2070.2 | 1639.3 | 0.30x | 0.38x | 0.68x |
-| test_icon | 1.0 | 0.3 | 0.3 | 3.16x | 3.54x | 4.12x |
-| var_access | 63.8 | 19.6 | 16.7 | 3.25x | 3.82x | 4.25x |
+| arith_loop | 25.6 | 7.9 | 7.3 | 3.23x | 3.52x | 4.03x |
+| arith_loop_twin | 7413.4 | 2640.1 | 2332.3 | 2.81x | 3.18x | 3.47x |
+| array_sum | 601.3 | 479.4 | 421.6 | 1.25x | 1.43x | 0.27x |
+| eval_fixed | 141.4 | 218.2 | 210.8 | 0.65x | 0.67x | 0.96x |
+| fib_recur | 3779.7 | 2394.1 | 2357.0 | 1.58x | 1.60x | 1.78x |
+| fibonacci | 246.4 | 153.2 | 153.3 | 1.61x | 1.61x | 1.66x |
+| func_call | 38.3 | 18.3 | 17.2 | 2.09x | 2.23x | 2.01x |
+| ident_call1 | 29.7 | 13.1 | 11.5 | 2.26x | 2.59x | 2.46x |
+| ident_call2 | 30.8 | 12.3 | 10.9 | 2.50x | 2.83x | 2.36x |
+| indirect_dispatch | 27.4 | 59.0 | 59.4 | 0.47x | 0.46x | 0.62x |
+| mixed_workload | 31.7 | 140.5 | 133.8 | 0.23x | 0.24x | 0.28x |
+| name_indirection | 1008.4 | 2408.3 | 2468.9 | 0.42x | 0.41x | — |
+| op_dispatch | 54.2 | 18.4 | 16.3 | 2.95x | 3.33x | 3.73x |
+| pattern_bt | 234.7 | 196.7 | 204.6 | 1.19x | 1.15x | 1.47x |
+| roman | 163.5 | 261.2 | 242.0 | 0.63x | 0.68x | 0.78x |
+| string_concat | 37.5 | 42.8 | 43.4 | 0.88x | 0.86x | 0.65x |
+| string_concat_twin | 215.0 | 173.8 | 180.2 | 1.24x | 1.19x | 0.98x |
+| string_manip | 67.7 | 122.4 | 108.9 | 0.55x | 0.62x | 0.66x |
+| string_pattern | 73.1 | 81.9 | 84.8 | 0.89x | 0.86x | 0.92x |
+| table_access | 874.7 | 3537.6 | 2414.6 | 0.25x | 0.36x | 1.29x |
+| table_variety | 671.4 | 1652.7 | 1360.0 | 0.41x | 0.49x | 0.68x |
+| test_icon | 1.2 | 0.4 | 0.3 | 3.27x | 3.98x | 4.12x |
+| var_access | 80.0 | 21.3 | 19.4 | 3.76x | 4.13x | 4.25x |
 
-Geometric mean over the 23 kernels: **1.04x** in mode 3, **1.14x** in mode 4; SCRIP is ahead of SPITBOL on 13 of 23
-kernels (2026-09-24 22:04 on 74729b18b: 0.94x / 1.00x; 20:16 that day, on 73295fba6: 0.78x / 0.84x; 17:2x, before the by-name landing: 0.70x / 0.75x; that morning
+Geometric mean over the 23 kernels: **1.12x** in mode 3, **1.21x** in mode 4; SCRIP is ahead of SPITBOL on 13 of 23
+kernels (2026-09-25 00:4x on 6134f316c: 1.04x / 1.14x; 2026-09-24 22:04 on 74729b18b: 0.94x / 1.00x; 20:16 that day, on 73295fba6: 0.78x / 0.84x; 17:2x, before the by-name landing: 0.70x / 0.75x; that morning
 0.19x; the 09-03 tree `380cc4162`: 1.25x / 1.33x). The evening's four landings each named their kernel: the by-name call
 path (string_manip 0.09x → 0.26x), the leaf system functions dispatched directly (0.26x → 0.38x), the array element read and
 stored without a name-trap cell (array_sum 0.14x → 1.16x), the interned and directly dispatched $name (name_indirection
@@ -265,19 +265,22 @@ table_variety 0.32x, mixed_workload 0.18x, string_manip 0.38x, roman 0.42x) and 
 0.41x); table_access still runs 8,082 collections here against 8 at 64 MB, and the collector's fixed per-collection root
 walk is what the arena size decides.
 
-**The workhorse demos on their large inputs, whole program, best of 5, mode 4, tree `6134f316c`, 2026-09-25 01:00 CDT, load 0.6,
+**The workhorse demos on their large inputs, whole program, best of 5, mode 4, tree `40a7bac3c`, 2026-09-25 02:2x CDT, load 1.0–1.2,
 `sbl -bf -d512m -i64m -s256m` against the mode-4 binary at `SCRIP_HEAP_KB=524288`, outputs byte-identical on both engines:**
 
 | demo | input | SPITBOL ms | m4 ms | m4 |
 |---|---:|---:|---:|:---:|
-| claws5 (CLAWS5inTASA.dat ×16) | 1,043 KB | 69 | 67 | 1.03x |
-| treebank (treebank.input ×1024) | 327 KB | 112 | 238 | 0.47x |
-| json (citm_catalog.json) | 1,686 KB | 34 | 48 | 0.71x |
-| porter (porter.input ×4) | 742 KB | 223 | 392 | 0.57x |
-| calculator-1 (calculator.input ×4) | 127 KB | 29 | 68 | 0.43x |
-| calculator-2 (calculator.input ×4) | 127 KB | 33 | 67 | 0.49x |
+| claws5 (CLAWS5inTASA.dat ×16) | 1,043 KB | 79 | 75 | 1.05x |
+| treebank (treebank.input ×1024) | 327 KB | 122 | 255 | 0.48x |
+| json (citm_catalog.json) | 1,686 KB | 35 | 51 | 0.69x |
+| porter (porter.input ×4) | 742 KB | 239 | 393 | 0.61x |
+| calculator-1 (calculator.input ×4) | 127 KB | 34 | 76 | 0.45x |
+| calculator-2 (calculator.input ×4) | 127 KB | 37 | 73 | 0.51x |
 
-On 74729b18b at 22:05 the previous evening the same six read 0.77x, 0.42x, 0.57x, 0.55x, 0.45x and 0.50x; at 17:4x, before
+On 6134f316c at 01:00 the same six read 1.03x, 0.47x, 0.71x, 0.57x, 0.43x and 0.49x — the demos never collect at 512 MB, so the
+collector landing of 40a7bac3c moved the kernels (table_access 0.27x → 0.36x, string_manip 0.45x → 0.62x in mode 4) and not them;
+the same table_access twin reads 0.93x at SPITBOL's own 1 MB default region, and the C runtime built at -O2 (a scratch worktree, not
+shipped) lifts the campaign probe from 1.01x to 1.30x. On 74729b18b at 22:05 the previous evening the same six read 0.77x, 0.42x, 0.57x, 0.55x, 0.45x and 0.50x; at 17:4x, before
 f8c25ae0e, 0.86x, 0.08x, 0.58x, 0.41x, 0.40x and 0.43x. The night's four landings (CEO-1250..1253) moved the pattern-heavy demos:
 the immediate assignment stores into its GVA cell, every poll site tests the pending flag in line, IDENT and the fused table
 store are asm entries, the stale-read trap is released in 256 KB chunks. What holds the rest back is measured, not guessed:
