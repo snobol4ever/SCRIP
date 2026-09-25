@@ -11,6 +11,7 @@ static cv_t         g_rk_class_names;
 static cv_t         g_rk_multi_names;
 extern int rk_is_arrlit_scalar(const char * nm);
 extern int rk_is_array_name(const char * nm);
+extern int rk_seq_is_logical_and(const tree_t * t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_multi_names.len; i++) if (!strcmp(CV_AT(g_rk_multi_names, const char *, i), nm)) return 1; return 0; }
 static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_rk_multi_names, const char *) = nm; } }
@@ -107,6 +108,11 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_str_subform(const char * nm) {
+    static const char * const names[] = { "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", NULL };
+    for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1; return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_binop(tree_e tt) {
     switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_CAT: case TT_XREP: return 1; default: return 0; }
 }
@@ -134,7 +140,8 @@ static int rk_proc_known(const char * name);
 static IR_t * rk_excise(rcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) { IR_t * nd = build(cx, IR_EXCISED, γ, ω); if (res) *res = nd; return nd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
-static long trace_stmt_line(const tree_t * s) { return (s && s->t != TT_USE_DECL) ? s->line : 0; }
+static int rk_use_is_version(const tree_t * s) { return s && s->t == TT_USE_DECL && s->v.sval && s->v.sval[0] == 'v' && s->v.sval[1] >= '0' && s->v.sval[1] <= '9'; }
+static long trace_stmt_line(const tree_t * s) { return (s && !rk_use_is_version(s)) ? s->line : 0; }
 static IR_t * trace_stmt_wrap(rcx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
     if (line <= 0 || !trace_wanted()) return stmt_entry;
     IR_t * call = build(cx, IR_CALL, stmt_entry, ω); IR_LIT(call).sval = "__trace_stmt";
@@ -142,15 +149,16 @@ static IR_t * trace_stmt_wrap(rcx_t * cx, long line, IR_t * stmt_entry, IR_t * �
     ir_operand_push(call, lit);
     return lit;
 }
+static int rk_trace_is_block(const char * name) { return name && !strncmp(name, "__blk_", 6); }
 static IR_t * trace_call_wrap(rcx_t * cx, const char * name, IR_t * body_entry, IR_t * ω) {
-    if (!name || !*name || !trace_wanted()) return body_entry;
+    if (!name || !*name || !trace_wanted() || rk_trace_is_block(name)) return body_entry;
     IR_t * call = build(cx, IR_CALL, body_entry, ω); IR_LIT(call).sval = "__trace_call";
     IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = name;
     ir_operand_push(call, nm);
     return nm;
 }
 static IR_t * trace_value_prep(rcx_t * cx, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out) {
-    if (!name || !*name || !trace_wanted()) { *call_out = NULL; return NULL; }
+    if (!name || !*name || !trace_wanted() || !strncmp(name, "__", 2) || !strncmp(name, "$?", 2)) { *call_out = NULL; return NULL; }
     IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = "__trace_value";
     IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = name;
     ir_operand_push(call, nm);
@@ -290,11 +298,23 @@ static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); return ea;
     }
     if (c->t == TT_NOT && c->n > 0) return lower_cond(cx, c->c[0], on_false, on_true);
+    if (c->t == TT_ALT && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], on_true, rhs); }
     if (c->t == TT_SEQ && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], rhs, on_false); }
     IR_t * bk = build(cx, IR_CALL, on_true, on_false); IR_LIT(bk).sval = "__rk_bool";
     IR_t * r = NULL; IR_t * e = lower_rv(cx, c, bk, on_false, &r);
     if (r) ir_operand_push(bk, r);
     return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_lower_logical(rcx_t * cx, const tree_t * t, int is_or, IR_t * γ, IR_t * ω, IR_t ** res) {
+    char tn[40]; snprintf(tn, sizeof tn, "$?logic%d", cx->g->n); const char * tname = lp_strdup(tn);
+    IR_t * jv = build(cx, IR_VAR, γ, ω); IR_LIT(jv).sval = tname;
+    IR_t * ab = build(cx, IR_ASSIGN, jv, ω); IR_LIT(ab).sval = tname;
+    IR_t * rb = NULL; IR_t * eb = lower_rv(cx, t->c[1], ab, ω, &rb); if (rb) ir_operand_push(ab, rb);
+    IR_t * ce = is_or ? lower_cond(cx, leaf_sval2(TT_VAR, tname), jv, eb) : lower_cond(cx, leaf_sval2(TT_VAR, tname), eb, jv);
+    IR_t * aa = build(cx, IR_ASSIGN, ce, ω); IR_LIT(aa).sval = tname;
+    IR_t * ra = NULL; IR_t * ea = lower_rv(cx, t->c[0], aa, ω, &ra); if (ra) ir_operand_push(aa, ra);
+    *res = jv; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_field_set(rcx_t * cx, const tree_t * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -369,6 +389,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 3.141592653589793; *res = nd; return nd;
         }
+        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "e") && !rk_is_class_name("e")) {
+            IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 2.718281828459045; *res = nd; return nd;
+        }
+        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "tau") && !rk_is_class_name("tau")) {
+            IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 6.283185307179586; *res = nd; return nd;
+        }
         if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "Inf") && !rk_is_class_name("Inf")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) INFINITY; *res = nd; return nd;
         }
@@ -404,7 +430,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
             ir_operand_push(nd, op); *res = nd; return ea; }
         int decl_only = t->c[1] && t->c[1]->t == TT_NUL && t->c[1]->v.ival == 1;
-        IR_t * vtrace_call = NULL; IR_t * vtrace = decl_only ? NULL : trace_value_prep(cx, t->c[0]->v.sval, γ, ω, &vtrace_call);
+        IR_t * vtrace_call = NULL; IR_t * vtrace = (decl_only || t->v.ival == 1) ? NULL : trace_value_prep(cx, t->c[0]->v.sval, γ, ω, &vtrace_call);
         IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
         IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -478,6 +504,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             tree_t * basq = ast_node_new(TT_QLIT); basq->v.sval = (char *)nm; ast_push(mc, basq);
             for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
             return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res); }
+        if (nm && t->n > 1 && rk_is_str_subform(nm) && !rk_proc_known(nm)) {
+            tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, t->c[1]); ast_push(mc, leaf_sval2(TT_QLIT, nm));
+            for (int i = 2; i < t->n; i++) ast_push(mc, t->c[i]);
+            return lower_rv(cx, mc, γ, ω, res); }
         if (nm && !strcmp(nm, "so")) nm = "__rk_mkbool";
         if (nm && !strcmp(nm, "trim")) nm = "str_trim";
         if (nm && !strcmp(nm, "any")) nm = "__rk_jct_any"; else if (nm && !strcmp(nm, "all")) nm = "__rk_jct_all";
@@ -651,8 +681,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, γ, ω, res);
     case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, γ, ω, res);
     case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, γ, ω, res);
-    case TT_SEQ: case TT_PROGRAM: case TT_SEQ_EXPR: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
+    case TT_ALT: if (t->n > 1) return rk_lower_logical(cx, t, 1, γ, ω, res);
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_SEQ: if (rk_seq_is_logical_and(t)) return rk_lower_logical(cx, t, 0, γ, ω, res);
+        { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
+    case TT_PROGRAM: case TT_SEQ_EXPR: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     case TT_METHCALL: {
+        if (t->n > 1 && t->c[0] && t->c[0]->t == TT_TO && t->c[0]->n == 2) {
+            tree_t * ra = ast_node_new(TT_FNC); ra->v.sval = (char *)"__rk_range_arr"; ast_push(ra, leaf_sval2(TT_VAR, "__rk_range_arr"));
+            ast_push(ra, t->c[0]->c[0]); ast_push(ra, t->c[0]->c[1]);
+            tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, ra); for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
+            return lower_rv(cx, mc, γ, ω, res); }
         const char * mname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : NULL;
         if (mname && t->c[0] && t->c[0]->t == TT_VAR) {
             if (!strcmp(mname, "push") || !strcmp(mname, "unshift")) {
@@ -716,7 +755,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n > 0 && t->c[0]) {
             IR_t * nd = build(cx, IR_RETURN, exit_γ, ω);
             IR_t * trace = NULL; IR_t * trace_entry = nd;
-            if (cx->cur_proc_name && *cx->cur_proc_name && trace_wanted()) {
+            if (cx->cur_proc_name && *cx->cur_proc_name && trace_wanted() && !rk_trace_is_block(cx->cur_proc_name)) {
                 trace = build(cx, IR_CALL, nd, ω); IR_LIT(trace).sval = "__trace_return";
                 IR_t * nm = build(cx, IR_LIT_STRING, trace, ω); IR_LIT(nm).sval = cx->cur_proc_name;
                 ir_operand_push(trace, nm);
@@ -1263,6 +1302,7 @@ static void rk_scan_implicit_params(const tree_t * t, int * topic, const char **
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_block_tail_is_value(const tree_t * s) {
     if (!s) return 0;
+    if (rk_seq_is_logical_and(s)) return 1;
     switch (s->t) {
         case TT_RETURN: case TT_NRETURN: case TT_PROC_FAIL: case TT_SAY: case TT_SAY_FH: case TT_PRINT: case TT_PRINT_FH:
         case TT_IF: case TT_UNLESS: case TT_CASE: case TT_WHILE: case TT_UNTIL: case TT_REPEAT: case TT_FOR: case TT_EVERY:
@@ -1292,7 +1332,7 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
         if (body) {
             for (int k = 0; k < body->n; k++) {
                 tree_t * st = body->c[k];
-                if (k == body->n - 1 && rk_block_tail_is_value(st)) { tree_t * r = ast_node_new(TT_RETURN); ast_push(r, st); st = r; }
+                if (k == body->n - 1 && rk_block_tail_is_value(st)) { tree_t * r = ast_node_new(TT_RETURN); r->line = st->line; ast_push(r, st); st = r; }
                 ast_push(sd, st);
             }
             ((tree_t *) body)->n = 0;

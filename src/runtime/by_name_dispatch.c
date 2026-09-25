@@ -335,6 +335,7 @@ int rt_builtin_is_known(const char *name)
         "hash_keys", "hash_values", "hash_pairs", "hash_kv",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
+        "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s",
         "die", "script_die", "srand",
         "callsame", "nextsame", "callwith",
         "__multi_call", "__param_check", "__blk_ref", "__blk_invoke",
@@ -645,6 +646,22 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)rt_str_alloc(b - a);
         memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
     }
+    if (!strcmp(meth, "trim-leading") || !strcmp(meth, "trim-trailing")) {
+        size_t a = 0, b = n; if (meth[5] == 'l') { while (a < b && isspace((unsigned char)s[a])) a++; } else { while (b > a && isspace((unsigned char)s[b - 1])) b--; }
+        char *r = (char *)rt_str_alloc(b - a); memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "chop")) {
+        size_t b = n; if (b > 0) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
+        char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "wordcase")) {
+        char *r = (char *)rt_str_alloc(n); int inw = 0;
+        for (size_t i = 0; i < n; i++) { unsigned char c = (unsigned char)s[i];
+            if (!inw && isalpha(c)) { r[i] = (char)toupper(c); inw = 1; }
+            else if (inw && (isalnum(c) || c == '_' || ((c == '\'' || c == '-') && i + 1 < n && isalpha((unsigned char)s[i + 1])))) r[i] = (char)tolower(c);
+            else { r[i] = (char)c; inw = 0; } }
+        r[n] = '\0'; *out = STRVAL(r); return 1;
+    }
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
@@ -726,7 +743,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "chomp")) {
-        size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
+        size_t b = n; if (b > 1 && s[b - 2] == '\r' && s[b - 1] == '\n') b -= 2; else if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "wordcase")) {
         char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); int start = 1;
@@ -3666,6 +3683,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(op, "isnt")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = strcmp(g, e) != 0; const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "pass")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(1, d, ""); *out = INTVAL(1); return 1; }
         if (!strcmp(op, "flunk")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(0, d, ""); *out = INTVAL(0); return 1; }
+        if (!strcmp(op, "is_approx")) {
+            DESCR_t G = (nargs > 0) ? args[0] : NULVCL, E = (nargs > 1) ? args[1] : NULVCL;
+            double g = IS_REAL_fn(G) ? G.r : IS_INT_fn(G) ? (double)G.i : strtod(to_cstring(G, sb1, sizeof sb1), NULL);
+            double e = IS_REAL_fn(E) ? E.r : IS_INT_fn(E) ? (double)E.i : strtod(to_cstring(E, sb2, sizeof sb2), NULL);
+            int tol3 = nargs > 2 && (IS_REAL_fn(args[2]) || IS_INT_fn(args[2]));
+            double abs_tol = tol3 ? (IS_REAL_fn(args[2]) ? args[2].r : (double)args[2].i) : (fabs(e) < 1e-6 ? 1e-5 : -1.0), rel_tol = (!tol3 && fabs(e) >= 1e-6) ? 1e-6 : -1.0;
+            const char *d = (nargs > (tol3 ? 3 : 2)) ? to_cstring(args[tol3 ? 3 : 2], msg, sizeof msg) : "";
+            double ad = fabs(g - e), mx = fmax(fabs(g), fabs(e)), rd = mx != 0.0 ? ad / mx : 0.0;
+            int aok = abs_tol < 0 || ad <= abs_tol, rok = rel_tol < 0 || rd <= rel_tol, c = aok && rok;
+            rk_tap_proclaim(c, d, "");
+            if (!c) { char b[512]; snprintf(b, sizeof b, "    expected approximately: %.17g", e); rk_tap_diag(b); snprintf(b, sizeof b, "                       got: %.17g", g); rk_tap_diag(b);
+                if (!aok) { snprintf(b, sizeof b, "maximum absolute tolerance: %g", abs_tol); rk_tap_diag(b); snprintf(b, sizeof b, "actual absolute difference: %.17g", ad); rk_tap_diag(b); }
+                if (!rok) { snprintf(b, sizeof b, "maximum relative tolerance: %g", rel_tol); rk_tap_diag(b); snprintf(b, sizeof b, "actual relative difference: %.17g", rd); rk_tap_diag(b); } }
+            *out = INTVAL(c); return 1;
+        }
         if (!strcmp(op, "cmp_ok")) {
             const char *cop = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : "";
             const char *d = (nargs > 3) ? to_cstring(args[3], msg, sizeof msg) : "";
@@ -5182,6 +5214,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t *cell = data_field_ptr(fname, args[0]);
         if (cell) *cell = args[2];
         *out = args[2]; return 1;
+    }
+    if (!strcmp(fn, "nqp::create") && nargs == 1) {
+        const char *cname = NULL;
+        if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cname = (di && di->type) ? di->type->name : NULL; }
+        else cname = VARVAL_fn(args[0]);
+        DatType *dt = cname ? dat_find_type(cname) : NULL; if (!dt) { *out = FAILDESCR; return 1; }
+        DESCR_t fvals[64]; for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
+        *out = dat_construct(dt, fvals, dt->nfields); return 1;
+    }
+    if (!strncmp(fn, "nqp::bindattr", 13) && nargs == 4 && (!fn[13] || !strcmp(fn + 13, "_n") || !strcmp(fn + 13, "_i") || !strcmp(fn + 13, "_s"))) {
+        extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+        const char *an = VARVAL_fn(args[2]); if (!an) an = "";
+        if (an[0] && (an[1] == '!' || an[1] == '.')) an += 2;
+        DESCR_t *cell = data_field_ptr(an, args[0]); if (!cell) { *out = FAILDESCR; return 1; }
+        *cell = args[3]; *out = args[3]; return 1;
     }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
         const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }

@@ -806,6 +806,7 @@ static uint8_t scrip_tag_to_wire(int v) {
         case DT_A:     return MWT_ARRAY;
         case DT_T:     return MWT_TABLE;
         case DT_C:     return MWT_CODE;
+        case DT_BLK:   return MWT_CODE;
         case DT_E:     return MWT_EXPRESSION;
         case DT_DATA:  return MWT_DATA;
         default:       return MWT_UNKNOWN;

@@ -100,6 +100,7 @@ static const char *testop_rt(const char *s) {
     if (!strcmp(s, "flunk")) return "__rk_test_flunk";
     if (!strcmp(s, "subtest")) return "__rk_test_subtest";
     if (!strcmp(s, "is-deeply")) return "__rk_test_is_deeply";
+    if (!strcmp(s, "is-approx")) return "__rk_test_is_approx";
     if (!strcmp(s, "isa-ok")) return "__rk_test_isa_ok";
     if (!strcmp(s, "does-ok")) return "__rk_test_does_ok";
     if (!strcmp(s, "cmp-ok")) return "__rk_test_cmp_ok";
@@ -284,10 +285,13 @@ static tree_t *rk_bind_container(void) {
     return (tree_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_logical_and(tree_t *a, tree_t *b) { tree_t *s = expr_binary(TT_SEQ, a, b); s->v.ival = 1; return s; }
+int rk_seq_is_logical_and(const tree_t *t) { return t && t->t == TT_SEQ && t->n == 2 && t->v.ival == 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static ExprList *rk_tail_value(ExprList *l) {
     if (!l || l->count <= 0) return l;
     { tree_t *last = l->items[l->count - 1];
-      if (!last || rk_tail_is_statement(last->t)) return l;
+      if (!last || (rk_tail_is_statement(last->t) && !rk_seq_is_logical_and(last))) return l;
       { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, last); l->items[l->count - 1] = r; } }
     return l;
 }
@@ -332,16 +336,17 @@ static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *
     expr_add_child(n, init); expr_add_child(n, cond); expr_add_child(n, incr); expr_add_child(n, body);
     return n;
 }
+static tree_t *rk_quiet_store(tree_t *target, tree_t *rhs) { tree_t *a = expr_binary(TT_ASSIGN, target, rhs); a->v.ival = 1; return a; }
 static tree_t *rk_incdec(const char *var, int add) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
-    return expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one));
+    return rk_quiet_store(var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one));
 }
 static tree_t *rk_post_incdec(const char *var, int add) {
     static int __post_uid = 0; char tmp[32]; snprintf(tmp, sizeof tmp, "__post_%d", __post_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
-    expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), var_node(var)));
+    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), var_node(var)));
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
-    expr_add_child(seq, expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one)));
+    expr_add_child(seq, rk_quiet_store(var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one)));
     expr_add_child(seq, leaf_sval(TT_VAR, tmp));
     return seq;
 }
@@ -368,12 +373,12 @@ static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
     static int __destr_uid = 0;
     char tmp[32]; snprintf(tmp, sizeof tmp, "__destr_%d", __destr_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
-    tree_t *bind = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), rhs_arr); expr_add_child(seq, bind);
+    tree_t *bind = rk_quiet_store(leaf_sval(TT_VAR, tmp), rhs_arr); expr_add_child(seq, bind);
     int n = targets ? targets->count : 0;
     for (int i = 0; i < n; i++) {
         tree_t *get = make_call("__rk_arr_at"); expr_add_child(get, leaf_sval(TT_VAR, tmp));
         tree_t *idx = ast_node_new(TT_ILIT); idx->v.ival = i; expr_add_child(get, idx);
-        expr_add_child(seq, expr_binary(TT_ASSIGN, targets->items[i], get));
+        expr_add_child(seq, rk_quiet_store(targets->items[i], get));
     }
     if (targets) exprlist_free(targets);
     return seq;
@@ -538,7 +543,7 @@ static tree_t *rk_chain_last_operand(tree_t *left) {
 }
 static tree_t *rk_chain_cmp(tree_t *left, tree_e op, tree_t *right) {
     tree_t *last = rk_chain_last_operand(left);
-    if (last) return expr_binary(TT_SEQ, left, expr_binary(op, rk_tree_clone(last), right));
+    if (last) return rk_logical_and(left, expr_binary(op, rk_tree_clone(last), right));
     return expr_binary(op, left, right);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -920,15 +925,15 @@ stmt
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); ct_drop($3);
           ExprList *args=$5; if(args){ for(int i=0;i<args->count;i++) ast_push(mc,args->items[i]); exprlist_free(args); }
-          $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
+          $$=rk_quiet_store(var_node($1),mc); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' ')' ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); ct_drop($3);
-          $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
+          $$=rk_quiet_store(var_node($1),mc); }
     | VAR_SCALAR OP_DOTEQ IDENT ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); ct_drop($3);
-          $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
+          $$=rk_quiet_store(var_node($1),mc); }
     | call_expr '.' meth_name '=' expr ';'
         { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); ct_drop($3); expr_add_child(fe,$1);
           $$=expr_binary(TT_ASSIGN,fe,$5); }
@@ -1906,7 +1911,7 @@ or_expr
     | and_expr                 { $$=$1; }
     ;
 and_expr
-    : and_expr OP_AND cmp_expr { $$=expr_binary(TT_SEQ,$1,$3); }
+    : and_expr OP_AND cmp_expr { $$=rk_logical_and($1,$3); }
     | cmp_expr                 { $$=$1; }
     ;
 cmp_expr

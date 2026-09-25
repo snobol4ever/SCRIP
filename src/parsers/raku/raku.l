@@ -84,6 +84,7 @@ WS       [ \t\r]
 "flunk"         { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "subtest"       { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "is-deeply"     { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
+"is-approx"     { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "isa-ok"        { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "does-ok"       { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
 "cmp-ok"        { raku_yylval.sval = ct_strdup(yytext); return TESTOP; }
