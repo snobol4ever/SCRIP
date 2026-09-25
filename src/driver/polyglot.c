@@ -21,7 +21,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog)
     label_table_build(s2, prog);
     prescan_defines(prog);
     g_fi8_gen_init_count++;
-    s2->proc_count = 0; global_count = 0;
+    s2->proc_count = 0; { extern void global_reset(void); global_reset(); }
     frame_depth = 0;
     memset(frame_stack, 0, sizeof frame_stack);
     scan_subj = ""; scan_pos = 1; scan_depth = 0;

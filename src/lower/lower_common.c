@@ -1,6 +1,7 @@
 #define BB_DEFINE_NAMES
 #include "rt/rt_arena.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "lower.h"
 #include "emit.h"
 #include "bb_program.h"
@@ -215,6 +216,32 @@ const tree_t * lc_stmt_subj(const tree_t * s) {
     }
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static cv_t g_gname_v, g_gname_ix;
+const char ** global_names = NULL;
+int global_count = 0;
+static uint64_t gname_hash(const char * s) { uint64_t h = 1469598103934665603ull; for (; *s; s++) h = (h ^ (unsigned char) *s) * 1099511628211ull; return h; }
+static void gname_ix_put(int k) { uint32_t m = g_gname_ix.len - 1; uint64_t h = gname_hash(global_names[k]) & m; while (CV_AT(g_gname_ix, int, h)) h = (h + 1) & m; CV_AT(g_gname_ix, int, h) = k + 1; }
+static void gname_ix_grow(void) {
+    uint32_t nc = g_gname_ix.len ? g_gname_ix.len * 2 : 256; while ((uint64_t) nc < (uint64_t) global_count * 2) nc *= 2;
+    cv_t n = { 0, 0, 0, 0 }; n.p = ct_zalloc(nc, sizeof(int)); n.len = nc; n.cap = nc; n.esz = (uint32_t) sizeof(int); g_gname_ix = n;
+    for (int k = 0; k < global_count; k++) gname_ix_put(k);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int is_global(const char * name) {
+    if (!name || !g_gname_ix.len) return 0;
+    { uint32_t m = g_gname_ix.len - 1; uint64_t h = gname_hash(name) & m; int k;
+      while ((k = CV_AT(g_gname_ix, int, h)) != 0) { if (!strcmp(global_names[k - 1], name)) return 1; h = (h + 1) & m; } }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void global_register(const char * name) {
+    if (!name || is_global(name)) return;
+    CV_PUSH(g_gname_v, const char *) = name; global_names = (const char **) g_gname_v.p; global_count = (int) g_gname_v.len;
+    if ((uint64_t) global_count * 2 > g_gname_ix.len) gname_ix_grow(); else gname_ix_put(global_count - 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void global_reset(void) { g_gname_v.len = 0; global_count = 0; if (g_gname_ix.p) memset(g_gname_ix.p, 0, (size_t) g_gname_ix.len * sizeof(int)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v->esz = esz; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -3,21 +3,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-const char *global_names[GLOBAL_MAX];
-int         global_count = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int is_global(const char *name) {
-    for (int i = 0; i < global_count; i++)
-        if (global_names[i] && strcmp(global_names[i], name) == 0) return 1;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void global_register(const char *name) {
-    if (!name || is_global(name)) return;
-    if (global_count >= GLOBAL_MAX) { fprintf(stderr, "scrip: BOMB — global_register: GLOBAL_MAX (%d) exceeded at '%s' — silent drop would misclassify globals as locals\n", GLOBAL_MAX, name); abort(); }
-    global_names[global_count++] = name;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_gnames[GLOBAL_MAX];
 static int icn_gcount = 0;
 void rt_icn_global_note(const char *name) {

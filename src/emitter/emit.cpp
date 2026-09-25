@@ -4079,7 +4079,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
-    extern const char *global_names[]; extern int global_count;
+    extern const char **global_names; extern int global_count;
     for (int i = 0; i < global_count; i++) if (global_names[i] && strncmp(global_names[i], "PATV$", 5) != 0) (void)gva_collect_var(global_names[i]);
 }
 static std::string g_text_acc;

@@ -77,7 +77,7 @@ void rt_scan_sync_out(uint64_t delta);
 uint64_t rt_scan_sync_in(void);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 extern int          scan_depth;
-extern const char  *global_names[GLOBAL_MAX];
+extern const char **global_names;
 extern int          global_count;
 int     frame_lookup(tree_t *n, long *out);
 int     frame_lookup_sv(tree_t *n, long *out, const char **sv);
