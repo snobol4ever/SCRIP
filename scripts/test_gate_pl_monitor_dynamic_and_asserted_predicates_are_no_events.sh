@@ -5,8 +5,11 @@
 # for prelude (library) predicates now also asks pl_db_owned -- declared dynamic, or given a database slot with no clause in the file.
 # THE BRACKET IT CURES: sync_step_prolog_4.pl against gpx agreed to step 34 (LABEL stno=12) and diverged at step 35, scr firing
 # CALL counter/1 for the dynamic counter/1 where gpx fires nothing. With the plug silent the witness agrees to its end (AGREE=44 DIVERGE=0).
-# ARMS: 1 (no oracle) the trace of a three-predicate program names the static st/1 and NEITHER the dynamic counter/1 NOR the asserted made/1,
-#       and the asserted clause's body fires no statement -- st/1 is the control against a plug that went silent for everything;
+# ARMS: 1 (no oracle) the trace names the static st/1 and NEITHER the dynamic counter/1, NOR the asserted made/1,
+#       NOR a meta-called ==/2 (a built-in's compiled meta-call wrapper is library code: the second half of CEO-1269, bracketed on Logtalk
+#       logical_update_semantics_clause_retract at step 117, scr firing CALL ==/2 for the case's (Assertion) goal) -- st/1 is the control against
+#       a plug that went silent for everything. (A program may not redefine a built-in under gprolog -- gplc refuses append/3 -- so no oracle
+#       arbitrates a same-named program predicate; the silence test still keeps one the file defines, via !pl_file_defines.)
 #       2 (gpx) monitor_run.sh on sync_step_prolog_4.pl reads AGREE with DIVERGE=0; a missing gpx REFUSES rc=2, never a pass.
 # RED BEFORE on origin ccbe115b5: ARM 1 names counter/1 and made/1 (and L212 inside made/1); ARM 2 DIVERGE at step 35.
 set -u
@@ -22,16 +25,17 @@ cat > "$TMPD/dyn.pl" <<'EOP'
 :- dynamic(counter/1).
 counter(0).
 st(X) :- X = 1.
-main :- counter(C), write(C), nl, assertz(made(7)), made(M), write(M), nl, st(S), write(S), nl.
+main :- counter(C), write(C), nl, assertz(made(7)), made(M), write(M), nl, st(S), write(S), nl,
+        G = (1 == 1), call(G), write(G), nl.
 :- initialization(main).
 EOP
 tr="$(timeout 30 "$SCRIP" --trace --run "$TMPD/dyn.pl" </dev/null 2>&1)"; trc=$?
 [ "$trc" = 0 ] || refuse "the traced run exited $trc -- ARM 1 measured nothing"
 printf '%s\n' "$tr" | grep -q 'st/1()' && printf '%s\n' "$tr" | grep -q 'RETURN st/1' || { echo "  RED ARM 1: the static st/1 fired no CALL/RETURN -- the plug went silent for everything"; red=$((red+1)); }
-for p in counter/1 made/1; do
+for p in counter/1 made/1 ==/2; do
     if printf '%s\n' "$tr" | grep -qE "(^|[[:space:]])$p\(\)|RETURN $p "; then echo "  RED ARM 1: $p fired a trace event -- a dynamic or asserted predicate is an event"; red=$((red+1)); fi
 done
-[ "$red" = 0 ] && echo "  ok  ARM 1: st/1 traced, counter/1 (dynamic) and made/1 (asserted) silent"
+[ "$red" = 0 ] && echo "  ok  ARM 1: st/1 traced; counter/1 (dynamic), made/1 (asserted) and a meta-called ==/2 silent"
 W="$HERE/monitor/witnesses/sync_step_prolog_4.pl"
 [ -r "$W" ] || refuse "no witness at $W"
 out="$(timeout 300 bash "$HERE/monitor_run.sh" "$W" --oracle 2>&1)"; mrc=$?
