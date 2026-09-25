@@ -138,8 +138,11 @@ _txt="$_txt — every case graded against the standard as the standard states it
 # the modes differ. m3 and m4 both say 1218 over sets that are not the same. CEO-372's answer is the AND per
 # case, and only this runner can compute it, so only this runner may state it.
 _sc="$HERE/util_score_row.py"
+# A DENOMINATOR MOVE IS STAMPED THROUGH S4E_CRITERION_CHANGED='<YYYY-MM-DD>:<reason>' (the test_corpus_snobol4.sh convention, CEO-785): the
+# writer refuses a moved denominator without it, and this runner had no way to pass it (hq_prolog 2026-09-25, when CEO-1235 (a) moved 3600 -> 3528).
 python3 "$_sc" write --lang prolog --column vendor --text "$_txt${_iv:+ · $_iv (\`$GATE_NAME.sh\`)}" \
     --measurer "${S4E_SEAT:-}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" \
+    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
     || echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] -- the board above stands on its own measurement; the leaderboard row does not"
 rm -f "$_out" "$_decl"
 exit 0
