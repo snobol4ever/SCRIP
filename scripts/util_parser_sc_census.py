@@ -9,12 +9,14 @@ population with the program as its stdin. POPULATION ladder (default): every ent
 origin is ladder__* -- the construct ladder, one construct per rung, cut from the public reference; POPULATION master:
 every entry of the master; POPULATION corpus, the default (Lon to hq_snocone 15:2x: "Test the parsers using all the corpus
 sources"): every file of the language's extension under corpus/, the ALL.* containers and library/ excluded. CLASSIFICATION (hq_snocone's, kept): the first non-blank output line not starting with SEQ<n>
-begins with '(' = PARSED (the parser emitted a tree); contains "Parse Error" = REFUSED; anything else -- a crash, a timeout,
-heap exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a parser that declines.
+begins with '(' = PARSED (the parser emitted a tree); contains "Parse Error" = REFUSED; a clean exit (rc 0, no error line) that
+printed nothing = EMPTY (hq_snocone 2026-09-25: a source holding only comments and control lines -- the gimpel *_driver.sno that are
+one -INCLUDE -- has no statement to print, which is neither a tree shown nor a crash); anything else -- a crash, a timeout, heap
+exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a parser that declines.
 It prints its denominator per language as each language finishes and names the first REFUSED and first CRASH. A REFUSED
 source listed in --declared (default SCRIP/bootstrap/tests/parser_refusals.tsv: lang, corpus-relative path, the measurement
-that the source is not a legal program of its language) is DECLARED, never red; an undeclared refusal is red, because a parser
-that declines a legal program is not working. rc 0 GREEN (every language: population > 0, CRASH 0, undeclared REFUSED 0),
+that the source is not a legal program of its language, or for an EMPTY source that it holds no statement) is DECLARED, never red;
+an undeclared refusal or EMPTY is red, because a parser that declines a legal program, or prints nothing for one, is not working. rc 0 GREEN (every language: population > 0, CRASH 0, undeclared REFUSED 0),
 1 RED, 2 REFUSE (no ./scrip, no master, a population that could not be materialized).
 PARSED is a tree, not a CORRECT tree: equivalence with the C frontend's AST is the next bar, written in the row's GOAL.
 """
@@ -78,6 +80,8 @@ def parse_one(scrip, chain, prog, timeout):
     err = next((l for l in lines if re.search(r"\bERROR \d+ --|^Error \d+|FATAL|ZGC-STALE|CORRUPT CAPTURE", l)), "")
     if r.returncode != 0 or err:
         return "CRASH", "%s (rc=%d)" % (err or first or "no output", r.returncode)
+    if not lines:
+        return "EMPTY", "no output, rc=0"
     if first.startswith("("):
         return "PARSED", first
     return "CRASH", first or "(no output, rc=%d)" % r.returncode
@@ -153,25 +157,25 @@ def main(argv):
             for key, by_origin in keys:
                 work.append((scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout))
         print("PARSER-SC CENSUS, population %s, tree %s, timeout %ss per program, jobs %d, declared refusals %d from %s" % (pop, subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), timeout, jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
-        print("%-8s %6s %7s %8s %8s %6s %6s  %s" % ("lang", "pop", "PARSED", "REFUSED", "DECLARED", "CRASH", "UNEXT", "first undeclared refusal / first crash"), flush=True)
+        print("%-8s %6s %7s %8s %8s %6s %6s %6s  %s" % ("lang", "pop", "PARSED", "REFUSED", "DECLARED", "CRASH", "EMPTY", "UNEXT", "first undeclared refusal / first crash / first empty"), flush=True)
         red = unext = tp = tn = 0
         for lang, _ in langs:
-            r = {"PARSED": 0, "REFUSED": 0, "DECLARED": 0, "CRASH": 0, "UNEXTRACTED": 0, "first": {}}
+            r = {"PARSED": 0, "REFUSED": 0, "DECLARED": 0, "CRASH": 0, "EMPTY": 0, "UNEXTRACTED": 0, "first": {}}
             mine = [w for w in work if w[2] == lang]
             with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
                 for _l, key, cls, first in ex.map(lambda w: task(*w), mine):
                     rel = os.path.relpath(key, CORPUS) if os.path.isabs(key) else key
-                    if cls == "REFUSED" and (lang, rel) in declared:
+                    if cls in ("REFUSED", "EMPTY") and (lang, rel) in declared:
                         cls = "DECLARED"
                     r[cls] += 1
                     r["first"].setdefault(cls, "%s [%s]" % (rel, first[:60]))
             n = pops[lang]
             tp += r["PARSED"]
             tn += n
-            f = " | ".join(x for x in (r["first"].get("REFUSED", ""), r["first"].get("CRASH", ""), r["first"].get("UNEXTRACTED", "")) if x)
-            print("%-8s %6d %7d %8d %8d %6d %6d  %s" % (lang, n, r["PARSED"], r["REFUSED"], r["DECLARED"], r["CRASH"], r["UNEXTRACTED"], f), flush=True)
+            f = " | ".join(x for x in (r["first"].get("REFUSED", ""), r["first"].get("CRASH", ""), r["first"].get("EMPTY", ""), r["first"].get("UNEXTRACTED", "")) if x)
+            print("%-8s %6d %7d %8d %8d %6d %6d %6d  %s" % (lang, n, r["PARSED"], r["REFUSED"], r["DECLARED"], r["CRASH"], r["EMPTY"], r["UNEXTRACTED"], f), flush=True)
             unext += r["UNEXTRACTED"]
-            if n == 0 or r["CRASH"] or r["REFUSED"]:
+            if n == 0 or r["CRASH"] or r["REFUSED"] or r["EMPTY"]:
                 red += 1
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
