@@ -12,8 +12,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # THE POPULATION is every .sc under corpus/benchmarks/snocone, recursively -- no exclusions, printed as the denominator.
 # THE SIDECARS, per program NAME: REF = NAME.ref (cut from the oracle: sbl -bf on the SNOBOL4 twin, same input); IN = NAME.input,
-#   else the family's .input (NAME less -match / -match-fence), else /dev/null; MEMORY = NAME.heap_kb, one integer in KB, exported
-#   as SCRIP_HEAP_KB for THAT program only (RULES.md heap-cap clause 7: a declared need is an attribute of the test).
+#   else the family's .input (NAME less -match / -match-fence), else /dev/null; MEMORY = NAME.heap and NAME.stack, each one line
+#   NAME<TAB>KB, read through lib_declared_arena.sh (the one reader) and passed as SPITBOL's switches -d<KB>k and -s<KB>k on THAT
+#   program's own command line, never the environment (CEO-1225, CEO-1261; the coo's arena-env row on CEO-1235 (2)(b)); every
+#   program declares both, at the shipped defaults unless it measured a need (Lon 2026-09-25, via ddfa57a55: "Ensure that all the
+#   test suite programs have the stack size and heap size setting placed into the per-program attribute files."). A retired
+#   NAME.heap_kb beside a program is REFUSED, never ignored, so an old declaration cannot vanish while its file sits there.
 # THE THREE ANGLES, each run in m3 (scrip --run) and m4 (--compile, as, gcc, run), the program's STDOUT diffed against its REF
 #   EVERY TIME -- a benchmark whose answer is wrong under any angle is not a benchmark:
 #   process  the PRISTINE source under tools/bench_rusage (the process wrapper: elapsed, CPU, RSS, context switches)
@@ -47,6 +51,7 @@ refuse() { echo "⛔ SNOCONE BENCH SUITE REFUSE(2): $*"; exit 2; }
 [ -f "$GEN" ] || refuse "the wrapper generator $GEN is missing"
 [ -d "$BD" ] || refuse "no benchmark tree at $BD"
 PW="$HERE/util_progress_append.py"; [ -f "$PW" ] || refuse "the one progress-database writer $PW is missing (CEO-331)"
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
 "$HERE/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" >/dev/null || refuse "the binary is older than the tree -- run make (util_require_fresh.sh)"
 W="$(mktemp -d "${TMPDIR:-/tmp}/sncbench.XXXXXX")" || refuse "cannot make a work dir"; trap 'rm -rf "$W"' EXIT
 [ -n "$OUTDIR" ] || OUTDIR="$W/out"; mkdir -p "$OUTDIR" || refuse "cannot make $OUTDIR"
@@ -58,10 +63,10 @@ stdin_of() { local b="${1%.sc}" d fam; [ -f "$b.input" ] && { echo "$b.input"; r
   [ -f "$d/$fam.input" ] && { echo "$d/$fam.input"; return; }; echo /dev/null; }
 # run_one <mode> <program.sc> <stdin> <tag> <prefix...> -> stdout in $W/o, stderr in $W/e, rc in RC; m4 compiles and links first
 run_one() { local mode="$1" prog="$2" in="$3" tag="$4"; shift 4
-  if [ "$mode" = m3 ]; then "$@" timeout "$TMO" "$SCRIP" "$prog" <"$in" >"$W/o" 2>"$W/e"; RC=$?; return; fi
+  if [ "$mode" = m3 ]; then "$@" timeout "$TMO" "$SCRIP" "${SW[@]}" "$prog" <"$in" >"$W/o" 2>"$W/e"; RC=$?; return; fi
   if ! "$SCRIP" --compile -o "$W/$tag.s" "$prog" </dev/null >"$W/c.err" 2>&1 || ! gcc -no-pie -o "$W/$tag.x" "$W/$tag.s" -L"$RT" -Wl,-rpath,"$RT" -lscrip_rt -lm >>"$W/c.err" 2>&1; then
     : >"$W/o"; cp "$W/c.err" "$W/e"; RC=97; return; fi
-  "$@" timeout "$TMO" "$W/$tag.x" <"$in" >"$W/o" 2>"$W/e"; RC=$?; }
+  "$@" timeout "$TMO" "$W/$tag.x" "${SW[@]}" <"$in" >"$W/o" 2>"$W/e"; RC=$?; }
 echo "=== SNOCONE BENCHMARK SUITE: ${#POP[@]} programs x 2 modes x 3 angles, graded against each REF (SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY), corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$S4E/corpus" diff --quiet 2>/dev/null || echo -DIRTY), RT_OPT from the Makefile, iter n=${NITER:-marker check}, time budget ${BUD} ms) ==="
 PASS=0; P3=0; P4=0; REFLESS=0; UNWRAP=0; HEAPD=0; NOTES=""; SCOUT=""; PREFUSED=0
 sev() { case "$1" in PASS) echo 0;; FAIL) echo 1;; UNPROVEN) echo 2;; CRASH) echo 3;; HANG) echo 4;; esac; }
@@ -74,7 +79,10 @@ record() { local cfg; cfg=$("${heap[@]}" python3 -c 'import sys; sys.path.insert
     || { PREFUSED=$((PREFUSED + 1)); NOTES="$NOTES\n    $1 $2: the progress row was REFUSED -- $(head -1 "$W/p.err")"; }; }
 for f in "${POP[@]}"; do
   rel="${f#$BD/}"; name="${rel%.sc}"; ref="${f%.sc}.ref"; in="$(stdin_of "$f")"; heap=()
-  if [ -s "${f%.sc}.heap_kb" ]; then heap=(env -u SCRIP_HEAP_MB "SCRIP_HEAP_KB=$(head -1 "${f%.sc}.heap_kb" | tr -dc 0-9)"); HEAPD=$((HEAPD + 1)); else heap=(env); fi
+  [ -e "${f%.sc}.heap_kb" ] && refuse "$rel: ${f%.sc}.heap_kb is the retired spelling -- declare NAME<TAB>KB in ${f%.sc}.heap"
+  kb="$(declared_arena_kb_beside "$f")" || refuse "$rel: its .heap sidecar is refused (the reader said why above)"
+  st="$(declared_stack_kb_beside "$f")" || refuse "$rel: its .stack sidecar is refused (the reader said why above)"
+  read -r -a SW <<<"$(_declared_switch_words "$kb" "$st")"; heap=(env); [ ${#SW[@]} -gt 0 ] && HEAPD=$((HEAPD + 1))
   if [ ! -s "$ref" ]; then REFLESS=$((REFLESS + 1)); printf '  %-36s REFLESS -- no non-empty .ref, not a pass\n' "$rel"
     record "$rel" m3 UNGRADED 0 "no .ref"; record "$rel" m4 UNGRADED 0 "no .ref"; continue; fi
   want="$(cat "$ref")"; ok3=1; ok4=1; cells=""; o3=PASS; o4=PASS; s3=0; s4=0
@@ -101,9 +109,9 @@ for f in "${POP[@]}"; do
     done
   done
   [ "$ok3" = 1 ] && P3=$((P3 + 1)); [ "$ok4" = 1 ] && P4=$((P4 + 1))
-  hnote=""; [ ${#heap[@]} -gt 1 ] && hnote=" at declared heap ${heap[3]#SCRIP_HEAP_KB=} KB"
+  hnote=""; [ ${#SW[@]} -gt 0 ] && hnote=" at declared ${SW[*]}"
   record "$rel" m3 "$o3" "$s3" "process/iter/time vs REF$hnote"; record "$rel" m4 "$o4" "$s4" "process/iter/time vs REF$hnote"
-  if [ "$ok3" = 1 ] && [ "$ok4" = 1 ]; then PASS=$((PASS + 1)); printf '  %-36s PASS  (6 of 6 runs print the REF)%s\n' "$rel" "$([ ${#heap[@]} -gt 1 ] && echo "  heap ${heap[3]#SCRIP_HEAP_KB=} KB declared")"
+  if [ "$ok3" = 1 ] && [ "$ok4" = 1 ]; then PASS=$((PASS + 1)); printf '  %-36s PASS  (6 of 6 runs print the REF)%s\n' "$rel" "$([ ${#SW[@]} -gt 0 ] && echo "  declared ${SW[*]}")"
   else printf '  %-36s FAIL %s\n' "$rel" "$cells"; fi
 done
 N=${#POP[@]}
