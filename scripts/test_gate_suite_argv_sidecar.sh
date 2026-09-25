@@ -153,8 +153,13 @@ refuses "a name declared with no arguments"  "declares no arguments" "$(printf '
 # declaration could not reach it, and a criterion that cannot be evaluated must never look satisfied.
 examined=$((examined + 1))
 printf 'takes_args\t41\ttwo words\n' > "$TD/F.argv"
+# ⛔ SINCE 2026-09-25 (coo, row instruments-the-harness-defaults-...-to-the-dead-ast-mode-...) the harness refuses
+# --modes ast OUTRIGHT, rc=2, before any entry is read: the grade it asks for is a could-not-measure, so the argv
+# declaration can never be silently dropped under it. This arm pins that refusal by its own words. The earlier
+# check, rc != 0 and any line matching 'never', read green off the ARENA banner's prose once ast refused
+# for a different reason.
 out="$(python3 "$H" run "$TD/F.icn" "$TD/F.ref" --lang icon --modes ast 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] || ! printf '%s' "$out" | grep -qi 'never'; then
+if [ "$rc" -ne 2 ] || ! printf '%s' "$out" | grep -q 'graded in m3 and m4 only'; then
     echo "GATE FAIL: an ast-only grading accepted an .argv declaration it cannot possibly execute (rc=$rc)"
     printf '%s\n' "$out" | sed 's/^/    /'
     violations=$((violations + 1))

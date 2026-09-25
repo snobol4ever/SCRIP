@@ -97,9 +97,6 @@ def main():
     paths = h.resolve_paths()
     lang = args.lang
     cfg = h.LANG_CONFIGS.get(lang, {"ext": ".sno", "comment_open": "*", "comment_close": "", "modes": "m3,m4"})
-    if cfg["modes"] == "ast":
-        refuse(f"{lang}'s master is graded on SCRIP's own AST dump (LANG_CONFIGS modes=ast): every ref is a self-pin "
-               f"by design and no oracle emits the shape -- this census has nothing to ask")
     master_dir = paths["corpus_root"] / "tests" / lang if "corpus_root" in paths else Path(HERE.parent.parent / "corpus" / "tests" / lang)
     src = master_dir / f"ALL{cfg['ext']}"
     ref = master_dir / "ALL.ref"

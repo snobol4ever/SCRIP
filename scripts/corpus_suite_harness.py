@@ -119,13 +119,30 @@ ANY_BANNER_RE = re.compile(r"^[*#%{/][*#%{/ ]*-{3,} \d+ \S+")
 # actually run --dump-ast (or whatever mode) against a real sample and confirmed the banner
 # round-trips -- do not add a config for a language nobody has exercised.
 LANG_CONFIGS = {
-    "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "ast"},
-    "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "ast"},
+    "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
+    "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
     "pascal": {"ext": ".pas", "comment_open": "{", "comment_close": "}", "modes": "m3,m4"},
-    "prolog": {"ext": ".pl", "comment_open": "%", "comment_close": "", "modes": "ast"},
+    "prolog": {"ext": ".pl", "comment_open": "%", "comment_close": "", "modes": "m3,m4"},
     "icon": {"ext": ".icn", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
-    "snocone": {"ext": ".sc", "comment_open": "/*", "comment_close": " */", "modes": "ast"},
+    "snocone": {"ext": ".sc", "comment_open": "/*", "comment_close": " */", "modes": "m3,m4"},
 }
+
+# ⛔⭐ A SUITE IS GRADED IN m3 AND m4 AND NOTHING ELSE, AND ANY OTHER --modes REFUSES BEFORE A ROW IS WRITTEN (coo 2026-09-25,
+# row instruments-the-harness-defaults-rebus-raku-prolog-and-snocone-to-the-dead-ast-mode-..., ceo CEO-1269). raku, rebus,
+# prolog and snocone defaulted to "ast" here after the ast entries left the masters (corpus a6646f04c), so `run --lang rebus`
+# with no --modes graded --dump-ast against run refs: SUITE_BOARD ast_n=43 ast_pass=0, exit 1, and 43 FAIL rows in the
+# progress record -- three times in five days (coo 09-21, ceo 09-24 and 09-25) -- while --modes m3,m4 read 43/43 FAIL 0.
+# A plausible, entirely false 0 of N. Every entry is graded in both media (CEO-1218), so the defaults are m3,m4 and a mode
+# outside them is a could-not-measure, never a grade. run_ast stays: util_build_master_suite.py's classifier calls it.
+GRADED_MODES = ("m3", "m4")
+def parse_modes(spec, where):
+    modes = [m for m in (spec or "").split(",") if m]
+    bad = [m for m in modes if m not in GRADED_MODES]
+    if not modes or bad:
+        refuse(f"{where}: --modes {spec!r} names {', '.join(bad) if bad else 'no mode'} -- a suite is graded in m3 and m4 only "
+               f"(CEO-1218: every entry in both media). Mode ast (--dump-ast) grades a parse against a run ref and recorded "
+               f"0 of 43 FAIL rows for the Rebus master three times; nothing was graded and no progress row was written.")
+    return modes
 
 
 # ⛔⭐ `snobol4` IS AN ACCEPTED SPELLING OF THE DEFAULT, AND LEAVING IT OUT COST TWO SESSIONS. The default
@@ -1127,13 +1144,6 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
             out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb)
-    if "ast" in modes:
-        # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
-        # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
-        # ⛔ heap_kb is NOT threaded here for the identical reason: --dump-ast never runs the program, so
-        # it has no live set and a declared arena could not change its verdict. An ast-graded suite whose
-        # csv carries a declaration is not an error -- the declaration simply has nothing to act on.
-        out["ast"] = run_ast(paths, sno_path, expected_text, want_rc=want_rc)
     return out
 
 
@@ -1946,7 +1956,7 @@ def cmd_capture_oracle_refs(args):
     ext = LANG_CONFIGS[lang]["ext"] if lang != "snobol4" else ".sno"
     oracle_bin, flags = resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)
-    modes = args.modes.split(",")
+    modes = parse_modes(args.modes, "capture-oracle-refs")
     family_dir = Path(args.family_dir).resolve()   # ⛔ ABSOLUTE, ALWAYS (ceo s283h): run_m3/run_ast set subprocess cwd to the FILE'S OWN PARENT while argv carries this path -- a caller-relative path then resolves against the wrong dir, scrip cannot open it (rc=1), and every 'original' baseline is silently garbage: convert then REFUSES green families ('NEITHER form reproduced') or, worse, validates a candidate against the broken baseline. Measured on probe/kw (15/15 false FAIL) and probe/define (false-validated) 2026-08-29.
     srcs = sorted(family_dir.glob(f"*{ext}"))
     if not srcs:
@@ -2086,7 +2096,7 @@ def cmd_capture_oracle_refs(args):
 def cmd_convert(args):
     paths = resolve_paths()
     check_scrip(paths)
-    modes = args.modes.split(",")
+    modes = parse_modes(args.modes, "convert")
     family_dir = Path(args.family_dir).resolve()   # ⛔ ABSOLUTE, ALWAYS (ceo s283h): run_m3/run_ast set subprocess cwd to the FILE'S OWN PARENT while argv carries this path -- a caller-relative path then resolves against the wrong dir, scrip cannot open it (rc=1), and every 'original' baseline is silently garbage: convert then REFUSES green families ('NEITHER form reproduced') or, worse, validates a candidate against the broken baseline. Measured on probe/kw (15/15 false FAIL) and probe/define (false-validated) 2026-08-29.
     pairs = discover_pairs(family_dir)
     if not pairs:
@@ -2217,7 +2227,7 @@ def cmd_convert_blocks(args):
         refuse(f"unknown --lang {args.lang!r} -- known: {sorted(LANG_CONFIGS)}")
     cfg = LANG_CONFIGS[args.lang]
     ext, comment_open, comment_close = cfg["ext"], cfg["comment_open"], cfg["comment_close"]
-    modes = (args.modes or cfg["modes"]).split(",")
+    modes = parse_modes(args.modes or cfg["modes"], "convert-blocks")
     family_dir = Path(args.family_dir).resolve()   # ⛔ ABSOLUTE, ALWAYS (ceo s283h): run_m3/run_ast set subprocess cwd to the FILE'S OWN PARENT while argv carries this path -- a caller-relative path then resolves against the wrong dir, scrip cannot open it (rc=1), and every 'original' baseline is silently garbage: convert then REFUSES green families ('NEITHER form reproduced') or, worse, validates a candidate against the broken baseline. Measured on probe/kw (15/15 false FAIL) and probe/define (false-validated) 2026-08-29.
     pairs = discover_pairs(family_dir, ext=ext)
     if not pairs:
@@ -2635,7 +2645,7 @@ def cmd_run(args):
     if args.lang:
         cfg = LANG_CONFIGS[args.lang]
         ext = cfg["ext"]
-        modes = (args.modes or cfg["modes"]).split(",")
+        modes = parse_modes(args.modes or cfg["modes"], "run")
         banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
         entries = read_block_suite(args.sno, args.ref, banner_re, in_path=sidecar_in_path(args.sno),
                                    x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
@@ -2643,7 +2653,7 @@ def cmd_run(args):
     else:
         require_lang_for_suite("run", args.sno, args)
         ext = ".sno"
-        modes = (args.modes or "m3,m4").split(",")
+        modes = parse_modes(args.modes or "m3,m4", "run")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
                              x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
                              a_path=sidecar_argv_path(args.sno), modes=modes)
