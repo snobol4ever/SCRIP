@@ -33,7 +33,7 @@ W="$(mktemp -d)" || { echo "⛔ REFUSED: mktemp failed -- nothing was checked"; 
 PO="$W/po"; ROW=gate-fixture-row
 mk_po() {  # $1 = mode text, or the literal NONE to omit the file entirely
   rm -rf "$PO"; mkdir -p "$PO/tasks" "$PO/claims" || return 2
-  for m in ceo cto cfo coo hq_B seat01; do mkdir -p "$PO/$m/inbox" || return 2; done
+  for m in ceo cto cfo coo hq_B seat01 hq_snobol4 hq_raku; do mkdir -p "$PO/$m/inbox" || return 2; done
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"
   [ "$1" = NONE ] || printf '%s\n' "$1" > "$PO/MODE"
   { printf '# gate fixture queue\n'; printf '0\t%s\tunassigned\tFREE\n' "$ROW"; } > "$PO/QUEUE.tsv"
@@ -73,7 +73,12 @@ arm_refuse coo    CEO     "(B5) coo under CEO"
 arm_allow  cto    NONET   "(B6) CONTROL: cto under NONET still dispatches -- the refusal is the MODE, not the seat"
 arm_allow  ceo    CEO     "(C) ceo under CEO is NEVER refused"
 arm_allow  hq_B   FLEET-16 "(D) hq_B under FLEET-16"
-arm_allow  hq_B   NONET    "(D2) hq_B under NONET -- all nine HQs stand (Lon 2026-09-08)"
+# ⛔ (D2) WAS "hq_B under NONET -- all nine HQs stand (Lon 2026-09-08)" and read RED from the NONET flip at 87701eadb
+# (coo 2026-09-25): NONET was re-defined on Lon's word 2026-09-25 as FIVE named language HQs (CEO-1266), and the
+# guard names them, so the allow moves to one of the five and the lettered name becomes the refusal it now is.
+arm_allow  hq_snobol4 NONET "(D2) hq_snobol4 under NONET -- the five named language HQs stand (Lon 2026-09-25, CEO-1266)"
+arm_refuse hq_B   NONET    "(D3) hq_B under NONET -- a lettered legacy HQ is not one of the five (CEO-1266)"
+arm_allow  hq_raku TENET   "(D4) hq_raku under TENET -- the six language HQs stand, RAKU with its own (CEO-1266)"
 arm_allow  hq_B   NONE     "(E) hq_B with NO MODE file"
 # ⛔ THE MUTANT IS FULLY HERMETIC, AND GETTING THERE TOOK TWO TRIES. First cut put it under mktemp alone and it
 # failed to source lib_release_guard.sh (s4e_msg.sh resolves siblings from its OWN directory), so arm (F) went red

@@ -46,7 +46,10 @@ refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_order_of_work.XXXXXX")" || refuse "mktemp failed"
 trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
-for s in ceo hq_C hq_B hq_P hq_S hq_T seat07; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
+# the seats under test are hq_snobol4 and hq_prolog (coo 2026-09-25): the arms ran as hq_P and hq_S, and since the NONET
+# flip at 87701eadb the seat guard admits only the five HQs it names under NONET, so every arm read a guard refusal
+# instead of the picker (18 of 19 red on origin); the comments keep the old names, which record who found each arm
+for s in ceo hq_C hq_B hq_P hq_S hq_T seat07 hq_snobol4 hq_prolog; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
 mk(){ printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$W/QUEUE.tsv"; printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' "$2" > "$W/tasks/$2.task.md"; }
 # ⭐ mkb = mk with a CHOSEN BATON BODY. Arms (k)..(o) turn on what the baton says, and `mk`'s fixed
 # "GOAL: fixture" says nothing -- which is exactly why every arm above passed while the live picker was
@@ -72,9 +75,9 @@ echo "=== gate: next refuses a row of a language parked by THE ORDER OF WORK ===
 # better rank, and an owner cell that names the seat by name.
 set_mode 'NONET' "$LIVE_L2"
 reset_q
-mk 0 snobol4-master-red-fixture  hq_P FREE
-mk 5 icon-jcon-std-recut-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
   && ck ok "(a) THE ORDER OF WORK IS ICON ONLY parks the rank-0 SNOBOL4 row; the rank-5 icon row is served instead" \
   || ck no "(a) a parked-language row must never be served automatically, owner cell or not -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -87,9 +90,9 @@ grep -q 'snobol4-master-red-fixture' <<<"$out" && grep -qE 'SKIP|PARKED|ORDER OF
 # different mode entirely and carries no freeze wording of any spelling.
 set_mode 'NONET' "$OTHER_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mk 0 snobol4-master-red-fixture  hq_P FREE
-mk 5 icon-jcon-std-recut-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" \
   && ck ok "(c) the ORDER-OF-WORK marker alone parks the SNOBOL4 row, with no ONLY clause in prose anywhere" \
   || ck no "(c) the machine line must be sufficient on its own -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -100,9 +103,9 @@ grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" \
 # parked and the arm would fail. Precedence proven, not assumed.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: snobol4'
 reset_q
-mk 0 snobol4-master-red-fixture  hq_P FREE
-mk 5 icon-jcon-std-recut-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
   && ck ok "(d) the marker line is AUTHORITATIVE over prose -- prose ICON ONLY, marker snobol4, SNOBOL4 served" \
   || ck no "(d) the machine line must outrank the prose it replaces -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -112,9 +115,9 @@ grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
 # 2026-09-08 ("SNOBOL4 AND ICON TO 100%"). An equality test fails CLOSED here, parking a LIVE language.
 set_mode 'NONET' "$OTHER_L2" 'ORDER-OF-WORK: icon snobol4'
 reset_q
-mk 0 snobol4-master-red-fixture  hq_P FREE
-mk 5 icon-jcon-std-recut-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
   && ck ok "(e) two live languages: a SNOBOL4 row is served when the order of work names icon AND snobol4" \
   || ck no "(e) the order of work is a SET, not one language -- a live language must never be parked: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -122,8 +125,8 @@ grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
 # --- (f): `all` RESTRICTS NOTHING ------------------------------------------------------------------------
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: all'
 reset_q
-mk 0 prolog-inria-red-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 prolog-inria-red-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*prolog-inria-red-fixture' <<<"$out" \
   && ck ok "(f) ORDER-OF-WORK: all restricts nothing -- the explicit way to lift a freeze without deleting the line" \
   || ck no "(f) `all` must open every language -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -132,8 +135,8 @@ grep -qE '^LOCKED.*prolog-inria-red-fixture' <<<"$out" \
 # ⛔ A checker that always refuses and one that never refuses BOTH pass every arm above except this one.
 set_mode 'NONET' "$OTHER_L2"
 reset_q
-mk 0 snobol4-master-red-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 snobol4-master-red-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
   && ck ok "(g) POSITIVE CONTROL: with no marker and no ONLY clause, the SNOBOL4 row IS served -- no misfire" \
   || ck no "(g) an inactive order of work must restrict nothing -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -146,9 +149,9 @@ set_mode 'NONET' "$LIVE_L2" "$OTHER_L2" '# 2026-09-07 08:15 CDT ceo: CEO-382 ann
          '# 2026-09-06 15:41 CDT ceo: MODE OCTET.' 'ORDER-OF-WORK: icon' \
          '# older entries below' 'ORDER-OF-WORK: prolog'
 reset_q
-mk 0 prolog-inria-red-fixture    hq_P FREE
-mk 5 icon-jcon-std-recut-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 prolog-inria-red-fixture    hq_snobol4 FREE
+mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*prolog-inria-red-fixture' <<<"$out" \
   && ck ok "(h) the marker is matched by MARKER at any depth and the FIRST wins -- a superseded marker below it is ignored" \
   || ck no "(h) a positional read would break on the next prepended entry -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -158,8 +161,8 @@ grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED
 # repairs the bus is itself unreachable the moment the bus is frozen.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mk 0 postoffice-tooling-fixture hq_P FREE
-out="$(run_next hq_P)"
+mk 0 postoffice-tooling-fixture hq_snobol4 FREE
+out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*postoffice-tooling-fixture' <<<"$out" \
   && ck ok "(i) a topic naming no language is language-neutral and is served under any order of work" \
   || ck no "(i) a language-neutral topic must never be parked -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -172,12 +175,12 @@ grep -qE '^LOCKED.*postoffice-tooling-fixture' <<<"$out" \
 # topic begins `snobol4-` and the order of work was ICON ONLY.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mk 0 snobol4-assigned-tooling-fixture hq_P ASSIGNED:hq_P
+mk 0 snobol4-assigned-tooling-fixture hq_snobol4 ASSIGNED:hq_snobol4
 # ⛔ THE ASSIGNMENT LIVES IN THE CLAIM FILE, NOT THE QUEUE COLUMN -- PASS 1 reads `claims/<topic>.claim`
 # (first line the assignee, an `ASSIGNED-BY` line, neither DONE nor RUNNING), which is precisely what
 # `dispatch` writes. A fixture that set only the ASSIGNED:<seat> column would prove nothing about PASS 1.
-{ echo 'hq_P'; echo "ASSIGNED-BY ceo $(date -u +%FT%TZ)"; } > "$W/claims/snobol4-assigned-tooling-fixture.claim"
-out="$(run_next hq_P)"
+{ echo 'hq_snobol4'; echo "ASSIGNED-BY ceo $(date -u +%FT%TZ)"; } > "$W/claims/snobol4-assigned-tooling-fixture.claim"
+out="$(run_next hq_snobol4)"
 grep -qE 'snobol4-assigned-tooling-fixture' <<<"$out" && ! grep -qE 'QUEUE EMPTY' <<<"$out" \
   && ck ok "(j) a row ASSIGNED to this seat by name is still served -- an explicit direction outranks the default" \
   || ck no "(j) the order of work must not block a deliberate assignment -- got: $out"
@@ -209,12 +212,12 @@ grep -qE 'snobol4-assigned-tooling-fixture' <<<"$out" && ! grep -qE 'QUEUE EMPTY
 # and the oracle it grades against.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 input-open-failure-not-signaled hq_S FREE \
+mkb 0 input-open-failure-not-signaled hq_prolog FREE \
     'GOAL: INPUT() on a file it cannot open never signals failure. The oracle (sbl -bf) fails fast with ERROR 116.' \
     'Witness: simple_output_62 in corpus/tests/snobol4/ALL.sno' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-mkb 5 icon-jcon-std-recut-fixture hq_S FREE 'GOAL: fixture' 'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+mkb 5 icon-jcon-std-recut-fixture hq_prolog FREE 'GOAL: fixture' 'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*input-open-failure-not-signaled' <<<"$out" \
   && ck ok "(k) a slug-neutral row whose BATON names SNOBOL4's witnesses is parked under ICON ONLY -- the row that was actually served" \
   || ck no "(k) the language may live only in the baton, and the freeze must still see it -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -225,9 +228,9 @@ grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED
 # from the opposite direction. Same slug shape, same rank, same seat; only the baton's content differs.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 postoffice-picker-tooling-fixture hq_S FREE \
+mkb 0 postoffice-picker-tooling-fixture hq_prolog FREE \
     'GOAL: the picker prints its own denominator when it serves nothing.' 'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*postoffice-picker-tooling-fixture' <<<"$out" \
   && ck ok "(l) POSITIVE CONTROL: a slug-neutral row whose baton names no language's witnesses is still served -- no misfire" \
   || ck no "(l) genuinely language-neutral tooling must survive every order of work -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -238,11 +241,11 @@ grep -qE '^LOCKED.*postoffice-picker-tooling-fixture' <<<"$out" \
 # is parked anyway, on the strength of one written line.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 some-unprefixed-row-fixture hq_S FREE \
+mkb 0 some-unprefixed-row-fixture hq_prolog FREE \
     'LANGUAGE: snobol4' 'GOAL: a row whose baton declares its language and names no witness path at all.' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-mkb 5 icon-jcon-std-recut-fixture hq_S FREE 'GOAL: fixture' 'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+mkb 5 icon-jcon-std-recut-fixture hq_prolog FREE 'GOAL: fixture' 'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*some-unprefixed-row-fixture' <<<"$out" \
   && ck ok "(m) a DECLARED 'LANGUAGE:' line in the baton parks the row on its own, with no witness path anywhere" \
   || ck no "(m) declared must beat inferred, and must work where inference has nothing -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -260,10 +263,10 @@ grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED
 # procedure, false explanation" class this project keeps paying for.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 shared-node-emitter-fixture hq_S FREE \
+mkb 0 shared-node-emitter-fixture hq_prolog FREE \
     'GOAL: a shared-node cure graded on corpus/tests/snobol4/ALL.sno AND corpus/tests/icon/ALL.icn.' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*shared-node-emitter-fixture' <<<"$out" \
   && ck ok "(n) an ambiguous baton with a LIVE candidate (icon) among its languages is still served" \
   || ck no "(n) ambiguity with a live candidate must serve, never guess one language -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -275,10 +278,10 @@ grep -qE '^LOCKED.*shared-node-emitter-fixture' <<<"$out" \
 # against sbl to explain a divergence is still an Icon row.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 icon-jcon-loadfunc-fixture hq_S FREE \
+mkb 0 icon-jcon-loadfunc-fixture hq_prolog FREE \
     'GOAL: an icon row that cites corpus/tests/snobol4/ALL.sno and sbl -bf only to contrast the two runtimes.' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*icon-jcon-loadfunc-fixture' <<<"$out" \
   && ck ok "(o) the SLUG outranks the baton -- an icon- row whose baton greps SNOBOL4 is served under ICON ONLY" \
   || ck no "(o) the prefix table must stay the authority when it answers -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -302,10 +305,10 @@ grep -qE '^LOCKED.*icon-jcon-loadfunc-fixture' <<<"$out" \
 # --- (p): EVERY CANDIDATE PARKED => REFUSED ---------------------------------------------------------------
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 roast-import-fixture hq_S FREE \
+mkb 0 roast-import-fixture hq_prolog FREE \
     'GOAL: import a curated subset into corpus/packages/raku/roast/ (the packages/ import pattern beside gimpel/csnobol4_suite/ipl/jcon).' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*roast-import-fixture' <<<"$out" \
   && ck no "(p) THE BYPASS: every candidate (raku, snobol4) is parked under ICON ONLY and the row was still SERVED" \
   || ck ok "(p) a row whose every candidate language is parked is refused -- ambiguity is not a free pass"
@@ -315,10 +318,10 @@ grep -qE '^LOCKED.*roast-import-fixture' <<<"$out" \
 # That is the same harm arm (l) exists to prevent, arrived at from the other side.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: raku'
 reset_q
-mkb 0 roast-import-fixture hq_S FREE \
+mkb 0 roast-import-fixture hq_prolog FREE \
     'GOAL: import a curated subset into corpus/packages/raku/roast/ (the packages/ import pattern beside gimpel/csnobol4_suite/ipl/jcon).' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*roast-import-fixture' <<<"$out" \
   && ck ok "(q) POSITIVE CONTROL: the same ambiguous row IS served when one of its candidates is the live language" \
   || ck no "(q) refusing every ambiguous row would park the cross-language half of the queue -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -331,11 +334,11 @@ grep -qE '^LOCKED.*roast-import-fixture' <<<"$out" \
 # is permanent and readable. DECLARED beats INFERRED, extended to the answer inference cannot safely reach.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 dead-flag-sweep-fixture hq_S FREE \
+mkb 0 dead-flag-sweep-fixture hq_prolog FREE \
     'LANGUAGE: neutral' \
     'GOAL: sweep the scripts for a dead CLI convention; examples read scrip -x86 file.sno and scrip -sc file.sc.' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*dead-flag-sweep-fixture' <<<"$out" \
   && ck ok "(r) a baton DECLARING 'LANGUAGE: neutral' is served though inference would park it on placeholder filenames" \
   || ck no "(r) declared neutrality must outrank inference, or tooling rows park on prose -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
@@ -348,11 +351,11 @@ grep -qE '^LOCKED.*dead-flag-sweep-fixture' <<<"$out" \
 # writing one may explain it on the same line.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mkb 0 decorated-marker-fixture hq_S FREE \
+mkb 0 decorated-marker-fixture hq_prolog FREE \
     'LANGUAGE: neutral   # a tooling row; the examples below are placeholders, not witnesses' \
     'GOAL: sweep the scripts; examples read scrip -x86 file.sno and scrip -sc file.sc.' \
     'DONE-WHEN: true' '## NEXT' 'fixture'
-out="$(run_next hq_S)"
+out="$(run_next hq_prolog)"
 grep -qE '^LOCKED.*decorated-marker-fixture' <<<"$out" \
   && ck ok "(s) a 'LANGUAGE:' marker with a trailing # comment still parses -- a decorated marker is not an absent one" \
   || ck no "(s) an explained marker must not read as absent -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
