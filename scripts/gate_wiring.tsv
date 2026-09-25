@@ -524,6 +524,7 @@ test_gate_sn4_replacement_releases_its_post_match_spine.sh	WIRED	-	-	-
 test_gate_snc_a_label_at_end_of_file_is_a_statement.sh	WIRED	-	-	-
 test_gate_snc_two_nreturn_functions_link_in_m4.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
+test_gate_sno_a_call_saves_binds_and_restores_an_io_associated_name_without_io.sh	WIRED	-	-	-
 test_gate_sno_a_capture_slices_the_subject_and_table_convert_mkpat_take_the_direct_table.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
 test_gate_sno_a_data_field_access_takes_one_lookup_and_a_field_store_allocates_nothing.sh	WIRED	-	-	-

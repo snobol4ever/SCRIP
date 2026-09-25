@@ -1313,8 +1313,6 @@ static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_C
 static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
 static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) int rt_call_fastpath_ok(void) { return !g_call_fastpath_off; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_name_side_effecting(const char *nm)
 {
     static const char *const S[] = { "TERMINAL", "ALPHABET", "STCOUNT", "STNO", 0 };
@@ -1360,17 +1358,16 @@ int rt_name_save_push(const char **names, DESCR_t **cells, DESCR_t *args, int na
     int base = g_name_save_top;
     int nf = rt_nsave_fast_on();
     if (nf && n <= 0) return base;
-    int fast = rt_call_fastpath_ok();
     for (int k = 0; k < n; k++) {
         const char *nm = names ? names[k] : (const char *)0; if (!nm) continue;
         if (nf) { if (g_name_save_top >= g_name_save_cap) { rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break; } }
         else { rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break; }
-        DESCR_t *cell = fast ? (cells ? cells[k] : rt_cell_for(nm)) : (DESCR_t *)0;
+        DESCR_t *cell = cells ? cells[k] : rt_cell_for(nm);
         DESCR_t arg = (k < nargs) ? args[k] : NULVCL;
         g_name_save[g_name_save_top].name = nm;
         g_name_save[g_name_save_top].cell = cell;
         if (cell) { g_name_save[g_name_save_top].old = *cell; *cell = arg; }
-        else { g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); }
+        else { monitor_quiet_depth++; g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); monitor_quiet_depth--; }
         g_name_save_top++;
     }
     return base;
@@ -1380,7 +1377,7 @@ void rt_name_restore(int base)
 {
     for (int k = g_name_save_top - 1; k >= base; k--) {
         if (g_name_save[k].cell) *g_name_save[k].cell = g_name_save[k].old;
-        else NV_SET_fn(g_name_save[k].name, g_name_save[k].old);
+        else { monitor_quiet_depth++; NV_SET_fn(g_name_save[k].name, g_name_save[k].old); monitor_quiet_depth--; }
     }
     g_name_save_top = base;
 }
@@ -1480,7 +1477,7 @@ static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
 {
     if (!p) return failed ? FAILDESCR : NULVCL;
     const char *rname = p->result_name ? p->result_name : p->name;
-    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0;
+    DESCR_t *rcell = p->rcell;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     { int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0; rt_name_restore(base); }
     if (g_trace_budget != 0) sno_trace_return(p->name, result);
