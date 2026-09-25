@@ -39,6 +39,16 @@ def q(sv):
     if '"' not in sv: return '"' + sv + '"'
     return ' '.join(q(p) if p else '' for p in re.split(r"(')", sv) if p != '').replace("''", '')
 # ---------------------------------------------------------------------------------------------------------------------------------
+CODEASSERT = [   # (substring of the assertion's code, the value of the code itself: T or F; the <!{ }> form negates it)
+    ('herestub_queue', 'F'), ('$*IN_REGEX_ASSERTION', 'F'), ('$*MULTINESS eq', 'F'), ('bracket_ending', 'F'), ('$*POD_', 'F'),
+    ('$*COMPILING_CORE_SETTING ||', 'F'), ('$*RESTRICTED', 'F'), ("?? False !! self.panic", 'F'), ("getlexdyn('$?FILES')", 'F'),
+    ('$*WHENEVER_COUNT', 'F'), ('$*MAIN ne $OLD_MAIN', 'F'), ('$*IN_QUASI', 'F'), ('$*IN_PROTO', 'F'), ('language_revision >= 3', 'F'),
+    ('$rev >= 3', 'F'), ("&term:<nano>", 'F'), ("$*GOAL eq 'endargs' && !", 'F'), ('$<sibble><infixish>', 'F'), ('$*IN_META ~~', 'F'),
+    ("~$<EXPR> ~~ / '!!'", 'F'), ("$<infixish>.Str eq '='", 'F'), ('$*INVOCANT_OK', 'F'), ('pasttype', 'F'), ("$<sigil>.Str eq '&'", 'F'),
+    ('!$*IN_DECL && $*VARIABLE', 'F'), ("$*QSIGIL eq '$'", 'F'), ('my $marked := $c.MARKED', 'POSTWS'),
+    ('!$*IN_DECL', 'T'), ('$*ARG_FLAT_OK := 0', 'F'), ('is_name($*longname.components())', 'ISNAME'), ('is_name(', 'F'), ('is_type(', 'F'), ('is_lexical', 'F'), ('$is_type', 'ISTYPE'), ('validate_type_smiley', 'T'),
+    ('$*IN_DECL', 'F'), ('$*QSIGIL', 'F'), ('$*IN_META', 'F'), ('$*IN_REDUCE', 'F'),
+]
 MEMO = {'g_terminator': '', 'g__ws': '', 'g_stdstopper': 'endstmt', 'g_lambda': '', 'g_infixstopper': 'ws', 'g_morename': ''}
 ERRFAIL = {'panic', 'typed_panic', 'obs', 'obsvar', 'malformed', 'missing', 'NYI', 'FAILGOAL', 'missing_block', 'sorryobs', 'security', 'nomodexpr', 'dupprefix'}
 NOOP = {'sorry', 'worry', 'typed_worry', 'typed_sorry', 'explain_mystery', 'cry_sorrows', 'attach_leading_docs', 'AS_MATCH', 'set_braid_from',
@@ -85,7 +95,7 @@ class Gen:
         if t == 'code' or t == 'mod': return ''
         if t == 'true': return 'epsilon'
         if t == 'false': return 'FAIL'
-        if t == 'codeassert': s.warn['codeassert'] += 1; return ''
+        if t == 'codeassert': return s.codeassert(n[1], n[2], ctx)
         if t == 'esc': return ESC[n[1]]
         if t == 'anchor': return ANCH[n[1]]
         if t == 'cclass': return cclass(n[1], s)
@@ -98,6 +108,20 @@ class Gen:
         if t == 'call': return s.call(n, ctx)
         if t == 'quant': return s.quant(n, ctx)
         raise ValueError('node ' + t)
+    def codeassert(s, neg, code, ctx):
+        """A code assertion reads interpreter state this recognizer does not track; its value is chosen from its MEANING,
+        one table, never from the text's shape: the state a recognizer is in is 'no heredoc pending, not in a regex
+        assertion, not in a declaration's own name, no pod, no proto, language revision 2 (6.d)'."""
+        c = re.sub(r'\s+', ' ', code.strip('{} \n'))
+        for key, val in CODEASSERT:
+            if key in c:
+                s.warn['codeassert:' + val] += 1
+                if val == 'POSTWS': return '@rk_cur *rk_postws()'
+                if val in ('ISNAME', 'ISTYPE'): return '@rk_cur *%s(%d)' % ('rk_isname' if val == 'ISNAME' else 'rk_istype', 1 if neg else 0)
+                truth = (val == 'T')
+                return 'epsilon' if truth != neg else 'FAIL'
+        s.warn['codeassert:default-holds'] += 1
+        return 'epsilon'
     def call(s, n, ctx):
         name, args, zero, neg, alias = n[1], n[2], n[3], n[4], n[5]
         if len(n) > 6:
@@ -348,6 +372,22 @@ function rk_cnt1(l, a, i) {
     if (EQ(rk_qt, 400000)) { a = SORT(rk_qc, 2); i = 1; while (a[i, 1]) i = i + 1; i = i - 1; while (GT(i, 0)) { OUTPUT = a[i, 2] ' ' a[i, 1]; i = i - 1; if (LT(i, 0)) break; } }
     rk_cnt1 = epsilon; return;
 }
+rk_names = TABLE(); rk_namech = rk_alnum "'-:";
+function rk_lastname(j) { j = rk_cur; while (GT(j, 0)) { if (~(SUBSTR(Src, j, 1) ? ANY(rk_namech))) break; j = j - 1; } rk_lastname = SUBSTR(Src, j + 1, rk_cur - j); return; }
+function rk_known(nm) { if (nm ? POS(0) '::') return; if (nm ? POS(0) ANY(rk_upper)) return; if (DIFFER(rk_names[nm])) return; freturn; }
+function rk_isname(neg) { if (rk_known(rk_lastname())) { if (EQ(neg, 1)) freturn; rk_isname = epsilon; return; } if (EQ(neg, 1)) { rk_isname = epsilon; return; } freturn; }
+function rk_istype(neg, nm) { nm = rk_lastname(); if (nm ? POS(0) ANY(rk_upper)) { if (EQ(neg, 1)) freturn; rk_istype = epsilon; return; } if (EQ(neg, 1)) { rk_istype = epsilon; return; } freturn; }
+function rk_prescan(i, nm, t) {
+    i = 0;
+    while (Src ? TAB(i) BREAK(rk_bs 'c') @i) {
+        t = SUBSTR(Src, i + 1, 9);
+        if (t ? POS(0) rk_bs ANY(rk_alpha)) { if (Src ? TAB(i + 1) SPAN(rk_alnum '-') . nm) rk_names[nm] = 1; }
+        if (t ? POS(0) 'constant ') { if (Src ? TAB(i + 9) FENCE(SPAN(' ') | epsilon) SPAN(rk_alnum '-') . nm) rk_names[nm] = 1; }
+        i = i + 1;
+    }
+    return;
+}
+function rk_postws() { if (IDENT(rk_marks['ws'], rk_cur)) { if (IDENT(rk_marks['ws_from'], rk_cur)) { rk_postws = epsilon; return; } freturn; } rk_postws = epsilon; return; }
 function rk_marker(m) { rk_marks[m] = rk_cur; rk_marker = epsilon; return; }
 function rk_marked(m) { if (IDENT(rk_marks[m], rk_cur)) { rk_marked = epsilon; return; } freturn; }
 function rk_cdiff(a, b, ch, r) { r = ''; while (a ? LEN(1) . ch = '') { if (~(ch ? ANY(b))) r = r ch; } rk_cdiff = ANY(r); return; }
@@ -395,7 +435,7 @@ function rk_mem(nm, mk, k, r, e) {
     r = rk_memo[k];
     if (IDENT(r)) { if (Src ? TAB(rk_cur) $nm @e) r = e; else r = -1; rk_memo[k] = r; }
     if (LT(r, 0)) freturn;
-    if (IDENT(nm, 'g__ws')) rk_marks['ws'] = r;
+    if (IDENT(nm, 'g__ws')) { rk_marks['ws'] = r; rk_marks['ws_from'] = rk_cur; }
     rk_mem = TAB(r); return;
 }
 g_ws      = @rk_cur *rk_mem('g__ws', '');
@@ -407,6 +447,7 @@ DRIVER = r'''
 /* ==================================================================================================================== */
 Src = '';
 while ((Line = INPUT)) Src = Src Line nl;
+rk_prescan();
 if (Src ? POS(0) *g_comp_unit RPOS(0)) OUTPUT = 'Parsed.';
 else OUTPUT = 'Parse Error.';
 '''
