@@ -906,8 +906,8 @@ inline const char * ZRES_SPINE(int w)  { return x86_zref(w, 1); }
 inline const char * ZLOC(int o)        { return x86_zref(16 + o, 1); }
 inline const char * ZLOCD(int o)       { return x86_zref(16 + o, 0); }
 inline const char * ZLOC_B(int o)      { return x86_zref(_.op_ztail + 16 + o, 1); }
-inline const char * ZOPQ(int k, int w) { return _.op_zread_xf[k] != -1 ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref(_.op_zread[k] + w, 1); }
-inline const char * ZOPD(int k, int w) { return _.op_zread_xf[k] != -1 ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref(_.op_zread[k] + w, 0); }
+inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
+inline const char * ZOPD(int k, int w) { int in = k >= 0 && k < _.op_zcap; return (in && _.op_zread_xf[k] != -1) ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 0); }
 inline const char * FR(int off)            { return x86_zop(off, 0, 0); }
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -944,11 +944,11 @@ extern "C" const char * bb_kind_name(int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * ZRESN() { return "result"; }
-inline const char * ZOPN(int k) { if (k < 0 || k >= ZD_NOPS_MAX) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
+inline const char * ZOPN(int k) { if (k < 0 || k >= _.op_zcap) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * HKN(int k) { static const char * n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "rsp_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
-inline const char * XSAQ(int d) { return _.op_zread_xf[0] != -1 ? RDQ("rbp", _.op_zread_xf[0] + d) : FRQ(_.op_sa + d); }
-inline const char * XSAD(int d) { return _.op_zread_xf[0] != -1 ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
+inline const char * XSAQ(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDQ("rbp", _.op_zread_xf[0] + d) : FRQ(_.op_sa + d); }
+inline const char * XSAD(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
 inline const char * zone_ref(int rbp_off, int spine_base, int d, int w) { return (rbp_off != -1) ? ((w == 8) ? RDQ("rbp", rbp_off + d) : RDD("rbp", rbp_off + d)) : ((w == 8) ? FRQ(spine_base + d) : FR(spine_base + d)); }
 inline int LFC_ON() { return _.op_leaf_frame_off != -1; }
 extern "C" int zzone_tier_of_cur(void);

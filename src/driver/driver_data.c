@@ -1,13 +1,13 @@
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
 #include "driver_private.h"
+#include "ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_print(DESCR_t *args, int nargs) {
     if (nargs == 0) { output_str(""); return NULVCL; }
     for (int i = 0; i < nargs; i++) output_val(args[i]);
     return NULVCL;
 }
-#define SC_DAT_MAX_FIELDS 64
 #define SC_DAT_MAX_TYPES  1024
 static DatType dat_types[SC_DAT_MAX_TYPES];
 static int       dat_ntypes = 0;
@@ -17,23 +17,37 @@ int dat_nfields_byref(void *t) { return t ? ((DatType *)t)->nfields : 0; }
 DESCR_t dat_construct_byref(void *t, DESCR_t *args, int nargs) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); return dat_construct((DatType *)t, args, nargs); }
 const char *dat_field_name_byref(void *t, int i) { DatType *dt = (DatType *)t; return (dt && i >= 0 && i < dt->nfields) ? dt->fields[i] : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *dat_strndup(const char *s, size_t n) { char *d = (char *)ct_alloc(n + 1); memcpy(d, s, n); d[n] = '\0'; return d; }
+static void dat_fields_reserve(DatType *t, int need) {
+    if (need <= t->fcap) return;
+    int cap = t->fcap > 0 ? t->fcap * 2 : 8; while (cap < need) cap *= 2;
+    char **f = (char **)ct_zalloc((size_t)cap, sizeof(char *)); DESCR_t *d = (DESCR_t *)ct_zalloc((size_t)cap, sizeof(DESCR_t));
+    char *hd = (char *)ct_zalloc((size_t)cap, 1), *rq = (char *)ct_zalloc((size_t)cap, 1), *rw = (char *)ct_zalloc((size_t)cap, 1), *sg = (char *)ct_zalloc((size_t)cap, 1), *pv = (char *)ct_zalloc((size_t)cap, 1);
+    int n = t->nfields;
+    if (n > 0) { memcpy(f, t->fields, (size_t)n * sizeof(char *)); memcpy(d, t->defaults, (size_t)n * sizeof(DESCR_t)); memcpy(hd, t->has_default, (size_t)n); memcpy(rq, t->required, (size_t)n); memcpy(rw, t->rw, (size_t)n); memcpy(sg, t->sigil, (size_t)n); memcpy(pv, t->priv, (size_t)n); }
+    t->fields = f; t->defaults = d; t->has_default = hd; t->required = rq; t->rw = rw; t->sigil = sg; t->priv = pv; t->fcap = cap;
+}
+static void dat_field_put(DatType *t, char *nm, DESCR_t df, char hd, char rq, char rw, char sg, char pv) {
+    for (int j = 0; j < t->nfields; j++) if (!strcmp(t->fields[j], nm)) return;
+    dat_fields_reserve(t, t->nfields + 1);
+    int k = t->nfields++; t->fields[k] = nm; t->defaults[k] = df; t->has_default[k] = hd; t->required[k] = rq; t->rw[k] = rw; t->sigil[k] = sg; t->priv[k] = pv;
+}
 DatType *dat_register(const char *spec) {
     if (dat_ntypes >= SC_DAT_MAX_TYPES) { fprintf(stderr, "[REC-REG-CAP] FATAL: record/type registry saturated (%d >= %d) registering '%s' -- constructors past the cap resolve as Error 5; raise SC_DAT_MAX_TYPES\n", dat_ntypes, SC_DAT_MAX_TYPES, spec ? spec : "?"); return NULL; }
     DatType *t = &dat_types[dat_ntypes];
     memset(t, 0, sizeof *t);
     const char *p = spec;
-    int ni = 0;
-    while (*p && *p != '(' && ni < 63) t->name[ni++] = *p++;
-    t->name[ni] = '\0';
+    while (*p && *p != '(') p++;
+    t->name = dat_strndup(spec, (size_t)(p - spec));
     strncpy(t->mro[0], t->name, 63); t->mro[0][63] = '\0'; t->mro_len = 1;
     if (*p == '(') p++;
     while (*p && *p != ')') {
         while (*p == ' ' || *p == '\t') p++;
         if (!*p || *p == ')') break;
-        int fi = 0;
-        while (*p && *p != ',' && *p != ')' && fi < 63) t->fields[t->nfields][fi++] = *p++;
-        t->fields[t->nfields][fi] = '\0';
-        if (t->nfields < SC_DAT_MAX_FIELDS - 1) t->nfields++;
+        const char *f0 = p;
+        while (*p && *p != ',' && *p != ')') p++;
+        dat_fields_reserve(t, t->nfields + 1);
+        t->fields[t->nfields++] = dat_strndup(f0, (size_t)(p - f0));
         if (*p == ',') p++;
     }
     t->live = 1;
@@ -44,30 +58,27 @@ DatType *dat_register(const char *spec) {
 void record_register(const char *spec) {
     if (!spec || !*spec) return;
     const char *p = spec;
-    char name[64]; int ni = 0;
-    while (*p && *p != '(' && ni < 63) name[ni++] = *p++;
-    name[ni] = '\0';
-    if (dat_find_type(name)) return;
+    while (*p && *p != '(') p++;
+    if (dat_find_type_n(spec, (size_t)(p - spec))) return;
     DEFDAT_fn(spec);
     dat_register(spec);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_spec_is_current(const char *spec) {
     if (!spec || !*spec) return 0;
-    char name[64]; int ni = 0; const char *p = spec;
-    while (*p && *p != '(' && ni < 63) name[ni++] = *p++;
-    name[ni] = '\0';
-    DatType *t = dat_find_type(name);
+    const char *p = spec;
+    while (*p && *p != '(') p++;
+    DatType *t = dat_find_type_n(spec, (size_t)(p - spec));
     if (!t) return 0;
     if (*p == '(') p++;
     int i = 0;
     while (*p && *p != ')') {
         while (*p == ' ' || *p == '\t') p++;
         if (!*p || *p == ')') break;
-        char f[64]; int fi = 0;
-        while (*p && *p != ',' && *p != ')' && fi < 63) f[fi++] = *p++;
-        f[fi] = '\0';
-        if (i >= t->nfields || strcmp(t->fields[i], f) != 0) return 0;
+        const char *f0 = p;
+        while (*p && *p != ',' && *p != ')') p++;
+        size_t fl = (size_t)(p - f0);
+        if (i >= t->nfields || strncmp(t->fields[i], f0, fl) != 0 || t->fields[i][fl] != '\0') return 0;
         i++;
         if (*p == ',') p++;
     }
@@ -75,9 +86,18 @@ int dat_spec_is_current(const char *spec) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_type_gen(void) { return dat_ntypes; }
+DatType *dat_find_type_n(const char *name, size_t n) {
+    for (int i = dat_ntypes - 1; i >= 0; i--)
+        if (strncmp(dat_types[i].name, name, n) == 0 && dat_types[i].name[n] == '\0') return &dat_types[i];
+    if (n == 63) for (int i = dat_ntypes - 1; i >= 0; i--)
+        if (strncmp(dat_types[i].name, name, 63) == 0 && dat_types[i].name[63] != '\0') return &dat_types[i];
+    return NULL;
+}
 DatType *dat_find_type(const char *name) {
     for (int i = dat_ntypes - 1; i >= 0; i--)
         if (strcmp(dat_types[i].name, name) == 0) return &dat_types[i];
+    if (strnlen(name, 64) == 63) for (int i = dat_ntypes - 1; i >= 0; i--)
+        if (strncmp(dat_types[i].name, name, 63) == 0 && dat_types[i].name[63] != '\0') return &dat_types[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -136,29 +156,13 @@ void class_inherit_multi(const char *child, const char **parents, int nparents) 
     if (!child || nparents <= 0) return;
     DatType *c = dat_find_type(child); if (!c) return;
     if (c->nparents > 0) return;
-    char merged[64][64]; DESCR_t mdef[64]; char mhas[64]; char mreq[64]; char mrw[64]; char msig[64]; char mprv[64]; int m = 0;
+    char **of = c->fields; DESCR_t *od = c->defaults; char *oh = c->has_default, *oq = c->required, *orw = c->rw, *os = c->sigil, *op = c->priv; int on = c->nfields;
+    c->fields = NULL; c->defaults = NULL; c->has_default = NULL; c->required = NULL; c->rw = NULL; c->sigil = NULL; c->priv = NULL; c->nfields = 0; c->fcap = 0;
     for (int pi = 0; pi < nparents; pi++) {
         DatType *p = dat_find_type(parents[pi]); if (!p) continue;
-        for (int i = 0; i < p->nfields && m < 63; i++) {
-            int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], p->fields[i])) { dup = 1; break; }
-            if (!dup) {
-                strncpy(merged[m], p->fields[i], 63); merged[m][63] = '\0'; mdef[m] = p->defaults[i]; mhas[m] = p->has_default[i]; mreq[m] = p->required[i]; mrw[m] = p->rw[i];
-                msig[m] = p->sigil[i]; mprv[m] = p->priv[i]; m++;
-            }
-        }
+        for (int i = 0; i < p->nfields; i++) dat_field_put(c, p->fields[i], p->defaults[i], p->has_default[i], p->required[i], p->rw[i], p->sigil[i], p->priv[i]);
     }
-    for (int i = 0; i < c->nfields && m < 63; i++) {
-        int dup = 0; for (int j = 0; j < m; j++) if (!strcmp(merged[j], c->fields[i])) { dup = 1; break; }
-        if (!dup) {
-            strncpy(merged[m], c->fields[i], 63); merged[m][63] = '\0'; mdef[m] = c->defaults[i]; mhas[m] = c->has_default[i]; mreq[m] = c->required[i]; mrw[m] = c->rw[i]; msig[m] = c->sigil[i];
-            mprv[m] = c->priv[i]; m++;
-        }
-    }
-    for (int i = 0; i < m; i++) {
-        strncpy(c->fields[i], merged[i], 63); c->fields[i][63] = '\0'; c->defaults[i] = mdef[i]; c->has_default[i] = mhas[i]; c->required[i] = mreq[i]; c->rw[i] = mrw[i]; c->sigil[i] = msig[i];
-        c->priv[i] = mprv[i];
-    }
-    c->nfields = m;
+    for (int i = 0; i < on; i++) dat_field_put(c, of[i], od[i], oh[i], oq[i], orw[i], os[i], op[i]);
     c->nparents = 0;
     for (int pi = 0; pi < nparents && c->nparents < 8; pi++) { strncpy(c->parents[c->nparents], parents[pi], 63); c->parents[c->nparents][63] = '\0'; c->nparents++; }
     strncpy(c->parent, parents[0], 63); c->parent[63] = '\0';
@@ -182,13 +186,7 @@ void class_compose_role(const char *child, const char *role) {
             }
         }
     }
-    for (int i = 0; i < r->nfields && c->nfields < 63; i++) {
-        int dup = 0; for (int j = 0; j < c->nfields; j++) if (!strcmp(c->fields[j], r->fields[i])) { dup = 1; break; }
-        if (!dup) {
-            int k = c->nfields; strncpy(c->fields[k], r->fields[i], 63); c->fields[k][63] = '\0'; c->defaults[k] = r->defaults[i]; c->has_default[k] = r->has_default[i];
-            c->required[k] = r->required[i]; c->rw[k] = r->rw[i]; c->sigil[k] = r->sigil[i]; c->priv[k] = r->priv[i]; c->nfields++;
-        }
-    }
+    for (int i = 0; i < r->nfields; i++) dat_field_put(c, r->fields[i], r->defaults[i], r->has_default[i], r->required[i], r->rw[i], r->sigil[i], r->priv[i]);
     int dupr = 0; for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
     if (!dupr && c->nroles < 8) { strncpy(c->roles[c->nroles], role, 63); c->roles[c->nroles][63] = '\0'; c->nroles++; }
 }
@@ -301,7 +299,7 @@ int dat_mro(const char *name, const char **out, int max) {
     DatType *t = dat_find_type(name);
     if (!t) return 0;
     int n = (t->mro_len < max) ? t->mro_len : max;
-    for (int i = 0; i < n; i++) out[i] = t->mro[i];
+    for (int i = 0; i < n; i++) out[i] = i ? t->mro[i] : t->name;
     if (n == 0 && max > 0) { out[0] = t->name; n = 1; }
     return n;
 }
@@ -369,7 +367,7 @@ void dat_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **); extern void rt_gc_visit_descr(DESCR_t *);
     for (int i = 0; i < dat_ntypes; i++) {
         DatType *t = &dat_types[i];
-        for (int j = 0; j < t->nfields && j < 64; j++) if (t->has_default[j]) rt_gc_visit_descr(&t->defaults[j]);
+        for (int j = 0; j < t->nfields; j++) if (t->has_default[j]) rt_gc_visit_descr(&t->defaults[j]);
         DATBLK_t *blk = (DATBLK_t *)t->blk; if (!blk) continue;
         rt_gc_visit_raw((const char **)&t->blk);
         if (blk->name) rt_gc_visit_raw((const char **)&blk->name);

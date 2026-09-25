@@ -31,7 +31,7 @@ static int       g_dcap_active = 0;
 #include "coerce.h"
 extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
 extern DESCR_t *data_field_ptr(const char *field, DESCR_t obj);
-typedef struct { char name[64]; int nfields; char fields[64][64]; } DatType;
+typedef struct { char * name; int nfields; char ** fields; } DatType;
 extern DatType *dat_register(const char *spec);
 extern DatType *dat_find_type(const char *name);
 extern DESCR_t    dat_construct(DatType *t, DESCR_t *args, int nargs);

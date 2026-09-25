@@ -1099,15 +1099,12 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
     if (!cname || !*cname) return;
     { long gen = (long)g_rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_tweak_gen_bump * 1099511627776L; unsigned h = (unsigned)(((uintptr_t)cname >> 3) & (RT_TWEAK_IC_N - 1));
       if (g_tweak_none[h].cname == cname && g_tweak_none[h].gen == gen) return;
-      { const char *chain[64]; int n = dat_mro(cname, chain, 64); int any = 0;
-        if (n == 0) { chain[0] = cname; n = 1; }
-        for (int i = n - 1; i >= 0 && !any; i--) { char proc[256]; snprintf(proc, sizeof proc, "%s__TWEAK", chain[i]); if (meth_is_user_proc(proc)) any = 1; }
-        if (!any) { g_tweak_none[h].cname = cname; g_tweak_none[h].gen = gen; return; } } }
-    const char *chain[64]; int n = dat_mro(cname, chain, 64);
+    const char *chain[64]; int n = dat_mro(cname, chain, 64); int any = 0;
     if (n == 0) { chain[0] = cname; n = 1; }
     for (int i = n - 1; i >= 0; i--) {
         char proc[256]; snprintf(proc, sizeof proc, "%s__TWEAK", chain[i]);
         if (!meth_is_user_proc(proc)) continue;
+        any = 1;
         int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
         if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
             extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
@@ -1116,6 +1113,7 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
             extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); DESCR_t a0 = self; ir_call_proc(pi, &a0, 1);
         }
     }
+    if (!any) { g_tweak_none[h].cname = cname; g_tweak_none[h].gen = gen; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) {
@@ -5861,7 +5859,7 @@ DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen)
     extern long g_error; extern int64_t kw_errlimit;
     if (g_error == 0 && kw_errlimit == 0 && fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
       if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt;
-        if (nargs <= _udt->nfields) { DESCR_t _fv[64]; int _nf = _udt->nfields > 64 ? 64 : _udt->nfields; for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL; return dat_construct(_udt, _fv, _nf); } } }
+        if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); } }
     { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1)); g_ctor_ic_site = outer; return r; }
 }
 #define RT_FIELD_IC_N 256
@@ -5884,7 +5882,7 @@ DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     }
     if (g_error == 0 && kw_errlimit == 0 && fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
       if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt;
-        if (nargs <= _udt->nfields) { DESCR_t _fv[64]; int _nf = _udt->nfields > 64 ? 64 : _udt->nfields; for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL; return dat_construct(_udt, _fv, _nf); } } }
+        if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); } }
     { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen)); g_ctor_ic_site = outer; return r; }
 }
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
@@ -7007,10 +7005,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
           if (_dx->kind == 5 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *, int))_dx->ctor)(args, nargs, out, (int)_dx->nf);
           if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name(_dx->syn, args, nargs, out);
           if (_dx->kind == 1 && _dx->ctor) { extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
-            if (nargs <= (int)_dx->nf) { DESCR_t _fv[64]; int _nf = _dx->nf > 64 ? 64 : (int)_dx->nf;
-              for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL;
-              rt_ctor_ic_note(fn, _dx->ctor);
-              *out = dat_construct_byref(_dx->ctor, _fv, _nf); return 1; }
+            extern int dat_nfields_byref(void *);
+            if (nargs <= dat_nfields_byref(_dx->ctor)) { rt_ctor_ic_note(fn, _dx->ctor); *out = dat_construct_byref(_dx->ctor, args, nargs); return 1; }
             _dx_hit = 1; _dx_skip_ctor = 1; }
           else if (_dx->kind == 0) { _dx_hit = 1; _dx_skip_ctor = 1; _dx_skip_syn = 1; }
           else if (_dx->kind == 3) { _dx_hit = 1; _dx_skip_ctor = 1; } } } }
@@ -7018,10 +7014,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
       DatType *_udt = dat_find_type(fn);
       if (_udt && _dx) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 1; _dx->nf = (short)dat_nfields_byref((void *)_udt); memcpy(_dx->nm, fn, _dxl); _dx->ctor = (void *)_udt; _dx->syn = 0; }
       if (_udt && nargs <= _udt->nfields) {
-          DESCR_t _fv[64]; int _nf = _udt->nfields > 64 ? 64 : _udt->nfields;
-          for (int _i = 0; _i < _nf; _i++) _fv[_i] = (_i < nargs) ? args[_i] : NULVCL;
           rt_ctor_ic_note(fn, (void *)_udt);
-          *out = dat_construct(_udt, _fv, _nf); return 1;
+          *out = dat_construct(_udt, args, nargs); return 1;
       }
       if (!_udt && _dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 3; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; } }
     { size_t _fl = _fnlen;
