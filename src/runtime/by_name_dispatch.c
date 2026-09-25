@@ -9831,7 +9831,9 @@ void * rt_pl_dop_curstream_guard_c(DESCR_t *args, int nargs) {
     pl_atoms_ready();
     { DESCR_t d = rt_pl_deref_val(args[0]);
       if (pl_iso_unbound(d)) return (void *)0;
-      if (d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("$stream") && (d.slen & 0xFFFFu) == 1) return (void *)0;
+      if (d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("$stream") && (d.slen & 0xFFFFu) == 1) {
+          DESCR_t k = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
+          if (k.v == DT_I && k.i >= 0 && k.i < FH_MAX && pl_sp_stream_live((int)k.i)) return (void *)0; }
       return rt_pl_ball_kind2("domain_error", "stream", d); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
