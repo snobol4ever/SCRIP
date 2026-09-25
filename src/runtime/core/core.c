@@ -4428,34 +4428,34 @@ int _command_pending_parent_frame = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_gc_roots(void)
 {
-    { extern void rt_gc_visit_raw(const char **loc);
-      if (g_bin_names) { rt_gc_visit_raw((const char **)&g_bin_names); rt_gc_visit_raw((const char **)&g_bin_name_lens);
-          for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw((const char **)&g_bin_names[i]); } }
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
+    extern void rt_gc_visit_raw_in(const char **loc, const void *holder);
+    if (g_bin_names) { rt_gc_visit_raw((const char **)&g_bin_names); rt_gc_visit_raw((const char **)&g_bin_name_lens);
+        for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw_in((const char **)&g_bin_names[i], g_bin_names); }
     for (int i = 0; i < IO_CHAN_MAX; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
     for (int b = 0; b < VAR_BUCKETS; b++) {
         if (_var_buckets[b]) rt_gc_visit_raw((const char **)&_var_buckets[b]);
         for (NV_t *e = _var_buckets[b]; e; e = e->next) {
-            if (e->name) rt_gc_visit_raw((const char **)&e->name);
-            if (e->next) rt_gc_visit_raw((const char **)&e->next);
+            if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
+            if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
             rt_gc_visit_descr(&e->val);
-            if (e->cell) { rt_gc_visit_raw((const char **)&e->cell); rt_gc_visit_descr(e->cell); } } }
+            if (e->cell) { rt_gc_visit_raw_in((const char **)&e->cell, e); rt_gc_visit_descr(e->cell); } } }
     for (int b = 0; b < FUNC_BUCKETS; b++) {
         if (_func_buckets[b]) rt_gc_visit_raw((const char **)&_func_buckets[b]);
         for (FNCBLK_t *e = _func_buckets[b]; e; e = (FNCBLK_t *)e->next) {
-            if (e->name) rt_gc_visit_raw((const char **)&e->name);
-            if (e->spec) rt_gc_visit_raw((const char **)&e->spec);
-            if (e->entry_label) rt_gc_visit_raw((const char **)&e->entry_label);
-            if (e->params) { rt_gc_visit_raw((const char **)&e->params); for (int i = 0; i < e->nparams; i++) if (e->params[i]) rt_gc_visit_raw((const char **)&e->params[i]); }
-            if (e->locals) { rt_gc_visit_raw((const char **)&e->locals); for (int i = 0; i < e->nlocals; i++) if (e->locals[i]) rt_gc_visit_raw((const char **)&e->locals[i]); }
-            if (e->next) rt_gc_visit_raw((const char **)&e->next); } }
+            if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
+            if (e->spec) rt_gc_visit_raw_in((const char **)&e->spec, e);
+            if (e->entry_label) rt_gc_visit_raw_in((const char **)&e->entry_label, e);
+            if (e->params) { rt_gc_visit_raw_in((const char **)&e->params, e); for (int i = 0; i < e->nparams; i++) if (e->params[i]) rt_gc_visit_raw_in((const char **)&e->params[i], e->params); }
+            if (e->locals) { rt_gc_visit_raw_in((const char **)&e->locals, e); for (int i = 0; i < e->nlocals; i++) if (e->locals[i]) rt_gc_visit_raw_in((const char **)&e->locals[i], e->locals); }
+            if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e); } }
     if (_udef_types) rt_gc_visit_raw((const char **)&_udef_types);
     for (DATBLK_t *t = _udef_types; t; t = t->next) {
-        if (t->name) rt_gc_visit_raw((const char **)&t->name);
-        if (t->fields) { rt_gc_visit_raw((const char **)&t->fields);
-            for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw((const char **)&t->fields[i]); }
-        if (t->next) rt_gc_visit_raw((const char **)&t->next); }
+        if (t->name) rt_gc_visit_raw_in((const char **)&t->name, t);
+        if (t->fields) { rt_gc_visit_raw_in((const char **)&t->fields, t);
+            for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw_in((const char **)&t->fields[i], t->fields); }
+        if (t->next) rt_gc_visit_raw_in((const char **)&t->next, t); }
     for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used) {
         if (trace_tab[i].name) rt_gc_visit_raw((const char **)&trace_tab[i].name);
         if (trace_tab[i].tag)  rt_gc_visit_raw((const char **)&trace_tab[i].tag);

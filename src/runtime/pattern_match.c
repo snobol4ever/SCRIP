@@ -660,6 +660,7 @@ static void *rt_cas_carve(size_t bytes)
 void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_base; if (bytes) *bytes = g_cas_used; }
 uint64_t g_scan_hit_start = 0;
 uint64_t g_sno_defer_cells[4096];
+static int g_sno_defer_pair_hwm = 0;
 uint64_t g_pat_main_rsp = 0;
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
 static int g_rspd_active = 0;
@@ -1011,8 +1012,8 @@ long rt_cas_gc_roots(void)
     long b = 0;
     for (int i = 0; i < g_capo_top; i++) { rt_gc_visit_descr(&g_capo[i].matched); b += (long)sizeof(DESCR_t); }
     for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
-    for (int i = 0; i < 2048; i++) if (g_sno_defer_cells[i]) rt_gc_visit_raw((const char **)&g_sno_defer_cells[i]);
-    for (int i = 0; i < 1024; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
+    for (int c = 0; c < 2048; c += 8) { const uint64_t *w = &g_sno_defer_cells[c]; if ((w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0) continue; for (int i = 0; i < 8; i++) if (w[i]) rt_gc_visit_raw((const char **)&w[i]); }
+    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
     for (int i = 0; i < g_dcf_top; i++) { rt_dcf_t *c = &g_dcf[i]; rt_gc_visit_descr(&c->pending); rt_gc_visit_raw(&c->cur); rt_gc_visit_raw(&c->top); rt_gc_visit_raw(&c->subj); rt_gc_visit_raw(&c->star); b += (long)sizeof(DESCR_t) + 4 * (long)sizeof(const char *); }
     return b;
 }
@@ -1190,7 +1191,7 @@ static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const ch
     if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
     DESCR_t *cell = NV_PTR_fn(varname);
     if (!cell) return (DESCR_t *)0;
-    slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell;
+    slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell; if ((int)site >= g_sno_defer_pair_hwm) g_sno_defer_pair_hwm = (int)site + 1;
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -64,6 +64,7 @@ void  rt_gc_point_arr(struct DESCR_t *arr, int n, const char **r0);
 void  rt_gc_point_arr_probe_c(struct DESCR_t *arr, int n, const char **saved_subject_reg, char *floor);
 void  rt_gc_visit_descr(struct DESCR_t *d);
 void  rt_gc_visit_raw(const char **loc);
+void  rt_gc_visit_raw_in(const char **loc, const void *holder);
 void  rt_gc_root_range_add(const char *lo, const char *hi);
 struct gc_frame_map_t;
 void  rt_gc_frame_maps_add(const struct gc_frame_map_t *m);

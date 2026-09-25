@@ -2,6 +2,7 @@
 RTX_GATE_DEF(alloc)
 #define HBF_TTL 0x0001
 #define HB_AGGV 206
+#define HB_WSC 205
 RTX_FUNC(rt_gcheap_alloc)
     RTX_GATE(alloc, .Lga_c)
     mov     rdx, [rip + g_hp_fr@GOTPCREL]
@@ -16,27 +17,66 @@ RTX_FUNC(rt_gcheap_alloc)
     and     rcx, -16
     add     rcx, 16
     mov     rax, [rdx + 0]
-    cmp     rax, [rdx + 32]
-    jb      .Lga_c
     add     rax, rcx
     jc      .Lga_c
     cmp     rax, [rdx + 48]
     ja      .Lga_c
     mov     rsi, rax
     sub     rsi, rcx
+    mov     [rdx + 0], rax
     add     qword ptr [rdx + 56], rcx
+    add     qword ptr [rdx + 16], 1
     cmp     di, DT_S
     jne     .Lga_counted
     add     qword ptr [rdx + 64], rcx
 .Lga_counted:
     mov     qword ptr [rsi + 0], 0
     mov     dword ptr [rsi + 8], ecx
-    movzx   ecx, di
-    or      ecx, HBF_TTL << 16
-    mov     dword ptr [rsi + 12], ecx
+    movzx   eax, di
+    or      eax, HBF_TTL << 16
+    mov     dword ptr [rsi + 12], eax
+    cmp     rsi, [rdx + 32]
+    jb      .Lga_reused
+    lea     rax, [rsi + rcx]
     mov     [rdx + 32], rax
-    mov     [rdx + 0], rax
-    add     qword ptr [rdx + 16], 1
+    lea     rax, [rsi + 16]
+    ret
+.Lga_reused:
+    lea     rax, [rsi + rcx]
+    cmp     rax, [rdx + 32]
+    jbe     .Lga_vkept
+    mov     [rdx + 32], rax
+.Lga_vkept:
+    cmp     di, DT_S
+    je      .Lga_ztail
+    cmp     di, HB_WSC
+    jne     .Lga_zfull
+.Lga_ztail:
+    cmp     rcx, 48
+    jbe     .Lga_zfull
+    lea     rdi, [rsi + rcx - 32]
+    mov     qword ptr [rdi + 0], 0
+    mov     qword ptr [rdi + 8], 0
+    mov     qword ptr [rdi + 16], 0
+    mov     qword ptr [rdi + 24], 0
+    lea     rax, [rsi + 16]
+    ret
+.Lga_zfull:
+    lea     rdi, [rsi + 16]
+    lea     rcx, [rcx - 16]
+    shr     rcx, 3
+    xor     eax, eax
+    cmp     rcx, 32
+    ja      .Lga_zrep
+.Lga_zloop:
+    mov     qword ptr [rdi], rax
+    add     rdi, 8
+    sub     rcx, 1
+    jnz     .Lga_zloop
+    lea     rax, [rsi + 16]
+    ret
+.Lga_zrep:
+    rep stosq
     lea     rax, [rsi + 16]
     ret
 .Lga_c:
