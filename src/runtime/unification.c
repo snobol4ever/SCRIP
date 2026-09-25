@@ -1078,7 +1078,7 @@ static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper)
 void *rt_pl_format_run(const char *fmt, void *list_cell)
 {
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-    plc_fb f; void *ball = (void *)0; pl_cell_t *args = (pl_cell_t *)list_cell; pl_cell_t all = list_cell ? *(pl_cell_t *)list_cell : pl_make_int(0); const char *p; FILE *fd;
+    plc_fb f; void *ball = (void *)0; pl_cell_t *args = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0; pl_cell_t all = args ? *args : pl_make_int(0); const char *p; FILE *fd;
     plc_atoms_ready();
     memset(&f, 0, sizeof f);
     if (!fmt) return (void *)0;
