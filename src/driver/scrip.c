@@ -1013,6 +1013,7 @@ int main(int argc, char **argv)
     int dump_zeta          = 0;
     int dump_transpile     = 0;
     int opt_bench          = 0;
+    int opt_pp_only        = 0;
     const char * target_name = NULL;
     const char * output_path = NULL;
     const char *preload_path[16]; int n_preload = 0;
@@ -1043,10 +1044,11 @@ int main(int argc, char **argv)
         if (n_preload >= (int)(sizeof preload_path / sizeof *preload_path)) { fprintf(stderr, "scrip: too many -L files (max %d)\n", (int)(sizeof preload_path / sizeof *preload_path)); return 2; }
         preload_path[n_preload++] = lp; argi++;
     }
-    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthek0123456789", argv[argi][1])) {
+    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekE0123456789", argv[argi][1])) {
         char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
         if (sw == 'o' && *rest == '=') { fprintf(stderr, "scrip: -o=%s: SPITBOL's -o=file names a compilation LISTING file and SCRIP produces no listing; the switch is refused, not ignored (SCRIP's assembly output is -o FILE until it moves to --out=FILE)\n", rest + 1); return 2; }
         if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
+        if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
         if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
         if (sw == 'r') { opt_input_after_end = 1; argi++; continue; }
         if (sw == 'b' || sw == 'f') { argi++; continue; }
@@ -1068,6 +1070,22 @@ int main(int argc, char **argv)
     }
     if (argi == before_argi) break; }
     for (int oi = argi; oi < argc; oi++) { if (strcmp(argv[oi], "--") == 0) break; if (argv[oi][0] == '-' && argv[oi][1] == 'o') { int eat = 1; if (argv[oi][2] != '\0') output_path = argv[oi] + 2; else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; } for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat]; argc -= eat; oi--; } }
+    if (opt_pp_only) {
+        extern int icn_pp_echo(const char *path); extern void icn_pp_set_source_path(const char *path);
+        int fatals = 0, nfiles = 0;
+        for (; argi < argc && strcmp(argv[argi], "--") != 0; argi++) {
+            const char *ext = strrchr(argv[argi], '.');
+            if (strcmp(argv[argi], "-") != 0 && (!ext || strcasecmp(ext, ".icn") != 0)) {
+                fprintf(stderr, "scrip: -E (preprocess only) is Icon's switch, as icont's -E; %s is not an Icon source\n", argv[argi]); return 2; }
+            icn_pp_set_source_path(argv[argi]);
+            int n = icn_pp_echo(argv[argi]); if (n < 0) return 1;
+            fatals += n; nfiles++;
+        }
+        if (nfiles == 0) { fprintf(stderr, "scrip: -E needs an Icon source file\n"); return 2; }
+        fflush(stdout);
+        if (fatals == 1) fprintf(stderr, "1 error\n"); else if (fatals > 1) fprintf(stderr, "%d errors\n", fatals); else fprintf(stderr, "No errors\n");
+        return fatals ? 1 : 0;
+    }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
     if (mode_compile_x86 && mode_run) {
         fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n");
@@ -1122,6 +1140,7 @@ int main(int argc, char **argv)
             "  -#=file          associate the file with I/O channel # (INPUT(.v,#) / OUTPUT(.v,#) then open it)\n"
             "  -b -f            no signon message, do not fold case: SCRIP's behaviour already, accepted\n"
             "  -x               execution statistics (SCRIP's --bench)\n"
+            "  -E               Icon: preprocess only, as icont -E -- the text on stdout, each file's name, its diagnostics and the error count on stderr\n"
             "  -F -y -k         REFUSED with a stated reason (case folding; save files; running with compilation errors)\n"
             "  -c -a -l -p -z -g# -t# -h -e -o=file   listing and compiler-statistics switches: SCRIP produces no listing, REFUSED with the reason\n"
             "\n"

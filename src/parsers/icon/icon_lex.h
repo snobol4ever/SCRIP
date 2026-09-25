@@ -141,9 +141,11 @@ typedef struct {
     int         col;
     char        errmsg[256];
     int         had_error;
+    int         pp_fatals;
 } IcnLexer;
 void icn_pp_set_source_path(const char *path);
 void icn_pp_source_base(char *out, size_t n);
+int  icn_pp_echo(const char *path);
 void icn_lex_init(IcnLexer *lex, const char *src);
 IcnToken icn_lex_next(IcnLexer *lex);
 IcnToken icn_lex_peek(IcnLexer *lex);

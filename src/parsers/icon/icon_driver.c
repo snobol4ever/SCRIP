@@ -86,6 +86,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             char path[1200]; char tried[4096]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
             if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
             IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src);
+            if (lx2.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in linked file %s\n", lx2.pp_fatals, lx2.pp_fatals == 1 ? "" : "s", path); exit(1); }
             IcnParser p2; icn_parse_init(&p2, &lx2);
             tree_t * sub_ast = NULL;
             CODE_t * sp = icn_parse_file(&p2, &sub_ast);
@@ -133,6 +134,7 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     IcnLexer lx;
     icn_pp_set_source_path(filename);
     icn_lex_init(&lx, source);
+    if (lx.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in %s\n", lx.pp_fatals, lx.pp_fatals == 1 ? "" : "s", filename); exit(1); }
     IcnParser parser;
     icn_parse_init(&parser, &lx);
     CODE_t *prog = icn_parse_file(&parser, out_ast);
