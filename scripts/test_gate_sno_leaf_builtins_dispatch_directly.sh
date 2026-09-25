@@ -55,7 +55,7 @@ red=0
 for arm in on off; do
     if [ "$arm" = on ]; then unset SCRIP_SN4_DIRECT; else export SCRIP_SN4_DIRECT=0; fi
     ( cd "$W" && "$ROOT/scrip" --compile -o "$W/leaf_$arm.s" leaf.sno < /dev/null > /dev/null 2>&1 ) || { echo "RED: leaf.sno did not compile (arm $arm)"; red=1; continue; }
-    nd=$(grep -c 'call *rt_call_bid_sn4' "$W/leaf_$arm.s"); nb=$(grep -c 'call *rt_call_arr_bl_sn4' "$W/leaf_$arm.s")
+    nd=$(grep -cE 'call +(qword ptr \[rip \+ )?rt_call_bid_sn4' "$W/leaf_$arm.s"); nb=$(grep -cE 'call +(qword ptr \[rip \+ )?rt_call_arr_bl_sn4' "$W/leaf_$arm.s")
     if [ "$arm" = on ]; then [ "$nd" -ge 30 ] && [ "$nb" -eq 1 ] && echo "ok  arm on: $nd direct leaf sites, $nb by-name site (EVAL stays by name; the predicates and the pattern builtins inside patterns are their own boxes, so 32 of the witness's 33 by-name sites are leaf calls)" || { echo "RED arm on: direct sites=$nd (want >= 30) by-name sites=$nb (want exactly 1: EVAL)"; red=1; }
     else [ "$nd" -eq 0 ] && echo "ok  arm off: 0 direct sites, $nb by-name sites" || { echo "RED arm off: $nd direct sites under SCRIP_SN4_DIRECT=0"; red=1; }; fi
     for w in leaf errlimit; do

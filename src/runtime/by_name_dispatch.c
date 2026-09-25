@@ -5837,7 +5837,8 @@ DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     }
     return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
 }
-DESCR_t rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
+DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern long g_error; extern int64_t kw_errlimit;
     if (g_error != 0 || kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
     { DESCR_t out = FAILDESCR; if (try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, 0)) return out; }
@@ -6741,6 +6742,25 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen) { return try_call_builtin_by_name_bl_s(fn, args, nargs, out, bidlen, 0); }
+typedef struct { int (*fn)(DESCR_t *, int, DESCR_t *, int); int op; int _pad; } bn_direct_t;
+_Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a 16-byte stride: fn at +0, op at +8 (ceo 2026-09-25, CEO-1255)");
+__attribute__((visibility("hidden"))) const bn_direct_t g_bn_direct[BID_TABSZ] = {
+    [BID_SIZE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_size, 0, 0 },
+    [BID_SUBSTR] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_substr, 0, 0 },
+    [BID_REPLACE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_replace, 0, 0 },
+    [BID_TRIM] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_trim, 0, 0 },
+    [BID_DUPL] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_dupl, 0, 0 },
+    [BID_LPAD] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_lpad, 0, 0 },
+    [BID_RPAD] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_rpad, 0, 0 },
+    [BID_REVERSE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_reverse, 0, 0 },
+    [BID_INTEGER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_integer, 0, 0 },
+    [BID_REMDR] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_remdr, 0, 0 },
+    [BID_DATE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_date, 0, 0 },
+    [BID_TIME] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_time, 0, 0 },
+    [BID_IDENT] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 1, 0 },
+    [BID_DIFFER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 0, 0 },
+};
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict)
 {
     if (nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {

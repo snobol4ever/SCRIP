@@ -1,5 +1,58 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(misc)
+RTX_FUNC(rt_call_bid_sn4)
+    RTX_GATE(misc, .Lcb_c)
+    mov     rax, qword ptr [rip + g_error@GOTPCREL]
+    cmp     qword ptr [rax], 0
+    jne     .Lcb_c
+    mov     rax, qword ptr [rip + kw_errlimit@GOTPCREL]
+    cmp     qword ptr [rax], 0
+    jne     .Lcb_c
+    test    ecx, ecx
+    js      .Lcb_c
+    test    ecx, 0x4000
+    jz      .Lcb_c
+    cmp     edx, 1
+    jne     .Lcb_go
+    cmp     byte ptr [rsi], DT_DATA
+    je      .Lcb_c
+.Lcb_go:
+    mov     eax, ecx
+    and     eax, 0x3FFF
+    shl     rax, 4
+    RTX_SAVE
+    lea     r10, [rip + g_bn_direct]
+    add     r10, rax
+    mov     r11, qword ptr [r10]
+    test    r11, r11
+    jz      .Lcb_miss
+    push    rdi
+    push    rsi
+    push    rdx
+    push    rcx
+    sub     rsp, 40
+    mov     ecx, dword ptr [r10 + 8]
+    mov     rdi, rsi
+    mov     esi, edx
+    lea     rdx, [rsp]
+    call    r11
+    cmp     eax, 1
+    jne     .Lcb_nohit
+    mov     rax, qword ptr [rsp]
+    mov     rdx, qword ptr [rsp + 8]
+    add     rsp, 72
+    RTX_RET
+.Lcb_nohit:
+    add     rsp, 40
+    pop     rcx
+    pop     rdx
+    pop     rsi
+    pop     rdi
+.Lcb_miss:
+    RTX_CTAIL_SAVED(c_rt_call_bid_sn4)
+.Lcb_c:
+    RTX_CTAIL(c_rt_call_bid_sn4)
+RTX_ENDF(rt_call_bid_sn4)
 RTX_FUNC(rt_kw_set_rtntype_role)
     cmp     edi, 2
     je      .Lkr_f

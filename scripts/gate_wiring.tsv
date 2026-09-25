@@ -560,6 +560,7 @@ test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-
 test_gate_sno_subscripted_replacement_does_not_leak_the_spine.sh	WIRED	-	-	-
 test_gate_sno_system_fn_table_is_sorted.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
+test_gate_sno_the_bid_entry_calls_the_builtin_body_through_the_direct_table.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_demotion.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_reference_and_is_silent_on_an_assignment.sh	WIRED	-	-	-
 test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-
