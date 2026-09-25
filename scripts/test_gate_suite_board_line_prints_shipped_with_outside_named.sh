@@ -28,6 +28,8 @@
 #       ONE ORACLE REFUSES against their stored .ref. A declared fact beside the data may not depend on the caller
 #       remembering a flag; the escape is loud, not silent, which is arm (f).
 #   (e) STATIC: test_corpus_snobol4.sh writes --suite-total "$_sn4_shipped" and refuses when shipped=/outside= are absent
+#       and test_icon_arizona_suite.sh / test_icon_jcon_suite.sh write --suite-total "$SHIPPED", never a graded subset (ceo CEO-1245,
+#       CEO-1268: Zona 88/124 and Jcon 82/91, the ungraded staying in the denominator as debt)
 #   (f) --outside-none is the LOUD escape: total=3 shipped=3 outside=0 AND the printed line names the list it skipped
 #       and says the count is not comparable to a baseline board; --outside with --outside-none together REFUSE rc=2
 # FAIL_ONCE=1 rewrites the captured board line's shipped=3 to shipped=2 before arm (a) grades, to prove the arm trips.
@@ -71,6 +73,11 @@ g(){ grep -oE " $1=[0-9]+" <<<"$board2" | head -1 | cut -d= -f2; }
   || ck no "(d) derived board: total=$(g total) shipped=$(g shipped) outside=$(g outside); list line: $(grep '^OUTSIDE_BASELINE_LIST' <<<"$out2" | head -1)"
 R="$HERE/test_corpus_snobol4.sh"
 grep -q -- '--suite-total "\$_sn4_shipped"' "$R" && grep -q 'shipped=/outside= fields' "$R" && ck ok "(e) STATIC: test_corpus_snobol4.sh publishes --suite-total \$_sn4_shipped and refuses when shipped=/outside= are absent" || ck no "(e) test_corpus_snobol4.sh does not publish the shipped population or does not refuse on absent fields"
+for R in "$HERE/test_icon_arizona_suite.sh" "$HERE/test_icon_jcon_suite.sh"; do
+  grep -q -- '--suite-total "\$SHIPPED"' "$R" && ! grep -qE -- '--suite-total "\$(TOTAL|total|GRADED)"' "$R" \
+    && ck ok "(e) STATIC: ${R##*/} publishes --suite-total \$SHIPPED, the shipped population (ceo CEO-1245, CEO-1268)" \
+    || ck no "(e) ${R##*/} publishes a graded subset as its suite total, not \$SHIPPED (ceo CEO-1245: the shipped population is the denominator)"
+done
 out3="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside-none 2>&1)"; board3="$(grep '^SUITE_BOARD ' <<<"$out3")"
 h(){ grep -oE " $1=[0-9]+" <<<"$board3" | head -1 | cut -d= -f2; }
 S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --outside "$W/tests/snobol4/ALL.outside.tsv" --outside-none >/dev/null 2>&1; rc_both=$?

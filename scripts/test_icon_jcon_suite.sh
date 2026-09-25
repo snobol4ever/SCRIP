@@ -526,6 +526,10 @@ else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the class
 #      RULING; $GAP is just shipped-minus-graded, and CEO-470 measured jcon's as 13 ungradable + 2
 #      ungraded. Calling all 15 "ungraded" put a flat contradiction beside the inventory clause now riding
 #      in the same cell. The neutral phrase is the honest one -- the clause does the splitting.
+# ⛔⭐⭐ POINT 1 IS SUPERSEDED (ceo CEO-1245 2026-09-24, re-ruled CEO-1268 2026-09-25 on the coo's audit COO-183; CEO-749, CEO-786,
+# CEO-799b, CEO-700): THE SHIPPED POPULATION IS THE DENOMINATOR. The row publishes $AND_PASS/$SHIPPED; the $GAP not graded (the
+# containers and library modules among them) stay IN it as debt, named by class in the inventory clause -- a container is graded
+# by writing it a driver, never by leaving the total. The graded fraction still rides in the cell, labelled as such.
 # ⛔⭐ THIS WRITE WAS REFUSED OUTRIGHT BEFORE THIS CHANGE, AND THE INSTRUMENT WAS RIGHT (measured on the
 # 2026-09-10 19:00 pass): with m3 79 and m4 78 the --text carried TWO different N/M fractions, and
 # util_score_row said so -- "which one the suite row means is a judgement, not a reading -- pass
@@ -551,9 +555,9 @@ if [ -z "${AND_PASS:-}" ]; then
     echo "⛔ SCORE ROW REFUSES (rc=2): gate_and_per_program could not compute the AND per program over total='$total' -- the row IS that number, so this run writes none rather than guess one" >&2
 else
     echo "JCON_AND_PER_PROGRAM and_pass=$AND_PASS of $total (m3 ${m3p:-n/a} · m4 ${m4p:-n/a} · union of reds $AND_RED:$AND_NAMES)"
-    python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$total" \
+    python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$SHIPPED" \
         ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-        --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$total (ceo CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
+        --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$SHIPPED shipped (ceo CEO-1245: the shipped population is the denominator; CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · graded $AND_PASS/$total · m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded and owed -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
         || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
 fi
 fi

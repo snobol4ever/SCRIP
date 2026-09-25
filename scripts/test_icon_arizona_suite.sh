@@ -431,6 +431,10 @@ else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the class
 #      means a RULING; $GAP is just shipped-minus-graded and today is 34 ungradable + 0 ungraded. Saying
 #      "34 ungraded" put a flat contradiction beside this cell's own "ungraded=0 ungradable=34".
 #      The neutral phrase is the honest one: the inventory clause riding alongside does the splitting.
+# ⛔⭐⭐ POINT 1 IS SUPERSEDED (ceo CEO-1245 2026-09-24, re-ruled CEO-1268 2026-09-25 on the coo's audit COO-183; CEO-749, CEO-786,
+# CEO-799b, Lon 2026-09-16 "get those fixed"): THE SHIPPED POPULATION IS THE DENOMINATOR. The row publishes $AND_PASS/$SHIPPED; the
+# $GAP not graded stay IN it as debt, each named by class in the inventory clause, and a program leaves the gap only by being graded
+# or ruled outside with its measurement -- never by narrowing the total. The graded fraction still rides in the cell, labelled as such.
 # ⛔⭐ THE ROW IS THE AND PER PROGRAM WHEN THE MODES DISAGREE (ceo CEO-545, ruled 2026-09-10 on the coo's
 # handling; it supersedes the m3-where-they-differ convention retired at ceo-372). THE DEFECT THIS REPLACES,
 # measured on the 2026-09-10 19:00 pass: this line passed --suite-pass "$M3_PASS" -- m3's 84 -- into a cell
@@ -446,8 +450,8 @@ if [ -z "${AND_PASS:-}" ]; then
     AND_PASS="$M3_PASS"; AND_RED=""; AND_NAMES=""
 fi
 echo "ARIZONA_AND_PER_PROGRAM and_pass=$AND_PASS of $TOTAL (m3 $M3_PASS · m4 $M4_PASS · union of reds $AND_RED:$AND_NAMES)"
-python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$TOTAL" \
+python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$SHIPPED" \
     ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$TOTAL (ceo CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL graded (of $SHIPPED shipped, $TOTAL graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
+    --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$SHIPPED shipped (ceo CEO-1245: the shipped population is the denominator; CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · graded $AND_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL graded (of $SHIPPED shipped, $TOTAL graded, $GAP not graded and owed -- the inventory clause splits ungraded=owed from ungradable=ruled, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
 
