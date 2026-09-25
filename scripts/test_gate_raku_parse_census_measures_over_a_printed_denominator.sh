@@ -94,7 +94,11 @@ else bad "the roast board does not invoke the census -- the reader is left to in
 if grep -qE '^[^#]*printf .%s.n. "\$PC_LINE"[[:space:]]*$' "$HERE/raku_roast_scoreboard.sh"; then
   ok "the board PRINTS the census row on its own stdout (not only on the stderr refusal path)"
 else bad "the board calls the census but never prints its row on stdout"; fi
-if grep -q 'PARSE COVERAGE: \$PC_LINE' "$HERE/raku_roast_scoreboard.sh"; then
+# ⛔ $PC_TEXT IS $PC_LINE WITH ITS FRACTION SPELLED 'N of M' (coo 2026-09-25): util_score_row's read-back took PARSED 75/1464 beside
+# both-modes 20/1464 as two readings of the roast row and refused every write. The cell still carries the coverage, derived from
+# the census line in the same file, so both spellings are accepted -- and PC_TEXT only when it is built from PC_LINE.
+if grep -q 'PARSE COVERAGE: \$PC_LINE' "$HERE/raku_roast_scoreboard.sh" \
+   || { grep -q 'PARSE COVERAGE: \$PC_TEXT' "$HERE/raku_roast_scoreboard.sh" && grep -qE '^[[:space:]]*PC_TEXT="\$\(printf .%s. "\$PC_LINE"' "$HERE/raku_roast_scoreboard.sh"; }; then
   ok "the published SCORE cell carries the parse-coverage row beside the run fraction"
 else bad "the SCORE cell text does not carry the parse-coverage row -- a leaderboard reader is still left to infer it"; fi
 printf 'GATE %s(%d)  arms=%d pass=%d fail=%d\n' "$( [ "$FAIL" -eq 0 ] && echo PASS || echo FAIL )" "$FAIL" "$((PASS+FAIL))" "$PASS" "$FAIL"
