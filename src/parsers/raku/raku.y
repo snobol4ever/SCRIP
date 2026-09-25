@@ -1488,6 +1488,7 @@ is_clauses
     ;
 class_body_list
     :  { $$ = exprlist_new(); }
+    | class_body_list ';'  { $$ = $1; }
     | class_body_list KW_HAS VAR_TWIGIL ';'
         { tree_t *fv = leaf_sval(TT_VAR, $3); ct_drop($3);
           $$ = exprlist_append($1, fv); }

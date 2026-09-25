@@ -121,6 +121,15 @@ static int parse_charclass(Re_parser *p) {
 static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     if (at_end(p)) { re_err(p,"unexpected end of pattern"); return 0; }
     char c = peek(p);
+    if (c == '(' && p->pos + 2 < p->len && p->pat[p->pos + 1] == '?' && p->pat[p->pos + 2] == ':') {
+        consume(p); consume(p); consume(p);
+        int inner_start, inner_acc;
+        if (!parse_alt(p, &inner_start, &inner_acc)) return 0;
+        if (peek(p) != ')') { re_err(p,"missing ')'"); return 0; }
+        consume(p);
+        *out_start = inner_start; *out_accept = inner_acc;
+        return 1;
+    }
     if (c == '(') {
         consume(p);
         int gidx = p->group_counter++;

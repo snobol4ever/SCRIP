@@ -335,6 +335,7 @@ int rt_builtin_is_known(const char *name)
         "hash_keys", "hash_values", "hash_pairs", "hash_kv",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
+        "__rk_say_capture", "__rk_say_named_capture",
         "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s",
         "die", "script_die", "srand",
         "callsame", "nextsame", "callwith",
@@ -3554,6 +3555,12 @@ static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_S
 #define PAS_SET_BYTES 32
 static void pas_set_bits(DESCR_t v, unsigned char out[PAS_SET_BYTES]) { memset(out, 0, PAS_SET_BYTES); if (IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s) { memcpy(out, v.s, PAS_SET_BYTES); return; } if (IS_INT_fn(v)) { long iv = v.i; for (int b = 0; b < 64; b++) if ((iv >> b) & 1L) out[b / 8] |= (unsigned char)(1u << (b % 8)); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_positional_group(int n) {
+    if (n < 0) return -1;
+    for (int g = 0; g < g_match.ngroups; g++) if (!g_match.group_name[g][0] && n-- == 0) return g;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_list_coercion_meth(const char *m, int nargs) {
     static const char *const names[] = { "list", "flat", "Array", "List", "Slip", "Seq", "eager", "cache", NULL };
     if (nargs != 2 || !m) return 0; for (int i = 0; names[i]; i++) if (!strcmp(m, names[i])) return 1; return 0;
@@ -5561,8 +5568,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         nfa_free(nfa);
         *out = INTVAL(0); return 1;
     }
+    if ((!strcmp(fn, "__rk_say_capture") || !strcmp(fn, "__rk_say_named_capture")) && nargs == 1) {
+        int g = -1;
+        if (g_match.matched && fn[9] == 'c') g = rk_positional_group(IS_INT_fn(args[0]) ? (int) args[0].i : -1);
+        else if (g_match.matched) { const char *name = VARVAL_fn(args[0]); for (int i = 0; name && i < g_match.ngroups; i++) if (!strcmp(g_match.group_name[i], name)) { g = i; break; } }
+        DESCR_t s;
+        if (g < 0 || g >= g_match.ngroups || g_match.group_start[g] < 0 || g_match.group_end[g] < g_match.group_start[g]) s = STRVAL(rt_heap_strdup_c("Nil"));
+        else { int gs = g_match.group_start[g], len = g_match.group_end[g] - gs; char *o = rt_wsb_alloc((size_t) len + 7);
+            memcpy(o, "\xef\xbd\xa2", 3); memcpy(o + 3, g_subject + gs, (size_t) len); memcpy(o + 3 + len, "\xef\xbd\xa3", 3); o[len + 6] = '\0'; s = STRVAL(o); }
+        *out = RT_GC_CALLBACK(rt_call_arr("write", &s, 1)); return 1;
+    }
     if (!strcmp(fn, "re_capture") && nargs == 1) {
-        int n = (int)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        int n = rk_positional_group((int)(IS_INT_fn(args[0]) ? args[0].i : 0));
         if (!g_match.matched || n < 0 || n >= g_match.ngroups || g_match.group_start[n] < 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int gs = g_match.group_start[n], ge = g_match.group_end[n];
         if (ge < gs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }

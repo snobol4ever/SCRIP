@@ -456,6 +456,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_USE_DECL: { IR_t * nd = build(cx, IR_SUCCEED, γ, ω); *res = nd; return nd; }
     case TT_SAY: case TT_SAY_FH:
+        if (t->t == TT_SAY && t->n == 1 && t->c[0] && (t->c[0]->t == TT_CAPTURE || t->c[0]->t == TT_NAMED_CAPTURE) && t->c[0]->n > 0) {
+            const char * fn = t->c[0]->t == TT_CAPTURE ? "__rk_say_capture" : "__rk_say_named_capture";
+            tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) fn; ast_push(f, leaf_sval2(TT_VAR, fn)); ast_push(f, t->c[0]->c[0]);
+            return lower_rcall(cx, f, fn, 1, γ, ω, res); }
         if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR &&
             (rk_is_arrlit_scalar(t->c[0]->v.sval) || rk_is_array_name(t->c[0]->v.sval)))
             return lower_rcall(cx, t, "rk_write_arr", 0, γ, ω, res);

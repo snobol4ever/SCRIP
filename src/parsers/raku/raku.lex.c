@@ -1912,6 +1912,58 @@ void raku_lex_error(const char *msg) {
 }
 int raku_get_lineno(void) { return raku_yylineno; }
 static int raku_str_line = 0;
+static const char *raku_named_rule_class(const char *n, int len) {
+    static const char *const map[][2] = { { "alpha", "[A-Za-z]" }, { "digit", "[0-9]" }, { "alnum", "[A-Za-z0-9]" }, { "upper", "[A-Z]" }, { "lower", "[a-z]" },
+                                          { "space", "\\s" }, { "xdigit", "[0-9A-Fa-f]" }, { "ws", "\\s*" }, { "punct", "[!-/:-@\\[-`{-~]" }, { NULL, NULL } };
+    for (int i = 0; map[i][0]; i++) if ((int) strlen(map[i][0]) == len && !strncmp(map[i][0], n, (size_t) len)) return map[i][1];
+    return NULL;
+}
+static int raku_re_is_meta(char c) { return c && strchr("\\()[]{}<>|*+?.^$", c) != NULL; }
+static char *raku_regex_to_engine(const char *r) {
+    size_t n = strlen(r); char *o = (char *) ct_alloc(n * 4 + 16); size_t k = 0; char stk[256]; int sp = 0;
+    for (size_t i = 0; i < n; ) {
+        char c = r[i];
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { i++; continue; }
+        if (c == '#') { while (i < n && r[i] != '\n') i++; continue; }
+        if (c == '\'' || c == '"') { char q = c; i++; while (i < n && r[i] != q) { if (r[i] == '\\' && i + 1 < n) i++; if (raku_re_is_meta(r[i])) o[k++] = '\\'; o[k++] = r[i++]; } if (i < n) i++; continue; }
+        if (c == '\\' && i + 1 < n) { o[k++] = r[i++]; o[k++] = r[i++]; continue; }
+        if (c == '|' && i + 1 < n && r[i + 1] == '|') { o[k++] = '|'; i += 2; continue; }
+        if (c == '$' && i + 1 < n && r[i + 1] == '<') {
+            size_t j = i + 2; while (j < n && (isalnum((unsigned char) r[j]) || r[j] == '_' || r[j] == '-')) j++;
+            if (j < n && r[j] == '>' && j + 2 < n && r[j + 1] == '=' && r[j + 2] == '(') { o[k++] = '<'; memcpy(o + k, r + i + 2, j - i - 2); k += j - i - 2; o[k++] = '>'; o[k++] = '('; if (sp < 256) stk[sp++] = 'C'; i = j + 3; continue; }
+        }
+        if (c == '<' && i + 1 < n && (r[i + 1] == '[' || (r[i + 1] == '-' && i + 2 < n && r[i + 2] == '['))) {
+            int neg = r[i + 1] == '-'; i += neg ? 3 : 2; o[k++] = '['; if (neg) o[k++] = '^';
+            for (;;) {
+                while (i < n && r[i] != ']') {
+                    char d = r[i];
+                    if (d == ' ' || d == '\t' || d == '\n') { i++; continue; }
+                    if (d == '\\' && i + 1 < n) { o[k++] = r[i++]; o[k++] = r[i++]; continue; }
+                    if (d == '.' && i + 1 < n && r[i + 1] == '.') { o[k++] = '-'; i += 2; continue; }
+                    if (d == '-' || d == '^' || d == ']') o[k++] = '\\';
+                    o[k++] = r[i++];
+                }
+                if (i < n) i++;
+                if (i + 1 < n && r[i] == '+' && r[i + 1] == '[') { i += 2; continue; }
+                break;
+            }
+            o[k++] = ']'; if (i < n && r[i] == '>') i++;
+            continue;
+        }
+        if (c == '<') {
+            size_t j = i + 1; while (j < n && (isalnum((unsigned char) r[j]) || r[j] == '_' || r[j] == '-')) j++;
+            const char *cls = (j < n && r[j] == '>') ? raku_named_rule_class(r + i + 1, (int) (j - i - 1)) : NULL;
+            if (cls) { size_t L = strlen(cls); memcpy(o + k, cls, L); k += L; i = j + 1; continue; }
+        }
+        if (c == '[') { o[k++] = '('; o[k++] = '?'; o[k++] = ':'; if (sp < 256) stk[sp++] = 'N'; i++; continue; }
+        if (c == ']') { if (sp > 0) sp--; o[k++] = ')'; i++; continue; }
+        if (c == '(') { if (sp < 256) stk[sp++] = 'C'; o[k++] = r[i++]; continue; }
+        if (c == ')') { if (sp > 0) sp--; o[k++] = r[i++]; continue; }
+        o[k++] = r[i++];
+    }
+    o[k] = '\0';
+    return o;
+}
 static void raku_strbuf_cp(unsigned long cp) {
     if (raku_strpos > 65530) return;
     if (cp < 0x80) raku_strbuf[raku_strpos++] = (char) cp;
@@ -3503,7 +3555,7 @@ case 286:
 YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos]='\0';
-    raku_subst_pat = ct_strdup(raku_strbuf);
+    raku_subst_pat = raku_regex_to_engine(raku_strbuf);
     raku_strpos=0; BEGIN(STR_SUBST_REPL);
 }
 	YY_BREAK
@@ -3551,7 +3603,7 @@ YY_RULE_SETUP
 {
     raku_strbuf[raku_strpos] = '\0';
     raku_yylloc.first_line = raku_str_line;
-    raku_yylval.sval = ct_strdup(raku_strbuf);
+    raku_yylval.sval = raku_regex_to_engine(raku_strbuf);
     BEGIN(INITIAL);
     if (raku_match_global) { raku_match_global=0; return LIT_MATCH_GLOBAL; }
     return LIT_REGEX;
