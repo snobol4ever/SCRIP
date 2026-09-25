@@ -42,6 +42,11 @@
 # A soft cut is an if-then-else whose condition does not commit, so under Lon's rule as written ALL FIVE
 # sites are if-type constructs and the exception covers all five. That is why this arm names TWO functions
 # rather than one, and it is a census a reader can re-run instead of a claim about who was right.
+# ⭐ AND catch/3 IS THE THIRD, BY NAME (ceo CEO-1270, 2026-09-25, on hq_prolog's ask after the cfo found this arm red since cf11735cb):
+# catch/3 selects one of two arms at run time -- the goal, or the recovery when a ball unifies with the catcher -- and must re-enter the
+# SELECTED arm on backtracking (ISO 7.8.9), the same reason if-then-else and soft cut carry the gate; static wiring could do it only by
+# compiling the continuation once per arm. The ceo's 09-13 sentence calling catch/3 not if-type was written about sites that proved to be
+# soft cut and is superseded for catch/3. The census stays a list of NAMED lowerings, so the exception stays enforceable.
 # EXIT 0 all arms green; 1 an arm red (named); 2 REFUSED -- could not measure, never a quiet pass.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -77,7 +82,7 @@ while IFS= read -r b; do
     f="${b%%:*}"; rest="${b#*:}"; ln="${rest%%:*}"
     case "$f" in *lower_prolog.c) ;; *) outside="$outside$b"$'\n'; continue ;; esac
     fn="$(awk -v L="$ln" 'NR<=L && /^static IR_t \* pl_lower_[a-z_]+\(/ {m=$0} END {print m}' "$f")"
-    case "$fn" in *pl_lower_ite\(*|*pl_lower_softcut\(*) ;; *) outside="$outside$b   [in: ${fn:-<no enclosing pl_lower_*>}]"$'\n' ;; esac
+    case "$fn" in *pl_lower_ite\(*|*pl_lower_softcut\(*|*pl_lower_catch\(*) ;; *) outside="$outside$b   [in: ${fn:-<no enclosing pl_lower_*>}]"$'\n' ;; esac
 done <<< "$builds"
 nb=$(printf '%s\n' "$builds" | grep -c . || true)
 if [ -n "$outside" ]; then
@@ -85,7 +90,7 @@ if [ -n "$outside" ]; then
     printf '%s' "$outside" | sed 's/^/    /' | cut -c1-160
     rc=1
 else
-    echo "ARM 3 GREEN: all $nb gate-op construction sites are inside pl_lower_ite or pl_lower_softcut"
+    echo "ARM 3 GREEN: all $nb gate-op construction sites are inside pl_lower_ite, pl_lower_softcut or pl_lower_catch"
 fi
 cat > "$TMP/g.pl" <<'EOF'
 :- initialization(main).
