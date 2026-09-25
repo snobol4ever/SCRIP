@@ -168,8 +168,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # below stood at the last value a WRITING board produced while the suite itself walked to 826/826 both modes.
 # Leaving them at 756 would let a 70-program regression pass this board in silence, which is the whole thing
 # a watermark exists to stop. Measured on SCRIP 319e8e7ad + corpus aaadcb56d, m3 826/826 m4 826/826 FAIL=0.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-826}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-826}"
+# ⭐ RE-PINNED 826 -> 828 (hq_icon 2026-09-25, MODE TENET): corpus e3b18cb9a added the two crawl witnesses
+# (rung22_lists_lconcat_alternation_right, rung42_kw_dateline_fields_unpadded) with the cures a94044665 and
+# b74152578, and this board read them green on SCRIP 628c6b4dc, m3 828/828 m4 828/828 FAIL=0.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-828}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-828}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
