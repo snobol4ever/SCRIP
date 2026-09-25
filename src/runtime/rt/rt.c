@@ -368,9 +368,9 @@ static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
-static inline void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
+static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
 extern long rt_stno_stack[];
-static inline void rt_lvl_retire(void) { rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS + SNO_LVL_ACT_RSP / 8] = 0; }
+static inline __attribute__((always_inline)) void rt_lvl_retire(void) { rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS + SNO_LVL_ACT_RSP / 8] = 0; }
 #define RT_S_(x) #x
 #define RT_S(x) RT_S_(x)
 #define RT_ACT_RECORD_ASM \
@@ -1095,23 +1095,24 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_land_γ(DESCR_t frame0, long word)
 {
-    extern DESCR_t rt_proc_call_epilogue_named_γ(const char *);
+    extern DESCR_t rt_proc_call_epilogue_idx_γ(long);
     { short how = (short)(word & 0xff); int nsb = (int)((word >> 8) & 0xffffffffL); long idx = word >> 40;
-      DESCR_t r = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(g_rt_gen_procs[idx].name) : rt_proc_call_epilogue_γ(frame0);
+      DESCR_t r = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_idx_γ(idx) : rt_proc_call_epilogue_γ(frame0);
       if (how == 3) rt_name_save_unwind(nsb);
       return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_land_ω(long word)
 {
-    extern DESCR_t rt_proc_call_epilogue_named_ω(const char *);
+    extern DESCR_t rt_proc_call_epilogue_idx_ω(long);
     { short how = (short)(word & 0xff); int nsb = (int)((word >> 8) & 0xffffffffL); long idx = word >> 40;
-      DESCR_t r = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(g_rt_gen_procs[idx].name) : rt_proc_call_epilogue_ω();
+      DESCR_t r = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_idx_ω(idx) : rt_proc_call_epilogue_ω();
       if (how == 3) rt_name_save_unwind(nsb);
       return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
+rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) { rt_proc_t *p = rt_proc_find(name); *registered = p ? 1 : 0; return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 }; }
 long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered)
 {
     rt_proc_t *p = rt_proc_find(name);
@@ -1414,14 +1415,14 @@ void rt_gc_ws_roots(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char g_lvl_own[1 << 16];
-static inline void rt_lvl_open(int own) {
+static inline __attribute__((always_inline)) void rt_lvl_open(int own) {
     int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 2) | (own ? 1 : 0)); else own = 0;
     if (!own) { rt_k_level++; rt_lvl_retire(); } rt_k_level_mirror();
 }
-static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 1)) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
+static inline __attribute__((always_inline)) void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 1)) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
-static inline void rt_lvl_park_wn(int wn) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 1) | (wn ? 2 : 0)); }
-static inline int rt_lvl_parked_wn(void) { int L = rt_k_level; return (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 2)) ? 1 : 0; }
+static inline __attribute__((always_inline)) void rt_lvl_park_wn(int wn) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 1) | (wn ? 2 : 0)); }
+static inline __attribute__((always_inline)) int rt_lvl_parked_wn(void) { int L = rt_k_level; return (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 2)) ? 1 : 0; }
 int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
     rt_proc_resolve_cells(p);
@@ -1459,17 +1460,24 @@ static int rt_proc_save_count(rt_proc_t *p)
     if (!p || !p->dyn_scope) return 0;
     int np = p->nparams, n = 0; const char **pn = p->pnames; const char *rname = p->result_name ? p->result_name : p->name; int rn_shadow = 0;
     for (int k = 0; k < np; k++) if (pn && pn[k]) n++;
-    for (int k = 0; k < np; k++) if (pn && pn[k] && rname && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
+    if (p->cells_done & 1) rn_shadow = (p->cells_done & 2) ? 1 : 0;
+    else for (int k = 0; k < np; k++) if (pn && pn[k] && rname && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
     if (!rn_shadow && rname) n++;
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked);
 static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
 {
     int wn_parked = rt_wn_park_on() ? rt_lvl_parked_wn() : -1;
     rt_lvl_close();
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p && name) p = rt_proc_find_alias(name);
+    return rt_proc_epilogue_p(p, failed, wn_parked);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
+{
     if (!p) return failed ? FAILDESCR : NULVCL;
     const char *rname = p->result_name ? p->result_name : p->name;
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0;
@@ -1483,8 +1491,10 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name) { return rt_proc_epilogue_named(name, 0); }
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name) { return rt_proc_epilogue_named(name, 1); }
-DESCR_t rt_proc_call_epilogue_idx_γ(long idx) { return rt_proc_epilogue_named(g_rt_gen_procs[idx].name, 0); }
-DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_named(g_rt_gen_procs[idx].name, 1); }
+static DESCR_t rt_proc_epilogue_idx(long idx, int failed) { int wn_parked = rt_wn_park_on() ? rt_lvl_parked_wn() : -1; rt_lvl_close(); return rt_proc_epilogue_p(&g_rt_gen_procs[idx], failed, wn_parked); }
+DESCR_t rt_proc_call_epilogue_idx_γ(long idx) { return rt_proc_epilogue_idx(idx, 0); }
+DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_idx(idx, 1); }
+_Static_assert(sizeof(long) == 8, "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the idx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
 _Static_assert(sizeof(long) == 8, "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; parking the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
 void rt_c2b_arm_trap(void) { fprintf(stderr, "FATAL: CALL2BB 3b — slim open refused at RUNTIME on an fc-armed call site; the flat fallback does not exist as storage on an armed statement (registration excluded OPSYN/redefinition shapes at emit time, so this refuse names a guard the planner does not mirror — widen fc_call_ok or the probe)\n"); fflush(stderr); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

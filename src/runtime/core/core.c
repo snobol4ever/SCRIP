@@ -3215,10 +3215,22 @@ void mon_tap_cell_store(void *cellp, DESCR_t val) {
     if (getenv("SCRIP_TAP_DBG")) { DESCR_t *c = (DESCR_t *)cellp; fprintf(stderr, "[TAP] cell-store UNRESOLVED cellp=%p v=%d slen=%u s=%.24s\n", cellp, (int)(c ? (int)((unsigned char)c->v) : -1), c ? c->slen : 0, (c && (c->v == 2 || c->v == 0) && c->s) ? c->s : "?"); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) {
+    uint64_t h = 0x9E3779B97F4A7C15ull ^ (uint64_t)n, w = 0;
+    size_t k = 0;
+    for (; k + 8 <= n; k += 8) { __builtin_memcpy(&w, s + k, 8); h = (h ^ w) * 0xFF51AFD7ED558CCDull; }
+    if (k < n) {
+        if (n >= 8) __builtin_memcpy(&w, s + n - 8, 8);
+        else if (n >= 4) { uint32_t a, b; __builtin_memcpy(&a, s, 4); __builtin_memcpy(&b, s + n - 4, 4); w = (uint64_t)a | ((uint64_t)b << 32); }
+        else w = (uint64_t)(unsigned char)s[0] | ((uint64_t)(unsigned char)s[n >> 1] << 8) | ((uint64_t)(unsigned char)s[n - 1] << 16);
+        h = (h ^ w) * 0xC4CEB9FE1A85EC53ull;
+    }
+    h ^= h >> 33;
+    return (unsigned)(h % VAR_BUCKETS);
+}
+_Static_assert(VAR_BUCKETS == 512, "nv_hash_n reduces modulo VAR_BUCKETS; every name lookup hashes through it, the C-string _var_hash and the length-bounded NV_intern_name_n alike, so the two always pick the same bucket (ceo CEO-1263): a word at a time, never past the name's last byte");
 static unsigned _var_hash(const char *name) {
-    unsigned h = 5381;
-    while (*name) h = h * 33 ^ (unsigned char)*name++;
-    return h % VAR_BUCKETS;
+    return nv_hash_n(name, __builtin_strlen(name));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static NV_t *_var_bucket_find(const char *name) {
@@ -3393,6 +3405,13 @@ int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned 
 int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
 DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
 DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *NV_intern_name_n(const char *s, size_t n) {
+    if (!s || n == 0 || n >= 0xFFFFFFFFu || memchr(s, 0, n)) return (const char *)0;
+    for (NV_t *e = _var_buckets[nv_hash_n(s, n)]; e; e = e->next)
+        if (e->name[0] == s[0] && strncmp(e->name, s, n) == 0 && e->name[n] == '\0') return e->name;
+    return (const char *)0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *NV_intern_name_fn(const char *name) {
     if (!name || !*name) return (const char *)0;

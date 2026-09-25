@@ -97,6 +97,7 @@ static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_err
 #include "pattern_match.h"
 #include "rt/rt.h"
 #include "rt/rt_list_view.h"
+#include "rt/rt_protected.h"
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -966,11 +967,10 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
     if (!args || nargs < 1) return none;
     { const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
       if (!pn || !*pn) return none;
-      if (!rt_proc_is_registered(pn)) return none;
       { int na = nargs - 1; if (na > 64) na = 64;
         for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1];
         rt_c2bb_hit("apply.open", pn);
-        { rt_call_next_t n = rt_call_open_by_name(pn, na); return n.fn ? n : none; } } }
+        { extern rt_call_next_t rt_call_open_found(const char *, int, int *); int reg = 0; rt_call_next_t n = rt_call_open_found(pn, na, &reg); return (reg && n.fn) ? n : none; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_apply_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_land_γ(DESCR_t, long); return rt_call_land_γ(frame0, word); }
@@ -6591,6 +6591,16 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     const char *sv;
     (void)nargs;
     if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
+    if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu) {
+        extern const char *NV_intern_name_n(const char *, size_t);
+        const char *in = NV_intern_name_n(args[0].s, (size_t)args[0].slen);
+        if (in) {
+            extern int comm_var_active(void); extern DESCR_t *NV_CELL_IF_FASTSET_fn(const char *);
+            const int special = (in[0] == 'I' && !strcmp(in, "INPUT")) || (in[0] == 'O' && !strcmp(in, "OUTPUT")) || (in[0] == 'T' && !strcmp(in, "TERMINAL")) || (is_protected_pat_lead(in[0]) && is_protected_pat_name(in));
+            DESCR_t *cell = (!special && !comm_var_active()) ? NV_CELL_IF_FASTSET_fn(in) : (DESCR_t *)0;
+            *out = cell ? (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell } : (DESCR_t){ .v = DT_N, .slen = 0, .s = in };
+            return 1; }
+    }
     sv = rt_sno_indirect_name(args[0]);
     if (!sv || !*sv) { *out = FAILDESCR; return 1; }
     { extern const char *NV_intern_name_fn(const char *); const char *in = NV_intern_name_fn(sv);
@@ -6796,6 +6806,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen) { return try_call_builtin_by_name_bl_s(fn, args, nargs, out, bidlen, 0); }
 typedef struct { int (*fn)(DESCR_t *, int, DESCR_t *, int); int op; int _pad; } bn_direct_t;
 _Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a 16-byte stride: fn at +0, op at +8 (ceo 2026-09-25, CEO-1255)");
+static int bn_sno_name_d(DESCR_t *args, int nargs, DESCR_t *out, int op) { (void)op; return nargs == 1 ? bn_sno_name(args, nargs, out) : 0; }
 static int bn_prototype(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern DESCR_t agg_prototype(DESCR_t); (void)op; *out = agg_prototype(nargs >= 1 ? args[0] : NULVCL); return 1; }
 static int bn_wantnm(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern int rt_g_want_name; (void)args; (void)nargs; (void)op; rt_g_want_name = 1; *out = NULVCL; return 1; }
 static int bn_array(DESCR_t *args, int nargs, DESCR_t *out, int op) {
@@ -6861,6 +6872,7 @@ static int bn_mkpat(DESCR_t *args, int nargs, DESCR_t *out, int op) {
 }
 __attribute__((visibility("hidden"))) const bn_direct_t g_bn_direct[BID_TABSZ] = {
     [BID_PROTOTYPE] = { bn_prototype, 0, 0 },
+    [BID_SNOx24NAME] = { bn_sno_name_d, 0, 0 },
     [BID_TABLE] = { bn_table, 0, 0 },
     [BID_CONVERT] = { bn_convert, 0, 0 },
     [BID_SNOx24MKPAT] = { bn_mkpat, 0, 0 },

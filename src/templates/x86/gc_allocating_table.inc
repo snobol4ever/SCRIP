@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1891
+#define GC_ALLOC_TAB_N 1895
 #define GC_ALLOC_TAB_N_VOID 241
-#define GC_ALLOC_TAB_N_DESCR 991
-#define GC_ALLOC_TAB_N_OTHER 657
+#define GC_ALLOC_TAB_N_DESCR 993
+#define GC_ALLOC_TAB_N_OTHER 659
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -393,6 +393,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bn_rpad", GC_RET_OTHER },
     { "bn_size", GC_RET_OTHER },
     { "bn_sno_name", GC_RET_OTHER },
+    { "bn_sno_name_d", GC_RET_OTHER },
     { "bn_str_anal", GC_RET_OTHER },
     { "bn_substr", GC_RET_OTHER },
     { "bn_table", GC_RET_OTHER },
@@ -1016,6 +1017,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_named_proc", GC_RET_DESCR },
     { "rt_call_open_by_name", GC_RET_OTHER },
     { "rt_call_open_by_name_p", GC_RET_OTHER },
+    { "rt_call_open_found", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
@@ -1681,7 +1683,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_enter_barrier", GC_RET_DESCR },
     { "rt_proc_enter_frag", GC_RET_DESCR },
     { "rt_proc_enter_named", GC_RET_DESCR },
+    { "rt_proc_epilogue_idx", GC_RET_DESCR },
     { "rt_proc_epilogue_named", GC_RET_DESCR },
+    { "rt_proc_epilogue_p", GC_RET_DESCR },
     { "rt_proc_hash_insert", GC_RET_VOID },
     { "rt_proc_register", GC_RET_VOID },
     { "rt_proc_register_rec", GC_RET_VOID },

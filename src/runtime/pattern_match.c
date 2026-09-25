@@ -481,6 +481,8 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     }
     const char *s = VARVAL_fn(expr);
     if (!s || !*s) return NULVCL;
+    { const char *c = s; while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\v' || *c == '\f' || *c == '\r') c++;
+      if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) goto eval_str; }
     {
         char *endp = NULL;
         int64_t iv = (int64_t)strtoll(s, &endp, 10);
@@ -492,10 +494,12 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         if (rt_str_to_real(s, &rv)) return REALVAL(rv);
         { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') return FAILDESCR; }
     }
+eval_str:
     if (g_eval_str_hook) return g_eval_str_hook(s);
     extern DESCR_t eval_string_transient(const char *s);
     return eval_string_transient(s);
 }
+_Static_assert(sizeof(char) == 1, "EVAL OF A STRING THAT CANNOT BE A NUMBER SKIPS THE NUMBER PARSES (ceo CEO-1263): a string whose first non-blank character is a letter is an expression, never a number literal, so it goes straight to the compiled-expression cache: three parses of 'X + 1' were 8% of the eval_fixed kernel, and strtod's inf/nan spellings made EVAL('INF') a real where SPITBOL evaluates the variable INF");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
     const char *nm  = VARVAL_fn(newname);
