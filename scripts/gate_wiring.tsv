@@ -117,6 +117,7 @@ test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
 test_gate_gc_a_collection_over_a_small_live_set_stays_under_its_instruction_budget.sh	WIRED	-	-	-
 test_gate_gc_a_fault_names_its_block.sh	WIRED	-	-	-
 test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh	WIRED	-	-	-
+test_gate_gc_a_nested_match_restores_a_moved_outer_subject.sh	WIRED	-	-	-
 test_gate_gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in.sh	WIRED	-	-	-
 test_gate_gc_a_poll_site_tests_the_pending_flag_before_calling_the_leaf.sh	WIRED	-	-	-
 test_gate_gc_a_procedure_value_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
@@ -161,7 +162,6 @@ test_gate_gc_rbx_is_the_frontier.sh	WIRED	-	-	-
 test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	WIRED	-	-	-
 test_gate_gc_runtime_compiled_code_bakes_no_arena_address.sh	WIRED	-	-	-
 test_gate_gc_scan_subject_saves_are_rooted.sh	WIRED	-	-	-
-test_gate_gc_a_nested_match_restores_a_moved_outer_subject.sh	WIRED	-	-	-
 test_gate_gc_table_insertion_order_array_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_gc_the_allocating_set_is_a_generated_table_gated_against_the_call_graph.sh	WIRED	-	-	-
 test_gate_gc_the_asm_allocator_carves_reused_ground_after_a_collection.sh	WIRED	-	-	-
@@ -450,6 +450,7 @@ test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
 test_gate_pl_port_trace_oracle_diff.sh	WIRED	-	-	-
+test_gate_pl_portray_reaches_every_subterm_of_print_and_write_term.sh	WIRED	-	-	-
 test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-

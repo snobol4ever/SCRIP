@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 1834
-#define GC_ALLOC_TAB_N_VOID 213
+#define GC_ALLOC_TAB_N_VOID 212
 #define GC_ALLOC_TAB_N_DESCR 997
-#define GC_ALLOC_TAB_N_OTHER 624
+#define GC_ALLOC_TAB_N_OTHER 625
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -871,7 +871,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_bind_cx", GC_RET_VOID },
     { "plc_cell_is_proper_list", GC_RET_OTHER },
     { "plc_cons", GC_RET_DESCR },
-    { "plc_fb_term", GC_RET_VOID },
+    { "plc_fb_term", GC_RET_OTHER },
     { "plc_fmt_dbl", GC_RET_OTHER },
     { "plc_fmt_eval", GC_RET_OTHER },
     { "plc_fmt_int", GC_RET_OTHER },

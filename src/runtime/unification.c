@@ -305,6 +305,7 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m)
       if (slot < 0) return 0;
       fflush(m->fp); fh_set_output(slot);
       r = rt_pl_goal_gen_h_c(g, &a, 1, &h, &b);
+      if (!b && IS_FAIL_fn(r)) { extern void *rt_pl_ball_take(void); b = rt_pl_ball_take(); }
       fflush(m->fp); fh_set_output(sv); fh_free(slot);
       if (h) { extern void rt_proc_drop_frame_h(void **hslot); m->pheld++; rt_proc_drop_frame_h(&h); }
       if (b) { m->pthrown = b; return 0; }
@@ -990,10 +991,10 @@ static void plc_fb_stop(plc_fb *f, long target)
     f->seg = f->n; f->nf = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignore_ops)
+static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignore_ops)
 {
     extern FILE *fh_memsink_open(char **, size_t *); char *bp = (char *)0; size_t bn = 0; FILE *ms = fh_memsink_open(&bp, &bn); plc_vmap m;
-    if (!ms) return;
+    if (!ms) return (void *)0;
     m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
     if (kind == 4) { extern int rt_proc_is_registered(const char *); m.portray = rt_proc_is_registered("portray/1") ? plc_portray_hit : (int (*)(pl_cell_t *, plc_vmap *))0; plc_write(t, &m); }
     else if (kind == 0) plc_write(t, &m);
@@ -1002,6 +1003,7 @@ static void plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignor
     else plc_wt(t, quoted, ignore_ops, 1, -1, 0, 1200, &m);
     fclose(ms);
     plc_fb_add(f, bp ? bp : "", bn);
+    return m.pthrown;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_A || (int)d->v == DT_S) && !pl_cell_unbound(d); }
@@ -1107,7 +1109,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell)
         { pl_cell_t *h = plc_fmt_next_arg(&args);
           if (!h) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; }
           if (*p == 'w') plc_fb_term(&f, h, 0, 0, 0);
-          else if (*p == 'p') plc_fb_term(&f, h, 4, 0, 0);
+          else if (*p == 'p') { void *tb = plc_fb_term(&f, h, 4, 0, 0); if (tb) { ball = tb; break; } }
           else if (*p == 'q') plc_fb_term(&f, h, 1, 0, 0);
           else if (*p == 'k') plc_fb_term(&f, h, 2, 0, 0);
           else if (*p == 'i') { }

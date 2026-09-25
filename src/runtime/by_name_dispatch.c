@@ -3112,7 +3112,7 @@ PL_CX_LEAF_HEAD(put_char_c, 1) { extern FILE *fh_cur_out_fp(void); extern void *
 PL_OUT_CX_LEAF(put_char_c, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_write_opt_bad(const char *on, DESCR_t a) {
-    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", 0 };
+    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", 0 };
     const char *as;
     if (!on) return 2;
     if (pl_val_unbound(a)) { for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;

@@ -500,6 +500,20 @@ static tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_
     return pl_cc_fnc2(",", gen, pick);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cc_print_via_format(tree_t * stream, tree_t * term) {
+    tree_t * l = ast_node_new(TT_MAKELIST); l->v.ival = 0; ast_push(l, term);
+    return stream ? pl_cc_fnc3("format", stream, (tree_t *) pl_atom_goal("~p"), l) : pl_cc_fnc2("format", (tree_t *) pl_atom_goal("~p"), l);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_opts_are_portray_only(const tree_t * l) {
+    int portray = 0;
+    if (!l || l->t != TT_MAKELIST || l->v.ival == 1) return 0;
+    for (int i = 0; i < l->n; i++) { const tree_t * o = l->c[i]; const tree_t * a = (o && o->t == TT_FNC && o->n == 1) ? o->c[0] : (const tree_t *) 0;
+        if (!a || (a->t != TT_QLIT && a->t != TT_NAME) || !a->v.sval || strcmp(a->v.sval, "true")) return 0;
+        if (!strcmp(o->v.sval, "portray") || !strcmp(o->v.sval, "portrayed")) portray = 1; else if (strcmp(o->v.sval, "numbervars")) return 0; }
+    return portray;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_cc_gen2_desc(const char * count_leaf, const char * nth_leaf, tree_t * a0, tree_t * a1, tree_t * a2) {
     tree_t * cv = pl_cc_freshvar(); tree_t * cv2 = pl_cc_freshvar(); tree_t * cv3 = pl_cc_freshvar(); tree_t * jv = pl_cc_freshvar(); tree_t * jv2 = pl_cc_freshvar();
     tree_t * iv = pl_cc_freshvar(); tree_t * iv2 = pl_cc_freshvar();
@@ -1624,11 +1638,14 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
               const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
               int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
               const tree_t * props[5]; int np = 0;
-              if (dyn) props[np++] = pl_atom_goal("dynamic"); else if (def) props[np++] = pl_atom_goal("static");
+              int portray1 = !strcmp(pn, "portray") && ar == 1; const tree_t * props_pt[2]; int npt = 0;
+              if (portray1) { if (!dyn) props_pt[npt++] = pl_atom_goal("dynamic"); props_pt[npt++] = pl_atom_goal("multifile"); }
+              if (dyn) props[np++] = pl_atom_goal("dynamic"); else if (def && !portray1) props[np++] = pl_atom_goal("static");
               if (def) props[np++] = pl_atom_goal("defined"); if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); }
               if (meta) { tree_t * tm = ast_node_new(TT_FNC); tm->v.sval = (char *) pn;
                   for (int i = 0; i < ar; i++) ast_push(tm, meta[i] >= '0' && meta[i] <= '9' ? pl_cc_ilit(meta[i] - '0') : (tree_t *) pl_atom_goal(meta[i] == '^' ? "^" : "?"));
                   props[np++] = pl_cc_fnc1("meta_predicate", tm); }
+              for (int i = 0; i < npt && np < 5; i++) props[np++] = props_pt[i];
               if (!np) return build(cx, IR_GOTO, ωfail, ωfail);
               { tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
                 for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[i]), alt);
@@ -1668,6 +1685,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             return goal(cx, rewrite, γnext, ωfail, entry_out); }
         { const char * ls = pl_det_leaf_sym(nm, t->n);
           if (ls && !strcmp(nm, "print") && t->n == 1 && (pl_file_defines("portray", 1) || pl_db_owned("portray", 1))) ls = (const char *) 0;
+          if (ls && (pl_file_defines("portray", 1) || pl_db_owned("portray", 1))) {
+              if (!strcmp(nm, "print") && t->n == 2) return goal(cx, pl_cc_print_via_format((tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
+              if (!strcmp(nm, "write_term") && t->n == 2 && pl_opts_are_portray_only(t->c[1])) return goal(cx, pl_cc_print_via_format((tree_t *) 0, (tree_t *) t->c[0]), γnext, ωfail, entry_out);
+              if (!strcmp(nm, "write_term") && t->n == 3 && pl_opts_are_portray_only(t->c[2])) return goal(cx, pl_cc_print_via_format((tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out); }
           if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n); IR_t * ne = NULL;
             IR_t * nd = gs ? pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, &ne) : pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, &ne);
             if (pl_curout_writer(nm, t->n)) return pl_curout_text_guard(cx, nd, ne, ωfail, entry_out);
@@ -2101,7 +2122,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, pk) && !pl_decl_dyn_is("print", 1)) {
           tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(pk);
           tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = ct_strdup("print"); ast_push(hd, pl_meta_var("A"));
-          tree_t * body = pl_cc_ite(pl_cc_fnc1("portray", pl_meta_var("A")), (tree_t *) pl_atom_goal("true"), pl_cc_fnc1("writeq", pl_meta_var("A")));
+          tree_t * body = pl_cc_print_via_format((tree_t *) 0, pl_meta_var("A"));
           tree_t * raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
           tree_t * cl = pl_runtime_clause_tree(raw);
           if (cl) { ast_push(ch, cl); { int bb_idx = lower_pl_pred_graph(pk, ch); if (bb_idx >= 0) { pl_bb_register(pk, 1, bb_idx); pl_new_proc(pk, 1, bb_idx); } } } } }
