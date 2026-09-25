@@ -1829,6 +1829,8 @@ case 105:
 /* rule 105 can match eol */
 YY_RULE_SETUP
 { int n = (int)pascal_yyleng; pascal_strpos = 0;
+                          if (n == 2) { g_pas_iso_errors++;
+                              fprintf(stderr, "pascal: ISO 7185 6.1.7 violation line %d: a character-string shall contain at least one string-element -- '' is not one\n", pascal_yylineno); }
                           for (int i = 1; i < n - 1; i++) {
                               if (pascal_yytext[i] == '\'' && i + 1 < n - 1 && pascal_yytext[i + 1] == '\'') { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = '\''; i++; }
                               else { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = pascal_yytext[i]; }
