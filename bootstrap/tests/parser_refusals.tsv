@@ -1,3 +1,21 @@
 snocone	tests/snocone/ladder/prog/amp_seq.sc	not a Snocone program: a single binary & ("'ab' ? 'a' & 'b'") is refused by the C frontend too (scrip --dump-ast: snocone parse error); concatenation is && (snocone_lex.c LX_AMP -> T_2AMP)
 snocone	tests/snocone/ladder/prog/arith_unary.sc	not SNOBOL4: "OUTPUT = - 3 + 4" (a blank after a unary operator) is SPITBOL ERROR 221 missing operand; the C lexer is lenient, the self-hosted parser follows SPITBOL (Lon 2026-09-24: expressions are SNOBOL4's)
 snocone	library/FENCE.sc	no statements (two comment lines): the parser prints an empty tree, as scrip --dump-ast prints nothing
+snobol4	packages/snobol4/csnobol4_suite/8bit2.sno	not SPITBOL: sbl -bf 8bit2.sno(1,2) : ERROR 230 -- syntax error: illegal character (a UTF-8 letter in an identifier, CSNOBOL4's 8-bit names)
+snobol4	packages/snobol4/csnobol4_suite/alis.sno	not SPITBOL: sbl -bf alis.sno(57,14) : ERROR 230 -- syntax error: illegal character (unary backslash, CSNOBOL4's operator)
+snobol4	packages/snobol4/csnobol4_suite/crlf.sno	not SPITBOL: sbl -bf crlf.sno(1,30) : ERROR 230 -- syntax error: illegal character (the CR of a CRLF line end)
+snobol4	packages/snobol4/gimpel/PHRASES.sno	not a program: BNF phrase data with an END line; sbl -bf PHRASES.sno(1) : ERROR 214 -- bad label or misplaced continuation line, and both oracles refuse it (the package ORACLE_ACCEPTANCE.tsv: NO_ORACLE)
+snobol4	packages/snobol4/snoflake_suite/multiline-backtick-load.sno	not SPITBOL: sbl -bf multiline-backtick-load.sno(10,36) : ERROR 230 -- syntax error: illegal character (a backtick string spanning lines)
+snobol4	tests/snobol4/probe_loose_errpath_unterminated_string.sno	not a program by design: sbl -bf (2,13) : ERROR 232 -- syntax error: unmatched string quote (an error-path probe)
+snobol4	tests/snobol4/smoke_empty_string.sno	not SPITBOL: sbl -bf smoke_empty_string.sno(1,8) : ERROR 221 -- syntax error: missing operand (the statement begins in column 1, the label field)
+snobol4	tests/snobol4/smoke_hello.sno	not SPITBOL: sbl -bf smoke_hello.sno(1,8) : ERROR 221 -- syntax error: missing operand (the statement begins in column 1, the label field)
+snobol4	tests/snobol4/smoke_multi.sno	not SPITBOL: sbl -bf smoke_multi.sno(1,8) : ERROR 221 -- syntax error: missing operand (the statement begins in column 1, the label field)
+snobol4	packages/snobol4/gimpel/ASM_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/BCD_EBCD_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/L_ONE_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/L_TWO_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/POKER_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/RPOEM_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/RSEASON_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/RSTORY_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+snobol4	packages/snobol4/gimpel/STONE_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
