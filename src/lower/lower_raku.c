@@ -1353,6 +1353,16 @@ static void rk_rename_main_refs(tree_t * t) {
     for (int i = 0; i < t->n; i++) rk_rename_main_refs(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_listops_to_methcalls(tree_t * t, int is_iter_src) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_listops_to_methcalls(t->c[i], t->t == TT_ITERATE && i == 0);
+    if (is_iter_src || (t->t != TT_MAP && t->t != TT_GREP) || t->n < 2 || !t->c[0] || !t->c[1]) return;
+    tree_t * body = ast_node_new(TT_SEQ_EXPR); ast_push(body, t->c[0]);
+    tree_t * blk = ast_node_new(TT_ANON_BLOCK); ast_push(blk, body);
+    tree_t * m = ast_node_new(TT_METHCALL); m->line = t->line; ast_push(m, t->c[1]); ast_push(m, leaf_sval2(TT_QLIT, t->t == TT_MAP ? "map" : "grep")); ast_push(m, blk);
+    *t = *m;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_rename_user_main(tree_t * prog) {
     int found = 0;
     for (int i = 0; prog && i < prog->n; i++) {
@@ -1366,6 +1376,7 @@ static void rk_rename_user_main(tree_t * prog) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) {
     rk_rename_user_main((tree_t *) prog);
+    rk_listops_to_methcalls((tree_t *) prog, 0);
     rk_hoist_anon_blocks((tree_t *) prog);
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);

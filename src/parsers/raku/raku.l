@@ -355,6 +355,9 @@ WS       [ \t\r]
 "$!"            { raku_yylval.sval = ct_strdup("$!"); return VAR_SCALAR; }
 "@*"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_ARRAY; }
 "%*"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext); return VAR_HASH; }
+"$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*/"["  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR_IDX; }
+"$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*/"{"  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR_HASH; }
+"$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*/"<"[A-Za-z_]  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR_ANGLE; }
 "$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = ct_strdup(yytext); return VAR_SCALAR; }
 "**@"{ALPHA}{ALNUM}* { raku_yylval.sval = ct_strdup(yytext+2); return SLURPY_LOL; }
 "*@"{ALPHA}{ALNUM}*  { raku_yylval.sval = ct_strdup(yytext+1); return SLURPY_POS; }

@@ -668,6 +668,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
 %token <sval> VAR_ARRAY_TWIGIL VAR_HASH_TWIGIL
+%token <sval> VAR_SCALAR_IDX VAR_SCALAR_HASH VAR_SCALAR_ANGLE
 %token CARET
 %token DOLLAR_LBRACKET
 %token <ival> VAR_CAPTURE
@@ -946,6 +947,15 @@ stmt
           $$=expr_binary(TT_ASSIGN,fe,$3); }
     | VAR_ARRAY '[' expr ']' '=' expr ';'
         { tree_t *c=ast_node_new(TT_ARR_SET);
+          ast_push(c,var_node($1)); ast_push(c,$3); ast_push(c,$6); $$=c; }
+    | VAR_SCALAR_IDX '[' expr ']' '=' expr ';'
+        { tree_t *c=ast_node_new(TT_ARR_SET);
+          ast_push(c,var_node($1)); ast_push(c,$3); ast_push(c,$6); $$=c; }
+    | VAR_SCALAR_ANGLE '<' IDENT '>' '=' expr ';'
+        { tree_t *c=ast_node_new(TT_HASH_SET);
+          ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); ast_push(c,$6); $$=c; }
+    | VAR_SCALAR_HASH '{' expr '}' '=' expr ';'
+        { tree_t *c=ast_node_new(TT_HASH_SET);
           ast_push(c,var_node($1)); ast_push(c,$3); ast_push(c,$6); $$=c; }
     | VAR_HASH '<' IDENT '>' '=' expr ';'
         { tree_t *c=ast_node_new(TT_HASH_SET);
@@ -2233,10 +2243,14 @@ call_expr
         { tree_t *c = ast_node_new(TT_MAP);  ast_push(c, $2); ast_push(c, $4); $$ = c; }
     | KW_GREP closure expr
         { tree_t *c = ast_node_new(TT_GREP); ast_push(c, $2); ast_push(c, $3); $$ = c; }
+    | KW_GREP closure ',' expr
+        { tree_t *c = ast_node_new(TT_GREP); ast_push(c, $2); ast_push(c, $4); $$ = c; }
     | KW_SORT expr
         { tree_t *c = ast_node_new(TT_SORT); ast_push(c, $2); $$ = c; }
     | KW_SORT closure expr
         { tree_t *c = ast_node_new(TT_SORT); ast_push(c, $2); ast_push(c, $3); $$ = c; }
+    | KW_SORT closure ',' expr
+        { tree_t *c = ast_node_new(TT_SORT); ast_push(c, $2); ast_push(c, $4); $$ = c; }
     | KW_REVERSE expr
         { tree_t *c = ast_node_new(TT_REVERSE); ast_push(c, $2); $$ = c; }
     | atom           { $$=$1; }
@@ -2315,6 +2329,20 @@ atom
         { $$ = rk_arr_all($1); }
     | VAR_HASH '<' IDENT '>'
         { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
+    | VAR_SCALAR_IDX '[' expr ']'
+        { $$ = rk_arr_index($1, $3); }
+    | VAR_SCALAR_ANGLE '<' IDENT '>'
+        { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
+    | VAR_SCALAR_HASH '{' expr '}'
+        { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node($1)); ast_push(c,$3); $$=c; }
+    | VAR_SCALAR_HASH '{' expr '}' ADV_EXISTS
+        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($1)); ast_push(c,$3); $$=c; }
+    | VAR_SCALAR_ANGLE '<' IDENT '>' ADV_EXISTS
+        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
+    | VAR_SCALAR_HASH '{' expr '}' ADV_DELETE
+        { tree_t *c=ast_node_new(TT_HASH_DELETE); ast_push(c,var_node($1)); ast_push(c,$3); $$=c; }
+    | VAR_SCALAR_ANGLE '<' IDENT '>' ADV_DELETE
+        { tree_t *c=ast_node_new(TT_HASH_DELETE); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
     | VAR_HASH '{' expr '}'
         { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node($1)); ast_push(c,$3); $$=c; }
     | KW_EXISTS VAR_HASH '<' IDENT '>'
