@@ -552,6 +552,7 @@ test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_real_literal_overflow_is_a_parse_error.sh	WIRED	-	-	-
 test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_rewind_on_an_unopened_unit_raises_174.sh	WIRED	-	-	-
+test_gate_sno_rtntype_is_set_by_an_asm_leaf.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh	WIRED	-	-	-

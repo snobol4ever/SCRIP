@@ -469,11 +469,13 @@ static int gc_trap_on(void)
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define GC_QUAR_RELEASE_BYTES (256u * 1024u)
+_Static_assert((GC_QUAR_RELEASE_BYTES & (GC_QUAR_RELEASE_BYTES - 1)) == 0, "THE QUARANTINE IS RELEASED IN POWER-OF-TWO CHUNKS AHEAD OF THE ALLOCATOR (ceo 2026-09-25, CEO-1253): a page-granular release cost porter 9136 mprotect calls and 19 ms at the 512 MB demo arena, one per page the allocator advanced over vacated ground; the trap still faults on every stale read below the released chunk, and the released chunk is at most this many bytes of 0xDB poison ahead of the top");
 static void gc_quar_release(char *need_end)
 {
     size_t pg; char *b;
     if (!g_hp_qlo || need_end <= g_hp_qlo) return;
-    pg = gc_pg(); b = (char *)(((uintptr_t)need_end + (pg - 1)) & ~(uintptr_t)(pg - 1));
+    pg = gc_pg(); if (pg < GC_QUAR_RELEASE_BYTES) pg = GC_QUAR_RELEASE_BYTES; b = (char *)(((uintptr_t)need_end + (pg - 1)) & ~(uintptr_t)(pg - 1));
     if (b > g_hp_qhi) b = g_hp_qhi;
     if (b <= g_hp_qlo) return;
     if (mprotect(g_hp_qlo, (size_t)(b - g_hp_qlo), PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZGC-TRAP] could not re-commit vacated ground arena+%ld..arena+%ld for the allocator -- the stale-read trap refuses the run rather than let the mutator write ground the kernel will not hand back\n", (long)(g_hp_qlo - g_hp_arena), (long)(b - g_hp_arena)); abort(); }

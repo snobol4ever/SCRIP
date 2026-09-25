@@ -1,5 +1,23 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(misc)
+RTX_FUNC(rt_kw_set_rtntype_role)
+    cmp     edi, 2
+    je      .Lkr_f
+    mov     rax, qword ptr [rip + rt_g_ret_by_name@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lkr_n
+    mov     rax, 0x00004E5255544552
+    jmp     .Lkr_store
+.Lkr_f:
+    mov     rax, 0x004E525554455246
+    jmp     .Lkr_store
+.Lkr_n:
+    mov     rax, 0x004E52555445524E
+.Lkr_store:
+    mov     rdx, qword ptr [rip + kw_rtntype@GOTPCREL]
+    mov     qword ptr [rdx], rax
+    ret
+RTX_ENDF(rt_kw_set_rtntype_role)
 RTX_FUNC(descr_identical)
     RTX_GATE(misc, .Ldi_c)
     cmp     dil, DT_FAIL
