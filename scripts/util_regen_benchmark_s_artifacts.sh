@@ -45,13 +45,18 @@ done
 
 echo "Committing changed artifacts to corpus..."
 cd "$CORPUS"
-git add benchmarks/*.s 2>/dev/null || true
-if git diff --cached --quiet -- benchmarks 2>/dev/null; then
+# ⛔ THE PATHSPEC NAMES THIS DIRECTORY'S .s ARTIFACTS AND NOTHING ELSE (ceo 2026-09-25, CEO-1266). It read "git add benchmarks/*.s"
+# and "commit -- benchmarks": git's * crosses slashes, and a commit with a pathspec takes the WORKING-TREE state of every
+# tracked file under it, so any edited kernel source was committed under this script's "artifacts" message -- which is how
+# the 2026-08-23 rewrite of every SNOBOL4 kernel into a function landed with no message of its own (corpus cbc2df66e).
+REL="${BENCH#"$CORPUS"/}"
+git add -- "$REL/*.s" 2>/dev/null || true
+if git diff --cached --quiet -- "$REL/*.s" 2>/dev/null; then
     echo "  No changes — benchmark .s artifacts already current."
 else
     RUNG="${1:-regen}"
     git -c user.name="LCherryholmes" -c user.email="lcherryh@yahoo.com" \
-        commit -q -m "benchmark x86 .s artifacts: $RUNG" -- benchmarks
+        commit -q -m "benchmark x86 .s artifacts: $RUNG" -- "$REL/*.s"
     echo "  Committed:"; git show --stat --oneline HEAD | sed -n '1,40p'
 fi
 
