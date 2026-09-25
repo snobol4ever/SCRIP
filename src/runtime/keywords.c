@@ -534,8 +534,11 @@ DESCR_t kw_read(const char *kw) {
           return STRVAL(buf);
       }
       if (!strcmp(kw,"dateline")) {
+          static const char *day[] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+          static const char *month[] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+          int hour = tm->tm_hour; const char *merid = (hour >= 12) ? "pm" : "am"; if (hour > 12) hour -= 12; else if (hour < 1) hour += 12;
           char *buf = rt_wsb_alloc(64);
-          strftime(buf,64,"%A, %B %e, %Y  %l:%M %P",tm);
+          snprintf(buf,64,"%s, %s %d, %d  %d:%02d %s",day[tm->tm_wday],month[tm->tm_mon],tm->tm_mday,tm->tm_year+1900,hour,tm->tm_min,merid);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"clock")) {
