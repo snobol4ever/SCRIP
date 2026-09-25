@@ -101,7 +101,7 @@ TBBLK_t *table_new(void) {
     t->size = 0;
     t->init = 11;
     t->inc  = 10;
-    t->is_set = 0;
+    t->is_set = 0; t->null_one = 0;
     t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0; t->ord_dead = 0u;
     t->gen_idx = -1; t->gen_pos = -1; t->gen_mask = 0ul; t->gen_lseg = t->gen_lslot = t->gen_lhn = 0ul; t->gen_lseq = 0u; t->gen_have = 0;
     t->icn_mask = 15ul;
@@ -221,6 +221,7 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_hval(const 
         default:      return _tbl_h_ptr (k);
     }
 }
+static inline __attribute__((always_inline)) DESCR_t _tbl_key_canon(const TBBLK_t *tbl, DESCR_t k) { return (tbl->null_one && k.v == DT_S && (!k.s || _tbl_slen(&k) == 0u)) ? NULVCL : k; }
 static inline __attribute__((always_inline)) unsigned long long _tbl_hkey(DESCR_t k) {
     if (tbl_typed_off()) { char kb[64]; DESCR_t sk = k; sk.v = DT_S; sk.s = (char *)tbl_key_str(k, kb, sizeof kb); return ((unsigned long long)DT_S << 56) | _tbl_h_str(&sk); }
     return ((unsigned long long)k.v << 56) | (_tbl_hval(&k) & 0x00FFFFFFFFFFFFFFull);
@@ -281,6 +282,7 @@ const char *tbl_pair_key(TBPAIR_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {
     if (!tbl) return (TBPAIR_t *)0;
+    k = _tbl_key_canon(tbl, k);
     unsigned long long h = _tbl_hkey(k);
     TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return (TBPAIR_t *)0;
@@ -295,6 +297,7 @@ int     table_has_d(TBBLK_t *tbl, DESCR_t k) { return table_find_pair_d(tbl, k) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     if (!tbl) return 0;
+    k = _tbl_key_canon(tbl, k);
     unsigned long long h = _tbl_hkey(k);
     TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return 0;
@@ -328,6 +331,7 @@ static void _tbl_rehash(TBBLK_t *tbl) {
 static unsigned long _icn_hash(DESCR_t k);
 void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (!tbl) return;
+    k = _tbl_key_canon(tbl, k);
     if (val.v == DT_S) rt_sxt_break_fast(val.s);
     unsigned long long h = _tbl_hkey(k);
     unsigned bi = TBL_BUCKET_OF(tbl, h);

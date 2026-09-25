@@ -1762,7 +1762,8 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
 static DESCR_t _TABLE_(DESCR_t *a, int n) {
     int init = (n >= 1) ? (int)to_int(a[0]) : 0;
     int inc  = (n >= 2) ? (int)to_int(a[1]) : 0;
-    return TABLE_VAL(table_new_args(init, inc));
+    TBBLK_t *t = table_new_args(init, inc); t->null_one = 1;
+    return TABLE_VAL(t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _CONVERT_(DESCR_t *a, int n) {
@@ -1823,7 +1824,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         if (IS_ARR(val) && val.arr) {
             ARBLK_t *a = val.arr;
             int rows = a->hi - a->lo + 1;
-            TBBLK_t *tbl = table_new_args(rows > 0 ? rows : 10, 10);
+            TBBLK_t *tbl = table_new_args(rows > 0 ? rows : 10, 10); tbl->null_one = 1;
             if (a->ndim == 1 && a->data) {
                 for (int i = 0; i < rows; i++) {
                     DESCR_t rowv = a->data[i];
@@ -1907,7 +1908,7 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         if (!v.tbl) return v;
         TBBLK_t *tcopy = table_new_args(v.tbl->init, v.tbl->inc);
         tcopy->dflt = v.tbl->dflt;
-        tcopy->is_set = v.tbl->is_set;
+        tcopy->is_set = v.tbl->is_set; tcopy->null_one = v.tbl->null_one;
         TBPAIR_t *e;
         TBL_FOREACH(v.tbl, e) table_set_descr_d(tcopy, (e->key_descr.v != DT_SNUL) ? e->key_descr : STRVAL(tbl_pair_key(e)), e->val);
         return TABLE_VAL(tcopy);

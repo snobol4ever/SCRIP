@@ -118,7 +118,9 @@ RTX_FUNC(table_find_pair_d)
     jmp     .Ltf_key
 .Ltf_h_str:
     test    rdx, rdx
-    je      .Ltf_str_n0
+    je      .Ltf_c
+    cmp     byte ptr [rdx], 0
+    je      .Ltf_c
     mov     rcx, rsi
     shr     rcx, 32
     test    ecx, ecx
@@ -180,8 +182,6 @@ RTX_FUNC(table_find_pair_d)
     xor     r11, rax
     imul    r11, r10
     jmp     .Ltf_str_fin
-.Ltf_str_n0:
-    mov     r11, 5381
 .Ltf_str_fin:
     mov     rax, r11
     shr     rax, 31
