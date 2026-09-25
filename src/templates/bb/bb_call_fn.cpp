@@ -15,7 +15,10 @@ extern "C" {
 }
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
-    return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL)); }
+    return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
+extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
+static const char * sn4_byname_sym(const char * fn, int strict, uint64_t * fp) { long bw = bid_bake_of(fn); if (strict == 2 && bw >= 0 && (bw & BID_BAKE_LEAF)) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; return "rt_call_bid_sn4"; }
+    if (strict == 2) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; return "rt_call_arr_bl_sn4"; } if (strict) { *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; return "rt_call_arr_bl_strict"; } *fp = (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; return "rt_call_arr_bl"; }
 DESCR_t rt_pl_dop_unify_ci(DESCR_t * args, long long imm);
 DESCR_t rt_pl_dop_unify_cs(DESCR_t * args, const char * cs);
 int bb_slot_get(IR_t * nd);
@@ -161,7 +164,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call", ((_.op_strict == 2) ? "rt_call_arr_bl_sn4" : _.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), (uint64_t)(uintptr_t)(void *)((_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl));
+        { uint64_t _fp = 0; const char * _sym = sn4_byname_sym(fn, _.op_strict, &_fp); s += x86("call", _sym, _fp); }
         if (_mopen || _aopen) s += x86_deflabel_id(29);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
@@ -248,7 +251,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)nargs);
         s += x86("rtcc_wb");
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call_bare", ((_.op_strict == 2) ? "rt_call_arr_bl_sn4" : _.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), (uint64_t)(uintptr_t)(void *)((_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl));
+        { uint64_t _fp = 0; const char * _sym = sn4_byname_sym(fn, _.op_strict, &_fp); s += x86("call_bare", _sym, _fp); }
         s += x86("rtcc_rl");
         if (_mopen || _iopen || _aopen) s += x86_deflabel_id(29);
     }

@@ -5829,6 +5829,12 @@ DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0)); }
 DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0)); }
 DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1)); }
+DESCR_t rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+    extern long g_error; extern int64_t kw_errlimit;
+    if (g_error != 0 || kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return rt_call_arr_bl_sn4(fn, args, nargs, bidlen);
+    { DESCR_t out = FAILDESCR; if (try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, 0)) return out; }
+    return APPLY_fn(fn, args, nargs);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
@@ -6794,7 +6800,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         *out = NULVCL; return 1;
     }
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
-        const int _fb = bidlen & 0x7FFF;
+        const int _fb = bidlen & BID_BAKE_MASK;
         extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);
         if (g_bidprof_on < 0) bidprof_init();
         if (g_bidprof_on && _fb >= 0 && _fb < 1024) g_bidprof[_fb]++;
@@ -6815,7 +6821,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (_fb == BID_SNOx24NAME && nargs == 1) return bn_sno_name(args, nargs, out);
     }
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
-    const int _bid = (bidlen >= 0) ? (int)(bidlen & 0x7FFF) : bid_of(fn, (unsigned)_fnlen);
+    const int _bid = (bidlen >= 0) ? (int)(bidlen & BID_BAKE_MASK) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
     { extern int rt_g_want_name;
       if (rt_g_want_name && nargs == 1 && IS_DATA_TAG_fn(args[0].v)) {

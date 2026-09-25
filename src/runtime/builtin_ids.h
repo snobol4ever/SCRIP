@@ -192,6 +192,8 @@
 #define BID___pas_swapendian 189
 #define BID_TABSZ 1024
 #define BID_BAKE_SYSFN 0x8000
+#define BID_BAKE_LEAF 0x4000
+#define BID_BAKE_MASK 0x3FFF
 static const struct { const char *nm; unsigned char len; short id; } g_bid_tab[BID_TABSZ] = {
   {0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},
   {0,0,0},{0,0,0},{0,0,0},{"collect",7,112},{0,0,0},{0,0,0},{0,0,0},{"__pas_halt",10,178},

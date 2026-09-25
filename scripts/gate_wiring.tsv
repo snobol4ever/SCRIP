@@ -535,6 +535,7 @@ test_gate_sno_fnclevel_is_mirrored_at_every_level_move_not_only_in_the_gva_shim.
 test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-
+test_gate_sno_leaf_builtins_dispatch_directly.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
 test_gate_sno_match_operator_composes_in_value_position.sh	WIRED	-	-	-
 test_gate_sno_match_region_watermark_is_spent_on_every_exit_edge.sh	WIRED	-	-	-

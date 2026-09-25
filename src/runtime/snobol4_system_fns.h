@@ -18,4 +18,20 @@ static __attribute__((unused)) int sn4_is_system_fn(const char *name) {
 static __attribute__((unused)) int sn4_sysfn_protected(const char *name) {
     return sn4_is_system_fn(name);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * const g_sn4_leaf_fns[] = {
+"ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT","IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM"
+};
+#define SN4_LEAF_FN_COUNT (sizeof(g_sn4_leaf_fns) / sizeof(g_sn4_leaf_fns[0]))
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((unused)) int sn4_direct_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SN4_DIRECT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((unused)) int sn4_is_leaf_fn(const char *name) {
+    if (!name || !*name) return 0;
+    { int lo = 0, hi = (int)SN4_LEAF_FN_COUNT - 1;
+      while (lo <= hi) { int mid = (lo + hi) >> 1; const char *e = g_sn4_leaf_fns[mid];
+        int c = (e[0] != name[0]) ? ((int)(unsigned char)e[0] - (int)(unsigned char)name[0]) : strcmp(e, name);
+        if (c == 0) return 1; if (c < 0) lo = mid + 1; else hi = mid - 1; } }
+    return 0;
+}
 #endif
