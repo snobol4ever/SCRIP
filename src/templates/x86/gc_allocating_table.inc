@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1898
+#define GC_ALLOC_TAB_N 1903
 #define GC_ALLOC_TAB_N_VOID 241
-#define GC_ALLOC_TAB_N_DESCR 993
-#define GC_ALLOC_TAB_N_OTHER 662
+#define GC_ALLOC_TAB_N_DESCR 997
+#define GC_ALLOC_TAB_N_OTHER 663
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1226,6 +1226,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_assert", GC_RET_OTHER },
     { "rt_pl_db_assert_ref", GC_RET_OTHER },
     { "rt_pl_db_bind", GC_RET_OTHER },
+    { "rt_pl_db_clause_as_of", GC_RET_OTHER },
     { "rt_pl_db_clause_at", GC_RET_OTHER },
     { "rt_pl_db_cp_count", GC_RET_OTHER },
     { "rt_pl_db_cp_nth", GC_RET_OTHER },
@@ -1359,6 +1360,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_db_erase_ref_c", GC_RET_DESCR },
     { "rt_pl_dop_db_erase_t", GC_RET_DESCR },
     { "rt_pl_dop_db_erase_t_c", GC_RET_DESCR },
+    { "rt_pl_dop_db_gen", GC_RET_DESCR },
+    { "rt_pl_dop_db_gen_c", GC_RET_DESCR },
+    { "rt_pl_dop_db_gen_t", GC_RET_DESCR },
+    { "rt_pl_dop_db_gen_t_c", GC_RET_DESCR },
     { "rt_pl_dop_db_n", GC_RET_DESCR },
     { "rt_pl_dop_db_n_c", GC_RET_DESCR },
     { "rt_pl_dop_db_n_r", GC_RET_DESCR },

@@ -928,12 +928,13 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     IR_t * uni = build(cx, IR_CALL, er ? er : γnext, ωfail); IR_LIT(uni).sval = erase ? "$unify" : "$clause_unify";
     IR_t * at = build(cx, IR_CALL, uni, ωfail); IR_LIT(at).sval = k < 0 ? "$db_at_t" : "$db_at";
     IR_t * to = build(cx, IR_TO, at, ωfail); IR_LIT(to).sval = (char *) "ag";
-    IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = k < 0 ? "$db_n_t" : "$db_n";
+    IR_t * gn = build(cx, IR_CALL, to, ωfail); IR_LIT(gn).sval = k < 0 ? "$db_gen_t" : "$db_gen";
+    IR_t * cnt = build(cx, IR_CALL, gn, ωfail); IR_LIT(cnt).sval = k < 0 ? "$db_n_t" : "$db_n";
     IR_t * lo = build(cx, IR_LIT_INTEGER, cnt, ωfail); IR_LIT(lo).ival = 0;
     IR_t * te = NULL; IR_t * tv = term_e(cx, target, &te);
     IR_t * kn;
-    if (k < 0) { kn = tv; lc_γ_to(tv, lo); lc_ω_to(tv, ωfail); ir_operand_push(cnt, kn); ir_operand_push(to, lo); ir_operand_push(to, cnt);
-        ir_operand_push(at, kn); ir_operand_push(at, to); ir_operand_push(uni, at); ir_operand_push(uni, tv);
+    if (k < 0) { kn = tv; lc_γ_to(tv, lo); lc_ω_to(tv, ωfail); ir_operand_push(cnt, kn); ir_operand_push(gn, kn); ir_operand_push(to, lo); ir_operand_push(to, cnt);
+        ir_operand_push(at, kn); ir_operand_push(at, to); ir_operand_push(at, gn); ir_operand_push(uni, at); ir_operand_push(uni, tv);
         if (er) { ir_operand_push(er, kn); ir_operand_push(er, to); lc_ω_to_β(er, to); }
         lc_ω_to_β(at, to); lc_ω_to_β(uni, to);
         if (entry_out) *entry_out = te ? te : tv;
@@ -941,9 +942,9 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
     lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail);
     lc_γ_to(tv, lo); lc_ω_to(tv, ωfail);
-    ir_operand_push(cnt, kn);
+    ir_operand_push(cnt, kn); ir_operand_push(gn, kn);
     ir_operand_push(to, lo); ir_operand_push(to, cnt);
-    ir_operand_push(at, kn); ir_operand_push(at, to);
+    ir_operand_push(at, kn); ir_operand_push(at, to); ir_operand_push(at, gn);
     ir_operand_push(uni, at); ir_operand_push(uni, tv);
     if (er) { ir_operand_push(er, kn); ir_operand_push(er, to); lc_ω_to_β(er, to); }
     lc_ω_to_β(at, to); lc_ω_to_β(uni, to);

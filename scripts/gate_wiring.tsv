@@ -416,6 +416,7 @@ test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_backslash_c_layout_escape_agrees_with_the_oracle.sh	WIRED	-	-	-
 test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
 test_gate_pl_bom_is_written_detected_and_reported.sh	WIRED	-	-	-
+test_gate_pl_clause_2_sees_the_clauses_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
 test_gate_pl_findall_4_serves_a_bound_tail_and_an_unbound_one.sh	WIRED	-	-	-
@@ -459,8 +460,8 @@ test_gate_pre_commit_refuses_a_conflict_marker.sh	WIRED	-	-	-
 test_gate_preflight_arms_stay_cheap.sh	WIRED	-	-	-
 test_gate_progress_append_writes_a_row.sh	WIRED	-	-	-
 test_gate_progress_configuration_declarations_do_not_regress.sh	WIRED	-	-	-
-test_gate_progress_flips_a_superseded_undeclared_series_is_not_a_loss.sh	WIRED	-	-	-
 test_gate_progress_flips_a_program_that_stops_being_graded_went_dark.sh	WIRED	-	-	-
+test_gate_progress_flips_a_superseded_undeclared_series_is_not_a_loss.sh	WIRED	-	-	-
 test_gate_progress_readers_stream_and_answer_the_same.sh	WIRED	-	-	-
 test_gate_progress_records_the_configuration_it_exercised.sh	WIRED	-	-	-
 test_gate_progress_rows_carry_the_start_fingerprint.sh	WIRED	-	-	-

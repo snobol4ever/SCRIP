@@ -2379,13 +2379,24 @@ int rt_pl_db_erase(void *db_v, int i)
 {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
-    db->s[i].erased = 1;
+    db->s[i].erased = db->next_ref++;
     { char key[264]; int ar = 0;
       if (rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->n : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_gen(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->next_ref : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_clause_as_of(void *db_v, int i, int gen, void *out_v)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || !out_v || i < 0 || i >= db->n || db->s[i].ref >= gen || (db->s[i].erased && db->s[i].erased < gen)) return 0;
+    { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+      *(pl_cell_t *)out_v = pl_cell_copy_persist(&db->s[i].cl, va, vn2, &vn, 256);
+      return 1; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_live_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; int c = 0; if (!db) return 0; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) c++; return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2429,7 +2440,7 @@ int rt_pl_db_abolish(void *db_v)
     char key[264]; int ar = 0; int have = 0;
     if (!db) return 0;
     for (int i = 0; i < db->n && !have; i++) if (rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar)) have = 1;
-    for (int i = 0; i < db->n; i++) db->s[i].erased = 1;
+    { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) db->s[i].erased = st; }
     db->killed = 1;
     if (have) pl_db_define_absent(key, ar);
     return 1;
@@ -2447,7 +2458,7 @@ int rt_pl_db_match_erase(void *db_v, void *goal_term)
           pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
           if (h && pl_unify(&h[0], &g)) {
               if (!have_key) have_key = rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar);
-              db->s[i].erased = 1; hit++; } }
+              db->s[i].erased = db->next_ref++; hit++; } }
     }
     if (hit && have_key) rt_pl_db_recompile(db_v, key, ar);
     return hit;

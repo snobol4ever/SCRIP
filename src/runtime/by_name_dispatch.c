@@ -9190,10 +9190,18 @@ DESCR_t rt_pl_dop_db_n_c(DESCR_t *args, int nargs, void *root) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_at_c(DESCR_t *args, int nargs, void *root) {
-    if (nargs != 2) return FAILDESCR;
-    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]); DESCR_t out;
+    extern int rt_pl_db_clause_as_of(void *, int, int, void *);
+    if (nargs != 2 && nargs != 3) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]); DESCR_t gv = nargs == 3 ? rt_pl_deref_val(args[2]) : INTVAL(0); DESCR_t out;
       if (!db || iv.v != DT_I) return FAILDESCR;
+      if (nargs == 3 && gv.v == DT_I) return rt_pl_db_clause_as_of(db, (int)iv.i, (int)gv.i, (void *)&out) ? out : FAILDESCR;
       return rt_pl_db_clause_at(db, (int)iv.i, (void *)&out) ? out : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_gen_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_gen(void *);
+    if (nargs != 1) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); return INTVAL(db ? rt_pl_db_gen(db) : 0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_abolish_c(DESCR_t *args, int nargs, void *root) {
@@ -9441,11 +9449,20 @@ DESCR_t rt_pl_dop_db_n_t_c(DESCR_t *args, int nargs, void *root) {
     { void *db = pl_db_of_term(&args[0], root, 0); return INTVAL(db ? rt_pl_db_count(db) - 1 : -1); }
 }
 DESCR_t rt_pl_dop_db_at_t_c(DESCR_t *args, int nargs, void *root) {
-    if (nargs != 2) return FAILDESCR;
+    extern int rt_pl_db_clause_as_of(void *, int, int, void *);
+    if (nargs != 2 && nargs != 3) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_of_term(&args[0], root, 0); DESCR_t iv = rt_pl_deref_val(args[1]); DESCR_t out;
+    { void *db = pl_db_of_term(&args[0], root, 0); DESCR_t iv = rt_pl_deref_val(args[1]); DESCR_t gv = nargs == 3 ? rt_pl_deref_val(args[2]) : INTVAL(0); DESCR_t out;
       if (!db || iv.v != DT_I) return FAILDESCR;
+      if (nargs == 3 && gv.v == DT_I) return rt_pl_db_clause_as_of(db, (int)iv.i, (int)gv.i, (void *)&out) ? out : FAILDESCR;
       return rt_pl_db_clause_at(db, (int)iv.i, (void *)&out) ? out : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_gen_t_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_gen(void *);
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_of_term(&args[0], root, 0); return INTVAL(db ? rt_pl_db_gen(db) : 0); }
 }
 DESCR_t rt_pl_dop_db_erase_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
