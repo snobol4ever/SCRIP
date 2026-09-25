@@ -500,6 +500,15 @@ static tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_
     return pl_cc_fnc2(",", gen, pick);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cc_gen2_desc(const char * count_leaf, const char * nth_leaf, tree_t * a0, tree_t * a1, tree_t * a2) {
+    tree_t * cv = pl_cc_freshvar(); tree_t * cv2 = pl_cc_freshvar(); tree_t * cv3 = pl_cc_freshvar(); tree_t * jv = pl_cc_freshvar(); tree_t * jv2 = pl_cc_freshvar();
+    tree_t * iv = pl_cc_freshvar(); tree_t * iv2 = pl_cc_freshvar();
+    cv2->v.ival = cv->v.ival; cv3->v.ival = cv->v.ival; jv2->v.ival = jv->v.ival; iv2->v.ival = iv->v.ival;
+    tree_t * down = pl_cc_fnc2("is", iv, pl_cc_fnc2("-", pl_cc_fnc2("+", cv3, pl_cc_ilit(1)), jv2));
+    tree_t * gen = pl_cc_fnc2(",", pl_cc_fnc1(count_leaf, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, jv), down));
+    return pl_cc_fnc2(",", gen, pl_cc_fnc4(nth_leaf, iv2, a0, a1, a2));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_pl_fence_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_FENCE"); v = (e && *e == (char) 48) ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_fence_on(void) { return emit_pl_fence_on(); }
@@ -1597,7 +1606,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                                      pl_cc_fnc2("$current_prolog_flag", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out); }
         if (!strcmp(nm, "current_op") && t->n == 3 && !pl_file_defines(nm, 3))
             return goal(cx, pl_cc_fnc2(",", pl_cc_fnc3("$pl_op_check", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]),
-                pl_cc_gen2("$pl_op_count", "$pl_op_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2])), γnext, ωfail, entry_out);
+                pl_cc_gen2_desc("$pl_op_count", "$pl_op_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2])), γnext, ωfail, entry_out);
         if (!strcmp(nm, "current_stream") && t->n == 3 && !pl_file_defines(nm, 3))
             return goal(cx, pl_cc_gen2("$pl_cs_count", "$pl_cs_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext, ωfail, entry_out);
         if (!strcmp(nm, "stream_property") && t->n == 2 && !pl_file_defines(nm, 2))

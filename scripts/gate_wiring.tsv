@@ -424,6 +424,7 @@ test_gate_pl_bom_is_written_detected_and_reported.sh	WIRED	-	-	-
 test_gate_pl_clause_2_sees_the_clauses_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
+test_gate_pl_current_op_enumerates_newest_first_over_the_table_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_findall_4_serves_a_bound_tail_and_an_unbound_one.sh	WIRED	-	-	-
 test_gate_pl_format_column_fill_is_a_character_not_a_byte.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
