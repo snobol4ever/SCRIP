@@ -3340,7 +3340,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         fprintf(_io_chan[ch].fp, "%s\n", s ? s : "");
-        return val;
+        goto nv_store;
     }
     if (strcmp(name, "OUTPUT") == 0) { extern int rt_kw_output_on(void); if (rt_kw_output_on()) output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
     if (strcmp(name, "TERMINAL") == 0) {
@@ -3379,6 +3379,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
             return FAILDESCR;
         }
     }
+nv_store: ;
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) {

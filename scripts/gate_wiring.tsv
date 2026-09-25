@@ -538,6 +538,7 @@ test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
 test_gate_sno_an_immediate_assignment_to_a_global_stores_into_its_gva_cell.sh	WIRED	-	-	-
 test_gate_sno_an_integer_string_operand_takes_the_integer_fast_path.sh	WIRED	-	-	-
+test_gate_sno_an_output_associated_variable_keeps_the_value_it_was_assigned.sh	WIRED	-	-	-
 test_gate_sno_by_name_paths_find_once_dollar_apply_eval.sh	WIRED	-	-	-
 test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
