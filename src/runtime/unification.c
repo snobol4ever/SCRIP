@@ -262,6 +262,9 @@ static int plc_term_prio(pl_cell_t *c, int ignore_ops)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_is_graphic_char(int ch) { static const char *const g = "#$&*+-./:<=>?@\\^~"; return ch && strchr(g, ch) != (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_is_op_atom(pl_cell_t *d) { int p = 0, l = 0, r = 0; const char *n = ((int)d->v == DT_A || (int)d->v == DT_S) ? plc_atom_text(d) : (const char *)0;
+    return n && (plc_op_info(n, 2, &p, &l, &r) || plc_op_info(n, 1, &p, &l, &r)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars)
 {
     extern int ATOM_DOT;
@@ -283,6 +286,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
       if (!ignore_ops && ar == 1 && !strcmp(fn, "{}")) return '{';
       if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info(fn, ar, &pr, &lm, &rm)) {
           if (pr > 1200) return (unsigned char)fn[0];
+          if (ar == 2 && plc_is_op_atom(pl_deref(&aa[0]))) return '(';
           if (ar == 2 || plc_op_is_postfix(fn)) return plc_first_char(&aa[0], quoted, ignore_ops, numbervars);
           return (quoted && plc_atom_needs_quoting(fn)) ? '\'' : (unsigned char)fn[0]; }
       return (quoted && plc_atom_needs_quoting(fn)) ? '\'' : (unsigned char)fn[0]; }
@@ -357,11 +361,16 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
         int wrap = op_prec > maxp;
         if (wrap) fputc('(', fp);
         if (ar == 2) {
-            plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lmax, m);
+            int lop = plc_is_op_atom(pl_deref(&aa[0])), rop = plc_is_op_atom(pl_deref(&aa[1]));
+            if (lop) fputc('(', fp);
+            plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lop ? 1200 : lmax, m);
+            if (lop) fputc(')', fp);
             if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s ", fn);
             else if (!strcmp(fn, ",")) fputc(',', fp);
-            else { plc_wt_atom(fp, fn, quoted); if (plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars))) fputc(' ', fp); }
-            plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, rmax, m);
+            else { plc_wt_atom(fp, fn, quoted); if (!rop && plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars))) fputc(' ', fp); }
+            if (rop) fputc('(', fp);
+            plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, rop ? 1200 : rmax, m);
+            if (rop) fputc(')', fp);
         } else if (plc_op_is_postfix(fn)) {
             plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lmax, m);
             if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s", fn); else plc_wt_atom(fp, fn, quoted);
@@ -369,9 +378,7 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
             { pl_cell_t *a0 = pl_deref(&aa[0]); int ap = plc_term_prio(a0, ignore_ops);
               int alnum_op = isalnum((unsigned char)fn[0]) || fn[0] == '_';
               int a_num = ((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0);
-              int op2 = 0, l2 = 0, r2 = 0;
-              int a_opatom = ((int)a0->v == DT_A || (int)a0->v == DT_S)
-                  && (plc_op_info(plc_atom_text(a0), 2, &op2, &l2, &r2) || plc_op_info(plc_atom_text(a0), 1, &op2, &l2, &r2));
+              int a_opatom = plc_is_op_atom(a0);
               int needp = (ap > rmax) || a_opatom || (a_num && !strcmp(fn, "-"));
               int sep = needp || (!alnum_op && plc_is_graphic_char(plc_first_char(&aa[0], quoted, ignore_ops, numbervars)));
               if (alnum_op) fprintf(fp, "%s ", fn); else plc_wt_atom(fp, fn, quoted);
