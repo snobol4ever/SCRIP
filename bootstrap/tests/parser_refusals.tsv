@@ -19,3 +19,5 @@ snobol4	packages/snobol4/gimpel/RPOEM_driver.sno	EMPTY, no statement: comment li
 snobol4	packages/snobol4/gimpel/RSEASON_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
 snobol4	packages/snobol4/gimpel/RSTORY_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
 snobol4	packages/snobol4/gimpel/STONE_driver.sno	EMPTY, no statement: comment lines and one -INCLUDE control line (the module carries its own END); the parser prints TT_STMT nodes only
+raku	tests/scrip_test/raku/rk_re37.raku	not Raku: rakudo-m -c says ===SORRY!=== Unsupported use of /g. In Raku please use: :g. (line 17, s/b/X/g is Perl 5)
+raku	tests/raku/parse_census/qto_heredoc.raku	not Raku: rakudo-m -c says ===SORRY!=== Unrecognized adverb: :to'END (a heredoc needs q:to/END/, a quote delimiter, not an adverb argument in quotes)
