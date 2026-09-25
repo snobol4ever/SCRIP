@@ -336,6 +336,19 @@ else
     echo "    ARM 15 SKIPPED: no scrip binary at $HERE/../scrip"
 fi
 
+# ---- ARM 16 — THE SECOND DOT OF =.. IS NOT AN END TOKEN (ISO 6.4.8: a "." ends a clause only when it is not part of a longer symbol-character
+# token). Before 2026-09-25 "V =.. [D, Ma| _]" split at the dot before the space and the case reached the engine as "V =., (...)", a parse error
+# that failed its whole program (Logtalk current_prolog_flag_2 commons_17). Offline: the splitter alone, on a two-clause fixture.
+arms=$((arms+1))
+got="$(GATE_SCRIPTS="$HERE" python3 - <<'PY'
+import os, sys
+sys.path.insert(0, os.environ["GATE_SCRIPTS"])
+import util_logtalk_extract as ex
+print(len(ex.split_clauses("a :- V =.. [x, 1| _], b. c :- X = '.'.")))
+PY
+)"
+[ "$got" = "2" ] || fail "ARM 16: a clause holding '=.. [' split into $got pieces, want 2 -- the second dot of =.. was read as the end of the clause"
+
 echo "[$GATE] arms=$arms violations=$violations"
 [ "$violations" -eq 0 ] || exit 1
 echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, the ISO numeric escape stays readable, Logtalk-only database clauses are dropped rather than emitted, the tester-loaded Prolog file is inlined with its guards, a group that matched nothing refuses, and every order-dependent declaration is earned -- policed standalone on the same board, named on the board line, stale or unnecessary lines refusing rc=2"

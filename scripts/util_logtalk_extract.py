@@ -139,7 +139,11 @@ def split_clauses(src):
             depth += 1
         elif ch in ")]}":
             depth -= 1
-        if ch == "." and depth == 0 and (i + 1 >= n or src[i + 1] in " \t\n\r"):
+        # ⛔ A "." IS AN END TOKEN ONLY WHEN IT IS NOT PART OF A LONGER SYMBOL-CHARACTER TOKEN (ISO 6.4.8): the second dot of "=.. [" is
+        # followed by a space and was read as the end of the clause, so "V =.. [D, Ma, Mi, P| _]" reached the engine as "V =., (...)" and the
+        # whole case program failed to parse (current_prolog_flag_2 commons_17, hq_prolog 2026-09-25).
+        prev = buf[-1][-1] if buf and buf[-1] else ""
+        if ch == "." and depth == 0 and (i + 1 >= n or src[i + 1] in " \t\n\r") and prev not in "#$&*+-./:<=>?@^~\\":
             t = "".join(buf).strip()
             if t:
                 out.append(t)
