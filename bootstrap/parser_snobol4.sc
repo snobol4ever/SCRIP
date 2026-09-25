@@ -92,7 +92,7 @@ ExprList    =  nPush()
                nPop();
 XList       =  nInc() (*Expr | shift(epsilon, '')) FENCE($',' *XList | epsilon);
 Expr        =  *Expr0;
-Expr0       =  *Expr1 FENCE($'=' *Expr0 reduce("'TT_ASSIGN'", 2) | epsilon);
+Expr0       =  *Expr1 FENCE($'=' *Expr0 reduce("'TT_ASSIGN'", 2) | $'  ' '=' shift(epsilon, "'TT_QLIT'") reduce("'TT_ASSIGN'", 2) | epsilon);
 Expr1       =  *Expr2 FENCE($'?' *Expr1 reduce("'TT_SCAN'", 2) | epsilon);
 Expr2       =  *Expr3 FENCE($'&' *Expr2 reduce("'TT_SEQ'", 2) | epsilon);
 /* PST-SN4-SC-4 (2026-05-19): replaced all foldop chains with pure shift/reduce.
