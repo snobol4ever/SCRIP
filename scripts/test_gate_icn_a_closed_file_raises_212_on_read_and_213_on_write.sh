@@ -27,7 +27,7 @@ RC=0
 DP="$ROOT/src/driver/driver_private.h"; DG="$ROOT/src/driver/driver_globals.c"; BN="$ROOT/src/runtime/by_name_dispatch.c"; IO="$ROOT/src/runtime/io_format.c"
 for f in "$DP" "$DG" "$BN" "$IO"; do [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing $f"; exit 2; }; done
 echo "  HOLDS: a closed file raises 212 on read and 213 on write, &input/&output/&errout included, in both media, as iconx does"
-fl=$(grep -c 'char repos; char closed; } fh_slot_t;' "$DP"); cl=$(grep -c 'g_fh\[i\].closed=0' "$DG"); st=$(grep -c 'g_fh\[idx\].closed = 1;' "$BN"); fp=$(grep -c 'fh_is_closed(1)' "$IO")
+fl=$(grep -cE 'char closed;[^}]*\} fh_slot_t;' "$DP"); cl=$(grep -c 'g_fh\[i\].closed=0' "$DG"); st=$(grep -c 'g_fh\[idx\].closed = 1;' "$BN"); fp=$(grep -c 'fh_is_closed(1)' "$IO")
 if [ "$fl" = 1 ] && [ "$cl" = 1 ] && [ "$st" = 1 ] && [ "$fp" = 3 ]; then echo "  arm 1 PASS: the slot flag exists, close sets it, fh_alloc clears it on reuse, the three fast-path writers test it"
 else echo "  arm 1 FAIL: flag=$fl cleared_on_alloc=$cl set_by_close=$st fast_path_tests=$fp (want 1 1 1 3)"; RC=1; fi
 printf 'a\nb\nc\n' > "$T/in.txt"
