@@ -117,14 +117,8 @@ Expr10      =  *Expr11 FENCE($'%' *Expr10 reduce("'TT_DIV'", 2) | epsilon);
    operands in left-to-right order, then reduce to flat n-ary node. */
 Expr11      =  nPush() *X11 reduce("'TT_POW'", '*(GT(nTop(), 1) nTop())') nPop();
 X11         =  nInc() *Expr12 FENCE(($'^' | $'!' | $'**') *X11 | epsilon);
-Expr12      =  *Expr13
-               FENCE(
-                  $'$' *Expr13 reduce("'TT_CAPT_IMMED_ASGN'", 2) *Expr12tail_immed
-               |  $'.' *Expr13 reduce("'TT_CAPT_COND_ASGN'", 2) *Expr12tail_cond
-               |  epsilon
-               );
-Expr12tail_immed =  FENCE($'$' *Expr13 reduce("'TT_CAPT_IMMED_ASGN'", 2) *Expr12tail_immed | epsilon);
-Expr12tail_cond  =  FENCE($'.' *Expr13 reduce("'TT_CAPT_COND_ASGN'", 2) *Expr12tail_cond  | epsilon);
+Expr12      =  *Expr13 *Expr12tail;
+Expr12tail  =  FENCE($'$' *Expr13 reduce("'TT_CAPT_IMMED_ASGN'", 2) *Expr12tail | $'.' *Expr13 reduce("'TT_CAPT_COND_ASGN'", 2) *Expr12tail | epsilon);
 Expr13      =  *Expr14 FENCE($'~' *Expr13 reduce("'TT_NOT'", 2) | epsilon);
 Expr14      =  '@' *Expr14 reduce("'TT_CAPT_CURSOR'", 1)
             |  '~' *Expr14 reduce("'TT_NOT'", 1)
