@@ -550,6 +550,7 @@ test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh	WIRED	-	-	-
 test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-
 test_gate_sno_subscripted_replacement_does_not_leak_the_spine.sh	WIRED	-	-	-
+test_gate_sno_system_fn_table_is_sorted.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_demotion.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_reference_and_is_silent_on_an_assignment.sh	WIRED	-	-	-

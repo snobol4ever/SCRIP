@@ -11,9 +11,11 @@ DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
 extern "C" int zls_g_resume(const IR_graph_t *);
 extern "C" {
 #include "builtin_ids.h"
+#include "snobol4_system_fns.h"
 }
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L; return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n)); }
+static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
+    return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL)); }
 DESCR_t rt_pl_dop_unify_ci(DESCR_t * args, long long imm);
 DESCR_t rt_pl_dop_unify_cs(DESCR_t * args, const char * cs);
 int bb_slot_get(IR_t * nd);

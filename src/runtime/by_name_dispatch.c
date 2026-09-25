@@ -147,7 +147,7 @@ int icn_builtin_is_known(const char *name)
         "stop", "write", "writes",
         NULL
     };
-    for (int i = 0; icn_known[i]; i++) if (!strcmp(icn_known[i], name)) return 1;
+    for (int i = 0; icn_known[i]; i++) if (icn_known[i][0] == name[0] && !strcmp(icn_known[i], name)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5851,8 +5851,8 @@ static int sn4_call_in_scope(const char *fn) {
     if (!fn || !fn[0]) return 0;
     if (!sn4_name_is_identifier(fn)) return 1;
     if (strchr(fn, '$')) return 1;
-    if (sn4_is_system_fn(fn)) return 1;
     if (rt_proc_is_registered(fn) || FNCEX_fn(fn)) return 1;
+    if (sn4_is_system_fn(fn)) return 1;
     if (rt_dat_field_of_any_live(fn)) return 1;
     for (int c = 0; c < dat_type_count(); c++) { if (!dat_type_live(c)) continue; const char *tn = dat_type_name(c); if (tn && !strcmp(tn, fn)) return 1; }
     return 0;
@@ -5905,10 +5905,18 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
           if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
-    if (sn4 && !sn4_call_in_scope(fn)) { core_runtime_error(22, "Undefined function called"); return FAILDESCR; }
-    { extern int rt_proc_is_registered(const char *); extern int FNCEX_fn(const char *); extern int rt_dat_field_of_any(const char *);
-      if (sn4 && !sn4_is_system_fn(fn) && !rt_proc_is_registered(fn) && FNCEX_fn(fn) && icn_builtin_is_known(fn) && !rt_dat_field_of_any(fn) && !dat_find_type(fn))
-          return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); }
+    { int sysfn = (bidlen >= 0) ? ((bidlen & BID_BAKE_SYSFN) ? 1 : 0) : (sn4 ? sn4_is_system_fn(fn) : 0);
+      if (nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
+          DATBLK_t *idb = args[0].u->type; const char _f0 = fn[0];
+          extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+          for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) return dat_field_get(fn, args[0]);
+      }
+      { extern int rt_proc_is_registered(const char *);
+        if (!sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return out; } }
+      if (sn4 && !sysfn && !sn4_call_in_scope(fn)) { core_runtime_error(22, "Undefined function called"); return FAILDESCR; }
+      { extern int FNCEX_fn(const char *); extern int rt_dat_field_of_any(const char *);
+        if (sn4 && !sysfn && FNCEX_fn(fn) && icn_builtin_is_known(fn) && !rt_dat_field_of_any(fn) && !dat_find_type(fn))
+            return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); } }
     { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
       if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
       int hit = try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, strict); core_icn_bi_pop(&bi); if (hit) return out; }
@@ -6786,7 +6794,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         *out = NULVCL; return 1;
     }
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
-        const int _fb = bidlen & 0xFFFF;
+        const int _fb = bidlen & 0x7FFF;
         extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);
         if (g_bidprof_on < 0) bidprof_init();
         if (g_bidprof_on && _fb >= 0 && _fb < 1024) g_bidprof[_fb]++;
@@ -6807,7 +6815,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (_fb == BID_SNOx24NAME && nargs == 1) return bn_sno_name(args, nargs, out);
     }
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
-    const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
+    const int _bid = (bidlen >= 0) ? (int)(bidlen & 0x7FFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
     { extern int rt_g_want_name;
       if (rt_g_want_name && nargs == 1 && IS_DATA_TAG_fn(args[0].v)) {
