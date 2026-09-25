@@ -355,50 +355,24 @@ RTX_ENTRY(rt_cap_open_plain)
     jns     .Lcap_len_ok
     xor     eax, eax
 .Lcap_len_ok:
-    RTX_CALL_ALIGN
-    push    rdi
-    push    rsi
-    push    rax
-    push    rax
-    movsxd  rdi, eax
-    call    rt_str_alloc@PLT
-    pop     r8
-    pop     rcx
-    pop     rsi
-    pop     r11
-    RTX_CALL_UNALIGN
-    test    rax, rax
-    jz      .Lcap_nul
+    mov     r11, rdi
+    mov     ecx, eax
     test    ecx, ecx
-    jz      .Lcap_nul
+    jz      .Lcap_nv_null
     mov     r10, qword ptr [rip + Σ@GOTPCREL]
     mov     r10, qword ptr [r10]
+    mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    cmp     qword ptr [r9], r10
+    jne     .Lcap_sxt_subj_ok
+    mov     qword ptr [r9], 0
+.Lcap_sxt_subj_ok:
     movsxd  rsi, esi
-    add     r10, rsi
-    mov     rdi, rax
-    mov     r8, rax
-    push    rcx
-    mov     rsi, r10
-    rep movsb
-    pop     rcx
-    mov     byte ptr [r8 + rcx], 0
-    jmp     .Lcap_nv
-.Lcap_nul:
-    test    rax, rax
-    jz      .Lcap_nv_null
-    mov     byte ptr [rax], 0
-    mov     ecx, 0
-    mov     r8, rax
+    lea     r8, [r10 + rsi]
     jmp     .Lcap_nv
 .Lcap_nv_null:
     lea     r8, [rip + .Lcap_empty]
     mov     ecx, 0
 .Lcap_nv:
-    mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]
-    cmp     qword ptr [r9], r8
-    jne     .Lcap_sxt_skip
-    mov     qword ptr [r9], 0
-.Lcap_sxt_skip:
     mov     r10, qword ptr [rip + g_protected_pat_vars_armed@GOTPCREL]
     cmp     dword ptr [r10], 0
     je      .Lcap_fast
@@ -510,47 +484,19 @@ RTX_FUNC(rt_cap_open_gva)
     jns     .Lcg_len_ok
     xor     eax, eax
 .Lcg_len_ok:
-    push    r11
-    push    rsi
-    push    rax
-    movsxd  rdi, eax
-    call    rt_str_alloc@PLT
-    pop     rcx
-    pop     rsi
-    pop     r11
-    test    rax, rax
-    jz      .Lcg_nul
-    mov     r8, rax
+    mov     ecx, eax
     test    ecx, ecx
-    jz      .Lcg_copied
+    jz      .Lcg_nul
     mov     r10, qword ptr [rip + Σ@GOTPCREL]
     mov     r10, qword ptr [r10]
-    movsxd  rsi, esi
-    add     r10, rsi
-    cmp     ecx, 16
-    ja      .Lcg_rep
-    xor     edx, edx
-.Lcg_byte:
-    movzx   eax, byte ptr [r10 + rdx]
-    mov     byte ptr [r8 + rdx], al
-    add     edx, 1
-    cmp     edx, ecx
-    jb      .Lcg_byte
-    jmp     .Lcg_copied
-.Lcg_rep:
-    mov     rdi, r8
-    mov     rsi, r10
-    push    rcx
-    rep movsb
-    pop     rcx
-.Lcg_copied:
-    mov     byte ptr [r8 + rcx], 0
-.Lcg_store:
     mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]
-    cmp     qword ptr [r9], r8
+    cmp     qword ptr [r9], r10
     jne     .Lcg_sxt_skip
     mov     qword ptr [r9], 0
 .Lcg_sxt_skip:
+    movsxd  rsi, esi
+    lea     r8, [r10 + rsi]
+.Lcg_store:
     mov     eax, DT_S
     mov     rdx, rcx
     shl     rdx, 32

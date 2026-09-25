@@ -772,7 +772,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
         if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
         if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
         int _budget_ok = (_slice_budget < 0) || (_slice_idx < _slice_budget);
-        if (len > 0 && c->subj && !_star_arm && _budget_ok && rt_cap_slice_on()) {
+        if (len > 0 && c->subj && _budget_ok && rt_cap_slice_on()) {
             if (_slice_trace) fprintf(stderr, "[SLICE] #%ld var=%s len=%d delta=%llu subj=%p\n", _slice_idx, e->varname ? e->varname : "?", len, (unsigned long long)e->saved_delta, (const void *)c->subj);
             _slice_idx++;
             rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }

@@ -6806,8 +6806,55 @@ static int bn_array(DESCR_t *args, int nargs, DESCR_t *out, int op) {
           if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_heap_strdup_c(proto);
           *out = r; return 1; } } }
 }
+static int bn_table(DESCR_t *args, int nargs, DESCR_t *out, int op) {
+    extern TBBLK_t *table_new_args(int, int);
+    (void)op;
+    if (nargs > 3) return 0;
+    { TBBLK_t *tb = table_new_args(nargs >= 1 ? (int)to_int(args[0]) : 0, nargs >= 2 ? (int)to_int(args[1]) : 0);
+      if (nargs >= 3) tb->dflt = args[2];
+      { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_T; d.slen = 0; d.tbl = tb; *out = d; return 1; } }
+}
+static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
+    (void)op;
+    if (nargs != 2) return 0;
+    { char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
+      char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
+      { DESCR_t a = args[0];
+        if (!strcmp(tu, "INTEGER")) {
+            if (IS_INT_fn(a)) { *out = a; return 1; }
+            if (IS_REAL_fn(a)) { *out = INTVAL((long long)a.r); return 1; }
+            { const char *sv = VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
+              { char *e = NULL; long long iv = strtoll(sv, &e, 10); if (e && *e == '\0' && e != sv) { *out = INTVAL(iv); return 1; } }
+              { char *e = NULL; double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = INTVAL((long long)dv); return 1; } } }
+            *out = FAILDESCR; return 1;
+        }
+        if (!strcmp(tu, "REAL")) {
+            if (IS_REAL_fn(a)) { *out = a; return 1; }
+            if (IS_INT_fn(a)) { *out = REALVAL((double)a.i); return 1; }
+            { extern int rt_str_to_real(const char *, double *);
+              const char *sv = IS_STR(a) ? rt_cstr_d(a) : VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
+              { double dv; if (rt_str_to_real(sv, &dv)) { *out = REALVAL(dv); return 1; } } }
+            *out = FAILDESCR; return 1;
+        }
+        if (!strcmp(tu, "STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
+        return 0; } }
+}
+static int bn_mkpat(DESCR_t *args, int nargs, DESCR_t *out, int op) {
+    extern void *rt_proc_get_fn(const char *name); extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t); extern long rt_fn_frame_bytes_known(void *); extern long rt_fn_zstatic_known(void *); extern void rt_patv_freeze(void *, const char *, long);
+    (void)op;
+    if (nargs < 1) return 0;
+    { const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
+      { void *pf = rt_proc_get_fn(nm);
+        if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
+        { DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));
+          if (nargs >= 2) { long _n = 0; if (IS_INT_fn(args[1])) _n = (long)args[1].i; else { const char *cs = VARVAL_fn(args[1]); _n = cs ? atol(cs) : 0; } rt_patv_freeze(pd.p, nm, _n); }
+          *out = pd; return 1; } } }
+}
 __attribute__((visibility("hidden"))) const bn_direct_t g_bn_direct[BID_TABSZ] = {
     [BID_PROTOTYPE] = { bn_prototype, 0, 0 },
+    [BID_TABLE] = { bn_table, 0, 0 },
+    [BID_CONVERT] = { bn_convert, 0, 0 },
+    [BID_SNOx24MKPAT] = { bn_mkpat, 0, 0 },
     [BID_SNOx24WANTNM] = { bn_wantnm, 0, 0 },
     [BID_ARRAY] = { bn_array, 0, 0 },
     [BID_SIZE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_size, 0, 0 },
