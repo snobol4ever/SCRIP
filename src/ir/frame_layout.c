@@ -297,8 +297,6 @@ static int zls_scope_new(int parent, int klass, const char * name) {
 }
 int fc_alt_fpmax(const IR_t *);
 int fc_alt_extent(const IR_t *, int *, int *);
-int fc_alt_n(const IR_t *);
-int fc_alt_arm_range(const IR_t *, int, int *, int *);
 int fc_geom(const IR_t *, long *);
 int emit_patzeta_lookup(const char *, int *);
 static int fct_pricing = 0;
@@ -369,7 +367,7 @@ static void zls_slot_census(IR_graph_t * g) {
             (void *)g, g->n, G, L, G - L, G * 16, (L + 1) * 16, tn, tg, tl, tg - tl, tg * 16, (tl + tn) * 16);
 }
 void zls_fct_finalize(IR_graph_t * g, int late);
-void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int fc_vcap(int, int, int, int); int is_global(const char *); void fc_vwpop_register(const IR_t *, long); void fc_subj_register(const IR_t *); int zc_nofc(void);
+void fc_vlit_register(const IR_t *); void fc_vread_register(const IR_t *, int); void fc_vbinop_register(const IR_t *); int is_global(const char *); void fc_vwpop_register(const IR_t *, long); void fc_subj_register(const IR_t *); int zc_nofc(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_vvar_ok(const IR_graph_t * g, const IR_t * r) { const char * vn = IR_LIT(r).sval; return vn && vn[0] != '&' && ((is_global(vn) && !graph_has_local(g, vn)) || !strcmp(vn, "write") || !strcmp(vn, "writes")); }
 static int fc_vbinop_ok(long long v) { return v == 0 || v == 1 || v == 2 || v == 3 || v == 4 || v == 11 || v == 18; }
@@ -402,7 +400,7 @@ void zls_build(IR_graph_t * g) {
         IR_t * r = a->operands[0];
         if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET || r->op == IR_LIT_NAME
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
-            && r->γ.node == a && fc_vcap(1, 1, 0, 0)) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }
+            && r->γ.node == a) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }
         if ((r->op == IR_BINOP || fc_vunop_ok(r) || fc_call_ok(r)) && r->γ.node == a) {
             const IR_t * post[49]; int pn = 0;
             int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
@@ -411,8 +409,8 @@ void zls_build(IR_graph_t * g) {
                 int ok = 1, L = 0, B = 0;
                 for (int i = 0; i + 1 < pn; i++) { const IR_t * gx = post[i]->γ.node; if (gx == post[i + 1]) continue; if (gx && gx->op == IR_DEFINE && gx->γ.node == post[i + 1] && (post[i + 1]->op == IR_CALL || post[i + 1]->op == IR_CALL_PROC_STAGED)) { long long v = IR_LIT(gx).ival; if (!(v == 1 || v == 2 || v == 3)) continue; } ok = 0; break; }
                 for (int i = 0; i < pn; i++) { if (post[i]->op == IR_BINOP || post[i]->op == IR_UNOP) B++; else L++; }
-                { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg && pn > 1) fprintf(stderr, "[FCC] ok=%d cap=%d p0g=%p p1=%p\n", ok, fc_vcap(L, 1, B, pn), (void*)(pn > 1 ? post[0]->γ.node : 0), (void*)(pn > 1 ? post[1] : 0)); if (dbg && pn > 1 && post[0]->γ.node) fprintf(stderr, "[FCC] p0=%p p0op=%d p0g_op=%d r=%p rop=%d\n", (void*)post[0], (int)post[0]->op, (int)post[0]->γ.node->op, (void*)r, (int)r->op); }
-                if (ok && fc_vcap(L, 1, B, pn)) {
+                { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg && pn > 1) fprintf(stderr, "[FCC] ok=%d L=%d B=%d p0g=%p p1=%p\n", ok, L, B, (void*)(pn > 1 ? post[0]->γ.node : 0), (void*)(pn > 1 ? post[1] : 0)); if (dbg && pn > 1 && post[0]->γ.node) fprintf(stderr, "[FCC] p0=%p p0op=%d p0g_op=%d r=%p rop=%d\n", (void*)post[0], (int)post[0]->op, (int)post[0]->γ.node->op, (void*)r, (int)r->op); }
+                if (ok) {
                     int d = 0;
                     for (int i = 0; i < pn; i++) { const IR_t * x = post[i];
                         if (x->op == IR_BINOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); d -= 1; }
@@ -435,7 +433,7 @@ void zls_build(IR_graph_t * g) {
               if (_c == h) _pb1s_adj = 1; }
         if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
-            && _pb1s_adj && fc_vcap(1, 1, 0, 0)) { fc_vlit_register(r); fc_subj_register(r); fc_vread_register(h, 0); continue; } }
+            && _pb1s_adj) { fc_vlit_register(r); fc_subj_register(r); fc_vread_register(h, 0); continue; } }
         if ((r->op == IR_BINOP || fc_vunop_ok(r)) && r->γ.node == h && !zc_nofc()) {
             const IR_t * post[49]; int pn = 0;
             int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
@@ -443,7 +441,7 @@ void zls_build(IR_graph_t * g) {
                 int ok = 1, L = 0, B = 0;
                 for (int i = 0; i + 1 < pn; i++) if (post[i]->γ.node != post[i + 1]) { ok = 0; break; }
                 for (int i = 0; i < pn; i++) { if (post[i]->op == IR_BINOP || post[i]->op == IR_UNOP) B++; else L++; }
-                if (ok && fc_vcap(L, 1, B, pn)) {
+                if (ok) {
                     int d = 0;
                     for (int i = 0; i < pn; i++) { const IR_t * x = post[i];
                         if (x->op == IR_BINOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); d -= 1; }
@@ -699,133 +697,113 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_SCAN_MATCH)   { if (k) *k = 16; return 1; }
     return 0;
 }
-static struct { const IR_t * nd; int n; int fp[16]; int ab[16]; int ae[16]; } fca[256];
-static int fca_n = 0;
-static const IR_t * fcm[1024];
-static int fcm_n = 0;
+typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int cf; int hf; int alt; long vw; const IR_t * cs; } fcn_t;
+#define FCN_ARM  0x0001u
+#define FCN_VDJ  0x0002u
+#define FCN_VLIT 0x0004u
+#define FCN_SUBJ 0x0008u
+#define FCN_VBIN 0x0010u
+#define FCN_CALL 0x0020u
+#define FCN_SAVE 0x0040u
+#define FCN_VR   0x0080u
+#define FCN_VW   0x0100u
+#define FCN_PE   0x0200u
+#define FCN_CC   0x0400u
+#define FCN_HD   0x0800u
+#define FCN_ALT  0x1000u
+static cv_t g_fcn; static uint32_t g_fcn_gen = 1, g_fcn_n = 0;
+static cv_t g_fca;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_arm_member_register(const IR_t * nd) { if (nd && fcm_n < 1024) fcm[fcm_n++] = nd; }
-int fc_arm_member(const IR_t * nd) { for (int i = 0; i < fcm_n; i++) if (fcm[i] == nd) return 1; return 0; }
+static void fc_reg_hw(const char * tbl, int n) { static const char * e = (const char *) 1; if (e == (const char *) 1) e = getenv("SCRIP_FC_REG_HIGHWATER");
+    if (e && *e != '0') fprintf(stderr, "FC-REG-HW %-6s %d\n", tbl, n); }
+static fcn_t * fcn_probe(cv_t * v, const IR_t * nd) {
+    uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & (v->len - 1);
+    for (;;) { fcn_t * t = &CV_AT(*v, fcn_t, h); if (t->gen != g_fcn_gen || t->nd == nd) return t; h = (h + 1) & (v->len - 1); }
+}
+static const fcn_t * fcn_find(const IR_t * nd, uint32_t fl) { if (!nd || !g_fcn.len) return (const fcn_t *)0; { const fcn_t * t = fcn_probe(&g_fcn, nd); return (t->gen == g_fcn_gen && (t->fl & fl)) ? t : (const fcn_t *)0; } }
+static fcn_t * fcn_get(const IR_t * nd) {
+    if ((uint64_t)(g_fcn_n + 1) * 2 > g_fcn.len) { uint32_t nc = g_fcn.len ? g_fcn.len * 2 : 256; cv_t o = g_fcn, n = { 0, 0, 0, 0 };
+        n.p = ct_zalloc(nc, sizeof(fcn_t)); n.len = nc; n.cap = nc; n.esz = (uint32_t)sizeof(fcn_t); g_fcn = n;
+        for (uint32_t i = 0; i < o.len; i++) { fcn_t q = CV_AT(o, fcn_t, i); if (q.gen == g_fcn_gen) *fcn_probe(&g_fcn, q.nd) = q; } }
+    fcn_t * t = fcn_probe(&g_fcn, nd);
+    if (t->gen != g_fcn_gen) { memset(t, 0, sizeof *t); t->nd = nd; t->gen = g_fcn_gen; g_fcn_n++; fc_reg_hw("node", (int)g_fcn_n); }
+    return t;
+}
+static void fcn_flag(const IR_t * nd, uint32_t fl) { if (nd) fcn_get(nd)->fl |= fl; }
+static const int * fca_arms(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_ALT); return t ? (const int *)g_fca.p + t->alt : (const int *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void fc_arm_member_register(const IR_t * nd) { fcn_flag(nd, FCN_ARM); }
+int fc_arm_member(const IR_t * nd) { return fcn_find(nd, FCN_ARM) != (const fcn_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_alt_register(const IR_t * nd, int n, const int * fp, const int * ab, const int * ae) {
-    if (!nd || n <= 0 || n > 10 || fca_n >= 256) return;
-    fca[fca_n].nd = nd; fca[fca_n].n = n;
-    for (int i = 0; i < n && i < 16; i++) { fca[fca_n].fp[i] = fp[i]; fca[fca_n].ab[i] = ab ? ab[i] : -1; fca[fca_n].ae[i] = ae ? ae[i] : -1; }
-    fca_n++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fc_alt_n(const IR_t * nd) {
-    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) return fca[i].n;
-    return -1;
+    if (!nd || n <= 0 || n > 10) return;
+    fcn_t * t = fcn_get(nd);
+    if (t->fl & FCN_ALT) return;
+    if (g_fca.len + 1 + 3 * (uint32_t)n > g_fca.cap) { uint32_t nc = g_fca.cap ? g_fca.cap * 2 : 256; while (nc < g_fca.len + 1 + 3 * (uint32_t)n) nc *= 2;
+        int * q = (int *)ct_alloc((size_t)nc * sizeof(int)); if (g_fca.len) memcpy(q, g_fca.p, (size_t)g_fca.len * sizeof(int)); g_fca.p = q; g_fca.cap = nc; g_fca.esz = (uint32_t)sizeof(int); }
+    int * a = (int *)g_fca.p + g_fca.len;
+    a[0] = n;
+    for (int i = 0; i < n; i++) { a[1 + i] = fp[i]; a[1 + n + i] = ab ? ab[i] : -1; a[1 + 2 * n + i] = ae ? ae[i] : -1; }
+    t->alt = (int)g_fca.len; t->fl |= FCN_ALT; g_fca.len += 1 + 3 * (uint32_t)n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_alt_extent(const IR_t * nd, int * b, int * e) {
-    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { if (fca[i].ab[0] < 0 || fca[i].ae[fca[i].n - 1] < 0) return 0; if (b) *b = fca[i].ab[0]; if (e) *e = fca[i].ae[fca[i].n - 1]; return 1; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fc_alt_arm_range(const IR_t * nd, int j, int * b, int * e) {
-    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { if (j < 0 || j >= fca[i].n || fca[i].ab[j] < 0) return 0; if (b) *b = fca[i].ab[j]; if (e) *e = fca[i].ae[j]; return 1; }
-    return 0;
+    const int * a = fca_arms(nd); if (!a) return 0;
+    { int n = a[0]; if (a[1 + n] < 0 || a[1 + 2 * n + n - 1] < 0) return 0; if (b) *b = a[1 + n]; if (e) *e = a[1 + 2 * n + n - 1]; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_alt_fpmax(const IR_t * nd) {
-    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) { int m = 0; for (int j = 0; j < fca[i].n; j++) if (fca[i].fp[j] > m) m = fca[i].fp[j]; return m; }
-    return -1;
+    const int * a = fca_arms(nd); if (!a) return -1;
+    { int m = 0; for (int j = 0; j < a[0]; j++) if (a[1 + j] > m) m = a[1 + j]; return m; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fc_alt_fp(const IR_t * nd, int j) {
-    for (int i = 0; i < fca_n; i++) if (fca[i].nd == nd) return (j >= 0 && j < fca[i].n) ? fca[i].fp[j] : 0;
-    return 0;
-}
-static const IR_t * fcs[512];
-static int fcs_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_seq_register(const IR_t * nd) { if (!nd || fcs_n >= 512) return; fcs[fcs_n++] = nd; }
-void fc_seq_unregister(const IR_t * nd) { for (int i = 0; i < fcs_n; i++) if (fcs[i] == nd) { fcs[i] = fcs[--fcs_n]; return; } }
-static const IR_t * fcab[512]; static int fcab_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_arbno_member_register(const IR_t * nd) { if (nd && fcab_n < 512) fcab[fcab_n++] = nd; }
-int fc_arbno_member(const IR_t * nd) { for (int i = 0; i < fcab_n; i++) if (fcab[i] == nd) return 1; return 0; }
 int fc_seq_active(const IR_t * nd) { (void)nd; return 0; }
-static const IR_t * fvl[2048]; static int fvl_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void fc_reg_full(const char * tbl, int cap) { static const char * seen[16]; static int seen_n = 0;
-    for (int i = 0; i < seen_n; i++) if (seen[i] == tbl) return;
-    if (seen_n < 16) seen[seen_n++] = tbl;
-    fprintf(stderr, "⛔ fc_%s_register: TABLE FULL at cap %d -- further registrations are being DROPPED. In a correctness-gating table (fvdj) this withholds a flat cell the consumer still reads from the spine, i.e. a miscompile that only appears in programs this large. Raise the cap in src/contracts/zeta_storage.c.\n", tbl, cap); }
-static void fc_reg_hw(const char * tbl, int n) { static const char * e = (const char *) 1; if (e == (const char *) 1) e = getenv("SCRIP_FC_REG_HIGHWATER");
-    if (e && *e != '0') fprintf(stderr, "FC-REG-HW %-6s %d\n", tbl, n); }
-static const IR_t * fvdj[256]; static int fvdj_n = 0;
-void fc_vdj_register(const IR_t * nd) { if (!nd) return; if (fvdj_n >= 256) { fc_reg_full("vdj", 256); return; } fvdj[fvdj_n++] = nd; fc_reg_hw("vdj", fvdj_n); }
-int fc_vdj_active(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvdj_n; i++) if (fvdj[i] == nd) return 1; return 0; }
+void fc_vdj_register(const IR_t * nd) { fcn_flag(nd, FCN_VDJ); }
+int fc_vdj_active(const IR_t * nd) { return fcn_find(nd, FCN_VDJ) != (const fcn_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vlit_register(const IR_t * nd) { if (!nd) return; if (fvl_n >= 2048) { fc_reg_full("vlit", 2048); return; } fvl[fvl_n++] = nd; fc_reg_hw("vlit", fvl_n); }
-static const IR_t * fvs[64]; static int fvs_n = 0;
+void fc_vlit_register(const IR_t * nd) { fcn_flag(nd, FCN_VLIT); }
+void fc_subj_register(const IR_t * nd) { fcn_flag(nd, FCN_SUBJ); }
+int fc_subj_member(const IR_t * nd) { return fcn_find(nd, FCN_SUBJ) != (const fcn_t *)0; }
+int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0; return fcn_find(nd, FCN_VLIT) != (const fcn_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_subj_register(const IR_t * nd) { if (!nd) return; if (fvs_n >= 64) { fc_reg_full("subj", 64); return; } fvs[fvs_n++] = nd; fc_reg_hw("subj", fvs_n); }
-int fc_subj_member(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvs_n; i++) if (fvs[i] == nd) return 1; return 0; }
-int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
-static struct { const IR_t * nd; int fp; } fvr[1024]; static int fvr_n = 0;
+void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; { fcn_t * t = fcn_get(nd); if (!(t->fl & FCN_VR)) { t->vr = fp; t->fl |= FCN_VR; } } }
+int fc_vread_fp(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_VR); return t ? t->vr : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; if (fvr_n >= 1024) { fc_reg_full("vread", 1024); return; } fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; fc_reg_hw("vread", fvr_n); }
-int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd == nd) return fvr[i].fp; return -1; }
-static const IR_t * fvb[512]; static int fvb_n = 0;
-static const IR_t * fvcl[64]; static int fvcl_n = 0;
+void fc_call_register(const IR_t * nd) { fcn_flag(nd, FCN_CALL); }
+int fc_call_active(const IR_t * nd) { if (!nd || !fc_cells_on()) return 0; return fcn_find(nd, FCN_CALL) != (const fcn_t *)0; }
+void fc_vbinop_register(const IR_t * nd) { fcn_flag(nd, FCN_VBIN); }
+int fc_vbinop_active(const IR_t * nd) { if (!nd || (nd->op != IR_BINOP && nd->op != IR_UNOP)) return 0; return fcn_find(nd, FCN_VBIN) != (const fcn_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_call_register(const IR_t * nd) { if (!nd || fvcl_n >= 64) return; fvcl[fvcl_n++] = nd; }
-int fc_call_active(const IR_t * nd) { if (!nd || !fc_cells_on()) return 0; for (int i = 0; i < fvcl_n; i++) if (fvcl[i] == nd) return 1; return 0; }
-void fc_vbinop_register(const IR_t * nd) { if (!nd) return; if (fvb_n >= 512) { fc_reg_full("vbinop", 512); return; } fvb[fvb_n++] = nd; fc_reg_hw("vbinop", fvb_n); }
-int fc_vbinop_active(const IR_t * nd) { if (!nd || (nd->op != IR_BINOP && nd->op != IR_UNOP)) return 0; for (int i = 0; i < fvb_n; i++) if (fvb[i] == nd) return 1; return 0; }
-static struct { const IR_t * nd; long w; } fvw[512]; static int fvw_n = 0;
+void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0) return; { fcn_t * t = fcn_get(nd); if (!(t->fl & FCN_VW)) { t->vw = w; t->fl |= FCN_VW; } } }
+long fc_vwpop(const IR_t * nd) { if (!fc_cells_on()) return 0; { const fcn_t * t = fcn_find(nd, FCN_VW); return t ? t->vw : 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0) return; if (fvw_n >= 512) { fc_reg_full("vwpop", 512); return; } fvw[fvw_n].nd = nd; fvw[fvw_n].w = w; fvw_n++; fc_reg_hw("vwpop", fvw_n); }
-long fc_vwpop(const IR_t * nd) { if (!fc_cells_on()) return 0; for (int i = 0; i < fvw_n; i++) if (fvw[i].nd == nd) return fvw[i].w; return 0; }
-int fc_vcap(int nl, int nr, int nb, int nw) { return fvl_n + nl <= 2048 && fvr_n + nr <= 1024 && fvb_n + nb <= 512 && fvw_n + nw <= 512; }
-static const IR_t * fcv[256];
-static int fcv_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_save_register(const IR_t * nd) { if (!nd) return; if (fcv_n >= 256) { fc_reg_full("save", 256); return; } fcv[fcv_n++] = nd; fc_reg_hw("save", fcv_n); }
+void fc_save_register(const IR_t * nd) { fcn_flag(nd, FCN_SAVE); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_save_active(const IR_t * nd) {
     if (!nd || nd->op != IR_MATCH_ASSIGN_SAVE || !fc_cells_on()) return 0;
-    for (int i = 0; i < fcv_n; i++) if (fcv[i] == nd) return 1;
-    return 0;
+    return fcn_find(nd, FCN_SAVE) != (const fcn_t *)0;
 }
-static struct { const IR_t * nd; int e; } fpe[256]; static int fpe_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_pair_extent_register(const IR_t * nd, int e) { if (!nd || e <= 0 || fpe_n >= 256) return; for (int i = 0; i < fpe_n; i++) if (fpe[i].nd == nd) return; fpe[fpe_n].nd = nd; fpe[fpe_n].e = e; fpe_n++; }
-int fc_pair_extent(const IR_t * nd) { for (int i = 0; i < fpe_n; i++) if (fpe[i].nd == nd) return fpe[i].e; return -1; }
-static struct { const IR_t * nd; const IR_t * save; int fp; } fcc[256];
-static int fcc_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_cond_register(const IR_t * nd, int fp_inner) {
-    if (!nd || fp_inner < 0 || fcc_n >= 256) return;
-    fcc[fcc_n].nd = nd; fcc[fcc_n].save = NULL; fcc[fcc_n].fp = fp_inner; fcc_n++;
-}
+void fc_pair_extent_register(const IR_t * nd, int e) { if (!nd || e <= 0) return; { fcn_t * t = fcn_get(nd); if (!(t->fl & FCN_PE)) { t->pe = e; t->fl |= FCN_PE; } } }
+int fc_pair_extent(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_PE); return t ? t->pe : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_cond_register_with_save(const IR_t * nd, const IR_t * save, int fp_inner) {
-    if (!nd || fp_inner < 0 || fcc_n >= 256) return;
-    fcc[fcc_n].nd = nd; fcc[fcc_n].save = save; fcc[fcc_n].fp = fp_inner; fcc_n++;
+    if (!nd || fp_inner < 0) return;
+    { fcn_t * t = fcn_get(nd); if (!(t->fl & FCN_CC)) { t->cs = save; t->cf = fp_inner; t->fl |= FCN_CC; } }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void fc_cond_register(const IR_t * nd, int fp_inner) { fc_cond_register_with_save(nd, (const IR_t *)0, fp_inner); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_cond_fp(const IR_t * nd) {
     if (!fc_cells_on()) return -1;
-    for (int i = 0; i < fcc_n; i++) if (fcc[i].nd == nd) {
-        if (fcc[i].save && fc_arm_member(fcc[i].save)) return -1;
-        return fcc[i].fp;
-    }
-    return -1;
+    { const fcn_t * t = fcn_find(nd, FCN_CC); if (!t) return -1; if (t->cs && fc_arm_member(t->cs)) return -1; return t->cf; }
 }
-static struct { const IR_t * nd; int fp; } fch[256];
-static int fch_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_head_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fch_n >= 256) return; fch[fch_n].nd = nd; fch[fch_n].fp = fp; fch_n++; }
+void fc_head_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; { fcn_t * t = fcn_get(nd); if (!(t->fl & FCN_HD)) { t->hf = fp; t->fl |= FCN_HD; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_head_fp(const IR_t * nd) {
     if (!fc_cells_on()) return -1;
-    for (int i = 0; i < fch_n; i++) if (fch[i].nd == nd) return fch[i].fp;
-    return -1;
+    { const fcn_t * t = fcn_find(nd, FCN_HD); return t ? t->hf : -1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->loff; }
@@ -1125,8 +1103,7 @@ void fl_derive_tier(IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tables_reset(void) {
-    fca_n = 0; fcab_n = 0; fcc_n = 0; fch_n = 0; fcm_n = 0; fcs_n = 0; fct_n = 0; fcv_n = 0;
-    fpe_n = 0; fvb_n = 0; fvcl_n = 0; fvdj_n = 0; fvl_n = 0; fvr_n = 0; fvs_n = 0; fvw_n = 0;
+    fct_n = 0; g_fcn_gen++; g_fcn_n = 0; g_fca.len = 0;
 }
 int fc_frameless_fpr_rsp(const IR_t * nd) { if (!nd) return 0; { long _fk = 0; return !fc_geom(nd, &_fk); } }
 static struct { const char * name; int fb; int fp; int uni; } pz[512];

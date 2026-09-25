@@ -40,7 +40,16 @@
 #
 # ARMS (all blocking). (1) COVERAGE: every pointer-keyed counter declared in frame_layout.c appears in
 # fc_tables_reset's body, with pz_n the one named exclusion, and the population is PRINTED so a reset that emptied
-# reds instead of passing vacuously. (2) CALL SITES: every site that calls zls_reset for a runtime compile also calls
+# reds instead of passing vacuously.
+# ⛔ RE-KEYED 2026-09-25 (cfo, row compiler-every-population-table-grows-in-the-compile-time-arena-..., Lon 2026-09-24:
+# "Use the special compile-time heap, and use alloc/copy/abandon at geometric growth for dynamic arrays and buffers."):
+# thirteen of the sixteen counters (fca fcc fch fcm fcv fpe fvb fvcl fvdj fvl fvr fvs fvw) became KINDS of ONE
+# generation-stamped node map, fcn_t in g_fcn, whose entries die with a generation bump rather than a counter zeroed;
+# fcs and fcab were DELETED in the same landing (no caller in the tree), and fc_reg_full with its seen_n latch went with
+# the caps it reported. So arm 1 reads two populations: the plain counters (fct_n today), each zeroed in the reset that
+# owns it, and the map's kinds (the FCN_* flags), counted as covered ONLY when fc_tables_reset bumps g_fcn_gen, zeroes
+# g_fcn_n and empties the arm vector g_fca. The floor is 14 = 16 minus exactly the two deleted tables; it is not
+# lowered for anything that still exists. zls_reset is held the same way for g_znb (its generation bump). (2) CALL SITES: every site that calls zls_reset for a runtime compile also calls
 # fc_tables_reset, and vice versa -- the two are a set, and an entry that resets one but not the other is exactly the
 # shape this gate is about. (3) BOUNDEDNESS: 300 distinct runtime compiles keep every table's high water under a
 # ceiling, read through the tree's own SCRIP_FC_REG_HIGHWATER reporter (no new global -- RULES.md). (4) ANSWER: the
@@ -68,17 +77,23 @@ missf=""; missz=""; n_fc=0; n_zls=0; exc=""; n_exc=0
 for c in $declared; do
     case "$c" in
         pz_n)    exc="$exc $c(keyed by graph NAME, updated in place, read by a later compile for a graph already emitted)"; n_exc=$((n_exc+1)); continue ;;
-        seen_n)  exc="$exc $c(a function-local diagnostic latch inside fc_reg_full, not a table)"; n_exc=$((n_exc+1)); continue ;;
     esac
     case "$c" in
         z*)  if echo "$zbody" | grep -q "\b$c = 0"; then n_zls=$((n_zls+1)); else missz="$missz $c"; fi ;;
         *)   if echo "$body"  | grep -q "\b$c = 0"; then n_fc=$((n_fc+1));  else missf="$missf $c"; fi ;;
     esac
 done
-if [ -z "$missf" ] && [ -z "$missz" ] && [ "$n_fc" -ge 16 ] && [ "$n_zls" -ge 8 ] && [ "$n_exc" -eq 2 ]; then
-    echo "  arm 1 PASS: every counter declared in frame_layout.c is reset by the reset that owns it -- $n_fc pointer-keyed table counter(s) in fc_tables_reset, $n_zls in zls_reset, and $n_exc NAMED exclusion(s):$exc"
+n_ctr=$n_fc
+kinds=$(grep -oE '^#define FCN_[A-Z]+ ' "$FL" | awk '{print $2}' | sort -u | tr '\n' ' ')
+n_kinds=$(echo $kinds | wc -w)
+mapok=1; mapmiss=""
+for w in 'g_fcn_gen++' 'g_fcn_n = 0' 'g_fca.len = 0'; do echo "$body" | grep -qF "$w" || { mapok=0; mapmiss="$mapmiss $w"; }; done
+echo "$zbody" | grep -qF 'g_znb_gen++' || { mapok=0; mapmiss="$mapmiss g_znb_gen++(zls_reset)"; }
+[ "$mapok" = 1 ] && n_fc=$((n_fc + n_kinds))
+if [ -z "$missf" ] && [ -z "$missz" ] && [ "$mapok" = 1 ] && [ "$n_kinds" -ge 13 ] && [ "$n_fc" -ge 14 ] && [ "$n_zls" -ge 8 ] && [ "$n_exc" -eq 1 ]; then
+    echo "  arm 1 PASS: every pointer-keyed registry in frame_layout.c dies at the reset that owns it -- $n_fc covered by fc_tables_reset ($n_ctr plain counter(s) zeroed, $n_kinds kind(s) of the generation-stamped node map g_fcn: $kinds-- dead by g_fcn_gen++, count and arm vector emptied), $n_zls counter(s) in zls_reset plus g_znb's generation bump, and $n_exc NAMED exclusion(s):$exc"
 else
-    echo "  arm 1 RED: counter(s) declared in frame_layout.c and reset by nobody -- fc_tables_reset owes:${missf:- none}; zls_reset owes:${missz:- none}  (covered fc=$n_fc want>=16, zls=$n_zls want>=8, excluded=$n_exc want 2). A pointer-keyed table that outlives a compile can be hit by a fresh node at a recycled address, which is what this gate exists to stop."; RC=1
+    echo "  arm 1 RED: a registry declared in frame_layout.c outlives the reset that owns it -- fc_tables_reset owes:${missf:- none}; zls_reset owes:${missz:- none}; the node maps owe:${mapmiss:- none}  (covered fc=$n_fc want>=14 from $n_ctr counter(s) + $n_kinds map kind(s) want>=13, zls=$n_zls want>=8, excluded=$n_exc want 1). A pointer-keyed table that outlives a compile can be hit by a fresh node at a recycled address, which is what this gate exists to stop."; RC=1
 fi
 
 zr=$(grep -rln 'zls_reset' "$ROOT/src/runtime" 2>/dev/null | sort)
@@ -103,7 +118,7 @@ EOF
 hw=$(SCRIP_FC_REG_HIGHWATER=1 timeout 300 "$SCRIP" "$T/ev.sno" 2>&1 >/dev/null | grep '^FC-REG-HW' | awk '{if($3>m[$2])m[$2]=$3} END{for(k in m) printf "%s=%d ", k, m[k]}')
 worst=$(SCRIP_FC_REG_HIGHWATER=1 timeout 300 "$SCRIP" "$T/ev.sno" 2>&1 >/dev/null | grep '^FC-REG-HW' | awk '{if($3>m)m=$3} END{print m+0}')
 if [ -n "$hw" ] && [ "${worst:-0}" -gt 0 ] && [ "${worst:-0}" -le "$HW_CEILING" ]; then
-    echo "  arm 3 PASS: 300 distinct runtime compiles, every table's high water bounded ($hw), worst $worst at or under the ceiling $HW_CEILING -- the cap is a per-compile budget again. Pre-cure the same witness read vlit=310 vread=305, climbing one per compile."
+    echo "  arm 3 PASS: 300 distinct runtime compiles, every table's high water bounded ($hw), worst $worst at or under the ceiling $HW_CEILING -- the cap is a per-compile budget again. Pre-cure the same witness read vlit=310 vread=305, climbing one per compile; since the node map (2026-09-25) the reporter prints one line per distinct node, 'node'."
 elif [ -z "$hw" ]; then echo "  arm 3 RED: the SCRIP_FC_REG_HIGHWATER reporter printed nothing -- the witness registered no table entry at all, so this arm measured nothing rather than measuring zero growth"; RC=1
 else echo "  arm 3 RED: a table's high water reached $worst over 300 runtime compiles ($hw), above the ceiling $HW_CEILING -- the counters are growing with the compile count again, which is the never-reset shape"; RC=1; fi
 
