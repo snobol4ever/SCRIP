@@ -301,6 +301,41 @@ else
     echo "    ARM 14 SKIPPED: no vendored suite at $SUITE_REAL"
 fi
 
+# ---- ARM 15 — A GUARD THIS SYSTEM DECIDES FALSE TAKES ITS CASES OUT OF THE POPULATION BY NAME, AND A GUARD ABOUT THE ENGINE IS ASKED OF
+# THE ENGINE (hq_prolog 2026-09-25, CEO-1266; coinduction declared unsupported per ceo CEO-1235 (3) option (a)). Before this landing both
+# branches of every such guard were graded, so one of each pair was red by construction whatever the engine did (bagof_3 09, setof_3 11,
+# op_3 21), and the 68 cyclic-term cases were graded against an engine with no rational trees. Three properties: the coinduction case is
+# GUARDED OUT and named on the board; a heap/stack declaration for it is NOT an orphan (the full runner passes --decl and would refuse);
+# catch(no_such_predicate_q, _, fail) is PROBED on the binary and FALSE, so only its else-branch is graded.
+arms=$((arms+1))
+if [ -x "$HERE/../scrip" ]; then
+    mkdir -p "$TD/g/grp"
+    cat > "$TD/g/grp/tests.lgt" <<'LGT'
+:- object(tests, extends(lgtunit)).
+	:- if(current_logtalk_flag(coinduction, supported)).
+		test(t_cyc, true) :- fail.
+	:- endif.
+	:- if(catch(no_such_predicate_q, _, fail)).
+		test(t_probe, true) :- fail.
+	:- else.
+		test(t_probe, true) :- true.
+	:- endif.
+	test(t_plain, true) :- true.
+:- end_object.
+LGT
+    printf 'grp:t_cyc\t1024\t\n' > "$TD/g/decl.tsv"
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/g" --scrip "$HERE/../scrip" --modes m3 --decl "$TD/g/decl.tsv" 2>&1)"; rc=$?
+    pop="$(printf '%s' "$out" | sed -n 's/.*population=\([0-9]*\).*/\1/p' | head -1)"
+    pass="$(printf '%s' "$out" | sed -n 's/.*m3_pass=\([0-9]*\).*/\1/p' | head -1)"
+    if [ "$rc" -ne 0 ] || [ "$pop" != "2" ] || [ "$pass" != "2" ]; then
+        fail "ARM 15: the guarded fixture did not grade 2 of 2 (the coinduction case out, the probed guard's else-branch in) with its dead case declared (rc=$rc): $out"
+    fi
+    printf '%s' "$out" | grep -q '^GUARDED OUT.*coinduction.*grp:t_cyc' || fail "ARM 15: the coinduction case left the population without being NAMED on the board: $out"
+    printf '%s' "$out" | grep -q '^GUARD PROBED.*no_such_predicate_q.*-> FALSE' || fail "ARM 15: the engine guard was not probed on the binary, or read TRUE: $out"
+else
+    echo "    ARM 15 SKIPPED: no scrip binary at $HERE/../scrip"
+fi
+
 echo "[$GATE] arms=$arms violations=$violations"
 [ "$violations" -eq 0 ] || exit 1
 echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, the ISO numeric escape stays readable, Logtalk-only database clauses are dropped rather than emitted, the tester-loaded Prolog file is inlined with its guards, a group that matched nothing refuses, and every order-dependent declaration is earned -- policed standalone on the same board, named on the board line, stale or unnecessary lines refusing rc=2"

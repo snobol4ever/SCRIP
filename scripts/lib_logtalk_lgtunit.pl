@@ -58,9 +58,10 @@ lgt_h(G) :- ( catch(G, E, throw('$lgt_harness'(error(G, E)))) -> true ; throw('$
 % NOT MEASURED -- when nothing about SCRIP was in question. The suite asks it two ways and ONE clause
 % answers both honestly: current_logtalk_flag(prolog_dialect, swi) must FAIL because we are not swi, and
 % current_logtalk_flag(prolog_dialect, D), D \== b, D \== cx, ... must SUCCEED because we are none of
-% them. Every other flag (coinduction, ...) then FAILS cleanly rather than raising, which is the right
-% answer for a feature we do not have.
+% them. coinduction answers unsupported, the value util_logtalk_extract.py decides its guards by (ceo CEO-1235 (3),
+% option (a)); every other flag FAILS cleanly rather than raising, which is the right answer for a feature we do not have.
 current_logtalk_flag(prolog_dialect, scrip).
+current_logtalk_flag(coinduction, unsupported).
 lgt_member(X, [X| _]).
 lgt_member(X, [_| T]) :- lgt_member(X, T).
 

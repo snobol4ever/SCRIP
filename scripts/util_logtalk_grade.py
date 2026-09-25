@@ -722,6 +722,68 @@ def assign_outside(work, dbs, supported, root):
             unresolved.extend(pending)
     return assigned, unresolved, None
 
+def _run_text(text, scrip, mode, timeout=20):
+    """stdout of one plain-Prolog program in one mode, or None when it did not build or run to completion."""
+    d = tempfile.mkdtemp(prefix="lgtprobe.")
+    try:
+        prog = os.path.join(d, "probe.pl")
+        open(prog, "w", encoding="utf-8").write(text)
+        try:
+            if mode == "m3":
+                r = subprocess.run([scrip, prog], capture_output=True, text=True, errors="replace", timeout=timeout,
+                                   stdin=subprocess.DEVNULL, cwd=d)
+            else:
+                s_out, b_out = os.path.join(d, "probe.s"), os.path.join(d, "probe.bin")
+                cp = subprocess.run([scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
+                                    timeout=timeout, stdin=subprocess.DEVNULL, cwd=d)
+                if cp.returncode != 0:
+                    return None
+                rt = os.path.join(os.path.dirname(os.path.abspath(scrip)), "out")
+                g = subprocess.run(["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt", "-Wl,-rpath," + rt, "-lm"],
+                                   capture_output=True, text=True, errors="replace", timeout=120, cwd=d)
+                if g.returncode != 0:
+                    return None
+                r = subprocess.run([b_out], capture_output=True, text=True, errors="replace", timeout=timeout,
+                                   stdin=subprocess.DEVNULL, cwd=d)
+        except subprocess.TimeoutExpired:
+            return None
+        return r.stdout
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+# ⭐ THE GUARDS NO STATIC RULE DECIDES ARE ASKED OF THE BINARY UNDER TEST (ex.PROBED's header says why). Each runs once per graded mode
+# inside the shim, as the case programs do, with Logtalk's {Goal} escape read as plain (Goal); an exception reads as FALSE, which is the
+# answer a backend gives a guard it cannot run. A guard the modes answer differently, a guard naming a Logtalk message (:: or ^^), and
+# a probe that did not run to its last line stay UNDECIDED -- both branches graded, as before -- and every decision is printed.
+def probe_guards(root, scrip, modes, shim_src):
+    files, _bad = ex.parse_suite(root)
+    texts = sorted({u for fc in files for u in (fc.undecided or ()) if "::" not in u and "^^" not in u})
+    if not texts:
+        return
+    parts = [shim_src]
+    for k, t in enumerate(texts):
+        parts.append("'$lgt_guard%d' :- %s." % (k, _braces_to_parens(t)))
+    for k in range(len(texts)):
+        parts.append(":- ( catch('$lgt_guard%d', _, fail) -> write(user_output, '@G %d true') ; write(user_output, '@G %d false') ), "
+                     "nl(user_output)." % (k, k, k))
+    text = "\n".join(parts) + "\n"
+    seen = {}
+    modes = [m for m in (modes.split(",") if isinstance(modes, str) else modes) if m]
+    for mode in modes:
+        out = _run_text(text, scrip, mode)
+        got = dict(re.findall(r"^@G (\d+) (true|false)$", out or "", re.M))
+        for k in range(len(texts)):
+            seen.setdefault(k, []).append(got.get(str(k)))
+    for k, t in enumerate(texts):
+        vs = set(seen.get(k, [None]))
+        if len(vs) == 1 and None not in vs:
+            ex.PROBED[t] = (vs.pop() == "true")
+            print("GUARD PROBED on this binary (%s agree): %s -> %s" % (",".join(modes), t[:120], "TRUE" if ex.PROBED[t] else "FALSE"))
+        else:
+            print("GUARD UNDECIDED (the probe answered %s over %s): %s -- both branches stay in the population" % (seen.get(k), ",".join(modes), t[:120]))
+
+
 def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False, decl=None):
     # ⛔ ABSOLUTE, AND CHECKED HERE. Every case runs with cwd set to its own scratch directory, so a
     # relative binary path ("./scrip", the obvious thing to type) resolves against the scratch dir and is
@@ -731,6 +793,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     if not os.access(scrip, os.X_OK):
         return None, [(scrip, "no executable compiler at this path -- a missing binary prints a full, "
                               "plausible, entirely false board rather than nothing")]
+    shim_src = open(SHIM, encoding="utf-8").read()
+    probe_guards(root, scrip, modes, shim_src)
     files, bad = ex.parse_suite(root)
     if bad:
         return None, bad
@@ -738,7 +802,6 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     if seqbad:
         return None, seqbad
     supported = shim_helpers()
-    shim_src = open(SHIM, encoding="utf-8").read()
     work = []
     probes = []                   # (index into work, the SAME case planned standalone) -- the policing arm
     where = {}                    # index into work -> (file, the case's position in that file)
@@ -823,7 +886,18 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     # ⛔ A DECLARATION THAT NAMES NO GRADED CASE IS REFUSED, the table's twin of the order-dependence check above: a renamed or
     # deleted case would otherwise leave its heap or stack declared for nothing while the receipt counted it as honoured.
     _keys = {"%s:%s" % (fc.group, p.case.name) for fc, p in work}
-    _orphan = sorted(k for k in (decl or {}) if k.split(":", 1)[0] in graded_groups and k not in _keys)
+    # ⭐ A CASE A :- if(...) GUARD DECIDES FALSE IS STILL A VENDORED CASE, SO ITS DECLARATION IS NOT AN ORPHAN -- and it is NAMED here,
+    # per guard, on the board: it leaves the denominator in daylight (coinduction unsupported, ceo CEO-1235 (3) option (a)).
+    _dead = {}
+    for fc in files:
+        if fc.group in graded_groups:
+            for nm, why in (fc.dead_names or ()):
+                _dead.setdefault(why, []).append("%s:%s" % (fc.group, nm))
+    for why, ks in sorted(_dead.items(), key=lambda x: -len(x[1])):
+        print("GUARDED OUT (a :- if(...) this system decides FALSE, out of the population and named): %d case(s) under %s -- %s"
+              % (len(ks), why, " ".join(ks)))
+    _dead_keys = {k for ks in _dead.values() for k in ks}
+    _orphan = sorted(k for k in (decl or {}) if k.split(":", 1)[0] in graded_groups and k not in _keys and k not in _dead_keys)
     if _orphan:
         return None, [(k, "ALL.csv declares a heap or stack for this case and no case of that name is graded in its group -- "
                           "the declaration would apply to nothing") for k in _orphan]

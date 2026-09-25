@@ -220,7 +220,7 @@ class Case(object):
 
 
 class FileCases(object):
-    __slots__ = ("path", "group", "db", "loaded", "cases", "unparsed", "counted", "dead", "undecided")
+    __slots__ = ("path", "group", "db", "loaded", "cases", "unparsed", "counted", "dead", "undecided", "dead_names")
 
     def __init__(self, **kw):
         for k in self.__slots__:
@@ -321,11 +321,30 @@ def _conjunct_value(t):
     m = re.match(r"current_logtalk_flag\(\s*prolog_dialect\s*,\s*([a-z][a-zA-Z0-9_]*)\s*\)$", t)
     if m:
         return False if m.group(1) in _DIALECTS else None
+    # ⛔ COINDUCTION IS DECLARED UNSUPPORTED, AS GNU PROLOG'S OWN ADAPTER DECLARES IT (ceo CEO-1235 (3), option (a)): SCRIP has
+    # no rational trees, so the suite's cyclic-term branches leave the population as dead and the else-branch variants are
+    # graded. The debt is the rank-2 row prolog-rational-trees-cyclic-term-unification-comparison-copy-and-write-so-the-
+    # logtalk-coinduction-branch-is-graded-as-supported; when it lands this answers True and the dead count falls back.
+    m = re.match(r"current_logtalk_flag\(\s*coinduction\s*,\s*([a-z]+)\s*\)$", t)
+    if m:
+        return m.group(1) == "unsupported"
     return None
+
+
+# ⭐ A GUARD NO RULE ABOVE DECIDES IS ASKED OF THE SYSTEM UNDER TEST, as Logtalk's own :- if/1 asks its backend: catch(1^true, _, fail)
+# and \+ current_op(_, _, '|') are facts about the ENGINE, and a table here would be a claim about SCRIP that goes stale the day ^/2 or
+# '|' lands. util_logtalk_grade.probe_guards() runs each such guard once per graded mode on the binary it is about to grade and fills
+# this map (normalised guard text -> True/False) only where every mode agrees; --census, which runs nothing, leaves it empty.
+PROBED = {}
 
 
 def cond_value(text):
     """True / False when this system decides the guard, else None (both branches stay in the population)."""
+    v = _cond_value_static(text)
+    return PROBED.get(" ".join(text.split())) if v is None else v
+
+
+def _cond_value_static(text):
     t = text.strip()
     while t.startswith("(") and _close_paren(t[1:]) == len(t) - 2:
         t = t[1:-1].strip()
@@ -350,8 +369,9 @@ def parse_file(path):
     cases = []
     unparsed = []
     dead = 0
+    dead_names = []        # (case name, the guard text that decided it FALSE) -- a guarded-out case is NAMED, never only counted
     undecided = []
-    guards = []            # one entry per open :- if(...): {"live": is this branch in the population, "done": a branch was definitely taken}
+    guards = []            # one entry per open :- if(...): {"live": is this branch in the population, "done": a branch was definitely taken, "why": the deciding text}
     for cl in split_clauses(body_src):
         g = re.match(r":-\s*(if|elif|else|endif)\b", cl)
         if g:
@@ -362,14 +382,16 @@ def parse_file(path):
                 arg = cl[b + 1:b + 1 + e] if e is not None else ""
                 v = cond_value(arg)
                 if v is None:
-                    undecided.append(" ".join(arg.split())[:120])
+                    undecided.append(" ".join(arg.split()))
+                why = " ".join(arg.split())[:120]
                 if k == "if":
-                    guards.append({"live": v is not False, "done": v is True})
+                    guards.append({"live": v is not False, "done": v is True, "why": why})
                 elif guards:
-                    guards[-1] = {"live": (not guards[-1]["done"]) and v is not False, "done": guards[-1]["done"] or v is True}
+                    guards[-1] = {"live": (not guards[-1]["done"]) and v is not False, "done": guards[-1]["done"] or v is True,
+                                  "why": guards[-1]["why"] if guards[-1]["done"] else why}
             elif k == "else":
                 if guards:
-                    guards[-1] = {"live": not guards[-1]["done"], "done": guards[-1]["done"]}
+                    guards[-1] = {"live": not guards[-1]["done"], "done": guards[-1]["done"], "why": "else of " + guards[-1]["why"]}
             else:
                 if guards:
                     guards.pop()
@@ -378,6 +400,10 @@ def parse_file(path):
         m = re.match(r"(test|succeeds|fails|throws)\s*\(", cl)
         if m and not live:
             dead += 1
+            rest = cl[m.end():]
+            j = _close_paren(rest)
+            nm = split_args(rest[:j])[0].strip() if j is not None else cl[:40]
+            dead_names.append((nm, next(x["why"] for x in guards if not x["live"])))
             continue
         if not live:
             continue
@@ -435,7 +461,7 @@ def parse_file(path):
         if re.match(r"^\s*(test|succeeds|fails|throws)\(", line):
             counted += 1
     return FileCases(path=path, group=_group_of(path), db=db, loaded=_tester_loaded(path), cases=cases,
-                     unparsed=unparsed, counted=counted, dead=dead, undecided=undecided)
+                     unparsed=unparsed, counted=counted, dead=dead, undecided=undecided, dead_names=dead_names)
 
 
 def parse_suite(root):
@@ -479,7 +505,7 @@ def main(argv):
                 und.setdefault(u, []).append(f.group)
         print("files=%d cases=%d  (+%d guarded out by a :- if(...) this system decides FALSE)" % (len(files), tot, dead))
         for u, gs in sorted(und.items(), key=lambda x: -len(x[1])):
-            print("  UNDECIDED GUARD in %d file(s) -- BOTH branches stay in the population: %s" % (len(gs), u))
+            print("  UNDECIDED GUARD in %d file(s) -- BOTH branches stay in the population: %s" % (len(gs), u[:120]))
         print("  by head form : %s" % sorted(by_kind.items(), key=lambda x: -x[1]))
         print("  by expectation: %s" % sorted(by_exp.items(), key=lambda x: -x[1]))
         print("  by ^^helper  : %s" % sorted(by_help.items(), key=lambda x: -x[1]))
