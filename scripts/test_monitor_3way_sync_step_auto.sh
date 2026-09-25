@@ -87,6 +87,7 @@ ICON_MON="${ICON_MON_ROOT:-$S4A/icon-mon}"
 GPROLOG_MON="${GPROLOG_MON_ROOT:-$S4A/gprolog-mon}"
 FPC_MON="${FPC_MON_ROOT:-$S4A/fpc-mon}"
 RAKUDO_MON="${RAKUDO_MON_ROOT:-$S4A/rakudo-mon}"
+SWIPL_MON="${SWIPL_MON_ROOT:-$S4A/swipl-mon}"
 INC="${INC:-$S4E/corpus/include}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
@@ -105,12 +106,12 @@ fi
 # Validate participant names.
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
-        csn|spl|scr|dot|scr3|scr4|rkx|icx|gpx|fpx) ;;
-        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rkx, icx, gpx, fpx)"; exit 2 ;;
+        csn|spl|scr|dot|scr3|scr4|rkx|icx|gpx|swx|fpx) ;;
+        *) echo "FAIL unknown participant '$p' (allowed: csn, spl, scr, dot, scr3, scr4, rkx, icx, gpx, swx, fpx)"; exit 2 ;;
     esac
 done
 
-want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rkx=0; want_icx=0; want_gpx=0; want_fpx=0
+want_csn=0; want_spl=0; want_scr=0; want_dot=0; want_rkx=0; want_icx=0; want_gpx=0; want_swx=0; want_fpx=0
 for p in "${PARTICIPANTS[@]}"; do
     case "$p" in
         csn) want_csn=1 ;;
@@ -122,6 +123,7 @@ for p in "${PARTICIPANTS[@]}"; do
         rkx) want_rkx=1 ;;
         icx) want_icx=1 ;;
         gpx) want_gpx=1 ;;
+        swx) want_swx=1 ;;
         fpx) want_fpx=1 ;;
     esac
 done
@@ -137,6 +139,7 @@ done
 [[ "$want_rkx" = "1" ]] && [[ ! -x "$RAKUDO_MON/bin/raku" ]] && { echo "FAIL instrumented Rakudo fork not built at $RAKUDO_MON/bin/raku -- bash scripts/monitor/oracles/build_rakudo_mon.sh <prefix> (RAKUDO_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_icx" = "1" ]] && { [[ ! -x "$ICON_MON/bin/icont" ]] || [[ ! -x "$ICON_MON/bin/iconx" ]]; } && { echo "FAIL instrumented Icon fork not built at $ICON_MON/bin/{icont,iconx} -- bash scripts/monitor/oracles/build_icon_mon.sh <prefix> (ICON_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_gpx" = "1" ]] && [[ ! -x "$GPROLOG_MON/bin/gplc" ]] && { echo "FAIL instrumented GNU Prolog fork not built at $GPROLOG_MON/bin/gplc -- bash scripts/monitor/oracles/build_gprolog_mon.sh <prefix> (GPROLOG_MON_ROOT names the prefix)"; exit 2; }
+[[ "$want_swx" = "1" ]] && [[ ! -x "$SWIPL_MON/bin/swipl" ]] && { echo "FAIL instrumented SWI-Prolog fork not built at $SWIPL_MON/bin/swipl -- bash scripts/monitor/oracles/build_swipl_mon.sh <prefix> (SWIPL_MON_ROOT names the prefix)"; exit 2; }
 [[ "$want_fpx" = "1" ]] && [[ ! -x "$FPC_MON/bin/fpc" ]] && { echo "FAIL instrumented Free Pascal fork not built at $FPC_MON/bin/fpc -- bash scripts/monitor/oracles/build_fpc_mon.sh <prefix> (FPC_MON_ROOT names the prefix)"; exit 2; }
 :
 
@@ -342,6 +345,23 @@ if [[ "${want_gpx:-0}" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/gpx.names" \
         timeout "$((TIMEOUT*2))" "$TMP/gpx.bin" \
         < "$STDIN_SRC" > "$TMP/gpx.out" 2> "$TMP/gpx.err" &
+    PIDS+=($!)
+fi
+
+# ⭐ swx (cfo 2026-09-24, CEO-1236; Lon: "To complete the IPC sync-step monitor for Prolog we must instrument SWIPL in the same
+# manner as Gnu Prolog"): the SWI-Prolog fork built by scripts/monitor/oracles/build_swipl_mon.sh -- its loader stores every clause
+# of the program file with '$mon_stmt'(Line) before each body goal (the goal's own first line, from the reader's subterm positions)
+# and '$mon_ret' at the clause's end, and its VM fires CALL at the entry of every predicate so stored (pl-vmi.c,
+# depart_or_retry_continue); library, dynamic and multifile predicates and directives are never events. The fire-points
+# (monitor_swx.c) speak the shared monitor_ipc_lib.c wire, and the loader stores a clause unchanged unless the READY pipe is named,
+# so the fork's untraced run is the pristine oracle's (the build script's control arm). No compile step: swipl loads and runs it.
+if [[ "${want_swx:-0}" = "1" ]]; then
+    SWX_SRC="$(realpath "$SNO")"
+    MONITOR_READY_PIPE="$TMP/swx.ready" \
+    MONITOR_GO_PIPE="$TMP/swx.go" \
+    MONITOR_NAMES_OUT="$TMP/swx.names" \
+        timeout "$((TIMEOUT*2))" "$SWIPL_MON/bin/swipl" "$SWX_SRC" \
+        < "$STDIN_SRC" > "$TMP/swx.out" 2> "$TMP/swx.err" &
     PIDS+=($!)
 fi
 
