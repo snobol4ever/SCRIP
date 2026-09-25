@@ -64,6 +64,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # 64.  The box: 30 GB RAM, 19 GB free disk, builds serial; each .s and .o is deleted the moment its link
 # succeeds, so the transient disk is one program's worth.  The size itself (about 7 KB per chks() line) is its
 # own finding on the code-size axis, routed to the ceo -- never a reason to leave a correct program ungraded.
+# ⭐ 128 -> 256 MB (coo 2026-09-25, ceo CEO-1270), MEASURED AGAINST THE SWITCH THIS RUNNER EXPORTS: SCRIP_SNO_STMTKW=1 (line 2)
+# grows the same four by 67 percent, and from 04549eb5c they were DEFERRED again with no program wrong (X64T 28 -> 24).
+# Asm with / without the switch, SCRIP 08ec41e12, load 20-28: math_sum, math_diff and math_div 169.6 / 101.5 MiB, and
+# math_prod 158.8 / 95.1 MiB, compiled in 20-38 s / 15-26 s. The largest, math_sum with the switch, is 177,805,929 bytes;
+# it assembles in 30 s at 1.38 GB peak RSS to a 52.6 MB .o, and links in 3.1 s at 165 MB to a 33 MB binary (load 34).
+# Every other program already fits 128 with the switch. 256 is 1.5x the largest measured, and the transient is still
+# one program's .s + .o at a time (about 230 MB against 19 GB free on / at 16:4x).
 # ⛔ THE PER-STEP TIMEOUT IS 600 s (was 120), FOR THE SAME FOUR PROGRAMS, MEASURED THE SAME DAY: math_diff/div/prod
 # need about 50 s of CPU per mode-3 run and per mode-4 compile. At load 27 on 16 cores a run read rc=124 at 120 s
 # and printed HANG over a program that passes -- 120 s sat within about 2x of the real duration, the flaky-timeout
@@ -85,7 +92,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SUITE="${SPITBOL_X64_SUITE:-$ROOT/corpus/packages/snobol4/spitbol_x64_tests}"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
-TIMEOUT="${TIMEOUT:-600}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-128}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
+TIMEOUT="${TIMEOUT:-600}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-256}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
 [ -d "$SUITE" ] || { echo "⛔ REFUSE(rc=2): suite dir missing: $SUITE"; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
 # ⛔⭐ STALE-BINARY PREFLIGHT.  NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
