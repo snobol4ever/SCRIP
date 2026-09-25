@@ -26,6 +26,11 @@
 # 179 ids and renumber what survived. So "repair the anchor" is the catastrophe and not the cure, and the
 # floor below is what turns that from a silent 95% deletion into a red arm.
 #
+# ⭐ AND BID_LAST IS THE LARGEST ID (coo 2026-09-25, row snobol4-g-bn-direct-is-indexed-by-a-baked-builtin-id-...,
+# ceo CEO-1270): builtin_ids.h asserts at compile time that BID_LAST < BID_TABSZ, because rtx_misc.s indexes the
+# BID_TABSZ-row g_bn_direct (0f560a28e) by the baked id masked 0x3FFF, so an id past 1023 would read outside it
+# instead of failing to build. The assertion is only as good as BID_LAST, and this checker holds BID_LAST to the
+# largest id the table actually carries -- a hand-added builtin that forgets to move it reds here.
 # ⭐ IT USES THE REAL HEADER AND THE REAL bid_of RATHER THAN REIMPLEMENTING THE HASH -- a second copy of the
 # djb2 walk in this gate would be a third hand-written copy of the very contract the row is about, and would
 # agree with itself while the tree drifted.
@@ -45,7 +50,7 @@ cat > "$T/bidcheck.c" <<'EOF'
 #include <string.h>
 #include "builtin_ids.h"
 int main(void) {
-    int seen = 0, bad = 0, dup = 0;
+    int seen = 0, bad = 0, dup = 0, maxid = 0;
     static char idseen[65536]; static const char *idname[65536];
     for (int i = 0; i < BID_TABSZ; i++) {
         const char *n = g_bid_tab[i].nm;
@@ -58,7 +63,9 @@ int main(void) {
         if (id <= 0 || id >= 65536) { printf("  BAD id range: %s id=%d\n", n, id); bad++; continue; }
         if (idseen[id]) { printf("  DUPLICATE id %d: %s and %s\n", id, idname[id], n); dup++; }
         idseen[id] = 1; idname[id] = n;
+        if (id > maxid) maxid = id;
     }
+    if (maxid != BID_LAST) { printf("  BAD BID_LAST=%d but the largest id in g_bid_tab is %d -- point BID_LAST at the largest id, or the static assertion that the id space stays below BID_TABSZ checks the wrong id\n", (int)BID_LAST, maxid); bad++; }
     printf("entries=%d bad=%d duplicate_ids=%d\n", seen, bad, dup);
     return (bad || dup) ? 1 : 0;
 }

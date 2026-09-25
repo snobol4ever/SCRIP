@@ -190,10 +190,16 @@
 #define BID_errorclear 187
 #define BID_ICNx24LINE 188
 #define BID___pas_swapendian 189
+#define BID_LAST BID___pas_swapendian
 #define BID_TABSZ 1024
 #define BID_BAKE_SYSFN 0x8000
 #define BID_BAKE_LEAF 0x4000
 #define BID_BAKE_MASK 0x3FFF
+#ifdef __cplusplus
+static_assert(BID_LAST < BID_TABSZ, "a builtin id at or past BID_TABSZ reads outside g_bn_direct: rtx_misc.s indexes that BID_TABSZ-row table by the baked id masked BID_BAKE_MASK, so the id space must stay below BID_TABSZ -- grow BID_TABSZ, a power of two, with the new BID_LAST");
+#else
+_Static_assert(BID_LAST < BID_TABSZ, "a builtin id at or past BID_TABSZ reads outside g_bn_direct: rtx_misc.s indexes that BID_TABSZ-row table by the baked id masked BID_BAKE_MASK, so the id space must stay below BID_TABSZ -- grow BID_TABSZ, a power of two, with the new BID_LAST");
+#endif
 static const struct { const char *nm; unsigned char len; short id; } g_bid_tab[BID_TABSZ] = {
   {0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},
   {0,0,0},{0,0,0},{0,0,0},{"collect",7,112},{0,0,0},{0,0,0},{0,0,0},{"__pas_halt",10,178},
