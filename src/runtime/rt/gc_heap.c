@@ -1033,13 +1033,16 @@ static int gc_plant_stack_label(void) { static int v = -1, said = 0; if (v < 0) 
 _Static_assert(sizeof(void *) == 8, "THE MAIN STACK IS THE MAPPING HOLDING __libc_stack_end, NOT THE MAPPING LABELLED [stack] (cto, 2026-09-24, row gc-the-main-stack-top-is-the-mapping-holding-libc-stack-end-...; hq_icon's and hq_prolog's findings): under valgrind the [stack] line of /proc/self/maps is the HOST's stack while the client's frames live in an unlabelled mapping, so a walk from the mutator's floor to the labelled top crossed unmapped ground and every collecting run died rc=139 in gc_walk_cell; glibc's __libc_stack_end is the entry rsp in both settings and the mapping containing it is the real stack in both; the label is the fallback only when no mapping contains it; SCRIP_GC_PLANT_STACK_LABEL=1 restores the label-only read as the plant");
 static void gc_stack_region(char **lo, char **hi)
 {
-    FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0, la = 0, lb = 0, e = gc_plant_stack_label() ? 0 : (unsigned long)__libc_stack_end;
+    FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0, la = 0, lb = 0, e = gc_plant_stack_label() ? 0 : g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
     if (f) { while (fgets(ln, sizeof ln, f)) { unsigned long x = 0, y = 0; if (sscanf(ln, "%lx-%lx", &x, &y) != 2) continue;
             if (e && x <= e && e < y) { a = x; b = y; break; }
             if (!lb && strstr(ln, "[stack]")) { la = x; lb = y; } } fclose(f); }
     if (!b) { a = la; b = lb; }
     *lo = (char *)a; *hi = b ? (char *)b : (char *)0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_stack_top_adopt(char *hi) { g_gc_stktop = hi; }
+void rt_gc_main_stack_bounds(char **lo, char **hi) { if (!g_gc_stktop) { *lo = *hi = (char *)0; return; } gc_stack_region(lo, hi); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *gc_stack_top(void)
 {

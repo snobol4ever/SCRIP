@@ -23,7 +23,10 @@
 # under 15 percent free, a retaining registry gets a larger window instead of more collections: 230 weak vs 384 plant at 128 KB,
 # 823 vs 428 at 64 KB, while the stress-1 reading is 524 blocks weak at both hands vs 1065 -> 1410 plant, identical on the
 # pre-pacing tree d566528fa), and (4) its live bytes at exit are
-# higher -- both deterministic, read off the [GC-EXERCISE] line. (5) Its CPU (user+sys, bench_rusage) is at least 2x.
+# higher -- both deterministic, read off the [GC-EXERCISE] line. (5) Its CPU (user+sys, bench_rusage) is at least 1.5x (2x until
+# CEO-1265, ceo 2026-09-25: since the pacing landing CEO-1264 ended the plant's thrash a retaining registry costs 2.18-2.51x the weak
+# run's CPU at load 1.5 -- 33-38 ms against 83-84 -- where it cost ~15x, and the loaded blocking set read it red once while it passed
+# alone on both trees; arms 3 and 4 measure the retention itself, so this arm is the cost signal and its bound is WEAKENED AND NAMED).
 # Measured at landing (load 30-47, so CPU is quoted for its ratio only): weak 434 collections, 49856 live bytes, ~180 ms;
 # plant 3020 collections, 172464 live bytes, ~2800 ms. Arms 3-5 are the plant proving the gate can see the regression.
 # (6) THE TOMBSTONE IS NEVER READ: a witness that keeps some computed csets live in a list and a table, lets the rest die,
@@ -104,7 +107,7 @@ if grep -q '\[GC-CSET\] plant' "$T/err.1" && cmp -s "$T/want" "$T/out.1"; then e
 if [ "$rw50" -eq "$rw100" ] && [ "$rs100" -gt "$rs50" ] && [ "$rs100" -gt "$rw100" ]; then echo "  arm 3 PASS: retention does not grow with work -- live blocks at exit under stress 1: weak $rw50 at -h 50 and $rw100 at -h 100, plant $rs50 -> $rs100"
 else echo "  arm 3 FAIL: live blocks at exit under stress 1: weak $rw50 at -h 50 and $rw100 at -h 100, plant $rs50 -> $rs100 -- a weak registry holds a constant live set as the work doubles, so a growing one is rooting what it should let die"; bad=1; fi
 if [ "$bs" -gt "$bw" ]; then echo "  arm 4 PASS: live bytes at exit $bw weak vs $bs strong"; else echo "  arm 4 FAIL: live bytes at exit $bw weak vs $bs strong"; bad=1; fi
-if [ "$ps" -ge $((2 * pw)) ]; then echo "  arm 5 PASS: CPU ${pw} ms weak vs ${ps} ms strong (>= 2x)"; else echo "  arm 5 FAIL: CPU ${pw} ms weak vs ${ps} ms strong -- under 2x"; bad=1; fi
+if [ $((2 * ps)) -ge $((3 * pw)) ]; then echo "  arm 5 PASS: CPU ${pw} ms weak vs ${ps} ms strong (>= 1.5x)"; else echo "  arm 5 FAIL: CPU ${pw} ms weak vs ${ps} ms strong -- under 1.5x"; bad=1; fi
 fl3=$(grep -c '\[GC-FLIP\] plant: every live block' "$T/f3.err"); fl4=$(grep -c '\[GC-FLIP\] plant: every live block' "$T/f4.err"); st=$(cat "$T/f3.err" "$T/f4.err" | grep -c 'ZGC-STALE')
 if [ "$fo3" = "$wwant" ] && [ "$fo4" = "$wwant" ] && [ "$fl3" -ge 1 ] && [ "$fl4" -ge 1 ] && [ "$st" -eq 0 ]; then echo "  arm 6 PASS: the flip witness answers as iconx in both media under SCRIP_GC_PLANT_FLIP=1 stress 1, plant applied, no stale read"
 else echo "  arm 6 FAIL: flip witness m3 $([ "$fo3" = "$wwant" ] && echo same || echo DIFFERS) m4 $([ "$fo4" = "$wwant" ] && echo same || echo DIFFERS), flip proof lines $fl3/$fl4, ZGC-STALE reports $st"; bad=1; fi

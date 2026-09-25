@@ -2509,6 +2509,7 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     return NV_GET_fn(fname);
 }
 int core_stack_floor_raised = 0;
+long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return _sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }

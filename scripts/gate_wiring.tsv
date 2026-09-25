@@ -40,6 +40,7 @@
 # TASK-CEILING: 166
 test_gate_a_blocking_set_death_names_its_killer.sh	WIRED	-	-	-
 test_gate_a_cgroup_kill_is_a_refusal_not_a_red.sh	WIRED	-	-	-
+test_gate_a_compiled_program_runs_on_a_stack_it_maps_itself.sh	WIRED	-	-	-
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_beta.sh	WIRED	-	-	-
