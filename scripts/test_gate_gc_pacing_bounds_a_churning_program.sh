@@ -6,7 +6,9 @@
 # fast path carved inline against the arena END, never seeing any line), so a program with a few KB of live data touched
 # every page of the arena and CEO-605's micro.icn aborted on the pinned-allocation ceiling. Cure: the collection line sits
 # min(128 MB, half of what remains) past the top (SCRIP_GC_LINE_MB, default 128 -- 64 cost ~60% wall on the churniest Icon
-# benchmark, 128 reads at parity with the old policy; 0 = the old half-of-arena seam policy), the
+# benchmark, 128 reads at parity with the old policy; 0 = the old half-of-arena seam policy; since CEO-1264 the room is fifteen
+# sixteenths of what remains, SPITBOL's spend-the-window rule, so 0 now puts the line at 15/16 of the window and the 128 MB bound is
+# what arm 1 still grades at this 512 MB window), the
 # fast region carries that line at offset 48 and rtx_alloc.s carves inline only up to it, and c_rt_gcheap_alloc collects
 # at the line through the same conservative path exhaustion already used. Arms: (1) the churning witness stays under
 # 256 MB RSS (the row's own bound) in mode 3 and mode 4 and prints ok; (2) CONTROL: SCRIP_GC_LINE_MB=0 reproduces the old behaviour, RSS above

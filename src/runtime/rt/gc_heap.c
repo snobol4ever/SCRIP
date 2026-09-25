@@ -16,6 +16,8 @@
 #define GC_HEAP_CAP_KB 131072
 _Static_assert(GC_HEAP_KB == 1024 && GC_HEAP_CAP_KB == 131072, "THE DEFAULTS ARE SPITBOL'S (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.\"; ceo CEO-1261): sbl prints its option defaults as -d128m -i1m -m16m -s4m: the initial window is -i1m and the hard cap -d128m; the window is also the least each growth commits (rt_gcheap_grow), which is -i's second meaning; the 128 KB arena of CEO-1095 is the GC-testing instrument (make test-arena, SCRIP_HEAP_KB_TINY) and no longer the shipped default");
 #define GC_HEAP_KB_FLOOR 64
+#define GC_FREE_PCT 15
+_Static_assert(GC_FREE_PCT == 15, "A WINDOW IS SPENT BEFORE IT IS COLLECTED, AS SPITBOL SPENDS ITS -i (ceo 2026-09-25, CEO-1264; Lon 2026-09-25 10:06, in-chat to the ceo: \"continue getting all demos and benchmarks running faster than SPITBOL\"): SPITBOL's alloc (sbl.min aloc1..aloc4) collects only when an allocation does not fit its dynamic area and then, when less than e_fsp = 15 percent of the area is free after the collection, asks sysmm for another -i increment; SCRIP collected at HALF its free window, so under the demo grid's -d512m -i64m treebank collected once (110 ms: 814,366 blocks, 193,546 live, mark 87 ms) where SPITBOL collected zero times. The line now leaves one sixteenth of the free window as burst room between polls (the allocator never collects, so a burst past the line is committed, never refused), and a collection that leaves less than GC_FREE_PCT percent of the committed window free grows it at once (rt_gcheap_grow(0): the larger of the committed size and -i, up to the hard cap) instead of collecting again one sixteenth later");
 #include "descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
@@ -90,11 +92,11 @@ static long gc_line_mb(void)
     return line_mb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_line_span(long half)
+static long gc_line_span(long room)
 {
     long line_mb = gc_line_mb();
-    if (line_mb == 0) return half;
-    { long span = line_mb << 20; return span < half ? span : half; }
+    if (line_mb == 0) return room;
+    { long span = line_mb << 20; return span < room ? span : room; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
@@ -177,11 +179,11 @@ static void gc_huge_advise(char *a0, char *e0)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_cap_hit(uint64_t need);
-_Static_assert(sizeof(long) == 8, "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap): the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, half of what is free) at init, after every grow and after every collection -- a line fixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left the window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
+_Static_assert(sizeof(long) == 8, "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap): the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, fifteen sixteenths of what is free -- half until CEO-1264) at init, after every grow and after every collection -- a line fixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left the window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
 static void rt_gcheap_line_reset(void)
 {
-    long half = (long)((size_t)(g_hp_end - g_hp_top) >> 1);
-    g_hp_gcline = g_hp_top + gc_line_span(half);
+    long fr = (long)(g_hp_end - g_hp_top);
+    g_hp_gcline = g_hp_top + gc_line_span(fr - (fr >> 4));
     gc_fr_line_sync();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1605,8 +1607,8 @@ static long gc_collect_ex(void)
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
     if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
     if (w_tel) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
-    g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
-    gc_fr_line_sync();
+    if (g_hp_cap_end > g_hp_end && (long)(g_hp_end - g_hp_top) * 100L < (long)(g_hp_end - g_hp_arena) * (long)GC_FREE_PCT) (void)rt_gcheap_grow(0);
+    rt_gcheap_line_reset();
     if (g_gc_flip_to && g_gc_flip_to > g_hp_arena + sizeof(rt_hblk_t)) { size_t pg = gc_pg(); char *a = (char *)(((uintptr_t)g_hp_arena + sizeof(rt_hblk_t) + pg - 1) & ~(uintptr_t)(pg - 1)), *b = (char *)((uintptr_t)g_gc_flip_to & ~(uintptr_t)(pg - 1));
         memset(g_hp_arena + sizeof(rt_hblk_t), 0xDB, (size_t)(g_gc_flip_to - g_hp_arena - (long)sizeof(rt_hblk_t)));
         if (b > a && mprotect(a, (size_t)(b - a), PROT_NONE) == 0) { g_hp_flo = a; g_hp_fhi = b; } }

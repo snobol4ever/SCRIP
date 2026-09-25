@@ -54,6 +54,7 @@ RC=0; examined=0
 # is the caller's and not the tree's.  Same defeat one field over, and it matters more now that arm 4 reads cap_kb.
 receipt() { env -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
 fld() { printf '%s\n' "$1" | grep -oE "$2=[0-9]+" | head -1 | cut -d= -f2; }
+receipt_kb() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
 # ARM 1 -- SILENT WHEN UNASKED.  A receipt that prints unconditionally changes the stderr of every board and witness in
 # the tree, and a gate somewhere is grading stderr byte for byte.  The knob is the whole contract.
 examined=$((examined + 1))
@@ -72,11 +73,16 @@ else echo "  arm 2 FAIL: arena_mb does not track the window -- read [${g1:-none}
 # witness collects hundreds of times at 1 MB and a handful at the shipped arena; the THIN one collects once and then
 # ⭐ ZERO AT 4 MB, the trap this gate exists to make visible -- "small" is not a synonym for "exercised".
 examined=$((examined + 1))
-cb=$(receipt "$T/a3_b1.txt" 1 0 "$BENCH"); cs=$(receipt "$T/a3_b512.txt" 512 0 "$BENCH")
-nb=$(fld "$cb" collections); ns=$(fld "$cs" collections); nt4=$(fld "$r4" collections); nt1=$(fld "$r1" collections)
+# ⛔ THE THIN POINT IS 512 KB SINCE CEO-1264 (ceo 2026-09-25): the thin witness allocates ~565 KB in all, and the collector now
+# spends a window before collecting it, as SPITBOL spends its -i (the line leaves 1/16 of the free window, not half), so at
+# 1 MB it collects zero times where it collected once at the old half-window line (measured: 0 at 768, 1024 and 4096 KB; 1 at
+# 512 and 256 KB; 2 at 128 KB). The claim is unchanged -- a small window exercises the collector and 4 MB does not -- and it
+# is read where the thin witness still separates them.
+cb=$(receipt "$T/a3_b1.txt" 1 0 "$BENCH"); cs=$(receipt "$T/a3_b512.txt" 512 0 "$BENCH"); rt5=$(receipt_kb "$T/a3_t512k.txt" 512 0 "$THIN")
+nb=$(fld "$cb" collections); ns=$(fld "$cs" collections); nt4=$(fld "$r4" collections); nt1=$(fld "$rt5" collections)
 if [ -n "${nb:-}" ] && [ -n "${ns:-}" ] && [ "${nb:-0}" -gt 50 ] && [ "${ns:-0}" -lt "${nb:-0}" ] && [ "${nt1:-0}" -gt 0 ] && [ "${nt4:-1}" -eq 0 ]; then
-  echo "  arm 3 PASS: collections separates exercise from configuration -- churning witness ${nb} at 1 MB against ${ns} at 512; thin witness ${nt1} at 1 MB and ${nt4} at 4 MB, so a 4 MB 'small arena' run exercises the collector ZERO times and only this field can say so"
-else echo "  arm 3 FAIL: collections cannot distinguish an exercised run from an unexercised one -- churning [${nb:-none}]@1MB [${ns:-none}]@512MB, thin [${nt1:-none}]@1MB [${nt4:-none}]@4MB. A constant or absent field reads exactly like this."; RC=1; fi
+  echo "  arm 3 PASS: collections separates exercise from configuration -- churning witness ${nb} at 1 MB against ${ns} at 512; thin witness ${nt1} at 512 KB and ${nt4} at 4 MB, so a 4 MB 'small arena' run exercises the collector ZERO times and only this field can say so"
+else echo "  arm 3 FAIL: collections cannot distinguish an exercised run from an unexercised one -- churning [${nb:-none}]@1MB [${ns:-none}]@512MB, thin [${nt1:-none}]@512KB [${nt4:-none}]@4MB. A constant or absent field reads exactly like this."; RC=1; fi
 # ARM 4 -- THE CAP DOES NOT SHRINK WITH THE WINDOW, which is NOT the same claim as "the reserve is equal at two windows".
 # ⛔ REWRITTEN (cfo 2026-09-22) ON THE ceo's CEO-1161 RULING, WHICH ANSWERED THE coo's ASK: THE OLD CRITERION LOSES, AND IT
 # WAS A BLOCKING RED ON origin/main WHILE IT STOOD.  It asserted reserve_mb EQUAL at a 1 MB and a 512 MB window.  But

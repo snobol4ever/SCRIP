@@ -123,6 +123,7 @@ test_gate_gc_a_safe_point_stores_into_a_mapped_slot.sh	WIRED	-	-	-
 test_gate_gc_a_shared_concat_slot_capture_survives_a_collection.sh	WIRED	-	-	-
 test_gate_gc_a_stale_read_of_vacated_ground_faults_and_names_its_block.sh	WIRED	-	-	-
 test_gate_gc_a_suspended_scan_banks_its_subject_where_the_walker_relocates_it.sh	WIRED	-	-	-
+test_gate_gc_a_window_is_spent_before_it_is_collected.sh	WIRED	-	-	-
 test_gate_gc_acceptance_never_prints_a_number_over_a_refusal.sh	WIRED	-	-	-
 test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
