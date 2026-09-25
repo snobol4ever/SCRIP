@@ -4785,9 +4785,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = STRVAL(buf); return 1;
     }
-    if (!strcmp(fn, "arr_make") && nargs == 1) {
-        long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1;
-        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = 0; b->hi = (int) hi;
+    if (!strcmp(fn, "arr_make") && (nargs == 1 || nargs == 2)) {
+        long long lo = (nargs == 2 && IS_INT_fn(args[0])) ? args[0].i : 0; long long hi = IS_INT_fn(args[nargs - 1]) ? args[nargs - 1].i : 0; long long n = hi - lo + 1; if (n < 1) n = 1;
+        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = (int) lo; b->hi = (int) hi;
         b->ndim = 1;
         b->ndim = 1;
         b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n)); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
