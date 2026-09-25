@@ -34,7 +34,10 @@
 #    the register reload. A dropped reload is the bug arm 1 catches only when a collection happens to fire.
 #  3 COVERAGE, NOT A SPOT CHECK: every site the callee-saved census names as a COLLECTED-HEAP POINTER in a
 #    callee-saved register at an allocating return must carry the record. A cure that covered nine of ten sites
-#    would pass a spot check and lose an object at the tenth.
+#    would pass a spot check and lose an object at the tenth. A site is covered when the FIRST call after its
+#    allocating return, before any jmp or ret, is the record's rt_gc_point_arr_c: by structure, not by a line window
+#    (cto 2026-09-25: a 22-line window went red when af773a80e put the six-line in-line g_gc_pending test ahead of the
+#    record, which it had moved to line 24 with nothing else in between).
 #  4 THE FLOOR: the floor handed to the poll is exactly the rsp the record opened at, so the untagged scratch is
 #    below it. A floor inside the record is the hazard above, emitted.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -105,20 +108,20 @@ EOF
 python3 "$CENSUS" "$T/d.s" > "$T/c.txt" 2>&1
 HEAPN="$(grep -oE '^SUMMARY .*' "$T/c.txt" | tr ' ' '\n' | awk -F= '$1=="heap"{print $2}')"
 cover_uncovered() {
-    local asm="$1" rep="$2" win="$3" bad=0
+    local asm="$1" rep="$2" bad=0
     while read -r ln; do
         [ -n "$ln" ] || continue
-        awk -v n="$ln" -v w="$win" 'NR>=n && NR<=n+w' "$asm" | grep -q 'call *rt_gc_point_arr_c' || bad=$((bad+1))
+        awk -v n="$ln" 'NR<=n{next} /(^|[ \t;])(jmp|ret)([ \t]|$)/{exit} /call /{ok=($0 ~ /call *rt_gc_point_arr_c/); exit} END{exit !ok}' "$asm" || bad=$((bad+1))
     done < <(grep -oE 'line=[0-9]+' "$rep" | cut -d= -f2)
     echo "$bad"
 }
 if [ -n "${HEAPN:-}" ] && [ "$HEAPN" -gt 0 ]; then
     grep -E '^ +[^ ]+\.s graph=.* line=[0-9]+ r[0-9]+ ' "$T/c.txt" > "$T/heap.txt"
     NH=$(wc -l < "$T/heap.txt")
-    UNCOV=$(cover_uncovered "$T/d.s" "$T/heap.txt" 22)
+    UNCOV=$(cover_uncovered "$T/d.s" "$T/heap.txt")
     if [ "$NH" -gt 0 ] && [ "$UNCOV" -eq 0 ]; then echo "  arm 3 PASS: all $NH site(s) the census names as a COLLECTED-HEAP POINTER in a callee-saved register at an allocating return carry the record (heap=$HEAPN over the deferred-pattern witness) -- coverage over the named class, not a spot check at one site"
     else echo "⛔ arm 3 RED: $UNCOV of $NH heap site(s) reach their allocating return with NO spill record -- a register holding a collected-heap pointer there is a root the collector cannot fix up"; sed 's/^/    /' "$T/heap.txt" | head -6; RC=1; fi
-    PL=$(awk 'BEGIN{n=0} /call *rt_gc_point_arr_c/{next} {print} END{}' "$T/d.s" > "$T/d_noprec.s"; cover_uncovered "$T/d_noprec.s" "$T/heap.txt" 22)
+    PL=$(awk 'BEGIN{n=0} /call *rt_gc_point_arr_c/{next} {print} END{}' "$T/d.s" > "$T/d_noprec.s"; cover_uncovered "$T/d_noprec.s" "$T/heap.txt")
     if [ "$PL" -eq "$NH" ]; then echo "  arm 3 planted-violation: with every record call removed from the stream all $NH site(s) read uncovered -- the arm discriminates"
     else echo "⛔ arm 3 PLANTED-VIOLATION DID NOT TRIP: $PL of $NH read uncovered with every record call removed"; RC=1; fi
 else echo "⛔ arm 3 RED: the deferred-pattern witness reports heap=${HEAPN:-0} -- the population carries none of the class this gate exists to cover, so arms 1 and 2 grade one site and nothing states the rest are covered"; RC=1; fi

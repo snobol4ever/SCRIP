@@ -128,7 +128,7 @@ with tempfile.TemporaryDirectory() as wd:
     if pn is None:
         print("PLANT-REFUSED-TO-SET-UP the plant witness emits no poll with a result store in the twelve lines before it -- since the coo's 811c0e454 the FIRST poll of hb_aggt.icn is a VOID site, and doctoring a site with no result to lose proves nothing about the reader (cto 2026-09-22)"); sys.exit(0)
     cut = [ln for i, ln in enumerate(lines)
-           if not (i < pn and i > pn - 12 and re.search(r"mov\s+qword ptr \[(rsp|rbp) [+-] -?\d+\], (rax|rdx)", ln))]
+           if not (pn - 12 <= i < pn and re.search(r"mov\s+qword ptr \[(rsp|rbp) [+-] -?\d+\], (rax|rdx)", ln))]
     p1 = asm + ".nostore.s"; open(p1, "w", encoding="utf-8").write("\n".join(cut))
     r1, _s1, ref1 = SP.contract_asm(p1, rep, "nostore")
     moved = [ln for i, ln in enumerate(lines)]

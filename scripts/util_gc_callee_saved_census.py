@@ -117,6 +117,7 @@ def _return_seed(insns, i, r, hops=0):
         ins = insns[k]
         if ins.mnem == "call": return _call_target(ins.text)
         if not _defines_ret(ins, r): continue
+        if ins.mnem == "pop" and ins.ops and ins.ops[0].strip() == r: return _pushed_seed(insns, k, r, hops)
         if ins.mnem == "mov" and len(ins.ops) == 2 and "[" in ins.ops[1]:
             key = slot_key(ins.ops[1])
             if key is None: return None
@@ -132,6 +133,25 @@ def _return_seed(insns, i, r, hops=0):
         return None
     return None
 """----------------------------------------------------------------------------------------------------------"""
+def _pushed_seed(insns, k, r, hops):
+    """\u26d4 A POP IS THE PUSH IT BALANCES (cto 2026-09-25, the seventeen-red row, measured on the callee-saved gate's
+    deferred witness): since af773a80e every poll site tests g_gc_pending in line, so between `call rt_match_enter` and
+    `mov r13, rax` sit `push rax`, the load and test of the flag that clobber eax, `pop rax` and `je 1f`; the walk met
+    the pop as a writer of rax and ended, the five subject seedings of LEN/ANY/SPAN/BREAK/TAB read UNCLASSIFIED and the
+    heap tally read 0 on a tree where the class is present. So: from the pop, walk back to the push it balances (pushes
+    and pops between it counted), and continue from that push with the register it saved. A call, or any other write to
+    rsp between the two, ends the route (None), and so does a push of anything but the return pair."""
+    depth = 0
+    for j in range(k - 1, max(-1, k - 40), -1):
+        sj = insns[j]
+        if sj.mnem == "call": return None
+        if sj.mnem == "pop": depth += 1; continue
+        if sj.mnem == "push":
+            if depth: depth -= 1; continue
+            src = sj.ops[0].strip() if sj.ops else ""
+            return _return_seed(insns, j, src, hops + 1) if src in _RET_ALIAS else None
+        if sj.ops and sj.ops[0].strip() == "rsp": return None
+    return None
 def allocating_entries(so):
     spec = importlib.util.spec_from_file_location("_gc_census", os.path.join(HERE, "util_gc_census.py"))
     mod = importlib.util.module_from_spec(spec)
@@ -751,6 +771,36 @@ def selftest():
     tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
     ck(classes.get("r13", {}).get("SUBJECT", 0) == 0 and any(u[3] == "r13" for u in unc),
        f"PLANTED: a call whose name merely has a seed as its PREFIX (rt_scan_enter_shadow) is refused the SUBJECT class -- the match is the whole call token, got {dict(classes.get('r13',{}))} unclassified={unc}")
+    for tag, between, want in (("the in-line g_gc_pending test", " mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]\n mov eax, dword ptr [rax + 0]\n test eax, eax\n", 1),
+                               ("PLANTED: a call between the push and the pop", " call rt_other_thing\n", 0)):
+        open(p, "w").write(
+            " .text\n"
+            "kw_\u03b1:\n"
+            " call qword ptr [rip + rt_match_enter@GOTPCREL]\n"
+            " push rax\n" + between +
+            " pop rax\n"
+            " je 1f\n"
+            "1: mov r13, rax\n"
+            " call rt_alloc_thing\n"
+            " mov rdi, r13\n"
+            " ret\n")
+        tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+        got = classes.get("r13", {}).get("SUBJECT", 0)
+        ck(got == want and (want == 1) == (not any(u[3] == "r13" for u in unc)),
+           f"{tag}: pop rax restores what its balancing push rax saved, so the seed is found through it only when nothing between the two can move the saved word (want SUBJECT={want}), got {dict(classes.get('r13',{}))} unclassified={unc}")
+    open(p, "w").write(
+        " .text\n"
+        "kx_\u03b1:\n"
+        " call qword ptr [rip + rt_match_enter@GOTPCREL]\n"
+        " push rbx\n"
+        " pop rax\n"
+        " mov r13, rax\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r13\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r13", {}).get("SUBJECT", 0) == 0 and any(u[3] == "r13" for u in unc),
+       f"PLANTED: a pop rax whose balancing push saved rbx is refused the SUBJECT class, got {dict(classes.get('r13',{}))} unclassified={unc}")
     open(p, "w").write(
         " .text\n"
         "kv_\u03b1:\n"
