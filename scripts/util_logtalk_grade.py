@@ -162,10 +162,14 @@ def lgtunit_aliases(path, supported):
 
 
 def _braces_to_parens(s):
-    """Logtalk's {Goal} escape -> plain (Goal). Quote-aware: a brace inside a quoted atom is data."""
+    """Logtalk's {Goal} escape -> plain (Goal). Quote-aware: a brace inside a quoted atom is data.
+    ⛔ ONLY THE OUTERMOST BRACES ARE AN ESCAPE. Inside {Goal} the text is already plain Prolog, so a nested {a,b} is the curly TERM
+    '{}'((a,b)) and must reach the engine as written -- rewriting it too turned {arg(1, {1,2,3}, A)} into arg(1, (1,2,3), A) and
+    {write_canonical({a})} into write_canonical((a)), five curly_terms cases and arg_3 20 red on the harness's own edit (hq_prolog 2026-09-25)."""
     out = []
     i = 0
     n = len(s)
+    depth = 0
     while i < n:
         j = ex._skip_token(s, i)
         if j != i:
@@ -180,7 +184,14 @@ def _braces_to_parens(s):
             out.append("{}")
             i += 2
             continue
-        out.append("(" if ch == "{" else (")" if ch == "}" else ch))
+        if ch == "{":
+            out.append("(" if depth == 0 else "{")
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            out.append(")" if depth == 0 else "}")
+        else:
+            out.append(ch)
         i += 1
     return "".join(out)
 
