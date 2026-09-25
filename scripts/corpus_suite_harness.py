@@ -2588,8 +2588,13 @@ def cmd_run(args):
     if not _arena_mb: _arena_mb = "0"
     _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
     print("ARENA SCRIP_HEAP_KB=%s%s%s" % (_arena_kb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
-          " (THE HARD CAP in KB; unset means the shipped default 128 KB. Since ceo CEO-1101, on Lon's order, THE DECLARED SIZE IS A CAP AND THE HEAP DOES NOT EXTEND PAST IT -- memory inside the cap is committed page-granular as the heap grows, and NOTHING above it is mapped. SCRIP_HEAP_MAX_MB now names the CAP ITSELF, not a reserve. A SMALL CAP CAN REFUSE A LIVE SET, and that refusal is a row, never a reason to raise the"
-          " default; the run's own report carries capped= grew= cap_kb=, and grew>0 disqualifies a point as arena evidence)"), flush=True)
+          " (THE INITIAL WINDOW in KB, SPITBOL's -i; unset means the shipped %d KB, SPITBOL's -i1m (ceo CEO-1261). THE HARD CAP is each"
+          " program's declared heap_kb, passed as -d<kb>k on its own command line, else the shipped %d KB, SPITBOL's -d128m; SCRIP_HEAP_CAP_KB"
+          " or SCRIP_HEAP_MAX_MB in the environment names it for an undeclared program. Since ceo CEO-1101 the heap does not extend past its cap"
+          " -- memory inside it is committed page-granular as the heap grows and nothing above it is mapped -- and since CEO-1264 a window is"
+          " spent before it is collected and a collection that leaves it under 15 percent free grows it, as SPITBOL does. A SMALL CAP CAN"
+          " REFUSE A LIVE SET, and that refusal is a row, never a reason to raise the default; the run's own report carries capped= grew="
+          " cap_kb=, and grew>0 disqualifies a point as arena evidence)" % (GC_HEAP_KB_DEFAULT, GC_HEAP_CAP_KB)), flush=True)
     def _bin_unmoved_or_refuse():
         _mv = _upa_bin.binary_moved_since_start()
         if _mv:
