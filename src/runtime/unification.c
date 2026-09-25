@@ -2399,13 +2399,18 @@ int rt_pl_db_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_gen(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->next_ref : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_slot_copy(pl_db_t *db, int i, void *out_v)
+{
+    pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+    *(pl_cell_t *)out_v = pl_cell_copy_persist(&db->s[i].cl, va, vn2, &vn, 256);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_clause_as_of(void *db_v, int i, int gen, void *out_v)
 {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !out_v || i < 0 || i >= db->n || db->s[i].ref >= gen || (db->s[i].erased && db->s[i].erased < gen)) return 0;
-    { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
-      *(pl_cell_t *)out_v = pl_cell_copy_persist(&db->s[i].cl, va, vn2, &vn, 256);
-      return 1; }
+    return pl_db_slot_copy(db, i, out_v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_live_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; int c = 0; if (!db) return 0; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) c++; return c; }
@@ -2414,9 +2419,7 @@ int rt_pl_db_clause_at(void *db_v, int i, void *out_v)
 {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !out_v || i < 0 || i >= db->n || db->s[i].erased) return 0;
-    { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
-      *(pl_cell_t *)out_v = pl_cell_copy_persist(&db->s[i].cl, va, vn2, &vn, 256);
-      return 1; }
+    return pl_db_slot_copy(db, i, out_v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_define_absent(const char *key, int arity)
