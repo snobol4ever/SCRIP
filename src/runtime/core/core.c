@@ -2127,6 +2127,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
     if (kind == TRK_CALL || kind == TRK_RETURN || kind == TRK_FUNCTION) {
         if (!rt_proc_is_defined(varname)) { core_runtime_error(198, "trace first argument is not appropriate name"); return FAILDESCR; }
+        { extern const char *rt_proc_trace_canon(const char *); varname = rt_proc_trace_canon(varname); }
     }
     if (kind == TRK_KEYWORD && !sno_kw_is_traceable(varname)) { core_runtime_error(198, "trace first argument is not appropriate name"); return FAILDESCR; }
     const char *tag  = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
@@ -2146,6 +2147,7 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     int kind = trace_type_parse(type);
     if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
     if (kind == TRK_KEYWORD && !sno_kw_is_traceable(varname)) { core_runtime_error(190, "stoptr first argument is not appropriate name"); return FAILDESCR; }
+    if (kind == TRK_CALL || kind == TRK_RETURN || kind == TRK_FUNCTION) { extern const char *rt_proc_trace_canon(const char *); varname = rt_proc_trace_canon(varname); }
     trace_unregister(varname, kind);
     etrace_recount();
     return STRVAL(rt_heap_strdup_c(varname));
