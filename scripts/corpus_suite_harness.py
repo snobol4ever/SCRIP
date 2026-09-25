@@ -2568,6 +2568,10 @@ def cmd_run(args):
         os.environ["S4E_MEM_OOM_AT_START"] = str(_mem_scope().oom_kills() or 0)
     _progress_pin(paths)
     check_scrip(paths)
+    # ⛔⭐ THE CORRECTNESS GRADER ASKS FOR THE STATEMENT INSTRUMENTATION (hq_snocone 2026-09-25): 2a81a02db made it the --stlimit switch
+    # and wrote that this harness passes it for snobol4, snocone and rebus in both modes, but set it in capture-oracle-refs alone, so
+    # run graded SncM's &STLIMIT and &STCOUNT entries without it (335/338, SPITBOL always counts); the list is that commit's own.
+    paths["scrip_extra"] = ["--stlimit"] if (getattr(args, "lang", None) or "snobol4") in ("snobol4", "snocone", "rebus") else []
     # ⛔ THE BINARY IS STAMPED AT THE START AND CHECKED BEFORE ANY BOARD LINE IS PRINTED (coo 2026-09-16; hq_raku's RakM 764/927 graded
     # across a mid-run make). An outer runner's S4E_BIN_AT_START is kept; otherwise this run stamps its own.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
