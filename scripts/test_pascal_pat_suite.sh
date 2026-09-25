@@ -57,6 +57,16 @@ OUTSIDE_TSV="$SUITE/OUTSIDE_ISO_BASELINE.tsv"; declare -A OUTSIDE_SET=(); OUTSID
 if [ -f "$OUTSIDE_TSV" ]; then
     while IFS=$'\t' read -r _on _orest; do case "$_on" in ''|'#'*) continue;; esac; OUTSIDE_SET[${_on%.pas}]=1; done < "$OUTSIDE_TSV"
 fi
+# ⛔⭐ A REJECTION TEST THE ORACLE ACCEPTS IS GRADED AS AN ACCEPTANCE TEST (ceo CEO-1269, 2026-09-25, superseding CEO-1231's
+# OUTSIDE ruling for iso7185prt1834/1850 on hq_pascal's ask). fpc -Miso accepts both and runs them rc 0, so each has an oracle
+# output and is graded exactly like the acceptance population below -- PASS when SCRIP prints the oracle's output in both modes,
+# FAIL otherwise, in the denominator. ISO_ACCEPTS.tsv beside the package names them; this loop skips them and the acceptance
+# loop grades them, so TOTAL is unchanged. (b) -- a DONE-WHEN that subtracts OUTSIDE -- was refused: it narrows the denominator.
+ACCEPT_TSV="$SUITE/ISO_ACCEPTS.tsv"; declare -A ACCEPT_SET=(); ACCEPT_FILES=()
+if [ -f "$ACCEPT_TSV" ]; then
+    while IFS=$'\t' read -r _an _arest; do case "$_an" in ''|'#'*) continue;; esac
+        [ -f "$SUITE/$_an" ] || refuse "ISO_ACCEPTS.tsv names $_an, which is not in $SUITE"; ACCEPT_SET[${_an%.pas}]=1; ACCEPT_FILES+=("$SUITE/$_an"); done < "$ACCEPT_TSV"
+fi
 # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06), accumulated across BOTH populations below -- the rejection
 # tests and the acceptance tests -- because both feed the one TOTAL this row is stated over. A per-program
 # accumulator is the only shape that survives two loops; a post-hoc min() of P[m3] and P[m4] would not even be
@@ -65,7 +75,7 @@ BOTH=0
 # ---- rejection population -------------------------------------------------------------------------------------------
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
-    b="$(basename "$f" .pas)"; TOTAL=$((TOTAL+1)); okboth=1
+    b="$(basename "$f" .pas)"; [ -n "${ACCEPT_SET[$b]:-}" ] && continue; TOTAL=$((TOTAL+1)); okboth=1
     if [ -n "${OUTSIDE_SET[$b]:-}" ]; then
         _oerr="$(cd "$TMP" && timeout 8s "$SCRIP" --dump-ast "$f" </dev/null 2>&1 >/dev/null)"; _orc=$?
         if [ "$_orc" -eq 0 ] && ! printf '%s' "$_oerr" | grep -q 'ISO 7185'; then
@@ -144,7 +154,7 @@ FPC="$(command -v fpc || true)"
 # validated reader, never a second parser; the stanza below is the same one inventory_line uses later.
 INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
 RULED_UNGRADABLE="$(_inv_names "$(_inv_tsv UNGRADABLE.tsv)" UNGRADABLE 2>/dev/null || true)"
-for f in "$SUITE"/iso7185pat*.pas; do
+for f in "$SUITE"/iso7185pat*.pas "${ACCEPT_FILES[@]}"; do
     [ -e "$f" ] || continue
     b="$(basename "$f" .pas)"
     [ -n "$FPC" ] || { echo "note: fpc absent -- acceptance test $b not graded (its oracle is fpc -Miso); rejection population unaffected"; break; }
