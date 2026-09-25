@@ -86,7 +86,9 @@ census)
   base=$(cat "$B"); n=$(awk -F'\t' 'NR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")' "$T/c.tsv" | wc -l)
   u=$(awk -F'\t' 'FILENAME==ARGV[1] {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $8=="NONE" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
   d=$(awk -F'\t' 'FILENAME==ARGV[1] {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $8=="DROP" && $9=="" && !(($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
-  nab=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && (($1 SUBSEP $2) in have)' "$T/c.tsv" "$AB" | wc -l)
+  # the TABLES a row declares, not the rows: a row is (file, name), and one name can declare several tables in one file
+  # (bb_match_capture.cpp's three b buffers, CEO-1269) -- counting rows printed 23 over 25 declared tables
+  nab=$(awk -F'\t' 'FILENAME==ARGV[1] {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && (($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
   stale=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && !(($1 SUBSEP $2) in have) {print "  " $1 ":" $2}' "$T/c.tsv" "$AB")
   echo "fixed-bound declarations at file, static or field scope and fixed-size arenas: $n (baseline $base); with no capacity guard at a fill, by a macro or a literal bound -- compared only as an index or an iteration, or never compared in its file: $u"
   echo "guards that drop or truncate at the cap: $d"
