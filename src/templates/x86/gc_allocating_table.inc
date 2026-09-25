@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1903
+#define GC_ALLOC_TAB_N 1904
 #define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 997
-#define GC_ALLOC_TAB_N_OTHER 663
+#define GC_ALLOC_TAB_N_OTHER 664
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -789,6 +789,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pat_tab", GC_RET_DESCR },
     { "patv_slot", GC_RET_DESCR },
     { "pl_anum_atomics_in_list", GC_RET_OTHER },
+    { "pl_anum_big_sign", GC_RET_OTHER },
     { "pl_anum_check", GC_RET_OTHER },
     { "pl_anum_elems", GC_RET_OTHER },
     { "pl_anum_guard_n", GC_RET_OTHER },

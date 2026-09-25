@@ -9726,6 +9726,8 @@ static void * pl_anum_atomics_in_list(DESCR_t lst) {
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_anum_big_sign(DESCR_t b) { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(b, INTVAL(0)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -9787,19 +9789,19 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     if (!strcmp(nm, "arg") && n == 3) {
         DESCR_t k = rt_pl_deref_val(a[0]), t = rt_pl_deref_val(a[1]);
         if (pl_iso_unbound(k) || pl_iso_unbound(t)) return rt_pl_ball_instantiation();
-        if (k.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", k);
+        if (k.v != DT_I && k.v != DT_BIG) return rt_pl_ball_kind2("type_error", "integer", k);
         if (!pl_anum_is_compound(t)) return rt_pl_ball_kind2("type_error", "compound", t);
-        if ((long long)k.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", k);
+        if (k.v == DT_BIG ? pl_anum_big_sign(k) < 0 : (long long)k.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", k);
         return (void *)0; }
     if (!strcmp(nm, "functor") && n == 3) {
         DESCR_t t = rt_pl_deref_val(a[0]), f = rt_pl_deref_val(a[1]), r = rt_pl_deref_val(a[2]);
         if (!pl_iso_unbound(t)) return (void *)0;
         if (pl_iso_unbound(f) || pl_iso_unbound(r)) return rt_pl_ball_instantiation();
-        if (r.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", r);
+        if (r.v != DT_I && r.v != DT_BIG) return rt_pl_ball_kind2("type_error", "integer", r);
         if (pl_anum_is_compound(f)) return rt_pl_ball_kind2("type_error", "atomic", f);
-        if ((long long)r.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", r);
-        if ((long long)r.i > 0 && !pl_anum_is_text(f)) return rt_pl_ball_kind2("type_error", "atom", f);
-        if ((long long)r.i > 1024) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_arity"); }
+        if (r.v == DT_BIG ? pl_anum_big_sign(r) < 0 : (long long)r.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", r);
+        if ((r.v == DT_BIG || (long long)r.i > 0) && !pl_anum_is_text(f)) return rt_pl_ball_kind2("type_error", "atom", f);
+        if (r.v == DT_BIG || (long long)r.i > 1024) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_arity"); }
         return (void *)0; }
     return (void *)0;
 }

@@ -1053,17 +1053,23 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball)
     b[n] = '\0'; *out = b; *len = n; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_fmt_dec(plc_fb *f, long long iv, long places, int group)
+static void plc_fmt_digits(plc_fb *f, int neg, const char *d, long nd, long places, int group)
 {
-    char dig[24]; int nd = 0, neg = iv < 0; unsigned long long u = neg ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv; long tot, ip, i;
-    if (!u) dig[nd++] = '0';
-    while (u) { dig[nd++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; }
-    tot = nd > places ? nd : places + 1; ip = tot - places;
+    long tot = nd > places ? nd : places + 1, ip = tot - places, i;
     if (neg) plc_fb_add(f, "-", 1);
-    for (i = 0; i < tot; i++) { char c = i < tot - nd ? '0' : dig[tot - 1 - i];
+    for (i = 0; i < tot; i++) { char c = i < tot - nd ? '0' : d[i - (tot - nd)];
         if (i == ip && places > 0) plc_fb_add(f, ".", 1);
         if (group && i && i < ip && !((ip - i) % 3)) plc_fb_add(f, ",", 1);
         plc_fb_add(f, &c, 1); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fmt_dec(plc_fb *f, long long iv, long places, int group)
+{
+    char dig[24]; int nd = 0, neg = iv < 0; unsigned long long u = neg ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv;
+    if (!u) dig[nd++] = '0';
+    while (u) { dig[nd++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; }
+    for (int i = 0; i < nd / 2; i++) { char t = dig[i]; dig[i] = dig[nd - 1 - i]; dig[nd - 1 - i] = t; }
+    plc_fmt_digits(f, neg, dig, nd, places, group);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper)
@@ -1111,7 +1117,9 @@ void *rt_pl_format_run(const char *fmt, void *list_cell)
               { const char *s = plc_atom_text(h); plc_fb_add(&f, s, strlen(s)); }
           }
           else if (*p == 'c') { long cv; if (!plc_fmt_int(h, &cv, &ball)) break; { long r = have_n ? nval : 1; char c = (char)cv; for (long i = 0; i < r; i++) plc_fb_add(&f, &c, 1); } }
-          else if (*p == 'd' || *p == 'D') { long iv; if (have_n && nval < 0) { ball = rt_pl_ball_kind2("domain_error", "format_argument", pl_make_int(nval)); break; } if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_dec(&f, (long long)iv, have_n ? nval : 0, *p == 'D'); }
+          else if (*p == 'd' || *p == 'D') { long iv; if (have_n && nval < 0) { ball = rt_pl_ball_kind2("domain_error", "format_argument", pl_make_int(nval)); break; } { DESCR_t bv; if (plc_fmt_eval(h, &bv, &ball) && bv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(bv); int ng = bs && bs[0] == '-';
+              plc_fmt_digits(&f, ng, bs ? bs + ng : "0", bs ? (long)strlen(bs + ng) : 1L, have_n ? nval : 0, *p == 'D'); continue; } }
+            if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_dec(&f, (long long)iv, have_n ? nval : 0, *p == 'D'); }
           else if (*p == 'r' || *p == 'R') { long iv; long base = have_n ? nval : 8; if (base < 2 || base > 36) { ball = rt_pl_ball_kind2("domain_error", "radix", pl_make_int(base)); break; } if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_radix(&f, (long long)iv, (int)base, *p == 'R'); }
           else if (*p == 'f' || *p == 'e' || *p == 'E' || *p == 'g' || *p == 'G') {
               double dv; char spec[8], nb[512];
