@@ -243,10 +243,14 @@ while IFS= read -r rel; do
 done < <(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$PKG/UNGRADED.tsv")
 if [ -n "$overlap" ]; then red "ARM 10: these ipl programs have a .ref ref AND are still listed as work owed in UNGRADED.tsv:$overlap"
 else
-  g=$(find "$PKG" -name '*.ref' ! -name ALL.ref | wc -l)
+  # ⛔ THE SAME EXCLUSIONS AS THE TWO AUTHORITIES THIS ARM CHECKS (coo 2026-09-25, on hq_icon's finding): lib_inventory.sh and
+  # test_icon_ipl_suite.sh both leave NAME.fixtures/ out of the shipped census, and this find counted
+  # progs/iheader.fixtures/sample.icn (corpus 0c87851ca, 09-12) as a program -- 851 against 852, a red about the gate. A
+  # *_driver file is its library's grading vehicle, not a program (CEO-1269), and the census drops it by name too.
+  g=$(find "$PKG" -name '*.ref' ! -name ALL.ref ! -path '*.fixtures/*' | wc -l)
   u=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADED.tsv")
   d=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADABLE.tsv")
-  sh=$(find "$PKG" -name '*.icn' ! -name 'ALL.icn' | wc -l)
+  sh=$(find "$PKG" -name '*.icn' ! -name 'ALL.icn' ! -name '*_driver.icn' ! -path '*.fixtures/*' | wc -l)
   if [ "$((g+u+d))" -ne "$sh" ]; then red "ARM 10: buckets do not sum -- graded($g) + ungraded($u) + ungradable($d) = $((g+u+d)), shipped=$sh. ⛔ COUNTED, never quoted: graded is the .ref files on disk, not a number carried from a ledger."
   else green "ARM 10: no graded program is still listed as owed, and $g + $u + $d = $sh shipped, every count measured on disk"; fi
 fi
