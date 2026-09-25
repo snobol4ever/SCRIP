@@ -907,7 +907,7 @@ static void bnr_grow(cv_t *v, int by_name) {
     n.p = ct_zalloc(nc, sizeof(bnr_slot_t)); n.len = nc; n.cap = nc; n.esz = (uint32_t)sizeof(bnr_slot_t);
     for (uint32_t i = 0; i < oc; i++) { bnr_slot_t s = CV_AT(o, bnr_slot_t, i); if (s.gen != g_bnr_gen || !s.k) continue;
         uint64_t h = bnr_hash(s.k, by_name) & (nc - 1); while (CV_AT(n, bnr_slot_t, h).gen == g_bnr_gen && CV_AT(n, bnr_slot_t, h).k) h = (h + 1) & (nc - 1); CV_AT(n, bnr_slot_t, h) = s; }
-    *v = n; if (o.p) ct_drop(o.p);
+    *v = n;
 }
 static int bnr_seen(cv_t *v, uint32_t *cnt, const void *k, int by_name) {
     if ((uint64_t)(*cnt + 1) * 2 > v->len) bnr_grow(v, by_name);
@@ -2666,7 +2666,6 @@ static int zdo_first(IR_t **nodes, int n, IR_t *t) {
     for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
 }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
-extern "C" void emit_gc_roots(void) { cv_gc_root(&g_blob_lay); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout) { int k = zdo_first(nodes, n, t); return k >= 0 ? (zon[k] ? zout[k] : 0) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

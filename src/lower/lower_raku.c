@@ -17,8 +17,6 @@ static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (uint32_t 
 static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_rk_multi_names, const char *) = nm; } }
 static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_gram_names.len; i++) if (!strcmp(CV_AT(g_rk_gram_names, const char *, i), nm)) return 1; return 0; }
 static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_class_names.len; i++) if (!strcmp(CV_AT(g_rk_class_names, const char *, i), nm)) return 1; return 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rk_lower_gc_roots(void) { cv_gc_root(&g_rk_gram_names); cv_gc_root(&g_rk_class_names); cv_gc_root(&g_rk_multi_names); }
 static const char * rk_qualified_type_gist(const char * nm) {
     const char * p = strrchr(nm, ':'); const char * shortname = p ? p + 1 : nm;
     size_t ln = strlen(shortname);

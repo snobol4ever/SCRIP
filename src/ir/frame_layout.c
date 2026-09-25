@@ -34,8 +34,7 @@ static znb_slot_t * znb_probe(cv_t * v, const IR_t * nd, int scope) {
 static void znb_note(const IR_t * nd, int scope, int end) {
     if ((uint64_t)(g_znb_n + 1) * 2 > g_znb.len) { uint32_t nc = g_znb.len ? g_znb.len * 2 : 256; cv_t o = g_znb, n = { 0, 0, 0, 0 };
         n.p = ct_zalloc(nc, sizeof(znb_slot_t)); n.len = nc; n.cap = nc; n.esz = (uint32_t)sizeof(znb_slot_t); g_znb = n;
-        for (uint32_t i = 0; i < o.len; i++) { znb_slot_t q = CV_AT(o, znb_slot_t, i); if (q.gen == g_znb_gen) *znb_probe(&g_znb, q.nd, q.scope) = q; }
-        if (o.p) ct_drop(o.p); }
+        for (uint32_t i = 0; i < o.len; i++) { znb_slot_t q = CV_AT(o, znb_slot_t, i); if (q.gen == g_znb_gen) *znb_probe(&g_znb, q.nd, q.scope) = q; } }
     znb_slot_t * t = znb_probe(&g_znb, nd, scope);
     if (t->gen != g_znb_gen) { t->nd = nd; t->scope = scope; t->end = end; t->gen = g_znb_gen; g_znb_n++; } else if (end > t->end) t->end = end;
 }

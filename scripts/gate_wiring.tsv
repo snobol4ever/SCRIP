@@ -72,7 +72,7 @@ test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
 test_gate_control_edges_live_on_ports.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
 test_gate_cross_suite_ref_agreement.sh	WIRED	-	-	-
-test_gate_ct_grow_takes_reallocs_contract_and_frees_the_old_block.sh	WIRED	-	-	-
+test_gate_ct_grow_grows_in_place_at_the_frontier_or_allocs_copies_and_abandons.sh	WIRED	-	-	-
 test_gate_declared_arena_switches_agree_with_the_harness.sh	WIRED	-	-	-
 test_gate_deferred_rows_name_a_ruling_and_the_work_they_wait_on.sh	WIRED	-	-	-
 test_gate_define_alternate_entry.sh	WIRED	-	-	-

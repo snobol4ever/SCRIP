@@ -1435,12 +1435,6 @@ static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_cap_defer_reset(void) { scd.len = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void sno_lower_gc_roots(void) {
-    cv_gc_root(&g_sno_predef); cv_gc_root(&g_sno_proto_fn); cv_gc_root(&g_sno_proto_enc); cv_gc_root(&g_sno_multiproto);
-    cv_gc_root(&g_sno_exprs); cv_gc_root(&g_sno_pats); cv_gc_root(&g_sno_fz); cv_gc_root(&g_sno_fzw_name); cv_gc_root(&g_sno_fzw_cnt);
-    cv_gc_root(&g_sno_seal); cv_gc_root(&g_sno_pro); cv_gc_root(&g_sno_encl); cv_gc_root(&g_sno_t4); cv_gc_root(&scd);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_cap_fc(IR_graph_t * g, IR_t * nd, IR_t * save, int before_i) {
     int fp_inner = 0; int walk_ok = fc_walk_range(g, before_i, g->n, 0, &fp_inner);
     if (!walk_ok) return;

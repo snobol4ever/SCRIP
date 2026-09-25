@@ -5,14 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
-void *rt_wsb_realloc(void *p, size_t n);
-void  rt_gc_visit_raw(const char **pp);
-#ifdef __cplusplus
-}
-#endif
+#include "ct_arena.h"
 typedef struct { void *p; uint32_t len, cap, esz; } cv_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void cv_reserve(cv_t *v, uint32_t esz, uint64_t need, const char *name) {
@@ -21,7 +14,8 @@ static inline void cv_reserve(cv_t *v, uint32_t esz, uint64_t need, const char *
     nc = v->cap ? (uint64_t)v->cap * 2 : 8;
     if (nc < need) nc = need;
     if (nc > UINT32_MAX || esz == 0) { fprintf(stderr, "ct_vec: table %s cannot grow to %llu elements of %u bytes\n", name, (unsigned long long)nc, esz); _exit(3); }
-    v->p = rt_wsb_realloc(v->p, (size_t)(nc * esz));
+    v->p = ct_grow(v->p, (size_t)(nc * esz));
+    memset((char *)v->p + (size_t)v->cap * esz, 0, (size_t)((nc - v->cap) * esz));
     v->cap = (uint32_t)nc;
     v->esz = esz;
 }
@@ -34,8 +28,6 @@ static inline void *cv_push(cv_t *v, uint32_t esz, const char *name) {
     v->len++;
     return e;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void cv_gc_root(cv_t *v) { if (v->p) rt_gc_visit_raw((const char **)&v->p); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CV_AT(v, T, i) (((T *)(v).p)[i])
 #define CV_PUSH(v, T)  (*(T *)cv_push(&(v), (uint32_t)sizeof(T), #v))
