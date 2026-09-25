@@ -401,6 +401,7 @@ test_gate_pl_a_closed_stream_is_not_a_current_stream_argument.sh	WIRED	-	-	-
 test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-
 test_gate_pl_a_meta_called_format_reads_its_empty_argument_list.sh	WIRED	-	-	-
 test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRED	-	-	-
+test_gate_pl_a_prefix_operator_wins_the_write_over_a_postfix_one.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_a_shift_outside_the_int64_window_is_computed_not_wrapped.sh	WIRED	-	-	-
 test_gate_pl_a_syntax_error_costs_its_own_clause_and_not_the_file.sh	WIRED	-	-	-

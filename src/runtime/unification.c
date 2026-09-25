@@ -148,9 +148,10 @@ static int plc_op_info(const char *name, int arity, int *prec, int *lmax, int *r
             if (strcmp(t, "xfx") && strcmp(t, "xfy") && strcmp(t, "yfx")) continue;
             ty = t; p = pr; break; } }
     else if (arity == 1) { int n = prolog_op_user_count();
+        for (int pass = 0; pass < 2 && !ty; pass++)
         for (int i = 0; i < n; i++) { const char *nm = 0; const char *t = 0; int pr = 0;
             if (!prolog_op_user_get(i, &nm, &pr, &t) || !nm || !t || strcmp(nm, name)) continue;
-            if (strcmp(t, "fy") && strcmp(t, "fx") && strcmp(t, "yf") && strcmp(t, "xf")) continue;
+            if (pass == 0 ? (strcmp(t, "fy") && strcmp(t, "fx")) : (strcmp(t, "yf") && strcmp(t, "xf"))) continue;
             ty = t; p = pr; break; }
         if (!ty) for (int i = 0; pre[i].n; i++) if (!strcmp(pre[i].n, name)) { ty = pre[i].ty; p = pre[i].p; break; } }
     if (!ty) return 0;
@@ -170,7 +171,8 @@ static int plc_op_is_postfix(const char *name)
     extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **);
     int n = prolog_op_user_count();
     for (int i = 0; i < n; i++) { const char *nm = 0; const char *t = 0; int pr = 0;
-        if (prolog_op_user_get(i, &nm, &pr, &t) && nm && t && !strcmp(nm, name) && (!strcmp(t, "yf") || !strcmp(t, "xf"))) return 1; }
+        if (prolog_op_user_get(i, &nm, &pr, &t) && nm && t && !strcmp(nm, name) && (!strcmp(t, "yf") || !strcmp(t, "xf"))) {
+            int pp = 0, lm = 0, rm = 0; return !(plc_op_info(name, 1, &pp, &lm, &rm) && rm > 0); } }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
