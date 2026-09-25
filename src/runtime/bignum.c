@@ -83,6 +83,8 @@ DESCR_t rt_big_norm(void *vb) {
     DESCR_t d; d.v = DT_BIG; descr_set_src_node(&d, DESCR_SRC_NODE_UNSTAMPED); d.slen = b->n; d.p = (void *) b; return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_big_bits(DESCR_t d) { if (d.v != DT_BIG || !d.p) return 64; { BIG_t *b = (BIG_t *)d.p; uint32_t top = b->n ? b->limb[b->n - 1] : 0; return 32L * (long)b->n - (top ? __builtin_clz(top) : 32); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_big_sign(DESCR_t d) { if (d.v == DT_BIG && d.p) return ((BIG_t *)d.p)->sign; return d.i < 0 ? -1 : (d.i > 0 ? 1 : 0); }
 int rt_big_is(DESCR_t d) { return d.v == DT_BIG && d.p != 0; }
 int rt_big_is_odd(DESCR_t d) { if (d.v == DT_BIG && d.p) return (int)(((BIG_t *)d.p)->limb[0] & 1u); return (int)(d.i & 1); }

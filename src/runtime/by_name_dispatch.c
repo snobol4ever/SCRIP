@@ -1825,8 +1825,10 @@ static int pl_ax_float_result(double r, double x, double y, const char *fn, int 
     *out = REALVAL(r); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static double pl_big_as_real(DESCR_t d) { extern char *rt_big_str(DESCR_t); char *t = rt_big_str(d); return t ? strtod(t, (char **)0) : 0.0; }
 static int pl_big_sign(DESCR_t d) { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(d, INTVAL(0)); }
+static double pl_big_as_real(DESCR_t d) { extern char *rt_big_str(DESCR_t); extern long rt_big_bits(DESCR_t); char *t;
+    if (rt_big_bits(d) > 1025) return pl_big_sign(d) < 0 ? -HUGE_VAL : HUGE_VAL;
+    t = rt_big_str(d); return t ? strtod(t, (char **)0) : 0.0; }
 static DESCR_t rt_big_neg_l(DESCR_t d) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(d); }
 static int pl_big_unop(const char *op, DESCR_t a, DESCR_t *out) {
     extern DESCR_t rt_big_neg(DESCR_t);
@@ -1901,6 +1903,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     int ai = (a.v == DT_I), arl = (a.v == DT_R);
     double ad = arl ? a.r : (a.v == DT_BIG ? pl_big_as_real(a) : (double)a.i);
     if (a.v == DT_BIG && nargs == 1 && pl_big_unop(op, a, out)) return 1;
+    if (a.v == DT_BIG && nargs == 1 && isinf(ad)) { extern void *rt_pl_ball_eval_error(const char *, const char *, int); *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("float_overflow", op, 1); return 1; }
     if (nargs == 1) {
         if (!strcmp(op, "neg"))   { if (ai && a.i == LLONG_MIN) return pl_big_unop("neg", a, out); *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
         if (!strcmp(op, "pos"))   { *out = a; return 1; }
