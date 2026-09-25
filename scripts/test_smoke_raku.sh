@@ -90,6 +90,7 @@ raku "say_str" "hello world" << 'EOF'
 sub main() {
     say('hello world');
 }
+main();
 EOF
 
 raku "arith" "42" << 'EOF'
@@ -97,6 +98,7 @@ sub main() {
     my $x = 6 * 7;
     say($x);
 }
+main();
 EOF
 
 raku "var" "99" << 'EOF'
@@ -104,6 +106,7 @@ sub main() {
     my $x = 99;
     say($x);
 }
+main();
 EOF
 
 raku "while_loop" "$(printf '1\n2\n3')" << 'EOF'
@@ -114,6 +117,7 @@ sub main() {
         $i = $i + 1;
     }
 }
+main();
 EOF
 
 raku "string_concat" "abcd" << 'EOF'
@@ -121,6 +125,7 @@ sub main() {
     my $s = 'ab' ~ 'cd';
     say($s);
 }
+main();
 EOF
 
 raku "elsif_no_else" "a" << 'EOF'
@@ -137,6 +142,7 @@ sub main() {
     say(@s[2]);
     say(@s[3]);
 }
+main();
 EOF
 
 raku "hash_keys" "a,b,c" << 'EOF'
@@ -166,6 +172,7 @@ sub main() {
     say($d.name);
     say($d.greet());
 }
+main();
 EOF
 
 raku "ternary_true" "5" << 'EOF'

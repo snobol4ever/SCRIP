@@ -5,6 +5,8 @@
 #   use <Module>;            fires a statement event; only a version pragma (use v6, use v6.d) does not
 #   { ... } hoisted __blk_N  is a block, not a routine: no CALL, no RETURN; its tail statement keeps its line
 #   .= / ++ / -- / (a,b)=    fire no VALUE (rkx instruments assign_op only); = and op= do; internal temps never do
+#   a sub's tail expression  keeps its LABEL: the RETURN the parser wraps round it carries the statement's line
+#   sub main                 is an ordinary sub (only MAIN is called by Raku); its CALL is named main
 # The witness is scripts/monitor/witnesses/sync_step_raku_use_blocks_stores.raku. PASS = monitor_run.sh --oracle reads AGREE.
 # EXIT 0 agree, 1 diverge, 2 could not measure (no rkx fork built, no scrip, the harness refused).
 set -u

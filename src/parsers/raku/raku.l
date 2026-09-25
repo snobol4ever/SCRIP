@@ -17,6 +17,16 @@ void raku_lex_error(const char *msg) {
 }
 int raku_get_lineno(void) { return raku_yylineno; }
 static int raku_str_line = 0;
+static void raku_strbuf_cp(unsigned long cp) {
+    if (raku_strpos > 65530) return;
+    if (cp < 0x80) raku_strbuf[raku_strpos++] = (char) cp;
+    else if (cp < 0x800) { raku_strbuf[raku_strpos++] = (char) (0xC0 | (cp >> 6)); raku_strbuf[raku_strpos++] = (char) (0x80 | (cp & 0x3F)); }
+    else if (cp < 0x10000) { raku_strbuf[raku_strpos++] = (char) (0xE0 | (cp >> 12)); raku_strbuf[raku_strpos++] = (char) (0x80 | ((cp >> 6) & 0x3F)); raku_strbuf[raku_strpos++] = (char) (0x80 | (cp & 0x3F)); }
+    else { raku_strbuf[raku_strpos++] = (char) (0xF0 | (cp >> 18)); raku_strbuf[raku_strpos++] = (char) (0x80 | ((cp >> 12) & 0x3F)); raku_strbuf[raku_strpos++] = (char) (0x80 | ((cp >> 6) & 0x3F)); raku_strbuf[raku_strpos++] = (char) (0x80 | (cp & 0x3F)); }
+}
+static void raku_strbuf_hexlist(const char *p) {
+    while (*p) { while (*p == ' ' || *p == ',') p++; if (!*p || *p == ']') break; char *e; unsigned long cp = strtoul(p, &e, 16); if (e == p) break; raku_strbuf_cp(cp); p = e; }
+}
 static void raku_stamp_yylloc(const char *text, int len) {
     int nl = 0;
     for (int k = 0; k < len; k++) if (text[k] == '\n') nl++;
@@ -315,6 +325,8 @@ WS       [ \t\r]
 }
 <STR_DQ>"\\n"  { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_DQ>"\\t"  { raku_strbuf[raku_strpos++] = '\t'; }
+<STR_DQ>"\\x["[0-9a-fA-F, ]+"]"  { raku_strbuf_hexlist(yytext + 3); }
+<STR_DQ>"\\x"[0-9a-fA-F]+  { raku_strbuf_cp(strtoul(yytext + 2, NULL, 16)); }
 <STR_DQ>"\\b"  { raku_strbuf[raku_strpos++] = '\b'; }
 <STR_DQ>"\\r"  { raku_strbuf[raku_strpos++] = '\r'; }
 <STR_DQ>"\\a"  { raku_strbuf[raku_strpos++] = '\a'; }

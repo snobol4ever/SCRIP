@@ -292,7 +292,7 @@ static ExprList *rk_tail_value(ExprList *l) {
     if (!l || l->count <= 0) return l;
     { tree_t *last = l->items[l->count - 1];
       if (!last || (rk_tail_is_statement(last->t) && !rk_seq_is_logical_and(last))) return l;
-      { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, last); l->items[l->count - 1] = r; } }
+      { tree_t *r = ast_node_new(TT_RETURN); r->line = last->line; expr_add_child(r, last); l->items[l->count - 1] = r; } }
     return l;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

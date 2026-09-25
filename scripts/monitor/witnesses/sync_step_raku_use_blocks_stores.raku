@@ -10,3 +10,11 @@ my $blk = { $_ == 1 || $_ == 3 };
 say $blk(3);
 say (1, 2, 3).grep({ $_ > 1 && $_ < 3 });
 say $x + $a + $b;
+sub d($n) {
+    $n * 2;
+}
+say d(3);
+sub main() {
+    my $m = 1;
+}
+main();

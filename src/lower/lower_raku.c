@@ -148,8 +148,10 @@ static IR_t * trace_stmt_wrap(rcx_t * cx, long line, IR_t * stmt_entry, IR_t * �
     return lit;
 }
 static int rk_trace_is_block(const char * name) { return name && !strncmp(name, "__blk_", 6); }
+static const char * rk_trace_name(const char * name) { return (name && !strcmp(name, "&main")) ? "main" : name; }
 static IR_t * trace_call_wrap(rcx_t * cx, const char * name, IR_t * body_entry, IR_t * ω) {
     if (!name || !*name || !trace_wanted() || rk_trace_is_block(name)) return body_entry;
+    name = rk_trace_name(name);
     IR_t * call = build(cx, IR_CALL, body_entry, ω); IR_LIT(call).sval = "__trace_call";
     IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = name;
     ir_operand_push(call, nm);
@@ -755,7 +757,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * trace = NULL; IR_t * trace_entry = nd;
             if (cx->cur_proc_name && *cx->cur_proc_name && trace_wanted() && !rk_trace_is_block(cx->cur_proc_name)) {
                 trace = build(cx, IR_CALL, nd, ω); IR_LIT(trace).sval = "__trace_return";
-                IR_t * nm = build(cx, IR_LIT_STRING, trace, ω); IR_LIT(nm).sval = cx->cur_proc_name;
+                IR_t * nm = build(cx, IR_LIT_STRING, trace, ω); IR_LIT(nm).sval = rk_trace_name(cx->cur_proc_name);
                 ir_operand_push(trace, nm);
                 trace_entry = nm;
             }
@@ -1340,7 +1342,26 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rename_main_refs(tree_t * t) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "main")) { t->v.sval = (char *) "&main"; if (t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "main")) t->c[0]->v.sval = (char *) "&main"; }
+    else if (t->t == TT_VAR && t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "main")) t->v.sval = (char *) "&main";
+    for (int i = 0; i < t->n; i++) rk_rename_main_refs(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rename_user_main(tree_t * prog) {
+    int found = 0;
+    for (int i = 0; prog && i < prog->n; i++) {
+        tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); d = (tree_t *) sub; }
+        if (!d || d->t != TT_SUB_DECL || d->n < 1 || !d->c[0] || !d->c[0]->v.sval || strcmp(d->c[0]->v.sval, "main")) continue;
+        d->c[0]->v.sval = (char *) "&main"; if (d->v.sval && !strcmp(d->v.sval, "main")) d->v.sval = (char *) "&main"; found = 1;
+    }
+    if (found) rk_rename_main_refs(prog);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) {
+    rk_rename_user_main((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
