@@ -83,6 +83,10 @@ class Gen:
         if t == 'seq': return ' '.join(x for x in (s.emit(i, ctx) for i in n[1]) if x) or 'epsilon'
         if t == 'alt':
             arms = [s.emit(a, ctx) or 'epsilon' for a in n[2]]
+            if ctx['ratchet'] and n[1] == '|' and len(arms) > 1:
+                pat = arms[-1]
+                for a in reversed(arms[:-1]): pat = '@rk_cur *rk_ltm2((%s), (%s))' % (a, pat)
+                return pat
             body = ' | '.join('(' + a + ')' for a in arms)
             return ('FENCE(' + body + ')') if ctx['ratchet'] else '(' + body + ')'
         if t == 'conj': s.warn['conj'] += 1; return s.emit(n[1][0], ctx)
@@ -386,6 +390,14 @@ function rk_prescan(i, nm, t) {
         i = i + 1;
     }
     return;
+}
+function rk_ltm2(p, q, c, e, e1, e2) {
+    c = rk_cur; e1 = -1; e2 = -1;
+    if (Src ? TAB(c) p @e) e1 = e;
+    if (Src ? TAB(c) q @e) e2 = e;
+    if (LT(e1, 0)) { if (LT(e2, 0)) freturn; rk_ltm2 = TAB(e2); return; }
+    if (GE(e1, e2)) { rk_ltm2 = TAB(e1); return; }
+    rk_ltm2 = TAB(e2); return;
 }
 function rk_postws() { if (IDENT(rk_marks['ws'], rk_cur)) { if (IDENT(rk_marks['ws_from'], rk_cur)) { rk_postws = epsilon; return; } freturn; } rk_postws = epsilon; return; }
 function rk_marker(m) { rk_marks[m] = rk_cur; rk_marker = epsilon; return; }
