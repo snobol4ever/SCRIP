@@ -149,7 +149,7 @@ Expr16      =  nInc()
                ($'[' *ExprList $']' | $'<' *ExprList $'>')
                FENCE(*Expr16 | epsilon);
 Expr17      =  FENCE(
-                  nPush() $'(' *Expr $')' reduce("'()'", 1) nPop()
+                  nPush() $'(' *ExprList $')' reduce("'()'", 1) nPop()
                |  *PrimLEN    $'(' nPush() FENCE(*FnArgList | epsilon) reduce("'TT_LEN'",    'nTop()')    nPop() $')'
                |  *PrimBREAK  $'(' nPush() FENCE(*FnArgList | epsilon) reduce("'TT_BREAK'", 'nTop()')  nPop() $')'
                |  *PrimSPAN   $'(' nPush() FENCE(*FnArgList | epsilon) reduce("'TT_SPAN'", 'nTop()')   nPop() $')'
