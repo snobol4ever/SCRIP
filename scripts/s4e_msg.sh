@@ -529,17 +529,40 @@ s4e_codegen_paths() {   # THE ONE LIST, in ONE place, so no second copy can drif
 # order; commits since the claim catch those, but only while the claim file's mtime survives; and the working
 # tree catches what is not committed at all.  A union of honest sources, with the sources PRINTED, beats one
 # source that is silently empty -- an empty answer from a source nobody named reads exactly like "no codegen".
+# ⛔⭐ (b) IS THIS CLONE'S OWN COMMITS SINCE THE CLAIM, READ FROM ITS REFLOG -- NEVER `git log --since` (coo 2026-09-25,
+# on the cfo's measurement). The fleet commits as ONE author, so a time window over HEAD cannot tell this seat's
+# landing from any other seat's: the cto's icon-gc row (claimed 09-24 18:10Z) and the cfo's swx row both closed at
+# 20:2xZ on 09-25 with the SAME 30 src/ paths written to codegen-landings.tsv, all of them other seats' landings.
+# And the window was also shifted: `date -u` printed UTC digits with no zone and git read them as LOCAL time, so it
+# opened five hours AFTER the claim (measured: a 30-minute window read 0 commits, a "5 h 30 m" one read the 7) and a
+# seat that pushed inside five hours of its claim was invisible to (b). The reflog records what THIS clone did --
+# `commit:`, `commit (amend):`, `cherry-pick:`, `revert:` and a rebase's `(pick):` -- while another seat's landing
+# arrives only as `merge origin/main: Fast-forward` or `pull: Fast-forward`. The claim time is the claim file's
+# BIRTH (a receipt or an OVERRIDE-BY line appends and moves its mtime); mtime only where the filesystem has no birth.
+# Seconds against seconds, strictly after the claim's second; a hash HEAD no longer reaches (a rebased-away
+# original) is dropped, its pick is the one that landed.
+s4e_own_commits_since() {   # s4e_own_commits_since <repo> <epoch> -- one hash per line
+    local h
+    git -C "$1" reflog --date=unix --format='%H%x09%gd%x09%gs' HEAD 2>/dev/null \
+      | awk -F'\t' -v t="$2" '{ s = $2; sub(/^.*@\{/, "", s); sub(/\}$/, "", s); if (s + 0 <= t + 0) next
+            if ($3 ~ /^commit( \((amend|merge|initial)\))?: / || $3 ~ /^(cherry-pick|revert): / || $3 ~ /\((pick|continue|reword|edit|squash|fixup)\): /) print $1 }' \
+      | sort -u | while read -r h; do git -C "$1" merge-base --is-ancestor "$h" HEAD 2>/dev/null && printf '%s\n' "$h"; done
+}
+s4e_claim_epoch() {   # s4e_claim_epoch <claimfile> -- the claim's birth in epoch seconds, its mtime where no birth is kept
+    local b; b="$(stat -c %W "$1" 2>/dev/null)"
+    case "$b" in ''|0|-*|*[!0-9]*) stat -c %Y "$1" 2>/dev/null ;; *) printf '%s\n' "$b" ;; esac
+}
 s4e_codegen_touched() {
-    local repo="$1" cf="${2:-}" pats since files=""
+    local repo="$1" cf="${2:-}" pats since files="" h
     [ -d "$repo/.git" ] || return 1
     pats="$(s4e_codegen_paths | tr '\n' ' ')"
     files="$(git -C "$repo" diff --name-only HEAD 2>/dev/null)"                      # (c) working tree
     files="$files
 $(git -C "$repo" diff --name-only origin/main...HEAD 2>/dev/null)"                   # (a) unpushed
-    if [ -n "$cf" ] && [ -f "$cf" ]; then                                            # (b) since the claim
-        since="$(date -u -r "$cf" +%Y-%m-%dT%H:%M:%S 2>/dev/null)"
-        [ -n "$since" ] && files="$files
-$(git -C "$repo" log --since="$since" --name-only --pretty=format: HEAD 2>/dev/null)"
+    if [ -n "$cf" ] && [ -f "$cf" ]; then                                            # (b) this clone's commits since the claim
+        since="$(s4e_claim_epoch "$cf")"
+        [ -n "$since" ] && for h in $(s4e_own_commits_since "$repo" "$since"); do files="$files
+$(git -C "$repo" show --name-only --pretty=format: "$h" 2>/dev/null)"; done
     fi
     printf '%s\n' "$files" | sed '/^$/d' | sort -u | grep -E "^($(s4e_codegen_paths | sed 's:/$:/:' | paste -sd'|' -))" 2>/dev/null
 }

@@ -12,7 +12,7 @@
 # CEO-697 was issued to stop -- thirteen seats firing a board per codegen landing. The row's own GOAL offered both
 # branches ("test_corpus_snobol4.sh, OR the one-board-per-tree CITED board of the same tree") and CEO-697 picks one.
 #
-# EIGHT ARMS against a THROWAWAY postoffice, a THROWAWAY git tree and a THROWAWAY progress database under mktemp --
+# TEN ARMS against a THROWAWAY postoffice, a THROWAWAY git tree and a THROWAWAY progress database under mktemp --
 # never the live ones. Hermetic and seconds-cheap: it builds nothing, runs no suite, and reads no live board.
 #   (1) NON-CODEGEN landing            -> no control arm at all, row closes
 #   (2) CODEGEN + cited CLEAN board    -> closes, and the receipt says the board was CITED and names the tree
@@ -23,6 +23,10 @@
 #   (7) ANTI-ASSERT: the touch set is COMPUTED FROM THE DIFF -- a baton whose PROSE says codegen but whose diff
 #       touches nothing gets no arm, and a diff that touches codegen gets the arm with nothing declaring it
 #   (8) INHERITED is READ LIVE from the baton -- editing that one line flips the verdict with no code change
+#   (9) ANOTHER SEAT'S codegen commit fast-forwarded in after the claim is NOT this landing -> no arm
+#  (10) THIS SEAT'S OWN codegen commit after the claim, already pushed and the tree clean -> the arm fires
+#       ((9) and (10) are source (b), this clone's reflog since the claim's birth -- coo 2026-09-25, on the cfo's
+#       measurement that a time window attributed the fleet's 30 src/ paths to two rows that touched none)
 # FAIL-ONCE: every arm is re-run against MUTANTS of s4e_msg.sh with one half of the cure removed, and each mutant
 # must go RED. An arm that cannot fail is not counted (cto's THE UNEXPLAINED GREEN, corollary 1).
 # EXIT 0 all arms hold and every mutant reds; 1 an arm is red; 2 REFUSED (the fixture could not be built).
@@ -151,13 +155,33 @@ arm() {   # arm <label> <script> -> 0 iff every contract holds on <script>
   run "$s" t7
   [ "$RC" = 0 ] || { echo "  [$lbl] (7) a row whose PROSE names codegen but whose DIFF does not exited $RC (want 0)"; say; ok=0; }
   grep -q 'CODEGEN CONTROL ARM' "$W/out" && { echo "  [$lbl] (7) the arm fired on PROSE -- the touch set is not computed from the diff"; say; ok=0; }
+  # (9) ANOTHER SEAT'S LANDING IS NOT THIS LANDING: a codegen commit made in another clone after the claim and
+  # fast-forwarded here, with nothing of this seat's own touching codegen -> no arm (the fleet commits as one author)
+  mk_tree || return 2; mk_db PASS || return 2; mk_po t9 || return 2; clean_tree; sleep 1
+  git clone -q "$HOME_T/SCRIP" "$W/other" >/dev/null 2>&1 && git -C "$W/other" config user.email g@g && git -C "$W/other" config user.name g \
+    && echo '/* another seat */' >> "$W/other/src/ir/IR.h" && git -C "$W/other" commit -qam foreign >/dev/null 2>&1 \
+    && git -C "$HOME_T/SCRIP" fetch -q "$W/other" >/dev/null 2>&1 && git -C "$HOME_T/SCRIP" merge -q --ff-only FETCH_HEAD >/dev/null 2>&1 || { rm -rf "$W/other"; return 2; }
+  rm -rf "$W/other"
+  git -C "$HOME_T/SCRIP" log -1 --name-only --pretty=format: | grep -q '^src/ir/IR.h$' || { echo "  [$lbl] (9) FIXTURE BROKEN: the foreign codegen commit is not at HEAD"; return 2; }
+  run "$s" t9
+  [ "$RC" = 0 ] || { echo "  [$lbl] (9) a row whose only codegen since the claim is another seat's exited $RC (want 0)"; say; ok=0; }
+  grep -q 'CODEGEN CONTROL ARM' "$W/out" && { echo "  [$lbl] (9) the arm fired on ANOTHER SEAT'S commit -- (b) reads a time window, not this clone's own commits"; say; ok=0; }
+  closed t9 || { echo "  [$lbl] (9) row not closed"; ok=0; }
+  # (10) THIS SEAT'S OWN COMMIT, ALREADY PUSHED (nothing unpushed, the tree clean), a second after the claim -> the arm
+  # fires and names the path; five hours of every claim were blind to this while (b) read UTC digits as local time
+  mk_tree || return 2; mk_db PASS || return 2; mk_po t10 || return 2; clean_tree; sleep 1
+  echo '/* own landing */' >> "$HOME_T/SCRIP/src/ir/IR.h"; git -C "$HOME_T/SCRIP" commit -qam own >/dev/null 2>&1 || return 2
+  [ -z "$(git -C "$HOME_T/SCRIP" diff --name-only HEAD)" ] || { echo "  [$lbl] (10) FIXTURE BROKEN: the tree is not clean after the commit"; return 2; }
+  run "$s" t10
+  [ "$RC" = 0 ] || { echo "  [$lbl] (10) an own pushed codegen commit exited $RC (want 0 -- no board of the new tree is could-not-measure)"; say; ok=0; }
+  grep -q 'CODEGEN CONTROL ARM' "$W/out" && grep -q 'src/ir/IR.h' "$W/out" || { echo "  [$lbl] (10) the arm did NOT fire on this seat's own codegen commit made after the claim"; say; ok=0; }
   [ "$ok" = 1 ]
 }
-echo "== test_gate_done_runs_the_master_arm_for_codegen_rows -- 8 arms, hermetic (scratch po + scratch git tree + scratch db)"
+echo "== test_gate_done_runs_the_master_arm_for_codegen_rows -- 10 arms, hermetic (scratch po + scratch git tree + scratch db)"
 arm LIVE "$MSG"; live=$?
 [ "$live" = 2 ] && { echo "⛔ REFUSED(2): the fixture could not be built -- nothing was measured"; exit 2; }
 [ "$live" = 0 ] || { echo "⛔ GATE RED: the live s4e_msg.sh does not hold the contract above"; exit 1; }
-echo "   ✅ all 8 arms hold on the live s4e_msg.sh"
+echo "   ✅ all 10 arms hold on the live s4e_msg.sh"
 # ---- FAIL-ONCE: every arm must be capable of going red -----------------------------------------------------------
 # ⛔ AN ARM THAT CANNOT FAIL IS NOT COUNTED. Each mutant removes ONE half of the cure; each must red.
 mut() {   # mut <name> <sed-program>
@@ -170,6 +194,8 @@ fails=0
 mut no-arm        's/^              _cg_repo=.*$/              _cg_touch=""/'                                  || fails=1
 mut blind-touch   's/^    printf .%s\\n. "\$files" | sed .\/\^\$\/d. | sort -u | grep -E.*$/    return 1/'      || fails=1
 mut deaf-inherit  's/^    sed -n .s\/\^INHERITED:\[\[:space:\]\]\*\/\/p. "\$1".*$/    return 0/'                || fails=1
+mut fleet-window  's/\$(s4e_own_commits_since "\$repo" "\$since")/$(git -C "$repo" log --since=@"$since" --format=%H HEAD 2>\/dev\/null)/' || fails=1
+mut blind-own     's/\$(s4e_own_commits_since "\$repo" "\$since")/""/'                                     || fails=1
 [ "$fails" = 0 ] || { echo "⛔ GATE RED: at least one arm is unfalsifiable"; exit 1; }
-echo "✅ GATE OK -- 8 arms green on the live script, 3 mutants red. Denominator printed; nothing live was touched."
+echo "✅ GATE OK -- 10 arms green on the live script, 5 mutants red. Denominator printed; nothing live was touched."
 exit 0
