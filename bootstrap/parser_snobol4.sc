@@ -163,8 +163,6 @@ Expr17      =  FENCE(
                |  *PrimRTAB   $'(' nPush() FENCE(*FnArgList | epsilon) reduce("'TT_RTAB'", 'nTop()')   nPop() $')'
                |  *PrimBREAKX $'(' nPush() FENCE(*FnArgList | epsilon) reduce("'TT_BREAKX'", 'nTop()') nPop() $')'
                |  shift(*Function, "'TT_VAR'") FENCE(nPush() $'(' FENCE(*FnArgList | epsilon) reduce("'TT_FNC'", 'nTop() + 1') nPop() $')' | epsilon)
-               |  shift(*BuiltinVar, "'TT_VAR'")
-               |  shift(*SpecialNm, "'TT_VAR'")
                |  shift(*Id, "'TT_VAR'") FENCE(nPush() $'(' FENCE(*FnArgList | epsilon) reduce("'TT_FNC'", 'nTop() + 1') nPop() $')' | epsilon)
                |  *String
                |  shift(*Real, "'TT_RLIT'")
