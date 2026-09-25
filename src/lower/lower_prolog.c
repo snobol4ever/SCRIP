@@ -1147,6 +1147,18 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_curout_writer(const char * nm, int n) {
+    static const struct { const char * n; int a; } w[] = { { "write", 1 }, { "writeq", 1 }, { "print", 1 }, { "write_canonical", 1 }, { "write_term", 2 }, { "writeln", 1 },
+        { "format", 1 }, { "format", 2 }, { NULL, 0 } };
+    for (int i = 0; w[i].n; i++) if (w[i].a == n && !strcmp(w[i].n, nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_curout_text_guard(lcx_t * cx, IR_t * nd, IR_t * ne, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * ge = NULL; IR_t * g = goal(cx, pl_cc_fnc2("$pl_ioarg", (tree_t *) pl_atom_goal("put_text1"), (tree_t *) pl_atom_goal("[]")), ne ? ne : nd, ωfail, &ge);
+    if (entry_out) *entry_out = ge ? ge : g; return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
@@ -1168,7 +1180,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
               if (entry_out) *entry_out = ientry;
               return cω; }
         }
-        if (!strcmp(nm, "write") && t->n == 1) return pl_leaf(cx, "$write", t, 1, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "write") && t->n == 1) { IR_t * ne = NULL; IR_t * nd = pl_leaf(cx, "$write", t, 1, γnext, ωfail, &ne); return pl_curout_text_guard(cx, nd, ne, ωfail, entry_out); }
         if (!strcmp(nm, ";") || !strcmp(nm, "|")) { if (pl_is_ite(t)) return pl_lower_ite(cx, t->c[0]->c[0], t->c[0]->c[1], t->c[1], γnext, ωfail, entry_out);
             if (pl_is_scite(t)) return pl_lower_softcut(cx, t->c[0]->c[0], t->c[0]->c[1], t->c[1], γnext, ωfail, entry_out);
             return pl_lower_disj(cx, t, γnext, ωfail, entry_out); }
@@ -1646,9 +1658,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             return goal(cx, rewrite, γnext, ωfail, entry_out); }
         { const char * ls = pl_det_leaf_sym(nm, t->n);
           if (ls && !strcmp(nm, "print") && t->n == 1 && (pl_file_defines("portray", 1) || pl_db_owned("portray", 1))) ls = (const char *) 0;
-          if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
-            if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
-            return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
+          if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n); IR_t * ne = NULL;
+            IR_t * nd = gs ? pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, &ne) : pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, &ne);
+            if (pl_curout_writer(nm, t->n)) return pl_curout_text_guard(cx, nd, ne, ωfail, entry_out);
+            if (entry_out) *entry_out = ne; return nd; } }
         { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }

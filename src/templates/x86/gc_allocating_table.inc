@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1897
+#define GC_ALLOC_TAB_N 1898
 #define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 993
-#define GC_ALLOC_TAB_N_OTHER 661
+#define GC_ALLOC_TAB_N_OTHER 662
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -818,6 +818,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_clause_assign_dense_slots", GC_RET_VOID },
     { "pl_cons", GC_RET_DESCR },
     { "pl_consult_one", GC_RET_VOID },
+    { "pl_curout_text_guard", GC_RET_OTHER },
     { "pl_db_add", GC_RET_DESCR },
     { "pl_db_add_r", GC_RET_DESCR },
     { "pl_db_add_t", GC_RET_DESCR },
