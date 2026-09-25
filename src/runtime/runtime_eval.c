@@ -565,6 +565,7 @@ __asm__(
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base);
 DESCR_t code(const char *src) { return code_at(src, 0); }
+long g_sno_stmt_compiled = 0;
 DESCR_t code_at(const char *src, long base)
 {
     if (!src || !*src) return FAILDESCR;
@@ -574,13 +575,13 @@ DESCR_t code_at(const char *src, long base)
     extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx, long stno_base);
     extern const char *sno_stmt_label(const tree_t *s);
     extern int g_frame_active;
-    extern long g_stno;
     extern void sno_error_quiet_begin(void); extern void sno_error_quiet_end(void); extern const char *sno_error_captured(void); extern const char *g_sno_errtext;
     sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return FAILDESCR; }
-    long stno_base = (base > g_stno) ? base : g_stno;
+    if (g_sno_stmt_compiled < base) g_sno_stmt_compiled = base;
+    long stno_base = g_sno_stmt_compiled;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void); extern void sno_expr_thunks_build(int x0);
     int pat0 = sno_pat_count();
@@ -618,6 +619,7 @@ DESCR_t code_at(const char *src, long base)
       if (!(ks && *ks == '0')) sno_expr_thunks_build(expr0);
       if (patn > pat0) sno_pat_thunks_build(pat0);
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
+    g_sno_stmt_compiled += (long)k + 1;
     if (!first) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_C;

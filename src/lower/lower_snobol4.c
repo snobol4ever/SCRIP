@@ -16,7 +16,7 @@ static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;
-typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; long prog_nstmt; } scx_t;
+typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; long prog_nstmt; long stno_base; } scx_t;
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
 static int sno_fname_is_multiproto(const char * fname);
@@ -912,7 +912,7 @@ static int sno_stmt_is_blank(const tree_t * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
     if (!s || !body || lp_s_int(s, ":nocount") || sno_stmt_is_blank(s)) return body;
-    long stno = (long) lp_s_int(s, ":stno");
+    long stno = cx->stno_base + (long) lp_s_int(s, ":stno");
     long line = (long) lp_s_int(s, ":line"); if (!line) line = (long) lp_s_int(s, ":lline");
     if (g_sno_uses_stmtkw) {
         IR_t * hook = lc_build(cx->g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
@@ -2243,7 +2243,7 @@ static int sno_exprdef_seen(const cv_t * v, const char * f) { if (!f) return 0; 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name, long stno_base, long end_line) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
-    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0; cx.prog_nstmt = (long)nst + 1 + stno_base;
+    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0; cx.prog_nstmt = (long)nst + 1 + stno_base; cx.stno_base = stno_base;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
@@ -2262,7 +2262,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     }
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
-        { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(anchor[i]).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
+        { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(anchor[i]).ival = stno_base + ((_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0)); } }
         const char * lbl = sfind_str(st[i], ":lbl");
         if (lbl && lbl[0]) bb_label_registry_add(lp_strdup(lbl), anchor[i]);
     }
@@ -2302,7 +2302,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (fTnm) fT = sno_label_trace_wrap(g, fTnm, fT);
         if (fT == next && !goF && !exF && !goU && !exU && sfind(s, ":nofail")) { IR_t *nf = lc_build(g, IR_CALL, exitnd, exitnd); IR_LIT(nf).sval = (char *)"SNO$NOFAIL"; bb_src_note(nf, "sno_nofail", 0); fT = nf; }
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
-        if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
+        if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = stno_base + ((_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0)); } }
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);
         fail_tgt[i] = fT;
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
@@ -2389,7 +2389,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * pae = nl;
             {
                 IR_graph_t * tg = IR_alloc(256);
-                scx_t tx; tx.g = tg; tx.loop_exit = NULL; tx.loop_next = NULL; tx.result_name = NULL; tx.pat_fail = NULL; tx.pat_seal = NULL; tx.npre = 0;
+                scx_t tx; tx.g = tg; tx.loop_exit = NULL; tx.loop_next = NULL; tx.result_name = NULL; tx.pat_fail = NULL; tx.pat_seal = NULL; tx.npre = 0; tx.prog_nstmt = 0; tx.stno_base = 0;
                 IR_t * tok = lc_build(tg, IR_SUCCEED, NULL, NULL);
                 IR_t * tno = lc_build(tg, IR_FAIL, NULL, NULL);
                 tx.pat_fail = tno; tx.pat_seal = tno;
@@ -2571,7 +2571,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * fb = anchor[i] ? anchor[i]->γ.node : NULL;
             if (!fb) continue;
             IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, fail_tgt[i]);
-            { int _null_stmt = !lc_stmt_subj(st[i]) && !sfind_str(st[i],":lbl") && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto_direct(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto_direct(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sgoto_direct(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
+            { int _null_stmt = !lc_stmt_subj(st[i]) && !sfind_str(st[i],":lbl") && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto_direct(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto_direct(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sgoto_direct(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = stno_base + ((_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0)); } }
             lc_γ_to(anchor[i], sbeg);
             if (match_land[i]) lc_γ_tag_β(match_land[i]);
             if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }
@@ -2730,7 +2730,7 @@ void sno_expr_thunks_build(int x0) {
     for (int xi = x0; xi < (int) g_sno_exprs.len; xi++) {
         { static int _xd = -1; if (_xd < 0) _xd = getenv("SCRIP_EXPR_DBG") ? 1 : 0; if (_xd) fprintf(stderr, "[EXPRDBG] %s want_name=%d expr.t=%d expr.sval=%.32s\n", CV_AT(g_sno_exprs, sno_expr_ent_t, xi).name, CV_AT(g_sno_exprs, sno_expr_ent_t, xi).want_name, CV_AT(g_sno_exprs, sno_expr_ent_t, xi).expr ? (int)CV_AT(g_sno_exprs, sno_expr_ent_t, xi).expr->t : -1, (CV_AT(g_sno_exprs, sno_expr_ent_t, xi).expr && CV_AT(g_sno_exprs, sno_expr_ent_t, xi).expr->v.sval) ? CV_AT(g_sno_exprs, sno_expr_ent_t, xi).expr->v.sval : "?"); }
         IR_graph_t * gx = IR_alloc(256);
-        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = CV_AT(g_sno_exprs, sno_expr_ent_t, xi).name; ex.pat_fail = NULL; ex.pat_seal = NULL; ex.npre = 0;
+        scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = CV_AT(g_sno_exprs, sno_expr_ent_t, xi).name; ex.pat_fail = NULL; ex.pat_seal = NULL; ex.npre = 0; ex.prog_nstmt = 0; ex.stno_base = 0;
         IR_t * ok = lc_build(gx, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gx, IR_FAIL, NULL, NULL);
         IR_t * sJ = lc_build(gx, IR_GOTO, ok, NULL);
@@ -2795,7 +2795,7 @@ void sno_pat_thunks_build(int p0) {
     g_sno_in_patproc = 1;
     for (int pi2 = p0; pi2 < (int) g_sno_pats.len; pi2++) {
         IR_graph_t * gp = IR_alloc(512);
-        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;
+        scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0; px.prog_nstmt = 0; px.stno_base = 0;
         IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
         IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
         px.pat_fail = no; px.pat_seal = no;
@@ -3040,7 +3040,7 @@ static void sno_fragment_reject_define(const tree_t ** st, int nst) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_graph_t * gp = IR_alloc(512);
-    scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;
+    scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0; px.prog_nstmt = 0; px.stno_base = 0;
     IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
     IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
     px.pat_fail = no; px.pat_seal = no;

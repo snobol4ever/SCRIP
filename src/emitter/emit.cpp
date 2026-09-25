@@ -1290,7 +1290,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         extern std::string bb_define();
         bb_emit_x86(bb_define());
     } return 0;
-    case IR_STATEMENT_BEGIN:      { extern long g_trace_budget; extern int g_mon_max_stno; g_emit.op_mon_stmt_tap = ((g_trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;    if (g_emit.op_mon_stmt_tap && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); static int _zdpa = -1; if (_zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); _zdpa = (e && *e == '1') ? 1 : 0; } if (_zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd))); }    g_emit.op_mon_stmt_tap = 0; } return 0;
+    case IR_STATEMENT_BEGIN:      { extern long g_trace_budget; extern int g_mon_max_stno; g_emit.op_mon_stmt_tap = ((g_trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;    { extern int g_rt_fragment_emit; if (g_emit.op_mon_stmt_tap && !g_rt_fragment_emit && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); static int _zdpa = -1; if (_zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); _zdpa = (e && *e == '1') ? 1 : 0; } if (_zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd))); }    g_emit.op_mon_stmt_tap = 0; } return 0;
     case IR_STMT_MARK:            bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_LINE_MARK:            bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
