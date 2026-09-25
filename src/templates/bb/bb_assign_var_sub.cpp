@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
+extern DESCR_t rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
 extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
@@ -41,7 +42,7 @@ std::string bb_assign_var_sub() {
              + x86("mov",     "r8",  ZOPQ(2, 0))
              + x86("note", ZOPN(2))
              + x86("mov",     "r9",  ZOPQ(2, 8))
-             + x86("call",    "c_rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)c_rt_table_assign_fast)
+             + x86("call",    "rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)rt_table_assign_fast)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -88,7 +89,7 @@ std::string bb_assign_var_sub() {
              + x86("je", L(0))
              + x86("mov",     "r8",  FRQ(_.op_sb))
              + x86("mov",     "r9",  FRQ(_.op_sb + 8))
-             + x86("call",    "c_rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)c_rt_table_assign_fast)
+             + x86("call",    "rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)rt_table_assign_fast)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")

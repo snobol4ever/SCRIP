@@ -537,6 +537,7 @@ test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_field_function_with_no_argument_raises_041_not_022.sh	WIRED	-	-	-
 test_gate_sno_fnclevel_is_mirrored_at_every_level_move_not_only_in_the_gva_shim.sh	WIRED	-	-	-
 test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
+test_gate_sno_ident_and_the_fused_table_store_take_the_asm_entries.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-
 test_gate_sno_leaf_builtins_dispatch_directly.sh	WIRED	-	-	-

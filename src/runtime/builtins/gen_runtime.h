@@ -91,6 +91,7 @@ int       is_suspendable(tree_t *e);
 void      init_save_frame(void);
 const char *real_str(double r, char *buf, int bufsz);
 int descr_identical(DESCR_t a, DESCR_t b);
+int c_descr_identical(DESCR_t a, DESCR_t b);
 const char *cset_complement(const char *cs);
 const char *cset_union(const char *a, int alen, const char *b, int blen, int *outlen);
 const char *cset_diff(const char *a, int alen, const char *b, int blen, int *outlen);

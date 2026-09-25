@@ -9,10 +9,10 @@ src/templates/bb/bb_activate.cpp:34:scrip_coexpr_activate	src/templates/bb/bb_ac
 src/templates/bb/bb_assign_global.cpp:116:NV_SET_fn	src/templates/bb/bb_assign_global.cpp:119	UNWITNESSED
 src/templates/bb/bb_assign_var.cpp:24:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:31	hb_nv.sno
 src/templates/bb/bb_assign_var.cpp:42:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:47	hb_concat_augmented_then_subscript.icn
-src/templates/bb/bb_assign_var_sub.cpp:44:c_rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:51	hb_arena_grow.sno
-src/templates/bb/bb_assign_var_sub.cpp:64:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var_sub.cpp:71	hb_arena_grow.sno
-src/templates/bb/bb_assign_var_sub.cpp:91:c_rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:96	UNWITNESSED
-src/templates/bb/bb_assign_var_sub.cpp:107:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var_sub.cpp:112	UNWITNESSED
+src/templates/bb/bb_assign_var_sub.cpp:45:rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:52	hb_arena_grow.sno
+src/templates/bb/bb_assign_var_sub.cpp:65:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var_sub.cpp:72	hb_arena_grow.sno
+src/templates/bb/bb_assign_var_sub.cpp:92:rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:97	UNWITNESSED
+src/templates/bb/bb_assign_var_sub.cpp:108:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var_sub.cpp:113	UNWITNESSED
 src/templates/bb/bb_binop_arith.cpp:136:rt_div_strict/rt_mod_strict/rt_pow_strict/rt_powreal_strict/rt_cunion_strict/rt_cdiff_strict/rt_cinter_strict/rt_num_arith_strict/rt_add_big/rt_sub_big/rt_mul_big/rt_add/rt_sub/rt_mul/rt_div/rt_mod/rt_pow/rt_powreal/rt_cunion/rt_cdiff/rt_cinter/rt_num_arith	src/templates/bb/bb_binop_arith.cpp:141	UNWITNESSED
 src/templates/bb/bb_binop_arith.cpp:235:rt_div_strict/rt_mod_strict/rt_pow_strict/rt_powreal_strict/rt_cunion_strict/rt_cdiff_strict/rt_cinter_strict/rt_num_arith_strict/rt_add_big/rt_sub_big/rt_mul_big/rt_add/rt_sub/rt_mul/rt_div/rt_mod/rt_pow/rt_powreal/rt_cunion/rt_cdiff/rt_cinter/rt_num_arith	src/templates/bb/bb_binop_arith.cpp:242	hb_immediate_capture_into_a_gva_cell_polled.sno
 src/templates/bb/bb_binop_arith.cpp:313:rt_div_strict/rt_mod_strict/rt_pow_strict/rt_powreal_strict/rt_cunion_strict/rt_cdiff_strict/rt_cinter_strict/rt_num_arith_strict/rt_add_big/rt_sub_big/rt_mul_big/rt_add/rt_sub/rt_mul/rt_div/rt_mod/rt_pow/rt_powreal/rt_cunion/rt_cdiff/rt_cinter/rt_num_arith	src/templates/bb/bb_binop_arith.cpp:320	UNWITNESSED

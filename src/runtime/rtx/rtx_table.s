@@ -18,6 +18,57 @@
 #define TBBLK_NBUCK       8
 #define TBL_LINEAR_MAX   12
 RTX_GATE_DEF(table)
+RTX_FUNC(rt_table_assign_fast)
+    RTX_GATE(table, .Lta_c)
+    cmp     dil, DT_T
+    jne     .Lta_c
+    test    rsi, rsi
+    je      .Lta_c
+    mov     rax, qword ptr [rip + g_gc_pending@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lta_c
+    mov     rax, qword ptr [rip + g_sno_etrace_n@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lta_c
+    mov     rax, qword ptr [rip + g_trace_budget@GOTPCREL]
+    cmp     qword ptr [rax], 0
+    jne     .Lta_c
+    RTX_SAVE
+    push    rdi
+    push    rsi
+    push    rdx
+    push    rcx
+    sub     rsp, 8
+    mov     rdi, rsi
+    mov     rsi, rdx
+    mov     rdx, rcx
+    RTX_CALL(table_find_pair_d)
+    add     rsp, 8
+    pop     rcx
+    pop     rdx
+    pop     rsi
+    pop     rdi
+    test    rax, rax
+    je      .Lta_miss
+    cmp     r8b, DT_S
+    jne     .Lta_store
+    mov     r10, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    cmp     qword ptr [r10], r9
+    jne     .Lta_store
+    mov     qword ptr [r10], 0
+.Lta_store:
+    mov     qword ptr [rax + 24], r8
+    mov     qword ptr [rax + 32], r9
+    mov     qword ptr [rax + 8], rdx
+    mov     qword ptr [rax + 16], rcx
+    mov     rax, r8
+    mov     rdx, r9
+    RTX_RET_GVA
+.Lta_miss:
+    RTX_CTAIL_SAVED_GVA(c_rt_table_assign_fast)
+.Lta_c:
+    RTX_CTAIL_GVA(c_rt_table_assign_fast)
+RTX_ENDF(rt_table_assign_fast)
 RTX_FUNC(table_find_pair_d)
     RTX_SAVE
     RTX_GATE(table, .Ltf_c)

@@ -1,5 +1,103 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(misc)
+RTX_FUNC(descr_identical)
+    RTX_GATE(misc, .Ldi_c)
+    cmp     dil, DT_FAIL
+    je      .Ldi_zero
+    cmp     dl, DT_FAIL
+    je      .Ldi_zero
+    RTX_SAVE
+    xor     r8d, r8d
+    cmp     dil, DT_SNUL
+    je      .Ldi_an1
+    cmp     dil, DT_S
+    jne     .Ldi_an_done
+    test    rsi, rsi
+    jz      .Ldi_an1
+    mov     rax, rdi
+    shr     rax, 32
+    cmp     eax, -1
+    jne     .Ldi_an_len
+    cmp     byte ptr [rsi], 0
+    jne     .Ldi_an_done
+    jmp     .Ldi_an1
+.Ldi_an_len:
+    test    eax, eax
+    jnz     .Ldi_an_done
+.Ldi_an1:
+    mov     r8d, 1
+.Ldi_an_done:
+    xor     r9d, r9d
+    cmp     dl, DT_SNUL
+    je      .Ldi_bn1
+    cmp     dl, DT_S
+    jne     .Ldi_bn_done
+    test    rcx, rcx
+    jz      .Ldi_bn1
+    mov     rax, rdx
+    shr     rax, 32
+    cmp     eax, -1
+    jne     .Ldi_bn_len
+    cmp     byte ptr [rcx], 0
+    jne     .Ldi_bn_done
+    jmp     .Ldi_bn1
+.Ldi_bn_len:
+    test    eax, eax
+    jnz     .Ldi_bn_done
+.Ldi_bn1:
+    mov     r9d, 1
+.Ldi_bn_done:
+    mov     eax, r8d
+    and     eax, r9d
+    jnz     .Ldi_one
+    cmp     r8d, r9d
+    jne     .Ldi_zero_r
+    cmp     dil, DT_I
+    jne     .Ldi_str
+    cmp     dl, DT_I
+    jne     .Ldi_cs
+    xor     eax, eax
+    cmp     rsi, rcx
+    sete    al
+    RTX_RET
+.Ldi_str:
+    cmp     dil, DT_S
+    jne     .Ldi_cs
+    cmp     dl, DT_S
+    jne     .Ldi_cs
+    mov     rax, rdi
+    shr     rax, 32
+    cmp     eax, -1
+    je      .Ldi_cs
+    mov     r10, rdx
+    shr     r10, 32
+    cmp     r10d, -1
+    je      .Ldi_cs
+    cmp     eax, r10d
+    jne     .Ldi_zero_r
+    xor     r10d, r10d
+.Ldi_cmp:
+    cmp     r10d, eax
+    jae     .Ldi_one
+    movzx   r11d, byte ptr [rsi + r10]
+    cmp     r11b, byte ptr [rcx + r10]
+    jne     .Ldi_zero_r
+    inc     r10d
+    jmp     .Ldi_cmp
+.Ldi_one:
+    mov     eax, 1
+    RTX_RET
+.Ldi_zero_r:
+    xor     eax, eax
+    RTX_RET
+.Ldi_cs:
+    RTX_CTAIL_SAVED(c_descr_identical)
+.Ldi_zero:
+    xor     eax, eax
+    ret
+.Ldi_c:
+    RTX_CTAIL(c_descr_identical)
+RTX_ENDF(descr_identical)
 RTX_FUNC(rt_faildescr)
     mov     eax, DT_FAIL
     xor     edx, edx

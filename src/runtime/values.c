@@ -2,7 +2,8 @@
 #include "builtins/gen_runtime.h"
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int descr_identical(DESCR_t a, DESCR_t b) {
+int c_descr_identical(DESCR_t a, DESCR_t b);
+int c_descr_identical(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return 0;
     int an = (a.v == DT_SNUL) || (a.v == DT_S && (!a.s || (a.slen == 0xFFFFFFFFu ? !*a.s : a.slen == 0)));
     int bn = (b.v == DT_SNUL) || (b.v == DT_S && (!b.s || (b.slen == 0xFFFFFFFFu ? !*b.s : b.slen == 0)));
