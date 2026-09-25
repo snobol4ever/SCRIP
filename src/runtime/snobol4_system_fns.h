@@ -20,7 +20,7 @@ static __attribute__((unused)) int sn4_sysfn_protected(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * const g_sn4_leaf_fns[] = {
-"ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT","IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM"
+"ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT","IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE","SNO$MKEXPR","SNO$MKPAT","SNO$NAME","SNO$WANTNM","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM"
 };
 #define SN4_LEAF_FN_COUNT (sizeof(g_sn4_leaf_fns) / sizeof(g_sn4_leaf_fns[0]))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

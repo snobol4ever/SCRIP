@@ -464,6 +464,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_IDX: {
         IR_t * cur = NULL; IR_t * entry = sx_idx_container(cx, t, ω, &cur);
+        if (cur && cur->op == IR_SUBSCRIPT && t->n == 2 && IR_LIT(cur).sval && !strcmp(IR_LIT(cur).sval, "container-only")) IR_LIT(cur).sval = "container-value";
         IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
         lc_γ_to(cur, dr);
         ir_operand_push(dr, cur);

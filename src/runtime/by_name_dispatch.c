@@ -5926,7 +5926,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) return dat_field_get(fn, args[0]);
       }
       { extern int rt_proc_is_registered(const char *);
-        if (!sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return out; } }
+        if (sn4 && !sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return out; } }
       if (sn4 && !sysfn && !sn4_call_in_scope(fn)) { core_runtime_error(22, "Undefined function called"); return FAILDESCR; }
       { extern int FNCEX_fn(const char *); extern int rt_dat_field_of_any(const char *);
         if (sn4 && !sysfn && FNCEX_fn(fn) && icn_builtin_is_known(fn) && !rt_dat_field_of_any(fn) && !dat_find_type(fn))
@@ -6540,7 +6540,8 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
     sv = rt_sno_indirect_name(args[0]);
     if (!sv || !*sv) { *out = FAILDESCR; return 1; }
-    { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_heap_strdup_c(sv); *out = d; return 1; }
+    { extern const char *NV_intern_name_fn(const char *); const char *in = NV_intern_name_fn(sv);
+      DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = in ? in : rt_heap_strdup_c(sv); *out = d; return 1; }
 }
 long g_bidprof[1024]; int g_bidprof_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6807,6 +6808,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         fflush(fp);
         *out = NULVCL; return 1;
     }
+    if (bidlen >= 0) { const int _fb0 = bidlen & BID_BAKE_MASK; if (_fb0 == BID_SNOx24NAME && nargs == 1) return bn_sno_name(args, nargs, out); }
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
         const int _fb = bidlen & BID_BAKE_MASK;
         extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);

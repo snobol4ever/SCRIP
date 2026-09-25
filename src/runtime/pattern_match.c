@@ -1315,6 +1315,11 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
         return rt_assign_var(ref, val);
     }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
+    if (base.v == DT_A) {
+        ARBLK_t *a = base.arr;
+        if (a && a->ndim == 1 && a->data && idx.v == DT_I) { long off = (long)idx.i - (long)a->lo; if (off >= 0 && off <= (long)a->hi - (long)a->lo) { a->data[off] = val; if (g_trace_budget != 0) sno_trace_value("<lval>", val); return val; } }
+        { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return rt_assign_var(ref, val); }
+    }
     table_set_descr_d(base.tbl, idx, val); if (g_trace_budget != 0) sno_trace_value("<lval>", val); return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1737,6 +1742,13 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get
 DESCR_t subscript_get2_strict(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get2_s(arr, i, j, 1); }
 DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 0); }
 DESCR_t rt_section_var_strict(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 1); }
+DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx) {
+    extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_subscript_var_container_only(DESCR_t, DESCR_t);
+    if (IS_VARREF_fn(base)) base = rt_deref(base);
+    if (base.v == DT_A && idx.v == DT_I) { ARBLK_t *a = base.arr; if (a && a->ndim == 1 && a->data) { long off = (long)idx.i - (long)a->lo; if (off >= 0 && off <= (long)a->hi - (long)a->lo) return a->data[off]; } }
+    return rt_deref(rt_subscript_var_container_only(base, idx));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }
 DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 1); }
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 0); }
