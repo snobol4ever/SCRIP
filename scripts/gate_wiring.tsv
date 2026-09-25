@@ -423,6 +423,7 @@ test_gate_pl_atom_name_survives_a_collect_mid_operation.sh	WIRED	-	-	-
 test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_backslash_c_layout_escape_agrees_with_the_oracle.sh	WIRED	-	-	-
 test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
+test_gate_pl_big_integer_multiplication_is_exact_at_every_size.sh	WIRED	-	-	-
 test_gate_pl_bom_is_written_detected_and_reported.sh	WIRED	-	-	-
 test_gate_pl_clause_2_sees_the_clauses_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-

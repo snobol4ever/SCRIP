@@ -45,16 +45,56 @@ static BIG_t *big_usub(const BIG_t *a, const BIG_t *b) {
     big_trim(r); return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lmul_school(uint32_t *r, const uint32_t *a, uint32_t an, const uint32_t *b, uint32_t bn) {
+    for (uint32_t i = 0; i < an + bn; i++) r[i] = 0;
+    for (uint32_t i = 0; i < an; i++) {
+        uint64_t c = 0;
+        for (uint32_t j = 0; j < bn; j++) { uint64_t t = (uint64_t)a[i] * b[j] + r[i + j] + c; r[i + j] = (uint32_t)t; c = t >> 32; }
+        r[i + bn] = (uint32_t)c;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ladd_into(uint32_t *r, uint32_t rn, const uint32_t *b, uint32_t bn) {
+    uint64_t c = 0; uint32_t i;
+    for (i = 0; i < bn; i++) { c += (uint64_t)r[i] + b[i]; r[i] = (uint32_t)c; c >>= 32; }
+    for (; c && i < rn; i++) { c += r[i]; r[i] = (uint32_t)c; c >>= 32; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lsub_from(uint32_t *r, uint32_t rn, const uint32_t *b, uint32_t bn) {
+    int64_t br = 0; uint32_t i;
+    for (i = 0; i < bn; i++) { int64_t t = (int64_t)r[i] - (int64_t)b[i] - br; br = t < 0; r[i] = (uint32_t)t; }
+    for (; br && i < rn; i++) { int64_t t = (int64_t)r[i] - br; br = t < 0; r[i] = (uint32_t)t; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static uint32_t lsum_into(uint32_t *t, const uint32_t *x, uint32_t xn, const uint32_t *y, uint32_t yn) {
+    uint32_t n = (xn > yn ? xn : yn) + 1;
+    for (uint32_t i = 0; i < n; i++) t[i] = i < xn ? x[i] : 0;
+    ladd_into(t, n, y, yn); return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lmul(uint32_t *r, const uint32_t *a, uint32_t an, const uint32_t *b, uint32_t bn, uint32_t *tmp) {
+    if (an < bn) { const uint32_t *tp = a; uint32_t tn = an; a = b; an = bn; b = tp; bn = tn; }
+    if (bn < 32) { lmul_school(r, a, an, b, bn); return; }
+    uint32_t m = an / 2;
+    if (bn <= m) {
+        lmul(r, a, m, b, bn, tmp);
+        for (uint32_t i = m + bn; i < an + bn; i++) r[i] = 0;
+        lmul(tmp, a + m, an - m, b, bn, tmp + (an - m + bn));
+        ladd_into(r + m, an + bn - m, tmp, an - m + bn); return;
+    }
+    lmul(r, a, m, b, m, tmp); lmul(r + 2 * m, a + m, an - m, b + m, bn - m, tmp);
+    uint32_t sn = lsum_into(tmp, a, m, a + m, an - m); uint32_t *sb = tmp + sn; uint32_t tn = lsum_into(sb, b + m, bn - m, b, m);
+    uint32_t *z1 = sb + tn; lmul(z1, tmp, sn, sb, tn, z1 + sn + tn);
+    lsub_from(z1, sn + tn, r, 2 * m); lsub_from(z1, sn + tn, r + 2 * m, an + bn - 2 * m);
+    uint32_t zn = sn + tn; while (zn > 0 && z1[zn - 1] == 0) zn--;
+    ladd_into(r + m, an + bn - m, z1, zn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_umul(const BIG_t *a, const BIG_t *b) {
     BIG_t *r = big_alloc(a->n + b->n); if (!r) return 0;
-    for (uint32_t i = 0; i < a->n; i++) {
-        uint64_t c = 0;
-        for (uint32_t j = 0; j < b->n; j++) {
-            uint64_t t = (uint64_t)a->limb[i] * b->limb[j] + r->limb[i + j] + c;
-            r->limb[i + j] = (uint32_t)t; c = t >> 32;
-        }
-        r->limb[i + b->n] = (uint32_t)c;
-    }
+    if (a->n < 32 || b->n < 32) { lmul_school(r->limb, a->limb, a->n, b->limb, b->n); big_trim(r); return r; }
+    BIG_t *t = big_alloc(4 * (a->n + b->n) + 256); if (!t) return 0;
+    lmul(r->limb, a->limb, a->n, b->limb, b->n, t->limb);
     big_trim(r); return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
