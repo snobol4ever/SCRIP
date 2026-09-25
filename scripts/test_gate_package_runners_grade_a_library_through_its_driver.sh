@@ -91,6 +91,20 @@ has "$T/jc.out" '^JCON_SUITE_BOARD shipped=3 graded=2 gap=1 total=2 m3_pass=1 m4
 has "$T/jc.out" 'FAIL \(wrong output\): blib$' && has "$T/jc.out" '^UNGRADED .*clib\(' && ck ok "jcon: the failing library blib and the driverless clib are named" || ck no "jcon: blib/clib not named as non-passes"
 has "$T/jc.out" '^PACKAGE_INVENTORY package=jcon shipped=3 graded=2 ungraded=1 ' && ck ok "jcon: the inventory sums (clib owed, NEEDS_DRIVER)" || ck no "jcon: $(grep -m1 'PACKAGE_INVENTORY\|INVENTORY REFUSES' "$T/jc.out" | cut -c1-140)"
 progress_arms jcon "$T/jc.tsv" alib blib
+# ---- THE SHIPPED LIBRARY, NOT ITS IPL NAMESAKE (coo 2026-09-25, hq_icon's measurement): SCRIP's link search reads IPATH, ICONPATH and
+# its bundled ipl/procs before the source's directory, so a library named like an IPL procedure (options, strings, datetime ...) was
+# linked from IPL. The fixture's options.icn answers "shipped"; iconx, linking the local ucode, cuts that ref; IPL's options() does not.
+O="$T/ipl_ns"; mkdir -p "$O/cut" && printf 'procedure options();\n   return "shipped";\nend\n' > "$O/options.icn" \
+  && printf 'link options\nprocedure main();\n   write(options());\nend\n' > "$O/options_driver.icn" && cp "$O"/*.icn "$O/cut/" \
+  && ( cd "$O/cut" && "$ICONT" -s -c options.icn && "$ICONT" -s -o od options_driver.icn && "$ICONX" ./od ) > "$O/options_driver.ref" 2>&1 </dev/null
+grep -qx shipped "$O/options_driver.ref" || { echo "⛔ REFUSED(2): iconx did not answer the IPL-namesake fixture with the shipped library -- $(tr '\n' '|' < "$O/options_driver.ref")"; exit 2; }
+printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$O/UNGRADED.tsv"; printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$O/UNGRADABLE.tsv"
+OZ="$T/oz/corpus/packages/icon/arizona_tests"; mkdir -p "$OZ/general" "$OZ/special" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$OZ/general/" && cp "$O"/*.tsv "$OZ/"
+S4E_HOME="$T/oz" S4E_PROGRESS_DB="$T/oz.tsv" timeout 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/oz.out" 2>&1
+has "$T/oz.out" '^ARIZONA_SUITE_BOARD shipped=1 graded=1 gap=0 m3_pass=1 .* m4_pass=1 ' && ck ok "arizona: a library named like an IPL procedure is linked from the suite, not ipl/procs (m3 and m4 pass)" || ck no "arizona: the IPL-namesake library: $(grep -m1 '^ARIZONA_SUITE_BOARD' "$T/oz.out" | cut -c1-120)"
+OJ="$T/oj"; mkdir -p "$OJ" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/*.tsv "$OJ/"
+S4E_PROGRESS_DB="$T/oj.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
+has "$T/oj.out" '^JCON_SUITE_BOARD shipped=1 graded=1 gap=0 total=1 m3_pass=1 m4_pass=1' && ck ok "jcon: a library named like an IPL procedure is linked from the package, not ipl/procs (m3 and m4 pass)" || ck no "jcon: the IPL-namesake library: $(grep -m1 '^JCON_SUITE_BOARD' "$T/oj.out" | cut -c1-120)"
 # ---- gimpel
 CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
@@ -101,6 +115,6 @@ has "$T/gp.out" '^PACKAGE_INVENTORY package=gimpel shipped=3 graded=2 ungraded=1
 has "$T/gp.out" 'both_modes_pass=1/3 shipped libraries' && ck ok "gimpel: the row it would publish is 1/3 over the shipped libraries" || ck no "gimpel: the row text is not 1/3 over the libraries: $(grep -m1 -o 'both_modes_pass=[^ ]*' "$T/gp.out")"
 progress_arms gimpel "$T/gp.tsv" ALIB BLIB
 
-echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each; refs cut live from iconx and sbl -bf"
+echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library per Icon runner; refs cut live from iconx and sbl -bf"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [package_runners_grade_a_library_through_its_driver]: $checks of $checks arms hold"; exit 0; fi
 echo "⛔ GATE FAIL(1) [package_runners_grade_a_library_through_its_driver]: $fails of $checks arms red"; exit 1

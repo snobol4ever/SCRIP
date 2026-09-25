@@ -242,7 +242,11 @@ for std in "$SUITE"/*.ref; do
   # three route to different cures: a wrong answer is a semantics bug to diff against the oracle, a crash is a
   # box or runtime fault to open under gdb, and a hang is neither. Collapsing them costs the reader the first
   # and cheapest classification of the defect, and the board that hides it looks tidier for doing so.
-  m3out=$(cd "$SUITE" && $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  # ⛔ IPATH NAMES THE SUITE DIRECTORY FIRST (coo 2026-09-25, hq_icon's measurement): SCRIP's link search reads IPATH, ICONPATH, its
+  # bundled ipl/procs, and only then the source's directory, so 18 of the 23 Arizona drivers linked IPL's namesake of the library
+  # shipped beside them (nine differ -- options by 216 lines). A driver grades the file it is named for; the suite directory first
+  # makes `link NAME` find the shipped NAME.icn, the way upstream's Test-icon finds it in the current directory.
+  m3out=$(cd "$SUITE" && IPATH="$SUITE${IPATH:+:$IPATH}" $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
@@ -277,7 +281,7 @@ for std in "$SUITE"/*.ref; do
   # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
   # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
   if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
-  m4diag=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --compile "$name.icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$SUITE" && IPATH="$SUITE${IPATH:+:$IPATH}" timeout "$TIMEOUT" "$SCRIP" --compile "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
