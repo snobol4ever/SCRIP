@@ -70,11 +70,15 @@ out="$(set_ "$KEY" "$OLDP" "$((NEWT+1))" 2026-09-16 feedbeef3 --criterion-change
 # (e)
 python3 "$HELPER" write --help 2>&1 | grep -q -- '--criterion-changed' && ck ok "(e1) util_score_row.py write --help documents --criterion-changed" || ck no "(e1) write --help does not mention --criterion-changed"
 cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; m0="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
-out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer "${S4E_SEAT:-}" --dry-run 2>&1)"; rc=$?
+out="$(env -u S4E_CRITERION_CHANGED S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer "${S4E_SEAT:-}" --dry-run 2>&1)"; rc=$?
 m1="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
 [ "$rc" = 2 ] && [ "$m0" = "$m1" ] && grep -q 'criterion-changed' <<<"$out" && ck ok "(e2) write --dry-run moving Arizona's denominator without a stamp REFUSED rc=2 before any write, both files byte-identical" || ck no "(e2) rc=$rc identical=$([ "$m0" = "$m1" ] && echo yes || echo no) -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer "${S4E_SEAT:-}" --dry-run --criterion-changed '2026-09-16:gate fixture preview' 2>&1)"; rc=$?
 [ "$rc" = 0 ] && grep -q 'WOULD' <<<"$out" && ck ok "(e3) the same --dry-run with the stamp previews rc=0" || ck no "(e3) rc=$rc -- got: $(tail -2 <<<"$out" | cut -c1-200)"
+# (e4) THE STAMP IN THE ENVIRONMENT IS READ WHEN THE FLAG IS ABSENT (coo 2026-09-25, hq_icon's measurement): 22 row-writing scripts,
+# board_icon_master.sh among them, never forwarded S4E_CRITERION_CHANGED, so IcnM's 826 -> 828 refused with the stamp set.
+out="$(S4E_CRITERION_CHANGED='2026-09-25:gate fixture preview through the environment' S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer "${S4E_SEAT:-}" --dry-run 2>&1)"; rc=$?
+[ "$rc" = 0 ] && grep -q 'WOULD' <<<"$out" && ck ok "(e4) the same --dry-run with the stamp only in S4E_CRITERION_CHANGED previews rc=0 -- the writer reads the environment when the flag is absent" || ck no "(e4) rc=$rc -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 # (f) a planted OLD banner (the flag string removed) -- the writer must refuse BEFORE any write, naming .github behind
 cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; cp "$BANNER" "$W/.github/scripts/util_suite_banner.py"
 sed -i 's/--criterion-changed/--criterion-chAnged/g' "$W/.github/scripts/util_suite_banner.py"

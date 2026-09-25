@@ -4836,6 +4836,15 @@ def main():
     if not getattr(a, "fn", None):
         p.print_help()
         return 2
+    # ⛔⭐ THE ENVIRONMENT'S STAMP IS READ HERE, ONCE, FOR EVERY CALLER (coo 2026-09-25, on hq_icon's measurement). The runners tell a
+    # seat that "a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call", but only the runners that
+    # spell ${S4E_CRITERION_CHANGED:+--criterion-changed ...} passed it on: 22 row-writing scripts did not -- board_icon_master.sh among
+    # them -- so IcnM's move 826 -> 828 refused its own write with the stamp set, and hq_icon wrote the row by hand (.github 915c1ff4).
+    # The flag, when given, still wins; the environment fills only an absent one.
+    if getattr(a, "cmd", "") == "write" and not (getattr(a, "criterion_changed", "") or "").strip():
+        _env_cc = os.environ.get("S4E_CRITERION_CHANGED", "").strip()
+        if _env_cc:
+            a.criterion_changed = _env_cc
     if a.cmd != "seat-name" and not os.path.exists(SCORE_MD):
         die("no leaderboard at %s (S4E_HOME=%s)" % (SCORE_MD, S4E))
     # ⛔ ARMED HERE, BEFORE DISPATCH, so every command's every refusal is covered rather than the write
