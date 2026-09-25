@@ -527,6 +527,7 @@ test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_call_saves_binds_and_restores_an_io_associated_name_without_io.sh	WIRED	-	-	-
 test_gate_sno_a_capture_slices_the_subject_and_table_convert_mkpat_take_the_direct_table.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
+test_gate_sno_a_continuation_after_a_label_only_line_continues_that_statement.sh	WIRED	-	-	-
 test_gate_sno_a_data_field_access_takes_one_lookup_and_a_field_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_a_deferred_call_capture_finds_its_procedure_once.sh	WIRED	-	-	-
 test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	WIRED	-	-	-
