@@ -130,3 +130,4 @@ RTX_FUNC(rt_zdp_probe)
     pop     rdx
     pop     rcx
     jmp     .Lzdpp_done
+.section .note.GNU-stack,"",@progbits

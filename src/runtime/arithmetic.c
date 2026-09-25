@@ -286,10 +286,28 @@ static void rt_div_zero(int bcode, DESCR_t a, DESCR_t b, const char *msg, int st
 }
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 0); }
 DESCR_t rt_num_arith_strict(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 1); }
+static inline int rt_int_str_operand(DESCR_t d, int64_t *out) __attribute__((always_inline));
+static inline int rt_int_str_operand(DESCR_t d, int64_t *out)
+{
+    if (d.v == DT_I) { *out = d.i; return 1; }
+    if (d.v == DT_SNUL || (d.v == DT_S && !d.s)) { *out = 0; return 1; }
+    if (d.v != DT_S) return 0;
+    { const unsigned char *p = (const unsigned char *)d.s, *e = p + descr_slen(d); int neg = 0; uint64_t v = 0;
+      while (p < e && (*p == ' ' || *p == '\t')) p++;
+      if (p == e) { *out = 0; return 1; }
+      if (*p == '+' || *p == '-') { neg = (*p == '-'); p++; }
+      if (p == e || *p < '0' || *p > '9') return 0;
+      while (p < e && *p >= '0' && *p <= '9') { if (v > (uint64_t)922337203685477580ull) return 0; v = v * 10u + (uint64_t)(*p - '0'); p++; }
+      if (v > (uint64_t)9223372036854775807ull + (uint64_t)neg) return 0;
+      while (p < e && (*p == ' ' || *p == '\t')) p++;
+      if (p != e) return 0;
+      *out = neg ? (int64_t)(0u - v) : (int64_t)v; return 1; }
+}
 #define RT_BINOP_ENTRY_S(fn, code, fast, strict) \
 DESCR_t fn(DESCR_t a, DESCR_t b) { \
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; \
     if (a.v == DT_I && b.v == DT_I) { fast } \
+    { int64_t _x, _y; if (rt_int_str_operand(a, &_x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, code, strict); \
     int my = g_core_errjmp_n; \

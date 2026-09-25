@@ -784,13 +784,13 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
             extern int rt_proc_is_registered(const char *);
-            extern long rt_dcap_call_prepare(const char *, short *, int *);
+            extern long rt_dcap_call_prepare(const char *, short *, int *, int *);
             const char *pn = e->varname + 1;
             _prev_star = 1;
             c->pending = d; c->star = e->varname; c->wsv = rt_g_want_name; c->asv = g_cap_abort_gen; c->how = 0; c->nsb = 0;
             rt_g_want_name = 1;
-            if (!rt_proc_is_registered(pn)) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return (rt_dcap_next_t){ 1, 0 }; continue; }
-            { long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb);
+            { int reg = 0; long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb, &reg);
+              if (!reg) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return (rt_dcap_next_t){ 1, 0 }; continue; }
               if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return (rt_dcap_next_t){ 1, 0 }; continue; }
               return (rt_dcap_next_t){ fn, (long)c->how }; }
         }

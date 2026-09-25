@@ -356,3 +356,4 @@ RTX_FUNC(rt_subscript_var_container_only)
 .Lsvco_c:
     RTX_CTAIL(c_rt_subscript_var_container_only)
 RTX_ENDF(rt_subscript_var_container_only)
+.section .note.GNU-stack,"",@progbits

@@ -1071,9 +1071,8 @@ static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb)
     return (rt_call_next_t){ fn, how | ((long)(unsigned)nsb << 8) | (idx << 40) };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_call_next_t rt_call_open_by_name(const char *name, int nargs)
+static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int nargs)
 {
-    rt_proc_t *p = rt_proc_find(name);
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *efn = rt_entry_resolve(el, &frag); if (!efn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
         { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
@@ -1112,13 +1111,16 @@ DESCR_t rt_call_land_ω(long word)
       return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_dcap_call_prepare(const char *name, short *how, int *nsb)
+rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
+long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered)
 {
-    rt_call_next_t n = rt_call_open_by_name(name, 0);
-    *how = 0; *nsb = 0;
-    if (!n.fn) return 0;
-    *how = (short)(n.how & 0xff); *nsb = (int)((n.how >> 8) & 0xffffffffL);
-    return n.fn;
+    rt_proc_t *p = rt_proc_find(name);
+    *how = 0; *nsb = 0; *registered = p ? 1 : 0;
+    if (!p) return 0;
+    { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0);
+      if (!n.fn) return 0;
+      *how = (short)(n.how & 0xff); *nsb = (int)((n.how >> 8) & 0xffffffffL);
+      return n.fn; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
@@ -1337,10 +1339,12 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
         p->pcells = (DESCR_t **)rt_pvec_alloc((size_t)np);
         if (p->pcells) for (int k = 0; k < np; k++) { const char *nm = pn[k]; p->pcells[k] = (nm && !rt_name_side_effecting(nm)) ? NV_PTR_fn(nm) : (DESCR_t *)0; }
     }
-    { const char *rn = p->result_name ? p->result_name : p->name;
-      p->rcell = (rn && !rt_name_side_effecting(rn)) ? NV_PTR_fn(rn) : (DESCR_t *)0; }
-    p->cells_done = 1;
+    { const char *rn = p->result_name ? p->result_name : p->name; int sh = 0;
+      p->rcell = (rn && !rt_name_side_effecting(rn)) ? NV_PTR_fn(rn) : (DESCR_t *)0;
+      for (int k = 0; k < np; k++) if (pn && pn[k] && rn && !strcmp(pn[k], rn)) { sh = 1; break; }
+      p->cells_done = 1 | (sh << 1); }
 }
+_Static_assert(sizeof(((rt_proc_t *)0)->cells_done) == 4, "cells_done bit 0 is the resolved flag and bit 1 the result-name-shadowed-by-a-parameter fact, computed once in rt_proc_resolve_cells and read by every call prologue in place of a strcmp per parameter per call (ceo 2026-09-25, CEO-1257); the record is pinned at 128 bytes so the fact rides in a bit");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_name_save_grow(void) {
     if (g_name_save_top < g_name_save_cap) return;
@@ -1428,8 +1432,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     int save_base = (rt_nsave_fast_on() && np <= 0) ? g_name_save_top : rt_name_save_push(pn, p->pcells, args, nargs, np);
-    { int rn_shadow = 0;
-      for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
+    { int rn_shadow = (p->cells_done & 2) ? 1 : 0;
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (g_trace_budget != 0) sno_trace_call(p->name);
