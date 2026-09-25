@@ -201,6 +201,13 @@ static tree_t * pas_lc_clone(const tree_t * e) {
     for (int i = 0; i < e->n; i++) ast_push(c, pas_lc_clone(e->c[i])); return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_index_fault(pcx_t * cx, IR_t * ω) {
+    if (!ω) return ω;
+    tree_t * f = ast_node_new(TT_FNC); ast_push(f, pas_lc_leaf(TT_VAR, "__pas_rterr")); ast_push(f, pas_lc_leaf(TT_QLIT, "6.5.3.2"));
+    ast_push(f, pas_lc_leaf(TT_QLIT, "an index value is not assignment-compatible with the index-type of the array"));
+    IR_t * r = NULL; IR_t * e = lower(cx, f, ω, ω, &r); return e ? e : ω;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t pas_callee_byref_mask(const char * name) {
     if (!name) return 0;
     for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return g_stage2.proc_table[pi].byref_mask;
@@ -339,7 +346,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
         if (bname && pas_name_is_byref(cx, bname)) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
             IR_t * vr = pas_read_node(cx, bname, NULL, ω);
-            IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
+            IR_t * call = build(cx, IR_CALL, asn, pas_index_fault(cx, ω)); IR_LIT(call).sval = "arr_set_pure";
             IR_t * e;
             {
                 const tree_t ** av = (const tree_t **) ct_zalloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
@@ -352,7 +359,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             *res = asn; return vr;
         }
         IR_t * asn = lower_assign_var(cx, bname, γ, ω);
-        IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
+        IR_t * call = build(cx, IR_CALL, asn, pas_index_fault(cx, ω)); IR_LIT(call).sval = "arr_set_pure";
         IR_t * e;
         {
             const tree_t ** av = (const tree_t **) ct_zalloc((size_t) lhs->n + 1, sizeof(const tree_t *)); int an = 0;
@@ -572,7 +579,7 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * e = pas_call_args(cx, nd, 2.0, av, 3, ω);
             *res = nd; return e;
         }
-        IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "arr_get";
+        IR_t *nd = build(cx, IR_CALL, γ, pas_index_fault(cx, ω)); IR_LIT(nd).sval = "arr_get";
         IR_t * e = pas_call_args(cx, nd, 2.0, (const tree_t * const *) t->c, t->n, ω);
         *res = nd; return e; }
     case TT_FNC:    return lower_call(cx, t, γ, ω, res);
