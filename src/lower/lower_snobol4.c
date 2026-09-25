@@ -962,6 +962,7 @@ static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land)
     IR_t * hook = lc_build(g, IR_CALL, land, land); IR_LIT(hook).sval = (char *) "SNO$STMT";
     IR_t * nmn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(nmn).sval = lp_strdup(nm);
     ir_operand_push(hook, nmn);
+    bb_src_note(nmn, "sno_label_hook", 0);
     return nmn;
 }
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
@@ -2299,7 +2300,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * fT = sno_goto_branch(g, &cx, goF, dcF, exF, exitnd); const char * fTnm = goF; if (!fT) { fT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); fTnm = goU; } if (!fT) { fT = next; fTnm = (const char *)0; }
         if (sTnm) sT = sno_label_trace_wrap(g, sTnm, sT);
         if (fTnm) fT = sno_label_trace_wrap(g, fTnm, fT);
-        if (fT == next && !goF && !exF && !goU && !exU && sfind(s, ":nofail")) { IR_t *nf = lc_build(g, IR_CALL, exitnd, exitnd); IR_LIT(nf).sval = (char *)"SNO$NOFAIL"; fT = nf; }
+        if (fT == next && !goF && !exF && !goU && !exU && sfind(s, ":nofail")) { IR_t *nf = lc_build(g, IR_CALL, exitnd, exitnd); IR_LIT(nf).sval = (char *)"SNO$NOFAIL"; bb_src_note(nf, "sno_nofail", 0); fT = nf; }
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
         if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);

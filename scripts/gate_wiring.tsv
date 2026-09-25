@@ -525,6 +525,7 @@ test_gate_sno_a_data_field_access_takes_one_lookup_and_a_field_store_allocates_n
 test_gate_sno_a_deferred_call_capture_finds_its_procedure_once.sh	WIRED	-	-	-
 test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	WIRED	-	-	-
 test_gate_sno_a_field_function_call_takes_the_name_entry.sh	WIRED	-	-	-
+test_gate_sno_a_label_hook_on_a_failure_edge_rides_the_spine.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
