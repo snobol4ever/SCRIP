@@ -74,6 +74,7 @@ int dat_spec_is_current(const char *spec) {
     return i == t->nfields;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int dat_type_gen(void) { return dat_ntypes; }
 DatType *dat_find_type(const char *name) {
     for (int i = dat_ntypes - 1; i >= 0; i--)
         if (strcmp(dat_types[i].name, name) == 0) return &dat_types[i];

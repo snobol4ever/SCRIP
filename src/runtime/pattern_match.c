@@ -1366,8 +1366,11 @@ static DESCR_t rt_field_var_cell(const char *fname, DESCR_t obj, DESCR_t *cell) 
 DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
-    { DESCR_t *cell = rt_data_is_record_inst(obj) ? data_field_ptr(fname ? fname : "", obj) : (DESCR_t *)0;
+    { extern int rt_field_index_cached(const char *, const DATBLK_t *); DESCR_t *cell = (DESCR_t *)0;
+      if (fname && IS_DATA_INST_fn(obj) && obj.u && obj.u->type && obj.u->fields) { int fi = rt_field_index_cached(fname, obj.u->type); if (fi >= 0 && rt_data_is_record_inst(obj)) cell = &obj.u->fields[fi]; }
+      if (!cell) cell = rt_data_is_record_inst(obj) ? data_field_ptr(fname ? fname : "", obj) : (DESCR_t *)0;
       if (!cell) { core_runtime_error(41, "field function argument is wrong datatype"); return FAILDESCR; }
+      if (!comm_var_active()) return (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell };
       return rt_field_var_cell(fname, obj, cell); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
