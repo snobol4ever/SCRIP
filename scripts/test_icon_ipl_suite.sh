@@ -144,7 +144,10 @@ TOTAL=${#FILES[@]}
 # If that disagrees with what this runner walks, the two instruments in ONE package disagree and NEITHER
 # number can be published, so we REFUSE rather than print a plausible one (rc=2 = could not measure).
 if [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
-    _entries=$(( $(wc -l < "$PKG/ALL.csv") - 1 ))
+    # ⛔ A ROW IS A CONTAINER ENTRY ONLY WHEN ALL.excluded.txt DOES NOT NAME IT (ceo CEO-1261): since Lon's word of 2026-09-25 every
+    # graded program carries its settings in ALL.csv, so an excluded program the runner still RUNS has a settings row too, and
+    # counting it as a container entry would count it twice.
+    _entries=$(awk -F': ' 'NR==FNR{ex[$1]=1; next} FNR>1{split($0,a,","); if(!(a[2] in ex)) n++} END{print n+0}' "$PKG/ALL.excluded.txt" "$PKG/ALL.csv")
     _excluded=$(wc -l < "$PKG/ALL.excluded.txt")
     _accounted=$(( _entries + _excluded ))
     if [ "$_accounted" -ne "$TOTAL" ]; then

@@ -8,10 +8,12 @@
 # lib's words on its own command line; if the two spellings drifted, the same declaration would size two boards differently.
 # ARMS (hermetic: a fixture ALL.csv under mktemp; one scrip run for the last arm):
 #   1 for heap only, stack only, both and neither, the lib's words equal the harness's list joined by spaces -- in both lib functions
-#   2 a declared heap of 8192 KB run with the lib's switches and with the old SCRIP_HEAP_KB=8192 export reports the SAME window and the SAME
-#     cap on the runtime's own arena line (SCRIP_GC_EXERCISE=1): the conversion moves the arena into the transcript and nothing else
+#   2 a declared heap of 8192 KB run with the lib's switches and with the SCRIP_HEAP_CAP_KB=8192 export reports the SAME window and the SAME
+#     cap on the runtime's own arena line (SCRIP_GC_EXERCISE=1): the conversion moves the arena into the transcript and nothing else.
+#     ⛔ SINCE CEO-1261 (Lon 2026-09-25) heap_kb is the program's MAXIMUM heap, SPITBOL's -d, and never the window: the window stays
+#     SPITBOL's -i1m (or the tiny arena of make test-arena), so the arm reads the shipped window beside the declared cap
 #   3 a cell the lib refuses (heap_kb below the runtime's floor) refuses rc 2 through the switch function too, never reads as nothing
-# FAIL_ONCE=1 drops the -i word from the lib's heap spelling before arm 1 compares, to prove the arm trips.
+# FAIL_ONCE=1 drops the -d word from the lib's heap spelling before arm 1 compares, to prove the arm trips.
 # rc 0 every arm holds; rc 1 a FAIL named; rc 2 REFUSED-TO-GRADE (no binary, no harness).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,16 +34,17 @@ for e in heap_only stack_only both neither; do
   h=$(awk -F, -v e="$e" '$2==e{print $5}' "$W/ALL.csv"); s=$(awk -F, -v e="$e" '$2==e{print $6}' "$W/ALL.csv")
   want=$(cd "$HERE" && python3 -c 'import sys; import corpus_suite_harness as H; h, s = sys.argv[1], sys.argv[2]; print(" ".join(H._size_switches(int(h) if h else None, int(s) if s else None)))' "$h" "$s")
   got1=$(declared_arena_switches "$W/ALL.csv" "$e"); got2=$(declared_switches_from_table "$tbl" "$e")
-  [ -n "${FAIL_ONCE:-}" ] && got1="${got1/ -i${h}k/}"
+  [ -n "${FAIL_ONCE:-}" ] && got1="${got1/-d${h}k/}"
   [ "$got1" = "$want" ] && [ "$got2" = "$want" ] || bad="$bad $e(harness '$want' lib '$got1' table '$got2')"
 done
 [ -z "$bad" ] && ck ok "1 heap only, stack only, both and neither: the lib's two functions spell exactly the harness's _size_switches" || ck no "1 the spellings differ:$bad"
 printf '        OUTPUT = DUPL("x", 1000)\nEND\n' > "$W/p.sno"
 sw=$(declared_arena_switches "$W/ALL.csv" heap_only)
 a1=$(cd "$W" && SCRIP_GC_EXERCISE=1 timeout 60 "$ROOT/scrip" --run $sw p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
-a2=$(cd "$W" && SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=8192 timeout 60 "$ROOT/scrip" --run p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
-[ -n "$a1" ] && [ "$a1" = "$a2" ] && grep -q 'arena_kb=8192' <<<"$a1" && grep -q 'cap_kb=8192' <<<"$a1" \
-  && ck ok "2 heap_kb 8192 as switches ($sw) and as the old export read the same arena line: $a1" \
+win=$(sed -n 's/^#define[[:space:]]\+GC_HEAP_KB[[:space:]]\+\([0-9]\+\).*/\1/p' "$ROOT/src/runtime/rt/gc_heap.c" | head -1)
+a2=$(cd "$W" && SCRIP_GC_EXERCISE=1 SCRIP_HEAP_CAP_KB=8192 timeout 60 "$ROOT/scrip" --run p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
+[ -n "$a1" ] && [ -n "$win" ] && [ "$a1" = "$a2" ] && grep -q "arena_kb=$win " <<<"$a1" && grep -q 'cap_kb=8192' <<<"$a1" \
+  && ck ok "2 heap_kb 8192 as switches ($sw) and as the SCRIP_HEAP_CAP_KB export read the same arena line, the shipped $win KB window under the declared cap: $a1" \
   || ck no "2 the arena lines differ -- switches '$sw': '$a1', export: '$a2'"
 declared_arena_switches "$W/REFUSED.csv" refused >/dev/null 2>&1; rr=$?
 [ "$rr" = 2 ] && ck ok "3 a refused cell (heap_kb 16) refuses rc 2 through the switch function too" || ck no "3 a refused cell returned rc $rr through declared_arena_switches"

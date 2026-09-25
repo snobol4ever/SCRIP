@@ -18,6 +18,9 @@ usage: util_mint_package_attribute_csv.py --package NAME --dir DIR --glob PATTER
 prints: ATTRIBUTE-CSV package=P entries=N stdin=S wantrc=W preserved_heap=H written=PATH
 """
 import argparse, csv, glob, io, os, re, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import corpus_suite_harness as _h
+DEFAULT_HEAP_KB, DEFAULT_STACK_KB = str(_h.GC_HEAP_CAP_KB), str(_h.GC_STACK_FLOOR_KB)  # every program carries SPITBOL's -d128m -s4m unless it declared its own (Lon 2026-09-25, ceo CEO-1261)
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--package', required=True); ap.add_argument('--dir', required=True)
@@ -64,9 +67,9 @@ def main():
         with open(f, 'rb') as fh: n_lines = fh.read().count(b'\n')
         has_in = 1 if os.path.exists(os.path.splitext(f)[0] + '.in') else 0
         rc = wantrc.get(entry, wantrc.get(os.path.basename(entry), '0'))
-        hk = preserved.get(entry, '')
-        n_stdin += has_in; n_wantrc += (rc != '0'); n_pres += bool(hk)
-        w.writerow([i, entry, f"{a.package}__{entry}", a.package, n_lines, has_in, rc, hk, preserved_stack.get(entry, '')])
+        hk = preserved.get(entry, '') or DEFAULT_HEAP_KB
+        n_stdin += has_in; n_wantrc += (rc != '0'); n_pres += bool(preserved.get(entry, ''))
+        w.writerow([i, entry, f"{a.package}__{entry}", a.package, n_lines, has_in, rc, hk, preserved_stack.get(entry, '') or DEFAULT_STACK_KB])
     with open(out, 'w', encoding='utf-8', newline='\n') as fh: fh.write(buf.getvalue())
     print(f"ATTRIBUTE-CSV package={a.package} entries={len(files)} stdin={n_stdin} wantrc={n_wantrc} preserved_heap={n_pres} written={out}")
     return 0

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_icon_rate_3way.sh — FIXED-TIME RATE comparison: SCRIP m3/m4 vs Arizona iconx vs JCON.
 #
 # ⭐ WHY FIXED-TIME AND NOT FIXED-ITERATION (Lon, 2026-08-21, in-chat: "flip the tests to loop on a

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_two_number_ir.sh -- THE TWO-NUMBER (WORK / OVERHEAD) BOARD, MEASURED IN CALLGRIND Ir.
 # Row readme-perf-grids-three-angles-all-seven (I26), hq_P 2026-09-03, after ceo's CEO-192 audit
 # reopened the row: every README grid must be RE-MEASURED on the two-number basis, tree-labelled.

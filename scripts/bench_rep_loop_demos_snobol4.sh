@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_rep_loop_demos_snobol4.sh -- LON'S TWO-ASPECT PRESENTATION LAW for the tier-1 -match demos.
 # Row: bench-rep-loop-demo-harness (hq_P, 2026-08-28). Authority: ARCH-BENCH-CAMPAIGN-README-TABLES.md.
 #

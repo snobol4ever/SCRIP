@@ -10,13 +10,16 @@
 # measurement while inert (CEO-1146) -- and a switch on the command line is recorded with the run.
 #
 # ARMS (every reading comes from the runtime's own GC-EXERCISE report, collections= and cap_kb=, never from the knob):
-#   (1) a witness whose live set is above the 4 MB default cap dies there, and prints its answer under -d64m, in mode 3;
-#   (2) the same witness compiled once and run as a binary takes -d64m on ITS command line and prints the answer (mode 4);
+#   (1) a witness with a ~20 MB live set dies at -d4m and prints its answer under -d64m and at the default cap, in mode 3;
+#   (2) the same witness compiled once and run as a binary takes -d4m and -d64m on ITS command line (mode 4);
+#   ⛔ SINCE CEO-1261 (Lon 2026-09-25: "Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.") the
+#   default cap is SPITBOL's -d128m and the default stack its -s4m, so the arms name a small cap explicitly instead of leaning on the
+#   default -- the old 4 MB default is what the witness used to overflow, and a 128 MB live set is no witness for a gate.
 #   (3) -i is the window: the same allocating witness collects many times at -i128k and never at -i64m, both under -d64m;
 #   (4) the switch wins over the seam: SCRIP_HEAP_KB=128 in the environment with -i64m on the line reads zero collections;
 #   (5) the seam still works alone (the 92 instrument scripts that size through SCRIP_HEAP_KB are not broken by this landing);
-#   (6) -s raises the stack: a deep-recursion witness that overflows the runtime's 64 MB floor completes at -s512m, both modes
-#       (the limit is only ever raised -- neither the driver nor the runtime shrinks the inherited rlimit -- so the arm measures the raise);
+#   (6) -s sizes the stack: a deep-recursion witness that overflows SPITBOL's 4 MB default completes at -s512m, both modes
+#       (the runtime sets the program's budget from -s, SCRIP_STACK or the 4 MB default, counted from where the program starts);
 #   (7) the usage no longer calls -d/-i accepted-and-ignored;
 #   (8) NEGATIVE: -d below -i is refused with its reason; a malformed -d value is refused; the -i arm can red (a wrong expectation).
 #
@@ -32,12 +35,12 @@ fails=0; arms=0
 ck() { arms=$((arms+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else echo "  FAIL $2"; fails=$((fails+1)); fi; }
 clean() { env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_MAX_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_STACK "$@"; }
 colls() { grep -o 'collections=[0-9]*' "$1" | tail -1 | cut -d= -f2; }
-o0=$(clean timeout 60 "$C" big.sno < /dev/null 2>/dev/null); r0=$?
-[ "$o0" != "done 20001" ] && ck ok "(1a) the witness does NOT fit the default 4 MB cap (rc=$r0, output '$o0')" || ck no "(1a) the witness fits the default cap, so it cannot show -d (raise its live set)"
+o0=$(clean timeout 60 "$C" -d4m big.sno < /dev/null 2>/dev/null); r0=$?; od=$(clean timeout 60 "$C" big.sno < /dev/null 2>/dev/null)
+[ "$o0" != "done 20001" ] && [ "$od" = "done 20001" ] && ck ok "(1a) the witness does NOT fit -d4m (rc=$r0, output '$o0') and answers at the default cap" || ck no "(1a) -d4m printed '$o0' (rc=$r0), the default cap printed '$od' -- the witness must die at 4 MB and answer at SPITBOL's 128 MB"
 o1=$(clean timeout 60 "$C" -d64m big.sno < /dev/null 2>/dev/null); [ "$o1" = "done 20001" ] && ck ok "(1b) -d64m: the witness prints its answer in mode 3" || ck no "(1b) -d64m in mode 3 printed '$o1'"
 if clean "$C" --compile -o big.s big.sno < /dev/null > /dev/null 2>&1 && gcc -no-pie -o bigbin big.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2>/dev/null; then
-    o2=$(clean timeout 60 ./bigbin < /dev/null 2>/dev/null); o3=$(clean timeout 60 ./bigbin -d64m < /dev/null 2>/dev/null)
-    [ "$o2" != "done 20001" ] && [ "$o3" = "done 20001" ] && ck ok "(2) the mode-4 binary dies at the default cap and prints the answer with -d64m on its own command line" || ck no "(2) mode-4: without -d '$o2', with -d64m '$o3'"
+    o2=$(clean timeout 60 ./bigbin -d4m < /dev/null 2>/dev/null); o3=$(clean timeout 60 ./bigbin -d64m < /dev/null 2>/dev/null)
+    [ "$o2" != "done 20001" ] && [ "$o3" = "done 20001" ] && ck ok "(2) the mode-4 binary dies at -d4m and prints the answer with -d64m, each on its own command line" || ck no "(2) mode-4: with -d4m '$o2', with -d64m '$o3'"
 else ck no "(2) could not compile or link the witness for mode 4"; fi
 clean env SCRIP_GC_EXERCISE=1 timeout 60 "$C" -d64m -i128k churn.sno < /dev/null > c1.out 2> c1.err; c1=$(colls c1.err)
 clean env SCRIP_GC_EXERCISE=1 timeout 60 "$C" -d64m -i64m churn.sno < /dev/null > c2.out 2> c2.err; c2=$(colls c2.err)
@@ -47,10 +50,10 @@ clean env SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout 60 "$C" -d64m -i64m chur
 clean env SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout 60 "$C" churn.sno < /dev/null > c4.out 2> c4.err; c4=$(colls c4.err)
 [ -n "$c4" ] && [ "$c4" -gt 10 ] && ck ok "(5) the seam alone still sizes a run: SCRIP_HEAP_KB=128 reads collections=$c4" || ck no "(5) SCRIP_HEAP_KB=128 alone reads collections=${c4:-?}"
 s1=$(clean timeout 120 "$C" deep.sno < /dev/null 2>/dev/null); rs1=$?; s2=$(clean timeout 120 "$C" -s512m deep.sno < /dev/null 2>/dev/null); rs2=$?
-[ "$s2" = "depth 1000000" ] && { [ "$rs1" != 0 ] || [ "$s1" != "depth 1000000" ]; } && ck ok "(6a) -s: the deep witness overflows the 64 MB floor (rc=$rs1) and completes at -s512m, mode 3" || ck no "(6a) -s mode 3: default rc=$rs1 '$s1', at -s512m rc=$rs2 '$s2' (if both complete, the depth is too small to measure -s)"
+[ "$s2" = "depth 1000000" ] && { [ "$rs1" != 0 ] || [ "$s1" != "depth 1000000" ]; } && ck ok "(6a) -s: the deep witness overflows the 4 MB default (rc=$rs1) and completes at -s512m, mode 3" || ck no "(6a) -s mode 3: default rc=$rs1 '$s1', at -s512m rc=$rs2 '$s2' (if both complete, the depth is too small to measure -s)"
 if clean "$C" --compile -o deep.s deep.sno < /dev/null > /dev/null 2>&1 && gcc -no-pie -o deepbin deep.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2>/dev/null; then
     s3=$(clean timeout 120 ./deepbin < /dev/null 2>/dev/null); rs3=$?; s4=$(clean timeout 120 ./deepbin -s512m < /dev/null 2>/dev/null)
-    [ "$s4" = "depth 1000000" ] && { [ "$rs3" != 0 ] || [ "$s3" != "depth 1000000" ]; } && ck ok "(6b) -s on the mode-4 binary's command line: overflows at the floor (rc=$rs3), completes at -s512m" || ck no "(6b) -s mode 4: default rc=$rs3 '$s3', at -s512m '$s4'"
+    [ "$s4" = "depth 1000000" ] && { [ "$rs3" != 0 ] || [ "$s3" != "depth 1000000" ]; } && ck ok "(6b) -s on the mode-4 binary's command line: overflows at the 4 MB default (rc=$rs3), completes at -s512m" || ck no "(6b) -s mode 4: default rc=$rs3 '$s3', at -s512m '$s4'"
 else ck no "(6b) could not compile or link the deep witness"; fi
 u=$("$C" 2>&1 | grep -ciE '^ *-dN.*accepted'); [ "$u" = 0 ] && ck ok "(7) the usage no longer calls -d/-i accepted-and-ignored" || ck no "(7) usage lines still calling -d accepted-and-ignored: $u"
 clean timeout 60 "$C" -d1m -i2m churn.sno < /dev/null > /dev/null 2> n1.err; rn1=$?; [ "$rn1" != 0 ] && grep -qi "below" n1.err && ck ok "(8a) -d below -i is refused with its reason (rc=$rn1)" || ck no "(8a) -d1m -i2m rc=$rn1: $(head -c 120 n1.err)"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # test_icon_bench_corpus.sh — build (if needed) + run corpus/benchmarks/icon/*.icn through
 # the iconx oracle and both SCRIP execution modes; report per-program PASS/FAIL + timing.
 #

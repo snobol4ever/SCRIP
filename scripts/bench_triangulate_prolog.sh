@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_prolog.sh -- THE CROSS-PROOF for Prolog (row bench-rivals-prolog), mirroring
 # bench_triangulate_snobol4.sh's architecture per ARCH-BENCH-CAMPAIGN-README-TABLES.md § THREE-ANGLE
 # TRIANGULATION. Runs angle 1 (test_bench_prolog_timed.sh -- fixed TIME, live-searched iters) and angle 2

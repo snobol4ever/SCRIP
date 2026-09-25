@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: the rebus shard below is a runner invoked as an INSTRUMENT FIXTURE and never a board -- it exists only to make corpus_suite_harness.py print its ARENA line, its result is discarded, and without this the one-runner guard makes the gate grade green for the ceo and FAIL(1) for every other seat (the cfo reproduced it as seat cfo; CEO-956, CEO-523)"
 # test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh -- LON'S RULE HELD BY ITS MECHANISM, NOT BY DISCIPLINE.
+# ⛔⭐ SINCE 2026-09-25 THE SHIPPED DEFAULT IS SPITBOL'S -i1m -d128m (Lon, in-chat to the ceo: "Let's set our default stack size and
+# heap size for SCRIP to be the same as SPITBOL."; ceo CEO-1261), so the 128 KB window is again ONLY the GC-testing arena: `make
+# test-arena` exports it, and arms 2 and 4 read the shipped default out of gc_heap.c (#define GC_HEAP_KB) rather than repeating a number.
 #
 # ⛔⭐ THE RULE (Lon 2026-09-19 16:1x CDT, in-chat to the ceo, verbatim: "Actually, for all GC testing all seats should
 # use a tiny arena to exasperate all the problems all the time. Do you not agree?"; ceo CEO-931/934/938, RULES.md
@@ -76,15 +79,17 @@ run_one() { # $1 = arena or "unset"; prints the harness's stdout for ONE graded 
     if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 )
     else ( cd "$ROOT" && SCRIP_HEAP_KB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 ); fi
 }
+SHIPPED=$(sed -n 's/^#define[[:space:]]\+GC_HEAP_KB[[:space:]]\+\([0-9]\+\).*/\1/p' "$ROOT/src/runtime/rt/gc_heap.c" | head -1)
+[ -n "$SHIPPED" ] || { echo "⛔ REFUSE(2) [$G]: could not read #define GC_HEAP_KB out of gc_heap.c"; exit 2; }
 for want in 256 512 unset; do
-    exp="$want"; [ "$want" = unset ] && exp=128
+    exp="$want"; [ "$want" = unset ] && exp="$SHIPPED"
     run_one "$want" > "$T/h_$want.txt" 2>&1
     got=$(grep -oE '^ARENA SCRIP_HEAP_KB=[0-9]+' "$T/h_$want.txt" | grep -oE '[0-9]+$')
     a2="$a2 ${want}->${got:-none}"
     [ "${got:-none}" = "$exp" ] || a2bad=1
 done
-if [ "$a2bad" = 0 ]; then echo "  arm 2 PASS: every board names the arena it ran under and the line tracks the knob (ARENA read$a2; unset reports the shipped 128)"
-else echo "  arm 2 FAIL: the harness's ARENA line is missing or does not track the knob (read$a2, wanted 256->256 512->512 unset->128)"; RC=1; fi
+if [ "$a2bad" = 0 ]; then echo "  arm 2 PASS: every board names the arena it ran under and the line tracks the knob (ARENA read$a2; unset reports the shipped $SHIPPED)"
+else echo "  arm 2 FAIL: the harness's ARENA line is missing or does not track the knob (read$a2, wanted 256->256 512->512 unset->$SHIPPED)"; RC=1; fi
 # ARM 3 -- the DECLARED set of gates that PIN an arena, so a pin cannot spread and turn the rule off gate by gate.
 # ⛔ A PIN IS NOT A DEFAULT, and conflating them made this arm red for a landing that OBEYED the rule (ceo CEO-956):
 # `export SCRIP_HEAP_MB=512` overrides its caller and turns the tiny-arena rule OFF for that gate, which is the thing
@@ -100,7 +105,7 @@ else echo "  arm 3 FAIL: the set of gates pinning an arena is not the declared s
 # ARM 4 -- the board line itself carries the arena, so an archived board line is readable years later.
 examined=$((examined + 1))
 b1=$(grep -oE 'arena_kb=[0-9]+' "$T/h_256.txt" | head -1); b7=$(grep -oE 'arena_kb=[0-9]+' "$T/h_512.txt" | head -1); bd=$(grep -oE 'arena_kb=[0-9]+' "$T/h_unset.txt" | head -1)
-if [ "$b1" = "arena_kb=256" ] && [ "$b7" = "arena_kb=512" ] && [ "$bd" = "arena_kb=128" ]; then echo "  arm 4 PASS: the SUITE_BOARD line carries its arena and tracks it ($b1 / $b7 / $bd) -- an archived board line stays readable without its command"
+if [ "$b1" = "arena_kb=256" ] && [ "$b7" = "arena_kb=512" ] && [ "$bd" = "arena_kb=$SHIPPED" ]; then echo "  arm 4 PASS: the SUITE_BOARD line carries its arena and tracks it ($b1 / $b7 / $bd) -- an archived board line stays readable without its command"
 else echo "  arm 4 FAIL: the SUITE_BOARD line does not carry a tracking arena_kb= field (read [${b1:-none}] [${b7:-none}] [${bd:-none}])"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the tiny arena is the standing default of GC testing by mechanism -- make exports it as a default, every board names the arena it ran under and the name tracks the knob, and exactly the declared arena-dependent gate pins its own (examined $examined arms)"
 else echo "GATE FAIL(1) [$G]: the tiny-arena default is not held by its mechanism (examined $examined arms)"; fi

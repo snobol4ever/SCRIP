@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${BENCH_RAKU_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/benchmarks/raku}" || exit 2
 # test_raku_bench_suite.sh [--write] -- THE RAKU BENCHMARKS GRADED AS TESTS: every kernel under corpus/benchmarks/raku, both modes,
 # all three angles, its REF checked on every run (the RakBench row of SCORE.md THE SUITE TABLE; Lon 2026-09-24 14:2x, in-chat to

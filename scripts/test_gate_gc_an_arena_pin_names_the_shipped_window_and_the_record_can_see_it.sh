@@ -27,6 +27,10 @@
 # not, and sweeping onto a knob the record cannot see would have traded a wrong arena for an invisible one.
 # (e) THE KNOB IS A REQUEST AND COLLECTIONS ARE THE EVIDENCE (33rd batch clause 5), measured live on this binary.
 # (f) the window the pin asks for is the window the runtime delivers -- grew=0, the disqualifier that chose 128.
+# ⛔⭐ SINCE CEO-1261 (Lon 2026-09-25: "Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.") THE
+# SHIPPED WINDOW IS SPITBOL'S -i1m, which is the 1024 KB an MB pin of 1 names, so the swept pins now name the GC-TESTING arena
+# (the Makefile's SCRIP_HEAP_KB_TINY, 128 KB -- the literal 24 swept gates pin) rather than the shipped window: arms (e) and (f) read that
+# arena out of the Makefile and grade it, and the shipped window is printed beside it, never repeated here.
 set -uo pipefail
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -40,7 +44,9 @@ refuse() { echo "⛔ GATE REFUSED(2) [$G]: $1"; exit 2; }
 SHIPPED_KB=$(grep -oE '^#define GC_HEAP_KB[[:space:]]+[0-9]+' "$ROOT/src/runtime/rt/gc_heap.c" | awk '{print $3}')
 [ -n "${SHIPPED_KB:-}" ] || refuse "cannot read GC_HEAP_KB out of src/runtime/rt/gc_heap.c -- the shipped window is the subject and it is not assumed here"
 echo "=== gate: an arena pin names the shipped window, and the progress record can see it ==="
-echo "    shipped window GC_HEAP_KB=$SHIPPED_KB KB (read from source, never repeated) · MB=1 resolves to 1024 KB"
+SWEPT_KB=$(sed -n 's/^SCRIP_HEAP_KB_TINY[[:space:]]*?=[[:space:]]*\([0-9]\+\).*/\1/p' "$ROOT/Makefile" | head -1)
+[ -n "${SWEPT_KB:-}" ] || refuse "cannot read SCRIP_HEAP_KB_TINY out of the Makefile -- the GC-testing arena the sweep targets is the subject and it is not assumed here"
+echo "    shipped window GC_HEAP_KB=$SHIPPED_KB KB · the GC-testing arena SCRIP_HEAP_KB_TINY=$SWEPT_KB KB (both read, never repeated) · MB=1 resolves to 1024 KB"
 
 # ---- (a) THE SWEEP IS COMPLETE ---------------------------------------------------------------------------------
 cen="$(cd "$ROOT" && python3 scripts/util_arena_pin_census.py 2>&1)"; crc=$?
@@ -83,7 +89,7 @@ W="$HERE/gc_witnesses/hb_scan_nested.icn"
 [ -n "${W:-}" ] && [ -f "$W" ] || refuse "no GC witness under scripts/gc_witnesses -- arms (e) and (f) grade a live run and will not be inferred from source"
 rd() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$1"="$2" SCRIP_GC_EXERCISE=1 timeout 120s "$SCRIP" "$W" 2>&1 >/dev/null | grep -m1 '^\[GC-EXERCISE\]'; }
 fld() { printf '%s\n' "$1" | grep -oE "$2=[0-9]+" | head -1 | cut -d= -f2; }
-rS="$(rd SCRIP_HEAP_KB "$SHIPPED_KB")"; rM="$(rd SCRIP_HEAP_MB 1)"
+rS="$(rd SCRIP_HEAP_KB "$SWEPT_KB")"; rM="$(rd SCRIP_HEAP_MB 1)"
 cS=$(fld "$rS" collections); gS=$(fld "$rS" grew); aS=$(fld "$rS" arena_kb)
 cM=$(fld "$rM" collections); aM=$(fld "$rM" arena_kb)
 [ -n "${cS:-}" ] && [ -n "${cM:-}" ] || refuse "no GC-EXERCISE receipt from $(basename "$W") -- the run reported nothing to grade (shipped [$rS] · MB=1 [$rM])"
@@ -93,7 +99,7 @@ else
   ck no "(e) the swept window does not out-collect MB=1 on $(basename "$W") -- shipped $cS at arena_kb=$aS, the MB pin $cM at arena_kb=$aM. Either the witness stopped allocating or the arena stopped mattering; a GC arm over an unexercised collector grades nothing."
 fi
 if [ "${gS:-1}" = 0 ]; then
-  ck ok "(f) the pin holds -- grew=0 at the swept window, so arena_kb=$aS is the window the run ACTUALLY had and the label is true. This is the arm that chose $SHIPPED_KB KB over the 64 KB floor: 64 collects more but reads grew=16 on hb_bignum_length.icn and grew=8 on the cfo's args.icn, and a window that grows is not the size its own pin claims."
+  ck ok "(f) the pin holds -- grew=0 at the swept window, so arena_kb=$aS is the window the run ACTUALLY had and the label is true. This is the arm that chose $SWEPT_KB KB over the 64 KB floor: 64 collects more but reads grew=16 on hb_bignum_length.icn and grew=8 on the cfo's args.icn, and a window that grows is not the size its own pin claims."
 else
   ck no "(f) the pin does NOT hold -- grew=$gS at the swept window on $(basename "$W"), so the run outgrew arena_kb=$aS and every number taken under this label names a configuration the run did not have."
 fi

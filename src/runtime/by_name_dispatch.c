@@ -6027,6 +6027,15 @@ static int g_main_args_n = -1;
 static const char *g_main_progname;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_main_args_v = v; g_main_args_n = n; }
+void rt_main_args_stage_argv(char **v, int n)
+{
+    extern int rt_cmdline_prog_first(void);
+    int skip = rt_cmdline_prog_first() - 1;
+    if (n < 0 || !v) { rt_main_args_stage(v, 0); return; }
+    if (skip < 0) skip = 0;
+    if (skip > n) skip = n;
+    rt_main_args_stage(v + skip, n - skip);
+}
 void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_drop((void *) g_main_progname); g_main_progname = c; }
 const char *rt_main_progname(void) { return g_main_progname ? g_main_progname : ""; }
 void rt_main_args_bind(void) { extern DESCR_t g_call_args[]; if (g_main_args_descr.v == DT_DATA) return; if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0); g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n); if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }

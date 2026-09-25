@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_icon.sh -- THE THREE-ANGLE HARNESS FOR THE ICON BENCHMARK KERNELS (corpus/benchmarks/icon).
 #
 # LON 2026-09-23 (CEO-1221): "all language benchmarks need to be run through the three-angle harness: (1) wrapper process,

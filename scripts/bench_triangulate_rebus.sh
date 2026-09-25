@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_rebus.sh -- Rebus benchmark board (row readme-perf-grids-three-angles-all-seven,
 # I26). ⛔ WHY THIS DIFFERS FROM THE OTHER TRIANGULATORS: Rebus has NO independent rival implementation
 # to compare against (README § Rebus: "no independent implementation to borrow a suite from") -- unlike

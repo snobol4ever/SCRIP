@@ -46,6 +46,9 @@ cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 CENSUS="$ROOT/scripts/util_gc_asm_shim_tag_census.py"
+# ⛔ THE COLLECTION COUNT RUNS UNDER SCRIP_GC_STRESS=3 (ceo CEO-1261): the witness allocates ~94 KB in all, so it collected twice at the
+# old 128 KB shipped window and never at SPITBOL's 1 MB (Lon 2026-09-25: "Let's set our default stack size and heap size for SCRIP to
+# be the same as SPITBOL."); the exasperation knob is STRESS, never the arena (33rd batch, clause 1) -- 105 collections at stress 3.
 WIT="$ROOT/scripts/gc_witnesses/hb_eval_chain_shim_saves_sigma.sno"
 REF="$ROOT/scripts/gc_witnesses/hb_eval_chain_shim_saves_sigma.ref"
 rc=0
@@ -86,7 +89,7 @@ SCRIP_C2BB_TRACE="$TD/tr.tsv" timeout 300s "$ROOT/scrip" "$WIT" >/dev/null 2>&1
 FIRED="$(awk -F'\t' '$1=="chain.eval.v"{n++} END{print n+0}' "$TD/tr.tsv" 2>/dev/null)"
 if [ "${FIRED:-0}" -lt 1 ]; then printf 'GATE REFUSE(2): chain.eval.v never fired -- the witness did not reach the tagged shim, so arm B measured NOTHING (non-inert clause, CEO-1044)\n'; exit 2; fi
 printf 'road: chain.eval.v fired %s time(s) -- the tagged shim was entered, so this arm is NOT inert\n' "$FIRED"
-SCRIP_GC_MAPS=1 timeout 600s "$ROOT/scrip" "$WIT" >/dev/null 2>"$TD/maps.txt"
+SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 timeout 600s "$ROOT/scrip" "$WIT" >/dev/null 2>"$TD/maps.txt"
 COLL="$(grep -c '^\[GC-WALK\] pop=' "$TD/maps.txt" 2>/dev/null)"
 if [ "${COLL:-0}" -lt 1 ]; then printf 'GATE REFUSE(2): the witness collected ZERO times -- a population that never collected refuses (CEO-1044)\n'; exit 2; fi
 printf 'collections: %s -- the walker really ran over a stack carrying this shim frame\n' "$COLL"

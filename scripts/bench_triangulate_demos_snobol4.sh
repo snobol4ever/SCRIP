@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_demos_snobol4.sh -- THREE-ANGLE TRIANGULATION FOR THE **DEMO** PROGRAMS.
 # Minted 2026-08-27 by hq_P on Lon's in-chat PIVOT, verbatim in substance: "Get numbers for 3-angle
 # performance numbers on all the demo programs. claws5, treebank, json, calculator, beauty. And keep

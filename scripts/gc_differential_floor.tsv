@@ -2,8 +2,9 @@
 # (coo 2026-09-21, MODE TENET). A program that was GRADED may not stop being graded and an agreement may not
 # get WEAKER: a fall from AGREE to UNDISTINGUISHED/NO-COLLECTION, or a drop in the number of DISTINCT
 # collector-event fingerprints, means a knob stopped taking -- which is this row own hazard from the other side.
-# Pinned on tree 1b317bea3; hb_bignum_length raised 6 -> 7 when the second plant point (arena1_plant4k,
+# Raised 2026-09-25 (ceo CEO-1261): hb_arr.sno 2 -> 7 when the arena1 rows moved from SCRIP_HEAP_MB=1 (now the shipped 1024 KB window)
+# to the 128 KB GC-testing arena; hb_bignum_length holds at 7. Pinned on tree 1b317bea3; hb_bignum_length raised 6 -> 7 when the second plant point (arena1_plant4k,
 # below the masking boundary) was added on the cto's correction 2026-09-21. Raise with: python3 scripts/util_gc_differential.py <progs> --tsv <this file>
 program	verdict	distinct_fingerprints
-hb_arr.sno	AGREE	2
+hb_arr.sno	AGREE	7
 hb_bignum_length.icn	AGREE	7

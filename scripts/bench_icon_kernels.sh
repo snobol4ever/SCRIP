@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_icon_kernels.sh -- THE TEN ICON KERNELS, re-measured on the TWO-NUMBER BASIS against BOTH
 # rivals: Arizona iconx (the reference implementation) and JCON jcont (Proebsting & Townsend's
 # Icon-to-JVM compiler).  Written hq_P 2026-09-10 for ceo CEO-490, on Lon's question of 2026-09-10

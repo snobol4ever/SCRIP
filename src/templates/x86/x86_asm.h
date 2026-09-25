@@ -1894,7 +1894,7 @@ std::string bb_glue_wire_ω();
 extern "C" int emit_diag_regs_suppress(void);
 extern "C" int g_monitor_bin;
 inline int x86_trace_hooks_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN"); v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_monitor_bin) ? 1 : 0); } return v; }
-inline int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e == '0') ? 0 : 1; } return v; }
+inline int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); const char * d = getenv("SCRIP_DIAG"); v = (e && *e) ? (*e != '0') : !(d && *d == '0'); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" uint64_t * rt_port_counts_slot(int uid, int port, const char * label);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

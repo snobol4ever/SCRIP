@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_snobol4_fixed_iter.sh -- ANGLE 2 of the three-angle triangulation (Lon 2026-08-24, row
 # bench-triangulation-3angle): run EXACTLY N iterations per kernel (N fixed per kernel, never a
 # wall-clock deadline) and report throughput (iterations per second) for sbl / scrip m3 / scrip m4.

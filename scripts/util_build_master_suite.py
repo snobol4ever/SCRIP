@@ -71,6 +71,12 @@ import pathlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import corpus_suite_harness as h  # noqa: E402
+# ⛔⭐ EVERY ENTRY CARRIES ITS SETTINGS (Lon 2026-09-25, in-chat to the ceo, verbatim: "Ensure that all the test suite programs have the
+# stack size and heap size setting placed into the per-program attribute files."; ceo CEO-1261): a row the builder writes with no heap_kb
+# or stack_kb of its own gets SPITBOL's defaults, read from the harness constants test_gate_suite_runners_honour_the_tests_declared_memory.sh
+# holds to the runtime (-d128m and -s4m) -- a declaration an author measured is carried forward unchanged, never replaced by these.
+DEFAULT_HEAP_KB = str(h.GC_HEAP_CAP_KB)
+DEFAULT_STACK_KB = str(h.GC_STACK_FLOOR_KB)
 
 def _stdin_sidecar_names(src_path):
     """The companions h.stdin_companion_candidates() found, rendered RELATIVE TO THE SOURCE'S DIRECTORY.
@@ -937,7 +943,7 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, acknowle
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            csv_heap.get(e.name, ""), csv_stack.get(e.name, "")] + [flags_of[e.name][c] for c, _ in COLS])
+                            (csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [flags_of[e.name][c] for c, _ in COLS])
     except BaseException:
         _cleanup(); raise
     os.replace(tmp_sno, out_sno); os.replace(tmp_ref, out_ref); os.replace(tmp_csv, out_csv)
@@ -1019,7 +1025,7 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, ackno
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            csv_heap.get(e.name, ""), csv_stack.get(e.name, "")] + [flags[c] for c, _ in COLS])
+                            (csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [flags[c] for c, _ in COLS])
     except BaseException:
         if os.path.exists(tmp_csv):
             os.remove(tmp_csv)
@@ -1556,7 +1562,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
                 origin = getattr(e, "origin", None) or old_row.get("origin") or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            (old_row.get("heap_kb") or "").strip(), (old_row.get("stack_kb") or "").strip()]
+                            ((old_row.get("heap_kb") or "").strip() or DEFAULT_HEAP_KB), ((old_row.get("stack_kb") or "").strip() or DEFAULT_STACK_KB)]
                            + [flags_e[c] for c, _ in cols])
     except BaseException:
         for q in (tmp_sno, tmp_ref, tmp_csv, tmp_in):
@@ -2324,7 +2330,7 @@ def main():
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]
-                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _csv_heap.get(e.name, ""), _csv_stack.get(e.name, "")] + [flags[c] for c, _ in COLS])
+                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), (_csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (_csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [flags[c] for c, _ in COLS])
         # ⛔⭐ MERGE, NEVER OVERWRITE (hq_P seat08 2026-09-04, row snobol4-every-non-package-source-...): this
         # run only ever discovers tests/<lang>/ loose-pair exclusions -- it has no opinion on additive
         # (demos/benchmarks) exclusions a DIFFERENT run of this same builder (--additive) already wrote, and a

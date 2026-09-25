@@ -388,12 +388,13 @@ def resolve_oracle_bin(paths, lang=""):
 def _size_switches(heap_kb, stack_kb):
     """A program's DECLARED heap and stack reach the run as SPITBOL's switches, not as environment variables (Lon
     2026-09-23, CEO-1225: SCRIP sizes the heap with -d and -i and the stack with -s, as SPITBOL does; an environment knob
-    is invisible in a transcript, a switch is recorded with the run). heap_kb is the heap the program NEEDS, so it is both
-    the hard cap (-d) and the initial window (-i), which is exactly what SCRIP_HEAP_KB=<kb> used to mean here; stack_kb is
-    -s. They go before the source for scrip --run and lead the compiled binary's own command line, which reads them at its
+    is invisible in a transcript, a switch is recorded with the run). heap_kb is the program's MAXIMUM heap, SPITBOL's -d,
+    and nothing else: the initial window stays SPITBOL's -i1m or the tiny arena of `make test-arena`, which a -i here would
+    silently override for every declared program (ceo CEO-1261; every program declares since Lon's word of 2026-09-25); stack_kb
+    is -s. They go before the source for scrip --run and lead the compiled binary's own command line, which reads them at its
     first allocation. None = the shipped default, so an undeclared program's command line is byte-identical to before."""
     sw = []
-    if heap_kb: sw += ["-d%dk" % heap_kb, "-i%dk" % heap_kb]
+    if heap_kb: sw += ["-d%dk" % heap_kb]
     if stack_kb: sw += ["-s%dk" % stack_kb]
     return sw
 
@@ -835,7 +836,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # declared list, two spellings, one observable result (verified: identical argc/args in m3 and m4).
     run_dir = Path(sno_path).parent
     _same = out_bin.parent.resolve() == run_dir.resolve()
-    argv = stdbuf_wrap(paths, [out_bin.name]) + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [str(a) for a in (prog_argv or [])]
+    argv = stdbuf_wrap(paths, [out_bin.name]) + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + (["--"] + [str(a) for a in prog_argv] if prog_argv else [])
     env = dict(os.environ, SNO_LIB=str(paths["inc"]), PATH=str(out_bin.parent) + os.pathsep + os.environ.get("PATH", ""))
     # ⛔⭐ EXPORTED AT THE RUN AND DELIBERATELY NOT AT THE COMPILE. `scrip --compile` runs the COMPILER
     # in this same process image, so setting the arena there would grade the compiler at the test's
@@ -2583,7 +2584,7 @@ def cmd_run(args):
     # board's arena would change what every published number MEANS with no line of evidence anywhere.
     _arena_kb = os.environ.get("SCRIP_HEAP_KB", "").strip()
     _arena_mb = os.environ.get("SCRIP_HEAP_MB", "").strip()
-    if not _arena_kb: _arena_kb = str(int(_arena_mb) * 1024) if _arena_mb.isdigit() else "128"
+    if not _arena_kb: _arena_kb = str(int(_arena_mb) * 1024) if _arena_mb.isdigit() else str(GC_HEAP_KB_DEFAULT)
     if not _arena_mb: _arena_mb = "0"
     _arena_cap = os.environ.get("SCRIP_HEAP_MAX_MB", "").strip()
     print("ARENA SCRIP_HEAP_KB=%s%s%s" % (_arena_kb, (" SCRIP_HEAP_MAX_MB=" + _arena_cap) if _arena_cap else "",
@@ -3265,10 +3266,12 @@ def cmd_extract(args):
 # window the runtime will accept, and GC_HEAP_KB_MAX the highest. A copy of a runtime constant that
 # nothing checks is the false-label class this whole column exists to close, so
 # test_gate_suite_runners_honour_the_tests_declared_memory.sh re-reads the #defines and reds on drift.
-GC_HEAP_CAP_KB = 4096          # #define GC_HEAP_CAP_KB 4096
+GC_HEAP_CAP_KB = 131072        # #define GC_HEAP_CAP_KB 131072 (SPITBOL -d128m, ceo CEO-1261)
+GC_HEAP_KB_DEFAULT = 1024      # #define GC_HEAP_KB 1024 (SPITBOL -i1m): a declared maximum below the initial window is refused
 GC_HEAP_KB_FLOOR = 64          # #define GC_HEAP_KB_FLOOR 64
 GC_HEAP_KB_MAX = 4096 * 1024   # the ceiling SCRIP_HEAP_KB itself refuses past
-GC_STACK_FLOOR_KB = 64 * 1024  # src/runtime/core/core.c: `long floor = 64L * 1024 * 1024;` -- the stack RLIMIT_STACK is raised to at init
+GC_STACK_FLOOR_KB = 4 * 1024   # src/runtime/rt/rt_stack_overflow.c RT_STACK_DEFAULT_BYTES: SPITBOL's -s4m, the stack an undeclared program gets
+GC_STACK_KB_MIN = 64           # the least stack a declaration may name
 GC_STACK_KB_MAX = 4096 * 1024  # a declared stack past 4 GB is refused as a typo, never honoured
 
 
@@ -3314,15 +3317,11 @@ def validate_heap_kb(raw, where):
         refuse(f"{where}: heap_kb={t!r} is not a plain integer count of KB -- a declaration is a "
                f"measurement, and a cell this reader cannot parse is not one")
     v = int(t)
-    if v <= GC_HEAP_CAP_KB:
-        refuse(f"{where}: heap_kb={v} is at or below the shipped hard cap of {GC_HEAP_CAP_KB} KB and is "
-               f"REFUSED. gc_heap.c raises the cap only once the window passes {GC_HEAP_CAP_KB} "
-               f"(cap_kb = GC_HEAP_CAP_KB; if (cap_kb < kb) cap_kb = kb), so this cell changes the INITIAL "
-               f"WINDOW and nothing about what the program can reach -- it would read as a capacity "
-               f"declaration while granting no capacity. Measured 2026-09-23: 128/2048/4096 all abort at a "
-               f"printed 4096 KB cap on one witness, 8192 completes. Declare a number ABOVE "
-               f"{GC_HEAP_CAP_KB}, or leave the cell empty for the shipped default and reach for "
-               f"SCRIP_GC_STRESS if the intent was collection pressure (CEO-1158)")
+    if v < GC_HEAP_KB_DEFAULT:
+        refuse(f"{where}: heap_kb={v} is below the {GC_HEAP_KB_DEFAULT} KB initial window and is REFUSED: heap_kb is the "
+               f"program's MAXIMUM heap (SPITBOL -d, passed as -d{v}k) and a maximum under the window cannot be honoured. "
+               f"CEO-1171's refusal of a cell at or below the shipped cap is retired on Lon's word of 2026-09-25 -- every "
+               f"program declares its settings, and a declaration equal to the default is a setting (ceo CEO-1261)")
     if v > GC_HEAP_KB_MAX:
         refuse(f"{where}: heap_kb={v} is above the {GC_HEAP_KB_MAX} KB ceiling SCRIP_HEAP_KB itself "
                f"refuses -- the runtime would abort on this value rather than run at it")
@@ -3394,11 +3393,10 @@ def validate_stack_kb(raw, where):
         refuse(f"{where}: stack_kb={t!r} is not a plain integer count of KB -- a declaration is a measurement, and a cell "
                f"no reader can parse is not one")
     v = int(t)
-    if v <= GC_STACK_FLOOR_KB:
-        refuse(f"{where}: stack_kb={v} is at or below the runtime's {GC_STACK_FLOOR_KB} KB stack floor and is REFUSED. core.c "
-               f"raises RLIMIT_STACK to SCRIP_STACK INSTEAD of its floor, so a smaller cell SHRINKS the stack below every "
-               f"undeclared program's and an equal one changes nothing -- either reads as a declaration and grants none. "
-               f"Declare above {GC_STACK_FLOOR_KB}, or leave the cell empty for the shipped floor")
+    if v < GC_STACK_KB_MIN:
+        refuse(f"{where}: stack_kb={v} is below the {GC_STACK_KB_MIN} KB least stack a declaration may name. The default is "
+               f"SPITBOL's -s4m ({GC_STACK_FLOOR_KB} KB) and a declaration equal to it is a setting, not a no-op -- every "
+               f"program declares its settings on Lon's word of 2026-09-25 (ceo CEO-1261)")
     if v > GC_STACK_KB_MAX:
         refuse(f"{where}: stack_kb={v} is above the {GC_STACK_KB_MAX} KB ceiling a stack declaration may name")
     return v

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_pascal_bench_suite.sh — THE PASCAL BENCHMARKS GRADED AS TESTS (row pascal-benchmarks-double-as-tests-ref-in-out-through-the-
 # three-angle-harness-with-a-row-in-the-suite-grid; RULES.md § THE KERNEL CONVENTION, 2026-09-23 addendum, CEO-1221).

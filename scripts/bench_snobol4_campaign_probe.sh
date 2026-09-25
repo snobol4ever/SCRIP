@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_snobol4_campaign_probe.sh [--bar X] [--bud-ms N] [--scale N] -- THE SNOBOL4 SPEED CAMPAIGN'S CHEAP PROBE (ceo 2026-09-24, CEO-1246;
 # Lon: "keep optimizing SNOBOL4 benchmarks until we are 2-3x faster than SPITBOL ... Use the work horse demos and benchmarks").
 # WHAT IT MEASURES: four kernels' fixed-time twins (arith_loop, ident_call1, string_manip, table_access -- one per class: tight loop,

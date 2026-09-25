@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_snocone.sh -- Snocone benchmark board vs its SNOBOL4 twin (row
 # readme-perf-grids-three-angles-all-seven, I26). Snocone compiles into the same engine as SNOBOL4
 # (README § Snocone), so "the SNOBOL4 twin" -- the identical kernel hand-translated into SNOBOL4 syntax,

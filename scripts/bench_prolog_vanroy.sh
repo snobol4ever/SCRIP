@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_prolog_vanroy.sh — PL-SPEED-0 MEASUREMENT RAIL (van Roy loop harness).
 # Per-iteration compute (ms) for GNU (gprolog consult) · SWI (swipl) · SCRIP m3
 # (--run) · SCRIP m4 (compiled binary), each bench looped via the PROVEN

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_prolog_wrap.sh -- BUILD A TIMED / COUNTED PROLOG BENCHMARK ON THE FLY FROM A PRISTINE KERNEL.
 #
 #   bash scripts/bench_prolog_wrap.sh <kernel.pl> [-o <out.pl>] [--mode=single|time|iter] [--n=<iters>]

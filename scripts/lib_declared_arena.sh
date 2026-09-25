@@ -42,7 +42,11 @@
 # for as a ruling rather than taken as one, because refusing is criterion-shaped and criterion-writing
 # is not the instruments seat's verb; the answer came back as law and is cited here at the constant it
 # governs, so a reader who reaches for the number reaches the rule in the same glance.
-DECLARED_ARENA_CAP_KB=4096          # gc_heap.c #define GC_HEAP_CAP_KB
+# ⛔⭐⭐ CEO-1171's "above the compiled cap or not a declaration" rule is RETIRED (Lon 2026-09-25, in-chat to the ceo, verbatim: "Ensure that all the test suite programs have the stack size and heap size setting placed into the per-program attribute files."; ceo CEO-1261): every program declares its settings, a
+# declaration equal to the default is a setting, not a no-op, and heap_kb is the program's MAXIMUM heap (SPITBOL -d), applied as
+# SCRIP_HEAP_CAP_KB or -d<kb>k, never as the initial window -- the window stays SPITBOL's -i1m, or the tiny arena of `make test-arena`.
+DECLARED_ARENA_CAP_KB=131072        # gc_heap.c #define GC_HEAP_CAP_KB (SPITBOL -d128m)
+DECLARED_ARENA_MIN_KB=1024          # gc_heap.c #define GC_HEAP_KB: a maximum below the initial window is refused
 DECLARED_ARENA_MAX_KB=4194304       # 4096*1024, the ceiling SCRIP_HEAP_KB itself refuses past
 _LDA_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -59,6 +63,7 @@ declared_arena_kb() {
   python3 - "$csv" "$entry" "$DECLARED_ARENA_CAP_KB" "$DECLARED_ARENA_MAX_KB" <<'PY'
 import csv, sys
 path, want, cap, mx = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+cap = 1024
 try:
     with open(path, newline="") as f:
         rdr = csv.DictReader(f)
@@ -76,14 +81,10 @@ try:
                                  % (path, n, v))
                 sys.exit(2)
             k = int(v)
-            if k <= cap:
-                sys.stderr.write("⛔ REFUSE(2) %s:%d heap_kb=%d is at or below the shipped hard cap of %d KB. "
-                                 "gc_heap.c raises the cap only once the window passes it, so this cell moves "
-                                 "the initial window and nothing about what the program can reach -- it would "
-                                 "read as a capacity declaration while granting no capacity (measured "
-                                 "2026-09-23: 128/2048/4096 all abort at a printed 4096 KB cap, 8192 completes). "
-                                 "Declare above %d, or leave it empty and use SCRIP_GC_STRESS if the intent was "
-                                 "collection pressure (CEO-1158)\n" % (path, n, k, cap, cap))
+            if k < cap:
+                sys.stderr.write("⛔ REFUSE(2) %s:%d heap_kb=%d is below the %d KB initial window: heap_kb is the program's "
+                                 "MAXIMUM heap (SPITBOL -d) and a maximum under the window cannot be honoured (ceo CEO-1261)\n"
+                                 % (path, n, k, cap))
                 sys.exit(2)
             if k > mx:
                 sys.stderr.write("⛔ REFUSE(2) %s:%d heap_kb=%d is above the %d KB ceiling SCRIP_HEAP_KB itself "
@@ -92,6 +93,8 @@ try:
                 sys.exit(2)
             print(k)
             sys.exit(0)
+    _lg = __import__("os").environ.get("SCRIP_DECL_MISS_LOG")
+    if _lg: open(_lg, "a").write("%s\t%s\n" % (path, want))
 except OSError:
     sys.exit(0)
 PY
@@ -140,7 +143,7 @@ run_at_declared_arena() {
   [ "$1" = "--" ] && shift
   local kb st; kb=$(declared_arena_kb "$csv" "$entry") || return 2
   st=$(declared_stack_kb "$csv" "$entry") || return 2
-  ( [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
+  ( [ -n "$kb" ] && export SCRIP_HEAP_CAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
 }
 
 # ⭐ THE STACK, THE HEAP'S TWIN (Lon 2026-09-23 18:3x, in-chat to the ceo: "an attribute of stack and heap sizes be added to the TSV
@@ -150,7 +153,7 @@ run_at_declared_arena() {
 # REPLACES the floor, so a cell below 65536 SHRINKS the stack under every undeclared neighbour's -- MEASURED 2026-09-23 on one binary:
 # a 100000-deep Icon recursion completes at the default and dies with ERROR 246 at SCRIP_STACK=16384k, while a 200000-deep one dies
 # at the default and completes at 262144k, in m3 and m4 -- and a cell AT the floor changes nothing while reading as a declaration.
-DECLARED_STACK_FLOOR_KB=65536       # core.c: long floor = 64L * 1024 * 1024
+DECLARED_STACK_FLOOR_KB=64          # the least stack a declaration may name; SPITBOL's -s4m is the default (rt_stack_overflow.c RT_STACK_DEFAULT_BYTES)
 DECLARED_STACK_MAX_KB=4194304       # a declared stack past 4 GB is refused as a typo
 
 # declared_stack_kb <all_csv> <entry> -- the stack_kb twin of declared_arena_kb: the KB, nothing (absent = the floor), or rc 2.
@@ -174,16 +177,15 @@ try:
             if not v.isdigit():
                 sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%r is not a plain integer count of KB\n" % (path, n, v)); sys.exit(2)
             k = int(v)
-            if k <= flr:
-                sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%d is at or below the runtime's %d KB stack floor. SCRIP_STACK REPLACES "
-                                 "the floor, so a smaller cell SHRINKS the stack below every undeclared program's and an equal one "
-                                 "changes nothing -- either reads as a declaration and grants none. Declare above %d or leave it "
-                                 "empty\n" % (path, n, k, flr, flr))
+            if k < flr:
+                sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%d is below the %d KB least stack a declaration may name (ceo CEO-1261)\n" % (path, n, k, flr))
                 sys.exit(2)
             if k > mx:
                 sys.stderr.write("⛔ REFUSE(2) %s:%d stack_kb=%d is above the %d KB ceiling a stack declaration may name\n" % (path, n, k, mx))
                 sys.exit(2)
             print(k); sys.exit(0)
+    _lg = __import__("os").environ.get("SCRIP_DECL_MISS_LOG")
+    if _lg: open(_lg, "a").write("%s\t%s\n" % (path, want))
 except OSError:
     sys.exit(0)
 PY
@@ -239,8 +241,7 @@ try:
         if not v.isdigit():
             return False, "unparseable"
         k = int(v)
-        return (cap < k <= mx), ("at or below the %d KB shipped cap, grants no capacity" % cap
-                                 if k <= cap else "above the %d KB ceiling" % mx)
+        return (1024 <= k <= mx), ("below the 1024 KB initial window" if k < 1024 else "above the %d KB ceiling" % mx)
     named, refused = [], []
     for n, v in d:
         if not v:
@@ -264,7 +265,7 @@ try:
         if rdr.fieldnames and "stack_kb" in rdr.fieldnames:
             st = [(r.get("entry"), (r.get("stack_kb") or "").strip()) for r in rdr]
             flr, smx = int(sys.argv[4]), int(sys.argv[5])
-            ok_s = [(n, v) for n, v in st if v.isdigit() and flr < int(v) <= smx]
+            ok_s = [(n, v) for n, v in st if v.isdigit() and flr <= int(v) <= smx]
             bad_s = [(n, v) for n, v in st if v and (n, v) not in ok_s]
             print("    DECLARED STACK (CEO-1225): %d of %d entr(y/ies) graded at a declared stack, the rest at the runtime's "
                   "%d KB floor%s" % (len(ok_s), len(st), flr, (" -- " + ", ".join("%s=%sKB" % x for x in ok_s)) if ok_s else ""))
@@ -310,8 +311,10 @@ for n, r in rows:
     if not e or "\t" in e:
         sys.stderr.write("⛔ REFUSE(2) %s declares memory for an entry with no usable name (%r)\n" % (where, e)); sys.exit(2)
     if e in seen:
-        sys.stderr.write("⛔ REFUSE(2) %s declares memory for %s, already declared at line %d -- one entry, one declaration\n" % (where, e, seen[e])); sys.exit(2)
-    seen[e] = n
+        if seen[e][1] == (kb, st):
+            continue
+        sys.stderr.write("⛔ REFUSE(2) %s declares memory for %s differently from line %d -- one entry, one declaration (the same declaration repeated is one declaration)\n" % (where, e, seen[e][0])); sys.exit(2)
+    seen[e] = (n, (kb, st))
     out.append((e, "" if kb is None else kb, "" if st is None else st))
 for e, kb, st in out:
     print("%s\t%s\t%s" % (e, kb, st))
@@ -322,6 +325,7 @@ PY
 #   says at which heap and stack its programs ran) and writes the table; rc 2 on a refused cell, the table removed so no run can use it.
 declared_memory_begin() {
   local csv="$1" tbl="$2"
+  export DECL_CSV_OF_TABLE="$csv"
   declared_arena_receipt "$csv"
   declared_memory_table "$csv" > "$tbl" || { rm -f "$tbl"; return 2; }
 }
@@ -332,25 +336,31 @@ declared_memory_begin() {
 #   ⛔ rc 2 when the table FILE is missing: a runner that never built it would grade every program at the default while its receipt
 #   named the declarations. ⛔ NOT `IFS=$'\t' read`: a TAB is IFS whitespace, so an empty heap cell before a stack cell would
 #   collapse and hand the stack's KB to the heap.
+# _decl_miss <file> <entry> -- a program looked up with no row in its suite's attribute file is logged to SCRIP_DECL_MISS_LOG when set,
+# so a board run names every program the attribute file does not yet list (Lon 2026-09-25: every test program carries its settings;
+# ceo CEO-1261). Silent and free when the variable is unset.
+_decl_miss() { [ -n "${SCRIP_DECL_MISS_LOG:-}" ] && printf '%s\t%s\n' "$1" "$2" >> "$SCRIP_DECL_MISS_LOG"; return 0; }
 run_at_declared_table() {
   local tbl="$1" entry="$2" rec kb st; shift 2
   [ "${1:-}" = "--" ] && shift
   [ -n "$tbl" ] && [ -f "$tbl" ] || { echo "⛔ REFUSE(2) run_at_declared_table: no declared-memory table at '${tbl}' -- build it with declared_memory_begin first" >&2; return 2; }
   rec="$(awk -F'\t' -v e="$entry" '$1 == e { print $2 "|" $3; exit }' "$tbl")"
+  [ -n "$rec" ] || _decl_miss "${DECL_CSV_OF_TABLE:-$tbl}" "$entry"
   kb="${rec%%|*}"; st="${rec#*|}"
-  ( [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
+  ( [ -n "$kb" ] && export SCRIP_HEAP_CAP_KB="$kb"; [ -n "$st" ] && export SCRIP_STACK="${st}k"; "$@" )
 }
 
 # ⭐ THE DECLARATION AS SWITCHES (row instruments-ninety-two-scripts-and-the-makefile-size-the-arena-through-the-env-not-the-d-switch;
 # CEO-1225/1226: SCRIP sizes the heap with -d and -i and the stack with -s, as SPITBOL does, and a switch is recorded with the run where
 # an environment knob is invisible in a transcript). These print the words a runner puts on its OWN scrip command line -- after --run
 # for mode 3, leading the compiled binary's arguments for mode 4 -- spelled exactly as corpus_suite_harness.py's _size_switches spells
-# them: a declared heap is both the cap and the initial window (-d<kb>k -i<kb>k), a declared stack is -s<kb>k, nothing declared prints
+# them: a declared heap is the program's maximum heap (-d<kb>k; ceo CEO-1261 -- never -i, which would override the tiny arena of GC
+# testing), a declared stack is -s<kb>k, nothing declared prints
 # nothing. test_gate_declared_arena_switches_agree_with_the_harness.sh holds the two spellings together. MEASURED 2026-09-24: every
 # heap_kb declared in the corpus is 8192 KB or more, where -d/-i and the old SCRIP_HEAP_KB export read the same window AND the same cap.
 _declared_switch_words() {  # <heap_kb> <stack_kb> -> the words
   local kb="$1" st="$2" sw=""
-  [ -n "$kb" ] && sw="-d${kb}k -i${kb}k"
+  [ -n "$kb" ] && sw="-d${kb}k"
   [ -n "$st" ] && sw="${sw:+$sw }-s${st}k"
   printf '%s\n' "$sw"
 }
@@ -368,5 +378,6 @@ declared_switches_from_table() {
   local tbl="$1" entry="$2" rec
   [ -n "$tbl" ] && [ -f "$tbl" ] || { echo "⛔ REFUSE(2) declared_switches_from_table: no declared-memory table at '${tbl}' -- build it with declared_memory_begin first" >&2; return 2; }
   rec="$(awk -F'\t' -v e="$entry" '$1 == e { print $2 "|" $3; exit }' "$tbl")"
+  [ -n "$rec" ] || _decl_miss "${DECL_CSV_OF_TABLE:-$tbl}" "$entry"
   _declared_switch_words "${rec%%|*}" "${rec#*|}"
 }

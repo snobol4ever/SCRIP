@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # scripts/bench_rtx_3arm.sh -- RTX-0e: THE THREE-ARM INTERLEAVED HARNESS.
 #
 # WHY THIS EXISTS (s209, and it retro-qualifies numbers already in the ladder)

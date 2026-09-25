@@ -52,6 +52,7 @@ __attribute__((visibility("hidden"))) int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) { extern long g_trace; extern int64_t kw_trace; extern int64_t kw_ftrace; if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0; return !g_comm_dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0; }
+int rt_trace_idle(void) { return trace_idle(); }
 int g_sno_etrace_n = 0;
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out);
 static void etrace_recount(void);
@@ -1372,20 +1373,33 @@ static long _sw_mem_arg(const char *t) {
     if (*e == 'k' || *e == 'K') { v *= 1024L; e++; } else if (*e == 'm' || *e == 'M') { v *= 1024L * 1024L; e++; }
     return *e ? -1 : v;
 }
+_Static_assert(sizeof(long) == 8, "A COMPILED PROGRAM'S COMMAND LINE FOLLOWS THE STANDARD CONVENTION (Lon 2026-09-25, in-chat to the ceo, verbatim: \"You should fix the command-line switch processing in SCRIP if it is not standard convention and is causing you problems.\"; ceo CEO-1261): the runtime consumes only WELL-FORMED switches of its own, -d -i -s -m with a size attached (-s4m) or following (-s 4m) and -u with its string, a -- ends them and is consumed, and the first token that is not one -- a program's own option included, textcvt's `-d -f` and datmerge's `-min` in the IPL -- is the program's first argument, never refused: a compiled program's argv is the program's; it used to skip every leading dash token, known or not, while the program still saw them all, and HOST(0) found -u only in the first position");
+static int cmdline_switch_walk(long *win_kb, long *cap_kb, long *stk, long *mxl, char *ub, int ubsz, int *has_u, int *bad, int report)
+{
+    char tok[4096]; int i = 1;
+    *bad = 0;
+    for (;;) {
+        if (host_cmdline_arg(i, tok, (int)sizeof(tok)) != i) return i;
+        if (tok[0] != '-' || tok[1] == '\0') return i;
+        if (tok[1] == '-' && tok[2] == '\0') return i + 1;
+        if (!(tok[1] == 'd' || tok[1] == 'i' || tok[1] == 's' || tok[1] == 'm' || tok[1] == 'u')) return i;
+        { char sw = tok[1]; const char *val = tok + 2; int at = i;
+          if (*val == '\0') { if (host_cmdline_arg(i + 1, tok, (int)sizeof(tok)) != i + 1) return at; val = tok; }
+          if (sw != 'u' && _sw_mem_arg(val) < 0) return at;
+          if (val == tok) i++;
+          if (sw == 'u') { if (ub && ubsz > 0) snprintf(ub, (size_t)ubsz, "%s", val); if (has_u) *has_u = 1; i++; continue; }
+          { long v = _sw_mem_arg(val);
+            if (sw == 'd') { if (cap_kb) *cap_kb = v >> 10; } else if (sw == 'i') { if (win_kb) *win_kb = v >> 10; } else if (sw == 's') { if (stk) *stk = v; } else { if (mxl) *mxl = v; } } }
+        i++;
+    }
+}
+int rt_cmdline_prog_first(void) { int bad = 0; return cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, (char *)0, 0, (int *)0, &bad, 0); }
 void rt_cmdline_switches_apply(void) {
     static int done = 0; if (done) return; done = 1;
-    char tok[4096]; long win_kb = 0, cap_kb = 0;
-    for (int i = 1; host_cmdline_arg(i, tok, (int)sizeof(tok)) == i; i++) {
-        if (tok[0] != '-' || tok[1] == '\0') break;
-        if (tok[1] == '-') { if (tok[2] == '\0') break; continue; }
-        if (tok[1] == 'u') { if (tok[2] == '\0') i++; continue; }
-        if (tok[1] == 'd' || tok[1] == 'i' || tok[1] == 's' || tok[1] == 'm') {
-            const char *val = tok + 2; if (*val == '\0') { if (host_cmdline_arg(i + 1, tok, (int)sizeof(tok)) != i + 1) break; val = tok; i++; }
-            long v = _sw_mem_arg(val); if (v < 0) continue;
-            if (tok[0] == '-' && tok[1] == 'd') cap_kb = v >> 10; else if (tok[0] == '-' && tok[1] == 'i') win_kb = v >> 10; else if (tok[0] == '-' && tok[1] == 's') _sw_stack_bytes = v; else if (tok[0] == '-' && tok[1] == 'm') { extern long g_maxlngth; g_maxlngth = v; }
-            continue;
-        }
-    }
+    long win_kb = 0, cap_kb = 0, mxl = -1; int bad = 0;
+    (void)cmdline_switch_walk(&win_kb, &cap_kb, &_sw_stack_bytes, &mxl, (char *)0, 0, (int *)0, &bad, 1);
+    if (bad) exit(2);
+    if (mxl >= 0) { extern long g_maxlngth; g_maxlngth = mxl; }
     if (win_kb > 0 || cap_kb > 0) { extern void rt_heap_size_set(long, long); rt_heap_size_set(win_kb, cap_kb); }
 }
 static DESCR_t _HOST_(DESCR_t *a, int n) {
@@ -1393,8 +1407,8 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     int64_t selector = to_int(a[0]);
     if (selector == 0) {
         if (_host_u) return *_host_u ? STRVAL(rt_heap_strdup_c(_host_u)) : NULVCL;
-        char ub[4096];
-        if (host_cmdline_arg(1, ub, (int)sizeof(ub)) == 1 && strcmp(ub, "-u") == 0 && host_cmdline_arg(2, ub, (int)sizeof(ub)) == 2) return STRVAL(rt_heap_strdup_c(ub));
+        { char ub[4096]; int has_u = 0, bad = 0; (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, ub, (int)sizeof(ub), &has_u, &bad, 0);
+          if (has_u && !bad) return *ub ? STRVAL(rt_heap_strdup_c(ub)) : NULVCL; }
         return NULVCL;
     }
     if (selector == 1) {
@@ -2500,16 +2514,8 @@ void core_lib_init(void) {
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
     if (!core_stack_floor_raised) {
         core_stack_floor_raised = 1;
-        long floor = 64L * 1024 * 1024;
-        const char *e = getenv("SCRIP_STACK");
-        if (e && e[0]) { char *ep = NULL; long ev = strtol(e, &ep, 10);
-            if (ev > 0) { if (ep && (*ep == 'k' || *ep == 'K')) ev *= 1024L; else if (ep && (*ep == 'm' || *ep == 'M')) ev *= 1024L * 1024L; floor = ev; } }
-        rt_cmdline_switches_apply(); if (_sw_stack_bytes > 0) floor = _sw_stack_bytes;
-        struct rlimit rl;
-        if (getrlimit(RLIMIT_STACK, &rl) == 0) {
-            if (rl.rlim_max != RLIM_INFINITY && (rlim_t)floor > rl.rlim_max) floor = (long)rl.rlim_max;
-            if (rl.rlim_cur == RLIM_INFINITY || (rlim_t)floor > rl.rlim_cur) { rl.rlim_cur = (rlim_t)floor; setrlimit(RLIMIT_STACK, &rl); }
-        }
+        rt_cmdline_switches_apply();
+        { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(_sw_stack_bytes), 0L); }
     }
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';

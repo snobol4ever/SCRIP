@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1885
+#define GC_ALLOC_TAB_N 1891
 #define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 991
-#define GC_ALLOC_TAB_N_OTHER 651
+#define GC_ALLOC_TAB_N_OTHER 657
 #define GC_ALLOC_TAB_N_UNKNOWN 2
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -376,13 +376,17 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "blob_lay_push", GC_RET_VOID },
     { "blob_layout_build", GC_RET_OTHER },
     { "blob_layout_slot", GC_RET_VOID },
+    { "bn_array", GC_RET_OTHER },
     { "bn_bal_gen", GC_RET_OTHER },
+    { "bn_convert", GC_RET_OTHER },
     { "bn_date", GC_RET_OTHER },
     { "bn_dupl", GC_RET_OTHER },
     { "bn_integer", GC_RET_OTHER },
     { "bn_lexrel", GC_RET_OTHER },
     { "bn_lpad", GC_RET_OTHER },
+    { "bn_mkpat", GC_RET_OTHER },
     { "bn_numrel", GC_RET_OTHER },
+    { "bn_prototype", GC_RET_OTHER },
     { "bn_remdr", GC_RET_OTHER },
     { "bn_replace", GC_RET_OTHER },
     { "bn_reverse", GC_RET_OTHER },
@@ -391,6 +395,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bn_sno_name", GC_RET_OTHER },
     { "bn_str_anal", GC_RET_OTHER },
     { "bn_substr", GC_RET_OTHER },
+    { "bn_table", GC_RET_OTHER },
     { "bn_trim", GC_RET_OTHER },
     { "bn_type_datatype", GC_RET_OTHER },
     { "c_VARVAL_fn", GC_RET_OTHER },
@@ -1010,6 +1015,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_name_sn4", GC_RET_DESCR },
     { "rt_call_named_proc", GC_RET_DESCR },
     { "rt_call_open_by_name", GC_RET_OTHER },
+    { "rt_call_open_by_name_p", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },

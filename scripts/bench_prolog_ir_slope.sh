@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_prolog_ir_slope.sh -- THE TWO-NUMBER WORK/OVERHEAD BASIS FOR PROLOG KERNELS, AS AN Ir REGRESSION.
 # Row prolog-has-no-ir-at-fixed-work-instrument-so-every-speed-number-in-the-lane-is-wall-clock-only
 # (hq_prolog 2026-09-16, officer cto). Modelled on bench_ir_slope.sh (snobol4, hq_P, ceo audit CEO-192).

@@ -180,8 +180,8 @@ def declarations():
                             continue
                         if not v.isdigit():
                             verdict = "REFUSED (unparseable)"
-                        elif int(v) <= 4096:
-                            verdict = "REFUSED (<= the 4096 KB shipped cap: grants no capacity)"
+                        elif int(v) < 1024:
+                            verdict = "REFUSED (below the 1024 KB initial window: a maximum under the window cannot be honoured, CEO-1261)"
                         elif int(v) > 4096 * 1024:
                             verdict = "REFUSED (above the ceiling SCRIP_HEAP_KB accepts)"
                         else:

@@ -116,10 +116,13 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         : "memory", "rsi", "r8", "r9", "r10", "r11"
     );
 }
+#define RT_OUTER_RESERVE 4194304L
+#define RT_OUTER_RESERVE_S "4194304"
+_Static_assert(RT_OUTER_RESERVE == 4194304L && RT_OUTER_RESERVE % 16 == 0, "RT_OUTER_RESERVE_S is the same number spelled for the trampoline's asm: the mode-3 top-level slot region reserved above the program (9e6c187c8); the stack budget a mode-3 program is given adds it on top of the program's own -s (ceo CEO-1261)");
 __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
         "rt_outer_call:\n"
         "  push %r12\n"
-        "  sub $4194304, %rsp\n"
+        "  sub $" RT_OUTER_RESERVE_S ", %rsp\n"
         "  mov %rdi, %rax\n"
         "  mov %rsi, %rdi\n"
         "  mov %rdx, %rsi\n"
@@ -137,7 +140,7 @@ __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
         "  push %rcx\n"
         "  push %rcx\n"
         "  jmp *%rax\n"
-        "  add $4194304, %rsp\n"
+        "  add $" RT_OUTER_RESERVE_S ", %rsp\n"
         "  add $16, %rsp\n"
         "  pop %r12\n"
         "  ret\n"
@@ -1001,7 +1004,7 @@ int main(int argc, char **argv)
         return 1;
     }
     int mode_run           = 0;
-    int opt_no_exec = 0, opt_input_after_end = 0; const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0; long opt_heap_win_kb = 0, opt_heap_cap_kb = 0;
+    int opt_no_exec = 0, opt_input_after_end = 0; const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0; long opt_heap_win_kb = 0, opt_heap_cap_kb = 0, opt_stack_bytes = 0;
     int mode_compile       = 0;
     int dump_ast           = 0;
     int dump_ir            = 0;
@@ -1057,7 +1060,7 @@ int main(int argc, char **argv)
         if (sw == 'c' || sw == 'a' || sw == 'l' || sw == 'p' || sw == 'z' || sw == 'g' || sw == 't' || sw == 'h' || sw == 'e') { fprintf(stderr, "scrip: -%c is a SPITBOL compilation-listing or compiler-statistics switch and SCRIP produces no listing; the switch is refused, not ignored (-x, execution statistics, is honoured)\n", sw); return 2; }
         if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
         v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
-        if (sw == 's') { if (apply_stack_limit(v) != 0) { fprintf(stderr, "scrip: -s%ld: could not raise stack limit\n", v); return 2; } }
+        if (sw == 's') { if (v < 65536L) { fprintf(stderr, "scrip: -s%ld: the stack must be at least 64k\n", v); return 2; } opt_stack_bytes = v; }
         else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
         else if (sw == 'd') { opt_heap_cap_kb = v >> 10; if (opt_heap_cap_kb < 1) { fprintf(stderr, "scrip: -d%ld: the maximum heap must be at least 1k\n", v); return 2; } }
         else if (sw == 'i') { opt_heap_win_kb = v >> 10; if (opt_heap_win_kb < 1) { fprintf(stderr, "scrip: -i%ld: the initial heap must be at least 1k\n", v); return 2; } }
@@ -1103,11 +1106,13 @@ int main(int argc, char **argv)
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variable tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace imply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n"
             "\n"
             "Memory options (SPITBOL-compatible; value may end in k or m, e.g. -s256m -m8m):\n"
-            "  -sN              max stack space; raises RLIMIT_STACK for deep pattern backtracking (default: OS, 8m)\n"
-            "  -mN              max object size -> &MAXLNGTH (default 5m)\n"
-            "  -dN              max heap: the GC heap's HARD CAP (SPITBOL -d#; default 4m; a live set above it is a reported out-of-memory)\n"
-            "  -iN              initial heap and enlarge amount: the first committed window and the least each growth commits (SPITBOL -i#; default 128k)\n"
-            "                   -d -i -s -m reach a compiled (--compile) program the same way: it reads them as leading switches on its own command line\n"
+            "  -sN              the program's stack (SPITBOL -s#; default 4m, SPITBOL's; the compiler itself runs on its own 64m)\n"
+            "  -mN              max object size -> &MAXLNGTH (default 16m, SPITBOL's)\n"
+            "  -dN              max heap: the GC heap's HARD CAP (SPITBOL -d#; default 128m, SPITBOL's; a live set above it is a reported out-of-memory)\n"
+            "  -iN              initial heap and enlarge amount: the first committed window and the least each growth commits (SPITBOL -i#; default 1m, SPITBOL's)\n"
+            "                   -d -i -s -m -u reach a compiled (--compile) program the same way, as leading well-formed switches on its own\n"
+            "                   command line; -- ends them; the first token that is not one is the program's first argument, and the program\n"
+            "                   never sees the switches it consumed\n"
             "\n"
             "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, CEO-1224/1227):\n"
             "  -n               compile, suppress execution (exit 231 as sbl does)\n"
@@ -1333,6 +1338,7 @@ int main(int argc, char **argv)
     }
     setvbuf(stdout, NULL, _IOLBF, 0);
     extern void core_lib_init(void);
+    { extern int core_stack_floor_raised; struct rlimit rl; core_stack_floor_raised = 1; if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) (void)apply_stack_limit(64L << 20); }
     core_lib_init();
     stmt_init();
     register_fn("IDENT",  _builtin_IDENT,  1, 2);
@@ -1585,7 +1591,7 @@ int main(int argc, char **argv)
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n"); if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
+            emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage_argv@PLT\n"); if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
             int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
@@ -1793,6 +1799,7 @@ int main(int argc, char **argv)
             void *mf = NULL;
             { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); char _pnb[4096]; if (_pn) { const char *_sl = strrchr(_pn, '/'); const char *_dt = strrchr(_pn, '.'); if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1) && (size_t)(_dt - _pn) < sizeof _pnb) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; } } rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
             if (opt_no_exec) return 231;
+            { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(opt_stack_bytes), (_zframe_graph && !_icn_cells_graph) ? 0L : RT_OUTER_RESERVE); }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {

@@ -11,9 +11,10 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #define GC_HEAP_MB 1
-#define GC_HEAP_KB 128
+#define GC_HEAP_KB 1024
 #define GC_RESERVE_FLOOR_MB 512
-#define GC_HEAP_CAP_KB 4096
+#define GC_HEAP_CAP_KB 131072
+_Static_assert(GC_HEAP_KB == 1024 && GC_HEAP_CAP_KB == 131072, "THE DEFAULTS ARE SPITBOL'S (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.\"; ceo CEO-1261): sbl prints its option defaults as -d128m -i1m -m16m -s4m: the initial window is -i1m and the hard cap -d128m; the window is also the least each growth commits (rt_gcheap_grow), which is -i's second meaning; the 128 KB arena of CEO-1095 is the GC-testing instrument (make test-arena, SCRIP_HEAP_KB_TINY) and no longer the shipped default");
 #define GC_HEAP_KB_FLOOR 64
 #include "descr.h"
 #include "pin_va.h"
@@ -190,7 +191,7 @@ static int rt_gcheap_grow(uint64_t need)
     if (!left) { rt_gcheap_cap_hit(need); return 0; }
     { size_t want = (size_t)need + sizeof(rt_hblk_t), committed = (size_t)(g_hp_end - g_hp_arena); want = (want + 0xFFFu) & ~(size_t)0xFFFu;
       if ((size_t)g_hp_live * 2u > committed && want < committed) want = committed;
-      if (g_hp_sw_win_kb > 0 && want < ((size_t)g_hp_sw_win_kb << 10)) want = (size_t)g_hp_sw_win_kb << 10;
+      if (want < g_hp_chunk) want = g_hp_chunk;
       if (want > left) want = left;
       if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] lazy commit refused %ld KB at %p under a %ld KB hard cap\n", (long)(want >> 10), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 10)); return 0; }
       gc_huge_advise(g_hp_end, g_hp_end + want);
@@ -463,10 +464,14 @@ static size_t gc_pg(void)
     return pg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(sizeof(int) == 4, "THE COLLECTOR'S SELF-CHECKS ARE DIAGNOSTICS AND ONE SWITCH TURNS THEM ALL OFF (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Why must there be a heap check at every collection? That seems to be diagnostic. Can the be turned off by a switch?\" and \"For benchmarks turn off all diagnostic code.\"; ceo CEO-1262): SCRIP_DIAG=0 turns off the heap check at every collection (rt_gcheap_verify), the 0xDB poison of vacated ground, the stale-read quarantine and its ledger, and the compiled node-id stores; each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP, SCRIP_DIAG_REGS), which wins when set; unset, every diagnostic stays on, so every test runs with them and every benchmark driver exports SCRIP_DIAG=0");
+static int gc_diag_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DIAG"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int gc_verify_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_VERIFY"); v = (e && *e) ? (*e != '0') : gc_diag_on(); } return v; }
+static int gc_telem_on(void) { static int v = -1; if (v < 0) v = getenv("SCRIP_ZETA_TELEM") ? 1 : 0; return v; }
 static int gc_trap_on(void)
 {
     static int t = -1;
-    if (t < 0) { const char *e = getenv("SCRIP_GC_TRAP"); t = (e && *e) ? (*e != '0') : 1; }
+    if (t < 0) { const char *e = getenv("SCRIP_GC_TRAP"); t = (e && *e) ? (*e != '0') : gc_diag_on(); }
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1370,14 +1375,14 @@ static int gc_plant_rtccb_slot(void)
 _Static_assert(sizeof(long) == 8, "THE FORCED-RELOCATION PLANT ADDS A GAP ONLY WHILE EVERY REMAINING LIVE BYTE STILL FITS THE COMMITTED WINDOW (cto 2026-09-23, CTO-156): the gap was checked against the ONE block it displaced, so on a mostly-live heap the gaps accumulated and the last blocks were forwarded past g_hp_end into uncommitted reserve -- the up-mover memmove faulted inside the collection (benchmark_nrev, benchmark_nreverse, last_call_nreverse_large_1 and benchmark_meta_qsort read CRASH under SCRIP_GC_RELOC=1 in mode 4 on every tree, red under the plant and green without it and under the flip plant); rel_rem is the live bytes not yet forwarded, this block included");
 static int gc_reloc_forced(void)
 {
-    const char *e = getenv("SCRIP_GC_RELOC");
-    return (e && *e && *e != '0') ? 1 : 0;
+    static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_RELOC"); v = (e && *e && *e != '0') ? 1 : 0; }
+    return v;
 }
 static void gc_displace_census(rt_hblk_t **liveo, uint64_t *livef, long li, long run, int forced)
 {
-    const char *e = getenv("SCRIP_GC_DISPLACE");
+    static int dis = -1; if (dis < 0) { const char *e = getenv("SCRIP_GC_DISPLACE"); dis = (e && *e && *e != '0') ? 1 : 0; }
     long i, un = 0, dn = 0, up = 0, h0 = 0, h1 = 0, h2 = 0, h3 = 0, h4 = 0, mn = -1, mx = 0, sum = 0;
-    if (!e || !*e || *e == '0') return;
+    if (!dis) return;
     for (i = 0; i < li; i++) { long d = (long)((char *)livef[i] - (char *)liveo[i]), a = d < 0 ? -d : d;
         if (d == 0) un++; else if (d < 0) dn++; else up++;
         if (a == 0) h0++; else if (a < 4096) h1++; else if (a < 65536) h2++; else if (a < (1L << 20)) h3++; else h4++;
@@ -1426,7 +1431,7 @@ static long gc_collect_ex(void)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern void drv_gc_roots(void); extern int rt_scan_active(void);
     char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
-    long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0, w_unm = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
+    long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0, w_unm = 0; int w_tel = gc_telem_on();
     long n_rfz = 0; int reloc = gc_reloc_forced();
     int st_n = 0, st_slot[32]; uint64_t st_word[32], st_fwd[32]; rt_hblk_t *st_blk[32];
     int pl_slot = gc_plant_rtccb_slot(), pl_mark = 0; rt_hblk_t *pl_blk = (rt_hblk_t *)0; char *pl_addr = (char *)0; uint64_t pl_save = 0, pl_fwd = 0;
@@ -1590,17 +1595,16 @@ static long gc_collect_ex(void)
             fprintf(stderr, "[GC-RTCCB] plant: slot=%d word=%p block=type%d/%ldB live=%d moved=%d forwarded-payload=%p slot-after-collection=%p unrepaired=%d swept=%d. THIS LINE IS THE ONLY PROOF THE PLANT APPLIED and it prints ONCE PER PROCESS with nothing asked for, then once per collection under SCRIP_ZETA_TELEM or SCRIP_GC_MAPS. WHAT IT PLANTS: the payload address of the most recently carved block -- which is what a call result live across a safe point IS -- written into a caller-saved spill slot at the top of a collection and RESTORED BYTE FOR BYTE at the end of it, so the program answers identically with the plant on and off. WHAT IT PROVES: the detector is looking (the run prints a GC-WALK-RTCCB line naming this slot under SCRIP_GC_MAPS, so a green reading of the invariant is a measurement and not a silence), and a line whose unrepaired and moved fields are BOTH SET is the STALENESS half measured rather than argued (this sentence deliberately spells neither field with its value, because a decline or an explanation that spells the literal a reader is told to count is counted AS one, which is the defect cured at CTO-113 in this same file) -- no root walk visits this block, so nothing rewrites the slot when the collector forwards the value it holds, and the emitted reload after the poll restores a word that names ground the collector has already given away. WHAT IT IS NOT: this is not the emitter road. The real road is the spill at x86_asm.h 386-398, and its standing population lives in slot %d.\\n",
                 pl_slot, (const void *)pl_addr, (int)pl_blk->type, (long)pl_blk->size, pl_mark, moved, (const void *)nw, (const void *)(uintptr_t)now, (moved && kept) ? 1 : 0, (!pl_mark && kept) ? 1 : 0, RTCC_SLOT_R8); }
         rtccb[pl_slot] = pl_save; }
-    { static int psn = -1; if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : 1; } if (psn) { char *ot = g_hp_arena + before_b; long pb = ot > g_hp_top ? (long)(ot - g_hp_top) : 0; if (pb > 0) memset(g_hp_top, 0xDB, (size_t)pb); if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot); } }
+    { static int psn = -1; if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : gc_diag_on(); } if (psn) { char *ot = g_hp_arena + before_b; long pb = ot > g_hp_top ? (long)(ot - g_hp_top) : 0; if (pb > 0) memset(g_hp_top, 0xDB, (size_t)pb); if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot); } }
     if (w_tel) { w_sld = li; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     { extern void rt_nv_memo_invalidate(void); rt_nv_memo_invalidate(); }
-    rt_gcheap_verify();
-    if (w_tel) { w_vfy = nlive + nfill; n_vfy = gc_walk_ns() - n_t0; }
+    if (gc_verify_on()) { rt_gcheap_verify(); if (w_tel) { w_vfy = nlive + nfill; n_vfy = gc_walk_ns() - n_t0; } }
     g_gc_runs++;
     if (w_tel) fprintf(stderr, "[ZGC-WALK] arm=%s nblk=%ld | count=%ld/%.0fus index=%ld/%.0fus pmap-gran=%ld fwd=%ld/%.0fus live=%ld/%.0fus | mark=%.0fus fixup=%ld+%ld/%.0fus slide=%ld/%.0fus moved=%ldB unmoved=%ld verify=%ld/%.0fus | walk-floor=%ld titles %.0fus of %.0fus total\n",
         "FOLD", g_gc_nblk, w_cnt, n_cnt / 1e3, w_idx, n_idx / 1e3, w_pmg, w_fwd, n_fwd / 1e3, w_liv, n_liv / 1e3, n_mrk / 1e3, w_cel, w_raw, n_fix / 1e3, w_sld, n_sld / 1e3, w_mov, w_unm, w_vfy, n_vfy / 1e3,
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
     if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
-    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
+    if (w_tel) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     gc_fr_line_sync();
     if (g_gc_flip_to && g_gc_flip_to > g_hp_arena + sizeof(rt_hblk_t)) { size_t pg = gc_pg(); char *a = (char *)(((uintptr_t)g_hp_arena + sizeof(rt_hblk_t) + pg - 1) & ~(uintptr_t)(pg - 1)), *b = (char *)((uintptr_t)g_gc_flip_to & ~(uintptr_t)(pg - 1));

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_raku.sh -- THE CROSS-PROOF SCAFFOLD for Raku (row bench-grids-rebase-to-two-number-basis,
 # hq_B 2026-09-01), modelled on bench_triangulate_prolog.sh per ARCH-BENCH-CAMPAIGN-README-TABLES.md § THREE-ANGLE
 # TRIANGULATION and Lon's 3-angle ruling (RULES.md § THE TWO-NUMBER BENCHMARK BASIS, second clause).

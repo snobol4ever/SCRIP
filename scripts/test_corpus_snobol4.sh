@@ -220,7 +220,8 @@ run_test() {
     # CEO-1167): a hardcoded loop-program row has no ALL.csv cell to read, so its declared need is a 6th
     # argv here instead. Empty means the shipped default, so every existing call above (5 args) is
     # byte-identical to before this parameter existed.
-    local heap_env=(); [ -n "$heap_kb" ] && heap_env=("SCRIP_HEAP_KB=$heap_kb")
+    # ⛔ SINCE CEO-1261 (Lon 2026-09-25) a declared heap is the program's MAXIMUM, SPITBOL's -d, exported as the cap and never as the window.
+    local heap_env=(); [ -n "$heap_kb" ] && heap_env=("SCRIP_HEAP_CAP_KB=$heap_kb")
     # ⭐ AND THE DECLARED STACK AS AN OPTIONAL 7th argv, the same way (CEO-1225): SCRIP_STACK sizes the m3 process and the m4 binary.
     [ -n "$stack_kb" ] && heap_env+=("SCRIP_STACK=${stack_kb}k")
 
@@ -491,8 +492,12 @@ run_test "demo_treebank_alloc"      "$DEMO/treebank/treebank-alloc.sno"      "$D
 run_test "demo_porter"              "$DEMO/porter/porter.sno"              "$DEMO/porter/porter.ref"              "$DEMO/porter/porter.input"     ""
 # calculator-1/-2 (full evaluators) print a trailing nondeterministic "match_ms=" timing
 # line -- same class as demo_roman's "^ms:" filter above, just a different literal marker.
-run_test "demo_calculator_1"        "$DEMO/calculator/calculator-1.sno"        "$DEMO/calculator/calculator-1.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
-run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "$DEMO/calculator/calculator-2.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
+# ⭐ THE CALCULATOR ROWS DECLARE THEIR STACK (ceo CEO-1261, measured 2026-09-25 by SCRIP_STACK bisection on this tree): SPITBOL's 4 MB default
+# holds calculator-1-match-fence only; calculator-2-match-fence needs 8 MB and the other four 16 MB, because every deferred call in the
+# whole-file match keeps its frame on the spine until the match ends (row snobol4-a-deferred-function-call-inside-a-pattern-keeps-its-
+# frame-on-the-spine-until-the-match-ends). SPITBOL itself overflows five of the six at its own default (ERROR 246).
+run_test "demo_calculator_1"        "$DEMO/calculator/calculator-1.sno"        "$DEMO/calculator/calculator-1.ref"        "$DEMO/calculator/calculator.input" "^match_ms=" "" 16384
+run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "$DEMO/calculator/calculator-2.ref"        "$DEMO/calculator/calculator.input" "^match_ms=" "" 16384
 # OUTPUT() association to a '[-fn]' descriptor spec, routed by hq_P 2026-08-28: every write to the
 # associated variable was silently discarded in BOTH modes (rc=0, ordinary output intact), because
 # _OUTPUT_ never called the -fn parser that _INPUT_ had been calling all along. Graded on -f1 rather
@@ -519,10 +524,10 @@ run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "
 # "does the file exist" but "is the COVERAGE still graded somewhere": deleting on the first answer shrinks
 # the board, deleting on the second is bookkeeping. Two seats reached the same retirement independently
 # (ceo/hq_B above, seat15 concurrently below -- same diagnosis, same fix, converged without coordination).
-run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
+run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" "" "" 16384
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
-run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""
-run_test "demo_calculator_2_match_fence" "$DEMO/calculator/calculator-2-match-fence.sno" "$DEMO/calculator/calculator-2-match-fence.ref" "$DEMO/calculator/calculator.input" ""
+run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" "" "" 16384
+run_test "demo_calculator_2_match_fence" "$DEMO/calculator/calculator-2-match-fence.sno" "$DEMO/calculator/calculator-2-match-fence.ref" "$DEMO/calculator/calculator.input" "" "" 8192
 run_test "demo_json"                     "$DEMO/json/json.sno"                     "$DEMO/json/json.ref"                     "$DEMO/json/json.input"       "" 16384
 run_test "demo_json_match"               "$DEMO/json/json-match.sno"               "$DEMO/json/json-match.ref"               "$DEMO/json/json.input"       "" 16384
 run_test "demo_json_match_fence"         "$DEMO/json/json-match-fence.sno"         "$DEMO/json/json-match-fence.ref"         "$DEMO/json/json.input"       "" 16384

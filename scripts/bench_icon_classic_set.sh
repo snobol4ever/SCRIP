@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_icon_classic_set.sh -- THE CLASSIC ICON BENCHMARK SET: concord deal ipxref queens rsg geddump,
 # graded for CORRECTNESS against an iconx cut taken AT RUN TIME, then TIMED against Arizona iconx and
 # JCON jcont on the two-number basis.  Lon 2026-09-10, verbatim via ceo CEO-493: "Get the classic Icon

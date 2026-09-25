@@ -1499,7 +1499,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
     if (g_trace_budget != 0) sno_trace_call(p->name);
-    { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->name, _ta, _tn, NULVCL, g_stno); }
+    { extern int rt_trace_idle(void); if (!rt_trace_idle()) { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->name, _ta, _tn, NULVCL, g_stno); } }
     rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
     return (long)(uintptr_t)(void *)p->fn;
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # test_bench_prolog_4way.sh — 4-way Prolog benchmark comparison.
 # Columns: GNU (gprolog) · SWI (swipl) · m3 (scrip --run, in-process x86 binary)
 #          · m4 (scrip --compile x86 -> as+gcc -> exec).

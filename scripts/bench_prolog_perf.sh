@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_prolog_perf.sh — ANGLE 3 of the Prolog three-angle triangulation: THE PROCESS WRAPPER.
 #
 # TWO BASES, PRINTED SEPARATELY AND NEVER SUBTRACTED ACROSS (RULES.md FACT RULE, apples-to-apples):

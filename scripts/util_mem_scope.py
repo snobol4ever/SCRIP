@@ -65,7 +65,11 @@ UNIT_PREFIX = "s4e-mem-"
 #   (test_gate_progress_readers_stream_and_answer_the_same.sh), and the 4556 MB arm left the serial list. Both caps are therefore
 #   LOOSE now, never tight: they stand until the next scoped make test prints its peak ([mem_scope] ... peak=), and the re-derivation
 #   uses that number, not these.
-CAP_MB = {"board": 3072, "blocking-set": 10240}
+# ⛔⭐ THE BOARD CAP IS RE-DERIVED FOR SPITBOL'S DEFAULTS (ceo CEO-1261, 2026-09-25): every program may now reach SPITBOL's -d128m
+#   heap where the 3 GB above was derived under a 4 MB default cap, and the SWI board -- twelve parallel jobs, each a scrip process
+#   beside its swipl oracle -- reached peak=3072 MB and lost a process to the cgroup kill on its first pass at the new default (the
+#   row was refused, as it must be). Twelve jobs x (128 MB of heap + stack and image) + twelve oracles is about 4 GB; the cap is 2x that.
+CAP_MB = {"board": 8192, "blocking-set": 10240}
 
 
 def _cgroup_path():

@@ -208,7 +208,7 @@ gate_behaviour_signature() {
     for _w in "$_root"/scripts/fixtures/build_behaviour/*.icn "$_root"/scripts/fixtures/build_behaviour/*.sno "$_root"/scripts/fixtures/build_behaviour/*.pl; do
         [ -f "$_w" ] || continue
         _n=$((_n+1))
-        env -u SCRIP_SNO_STMTKW "$_bin" --compile -o "$_tmp/$(basename "$_w").s" "$_w" </dev/null >/dev/null 2>&1 || _rc=1
+        env -u SCRIP_SNO_STMTKW -u SCRIP_DIAG -u SCRIP_DIAG_REGS "$_bin" --compile -o "$_tmp/$(basename "$_w").s" "$_w" </dev/null >/dev/null 2>&1 || _rc=1
         [ -s "$_tmp/$(basename "$_w").s" ] || _rc=1
     done
     if [ "$_n" = 0 ] || [ "$_rc" != 0 ]; then rm -rf "$_tmp"; return 1; fi

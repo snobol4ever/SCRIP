@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_raku_fixed_iter.sh -- ANGLE 2 of the Raku three-angle triangulation (row
 # bench-grids-rebase-to-two-number-basis), mirroring bench_prolog_fixed_iter.sh per
 # ARCH-BENCH-CAMPAIGN-README-TABLES.md § THREE-ANGLE TRIANGULATION.

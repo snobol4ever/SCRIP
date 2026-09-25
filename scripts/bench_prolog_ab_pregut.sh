@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_prolog_ab_pregut.sh — PL-REGAIN-0 A/B parity rail (GOAL-PROLOG-BB.md, 2026-07-19).
 # Three engines on IDENTICAL era-neutral wrappers: the PRE-GUTTING GZ engine (worktree pinned at
 # 7ec7305a, the 2026-06-27 README-table tree; 63c666ba = documented last-green head, differs only by

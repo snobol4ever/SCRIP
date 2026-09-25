@@ -2582,7 +2582,7 @@ extern "C" int emit_diag_regs_suppress(void) {
     return (g_emit.flat_jmp_entry && g_emit.flat_pat && blob_frame_bytes() <= 0) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int x86_diag_regs_on_c(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e == '0') ? 0 : 1; } return v; }
+extern "C" int x86_diag_regs_on_c(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); const char * d = getenv("SCRIP_DIAG"); v = (e && *e) ? (*e != '0') : !(d && *d == '0'); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int arbno_frame_slot(const IR_t * arbno_nd) {
     if (!arbno_frame_candidate(arbno_nd)) return -1;

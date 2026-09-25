@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # bench_triangulate_snobol4.sh -- THE CROSS-PROOF, item 3 of row bench-triangulation-3angle
 # (Lon 2026-08-24, in-chat, verbatim in substance: "I want to cross prove ... All of it wrapped in
 # the perf-like process measuring CPU time, disk time, elapsed time -- program-reported numbers
