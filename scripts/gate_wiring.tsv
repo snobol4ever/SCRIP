@@ -453,6 +453,7 @@ test_gate_pl_stream_arg_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
+test_gate_pl_the_colon_operator_is_600_xfy.sh	WIRED	-	-	-
 test_gate_pl_the_query_neck_reads_as_an_atom_and_a_prefix_operator.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
 test_gate_pl_two_variables_compare_one_way_only.sh	WIRED	-	-	-
