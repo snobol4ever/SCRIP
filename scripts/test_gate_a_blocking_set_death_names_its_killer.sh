@@ -83,7 +83,15 @@ export S4E_BLOCKING_RUNSTATE="$W/runstate"
 # SUBSHELL, which then exits and orphans it -- and `wait "$p"` in this shell answers 127 "not a child", which
 # reads exactly like the driver failing to start. Every run below is started in THIS shell, on purpose.
 start(){ :; }
-wait_started(){ local f="$1" n=0; while [ "$n" -lt 100 ]; do grep -q '^\[' "$f" 2>/dev/null && return 0; n=$((n+1)); sleep 0.1; done; return 1; }
+# ⛔ EVERY WAIT IS ON A CONDITION WITH A CEILING THAT REFUSES, NEVER A FIXED SLEEP READ AS A RED (coo 2026-09-25, row
+# instruments-the-blocking-set-death-gate-reds-under-load-...). Arm (d) killed its postmortem run one second after
+# starting it, and the driver's pre-start currency check (a git ls-files stat scan) runs BEFORE the postmortem: at
+# load 21-24 on 62a21f70f the run died before it spoke, and (d) read postmortem=0 -- a red about the load, not the
+# driver. A ceiling that passes is could-not-measure (rc=2) and names the load; a condition that arrives is graded.
+CEIL="${DEATH_GATE_CEILING_S:-120}"
+load1(){ cut -d' ' -f1 /proc/loadavg 2>/dev/null || echo '?'; }
+wait_for(){ local f="$1" re="$2" t0=$SECONDS; while [ $((SECONDS - t0)) -lt "$CEIL" ]; do grep -qE -- "$re" "$f" 2>/dev/null && return 0; sleep 0.1; done; return 1; }
+wait_started(){ wait_for "$1" '^\['; }
 
 # ⛔ THE LEDGER IS SEEDED WITH SOMEBODY ELSE'S KILL BEFORE ARM (b) RUNS, AND THAT SEED IS LOAD-BEARING. A
 # lookup graded against an EMPTY ledger cannot tell "refuses to guess" from "had nothing to guess with": the
@@ -95,7 +103,7 @@ printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
 
 # ---- (a) + (b) a trapped death, with no ledger entry for it
 bash "$D" --arms-from "$W/arms.txt" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/a.out" 2>&1 & p=$!
-wait_started "$W/a.out" || refuse "the fixture run never reached its first arm -- nothing was exercised"
+wait_started "$W/a.out" || { kill -TERM "$p" 2>/dev/null; wait "$p" 2>/dev/null; refuse "the fixture run never reached its first arm inside ${CEIL}s at load $(load1) -- nothing was exercised"; }
 sleep 1; kill -TERM "$p" 2>/dev/null; wait "$p" 2>/dev/null; a_rc=$?
 if [ "$a_rc" = 143 ] && grep -q 'KILLED BY SIGTERM' "$W/a.out" \
    && grep -qE 'arm reached : [0-9]+ of 60' "$W/a.out" && grep -qE 'elapsed +: [0-9]+s' "$W/a.out"; then
@@ -111,7 +119,7 @@ fi
 
 # ---- (c) a recorded kill names its sender
 bash "$D" --arms-from "$W/arms.txt" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/c.out" 2>&1 & p=$!
-wait_started "$W/c.out" || refuse "the fixture run never started for the sender arm"
+wait_started "$W/c.out" || { kill -TERM "$p" 2>/dev/null; wait "$p" 2>/dev/null; refuse "the fixture run never started for the sender arm inside ${CEIL}s at load $(load1)"; }
 sleep 1
 S4E_SEAT=gatefixture bash "$K" --root "$(dirname "$ROOT")" -- "$(basename "$W")" > "$W/kill.out" 2>&1
 wait "$p" 2>/dev/null; c_rc=$?
@@ -123,11 +131,14 @@ fi
 
 # ---- (d) SIGKILL: untrappable, and legible from the next run
 bash "$D0" --arms-from "$W/arms.txt" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/d1.out" 2>&1 & p=$!
-wait_started "$W/d1.out" || refuse "the fixture run never started for the SIGKILL arm"
+wait_started "$W/d1.out" || { kill -KILL "$p" 2>/dev/null; wait "$p" 2>/dev/null; refuse "the fixture run never started for the SIGKILL arm inside ${CEIL}s at load $(load1)"; }
 sleep 1; kill -KILL "$p" 2>/dev/null; wait "$p" 2>/dev/null; d_rc=$?
 said_nothing=1; grep -q 'KILLED BY' "$W/d1.out" && said_nothing=0
 bash "$D0" --arms-from "$W/arms.txt" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" > "$W/d2.out" 2>&1 & p2=$!
-sleep 1; kill -TERM "$p2" 2>/dev/null; wait "$p2" 2>/dev/null
+# the driver prints its header on the line after runstate_postmortem returns, so the header is the condition that the
+# postmortem phase is over -- whatever it printed or failed to print, which is what this arm grades
+wait_for "$W/d2.out" '^=== blocking set' || { kill -TERM "$p2" 2>/dev/null; wait "$p2" 2>/dev/null; refuse "the postmortem run never passed its postmortem inside ${CEIL}s at load $(load1) -- arm (d) was NOT EXERCISED, which is a could-not-measure and not a pass"; }
+kill -TERM "$p2" 2>/dev/null; wait "$p2" 2>/dev/null
 if [ "$d_rc" = 137 ] && [ "$said_nothing" = 1 ] && grep -q 'POSTMORTEM OF THE PREVIOUS RUN' "$W/d2.out" \
    && grep -qE "pid=$p started .* reached arm [0-9]+ of 60" "$W/d2.out"; then
   ck ok "(d) SIGKILL is untrappable and the victim said NOTHING, and THE NEXT RUN postmortemed it by pid and arm -- $(grep -m1 'reached arm' "$W/d2.out" | sed 's/^ *//' | cut -c1-90)"
@@ -157,8 +168,8 @@ fi
 
 # ---- (g) a shard child ended by a signal is named as ENDED, not as a bare rc
 bash "$D0" --arms-from "$W/arms.txt" --serial-arms "$W/nos.txt" --shared-surfaces "$W/nosurf.txt" --shards 3 > "$W/g.out" 2>&1 &
-gp=$!; gk=""; n=0
-while [ "$n" -lt 80 ]; do
+gp=$!; gk=""; g_t0=$SECONDS
+while [ $((SECONDS - g_t0)) -lt "$CEIL" ]; do
   for c in $(pgrep -P "$gp" 2>/dev/null); do
     for gc in $(pgrep -P "$c" 2>/dev/null); do
       ( tr '\0' ' ' < "/proc/$gc/cmdline" ) 2>/dev/null | grep -q -- '--shard' && { gk="$gc"; break; }
@@ -166,11 +177,11 @@ while [ "$n" -lt 80 ]; do
     [ -n "$gk" ] && break
   done
   [ -n "$gk" ] && break
-  n=$((n+1)); sleep 0.1
+  sleep 0.1
 done
 if [ -z "$gk" ]; then
   kill -TERM "$gp" 2>/dev/null; wait "$gp" 2>/dev/null
-  refuse "could not identify a shard child inside 8s -- arm (g) was NOT EXERCISED, which is a could-not-measure and not a pass"
+  refuse "could not identify a shard child inside ${CEIL}s at load $(load1) -- arm (g) was NOT EXERCISED, which is a could-not-measure and not a pass"
 fi
 kill -KILL "$gk" 2>/dev/null; wait "$gp" 2>/dev/null; g_rc=$?
 if grep -q 'WAS ENDED BY SIGKILL' "$W/g.out" && grep -q 'UNMEASURED, not green and not red' "$W/g.out"; then
@@ -289,7 +300,7 @@ else
   ck no "(l) the pre-start refusal did not hold: stale rc=$l_rc (want 2, arms run=$(grep -c '^blocking set: arms=' "$W/l.out")), current rc=$l2_rc (want 0)"
 fi
 
-echo "population: $checks arm(s) graded, $fails FAIL; fixture 60 arms x 4 runs plus one 3-shard fan-out; ledger $(wc -l < "$W/kills.tsv" 2>/dev/null || echo 0) line(s); load $(cut -d' ' -f1 /proc/loadavg)"
+echo "population: $checks arm(s) graded, $fails FAIL; fixture 60 arms x 4 runs plus one 3-shard fan-out; every wait on a condition, ceiling ${CEIL}s; ledger $(wc -l < "$W/kills.tsv" 2>/dev/null || echo 0) line(s); load $(cut -d' ' -f1 /proc/loadavg)"
 if [ "$fails" -eq 0 ]; then
   echo "GATE PASS [a_blocking_set_death_names_its_killer]: $checks of $checks arms hold"; exit 0
 fi
