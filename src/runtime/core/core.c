@@ -51,7 +51,7 @@ static int trace_access_n = 0;
 static int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int trace_idle(void) { extern long g_trace; extern int64_t kw_trace; if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0; return !g_comm_dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && g_trace == 0; }
+static inline int trace_idle(void) { extern long g_trace; extern int64_t kw_trace; extern int64_t kw_ftrace; if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0; return !g_comm_dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0; }
 int g_sno_etrace_n = 0;
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out);
 static void etrace_recount(void);

@@ -512,6 +512,7 @@ test_gate_snc_a_label_at_end_of_file_is_a_statement.sh	WIRED	-	-	-
 test_gate_snc_two_nreturn_functions_link_in_m4.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
+test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
 test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
