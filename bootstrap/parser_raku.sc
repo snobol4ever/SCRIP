@@ -1,426 +1,1073 @@
-/* PRF-14 ✅ — pure shift/reduce mirror of raku.y; tree shapes byte-equal to C frontend. */
-&ANCHOR   = 0;
-&FULLSCAN = 1;
-bSlash = '\';
-function strip_sigil(s) {
-    if (s ? POS(0) ANY('$@%')) { strip_sigil = SUBSTR(s, 2); return; }
-    strip_sigil = s; return;
-}
-white       =   (SPAN(' ' tab nl) | '#' BREAK(nl) nl);
-White       =   white ARBNO(white);
-Gray        =   ARBNO(white);
-$'  '       =   White;
-$' '        =   Gray;
-Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN(digits &UCASE &LCASE '_') | epsilon);
-$'CATCH'    =   $' ' Id $ tx (*IDENT(tx, 'CATCH') | *IDENT(tx, 'catch'));
-$'class'    =   $' ' Id $ tx *IDENT(tx, 'class');
-$'default'  =   $' ' Id $ tx *IDENT(tx, 'default');
-$'delete'   =   $' ' Id $ tx *IDENT(tx, 'delete');
-$'die'      =   $' ' Id $ tx *IDENT(tx, 'die');
-$'div'      =   $' ' Id $ tx *IDENT(tx, 'div');
-$'else'     =   $' ' Id $ tx *IDENT(tx, 'else');
-$'elsif'    =   $' ' Id $ tx *IDENT(tx, 'elsif');
-$'eq'       =   $' ' Id $ tx *IDENT(tx, 'eq');
-$'exists'   =   $' ' Id $ tx *IDENT(tx, 'exists');
-$'False'    =   $' ' Id $ tx *IDENT(tx, 'False');
-$'for'      =   $' ' Id $ tx *IDENT(tx, 'for');
-$'gather'   =   $' ' Id $ tx *IDENT(tx, 'gather');
-$'given'    =   $' ' Id $ tx *IDENT(tx, 'given');
-$'grep'     =   $' ' Id $ tx *IDENT(tx, 'grep');
-$'has'      =   $' ' Id $ tx *IDENT(tx, 'has');
-$'if'       =   $' ' Id $ tx *IDENT(tx, 'if');
-$'map'      =   $' ' Id $ tx *IDENT(tx, 'map');
-$'method'   =   $' ' Id $ tx *IDENT(tx, 'method');
-$'my'       =   $' ' Id $ tx *IDENT(tx, 'my');
-$'ne'       =   $' ' Id $ tx *IDENT(tx, 'ne');
-$'new'      =   $' ' Id $ tx *IDENT(tx, 'new');
-$'print'    =   $' ' Id $ tx *IDENT(tx, 'print');
-$'repeat'   =   $' ' Id $ tx *IDENT(tx, 'repeat');
-$'return'   =   $' ' Id $ tx *IDENT(tx, 'return');
-$'say'      =   $' ' Id $ tx *IDENT(tx, 'say');
-$'self'     =   $' ' Id $ tx *IDENT(tx, 'self');
-$'sort'     =   $' ' Id $ tx *IDENT(tx, 'sort');
-$'sub'      =   $' ' Id $ tx *IDENT(tx, 'sub');
-$'take'     =   $' ' Id $ tx *IDENT(tx, 'take');
-$'True'     =   $' ' Id $ tx *IDENT(tx, 'True');
-$'try'      =   $' ' Id $ tx *IDENT(tx, 'try');
-$'unless'   =   $' ' Id $ tx *IDENT(tx, 'unless');
-$'until'    =   $' ' Id $ tx *IDENT(tx, 'until');
-$'when'     =   $' ' Id $ tx *IDENT(tx, 'when');
-$'while'    =   $' ' Id $ tx *IDENT(tx, 'while');
-reserved    =   POS(0) ('CATCH' | 'catch' | 'class' | 'default' | 'delete' | 'die' | 'div'
-                       | 'else' | 'elsif' | 'eq' | 'exists' | 'False' | 'for' | 'gather'
-                       | 'given' | 'grep' | 'has' | 'if' | 'map' | 'method' | 'my' | 'ne'
-                       | 'new' | 'print' | 'repeat' | 'return' | 'say' | 'self' | 'sort'
-                       | 'sub' | 'take' | 'True' | 'try' | 'unless' | 'until' | 'when' | 'while')
-                RPOS(0);
-$'=>'  = $' ' '=>'  $' ';   $'..^' = $' ' '..^' $' ';
-$'..'  = $' ' '..'  $' ';   $'->'  = $' ' '->'  $' ';
-$'=='  = $' ' '=='  $' ';   $'!='  = $' ' '!='  $' ';
-$'<='  = $' ' '<='  $' ';   $'>='  = $' ' '>='  $' ';
-$'&&'  = $' ' '&&'  $' ';   $'||'  = $' ' '||'  $' ';
-$':='  = $' ' ':='  $' ';   $'~~'  = $' ' '~~'  $' ';
-$'='   = $' ' '='   $' ';   $'+'   = $' ' '+'   $' ';
-$'-'   = $' ' '-'   $' ';   $'*'   = $' ' '*'   $' ';
-$'/'   = $' ' '/'   $' ';   $'%'   = $' ' '%'   $' ';
-$'~'   = $' ' '~'   $' ';   $'!'   = $' ' '!';
-$'<'   = $' ' '<';          $'>'   = $' ' '>';
-$';'   = $' ' ';';          $','   = $' ' ','   $' ';
-$'('   = $' ' '('   $' ';   $')'   = $' ' ')';
-$'{'   = $' ' '{'   $' ';   $'}'   = $' ' '}';
-$'['   = $' ' '['   $' ';   $']'   = $' ' ']';
-$'.'   = $' ' '.';
-TT_PROGRAM      = 'TT_PROGRAM';
-TT_STMT         = 'TT_STMT';
-TT_VAR          = 'TT_VAR';
-TT_QLIT         = 'TT_QLIT';
-TT_ILIT         = 'TT_ILIT';
-TT_FLIT         = 'TT_FLIT';
-TT_NUL          = 'TT_NUL';
-TT_SEQ_EXPR     = 'TT_SEQ_EXPR';
-TT_DECL         = 'TT_DECL';
-TT_ASSIGN       = 'TT_ASSIGN';
-TT_FIELD        = 'TT_FIELD';
-TT_ARR_SET      = 'TT_ARR_SET';
-TT_ARR_GET      = 'TT_ARR_GET';
-TT_HASH_SET     = 'TT_HASH_SET';
-TT_HASH_GET     = 'TT_HASH_GET';
-TT_HASH_DELETE  = 'TT_HASH_DELETE';
-TT_HASH_EXISTS  = 'TT_HASH_EXISTS';
-TT_SAY          = 'TT_SAY';
-TT_SAY_FH       = 'TT_SAY_FH';
-TT_PRINT        = 'TT_PRINT';
-TT_PRINT_FH     = 'TT_PRINT_FH';
-TT_SUSPEND      = 'TT_SUSPEND';
-TT_RETURN       = 'TT_RETURN';
-TT_IF           = 'TT_IF';
-TT_WHILE        = 'TT_WHILE';
-TT_UNLESS       = 'TT_UNLESS';
-TT_UNTIL        = 'TT_UNTIL';
-TT_REPEAT       = 'TT_REPEAT';
-TT_FOR_RANGE    = 'TT_FOR_RANGE';
-TT_ITERATE      = 'TT_ITERATE';
-TT_EVERY        = 'TT_EVERY';
-TT_CASE         = 'TT_CASE';
-TT_TRY          = 'TT_TRY';
-TT_SUB_DECL     = 'TT_SUB_DECL';
-TT_CLASS_DECL   = 'TT_CLASS_DECL';
-TT_GATHER       = 'TT_GATHER';
-TT_FNC          = 'TT_FNC';
-TT_NEW          = 'TT_NEW';
-TT_METHCALL     = 'TT_METHCALL';
-TT_DIE          = 'TT_DIE';
-TT_MAP          = 'TT_MAP';
-TT_GREP         = 'TT_GREP';
-TT_SORT         = 'TT_SORT';
-TT_ADD          = 'TT_ADD';
-TT_SUB          = 'TT_SUB';
-TT_CAT          = 'TT_CAT';
-TT_MUL          = 'TT_MUL';
-TT_DIV          = 'TT_DIV';
-TT_MOD          = 'TT_MOD';
-TT_MNS          = 'TT_MNS';
-TT_NOT          = 'TT_NOT';
-TT_SEQ          = 'TT_SEQ';
-TT_ALT          = 'TT_ALT';
-TT_EQ           = 'TT_EQ';
-TT_NE           = 'TT_NE';
-TT_LT           = 'TT_LT';
-TT_GT           = 'TT_GT';
-TT_LE           = 'TT_LE';
-TT_GE           = 'TT_GE';
-TT_LEQ          = 'TT_LEQ';
-TT_LNE          = 'TT_LNE';
-TT_SMATCH       = 'TT_SMATCH';
-TT_TO           = 'TT_TO';
-TT_CAPTURE      = 'TT_CAPTURE';
-TT_NAMED_CAPTURE = 'TT_NAMED_CAPTURE';
-TT_TWIGIL_FIELD = 'TT_TWIGIL_FIELD';
-Parse           = 'Parse';
-nTop_count      = 'nTop()';
-IdentName       =   $' ' (Id $ tx_id) $ tx *notmatch(tx, reserved);
-sigil_first     =   ANY(&UCASE &LCASE '_');
-sigil_rest      =   SPAN(digits &UCASE &LCASE '_');
-ArrayBare       =   $' ' '@'      sigil_first FENCE(sigil_rest | epsilon);
-HashBare        =   $' ' '%'      sigil_first FENCE(sigil_rest | epsilon);
-TwigilBare      =   $' ' ('$.' | '$!') sigil_first FENCE(sigil_rest | epsilon);
-NamedCapBare    =   $' ' '$<' BREAK('>') . tx_ncap '>';
-ScalarUnderscore =  $' ' '$_' ~ANY(digits &UCASE &LCASE '_');
-StdInBare       =   $' ' '$*STDIN'  ~ANY(digits &UCASE &LCASE '_');
-StdOutBare      =   $' ' '$*STDOUT' ~ANY(digits &UCASE &LCASE '_');
-StdErrBare      =   $' ' '$*STDERR' ~ANY(digits &UCASE &LCASE '_');
-CaptureBare     =   $' ' '$' SPAN(digits) . tx_capn ~ANY(&UCASE &LCASE '_');
-VarScalar       =   ($' ' '$' (sigil_first FENCE(sigil_rest | epsilon) | '_')) . tx_var;
-VarArray        =   ArrayBare  . tx_var;
-VarHash         =   HashBare   . tx_var;
-VarTwigil       =   TwigilBare . tx_var assign(.tx_twig, SUBSTR(tx_var, 3));
-LitInt          =   $' ' SPAN(digits) . tx_int ~('.' SPAN(digits));
-LitFloat        =   $' ' (SPAN(digits) '.' SPAN(digits) FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN(digits) | epsilon)
-                         | SPAN(digits) ANY('eE') FENCE(ANY('+-') | epsilon) SPAN(digits)) . tx_flt;
-LitStrSQ        =   $' ' "'" BREAK("'") . tx_str "'";
-LitStrDQ        =   $' ' '"' BREAK('"') . tx_str '"';
-LitRegex        =   '/' BREAK('/') . tx_rx '/';
-LitMatchGlobal  =   'm:g/' BREAK('/') . tx_rx '/';
-LitSubst        =   's/' BREAK('/') . tx_subp '/' BREAK('/') . tx_subr '/'
-                    FENCE('g' assign(.tx_subg, 'g') | assign(.tx_subg, '-'));
-HashAngleKey    =   BREAK('>') . tx_hkey;
-push_var_scalar     = epsilon . *assign(.tmp, strip_sigil(tx_var)) shift(tmp, TT_VAR);
-push_var_array      = epsilon . *assign(.tmp, strip_sigil(tx_var)) shift(tmp, TT_VAR);
-push_var_hash       = epsilon . *assign(.tmp, strip_sigil(tx_var)) shift(tmp, TT_VAR);
-push_var_twigil     = epsilon . *assign(.tmp, tx_twig) shift(tmp, TT_VAR);
-push_self           = assign(.tmp, 'self') shift(tmp, TT_VAR);
-push_ident_as_var   = epsilon . *assign(.tmp, tx_id) shift(tmp, TT_VAR);
-push_ident_as_qlit  = epsilon . *assign(.tmp, tx_id) shift(tmp, TT_QLIT);
-push_hkey_qlit      = epsilon . *assign(.tmp, tx_hkey) shift(tmp, TT_QLIT);
-push_capn_ilit      = epsilon . *assign(.tmp, tx_capn) shift(tmp, TT_ILIT);
-push_stdin_ilit     = assign(.tmp, '0') shift(tmp, TT_ILIT);
-push_stdout_ilit    = assign(.tmp, '1') shift(tmp, TT_ILIT);
-push_stderr_ilit    = assign(.tmp, '2') shift(tmp, TT_ILIT);
-push_ncap_qlit      = epsilon . *assign(.tmp, tx_ncap) shift(tmp, TT_QLIT);
-push_int            = epsilon . *assign(.tmp, tx_int) shift(tmp, TT_ILIT);
-push_true           = assign(.tmp, '1') shift(tmp, TT_ILIT);
-push_false          = assign(.tmp, '0') shift(tmp, TT_ILIT);
-push_flt            = epsilon . *assign(.tmp, tx_flt) shift(tmp, TT_FLIT);
-push_str            = epsilon . *assign(.tmp, tx_str) shift(tmp, TT_QLIT);
-push_regex          = epsilon . *assign(.tmp, tx_rx) shift(tmp, TT_QLIT);
-push_subst          = epsilon . *assign(.tmp, tx_subp CHAR(1) tx_subr CHAR(1) tx_subg) shift(tmp, TT_QLIT);
-push_kind_match     = assign(.tmp, 'match') shift(tmp, TT_QLIT);
-push_kind_match_g   = assign(.tmp, 'match_global') shift(tmp, TT_QLIT);
-push_kind_subst     = assign(.tmp, 'subst') shift(tmp, TT_QLIT);
-atom            =   FENCE(
-                       *LitFloat       *push_flt
-                    |  *LitInt          *push_int
-                    |  $'True'          *push_true
-                    |  $'False'         *push_false
-                    |  *LitStrSQ        *push_str
-                    |  *LitStrDQ        *push_str
-                    |  StdInBare        *push_stdin_ilit  reduce(TT_CAPTURE, 1)
-                    |  StdOutBare       *push_stdout_ilit reduce(TT_CAPTURE, 1)
-                    |  StdErrBare       *push_stderr_ilit reduce(TT_CAPTURE, 1)
-                    |  CaptureBare      *push_capn_ilit   reduce(TT_CAPTURE, 1)
-                    |  NamedCapBare     *push_ncap_qlit   reduce(TT_NAMED_CAPTURE, 1)
-                    |  $'exists' VarHash *push_var_hash
-                                       FENCE($'<' HashAngleKey *push_hkey_qlit $'>' reduce(TT_HASH_EXISTS, 2)
-                                            | $'{' *expr $'}' reduce(TT_HASH_EXISTS, 2))
-                    |  ArrayBare        *push_var_array
-                                       $'[' *expr $']' reduce(TT_ARR_GET, 2)
-                    |  HashBare         *push_var_hash
-                                       FENCE($'<' HashAngleKey *push_hkey_qlit $'>' reduce(TT_HASH_GET, 2)
-                                            | $'{' *expr $'}'                  reduce(TT_HASH_GET, 2))
-                    |  ScalarUnderscore *push_var_scalar
-                                          assign(.tx_var, '$_')
-                                          assign(.tmp, '_') shift(tmp, TT_VAR)
-                    |  $'self'          *push_self
-                    |  VarScalar        *push_var_scalar
-                    |  VarArray         *push_var_array
-                    |  VarHash          *push_var_hash
-                    |  VarTwigil        *push_var_twigil  reduce(TT_TWIGIL_FIELD, 0)
-                    |  IdentName        *push_ident_as_var
-                    |  $'(' *expr $')'
-                    );
-ArgFirst        =   *expr nInc();
-ArgRest         =   $',' *expr nInc();
-NArgFirst       =   IdentName *push_ident_as_qlit nInc() $'=>' *expr nInc();
-NArgRest        =   $',' IdentName *push_ident_as_qlit nInc() $'=>' *expr nInc();
-call_expr       =   FENCE(
-                       IdentName *push_ident_as_qlit FENCE(
-                              $'(' FENCE(  nPush() nInc() *ArgFirst ARBNO(*ArgRest) reduce(TT_FNC, nTop_count) nPop()
-                                         | nInc() reduce(TT_FNC, 1)
-                                        ) $')'
-                            | $'.' $'new' $'(' FENCE(nPush() nInc() *NArgFirst ARBNO(*NArgRest) reduce(TT_NEW, nTop_count) nPop()
-                                                    | nInc() reduce(TT_NEW, 1)) $')'
-                            )
-                    |  $'die'  *expr                              reduce(TT_DIE, 1)
-                    |  $'map'  *closure *expr                     reduce(TT_MAP, 2)
-                    |  $'grep' *closure *expr                     reduce(TT_GREP, 2)
-                    |  $'sort' FENCE(*closure *expr reduce(TT_SORT, 2) | *expr reduce(TT_SORT, 1))
-                    |  *atom
-                       ARBNO(  $'.' IdentName *push_ident_as_qlit
-                                FENCE(  $'(' FENCE(nPush() nInc() nInc() *ArgFirst ARBNO(*ArgRest) reduce(TT_METHCALL, nTop_count) nPop()
-                                                  | nInc() reduce(TT_METHCALL, 2)) $')'
-                                      | epsilon reduce(TT_FIELD, 1)
-                                      )
-                            )
-                    );
-postfix_expr    =   *call_expr;
-unary_expr      =   FENCE(
-                       $'-' *unary_expr reduce(TT_MNS, 1)
-                    |  $'!' *unary_expr reduce(TT_NOT, 1)
-                    |  *postfix_expr
-                    );
-mul_expr        =   *unary_expr
-                    FENCE(
-                       $'*'   *unary_expr reduce(TT_MUL, 2) ARBNO( $'*'   *unary_expr reduce(TT_MUL, 2)
-                                                                 | $'/'   *unary_expr reduce(TT_DIV, 2)
-                                                                 | $'%'   *unary_expr reduce(TT_MOD, 2)
-                                                                 | $'div' *unary_expr reduce(TT_DIV, 2))
-                    |  $'/'   *unary_expr reduce(TT_DIV, 2) ARBNO( $'*'   *unary_expr reduce(TT_MUL, 2)
-                                                                 | $'/'   *unary_expr reduce(TT_DIV, 2)
-                                                                 | $'%'   *unary_expr reduce(TT_MOD, 2)
-                                                                 | $'div' *unary_expr reduce(TT_DIV, 2))
-                    |  $'%'   *unary_expr reduce(TT_MOD, 2) ARBNO( $'*'   *unary_expr reduce(TT_MUL, 2)
-                                                                 | $'/'   *unary_expr reduce(TT_DIV, 2)
-                                                                 | $'%'   *unary_expr reduce(TT_MOD, 2)
-                                                                 | $'div' *unary_expr reduce(TT_DIV, 2))
-                    |  $'div' *unary_expr reduce(TT_DIV, 2) ARBNO( $'*'   *unary_expr reduce(TT_MUL, 2)
-                                                                 | $'/'   *unary_expr reduce(TT_DIV, 2)
-                                                                 | $'%'   *unary_expr reduce(TT_MOD, 2)
-                                                                 | $'div' *unary_expr reduce(TT_DIV, 2))
-                    |  epsilon
-                    );
-add_expr        =   *mul_expr
-                    FENCE(
-                       $'+' *mul_expr reduce(TT_ADD, 2) ARBNO( $'+' *mul_expr reduce(TT_ADD, 2)
-                                                              | $'-' *mul_expr reduce(TT_SUB, 2)
-                                                              | $'~' *mul_expr reduce(TT_CAT, 2))
-                    |  $'-' *mul_expr reduce(TT_SUB, 2) ARBNO( $'+' *mul_expr reduce(TT_ADD, 2)
-                                                              | $'-' *mul_expr reduce(TT_SUB, 2)
-                                                              | $'~' *mul_expr reduce(TT_CAT, 2))
-                    |  $'~' *mul_expr reduce(TT_CAT, 2) ARBNO( $'+' *mul_expr reduce(TT_ADD, 2)
-                                                              | $'-' *mul_expr reduce(TT_SUB, 2)
-                                                              | $'~' *mul_expr reduce(TT_CAT, 2))
-                    |  epsilon
-                    );
-range_expr      =   *add_expr FENCE(  $'..^' *add_expr reduce(TT_TO, 2)
-                                    | $'..'  *add_expr reduce(TT_TO, 2)
-                                    | epsilon);
-cmp_expr        =   *range_expr
-                    FENCE(
-                       $'&&' *range_expr reduce(TT_SEQ, 2) ARBNO($'&&' *range_expr reduce(TT_SEQ, 2) | $'||' *range_expr reduce(TT_ALT, 2))
-                    |  $'||' *range_expr reduce(TT_ALT, 2) ARBNO($'&&' *range_expr reduce(TT_SEQ, 2) | $'||' *range_expr reduce(TT_ALT, 2))
-                    |  $'==' *range_expr reduce(TT_EQ,  2)
-                    |  $'!=' *range_expr reduce(TT_NE,  2)
-                    |  $'<=' *range_expr reduce(TT_LE,  2)
-                    |  $'>=' *range_expr reduce(TT_GE,  2)
-                    |  $'<'  *range_expr reduce(TT_LT,  2)
-                    |  $'>'  *range_expr reduce(TT_GT,  2)
-                    |  $'eq' *range_expr reduce(TT_LEQ, 2)
-                    |  $'ne' *range_expr reduce(TT_LNE, 2)
-                    |  $'~~' FENCE(  *LitMatchGlobal *push_regex *push_kind_match_g reduce(TT_SMATCH, 3)
-                                   | *LitSubst       *push_subst *push_kind_subst   reduce(TT_SMATCH, 3)
-                                   | *LitRegex       *push_regex *push_kind_match   reduce(TT_SMATCH, 3))
-                    |  epsilon
-                    );
-expr            =   FENCE(
-                       VarScalar *push_var_scalar $'=' *expr reduce(TT_ASSIGN, 2)
-                    |  $'gather' *block                       reduce(TT_GATHER, 1)
-                    |  *cmp_expr
-                    );
-StmtList        =   nPush() ARBNO(nInc() *stmt) reduce(TT_SEQ_EXPR, nTop_count) nPop();
-block           =   $'{' *StmtList $'}';
-closure         =   $'{' *expr $'}';
-ParamFirst      =   VarScalar *push_var_scalar nInc();
-ParamRest       =   $',' VarScalar *push_var_scalar nInc();
-WhenArm         =   $'when' *expr nInc() *block nInc();
-when_list       =   ARBNO(*WhenArm);
-sub_decl        =   $'sub' IdentName *push_ident_as_qlit
-                    *push_ident_as_var nInc()
-                    $'(' FENCE(*ParamFirst ARBNO(*ParamRest) | epsilon) $')'
-                    *block nInc()
-                    reduce(TT_SUB_DECL, nTop_count) ;
-method_decl     =   $'method' IdentName *push_ident_as_qlit
-                    *push_ident_as_var nInc() nInc()
-                    $'(' FENCE(*ParamFirst ARBNO(*ParamRest) | epsilon) $')'
-                    *block nInc()
-                    reduce(TT_SUB_DECL, nTop_count) ;
-class_decl      =   nPush()
-                    $'class' IdentName *push_ident_as_var nInc()
-                    $'{'
-                    ARBNO(FENCE(  $'has' VarTwigil *push_var_twigil $';' nInc()
-                                | $'has' VarScalar *push_var_scalar $';' nInc()
-                                | nInc() *method_decl ))
-                    $'}'
-                    reduce(TT_CLASS_DECL, nTop_count) nPop();
-if_stmt         =   $'if' $'(' *expr $')' *block
-                    FENCE(  $'else' *if_stmt reduce(TT_IF, 3)
-                          | $'else' *block   reduce(TT_IF, 3)
-                          | epsilon          reduce(TT_IF, 2));
-while_stmt      =   $'while' $'(' *expr $')' *block reduce(TT_WHILE, 2);
-unless_stmt     =   $'unless' $'(' *expr $')' *block
-                    FENCE(  $'else' *block reduce(TT_UNLESS, 3)
-                          | epsilon        reduce(TT_UNLESS, 2));
-until_stmt      =   $'until' $'(' *expr $')' *block reduce(TT_UNTIL, 2);
-repeat_stmt     =   $'repeat' *block reduce(TT_REPEAT, 1);
-forvar_strip    =   VarScalar *push_var_scalar;
-for_stmt        =   $'for' FENCE(
-                       *add_expr $'..^' *add_expr $'->' *forvar_strip *block
-                         shift(epsilon, TT_ILIT) reduce(TT_FOR_RANGE, 5)
-                    |  *add_expr $'..'  *add_expr $'->' *forvar_strip *block
-                         shift(epsilon, TT_ILIT) reduce(TT_FOR_RANGE, 5)
-                    |  *expr $'->' *forvar_strip *block
-                         reduce(TT_ITERATE, 1) reduce(TT_EVERY, 2)
-                    |  *expr *block
-                         reduce(TT_ITERATE, 1) reduce(TT_EVERY, 2)
-                    );
-given_stmt      =   nPush()
-                    $'given' *expr nInc()
-                    $'{' *when_list
-                    FENCE($'default' *block shift(epsilon, TT_NUL) nInc() nInc() | epsilon)
-                    $'}'
-                    reduce(TT_CASE, nTop_count) nPop();
-try_stmt        =   $'try' *block FENCE($'CATCH' *block reduce(TT_TRY, 2) | reduce(TT_TRY, 1));
-my_decl         =   $'my' FENCE(
-                       IdentName *push_ident_as_var FENCE(
-                            VarScalar *push_var_scalar FENCE($'=' *expr $';' reduce(TT_DECL, 3)
-                                                            | $';'           reduce(TT_DECL, 2))
-                          | VarArray  *push_var_array  FENCE($'=' *expr $';' reduce(TT_DECL, 3)
-                                                            | $';'           reduce(TT_DECL, 2))
-                          | VarHash   *push_var_hash   FENCE($'=' *expr $';' reduce(TT_DECL, 3)
-                                                            | $';'           reduce(TT_DECL, 2)))
-                    |  VarScalar *push_var_scalar $'=' *expr $';' reduce(TT_ASSIGN, 2)
-                    |  VarArray  *push_var_array  $'=' *expr $';' reduce(TT_ASSIGN, 2)
-                    |  VarHash   *push_var_hash   $'=' *expr $';' reduce(TT_ASSIGN, 2)
-                    );
-say_stmt        =   $'say' FENCE($'(' *expr $',' *expr $')' $';' reduce(TT_SAY_FH, 2)
-                                | *expr $';' reduce(TT_SAY, 1));
-print_stmt      =   $'print' FENCE($'(' *expr $',' *expr $')' $';' reduce(TT_PRINT_FH, 2)
-                                  | *expr $';' reduce(TT_PRINT, 1));
-take_stmt       =   $'take' *expr $';' reduce(TT_SUSPEND, 1);
-return_stmt     =   $'return' FENCE(*expr $';' reduce(TT_RETURN, 1) | $';' reduce(TT_RETURN, 0));
-delete_stmt     =   $'delete' VarHash *push_var_hash
-                    FENCE($'<' HashAngleKey *push_hkey_qlit $'>' $';' reduce(TT_HASH_DELETE, 2)
-                         | $'{' *expr $'}' $';' reduce(TT_HASH_DELETE, 2));
-assign_stmt     =   FENCE(
-                       VarScalar *push_var_scalar $'.' IdentName *push_ident_as_qlit
-                            reduce(TT_FIELD, 1) $'=' *expr $';' reduce(TT_ASSIGN, 2)
-                    |  VarArray *push_var_array $'[' *expr $']' $'=' *expr $';' reduce(TT_ARR_SET, 3)
-                    |  VarHash  *push_var_hash  $'<' HashAngleKey *push_hkey_qlit $'>' $'=' *expr $';' reduce(TT_HASH_SET, 3)
-                    |  VarHash  *push_var_hash  $'{' *expr $'}' $'=' *expr $';' reduce(TT_HASH_SET, 3)
-                    |  VarScalar *push_var_scalar $'=' *expr $';' reduce(TT_ASSIGN, 2)
-                    );
-stmt            =   $' ' FENCE(
-                       *my_decl
-                    |  *say_stmt
-                    |  *print_stmt
-                    |  *take_stmt
-                    |  *return_stmt
-                    |  *delete_stmt
-                    |  *assign_stmt
-                    |  *if_stmt
-                    |  *while_stmt
-                    |  *for_stmt
-                    |  *given_stmt
-                    |  *try_stmt
-                    |  *unless_stmt
-                    |  *until_stmt
-                    |  *repeat_stmt
-                    |  *sub_decl
-                    |  *class_decl
-                    |  *expr $';'
-                    );
-Compiland       =   nPush() POS(0) ARBNO(*stmt) RPOS(0) reduce(Parse, nTop_count) nPop();
-InitCounter();
-InitStack();
-Src = '';
-while (Line = INPUT) Src = Src Line nl;
-if (Src ? Compiland) {
-    ptree = Pop();
-    if (DIFFER(ptree)) {
-        i = 1;
-        n_kids = n(ptree);
-        while (LE(i, n_kids)) {
-            TDump(c(ptree)[i]);
-            i = i + 1;
-        }
+/* parser_raku.sc -- a MECHANICAL translation of Rakudo 2026.05's grammar (src/Perl6/Grammar.nqp, with the STD role and
+   NQP's HLL::Grammar it inherits) into Snocone patterns, generated by scripts/util_raku_grammar_to_parser_sc.py; the rule map is
+   bootstrap/parser_raku.map.tsv.  Lon 2026-09-25, in-chat to hq_snocone: "For Raku, do a mechanical conversion from the official
+   grammar specification into the SNOBOL4 grammar patterns, just like all the others and re-write parser_raku.sc completely." and
+   "For Raku, test first without any semantic rountines, i.e. no tree building, then add those after the syntax check only works."
+   PHASE 1: a recognizer -- no shift, no reduce, no tree; the driver prints Parsed. or Parse Error. */
+&ANCHOR   = 1;
+rk_lower  = 'abcdefghijklmnopqrstuvwxyz';
+rk_upper  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+rk_digit  = '0123456789';
+rk_alpha  = rk_lower rk_upper '_';
+rk_alnum  = rk_alpha rk_digit;
+rk_w      = rk_alnum;
+rk_xdigit = rk_digit 'abcdefABCDEF';
+rk_h      = ' ' tab;
+rk_v      = nl cr ff CHAR(11);
+rk_s      = rk_h rk_v;
+rk_punct  = '!"#%&' "'" '()*,-./:;?@[\]_{}';
+rk_print  = rk_alnum rk_punct ' $+<=>^`|~';
+rk_cur    = 0;
+rk_marks  = TABLE();
+function rk_la(p, c) { c = rk_cur; if (Src ? TAB(c) p) { rk_la = epsilon; return; } freturn; }
+function rk_nla(p, c) { c = rk_cur; if (Src ? TAB(c) p) freturn; rk_nla = epsilon; return; }
+function rk_lb(p, c) { c = rk_cur; if (SUBSTR(Src, 1, c) ? ARB p RPOS(0)) { rk_lb = epsilon; return; } freturn; }
+function rk_nlb(p, c) { c = rk_cur; if (SUBSTR(Src, 1, c) ? ARB p RPOS(0)) freturn; rk_nlb = epsilon; return; }
+function rk_ch(k) { rk_ch = GT(k, 0) LE(k, SIZE(Src)) SUBSTR(Src, k, 1); return; }
+function rk_isw(k, ch) { ch = rk_ch(k); if (IDENT(ch)) freturn; if (ch ? ANY(rk_w)) return; freturn; }
+function rk_bol() { if (EQ(rk_cur, 0)) { rk_bol = epsilon; return; } if (rk_ch(rk_cur) ? ANY(rk_v)) { rk_bol = epsilon; return; } freturn; }
+function rk_eol() { if (EQ(rk_cur, SIZE(Src))) { rk_eol = epsilon; return; } if (rk_ch(rk_cur + 1) ? ANY(rk_v)) { rk_eol = epsilon; return; } freturn; }
+function rk_lwb() { if (rk_isw(rk_cur)) freturn; if (rk_isw(rk_cur + 1)) { rk_lwb = epsilon; return; } freturn; }
+function rk_rwb() { if (rk_isw(rk_cur + 1)) freturn; if (rk_isw(rk_cur)) { rk_rwb = epsilon; return; } freturn; }
+function rk_ww_f() { if (rk_isw(rk_cur)) { if (rk_isw(rk_cur + 1)) { rk_ww_f = epsilon; return; } } freturn; }
+function rk_wb_f() { if (rk_isw(rk_cur)) { if (rk_isw(rk_cur + 1)) freturn; rk_wb_f = epsilon; return; } if (rk_isw(rk_cur + 1)) { rk_wb_f = epsilon; return; } freturn; }
+rk_ww     = @rk_cur *rk_ww_f();
+rk_wb     = @rk_cur *rk_wb_f();
+function rk_iter(p, sp, mode, c, n, e, t) {
+    n = 0;
+    while (1) {
+        t = c;
+        if (GT(n, 0) EQ(mode, 1) ~(Src ? TAB(t) sp @e)) break;
+        if (GT(n, 0) GE(mode, 1)) { if (Src ? TAB(t) sp @e) t = e; else break; }
+        if (~(Src ? TAB(t) p @e)) { if (GT(n, 0) EQ(mode, 2)) c = t; break; }
+        if (LE(e, c)) break;
+        c = e; n = n + 1;
     }
-} else OUTPUT = 'Parse Error';
+    rk_n = n; rk_iter = c; return;
+}
+function rk_star(p, sp, mode, c) { c = rk_iter(p, sp, mode, rk_cur); rk_star = TAB(c); return; }
+function rk_plus(p, sp, mode, c) { c = rk_iter(p, sp, mode, rk_cur); if (EQ(rk_n, 0)) freturn; rk_plus = TAB(c); return; }
+rk_cnt = TABLE(); rk_tot = 0;
+function rk_enter(nm, a, i) {
+    rk_cnt[nm] = rk_cnt[nm] + 1; rk_tot = rk_tot + 1;
+    if (EQ(rk_tot, 200000)) {
+        a = SORT(rk_cnt, 2); i = PROTOTYPE(a); i = i ? BREAK(',') . i; i = +i;
+        while (GT(i, 0)) { if (GT(i, PROTOTYPE(a) ? BREAK(',') . rk_x) 0) 1; OUTPUT = a[i, 2] ' ' a[i, 1]; i = i - 1; if (LT(i, +rk_x - 30)) break; }
+    }
+    rk_enter = $nm; return;
+}
+rk_qc = TABLE(); rk_qt = 0;
+function rk_cnt1(l, a, i) {
+    rk_qc[l] = rk_qc[l] + 1; rk_qt = rk_qt + 1;
+    if (EQ(rk_qt, 400000)) { a = SORT(rk_qc, 2); i = 1; while (a[i, 1]) i = i + 1; i = i - 1; while (GT(i, 0)) { OUTPUT = a[i, 2] ' ' a[i, 1]; i = i - 1; if (LT(i, 0)) break; } }
+    rk_cnt1 = epsilon; return;
+}
+function rk_marker(m) { rk_marks[m] = rk_cur; rk_marker = epsilon; return; }
+function rk_marked(m) { if (IDENT(rk_marks[m], rk_cur)) { rk_marked = epsilon; return; } freturn; }
+function rk_cdiff(a, b, ch, r) { r = ''; while (a ? LEN(1) . ch = '') { if (~(ch ? ANY(b))) r = r ch; } rk_cdiff = ANY(r); return; }
+rk_ident  = ANY(rk_alpha) FENCE(SPAN(rk_alnum) | epsilon);
+rk_bs     = CHAR(92);
+function rk_skipbal(i, d, n, ch) {
+    d = 0; n = SIZE(Src);
+    while (LT(i, n)) {
+        ch = SUBSTR(Src, i + 1, 1);
+        if (IDENT(ch, rk_bs)) i = i + 2;
+        else if (IDENT(ch, '{')) { d = d + 1; i = i + 1; }
+        else if (IDENT(ch, '}')) { d = d - 1; i = i + 1; if (EQ(d, 0)) { rk_skipbal = i; return; } }
+        else i = i + 1;
+    }
+    freturn;
+}
+function rk_scan(i, st, sp, kind, n, d, ch, ls, lp) {
+    n = SIZE(Src); d = 0; ls = SIZE(st); lp = SIZE(sp);
+    while (LT(i, n)) {
+        if (EQ(d, 0)) { if (IDENT(SUBSTR(Src, i + 1, lp), sp)) { rk_scan = i; return; } }
+        ch = SUBSTR(Src, i + 1, 1);
+        if (IDENT(ch, rk_bs)) i = i + 2;
+        else if (DIFFER(st, sp) IDENT(SUBSTR(Src, i + 1, ls), st)) { d = d + 1; i = i + ls; }
+        else if (DIFFER(st, sp) GT(d, 0) IDENT(SUBSTR(Src, i + 1, lp), sp)) { d = d - 1; i = i + lp; }
+        else if (IDENT(kind, 'qq') IDENT(ch, '{')) { i = rk_skipbal(i); }
+        else i = i + 1;
+    }
+    freturn;
+}
+function rk_nib(st, sp, kind, i) { i = rk_scan(rk_cur, st, sp, kind); rk_nib = TAB(i); return; }
+rk_pairs = TABLE(); rk_pairs['('] = ')'; rk_pairs['['] = ']'; rk_pairs['{'] = '}'; rk_pairs['<'] = '>';
+rk_pairs[CHAR(194) CHAR(171)] = CHAR(194) CHAR(187); rk_pairs[CHAR(239) CHAR(189) CHAR(162)] = CHAR(239) CHAR(189) CHAR(163);
+function rk_qscan(kind, o, c, i) {
+    o = SUBSTR(Src, rk_cur + 1, 1);
+    if (IDENT(o, CHAR(194))) o = SUBSTR(Src, rk_cur + 1, 2);
+    if (IDENT(o, CHAR(239))) o = SUBSTR(Src, rk_cur + 1, 3);
+    if (IDENT(o) | (o ? ANY(rk_w rk_s))) freturn;
+    c = rk_pairs[o]; if (IDENT(c)) c = o;
+    i = rk_scan(rk_cur + SIZE(o), o, c, kind);
+    rk_qscan = TAB(i + SIZE(c)); return;
+}
+rk_memo = TABLE();
+function rk_mem(nm, mk, k, r, e) {
+    k = nm ':' rk_cur; if (DIFFER(mk)) { if (IDENT(rk_marks[mk], rk_cur)) k = k ':m'; }
+    r = rk_memo[k];
+    if (IDENT(r)) { if (Src ? TAB(rk_cur) $nm @e) r = e; else r = -1; rk_memo[k] = r; }
+    if (LT(r, 0)) freturn;
+    if (IDENT(nm, 'g__ws')) rk_marks['ws'] = r;
+    rk_mem = TAB(r); return;
+}
+g_ws      = @rk_cur *rk_mem('g__ws', '');
+rk_termish = *g_termish;
+rk_EXPR_step = *g_ws *g_infixish *g_ws *rk_termish;
+rk_EXPR   = *rk_termish @rk_cur *rk_star(*rk_EXPR_step, FAIL, 0);
+rk_lang_ws = FAIL;
+rk_lang_yx3d = FAIL;
+rk_m_maybe_typename = FAIL;
+rk_m_nibbler = FAIL;
+rk_m_quantified_atom = FAIL;
+rk_m_rad_digits = FAIL;
+rk_m_sigil = FAIL;
+rk_var_x24endtag = FAIL;
+rk_var_x24spaces = FAIL;
+rk_var_x24x3cspacesx3e = FAIL;
+rk_var_x24x3ctypex3e = FAIL;
+ss3_starter = *rk_start;
+ss3_stopper = FENCE((*rk_stop) | (*rk_stop2));
+ss2_starter = *rk_start;
+ss2_stopper = *rk_stop;
+ss1_starter = FAIL;
+ss1_stopper = *rk_stop;
+std_opener = ANY('x0283C5B7AF169E4D');
+std_starter = FAIL;
+std_stopper = FAIL;
+std_babble = @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) (@rk_cur *rk_la(LEN(1)));
+std_herestop_starter = FAIL;
+std_herestop_stopper = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) *rk_delim @rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_eol() FENCE(((FENCE((cr (cr nl | nl | cr)) | (ANY(rk_v))))) | epsilon);
+std_cheat_heredoc = @rk_cur *rk_star(ANY(rk_h), FAIL, 0) ANY(';}') @rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_la(FENCE(((cr nl | nl | cr)) | ('#'))) *g_ws @rk_cur *rk_marker('endstmt');
+std_quibble = *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q') *rk_start @rk_cur *rk_nib(rk_dstart, rk_dstop, rk_dkind) (FENCE((*rk_stop) | (epsilon)));
+std_obsbrace = FAIL;
+std_experimental = FENCE((epsilon) | (FAIL));
+std_RESTRICTED = FENCE((((FENCE((RPOS(0)) | (FAIL))))) | epsilon) FAIL;
+g_apostrophe = ANY("'-");
+g_identifier = *rk_ident @rk_cur *rk_star((*g_apostrophe *rk_ident), FAIL, 0);
+g_name = (FENCE((*g_identifier @rk_cur *rk_star(@rk_cur *rk_mem('g_morename', ''), FAIL, 0)) | (@rk_cur *rk_plus(@rk_cur *rk_mem('g_morename', ''), FAIL, 0))));
+g_morename = '::' FENCE(((FENCE((@rk_cur *rk_la(FENCE(('(') | (ANY(rk_alpha)))) (FENCE((*g_identifier) | ('(' (*g_ws *rk_EXPR) ')')))) | (@rk_cur *rk_la('::') FAIL) | ((*g_sigil *g_identifier))))) | epsilon);
+g_longname = *g_name @rk_cur *rk_star((@rk_cur *rk_la(':' ANY(rk_alpha '<[«')) @rk_cur *rk_nla(*std_RESTRICTED) *g_colonpair), FAIL, 0);
+g_deflongname = *g_name @rk_cur *rk_star(*g_colonpair, FAIL, 0);
+g_subshortname = *g_desigilname;
+g_sublongname = *g_subshortname FENCE((*g_sigterm) | epsilon);
+g_deftermnow = *g_defterm;
+g_defterm = *g_identifier (FENCE((@rk_cur *rk_plus(*g_colonpair, FAIL, 0)) | (epsilon)));
+g_module_name = *g_longname FENCE(((@rk_cur *rk_la(ANY('[')) '[' *g_arglist ']')) | epsilon);
+g_end_keyword = @rk_cur *rk_rwb() @rk_cur *rk_nla(FENCE((ANY("(\'-")) | (@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=>')));
+g_end_prefix = *g_end_keyword @rk_cur *rk_star(ANY(rk_s), FAIL, 0);
+g_spacey = @rk_cur *rk_la(ANY(rk_s '#'));
+g_kok = *g_end_keyword (FENCE((@rk_cur *rk_la(ANY(rk_s '#')) *g_ws) | (epsilon)));
+g_tok = *g_end_keyword;
+g_ENDSTMT = FENCE(((FENCE((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_eol() *g_ws @rk_cur *rk_marker('endstmt')) | (FENCE((*g_unv) | epsilon) @rk_cur *rk_eol() *g_ws @rk_cur *rk_marker('endstmt'))))) | epsilon);
+g__ws = @rk_cur *rk_nla(*rk_ww) @rk_cur *rk_star((FENCE(((FENCE((cr (cr nl | nl | cr)) | (ANY(rk_v)))) epsilon) | (*g_unv) | (*g_unsp) | (*g_vcsx2dconflict))), FAIL, 0) @rk_cur *rk_marker('ws');
+g_unsp = '\' @rk_cur *rk_la(FENCE((ANY(rk_s)) | ('#'))) @rk_cur *rk_star((FENCE((*g_vws) | (*g_unv) | (*g_unsp))), FAIL, 0);
+g_vws = @rk_cur *rk_plus(((FENCE((ANY(rk_v)) | (*g_vcsx2dconflict)))), FAIL, 0);
+g_vcsx2dconflict = (FENCE(('<<<<<<<' @rk_cur *rk_la((@rk_cur *rk_star(LEN(1), FAIL, 0) ANY(rk_v) '=======') @rk_cur *rk_star(LEN(1), FAIL, 0) ANY(rk_v) '>>>>>>>') epsilon @rk_cur *rk_star(NOTANY(rk_v), FAIL, 0) ANY(rk_v)) | ('=======' @rk_cur *rk_star(LEN(1), FAIL, 0) ANY(rk_v) '>>>>>>>' @rk_cur *rk_star(NOTANY(rk_v), FAIL, 0) ANY(rk_v))));
+g_unv = (FENCE((@rk_cur *rk_plus(ANY(rk_h), FAIL, 0)) | (@rk_cur *rk_star(ANY(rk_h), FAIL, 0) *g_comment) | (@rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=' (FENCE((ANY(rk_w)) | ('\')))) @rk_cur *rk_bol() *g_pod_content_toplevel)));
+g_install_doc_phaser = epsilon;
+g_vnum = FENCE((@rk_cur *rk_plus(ANY(rk_w), FAIL, 0)) | ('*'));
+g_version = @rk_cur *rk_la('v' @rk_cur *rk_plus(ANY(rk_digit), FAIL, 0) @rk_cur *rk_star(ANY(rk_w), FAIL, 0) (FENCE(('.' ANY(rk_digit)) | (epsilon)))) 'v' (@rk_cur *rk_plus(*g_vnum, '.', 1) FENCE(('+') | epsilon)) @rk_cur *rk_nla(FENCE(('-') | ("'")));
+g_comp_unit = FENCE((*g_bom) | epsilon) *g_langx2dversion epsilon *g_statementlist epsilon (FENCE((RPOS(0)) | (FAIL))) epsilon epsilon;
+g_langx2dversion = (FENCE((FENCE((*g_ws) | epsilon) *g_ws 'use' *g_ws *g_version *g_ws (FENCE((*g_ws) | (epsilon))) *g_ws) | (epsilon))) *g_ws;
+g_statementlist = *g_ws *g_ws epsilon *g_ws (FENCE((RPOS(0) *g_ws) | (@rk_cur *rk_la(ANY(')]}')) *g_ws) | (@rk_cur *rk_star((*g_statement *g_ws *g_eat_terminator *g_ws), FAIL, 0) *g_ws))) *g_ws epsilon *g_ws epsilon *g_ws;
+g_semilist = epsilon *g_ws (FENCE((@rk_cur *rk_la(ANY(')]}') *g_ws) *g_ws) | (@rk_cur *rk_star((*g_statement *g_eat_terminator *g_ws), FAIL, 0) *g_ws))) *g_ws;
+g_sequence = epsilon *g_ws (FENCE((@rk_cur *rk_la(ANY(')]}') *g_ws) *g_ws) | (@rk_cur *rk_star((*g_statement *g_eat_terminator *g_ws), FAIL, 0) *g_ws))) *g_ws;
+g_label = *g_identifier ':' @rk_cur *rk_la(ANY(rk_s)) *g_ws;
+g_statement = epsilon @rk_cur *rk_nla(FENCE((ANY('])}')) | (RPOS(0)))) @rk_cur *rk_nla(*std_stopper) epsilon (FENCE((*g_label *g_statement) | (*g_statement_control) | (*rk_EXPR FENCE(((FENCE((@rk_cur *rk_marked('endstmt')) | (*g_ws *g_statement_mod_cond FENCE((*g_statement_mod_loop) | epsilon)) | (*g_ws *g_statement_mod_loop)))) | epsilon)) | (@rk_cur *rk_la(ANY(';'))) | (@rk_cur *rk_la(*std_stopper)) | (FAIL)));
+g_eat_terminator = FENCE((';') | (@rk_cur *rk_marked('endstmt') *g_ws) | (@rk_cur *rk_la(FENCE((')') | (']') | ('}')))) | (RPOS(0)) | (@rk_cur *rk_la(*std_stopper)) | (@rk_cur *rk_la((FENCE(('i' 'f') | ('w' 'h' 'i' 'l' 'e') | ('f' 'o' 'r') | ('l' 'o' 'o' 'p') | ('r' 'e' 'p' 'e' 'a' 't') | ('g' 'i' 'v' 'e' 'n') | ('w' 'h' 'e' 'n'))) @rk_cur *rk_rwb())) | (epsilon));
+g_xblock = *rk_EXPR *g_ws *g_pblock;
+g_pblock = epsilon (FENCE((@rk_cur *rk_mem('g_lambda', '') epsilon *g_signature *g_blockoid) | (@rk_cur *rk_la(ANY('{')) epsilon *g_blockoid) | (FAIL)));
+g_lambda = FENCE(('->') | ('<->'));
+g_block = (FENCE((@rk_cur *rk_la(ANY('{'))) | (FAIL))) epsilon *g_blockoid;
+g_blockoid = epsilon (FENCE(('{YOU_ARE_HERE}' *g_you_are_here) | ('{' epsilon *g_statementlist (FENCE((*std_cheat_heredoc) | ('}'))) @rk_cur *rk_la(*g_ENDSTMT)) | (FAIL)));
+g_unitstart = epsilon;
+g_you_are_here = FENCE((epsilon) | (epsilon));
+g_newpad = epsilon;
+g_newthunk = epsilon;
+g_finishpad = epsilon;
+g_bom = 'x' 'F' 'E' 'F' 'F';
+g_terminator = FENCE(*h33_proto_terminator | *h34_proto_terminator);
+g_terminator__x3b = @rk_cur *rk_la(ANY(';'));
+g_terminator__x29 = @rk_cur *rk_la(ANY(')'));
+g_terminator__x5d = @rk_cur *rk_la(ANY(']'));
+g_terminator__x7d = @rk_cur *rk_la(ANY('}'));
+g_terminator__ang = @rk_cur *rk_la(ANY('>'));
+g_terminator__if = 'if' *g_kok;
+g_terminator__unless = 'unless' *g_kok;
+g_terminator__while = 'while' *g_kok;
+g_terminator__until = 'until' *g_kok;
+g_terminator__for = 'for' *g_kok;
+g_terminator__given = 'given' *g_kok;
+g_terminator__when = 'when' *g_kok;
+g_terminator__with = 'with' *g_kok;
+g_terminator__without = 'without' *g_kok;
+g_terminator__arrow = '-->';
+g_stdstopper = (FENCE((@rk_cur *rk_marked('endstmt') epsilon) | ((FENCE((@rk_cur *rk_la(@rk_cur *rk_mem('g_terminator', ''))) | (RPOS(0)))))));
+g_statement_control = FENCE(*h35_proto_statement_control | *h36_proto_statement_control | *h37_proto_statement_control);
+g_statement_control__if = (FENCE(('i' 'f') | ('w' 'i' 't' 'h'))) *g_kok *g_ws *g_xblock *g_ws @rk_cur *rk_star(((FENCE(('else' @rk_cur *rk_star(ANY(rk_h), FAIL, 0) 'if' *g_ws FAIL *g_ws) | ('elif' *g_ws) | ('elsif' *g_ws *g_xblock *g_ws) | ('orwith' *g_ws *g_xblock *g_ws))) *g_ws), FAIL, 0) *g_ws FENCE((('else' *g_ws *g_pblock *g_ws)) | epsilon) *g_ws;
+g_statement_control__unless = 'unless' *g_kok *g_ws *g_xblock *g_ws (FENCE((@rk_cur *rk_nla((FENCE(('e' 'l' 's' (FENCE(('e') | ('i' 'f')))) | ('o' 'r' 'w' 'i' 't' 'h'))) @rk_cur *rk_rwb() *g_ws) *g_ws) | ((FENCE(('e' 'l' 's' (FENCE(('e') | ('i' 'f')))) | ('o' 'r' 'w' 'i' 't' 'h'))) @rk_cur *rk_rwb() *g_ws FAIL *g_ws))) *g_ws;
+g_statement_control__without = 'without' *g_kok *g_ws *g_xblock *g_ws (FENCE((@rk_cur *rk_nla((FENCE(('e' 'l' 's' (FENCE(('e') | ('i' 'f')))) | ('o' 'r' 'w' 'i' 't' 'h'))) @rk_cur *rk_rwb() *g_ws) *g_ws) | ((FENCE(('e' 'l' 's' (FENCE(('e') | ('i' 'f')))) | ('o' 'r' 'w' 'i' 't' 'h'))) @rk_cur *rk_rwb() *g_ws FAIL *g_ws))) *g_ws;
+g_statement_control__while = (FENCE(('w' 'h' 'i' 'l' 'e') | ('u' 'n' 't' 'i' 'l'))) *g_kok *g_ws *g_xblock *g_ws;
+g_statement_control__repeat = 'repeat' *g_kok *g_ws (FENCE(((FENCE(('w' 'h' 'i' 'l' 'e') | ('u' 'n' 't' 'i' 'l'))) *g_kok *g_ws *g_xblock *g_ws) | (*g_pblock *g_ws (FENCE(((FENCE(('while') | ('until'))) *g_kok *g_ws) | (FAIL))) *g_ws *rk_EXPR *g_ws))) *g_ws;
+g_statement_control__for = 'for' *g_kok *g_ws FENCE(((@rk_cur *rk_la(FENCE(('my') | epsilon) *g_ws '$' @rk_cur *rk_plus(ANY(rk_w), FAIL, 0) @rk_cur *rk_plus(ANY(rk_s), FAIL, 0) '(' *g_ws) *g_ws FAIL *g_ws)) | epsilon) *g_ws FENCE(((@rk_cur *rk_la('(' *g_ws FENCE((*rk_EXPR) | epsilon) *g_ws ';' *g_ws FENCE((*rk_EXPR) | epsilon) *g_ws ';' *g_ws FENCE((*rk_EXPR) | epsilon) *g_ws ')' *g_ws) *g_ws FAIL *g_ws)) | epsilon) *g_ws *g_xblock *g_ws;
+g_statement_control__whenever = 'whenever' *g_kok *g_ws (FENCE((*g_ws) | (FAIL *g_ws))) *g_ws *g_xblock *g_ws;
+g_statement_control__foreach = 'foreach' *g_end_keyword *g_ws FAIL *g_ws;
+g_statement_control__loop = 'loop' *g_kok epsilon *g_ws FENCE((('(' *g_ws FENCE(((FENCE((*rk_EXPR) | epsilon) *g_ws FENCE(((';' *g_ws FENCE((*rk_EXPR) | epsilon) *g_ws FENCE(((';' *g_ws FENCE((*rk_EXPR) | epsilon) *g_ws)) | epsilon) *g_ws)) | epsilon) *g_ws)) | epsilon) *g_ws (FENCE((*g_ws ')' *g_ws) | (@rk_cur *rk_la(')') *g_ws (FENCE((*g_ws FAIL *g_ws) | (FAIL *g_ws))) *g_ws) | (@rk_cur *rk_la(';') *g_ws FAIL *g_ws) | (FAIL *g_ws))) *g_ws)) | epsilon) *g_ws *g_block *g_ws;
+g_statement_control__need = 'need' *g_ws @rk_cur *rk_plus((FENCE((*g_version *g_ws epsilon *g_ws) | (*g_module_name *g_ws))), ',', 1) *g_ws;
+g_statement_control__import = 'import' *g_ws *g_module_name FENCE(((*g_spacey *g_arglist)) | epsilon) *g_ws;
+g_statement_control__no = 'no' *g_ws (*g_module_name FENCE(((*g_spacey *g_arglist)) | epsilon) epsilon epsilon) *g_ws;
+g_statement_control__use = (FENCE((('DOC' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0))) | epsilon)) 'use' *g_ws (FENCE((*g_version) | (*g_module_name (FENCE((*g_spacey *g_arglist FENCE((*std_cheat_heredoc) | epsilon) epsilon epsilon) | (epsilon)))))) (FENCE((*g_eat_terminator *g_statementlist) | (epsilon))) *g_ws;
+g_statement_control__require = 'require' *g_ws (FENCE((*g_module_name *g_ws) | (*g_variable *g_ws) | (@rk_cur *rk_nla(*g_sigil) *g_ws *g_term *g_ws))) *g_ws FENCE((*rk_EXPR) | epsilon) *g_ws;
+g_statement_control__given = 'given' *g_kok *g_ws *g_xblock *g_ws;
+g_statement_control__when = 'when' *g_kok *g_ws *g_xblock *g_ws;
+g_statement_control__default = 'default' *g_kok *g_ws *g_block *g_ws;
+g_statement_control__CATCH = 'CATCH' *g_ws *g_block *g_ws;
+g_statement_control__CONTROL = 'CONTROL' *g_ws *g_block *g_ws;
+g_statement_control__QUIT = 'QUIT' *g_ws *g_block *g_ws;
+g_statement_prefix = FENCE(*h44_proto_statement_prefix | *h45_proto_statement_prefix | *h46_proto_statement_prefix | *h47_proto_statement_prefix);
+g_statement_prefix__BEGIN = 'BEGIN' *g_kok *g_blorst epsilon epsilon;
+g_statement_prefix__TEMP = 'TEMP' *g_kok *g_blorst;
+g_statement_prefix__CHECK = 'CHECK' *g_kok *g_blorst;
+g_statement_prefix__INIT = 'INIT' *g_kok *g_blorst;
+g_statement_prefix__ENTER = 'ENTER' *g_kok *g_blorst;
+g_statement_prefix__FIRST = 'FIRST' *g_kok *g_blorst;
+g_statement_prefix__END = 'END' *g_kok *g_blorst;
+g_statement_prefix__LEAVE = 'LEAVE' *g_kok *g_blorst;
+g_statement_prefix__KEEP = 'KEEP' *g_kok *g_blorst;
+g_statement_prefix__UNDO = 'UNDO' *g_kok *g_blorst;
+g_statement_prefix__NEXT = 'NEXT' *g_kok *g_blorst;
+g_statement_prefix__LAST = 'LAST' *g_kok *g_blorst;
+g_statement_prefix__PRE = 'PRE' *g_kok *g_blorst;
+g_statement_prefix__POST = 'POST' *g_kok *g_blorst;
+g_statement_prefix__CLOSE = 'CLOSE' *g_kok *g_blorst;
+g_statement_prefix__race = 'race' *g_kok (FENCE((@rk_cur *rk_la('for' *g_kok) *g_statement_control) | (*g_blorst)));
+g_statement_prefix__hyper = 'hyper' *g_kok (FENCE((@rk_cur *rk_la('for' *g_kok) *g_statement_control) | (*g_blorst)));
+g_statement_prefix__lazy = 'lazy' *g_kok (FENCE((@rk_cur *rk_la('for' *g_kok) *g_statement_control) | (*g_blorst)));
+g_statement_prefix__eager = 'eager' *g_kok *g_blorst;
+g_statement_prefix__sink = 'sink' *g_kok *g_blorst;
+g_statement_prefix__try = epsilon 'try' *g_kok *g_blorst epsilon;
+g_statement_prefix__quietly = 'quietly' *g_kok *g_blorst;
+g_statement_prefix__gather = 'gather' *g_kok *g_blorst;
+g_statement_prefix__once = 'once' *g_kok *g_blorst;
+g_statement_prefix__start = 'start' *g_kok *g_blorst;
+g_statement_prefix__supply = 'supply' *g_kok *g_blorst;
+g_statement_prefix__react = 'react' *g_kok *g_blorst;
+g_statement_prefix__do = 'do' *g_kok *g_blorst;
+g_statement_prefix__DOC = 'DOC' *g_kok (FENCE(('BEGIN') | ('CHECK') | ('INIT'))) *g_end_keyword *g_ws *g_blorst;
+g_blorst = (FENCE((@rk_cur *rk_la(ANY('{')) *g_block) | (@rk_cur *rk_nla(ANY(';')) *g_statement FENCE((*std_cheat_heredoc) | epsilon)) | (FAIL)));
+g_statement_mod_cond = FENCE(*g_statement_mod_cond__without | *g_statement_mod_cond__unless | *g_statement_mod_cond__when | *g_statement_mod_cond__with | *g_statement_mod_cond__if);
+g_modifier_expr = FENCE((*rk_EXPR) | (FAIL));
+g_smexpr = FENCE((*rk_EXPR) | (FAIL));
+g_statement_mod_cond__if = 'if' *g_kok *g_ws *g_modifier_expr *g_ws;
+g_statement_mod_cond__unless = 'unless' *g_kok *g_ws *g_modifier_expr *g_ws;
+g_statement_mod_cond__when = 'when' *g_kok *g_ws *g_modifier_expr *g_ws;
+g_statement_mod_cond__with = 'with' *g_kok *g_ws *g_modifier_expr *g_ws;
+g_statement_mod_cond__without = 'without' *g_kok *g_ws *g_modifier_expr *g_ws;
+g_statement_mod_loop = FENCE(*g_statement_mod_loop__while | *g_statement_mod_loop__until | *g_statement_mod_loop__given | *g_statement_mod_loop__for);
+g_statement_mod_loop__while = 'while' *g_kok *g_ws *g_smexpr *g_ws;
+g_statement_mod_loop__until = 'until' *g_kok *g_ws *g_smexpr *g_ws;
+g_statement_mod_loop__for = 'for' *g_kok *g_ws *g_smexpr *g_ws;
+g_statement_mod_loop__given = 'given' *g_kok *g_ws *g_smexpr *g_ws;
+g_term__fatarrow = *g_fatarrow;
+g_term__colonpair = *g_colonpair;
+g_term__variable = *g_variable;
+g_term__package_declarator = *g_package_declarator;
+g_term__scope_declarator = *g_scope_declarator;
+g_term__routine_declarator = *g_routine_declarator;
+g_term__multi_declarator = @rk_cur *rk_la(FENCE(('multi') | ('proto') | ('only'))) *g_multi_declarator;
+g_term__regex_declarator = *g_regex_declarator;
+g_term__circumfix = *g_circumfix;
+g_term__statement_prefix = *g_statement_prefix;
+g_term__x2ax2a = '**';
+g_term__x2a = '*';
+g_term__lambda = @rk_cur *rk_la(@rk_cur *rk_mem('g_lambda', '')) *g_pblock;
+g_term__type_declarator = *g_type_declarator;
+g_term__value = *g_value;
+g_term__unquote = '{{{' *g_statementlist '}}}';
+g_term__x21x21 = '!!' @rk_cur *rk_la(ANY(rk_s));
+g_term__x3ax3ax3fIDENT = ('::?' *g_identifier) @rk_cur *rk_rwb();
+g_term__p5end = @rk_cur *rk_lwb() '_' '_' 'E' 'N' 'D' '_' '_' @rk_cur *rk_rwb() FAIL;
+g_term__p5data = @rk_cur *rk_lwb() '_' '_' 'D' 'A' 'T' 'A' '_' '_' @rk_cur *rk_rwb() FAIL;
+g_infix__lambda = @rk_cur *rk_la(FENCE(('{') | (@rk_cur *rk_mem('g_lambda', '')))) (FENCE((epsilon) | (FAIL)));
+g_term__undef = 'undef' @rk_cur *rk_rwb() FENCE(((@rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '$/') FAIL)) | epsilon) FENCE(((@rk_cur *rk_la((FENCE(('(') | (@rk_cur *rk_star(ANY(rk_h), FAIL, 0) *g_sigil FENCE((*g_twigil) | epsilon) ANY(rk_w))))) FAIL)) | epsilon) FAIL;
+g_term__new = 'new' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_longname @rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla(ANY(':')) FAIL;
+g_fatarrow = *g_identifier @rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=>' *g_ws *rk_EXPR;
+g_coloncircumfix = (FENCE(('<>' epsilon) | (*g_circumfix)));
+g_colonpair = ':' (FENCE(('!' (FENCE((*g_identifier) | (FAIL))) FENCE(((ANY('[(<{'))) | epsilon)) | ((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) *g_identifier FENCE(((@rk_cur *rk_la(ANY('[(<{')) epsilon *g_circumfix)) | epsilon)) | (*g_identifier (FENCE((FENCE((*g_unsp) | epsilon) *g_coloncircumfix) | (epsilon)))) | ('(' *g_fakesignature ')') | (*g_coloncircumfix) | (*g_colonpair_variable)));
+g_colonpair_variable = *g_sigil (FENCE((FENCE((*g_twigil) | epsilon) *g_desigilname) | ('<' *g_desigilname '>')));
+g_special_variable = FENCE(*h54_proto_special_variable | *h55_proto_special_variable | *h56_proto_special_variable | *h57_proto_special_variable);
+g_special_variable__x24x21x7bx20x7d = (FENCE(('$!{' @rk_cur *rk_star(LEN(1), FAIL, 0) '}') | ('%!'))) FAIL;
+g_special_variable__x24x60 = '$`' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x24x40 = '$@' ANY(rk_s ';,)') LEN(1) FAIL;
+g_special_variable__x24x23 = '$#' *g_identifier FAIL;
+g_special_variable__x24x24 = '$$' NOTANY(rk_w) FAIL;
+g_special_variable__x24x26 = '$&' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x40x2b = '@+' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x25x2b = '%+' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x24x2bx5bx20x5d = '$+[' FAIL;
+g_special_variable__x40x2bx5bx20x5d = '@+[' FAIL;
+g_special_variable__x40x2bx7bx20x7d = '@+{' FAIL;
+g_special_variable__x40x2d = '@-' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x25x2d = '%-' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x24x2dx5bx20x5d = '$-[' FAIL;
+g_special_variable__x40x2dx5bx20x5d = '@-[' FAIL;
+g_special_variable__x25x2dx7bx20x7d = '@-{' FAIL;
+g_special_variable__x24x2f = '$/' @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=' @rk_cur *rk_star(ANY(rk_h), FAIL, 0) ANY("'" '"')) FAIL;
+g_special_variable__x24x5cx5c = '$\' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | ('=') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x24x7c = '$|' @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=') FAIL;
+g_special_variable__x24x3b = '$;' @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=') FAIL;
+g_special_variable__x24x27 = "$'" @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | (@rk_cur *rk_mem('g_terminator', '')))) FAIL;
+g_special_variable__x24x22 = '$"' @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=') FAIL;
+g_special_variable__x24x2c = '$,' @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=') FAIL;
+g_special_variable__x24x2e = '$.' @rk_cur *rk_nla(FENCE((ANY(rk_w)) | ('(') | (':') | ('^'))) FAIL;
+g_special_variable__x24x3f = '$?' @rk_cur *rk_nla(FENCE((ANY(rk_w)) | ('('))) FAIL;
+g_special_variable__x24x5d = '$]' @rk_cur *rk_nla(FENCE((ANY(rk_w)) | ('('))) FAIL;
+g_special_variable__x24x7bx20x7d = *g_sigil '{' (ARBNO(LEN(1))) '}';
+g_desigilname = (FENCE((@rk_cur *rk_la(*g_sigil *g_sigil) *g_variable) | (@rk_cur *rk_la(*g_sigil) FENCE(((FAIL)) | epsilon) *g_variable) | (*g_longname)));
+g_desigilmetaname = ((*g_identifier));
+g_sigillessx2dvariable = FAIL;
+g_variable = (FENCE(('&[' *g_infixish ']') | (*g_sigil (FENCE((('.^') *g_desigilmetaname) | (FENCE((*g_twigil) | epsilon) *g_desigilname))) FENCE(((epsilon)) | epsilon)) | (*g_special_variable) | (*g_sigil (@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) FENCE(((FAIL)) | epsilon)) | (*g_sigil @rk_cur *rk_la(ANY('<')) *g_postcircumfix FENCE(((FAIL)) | epsilon)) | (@rk_cur *rk_la(*g_sigil @rk_cur *rk_la(ANY('([{'))) @rk_cur *rk_nla(*std_RESTRICTED) *g_contextualizer) | (('$') (ANY('/_!¢'))) | (*g_sigillessx2dvariable) | (*g_sigil @rk_cur *rk_marker('baresigil')))) FENCE((((FENCE((*g_unsp) | ('\') | (epsilon))) @rk_cur *rk_la(ANY('(:')) @rk_cur *rk_nla(*std_RESTRICTED) (FENCE((':' @rk_cur *rk_la(FENCE((ANY(rk_s)) | ('{'))) *g_arglist) | ('(' *g_arglist ')'))))) | epsilon);
+g_contextualizer = FENCE(((FAIL)) | epsilon) (FENCE((*g_sigil '(' *g_sequence ')') | (*g_sigil @rk_cur *rk_la(ANY('[{')) *g_circumfix)));
+g_sigil = ANY('$@%&');
+g_twigil = FENCE(*g_twigil__x2e | *g_twigil__x21 | *g_twigil__x5e | *g_twigil__x3a | *g_twigil__x2a | *g_twigil__x3f | *g_twigil__x3d | *g_twigil__x7e);
+g_twigil__x2e = '.' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x21 = '!' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x5e = '^' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x3a = ':' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x2a = '*' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x3f = '?' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x3d = '=' @rk_cur *rk_la(ANY(rk_w));
+g_twigil__x7e = '~' @rk_cur *rk_la(ANY(rk_w));
+g_package_declarator = FENCE(*h66_proto_package_declarator | *h67_proto_package_declarator);
+g_package_declarator__package = 'package' *g_kok *g_package_def epsilon;
+g_package_declarator__module = 'module' *g_kok *g_package_def epsilon;
+g_package_declarator__class = 'class' *g_kok *g_package_def epsilon;
+g_package_declarator__grammar = 'grammar' *g_kok *g_package_def epsilon;
+g_package_declarator__role = 'role' *g_kok *g_package_def epsilon;
+g_package_declarator__knowhow = 'knowhow' *g_kok *g_package_def epsilon;
+g_package_declarator__native = 'native' *g_kok *g_package_def epsilon;
+g_package_declarator__slang = 'slang' *g_kok *g_package_def epsilon;
+g_package_declarator__trusts = 'trusts' *g_kok (FENCE((*g_typename) | (*g_typo_typename)));
+g_package_declarator__also = 'also' *g_kok *g_ws (FENCE((@rk_cur *rk_plus(*g_trait, FAIL, 0) *g_ws) | (FAIL *g_ws))) *g_ws;
+g_package_def = FENCE((epsilon *g_ws epsilon *g_ws (FENCE(((*g_longname *g_ws)) | epsilon) *g_ws epsilon *g_ws FENCE(((*g_ws '[' *g_ws *g_signature ']' *g_ws)) | epsilon) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws (FENCE((@rk_cur *rk_la(ANY('{')) (*g_blockoid)) | (';' (FENCE((epsilon *g_statementlist) | (epsilon)))) | (FAIL))))) | (epsilon));
+g_declarator = (FENCE(('\' *g_deftermnow (FENCE((*g_ws *g_initializer) | (FAIL)))) | (*g_variable_declarator (FENCE((epsilon FENCE(((*g_ws *g_initializer)) | epsilon)) | (FENCE(((*g_ws *g_initializer)) | epsilon))))) | ('(' *g_signature ')' FENCE(((*g_ws @rk_cur *rk_plus(*g_trait, FAIL, 0))) | epsilon) FENCE(((*g_ws *g_initializer)) | epsilon)) | (':(' *g_signature ')' FENCE(((*g_ws @rk_cur *rk_plus(*g_trait, FAIL, 0))) | epsilon) (FENCE(((*g_ws *g_initializer)) | (FAIL)))) | (*g_routine_declarator) | (*g_regex_declarator) | (*g_type_declarator)));
+g_multi_declarator = FENCE(*g_multi_declarator__multi | *g_multi_declarator__proto | *g_multi_declarator__only | *g_multi_declarator__null);
+g_multi_declarator__multi = 'multi' *g_kok FENCE(((@rk_cur *rk_la('('))) | epsilon) (FENCE((*g_declarator) | (*g_routine_def) | (FAIL)));
+g_multi_declarator__proto = 'proto' *g_kok FENCE(((@rk_cur *rk_la('('))) | epsilon) (FENCE((*g_declarator) | (*g_routine_def) | (FAIL)));
+g_multi_declarator__only = 'only' *g_kok (FENCE((*g_declarator) | (*g_routine_def) | (FAIL)));
+g_multi_declarator__null = *g_declarator;
+g_scope_declarator = FENCE(*h72_proto_scope_declarator | *h73_proto_scope_declarator);
+g_scope_declarator__my = 'my' *g_scoped;
+g_scope_declarator__our = 'our' *g_scoped;
+g_scope_declarator__has = 'has' *g_scoped;
+g_scope_declarator__HAS = 'HAS' *g_scoped;
+g_scope_declarator__augment = 'augment' *g_scoped;
+g_scope_declarator__anon = 'anon' *g_scoped;
+g_scope_declarator__state = 'state' *g_scoped;
+g_scope_declarator__supersede = 'supersede' *g_scoped FAIL;
+g_scope_declarator__unit = 'unit' *g_scoped;
+g_scoped = *g_end_keyword (FENCE((*g_ws (FENCE((*g_declarator) | (*g_regex_declarator) | (*g_package_declarator) | (@rk_cur *rk_plus((*g_typename *g_ws), FAIL, 0) *g_multi_declarator) | (*g_multi_declarator)))) | (*g_ws @rk_cur *rk_star((*g_typename *g_ws), FAIL, 0) *rk_ident @rk_cur *rk_la(*g_ws (FENCE((FENCE((':') | epsilon) FENCE((':') | epsilon) '=') | (@rk_cur *rk_mem('g_terminator', '')) | (*g_trait) | ('where' *g_ws *rk_EXPR) | (RPOS(0))))) FAIL) | (*g_ws *g_typename *g_ws @rk_cur *rk_la('where' *g_ws *rk_EXPR) FAIL) | (*g_ws *g_typename *g_ws @rk_cur *rk_la(*g_trait) FAIL) | (*g_ws *g_typename *g_ws @rk_cur *rk_la((FENCE((@rk_cur *rk_mem('g_terminator', '')) | (RPOS(0))))) FAIL) | (*g_ws @rk_cur *rk_nla(*g_typename) *g_typo_typename FAIL) | (FAIL)));
+g_variable_declarator = *g_variable FENCE(((FENCE((*g_unsp) | epsilon) @rk_cur *rk_plus((FENCE(('(' *g_signature ')') | ('[' *g_semilist ']') | ('{' *g_semilist '}') | (@rk_cur *rk_la(ANY('<')) *g_postcircumfix FAIL))), FAIL, 0))) | epsilon) FENCE(((*g_ws @rk_cur *rk_plus(*g_trait, FAIL, 0))) | epsilon) FENCE(((*g_ws @rk_cur *rk_plus(*g_post_constraint, FAIL, 0))) | epsilon);
+g_routine_declarator = FENCE(*g_routine_declarator__submethod | *g_routine_declarator__method | *g_routine_declarator__macro | *g_routine_declarator__sub);
+g_routine_declarator__sub = 'sub' *g_end_keyword *g_routine_def;
+g_routine_declarator__method = 'method' *g_end_keyword *g_method_def;
+g_routine_declarator__submethod = 'submethod' *g_end_keyword *g_method_def;
+g_routine_declarator__macro = 'macro' *g_end_keyword *g_macro_def;
+g_routine_def = epsilon *g_ws FENCE((*g_deflongname) | epsilon) *g_ws epsilon *g_ws FENCE((('(' *g_ws *g_multisig *g_ws ')' *g_ws)) | epsilon) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws (FENCE((';' epsilon *g_statementlist) | (*g_onlystar) | (@rk_cur *rk_nla('{') *g_deflongname FAIL) | (*g_blockoid)));
+g_method_def = FENCE((epsilon *g_ws (epsilon *g_ws (FENCE(((FENCE((ANY('!^')) | epsilon)) *g_longname *g_ws FENCE((('(' *g_ws *g_multisig *g_ws ')' *g_ws)) | epsilon) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws) | ('(' *g_ws *g_multisig *g_ws ')' *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws) | (*g_sigil '.' (FENCE(('(' *g_multisig ')') | ('[' *g_multisig ']') | ('{' *g_multisig '}'))) @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws) | (epsilon *g_ws))) *g_ws (FENCE((*g_onlystar *g_ws) | (*g_blockoid *g_ws))) *g_ws) *g_ws) | (FAIL *g_ws));
+g_macro_def = *std_experimental *g_ws epsilon *g_ws FENCE((*g_deflongname) | epsilon) *g_ws epsilon *g_ws FENCE((('(' *g_ws *g_multisig *g_ws ')' *g_ws)) | epsilon) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws (FENCE((*g_onlystar *g_ws) | (*g_blockoid *g_ws))) *g_ws;
+g_onlystar = '{' *g_ws '*' *g_ws '}' @rk_cur *rk_la(*g_ENDSTMT) epsilon;
+g_capterm = '\' (FENCE(('(' *g_semiarglist ')') | (@rk_cur *rk_la(FENCE(('$') | ('@') | ('%') | ('&'))) epsilon *g_termish) | (@rk_cur *rk_la(ANY(rk_digit)) epsilon *g_termish) | (@rk_cur *rk_la(NOTANY(rk_s)) *g_termish) | (FAIL)));
+g_param_sep = epsilon *g_ws (FENCE((',') | (':') | (';;') | (';'))) *g_ws;
+g_multisig = *g_signature;
+g_sigterm = ':(' *g_fakesignature ')';
+g_fakesignature = epsilon *g_signature;
+g_signature = *g_ws @rk_cur *rk_plus((FENCE((@rk_cur *rk_la(FENCE(('-->') | (')') | (']') | ('{') | (':' ANY(rk_s)) | (';;')))) | (*g_parameter))), *g_param_sep, 1) *g_ws (FENCE((@rk_cur *rk_la(FENCE(('-->') | (')') | (']') | ('{') | (':' ANY(rk_s)) | (';;')))) | (FAIL))) FENCE((('-->' *g_ws (FENCE(((FENCE((*g_typename) | (*g_value) | (*g_typo_typename))) *g_ws (FENCE((@rk_cur *rk_la(ANY('{)'))) | (@rk_cur *rk_la(FENCE((*g_param_sep) | epsilon) *g_parameter) FAIL)))) | (FAIL))))) | epsilon);
+g_parameter = (FENCE((@rk_cur *rk_plus(*g_type_constraint, FAIL, 0) (FENCE(((FENCE(('**') | ('*') | ('+'))) *g_param_var) | ((FENCE(('\') | ('|'))) *g_param_var) | ((FENCE(('\') | ('|') | ('+'))) *g_param_term) | ((FENCE((*g_param_var) | (*g_named_param))) (FENCE(('?') | ('!') | (epsilon)))) | (epsilon)))) | ((FENCE(('**') | ('*') | ('+'))) *g_param_var) | ((FENCE(('\') | ('|'))) *g_param_var) | ((FENCE(('\') | ('|') | ('+'))) *g_param_term) | ((FENCE((*g_param_var) | (*g_named_param))) (FENCE(('?') | ('!') | (epsilon)))) | (*g_longname))) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) @rk_cur *rk_star(*g_post_constraint, FAIL, 0) epsilon (FENCE(((*g_default_value FENCE(((*g_trait)) | epsilon) FENCE(((*g_post_constraint)) | epsilon))) | epsilon));
+g_param_var = epsilon (FENCE(('[' *g_signature ']') | ('(' *g_signature ')') | ((*g_sigil FENCE((*g_twigil) | epsilon) FENCE(((FENCE(((FENCE((@rk_cur *rk_la(*g_identifier) *g_sublongname) | (*g_sigterm)))) | (*g_identifier) | (*hll_decint) | ((ANY('/!')))))) | epsilon)) FENCE(((FENCE((@rk_cur *rk_la(':(') ':') | (@rk_cur *rk_la('(') epsilon) | (@rk_cur *rk_la('[') *g_postcircumfix) | (@rk_cur *rk_la(ANY('{<«')) epsilon *g_postcircumfix)))) | epsilon))));
+g_param_term = FENCE((*g_defterm) | epsilon);
+g_named_param = ':' (FENCE((*g_identifier '(' *g_ws (FENCE((*g_named_param) | (*g_param_var))) *g_ws (FENCE((')') | (FAIL)))) | (*g_param_var)));
+g_default_value = '=' *g_ws *rk_EXPR *g_ws;
+g_type_constraint = (FENCE((*g_value) | ((FENCE((ANY('-−')) | ('+'))) *g_numish) | (*g_typename) | ('w' 'h' 'e' 'r' 'e' *g_ws *rk_EXPR))) *g_ws;
+g_post_constraint = (FENCE(('[' *g_ws *g_signature ']' *g_ws) | ('(' *g_ws *g_signature ')' *g_ws) | ('w' 'h' 'e' 'r' 'e' *g_ws *rk_EXPR *g_ws))) *g_ws;
+g_regex_declarator = FENCE(*g_regex_declarator__token | *g_regex_declarator__regex | *g_regex_declarator__rule);
+g_regex_declarator__rule = 'rule' *g_kok *g_regex_def;
+g_regex_declarator__token = 'token' *g_kok *g_regex_def;
+g_regex_declarator__regex = 'regex' *g_kok *g_regex_def;
+g_regex_def = FENCE((epsilon *g_ws (FENCE((*g_deflongname) | epsilon) *g_ws epsilon *g_ws @rk_cur *rk_star((FENCE(((FENCE((':') | epsilon) '(' *g_ws *g_signature *g_ws ')' *g_ws) *g_ws) | (*g_trait *g_ws))), FAIL, 0) *g_ws '{' *g_ws (FENCE(((FENCE(('*') | ('<...>') | ('<*>'))) *g_ws *g_ws *g_ws) | (@rk_cur *rk_nib('{', '}', 'rx') *g_ws))) *g_ws '}' @rk_cur *rk_nla(*std_RESTRICTED) @rk_cur *rk_la(*g_ENDSTMT) *g_ws) *g_ws) | (FAIL *g_ws));
+g_type_declarator = FENCE(*g_type_declarator__constant | *g_type_declarator__subset | *g_type_declarator__enum);
+g_type_declarator__enum = 'enum' *g_kok epsilon (FENCE((*g_longname) | (*g_variable) | (epsilon))) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) (FENCE((@rk_cur *rk_la(ANY('<(«')) *g_term *g_ws) | (FAIL))) epsilon epsilon;
+g_type_declarator__subset = 'subset' *g_kok *g_ws epsilon *g_ws (FENCE(((FENCE(((*g_longname *g_ws)) | epsilon) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) *g_ws FENCE((('w' 'h' 'e' 'r' 'e' *g_ws *rk_EXPR *g_ws)) | epsilon) *g_ws) *g_ws) | (FAIL *g_ws))) *g_ws;
+g_type_declarator__constant = 'constant' *g_kok (FENCE((FENCE(('\') | epsilon) *g_defterm) | (*g_variable) | (epsilon))) *g_ws @rk_cur *rk_star(*g_trait, FAIL, 0) (FENCE((*g_initializer epsilon epsilon) | (FAIL))) FENCE((*std_cheat_heredoc) | epsilon);
+g_initializer = FENCE(*g_initializer__x3ax3ax3d | *g_initializer__x3ax3d | *g_initializer__x2ex3d | *g_initializer__x3d);
+g_initializer__x3d = (FENCE((epsilon) | (FAIL))) '=' (FENCE((*g_ws (FENCE((*rk_EXPR) | (*rk_EXPR)))) | (FAIL)));
+g_initializer__x3ax3d = ':=' (FENCE((*g_ws *rk_EXPR) | (FAIL)));
+g_initializer__x3ax3ax3d = '::=' (FENCE((*g_ws *rk_EXPR FAIL) | (FAIL)));
+g_initializer__x2ex3d = '.=' (FENCE((*g_ws *g_dottyopish) | (FAIL)));
+g_trait = *g_trait_mod *g_ws;
+g_trait_mod = FENCE(*g_trait_mod__returns | *g_trait_mod__handles | *g_trait_mod__hides | *g_trait_mod__does | *g_trait_mod__will | *g_trait_mod__is | *g_trait_mod__of);
+g_trait_mod__is = 'is' *g_ws (FENCE(((*g_longname (FENCE((*g_circumfix) | epsilon))) *g_ws) | (FAIL *g_ws))) *g_ws epsilon *g_ws epsilon *g_ws;
+g_trait_mod__hides = 'hides' *g_ws (FENCE((*g_typename *g_ws) | (*g_bad_trait_typename))) *g_ws;
+g_trait_mod__does = 'does' *g_ws (FENCE((*g_typename *g_ws) | (*g_bad_trait_typename))) *g_ws;
+g_trait_mod__will = 'will' *g_ws (FENCE((*g_identifier *g_ws) | (FAIL))) *g_ws *g_pblock *g_ws;
+g_trait_mod__of = 'of' *g_ws (FENCE((*g_typename *g_ws) | (*g_bad_trait_typename))) *g_ws;
+g_trait_mod__returns = FENCE(('returns' *g_ws (FENCE((*g_typename *g_ws) | (*g_bad_trait_typename))) *g_ws) | ('return' *g_ws FAIL *g_ws));
+g_trait_mod__handles = 'handles' *g_ws (FENCE((*g_term *g_ws) | (FAIL))) *g_ws;
+g_bad_trait_typename = FENCE((*g_longname) | (FAIL));
+g_term = FENCE(*h92_proto_term | *h93_proto_term | *h94_proto_term | *h95_proto_term | *h96_proto_term);
+g_term__self = 'self' *g_end_keyword;
+g_term__now = 'now' *g_tok;
+g_term__time = 'time' *g_tok;
+g_term__nano = 'nano' *g_tok;
+g_term__empty_set = '∅' @rk_cur *rk_nla(FENCE((ANY("(\'-")) | (@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=>')));
+g_term__rand = 'rand' @rk_cur *rk_rwb() FENCE(((@rk_cur *rk_la(FENCE(('(') | epsilon) @rk_cur *rk_star(ANY(rk_h), FAIL, 0) (FENCE((ANY(rk_digit)) | ('$')))) FAIL)) | epsilon) FENCE(((@rk_cur *rk_la('()') FAIL)) | epsilon) *g_end_keyword;
+g_term__x2ex2ex2e = (FENCE(('...') | ('…'))) FENCE(((@rk_cur *rk_lb(',' @rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_plus(ANY('.…'), FAIL, 0)))) | epsilon) FENCE(((@rk_cur *rk_lb(ANY(rk_alpha ']') @rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_plus(ANY('.…'), FAIL, 0)))) | epsilon) *g_args;
+g_term__x3fx3fx3f = '???' *g_args;
+g_term__x21x21x21 = '!!!' *g_args;
+g_term__identifier = *g_identifier (FENCE((@rk_cur *rk_la(FENCE((*g_unsp) | epsilon) '(')) | ('\' @rk_cur *rk_la('(')))) *g_args;
+g_term__nqpx3ax3aop = 'nqp::' (@rk_cur *rk_plus(ANY(rk_w), FAIL, 0)) FENCE((*g_args) | epsilon);
+g_term__nqpx3ax3aconst = 'nqp::const::' (@rk_cur *rk_plus(ANY(rk_w), FAIL, 0));
+g_term__name = *g_longname (FENCE((FENCE((*g_unsp) | epsilon) FENCE(((@rk_cur *rk_la(ANY('[')) '[' *g_arglist ']')) | epsilon) FENCE((*g_unsp) | epsilon) FENCE(((@rk_cur *rk_la(ANY('{')) *g_postcircumfix FAIL)) | epsilon) FENCE((*g_unsp) | epsilon) FENCE(((@rk_cur *rk_la(ANY('(')) '(' *g_ws (FENCE((*rk_m_maybe_typename) | (epsilon))) *g_ws ')')) | epsilon) FENCE(((epsilon)) | epsilon)) | (FENCE((('\' @rk_cur *rk_la('('))) | epsilon) *g_args)));
+g_term__dotty = *g_dotty;
+g_term__capterm = *g_capterm;
+g_term__onlystar = '{*}' @rk_cur *rk_la(*g_ENDSTMT) (FENCE((epsilon) | (FAIL)));
+g_args = (FENCE(('(' *g_semiarglist ')') | (*g_unsp '(' *g_semiarglist ')') | ((ANY(rk_s) *g_arglist)) | (epsilon)));
+g_semiarglist = @rk_cur *rk_plus(*g_arglist, ';', 1) *g_ws;
+g_arglist = *g_ws (FENCE((@rk_cur *rk_la(@rk_cur *rk_mem('g_stdstopper', 'endstmt'))) | (*rk_EXPR) | (epsilon)));
+g_value = FENCE(*g_value__version | *g_value__number | *g_value__quote);
+g_value__quote = *g_quote;
+g_value__number = *g_number;
+g_value__version = *g_version;
+g_number = FENCE(*g_number__numish);
+g_number__numish = *g_numish;
+g_signedx2dnumber = *g_sign *g_number;
+g_numish = (FENCE(('NaN' @rk_cur *rk_rwb()) | (*g_integer) | (*g_dec_number) | (*g_rad_number) | (*g_rat_number) | (*g_complex_number) | ('Inf' @rk_cur *rk_rwb()) | ('∞') | (FAIL)));
+g_dec_number = (FENCE((('.' *hll_decint) FENCE((*g_escale) | epsilon)) | ((*hll_decint '.' *hll_decint) FENCE((*g_escale) | epsilon)) | ((*hll_decint) *g_escale)));
+g_signedx2dinteger = *g_sign *g_integer;
+g_integer = (FENCE(('0' (FENCE(('b' FENCE(('_') | epsilon) *hll_binint) | ('o' FENCE(('_') | epsilon) *hll_octint) | ('x' FENCE(('_') | epsilon) *hll_hexint) | ('d' FENCE(('_') | epsilon) *hll_decint) | (*hll_decint epsilon)))) | (*hll_decint))) @rk_cur *rk_la(FENCE((('.' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (',') | ('=') | (':' @rk_cur *rk_nla(*g_prefix)) | (@rk_cur *rk_mem('g_terminator', '')) | (RPOS(0)))) epsilon)) | epsilon)) FENCE(((@rk_cur *rk_la('_' @rk_cur *rk_plus('_', FAIL, 0) ANY(rk_digit)) epsilon)) | epsilon);
+g_rad_number = ':' (@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) FENCE((*g_unsp) | epsilon) (FENCE(('<' (FENCE(((FENCE(('0x') | ('0o') | ('0d') | ('0b')))) | epsilon)) *rk_m_rad_digits (FENCE((('.' *rk_m_rad_digits)) | epsilon)) (FENCE((('*' *g_radint '**' *g_radint)) | epsilon)) '>') | (@rk_cur *rk_la(ANY('[')) *g_circumfix) | (@rk_cur *rk_la(ANY('(')) *g_circumfix) | (FAIL)));
+g_radint = (*g_integer);
+g_escale = ANY('Ee') *g_sign *hll_decint;
+g_sign = FENCE(('+') | ('-') | ('−') | (epsilon));
+g_rat_number = '<' *g_bare_rat_number '>';
+g_bare_rat_number = @rk_cur *rk_la(@rk_cur *rk_plus(ANY('-−+0123456789<>:boxd'), FAIL, 0) '/') *g_signedx2dinteger '/' *g_integer;
+g_complex_number = '<' *g_bare_complex_number '>';
+g_bare_complex_number = @rk_cur *rk_la(@rk_cur *rk_plus(ANY('-−+0123456789<>:.eEboxdInfNa\'), FAIL, 0) 'i') *g_signedx2dnumber @rk_cur *rk_la(ANY('-−+')) *g_signedx2dnumber FENCE(('\') | epsilon) 'i';
+g_typename = (FENCE(('::?' *g_identifier @rk_cur *rk_star(*g_colonpair, FAIL, 0)) | (*g_longname))) FENCE((*g_unsp) | epsilon) FENCE(((@rk_cur *rk_la(ANY('[')) '[' *g_arglist ']' epsilon epsilon)) | epsilon) FENCE((*g_unsp) | epsilon) FENCE(((@rk_cur *rk_la('{') *g_postcircumfix)) | epsilon) FENCE((*g_unsp) | epsilon) FENCE(((@rk_cur *rk_la(ANY('(')) '(' (*g_ws (FENCE((*g_typename) | (epsilon))) *g_ws) ')')) | epsilon) FENCE(((*g_ws 'of' *g_ws *g_typename)) | epsilon) FENCE(((epsilon)) | epsilon);
+g_typo_typename = *g_longname;
+g_quotepair = ':' (FENCE(('!' *g_identifier FENCE(((@rk_cur *rk_la(ANY('(')) epsilon)) | epsilon)) | (*g_identifier (FENCE((@rk_cur *rk_la(ANY('(')) *g_circumfix) | (epsilon)))) | ((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) *g_identifier FENCE(((@rk_cur *rk_la(ANY('(')) *g_circumfix epsilon)) | epsilon))));
+g_rx_adverbs = @rk_cur *rk_star((*g_quotepair *g_ws *g_setup_quotepair), FAIL, 0);
+g_qok = @rk_cur *rk_rwb() @rk_cur *rk_nla(ANY('(')) (FENCE((@rk_cur *rk_la(ANY(':'))) | (epsilon))) FENCE(((@rk_cur *rk_star(ANY(rk_s), FAIL, 0) '#' FAIL)) | epsilon) *g_ws;
+g_quote_mod = FENCE(*h114_proto_quote_mod | *h115_proto_quote_mod);
+g_quote_mod__w = 'w';
+g_quote_mod__ww = 'ww';
+g_quote_mod__x = 'x';
+g_quote_mod__to = 'to';
+g_quote_mod__s = 's';
+g_quote_mod__a = 'a';
+g_quote_mod__h = 'h';
+g_quote_mod__f = 'f';
+g_quote_mod__c = 'c';
+g_quote_mod__b = 'b';
+g_quote = FENCE(*h116_proto_quote | *h117_proto_quote | *h118_proto_quote);
+g_quote__apos = "'" @rk_cur *rk_nib("'", "'", 'q') "'";
+g_quote__sapos = '‘' @rk_cur *rk_nib('‘', '’', 'q') '’';
+g_quote__lapos = '‚' @rk_cur *rk_nib('‚', '’', 'q') ANY('’‘');
+g_quote__hapos = '’' @rk_cur *rk_nib('’', '’', 'q') ANY('’‘');
+g_quote__dblq = '"' @rk_cur *rk_nib('"', '"', 'qq') '"';
+g_quote__sdblq = '“' @rk_cur *rk_nib('“', '”', 'qq') '”';
+g_quote__ldblq = '„' @rk_cur *rk_nib('„', '”', 'qq') ANY('”“');
+g_quote__hdblq = '”' @rk_cur *rk_nib('”', '”', 'qq') ANY('”“');
+g_quote__crnr = '｢' @rk_cur *rk_nib('｢', '｣', 'q') '｣';
+g_quote__q = 'q' (FENCE((*g_quote_mod *g_qok *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('q')) | (*g_qok *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('q'))));
+g_quote__qq = 'qq' (FENCE((*g_quote_mod *g_qok *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('qq')) | (*g_qok *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('qq'))));
+g_quote__Q = 'Q' (FENCE((*g_quote_mod *g_qok *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q')) | (*g_qok *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q'))));
+g_quote__x2fnullx2f = FENCE(('/' @rk_cur *rk_star(ANY(rk_s), FAIL, 0) '/' FAIL) | ('/' @rk_cur *rk_plus(ANY(rk_s), FAIL, 0) '/' FAIL));
+g_quote__x2fx20x2f = '/' @rk_cur *rk_nib('/', '/', 'rx') (FENCE(('/') | (FAIL))) FENCE((*g_old_rx_mods) | epsilon);
+g_quote__rx = 'rx' *g_qok *g_rx_adverbs *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('rx') @rk_cur *rk_nla(*g_old_rx_mods);
+g_quote__m = 'm' (FENCE((('s')) | epsilon)) *g_qok *g_rx_adverbs *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('rx') @rk_cur *rk_nla(*g_old_rx_mods);
+g_quote__qr = 'qr' *g_qok FAIL;
+g_setup_quotepair = epsilon;
+g_sibble = *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q') *rk_start @rk_cur *rk_nib(rk_dstart, rk_dstop, rk_dkind) (FENCE((*rk_stop) | (epsilon))) (FENCE((*g_ws FENCE(((@rk_cur *rk_la(ANY('[{(<')) FAIL)) | epsilon) (FENCE((*g_infixish) | (FAIL))) (FENCE((epsilon) | (FAIL))) *g_ws (FENCE((*rk_EXPR) | (FAIL)))) | (@rk_cur *rk_nib(rk_dstart, rk_dstop, rk_dkind) *rk_stop) | (FAIL)));
+g_quote__s = ANY('Ss') (FENCE((('s')) | epsilon)) *g_qok *g_rx_adverbs *g_sibble (FENCE((epsilon) | (FENCE((*g_old_rx_mods) | epsilon))));
+g_tribble = *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q') *rk_start @rk_cur *rk_nib(rk_dstart, rk_dstop, rk_dkind) (FENCE((*rk_stop) | (epsilon))) (FENCE((*rk_start @rk_cur *rk_nib(rk_dstart, rk_dstop, rk_dkind) (FENCE((*rk_stop) | (epsilon)))) | (@rk_cur *rk_nib(rk_dstart, rk_dstop, rk_dkind) *rk_stop) | (FAIL)));
+g_quote__tr = (FENCE(('tr') | ('TR'))) *g_qok *g_rx_adverbs *g_tribble FENCE((*g_old_rx_mods) | epsilon);
+g_quote__y = 'y' @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) NOTANY(rk_w)) *g_qok FAIL;
+g_old_rx_mods = (ANY('igsmxce'));
+g_quote__quasi = 'quasi' *g_ws @rk_cur *rk_nla(ANY('(')) *std_experimental *g_block;
+g_circumfix__STATEMENT_LISTx28x20x29 = 'STATEMENT_LIST(' *g_sequence ')';
+g_circumfix__x28x20x29 = '(' *g_semilist ')';
+g_circumfix__x5bx20x5d = '[' *g_semilist ']';
+g_circumfix__ang = '<' (FENCE(((@rk_cur *rk_la('STDIN>') FAIL)) | epsilon) FENCE(((@rk_cur *rk_la(ANY('>')) FAIL)) | epsilon) @rk_cur *rk_nib('<', '>', 'q')) '>';
+g_circumfix__x3cx3cx20x3ex3e = '<<' @rk_cur *rk_nib('<<', '>>', 'qq') '>>';
+g_circumfix__u00abx20u00bb = '«' @rk_cur *rk_nib('«', '»', 'qq') '»';
+g_circumfix__x7bx20x7d = @rk_cur *rk_la(ANY('{')) *g_pblock;
+g_termish = (FENCE(((FENCE((@rk_cur *rk_plus(*g_prefixish, FAIL, 0) (FENCE((*g_arg_flat_nok *g_term) | (FAIL)))) | (*g_arg_flat_nok *g_term)))) | (@rk_cur *rk_la(*g_infixish)) | (FAIL))) (FENCE(((FENCE(((FENCE(((@rk_cur *rk_plus(*g_postfixish, FAIL, 0))) | epsilon))) | (@rk_cur *rk_plus(*g_postfixish, FAIL, 0))))) | (@rk_cur *rk_star(*g_postfixish, FAIL, 0))));
+g_arg_flat_nok = epsilon;
+g_prefixish = (FENCE((*g_prefix) | (*g_prefix_circumfix_meta_operator))) (FENCE((*g_prefix_postfix_meta_operator) | epsilon)) *g_ws;
+g_infixish = @rk_cur *rk_nla(@rk_cur *rk_mem('g_stdstopper', 'endstmt')) @rk_cur *rk_nla(@rk_cur *rk_mem('g_infixstopper', 'ws')) (FENCE((*g_colonpair *g_fake_infix) | ((FENCE(('[' *g_infixish ']') | (@rk_cur *rk_la('[&' FENCE((*g_twigil) | epsilon) (FENCE((ANY(rk_alpha)) | ('(')))) '[' *g_variable ']') | (*g_infix_circumfix_meta_operator) | (*g_infix_prefix_meta_operator) | (*g_infix) | (FAIL))) FENCE(((@rk_cur *rk_la('=') *g_infix_postfix_meta_operator)) | epsilon)))) epsilon;
+g_fake_infix = epsilon;
+g_infixstopper = (((@rk_cur *rk_la('!!')) | (@rk_cur *rk_la((('{') | (@rk_cur *rk_mem('g_lambda', '')))) @rk_cur *rk_marked('ws'))));
+g_postfixish = @rk_cur *rk_nla(@rk_cur *rk_mem('g_stdstopper', 'endstmt')) FENCE((((FENCE((*g_unsp) | ('\'))))) | epsilon) (FENCE(((FENCE((('.' FENCE((*g_unsp) | epsilon))) | epsilon) *g_postfix_prefix_meta_operator FENCE((*g_unsp) | epsilon))) | epsilon)) (FENCE((*g_postfix) | ('.' @rk_cur *rk_la(NOTANY(rk_w)) *g_postfix) | (*g_postcircumfix) | ('.' @rk_cur *rk_la(ANY('[{<')) *g_postcircumfix) | (*g_dotty) | (*g_privop) | ((FENCE((@rk_cur *rk_la(ANY(rk_s)) FAIL) | (@rk_cur *rk_la(ANY(rk_alpha)) FAIL) | (FAIL))))));
+g_postop = FENCE((*g_postfix) | (*g_postcircumfix));
+g_prefix_circumfix_meta_operator = FAIL;
+g_infix_postfix_meta_operator = FENCE(*g_infix_postfix_meta_operator__x3d);
+g_infix_prefix_meta_operator = FENCE(*g_infix_prefix_meta_operator__x21 | *g_infix_prefix_meta_operator__R | *g_infix_prefix_meta_operator__S | *g_infix_prefix_meta_operator__X | *g_infix_prefix_meta_operator__Z);
+g_infix_circumfix_meta_operator = FENCE(*g_infix_circumfix_meta_operator__x3cx3cx20x3ex3e | *g_infix_circumfix_meta_operator__u00abx20u00bb);
+g_postfix_prefix_meta_operator = FENCE(*g_postfix_prefix_meta_operator__u00bb);
+g_prefix_postfix_meta_operator = FENCE(*g_prefix_postfix_meta_operator__u00ab);
+g_term__reduce = @rk_cur *rk_la('[' @rk_cur *rk_plus(NOTANY(rk_s), FAIL, 0) ']') @rk_cur *rk_nla(@rk_cur *rk_plus('[', FAIL, 0) ANY('-+?~^') ANY(rk_w '$@')) '[' (((*g_infixish @rk_cur *rk_la(ANY(']'))) | (('\') *g_infixish @rk_cur *rk_la(ANY(']'))) | (FAIL))) ']' epsilon (((epsilon) | (epsilon) | (epsilon))) *g_args;
+g_postfix_prefix_meta_operator__u00bb = (FENCE(('»') | ('>>'))) (FENCE((epsilon) | (@rk_cur *rk_nla(ANY('(')))));
+g_prefix_postfix_meta_operator__u00ab = FENCE(('«') | ('<<'));
+g_infix_circumfix_meta_operator__u00abx20u00bb = (FENCE(('«') | ('»'))) *g_infixish (FENCE(('«') | ('»') | (FAIL))) epsilon epsilon;
+g_infix_circumfix_meta_operator__x3cx3cx20x3ex3e = (FENCE(('<<') | ('>>'))) *g_infixish (FENCE(('<<') | ('>>') | (FAIL))) epsilon;
+g_revO = epsilon;
+g_dotty = FENCE(*g_dotty__x2ex2a | *g_dotty__x2e);
+g_dotty__x2e = '.' *g_dottyop epsilon;
+g_dotty__x2ex2a = ('.' (FENCE((ANY('+*?=')) | ('^' FENCE(('!') | epsilon))))) *g_dottyop epsilon;
+g_dottyop = FENCE((*g_unsp) | epsilon) (FENCE((*g_methodop) | (*g_colonpair) | (@rk_cur *rk_nla(ANY(rk_alpha)) *g_postop)));
+g_privop = '!' *g_methodop epsilon;
+g_methodop = (FENCE((*g_longname) | (@rk_cur *rk_la(ANY('$@&')) *g_variable) | (@rk_cur *rk_la(ANY("'" '"')) (FENCE((epsilon) | (@rk_cur *rk_nla('"' @rk_cur *rk_star(NOTANY('"'), FAIL, 0) (FENCE((ANY(rk_s)) | (RPOS(0)))))))) *g_quote (FENCE((@rk_cur *rk_la(FENCE(('(') | ('.(') | ('\')))) | (FAIL)))))) FENCE((*g_unsp) | epsilon) (FENCE(((FENCE((@rk_cur *rk_la(ANY('(')) *g_args) | (':' @rk_cur *rk_la(FENCE((ANY(rk_s)) | ('{'))) *g_arglist)))) | (epsilon) | (@rk_cur *rk_la(ANY('.')) epsilon))) FENCE((*g_unsp) | epsilon);
+g_dottyopish = *g_dottyop;
+g_postcircumfix__x5bx20x5d = '[' (*g_ws *g_semilist) ']' epsilon;
+g_postcircumfix__x7bx20x7d = '{' (*g_ws *g_semilist) '}' epsilon;
+g_postcircumfix__ang = '<' (FENCE((@rk_cur *rk_nib('<', '>', 'q') '>') | (@rk_cur *rk_star('=', FAIL, 0) @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) (FENCE((ANY(rk_digit)) | (*g_sigil) | (':'))))) | (epsilon))) epsilon;
+g_postcircumfix__x3cx3cx20x3ex3e = '<<' (FENCE((@rk_cur *rk_nib('<<', '>>', 'qq') '>>') | (epsilon))) epsilon;
+g_postcircumfix__u00abx20u00bb = '«' (FENCE((@rk_cur *rk_nib('«', '»', 'qq') '»') | (epsilon))) epsilon;
+g_postcircumfix__x28x20x29 = '(' (*g_ws *g_arglist) ')' epsilon;
+g_postcircumfix__x5bx3bx20x5d = FAIL;
+g_postcircumfix__x7bx3bx20x7d = FAIL;
+g_circumfix__x3ax7bx20x7d = FAIL;
+g_postfix__i = 'i' @rk_cur *rk_rwb() epsilon;
+g_prefix__x2bx2b = '++' epsilon;
+g_prefix__x2dx2d = '--' epsilon;
+g_prefix__x2bx2bu269b = '++⚛' epsilon;
+g_prefix__x2dx2du269b = '--⚛' epsilon;
+g_postfix__x2bx2b = '++' epsilon;
+g_postfix__x2dx2d = '--' epsilon;
+g_postfix__u269bx2bx2b = '⚛++' epsilon;
+g_postfix__u269bx2dx2d = '⚛--' epsilon;
+g_postfix__u207f = FENCE((ANY('⁻⁺¯')) | epsilon) @rk_cur *rk_plus(ANY('⁰¹²³⁴⁵⁶⁷⁸⁹'), FAIL, 0) epsilon;
+g_postfix__x2dx3e = '->' (FENCE(((FENCE(('[') | ('{') | ('('))) FAIL) | (FAIL)));
+g_infix__x2ax2a = '**' epsilon;
+g_prefix__x2b = '+' epsilon;
+g_prefix__x7ex7e = '~~' FAIL epsilon;
+g_prefix__x7e = '~' epsilon;
+g_prefix__x2d = '-' epsilon;
+g_prefix__u2212 = '−' epsilon;
+g_prefix__x3fx3f = '??' FAIL epsilon;
+g_prefix__x3f = '?' @rk_cur *rk_nla('??') epsilon;
+g_prefix__x21 = '!' @rk_cur *rk_nla('!!') epsilon;
+g_prefix__x7c = '|' epsilon;
+g_prefix__x2bx5e = '+^' epsilon;
+g_prefix__x7ex5e = '~^' epsilon;
+g_prefix__x3fx5e = '?^' epsilon;
+g_prefix__x5ex5e = '^^' FAIL epsilon;
+g_prefix__x5e = '^' epsilon FENCE((@rk_cur *rk_la(@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0) @rk_cur *rk_la('.' @rk_cur *rk_la(ANY(rk_alpha))) epsilon)) | epsilon);
+g_prefix__u269b = '⚛' epsilon;
+g_prefix__x2fx2f = '//' epsilon;
+g_infix__x2a = '*' epsilon;
+g_infix__u00d7 = '×' epsilon;
+g_infix__x2f = '/' epsilon;
+g_infix__u00f7 = '÷' epsilon;
+g_infix__div = 'div' @rk_cur *rk_rwb() epsilon;
+g_infix__gcd = 'gcd' @rk_cur *rk_rwb() epsilon;
+g_infix__lcm = 'lcm' @rk_cur *rk_rwb() epsilon;
+g_infix__x25 = '%' epsilon;
+g_infix__mod = 'mod' @rk_cur *rk_rwb() epsilon;
+g_infix__x25x25 = '%%' epsilon;
+g_infix__x2bx26 = '+&' epsilon;
+g_infix__x7ex26 = '~&' epsilon;
+g_infix__x3fx26 = '?&' epsilon;
+g_infix__x2bx3c = '+<' (FENCE((epsilon) | (@rk_cur *rk_la('<<')) | (@rk_cur *rk_nla(ANY('<'))))) epsilon;
+g_infix__x2bx3e = '+>' (FENCE((epsilon) | (@rk_cur *rk_la('>>')) | (@rk_cur *rk_nla(ANY('>'))))) epsilon;
+g_infix__x7ex3c = '~<' (FENCE((epsilon) | (@rk_cur *rk_la('<<')) | (@rk_cur *rk_nla(ANY('<'))))) epsilon;
+g_infix__x7ex3e = '~>' (FENCE((epsilon) | (@rk_cur *rk_la('>>')) | (@rk_cur *rk_nla(ANY('>'))))) epsilon;
+g_infix__x3cx3c = '<<' @rk_cur *rk_la(ANY(rk_s)) FAIL epsilon;
+g_infix__x3ex3e = '>>' @rk_cur *rk_la(ANY(rk_s)) FAIL epsilon;
+g_infix__x2b = '+' epsilon;
+g_infix__x2d = '-' (FENCE((@rk_cur *rk_la('>>')) | (@rk_cur *rk_nla(ANY('>'))))) epsilon;
+g_infix__u2212 = '−' epsilon;
+g_infix__x2bx7c = '+|' epsilon;
+g_infix__x2bx5e = '+^' epsilon;
+g_infix__x7ex7c = '~|' epsilon;
+g_infix__x7ex5e = '~^' epsilon;
+g_infix__x3fx7c = '?|' epsilon;
+g_infix__x3fx5e = '?^' epsilon;
+g_infix__x = 'x' @rk_cur *rk_rwb() epsilon;
+g_infix__xx = 'xx' @rk_cur *rk_rwb() epsilon;
+g_infix__x7e = '~' epsilon;
+g_infix__x2e = '.' *g_ws FENCE(((@rk_cur *rk_nla(ANY(rk_alpha)))) | epsilon) epsilon;
+g_infix__u2218 = '∘' epsilon;
+g_infix__o = 'o' epsilon;
+g_infix__x26 = '&' epsilon;
+g_infix__x28x26x29 = '(&)' epsilon;
+g_infix__u2229 = '∩' epsilon;
+g_infix__x28x2ex29 = '(.)' epsilon;
+g_infix__u228d = '⊍' epsilon;
+g_infix__x7c = '|' epsilon;
+g_infix__x5e = '^' epsilon;
+g_infix__x28x7cx29 = '(|)' epsilon;
+g_infix__u222a = '∪' epsilon;
+g_infix__x28x5ex29 = '(^)' epsilon;
+g_infix__u2296 = '⊖' epsilon;
+g_infix__x28x2bx29 = '(+)' epsilon;
+g_infix__u228e = '⊎' epsilon;
+g_infix__x28x2dx29 = '(-)' epsilon;
+g_infix__u2216 = '∖' epsilon;
+g_prefix__let = 'let' *g_kok epsilon;
+g_prefix__temp = 'temp' *g_kok epsilon;
+g_infix__x3dx7ex3d = '=~=' epsilon;
+g_infix__u2245 = '≅' epsilon;
+g_infix__x3dx3d = '==' epsilon;
+g_infix__u2a75 = '⩵' epsilon;
+g_infix__x21x3d = '!=' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (']'))) epsilon;
+g_infix__u2260 = '≠' epsilon;
+g_infix__x3cx3d = '<=' epsilon;
+g_infix__u2264 = '≤' epsilon;
+g_infix__x3ex3d = '>=' epsilon;
+g_infix__u2265 = '≥' epsilon;
+g_infix__x3c = '<' epsilon;
+g_infix__x3e = '>' epsilon;
+g_infix__eq = 'eq' @rk_cur *rk_rwb() epsilon;
+g_infix__ne = 'ne' @rk_cur *rk_rwb() epsilon;
+g_infix__le = 'le' @rk_cur *rk_rwb() epsilon;
+g_infix__ge = 'ge' @rk_cur *rk_rwb() epsilon;
+g_infix__lt = 'lt' @rk_cur *rk_rwb() epsilon;
+g_infix__gt = 'gt' @rk_cur *rk_rwb() epsilon;
+g_infix__x3dx3ax3d = '=:=' epsilon;
+g_infix__x3dx3dx3d = '===' epsilon;
+g_infix__u2a76 = '⩶' epsilon;
+g_infix__eqv = 'eqv' @rk_cur *rk_rwb() epsilon;
+g_infix__before = 'before' @rk_cur *rk_rwb() epsilon;
+g_infix__after = 'after' @rk_cur *rk_rwb() epsilon;
+g_infix__x7ex7e = '~~' epsilon;
+g_infix__x21x7ex7e = '!~~' epsilon;
+g_infix__x28elemx29 = '(elem)' epsilon;
+g_infix__u2208 = '∈' epsilon;
+g_infix__u220a = '∊' epsilon;
+g_infix__u2209 = '∉' epsilon;
+g_infix__x28contx29 = '(cont)' epsilon;
+g_infix__u220b = '∋' epsilon;
+g_infix__u220d = '∍' epsilon;
+g_infix__u220c = '∌' epsilon;
+g_infix__x28x3cx29 = '(<)' epsilon;
+g_infix__u2282 = '⊂' epsilon;
+g_infix__u2284 = '⊄' epsilon;
+g_infix__x28x3ex29 = '(>)' epsilon;
+g_infix__u2283 = '⊃' epsilon;
+g_infix__u2285 = '⊅' epsilon;
+g_infix__x28x3dx3dx29 = '(==)' epsilon;
+g_infix__u2261 = '≡' epsilon;
+g_infix__u2262 = '≢' epsilon;
+g_infix__x28x3cx3dx29 = '(<=)' epsilon;
+g_infix__u2286 = '⊆' epsilon;
+g_infix__u2288 = '⊈' epsilon;
+g_infix__x28x3ex3dx29 = '(>=)' epsilon;
+g_infix__u2287 = '⊇' epsilon;
+g_infix__u2289 = '⊉' epsilon;
+g_infix__x28x3cx2bx29 = '(<+)' epsilon;
+g_infix__u227c = '≼' epsilon;
+g_infix__x28x3ex2bx29 = '(>+)' epsilon;
+g_infix__u227d = '≽' epsilon;
+g_infix__x26x26 = '&&' epsilon;
+g_infix__x7cx7c = '||' epsilon;
+g_infix__x5ex5e = '^^' epsilon;
+g_infix__x2fx2f = '//' epsilon;
+g_infix__min = 'min' @rk_cur *rk_rwb() epsilon;
+g_infix__max = 'max' @rk_cur *rk_rwb() epsilon;
+g_infix__x3fx3fx20x21x21 = '??' *g_ws *rk_EXPR (FENCE(('!!') | (@rk_cur *rk_la('::' NOTANY('='))) | (@rk_cur *rk_la(':' NOTANY(rk_w '='))) | (*g_infixish) | (epsilon) | (@rk_cur *rk_la(@rk_cur *rk_star(NOTANY(nl cr), FAIL, 0) FENCE((((cr nl | nl | cr) @rk_cur *rk_star(NOTANY(nl cr), FAIL, 0))) | epsilon) '!!')) | (epsilon))) epsilon;
+g_infix_prefix_meta_operator__x21 = '!' @rk_cur *rk_nla(ANY('!')) (FENCE((*g_infixish) | (FAIL))) (FENCE((epsilon) | (epsilon epsilon) | (epsilon)));
+g_infix_prefix_meta_operator__R = 'R' *g_infixish epsilon *g_revO;
+g_infix_prefix_meta_operator__S = 'S' *g_infixish epsilon epsilon;
+g_infix_prefix_meta_operator__X = 'X' *g_infixish epsilon epsilon;
+g_infix_prefix_meta_operator__Z = 'Z' *g_infixish epsilon epsilon;
+g_infix__minmax = 'minmax' @rk_cur *rk_rwb() epsilon;
+g_infix__x3ax3d = ':=' epsilon;
+g_infix__x3ax3ax3d = '::=' epsilon FAIL;
+g_infix__x2ex3d = '.=' epsilon;
+g_infix_postfix_meta_operator__x3d = '=' epsilon (FENCE((epsilon) | (epsilon))) epsilon;
+g_infix__x3dx3e = '=>' epsilon;
+g_infix__u21d2 = '⇒' epsilon;
+g_prefix__so = 'so' *g_end_prefix epsilon;
+g_prefix__not = 'not' *g_end_prefix epsilon;
+g_infix__x2c = FENCE((*g_unsp) | epsilon) ',' epsilon;
+g_infix__x3a = FENCE((*g_unsp) | epsilon) ':' @rk_cur *rk_la(FENCE((ANY(rk_s)) | (@rk_cur *rk_mem('g_terminator', '')) | (RPOS(0)))) epsilon (FENCE((epsilon) | (FAIL)));
+g_infix__Z = 'Z' epsilon;
+g_infix__X = 'X' epsilon;
+g_infix__x2ex2ex2e = '...' epsilon;
+g_infix__u2026 = '…' epsilon;
+g_infix__x2ex2ex2ex5e = '...^' epsilon;
+g_infix__u2026x5e = '…^' epsilon;
+g_infix__x5ex2ex2ex2e = '^...' epsilon;
+g_infix__x5eu2026 = '^…' epsilon;
+g_infix__x5ex2ex2ex2ex5e = '^...^' epsilon;
+g_infix__x5eu2026x5e = '^…^' epsilon;
+g_infix__x3f = '?' @rk_cur *rk_nla(ANY('?')) @rk_cur *rk_la(@rk_cur *rk_star(NOTANY(';'), FAIL, 0) ':') FAIL epsilon;
+g_infix__ff = 'ff' epsilon;
+g_infix__x5eff = '^ff' epsilon;
+g_infix__ffx5e = 'ff^' epsilon;
+g_infix__x5effx5e = '^ff^' epsilon;
+g_infix__fff = 'fff' epsilon;
+g_infix__x5efff = '^fff' epsilon;
+g_infix__fffx5e = 'fff^' epsilon;
+g_infix__x5efffx5e = '^fff^' epsilon;
+g_infix__x3d = '=' (FENCE((epsilon) | (epsilon)));
+g_infix__u269bx3d = '⚛=' epsilon;
+g_infix__u269bx2bx3d = '⚛+=' epsilon;
+g_infix__u269bx2dx3d = '⚛-=' epsilon;
+g_infix__u269bu2212x3d = '⚛−=' epsilon;
+g_infix__and = 'and' @rk_cur *rk_rwb() epsilon;
+g_infix__andthen = 'andthen' @rk_cur *rk_rwb() epsilon;
+g_infix__notandthen = 'notandthen' @rk_cur *rk_rwb() epsilon;
+g_infix__or = 'or' @rk_cur *rk_rwb() epsilon;
+g_infix__xor = 'xor' @rk_cur *rk_rwb() epsilon;
+g_infix__orelse = 'orelse' @rk_cur *rk_rwb() epsilon;
+g_infix__x3cx3dx3d = '<==' epsilon;
+g_infix__x3dx3dx3e = '==>' epsilon;
+g_infix__x3cx3cx3dx3d = '<<==' epsilon;
+g_infix__x3dx3dx3ex3e = '==>>' epsilon;
+g_infix__x2ex2e = '..' FENCE(((@rk_cur *rk_la(ANY(')]')) FAIL)) | epsilon) epsilon;
+g_infix__x5ex2ex2e = '^..' epsilon;
+g_infix__x2ex2ex5e = '..^' epsilon;
+g_infix__x5ex2ex2ex5e = '^..^' epsilon;
+g_infix__leg = 'leg' @rk_cur *rk_rwb() epsilon;
+g_infix__cmp = 'cmp' @rk_cur *rk_rwb() epsilon;
+g_infix__unicmp = 'unicmp' @rk_cur *rk_rwb() epsilon;
+g_infix__coll = 'coll' @rk_cur *rk_rwb() epsilon;
+g_infix__x3cx3dx3e = '<=>' epsilon;
+g_infix__but = 'but' @rk_cur *rk_rwb() epsilon;
+g_infix__does = 'does' @rk_cur *rk_rwb() epsilon;
+g_infix__x21x7e = '!~' ANY(rk_s) FAIL epsilon;
+g_infix__x3dx7e = '=~' FAIL epsilon;
+g_comment = FENCE(*hll_comment__line_directive | *g_comment__x23x60x28x2ex2ex2ex29 | *g_comment__x23x7cx28x2ex2ex2ex29 | *g_comment__x23x3dx28x2ex2ex2ex29 | *g_comment__x23x60 | *g_comment__x23x7c | *g_comment__x23x3d | *g_comment__x23);
+g_comment__x23 = '#' @rk_cur *rk_star(NOTANY(nl cr), FAIL, 0);
+g_comment__x23x60 = '#`' @rk_cur *rk_nlb(ANY(rk_s)) @rk_cur *rk_nla(*std_opener) FAIL;
+g_comment__x23x60x28x2ex2ex2ex29 = '#`' @rk_cur *rk_la(*std_opener) *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q');
+g_comment__x23x7cx28x2ex2ex2ex29 = '#|' @rk_cur *rk_la(*std_opener) *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q');
+g_comment__x23x7c = '#|' ANY(rk_h) (@rk_cur *rk_star(NOTANY(nl cr), FAIL, 0));
+g_comment__x23x3dx28x2ex2ex2ex29 = '#=' @rk_cur *rk_la(*std_opener) *g_ws @rk_cur *rk_star((*g_quotepair *g_ws), FAIL, 0) @rk_cur *rk_qscan('Q');
+g_comment__x23x3d = '#=' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) (@rk_cur *rk_star(NOTANY(nl cr), FAIL, 0));
+g_pod_content_toplevel = *g_pod_block;
+g_pod_content = FENCE(*g_pod_content__config | *g_pod_content__block | *g_pod_content__text);
+g_pod_content__block = @rk_cur *rk_star(*g_pod_newline, FAIL, 0) *g_pod_block @rk_cur *rk_star(*g_pod_newline, FAIL, 0);
+g_pod_content__text = @rk_cur *rk_star(*g_pod_newline, FAIL, 0) @rk_cur *rk_plus(@rk_cur *rk_plus(*g_pod_textcontent, *g_pod_newline, 1), FAIL, 0) @rk_cur *rk_star(*g_pod_newline, FAIL, 0);
+g_pod_content__config = @rk_cur *rk_star(*g_pod_newline, FAIL, 0) @rk_cur *rk_bol() @rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=config' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) @rk_cur *rk_plus(NOTANY(rk_s), FAIL, 0) *g_pod_configuration @rk_cur *rk_plus(*g_pod_newline, FAIL, 0);
+g_pod_textcontent = FENCE(*g_pod_textcontent__regular | *g_pod_textcontent__code);
+g_pod_textcontent__regular = (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) @rk_cur *rk_plus((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('=' ANY(rk_w)) *g_pod_string (FENCE((*g_pod_newline) | (RPOS(0))))), FAIL, 0);
+g_pod_textcontent__code = (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) (@rk_cur *rk_plus((@rk_cur *rk_nla('=' ANY(rk_w)) @rk_cur *rk_plus(NOTANY(nl cr), FAIL, 0)), (@rk_cur *rk_plus(*g_pod_newline, FAIL, 0) *rk_var_x24x3cspacesx3e), 1));
+g_pod_formatting_code = ANY('ABCDEFGHIJKLMNOPQRSTUVWXYZ') (FENCE((@rk_cur *rk_plus('<', FAIL, 0) @rk_cur *rk_nla(ANY('<'))) | ('«'))) FENCE(((@rk_cur *rk_star((@rk_cur *rk_nla(*rk_var_x24endtag) (FENCE((epsilon) | (@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_s), FAIL, 0) '|')))) *g_pod_string_character), FAIL, 0))) | epsilon) FENCE(((FENCE((@rk_cur *rk_star(ANY(rk_s), FAIL, 0) '|' @rk_cur *rk_star(ANY(rk_s), FAIL, 0) @rk_cur *rk_plus((@rk_cur *rk_nla(*rk_var_x24endtag) LEN(1)), FAIL, 0)) | (@rk_cur *rk_star(ANY(rk_s), FAIL, 0) '|' @rk_cur *rk_star(ANY(rk_s), FAIL, 0) @rk_cur *rk_plus((@rk_cur *rk_plus((@rk_cur *rk_plus((@rk_cur *rk_nla(FENCE((*rk_var_x24endtag) | (ANY(',;')))) LEN(1)), FAIL, 0)), ',', 2)), ';', 2)) | (@rk_cur *rk_star(ANY(rk_s), FAIL, 0) '|' @rk_cur *rk_star(ANY(rk_s), FAIL, 0) @rk_cur *rk_plus((@rk_cur *rk_plus((@rk_cur *rk_nla(FENCE((*rk_var_x24endtag) | (';'))) LEN(1)), FAIL, 0)), ';', 2)) | (@rk_cur *rk_plus((FENCE((*g_integer) | (@rk_cur *rk_plus(ANY(rk_s 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'), FAIL, 0) @rk_cur *rk_nla(ANY('abcdefghijklmnopqrstuvwxyz'))) | (@rk_cur *rk_plus(ANY('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'), FAIL, 0)))), ';', 2))))) | epsilon) (FENCE((*rk_var_x24endtag) | (epsilon)));
+g_pod_balanced_braces = (FENCE(((FENCE((@rk_cur *rk_plus('<', FAIL, 0) @rk_cur *rk_nla(ANY('<'))) | (@rk_cur *rk_plus('>', FAIL, 0) @rk_cur *rk_nla(ANY('>')))))) | ((@rk_cur *rk_plus('<', FAIL, 0)) @rk_cur *rk_nla(ANY('<')) (@rk_cur *rk_star(*g_pod_string_character, FAIL, 0)) @rk_cur *rk_nlb('>') (*rk_var_x24endtag))));
+g_pod_string = @rk_cur *rk_plus(*g_pod_string_character, FAIL, 0);
+g_pod_string_character = FENCE((*g_pod_balanced_braces) | (*g_pod_formatting_code) | ((FENCE((NOTANY(nl cr)) | (((cr nl | nl | cr) (FENCE((@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=end' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_podx2ddelimx2dcodex2dtyp)) | (@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=' ANY(rk_w)))))))))));
+g_pod_block = FENCE(*h184_proto_pod_block | *h185_proto_pod_block);
+g_pod_configuration = @rk_cur *rk_star((FENCE((((cr nl | nl | cr) *rk_var_x24spaces '=')) | epsilon) @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_colonpair), FAIL, 0);
+g_pod_block__delimited_comment = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=begin' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) 'comment' *g_pod_configuration @rk_cur *rk_plus(*g_pod_newline, FAIL, 0) ((@rk_cur *rk_star(LEN(1), FAIL, 0)) @rk_cur *rk_bol() *rk_var_x24x3cspacesx3e '=end' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) (FENCE(('comment' (FENCE((*g_pod_newline) | (RPOS(0))))) | (FENCE((*g_identifier) | epsilon)))));
+g_pod_block__delimited = @rk_cur *rk_bol() (ARBNO(ANY(rk_h))) '=begin' (((@rk_cur *rk_la(*g_pod_newline) FAIL)) | epsilon) @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('finish') (((*g_pod_code_parent) | (*g_identifier))) *g_pod_configuration @rk_cur *rk_plus(*g_pod_newline, FAIL, 0) (ARBNO(*g_pod_content) @rk_cur *rk_bol() *rk_var_x24x3cspacesx3e '=end' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) (((*rk_var_x24x3ctypex3e (((*g_pod_newline) | (RPOS(0))))) | (((*g_identifier) | epsilon)))));
+g_pod_block__delimited_table = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=begin' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) 'table' *g_pod_configuration @rk_cur *rk_plus(*g_pod_newline, FAIL, 0) (@rk_cur *rk_star((*g_table_row_or_blank), FAIL, 0) @rk_cur *rk_bol() @rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=end' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) (FENCE(('table' (FENCE((*g_pod_newline) | (RPOS(0))))) | (FENCE((*g_identifier) | epsilon)))));
+g_podx2ddelimx2dcodex2dtyp = FENCE(('c' 'o' 'd' 'e') | ('i' 'n' 'p' 'u' 't') | ('o' 'u' 't' 'p' 'u' 't'));
+g_pod_block__delimited_code = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=begin' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_podx2ddelimx2dcodex2dtyp *g_pod_configuration @rk_cur *rk_plus(*g_pod_newline, FAIL, 0) (*g_delimited_code_content *rk_var_x24x3cspacesx3e '=end' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) (FENCE((*g_podx2ddelimx2dcodex2dtyp (FENCE((*g_pod_newline) | (RPOS(0))))) | (FENCE((*g_identifier) | epsilon)))));
+g_delimited_code_content = @rk_cur *rk_bol() @rk_cur *rk_star((FENCE((*rk_var_x24spaces @rk_cur *rk_nla('=end' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_podx2ddelimx2dcodex2dtyp (FENCE((*g_pod_newline) | (RPOS(0))))) (FENCE((*g_pod_string) | epsilon)) *g_pod_newline) | (*g_pod_newline))), FAIL, 0);
+g_table_row = @rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('=' ANY(rk_w)) @rk_cur *rk_plus(NOTANY(nl cr), FAIL, 0) (FENCE(((cr nl | nl | cr)) | (RPOS(0))));
+g_table_row_or_blank = FENCE((*g_table_row) | ((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('=' ANY(rk_w)) (cr nl | nl | cr))));
+g_pod_block__finish = @rk_cur *rk_bol() @rk_cur *rk_star(ANY(rk_h), FAIL, 0) (FENCE(('=begin' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) 'finish' *g_pod_newline) | ('=for' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) 'finish' *g_pod_newline) | ('=finish' *g_pod_newline))) @rk_cur *rk_star(LEN(1), FAIL, 0);
+g_pod_block__paragraph = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=for' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('finish') ((FENCE((*g_pod_code_parent) | (*g_identifier))) *g_pod_configuration *g_pod_newline) (FENCE((*g_pod_textcontent) | epsilon));
+g_pod_block__paragraph_comment = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=for' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) 'comment' *g_pod_configuration *g_pod_newline @rk_cur *rk_star((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('=' ANY(rk_w)) @rk_cur *rk_plus(NOTANY(nl cr), FAIL, 0) (FENCE(((cr nl | nl | cr)) | (RPOS(0))))), FAIL, 0);
+g_pod_block__paragraph_table = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=for' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) 'table' *g_pod_configuration *g_pod_newline @rk_cur *rk_star((@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) (cr nl | nl | cr)) *g_table_row), FAIL, 0);
+g_pod_block__paragraph_code = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=for' @rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_podx2ddelimx2dcodex2dtyp *g_pod_configuration *g_pod_newline @rk_cur *rk_star((@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=' ANY(rk_w)) *g_pod_line), FAIL, 0);
+g_numberedx2dalias = @rk_cur *rk_lb((FENCE((POS(0)) | (ANY(rk_s))))) '#' @rk_cur *rk_la(ANY(rk_s));
+g_pod_block__abbreviated = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=' @rk_cur *rk_nla(FENCE(('b' 'e' 'g' 'i' 'n') | ('e' 'n' 'd') | ('f' 'o' 'r') | ('f' 'i' 'n' 'i' 's' 'h') | ('c' 'o' 'n' 'f' 'i' 'g'))) ((FENCE((*g_pod_code_parent) | (*g_identifier))) FENCE(((@rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_numberedx2dalias)) | epsilon) (FENCE((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) (cr nl | nl | cr)) | (@rk_cur *rk_plus(ANY(rk_h), FAIL, 0))))) (FENCE((*g_pod_textcontent) | epsilon));
+g_pod_block__abbreviated_comment = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=comment' (FENCE((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) (cr nl | nl | cr)) | (@rk_cur *rk_plus(ANY(rk_h), FAIL, 0)))) @rk_cur *rk_star((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) @rk_cur *rk_nla('=' ANY(rk_w)) @rk_cur *rk_plus(NOTANY(nl cr), FAIL, 0) (FENCE(((cr nl | nl | cr)) | (RPOS(0))))), FAIL, 0);
+g_pod_block__abbreviated_table = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=table' FENCE(((@rk_cur *rk_plus(ANY(rk_h), FAIL, 0) *g_numberedx2dalias)) | epsilon) *g_pod_newline @rk_cur *rk_star((@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) (cr nl | nl | cr)) *g_table_row), FAIL, 0);
+g_pod_block__abbreviated_code = @rk_cur *rk_bol() (@rk_cur *rk_star(ANY(rk_h), FAIL, 0)) '=' *g_podx2ddelimx2dcodex2dtyp FENCE(((@rk_cur *rk_plus(ANY(rk_h), FAIL, 0) '#' ANY(rk_s))) | epsilon) (FENCE((@rk_cur *rk_star(ANY(rk_h), FAIL, 0) (cr nl | nl | cr)) | (@rk_cur *rk_plus(ANY(rk_h), FAIL, 0)))) @rk_cur *rk_star((@rk_cur *rk_nla(@rk_cur *rk_star(ANY(rk_h), FAIL, 0) '=' ANY(rk_w)) *g_pod_line), FAIL, 0);
+g_pod_line = (*g_pod_string) (FENCE((*g_pod_newline) | (RPOS(0))));
+g_pod_newline = @rk_cur *rk_star(ANY(rk_h), FAIL, 0) (cr nl | nl | cr);
+g_pod_code_parent = (FENCE(((FENCE(('pod') | ('item' @rk_cur *rk_star(ANY(rk_digit), FAIL, 0)) | ('nested') | ('defn') | ('finish')))) | (@rk_cur *rk_plus(ANY(rk_upper), FAIL, 0)))) @rk_cur *rk_nla(ANY(rk_w));
+q_escape = FAIL;
+q_backslash = FAIL;
+q_b1_escape__x5cx5c = '\\' *q_b1_backslash;
+q_b1_backslash__qq = @rk_cur *rk_la(ANY('q')) *g_quote;
+q_b1_backslash__x5cx5c = '\\';
+q_b1_backslash = FENCE(*h253_proto_backslash | *h254_proto_backslash | *h255_proto_backslash);
+q_b1_backslash__a = 'a';
+q_b1_backslash__b = 'b';
+q_b1_backslash__c = 'c' *hll_charspec;
+q_b1_backslash__e = 'e';
+q_b1_backslash__f = 'f';
+q_b1_backslash__N = @rk_cur *rk_la('N{' ANY('ABCDEFGHIJKLMNOPQRSTUVWXYZ')) FAIL;
+q_b1_backslash__n = 'n';
+q_b1_backslash__o = 'o' (FENCE((*hll_octint) | ('[' *hll_octints ']') | ('{' *std_obsbrace)));
+q_b1_backslash__r = 'r';
+q_b1_backslash__rn = 'r\n';
+q_b1_backslash__t = 't';
+q_b1_backslash__x = 'x' (FENCE((*hll_hexint) | ('[' *hll_hexints ']') | ('{' *std_obsbrace)));
+q_b1_backslash__0 = '0';
+q_b1_backslash__1 = ANY('123456789') @rk_cur *rk_star(ANY(rk_digit), FAIL, 0);
+q_b1_backslash__unrec = (ANY(rk_w));
+q_b1_backslash__misc = NOTANY(rk_w);
+q_b0_escape__x5cx5c = FAIL;
+q_c1_escape__x7bx20x7d = @rk_cur *rk_la(ANY('{')) @rk_cur *rk_nla(*std_RESTRICTED) *g_block;
+q_c0_escape__x7bx20x7d = FAIL;
+q_s1_escape__x24 = @rk_cur *rk_la(ANY('$')) @rk_cur *rk_nla(*std_RESTRICTED) (FENCE((*rk_lang_yx3d) | (epsilon)));
+q_s0_escape__x24 = FAIL;
+q_a1_escape__x40 = @rk_cur *rk_la(ANY('@')) @rk_cur *rk_nla(*std_RESTRICTED) *rk_lang_yx3d;
+q_a0_escape__x40 = FAIL;
+q_h1_escape__x25 = @rk_cur *rk_la(ANY('%')) @rk_cur *rk_nla(*std_RESTRICTED) *rk_lang_yx3d;
+q_h0_escape__x25 = FAIL;
+q_f1_escape__x26 = @rk_cur *rk_la(ANY('&')) @rk_cur *rk_nla(*std_RESTRICTED) *rk_lang_yx3d;
+q_f0_escape__x26 = FAIL;
+q_ww_escape__x27 = @rk_cur *rk_la(ANY("'" '"‘‚’“„”｢')) *g_quote;
+q_ww_escape__colonpair = @rk_cur *rk_la(ANY(':')) @rk_cur *rk_nla(*std_RESTRICTED) *g_colonpair;
+q_ww_escape__x23 = @rk_cur *rk_la(ANY('#')) *g_comment;
+q_q_starter = "'";
+q_q_stopper = "'";
+q_q_escape__x5cx5c = '\\' *q_q_backslash;
+q_q_backslash__qq = @rk_cur *rk_la(ANY('q')) *g_quote;
+q_q_backslash__x5cx5c = '\\';
+q_q_backslash = FENCE(*q_q_backslash__miscq | *q_q_backslash__qq | *q_q_backslash__x5cx5c);
+q_q_backslash__miscq = LEN(1);
+q_qq_starter = '"';
+q_qq_stopper = '"';
+q_nibbler = *q_do_nibbling;
+q_do_nibbling = @rk_cur *rk_star((@rk_cur *rk_nla(*std_stopper) (FENCE((*std_starter *q_nibbler *std_stopper) | (*q_escape) | (LEN(1))))), FAIL, 0);
+q_cc_starter = "'";
+q_cc_stopper = "'";
+q_cc_escape = FENCE(*q_cc_escape__x5cx5c | *q_cc_escape__x2ex2e | *q_cc_escape__x23 | *q_cc_escape__x2d);
+q_cc_escape__x23 = '#' FAIL;
+q_cc_escape__x5cx5c = '\\' *q_cc_backslash epsilon;
+q_cc_escape__x2ex2e = '..' (FENCE((epsilon) | (@rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_s), FAIL, 0) @rk_cur *rk_nla(*q_cc_stopper) @rk_cur *rk_nla('..') NOTANY(rk_s))) | (epsilon)));
+q_cc_escape__x2d = '-' @rk_cur *rk_star(ANY(rk_s), FAIL, 0) @rk_cur *rk_nla(*q_cc_stopper) NOTANY(rk_s) FAIL;
+q_cc_backslash = FENCE(*h260_proto_backslash | *h261_proto_backslash | *h262_proto_backslash);
+q_cc_backslash__x5cx5c = '\\';
+q_cc_backslash__a = 'a';
+q_cc_backslash__b = 'b';
+q_cc_backslash__c = 'c' *hll_charspec;
+q_cc_backslash__d = 'd';
+q_cc_backslash__e = 'e';
+q_cc_backslash__f = 'f';
+q_cc_backslash__h = 'h';
+q_cc_backslash__N = @rk_cur *rk_la('N{' ANY('ABCDEFGHIJKLMNOPQRSTUVWXYZ')) FAIL;
+q_cc_backslash__n = 'n';
+q_cc_backslash__o = 'o' (FENCE((*hll_octint) | ('[' *hll_octints ']') | ('{' *std_obsbrace)));
+q_cc_backslash__r = 'r';
+q_cc_backslash__s = 's';
+q_cc_backslash__t = 't';
+q_cc_backslash__v = 'v';
+q_cc_backslash__w = 'w';
+q_cc_backslash__x = 'x' (FENCE((*hll_hexint) | ('[' *hll_hexints ']') | ('{' *std_obsbrace)));
+q_cc_backslash__0 = '0';
+rx_normspace = @rk_cur *rk_la(FENCE((ANY(rk_s)) | ('#'))) *rk_lang_ws;
+rx_rxstopper = *std_stopper;
+rx_metachar__x3amy = ':' @rk_cur *rk_la(FENCE(('my') | ('constant') | ('state') | ('our') | ('temp') | ('let'))) *g_statement @rk_cur *rk_nla(*std_RESTRICTED) *g_eat_terminator;
+rx_metachar__x7bx20x7d = @rk_cur *rk_la(ANY('{')) *rx_codeblock;
+rx_metachar__rakvar = @rk_cur *rk_la(*rk_m_sigil (FENCE((ANY(rk_alpha)) | (*rk_cdiff('W', rk_s) ANY(rk_alpha)) | ('(')))) @rk_cur *rk_nla(*rk_m_sigil *rx_rxstopper) *g_variable (FENCE(((@rk_cur *rk_star(ANY(rk_s), FAIL, 0) '=' @rk_cur *rk_star(ANY(rk_s), FAIL, 0) *rk_m_quantified_atom)) | (FENCE(((@rk_cur *rk_la(FENCE(('.') | epsilon) ANY('[{<')) epsilon)) | epsilon)))) epsilon;
+rx_metachar__qw = @rk_cur *rk_la('<' ANY(rk_s)) '<' @rk_cur *rk_nib('<', '>', 'q') '>' epsilon;
+rx_metachar__x27 = @rk_cur *rk_la(ANY("'" '"‘‚’“„”｢')) *g_quote epsilon;
+rx_metachar__x7bx7d = '\' ANY('xo') '{' *std_obsbrace;
+rx_backslash__1 = *rk_cdiff(rk_digit, '0') @rk_cur *rk_star(ANY(rk_digit), FAIL, 0) FAIL;
+rx_assertion__x7bx20x7d = @rk_cur *rk_la(ANY('{')) *rx_codeblock;
+rx_assertion__x3fx7bx20x7d = '?' @rk_cur *rk_la('{') *rx_codeblock;
+rx_assertion__x21x7bx20x7d = '!' @rk_cur *rk_la('{') *rx_codeblock;
+rx_assertion__var = (FENCE((@rk_cur *rk_la(ANY('&')) @rk_cur *rk_nla(*std_RESTRICTED) *g_term__variable FENCE(((FENCE((':' *rx_arglist) | ('(' *rx_arglist ')')))) | epsilon)) | (@rk_cur *rk_la(*rk_m_sigil) @rk_cur *rk_nla(*std_RESTRICTED) *g_term__variable)));
+rx_assertion__x7ex7e = '~~' @rk_cur *rk_nla(*std_RESTRICTED) (FENCE((@rk_cur *rk_la(ANY('>'))) | ((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0))) | (*g_desigilname)));
+rx_codeblock = @rk_cur *rk_nla(*std_RESTRICTED) *g_block;
+rx_arglist = @rk_cur *rk_nla(*std_RESTRICTED) *g_arglist;
+rx_assertion__name = *g_longname FENCE(((FENCE((@rk_cur *rk_la(ANY('>'))) | ('=' *rx_assertion) | (':' *rx_arglist) | ('(' *rx_arglist ')') | (*rx_normspace *rk_m_nibbler)))) | epsilon);
+p5_rxstopper = *std_stopper;
+p5_p5metachar__x28x3fx7bx20x7dx29 = '(?' @rk_cur *rk_la(ANY('{')) *p5_codeblock ')';
+p5_p5metachar__x28x3fx3fx7bx20x7dx29 = '(??' @rk_cur *rk_la(ANY('{')) *p5_codeblock ')';
+p5_p5metachar__var = @rk_cur *rk_la(ANY('$')) *g_variable;
+p5_codeblock = *g_block;
+hll_termish = @rk_cur *rk_star(*g_prefixish, FAIL, 0) *g_term @rk_cur *rk_star(*g_postfixish, FAIL, 0);
+hll_term = FENCE(*h269_proto_term | *h270_proto_term | *h271_proto_term | *h272_proto_term | *h273_proto_term);
+hll_infix = FENCE(*h274_proto_infix | *h275_proto_infix | *h276_proto_infix | *h277_proto_infix | *h278_proto_infix | *h279_proto_infix | *h280_proto_infix | *h281_proto_infix | *h282_proto_infix | *h283_proto_infix | *h284_proto_infix | *h285_proto_infix | *h286_proto_infix | *h287_proto_infix | *h288_proto_infix | *h289_proto_infix | *h290_proto_infix | *h291_proto_infix | *h292_proto_infix | *h293_proto_infix | *h294_proto_infix);
+hll_prefix = FENCE(*h295_proto_prefix | *h296_proto_prefix | *h297_proto_prefix);
+hll_postfix = FENCE(*g_postfix__u269bx2bx2b | *g_postfix__u269bx2dx2d | *g_postfix__x2bx2b | *g_postfix__x2dx2d | *g_postfix__x2dx3e | *g_postfix__i | *g_postfix__u207f);
+hll_circumfix = FENCE(*g_circumfix__STATEMENT_LISTx28x20x29 | *g_circumfix__x3cx3cx20x3ex3e | *g_circumfix__x3ax7bx20x7d | *g_circumfix__x28x20x29 | *g_circumfix__x5bx20x5d | *g_circumfix__ang | *g_circumfix__u00abx20u00bb | *g_circumfix__x7bx20x7d);
+hll_postcircumfix = FENCE(*g_postcircumfix__x3cx3cx20x3ex3e | *g_postcircumfix__x5bx3bx20x5d | *g_postcircumfix__x7bx3bx20x7d | *g_postcircumfix__x5bx20x5d | *g_postcircumfix__x7bx20x7d | *g_postcircumfix__ang | *g_postcircumfix__u00abx20u00bb | *g_postcircumfix__x28x20x29);
+hll_term__circumfix = *g_circumfix;
+hll_infixish = *g_infix;
+hll_prefixish = *g_prefix *g_ws;
+hll_postfixish = FENCE((*g_postfix) | (*g_postcircumfix));
+hll_nullterm = epsilon;
+hll_nullterm_alt = *hll_nullterm;
+hll_quote_delimited = *std_starter @rk_cur *rk_star(*hll_quote_atom, FAIL, 0) *std_stopper;
+hll_quote_atom = @rk_cur *rk_nla(*std_stopper) (FENCE((*hll_quote_escape) | (@rk_cur *rk_plus((NOTANY(rk_alpha rk_alpha rk_alpha)), FAIL, 0)) | (*std_starter @rk_cur *rk_star(*hll_quote_atom, FAIL, 0) *std_stopper)));
+hll_decint = @rk_cur *rk_plus((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)), '_', 1);
+hll_decints = @rk_cur *rk_plus((*g_ws *hll_decint *g_ws), ',', 1);
+hll_hexint = @rk_cur *rk_plus((@rk_cur *rk_plus((FENCE((ANY(rk_digit)) | (ANY('abcdefABCDEFａｆＡＦ')))), FAIL, 0)), '_', 1);
+hll_hexints = @rk_cur *rk_plus((*g_ws *hll_hexint *g_ws), ',', 1);
+hll_octint = @rk_cur *rk_plus((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)), '_', 1);
+hll_octints = @rk_cur *rk_plus((*g_ws *hll_octint *g_ws), ',', 1);
+hll_binint = @rk_cur *rk_plus((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)), '_', 1);
+hll_binints = @rk_cur *rk_plus((*g_ws *hll_binint *g_ws), ',', 1);
+hll_integer = (FENCE(('0' (FENCE(('b' *hll_binint) | ('o' *hll_octint) | ('x' *hll_hexint) | ('d' *hll_decint)))) | (*hll_decint)));
+hll_dec_number = FENCE((('.' @rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) FENCE((*g_escale) | epsilon)) | ((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0) '.' @rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) FENCE((*g_escale) | epsilon)) | ((@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) *g_escale));
+hll_escale = ANY('Ee') FENCE((ANY('+-')) | epsilon) @rk_cur *rk_plus(ANY(rk_digit), FAIL, 0);
+hll_quote_escape = FENCE(*h318_proto_quote_escape | *h319_proto_quote_escape);
+hll_quote_escape__backslash = '\' '\' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__stopper = '\' @rk_cur *rk_la(*hll_quotemod_check) *std_stopper;
+hll_quote_escape__bs = '\' 'b' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__nl = '\' 'n' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__cr = '\' 'r' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__tab = '\' 't' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__ff = '\' 'f' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__esc = '\' 'e' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__hex = '\' 'x' @rk_cur *rk_la(*hll_quotemod_check) (FENCE((*hll_hexint) | ('[' *hll_hexints ']')));
+hll_quote_escape__oct = '\' 'o' @rk_cur *rk_la(*hll_quotemod_check) (FENCE((*hll_octint) | ('[' *hll_octints ']')));
+hll_quote_escape__chr = '\' 'c' @rk_cur *rk_la(*hll_quotemod_check) *hll_charspec;
+hll_quote_escape__0 = '\' '0' @rk_cur *rk_la(*hll_quotemod_check);
+hll_quote_escape__misc = '\' (FENCE((@rk_cur *rk_la(*hll_quotemod_check) (FENCE(((NOTANY(rk_w))) | ((ANY(rk_w)))))) | ((LEN(1)))));
+hll_charname = FENCE((*g_integer) | (ANY(rk_alpha) @rk_cur *rk_star(LEN(1), FAIL, 0) @rk_cur *rk_la(@rk_cur *rk_star(ANY(rk_s), FAIL, 0) ANY('],#'))));
+hll_charnames = @rk_cur *rk_plus((*g_ws *hll_charname *g_ws), ',', 1);
+hll_charspec = (FENCE(('[' *hll_charnames ']') | (@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0) @rk_cur *rk_star(('_' @rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)), FAIL, 0)) | (ANY('?@ABCDEFGHIJKLMNOPQRSTUVWXYZ')) | (FAIL)));
+hll_comment__line_directive = @rk_cur *rk_bol() '#' ARBNO(ANY(rk_s)) 'line' @rk_cur *rk_plus(ANY(rk_s), FAIL, 0) (@rk_cur *rk_plus(ANY(rk_digit), FAIL, 0)) (((@rk_cur *rk_plus(ANY(rk_s), FAIL, 0) (@rk_cur *rk_plus(NOTANY(rk_s), FAIL, 0)))) | epsilon) @rk_cur *rk_eol();
+hll_infix__x2b = '+' epsilon;
+hll_NQPx3ax3aGrammar_infix__x2b = '+' epsilon;
+hll_O = epsilon;
+hll_quote_EXPR = *hll_quote_delimited;
+hll_quotemod_check = epsilon;
+g_infix = FENCE(*h330_proto_infix | *h331_proto_infix | *h332_proto_infix | *h333_proto_infix | *h334_proto_infix | *h335_proto_infix | *h336_proto_infix | *h337_proto_infix | *h338_proto_infix | *h339_proto_infix | *h340_proto_infix | *h341_proto_infix | *h342_proto_infix | *h343_proto_infix | *h344_proto_infix | *h345_proto_infix | *h346_proto_infix | *h347_proto_infix | *h348_proto_infix | *h349_proto_infix | *h350_proto_infix);
+g_circumfix = FENCE(*g_circumfix__STATEMENT_LISTx28x20x29 | *g_circumfix__x3cx3cx20x3ex3e | *g_circumfix__x3ax7bx20x7d | *g_circumfix__x28x20x29 | *g_circumfix__x5bx20x5d | *g_circumfix__ang | *g_circumfix__u00abx20u00bb | *g_circumfix__x7bx20x7d);
+g_postcircumfix = FENCE(*g_postcircumfix__x3cx3cx20x3ex3e | *g_postcircumfix__x5bx3bx20x5d | *g_postcircumfix__x7bx3bx20x7d | *g_postcircumfix__x5bx20x5d | *g_postcircumfix__x7bx20x7d | *g_postcircumfix__ang | *g_postcircumfix__u00abx20u00bb | *g_postcircumfix__x28x20x29);
+g_postfix = FENCE(*g_postfix__u269bx2bx2b | *g_postfix__u269bx2dx2d | *g_postfix__x2bx2b | *g_postfix__x2dx2d | *g_postfix__x2dx3e | *g_postfix__i | *g_postfix__u207f);
+g_prefix = FENCE(*h351_proto_prefix | *h352_proto_prefix | *h353_proto_prefix);
+q_b1_escape = FENCE(*q_b1_escape__x5cx5c);
+q_b0_escape = FENCE(*q_b0_escape__x5cx5c);
+q_c1_escape = FENCE(*q_c1_escape__x7bx20x7d);
+q_c0_escape = FENCE(*q_c0_escape__x7bx20x7d);
+q_s1_escape = FENCE(*q_s1_escape__x24);
+q_s0_escape = FENCE(*q_s0_escape__x24);
+q_a1_escape = FENCE(*q_a1_escape__x40);
+q_a0_escape = FENCE(*q_a0_escape__x40);
+q_h1_escape = FENCE(*q_h1_escape__x25);
+q_h0_escape = FENCE(*q_h0_escape__x25);
+q_f1_escape = FENCE(*q_f1_escape__x26);
+q_f0_escape = FENCE(*q_f0_escape__x26);
+q_ww_escape = FENCE(*q_ww_escape__colonpair | *q_ww_escape__x27 | *q_ww_escape__x23);
+q_q_escape = FENCE(*q_q_escape__x5cx5c);
+rx_metachar = FENCE(*rx_metachar__rakvar | *rx_metachar__x3amy | *rx_metachar__x7bx20x7d | *rx_metachar__qw | *rx_metachar__x7bx7d | *rx_metachar__x27);
+rx_backslash = FENCE(*rx_backslash__1);
+rx_assertion = FENCE(*rx_assertion__x3fx7bx20x7d | *rx_assertion__x21x7bx20x7d | *rx_assertion__name | *rx_assertion__x7bx20x7d | *rx_assertion__var | *rx_assertion__x7ex7e);
+p5_p5metachar = FENCE(*p5_p5metachar__x28x3fx3fx7bx20x7dx29 | *p5_p5metachar__x28x3fx7bx20x7dx29 | *p5_p5metachar__var);
+hll_comment = FENCE(*hll_comment__line_directive | *g_comment__x23x60x28x2ex2ex2ex29 | *g_comment__x23x7cx28x2ex2ex2ex29 | *g_comment__x23x3dx28x2ex2ex2ex29 | *g_comment__x23x60 | *g_comment__x23x7c | *g_comment__x23x3d | *g_comment__x23);
+hll_NQPx3ax3aGrammar_infix = FENCE(*h354_proto_infix | *h355_proto_infix | *h356_proto_infix | *h357_proto_infix | *h358_proto_infix | *h359_proto_infix | *h360_proto_infix | *h361_proto_infix | *h362_proto_infix | *h363_proto_infix | *h364_proto_infix | *h365_proto_infix | *h366_proto_infix | *h367_proto_infix | *h368_proto_infix | *h369_proto_infix | *h370_proto_infix | *h371_proto_infix | *h372_proto_infix | *h373_proto_infix | *h374_proto_infix);
+h33_proto_terminator = *g_terminator__without | *g_terminator__unless | *g_terminator__while | *g_terminator__until | *g_terminator__given | *g_terminator__arrow | *g_terminator__when | *g_terminator__with;
+h34_proto_terminator = *g_terminator__ang | *g_terminator__for | *g_terminator__if | *g_terminator__x3b | *g_terminator__x29 | *g_terminator__x5d | *g_terminator__x7d;
+h35_proto_statement_control = *g_statement_control__whenever | *g_statement_control__without | *g_statement_control__foreach | *g_statement_control__require | *g_statement_control__default | *g_statement_control__CONTROL | *g_statement_control__unless | *g_statement_control__repeat;
+h36_proto_statement_control = *g_statement_control__import | *g_statement_control__while | *g_statement_control__given | *g_statement_control__CATCH | *g_statement_control__loop | *g_statement_control__need | *g_statement_control__when | *g_statement_control__QUIT;
+h37_proto_statement_control = *g_statement_control__for | *g_statement_control__use | *g_statement_control__if | *g_statement_control__no;
+h44_proto_statement_prefix = *g_statement_prefix__quietly | *g_statement_prefix__gather | *g_statement_prefix__supply | *g_statement_prefix__BEGIN | *g_statement_prefix__CHECK | *g_statement_prefix__ENTER | *g_statement_prefix__FIRST | *g_statement_prefix__LEAVE;
+h45_proto_statement_prefix = *g_statement_prefix__CLOSE | *g_statement_prefix__hyper | *g_statement_prefix__eager | *g_statement_prefix__start | *g_statement_prefix__react | *g_statement_prefix__TEMP | *g_statement_prefix__INIT | *g_statement_prefix__KEEP;
+h46_proto_statement_prefix = *g_statement_prefix__UNDO | *g_statement_prefix__NEXT | *g_statement_prefix__LAST | *g_statement_prefix__POST | *g_statement_prefix__race | *g_statement_prefix__lazy | *g_statement_prefix__sink | *g_statement_prefix__once;
+h47_proto_statement_prefix = *g_statement_prefix__END | *g_statement_prefix__PRE | *g_statement_prefix__try | *g_statement_prefix__DOC | *g_statement_prefix__do;
+h54_proto_special_variable = *g_special_variable__x24x21x7bx20x7d | *g_special_variable__x24x2bx5bx20x5d | *g_special_variable__x40x2bx5bx20x5d | *g_special_variable__x40x2bx7bx20x7d | *g_special_variable__x24x2dx5bx20x5d | *g_special_variable__x40x2dx5bx20x5d | *g_special_variable__x25x2dx7bx20x7d | *g_special_variable__x24x7bx20x7d;
+h55_proto_special_variable = *g_special_variable__x24x5cx5c | *g_special_variable__x24x60 | *g_special_variable__x24x40 | *g_special_variable__x24x23 | *g_special_variable__x24x24 | *g_special_variable__x24x26 | *g_special_variable__x40x2b | *g_special_variable__x25x2b;
+h56_proto_special_variable = *g_special_variable__x40x2d | *g_special_variable__x25x2d | *g_special_variable__x24x2f | *g_special_variable__x24x7c | *g_special_variable__x24x3b | *g_special_variable__x24x27 | *g_special_variable__x24x22 | *g_special_variable__x24x2c;
+h57_proto_special_variable = *g_special_variable__x24x2e | *g_special_variable__x24x3f | *g_special_variable__x24x5d;
+h66_proto_package_declarator = *g_package_declarator__package | *g_package_declarator__grammar | *g_package_declarator__knowhow | *g_package_declarator__module | *g_package_declarator__native | *g_package_declarator__trusts | *g_package_declarator__class | *g_package_declarator__slang;
+h67_proto_package_declarator = *g_package_declarator__role | *g_package_declarator__also;
+h72_proto_scope_declarator = *g_scope_declarator__supersede | *g_scope_declarator__augment | *g_scope_declarator__state | *g_scope_declarator__anon | *g_scope_declarator__unit | *g_scope_declarator__our | *g_scope_declarator__has | *g_scope_declarator__HAS;
+h73_proto_scope_declarator = *g_scope_declarator__my;
+h92_proto_term = *g_term__package_declarator | *g_term__routine_declarator | *g_term__scope_declarator | *g_term__multi_declarator | *g_term__regex_declarator | *g_term__statement_prefix | *g_term__type_declarator | *g_term__identifier;
+h93_proto_term = *g_term__nqpx3ax3aconst | *g_term__colonpair | *g_term__circumfix | *g_term__empty_set | *g_term__fatarrow | *g_term__variable | *g_term__x3ax3ax3fIDENT | *g_term__onlystar;
+h94_proto_term = *g_term__unquote | *g_term__nqpx3ax3aop | *g_term__capterm | *g_term__lambda | *g_term__p5data | *g_term__reduce | *g_term__value | *g_term__p5end;
+h95_proto_term = *g_term__undef | *g_term__dotty | *g_term__self | *g_term__time | *g_term__nano | *g_term__rand | *g_term__name | *g_term__new;
+h96_proto_term = *g_term__now | *g_term__x2ex2ex2e | *g_term__x3fx3fx3f | *g_term__x21x21x21 | *g_term__x2ax2a | *g_term__x21x21 | *g_term__x2a;
+h114_proto_quote_mod = *g_quote_mod__ww | *g_quote_mod__to | *g_quote_mod__w | *g_quote_mod__x | *g_quote_mod__s | *g_quote_mod__a | *g_quote_mod__h | *g_quote_mod__f;
+h115_proto_quote_mod = *g_quote_mod__c | *g_quote_mod__b;
+h116_proto_quote = *g_quote__x2fnullx2f | *g_quote__sapos | *g_quote__lapos | *g_quote__hapos | *g_quote__sdblq | *g_quote__ldblq | *g_quote__hdblq | *g_quote__quasi;
+h117_proto_quote = *g_quote__apos | *g_quote__dblq | *g_quote__crnr | *g_quote__x2fx20x2f | *g_quote__qq | *g_quote__rx | *g_quote__qr | *g_quote__tr;
+h118_proto_quote = *g_quote__q | *g_quote__Q | *g_quote__m | *g_quote__s | *g_quote__y;
+h184_proto_pod_block = *g_pod_block__abbreviated_comment | *g_pod_block__delimited_comment | *g_pod_block__paragraph_comment | *g_pod_block__abbreviated_table | *g_pod_block__abbreviated_code | *g_pod_block__delimited_table | *g_pod_block__paragraph_table | *g_pod_block__delimited_code;
+h185_proto_pod_block = *g_pod_block__paragraph_code | *g_pod_block__abbreviated | *g_pod_block__delimited | *g_pod_block__paragraph | *g_pod_block__finish;
+h253_proto_backslash = *q_b1_backslash__unrec | *q_b1_backslash__misc | *q_b1_backslash__qq | *q_b1_backslash__x5cx5c | *q_b1_backslash__rn | *q_b1_backslash__a | *q_b1_backslash__b | *q_b1_backslash__c;
+h254_proto_backslash = *q_b1_backslash__e | *q_b1_backslash__f | *q_b1_backslash__N | *q_b1_backslash__n | *q_b1_backslash__o | *q_b1_backslash__r | *q_b1_backslash__t | *q_b1_backslash__x;
+h255_proto_backslash = *q_b1_backslash__0 | *q_b1_backslash__1;
+h260_proto_backslash = *q_cc_backslash__x5cx5c | *q_cc_backslash__a | *q_cc_backslash__b | *q_cc_backslash__c | *q_cc_backslash__d | *q_cc_backslash__e | *q_cc_backslash__f | *q_cc_backslash__h;
+h261_proto_backslash = *q_cc_backslash__N | *q_cc_backslash__n | *q_cc_backslash__o | *q_cc_backslash__r | *q_cc_backslash__s | *q_cc_backslash__t | *q_cc_backslash__v | *q_cc_backslash__w;
+h262_proto_backslash = *q_cc_backslash__x | *q_cc_backslash__0;
+h269_proto_term = *g_term__package_declarator | *g_term__routine_declarator | *g_term__scope_declarator | *g_term__multi_declarator | *g_term__regex_declarator | *g_term__statement_prefix | *g_term__type_declarator | *g_term__identifier;
+h270_proto_term = *g_term__nqpx3ax3aconst | *g_term__colonpair | *g_term__circumfix | *g_term__empty_set | *g_term__fatarrow | *g_term__variable | *g_term__x3ax3ax3fIDENT | *g_term__onlystar;
+h271_proto_term = *g_term__unquote | *g_term__nqpx3ax3aop | *g_term__capterm | *g_term__lambda | *g_term__p5data | *g_term__reduce | *g_term__value | *g_term__p5end;
+h272_proto_term = *g_term__undef | *g_term__dotty | *g_term__self | *g_term__time | *g_term__nano | *g_term__rand | *g_term__name | *g_term__new;
+h273_proto_term = *g_term__now | *g_term__x2ex2ex2e | *g_term__x3fx3fx3f | *g_term__x21x21x21 | *g_term__x2ax2a | *g_term__x21x21 | *g_term__x2a;
+h274_proto_infix = *g_infix__notandthen | *g_infix__andthen | *g_infix__lambda | *g_infix__before | *g_infix__x28elemx29 | *g_infix__x28contx29 | *g_infix__minmax | *g_infix__orelse;
+h275_proto_infix = *g_infix__unicmp | *g_infix__after | *g_infix__x3fx3fx20x21x21 | *g_infix__x5ex2ex2ex2ex5e | *g_infix__x5efffx5e | *g_infix__x28x3dx3dx29 | *g_infix__x28x3cx3dx29 | *g_infix__x28x3ex3dx29;
+h276_proto_infix = *g_infix__x28x3cx2bx29 | *g_infix__x28x3ex2bx29 | *g_infix__x2ex2ex2ex5e | *g_infix__x5ex2ex2ex2e | *g_infix__x5effx5e | *g_infix__x5efff | *g_infix__fffx5e | *g_infix__x3cx3cx3dx3d;
+h277_proto_infix = *g_infix__x3dx3dx3ex3e | *g_infix__x5ex2ex2ex5e | *g_infix__coll | *g_infix__does | *g_infix__div | *g_infix__gcd | *g_infix__lcm | *g_infix__mod;
+h278_proto_infix = *g_infix__x28x26x29 | *g_infix__x28x2ex29 | *g_infix__x28x7cx29 | *g_infix__x28x5ex29 | *g_infix__x28x2bx29 | *g_infix__x28x2dx29 | *g_infix__x3dx7ex3d | *g_infix__x3dx3ax3d;
+h279_proto_infix = *g_infix__x3dx3dx3d | *g_infix__eqv | *g_infix__x21x7ex7e | *g_infix__x28x3cx29 | *g_infix__x28x3ex29 | *g_infix__min | *g_infix__max | *g_infix__x3ax3ax3d;
+h280_proto_infix = *g_infix__x2ex2ex2e | *g_infix__x5eu2026x5e | *g_infix__x5eff | *g_infix__ffx5e | *g_infix__fff | *g_infix__u269bx2bx3d | *g_infix__u269bx2dx3d | *g_infix__u269bu2212x3d;
+h281_proto_infix = *g_infix__and | *g_infix__xor | *g_infix__x3cx3dx3d | *g_infix__x3dx3dx3e | *g_infix__x5ex2ex2e | *g_infix__x2ex2ex5e | *g_infix__leg | *g_infix__cmp;
+h282_proto_infix = *g_infix__x3cx3dx3e | *g_infix__but | *g_infix__x2ax2a | *g_infix__x25x25 | *g_infix__x2bx26 | *g_infix__x7ex26 | *g_infix__x3fx26 | *g_infix__x2bx3c;
+h283_proto_infix = *g_infix__x2bx3e | *g_infix__x7ex3c | *g_infix__x7ex3e | *g_infix__x3cx3c | *g_infix__x3ex3e | *g_infix__x2bx7c | *g_infix__x2bx5e | *g_infix__x7ex7c;
+h284_proto_infix = *g_infix__x7ex5e | *g_infix__x3fx7c | *g_infix__x3fx5e | *g_infix__xx | *g_infix__x3dx3d | *g_infix__x21x3d | *g_infix__x3cx3d | *g_infix__x3ex3d;
+h285_proto_infix = *g_infix__eq | *g_infix__ne | *g_infix__le | *g_infix__ge | *g_infix__lt | *g_infix__gt | *g_infix__x7ex7e | *g_infix__x26x26;
+h286_proto_infix = *g_infix__x7cx7c | *g_infix__x5ex5e | *g_infix__x2fx2f | *g_infix__x3ax3d | *g_infix__x2ex3d | *g_infix__x3dx3e | *g_infix__u2026x5e | *g_infix__x5eu2026;
+h287_proto_infix = *g_infix__ff | *g_infix__u269bx3d | *g_infix__or | *g_infix__x2ex2e | *g_infix__x21x7e | *g_infix__x3dx7e | *g_infix__x2a | *g_infix__u00d7;
+h288_proto_infix = *g_infix__x2f | *g_infix__u00f7 | *g_infix__x25 | *g_infix__x2b | *g_infix__x2d | *g_infix__u2212 | *g_infix__x | *g_infix__x7e;
+h289_proto_infix = *g_infix__x2e | *g_infix__u2218 | *g_infix__o | *g_infix__x26 | *g_infix__u2229 | *g_infix__u228d | *g_infix__x7c | *g_infix__x5e;
+h290_proto_infix = *g_infix__u222a | *g_infix__u2296 | *g_infix__u228e | *g_infix__u2216 | *g_infix__u2245 | *g_infix__u2a75 | *g_infix__u2260 | *g_infix__u2264;
+h291_proto_infix = *g_infix__u2265 | *g_infix__x3c | *g_infix__x3e | *g_infix__u2a76 | *g_infix__u2208 | *g_infix__u220a | *g_infix__u2209 | *g_infix__u220b;
+h292_proto_infix = *g_infix__u220d | *g_infix__u220c | *g_infix__u2282 | *g_infix__u2284 | *g_infix__u2283 | *g_infix__u2285 | *g_infix__u2261 | *g_infix__u2262;
+h293_proto_infix = *g_infix__u2286 | *g_infix__u2288 | *g_infix__u2287 | *g_infix__u2289 | *g_infix__u227c | *g_infix__u227d | *g_infix__u21d2 | *g_infix__x2c;
+h294_proto_infix = *g_infix__x3a | *g_infix__Z | *g_infix__X | *g_infix__u2026 | *g_infix__x3f | *g_infix__x3d;
+h295_proto_prefix = *g_prefix__temp | *g_prefix__x2bx2bu269b | *g_prefix__x2dx2du269b | *g_prefix__let | *g_prefix__not | *g_prefix__x2bx2b | *g_prefix__x2dx2d | *g_prefix__x7ex7e;
+h296_proto_prefix = *g_prefix__x3fx3f | *g_prefix__x2bx5e | *g_prefix__x7ex5e | *g_prefix__x3fx5e | *g_prefix__x5ex5e | *g_prefix__x2fx2f | *g_prefix__so | *g_prefix__x2b;
+h297_proto_prefix = *g_prefix__x7e | *g_prefix__x2d | *g_prefix__u2212 | *g_prefix__x3f | *g_prefix__x21 | *g_prefix__x7c | *g_prefix__x5e | *g_prefix__u269b;
+h318_proto_quote_escape = *hll_quote_escape__backslash | *hll_quote_escape__stopper | *hll_quote_escape__misc | *hll_quote_escape__tab | *hll_quote_escape__esc | *hll_quote_escape__hex | *hll_quote_escape__oct | *hll_quote_escape__chr;
+h319_proto_quote_escape = *hll_quote_escape__bs | *hll_quote_escape__nl | *hll_quote_escape__cr | *hll_quote_escape__ff | *hll_quote_escape__0;
+h330_proto_infix = *g_infix__notandthen | *g_infix__andthen | *g_infix__lambda | *g_infix__before | *g_infix__x28elemx29 | *g_infix__x28contx29 | *g_infix__minmax | *g_infix__orelse;
+h331_proto_infix = *g_infix__unicmp | *g_infix__after | *g_infix__x3fx3fx20x21x21 | *g_infix__x5ex2ex2ex2ex5e | *g_infix__x5efffx5e | *g_infix__x28x3dx3dx29 | *g_infix__x28x3cx3dx29 | *g_infix__x28x3ex3dx29;
+h332_proto_infix = *g_infix__x28x3cx2bx29 | *g_infix__x28x3ex2bx29 | *g_infix__x2ex2ex2ex5e | *g_infix__x5ex2ex2ex2e | *g_infix__x5effx5e | *g_infix__x5efff | *g_infix__fffx5e | *g_infix__x3cx3cx3dx3d;
+h333_proto_infix = *g_infix__x3dx3dx3ex3e | *g_infix__x5ex2ex2ex5e | *g_infix__coll | *g_infix__does | *g_infix__div | *g_infix__gcd | *g_infix__lcm | *g_infix__mod;
+h334_proto_infix = *g_infix__x28x26x29 | *g_infix__x28x2ex29 | *g_infix__x28x7cx29 | *g_infix__x28x5ex29 | *g_infix__x28x2bx29 | *g_infix__x28x2dx29 | *g_infix__x3dx7ex3d | *g_infix__x3dx3ax3d;
+h335_proto_infix = *g_infix__x3dx3dx3d | *g_infix__eqv | *g_infix__x21x7ex7e | *g_infix__x28x3cx29 | *g_infix__x28x3ex29 | *g_infix__min | *g_infix__max | *g_infix__x3ax3ax3d;
+h336_proto_infix = *g_infix__x2ex2ex2e | *g_infix__x5eu2026x5e | *g_infix__x5eff | *g_infix__ffx5e | *g_infix__fff | *g_infix__u269bx2bx3d | *g_infix__u269bx2dx3d | *g_infix__u269bu2212x3d;
+h337_proto_infix = *g_infix__and | *g_infix__xor | *g_infix__x3cx3dx3d | *g_infix__x3dx3dx3e | *g_infix__x5ex2ex2e | *g_infix__x2ex2ex5e | *g_infix__leg | *g_infix__cmp;
+h338_proto_infix = *g_infix__x3cx3dx3e | *g_infix__but | *g_infix__x2ax2a | *g_infix__x25x25 | *g_infix__x2bx26 | *g_infix__x7ex26 | *g_infix__x3fx26 | *g_infix__x2bx3c;
+h339_proto_infix = *g_infix__x2bx3e | *g_infix__x7ex3c | *g_infix__x7ex3e | *g_infix__x3cx3c | *g_infix__x3ex3e | *g_infix__x2bx7c | *g_infix__x2bx5e | *g_infix__x7ex7c;
+h340_proto_infix = *g_infix__x7ex5e | *g_infix__x3fx7c | *g_infix__x3fx5e | *g_infix__xx | *g_infix__x3dx3d | *g_infix__x21x3d | *g_infix__x3cx3d | *g_infix__x3ex3d;
+h341_proto_infix = *g_infix__eq | *g_infix__ne | *g_infix__le | *g_infix__ge | *g_infix__lt | *g_infix__gt | *g_infix__x7ex7e | *g_infix__x26x26;
+h342_proto_infix = *g_infix__x7cx7c | *g_infix__x5ex5e | *g_infix__x2fx2f | *g_infix__x3ax3d | *g_infix__x2ex3d | *g_infix__x3dx3e | *g_infix__u2026x5e | *g_infix__x5eu2026;
+h343_proto_infix = *g_infix__ff | *g_infix__u269bx3d | *g_infix__or | *g_infix__x2ex2e | *g_infix__x21x7e | *g_infix__x3dx7e | *g_infix__x2a | *g_infix__u00d7;
+h344_proto_infix = *g_infix__x2f | *g_infix__u00f7 | *g_infix__x25 | *g_infix__x2b | *g_infix__x2d | *g_infix__u2212 | *g_infix__x | *g_infix__x7e;
+h345_proto_infix = *g_infix__x2e | *g_infix__u2218 | *g_infix__o | *g_infix__x26 | *g_infix__u2229 | *g_infix__u228d | *g_infix__x7c | *g_infix__x5e;
+h346_proto_infix = *g_infix__u222a | *g_infix__u2296 | *g_infix__u228e | *g_infix__u2216 | *g_infix__u2245 | *g_infix__u2a75 | *g_infix__u2260 | *g_infix__u2264;
+h347_proto_infix = *g_infix__u2265 | *g_infix__x3c | *g_infix__x3e | *g_infix__u2a76 | *g_infix__u2208 | *g_infix__u220a | *g_infix__u2209 | *g_infix__u220b;
+h348_proto_infix = *g_infix__u220d | *g_infix__u220c | *g_infix__u2282 | *g_infix__u2284 | *g_infix__u2283 | *g_infix__u2285 | *g_infix__u2261 | *g_infix__u2262;
+h349_proto_infix = *g_infix__u2286 | *g_infix__u2288 | *g_infix__u2287 | *g_infix__u2289 | *g_infix__u227c | *g_infix__u227d | *g_infix__u21d2 | *g_infix__x2c;
+h350_proto_infix = *g_infix__x3a | *g_infix__Z | *g_infix__X | *g_infix__u2026 | *g_infix__x3f | *g_infix__x3d;
+h351_proto_prefix = *g_prefix__temp | *g_prefix__x2bx2bu269b | *g_prefix__x2dx2du269b | *g_prefix__let | *g_prefix__not | *g_prefix__x2bx2b | *g_prefix__x2dx2d | *g_prefix__x7ex7e;
+h352_proto_prefix = *g_prefix__x3fx3f | *g_prefix__x2bx5e | *g_prefix__x7ex5e | *g_prefix__x3fx5e | *g_prefix__x5ex5e | *g_prefix__x2fx2f | *g_prefix__so | *g_prefix__x2b;
+h353_proto_prefix = *g_prefix__x7e | *g_prefix__x2d | *g_prefix__u2212 | *g_prefix__x3f | *g_prefix__x21 | *g_prefix__x7c | *g_prefix__x5e | *g_prefix__u269b;
+h354_proto_infix = *g_infix__notandthen | *g_infix__andthen | *g_infix__lambda | *g_infix__before | *g_infix__x28elemx29 | *g_infix__x28contx29 | *g_infix__minmax | *g_infix__orelse;
+h355_proto_infix = *g_infix__unicmp | *g_infix__after | *g_infix__x3fx3fx20x21x21 | *g_infix__x5ex2ex2ex2ex5e | *g_infix__x5efffx5e | *g_infix__x28x3dx3dx29 | *g_infix__x28x3cx3dx29 | *g_infix__x28x3ex3dx29;
+h356_proto_infix = *g_infix__x28x3cx2bx29 | *g_infix__x28x3ex2bx29 | *g_infix__x2ex2ex2ex5e | *g_infix__x5ex2ex2ex2e | *g_infix__x5effx5e | *g_infix__x5efff | *g_infix__fffx5e | *g_infix__x3cx3cx3dx3d;
+h357_proto_infix = *g_infix__x3dx3dx3ex3e | *g_infix__x5ex2ex2ex5e | *g_infix__coll | *g_infix__does | *g_infix__div | *g_infix__gcd | *g_infix__lcm | *g_infix__mod;
+h358_proto_infix = *g_infix__x28x26x29 | *g_infix__x28x2ex29 | *g_infix__x28x7cx29 | *g_infix__x28x5ex29 | *g_infix__x28x2bx29 | *g_infix__x28x2dx29 | *g_infix__x3dx7ex3d | *g_infix__x3dx3ax3d;
+h359_proto_infix = *g_infix__x3dx3dx3d | *g_infix__eqv | *g_infix__x21x7ex7e | *g_infix__x28x3cx29 | *g_infix__x28x3ex29 | *g_infix__min | *g_infix__max | *g_infix__x3ax3ax3d;
+h360_proto_infix = *g_infix__x2ex2ex2e | *g_infix__x5eu2026x5e | *g_infix__x5eff | *g_infix__ffx5e | *g_infix__fff | *g_infix__u269bx2bx3d | *g_infix__u269bx2dx3d | *g_infix__u269bu2212x3d;
+h361_proto_infix = *g_infix__and | *g_infix__xor | *g_infix__x3cx3dx3d | *g_infix__x3dx3dx3e | *g_infix__x5ex2ex2e | *g_infix__x2ex2ex5e | *g_infix__leg | *g_infix__cmp;
+h362_proto_infix = *g_infix__x3cx3dx3e | *g_infix__but | *g_infix__x2ax2a | *g_infix__x25x25 | *g_infix__x2bx26 | *g_infix__x7ex26 | *g_infix__x3fx26 | *g_infix__x2bx3c;
+h363_proto_infix = *g_infix__x2bx3e | *g_infix__x7ex3c | *g_infix__x7ex3e | *g_infix__x3cx3c | *g_infix__x3ex3e | *g_infix__x2bx7c | *g_infix__x2bx5e | *g_infix__x7ex7c;
+h364_proto_infix = *g_infix__x7ex5e | *g_infix__x3fx7c | *g_infix__x3fx5e | *g_infix__xx | *g_infix__x3dx3d | *g_infix__x21x3d | *g_infix__x3cx3d | *g_infix__x3ex3d;
+h365_proto_infix = *g_infix__eq | *g_infix__ne | *g_infix__le | *g_infix__ge | *g_infix__lt | *g_infix__gt | *g_infix__x7ex7e | *g_infix__x26x26;
+h366_proto_infix = *g_infix__x7cx7c | *g_infix__x5ex5e | *g_infix__x2fx2f | *g_infix__x3ax3d | *g_infix__x2ex3d | *g_infix__x3dx3e | *g_infix__u2026x5e | *g_infix__x5eu2026;
+h367_proto_infix = *g_infix__ff | *g_infix__u269bx3d | *g_infix__or | *g_infix__x2ex2e | *g_infix__x21x7e | *g_infix__x3dx7e | *g_infix__x2a | *g_infix__u00d7;
+h368_proto_infix = *g_infix__x2f | *g_infix__u00f7 | *g_infix__x25 | *g_infix__x2b | *g_infix__x2d | *g_infix__u2212 | *g_infix__x | *g_infix__x7e;
+h369_proto_infix = *g_infix__x2e | *g_infix__u2218 | *g_infix__o | *g_infix__x26 | *g_infix__u2229 | *g_infix__u228d | *g_infix__x7c | *g_infix__x5e;
+h370_proto_infix = *g_infix__u222a | *g_infix__u2296 | *g_infix__u228e | *g_infix__u2216 | *g_infix__u2245 | *g_infix__u2a75 | *g_infix__u2260 | *g_infix__u2264;
+h371_proto_infix = *g_infix__u2265 | *g_infix__x3c | *g_infix__x3e | *g_infix__u2a76 | *g_infix__u2208 | *g_infix__u220a | *g_infix__u2209 | *g_infix__u220b;
+h372_proto_infix = *g_infix__u220d | *g_infix__u220c | *g_infix__u2282 | *g_infix__u2284 | *g_infix__u2283 | *g_infix__u2285 | *g_infix__u2261 | *g_infix__u2262;
+h373_proto_infix = *g_infix__u2286 | *g_infix__u2288 | *g_infix__u2287 | *g_infix__u2289 | *g_infix__u227c | *g_infix__u227d | *g_infix__u21d2 | *g_infix__x2c;
+h374_proto_infix = *g_infix__x3a | *g_infix__Z | *g_infix__X | *g_infix__u2026 | *g_infix__x3f | *g_infix__x3d;
+
+/* ==================================================================================================================== */
+Src = '';
+while ((Line = INPUT)) Src = Src Line nl;
+if (Src ? POS(0) *g_comp_unit RPOS(0)) OUTPUT = 'Parsed.';
+else OUTPUT = 'Parse Error.';
