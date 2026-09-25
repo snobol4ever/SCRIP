@@ -52,9 +52,30 @@ GRADED=${#REFS[@]}
 [ "$GRADED" -gt 0 ] || { echo "⛔ $GATE REFUSES rc=2: zero .ref refs found under $PKG -- graded nothing" >&2; exit 2; }
 
 n_ok=0; n_refused=0; n_diverged=0; REFUSED=(); DIVERGED=()
+link_names() { sed -E 's/#.*//' "$1" | grep -E '^[[:space:]]*link[[:space:]]' | sed -E 's/^[[:space:]]*link[[:space:]]+//; s/[;,"]/ /g' | tr -s ' \t' '\n' | sed '/^$/d'; }
+made=""
 for ref in "${REFS[@]}"; do
+    for u in $made; do rm -f "$u.u1" "$u.u2"; done; made=""
     base="$(basename "$ref" .ref)"; dir="$(dirname "$ref")"; icn="$dir/$base.icn"
     [ -f "$icn" ] || continue
+    # ⛔ A LINKED LIBRARY SHIPPED BESIDE THE SOURCE IS TRANSLATED FIRST (CEO-1269, hq_icon 2026-09-25): a NAME_driver links
+    # its library NAME, which may link other libraries shipped beside it, and icont links ucode, never source -- so the local
+    # link closure is translated in this sandbox first, exactly as each driver's ref was cut from iconx. A name with no source
+    # beside it resolves from icont's own library as it always did. Without this every driver whose library links a
+    # non-IPL neighbour (io_lib, lists_lib, random_lib ...) read as REFUSED by icont, which is the gate's gap, not the ref's.
+    # ONLY A DRIVER'S closure: every other graded source's ref was cut linking icont's installed IPL ucode (ilib, cfuncs and
+    # extlvals measurably diverge or refuse when their local namesakes are translated instead), so theirs is left as it was,
+    # and a driver's translated ucode is removed before the next source is graded, so it can never shadow icont's library.
+    todo=""; case "$base" in *_driver) todo="$(link_names "$icn")" ;; esac; seen=" "
+    while [ -n "$todo" ]; do
+        nxt=""
+        for l in $todo; do
+            case "$seen" in *" $l "*) continue ;; esac; seen="$seen$l "
+            [ -f "$dir/$l.icn" ] && [ "$l" != "$base" ] || continue
+            (cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s -c "$l.icn" >/dev/null 2>&1); made="$made $dir/$l"; nxt="$nxt $(link_names "$dir/$l.icn")"
+        done
+        todo="$nxt"
+    done
     # ARM 1 -- icont accepts our copy. -s silences informational chatter; rc is the verdict.
     cerr="$(cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s "$base.icn" 2>&1)"; crc=$?
     if [ "$crc" -ne 0 ]; then
