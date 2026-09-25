@@ -50,4 +50,4 @@ run_point() {
 for n in 63 64 70 130; do gen_fields "$n" > "$W/fields$n.sno"; run_point "fields$n" "$W/fields$n.sno"; done
 gen_names > "$W/names70.sno"; run_point names70 "$W/names70.sno"
 [ "$red" -eq 0 ] && { echo "WITNESS OK: $pts points, both modes, every output the oracle's -- a DATA type carries no fixed cap on its field count or its name"; exit 0; }
-echo "WITNESS FAILED: of $pts points a mode differs from sbl -bf (row snobol4-a-data-type-of-64-fields-or-a-64-character-name-raises-error-22-and-the-speed-landings-drop-locals-grow-with-it)"; exit 1
+echo "WITNESS FAILED: of $pts points a mode differs from sbl -bf (row snobol4-a-data-type-of-64-fields-or-a-64-character-name-raises-error-22-and-130-fields-segfault-and-the-speed-landings-drop-locals-grow-with-it)"; exit 1
