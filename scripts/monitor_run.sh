@@ -32,13 +32,24 @@ while [ $# -gt 0 ]; do case "$1" in --modes) mode=modes;; --trace) mode=trace;; 
 [ -x "$SCRIP" ] || { echo "REFUSE(2): no $SCRIP -- run make"; exit 2; }
 src="$(realpath "$src")"; base="${src%.*}"; ext="${src##*.}"
 [ -z "$input" ] && [ -f "$base.input" ] && input="$base.input"; [ -z "$input" ] && input=/dev/null
+[ "$input" = /dev/null ] || { [ -f "$input" ] || { echo "REFUSE(2): --input $input is not a file"; exit 2; }; input="$(realpath "$input")"; }   # absolute before the cd into the scratch mirror below
 case "$ext" in sno|icn|pl|pas|raku|sc|reb) ;; *) echo "REFUSE(2): $ext is not a SCRIP source extension"; exit 2;; esac
+W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+# ⛔⭐ THE SUBJECT RUNS IN A SCRATCH MIRROR OF ITS OWN DIRECTORY, NEVER IN THE CALLER'S CWD (coo 2026-09-25, on hq_pascal's
+# measurement). Every run below -- the traced and untraced mode 3, both mode-4 binaries and the participants -- inherited
+# whatever directory the seat stood in. So fpc_tests' test_tisobuf2, test_tisobuf3 and test_tisoread, run from SCRIP/, left
+# testfile, textfile and tisoread.tmp in SCRIP/ (16:36-16:41), the tree read dirty, and the PAT runner skipped its SCORE
+# row. A relative read also resolved against the caller, not the program. The mirror symlinks every entry of the source's
+# directory, so a relative read resolves as it does in the package, and a new file lands in the scratch and dies with it.
+# (A program that rewrites an EXISTING companion still writes through the link; none in the corpus is known to.)
+RUNDIR="$W/cwd"; mkdir -p "$RUNDIR" || { echo "REFUSE(2): no scratch cwd under $W"; exit 2; }
+for _e in "$(dirname "$src")"/* "$(dirname "$src")"/.[!.]*; do [ -e "$_e" ] && ln -s "$_e" "$RUNDIR/" 2>/dev/null; done
+cd "$RUNDIR" || { echo "REFUSE(2): cannot enter the scratch cwd $RUNDIR"; exit 2; }
 if [ "$mode" = trace ]; then
     timeout 60 "$SCRIP" --trace --run "$src" < "$input"; rc=$?
     [ "$rc" = 124 ] && { echo "REFUSE(2): the traced run did not finish in 60 s -- this is not a verdict"; exit 2; }
     exit 0
 fi
-W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 timeout 60 "$SCRIP" --run "$src" < "$input" > "$W/plain.out" 2> "$W/plain.err"; prc=$?
 timeout 60 "$SCRIP" --trace --run "$src" < "$input" > "$W/traced.out" 2> "$W/traced.err"; trc=$?
 if [ "$prc" = 124 ] || [ "$trc" = 124 ]; then echo "REFUSE(2): the witness did not finish in 60 s (plain rc=$prc, traced rc=$trc) -- pick a shorter witness"; exit 2; fi

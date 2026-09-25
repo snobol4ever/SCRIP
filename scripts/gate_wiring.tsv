@@ -307,6 +307,7 @@ test_gate_mint_op_is_one_numbering.sh	WIRED	-	-	-
 test_gate_mint_refuses_a_prose_donewhen.sh	WIRED	-	-	-
 test_gate_mode_line2_is_self_consistent.sh	WIRED	-	-	-
 test_gate_monitor_an_untyped_value_grades_ungraded_never_agree.sh	WIRED	-	-	-
+test_gate_monitor_run_runs_its_subject_in_a_scratch_mirror.sh	WIRED	-	-	-
 test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
 test_gate_no_bb_bin_t.sh	WIRED	-	-	-
