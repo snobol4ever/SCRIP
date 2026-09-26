@@ -1477,6 +1477,10 @@ inline std::string x86_4col(const std::string & s) {
     return o;
 }
 #define X86_MEQ(m, lit) ((m)[0] == (lit)[0] && !strcmp((m), (lit)))
+__attribute__((noreturn)) inline void x86_bare_target_refused(const char * mnem, const char * sym) {
+    fprintf(stderr, "FATAL x86: '%s' to the bare name '%s' has no encoding in the binary medium -- mode 3 would fall through to the next instruction; pass the target as a port (lbl_t0/lbl_t1 through x86_jcc_tgt/x86_jmp_tgt) or an internal label id, which both media encode (hq_snobol4's finding 2026-09-25)\n", mnem ? mnem : "?", sym ? sym : "?");
+    abort();
+}
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }
@@ -1525,6 +1529,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
             return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1, (char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("jmp") + a.txt + "\n");
         }
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_rec("jmp") + a.sym + "\n";
+        if (a.kind == XK_SYM) x86_bare_target_refused(mnem, a.sym);
         return std::string();
     }
     if (mnem[0] == 'j') {
@@ -1533,6 +1538,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_PAIR) return x86_jcc_pair(mnem, a.lbl);
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jcc_ext(mnem, (const struct bb_label_t *)(uintptr_t)xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_rec(mnem) + a.sym + "\n";
+        if (a.kind == XK_SYM) x86_bare_target_refused(mnem, a.sym);
         return std::string();
     }
     if (X86_MEQ(mnem, "call")) {
