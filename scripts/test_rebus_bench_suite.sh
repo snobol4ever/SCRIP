@@ -56,7 +56,7 @@ PROG_ROWS="$T/progress.tsv"; : >"$PROG_ROWS"
 # run1 <out-prefix> <heap-kb|''> <cmd...> -- one run, stdout/stderr kept under the prefix; returns the run's rc
 run1() {
   local o="$1" kb="$2"; shift 2
-  ( cd "$T" && [ -n "$kb" ] && export SCRIP_HEAP_KB="$kb" && unset SCRIP_HEAP_MB; [ -n "${st:-}" ] && export SCRIP_STACK="${st}k"
+  ( cd "$T" && [ -n "$kb" ] && export SCRIP_HEAP_CAP_KB="$kb" && unset SCRIP_HEAP_MB SCRIP_HEAP_KB; [ -n "${st:-}" ] && export SCRIP_STACK="${st}k"
     timeout 300s "$@" </dev/null >"$o.out" 2>"$o.err" )
 }
 # build4 <src.reb> <bin> -- the mode-4 binary of one program; returns 0 when it links
@@ -81,7 +81,7 @@ for k in "${KERNELS[@]}"; do
   TOTAL=$((TOTAL+1)); f="$BD/$k.reb"; ref="$BD/$k.ref"
   kb="$(declared_arena_kb_beside "$f")" || refuse "$k: its .heap sidecar is refused (the reader said why above)"
   st="$(declared_stack_kb_beside "$f")" || refuse "$k: its .stack sidecar is refused (the reader said why above)"
-  cfg="shipped"; [ -n "$kb" ] && { cfg="SCRIP_HEAP_KB=$kb"; HEAPD=$((HEAPD+1)); }
+  cfg="shipped"; [ -n "$kb" ] && { cfg="SCRIP_HEAP_CAP_KB=$kb"; HEAPD=$((HEAPD+1)); }
   [ -n "$st" ] && { cfg="$([ "$cfg" = shipped ] || printf '%s,' "$cfg")SCRIP_STACK=${st}k"; HEAPD=$((HEAPD+1)); }
   if [ ! -s "$ref" ]; then
     for m in m3 m4; do printf 'benchmark\trebus-bench-ref\trebus\t%s\t%s\tFAIL\t0\tno-ref\t%s\n' "$k" "$m" "$cfg" >>"$PROG_ROWS"; done

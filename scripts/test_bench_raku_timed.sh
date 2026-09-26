@@ -64,6 +64,8 @@ KERNELS="${KERNELS:-}"   # optional allowlist, same convention as bench_prolog_f
 [ -d "$RDIR" ] || { echo "⛔ REFUSED-TO-GRADE raku bench corpus missing: $RDIR"; exit 2; }
 [ -f "$RDIR/prelude_rakudo.rakumod" ] || { echo "⛔ REFUSED-TO-GRADE $RDIR/prelude_rakudo.rakumod missing"; exit 2; }
 RAKU="$(rakudo_bin)" || exit 2
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1283)"; exit 2; }
+declare -a DECL_SW=()
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/prelude" && cp "$RDIR/prelude_rakudo.rakumod" "$W/prelude/" || { echo "⛔ REFUSED: cannot stage the prelude." >&2; exit 2; }
@@ -75,11 +77,11 @@ WORK_OPEN='$t0 = wall_us(); my $m0 = wall_ms();'
 run1() {
   local eng="$1" src="$2" rl xc user sys
   case "$eng" in
-    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
+    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
     m4)     local s="$W/$$.s" b="$W/$$.bin"
             if ! (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$s" "$src" </dev/null >/dev/null 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
             if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
-            "$WRAP" timeout "$T" "$b" </dev/null >/dev/null 2>"$W/e.$$" ;;
+            "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" </dev/null >/dev/null 2>"$W/e.$$" ;;
     rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
@@ -124,7 +126,8 @@ for f in "$RDIR"/*.raku; do
   # ⛔ USES THE FULL $T TIMEOUT, NOT A SHORT HARDCODED ONE: point_class_add/add1 alone cost ~20-26s on m3 --
   # a short correctness-check timeout would kill them mid-run and misreport a real answer as DIFF.
   ckstat=ok
-  m3o="$W/m3o.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "$f" </dev/null >"$m3o" 2>/dev/null)
+  DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"
+  m3o="$W/m3o.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$m3o" 2>/dev/null)
   cmp -s "$m3o" "$ref" || ckstat="m3:DIFF"
   if [ "$ckstat" = ok ]; then
     m4s="$W/m4c.$$.s"; m4b="$W/m4c.$$.bin"; m4o="$W/m4o.$$"

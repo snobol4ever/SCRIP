@@ -50,6 +50,8 @@ CALIBRATE=0; for a in "$@"; do [ "$a" = --calibrate ] && CALIBRATE=1; done
 [ -d "$RDIR" ] || { echo "⛔ REFUSED-TO-GRADE raku bench corpus missing: $RDIR"; exit 2; }
 [ -f "$RDIR/prelude_rakudo.rakumod" ] || { echo "⛔ REFUSED-TO-GRADE $RDIR/prelude_rakudo.rakumod missing"; exit 2; }
 RAKU="$(rakudo_bin)" || exit 2
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1283)"; exit 2; }
+declare -a DECL_SW=()
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/prelude" && cp "$RDIR/prelude_rakudo.rakumod" "$W/prelude/" || { echo "⛔ REFUSED: cannot stage the prelude." >&2; exit 2; }
@@ -62,11 +64,11 @@ rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6);
 run1() {
   local eng="$1" src="$2" rl xc user sys
   case "$eng" in
-    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
+    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
     m4)     local s="$W/$$.s" b="$W/$$.bin"
             if ! (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$s" "$src" </dev/null >/dev/null 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
             if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
-            "$WRAP" timeout "$T" "$b" </dev/null >/dev/null 2>"$W/e.$$" ;;
+            "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" </dev/null >/dev/null 2>"$W/e.$$" ;;
     rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
@@ -89,7 +91,7 @@ if [ "$CALIBRATE" -eq 1 ]; then
     grep -qF "$WORK_OPEN" "$f" || continue
     if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
     # single-shot correctness on m3 first -- a kernel that cannot even run once correctly gets no N.
-    o="$W/cal.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "$f" </dev/null >"$o" 2>/dev/null)
+    o="$W/cal.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$o" 2>/dev/null)
     if ! cmp -s "$o" "$ref"; then echo "  $k: SKIP (m3 single-shot does not match .ref)"; continue; fi
     N=1; cpu=0
     while :; do

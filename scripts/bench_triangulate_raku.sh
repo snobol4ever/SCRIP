@@ -61,6 +61,9 @@ RDIR="${RAKU_DIR:-$S4E/corpus/benchmarks/raku}"
 REPS="${REPS:-3}"; T="${TIMEOUT:-120}"; KERNELS="${KERNELS:-}"; TOL="${TOL_PCT:-10}"
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || { echo "⛔ REFUSED: cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple (s266)." >&2; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_oracle_flags.sh -- the ONE authority for rival binaries." >&2; exit 2; }
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared -d/-s sidecars (CEO-1283)." >&2; exit 2; }
+# the kernel's declared heap and stack ride every SCRIP command line as -d/-s switches (its .heap/.stack sidecars; RULES.md hard-cap rule clause 8 (f))
+dsw_of() { local dw; dw=$(declared_switches_beside "$1") || { echo "⛔ REFUSED: $1: a sidecar the reader refuses (it said why above)" >&2; exit 2; }; printf '%s' "$dw"; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED: scrip not built ($SCRIP)." >&2; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED: libscrip_rt.so not built ($RT)." >&2; exit 2; }
 [ -d "$RDIR" ] || { echo "⛔ REFUSED: raku bench corpus missing ($RDIR)." >&2; exit 2; }
@@ -127,7 +130,7 @@ crossproof() {
 # kernel. Expected ~0 for these in-memory kernels; nonzero is a finding, not folded into AGREE/DISAGREE.
 disk_sample() {  # echoes "inblock oublock" (each may be empty if the BENCH_RUSAGE line lacks the field)
   local k="$1" dline ib ob
-  dline=$("$WRAP" "$SCRIP" --run "$RDIR/$k.raku" < /dev/null 2>&1 >/dev/null | grep '^BENCH_RUSAGE:' | tail -1)
+  dline=$("$WRAP" "$SCRIP" --run $(dsw_of "$RDIR/$k.raku") "$RDIR/$k.raku" < /dev/null 2>&1 >/dev/null | grep '^BENCH_RUSAGE:' | tail -1)
   ib=$(echo "$dline" | grep -oE 'inblock=[0-9]+' | cut -d= -f2); ob=$(echo "$dline" | grep -oE 'oublock=[0-9]+' | cut -d= -f2)
   printf '%s %s' "${ib:-}" "${ob:-}"
 }
@@ -136,8 +139,8 @@ disk_sample() {  # echoes "inblock oublock" (each may be empty if the BENCH_RUSA
 run1() {
   local eng="$1" k="$2" src="$RDIR/$2.raku" so="$W/so.$$" se="$W/se.$$" rl xc wu wm el
   case "$eng" in
-    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "$src" </dev/null >"$so" 2>"$se" ;;
-    m4)     "$WRAP" timeout "$T" "$W/$k.bin" </dev/null >"$so" 2>"$se" ;;
+    m3)     "$WRAP" timeout "$T" "$SCRIP" --run $(dsw_of "$src") "$src" </dev/null >"$so" 2>"$se" ;;
+    m4)     "$WRAP" timeout "$T" "$W/$k.bin" $(dsw_of "$src") </dev/null >"$so" 2>"$se" ;;
     rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >"$so" 2>"$se" ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$se" 2>/dev/null | tail -1); [ -n "$rl" ] || { echo "- - - DNF"; return; }
