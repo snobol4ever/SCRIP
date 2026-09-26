@@ -171,8 +171,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⭐ RE-PINNED 826 -> 828 (hq_icon 2026-09-25, MODE TENET): corpus e3b18cb9a added the two crawl witnesses
 # (rung22_lists_lconcat_alternation_right, rung42_kw_dateline_fields_unpadded) with the cures a94044665 and
 # b74152578, and this board read them green on SCRIP 628c6b4dc, m3 828/828 m4 828/828 FAIL=0.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-828}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-828}"
+# ⭐ RE-PINNED 828 -> 830 (hq_icon 2026-09-25, MODE TENET): corpus 6169b7ff6 added the preprocessor port's two witnesses
+# (rung42_kw_line_after_a_line_directive, rung42_kw_features_symbol_defined_without_a_dollar, cure 999a62f58), and this
+# board read them green on SCRIP 6ea9dfaf5, m3 830/830 m4 830/830 FAIL=0.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-830}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-830}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
