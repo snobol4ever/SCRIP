@@ -326,7 +326,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -3661,10 +3661,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!fn) return 0;
     extern int fh_capture_begin(char **, size_t *, int *); extern void fh_capture_end(int, int);
-    if (!strcmp(fn, "__rk_mkbool") && nargs >= 1) {
+    if ((!strcmp(fn, "__rk_mkbool") || !strcmp(fn, "__rk_notbool")) && nargs >= 1) {
         DESCR_t a = args[0]; long long t;
         extern int rt_is_truthy(DESCR_t v);
         if (a.v == DT_BOOL || IS_INT_fn(a)) t = (a.i != 0); else if (IS_REAL_fn(a)) t = (a.r != 0.0); else t = rt_is_truthy(a) ? 1 : 0;
+        if (fn[5] == 'n') t = !t;
         *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

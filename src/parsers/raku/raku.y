@@ -2047,7 +2047,11 @@ mul_expr
     ;
 unary_expr
     : '-' unary_expr %prec UMINUS  { $$=expr_unary(TT_MNS,rk_numeric_ctx($2)); }
-    | '+' unary_expr %prec UMINUS  { $$=rk_numeric_ctx($2); }
+    | '+' unary_expr %prec UMINUS
+        { tree_t *n=rk_numeric_ctx($2);
+          if (n==$2 && $2->t!=TT_ILIT && $2->t!=TT_FLIT) { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; n=expr_binary(TT_ADD,$2,z); }
+          $$=n; }
+    | '?' unary_expr %prec UMINUS  { tree_t *c=make_call("__rk_mkbool"); expr_add_child(c,$2); $$=c; }
     | '!' unary_expr               { $$=expr_unary(TT_NOT,$2); }
     | CARET unary_expr             { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; $$=rk_range_ex(z,$2); }
     | OP_REDUCE unary_expr

@@ -377,6 +377,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_NUL: { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_undef"; *res = nd; return nd; }
+    case TT_NOT: {
+        if (t->n < 1) return rk_excise(cx, γ, ω, res);
+        tree_t * nb = ast_node_new(TT_FNC); nb->v.sval = (char *) intern("__rk_notbool");
+        ast_push(nb, leaf_sval2(TT_VAR, "__rk_notbool")); ast_push(nb, t->c[0]); return lower_rv(cx, nb, γ, ω, res); }
     case TT_MNS: { IR_t * nd = build(cx, IR_UNOP, γ, ω); IR_LIT(nd).ival = (long long) TT_MNS;
         IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r); *res = nd; return e; }
     case TT_VAR: {

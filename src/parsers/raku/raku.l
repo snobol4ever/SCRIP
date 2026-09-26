@@ -86,6 +86,23 @@ static void raku_stamp_yylloc(const char *text, int len) {
     raku_yylloc.first_line = raku_yylineno - nl; raku_yylloc.last_line = raku_yylineno;
     raku_yylloc.first_column = raku_yylloc.last_column = 0;
 }
+static char *raku_interp_source(const char *b, int n) {
+    char *o = (char *) malloc((size_t) n * 5 + 16); int k = 0, code = 0;
+    if (!o) return NULL;
+    o[k++] = '('; o[k++] = '"';
+    for (int i = 0; i < n; i++) {
+        char c = b[i];
+        if (c == '\x02') { memcpy(o + k, "\" ~ (", 5); k += 5; code = 1; continue; }
+        if (c == '\x03') { memcpy(o + k, ") ~ \"", 5); k += 5; code = 0; continue; }
+        if (code) { o[k++] = c == '\n' ? ' ' : c; continue; }
+        if (c == '\n') { o[k++] = '\\'; o[k++] = 'n'; continue; }
+        if (c == '\r') { o[k++] = '\\'; o[k++] = 'r'; continue; }
+        if (c == '\\' || c == '"' || c == '{' || c == '}') o[k++] = '\\';
+        o[k++] = c;
+    }
+    o[k++] = '"'; o[k++] = ')'; o[k] = '\0';
+    return o;
+}
 #define YY_USER_ACTION raku_stamp_yylloc(yytext, yyleng);
 %}
 %option noyywrap noinput nounput
@@ -112,6 +129,7 @@ WS       [ \t\r]
 <POD>[^\n]*\n        { }
 <POD>[^\n]+          { }
 <POD><<EOF>>         { BEGIN(INITIAL); yyterminate(); }
+<<EOF>>              { if (yy_buffer_stack_top == 0) yyterminate(); yypop_buffer_state(); }
 "my"            { return KW_MY; }
 "our"           { return KW_MY; }
 "BEGIN"         { raku_yylval.sval = ct_strdup(yytext); return PHASER; }
@@ -309,6 +327,7 @@ WS       [ \t\r]
 "<"             { return '<'; }
 ">"             { return '>'; }
 "!"             { return '!'; }
+"?"             { return '?'; }
 "="             { return '='; }
 "{"             { if (raku_expect_rebody) { raku_expect_rebody = 0; raku_strpos = 0; rebody_depth = 1; BEGIN(STR_REBODY); } else { return '{'; } }
 "}"             { return '}'; }
@@ -372,12 +391,23 @@ WS       [ \t\r]
 "\""            { raku_strpos = 0; raku_str_line = raku_yylineno; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {
     raku_strbuf[raku_strpos] = '\0';
-    raku_yylloc.first_line = raku_str_line;
-    raku_yylval.sval = ct_strdup(raku_strbuf);
     BEGIN(INITIAL);
-    if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
-        return LIT_INTERP_STR;
-    return LIT_STR;
+    char *src = memchr(raku_strbuf, '\x02', (size_t) raku_strpos) ? raku_interp_source(raku_strbuf, raku_strpos) : NULL;
+    if (src) { yypush_buffer_state(YY_CURRENT_BUFFER); yy_scan_string(src); free(src); }
+    else {
+        raku_yylloc.first_line = raku_str_line;
+        raku_yylval.sval = ct_strdup(raku_strbuf);
+        if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
+            return LIT_INTERP_STR;
+        return LIT_STR;
+    }
+}
+<STR_DQ>"\\{"  { raku_strbuf[raku_strpos++] = '{'; }
+<STR_DQ>"\\}"  { raku_strbuf[raku_strpos++] = '}'; }
+<STR_DQ>"{"([^{}"\n]|"{"[^{}"\n]*"}")*"}" {
+    if (raku_strpos + yyleng + 2 < (int) sizeof raku_strbuf) {
+        raku_strbuf[raku_strpos++] = '\x02'; memcpy(raku_strbuf + raku_strpos, yytext + 1, (size_t) yyleng - 2); raku_strpos += yyleng - 2; raku_strbuf[raku_strpos++] = '\x03';
+    }
 }
 <STR_DQ>"\\n"  { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_DQ>"\\t"  { raku_strbuf[raku_strpos++] = '\t'; }
