@@ -84,6 +84,7 @@ test_gate_dispatch_gc_safepoint_inline.sh	WIRED	-	-	-
 test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
 test_gate_done_manifest_handoff.sh	WIRED	-	-	-
 test_gate_done_runs_the_master_arm_for_codegen_rows.sh	WIRED	-	-	-
+test_gate_donewhen_exemption_census_names_every_row.sh	WIRED	-	-	-
 test_gate_driver_extension_table_lives_once.sh	WIRED	-	-	-
 test_gate_dump_zeta_guard_arm_reads_a_name_only_from_an_op_that_carries_one.sh	WIRED	-	-	-
 test_gate_dump_zeta_is_the_emitted_frame.sh	WIRED	-	-	-
