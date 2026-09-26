@@ -16,7 +16,7 @@ src/templates/bb/bb_assign_var_sub.cpp:108:rt_assign_var_strict/rt_assign_var	sr
 src/templates/bb/bb_binop_arith.cpp:136:rt_div_strict/rt_mod_strict/rt_pow_strict/rt_powreal_strict/rt_cunion_strict/rt_cdiff_strict/rt_cinter_strict/rt_num_arith_strict/rt_add_big/rt_sub_big/rt_mul_big/rt_add/rt_sub/rt_mul/rt_div/rt_mod/rt_pow/rt_powreal/rt_cunion/rt_cdiff/rt_cinter/rt_num_arith	src/templates/bb/bb_binop_arith.cpp:141	UNWITNESSED
 src/templates/bb/bb_binop_arith.cpp:235:rt_div_strict/rt_mod_strict/rt_pow_strict/rt_powreal_strict/rt_cunion_strict/rt_cdiff_strict/rt_cinter_strict/rt_num_arith_strict/rt_add_big/rt_sub_big/rt_mul_big/rt_add/rt_sub/rt_mul/rt_div/rt_mod/rt_pow/rt_powreal/rt_cunion/rt_cdiff/rt_cinter/rt_num_arith	src/templates/bb/bb_binop_arith.cpp:242	hb_immediate_capture_into_a_gva_cell_polled.sno
 src/templates/bb/bb_binop_arith.cpp:313:rt_div_strict/rt_mod_strict/rt_pow_strict/rt_powreal_strict/rt_cunion_strict/rt_cdiff_strict/rt_cinter_strict/rt_num_arith_strict/rt_add_big/rt_sub_big/rt_mul_big/rt_add/rt_sub/rt_mul/rt_div/rt_mod/rt_pow/rt_powreal/rt_cunion/rt_cdiff/rt_cinter/rt_num_arith	src/templates/bb/bb_binop_arith.cpp:320	UNWITNESSED
-src/templates/bb/bb_binop_concat_slot.cpp:63:rt_icn_lconcat_d/str_concat_fracdigit_d/str_concat_d	src/templates/bb/bb_binop_concat_slot.cpp:68	hb_immediate_capture_into_a_gva_cell_polled.sno
+src/templates/bb/bb_binop_concat_slot.cpp:63:rt_icn_lconcat_d/str_concat_fracdigit_d/str_concat_d	src/templates/bb/bb_binop_concat_slot.cpp:68	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_binop_concat_slot.cpp:82:rt_icn_lconcat_d/str_concat_fracdigit_d/str_concat_d	src/templates/bb/bb_binop_concat_slot.cpp:83	hb_concat_augmented_then_subscript.icn
 src/templates/bb/bb_binop_relop.cpp:51:rt_relop_overload	src/templates/bb/bb_binop_relop.cpp:56	hb_cv_spine_plain_redo.icn
 src/templates/bb/bb_binop_relop.cpp:78:rt_relop_val_coerce	src/templates/bb/bb_binop_relop.cpp:79	hb_cv_spine_plain_redo.icn
@@ -38,9 +38,9 @@ src/templates/bb/bb_call_fn.cpp:234:rt_pl_dop_unify/rt_pl_dop_clause_unify/rt_pl
 src/templates/bb/bb_call_fn.cpp:256:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl	src/templates/bb/bb_call_fn.cpp:263	hb_size_result_polled.icn
 src/templates/bb/bb_call_proc_staged.cpp:235:rt_pl_exist_key_raise	src/templates/bb/bb_call_proc_staged.cpp:236	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_call_proc_staged.cpp:359:rt_proc_call_open_slim	src/templates/bb/bb_call_proc_staged.cpp:360	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:404:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:414	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:409:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:414	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:413:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:414	UNWITNESSED
+src/templates/bb/bb_call_proc_staged.cpp:404:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:414	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_call_proc_staged.cpp:409:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:414	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_call_proc_staged.cpp:413:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:414	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_call_proc_staged.cpp:580:rt_proc_call_open_slim	src/templates/bb/bb_call_proc_staged.cpp:581	UNWITNESSED
 src/templates/bb/bb_call_proc_staged.cpp:630:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:638	hb_icn_procedure_call_shapes.icn
 src/templates/bb/bb_call_proc_staged.cpp:634:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:638	hb_icn_procedure_call_shapes.icn
@@ -69,10 +69,10 @@ src/templates/bb/bb_define.cpp:219:sno_trace_call	src/templates/bb/bb_define.cpp
 src/templates/bb/bb_define.cpp:250:rt_trace_call_hook	src/templates/bb/bb_define.cpp:251	UNWITNESSED
 src/templates/bb/bb_define.cpp:353:sno_trace_return	src/templates/bb/bb_define.cpp:354	UNWITNESSED
 src/templates/bb/bb_define.cpp:381:rt_trace_return_hook	src/templates/bb/bb_define.cpp:382	UNWITNESSED
-src/templates/bb/bb_define.cpp:428:rt_define_site	src/templates/bb/bb_define.cpp:429	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:706:rt_trace_call_hook	src/templates/bb/bb_define.cpp:707	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:755:rt_trace_return_hook	src/templates/bb/bb_define.cpp:756	hb_match_value_close_polled.sno
-src/templates/bb/bb_define.cpp:803:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:804	hb_match_value_close_polled.sno
+src/templates/bb/bb_define.cpp:428:rt_define_site	src/templates/bb/bb_define.cpp:429	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:706:rt_trace_call_hook	src/templates/bb/bb_define.cpp:707	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:755:rt_trace_return_hook	src/templates/bb/bb_define.cpp:756	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:803:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:804	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:942:rt_proc_call_open_slim	src/templates/bb/bb_define.cpp:943	UNWITNESSED
 src/templates/bb/bb_deref.cpp:19:rt_deref	src/templates/bb/bb_deref.cpp:26	hb_nv.sno
 src/templates/bb/bb_deref.cpp:35:rt_deref	src/templates/bb/bb_deref.cpp:40	stack_top_under_valgrind.icn
