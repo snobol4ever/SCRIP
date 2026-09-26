@@ -44,7 +44,7 @@ typedef struct RkP {
     char *pkg;
     int finished;
     int comp_unit_begin;
-    RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv;
+    RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv; int lax; int quote_block;
     char **exports; int nexports; int cexports;
 } RkP;
 static const int rk_brackets[] = {
@@ -146,7 +146,7 @@ static int is_numeric_other_cp(int c) {
            (c >= 0x2150 && c <= 0x2189) || (c >= 0x2460 && c <= 0x249B) || (c >= 0x24EA && c <= 0x24FF) || (c >= 0x2776 && c <= 0x2793) || (c >= 0x3007 && c <= 0x3007) ||
            (c >= 0x3021 && c <= 0x3029) || (c >= 0x3038 && c <= 0x303A) || (c >= 0x3192 && c <= 0x3195) || (c >= 0x3220 && c <= 0x3229) || (c >= 0x3248 && c <= 0x324F) ||
            (c >= 0x3251 && c <= 0x325F) || (c >= 0x3280 && c <= 0x3289) || (c >= 0x32B1 && c <= 0x32BF) || (c >= 0x10107 && c <= 0x10133) || (c >= 0x10140 && c <= 0x10178) ||
-           (c >= 0x12400 && c <= 0x1246E) || (c >= 0x1F100 && c <= 0x1F10C);
+           (c >= 0x12400 && c <= 0x1246E) || (c >= 0x1369 && c <= 0x137C) || (c >= 0x1F100 && c <= 0x1F10C);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_punct_cp(int c) {
@@ -390,7 +390,9 @@ static int routine_visible(RkP *p, const char *s, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_mystery(RkP *p, int pos, int len) {
-    if (p->myst_off || routine_visible(p, p->s + pos, len) || !is_alpha_cp(cp_at(p, pos)) || is_numeric_other_cp(cp_at(p, pos)) || (len == 9 && !memcmp(p->s + pos, "GLOBALish", 9))) return;
+    int c0 = cp_at(p, pos);
+    if (p->myst_off || routine_visible(p, p->s + pos, len) || !is_alpha_cp(c0) || is_numeric_other_cp(c0) || (c0 >= 0x80 && cp_len(p, pos) == len)) return;
+    if (len == 9 && !memcmp(p->s + pos, "GLOBALish", 9)) return;
     for (int i = p->nmyst - 1; i >= 0; i--) if (p->myst[i].pos == pos) return;
     RK_GROW(p->myst, p->nmyst, p->cmyst, RkMyst);
     p->myst[p->nmyst].pos = pos; p->myst[p->nmyst].len = len; p->myst[p->nmyst].depth = p->depth;
@@ -958,7 +960,7 @@ static int r_quote_escape(RkP *p, int pos, RkLang *L) {
         else if (L->qbs) return q_backslash(p, pos + 1, L);
         return -1;
     }
-    if (c == '{' && L->clos) return r_block(p, pos);
+    if (c == '{' && L->clos) { p->quote_block = 1; return r_block(p, pos); }
     if (c == '$' && L->sc) {
         int e = interp_sigil(p, pos, '$');
         if (e < 0) panic_at(p, pos, "Non-variable $ must be backslashed");
@@ -2194,6 +2196,27 @@ static int r_special_variable(RkP *p, int pos) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int name_part_len(RkP *p, int from, int to);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
+    int c = ch(p, pos);
+    int c1 = ch(p, pos + 1);
+    if (!twig && (c1 == '$' || c1 == '@' || c1 == '%' || c1 == '&')) { check_lexical_variable(p, pos + 1, e, 0); return; }
+    if (c == '&' || memmem(p->s + pos, (size_t) (e - pos), "::", 2)) return;
+    e = pos + 1 + name_part_len(p, pos + 1, e);
+    if (twig == '^' || twig == ':') { char buf[256]; int n = e - pos - 1; if (n < 1 || n > 250) return; buf[0] = (char) c; memcpy(buf + 1, p->s + pos + 2, (size_t) n - 1);
+        if (user_name_index(p, buf, n) < 0) add_name_n(p, buf, n); return; }
+    if (twig) return;
+    if (p->in_decl) {
+        add_name_n(p, p->s + pos, e - pos);
+        if (p->load_depth) { RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = ct_strndup0(p->s + pos, e - pos); }
+        return;
+    }
+    if (p->qsigil || p->myst_off || p->lax || user_name_index(p, p->s + pos, e - pos) >= 0) return;
+    if (e - pos == 2 && (p->s[pos + 1] == '_' || p->s[pos + 1] == '/' || p->s[pos + 1] == '!')) return;
+    panic_at(p, pos, "Variable '%.*s' is not declared", e - pos, p->s + pos);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int compile_time_var_known(const char *s, int n) {
     static const char *const known[] = { "$?FILE", "$?LINE", "$?DISTRIBUTION", "$?LANG", "%?LANG", "$?NL", "$?BITS", "$?TABSTOP", "$?PACKAGE", "%?RESOURCES", "$?CHECKSUM", "$?FILES",
                                          "$?SOURCE", "$?STRICT", "$?LANGUAGE-REVISION", "%?REQUIRE-SYMBOLS", "$?CONCRETIZATION", "$?CLASS", "$?ROLE", "$?MODULE", "$?REGEX", "&?ROUTINE",
@@ -2220,6 +2243,7 @@ static int r_variable(RkP *p, int pos) {
             int d = r_desigilname(p, q);
             if (d < 0 && twig) { twig = 0; q = pos + 1; d = r_desigilname(p, q); }
             if (d >= 0) e = d;
+            if (d >= 0) check_lexical_variable(p, pos, d, twig);
             if (d >= 0 && twig == '?' && !p->in_decl && !memmem(p->s + pos, (size_t) (d - pos), "::", 2) && !compile_time_var_known(p->s + pos, d - pos))
                 panic_at(p, pos, "Variable '%.*s' is not declared", d - pos, p->s + pos);
             if (d < 0 && !twig) {
@@ -2915,7 +2939,7 @@ static int r_param_var(RkP *p, int pos) {
         if (is_alpha_cp(cp_at(p, q))) { int s = r_sublongname(p, q); if (s >= 0) { e = s; add_routine_name(p, p->s + q, name_part_len(p, q, s)); } }
         else if (at_lit(p, q, ":(")) { int s = r_signature(p, q + 2, 1); s = ws(p, s); if (ch(p, s) == ')') e = s + 1; }
     }
-    else if (is_alpha_cp(cp_at(p, q))) e = r_identifier(p, q);
+    else if (is_alpha_cp(cp_at(p, q))) { e = r_identifier(p, q); if (e >= 0 && q == pos + 1) add_name_n(p, p->s + pos, e - pos); }
     else if (is_digit_cp(cp_at(p, q))) panic_at(p, pos, "Cannot declare a numeric parameter");
     else if (ch(p, q) == '/' || ch(p, q) == '!') e = q + 1;
     if (at_lit(p, e, ":(")) return e + 1;
@@ -2982,7 +3006,7 @@ static int r_parameter(RkP *p, int pos) {
         int l = at_lit(p, q, "**") ? 2 : 1;
         int v = r_param_var(p, q + l);
         if (v >= 0) e = v;
-        else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) e = r_identifier(p, q + 1);
+        else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) { e = r_identifier(p, q + 1); if (e >= 0) add_value_name(p, p->s + q + 1, e - q - 1); }
         else if (c == '+') e = q + 1;
     }
     else if (c == '\\' || c == '|') {
@@ -3048,6 +3072,7 @@ static int r_signature(RkP *p, int pos, int allow_invocant) {
         int t = ws(p, q + 3);
         int e = r_typename(p, t);
         if (e < 0) { int c = cp_at(p, t); if (c == '\'' || c == '"') e = r_quote(p, t); else if (is_digit_cp(c) || c == '-') e = r_numish(p, c == '-' ? t + 1 : t); }
+        if (e < 0) { int c = ch(p, t); if (c == '$' || c == '@' || c == '%' || c == '&') panic_at(p, t, "Malformed return value"); }
         if (e < 0) { e = r_term(p, t); if (e < 0) panic_at(p, t, "Malformed return value"); }
         q = ws(p, e);
         int c = ch(p, q);
@@ -3092,6 +3117,7 @@ static int r_block(RkP *p, int pos) {
 static int r_blockoid(RkP *p, int pos) {
     if (at_lit(p, pos, "{YOU_ARE_HERE}")) panic_at(p, pos, "Reserved use of {YOU_ARE_HERE} outside of a setting");
     if (ch(p, pos) != '{') panic_at(p, pos, "Missing block");
+    int noend = p->quote_block; p->quote_block = 0;
     int sg = p->goal; int sq = p->qsigil; int sr = p->in_reduce; int sm = p->in_meta; int sa = p->invocant_ok; int sd = p->in_decl; int sl = p->leftsigil; int ss = p->scope;
     const char *su = p->ustop; int sul = p->ustop_len; int s5 = p->p5isms;
     p->goal = 0; p->qsigil = 0; p->in_reduce = 0; p->in_meta = 0; p->in_decl = 0; p->scope = 0; p->ustop = NULL; p->ustop_len = 0;
@@ -3101,7 +3127,7 @@ static int r_blockoid(RkP *p, int pos) {
         if (e >= p->n) panic_at(p, e, "Missing block (couldn't find final '}' of block starting at line %d)", line_of(p, pos));
         panic_at(p, e, "Confused");
     }
-    return r_ENDSTMT(p, e + 1);
+    return noend ? e + 1 : r_ENDSTMT(p, e + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_xblock(RkP *p, int pos, int implicit) {
@@ -3175,7 +3201,10 @@ static int r_declarator(RkP *p, int pos) {
         int e = r_variable_declarator(p, pos);
         if (e < 0) return -1;
         int q = ws(p, e);
+        int thunk = p->scope == 3 || p->scope == 4;
+        if (thunk) scope_enter(p);
         int i = r_initializer(p, q);
+        if (thunk) scope_leave(p);
         return i >= 0 ? i : e;
     }
     if (c == '(') {
@@ -3312,7 +3341,10 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     q = r_traits(p, q); q = ws(p, q);
     for (int t = tstart; t + 6 <= q; t++) if (!memcmp(p->s + t, "export", 6) && !wordch_at(p, t + 6) && (t == 0 || !asc_word((unsigned char) p->s[t - 1]))) {
         for (int k = 0; k < nuops_before_traits && k < p->nuops; k++) if (p->uops[k].depth == p->depth - 1 && k >= nuops_before_traits - 2) p->uops[k].depth = 1000;
-        if (name_from >= 0 && !is_method) { RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = ct_strndup0(p->s + name_from, name_part_len(p, name_from, name_to)); }
+        if (name_from >= 0 && !is_method) {
+            int nl = name_part_len(p, name_from, name_to); char *x = (char *) ct_alloc((size_t) nl + 2); x[0] = '&'; memcpy(x + 1, p->s + name_from, (size_t) nl); x[nl + 1] = 0;
+            RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = x;
+        }
         break;
     }
     int e;
@@ -3410,6 +3442,7 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     int q = pos;
     if (at_lit(p, q, "::(")) p->myst_off = 1;
     int n = r_longname(p, q);
+    int pkg_from = q, pkg_len = n >= 0 ? name_part_len(p, q, n) : 0;
     char *saved_pkg = p->pkg;
     if (n >= 0) {
         int nl = name_part_len(p, q, n);
@@ -3429,7 +3462,11 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
         if (ch(p, s) != ']') panic_at(p, s, "Unable to parse role signature; couldn't find final ']'");
         q = ws(p, s + 1);
     }
+    int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
+    if (pkg_len) for (int t = tstart; t + 6 <= q; t++) if (!memcmp(p->s + t, "export", 6) && !wordch_at(p, t + 6) && !asc_word((unsigned char) p->s[t - 1])) {
+        RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = ct_strndup0(p->s + pkg_from, pkg_len); break;
+    }
     int e;
     if (ch(p, q) == '{') {
         if (unit) panic_at(p, q, "Cannot use 'unit' with block form of %s", kind);
@@ -3507,6 +3544,11 @@ static int r_type_declarator(RkP *p, int pos) {
         int t = r_term(p, q);
         if (t < 0) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
         enum_names_from(p, q, t, p->s + en, enl);
+        for (int k = q, quo = 0; k < t; k++) {
+            unsigned char b = (unsigned char) p->s[k];
+            if (b == '\'' || b == '"') quo = !quo;
+            else if (!quo && (b == '.' || b == '~' || b == '*' || b == '+' || b == '^' || b == '$' || b == '@' || b == '&')) { p->myst_off = 1; break; }
+        }
         return ws(p, t);
     }
     if ((e = kok(p, pos, "subset")) >= 0) {
@@ -3714,11 +3756,12 @@ static int import_module(RkP *p, const char *name) {
     char *rel = (char *) ct_alloc(strlen(name) + 1); int k = 0;
     for (int i = 0; name[i]; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
     rel[k] = 0;
-    static const char *const exts[] = { ".rakumod", ".pm6", ".pm", 0 };
+    static const char *const exts[] = { ".rakumod", ".pm6", ".pm" };
     for (int l = p->nlibs - 1; l >= 0; l--) {
-        for (int x = 0; exts[x]; x++) {
-            size_t pl = strlen(p->libs[l]) + strlen(rel) + strlen(exts[x]) + 2;
-            char *path = (char *) ct_alloc(pl); snprintf(path, pl, "%s/%s%s", p->libs[l], rel, exts[x]);
+        for (int x = 0; x < 6; x++) {
+            const char *ext = exts[x % 3], *sub = x < 3 ? "" : "lib/";
+            size_t pl = strlen(p->libs[l]) + strlen(rel) + strlen(ext) + 6;
+            char *path = (char *) ct_alloc(pl); snprintf(path, pl, "%s/%s%s%s", p->libs[l], sub, rel, ext);
             FILE *f = fopen(path, "rb");
             if (!f) continue;
             fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
@@ -3729,8 +3772,7 @@ static int import_module(RkP *p, const char *name) {
             m->load_depth = p->load_depth + 1;
             for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
             if (rk_check_into(m, src, (int) got, path, m) != 0) return 0;
-            if (m->myst_off) p->myst_off = 1;
-            for (int i = 0; i < m->nexports; i++) add_routine_name(p, m->exports[i], (int) strlen(m->exports[i]));
+            for (int i = 0; i < m->nexports; i++) add_name_n(p, m->exports[i], (int) strlen(m->exports[i]));
             for (int i = 0; i < m->nnames; i++) if (m->names[i].depth <= 1 && m->names[i].name[0] == '&' && !strcmp(m->names[i].name, "&EXPORT")) p->myst_off = 1;
             for (int i = 0; i < m->nnames; i++) {
                 const char *nm = m->names[i].name;
@@ -3770,6 +3812,7 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     char *name = ct_strndup0(p->s + q, name_part_len(p, q, m));
     if (!strcmp(what, "use") && !strcmp(name, "parameters")) panic_at(p, q, "use parameters not yet implemented. Sorry.");
     if (!strcmp(name, "isms")) p->p5isms = !strcmp(what, "use");
+    if (!strcmp(name, "strict")) p->lax = !strcmp(what, "no");
     int e = m;
     int c = cp_at(p, e);
     int args_from = e;
@@ -3859,10 +3902,10 @@ static int r_statement_control(RkP *p, int pos) {
         }
     }
     if ((e = lit(p, pos, "import")) >= 0 && !wordch_at(p, e)) {
-        p->myst_off = 1;
         int q = ws(p, e);
         int m = r_module_name(p, q);
         if (m < 0) panic_at(p, q, "Malformed import");
+        if (!is_pseudo_pkg(p->s + q, name_part_len(p, q, m))) p->myst_off = 1;
         int t = m;
         if (is_space_cp(cp_at(p, t)) || ch(p, t) == '#') { int u = ws(p, t); if (!stdstopper(p, u)) t = r_arglist(p, t); }
         return ws(p, t);
