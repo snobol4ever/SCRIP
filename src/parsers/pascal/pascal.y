@@ -1044,7 +1044,7 @@ static void pas_boolvar_add(const char *name) { if (g_pas_nboolvar < 512 && name
 static int pas_is_boolvar(const char *name) { if (!name) return 0; for (int i = g_pas_nboolvar - 1; i >= 0; i--) if (g_pas_boolvars[i].name && !strcmp(g_pas_boolvars[i].name, name)) return 1; return 0; }
 static void pas_booltype_add(const char *name) { if (g_pas_nbooltype < 64 && name) g_pas_booltypes[g_pas_nbooltype++].name = ct_strdup(name); }
 static int pas_is_booltype(const char *name) { if (!name) return 0; if (!strcmp(name, "boolean")) return 1; for (int i = 0; i < g_pas_nbooltype; i++) if (g_pas_booltypes[i].name && !strcmp(g_pas_booltypes[i].name, name)) return 1; return 0; }
-static int pas_is_boolexpr(tree_t *e) { if (!e) return 0; if (pas_pf_rtype(e)) return pas_is_booltype(pas_pf_rtype(e)); switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_NOT: return 1; case TT_MUL: case TT_ADD: return e->n == 2 && pas_is_boolexpr(e->c[0]) && pas_is_boolexpr(e->c[1]); case TT_VAR: return pas_is_boolvar(e->v.sval); case TT_FNC: { const char *fn = (e->n >= 1 && e->c[0]) ? e->c[0]->v.sval : NULL; if (!fn) return 0; if (!strcmp(fn, "__pas_in") || !strcmp(fn, "__pas_eof") || !strcmp(fn, "__pas_eoln") || !strcmp(fn, "__pas_eof_f") || !strcmp(fn, "__pas_eoln_f") || !strcmp(fn, "__pas_feof_t") || !strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne") || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) return 1; return pas_is_boolvar(fn); } default: return 0; } }
+static int pas_is_boolexpr(tree_t *e) { if (!e) return 0; if (pas_pf_rtype(e)) return pas_is_booltype(pas_pf_rtype(e)); switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_NOT: return 1; case TT_CONJ: case TT_ALT: return 1; case TT_MUL: case TT_ADD: return e->n == 2 && pas_is_boolexpr(e->c[0]) && pas_is_boolexpr(e->c[1]); case TT_VAR: return pas_is_boolvar(e->v.sval); case TT_FNC: { const char *fn = (e->n >= 1 && e->c[0]) ? e->c[0]->v.sval : NULL; if (!fn) return 0; if (!strcmp(fn, "__pas_in") || !strcmp(fn, "__pas_eof") || !strcmp(fn, "__pas_eoln") || !strcmp(fn, "__pas_eof_f") || !strcmp(fn, "__pas_eoln_f") || !strcmp(fn, "__pas_feof_t") || !strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne") || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) return 1; return pas_is_boolvar(fn); } default: return 0; } }
 static int pas_is_charvar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_ncharvar; i++) if (g_pas_charvars[i].name && !strcmp(g_pas_charvars[i].name, name)) return 1; return 0; }
 static struct { char *name; } g_pas_filevars[256]; static int g_pas_nfilevar;
 static void pas_filevar_add(const char *name) { if (g_pas_nfilevar < 256 && name) { for (int i = 0; i < g_pas_nfilevar; i++) if (g_pas_filevars[i].name && !strcmp(g_pas_filevars[i].name, name)) return; g_pas_filevars[g_pas_nfilevar++].name = ct_strdup(name); } }
@@ -1453,7 +1453,7 @@ static void pas_for_const_bounds(const char *cv, tree_t *from, tree_t *to, int d
                     " control-variable's type is not assignment-compatible with it\n", cv, lo, hi, a, b);
     g_pas_iso_errors++;
 }
-static tree_t *pas_cond(tree_t *e) { return pas_is_rel(e) ? e : bin(TT_NE, e, ilit(0)); }
+static tree_t *pas_cond(tree_t *e) { return (pas_is_rel(e) || (e && (e->t == TT_CONJ || e->t == TT_ALT || e->t == TT_NOT))) ? e : bin(TT_NE, e, ilit(0)); }
 static const char *pas_cond_var_nonbool_type(tree_t *e) {
     if (!e || e->t != TT_VAR || !e->v.sval || pas_is_boolvar(e->v.sval)) return NULL;
     const char *found = NULL;
@@ -1473,7 +1473,8 @@ static tree_t *pas_cond_bool(tree_t *e, const char *stmt, const char *clause) {
 static tree_t *pas_bool(tree_t *e) { return e; }
 static tree_t *pas_flip_rel(tree_t *e) {
     switch (e->t) { case TT_LT: e->t = TT_GE; break; case TT_GE: e->t = TT_LT; break; case TT_LE: e->t = TT_GT; break;
-                    case TT_GT: e->t = TT_LE; break; case TT_EQ: e->t = TT_NE; break; case TT_NE: e->t = TT_EQ; break; default: break; }
+                    case TT_GT: e->t = TT_LE; break; case TT_EQ: e->t = TT_NE; break; case TT_NE: e->t = TT_EQ; break;
+                    case TT_CONJ: case TT_ALT: { tree_t *n = ast_node_new(TT_NOT); ast_push(n, e); return n; } default: break; }
     return e;
 }
 static tree_t *mk_array_fill(long long high) {
@@ -2114,7 +2115,7 @@ simple_expression:
     | MINUS term { pas_sign_operand($2, '-'); $$ = mk_neg($2); }
     | simple_expression PLUS term { $$ = pas_arith_or_set(TT_ADD, "__pas_setuni", $1, $3); }
     | simple_expression MINUS term { $$ = pas_arith_or_set(TT_SUB, "__pas_setdif", $1, $3); }
-    | simple_expression OROP term { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_ADD, $1, $3) : mk_fnc2("ior", $1, $3); }
+    | simple_expression OROP term { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_ALT, $1, $3) : mk_fnc2("ior", $1, $3); }
     ;
 term:
     factor { $$ = $1; }
@@ -2122,7 +2123,7 @@ term:
     | term RDIV factor { $$ = pas_rdiv($1, $3); }
     | term IDIV factor { $$ = bin(TT_DIV, $1, $3); }
     | term IMOD factor { $$ = pas_mod($1, $3); }
-    | term ANDOP factor { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_MUL, $1, $3) : mk_fnc2("iand", $1, $3); }
+    | term ANDOP factor { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_CONJ, $1, $3) : mk_fnc2("iand", $1, $3); }
     ;
 factor:
     selector { if (pas_is_nrec_idx($1) && $1->n >= 2 && $1->c[0] && $1->c[0]->t == TT_IDX && $1->c[0]->n >= 2) {

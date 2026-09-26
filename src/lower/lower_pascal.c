@@ -115,17 +115,20 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
 }
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res);
+static int is_shortcirc(const tree_t * t);
+typedef struct { IR_t * node; int leaf; const char * nm; IR_t * v; IR_t * ω; } pas_tgt_t;
+static IR_t * pas_cond_sc(pcx_t * cx, const tree_t * t, pas_tgt_t T, pas_tgt_t F, IR_t ** res);
+static IR_t * pas_tgt(pcx_t * cx, pas_tgt_t x);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** res) {
     char * nm = (char *) ct_alloc(16);
     snprintf(nm, 16, "__pbt%d", cx->npbt++);
     IR_t * v  = build(cx, IR_VAR, NULL, ω); IR_LIT(v).sval = nm;
-    IR_t * at = build(cx, IR_ASSIGN, v, ω); IR_LIT(at).sval = nm;
-    IR_t * af = build(cx, IR_ASSIGN, v, ω); IR_LIT(af).sval = nm;
-    IR_t * n1 = build(cx, IR_LIT_INTEGER, at, ω); IR_LIT(n1).ival = 1; ir_operand_push(at, n1);
-    IR_t * n0 = build(cx, IR_LIT_INTEGER, af, ω); IR_LIT(n0).ival = 0; ir_operand_push(af, n0);
-    IR_t * ce = pas_cond(cx, e, n1, n0, NULL);
+    pas_tgt_t tt = { NULL, 1, nm, v, ω }, ff = { NULL, 0, nm, v, ω };
     *res = v;
+    if (is_shortcirc(e)) { if (!pas_in_real_proc(cx)) pas_reg_var(nm); return pas_cond_sc(cx, e, tt, ff, NULL); }
+    IR_t * n1 = pas_tgt(cx, tt);
+    IR_t * ce = pas_cond(cx, e, n1, pas_tgt(cx, ff), NULL);
     return ce ? ce : n1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -133,10 +136,13 @@ static IR_t * pas_mat_rv(pcx_t * cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_
     IR_t * v = NULL; IR_t * e2 = pas_mat(cx, e, ω, &v); γ_to(v, γ); *res = v; return e2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_condish(const tree_t * t) { return t && (is_relop(t->t) || t->t == TT_NOT); }
+static int is_condish(const tree_t * t) { return t && (is_relop(t->t) || t->t == TT_NOT || t->t == TT_CONJ || t->t == TT_ALT); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int is_shortcirc(const tree_t * t) { while (t && t->t == TT_NOT && t->n > 0) t = t->c[0]; return t && (t->t == TT_CONJ || t->t == TT_ALT) && t->n == 2; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res) {
     if (t && t->t == TT_NOT && t->n > 0) return pas_cond(cx, t->c[0], F, T, res);
+    if (is_shortcirc(t)) { pas_tgt_t tt = { T, -1, NULL, NULL, NULL }, ff = { F, -1, NULL, NULL, NULL }; return pas_cond_sc(cx, t, tt, ff, res); }
     if (t && is_relop(t->t)) {
         IR_t * op = build(cx, IR_BINOP_TEST, T, F); IR_LIT(op).ival = lc_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL;
@@ -155,6 +161,20 @@ static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t **
     ir_operand_push(op, er); ir_operand_push(op, z);
     if (res) *res = op;
     return ee ? ee : z;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_tgt(pcx_t * cx, pas_tgt_t x) {
+    if (x.leaf < 0) return x.node;
+    IR_t * a = build(cx, IR_ASSIGN, x.v, x.ω); IR_LIT(a).sval = x.nm;
+    IR_t * n = build(cx, IR_LIT_INTEGER, a, x.ω); IR_LIT(n).ival = x.leaf; ir_operand_push(a, n);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_cond_sc(pcx_t * cx, const tree_t * t, pas_tgt_t T, pas_tgt_t F, IR_t ** res) {
+    if (t && t->t == TT_NOT && t->n > 0) return pas_cond_sc(cx, t->c[0], F, T, res);
+    if (t && t->t == TT_CONJ && t->n == 2) { pas_tgt_t b = { pas_cond_sc(cx, t->c[1], T, F, NULL), -1, NULL, NULL, NULL }; return pas_cond_sc(cx, t->c[0], b, F, res); }
+    if (t && t->t == TT_ALT && t->n == 2) { pas_tgt_t b = { pas_cond_sc(cx, t->c[1], T, F, NULL), -1, NULL, NULL, NULL }; return pas_cond_sc(cx, t->c[0], T, b, res); }
+    return pas_cond(cx, t, pas_tgt(cx, T), pas_tgt(cx, F), res);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -428,6 +448,14 @@ static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     const tree_t * body = (t->n > 1) ? t->c[1] : NULL;
     IR_t * W = build(cx, IR_GOTO, γ, γ);
     IR_t * cr = NULL;
+    if (is_shortcirc(cond)) {
+        IR_t * B = build(cx, IR_GOTO, NULL, NULL);
+        IR_t * ce = pas_cond(cx, cond, B, W, &cr);
+        IR_t * be = lower(cx, body, ce, ce, NULL);
+        γ_to(B, be ? be : ce); ω_to(B, be ? be : ce);
+        if (res) *res = W;
+        return ce;
+    }
     IR_t * ce = pas_cond(cx, cond, NULL, W, &cr);
     IR_t * be = lower(cx, body, ce, ce, NULL);
     γ_to(cr, be ? be : ce);
@@ -482,6 +510,14 @@ static IR_t * lower_repeat(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     const tree_t * body = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * cond = (t->n > 1) ? t->c[1] : NULL;
     IR_t * cr = NULL;
+    if (is_shortcirc(cond)) {
+        IR_t * B = build(cx, IR_GOTO, NULL, NULL);
+        IR_t * ce = pas_cond(cx, cond, γ, B, &cr);
+        IR_t * be = lower(cx, body, ce, ω, NULL);
+        γ_to(B, be ? be : ce); ω_to(B, be ? be : ce);
+        if (res) *res = cr;
+        return be ? be : ce;
+    }
     IR_t * ce = pas_cond(cx, cond, γ, NULL, &cr);
     IR_t * be = lower(cx, body, ce, ω, NULL);
     ω_to(cr, be ? be : ce);
@@ -573,7 +609,7 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_VAR:  return lower_var_r(cx, t->v.sval, γ, ω, res);
     case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW:
-    case TT_LT:  case TT_LE:  case TT_GT:  case TT_GE:  case TT_EQ:  case TT_NE:
+    case TT_LT:  case TT_LE:  case TT_GT:  case TT_GE:  case TT_EQ:  case TT_NE: case TT_CONJ: case TT_ALT:
         return lower_binop(cx, t, γ, ω, res);
     case TT_MNS: case TT_PLS: case TT_NOT: case TT_SIZE:
         return lower_unop(cx, t, γ, ω, res);
