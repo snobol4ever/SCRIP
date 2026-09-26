@@ -1040,7 +1040,7 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
         rt_trace_event(TRK_VALUE, name, val, stno);
     }
     if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value(name, val); return; }
-    if (monitor_fd < 0) return;
+    if (monitor_fd < 0 || g_monitor_bin) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;
     const char *s = VARVAL_fn(val);
