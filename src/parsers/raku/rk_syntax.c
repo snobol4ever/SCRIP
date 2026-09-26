@@ -10,6 +10,7 @@
 enum { AS_LEFT = 1, AS_RIGHT, AS_NON, AS_LIST, AS_UNARY };
 enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_DOTTY = 32, OF_COMMA = 64, OF_WORD = 128 };
 #define PR(c) (((c) - 'a') * 4 + 2)
+#define RK_GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 16; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 #define PRLE(c) (((c) - 'a') * 4 + 1)
 typedef struct { const char *sym; int prec; int sub; unsigned char assoc; unsigned char flags; } RkOp;
 typedef struct { char *sym; int len; int prec; int depth; char cat; int assoc; unsigned flags; int wordend; } RkUserOp;
@@ -21,6 +22,7 @@ typedef struct RkLang {
     const char *here; int here_len;
 } RkLang;
 typedef struct { char *delim; int dlen; RkLang lang; } RkHere;
+typedef struct { int prec; int sub; int assoc; int from; int to; } StackOp;
 typedef struct RkP {
     const char *s; int n; const char *file;
     jmp_buf jb; char msg[400]; int err_pos;
@@ -30,13 +32,15 @@ typedef struct RkP {
     int has_self; int scope; int in_regex_assert;
     const char *ustop; int ustop_len;
     int p5isms;
-    char *libs[16]; int nlibs; int load_depth;
-    char *decls[16]; int ndecls;
-    RkHere here[64]; int nhere;
+    char **libs; int nlibs; int clibs; int load_depth;
+    char **decls; int ndecls; int cdecls;
+    RkHere *here; int nhere; int chere;
+    StackOp *ops; int nops; int cops;
+    int *ends; int nends; int cends;
     RkUserOp *uops; int nuops; int cuops;
     RkName *names; int nnames; int cnames;
     int depth;
-    char pkg[256];
+    char *pkg;
     int finished;
     int comp_unit_begin;
 } RkP;
@@ -240,30 +244,44 @@ static const RkOp rk_infix[] = {
     { "~", PR('r'), 0, AS_LEFT, 0 }, { "\xe2\x88\x98", PR('r'), 0, AS_LEFT, 0 }, { "o", PR('r'), 0, AS_LEFT, 0 },
     { "&", PR('q'), 0, AS_LIST, OF_IFFY }, { "(&)", PR('q'), 0, AS_LIST, 0 }, { "\xe2\x88\xa9", PR('q'), 0, AS_LIST, 0 }, { "(.)", PR('q'), 0, AS_LIST, 0 }, { "\xe2\x8a\x8d", PR('q'), 0, AS_LIST, 0 },
     { "|", PR('p'), 0, AS_LIST, OF_IFFY }, { "^", PR('p'), 0, AS_LIST, OF_IFFY }, { "(|)", PR('p'), 0, AS_LIST, 0 }, { "\xe2\x88\xaa", PR('p'), 0, AS_LIST, 0 }, { "(^)", PR('p'), 0, AS_LIST, 0 },
-    { "\xe2\x8a\x96", PR('p'), 0, AS_LIST, 0 }, { "(+)", PR('p'), 0, AS_LIST, 0 }, { "\xe2\x8a\x8e", PR('p'), 0, AS_LIST, 0 }, { "(-)", PR('p'), 0, AS_LIST, 0 }, { "\xe2\x88\x96", PR('p'), 0, AS_LIST, 0 },
+    { "\xe2\x8a\x96", PR('p'), 0, AS_LIST, 0 }, { "(+)", PR('p'), 0, AS_LIST, 0 }, { "\xe2\x8a\x8e", PR('p'), 0, AS_LIST, 0 }, { "(-)", PR('p'), 0, AS_LIST, 0 }, { "\xe2\x88\x96", PR('p'), 0,
+        AS_LIST, 0 },
     { "..", PR('n'), 0, AS_NON, OF_DIFFY }, { "^..", PR('n'), 0, AS_NON, OF_DIFFY }, { "..^", PR('n'), 0, AS_NON, OF_DIFFY }, { "^..^", PR('n'), 0, AS_NON, OF_DIFFY },
     { "leg", PR('n'), 0, AS_NON, OF_DIFFY | OF_WORD }, { "cmp", PR('n'), 0, AS_NON, OF_DIFFY | OF_WORD }, { "unicmp", PR('n'), 0, AS_NON, OF_DIFFY | OF_WORD },
     { "coll", PR('n'), 0, AS_NON, OF_DIFFY | OF_WORD }, { "<=>", PR('n'), 0, AS_NON, OF_DIFFY }, { "but", PR('n'), 0, AS_NON, OF_DIFFY | OF_WORD }, { "does", PR('n'), 0, AS_NON, OF_DIFFY | OF_WORD },
-    { "=~=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\x85", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "==", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\xa9\xb5", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "!=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa0", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "<=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa4", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { ">=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa5", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "<", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { ">", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "eq", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "ne", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "le", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "ge", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD },
-    { "lt", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "gt", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "=:=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "===", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "=~=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\x85", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "==", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\xa9\xb5", PR('m'), 0,
+        AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "!=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa0", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "<=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa4", PR('m'), 0,
+        AS_LEFT, OF_CHAIN | OF_IFFY },
+    { ">=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa5", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "<", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { ">", PR('m'), 0, AS_LEFT,
+        OF_CHAIN | OF_IFFY },
+    { "eq", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "ne", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "le", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "ge",
+        PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD },
+    { "lt", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "gt", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "=:=", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "===", PR('m'), 0,
+        AS_LEFT, OF_CHAIN | OF_IFFY },
     { "\xe2\xa9\xb6", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "eqv", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "before", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD },
-    { "after", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "~~", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "!~~", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(elem)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "\xe2\x88\x88", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x8a", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x89", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(cont)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "\xe2\x88\x8b", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x8d", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x8c", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(<)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "\xe2\x8a\x82", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x84", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(>)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x83", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "\xe2\x8a\x85", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(==)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa1", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa2", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "(<=)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x86", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x88", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(>=)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
-    { "\xe2\x8a\x87", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x89", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(<+)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xbc", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "after", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY | OF_WORD }, { "~~", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "!~~", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(elem)", PR('m'), 0,
+        AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "\xe2\x88\x88", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x8a", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x89", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(cont)",
+        PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "\xe2\x88\x8b", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x8d", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x88\x8c", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(<)",
+        PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "\xe2\x8a\x82", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x84", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(>)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x83",
+        PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "\xe2\x8a\x85", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(==)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa1", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xa2",
+        PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "(<=)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x86", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x88", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(>=)", PR('m'),
+        0, AS_LEFT, OF_CHAIN | OF_IFFY },
+    { "\xe2\x8a\x87", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x8a\x89", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "(<+)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xbc",
+        PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
     { "(>+)", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY }, { "\xe2\x89\xbd", PR('m'), 0, AS_LEFT, OF_CHAIN | OF_IFFY },
     { "&&", PR('l'), 0, AS_LEFT, OF_IFFY }, { "||", PR('k'), 0, AS_LEFT, OF_IFFY }, { "^^", PR('k'), 0, AS_LIST, OF_IFFY }, { "//", PR('k'), 0, AS_LEFT, 0 },
     { "min", PR('k'), 0, AS_LIST, OF_WORD }, { "max", PR('k'), 0, AS_LIST, OF_WORD },
     { "ff", PR('j'), 0, AS_RIGHT, OF_FIDDLY }, { "^ff", PR('j'), 0, AS_RIGHT, OF_FIDDLY }, { "ff^", PR('j'), 0, AS_RIGHT, OF_FIDDLY }, { "^ff^", PR('j'), 0, AS_RIGHT, OF_FIDDLY },
     { "fff", PR('j'), 0, AS_RIGHT, OF_FIDDLY }, { "^fff", PR('j'), 0, AS_RIGHT, OF_FIDDLY }, { "fff^", PR('j'), 0, AS_RIGHT, OF_FIDDLY }, { "^fff^", PR('j'), 0, AS_RIGHT, OF_FIDDLY },
     { ":=", PR('i'), PR('e'), AS_RIGHT, OF_FIDDLY }, { "=>", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x87\x92", PR('i'), 0, AS_RIGHT, 0 },
-    { "\xe2\x9a\x9b=", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x9a\x9b+=", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x9a\x9b-=", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x9a\x9b\xe2\x88\x92=", PR('i'), 0, AS_RIGHT, 0 },
+    { "\xe2\x9a\x9b=", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x9a\x9b+=", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x9a\x9b-=", PR('i'), 0, AS_RIGHT, 0 }, { "\xe2\x9a\x9b\xe2\x88\x92=", PR('i'), 0, AS_RIGHT,
+        0 },
     { ",", PR('g'), 0, AS_LIST, OF_COMMA },
     { "Z", PR('f'), 0, AS_LIST, 0 }, { "X", PR('f'), 0, AS_LIST, 0 }, { "minmax", PR('f'), 0, AS_LIST, OF_WORD },
     { "...", PR('f'), 0, AS_LIST, 0 }, { "\xe2\x80\xa6", PR('f'), 0, AS_LIST, 0 }, { "...^", PR('f'), 0, AS_LIST, 0 }, { "\xe2\x80\xa6^", PR('f'), 0, AS_LIST, 0 },
@@ -291,12 +309,7 @@ static char *ct_strndup0(const char *s, int n) { char *r = (char *) ct_alloc((si
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_name_n(RkP *p, const char *s, int n) {
     if (n <= 0) return;
-    if (p->nnames == p->cnames) {
-        int nc = p->cnames ? p->cnames * 2 : 256;
-        RkName *nn = (RkName *) ct_alloc(sizeof(RkName) * (size_t) nc);
-        if (p->nnames) memcpy(nn, p->names, sizeof(RkName) * (size_t) p->nnames);
-        p->names = nn; p->cnames = nc;
-    }
+    RK_GROW(p->names, p->nnames, p->cnames, RkName);
     p->names[p->nnames].name = ct_strndup0(s, n);
     p->names[p->nnames].depth = p->depth;
     p->names[p->nnames].value = 0;
@@ -370,12 +383,7 @@ static void scope_leave(RkP *p) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
     if (len <= 0) return;
-    if (p->nuops == p->cuops) {
-        int nc = p->cuops ? p->cuops * 2 : 64;
-        RkUserOp *nu = (RkUserOp *) ct_alloc(sizeof(RkUserOp) * (size_t) nc);
-        if (p->nuops) memcpy(nu, p->uops, sizeof(RkUserOp) * (size_t) p->nuops);
-        p->uops = nu; p->cuops = nc;
-    }
+    RK_GROW(p->uops, p->nuops, p->cuops, RkUserOp);
     RkUserOp *u = &p->uops[p->nuops++];
     char *d = (char *) ct_alloc((size_t) len * 4 + 1); int k = 0;
     for (int i = 0; i < len; i++) {
@@ -1025,7 +1033,7 @@ static int r_quibble(RkP *p, int pos, RkLang *L, int to, const char *what) {
         while (dl > 0 && asc_space((unsigned char) p->s[s + dl - 1])) dl--;
         int d0 = s; while (d0 < s + dl && asc_space((unsigned char) p->s[d0])) { d0++; dl--; }
         if (dl <= 0) panic_at(p, pos, "Heredoc delimiter is empty");
-        if (p->nhere >= 64) panic_at(p, pos, "Too many pending heredocs");
+        RK_GROW(p->here, p->nhere, p->chere, RkHere);
         RkHere *h = &p->here[p->nhere++];
         h->delim = ct_strndup0(p->s + d0, dl); h->dlen = dl; h->lang = *L; h->lang.start = 0; h->lang.stop = 0; h->lang.stop2 = 0; h->lang.nrep = 1;
     }
@@ -1171,7 +1179,8 @@ static int rx_backslash(RkP *p, int pos) {
     int c = cp_at(p, pos);
     if (c < 0) panic_at(p, pos, "Regex not terminated.");
     if (c < 128 && strchr("dDnNsSwWeEfFhHrRtTvV0", c)) return pos + 1;
-    if (c == 'o' || c == 'O') { if (ch(p, pos + 1) == '[') return r_bracketed_ints(p, pos + 1, 8); int e = r_baseint(p, pos + 1, 8); if (e < 0) panic_at(p, pos, "Unrecognized backslash sequence: '\\o'"); return e; }
+    if (c == 'o' || c == 'O') { if (ch(p, pos + 1) == '[') return r_bracketed_ints(p, pos + 1, 8); int e = r_baseint(p, pos + 1, 8); if (e < 0) panic_at(p, pos,
+        "Unrecognized backslash sequence: '\\o'"); return e; }
     if (c == 'x' || c == 'X') {
         if (ch(p, pos + 1) == '[') return r_bracketed_ints(p, pos + 1, 16);
         if (ch(p, pos + 1) == '{') panic_at(p, pos, "Unsupported use of curlies around escape argument; in Raku please use square brackets");
@@ -1237,7 +1246,8 @@ static int rx_cclass_elem(RkP *p, int pos, RkLang *L) {
             if (s >= p->n) panic_at(p, q, "Unable to parse character class; couldn't find final ']'");
             if (ch(p, s) == '-' && !first) {
                 int u = s + 1; while (is_space_cp(cp_at(p, u))) u++;
-                if (ch(p, u) != ']') panic_at(p, s, "Unsupported use of - as character range; in Raku please use .. for range, for explicit - in character class, escape it or place it as the first or last thing");
+                if (ch(p, u) != ']') panic_at(p, s,
+                    "Unsupported use of - as character range; in Raku please use .. for range, for explicit - in character class, escape it or place it as the first or last thing");
             }
             int e = rx_cclass_char(p, s);
             if (e < 0) panic_at(p, s, "Malformed character class");
@@ -1564,7 +1574,8 @@ static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
     }
     if (c == '=' && !at_lit(p, pos, "==") && !at_lit(p, pos, "=>") && !at_lit(p, pos, "=:=") && !at_lit(p, pos, "=~") && !at_lit(p, pos, "===") && ul <= 1) {
         if (at_lit(p, pos, "=~") && !at_lit(p, pos, "=~=") && !p->p5isms) panic_at(p, pos, "Unsupported use of =~ to do pattern matching; in Raku please use ~~");
-        if (p->p5isms && at_lit(p, pos, "=~")) { o->prec = PR('m'); o->sub = o->prec; o->assoc = AS_LEFT; o->flags = OF_CHAIN | OF_IFFY; o->from = pos; o->to = pos + 2; o->nextterm = NT_TERMISH; return pos + 2; }
+        if (p->p5isms && at_lit(p, pos, "=~")) { o->prec = PR('m'); o->sub = o->prec; o->assoc = AS_LEFT; o->flags = OF_CHAIN | OF_IFFY; o->from = pos; o->to = pos + 2; o->nextterm = NT_TERMISH;
+            return pos + 2; }
         int item = p->leftsigil == '$' || p->in_meta;
         o->prec = PR('i'); o->sub = item ? PR('i') : PR('e'); o->assoc = AS_RIGHT; o->flags = item ? 0 : OF_FIDDLY; o->from = pos; o->to = pos + 1; o->nextterm = NT_TERMISH;
         p->leftsigil = 0;
@@ -1575,7 +1586,8 @@ static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
         o->prec = PR('m'); o->sub = o->prec; o->assoc = AS_LEFT; o->flags = OF_CHAIN | OF_IFFY; o->from = pos; o->to = pos + 2; o->nextterm = NT_TERMISH;
         return pos + 2;
     }
-    if (at_lit(p, pos, "!~") && !at_lit(p, pos, "!~~") && is_space_cp(cp_at(p, pos + 2)) && !p->p5isms) panic_at(p, pos, "Unsupported use of !~ to do negated pattern matching; in Raku please use !~~");
+    if (at_lit(p, pos, "!~") && !at_lit(p, pos, "!~~") && is_space_cp(cp_at(p, pos + 2)) && !p->p5isms) panic_at(p, pos,
+        "Unsupported use of !~ to do negated pattern matching; in Raku please use !~~");
     if (at_lit(p, pos, "::=")) panic_at(p, pos, "\"::=\" not yet implemented. Sorry.");
     if (at_lit(p, pos, ".=")) { o->prec = PR('v'); o->sub = PR('z'); o->assoc = AS_LEFT; o->flags = OF_FIDDLY | OF_DOTTY; o->from = pos; o->to = pos + 2; o->nextterm = NT_DOTTYOPISH; return pos + 2; }
     if (c == '.' && !at_lit(p, pos, "..") && ul <= 1) {
@@ -1628,7 +1640,8 @@ static int r_infixish_core(RkP *p, int pos, OpInfo *o, int in_meta) {
     if (c == '[') {
         if (ch(p, pos + 1) == '&' && (is_alpha_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == '(' || strchr(".!^:*?=~", ch(p, pos + 2)))) {
             int e = r_variable(p, pos + 1);
-            if (e >= 0 && ch(p, e) == ']') { t.prec = PR('t'); t.sub = t.prec; t.assoc = AS_LEFT; t.flags = 0; t.from = pos; t.to = e + 1; t.nextterm = NT_TERMISH; if (e + 1 > best) { best = e + 1; bo = t; } }
+            if (e >= 0 && ch(p, e) == ']') { t.prec = PR('t'); t.sub = t.prec; t.assoc = AS_LEFT; t.flags = 0; t.from = pos; t.to = e + 1; t.nextterm = NT_TERMISH; if (e + 1 > best) { best = e + 1;
+                bo = t; } }
         }
         if (best < 0) {
             int e = r_infixish(p, pos + 1, &t, 'b');
@@ -1823,7 +1836,9 @@ static int infix_in_term_position(RkP *p, int pos) {
     int sp = p->invocant_ok; int sl = p->leftsigil; int sg = p->goal;
     int e = -1;
     int c = ch(p, pos);
-    if (c == ',' || c == '=' || (c == '*' && ch(p, pos + 1) == '*' && 0) || c == '/' || c == '?' || c == '&' || c == '|' || c == '<' || c == '>' || c == '%' || c == 'x' || c == 'o' || c == 'a' || c == '.' || c == '!' || c == '~' || c == '+' || c == '-' || c == '^' || c == '=' || c == 'e' || c == 'n' || c == 'l' || c == 'g' || c == 'c' || c == 'X' || c == 'Z' || c == 'R' || c == 'S' || c == 'd' || c == 'm' || c == 'b' || c == 'f' || c == 'u' || c >= 0x80) {
+    if (c == ',' || c == '=' || (c == '*' && ch(p, pos + 1) == '*' && 0) || c == '/' || c == '?' || c == '&' || c == '|' || c == '<' || c == '>' || c == '%' || c == 'x' || c == 'o' || c == 'a' ||
+        c == '.' || c == '!' || c == '~' || c == '+' || c == '-' || c == '^' || c == '=' || c == 'e' || c == 'n' || c == 'l' || c == 'g' || c == 'c' || c == 'X' || c == 'Z' || c == 'R' || c == 'S' ||
+        c == 'd' || c == 'm' || c == 'b' || c == 'f' || c == 'u' || c >= 0x80) {
         jmp_buf save; memcpy(save, p->jb, sizeof save);
         char msg[400]; memcpy(msg, p->msg, sizeof msg); int ep = p->err_pos;
         if (!setjmp(p->jb)) { e = r_infix_plain(p, pos, &o); }
@@ -1835,7 +1850,8 @@ static int infix_in_term_position(RkP *p, int pos) {
     if (c == '.' || c == '<' || c == '-' || c == '+' || c == '!' || c == '~' || c == '^' || c == '?' || c == '|' || c == '&' || c == '%' || c == '/') {
         if (e == pos + 1 && (c == '.' || c == '<' || c == '-' || c == '+' || c == '!' || c == '~' || c == '^' || c == '?' || c == '|' || c == '&' || c == '%' || c == '/')) return 0;
     }
-    if (is_alpha_cp(c)) { if (!end_keyword_ok(p, e) && wordch_at(p, e)) return 0; if (!(o.flags & OF_WORD) && c != 'X' && c != 'Z' && c != 'o') return 0; return c != 'X' && c != 'Z' && c != 'R' && c != 'S' && c != 'o' ? 1 : 0; }
+    if (is_alpha_cp(c)) { if (!end_keyword_ok(p, e) && wordch_at(p, e)) return 0; if (!(o.flags & OF_WORD) && c != 'X' && c != 'Z' && c != 'o') return 0; return c != 'X' && c != 'Z' && c != 'R' &&
+        c != 'S' && c != 'o' ? 1 : 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1860,13 +1876,13 @@ static int r_termish(RkP *p, int pos) {
         return -1;
     }
     if (p->qsigil) {
-        int ends[64]; int n = 0; int r = t;
-        for (;;) { int e = r_postfixish(p, r); if (e < 0 || n >= 64) break; r = e; ends[n++] = e; }
-        int k = n - 1;
-        while (k >= 0 && !bracket_ending_at(p, ends[k])) k--;
-        if (k >= 0) return ends[k];
-        if (p->qsigil == '$') return t;
-        return -1;
+        int base = p->nends; int r = t;
+        for (;;) { int e = r_postfixish(p, r); if (e < 0) break; r = e; RK_GROW(p->ends, p->nends, p->cends, int); p->ends[p->nends++] = e; }
+        int k = p->nends - 1;
+        while (k >= base && !bracket_ending_at(p, p->ends[k])) k--;
+        int res = k >= base ? p->ends[k] : (p->qsigil == '$' ? t : -1);
+        p->nends = base;
+        return res;
     }
     for (;;) { int e = r_postfixish(p, t); if (e < 0) break; t = e; p->leftsigil = '@'; }
     return t;
@@ -1878,12 +1894,11 @@ static int r_nulltermish(RkP *p, int pos) {
     return e >= 0 ? e : pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { int prec; int sub; int assoc; int from; int to; } StackOp;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_EXPR(RkP *p, int pos, int preclim) {
     int sl = p->leftsigil; p->leftsigil = 0;
     int noinfix = (preclim == PR('y'));
-    StackOp st[256]; int ns = 0;
+    int base = p->nops;
+    StackOp *st; int ns = 0;
     int q = pos; int nextterm = NT_TERMISH; int first = 1;
     int last_end = -1;
     for (;;) {
@@ -1893,7 +1908,7 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
         else t = r_termish(p, q);
         if (t < 0) {
             if (ns) panic_at(p, q, "Missing required term after infix");
-            p->leftsigil = sl;
+            p->leftsigil = sl; p->nops = base;
             return first ? -1 : last_end;
         }
         first = 0; last_end = t;
@@ -1908,13 +1923,16 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
             e = r_infixish(p, w, &o, 0);
             if (e < 0) break;
             if (o.prec <= preclim) { e = -1; p->leftsigil = saved_ls; break; }
+            st = p->ops + base;
             while (ns && st[ns - 1].sub > o.prec) ns--;
             if (o.flags & OF_FAKE) { last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } last_end = w; continue; }
             break;
         }
         if (e < 0) break;
+        st = p->ops + base;
         if (ns && st[ns - 1].sub == o.prec) {
-            if (o.assoc == AS_NON) panic_at(p, o.from, "Operators '%.*s' and '%.*s' are non-associative and require parentheses", st[ns - 1].to - st[ns - 1].from, p->s + st[ns - 1].from, o.to - o.from, p->s + o.from);
+            if (o.assoc == AS_NON) panic_at(p, o.from, "Operators '%.*s' and '%.*s' are non-associative and require parentheses", st[ns - 1].to - st[ns - 1].from, p->s + st[ns - 1].from,
+                o.to - o.from, p->s + o.from);
             if (o.assoc == AS_LEFT) ns--;
             else if (o.assoc == AS_LIST) {
                 const char *a = p->s + st[ns - 1].from; int al = st[ns - 1].to - st[ns - 1].from;
@@ -1922,14 +1940,20 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
                 while (al > 0 && asc_space((unsigned char) a[al - 1])) al--;
                 while (bl2 > 0 && asc_space((unsigned char) b[bl2 - 1])) bl2--;
                 if (!(al == bl2 && !memcmp(a, b, (size_t) al)) && !(al == 1 && a[0] == ':'))
-                    panic_at(p, o.from, "Only identical operators may be list associative; since '%.*s' and '%.*s' differ, they are non-associative and you need to clarify with parentheses", al, a, bl2, b);
+                    panic_at(p, o.from, "Only identical operators may be list associative; since '%.*s' and '%.*s' differ, they are non-associative and you need to clarify with parentheses", al, a,
+                        bl2, b);
             }
         }
-        if (ns < 256) { st[ns].prec = o.prec; st[ns].sub = o.sub; st[ns].assoc = o.assoc; st[ns].from = o.from; st[ns].to = o.to; ns++; }
+        p->nops = base + ns;
+        RK_GROW(p->ops, p->nops, p->cops, StackOp);
+        st = p->ops + base;
+        st[ns].prec = o.prec; st[ns].sub = o.sub; st[ns].assoc = o.assoc; st[ns].from = o.from; st[ns].to = o.to; ns++;
+        p->nops = base + ns;
         nextterm = o.nextterm;
         q = ws(p, e);
     }
     p->leftsigil = sl ? sl : p->leftsigil;
+    p->nops = base;
     return last_end;
 }
 /*====================================================================================================================================================================================================*/
@@ -1964,7 +1988,8 @@ static int words_quote(RkP *p, int pos, int open, int nrep, int qq) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_circumfix(RkP *p, int pos) {
     int c = cp_at(p, pos);
-    if (c == '(') { int sa = p->invocant_ok; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->invocant_ok = sa; p->goal = sg; return expect_close(p, e, ')', "parenthesized expression", pos); }
+    if (c == '(') { int sa = p->invocant_ok; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->invocant_ok = sa; p->goal = sg; return expect_close(p, e, ')',
+        "parenthesized expression", pos); }
     if (c == '[') { int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->goal = sg; return expect_close(p, e, ']', "array composer", pos); }
     if (c == '{') { int sg = p->goal; p->goal = 0; int e = r_pblock(p, pos, 1); p->goal = sg; return e; }
     if (at_lit(p, pos, "<<")) return words_quote(p, pos, '<', 2, 1);
@@ -2032,7 +2057,8 @@ static int r_args(RkP *p, int pos, int invocant_ok) {
     int si = p->invocant_ok; int sg = p->goal;
     p->invocant_ok = invocant_ok; p->goal = 0;
     int e = pos;
-    if (ch(p, pos) == '(') { int q = r_semiarglist(p, pos + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')' (corresponding starter was at line %d)", line_of(p, pos)); e = q + 1; }
+    if (ch(p, pos) == '(') { int q = r_semiarglist(p, pos + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')' (corresponding starter was at line %d)",
+        line_of(p, pos)); e = q + 1; }
     else {
         int u = r_unsp(p, pos);
         if (u >= 0 && ch(p, u) == '(') { int q = r_semiarglist(p, u + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')'"); e = q + 1; }
@@ -2049,7 +2075,8 @@ static int r_methodop(RkP *p, int pos) {
     else if (c == '\'' || c == '"' || c == 0x2018 || c == 0x201C || c == 0xFF62) {
         if (p->qsigil && c == '"') { int t = pos + 1; while (t < p->n && p->s[t] != '"' && !is_space_cp(cp_at(p, t))) t += cp_len(p, t); if (t >= p->n || p->s[t] != '"') return -1; }
         q = r_quote(p, pos);
-        if (q >= 0 && !(ch(p, q) == '(' || at_lit(p, q, ".(") || ch(p, q) == '\\')) panic_at(p, q, "Quoted method name requires parenthesized arguments. If you meant to concatenate two strings, use '~'.");
+        if (q >= 0 && !(ch(p, q) == '(' || at_lit(p, q, ".(") || ch(p, q) == '\\')) panic_at(p, q,
+            "Quoted method name requires parenthesized arguments. If you meant to concatenate two strings, use '~'.");
     }
     else {
         q = r_longname(p, pos);
@@ -2099,27 +2126,33 @@ static int r_special_variable(RkP *p, int pos) {
     int c1 = ch(p, pos + 1);
     int s = ch(p, pos);
     if (s == '$') {
-        if (c1 == '@' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ';' || ch(p, pos + 2) == ',' || ch(p, pos + 2) == ')')) panic_at(p, pos, "Unsupported use of $@ variable; in Raku please use $!");
+        if (c1 == '@' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ';' || ch(p, pos + 2) == ',' || ch(p, pos + 2) == ')')) panic_at(p, pos,
+            "Unsupported use of $@ variable; in Raku please use $!");
         if (c1 == '$' && !is_word_cp(cp_at(p, pos + 2)) && ch(p, pos + 2) != '$' && ch(p, pos + 2) != '{' && ch(p, pos + 2) != '(' && ch(p, pos + 2) != '_' && ch(p, pos + 2) != '<')
             panic_at(p, pos, "Unsupported use of $$ variable; in Raku please use $*PID");
         if (c1 == '&' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || is_terminator_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of $& variable; in Raku please use $<>");
         if (c1 == '`' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || is_terminator_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of $` variable; in Raku please use $/.prematch");
-        if (c1 == '\'' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || is_terminator_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of $' variable; in Raku please use $/.postmatch");
+        if (c1 == '\'' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || is_terminator_at(p, pos + 2))) panic_at(p, pos,
+            "Unsupported use of $' variable; in Raku please use $/.postmatch");
         if (c1 == '#' && is_alpha_cp(cp_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of $# variable; in Raku please use .end");
         if (c1 == '|' && ch(p, hs(p, pos + 2)) == '=') panic_at(p, pos, "Unsupported use of $| variable; in Raku please use :autoflush on open");
         if (c1 == ';' && ch(p, hs(p, pos + 2)) == '=') panic_at(p, pos, "Unsupported use of $; variable; in Raku please use real multidimensional hashes");
         if (c1 == '"' && ch(p, hs(p, pos + 2)) == '=') panic_at(p, pos, "Unsupported use of $\" variable; in Raku please use .join() method");
         if (c1 == ',' && ch(p, hs(p, pos + 2)) == '=') panic_at(p, pos, "Unsupported use of $, variable; in Raku please use .join() method");
-        if (c1 == '.' && !is_word_cp(cp_at(p, pos + 2)) && ch(p, pos + 2) != '(' && ch(p, pos + 2) != ':' && ch(p, pos + 2) != '^') panic_at(p, pos, "Unsupported use of $. variable; in Raku please use the .kv method on e.g. .lines");
+        if (c1 == '.' && !is_word_cp(cp_at(p, pos + 2)) && ch(p, pos + 2) != '(' && ch(p, pos + 2) != ':' && ch(p, pos + 2) != '^') panic_at(p, pos,
+            "Unsupported use of $. variable; in Raku please use the .kv method on e.g. .lines");
         if (c1 == '?' && !is_word_cp(cp_at(p, pos + 2)) && ch(p, pos + 2) != '(') panic_at(p, pos, "Unsupported use of $? variable; in Raku please use $! for handling child errors also");
         if (c1 == ']' && !is_word_cp(cp_at(p, pos + 2)) && ch(p, pos + 2) != '(') panic_at(p, pos, "Unsupported use of $] variable; in Raku please use $*RAKU.version or $*RAKU.compiler.version");
-        if (c1 == '\\' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || ch(p, pos + 2) == '=' || is_terminator_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of $\\ variable; in Raku please use :nl-out on open");
-        if (c1 == '/' && ch(p, hs(p, pos + 2)) == '=' && (ch(p, hs(p, hs(p, pos + 2) + 1)) == '"' || ch(p, hs(p, hs(p, pos + 2) + 1)) == '\'')) panic_at(p, pos, "Unsupported use of $/ variable as input record separator; in Raku please use the filehandle's :nl-in attribute");
+        if (c1 == '\\' && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || ch(p, pos + 2) == '=' || is_terminator_at(p, pos + 2))) panic_at(p, pos,
+            "Unsupported use of $\\ variable; in Raku please use :nl-out on open");
+        if (c1 == '/' && ch(p, hs(p, pos + 2)) == '=' && (ch(p, hs(p, hs(p, pos + 2) + 1)) == '"' || ch(p, hs(p, hs(p, pos + 2) + 1)) == '\'')) panic_at(p, pos,
+            "Unsupported use of $/ variable as input record separator; in Raku please use the filehandle's :nl-in attribute");
         if ((c1 == '+' || c1 == '-') && ch(p, pos + 2) == '[') panic_at(p, pos, "Unsupported use of @%c variable; in Raku please use .from/.to", c1);
     }
     if (s == '@' && (c1 == '+' || c1 == '-') && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || ch(p, pos + 2) == '[' || ch(p, pos + 2) == '{' || is_terminator_at(p, pos + 2)))
         panic_at(p, pos, "Unsupported use of @%c variable; in Raku please use .from/.to", c1);
-    if (s == '%' && (c1 == '+' || c1 == '-') && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || is_terminator_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of %%%c variable; in Raku please use $/", c1);
+    if (s == '%' && (c1 == '+' || c1 == '-') && (is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ',' || is_terminator_at(p, pos + 2))) panic_at(p, pos,
+        "Unsupported use of %%%c variable; in Raku please use $/", c1);
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2360,7 +2393,8 @@ static int simple_quote(RkP *p, int pos, int open, int stop, int stop2, int qq, 
     int s = pos + cp_len(p, pos);
     int stop_at;
     int e; r_nibble_until(p, s, &L, &e);
-    if (e < 0 || quote_stopper(p, e, &L) < 0) panic_at(p, pos, "Unable to parse expression in %s; couldn't find final %s (corresponding starter was at line %d)", what, qq ? "'\"'" : "\"'\"", line_of(p, pos));
+    if (e < 0 || quote_stopper(p, e, &L) < 0) panic_at(p, pos, "Unable to parse expression in %s; couldn't find final %s (corresponding starter was at line %d)", what, qq ? "'\"'" : "\"'\"",
+        line_of(p, pos));
     stop_at = e; (void) stop_at;
     return quote_stopper(p, e, &L);
 }
@@ -2492,7 +2526,8 @@ static int r_reduce(RkP *p, int pos) {
     int t = q; while (ch(p, t) == '[') t++;
     if (strchr("-+?~^", ch(p, t)) && ch(p, t) && (is_word_cp(cp_at(p, t + 1)) || ch(p, t + 1) == '$' || ch(p, t + 1) == '@')) return -1;
     int r = q; while (r < p->n && !is_space_cp(cp_at(p, r)) && p->s[r] != ']') r++;
-    if (ch(p, r) != ']') { int x = q; int depth = 0; while (x < p->n && !is_space_cp(cp_at(p, x))) { if (p->s[x] == '[') depth++; if (p->s[x] == ']') { if (!depth) break; depth--; } x++; } if (ch(p, x) != ']') return -1; }
+    if (ch(p, r) != ']') { int x = q; int depth = 0; while (x < p->n && !is_space_cp(cp_at(p, x))) { if (p->s[x] == '[') depth++; if (p->s[x] == ']') { if (!depth) break; depth--; } x++; } if (ch(p,
+        x) != ']') return -1; }
     int si = p->in_reduce; p->in_reduce = 1;
     int tri = 0;
     if (ch(p, q) == '\\') { tri = 1; q++; }
@@ -2530,7 +2565,8 @@ static int r_fatarrow(RkP *p, int pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int deftrap_kind(const char *s, int n) {
-    static const char *const t1[] = { "say", "print", "abs", "chomp", "chop", "chr", "cos", "defined", "exp", "lc", "log", "mkdir", "ord", "reverse", "rmdir", "sin", "split", "sqrt", "uc", "unlink", "fc", 0 };
+    static const char *const t1[] = { "say", "print", "abs", "chomp", "chop", "chr", "cos", "defined", "exp", "lc", "log", "mkdir", "ord", "reverse", "rmdir", "sin", "split", "sqrt", "uc", "unlink",
+        "fc", 0 };
     static const char *const t2[] = { "WHAT", "WHICH", "WHERE", "HOW", "WHENCE", "WHO", "VAR", "any", "all", "none", "one", "set", "bag", "tclc", "wordcase", "put", 0 };
     for (int i = 0; t1[i]; i++) if ((int) strlen(t1[i]) == n && !memcmp(t1[i], s, (size_t) n)) return 1;
     for (int i = 0; t2[i]; i++) if ((int) strlen(t2[i]) == n && !memcmp(t2[i], s, (size_t) n)) return 2;
@@ -2575,7 +2611,8 @@ static int r_term_name(RkP *p, int pos) {
         int k = deftrap_kind(p->s + pos, e - pos);
         if (k && a == e) {
             int c = ch(p, e);
-            if (c == '<' || c == '[' || c == '{') panic_at(p, e, "Use of non-subscript brackets after \"%.*s\" where postfix is expected; please use whitespace before any arguments", e - pos, p->s + pos);
+            if (c == '<' || c == '[' || c == '{') panic_at(p, e, "Use of non-subscript brackets after \"%.*s\" where postfix is expected; please use whitespace before any arguments", e - pos,
+                p->s + pos);
             if (c == '$' || c == '@' || c == '%' || c == '&' || c == '+' || c == '-' || c == '/' || c == '*')
                 if (!(c == '-' && ch(p, e + 1) == '>') && !(c == '*' && ch(p, e + 1) == '*'))
                     panic_at(p, e, "A list operator such as \"%.*s\" must have whitespace before its arguments (or use parens)", e - pos, p->s + pos);
@@ -2623,7 +2660,8 @@ static int r_keyword_term(RkP *p, int pos) {
     if ((e = kw(p, pos, "undef")) >= 0 && ch(p, e) != '-' && ch(p, e) != '\'') {
         int h = hs(p, e);
         if (at_lit(p, h, "$/")) panic_at(p, pos, "Unsupported use of $/ variable as input record separator; in Raku please use the filehandle's .slurp method");
-        if (ch(p, e) == '(' || ch(p, h) == '$' || ch(p, h) == '@' || ch(p, h) == '%' || ch(p, h) == '&') panic_at(p, pos, "Unsupported use of undef as a verb; in Raku please use undefine() or assignment of Nil");
+        if (ch(p, e) == '(' || ch(p, h) == '$' || ch(p, h) == '@' || ch(p, h) == '%' || ch(p, h) == '&') panic_at(p, pos,
+            "Unsupported use of undef as a verb; in Raku please use undefine() or assignment of Nil");
         panic_at(p, pos, "Unsupported use of undef as a value; in Raku please use something more specific");
     }
     if ((e = lit(p, pos, "new")) >= 0 && is_hspace_cp(cp_at(p, e))) {
@@ -3158,7 +3196,8 @@ static void register_user_op_x(RkP *p, int from, int to, int exported) {
             int b = a; while (b < to && cp_at(p, b) != close) { if (p->s[b] == '\\' && b + 1 < to) b++; b += cp_len(p, b); }
             if (c == '<' && at_lit(p, q, "<<")) { a = q + 2; b = a; while (b < to && !at_lit(p, b, ">>")) b++; }
             int x = a; int y = b;
-            if (c == '[' || c == '(') { while (x < y && (p->s[x] == '\'' || p->s[x] == '"' || asc_space((unsigned char) p->s[x]))) x++; while (y > x && (p->s[y - 1] == '\'' || p->s[y - 1] == '"' || asc_space((unsigned char) p->s[y - 1]))) y--; }
+            if (c == '[' || c == '(') { while (x < y && (p->s[x] == '\'' || p->s[x] == '"' || asc_space((unsigned char) p->s[x]))) x++; while (y > x && (p->s[y - 1] == '\'' || p->s[y - 1] == '"' ||
+                asc_space((unsigned char) p->s[y - 1]))) y--; }
             while (x < y && asc_space((unsigned char) p->s[x])) x++;
             while (y > x && asc_space((unsigned char) p->s[y - 1])) y--;
             if (i == 0) add_user_op(p, 'i', p->s + x, y - x, PR('t'));
@@ -3225,14 +3264,16 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     }
     int e;
     if (ch(p, q) == ';' && !is_method) {
-        if (name_from < 0 || !(name_to - name_from == 4 && !memcmp(p->s + name_from, "MAIN", 4))) panic_at(p, q, "A unit-scoped sub definition is not allowed except on a MAIN sub; please use the block form");
+        if (name_from < 0 || !(name_to - name_from == 4 && !memcmp(p->s + name_from, "MAIN", 4))) panic_at(p, q,
+            "A unit-scoped sub definition is not allowed except on a MAIN sub; please use the block form");
         if (outer_depth != 1) panic_at(p, q, "A unit-scoped sub definition is not allowed in a subscope");
         e = r_statementlist(p, q + 1);
     }
     else if ((e = r_onlystar(p, q)) >= 0) ;
     else if (ch(p, q) != '{') {
         if (!is_method && is_alpha_cp(cp_at(p, q)) && name_from >= 0 && is_type_n(p, p->s + name_from, name_to - name_from)) {
-            panic_at(p, q, "Did you mean to write \"my %.*s sub %.*s\" or put \"returns %.*s\" before the block?", name_to - name_from, p->s + name_from, 10, p->s + q, name_to - name_from, p->s + name_from);
+            panic_at(p, q, "Did you mean to write \"my %.*s sub %.*s\" or put \"returns %.*s\" before the block?", name_to - name_from, p->s + name_from, 10, p->s + q, name_to - name_from,
+                p->s + name_from);
         }
         scope_leave(p);
         p->has_self = sm;
@@ -3315,16 +3356,15 @@ static int r_package_declarator(RkP *p, int pos) {
 static int r_package_def(RkP *p, int pos, const char *kind) {
     int q = pos;
     int n = r_longname(p, q);
-    char saved_pkg[256]; memcpy(saved_pkg, p->pkg, sizeof saved_pkg);
+    char *saved_pkg = p->pkg;
     if (n >= 0) {
         int nl = name_part_len(p, q, n);
         add_name_all(p, p->s + q, nl);
-        if (p->pkg[0]) {
-            char full[512]; int fl = snprintf(full, sizeof full, "%s::%.*s", p->pkg, nl, p->s + q);
-            if (fl > 0 && fl < (int) sizeof full) add_our_name(p, full, fl);
-            snprintf(p->pkg, sizeof p->pkg, "%s", full);
-        }
-        else snprintf(p->pkg, sizeof p->pkg, "%.*s", nl, p->s + q);
+        int pl = p->pkg ? (int) strlen(p->pkg) : 0;
+        char *full = (char *) ct_alloc((size_t) pl + (size_t) nl + 3);
+        if (pl) { memcpy(full, p->pkg, (size_t) pl); memcpy(full + pl, "::", 2); memcpy(full + pl + 2, p->s + q, (size_t) nl); full[pl + 2 + nl] = 0; add_our_name(p, full, pl + 2 + nl); }
+        else { memcpy(full, p->s + q, (size_t) nl); full[nl] = 0; }
+        p->pkg = full;
         q = ws(p, n);
     }
     int unit = p->scope == 9;
@@ -3345,7 +3385,9 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     }
     else if (ch(p, q) == ';') {
         if (!unit) {
-            if (!strcmp(kind, "package")) panic_at(p, q, "This appears to be Perl code. If you intended it to be Raku code, please use a Raku style declaration like \"unit package Foo;\" or \"unit module Foo;\", or use the block form instead of the semicolon form.");
+            if (!strcmp(kind, "package")) panic_at(p, q,
+                "This appears to be Perl code. If you intended it to be Raku code, please use a Raku style declaration like \"unit package Foo;\" or "
+                "\"unit module Foo;\", or use the block form instead of the semicolon form.");
             panic_at(p, q, "Semicolon form of '%s' without 'unit' is illegal. You probably want to use 'unit %s'", kind, kind);
         }
         if (n < 0) panic_at(p, q, "Compilation unit cannot be anonymous");
@@ -3356,13 +3398,17 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     else { scope_leave(p); p->scope = saved_scope; panic_at(p, q, "Unable to parse %s definition", kind); return -1; }
     scope_leave(p);
     p->scope = saved_scope;
-    if (!unit) memcpy(p->pkg, saved_pkg, sizeof saved_pkg);
+    if (!unit) p->pkg = saved_pkg;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_enum_value(RkP *p, const char *en, int enl, const char *v, int vl) {
     add_our_name(p, v, vl); p->names[p->nnames - 1].value = 1;
-    if (enl > 0) { char full[512]; int fl = snprintf(full, sizeof full, "%.*s::%.*s", enl, en, vl, v); if (fl > 0 && fl < (int) sizeof full) { add_our_name(p, full, fl); p->names[p->nnames - 1].value = 1; } }
+    if (enl > 0) {
+        char *full = (char *) ct_alloc((size_t) enl + (size_t) vl + 3);
+        memcpy(full, en, (size_t) enl); memcpy(full + enl, "::", 2); memcpy(full + enl + 2, v, (size_t) vl); full[enl + 2 + vl] = 0;
+        add_our_name(p, full, enl + 2 + vl); p->names[p->nnames - 1].value = 1;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void enum_names_from(RkP *p, int from, int to, const char *en, int enl) {
@@ -3423,7 +3469,8 @@ static int r_type_declarator(RkP *p, int pos) {
         int sd = p->in_decl; p->in_decl = 1;
         if (ch(p, q) == '\\') q++;
         int n = r_identifier(p, q);
-        if (n >= 0) { while (ch(p, n) == ':' && ch(p, n + 1) != ':' && ch(p, n + 1) != '=') { int f = r_colonpair(p, n); if (f < 0) break; n = f; } add_name_n(p, p->s + q, name_part_len(p, q, n)); register_user_op(p, q, n); q = n; }
+        if (n >= 0) { while (ch(p, n) == ':' && ch(p, n + 1) != ':' && ch(p, n + 1) != '=') { int f = r_colonpair(p, n); if (f < 0) break; n = f; } add_name_n(p, p->s + q, name_part_len(p, q, n));
+            register_user_op(p, q, n); q = n; }
         else if (ch(p, q) == '$' || ch(p, q) == '@' || ch(p, q) == '%' || ch(p, q) == '&') { int v = r_variable(p, q); if (v >= 0) { if (ch(p, q) == '&') register_user_op(p, q + 1, v); q = v; } }
         p->in_decl = sd;
         q = ws(p, q);
@@ -3474,7 +3521,8 @@ static int r_scoped(RkP *p, int pos, int scope) {
         }
     }
     p->scope = ss;
-    panic_at(p, q, "Malformed %s", scope == 0 ? "my" : scope == 1 ? "our" : scope == 2 ? "has" : scope == 3 ? "HAS" : scope == 4 ? "augment" : scope == 5 ? "anon" : scope == 6 ? "state" : scope == 7 ? "supersede" : "unit");
+    panic_at(p, q, "Malformed %s",
+        scope == 0 ? "my" : scope == 1 ? "our" : scope == 2 ? "has" : scope == 3 ? "HAS" : scope == 4 ? "augment" : scope == 5 ? "anon" : scope == 6 ? "state" : scope == 7 ? "supersede" : "unit");
     return -1;
 done:
     p->scope = ss;
@@ -3589,7 +3637,7 @@ static void add_use_lib(RkP *p, int from, int to) {
         }
         else if (p->s[q] == '\'' || p->s[q] == '"') { char qc = p->s[q]; int b = q + 1; int t = b; while (t < to && p->s[t] != qc) t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; }
         else if (p->s[q] == '<') { int b = q + 1; int t = b; while (t < to && p->s[t] != '>') t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; }
-        if (lit_s && p->nlibs < 16) {
+        if (lit_s) {
             char buf[1024];
             if (prog) {
                 char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file);
@@ -3597,7 +3645,9 @@ static void add_use_lib(RkP *p, int from, int to) {
                 snprintf(buf, sizeof buf, "%s/%.*s", dir, lit_n, lit_s);
             }
             else if (lit_n && lit_s[0] == '/') snprintf(buf, sizeof buf, "%.*s", lit_n, lit_s);
-            else { char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file); char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, sizeof dir, "."); snprintf(buf, sizeof buf, "%s/%.*s", dir, lit_n, lit_s); }
+            else { char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file); char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, sizeof dir, "."); snprintf(buf, sizeof buf, "%s/%.*s",
+                dir, lit_n, lit_s); }
+            RK_GROW(p->libs, p->nlibs, p->clibs, char *);
             p->libs[p->nlibs++] = ct_strndup0(buf, (int) strlen(buf));
         }
         q = e > q ? e : q + 1;
@@ -3607,13 +3657,14 @@ static void add_use_lib(RkP *p, int from, int to) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void import_module(RkP *p, const char *name) {
     if (p->load_depth >= 4) return;
-    char rel[512]; int k = 0;
-    for (int i = 0; name[i] && k < 500; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
+    char *rel = (char *) ct_alloc(strlen(name) + 1); int k = 0;
+    for (int i = 0; name[i]; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
     rel[k] = 0;
     static const char *const exts[] = { ".rakumod", ".pm6", ".pm", 0 };
     for (int l = p->nlibs - 1; l >= 0; l--) {
         for (int x = 0; exts[x]; x++) {
-            char path[1100]; snprintf(path, sizeof path, "%s/%s%s", p->libs[l], rel, exts[x]);
+            size_t pl = strlen(p->libs[l]) + strlen(rel) + strlen(exts[x]) + 2;
+            char *path = (char *) ct_alloc(pl); snprintf(path, pl, "%s/%s%s", p->libs[l], rel, exts[x]);
             FILE *f = fopen(path, "rb");
             if (!f) continue;
             fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
@@ -3622,11 +3673,11 @@ static void import_module(RkP *p, const char *name) {
             RkP *m = (RkP *) ct_alloc(sizeof(RkP));
             memset(m, 0, sizeof *m);
             m->load_depth = p->load_depth + 1;
-            for (int i = 0; i < p->nlibs; i++) m->libs[m->nlibs++] = p->libs[i];
+            for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
             if (rk_check_into(m, src, (int) got, path, m) != 0) return;
             for (int i = 0; i < m->nnames; i++) {
                 const char *nm = m->names[i].name;
-                if (!strncmp(nm, "EXPORTHOW::DECLARE::", 20) && nm[20] && p->ndecls < 16) p->decls[p->ndecls++] = ct_strndup0(nm + 20, (int) strlen(nm + 20));
+                if (!strncmp(nm, "EXPORTHOW::DECLARE::", 20) && nm[20]) { RK_GROW(p->decls, p->ndecls, p->cdecls, char *); p->decls[p->ndecls++] = ct_strndup0(nm + 20, (int) strlen(nm + 20)); }
                 if (m->names[i].depth == 0) { add_name_n(p, nm, (int) strlen(nm)); p->names[p->nnames - 1].value = m->names[i].value; }
             }
             for (int i = 0; i < m->nuops; i++) if (m->uops[i].depth >= 1000 || m->uops[i].depth <= 1) {
@@ -3658,7 +3709,7 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     }
     int m = r_module_name(p, q);
     if (m < 0) panic_at(p, q, "Malformed %s", what);
-    char name[128]; int nl = name_part_len(p, q, m); if (nl > 127) nl = 127; memcpy(name, p->s + q, (size_t) nl); name[nl] = 0;
+    char *name = ct_strndup0(p->s + q, name_part_len(p, q, m));
     if (!strcmp(what, "use") && !strcmp(name, "parameters")) panic_at(p, q, "use parameters not yet implemented. Sorry.");
     if (!strcmp(name, "isms")) p->p5isms = !strcmp(what, "use");
     int e = m;
@@ -3692,7 +3743,8 @@ static int r_statement_control(RkP *p, int pos) {
     if ((e = kok(p, pos, "unless")) >= 0 || (e = kok(p, pos, "without")) >= 0) {
         int q = r_xblock(p, e, 0);
         int t = ws(p, q);
-        if (kw(p, t, "else") >= 0 || kw(p, t, "elsif") >= 0 || kw(p, t, "orwith") >= 0) panic_at(p, t, "\"%s\" does not take \"%.*s\", please rewrite using \"if\"", at_lit(p, pos, "unless") ? "unless" : "without", 4, p->s + t);
+        if (kw(p, t, "else") >= 0 || kw(p, t, "elsif") >= 0 || kw(p, t, "orwith") >= 0) panic_at(p, t, "\"%s\" does not take \"%.*s\", please rewrite using \"if\"", at_lit(p, pos,
+            "unless") ? "unless" : "without", 4, p->s + t);
         return q;
     }
     if ((e = kok(p, pos, "while")) >= 0 || (e = kok(p, pos, "until")) >= 0) return r_xblock(p, e, 0);
@@ -3724,7 +3776,8 @@ static int r_statement_control(RkP *p, int pos) {
             if (ch(p, t) == ';') { t = ws(p, t + 1); n = 2; x = r_EXPR(p, t, 0); if (x >= 0) t = ws(p, x);
                 if (ch(p, t) == ';') { t = ws(p, t + 1); n = 3; x = r_EXPR(p, t, 0); if (x >= 0) t = ws(p, x); } }
             if (n == 3 && ch(p, t) == ')') q = ws(p, t + 1);
-            else if (ch(p, t) == ')') panic_at(p, t, n == 0 ? "Malformed loop spec (expected 3 semicolon-separated expressions)" : "Malformed loop spec (expected 3 semicolon-separated expressions but got %d)", n);
+            else if (ch(p, t) == ')') panic_at(p, t,
+                n == 0 ? "Malformed loop spec (expected 3 semicolon-separated expressions)" : "Malformed loop spec (expected 3 semicolon-separated expressions but got %d)", n);
             else if (ch(p, t) == ';') panic_at(p, t, "Malformed loop spec (expected 3 semicolon-separated expressions but got more)");
             else panic_at(p, t, "Malformed loop spec");
         }
@@ -3735,7 +3788,7 @@ static int r_statement_control(RkP *p, int pos) {
         for (;;) {
             if (r_version(p, q) >= 0) panic_at(p, q, "In case of using pragma, use \"use\" instead (e.g., \"use v6;\", \"use v6.c;\").");
             int m = r_module_name(p, q); if (m < 0) panic_at(p, q, "Malformed need");
-            { char nm[256]; int nl = name_part_len(p, q, m); if (nl > 255) nl = 255; memcpy(nm, p->s + q, (size_t) nl); nm[nl] = 0; import_module(p, nm); }
+            import_module(p, ct_strndup0(p->s + q, name_part_len(p, q, m)));
             q = ws(p, m);
             if (ch(p, q) == ',') { q = ws(p, q + 1); continue; }
             return q;

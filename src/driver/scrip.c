@@ -1019,7 +1019,10 @@ int main(int argc, char **argv)
         if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile   = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
-        else if (strcmp(argv[argi], "--syntax")        == 0) { extern int rk_syntax_file(const char *path); if (argi + 1 >= argc) { fprintf(stderr, "scrip: --syntax needs a Raku source file\n"); return 2; } return rk_syntax_file(argv[argi + 1]); }
+        else if (strcmp(argv[argi], "--syntax")        == 0) { extern int rk_syntax_file(const char *path); if (argi + 1 >= argc) { fprintf(stderr, "scrip: --syntax needs a Raku source file\n");
+            return 2; } { const char *sx = strrchr(argv[argi + 1], '.'); if (!sx || (strcmp(sx, ".raku") && strcmp(sx, ".t") && strcmp(sx, ".rakumod") && strcmp(sx, ".rakutest") && strcmp(sx,
+            ".pm6") && strcmp(sx, ".p6"))) { fprintf(stderr, "scrip: --syntax checks Raku sources only (.raku .rakumod .rakutest .t .pm6 .p6); '%s' is not one\n", argv[argi + 1]); return 2;
+            } } return rk_syntax_file(argv[argi + 1]); }
         else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast       = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir-verbose") == 0) { dump_ir = 1; dump_ir_verbose = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
