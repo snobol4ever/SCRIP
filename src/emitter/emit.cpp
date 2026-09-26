@@ -3988,56 +3988,57 @@ static void ocr_table(uint32_t c) {
     cv_t old = g_ocr_map; cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(ocr_slot_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(ocr_slot_t); g_ocr_map = v;
     for (uint32_t i = 0; i < old.len; i++) { ocr_slot_t * o = &CV_AT(old, ocr_slot_t, i); if (o->gen == g_ocr_gen) { ocr_slot_t * t = ocr_probe(o->nd); t->nd = o->nd; t->gen = g_ocr_gen; } }
 }
+static cv_t g_ocr_chain, g_ocr_stkv, g_ocr_stk;
+static void ocr_push(cv_t * v, int * n, IR_t * x) { cv_reserve(v, (uint32_t)sizeof(IR_t *), (uint64_t)*n + 1, "ocr"); CV_AT(*v, IR_t *, *n) = x; (*n)++; }
 static void ocr_clear(void) { g_ocr_gen++; g_ocr_cnt = 0; if (!g_ocr_map.len) ocr_table(1024); }
 static int ocr_has(const IR_t * nd) { return ocr_probe(nd)->gen == g_ocr_gen; }
 static void ocr_add(const IR_t * nd) { ocr_slot_t * t = ocr_probe(nd); if (t->gen == g_ocr_gen) return; t->nd = nd; t->gen = g_ocr_gen; if ((uint64_t)++g_ocr_cnt * 2 >= (uint64_t)g_ocr_map.len) ocr_table(g_ocr_map.len * 2); }
 static void emit_chain_operand_refs(IR_t *entry) {
-    IR_t *chain[8192]; int nc = 0;
-    IR_t *seen[8192]; int ns = 0;
+    int nc = 0;
     ocr_clear();
-    IR_t *stkv[8192]; int sv = 0;
+    int sv = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 8192) entry = entry->γ.node; }
     entry = entry;
-    stkv[sv++] = entry;
-    while (sv > 0 && nc < 8192) {
-        IR_t *c = stkv[--sv];
+    ocr_push(&g_ocr_stkv, &sv, entry);
+    while (sv > 0) {
+        IR_t *c = CV_AT(g_ocr_stkv, IR_t *, --sv);
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
         int dup = ocr_has(c);
         if (dup) continue;
-        seen[ns++] = c; ocr_add(c); chain[nc++] = c;
-        if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
+        ocr_add(c); ocr_push(&g_ocr_chain, &nc, c);
+        if ((c->op == IR_BINOP) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
-             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 8192)
-            stkv[sv++] = c->ω.node;
-        if (c->γ.node && sv < 8192) stkv[sv++] = c->γ.node;
+             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node)
+            ocr_push(&g_ocr_stkv, &sv, c->ω.node);
+        if (c->γ.node) ocr_push(&g_ocr_stkv, &sv, c->γ.node);
     }
-    for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
-        int present = ocr_has(chain[i]->ω.node);
-        if (!present && sv < 8192) stkv[sv++] = chain[i]->ω.node; }
-    while (sv > 0 && nc < 8192) {
-        IR_t *c = stkv[--sv];
+    for (int i = 0; i < nc; i++) if (ir_is_generator_kind(CV_AT(g_ocr_chain, IR_t *, i)->op) && CV_AT(g_ocr_chain, IR_t *, i)->ω.node) {
+        int present = ocr_has(CV_AT(g_ocr_chain, IR_t *, i)->ω.node);
+        if (!present) ocr_push(&g_ocr_stkv, &sv, CV_AT(g_ocr_chain, IR_t *, i)->ω.node); }
+    while (sv > 0) {
+        IR_t *c = CV_AT(g_ocr_stkv, IR_t *, --sv);
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
         int dup = ocr_has(c);
         if (dup) continue;
-        seen[ns++] = c; ocr_add(c); chain[nc++] = c;
-        if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
+        ocr_add(c); ocr_push(&g_ocr_chain, &nc, c);
+        if ((c->op == IR_BINOP) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
+        if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
-             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 8192)
-            stkv[sv++] = c->ω.node;
-        if (ir_is_generator_kind(c->op) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
-        if (c->γ.node && sv < 8192) stkv[sv++] = c->γ.node;
+             || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node)
+            ocr_push(&g_ocr_stkv, &sv, c->ω.node);
+        if (ir_is_generator_kind(c->op) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
+        if (c->γ.node) ocr_push(&g_ocr_stkv, &sv, c->γ.node);
     }
-    IR_t *stk[512]; int sp = 0;
+    int sp = 0;
     for (int i = 0; i < nc; i++) {
-        IR_t *n = chain[i];
+        IR_t *n = CV_AT(g_ocr_chain, IR_t *, i);
         switch (n->op) { case IR_RETURN: case IR_SUSPEND: case IR_CORET: case IR_COFAIL: sp = 0; continue; default: break; }
         int ar = emit_chain_arity(n);
         if (ar < 0) { sp = 0; continue; }
-        else if (ar >= 1 && sp >= ar) { if (n->n_operands < ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, stk[sp - k]); } sp -= ar; }
+        else if (ar >= 1 && sp >= ar) { if (n->n_operands < ar) { n->n_operands = 0; for (int k = ar; k >= 1; k--) ir_operand_push(n, CV_AT(g_ocr_stk, IR_t *, sp - k)); } sp -= ar; }
         else if (ar >= 1) { sp = 0; }
-        stk[sp++] = n;
+        ocr_push(&g_ocr_stk, &sp, n);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
