@@ -64,6 +64,10 @@ command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"
 [ -f "$PRO/prelude_gplc.pl" ] && [ -f "$PRO/prelude_swipl.pl" ] || { echo "⛔ REFUSED-TO-GRADE rival preludes missing under $PRO (prelude_gplc.pl / prelude_swipl.pl)"; exit 2; }
 . "$HERE/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_prolog_bench.sh -- the ONE loop-output check"; exit 2; }
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot load lib_perf_fmt.sh -- the ONE authority for the load stamp and the whole-grid refusal (s266/CEO-697)"; exit 2; }
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1281)"; exit 2; }
+# ⛔ THE SCRIP ARMS RUN UNDER THE KERNEL'S OWN DECLARATION (ceo CEO-1281, 2026-09-26): the <k>.heap / <k>.stack sidecars as SPITBOL's -d<kb>k -s<kb>k
+#   switches on every m3 and m4 command line (lib_declared_arena.sh, the suite runner's reader; CEO-1225; tak: -s65536k).
+declare -a DECL_SW=(); declare -A DECLW=()
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 # ⛔ timeout -k 5 EVERYWHERE (hq_P 2026-09-02, measured): swipl ignores timeout's SIGTERM -- angle 2 sat 648 s on vanroy/queens.pl
@@ -90,13 +94,13 @@ run1() {
   case "$eng" in
     gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
-    m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
+    m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
          if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then
            echo "- - BUILD-ERR"; return; fi
          if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then
            echo "- - LINKFAIL"; return; fi
-         out=$("$WRAP" timeout -k 5 "$T" "$b" >"$W/o.$$" 2>"$W/e.$$") ;;
+         out=$("$WRAP" timeout -k 5 "$T" "$b" "${DECL_SW[@]}" >"$W/o.$$" 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   if [ -z "$rl" ]; then echo "- - DNF"; return; fi
@@ -148,7 +152,9 @@ tot_ok=0; tot_bad=0
 declare -A BWORK=(); declare -A BOVH=(); basis_rows=()
 for k in "${order[@]}"; do
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
-  N="${NCOMMIT[$k]}"
+  N="${NCOMMIT[$k]}"; pl="$B/$k.pl"
+  DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above) -- a program whose declaration cannot be read is not timed under the default it did not ask for"; exit 2; }
+  [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
   ckstat=ok; declare -A RATE=(); declare -A WORK=(); declare -A OVH=(); local_el=""; local_wk=""
   for eng in gnu swi m3 m4; do
     # ⛔ --engine names WHO WILL RUN THE OUTPUT and changes only the PRELUDE, never the kernel; m3 and m4 are
@@ -211,6 +217,9 @@ printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------
 for k in "${basis_rows[@]}"; do
   printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]}" "${BOVH[$k:swi]}" "${BOVH[$k:m3]}" "${BOVH[$k:m4]}"
 done
+echo
+echo "DECLARED SIDECARS carried as switches on the m3 and m4 command lines (lib_declared_arena.sh, the suite runner's reader; CEO-1281): ${#DECLW[@]} kernel(s)"
+for k in "${!DECLW[@]}"; do echo "  $k: ${DECLW[$k]}"; done
 echo
 # ⛔⭐ tot_bad AND THE GRID VERDICT ARE NOT THE SAME BAR, WHICH IS WHY BOTH ARE HERE.  tot_bad counts a
 #   ROW that had a crash/DNF on some engine; perf_grid_end counts every CELL that could not be measured,

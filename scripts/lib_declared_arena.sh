@@ -381,3 +381,22 @@ declared_switches_from_table() {
   [ -n "$rec" ] || _decl_miss "${DECL_CSV_OF_TABLE:-$tbl}" "$entry"
   _declared_switch_words "${rec%%|*}" "${rec#*|}"
 }
+
+# declared_switches_beside <program> -- the program's declared heap and stack as SPITBOL's switches (-d<kb>k -s<kb>k), read from its
+# <stem>.heap and <stem>.stack sidecars exactly as test_prolog_bench_suite.sh reads them, for a runner that puts them on the scrip
+# command line (after --run, before the source) or at the head of a compiled binary's own command line -- the form CEO-1225 chose over
+# an environment knob because a switch is recorded with the run. Echoes nothing when neither sidecar exists (the shipped defaults, the
+# honest answer) and rc 2 on a sidecar the reader refuses. ⛔ NEVER SCRIP_HEAP_KB: gc_heap.c:218 reads that variable as the INITIAL
+# WINDOW, so a declaration equal to the 131072 KB default cap exported through it would hand a benchmark a 128 MB window and a collector
+# that never runs. ⛔ WHY (ceo CEO-1281, 2026-09-26): the Prolog benchmark angles ran scrip --run <k>.pl with no declaration at all while
+# the suite runner honoured the sidecars, so tak overflowed the shipped 4 MB stack inside angle 1's own correctness gate and was SKIPped
+# on every engine -- an instrument gap printed in a kernel finding's words. MEASURED the same sitting: tak(18,12,6) completes at
+# -s65536k and overflows at -s32768k in both modes; swipl needs 16 MB of its own (--stack-limit=8m overflows too), so the need is the
+# program's choice points and the declaration is the cure, never a raised default (Lon 2026-09-25: every program declares its stack and
+# heap; Lon 2026-09-26: the command-line arguments a test unit needs, compile time and run time, are stored with the test unit).
+declared_switches_beside() {
+  local prog="$1" kb st
+  kb=$(declared_arena_kb_beside "$prog") || return 2
+  st=$(declared_stack_kb_beside "$prog") || return 2
+  _declared_switch_words "$kb" "$st"
+}

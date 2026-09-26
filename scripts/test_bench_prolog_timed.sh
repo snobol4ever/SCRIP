@@ -26,7 +26,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
 PRO="${PROLOG_DIR:-$S4E/corpus/benchmarks/prolog}"
-T="${TIMEOUT:-30}"; BUDGET_MS="${TIME_BUDGET_MS:-500}"; NMAX="${NMAX:-65536}"
+# ⛔ NMAX WAS 65536 UNTIL CEO-1281 (2026-09-26) AND THAT CAP WAS THE GPROLOG DISAGREEMENT: gprolog's wall_us is real_time/1 x 1000, a
+#   1 ms tick, and a kernel like cal (0.38 us/it on gprolog) reached the cap at 25 ms of work -- 25 ticks -- so its self-measured WORK
+#   per iteration read 0.38 on one angle and 0.44 on the other (1.16x, DISAGREE) while its CPU rates agreed. The search now runs on to
+#   the 500 ms budget for every engine (4194304 caps only a runaway), and angle 2's committed counts for the sub-3-us kernels were
+#   raised the same day so its gprolog bracket holds 200 ms or more. T rose with it: a 4M-iteration run of a fast kernel is seconds.
+T="${TIMEOUT:-60}"; BUDGET_MS="${TIME_BUDGET_MS:-500}"; NMAX="${NMAX:-4194304}"
 KERNELS="${KERNELS:-}"   # optional allowlist, same convention as bench_prolog_fixed_iter.sh
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
@@ -56,6 +61,12 @@ WRAP="$ROOT/tools/bench_rusage"
 GEN="${GEN:-$HERE/bench_prolog_wrap.sh}"
 [ -x "$GEN" ] || { echo "⛔ REFUSED-TO-GRADE: the wrapper generator $GEN is missing or not executable -- angle 1 will not hand-roll a second wrapper (CEO-567)"; exit 2; }
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple and the carrier of the load stamp (s266/CEO-697)"; exit 2; }
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1281)"; exit 2; }
+# ⛔ THE SCRIP ARMS RUN UNDER THE KERNEL'S OWN DECLARATION (ceo CEO-1281, 2026-09-26): DECL_SW carries the <k>.heap / <k>.stack sidecars as
+#   SPITBOL's -d<kb>k -s<kb>k switches (lib_declared_arena.sh, the suite runner's reader; a switch is recorded with the run, CEO-1225, and
+#   SCRIP_HEAP_KB would move the WINDOW), and every m3 and m4 launch below -- the single-shot correctness gate included -- carries them. Before this line tak overflowed the
+#   shipped 4 MB stack in the correctness gate and read SKIP on all four engines (an instrument gap wearing a kernel finding's words).
+declare -a DECL_SW=(); declare -A DECLW=()
 # ⛔ timeout -k 5 EVERYWHERE (hq_P 2026-09-02, measured): swipl ignores timeout's SIGTERM -- angle 2 sat 648 s on vanroy/queens.pl
 # under `timeout 60` with the whole triangulation behind it. A bound that the bounded process can decline is not a bound; -k makes
 # the kill unconditional five seconds after the deadline, and the run then reads CRASH(signal 9), never a rate (the exit= gate).
@@ -84,11 +95,11 @@ run1() {
     #   one that does not, which is why this comment is longer than the fix.
     gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
-    m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
+    m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
          if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
          if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
-         out=$("$WRAP" timeout -k 5 "$T" "$b" >"$W/o.$$" 2>"$W/e.$$") ;;
+         out=$("$WRAP" timeout -k 5 "$T" "$b" "${DECL_SW[@]}" >"$W/o.$$" 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -147,9 +158,11 @@ for pl in "$B"/*.pl; do
   [ -f "$exp" ] || continue
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
   want=$(cat "$exp")
+  DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above) -- a program whose declaration cannot be read is not timed under the default it did not ask for"; exit 2; }
+  [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
   go=$(cd "$W" && timeout -k 5 15 gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
   so=$(cd "$W" && timeout -k 5 15 swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" 2>/dev/null </dev/null | head -200)
-  m3o=$(cd "$W" && timeout -k 5 15 "$SCRIP" --run "$pl" </dev/null 2>/dev/null | head -200)
+  m3o=$(cd "$W" && timeout -k 5 15 "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>/dev/null | head -200)
   if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
     printf "%-14s %14s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP SKIP "correctness-fail(single-shot)"; tot_skip=$((tot_skip+1)); continue
   fi
@@ -238,6 +251,9 @@ printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------
 for k in "${basis_rows[@]}"; do
   printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]:-DARK}" "${BOVH[$k:swi]:-DARK}" "${BOVH[$k:m3]:-DARK}" "${BOVH[$k:m4]:-DARK}"
 done
+echo
+echo "DECLARED SIDECARS carried as switches on the m3 and m4 command lines (lib_declared_arena.sh, the suite runner's reader; CEO-1281): ${#DECLW[@]} kernel(s)"
+for k in "${!DECLW[@]}"; do echo "  $k: ${DECLW[$k]}"; done
 echo
 # ⛔⭐ THE VERDICT FOLDS IN, AND THAT IS A RULING THE MEASUREMENT EARNED RATHER THAN A PREFERENCE.
 #   The open question was whether this angle carries STANDING unmeasurable cells: if it did, bumping
