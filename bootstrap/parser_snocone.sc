@@ -7,7 +7,7 @@ reserved          = POS(0) ('if' | 'else' | 'while' | 'do' | 'for') RPOS(0);
 /* match.sc included in the prelude.  SCT-9 (Opus 4.7, 2026-05-18).                       */
 white       =   (  SPAN(' ' tab nl)
                 |  '//' BREAK(nl) nl
-                |  '/*' FENCE(BREAKX('*') '*/')
+                |  '/*' BREAK('*') '*' ARBNO('*' | NOTANY('/*') BREAK('*') '*') '/'
                 );
 White       =   white ARBNO(white);
 Gray        =   White | epsilon;
