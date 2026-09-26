@@ -122,6 +122,7 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     if (t->t == TT_SWAP) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_CASE) { for (int i = 2; i < t->n; i += 2) if (is_resumable(t->c[i])) return 1; return (t->n > 1 && (t->n - 1) % 2 == 1) ? is_resumable(t->c[t->n - 1]) : 0; }
     switch (t->t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: case TT_REVSWAP: case TT_ITERATE: return 1;
     default: return 0; }
@@ -143,6 +144,7 @@ static int icn_callable_proc_index(const char * fn);
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res);
 static int icn_subtree_has_suspend(const tree_t *n);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_case(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -829,49 +831,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         ir_operand_push(sn, rrt);
         *res = sn; return e_entry; }
-    case TT_CASE: {
-        if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        static const char * CVAR = "__case_result";
-        IR_t * cvar = build(cx, IR_VAR, γ, ω); IR_LIT(cvar).sval = (char *) CVAR;
-        IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
-        int nc = t->n - 1;
-        if (nc <= 0) { cx->beta = ω; *res = cvar; return se; }
-        int npairs   = nc / 2;
-        int has_dflt = (nc % 2 == 1);
-        IR_t * chain_next = ω;
-        if (has_dflt) {
-            IR_t * dasn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(dasn).sval = (char *) CVAR;
-            IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], dasn, ω, &dv);
-            { IR_t * dvf = icn_arm_result(dv); if (dvf) { ir_operand_push(dasn, dvf); γ_to(dvf, dasn); } }
-            if (de && ir_is_generator_kind(de->op)) { IR_t * DENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(DENT, de); lc_ω_to_α(DENT, de); de = DENT; }
-            chain_next = de;
-        }
-        for (int i = npairs - 1; i >= 0; i--) {
-            int ki = 1 + i * 2; int bi = ki + 1;
-            cx->beta = ω;
-            IR_t * ksel_ω = is_resumable(t->c[ki]) ? chain_next : ω;
-            IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ksel_ω, &kn);
-            IR_t * kβ = cx->beta;
-            IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
-            IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], asn, ω, &bv);
-            { IR_t * bvf = icn_arm_result(bv); if (bvf) { ir_operand_push(asn, bvf); γ_to(bvf, asn); } }
-            IR_t * idc = build(cx, IR_CALL_BUILTIN, be, chain_next);
-            IR_LIT(idc).sval = (char *) "IDENTICAL";
-            if (is_resumable(t->c[bi]) || (be && ir_is_generator_kind(be->op))) lc_γ_to_α(idc, be);
-            ir_operand_push(idc, sr);
-            ir_operand_push(idc, kn);
-            γ_to(kn, idc);
-            if (kβ && kβ != ω) lc_ω_to_β(idc, kβ);
-            IR_t * ke_target = ke ? ke : idc;
-            if (ke && is_resumable(t->c[ki])) {
-                IR_t * KENT = build(cx, IR_GOTO, NULL, NULL);
-                lc_γ_to_α(KENT, ke); lc_ω_to_α(KENT, ke);
-                ke_target = KENT;
-            }
-            chain_next = ke_target;
-        }
-        γ_to(sr, chain_next);
-        cx->beta = ω; *res = cvar; return se; }
+    case TT_CASE: return lower_case(cx, t, γ, ω, res);
     case TT_CONJ:
     case TT_SEQ_EXPR: {
         lc_vec Sv; lc_vec_init(&Sv, (int) sizeof(const tree_t *));
@@ -1351,6 +1311,56 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     IR_LIT(dj).ival = (long) n;
     cx->beta = dj; *res = dj;
     return icn_dj_α_entry(g, dj);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_arm_mark_edges(IR_graph_t * g, int before, IR_t * dj) {
+    for (int k = before; k < g->n; k++) {
+        IR_t * x = g->all[k];
+        if (!x) continue;
+        if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+        if (x->γ.node == dj) { if ((x->op == IR_GOTO && x->ω.node == dj) || icn_γ_is_fail_conduit(x)) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_case(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_graph_t * g = cx->g;
+    if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    int nc = t->n - 1, npairs = nc / 2, n = npairs + (nc % 2 == 1);
+    IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
+    if (n == 0) { γ_to(sr, ω); cx->beta = ω; *res = sr; return se; }
+    IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
+    γ_to(dj, γ); ω_to(dj, ω);
+    IR_t * fs = IR_node_alloc(g, IR_FAIL);
+    IR_t ** entv = (IR_t **) ct_zalloc((size_t) n, sizeof *entv); IR_t ** resumev = (IR_t **) ct_zalloc((size_t) n, sizeof *resumev); IR_t ** resv = (IR_t **) ct_zalloc((size_t) n, sizeof *resv);
+    for (int j = 0; j < n; j++) {
+        const tree_t * SEL = (j < npairs) ? t->c[1 + 2 * j] : NULL;
+        const tree_t * BODY = (j < npairs) ? t->c[2 + 2 * j] : t->c[t->n - 1];
+        int before = g->n;
+        IR_t * ar = NULL; cx->beta = dj;
+        IR_t * aent = lower(cx, BODY, dj, ω, &ar);
+        IR_t * ab = cx->beta; int arm_end = g->n;
+        int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        if (SEL) {
+            IR_t * aent0 = aent; cx->beta = dj;
+            IR_t * kn = NULL; IR_t * ke = lower(cx, SEL, NULL, dj, &kn);
+            IR_t * kβ = cx->beta;
+            IR_t * idc = build(cx, IR_CALL_BUILTIN, aent0, dj); IR_LIT(idc).sval = (char *) "IDENTICAL";
+            lc_γ_to_α(idc, aent0);
+            ir_operand_push(idc, sr); ir_operand_push(idc, kn); γ_to(kn, idc);
+            if (kβ && kβ != dj && kβ != ω) lc_ω_to_β(idc, kβ);
+            aent = ke ? ke : idc;
+            if (ke && is_resumable(SEL)) { IR_t * KENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(KENT, ke); lc_ω_to_α(KENT, ke); aent = KENT; }
+        }
+        icn_arm_mark_edges(g, before, dj);
+        entv[j] = aent; resumev[j] = ab_in_arm ? ab : fs; resv[j] = ar;
+    }
+    for (int j = 0; j < n; j++) { ir_operand_push(dj, entv[j]); ir_operand_push(dj, resumev[j]); }
+    for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
+    IR_LIT(dj).ival = (long) n;
+    lc_γ_to_α(sr, icn_dj_α_entry(g, dj));
+    ct_drop(entv); ct_drop(resumev); ct_drop(resv);
+    cx->beta = dj; *res = dj;
+    return se;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {

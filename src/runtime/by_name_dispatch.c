@@ -7703,7 +7703,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         *out = BSTRVAL(buf, sl*n); return 1;
     }
     L_bidjmp_5531: ;
-    if ((_bid == BID_reverse) && nargs == 1) {
+    if ((_bid == BID_reverse) && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int sl=icn_true_len(args[0], s); char *buf=rt_wsb_alloc(sl+1);
         for(int i=0;i<sl;i++) buf[i]=s[sl-1-i]; buf[sl]='\0';
