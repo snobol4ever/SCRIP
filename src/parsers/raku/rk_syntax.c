@@ -2194,6 +2194,14 @@ static int r_special_variable(RkP *p, int pos) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int compile_time_var_known(const char *s, int n) {
+    static const char *const known[] = { "$?FILE", "$?LINE", "$?DISTRIBUTION", "$?LANG", "%?LANG", "$?NL", "$?BITS", "$?TABSTOP", "$?PACKAGE", "%?RESOURCES", "$?CHECKSUM", "$?FILES",
+                                         "$?SOURCE", "$?STRICT", "$?LANGUAGE-REVISION", "%?REQUIRE-SYMBOLS", "$?CONCRETIZATION", "$?CLASS", "$?ROLE", "$?MODULE", "$?REGEX", "&?ROUTINE",
+                                         "&?BLOCK", 0 };
+    for (int i = 0; known[i]; i++) if ((int) strlen(known[i]) == n && !memcmp(known[i], s, (size_t) n)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_variable(RkP *p, int pos) {
     int c = ch(p, pos);
     int sm = p->in_meta; p->in_meta = 0;
@@ -2212,7 +2220,9 @@ static int r_variable(RkP *p, int pos) {
             int d = r_desigilname(p, q);
             if (d < 0 && twig) { twig = 0; q = pos + 1; d = r_desigilname(p, q); }
             if (d >= 0) e = d;
-            else if (!twig) {
+            if (d >= 0 && twig == '?' && !p->in_decl && !memmem(p->s + pos, (size_t) (d - pos), "::", 2) && !compile_time_var_known(p->s + pos, d - pos))
+                panic_at(p, pos, "Variable '%.*s' is not declared", d - pos, p->s + pos);
+            if (d < 0 && !twig) {
                 int d1 = ch(p, q);
                 if (is_digit_cp(cp_at(p, q))) { if (p->in_decl) panic_at(p, pos, "Cannot declare a numeric variable"); e = r_decint(p, q); }
                 else if (d1 == '<') { if (p->in_decl) panic_at(p, pos, "Cannot declare a match variable"); e = r_postcircumfix(p, q); }
