@@ -12,6 +12,10 @@
 # converter that answers finite-or-fails, and EVAL, CONVERT and the dispatcher's own CONVERT fast path all go
 # through it. The same defect reached the same program through different doors this morning -- the coercion
 # fix -- and a gate holding one door would have let the next one keep its own spelling.
+# ⭐ AMENDED (cfo 2026-09-26): CONVERT and both dispatcher copies now answer through rt_sno_cnv_num, SPITBOL's
+# gtnum transcribed (test_gate_sno_convert_reads_a_numeric_string_as_spitbol_gtnum_does.sh), which also fails an
+# overflowing decimal -- sbl fails even DBL_MAX's exact decimal, and so does the transcription. EVAL keeps
+# rt_str_to_real. This gate's arms read identically on both converters.
 #
 # ⛔ NOT A ROUNDING GATE, AND THE DISTINCTION IS LOAD-BEARING: the boundary VALUES here are the ones CPython's
 # correctly-rounded strtod agrees with, and at the denormal edge our boundary and the ORACLE's differ because

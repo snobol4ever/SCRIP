@@ -6999,24 +6999,10 @@ static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     if (nargs != 2) return 0;
     { char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
       char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
-      { DESCR_t a = args[0];
+      { DESCR_t a = args[0]; extern DESCR_t rt_sno_cnv_num(DESCR_t, int);
         if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
-        if (!strcmp(tu, "INTEGER")) {
-            if (IS_INT_fn(a)) { *out = a; return 1; }
-            if (IS_REAL_fn(a)) { *out = INTVAL((long long)a.r); return 1; }
-            { const char *sv = VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
-              { char *e = NULL; long long iv = strtoll(sv, &e, 10); if (e && *e == '\0' && e != sv) { *out = INTVAL(iv); return 1; } }
-              { char *e = NULL; double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = INTVAL((long long)dv); return 1; } } }
-            *out = FAILDESCR; return 1;
-        }
-        if (!strcmp(tu, "REAL")) {
-            if (IS_REAL_fn(a)) { *out = a; return 1; }
-            if (IS_INT_fn(a)) { *out = REALVAL((double)a.i); return 1; }
-            { extern int rt_str_to_real(const char *, double *);
-              const char *sv = IS_STR(a) ? rt_cstr_d(a) : VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
-              { double dv; if (rt_str_to_real(sv, &dv)) { *out = REALVAL(dv); return 1; } } }
-            *out = FAILDESCR; return 1;
-        }
+        if (!strcmp(tu, "INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
+        if (!strcmp(tu, "REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
         if (!strcmp(tu, "STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
         return 0; } }
 }
@@ -8907,24 +8893,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_CONVERT) && nargs == 2) {
         char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
         char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
-        DESCR_t a = args[0];
+        DESCR_t a = args[0]; extern DESCR_t rt_sno_cnv_num(DESCR_t, int);
         if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
-        if (!strcmp(tu,"INTEGER")) {
-            if (IS_INT_fn(a)) { *out = a; return 1; }
-            if (IS_REAL_fn(a)) { *out = INTVAL((long long)a.r); return 1; }
-            const char *sv = VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
-            char *e = NULL; long long iv = strtoll(sv, &e, 10); if (e && *e == '\0' && e != sv) { *out = INTVAL(iv); return 1; }
-            double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = INTVAL((long long)dv); return 1; }
-            *out = FAILDESCR; return 1;
-        }
-        if (!strcmp(tu,"REAL")) {
-            if (IS_REAL_fn(a)) { *out = a; return 1; }
-            if (IS_INT_fn(a)) { *out = REALVAL((double)a.i); return 1; }
-            { extern int rt_str_to_real(const char *, double *);
-              const char *sv = IS_STR(a) ? rt_cstr_d(a) : VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
-              { double dv; if (rt_str_to_real(sv, &dv)) { *out = REALVAL(dv); return 1; } } }
-            *out = FAILDESCR; return 1;
-        }
+        if (!strcmp(tu,"INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
+        if (!strcmp(tu,"REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
         if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
         return 0;
     }

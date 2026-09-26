@@ -14,6 +14,7 @@
 extern int g_protected_pat_vars_armed;
 int core_icn_error(int code, DESCR_t val);
 int rt_str_to_real(const char *s, double *out);
+DESCR_t rt_sno_cnv_num(DESCR_t v, int want);
 int g_call_fastpath_off = 0;
 #include <stdio.h>
 #include <stdlib.h>
@@ -1788,15 +1789,8 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         const char *s = VARVAL_fn(val);
         return s ? STRVAL(rt_heap_strdup_c(s)) : NULVCL;
     }
-    if (strcmp(type, "INTEGER") == 0) {
-        if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
-        return INTVAL((int64_t)to_int(val));
-    }
-    if (strcmp(type, "REAL")    == 0) {
-        if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
-        if (IS_STR(val)) { double rv; if (!rt_str_to_real(rt_cstr_d(val), &rv)) return FAILDESCR; return REALVAL(rv); }
-        return REALVAL(to_real(val));
-    }
+    if (strcmp(type, "INTEGER") == 0) return rt_sno_cnv_num(val, 'I');
+    if (strcmp(type, "REAL")    == 0) return rt_sno_cnv_num(val, 'R');
     if (strcmp(type, "ARRAY")   == 0) {
         if (IS_ARR(val)) return val;
         if (IS_TBL(val) && val.tbl) {
@@ -1880,21 +1874,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         if (!s || !*s) return FAILDESCR;
         return NAMEVAL(rt_heap_strdup_c(s));
     }
-    if (strcmp(type, "NUMERIC")    == 0) {
-        if (IS_INT(val)) return val;
-        if (IS_REAL(val)) return val;
-        if (IS_STR(val) || val.v == DT_SNUL) {
-            const char *s = val.s ? val.s : "";
-            while (*s == ' ') s++;
-            if (!*s) return INTVAL(0);
-            char *end = NULL;
-            long long iv = strtoll(s, &end, 10);
-            while (*end == ' ') end++;
-            if (*end == '\0') return INTVAL((int64_t)iv);
-            { double rv; if (rt_str_to_real(s, &rv)) return REALVAL(rv); }
-        }
-        return FAILDESCR;
-    }
+    if (strcmp(type, "NUMERIC")    == 0) return rt_sno_cnv_num(val, 'N');
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3942,6 +3922,139 @@ int rt_str_to_real(const char *s, double *out) {
       if (!isfinite(v)) return 0;
       if (out) *out = v;
       return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static double rt_gtn_ftz(double r) { return fpclassify(r) == FP_SUBNORMAL ? 0.0 : r; }
+static double rt_gtn_pow10(int64_t k) { double p = 1.0; while (k-- > 0) p *= 10.0; return p; }
+static int rt_gtn_cvm(int64_t *ia, int wb) { int64_t t; if (__builtin_mul_overflow(*ia, (int64_t)10, &t) || __builtin_sub_overflow(t, (int64_t)(wb - '0'), &t)) return 0; *ia = t; return 1; }
+static int rt_gtn_str(const char *s, long n, DESCR_t *out) {
+    int64_t ia = 0, si = 0, ex = 0, sc = 0, t = 0; long p = 0, wa = n; int nf = 0, df = 0, rd = 0, es = 0, wb = 0; double ra = 0.0, sr = 0.0;
+    if (n <= 0) { *out = INTVAL(0); return 1; }
+gtn01:
+    wb = (unsigned char)s[p++];
+    if (wb >= '0' && wb <= '9') goto gtn06;
+    if (wb != ' ') goto gtn03;
+gtna2:
+    if (--wa) goto gtn01;
+    goto gtn07;
+gtn03:
+    if (wb == '+') goto gtn04;
+    if (wb == '\t') goto gtna2;
+    if (wb != '-') goto gtn12;
+    nf = 1;
+gtn04:
+    if (--wa) goto gtn05;
+    return 0;
+gtn05:
+    wb = (unsigned char)s[p++];
+    if (wb < '0' || wb > '9') goto gtn08;
+gtn06:
+    si = ia;
+    if (!rt_gtn_cvm(&ia, wb)) goto gtn35;
+    rd = 1;
+    if (--wa) goto gtn05;
+gtn07:
+    if (nf) goto gtn32;
+    if (ia == INT64_MIN) return 0;
+    ia = -ia;
+gtn32:
+    *out = INTVAL(ia);
+    return 1;
+gtn08:
+    if (wb == ' ' || wb == '\t') goto gtna9;
+    ra = -(double)ia;
+    goto gtn12;
+gtn09:
+    wb = (unsigned char)s[p++];
+    if (wb == '\t') goto gtna9;
+    if (wb != ' ') return 0;
+gtna9:
+    if (--wa) goto gtn09;
+    goto gtn07;
+gtn10:
+    wb = (unsigned char)s[p++];
+    if (wb < '0' || wb > '9') goto gtn12;
+gtn11:
+    ra = rt_gtn_ftz(ra * 10.0);
+    if (!isfinite(ra)) return 0;
+    sr = ra;
+    ra = rt_gtn_ftz((double)(wb - '0') + sr);
+    sc += df;
+    rd = 1;
+    if (--wa) goto gtn10;
+    goto gtn22;
+gtn12:
+    if (wb != '.') goto gtn13;
+    if (df) return 0;
+    df = 1;
+    if (--wa) goto gtn10;
+    goto gtn22;
+gtn13:
+    if (wb == 'e' || wb == 'd' || wb == 'E' || wb == 'D') goto gtn15;
+gtn14:
+    if (wb != ' ' && wb != '\t') return 0;
+    wb = p < n ? (unsigned char)s[p] : 0;
+    p++;
+    if (--wa) goto gtn14;
+    goto gtn22;
+gtn15:
+    es = 0;
+    ia = 0;
+    df = 1;
+    if (--wa) goto gtn16;
+    return 0;
+gtn16:
+    wb = (unsigned char)s[p++];
+    if (wb == '+') goto gtn17;
+    if (wb != '-') goto gtn19;
+    es = 1;
+gtn17:
+    if (--wa) goto gtn18;
+    return 0;
+gtn18:
+    wb = (unsigned char)s[p++];
+gtn19:
+    if (wb < '0' || wb > '9') goto gtn20;
+    if (!rt_gtn_cvm(&ia, wb)) return 0;
+    if (--wa) goto gtn18;
+    goto gtn21;
+gtn20:
+    if (wb != ' ' && wb != '\t') return 0;
+    wb = p < n ? (unsigned char)s[p] : 0;
+    p++;
+    if (--wa) goto gtn20;
+gtn21:
+    ex = ia;
+    if (es) goto gtn22;
+    if (ia == INT64_MIN) return 0;
+    ex = -ia;
+gtn22:
+    if (!rd || !df) return 0;
+    if (__builtin_sub_overflow(sc, ex, &t)) return 0;
+    if (t < 0) goto gtn26;
+    for (; t > 10 && ra != 0.0; t -= 10) ra = rt_gtn_ftz(ra / 1.0e10);
+    if (t > 0 && t <= 10) ra = rt_gtn_ftz(ra / rt_gtn_pow10(t));
+    goto gtn30;
+gtn26:
+    if (t == INT64_MIN) return 0;
+    for (t = -t; t > 10 && ra != 0.0; t -= 10) { ra = rt_gtn_ftz(ra * 1.0e10); if (!isfinite(ra)) return 0; }
+    if (t > 0 && t <= 10) { ra = rt_gtn_ftz(ra * rt_gtn_pow10(t)); if (!isfinite(ra)) return 0; }
+gtn30:
+    if (nf) ra = -ra;
+    *out = REALVAL(ra);
+    return 1;
+gtn35:
+    ra = -(double)si;
+    goto gtn11;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_sno_cnv_num(DESCR_t v, int want) {
+    DESCR_t d = v;
+    if (IS_STR(v)) { const char *s = v.s ? v.s : ""; long n = (long)descr_slen(v); if (!n && *s) n = (long)strlen(s); if (!rt_gtn_str(s, n, &d)) return FAILDESCR; }
+    else if (!IS_INT(v) && !IS_REAL(v)) return FAILDESCR;
+    if (want == 'R' && IS_INT(d)) return REALVAL((double)d.i);
+    if (want != 'I' || !IS_REAL(d)) return d;
+    { int64_t ia = (d.r >= -9223372036854775808.0 && d.r < 9223372036854775808.0) ? (int64_t)d.r : INT64_MIN; return ia == 2147483648LL ? FAILDESCR : INTVAL(ia); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *core_define_entry_label(const char *name) {
