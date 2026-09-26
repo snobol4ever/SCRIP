@@ -29,6 +29,9 @@ typedef struct RkP {
     int goal; int qsigil; int in_meta; int in_reduce; int invocant_ok; int in_decl; int leftsigil; int in_proto; int multiness;
     int has_self; int scope; int in_regex_assert;
     const char *ustop; int ustop_len;
+    int p5isms;
+    char *libs[16]; int nlibs; int load_depth;
+    char *decls[16]; int ndecls;
     RkHere here[64]; int nhere;
     RkUserOp *uops; int nuops; int cuops;
     RkName *names; int nnames; int cnames;
@@ -394,6 +397,7 @@ static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
 /*====================================================================================================================================================================================================*/
 static int r_nibble_until(RkP *p, int pos, RkLang *L, int *endpos);
 static void register_user_op(RkP *p, int from, int to);
+static int r_semilist(RkP *p, int pos);
 static int r_block(RkP *p, int pos);
 static int r_blockoid(RkP *p, int pos);
 static int r_EXPR(RkP *p, int pos, int preclim);
@@ -1048,7 +1052,7 @@ static int rx_ws(RkP *p, int pos) {
     for (;;) {
         int c = cp_at(p, pos);
         if (is_space_cp(c)) { pos += cp_len(p, pos); continue; }
-        if (c == '#') { while (pos < p->n && !is_vspace_cp(cp_at(p, pos))) pos += cp_len(p, pos); continue; }
+        if (c == '#') { pos = r_comment(p, pos); continue; }
         return pos;
     }
 }
@@ -1516,7 +1520,7 @@ static int user_op_longest_i(RkP *p, int pos, char cat, int *prec, int *idx) {
         RkUserOp *u = &p->uops[i];
         if (u->cat != cat || u->len <= bl) continue;
         if (pos + u->len > p->n || memcmp(p->s + pos, u->sym, (size_t) u->len)) continue;
-        if (u->wordend && wordch_at(p, pos + u->len)) continue;
+        if (u->wordend && (cat == 't' || cat == 'p') && wordch_at(p, pos + u->len)) continue;
         bl = u->len; *prec = u->prec; *idx = i;
     }
     return bl;
@@ -1559,14 +1563,19 @@ static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
         return e;
     }
     if (c == '=' && !at_lit(p, pos, "==") && !at_lit(p, pos, "=>") && !at_lit(p, pos, "=:=") && !at_lit(p, pos, "=~") && !at_lit(p, pos, "===") && ul <= 1) {
-        if (at_lit(p, pos, "=~") && !at_lit(p, pos, "=~=")) panic_at(p, pos, "Unsupported use of =~ to do pattern matching; in Raku please use ~~");
+        if (at_lit(p, pos, "=~") && !at_lit(p, pos, "=~=") && !p->p5isms) panic_at(p, pos, "Unsupported use of =~ to do pattern matching; in Raku please use ~~");
+        if (p->p5isms && at_lit(p, pos, "=~")) { o->prec = PR('m'); o->sub = o->prec; o->assoc = AS_LEFT; o->flags = OF_CHAIN | OF_IFFY; o->from = pos; o->to = pos + 2; o->nextterm = NT_TERMISH; return pos + 2; }
         int item = p->leftsigil == '$' || p->in_meta;
         o->prec = PR('i'); o->sub = item ? PR('i') : PR('e'); o->assoc = AS_RIGHT; o->flags = item ? 0 : OF_FIDDLY; o->from = pos; o->to = pos + 1; o->nextterm = NT_TERMISH;
         p->leftsigil = 0;
         return pos + 1;
     }
-    if (at_lit(p, pos, "=~") && !at_lit(p, pos, "=~=")) panic_at(p, pos, "Unsupported use of =~ to do pattern matching; in Raku please use ~~");
-    if (at_lit(p, pos, "!~") && !at_lit(p, pos, "!~~") && is_space_cp(cp_at(p, pos + 2))) panic_at(p, pos, "Unsupported use of !~ to do negated pattern matching; in Raku please use !~~");
+    if (at_lit(p, pos, "=~") && !at_lit(p, pos, "=~=") && !p->p5isms) panic_at(p, pos, "Unsupported use of =~ to do pattern matching; in Raku please use ~~");
+    if (p->p5isms && ((at_lit(p, pos, "=~") && !at_lit(p, pos, "=~=")) || (at_lit(p, pos, "!~") && !at_lit(p, pos, "!~~")))) {
+        o->prec = PR('m'); o->sub = o->prec; o->assoc = AS_LEFT; o->flags = OF_CHAIN | OF_IFFY; o->from = pos; o->to = pos + 2; o->nextterm = NT_TERMISH;
+        return pos + 2;
+    }
+    if (at_lit(p, pos, "!~") && !at_lit(p, pos, "!~~") && is_space_cp(cp_at(p, pos + 2)) && !p->p5isms) panic_at(p, pos, "Unsupported use of !~ to do negated pattern matching; in Raku please use !~~");
     if (at_lit(p, pos, "::=")) panic_at(p, pos, "\"::=\" not yet implemented. Sorry.");
     if (at_lit(p, pos, ".=")) { o->prec = PR('v'); o->sub = PR('z'); o->assoc = AS_LEFT; o->flags = OF_FIDDLY | OF_DOTTY; o->from = pos; o->to = pos + 2; o->nextterm = NT_DOTTYOPISH; return pos + 2; }
     if (c == '.' && !at_lit(p, pos, "..") && ul <= 1) {
@@ -1636,14 +1645,14 @@ static int r_infixish_core(RkP *p, int pos, OpInfo *o, int in_meta) {
             else if (c == 0xAB || c == 0xBB) panic_at(p, e, "Missing \xc2\xab or \xc2\xbb");
         }
     }
-    int neg_bad = -1;
+    int neg_bad = -1; int chose_meta = 0;
     if (c == '!' && ch(p, pos + 1) != '!') {
         int e = r_infixish(p, pos + 1, &t, 'n');
         if (e >= 0) {
             int is_eq = (e == pos + 2 && ch(p, pos + 1) == '=');
             if (is_eq) { t.prec = PR('m'); t.sub = t.prec; t.assoc = AS_LEFT; t.flags = OF_CHAIN | OF_IFFY; }
             else if (!(t.flags & OF_IFFY)) neg_bad = e;
-            if (e > best) { best = e; bo = t; bo.from = pos; bo.to = e; }
+            if (e > best) { best = e; bo = t; bo.from = pos; bo.to = e; chose_meta = 1; }
         }
     }
     if ((c == 'R' || c == 'S' || c == 'X' || c == 'Z') && !wordch_at(p, pos + 1)) {
@@ -1661,10 +1670,10 @@ static int r_infixish_core(RkP *p, int pos, OpInfo *o, int in_meta) {
         }
     }
     int e = r_infix_plain(p, pos, &t);
-    if (e >= 0 && e >= best) { best = e; bo = t; }
+    if (e >= 0 && e >= best) { best = e; bo = t; chose_meta = 0; }
     p->in_meta = sm;
     if (best < 0) return -1;
-    if (neg_bad >= 0 && best == neg_bad && bo.from == pos && c == '!') panic_at(p, pos, "Cannot negate %.*s because it is not iffy enough", neg_bad - pos - 1, p->s + pos + 1);
+    if (neg_bad >= 0 && best == neg_bad && chose_meta && c == '!') panic_at(p, pos, "Cannot negate %.*s because it is not iffy enough", neg_bad - pos - 1, p->s + pos + 1);
     if (ch(p, best) == '=' && ch(p, best + 1) != '=' && !(bo.flags & OF_DOTTY) && best - bo.from >= 1 && !(best - bo.from == 1 && ch(p, bo.from) == '=')) {
         int prevop_is_assign = (bo.prec == PR('i'));
         if (!prevop_is_assign && !(bo.prec == PR('m') && ch(p, best - 1) == '=')) {
@@ -1776,6 +1785,19 @@ static int r_postfixish(RkP *p, int pos) {
         }
     }
     int e;
+    if (p->nuops) {
+        int prec; int idx; int l = user_op_longest_i(p, q, 'k', &prec, &idx);
+        if (l > 0 && idx >= 0 && idx + 1 < p->nuops && p->uops[idx + 1].cat == 'K') {
+            RkUserOp *cl = &p->uops[idx + 1];
+            const char *su = p->ustop; int sl = p->ustop_len; int sq = p->qsigil;
+            p->ustop = cl->sym; p->ustop_len = cl->len; p->qsigil = 0;
+            int t = r_semilist(p, q + l);
+            p->ustop = su; p->ustop_len = sl; p->qsigil = sq;
+            t = ws(p, t);
+            if (t + cl->len <= p->n && !memcmp(p->s + t, cl->sym, (size_t) cl->len)) return t + cl->len;
+            panic_at(p, t, "Unable to parse postcircumfix:<%s %s>; couldn't find final %s", p->uops[idx].sym, cl->sym, cl->sym);
+        }
+    }
     if ((e = r_postfix_op(p, q)) >= 0) return e;
     if (ch(p, q) == '.' && !is_word_cp(cp_at(p, q + 1)) && (e = r_postfix_op(p, q + 1)) >= 0) return e;
     if ((e = r_postcircumfix(p, q)) >= 0) return e;
@@ -1878,6 +1900,7 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
         if (noinfix) break;
         int w = r_ws(p, t);
         if (w < 0) break;
+        last_end = w;
         OpInfo o;
         int saved_ls = p->leftsigil;
         int e;
@@ -1886,7 +1909,7 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
             if (e < 0) break;
             if (o.prec <= preclim) { e = -1; p->leftsigil = saved_ls; break; }
             while (ns && st[ns - 1].sub > o.prec) ns--;
-            if (o.flags & OF_FAKE) { last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } continue; }
+            if (o.flags & OF_FAKE) { last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } last_end = w; continue; }
             break;
         }
         if (e < 0) break;
@@ -2981,10 +3004,10 @@ static int r_blockoid(RkP *p, int pos) {
     if (at_lit(p, pos, "{YOU_ARE_HERE}")) panic_at(p, pos, "Reserved use of {YOU_ARE_HERE} outside of a setting");
     if (ch(p, pos) != '{') panic_at(p, pos, "Missing block");
     int sg = p->goal; int sq = p->qsigil; int sr = p->in_reduce; int sm = p->in_meta; int sa = p->invocant_ok; int sd = p->in_decl; int sl = p->leftsigil; int ss = p->scope;
-    const char *su = p->ustop; int sul = p->ustop_len;
+    const char *su = p->ustop; int sul = p->ustop_len; int s5 = p->p5isms;
     p->goal = 0; p->qsigil = 0; p->in_reduce = 0; p->in_meta = 0; p->in_decl = 0; p->scope = 0; p->ustop = NULL; p->ustop_len = 0;
     int e = r_statementlist(p, pos + 1);
-    p->goal = sg; p->qsigil = sq; p->in_reduce = sr; p->in_meta = sm; p->invocant_ok = sa; p->in_decl = sd; p->leftsigil = sl; p->scope = ss; p->ustop = su; p->ustop_len = sul;
+    p->goal = sg; p->qsigil = sq; p->in_reduce = sr; p->in_meta = sm; p->invocant_ok = sa; p->in_decl = sd; p->leftsigil = sl; p->scope = ss; p->ustop = su; p->ustop_len = sul; p->p5isms = s5;
     if (ch(p, e) != '}') {
         if (e >= p->n) panic_at(p, e, "Missing block (couldn't find final '}' of block starting at line %d)", line_of(p, pos));
         panic_at(p, e, "Confused");
@@ -3132,7 +3155,7 @@ static void register_user_op_x(RkP *p, int from, int to, int exported) {
             int close = c == '<' ? '>' : c == 0xAB ? 0xBB : c == '[' ? ']' : c == '(' ? ')' : c == '{' ? '}' : 0;
             if (!close) return;
             int a = q + cp_len(p, q);
-            int b = a; while (b < to && cp_at(p, b) != close) b += cp_len(p, b);
+            int b = a; while (b < to && cp_at(p, b) != close) { if (p->s[b] == '\\' && b + 1 < to) b++; b += cp_len(p, b); }
             if (c == '<' && at_lit(p, q, "<<")) { a = q + 2; b = a; while (b < to && !at_lit(p, b, ">>")) b++; }
             int x = a; int y = b;
             if (c == '[' || c == '(') { while (x < y && (p->s[x] == '\'' || p->s[x] == '"' || asc_space((unsigned char) p->s[x]))) x++; while (y > x && (p->s[y - 1] == '\'' || p->s[y - 1] == '"' || asc_space((unsigned char) p->s[y - 1]))) y--; }
@@ -3271,6 +3294,10 @@ static int r_package_declarator(RkP *p, int pos) {
         int e = kok(p, pos, k[i]);
         if (e >= 0) return r_package_def(p, e, k[i]);
     }
+    for (int i = 0; i < p->ndecls; i++) {
+        int e = kok(p, pos, p->decls[i]);
+        if (e >= 0) return r_package_def(p, e, "class");
+    }
     int e;
     if ((e = kok(p, pos, "trusts")) >= 0) {
         int t = r_typename(p, e);
@@ -3301,6 +3328,7 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
         q = ws(p, n);
     }
     int unit = p->scope == 9;
+    int saved_scope = p->scope; p->scope = 0;
     scope_enter(p);
     if (!strcmp(kind, "role") && ch(p, q) == '[') {
         int s = r_signature(p, q + 1, 0); s = ws(p, s);
@@ -3325,15 +3353,16 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
         e = r_statementlist(p, q + 1);
         p->has_self = sh;
     }
-    else { scope_leave(p); panic_at(p, q, "Unable to parse %s definition", kind); return -1; }
+    else { scope_leave(p); p->scope = saved_scope; panic_at(p, q, "Unable to parse %s definition", kind); return -1; }
     scope_leave(p);
+    p->scope = saved_scope;
     if (!unit) memcpy(p->pkg, saved_pkg, sizeof saved_pkg);
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_enum_value(RkP *p, const char *en, int enl, const char *v, int vl) {
-    add_value_name(p, v, vl);
-    if (enl > 0) { char full[512]; int fl = snprintf(full, sizeof full, "%.*s::%.*s", enl, en, vl, v); if (fl > 0 && fl < (int) sizeof full) add_value_name(p, full, fl); }
+    add_our_name(p, v, vl); p->names[p->nnames - 1].value = 1;
+    if (enl > 0) { char full[512]; int fl = snprintf(full, sizeof full, "%.*s::%.*s", enl, en, vl, v); if (fl > 0 && fl < (int) sizeof full) { add_our_name(p, full, fl); p->names[p->nnames - 1].value = 1; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void enum_names_from(RkP *p, int from, int to, const char *en, int enl) {
@@ -3542,6 +3571,74 @@ static int r_statementlist(RkP *p, int pos) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_check_into(RkP *p, const char *src, int len, const char *path, RkP *out);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void add_use_lib(RkP *p, int from, int to) {
+    int q = from;
+    while (q < to) {
+        int parent = 1; const char *lit_s = NULL; int lit_n = 0; int prog = 0;
+        int e = q;
+        if (at_lit(p, q, "$*PROGRAM")) {
+            prog = 1; e = q + 9;
+            while (e < to && p->s[e] != ',' && p->s[e] != ';') {
+                if (at_lit(p, e, ".parent(")) { parent = atoi(p->s + e + 8); e += 8; continue; }
+                if (at_lit(p, e, ".parent")) { parent = 1; e += 7; continue; }
+                if (p->s[e] == '\'' || p->s[e] == '"') { char qc = p->s[e]; int b = e + 1; int t = b; while (t < to && p->s[t] != qc) t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; continue; }
+                e++;
+            }
+        }
+        else if (p->s[q] == '\'' || p->s[q] == '"') { char qc = p->s[q]; int b = q + 1; int t = b; while (t < to && p->s[t] != qc) t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; }
+        else if (p->s[q] == '<') { int b = q + 1; int t = b; while (t < to && p->s[t] != '>') t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; }
+        if (lit_s && p->nlibs < 16) {
+            char buf[1024];
+            if (prog) {
+                char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file);
+                for (int k = 0; k < parent; k++) { char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, sizeof dir, "."); }
+                snprintf(buf, sizeof buf, "%s/%.*s", dir, lit_n, lit_s);
+            }
+            else if (lit_n && lit_s[0] == '/') snprintf(buf, sizeof buf, "%.*s", lit_n, lit_s);
+            else { char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file); char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, sizeof dir, "."); snprintf(buf, sizeof buf, "%s/%.*s", dir, lit_n, lit_s); }
+            p->libs[p->nlibs++] = ct_strndup0(buf, (int) strlen(buf));
+        }
+        q = e > q ? e : q + 1;
+        while (q < to && (p->s[q] == ',' || asc_space((unsigned char) p->s[q]))) q++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void import_module(RkP *p, const char *name) {
+    if (p->load_depth >= 4) return;
+    char rel[512]; int k = 0;
+    for (int i = 0; name[i] && k < 500; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
+    rel[k] = 0;
+    static const char *const exts[] = { ".rakumod", ".pm6", ".pm", 0 };
+    for (int l = p->nlibs - 1; l >= 0; l--) {
+        for (int x = 0; exts[x]; x++) {
+            char path[1100]; snprintf(path, sizeof path, "%s/%s%s", p->libs[l], rel, exts[x]);
+            FILE *f = fopen(path, "rb");
+            if (!f) continue;
+            fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
+            char *src = (char *) ct_alloc((size_t) n + 1);
+            size_t got = fread(src, 1, (size_t) n, f); fclose(f); src[got] = 0;
+            RkP *m = (RkP *) ct_alloc(sizeof(RkP));
+            memset(m, 0, sizeof *m);
+            m->load_depth = p->load_depth + 1;
+            for (int i = 0; i < p->nlibs; i++) m->libs[m->nlibs++] = p->libs[i];
+            if (rk_check_into(m, src, (int) got, path, m) != 0) return;
+            for (int i = 0; i < m->nnames; i++) {
+                const char *nm = m->names[i].name;
+                if (!strncmp(nm, "EXPORTHOW::DECLARE::", 20) && nm[20] && p->ndecls < 16) p->decls[p->ndecls++] = ct_strndup0(nm + 20, (int) strlen(nm + 20));
+                if (m->names[i].depth == 0) { add_name_n(p, nm, (int) strlen(nm)); p->names[p->nnames - 1].value = m->names[i].value; }
+            }
+            for (int i = 0; i < m->nuops; i++) if (m->uops[i].depth >= 1000 || m->uops[i].depth <= 1) {
+                RkUserOp u = m->uops[i];
+                add_user_op(p, u.cat, u.sym, u.len, u.prec);
+                p->uops[p->nuops - 1].assoc = u.assoc; p->uops[p->nuops - 1].flags = u.flags;
+            }
+            return;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_module_name(RkP *p, int pos) {
     int e = r_longname(p, pos);
     if (e < 0) return -1;
@@ -3563,12 +3660,16 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     if (m < 0) panic_at(p, q, "Malformed %s", what);
     char name[128]; int nl = name_part_len(p, q, m); if (nl > 127) nl = 127; memcpy(name, p->s + q, (size_t) nl); name[nl] = 0;
     if (!strcmp(what, "use") && !strcmp(name, "parameters")) panic_at(p, q, "use parameters not yet implemented. Sorry.");
+    if (!strcmp(name, "isms")) p->p5isms = !strcmp(what, "use");
     int e = m;
     int c = cp_at(p, e);
+    int args_from = e;
     if (is_space_cp(c) || c == '#') {
         int t = ws(p, e);
         if (!stdstopper(p, t)) { int a = r_arglist(p, e); e = a; }
     }
+    if (!strcmp(what, "use") && !strcmp(name, "lib")) add_use_lib(p, ws(p, args_from), e);
+    else if (!strcmp(what, "use")) import_module(p, name);
     return ws(p, e);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3634,6 +3735,7 @@ static int r_statement_control(RkP *p, int pos) {
         for (;;) {
             if (r_version(p, q) >= 0) panic_at(p, q, "In case of using pragma, use \"use\" instead (e.g., \"use v6;\", \"use v6.c;\").");
             int m = r_module_name(p, q); if (m < 0) panic_at(p, q, "Malformed need");
+            { char nm[256]; int nl = name_part_len(p, q, m); if (nl > 255) nl = 255; memcpy(nm, p->s + q, (size_t) nl); nm[nl] = 0; import_module(p, nm); }
             q = ws(p, m);
             if (ch(p, q) == ',') { q = ws(p, q + 1); continue; }
             return q;
@@ -3697,6 +3799,18 @@ static int r_comp_unit(RkP *p) {
         panic_at(p, e, "Confused");
     }
     if (p->nhere) panic_at(p, p->n, "Ending delimiter %s not found", p->here[0].delim);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_check_into(RkP *p, const char *src, int len, const char *path, RkP *out) {
+    (void) out;
+    p->s = src; p->n = len; p->file = path ? path : "<stdin>";
+    p->wsmark = (int *) ct_alloc(sizeof(int) * ((size_t) len + 2));
+    memset(p->wsmark, 0, sizeof(int) * ((size_t) len + 2));
+    p->endmark = (unsigned char *) ct_alloc((size_t) len + 2);
+    memset(p->endmark, 0, (size_t) len + 2);
+    if (setjmp(p->jb)) return 1;
+    r_comp_unit(p);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
