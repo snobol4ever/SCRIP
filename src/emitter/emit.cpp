@@ -1554,44 +1554,49 @@ void drive_arg_slots_reserve(int n) {
     if (!grown) { fprintf(stderr, "FATAL emit_drive: arg-slot staging realloc to %d failed\n", cap); abort(); }
     g_emit.op_arg_slot = grown; g_emit.op_arg_slot_cap = cap;
 }
-#define AB_FNCELL_MAX 1024
-static void * g_ab_fn_cells[AB_FNCELL_MAX];
-static int    g_ab_fn_cell_n = 0;
-static char   g_ab_fn_names[AB_FNCELL_MAX][64];
+typedef struct { const char * name; int slot; } ab_ent_t;
+static cv_t g_ab_dir, g_ab_names, g_ab_hix;
+static int  g_ab_fn_cell_n = 0;
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned ab_fn_hash(const char * s) { unsigned h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int ab_hash_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_AB_HASH"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((noreturn)) static void ab_slot_full(const char * fname) {
-    fprintf(stderr, "FATAL bb_ab_slot_for: cell table full (%d) at '%s' -- raise AB_FNCELL_MAX (R-1 s94: old arm aliased slot 0 SILENTLY, the corruption this abort replaces)\n", AB_FNCELL_MAX, fname);
-    abort();
+static void ** ab_cell(int slot) { return (void **)CV_AT(g_ab_dir, void *, slot >> 10) + (slot & 1023); }
+static void ab_hix_put(const char * name, int slot) {
+    uint32_t m = g_ab_hix.len - 1, h = ab_fn_hash(name) & m;
+    while (CV_AT(g_ab_hix, ab_ent_t, h).name) h = (h + 1) & m;
+    CV_AT(g_ab_hix, ab_ent_t, h).name = name; CV_AT(g_ab_hix, ab_ent_t, h).slot = slot;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ab_hix_grow(void) {
+    uint32_t c = g_ab_hix.len ? g_ab_hix.len * 2 : 1024;
+    cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(ab_ent_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(ab_ent_t); g_ab_hix = v;
+    for (int s = 0; s < g_ab_fn_cell_n; s++) ab_hix_put(CV_AT(g_ab_names, const char *, s), s);
+}
+static int ab_slot_new(const char * fname) {
+    int s = g_ab_fn_cell_n;
+    if ((s & 1023) == 0) CV_PUSH(g_ab_dir, void *) = ct_zalloc(1024, sizeof(void *));
+    CV_PUSH(g_ab_names, const char *) = ct_strdup(fname);
+    *ab_cell(s) = (void *)(uintptr_t)rt_ab_undef_fn_stub;
+    g_ab_fn_cell_n = s + 1;
+    if (ab_hash_on()) { if ((uint64_t)g_ab_fn_cell_n * 2 > (uint64_t)g_ab_hix.len) ab_hix_grow(); else ab_hix_put(CV_AT(g_ab_names, const char *, s), s); }
+    return s;
+}
 static int bb_ab_slot_for(const char * fname) {
-    int hashed = ab_hash_on();
-    unsigned h = hashed ? (ab_fn_hash(fname) & (AB_FNCELL_MAX - 1)) : 0;
-    int cap = hashed ? AB_FNCELL_MAX : (g_ab_fn_cell_n + 1);
-    for (int step = 0; step < cap; step++) {
-        int i = hashed ? (int)((h + (unsigned)step) & (AB_FNCELL_MAX - 1)) : step;
-        int empty = hashed ? (g_ab_fn_names[i][0] == '\0') : (step == g_ab_fn_cell_n);
-        if (empty) {
-            if (g_ab_fn_cell_n >= AB_FNCELL_MAX) ab_slot_full(fname);
-            g_ab_fn_cell_n++;
-            snprintf(g_ab_fn_names[i], sizeof g_ab_fn_names[i], "%s", fname);
-            g_ab_fn_cells[i] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
-            return i;
-        }
-        if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
+    if (ab_hash_on()) {
+        if (g_ab_hix.len) { uint32_t m = g_ab_hix.len - 1, h = ab_fn_hash(fname) & m;
+            for (;; h = (h + 1) & m) { ab_ent_t * e = &CV_AT(g_ab_hix, ab_ent_t, h); if (!e->name) break; if (!strcmp(e->name, fname)) return e->slot; } }
+        return ab_slot_new(fname);
     }
-    ab_slot_full(fname);
+    for (int s = 0; s < g_ab_fn_cell_n; s++) if (!strcmp(CV_AT(g_ab_names, const char *, s), fname)) return s;
+    return ab_slot_new(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)] : (void *)0; }
-void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
+void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)ab_cell(bb_ab_slot_for(fname)) : (void *)0; }
+void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)ab_cell(bb_ab_slot_for(fname)); }
 int    bb_ab_slot_index(const char * fname) { return bb_ab_slot_for(fname); }
-void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < AB_FNCELL_MAX) ? (void *)&g_ab_fn_cells[slot] : (void *)0; }
+void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < g_ab_fn_cell_n) ? (void *)ab_cell(slot) : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_no_template(IR_t *nd) {
     fprintf(stderr, "FATAL emit_drive: IR op=%d has NO TEMPLATE in the universal driver -- the switch carries no case for it at all. Every op must be handled; the driver never refuses silently. Implement op=%d.\n",
