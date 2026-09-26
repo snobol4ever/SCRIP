@@ -3535,6 +3535,17 @@ static void record_method(RkP *p, int name_from, int name_to, int sig_from, int 
     strs_add(&k->multis, buf, m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void check_category(RkP *p, int from, int to) {
+    int i = r_identifier(p, from);
+    if (i < 0 || i >= to || ch(p, i) != ':' || ch(p, i + 1) == ':') return;
+    int k = i + 1;
+    if (at_lit(p, k, "sym") && !p->lang_e) k += 3;
+    if (!(ch(p, k) == '<' || cp_at(p, k) == 0xAB)) return;
+    static const char *const cats[] = { "infix", "prefix", "postfix", "circumfix", "postcircumfix", "term", "trait_mod", "METAOP_TEST_ASSIGN", "METAOP_TEST_ASSIGN_VALUE", 0 };
+    for (int c = 0; cats[c]; c++) if ((int) strlen(cats[c]) == i - from && !memcmp(cats[c], p->s + from, (size_t) (i - from))) return;
+    panic_at(p, from, "Cannot add tokens of category '%.*s'", i - from, p->s + from);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_routine_def(RkP *p, int pos, int is_method) {
     int q = pos; int name_from = -1, name_to = -1;
     if (is_method) {
@@ -3553,7 +3564,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     }
     else {
         int n = r_deflongname(p, q);
-        if (n >= 0) { name_from = q; name_to = n; q = ws(p, n); }
+        if (n >= 0) { name_from = q; name_to = n; q = ws(p, n); check_category(p, name_from, name_to); }
     }
     if (name_from >= 0) register_user_op(p, name_from, name_to);
     int nuops_before_traits = p->nuops;
