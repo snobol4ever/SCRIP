@@ -6,7 +6,8 @@
 #   setting, so the table is cut from the oracle (/usr/bin/raku), never typed: every non-sigiled CORE:: symbol two
 #   package levels deep (four under X::, where roast names deep exception types; enum values included, enum stashes
 #   not recursed), every CORE routine (&-sigiled) name, the names and routines a `use v6.e.PREVIEW` program's CORE
-#   adds (rk_core_e_*, each led by "" so no table is empty), and every routine `use Test` imports (the
+#   adds (rk_core_e_*, each led by "" so no table is empty), the Unicode name of every symbol and punctuation
+#   character (rk_uninames, sorted, for \c[NAME] in an operator's name), and every routine `use Test` imports (the
 #   undeclared-routine check resolves a bare call against them, as Rakudo's explain_mystery does). The whole word
 #   Term is written \124erm (octal T): the
 #   Term word-ref ratchet (test_gate_term_wordref_ratchet.sh) counts Prolog's Term representation, and Rakudo's
@@ -43,10 +44,11 @@ EOF
 "$RAKU" "$T/names.raku" 2>/dev/null | LC_ALL=C sort -u > "$T/names.txt"
 "$RAKU" -e 'say $_ for CORE::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u > "$T/routines.txt"
 "$RAKU" -e 'use Test; say $_ for MY::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u > "$T/test.txt"
+"$RAKU" -e 'for 0x21..0x10FFFF -> $c { my $u = $c.chr; next unless $u.uniprop ~~ /^<[SP]>/; my $n = $u.uniname; next if $n.starts-with("<"); say "$n\t$c" }' 2>/dev/null | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -u > "$T/uninames.txt"
 { echo 'use v6.e.PREVIEW;'; cat "$T/names.raku"; } > "$T/names_e.raku"
 "$RAKU" "$T/names_e.raku" 2>/dev/null | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$T/names.txt" > "$T/names_e.txt"
 "$RAKU" -e 'use v6.e.PREVIEW; say $_ for CORE::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$T/routines.txt" > "$T/routines_e.txt"
-[ -s "$T/names.txt" ] && [ -s "$T/routines.txt" ] && [ -s "$T/test.txt" ] || { echo "⛔ REFUSE rc=2 [util_raku_core_names_regen] -- the oracle answered nothing"; exit 2; }
+[ -s "$T/names.txt" ] && [ -s "$T/routines.txt" ] && [ -s "$T/test.txt" ] && [ -s "$T/uninames.txt" ] || { echo "⛔ REFUSE rc=2 [util_raku_core_names_regen] -- the oracle answered nothing"; exit 2; }
 {
     echo "#ifndef RK_CORE_NAMES_H"
     echo "#define RK_CORE_NAMES_H"
@@ -64,9 +66,13 @@ EOF
     echo '    "",'
     sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/routines_e.txt"
     echo "};"
+    echo "typedef struct { const char *name; int cp; } RkUniName;"
+    echo "static const RkUniName rk_uninames[] = {"
+    awk -F'\t' '{ printf "    { \"%s\", %s },\n", $1, $2 }' "$T/uninames.txt"
+    echo "};"
     echo "static const char *const rk_test_routines[] = {"
     sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/test.txt"
     echo "};"
     echo "#endif"
 } > "$OUT"
-echo "rk_core_names.h: $(wc -l < "$T/names.txt") names, $(wc -l < "$T/routines.txt") routines, $(wc -l < "$T/test.txt") Test routines, $(wc -l < "$T/names_e.txt")+$(wc -l < "$T/routines_e.txt") 6.e additions, cut from $("$RAKU" --version | head -1)"
+echo "rk_core_names.h: $(wc -l < "$T/names.txt") names, $(wc -l < "$T/routines.txt") routines, $(wc -l < "$T/test.txt") Test routines, $(wc -l < "$T/names_e.txt")+$(wc -l < "$T/routines_e.txt") 6.e additions, $(wc -l < "$T/uninames.txt") symbol names, cut from $("$RAKU" --version | head -1)"

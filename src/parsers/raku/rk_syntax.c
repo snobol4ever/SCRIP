@@ -422,14 +422,31 @@ static void scope_leave(RkP *p) {
     p->nuops = k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int uniname_cmp(const void *a, const void *b) { return strcmp((const char *) a, ((const RkUniName *) b)->name); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned uniname_cp(const char *s, int n) {
+    char buf[128]; int k = 0;
+    while (n > 0 && *s == ' ') { s++; n--; }
+    while (n > 0 && s[n - 1] == ' ') n--;
+    if (n <= 0 || n >= (int) sizeof buf) return 0;
+    int digits = 1;
+    for (int i = 0; i < n; i++) { char c = s[i]; if (c < '0' || c > '9') digits = 0; buf[k++] = (char) (c >= 'a' && c <= 'z' ? c - 32 : c); }
+    buf[k] = 0;
+    if (digits) return (unsigned) strtoul(buf, NULL, 10);
+    const RkUniName *u = (const RkUniName *) bsearch(buf, rk_uninames, sizeof rk_uninames / sizeof *rk_uninames, sizeof *rk_uninames, uniname_cmp);
+    return u ? (unsigned) u->cp : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
     if (len <= 0) return;
     RK_GROW(p->uops, p->nuops, p->cuops, RkUserOp);
     RkUserOp *u = &p->uops[p->nuops++];
     char *d = (char *) ct_alloc((size_t) len * 4 + 1); int k = 0;
     for (int i = 0; i < len; i++) {
-        if (sym[i] == '\\' && i + 2 < len && sym[i + 1] == 'x' && sym[i + 2] == '[') {
-            int j = i + 3; unsigned v = 0; while (j < len && sym[j] != ']') { char h = sym[j]; v = v * 16 + (unsigned) (h >= 'a' ? h - 'a' + 10 : h >= 'A' ? h - 'A' + 10 : h - '0'); j++; }
+        if (sym[i] == '\\' && i + 2 < len && (sym[i + 1] == 'x' || sym[i + 1] == 'c') && sym[i + 2] == '[') {
+            int j = i + 3; unsigned v = 0;
+            if (sym[i + 1] == 'c') { while (j < len && sym[j] != ']') j++; v = uniname_cp(sym + i + 3, j - i - 3); if (!v) { d[k++] = sym[i]; continue; } }
+            else while (j < len && sym[j] != ']') { char h = sym[j]; v = v * 16 + (unsigned) (h >= 'a' ? h - 'a' + 10 : h >= 'A' ? h - 'A' + 10 : h - '0'); j++; }
             if (v < 0x80) d[k++] = (char) v;
             else if (v < 0x800) { d[k++] = (char) (0xC0 | (v >> 6)); d[k++] = (char) (0x80 | (v & 0x3F)); }
             else if (v < 0x10000) { d[k++] = (char) (0xE0 | (v >> 12)); d[k++] = (char) (0x80 | ((v >> 6) & 0x3F)); d[k++] = (char) (0x80 | (v & 0x3F)); }
