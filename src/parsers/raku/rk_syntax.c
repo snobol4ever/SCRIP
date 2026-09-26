@@ -1922,13 +1922,19 @@ static int infix_in_term_position(RkP *p, int pos) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int autoincrement_postfix_at(RkP *p, int pos) {
+    int c = cp_at(p, pos);
+    if (at_lit(p, pos, "++") || at_lit(p, pos, "--") || at_lit(p, pos, "\xe2\x9a\x9b++") || at_lit(p, pos, "\xe2\x9a\x9b--")) return 1;
+    return c == 0x207B || c == 0x207A || c == 0xAF || c == 0x2070 || c == 0xB9 || c == 0xB2 || c == 0xB3 || (c >= 0x2074 && c <= 0x2079);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_termish(RkP *p, int pos) {
     int q = pos; int npre = 0; int lastpre = pos;
-    int prec;
+    int prec; int lastprec = 0;
     for (;;) {
         int e = r_prefixish(p, q, &prec);
         if (e < 0) break;
-        lastpre = q; q = e; npre++;
+        lastpre = q; q = e; npre++; lastprec = prec;
     }
     int t = r_term(p, q);
     if (t < 0) {
@@ -1951,7 +1957,13 @@ static int r_termish(RkP *p, int pos) {
         p->nends = base;
         return res;
     }
-    for (;;) { int e = r_postfixish(p, t); if (e < 0) break; t = e; p->leftsigil = '@'; }
+    int tq = q;
+    for (;;) {
+        int e = r_postfixish(p, t); if (e < 0) break;
+        if (npre && lastprec == PR('x') && autoincrement_postfix_at(p, t))
+            panic_at(p, t, "Operators '%.*s' and '%.*s' are non-associative and require parentheses", tq - lastpre, p->s + lastpre, e - t, p->s + t);
+        t = e; p->leftsigil = '@';
+    }
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
