@@ -127,6 +127,13 @@ done
 # REACHABLE BY CURING SAVE RECORDS and must not be written as the E switch's licence. ⛔ WHAT THIS ARM HOLDS: no NEW raw
 # push of a heap pointer appears on a graded collection. A cure lowers the ratchet only after the same read-watchpoint
 # experiment shows the word it removes was LIVE.
+# ⛔ RE-DECLARED 1 -> 2 (cfo 2026-09-26, the CEO-1274 board row), BY THE SAME EXPERIMENT AND NOT BY ARGUMENT. Bisected on the
+# two witnesses at stress 1, 128 KB: af773a80e (CEO-1251, the inline poll gate) is the first commit above 1 (it read 3; HEAD reads
+# 2 in both modes). The two words sit in main's graph at off=-112 (a HB_WSB payload) and off=-280 (a string payload). With ASLR
+# off, an access watchpoint armed at the first collection reporting both (hb_defer_subject collection 7, hb_nested_match_outer_
+# subject collection 10) and the collector's own accesses filtered, the PROGRAM's first touch of each slot afterwards is a WRITE:
+# rt_call_bid_sn4 (rtx_misc.s:30) at -112 and rt_call_land_γ (rt.c:1122) at -280, on both witnesses. Both are DEAD, as the old
+# residual was; the ratchet is the count at HEAD, so a THIRD word still reds this arm and names its offset.
 DSN="hb_defer_subject hb_nested_match_outer_subject"
 walk_arm7() {
     lbl=$1; shift
@@ -137,8 +144,8 @@ walk_arm7() {
     deep=$(awk '/^\[GC-WALK\] /{sw=0; rh=0; for(i=1;i<=NF;i++){if($i ~ /^s_words=/){split($i,a,"=");sw=a[2]} if($i ~ /^s_raw_heap=/){split($i,b,"=");rh=b[2]}} if (sw+0 > 80) d+=rh} END{print d+0}' "$W/ds_err.txt")
     if [ "$r" -ne 0 ] || ! cmp -s "$W/ds_out.txt" "$DSREF"; then echo "  arm 7 RED [$lbl]: rc=$r answer=[$(tail -1 "$W/ds_out.txt")] oracle=[$(cat "$DSREF")] -- the match lost its subject across a collection"; bad=1; return; fi
     if [ "$c" -lt 1 ]; then echo "  arm 7 RED [$lbl]: no collection observed under the reporter"; bad=1; return; fi
-    if [ "$worst" -gt ${ARM7_RATCHET:-1} ]; then echo "  arm 7 RED [$lbl]: a collection below an emitted return poll read $worst untagged heap words on the spine, above the ratchet of ${ARM7_RATCHET:-1} (the named residual: a carved-but-unwritten spine slot holding a popped mon-var tap word, measured DEAD by watchpoint) -- a new raw push of a heap pointer; sites by offset: $sites"; bad=1; return; fi
-    echo "  arm 7 PASS [$lbl]: $c collection(s), answer = oracle, at most $worst untagged heap word(s) below an emitted return poll (ratchet ${ARM7_RATCHET:-1}; sites by offset: ${sites:-none}; the C-entry poll residual under the by-name trampoline: $deep word(s), step 4's)"
+    if [ "$worst" -gt ${ARM7_RATCHET:-2} ]; then echo "  arm 7 RED [$lbl]: a collection below an emitted return poll read $worst untagged heap words on the spine, above the ratchet of ${ARM7_RATCHET:-2} (the named residuals: a popped mon-var tap word and, since af773a80e, the -112/-280 words of main's graph, each measured DEAD by watchpoint) -- a new raw push of a heap pointer; sites by offset: $sites"; bad=1; return; fi
+    echo "  arm 7 PASS [$lbl]: $c collection(s), answer = oracle, at most $worst untagged heap word(s) below an emitted return poll (ratchet ${ARM7_RATCHET:-2}; sites by offset: ${sites:-none}; the C-entry poll residual under the by-name trampoline: $deep word(s), step 4's)"
 }
 for dsn in $DSN; do
     DS="$ROOT/scripts/gc_witnesses/$dsn.sno"; DSREF="$ROOT/scripts/gc_witnesses/$dsn.ref"

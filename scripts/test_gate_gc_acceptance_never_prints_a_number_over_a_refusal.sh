@@ -104,8 +104,12 @@ rm -f "$FLOOR"
 python3 "$BROKEN" > "$T/broken.txt" 2>&1
 cp -f "$T/floor.saved" "$FLOOR"
 vis_line "$T/broken.txt" | sed 's/^/    ! /'
-if vis_line "$T/broken.txt" | grep -q '100.0%'; then
-    echo "  arm 2 PASS: FAIL-ONCE proven -- with the rc guard disabled the SAME trigger prints 16/16 100.0% over rc=2"
+# ⛔ RE-DECLARED 2026-09-26 (cfo, CEO-1274 board row): this arm grepped '100.0%' and went red the day event coverage fell to
+# 15/16, when the pre-cure copy printed '15 / 16 93.8%' over the same rc=2 -- a false number all the same.  A FAIL-ONCE arm
+# must test the PREDICATE arm 1 asserts (any '%' in VISIBILITY), never one value of it, or it is anchored on the coverage.
+false_pct=$(vis_line "$T/broken.txt" | grep '%' | head -1 | sed 's/^ *//')
+if [ -n "$false_pct" ]; then
+    echo "  arm 2 PASS: FAIL-ONCE proven -- with the rc guard disabled the SAME trigger prints a percentage over rc=2: $false_pct"
 else
     echo "  arm 2 FAIL: the pre-cure copy did NOT print the false percentage, so arm 1 is not known to be able to fail"; RC=1
 fi

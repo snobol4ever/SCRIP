@@ -80,7 +80,8 @@ SCRIP_GC_PLANT_FLIP|GC-FLIP|test_gate_gc_the_flip_plant_turns_a_stale_pointer_in
 SCRIP_GC_PLANT_STALE_FRAME|GC-STALEFRAME|test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh
 SCRIP_GC_PLANT_STALE_SIGMA|GC-STALESIGMA|test_gate_gc_the_scan_subject_base_is_reloaded_after_a_call_inside_a_scan.sh test_gate_gc_the_birth_ledger_names_a_line_not_a_two_thousand_line_symbol.sh
 SCRIP_GC_PLANT_STACK_LABEL|GC-STACKLABEL|test_gate_gc_the_stack_walk_survives_valgrind.sh
-SCRIP_GC_PLANT_CSET_STRONG|GC-CSET|test_gate_icn_the_cset_registry_is_weak_so_a_dead_computed_cset_leaves_the_collector.sh'
+SCRIP_GC_PLANT_CSET_STRONG|GC-CSET|test_gate_icn_the_cset_registry_is_weak_so_a_dead_computed_cset_leaves_the_collector.sh
+SCRIP_GC_PLANT_UNROOT|GC-UNROOT|test_gate_gc_conservative_auditor_reports_and_cannot_ship.sh'
 scan="$(cd "$HERE" && grep -HnE 'SCRIP_GC_PLANT_[A-Z_]+=' test_gate_*.sh 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#')"
 bad=""; rows=0; gates=0
 while IFS='|' read -r knob lit want; do

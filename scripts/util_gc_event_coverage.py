@@ -150,6 +150,13 @@ PROBES = [
     ("hb_nv.sno",                        "3", "1", {"SCRIP_GC_PLANT_SHIFT": "4096"}),  # reaches
                                                           # fill_block_insertion: the plant lays HB_FILL at the
                                                           # arena start (gc_heap.c:1405) every collection
+    ("hb_dvec_sort_match.sno",           "3", "1", {}),   # the quarantine_arm probe (cfo 2026-09-26): the five
+                                                          # above reached it only while the lowerer's lc_vec
+                                                          # garbage sat on the collected heap -- 957efcc7c moved
+                                                          # it to the compile-time arena, no collection vacated
+                                                          # a whole page and arms= read 0 (hb_nv.sno 68 -> 0,
+                                                          # bisected). This one arms 26 times at stress 1 under
+                                                          # four spellings and two root lengths, 0.3 s.
 ]
 
 # ⛔ WHAT BOUNDS A "NOT EXERCISED" VERDICT. hq_P's law: A NULL RESULT BOUNDS THE PROBE, NOT THE THING PROBED.

@@ -19,6 +19,11 @@
 #       the count falls only by curing roots or by writing down a measurement.
 #   (f) THE EXPIRY IS STRUCTURAL -- the day no OPEN row remains and a sweep finds nothing, THIS ARM REDS AND SAYS
 #       DELETE.  A disabled auditor is a conservative scan wearing an if.
+# ⛔⭐ (d3) AND (e2) STAND ON A PLANT SINCE 2026-09-26 (cfo, the CEO-1274 board row; CEO-554).  Both were keyed on a holder the
+# sweep FOUND, and when 957efcc7c took the lc_vec class off the collected heap the sweep found none and both went red on a
+# correct tree: a proof that needs a live defect dies of the cure.  SCRIP_GC_PLANT_UNROOT=1 exists ONLY in the auditor build
+# (#ifdef SCRIP_GC_AUDIT_B in gc_heap.c's root phase): it skips drv_gc_roots, so g_fh -- this detector's first real find --
+# is a lost root on purpose, and pass B must name it.  The unplanted sweep still grades every real holder in (e1) and (f1).
 #
 # ⛔ COST, MEASURED (cfo 2026-09-21, load 2.7-5.3, SCRIP_HEAP_MB=1).  The auditor's own build is a separate RT_TAG
 # and is built HERE, directly as out/libscrip_rt-<tag>.so, which is a target in its own right: the canonical
@@ -59,10 +64,11 @@ AUD_TAG=$(make -s RT_OPT="$AUD_OPT" buildinfo 2>/dev/null | awk '/^RT_TAG/{print
 [ -n "$AUD_TAG" ] || refuse "could not read RT_TAG for the auditor configuration out of \`make buildinfo\` -- without it this gate cannot name the library it must census"
 AUD_SO="$ROOT/out/libscrip_rt-$AUD_TAG.so"
 [ "$AUD_SO" != "$SHIP" ] || refuse "the auditor configuration hashed to the SHIPPED RT_TAG -- the two builds would share objects and (a) and (b) would be the same census"
-if [ ! -f "$AUD_SO" ] || [ "$ROOT/$SRC" -nt "$AUD_SO" ] || [ "$ROOT/src/runtime/rt/gc_heap.c" -nt "$AUD_SO" ]; then
-    echo "     building the auditor configuration (RT_TAG=$AUD_TAG); COLD this is ~2m25s, cached ~0.2s -- the canonical symlink is not touched"
-    make RT_OPT="$AUD_OPT" "out/libscrip_rt-$AUD_TAG.so" > "$T/build.log" 2>&1 || { tail -20 "$T/build.log"; refuse "the knob-on build FAILED -- arm (b) cannot be measured and a green (a) would then mean nothing"; }
-fi
+# ⛔ ALWAYS MAKE, NEVER AN MTIME GUESS (cfo 2026-09-26): the rebuild used to run only when gc_audit_b.c or gc_heap.c was newer
+# than the library, so a change to ANY other runtime file (core.c, rt.c ...) left pass B auditing a runtime the tree no longer
+# builds, under a fresh ./scrip -- a reading of a library nobody shipped.  make knows every dependency; cached it costs 0.7 s.
+echo "     make of the auditor configuration (RT_TAG=$AUD_TAG): COLD ~2m25s, cached under a second -- the canonical symlink is not touched"
+make RT_OPT="$AUD_OPT" "out/libscrip_rt-$AUD_TAG.so" > "$T/build.log" 2>&1 || { tail -20 "$T/build.log"; refuse "the knob-on build FAILED -- arm (b) cannot be measured and a green (a) would then mean nothing"; }
 [ -f "$AUD_SO" ] || refuse "out/libscrip_rt-$AUD_TAG.so did not appear after the build"
 LNK=$(readlink "$SHIP"); ck $([ "$LNK" != "$(basename "$AUD_SO")" ] && echo ok || echo no) "(b0) out/libscrip_rt.so still points at the SHIPPED configuration ($LNK), not at the auditor build"
 a_sym=$(nm -D "$AUD_SO" 2>/dev/null | grep -c "gc_audit_b_collect" || true)
@@ -101,9 +107,15 @@ run_aud scripts/gc_witnesses/hb_file_name_unrooted.icn 3 1 > "$T/fh.out"; cp "$T
 # through nm and not through dladdr (dladdr names only EXPORTED symbols, and every holder left today is a file-local
 # static it CANNOT name -- the same coarse-symbol trap as CFO-129).  Cure one holder and the arm re-points itself;
 # cure the last one and arm (f1) is the arm that fires, which is where the retirement belongs.
-d3=$(python3 - "$T/e.fh" "$AUD_SO" "$ROOT/$DECL" <<'PYD3'
+# ⛔⭐ RE-DECLARED ON A PLANT 2026-09-26 (cfo): the OPEN-holder form above read 0 the day the lc_vec class left the collected
+# heap (957efcc7c), so (d3) now asks the detector to name a lost root MADE ON PURPOSE -- g_fh, with its root walk skipped by
+# SCRIP_GC_PLANT_UNROOT=1 in the auditor build -- and the OPEN holders of the unplanted run are REPORTED, not graded.
+FHW="$ROOT/scripts/gc_witnesses/hb_file_name_unrooted.icn"
+( LD_LIBRARY_PATH="$T/lib" SCRIP_GC_DISPLACE=1 SCRIP_GC_STRESS=3 SCRIP_GC_AUDIT_B=1 SCRIP_GC_PLANT_UNROOT=1 timeout 300s "$ROOT/scrip" "$FHW" > "$T/fhp.out" 2> "$T/e.fhp" )
+grep -q '^\[GC-UNROOT\] plant:' "$T/e.fhp" || refuse "the [GC-UNROOT] banner is missing from the planted run -- the plant never applied, so the detector was handed no lost root and (d3) would grade nothing"
+d3=$(python3 - "$T/e.fhp" "$AUD_SO" "$ROOT/$DECL" "$T/e.fh" <<'PYD3'
 import subprocess, sys, re
-errf, so, decl = sys.argv[1], sys.argv[2], sys.argv[3]
+plantf, so, decl, unpl = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 syms = []
 for ln in subprocess.run(['nm','-S','--defined-only',so],capture_output=True,text=True).stdout.splitlines():
     f = ln.split()
@@ -111,27 +123,32 @@ for ln in subprocess.run(['nm','-S','--defined-only',so],capture_output=True,tex
     try: a = int(f[0],16); sz = int(f[1],16)
     except ValueError: continue
     syms.append((a,sz,f[3]))
+def resolve(errf):
+    out = []
+    for ln in open(errf, errors='replace'):
+        m = re.search(r'CANDIDATE-LOST-ROOT at=\S+ in=(\S+)', ln)
+        if not m: continue
+        mo = re.match(r'^.*\+0x([0-9a-f]+)/(.*)$', m.group(1))
+        if not mo: out.append(('raw', m.group(1))); continue
+        off = int(mo.group(1),16)
+        hit = [x for x in syms if x[0] <= off < x[0]+x[1]]
+        out.append(('nm', re.sub(r'\.\d+$', '', hit[0][2])) if hit else ('tail', mo.group(2)))
+    return out
 state = {}
 for ln in open(decl):
     ln = ln.strip()
     if not ln or ln.startswith('#'): continue
     f = ln.split(None,2)
     if len(f) >= 2: state[f[0]] = f[1]
-named = set()
-for ln in open(errf, errors='replace'):
-    m = re.search(r'CANDIDATE-LOST-ROOT at=\S+ in=(\S+)', ln)
-    if not m: continue
-    mo = re.match(r'^.*\+0x([0-9a-f]+)/(.*)$', m.group(1))
-    if not mo: named.add(m.group(1)); continue
-    off = int(mo.group(1),16)
-    hit = [x for x in syms if x[0] <= off < x[0]+x[1]]
-    named.add(hit[0][2] if hit else mo.group(2))
-op = sorted(n for n in named if state.get(n) == 'OPEN')
-print("%d %s %s" % (len(op), ','.join(op) or '-', 'g_fh' if 'g_fh' in named else 'no_g_fh'))
+P = resolve(plantf); U = resolve(unpl)
+named = sorted(set(n for h, n in P))
+opn = sorted(set(n for h, n in U if state.get(n) == 'OPEN'))
+print("%d %s %s %s %s" % (len(P), ','.join(named) or '-', 'nm_g_fh' if ('nm','g_fh') in P else 'no_nm_g_fh', ','.join(opn) or '-', 'g_fh' if any(n == 'g_fh' for h, n in U) else 'no_g_fh'))
 PYD3
 )
-d3n=${d3%% *}; d3rest=${d3#* }; d3names=${d3rest%% *}; d3fh=${d3rest##* }
-ck $([ "${d3n:-0}" -ge 1 ] && echo ok || echo no) "(d3) the detector FIRES on hb_file_name_unrooted.icn and the sweep names ${d3n:-0} holder(s) the ledger still lists OPEN, resolved by nm to a SYMBOL: $d3names"
+read -r p_n p_names p_nmfh u_open d3fh <<< "$d3"
+ck $([ "${p_n:-0}" -ge 1 ] && printf ',%s,' "$p_names" | grep -q ',g_fh,' && echo ok || echo no) "(d3) the detector FIRES on a PLANTED lost root: with drv_gc_roots skipped (SCRIP_GC_PLANT_UNROOT=1) pass B names ${p_n:-0} candidate(s) on hb_file_name_unrooted.icn, holder(s): ${p_names:--}"
+echo "     REPORTED, not graded: holders the UNPLANTED run names that the ledger lists OPEN: ${u_open:--}"
 ck $([ "$d3fh" = no_g_fh ] && echo ok || echo no) "(d4a) and g_fh -- this arm's named proof until the cfo rooted the FH table -- is GONE from that same sweep (saw $d3fh)"
 ck $(diff -q "$T/fh.out" "$ROOT/scripts/gc_witnesses/hb_file_name_unrooted.ref" >/dev/null 2>&1 && echo ok || echo no) "(d4b) and the witness that was g_fh's RED witness now ANSWERS ITS ORACLE -- the cure and the detector agreeing is what retires a holder, not either one alone"
 
@@ -180,7 +197,7 @@ sed 's/^/     /' "$T/holders.txt"
 undecl=$(grep "^HOLDER" "$T/holders.txt" | grep -c "UNDECLARED" || true)
 nh=$(awk '/^TOTALHOLDERS/{print $2}' "$T/holders.txt"); nopen=$(awk '/^OPENROWS/{print $2}' "$T/holders.txt")
 ck $([ "$undecl" = 0 ] && echo ok || echo no) "(e1) every holder pass B named over the declared witness set is CURED or DECLARED in $DECL ($undecl undeclared)"
-ck $([ "${nh:-0}" -gt 0 ] && echo ok || echo no) "(e2) the sweep resolved at least one holder SYMBOL from an offset (saw ${nh:-0}) -- a declaration keyed on a symbol survives the next build, an offset does not"
+ck $([ "${p_nmfh:-}" = nm_g_fh ] && echo ok || echo no) "(e2) the PLANTED holder's offset resolves through nm -S to the SYMBOL g_fh (${p_nmfh:-none}) -- a declaration keyed on a symbol survives the next build, an offset does not; the unplanted sweep named ${nh:-0} holder(s), a reading of the tree and not of the instrument"
 
 echo "-- (f) THE EXPIRY IS STRUCTURAL"
 if [ "${nopen:-0}" = 0 ] && [ "${nh:-0}" = 0 ]; then
