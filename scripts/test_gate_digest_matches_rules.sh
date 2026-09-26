@@ -189,8 +189,14 @@ check_rule "SEGV-HANDLER-ATTRIBUTION" \
     '.github/RULES.md ASM-DIFF-FIRST correction, landed 2026-08-24 (~line 47)' \
     'run gdb with CSN_NO_SEGV_HANDLER=1 to get a clean backtrace'
 
+# ⛔ WIDENED 2026-09-26 BY THE coo, ON LON'S /init: `fails loudly` REQUIRED THE ADVERB THE CANARY HAPPENS TO CARRY.
+# /home/claude_coo/CLAUDE.md said "make test ... fails on the first red -- and every arm after a red is DARK" from
+# its 2026-09-16 audit, five days after CEO-582 made make test loop and report, and this gate read PASS(0) over it
+# on every run for ten days (measured: that line alone, rc 0 on the old pattern, rc 1 on this one). `( loudly)?`
+# keeps the canary matched and catches the plain verb; the corrected digests that say "NO LONGER ABORTS/DIES ON
+# THE FIRST RED" stay exempt through `no longer`, and none of the ten roots is newly flagged.
 check_rule "MAKE-TEST-LOOPS-AND-REPORTS" \
-    'cheapest-first list|(dies|stops|aborts|fails loudly) on the first red|thirteen (arms|gates|cheap)' \
+    'cheapest-first list|(dies|stops|aborts|fails( loudly)?) on the first red|thirteen (arms|gates|cheap)' \
     'no longer|NOT (a |the )?(cheapest|list)|legacy|retire|supersed|previous digest|used to|history|test-sequential|loops and reports|LOOPS every|CEO-582|until CEO|before CEO' \
     '.github/RULES.md and GOAL-CEO.md CEO-582 (2026-09-11): make test is scripts/run_blocking_set.sh, which LOOPS every arm and REPORTS green/red/refused with the denominator; the abort-on-first-red twin is make test-sequential; make preflight is the cheap hermetic set (hq_prolog finding, ceo CEO-768, 2026-09-16)' \
     'make test runs a cheapest-first list of about thirteen arms and fails loudly on the first red'
