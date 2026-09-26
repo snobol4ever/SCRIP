@@ -2535,6 +2535,33 @@ static int rx_adverbs(RkP *p, int pos, int *p5) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int p5_class_item(RkP *p, int q, int *cp, int *lit) {
+    if (ch(p, q) == '\\') {
+        int c = ch(p, q + 1);
+        *lit = !strchr("dDwWsShHvVN", c) || c < 0;
+        *cp = c == 'n' ? '\n' : c == 't' ? '\t' : c == 'r' ? '\r' : c == 'f' ? '\f' : c == 'e' ? 27 : c == 'a' ? 7 : (c == 'x' || c == 'c' || (c >= '0' && c <= '9')) ? -1 : cp_at(p, q + 1);
+        return q + 1 + cp_len(p, q + 1);
+    }
+    *lit = 1; *cp = cp_at(p, q);
+    return q + cp_len(p, q);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int p5_class(RkP *p, int q, RkLang *L) {
+    int start = q; q++;
+    if (ch(p, q) == '^') q++;
+    if (ch(p, q) == ']') q++;
+    while (q < p->n && ch(p, q) != ']' && quote_stopper(p, q, L) < 0) {
+        int from = q, c0, l0; q = p5_class_item(p, q, &c0, &l0);
+        if (ch(p, q) == '-' && ch(p, q + 1) != ']' && q + 1 < p->n) {
+            int c1, l1; int e = p5_class_item(p, q + 1, &c1, &l1);
+            if (!l0 || !l1) panic_at(p, e, "Illegal range endpoint in regex: %.*s", e - from, p->s + from);
+            if (c0 >= 0 && c1 >= 0 && c0 > c1) panic_at(p, e, "Illegal reversed character range in regex: %.*s", e - from, p->s + from);
+            q = e;
+        }
+    }
+    return ch(p, q) == ']' ? q + 1 : (q > start ? q : start + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int p5_regex_body(RkP *p, int pos, RkLang *L) {
     int q = pos;
     int depth = 0;
@@ -2542,6 +2569,7 @@ static int p5_regex_body(RkP *p, int pos, RkLang *L) {
         if (depth == 0 && quote_stopper(p, q, L) >= 0) return q;
         int c = ch(p, q);
         if (c == '\\') { q += 1 + cp_len(p, q + 1); continue; }
+        if (c == '[' && L->start != '[') { q = p5_class(p, q, L); continue; }
         if (L->start && cp_at(p, q) == L->start) depth++;
         else if (L->start && cp_at(p, q) == L->stop) depth--;
         q += cp_len(p, q);
