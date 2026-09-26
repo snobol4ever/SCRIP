@@ -12,8 +12,8 @@ enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_
 #define PR(c) (((c) - 'a') * 4 + 2)
 #define PRLE(c) (((c) - 'a') * 4 + 1)
 typedef struct { const char *sym; int prec; int sub; unsigned char assoc; unsigned char flags; } RkOp;
-typedef struct { char *sym; int len; int prec; int depth; char cat; } RkUserOp;
-typedef struct { char *name; int depth; } RkName;
+typedef struct { char *sym; int len; int prec; int depth; char cat; int assoc; unsigned flags; int wordend; } RkUserOp;
+typedef struct { char *name; int depth; int value; } RkName;
 typedef struct RkLang {
     int regex; int cc; int words; int ww;
     int bs; int qbs; int clos; int sc; int ar; int hs; int fn;
@@ -28,10 +28,12 @@ typedef struct RkP {
     int *wsmark; unsigned char *endmark;
     int goal; int qsigil; int in_meta; int in_reduce; int invocant_ok; int in_decl; int leftsigil; int in_proto; int multiness;
     int has_self; int scope; int in_regex_assert;
+    const char *ustop; int ustop_len;
     RkHere here[64]; int nhere;
     RkUserOp *uops; int nuops; int cuops;
     RkName *names; int nnames; int cnames;
     int depth;
+    char pkg[256];
     int finished;
     int comp_unit_begin;
 } RkP;
@@ -102,6 +104,7 @@ static int is_alpha_cp(int c) {
     if (c == 0x37E || c == 0x387 || c == 0x3F6 || c == 0x482 || (c >= 0x55A && c <= 0x55F) || c == 0x589 || c == 0x58A || c == 0x5BE || c == 0x5C0 || c == 0x5C3 || c == 0x5C6) return 0;
     if ((c >= 0x600 && c <= 0x60F) || c == 0x61B || c == 0x61F || (c >= 0x66A && c <= 0x66D) || c == 0x6D4 || c == 0x6DD || c == 0x6DE || c == 0x6E9) return 0;
     if (c >= 0x964 && c <= 0x965) return 0;
+    if (c == 0x1680 || c == 0x169B || c == 0x169C) return 0;
     if (c >= 0x2000 && c <= 0x206F) return 0;
     if (c >= 0x2070 && c <= 0x209F) return c == 0x2071 || c == 0x207F || (c >= 0x2090 && c <= 0x209C);
     if (c >= 0x20A0 && c <= 0x20CF) return 0;
@@ -173,6 +176,10 @@ static inline int at_lit(RkP *p, int pos, const char *lit) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int lit(RkP *p, int pos, const char *s) { return at_lit(p, pos, s) ? pos + (int) strlen(s) : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int asc_space(int b) { return b == ' ' || b == '\t' || b == '\n' || b == '\r' || b == '\f' || b == 0x0B; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int asc_word(int b) { return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' || b >= 0x80; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int wordch_at(RkP *p, int pos) { return pos >= 0 && pos < p->n && is_word_cp(cp_at(p, pos)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -289,12 +296,17 @@ static void add_name_n(RkP *p, const char *s, int n) {
     }
     p->names[p->nnames].name = ct_strndup0(s, n);
     p->names[p->nnames].depth = p->depth;
+    p->names[p->nnames].value = 0;
     p->nnames++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void add_value_name(RkP *p, const char *s, int n) { add_name_n(p, s, n); if (p->nnames) p->names[p->nnames - 1].value = 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void add_our_name(RkP *p, const char *s, int n) { add_name_n(p, s, n); if (p->nnames && p->scope != 1) p->names[p->nnames - 1].depth = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_name_all(RkP *p, const char *s, int n) {
-    add_name_n(p, s, n);
-    for (int i = 0; i + 1 < n; i++) if (s[i] == ':' && s[i + 1] == ':') { add_name_n(p, s, i); add_name_n(p, s + i + 2, n - i - 2); }
+    add_our_name(p, s, n);
+    for (int i = 0; i + 1 < n; i++) if (s[i] == ':' && s[i + 1] == ':') { add_our_name(p, s, i); add_our_name(p, s + i + 2, n - i - 2); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_name_cmp(const void *a, const void *b) { return strcmp(*(const char *const *) a, *(const char *const *) b); }
@@ -313,21 +325,33 @@ static int is_pseudo_pkg(const char *s, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int user_name_index(RkP *p, const char *s, int n) {
+    for (int i = p->nnames - 1; i >= 0; i--) if ((int) strlen(p->names[i].name) == n && !memcmp(p->names[i].name, s, (size_t) n)) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_name_n(RkP *p, const char *s, int n) {
+    int i0 = 0; while (i0 + 1 < n && !(s[i0] == ':' && s[i0 + 1] == ':')) i0++;
+    if (i0 + 1 >= n && is_pseudo_pkg(s, n)) return 1;
     while (n > 0) {
         int i = 0; while (i + 1 < n && !(s[i] == ':' && s[i + 1] == ':')) i++;
-        if (i + 1 < n && is_pseudo_pkg(s, i)) { s += i + 2; n -= i + 2; continue; }
+        if (i + 1 < n && is_pseudo_pkg(s, i)) return 1;
         break;
     }
     if (n >= 2 && s[n - 1] == ':' && s[n - 2] == ':') n -= 2;
     if (n <= 0) return 1;
-    for (int i = p->nnames - 1; i >= 0; i--) if ((int) strlen(p->names[i].name) == n && !memcmp(p->names[i].name, s, (size_t) n)) return 1;
-    return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n);
+    if (user_name_index(p, s, n) >= 0) return 1;
+    if (core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n)) return 1;
+    if (i0 + 1 < n && i0 > 0 && user_name_index(p, s, i0) >= 0) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_type_n(RkP *p, const char *s, int n) {
     static const char *const vals[] = { "True", "False", "Less", "Same", "More", "Inf", "NaN", "pi", "e", "i", "tau", "Empty", "Nil", 0 };
     for (int i = 0; vals[i]; i++) if ((int) strlen(vals[i]) == n && !memcmp(vals[i], s, (size_t) n)) return 0;
+    if (n >= 2 && s[n - 1] == ':' && s[n - 2] == ':') return 0;
+    int u = user_name_index(p, s, n);
+    if (u >= 0 && p->names[u].value) return 0;
     return is_name_n(p, s, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -336,7 +360,9 @@ static void scope_enter(RkP *p) { p->depth++; }
 static void scope_leave(RkP *p) {
     p->depth--;
     while (p->nnames > 0 && p->names[p->nnames - 1].depth > p->depth) p->nnames--;
-    while (p->nuops > 0 && p->uops[p->nuops - 1].depth > p->depth) p->nuops--;
+    int k = 0;
+    for (int i = 0; i < p->nuops; i++) if (p->uops[i].depth <= p->depth || p->uops[i].depth >= 1000) p->uops[k++] = p->uops[i];
+    p->nuops = k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
@@ -348,10 +374,26 @@ static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
         p->uops = nu; p->cuops = nc;
     }
     RkUserOp *u = &p->uops[p->nuops++];
-    u->sym = ct_strndup0(sym, len); u->len = len; u->prec = prec; u->depth = p->depth; u->cat = cat;
+    char *d = (char *) ct_alloc((size_t) len * 4 + 1); int k = 0;
+    for (int i = 0; i < len; i++) {
+        if (sym[i] == '\\' && i + 2 < len && sym[i + 1] == 'x' && sym[i + 2] == '[') {
+            int j = i + 3; unsigned v = 0; while (j < len && sym[j] != ']') { char h = sym[j]; v = v * 16 + (unsigned) (h >= 'a' ? h - 'a' + 10 : h >= 'A' ? h - 'A' + 10 : h - '0'); j++; }
+            if (v < 0x80) d[k++] = (char) v;
+            else if (v < 0x800) { d[k++] = (char) (0xC0 | (v >> 6)); d[k++] = (char) (0x80 | (v & 0x3F)); }
+            else if (v < 0x10000) { d[k++] = (char) (0xE0 | (v >> 12)); d[k++] = (char) (0x80 | ((v >> 6) & 0x3F)); d[k++] = (char) (0x80 | (v & 0x3F)); }
+            else { d[k++] = (char) (0xF0 | (v >> 18)); d[k++] = (char) (0x80 | ((v >> 12) & 0x3F)); d[k++] = (char) (0x80 | ((v >> 6) & 0x3F)); d[k++] = (char) (0x80 | (v & 0x3F)); }
+            i = j; continue;
+        }
+        if (sym[i] == '\\' && i + 1 < len) i++;
+        d[k++] = sym[i];
+    }
+    d[k] = 0;
+    u->sym = d; u->len = k; u->prec = prec; u->depth = p->depth; u->cat = cat; u->assoc = AS_LEFT; u->flags = 0;
+    { int q = k - 1; while (q > 0 && (((unsigned char) d[q]) & 0xC0) == 0x80) q--; int l; u->wordend = is_word_cp(rk_decode(d, k, q, &l)); }
 }
 /*====================================================================================================================================================================================================*/
 static int r_nibble_until(RkP *p, int pos, RkLang *L, int *endpos);
+static void register_user_op(RkP *p, int from, int to);
 static int r_block(RkP *p, int pos);
 static int r_blockoid(RkP *p, int pos);
 static int r_EXPR(RkP *p, int pos, int preclim);
@@ -362,7 +404,7 @@ static int r_eat_terminator(RkP *p, int pos);
 static int peek_delims(RkP *p, int pos, RkLang *L) {
     int c = cp_at(p, pos);
     if (c < 0) panic_at(p, pos, "Couldn't find delimiter");
-    if (!is_punct_cp(c) || c == '_') {
+    if (bracket_index(c) < 0 && (!is_punct_cp(c) || c == '_')) {
         if (is_word_cp(c)) panic_at(p, pos, "Alphanumeric character is not allowed as a delimiter");
         if (is_space_cp(c)) panic_at(p, pos, "Whitespace character is not allowed as a delimiter");
     }
@@ -382,6 +424,7 @@ static int peek_delims(RkP *p, int pos, RkLang *L) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int match_rep(RkP *p, int pos, int c, int n) {
     for (int i = 0; i < n; i++) { if (cp_at(p, pos) != c) return -1; pos += cp_len(p, pos); }
+    if (is_mark_cp(cp_at(p, pos))) return -1;
     return pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -403,6 +446,7 @@ static int here_stopper(RkP *p, int pos, RkLang *L) {
 static int quote_stopper(RkP *p, int pos, RkLang *L) {
     if (L->here) return here_stopper(p, pos, L);
     int c = cp_at(p, pos);
+    if (is_mark_cp(cp_at(p, pos + cp_len(p, pos)))) return -1;
     if (L->stop2 && c == L->stop2) return pos + cp_len(p, pos);
     if (L->start && L->nrep > 1) return match_rep(p, pos, L->stop, L->nrep);
     if (c == L->stop) return pos + cp_len(p, pos);
@@ -670,16 +714,24 @@ static int r_decint(RkP *p, int pos) {
     return pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int unicode_digit_value(int c) {
+    static const int z[] = { 0x660,0x6F0,0x7C0,0x966,0x9E6,0xA66,0xAE6,0xB66,0xBE6,0xC66,0xCE6,0xD66,0xDE6,0xE50,0xED0,0xF20,0x1040,0x1090,0x17E0,0x1810,0x1946,0x19D0,0x1A80,0x1A90,
+                             0x1B50,0x1BB0,0x1C40,0x1C50,0xA620,0xA8D0,0xA900,0xA9D0,0xA9F0,0xAA50,0xABF0,0xFF10,0x104A0,0x11066,0x1D7CE,0x1D7D8,0x1D7E2,0x1D7EC,0x1D7F6 };
+    for (unsigned i = 0; i < sizeof z / sizeof *z; i++) if (c >= z[i] && c <= z[i] + 9) return c - z[i];
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int digit_in_base(int c, int base) {
     int v = -1;
     if (c >= '0' && c <= '9') v = c - '0'; else if (c >= 'a' && c <= 'z') v = c - 'a' + 10; else if (c >= 'A' && c <= 'Z') v = c - 'A' + 10;
+    else if (c >= 0xFF21 && c <= 0xFF3A) v = c - 0xFF21 + 10; else if (c >= 0xFF41 && c <= 0xFF5A) v = c - 0xFF41 + 10; else if (c >= 0x80) v = unicode_digit_value(c);
     return v >= 0 && v < base;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_baseint(RkP *p, int pos, int base) {
-    if (!digit_in_base(ch(p, pos), base)) return -1;
-    while (digit_in_base(ch(p, pos), base)) pos++;
-    while (ch(p, pos) == '_' && digit_in_base(ch(p, pos + 1), base)) { pos++; while (digit_in_base(ch(p, pos), base)) pos++; }
+    if (!digit_in_base(cp_at(p, pos), base)) return -1;
+    while (digit_in_base(cp_at(p, pos), base)) pos += cp_len(p, pos);
+    while (ch(p, pos) == '_' && digit_in_base(cp_at(p, pos + 1), base)) { pos++; while (digit_in_base(cp_at(p, pos), base)) pos += cp_len(p, pos); }
     return pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -966,8 +1018,8 @@ static int r_quibble(RkP *p, int pos, RkLang *L, int to, const char *what) {
     int e = quote_body_at(p, s, L, what, &stop_at);
     if (to) {
         int dl = stop_at - s;
-        while (dl > 0 && is_hspace_cp((unsigned char) p->s[s + dl - 1])) dl--;
-        int d0 = s; while (d0 < s + dl && is_hspace_cp((unsigned char) p->s[d0])) { d0++; dl--; }
+        while (dl > 0 && asc_space((unsigned char) p->s[s + dl - 1])) dl--;
+        int d0 = s; while (d0 < s + dl && asc_space((unsigned char) p->s[d0])) { d0++; dl--; }
         if (dl <= 0) panic_at(p, pos, "Heredoc delimiter is empty");
         if (p->nhere >= 64) panic_at(p, pos, "Too many pending heredocs");
         RkHere *h = &p->here[p->nhere++];
@@ -1232,8 +1284,10 @@ static int rx_assertion(RkP *p, int pos, RkLang *L) {
     if (c == '&') {
         int e = r_variable(p, pos);
         if (e < 0) return -1;
-        if (ch(p, e) == ':') { int a = r_arglist(p, e + 1); return a >= 0 ? a : e + 1; }
-        if (ch(p, e) == '(') { int a = r_arglist(p, e + 1); a = ws(p, a); if (ch(p, a) != ')') panic_at(p, a, "Unable to parse assertion arguments"); return a + 1; }
+        int sqi = p->in_regex_assert; p->in_regex_assert = 1;
+        if (ch(p, e) == ':') { int a = r_arglist(p, e + 1); p->in_regex_assert = sqi; return a >= 0 ? a : e + 1; }
+        if (ch(p, e) == '(') { int a = r_arglist(p, e + 1); a = ws(p, a); p->in_regex_assert = sqi; if (ch(p, a) != ')') panic_at(p, a, "Unable to parse assertion arguments"); return a + 1; }
+        p->in_regex_assert = sqi;
         return e;
     }
     if (c == '$' || c == '@' || c == '%') return r_variable(p, pos);
@@ -1324,7 +1378,7 @@ static int rx_metachar(RkP *p, int pos, RkLang *L) {
             }
         }
         int tw = n1;
-        int ok = is_alpha_cp(n1) || n1 == '(' || ((tw == '.' || tw == '!' || tw == '^' || tw == ':' || tw == '*' || tw == '?' || tw == '=' || tw == '~') && is_alpha_cp(cp_at(p, pos + 2)));
+        int ok = is_alpha_cp(n1) || n1 == '(' || (!is_word_cp(tw) && !is_space_cp(tw) && tw >= 0 && is_alpha_cp(cp_at(p, pos + 1 + cp_len(p, pos + 1))));
         if (ok && !rx_stopper(p, pos + 1, L)) {
             int e = r_variable(p, pos);
             if (e >= 0) {
@@ -1380,7 +1434,7 @@ static int rx_atom(RkP *p, int pos, RkLang *L) {
 static int rx_quantified_atom(RkP *p, int pos, RkLang *L) {
     if (pos >= p->n || rx_stopper(p, pos, L)) return -1;
     int c = ch(p, pos);
-    if (c == ')' || c == ']' || c == '}' || (c == '>' && ch(p, pos + 1) != '>')) return -1;
+    if ((c == ')' && ch(p, pos + 1) != '>') || c == ']' || c == '}' || (c == '>' && ch(p, pos + 1) != '>')) return -1;
     if (c == '|' || c == '&') return -1;
     int a = rx_atom(p, pos, L);
     if (a < 0) return -1;
@@ -1417,6 +1471,7 @@ static int is_stmt_mod_kw(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_terminator_at(RkP *p, int pos) {
     int c = ch(p, pos);
+    if (p->ustop && pos + p->ustop_len <= p->n && !memcmp(p->s + pos, p->ustop, (size_t) p->ustop_len)) return 1;
     if (c == ';' || c == ')' || c == ']' || c == '}') return 1;
     if (c == '>' && p->in_regex_assert) return 1;
     if (at_lit(p, pos, "-->")) return 1;
@@ -1433,6 +1488,15 @@ static int infixstopper(RkP *p, int pos) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int infix_pred_ok(RkP *p, int pos, const char *s) {
+    if (!strcmp(s, "-")) return ch(p, pos + 1) != '>' || at_lit(p, pos + 1, ">>");
+    if (!strcmp(s, "!=")) return is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ']';
+    if (!strcmp(s, "<<") || !strcmp(s, ">>")) return 0;
+    if ((!strcmp(s, "+<") || !strcmp(s, "~<")) && p->in_meta) return at_lit(p, pos + 2, "<<") || ch(p, pos + 2) != '<';
+    if ((!strcmp(s, "+>") || !strcmp(s, "~>")) && p->in_meta) return at_lit(p, pos + 2, ">>") || ch(p, pos + 2) != '>';
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int op_table_longest(RkP *p, int pos, const RkOp *tab, const RkOp **best) {
     int bl = 0; *best = NULL;
     for (int i = 0; tab[i].sym; i++) {
@@ -1440,22 +1504,25 @@ static int op_table_longest(RkP *p, int pos, const RkOp *tab, const RkOp **best)
         if (l <= bl) continue;
         if (!at_lit(p, pos, tab[i].sym)) continue;
         if ((tab[i].flags & OF_WORD) && wordch_at(p, pos + l)) continue;
+        if (tab == rk_infix && !infix_pred_ok(p, pos, tab[i].sym)) continue;
         bl = l; *best = &tab[i];
     }
     return bl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int user_op_longest(RkP *p, int pos, char cat, int *prec) {
-    int bl = 0;
+static int user_op_longest_i(RkP *p, int pos, char cat, int *prec, int *idx) {
+    int bl = 0; *idx = -1;
     for (int i = p->nuops - 1; i >= 0; i--) {
         RkUserOp *u = &p->uops[i];
         if (u->cat != cat || u->len <= bl) continue;
         if (pos + u->len > p->n || memcmp(p->s + pos, u->sym, (size_t) u->len)) continue;
-        if (is_word_cp((unsigned char) u->sym[u->len - 1]) && wordch_at(p, pos + u->len)) continue;
-        bl = u->len; *prec = u->prec;
+        if (u->wordend && wordch_at(p, pos + u->len)) continue;
+        bl = u->len; *prec = u->prec; *idx = i;
     }
     return bl;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int user_op_longest(RkP *p, int pos, char cat, int *prec) { int i; return user_op_longest_i(p, pos, cat, prec, &i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void set_op(OpInfo *o, const RkOp *r, int from, int to) {
     o->prec = r->prec; o->sub = r->sub ? r->sub : r->prec; o->assoc = r->assoc; o->flags = r->flags; o->from = from; o->to = to; o->nextterm = NT_TERMISH;
@@ -1483,7 +1550,7 @@ static int r_ternary_rest(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
     const RkOp *best; int bl = op_table_longest(p, pos, rk_infix, &best);
-    int uprec = 0; int ul = user_op_longest(p, pos, 'i', &uprec);
+    int uprec = 0; int uidx = -1; int ul = user_op_longest_i(p, pos, 'i', &uprec, &uidx);
     int c = ch(p, pos);
     if (at_lit(p, pos, "??") && ch(p, pos + 2) != '?') {
         if (ul > 2) goto user;
@@ -1532,19 +1599,15 @@ static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
     }
     if ((at_lit(p, pos, "<<") || at_lit(p, pos, ">>")) && !at_lit(p, pos, "<<==") && !at_lit(p, pos, "==>>") && !p->in_meta && is_space_cp(cp_at(p, pos + 2)) && ul < 2)
         panic_at(p, pos, "Unsupported use of %s to do %s shift; in Raku please use %s", c == '<' ? "<<" : ">>", c == '<' ? "left" : "right", c == '<' ? "+< or ~<" : "+> or ~>");
-    if (best && best->sym[0] == '-' && best->sym[1] == 0 && ch(p, pos + 1) == '>' && !at_lit(p, pos + 1, ">>")) best = NULL, bl = 0;
-    if (best && !strcmp(best->sym, "!=") && !(is_space_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == ']')) { best = NULL; bl = 0; }
-    if (best && (!strcmp(best->sym, "<<") || !strcmp(best->sym, ">>"))) { best = NULL; bl = 0; }
     if (best && !strcmp(best->sym, "..") && !p->in_meta && (ch(p, pos + 2) == ')' || ch(p, pos + 2) == ']')) panic_at(p, pos, "Please use ..* for indefinite range");
-    if (best && (!strcmp(best->sym, "+<") || !strcmp(best->sym, "~<")) && p->in_meta && ch(p, pos + 2) == '<' && !at_lit(p, pos + 2, "<<")) { best = NULL; bl = 0; }
-    if (best && (!strcmp(best->sym, "+>") || !strcmp(best->sym, "~>")) && p->in_meta && ch(p, pos + 2) == '>' && !at_lit(p, pos + 2, ">>")) { best = NULL; bl = 0; }
     if (ul > bl) goto user;
     if (!best) return -1;
     if (!strcmp(best->sym, ",")) p->invocant_ok = 0;
     set_op(o, best, pos, pos + bl);
     return pos + bl;
 user:
-    o->prec = uprec; o->sub = uprec; o->assoc = AS_LEFT; o->flags = 0; o->from = pos; o->to = pos + ul; o->nextterm = NT_TERMISH;
+    o->prec = uprec; o->sub = uprec; o->assoc = uidx >= 0 ? p->uops[uidx].assoc : AS_LEFT; o->flags = uidx >= 0 ? p->uops[uidx].flags : 0; o->from = pos; o->to = pos + ul; o->nextterm = NT_TERMISH;
+    if (o->flags & OF_COMMA) o->nextterm = NT_NULLTERMISH;
     return pos + ul;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1598,11 +1661,11 @@ static int r_infixish_core(RkP *p, int pos, OpInfo *o, int in_meta) {
         }
     }
     int e = r_infix_plain(p, pos, &t);
-    if (e >= 0 && e > best) { best = e; bo = t; }
+    if (e >= 0 && e >= best) { best = e; bo = t; }
     p->in_meta = sm;
     if (best < 0) return -1;
     if (neg_bad >= 0 && best == neg_bad && bo.from == pos && c == '!') panic_at(p, pos, "Cannot negate %.*s because it is not iffy enough", neg_bad - pos - 1, p->s + pos + 1);
-    if (ch(p, best) == '=' && ch(p, best + 1) != '=' && !(bo.flags & OF_DOTTY) && !at_lit(p, best, "=>") && best - bo.from >= 1) {
+    if (ch(p, best) == '=' && ch(p, best + 1) != '=' && !(bo.flags & OF_DOTTY) && best - bo.from >= 1 && !(best - bo.from == 1 && ch(p, bo.from) == '=')) {
         int prevop_is_assign = (bo.prec == PR('i'));
         if (!prevop_is_assign && !(bo.prec == PR('m') && ch(p, best - 1) == '=')) {
             if (bo.flags & OF_DIFFY) panic_at(p, pos, "Cannot make assignment out of %.*s because %s operators are diffy", best - bo.from, p->s + bo.from, "structural");
@@ -1634,7 +1697,7 @@ static int r_infixish(RkP *p, int pos, OpInfo *o, int in_meta) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_prefixish(RkP *p, int pos, int *prec) {
-    if (at_lambda(p, pos)) return -1;
+    if (at_lambda(p, pos) || at_lit(p, pos, "???") || at_lit(p, pos, "!!!") || at_lit(p, pos, "...")) return -1;
     const RkOp *best; int bl = op_table_longest(p, pos, rk_prefix, &best);
     int uprec = 0; int ul = user_op_longest(p, pos, 'p', &uprec);
     int e = -1;
@@ -1686,9 +1749,13 @@ static int r_dotty(RkP *p, int pos) {
     if (ch(p, pos) != '.') return -1;
     int q = pos + 1;
     int c = ch(p, q);
-    if (c == '+' || c == '*' || c == '?' || c == '=') q++;
-    else if (c == '^') { q++; if (ch(p, q) == '!') q++; }
-    if (c == '.' ) return -1;
+    if (c == '.') return -1;
+    if (c == '+' || c == '*' || c == '?' || c == '=' || c == '^') {
+        int t = q + 1;
+        if (c == '^' && ch(p, t) == '!') t++;
+        int e = r_dottyop(p, t);
+        if (e >= 0) return e;
+    }
     return r_dottyop(p, q);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1754,7 +1821,6 @@ static int r_termish(RkP *p, int pos) {
     int q = pos; int npre = 0; int lastpre = pos;
     int prec;
     for (;;) {
-        if (stdstopper(p, q)) break;
         int e = r_prefixish(p, q, &prec);
         if (e < 0) break;
         lastpre = q; q = e; npre++;
@@ -1830,8 +1896,8 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
             else if (o.assoc == AS_LIST) {
                 const char *a = p->s + st[ns - 1].from; int al = st[ns - 1].to - st[ns - 1].from;
                 const char *b = p->s + o.from; int bl2 = o.to - o.from;
-                while (al > 0 && is_space_cp((unsigned char) a[al - 1])) al--;
-                while (bl2 > 0 && is_space_cp((unsigned char) b[bl2 - 1])) bl2--;
+                while (al > 0 && asc_space((unsigned char) a[al - 1])) al--;
+                while (bl2 > 0 && asc_space((unsigned char) b[bl2 - 1])) bl2--;
                 if (!(al == bl2 && !memcmp(a, b, (size_t) al)) && !(al == 1 && a[0] == ':'))
                     panic_at(p, o.from, "Only identical operators may be list associative; since '%.*s' and '%.*s' differ, they are non-associative and you need to clarify with parentheses", al, a, bl2, b);
             }
@@ -1849,10 +1915,12 @@ static int r_semilist(RkP *p, int pos) {
     for (;;) {
         int c = ch(p, q);
         if (c == ')' || c == ']' || c == '}' || q >= p->n) return q;
+        if (p->ustop && q + p->ustop_len <= p->n && !memcmp(p->s + q, p->ustop, (size_t) p->ustop_len)) return q;
         int e = r_statement(p, q);
         if (e < 0) return q;
         q = r_eat_terminator(p, e);
         if (q < 0) return e;
+        q = ws(p, q);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2048,6 +2116,7 @@ static int r_variable(RkP *p, int pos) {
         else {
             if (is_twigil_at(p, q)) { twig = ch(p, q); q++; }
             int d = r_desigilname(p, q);
+            if (d < 0 && twig) { twig = 0; q = pos + 1; d = r_desigilname(p, q); }
             if (d >= 0) e = d;
             else if (!twig) {
                 int d1 = ch(p, q);
@@ -2060,7 +2129,7 @@ static int r_variable(RkP *p, int pos) {
                 else if (d1 == '[' && c == '$' && !p->in_decl) e = r_circumfix(p, q);
                 else if (d1 == '{' && c == '$' && !p->in_decl) {
                     int t = q + 1; while (t < p->n && p->s[t] != '}' && p->s[t] != '\n') t++;
-                    int inner_ws = 1; for (int k = q + 1; k < t; k++) if (!is_space_cp((unsigned char) p->s[k])) inner_ws = 0;
+                    int inner_ws = 1; for (int k = q + 1; k < t; k++) if (!asc_space((unsigned char) p->s[k])) inner_ws = 0;
                     if (ch(p, t) == '}' && !inner_ws) {
                         int w = 1; for (int k = q + 1; k < t; k++) { unsigned char x = (unsigned char) p->s[k]; if (!(is_word_cp(x) || x == ':')) w = 0; }
                         if (w && !p->in_decl) panic_at(p, pos, "Unsupported use of ${%.*s}; in Raku please use $%.*s", t - q - 1, p->s + q + 1, t - q - 1, p->s + q + 1);
@@ -2298,6 +2367,7 @@ static int r_quote(RkP *p, int pos) {
     }
     if (!is_alpha_cp(c)) return -1;
     int wend = pos; while (is_word_cp(cp_at(p, wend))) wend += cp_len(p, wend);
+    if ((ch(p, wend) == '-' || ch(p, wend) == '\'') && is_alpha_cp(cp_at(p, wend + 1))) return -1;
     int wl = wend - pos; const char *w = p->s + pos;
     char word[16]; if (wl >= (int) sizeof word) return -1; memcpy(word, w, (size_t) wl); word[wl] = 0;
     if (!strcmp(word, "q") || !strcmp(word, "qq") || !strcmp(word, "Q") || (wl > 1 && (w[0] == 'q' || w[0] == 'Q') && (w[1] != 'q' || wl > 2))) {
@@ -2457,7 +2527,7 @@ static int r_term_name(RkP *p, int pos) {
     int starts_colons = at_lit(p, pos, "::");
     int is_n = starts_colons || is_name_n(p, p->s + pos, nl);
     if (is_n) {
-        int is_t = is_type_n(p, p->s + pos, nl) || starts_colons;
+        int is_t = (is_type_n(p, p->s + pos, nl) || starts_colons) && !(nl >= 2 && p->s[pos + nl - 1] == ':' && p->s[pos + nl - 2] == ':');
         int q = e; int u;
         u = r_unsp(p, q); if (u >= 0) q = u;
         if (is_t && ch(p, q) == '[') { int a = r_arglist(p, q + 1); a = ws(p, a); if (ch(p, a) != ']') panic_at(p, a, "Unable to parse type parameter; couldn't find final ']'"); e = a + 1; q = e; }
@@ -2553,10 +2623,35 @@ static int r_keyword_term(RkP *p, int pos) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_user_term(RkP *p, int pos) {
+    int prec = 0;
+    int l = user_op_longest(p, pos, 't', &prec);
+    if (l > 0) return pos + l;
+    l = user_op_longest(p, pos, 'c', &prec);
+    if (l > 0) {
+        int q = pos + l;
+        for (int i = p->nuops - 1; i >= 0; i--) {
+            RkUserOp *u = &p->uops[i];
+            if (u->cat != 'c' || u->len != l || memcmp(p->s + pos, u->sym, (size_t) l)) continue;
+            RkUserOp *cl = (i + 1 < p->nuops && p->uops[i + 1].cat == 'C') ? &p->uops[i + 1] : NULL;
+            if (!cl) break;
+            const char *su = p->ustop; int sl = p->ustop_len;
+            p->ustop = cl->sym; p->ustop_len = cl->len;
+            int e = r_semilist(p, q);
+            p->ustop = su; p->ustop_len = sl;
+            e = ws(p, e);
+            if (e + cl->len <= p->n && !memcmp(p->s + e, cl->sym, (size_t) cl->len)) return e + cl->len;
+            panic_at(p, e, "Unable to parse expression in circumfix:<%s %s>; couldn't find final %s", u->sym, cl->sym, cl->sym);
+        }
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_term(RkP *p, int pos) {
     int c = cp_at(p, pos);
     if (c < 0) return -1;
     int e;
+    if (p->nuops && (e = r_user_term(p, pos)) >= 0) return e;
     if (c == '$' || c == '@' || c == '%' || c == '&') {
         if (c == '&' && ch(p, pos + 1) == '&') return -1;
         return r_variable(p, pos);
@@ -2785,7 +2880,7 @@ static int r_parameter(RkP *p, int pos) {
         }
         int t = r_identifier(p, q + 1);
         e = t >= 0 ? t : q + 1;
-        if (t >= 0) add_name_n(p, p->s + q + 1, t - q - 1);
+        if (t >= 0) add_value_name(p, p->s + q + 1, t - q - 1);
     }
     else {
         int v = r_param_var(p, q);
@@ -2885,10 +2980,11 @@ static int r_block(RkP *p, int pos) {
 static int r_blockoid(RkP *p, int pos) {
     if (at_lit(p, pos, "{YOU_ARE_HERE}")) panic_at(p, pos, "Reserved use of {YOU_ARE_HERE} outside of a setting");
     if (ch(p, pos) != '{') panic_at(p, pos, "Missing block");
-    int sg = p->goal; int sq = p->qsigil; int sr = p->in_reduce; int sm = p->in_meta; int sa = p->invocant_ok; int sd = p->in_decl; int sl = p->leftsigil;
-    p->goal = 0; p->qsigil = 0; p->in_reduce = 0; p->in_meta = 0; p->in_decl = 0;
+    int sg = p->goal; int sq = p->qsigil; int sr = p->in_reduce; int sm = p->in_meta; int sa = p->invocant_ok; int sd = p->in_decl; int sl = p->leftsigil; int ss = p->scope;
+    const char *su = p->ustop; int sul = p->ustop_len;
+    p->goal = 0; p->qsigil = 0; p->in_reduce = 0; p->in_meta = 0; p->in_decl = 0; p->scope = 0; p->ustop = NULL; p->ustop_len = 0;
     int e = r_statementlist(p, pos + 1);
-    p->goal = sg; p->qsigil = sq; p->in_reduce = sr; p->in_meta = sm; p->invocant_ok = sa; p->in_decl = sd; p->leftsigil = sl;
+    p->goal = sg; p->qsigil = sq; p->in_reduce = sr; p->in_meta = sm; p->invocant_ok = sa; p->in_decl = sd; p->leftsigil = sl; p->scope = ss; p->ustop = su; p->ustop_len = sul;
     if (ch(p, e) != '}') {
         if (e >= p->n) panic_at(p, e, "Missing block (couldn't find final '}' of block starting at line %d)", line_of(p, pos));
         panic_at(p, e, "Confused");
@@ -2935,6 +3031,7 @@ static int r_variable_declarator(RkP *p, int pos) {
     p->in_decl = sd;
     if (e < 0) return -1;
     int c0 = ch(p, pos);
+    if (c0 == '&') register_user_op(p, pos + 1, e);
     for (;;) {
         int q = e; int u = r_unsp(p, q); if (u >= 0) q = u;
         int c = ch(p, q);
@@ -2955,7 +3052,8 @@ static int r_declarator(RkP *p, int pos) {
         int e = r_identifier(p, pos + 1);
         if (e < 0) return -1;
         while (ch(p, e) == ':' && ch(p, e + 1) != ':' && ch(p, e + 1) != '=') { int f = r_colonpair(p, e); if (f < 0) break; e = f; }
-        add_name_n(p, p->s + pos + 1, name_part_len(p, pos + 1, e));
+        add_value_name(p, p->s + pos + 1, name_part_len(p, pos + 1, e));
+        register_user_op(p, pos + 1, e);
         int q = ws(p, e);
         int i = r_initializer(p, q);
         if (i < 0) panic_at(p, q, "A sigilless term definition requires an initializer");
@@ -3010,16 +3108,19 @@ static int r_multi_declarator(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_routine_declarator(RkP *p, int pos) {
     int e;
-    if ((e = kw_end(p, pos, "sub")) >= 0 || (e = lit(p, pos, "sub")) >= 0) {
-        if (!wordch_at(p, e) && ch(p, e) != '-' && ch(p, e) != '\'') return r_routine_def(p, ws(p, e), 0);
-    }
-    if ((e = kw_end(p, pos, "method")) >= 0 || ((e = lit(p, pos, "method")) >= 0 && ch(p, e) == '(')) return r_routine_def(p, ws(p, e), 1);
-    if ((e = kw_end(p, pos, "submethod")) >= 0 || ((e = lit(p, pos, "submethod")) >= 0 && ch(p, e) == '(')) return r_routine_def(p, ws(p, e), 2);
+    if ((e = kw_end(p, pos, "sub")) >= 0) return r_routine_def(p, ws(p, e), 0);
+    if ((e = kw_end(p, pos, "method")) >= 0) return r_routine_def(p, ws(p, e), 1);
+    if ((e = kw_end(p, pos, "submethod")) >= 0) return r_routine_def(p, ws(p, e), 2);
     if ((e = kw_end(p, pos, "macro")) >= 0) panic_at(p, pos, "Use of macros is experimental; please 'use experimental :macros'");
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void register_user_op(RkP *p, int from, int to) {
+static void register_user_op_x(RkP *p, int from, int to, int exported);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void register_user_op(RkP *p, int from, int to) { register_user_op_x(p, from, to, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void register_user_op_x(RkP *p, int from, int to, int exported) {
+    int nb = p->nuops;
     int n = to - from; const char *s = p->s + from;
     static const char *const cats[] = { "infix", "prefix", "postfix", "circumfix", "postcircumfix", "term", 0 };
     for (int i = 0; cats[i]; i++) {
@@ -3034,17 +3135,19 @@ static void register_user_op(RkP *p, int from, int to) {
             int b = a; while (b < to && cp_at(p, b) != close) b += cp_len(p, b);
             if (c == '<' && at_lit(p, q, "<<")) { a = q + 2; b = a; while (b < to && !at_lit(p, b, ">>")) b++; }
             int x = a; int y = b;
-            if (c == '[' || c == '(') { while (x < y && (p->s[x] == '\'' || p->s[x] == '"' || is_space_cp((unsigned char) p->s[x]))) x++; while (y > x && (p->s[y - 1] == '\'' || p->s[y - 1] == '"' || is_space_cp((unsigned char) p->s[y - 1]))) y--; }
-            while (x < y && is_space_cp((unsigned char) p->s[x])) x++;
-            while (y > x && is_space_cp((unsigned char) p->s[y - 1])) y--;
-            if (i == 0) { add_user_op(p, 'i', p->s + x, y - x, PR('t')); return; }
-            if (i == 1) { add_user_op(p, 'p', p->s + x, y - x, PR('v')); return; }
-            if (i == 2) { add_user_op(p, 'P', p->s + x, y - x, PR('x')); return; }
-            if (i == 5) { add_name_n(p, p->s + x, y - x); add_user_op(p, 't', p->s + x, y - x, 0); return; }
-            int sp = x; while (sp < y && !is_space_cp((unsigned char) p->s[sp])) sp++;
-            int op2 = sp; while (op2 < y && is_space_cp((unsigned char) p->s[op2])) op2++;
+            if (c == '[' || c == '(') { while (x < y && (p->s[x] == '\'' || p->s[x] == '"' || asc_space((unsigned char) p->s[x]))) x++; while (y > x && (p->s[y - 1] == '\'' || p->s[y - 1] == '"' || asc_space((unsigned char) p->s[y - 1]))) y--; }
+            while (x < y && asc_space((unsigned char) p->s[x])) x++;
+            while (y > x && asc_space((unsigned char) p->s[y - 1])) y--;
+            if (i == 0) add_user_op(p, 'i', p->s + x, y - x, PR('t'));
+            else if (i == 1) add_user_op(p, 'p', p->s + x, y - x, PR('v'));
+            else if (i == 2) add_user_op(p, 'P', p->s + x, y - x, PR('x'));
+            else if (i == 5) { add_name_n(p, p->s + x, y - x); add_user_op(p, 't', p->s + x, y - x, 0); }
+            if (i == 0 || i == 1 || i == 2 || i == 5) { if (exported) for (int k = nb; k < p->nuops; k++) p->uops[k].depth = 1000; return; }
+            int sp = x; while (sp < y && !asc_space((unsigned char) p->s[sp])) sp++;
+            int op2 = sp; while (op2 < y && asc_space((unsigned char) p->s[op2])) op2++;
             if (i == 3) { add_user_op(p, 'c', p->s + x, sp - x, 0); add_user_op(p, 'C', p->s + op2, y - op2, 0); }
             if (i == 4) { add_user_op(p, 'k', p->s + x, sp - x, 0); add_user_op(p, 'K', p->s + op2, y - op2, 0); }
+            if (exported) for (int k = nb; k < p->nuops; k++) p->uops[k].depth = 1000;
             return;
         }
     }
@@ -3081,7 +3184,9 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
         if (n >= 0) { name_from = q; name_to = n; q = ws(p, n); }
     }
     if (name_from >= 0) register_user_op(p, name_from, name_to);
+    int nuops_before_traits = p->nuops;
     int sm = p->has_self;
+    int outer_depth = p->depth;
     scope_enter(p);
     if (ch(p, q) == '(') {
         int s = r_signature(p, q + 1, is_method);
@@ -3089,11 +3194,16 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
         if (ch(p, s) != ')') panic_at(p, s, "Unable to parse signature; couldn't find final ')'");
         q = ws(p, s + 1);
     }
+    int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
+    for (int t = tstart; t + 6 <= q; t++) if (!memcmp(p->s + t, "export", 6) && !wordch_at(p, t + 6) && (t == 0 || !asc_word((unsigned char) p->s[t - 1]))) {
+        for (int k = 0; k < nuops_before_traits && k < p->nuops; k++) if (p->uops[k].depth == p->depth - 1 && k >= nuops_before_traits - 2) p->uops[k].depth = 1000;
+        break;
+    }
     int e;
     if (ch(p, q) == ';' && !is_method) {
         if (name_from < 0 || !(name_to - name_from == 4 && !memcmp(p->s + name_from, "MAIN", 4))) panic_at(p, q, "A unit-scoped sub definition is not allowed except on a MAIN sub; please use the block form");
-        if (p->depth != 1) panic_at(p, q, "A unit-scoped sub definition is not allowed in a subscope");
+        if (outer_depth != 1) panic_at(p, q, "A unit-scoped sub definition is not allowed in a subscope");
         e = r_statementlist(p, q + 1);
     }
     else if ((e = r_onlystar(p, q)) >= 0) ;
@@ -3178,8 +3288,16 @@ static int r_package_declarator(RkP *p, int pos) {
 static int r_package_def(RkP *p, int pos, const char *kind) {
     int q = pos;
     int n = r_longname(p, q);
+    char saved_pkg[256]; memcpy(saved_pkg, p->pkg, sizeof saved_pkg);
     if (n >= 0) {
-        add_name_all(p, p->s + q, name_part_len(p, q, n));
+        int nl = name_part_len(p, q, n);
+        add_name_all(p, p->s + q, nl);
+        if (p->pkg[0]) {
+            char full[512]; int fl = snprintf(full, sizeof full, "%s::%.*s", p->pkg, nl, p->s + q);
+            if (fl > 0 && fl < (int) sizeof full) add_our_name(p, full, fl);
+            snprintf(p->pkg, sizeof p->pkg, "%s", full);
+        }
+        else snprintf(p->pkg, sizeof p->pkg, "%.*s", nl, p->s + q);
         q = ws(p, n);
     }
     int unit = p->scope == 9;
@@ -3209,10 +3327,16 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     }
     else { scope_leave(p); panic_at(p, q, "Unable to parse %s definition", kind); return -1; }
     scope_leave(p);
+    if (!unit) memcpy(p->pkg, saved_pkg, sizeof saved_pkg);
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void enum_names_from(RkP *p, int from, int to) {
+static void add_enum_value(RkP *p, const char *en, int enl, const char *v, int vl) {
+    add_value_name(p, v, vl);
+    if (enl > 0) { char full[512]; int fl = snprintf(full, sizeof full, "%.*s::%.*s", enl, en, vl, v); if (fl > 0 && fl < (int) sizeof full) add_value_name(p, full, fl); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void enum_names_from(RkP *p, int from, int to, const char *en, int enl) {
     int q = from;
     int c = cp_at(p, q);
     if (c == '<' || c == 0xAB) {
@@ -3220,7 +3344,7 @@ static void enum_names_from(RkP *p, int from, int to) {
         while (q < to) {
             while (q < to && is_space_cp(cp_at(p, q))) q += cp_len(p, q);
             int s = q; while (q < to && !is_space_cp(cp_at(p, q)) && ch(p, q) != '>' && cp_at(p, q) != 0xBB) q += cp_len(p, q);
-            if (q > s) add_name_n(p, p->s + s, q - s);
+            if (q > s) add_enum_value(p, en, enl, p->s + s, q - s);
             if (ch(p, q) == '>' || cp_at(p, q) == 0xBB) break;
         }
         return;
@@ -3229,11 +3353,11 @@ static void enum_names_from(RkP *p, int from, int to) {
         int e = r_identifier(p, q);
         if (e >= 0 && e <= to) {
             int h = hs(p, e);
-            if (at_lit(p, h, "=>") || (q > from && p->s[q - 1] == ':' && (q < 2 || p->s[q - 2] != ':'))) add_name_n(p, p->s + q, e - q);
-            if (q > from && (p->s[q - 1] == '\'' || p->s[q - 1] == '"')) add_name_n(p, p->s + q, e - q);
+            if (at_lit(p, h, "=>") || (q > from && p->s[q - 1] == ':' && (q < 2 || p->s[q - 2] != ':'))) add_enum_value(p, en, enl, p->s + q, e - q);
+            if (q > from && (p->s[q - 1] == '\'' || p->s[q - 1] == '"')) add_enum_value(p, en, enl, p->s + q, e - q);
             q = e; continue;
         }
-        if (ch(p, q) == '\'' || ch(p, q) == '"') { int s = q + 1; int t = s; while (t < to && p->s[t] != p->s[q]) t++; if (t > s) add_name_n(p, p->s + s, t - s); q = t + 1; continue; }
+        if (ch(p, q) == '\'' || ch(p, q) == '"') { int s = q + 1; int t = s; while (t < to && p->s[t] != p->s[q]) t++; if (t > s) add_enum_value(p, en, enl, p->s + s, t - s); q = t + 1; continue; }
         q += cp_len(p, q);
     }
 }
@@ -3243,8 +3367,8 @@ static int r_type_declarator(RkP *p, int pos) {
     if ((e = kok(p, pos, "enum")) >= 0) {
         int q = e;
         int sd = p->in_decl; p->in_decl = 1;
-        int n = r_longname(p, q);
-        if (n >= 0) { add_name_all(p, p->s + q, name_part_len(p, q, n)); q = n; }
+        int n = r_longname(p, q); int en = q, enl = 0;
+        if (n >= 0) { enl = name_part_len(p, q, n); add_name_all(p, p->s + q, enl); q = n; }
         else if (ch(p, q) == '$' || ch(p, q) == '@' || ch(p, q) == '%' || ch(p, q) == '&') { int v = r_variable(p, q); if (v >= 0) q = v; }
         p->in_decl = sd;
         q = ws(p, q);
@@ -3253,7 +3377,7 @@ static int r_type_declarator(RkP *p, int pos) {
         if (!(c == '<' || c == '(' || c == 0xAB)) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
         int t = r_term(p, q);
         if (t < 0) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
-        enum_names_from(p, q, t);
+        enum_names_from(p, q, t, p->s + en, enl);
         return ws(p, t);
     }
     if ((e = kok(p, pos, "subset")) >= 0) {
@@ -3368,9 +3492,9 @@ static int r_statement(RkP *p, int pos) {
     int e;
     if ((e = r_label(p, pos)) >= 0) return r_statement(p, e);
     if ((e = r_statement_control(p, pos)) >= 0) return e;
-    int si = p->invocant_ok; int sg = p->goal; p->goal = 0;
+    int si = p->invocant_ok; int sq = p->qsigil; p->qsigil = 0;
     e = r_EXPR(p, pos, 0);
-    p->invocant_ok = si; p->goal = sg;
+    p->invocant_ok = si; p->qsigil = sq;
     if (e >= 0) {
         if (marked_end(p, e) || marked_end(p, ws(p, e))) return e;
         int m = r_statement_mods(p, e);
@@ -3395,6 +3519,7 @@ static int r_eat_terminator(RkP *p, int pos) {
     int q = ws(p, pos);
     if (ch(p, q) == ';') return q + 1;
     if (marked_end(p, pos) || marked_end(p, q)) return q;
+    if (p->ustop && q + p->ustop_len <= p->n && !memcmp(p->s + q, p->ustop, (size_t) p->ustop_len)) return q;
     int c = ch(p, q);
     if (c == ')' || c == ']' || c == '}' || q >= p->n) return q;
     if (is_terminator_at(p, q) && !is_stmt_mod_kw(p, q)) return q;
