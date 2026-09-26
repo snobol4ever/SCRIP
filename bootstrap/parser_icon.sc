@@ -205,27 +205,32 @@ Expr10 = (   $'-'        *Expr10 reduce('TT_MNS', 1)
          |   $'/'        *Expr10 reduce('TT_NULL', 1)
          |   $'='        *Expr10 reduce('TT_MATCH_UNARY', 1)
          |   $'not' $'  ' *Expr10 reduce('TT_NOT', 1)
-         |   *Expr11  ARBNO(Expr11tail)
+         |   *Expr11  *Expr11rest
          );
+Expr11rest = FENCE(Expr11tail *Expr11rest | epsilon);
 Expr9tail = FENCE( $'\\' *Expr10 reduce('TT_LIMIT', 2)
                  | $'!'  *Expr10 reduce('TT_BANG_BINARY', 2)
                  );
-Expr9     = ( *Expr10 ARBNO(Expr9tail) );
+Expr9     = ( *Expr10 *Expr9rest );
+Expr9rest = FENCE(Expr9tail *Expr9rest | epsilon);
 Expr8     = ( *Expr9 FENCE($'^' *Expr8 reduce('TT_POW', 2) | epsilon) );
 Expr7tail = FENCE( $'**' *Expr8 reduce('TT_CSET_INTER', 2)
                  | $'*'  *Expr8 reduce('TT_MUL', 2)
                  | $'/'  *Expr8 reduce('TT_DIV', 2)
                  | $'%'  *Expr8 reduce('TT_MOD', 2)
                  );
-Expr7     = ( *Expr8 ARBNO(Expr7tail) );
+Expr7     = ( *Expr8 *Expr7rest );
+Expr7rest = FENCE(Expr7tail *Expr7rest | epsilon);
 Expr6tail = FENCE( $'++' *Expr7 reduce('TT_CSET_UNION', 2)
                  | $'--' *Expr7 reduce('TT_CSET_DIFF', 2)
                  | $'+'  *Expr7 reduce('TT_ADD', 2)
                  | $'-'  *Expr7 reduce('TT_SUB', 2)
                  );
-Expr6     = ( *Expr7 ARBNO(Expr6tail) );
+Expr6     = ( *Expr7 *Expr6rest );
+Expr6rest = FENCE(Expr6tail *Expr6rest | epsilon);
 Expr5tail = FENCE( $'|||' *Expr6 reduce('TT_LCONCAT', 2) | $'||' *Expr6 reduce('TT_CAT', 2) );
-Expr5     = ( *Expr6 ARBNO(Expr5tail) );
+Expr5     = ( *Expr6 *Expr5rest );
+Expr5rest = FENCE(Expr5tail *Expr5rest | epsilon);
 Expr4tail = FENCE( $'<<='  *Expr5 reduce('TT_LLE', 2) | $'<<'   *Expr5 reduce('TT_LLT', 2)
                  | $'>>='  *Expr5 reduce('TT_LGE', 2) | $'>>'   *Expr5 reduce('TT_LGT', 2)
                  | $'~===' *Expr5 reduce('TT_IDENTICAL', 2) reduce('TT_NOT', 1)
@@ -236,7 +241,8 @@ Expr4tail = FENCE( $'<<='  *Expr5 reduce('TT_LLE', 2) | $'<<'   *Expr5 reduce('T
                  | $'~='   *Expr5 reduce('TT_NE', 2) | $'<'    *Expr5 reduce('TT_LT', 2)
                  | $'>'    *Expr5 reduce('TT_GT', 2) | $'='    *Expr5 reduce('TT_EQ', 2)
                  );
-Expr4     = ( *Expr5 ARBNO(Expr4tail) );
+Expr4     = ( *Expr5 *Expr4rest );
+Expr4rest = FENCE(Expr4tail *Expr4rest | epsilon);
 X3        = ( nInc() *Expr4 FENCE($'|' *X3 | epsilon) );
 Expr3     = ( nPush() X3 reduce('TT_ALTERNATE', "*(GT(nTop(), 1) nTop())") nPop() );
 Expr2     = ( *Expr3
@@ -290,11 +296,12 @@ SuspendExpr = ( nPush()
               );
 Expr1a    = ( *Expr1 FENCE($'?' *Expr reduce('TT_SCAN', 2) | epsilon) );
 ExprSeqRest = ( $'&' *Expr1a nInc() );
+ExprSeqStar = FENCE(ExprSeqRest *ExprSeqStar | epsilon);
 Expr        = ( nPush()
                 ( ReturnExpr | SuspendExpr
                 | *Expr1a
                 )
-                nInc() ARBNO(ExprSeqRest) reduce('TT_SEQ', "*(GT(nTop(), 1) nTop())") nPop()
+                nInc() *ExprSeqStar reduce('TT_SEQ', "*(GT(nTop(), 1) nTop())") nPop()
               );
 Blank     = ( $' ' );
 ReturnStmt = ( $'return' $'  ' *Expr $' ' semi_opt $' ' reduce('TT_RETURN', 1)
