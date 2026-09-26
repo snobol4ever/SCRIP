@@ -6,8 +6,24 @@
 #include <string.h>
 #include <stdint.h>
 #include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "gc_audit_b.h"
 typedef struct gc_audit_b_ctr_t { long words; long inheap; long marked; long fill; long excl; long found; long shown; long suppressed; } gc_audit_b_ctr_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_audit_b_log(const char *line)
+{
+    extern const char *g_file; const char *lp = getenv("SCRIP_GC_AUDIT_B_LOG"); char buf[2560]; int fd, n;
+    if (!lp || !*lp) return;
+    n = snprintf(buf, sizeof buf, "pid=%ld exe=%s src=%s %s", (long)getpid(), program_invocation_short_name, g_file ? g_file : "-", line);
+    if (n <= 0) return;
+    if (n >= (int)sizeof buf) { n = (int)sizeof buf - 1; buf[n - 1] = '\n'; }
+    fd = open(lp, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
+    if (fd < 0) { fprintf(stderr, "[GC-AUDIT-B] SCRIP_GC_AUDIT_B_LOG=%s cannot be opened (errno %d) -- the log is NOT a receipt of this run\n", lp, errno); return; }
+    if (write(fd, buf, (size_t)n) != (ssize_t)n) fprintf(stderr, "[GC-AUDIT-B] SCRIP_GC_AUDIT_B_LOG=%s short write -- the log is NOT a receipt of this run\n", lp);
+    close(fd);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_audit_b_opaque(uint16_t t) { return (t == HB_WSB || t == HB_WSC || t == HB_ZBLK || t == HB_ZCOL || t == HB_AGGB) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -46,8 +62,10 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
           if (v->birth_of) v->birth_of((const char *)h, bb, (long)sizeof bb);
           if (dladdr((void *)p, &di) && di.dli_fbase) snprintf(hn, sizeof hn, "%s+0x%lx/%s", di.dli_fname ? di.dli_fname : "?", (unsigned long)((const char *)p - (const char *)di.dli_fbase), di.dli_sname ? di.dli_sname : (nm ? nm : "-"));
           else snprintf(hn, sizeof hn, "%s", nm ? nm : "-");
-          fprintf(stderr, "[GC-AUDIT-B] run=%ld pop=%s CANDIDATE-LOST-ROOT at=%p in=%s word=%p blk=%p type=%u size=%u off=%ld text=%s%s%s\n",
-              v->run, pop, (const void *)p, hn, (const void *)w, (const void *)h, (unsigned)h->type, (unsigned)h->size, (long)(w - (const char *)h), tx, bb[0] ? " " : "", bb); } }
+          { char ln[2048];
+            snprintf(ln, sizeof ln, "[GC-AUDIT-B] run=%ld pop=%s CANDIDATE-LOST-ROOT at=%p in=%s word=%p blk=%p type=%u size=%u off=%ld text=%s%s%s\n",
+              v->run, pop, (const void *)p, hn, (const void *)w, (const void *)h, (unsigned)h->type, (unsigned)h->size, (long)(w - (const char *)h), tx, bb[0] ? " " : "", bb);
+            fputs(ln, stderr); gc_audit_b_log(ln); } } }
     return nw;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -64,8 +82,11 @@ long gc_audit_b_collect(const gc_audit_b_t *v)
     for (i = 0; strstr(ps, "heapint") && i < v->nblk; i++) { const rt_hblk_t *h = v->blk_at(i);
         if (!h || !(h->flags & HBF_MARK) || !gc_audit_b_opaque(h->type)) continue;
         nop++; nhw += gc_audit_b_words(v, (const char *)(h + 1), (const char *)h + h->size, "heapint", "-", &c, cap); }
-    fprintf(stderr, "[GC-AUDIT-B] run=%ld audited=1 findings=%ld shown=%ld suppressed=%ld words=%ld inheap=%ld marked=%ld fill=%ld excluded=%ld regions=%ld heapint_words=%ld opaque_blocks=%ld of %ld opaque_set=ZCOL,ZBLK,WSC,AGGB,WSB pops=%s\n",
+    { char ln[1024];
+      snprintf(ln, sizeof ln, "[GC-AUDIT-B] run=%ld audited=1 findings=%ld shown=%ld suppressed=%ld words=%ld inheap=%ld marked=%ld fill=%ld excluded=%ld regions=%ld "
+               "heapint_words=%ld opaque_blocks=%ld of %ld opaque_set=ZCOL,ZBLK,WSC,AGGB,WSB pops=%s\n",
         v->run, c.found, c.shown, c.suppressed, c.words, c.inheap, c.marked, c.fill, c.excl, v->nrgn, nhw, nop, v->nblk, ps);
+      fputs(ln, stderr); gc_audit_b_log(ln); }
     return c.found;
 }
 #endif
