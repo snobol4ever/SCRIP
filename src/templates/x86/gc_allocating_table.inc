@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1801
-#define GC_ALLOC_TAB_N_VOID 199
-#define GC_ALLOC_TAB_N_DESCR 999
-#define GC_ALLOC_TAB_N_OTHER 603
+#define GC_ALLOC_TAB_N 1802
+#define GC_ALLOC_TAB_N_VOID 200
+#define GC_ALLOC_TAB_N_DESCR 1000
+#define GC_ALLOC_TAB_N_OTHER 602
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -605,6 +605,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_field_get", GC_RET_DESCR },
     { "icn_index_operand_ok", GC_RET_OTHER },
     { "icn_opgen_pump", GC_RET_DESCR },
+    { "icn_opproc_fit", GC_RET_VOID },
     { "icn_pad_str", GC_RET_OTHER },
     { "icn_scan_seq_nary", GC_RET_OTHER },
     { "icn_scan_tail_gate", GC_RET_OTHER },
@@ -1635,7 +1636,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_call_open_det4", GC_RET_OTHER },
     { "rt_proc_call_open_fnret", GC_RET_OTHER },
     { "rt_proc_call_open_p", GC_RET_OTHER },
-    { "rt_proc_call_open_slim", GC_RET_OTHER },
     { "rt_proc_call_prologue", GC_RET_OTHER },
     { "rt_proc_call_prologue_lex", GC_RET_OTHER },
     { "rt_proc_enter_barrier", GC_RET_DESCR },
@@ -1669,6 +1669,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_section_var_s", GC_RET_DESCR },
     { "rt_section_var_strict", GC_RET_DESCR },
     { "rt_size_d", GC_RET_DESCR },
+    { "rt_sno_cnv_num", GC_RET_DESCR },
     { "rt_sno_dtx_value", GC_RET_DESCR },
     { "rt_sno_elem_store_trace", GC_RET_VOID },
     { "rt_sno_goto_special_is", GC_RET_OTHER },

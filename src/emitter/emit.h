@@ -267,7 +267,7 @@ extern "C" {
 #include "IR.h"
 enum {
     CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_PROC_STAGED = 5,
-    CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_WRITE_SLOT = 7, CALL_ROUTE_WRITE_BINOP = 8, CALL_ROUTE_WRITE_LEGACY = 9, CALL_ROUTE_WRITE_EMPTY = 10, CALL_ROUTE_FN = 11, CALL_ROUTE_BYNAME_GEN = 12
+    CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_FN = 11, CALL_ROUTE_BYNAME_GEN = 12
 };
 struct SrcLines;
 typedef struct {
@@ -351,7 +351,6 @@ typedef struct {
     long                         op_imm_b;
     int                          op_snul_a_ok;
     int                          op_snul_b_ok;
-    int                          op_write_route;
     int                          op_call_route;
     const char *                 op_proto;
     const char *                 op_entry;
@@ -466,7 +465,6 @@ typedef struct {
     int                          op_arg_slot_cap;
     int                          op_arg_slot_n;
     int                          op_define_role;
-    int                          op_c2;
     int                          op_arbno_zq[8];
     int                          op_arbno_nzq;
     int                          sn4_defer_cell_n;
@@ -580,7 +578,6 @@ extern "C" {
 IR_t * bb_child0(const IR_t *n);
 IR_t * bb_child1(const IR_t *n);
 int    binop_slot_kind(IR_t *nd);
-int    bb_call_write_route(IR_t *nd);
 int    emit_binop_opnd_slot(IR_t *o);
 int    binop_is_num_real(IR_graph_t *g, IR_t *nd);
 void   bb_fill_alpha(IR_t *nd);

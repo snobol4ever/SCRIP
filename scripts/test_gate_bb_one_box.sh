@@ -36,7 +36,7 @@
 #   bb_binop_relop_val JOINED it s269: it was a second box living inside bb_binop_relop.cpp
 #   (the one genuine one-box violation this gate found once it could see), split out to its
 #   own file rather than granted an exception — RULES.md forbids per-op exception lists.
-# ICON helper files (exempt): bb_call_fn, bb_call_proc_staged, bb_call_write_slot.
+# ICON helper files (exempt): bb_call_fn, bb_call_proc_staged.
 #
 # Usage: bash scripts/test_gate_bb_one_box.sh
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,7 +78,6 @@ src/templates/bb/bb_binop_concat_slot.cpp
 ICN_HELPER_FILES="
 src/templates/bb/bb_call_fn.cpp
 src/templates/bb/bb_call_proc_staged.cpp
-src/templates/bb/bb_call_write_slot.cpp
 "
 strip_comments() { perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$1"; }
 box_entries() { strip_comments "$1" | grep -E '^(extern "C"[[:space:]]+)?std::string[[:space:]]+bb_[a-z0-9_]+[[:space:]]*\([^;]*$' | grep -cvE 'bb_[a-z0-9_]*_str[[:space:]]*\('; }

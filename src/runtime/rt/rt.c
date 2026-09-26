@@ -1515,35 +1515,6 @@ DESCR_t rt_proc_call_epilogue_idx_γ(long idx) { return rt_proc_epilogue_idx(idx
 DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_idx(idx, 1); }
 _Static_assert(sizeof(long) == 8, "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the idx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
 _Static_assert(sizeof(long) == 8, "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; parking the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
-void rt_c2b_arm_trap(void) { fprintf(stderr, "FATAL: CALL2BB 3b — slim open refused at RUNTIME on an fc-armed call site; the flat fallback does not exist as storage on an armed statement (registration excluded OPSYN/redefinition shapes at emit time, so this refuse names a guard the planner does not mirror — widen fc_call_ok or the probe)\n"); fflush(stderr); abort(); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_proc_call_open_slim(const char *name, int np, int nargs)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (!p || !p->fn || !p->dyn_scope || p->is_generator || p->is_variadic || p->redefined || g_call_fastpath_off || p->nparams != np || nargs > (p->nformals > 0 ? p->nformals : np)) return 0;
-    rt_proc_resolve_cells(p);
-    const char *rname = p->result_name ? p->result_name : p->name;
-    { static int _swn = -1; if (_swn < 0) { const char *e = getenv("SCRIP_SLIM_WANTNAME"); _swn = (!e || *e != (char)48) ? 1 : 0; } if (!_swn) rt_g_want_name = 0; }
-    for (int k = nargs; k < np; k++) { if (p->pcells && p->pcells[k]) *p->pcells[k] = NULVCL; else if (p->pnames && p->pnames[k]) NV_SET_fn(p->pnames[k], NULVCL); }
-    { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
-      if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
-    if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
-    { if (!rt_trace_layer_idle()) { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, _ta, _tn, NULVCL, g_stno); } }
-    rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
-    return (long)(uintptr_t)(void *)p->fn;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
-{
-    rt_k_level--; rt_k_level_mirror();
-    return result;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_slim_ω(void)
-{
-    rt_k_level--; rt_k_level_mirror();
-    return FAILDESCR;
-}
 static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn);
 #define RT_DC_FNS_MAX 8192
 static void *g_rt_dc_fns_store[RT_DC_FNS_MAX];

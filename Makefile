@@ -966,7 +966,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/xa/xa_coexpr_entry.cpp \
     $(SRC)/templates/bb/bb_call.cpp \
     $(SRC)/templates/bb/bb_call_proc_staged.cpp \
-    $(SRC)/templates/bb/bb_call_write_slot.cpp \
     $(SRC)/templates/bb/bb_call_bool.cpp \
     $(SRC)/templates/bb/bb_call_fn.cpp \
     $(SRC)/templates/bb/bb_binop_relop.cpp \

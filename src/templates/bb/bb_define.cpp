@@ -200,12 +200,8 @@ extern "C" {
 #include "bb_templates.h"
 #include "ab_abi.h"
 #include "pin_va.h"
-long  rt_proc_call_open_slim(const char *name, int np, int nargs);
 int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
-int   bb_scc_handoff_arm(void);
-int   bb_scc_handoff_room(void);
 int   rt_proc_nformals(const char *);
-void  bb_scc_handoff_pending_clear(void);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -581,45 +577,7 @@ static std::string bb_define_sr() {
                               : x86("pop", "rcx") + x86("add", "rsp", (long)8))
                  + x86("jmp", "rcx");
     }
-    int c2np = 0, c2nsave = 0, c2res_gk = -1; int c2gk[64]; long c2nargs = (long)_.op_arg_slot_n;
-    int elig = bb_scc_probe(_.op_sval, (int)c2nargs, &c2np, &c2nsave, c2gk, &c2res_gk);
-    for (int i = 0; elig && i < (int)c2nargs; i++) if (_.op_arg_slot[i] < 0) elig = 0;
-    if (elig && !bb_scc_handoff_room()) elig = 0;
-    if (!elig) { bb_scc_handoff_pending_clear(); return x86("comment", "IR_DEFINE role 0: site not SCC-eligible (or an arg slot unresolved, or no handoff room) — pass-through; the staged call box runs its full merged body")
-             + x86_alpha()
-             + x86_gamma(); }
-    long sb = 16L * (long)c2nsave;
-    uint64_t slim_fp; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; slim_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    std::string s = x86("comment", "IR_DEFINE role 0 (CALL2BB slice 2): own sub-rsp carve, save-set spill (GVA -> own slots), open_slim, staged args -> NV globals; outcome rides rax into the staged call box")
-         + x86_alpha()
-         + x86_zclaim(sb)
-         + FOR(0, c2nsave, [&](int k) {
-               return x86("note", gva_name(c2gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(c2gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
-                    + x86("note", gva_name(c2gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(c2gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)c2gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
-         + x86_scan_sync_out()
-         + x86_ro_load_q("rdi", 0)
-         + x86("mov32", "esi", (long)c2np)
-         + x86("mov32", "edx", c2nargs)
-         + x86("call", "rt_proc_call_open_slim", slim_fp)
-         + x86_rt_gc_poll()
-         + x86_scan_sync_in_rr()
-         + x86("test", "rax", "rax")
-         + x86("jne", L(1))
-         + x86_zrelease(sb)
-         + x86("jmp", L(2))
-         + x86("def", L(1))
-         + FOR(0, (int)c2nargs, [&](int i) { int slot = _.op_arg_slot[i];
-               return x86("mov", "rax", FRQB(slot, (int)sb))
-                    + x86("note", gva_name(c2gk[i]))
-                    + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(c2gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)c2gk[i] * 16), "rax")
-                    + x86("mov", "rax", FRQB(slot + 8, (int)sb))
-                    + x86("note", gva_name(c2gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(c2gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)c2gk[i] * 16 + 8), "rax"); })
-         + x86("mov32", "eax", 1L)
-         + x86("def", L(2))
-         + x86_gamma()
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
-    if (!bb_scc_handoff_arm()) return x86_alpha() + x86_bomb("IR_DEFINE role 0: handoff arm failed after the room check passed (impossible unless the drive deposit raced)");
-    return s;
+    return x86_alpha() + x86_bomb("IR_DEFINE role 0 (the CALL2BB slice-2 producer) retired 2026-09-26 on a plant proof: no lowerer builds an SR-citizen DEFINE outside roles 1..5 (0 of 4693 corpus sources reached this arm or armed a handoff)");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_nreturn_mark() {

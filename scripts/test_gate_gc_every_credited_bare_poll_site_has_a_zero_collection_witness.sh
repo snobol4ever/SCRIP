@@ -25,6 +25,9 @@
 # rt_str_coerce (hb_table_dump_every_key_ref.icn reaches it) and bb_unop.cpp rt_size_d (no witness yet: the arrival this ceiling names);
 # the two bb_match_capture.cpp sites are the same two under the label rt_cap_open_plain/rt_cap_open, and the rewrite also absorbed the
 # 2b89a5ef2 / ae2a9e433 line drift in emit.cpp and bb_define.cpp that had arm (d) red on origin at 86.
+# 57 over 150 on the family-1 retirement (cto 2026-09-26, row gc-the-116-bare-poll-sites): ten credited bare sites LEFT THE TABLE with their roads -- the
+# marshal_arith cycle, the NV_GET argument arm, the by-name dop leaf, the three write routes, IR_DEFINE role 0 and the two slim roads --
+# each proven unreached by a tagged plant compiled over 4693 corpus sources (0 hits, controls 109..605); no arrival, so the ceiling only fell.
 # FAIL_ONCE=1 plants a lower ceiling and requires arm (d) to red.
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -33,7 +36,7 @@ ROOT="$PWD"
 G="$(basename "$0" .sh)"
 CHK="$ROOT/scripts/util_gc_safe_point_contract.py"
 TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-67}"
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-57}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

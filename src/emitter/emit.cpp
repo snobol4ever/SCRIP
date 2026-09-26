@@ -1000,20 +1000,6 @@ static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
     for (int oi = 0; oi < gi->n_operands; oi++) { int k = nidx(nodes, n, (IR_t *)gi->operands[oi]); if (k >= 0 && (ir_is_generator_kind(nodes[k]->op) && k > bk)) bk = k; }
     return bk;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_call_write_route(IR_t *nd) {
-    extern int rt_is_reassigned_builtin(const char *);
-    const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
-    if (!(fn && narg == 1 && a0 && !strcmp(fn, "write"))) return 0;
-    if (rt_is_reassigned_builtin(fn)) return 0;
-    { IR_t *_gt = nd->γ.node; int _gg = 0; while (_gt && _gt->op == IR_GOTO && _gg++ < 128) _gt = _gt->γ.node; IR_t *_ot = nd->ω.node; int _og = 0; while (_ot && _ot->op == IR_GOTO && _og++ < 128) _ot = _ot->γ.node; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && _gt && _ot && _gt == _ot && (unsigned char)nd->ω.sz[0] == 0xce && (unsigned char)nd->ω.sz[1] == 0xb2) return 0; }
-    if (bb_slot_get(a0) >= 0) return 1;
-    int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_VAR || a0->op == IR_CALL || ir_is_call_kind(a0->op));
-    if (wintexpr && (a0->op == IR_BINOP || a0->op == IR_TO || a0->op == IR_TO_BY)) return (a0->op == IR_BINOP && binop_is_concat((long)IR_LIT(a0).ival)) ? 2 : 3;
-    if (wintexpr) return 4;
-    if (a0->op == IR_LIT_STRING && IR_LIT(a0).sval) return 5;
-    return 0;
-}
 extern "C" int icn_builtin_is_known(const char *);
 extern "C" int icn_builtin_is_generator(const char *);
 extern "C" int rt_proc_entry_pending(const char *);
@@ -1026,7 +1012,7 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
     if (k == IR_CALL && fn[0] == '$') { const char * _ds = 0; if (dop_direct_fp(fn, narg, &_ds)) return CALL_ROUTE_FN; }
-    if (k == IR_CALL_BUILTIN && g_emit.op_write_route == 0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
+    if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (!strcmp(fn, "__rk_bool") && narg >= 1) return CALL_ROUTE_RK_BOOL_SLOT;
@@ -1036,9 +1022,6 @@ int bb_call_route_classify(IR_t * nd) {
     if (dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
     if (fn[0] && rt_proc_is_registered(fn)) return rt_proc_entry_pending(fn) ? CALL_ROUTE_BYNAME : CALL_ROUTE_PROC_STAGED;
     if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
-    switch (g_emit.op_write_route) {
-    case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP;
-    case 4: return CALL_ROUTE_WRITE_LEGACY; case 5: return CALL_ROUTE_WRITE_EMPTY; default: break; }
     if (fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
     return CALL_ROUTE_FATAL;
@@ -1686,8 +1669,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_CALL_ICON: case IR_CALL_SNOBOL4: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
-        g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
-        { extern int bb_scc_handoff_consume(const void *, const char *); g_emit.op_c2 = bb_scc_handoff_consume((const void *)nd, IR_LIT(nd).sval); }
+        g_emit.op_arg_slot_n = na;
         { IR_t *_gt = nd->γ.node; int _gg = 0; while (_gt && _gt->op == IR_GOTO && _gg++ < 128) _gt = _gt->γ.node; IR_t *_ot = nd->ω.node; int _og = 0; while (_ot && _ot->op == IR_GOTO && _og++ < 128) _ot = _ot->γ.node; g_emit.op_sb = (g_emit_cfg && g_emit_cfg->icn_cells_graph && _gt && _ot && _gt == _ot && (unsigned char)nd->ω.sz[0] == 0xce && (unsigned char)nd->ω.sz[1] == 0xb2) ? 1 : 0; }
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1935,9 +1917,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_DEFINE:
         if (ir_define_sr_citizen(nd)) {
         { int64_t v = IR_LIT(nd).ival; int64_t r = (v == 1 || v == 2 || v == 3 || v == 4) ? v : 0; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
-        { extern void bb_scc_handoff_pending_set(const void *, const char *); extern void bb_scc_handoff_pending_clear(void);
-          if (g_emit.op_ival == 0 && g_emit.op_sval && nd->γ.node) bb_scc_handoff_pending_set((const void *)nd->γ.node, g_emit.op_sval); else bb_scc_handoff_pending_clear(); }
-        g_emit.op_c2 = 0;
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = nd->operands[i]; int s = a ? bb_slot_get(a) : -1; if (s < 0 && a) s = zls_off(a); g_emit.op_arg_slot[i] = s; }
         g_emit.op_arg_slot_n = na;
@@ -4159,7 +4138,6 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);
     g_bb_slotmap_n = 0; g_bb_slotix_gen++;
     g_flat_chain_set_n = 0;
-    { extern void bb_scc_handoff_reset(void); bb_scc_handoff_reset(); }
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }
     { extern void zop_audit_graph_close(void); zop_audit_graph_close(); g_emit.zop_seen = 0; }
     g_emit.flat_all_zd = 0;

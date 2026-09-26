@@ -119,7 +119,6 @@ void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals);
 void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals);
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
-void rt_c2b_arm_trap(void);
 int  rt_proc_has_native_fn(const char *name);
 void rt_proc_set_generator(const char *name, int is_gen);
 void rt_proc_set_variadic(const char *name, int is_var);
