@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1796
+#define GC_ALLOC_TAB_N 1797
 #define GC_ALLOC_TAB_N_VOID 199
-#define GC_ALLOC_TAB_N_DESCR 997
+#define GC_ALLOC_TAB_N_DESCR 998
 #define GC_ALLOC_TAB_N_OTHER 600
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -351,6 +351,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "alcfile", GC_RET_OTHER },
     { "alcreal", GC_RET_OTHER },
     { "alcstr", GC_RET_OTHER },
+    { "apply_fn_body", GC_RET_DESCR },
     { "array_new", GC_RET_OTHER },
     { "array_new2d", GC_RET_OTHER },
     { "bb_build_break_blob", GC_RET_VOID },
