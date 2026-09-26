@@ -221,37 +221,35 @@ published only when all three print its ref in both modes; with `BENCH_ORACLE_AR
 same twins run under the clean SPITBOL oracle, so the two engines are timed on the same generated program, on the same
 box, in the same minute.
 
-*Measured 2026-09-26 08:46 CDT on SCRIP `81aa23aff` / corpus `05f26cee1`, **RT_OPT=-O0** (Lon 2026-09-26, in-chat to the ceo: *"Do use -O0 for the performance build and comparison as we update SCRIP's README with benchmark timing measurements."*), load 1.1 on 16 cores with the fleet quiet, **500 ms of repetitions per point**, five iterations (`BENCH_BUD_MS=500 BENCH_ITER_N=5`, one warm-up repetition first; `BENCH_ORACLE_ARM=1 bash scripts/test_snobol4_bench_suite.sh` on a fixture copy), oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the monitor-hooked correctness fork). **Both engines at SPITBOL's own defaults** (`-d128m -i1m -s4m`: SCRIP's shipped defaults since CEO-1261), SCRIP with every diagnostic off (`SCRIP_DIAG=0`, CEO-1262). 23 of 23 kernels printed their ref on every angle in all three engines. Two harness readings were taken this sitting, 08:35 and 08:46, and they agree kernel for kernel within the SPITBOL arm's own spread (its string_concat_twin read 200 then 245 µs; SCRIP's var_access m4 read 21.0 µs on the first run, a disturbed point, and 14.5 on the second); the second is the grid. The per-repetition figure is the fixed-time twin's (microseconds per repetition of the kernel's own function); the x-factor is SPITBOL time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as fast). The last two columns are the mode-3 and mode-4 x-factors of the grid this one replaces (`be0e10b9a`, 2026-09-25 14:4x).*
+*Measured 2026-09-26 08:46 CDT on SCRIP `81aa23aff` / corpus `05f26cee1`, **RT_OPT=-O0** (Lon 2026-09-26, in-chat to the ceo: *"Do use -O0 for the performance build and comparison as we update SCRIP's README with benchmark timing measurements."*), load 1.1 on 16 cores with the fleet quiet, **500 ms of repetitions per point**, five iterations (`BENCH_BUD_MS=500 BENCH_ITER_N=5`, one warm-up repetition first; `BENCH_ORACLE_ARM=1 bash scripts/test_snobol4_bench_suite.sh` on a fixture copy), oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the monitor-hooked correctness fork). **Both engines at SPITBOL's own defaults** (`-d128m -i1m -s4m`: SCRIP's shipped defaults since CEO-1261), SCRIP with every diagnostic off (`SCRIP_DIAG=0`, CEO-1262). 23 of 23 kernels printed their ref on every angle in all three engines. Two harness readings were taken this sitting, 08:35 and 08:46, and they agree kernel for kernel within the SPITBOL arm's own spread (its string_concat_twin read 200 then 245 µs; SCRIP's var_access m4 read 21.0 µs on the first run, a disturbed point, and 14.5 on the second); the second is the grid. The per-repetition figure is the fixed-time twin's (microseconds per repetition of the kernel's own function); the x-factor is SPITBOL time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as fast).*
 
-| kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 | `be0e10b9a` m3 | `be0e10b9a` m4 | CSNOBOL4 µs/rep | CSNOBOL4 / m4 |
-|---|---:|---:|---:|:---:|:---:|:---:|:---:|---:|:---:|
-| arith_loop | 24.7 | 6.78 | 6.75 | 3.65x | 3.67x | 3.56x | 3.76x | 143.8 | 21.30x |
-| arith_loop_twin | 7326.5 | 2129.2 | 2163.8 | 3.44x | 3.39x | 3.39x | 3.38x | 37162.7 | 17.17x |
-| array_sum | 600.9 | 252.1 | 260.6 | 2.38x | 2.31x | 2.29x | 2.26x | 3501.3 | 13.44x |
-| eval_fixed | 140.2 | 206.4 | 208.4 | 0.68x | 0.67x | 0.69x | 0.72x | 711.2 | 3.41x |
-| fib_recur | 3775.1 | 2228.7 | 2415.1 | 1.69x | 1.56x | 1.83x | 1.65x | 26326.8 | 10.90x |
-| fibonacci | 213.8 | 125.7 | 139.3 | 1.70x | 1.53x | 1.76x | 1.67x | 1354.4 | 9.72x |
-| func_call | 33.3 | 16.6 | 17.8 | 2.00x | 1.87x | 2.34x | 2.26x | 208.5 | 11.72x |
-| ident_call1 | 30.8 | 11.7 | 11.0 | 2.63x | 2.81x | 2.83x | 2.91x | 206.6 | 18.78x |
-| ident_call2 | 32.4 | 10.2 | 9.42 | 3.18x | 3.44x | 2.94x | 3.25x | 169.9 | 18.04x |
-| indirect_dispatch | 26.3 | 48.7 | 49.4 | 0.54x | 0.53x | 0.60x | 0.58x | 148.6 | 3.01x |
-| mixed_workload | 30.9 | 37.9 | 39.4 | 0.82x | 0.78x | 0.78x | 0.82x | 160.2 | 4.07x |
-| name_indirection | 995.6 | 1272.8 | 1359.1 | 0.78x | 0.73x | 0.72x | 0.69x | 3486.4 | 2.57x |
-| op_dispatch | 50.5 | 15.7 | 13.9 | 3.22x | 3.64x | 3.32x | 3.50x | 329.8 | 23.73x |
-| pattern_bt | 221.0 | 166.4 | 167.9 | 1.33x | 1.32x | 1.13x | 1.31x | 947.2 | 5.64x |
-| roman | 156.4 | 178.6 | 175.0 | 0.88x | 0.89x | 0.83x | 0.91x | 2825.7 | 16.15x |
-| string_concat | 34.2 | 38.7 | 38.3 | 0.89x | 0.89x | 1.15x | 1.10x | 218.6 | 5.71x |
-| string_concat_twin | 244.6 | 155.1 | 155.6 | 1.58x | 1.57x | 1.29x | 1.20x | 994.3 | 6.39x |
-| string_manip | 56.1 | 49.4 | 50.8 | 1.13x | 1.10x | 1.03x | 1.04x | 267.6 | 5.27x |
-| string_pattern | 65.2 | 76.5 | 79.7 | 0.85x | 0.82x | 0.88x | 0.88x | 468.6 | 5.88x |
-| table_access | 752.1 | 575.0 | 590.2 | 1.31x | 1.27x | 1.31x | 1.37x | 5722.6 | 9.70x |
-| table_variety | 580.1 | 575.6 | 565.2 | 1.01x | 1.03x | 1.07x | 1.08x | 2163.4 | 3.83x |
-| test_icon | 1.02 | 0.284 | 0.259 | 3.60x | 3.95x | 3.67x | 4.08x | 1.94 | 7.49x |
-| var_access | 63.3 | 16.5 | 14.5 | 3.84x | 4.36x | 3.50x | 3.79x | 321.0 | 22.14x |
+| kernel | SPITBOL µs/rep | CSNOBOL4 µs/rep | m3 µs/rep | m4 µs/rep | SPITBOL / m3 | SPITBOL / m4 | CSNOBOL4 / m3 | CSNOBOL4 / m4 |
+|---|---:|---:|---:|---:|:---:|:---:|:---:|:---:|
+| arith_loop | 24.7 | 143.8 | 6.78 | 6.75 | 3.65x | 3.67x | 21.21x | 21.30x |
+| arith_loop_twin | 7326.5 | 37162.7 | 2129.2 | 2163.8 | 3.44x | 3.39x | 17.45x | 17.17x |
+| array_sum | 600.9 | 3501.3 | 252.1 | 260.6 | 2.38x | 2.31x | 13.89x | 13.44x |
+| eval_fixed | 140.2 | 711.2 | 206.4 | 208.4 | 0.68x | 0.67x | 3.45x | 3.41x |
+| fib_recur | 3775.1 | 26326.8 | 2228.7 | 2415.1 | 1.69x | 1.56x | 11.81x | 10.90x |
+| fibonacci | 213.8 | 1354.4 | 125.7 | 139.3 | 1.70x | 1.53x | 10.77x | 9.72x |
+| func_call | 33.3 | 208.5 | 16.6 | 17.8 | 2.00x | 1.87x | 12.56x | 11.72x |
+| ident_call1 | 30.8 | 206.6 | 11.7 | 11.0 | 2.63x | 2.81x | 17.66x | 18.78x |
+| ident_call2 | 32.4 | 169.9 | 10.2 | 9.42 | 3.18x | 3.44x | 16.66x | 18.04x |
+| indirect_dispatch | 26.3 | 148.6 | 48.7 | 49.4 | 0.54x | 0.53x | 3.05x | 3.01x |
+| mixed_workload | 30.9 | 160.2 | 37.9 | 39.4 | 0.82x | 0.78x | 4.23x | 4.07x |
+| name_indirection | 995.6 | 3486.4 | 1272.8 | 1359.1 | 0.78x | 0.73x | 2.74x | 2.57x |
+| op_dispatch | 50.5 | 329.8 | 15.7 | 13.9 | 3.22x | 3.64x | 21.01x | 23.73x |
+| pattern_bt | 221.0 | 947.2 | 166.4 | 167.9 | 1.33x | 1.32x | 5.69x | 5.64x |
+| roman | 156.4 | 2825.7 | 178.6 | 175.0 | 0.88x | 0.89x | 15.82x | 16.15x |
+| string_concat | 34.2 | 218.6 | 38.7 | 38.3 | 0.89x | 0.89x | 5.65x | 5.71x |
+| string_concat_twin | 244.6 | 994.3 | 155.1 | 155.6 | 1.58x | 1.57x | 6.41x | 6.39x |
+| string_manip | 56.1 | 267.6 | 49.4 | 50.8 | 1.13x | 1.10x | 5.42x | 5.27x |
+| string_pattern | 65.2 | 468.6 | 76.5 | 79.7 | 0.85x | 0.82x | 6.13x | 5.88x |
+| table_access | 752.1 | 5722.6 | 575.0 | 590.2 | 1.31x | 1.27x | 9.95x | 9.70x |
+| table_variety | 580.1 | 2163.4 | 575.6 | 565.2 | 1.01x | 1.03x | 3.76x | 3.83x |
+| test_icon | 1.02 | 1.94 | 0.284 | 0.259 | 3.60x | 3.95x | 6.83x | 7.49x |
+| var_access | 63.3 | 321.0 | 16.5 | 14.5 | 3.84x | 4.36x | 19.45x | 22.14x |
 
-Geometric mean over the 23 kernels: **1.57x** in mode 3, **1.57x** in mode 4; SCRIP is ahead of SPITBOL on 16 of 23 kernels in mode 3 and 16 in mode 4 (2026-09-25 14:4x on be0e10b9a: 1.57x / 1.59x, 17 of 23; 13:2x on 3a936a797: 1.55x / 1.57x, 16 of 23; 09:2x on 80ee6bb5c: 1.16x / 1.26x; 03:2x on 82b4a61a8: 1.13x / 1.23x; 02:5x on bf9613327: 1.14x / 1.23x; 02:2x on 40a7bac3c: 1.12x / 1.21x; 00:4x on 6134f316c: 1.04x / 1.14x; 2026-09-24 22:04 on 74729b18b: 0.94x / 1.00x; 20:16 that day, on 73295fba6: 0.78x / 0.84x; 14:58 on 239521c25: 0.19x; the 09-03 tree `380cc4162`: 1.25x / 1.33x). The tree has not moved in speed since the 09-25 grid: every kernel's move is within the run-to-run spread of the two readings taken this sitting
-(the SPITBOL arm's string_concat twin read 34.3 µs where it had read 47.4, which is the whole of that cell's drop; var_access m4 read 21.0 µs
-on the first harness run, a disturbed point, and 14.5 on the second run with three by-hand re-reads at 15.2–15.3). **Why SCRIP is slower where it is slower,
+Geometric mean over the 23 kernels: **1.57x** in mode 3, **1.57x** in mode 4; SCRIP is ahead of SPITBOL on 16 of 23 kernels in mode 3 and 16 in mode 4. **Why SCRIP is slower where it is slower,
 measured on this tree with `perf stat` (user instructions and cycles per repetition, the slope between 1000- and 3000-repetition twins) and callgrind
 (exclusive share, mode 4):** wherever the compiler resolves the operation — arithmetic, variables, direct calls to DEFINE'd functions, arrays, the
 statement loop — SCRIP executes about half SPITBOL's instructions at twice its IPC and reads 2–4x. Every kernel below 1x executes 1.7–2.8x SPITBOL's
@@ -292,115 +290,6 @@ column includes SPITBOL's; m4 is the prebuilt binary:**
 | porter (porter.input ×4) | 742 KB | 258 | 435 | 285 | 0.59x | 0.91x | runs, output differs from SPITBOL's | — |
 | calculator-1 (calculator.input ×4) | 127 KB | 32 | 84 | 34 | 0.38x | 0.94x | refuses, Error 5 (undefined function or operation) at line 32 | — |
 | calculator-2 (calculator.input ×4) | 127 KB | 35 | 82 | 36 | 0.42x | 0.97x | refuses, Error 5 (undefined function or operation) at line 62 | — |
-
-On `be0e10b9a` at 14:4x on 2026-09-25 the same six read (mode 4) 1.41x, 0.71x, 0.83x, 0.79x, 0.88x. and 0.91x. On `3a936a797` at 13:2x the same six read 1.06x, 0.66x, 0.81x, 0.82x, 0.47x and 0.56x. The landing between, `be0e10b9a` (CEO-1265), runs
-a compiled program on a stack the runtime maps for it, 2 MB aligned and huge-page advised, instead of the process stack, which grows a
-4 KB page at a time and cannot take a huge page: the calculator's whole-file match keeps every deferred-pattern activation for
-backtracking and touched 48 MB of stack in 12,312 page faults, two thirds of its run (58 ms → 31 ms, 13,675 faults → 1,389).
-On `d566528fa` at 12:3x, the same switches, the same six read 1.12x, **0.41x**, 0.81x, 0.81x, 0.48x and 0.54x: with `-i64m` SCRIP
-collected treebank once at HALF its window, where SPITBOL (`sbl -x`: 0 regenerations, 45 MB used) never collected, and that one
-collection cost 110 ms of the run; the pacing landing `3a936a797` spends a window before collecting it and grows one a collection
-leaves under 15 percent free, SPITBOL's own rule, and treebank collects zero times. On `80ee6bb5c` at 09:2x, SCRIP given a 512 MB
-window (`SCRIP_HEAP_KB=524288`) against SPITBOL's `-i64m`, the six read 1.06x, 0.64x, 0.75x, 0.80x, 0.46x and 0.57x.
-On 82b4a61a8 at 03:2x the same six read 1.00x, 0.64x, 0.74x, 0.61x, 0.47x and 0.55x; the capture landing of 80ee6bb5c (every
-capture a slice of the subject, nothing allocated; TABLE, CONVERT and SNO$MKPAT on the direct table) moved porter 0.61x → 0.80x.
-On bf9613327 at 02:5x the same six read 1.04x, 0.51x, 0.67x, 0.63x, 0.47x and 0.54x; the DATA landing of 82b4a61a8 (a field read
-takes one cached lookup, a field used as a variable is its cell, a constructor site constructs directly, PROTOTYPE and ARRAY take
-the direct table) moved treebank 0.51x → 0.64x and nothing else. On 40a7bac3c at 02:2x the same six read 1.05x, 0.48x, 0.69x, 0.61x, 0.45x and 0.51x; the landing of bf9613327 (a deferred-call
-capture finds its procedure once, two integer strings take the integer fast block) moved the calculator and mixed_workload
-(0.24x → 0.45x in mode 4). On 6134f316c at 01:00 the same six read 1.03x, 0.47x, 0.71x, 0.57x, 0.43x and 0.49x — the demos never collect at 512 MB, so the
-collector landing of 40a7bac3c moved the kernels (table_access 0.27x → 0.36x, string_manip 0.45x → 0.62x in mode 4) and not them;
-the same table_access twin reads 0.93x at SPITBOL's own 1 MB default region, and the C runtime built at -O2 (a scratch worktree, not
-shipped) lifts the campaign probe from 1.01x to 1.30x. On 74729b18b at 22:05 the previous evening the same six read 0.77x, 0.42x, 0.57x, 0.55x, 0.45x and 0.50x; at 17:4x, before
-f8c25ae0e, 0.86x, 0.08x, 0.58x, 0.41x, 0.40x and 0.43x. The night's four landings (CEO-1250..1253) moved the pattern-heavy demos:
-the immediate assignment stores into its GVA cell, every poll site tests the pending flag in line, IDENT and the fused table
-store are asm entries, the stale-read trap is released in 256 KB chunks. What holds the rest back is measured, not guessed:
-at this 512 MB arena the calculator spends more cycles in the kernel (158 M, 13,690 first-touch page faults over 72 MB of RSS)
-than in user code (149 M), because every deferred function call inside its whole-file match keeps its frame on the spine
-until the match ends (row snobol4-a-deferred-function-call-inside-a-pattern-keeps-its-frame-on-the-spine-until-the-match-ends);
-SPITBOL runs the same program in 22 MB. A smaller pacing line does not help: a collection here costs 10–16 ms per 32 MB of
-garbage, and every line from 4 to 64 MB measured slower than 128.
-
-⛔ **The regression story, measured the same afternoon.** This grid replaces the one issued at 14:58 on `239521c25`, which read
-**0.19x / 0.19x** and SCRIP behind on every kernel — and which also said the 2026-09-04 grid that stood here before it (twelve
-kernels, SCRIP ahead on seven) had been an instrument artifact. It had not: the old grid's tree `380cc4162` (2026-09-03) rebuilt
-and run through this same harness on the same twins reads **1.25x m3 / 1.33x m4**, ahead on 11 of 23, and reproduces the old
-cells. The engine had regressed 6.6x–7.0x on the geometric mean, 21–29x on the tight loops, and a 512 MB arena recovered none of
-it. Bisected on arith_loop (7.5 µs/rep at `380cc4162`, 95.8 at `7481d1337` of 09-05 14:57, 154 that morning), then attributed
-with callgrind and perf on one fixed-iteration twin (266 M instructions / 63 M cycles on the old tree against 1,016 M / 262 M):
-two commits of the evening of 2026-09-04 carried most of it. `1e2773d98` (19:17) armed the per-statement `SNO$STMT` by-name
-hook for any program that mentioned `&STLIMIT`, and 19 of these 23 kernels wrote `&STLIMIT = -1`, the SPITBOL idiom for an
-unlimited run (7.1 → 74 µs/rep at that commit alone). `c3e6b16bb` (21:17) emitted the monitor's per-assignment VALUE tap
-`comm_var` on every global assignment — ten pushes, a spill block and a C call, 444 M of the 750 M extra instructions on that
-twin. The rest is a creep across 09-05 → 09-24 with no single step. Four landings the same day: `2a81a02db` makes the statement
-instrumentation the `--stlimit` switch, off by default and never inferred from the source (an `EVAL` or `CODE` can introduce a
-keyword behind the compiler's back), with the correctness graders passing it because the oracle always has the feature;
-`d752e30eb` puts the variable tap under the same switch (`--monitor` and `--trace` imply it); and `ea0c115b5` puts every
-remaining monitor hook — the DEFINE call/return/fail hooks, the Icon procedure return/fail taps, suspend/resume and
-generator-return hooks, the statement mark's &STCOUNT count — behind it too, for every language (Icon's `&trace` rides the same
-hooks, so the Icon graders pass the switch as well; the Icon call tap alone stays on by default because `display()` reads the
-activation record it writes, which is hq_icon's row to inline); and `444e9893d` makes every runtime trace entry point exit
-before its table lookup when no trace is armed — `trace_find`, a linear scan of the TRACE set on every call and return from the
-runtime's own call path, was 76% of indirect_dispatch's instructions (9.5 G → 2.2 G; 09-03 1.4 G). What remains over 09-03 on
-the call kernels is the collector's 09-19/21 call contract (a runtime-made call opens in C and lands in emitted code: about
-1,100 instructions per call against 695), and on the tight loops the two statement marks' GOT stores. corpus `723e5aa08` drops the
-`&STLIMIT = -1` line from the kernels. With the switch on, the same twins read 0.05x: the instrumented mode's cost is the next
-landing (an inline count, the compare once per statement, the hook only on the slow path). What remains on the default path is
-the GC poll, emitted after runtime calls that cannot allocate and wrapped in a 7-instruction spill where an inline compare
-belongs (8% of that twin), the statement mark's three GOT indirections per statement in mode 4 (3%), and the indirect, string
-and table classes above, each to be treated the way this one was: emitted `.s` side by side, callgrind attribution, cure. The
-2026-09-05 triangulation TSV (`corpus/benchmarks/snobol4/triangulation-20260905T194704Z.tsv`) already carried the regressed engine
-one day after the old grid.
-
-**SNOBOL4 real-program workloads × vs SPITBOL** (callgrind instruction counts, fixed
-work, startup excluded — SCRIP mode 4, 2026-08-23):
-
-| workload | × vs SPITBOL |
-|---|:---:|
-| claws5 — the 3-level table gauntlet, real 66 KB corpus input | 0.734x |
-| json — the deserializer, real 631 KB document | 0.422x |
-| claws5 grammar only (pattern engine alone, zero captures) | **1.628x** |
-
-These numbers cut the same machine at different joints. The bare pattern **engine** —
-scanning, alternation, backtracking, zero captures — is compiled straight-line code
-and beats SPITBOL (claws5 grammar-only at **1.628x**; the verified pattern_bt kernel
-at **1.44x**). Real full programs — the same engine plus captures, tables, and the
-runtime services they call out to — still trail (claws5 0.734x, json 0.422x). The
-compiled part wins; the called-out part loses, which is why optimization targets the
-runtime services, not the code generation.
-
-**SNOBOL4 demos × vs SPITBOL** (`scripts/bench_triangulate_demos_snobol4.sh`, 2026-08-28,
-whole-program wall-clock totals, best of
-3 — a different basis, not comparable to the instruction-count grids above. Every arm's output is
-byte-verified against its reference on all three engines before timing. Each demo has
-three arms: the full program, its `-match` grammar-only core, and `-match-fence` with
-FENCE control added. Mode 3's total *includes its in-process compile on every run*;
-mode 4 times the prebuilt binary — at these 2–50 ms totals that difference dominates
-the m3 column, so m4 is the like-for-like column against SPITBOL's precompiled runs):
-
-| arm | m3 | m4 | | arm | m3 | m4 |
-|---|:---:|:---:|---|---|:---:|:---:|
-| claws5 | 0.33x | 0.72x | | calculator-1 | 0.83x | **2.10x** |
-| claws5-match | 0.37x | 0.71x | | calculator-1-match | **3.06x** | **7.44x** |
-| claws5-match-fence | 0.39x | 0.67x | | calculator-1-match-fence | **1.78x** | **3.67x** |
-| json | 0.25x | 0.92x | | calculator-2 | 0.93x | **2.64x** |
-| json-match | 0.29x | 0.74x | | calculator-2-match | 0.42x | 0.85x |
-| json-match-fence | 0.34x | 0.80x | | calculator-2-match-fence | 0.48x | 0.95x |
-| treebank | 0.14x | 0.50x | | | | |
-| treebank-match | 0.47x | 0.71x | | | | |
-| treebank-match-fence | 0.33x | 0.57x | | | | |
-
-The reading: pure-match arms can crush (calculator-1-match at 7.44x), json is within 8%
-of SPITBOL on totals, and the worst full program (treebank, allocation-heavy at 0.50x)
-points at the GC/allocator as the next lever. This demo grid is still totals-basis and
-awaits re-measurement under the cross-checked work-rate discipline above.
-
-**beauty self-host × vs SPITBOL** (2026-08-30, wall clock, best of 5 sets of 10 runs,
-outputs byte-verified identical on both arms — the beautifier formatting its own
-618-line source): **0.18x** (19.0 ms vs 3.4 ms per run, re-measured on the current
-tree the same day). Profiling attributes the gap
-mostly to name-lookup and pattern machinery inside the runtime — measured, bounded,
-and being worked — not to the compiled code itself.
 
 ### Icon
 
