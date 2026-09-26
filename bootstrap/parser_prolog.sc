@@ -1,7 +1,7 @@
 E_Parse  = "'Parse'";
 white   =   (  SPAN(' ' tab nl)
             |  '%'  BREAK(nl) nl
-            |  '/*' BREAKX('*') '*/'
+            |  '/*' FENCE(BREAKX('*') '*/')
             );
 White   =   white ARBNO(white);
 Gray    =   White | epsilon;
