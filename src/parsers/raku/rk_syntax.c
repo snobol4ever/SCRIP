@@ -15,6 +15,7 @@ enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_
 typedef struct { const char *sym; int prec; int sub; unsigned char assoc; unsigned char flags; } RkOp;
 typedef struct { char *sym; int len; int prec; int depth; char cat; int assoc; unsigned flags; int wordend; } RkUserOp;
 typedef struct { char *name; int depth; int value; } RkName;
+typedef struct { int pos; int len; int depth; } RkMyst;
 typedef struct RkLang {
     int regex; int cc; int words; int ww;
     int bs; int qbs; int clos; int sc; int ar; int hs; int fn;
@@ -43,6 +44,8 @@ typedef struct RkP {
     char *pkg;
     int finished;
     int comp_unit_begin;
+    RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv;
+    char **exports; int nexports; int cexports;
 } RkP;
 static const int rk_brackets[] = {
     0x0028,0x0029,0x003C,0x003E,0x005B,0x005D,0x007B,0x007D,0x00AB,0x00BB,0x0F3A,0x0F3B,0x0F3C,0x0F3D,0x169B,0x169C,0x2018,0x2019,0x201A,0x2019,0x201B,0x2019,0x201C,0x201D,0x201E,0x201D,
@@ -142,7 +145,8 @@ static int is_numeric_other_cp(int c) {
     return (c >= 0xB2 && c <= 0xB3) || c == 0xB9 || (c >= 0xBC && c <= 0xBE) || (c >= 0x2070 && c <= 0x2079 && c != 0x2071 && c != 0x2072 && c != 0x2073) || (c >= 0x2080 && c <= 0x2089) ||
            (c >= 0x2150 && c <= 0x2189) || (c >= 0x2460 && c <= 0x249B) || (c >= 0x24EA && c <= 0x24FF) || (c >= 0x2776 && c <= 0x2793) || (c >= 0x3007 && c <= 0x3007) ||
            (c >= 0x3021 && c <= 0x3029) || (c >= 0x3038 && c <= 0x303A) || (c >= 0x3192 && c <= 0x3195) || (c >= 0x3220 && c <= 0x3229) || (c >= 0x3248 && c <= 0x324F) ||
-           (c >= 0x3251 && c <= 0x325F) || (c >= 0x3280 && c <= 0x3289) || (c >= 0x32B1 && c <= 0x32BF) || (c >= 0x10107 && c <= 0x10133) || (c >= 0x1F100 && c <= 0x1F10C);
+           (c >= 0x3251 && c <= 0x325F) || (c >= 0x3280 && c <= 0x3289) || (c >= 0x32B1 && c <= 0x32BF) || (c >= 0x10107 && c <= 0x10133) || (c >= 0x10140 && c <= 0x10178) ||
+           (c >= 0x12400 && c <= 0x1246E) || (c >= 0x1F100 && c <= 0x1F10C);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_punct_cp(int c) {
@@ -371,9 +375,42 @@ static int is_type_n(RkP *p, const char *s, int n) {
     return is_name_n(p, s, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void add_routine_name(RkP *p, const char *s, int n) {
+    if (n <= 0 || n > 250) return;
+    char buf[256]; buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
+    add_name_n(p, buf, n + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int routine_visible(RkP *p, const char *s, int n) {
+    if (n <= 0 || n > 250) return 1;
+    char buf[256]; buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
+    if (user_name_index(p, buf, n + 1) >= 0 || user_name_index(p, s, n) >= 0) return 1;
+    if (core_has(rk_core_routines, sizeof rk_core_routines / sizeof *rk_core_routines, s, n)) return 1;
+    return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void add_mystery(RkP *p, int pos, int len) {
+    if (p->myst_off || routine_visible(p, p->s + pos, len) || !is_alpha_cp(cp_at(p, pos)) || is_numeric_other_cp(cp_at(p, pos)) || (len == 9 && !memcmp(p->s + pos, "GLOBALish", 9))) return;
+    for (int i = p->nmyst - 1; i >= 0; i--) if (p->myst[i].pos == pos) return;
+    RK_GROW(p->myst, p->nmyst, p->cmyst, RkMyst);
+    p->myst[p->nmyst].pos = pos; p->myst[p->nmyst].len = len; p->myst[p->nmyst].depth = p->depth;
+    p->nmyst++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void resolve_mysteries(RkP *p, int depth) {
+    int k = 0;
+    for (int i = 0; i < p->nmyst; i++) {
+        RkMyst m = p->myst[i];
+        if (m.depth > depth) { if (routine_visible(p, p->s + m.pos, m.len)) continue; m.depth = depth; }
+        p->myst[k++] = m;
+    }
+    p->nmyst = k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scope_enter(RkP *p) { p->depth++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scope_leave(RkP *p) {
+    resolve_mysteries(p, p->depth - 1);
     p->depth--;
     while (p->nnames > 0 && p->names[p->nnames - 1].depth > p->depth) p->nnames--;
     int k = 0;
@@ -1605,7 +1642,7 @@ static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
         if (p->invocant_ok && p->goal != GOAL_BANGBANG) {
             int n1 = cp_at(p, pos + 1);
             if (pos + 1 >= p->n || is_space_cp(n1) || is_terminator_at(p, pos + 1)) {
-                p->invocant_ok = 0;
+                p->invocant_ok = 0; p->saw_inv = 1;
                 o->prec = PR('g'); o->sub = o->prec; o->assoc = AS_LIST; o->flags = 0; o->from = pos; o->to = pos + 1; o->nextterm = NT_NULLTERMISH;
                 return pos + 1;
             }
@@ -2054,8 +2091,8 @@ static int r_semiarglist(RkP *p, int pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_args(RkP *p, int pos, int invocant_ok) {
-    int si = p->invocant_ok; int sg = p->goal;
-    p->invocant_ok = invocant_ok; p->goal = 0;
+    int si = p->invocant_ok; int sg = p->goal; int sv = p->saw_inv;
+    p->invocant_ok = invocant_ok; p->goal = 0; p->saw_inv = 0;
     int e = pos;
     if (ch(p, pos) == '(') { int q = r_semiarglist(p, pos + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')' (corresponding starter was at line %d)",
         line_of(p, pos)); e = q + 1; }
@@ -2064,7 +2101,8 @@ static int r_args(RkP *p, int pos, int invocant_ok) {
         if (u >= 0 && ch(p, u) == '(') { int q = r_semiarglist(p, u + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')'"); e = q + 1; }
         else if (is_space_cp(cp_at(p, pos))) { e = r_arglist(p, pos + cp_len(p, pos)); }
     }
-    p->invocant_ok = si; p->goal = sg;
+    p->last_inv = p->saw_inv;
+    p->invocant_ok = si; p->goal = sg; p->saw_inv = sv;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2607,6 +2645,7 @@ static int r_term_name(RkP *p, int pos) {
     if (ch(p, q) == '\\' && ch(p, q + 1) == '(') q++;
     int a = r_args(p, q, 1);
     int na = a;
+    if (a >= 0 && !p->last_inv && nl == e - pos && !memchr(p->s + pos, ':', (size_t) nl)) add_mystery(p, pos, nl);
     if (a == q) {
         int k = deftrap_kind(p->s + pos, e - pos);
         if (k && a == e) {
@@ -2631,7 +2670,9 @@ static int r_term_identifier(RkP *p, int pos) {
     else if (u >= 0 && ch(p, u) == '(') q = u;
     else if (ch(p, q) == '\\' && ch(p, q + 1) == '(') q++;
     else return -1;
-    return r_args(p, q, 1);
+    int a = r_args(p, q, 1);
+    if (a >= 0 && !p->last_inv) add_mystery(p, pos, e - pos);
+    return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_keyword_term(RkP *p, int pos) {
@@ -2861,7 +2902,7 @@ static int r_param_var(RkP *p, int pos) {
     if (strchr(".!^:*?=~", ch(p, q)) && ch(p, q) && is_word_cp(cp_at(p, q + 1))) q++;
     int e = q;
     if (c == '&') {
-        if (is_alpha_cp(cp_at(p, q))) { int s = r_sublongname(p, q); if (s >= 0) e = s; }
+        if (is_alpha_cp(cp_at(p, q))) { int s = r_sublongname(p, q); if (s >= 0) { e = s; add_routine_name(p, p->s + q, name_part_len(p, q, s)); } }
         else if (at_lit(p, q, ":(")) { int s = r_signature(p, q + 2, 1); s = ws(p, s); if (ch(p, s) == ')') e = s + 1; }
     }
     else if (is_alpha_cp(cp_at(p, q))) e = r_identifier(p, q);
@@ -3183,6 +3224,7 @@ static void register_user_op(RkP *p, int from, int to) { register_user_op_x(p, f
 static void register_user_op_x(RkP *p, int from, int to, int exported) {
     int nb = p->nuops;
     int n = to - from; const char *s = p->s + from;
+    add_routine_name(p, s, n);
     static const char *const cats[] = { "infix", "prefix", "postfix", "circumfix", "postcircumfix", "term", 0 };
     for (int i = 0; cats[i]; i++) {
         int l = (int) strlen(cats[i]);
@@ -3260,6 +3302,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     q = r_traits(p, q); q = ws(p, q);
     for (int t = tstart; t + 6 <= q; t++) if (!memcmp(p->s + t, "export", 6) && !wordch_at(p, t + 6) && (t == 0 || !asc_word((unsigned char) p->s[t - 1]))) {
         for (int k = 0; k < nuops_before_traits && k < p->nuops; k++) if (p->uops[k].depth == p->depth - 1 && k >= nuops_before_traits - 2) p->uops[k].depth = 1000;
+        if (name_from >= 0 && !is_method) { RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = ct_strndup0(p->s + name_from, name_part_len(p, name_from, name_to)); }
         break;
     }
     int e;
@@ -3355,6 +3398,7 @@ static int r_package_declarator(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_package_def(RkP *p, int pos, const char *kind) {
     int q = pos;
+    if (at_lit(p, q, "::(")) p->myst_off = 1;
     int n = r_longname(p, q);
     char *saved_pkg = p->pkg;
     if (n >= 0) {
@@ -3655,8 +3699,8 @@ static void add_use_lib(RkP *p, int from, int to) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void import_module(RkP *p, const char *name) {
-    if (p->load_depth >= 4) return;
+static int import_module(RkP *p, const char *name) {
+    if (p->load_depth >= 4) return 0;
     char *rel = (char *) ct_alloc(strlen(name) + 1); int k = 0;
     for (int i = 0; name[i]; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
     rel[k] = 0;
@@ -3674,7 +3718,10 @@ static void import_module(RkP *p, const char *name) {
             memset(m, 0, sizeof *m);
             m->load_depth = p->load_depth + 1;
             for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
-            if (rk_check_into(m, src, (int) got, path, m) != 0) return;
+            if (rk_check_into(m, src, (int) got, path, m) != 0) return 0;
+            if (m->myst_off) p->myst_off = 1;
+            for (int i = 0; i < m->nexports; i++) add_routine_name(p, m->exports[i], (int) strlen(m->exports[i]));
+            for (int i = 0; i < m->nnames; i++) if (m->names[i].depth <= 1 && m->names[i].name[0] == '&' && !strcmp(m->names[i].name, "&EXPORT")) p->myst_off = 1;
             for (int i = 0; i < m->nnames; i++) {
                 const char *nm = m->names[i].name;
                 if (!strncmp(nm, "EXPORTHOW::DECLARE::", 20) && nm[20]) { RK_GROW(p->decls, p->ndecls, p->cdecls, char *); p->decls[p->ndecls++] = ct_strndup0(nm + 20, (int) strlen(nm + 20)); }
@@ -3685,9 +3732,10 @@ static void import_module(RkP *p, const char *name) {
                 add_user_op(p, u.cat, u.sym, u.len, u.prec);
                 p->uops[p->nuops - 1].assoc = u.assoc; p->uops[p->nuops - 1].flags = u.flags;
             }
-            return;
+            return 1;
         }
     }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_module_name(RkP *p, int pos) {
@@ -3719,8 +3767,14 @@ static int r_use_like(RkP *p, int pos, const char *what) {
         int t = ws(p, e);
         if (!stdstopper(p, t)) { int a = r_arglist(p, e); e = a; }
     }
+    static const char *const pragmas[] = { "lib", "soft", "strict", "fatal", "MONKEY", "dynamic-scope", "isms", "variables", "attributes", "invocant", "parameters", "experimental", "newline",
+                                           "internals", "nqp", "precompilation", "trace", "worries", "v6", "BUILDPLAN", 0 };
+    int is_pragma = !strncmp(name, "MONKEY-", 7);
+    for (int i = 0; pragmas[i]; i++) if (!strcmp(name, pragmas[i])) is_pragma = 1;
     if (!strcmp(what, "use") && !strcmp(name, "lib")) add_use_lib(p, ws(p, args_from), e);
-    else if (!strcmp(what, "use")) import_module(p, name);
+    else if (!strcmp(what, "use") && !strcmp(name, "Test")) for (size_t i = 0; i < sizeof rk_test_routines / sizeof *rk_test_routines; i++) add_routine_name(p, rk_test_routines[i],
+        (int) strlen(rk_test_routines[i]));
+    else if (!strcmp(what, "use") && !is_pragma) { if (!import_module(p, name)) p->myst_off = 1; }
     return ws(p, e);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3795,6 +3849,7 @@ static int r_statement_control(RkP *p, int pos) {
         }
     }
     if ((e = lit(p, pos, "import")) >= 0 && !wordch_at(p, e)) {
+        p->myst_off = 1;
         int q = ws(p, e);
         int m = r_module_name(p, q);
         if (m < 0) panic_at(p, q, "Malformed import");
@@ -3806,6 +3861,7 @@ static int r_statement_control(RkP *p, int pos) {
     if ((e = lit(p, pos, "use")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) return r_use_like(p, ws(p, e), "use");
     if ((e = lit(p, pos, "DOC")) >= 0 && is_hspace_cp(cp_at(p, e))) { int u = hs(p, e); int f = lit(p, u, "use"); if (f >= 0 && !wordch_at(p, f)) return r_use_like(p, ws(p, f), "use"); }
     if ((e = kok(p, pos, "require")) >= 0) {
+        p->myst_off = 1;
         int q = e;
         int m = r_module_name(p, q);
         if (m < 0) m = r_variable(p, q);
@@ -3839,6 +3895,7 @@ static int r_comp_unit(RkP *p) {
         int ve = r_version(p, t);
         if (ve >= 0) {
             if (!(ch(p, t + 1) == '6')) panic_at(p, t, "No compiler available for Raku %.*s", ve - t, p->s + t);
+            if (ve - t >= 4 && p->s[t + 3] != 'c' && p->s[t + 3] != 'd') p->myst_off = 1;
             q = r_eat_terminator(p, ws(p, ve));
         }
     }
@@ -3852,6 +3909,11 @@ static int r_comp_unit(RkP *p) {
         panic_at(p, e, "Confused");
     }
     if (p->nhere) panic_at(p, p->n, "Ending delimiter %s not found", p->here[0].delim);
+    resolve_mysteries(p, 0);
+    if (!p->myst_off && p->nmyst) {
+        RkMyst m = p->myst[0];
+        panic_at(p, m.pos, "Undeclared %s: %.*s used at line %d", (p->s[m.pos] >= 'a' || p->s[m.pos] == '&') ? "routine" : "name", m.len, p->s + m.pos, line_of(p, m.pos));
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
