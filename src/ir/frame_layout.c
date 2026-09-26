@@ -43,6 +43,7 @@ static zls_graph_t  zg[FL_MAX_GRAPHS];   static int zg_n = 0;
 static zls_vslot_t  zv[FL_MAX_VSLOTS];   static int zv_n = 0;
 static zls_mark_t   zm[FL_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[FL_MAX_ENTRIES]; static int zx_n = 0;
+static int zx_sorted = 0; static cv_t g_zx_tail;
 typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos; const IR_t * guard; int nread; int pooled; int llo; int lhi; int direct; } zls_reuse_t;
 #define ZR_CANDIDATE 0
 #define ZR_SELF      1
@@ -62,7 +63,7 @@ static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; g_znb_gen++; g_znb_n = 0; }
+void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; zx_sorted = 0; za_n = 0; g_znb_gen++; g_znb_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
@@ -92,6 +93,16 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
 const char * zls_graph_name_get(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->name : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zx_cmp(const void * a, const void * b) { const zls_entry_t * x = *(zls_entry_t * const *)a; const zls_entry_t * y = *(zls_entry_t * const *)b; return (x->nd > y->nd) - (x->nd < y->nd); }
+static void zx_settle(void) {
+    int s = (zx_sorted <= zx_n) ? zx_sorted : 0, t = zx_n - s;
+    if (t > 1) qsort(zx + s, (size_t)t, sizeof(zls_entry_t *), zx_cmp);
+    if (s > 0 && t > 0 && zx[s - 1]->nd > zx[s]->nd) {
+        cv_reserve(&g_zx_tail, (uint32_t)sizeof(zls_entry_t *), (uint64_t)t, "g_zx_tail"); zls_entry_t ** tl = (zls_entry_t **)g_zx_tail.p; memcpy(tl, zx + s, (size_t)t * sizeof(zls_entry_t *));
+        int i = s - 1, j = t - 1, k = zx_n - 1;
+        while (j >= 0) { if (i >= 0 && zx[i]->nd > tl[j]->nd) zx[k--] = zx[i--]; else zx[k--] = tl[j--]; }
+    }
+    zx_sorted = zx_n;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const zls_entry_t * zx_find(const IR_t * nd) {
     int lo = 0, hi = zx_n - 1;
@@ -607,7 +618,7 @@ void zls_build(IR_graph_t * g) {
         if (zs[sid].first_field < 0) zs[sid].first_field = f;
         zs[sid].n_fields++;
     }
-    qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
+    zx_settle();
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd || !rb[i] || nd->op != IR_MATCH_ARBNO || IR_LIT(nd).ival != 1 || nd->n_operands < 3) continue;
@@ -823,6 +834,7 @@ void zls_forget_graph_nodes(const IR_graph_t * g) {
     zx_n = 0;
     for (int i = 0; i < ze_n; i++) if (ze[i].nd) zx[zx_n++] = &ze[i];
     qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
+    zx_sorted = zx_n;
     { zls_graph_t * r = zls_g_find(g); if (r) { if (r->reuse) ct_drop(r->reuse); *r = (zls_graph_t){ g, r->name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; } }
 }
 int zls_g_resume(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->resume_off : -1; }
