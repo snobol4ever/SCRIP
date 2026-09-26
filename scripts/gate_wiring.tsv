@@ -254,6 +254,7 @@ test_gate_icn_keyword_variable_argument_dereferences_at_the_call.sh	WIRED	-	-	-
 test_gate_icn_link_takes_any_number_of_files.sh	WIRED	-	-	-
 test_gate_icn_list_and_reads_size_argument_is_gated_like_iconx.sh	WIRED	-	-	-
 test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
+test_gate_icn_monitor_icx_links_what_scrip_links.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_open_directory_reads_entries.sh	WIRED	-	-	-

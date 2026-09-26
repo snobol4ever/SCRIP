@@ -325,7 +325,33 @@ fi
 # pipes are unset (the fork's untraced output is the pristine oracle's, proven by the build script's control arm).
 if [[ "${want_icx:-0}" = "1" ]]; then
     ICX_SRC="$(realpath "$SNO")"
-    ( cd "$(dirname "$ICX_SRC")" && timeout "$TIMEOUT" "$ICON_MON/bin/icont" -s -o "$TMP/icx.bin" "$ICX_SRC" ) > "$TMP/icx.cc.out" 2>&1 \
+    # ⭐ icx LINKS WHAT SCRIP LINKS (hq_icon 2026-09-25, ceo CEO-1272 (b)). icont links ucode, never source, so a program whose
+    # `link` names a library shipped beside it (every CEO-1269 NAME_driver, io_lib, lists_lib ...) failed to compile here with
+    # "cannot resolve reference to file 'io_lib.u1'" and the bracket refused. Every library the program reaches is now found in
+    # SCRIP's OWN search order (src/parsers/icon/icon_driver.c icn_link_open: IPATH, ICONPATH, the IPL procs beside the scrip
+    # binary, then the linking file's directory), translated into $TMP/icxlib, and icont links from there -- so both participants
+    # run the same library source, and nothing is written beside the program. Measured on the 24 linked Arizona programs: icx
+    # builds all 24 and each answers as SCRIP does, under the IPATH the runner gives a driver.
+    ICX_LIB="$TMP/icxlib"; mkdir -p "$ICX_LIB"
+    ICX_PROCS="$(cd "$(dirname "$(realpath "$SCRIP")")" && pwd)/../corpus/packages/icon/ipl/procs"
+    icx_links() { sed -E 's/#.*//' "$1" | grep -E '^[[:space:]]*link[[:space:]]' | sed -E 's/^[[:space:]]*link[[:space:]]+//; s/[;,"]/ /g' | tr -s ' \t' '\n' | sed '/^$/d'; }
+    icx_find() { local nm="$1" from="$2" d; local IFS=':'
+        for d in ${IPATH:-} ${ICONPATH:-}; do [ -n "$d" ] && [ -f "$d/$nm.icn" ] && { realpath "$d/$nm.icn"; return; }; done
+        [ -f "$ICX_PROCS/$nm.icn" ] && { realpath "$ICX_PROCS/$nm.icn"; return; }
+        [ -f "$(dirname "$from")/$nm.icn" ] && realpath "$(dirname "$from")/$nm.icn"; }
+    icx_todo="$(icx_links "$ICX_SRC" | sed "s|^|$ICX_SRC\t|")"; icx_seen=" "
+    while [ -n "$icx_todo" ]; do
+        icx_next=""
+        while IFS=$'\t' read -r icx_from icx_nm; do
+            [ -n "$icx_nm" ] || continue; case "$icx_seen" in *" $icx_nm "*) continue ;; esac; icx_seen="$icx_seen$icx_nm "
+            icx_f="$(icx_find "$icx_nm" "$icx_from")"; [ -n "$icx_f" ] || continue
+            ( cd "$ICX_LIB" && timeout "$TIMEOUT" "$ICON_MON/bin/icont" -s -c "$icx_f" ) >> "$TMP/icx.cc.out" 2>&1 \
+                || { echo "FAIL icx compile of linked library $icx_f: $(tail -2 "$TMP/icx.cc.out")"; exit 2; }
+            icx_next="$icx_next$(icx_links "$icx_f" | sed "s|^|$icx_f\t|")"$'\n'
+        done <<< "$icx_todo"
+        icx_todo="$(printf '%s' "$icx_next" | sed '/^$/d')"
+    done
+    ( cd "$(dirname "$ICX_SRC")" && IPATH="$ICX_LIB" timeout "$TIMEOUT" "$ICON_MON/bin/icont" -s -o "$TMP/icx.bin" "$ICX_SRC" ) >> "$TMP/icx.cc.out" 2>&1 \
         || { echo "FAIL icx compile: $(tail -2 "$TMP/icx.cc.out")"; exit 2; }
     MONITOR_READY_PIPE="$TMP/icx.ready" \
     MONITOR_GO_PIPE="$TMP/icx.go" \
