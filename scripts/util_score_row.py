@@ -1165,6 +1165,29 @@ def write_grid_direct(a):
 # --suite-pass/--suite-total say it outright; --suite-key names a row auto-resolution cannot reach;
 # --no-suite-sync is the labelled escape for a write that genuinely has no suite row.
 SUITES_TSV = os.path.join(S4E, ".github", "SUITES.tsv")
+# ⛔⭐ ONE WRITER AT A TIME ON THE SUITE TABLE (coo 2026-09-25, hq_pascal's report: parallel runners of one lane lost each other's
+# SCORE.md line -- SUITES.tsv read fpc 158/181 while SCORE.md's FPC line read 156, twice, the last writer putting back what it had
+# read). A write holds an exclusive flock on SUITES.tsv's own inode from before its first read of SCORE.md or SUITES.tsv until the
+# process exits, and hands S4E_SUITE_TABLE_LOCKED to the util_suite_banner.py --set it runs, which takes the same lock otherwise.
+# A lock not granted within S4E_SUITE_TABLE_LOCK_S (120 s) refuses rc 2 -- never a hang. No SUITES.tsv (a fixture) means no lock.
+_SUITE_TABLE_LOCK_FD = None
+def _suite_table_lock():
+    global _SUITE_TABLE_LOCK_FD
+    if os.environ.get("S4E_SUITE_TABLE_LOCKED") or not os.path.exists(SUITES_TSV):
+        return
+    import fcntl
+    fd = os.open(SUITES_TSV, os.O_RDONLY)
+    limit = time.monotonic() + float(os.environ.get("S4E_SUITE_TABLE_LOCK_S", "120"))
+    while True:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB); break
+        except BlockingIOError:
+            if time.monotonic() > limit:
+                die("another writer has held the suite-table lock on %s past %s s -- NOTHING WAS WRITTEN; re-run when it finishes"
+                    % (SUITES_TSV, os.environ.get("S4E_SUITE_TABLE_LOCK_S", "120")))
+            time.sleep(0.05)
+    _SUITE_TABLE_LOCK_FD = fd
+    os.environ["S4E_SUITE_TABLE_LOCKED"] = str(os.getpid())
 SUITE_BANNER = os.path.join(S4E, ".github", "scripts", "util_suite_banner.py")
 SUITE_SYNC_ROW = "suite-table-row-rewritten-by-the-runner-through-util-suite-banner-set"
 # ⭐⭐ A COLUMN THAT IS A SUITE-TABLE ROW AND NO GRID CELL (Lon 2026-09-23 17:2x, in-chat to the ceo, verbatim: "You messed up and
@@ -1635,6 +1658,7 @@ def write_suite_row_only(a):
 
 
 def cmd_write(a):
+    _suite_table_lock()
     if not a.measurer or a.measurer.strip().lower() in _PLACEHOLDER_MEASURERS:
         stale = a.measurer
         a.measurer = os.environ.get("S4E_SEAT", "").strip() or derive_measurer()

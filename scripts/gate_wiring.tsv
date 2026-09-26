@@ -642,6 +642,7 @@ test_gate_suite_population_diff_reds_on_a_moved_skip.sh	WIRED	-	-	-
 test_gate_suite_runners_honour_the_tests_declared_memory.sh	WIRED	-	-	-
 test_gate_suite_set_does_not_move_another_suites_row.sh	WIRED	-	-	-
 test_gate_suite_table_graded_cell_is_a_date_never_an_age.sh	WIRED	-	-	-
+test_gate_suite_table_writers_hold_one_lock.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
