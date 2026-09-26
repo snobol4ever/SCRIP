@@ -98,13 +98,20 @@ O="$T/ipl_ns"; mkdir -p "$O/cut" && printf 'procedure options();\n   return "shi
   && printf 'link options\nprocedure main();\n   write(options());\nend\n' > "$O/options_driver.icn" && cp "$O"/*.icn "$O/cut/" \
   && ( cd "$O/cut" && "$ICONT" -s -c options.icn && "$ICONT" -s -o od options_driver.icn && "$ICONX" ./od ) > "$O/options_driver.ref" 2>&1 </dev/null
 grep -qx shipped "$O/options_driver.ref" || { echo "⛔ REFUSED(2): iconx did not answer the IPL-namesake fixture with the shipped library -- $(tr '\n' '|' < "$O/options_driver.ref")"; exit 2; }
+# ---- AND A PROGRAM THAT IS NOT A DRIVER LINKS IPL, NOT THE SHIPPED NAMESAKE (coo 2026-09-25, hq_icon's bisect of 6850da706): Arizona
+# ilib's ref was cut by icont against its INSTALLED IPL ucode -- icont cannot see an untranslated .icn beside the program -- so the suite
+# first on IPATH for every run linked the older shipped options.icn and turned ilib red in both modes. usesopt's ref is cut the same way,
+# in a directory holding the shipped options.icn and no ucode for it: IPL's options([], "a") is an empty table (0), the shipped one "shipped" (7).
+mkdir -p "$O/cutu" && printf 'link options\nprocedure main();\n   write(*options([], "a"));\nend\n' > "$O/usesopt.icn" && cp "$O/options.icn" "$O/usesopt.icn" "$O/cutu/" \
+  && ( cd "$O/cutu" && "$ICONT" -s -o uo usesopt.icn && "$ICONX" ./uo ) > "$O/usesopt.ref" 2>&1 </dev/null
+grep -qx 0 "$O/usesopt.ref" || { echo "⛔ REFUSED(2): icont did not link IPL's options for the non-driver fixture -- $(tr '\n' '|' < "$O/usesopt.ref")"; exit 2; }
 printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$O/UNGRADED.tsv"; printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$O/UNGRADABLE.tsv"
-OZ="$T/oz/corpus/packages/icon/arizona_tests"; mkdir -p "$OZ/general" "$OZ/special" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$OZ/general/" && cp "$O"/*.tsv "$OZ/"
+OZ="$T/oz/corpus/packages/icon/arizona_tests"; mkdir -p "$OZ/general" "$OZ/special" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/usesopt.icn "$O"/usesopt.ref "$OZ/general/" && cp "$O"/*.tsv "$OZ/"
 S4E_HOME="$T/oz" S4E_PROGRESS_DB="$T/oz.tsv" timeout 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/oz.out" 2>&1
-has "$T/oz.out" '^ARIZONA_SUITE_BOARD shipped=1 graded=1 gap=0 m3_pass=1 .* m4_pass=1 ' && ck ok "arizona: a library named like an IPL procedure is linked from the suite, not ipl/procs (m3 and m4 pass)" || ck no "arizona: the IPL-namesake library: $(grep -m1 '^ARIZONA_SUITE_BOARD' "$T/oz.out" | cut -c1-120)"
-OJ="$T/oj"; mkdir -p "$OJ" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/*.tsv "$OJ/"
+has "$T/oz.out" '^ARIZONA_SUITE_BOARD shipped=2 graded=2 gap=0 m3_pass=2 .* m4_pass=2 ' && ck ok "arizona: a library named like an IPL procedure is linked from the suite by its driver, and a non-driver linking that name gets IPL's (m3 and m4 pass both)" || ck no "arizona: the IPL-namesake library or its non-driver user: $(grep -m1 '^ARIZONA_SUITE_BOARD' "$T/oz.out" | cut -c1-120) $(grep -m2 '^FAIL' "$T/oz.out" | tr '\n' ' ' | cut -c1-120)"
+OJ="$T/oj"; mkdir -p "$OJ" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/usesopt.icn "$O"/usesopt.ref "$O"/*.tsv "$OJ/"
 S4E_PROGRESS_DB="$T/oj.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
-has "$T/oj.out" '^JCON_SUITE_BOARD shipped=1 graded=1 gap=0 total=1 m3_pass=1 m4_pass=1' && ck ok "jcon: a library named like an IPL procedure is linked from the package, not ipl/procs (m3 and m4 pass)" || ck no "jcon: the IPL-namesake library: $(grep -m1 '^JCON_SUITE_BOARD' "$T/oj.out" | cut -c1-120)"
+has "$T/oj.out" '^JCON_SUITE_BOARD shipped=2 graded=2 gap=0 total=2 m3_pass=2 m4_pass=2' && ck ok "jcon: a library named like an IPL procedure is linked from the package by its driver, and a non-driver linking that name gets IPL's (m3 and m4 pass both)" || ck no "jcon: the IPL-namesake library or its non-driver user: $(grep -m1 '^JCON_SUITE_BOARD' "$T/oj.out" | cut -c1-120) $(grep -m2 'FAIL' "$T/oj.out" | tr '\n' ' ' | cut -c1-120)"
 # ---- gimpel
 CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
@@ -115,6 +122,6 @@ has "$T/gp.out" '^PACKAGE_INVENTORY package=gimpel shipped=3 graded=2 ungraded=1
 has "$T/gp.out" 'both_modes_pass=1/3 shipped libraries' && ck ok "gimpel: the row it would publish is 1/3 over the shipped libraries" || ck no "gimpel: the row text is not 1/3 over the libraries: $(grep -m1 -o 'both_modes_pass=[^ ]*' "$T/gp.out")"
 progress_arms gimpel "$T/gp.tsv" ALIB BLIB
 
-echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library per Icon runner; refs cut live from iconx and sbl -bf"
+echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library and one non-driver program linking its name per Icon runner; refs cut live from iconx and sbl -bf"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [package_runners_grade_a_library_through_its_driver]: $checks of $checks arms hold"; exit 0; fi
 echo "⛔ GATE FAIL(1) [package_runners_grade_a_library_through_its_driver]: $fails of $checks arms red"; exit 1

@@ -200,6 +200,11 @@ run_one() {
       echo "⛔ REFUSED TO GRADE rc=2: $name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
     fi
     [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $name=stack:${_stack_kb}KB"; }
+    # ⛔ A DRIVER RUN ONLY PUTS ITS OWN DIRECTORY FIRST ON IPATH (coo 2026-09-25, hq_icon's measurements): a driver's ref was cut over
+    # the library shipped beside it, while every other program's ref was cut by icont against its INSTALLED IPL ucode, which the
+    # directory first on IPATH would shadow with an older shipped namesake (Arizona ilib read red at 6850da706 exactly that way).
+    local -a _ipath3=() _ipath4=()
+    case "$name" in *_driver) _ipath3=(env "IPATH=$rundir${IPATH:+:$IPATH}"); _ipath4=(env "IPATH=$(dirname "$icn")${IPATH:+:$IPATH}") ;; esac
     case "$mode" in
         m3)
             # ⛔⭐ THE PROGRAM'S OWN NAME IN argv IS THE BARE NAME, NEVER THE ABSOLUTE PATH (hq_V 2026-09-11,
@@ -215,7 +220,7 @@ run_one() {
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
-            ( cd "$rundir" && IPATH="$rundir${IPATH:+:$IPATH}" $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -234,8 +239,8 @@ run_one() {
             # dot plus three characters -- a binary named `io` cannot match either, which is why this may land at
             # all. Measured across every .ref in the package: io is the ONLY program that lists its directory.
             local s="$WORK/$name.s" o="$WORK/$name.o" bin="$rundir/$name"
-            # the shipped library first on the link search, as in the arizona runner (coo 2026-09-25): IPATH names the program's own directory
-            if ! IPATH="$(dirname "$icn")${IPATH:+:$IPATH}" timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
+            # the shipped library first on the link search for a driver run only, as in the arizona runner (coo 2026-09-25)
+            if ! ${_ipath4[@]+"${_ipath4[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
             elif grep -q 'icon: parse error' "$errf"; then
                 : > "$outfile"; rc=1
