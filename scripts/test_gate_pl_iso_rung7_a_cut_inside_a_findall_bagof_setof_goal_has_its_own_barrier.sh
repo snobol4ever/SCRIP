@@ -81,7 +81,11 @@ arm a_cut_inside_a_collection_goal_is_local_to_that_goal "$TMPD/cut.pl" "$(print
 floor if_then_2 11
 floor soft_cut_2_3 21
 floor cut_0 19
-floor findall_3 14
+# findall_3's floor follows its population, 14 -> 13 (cto 2026-09-26): 97ade7cf7 (ceo CEO-1235 (3)) declares coinduction
+# unsupported, as gprolog's adapter does, so lgt_findall_3_11 -- a cyclic-term (STO) case under
+# :- if(current_logtalk_flag(coinduction, supported)), not a cut barrier -- leaves the graded population and is named
+# on the grader's board as GUARDED OUT; its debt stays on the rational-trees row. The 13 that remain pass in m3 and m4.
+floor findall_3 13
 floor if_3 12
 echo "$GATE_NAME: arms=$total red=$red modes=$MODES"
 [ "$red" -eq 0 ] || { echo "⛔ $GATE_NAME RED"; exit 1; }
