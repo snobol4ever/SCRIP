@@ -11,8 +11,10 @@ every entry of the master; POPULATION corpus, the default (Lon to hq_snocone 15:
 sources"): every file of the language's extension under corpus/, the ALL.* containers and library/ excluded. CLASSIFICATION (hq_snocone's, kept): the first non-blank output line not starting with SEQ<n>
 begins with '(' = PARSED (the parser emitted a tree); contains "Parse Error" = REFUSED; a clean exit (rc 0, no error line) that
 printed nothing = EMPTY (hq_snocone 2026-09-25: a source holding only comments and control lines -- the gimpel *_driver.sno that are
-one -INCLUDE -- has no statement to print, which is neither a tree shown nor a crash); anything else -- a crash, a timeout, heap
-exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a parser that declines.
+one -INCLUDE -- has no statement to print, which is neither a tree shown nor a crash); a clean exit whose output is "Parsed." and no
+tree = RECOGNIZED (a recognizer's acceptance, Lon's phase 1 for parser_raku.sc: not a tree, so still red, and not a crash); anything
+else -- a crash, a timeout, heap exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a
+parser that declines. A program's time limit is 10 x its language's start-up on an empty input (10..300 s) unless --timeout S names one.
 It prints its denominator per language as each language finishes and names the first REFUSED and first CRASH. A REFUSED
 source listed in --declared (default SCRIP/bootstrap/tests/parser_refusals.tsv: lang, corpus-relative path, the measurement
 that the source is not a legal program of its language, or for an EMPTY source that it holds no statement) is DECLARED, never red;
@@ -28,6 +30,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIP = os.path.dirname(HERE)
@@ -36,6 +39,13 @@ CORPUS = os.path.join(HOME, "corpus")
 RT = ["global", "case", "assign", "match", "counter", "stack", "tree", "ShiftReduce", "tdump", "gen", "qize", "semantic", "omega", "trace"]
 LANGS = [("snobol4", "sno"), ("icon", "icn"), ("prolog", "pl"), ("raku", "raku"), ("pascal", "pas"), ("snocone", "sc"), ("rebus", "reb")]
 SEQ = re.compile(r"^SEQ[0-9]")
+# THE PER-PROGRAM LIMIT IS AN ORDER OF MAGNITUDE ABOVE WHAT THE LANGUAGE'S CHAIN COSTS TO START (hq_snocone 2026-09-25, measured): a
+# fixed 10 s read the Raku chain as 128 CRASH of 129 when 85 print their answer in 5-12 s at box load 15 (the 2011-line chain's
+# compile), and Icon's 9.4 s start-up on an empty input killed all 1329 before one character was parsed -- a limit beside the
+# measurement is a flaky bound, never a hang detector. So each language's chain is run once on an empty stdin (TBOOT cap) and a
+# program's limit is 10 x that start-up, clamped to TMIN..TMAX; a chain that cannot start within TBOOT makes every program of its
+# language a CRASH named START-UP, none run (each would only time out later). --timeout S still fixes one limit for all.
+TMIN, TMAX, TBOOT = 10, 300, 120
 
 
 def refuse(msg):
@@ -84,6 +94,11 @@ def parse_one(scrip, chain, prog, timeout):
         return "EMPTY", "no output, rc=0"
     if first.startswith("("):
         return "PARSED", first
+    # RECOGNIZED (hq_snocone 2026-09-25): a clean exit that prints "Parsed." and no tree is a recognizer's acceptance -- Lon's phase 1
+    # for parser_raku.sc, "test first without any semantic rountines, i.e. no tree building" -- which is neither a tree (still red)
+    # nor a crash: counted apart so 85 accepted Raku programs do not read as 85 crashes.
+    if any(re.fullmatch(r"Parsed\.?", l) for l in lines):
+        return "RECOGNIZED", first
     return "CRASH", first or "(no output, rc=%d)" % r.returncode
 
 
@@ -110,7 +125,7 @@ def main(argv):
             if len(f) >= 3 and not line.startswith("#") and f[2].strip():
                 declared.add((f[0], f[1]))
     jobs = int(opt(argv, "--jobs", "6"))
-    timeout = int(opt(argv, "--timeout", "10"))
+    timeout = int(opt(argv, "--timeout", "0"))
     want = opt(argv, "--lang", "")
     langs = [l for l in LANGS if not want or l[0] in want.split(",")]
     if not langs:
@@ -156,26 +171,42 @@ def main(argv):
             os.makedirs(d, exist_ok=True)
             for key, by_origin in keys:
                 work.append((scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout))
-        print("PARSER-SC CENSUS, population %s, tree %s, timeout %ss per program, jobs %d, declared refusals %d from %s" % (pop, subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), timeout, jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
-        print("%-8s %6s %7s %8s %8s %6s %6s %6s  %s" % ("lang", "pop", "PARSED", "REFUSED", "DECLARED", "CRASH", "EMPTY", "UNEXT", "first undeclared refusal / first crash / first empty"), flush=True)
+        print("PARSER-SC CENSUS, population %s, tree %s, timeout %s, jobs %d, declared refusals %d from %s" % (pop, subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), ("%ss per program (--timeout)" % timeout) if timeout else "per language, 10 x its start-up on an empty input, %d..%d s" % (TMIN, TMAX), jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
+        print("%-8s %6s %7s %6s %8s %8s %6s %6s %6s  %s" % ("lang", "pop", "PARSED", "RECOG", "REFUSED", "DECLARED", "CRASH", "EMPTY", "UNEXT", "first undeclared refusal / first crash / first empty"), flush=True)
         red = unext = tp = tn = 0
         for lang, _ in langs:
-            r = {"PARSED": 0, "REFUSED": 0, "DECLARED": 0, "CRASH": 0, "EMPTY": 0, "UNEXTRACTED": 0, "first": {}}
+            r = {"PARSED": 0, "RECOGNIZED": 0, "REFUSED": 0, "DECLARED": 0, "CRASH": 0, "EMPTY": 0, "UNEXTRACTED": 0, "first": {}}
             mine = [w for w in work if w[2] == lang]
-            with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
-                for _l, key, cls, first in ex.map(lambda w: task(*w), mine):
-                    rel = os.path.relpath(key, CORPUS) if os.path.isabs(key) else key
-                    if cls in ("REFUSED", "EMPTY") and (lang, rel) in declared:
-                        cls = "DECLARED"
-                    r[cls] += 1
-                    r["first"].setdefault(cls, "%s [%s]" % (rel, first[:60]))
+            tl, boot_s = timeout, None
+            if not timeout:
+                t0 = time.time()
+                try:
+                    subprocess.run([scrip, mine[0][1] if mine else os.devnull], stdin=subprocess.DEVNULL, capture_output=True, timeout=TBOOT)
+                    boot_s = time.time() - t0
+                    tl = int(max(TMIN, min(TMAX, 10 * boot_s)))
+                except subprocess.TimeoutExpired:
+                    pass
+            if not timeout and boot_s is None:
+                results = [(lang, w[6], "CRASH", "START-UP over %ds on an empty input" % TBOOT) for w in mine]
+            else:
+                mine = [w[:9] + (tl,) for w in mine]
+                with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+                    results = list(ex.map(lambda w: task(*w), mine))
+            for _l, key, cls, first in results:
+                rel = os.path.relpath(key, CORPUS) if os.path.isabs(key) else key
+                if cls in ("REFUSED", "EMPTY") and (lang, rel) in declared:
+                    cls = "DECLARED"
+                r[cls] += 1
+                r["first"].setdefault(cls, "%s [%s]" % (rel, first[:60]))
             n = pops[lang]
             tp += r["PARSED"]
             tn += n
             f = " | ".join(x for x in (r["first"].get("REFUSED", ""), r["first"].get("CRASH", ""), r["first"].get("EMPTY", ""), r["first"].get("UNEXTRACTED", "")) if x)
-            print("%-8s %6d %7d %8d %8d %6d %6d %6d  %s" % (lang, n, r["PARSED"], r["REFUSED"], r["DECLARED"], r["CRASH"], r["EMPTY"], r["UNEXTRACTED"], f), flush=True)
+            print("%-8s %6d %7d %6d %8d %8d %6d %6d %6d  %s" % (lang, n, r["PARSED"], r["RECOGNIZED"], r["REFUSED"], r["DECLARED"], r["CRASH"], r["EMPTY"], r["UNEXTRACTED"], f), flush=True)
+            if not timeout:
+                print("%-8s start-up on an empty input %s, so %s" % ("", ("%.1f s" % boot_s) if boot_s is not None else "over %d s" % TBOOT, ("a program's limit %d s" % tl) if boot_s is not None else "every program is a CRASH, none run"), flush=True)
             unext += r["UNEXTRACTED"]
-            if n == 0 or r["CRASH"] or r["REFUSED"] or r["EMPTY"]:
+            if n == 0 or r["CRASH"] or r["REFUSED"] or r["EMPTY"] or r["RECOGNIZED"]:
                 red += 1
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
