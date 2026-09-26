@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
+# ⛔ ONE RUN OF THIS GATE AT A TIME ON THE BOX (coo 2026-09-25, hq_icon's measurement): its corpus bucket runs the Icon master's
+# procedure_every_to_replace_4 (rung37 file_io), which writes and reads the FIXED path /tmp/rung37_fh_test.txt, so two concurrent runs
+# of this gate -- two seats' make test, or a sharded blocking set -- overwrite each other's file and read it FAIL; alone it passes 3 of 3
+# in m4 on two binaries. The program is right to use a fixed path; the gate serialises itself, and a lock not granted in 600 s refuses.
+exec 9>"${TMPDIR:-/tmp}/s4e_test_gate_icn_var.lock" && flock -w "${ICN_VAR_LOCK_S:-600}" 9 || { echo "⛔ REFUSED(2) [test_gate_icn_var]: another run of this gate has held the box lock past ${ICN_VAR_LOCK_S:-600} s -- its corpus bucket shares /tmp/rung37_fh_test.txt, so it waits rather than race; re-run when it finishes"; exit 2; }
 # scripts/test_gate_icn_var.sh — ICN-VAR-FENCE gate (GOAL-ICON-BB.md, ICN-VAR ladder close-out).
 # Four sections per the FENCE spec:
 #   (a) IR_ASSIGN + IR_VAR absent from icn_kind_native_stub (they have real templates);
