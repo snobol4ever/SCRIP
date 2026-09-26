@@ -8,7 +8,7 @@ driver never reads a -L chain; util_parser_sc_census.sh's note) -- is run by ./s
 population with the program as its stdin. POPULATION ladder (default): every entry of the language's master whose ALL.csv
 origin is ladder__* -- the construct ladder, one construct per rung, cut from the public reference; POPULATION master:
 every entry of the master; POPULATION corpus, the default (Lon to hq_snocone 15:2x: "Test the parsers using all the corpus
-sources"): every file of the language's extension under corpus/, the ALL.* containers and library/ excluded. CLASSIFICATION (hq_snocone's, kept): the first non-blank output line not starting with SEQ<n>
+sources"): every file of the language's extension under corpus/, the ALL.* containers and the root library/ (the second .sc chain) excluded -- a package's own library/ counts (hq_snocone 2026-09-26: the depth-blind prune dropped packages/prolog/swi_tests/library, 39 .pl). CLASSIFICATION (hq_snocone's, kept): the first non-blank output line not starting with SEQ<n>
 begins with '(' = PARSED (the parser emitted a tree); contains "Parse Error" = REFUSED; a clean exit (rc 0, no error line) that
 printed nothing = EMPTY (hq_snocone 2026-09-25: a source holding only comments and control lines -- the gimpel *_driver.sno that are
 one -INCLUDE -- has no statement to print, which is neither a tree shown nor a crash); a clean exit whose output is "Parsed." and no
@@ -164,7 +164,7 @@ def main(argv):
             if pop == "corpus":
                 files = []
                 for dp, dn, fn in os.walk(CORPUS):
-                    dn[:] = [x for x in dn if x not in (".git", "library")]
+                    dn[:] = [x for x in dn if x != ".git" and not (x == "library" and dp == CORPUS)]
                     files += [os.path.join(dp, x) for x in fn if x.endswith("." + ext) and not x.startswith("ALL.")]
                 files.sort()
                 pops[lang] = len(files)
