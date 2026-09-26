@@ -181,6 +181,8 @@ primary = (   Atom . p_name $'('
           |   Var . p_text
                   epsilon . *Shift('TT_VAR', p_text)
           |   $'(' *unify_expr $')'
+          |   $'(' *unify_expr $':-' *body $')'  reduce("'TT_CLAUSE'", 2)
+          |   $'(' $':-' *body $')'              reduce("'TT_DIRECTIVE'", 1)
           |   $'(' *body $')'
           |   *list
           |   $' ' '-' Float . p_negf
