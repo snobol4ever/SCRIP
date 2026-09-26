@@ -2376,14 +2376,39 @@ static int choice_body_member(const IR_t * q) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const IR_t * nd; uint32_t gen; int idx; } xci_slot_t;
+static cv_t g_xci_map, g_xci_off, g_xci_con, g_xci_last, g_xci_at; static uint32_t g_xci_gen = 1, g_xci_epoch = 1, g_xci_built = 0;
+static const IR_graph_t * g_xci_g; static IR_t ** g_xci_all; static int g_xci_n = -1;
+static xci_slot_t * xci_probe(const IR_t * nd) {
+    uint32_t m = g_xci_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
+    for (;;) { xci_slot_t * t = &CV_AT(g_xci_map, xci_slot_t, h); if (t->gen != g_xci_gen || t->nd == nd) return t; h = (h + 1) & m; }
+}
+static int * xci_ints(cv_t * v, uint32_t n) { if (v->cap < n) { uint32_t c = v->cap ? v->cap : 256; while (c < n) c *= 2; v->p = ct_alloc((size_t)c * sizeof(int)); v->cap = c; v->esz = (uint32_t)sizeof(int); } v->len = n; return (int *)v->p; }
+static void xci_build(void) {
+    const IR_graph_t * g = g_emit_cfg; int n = g->n; g_xci_gen++;
+    if ((uint64_t)g_xci_map.len < (uint64_t)n * 2 + 2) { uint32_t c = 256; while ((uint64_t)c < (uint64_t)n * 2 + 2) c *= 2; cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(xci_slot_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(xci_slot_t); g_xci_map = v; }
+    for (int j = 0; j < n; j++) { const IR_t * c = g->all[j]; if (!c) continue; xci_slot_t * t = xci_probe(c); if (t->gen != g_xci_gen) { t->nd = c; t->gen = g_xci_gen; t->idx = j; } }
+    int * off = xci_ints(&g_xci_off, (uint32_t)n + 1), * last = xci_ints(&g_xci_last, (uint32_t)n + 1);
+    for (int j = 0; j <= n; j++) { off[j] = 0; last[j] = -1; }
+    for (int j = 0; j < n; j++) { const IR_t * c = g->all[j]; if (!c) continue;
+        for (int k = 0; k < c->n_operands; k++) { const IR_t * o = c->operands[k]; if (!o || o == c) continue; xci_slot_t * t = xci_probe(o); if (t->gen != g_xci_gen || last[t->idx] == j) continue; last[t->idx] = j; off[t->idx + 1]++; } }
+    for (int j = 0; j < n; j++) off[j + 1] += off[j];
+    int * con = xci_ints(&g_xci_con, (uint32_t)(off[n] > 0 ? off[n] : 1));
+    for (int j = 0; j <= n; j++) last[j] = -1;
+    { int * at = xci_ints(&g_xci_at, (uint32_t)n + 1); for (int j = 0; j < n; j++) at[j] = off[j];
+      for (int j = 0; j < n; j++) { const IR_t * c = g->all[j]; if (!c) continue;
+          for (int k = 0; k < c->n_operands; k++) { const IR_t * o = c->operands[k]; if (!o || o == c) continue; xci_slot_t * t = xci_probe(o); if (t->gen != g_xci_gen || last[t->idx] == j) continue; last[t->idx] = j; con[at[t->idx]++] = j; } } }
+    g_xci_g = g; g_xci_all = g->all; g_xci_n = n; g_xci_built = g_xci_epoch;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xop_frame_member(const IR_t * nd) {
     extern int zdp_scratch_cell(const IR_t *); int blob_frame_scope(void);
     if (!nd || !blob_frame_scope() || zdp_scratch_cell(nd) || zd_k((IR_t *)nd) != 16) return 0;
     if (nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ARBNO || nd->op == IR_MATCH_FENCE1) return 0;
     if (!g_emit_cfg) return 0;
-    for (int j = 0; j < g_emit_cfg->n; j++) { const IR_t * c = g_emit_cfg->all[j]; if (!c || c == nd) continue;
-        int isop = 0; for (int k = 0; k < c->n_operands; k++) if (c->operands[k] == nd) { isop = 1; break; }
-        if (!isop) continue;
+    if (g_xci_g != g_emit_cfg || g_xci_all != g_emit_cfg->all || g_xci_n != g_emit_cfg->n || g_xci_built != g_xci_epoch) xci_build();
+    xci_slot_t * _xs = xci_probe(nd); if (_xs->gen != g_xci_gen) return 0;
+    for (int _q = CV_AT(g_xci_off, int, _xs->idx); _q < CV_AT(g_xci_off, int, _xs->idx + 1); _q++) { const IR_t * c = g_emit_cfg->all[CV_AT(g_xci_con, int, _q)];
         if (alt_arm_member(c, (const IR_t *)0)) return 1;
         int haz = 0, reached = 0; const IR_t * t = zd_chase(nd->γ.node);
         for (int s = 0; t && s < 256; s++) { if (t == c) { reached = 1; if (haz) return 1; break; } if (xop_hazard_kind((int)t->op)) haz = 1; t = zd_chase(t->γ.node); }
@@ -4049,6 +4074,7 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
+    g_xci_epoch++;
     emit_chain_mark_entry_emitted(entry);
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);
