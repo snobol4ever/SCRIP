@@ -11,6 +11,13 @@
 #   entries off the end.
 #   g_bb_src (three parallel arrays behind bb_src_note) is the same shape one file down and had never been named.
 #
+# ⛔⭐ RE-PINNED 2026-09-25 by the cfo on the ceo's CEO-1272 (.github 639a475b): Lon's word of 2026-09-24 (CEO-1244, "Use the
+# special compile-time heap, and use alloc/copy/abandon at geometric growth for dynamic arrays and buffers.") supersedes
+# CEO-840's reading of these two registries as it did the cv_t bullet. g_bb_labels' lc_vec and g_bb_src's three arrays now
+# grow through ct_grow in the compile-time arena, which never moves, so the collector neither owns nor visits their blocks.
+# What stays required is the ROOT OF EVERY HEAP POINTER THEY HOLD: arms 1 and 2 now demand the element visits (each label's
+# name and landing, each source record's node and text) and REFUSE a visit of the arena block; arm 3 demands ct_grow and
+# refuses the collected heap and every C allocator; arm 4 is unchanged. The history below is the record of the old rule.
 # ⛔ THE ARM THAT MATTERS IS ARM 3. Both were briefly "cured" by moving them to malloc/calloc/realloc (f62a33aed).
 # That is what Lon's FACT RULE forbids and what the ceo's whole-tree sweep measured the cost of -- 8 of 15 collector
 # gates red -- because malloc'd memory never moves, so an unrooted holder of it is only ACCIDENTALLY safe. THE CURE
@@ -40,13 +47,13 @@ W="$ROOT/../corpus/tests/snobol4/code_call_runtime_define_pending_entry.sno"
 [ -f "$W" ] || { echo "⛔ GATE REFUSE(2) [$G]: the witness $W is not there, so nothing was measured"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
-n=$(awk '/^void lower_gc_roots\(void\)$/{f=1} f&&/&g_bb_labels\.data\)/{a++} f&&/bb_src_gc_roots\(\);/{b++} f&&/^}/{exit} END{printf "%d %d", a+0, b+0}' "$LC")
-if [ "$n" = "1 1" ] && grep -q 'lower_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
-    echo "  structural labels PASS (lower_gc_roots visits &g_bb_labels.data and calls bb_src_gc_roots, and the collector calls lower_gc_roots -- a root walk nothing calls is not a root)"
-else echo "  structural labels FAIL (lower_gc_roots visits [&g_bb_labels.data bb_src_gc_roots] = [$n], want [1 1], or gc_heap.c never calls lower_gc_roots)"; RC=1; fi
-n=$(awk '/^void bb_src_gc_roots\(void\)$/{f=1} f&&/&g_bb_src\.nd\)/{a++} f&&/&g_bb_src\.src\)/{b++} f&&/&g_bb_src\.line\)/{c++} f&&/^}/{exit} END{printf "%d %d %d", a+0, b+0, c+0}' "$LC")
-if [ "$n" = "1 1 1" ]; then echo "  structural bb_src PASS (bb_src_gc_roots visits all THREE parallel array blocks -- the line array holds no pointers, but an unmarked block is reclaimed whatever it holds)"
-else echo "  structural bb_src FAIL (bb_src_gc_roots visits [nd src line] = [$n], want [1 1 1]: a parallel array of g_bb_src is reclaimed under a live registry)"; RC=1; fi
+n=$(awk '/^void lower_gc_roots\(void\)$/{f=1} f&&/&e->name\)/{a++} f&&/&e->landing\)/{c++} f&&/&g_bb_labels\.data\)/{d++} f&&/bb_src_gc_roots\(\);/{b++} f&&/^}/{exit} END{printf "%d %d %d %d", a+0, c+0, b+0, d+0}' "$LC")
+if [ "$n" = "1 1 1 0" ] && grep -q 'lower_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
+    echo "  structural labels PASS (lower_gc_roots visits every g_bb_labels entry's name and landing and calls bb_src_gc_roots, and the collector calls lower_gc_roots; the label block itself is arena memory and is not visited -- CEO-1272)"
+else echo "  structural labels FAIL (lower_gc_roots visits [e->name e->landing bb_src_gc_roots &g_bb_labels.data] = [$n], want [1 1 1 0], or gc_heap.c never calls lower_gc_roots)"; RC=1; fi
+n=$(awk '/^void bb_src_gc_roots\(void\)$/{f=1} f&&/&g_bb_src\.nd\[i\]\)/{a++} f&&/&g_bb_src\.src\[i\]\)/{b++} f&&/&g_bb_src\.(nd|src|line)\)/{c++} f&&/^}/{exit} END{printf "%d %d %d", a+0, b+0, c+0}' "$LC")
+if [ "$n" = "1 1 0" ]; then echo "  structural bb_src PASS (bb_src_gc_roots visits every entry's node and source text; the three parallel arrays are arena memory and are not visited -- CEO-1272)"
+else echo "  structural bb_src FAIL (bb_src_gc_roots visits [nd[i] src[i] block] = [$n], want [1 1 0]: an element a registry holds is not rooted, or an arena block is being visited as if the collector owned it)"; RC=1; fi
 # ⛔⭐ THE COLLECTED-HEAP ALLOCATOR FAMILY COMES FROM ITS ONE AUTHORITY, NOT FROM A SPELLING TYPED HERE (ceo CEO-946).
 # THIS ARM WAS RED ON ORIGIN FOR DAYS AND THE HOLDERS WERE FINE: it grepped for rt_ws_alloc / rt_ws_realloc, and the
 # HB_WS kind with both of those names was DELETED at place D (the cfo, CEO-925) when its sites took typed kinds. The
@@ -75,10 +82,11 @@ bad=0
 for fn in lc_vec_push bb_src_note; do
     body=$(awk -v f="$fn" 'index($0, f"(")&&/^void |^static void |^void \* /{d=1} d{print} d&&/^}/{exit}' "$LC")
     [ -n "$body" ] || { echo "  fact-rule FAIL ($fn not found in lower_common.c, so this arm measured nothing)"; bad=1; continue; }
-    printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|free)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn allocates with a C allocator -- moving a holder off the collected heap is the same evasion as pinning it, one indirection further out)"; bad=1; }
-    printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL ($fn no longer allocates from the collected heap at all (its allocator is in none of the ROOTED-HEAP family [$ROOTED_RX]), so the roots above are guarding nothing)"; bad=1; }
+    printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|free)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn grows with a C allocator)"; bad=1; }
+    printf '%s' "$body" | grep -qE "$ROOTED_RX" && { echo "  fact-rule FAIL ($fn grows on the COLLECTED heap -- CEO-1244/1272 put every compile-time population in the compile-time arena)"; bad=1; }
+    printf '%s' "$body" | grep -qE '\bct_grow[[:space:]]*\(' || { echo "  fact-rule FAIL ($fn does not grow through ct_grow, the compile-time arena's alloc/copy/abandon)"; bad=1; }
 done
-if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (lc_vec_push and bb_src_note both still allocate from the COLLECTED heap, so the roots above are guarding something real)"; else RC=1; fi
+if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (lc_vec_push and bb_src_note grow through ct_grow in the compile-time arena -- never the collected heap, never a C allocator)"; else RC=1; fi
 cp "$W" "$T/w.sno"
 ( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref"; exit 2; }
@@ -91,7 +99,7 @@ for st in 5 30 200; do
 done
 if [ "$red" -eq 0 ]; then echo "  behavioural PASS (the DEXP witness compiles a program at RUN TIME through the lowerer and prints byte-identical to the oracle at all $ran stress values, each with at least one collection -- the lowerer registries are live while the heap slides)"
 else echo "  behavioural FAIL ($red of $ran runs red)"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: the Byrd-box label registry and the bb-source registry live on the collected heap and are ROOTED, and a program lowered at run time survives collections (examined 4 arms, $ran runs)"
-else echo "⛔ GATE FAIL(1) [$G]: a lowerer registry is unrooted on the collected heap, or was moved off the heap instead of rooted (examined 4 arms)"; fi
+if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: the Byrd-box label registry and the bb-source registry grow in the compile-time arena, every heap pointer they hold is ROOTED, and a program lowered at run time survives collections (examined 4 arms, $ran runs)"
+else echo "⛔ GATE FAIL(1) [$G]: a lowerer registry holds a heap pointer nothing roots, grows outside the compile-time arena, or a run-time lowering does not survive collections (examined 4 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

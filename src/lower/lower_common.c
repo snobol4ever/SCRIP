@@ -24,11 +24,9 @@ void lower_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **);
     extern void bb_src_gc_roots(void);
-    if (g_bb_labels.data) {
-        rt_gc_visit_raw((const char **) &g_bb_labels.data);
-        for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
-            if (e->name) rt_gc_visit_raw((const char **) &e->name);
-            if (e->landing) rt_gc_visit_raw((const char **) &e->landing); } }
+    for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
+        if (e->name) rt_gc_visit_raw((const char **) &e->name);
+        if (e->landing) rt_gc_visit_raw((const char **) &e->landing); }
     bb_src_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -257,8 +255,9 @@ void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v-
 void * lc_vec_push(lc_vec * v, const void * elem) {
     if (v->n >= v->cap) {
         int nc = v->cap ? v->cap * 2 : 8;
-        void * nd = v->data ? rt_wsb_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_wsb_alloc((size_t) nc * (size_t) v->esz);
+        void * nd = ct_grow(v->data, (size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
+        memset((char *) nd + (size_t) v->cap * (size_t) v->esz, 0, (size_t) (nc - v->cap) * (size_t) v->esz);
         v->data = nd; v->cap = nc;
     }
     char * slot = (char *) v->data + (size_t) v->n * (size_t) v->esz;
@@ -329,9 +328,6 @@ static void bb_src_ix_add(const IR_t * nd, int i) {
 void bb_src_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **);
-    if (g_bb_src.nd) rt_gc_visit_raw((const char **) &g_bb_src.nd);
-    if (g_bb_src.src) rt_gc_visit_raw((const char **) &g_bb_src.src);
-    if (g_bb_src.line) rt_gc_visit_raw((const char **) &g_bb_src.line);
     for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i]) rt_gc_visit_raw((const char **) &g_bb_src.nd[i]); if (g_bb_src.src[i]) rt_gc_visit_raw((const char **) &g_bb_src.src[i]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -343,17 +339,17 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
                       if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }
         size_t la = strlen(g_bb_src.src[i]);
         size_t lb = strlen(src);
-        char * j = (char *) rt_wsb_alloc(la + lb + 2);
+        char * j = (char *) ct_alloc(la + lb + 2);
         if (!j) return;
         memcpy(j, g_bb_src.src[i], la); j[la] = '\n'; memcpy(j + la + 1, src, lb); j[la + 1 + lb] = 0;
-        g_bb_src.src[i] = lp_strdup(j);
+        g_bb_src.src[i] = j;
         return;
     } }
     if (g_bb_src.n >= g_bb_src.max) {
         int m = g_bb_src.max ? g_bb_src.max * 2 : 256;
-        const IR_t ** a = (const IR_t **) rt_wsb_realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
-        const char ** b = (const char **) rt_wsb_realloc((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
-        int * c = (int *) rt_wsb_realloc((void *) g_bb_src.line, (size_t) m * sizeof(int));
+        const IR_t ** a = (const IR_t **) ct_grow((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
+        const char ** b = (const char **) ct_grow((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
+        int * c = (int *) ct_grow((void *) g_bb_src.line, (size_t) m * sizeof(int));
         if (!a || !b || !c) return;
         g_bb_src.nd = a; g_bb_src.src = b; g_bb_src.line = c; g_bb_src.max = m;
     }
