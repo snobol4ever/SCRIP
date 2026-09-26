@@ -11,9 +11,11 @@ WHAT THE GENERATED PROGRAM DOES, IN ORDER:
   1. THE TEST. Every top-level `use` line, then every top-level `sub`/`class`/`role`/`grammar`/`enum`/`constant` declaration,
      hoisted verbatim; then the kernel's remaining top-level statements verbatim inside `sub bench_test()`, called once -- so
      STDOUT is byte-comparable with the .ref.
-  2. THE MEASUREMENT. `sub bench_quiet()` holds the same statements with every whole-line `say E;` / `put E;` / `print E;`
-     spelled as appends to a local string it returns, then repeats -- N times (angle 2) or until the budget is spent (angle 3) --
-     after one warm-up repetition that fixes the wanted capture and restarts the clock; ONE line goes to stderr:
+  2. THE MEASUREMENT. `sub bench_quiet()` holds the same statements with every whole-statement `say E;` / `put E;` / `print E;`
+     spelled as appends to a local string it returns (a line is first cut at its top-level semicolons, so the `say $i;` that
+     ends raku-bench's one-line bodies is a whole output call; CEO-1283), then repeats -- N times (angle 2) or until the
+     budget is spent (angle 3) -- after one warm-up repetition that fixes the wanted capture and restarts the clock; ONE line
+     goes to stderr:
        BENCH mode=iter kernel=main iters=<n> ns=<elapsed> mismatched=<m> value=<chars of the wanted capture>
        BENCH mode=time kernel=main iters=<n> ns=<elapsed> budget_ms=<b> mismatched=<m> value=<chars>
      wall_us() is SCRIP's builtin microsecond clock (Rakudo gets it from prelude_rakudo.rakumod via -M); ns = us * 1000.
@@ -22,8 +24,8 @@ WHAT THE GENERATED PROGRAM DOES, IN ORDER:
      repetitions whose capture differs from the first.
 
 REFUSED BY NAME (no silent fallback): a kernel that reads stdin ($*IN, get, lines, slurp, prompt); an identifier spelled
-bench_...; an output call that is not a whole statement line (`say` inside a block on the same line, `.say` / `.print` method
-forms, `printf`, `sprintf`-less formats); a hoisted declaration that itself prints (its output could not be made quiet).
+bench_...; an output call that is not a whole statement (`say` inside a block, `.say` / `.print` method forms inside an
+expression, `printf`, `sprintf`-less formats); a hoisted declaration that itself prints (its output could not be made quiet).
 
 EXIT 0 the program was written; 2 REFUSED with the reason on stderr.
 """
@@ -93,17 +95,18 @@ def split(lines, path):
     return uses, hoist, body
 
 
-def joined(expr):
-    """`a, b, c` (top-level commas, outside parens, brackets, braces and quotes) as `(a) ~ (b) ~ (c)` -- print/say
-    concatenate their arguments without a separator, where a list in string context would insert spaces."""
+def cut(text, sep):
+    """`text` cut at every `sep` outside quotes and outside the parens, brackets and braces opened within it, each part
+    keeping the `sep` that ends it. Depth at or below zero still cuts: a line that closes a block opened above it
+    (`}; say $x;`) separates its own statements."""
     parts, depth, q, cur = [], 0, None, ''
     i = 0
-    while i < len(expr):
-        ch = expr[i]
+    while i < len(text):
+        ch = text[i]
         if q:
             cur += ch
-            if ch == '\\' and i + 1 < len(expr):
-                cur += expr[i + 1]; i += 1
+            if ch == '\\' and i + 1 < len(text):
+                cur += text[i + 1]; i += 1
             elif ch == q:
                 q = None
         elif ch in '"\'':
@@ -112,20 +115,38 @@ def joined(expr):
             depth += 1; cur += ch
         elif ch in ')]}':
             depth -= 1; cur += ch
-        elif ch == ',' and depth == 0:
-            parts.append(cur.strip()); cur = ''
+        elif ch == sep and depth <= 0:
+            parts.append(cur + ch); cur = ''
         else:
             cur += ch
         i += 1
-    parts.append(cur.strip())
+    parts.append(cur)
+    return parts
+
+
+def joined(expr):
+    """`a, b, c` (top-level commas, outside parens, brackets, braces and quotes) as `(a) ~ (b) ~ (c)` -- print/say
+    concatenate their arguments without a separator, where a list in string context would insert spaces."""
+    parts = [p.rstrip(',').strip() for p in cut(expr, ',')]
     parts = [p for p in parts if p]
     return ' ~ '.join('(%s)' % p for p in parts) if len(parts) > 1 else '(%s)' % expr.strip()
+
+
+def statements(c):
+    """the statements of one line of code, cut at its top-level semicolons (CEO-1283: raku-bench's microbenchmark bodies
+    are ONE line -- `my $i = 0; while (++$i <= 1024) { }; say $i;` -- so a trailing `say` is a whole output call only once
+    the line is cut); a line holding one statement comes back whole."""
+    return [p for p in cut(c, ';') if p.strip()]
 
 
 def quiet_line(l, path, ln):
     c = code(l)
     if not OUT_WORD.search(c) and not METHOD_OUT.search(c):
         return l
+    parts = statements(c)
+    if len(parts) > 1:
+        ind = c[:len(c) - len(c.lstrip())]
+        return ind + ' '.join(quiet_line(p.strip(), path, ln) for p in parts)
     m = METHOD_LINE.match(c.rstrip())
     if m and METHOD_OUT.search(c):
         ind, expr, verb, mod = m.group(1), m.group(2), m.group(3), m.group(5) or ''
@@ -156,6 +177,13 @@ def generate(path, mode, n, bud_ms):
             refuse('%s:%d reads stdin -- a kernel that reads its input cannot be repeated' % (path, i))
         if BENCH.search(c):
             refuse('%s:%d uses an identifier spelled bench_... -- the wrapper\'s own names would collide with it' % (path, i))
+    last = max((i for i, l in enumerate(lines) if code(l).strip()), default=None)
+    if last is not None:
+        c = code(lines[last]).rstrip()
+        if not c.endswith((';', '{', '}', ',')):
+            # the program's final statement needs no semicolon (`...; say $k` ends seven raku-bench bodies); once it is
+            # wrapped inside a sub, more statements follow it, so it is terminated here
+            lines[last] = c + ';' + lines[last][len(c):]
     uses, hoist, body = split(lines, path)
     quiet = [quiet_line(l, path, i + 1) for i, l in enumerate(body)]
     if not prints(body):
