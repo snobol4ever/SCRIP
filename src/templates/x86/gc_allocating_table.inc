@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1793
-#define GC_ALLOC_TAB_N_VOID 198
+#define GC_ALLOC_TAB_N 1795
+#define GC_ALLOC_TAB_N_VOID 199
 #define GC_ALLOC_TAB_N_DESCR 997
-#define GC_ALLOC_TAB_N_OTHER 598
+#define GC_ALLOC_TAB_N_OTHER 599
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -790,6 +790,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_format_body", GC_RET_OTHER },
     { "pl_goal_body_conv_ball", GC_RET_OTHER },
     { "pl_goal_key_live", GC_RET_OTHER },
+    { "pl_include_directive", GC_RET_OTHER },
     { "pl_is_pair", GC_RET_OTHER },
     { "pl_list_from_arr", GC_RET_DESCR },
     { "pl_mc_define", GC_RET_OTHER },
@@ -802,6 +803,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_numbervars_walk", GC_RET_OTHER },
     { "pl_open_leaf", GC_RET_OTHER },
     { "pl_open_opts", GC_RET_OTHER },
+    { "pl_parse_loop", GC_RET_VOID },
     { "pl_parse_number", GC_RET_OTHER },
     { "pl_parse_number_radix", GC_RET_OTHER },
     { "pl_parse_term_text", GC_RET_OTHER },
