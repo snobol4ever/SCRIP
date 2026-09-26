@@ -39,7 +39,7 @@ static PNodeList *pnl_concat(PNodeList *a, PNodeList *b) {
 typedef struct { const char *name; const char *sig; const char *owner; int depth, rid, formal, uid; } PasDef;
 typedef struct { const char *name; PNodeList *params; const char *sig; } PasFwd;
 static struct { PasDef *defs; int n, cap; int *marks; int depth, mcap; PasFwd *fwd; int nfwd, fcap;
-                PasDef *pend; int npend, cpend; PasDef *fsig; int nfsig, cfsig; PasDef *cand; int ncand, ccand; int nrid, npf, nuid; } g_pas_scope;
+                PasDef *pend; int npend, cpend; PasDef *fsig; int nfsig, cfsig; PasDef *cand; int ncand, ccand; int nrid, npf, nuid; PasDef *lab; int nlab, clab; } g_pas_scope;
 static PasDef *pas_scope_push(PasDef **a, int *n, int *cap, const char *name) {
     if (*n >= *cap) { *cap = *cap ? *cap * 2 : 256; *a = (PasDef *)ct_grow(*a, (size_t)*cap * sizeof(PasDef)); }
     PasDef *d = &(*a)[(*n)++]; d->name = name; d->sig = NULL; d->owner = NULL; d->depth = g_pas_scope.depth; d->rid = 0; d->formal = 0; d->uid = ++g_pas_scope.nuid; return d;
@@ -1422,6 +1422,20 @@ static void pas_not_a_word_symbol(const char *n) {
 static void pas_label_in_range(long long v) {
     if (v < 0 || v > 9999) { fprintf(stderr, "pascal: ISO 7185 6.1.6 violation: the label %lld is not in the closed interval 0 to 9999\n", v); g_pas_iso_errors++; }
 }
+static void pas_label_declare(long long v) { char b[24]; snprintf(b, sizeof b, "%lld", v); pas_scope_push(&g_pas_scope.lab, &g_pas_scope.nlab, &g_pas_scope.clab, ct_strdup(b)); }
+static PasDef *pas_label_find(long long v) {
+    char b[24]; snprintf(b, sizeof b, "%lld", v);
+    for (int i = g_pas_scope.nlab - 1; i >= 0; i--) if (!strcmp(g_pas_scope.lab[i].name, b)) return &g_pas_scope.lab[i];
+    fprintf(stderr, "pascal: ISO 7185 6.2.2.1 violation: the label %lld has no defining-point -- no label-declaration-part of this block or of an enclosing block declares it\n", v);
+    g_pas_iso_errors++; return NULL;
+}
+static void pas_label_prefix(long long v) { PasDef *d = pas_label_find(v); if (d && d->depth == g_pas_scope.depth) d->formal++; }
+static void pas_labels_close(void) {
+    while (g_pas_scope.nlab > 0 && g_pas_scope.lab[g_pas_scope.nlab - 1].depth >= g_pas_scope.depth) { PasDef *d = &g_pas_scope.lab[--g_pas_scope.nlab];
+        if (d->formal == 1) continue;
+        fprintf(stderr, "pascal: ISO 7185 6.2.1 violation: the label %s prefixes %d statements of the block that declares it, which shall closest-contain exactly one\n", d->name, d->formal);
+        g_pas_iso_errors++; }
+}
 static void pas_real_is_not_ordinal(double v) {
     if (g_pas_case_depth > 0) fprintf(stderr, "pascal: ISO 7185 6.8.3.5 violation: the case-constant %g is of type real, which is not an ordinal-type\n", v);
     else fprintf(stderr, "pascal: ISO 7185 6.4.2.4 violation: the constant %g is of type real, and a subrange bound or a variant's case-constant (6.4.3.3) shall be of an ordinal-type\n", v);
@@ -1805,7 +1819,7 @@ file_id_list_opt:
     |
     ;
 block:
-    decl_part_list body { $$ = $2; }
+    decl_part_list body { pas_labels_close(); $$ = $2; }
     ;
 decl_part_list:
     decl_part_list decl_part { $$ = pas_decl_part_order($1, $2); }
@@ -1819,8 +1833,8 @@ decl_part:
     | procedure_decl { $$ = 5; }
     ;
 label_list:
-    label_list COMMA INTCONST { pas_label_in_range($3); }
-    | INTCONST { pas_label_in_range($1); }
+    label_list COMMA INTCONST { pas_label_in_range($3); pas_label_declare($3); }
+    | INTCONST { pas_label_in_range($1); pas_label_declare($1); }
     ;
 const_decl_list:
     const_decl_list const_decl
@@ -1962,7 +1976,7 @@ statement_list:
 statement:
     statement_no_label { $$ = $1; }
     | INTCONST COLON statement_no_label
-        { pas_label_in_range($1); char _lb[24]; snprintf(_lb, sizeof _lb, "%lld", (long long)$1);
+        { pas_label_in_range($1); pas_label_prefix($1); char _lb[24]; snprintf(_lb, sizeof _lb, "%lld", (long long)$1);
           tree_t *L = ast_node_new(TT_LABEL_DEF); L->v.sval = ct_strdup(_lb); ast_push(L, $3); $$ = L; }
     ;
 statement_no_label:
@@ -2051,7 +2065,7 @@ compound_statement:
     ;
 goto_statement:
     GOTOSY INTCONST
-        { char _gb[24]; snprintf(_gb, sizeof _gb, "%lld", (long long)$2);
+        { pas_label_find($2); char _gb[24]; snprintf(_gb, sizeof _gb, "%lld", (long long)$2);
           tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); G->line = pascal_get_lineno(); $$ = G; }
     ;
 if_statement:
