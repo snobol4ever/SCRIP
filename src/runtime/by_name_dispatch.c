@@ -6913,6 +6913,7 @@ static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     { char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
       char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
       { DESCR_t a = args[0];
+        if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
         if (!strcmp(tu, "INTEGER")) {
             if (IS_INT_fn(a)) { *out = a; return 1; }
             if (IS_REAL_fn(a)) { *out = INTVAL((long long)a.r); return 1; }
@@ -8809,6 +8810,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
         char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
         DESCR_t a = args[0];
+        if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
         if (!strcmp(tu,"INTEGER")) {
             if (IS_INT_fn(a)) { *out = a; return 1; }
             if (IS_REAL_fn(a)) { *out = INTVAL((long long)a.r); return 1; }

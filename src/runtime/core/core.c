@@ -1298,6 +1298,7 @@ static DESCR_t _NUMERIC_(DESCR_t *a, int n) {
 static DESCR_t _NAME_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     DESCR_t val = a[0];
+    if (val.v == DT_S && val.s) val.s = (char *)rt_cstr_d(val);
     if (IS_NAME(val)) {
         const char *nm = val.s ? val.s : "";
         return STRVAL(rt_heap_strdup_c(nm));
@@ -1763,6 +1764,7 @@ static DESCR_t _TABLE_(DESCR_t *a, int n) {
 static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
     DESCR_t val  = a[0];
+    if (val.v == DT_S && val.s) val.s = (char *)rt_cstr_d(val);
     const char *type = VARVAL_fn(a[1]);
     if (!type) return FAILDESCR;
     if (strcmp(type, "STRING")  == 0) {
