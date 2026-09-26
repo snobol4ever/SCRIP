@@ -4085,14 +4085,14 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
-            return STRVAL(rt_heap_strdup_c(e->params[idx - 1]));
+            return NAMEVAL(rt_heap_strdup_c(e->params[idx - 1]));
         }
     }
     { extern int rt_proc_nformals(const char *); extern const char *rt_proc_pname(const char *, int);
       int np = rt_proc_nformals(fname);
       if (np > 0 && idx >= 1 && idx <= (int64_t)np) {
           const char *pn = rt_proc_pname(fname, (int)(idx - 1));
-          if (pn) return STRVAL(rt_heap_strdup_c(pn));
+          if (pn) return NAMEVAL(rt_heap_strdup_c(pn));
       } }
     return FAILDESCR;
 }
@@ -4107,14 +4107,14 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nlocals) return FAILDESCR;
-            return STRVAL(rt_heap_strdup_c(e->locals[idx - 1]));
+            return NAMEVAL(rt_heap_strdup_c(e->locals[idx - 1]));
         }
     }
     { extern int rt_proc_nparams(const char *); extern int rt_proc_nformals(const char *); extern const char *rt_proc_pname(const char *, int);
       int total = rt_proc_nparams(fname); int nf = rt_proc_nformals(fname); int nl = (total >= 0 && nf >= 0 && total >= nf) ? total - nf : -1;
       if (nl > 0 && idx >= 1 && idx <= (int64_t)nl) {
           const char *ln = rt_proc_pname(fname, nf + (int)(idx - 1));
-          if (ln) return STRVAL(rt_heap_strdup_c(ln));
+          if (ln) return NAMEVAL(rt_heap_strdup_c(ln));
       } }
     return FAILDESCR;
 }
