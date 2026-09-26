@@ -898,13 +898,17 @@ s4e_lane_owner_of_language() {
        # officers and five language HQs; the two languages with no HQ go to an officer -- RAKU to the cto (its reviewer under DECTET, and its seat under QUARTET), REBUS to
        # the ceo (its keep-green seat since CEO-1178). The CEO table above is the flip-back template. Written out per language, never collapsed to a default, for the
        # reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
-       icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
-       snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'hq_pascal';;
-       snocone)  printf 'hq_snocone';;
+       # ⛔ MODE CEO (CEO-1275, 2026-09-26 08:5x, Lon in-chat to the ceo, verbatim: "Just so you are clear, we are in CEO mode only. The fleet is quiet."): ONE SEAT HOLDS EVERY
+       # LANGUAGE for the benchmark order of work (every language's kernels and demos against its oracle at -O0 into the README, SNOBOL4 first). The TENET mapping this replaces --
+       # icon hq_icon, prolog hq_prolog, snobol4 hq_snobol4, pascal hq_pascal, snocone hq_snocone, rebus ceo, raku hq_raku -- is kept here so the flip back is a seven-line edit.
+       # Written out per language rather than collapsed to a default for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
+       icon)     printf 'ceo';;
+       prolog)   printf 'ceo';;
+       snobol4)  printf 'ceo';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
