@@ -393,95 +393,37 @@ kernels graded as tests. The oracle is THE SUPERSET (RULES.md § Oracles): the I
 builtin, and a conflict settled through an ISO Prolog flag in the program (double_quotes defaults to codes, as ISO and GNU
 read it); `swipl` and `gprolog` are the two reference systems, and both are instrumented for the lock-step monitor.
 
-**Benchmarks.** Measured 2026-08-30 on the classic van Roy kernels (vendored under
-`corpus/benchmarks/prolog/`), on the **two-number basis** (`RULES.md` § THE TWO-NUMBER
-BENCHMARK BASIS): each kernel self-times its **work** and reports it to `stderr`, so
-`stdout` stays byte-comparable and every arm's output is verified against the
-reference before it is timed at all. Startup/finish **overhead** is reported
-separately instead of being folded into the number. Best of 5. An independent
-cross-check of these numbers (`scripts/bench_triangulate_prolog.sh`, the same kernel timed two more ways: fixed time
-counting iterations, and fixed iterations measuring time, the two rates required to
-agree) currently covers the SWI and GNU columns only: SCRIP's arms hit a known crash
-in repeated re-entry that is being fixed (still true 2026-09-04 — the triangulator's
-own header documents m3 crashing on all 21 van Roy kernels in repeated-call form, a
-different program shape than the single-call kernels timed above), and until they
-run, these SCRIP numbers
-stand as single-run measurements verified by output, not yet by triangulation.
+**Benchmarks.** ProBench is the 23 kernels under `corpus/benchmarks/prolog/bench/` — the classic van Roy / Aquarius set (tak, nreverse, qsort, deriv, ops8, times10, divide10, log10, queens, zebra, crypt, mu, query, sendmore, fib, ham, meta_qsort, ...) — each a standalone program with its `.ref`, graded as tests in both modes under three angles by `scripts/test_prolog_bench_suite.sh` (the suite table's ProBench row). The timing instrument is the three-angle cross-proof `scripts/bench_triangulate_prolog.sh`: angle 1 (`test_bench_prolog_timed.sh`) runs a live doubling search for the largest iteration count whose between-and-fail loop completes within the budget and reports iterations per CPU second; angle 2 (`bench_prolog_fixed_iter.sh`) executes the committed count from `fixed-iter-n.tsv` and measures the time; a kernel's rate on an engine is cited only when the two agree within 10%, and every engine's single-shot output is held to the `.ref` before it is timed at all. The rivals are SWI-Prolog 9.0.4 (`swipl`) and GNU Prolog 1.4.5 (`gprolog --consult-file`, its byte-code WAM), both with the per-engine preludes the kernels need.
 
-⛔ **This grid replaces an earlier one that read the other way, and the correction is
-the point.** The previous grid timed **whole-program totals** and reported SCRIP ahead
-of SWI-Prolog on all ten kernels (up to 3.87x). On work time it is ahead on **one**.
-Nothing regressed: the totals were measuring **SWI-Prolog's ~31 ms interpreter
-startup**, and eight of these ten kernels do **under 300 µs** of actual work — under
-1% of that startup. A basis that lets startup dominate by two orders of magnitude was
-reporting the rival's process model, not this compiler's speed.
+*Measured 2026-09-26 10:0x CDT on SCRIP `b6d8c9bb8` / corpus `a4d8ab08d`, **RT_OPT=-O0**, fleet quiet (the 1-minute load 1.3–1.6 on 16 cores through the run; the 15-minute average carried an earlier episode the stamp names in CEO-1278), **500 ms fixed-time budget per point**, SCRIP with every diagnostic off (`SCRIP_DIAG=0`). The per-iteration figure is angle 1's (microseconds per iteration of the kernel's whole `main`, the between-and-fail loop around it); the x-factor is rival time / SCRIP time on the same loop (1.5x is one and a half times faster, 0.5x half as fast). A row whose angles disagree, or whose arm skipped or crashed, carries its readings and no multiple.*
 
-| kernel | work µs | × vs swipl | kernel | work µs | × vs swipl |
-|---|:---:|:---:|---|:---:|:---:|
-| tak | 20072 | **1.51x** | fib | 5195 | 0.39x |
-| sendmore | 9278 | 0.55x | ops8 | 112 | 0.04x |
-| cal | 29 | 0.48x | log10 | 73 | 0.04x |
-| deriv | 125 | 0.04x | times10 | 207 | 0.03x |
-| divide10 | 141 | 0.03x | derive | 269 | 0.03x |
+| kernel | `gprolog` µs/it | `swipl` µs/it | m3 µs/it | m4 µs/it | `swipl` / m3 | `swipl` / m4 | `gprolog` / m4 | angles |
+|---|---:|---:|---:|---:|:---:|:---:|:---:|---|
+| cal | 0.56 | 1.94 | 4.45 | 1.66 | 0.44x | 1.17x | 0.34x | AGREE |
+| crypt | 118 | 222 | 1029 | 917 | 0.22x | 0.24x | 0.13x | AGREE |
+| deriv | 2.06 | 5.09 | 138 | 110 | — | 0.05x | 0.02x | m3 DISAGREE |
+| derive | 2.46 | 3.64 | 50.2 | 41.7 | — | 0.09x | 0.06x | m3 DISAGREE |
+| divide10 | 1.23 | 2.37 | 21.8 | 18.7 | 0.11x | 0.13x | 0.07x | AGREE |
+| fib | 1542 | 1907 | 4194 | 3776 | — | 0.51x | 0.41x | m3 DISAGREE |
+| ham | 60.3 | 59.9 | 972 | 858 | — | — | — | gprolog DISAGREE; swipl DISAGREE; m3 DISAGREE; m4 DISAGREE |
+| log10 | 0.66 | 1.77 | 15.4 | 12.2 | 0.11x | 0.14x | 0.05x | AGREE |
+| meta_qsort | 204 | 147 | 4253 | 3731 | — | 0.04x | 0.05x | m3 DISAGREE |
+| mu | 26.9 | 23.0 | 309 | 278 | — | 0.08x | 0.10x | m3 DISAGREE |
+| nrev | 14.7 | 12.9 | 267 | 238 | — | 0.05x | 0.06x | m3 DISAGREE |
+| nreverse | 13.1 | 11.5 | 218 | 193 | — | 0.06x | 0.07x | m3 DISAGREE |
+| ops8 | 1.06 | 2.16 | 14.0 | 11.2 | 0.15x | 0.19x | 0.10x | AGREE |
+| qsort | 22.1 | 28.2 | 215 | 189 | — | 0.15x | 0.12x | m3 DISAGREE |
+| queens | 31791 | 49509 | 191015 | 164384 | — | — | — | gprolog DISAGREE; swipl DISAGREE; m3 DISAGREE |
+| queens_8 | 121 | 209 | 791 | 691 | — | 0.30x | — | gprolog DISAGREE; m3 DISAGREE |
+| queensn | 76927 | 90472 | 890789 | 785731 | — | — | — | gprolog UNPROVEN; swipl UNPROVEN; m3 UNPROVEN; m4 UNPROVEN |
+| query | 13.8 | 31.4 | 309 | 283 | — | 0.11x | 0.05x | m3 DISAGREE |
+| sendmore | 2268 | 4596 | 4202 | 3809 | 1.09x | 1.21x | — | gprolog DISAGREE |
+| tak | — | — | — | — | — | — | — | gprolog UNPROVEN; swipl UNPROVEN; m3 UNPROVEN; m4 UNPROVEN |
+| times10 | 1.16 | 2.17 | 19.1 | 16.1 | 0.11x | 0.14x | 0.07x | AGREE |
+| witness_depth_nrev8 | 1.29 | 2.82 | 19.6 | 17.8 | — | — | — | gprolog UNPROVEN; swipl UNPROVEN; m3 UNPROVEN; m4 UNPROVEN |
+| zebra | 863 | 921 | 11006 | 9328 | — | 0.10x | 0.09x | m3 DISAGREE |
 
-**Overhead, the second number** (external total − self-timed work, best of 5): SCRIP
-mode-4 binary **≈ 4.7–5.6 ms** · SWI-Prolog **≈ 31 ms** · GNU Prolog (`gplc`) native
-≈ 1–2 ms. SCRIP's startup advantage over SWI-Prolog is real and large — it is simply
-a *different* number from how fast the compiled code runs, which is exactly why the
-basis separates them.
-
-⛔ **The GNU Prolog work column is REFUSED, not estimated.** `gprolog`'s finest wall
-clock is `real_time/1` at **1 ms**, and eight of these ten kernels do less than 1 ms
-of work — their `work_us` reads exactly **0**. A zero denominator yields no multiple,
-and neither "infinitely fast" nor "call it one tick" is a number anyone may publish.
-Only `tak` (4 ticks) and `sendmore` (1 tick) register at all. The fix is the
-fixed-iteration angle, not a fabricated floor; until then this column is a stated gap
-rather than a filled-in guess.
-
-**The reading:** ahead of GNU Prolog on startup, far ahead of SWI-Prolog on startup,
-and — on work — competitive only on the deep-recursion kernel (`tak`), with the
-term-rewriting kernels at 0.03x–0.05x against SWI-Prolog. That inverts the old
-grid's conclusion and names the real lever. Twelve further kernels are not timed
-because SCRIP's output does not yet match the reference — a wrong answer is never
-timed.
-
-**Coverage: the full 21-kernel board, nothing dropped.** The grid above times the ten
-kernels that carry a self-timing bracket. The remaining eleven are not absent — they
-are *red*, and a benchmark page that shows only what passes is the failure mode this
-project measures against. `scripts/bench_prolog_vanroy.sh --two-number` prints all
-**21 van Roy kernels**, each in exactly one bucket, and refuses (`rc=2`) if either
-rival binary is missing rather than filling a column. The 21 names come from
-`corpus/benchmarks/prolog/fixed-iter-n.tsv`; the `vanroy/` directory of checked-in
-loop-wrappers they used to be read from was retired under CEO-567, which forbids the
-iteration count living inside the artifact under measurement.
-
-| bucket | n | meaning |
-|---|:---:|---|
-| MEASURED | 2 | `deriv`, `fib` — an `AGREE` verdict from **every** rival engine in `triangulation-*.tsv`, not just one |
-| DECLARED | 8 | runs green, no triangulated rate yet, carries a checked reason |
-| REFUSE | 11 | **crashes today** — `SIGSEGV` or `abort` — printed RED with its `rc`, never dropped |
-
-Promotion needs a full house: a kernel that one rival agrees with and another
-disagrees with stays out of MEASURED, because a board that cites its friendliest
-rival is not measuring, it is choosing. SCRIP's own `m3`/`m4` rows are reported by
-the triangulator but never vote on promotion — they are UNPROVEN for every kernel
-by the same crash the REFUSE column counts, and letting the subject veto its own
-measurement would pin this bucket at zero. The rule is gated by
-`scripts/test_gate_vanroy_bucket_rule.sh`.
-
-Eleven of twenty-one kernels crash before they can be timed. That number is the
-headline, not a footnote: it is the ceiling on every Prolog performance claim this
-page can make, and it is why the buckets are published beside the speeds.
-
-⛔ **The board publishes buckets, not new multiples, and the control arm is why.** Run
-twice back-to-back on one binary, all 21 bucket assignments reproduced **identically**
-— but the single-run multiples moved by −2.8% on `fib` (≈12 ms of work) and −27.7% on
-`deriv` (under 1 ms), the spread widening as the kernel shrinks toward the rivals' 1 ms
-quantization. Under fleet load a single-run multiple on a sub-millisecond kernel is a
-scouting datum, not a grid, so the speeds above remain the best-of-5 numbers and the
-board contributes coverage. Basis is printed per row (`SELF` for the ten bracketed
-kernels, `FLOOR` for the rest) and the two are never mixed in one column.
-
+Geometric mean against SWI-Prolog: **0.15x** in mode 4 over the 18 kernels whose `swipl` and m4 angles both agree (SCRIP ahead on 2), **0.22x** in mode 3 over the 7 whose `swipl` and m3 angles agree (ahead on 1); against GNU Prolog, **0.08x** in mode 4 over the 16 kernels whose `gprolog` arm also agrees. **Why SCRIP is slower where it is slower, measured the same sitting (callgrind, exclusive share, mode 4 at -O0 on the fixed-iteration twins, `SCRIP_DIAG=0`):** the kernels fall into two classes and both are runtime C reached per operation. **(1) The term-rewriting kernels consult the Prolog parser's operator tables at run time:** `bin_ops_count` 48%, `prolog_op_table_get` 13%, `prefix_ops_count` 9%, `find_user` 2%, `op_type_unclassify` 2% (all `src/parsers/prolog/prolog_parse.c`) and `plc_op_info` 6% with a `strcmp` per lookup 5% — **three quarters of deriv (0.05x)** — so writing or taking apart an operator term (`d(U*V,X,DU*V+U*DV)`, `=..`, `write/1`) re-derives every operator's type and priority by name on every node, where a WAM carries them on the functor; derive, times10, divide10, log10 and ops8 (0.09–0.19x) are the same shape. **(2) Unification, dereference and binding are C calls per cell:** `plw_unify_cells` (with its recursive twin), `plw_cell_deref_slow`, `plw_bind`, `plw_mkc_kids`, `plw_unify_vals`, `rt_pl_deref_val` and `rt_pl_dop_unify_ci_c` are 30–45% of nreverse (0.05x), queens_8 (0.30x), zebra (0.10x) and fib (0.51x): the get, put and unify steps a WAM emits inline as a handful of instructions each are entered as C functions with a descriptor walk per argument; beside them the trail — `pl_tr_needs_log`, `pl_tr_push` and `rt_pl_tr_gc_sync` (5–9%) — and the call prologue in C (`rt_proc_call_prologue_lex` 3–5%, `rt_icn_zframe_args_install` 3%), the collector (`gc_collect_ex` 3–5%) and the allocation of every structure cell (`rt_gcheap_alloc` 3%). **(3) Atoms are interned by name at run time:** `prolog_atom_intern` 5%, `ht_hash` 4% and a `strcmp` 6% of crypt (0.24x) — an atom the compiler already saw is looked up by its characters again when the program runs. Where none of this is on the path SCRIP is ahead: cal 1.17x and sendmore 1.21x against `swipl` in mode 4. Two kernels carry no multiple for reasons that are not speed: tak is skipped by angle 1's own correctness gate because `scrip --run tak.pl` without the kernel's declared stack sidecar overflows the 4 MB default (ERROR 246) where the graded suite, which honours `tak.stack`, passes it in both modes — an instrument gap, rowed; queensn and witness_depth_nrev8 are unproven on every engine (no committed iteration count for angle 2). ham's four arms disagree between their angles at this budget and are not cited.
 
 ### Raku
 
