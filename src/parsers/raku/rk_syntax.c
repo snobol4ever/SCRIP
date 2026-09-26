@@ -469,6 +469,7 @@ static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
 }
 /*====================================================================================================================================================================================================*/
 static int r_nibble_until(RkP *p, int pos, RkLang *L, int *endpos);
+static int name_part_len(RkP *p, int from, int to);
 static void register_user_op(RkP *p, int from, int to);
 static int r_semilist(RkP *p, int pos);
 static int r_block(RkP *p, int pos);
@@ -1390,6 +1391,11 @@ static int rx_assertion(RkP *p, int pos, RkLang *L) {
     }
     int e = r_longname(p, pos);
     if (e < 0) return -1;
+    if (!p->myst_off) {
+        int nl = name_part_len(p, pos, e), last = -1;
+        for (int i = pos; i + 1 < pos + nl; i++) if (p->s[i] == ':' && p->s[i + 1] == ':') last = i;
+        if (last > pos && !is_name_n(p, p->s + pos, last - pos)) panic_at(p, pos, "Could not locate compile-time value for symbol %.*s", last - pos, p->s + pos);
+    }
     int d = ch(p, e);
     if (d == '>') return e;
     if (d == '=') return rx_assertion(p, e + 1, L);
@@ -2252,8 +2258,6 @@ static int r_special_variable(RkP *p, int pos) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int name_part_len(RkP *p, int from, int to);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void strs_add(RkStrs *a, const char *s, int n) { RK_GROW(a->v, a->n, a->c, char *); a->v[a->n++] = ct_strndup0(s, n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int strs_has(const RkStrs *a, const char *s, int n) {
@@ -2858,12 +2862,20 @@ static int name_part_len(RkP *p, int from, int to) {
     return e - from;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int is_capture(RkP *p, const char *s, int n) {
+    char buf[256]; if (n <= 0 || n > 250) return 0;
+    buf[0] = ':'; buf[1] = ':'; memcpy(buf + 2, s, (size_t) n);
+    return user_name_index(p, buf, n + 2) >= 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_term_name(RkP *p, int pos) {
     int e = r_longname(p, pos);
     if (e < 0) return -1;
     int nl = name_part_len(p, pos, e);
     int starts_colons = at_lit(p, pos, "::");
     int is_n = starts_colons || is_name_n(p, p->s + pos, nl);
+    if (is_n && !starts_colons && (at_lit(p, pos + nl, ":D") || at_lit(p, pos + nl, ":U")) && !wordch_at(p, pos + nl + 2) && is_capture(p, p->s + pos, nl))
+        panic_at(p, pos, "Type too complex to form a definite type");
     if (is_n) {
         int is_t = (is_type_n(p, p->s + pos, nl) || starts_colons) && !(nl >= 2 && p->s[pos + nl - 1] == ':' && p->s[pos + nl - 2] == ':');
         int q = e; int u;
@@ -3052,7 +3064,7 @@ static int r_typename(RkP *p, int pos) {
         if (e < 0) return -1;
         int nl = name_part_len(p, pos, e);
         if (!at_lit(p, pos, "::") && !is_name_n(p, p->s + pos, nl)) return -1;
-        if (at_lit(p, pos, "::") && is_alpha_cp(cp_at(p, pos + 2))) add_name_n(p, p->s + pos + 2, nl - 2);
+        if (at_lit(p, pos, "::") && is_alpha_cp(cp_at(p, pos + 2))) { add_name_n(p, p->s + pos + 2, nl - 2); if (!memmem(p->s + pos + 2, (size_t) nl - 2, "::", 2)) add_name_n(p, p->s + pos, nl); }
     }
     int q = e; int u = r_unsp(p, q); if (u >= 0) q = u;
     if (ch(p, q) == '[') { int a = r_arglist(p, q + 1); a = ws(p, a); if (ch(p, a) != ']') panic_at(p, a, "Unable to parse type parameters; couldn't find final ']'"); e = a + 1; }
@@ -3407,6 +3419,11 @@ static int r_variable_declarator(RkP *p, int pos) {
     int q = r_traits(p, e);
     static const char *const vtraits[] = { "default", "dynamic", "export", 0 };
     if (p->scope != 3 && p->scope != 4) check_is_traits(p, e, q, vtraits, " variable");
+    else for (int t = e; t + 10 <= q; t++) if (!memcmp(p->s + t, "default(", 8) && !(t > 0 && asc_word((unsigned char) p->s[t - 1]))) {
+        int a = ws(p, t + 8); int b = r_identifier(p, a);
+        if (b > a && ch(p, ws(p, b)) == ')' && is_capture(p, p->s + a, b - a))
+            panic_at(p, t, "Attribute definition of type Mu (implicit : by pragma) needs to be marked as required or given an initializer");
+    }
     for (;;) { int t = ws(p, q); int f = r_post_constraint(p, t); if (f < 0) break; q = f; }
     return q;
 }
