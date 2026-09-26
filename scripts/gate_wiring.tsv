@@ -45,6 +45,7 @@ test_gate_a_compiled_program_runs_on_a_stack_it_maps_itself.sh	WIRED	-	-	-
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_beta.sh	WIRED	-	-	-
+test_gate_a_program_with_more_functions_than_the_old_cell_table_held_compiles_and_runs.sh	WIRED	-	-	-
 test_gate_abandoned_generator_handle_is_dropped_at_alpha.sh	WIRED	-	-	-
 test_gate_absent_line_is_unproven_not_red.sh	WIRED	-	-	-
 test_gate_an_assignment_to_a_value_raises_111_at_run_time_instead_of_aborting.sh	WIRED	-	-	-
@@ -315,6 +316,7 @@ test_gate_mint_refuses_a_prose_donewhen.sh	WIRED	-	-	-
 test_gate_mode_line2_is_self_consistent.sh	WIRED	-	-	-
 test_gate_monitor_a_long_run_agrees_past_one_hundred_thousand_events.sh	WIRED	-	-	-
 test_gate_monitor_an_untyped_value_grades_ungraded_never_agree.sh	WIRED	-	-	-
+test_gate_monitor_grades_the_output_event.sh	WIRED	-	-	-
 test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_monitor_run_runs_its_subject_in_a_scratch_mirror.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
@@ -845,4 +847,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_a_program_with_more_functions_than_the_old_cell_table_held_compiles_and_runs.sh	WIRED	-	-	-

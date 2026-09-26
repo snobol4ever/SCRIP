@@ -100,6 +100,10 @@ PARTICIPANTS="$parts" timeout 300 bash "$SD/scripts/test_monitor_3way_sync_step_
 steps=$(grep -oE 'all reached END after [0-9]+ steps' "$W/harness.out" | grep -oE '[0-9]+' | head -1)
 verdict=$(grep -aoE 'VERDICT AGREE=[0-9]+ DIVERGE=[0-9]+ UNGRADED=[0-9]+' "$W/harness.out" | head -1 | sed 's/^VERDICT //')
 ungraded=$(printf '%s' "$verdict" | sed -n 's/.*UNGRADED=\([0-9]*\).*/\1/p')
+# ⛔ THE OUTPUT STREAM'S STANDING, NAMED BESIDE EVERY VERDICT (coo 2026-09-25, the OUTPUT event): the controller grades the bytes each side
+# writes to standard output only when every participant speaks OUTPUT; until the SCRIP plug does, an AGREE says nothing about output.
+outv=$(grep -aoE 'OUTPUT=(graded \([0-9]+ byte\(s\)\)|UNGRADED\([^ :)]*)' "$W/harness.out" | head -1)
+case "$outv" in OUTPUT=graded*) outnote="; output graded byte for byte (${outv#OUTPUT=graded })";; OUTPUT=UNGRADED*) outnote="; OUTPUT NOT GRADED -- ${outv#OUTPUT=UNGRADED(} sends no OUTPUT events, so no byte written to stdout was compared (its plug is owed)";; *) outnote="";; esac
 if [ "$hrc" = 2 ] || [ "$hrc" = 124 ]; then echo "REFUSE(2): the harness could not measure (rc=$hrc): $(grep -E 'REFUS|FAIL' "$W/harness.out" | head -1 | cut -c1-140)"; exit 2; fi
 # ⛔ A BROKEN WIRE IS NOT A DIVERGENCE (coo 2026-09-25, on hq_snobol4's report: aisnobol TEST.sno read "DIVERGE" at exactly step
 # 100000). The controller names a PROTOCOL ERR when a participant's stream stops decoding -- a torn or foreign record, a participant
@@ -109,9 +113,9 @@ if [ "$hrc" = 2 ] || [ "$hrc" = 124 ]; then echo "REFUSE(2): the harness could n
 perr=$(grep -m1 -a 'PROTOCOL ERR' "$W/harness.out" | cut -c1-220)
 if [ -n "$perr" ]; then echo "REFUSE(2): THE WIRE BROKE, NOT THE PROGRAM -- ${perr#\[ctrl\] } -- no verdict past that step${verdict:+; up to it: $verdict}. An instrument defect: report it to the coo with this command."; exit 2; fi
 if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ -z "$verdict" ]; then echo "REFUSE(2): the controller printed no VERDICT line (AGREE= DIVERGE= UNGRADED=) -- an agreement whose UNGRADED count is unknown is not a pass"; exit 2; fi
-if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ "$ungraded" = 0 ]; then echo "[monitor_run] AGREE: participants $parts agree event-for-event, clean termination at step $steps ($verdict)"; exit 0; fi
+if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ "$ungraded" = 0 ]; then echo "[monitor_run] AGREE: participants $parts agree event-for-event, clean termination at step $steps ($verdict)$outnote"; exit 0; fi
 if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ]; then
-    echo "[monitor_run] UNGRADED=$ungraded: participants $parts -- no graded event diverged, clean termination at step $steps ($verdict); an UNGRADED step is NEVER a match: a participant sent that value untyped (MWT_UNKNOWN), so it was not compared:"
+    echo "[monitor_run] UNGRADED=$ungraded: participants $parts -- no graded event diverged, clean termination at step $steps ($verdict)$outnote; an UNGRADED step is NEVER a match: a participant sent that value untyped (MWT_UNKNOWN), so it was not compared:"
     grep -a '^\[ctrl\]   UNGRADED ' "$W/harness.out" | sed 's/^\[ctrl\]  /  /'
     exit 0
 fi

@@ -13,6 +13,8 @@ static int      g_init_attempted = 0;
 static int      g_init_ok        = 0;
 static int      g_atexit_done    = 0;
 static int      g_in_emit        = 0;
+static int      g_speaks_output  = 0;
+static int      g_output_hello   = 0;
 static char   **g_names          = NULL;
 static int     *g_name_lens      = NULL;
 static int      g_n_names        = 0;
@@ -64,6 +66,7 @@ static int monitor_init(void)
     g_go_fd    = gfd;
     g_init_ok  = 1;
     atexit(monitor_atexit);
+    if (g_speaks_output && !g_output_hello) { g_output_hello = 1; emit_record_raw(MWK_OUTPUT, MW_OUTPUT_HELLO, MWT_NULL, NULL, 0); }
     return 1;
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -152,5 +155,20 @@ void mon_ipc_value(const char *name, uint32_t len, uint8_t type, const void *val
     g_in_emit = 1;
     uint32_t id = intern_name(name, len);
     if (id != MW_NAME_ID_NONE) emit_record_raw(MWK_VALUE, id, type, val, vlen);
+    g_in_emit = 0;
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void mon_ipc_speak_output(void)
+{
+    g_speaks_output = 1;
+    if (g_init_ok && g_ready_fd >= 0 && !g_output_hello) { g_output_hello = 1; emit_record_raw(MWK_OUTPUT, MW_OUTPUT_HELLO, MWT_NULL, NULL, 0); }
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void mon_ipc_output(const char *bytes, uint32_t len)
+{
+    if (!len || !bytes || !monitor_init() || g_in_emit) return;
+    g_in_emit = 1;
+    if (!g_output_hello) mon_ipc_speak_output();
+    emit_record_raw(MWK_OUTPUT, MW_NAME_ID_NONE, MWT_STRING, bytes, len);
     g_in_emit = 0;
 }

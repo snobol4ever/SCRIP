@@ -7,7 +7,7 @@
 +#define Op_Stmt		111
 --- a/src/h/rproto.h
 +++ b/src/h/rproto.h
-@@ -442,3 +442,8 @@
+@@ -442,3 +442,9 @@
  int	Omkrec			(int nargs, Fargs);
  
  void	initalloc		(word codesize);
@@ -16,6 +16,7 @@
 +void	icx_mon_call		(struct b_proc *p);
 +void	icx_mon_return		(struct b_proc *p, dptr v);
 +void	icx_mon_value		(dptr var, dptr val);
++void	icx_mon_output		(FILE *f, char *s, word len);
 --- a/src/icont/opcode.c
 +++ b/src/icont/opcode.c
 @@ -92,6 +92,7 @@
@@ -168,3 +169,34 @@
  $(COBJS):
  	cd ../common; $(MAKE)
  
+--- a/src/runtime/rsys.r
++++ b/src/runtime/rsys.r
+@@ -105,8 +105,8 @@
+    s = StrLoc(*d);
+    if (longwrite(s,l,f) < 0)
+       return Failed;
+-   else
+-      return Succeeded;
++   icx_mon_output(f, s, l);
++   return Succeeded;
+    }
+ 
+ /*
+--- a/src/runtime/fsys.r
++++ b/src/runtime/fsys.r
+@@ -754,6 +754,7 @@
+    else
+ #endif					/* Graphics */
+       putc('\n', f);
++      icx_mon_output(f, "\n", 1);
+ #endif					/* nl */
+ 
+    /*
+@@ -862,6 +863,7 @@
+ 		     else {
+ #endif					/* Graphics */
+ 			putc('\n', f);
++			icx_mon_output(f, "\n", 1);
+ 			if (ferror(f))
+ 			   runerr(214);
+ 			fflush(f);

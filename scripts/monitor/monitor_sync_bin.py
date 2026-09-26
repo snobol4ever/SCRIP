@@ -79,6 +79,17 @@ MWK_PM_CALL   = 7
 MWK_PM_EXIT   = 8
 MWK_PM_REDO   = 9
 MWK_PM_FAIL   = 10
+# ⛔⭐ THE OUTPUT EVENT (coo 2026-09-25, row instruments-the-monitor-grades-no-output-event-so-a-wrong-value-written-without-an-
+# assignment-reads-agree; ceo CEO-1272 on hq_icon's measurement): a wrong value written straight to standard output -- write(f(x)),
+# OUTPUT = f(X), writeln(g) -- was never an event, so both sides agreed event for event over a wrong answer. A participant now sends
+# the bytes it writes to standard output as MWK_OUTPUT records (name_id NONE, type STRING), and announces once, before its first
+# statement, that it speaks OUTPUT: an MWK_OUTPUT record with name_id OUTPUT_HELLO and no bytes. OUTPUT records are NOT paired step for
+# step -- two engines need not split a write() into the same pieces -- so the controller absorbs them into one byte stream per
+# participant and, at every compared step and at the end, requires the streams to agree up to the shorter one; the first differing
+# byte is a DIVERGE, and a stream left longer at END is one. Only when EVERY participant has said hello is output graded: the two sides
+# land in order (the oracle fork first, then the SCRIP plug), and until both speak OUTPUT the VERDICT line says OUTPUT=UNGRADED(names).
+MWK_OUTPUT    = 11
+OUTPUT_HELLO  = 0xfffffffe
 
 KIND_NAMES = {
     1: 'VALUE', 2: 'CALL', 3: 'RETURN', 4: 'END',
@@ -203,6 +214,18 @@ def read_semantic_record(f, timeout_s):
                 return None
             continue
         if ev.kind == MWK_VALUE and SKIP_VALUE_NAMES and (lambda _n: (_n.decode('utf-8','replace') if isinstance(_n, (bytes, bytearray)) else _n) in SKIP_VALUE_NAMES)(f['names'].get(ev.name_id, '')):
+            try:
+                os.write(f['gw'], b'G')
+            except OSError:
+                return None
+            continue
+        if ev.kind == MWK_OUTPUT:
+            if ev.name_id == OUTPUT_HELLO:
+                f['out_capable'] = True
+            else:
+                f['out'] += ev.value
+            if f['log_fp'] and ev.name_id != OUTPUT_HELLO:
+                f['log_fp'].write(f'  OUTPUT {bytes(ev.value)!r}\n')
             try:
                 os.write(f['gw'], b'G')
             except OSError:
@@ -479,6 +502,10 @@ def print_verdict(tally, ungraded, how):
     n = tally[AGREE] + tally[DIVERGE] + tally[UNGRADED]
     line = (f'[ctrl] VERDICT AGREE={tally[AGREE]} DIVERGE={tally[DIVERGE]} '
             f'UNGRADED={tally[UNGRADED]} of {n} compared step(s) -- {how}')
+    if OUTPUT_STATE['fds']:
+        mute = [f['name'] for f in OUTPUT_STATE['fds'] if not f['out_capable']]
+        line += (f' -- OUTPUT=graded ({len(OUTPUT_STATE["fds"][0]["out"])} byte(s))' if not mute
+                 else f' -- OUTPUT=UNGRADED({",".join(mute)} sent no OUTPUT hello: the bytes written were never compared, so output is no part of any AGREE)')
     names = list(ungraded)
     if names:
         shown = ', '.join(f'{nm} x{ungraded[nm][0]}' for nm in names[:UNGRADED_NAMES_SHOWN])
@@ -489,6 +516,28 @@ def print_verdict(tally, ungraded, how):
         cnt, s, stno, cols = ungraded[nm]
         where = f'step {s}' + (f' stno {stno}' if stno is not None else '')
         print(f'[ctrl]   UNGRADED {nm} x{cnt}, first at {where}: {cols}', file=sys.stderr)
+
+
+OUTPUT_STATE = {'fds': []}
+
+
+def output_divergence(fds, final=False):
+    """None while every participant's output stream agrees with the oracle's up to the shorter one (and, when final, is equal);
+    else a one-line description naming the first differing byte. Graded only when every participant said OUTPUT hello."""
+    if not fds or not all(f['out_capable'] for f in fds):
+        return None
+    a = bytes(fds[0]['out'])
+    for f in fds[1:]:
+        b = bytes(f['out'])
+        n = min(len(a), len(b))
+        k = next((i for i in range(n) if a[i] != b[i]), None)
+        if k is None and final and len(a) != len(b):
+            k = n
+        if k is not None:
+            lo = max(0, k - 24)
+            return (f'OUTPUT differs at byte {k}: {fds[0]["name"]} wrote {a[lo:k + 24]!r} ({len(a)} byte(s) so far), '
+                    f'{f["name"]} wrote {b[lo:k + 24]!r} ({len(b)} byte(s) so far)')
+    return None
 
 
 def grade_step(events):
@@ -704,7 +753,7 @@ def run(participants):
         log_fp = None
         if trace_prefix:
             log_fp = open(f'{trace_prefix}.{nm}.log', 'w')
-        fds.append({'name': nm, 'rd': rd, 'gw': gw, 'names': {},
+        fds.append({'name': nm, 'rd': rd, 'gw': gw, 'names': {}, 'out': bytearray(), 'out_capable': False,
                     'log_fp': log_fp})
         print(f'[ctrl] opened {nm}: ready={rp} go={gp}', file=sys.stderr)
 
@@ -714,6 +763,7 @@ def run(participants):
     # Buffer is deque(maxlen=N), O(1) append/evict.
     pnames = [nm for nm, rp, gp in participants]
     trail = deque(maxlen=DIVERGE_HISTORY)
+    OUTPUT_STATE['fds'] = fds
 
     # Track last agreed stno from LABEL records so VALUE/CALL/RETURN rows
     # can show which statement they belong to.  The stno is already on the
@@ -763,6 +813,19 @@ def run(participants):
                 try: os.write(ff['gw'], b'S')
                 except OSError: pass
             return finish(3, f'PROTOCOL ERR at step {step}')
+
+        # ⛔ THE OUTPUT STREAMS, AT EVERY STEP (see MWK_OUTPUT above): a byte one side wrote that the other wrote differently is the
+        # divergence, whatever the paired events say -- located after the last step both agreed on, with both streams named.
+        od = output_divergence(fds, final=(len(eof_set) == len(fds) or all(ev is not None and ev.kind == MWK_END for _f, ev in events)))
+        if od:
+            print(f'\n[ctrl] DIVERGE step {step} (OUTPUT) -- after the last agreed event (stno {last_agreed_stno}): {od}', file=sys.stderr)
+            for r in list(trail)[-8:]:
+                print(f'[ctrl]   agreed step {r[0]} stno {r[1]}: ' + ' | '.join(f'{k}: {v}' for k, v in r[2].items()), file=sys.stderr)
+            for ff in fds:
+                try: os.write(ff['gw'], b'S')
+                except OSError: pass
+            tally[DIVERGE] += 1
+            return finish(1, f'DIVERGE at step {step} (OUTPUT)')
 
         # All EOF: clean termination (legacy path, when a runtime exits without
         # emitting MWK_END).
