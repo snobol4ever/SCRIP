@@ -637,6 +637,8 @@ void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(na
 void rt_trace_tap_off(void) { g_trace_tap_off = 1; }
 void rt_trace_value(const char *name, DESCR_t val) {
     if (g_trace_budget == 0 || !name) return;
+    if (!strncmp(name, "__icn_", 6) || strstr(name, "__INITFLAG__")) return;
+    { const char *st = strstr(name, "__STATIC__"); if (st && st[10]) name = st + 10; }
     char vtext[512]; trace_spell_value(val, vtext, sizeof vtext);
     static long g_trace_value_last_gen = -1;
     static char g_trace_value_last_name[256] = "";
@@ -807,6 +809,12 @@ static uint8_t scrip_tag_to_wire(int v) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static uint8_t mon_wire_type(DESCR_t v) {
+    if (IS_CSET_fn(v)) return MWT_UNKNOWN;
+    if (v.v == DT_T && v.tbl && v.tbl->is_set) return MWT_DATA;
+    return scrip_tag_to_wire(v.v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
                          const void *value, uint32_t value_len) {
     if (monitor_fd < 0) return;
@@ -871,7 +879,7 @@ void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
     uint32_t name_id = MW_NAME_ID_NONE;
     if (name && name[0]) { name_id = intern_name_bin(name, (int)strlen(name)); if (name_id == MW_NAME_ID_NONE) return; }
     if (kind == MWK_CALL) { mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
-    uint8_t type = IS_CSET_fn(val) ? MWT_UNKNOWN : scrip_tag_to_wire(val.v);
+    uint8_t type = mon_wire_type(val);
     const void *vp = NULL; uint32_t vlen = 0;
     int64_t i_buf; double r_buf;
     switch (type) {
@@ -921,7 +929,7 @@ static DESCR_t _mon_put_helper(DESCR_t *args, int nargs, uint32_t kind, int opaq
             else if (tlen == 0)                                    type = MWT_NULL;
         }
     } else {
-        type = IS_CSET_fn(args[1]) ? MWT_UNKNOWN : scrip_tag_to_wire(args[1].v);
+        type = mon_wire_type(args[1]);
         switch (type) {
             case MWT_STRING:
             case MWT_NAME:
