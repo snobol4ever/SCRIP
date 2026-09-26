@@ -180,9 +180,8 @@ pow_expr  = (   *primary
                      | epsilon
                      )
             );
-mul_expr  = (   *pow_expr
-                ARBNO(
-                    FENCE( $'mod' *pow_expr  reduce("'TT_BINOP'", 2)
+mul_expr  = (   *pow_expr *mul_tail );
+mul_tail  = FENCE( FENCE( $'mod' *pow_expr  reduce("'TT_BINOP'", 2)
                          | $'rem' *pow_expr  reduce("'TT_BINOP'", 2)
                          | $'div' *pow_expr  reduce("'TT_BINOP'", 2)
                          | $'rdiv' *pow_expr reduce("'TT_BINOP'", 2)
@@ -192,18 +191,13 @@ mul_expr  = (   *pow_expr
                          | $'//'  *pow_expr  reduce("'TT_IDIV'",  2)
                          | $'/\'  *pow_expr  reduce("'TT_BINOP'", 2)
                          | $'/'   *pow_expr  reduce("'TT_DIV'",   2)
-                         )
-                )
-            );
-add_expr  = (   *mul_expr
-                ARBNO(
-                    FENCE( $'+' *mul_expr  reduce("'TT_ADD'",   2)
+                         ) *mul_tail | epsilon );
+add_expr  = (   *mul_expr *add_tail );
+add_tail  = FENCE( FENCE( $'+' *mul_expr  reduce("'TT_ADD'",   2)
                          | $'-' *mul_expr  reduce("'TT_SUB'",   2)
                          | $'\/' *mul_expr reduce("'TT_BINOP'", 2)
                          | $'xor' *mul_expr reduce("'TT_BINOP'", 2)
-                         )
-                )
-            );
+                         ) *add_tail | epsilon );
 colon_expr = (  *add_expr
                 FENCE( $':' *colon_expr  reduce("'TT_BINOP'", 2)
                      | epsilon
@@ -250,10 +244,11 @@ body_goal = (   $'(' *body $')'
             );
 conj = (    nPush()
                 nInc() *body_goal
-                ARBNO( $',' nInc() *body_goal )
+                *conj_tail
                                    reduce("'TT_CONJ'", 'nTop()')
             nPop()
         );
+conj_tail = FENCE( $',' nInc() *body_goal *conj_tail | epsilon );
 conj_arrow = ( *conj FENCE( $'->' *conj_arrow  reduce("'TT_IFTHEN'", 2)  | epsilon ) );
 disj_tail = ( $';' nInc() *conj_arrow FENCE( *disj_tail | epsilon ) );
 disj = (    nPush()
@@ -288,16 +283,18 @@ dcg_goal = (   *list
            );
 dcg_conj = (   nPush()
                    nInc() *dcg_goal
-                   ARBNO( $',' nInc() *dcg_goal )
+                   *dcg_conj_tail
                                       reduce("'TT_CONJ'", 'nTop()')
                nPop()
            );
 dcg_disj = (   nPush()
                    nInc() *dcg_conj
-                   ARBNO( $';' nInc() *dcg_conj )
+                   *dcg_disj_tail
                                       reduce("'TT_DISJ'", 'nTop()')
                nPop()
            );
+dcg_conj_tail = FENCE( $',' nInc() *dcg_goal *dcg_conj_tail | epsilon );
+dcg_disj_tail = FENCE( $';' nInc() *dcg_conj *dcg_disj_tail | epsilon );
 dcg_body = *dcg_disj;
 dcg_rule  = (   *head $'-->'
                 *dcg_body $'.'
