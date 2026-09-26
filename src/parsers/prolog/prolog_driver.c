@@ -52,7 +52,7 @@ static void pl_consult_scan_goal(tree_t *g, const char **pending, int *npending)
     if (!g || *npending >= PL_CONSULT_FILES_MAX) return;
     if (g->t == TT_FNC && g->v.sval && g->n == 2 && (!strcmp(g->v.sval, ",") || !strcmp(g->v.sval, ";") || !strcmp(g->v.sval, "->"))) {
         pl_consult_scan_goal(g->c[0], pending, npending); pl_consult_scan_goal(g->c[1], pending, npending); return; }
-    if (g->t == TT_FNC && g->v.sval && g->n == 1 && !strcmp(g->v.sval, "consult")) {
+    if (g->t == TT_FNC && g->v.sval && g->n == 1 && (!strcmp(g->v.sval, "consult") || !strcmp(g->v.sval, "ensure_loaded"))) {
         const char *sp = pl_consult_spec(g->c[0]);
         if (sp) { pending[(*npending)++] = sp; g->t = TT_QLIT; g->v.sval = (char *) "true"; g->n = 0; }
         return; }

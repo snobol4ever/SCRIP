@@ -30,6 +30,7 @@ typedef struct {
     IfFrame     ifst[IF_STACK_MAX];
     int         ifst_top;
     TreeScope   ts;
+    int         incl_depth;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -1352,6 +1353,82 @@ int pl_prelude_defines(const char *nm, int ar) {
     return found;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_parse_loop(Parser *pp, PlProgram *prog);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pl_include_read(const Parser *pp, const char *spec, char **path_out) {
+    const char *slash = strrchr(pp->filename, '/'); size_t dl = slash ? (size_t)(slash - pp->filename) + 1 : 0; size_t sl = strlen(spec);
+    char *cand = (char *)ct_alloc(dl + sl + 4); FILE *f = (FILE *)0; char *src; long n;
+    if (!cand) return (char *)0;
+    for (int k = 0; k < 4 && !f; k++) {
+        size_t o = (k < 2 && spec[0] != '/') ? dl : 0;
+        if (o) memcpy(cand, pp->filename, dl);
+        memcpy(cand + o, spec, sl); cand[o + sl] = 0;
+        if (k % 2) memcpy(cand + o + sl, ".pl", 4);
+        f = fopen(cand, "r"); }
+    if (!f) { ct_drop(cand); return (char *)0; }
+    fseek(f, 0, SEEK_END); n = ftell(f); rewind(f);
+    src = (char *)ct_alloc((size_t)n + 1); if (!src) { fclose(f); ct_drop(cand); return (char *)0; }
+    if (fread(src, 1, (size_t)n, f) != (size_t)n) src[0] = src[0];
+    src[n] = 0; fclose(f); *path_out = cand; return src;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_include_directive(Parser *pp, PlProgram *prog, const PlClause *cl) {
+    const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; Parser q;
+    if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return 0;
+    g = t->c[1];
+    if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "include") || g->n != 1 || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME) || !g->c[0]->v.sval) return 0;
+    spec = g->c[0]->v.sval;
+    if (pp->incl_depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
+        if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
+        pp->nerrors++; return 1; }
+    memset(&q, 0, sizeof q); lexer_init(&q.lx, src); q.filename = path; q.quiet = pp->quiet; q.dq = pp->dq; q.incl_depth = pp->incl_depth + 1;
+    pl_parse_loop(&q, prog);
+    pp->nerrors += q.nerrors; pp->dq = q.dq;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_parse_loop(Parser *pp, PlProgram *prog) {
+    for (;;) {
+        Token pk = lexer_peek(&pp->lx);
+        if (pk.kind == TK_EOF) break;
+        if (pk.kind == TK_ERROR) {
+            if (!pp->quiet) fprintf(stderr, "%s:%d: lex error: %s\n",
+                    pp->filename, pk.line, pk.text);
+            pp->nerrors++;
+            lexer_next(&pp->lx);
+            if (pp->lx.last_kind != TK_DOT) resync_past_clause_end(pp);
+            continue;
+        }
+        pp->clause_errs = 0;
+        PlClause *cl = parse_clause(pp);
+        if (pp->clause_errs > 0) {
+            if (cl) ct_drop(cl);
+            pp->lx.fenced = 0;
+            pp->lx.has_peek = 0;
+            continue;
+        }
+        if (!cl) break;
+        if (cl->nbody == 0 && cl->tr == NULL) {
+            ct_drop(cl);
+            continue;
+        }
+        if (!if_currently_active(pp)) {
+            ct_drop(cl);
+            continue;
+        }
+        if (pl_include_directive(pp, prog, cl)) { ct_drop(cl); continue; }
+        if (!prog->head) prog->head = cl;
+        else             prog->tail->next = cl;
+        prog->tail = cl;
+        prog->nclauses++;
+    }
+    if (pp->ifst_top != 0) {
+        fprintf(stderr, "%s: parse error: unmatched :- if (opened at line %d)\n",
+                pp->filename, pp->ifst[pp->ifst_top - 1].line);
+        pp->nerrors++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     prolog_atom_init();
     Parser p;
@@ -1364,46 +1441,10 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.quiet    = quiet;
     p.dq       = rt_pl_double_quotes_mode();
     p.prec     = 0;
+    p.incl_depth = 0;
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
-    for (;;) {
-        Token pk = lexer_peek(&p.lx);
-        if (pk.kind == TK_EOF) break;
-        if (pk.kind == TK_ERROR) {
-            if (!p.quiet) fprintf(stderr, "%s:%d: lex error: %s\n",
-                    p.filename, pk.line, pk.text);
-            p.nerrors++;
-            lexer_next(&p.lx);
-            if (p.lx.last_kind != TK_DOT) resync_past_clause_end(&p);
-            continue;
-        }
-        p.clause_errs = 0;
-        PlClause *cl = parse_clause(&p);
-        if (p.clause_errs > 0) {
-            if (cl) ct_drop(cl);
-            p.lx.fenced = 0;
-            p.lx.has_peek = 0;
-            continue;
-        }
-        if (!cl) break;
-        if (cl->nbody == 0 && cl->tr == NULL) {
-            ct_drop(cl);
-            continue;
-        }
-        if (!if_currently_active(&p)) {
-            ct_drop(cl);
-            continue;
-        }
-        if (!prog->head) prog->head = cl;
-        else             prog->tail->next = cl;
-        prog->tail = cl;
-        prog->nclauses++;
-    }
-    if (p.ifst_top != 0) {
-        fprintf(stderr, "%s: parse error: unmatched :- if (opened at line %d)\n",
-                p.filename, p.ifst[p.ifst_top - 1].line);
-        p.nerrors++;
-    }
+    pl_parse_loop(&p, prog);
     prog->nerrors = p.nerrors;
     if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(prog, src);
     return prog;
