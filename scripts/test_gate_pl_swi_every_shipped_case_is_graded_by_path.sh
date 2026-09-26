@@ -31,8 +31,11 @@ while IFS= read -r f; do ref="${f%.pl}.ref"; [ -f "$ref" ] || continue
 done < <(grep -rl --include='*.pl' 'begin_tests(' "$SWIT" | sort)
 [ -z "$silent" ]; arm $? "every declared unit is named in its ref${silent:+ -- SILENT:$silent}"
 tsv="$SWIT/UNGRADABLE.tsv"; unnamed=""; wrongly=""
-while IFS= read -r f; do rel="${f#"$SWIT"/}"; if grep -q 'begin_tests(' "$f"; then grep -qP "^\Q$rel\E\t" "$tsv" 2>/dev/null && wrongly="$wrongly $rel"; else grep -qP "^\Q$rel\E\t" "$tsv" 2>/dev/null || unnamed="$unnamed $rel"; fi; done < <(find "$SWIT" -name '*.pl' | sort)
-[ -z "$unnamed" ] && [ -z "$wrongly" ]; arm $? "non-plunit files are named UNGRADABLE and plunit files are not${unnamed:+ -- UNNAMED:$unnamed}${wrongly:+ -- GRADED-YET-RULED:$wrongly}"
+# ⛔ A NON-PLUNIT FILE IS NAMED IN ONE OF THE THREE SIDECARS (ceo CEO-1272, coo 2026-09-25): the retired class CONTAINER_OR_LIBRARY
+# split by measurement -- a vendor module with clauses is a LIBRARY owed its driver (UNGRADED.tsv NEEDS_DRIVER), a data file is a
+# CONTAINER (CONTAINERS.tsv), and an oracle ruling stays in UNGRADABLE.tsv. Named in none is still UNNAMED; a plunit file in any is still wrong.
+while IFS= read -r f; do rel="${f#"$SWIT"/}"; if grep -q 'begin_tests(' "$f"; then cat "$tsv" "$SWIT/UNGRADED.tsv" "$SWIT/CONTAINERS.tsv" 2>/dev/null | grep -qP "^\Q$rel\E\t" && wrongly="$wrongly $rel"; else cat "$tsv" "$SWIT/UNGRADED.tsv" "$SWIT/CONTAINERS.tsv" 2>/dev/null | grep -qP "^\Q$rel\E\t" || unnamed="$unnamed $rel"; fi; done < <(find "$SWIT" -name '*.pl' | sort)
+[ -z "$unnamed" ] && [ -z "$wrongly" ]; arm $? "non-plunit files are named in UNGRADABLE, UNGRADED or CONTAINERS and plunit files are not${unnamed:+ -- UNNAMED:$unnamed}${wrongly:+ -- GRADED-YET-RULED:$wrongly}"
 dups=""
 for f in "$SWIT"/*.pl; do [ -f "$f" ] || continue; b="$(basename "$f")"; case "$b" in test.pl) continue ;; esac; [ -n "$(find "$SWIT" -mindepth 2 -name "$b" | head -1)" ] && dups="$dups $b"; done
 [ -z "$dups" ]; arm $? "no top-level duplicate of a subdirectory test file${dups:+ -- DUPLICATES:$dups}"

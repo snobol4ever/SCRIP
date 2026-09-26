@@ -251,6 +251,9 @@ else
   u=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADED.tsv")
   d=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADABLE.tsv")
   sh=$(find "$PKG" -name '*.icn' ! -name 'ALL.icn' ! -name '*_driver.icn' ! -path '*.fixtures/*' | wc -l)
+  # ⛔ AND A CONTAINER IS NOT A PROGRAM (ceo CEO-1272, coo 2026-09-25): CONTAINERS.tsv names the files that leave shipped with their
+  # measurement ($include'd gincl/ declarations, $define tables), and lib_inventory.sh subtracts them -- so does this count.
+  c=0; [ -f "$PKG/CONTAINERS.tsv" ] && c=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/CONTAINERS.tsv"); sh=$((sh - c))
   if [ "$((g+u+d))" -ne "$sh" ]; then red "ARM 10: buckets do not sum -- graded($g) + ungraded($u) + ungradable($d) = $((g+u+d)), shipped=$sh. ⛔ COUNTED, never quoted: graded is the .ref files on disk, not a number carried from a ledger."
   else green "ARM 10: no graded program is still listed as owed, and $g + $u + $d = $sh shipped, every count measured on disk"; fi
 fi
