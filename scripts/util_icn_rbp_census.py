@@ -11,6 +11,14 @@ indexing is HOUSEKEEPING."  On Icon a seeded data ref is removable -- by moving 
 the pin -- so it is the ratchet target, not an exempt class.  The two instruments therefore
 answer different questions and both are needed; this one lives BESIDE, never inside.
 
+THE REGION IS THE PROCEDURE (cto 2026-09-26, row icon-the-rbp-census-ratchet-counts-against-a-pre-three-zetas-
+baseline-...).  A region runs from one procedure entry label to the next.  Since 15d6f203c (2026-08-16) an Icon
+procedure's entry is FN__<name>, which ENTRY_RE did not know, so every file read as two regions (a preamble holding
+every procedure, then main): the per-region seed test that DRIFT rests on was blind, and once the derived tier
+put pinned procedure frames on RBP (cfe044377, 2026-09-09) every host-frame ref in a file with one generator was
+counted as E.  COLLAPSED counts regions holding more than one frame seed; it must read 0, and the gate refuses
+(rc 2) when it does not, because a collapsed region is the census not looking.
+
 THE FOUR CLASSES (s204 census vocabulary, made mechanical here):
   A CEREMONY  -- prologue seed (`mov rbp, rsp`), caller-rbp save/restore into the header pad,
                  frame-chain walk (`mov rbp, [rbp+-N]`), `push/pop rbp`, `mov rsp, rbp`.
@@ -33,7 +41,7 @@ numbers are printed side by side and only one of them is allowed to be nonzero.
 """
 import re, sys, os, subprocess, tempfile
 
-ENTRY_RE = re.compile(r'^(proc_.*_\u03b1|main|main_init)\s*:')
+ENTRY_RE = re.compile(r'^(FN__\w+|proc_.*_\u03b1|main|main_init)\s*:')
 SEED_RE  = re.compile(r'\bmov\s+rbp\s*,\s*rsp\b')
 CLASSD_RE = re.compile(r'\bmov\s+rbp\s*,\s*(qword ptr\s*)?\[r(ax|bx|cx|dx|si|di|8|9|1[0-5])')
 CEREM_RE = re.compile(
@@ -77,9 +85,13 @@ def census(path):
     lines = open(path, encoding='utf-8', errors='replace').read().splitlines()
     a = c = d = e = drift = 0
     offenders = []
+    collapsed = []
     for name, body in regions(lines):
         seeded = any(SEED_RE.search(l) for l in body)
         genseeded = any(GENSEED_RE.search(l) for l in body)
+        nseeds = sum(1 for l in body if SEED_RE.search(l) or GENSEED_RE.search(l))
+        if nseeds > 1:
+            collapsed.append((name, nseeds))
         for l in body:
             if CLASSD_RE.search(l):
                 d += 1
@@ -95,7 +107,7 @@ def census(path):
                 if not seeded:
                     drift += 1
                     offenders.append((name, l.strip()))
-    return a, c, d, e, drift, offenders
+    return a, c, d, e, drift, offenders, collapsed
 
 
 def main():
@@ -106,6 +118,7 @@ def main():
         return 2
     tA = tC = tD = tE = tDrift = 0
     all_off = []
+    all_col = []
     for f in files:
         if f.endswith('.s'):
             sp, tmp = f, None
@@ -116,8 +129,10 @@ def main():
                 r = subprocess.run([scrip, '--compile', f], stdout=fh,
                                    stderr=subprocess.DEVNULL, timeout=180)
             sp = tmp.name
-        a, c, d, e, drift, off = census(sp)
+        a, c, d, e, drift, off, col = census(sp)
         tA += a; tC += c; tD += d; tE += e; tDrift += drift
+        for cl in col:
+            all_col.append((os.path.basename(f),) + cl)
         for o in off:
             all_off.append((os.path.basename(f),) + o)
         print("%-34s A_ceremony=%-5d C_data=%-6d D_scratch=%-3d E_activation=%-5d drift=%-4d %s"
@@ -129,6 +144,11 @@ def main():
     print("RATCHET_C=%d" % tC)
     print("CEREMONY_A=%d" % tA)
     print("ACTIVATION_E=%d" % tE)
+    print("COLLAPSED=%d" % len(all_col))
+    if all_col:
+        print("\nCOLLAPSED -- a region holding more than one frame seed spans several procedures, so its seed test is blind:")
+        for fn, rg, n in all_col[:40]:
+            print("    %-22s %-30s seeds=%d" % (fn, rg, n))
     if all_off:
         print("\nDRIFT -- class-C refs in regions whose prologue never seeded rbp:")
         for fn, rg, l in all_off[:40]:

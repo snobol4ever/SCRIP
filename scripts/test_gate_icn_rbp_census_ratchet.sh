@@ -23,6 +23,33 @@
 # ⛔ RATCHET LOWERING IS MANUAL, NEVER AUTO.  3-4 sessions run in parallel (RULES.md
 # CONCURRENCY); the landing session lowers ICN_C_BASELINE in the same commit as its conversion.
 #
+# ⭐⭐ RE-DECLARED UNDER THE THREE-ZETAS LAW (cto 2026-09-26, the ceo's CEO-1272, row icon-the-rbp-census-ratchet-
+#    counts-against-a-pre-three-zetas-baseline-...).  The red this gate read (C_data 15796 against 0, E_activation
+#    10607 against 961) was two things at once, and neither was a codegen regression:
+#    (1) THE INSTRUMENT WENT BLIND.  Since 15d6f203c (2026-08-16) an Icon procedure's entry label is FN__<name>;
+#        the census's ENTRY_RE knew only proc_*_α, main and main_init, so each file read as TWO regions (a
+#        preamble holding every procedure, then main).  The per-region seed test was blind -- DRIFT could not
+#        fire for any procedure -- and in a file with one generator every host-frame ref was counted as E.
+#        Cured in util_icn_rbp_census.py (FN__ is an entry); the census prints COLLAPSED (regions holding more
+#        than one frame seed) and this gate REFUSES rc 2 when it is not 0, because a collapsed region is the
+#        census not looking.  Fail-once: the old ENTRY_RE reads COLLAPSED > 0 on this benchmark set.
+#    (2) THE FRAME MODEL CHANGED, LAWFULLY.  The ζ tier is derived (FACT RULE, Lon 2026-09-09; cfe044377
+#        fl_derive_tier): an Icon procedure graph holding a window or a callee is PINNED -- its activation frame
+#        is addressed through RBP, seeded by `mov rbp, rsp` -- because unbounded growth between γ and β denies
+#        its operands a fixed RSP offset (RULES.md § BB FRAME-PLACEMENT CRITERION).  A generator carves its own
+#        ζ-ACTIVATION frame at α (9c6ad224f, 2026-09-07), seeded by `lea rbp, [rax + N]`.  s204's "rbp only for
+#        housekeeping" predates both; the seeded-frame ref is now the frame model working as designed, as the
+#        SNOBOL4 gate's FLATDISP-9 header argues for its own pinned frames.
+#    THE CONTRACTS NOW:  DRIFT zero-assert (a [rbp] data ref in a procedure region that never seeded rbp -- the
+#    s188/s189 class; measured 0 per procedure).  COLLAPSED zero-assert, refusal (measured 0).  C_data: the
+#    pinned HOST frames' refs, a never-rising ratchet at its measurement (25361) -- a rise means a landing
+#    pinned a graph or put an operand on RBP, and the lander re-measures and re-declares here with the reason.
+#    E_activation: the GENERATOR frames' refs, the ratchet Lon granted 2026-08-29, re-declared at its per-
+#    procedure measurement (1042; the 961 of 2026-08-29 was read through the collapsed regions while no host
+#    frame carried an rbp ref, so it was right then by luck; +81 since is not attributed to a landing).
+#    A_ceremony advisory.  MEASURED on SCRIP (this landing's parent) over the 23 Icon benchmarks, RT_OPT=-O0:
+#    A 165, C 25361, D 7, E 1042, DRIFT 0, COLLAPSED 0.
+#
 # BASELINE HISTORY:
 #   ⭐ 0 (s247, seat1, SCRIP 0b1b7d4f pristine, 23 Icon benchmarks, RT_OPT=-O0) — THE DIRECTIVE IS MET.
 #      C_data 37872 -> 0, A_ceremony -> 0, D_scratch -> 0, DRIFT -> 0: EVERY program in the benchmark set
@@ -58,12 +85,17 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${ICON_BENCH:-$CORPUS/benchmarks/icon}"
-ICN_C_BASELINE="${ICN_C_BASELINE:-0}"
-ICN_E_BASELINE="${ICN_E_BASELINE:-961}"   # ⭐ CLASS E ratchet (Lon grant 2026-08-29): ζ-ACTIVATION refs in region-resident generator frames -- never-rising; set at flip-time measurement, lowered manually in the landing commit like C.
+ICN_C_BASELINE="${ICN_C_BASELINE:-25361}"
+ICN_E_BASELINE="${ICN_E_BASELINE:-1042}"   # ⭐ CLASS E ratchet (Lon grant 2026-08-29): ζ-ACTIVATION refs in region-resident generator frames -- never-rising; set at flip-time measurement, lowered manually in the landing commit like C.
 PY="$HERE/util_icn_rbp_census.py"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -d "$BENCH" ] || { echo "⛔ REFUSED-TO-GRADE no Icon benchmark corpus at $BENCH"; exit 2; }
 [ -f "$PY" ]    || { echo "GATE FAIL: missing $PY"; exit 2; }
+PLANT_DIR=$(mktemp -d) || exit 2; trap 'rm -rf "$PLANT_DIR"' EXIT
+printf 'FN__a:\n    mov qword ptr [rsp + 8], rbp\n    mov rbp, rsp\n    mov rax, qword ptr [rbp + 8]\nFN__b:\n    mov rax, qword ptr [rbp + 16]\nmain:\n    ret\n' > "$PLANT_DIR/drift_plant.s"
+PLANT=$(python3 "$PY" "$PLANT_DIR/drift_plant.s" 2>&1); PRC=$?
+{ [ "$PRC" -eq 1 ] && printf '%s\n' "$PLANT" | grep -q 'FN__b .*\[rbp + 16\]'; } || { echo "⛔ REFUSED-TO-GRADE: the DRIFT detector did not fire on its plant (a second procedure reading [rbp + 16] without seeding rbp; rc=$PRC) -- a zero-assert that cannot say no is not measuring"; exit 2; }
+echo "POSITIVE CONTROL OK: the drift plant reads drift=1 and names FN__b."
 # ⛔ GLOB MUST BE EXPANDED BEFORE IT IS TRUSTED -- with nullglob off (bash default) an EMPTY
 # BENCH makes "$BENCH"/*.icn pass the literal, unmatched string "*.icn" through to python as a
 # single bogus filename; the census then reports a silent all-zero row (RATCHET_C=0, exit 0),
@@ -82,6 +114,9 @@ C=$(printf '%s\n' "$OUT" | sed -n 's/^RATCHET_C=\([0-9]*\)$/\1/p' | tail -1)
 A=$(printf '%s\n' "$OUT" | sed -n 's/^CEREMONY_A=\([0-9]*\)$/\1/p' | tail -1)
 E=$(printf '%s\n' "$OUT" | sed -n 's/^ACTIVATION_E=\([0-9]*\)$/\1/p' | tail -1)
 [ -n "$C" ] || { echo "GATE FAIL: census produced no RATCHET_C line"; exit 2; }
+COL=$(printf '%s\n' "$OUT" | sed -n 's/^COLLAPSED=\([0-9]*\)$/\1/p' | tail -1)
+[ -n "$COL" ] || { echo "⛔ REFUSED-TO-GRADE: census produced no COLLAPSED line -- census/gate version skew"; exit 2; }
+[ "$COL" -eq 0 ] || { echo "⛔ REFUSED-TO-GRADE: $COL region(s) hold more than one frame seed -- the census's procedure regions have collapsed (an entry label it does not know), so DRIFT and the C/E split are blind. Teach ENTRY_RE the label; never read this as a verdict."; exit 2; }
 echo
 if [ "$RC" -ne 0 ]; then
     echo "GATE FAIL: DRIFT -- class-C reference(s) naming a base the prologue never established."
