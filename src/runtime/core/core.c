@@ -871,7 +871,7 @@ void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
     uint32_t name_id = MW_NAME_ID_NONE;
     if (name && name[0]) { name_id = intern_name_bin(name, (int)strlen(name)); if (name_id == MW_NAME_ID_NONE) return; }
     if (kind == MWK_CALL) { mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
-    uint8_t type = scrip_tag_to_wire(val.v);
+    uint8_t type = IS_CSET_fn(val) ? MWT_UNKNOWN : scrip_tag_to_wire(val.v);
     const void *vp = NULL; uint32_t vlen = 0;
     int64_t i_buf; double r_buf;
     switch (type) {
@@ -921,7 +921,7 @@ static DESCR_t _mon_put_helper(DESCR_t *args, int nargs, uint32_t kind, int opaq
             else if (tlen == 0)                                    type = MWT_NULL;
         }
     } else {
-        type = scrip_tag_to_wire(args[1].v);
+        type = IS_CSET_fn(args[1]) ? MWT_UNKNOWN : scrip_tag_to_wire(args[1].v);
         switch (type) {
             case MWT_STRING:
             case MWT_NAME:
