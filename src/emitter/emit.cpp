@@ -5,6 +5,7 @@
 #include <string>
 #include "emit.h"
 #include "gc_frame_map.h"
+#include "icn_act.h"
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
@@ -2929,6 +2930,34 @@ static const char * icn_trace_intern(const char * s) {
     return pool.insert(std::string(s)).first->c_str();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string icn_act_record_inline(const char * pname, int np) {
+    extern int * const rt_k_level_p; extern long g_line; extern const char * g_file; extern int g_flat_node_id;
+    if (!pname) return std::string();
+    pname = icn_trace_intern(pname);
+    std::string fl = ".Licn_act_nm" + std::to_string(g_flat_node_id++);
+    return  x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+         + x86("mov", "rdi", RDQ("rdi", 0))
+         + x86("mov", "ecx", RDD("rdi", 0))
+         + x86("cmp", "ecx", (long)ICN_ACT_CAP)
+         + x86("jae", "L245")
+         + x86("mov", "rsi", (long)sizeof(icn_act_rec_t))
+         + x86("imul", "rcx", "rsi")
+         + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_icn_act, "g_icn_act")
+         + x86("add", "rdi", "rcx")
+         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
+         + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str())
+         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, name)), "rsi")
+         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, base)), "rsp")
+         + x86("mov", RDD("rdi", (int)offsetof(icn_act_rec_t, np)), (long)np)
+         + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rsi", RDQ("rsi", 0))
+         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, line)), "rsi")
+         + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
+         + x86("mov", "rsi", RDQ("rsi", 0))
+         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, file)), "rsi")
+         + x86("def", "L245");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_local_offsets(const char * pname) {
     extern void rt_proc_set_locals(const char *, const char **, int);
     extern void rt_proc_set_pname(const char *, int, const char *);
@@ -2954,22 +2983,20 @@ static void icn_register_local_offsets(const char * pname) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_trace_tap(const char * pname, int kind, int np) {
-    if (kind != 1 && !x86_trace_hooks_on()) return std::string();
+    if (!x86_trace_hooks_on()) return std::string();
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
     if (!pname) return std::string();
     pname = icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);
-    std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : (kind == 4 ? "L246" : "L" + std::to_string(235 + kind)); std::string fl = ".Licn_trace_nm" + id;
+    std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : "L" + std::to_string(235 + kind); std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
         + IF(kind == 2 || kind == 3 || kind == 5, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
         + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
-    if (kind == 4) { extern void core_icn_act_record(const char *, int, void *);
-        s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "core_icn_act_record", (uint64_t)(uintptr_t)(void *)core_icn_act_record); }
-    else if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
     else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8)) + x86("mov", "rdx", RDQ("r11", 0)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
     else if (kind == 5) s += x86("mov", "rsi", "rbp") + x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
@@ -3289,7 +3316,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
         if (_use_zframe_install) {
             const char * _gn = (prefix && strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
-            bb_emit_x86( icn_trace_tap(_gn, 4, np));
+            bb_emit_x86(icn_act_record_inline(_gn, np));
             icn_register_local_offsets(_gn);
         }
     } else if (g_emit.flat_lcl_proc) {
@@ -3347,10 +3374,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("sub", "rcx", (long)1)
                      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
-            bb_emit_x86(icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np));
+            bb_emit_x86(icn_act_record_inline((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, np) + icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np));
             icn_register_local_offsets((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix);
         } else if (_iws && _use_zframe_install) {
-            bb_emit_x86(icn_trace_tap("main", 1, np));
+            bb_emit_x86(icn_act_record_inline("main", np) + icn_trace_tap("main", 1, np));
             icn_register_local_offsets("main");
         }
     }

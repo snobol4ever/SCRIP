@@ -286,7 +286,7 @@ int  rt_proc_is_defined(const char *name);
 void rt_trace_call_hook(const char *fname);
 void rt_trace_fail_hook(const char *fname);
 void rt_trace_call_hook_f(const char *fname, int np, void *base);
-typedef struct icn_act_rec { const char *name; void *base; int np; long line; const char *file; } icn_act_rec_t;
+#include "icn_act.h"
 typedef struct icn_bi_rec { const char *name; DESCR_t *args; int nargs; int level; struct icn_bi_rec *prev; } icn_bi_rec_t;
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b);
 void core_icn_op_ctx_clear(void);
@@ -298,7 +298,6 @@ void core_icn_bi_reset(void *mark);
 void core_icn_traceback(void);
 void core_icn_display_image(FILE *fp, DESCR_t v);
 int  core_icn_act_np(int lv);
-void core_icn_act_record(const char *fname, int np, void *base);
 int  core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_gen_fail_hook(const char *fname, void *h);

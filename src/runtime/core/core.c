@@ -392,8 +392,7 @@ void rt_trace_call_hook(const char *fname) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n);
-#define ICN_ACT_CAP (1 << 16)
-static icn_act_rec_t g_icn_act[ICN_ACT_CAP];
+icn_act_rec_t g_icn_act[ICN_ACT_CAP];
 static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
 static struct { const char *sym; int arity; DESCR_t a, b; } g_icn_op;
 static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
@@ -512,13 +511,8 @@ static void core_icn_report(int code, DESCR_t val, const char *msg) {
     core_error_voice(code, msg ? msg : icn_errmsg(code), 1, val);
     exit(1);
 }
-void core_icn_act_record(const char *fname, int np, void *base) {
-    extern int rt_k_level; extern long g_line; extern const char *g_file;
-    if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; r->name = fname; r->base = base; r->np = np; r->line = g_line; r->file = g_file; }
-}
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
-    extern long g_stno; extern int rt_k_level; extern long g_line; extern const char *g_file;
-    if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; r->name = fname; r->base = base; r->np = np; r->line = g_line; r->file = g_file; }
+    extern long g_stno;
     if (trace_idle()) return;
     DESCR_t a[16]; if (np < 0) np = 0; if (np > 16) np = 16;
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);

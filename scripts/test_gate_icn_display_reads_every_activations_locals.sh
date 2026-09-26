@@ -50,5 +50,8 @@ WANT
 fail=0
 ( cd "$T" && timeout 60 "$SCRIP" d1.icn </dev/null > d1.m3 2>&1 ); rc3=$?
 if [ "$rc3" = 0 ] && cmp -s "$T/d1.m3" "$T/d1.want"; then echo "  PASS  m3 d1: three activations, their locals, a static, an elided string and a nested list"; else echo "  FAIL  m3 d1 rc=$rc3"; diff "$T/d1.want" "$T/d1.m3" | head -12 | sed 's/^/        /'; fail=1; fi
+( cd "$T" && timeout 60 "$SCRIP" --trace d1.icn </dev/null > d1.tr 2>/dev/null ); rct=$?
+grep -v '^\*\*\*\*' "$T/d1.tr" > "$T/d1.trd"
+if [ "$rct" = 0 ] && cmp -s "$T/d1.trd" "$T/d1.want"; then echo "  PASS  m3 d1 --trace: the lowerer's __trace_* taps are monitor artifacts and stay out of display's global identifiers"; else echo "  FAIL  m3 d1 --trace rc=$rct (the statement trace lines removed, display must read as without --trace)"; diff "$T/d1.want" "$T/d1.trd" | head -12 | sed 's/^/        /'; fail=1; fi
 if [ "$fail" = 0 ]; then echo "✅ PASS: display reads every displayed activation's locals from their own frame slots"; exit 0; fi
 echo "⛔ FAIL: display lost an activation's locals (see the FAIL rows)"; exit 1

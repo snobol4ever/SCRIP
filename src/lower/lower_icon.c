@@ -1936,7 +1936,7 @@ void lower_icon_resolve_call_kinds(void) {
             const char * fn = IR_LIT(nd).sval;
             if (!fn || !fn[0]) continue;
             { extern void rt_icn_global_note(const char *);
-              if (icn_callable_proc_index(fn) >= 0 || rt_builtin_is_known(fn) || rt_builtin_is_generator(fn) || icn_builtin_arity(fn) != -99) rt_icn_global_note(fn); }
+              if (strncmp(fn, "__trace_", 8) != 0 && (icn_callable_proc_index(fn) >= 0 || rt_builtin_is_known(fn) || rt_builtin_is_generator(fn) || icn_builtin_arity(fn) != -99)) rt_icn_global_note(fn); }
             int pi = icn_callable_proc_index(fn);
             if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
