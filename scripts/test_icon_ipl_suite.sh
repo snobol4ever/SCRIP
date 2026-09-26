@@ -454,11 +454,18 @@ UNG_SPLIT="$(printf '%s' "$SPLIT_LINE" | sed -n 's/.*ungraded_by_class=\([^ ]*\)
 # SUITE ROW, for the reason the comment block just above already gives: it is the only tier diffed against a
 # real oracle, so it is the verified-correctness population. SUITES.tsv's hand-set 75/89 of 2026-09-07 is
 # exactly M3_RUN_PASS/RUN_GRADED.
+# ⛔⭐⭐ THE SHIPPED POPULATION IS THE DENOMINATOR, NOT THE GRADED SUBSET (ceo CEO-1272, 2026-09-25, applying CEO-1245/CEO-1268 to
+# ipl): this line published the graded count RUN_GRADED as its suite total, the graded-subset shape CEO-1245 overturned for Zona and Jcon, so the row
+# read 194/194 -- a 100% over the 194 programs with a cut ref -- while UNGRADABLE.tsv carried 557 files, 382 of them LIBRARIES
+# (procs/, gprocs/) owed their drivers (CEO-1269). The total is now the inventory's own shipped count (containers out, CEO-1272),
+# the graded fraction rides in the text labelled as such, and a refused inventory writes NO row rather than fall back to the subset.
+IPL_SHIPPED="$(printf '%s' "${INV_LINE:-}" | sed -n 's/.* shipped=\([0-9][0-9]*\) .*/\1/p')"
 [ -n "${AND_PASS:-}" ] || echo "⚠ SCORE.md NOT UPDATED -- AND per program unavailable (run_graded=$RUN_GRADED): record this row by hand"
-[ -n "${AND_PASS:-}" ] && python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL --modes m3,m4 \
-    --suite-pass "${AND_PASS}" --suite-total "$RUN_GRADED" \
+[ -n "$IPL_SHIPPED" ] || echo "⚠ SCORE.md NOT UPDATED -- the inventory refused (above), so the shipped population the row divides by is unknown; the graded subset is never substituted for it (CEO-1245, CEO-1272)"
+[ -n "${AND_PASS:-}" ] && [ -n "$IPL_SHIPPED" ] && python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL --modes m3,m4 \
+    --suite-pass "${AND_PASS}" --suite-total "$IPL_SHIPPED" \
     --measurer "${S4E_SEAT:-}" \
-    --text "AND per program ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
+    --text "AND per program ${AND_PASS}/$IPL_SHIPPED shipped (ceo CEO-1272/CEO-1245: the shipped population is the denominator, the libraries owed their drivers in it) · graded ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

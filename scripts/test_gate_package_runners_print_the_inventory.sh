@@ -176,7 +176,7 @@ fi
 # the oracle and must not name us. THE POSITIVE DIRECTION FIRST -- a properly-marked row is accepted.
 mkpkg 3; rm -f "$TD/p"/*.tsv
 examined=$((examined+1))
-printf 'f3.icn\tCONTAINER_OR_LIBRARY\tArizona icont REFUSES IT AT COMPILE, rc=1, verbatim "Line 23 # \\"map16\\": invalid declaration", and upstream ships the identical refusal on the unmodified file. AGREEMENT-CONTROL: scrip refuses at the same line with the same class, so we agree.\n' > "$TD/p/UNGRADABLE.tsv"
+printf 'f3.icn\tORACLE_REFUSES\tArizona icont REFUSES IT AT COMPILE, rc=1, verbatim "Line 23 # \\"map16\\": invalid declaration", and upstream ships the identical refusal on the unmodified file. AGREEMENT-CONTROL: scrip refuses at the same line with the same class, so we agree.\n' > "$TD/p/UNGRADABLE.tsv"
 out="$(run_inv 2 0)"; rc=$?
 if [ "$rc" -ne 0 ]; then
     echo "GATE FAIL: a marked AGREEMENT-CONTROL row was refused (rc=$rc) -- CEO-541 admits it: $out"; violations=$((violations+1))
@@ -275,7 +275,7 @@ for i in $(seq -w 1 600); do echo 'procedure main(); end' > "$TD/big/${_n}_$i.ic
 for i in $(seq -w 1 200); do echo 'procedure main(); end' > "$TD/big/sub/${_n}_s$i.icn"; done
 _first="$(basename "$(find "$TD/big" -type f -name '*.icn' | head -1)")"
 printf '%s\tNEEDS_STDIN_FIXTURE\tthe name grep -q matches first, so printf is still writing when the pipe closes\n' "$_first" > "$TD/big/UNGRADED.tsv"
-printf 'sub/%s_s001.icn\tCONTAINER_OR_LIBRARY\tdeclared by package-relative path, in a subdirectory\n' "$_n" > "$TD/big/UNGRADABLE.tsv"
+printf 'sub/%s_s001.icn\tNO_ORACLE_SHIPPED\tdeclared by package-relative path, in a subdirectory\n' "$_n" > "$TD/big/UNGRADABLE.tsv"
 INV_PACKAGE=big; INV_DIR="$TD/big"; INV_EXT=".icn"
 # ⛔⭐⭐ AND THE ARM ASSERTS AGREEMENT **AND** CORRECTNESS, because stability alone is satisfiable by
 # being consistently wrong — which is exactly what the known-bad body does on this fixture: 5/5 IDENTICAL
@@ -310,7 +310,7 @@ fi
 # reached first, which is the ambiguity the race above made invisible. Refuse and ask for the path.
 rm -rf "$TD/dup"; mkdir -p "$TD/dup/a" "$TD/dup/b"
 echo x > "$TD/dup/a/same.icn"; echo x > "$TD/dup/b/same.icn"; echo x > "$TD/dup/only.icn"
-printf 'same.icn\tCONTAINER_OR_LIBRARY\ta bare name that matches two shipped files\n' > "$TD/dup/UNGRADABLE.tsv"
+printf 'same.icn\tNO_ORACLE_SHIPPED\ta bare name that matches two shipped files\n' > "$TD/dup/UNGRADABLE.tsv"
 INV_PACKAGE=dup; INV_DIR="$TD/dup"; INV_EXT=".icn"
 examined=$((examined+1))
 out="$(run_inv 2 0)"; rc=$?

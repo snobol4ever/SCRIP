@@ -319,6 +319,7 @@ test_gate_no_c_to_bb_ratchet.sh	WIRED	-	-	-
 test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
 test_gate_no_implicit_declarations.sh	WIRED	-	-	-
 test_gate_no_language_discriminator_in_the_runtime.sh	WIRED	-	-	-
+test_gate_no_library_is_ungradable_and_every_container_names_its_measurement.sh	WIRED	-	-	-
 test_gate_no_master_ref_is_an_ast_dump.sh	WIRED	-	-	-
 test_gate_no_o2_arm_in_scripts.sh	WIRED	-	-	-
 test_gate_no_ref_pins_oracle_internal_state.sh	WIRED	-	-	-

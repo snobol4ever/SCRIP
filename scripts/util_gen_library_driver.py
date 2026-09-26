@@ -721,13 +721,17 @@ def cmd_inventory(a):
     ⛔ A row whose file is GONE is reported, never skipped: a ruling about a file nobody can find is a row
     that can never close, and it is invisible to every count that silently drops it."""
     root = Path(a.package).resolve()
-    inv = root / "UNGRADABLE.tsv"
-    if not inv.is_file():
-        refuse(f"no UNGRADABLE.tsv under {root} -- this command censuses ROWS, and without the row file it "
+    # ⛔ THE LIBRARIES LIVE IN UNGRADED.tsv NOW (ceo CEO-1272, coo 2026-09-25): CONTAINER_OR_LIBRARY is retired, every row of it
+    # split by measurement -- a library to UNGRADED.tsv as NEEDS_DRIVER, the population this generator exists to drive, and a
+    # non-program to CONTAINERS.tsv. So the default cause is NEEDS_DRIVER, and the rows are read from both sidecars.
+    invs = [p for p in (root / "UNGRADED.tsv", root / "UNGRADABLE.tsv") if p.is_file()]
+    if not invs:
+        refuse(f"no UNGRADED.tsv or UNGRADABLE.tsv under {root} -- this command censuses ROWS, and without the row files it "
                f"would silently fall back to censusing the tree, which answers a different question.")
+    inv = " and ".join(str(p) for p in invs)
     want = a.cause
     rows, tally, missing, unknown_ext, unknown_exts = [], {}, [], 0, set()
-    for line in inv.read_text(errors="replace").splitlines():
+    for line in "\n".join(p.read_text(errors="replace") for p in invs).splitlines():
         if line.startswith("#") or not line.strip():
             continue
         parts = line.split("\t")
@@ -810,7 +814,7 @@ def main():
     p = sub.add_parser("coverage"); p.add_argument("module"); p.add_argument("driver"); p.set_defaults(f=cmd_coverage)
     p = sub.add_parser("classify"); p.add_argument("target"); p.set_defaults(f=cmd_classify)
     p = sub.add_parser("inventory"); p.add_argument("package")
-    p.add_argument("--cause", default="CONTAINER_OR_LIBRARY"); p.set_defaults(f=cmd_inventory)
+    p.add_argument("--cause", default="NEEDS_DRIVER"); p.set_defaults(f=cmd_inventory)
     p = sub.add_parser("gen"); p.add_argument("module"); p.add_argument("--suite", required=True)
     p.add_argument("--out", required=True); p.add_argument("--max-procs", type=int, default=0)
     p.add_argument("--force", action="store_true"); p.set_defaults(f=cmd_gen)

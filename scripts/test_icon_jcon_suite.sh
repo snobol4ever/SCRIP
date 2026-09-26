@@ -186,6 +186,20 @@ run_one() {
     # entry `link`s are copied, so io's rundir -- whose ref lists its directory and expects io.dat and io.icn
     # and nothing else -- is untouched, because io links nothing.
     local _mm; for _mm in ${mods[@]+"${mods[@]}"}; do cp "$_mm" "$rundir/$(basename "$_mm")" 2>/dev/null || true; done
+    # ⛔⭐ AN $include'd FRAGMENT TRAVELS WITH ITS INCLUDER TOO (coo 2026-09-25, row instruments-container-or-library-splits-...,
+    # ceo CEO-1272): a fragment is a CONTAINER graded through the program that splices it, and `$include "frag.icn"` is resolved
+    # from the directory the bare name runs in -- so a program in a rundir holding only its own source died at the include in m3
+    # while its m4 compile, made in place, passed (measured on the gate's fixture: m3_pass=0, m4_pass=1). The program is the
+    # manifest here as for `link`: its $include lines, followed through the fragments it pulls in, name exactly what is copied.
+    local -a _incq=("$icn"); local _src _inc _seen=" "
+    while [ "${#_incq[@]}" -gt 0 ]; do
+        _src="${_incq[0]}"; _incq=("${_incq[@]:1}")
+        for _inc in $(sed -nE 's/^[[:space:]]*\$[[:space:]]*include[[:space:]]*"([A-Za-z0-9_.-]+)".*$/\1/p' "$_src"); do
+            case "$_seen" in *" $_inc "*) continue ;; esac; _seen="$_seen$_inc "
+            [ -f "$(dirname "$icn")/$_inc" ] || continue
+            cp "$(dirname "$icn")/$_inc" "$rundir/$_inc" 2>/dev/null && _incq+=("$(dirname "$icn")/$_inc")
+        done
+    done
     # ⛔⭐ THE ENTRY KEY IS THE BARE NAME: jcon_tests is a flat package (no nested subdirs), unlike arizona's
     # general/mega -- util_build_package_suite.py writes the bare stem into ALL.csv's entry column here, and
     # using anything else would silently match nothing (see arizona's identical note at its own arena read).

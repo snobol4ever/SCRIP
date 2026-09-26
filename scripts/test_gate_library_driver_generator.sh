@@ -253,7 +253,7 @@ echo "== ARM 11 (REFUSAL): 'the inventory is empty' and 'I cannot read the inven
 # CAUSE. ⭐ "The population is empty" and "the population is invisible to me" are the same output unless one
 # of them says which -- and the first reads as a FINISHED package, so the error points away from the work.
 mkdir -p "$W/pkg_unreadable" "$W/pkg_empty"
-printf '# name\tCLASS\treason\nthing.lgt\tCONTAINER_OR_LIBRARY\ta dialect this tool cannot read\n' > "$W/pkg_unreadable/UNGRADABLE.tsv"
+printf '# name\tCLASS\treason\nthing.lgt\tNEEDS_DRIVER\ta dialect this tool cannot read\n' > "$W/pkg_unreadable/UNGRADED.tsv"
 printf 'irrelevant\n' > "$W/pkg_unreadable/thing.lgt"
 printf '# name\tCLASS\treason\nthing.sno\tORACLE_REFUSES\tsome other cause entirely\n' > "$W/pkg_empty/UNGRADABLE.tsv"
 printf 'END\n' > "$W/pkg_empty/thing.sno"
@@ -266,7 +266,7 @@ printf '%s\n' "$OUT" | grep -q 'not empty of rows' && pass "it explicitly denies
     || fail "the refusal does not rule out being read as zero: $OUT"
 run python3 "$GEN" inventory "$W/pkg_empty"
 [ "$ORC" = 2 ] && pass "a genuinely empty cause still refuses (never a clean zero)" || fail "expected rc=2 on an empty cause, got rc=$ORC: $OUT"
-printf '%s\n' "$OUT" | grep -q 'no CONTAINER_OR_LIBRARY rows' \
+printf '%s\n' "$OUT" | grep -q 'no NEEDS_DRIVER rows' \
     && pass "and it is the OTHER message -- the two causes are told apart" \
     || fail "the empty-inventory refusal did not use its own message: $OUT"
 

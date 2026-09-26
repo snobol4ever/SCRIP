@@ -158,7 +158,10 @@
 #     SAME semantic through the ONE ERROR VOICE equivalence list in both modes, so leaving the denominator costs no
 #     coverage. ⛔ AN EXCLUSION THAT DROPS A BEHAVIOUR NOBODY RE-CHECKS IS THE EXPENSIVE MISTAKE; pair every member of
 #     this class with the instrument that keeps its semantic.
-INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT ORACLE_ACCOUNTING_IN_OUTPUT"
+# ⛔ CONTAINER_OR_LIBRARY IS RETIRED (ceo CEO-1272, 2026-09-25): it conflated a library owed its driver with a file that is not a
+# program. Every one of its 738 rows was split by measurement (corpus 84dadbe33) -- a LIBRARY to UNGRADED NEEDS_DRIVER, a CONTAINER to
+# CONTAINERS.tsv -- and the class is no longer a word this vocabulary knows, so a new row using it refuses.
+INV_CLASS_UNGRADABLE="NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT ORACLE_ACCOUNTING_IN_OUTPUT"
 # THE TIE-BREAK, AND IT IS THE MOST LOAD-BEARING SENTENCE IN THIS FILE (hq_T, ruling hq_P's three gimpel
 # ERROR-285 drivers, 2026-09-06). hq_P found three rows whose bucket turns on ONE UNMEASURED FACT: FRSORT,
 # TIMEGC and TIMER die "include file cannot be opened" because the include chain wants stringout.sno,
