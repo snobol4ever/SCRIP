@@ -67,9 +67,9 @@ if [ -s "$W" ] && [ -s "$WIN" ]; then
   off=$(printf '%s\n' "$line" | grep -oE 'libscrip_rt\.so\+0x[0-9a-f]+' | tail -1 | sed 's/.*+//')
   nm=$(printf '%s\n' "$line" | grep -oE 'kind=[0-9]+/HB_[A-Z0-9_]+' | head -1)
   src=""; [ -n "${off:-}" ] && src=$(addr2line -e "$ROOT/out/libscrip_rt.so" "$off" 2>/dev/null | head -1)
-  if [ -n "${off:-}" ] && [ -n "${nm:-}" ] && printf '%s' "$src" | grep -q 'by_name_dispatch\.c:[0-9]'; then
+  if [ -n "${off:-}" ] && [ -n "${nm:-}" ] && printf '%s' "$src" | grep -q 'src/.*\.c:[0-9]' && ! printf '%s' "$src" | grep -q 'gc_heap\.c:[0-9]'; then
     echo "  arm 2 PASS: the ledger printed $nm and a module-relative offset that addr2line resolves to ${src##*/} -- one line, not a 2125-line symbol"
-  else echo "  arm 2 FAIL: the birth line does not carry a resolvable site -- offset [${off:-none}] kindname [${nm:-none}] resolved [${src:-none}]. A bare symbol cannot tell 26 call sites apart and an absolute %p dies with the process."; RC=1; fi
+  else echo "  arm 2 FAIL: the birth line does not carry a resolvable site OUTSIDE the allocator family -- offset [${off:-none}] kindname [${nm:-none}] resolved [${src:-none}]. A bare symbol cannot tell 26 call sites apart, an absolute %p dies with the process, and a line inside gc_heap.c names the allocator that carved the block, never the caller that asked for it (cto 2026-09-26: the HB_WSB block was born through rt_wsb_realloc, one allocator frame deeper than the fixed two-frame pair reached, and the ledger printed gc_heap.c:405)."; RC=1; fi
 else echo "  arm 2 UNPROVEN: could not extract the witness from the Icon master -- reported, not counted as green"; fi
 # ARM 3 -- NO ABSOLUTE RUNTIME POINTER IN THE BIRTH LINE.  An absolute address is a fact about ONE RUN under
 # ASLR; a module-relative offset is a fact about the BUILD and survives being pasted into a mail or a FINDING.

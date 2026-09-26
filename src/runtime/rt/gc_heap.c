@@ -54,7 +54,8 @@ static long g_hp_grows = 0;
 static long g_hp_live = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
-static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from);
+static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from, void **fp_from);
+static char *gc_stack_top(void);
 typedef struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; } gc_vac_t;
 static gc_vac_t *g_gc_vac = (gc_vac_t *)0;
 static long g_gc_vacn = 0, g_gc_vaccap = 0, g_gc_vacover = 0, g_gc_vacgen = 0;
@@ -252,7 +253,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     else if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
     else memset((void *)(h + 1), 0, (size_t)pay);
     g_hp_blocks += 1;
-    gc_birth_record(at, total, type, __builtin_return_address(1), __builtin_return_address(2));
+    gc_birth_record(at, total, type, __builtin_return_address(1), __builtin_return_address(2), (void **)((void **)__builtin_frame_address(0))[0]);
     return (void *)(h + 1); }
 }
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
@@ -519,12 +520,25 @@ static gc_vac_t *gc_vac_ledger(void)
     return g_gc_vac;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from)
+static void gc_birth_beyond_the_allocators(void **fp, void **site, void **from)
+{
+    char *top = gc_stack_top(); void *ra = *from;
+    for (int k = 0; k < 6 && ra && fp; k++) {
+        Dl_info di;
+        if (!dladdr(ra, &di) || !di.dli_sname || !strstr(di.dli_sname, "alloc")) { *from = ra; return; }
+        { void **nx = (void **)fp[0];
+          if ((char *)nx <= (char *)fp || (char *)nx + 2 * sizeof(void *) > top) { *from = ra; return; }
+          *site = ra; fp = nx; ra = fp[1]; }
+    }
+    *from = ra;
+}
+static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from, void **fp_from)
 {
     gc_vac_t *hd; long b, s;
     if (!g_gc_vac) return;
     hd = &g_gc_vac[g_gc_vaccap]; b = (long)hd->size; if (b <= 0) return;
     s = hd->serial++;
+    gc_birth_beyond_the_allocators((void **)fp_from[0], &ra_site, &ra_from);
     { gc_vac_t *v = &g_gc_vac[g_gc_vaccap + 1 + (s % b)];
       v->at = at; v->fwd = (char *)0; v->size = (uint32_t)total; v->gen = 0; v->type = type; v->pad = 0; v->serial = s; v->ra_site = ra_site; v->ra_from = ra_from; }
 }
