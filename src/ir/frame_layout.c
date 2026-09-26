@@ -44,6 +44,8 @@ static zls_vslot_t  zv[FL_MAX_VSLOTS];   static int zv_n = 0;
 static zls_mark_t   zm[FL_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[FL_MAX_ENTRIES]; static int zx_n = 0;
 static int zx_sorted = 0; static cv_t g_zx_tail;
+typedef struct { const IR_graph_t * g; int i1; } zgh_t;
+static zgh_t * g_zgh = (zgh_t *)0; static uint32_t g_zgh_cap = 0;
 typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos; const IR_t * guard; int nread; int pooled; int llo; int lhi; int direct; } zls_reuse_t;
 #define ZR_CANDIDATE 0
 #define ZR_SELF      1
@@ -63,7 +65,7 @@ static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; zx_sorted = 0; za_n = 0; g_znb_gen++; g_znb_n = 0; }
+void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; if (g_zgh_cap) memset(g_zgh, 0, (size_t)g_zgh_cap * sizeof(zgh_t)); zv_n = 0; zm_n = 0; zx_n = 0; zx_sorted = 0; za_n = 0; g_znb_gen++; g_znb_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
@@ -79,7 +81,23 @@ void zls_group_mark_anchor(const IR_graph_t * g, const char * name, const IR_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_group_count(const IR_graph_t * g) { int c = 0; for (int i = 0; i < zm_n; i++) if (zm[i].g == g) c++; return c; }
 const IR_t * zls_g_group_anchor(const IR_graph_t * g, int k) { int c = 0; for (int i = 0; i < zm_n; i++) if (zm[i].g == g) { if (c == k) return zm[i].anchor; c++; } return (const IR_t *)0; }
-static zls_graph_t * zls_g_find(const IR_graph_t * g) { for (int i = 0; i < zg_n; i++) if (zg[i].g == g) return &zg[i]; return (zls_graph_t *)0; }
+static uint32_t zgh_hash(const IR_graph_t * g) { return (uint32_t)((((uint64_t)(uintptr_t)g) >> 4) * 0xff51afd7ed558ccdull >> 32); }
+static void zgh_put(const IR_graph_t * g, int i) {
+    uint32_t m = g_zgh_cap - 1, h = zgh_hash(g) & m;
+    for (; g_zgh[h].i1; h = (h + 1) & m) if (g_zgh[h].g == g) return;
+    g_zgh[h].g = g; g_zgh[h].i1 = i + 1;
+}
+static void zgh_note(int i) {
+    if ((uint64_t)zg_n * 2 > (uint64_t)g_zgh_cap) { uint32_t c = g_zgh_cap ? g_zgh_cap * 2 : 1024; while ((uint64_t)c < (uint64_t)zg_n * 2 + 2) c *= 2;
+        g_zgh = (zgh_t *)ct_zalloc(c, sizeof(zgh_t)); g_zgh_cap = c; for (int k = 0; k < zg_n; k++) zgh_put(zg[k].g, k); return; }
+    zgh_put(zg[i].g, i);
+}
+static zls_graph_t * zls_g_find(const IR_graph_t * g) {
+    if (!zg_n || !g_zgh_cap) return (zls_graph_t *)0;
+    uint32_t m = g_zgh_cap - 1, h = zgh_hash(g) & m;
+    for (; g_zgh[h].i1; h = (h + 1) & m) if (g_zgh[h].g == g) return &zg[g_zgh[h].i1 - 1];
+    return (zls_graph_t *)0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_graph_name(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
@@ -88,6 +106,7 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
     if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
     zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 };
     zg_n++;
+    zgh_note(zg_n - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * zls_graph_name_get(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->name : (const char *)0; }
@@ -462,7 +481,7 @@ void zls_build(IR_graph_t * g) {
     if (r && r->first_scope >= 0) return;
     if (!r) {
         if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
-        zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; r = &zg[zg_n]; zg_n++;
+        zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; r = &zg[zg_n]; zg_n++; zgh_note(zg_n - 1);
     }
     static char anon[FL_MAX_GRAPHS][8]; int gi = (int)(r - zg);
     if (!r->name) { snprintf(anon[gi], sizeof anon[gi], "g%d", gi); r->name = anon[gi]; }

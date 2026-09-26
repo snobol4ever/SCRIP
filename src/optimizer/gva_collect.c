@@ -7,6 +7,10 @@
 static const char **g_gva_names = NULL;
 static int g_gva_n = 0;
 static int g_gva_max = 0;
+typedef struct { const char * name; int k1; } gva_hx_t;
+static gva_hx_t * g_gva_hx = (gva_hx_t *)0; static uint32_t g_gva_hx_cap = 0;
+static uint32_t gva_hash(const char * s) { uint32_t h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
+static void gva_hx_put(const char * name, int k) { uint32_t m = g_gva_hx_cap - 1, h = gva_hash(name) & m; while (g_gva_hx[h].k1) h = (h + 1) & m; g_gva_hx[h].name = name; g_gva_hx[h].k1 = k + 1; }
 static const char **g_gva_io_refused = NULL;
 static int g_gva_io_refused_n = 0;
 static int g_gva_io_refused_max = 0;
@@ -104,11 +108,12 @@ int gva_name_eligible(const char *name) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gva_collect_reset(void) { g_gva_n = 0; }
+void gva_collect_reset(void) { g_gva_n = 0; if (g_gva_hx_cap) memset(g_gva_hx, 0, (size_t)g_gva_hx_cap * sizeof(gva_hx_t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_index_of(const char *name) {
     if (!name) return -1;
-    for (int i = 0; i < g_gva_n; i++) if (g_gva_names[i] && strcmp(g_gva_names[i], name) == 0) return i;
+    if (!g_gva_n || !g_gva_hx_cap) return -1;
+    { uint32_t m = g_gva_hx_cap - 1, h = gva_hash(name) & m; for (; g_gva_hx[h].k1; h = (h + 1) & m) if (strcmp(g_gva_hx[h].name, name) == 0) return g_gva_hx[h].k1 - 1; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -119,7 +124,11 @@ int gva_collect_var(const char *name) {
         int nm = g_gva_max ? g_gva_max * 2 : 256; const char **g = (const char **)ct_grow(g_gva_names, (size_t)nm * sizeof(const char *));
         if (!g) return -1; g_gva_names = g; g_gva_max = nm;
     }
-    g_gva_names[g_gva_n] = name; return g_gva_n++;
+    g_gva_names[g_gva_n] = name; g_gva_n++;
+    if ((uint64_t)g_gva_n * 2 > (uint64_t)g_gva_hx_cap) { uint32_t c = g_gva_hx_cap ? g_gva_hx_cap * 2 : 1024; while ((uint64_t)c < (uint64_t)g_gva_n * 2 + 2) c *= 2;
+        g_gva_hx = (gva_hx_t *)ct_zalloc(c, sizeof(gva_hx_t)); g_gva_hx_cap = c; for (int i = 0; i < g_gva_n; i++) gva_hx_put(g_gva_names[i], i); }
+    else gva_hx_put(name, g_gva_n - 1);
+    return g_gva_n - 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_count(void) { return g_gva_n; }
