@@ -2606,7 +2606,7 @@ extern "C" int sn4_choice_rbp_off(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
 static cv_t g_blob_lay;
-static uint64_t g_zls_lay[32768]; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
+static cv_t g_zls_lay_v; static int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
 extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
 static void blob_lay_push(int off, unsigned kind, int size) { CV_PUSH(g_blob_lay, uint64_t) = GC_LAY_Q(off, kind, size); }
 static void blob_layout_slot(const IR_t * m, int k, int units) {
@@ -3082,7 +3082,7 @@ int g_m4_main_frame_bytes = 65544;
 static bb_label_t g_gc_map_lbl;
 static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
 static unsigned g_gc_map_flags = 0;
-static char * g_gc_map_names[8192];
+static cv_t g_gc_map_names_v;
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
 static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
 static int gc_maps_check_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_CHECK"); return v; }
@@ -3119,10 +3119,13 @@ static void emit_gc_map_data(const char * fam) {
     g_gc_map_pending = 0;
     const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_zls_lay_gaps = 0; g_zls_lay_conf = 0;
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_blob_lay.p; lay_n = (int)g_blob_lay.len; }
-    else if (g_emit_cfg) { int gaps = 0, conf = 0; int n = zls_g_layout_q(g_emit_cfg, g_zls_lay, 32768, &gaps, &conf);
-        if (n > 32768) { fprintf(stderr, "FATAL emit_gc_map_data: graph %s needs more than 32768 kind-table entries -- the sealed table is bounded and a truncated table is a guess (ARCH-GC section 6.2h)\n", fam ? fam : "?"); abort(); }
+    else if (g_emit_cfg) { int gaps = 0, conf = 0;
+        if (g_zls_lay_v.cap < 32770) cv_reserve(&g_zls_lay_v, (uint32_t)sizeof(uint64_t), 32770, "g_zls_lay");
+        int n = zls_g_layout_q(g_emit_cfg, (uint64_t *)g_zls_lay_v.p, (int)g_zls_lay_v.cap - 2, &gaps, &conf);
+        while (n > (int)g_zls_lay_v.cap - 2) { cv_reserve(&g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)g_zls_lay_v.cap * 2, "g_zls_lay"); n = zls_g_layout_q(g_emit_cfg, (uint64_t *)g_zls_lay_v.p, (int)g_zls_lay_v.cap - 2, &gaps, &conf); }
+        uint64_t * g_zls_lay = (uint64_t *)g_zls_lay_v.p;
         if (n >= 0 && g_emit_cfg->root_graph) { int rg = zls_g_region(g_emit_cfg), nc = g_emit_cfg->standing_cells, clo = g_gc_map_off - 8 * nc;
-            if (rg < 0 || clo < rg || nc < 0 || n > 32766) { fprintf(stderr, "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d map_off=%d -- the standing cells must lie between the value region and the map cell (gc_frame_map.h FLAT_FRAME_ALLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_gc_map_off); abort(); }
+            if (rg < 0 || clo < rg || nc < 0) { fprintf(stderr, "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d map_off=%d -- the standing cells must lie between the value region and the map cell (gc_frame_map.h FLAT_FRAME_ALLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_gc_map_off); abort(); }
             if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
             if (nc > 0) g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_PTR_GC, 8 * nc); }
         if (n >= 0) { lay = g_zls_lay; lay_n = n; g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_zls_lay_gaps = gaps; g_zls_lay_conf = conf; } }
@@ -3143,12 +3146,12 @@ static void emit_gc_map_data(const char * fam) {
     }
     if (gc_maps_report_on() && lay) { fprintf(stderr, "[GC-MAP-LAYOUT] graph=%s n=%d", fam ? fam : "?", lay_n); for (int i = 0; i < lay_n; i++) fprintf(stderr, " %d:%u:%d", GC_LAY_OFF(lay[i]), GC_LAY_KIND(lay[i]), GC_LAY_SIZE(lay[i])); fprintf(stderr, " gaps=%d conflicts=%d\n", g_zls_lay_gaps, g_zls_lay_conf); }
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay.len = 0;
-    if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = ct_strdup(g_gc_map_lbl.name);
+    CV_PUSH(g_gc_map_names_v, char *) = ct_strdup(g_gc_map_lbl.name); g_gc_map_names_n++;
     if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
 }
 extern "C" int emit_gc_map_last_off(void) { return g_gc_map_last_off; }
 extern "C" int emit_gc_map_names_n(void) { return g_gc_map_names_n; }
-extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_gc_map_names_n) ? g_gc_map_names[i] : (const char *)0; }
+extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_gc_map_names_n) ? CV_AT(g_gc_map_names_v, char *, i) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
