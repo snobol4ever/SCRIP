@@ -277,28 +277,7 @@ disj = (    nPush()
         );
 body = *disj;
 /* head: reduces to a single TT_COMPOUND node (functor + args as children) */
-head = (    nPush()
-            (   Atom . h_text $'(' *args $')'
-                    epsilon . *Shift('TT_FNC', h_text) nInc()
-                    reduce("'TT_COMPOUND'", 'nTop()')
-            |   Atom . h_text $'(' $')'
-                    epsilon . *Shift('TT_FNC', h_text) nInc()
-                    reduce("'TT_COMPOUND'", 'nTop()')
-            |   Atom . h_text
-                    epsilon . *Shift('TT_FNC', h_text) nInc()
-                    reduce("'TT_COMPOUND'", 'nTop()')
-            |   Qatom_h $'(' *args $')'
-                    epsilon . *Shift('TT_FNC', unescape_q(h_body)) nInc()
-                    reduce("'TT_COMPOUND'", 'nTop()')
-            |   Qatom_h
-                    epsilon . *Shift('TT_FNC', unescape_q(h_body)) nInc()
-                    reduce("'TT_COMPOUND'", 'nTop()')
-            |   Str
-                    epsilon . *Shift('TT_FNC', s_body) nInc()
-                    reduce("'TT_COMPOUND'", 'nTop()')
-            )
-            nPop()
-        );
+head = *unify_expr;
 dcg_goal = (   *list
            |   $'{' *body $'}'       reduce("'TT_DCG_IL'", 1)
            |   Tk_cut               reduce("'TT_CUT'", 0)
