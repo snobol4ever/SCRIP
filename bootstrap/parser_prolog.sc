@@ -37,6 +37,7 @@ $'>='  = $' ' '>='  $' ';  $'=<'  = $' ' '=<'  $' ';
 $'>'   = $' ' '>'   $' ';  $'<'   = $' ' '<'   $' ';
 $'\='  = $' ' '\='  $' ';
 $'=..' = $' ' '=..' $' ';
+$'=@=' = $' ' '=@=' . _op_name $' ';  $'\=@=' = $' ' '\=@=' . _op_name $' ';
 $'@>=' = $' ' '@>=' . _op_name $' ';  $'@=<' = $' ' '@=<' . _op_name $' ';
 $'@>'  = $' ' '@>'  . _op_name $' ';  $'@<'  = $' ' '@<'  . _op_name $' ';
 $'**'  = $' ' '**'  . _op_name $' ';  $'^'   = $' '  '^'  . _op_name $' ';
@@ -227,7 +228,9 @@ is_expr   = (   *colon_expr
                      )
             );
 cmp_expr  = (   *is_expr
-                FENCE( $'=:=' *is_expr  reduce("'TT_EQQ'",  2)
+                FENCE( $'=@=' *is_expr  reduce("'TT_BINOP'",2)
+                     | $'\=@=' *is_expr reduce("'TT_BINOP'",2)
+                     | $'=:=' *is_expr  reduce("'TT_EQQ'",  2)
                      | $'=\=' *is_expr  reduce("'TT_NE2'",  2)
                      | $'\==' *is_expr  reduce("'TT_NE3'",  2)
                      | $'@>=' *is_expr  reduce("'TT_BINOP'",2)
