@@ -31,4 +31,5 @@ test_icon_bench_suite.sh
 test_pascal_bench_suite.sh
 test_snocone_bench_suite.sh
 test_snobol4_spitbol_x64_suite.sh
+test_snobol4_spitbol_x32_suite.sh
 test_prolog_logtalk_suite.sh

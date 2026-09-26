@@ -54,7 +54,7 @@ arm_f(){ # arm_f <suites-key> <containers counted into Excl> <EXCLUDED.tsv rows>
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 rows_of(){ grep -v '^#' "$1/EXCLUDED.tsv" | grep .; [ -n "${FAIL_ONCE:-}" ] && [ "${FAIL_ONCE}" != f ] && [ "$(basename "$1")" = dotnet ] && printf 'chap8_funcs.sno\tNOT_SPITBOL_DIALECT\tPLANTED by FAIL_ONCE: a program sbl -bf RUNS, so half one of the test fails; csnobol4 runs it too (CSNOBOL4)\n'; return 0; }
 echo "=== gate: EXCLUDED.tsv names only shipped programs SPITBOL rejects for a CSNOBOL4 feature, and the row carries the count (CEO-1286) ==="
-for spec in aisnobol:aisnobol csnobol4_suite:csnobol4 dotnet:dotnet gimpel:gimpel snoflake_suite:snoflake spitbol_testpgms:testpgms spitbol_x64_tests:x64tests; do
+for spec in aisnobol:aisnobol csnobol4_suite:csnobol4 dotnet:dotnet gimpel:gimpel snoflake_suite:snoflake spitbol_testpgms:testpgms spitbol_x64_tests:x64tests spitbol_x32_tests:x32tests; do
   p="${spec%%:*}"; key="${spec#*:}"; d="$PK/$p"
   if [ ! -f "$d/EXCLUDED.tsv" ]; then ck FAIL "$p: no EXCLUDED.tsv -- EXCLUDED=0 is written down, never absent"; continue; fi
   bad_shape=""; missing=""; container=""; not_outside=""; dup=""; deck=""; n=0

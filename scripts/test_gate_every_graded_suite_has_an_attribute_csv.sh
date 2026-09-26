@@ -14,7 +14,7 @@ T="$S4E/.github/SUITES.tsv"
 declare -A DIR=(
   [gimpel]=corpus/packages/snobol4/gimpel [csnobol4]=corpus/packages/snobol4/csnobol4_suite [snoflake]=corpus/packages/snobol4/snoflake_suite
   [aisnobol]=corpus/packages/snobol4/aisnobol [dotnet]=corpus/packages/snobol4/dotnet [testpgms]=corpus/packages/snobol4/spitbol_testpgms
-  [x64tests]=corpus/packages/snobol4/spitbol_x64_tests [arizona]=corpus/packages/icon/arizona_tests [jcon]=corpus/packages/icon/jcon_tests
+  [x64tests]=corpus/packages/snobol4/spitbol_x64_tests [x32tests]=corpus/packages/snobol4/spitbol_x32_tests [arizona]=corpus/packages/icon/arizona_tests [jcon]=corpus/packages/icon/jcon_tests
   [ipl]=corpus/packages/icon/ipl [inria]=corpus/packages/prolog/inriasuite [swi]=corpus/packages/prolog/swi_tests [gnu]=corpus/packages/prolog/gnu_prolog
   [gnu_fd]=corpus/packages/prolog/gnu_fd [logtalk]=corpus/packages/prolog/logtalk_iso [fpc]=corpus/packages/pascal/fpc_tests [pat]=corpus/packages/pascal/pat
   [roast]=corpus/packages/raku/roast [sno-master]=corpus/tests/snobol4 [icn-master]=corpus/tests/icon [pl-master]=corpus/tests/prolog

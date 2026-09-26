@@ -32,7 +32,7 @@ import sys, os, re, collections, tempfile, shutil
 HERE = os.path.dirname(os.path.abspath(__file__))
 CRITERION_NOTE_RX = re.compile(r"^(?!xfail$)[a-z]+(-[a-z]+)+$")   # a criterion label in the note column, e.g. outcome-class; hashes and xfail never match
 DBNAME = {"sno-master": "snobol4-master", "icn-master": "icon-master", "pl-master": "prolog-master", "pas-master": "pascal-master",
-          "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64"}
+          "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64", "x32tests": "spitbol_x32"}
 SIDECAR = {"sno-master": "tests/snobol4/ALL.outside.tsv",
            "gimpel": "packages/snobol4/gimpel/OUTSIDE_SPITBOL_BASELINE.tsv",
            "csnobol4": "packages/snobol4/csnobol4_suite/OUTSIDE_SPITBOL_BASELINE.tsv",

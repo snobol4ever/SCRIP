@@ -78,7 +78,7 @@ import sys, os, re, collections
 suites, db, corpus, strict = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1"
 # SUITES.tsv key -> progress DB suite name (the masters carry a -master suffix in the DB; x64tests appends as spitbol_x64)
 DBNAME = {"sno-master": "snobol4-master", "icn-master": "icon-master", "pl-master": "prolog-master", "pas-master": "pascal-master",
-          "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64"}
+          "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64", "x32tests": "spitbol_x32"}
 # the OUTSIDE-BASELINE sidecars (ORACLE_REFUSES / NEEDS_VENDORED_SOURCE entries), relative to the corpus root
 SIDECAR = {"sno-master": "tests/snobol4/ALL.outside.tsv",
            "gimpel": "packages/snobol4/gimpel/OUTSIDE_SPITBOL_BASELINE.tsv",
