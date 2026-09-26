@@ -2562,6 +2562,7 @@ void core_lib_init(void) {
             long v = strtol(ev_rktr, NULL, 10);
             if (v > 0) g_trace_budget = v;
         }
+        if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     }
     {
         const char *ev_bin = getenv("MONITOR_BIN");

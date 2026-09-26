@@ -1455,7 +1455,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
-    { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
+    if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
     rt_lvl_open(0);
     if (rt_wn_park_on()) { rt_lvl_park_wn(wn); rt_g_want_name = 0; } else rt_g_want_name = wn;
     return fbytes;
@@ -1502,7 +1502,7 @@ static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0;
     if (g_trace_budget != 0) sno_trace_return(p->result_name ? p->result_name : p->name, result);
-    { extern long g_stno; rt_trace_event(TRK_RETURN, p->result_name ? p->result_name : p->name, result, g_stno); }
+    if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event(TRK_RETURN, p->result_name ? p->result_name : p->name, result, g_stno); }
     rt_name_restore(base);
     if (wn_parked >= 0) rt_g_want_name = wn_parked;
     return result;
@@ -1528,7 +1528,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
-    { extern int rt_trace_idle(void); if (!rt_trace_idle()) { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, _ta, _tn, NULVCL, g_stno); } }
+    { if (!rt_trace_layer_idle()) { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, _ta, _tn, NULVCL, g_stno); } }
     rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
     return (long)(uintptr_t)(void *)p->fn;
 }
@@ -1767,7 +1767,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
             for (int i = nargs; i < fixed; i++) g_call_args[i] = NULVCL;
             DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
             g_call_args[fixed] = _tail; } } }
-    { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; if (_tn > CALL_ARGS_MAX) _tn = CALL_ARGS_MAX; rt_trace_event_args(TRK_CALL, p->name, g_call_args, _tn, NULVCL, g_stno); } }
+    { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; if (_tn > CALL_ARGS_MAX) _tn = CALL_ARGS_MAX; rt_trace_event_args(TRK_CALL, p->name, g_call_args, _tn, NULVCL, g_stno); } }
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
