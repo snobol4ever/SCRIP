@@ -44,7 +44,7 @@ typedef struct RkP {
     char *pkg;
     int finished;
     int comp_unit_begin;
-    RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv; int lax; int quote_block;
+    RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv; int lax; int quote_block; int lang_e;
     char **exports; int nexports; int cexports;
 } RkP;
 static const int rk_brackets[] = {
@@ -362,6 +362,7 @@ static int is_name_n(RkP *p, const char *s, int n) {
     if (n <= 0) return 1;
     if (user_name_index(p, s, n) >= 0) return 1;
     if (core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n)) return 1;
+    if (p->lang_e && core_has(rk_core_e_names, sizeof rk_core_e_names / sizeof *rk_core_e_names, s, n)) return 1;
     if (i0 + 1 < n && i0 > 0 && user_name_index(p, s, i0) >= 0) return 1;
     return 0;
 }
@@ -386,6 +387,7 @@ static int routine_visible(RkP *p, const char *s, int n) {
     char buf[256]; buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
     if (user_name_index(p, buf, n + 1) >= 0 || user_name_index(p, s, n) >= 0) return 1;
     if (core_has(rk_core_routines, sizeof rk_core_routines / sizeof *rk_core_routines, s, n)) return 1;
+    if (p->lang_e && core_has(rk_core_e_routines, sizeof rk_core_e_routines / sizeof *rk_core_e_routines, s, n)) return 1;
     return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3965,7 +3967,7 @@ static int r_comp_unit(RkP *p) {
         int ve = r_version(p, t);
         if (ve >= 0) {
             if (!(ch(p, t + 1) == '6')) panic_at(p, t, "No compiler available for Raku %.*s", ve - t, p->s + t);
-            if (ve - t >= 4 && p->s[t + 3] != 'c' && p->s[t + 3] != 'd') p->myst_off = 1;
+            if (ve - t >= 4 && p->s[t + 3] != 'c' && p->s[t + 3] != 'd') p->lang_e = 1;
             q = r_eat_terminator(p, ws(p, ve));
         }
     }

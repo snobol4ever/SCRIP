@@ -1455,6 +1455,17 @@ static const char *const rk_core_routines[] = {
     "words",
     "zip",
 };
+static const char *const rk_core_e_names[] = {
+    "",
+};
+static const char *const rk_core_e_routines[] = {
+    "",
+    "prefix:<//>",
+    "rotor",
+    "snip",
+    "snitch",
+    "term:<nano>",
+};
 static const char *const rk_test_routines[] = {
     "MONKEY-SEE-NO-EVAL",
     "bail-out",
