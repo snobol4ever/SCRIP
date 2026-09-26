@@ -18,7 +18,10 @@
 # stdout up to the fault, exit 1 and name 6.8.2.2 / 6.9.1 (fpc -Miso checks none of them by default, so its 'after' line is cut); (3) the
 # assignment under {$R+} must exit 201 like fpc -Miso does; (4) the assignment under {$R-}, (5) in-range assignments and reads, and (7) an
 # in-range set assignment must run byte-identical to fpc -Miso. It FAILS on the parent (arms 1, 2 and 6 run to rc 0). FAIL_ONCE=1
-# corrupts arm 5's ref to prove it can fail.
+# corrupts arm 5's ref to prove it can fail. ⭐ THE CHECK IS SCOPED (found after landing, SCRIP ab47ea88d): the subrange table was flat, so a
+# program's x: integer was checked against a procedure's local x: 1..5 and x := 10 was refused where fpc runs it; each entry now carries
+# the unique id of its defining point (g_pas_scope's PasDef.uid) and a lookup matches only the declaration visible where it is asked.
+# Arm 8 (a local x: 1..5 given 9 beside the program's x: integer) must still fault, and arm 9 (the shadowing program) must run.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -37,11 +40,13 @@ printf ' 10\n' > "$T/in"
 printf 'program asg(output);\nvar b: 1..5; i: integer;\nbegin\n  i := 3; b := i; writeln(%s, b); i := 10; b := i; writeln(%s, b)\nend.\n' "'in '" "'after '" > "$T/asg.pas"
 printf 'program sbad(output);\nvar s: set of 1..10; i: integer;\nbegin\n  s := [2, 4]; writeln(%s); s := [1, 2, 11]; writeln(%s)\nend.\n' "'before'" "'after'" > "$T/sbad.pas"
 printf 'program sok(output);\nvar s: set of 1..20; i: integer;\nbegin\n  s := [1, 3, 5, 7, 9, 11, 13, 20]; for i := 0 to 21 do if i in s then write(i:3); writeln\nend.\n' > "$T/sok.pas"
+printf 'program shf(output);\nvar x: integer;\nprocedure p;\nvar x: 1..5;\nbegin\n  x := 9\nend;\nbegin\n  x := 10; writeln(%s, x); p; writeln(%s)\nend.\n' "'main '" "'after'" > "$T/shf.pas"
+printf 'program sho(output);\nvar x: integer;\nprocedure p;\nvar x: 1..5;\nbegin\n  x := 3; writeln(%s, x)\nend;\nprocedure q(x: integer);\nbegin\n  x := x * 10; writeln(%s, x)\nend;\nbegin\n  x := 10; writeln(%s, x); p; q(7)\nend.\n' "'p '" "'q '" "'main '" > "$T/sho.pas"
 printf 'program rdg(input, output);\nvar b: 1..5;\nbegin\n  writeln(%s); read(b); writeln(%s, b)\nend.\n' "'before'" "'after '" > "$T/rdg.pas"
 printf '{$R+}\nprogram rplus(output);\nvar b: 1..5; i: integer;\nbegin\n  i := 10; writeln(%s); b := i; writeln(%s, b)\nend.\n' "'before'" "'after '" > "$T/rplus.pas"
 printf '{$R-}\nprogram rminus(output);\nvar b: 1..5; i: integer;\nbegin\n  i := 10; b := i; writeln(%s, b)\nend.\n' "'unchecked '" > "$T/rminus.pas"
 printf 'program ok(input, output);\nvar b: 1..5; c: %s..%s; i: integer;\nbegin\n  for i := 1 to 5 do begin b := i; write(b:2) end; writeln;\n  read(b); writeln(b); c := %s; writeln(c)\nend.\n' "'a'" "'z'" "'q'" > "$T/ok.pas"
-for p in asg rdg sbad; do
+for p in asg rdg sbad shf; do
   frc=$(fpcrun $p); [ "$frc" = 0 ] && grep -q '^after' "$T/$p.want" || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso now checks arm $p by default -- re-cut it"; exit 2; }
   grep -v '^after' "$T/$p.want" > "$T/$p.cut"; cl='6\.8\.2\.2'; [ $p = rdg ] && cl='6\.9\.1'
   for m in m3 m4; do run $m $p; rc=$?
@@ -52,7 +57,7 @@ frc=$(fpcrun rplus); [ "$frc" = 201 ] || { echo "⛔ GATE REFUSE(2) [$G]: fpc -M
 for m in m3 m4; do run $m rplus; rc=$?
   if [ "$rc" = 201 ] && cmp -s "$T/rplus.want" "$T/o"; then echo "  arm {\$R+} $m: rc=201 and stdout, as fpc -Miso"
   else echo "  ⛔ arm {\$R+} $m FAILED: rc=$rc (want 201)"; RC=1; fi; done
-for p in rminus ok sok; do
+for p in rminus ok sok sho; do
   [ $p = ok ] && printf ' 4\n' > "$T/in"
   frc=$(fpcrun $p); [ "$frc" = 0 ] || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso ran $p to rc $frc"; exit 2; }
   if [ -n "${FAIL_ONCE:-}" ] && [ $p = ok ]; then echo "corrupted by FAIL_ONCE" >> "$T/ok.want"; fi
@@ -61,7 +66,7 @@ for p in rminus ok sok; do
     else echo "  ⛔ arm $p $m FAILED: rc=$rc"; echo "      want: $(tr '\n' '|' < "$T/$p.want")"; echo "      got : $(tr '\n' '|' < "$T/o")"; RC=1; fi; done
 done
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: a subrange variable is given only values of its subrange by default, {\$R+}/{\$R-} keep fpc's meaning, both modes"
-else echo "GATE FAIL(1) [$G]: examined 7 arms in 2 modes"; fi
+else echo "GATE FAIL(1) [$G]: examined 9 arms in 2 modes"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)" \
      " oracle: $FPC $($FPC -iV 2>/dev/null)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
