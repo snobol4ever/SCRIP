@@ -121,7 +121,7 @@ list = (    $'['
                        | epsilon           reduce("'TT_MAKELIST'", 0)
                        )
                   $']'
-                                       reduce("'TT_MAKELIST'", 'nTop()+1')
+                                       reduce("'TT_MAKELIST'", 'nTop() + 1')
               nPop()
             )
        );
