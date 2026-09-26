@@ -287,7 +287,11 @@ PKG_CSV="$PKG/ALL.csv"
 # nothing grades). So the automatic path would record a suite nobody runs. This runner has its own loop
 # and appends from it. ⭐ A package can satisfy the STRUCTURAL condition for a mechanism and be outside it.
 PROGRESS_FAILED=0
-ipl_progress() { progress_append package ipl icon "$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
+# ⛔ A PROGRESS ROW NAMES ITS PROGRAM BY PATH, parentdir/stem -- the key of its ALL.csv row (util_build_package_suite.py), not the
+# bare stem: the IPL ships gener and morse both as a procs/ library graded through its driver and as a progs/ program, so stem keys
+# collapsed 550 graded programs into 548 DB names, two passes vanished from the DB's count, and util_score_row's cross-check refused
+# the row (hq_icon 2026-09-26 18:2x: AND 513 of 550 against 511 PASS over 841). gimpel, gnu, roast and swi key by path already.
+ipl_progress() { progress_append package ipl icon "$IPL_ISO_SUBDIR/$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
 # ⛔ Snapshot the subtree BEFORE any graded program runs -- ipl_isolation_verify_clean at the end reports
 # what moved SINCE HERE, not what differs from HEAD; the fixtures a sitting is authoring are untracked by
@@ -315,6 +319,11 @@ for std in "${STDFILES[@]}"; do
     base="$(basename "$std" .ref)"
     icn="$(dirname "$std")/$base.icn"
     [ -f "$icn" ] || continue
+    # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
+    # (gprogs/ carries .ref files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
+    # against the wrong directory and grades a program that never ran properly. Set here, before the first ipl_progress, which
+    # names the program by it.
+    IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
     # ⛔⭐ A LIBRARY IS GRADED BY ITS DRIVER, UNDER ITS OWN NAME (ceo CEO-1269; coo 2026-09-25, hq_icon's ask for the 382 IPL libraries
     # CEO-1272 made NEEDS_DRIVER): NAME_driver.icn and its .ref beside NAME.icn -- the driver is what RUNS, NAME is what is counted,
     # named and recorded, as in the Arizona and Jcon runners. The driver run puts its own directory first on IPATH (IPL_ISO_DRIVER).
@@ -344,10 +353,6 @@ for std in "${STDFILES[@]}"; do
         M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(argv-sidecar-malformed)"); ipl_progress "$id" m4 REFUSE
         continue
     fi
-    # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
-    # (gprogs/ carries .ref files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
-    # against the wrong directory and grades a program that never ran properly.
-    IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
     # ⭐ NAME.fixtures/ FIXTURE-FILE SIDECAR (seat07 2026-09-06): staged by ipl_isolation_run itself when
     # this is set, same convention as the cutter's own run_isolated() -- both sites call the one shared
     # ipl_fixtures_stage reader in lib_icon_ipl_isolation.sh, so a program's minted ref and its grading

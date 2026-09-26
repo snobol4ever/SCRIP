@@ -123,10 +123,11 @@ out="$(cd "$ROOT" && env "${typed[@]}" timeout 300 python3 "$HERE/corpus_suite_h
 board_pair H "$rc" "$out"
 
 # ── P1..P10: the package runners ──────────────────────────────────────────────────────────────────────────────────────────────────
-run_db() {  # <arm> <db> <env...> -- <runner and args>
+run_db() {  # <arm> <db> <env...> -- <runner and args>; DBPFX names a runner's rows by path (the ipl runner: progs/decl)
     local a="$1" db="$2" o r; shift 2; local -a e=(); while [ "$1" != -- ]; do e+=("$1"); shift; done; shift
     o="$(cd "$ROOT" && env "${typed[@]}" S4E_PROGRESS_DB="$db" "${e[@]}" timeout 300 bash "$@" 2>&1)"; r=$?
-    pair "$a" "$r" "$(outcome "$db" decl m3)" "$(outcome "$db" decl m4)" "$(outcome "$db" nodecl m3)" "$(outcome "$db" nodecl m4)" || show_on_red "$o"
+    local x="${DBPFX:-}"
+    pair "$a" "$r" "$(outcome "$db" "${x}decl" m3)" "$(outcome "$db" "${x}decl" m4)" "$(outcome "$db" "${x}nodecl" m3)" "$(outcome "$db" "${x}nodecl" m4)" || show_on_red "$o"
 }
 mk_sno() {  # <dir> <ext>
     mkdir -p "$1"; for n in decl nodecl; do cp "$W/cnt.sno" "$1/$n.$2"; done; csv_pair decl nodecl > "$1/ALL.csv"; }
@@ -158,7 +159,7 @@ run_db P7 "$W/p7.tsv" -- "$HERE/test_icon_jcon_suite.sh" --corpus "$W/jcon"
 A="$W/az/corpus/packages/icon/arizona_tests"; mk_icn "$A/general"; mkdir -p "$A/special"; csv_pair general/decl general/nodecl > "$A/ALL.csv"
 run_db P8 "$W/p8.tsv" S4E_HOME="$W/az" -- "$HERE/test_icon_arizona_suite.sh"
 P="$W/ipl/corpus/packages/icon/ipl"; mk_icn "$P/progs"; for d in gprogs procs gprocs incl gincl; do mkdir -p "$P/$d"; done; csv_pair progs/decl progs/nodecl > "$P/ALL.csv"
-run_db P9 "$W/p9.tsv" S4E_HOME="$W/ipl" -- "$HERE/test_icon_ipl_suite.sh"
+DBPFX=progs/ run_db P9 "$W/p9.tsv" S4E_HOME="$W/ipl" -- "$HERE/test_icon_ipl_suite.sh"
 mk_sno "$W/x32" spt
 run_db P10 "$W/p10.tsv" SPITBOL_X32_SUITE="$W/x32" SPITBOL_X32_SHIPPED=2 -- "$HERE/test_snobol4_spitbol_x32_suite.sh"
 
