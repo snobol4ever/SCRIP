@@ -334,4 +334,4 @@ if (Src ? Compiland) {
         i = 1; n_kids = n(ptree);
         while (LE(i, n_kids)) { TDump(c(ptree)[i]); i = i + 1; }
     }
-}
+} else OUTPUT = 'Parse Error';
