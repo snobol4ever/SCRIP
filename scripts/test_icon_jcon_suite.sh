@@ -346,6 +346,12 @@ run_mode() {
 # before this landed and reports m3 45/91 after it. Identical passes, honest denominator. Anyone diffing the
 # leaderboard across this commit must read it as a denominator change, not as ten programs breaking.
 SHIPPED=0; GRADED=0; GAP_NAMES=""
+# ⛔⭐ A CONTAINER IS NOT A SHIPPED PROGRAM (ceo CEO-1272; coo 2026-09-25): CONTAINERS.tsv names the files that are not a
+# compilation unit on their own (tpp1..tpp5, $include'd by tpp.icn), each with its measurement, and lib_inventory.sh takes them
+# out of shipped -- this census reads the same list so the board's shipped and the inventory's are one number.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_inventory.sh"
+_cn="$(inventory_container_names "$CORPUS")" || { echo "⛔ GATE REFUSES(2): CONTAINERS.tsv is malformed (named above) -- the shipped census cannot be read"; exit 2; }
+CONTAINER_NAMES=" $(printf '%s' "$_cn" | tr '\n' ' ') "
 for _icn in "$CORPUS"/*.icn; do
     [ -f "$_icn" ] || continue
 # ⛔⭐ OUR OWN GENERATED CONTAINER IS NOT A SHIPPED PROGRAM (hq_I 2026-09-06, pre-empted rather than
@@ -359,6 +365,7 @@ case "$(basename "$_icn")" in ALL.*) continue ;; esac
     case "$(basename "$_icn")" in *_driver.icn)
         [ -f "${_icn%_driver.icn}.icn" ] || { echo "⛔ GATE REFUSES(2): $(basename "$_icn") is a driver whose library $(basename "${_icn%_driver.icn}").icn is not shipped -- a vehicle with nothing to carry (CEO-1269)" >&2; exit 2; }
         continue ;; esac
+    case "$CONTAINER_NAMES" in *" $(basename "$_icn") "*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     _b="$(basename "$_icn" .icn)"
     if [ ! -f "${_icn%.icn}.ref" ] && ! { [ -f "${_icn%.icn}_driver.icn" ] && [ -f "${_icn%.icn}_driver.ref" ]; }; then GAP_NAMES="$GAP_NAMES $_b(no .ref shipped upstream, no .ref cut by us, no driver)"; continue; fi

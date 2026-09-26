@@ -64,7 +64,9 @@ if [ -z "$board" ]; then
 fi
 field() { printf '%s\n' "$board" | grep -oE "$1=[0-9]+" | head -1 | cut -d= -f2; }
 scored="$(field total)"
-excl=0; [ -s "$SUITE/ALL.excluded.txt" ] && excl=$(grep -c . "$SUITE/ALL.excluded.txt")
+# ⛔ A CONTAINER NAMED IN ALL.excluded.txt IS NOT A SHIPPED PROGRAM EITHER (CEO-1272: SPITCORE.sno is -INCLUDEd by SIR.sno and
+# listed in CONTAINERS.tsv), so the excluded count that makes up shipped leaves it out, as lib_inventory.sh does.
+excl=0; [ -s "$SUITE/ALL.excluded.txt" ] && excl=$(cut -d: -f1 "$SUITE/ALL.excluded.txt" | grep . | while IFS= read -r _x; do inventory_is_container "$SUITE" "$_x.sno" || echo "$_x"; done | grep -c .)
 shipped=$((scored + excl))
 m3p="$(field m3_pass)"; m3f="$(field m3_fail)"; m3c="$(field m3_crash)"; m3h="$(field m3_hang)"
 m4p="$(field m4_pass)"; m4f="$(field m4_fail)"; m4c="$(field m4_crash)"; m4h="$(field m4_hang)"
@@ -89,6 +91,7 @@ OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE
 _ow="$(mktemp -d)"; cp -a "$SUITE"/. "$_ow/" 2>/dev/null
 for _f in "$_ow"/*.sno; do
     _n="$(basename "$_f" .sno)"; [ "$_n" = ALL ] && continue
+    inventory_is_container "$SUITE" "$_n.sno" && continue   # not a program (CONTAINERS.tsv, CEO-1272): neither inside nor outside the baseline
     _in=/dev/null; for _e in IN in input; do [ -f "$_ow/$_n.$_e" ] && _in="$_ow/$_n.$_e"; done
     _av=""; [ -f "$_ow/$_n.argv" ] && _av="$(cat "$_ow/$_n.argv")"
     _o="$(cd "$_ow" && timeout 20s "$_SBL" $_SBLF "$_n.sno" $_av < "$_in" 2>&1)"; _rc=$?

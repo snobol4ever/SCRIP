@@ -135,6 +135,11 @@ trap 'rm -rf "$RUNDIR"' EXIT
 # ── SHIPPED: every .icn under every subdirectory this package ships, computed fresh, never hand-pinned.
 SHIPPED=0
 SHIPPED_NAMES=""
+# ⛔⭐ A CONTAINER IS NOT A SHIPPED PROGRAM (ceo CEO-1272; coo 2026-09-25): CONTAINERS.tsv beside the package names the files that
+# are not a compilation unit on their own, each with its measurement, and lib_inventory.sh takes them out of shipped; this census
+# reads the same list (keyed general/NAME.icn, as the other sidecars are) so the board's shipped and the inventory's are one number.
+_cn="$(inventory_container_names "$PKG")" || { echo "⛔ GATE REFUSES: CONTAINERS.tsv is malformed (named above) -- the shipped census cannot be read" >&2; exit 2; }
+CONTAINER_NAMES=" $(printf '%s' "$_cn" | tr '\n' ' ') "
 for sub in $SUITE_SUBDIRS; do
   d="$PKG/$sub"
   [ -d "$d" ] || continue
@@ -150,6 +155,7 @@ for sub in $SUITE_SUBDIRS; do
     # ⛔⭐ A DRIVER IS NOT A SHIPPED PROGRAM, IT IS ITS LIBRARY'S GRADING VEHICLE (ceo CEO-1269; coo 2026-09-25): NAME_driver.icn
     # links NAME.icn and exercises it, the library is the program, and it is graded below by its driver under its own name.
     case "$(basename "$icn")" in *_driver.icn) continue ;; esac
+    case "$CONTAINER_NAMES" in *" $sub/$(basename "$icn") "*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     SHIPPED_NAMES="$SHIPPED_NAMES $sub/$(basename "$icn" .icn)"
   done

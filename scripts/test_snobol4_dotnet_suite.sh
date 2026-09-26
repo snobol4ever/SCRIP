@@ -116,7 +116,11 @@ prog_unscr() { prog_row "$1" m3 UNGRADED "$2"; prog_row "$1" m4 UNGRADED "$2"; O
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
-    name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
+    name="$(basename "$sno" .sno)"
+    # ⛔ A CONTAINER IS NOT A PROGRAM (ceo CEO-1272): chap7.sno carries two top-level ENDs, a chapter of example programs in one
+    # file, and CONTAINERS.tsv names it MULTI_PROGRAM with that measurement -- it is neither graded nor outside the baseline.
+    inventory_is_container "$SUITE" "$name.sno" && continue
+    TOTAL=$((TOTAL+1))
     inc="$(grep -ohE "^[[:space:]]*-INCLUDE ['\"][^'\"]+['\"]" "$sno" | sed -E "s/.*-INCLUDE ['\"]([^'\"]+)['\"]/\1/" | head -1)"
     if [ -n "$inc" ] && [ ! -f "$SUITE/$inc" ]; then
         UNSCR=$((UNSCR+1)); FLU="$FLU $name(missing-include:$inc)"; prog_unscr "$name" "unscored: missing include $inc"; continue

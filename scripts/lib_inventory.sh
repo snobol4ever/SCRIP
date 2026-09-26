@@ -176,6 +176,42 @@ INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORAC
 #   that ships no driver is OWED one -- in the denominator, a non-pass, named -- never ungradable for being a library.
 #   Measured at the ruling: gimpel ships 148 libraries and 144 drivers, and BALX, FLOORCEI, PHRASES and stringout have none.
 INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING NEEDS_VENDORED_SOURCE REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE NEEDS_DRIVER"
+# ⛔⭐ A CONTAINER IS NOT A PROGRAM AND LEAVES SHIPPED, NAMED WITH ITS MEASUREMENT (ceo CEO-1272, 2026-09-25, on the coo's
+# 886-row ask; CEO-700, CEO-1245, CEO-1269). The UNGRADABLE class CONTAINER_OR_LIBRARY conflated two facts, and the split is
+# made file by file BY MEASUREMENT (util_container_or_library.py): a LIBRARY is a program owed its driver (UNGRADED NEEDS_DRIVER
+# above, in the denominator); a CONTAINER is not a compilation unit on its own and is written in CONTAINERS.tsv beside the
+# package's other sidecars -- name<TAB>KIND<TAB>measurement -- where KIND is one of the five below, and INCLUDED_BY/OPENED_BY
+# name the file that splices or opens it as the measurement's first word. inventory_line takes a container OUT of shipped,
+# refuses one that also sits in UNGRADED, UNGRADABLE or DEFERRED (two answers for one file), refuses one naming no shipped
+# file, and re-derives every row's measurement through util_container_or_library.py verify before it prints a line -- a row
+# whose measurement does not re-derive has not earned its way out of the denominator. PACKAGE_INVENTORY gains containers=N
+# only where a CONTAINERS.tsv exists, so every package without one prints the byte-identical line it always did.
+INV_CONTAINER_KINDS="INCLUDED_BY OPENED_BY SCAFFOLDING NO_DEFINITION MULTI_PROGRAM"
+# inventory_container_names [<pkgdir>] -- echo column 1 of <pkgdir>/CONTAINERS.tsv (default $INV_DIR); rc 2 on a malformed or
+# class-less row. Runners that count their own shipped population call this so their census and the inventory's agree.
+inventory_container_names() {
+    local d="${1:-${INV_DIR:-}}" f n=0 line name kind meas
+    f="$d/CONTAINERS.tsv"
+    [ -f "$f" ] || return 0
+    while IFS= read -r line; do
+        n=$((n + 1))
+        case "$line" in ''|'#'*) continue ;; esac
+        name="$(printf '%s' "$line" | cut -f1)"; kind="$(printf '%s' "$line" | cut -f2)"; meas="$(printf '%s' "$line" | cut -f3-)"
+        if [ -z "$name" ] || [ -z "$kind" ] || [ -z "${meas// /}" ]; then
+            inventory_refuse "$f line $n: expected name<TAB>KIND<TAB>measurement, got: $line -- a container with no measurement is an opinion (CEO-1272)"; return 2
+        fi
+        case " $INV_CONTAINER_KINDS " in *" $kind "*) ;; *)
+            inventory_refuse "$f line $n: KIND '$kind' is not one of: $INV_CONTAINER_KINDS -- a class-less or unknown container names no measurement (CEO-1272)"; return 2 ;;
+        esac
+        printf '%s\n' "$name"
+    done < "$f"
+}
+# inventory_is_container <pkgdir> <rel> -- 0 when CONTAINERS.tsv names <rel> by its package-relative path or by its bare name.
+inventory_is_container() {
+    local names; names="$(inventory_container_names "$1" 2>/dev/null)" || return 1
+    [ -n "$names" ] || return 1
+    printf '%s\n' "$names" | grep -qxF -e "$2" -e "${2##*/}"
+}
 # LEGACY: accepted with a WARN so no lane's board breaks on the ruling, and named so the debt is one sed
 # wide and visible. ⛔ Do not add to this list -- a new file uses the closed vocabulary above.
 INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPPED:NO_ORACLE_SHIPPED NO-ORACLE:NO_ORACLE_SHIPPED ORACLE-IS-NOT-PROGRAM-OUTPUT:NO_ORACLE_SHIPPED NEEDS_MULTIFILE_LINK:NEEDS_RUNNER_WIRING"
@@ -389,7 +425,7 @@ inventory_line() {
     # had in mind. This is CLAUDE.md's own most-reused lesson (census by extension, never by the one you
     # had in mind) applied to the population that the entire lockdown percentage divides by.
     local shipped=0 e f rel
-    local -A _rel=() _base=()
+    local -A _rel=() _base=() _brel=()
     for e in $INV_EXT; do
         while IFS= read -r f; do
             rel="${f#"$INV_DIR"/}"
@@ -408,6 +444,7 @@ inventory_line() {
             case "${f##*/}" in *_driver"$e") continue ;; esac
             _rel["$rel"]=1
             _base["${f##*/}"]=$(( ${_base["${f##*/}"]:-0} + 1 ))
+            _brel["${f##*/}"]="$rel"
             shipped=$((shipped + 1))
         done < <(find "$INV_DIR" -type f -name "*$e" ! -path "*.fixtures/*" 2>/dev/null)
     done
@@ -521,6 +558,36 @@ $badreason
     [ -z "$ambig" ] || { inventory_refuse "declared by a BARE NAME that names more than one shipped file:$ambig -- write the package-relative path instead. A bare name is only a name while it is unique; ipl ships four such collisions (gener/morse/repeats/spokes under both procs/ and progs/), so the ruling would land on whichever file the census happened to reach first."; return 2; }
     [ -z "$miss" ] || { inventory_refuse "declared but not shipped:$miss -- a declaration matching no file is a rename or a leftover, and both withdraw a guarantee silently"; return 2; }
 
+    # ⛔⭐ THE CONTAINERS LEAVE SHIPPED HERE, EACH ONE RESOLVED TO ONE FILE AND ITS MEASUREMENT RE-DERIVED (CEO-1272; the block
+    # beside INV_CONTAINER_KINDS above). Resolved like every other declaration -- a package-relative path, or a bare name while
+    # it is unique -- and compared by RESOLVED FILE with the other three buckets, so a bare name here and a path there cannot hide
+    # one file carrying two answers.
+    local con_n="" containers="" c_rel c_miss="" c_ambig="" c_both="" _nm
+    if [ -f "$INV_DIR/CONTAINERS.tsv" ]; then
+        con_n="$(inventory_container_names "$INV_DIR")" || return 2
+        local -A _con=() _declared=()
+        for _nm in $ung_n $ugd_n $def_n; do
+            if [ -n "${_rel["$_nm"]:-}" ]; then _declared["$_nm"]=1; elif [ "${_base["$_nm"]:-0}" = 1 ]; then _declared["${_brel["$_nm"]}"]=1; fi
+        done
+        containers=0
+        for _nm in $con_n; do
+            if [ -n "${_rel["$_nm"]:-}" ]; then c_rel="$_nm"
+            else case "${_base["$_nm"]:-0}" in 0) c_miss="$c_miss $_nm"; continue ;; 1) c_rel="${_brel["$_nm"]}" ;; *) c_ambig="$c_ambig $_nm(${_base["$_nm"]})"; continue ;; esac; fi
+            [ -z "${_con["$c_rel"]:-}" ] || { inventory_refuse "$INV_DIR/CONTAINERS.tsv names $c_rel more than once -- one container row per file"; return 2; }
+            _con["$c_rel"]=1
+            [ -z "${_declared["$c_rel"]:-}" ] || c_both="$c_both $c_rel"
+            containers=$((containers + 1))
+        done
+        [ -z "$c_miss" ] || { inventory_refuse "CONTAINERS.tsv names a file this package does not ship:$c_miss -- a container matching no file is a rename or a leftover (CEO-1272)"; return 2; }
+        [ -z "$c_ambig" ] || { inventory_refuse "CONTAINERS.tsv declares by a BARE NAME that names more than one shipped file:$c_ambig -- write the package-relative path"; return 2; }
+        [ -z "$c_both" ] || { inventory_refuse "a container is also declared in UNGRADED.tsv, UNGRADABLE.tsv or DEFERRED.tsv:$c_both -- not a program and owed or ruled as one are two answers for one file (CEO-1272)"; return 2; }
+        local _v _vrc
+        _v="$(python3 "$(dirname "${BASH_SOURCE[0]}")/util_container_or_library.py" verify "$INV_DIR" 2>&1)"; _vrc=$?
+        [ "$_vrc" -eq 0 ] || { inventory_refuse "CONTAINERS.tsv does not re-derive its own measurements (util_container_or_library.py verify rc=$_vrc) -- a container leaves the denominator only on a measurement that holds:
+$_v"; return 2; }
+        shipped=$((shipped - containers))
+    fi
+
     # ⛔ AN UNEXPLAINED NARROW BUCKET IS JUST A SMALLER LIE (hq_P). A count with no per-entry narrowing
     # cannot be acted on and cannot be disputed.
     if [ "$graded_narrow" -gt 0 ]; then
@@ -539,7 +606,7 @@ $badreason
         inventory_refuse "buckets do not sum: graded($graded)=stream($graded_stream)+narrow($graded_narrow) + ungraded($ungraded) + ungradable($ungradable) + deferred($deferred) = $total, but shipped=$shipped (delta $((shipped - total))). Every shipped program lands in exactly one bucket, or the inventory is five opinions rather than a census."
         return 2
     fi
-    echo "PACKAGE_INVENTORY package=$INV_PACKAGE shipped=$shipped graded=$graded ungraded=$ungraded ungradable=$ungradable deferred=$deferred graded_stream=$graded_stream graded_narrow=$graded_narrow"
+    echo "PACKAGE_INVENTORY package=$INV_PACKAGE shipped=$shipped graded=$graded ungraded=$ungraded ungradable=$ungradable deferred=$deferred graded_stream=$graded_stream graded_narrow=$graded_narrow${containers:+ containers=$containers}"
     return 0
 }
 
