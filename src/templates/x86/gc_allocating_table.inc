@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1797
+#define GC_ALLOC_TAB_N 1799
 #define GC_ALLOC_TAB_N_VOID 199
-#define GC_ALLOC_TAB_N_DESCR 998
-#define GC_ALLOC_TAB_N_OTHER 600
+#define GC_ALLOC_TAB_N_DESCR 999
+#define GC_ALLOC_TAB_N_OTHER 601
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -707,8 +707,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_mat", GC_RET_OTHER },
     { "pas_mat_rv", GC_RET_OTHER },
     { "pas_nrec_subrec_set", GC_RET_OTHER },
+    { "pas_numeral_put", GC_RET_OTHER },
     { "pas_ord_of", GC_RET_OTHER },
     { "pas_pf_resolve", GC_RET_VOID },
+    { "pas_read_number", GC_RET_DESCR },
     { "pas_tf_read", GC_RET_OTHER },
     { "pas_tf_write", GC_RET_VOID },
     { "pas_trace_print_value", GC_RET_VOID },

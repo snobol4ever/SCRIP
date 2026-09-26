@@ -825,23 +825,28 @@ static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     return hc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pas_numeral_put(char *b, size_t *n, size_t *cap, int c) {
+    if (*n + 2 > *cap) { size_t nc = *cap ? *cap * 2 : 64; char *g = rt_str_alloc((long)nc); if (b) memcpy(g, b, *n); b = g; *cap = nc; }
+    b[(*n)++] = (char)c; b[*n] = '\0'; return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
-    char b[128]; int n = 0, c = fgetc(f), nd = 0, bad = 0;
+    char *b = NULL; size_t n = 0, cap = 0; int c = fgetc(f), nd = 0, bad = 0;
     while (c != EOF && isspace(c)) c = fgetc(f);
     if (c == EOF) pas_file_err("6.9.1", "end-of-file is true when a number is to be read", fn);
-    if (c == '+' || c == '-') { b[n++] = (char)c; c = fgetc(f); }
-    while (c != EOF && isdigit(c)) { if (n < 120) b[n++] = (char)c; nd++; c = fgetc(f); }
+    if (c == '+' || c == '-') { b = pas_numeral_put(b, &n, &cap, c); c = fgetc(f); }
+    while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); nd++; c = fgetc(f); }
     bad = !nd;
-    if (real && !bad && c == '.') { int k = 0; if (n < 120) b[n++] = '.'; c = fgetc(f); while (c != EOF && isdigit(c)) { if (n < 120) b[n++] = (char)c; k++; c = fgetc(f); } bad = !k; }
-    if (real && !bad && (c == 'e' || c == 'E')) { int k = 0; if (n < 120) b[n++] = 'e'; c = fgetc(f);
-        if (c == '+' || c == '-') { if (n < 120) b[n++] = (char)c; c = fgetc(f); }
-        while (c != EOF && isdigit(c)) { if (n < 120) b[n++] = (char)c; k++; c = fgetc(f); } bad = !k; }
+    if (real && !bad && c == '.') { int k = 0; b = pas_numeral_put(b, &n, &cap, '.'); c = fgetc(f); while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); k++; c = fgetc(f); } bad = !k; }
+    if (real && !bad && (c == 'e' || c == 'E')) { int k = 0; b = pas_numeral_put(b, &n, &cap, 'e'); c = fgetc(f);
+        if (c == '+' || c == '-') { b = pas_numeral_put(b, &n, &cap, c); c = fgetc(f); }
+        while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); k++; c = fgetc(f); } bad = !k; }
     if (c != EOF) ungetc(c, f);
     if (bad) pas_file_err("6.9.1", real ? "the characters read do not form a signed-number" : "the characters read do not form a signed-integer", fn);
-    b[n] = '\0';
-    if (real) { DESCR_t r; r.v = DT_R; r.r = strtod(b, NULL); return r; }
-    return INTVAL(strtoll(b, NULL, 10));
+    DESCR_t r; errno = 0; if (real) { r.v = DT_R; r.r = strtod(b, NULL); } else r = INTVAL(strtoll(b, NULL, 10));
+    if (!real && errno == ERANGE) pas_file_err("6.9.1", "the signed-integer read is outside the range of the integer type", fn);
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pas_heap_take(void) {
