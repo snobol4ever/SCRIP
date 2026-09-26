@@ -1610,7 +1610,7 @@ static long gc_collect_ex(void)
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
     if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
     if (w_tel) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
-    if (g_hp_cap_end > g_hp_end && (long)(g_hp_end - g_hp_top) * 100L < (long)(g_hp_end - g_hp_arena) * (long)GC_FREE_PCT) (void)rt_gcheap_grow(0);
+    if (g_hp_cap_end > g_hp_end && (long)(g_hp_end - g_hp_arena - g_hp_live) * 100L < (long)(g_hp_end - g_hp_arena) * (long)GC_FREE_PCT) (void)rt_gcheap_grow(0);
     rt_gcheap_line_reset();
     if (g_gc_flip_to && g_gc_flip_to > g_hp_arena + sizeof(rt_hblk_t)) { size_t pg = gc_pg(); char *a = (char *)(((uintptr_t)g_hp_arena + sizeof(rt_hblk_t) + pg - 1) & ~(uintptr_t)(pg - 1)), *b = (char *)((uintptr_t)g_gc_flip_to & ~(uintptr_t)(pg - 1));
         memset(g_hp_arena + sizeof(rt_hblk_t), 0xDB, (size_t)(g_gc_flip_to - g_hp_arena - (long)sizeof(rt_hblk_t)));
