@@ -403,6 +403,10 @@ def _finish(c, want, goal, balls, weaker, opts):
 def program_text(plan, db, shim_src, loaded=()):
     c = plan.case
     parts = [shim_src]
+    # ⭐ THE SUITE RUNS UNDER ISO'S OWN SWITCH (ceo CEO-1272, CEO-391: conflicts between ISO and the superset go through ISO's prolog flags, set by
+    # the program or the suite runner). Placed after the shim, so the shim reads as before, and ahead of the file's database and the case, so both
+    # read and run strictly: an argument over 999 is a syntax error (wg17_term_09/10) and 4 / 2 is 2.0 (float_division_2 13/14).
+    parts.append(":- set_prolog_flag(iso, true).")
     # ⛔ The tester-loaded plain-Prolog files go in VERBATIM, ahead of the file's own database and without
     # the directive filter below: their :- if/elif/else/endif guards ARE the subject of one group, and
     # dropping a guard while keeping both of its branches defines exactly the predicates the case expects

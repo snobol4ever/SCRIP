@@ -31,6 +31,7 @@ typedef struct {
     int         ifst_top;
     TreeScope   ts;
     int         incl_depth;
+    int         iso;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -423,13 +424,13 @@ static tree_t *pt_list(Parser *p, TreeScope *ts) {
     lst->v.ival = 0;
     p->in_args++;
     for (;;) {
-        tree_t *elem = pt_term(p, ts, 1200);
+        tree_t *elem = pt_term(p, ts, p->iso ? 999 : 1200);
         if (elem) ast_push(lst, elem);
         Token pk = lexer_peek(&p->lx);
         if (pk.kind == TK_COMMA) { lexer_next(&p->lx); continue; }
         if (pk.kind == TK_PIPE) {
             lexer_next(&p->lx);
-            tree_t *tail = pt_term(p, ts, 1200);
+            tree_t *tail = pt_term(p, ts, p->iso ? 999 : 1200);
             if (tail) ast_push(lst, tail);
             lst->v.ival = 1;
             pk = lexer_peek(&p->lx);
@@ -452,7 +453,7 @@ static int pt_args(Parser *p, TreeScope *ts, tree_t *parent) {
     int n = 0;
     p->in_args++;
     for (;;) {
-        tree_t *a = pt_term(p, ts, 1200);
+        tree_t *a = pt_term(p, ts, p->iso ? 999 : 1200);
         if (!a) break;
         ast_push(parent, a);
         n++;
@@ -1039,6 +1040,13 @@ static void dq_directive(Parser *p, const tree_t *goal) {
     if (!strcmp(v->v.sval, "atom")) p->dq = 0; else if (!strcmp(v->v.sval, "chars")) p->dq = 1; else if (!strcmp(v->v.sval, "codes")) p->dq = 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void iso_directive(Parser *p, const tree_t *goal) {
+    if (!goal || goal->t != TT_FNC || !goal->v.sval || strcmp(goal->v.sval, "set_prolog_flag") || goal->n != 2) return;
+    const tree_t *f = goal->c[0], *v = goal->c[1];
+    if (!f || !v || f->t != TT_QLIT || v->t != TT_QLIT || !f->v.sval || !v->v.sval || strcmp(f->v.sval, "iso")) return;
+    if (!strcmp(v->v.sval, "true")) p->iso = 1; else if (!strcmp(v->v.sval, "false")) p->iso = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static PlClause *parse_clause(Parser *p) {
     Token pk = lexer_peek(&p->lx);
     if (pk.kind == TK_EOF) return NULL;
@@ -1051,7 +1059,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
-        if (if_currently_active(p)) { register_op_directive(body_tr); dq_directive(p, body_tr); }
+        if (if_currently_active(p)) { register_op_directive(body_tr); dq_directive(p, body_tr); iso_directive(p, body_tr); }
         if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
             cl->nbody = 0; cl->tr = NULL;
             return cl;
@@ -1381,7 +1389,7 @@ static int pl_include_directive(Parser *pp, PlProgram *prog, const PlClause *cl)
     if (pp->incl_depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
         if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
         pp->nerrors++; return 1; }
-    memset(&q, 0, sizeof q); lexer_init(&q.lx, src); q.filename = path; q.quiet = pp->quiet; q.dq = pp->dq; q.incl_depth = pp->incl_depth + 1;
+    memset(&q, 0, sizeof q); lexer_init(&q.lx, src); q.filename = path; q.quiet = pp->quiet; q.dq = pp->dq; q.iso = pp->iso; q.incl_depth = pp->incl_depth + 1;
     pl_parse_loop(&q, prog);
     pp->nerrors += q.nerrors; pp->dq = q.dq;
     return 1;
@@ -1442,6 +1450,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.dq       = rt_pl_double_quotes_mode();
     p.prec     = 0;
     p.incl_depth = 0;
+    { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); }
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);

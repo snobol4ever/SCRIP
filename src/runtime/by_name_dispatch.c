@@ -2000,6 +2000,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
             if (bd == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "/", 2); return 1; }
             return pl_ax_float_result(ad / bd, ad, bd, "/", 2, out, ball); } }
     if (!strcmp(op, "div") && ai && bi && b.i == 0) { extern void *rt_pl_ball_eval_error(const char *, const char *, int); *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "/", 2); return 1; }
+    if (!strcmp(op, "div") && ai && bi) { extern int rt_pl_iso_mode(void); if (rt_pl_iso_mode()) return pl_ax_float_result((double)a.i / (double)b.i, (double)a.i, (double)b.i, "/", 2, out, ball); }
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3269,6 +3270,7 @@ static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
     { "debug", "off", 1, { "on", "off", 0 } },
     { "unknown", "error", 1, { "error", "fail", "warning", 0 } },
     { "double_quotes", "codes", 1, { "atom", "chars", "codes", 0 } },
+    { "iso", "false", 1, { "true", "false", 0 } },
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
     { "dialect", "scrip", 0, { 0 } },
@@ -3288,6 +3290,8 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
       pl_flags[i].nm = persist; pl_flags[i].val[0] = 0; pl_flags[i].mod = 1; pl_flags[i].ok[0] = 0; }
     return &pl_flags[i];
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_iso_mode(void) { pl_flag_t *fl = pl_flag_find("iso"); return fl && !strcmp(fl->val, "true"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_double_quotes_mode(void) {
     pl_flag_t *fl = pl_flag_find("double_quotes");
