@@ -52,6 +52,7 @@ typedef struct RkP {
     RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv; int lax; int quote_block; int lang_e;
     RkPkg *pkgs; int npkgs; int cpkgs;
     RkPkg *roledb; int nroledb; int croledb;
+    RkStrs exported; RkStrs exported_from;
     char **exports; int nexports; int cexports;
 } RkP;
 static const int rk_brackets[] = {
@@ -3652,6 +3653,10 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
         for (int k = 0; k < nuops_before_traits && k < p->nuops; k++) if (p->uops[k].depth == p->depth - 1 && k >= nuops_before_traits - 2) p->uops[k].depth = 1000;
         if (name_from >= 0 && !is_method) {
             int nl = name_part_len(p, name_from, name_to); char *x = (char *) ct_alloc((size_t) nl + 2); x[0] = '&'; memcpy(x + 1, p->s + name_from, (size_t) nl); x[nl + 1] = 0;
+            const char *from_pkg = p->pkg ? p->pkg : "";
+            for (int i = 0; i < p->exported.n; i++) if (!strcmp(p->exported.v[i], x) && strcmp(p->exported_from.v[i], from_pkg))
+                panic_at(p, name_from, "A symbol '%s' has already been exported", x);
+            strs_add(&p->exported, x, nl + 1); strs_add(&p->exported_from, from_pkg, (int) strlen(from_pkg));
             RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = x;
         }
         break;
