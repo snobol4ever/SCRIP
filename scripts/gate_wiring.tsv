@@ -362,6 +362,7 @@ test_gate_pas_a_named_array_of_records_keeps_its_fields.sh	WIRED	-	-	-
 test_gate_pas_a_number_never_touches_a_following_word.sh	WIRED	-	-	-
 test_gate_pas_a_numeric_literal_fits_what_scrip_represents.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
+test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
 test_gate_pas_a_set_member_is_of_an_ordinal_type.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_bound_or_case_constant_is_never_real.sh	WIRED	-	-	-
 test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-

@@ -740,6 +740,14 @@ static void pas_proc_vparams(const char *name, PNodeList *params) { if (!name ||
     for (int i = g_pas_nproc - 1; i >= 0; i--) if (g_pas_procs[i].name && !strcmp(g_pas_procs[i].name, name)) { g_pas_procs[i].nvp = pas_vparam_scan(params, g_pas_procs[i].vp); g_pas_procs[i].nrp = pas_realparam_scan(params, g_pas_procs[i].rp); g_pas_procs[i].nsp = pas_strparam_scan(params, g_pas_procs[i].sp); return; }
     for (int i = g_pas_nfunc - 1; i >= 0; i--) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) { g_pas_funcs[i].nvp = pas_vparam_scan(params, g_pas_funcs[i].vp); g_pas_funcs[i].nrp = pas_realparam_scan(params, g_pas_funcs[i].rp); g_pas_funcs[i].nsp = pas_strparam_scan(params, g_pas_funcs[i].sp); return; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pas_required_needs_params(const char *name) {
+    const char *nm[] = { "get", "put", "reset", "rewrite", "new", "dispose", "pack", "unpack", "read", "write" };
+    const char *cl[] = { "6.6.5.2", "6.6.5.2", "6.6.5.2", "6.6.5.2", "6.6.5.3", "6.6.5.3", "6.6.5.4", "6.6.5.4", "6.9.1", "6.9.3" };
+    for (size_t i = 0; name && i < sizeof nm / sizeof nm[0]; i++) if (!strcmp(name, nm[i])) {
+        fprintf(stderr, "pascal: ISO 7185 %s violation: the required procedure '%s' is activated with no actual-parameters, and its activation takes at least one\n", cl[i], name);
+        g_pas_iso_errors++; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_call_arity(const char *name, PNodeList *args) {
     const char *req[] = { "abs", "arctan", "chr", "cos", "dispose", "eof", "eoln", "exp", "get", "ln", "new", "odd", "ord", "pack", "page", "pred", "put",
                           "read", "readln", "reset", "rewrite", "round", "sin", "sqr", "sqrt", "succ", "trunc", "unpack", "write", "writeln" };
@@ -1921,7 +1929,7 @@ statement_no_label:
     | { $$ = ast_node_new(TT_SUCCEED); }
     ;
 call:
-    IDENT { if (pas_pf_is_formal($1)) $$ = pas_pf_callthrough($1, NULL); else if (pas_is_proc($1)) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, $1)); $$ = e; } else $$ = mk_call($1, NULL); }
+    IDENT { if (pas_pf_is_formal($1)) $$ = pas_pf_callthrough($1, NULL); else if (pas_is_proc($1)) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, $1)); $$ = e; } else { pas_required_needs_params($1); $$ = mk_call($1, NULL); } }
     | call_with_args { $$ = $1; }
     ;
 call_with_args:
