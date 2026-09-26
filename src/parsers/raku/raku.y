@@ -2405,12 +2405,10 @@ extern void *raku_yy_scan_string(const char *);
 extern void  raku_yy_delete_buffer(void *);
 tree_t *raku_parse_string(const char *src) {
     raku_prog_result = NULL;
-    size_t n = strlen(src); char *text = (char *) malloc(n + 3);
-    if (!text) return NULL;
+    size_t n = strlen(src); char *text = (char *) ct_alloc(n + 3);
     memcpy(text, src, n); memcpy(text + n, "\n;", 3);
     void *buf = raku_yy_scan_string(text);
     raku_yyparse();
     raku_yy_delete_buffer(buf);
-    free(text);
     return raku_prog_result;
 }

@@ -87,8 +87,7 @@ static void raku_stamp_yylloc(const char *text, int len) {
     raku_yylloc.first_column = raku_yylloc.last_column = 0;
 }
 static char *raku_interp_source(const char *b, int n) {
-    char *o = (char *) malloc((size_t) n * 5 + 16); int k = 0, code = 0;
-    if (!o) return NULL;
+    char *o = (char *) ct_alloc((size_t) n * 5 + 16); int k = 0, code = 0;
     o[k++] = '('; o[k++] = '"';
     for (int i = 0; i < n; i++) {
         char c = b[i];
@@ -393,7 +392,7 @@ WS       [ \t\r]
     raku_strbuf[raku_strpos] = '\0';
     BEGIN(INITIAL);
     char *src = memchr(raku_strbuf, '\x02', (size_t) raku_strpos) ? raku_interp_source(raku_strbuf, raku_strpos) : NULL;
-    if (src) { yypush_buffer_state(YY_CURRENT_BUFFER); yy_scan_string(src); free(src); }
+    if (src) { yypush_buffer_state(YY_CURRENT_BUFFER); yy_scan_string(src); }
     else {
         raku_yylloc.first_line = raku_str_line;
         raku_yylval.sval = ct_strdup(raku_strbuf);
