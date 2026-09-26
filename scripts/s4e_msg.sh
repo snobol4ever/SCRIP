@@ -902,13 +902,15 @@ s4e_lane_owner_of_language() {
        # LANGUAGE for the benchmark order of work (every language's kernels and demos against its oracle at -O0 into the README, SNOBOL4 first). The TENET mapping this replaces --
        # icon hq_icon, prolog hq_prolog, snobol4 hq_snobol4, pascal hq_pascal, snocone hq_snocone, rebus ceo, raku hq_raku -- is kept here so the flip back is a seven-line edit.
        # Written out per language rather than collapsed to a default for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
-       icon)     printf 'ceo';;
-       prolog)   printf 'ceo';;
-       snobol4)  printf 'ceo';;
-       pascal)   printf 'ceo';;
-       snocone)  printf 'ceo';;
+       # ⭐ MODE TENET AGAIN (CEO-1285, 2026-09-26 13:5x, Lon in-chat to the ceo, verbatim: "Switch to TENET mode."): the seven-line edit the CEO block above promised -- every
+       # language HQ takes its language back, rebus stays the ceo's (Lon: "There is no HQ-REBUS.").
+       icon)     printf 'hq_icon';;
+       prolog)   printf 'hq_prolog';;
+       snobol4)  printf 'hq_snobol4';;
+       pascal)   printf 'hq_pascal';;
+       snocone)  printf 'hq_snocone';;
        rebus)    printf 'ceo';;
-       raku)     printf 'ceo';;
+       raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
