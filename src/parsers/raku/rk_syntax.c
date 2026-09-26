@@ -1747,6 +1747,8 @@ static int r_infixish(RkP *p, int pos, OpInfo *o, int in_meta) {
                                                            ch(p, pos + 1) == '&' || is_digit_cp(cp_at(p, pos + 1)) || cp_at(p, pos + 1) == 0xAB)) {
         if (!(is_digit_cp(cp_at(p, pos + 1)) && !is_alpha_cp(cp_at(p, r_decint(p, pos + 1))))) {
             int e = r_colonpair(p, pos);
+            int k = ch(p, pos + 1);
+            if (e >= 0 && (k == '{' || k == '[' || k == '<' || cp_at(p, pos + 1) == 0xAB)) panic_at(p, pos, "You can't adverb %.*s", e - pos, p->s + pos);
             if (e >= 0) { o->prec = PR('i'); o->sub = o->prec; o->assoc = AS_UNARY; o->flags = OF_FAKE; o->from = pos; o->to = e; o->nextterm = NT_TERMISH; return e; }
         }
     }
