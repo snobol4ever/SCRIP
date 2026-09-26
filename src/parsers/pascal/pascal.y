@@ -1613,7 +1613,11 @@ static void pas_formal_subranges(const char *sig, PNodeList *params) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *args) {
     for (int i = 0; i + 1 < args->count; i += 2) {
-        const char *t = pas_sig_value_type(cd->sig, i / 2, 0); tree_t *a = args->items[i]; const char *at = NULL;
+        const char *t = pas_sig_value_type(cd->sig, i / 2, 0); tree_t *a = args->items[i]; const char *at = NULL; const char *rt = t ? NULL : pas_sig_value_type(cd->sig, i / 2, 1); long long _lo, _hi;
+        if (rt && pas_subtype_high(rt) < 0 && strcmp(rt, "char") && !pas_is_booltype(rt) && a && a->t == TT_VAR && a->v.sval && !pas_is_setvar(a->v.sval) && pas_subvar_get(a->v.sval, &_lo, &_hi)) {
+            fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: the actual-parameter %d of '%s' is a variable of the subrange type %lld..%lld, which is not the type %s of its variable formal-parameter\n",
+                    i / 2 + 1, callee, _lo, _hi, rt);
+            g_pas_iso_errors++; continue; }
         if (!t || !a || (strcmp(t, "integer") && strcmp(t, "real") && strcmp(t, "char") && strcmp(t, "boolean"))) continue;
         if (a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_chrlit")) at = "char";
         else if (a->t == TT_FLIT) at = "real";
