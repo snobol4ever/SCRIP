@@ -418,8 +418,8 @@ def _size_switches(heap_kb, stack_kb):
 
 def _compile_switches(paths, compile_args):
     """scrip's switches before the source at the COMPILE step, the same list in both modes (scrip --run in m3, scrip
-    --compile in m4): the harness's typed scrip_extra, which clause 8 (f) retires once every unit that needs it declares it,
-    then the unit's declared compile_args, a switch both carry passed once. None declared = byte-identical to before."""
+    --compile in m4): the caller's scrip_extra (capture-oracle-refs --compile-args alone, since clause 8 (f) retired the
+    harness's own typing), then the unit's declared compile_args, a switch both carry passed once."""
     typed = list(paths.get("scrip_extra", []))
     return typed + [w for w in (compile_args or []) if w not in typed]
 
@@ -1965,7 +1965,9 @@ def cmd_capture_oracle_refs(args):
     paths = resolve_paths()
     check_scrip(paths)
     lang = args.lang or "snobol4"
-    paths["scrip_extra"] = ["--stlimit"] if lang in ("snobol4", "snocone", "rebus", "icon") else []
+    # ⛔ A LOOSE-FILE BOOTSTRAP HAS NO ATTRIBUTE ROW TO READ, SO ITS CALLER DECLARES (clause 8 (f), CEO-1281): scrip's compile switches
+    # come from --compile-args and from nothing else. It typed --stlimit for snobol4, snocone, rebus and icon until 2026-09-26.
+    paths["scrip_extra"] = validate_args_cell(args.compile_args, "compile_args", "capture-oracle-refs --compile-args") or []
     ext = LANG_CONFIGS[lang]["ext"] if lang != "snobol4" else ".sno"
     oracle_bin, flags = resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)
@@ -2591,10 +2593,10 @@ def cmd_run(args):
         os.environ["S4E_MEM_OOM_AT_START"] = str(_mem_scope().oom_kills() or 0)
     _progress_pin(paths)
     check_scrip(paths)
-    # ⛔⭐ THE CORRECTNESS GRADER ASKS FOR THE STATEMENT INSTRUMENTATION (hq_snocone 2026-09-25): 2a81a02db made it the --stlimit switch
-    # and wrote that this harness passes it for snobol4, snocone and rebus in both modes, but set it in capture-oracle-refs alone, so
-    # run graded SncM's &STLIMIT and &STCOUNT entries without it (335/338, SPITBOL always counts); the list is that commit's own.
-    paths["scrip_extra"] = ["--stlimit"] if (getattr(args, "lang", None) or "snobol4") in ("snobol4", "snocone", "rebus") else []
+    # ⛔⭐ THE STATEMENT INSTRUMENTATION IS EACH UNIT'S OWN DECLARATION (clause 8 (f), CEO-1281): every snobol4, snocone and rebus master
+    # row declares --stlimit in its compile_args (corpus d57d1ae81), which read_command_line_columns attaches and _compile_switches
+    # applies. This harness typed it here for those three languages from 2026-09-25 (hq_snocone: SncM graded 335/338 without it,
+    # SPITBOL always counts) until 2026-09-26, when the rows took it over; a row without the cell compiles without the switch.
     # ⛔ THE BINARY IS STAMPED AT THE START AND CHECKED BEFORE ANY BOARD LINE IS PRINTED (coo 2026-09-16; hq_raku's RakM 764/927 graded
     # across a mid-run make). An outer runner's S4E_BIN_AT_START is kept; otherwise this run stamps its own.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -3696,6 +3698,7 @@ def main():
     o.add_argument("--modes", default="m3,m4")
     o.add_argument("--force", action="store_true", help="re-capture even stems that already have a .ref (default: leave them alone)")
     o.add_argument("--lang", default="", choices=LANG_CHOICES, help="capture against a LANG_CONFIGS dialect's own oracle instead of SPITBOL (only 'prolog' has an oracle wired as of 2026-08-29; default '' means snobol4, unchanged behavior)")
+    o.add_argument("--compile-args", default="", help="scrip's compile switches for every stem, space-separated (e.g. --stlimit): a loose family has no attribute row, so the caller declares them (clause 8 (f)); default none")
     o.set_defaults(func=cmd_capture_oracle_refs)
 
     c = sub.add_parser("convert", help="convert a loose-file family into suite .sno/.ref, validating byte-equal before writing")

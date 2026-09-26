@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SNOFLAKE_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/snoflake_suite}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # test_snoflake_suite.sh — run Ori Livneh's snoflake fixture suite against SCRIP m3 + m4, plus a
 # SPITBOL comparison arm (ARM_SBL=0 to disable).
 #
@@ -244,11 +244,12 @@ oracle_equal() { # $1=scrip output  $2=oracle output -- equal, or the SAME ERROR
     # (`Error 42`), so a string compare silently fails every error below 100 while looking correct.
     if [ -n "$ea" ] && [ -n "$eb" ] && [ "$((10#$ea))" = "$((10#$eb))" ]; then OE_KIND=errnum; return 0; fi
     return 1; }
-compile_m4() { local sno="$1" out="$2" t rc; t="$(mktemp -d)"
+compile_m4() { local sno="$1" out="$2" t rc ca; t="$(mktemp -d)"
+    ca="$(declared_compile_args_from_table "$DECL" "$(basename "$sno" .sno)")" || exit 2
     # Same spelling as the m3 and sbl arms (see run_one): mode 4 bakes `&FILE` at COMPILE time, so the
     # staged short name has to be handed to `--compile`, not just to the run.
     ln -sf "$sno" "$RUN/f.sno"
-    (cd "$RUN" && SNO_LIB="$GIMPEL" "$SCRIP" --compile f.sno) > "$t/p.s" 2>"$t/compile.err"; rc=$?
+    (cd "$RUN" && SNO_LIB="$GIMPEL" "$SCRIP" --compile $ca f.sno) > "$t/p.s" 2>"$t/compile.err"; rc=$?
     if [ "$rc" -ne 0 ]; then
         # ⭐ snoflake-sixteen-fixtures-pass-mode-3-and-fail-mode-4 (seat01 2026-09-04): a `SCRIP: ERROR N -- ...`
         # here is a GRADED PROGRAM ANSWER, same class as run_one's m3 crash-and-print (header comment (2)
@@ -276,7 +277,8 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         # `scrip --run f.sno` both print `FILE=f.sno`; `scrip --run <abspath>` prints the abspath.
         # Identical class to the Arizona runner's cure (SCRIP 3bb0a210c).
         m3)  ln -sf "$2" "$RUN/f.sno"
-             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run f.sno < "$inp" 2>&1)"; RC=$?;;
+             local ca; ca="$(declared_compile_args_from_table "$DECL" "$(basename "$2" .sno)")" || exit 2
+             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run $ca f.sno < "$inp" 2>&1)"; RC=$?;;
         m4)  GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
         # ⛔⭐ THE ORACLE IS HANDED A SHORT NAME, NEVER THE ABSOLUTE PATH, AND IT IS A GRADING BUG IF YOU
         # "TIDY" THIS BACK (hq_B 2026-09-04, measured). SPITBOL formats its diagnostic as

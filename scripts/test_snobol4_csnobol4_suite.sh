@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${CSNOBOL4_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/csnobol4_suite}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # test_snobol4_csnobol4_suite.sh — Phil Budne's CSNOBOL4 test suite, graded against its OWN oracle.
 #
 # Suite: corpus/packages/snobol4/csnobol4_suite (vendored, unmodified). A NAME.sno with a sibling NAME.ref
@@ -272,8 +272,8 @@ GATE_NAME=test_snobol4_csnobol4_suite gate_tree_watch "$(cd "$HERE/../.." && pwd
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 
-compile_m4() { local sno="$1" out="$2" t pre; t="$(mktemp -d)"; pre="$(preload_for "$(basename "$sno" .sno)")"
-    SNO_LIB="$SUITE" "$SCRIP" $COMPAT $pre --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
+compile_m4() { local sno="$1" out="$2" ca="${3:-}" t pre; t="$(mktemp -d)"; pre="$(preload_for "$(basename "$sno" .sno)")"
+    SNO_LIB="$SUITE" "$SCRIP" $COMPAT $pre --compile $ca "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; return 0; }
@@ -336,8 +336,9 @@ for sno in "$SUITE"/*.sno; do
     if is_stdin_test "$name"; then
         rm -f "$prog"; split_at_end "$sno" "$prog" "$W/stdin"; inp="$W/stdin"
     fi
+    ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
     dep="$(setup_dep_for "$name")"
-    [ -n "$dep" ] && (cd "$RUN" && run_at_declared_table "$DECL" "$dep" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$dep.sno" > /dev/null 2>&1)
+    [ -n "$dep" ] && { dca="$(declared_compile_args_from_table "$DECL" "$dep")" || exit 2; (cd "$RUN" && run_at_declared_table "$DECL" "$dep" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run $dca "$dep.sno" > /dev/null 2>&1); }
     xargs_extra="$(argv_for "$name")"
     pre_extra="$(preload_for "$name")"
     if [ "$RECUT" != 0 ]; then
@@ -352,7 +353,7 @@ for sno in "$SUITE"/*.sno; do
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
-    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run $ca "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
@@ -364,7 +365,7 @@ for sno in "$SUITE"/*.sno; do
         HANG) M3_HANG=$((M3_HANG+1)); RED3="$RED3 $name";;
     esac
 
-    if (cd "$RUN" && compile_m4 "$relprog" "$W/prog.bin"); then
+    if (cd "$RUN" && compile_m4 "$relprog" "$W/prog.bin" "$ca"); then
         got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"

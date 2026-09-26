@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SPITBOL_X32_SUITE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/spitbol_x32_tests}" || exit 2
-export SCRIP_SNO_STMTKW=1   # the SNOBOL4 statement instrumentation, typed here exactly as its sibling spitbol_x64 runner types it until the coo's clause 8 (f) landing 3 reads each row's declared compile_args (every row of ALL.csv declares --stlimit)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program, as its sibling spitbol_x64 runner did, until 2026-09-26
 # test_snobol4_spitbol_x32_suite.sh -- the runner for corpus/packages/snobol4/spitbol_x32_tests, row
 # snobol4-the-21-spitbol-x32-tests-join-the-corpus-as-a-vendored-package-with-a-runner-and-a-suite-row-x32t-lon-2026-09-26
 # (ceo CEO-1287; Lon 2026-09-26: "Place the 21 SPITBOL x32 tests in our corpus repo and make test suite entry for those."
@@ -74,8 +74,8 @@ prog_row() { local o="$3"; [ "$o" = COMPILE_FAIL ] && o=FAIL; printf 'package\ts
 verdict_lines() { grep -cE '^( pass: |\*FAIL: )' "$1" 2>/dev/null | tr -d ' '; }
 pass_lines()    { grep -c '^ pass: '  "$1" 2>/dev/null | tr -d ' '; }
 fail_lines()    { grep -c '^\*FAIL: ' "$1" 2>/dev/null | tr -d ' '; }
-compile_m4() {  # compile_m4 <src> <out>; on failure echoes "<OUTCOME>\t<reason>", silent on success (hq_T's split: who decided)
-    local sno="$1" out="$2" rc sz
+compile_m4() {  # compile_m4 <src> <out> [<compile_args>]; on failure echoes "<OUTCOME>\t<reason>", silent on success (hq_T's split: who decided)
+    local sno="$1" out="$2" ca="${3:-}" rc sz
     # ⛔⭐ WHY AN INNER `bash -c` THAT DOES NOT `exec`, ON ALL FOUR RUN SITES.  bash announces a foreground
     # child killed by a signal ("Aborted", "File size limit exceeded") on the stderr of the shell that
     # WAITED on it, and half these programs abort by design of the defect under test -- so the notices
@@ -85,7 +85,7 @@ compile_m4() {  # compile_m4 <src> <out>; on failure echoes "<OUTCOME>\t<reason>
     # is the waiter instead, and `2>/dev/null` on the timeout discards only that inner shell's own
     # diagnostics -- the child's stdout and stderr are redirected to files one level further in and
     # every byte of them survives.  rc still arrives intact (134, 153, 124).
-    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; ulimit -f "$2" 2>/dev/null; "$3" --compile "$4" > "$5" 2> "$6"' _ "$RUN" "$((M4_ASM_MB * 1024))" "$SCRIP" "$sno" "$W/p.s" "$W/p.cerr" 2>/dev/null; rc=$?
+    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; ulimit -f "$2" 2>/dev/null; "$3" --compile $7 "$4" > "$5" 2> "$6"' _ "$RUN" "$((M4_ASM_MB * 1024))" "$SCRIP" "$sno" "$W/p.s" "$W/p.cerr" "$ca" 2>/dev/null; rc=$?
     sz="$(wc -c < "$W/p.s" 2>/dev/null || echo 0)"
     if [ "$rc" = 153 ]; then printf 'DEFERRED\tWE chose not to measure: mode-4 asm exceeded the declared %s MB budget (SIGXFSZ at %s bytes); raise SPITBOL_X32_M4_ASM_MB to grade it\n' "$M4_ASM_MB" "$sz"; return 1; fi
     if [ "$rc" = 124 ]; then printf 'DEFERRED\tWE chose not to measure: mode-4 compile hit the declared %ss timeout (asm at %s bytes); raise TIMEOUT to grade it\n' "$TIMEOUT" "$sz"; return 1; fi
@@ -115,7 +115,8 @@ for sno in "$SUITE"/*.spt; do
     oracle_v="$(verdict_lines "$W/o.out")"; oracle_p="$(pass_lines "$W/o.out")"; oracle_f="$(fail_lines "$W/o.out")"
     if [ "$oracle_v" -gt 0 ]; then ARM=self; SELF=$((SELF+1)); SELF_LIST="${SELF_LIST}${base}\n"; else ARM=stream; STREAM=$((STREAM+1)); fi
     # --- mode 3
-    run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" 2>/dev/null; rc3=$?
+    ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
+    run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run $6 "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" "$ca" 2>/dev/null; rc3=$?
     if [ "$rc3" -eq 124 ] || [ "$rc3" -ge 128 ]; then OUT3="$(verdict_of "$rc3")"; N3="rc=$rc3: $(head -1 "$W/m3.err" | cut -c1-90)"
     elif [ "$ARM" = self ]; then
         sp="$(pass_lines "$W/m3.out")"; sf="$(fail_lines "$W/m3.out")"
@@ -127,7 +128,7 @@ for sno in "$SUITE"/*.spt; do
     fi
     if [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
-    m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin")"; then
+    m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin" "$ca")"; then
         run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
         if [ "$rc4" -eq 124 ] || [ "$rc4" -ge 128 ]; then OUT4="$(verdict_of "$rc4")"; N4="rc=$rc4: $(head -1 "$W/m4.err" | cut -c1-90)"
         elif [ "$ARM" = self ]; then

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
+# ⛔ THE INSTRUMENTATION SWITCH (--stlimit, which carries the call/return hooks Icon &trace rides) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26
 # test_icon_ipl_suite.sh -- grades corpus/packages/icon/ipl: the vendored Icon Program Library (every .icn
 # under gprogs/procs/incl/gincl/progs/gprocs -- COUNT IT, never quote a remembered figure:
 #   find corpus/packages/icon/ipl -name '*.icn' | wc -l
@@ -171,6 +171,13 @@ declare -A OTHER_SIG_COUNT
 
 echo "=== Icon Program Library ($TOTAL .icn files, $PKG; run-graded population=$RUN_GRADED) ==="
 
+# ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE, BEFORE THE COMPILE TIER (clause 8 (f), CEO-1281): declared_memory_table validates every
+# cell of the attribute file through the harness's own validators, and each file then looks its compile_args up with one awk, keyed
+# "parentdir/stem" as util_build_package_suite.py writes the entry column. A file with no row compiles with no switch.
+. "$HERE/lib_declared_arena.sh"
+CA_TBL="$TMP/compile_args.tsv"
+declared_memory_table "$PKG/ALL.csv" > "$CA_TBL" || { echo "⛔ REFUSED TO GRADE rc=2: a cell in $PKG/ALL.csv is refused (named above) -- this board does not grade around it" >&2; exit 2; }
+
 for f in "${FILES[@]}"; do
     rel="${f#"$PKG"/}"
     base="$(basename "$f" .icn)"
@@ -180,7 +187,8 @@ for f in "${FILES[@]}"; do
     grep -qE '^procedure[[:space:]]+main[[:space:]]*\(' "$f" && has_main=1
     if [ "$has_main" -eq 1 ]; then HASMAIN_TOTAL=$((HASMAIN_TOTAL+1)); else NOMAIN_TOTAL=$((NOMAIN_TOTAL+1)); fi
 
-    timeout "$TIMEOUT" "$SCRIP" --compile "$f" -o "$out" < /dev/null > "$log" 2>&1
+    _ca="$(declared_compile_args_from_table "$CA_TBL" "$(basename "$(dirname "$f")")/$base")" || exit 2
+    timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$f" -o "$out" < /dev/null > "$log" 2>&1
     rc=$?
 
     if [ "$rc" -eq 124 ]; then
@@ -369,10 +377,11 @@ for std in "${STDFILES[@]}"; do
     # literal to the first element -- measured: with (x, "y z") it yields the two words `-- x` and `y z`,
     # so SCRIP receives "-- x" as a single argument and the program sees one argv entry, not two. It
     # looks right, it runs, and every count downstream would have been quietly off.
+    _ca="$(declared_compile_args_from_table "$CA_TBL" "$IPL_ISO_SUBDIR/$id")" || exit 2
     if [ "${#IPLARGV[@]}" -gt 0 ]; then
-        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run "$icn" -- "${IPLARGV[@]}"
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run $_ca "$icn" -- "${IPLARGV[@]}"
     else
-        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run "$icn"
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run $_ca "$icn"
     fi
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
@@ -386,7 +395,7 @@ for std in "${STDFILES[@]}"; do
     # -- m4 (--compile): emitting .s does not execute the target program, so THAT step is unisolated,
     # same as the compile tier above; only running the linked binary carries the self-mutation hazard.
     s4="$TMP/${base}.m4.s"; bin4="$TMP/${base}.m4.bin"
-    ${_drvpath[@]+"${_drvpath[@]}"} "$SCRIP" --compile "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
+    ${_drvpath[@]+"${_drvpath[@]}"} "$SCRIP" --compile $_ca "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
         if [ "${#IPLARGV[@]}" -gt 0 ]; then
             ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$bin4" "${IPLARGV[@]}"

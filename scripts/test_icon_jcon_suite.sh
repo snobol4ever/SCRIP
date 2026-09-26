@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
+# ⛔ THE INSTRUMENTATION SWITCH (--stlimit, which carries the call/return hooks Icon &trace rides) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26
 # scripts/test_icon_jcon_suite.sh — grades SCRIP m3+m4 against the vendored JCON test suite
 # (corpus/packages/icon/jcon_tests/: 91 .icn, 83 with a .ref oracle, 21 with a .dat companion, plus link1 graded by a .ref we cut from icont/iconx with its .args).
 # Row jcon-tests-vendor-script-run. Self-contained. Run from anywhere with no env vars.
@@ -140,6 +140,11 @@ fi
 OUTDIR="$(dirname "$RT_SO")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+# ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE, HERE IN THE MAIN SHELL (clause 8 (f), CEO-1281): declared_memory_table validates every cell
+# of the attribute file through the harness's own validators, so a refused cell refuses this board before one program is graded;
+# run_one, which runs inside a command substitution, only looks its program's compile_args up with one awk.
+CA_TBL="$WORK/compile_args.tsv"
+declared_memory_table "$PKG_CSV" > "$CA_TBL" || { echo "⛔ REFUSED TO GRADE rc=2: a cell in $PKG_CSV is refused (named above) -- this board does not grade around it" >&2; exit 2; }
 
 # classify one (mode, file) pair. Echoes "KIND" on stdout; KIND in PASS|FAIL|REJECT|CRASH|HANG.
 # stdout of the PROGRAM itself is captured to $2 (a path), never mixed with our own echo.
@@ -226,6 +231,7 @@ run_one() {
       echo "⛔ REFUSED TO GRADE rc=2: $name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
     fi
     [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $name=stack:${_stack_kb}KB"; }
+    local _ca; _ca="$(declared_compile_args_from_table "$CA_TBL" "$name")" || exit 2
     # ⛔ A DRIVER RUN ONLY PUTS ITS OWN DIRECTORY FIRST ON IPATH (coo 2026-09-25, hq_icon's measurements): a driver's ref was cut over
     # the library shipped beside it, while every other program's ref was cut by icont against its INSTALLED IPL ucode, which the
     # directory first on IPATH would shadow with an older shipped namesake (Arizona ilib read red at 6850da706 exactly that way).
@@ -246,7 +252,7 @@ run_one() {
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
-            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run $_ca "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -266,7 +272,7 @@ run_one() {
             # all. Measured across every .ref in the package: io is the ONLY program that lists its directory.
             local s="$WORK/$name.s" o="$WORK/$name.o" bin="$rundir/$name"
             # the shipped library first on the link search for a driver run only, as in the arizona runner (coo 2026-09-25)
-            if ! ${_ipath4[@]+"${_ipath4[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
+            if ! ${_ipath4[@]+"${_ipath4[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 $_ca "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
             elif grep -q 'icon: parse error' "$errf"; then
                 : > "$outfile"; rc=1

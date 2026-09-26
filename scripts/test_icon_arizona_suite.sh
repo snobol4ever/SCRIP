@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
+# ⛔ THE INSTRUMENTATION SWITCH (--stlimit, which carries the call/return hooks Icon &trace rides) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26
 # test_icon_arizona_suite.sh — grade SCRIP m3 (--run) + m4 (--compile+link) against the vendored
 # official Arizona Icon test suite (corpus/packages/icon/arizona_tests, upstream 9.5).
 #
@@ -131,6 +131,10 @@ GATE_NAME=test_icon_arizona_suite gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 # nothing it reads moves; only what it WRITES lands here, and dies with the trap.
 RUNDIR="$(mktemp -d "${TMPDIR:-/tmp}/ariz_run.XXXXXX")" || { echo "⛔ GATE REFUSES: mktemp failed" >&2; exit 2; }
 trap 'rm -rf "$RUNDIR"' EXIT
+# ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE (clause 8 (f), CEO-1281): declared_memory_table validates every cell of the attribute file
+# through the harness's own validators before one program is graded; each program then looks its compile_args up with one awk.
+CA_TBL="$RUNDIR/compile_args.tsv"
+declared_memory_table "$PKG_CSV" > "$CA_TBL" || { echo "⛔ REFUSED TO GRADE rc=2: a cell in $PKG_CSV is refused (named above) -- this board does not grade around it" >&2; exit 2; }
 
 # ── SHIPPED: every .icn under every subdirectory this package ships, computed fresh, never hand-pinned.
 SHIPPED=0
@@ -228,6 +232,8 @@ for std in "$SUITE"/*.ref; do
     echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
   fi
   [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $sub/$id=stack:${_stack_kb}KB"; }
+  # ⭐ AND ITS DECLARED COMPILE SWITCHES, THE SAME KEY (clause 8 (f), CEO-1281): placed after --run and --compile, before the source.
+  _ca="$(declared_compile_args_from_table "$CA_TBL" "$sub/$id")" || exit 2
 
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
   # ⛔ CWD FIDELITY (RULES.md THE INSTRUMENT LAWS): upstream's own Test-icon runs every program with the
@@ -255,7 +261,7 @@ for std in "$SUITE"/*.ref; do
   # ucode (icont cannot see an untranslated .icn beside the program), so the suite first on IPATH linked the older shipped options.icn
   # and turned ilib red in both modes at 6850da706 (hq_icon's bisect, line 169 "a:1 b:1 c:-" for "abc:-").
   _ipath=(); case "$name" in *_driver) _ipath=(env "IPATH=$SUITE${IPATH:+:$IPATH}") ;; esac
-  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run $_ca "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
@@ -290,7 +296,7 @@ for std in "$SUITE"/*.ref; do
   # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
   # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
   if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
-  m4diag=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile "$name.icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
@@ -429,7 +435,8 @@ while IFS=$'\t' read -r _on _oc _orest; do
             _osub="${_on%%/*}"; _ob="$(basename "$_on" .icn)"
             if [ -f "$PKG/$_osub/$_ob.ref" ]; then
                 _odat="$PKG/$_osub/$_ob.dat"; _ostdin="/dev/null"; [ -f "$_odat" ] && _ostdin="$_odat"
-                _oout=$(cd "$PKG/$_osub" && timeout "$TIMEOUT" "$SCRIP" --run "$_ob.icn" < "$_ostdin" 2>&1)
+                _oca="$(declared_compile_args_from_table "$CA_TBL" "$_osub/$_ob")" || exit 2
+                _oout=$(cd "$PKG/$_osub" && timeout "$TIMEOUT" "$SCRIP" --run $_oca "$_ob.icn" < "$_ostdin" 2>&1)
                 OUT_RECHECKED=$((OUT_RECHECKED+1))
                 [ "$_oout" = "$(cat "$PKG/$_osub/$_ob.ref")" ] && OUT_STALE="$OUT_STALE $_on(m3 matches .ref NOW)"
             else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no .ref)"; fi ;;

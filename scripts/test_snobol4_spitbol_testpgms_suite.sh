@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SPITBOL_TESTPGMS_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/spitbol_testpgms}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # test_snobol4_spitbol_testpgms_suite.sh -- SPITBOL's OWN test programs 1-4, graded in both modes against refs
 # cut LIVE from the shared correctness oracle (row snobol4-spitbol-testpgms-vendored-as-a-package-suite-with-a-
 # runner-and-a-score-cell, Lon 2026-09-04 17:57 CDT via ceo: "SPITBOL's own testpgms 1-4 must run").
@@ -142,12 +142,13 @@ for p in $progs; do
     fi
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
-    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
+    ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
+    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
     _p3=0
     if cmp -s "$ora" "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, first diff: $(diff "$ora" "$m3" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
 "; fi
     s4="$W/$p.s"; b4="$W/$p.bin"
-    (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile "$p.spt" > "$s4" 2>/dev/null) </dev/null
+    (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>/dev/null) </dev/null
     m4="$W/$p.m4"; r4=0
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
         (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$b4" < "$W/testpgms.in" > "$m4" 2>/dev/null); r4=$?

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${DOTNET_SUITE:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/dotnet}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program below (clause 8 (f), CEO-1281): this runner exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # test_snobol4_dotnet_suite.sh -- dedicated gate for corpus/packages/snobol4/dotnet (14 programs),
 # minted for row snobol4-gimpel-aisnobol-dotnet-measured-with-dedicated-gates (hq_T 2026-09-03): this
 # suite was previously counted only in prose and folded into scorecard_snobol4.sh's MISC bucket
@@ -80,8 +80,8 @@ has_bom() { [ "$(head -c3 "$1" | xxd -p 2>/dev/null)" = "efbbbf" ]; }
 stdin_of() { local sno="$1" b; b="${sno%.sno}"
     for ext in IN in input; do [ -f "$b.$ext" ] && { echo "$b.$ext"; return; }; done
     echo /dev/null; }
-compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
-    SNO_LIB="$SUITE" "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
+compile_m4() { local sno="$1" out="$2" ca="${3:-}" t; t="$(mktemp -d)"
+    SNO_LIB="$SUITE" "$SCRIP" --compile $ca "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; }
@@ -139,14 +139,15 @@ for sno in "$SUITE"/*.sno; do
         if [ "$rcS" -ge 128 ]; then FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; else FLU="$FLU $name(oracle-died)"; prog_unscr "$name" "unscored: oracle died mid-report"; fi
         continue
     fi
-    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp" 2>/dev/null)"; rc3=$?
+    ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>/dev/null)"; rc3=$?
     if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
     # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder): measured 2026-09-07 (coo) on code/palin/temp -- the
     # oracle reads TERMINAL from /dev/null, sees EOF and exits rc=0 with 0 bytes in 0 s; SCRIP spins to the timeout
     # with 0 bytes, and "0 bytes equals 0 bytes" graded it PASS. The board's P3 keeps this runner's own label; the
     # progress row and the AND line say HANG, which is what happened.
     [ "$rc3" -eq 124 ] && OUT3=HANG
-    rc4=""; if compile_m4 "$sno" "$W/prog.bin"; then
+    rc4=""; if compile_m4 "$sno" "$W/prog.bin" "$ca"; then
         got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>/dev/null)"; rc4=$?
         if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
         [ "$rc4" -eq 124 ] && OUT4=HANG

@@ -286,8 +286,15 @@ PY
 # exits rc=2 naming the cell, and the runner refuses its board; it never grades around a cell it cannot honour. A declaring entry
 # named twice is refused too: the awk below would honour the first, the harness the last.
 
-# declared_memory_table <all_csv> -- one line "entry<TAB>heap_kb<TAB>stack_kb" per entry declaring either (the other cell empty);
-#   nothing when the file or both columns are absent (every entry at the shipped default); rc 2 naming the cell on a refused cell.
+# ⭐ AND THE UNIT'S COMPILE SWITCHES, IN THE SAME READ (clause 8 (f), CEO-1281, landing 3 of 5): a row declaring compile_args gets them as
+# a 4th column, validated by corpus_suite_harness.validate_args_cell() -- CALLED, never copied -- so a runner that puts them on its own
+# scrip command line reads exactly the words the harness applies, and a row declaring none prints the three columns it always did.
+# ⛔ A run_args CELL IS REFUSED HERE: these runners pass argv from their own sidecars, and a declaration no reader honours grades green
+# while it is ignored. The harness honours run_args for the tables it grades; this reader learns them when the argv sidecars fold in.
+
+# declared_memory_table <all_csv> -- one line "entry<TAB>heap_kb<TAB>stack_kb" per entry declaring either (the other cell empty), with
+#   "<TAB>compile_args" after them when the entry declares compile switches; nothing when the file or every column is absent (every
+#   entry at the shipped default); rc 2 naming the cell on a refused cell.
 declared_memory_table() {
   local csv="$1"
   [ -n "$csv" ] && [ -f "$csv" ] || return 0
@@ -305,19 +312,22 @@ for n, r in rows:
     where = "%s:%d" % (csv_path, n)
     kb = h.validate_heap_kb(r.get("heap_kb"), where) if "heap_kb" in cols else None
     st = h.validate_stack_kb(r.get("stack_kb"), where) if "stack_kb" in cols else None
-    if kb is None and st is None:
+    ca = " ".join(h.validate_args_cell(r.get("compile_args"), "compile_args", where) or []) if "compile_args" in cols else ""
+    if "run_args" in cols and h.validate_args_cell(r.get("run_args"), "run_args", where):
+        sys.stderr.write("⛔ REFUSE(2) %s declares run_args, and this reader's runners pass argv from their own sidecars -- a declaration no reader honours is not graded\n" % where); sys.exit(2)
+    if kb is None and st is None and not ca:
         continue
     e = (r.get("entry") or "").strip()
     if not e or "\t" in e:
         sys.stderr.write("⛔ REFUSE(2) %s declares memory for an entry with no usable name (%r)\n" % (where, e)); sys.exit(2)
     if e in seen:
-        if seen[e][1] == (kb, st):
+        if seen[e][1] == (kb, st, ca):
             continue
         sys.stderr.write("⛔ REFUSE(2) %s declares memory for %s differently from line %d -- one entry, one declaration (the same declaration repeated is one declaration)\n" % (where, e, seen[e][0])); sys.exit(2)
-    seen[e] = (n, (kb, st))
-    out.append((e, "" if kb is None else kb, "" if st is None else st))
-for e, kb, st in out:
-    print("%s\t%s\t%s" % (e, kb, st))
+    seen[e] = (n, (kb, st, ca))
+    out.append((e, "" if kb is None else kb, "" if st is None else st, ca))
+for e, kb, st, ca in out:
+    print("%s\t%s\t%s%s" % (e, kb, st, "\t" + ca if ca else ""))
 PY
 }
 
@@ -380,6 +390,16 @@ declared_switches_from_table() {
   rec="$(awk -F'\t' -v e="$entry" '$1 == e { print $2 "|" $3; exit }' "$tbl")"
   [ -n "$rec" ] || _decl_miss "${DECL_CSV_OF_TABLE:-$tbl}" "$entry"
   _declared_switch_words "${rec%%|*}" "${rec#*|}"
+}
+
+# declared_compile_args_from_table <table_file> <entry> -- the entry's declared compile_args, one line of space-separated words for the
+#   runner to place right after --run or --compile, before the source, in both modes (the cto's order, 2026-09-26: scrip --run CA -d -s
+#   FILE -- RA; scrip --compile CA FILE); nothing when it declares none; rc 2 when the table is missing. The words were validated when
+#   the table was written, so they hold no quote, comma or tab and split on spaces as the harness splits them.
+declared_compile_args_from_table() {
+  local tbl="$1" entry="$2"
+  [ -n "$tbl" ] && [ -f "$tbl" ] || { echo "⛔ REFUSE(2) declared_compile_args_from_table: no declared-memory table at '${tbl}' -- build it with declared_memory_begin first" >&2; return 2; }
+  awk -F'\t' -v e="$entry" '$1 == e { print $4; exit }' "$tbl"
 }
 
 # declared_switches_beside <program> -- the program's declared heap and stack as SPITBOL's switches (-d<kb>k -s<kb>k), read from its
