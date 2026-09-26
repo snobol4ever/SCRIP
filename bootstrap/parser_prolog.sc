@@ -28,6 +28,7 @@ $':-'  = $' '  ':-' $' ';  $':'  = $' '  ':'  . _op_name @la_c *DIFFER(SUBSTR(Sr
 $'+'   = $' '  '+'  $' ';  $'-'   = $' ' '-' @la_m *DIFFER(SUBSTR(Src, la_m + 1, 1), '>') *DIFFER(SUBSTR(Src, la_m + 1, 2), '->') $' ';
 $'*'   = $' '  '*' @la_s *DIFFER(SUBSTR(Src, la_s + 1, 2), '->') $' ';  $'/'  = $' ' '/'  $' ';
 $'is'  = $'  ' 'is' $'  ';
+$'as'  = $'  ' 'as' . _op_name $'  ';
 $'-->' = $' ' '-->' $' ';
 $'{'   = $' '  '{'  $' ';  $'}'  = $' ' '}'  $' ';
 Tk_cut = $' ' '!' $' ';
@@ -231,7 +232,8 @@ is_expr   = (   *colon_expr
                      )
             );
 cmp_expr  = (   *is_expr
-                FENCE( $'=@=' *is_expr  reduce("'TT_BINOP'",2)
+                FENCE( $'as'  *is_expr  reduce("'TT_BINOP'",2)
+                     | $'=@=' *is_expr  reduce("'TT_BINOP'",2)
                      | $'\=@=' *is_expr reduce("'TT_BINOP'",2)
                      | $'=:=' *is_expr  reduce("'TT_EQQ'",  2)
                      | $'=\=' *is_expr  reduce("'TT_NE2'",  2)
