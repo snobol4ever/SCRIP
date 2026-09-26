@@ -359,6 +359,7 @@ test_gate_pas_a_for_statement_stays_inside_its_control_variables_type.sh	WIRED	-
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
 test_gate_pas_a_goto_leaves_its_routine_for_an_enclosing_label.sh	WIRED	-	-	-
 test_gate_pas_a_goto_never_enters_a_structured_statement.sh	WIRED	-	-	-
+test_gate_pas_a_literal_actual_is_assignment_compatible_with_its_value_formal.sh	WIRED	-	-	-
 test_gate_pas_a_literal_is_assignment_compatible_with_its_variable.sh	WIRED	-	-	-
 test_gate_pas_a_mod_divisor_is_positive.sh	WIRED	-	-	-
 test_gate_pas_a_monadic_sign_takes_only_a_number.sh	WIRED	-	-	-

@@ -1589,6 +1589,34 @@ static long long pas_decl_part_order(long long prev, long long cur) {
     return cur > prev ? cur : prev;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pas_sig_value_type(const char *sig, int idx) {
+    if (!sig || strlen(sig) < 3) return NULL;
+    const char *p = sig + 2; int at = 0;
+    while (*p && *p != ')') {
+        const char *q = p; int dep = 0;
+        while (*q && !(dep == 0 && (*q == ';' || *q == ')'))) { if (*q == '(') dep++; else if (*q == ')') dep--; q++; }
+        char k = *p; int cnt = (k == 'v' || k == 'r') ? atoi(p + 1) : 1;
+        if (idx < at + cnt) { const char *c = (k == 'v') ? memchr(p, ':', (size_t)(q - p)) : NULL; if (!c) return NULL;
+            char *t = (char *)ct_zalloc(1, (size_t)(q - c)); memcpy(t, c + 1, (size_t)(q - c - 1)); return t; }
+        at += cnt; p = (*q == ';') ? q + 1 : q;
+    }
+    return NULL;
+}
+static void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *args) {
+    for (int i = 0; i + 1 < args->count; i += 2) {
+        const char *t = pas_sig_value_type(cd->sig, i / 2); tree_t *a = args->items[i]; const char *at = NULL;
+        if (!t || !a || (strcmp(t, "integer") && strcmp(t, "real") && strcmp(t, "char") && strcmp(t, "boolean"))) continue;
+        if (a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_chrlit")) at = "char";
+        else if (a->t == TT_FLIT) at = "real";
+        else if (a->t == TT_QLIT && a->v.sval && strlen(a->v.sval) > 1) at = "string";
+        else if (a->t == TT_ILIT && !strcmp(t, "char")) at = "non-char ordinal";
+        if (!at || !strcmp(at, t)) continue;
+        fprintf(stderr, "pascal: ISO 7185 6.6.3.2 violation: the actual-parameter %d of '%s' is a %s value, which is not assignment-compatible with the type %s of its value formal-parameter\n",
+                i / 2 + 1, callee, at, t);
+        g_pas_iso_errors++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pas_pf_cat3(const char *a, const char *b, const char *c) {
     size_t la = a ? strlen(a) : 0, lb = b ? strlen(b) : 0, lc = c ? strlen(c) : 0; char *s = (char *)ct_zalloc(1, la + lb + lc + 1);
     if (la) memcpy(s, a, la); if (lb) memcpy(s + la, b, lb); if (lc) memcpy(s + la + lb, c, lc); return s;
@@ -1661,6 +1689,7 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
 }
 static PNodeList *pas_pf_actuals(const char *callee, PNodeList *args) {
     const PasDef *cd = pas_pf_lookup(callee); const char *fs;
+    if (cd && args) pas_value_actuals_check(callee, cd, args);
     if (!cd || !args || !strpbrk(cd->sig + 1, "PF")) return args;
     PNodeList *out = pnl_new();
     for (int i = 0; i + 1 < args->count; i += 2) { char k = pas_pf_param(cd->sig, i / 2, &fs);
