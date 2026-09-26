@@ -116,7 +116,7 @@ list = (    $'['
             FENCE(
               $']'                    reduce("'TT_MAKELIST'", 0)
             | nPush()
-                  list_body
+                  *list_body
                   FENCE( $'|' *unify_expr
                        | epsilon           reduce("'TT_MAKELIST'", 0)
                        )
@@ -130,13 +130,13 @@ list = (    $'['
 primary = (   Atom . p_name $'('
                   nPush()
                   shift(p_name, 'TT_FNC') nInc()
-                  args $')'
+                  *args $')'
                   reduce("'TT_COMPOUND'", 'nTop()')
               nPop()
           |   $' ' Graphic_atom . g_name $'('
                   nPush()
                   shift(g_name, 'TT_FNC') nInc()
-                  args $')'
+                  *args $')'
                   reduce("'TT_COMPOUND'", 'nTop()')
               nPop()
           |   shift(Graphic_atom2, 'TT_FNC')
@@ -174,66 +174,66 @@ primary = (   Atom . p_name $'('
           |   $'\' $' ' *primary            reduce("'TT_BINOP'", 2)
           |   $' ' '-' *primary        reduce("'TT_UMINUS'", 1)
           );
-pow_expr  = (   primary
+pow_expr  = (   *primary
                 FENCE( $'^'  *pow_expr  reduce("'TT_BINOP'", 2)
-                     | $'**' primary   reduce("'TT_BINOP'", 2)
+                     | $'**' *primary   reduce("'TT_BINOP'", 2)
                      | epsilon
                      )
             );
-mul_expr  = (   pow_expr
+mul_expr  = (   *pow_expr
                 ARBNO(
-                    FENCE( $'mod' pow_expr  reduce("'TT_BINOP'", 2)
-                         | $'rem' pow_expr  reduce("'TT_BINOP'", 2)
-                         | $'div' pow_expr  reduce("'TT_BINOP'", 2)
-                         | $'rdiv' pow_expr reduce("'TT_BINOP'", 2)
-                         | $'>>'  pow_expr  reduce("'TT_BINOP'", 2)
-                         | $'<<'  pow_expr  reduce("'TT_BINOP'", 2)
-                         | $'*'   pow_expr  reduce("'TT_MUL'",   2)
-                         | $'//'  pow_expr  reduce("'TT_IDIV'",  2)
-                         | $'/\'  pow_expr  reduce("'TT_BINOP'", 2)
-                         | $'/'   pow_expr  reduce("'TT_DIV'",   2)
+                    FENCE( $'mod' *pow_expr  reduce("'TT_BINOP'", 2)
+                         | $'rem' *pow_expr  reduce("'TT_BINOP'", 2)
+                         | $'div' *pow_expr  reduce("'TT_BINOP'", 2)
+                         | $'rdiv' *pow_expr reduce("'TT_BINOP'", 2)
+                         | $'>>'  *pow_expr  reduce("'TT_BINOP'", 2)
+                         | $'<<'  *pow_expr  reduce("'TT_BINOP'", 2)
+                         | $'*'   *pow_expr  reduce("'TT_MUL'",   2)
+                         | $'//'  *pow_expr  reduce("'TT_IDIV'",  2)
+                         | $'/\'  *pow_expr  reduce("'TT_BINOP'", 2)
+                         | $'/'   *pow_expr  reduce("'TT_DIV'",   2)
                          )
                 )
             );
-add_expr  = (   mul_expr
+add_expr  = (   *mul_expr
                 ARBNO(
-                    FENCE( $'+' mul_expr  reduce("'TT_ADD'",   2)
-                         | $'-' mul_expr  reduce("'TT_SUB'",   2)
-                         | $'\/' mul_expr reduce("'TT_BINOP'", 2)
-                         | $'xor' mul_expr reduce("'TT_BINOP'", 2)
+                    FENCE( $'+' *mul_expr  reduce("'TT_ADD'",   2)
+                         | $'-' *mul_expr  reduce("'TT_SUB'",   2)
+                         | $'\/' *mul_expr reduce("'TT_BINOP'", 2)
+                         | $'xor' *mul_expr reduce("'TT_BINOP'", 2)
                          )
                 )
             );
-colon_expr = (  add_expr
+colon_expr = (  *add_expr
                 FENCE( $':' *colon_expr  reduce("'TT_BINOP'", 2)
                      | epsilon
                      )
              );
-is_expr   = (   colon_expr
-                FENCE( $'is' colon_expr  reduce("'TT_IS'", 2)
+is_expr   = (   *colon_expr
+                FENCE( $'is' *colon_expr  reduce("'TT_IS'", 2)
                      | epsilon
                      )
             );
-cmp_expr  = (   is_expr
-                FENCE( $'=:=' is_expr  reduce("'TT_EQQ'",  2)
-                     | $'=\=' is_expr  reduce("'TT_NE2'",  2)
-                     | $'\==' is_expr  reduce("'TT_NE3'",  2)
-                     | $'@>=' is_expr  reduce("'TT_BINOP'",2)
-                     | $'@=<' is_expr  reduce("'TT_BINOP'",2)
-                     | $'@>'  is_expr  reduce("'TT_BINOP'",2)
-                     | $'@<'  is_expr  reduce("'TT_BINOP'",2)
-                     | $'>='  is_expr  reduce("'TT_GE'",   2)
-                     | $'=<'  is_expr  reduce("'TT_LE'",   2)
-                     | $'>'   is_expr  reduce("'TT_GT'",   2)
-                     | $'<'   is_expr  reduce("'TT_LT'",   2)
-                     | $'\='  is_expr  reduce("'TT_NE1'",  2)
-                     | $'=='  is_expr  reduce("'TT_ID'",   2)
+cmp_expr  = (   *is_expr
+                FENCE( $'=:=' *is_expr  reduce("'TT_EQQ'",  2)
+                     | $'=\=' *is_expr  reduce("'TT_NE2'",  2)
+                     | $'\==' *is_expr  reduce("'TT_NE3'",  2)
+                     | $'@>=' *is_expr  reduce("'TT_BINOP'",2)
+                     | $'@=<' *is_expr  reduce("'TT_BINOP'",2)
+                     | $'@>'  *is_expr  reduce("'TT_BINOP'",2)
+                     | $'@<'  *is_expr  reduce("'TT_BINOP'",2)
+                     | $'>='  *is_expr  reduce("'TT_GE'",   2)
+                     | $'=<'  *is_expr  reduce("'TT_LE'",   2)
+                     | $'>'   *is_expr  reduce("'TT_GT'",   2)
+                     | $'<'   *is_expr  reduce("'TT_LT'",   2)
+                     | $'\='  *is_expr  reduce("'TT_NE1'",  2)
+                     | $'=='  *is_expr  reduce("'TT_ID'",   2)
                      | epsilon
                      )
             );
-unify_expr = (  cmp_expr
-                FENCE( $'=..' cmp_expr  reduce("'TT_UNIV'",  2)
-                     | $'='   cmp_expr  reduce("'TT_UNIFY'", 2)
+unify_expr = (  *cmp_expr
+                FENCE( $'=..' *cmp_expr  reduce("'TT_UNIV'",  2)
+                     | $'='   *cmp_expr  reduce("'TT_UNIFY'", 2)
                      | epsilon
                      )
              );
@@ -246,26 +246,26 @@ body_goal = (   $'(' *body $')'
             |   $' ' pfx_kw_name . pfx_kw $'  ' *unify_expr
                     reduce("'TT_PFX'", 1)
             |   $' ' '\+' $' ' *body_goal  reduce("'TT_NAF'", 1)
-            |   unify_expr
+            |   *unify_expr
             );
 conj = (    nPush()
-                nInc() body_goal
-                ARBNO( $',' nInc() body_goal )
+                nInc() *body_goal
+                ARBNO( $',' nInc() *body_goal )
                                    reduce("'TT_CONJ'", 'nTop()')
             nPop()
         );
-conj_arrow = ( conj FENCE( $'->' *conj_arrow  reduce("'TT_IFTHEN'", 2)  | epsilon ) );
-disj_tail = ( $';' nInc() conj_arrow FENCE( *disj_tail | epsilon ) );
+conj_arrow = ( *conj FENCE( $'->' *conj_arrow  reduce("'TT_IFTHEN'", 2)  | epsilon ) );
+disj_tail = ( $';' nInc() *conj_arrow FENCE( *disj_tail | epsilon ) );
 disj = (    nPush()
-                nInc() conj_arrow
+                nInc() *conj_arrow
                 FENCE( *disj_tail | epsilon )
                                    reduce("'TT_DISJ'", 'nTop()')
             nPop()
         );
-body = disj;
+body = *disj;
 /* head: reduces to a single TT_COMPOUND node (functor + args as children) */
 head = (    nPush()
-            (   Atom . h_text $'(' args $')'
+            (   Atom . h_text $'(' *args $')'
                     shift(h_text, 'TT_FNC') nInc()
                     reduce("'TT_COMPOUND'", 'nTop()')
             |   Atom . h_text $'(' $')'
@@ -281,45 +281,45 @@ head = (    nPush()
             nPop()
         );
 dcg_goal = (   *list
-           |   $'{' body $'}'       reduce("'TT_DCG_IL'", 1)
+           |   $'{' *body $'}'       reduce("'TT_DCG_IL'", 1)
            |   Tk_cut               reduce("'TT_CUT'", 0)
            |   $'(' *dcg_body $')'
-           |   unify_expr
+           |   *unify_expr
            );
 dcg_conj = (   nPush()
-                   nInc() dcg_goal
-                   ARBNO( $',' nInc() dcg_goal )
+                   nInc() *dcg_goal
+                   ARBNO( $',' nInc() *dcg_goal )
                                       reduce("'TT_CONJ'", 'nTop()')
                nPop()
            );
 dcg_disj = (   nPush()
-                   nInc() dcg_conj
-                   ARBNO( $';' nInc() dcg_conj )
+                   nInc() *dcg_conj
+                   ARBNO( $';' nInc() *dcg_conj )
                                       reduce("'TT_DISJ'", 'nTop()')
                nPop()
            );
-dcg_body = dcg_disj;
-dcg_rule  = (   head $'-->'
-                dcg_body $'.'
+dcg_body = *dcg_disj;
+dcg_rule  = (   *head $'-->'
+                *dcg_body $'.'
                                       reduce("'TT_DCG_RULE'", 2)
             );
 clause    = (   head
-                ( $':-' body         reduce("'TT_CLAUSE'", 2)
+                ( $':-' *body         reduce("'TT_CLAUSE'", 2)
                 | epsilon            reduce("'TT_CLAUSE'", 1)
                 )
                 $'.'
             );
 directive = (   $':-'
-                body $'.'
+                *body $'.'
                                      reduce("'TT_DIRECTIVE'", 1)
             );
-top_form  = (directive | clause | dcg_rule);
+top_form  = (*directive | *clause | *dcg_rule);
 /* ==================================================================================================================== */
 skip_to_dot = ( BREAKX('.') $'.' shift('skip', 'TT_FNC') );
-top_form_safe = ( top_form | skip_to_dot );
+top_form_safe = ( *top_form | *skip_to_dot );
 /* SCT-pivot (2026-05-17): nInc() must fire AFTER top_form_safe commits, not before. */
 Compiland = nPush()
-            POS(0) ARBNO( $' ' FENCE(top_form_safe nInc()) $' ' ) RPOS(0)
+            POS(0) ARBNO( $' ' FENCE(*top_form_safe nInc()) $' ' ) RPOS(0)
             reduce(E_Parse, 'nTop()')
             nPop();
 InitCounter();
