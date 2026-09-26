@@ -64,8 +64,10 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
     extern int rt_g_want_name;
     int _wn_pre = rt_g_want_name;
     if (FNCEX_fn(name)) {
-        DESCR_t _r = rt_call_named_proc(name, args, nargs); if (!IS_FAIL_fn(_r)) return _r; const char *_ent = FUNC_ENTRY_fn(name);
-        if (_ent && strcmp(_ent, name) != 0) { _r = rt_call_named_proc(_ent, args, nargs); if (!IS_FAIL_fn(_r)) return _r; }
+        extern int rt_proc_named_runs(const char *);
+        if (rt_proc_named_runs(name)) return rt_call_named_proc(name, args, nargs);
+        const char *_ent = FUNC_ENTRY_fn(name);
+        if (_ent && strcmp(_ent, name) != 0 && rt_proc_named_runs(_ent)) return rt_call_named_proc(_ent, args, nargs);
     }
     rt_g_want_name = _wn_pre;
     return call_user_function(name, args, nargs);

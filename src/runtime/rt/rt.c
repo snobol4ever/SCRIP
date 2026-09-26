@@ -541,6 +541,12 @@ int rt_proc_is_registered(const char *name)
     return rt_proc_find(name) != (rt_proc_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_named_runs(const char *name)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    return p && (p->fn || p->dyn_scope);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sno_dtx_value(const char *name)
 {
     if (name && *name && !rt_proc_is_registered(name)) return NV_GET_fn(name);
