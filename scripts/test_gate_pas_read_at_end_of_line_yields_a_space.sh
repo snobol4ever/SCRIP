@@ -4,6 +4,9 @@
 # test_gate_pas_read_at_end_of_line_yields_a_space.sh -- row pascal-p4-selfhost-compile-and-report (coo, 2026-09-12).
 # ISO 7185 6.6.6.5: when eoln is true the buffer variable is a space; read(ch) at end of line yields ' ' and moves on. SCRIP handed back the newline itself; P4's scanner classified it illegal on every line. The witness reads 'ab' and 'c' and prints each ord with eoln beside it.
 # Expected lines cut from fpc 3.2.2 -Miso on 2026-09-12. Hermetic: the oracle is never called.
+# ⛔ RE-CUT 2026-09-26 (hq_pascal, SCRIP 33d239c85): the program asked eoln(input) once more after reading the final end-of-line, i.e. at
+# end-of-file, which ISO 7185 6.6.6.5 makes an error (fpc -Miso answers true; SCRIP now stops, as PAT iso7185prt1866 requires). That call
+# was incidental to what this gate tests, so the program asks eoln only while not eof and the lines are re-cut from fpc 3.2.2 -Miso.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT_DIR="${RT_DIR:-$(cd "$(dirname "$0")/../out" && pwd)}"
@@ -15,12 +18,12 @@ cat > "$W/g.pas" <<'PAS'
 program eolc;
 var ch: char; n: integer;
 begin n := 0;
-  while not eof(input) do begin read(input, ch); n := n + 1; write(ord(ch):4); write(eoln(input):6) end;
+  while not eof(input) do begin read(input, ch); n := n + 1; write(ord(ch):4); if not eof(input) then write(eoln(input):6) end;
   writeln; writeln(n)
 end.
 PAS
 cat > "$W/want" <<'REF'
-  97 false  98  true  32 false  99  true  32  true
+  97 false  98  true  32 false  99  true  32
           5
 REF
 cat > "$W/in.txt" <<'INP'
