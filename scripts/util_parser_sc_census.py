@@ -115,7 +115,18 @@ def task(scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout):
     return lang, key, cls, first
 
 
+KNOWN = ("--lang", "--population", "--declared", "--jobs", "--timeout")
+
+
 def main(argv):
+    if "--help" in argv or "-h" in argv:
+        print(__doc__.strip())
+        return 0
+    i = 1
+    while i < len(argv):
+        if argv[i] not in KNOWN or i + 1 >= len(argv):
+            refuse("argument %r is not one this instrument implements, or has no value; the arguments are %s, each followed by its value (--help prints the usage)" % (argv[i], ", ".join(KNOWN)))
+        i += 2
     pop = opt(argv, "--population", "corpus")
     decl_path = opt(argv, "--declared", os.path.join(SCRIP, "bootstrap", "tests", "parser_refusals.tsv"))
     declared = set()
