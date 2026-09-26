@@ -319,6 +319,45 @@ for std in "$SUITE"/*.ref; do
 done
 done
 
+# ⛔⭐ THE PREPROCESS-ONLY CONTRACT (hq_icon, SCRIP 999a62f58: icont's ipp.c ported whole, scrip -E prints what icont -E prints; coo
+# 2026-09-25, the naming hq_icon accepted 21:0x). Upstream's tests/general Makefile grades tpp by preprocessing, never by running it:
+# `icont -E tpp.icn tpp9.icn`, stderr followed by stdout, compared byte for byte, exit 1 by design (50 deliberate errors).
+# PREPROCESS.tsv beside the package names each contract -- program<TAB>argv<TAB>rc, program in the sidecar key form (general/tpp.icn),
+# argv the files after -E relative to the program's directory, rc the oracle's exit -- and STEM.E.ref beside the program holds
+# icont -E's stderr then stdout. EVERY ARGV FILE IS A PROGRAM graded by that one run, under its own name. The fragments it $includes
+# are CONTAINERS (CONTAINERS.tsv, CEO-1272), out of shipped. The preprocessor is the frontend both modes share and -E emits no code,
+# so the one verdict is recorded in m3 and in m4 alike, each progress row saying so. A contract whose ref is missing, whose argv
+# names no shipped file, or whose program also carries a NAME.ref refuses: two vehicles, or none, for one program.
+PRE_TSV="$PKG/PREPROCESS.tsv"
+if [ -f "$PRE_TSV" ]; then
+  while IFS=$'\t' read -r _pp _pargv _prc _prest; do
+    case "$_pp" in ''|'#'*) continue ;; esac
+    [ -n "$_pargv" ] && [ -n "$_prc" ] || { echo "⛔ REFUSED TO GRADE rc=2: $PRE_TSV row '$_pp' wants program<TAB>argv<TAB>rc" >&2; exit 2; }
+    _psub="$(dirname "$_pp")"; _pd="$PKG/$_psub"; _pref="$_pd/$(basename "$_pp" .icn).E.ref"
+    [ -f "$_pref" ] || { echo "⛔ REFUSED TO GRADE rc=2: $_pp names a preprocess contract but $(basename "$_pref") is not beside it -- a contract with no oracle cut" >&2; exit 2; }
+    for _pa in $_pargv; do
+      [ -f "$_pd/$_pa" ] || { echo "⛔ REFUSED TO GRADE rc=2: $_pp's contract argv names $_psub/$_pa, which is not shipped" >&2; exit 2; }
+      [ -f "$_pd/${_pa%.icn}.ref" ] && { echo "⛔ REFUSED TO GRADE rc=2: $_psub/$_pa has its own .ref AND a preprocess contract -- two grading vehicles for one program" >&2; exit 2; }
+    done
+    ( cd "$_pd" && timeout "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$RUNDIR/pp.out" 2> "$RUNDIR/pp.err" ); _pgot=$?
+    if cat "$RUNDIR/pp.err" "$RUNDIR/pp.out" | cmp -s - "$_pref" && [ "$_pgot" = "$_prc" ]; then _pv=PASS
+    elif [ "$_pgot" = 124 ]; then _pv=HANG
+    elif [ "$_pgot" -ge 128 ]; then _pv=CRASH
+    else _pv=FAIL; fi
+    for _pa in $_pargv; do
+      id="$(basename "$_pa" .icn)"; TOTAL=$((TOTAL+1)); GRADED_NAMES="$GRADED_NAMES $_psub/$id"
+      case "$_pv" in
+        PASS)  M3_PASS=$((M3_PASS+1)); M4_PASS=$((M4_PASS+1)) ;;
+        HANG)  M3_HANG=$((M3_HANG+1)); M4_HANG=$((M4_HANG+1)); M3_HANG_NAMES="$M3_HANG_NAMES $id"; M4_HANG_NAMES="$M4_HANG_NAMES $id" ;;
+        CRASH) M3_CRASH=$((M3_CRASH+1)); M4_CRASH=$((M4_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $id"; M4_CRASH_NAMES="$M4_CRASH_NAMES $id" ;;
+        *)     M3_FAIL=$((M3_FAIL+1)); M4_FAIL=$((M4_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $id"; M4_FAIL_NAMES="$M4_FAIL_NAMES $id" ;;
+      esac
+      for _pm in m3 m4; do progress_append package arizona icon "$id" "$_pm" "$_pv" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- one run, the shared frontend, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
+    done
+    echo "PREPROCESS_CONTRACT $_pp argv=\"$_pargv\" want_rc=$_prc got_rc=$_pgot verdict=$_pv graded=$(echo $_pargv | wc -w)"
+  done < "$PRE_TSV"
+fi
+
 # ⛔ CWD FIDELITY'S OWN SIDE EFFECT (found this session): see the PRE-RUN SNAPSHOT note above -- this
 # leaves real litter in a tracked corpus tree on every run, which would also trip the score-writer's own
 # dirty-tree refusal below (CEO-174) forever, not just this once. Removed by NAME against the snapshot

@@ -302,6 +302,26 @@ run_one() {
     if diff -q "$outfile.icon" "$want" >/dev/null 2>&1; then echo "PASS"; else echo "FAIL"; fi
 }
 
+# ⛔⭐ THE PREPROCESS-ONLY CONTRACT (hq_icon, SCRIP 999a62f58: scrip -E prints what icont -E prints; coo 2026-09-25, the naming hq_icon
+# accepted 21:0x). tpp.icn is graded by preprocessing, as upstream grades it: `scrip -E tpp.icn`, stderr then stdout, byte for byte
+# against tpp.E.ref (cut from icont -E under the one-oracle rule; Jcon's own tpp.ref was Jcon's preprocessor text) and the declared
+# exit (1, deliberate errors). PREPROCESS.tsv names each contract: program<TAB>argv<TAB>rc. Every argv file is a program graded by
+# the one run under its own name; the fragments it $includes are CONTAINERS (CONTAINERS.tsv, CEO-1272). Each mode's pass runs the
+# contract itself -- the preprocessor is the frontend both modes share, and -E emits no code.
+PRE_TSV="$CORPUS/PREPROCESS.tsv"; PRE_NAMES=" "
+if [ -f "$PRE_TSV" ]; then
+    while IFS=$'\t' read -r _pp _pargv _prc _prest; do
+        case "$_pp" in ''|'#'*) continue ;; esac
+        [ -n "$_pargv" ] && [ -n "$_prc" ] || { echo "⛔ GATE REFUSES(2): $PRE_TSV row '$_pp' wants program<TAB>argv<TAB>rc" >&2; exit 2; }
+        [ -f "$CORPUS/$(dirname "$_pp")/$(basename "$_pp" .icn).E.ref" ] || { echo "⛔ GATE REFUSES(2): $_pp names a preprocess contract but its .E.ref is not beside it" >&2; exit 2; }
+        for _pa in $_pargv; do
+            [ -f "$CORPUS/$(dirname "$_pp")/$_pa" ] || { echo "⛔ GATE REFUSES(2): $_pp's contract argv names $_pa, which is not shipped" >&2; exit 2; }
+            [ -f "$CORPUS/$(dirname "$_pp")/${_pa%.icn}.ref" ] && { echo "⛔ GATE REFUSES(2): $_pa has its own .ref AND a preprocess contract -- two grading vehicles for one program" >&2; exit 2; }
+            PRE_NAMES="$PRE_NAMES$(basename "$_pa") "
+        done
+    done < "$PRE_TSV"
+fi
+
 run_mode() {
     local mode="$1"
     local pass=0 fail=0 reject=0 crash=0 hang=0
@@ -312,6 +332,7 @@ run_mode() {
         [ -f "$icn" ] || continue
         case "$(basename "$icn")" in ALL.*) continue ;; esac   # our own generated container is not a shipped program -- see the census loop below
         case "$(basename "$icn")" in *_driver.icn) continue ;; esac   # a driver is its library's grading vehicle, graded below under the library's name (CEO-1269)
+        case "$PRE_NAMES" in *" $(basename "$icn") "*) continue ;; esac   # graded by its preprocess contract below, never run as a program
         std="${icn%.icn}.ref"
         [ -f "$std" ] || std="${icn%.icn}.ref"   # `.ref` is a ref WE cut from icont/iconx with `<name>.args` (README.md), for a shipped program upstream ships no .ref for
         # ⛔⭐ A LIBRARY IS GRADED BY ITS DRIVER, UNDER ITS OWN NAME (ceo CEO-1269; coo 2026-09-25): when NAME_driver.icn and its .ref
@@ -342,6 +363,26 @@ run_mode() {
             HANG)   hang=$((hang+1)); hang_names+=("$name") ;;
         esac
     done
+    if [ -f "$PRE_TSV" ]; then
+        local _pp _pargv _prc _prest _pgot _pa
+        while IFS=$'\t' read -r _pp _pargv _prc _prest; do
+            case "$_pp" in ''|'#'*) continue ;; esac
+            ( cd "$CORPUS/$(dirname "$_pp")" && timeout "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
+            if cat "$WORK/pp.err" "$WORK/pp.out" | cmp -s - "$CORPUS/$(dirname "$_pp")/$(basename "$_pp" .icn).E.ref" && [ "$_pgot" = "$_prc" ]; then kind=PASS
+            elif [ "$_pgot" = 124 ]; then kind=HANG; elif [ "$_pgot" -ge 128 ]; then kind=CRASH; else kind=FAIL; fi
+            for _pa in $_pargv; do
+                name="$(basename "$_pa" .icn)"
+                progress_append package jcon icon "$name" "$mode" "$kind" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- the frontend both modes share" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
+                case "$kind" in
+                    PASS)  pass=$((pass+1)) ;;
+                    FAIL)  fail=$((fail+1)); fail_names+=("$name") ;;
+                    CRASH) crash=$((crash+1)); crash_names+=("$name") ;;
+                    HANG)  hang=$((hang+1)); hang_names+=("$name") ;;
+                esac
+            done
+            echo "PREPROCESS_CONTRACT ($mode) $_pp argv=\"$_pargv\" want_rc=$_prc got_rc=$_pgot verdict=$kind"
+        done < "$PRE_TSV"
+    fi
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
     local mode_total=$((pass+fail+reject+crash+hang))
     echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang TOTAL=$mode_total ---"
@@ -394,6 +435,7 @@ case "$(basename "$_icn")" in ALL.*) continue ;; esac
     case "$CONTAINER_NAMES" in *" $(basename "$_icn") "*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     _b="$(basename "$_icn" .icn)"
+    case "$PRE_NAMES" in *" $(basename "$_icn") "*) GRADED=$((GRADED+1)); continue ;; esac   # graded by its preprocess contract (PREPROCESS.tsv)
     if [ ! -f "${_icn%.icn}.ref" ] && ! { [ -f "${_icn%.icn}_driver.icn" ] && [ -f "${_icn%.icn}_driver.ref" ]; }; then GAP_NAMES="$GAP_NAMES $_b(no .ref shipped upstream, no .ref cut by us, no driver)"; continue; fi
     case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.ref is jcon PREPROCESSOR text, not program output)"; continue;; esac
     if is_outside_baseline "$_b"; then GAP_NAMES="$GAP_NAMES $_b(outside the Arizona baseline: $(outside_reason "$_b"))"; OUTSIDE_LIST="$OUTSIDE_LIST $_b"; continue; fi
