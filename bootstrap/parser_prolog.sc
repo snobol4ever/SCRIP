@@ -11,6 +11,7 @@ Atom_first = ANY(&LCASE);
 Atom_rest  = SPAN(digits &UCASE &LCASE '_');
 Atom       = (Atom_first (Atom_rest | epsilon));
 Qatom      = ("'" BREAK("'") . q_body "'");
+Qatom_h    = ("'" BREAK("'") . h_body "'");
 Var_first  = ANY(&UCASE '_');
 Var_rest   = SPAN(digits &UCASE &LCASE '_');
 Var        = (Var_first (Var_rest | epsilon));
@@ -153,6 +154,12 @@ primary = (   Atom . p_name $'('
                   epsilon . *Shift('TT_ILIT', compute_oct(p_radix))
           |   shift(Int,  'TT_ILIT')
           |   shift(Atom, 'TT_FNC')
+          |   Qatom $'('
+                  nPush()
+                  epsilon . *Shift('TT_FNC', unescape_q(q_body)) nInc()
+                  *args $')'
+                  reduce("'TT_COMPOUND'", 'nTop()')
+              nPop()
           |   Qatom
                   epsilon . *Shift('TT_FNC', unescape_q(q_body))
           |   Str
@@ -263,6 +270,12 @@ head = (    nPush()
                     reduce("'TT_COMPOUND'", 'nTop()')
             |   Atom . h_text
                     epsilon . *Shift('TT_FNC', h_text) nInc()
+                    reduce("'TT_COMPOUND'", 'nTop()')
+            |   Qatom_h $'(' *args $')'
+                    epsilon . *Shift('TT_FNC', unescape_q(h_body)) nInc()
+                    reduce("'TT_COMPOUND'", 'nTop()')
+            |   Qatom_h
+                    epsilon . *Shift('TT_FNC', unescape_q(h_body)) nInc()
                     reduce("'TT_COMPOUND'", 'nTop()')
             |   Str
                     epsilon . *Shift('TT_FNC', s_body) nInc()
