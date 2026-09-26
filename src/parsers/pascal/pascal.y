@@ -144,6 +144,7 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
 static int pas_is_charexpr(tree_t *e);
 static int pas_is_charvar(const char *name);
+static int pas_var_is_real(const char *name);
 static int pas_is_singlevar(const char *name);
 static int pas_is_pcharvar(const char *name);
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b);
@@ -530,7 +531,9 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 continue;
             }
             int isc = v && ((v->t == TT_VAR && v->v.sval && pas_is_charvar(v->v.sval)) || pas_is_charexpr(v));
-            if (fstream) { const char *rfn = isc ? "__pas_read_c_f" : "__pas_read_i_f"; pnl_push(stmts, mk_assign(v, mk_fnc1(rfn, pas_tree_clone(fstream)))); }
+            int isr = !isc && v && v->t == TT_VAR && v->v.sval && pas_var_is_real(v->v.sval);
+            if (isr) pnl_push(stmts, mk_assign(v, fstream ? mk_set_bin("__pas_read_i_f", pas_tree_clone(fstream), ilit(1)) : mk_fnc1("__pas_read_i", ilit(1))));
+            else if (fstream) { const char *rfn = isc ? "__pas_read_c_f" : "__pas_read_i_f"; pnl_push(stmts, mk_assign(v, mk_fnc1(rfn, pas_tree_clone(fstream)))); }
             else { const char *rfn = isc ? "__pas_read_c" : "__pas_read_i"; pnl_push(stmts, mk_assign(v, mk_fnc0(rfn))); }
         }
         if (isln) { if (fstream) pnl_push(stmts, mk_fnc1("__pas_readln_f", pas_tree_clone(fstream))); else pnl_push(stmts, mk_fnc0("__pas_readln")); }

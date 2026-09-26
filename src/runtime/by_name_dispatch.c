@@ -825,6 +825,25 @@ static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     return hc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    char b[128]; int n = 0, c = fgetc(f), nd = 0, bad = 0;
+    while (c != EOF && isspace(c)) c = fgetc(f);
+    if (c == EOF) pas_file_err("6.9.1", "end-of-file is true when a number is to be read", fn);
+    if (c == '+' || c == '-') { b[n++] = (char)c; c = fgetc(f); }
+    while (c != EOF && isdigit(c)) { if (n < 120) b[n++] = (char)c; nd++; c = fgetc(f); }
+    bad = !nd;
+    if (real && !bad && c == '.') { int k = 0; if (n < 120) b[n++] = '.'; c = fgetc(f); while (c != EOF && isdigit(c)) { if (n < 120) b[n++] = (char)c; k++; c = fgetc(f); } bad = !k; }
+    if (real && !bad && (c == 'e' || c == 'E')) { int k = 0; if (n < 120) b[n++] = 'e'; c = fgetc(f);
+        if (c == '+' || c == '-') { if (n < 120) b[n++] = (char)c; c = fgetc(f); }
+        while (c != EOF && isdigit(c)) { if (n < 120) b[n++] = (char)c; k++; c = fgetc(f); } bad = !k; }
+    if (c != EOF) ungetc(c, f);
+    if (bad) pas_file_err("6.9.1", real ? "the characters read do not form a signed-number" : "the characters read do not form a signed-integer", fn);
+    b[n] = '\0';
+    if (real) { DESCR_t r; r.v = DT_R; r.r = strtod(b, NULL); return r; }
+    return INTVAL(strtoll(b, NULL, 10));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pas_heap_take(void) {
     if (g_pas_heap_nfree > 0) { long n = g_pas_heap_free[--g_pas_heap_nfree]; if (n < g_pas_heap_cap) g_pas_heap_dead[n] = 0; return n; }
     return ++g_pas_heap_ctr;
@@ -7179,8 +7198,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         *out = (DESCR_t){ .v = DT_S, .s = s, .slen = (uint32_t)L }; return 1;
     }
     L_bidjmp_5121: ;
-    if ((_bid == BID___pas_read_i) && nargs == 0) {
-        long long v = 0; scanf(" %lld", &v); *out = INTVAL(v); return 1;
+    if ((_bid == BID___pas_read_i) && (nargs == 0 || nargs == 1)) {
+        *out = pas_read_number(stdin, nargs == 1, fn); return 1;
     }
     L_bidjmp_5124: ;
     if ((_bid == BID___pas_read_c) && nargs == 0) {
@@ -7202,9 +7221,13 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, stdin); *out = INTVAL(1); return 1; }
         ungetc(c, stdin); *out = INTVAL(0); return 1;
     }
+    if ((_bid == BID___pas_read_i_f) && nargs == 2) {
+        extern FILE *fh_get(int); FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL; if (!f) f = stdin;
+        *out = pas_read_number(f, 1, fn); return 1;
+    }
     if (((_bid == BID___pas_read_i_f) || (_bid == BID___pas_read_c_f) || (_bid == BID___pas_readln_f) || (_bid == BID___pas_eof_f) || (_bid == BID___pas_eoln_f) || (_bid == BID___pas_getbufch_f)) && nargs == 1) {
         extern FILE *fh_get(int); FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL; if (!f && IS_STR_fn(args[0]) && args[0].slen && VARVAL_fn(args[0]) && *VARVAL_fn(args[0])) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(103, "file not open for reading (reset it first)"); } if (!f) f = stdin;
-        if ((_bid == BID___pas_read_i_f)) { long long v = 0; if (fscanf(f, " %lld", &v) != 1) v = 0; *out = INTVAL(v); return 1; }
+        if ((_bid == BID___pas_read_i_f)) { *out = pas_read_number(f, 0, fn); return 1; }
         if ((_bid == BID___pas_read_c_f)) { int c = fgetc(f); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
         if ((_bid == BID___pas_readln_f)) { int c; while ((c = fgetc(f)) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1; }
         if ((_bid == BID___pas_eof_f)) { int c = fgetc(f); if (c == EOF) { *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }

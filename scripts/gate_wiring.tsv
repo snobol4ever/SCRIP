@@ -362,6 +362,7 @@ test_gate_pas_a_monadic_sign_takes_only_a_number.sh	WIRED	-	-	-
 test_gate_pas_a_named_array_of_records_keeps_its_fields.sh	WIRED	-	-	-
 test_gate_pas_a_nil_or_undefined_pointer_is_never_dereferenced.sh	WIRED	-	-	-
 test_gate_pas_a_number_never_touches_a_following_word.sh	WIRED	-	-	-
+test_gate_pas_a_number_read_from_a_textfile_is_an_iso_signed_number.sh	WIRED	-	-	-
 test_gate_pas_a_numeric_literal_fits_what_scrip_represents.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
 test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
