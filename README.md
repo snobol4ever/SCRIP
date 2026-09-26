@@ -223,31 +223,31 @@ box, in the same minute.
 
 *Measured 2026-09-26 08:46 CDT on SCRIP `81aa23aff` / corpus `05f26cee1`, **RT_OPT=-O0** (Lon 2026-09-26, in-chat to the ceo: *"Do use -O0 for the performance build and comparison as we update SCRIP's README with benchmark timing measurements."*), load 1.1 on 16 cores with the fleet quiet, **500 ms of repetitions per point**, five iterations (`BENCH_BUD_MS=500 BENCH_ITER_N=5`, one warm-up repetition first; `BENCH_ORACLE_ARM=1 bash scripts/test_snobol4_bench_suite.sh` on a fixture copy), oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the monitor-hooked correctness fork). **Both engines at SPITBOL's own defaults** (`-d128m -i1m -s4m`: SCRIP's shipped defaults since CEO-1261), SCRIP with every diagnostic off (`SCRIP_DIAG=0`, CEO-1262). 23 of 23 kernels printed their ref on every angle in all three engines. Two harness readings were taken this sitting, 08:35 and 08:46, and they agree kernel for kernel within the SPITBOL arm's own spread (its string_concat_twin read 200 then 245 µs; SCRIP's var_access m4 read 21.0 µs on the first run, a disturbed point, and 14.5 on the second); the second is the grid. The per-repetition figure is the fixed-time twin's (microseconds per repetition of the kernel's own function); the x-factor is SPITBOL time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as fast). The last two columns are the mode-3 and mode-4 x-factors of the grid this one replaces (`be0e10b9a`, 2026-09-25 14:4x).*
 
-| kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 | `be0e10b9a` m3 | `be0e10b9a` m4 |
-|---|---:|---:|---:|:---:|:---:|:---:|:---:|
-| arith_loop | 24.7 | 6.78 | 6.75 | 3.65x | 3.67x | 3.56x | 3.76x |
-| arith_loop_twin | 7326.5 | 2129.2 | 2163.8 | 3.44x | 3.39x | 3.39x | 3.38x |
-| array_sum | 600.9 | 252.1 | 260.6 | 2.38x | 2.31x | 2.29x | 2.26x |
-| eval_fixed | 140.2 | 206.4 | 208.4 | 0.68x | 0.67x | 0.69x | 0.72x |
-| fib_recur | 3775.1 | 2228.7 | 2415.1 | 1.69x | 1.56x | 1.83x | 1.65x |
-| fibonacci | 213.8 | 125.7 | 139.3 | 1.70x | 1.53x | 1.76x | 1.67x |
-| func_call | 33.3 | 16.6 | 17.8 | 2.00x | 1.87x | 2.34x | 2.26x |
-| ident_call1 | 30.8 | 11.7 | 11.0 | 2.63x | 2.81x | 2.83x | 2.91x |
-| ident_call2 | 32.4 | 10.2 | 9.42 | 3.18x | 3.44x | 2.94x | 3.25x |
-| indirect_dispatch | 26.3 | 48.7 | 49.4 | 0.54x | 0.53x | 0.60x | 0.58x |
-| mixed_workload | 30.9 | 37.9 | 39.4 | 0.82x | 0.78x | 0.78x | 0.82x |
-| name_indirection | 995.6 | 1272.8 | 1359.1 | 0.78x | 0.73x | 0.72x | 0.69x |
-| op_dispatch | 50.5 | 15.7 | 13.9 | 3.22x | 3.64x | 3.32x | 3.50x |
-| pattern_bt | 221.0 | 166.4 | 167.9 | 1.33x | 1.32x | 1.13x | 1.31x |
-| roman | 156.4 | 178.6 | 175.0 | 0.88x | 0.89x | 0.83x | 0.91x |
-| string_concat | 34.2 | 38.7 | 38.3 | 0.89x | 0.89x | 1.15x | 1.10x |
-| string_concat_twin | 244.6 | 155.1 | 155.6 | 1.58x | 1.57x | 1.29x | 1.20x |
-| string_manip | 56.1 | 49.4 | 50.8 | 1.13x | 1.10x | 1.03x | 1.04x |
-| string_pattern | 65.2 | 76.5 | 79.7 | 0.85x | 0.82x | 0.88x | 0.88x |
-| table_access | 752.1 | 575.0 | 590.2 | 1.31x | 1.27x | 1.31x | 1.37x |
-| table_variety | 580.1 | 575.6 | 565.2 | 1.01x | 1.03x | 1.07x | 1.08x |
-| test_icon | 1.02 | 0.284 | 0.259 | 3.60x | 3.95x | 3.67x | 4.08x |
-| var_access | 63.3 | 16.5 | 14.5 | 3.84x | 4.36x | 3.50x | 3.79x |
+| kernel | SPITBOL µs/rep | m3 µs/rep | m4 µs/rep | m3 | m4 | `be0e10b9a` m3 | `be0e10b9a` m4 | CSNOBOL4 µs/rep | CSNOBOL4 / m4 |
+|---|---:|---:|---:|:---:|:---:|:---:|:---:|---:|:---:|
+| arith_loop | 24.7 | 6.78 | 6.75 | 3.65x | 3.67x | 3.56x | 3.76x | 143.8 | 21.30x |
+| arith_loop_twin | 7326.5 | 2129.2 | 2163.8 | 3.44x | 3.39x | 3.39x | 3.38x | 37162.7 | 17.17x |
+| array_sum | 600.9 | 252.1 | 260.6 | 2.38x | 2.31x | 2.29x | 2.26x | 3501.3 | 13.44x |
+| eval_fixed | 140.2 | 206.4 | 208.4 | 0.68x | 0.67x | 0.69x | 0.72x | 711.2 | 3.41x |
+| fib_recur | 3775.1 | 2228.7 | 2415.1 | 1.69x | 1.56x | 1.83x | 1.65x | 26326.8 | 10.90x |
+| fibonacci | 213.8 | 125.7 | 139.3 | 1.70x | 1.53x | 1.76x | 1.67x | 1354.4 | 9.72x |
+| func_call | 33.3 | 16.6 | 17.8 | 2.00x | 1.87x | 2.34x | 2.26x | 208.5 | 11.72x |
+| ident_call1 | 30.8 | 11.7 | 11.0 | 2.63x | 2.81x | 2.83x | 2.91x | 206.6 | 18.78x |
+| ident_call2 | 32.4 | 10.2 | 9.42 | 3.18x | 3.44x | 2.94x | 3.25x | 169.9 | 18.04x |
+| indirect_dispatch | 26.3 | 48.7 | 49.4 | 0.54x | 0.53x | 0.60x | 0.58x | 148.6 | 3.01x |
+| mixed_workload | 30.9 | 37.9 | 39.4 | 0.82x | 0.78x | 0.78x | 0.82x | 160.2 | 4.07x |
+| name_indirection | 995.6 | 1272.8 | 1359.1 | 0.78x | 0.73x | 0.72x | 0.69x | 3486.4 | 2.57x |
+| op_dispatch | 50.5 | 15.7 | 13.9 | 3.22x | 3.64x | 3.32x | 3.50x | 329.8 | 23.73x |
+| pattern_bt | 221.0 | 166.4 | 167.9 | 1.33x | 1.32x | 1.13x | 1.31x | 947.2 | 5.64x |
+| roman | 156.4 | 178.6 | 175.0 | 0.88x | 0.89x | 0.83x | 0.91x | 2825.7 | 16.15x |
+| string_concat | 34.2 | 38.7 | 38.3 | 0.89x | 0.89x | 1.15x | 1.10x | 218.6 | 5.71x |
+| string_concat_twin | 244.6 | 155.1 | 155.6 | 1.58x | 1.57x | 1.29x | 1.20x | 994.3 | 6.39x |
+| string_manip | 56.1 | 49.4 | 50.8 | 1.13x | 1.10x | 1.03x | 1.04x | 267.6 | 5.27x |
+| string_pattern | 65.2 | 76.5 | 79.7 | 0.85x | 0.82x | 0.88x | 0.88x | 468.6 | 5.88x |
+| table_access | 752.1 | 575.0 | 590.2 | 1.31x | 1.27x | 1.31x | 1.37x | 5722.6 | 9.70x |
+| table_variety | 580.1 | 575.6 | 565.2 | 1.01x | 1.03x | 1.07x | 1.08x | 2163.4 | 3.83x |
+| test_icon | 1.02 | 0.284 | 0.259 | 3.60x | 3.95x | 3.67x | 4.08x | 1.94 | 7.49x |
+| var_access | 63.3 | 16.5 | 14.5 | 3.84x | 4.36x | 3.50x | 3.79x | 321.0 | 22.14x |
 
 Geometric mean over the 23 kernels: **1.57x** in mode 3, **1.57x** in mode 4; SCRIP is ahead of SPITBOL on 16 of 23 kernels in mode 3 and 16 in mode 4 (2026-09-25 14:4x on be0e10b9a: 1.57x / 1.59x, 17 of 23; 13:2x on 3a936a797: 1.55x / 1.57x, 16 of 23; 09:2x on 80ee6bb5c: 1.16x / 1.26x; 03:2x on 82b4a61a8: 1.13x / 1.23x; 02:5x on bf9613327: 1.14x / 1.23x; 02:2x on 40a7bac3c: 1.12x / 1.21x; 00:4x on 6134f316c: 1.04x / 1.14x; 2026-09-24 22:04 on 74729b18b: 0.94x / 1.00x; 20:16 that day, on 73295fba6: 0.78x / 0.84x; 14:58 on 239521c25: 0.19x; the 09-03 tree `380cc4162`: 1.25x / 1.33x). The tree has not moved in speed since the 09-25 grid: every kernel's move is within the run-to-run spread of the two readings taken this sitting
 (the SPITBOL arm's string_concat twin read 34.3 µs where it had read 47.4, which is the whole of that cell's drop; var_access m4 read 21.0 µs
@@ -277,19 +277,21 @@ faults since the huge-page stack landing (treebank 2,115 against SPITBOL's 15,66
 instruction multiples sit at 0.41–0.59x. SPITBOL's own hot spots, read with `perf record` on `sbl -bf`: porter spends 20% in `pstr1` and 7% in
 `sbstr` (its pattern-string and substring primitives), treebank is flat over `bffc3`, `arith`, `o_fns`, `ocnc1` and `sbstr` at 3–5% each.
 
+**Against CSNOBOL4 (Lon 2026-09-26, in-chat to the ceo, verbatim: *"My theory for SNOBOL4 is that we should be 10x faster than an interpreter, CSNOBOL4, and 2-3x faster than a threaded-code interpreter, SPITBOL, since SCRIP is a TRUE COMPILER."*).** The CSNOBOL4 column is Phil Budne's CSNOBOL4B 2.3.3 (`/home/resources/csnobol4/snobol4 -b -f`, the reference engine, never a grader) on the same generated twins and the same demo inputs, measured the same minute. Its `TIME()` is milliseconds, so the fixed-time twin cannot run on it: its per-repetition figure is the process-wrapper CPU-time SLOPE between an N- and a 3N-repetition iteration twin (startup and compile cancel), and SPITBOL measured by the same slope method reads within 0.81–1.22 of its fixed-time column, which is the cross-proof of the method. The multiple is CSNOBOL4 time / SCRIP mode-4 time: geometric mean **8.62x** over the 23 kernels, SCRIP ahead on 23 of 23; the demos claws5 refuses, Error 5 (undefined function or operation) at line 13; treebank refuses, Error 5 (undefined function or operation) at line 92; json refuses, Error 5 (undefined function or operation) at line 223; porter runs, output differs from SPITBOL's; calculator-1 refuses, Error 5 (undefined function or operation) at line 32; calculator-2 refuses, Error 5 (undefined function or operation) at line 62. Against the theory: where the compiler resolves the operation the tight-loop kernels read the order of 10x CSNOBOL4 and 3–4x SPITBOL, and where SCRIP trails SPITBOL (the runtime's C reached per operation, below) it trails the theory by the same mechanism, since CSNOBOL4 and SPITBOL both run those primitives in code written once by hand.
+
 **The workhorse demos on their large inputs, whole program, best of 5, tree `81aa23aff`, 2026-09-26 08:37 CDT, load 0.5–0.7,
 `-d512m -i64m -s256m` given to all three engines (`sbl -bf`, `scrip --run`, and the mode-4 binary; RULES.md hard-cap rule clause 8(e)), SCRIP with
 `SCRIP_DIAG=0`, outputs byte-identical on all three. The m3 column is the whole program including SCRIP's in-process compile, as SPITBOL's
 column includes SPITBOL's; m4 is the prebuilt binary:**
 
-| demo | input | SPITBOL ms | m3 ms | m4 ms | m3 | m4 |
-|---|---:|---:|---:|---:|:---:|:---:|
-| claws5 (CLAWS5inTASA.dat ×16) | 1,043 KB | 68 | 68 | 49 | 0.99x | 1.38x |
-| treebank (treebank.input ×1024) | 327 KB | 108 | 192 | 168 | 0.56x | 0.65x |
-| json (citm_catalog.json) | 1,686 KB | 33 | 72 | 42 | 0.46x | 0.79x |
-| porter (porter.input ×4) | 742 KB | 258 | 435 | 285 | 0.59x | 0.91x |
-| calculator-1 (calculator.input ×4) | 127 KB | 32 | 84 | 34 | 0.38x | 0.94x |
-| calculator-2 (calculator.input ×4) | 127 KB | 35 | 82 | 36 | 0.42x | 0.97x |
+| demo | input | SPITBOL ms | m3 ms | m4 ms | m3 | m4 | CSNOBOL4 ms | CSNOBOL4 / m4 |
+|---|---:|---:|---:|---:|:---:|:---:|---:|:---:|
+| claws5 (CLAWS5inTASA.dat ×16) | 1,043 KB | 68 | 68 | 49 | 0.99x | 1.38x | refuses, Error 5 (undefined function or operation) at line 13 | — |
+| treebank (treebank.input ×1024) | 327 KB | 108 | 192 | 168 | 0.56x | 0.65x | refuses, Error 5 (undefined function or operation) at line 92 | — |
+| json (citm_catalog.json) | 1,686 KB | 33 | 72 | 42 | 0.46x | 0.79x | refuses, Error 5 (undefined function or operation) at line 223 | — |
+| porter (porter.input ×4) | 742 KB | 258 | 435 | 285 | 0.59x | 0.91x | runs, output differs from SPITBOL's | — |
+| calculator-1 (calculator.input ×4) | 127 KB | 32 | 84 | 34 | 0.38x | 0.94x | refuses, Error 5 (undefined function or operation) at line 32 | — |
+| calculator-2 (calculator.input ×4) | 127 KB | 35 | 82 | 36 | 0.42x | 0.97x | refuses, Error 5 (undefined function or operation) at line 62 | — |
 
 On `be0e10b9a` at 14:4x on 2026-09-25 the same six read (mode 4) 1.41x, 0.71x, 0.83x, 0.79x, 0.88x. and 0.91x. On `3a936a797` at 13:2x the same six read 1.06x, 0.66x, 0.81x, 0.82x, 0.47x and 0.56x. The landing between, `be0e10b9a` (CEO-1265), runs
 a compiled program on a stack the runtime maps for it, 2 MB aligned and huge-page advised, instead of the process stack, which grows a
