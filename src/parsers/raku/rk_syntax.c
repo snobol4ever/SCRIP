@@ -19,7 +19,7 @@ typedef struct { int pos; int len; int depth; } RkMyst;
 typedef struct { char **v; int n; int c; } RkStrs;
 typedef struct {
     const char *kind; char *name; RkStrs attrs; RkStrs roles; RkMyst *uses; int nuses; int cuses; int unknown;
-    RkStrs meths; RkStrs mnames; RkStrs multis; RkStrs stubs; int has_parent; int decl_pos;
+    RkStrs meths; RkStrs mnames; RkStrs multis; RkStrs stubs; RkStrs explicit; RkStrs ours; int has_parent; int decl_pos;
 } RkPkg;
 typedef struct RkLang {
     int regex; int cc; int words; int ww;
@@ -3480,11 +3480,25 @@ static int r_onlystar(RkP *p, int pos) {
 static void record_method(RkP *p, int name_from, int name_to, int sig_from, int sig_to, int body) {
     RkPkg *k = &p->pkgs[p->npkgs - 1];
     int nf = name_from > 0 && (p->s[name_from - 1] == '!' || p->s[name_from - 1] == '^') ? name_from - 1 : name_from;
-    int nl = name_part_len(p, name_from, name_to) + (name_from - nf);
+    int nl = (name_to - name_from) + (name_from - nf);
     int b = ch(p, body) == '{' ? ws(p, body + 1) : -1;
     int stub = b >= 0 && (at_lit(p, b, "...") || at_lit(p, b, "!!!") || at_lit(p, b, "???")) && ch(p, ws(p, b + 3)) == '}';
+    if (p->scope == 2) { if (strs_has(&k->ours, p->s + nf, nl)) panic_at(p, name_from, "Redeclaration of method '%.*s'.", nl, p->s + nf); strs_add(&k->ours, p->s + nf, nl); }
+    if (stub && p->multiness != 1) {
+        if (strs_has(&k->explicit, p->s + nf, nl) && k->name)
+            panic_at(p, name_from, "Package '%s' already has a method '%.*s' (did you mean to declare a multi method?)", k->name, nl, p->s + nf);
+        strs_add(&k->explicit, p->s + nf, nl);
+    }
     if (stub) { strs_add(&k->stubs, p->s + nf, nl); return; }
-    if (p->multiness != 1) { strs_add(&k->meths, p->s + nf, nl); return; }
+    if (p->multiness != 1 && p->multiness != 2) {
+        if (strs_has(&k->explicit, p->s + nf, nl) && k->name)
+            panic_at(p, name_from, "Package '%s' already has a method '%.*s' (did you mean to declare a multi method?)", k->name, nl, p->s + nf);
+        strs_add(&k->explicit, p->s + nf, nl);
+        strs_add(&k->meths, p->s + nf, nl); return;
+    }
+    if (p->multiness == 2) { strs_add(&k->mnames, p->s + nf, nl); return; }
+    if (strs_has(&k->explicit, p->s + nf, nl))
+        panic_at(p, name_from, "Cannot have a multi candidate for '%.*s' when an only method is also in the package '%s'", nl, p->s + nf, k->name ? k->name : "<anon>");
     strs_add(&k->mnames, p->s + nf, nl);
     char buf[512]; int m = 0;
     for (int i = nf; i < nf + nl && m < 250; i++) buf[m++] = p->s[i];
@@ -3635,6 +3649,7 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     if (at_lit(p, q, "::(")) p->myst_off = 1;
     int n = r_longname(p, q);
     int pkg_from = q, pkg_len = n >= 0 ? name_part_len(p, q, n) : 0;
+    if (p->scope == 8 && pkg_len && user_name_index(p, p->s + q, pkg_len) >= 0) panic_at(p, n, "Redeclaration of symbol '%.*s'.", pkg_len, p->s + q);
     char *saved_pkg = p->pkg;
     if (n >= 0) {
         int nl = name_part_len(p, q, n);
@@ -3785,6 +3800,8 @@ static int r_scoped(RkP *p, int pos, int scope) {
     {
         int t = q; int nt = 0;
         for (;;) { int tn = r_typename(p, t); if (tn < 0) break; t = ws(p, tn); nt++; }
+        if (nt && scope == 1 && (ch(p, t) == '$' || ch(p, t) == '@' || ch(p, t) == '%' || ch(p, t) == '&'))
+            panic_at(p, t, "Cannot put a type constraint on an 'our'-scoped variable");
         if (nt) {
             e = r_multi_declarator(p, t);
             if (e < 0) e = r_declarator(p, t);
