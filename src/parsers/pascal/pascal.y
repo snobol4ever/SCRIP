@@ -145,6 +145,7 @@ static tree_t *mk_chr_wrap(tree_t *e);
 static int pas_is_charexpr(tree_t *e);
 static int pas_is_charvar(const char *name);
 static int pas_var_is_real(const char *name);
+static int pas_is_setvar(const char *name);
 static int pas_is_singlevar(const char *name);
 static int pas_is_pcharvar(const char *name);
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b);
@@ -276,7 +277,7 @@ static void pas_caparm_add(const char *name, unsigned long long m, const long lo
 static int pas_is_rel(tree_t *e);
 static int pas_is_proc(const char *name);
 static tree_t *pas_addr_of_proc(tree_t *e);
-static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi);
+static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const char *clause);
 static int pas_proc_param_is_real(const char *name, int idx);
 static int pas_proc_param_is_string(const char *name, int idx);
 static tree_t *pas_bool(tree_t *e);
@@ -508,7 +509,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "readstr") && args && args->count >= 4) {
         tree_t *sv = args->items[0]; tree_t *v = args->items[2];
         tree_t *rhs = mk_fnc1("__pas_str_to_int", sv);
-        if (g_pas_range_check_on && v && v->t == TT_VAR && v->v.sval) { long long _lo, _hi; if (pas_subvar_get(v->v.sval, &_lo, &_hi)) rhs = pas_range_wrap(rhs, _lo, _hi); }
+        if (g_pas_range_check_on && v && v->t == TT_VAR && v->v.sval) { long long _lo, _hi; if (pas_subvar_get(v->v.sval, &_lo, &_hi)) rhs = pas_range_wrap(rhs, _lo, _hi, NULL); }
         return mk_assign(v, rhs);
     }
     if (name && !strcmp(name, "readln") && (!args || args->count == 0)) return mk_fnc0("__pas_readln");
@@ -532,9 +533,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             }
             int isc = v && ((v->t == TT_VAR && v->v.sval && pas_is_charvar(v->v.sval)) || pas_is_charexpr(v));
             int isr = !isc && v && v->t == TT_VAR && v->v.sval && pas_var_is_real(v->v.sval);
-            if (isr) pnl_push(stmts, mk_assign(v, fstream ? mk_set_bin("__pas_read_i_f", pas_tree_clone(fstream), ilit(1)) : mk_fnc1("__pas_read_i", ilit(1))));
-            else if (fstream) { const char *rfn = isc ? "__pas_read_c_f" : "__pas_read_i_f"; pnl_push(stmts, mk_assign(v, mk_fnc1(rfn, pas_tree_clone(fstream)))); }
-            else { const char *rfn = isc ? "__pas_read_c" : "__pas_read_i"; pnl_push(stmts, mk_assign(v, mk_fnc0(rfn))); }
+            tree_t *rv = isr ? (fstream ? mk_set_bin("__pas_read_i_f", pas_tree_clone(fstream), ilit(1)) : mk_fnc1("__pas_read_i", ilit(1)))
+                             : fstream ? mk_fnc1(isc ? "__pas_read_c_f" : "__pas_read_i_f", pas_tree_clone(fstream)) : mk_fnc0(isc ? "__pas_read_c" : "__pas_read_i");
+            { long long _lo, _hi; if (!isr && g_pas_range_check_on && v && v->t == TT_VAR && v->v.sval && !pas_is_setvar(v->v.sval) && pas_subvar_get(v->v.sval, &_lo, &_hi)) rv = pas_range_wrap(rv, _lo, _hi, "6.9.1"); }
+            pnl_push(stmts, mk_assign(v, rv));
         }
         if (isln) { if (fstream) pnl_push(stmts, mk_fnc1("__pas_readln_f", pas_tree_clone(fstream))); else pnl_push(stmts, mk_fnc0("__pas_readln")); }
         return seq_of(stmts);
@@ -688,10 +690,13 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
 static struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; int nsp; int sp[16]; } g_pas_funcs[256]; static int g_pas_nfunc;
 static void pas_func_add(const char *name) { if (g_pas_nfunc < 256 && name) { g_pas_funcs[g_pas_nfunc].name = ct_strdup(name); g_pas_funcs[g_pas_nfunc].nvp = 0; g_pas_funcs[g_pas_nfunc].nrp = 0; g_pas_funcs[g_pas_nfunc].nsp = 0; g_pas_nfunc++; } }
 static int pas_is_func(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nfunc; i++) if (g_pas_funcs[i].name && !strcmp(g_pas_funcs[i].name, name)) return 1; return 0; }
-static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi) {
+static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const char *clause) {
     tree_t *e = ast_node_new(TT_FNC);
     ast_push(e, leaf_s(TT_VAR, "__pas_range_check"));
     ast_push(e, val); ast_push(e, ilit(lo)); ast_push(e, ilit(hi));
+    int isset = clause && !strcmp(clause, "set"); const char *cl = isset ? "6.8.2.2" : clause;
+    if (g_pas_range_check_on == 2 && cl) ast_push(e, leaf_s(TT_QLIT, cl)); else if (isset) ast_push(e, leaf_s(TT_QLIT, ""));
+    if (isset) ast_push(e, leaf_s(TT_QLIT, "set"));
     return e;
 }
 static long long pas_hash_stable(const char *nm) {
@@ -1976,7 +1981,7 @@ assignment:
               tree_t *_pk = ast_node_new(TT_FNC); ast_push(_pk, leaf_s(TT_VAR, "__pas_ca_pack")); ast_push(_pk, _rhs); ast_push(_pk, ilit(_flo));
               $$ = pas_trace_assigned(_tl, mk_assign($1, _pk));
           } else { tree_t *_rhs0 = pas_bool($3);
-              if (g_pas_range_check_on && $1 && $1->t == TT_VAR && $1->v.sval) { long long _rlo, _rhi; if (pas_subvar_get($1->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi); }
+              if (g_pas_range_check_on && $1 && $1->t == TT_VAR && $1->v.sval) { long long _rlo, _rhi; if (pas_subvar_get($1->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi, pas_is_setvar($1->v.sval) ? "set" : "6.8.2.2"); }
               $$ = pas_trace_assigned(_tl, mk_assign($1, _rhs0)); } }
     ;
 selector:

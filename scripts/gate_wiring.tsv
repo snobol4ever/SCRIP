@@ -370,6 +370,7 @@ test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tag
 test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
 test_gate_pas_a_set_member_is_of_an_ordinal_type.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_bound_or_case_constant_is_never_real.sh	WIRED	-	-	-
+test_gate_pas_a_subrange_variable_is_given_only_values_of_its_subrange.sh	WIRED	-	-	-
 test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-
 test_gate_pas_a_type_definition_never_applies_its_own_identifier.sh	WIRED	-	-	-
 test_gate_pas_a_variable_is_defined_once_per_variable_declaration_part.sh	WIRED	-	-	-

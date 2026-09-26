@@ -1056,7 +1056,7 @@ static char pascal_modebuf[64];
 static int  pascal_modepos;
 int g_pas_min_enum_size = 4;
 int g_pas_pack_set_size = 0;
-int g_pas_range_check_on = 0;
+int g_pas_range_check_on = 2;
 int g_pas_align_mac68k = 0;
 static char pascal_alignbuf[32];
 static int  pascal_alignpos;

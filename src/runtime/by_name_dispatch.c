@@ -4097,10 +4097,19 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             pas_file_err(nargs == 5 ? VARVAL_fn(args[4]) : "6.6.6.4", w, NULL); }
         *out = args[0]; return 1; }
     if (!strcmp(fn, "__pas_rterr") && nargs == 2) { pas_file_err(VARVAL_fn(args[0]), VARVAL_fn(args[1]), NULL); *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__pas_range_check") && nargs == 3) {
+    if (!strcmp(fn, "__pas_range_check") && nargs == 5) {
+        long long lo = IS_INT_fn(args[1]) ? args[1].i : 0, hi = IS_INT_fn(args[2]) ? args[2].i : 0; const char *cl = VARVAL_fn(args[3]);
+        unsigned char bits[PAS_SET_BYTES]; pas_set_bits(args[0], bits); int out_of = 0;
+        for (long long e = 0; e < PAS_SET_BYTES * 8; e++) if (((bits[e / 8] >> (e % 8)) & 1) && (e < lo || e > hi)) { out_of = 1; break; }
+        if (out_of && cl && cl[0]) pas_file_err(cl, "a member of the set value lies outside the base-type of the set variable it is given to", NULL);
+        if (out_of) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
+        *out = args[0]; return 1;
+    }
+    if (!strcmp(fn, "__pas_range_check") && (nargs == 3 || nargs == 4)) {
         long long v = IS_INT_fn(args[0]) ? args[0].i : 0;
         long long lo = IS_INT_fn(args[1]) ? args[1].i : 0;
         long long hi = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if ((v < lo || v > hi) && nargs == 4) pas_file_err(VARVAL_fn(args[3]), "the value is not assignment-compatible with the subrange type of the variable it is given to", NULL);
         if (v < lo || v > hi) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
         *out = args[0]; return 1;
     }
