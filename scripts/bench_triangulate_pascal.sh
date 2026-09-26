@@ -25,6 +25,7 @@ SCRIP="${SCRIP:-$ROOT/scrip}"
 PDIR="${PASCAL_DIR:-$S4E/corpus/benchmarks/pascal}"
 TOL="${TOL_PCT:-10}"
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple (s266)." >&2; exit 2; }
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared sidecars (CEO-1281)." >&2; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED: scrip not built ($SCRIP)." >&2; exit 2; }
 [ -d "$PDIR" ] || { echo "⛔ REFUSED: pascal corpus missing ($PDIR)." >&2; exit 2; }
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build." >&2; exit 2; }
@@ -66,7 +67,8 @@ any_disagree=0
 for k in $kernels; do
   ib=""; ob=""
   if [ -f "$PDIR/$k.pas" ]; then
-    dline=$(printf '1\n' | "$WRAP" "$SCRIP" --run "$PDIR/$k.pas" 2>&1 >/dev/null | grep '^BENCH_RUSAGE:' | tail -1)
+    dsw=$(declared_switches_beside "$PDIR/$k.pas" 2>/dev/null) || dsw=""
+    dline=$(printf '1\n' | "$WRAP" "$SCRIP" --run $dsw "$PDIR/$k.pas" 2>&1 >/dev/null | grep '^BENCH_RUSAGE:' | tail -1)
     ib=$(echo "$dline" | grep -oE 'inblock=[0-9]+' | cut -d= -f2); ob=$(echo "$dline" | grep -oE 'oublock=[0-9]+' | cut -d= -f2)
   fi
   diskflag=""; { [ -n "$ib" ] && [ "$ib" -gt 0 ] 2>/dev/null; } && diskflag=" disk(inblock=$ib)"

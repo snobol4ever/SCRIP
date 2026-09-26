@@ -59,12 +59,18 @@ B="${BENCH_DIR:-$S4E/corpus/benchmarks/pascal}"
 # the same x1/x4/x16 triple's top point runs ~150ms*16=2.4s, calculated and then confirmed short enough
 # to avoid the effect on this box. Every engine's anchor shrinks proportionally, not just the slow ones.
 T="${TIMEOUT:-60}"; BUDGET_MS="${TIME_BUDGET_MS:-150}"; NMAX="${NMAX:-200000}"; LIN_TOL="${LIN_TOL:-10}"
-KERNELS="${KERNELS:-bubble intmm perm queens quick sieve towers}"   # reps-capable set, measured not guessed (see header)
+# whet joined 2026-09-26 (ceo CEO-1281, the quiet box CEO-1219 waited for): kernel form with a .ref since 2026-09-23, II read from stdin like every
+#   other kernel's reps; measured this sitting 310 ms/rep on m3 and about 2 ms/rep on fpc -O2, both printing whet.ref at reps 1, 4 and 16.
+KERNELS="${KERNELS:-bubble intmm perm queens quick sieve towers whet}"   # reps-capable set, measured not guessed (see header)
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE pascal corpus missing: $B"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_oracle_flags.sh"; exit 2; }
 FPC="$(fpc_bin)" || exit 2
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1281)"; exit 2; }
+# ⛔ THE SCRIP ARMS RUN UNDER THE KERNEL'S OWN DECLARATION (ceo CEO-1281, 2026-09-26; RULES.md hard-cap rule clause 8 (f)): DECL_SW carries the
+#   <k>.heap / <k>.stack sidecars as SPITBOL's -d<kb>k -s<kb>k switches on every m3 and m4 command line, the reps=1 correctness gate included.
+declare -a DECL_SW=(); declare -A DECLW=()
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -85,13 +91,13 @@ run1() {
   case "$eng" in
     fpc) bin=$(fpc_build "$B/$k.pas") || { echo "- BUILD-ERR"; return; }
          out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$bin" >/dev/null 2>"$W/e.$$") ;;
-    m3)  out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$SCRIP" --run "$B/$k.pas" >/dev/null 2>"$W/e.$$") ;;
+    m3)  out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" >/dev/null 2>"$W/e.$$") ;;
     m4)  local s="$W/$k.s" b="$W/$k.bin"
          if [ ! -x "$b" ]; then
            if ! (timeout "$T" "$SCRIP" --compile "$B/$k.pas" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
            if ! (as --64 -o "$W/$k.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$k.o" "$RT/libscrip_rt.so" -lm -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
          fi
-         out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$b" >/dev/null 2>"$W/e.$$") ;;
+         out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" >/dev/null 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -204,7 +210,9 @@ for k in $KERNELS; do
   pas="$B/$k.pas"; ref="$B/$k.ref"
   [ -f "$pas" ] && [ -f "$ref" ] || { printf "%-10s MISSING kernel or .ref\n" "$k"; tot_skip=$((tot_skip+1)); continue; }
   want=$(cat "$ref")
-  m3o=$(printf '1\n' | timeout 15 "$SCRIP" --run "$pas" 2>/dev/null)
+  DECL_SW=(); dw=$(declared_switches_beside "$B/$k.pas") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
+  [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
+  m3o=$(printf '1\n' | timeout 15 "$SCRIP" --run "${DECL_SW[@]}" "$pas" 2>/dev/null)
   if [ "$m3o" != "$want" ]; then
     printf "%-10s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP "correctness-fail(reps=1 m3 != .ref)"; tot_skip=$((tot_skip+1)); continue
   fi
@@ -221,6 +229,9 @@ for k in $KERNELS; do
   printf "%-10s %14s %14s %14s  %s\n" "$k" "${R[fpc]:-NA}" "${R[m3]:-NA}" "${R[m4]:-NA}" "$ckstat"
   unset R C
 done
+echo
+echo "DECLARED SIDECARS carried as switches on the m3 and m4 command lines (lib_declared_arena.sh; CEO-1281): ${#DECLW[@]} kernel(s)"
+for k in "${!DECLW[@]}"; do echo "  $k: ${DECLW[$k]}"; done
 echo
 echo "CHECK RESULT: measured=$tot_ok correctness-skip=$tot_skip"
 [ "$tot_skip" -eq 0 ]

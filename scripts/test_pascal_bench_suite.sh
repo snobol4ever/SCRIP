@@ -38,6 +38,8 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first"
 "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "$RT_DIR/libscrip_rt.so" || exit 2
 . "$HERE/lib_progress.sh" 2>/dev/null || refuse "lib_progress.sh unloadable"
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "lib_declared_arena.sh unloadable -- the ONE reader of a program's declared -d/-s sidecars (CEO-1281)"
+declare -a DECL_SW=()
 WRAP="$HERE/../tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$HERE/../tools/bench_rusage.c" || refuse "tools/bench_rusage failed to build -- angle 1 has no wrapper"
 case "$ITER_N" in ''|*[!0-9]*|0) refuse "BENCH_ITER_N must be a positive integer (got '$ITER_N')";; esac
@@ -51,8 +53,9 @@ now() { date +%s.%N; }
 # run_kernel <mode> <kernel> <stdin-file> <out-file> [wrap] -- one run; prints nothing, returns the run's rc. m4 runs the prebuilt binary.
 run_kernel() {
   local m="$1" k="$2" in="$3" out="$4" w="${5:-}"
-  if [ "$m" = m3 ]; then ( cd "$TMP" && timeout 300s $w "$SCRIP" --run "$B/$k.pas" <"$in" >"$out" 2>"$out.err" )
-  else ( cd "$TMP" && timeout 300s $w "$TMP/$k.m4" <"$in" >"$out" 2>"$out.err" ); fi
+  # the kernel's declared heap and stack ride its command line as -d/-s switches in both modes (its .heap/.stack sidecars; CEO-1281)
+  if [ "$m" = m3 ]; then ( cd "$TMP" && timeout 300s $w "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" <"$in" >"$out" 2>"$out.err" )
+  else ( cd "$TMP" && timeout 300s $w "$TMP/$k.m4" "${DECL_SW[@]}" <"$in" >"$out" 2>"$out.err" ); fi
 }
 # same_as_ref <out-file> <kernel> -- byte-for-byte after the shell's own trailing-newline trim, the rule every Pascal board uses.
 same_as_ref() { [ "$(cat "$1")" = "$(cat "$B/$2.ref")" ]; }
@@ -67,6 +70,7 @@ for k in "${KERNELS[@]}"; do
     printf '%-10s %-4s %s\n' "$k" "both" "FAIL no .ref -- a benchmark without a REF cannot be graded, and is counted, not skipped"; NAMED="$NAMED $k(no-ref)"; continue
   fi
   in="$B/$k.in"; [ -f "$in" ] || in=/dev/null
+  DECL_SW=(); dw=$(declared_switches_beside "$B/$k.pas") || refuse "$k: a .heap or .stack sidecar the reader refuses (it said why above)"; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"
   knob=0; if [ "$in" != /dev/null ] && [ "$(grep -c . "$in")" = 1 ] && grep -qE '^[[:space:]]*[0-9]+[[:space:]]*$' "$in"; then knob=1; fi
   m4ok=1; ( cd "$TMP" && timeout 300s "$SCRIP" --compile -o "$TMP/$k.s" "$B/$k.pas" </dev/null >"$TMP/$k.cc.err" 2>&1 ) \
     && ( cd "$TMP" && cc -m64 -no-pie "$k.s" -o "$k.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >>"$TMP/$k.cc.err" 2>&1 ) || m4ok=0

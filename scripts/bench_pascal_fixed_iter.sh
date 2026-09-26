@@ -45,6 +45,8 @@ KERNELS="${KERNELS:-}"   # optional allowlist, space-separated basenames -- same
 [ -f "$SCALE" ] || { echo "⛔ REFUSED-TO-GRADE SCALE.tsv missing: $SCALE"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_oracle_flags.sh"; exit 2; }
 FPC="$(fpc_bin)" || exit 2
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1281)"; exit 2; }
+declare -a DECL_SW=(); declare -A DECLW=()
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -93,13 +95,13 @@ run1() {
   case "$eng" in
     fpc) bin=$(fpc_build "$B/$k.pas") || { echo "- BUILD-ERR"; return; }
          out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$bin" >/dev/null 2>"$W/e.$$") ;;
-    m3)  out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$SCRIP" --run "$B/$k.pas" >/dev/null 2>"$W/e.$$") ;;
+    m3)  out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" >/dev/null 2>"$W/e.$$") ;;
     m4)  local s="$W/$k.s" b="$W/$k.bin"
          if [ ! -x "$b" ]; then
            if ! (timeout "$T" "$SCRIP" --compile "$B/$k.pas" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
            if ! (as --64 -o "$W/$k.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$k.o" "$RT/libscrip_rt.so" -lm -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
          fi
-         out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$b" >/dev/null 2>"$W/e.$$") ;;
+         out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" >/dev/null 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -137,6 +139,8 @@ while IFS=$'\t' read -r k nf ns; do
   [[ "$k" == \#* || -z "$k" ]] && continue
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
   [ -f "$B/$k.pas" ] || { printf "%-10s %10s %10s   MISSING kernel: %s\n" "$k" "$nf" "$ns" "$B/$k.pas"; tot_bad=$((tot_bad+1)); continue; }
+  DECL_SW=(); dw=$(declared_switches_beside "$B/$k.pas") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
+  [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
   ckstat=ok; declare -A RATE=(); base_fpc=""; base_scrip=""
   for eng in fpc m3 m4; do
     n="$ns"; [ "$eng" = fpc ] && n="$nf"
@@ -157,6 +161,9 @@ while IFS=$'\t' read -r k nf ns; do
   printf "%-10s %10s %10s %14s %14s %14s  %s\n" "$k" "$base_fpc" "$base_scrip" "${RATE[fpc]}" "${RATE[m3]}" "${RATE[m4]}" "$ckstat"
   unset RATE
 done < "$SCALE"
+echo
+echo "DECLARED SIDECARS carried as switches on the m3 and m4 command lines (lib_declared_arena.sh; CEO-1281): ${#DECLW[@]} kernel(s)"
+for k in "${!DECLW[@]}"; do echo "  $k: ${DECLW[$k]}"; done
 echo
 echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad   (bad = crash/DNF/build-fail on at least one engine this run; correctness itself is angle 1's job)"
 [ "$tot_bad" -eq 0 ]
