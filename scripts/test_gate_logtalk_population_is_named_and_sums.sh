@@ -349,6 +349,33 @@ PY
 )"
 [ "$got" = "2" ] || fail "ARM 16: a clause holding '=.. [' split into $got pieces, want 2 -- the second dot of =.. was read as the end of the clause"
 
+# ---- ARM 17 — THE CASE RUNS AFTER THE FILE'S initialization GOALS, as lgtunit runs a test after loading. The fixture's tester-loaded file asserts
+# k(1) in an initialization directive; a case driven by a plain directive ran before it and saw no k/1 (Logtalk initialization_1, 2026-09-25).
+arms=$((arms+1))
+if [ -x "$HERE/../scrip" ]; then
+    mkdir -p "$TD/h/grp"
+    printf ':- dynamic(k/1).\n:- initialization(assertz(k(1))).\n' > "$TD/h/grp/file.pl"
+    cat > "$TD/h/grp/tester.lgt" <<'LGT'
+:- initialization((
+	logtalk_load_context(directory, Directory),
+	atom_concat(Directory, 'file.pl', File),
+	'$lgt_load_prolog_file'(File),
+	tests::run
+)).
+LGT
+    cat > "$TD/h/grp/tests.lgt" <<'LGT'
+:- object(tests, extends(lgtunit)).
+	test(t_after_init, true(L == [1])) :-
+		findall(X, {k(X)}, L).
+:- end_object.
+LGT
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/h" --scrip "$HERE/../scrip" --modes m3 2>&1)"; rc=$?
+    pass="$(printf '%s' "$out" | sed -n 's/.*m3_pass=\([0-9]*\).*/\1/p' | head -1)"
+    [ "$rc" -eq 0 ] && [ "$pass" = "1" ] || fail "ARM 17: a case ran before its loaded file's initialization goal and saw no k/1 (rc=$rc): $out"
+else
+    echo "    ARM 17 SKIPPED: no scrip binary at $HERE/../scrip"
+fi
+
 echo "[$GATE] arms=$arms violations=$violations"
 [ "$violations" -eq 0 ] || exit 1
 echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, the ISO numeric escape stays readable, Logtalk-only database clauses are dropped rather than emitted, the tester-loaded Prolog file is inlined with its guards, a group that matched nothing refuses, and every order-dependent declaration is earned -- policed standalone on the same board, named on the board line, stale or unnecessary lines refusing rc=2"

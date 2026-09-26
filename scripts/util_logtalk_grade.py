@@ -430,12 +430,17 @@ def program_text(plan, db, shim_src, loaded=()):
     parts.append("'$lgt_cond' :- %s." % (plan.condition if plan.condition else "true"))
     parts.append("'$lgt_case' :- %s." % plan.goal)
     parts.append(
-        ":- catch( ( catch('$lgt_cond', _, fail) -> "
+        "'$lgt_run' :- catch( ( catch('$lgt_cond', _, fail) -> "
         "catch( ( '$lgt_case' -> '$lgt_say'(succ) ; '$lgt_say'(fail) ), B, "
         "( B = '$lgt_harness'(_) -> '$lgt_say2'(harness, B) "
         "; '$lgt_want'(B) -> '$lgt_say'(ballmatch) "
         "; '$lgt_say2'(ballother, B) ) ) "
         "; '$lgt_say'(skipped) ), B2, '$lgt_say2'(toplevel, B2) ).")
+    # ⭐ THE CASE RUNS AS AN initialization/1 GOAL, NOT A DIRECTIVE, because lgtunit runs its tests after the file is LOADED: a directive runs as it is
+    # read, before any initialization goal, so a case whose loaded file asserts in :- initialization(...) -- directives initialization_1, whose
+    # included files assertz(a(1)) and assertz(b(2)) -- saw an empty a/1. As the last initialization goal the case runs after every one the file
+    # declares, in order. Measured over the whole suite on one binary: exactly those three cases move, 3410 -> 3413 (hq_prolog 2026-09-25).
+    parts.append(":- initialization('$lgt_run').")
     return "\n".join(parts) + "\n"
 
 
