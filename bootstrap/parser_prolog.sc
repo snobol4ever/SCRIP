@@ -54,6 +54,13 @@ Graphic_first = ANY('\\@#^~?=<>+\-*/:.$&`');
 Graphic_rest  = SPAN('\\+\-*/^<>=~?@#&:.$`');
 Graphic_atom  = (Graphic_first (Graphic_rest | epsilon));
 Graphic_atom2 = (Graphic_first Graphic_first (Graphic_rest | epsilon));
+hex_value = TABLE();
+hex_i = 0;
+while (LE(hex_i, 15)) {
+    hex_value[SUBSTR('0123456789abcdef', hex_i + 1, 1)] = hex_i;
+    hex_value[SUBSTR('0123456789ABCDEF', hex_i + 1, 1)] = hex_i;
+    hex_i = hex_i + 1;
+}
 ascii_table = TABLE();
 ascii_i = 0;
 while (LE(ascii_i, 127)) {
@@ -79,9 +86,13 @@ function unescape_q(raw, out, i, n, c, prev_was_quote) {
 }
 /* ==================================================================================================================== */
 /* radix value helpers — pure computation, no stack ops */
-function compute_hex(raw, val, s) {
-    val = EVAL('0x' raw) '';
-    val SPAN('0123456789') . s;
+function compute_hex(raw, n, i, len, s) {
+    n = 0;  i = 1;  len = SIZE(raw);
+    while (LE(i, len)) {
+        n = n * 16 + hex_value[SUBSTR(raw, i, 1)];
+        i = i + 1;
+    }
+    (n '') ? SPAN('0123456789') . s;
     compute_hex = s;
     return;
 }
@@ -92,7 +103,7 @@ function compute_bin(raw, n, i, len, s) {
         n = n * 2 + SUBSTR(raw, i, 1) + 0;
         i = i + 1;
     }
-    n '' SPAN('0123456789') . s;
+    (n '') ? SPAN('0123456789') . s;
     compute_bin = s;
     return;
 }
@@ -103,7 +114,7 @@ function compute_oct(raw, n, i, len, s) {
         n = n * 8 + SUBSTR(raw, i, 1) + 0;
         i = i + 1;
     }
-    n '' SPAN('0123456789') . s;
+    (n '') ? SPAN('0123456789') . s;
     compute_oct = s;
     return;
 }
