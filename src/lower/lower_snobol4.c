@@ -489,7 +489,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 fnb[k] = 0;
             }
             if (fnb[0] && sno_predef_registered(fnb) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
-            if (fnb[0] && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
+            if (fnb[0] && !({ extern int g_rt_fragment_emit; g_rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
         }
         if (!strcmp(name, "CODE") && (t->n - argbase) == 1 && cx->prog_nstmt > 0) {
             IR_t * ar = NULL; IR_t * ae = sx_lower(cx, t->c[argbase], NULL, ω, &ar);
@@ -3022,16 +3022,6 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_fragment_reject_define(const tree_t ** st, int nst) {
-    g_sno_predef.len = 0;
-    for (int i = 0; i < nst; i++) {
-        const tree_t * dfn = lc_stmt_subj(st[i]);
-        if (dfn && dfn->t == TT_DEFINE) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
-        if (sno_stmt_define(st[i], NULL)) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
-        if (sno_tree_has_define_call(st[i])) sno_fatal("DEFINE inside a runtime-compiled CODE/EVAL fragment is outside the landed subset", NULL);
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_graph_t * gp = IR_alloc(512);
     scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0; px.prog_nstmt = 0; px.stno_base = 0;
@@ -3059,7 +3049,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     if (nst == 0 || entry_idx < 0 || entry_idx >= nst) return NULL;
     const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
-    sno_fragment_reject_define(st, nst);
+    g_sno_predef.len = 0;
     g_sno_fz.len = 0; g_sno_fz_unsafe = 1; g_sno_encl.len = 0;
     g_sno_t4.len = 0; g_sno_t4_unsafe = 1;
     int seal_sv = g_sno_seal_enabled; g_sno_seal_enabled = 0;
