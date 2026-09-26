@@ -1500,9 +1500,10 @@ static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
     const char *rname = p->result_name ? p->result_name : p->name;
     DESCR_t *rcell = p->rcell;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
-    { int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0; rt_name_restore(base); }
+    int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0;
     if (g_trace_budget != 0) sno_trace_return(p->result_name ? p->result_name : p->name, result);
     { extern long g_stno; rt_trace_event(TRK_RETURN, p->result_name ? p->result_name : p->name, result, g_stno); }
+    rt_name_restore(base);
     if (wn_parked >= 0) rt_g_want_name = wn_parked;
     return result;
 }
