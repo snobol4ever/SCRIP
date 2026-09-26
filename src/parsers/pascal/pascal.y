@@ -1697,7 +1697,7 @@ static void pas_pf_resolve(tree_t *e) {
 %token FUNCTIONSY BEGINSY BECOMES TYPESY IFSY ELSESY INOP NOTSY IDIV IMOD ANDOP OROP
 %token LTOP LEOP GTOP GEOP NEOP EQOP PLUS MINUS MUL RDIV
 %token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT ATSIGN
-%token <ival> INTCONST
+%token <ival> INTCONST CHARCODE
 %token <dval> REALCONST
 %token <str>  STRINGCONST IDENT
 %type <node> set_member set_member_list
@@ -1772,10 +1772,11 @@ const_decl: IDENT EQOP REALCONST SEMICOLON { pas_scope_define($1); pas_rconst_ad
     | IDENT EQOP PLUS REALCONST SEMICOLON { pas_scope_define($1); pas_rconst_add($1, $4); }
     | IDENT EQOP MINUS REALCONST SEMICOLON { pas_scope_define($1); pas_rconst_add($1, -$4); }
     | IDENT EQOP STRINGCONST SEMICOLON { pas_scope_define($1); if ($3 && strlen($3)==1) { pas_const_add($1,(long long)(unsigned char)$3[0]); pas_charvar_add($1); } else pas_sconst_add($1,$3); }
+    | IDENT EQOP CHARCODE SEMICOLON { pas_scope_define($1); pas_const_add($1, $3); pas_charvar_add($1); }
     | IDENT EQOP constant SEMICOLON { pas_scope_define($1); pas_const_add($1, $3); } ;
 constant:
     scalar_constant { $$ = $1; } | PLUS scalar_constant { $$ = $2; } | MINUS scalar_constant { $$ = -$2; } ;
-scalar_constant: IDENT { long long cv = 0; if ($1 && !strcmp($1, "true")) cv = 1; else if ($1 && !strcmp($1, "false")) cv = 0; else if (!pas_const_get($1, &cv) && $1 && !strcmp($1, "maxint")) cv = 2147483647; $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { pas_real_is_not_ordinal($1); $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } ;
+scalar_constant: IDENT { long long cv = 0; if ($1 && !strcmp($1, "true")) cv = 1; else if ($1 && !strcmp($1, "false")) cv = 0; else if (!pas_const_get($1, &cv) && $1 && !strcmp($1, "maxint")) cv = 2147483647; $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { pas_real_is_not_ordinal($1); $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } | CHARCODE { $$ = $1; } ;
 type_decl_list:
     type_decl_list type_decl
     | type_decl
@@ -1811,6 +1812,7 @@ simple_type:
     | constant DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 0; $$ = $3; }
     | STRINGCONST DOTDOT constant { long long _l = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0;
           g_pas_pend_sub_low = _l; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 1; $$ = $3; }
+    | CHARCODE DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 1; $$ = $3; }
     ;
 record_body:
     record_field_list record_case_opt
@@ -2087,6 +2089,7 @@ factor:
     | INTCONST { $$ = ilit($1); }
     | REALCONST { $$ = flit($1); }
     | STRINGCONST { if ($1 && strlen($1) == 1) { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit((long long)(unsigned char)$1[0])); $$ = _cl; } else $$ = leaf_s(TT_QLIT, $1); }
+    | CHARCODE { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit($1)); $$ = _cl; }
     | LPARENT expression RPARENT { $$ = $2; }
     | NOTSY factor { $$ = pas_flip_rel(pas_cond($2)); }
     | ATSIGN factor { $$ = pas_addr_of_proc($2); }

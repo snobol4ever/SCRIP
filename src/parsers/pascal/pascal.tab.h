@@ -128,9 +128,10 @@ typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
     DOTDOT = 313,                  /* DOTDOT  */
     ATSIGN = 314,                  /* ATSIGN  */
     INTCONST = 315,                /* INTCONST  */
-    REALCONST = 316,               /* REALCONST  */
-    STRINGCONST = 317,             /* STRINGCONST  */
-    IDENT = 318                    /* IDENT  */
+    CHARCODE = 316,                /* CHARCODE  */
+    REALCONST = 317,               /* REALCONST  */
+    STRINGCONST = 318,             /* STRINGCONST  */
+    IDENT = 319                    /* IDENT  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -147,7 +148,7 @@ union PASCAL_YYSTYPE
     long long  ival;
     double     dval;
 
-#line 151 "pascal.tab.h"
+#line 152 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

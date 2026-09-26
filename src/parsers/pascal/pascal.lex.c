@@ -1819,11 +1819,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 103:
 YY_RULE_SETUP
-{ long long _cc = strtoll(pascal_yytext + 1, NULL, 10); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
+{ pascal_yylval.ival = strtoll(pascal_yytext + 1, NULL, 10) & 0xFF; return CHARCODE; }
 	YY_BREAK
 case 104:
 YY_RULE_SETUP
-{ long long _cc = strtoll(pascal_yytext + 2, NULL, 16); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
+{ pascal_yylval.ival = strtoll(pascal_yytext + 2, NULL, 16) & 0xFF; return CHARCODE; }
 	YY_BREAK
 case 105:
 /* rule 105 can match eol */

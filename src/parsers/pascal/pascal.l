@@ -224,8 +224,8 @@ ALNUM    [A-Za-z0-9_]
                                   pascal_yylineno, nd, pascal_yytext, pascal_yytext + nd);
                           g_pas_iso_errors++; yyless(nd); pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
 "$"[0-9A-Fa-f]+          { pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext + 1, NULL, 16); return INTCONST; }
-"#"[0-9]+               { long long _cc = strtoll(pascal_yytext + 1, NULL, 10); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
-"#$"[0-9A-Fa-f]+         { long long _cc = strtoll(pascal_yytext + 2, NULL, 16); pascal_strbuf[0] = (char)_cc; pascal_strbuf[1] = '\0'; pascal_yylval.str = pascal_raw_dup(pascal_strbuf, 1); return STRINGCONST; }
+"#"[0-9]+               { pascal_yylval.ival = strtoll(pascal_yytext + 1, NULL, 10) & 0xFF; return CHARCODE; }
+"#$"[0-9A-Fa-f]+         { pascal_yylval.ival = strtoll(pascal_yytext + 2, NULL, 16) & 0xFF; return CHARCODE; }
 '([^']|'')*'            { int n = (int)pascal_yyleng; pascal_strpos = 0;
                           if (n == 2) { g_pas_iso_errors++;
                               fprintf(stderr, "pascal: ISO 7185 6.1.7 violation line %d: a character-string shall contain at least one string-element -- '' is not one\n", pascal_yylineno); }
