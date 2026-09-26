@@ -1,6 +1,6 @@
 E_Parse  = "'Parse'";
 white   =   (  SPAN(' ' tab nl)
-            |  '%'  BREAK(nl) nl
+            |  '%'  FENCE(BREAK(nl) nl | REM)
             |  '/*' FENCE(BREAKX('*') '*/')
             );
 White   =   white ARBNO(white);
