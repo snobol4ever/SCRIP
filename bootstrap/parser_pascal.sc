@@ -146,12 +146,14 @@ MulOp           =   ( $'*'   *Expr3 reduce("'TT_MUL'", 2)
                     | $'mod' *Expr3 reduce("'TT_MOD'", 2)
                     | $'and' *Expr3 reduce("'TT_MUL'", 2)
                     );
-Expr2           =   *Expr3 ARBNO(*MulOp);
+Expr2           =   *Expr3 *MulStar;
+MulStar         =   FENCE(*MulOp *MulStar | epsilon);
 AddOp           =   ( $'+'  *Expr2 reduce("'TT_ADD'", 2)
                     | $'-'  *Expr2 reduce("'TT_SUB'", 2)
                     | $'or' *Expr2 reduce("'TT_ADD'", 2)
                     );
-Expr1           =   *Expr2 ARBNO(*AddOp);
+Expr1           =   *Expr2 *AddStar;
+AddStar         =   FENCE(*AddOp *AddStar | epsilon);
 RelOp           =   ( $'<>' *Expr1 reduce("'TT_NE'", 2)
                     | $'<=' *Expr1 reduce("'TT_LE'", 2)
                     | $'>=' *Expr1 reduce("'TT_GE'", 2)
