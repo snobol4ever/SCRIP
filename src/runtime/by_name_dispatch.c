@@ -815,6 +815,16 @@ static DESCR_t *pas_heap_cell(long n, int grow) {
     return &g_pas_heap[n];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    if (!IS_INT_fn(p)) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined", fn);
+    if (p.i == 0) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn);
+    DESCR_t *hc = pas_heap_cell(p.i, 0);
+    if (!hc || p.i > g_pas_heap_ctr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined (it denotes no variable ever created)", fn);
+    if (g_pas_heap_dead[p.i]) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
+    return hc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pas_heap_take(void) {
     if (g_pas_heap_nfree > 0) { long n = g_pas_heap_free[--g_pas_heap_nfree]; if (n < g_pas_heap_cap) g_pas_heap_dead[n] = 0; return n; }
     return ++g_pas_heap_ctr;
@@ -3887,8 +3897,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = args[0]; return 1;
     }
     if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
-        long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
-        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[2]; return 1; }
+        DESCR_t *hc = pas_heap_ref(args[0], fn);
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb); if (!rv) rv = "";
         size_t rvl = strlen(rv); char *rvc = (char *)ct_alloc(rvl + 1); if (!rvc) { *out = args[2]; return 1; } memcpy(rvc, rv, rvl + 1);
@@ -3900,8 +3909,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = args[2]; return 1;
     }
     if (!strcmp(fn, "__pas_nrec_pfield_set") && nargs == 3) {
-        long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[2]; return 1; }
-        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[2]; return 1; }
+        DESCR_t *hc = pas_heap_ref(args[0], fn);
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv0 = to_cstring(args[2], rb, sizeof rb); if (!rv0) rv0 = "";
         size_t rvl = strlen(rv0); char *rv = (char *)ct_alloc(rvl + 1); if (!rv) { *out = args[2]; return 1; }
@@ -3914,8 +3922,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = args[2]; return 1;
     }
     if (!strcmp(fn, "__pas_field_idx_set") && nargs == 4) {
-        long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
-        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[3]; return 1; }
+        DESCR_t *hc = pas_heap_ref(args[0], fn);
         long fidx = IS_INT_fn(args[1]) ? args[1].i : 0; long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
         unsigned char ch;
         if (IS_INT_fn(args[3])) {
@@ -3937,13 +3944,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = args[0]; return 1;
     }
     if (!strcmp(fn, "__pas_deref") && nargs == 1) {
-        long n = IS_INT_fn(args[0]) ? args[0].i : 0;
-        DESCR_t *hc = pas_heap_cell(n, 0);
-        *out = hc ? *hc : INTVAL(0); return 1;
+        *out = *pas_heap_ref(args[0], fn); return 1;
     }
     if (!strcmp(fn, "__pas_deref_set") && nargs == 2) {
-        long n = IS_INT_fn(args[0]) ? args[0].i : 0;
-        DESCR_t *hc = pas_heap_cell(n, 0); if (hc) *hc = args[1];
+        *pas_heap_ref(args[0], fn) = args[1];
         *out = args[1]; return 1;
     }
     if (!strcmp(fn, "__pas_nrec_get") && nargs == 3) {
@@ -3978,8 +3982,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         return 1;
     }
     if (!strcmp(fn, "__pas_nrec_deref_set") && nargs == 4) {
-        long n = IS_INT_fn(args[0]) ? args[0].i : 0; if (n <= 0) { *out = args[3]; return 1; }
-        DESCR_t *hc = pas_heap_cell(n, 0); if (!hc) { *out = args[3]; return 1; }
+        DESCR_t *hc = pas_heap_ref(args[0], fn);
         long fi = IS_INT_fn(args[1]) ? args[1].i : 0; long ei = IS_INT_fn(args[2]) ? args[2].i : 0;
         char rb[64]; const char *rv = to_cstring(args[3], rb, sizeof rb);
         *hc = STRVAL(pas_nrec_subrec_set(hc, fi, ei, rv)); *out = args[3]; return 1;
