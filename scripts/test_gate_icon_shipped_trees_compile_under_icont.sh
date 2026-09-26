@@ -74,7 +74,7 @@ done
 # WHOLE (RULES.md; the correction this seat sent hq_C on 09-10). Its ENTRIES are graded one at a time by the
 # sibling gate test_gate_icon_master_entries_compile_under_icont.sh, which is where that question is asked and
 # answered. Feeding the container to icont here would produce one meaningless refusal standing for 758 files.
-mapfile -t FILES < <(cd "$CORPUS" && find "${TREES[@]}" -name '*.icn' -type f ! -name 'ALL.icn' | sort)
+mapfile -t FILES < <(cd "$CORPUS" && find "${TREES[@]}" -path '*.fixtures' -prune -o -name '*.icn' -type f ! -name 'ALL.icn' -print | sort)
 N=${#FILES[@]}
 # ⛔ REFUSE ON A COLLAPSED POPULATION rather than print the success shape over nothing (RULES.md: a DONE-WHEN
 # never pins a population count in a literal -- this reads the denominator it actually found, and only refuses
@@ -108,10 +108,14 @@ for f in "${FILES[@]}"; do
 done
 n_refused=${#REFUSED[@]}
 
+# ⛔ A DECLARED FIXTURE DIRECTORY (NAME.fixtures/, staged into a program's run directory by the IPL runner) is DATA, not
+# leaked output: progs/utrim trims ucode, so utrim.fixtures/ ships tprog.u1 and tprog.u2 as its input (hq_icon 2026-09-25).
+# The leak checks below skip *.fixtures directories, and so does the population (a fixture's .icn is input data -- progs/fset
+# lists fsx_cat.icn to show a pattern excluding it -- as lib_inventory.sh's census already treats it); nothing else is skipped.
 # ⛔ THE STAGING ASSERTION, not an assumption: if a single `.u1`/`.u2` reached the corpus the gate has dirtied
 # the tree it was measuring, and every runner downstream would refuse for a reason that looks like someone
 # else's fault. Cheap to check, and it is the one failure of this design that would be invisible in the result.
-if find "$CORPUS" -name '*.u1' -o -name '*.u2' 2>/dev/null | grep -q .; then
+if find "$CORPUS" -path '*.fixtures' -prune -o \( -name '*.u1' -o -name '*.u2' \) -print 2>/dev/null | grep -q .; then
     echo "⛔ $GATE REFUSES rc=2: icont artifacts reached the corpus tree -- staging leaked, tree is now dirty" >&2
     exit 2
 fi
@@ -134,7 +138,7 @@ if [ "$PY_STATUS" -ne 0 ]; then
 fi
 # ⛔ THE LEAK ASSERTION AGAIN, because the classifier runs the oracle dozens more times per refused file and
 # stages its own directories. Checking once before it ran would certify a tree it had not yet touched.
-if find "$CORPUS" -name '*.u1' -o -name '*.u2' 2>/dev/null | grep -q .; then
+if find "$CORPUS" -path '*.fixtures' -prune -o \( -name '*.u1' -o -name '*.u2' \) -print 2>/dev/null | grep -q .; then
     echo "⛔ $GATE REFUSES rc=2: icont artifacts reached the corpus tree during classification" >&2
     exit 2
 fi
