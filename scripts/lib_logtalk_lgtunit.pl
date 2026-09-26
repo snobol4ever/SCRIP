@@ -62,6 +62,14 @@ lgt_h(G) :- ( catch(G, E, throw('$lgt_harness'(error(G, E)))) -> true ; throw('$
 % option (a)); every other flag FAILS cleanly rather than raising, which is the right answer for a feature we do not have.
 current_logtalk_flag(prolog_dialect, scrip).
 current_logtalk_flag(coinduction, unsupported).
+% '$lgt_load_prolog_file'/1 -- "defined in the backend adapter files and abstracts how to load a Prolog file" (the suite's own words, encoding_1):
+% SCRIP has no run-time consult/1 (consult is a load-time splice), so this adapter loads a file the way a minimal one would: read each
+% term, run a directive, assert a clause. The stream's own BOM detection and encoding apply; a :- encoding/1 directive is honoured by them.
+'$lgt_load_prolog_file'(File) :- open(File, read, S), catch(lgt_load_terms(S), E, (close(S), throw(E))), close(S).
+lgt_load_terms(S) :- read_term(S, T, []), ( T == end_of_file -> true ; lgt_load_term(T), lgt_load_terms(S) ).
+lgt_load_term((:- encoding(_))) :- !.
+lgt_load_term((:- D)) :- !, call(D).
+lgt_load_term(T) :- assertz(T).
 lgt_member(X, [X| _]).
 lgt_member(X, [_| T]) :- lgt_member(X, T).
 
