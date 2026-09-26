@@ -146,7 +146,7 @@ list = (    $'['
 primary = (   Atom . p_name $'('
                   nPush()
                   epsilon . *Shift('TT_FNC', p_name) nInc()
-                  *args $')'
+                  (*args | epsilon) $')'
                   reduce("'TT_COMPOUND'", 'nTop()')
               nPop()
           |   $' ' Graphic_atom . g_name $'('
