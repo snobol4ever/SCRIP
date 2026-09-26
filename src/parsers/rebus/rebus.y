@@ -33,8 +33,10 @@ extern int  yylex(void);
 extern void yyerror(const char *);
 extern int  rebus_yylineno;
 #define yylineno rebus_yylineno
+#define REB_STAMP(n, l) do { if ((n) && !(n)->line) (n)->line = (l).first_line; } while (0)
 %}
 %define api.prefix {rebus_yy}
+%locations
 %union {
     char       *sval;
     long        ival;
@@ -208,24 +210,24 @@ opt_idlist
     | idlist_ne     { $$ = $1; }
     ;
 stmt
-    : expr_as_stmt          { $$ = $1; }
-    | if_stmt               { $$ = $1; }
-    | unless_stmt           { $$ = $1; }
-    | while_stmt            { $$ = $1; }
-    | until_stmt            { $$ = $1; }
-    | repeat_stmt           { $$ = $1; }
-    | for_stmt              { $$ = $1; }
-    | case_stmt             { $$ = $1; }
-    | T_EXIT                { $$ = ast_node_new(TT_LOOP_BREAK); }
-    | T_NEXT                { $$ = ast_node_new(TT_LOOP_NEXT); }
-    | T_FAIL                { $$ = ast_node_new(TT_PROC_FAIL); }
-    | T_STOP                { $$ = ast_node_new(TT_END); }
+    : expr_as_stmt          { $$ = $1; REB_STAMP($$, @1); }
+    | if_stmt               { $$ = $1; REB_STAMP($$, @1); }
+    | unless_stmt           { $$ = $1; REB_STAMP($$, @1); }
+    | while_stmt            { $$ = $1; REB_STAMP($$, @1); }
+    | until_stmt            { $$ = $1; REB_STAMP($$, @1); }
+    | repeat_stmt           { $$ = $1; REB_STAMP($$, @1); }
+    | for_stmt              { $$ = $1; REB_STAMP($$, @1); }
+    | case_stmt             { $$ = $1; REB_STAMP($$, @1); }
+    | T_EXIT                { $$ = ast_node_new(TT_LOOP_BREAK); REB_STAMP($$, @1); }
+    | T_NEXT                { $$ = ast_node_new(TT_LOOP_NEXT); REB_STAMP($$, @1); }
+    | T_FAIL                { $$ = ast_node_new(TT_PROC_FAIL); REB_STAMP($$, @1); }
+    | T_STOP                { $$ = ast_node_new(TT_END); REB_STAMP($$, @1); }
     | T_RETURN opt_expr     {
             tree_t *r = ast_node_new(TT_RETURN);
             if ($2) expr_add_child(r, $2);
-            $$ = r;
+            $$ = r; REB_STAMP($$, @1);
         }
-    | compound_stmt         { $$ = $1; }
+    | compound_stmt         { $$ = $1; REB_STAMP($$, @1); }
     ;
 expr_as_stmt
     : expr                          { $$ = $1; }

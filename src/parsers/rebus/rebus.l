@@ -8,6 +8,7 @@
 #include "rebus.tab.h"
 #define yylval rebus_yylval
 #define yylineno rebus_yylineno
+#define YY_USER_ACTION rebus_yylloc.first_line = rebus_yylloc.last_line = yylineno; rebus_yylloc.first_column = rebus_yylloc.last_column = 0;
 int   rebus_nerrors  = 0;
 char *rebus_filename = (char *)"<stdin>";
 void rebus_error(int lineno, const char *fmt, ...) {

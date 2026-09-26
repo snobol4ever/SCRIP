@@ -129,7 +129,7 @@ extern int rebus_yydebug;
 #if ! defined REBUS_YYSTYPE && ! defined REBUS_YYSTYPE_IS_DECLARED
 union REBUS_YYSTYPE
 {
-#line 38 "rebus.y"
+#line 40 "rebus.y"
 
     char       *sval;
     long        ival;
@@ -147,9 +147,23 @@ typedef union REBUS_YYSTYPE REBUS_YYSTYPE;
 # define REBUS_YYSTYPE_IS_DECLARED 1
 #endif
 
+/* Location type.  */
+#if ! defined REBUS_YYLTYPE && ! defined REBUS_YYLTYPE_IS_DECLARED
+typedef struct REBUS_YYLTYPE REBUS_YYLTYPE;
+struct REBUS_YYLTYPE
+{
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+};
+# define REBUS_YYLTYPE_IS_DECLARED 1
+# define REBUS_YYLTYPE_IS_TRIVIAL 1
+#endif
+
 
 extern REBUS_YYSTYPE rebus_yylval;
-
+extern REBUS_YYLTYPE rebus_yylloc;
 
 int rebus_yyparse (void);
 

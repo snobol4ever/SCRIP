@@ -11,6 +11,7 @@ typedef struct {
     const char *filename;
     int         nerrors;
     int         label_ctr;
+    int         cur_line;
     char       *fname;
     char       *loop_top[64];
     char       *loop_end[64];
@@ -24,6 +25,7 @@ static char *newlab(RebLow *L) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit(RebLow *L, STMT_t *s) {
+    if (!s->lineno) s->lineno = L->cur_line;
     if (!L->prog->head) { L->prog->head = L->prog->tail = s; }
     else                { L->prog->tail->next = s; L->prog->tail = s; }
     L->prog->nstmts++;
@@ -145,6 +147,7 @@ static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lower_tree_stmt(RebLow *L, tree_t *s) {
     if (!s) return;
+    if (s->line) L->cur_line = s->line;
     switch (s->t) {
     case TT_PROGRAM: {
         for (int i = 0; i < s->n; i++)
