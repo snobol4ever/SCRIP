@@ -129,48 +129,41 @@ list = (    $'['
 /* primary: leaf atoms, variables, numbers, compound terms, parenthesised expr, list */
 primary = (   Atom . p_name $'('
                   nPush()
-                  shift(p_name, 'TT_FNC') nInc()
+                  epsilon . *Shift('TT_FNC', p_name) nInc()
                   *args $')'
                   reduce("'TT_COMPOUND'", 'nTop()')
               nPop()
           |   $' ' Graphic_atom . g_name $'('
                   nPush()
-                  shift(g_name, 'TT_FNC') nInc()
+                  epsilon . *Shift('TT_FNC', g_name) nInc()
                   *args $')'
                   reduce("'TT_COMPOUND'", 'nTop()')
               nPop()
           |   shift(Graphic_atom2, 'TT_FNC')
           |   Tk_cut                  reduce("'TT_CUT'", 0)
           |   "0'" NOTANY(nl) . p_cc
-                  assign(.t_imm, ascii_table[p_cc])
-                  shift(t_imm, 'TT_ILIT')
+                  epsilon . *Shift('TT_ILIT', ascii_table[p_cc])
           |   shift(Float,'TT_FLIT')
           |   '0x' SPAN(hex_digits) . p_radix
-                  assign(.t_imm, compute_hex(p_radix))
-                  shift(t_imm, 'TT_ILIT')
+                  epsilon . *Shift('TT_ILIT', compute_hex(p_radix))
           |   '0b' SPAN(bin_digits) . p_radix
-                  assign(.t_imm, compute_bin(p_radix))
-                  shift(t_imm, 'TT_ILIT')
+                  epsilon . *Shift('TT_ILIT', compute_bin(p_radix))
           |   '0o' SPAN(oct_digits) . p_radix
-                  assign(.t_imm, compute_oct(p_radix))
-                  shift(t_imm, 'TT_ILIT')
+                  epsilon . *Shift('TT_ILIT', compute_oct(p_radix))
           |   shift(Int,  'TT_ILIT')
           |   shift(Atom, 'TT_FNC')
           |   Qatom
-                  assign(.t_imm, unescape_q(q_body))
-                  shift(t_imm, 'TT_FNC')
+                  epsilon . *Shift('TT_FNC', unescape_q(q_body))
           |   Str
-                  shift(s_body, 'TT_FNC')
+                  epsilon . *Shift('TT_FNC', s_body)
           |   Var . p_text
-                  shift(p_text, 'TT_VAR')
+                  epsilon . *Shift('TT_VAR', p_text)
           |   $'(' *unify_expr $')'
           |   *list
           |   $' ' '-' Float . p_negf
-                  assign(.t_imm, '-' p_negf)
-                  shift(t_imm, 'TT_FLIT')
+                  epsilon . *Shift('TT_FLIT', '-' p_negf)
           |   $' ' '-' Int . p_negi
-                  assign(.t_imm, '-' p_negi)
-                  shift(t_imm, 'TT_ILIT')
+                  epsilon . *Shift('TT_ILIT', '-' p_negi)
           |   $'\' $' ' *primary            reduce("'TT_BINOP'", 2)
           |   $' ' '-' *primary        reduce("'TT_UMINUS'", 1)
           );
@@ -261,16 +254,16 @@ body = *disj;
 /* head: reduces to a single TT_COMPOUND node (functor + args as children) */
 head = (    nPush()
             (   Atom . h_text $'(' *args $')'
-                    shift(h_text, 'TT_FNC') nInc()
+                    epsilon . *Shift('TT_FNC', h_text) nInc()
                     reduce("'TT_COMPOUND'", 'nTop()')
             |   Atom . h_text $'(' $')'
-                    shift(h_text, 'TT_FNC') nInc()
+                    epsilon . *Shift('TT_FNC', h_text) nInc()
                     reduce("'TT_COMPOUND'", 'nTop()')
             |   Atom . h_text
-                    shift(h_text, 'TT_FNC') nInc()
+                    epsilon . *Shift('TT_FNC', h_text) nInc()
                     reduce("'TT_COMPOUND'", 'nTop()')
             |   Str
-                    shift(s_body, 'TT_FNC') nInc()
+                    epsilon . *Shift('TT_FNC', s_body) nInc()
                     reduce("'TT_COMPOUND'", 'nTop()')
             )
             nPop()
