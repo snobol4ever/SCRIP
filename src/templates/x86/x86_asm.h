@@ -608,7 +608,6 @@ inline std::string x86_jmp_lblptr(bb_label_t * l, const char * txt) {
     if (MEDIUM_BINARY) { std::string r = x86_Lrec(x86_b1(0xE9)); r += (char)'X'; uint64_t v = (uint64_t)(uintptr_t)l; for (int j = 0; j < 8; j++) r += (char)(unsigned char)(v >> (8 * j)); return r; }
     return x86_rec("jmp") + txt + "\n";
 }
-inline std::string x86_jmp_fn_body(const char * label, uint64_t fp);
 inline std::string x86_jmp_through_fn_cell(const char * label, uint64_t cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmpfn(const char * sym, uint64_t fp) {
@@ -1557,7 +1556,6 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
             return x86_rtcc_call_descr(a.sym, (uint64_t)c.imm, (int)b.imm);
         return std::string();
     }
-    if (X86_MEQ(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }
     if (X86_MEQ(mnem, "call_bare")) {
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_call_text(a.sym, "");
@@ -2062,11 +2060,6 @@ inline std::string x86_load_ro_str(const char * dst, const char * s) {
     char lblbuf[24];
     if (!MEDIUM_BINARY && (!lbl || !lbl[0])) { strtab_label(lblbuf, sizeof lblbuf, str); lbl = lblbuf; }
     return x86_load_ro(dst, lbl, (uint64_t)(uintptr_t)(const void *)str);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_jmp_fn_body(const char * label, uint64_t fp) {
-    if (MEDIUM_BINARY) return fp ? x86_jmpfn(label, fp) : x86_bomb("bb_define_activate: proc fn not registered for binary body-jmp");
-    return x86_jmp_lblptr(emit_label_intern(label), label);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_through_fn_cell(const char * label, uint64_t cell) {
