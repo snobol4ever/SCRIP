@@ -1935,6 +1935,19 @@ static int r_nulltermish(RkP *p, int pos) {
     return e >= 0 ? e : pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int paren_list_term(RkP *p, int from, int to) {
+    if (ch(p, from) != '(' || ch(p, to - 1) != ')') return 0;
+    int d = 0, comma = 0;
+    for (int k = from; k < to; k++) {
+        char b = p->s[k];
+        if (b == '\'' || b == '"') { char qc = b; k++; while (k < to && p->s[k] != qc) { if (p->s[k] == '\\') k++; k++; } continue; }
+        if (b == '(' || b == '[' || b == '{') d++;
+        else if (b == ')' || b == ']' || b == '}') { d--; if (d == 0 && k != to - 1) return 0; }
+        else if (b == ',' && d == 1) comma = 1;
+    }
+    return comma;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_EXPR(RkP *p, int pos, int preclim) {
     int sl = p->leftsigil; p->leftsigil = 0;
     int noinfix = (preclim == PR('y'));
@@ -1965,7 +1978,9 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
             if (e < 0) break;
             if (o.prec <= preclim) { e = -1; p->leftsigil = saved_ls; break; }
             st = p->ops + base;
+            int ns0 = ns;
             while (ns && st[ns - 1].sub > o.prec) ns--;
+            if (ns == ns0 && o.to - o.from >= 2 && at_lit(p, o.from, ":=") && paren_list_term(p, q, t)) panic_at(p, o.from, "Cannot use bind operator with this left-hand side");
             if (o.flags & OF_FAKE) { last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } last_end = w; continue; }
             break;
         }
