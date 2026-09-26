@@ -214,6 +214,11 @@ fi
 # (SN-32: same harness drives SM/native codegen runs without forking the file).
 # Catch-all activated via SCRIP_TRACE/SCRIP_FTRACE only;
 # no source modification, no LOAD-chain.
+# ⛔ SCRIP_TRACE IS THE PARTICIPANT'S EVENT BUDGET AND IT MUST NOT RUN OUT MID-RUN (coo 2026-09-25, on hq_snobol4's report): its
+# default here was 99999, so every SCRIP participant stopped emitting at event 99,999 while the oracle went on -- aisnobol TEST.sno
+# (1,316,102 events) and a plain 60,000-iteration loop both died at EXACTLY step 100000. Worse than a short run: past the budget
+# comm_var falls through to the TEXT-protocol mon_send, so text landed on the binary wire (value_len 0x33333333, "3333") and the
+# controller read a torn header. The default is now what `scrip --trace` itself sets, 2000000000; the loop agrees to step 180005.
 if [[ "$want_scr" = "1" ]]; then
     SCR_RUN_FLAG="${SCRIP_RUN_FLAG:---run}"
     if [[ "$SCR_RUN_FLAG" == "--m4" || "${SCRIP_M4:-0}" == "1" ]]; then
@@ -229,7 +234,7 @@ if [[ "$want_scr" = "1" ]]; then
         MONITOR_READY_PIPE="$TMP/scr.ready" \
         MONITOR_GO_PIPE="$TMP/scr.go" \
         MONITOR_NAMES_OUT="$TMP/scr.names" \
-        SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+        SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
         SNO_LIB="$INC" \
             timeout "$((TIMEOUT*2))" "$TMP/scr.bin" \
             < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
@@ -239,7 +244,7 @@ if [[ "$want_scr" = "1" ]]; then
     MONITOR_READY_PIPE="$TMP/scr.ready" \
     MONITOR_GO_PIPE="$TMP/scr.go" \
     MONITOR_NAMES_OUT="$TMP/scr.names" \
-    SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+    SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
     SNO_LIB="$INC" \
         timeout "$((TIMEOUT*2))" "$SCRIP" --trace "$SCR_RUN_FLAG" "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
@@ -266,7 +271,7 @@ if [[ "${want_scr3:-0}" = "1" ]]; then
     MONITOR_READY_PIPE="$TMP/scr3.ready" \
     MONITOR_GO_PIPE="$TMP/scr3.go" \
     MONITOR_NAMES_OUT="$TMP/scr3.names" \
-    SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+    SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
     SNO_LIB="$INC" \
         timeout "$((TIMEOUT*2))" "$SCRIP" --trace --run "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr3.out" 2> "$TMP/scr3.err" &
@@ -281,7 +286,7 @@ if [[ "${want_scr4:-0}" = "1" ]]; then
     MONITOR_READY_PIPE="$TMP/scr4.ready" \
     MONITOR_GO_PIPE="$TMP/scr4.go" \
     MONITOR_NAMES_OUT="$TMP/scr4.names" \
-    SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+    SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
     SNO_LIB="$INC" \
         timeout "$((TIMEOUT*2))" "$TMP/scr4.bin" \
         < "$STDIN_SRC" > "$TMP/scr4.out" 2> "$TMP/scr4.err" &

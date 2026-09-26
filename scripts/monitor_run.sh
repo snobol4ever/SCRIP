@@ -101,6 +101,13 @@ steps=$(grep -oE 'all reached END after [0-9]+ steps' "$W/harness.out" | grep -o
 verdict=$(grep -aoE 'VERDICT AGREE=[0-9]+ DIVERGE=[0-9]+ UNGRADED=[0-9]+' "$W/harness.out" | head -1 | sed 's/^VERDICT //')
 ungraded=$(printf '%s' "$verdict" | sed -n 's/.*UNGRADED=\([0-9]*\).*/\1/p')
 if [ "$hrc" = 2 ] || [ "$hrc" = 124 ]; then echo "REFUSE(2): the harness could not measure (rc=$hrc): $(grep -E 'REFUS|FAIL' "$W/harness.out" | head -1 | cut -c1-140)"; exit 2; fi
+# ⛔ A BROKEN WIRE IS NOT A DIVERGENCE (coo 2026-09-25, on hq_snobol4's report: aisnobol TEST.sno read "DIVERGE" at exactly step
+# 100000). The controller names a PROTOCOL ERR when a participant's stream stops decoding -- a torn or foreign record, a participant
+# that died mid-write -- and the harness exits 3 for it, which this script used to print as DIVERGE: an HQ was sent to bisect its
+# program at a step where the programs had not disagreed at all (AGREE=99999 DIVERGE=0). No verdict exists past that step, so this
+# is could-not-measure, rc 2, with the step and the agreement up to it named.
+perr=$(grep -m1 -a 'PROTOCOL ERR' "$W/harness.out" | cut -c1-220)
+if [ -n "$perr" ]; then echo "REFUSE(2): THE WIRE BROKE, NOT THE PROGRAM -- ${perr#\[ctrl\] } -- no verdict past that step${verdict:+; up to it: $verdict}. An instrument defect: report it to the coo with this command."; exit 2; fi
 if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ -z "$verdict" ]; then echo "REFUSE(2): the controller printed no VERDICT line (AGREE= DIVERGE= UNGRADED=) -- an agreement whose UNGRADED count is unknown is not a pass"; exit 2; fi
 if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ] && [ "$ungraded" = 0 ]; then echo "[monitor_run] AGREE: participants $parts agree event-for-event, clean termination at step $steps ($verdict)"; exit 0; fi
 if [ "$hrc" = 0 ] && [ -n "$steps" ] && [ "$steps" -gt 0 ]; then
