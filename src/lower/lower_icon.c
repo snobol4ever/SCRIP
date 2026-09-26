@@ -117,7 +117,8 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_FIELD || t->t == TT_NULL || t->t == TT_NONNULL) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (t->t == TT_REPALT) return 1;
     if (is_unop_tt(t->t)) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
-    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return nm ? icn_call_allow_gen(nm) : 1; }
+    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; if (!nm || icn_call_allow_gen(nm)) return 1; for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_LIMIT) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
@@ -367,7 +368,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         const tree_t * b0 = t->c[0]; IR_t * ar = NULL; IR_t * ae;
         if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
         else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) { IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar); ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar); }
-        else ae = lower(cx, b0, NULL, ω, &ar);
+        else { cx->beta = ω; ae = lower(cx, b0, NULL, ω, &ar); IR_t * bβ = cx->beta; if (bβ && bβ != ω && is_resumable(b0)) lc_ω_to_β(it, bβ); }
         lc_γ_to(ar, it); ir_operand_push(it, ar);
         cx->beta = it;
         *var_res = it; return ae;
@@ -812,8 +813,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
         if (t->n > 0 && t->c[0]) { cx->beta = ω; if (icn_trace_operand_has_var(cx, t->c[0])) sn->pat_static = 1; e_entry = lower_trace_operand(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }
         ir_operand_push(sn, ev);
-        IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); }
-        else rrt = eβ ? eβ : γ;
+        IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv); }
+        else rrt = eβ ? eβ : ω;
         if (cx->scan_sp > 0) {
             IR_t * ytgt = cx->psucc ? cx->psucc : γ; IR_t * rrt0 = rrt;
             IR_t * lvs[16]; int nlv = 0;
