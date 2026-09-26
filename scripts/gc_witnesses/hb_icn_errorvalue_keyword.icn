@@ -5,5 +5,4 @@ procedure main()
    L || "x";
    every i := 1 to 200000 do M := [i, i, i];
    write(image(&errorvalue), " ", *&errorvalue, " ", &errorvalue[3], " ", if &errorvalue === L then "identical" else "different");
-   write(if &collections > 0 then "collected" else "none");
 end
