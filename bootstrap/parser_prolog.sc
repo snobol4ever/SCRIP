@@ -185,6 +185,8 @@ primary = (   Atom . p_name $'('
           |   $'(' *unify_expr $':-' *body $')'  reduce("'TT_CLAUSE'", 2)
           |   $'(' $':-' *body $')'              reduce("'TT_DIRECTIVE'", 1)
           |   $'(' *body $')'
+          |   $'{' $'}'             reduce("'TT_DCG_IL'", 0)
+          |   $'{' *body $'}'       reduce("'TT_DCG_IL'", 1)
           |   *list
           |   $' ' '-' Float . p_negf
                   epsilon . *Shift('TT_FLIT', '-' p_negf)
