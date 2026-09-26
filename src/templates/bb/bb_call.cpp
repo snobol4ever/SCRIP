@@ -94,7 +94,6 @@ int gva_index_of(const char * name);
 DESCR_t NV_GET_fn(const char * name);
 int  rt_is_truthy(DESCR_t v);
 int  rk_is_truthy(DESCR_t v);
-int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -125,16 +124,6 @@ static int lits_int_val(IR_t * nd, long long * out) {
     if (q == e) return 0;
     for (const char * r = q; r < e; r++) if (*r < '0' || *r > '9') return 0;
     *out = strtoll(p, NULL, 10); return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int arith_kind_ok(IR_t * nd) {
-    if (!nd) return 0;
-    if (nd->op == IR_LIT_STRING) { long long _v; return lits_int_val(nd, &_v); }
-    if (nd->op == IR_LIT_INTEGER) return 1;
-    if (nd->op == IR_VAR && IR_LIT(nd).sval) return 1;
-    if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) return 1;
-    if (arith_is_arith_binop(nd)) return 1;
-    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arith_is_relop(IR_t * nd) {
@@ -585,17 +574,6 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * rkbool_cond_relop(IR_graph_t * cond) {
-    if (!cond) return NULL;
-    IR_t * p = cond->entry; int g = 0;
-    while (p && g++ < 256) { if (arith_is_relop(p)) return p; if (!p->γ.node) break; p = p->γ.node; }
-    return NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_jct_call(IR_t * r) {
-    return r && (r->op == IR_CALL || ir_is_call_kind(r->op)) && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
@@ -623,57 +601,10 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
              + x86("test", "eax", "eax") + x86_omega("je") + x86_gamma() + x86_beta() + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
-    IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
-    IR_graph_t * cond = blks ? blks[0] : NULL;
-    IR_t * relnd = rkbool_cond_relop(cond);
-    if (!relnd) return x86_alpha() + x86_bomb("bb_call_bool_jct: no relop in cond sub-graph");
-    IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb) return x86_alpha() + x86_bomb("bb_call_bool_jct: relop operands unresolved");
-    int lhs_slot = (zoff(_.node) >= 0) ? zoff(_.node) + 16 : -1;
-    if (lhs_slot < 0) return x86_alpha() + x86_bomb("bb_call_bool_jct: no LOWER slot grant (TMP-ERADICATE)");
-    if (_.node->n_operands < 2) return x86_alpha() + x86_bomb("bb_call_bool_jct: grant narrower than 2 slots (TMP-ERADICATE)");
-    int rhs_slot = lhs_slot + 16;
-    std::string s = x86_alpha()
-                  + x86("comment", "BOX __rk_bool [dval=2 junction relop -> rt_jct_relop -> branch true=γ / false=ω]");
-    s += marshal_call_arg(ra, cond, lhs_slot, NULL, 0);
-    s += marshal_call_arg(rb, cond, rhs_slot, NULL, 1);
-    s += x86("mov", "rdi", FRQ(lhs_slot));
-    s += x86("mov", "rsi", FRQ(lhs_slot + 8));
-    s += x86("mov", "rdx", FRQ(rhs_slot));
-    s += x86("mov", "rcx", FRQ(rhs_slot + 8));
-    s += x86("mov32", "r8d", (long)IR_LIT(relnd).ival);
-    return s + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void *)rt_jct_relop)
-             + x86_rt_gc_poll()
-             + x86("test", "eax", "eax") + x86_omega("je") + x86_gamma() + x86_beta() + x86_omega();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_bool_cond_str(IR_t * pBB) {
-    IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
-    IR_graph_t * cond = blks ? blks[0] : NULL;
-    IR_t * relnd = rkbool_cond_relop(cond);
-    if (!relnd) return bb_call_bool_truthy_cond_str(pBB);
-    IR_t * ra = NULL, * rb = NULL; arith_operands(cond, relnd, &ra, &rb);
-    if (!ra || !rb) return x86_alpha() + x86_bomb("bb_call_bool_cond: relop operands unresolved");
-    if (is_jct_call(ra) || is_jct_call(rb)) return bb_call_bool_jct_cond_str(pBB);
-    if (!arith_kind_ok(ra) || !arith_kind_ok(rb)) return x86_alpha() + x86_bomb("bb_call_bool_cond: relop operands unhandled");
-    int scratch = zoff(relnd);
-    if (scratch < 0) return x86_alpha() + x86_bomb("bb_call_bool_cond: relop has no LOWER slot grant (TMP-ERADICATE)");
-    return x86_alpha()
-         + x86("comment", "BOX __rk_bool [dval=2 relop condition -> branch true=γ / false=ω]")
-         + arith_opnd_a(cond, ra) + x86("mov", FRQ(scratch), "rax")
-         + arith_opnd_b(cond, rb) + x86("mov", "rax", FRQ(scratch))
-         + x86("cmp", "rax", "rcx")
-         + x86_omega(relop_fail_mnem(relnd))
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
     switch (_.op_call_route) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
         case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);
-        case CALL_ROUTE_RK_BOOL_COND:  return bb_call_bool_cond_str(pBB);
         case CALL_ROUTE_DVAL2_BOMB:    return x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
         case CALL_ROUTE_PROC_STAGED:   return bb_call_proc_staged_str(pBB);
         case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_bool_str(pBB);
