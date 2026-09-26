@@ -1937,6 +1937,7 @@ char *yytext;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 static char raku_strbuf[65536];
 static int  raku_strpos;
 static int raku_after_smatch  = 0;
