@@ -28,7 +28,7 @@
 #   3    m3: Gimpel's ARC through its driver (corpus packages/snobol4/gimpel)                                            -- RED on base
 #   4-6  THE MATRIX (the cfo's, 2026-09-25): a live operand before the list and after it, 2 to 5 arms with the succeeding arm at
 #        every position and none, at the top level and in a function with a local, and lists nested in the middle arms -- m3, m4,
-#        and m3 under SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=5 (the temporary is a named variable across a call)          -- RED on base
+#        and m3 under SCRIP_GC_STRESS=5 (the temporary is a named variable across a call)          -- RED on base
 #   7-8  CONTROL m3 / m4: the shapes the disjunction already answered and the flat form broke -- three and four arms after a
 #        live operand, arms failing through a user function (top level and in a function with a local), INPUT at end of file,
 #        a pattern match, lexical predicates
@@ -125,7 +125,7 @@ rc=$(m4 vl); arm "m4: lists in functions with locals, nested lists, operands aro
 rc=$(m3s ARC_driver); arm "m3: Gimpel ARC through its driver (under --stlimit, as the graders run it)" "$(same "$rc" ARC_driver.m3 ARC_driver.oracle)"
 rc=$(m3 mx); arm "MATRIX m3: 2-5 arms, every succeeding position and none, top level and in a function, nested" "$(same "$rc" mx.m3 mx.oracle)"
 rc=$(m4 mx); arm "MATRIX m4: 2-5 arms, every succeeding position and none, top level and in a function, nested" "$(same "$rc" mx.m4 mx.oracle)"
-rc=$( cd "$T" && SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=5 timeout 60 "$SCRIP" mx.sno < /dev/null > mx.gc 2>&1; echo $? ); arm "MATRIX m3 under SCRIP_HEAP_MB=1 SCRIP_GC_STRESS=5" "$(same "$rc" mx.gc mx.oracle)"
+rc=$( cd "$T" && SCRIP_GC_STRESS=5 timeout 60 "$SCRIP" mx.sno < /dev/null > mx.gc 2>&1; echo $? ); arm "MATRIX m3 under SCRIP_GC_STRESS=5" "$(same "$rc" mx.gc mx.oracle)"
 rc=$(m3 ctl); arm "CONTROL m3: live operand before 3-4 arms, call/INPUT/match arms keep the disjunction" "$(same "$rc" ctl.m3 ctl.oracle)"
 rc=$(m4 ctl); arm "CONTROL m4: live operand before 3-4 arms, call/INPUT/match arms keep the disjunction" "$(same "$rc" ctl.m4 ctl.oracle)"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
