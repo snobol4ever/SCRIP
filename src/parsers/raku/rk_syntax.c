@@ -3448,6 +3448,7 @@ static int r_multi_declarator(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_routine_declarator(RkP *p, int pos) {
     int e;
+    if ((e = kw_end(p, pos, "sub")) >= 0 && p->scope == 8) panic_at(p, pos, "Cannot use 'supersede' with sub declaration");
     if ((e = kw_end(p, pos, "sub")) >= 0) return r_routine_def(p, ws(p, e), 0);
     if ((e = kw_end(p, pos, "method")) >= 0) return r_routine_def(p, ws(p, e), 1);
     if ((e = kw_end(p, pos, "submethod")) >= 0) return r_routine_def(p, ws(p, e), 2);
