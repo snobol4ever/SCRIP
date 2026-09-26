@@ -175,6 +175,7 @@ test_gate_gc_the_descriptor_kind_sets_are_a_declared_subset.sh	WIRED	-	-	-
 test_gate_gc_the_errtext_keyword_value_survives_a_collection.sh	WIRED	-	-	-
 test_gate_gc_the_flip_plant_turns_a_stale_pointer_into_a_located_fault.sh	WIRED	-	-	-
 test_gate_gc_the_frame_map_anchor_is_the_frame_base_even_when_the_poll_floor_is_above_it.sh	WIRED	-	-	-
+test_gate_gc_the_icon_errorvalue_keyword_survives_a_collection.sh	WIRED	-	-	-
 test_gate_gc_the_keyword_csets_survive_a_collection.sh	WIRED	-	-	-
 test_gate_gc_the_lowerer_registries_are_rooted_not_malloced.sh	WIRED	-	-	-
 test_gate_gc_the_mark_walk_is_a_worklist_not_recursion_per_cell.sh	WIRED	-	-	-

@@ -4481,6 +4481,7 @@ void core_gc_roots(void)
         if (t->fields) { rt_gc_visit_raw_in((const char **)&t->fields, t);
             for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw_in((const char **)&t->fields[i], t->fields); }
         if (t->next) rt_gc_visit_raw_in((const char **)&t->next, t); }
+    rt_gc_visit_descr(&g_icn_errvalue);
     for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used) {
         if (trace_tab[i].name) rt_gc_visit_raw((const char **)&trace_tab[i].name);
         if (trace_tab[i].tag)  rt_gc_visit_raw((const char **)&trace_tab[i].tag);
