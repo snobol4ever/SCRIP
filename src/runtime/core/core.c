@@ -4078,8 +4078,8 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
             return STRVAL(rt_heap_strdup_c(e->params[idx - 1]));
         }
     }
-    { extern int rt_proc_nparams(const char *); extern const char *rt_proc_pname(const char *, int);
-      int np = rt_proc_nparams(fname);
+    { extern int rt_proc_nformals(const char *); extern const char *rt_proc_pname(const char *, int);
+      int np = rt_proc_nformals(fname);
       if (np > 0 && idx >= 1 && idx <= (int64_t)np) {
           const char *pn = rt_proc_pname(fname, (int)(idx - 1));
           if (pn) return STRVAL(rt_heap_strdup_c(pn));
