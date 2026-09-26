@@ -434,43 +434,18 @@ shipped `.t` files graded whole against a local Rakudo; **RakM** is our own flat
 **RakBench** the kernel set graded as tests. Raku is IN DEVELOPMENT: the front-end accepts a deliberate working subset of
 the language, most of Roast is outside it, and the parse-fail column is the roadmap.
 
-**Benchmarks.** Re-measured 2026-09-04 on the two-number basis (RULES.md § THE
-TWO-NUMBER BENCHMARK BASIS) with `scripts/bench_triangulate_raku.sh`.
-*Measured 2026-09-04 on SCRIP e560edb92 / corpus b7c674a17, RT_OPT=-O0, modes m3 and m4
-vs Rakudo 2026.05, REPS=3 best-of, every rep byte-verified against `.ref` before timing.*
+**Benchmarks.** RakBench is every Raku benchmark the two public sources hold, 83 kernels under `corpus/benchmarks/raku/` since 2026-09-26: raku-bench's 21 whole programs (Geoffrey Broadwell's `japhb/raku-bench`, Artistic 2.0, the `rc-` programs from Rosetta Code under the GFDL; the two random ones seeded, the two JSON parsers given their data file), its 62 usable microbenchmark bodies with each entry's own scale baked in, and Rakudo's 7 `tools/benchmark.pl` dispatch snippets -- each with its `.ref` cut twice from Rakudo and its declared stack and heap beside it, graded as tests in both modes by `scripts/test_raku_bench_suite.sh` (the suite table's RakBench row). The census of 2026-09-26 (mode 3, one run each): 36 of 83 print their ref; the 47 that do not are seventeen parser and emitter gaps, each a row on hq_raku (a last statement without its semicolon, statement modifiers, native `int`/`str`, the C-style `loop`, the `X` operator, binding, `push` as a sub, grammars, closures over an outer lexical, Rat arithmetic and float printing among them). The timing instrument is the three-angle cross-proof `scripts/bench_triangulate_raku.sh`: angle 1 a live doubling search for the largest iteration count whose loop completes within a 3 s CPU budget (Rakudo's JIT is cold for the first hundreds of milliseconds, so a shorter budget times the wrong regime), angle 2 the committed count of `fixed-iter-n.tsv`, angle 3 the kernel's own self-measured WORK bracket under the external stopwatch (OVERHEAD = elapsed - work, Rakudo's 300 ms of start-up never charged to the engine); every rep byte-verified against the `.ref`, every SCRIP run under the kernel's declared `-d`/`-s` switches, a cell cited only when both timed angles agree within 10%. ⚠ Only the four kernels that carry a hand-placed bracket can be looped by this harness; the other 32 that run wait on the kernel-convention row (a pristine source with the loop generated around it, as every other language does). The rival is Rakudo v2022.12, the reference implementation: Raku has no native compiler on this box, so the bar is Rakudo.
 
-**WORK** is each kernel's own `wall_us()` bracket (written to stderr, so stdout stays
-byte-comparable); **OVERHEAD** is external elapsed − WORK, reported as its own number and
-never mixed into a WORK column. Multiple = Rakudo WORK / SCRIP WORK (axis named once:
-above 1.00x SCRIP is faster). All three angles run; the cross-proof column is angle 1
-(live fixed-time search) against angle 2 (committed fixed N):
+*Measured 2026-09-26 13:11-13:16 CDT on SCRIP `0f416ecc0` / corpus `bd5ffd768`, **RT_OPT=-O0**, fleet quiet (load 0.7-1.2 on 16 cores), REPS=3 best-of by work, SCRIP with every diagnostic off (`SCRIP_DIAG=0`); the records are `corpus/benchmarks/raku/worktime-20260926T181134Z.tsv` (angle 3) and `triangulation-20260926T181134Z.tsv` (the cross-proof). WORK is the kernel's own bracket; the x-factor is Rakudo WORK / SCRIP WORK (1.5x is one and a half times faster, 0.5x half as fast); a row whose arms disagree or fail verification carries its readings and no multiple.*
 
-| kernel | SCRIP m3 WORK | SCRIP m4 WORK | Rakudo WORK | × (m3) | × (m4) | cross-proof |
-|---|---:|---:|---:|:---:|:---:|:---|
-| string-escape | 65 µs | 71 µs | 1820 µs | **28.0x** | **25.6x** | m3/m4 AGREE, Rakudo DISAGREE |
-| point_class_add1 | 10.19 s | 8.93 s | 5.70 s | 0.559x | 0.638x | ✅ all three AGREE |
-| point_class_add | 9.57 s | 8.07 s | 1.19 s | 0.125x | 0.148x | m3/m4 AGREE, Rakudo DISAGREE |
-| send-more-money-loops | 175 ms | 185 ms | — | — | — | Rakudo arm unverified |
+| kernel | Rakudo WORK | SCRIP m3 WORK | SCRIP m4 WORK | Rakudo / m3 | Rakudo / m4 | cross-proof |
+|---|---:|---:|---:|:---:|:---:|---|
+| point_class_add | 606.5 ms | 6.92 s | 6.20 s | — | — | rakudo DISAGREE |
+| point_class_add1 | 3.01 s | 7.17 s | 6.13 s | 0.42x | 0.49x | all three AGREE |
+| send-more-money-loops | 748.8 ms | 107.8 ms | 134.7 ms | — | 5.56x | m3 DISAGREE |
+| string-escape | 1.1 ms | 49 µs | 56 µs | 23.12x | 20.23x | all three AGREE |
 
-⭐ **Only `point_class_add1` is cross-proven on all three arms this run** and is the one
-row citable without qualification. The others' SCRIP arms agree with themselves while
-the Rakudo arm's two clocks do not — Rakudo's own run-to-run spread, not SCRIP's. A
-disagreement is reported, never averaged away.
-
-OVERHEAD (best rep, startup+teardown only): **Rakudo 286–342 ms · SCRIP m3 6.6–90 ms ·
-m4 3.4–92 ms**. Rakudo's process-launch constant is what the old totals basis charged to
-the engine on every kernel regardless of size — most visible on `string-escape`, whose
-whole WORK is 1820 µs against 286 ms of Rakudo startup, i.e. startup was ~99% of the old
-total. That is the entire reason this grid is on the WORK basis.
-
-**The reading:** loop and integer work crushes (`string-escape` 25–28x); object and
-method-heavy work is well behind (`point_class_add` 0.125x/0.148x). Both were always
-true — the totals basis simply could not show which was which.
-
-The other 13 kernels are not yet timed — each blocker is a named, diagnosed defect (a
-map/grep code-path gap covering four of them, array parameters passed by copy instead
-of aliased, rational-number semantics, five parser constructs, one crash) and the grid
-grows as they land; see `corpus/benchmarks/raku/README.md`.
+Geometric mean against Rakudo: **3.808x** in mode 4 over the 3 kernels cited and **3.116x** in mode 3 over 2. The reading has not changed shape since the first WORK-basis grid: loop and integer work is well ahead of Rakudo (string-escape), object and method-heavy work well behind (the point_class family), and the untimed kernels are the row above, not a measurement.
 
 ### Pascal
 
