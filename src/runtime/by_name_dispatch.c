@@ -6004,9 +6004,10 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
             if (!strcmp(fn, "?"))  return rt_deref((strict ? rt_random_var_strict : rt_random_var)(a));
             if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|") || !strcmp(fn, "!") || !strcmp(fn, "=")) {
-                extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern int FNCEX_fn(const char *);
-                if (core_call_registered_fn(fn, args, nargs, &out)) return out;
-                if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
+                extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern int FNCEX_fn(const char *); extern const char *sn4_unary_op_key(const char *);
+                const char *uk = sn4_unary_op_key(fn);
+                if (core_call_registered_fn(uk, args, nargs, &out)) return out;
+                if (FNCEX_fn(uk)) return RT_GC_CALLBACK(APPLY_fn(uk, args, nargs));
                 core_runtime_error(29, "undefined operator referenced");
                 return FAILDESCR;
             }
@@ -8978,8 +8979,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             const char *s=VARVAL_fn(a); *out=INTVAL(s?(long long)strlen(s):0LL); return 1;
         }
         if (fn[0]=='!' && fn[1]=='\0') {
-            extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
-            if (core_call_registered_fn(fn, args, nargs, out)) return 1;
+            extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern const char *sn4_unary_op_key(const char *);
+            if (core_call_registered_fn(sn4_unary_op_key(fn), args, nargs, out)) return 1;
             core_runtime_error(29, "undefined operator referenced");
             *out=FAILDESCR; return 1;
         }

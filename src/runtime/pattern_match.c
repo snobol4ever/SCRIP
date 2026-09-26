@@ -501,6 +501,13 @@ eval_str:
 }
 _Static_assert(sizeof(char) == 1, "EVAL OF A STRING THAT CANNOT BE A NUMBER SKIPS THE NUMBER PARSES (ceo CEO-1263): a string whose first non-blank character is a letter is an expression, never a number literal, so it goes straight to the compiled-expression cache: three parses of 'X + 1' were 8% of the eval_fixed kernel, and strtod's inf/nan spellings made EVAL('INF') a real where SPITBOL evaluates the variable INF");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *sn4_unary_op_key(const char *op) {
+    static const char set[] = "!#%/=|";
+    static const char *const key[] = { "unary!", "unary#", "unary%", "unary/", "unary=", "unary|" };
+    const char *p = (op && op[0] && !op[1]) ? strchr(set, op[0]) : (const char *)0;
+    return p ? key[p - set] : op;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
     const char *nm  = VARVAL_fn(newname);
     const char *old = NULL;
@@ -521,6 +528,7 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
     }
     if (!old) old = VARVAL_fn(oldname);
     if (!nm || !old || !*old) return FAILDESCR;
+    if (to_int(type) == 1) nm = sn4_unary_op_key(nm);
     register_fn_alias(nm, old);
     return NULVCL;
 }
