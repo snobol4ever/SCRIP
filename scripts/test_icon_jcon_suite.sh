@@ -175,7 +175,19 @@ run_one() {
     # mffsol, profsum, tgrlink) was handed `--` before its data file in m4 and could only FAIL there. So the
     # separator is added for m3 alone and the binary gets the program's own argv.
     local -a extra_args=(); [ "${#prog_args[@]}" -eq 0 ] || extra_args=(-- "${prog_args[@]}")
-    for m in $(sed -nE 's/^[[:space:]]*link[[:space:]]+"?([A-Za-z0-9_.-]+)"?.*$/\1/p' "$icn"); do m="${m%.icn}"; [ -f "$(dirname "$icn")/$m.icn" ] && mods+=("$(dirname "$icn")/$m.icn"); done
+    # ⛔ EVERY NAME ON A link LINE, AND THE LINKS OF WHAT IT LINKS (coo 2026-09-25, hq_icon's measurement landing the Jcon drivers):
+    # this sed captured only the FIRST name, so `link load2, load1` -- ordinary Icon -- copied load2.icn and not load1.icn, and
+    # m3 refused the link ("cannot open load1.icn ... tried <rundir>/load1.icn") while m4 passed. Nor did it follow a library
+    # that links a neighbour. Every comma-separated name is read, and each local module's own link lines are followed in turn.
+    local -a _lq=("$icn"); local _ls _ln _lseen=" $(basename "$icn" .icn) "
+    while [ "${#_lq[@]}" -gt 0 ]; do
+        _ls="${_lq[0]}"; _lq=("${_lq[@]:1}")
+        for _ln in $(sed -nE 's/#.*$//; s/^[[:space:]]*link[[:space:]]+(.*)$/\1/p' "$_ls" | tr ',"' '  '); do
+            _ln="${_ln%.icn}"; case "$_lseen" in *" $_ln "*) continue ;; esac; _lseen="$_lseen$_ln "
+            [ -f "$(dirname "$icn")/$_ln.icn" ] || continue
+            mods+=("$(dirname "$icn")/$_ln.icn"); _lq+=("$(dirname "$icn")/$_ln.icn")
+        done
+    done
     # ⛔⭐ A LINKED MODULE TRAVELS WITH THE PROGRAM, exactly as the program's own source does one screen up
     # (hq_V 2026-09-11, measured on link1). `link link2` is resolved RELATIVE TO THE MAIN PROGRAM'S PATH, so
     # naming the program by its bare name in the rundir -- which is what makes &progname gradable at all --

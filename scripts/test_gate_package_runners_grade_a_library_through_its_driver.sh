@@ -112,6 +112,19 @@ has "$T/oz.out" '^ARIZONA_SUITE_BOARD shipped=2 graded=2 gap=0 m3_pass=2 .* m4_p
 OJ="$T/oj"; mkdir -p "$OJ" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/usesopt.icn "$O"/usesopt.ref "$O"/*.tsv "$OJ/"
 S4E_PROGRESS_DB="$T/oj.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
 has "$T/oj.out" '^JCON_SUITE_BOARD shipped=2 graded=2 gap=0 total=2 m3_pass=2 m4_pass=2' && ck ok "jcon: a library named like an IPL procedure is linked from the package by its driver, and a non-driver linking that name gets IPL's (m3 and m4 pass both)" || ck no "jcon: the IPL-namesake library or its non-driver user: $(grep -m1 '^JCON_SUITE_BOARD' "$T/oj.out" | cut -c1-120) $(grep -m2 'FAIL' "$T/oj.out" | tr '\n' ' ' | cut -c1-120)"
+# ---- EVERY NAME ON A link LINE, TRANSITIVELY (coo 2026-09-25, hq_icon's measurement landing the Jcon drivers): the Jcon m3 rundir
+# took only the FIRST name of `link load2, load1` and none of a library's own links, so m3 could not open the rest while m4 passed.
+# mlib_driver links "mlib, nlib" on one line and mlib links helper; the ref is iconx's, "hmn".
+L="$T/lk"; mkdir -p "$L/cut" && printf 'link helper\nprocedure m();\n   return helper() || "m";\nend\n' > "$L/mlib.icn" \
+  && printf 'procedure helper();\n   return "h";\nend\n' > "$L/helper.icn" && printf 'procedure n();\n   return "n";\nend\n' > "$L/nlib.icn" \
+  && printf 'link mlib, nlib\nprocedure main();\n   write(m(), n());\nend\n' > "$L/mlib_driver.icn" && cp "$L"/*.icn "$L/cut/" \
+  && ( cd "$L/cut" && "$ICONT" -s -c helper.icn nlib.icn mlib.icn && "$ICONT" -s -o md mlib_driver.icn && "$ICONX" ./md ) > "$L/mlib_driver.ref" 2>&1 </dev/null
+grep -qx hmn "$L/mlib_driver.ref" || { echo "⛔ REFUSED(2): iconx did not answer the link-line fixture -- $(tr '\n' '|' < "$L/mlib_driver.ref")"; exit 2; }
+rm -rf "$L/cut"; printf '# fixture\n# name<TAB>CLASS<TAB>reason\nhelper.icn\tNEEDS_DRIVER\tlinked by mlib, no driver (fixture)\nnlib.icn\tNEEDS_DRIVER\tlinked by the driver, no driver of its own (fixture)\n' > "$L/UNGRADED.tsv"
+printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$L/UNGRADABLE.tsv"
+S4E_PROGRESS_DB="$T/lk.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$L" > "$T/lk.out" 2>&1
+_lb="$(grep -m1 '^JCON_SUITE_BOARD ' "$T/lk.out")"; _lok=1; for _kv in shipped=3 graded=1 gap=2 m3_pass=1 m4_pass=1; do grep -qE "(^| )$_kv( |\$)" <<<"$_lb" || _lok=0; done   # each field on its own (CEO-839)
+[ -n "$_lb" ] && [ "$_lok" = 1 ] && ck ok "jcon: a driver linking two libraries on one line, one of which links a third, passes in m3 as in m4" || ck no "jcon: the link-line fixture: $(grep -m1 '^JCON_SUITE_BOARD' "$T/lk.out" | cut -c1-120) $(grep -m1 'FAIL' "$T/lk.out" | cut -c1-100)"
 # ---- gimpel
 CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
@@ -122,6 +135,6 @@ has "$T/gp.out" '^PACKAGE_INVENTORY package=gimpel shipped=3 graded=2 ungraded=1
 has "$T/gp.out" 'both_modes_pass=1/3 shipped libraries' && ck ok "gimpel: the row it would publish is 1/3 over the shipped libraries" || ck no "gimpel: the row text is not 1/3 over the libraries: $(grep -m1 -o 'both_modes_pass=[^ ]*' "$T/gp.out")"
 progress_arms gimpel "$T/gp.tsv" ALIB BLIB
 
-echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library and one non-driver program linking its name per Icon runner; refs cut live from iconx and sbl -bf"
+echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library and one non-driver program linking its name per Icon runner, and one two-name link line for jcon; refs cut live from iconx and sbl -bf"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [package_runners_grade_a_library_through_its_driver]: $checks of $checks arms hold"; exit 0; fi
 echo "⛔ GATE FAIL(1) [package_runners_grade_a_library_through_its_driver]: $fails of $checks arms red"; exit 1
