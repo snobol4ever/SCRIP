@@ -17,7 +17,10 @@ typedef struct { char *sym; int len; int prec; int depth; char cat; int assoc; u
 typedef struct { char *name; int depth; int value; } RkName;
 typedef struct { int pos; int len; int depth; } RkMyst;
 typedef struct { char **v; int n; int c; } RkStrs;
-typedef struct { const char *kind; char *name; RkStrs attrs; RkStrs roles; RkMyst *uses; int nuses; int cuses; int unknown; } RkPkg;
+typedef struct {
+    const char *kind; char *name; RkStrs attrs; RkStrs roles; RkMyst *uses; int nuses; int cuses; int unknown;
+    RkStrs meths; RkStrs mnames; RkStrs multis; RkStrs stubs; int has_parent; int decl_pos;
+} RkPkg;
 typedef struct RkLang {
     int regex; int cc; int words; int ww;
     int bs; int qbs; int clos; int sc; int ar; int hs; int fn;
@@ -2246,8 +2249,9 @@ static int strs_has(const RkStrs *a, const char *s, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void record_attribute(RkP *p, int sigil, const char *name, int n) {
+static void record_attribute(RkP *p, int sigil, const char *name, int n, int pub) {
     if (!p->npkgs || n <= 0 || n > 250) return;
+    if (pub) strs_add(&p->pkgs[p->npkgs - 1].meths, name, n);
     char buf[256]; buf[0] = (char) sigil; buf[1] = '!'; memcpy(buf + 2, name, (size_t) n);
     strs_add(&p->pkgs[p->npkgs - 1].attrs, buf, n + 2);
 }
@@ -2255,6 +2259,12 @@ static void record_attribute(RkP *p, int sigil, const char *name, int n) {
 static void record_does(RkP *p, int from, int to) {
     if (!p->npkgs) return;
     RkPkg *k = &p->pkgs[p->npkgs - 1];
+    for (int t = from; t + 7 <= to; t++) if (!memcmp(p->s + t, "handles", 7) && !wordch_at(p, t + 7) && (t == 0 || !asc_word((unsigned char) p->s[t - 1]))) k->has_parent = 1;
+    for (int t = from; t + 2 <= to; t++) {
+        if (memcmp(p->s + t, "is", 2) || wordch_at(p, t + 2) || (t > 0 && asc_word((unsigned char) p->s[t - 1]))) continue;
+        int q = ws(p, t + 2); int l = r_longname(p, q);
+        if (l >= 0 && is_type_n(p, p->s + q, name_part_len(p, q, l))) k->has_parent = 1;
+    }
     for (int t = from; t + 4 <= to; t++) {
         if (memcmp(p->s + t, "does", 4) || wordch_at(p, t + 4) || (t > 0 && asc_word((unsigned char) p->s[t - 1]))) continue;
         int q = ws(p, t + 4);
@@ -2278,10 +2288,64 @@ static int role_has_attribute(RkP *p, const char *role, const char *a, int n, in
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static RkPkg *role_lookup(RkP *p, const char *name) {
+    for (int i = p->nroledb - 1; i >= 0; i--) if (!strcmp(p->roledb[i].name, name)) return &p->roledb[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int role_flatten(RkP *p, const char *name, RkStrs *meths, RkStrs *multis, RkStrs *stubs, int depth) {
+    RkPkg *r = role_lookup(p, name);
+    if (!r || r->unknown || depth > 16) return 0;
+    for (int i = 0; i < r->meths.n; i++) {
+        char buf[512]; int m = snprintf(buf, sizeof buf, "%s\t%s", r->meths.v[i], r->name);
+        if (m > 0 && m < (int) sizeof buf && !strs_has(meths, buf, m)) strs_add(meths, buf, m);
+    }
+    for (int i = 0; i < r->multis.n; i++) if (!strs_has(multis, r->multis.v[i], (int) strlen(r->multis.v[i]))) strs_add(multis, r->multis.v[i], (int) strlen(r->multis.v[i]));
+    for (int i = 0; i < r->stubs.n; i++) if (!strs_has(stubs, r->stubs.v[i], (int) strlen(r->stubs.v[i]))) strs_add(stubs, r->stubs.v[i], (int) strlen(r->stubs.v[i]));
+    for (int j = 0; j < r->roles.n; j++) if (!role_flatten(p, r->roles.v[j], meths, multis, stubs, depth + 1)) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int class_defines(const RkPkg *k, const char *n, int len) {
+    if (strs_has(&k->meths, n, len) || strs_has(&k->mnames, n, len) || strs_has(&k->stubs, n, len)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void check_role_composition(RkP *p, RkPkg *k) {
+    int nr = k->roles.n;
+    if (!nr) return;
+    RkStrs *M = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr), *K = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr), *S = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr);
+    memset(M, 0, sizeof(RkStrs) * (size_t) nr); memset(K, 0, sizeof(RkStrs) * (size_t) nr); memset(S, 0, sizeof(RkStrs) * (size_t) nr);
+    for (int i = 0; i < nr; i++) if (!role_flatten(p, k->roles.v[i], &M[i], &K[i], &S[i], 0)) return;
+    for (int i = 0; i < nr; i++) for (int a = 0; a < M[i].n; a++) {
+        const char *n = M[i].v[a]; int len = (int) (strchr(n, '\t') - n); const char *org = n + len + 1;
+        if (class_defines(k, n, len)) continue;
+        for (int j = i + 1; j < nr; j++) for (int b = 0; b < M[j].n; b++) {
+            const char *x = M[j].v[b]; int xl = (int) (strchr(x, '\t') - x);
+            if (xl == len && !memcmp(x, n, (size_t) len) && strcmp(x + xl + 1, org))
+                panic_at(p, k->decl_pos, "Method '%.*s' must be resolved by class %s because it exists in multiple roles (%s, %s)", len, n, k->name, k->roles.v[j], k->roles.v[i]);
+        }
+    }
+    for (int i = 0; i < nr; i++) for (int a = 0; a < K[i].n; a++) {
+        const char *key = K[i].v[a]; int len = (int) strlen(key); int nl = (int) (strchr(key, '|') - key);
+        if (class_defines(k, key, nl)) continue;
+        for (int j = i + 1; j < nr; j++) if (strcmp(k->roles.v[i], k->roles.v[j]) && strs_has(&K[j], key, len))
+            panic_at(p, k->decl_pos, "Multi method '%.*s' must be resolved by class %s because it exists in multiple roles (%s, %s)", nl, key, k->name, k->roles.v[j], k->roles.v[i]);
+    }
+    if (k->has_parent) return;
+    for (int i = 0; i < nr; i++) for (int a = 0; a < S[i].n; a++) {
+        const char *n = S[i].v[a]; int len = (int) strlen(n); int ok = class_defines(k, n, len);
+        for (int j = 0; j < nr && !ok; j++) for (int b = 0; b < M[j].n && !ok; b++) if (!strncmp(M[j].v[b], n, (size_t) len) && M[j].v[b][len] == '\t') ok = 1;
+        for (int j = 0; j < nr && !ok; j++) for (int b = 0; b < K[j].n && !ok; b++) if (!strncmp(K[j].v[b], n, (size_t) len) && K[j].v[b][len] == '|') ok = 1;
+        if (!ok) panic_at(p, k->decl_pos, "Method '%s' must be implemented by %s because it is required by roles: %s.", n, k->name, k->roles.v[i]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void package_close(RkP *p) {
     RkPkg k = p->pkgs[--p->npkgs];
     if (!strcmp(k.kind, "role") && k.name) { RK_GROW(p->roledb, p->nroledb, p->croledb, RkPkg); p->roledb[p->nroledb++] = k; }
     if (k.unknown || !(!strcmp(k.kind, "class") || !strcmp(k.kind, "grammar") || !strcmp(k.kind, "role"))) return;
+    if (k.name && (!strcmp(k.kind, "class") || !strcmp(k.kind, "grammar"))) check_role_composition(p, &k);
     for (int i = 0; i < k.nuses; i++) {
         const char *a = p->s + k.uses[i].pos; int n = k.uses[i].len;
         if (strs_has(&k.attrs, a, n)) continue;
@@ -2299,7 +2363,7 @@ static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
     if (c == '&' || memmem(p->s + pos, (size_t) (e - pos), "::", 2)) return;
     int nb = pos + 1 + (twig ? 1 : 0);
     e = nb + name_part_len(p, nb, e);
-    if (p->in_decl && (p->scope == 3 || p->scope == 4) && (twig == 0 || twig == '.' || twig == '!')) record_attribute(p, c, p->s + nb, e - nb);
+    if (p->in_decl && (p->scope == 3 || p->scope == 4) && (twig == 0 || twig == '.' || twig == '!')) record_attribute(p, c, p->s + nb, e - nb, twig == '.');
     if (!p->in_decl && twig == '!' && p->npkgs) {
         RkPkg *k = &p->pkgs[p->npkgs - 1];
         RK_GROW(k->uses, k->nuses, k->cuses, RkMyst); k->uses[k->nuses].pos = pos; k->uses[k->nuses].len = e - pos; k->uses[k->nuses].depth = 0; k->nuses++;
@@ -3045,7 +3109,7 @@ static int r_param_var(RkP *p, int pos) {
     else if (is_alpha_cp(cp_at(p, q))) {
         e = r_identifier(p, q);
         if (e >= 0 && q == pos + 1) add_name_n(p, p->s + pos, e - pos);
-        if (e >= 0 && (p->scope == 3 || p->scope == 4) && (q == pos + 1 || ch(p, pos + 1) == '.' || ch(p, pos + 1) == '!')) record_attribute(p, c, p->s + q, e - q);
+        if (e >= 0 && (p->scope == 3 || p->scope == 4) && (q == pos + 1 || ch(p, pos + 1) == '.' || ch(p, pos + 1) == '!')) record_attribute(p, c, p->s + q, e - q, ch(p, pos + 1) == '.');
     }
     else if (is_digit_cp(cp_at(p, q))) panic_at(p, pos, "Cannot declare a numeric parameter");
     else if (ch(p, q) == '/' || ch(p, q) == '!') e = q + 1;
@@ -3413,6 +3477,22 @@ static int r_onlystar(RkP *p, int pos) {
     return r_ENDSTMT(p, q + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void record_method(RkP *p, int name_from, int name_to, int sig_from, int sig_to, int body) {
+    RkPkg *k = &p->pkgs[p->npkgs - 1];
+    int nf = name_from > 0 && (p->s[name_from - 1] == '!' || p->s[name_from - 1] == '^') ? name_from - 1 : name_from;
+    int nl = name_part_len(p, name_from, name_to) + (name_from - nf);
+    int b = ch(p, body) == '{' ? ws(p, body + 1) : -1;
+    int stub = b >= 0 && (at_lit(p, b, "...") || at_lit(p, b, "!!!") || at_lit(p, b, "???")) && ch(p, ws(p, b + 3)) == '}';
+    if (stub) { strs_add(&k->stubs, p->s + nf, nl); return; }
+    if (p->multiness != 1) { strs_add(&k->meths, p->s + nf, nl); return; }
+    strs_add(&k->mnames, p->s + nf, nl);
+    char buf[512]; int m = 0;
+    for (int i = nf; i < nf + nl && m < 250; i++) buf[m++] = p->s[i];
+    buf[m++] = '|';
+    for (int i = sig_from; i < sig_to && m < 500; i++) if (!asc_space((unsigned char) p->s[i])) buf[m++] = p->s[i];
+    strs_add(&k->multis, buf, m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_routine_def(RkP *p, int pos, int is_method) {
     int q = pos; int name_from = -1, name_to = -1;
     if (is_method) {
@@ -3438,10 +3518,12 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     int sm = p->has_self;
     int outer_depth = p->depth;
     scope_enter(p);
+    int sig_from = q, sig_to = q;
     if (ch(p, q) == '(') {
         int s = r_signature(p, q + 1, is_method);
         s = ws(p, s);
         if (ch(p, s) != ')') panic_at(p, s, "Unable to parse signature; couldn't find final ')'");
+        sig_to = s + 1;
         q = ws(p, s + 1);
     }
     int tstart = q;
@@ -3476,6 +3558,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     else e = r_blockoid(p, q);
     scope_leave(p);
     p->has_self = sm;
+    if (is_method && name_from >= 0 && p->npkgs && !(is_method == 2 && p->lang_e)) record_method(p, name_from, name_to, sig_from, sig_to, q);
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3567,7 +3650,7 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     int saved_scope = p->scope; p->scope = 0;
     RK_GROW(p->pkgs, p->npkgs, p->cpkgs, RkPkg);
     { RkPkg *k = &p->pkgs[p->npkgs++]; memset(k, 0, sizeof *k); k->kind = kind; k->name = pkg_len ? ct_strndup0(p->s + pkg_from, pkg_len) : NULL;
-      k->unknown = saved_scope == 5 || saved_scope == 8; }
+      k->unknown = saved_scope == 5 || saved_scope == 8; k->decl_pos = pkg_from; }
     scope_enter(p);
     if (!strcmp(kind, "role") && ch(p, q) == '[') {
         int s = r_signature(p, q + 1, 0); s = ws(p, s);
