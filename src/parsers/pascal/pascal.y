@@ -52,6 +52,7 @@ static void pas_scope_fwd_save(const char *name, PNodeList *params, const char *
     if (g_pas_scope.nfwd >= g_pas_scope.fcap) { g_pas_scope.fcap = g_pas_scope.fcap ? g_pas_scope.fcap * 2 : 32; g_pas_scope.fwd = (PasFwd *)ct_grow(g_pas_scope.fwd, (size_t)g_pas_scope.fcap * sizeof(PasFwd)); }
     g_pas_scope.fwd[g_pas_scope.nfwd].name = name; g_pas_scope.fwd[g_pas_scope.nfwd].sig = sig; g_pas_scope.fwd[g_pas_scope.nfwd++].params = params;
 }
+static void pas_formal_subranges(const char *sig, PNodeList *params);
 static void pas_scope_enter(const char *name, PNodeList *params) {
     if (g_pas_scope.depth >= g_pas_scope.mcap) { g_pas_scope.mcap = g_pas_scope.mcap ? g_pas_scope.mcap * 2 : 16; g_pas_scope.marks = (int *)ct_grow(g_pas_scope.marks, (size_t)g_pas_scope.mcap * sizeof(int)); }
     g_pas_scope.marks[g_pas_scope.depth++] = g_pas_scope.n;
@@ -60,6 +61,7 @@ static void pas_scope_enter(const char *name, PNodeList *params) {
     for (int i = first; name && i < g_pas_scope.n; i++) for (int j = g_pas_scope.nfsig - 1; j >= 0; j--)
         if (!strcmp(g_pas_scope.fsig[j].owner, name) && !strcmp(g_pas_scope.fsig[j].name, g_pas_scope.defs[i].name)) {
             g_pas_scope.defs[i].sig = g_pas_scope.fsig[j].sig; g_pas_scope.defs[i].formal = 1; break; }
+    if (first > 0 && g_pas_scope.defs[first - 1].rid && name && !strcmp(g_pas_scope.defs[first - 1].name, name)) pas_formal_subranges(g_pas_scope.defs[first - 1].sig, params);
 }
 static int pas_pf_is_formal(const char *name);
 static const PasDef *pas_pf_lookup(const char *name);
@@ -1591,22 +1593,27 @@ static long long pas_decl_part_order(long long prev, long long cur) {
     return cur > prev ? cur : prev;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *pas_sig_value_type(const char *sig, int idx) {
+static const char *pas_sig_value_type(const char *sig, int idx, int var_too) {
     if (!sig || strlen(sig) < 3) return NULL;
     const char *p = sig + 2; int at = 0;
     while (*p && *p != ')') {
         const char *q = p; int dep = 0;
         while (*q && !(dep == 0 && (*q == ';' || *q == ')'))) { if (*q == '(') dep++; else if (*q == ')') dep--; q++; }
         char k = *p; int cnt = (k == 'v' || k == 'r') ? atoi(p + 1) : 1;
-        if (idx < at + cnt) { const char *c = (k == 'v') ? memchr(p, ':', (size_t)(q - p)) : NULL; if (!c) return NULL;
+        if (idx < at + cnt) { const char *c = (k == 'v' || (var_too && k == 'r')) ? memchr(p, ':', (size_t)(q - p)) : NULL; if (!c) return NULL;
             char *t = (char *)ct_zalloc(1, (size_t)(q - c)); memcpy(t, c + 1, (size_t)(q - c - 1)); return t; }
         at += cnt; p = (*q == ';') ? q + 1 : q;
     }
     return NULL;
 }
+static void pas_formal_subranges(const char *sig, PNodeList *params) {
+    for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
+        const char *t = pas_sig_value_type(sig, fi++, 1); if (t && pas_subtype_high(t) >= 0) pas_subvar_add(id->v.sval, pas_subtype_low(t), pas_subtype_high(t)); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *args) {
     for (int i = 0; i + 1 < args->count; i += 2) {
-        const char *t = pas_sig_value_type(cd->sig, i / 2); tree_t *a = args->items[i]; const char *at = NULL;
+        const char *t = pas_sig_value_type(cd->sig, i / 2, 0); tree_t *a = args->items[i]; const char *at = NULL;
         if (!t || !a || (strcmp(t, "integer") && strcmp(t, "real") && strcmp(t, "char") && strcmp(t, "boolean"))) continue;
         if (a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_chrlit")) at = "char";
         else if (a->t == TT_FLIT) at = "real";
