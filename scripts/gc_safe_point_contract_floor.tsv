@@ -14,6 +14,12 @@
 # call box (the class this reader already could not place at 958 of these rows): findall 234 -> 294, root_cells 214 -> 274,
 # pldb 152 -> 210, batch_b 210 -> 274, atom_dup 148 -> 154.  1186 of them were on origin 496b24635, identical on a control and
 # on the IR_BOUND cure (hq_prolog's lowering landings); the last 20 with 15 new sites bisect to 7691706a8 (nl/0 permission).
+# 2026-09-26 cto: the five Prolog witnesses re-declared again, UNDECIDABLE only: findall 294 -> 298, root_cells 274 -> 278, pldb 210 -> 214,
+# batch_b 274 -> 278, atom_dup 154 -> 160 (sites +13/+13/+13/+13/+14). ATTRIBUTED BY A PER-COMMIT CENSUS (a worktree per commit, this checker over
+# the five witnesses, first-parent bisect c41ae1e9b..2d6418900 in three rounds): every witness moves at cfe655263 (hq_prolog 2026-09-25 16:46, every
+# term writer on a binary current output raises permission_error) -- b921002ef, its first parent, reads the old floor exactly -- by 10 sites and 4
+# UND each, and the later +1..+3 sites (22cca29bf, 2d6418900) moved no clause. The same K3 NO-ANCHOR-REACHES-SITE class in Prolog call boxes as
+# the 09-25 re-declaration; a lawful landing, not a regression of the emitted safe-point sequence.
 # k5 is the RSP-PARITY clause (CEO-1151, cto 2026-09-22): a poll call at rsp 8 mod 16 on any path from its function's
 # own entry (a box entry ASSUMED on the grid, a called function at 8), which misaligns every C callee on that path.
 # UNGRADEABLE: hb_aggt.icn hb_aggv.icn hb_arr.sno hb_dinst.icn hb_dvec_list.icn hb_errtext_eval_capture.sno hb_pldb.pl hb_ws.icn hb_wsb.icn
@@ -54,16 +60,16 @@ hb_file_name_unrooted.icn	18	0	0	0	0	0	0	0
 hb_mkexpr_unmapped_spine_store.sno	11	0	0	0	0	0	2	18
 hb_nested_match_outer_subject.sno	25	0	0	0	0	0	20	20
 hb_nv.sno	29	0	0	0	0	0	0	48
-hb_pl_findall.pl	468	0	0	0	0	0	294	0
-hb_pl_root_cells.pl	497	0	0	0	0	0	274	0
-hb_pldb.pl	412	0	0	0	0	0	210	0
-hb_plj_batch_b.pl	442	0	0	0	0	0	274	0
+hb_pl_findall.pl	481	0	0	0	0	0	298	0
+hb_pl_root_cells.pl	510	0	0	0	0	0	278	0
+hb_pldb.pl	425	0	0	0	0	0	214	0
+hb_plj_batch_b.pl	455	0	0	0	0	0	278	0
 hb_scan_nested.icn	21	0	0	0	0	0	0	0
 hb_ws.icn	13	0	0	0	0	0	0	0
 hb_wsb.icn	14	0	0	0	0	0	0	0
 hb_wsb_bignum.icn	24	0	0	0	0	0	0	0
 hb_wsb_eval_define.sno	29	0	0	0	0	0	12	40
-hb_wsb_pl_atom_dup.pl	357	0	0	0	0	0	154	0
+hb_wsb_pl_atom_dup.pl	371	0	0	0	0	0	160	0
 hb_wsb_raku_junction.raku	24	0	0	0	0	0	0	0
 hb_wsb_raku_sprintf_multi.raku	26	0	0	0	0	0	0	0
 hb_wsb_rk_arr.raku	21	0	0	0	0	0	0	2
