@@ -172,12 +172,21 @@ for pl in "$B"/*.pl; do
   go=$(cd "$W" && timeout -k 5 15 gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
   so=$(cd "$W" && timeout -k 5 15 swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" 2>/dev/null </dev/null | head -200)
   m3o=$(cd "$W" && timeout -k 5 15 "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>/dev/null | head -200)
+  # ⛔ A gplc REFUSAL DARKENS THE gplc CELL, NEVER THE KERNEL (CEO-1281, found the hour the arm was born): witness_depth_nrev8 defines
+  #   append/3, which gplc refuses as "redefining built-in predicate append/3" where gprolog's consult only prints an error line and runs
+  #   the built-in -- the kernel is OUTSIDE THE gplc BASELINE (RULES.md § THE OUTSIDE-BASELINE TEST IS ABOUT THE ORACLE), and the first
+  #   cut of this gate SKIPped the whole kernel on all five engines for it. The three engines that decide SKIP stay gnu, swi and m3.
   gpo=$(cd "$W" && rm -f ss.gplc && gplc --no-top-level -o ss.gplc "$pl" >/dev/null 2>&1 && timeout -k 5 15 ./ss.gplc </dev/null 2>/dev/null | head -200)
-  if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ] || [ "$gpo" != "$want" ]; then
+  gp_ok=1; [ "$gpo" = "$want" ] || gp_ok=0
+  if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
     printf "%-14s %14s %14s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP SKIP SKIP "correctness-fail(single-shot$([ "$go" != "$want" ] && printf " gnu")$([ "$gpo" != "$want" ] && printf " gplc")$([ "$so" != "$want" ] && printf " swi")$([ "$m3o" != "$want" ] && printf " m3"))"; tot_skip=$((tot_skip+1)); continue
   fi
   declare -A R=() C=()
   for eng in gnu gplc swi m3 m4; do
+    if [ "$eng" = gplc ] && [ "$gp_ok" = 0 ]; then
+      R[gplc]="NA"; C[gplc]="gplc:single-shot-refused-or-wrong(outside the gplc baseline)"; BWORK["$k:gplc"]="NA"; BOVH["$k:gplc"]="NA"; BN["$k:gplc"]="-"
+      perf_dark_cell "$k/gplc" "gplc refused or misanswered the kernel single-shot (a built-in redefined, or an answer the .ref does not carry)"; continue
+    fi
     res=$(search "$eng" "$pl"); n=$(awk '{print $1}' <<<"$res")
     r=$(awk '{print $2}' <<<"$res")
     case "$r" in
