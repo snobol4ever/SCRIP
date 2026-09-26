@@ -45,8 +45,27 @@ SIDECAR = {"sno-master": "tests/snobol4/ALL.outside.tsv",
 UNG = {"UNGRADED", "SKIP", "MISSING", "UNPROVEN"}
 
 
+# ⛔ A DRIVER IS ITS LIBRARY'S VEHICLE (CEO-1269): the progress writer records NAME_driver under NAME, and a sidecar written before the
+# re-keying still names the driver (gimpel's OUTSIDE file: BAL_driver.sno), so the stem folds the suffix -- else the one program
+# counts twice, once from the DB and once from the sidecar (gimpel read 160 against its row of 148, coo 2026-09-25).
 def stem(n):
-    return re.sub(r"\.(sno|spt|sc|icn|pl|reb|raku|pas)$", "", n.split("/")[-1])
+    return re.sub(r"_driver$", "", re.sub(r"\.(sno|spt|sc|icn|pl|reb|raku|pas)$", "", n.split("/")[-1]))
+
+
+# ⛔ PACKAGES WITH NO OUTSIDE FILE WHOSE ROW IS STILL THEIR SHIPPED POPULATION (ceo CEO-1272, coo 2026-09-25): IPL publishes the
+# inventory's shipped count since SCRIP e6120e5ba, so its UNGRADED/UNGRADABLE sidecars are part of the row's denominator exactly as
+# they are for the packages above; without the fold the audit read IPL's 843 against a DB population of 194.
+PKG_SIDECARS = {"ipl": "packages/icon/ipl"}
+
+
+def container_stems(corpus, key):
+    """CONTAINERS.tsv names beside the suite's sidecars (CEO-1272): files that are not programs and left the shipped population.
+    A DB row written for one on an older corpus -- before the split named it -- is not a program of the row and is not counted."""
+    d = os.path.dirname(SIDECAR[key]) if key in SIDECAR else PKG_SIDECARS.get(key)
+    fp = os.path.join(corpus, d, "CONTAINERS.tsv") if d else ""
+    if not fp or not os.path.exists(fp):
+        return set()
+    return {stem(l.split("\t")[0].strip()) for l in open(fp, encoding="utf-8", errors="replace") if l.strip() and not l.startswith("#")}
 
 
 def read_rows(suites):
@@ -80,6 +99,17 @@ def sidecar_stems(corpus, key):
     authority and those two files are its record on disk; csnobol4: 61 UNGRADABLE of which the 49 OUTSIDE are a subset)."""
     sc = SIDECAR.get(key)
     out, ungradable, ungraded = set(), set(), set()
+    if not sc and key in PKG_SIDECARS:
+        # keyed by PATH, not stem: these packages record only their graded programs in the DB, never a sidecar one, and IPL ships four
+        # basenames twice over (gener, morse, rep ... in procs/ and progs/), so a stem key merged four distinct files (843 read 839)
+        for fn, dst in (("UNGRADABLE.tsv", ungradable), ("UNGRADED.tsv", ungraded)):
+            fp = os.path.join(corpus, PKG_SIDECARS[key], fn)
+            if os.path.exists(fp):
+                for l in open(fp, encoding="utf-8", errors="replace"):
+                    if l.startswith("#") or not l.strip():
+                        continue
+                    dst.add("path:" + l.split("\t")[0].strip())
+        return out, ungradable, ungraded - ungradable
     if sc and os.path.exists(os.path.join(corpus, sc)):
         for l in open(os.path.join(corpus, sc), encoding="utf-8", errors="replace"):
             if l.startswith("#") or not l.strip():
@@ -99,6 +129,17 @@ def sidecar_stems(corpus, key):
                         continue
                     dst.add(stem(l.split("\t")[0].strip()))
     return out, ungradable - out, ungraded - out - ungradable
+
+
+def population_inputs(corpus, key, d):
+    """The DB rows and the sidecar name sets ONE suite's population is tallied from, with CONTAINERS.tsv's names removed from all of
+    them (CEO-1272). Shared by this audit and util_score_row.py's write-time cross-check, so the two cannot disagree on who counts."""
+    side, s_ungradable, s_ungraded = sidecar_stems(corpus, key)
+    cont = container_stems(corpus, key)
+    if cont:
+        d = {p: mm for p, mm in d.items() if stem(p) not in cont}
+        side, s_ungradable, s_ungraded = side - cont, s_ungradable - cont, s_ungraded - cont
+    return d, side, s_ungradable, s_ungraded
 
 
 def classify(mm, outside_named):
@@ -178,7 +219,7 @@ def audit(suites, db, corpus, out=print):
             out(f"{tag} {'-':>10} {'-':>5}  {'-':10} {'-':19}  UNPROVEN: no tree on the row (never measured)")
             continue
         d = progs.get((DBNAME.get(key, key), tree), {})
-        side, s_ungradable, s_ungraded = sidecar_stems(corpus, key)
+        d, side, s_ungradable, s_ungraded = population_inputs(corpus, key, d)
         if not d:
             unproven.append(key)
             out(f"{tag} {'-':>10} {'-':>5}  {'-':10} {'-':19}  UNPROVEN: no progress rows for this suite on {tree} (CEO-750)")
@@ -273,7 +314,28 @@ def selftest():
         buf = []
         rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
         ck(rc == 2, "(c) rc=2 REFUSES on an empty DB (zero rows gradable)")
-        print(f"population: 3 selftest arm(s), {fails} FAIL")
+        # (d) THE THREE POPULATION RULES OF 2026-09-25 (coo): a driver-named sidecar row and its library-named DB row are ONE program
+        # (CEO-1269); a CONTAINERS.tsv name is no program even with a stale DB row on the tree (CEO-1272); and a package with no outside
+        # file folds its sidecars BY PATH, so two files sharing a basename count twice (IPL). Each row reads AGREE only with all three.
+        dn = os.path.join(w, "corpus", "packages", "snobol4", "dotnet"); os.makedirs(dn)
+        open(os.path.join(dn, "OUTSIDE_SPITBOL_BASELINE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\n")
+        open(os.path.join(dn, "UNGRADABLE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\n")
+        open(os.path.join(dn, "CONTAINERS.tsv"), "w").write("chap.sno\tMULTI_PROGRAM\t2 top-level END statements (fixture)\n")
+        ip = os.path.join(w, "corpus", "packages", "icon", "ipl"); os.makedirs(ip)
+        open(os.path.join(ip, "UNGRADED.tsv"), "w").write("procs/dup.icn\tNEEDS_DRIVER\tfixture\ngprocs/dup.icn\tNEEDS_DRIVER\tfixture\n")
+        open(suites, "w").write("# fixture\n" + hdr + "dotnet\tDotnet\tx\tsnobol4\t2026-09-25\t1\t2\t2026-09-25\t1\t2\tfeedbeef1\tfixture\n"
+                                + "ipl\tIPL\tx\ticon\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n")
+        dl = [lines[0]]
+        for m in ("m3", "m4"):
+            dl += [row("feedbeef1", "dotnet", "d1", m, "PASS"), row("feedbeef1", "dotnet", "X", m, "UNGRADED"), row("feedbeef1", "dotnet", "chap", m, "UNGRADED"),
+                   row("feedbeef1", "ipl", "a1", m, "PASS")]
+        open(db, "w").write("".join(dl))
+        buf = []
+        rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
+        txt = "\n".join(buf)
+        ck(rc == 0 and re.search(r"dotnet .*AGREE", txt) and re.search(r"ipl .*AGREE", txt),
+           "(d) a driver-named sidecar row is its library's DB row, a container's stale DB row is no program, and IPL's two same-basename sidecar files count twice -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
+        print(f"population: 4 selftest arm(s), {fails} FAIL")
         print("SELFTEST " + ("PASS" if fails == 0 else "FAIL"))
         return 0 if fails == 0 else 1
     finally:

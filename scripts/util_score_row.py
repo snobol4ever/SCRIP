@@ -1500,7 +1500,7 @@ def db_crosscheck(key, p, t):
     for (_s, _t, prog, m), (o, note, _who, _ts) in last.items():
         d[prog][m] = (o, note)
     corpus = os.environ.get("S4E_CORPUS_ROOT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "corpus")
-    side, s_ungradable, s_ungraded = _aud.sidecar_stems(corpus, key)
+    d, side, s_ungradable, s_ungraded = _aud.population_inputs(corpus, key, d)   # containers out of the population (CEO-1272), as the batch audit counts it
     cnt, pop, _xpass, labels, bounded, shards = _aud.tally(d, side, s_ungradable, s_ungraded)
     p, t = int(p), int(t)
     if bounded:
