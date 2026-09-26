@@ -321,7 +321,7 @@ static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t 
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
     IR_t * br = NULL; IR_t * entry;
-    const tree_t * b0 = t->c[0];
+    const tree_t * b0 = t->c[0]; IR_t * b4 = cx->beta;
     if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&' && !(cx->ret_lv && !icn_ret_global_name(cx, b0->v.sval))) {
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; br = vr; entry = vr;
     } else if (b0->t == TT_IDX) {
@@ -330,7 +330,7 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
         IR_t * e2 = lower_lvalue_var(cx, b0, ω, &br);
         entry = e2 ? e2 : lower(cx, b0, NULL, ω, &br);
     } else entry = lower(cx, b0, NULL, ω, &br);
-    IR_t * cur = br; IR_t * hook = br; IR_t * prevβ = (b0->t == TT_VAR || b0->t == TT_IDX || icn_tree_is_kw_var(b0)) ? NULL : cx->beta;
+    IR_t * cur = br; IR_t * hook = br; IR_t * prevβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : (b0->t == TT_IDX && cx->beta == b4) ? NULL : cx->beta;
     for (int k = 1; k < t->n; k++) {
         IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, prevβ ? prevβ : ω, &ir); prevβ = cx->beta;
         lc_γ_to(hook, ie);
@@ -412,11 +412,12 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         *var_res = fg; return be;
     }
     if ((t->t == TT_NULL || t->t == TT_NONNULL) && t->n > 0 && t->c[0]) {
-        IR_t * clv = NULL; IR_t * ce = lower_lvalue_var(cx, t->c[0], ω, &clv);
+        IR_t * b4 = cx->beta; IR_t * clv = NULL; IR_t * ce = lower_lvalue_var(cx, t->c[0], ω, &clv);
         if (!ce || !clv) return NULL;
         IR_t * ut = build(cx, IR_NULLTEST_VAR, NULL, ω); IR_LIT(ut).sval = (t->t == TT_NONNULL) ? "nonnull" : "null";
         ir_operand_push(ut, clv); lc_γ_to(clv, ut);
         if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);
+        else if (cx->beta && cx->beta != b4 && cx->beta != ω && cx->beta != ut) ω_to(ut, cx->beta);
         *var_res = ut; return ce;
     }
     if (t->t == TT_CONJ && t->n > 1 && t->c[0] && t->c[t->n - 1]) {
@@ -718,12 +719,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
           if (lve && lv) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
             IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
-            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
+            IR_t * dr = build(cx, IR_DEREF, op, ω);
             ir_operand_push(dr, lv);
-            lc_γ_to(lv, dr);
-            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, lvbeta ? lvbeta : ω, &rr);
-            lc_γ_to(dr, re);
+            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL; IR_t * rω = lvbeta ? lvbeta : ω;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, dr, rω, &rr);
+            lc_γ_to(lv, re);
+            { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
             ir_operand_push(op, dr); ir_operand_push(op, rr);
             ir_operand_push(asn, lv); ir_operand_push(asn, op);
             *res = asn; return lve;
@@ -735,11 +736,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
             IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
-            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
-            ir_operand_push(dr, lr);
-            lc_γ_to(lr, dr);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, lvbeta ? lvbeta : ω, &rr);
-            lc_γ_to(dr, re);
+            IR_t * dr = build(cx, IR_DEREF, op, ω);
+            ir_operand_push(dr, lr); IR_t * rω = lvbeta ? lvbeta : ω;
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, dr, rω, &rr);
+            lc_γ_to(lr, re);
+            { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
             ir_operand_push(op, dr); ir_operand_push(op, rr);
             ir_operand_push(asn, lr); ir_operand_push(asn, op);
             *res = asn; return ea;

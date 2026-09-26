@@ -526,7 +526,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86_omega("je");
     s += x86_gamma();
     s += x86_beta();
-    if (curmov) s += x86("mov", "r14", FRQ(dsave));
+    if (curmov) s += x86("mov", "r14", FRQ(dsave)) + x86_scan_sync_out_force();
     s += x86_omega();
     return s;
 }

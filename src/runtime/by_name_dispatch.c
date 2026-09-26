@@ -1358,6 +1358,34 @@ int rt_procval_same(DESCR_t a, DESCR_t b) {
     return rt_procval_resolves_builtin(a) == rt_procval_resolves_builtin(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { char opsym[6]; signed char ar; } icn_opproc_t;
+static const icn_opproc_t *icn_opproc_table(int *n) {
+    static const icn_opproc_t t[] = {
+        {"+",1},{"-",1},{"*",1},{"/",1},{"\\",1},{"=",1},{"?",1},{"~",1},{"!",1},{"^",1},{".",1},
+        {"+",2},{"-",2},{"*",2},{"/",2},{"%",2},{"^",2},{"=",2},{"~=",2},{"<",2},{"<=",2},{">",2},{">=",2},{"==",2},{"~==",2},{"<<",2},{"<<=",2},{">>",2},{">>=",2},
+        {"===",2},{"~===",2},{"||",2},{"|||",2},{"++",2},{"--",2},{"**",2},{"[]",2},{":=",2},{"<-",2},{":=:",2},{"<->",2},
+        {"...",3},{"[:]",3}};
+    *n = (int)(sizeof t / sizeof t[0]); return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *icn_opproc_find(const char *nm, int arity) {
+    int n; const icn_opproc_t *t = icn_opproc_table(&n);
+    for (int i = 0; i < n; i++) if (t[i].ar == arity && !strcmp(t[i].opsym, nm)) return t[i].opsym;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_opproc_arity(const char *s) { int n; const icn_opproc_t *t = icn_opproc_table(&n); for (int i = 0; s && i < n; i++) if (s == t[i].opsym) return t[i].ar; return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_opproc_fit(const char *nm, DESCR_t **argv, int *n) {
+    extern void *rt_ws_alloc_descr(size_t);
+    int oa = icn_opproc_arity(nm);
+    if (oa <= 0 || *n == oa) return;
+    if (*n > oa) { *n = oa; return; }
+    DESCR_t *pv = (DESCR_t *)rt_ws_alloc_descr((size_t)oa);
+    for (int k = 0; k < oa; k++) pv[k] = (k < *n) ? (*argv)[k] : NULVCL;
+    *argv = pv; *n = oa;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * procval_name(DESCR_t v) {
     if (v.v != DT_E) return 0;
     if (IS_PROCVAL_fn(v)) return v.s;
@@ -1384,9 +1412,13 @@ static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t rt_deref(DESCR_t d);
+static int icn_opproc_assigns(const char *nm) {
+    if (icn_opproc_arity(nm) != 2) return 0;
+    return (!strcmp(nm, ":=") || !strcmp(nm, "<-")) ? 1 : (!strcmp(nm, ":=:") || !strcmp(nm, "<->")) ? 2 : 0;
+}
 static void icn_call_value_deref_args(const char *nm, DESCR_t *argv, int n) {
     if (nm && !strcmp(nm, "name")) return;
-    for (int k = 0; k < n; k++) if (argv[k].v == DT_N) argv[k] = rt_deref(argv[k]);
+    for (int k = icn_opproc_assigns(nm); k < n; k++) if (argv[k].v == DT_N) argv[k] = rt_deref(argv[k]);
 }
 static int icn_call_value_name_invocable(DESCR_t callee, const char *nm, int n) {
     if (IS_PROCVAL_fn(callee) || !IS_STR_fn(callee) || !nm) return 1;
@@ -1400,6 +1432,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
+    if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) {
@@ -1410,6 +1443,17 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); extern int64_t core_icn_to_int_d(DESCR_t); int64_t lo = core_icn_to_int_d(argv[0]), hi = core_icn_to_int_d(argv[1]), st = core_icn_to_int_d(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
+    if (n == 2 && IS_PROCVAL_fn(callee) && icn_opproc_assigns(nm)) {
+        extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t); extern DESCR_t rt_swap_var(DESCR_t, DESCR_t);
+        return RT_GC_CALLBACK(icn_opproc_assigns(nm) == 1 ? rt_assign_var_strict(argv[0], argv[1]) : rt_swap_var(argv[0], argv[1]));
+    }
+    if (n == 1 && IS_PROCVAL_fn(callee) && icn_opproc_arity(nm) == 1) {
+        if (!strcmp(nm, ".")) return argv[0];
+        if (!strcmp(nm, "*")) { uint64_t w[2]; memcpy(w, &argv[0], sizeof w); return RT_GC_CALLBACK(rt_size_d(w[0], w[1])); }
+        if (!strcmp(nm, "~")) { extern DESCR_t rt_cset_compl(DESCR_t); return RT_GC_CALLBACK(rt_cset_compl(argv[0])); }
+        if (!strcmp(nm, "^")) return RT_GC_CALLBACK(rt_call_arr_strict("ICN$REFRESH", argv, 1));
+        if (!strcmp(nm, "=")) { DESCR_t m = RT_GC_CALLBACK(rt_call_arr_strict("match", argv, 1)); if (IS_FAIL_fn(m)) return FAILDESCR; return RT_GC_CALLBACK(rt_call_arr_strict("tab", &m, 1)); }
+    }
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return RT_GC_CALLBACK(rt_call_arr_strict(nm, argv, n));
 }
@@ -1420,6 +1464,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
+    if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
@@ -6079,7 +6124,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
     { int sysfn = (bidlen >= 0) ? ((bidlen & BID_BAKE_SYSFN) ? 1 : 0) : (sn4 ? sn4_is_system_fn(fn) : 0);
-      if (nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
+      if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
           DATBLK_t *idb = args[0].u->type; const char _f0 = fn[0];
           extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
           for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) return dat_field_get(fn, args[0]);
@@ -7012,7 +7057,7 @@ __attribute__((visibility("hidden"))) const bn_direct_t g_bn_direct[BID_TABSZ] =
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict)
 {
-    if (nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
+    if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; const char _f0 = fn ? fn[0] : 0;
         for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) {
             extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
@@ -7507,6 +7552,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5339: ;
     if ((_bid == BID_args) && nargs == 1) {
         DESCR_t a = args[0];
+        if (IS_PROCVAL_fn(a) && icn_opproc_arity(a.s) > 0) { *out = INTVAL(icn_opproc_arity(a.s)); return 1; }
         if (IS_PROCVAL_fn(a)) {
             static const struct { const char *nm; int np; } _bt[] = {
                 {"push",-2},{"put",-2},{"insert",-2},{"delete",-2},
@@ -7583,10 +7629,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!_icn_field_only && (icn_builtin_is_known(pname) || (strict ? dat_find_type(pname) != 0 : rt_builtin_is_known(pname)) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_heap_strdup_c(pname); *out = bv; return 1;
         }
-        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]","[]", 0 };
-          static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
-          const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
-          if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)tbl[oi]; *out = bv; return 1; } }
+        { const char *op = icn_opproc_find(pname, arity < 0 ? 1 : arity); if (op) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)op; *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
     }
     if ((_bid == BID_image) && nargs == 1) {
