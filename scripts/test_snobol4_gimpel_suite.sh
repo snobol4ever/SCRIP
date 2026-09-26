@@ -227,18 +227,23 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # row published $BOTH/$SCORED, the graded set only, and nothing in the verdict instrument could see the difference.
 if [ "$SCORED" -gt 0 ] && [ -z "${GIMPEL_SUITE:-}" ]; then
 . "$HERE/lib_outside_shape.sh" || exit 2
+# ⛔⭐ CEO-1286 (Lon 2026-09-26): the libraries NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv, named by library; the live outside set names
+# their drivers) leave the denominator of shipped libraries; the drivers the oracle refuses for any other cause stay as debt.
+SUITE="$CORPUS_REAL/packages/snobol4/gimpel"
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(awk -F'\t' '$3=="ORACLE_FAIL"{sub(/.*\//,"",$2); print $2}' "$TSV")")" || exit 2; DENOM=$((SHIPPED_LIBS - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
 _cc="${S4E_CRITERION_CHANGED:-}"
 if [ -z "$_cc" ]; then
     # the denominator moved from the 144 drivers to the libraries they grade: stamped as CEO-1269's criterion change, not CEO-749's
     _prevt="$(awk -F'\t' '$1=="gimpel" {print $10; exit}' "${S4E_HOME:-$ROOT}/.github/SUITES.tsv" 2>/dev/null)"
     if [ -n "$_prevt" ] && [ "$_prevt" != "$SHIPPED_LIBS" ] && [ "$_prevt" = "$TOTAL" ]; then
         _cc="$(date +%F):CEO-1269-the-program-is-the-library-graded-through-its-driver-shipped-counts-the-${SHIPPED_LIBS}-libraries-not-the-${TOTAL}-drivers-OUTSIDE=${UNSCR}-named-no-driver=$(printf '%s' "$NODRV_NAMES" | wc -w)-owed"
-    else _cc="$(outside_shape_stamp gimpel "$SHIPPED_LIBS" "$UNSCR")" || exit 2; fi
+    else _cc="$(excluded_shape_stamp gimpel "$DENOM" "$UNSCR" "$EXCL_D_N")" || exit 2; fi
 fi
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite gimpel --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$SHIPPED_LIBS" \
-    --text "gimpel both_modes_pass=$BOTH/$SHIPPED_LIBS shipped libraries, each graded through its driver (CEO-1269) · OUTSIDE=$UNSCR whose driver SPITBOL does not answer, named with the oracle's own error in OUTSIDE_SPITBOL_BASELINE.tsv, in the denominator (CEO-749) · no driver $(printf '%s' "$NODRV_NAMES" | wc -w), owed (NEEDS_DRIVER) · graded $BOTH/$SCORED · m3 $M3P/$SCORED · m4 $M4P/$SCORED (sbl -bf the one oracle)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_gimpel_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
+    --text "gimpel both_modes_pass=$BOTH/$DENOM ($SHIPPED_LIBS shipped libraries minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, EXCLUDED.tsv, CEO-1286), each graded through its driver (CEO-1269) · OUTSIDE=$UNSCR whose driver SPITBOL does not answer, named with the oracle's own error in OUTSIDE_SPITBOL_BASELINE.tsv, in the denominator (CEO-749) · no driver $(printf '%s' "$NODRV_NAMES" | wc -w), owed (NEEDS_DRIVER) · graded $BOTH/$SCORED · m3 $M3P/$SCORED · m4 $M4P/$SCORED (sbl -bf the one oracle)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_gimpel_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

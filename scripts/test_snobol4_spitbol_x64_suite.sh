@@ -293,10 +293,16 @@ fi
 # program would do it), so refuse before the vacuous-clean verdict below can be reached.
 "$HERE/util_require_population.sh" --gate test_snobol4_spitbol_x64_suite "$GRADED" 1 "graded programs (shipped=$SHIPPED ungraded=$UNGRADED_N deferred_m4=$D4)" || exit 2
 if [ "$SUITE" = "$CANON_SUITE" ]; then
+# ⛔⭐ CEO-1286 (Lon 2026-09-26): the denominator is SHIPPED minus the programs NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv) -- none here, the
+# 36 are our oracle's own upstream tests -- so the row publishes over shipped, the unreadable ones named in UNGRADED.tsv as debt.
+. "$HERE/lib_outside_shape.sh" || exit 2
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "${UNG_LIST:-}" | cut -f1)")" || exit 2; DENOM=$((SHIPPED - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp x64tests "$DENOM" "$UNGRADED_N" "$EXCL_D_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite x64tests --suite-key x64tests --modes m3,m4 \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$GRADED" \
-    --text "spitbol_x64 both_modes_pass=$BOTH/$GRADED (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GRADED · m4 $P4/$GRADED ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x64_suite.sh\`)" \
+    ${_cc:+--criterion-changed "$_cc"} \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
+    --text "spitbol_x64 both_modes_pass=$BOTH/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, CEO-1286; $GRADED graded) (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GRADED · m4 $P4/$GRADED ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x64_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ -z "$DEF_UNDECLARED" ]

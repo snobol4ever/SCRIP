@@ -437,12 +437,16 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # programs listed in OUTSIDE_SPITBOL_BASELINE.tsv -- a 100% the law does not allow.
 OUT_N="$(printf '%s\n' $OUTSIDE_LIST | grep -c .)"; SHIPPED=$((TOTAL + OUT_N))
 . "$HERE/lib_outside_shape.sh" || exit 2
-_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp csnobol4 "$SHIPPED" "$OUT_N")" || exit 2
+# ⛔⭐ CEO-1286 (Lon 2026-09-26): the programs NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv beside the suite) leave the denominator; the
+# oracle-refused programs that ARE SPITBOL dialect (diag1/diag2 by origin, the lowercase ones owed their case conversion, tab, rewind1) stay.
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$OUTSIDE_LIST")" || exit 2; DENOM=$((SHIPPED - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp csnobol4 "$DENOM" "$OUT_N" "$EXCL_D_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
-    --suite-pass "$BOTH_PASS" --suite-total "$SHIPPED" \
+    --suite-pass "$BOTH_PASS" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
     --measurer "${S4E_SEAT:-}" \
-    --text "both_modes_pass=$BOTH_PASS/$SHIPPED shipped OUTSIDE=$OUT_N, graded $BOTH_PASS/$TOTAL (CEO-749 shape: pass over shipped) · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
+    --text "both_modes_pass=$BOTH_PASS/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, EXCLUDED.tsv, CEO-1286) OUTSIDE=$OUT_N, graded $BOTH_PASS/$TOTAL · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

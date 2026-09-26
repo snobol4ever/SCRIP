@@ -139,10 +139,17 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # new. NON-FATAL BY DESIGN (matches test_icon_arizona_suite.sh's own convention): a bookkeeping failure
 # must never turn a real measurement into a red gate for a reason unrelated to the code.
 bothp="$(printf '%s\n' "$board" | grep -oE 'all_pass=[0-9]+' | head -1 | cut -d= -f2)"; bothp="${bothp:-$m3p}"
+# ⛔⭐ CEO-1286 (Lon 2026-09-26): the denominator is SHIPPED minus the programs NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv); BUILDLIB, which
+# the oracle refuses on SET() -- a SPITBOL-documented function the x64 fork lacks (manual 5690) -- is SPITBOL dialect and STAYS as debt,
+# so this row publishes over shipped and no longer over the harness's scored population alone.
+. "$HERE/lib_outside_shape.sh" || exit 2
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((shipped - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp aisnobol "$DENOM" "$OUTSIDE_N" "$EXCL_D_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --suite-pass "$bothp" --suite-total "$scored" \
-    --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl excluded and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h${INV_LINE:+ . $INV_LINE} (\`test_snobol4_aisnobol_suite.sh\`)" \
+    ${_cc:+--criterion-changed "$_cc"} \
+    --suite-pass "$bothp" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
+    --measurer "${S4E_SEAT:-}" --text "aisnobol both_modes_pass=$bothp/$DENOM ($shipped shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, CEO-1286; OUTSIDE=$OUTSIDE_N kept as debt) . $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl not in ALL.sno and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h${INV_LINE:+ . $INV_LINE} (\`test_snobol4_aisnobol_suite.sh\`)" \
     || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 exit $rc

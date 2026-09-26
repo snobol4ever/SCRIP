@@ -209,10 +209,12 @@ fi
 # PASS over SHIPPED ($TOTAL = graded plus the $UNSCR outside the SPITBOL baseline), OUTSIDE=$UNSCR named and stamped
 # through lib_outside_shape.sh; the outside programs stay in the denominator as debt to cure.
 . "$HERE/lib_outside_shape.sh" || exit 2
-_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp testpgms "$TOTAL" "$UNSCR")" || exit 2
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((TOTAL - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp testpgms "$DENOM" "$UNSCR" "$EXCL_D_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite testpgms --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$TOTAL" \
-    --text "spitbol_testpgms both_modes_pass=$BOTH/$TOTAL shipped OUTSIDE=$UNSCR, graded $BOTH/$SCORED (CEO-749 shape: pass over shipped · programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
+    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ( programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

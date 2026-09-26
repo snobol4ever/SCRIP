@@ -1565,6 +1565,17 @@ def suite_sync(a, tree, dry_run, decided=None):
     cmd = [sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree]
     if getattr(a, "criterion_changed", None):
         cmd += ["--criterion-changed", a.criterion_changed]
+    _exc = getattr(a, "excluded", None)
+    if _exc is not None:
+        try:
+            _btxt = open(SUITE_BANNER, encoding="utf-8").read()
+        except OSError:
+            _btxt = ""
+        if "--excluded" not in _btxt:
+            die("--excluded was given but the banner this write would call, %s, does not know the flag (an older util_suite_banner.py would\n"
+                "        DROP the count while this writer reports it recorded). Pull .github to origin (CEO-1286) and re-run.\n"
+                "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % SUITE_BANNER)
+        cmd += ["--excluded", str(_exc)]
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     # ⛔ THE BANNER IS A SUBPROCESS, SO ITS WRITE IS DECLARED HERE ON ITS RC, NOT ASSUMED FROM THE CALL.
     # A banner that moved the row and THEN failed is a real partial state, and the digest is what tells
@@ -1584,13 +1595,15 @@ def suite_sync(a, tree, dry_run, decided=None):
     _r = next((x for x in _rows if x.get("key") == key), None)
     _cc = (_r or {}).get("criterion_changed", "")
     _stamp = getattr(a, "criterion_changed", None) or ""
-    if _r is None or _r.get("today_pass") != str(p) or _r.get("today_total") != str(t) or (_stamp and not _cc.endswith(_stamp)):
+    _exc_bad = (_exc is not None and (_r or {}).get("today_excluded", "") != str(_exc))
+    if _r is None or _r.get("today_pass") != str(p) or _r.get("today_total") != str(t) or (_stamp and not _cc.endswith(_stamp)) or _exc_bad:
         die("util_suite_banner.py --set returned 0 but the row READ BACK from %s does not carry what was forwarded: pass %r total %r stamp %s.\n"
             "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv did NOT take the write -- the banner beside this writer is not the one\n"
             "        this flag was landed with (pull .github to origin; the stamp landed at 49ca418e), then re-run this write.\n"
             "        Row util-score-row-forwards-the-criterion-stamp-to-a-banner-it-never-checked-and-never-reads-the-row-back."
-            % (SUITES_TSV, (_r or {}).get("today_pass"), (_r or {}).get("today_total"), ("PRESENT" if (_stamp and _cc.endswith(_stamp)) else ("ABSENT" if _stamp else "none forwarded"))))
-    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call%s" % (key, p, t, day, tree, (" · criterion stamped and read back" if _stamp else ""))
+            % (SUITES_TSV, (_r or {}).get("today_pass"), (_r or {}).get("today_total"), ("PRESENT" if (_stamp and _cc.endswith(_stamp)) else ("ABSENT" if _stamp else "none forwarded")))
+            + ("\n        excluded forwarded %r, row carries %r" % (_exc, (_r or {}).get("today_excluded")) if _exc_bad else ""))
+    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call%s%s" % (key, p, t, day, tree, (" · criterion stamped and read back" if _stamp else ""), (" · EXCLUDED=%d read back" % _exc if _exc is not None else ""))
 
 
 def write_suite_row_only(a):
@@ -4833,6 +4846,9 @@ def main():
     w.add_argument("--criterion-changed", default="", metavar="'YYYY-MM-DD:reason'",
                    help="STAMP a criterion change into SUITES.tsv column 12 (appended with ' | '); REQUIRED when this write moves the row's "
                         "denominator or --text names an INSTRUMENT CHANGE, else the write REFUSES rc=2 before touching either file (CEO-785)")
+    w.add_argument("--excluded", type=int, default=None, metavar="N",
+                   help="the programs NOT IN THE SPITBOL DIALECT this row's denominator leaves out, named in the package's EXCLUDED.tsv "
+                        "(Lon 2026-09-26, CEO-1286); written to SUITES.tsv column today_excluded and shown as EXCLUDED=N in the grid")
     w.add_argument("--no-suite-sync", action="store_true", help="labelled escape: this V/M write genuinely has no SUITES.tsv row. The banner will read the row STALE")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)

@@ -15,7 +15,7 @@
 #   (a) SCORE.md's row for one suite hand-staled: --check exits 1 naming that key, both files byte-identical after
 #   (b) --render with no scope: rc=2, both files byte-identical
 #   (c) --render --only <key>: exactly that display row changes, every other line of SCORE.md byte-identical; --check then agrees on it
-#   (d) a TSV row whose criterion stamp ends 'OUTSIDE=7' renders its result cell as 'pass/total OUTSIDE=7'
+#   (d) a TSV row whose criterion stamp ends 'OUTSIDE=7' renders its result cell as 'pass/total OUTSIDE=7' (with EXCLUDED=k between them when the row carries today_excluded, CEO-1286)
 # FAIL_ONCE=1 runs arm (a)'s check on an AGREEING pair so the expected disagreement never comes, proving the arm trips.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; GH="$HERE/../../.github"; B="$GH/scripts/util_suite_banner.py"
@@ -47,7 +47,7 @@ for i,l in enumerate(L):
         f=l.split('\t'); f[11]=(f[11]+' | ' if f[11] else '')+'2026-09-16:gate fixture OUTSIDE=7'; L[i]='\t'.join(f)
 open(p,'w',encoding='utf-8').write('\n'.join(L))
 PY
-out="$(run --md)"; grep -qE "^\| $NICK \| [a-z0-9]+ \| [0-9]+/[0-9]+ OUTSIDE=7 \|" <<<"$out" && ck ok "(d) a criterion stamp ending OUTSIDE=7 renders the result cell as pass/total OUTSIDE=7" || ck no "(d) rendered row: $(grep "^| $NICK " <<<"$out" | cut -c1-120)"
+out="$(run --md)"; grep -qE "^\| $NICK \| [a-z0-9]+ \| [0-9]+/[0-9]+( EXCLUDED=[0-9]+)? OUTSIDE=7 \|" <<<"$out" && ck ok "(d) a criterion stamp ending OUTSIDE=7 renders the result cell as pass/total OUTSIDE=7" || ck no "(d) rendered row: $(grep "^| $NICK " <<<"$out" | cut -c1-120)"
 echo "population: $checks arm(s) graded, $fails FAIL"
 [ "$fails" = 0 ] && { echo "GATE PASS [suite_banner_check_writes_nothing_and_render_is_scoped]: $checks of $checks arms hold"; exit 0; }
 echo "⛔ GATE RED [suite_banner_check_writes_nothing_and_render_is_scoped]: $fails of $checks arms FAIL"; exit 1

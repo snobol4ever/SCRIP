@@ -231,6 +231,35 @@ INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPP
 # collision without stopping anyone, which is the only reason closing one is safe to do mid-flight.
 
 inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
+# ⛔⭐ EXCLUDED.tsv -- THE PROGRAMS OF A PACKAGE THAT ARE NOT IN THE SPITBOL DIALECT, OUT OF THE PUBLISHED DENOMINATOR (Lon
+# 2026-09-26, in-chat to the ceo, verbatim: "The task is to identify which of the test programs found in the original package are
+# in the SPITBOL dialect. We want to exclude from the denominator all that are not SPITBOL dialect. We want to show this number of
+# EXCLUDED tests in the test-suite grid." and the test, verbatim: "So the way to tell if a program is SPITBOL dialect is two-fold,
+# 1st is rejected by SPITBOL, and 2nd why it is rejected is a CSNOBOL4 feature not supported. Then if these two are true it is NOT
+# SPITBOL dialect."; ceo CEO-1286). One row per program: name<TAB>NOT_SPITBOL_DIALECT<TAB>the feature, the oracle's refusal and
+# CSNOBOL4's verdict. An excluded program is STILL SHIPPED and still sits in its UNGRADABLE bucket (the oracle refuses it), so the
+# five buckets still sum to shipped; the line gains excluded=N and denominator=shipped-N, and the runner publishes PASS over
+# denominator with EXCLUDED=N named (util_score_row.py --excluded, SUITES.tsv column today_excluded). A program the oracle refuses
+# for ANY OTHER cause stays in the denominator as debt (CEO-749 unchanged for it). CEO-749's shape and this one differ in exactly one
+# subtraction, and the sidecar is the whole of the difference.
+# inventory_excluded_names [<pkgdir>] -- echo column 1 of <pkgdir>/EXCLUDED.tsv (default $INV_DIR); nothing when the file is absent;
+# rc 2 on a row that is not name<TAB>NOT_SPITBOL_DIALECT<TAB>evidence (the class is ONE word by design: Lon's test has one outcome).
+inventory_excluded_names() {
+    local d="${1:-${INV_DIR:-}}" f
+    f="$d/EXCLUDED.tsv"
+    [ -f "$f" ] || return 0
+    awk -F'\t' '
+        $0 ~ /^#/ || NF == 0 { next }
+        NF < 3 || $2 != "NOT_SPITBOL_DIALECT" || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
+        { print $1 }
+        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT<TAB>evidence of 60+ chars naming the feature, sbl -bf and csnobol4)"; return 2; }
+}
+# inventory_is_excluded <pkgdir> <name> -- 0 when EXCLUDED.tsv names <name> (bare or package-relative), 1 otherwise.
+inventory_is_excluded() {
+    local d="${1:-}" rel="${2:-}" n
+    for n in $(inventory_excluded_names "$d"); do [ "$n" = "$rel" ] && return 0; [ "$n" = "${rel##*/}" ] && return 0; done
+    return 1
+}
 
 # ⛔⭐⭐ THE ONE PLACE THAT DECIDES WHETHER A ROW NAMING OUR COMPILER IS A LIE OR A CONTROL (ceo CEO-541).
 # `INV_AGREEMENT_MARKER` is vocabulary, not prose: it is the prefix a lane puts on OUR clause, and it is the
@@ -590,6 +619,20 @@ $badreason
 $_v"; return 2; }
         shipped=$((shipped - containers))
     fi
+    local exc_n="" excluded="" excluded_tail="" e_rel e_miss="" e_con=""
+    if [ -f "$INV_DIR/EXCLUDED.tsv" ]; then
+        exc_n="$(inventory_excluded_names "$INV_DIR")" || return 2
+        excluded=0
+        for _nm in $exc_n; do
+            if [ -n "${_rel["$_nm"]:-}" ]; then e_rel="$_nm"
+            else case "${_base["$_nm"]:-0}" in 0) e_miss="$e_miss $_nm"; continue ;; 1) e_rel="${_brel["$_nm"]}" ;; *) e_miss="$e_miss $_nm(ambiguous)"; continue ;; esac; fi
+            if [ -f "$INV_DIR/CONTAINERS.tsv" ] && inventory_is_container "$INV_DIR" "$e_rel"; then e_con="$e_con $e_rel"; continue; fi
+            excluded=$((excluded + 1))
+        done
+        [ -z "$e_miss" ] || { inventory_refuse "EXCLUDED.tsv names a file this package does not ship:$e_miss -- an exclusion matching no file is a rename or a leftover (CEO-1286)"; return 2; }
+        [ -z "$e_con" ] || { inventory_refuse "EXCLUDED.tsv names a container:$e_con -- a container is already out of shipped, so excluding it again would subtract it twice (CEO-1286)"; return 2; }
+        excluded_tail=" excluded=$excluded denominator=$((shipped - excluded))"
+    fi
 
     # ⛔ AN UNEXPLAINED NARROW BUCKET IS JUST A SMALLER LIE (hq_P). A count with no per-entry narrowing
     # cannot be acted on and cannot be disputed.
@@ -609,7 +652,7 @@ $_v"; return 2; }
         inventory_refuse "buckets do not sum: graded($graded)=stream($graded_stream)+narrow($graded_narrow) + ungraded($ungraded) + ungradable($ungradable) + deferred($deferred) = $total, but shipped=$shipped (delta $((shipped - total))). Every shipped program lands in exactly one bucket, or the inventory is five opinions rather than a census."
         return 2
     fi
-    echo "PACKAGE_INVENTORY package=$INV_PACKAGE shipped=$shipped graded=$graded ungraded=$ungraded ungradable=$ungradable deferred=$deferred graded_stream=$graded_stream graded_narrow=$graded_narrow${containers:+ containers=$containers}"
+    echo "PACKAGE_INVENTORY package=$INV_PACKAGE shipped=$shipped graded=$graded ungraded=$ungraded ungradable=$ungradable deferred=$deferred graded_stream=$graded_stream graded_narrow=$graded_narrow${containers:+ containers=$containers}${excluded_tail:-}"
     return 0
 }
 

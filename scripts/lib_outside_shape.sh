@@ -30,3 +30,47 @@ outside_shape_stamp() {
   fi
   printf '%s:CEO-749-shape-pass-over-shipped-%s-with-OUTSIDE=%s-named-in-OUTSIDE_SPITBOL_BASELINE.tsv-they-stay-in-the-denominator-as-debt-to-cure' "$(date +%F)" "$total" "$out"
 }
+
+# ⛔⭐ THE CEO-1286 SHAPE (Lon 2026-09-26): a program NOT IN THE SPITBOL DIALECT -- rejected by SPITBOL, and rejected for a CSNOBOL4
+# feature SPITBOL does not support, both measured, named in the package's EXCLUDED.tsv -- LEAVES THE DENOMINATOR, and the row shows
+# EXCLUDED=k. A program the oracle refuses for any other cause stays (the CEO-749 shape above, unchanged for it). The published row
+# is PASS over (shipped - EXCLUDED) with EXCLUDED=k in SUITES.tsv column today_excluded (util_score_row.py --excluded) and OUTSIDE=j
+# still named in the stamp. A stamp is owed when the denominator moves, or the excluded count differs from the last EXCLUDED=k
+# recorded (none recorded counts as different, so the first CEO-1286 write of every row stamps once), or the outside count differs.
+# USAGE: stamp="$(excluded_shape_stamp <suites-key> <denominator> <outside-count> <excluded-count>)"
+excluded_shape_stamp() {
+  local key="${1:-}" total="${2:-}" out="${3:-}" exc="${4:-}" tsv prev cc lasto laste
+  case "$total$out$exc" in ''|*[!0-9]*) echo "⛔ REFUSE(2) excluded_shape_stamp: denominator [$total], outside [$out] and excluded [$exc] must be counts" >&2; return 2;; esac
+  [ -n "$key" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: no suites key" >&2; return 2; }
+  tsv="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/.github/SUITES.tsv"
+  if [ -f "$tsv" ]; then
+    prev="$(awk -F'\t' -v k="$key" '$1==k {print $10; exit}' "$tsv")"
+    cc="$(awk -F'\t' -v k="$key" '$1==k {print $12; exit}' "$tsv")"
+    lasto="$(printf '%s\n' "$cc" | grep -oE 'OUTSIDE=[0-9]+' | tail -1 | cut -d= -f2)"
+    laste="$(printf '%s\n' "$cc" | grep -oE 'EXCLUDED=[0-9]+' | tail -1 | cut -d= -f2)"
+    [ "$prev" = "$total" ] && [ "$lasto" = "$out" ] && [ "$laste" = "$exc" ] && return 0
+  fi
+  printf '%s:CEO-1286-shape-pass-over-shipped-minus-EXCLUDED=%s-not-in-the-SPITBOL-dialect-named-in-EXCLUDED.tsv-denominator-%s-with-OUTSIDE=%s-spitbol-programs-the-oracle-refuses-kept-as-debt' "$(date +%F)" "$exc" "$total" "$out"
+}
+# excluded_in_outside <pkgdir> "<names of THIS run's outside set, one per line or space, with or without extension or _driver>"
+# -- prints how many EXCLUDED.tsv programs are in that live set: the count the row subtracts. A name compares by its stem (extension
+# and a _driver suffix stripped on both sides, because gimpel's outside set names drivers and its EXCLUDED.tsv names libraries).
+# rc 2 when the sidecar is malformed. Names in EXCLUDED.tsv that the live set does not carry are printed on stderr as NOT-OUTSIDE-
+# THIS-RUN: either they ship without a graded pair (never in the population, csnobol4_suite's 14) or the oracle now RUNS them, in
+# which case the first half of Lon's test no longer holds and the row is removed by hand -- the gate reads the sidecar against
+# OUTSIDE_SPITBOL_BASELINE.tsv for that.
+excluded_in_outside() {
+  local d="${1:-}" live="${2:-}" n stem l ls hit=0 miss=""
+  [ -d "$d" ] || { echo "⛔ REFUSE(2) excluded_in_outside: $d is not a directory" >&2; return 2; }
+  . "$(dirname "${BASH_SOURCE[0]}")/lib_inventory.sh" 2>/dev/null || true
+  local names; names="$(inventory_excluded_names "$d")" || return 2
+  for n in $names; do
+    stem="${n##*/}"; stem="${stem%.*}"; stem="${stem%_driver}"
+    local found=0
+    for l in $live; do ls="${l##*/}"; ls="${ls%.*}"; ls="${ls%_driver}"; [ "$ls" = "$stem" ] && { found=1; break; }; done
+    if [ "$found" = 1 ]; then hit=$((hit + 1)); else miss="$miss $n"; fi
+  done
+  [ -z "$miss" ] || echo "EXCLUDED.tsv NOT-OUTSIDE-THIS-RUN (not in this run's population, or the oracle now runs them):$miss" >&2
+  echo "$hit"
+}
+excluded_names_count() { local n; n="$(inventory_excluded_names "${1:-}")" || return 2; printf '%s\n' "$n" | grep -c . || true; }

@@ -202,11 +202,13 @@ if [ "$SUITE" = "$CANON_SUITE" ]; then
 # PASS over SHIPPED ($TOTAL = graded plus the $UNSCR outside the SPITBOL baseline), OUTSIDE=$UNSCR named and stamped
 # through lib_outside_shape.sh; the outside programs stay in the denominator as debt to cure.
 . "$HERE/lib_outside_shape.sh" || exit 2
-_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(outside_shape_stamp dotnet "$TOTAL" "$UNSCR")" || exit 2
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((TOTAL - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp dotnet "$DENOM" "$UNSCR" "$EXCL_D_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite dotnet --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
-    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$TOTAL" \
-    --text "dotnet both_modes_pass=$BOTH/$TOTAL shipped OUTSIDE=$UNSCR, graded $BOTH/$SCORED (CEO-749 shape: pass over shipped · programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with the oracle's own refusal and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $P3/$SCORED · m4 $P4/$SCORED (of $TOTAL shipped · sbl -bf the one oracle · live oracle diff, no refs)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_dotnet_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
+    --text "dotnet both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, EXCLUDED.tsv, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ( programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with the oracle's own refusal and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $P3/$SCORED · m4 $P4/$SCORED (of $TOTAL shipped · sbl -bf the one oracle · live oracle diff, no refs)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_dotnet_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]
