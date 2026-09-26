@@ -22,6 +22,7 @@ typedef struct {
     int          npbt;
     const tree_t * pd;
     IR_t *       unw;
+    IR_t *       xit;
 } pcx_t;
 static lc_vec g_pas_proc_list   = { NULL, 0, 0, (int) sizeof(const tree_t *) };
 static lc_vec g_pas_proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) };
@@ -58,6 +59,7 @@ static int is_relop(tree_e tt) {
 static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * pas_nlg_goto(pcx_t * cx, const char * name, IR_t * ω);
 static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω);
+static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_name_is_byref(pcx_t * cx, const char * name) {
     for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return (int)((s->byref >> sl) & 1LL); }
@@ -284,6 +286,7 @@ static IR_t * pas_envcall_wrap(pcx_t * cx, const tree_t * t, IR_t * call, IR_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
+    { IR_t * x = pas_lower_exit(cx, t, ω); if (x) { *res = x; return x; } }
     if (c0 && c0->v.sval && !strcmp(c0->v.sval, "__pas_display_get") && t->n == 2 && t->c[1]) { IR_t * nd = pas_display_node(cx, IR_VAR_FRAME, (int) t->c[1]->v.ival, γ, ω); *res = nd; return nd; }
     int env = (c0 && c0->v.sval && !strcmp(c0->v.sval, "__pas_envcall") && t->n >= 9) ? 8 : 0;
     const tree_t * cn = t->c[env];
@@ -727,16 +730,28 @@ static const tree_t * pas_label_owner(const tree_t * pd, const char * lab) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pas_nlg_code(const tree_t * owner, const char * lab) { return (long) (pas_proc_idx(owner) + 1) * 10000 + atol(lab); }
 static int pas_nlg_level(const tree_t * owner) { return pas_is_main(owner) ? 0 : proc_decl_level(owner); }
+static long pas_nlx_code(const tree_t * owner) { return -(long) (pas_proc_idx(owner) + 1); }
+static int pas_is_exit_call(const tree_t * t) {
+    return t && t->t == TT_FNC && t->n >= 1 && t->n <= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "exit") && !pas_callee_is_user_proc("exit");
+}
+static const tree_t * pas_exit_named(const tree_t * pd, const tree_t * t) {
+    const char * nm = (t->n == 2 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+    for (const tree_t * p = nm ? pd : NULL; p; ) { if (p->v.sval && !strcmp(p->v.sval, nm)) return p; int j = pas_proc_idx(p); p = (j >= 0) ? PAS_PARENT(j) : NULL; }
+    return NULL;
+}
+static int pas_exit_names(const tree_t * pd, const tree_t * t) { return pas_exit_named(pd, t) != NULL; }
+static const tree_t * pas_exit_owner(const tree_t * pd, const tree_t * t) { const tree_t * o = pas_exit_named(pd, t); return o ? o : pd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_nlg_scan(const tree_t * t, const tree_t * pd, const tree_t * want, lc_vec * mine, int * any) {
+static void pas_nlg_scan(const tree_t * t, const tree_t * pd, const tree_t * want, lc_vec * mine, int * any, int * wx, int * xm) {
     if (!t) return;
+    if (pas_is_exit_call(t)) { const tree_t * o = pas_exit_owner(pd, t); if (o == want) *wx = 1; if (o != pd) { *any = 1; if (o == want) *xm = 1; } }
     if (t->t == TT_GOTO_U && t->v.sval) {
         const tree_t * o = pas_label_owner(pd, t->v.sval);
         if (o) { *any = 1; int dup = 0;
             if (o == want) { for (int i = 0; i < mine->n; i++) if (!strcmp(LC_AT(mine, const char *, i), t->v.sval)) dup = 1;
                              if (!dup) { const char * lab = t->v.sval; lc_vec_push(mine, &lab); } } }
     }
-    for (int i = 0; i < t->n; i++) pas_nlg_scan(t->c[i], pd, want, mine, any);
+    for (int i = 0; i < t->n; i++) pas_nlg_scan(t->c[i], pd, want, mine, any, wx, xm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω) {
@@ -748,11 +763,9 @@ static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω) {
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pas_nlg_goto(pcx_t * cx, const char * name, IR_t * ω) {
-    const tree_t * o = cx->unw ? pas_label_owner(cx->pd, name) : NULL;
-    if (!o) return NULL;
+static IR_t * pas_nlg_jump(pcx_t * cx, const tree_t * o, long code, IR_t * ω) {
     IR_t * a1 = lower_assign_var(cx, "__pas_nlg", cx->unw, ω);
-    IR_t * c = build(cx, IR_LIT_INTEGER, a1, ω); IR_LIT(c).ival = pas_nlg_code(o, name); ir_operand_push(a1, c);
+    IR_t * c = build(cx, IR_LIT_INTEGER, a1, ω); IR_LIT(c).ival = code; ir_operand_push(a1, c);
     int lv = pas_nlg_level(o);
     if (lv < 1 || lv > 3) return c;
     IR_t * a0 = lower_assign_var(cx, "__pas_nlf", c, ω);
@@ -760,11 +773,27 @@ static IR_t * pas_nlg_goto(pcx_t * cx, const char * name, IR_t * ω) {
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_nlg_unwind(pcx_t * cx, const lc_vec * mine, IR_t * succ, IR_t * fail) {
+static IR_t * pas_nlg_goto(pcx_t * cx, const char * name, IR_t * ω) {
+    const tree_t * o = cx->unw ? pas_label_owner(cx->pd, name) : NULL;
+    return o ? pas_nlg_jump(cx, o, pas_nlg_code(o, name), ω) : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω) {
+    if (!pas_is_exit_call(t) || !cx->pd) return NULL;
+    const tree_t * o = pas_exit_owner(cx->pd, t);
+    if (o != cx->pd) return cx->unw ? pas_nlg_jump(cx, o, pas_nlx_code(o), ω) : NULL;
+    if (!cx->xit) return NULL;
+    if (t->n < 2 || !cx->pd->v.sval || pas_exit_names(cx->pd, t)) return build(cx, IR_GOTO, cx->xit, cx->xit);
+    tree_t * asn = pas_lc_bin(TT_ASSIGN, pas_lc_leaf(TT_VAR, cx->pd->v.sval), t->c[1]);
+    return lower(cx, asn, cx->xit, ω, NULL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pas_nlg_unwind(pcx_t * cx, const lc_vec * mine, int xm, IR_t * succ, IR_t * fail) {
     IR_t * ret = build(cx, IR_RETURN, succ, succ); IR_t * z = build(cx, IR_LIT_INTEGER, ret, fail); IR_LIT(z).ival = 0; ir_operand_push(ret, z);
     IR_t * next = z; int lv = pas_nlg_level(cx->pd);
-    for (int i = mine->n - 1; i >= 0; i--) {
-        const char * lab = LC_AT(mine, const char *, i); IR_t * L = label_find(cx, lab);
+    for (int i = mine->n - (xm ? 0 : 1); i >= 0; i--) {
+        const char * lab = (i < mine->n) ? LC_AT(mine, const char *, i) : NULL; IR_t * L = lab ? label_find(cx, lab) : cx->xit;
+        long code = lab ? pas_nlg_code(cx->pd, lab) : pas_nlx_code(cx->pd);
         if (!L) continue;
         IR_t * clr = lower_assign_var(cx, "__pas_nlg", L, fail); IR_t * c0 = build(cx, IR_LIT_INTEGER, clr, fail); IR_LIT(c0).ival = 0; ir_operand_push(clr, c0);
         IR_t * hit = c0;
@@ -774,7 +803,7 @@ static void pas_nlg_unwind(pcx_t * cx, const lc_vec * mine, IR_t * succ, IR_t * 
             γ_to(fv, fd); ir_operand_push(ft, fv); ir_operand_push(ft, fd); hit = fv;
         }
         IR_t * t = build(cx, IR_BINOP_TEST, hit, next); IR_LIT(t).ival = lc_binop_code(TT_EQ);
-        IR_t * v = lower_var(cx, "__pas_nlg", NULL, fail); IR_t * k = build(cx, IR_LIT_INTEGER, t, fail); IR_LIT(k).ival = pas_nlg_code(cx->pd, lab);
+        IR_t * v = lower_var(cx, "__pas_nlg", NULL, fail); IR_t * k = build(cx, IR_LIT_INTEGER, t, fail); IR_LIT(k).ival = code;
         γ_to(v, k); ir_operand_push(t, v); ir_operand_push(t, k); next = v;
     }
     γ_to(cx->unw, next);
@@ -797,9 +826,10 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
     scan_labels(&cx, pd, NULL);
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
-    lc_vec mine; lc_vec_init(&mine, (int) sizeof(const char *)); int any = 0; cx.pd = pd;
-    for (int i = 0; i < g_pas_proc_list.n; i++) pas_nlg_scan(pas_proc_body(PAS_PROC(i)), PAS_PROC(i), pd, &mine, &any);
+    lc_vec mine; lc_vec_init(&mine, (int) sizeof(const char *)); int any = 0, wx = 0, xm = 0; cx.pd = pd;
+    for (int i = 0; i < g_pas_proc_list.n; i++) pas_nlg_scan(pas_proc_body(PAS_PROC(i)), PAS_PROC(i), pd, &mine, &any, &wx, &xm);
     if (any) cx.unw = IR_node_alloc(g, IR_GOTO);
+    if (wx) cx.xit = IR_node_alloc(g, IR_GOTO);
     for (int li = 0; li < cx.labels.n; li++) ω_to(LC_AT(&cx.labels, pas_label_t, li).node, fail);
     pas_scope_t * sc = build_scope_chain(pd);
     if (sc) cx.sc = *sc;
@@ -809,9 +839,17 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     if (is_func) { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * rv = build(&cx, IR_VAR, ret, fail); IR_LIT(rv).sval = pd->v.sval; ir_operand_push(ret, rv); top = rv; }
     else { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * safe = build(&cx, IR_LIT_INTEGER, ret, fail); IR_LIT(safe).ival = 0; ir_operand_push(ret, safe); top = safe; }
     IR_t * body_gamma = top;
+    if (cx.xit) {
+        const tree_t * last = (body && body->t == TT_PROGRAM && body->n > 0) ? body->c[body->n - 1] : NULL;
+        if (last && last->t == TT_FNC && last->n > 0 && last->c[0] && last->c[0]->v.sval && !strcmp(last->c[0]->v.sval, "__trace_return")) {
+            tree_t * nb = ast_node_new(TT_PROGRAM); for (int i = 0; i + 1 < body->n; i++) ast_push(nb, body->c[i]);
+            body_gamma = lower(&cx, last, top, fail, NULL); body = nb;
+        }
+        γ_to(cx.xit, body_gamma);
+    }
     IR_t * entry = lower(&cx, body, body_gamma, fail, NULL);
     if (!entry) entry = build(&cx, IR_GOTO, body_gamma, body_gamma);
-    if (cx.unw) pas_nlg_unwind(&cx, &mine, succ, fail);
+    if (cx.unw) pas_nlg_unwind(&cx, &mine, xm, succ, fail);
     if (cx.unw && pas_is_main(pd)) { IR_t * a = lower_assign_var(&cx, "__pas_nlg", entry, fail); IR_t * z = build(&cx, IR_LIT_INTEGER, a, fail); IR_LIT(z).ival = 0; ir_operand_push(a, z); entry = z; }
     g->entry = entry; return g;
 }
