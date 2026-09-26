@@ -17,8 +17,15 @@
 #       than passing.  The cto's shift plant taught this class twice in one day.
 #   (e) EVERY HOLDER IS CURED OR DECLARED -- scripts/gc_audit_b_declared.txt.  An undeclared holder is a RED, so
 #       the count falls only by curing roots or by writing down a measurement.
-#   (f) THE EXPIRY IS STRUCTURAL -- the day no OPEN row remains and a sweep finds nothing, THIS ARM REDS AND SAYS
-#       DELETE.  A disabled auditor is a conservative scan wearing an if.
+#   (f) THE EXPIRY IS STRUCTURAL -- the day no OPEN row remains and a sweep finds nothing, THIS ARM PRINTS
+#       RETIREMENT-PENDING AND NAMES THE ROW THAT DELETES IT.  A disabled auditor is a conservative scan wearing an if.
+#       ⛔ AMENDED 2026-09-26 (cfo, the ceo's CEO-1291 ruling (b)): this arm used to RED at open_rows=0 holders=0, and
+#       the g_icn_op cure made that day arrive.  But this gate sweeps FOUR witnesses and ARCH-GC section 9 condition (3)
+#       grades the retirement over the CORPUS across a declared window, which under CEO-1232 only the language HQs may
+#       run.  So the silence here is necessary, not sufficient: it reads GREEN with RETIREMENT-PENDING printed, and the
+#       deletion is graded by row gc-the-conservative-auditor-retires-on-six-hq-receipts-each-master-under-the-auditor-build-at-stress-1-and-3-reads-zero-findings
+#       (six receipts, one per language HQ: its master under this auditor build at stress 1 and 3 at the shipped
+#       arena, zero findings), whose own landing deletes everything (f1) lists.
 # ⛔⭐ (d3) AND (e2) STAND ON A PLANT SINCE 2026-09-26 (cfo, the CEO-1274 board row; CEO-554).  Both were keyed on a holder the
 # sweep FOUND, and when 957efcc7c took the lc_vec class off the collected heap the sweep found none and both went red on a
 # correct tree: a proof that needs a live defect dies of the cure.  SCRIP_GC_PLANT_UNROOT=1 exists ONLY in the auditor build
@@ -201,9 +208,10 @@ ck $([ "${p_nmfh:-}" = nm_g_fh ] && echo ok || echo no) "(e2) the PLANTED holder
 
 echo "-- (f) THE EXPIRY IS STRUCTURAL"
 if [ "${nopen:-0}" = 0 ] && [ "${nh:-0}" = 0 ]; then
-    ck no "(f1) ⛔⭐ RETIRE THE AUDITOR NOW: no OPEN row remains in $DECL and the sweep found NO holder.  That silence IS the proof Lon asked for -- 'ensure in the end all is exact scanning' -- so DELETE src/runtime/rt/gc_audit_b.[ch], the #ifdef block and call in gc_heap.c, the Makefile line, this gate and $DECL.  A disabled auditor is a conservative scan wearing an if."
+    echo "     ⭐ RETIREMENT-PENDING: no OPEN row remains in $DECL and this gate's sweep named NO holder"
+    ck ok "(f1) RETIREMENT-PENDING, not yet retired: the corpus half of the criterion (ARCH-GC section 9 condition (3); ceo CEO-1291 ruling (b)) is row gc-the-conservative-auditor-retires-on-six-hq-receipts-each-master-under-the-auditor-build-at-stress-1-and-3-reads-zero-findings -- six HQ receipts, then ONE landing deletes src/runtime/rt/gc_audit_b.[ch], the #ifdef blocks and call in gc_heap.c, the Makefile lines, this gate, $DECL, the UNROOT row of the plant table and util_gc_acceptance.py's AUDITED metric"
 else
-    ck ok "(f1) the expiry has not come: ${nopen:-0} OPEN row(s) and ${nh:-0} holder(s) named -- this arm REDS AND SAYS DELETE the day both read 0"
+    ck ok "(f1) the expiry has not come: ${nopen:-0} OPEN row(s) and ${nh:-0} holder(s) named -- the day both read 0 this arm prints RETIREMENT-PENDING and the six-receipt row grades the deletion"
 fi
 echo "[$G] checks=$checks fails=$fails  holders=${nh:-0} open_rows=${nopen:-0} audit_tag=$AUD_TAG"
 [ "$fails" = 0 ] || exit 1
