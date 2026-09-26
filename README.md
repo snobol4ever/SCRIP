@@ -277,10 +277,10 @@ instruction multiples sit at 0.41–0.59x. SPITBOL's own hot spots, read with `p
 
 **Against CSNOBOL4 (Lon 2026-09-26, in-chat to the ceo, verbatim: *"My theory for SNOBOL4 is that we should be 10x faster than an interpreter, CSNOBOL4, and 2-3x faster than a threaded-code interpreter, SPITBOL, since SCRIP is a TRUE COMPILER."*).** The CSNOBOL4 column is Phil Budne's CSNOBOL4B 2.3.3 (`/home/resources/csnobol4/snobol4 -b -f`, the reference engine, never a grader) on the same generated twins and the same demo inputs, measured the same minute. Its `TIME()` is milliseconds, so the fixed-time twin cannot run on it: its per-repetition figure is the process-wrapper CPU-time SLOPE between an N- and a 3N-repetition iteration twin (startup and compile cancel), and SPITBOL measured by the same slope method reads within 0.81–1.22 of its fixed-time column, which is the cross-proof of the method. The multiple is CSNOBOL4 time / SCRIP mode-4 time: geometric mean **8.62x** over the 23 kernels, SCRIP ahead on 23 of 23; the demos claws5 refuses, Error 5 (undefined function or operation) at line 13; treebank refuses, Error 5 (undefined function or operation) at line 92; json refuses, Error 5 (undefined function or operation) at line 223; porter runs, output differs from SPITBOL's; calculator-1 refuses, Error 5 (undefined function or operation) at line 32; calculator-2 refuses, Error 5 (undefined function or operation) at line 62. Against the theory: where the compiler resolves the operation the tight-loop kernels read the order of 10x CSNOBOL4 and 3–4x SPITBOL, and where SCRIP trails SPITBOL (the runtime's C reached per operation, below) it trails the theory by the same mechanism, since CSNOBOL4 and SPITBOL both run those primitives in code written once by hand.
 
-**The workhorse demos on their large inputs, whole program, best of 5, tree `81aa23aff`, 2026-09-26 08:37 CDT, load 0.5–0.7,
+**The workhorse demos on their large inputs, whole program, best of 5, tree `81aa23aff`, 2026-09-26 08:37 CDT (beauty 09:1x), load 0.5–0.7,
 `-d512m -i64m -s256m` given to all three engines (`sbl -bf`, `scrip --run`, and the mode-4 binary; RULES.md hard-cap rule clause 8(e)), SCRIP with
 `SCRIP_DIAG=0`, outputs byte-identical on all three. The m3 column is the whole program including SCRIP's in-process compile, as SPITBOL's
-column includes SPITBOL's; m4 is the prebuilt binary:**
+column includes SPITBOL's; m4 is the prebuilt binary. beauty is the Snocone beautifier self-hosting on its own 41 KB source (Lon 2026-09-26: *"One more SNOBOL4 speed test, the beauty self host"*); its 21 `-INCLUDE` directives resolve from `corpus/include`, so every engine runs it from there, and its three outputs are byte-identical (40,942 bytes):**
 
 | demo | input | SPITBOL ms | m3 ms | m4 ms | m3 | m4 | CSNOBOL4 ms | CSNOBOL4 / m4 |
 |---|---:|---:|---:|---:|:---:|:---:|---:|:---:|
@@ -290,6 +290,7 @@ column includes SPITBOL's; m4 is the prebuilt binary:**
 | porter (porter.input ×4) | 742 KB | 258 | 435 | 285 | 0.59x | 0.91x | runs, output differs from SPITBOL's | — |
 | calculator-1 (calculator.input ×4) | 127 KB | 32 | 84 | 34 | 0.38x | 0.94x | refuses, Error 5 (undefined function or operation) at line 32 | — |
 | calculator-2 (calculator.input ×4) | 127 KB | 35 | 82 | 36 | 0.42x | 0.97x | refuses, Error 5 (undefined function or operation) at line 62 | — |
+| beauty (self-host: beauty.sno beautifying itself) | 41 KB | 31 | 516 | 140 | 0.06x | 0.22x | refuses, Error 5 (undefined function or operation) at line 51 | — |
 
 ### Icon
 
@@ -300,216 +301,87 @@ Library's programs, each with a ref cut from Arizona `icont`/`iconx` 9.5; **IcnM
 converted to SCRIP's semicolon-required Icon on the way in and checked in converted. Their boards, and how far the JCON
 self-host gets, follow the benchmark grid below.
 
-**Benchmarks — the classic Icon benchmark set, against BOTH rivals.** Arizona `iconx`
-(the reference implementation) and JCON `jcont` (Proebsting & Townsend's Icon-to-JVM
-compiler). Measured 2026-09-10, SCRIP `38820e736` / corpus `223c9755e`, `RT_OPT=-O0`,
-`scripts/bench_icon_classic_set.sh`; machine record `corpus/benchmarks/icon/classic_set_board.tsv`.
+**Benchmarks.** IcnBench is every Icon program under `corpus/benchmarks/icon` with a `procedure main` — the ten micro-kernels (`bench_icn*`), the six classic programs (`concord`, `deal`, `geddump`, `ipxref`, `queens`, `rsg`), the four `rtx/` kernels and the five `shootout/` programs, plus `tgrlink` — each a standalone program with its `.ref` cut from Arizona `icont`/`iconx` 9.5.25a and its own `.argv`, input and declared arena beside it. The three-angle harness `scripts/bench_triangulate_icon.sh` runs each kernel three ways in `iconx`, m3 and m4 — the pristine program under `tools/bench_rusage`, a generated fixed-iteration twin and a generated fixed-time twin (`scripts/util_icon_bench_wrap.py`, the kernel never edited; the loop shape is the oracle's: a kernel whose state carries across calls under `iconx` is iterated one process per iteration, `PROC`) — and a kernel is cited only when all three engines print the ref on every angle and the two timed angles agree within 15%.
 
-Shared axes for every row: wall ms (CPU ms is in the TSV), **median of 5 runs after 2
-discarded warm-ups**, spread printed per arm; two-number basis with `OVERHEAD` the
-empty-program constant per engine and `WORK = median − OVERHEAD`; multiples on the
-**faster axis** (`rival WORK / SCRIP m4 WORK`, so above 1 is SCRIP ahead) and never
-across instruments. `TOTAL:` marks a row where overhead reached half of an arm and the
-work multiple is refused in favour of the labelled total.
+*Measured 2026-09-26 09:16–09:21 CDT on SCRIP `b12bb87f8` / corpus `05f26cee1`, **RT_OPT=-O0**, fleet quiet, load 0.5–1.4 on 16 cores, **500 ms of repetitions per fixed-time point, five iterations per fixed-iteration point** (`BUDGET_MS=500 BENCH_N_DEFAULT=5`), oracle Arizona `iconx` 9.5.25a, SCRIP with every diagnostic off (`SCRIP_DIAG=0`). Every kernel printed its ref on every run of all three angles in every engine. The per-iteration figure is the fixed-time twin's (microseconds per iteration of the kernel's own `main`); the x-factor is `iconx` time / SCRIP time on that same twin (1.5x is one and a half times faster, 0.5x half as fast). A row whose two timed angles disagree carries its readings and no multiple: at five iterations a kernel that runs in under a millisecond leaves the fixed-iteration angle at the timer's floor, and those rows are re-read at a larger iteration count below.*
 
-| program | both modes vs `iconx` | `iconx` ms | `jcont` ms | m3 ms | m4 ms | m4 × vs `iconx` | m4 × vs `jcont` |
-|---|:---:|---:|---:|---:|---:|:---:|:---:|
-| `concord` | **PASS** | 30 | 210 | 90 | 90 | QNT:0.333x | QNT:1.333x |
-| `deal` | **PASS** | 20 | 220 | 400 | 400 | QNT:0.050x | QNT:0.325x |
-| `ipxref` | **PASS** | 20 | 230 | 90 | 60 | QNT:0.333x | QNT:2.333x |
-| `queens` | **PASS** | 40 | 170 | 40 | 20 | QNT:2.000x | QNT:TOTAL:8.500x |
-| `rsg` | **PASS** | 10 | 180 | 60 | 30 | QNT:0.333x | QNT:TOTAL:6.000x |
-| `geddump` | **RED** | 170 | 520 | — | — | m3 and m4 both SIGSEGV | — |
+| kernel | loop | `iconx` µs/it | m3 µs/it | m4 µs/it | `iconx` / m3 | `iconx` / m4 | angles |
+|---|---|---:|---:|---:|:---:|:---:|---|
+| agg_field_isolate | IN | 700000 | 767000 | 785000 | 0.91x | 0.89x | AGREE, PASS |
+| int_loop | IN | 72857 | 7738 | 7859 | 9.41x | 9.27x | AGREE, PASS |
+| int_mod_isolate | IN | 67500 | 12293 | 11814 | 5.49x | 5.71x | AGREE, PASS |
+| num_isolate | IN | 2230000 | 496000 | 484000 | 4.50x | 4.61x | AGREE, PASS |
+| num_mixed | IN | 580000 | 769000 | 730000 | 0.75x | 0.79x | AGREE, PASS |
+| rel_isolate | IN | 1350000 | 480500 | 489000 | 2.81x | 2.76x | AGREE, PASS |
+| str_concat_dispatch | IN | 74286 | 9863 | 9863 | 7.53x | 7.53x | AGREE, PASS |
+| str_concat_int_dispatch | IN | 102000 | 91167 | 91500 | 1.12x | 1.11x | AGREE, PASS |
+| str_concat_intvar | IN | 88333 | 88167 | 88000 | 1.00x | 1.00x | AGREE, PASS |
+| str_concat_strvar | IN | 74286 | 47455 | 47091 | 1.57x | 1.58x | AGREE, PASS |
+| str_concat_table | IN | 196667 | 61667 | 61111 | 3.19x | 3.22x | AGREE, PASS |
+| sub_list_dispatch | IN | 114000 | 96167 | 96000 | 1.19x | 1.19x | AGREE, PASS |
+| sub_table_miss_dispatch | IN | 88333 | 73714 | 72714 | 1.20x | 1.21x | AGREE, PASS |
+| sub_table_miss_semantics | IN | 1802 | 3115 | 3096 | 0.58x | 0.58x | AGREE, PASS |
+| concord | IN | 22174 | 34600 | 32250 | 0.64x | 0.69x | AGREE, PASS |
+| deal | IN | 26.6 | 40.2 | 23.4 | 0.66x | 1.13x | AGREE, PASS |
+| fannkuch | IN | 7042 | 8113 | 8073 | 0.87x | 0.87x | AGREE, PASS |
+| geddump | PROC | 100000 | 3088000 | 3061000 | 0.03x | 0.03x | AGREE, PASS |
+| ipxref | PROC | 0.00 | 3479 | 3674 | — | — | iconx n/a PASS |
+| mandelbrot | IN | 27778 | 7754 | 7636 | 3.58x | 3.64x | AGREE, PASS |
+| pidigits | IN | 62.8 | 1443 | 1392 | 0.04x | 0.05x | AGREE, PASS |
+| queens | PROC | 0.00 | 360 | 451 | — | — | iconx n/a PASS; m4 DISAGREE(37%) PASS |
+| reverse-complement | IN | 26.8 | 68.3 | 50.2 | 0.39x | 0.53x | AGREE, PASS |
+| rsg | PROC | 29412 | 40308 | 31562 | 0.73x | 0.93x | AGREE, PASS |
+| spectral-norm | IN | 100000 | 106800 | 100500 | 0.94x | 1.00x | AGREE, PASS |
+| tgrlink | IN | 145000 | 190000 | 195000 | 0.76x | 0.74x | AGREE, PASS |
 
-Read `deal` first: 400 ms against `iconx`'s 20 ms is **the worst figure on this board
-and the one with real resolution behind it**, and m3 and m4 agree to within 10 ms, so it
-is not a mode artefact. `geddump` is the set's one correctness red — SIGSEGV in both
-modes where both rivals run it clean.
+Geometric mean over the 24 kernels citable on every angle: **1.08x** in mode 3 and **1.14x** in mode 4 against Arizona `iconx`; SCRIP ahead on 12 of 24 in mode 3 and 13 in mode 4. **Why SCRIP is slower where it is slower, measured the same sitting (callgrind, exclusive share, mode 4 at -O0, `SCRIP_DIAG=0`):** where the compiler resolves the operation — integer and real arithmetic, the loop, a string concatenation whose operands it can see, a table store — SCRIP reads 3–9x `iconx` (int_loop 9.3x, str_concat_dispatch 7.5x and 25x on instructions, int_mod_isolate 5.7x, num_isolate 4.6x, mandelbrot 3.6x, str_concat_table 3.2x, rel_isolate 2.8x). Every kernel that trails spends its time in four runtime paths reached per operation: (1) **a builtin called by name** — `try_call_builtin_by_name_bl_s` with `rt_call_arr_impl`, `rt_call_arr_bl_s`, `core_icn_builtin_argcheck` and, in rsg, a `strcasecmp` per call, are 25–40% of num_mixed (0.79x), rsg (0.93x) and tgrlink (0.74x): an Icon builtin reaches its body through a string-keyed lookup on every call where `iconx` calls a function pointer; (2) **a record field resolved by name at run time** — `data_field_ptr` 36%, the `strcmp` it drives 26%, `icn_field_get` 7%, `rt_data_is_record_inst` 8% and `rt_list_view` 8% of agg_field_isolate (0.89x): `r.f` compares field names on every access where `iconx` resolved the field's index when the record type was declared; (3) **the collector at the shipped 1 MB window** — `gc_collect_ex`, `gc_visit_one` and the visitors are 34% of concord (0.69x), 42% of tgrlink (0.74x), 45% of table_miss_semantics and 5% of num_mixed: an Icon program that builds strings and lists collects the window constantly, and each collection costs about ten times a SPITBOL regeneration (the cfo's row); concord's other half is the concatenation itself, already an asm leaf (`str_concat_d` 21.5%), plus `rt_str_alloc` 5%; (4) **number formatting through the C library** — `__printf_buffer`, `_itoa_word` and `vfprintf` are 17% of num_mixed, with `rt_coerce_num2_d` 8% beside them: an integer or real written or concatenated goes through `printf`; (5) **large-integer arithmetic in C at -O0** — pidigits reads 0.04x (`iconx` 62.8 µs per iteration against m4 1,392), every operation of it a `bignum.c` limb loop against `iconx`'s big-number routines at their release optimization. The short kernels re-read at 5,000 iterations, every engine agreeing on both angles: deal 1.14x in mode 4 (0.66x in mode 3), reverse-complement 0.53x (0.39x), pidigits 0.05x (0.04x); at 300 iterations table_miss_semantics 0.58x and fannkuch 0.87x in both modes. **geddump (0.03x)** is the collector and nothing else: `perf` on its mode-4 run puts 75% of its cycles in `gc_visit_one` (23%), `gc_collect_ex` (15%), `gc_walk_words` (8%), `rt_gc_visit_raw` (7%), `gc_block_exact_h` (5%) and the other visitors — a 379 KB GEDCOM file built into one structure under a declared 16 MB arena collects the window over and over at ten times SPITBOL's cost per collection; the output is the ref (322,839 bytes), the time is the collector's. The two one-process-per-iteration programs, whose `iconx` arm reports no in-process work time, read on process elapsed instead: ipxref `iconx` 4.7 ms per run, m4 6.2 ms (0.75x; m3 23.3 ms with its compile, 0.20x); queens `iconx` 3.0 ms, m4 3.0 ms (1.00x; m3 12.7 ms, 0.24x). The JCON demos on the whole-program basis: interfacegen 1.11x and oplexgen 1.08x ahead of `iconx`, jlink 0.67x, on 3–5 ms programs where start-up is over half of every arm's reading (the harness prints the labelled TOTAL multiple and refuses the WORK one, CEO-173); m3 carries its in-process compile of a 10,000-line program (interfacegen 0.18x, jlink 0.03x); jtran's triangulation row is VOID-ANSWER because the triangulation feeds it differently from the graded gate, which matches the oracle on all four demos.
 
-**`QNT:` is not decoration.** `/usr/bin/time` reports wall to 10 ms and four of these
-six programs run in 10–90 ms, so those multiples are two ticks against four: a printed
-`2.000x` really spans roughly 1.5x–3x. The figure is real; the precision it *looks*
-like is not. Only `deal` and `geddump` are off that floor. The way off it for the rest
-is a bigger input or a self-timed hook in the program — never a tighter-looking format.
+**The ten micro-kernels on the instruction-count instrument, both rivals** (`scripts/bench_icon_kernels.sh`, the same sitting: callgrind Ir for `iconx` and m4, WORK basis (the empty program's Ir subtracted); the `jcont` column is WALL, because a JIT's Ir moves 35% between identical runs — the two columns are never combined into one ranking; `jcont` is JCON's own Icon-to-JVM compiler on this box's JVM, with its ~70 ms start-up named as OVERHEAD and never counted as work). Geometric mean of the Ir multiple over the 10 kernels: **2.43x**, SCRIP ahead on 9.
 
-**Why `jcont` is timed and not counted.** Every SCRIP-vs-`iconx` benchmark elsewhere in
-this tree measures callgrind `Ir`, because `Ir` repeats byte-identically and one run is
-the whole measurement. That property does not survive a JVM: the same kernel measured
-1,069,787,424 then 1,443,104,013 `Ir` — a 35% spread, from JIT decisions alone. So `Ir`
-**refuses** on the `jcont` arm and it is timed by wall and CPU instead. (If you ever do
-put a `.jxe` under callgrind, pass `--trace-children=yes`: it is a `/bin/sh` wrapper that
-execs `java`, and untraced it reads 367K `Ir` where the truth is 291M — a plausible,
-correctly measured count of the wrong process.)
+| kernel | `iconx` Ir | m4 Ir | m4 × vs `iconx` (Ir) | `iconx` ms | `jcont` ms | m4 ms | m4 × vs `jcont` (wall) |
+|---|---:|---:|:---:|---:|---:|---:|:---:|
+| int_loop | 1,500,325,415 | 151,061,168 | **10.133x** | 70 | 100 | 10 | TOTAL:10.000x |
+| int_mod_isolate | 1,432,325,248 | 231,061,805 | **6.280x** | 70 | 80 | 10 | TOTAL:8.000x |
+| str_concat_dispatch | 1,472,394,296 | 61,060,860 | **25.370x** | 70 | 110 | 10 | 6.000x |
+| str_concat_int_dispatch | 2,179,228,863 | 1,767,063,530 | **1.235x** | 100 | 120 | 90 | 0.778x |
+| str_concat_intvar | 1,872,404,720 | 1,744,260,997 | **1.075x** | 90 | 100 | 80 | TOTAL:1.250x |
+| str_concat_strvar | 1,546,396,088 | 906,396,938 | **1.711x** | 70 | 100 | 50 | TOTAL:2.000x |
+| str_concat_table | 4,381,956,208 | 1,604,170,219 | **2.737x** | 200 | 80 | 60 | TOTAL:1.333x |
+| sub_list_dispatch | 2,500,326,255 | 1,817,022,685 | **1.378x** | 110 | 120 | 90 | 0.778x |
+| sub_table_miss_dispatch | 1,712,547,751 | 1,374,535,060 | **1.248x** | 80 | 90 | 70 | TOTAL:1.286x |
+| sub_table_miss_semantics | 25,963,913 | 65,241,638 | **0.412x** | 0 | 70 | 0 | <1 tick |
 
-**How these programs are graded at all.** They link `post.icn`, which is a benchmark
-harness, not a library: it prints `&version`, `&host` and `&features`, then — unless the
-environment variable `OUTPUT` is set — assigns `1` to `write` and `writes` and suppresses
-the program's entire answer, printing elapsed time and GC statistics at the end instead.
-So the default stdout of every program here is environment and timing *with the answer
-removed*, and a byte-compare against an `iconx` cut fails by construction. The runner
-therefore grades the **answer cut**: `OUTPUT=1`, keeping only the lines between the two
-markers the harness itself prints. `queens` grades red on raw stdout and its 16,653
-answer lines are byte-identical to `iconx` once cut. `geddump` links no harness, so it is
-graded raw — decided per program from the oracle's own text and printed in the verdict
-column (`PASS/CUT` vs `RED/RAW`), because an absent marker would make the cut empty and
-two empty files compare equal.
+**Vendor test suites.** Every Icon suite row — Zona, Jcon, IPL, IcnM, IcnBench — is in the suite table above and nowhere else (`scripts/test_icon_arizona_suite.sh`, `test_icon_jcon_suite.sh`, `test_icon_ipl_suite.sh`).
 
-**Kernel grid — the ten kernels, both rivals, two instruments.** Re-measured 2026-09-10, SCRIP
-`3bbdfc8c7` / corpus `dd661ede8`, `RT_OPT=-O0`, `scripts/bench_icon_kernels.sh`; machine record
-`corpus/benchmarks/icon/bench_kernels_board.tsv`. This replaces the 2026-08-27 grid (int_loop
-5.64x … concat_intvar 0.72x), which was whole-program wall clock, carried no overhead term, and
-had no `jcont` column at all.
-
-Shared axes for every row: two-number basis, `OVERHEAD` = the empty Icon program measured per
-engine **on the same instrument**, `WORK = total − OVERHEAD`; multiples on the **faster axis**
-(`rival WORK / SCRIP m4 WORK`, above 1 is SCRIP ahead). **Two instruments, and no multiple
-crosses them:** `× vs iconx` is callgrind `Ir`, `× vs jcont` is wall. `TOTAL:` marks a row where
-overhead reached half an arm and the work multiple is refused in favour of the labelled total.
-All ten kernels answer **byte-identically to `iconx` in both modes** — correctness gates every
-number here, and a wrong answer would get no multiple.
-
-| kernel | both modes | `iconx` Ir | m4 Ir | **m4 × vs `iconx`** (Ir) | `iconx` ms | `jcont` ms | m4 ms | m4 × vs `jcont` (wall) |
-|---|:---:|---:|---:|:---:|---:|---:|---:|:---:|
-| `concat_dispatch` | **PASS** | 1,606,391,766 | 70,952,791 | **23.612x** | 110 | 150 | 10 | 8.000x |
-| `int_loop` | **PASS** | 1,500,321,544 | 168,953,120 | **9.035x** | 90 | 140 | 10 | TOTAL:14.000x |
-| `mod_isolate` | **PASS** | 1,566,321,374 | 234,953,641 | **6.749x** | 110 | 170 | 20 | 5.000x |
-| `list_dispatch` | **PASS** | 2,634,322,381 | 744,967,306 | **3.550x** | 160 | 180 | 60 | 1.833x |
-| `concat_strvar` | **PASS** | 1,680,393,558 | 594,959,443 | **2.838x** | 150 | 240 | 70 | 2.429x |
-| `table_miss_dispatch` | **PASS** | 1,846,547,237 | 966,966,098 | **1.915x** | 110 | 150 | 80 | 1.000x |
-| `concat_int_dispatch` | **PASS** | 2,313,225,976 | 2,127,396,785 | **1.089x** | 130 | 170 | 140 | 0.714x |
-| `table_miss_semantics` | **PASS** | 27,135,062 | 27,562,633 | **1.089x** | 0 | 130 | 0 | <1 tick |
-| `concat_intvar` | **PASS** | 2,006,402,358 | 2,106,963,216 | **0.953x** | 150 | 260 | 190 | 1.000x |
-| `concat_table` | **PASS** | 4,385,992,311 | *refused* | — | 290 | 130 | 220 | TOTAL:0.591x |
-
-**Nine of the ten carry an `Ir` multiple and eight of those nine are above `1.00x`**, from
-`23.612x` on `concat_dispatch` down to `0.953x` on `concat_intvar` — the one kernel where Arizona
-still does less work than we do. `concat_int_dispatch` (`1.089x`) and `concat_intvar` (`0.953x`)
-are the pair to read together: both concatenate a **string with an integer**, both sit at parity
-while the pure-string and pure-integer kernels around them run 3x–24x, so integer-to-string
-conversion is where our advantage is spent.
-
-**Why `Ir` and not the clock.** Measured on this box: the same binary with the same argv and
-environment returns a **byte-identical** `Ir` count three runs out of three (1,500,319,412 each
-time); change the path length or add one environment variable and it moves by about 1,000 counts
-in 1.5 billion (0.00009%), because the process copies `argv` and `environ` at start-up. The JVM
-arm does not have that property — the same kernel measured 1,069,787,424 then 1,443,104,013 `Ir`,
-a 35% spread from JIT decisions alone — so `Ir` **refuses** on `jcont`, which is timed instead.
-And the clock is the weaker instrument here for a second reason: this box is shared with nine
-other seats, the load average sat near 6–12 while the board ran, and the `jcont` wall spread
-moved between 6% and 130% across runs of the *same* binaries on the *same* tree. Every `ms`
-column and every `× vs jcont` cell should be read against the spread recorded beside it in the
-TSV; the `Ir` column is immune to all of it and reproduced exactly.
-
-**`concat_table` is the one refused cell, and it is a real defect rather than a gap.** Both m3
-and m4 run it clean and correct natively (answer `40000`, `rc=0`), and both **SIGSEGV under
-valgrind** inside `gc_zeta_frame` (`src/runtime/rt/gc_heap.c:557`), which our own handler then
-reclassifies as a stack overflow (`rt_stack_overflow.c:21`) and re-raises. callgrind still prints
-an `Ir` total for the crashed run — and two such runs disagree (330,078,095 then 330,079,909) —
-so the harness voids the reading and prints `REFUSED(rc=139)` rather than a number that would look
-exactly like every other cell. Routed to `hq_U` as a shared-runtime finding; the wall columns for
-that row are from clean native runs and stand.
-
-**Vendor test suites.** Icon is graded against the two official vendor test suites,
-vendored in the corpus and mechanically converted to SCRIP's explicit-semicolon
-dialect (`.std` oracles untouched — the conversion changes no semantics, so PASS/FAIL
-measures the engine). Every program in both suites parses. Measured 2026-08-30, both
-native modes:
-
-| suite | mode | PASS | FAIL | CRASH | HANG | of |
-|---|---|:---:|:---:|:---:|:---:|:---:|
-| Arizona Icon v9.5 `general/` | m3 | 39 | 50 | — | — | 89 |
-| Arizona Icon v9.5 `general/` | m4 | 40 | 49 | — | — | 89 |
-| JCON test suite | m3 | 41 | 25 | 13 | 2 | 81 |
-| JCON test suite | m4 | 39 | 32 | 8 | 2 | 81 |
-
-(One JCON file, `tpp`, is excluded by name: its reference output is preprocessor text
-over deliberately invalid Icon, ungradable by execution.)
-
-Verdicts: **PASS** — runs, output byte-identical to the vendor reference. **FAIL** —
-runs, output differs (a wrong answer). **CRASH** — dies on a signal. **HANG** —
-exceeds the 20-second limit. These are unmodified real-world Icon programs exercising
-the full language surface. Runners: `scripts/test_icon_arizona_suite.sh`,
-`scripts/test_icon_jcon_suite.sh` — each prints its own totals and names every
-non-PASS.
-
-**Major demo — the JCON compiler, written in Icon.** JCON (Proebsting & Townsend,
-Arizona) is a production Icon-to-JVM compiler, itself written in Icon: 9,953 lines
-across 16 hand-written modules plus 2 that JCON generates with its own Icon programs.
-It is the largest real-world Icon program in the corpus, and it is a demo rather than
-a test because it exercises the whole front end at once.
-
-The demo entries live in `corpus/demos/icon/jcon/`. Each is a thin file of `link`
-directives resolved by SCRIP's own `icn_resolve_links`, naming exactly the modules
-that real JCON program is built from — not a concatenated command line, which
-silently merges JCON's four separate `procedure main`s into one program. The gate
-builds its own `icont` oracle from the same sources every run:
+**Major demo — the JCON compiler, written in Icon.** JCON (Proebsting & Townsend, Arizona) is a production Icon-to-JVM compiler, itself written in Icon: 9,953 lines across 16 hand-written modules plus 2 that JCON generates with its own Icon programs — the largest real-world Icon program in the corpus. The demo entries live in `corpus/demos/icon/jcon/`, each a thin file of `link` directives resolved by SCRIP's own `icn_resolve_links`; the gate `scripts/test_demo_icon_jcon.sh` builds its own `icont` oracle from the same sources every run and grades stdout (jlink answers on stderr, and the oracle picks the stream once):
 
 | demo | what it is | m3 | m4 | vs oracle |
 |---|---|:---:|:---:|---|
 | `interfacegen` | JCON's Java-interface table generator (415 lines out) | ✅ | ✅ | byte-identical |
-| `jlink` | `jlink`, JCON's 2-module class linker | ✅ | ✅ | byte-identical |
-| `oplexgen` | JCON's operator-lexer generator (611 lines out) | ⚠ | ⚠ | same 611 lines, different order |
-| `jtran` | the full 17-module translator | ⛔ | ⛔ | does not build |
+| `jlink` | `jlink`, JCON's 2-module class linker (answers on stderr) | ✅ | ✅ | byte-identical |
+| `jtran` | the full 17-module translator on its declared argv | ✅ | ✅ | byte-identical |
+| `oplexgen` | JCON's operator-lexer generator (611 lines out) | ✅ | ✅ | byte-identical |
 
-`oplexgen` walks `key(t)` to emit its decision tree; SCRIP's table-key order differs
-from the oracle's, so the same 611 lines come out in a different order (`sort` of the
-two outputs is byte-identical, and m3 ≡ m4 exactly). Icon does not specify `key()`
-order, so the generated source stays valid either way.
+(`scripts/test_demo_icon_jcon.sh`, 2026-09-26 09:26 CDT on SCRIP `b12bb87f8`: 4 of 4 graded demos match the `icont`/`iconx` oracle in both modes, PASS(0).)
 
-`jtran` does not currently build in either mode — the compiler itself stops. Both
-sites are in `lexer.icn`, on the shape `EXPR ? { while COND do … suspend … }`: the
-scan's resume path lands on the loop **condition**'s β port, and a non-resumable
-condition (a literal or plain variable) emits only an α entry. `while f()` — a
-resumable condition — compiles and links fine. Minimal witness, two lines:
+**Demo benchmarks.** Three-angle triangulation, `scripts/bench_triangulate_demos_icon.sh`, the same sitting, `iconx` vs m3 vs m4, every run answer-checked against the oracle's digest. ⛔ Basis: one iteration is one whole program run, so every number is a TOTAL carrying process start-up (and, for m3, the compile); the harness names OVERHEAD (the empty program per engine) and prints the WORK figure only where start-up is under half the reading (CEO-173). These totals never share a column with the kernel grids above.
 
-```icon
-procedure g(); "" ? { while 1 do suspend 1 }; end
-procedure main(); write(g()); end
-```
+| demo | engine | a1 runs/s | a2 runs/s | verdict | total ms | work ms | overhead ms | answer |
+|---|---|---:|---:|---|---:|---:|---:|---|
+| interfacegen | iconx | 233.7970 | 246.9136 | AGREE | 4.05 | 1.12 | 2.93 | abde733517 |
+| interfacegen | m3 | 43.1436 | 43.3727 | AGREE | 23.056 | 19.76 | 3.30 | abde733517 |
+| interfacegen | m4 | 275.7292 | 273.2240 | AGREE | 3.66 | 1.76 | 1.90 | abde733517 |
+| jlink | iconx | 286.2049 | 307.1253 | AGREE | 3.256 | 0.33 | 2.93 | f7cf281eab |
+| jlink | m3 | 10.0261 | 9.8875 | AGREE | 101.138 | 97.84 | 3.30 | f7cf281eab |
+| jlink | m4 | 204.4589 | 206.9536 | AGREE | 4.832 | 2.93 | 1.90 | f7cf281eab |
+| jtran | iconx | 230.8687 | 239.6932 | AGREE | 4.172 | 1.24 | 2.93 | 22c37c5c23 |
+| jtran | m3 | 0.8628 | 0.8780 | VOID-ANSWER | 1138.91 | 1135.61 | 3.30 | 21b7d14552 |
+| jtran | m4 | 117.9245 | 120.2790 | VOID-ANSWER | 8.314 | 6.41 | 1.90 | 21b7d14552 |
+| oplexgen | iconx | 222.0135 | 228.6237 | AGREE | 4.374 | 1.44 | 2.93 | b35120ad1b |
+| oplexgen | m3 | 50.5029 | 50.4541 | AGREE | 19.82 | 16.52 | 3.30 | b35120ad1b |
+| oplexgen | m4 | 249.7367 | 245.8210 | AGREE | 4.068 | 2.17 | 1.90 | b35120ad1b |
 
-Gate: `scripts/test_demo_icon_jcon.sh` (refuses `rc=2` rather than skipping; a
-declared known-difference that starts passing is reported `XPASS` and fails, so a cure
-cannot land silently).
-
-**Demo benchmarks.** Three-angle triangulation, `scripts/bench_triangulate_demos_icon.sh`.
-*Measured 2026-09-04 on SCRIP e560edb92 / corpus b7c674a17, RT_OPT=-O0, modes m3 and m4 vs
-Arizona `iconx` (Icon v9.5.25a), every rep answer-checked against the oracle's digest.*
-
-⛔ **Basis: one iteration = one whole program run**, so every number is a TOTAL carrying
-process startup (and, for m3, the compile). These are not kernel slopes and must never
-share a column with the kernel grid above. Angles 1 (fixed time) and 2 (fixed
-iterations) AGREE on every row below.
-
-⛔ **The WORK multiple is REFUSED on all four rows, and the refusal is the finding.**
-OVERHEAD measured on an empty program this run: **iconx 3.88 ms · m3 3.69 ms · m4
-2.18 ms** — against whole-demo totals of 4.8–8.2 ms. Startup is >=50% of the reading on
-at least one arm everywhere, so `total − OVERHEAD` would be a difference of two similar
-numbers dominated by its own error bars (CEO-173). The harness prints the labelled
-TOTAL-basis multiple instead — never the WORK number with a quiet asterisk:
-
-| demo | m3 vs `iconx` (TOTAL) | m4 vs `iconx` (TOTAL) |
-|---|:---:|:---:|
-| `interfacegen` | 0.158x | **1.537x** |
-| `jlink` | 0.021x | 0.660x |
-
-⚠️ These are single-run totals on 5–8 ms programs and they move: an immediately
-preceding run of the same script put `interfacegen` m4 at 1.292x and `jlink` m4 at
-0.772x. Read them as the ~±20% band that whole-program totals on millisecond programs
-are worth, not as three-digit precision. m3 compiles at run time, so its total includes
-the compile; m4 is a prebuilt binary. The way OFF this basis is a real `wall_ms` clock
-hook inside the demo, not a wider tolerance.
-
-⛔ **`jtran` and `oplexgen` get timings but NO multiple — for two different reasons,
-and only one of them is a wrong answer.** `jtran` produces EMPTY output in both m3 and
-m4 where `iconx` produces a digest: a real defect (the `[GENHOST] … RESERVES NOTHING`
-class, `jtran.knowndiff`), and a demonstration that the earlier link cure was
-necessary-not-sufficient — it now runs, rc=0, and still emits nothing. `oplexgen`, by
-contrast, is **not wrong**: it emits **611 lines, the same 611 the oracle emits — `sort`
-of the two outputs is byte-identical, and m3 == m4 exactly**. Only the ORDER differs,
-because the demo walks `every i := key(t.t)` and Icon does not specify `key(table)`
-order. It VOIDs here solely because this harness compares an order-sensitive digest.
-Deciding it — match the oracle's order, or rule the order unspecified and compare this
-demo order-insensitively so it can publish a multiple — is a named row in hq_B's lane.
+**The JCON translator on a real input** (Lon 2026-09-26: *"also include the JCON compiler written in Icon; compare SCRIP to iconx."*): `jtran`, the 17-module translator, built by `icont` from the package sources (31 ms) and by SCRIP mode 4 (1,197,139 lines of asm, 4.5 s to compile and link), run on JCON's own `gen_bc.icn` (65 KB), the same minute, load 1.1. The preprocessor stage to stdout, best of 5, outputs byte-identical on all three engines (65,056 bytes): **`iconx` 23.5 ms · m4 36.4 ms (0.65x) · m3 1,180 ms (0.02x — the in-process compile of the 17 modules is inside the wall)**. The full pipeline `preproc gen_bc.icn : yylex : parse : ast2ir : bc_File -class:gen_bc`: **SCRIP m4 completes it in 10.8 s, 87 class files written; Arizona `iconx` dumps core (rc 139) after 1.1 s on the same run**, with the default stack and with 256 MB (CEO-1213), so there is no oracle multiple for the full translation and 10.8 s for 65 KB is the Icon workhorse number the profiles above explain (the builtin-by-name road, record fields by `strcmp`, the collector).
 
 ### Prolog
 
