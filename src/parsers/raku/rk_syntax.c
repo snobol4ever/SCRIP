@@ -1983,6 +1983,7 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
             int ns0 = ns;
             while (ns && st[ns - 1].sub > o.prec) ns--;
             if (ns == ns0 && o.to - o.from >= 2 && at_lit(p, o.from, ":=") && paren_list_term(p, q, t)) panic_at(p, o.from, "Cannot use bind operator with this left-hand side");
+            if (at_lit(p, o.from, "==>>") || at_lit(p, o.from, "<<==")) panic_at(p, o.from, "%.4s feed operator not yet implemented. Sorry.", p->s + o.from);
             if (o.flags & OF_FAKE) { last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } last_end = w; continue; }
             break;
         }
@@ -2222,7 +2223,11 @@ static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
     int c1 = ch(p, pos + 1);
     if (!twig && (c1 == '$' || c1 == '@' || c1 == '%' || c1 == '&')) { check_lexical_variable(p, pos + 1, e, 0); return; }
     if (c == '&' || memmem(p->s + pos, (size_t) (e - pos), "::", 2)) return;
-    e = pos + 1 + name_part_len(p, pos + 1, e);
+    int nb = pos + 1 + (twig ? 1 : 0);
+    e = nb + name_part_len(p, nb, e);
+    if ((twig == '^' || twig == ':') && e - pos == 3 && p->s[pos + 2] >= 'A' && p->s[pos + 2] <= 'Z') panic_at(p, pos, "Unsupported use of %.3s variable", p->s + pos);
+    if (twig == '=' && !p->in_decl && !(e - pos == 5 && !memcmp(p->s + pos + 2, "pod", 3)) && !(e - pos == 8 && !memcmp(p->s + pos + 2, "finish", 6)))
+        panic_at(p, pos, "Pod variable %.*s not yet implemented. Sorry.", e - pos, p->s + pos);
     if (twig == '^' || twig == ':') { char buf[256]; int n = e - pos - 1; if (n < 1 || n > 250) return; buf[0] = (char) c; memcpy(buf + 1, p->s + pos + 2, (size_t) n - 1);
         if (user_name_index(p, buf, n) < 0) add_name_n(p, buf, n); return; }
     if (twig) return;
