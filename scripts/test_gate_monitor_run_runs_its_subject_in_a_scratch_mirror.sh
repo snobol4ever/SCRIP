@@ -14,6 +14,8 @@
 # companion from the caller and wrote there.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_gate.sh" || { echo "REFUSED(2): cannot load lib_gate.sh"; exit 2; }; GATE_NAME=monitor_run_runs_its_subject_in_a_scratch_mirror
+gate_require_fresh "$ROOT" src "$ROOT/scrip" || exit 2   # a stale binary is a refusal, never a verdict (test_gate_runners_refuse_on_a_stale_binary.sh census #2)
 [ -x "$ROOT/scrip" ] || { echo "⛔ REFUSED(2): no $ROOT/scrip -- run make"; exit 2; }
 T="$(mktemp -d)" || { echo "⛔ REFUSED(2): mktemp failed"; exit 2; }; trap 'rm -rf "$T"' EXIT
 cc=$(git -C "$ROOT" log --format=%h -1 -S'SCRATCH MIRROR OF ITS OWN DIRECTORY' -- scripts/monitor_run.sh)

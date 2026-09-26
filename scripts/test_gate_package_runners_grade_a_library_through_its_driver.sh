@@ -125,6 +125,27 @@ printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$L/UNGRADABLE.tsv"
 S4E_PROGRESS_DB="$T/lk.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$L" > "$T/lk.out" 2>&1
 _lb="$(grep -m1 '^JCON_SUITE_BOARD ' "$T/lk.out")"; _lok=1; for _kv in shipped=3 graded=1 gap=2 m3_pass=1 m4_pass=1; do grep -qE "(^| )$_kv( |\$)" <<<"$_lb" || _lok=0; done   # each field on its own (CEO-839)
 [ -n "$_lb" ] && [ "$_lok" = 1 ] && ck ok "jcon: a driver linking two libraries on one line, one of which links a third, passes in m3 as in m4" || ck no "jcon: the link-line fixture: $(grep -m1 '^JCON_SUITE_BOARD' "$T/lk.out" | cut -c1-120) $(grep -m1 'FAIL' "$T/lk.out" | cut -c1-100)"
+# ---- ipl (coo 2026-09-25, hq_icon's ask: the 382 IPL libraries CEO-1272 made NEEDS_DRIVER are graded through NAME_driver like Arizona's
+# and Jcon's). procs/alib is a library with a passing driver and procs/blib one whose driver's ref is deliberately wrong; procs/opt's
+# driver must link procs/opt.icn, not the progs/opt.icn namesake that ICONPATH names first -- IPL ships four basenames twice over,
+# so the driver run puts its own directory first on IPATH. Every ref is cut live from iconx in a directory holding only its closure.
+IP="$T/ipl/corpus/packages/icon/ipl"; mkdir -p "$IP/progs" "$IP/procs" "$IP/gprogs" "$IP/gprocs" "$IP/incl" "$IP/gincl" "$T/ipl/cut"
+cp "$I/alib.icn" "$I/alib_driver.icn" "$I/blib.icn" "$I/blib_driver.icn" "$IP/procs/"; cp "$I/alib_driver.ref" "$IP/procs/"; cp "$C/blib_oracle.txt" "$IP/procs/blib_driver.ref"; printf 'half(9) = 5\n' > "$IP/procs/blib_driver.ref"
+printf 'procedure opt();\n   return "procs";\nend\n' > "$IP/procs/opt.icn"; printf 'link opt\nprocedure main();\n   write(opt());\nend\n' > "$IP/procs/opt_driver.icn"
+printf 'procedure opt();\n   return "progs";\nend\nprocedure main();\n   write(opt());\nend\n' > "$IP/progs/opt.icn"
+cp "$IP/procs/opt.icn" "$IP/procs/opt_driver.icn" "$T/ipl/cut/" && ( cd "$T/ipl/cut" && "$ICONT" -s -c opt.icn && "$ICONT" -s -o od opt_driver.icn && "$ICONX" ./od ) > "$IP/procs/opt_driver.ref" 2>&1 </dev/null
+mkdir -p "$T/ipl/cut2" && cp "$IP/progs/opt.icn" "$T/ipl/cut2/" && ( cd "$T/ipl/cut2" && "$ICONT" -s -o op opt.icn && "$ICONX" ./op ) > "$IP/progs/opt.ref" 2>&1 </dev/null
+grep -qx procs "$IP/procs/opt_driver.ref" && grep -qx progs "$IP/progs/opt.ref" || { echo "⛔ REFUSED(2): iconx did not answer the IPL namesake fixture -- $(cat "$IP/procs/opt_driver.ref" "$IP/progs/opt.ref" | tr '\n' '|')"; exit 2; }
+printf '# fixture\n' > "$IP/UNGRADED.tsv"; printf '# fixture\n' > "$IP/UNGRADABLE.tsv"; ln -s "$ROOT" "$T/ipl/SCRIP"
+S4E_HOME="$T/ipl" S4E_PROGRESS_DB="$T/ipl.tsv" timeout 900 bash "$HERE/test_icon_ipl_suite.sh" > "$T/ipl.out" 2>&1; rc=$?
+if [ "$rc" = 2 ] || ! has "$T/ipl.out" '^IPL_RUN_BOARD '; then echo "⛔ REFUSED(2): the ipl runner did not measure the fixture (rc=$rc):"; grep -m3 'REFUS\|UNPROVEN' "$T/ipl.out" | sed 's/^/    /'; exit 2; fi
+_ib="$(grep -m1 '^PACKAGE_INVENTORY package=ipl ' "$T/ipl.out")"; _iok=1; for _kv in shipped=4 graded=4 ungraded=0; do grep -qE "(^| )$_kv( |\$)" <<<"$_ib" || _iok=0; done
+[ "$_iok" = 1 ] && has "$T/ipl.out" '^IPL_AND_PER_PROGRAM and_pass=3 of 4 ' && ck ok "ipl: 3 libraries graded through their drivers and 1 program, the drivers out of shipped (4 of 4 graded, AND 3 -- blib's ref is wrong)" \
+  || ck no "ipl: the inventory or the AND: $(cut -c1-110 <<<"$_ib") :: $(grep -m1 '^IPL_AND_PER_PROGRAM' "$T/ipl.out" | cut -c1-90)"
+progress_arms ipl "$T/ipl.tsv" alib blib
+{ grep -qx 'opt m3 PASS' <<<"$(rows "$T/ipl.tsv")" && ! grep -q 'm3_RUN_FAIL=.*opt\|RUN_FAIL:.* opt' "$T/ipl.out" && has "$T/ipl.out" '^mode-3 \(--run\): +RUN_PASS=3 ' && has "$T/ipl.out" '^mode-4 \(--compile\): RUN_PASS=3 '; } \
+  && ck ok "ipl: procs/opt's driver links procs/opt.icn, not the progs/opt.icn namesake ICONPATH names first (both modes pass)" \
+  || ck no "ipl: the IPL-namesake driver: $(grep -E '^mode-[34]' "$T/ipl.out" | tr '\n' ' ' | cut -c1-200)"
 # ---- gimpel
 CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
@@ -135,6 +156,6 @@ has "$T/gp.out" '^PACKAGE_INVENTORY package=gimpel shipped=3 graded=2 ungraded=1
 has "$T/gp.out" 'both_modes_pass=1/3 shipped libraries' && ck ok "gimpel: the row it would publish is 1/3 over the shipped libraries" || ck no "gimpel: the row text is not 1/3 over the libraries: $(grep -m1 -o 'both_modes_pass=[^ ]*' "$T/gp.out")"
 progress_arms gimpel "$T/gp.tsv" ALIB BLIB
 
-echo "population: $checks arm(s) over 3 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library and one non-driver program linking its name per Icon runner, and one two-name link line for jcon; refs cut live from iconx and sbl -bf"
+echo "population: $checks arm(s) over 4 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library and one non-driver program linking its name per Icon runner, and one two-name link line for jcon; an ipl package with two drivers and a progs/ namesake; refs cut live from iconx and sbl -bf"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [package_runners_grade_a_library_through_its_driver]: $checks of $checks arms hold"; exit 0; fi
 echo "⛔ GATE FAIL(1) [package_runners_grade_a_library_through_its_driver]: $fails of $checks arms red"; exit 1

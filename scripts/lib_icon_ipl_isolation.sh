@@ -161,6 +161,11 @@ ipl_isolation_run() {
     ipl_fixtures_stage "$IPL_ISO_FIXTURES" "$work/$sub"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
   fi
   local -a _isoenv=(); ipl_isolation_env "$work" _isoenv
+  # ⛔ A DRIVER RUN LINKS THE LIBRARY SHIPPED BESIDE IT (CEO-1269; coo 2026-09-25, hq_icon's ask): ICONPATH above names progs/ first,
+  # and IPL ships four basenames twice over, so a procs/ driver's `link NAME` could reach a progs/ namesake. IPL_ISO_DRIVER=1 puts
+  # the driver's own isolated directory first on IPATH, which SCRIP and icont read before ICONPATH -- as the Arizona and Jcon runners
+  # give a NAME_driver run (09ee9fb91). Any other program runs exactly as before.
+  [ -n "${IPL_ISO_DRIVER:-}" ] && _isoenv+=("IPATH=$work/$sub")
   ( cd "$work/$sub" && timeout "$to" env "${_isoenv[@]}" "$@" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
