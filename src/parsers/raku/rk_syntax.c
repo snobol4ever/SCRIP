@@ -19,7 +19,7 @@ typedef struct { int pos; int len; int depth; } RkMyst;
 typedef struct { char **v; int n; int c; } RkStrs;
 typedef struct {
     const char *kind; char *name; RkStrs attrs; RkStrs roles; RkMyst *uses; int nuses; int cuses; int unknown;
-    RkStrs meths; RkStrs mnames; RkStrs multis; RkStrs stubs; RkStrs explicit; RkStrs ours; int has_parent; int decl_pos;
+    RkStrs meths; RkStrs mnames; RkStrs multis; RkStrs stubs; RkStrs explicit; RkStrs ours; int has_parent; int decl_pos; int generic_is;
 } RkPkg;
 typedef struct RkLang {
     int regex; int cc; int words; int ww;
@@ -2304,6 +2304,16 @@ static int role_has_attribute(RkP *p, const char *role, const char *a, int n, in
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static RkPkg *role_lookup(RkP *p, const char *name);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int role_generic_is(RkP *p, const char *name, int depth) {
+    RkPkg *r = role_lookup(p, name);
+    if (!r || depth > 16) return 0;
+    if (r->generic_is) return 1;
+    for (int j = 0; j < r->roles.n; j++) if (role_generic_is(p, r->roles.v[j], depth + 1)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static RkPkg *role_lookup(RkP *p, const char *name) {
     for (int i = p->nroledb - 1; i >= 0; i--) if (!strcmp(p->roledb[i].name, name)) return &p->roledb[i];
     return NULL;
@@ -2330,6 +2340,8 @@ static int class_defines(const RkPkg *k, const char *n, int len) {
 static void check_role_composition(RkP *p, RkPkg *k) {
     int nr = k->roles.n;
     if (!nr) return;
+    for (int i = 0; i < nr; i++) if (role_generic_is(p, k->roles.v[i], 0))
+        panic_at(p, k->decl_pos, "Cannot find method 'instantiate_generic' on object of type Perl6::Metamodel::ClassHOW");
     RkStrs *M = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr), *K = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr), *S = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr);
     memset(M, 0, sizeof(RkStrs) * (size_t) nr); memset(K, 0, sizeof(RkStrs) * (size_t) nr); memset(S, 0, sizeof(RkStrs) * (size_t) nr);
     for (int i = 0; i < nr; i++) if (!role_flatten(p, k->roles.v[i], &M[i], &K[i], &S[i], 0)) return;
@@ -3423,6 +3435,11 @@ static int r_variable_declarator(RkP *p, int pos) {
         int a = ws(p, t + 8); int b = r_identifier(p, a);
         if (b > a && ch(p, ws(p, b)) == ')' && is_capture(p, p->s + a, b - a))
             panic_at(p, t, "Attribute definition of type Mu (implicit : by pragma) needs to be marked as required or given an initializer");
+    }
+    if ((p->scope == 3 || p->scope == 4) && p->npkgs) for (int t = e; t + 2 <= q; t++) {
+        if (memcmp(p->s + t, "is", 2) || wordch_at(p, t + 2) || (t > 0 && asc_word((unsigned char) p->s[t - 1]))) continue;
+        int a = ws(p, t + 2); int b = r_identifier(p, a);
+        if (b > a && !wordch_at(p, b) && ch(p, b) != '(' && is_capture(p, p->s + a, b - a)) p->pkgs[p->npkgs - 1].generic_is = 1;
     }
     for (;;) { int t = ws(p, q); int f = r_post_constraint(p, t); if (f < 0) break; q = f; }
     return q;
