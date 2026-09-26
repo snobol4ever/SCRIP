@@ -277,8 +277,6 @@ struct IR_graph_t {
     int            runtime_fragment_graph;
     int            is_variadic;
     int            rest_kind;
-    IR_t         * ab_nodes[32];
-    int            ab_n;
 };
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_varslot_of(const IR_graph_t * g, const char * name);

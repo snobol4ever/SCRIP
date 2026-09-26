@@ -39,10 +39,6 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 extern DESCR_t pat_at_cursor(const char *varname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void stmt_init(void) {}
-static IR_graph_t *g_ab_posthook_g = NULL; static int g_ab_posthook_gva = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bb_ab_posthook(void) { extern void bb_ab_emit_nodes(IR_graph_t*, int); if (g_ab_posthook_g) bb_ab_emit_nodes(g_ab_posthook_g, g_ab_posthook_gva); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int n2_proc_index(const stage2_t *s2, const char *fn) { if (!s2 || !fn) return -1;
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, fn)) return i; } return -1; }
 static int polyglot_main_bb_idx(const stage2_t *s2) { if (!s2) return -1;
@@ -1663,7 +1659,6 @@ int main(int argc, char **argv)
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
                 emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
-                { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
                 { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
                 if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
                 { extern int emit_gc_map_names_n(void); extern const char *emit_gc_map_name(int); int _nm = emit_gc_map_names_n(); emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm); for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k)); emit_textf("  .section .text\n  .intel_syntax noprefix\n"); }
@@ -1791,9 +1786,6 @@ int main(int argc, char **argv)
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             sn4_dentry_table_build(bbg, s2);
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
-            { extern void (*g_emit_chain_posthook)(void); extern void bb_ab_emit_nodes(IR_graph_t*, int); extern int g_gva_active;
-              g_ab_posthook_g = bbg; g_ab_posthook_gva = g_gva_active;
-              g_emit_chain_posthook = bb_ab_posthook; }
             { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
               if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)ct_zalloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)ct_zalloc((size_t)_na, sizeof(char *));
                   if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;

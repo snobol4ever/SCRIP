@@ -16,7 +16,7 @@
 #                A cure that went back to freeing reds this arm.
 #   1d NO BIN    the abandoned block never returns to a bin: the next same-class allocation is a DIFFERENT block.
 #   1e BIG       a block above the 8 MB bin moves to a new mapping with the payload copied, and the old mapping stays readable.
-# ARM 2, the snapshot restore in bb_ab_emit_nodes (src/templates/bb/bb_define.cpp) carries the grown op_arg_slot: SCRIP_AB=1 on a
+# ARM 2 (RETIRED 2026-09-26 with the SCRIP_AB road, CEO-1274 (2)): the snapshot restore in bb_ab_emit_nodes carried the grown op_arg_slot: SCRIP_AB=1 on a
 #   program whose first DEFINE has 60 names and whose second has 20 compiles rc 0 (the regression that found the drop's one broken
 #   caller, 2026-09-23; kept as the arm that proves the restore still hands back the grown array).
 # rc 0 GREEN · 1 RED (named) · 2 REFUSE (cannot measure).
@@ -92,8 +92,7 @@ L = ["        DEFINE('BIG(A,B)%s')" % ",".join("L%d" % i for i in range(1, 61)),
      "END"]
 open(sys.argv[1], "w").write("\n".join(L) + "\n")
 EOF
-( cd "$T" && SCRIP_AB=1 timeout 60 "$ROOT/scrip" --compile -o w.s w.sno < /dev/null > /dev/null 2> w.err ); arc=$?
-if [ "$arc" = 0 ] && [ -s "$T/w.s" ]; then echo "  ok   2 SCRIP_AB=1 compiles a 60-name DEFINE followed by a 20-name DEFINE (rc 0)"; else echo "  RED  2 SCRIP_AB=1 compile rc $arc -- $(head -c 160 "$T/w.err" | tr '\n' ' ')"; red=1; fi
+echo "  arm 2 RETIRED with the SCRIP_AB road (cto 2026-09-26, CEO-1274 (2)): the snapshot restore it witnessed lived in bb_ab_emit_nodes, which is deleted; nothing on a live road restores an op_arg_slot snapshot, so there is nothing to re-witness"
 gate_stamp
 [ "$red" = 0 ] && { echo "GATE GREEN [$GATE_NAME]"; exit 0; }
 echo "GATE RED(1) [$GATE_NAME]"; exit 1

@@ -426,9 +426,6 @@ static std::string bb_define_activate() {
 static std::string bb_define_bind() {
     x86_begin();
     const char * fname = _.op_sval ? _.op_sval : "?";
-    std::string albl = std::string(fname) + "_act_\xce\xb1";
-    std::string clbl = std::string("fn_cell$") + fname;
-    static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
     if (_.op_proto && strchr(_.op_proto, '|')) { _nf = atoi(_.op_proto); _csv = strchr(_.op_proto, '|') + 1; _np = *_csv ? 1 : 0; for (const char * c = _csv; *c; c++) if (*c == ',') _np++; _fn = 0; }
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
@@ -481,69 +478,7 @@ static std::string bb_define_bind() {
             + x86_scan_sync_in_rr();
         entry_seal = x86_ro_seal_str(3, _.op_entry); } }
     std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "") + bind_seal + entry_seal;
-    if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
-    if (bb_ab_cell_addr(fname)) return x86_alpha() + reg + x86_pair_loop() + seals;
-    return x86_alpha()
-         + reg
-         + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, albl.c_str())
-         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, clbl.c_str())
-         + x86("mov", RDQ("rcx", 0), "rax")
-         + x86_pair_loop()
-         + seals;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
-{
-    if (!g || g->ab_n <= 0) return;
-    extern int g_gva_active;
-    extern IR_graph_t *g_emit_cfg;
-    extern int gva_index_of(const char *);
-    sm_emit_t saved_emit   = g_emit;
-    IR_graph_t *saved_cfg  = g_emit_cfg;
-    int         saved_gva  = g_gva_active;
-    g_gva_active = gva_active;
-    char ab_lbl_α[128], ab_lbl_β[128], ab_lbl_γ[128], ab_lbl_ω[128];
-    for (int i = 0; i < g->ab_n; i++) {
-        IR_t *nd = g->ab_nodes[i];
-        if (!nd || nd->op != IR_DEFINE) continue;
-        { int64_t * pt = g_emit.op_parts_ival; int pc = g_emit.op_parts_cap; int * as = g_emit.op_arg_slot; int ac = g_emit.op_arg_slot_cap; int * zr = g_emit.op_zread; int * zk = g_emit.op_zkind; int * zx = g_emit.op_zread_xf; int zc = g_emit.op_zcap; g_emit = saved_emit; g_emit.op_parts_ival = pt; g_emit.op_parts_cap = pc; g_emit.op_arg_slot = as; g_emit.op_arg_slot_cap = ac; g_emit.op_zread = zr; g_emit.op_zkind = zk; g_emit.op_zread_xf = zx; g_emit.op_zcap = zc; }
-        g_emit_cfg     = g;
-        g_emit.op_sval = IR_LIT(nd).sval;
-        g_emit.op_ival = (long)nd->n_operands;
-        g_emit.op_ab_nformals = nd->seal;
-        g_emit.op_beta_dead = 0;
-        const char *fn = g_emit.op_sval ? g_emit.op_sval : "unknown";
-        snprintf(ab_lbl_α, sizeof ab_lbl_α, "%s_act_\xce\xb1", fn);
-        snprintf(ab_lbl_β, sizeof ab_lbl_β, "%s_act_\xce\xb2", fn);
-        snprintf(ab_lbl_γ, sizeof ab_lbl_γ, "%s_act_\xce\xb3", fn);
-        snprintf(ab_lbl_ω, sizeof ab_lbl_ω, "%s_act_\xcf\x89", fn);
-        g_emit.lbl_α = ab_lbl_α;
-        g_emit.lbl_β = ab_lbl_β;
-        g_emit.lbl_γ = ab_lbl_γ;
-        g_emit.lbl_ω = ab_lbl_ω;
-        g_emit.lbl_α_p = emit_label_intern(ab_lbl_α);
-        g_emit.lbl_β_p = emit_label_intern(ab_lbl_β);
-        g_emit.lbl_γ_p = emit_label_intern(ab_lbl_γ);
-        g_emit.lbl_ω_p = emit_label_intern(ab_lbl_ω);
-        int _ab_n = (int)nd->n_operands;
-        drive_arg_slots_reserve(_ab_n);
-        for (int k = 0; k < _ab_n; k++) {
-            const char *nm = nd->operands[k] ? IR_LIT(nd->operands[k]).sval : (const char *)0;
-            g_emit.op_arg_slot[k] = (nm && gva_active) ? gva_index_of(nm) : -1;
-        }
-        g_emit.op_arg_slot_n = _ab_n;
-        bb_emit_x86(bb_define_activate());
-        void **cell = (void **)bb_ab_cell_addr(fn);
-        if (cell) {
-            extern bb_buf_t bb_emit_buf;
-            bb_label_t *al = emit_label_intern(ab_lbl_α);
-            if (al && bb_label_defined(al))
-                *cell = (void *)(bb_emit_buf + al->offset);
-        }
-    }
-    { int64_t * pt = g_emit.op_parts_ival; int pc = g_emit.op_parts_cap; int * as = g_emit.op_arg_slot; int ac = g_emit.op_arg_slot_cap; int * zr = g_emit.op_zread; int * zk = g_emit.op_zkind; int * zx = g_emit.op_zread_xf; int zc = g_emit.op_zcap; g_emit = saved_emit; g_emit.op_parts_ival = pt; g_emit.op_parts_cap = pc; g_emit.op_arg_slot = as; g_emit.op_arg_slot_cap = ac; g_emit.op_zread = zr; g_emit.op_zkind = zk; g_emit.op_zread_xf = zx; g_emit.op_zcap = zc; }
-    g_emit_cfg = saved_cfg;
-    g_gva_active = saved_gva;
+    return x86_alpha() + reg + x86_pair_loop() + seals;
 }
 #include <string>
 #include <cstdint>

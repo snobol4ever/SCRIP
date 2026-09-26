@@ -1561,8 +1561,6 @@ __attribute__((noreturn)) void rt_ab_undef_fn_stub(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned ab_fn_hash(const char * s) { unsigned h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int ab_hash_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_AB_HASH"); v = (e && *e == '0') ? 0 : 1; } return v; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ** ab_cell(int slot) { return (void **)CV_AT(g_ab_dir, void *, slot >> 10) + (slot & 1023); }
 static void ab_hix_put(const char * name, int slot) {
     uint32_t m = g_ab_hix.len - 1, h = ab_fn_hash(name) & m;
@@ -1580,16 +1578,12 @@ static int ab_slot_new(const char * fname) {
     CV_PUSH(g_ab_names, const char *) = ct_strdup(fname);
     *ab_cell(s) = (void *)(uintptr_t)rt_ab_undef_fn_stub;
     g_ab_fn_cell_n = s + 1;
-    if (ab_hash_on()) { if ((uint64_t)g_ab_fn_cell_n * 2 > (uint64_t)g_ab_hix.len) ab_hix_grow(); else ab_hix_put(CV_AT(g_ab_names, const char *, s), s); }
+    if ((uint64_t)g_ab_fn_cell_n * 2 > (uint64_t)g_ab_hix.len) ab_hix_grow(); else ab_hix_put(CV_AT(g_ab_names, const char *, s), s);
     return s;
 }
 static int bb_ab_slot_for(const char * fname) {
-    if (ab_hash_on()) {
-        if (g_ab_hix.len) { uint32_t m = g_ab_hix.len - 1, h = ab_fn_hash(fname) & m;
-            for (;; h = (h + 1) & m) { ab_ent_t * e = &CV_AT(g_ab_hix, ab_ent_t, h); if (!e->name) break; if (!strcmp(e->name, fname)) return e->slot; } }
-        return ab_slot_new(fname);
-    }
-    for (int s = 0; s < g_ab_fn_cell_n; s++) if (!strcmp(CV_AT(g_ab_names, const char *, s), fname)) return s;
+    if (g_ab_hix.len) { uint32_t m = g_ab_hix.len - 1, h = ab_fn_hash(fname) & m;
+        for (;; h = (h + 1) & m) { ab_ent_t * e = &CV_AT(g_ab_hix, ab_ent_t, h); if (!e->name) break; if (!strcmp(e->name, fname)) return e->slot; } }
     return ab_slot_new(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

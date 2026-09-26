@@ -2342,23 +2342,6 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
         IR_t * fA = lc_build(g, IR_GOTO, fJ, NULL); asgn_land[i] = fA;
         if (is_def && is_def[i]) {
-            static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
-            if (_ab && !g_sno_expr_define_seen) {
-                int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
-                const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
-                if (pnode && sno_qlit_fold(pnode)) {
-                    sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), sno_define_entry_opt(dsub, _argbase), &d);
-                    int nsave = 1 + d.nnames;
-                    IR_t * ab = lc_build(g, IR_DEFINE, exitnd, failnd);
-                    IR_LIT(ab).sval = lp_strdup(d.fname);
-                    ab->seal = d.nformals;
-                    { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.fname); ir_operand_push(ab, nm); }
-                    for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }
-                    if (g->ab_n < (int)(sizeof g->ab_nodes / sizeof *g->ab_nodes)) g->ab_nodes[g->ab_n++] = ab;
-                    else fprintf(stderr, "WARN AB-1: ab_nodes[] full (>32 DEFINEs in one graph); activation block for '%s' will be missing from .s\n", d.fname);
-                    { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); sno_bind_attach_proto(g, bind, &d, fA); lc_γ_to(anchor[i], bind); continue; }
-                }
-            }
             { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
               if (dsub && sno_def_entry_absent(dsub, _argbase)) {
                   IR_t * sp = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(sp).sval = lp_strdup(sno_qlit_fold(dsub->c[_argbase]));
