@@ -159,6 +159,7 @@ primary = (   Atom . p_name $'('
           |   Var . p_text
                   epsilon . *Shift('TT_VAR', p_text)
           |   $'(' *unify_expr $')'
+          |   $'(' *body $')'
           |   *list
           |   $' ' '-' Float . p_negf
                   epsilon . *Shift('TT_FLIT', '-' p_negf)
