@@ -3334,6 +3334,20 @@ static int r_initializer(RkP *p, int pos) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void check_is_traits(RkP *p, int from, int to, const char *const *known, const char *what) {
+    if (p->myst_off || user_name_index(p, "&trait_mod:<is>", 15) >= 0) return;
+    for (int t = from; t + 2 <= to; t++) {
+        if (p->s[t] == '\'' || p->s[t] == '"' || p->s[t] == '(' || p->s[t] == '[' || p->s[t] == '{') return;
+        if (memcmp(p->s + t, "is", 2) || wordch_at(p, t + 2) || (t > 0 && asc_word((unsigned char) p->s[t - 1]))) continue;
+        int q = ws(p, t + 2); int e = r_identifier(p, q);
+        if (e < 0 || e > to || at_lit(p, e, "::")) continue;
+        int n = e - q, ok = is_type_n(p, p->s + q, n);
+        for (int i = 0; !ok && known[i]; i++) if ((int) strlen(known[i]) == n && !memcmp(known[i], p->s + q, (size_t) n)) ok = 1;
+        if (!ok) panic_at(p, t, "Can't use unknown trait 'is' -> '%.*s' in %s declaration.", n, p->s + q, what);
+        t = e;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_variable_declarator(RkP *p, int pos) {
     int sd = p->in_decl; p->in_decl = 1;
     int e = r_variable(p, pos);
@@ -3351,6 +3365,8 @@ static int r_variable_declarator(RkP *p, int pos) {
         break;
     }
     int q = r_traits(p, e);
+    static const char *const vtraits[] = { "default", "dynamic", "export", 0 };
+    if (p->scope != 3 && p->scope != 4) check_is_traits(p, e, q, vtraits, " variable");
     for (;;) { int t = ws(p, q); int f = r_post_constraint(p, t); if (f < 0) break; q = f; }
     return q;
 }
@@ -3542,6 +3558,10 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     }
     int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
+    static const char *const rtraits[] = { "assoc", "DEPRECATED", "export", "hidden-from-backtrace", "hidden-from-USAGE", "implementation-detail", "leading_docs", "nodal",
+                                           "pure", "trailing_docs", "default", "equiv", "looser", "tighter", "inlinable", "onlystar", "prec", "raw", "rw", "revision-gated",
+                                           "test-assertion", "cached", 0 };
+    check_is_traits(p, tstart, q, rtraits, is_method ? "method" : "sub");
     for (int t = tstart; t + 6 <= q; t++) if (!memcmp(p->s + t, "export", 6) && !wordch_at(p, t + 6) && (t == 0 || !asc_word((unsigned char) p->s[t - 1]))) {
         for (int k = 0; k < nuops_before_traits && k < p->nuops; k++) if (p->uops[k].depth == p->depth - 1 && k >= nuops_before_traits - 2) p->uops[k].depth = 1000;
         if (name_from >= 0 && !is_method) {
@@ -3938,10 +3958,10 @@ static void add_use_lib(RkP *p, int from, int to) {
         int e = q;
         if (at_lit(p, q, "$*PROGRAM")) {
             prog = 1; e = q + 9;
-            while (e < to && p->s[e] != ',' && p->s[e] != ';') {
+            while (e < p->n && p->s[e] != ',' && p->s[e] != ';' && p->s[e] != '\n') {
                 if (at_lit(p, e, ".parent(")) { parent = atoi(p->s + e + 8); e += 8; continue; }
                 if (at_lit(p, e, ".parent")) { parent = 1; e += 7; continue; }
-                if (p->s[e] == '\'' || p->s[e] == '"') { char qc = p->s[e]; int b = e + 1; int t = b; while (t < to && p->s[t] != qc) t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; continue; }
+                if (p->s[e] == '\'' || p->s[e] == '"') { char qc = p->s[e]; int b = e + 1; int t = b; while (t < p->n && p->s[t] != qc) t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; continue; }
                 e++;
             }
         }
@@ -4039,8 +4059,10 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     int is_pragma = !strncmp(name, "MONKEY-", 7);
     for (int i = 0; pragmas[i]; i++) if (!strcmp(name, pragmas[i])) is_pragma = 1;
     if (!strcmp(what, "use") && !strcmp(name, "lib")) add_use_lib(p, ws(p, args_from), e);
-    else if (!strcmp(what, "use") && !strcmp(name, "Test")) for (size_t i = 0; i < sizeof rk_test_routines / sizeof *rk_test_routines; i++) add_routine_name(p, rk_test_routines[i],
-        (int) strlen(rk_test_routines[i]));
+    else if (!strcmp(what, "use") && !strcmp(name, "Test")) {
+        for (size_t i = 0; i < sizeof rk_test_routines / sizeof *rk_test_routines; i++)
+            if (strncmp(rk_test_routines[i], "trait_mod:", 10)) add_routine_name(p, rk_test_routines[i], (int) strlen(rk_test_routines[i]));
+    }
     else if (!strcmp(what, "use") && !is_pragma) { if (!import_module(p, name)) p->myst_off = 1; }
     return ws(p, e);
 }
