@@ -195,10 +195,6 @@ suites with refs cut from each oracle; each Bench row is that language's benchma
 | Raku — IN DEVELOPMENT | Roast | **21/1464** | `2026-09-25` |
 | Raku — IN DEVELOPMENT | RakM (master) | **901/947** | `2026-09-25` |
 | Raku — IN DEVELOPMENT | RakBench | **15/83** | `2026-09-26` |
-| Snocone | SncM (master) | **338/338** | `2026-09-25` |
-| Snocone | SncBench | **16/16** | `2026-09-25` |
-| Rebus | RebM (master) | **43/43** | `2026-09-25` |
-| Rebus | RebBench | **3/3** | `2026-09-25` |
 <!-- SUITE-TABLE:END -->
 
 ### SNOBOL4 / SPITBOL
@@ -487,84 +483,11 @@ Geometric mean against `fpc -O2`: **0.0016x** in mode 4 over the 8 kernels whose
 
 ### Snocone
 
-**Coverage** (third-party): none exists to grade against — Snocone is Koenig's
-structured SNOBOL4 (Bell Labs TR 124) and no independent implementation ships a test
-suite. Its programs lower into the same engine as SNOBOL4 and are graded through the
-SPITBOL oracle; the paper's own examples are the closest thing to vendor tests and
-are in the corpus. **SncM** in the suite table above is our own flat master suite (the beauty test suite of the
-self-hosting front-end is part of it) and **SncBench** the kernel set graded as tests.
-
-**Benchmarks.** **× vs SPITBOL** — the SNOBOL4 twin (Snocone shares SNOBOL4's engine, so a
-hand-translated equivalent program, `corpus/benchmarks/snobol4/{fib_recur,arith_loop_twin,
-string_concat_twin}.sno`, is the fair rival). Boards: `scripts/bench_triangulate_snocone.sh`
-(totals) and `scripts/bench_two_number_ir.sh snocone` (the two-number split below).
-*Measured 2026-09-04 on SCRIP 380cc4162 / corpus `201d9e021`, **RT_OPT=-O0**, mode m4 vs
-the CLEAN SPITBOL benchmark oracle `sbl_clean_bin() -bf` (never `x64/bin/sbl`), outputs
-verified identical before measuring.*
-
-⛔ **Basis: callgrind Ir — instructions retired, not time, and ONE angle.** Snocone has no
-fixed-time or fixed-iteration harness yet, so these are not triangulated the way the SNOBOL4
-grid above is; they are published as a labelled single-angle board, not as a timed multiple.
-**WORK** = total Ir − **OVERHEAD**, where OVERHEAD is this engine's empty-program Ir measured
-on the same run (the marked interim of RULES.md § THE TWO-NUMBER BENCHMARK BASIS):
-**SCRIP m4 2,794,452 Ir · SPITBOL 208,782 Ir**. Multiple = SPITBOL WORK / SCRIP WORK:
-
-| kernel | what it does | SCRIP m4 WORK | SPITBOL WORK | × vs SPITBOL |
-|---|---|---:|---:|:---:|
-| fib_recur | naive recursive `fib(24)` | 24,131,699 | 47,007,649 | **1.95x** |
-| arith_loop | 300,000-iteration accumulator | 36,628,696 | 77,206,594 | **2.11x** |
-| string_concat | 4,000× `&&` concatenation | 3,776,098 | 9,123,253 | **2.42x** |
-
-⭐ **Separating startup moved every row, and `string_concat` most of all — 1.42x on totals to
-2.42x on work.** SCRIP's process startup is ~13x SPITBOL's in instructions (2.79M vs 0.21M),
-so on the shortest kernel it was 42.5% of the whole reading and was being charged to the
-engine. It stays under the CEO-173 50%-of-either-arm bar, so the WORK multiple stands rather
-than falling back to the labelled total; that startup is itself a real, separately reported
-cost, not a number to hide.
+Snocone is Koenig's structured SNOBOL4 (Bell Labs TR 124). No independent implementation ships a test suite, so its programs are graded through the SPITBOL oracle by construction, as SNOBOL4 programs are; the paper's own examples are in the corpus, and the self-hosting front-end's own beautifier is part of its master suite. Its suite and benchmark readings are kept on the leaderboard (`.github/SCORE.md` § THE SUITE TABLE) and are not shown here.
 
 ### Rebus
 
-**Coverage** (third-party): none exists — Rebus has no independent implementation to
-borrow a suite from. Its programs are graded through the SNOBOL4 oracle path
-(SPITBOL x64) by construction; **RebM** in the suite table above is our own flat master suite and **RebBench** its
-three kernels graded as tests.
-
-**Benchmarks.** First kernel set, 2026-09-04 (`corpus/benchmarks/rebus/`, 3 kernels —
-Rebus had none before this row). ⛔ **No external rival implementation exists** (Rebus,
-unlike Snocone, has no engine-sharing twin and no independent production
-implementation — see Coverage above) — `scripts/bench_triangulate_rebus.sh` reports
-SCRIP's own callgrind Ir per kernel rather than fabricate a "× vs" ratio with nothing on
-the other side of it (RULES.md § THE INSTRUMENT LAWS: a comparison that cannot show
-what it is commensurable with is not one):
-
-*Measured 2026-09-04 on SCRIP 380cc4162 / corpus `201d9e021`, **RT_OPT=-O0**, boards
-`scripts/bench_triangulate_rebus.sh` (totals) and `scripts/bench_two_number_ir.sh rebus`
-(the two-number split). **Basis: callgrind Ir — instructions retired, not time, and ONE
-angle**; Rebus has no fixed-time or fixed-iteration harness yet, so this is a labelled
-single-angle board, not a timed multiple.* **WORK** = total Ir − **OVERHEAD**, the latter
-being SCRIP's own empty-program Ir measured on the same run: **m3 5,054,692 · m4
-2,825,462 Ir**.
-
-| kernel | what it does | m3 total Ir | m4 total Ir | m4 WORK |
-|---|---|---:|---:|---:|
-| fib_recur | naive recursive `fib(24)` | 60,984,184 | 48,388,021 | 45,562,559 |
-| arith_loop | 300,000-iteration accumulator | 60,662,248 | 50,847,257 | 48,021,795 |
-| string_concat | 4,000× `\|\|` concatenation | 16,726,309 | 6,870,587 | 4,045,125 |
-
-⛔ **There is no × column and that is deliberate**, not an omission: Rebus has no
-independent implementation anywhere, so there is nothing to be commensurable with, and a
-fabricated ratio would be exactly the class RULES.md § THE INSTRUMENT LAWS warns against.
-The WORK column is still worth having on its own — it is the number a future rival, or
-SCRIP's own next release, gets compared against.
-
-m3's count is a whole-process total including SCRIP's own in-process compile-to-slab
-step (same caveat as the Icon demo grid above), so it is never read as "m3 is slower
-than m4 at running" — only m4 is pure execution. On `string_concat`, OVERHEAD is 41% of
-the m4 reading, which is why the WORK column exists at all: the totals column understates
-the engine on every short kernel.
-
-Every number above comes from a named script grading against a third-party suite or
-oracle — run it yourself and it prints its own totals.
+Rebus has no independent implementation, so there is no third-party suite to grade against and no rival to time against; its programs are graded through the SNOBOL4 oracle path by construction. Its suite and benchmark readings are kept on the leaderboard and are not shown here.
 
 ## Credits
 
