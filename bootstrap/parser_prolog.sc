@@ -107,10 +107,11 @@ function compute_oct(raw, n, i, len, s) {
     return;
 }
 /* ==================================================================================================================== */
-args      = ( nInc() *unify_expr FENCE(*args_tail | epsilon) );
-args_tail = ( $',' nInc() *unify_expr FENCE(*args_tail | epsilon) );
-list_body_tail = ( $',' nInc() *unify_expr FENCE( *list_body_tail | epsilon ) );
-list_body      = ( nInc() *unify_expr FENCE( *list_body_tail | epsilon ) );
+arg       = ( *unify_expr | Graphic_atom . b_name epsilon . *Shift('TT_FNC', b_name) );
+args      = ( nInc() *arg FENCE(*args_tail | epsilon) );
+args_tail = ( $',' nInc() *arg FENCE(*args_tail | epsilon) );
+list_body_tail = ( $',' nInc() *arg FENCE( *list_body_tail | epsilon ) );
+list_body      = ( nInc() *arg FENCE( *list_body_tail | epsilon ) );
 /* list: nil → TT_MAKELIST(0 children); [h|t] or [h,..] → TT_MAKELIST(n+1: elems then tail) */
 list = (    $'['
             FENCE(
