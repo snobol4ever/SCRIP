@@ -21,6 +21,8 @@
 #   icon      PASS  wired-clean    write("Hello, World!") (IJ-HELLO-3 2026-05-18)
 #   prolog    PASS  wired-clean    Hello, World! (IJ-HELLO-4 2026-05-18)
 #   raku      PASS  wired-clean    OUTPUT = 'Hello, World!' (IJ-HELLO-2b 2026-05-18)
+#             the fixture's sub is MAIN since b2a00fbcc: a lowercase `sub main` is an ordinary sub that
+#             Rakudo never calls, so `sub main() { say(...) }` prints nothing under the oracle and under us
 #
 # IJ-HELLO-4 floor: PASS=6 FAIL=0.  All six languages PASS-wired.  IJ-HELLO-5 closes
 # the goal with a full all-modes regression matrix and unblocks DAI-8 cluster 2.
@@ -79,7 +81,7 @@ main :- write('Hello, World!'), nl.
 EOF
 
 cat > "$TMP/hello.raku" << 'EOF'
-sub main() { say('Hello, World!'); }
+sub MAIN() { say('Hello, World!'); }
 EOF
 
 # ── Pipeline runner ───────────────────────────────────────────────────────────
