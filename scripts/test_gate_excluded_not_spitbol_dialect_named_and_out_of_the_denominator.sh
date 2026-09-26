@@ -18,8 +18,14 @@
 #   (e) SPITBOL's own test deck is never excluded (spitbol_testpgms/*.spt, csnobol4_suite/diag1.sno, diag2.sno -- Lon 2026-09-26:
 #       "Get ALL 8 working in SCRIP since they are SPITBOL programs.")
 # and, over .github/SUITES.tsv:
-#   (f) each package's row carries today_excluded, an integer no larger than the sidecar's row count
+#   (f) each package's row carries today_excluded, and it classifies EVERY shipped unit the denominator leaves out (Lon 2026-09-26,
+#       "use the Excl column to properly classify the exclusions for good reasons only"; CEO-1288): no fewer than the package's
+#       CONTAINERS.tsv include fragments (a container is never in a denominator, so an Excl below them hides one -- Jcon read 86/86
+#       with an empty Excl over five), and no more than those plus the EXCLUDED.tsv rows. csnobol4_suite's fragments are outside its
+#       graded-pair population and named in its row text, not Excl (CEO-1288), so its bound is EXCLUDED.tsv alone. Arm (f) also reads
+#       every other language's package that ships a CONTAINERS.tsv (Icon's arizona_tests, jcon_tests and ipl).
 # FAIL_ONCE=1 plants a dotnet row naming a shipped program the oracle RUNS (chap8_funcs.sno), so arm (c) trips.
+# FAIL_ONCE=f reads a copy of SUITES.tsv with jcon's today_excluded blanked and dotnet's at 99, so arm (f) trips on both bounds.
 # rc 0 = every arm holds; rc 1 = a FAIL named; rc 2 = REFUSED-TO-GRADE (no packages tree, no SUITES.tsv).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,8 +34,25 @@ PK="${S4E_CORPUS_ROOT:-$ROOT/corpus}/packages/snobol4"; TSV="${S4E_SUITES_TSV:-$
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -d "$PK" ] || refuse "no packages tree at $PK"
 [ -f "$TSV" ] || refuse "no SUITES.tsv at $TSV"
+if [ "${FAIL_ONCE:-}" = f ]; then
+  _t="$(mktemp)"; trap 'rm -f "$_t"' EXIT
+  awk -F'\t' 'BEGIN{OFS="\t"} $1=="jcon"{$13=""} $1=="dotnet"{$13="99"} {print}' "$TSV" > "$_t"; TSV="$_t"
+fi
+cont_n(){ [ -f "$1/CONTAINERS.tsv" ] && grep -v '^#' "$1/CONTAINERS.tsv" | grep -c . || echo 0; }
+arm_f(){ # arm_f <suites-key> <containers counted into Excl> <EXCLUDED.tsv rows>
+  local key="$1" con="$2" n="$3" row hdr col te
+  row="$(awk -F'\t' -v k="$key" '$1==k' "$TSV")"; hdr="$(grep -v '^#' "$TSV" | head -1)"
+  col="$(printf '%s\n' "$hdr" | tr '\t' '\n' | grep -n '^today_excluded$' | cut -d: -f1)"
+  if [ -z "$col" ]; then ck FAIL "(f) $key: SUITES.tsv has no today_excluded column"; return; fi
+  [ -n "$row" ] || { ck FAIL "(f) $key: no SUITES.tsv row"; return; }
+  te="$(printf '%s\n' "$row" | cut -f"$col")"
+  case "$te" in ''|*[!0-9]*) ck FAIL "(f) $key: today_excluded reads [$te], not an integer (containers=$con EXCLUDED.tsv=$n)" ;;
+    *) if [ "$te" -lt "$con" ]; then ck FAIL "(f) $key: today_excluded=$te is below the $con include fragment(s) of CONTAINERS.tsv -- an exclusion the row does not show"
+       elif [ "$te" -gt $((con + n)) ]; then ck FAIL "(f) $key: today_excluded=$te exceeds the $con container(s) plus $n EXCLUDED.tsv row(s) that could classify it"
+       else ck ok "(f) $key: today_excluded=$te, classified by $con container(s) and at most $n EXCLUDED.tsv row(s)"; fi ;; esac
+}
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-rows_of(){ grep -v '^#' "$1/EXCLUDED.tsv" | grep .; [ -n "${FAIL_ONCE:-}" ] && [ "$(basename "$1")" = dotnet ] && printf 'chap8_funcs.sno\tNOT_SPITBOL_DIALECT\tPLANTED by FAIL_ONCE: a program sbl -bf RUNS, so half one of the test fails; csnobol4 runs it too (CSNOBOL4)\n'; return 0; }
+rows_of(){ grep -v '^#' "$1/EXCLUDED.tsv" | grep .; [ -n "${FAIL_ONCE:-}" ] && [ "${FAIL_ONCE}" != f ] && [ "$(basename "$1")" = dotnet ] && printf 'chap8_funcs.sno\tNOT_SPITBOL_DIALECT\tPLANTED by FAIL_ONCE: a program sbl -bf RUNS, so half one of the test fails; csnobol4 runs it too (CSNOBOL4)\n'; return 0; }
 echo "=== gate: EXCLUDED.tsv names only shipped programs SPITBOL rejects for a CSNOBOL4 feature, and the row carries the count (CEO-1286) ==="
 for spec in aisnobol:aisnobol csnobol4_suite:csnobol4 dotnet:dotnet gimpel:gimpel snoflake_suite:snoflake spitbol_testpgms:testpgms spitbol_x64_tests:x64tests; do
   p="${spec%%:*}"; key="${spec#*:}"; d="$PK/$p"
@@ -52,14 +75,13 @@ for spec in aisnobol:aisnobol csnobol4_suite:csnobol4 dotnet:dotnet gimpel:gimpe
   [ -z "$not_outside" ] && ck ok "(c) $p: every excluded program is in OUTSIDE_SPITBOL_BASELINE.tsv (rejected by SPITBOL, half one)" || ck FAIL "(c) $p: the oracle does not refuse these, so they cannot be excluded:$not_outside"
   [ -z "$dup" ] && ck ok "(d) $p: no name twice" || ck FAIL "(d) $p: named twice: $dup"
   [ -z "$deck" ] && ck ok "(e) $p: SPITBOL's own test deck is not excluded" || ck FAIL "(e) $p: SPITBOL's own programs excluded:$deck"
-  row="$(awk -F'\t' -v k="$key" '$1==k' "$TSV")"; hdr="$(grep -v '^#' "$TSV" | head -1)"
-  col="$(printf '%s\n' "$hdr" | tr '\t' '\n' | grep -n '^today_excluded$' | cut -d: -f1)"
-  if [ -z "$col" ]; then ck FAIL "(f) $key: SUITES.tsv has no today_excluded column"
-  else
-    te="$(printf '%s\n' "$row" | cut -f"$col")"
-    case "$te" in ''|*[!0-9]*) ck FAIL "(f) $key: today_excluded reads [$te], not an integer" ;;
-      *) [ "$te" -le "$n" ] && ck ok "(f) $key: today_excluded=$te <= $n named in the sidecar" || ck FAIL "(f) $key: today_excluded=$te exceeds the $n named in the sidecar" ;; esac
-  fi
+  if [ "$p" = csnobol4_suite ]; then arm_f "$key" 0 "$n"; else arm_f "$key" "$(cont_n "$d")" "$n"; fi
+done
+for spec in icon/arizona_tests:arizona icon/jcon_tests:jcon icon/ipl:ipl; do
+  d="${S4E_CORPUS_ROOT:-$ROOT/corpus}/packages/${spec%%:*}"
+  [ -f "$d/CONTAINERS.tsv" ] || { ck FAIL "(f) ${spec%%:*}: no CONTAINERS.tsv -- this arm reads the packages that ship one"; continue; }
+  n=0; [ -f "$d/EXCLUDED.tsv" ] && n="$(grep -v '^#' "$d/EXCLUDED.tsv" | grep -c .)"
+  arm_f "${spec#*:}" "$(cont_n "$d")" "$n"
 done
 echo "checks=$checks fails=$fails"
 [ "$fails" -eq 0 ]

@@ -473,6 +473,11 @@ declared_arena_receipt "$PKG_CSV"
 INV_PACKAGE=arizona; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+# ⭐ THE ROW'S Excl (Lon 2026-09-26, "use the Excl column to properly classify the exclusions for good reasons only"; CEO-1288): every
+# shipped unit the denominator leaves out, classified -- here the general/tpp1..tpp5 include fragments of CONTAINERS.tsv (CEO-1272),
+# read off the inventory line above, so shipped = denominator + Excl reads off the row. Unknown when the inventory refused: none written.
+. "$HERE/lib_outside_shape.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_outside_shape.sh unloadable" >&2; exit 2; }
+EXCL_N=""; [ -n "$INV_LINE" ] && EXCL_N="$(inventory_containers_of "$INV_LINE")"
 if SPLIT_LINE="$(inventory_split_line)"; then [ -n "$SPLIT_LINE" ] && echo "$SPLIT_LINE"
 else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the classes do not sum to their own buckets, so neither reading is published" >&2; fi
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends FAILED -- this run is not fully recorded (CEO-331); the board lines stand, the table does not" >&2
@@ -515,8 +520,10 @@ if [ -z "${AND_PASS:-}" ]; then
     AND_PASS="$M3_PASS"; AND_RED=""; AND_NAMES=""
 fi
 echo "ARIZONA_AND_PER_PROGRAM and_pass=$AND_PASS of $TOTAL (m3 $M3_PASS · m4 $M4_PASS · union of reds $AND_RED:$AND_NAMES)"
+_cc="${S4E_CRITERION_CHANGED:-}"
+if [ -z "$_cc" ] && [ -n "$EXCL_N" ]; then _cc="$(excluded_shape_stamp arizona "$SHIPPED" - "$EXCL_N" "$EXCL_N")" || exit 2; fi
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$SHIPPED" \
-    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
+    ${_cc:+--criterion-changed "$_cc"} ${EXCL_N:+--excluded "$EXCL_N"} \
     --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$SHIPPED shipped (ceo CEO-1245: the shipped population is the denominator; CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · graded $AND_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL graded (of $SHIPPED shipped, $TOTAL graded, $GAP not graded and owed -- the inventory clause splits ungraded=owed from ungradable=ruled, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
 

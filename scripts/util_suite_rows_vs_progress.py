@@ -59,13 +59,16 @@ PKG_SIDECARS = {"ipl": "packages/icon/ipl"}
 
 
 def container_stems(corpus, key):
-    """CONTAINERS.tsv names beside the suite's sidecars (CEO-1272): files that are not programs and left the shipped population.
-    A DB row written for one on an older corpus -- before the split named it -- is not a program of the row and is not counted."""
+    """The names a row's denominator leaves out, from the sidecars beside the suite: CONTAINERS.tsv (CEO-1272, files that are not
+    programs) and EXCLUDED.tsv (CEO-1286, programs not in the SPITBOL dialect) -- together the row's Excl (CEO-1288). A DB row
+    written for one on an older corpus, before its sidecar named it, is not a program of the row and is not counted."""
     d = os.path.dirname(SIDECAR[key]) if key in SIDECAR else PKG_SIDECARS.get(key)
-    fp = os.path.join(corpus, d, "CONTAINERS.tsv") if d else ""
-    if not fp or not os.path.exists(fp):
-        return set()
-    return {stem(l.split("\t")[0].strip()) for l in open(fp, encoding="utf-8", errors="replace") if l.strip() and not l.startswith("#")}
+    out = set()
+    for fn in ("CONTAINERS.tsv", "EXCLUDED.tsv"):
+        fp = os.path.join(corpus, d, fn) if d else ""
+        if fp and os.path.exists(fp):
+            out |= {stem(l.split("\t")[0].strip()) for l in open(fp, encoding="utf-8", errors="replace") if l.strip() and not l.startswith("#")}
+    return out
 
 
 def read_rows(suites):

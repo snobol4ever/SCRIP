@@ -37,10 +37,18 @@ outside_shape_stamp() {
 # is PASS over (shipped - EXCLUDED) with EXCLUDED=k in SUITES.tsv column today_excluded (util_score_row.py --excluded) and OUTSIDE=j
 # still named in the stamp. A stamp is owed when the denominator moves, or the excluded count differs from the last EXCLUDED=k
 # recorded (none recorded counts as different, so the first CEO-1286 write of every row stamps once), or the outside count differs.
-# USAGE: stamp="$(excluded_shape_stamp <suites-key> <denominator> <outside-count> <excluded-count>)"
+# USAGE: stamp="$(excluded_shape_stamp <suites-key> <denominator> <outside-count> <excluded-count> [<containers>])"
+# ⭐ GENERALIZED (Lon 2026-09-26, "use the Excl column to properly classify the exclusions for good reasons only"; CEO-1288): Excl is
+# EVERY shipped unit the denominator leaves out, any language. With <containers> given, <excluded-count> is the row's whole Excl --
+# its include fragments (CONTAINERS.tsv, CEO-1272) plus its programs not in the SPITBOL dialect (EXCLUDED.tsv) -- and the stamp
+# names both classes. An <outside-count> of - is a language with no SPITBOL baseline (Icon, Prolog): no OUTSIDE token is written,
+# because the grid prints the last OUTSIDE=N of a row's stamps and OUTSIDE=0 on an Icon row would be a label for nothing.
 excluded_shape_stamp() {
-  local key="${1:-}" total="${2:-}" out="${3:-}" exc="${4:-}" tsv prev cc lasto laste
-  case "$total$out$exc" in ''|*[!0-9]*) echo "⛔ REFUSE(2) excluded_shape_stamp: denominator [$total], outside [$out] and excluded [$exc] must be counts" >&2; return 2;; esac
+  local key="${1:-}" total="${2:-}" out="${3:-}" exc="${4:-}" con="${5:-}" tsv prev cc lasto laste oc
+  [ "$out" = - ] && oc="" || oc="$out"
+  case "$total$oc$exc$con" in ''|*[!0-9]*) echo "⛔ REFUSE(2) excluded_shape_stamp: denominator [$total], outside [$out], excluded [$exc] and containers [$con] must be counts (outside may be -)" >&2; return 2;; esac
+  [ -n "$oc" ] || [ -n "$con" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: an outside of - is a language with no SPITBOL baseline, and only a row that names its containers has one" >&2; return 2; }
+  [ -z "$con" ] || [ "$con" -le "$exc" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: containers [$con] exceed the row's whole Excl [$exc] -- Excl is containers plus EXCLUDED.tsv" >&2; return 2; }
   [ -n "$key" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: no suites key" >&2; return 2; }
   tsv="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/.github/SUITES.tsv"
   if [ -f "$tsv" ]; then
@@ -48,9 +56,13 @@ excluded_shape_stamp() {
     cc="$(awk -F'\t' -v k="$key" '$1==k {print $12; exit}' "$tsv")"
     lasto="$(printf '%s\n' "$cc" | grep -oE 'OUTSIDE=[0-9]+' | tail -1 | cut -d= -f2)"
     laste="$(printf '%s\n' "$cc" | grep -oE 'EXCLUDED=[0-9]+' | tail -1 | cut -d= -f2)"
-    [ "$prev" = "$total" ] && [ "$lasto" = "$out" ] && [ "$laste" = "$exc" ] && return 0
+    [ "$prev" = "$total" ] && [ "$lasto" = "$oc" ] && [ "$laste" = "$exc" ] && return 0
   fi
-  printf '%s:CEO-1286-shape-pass-over-shipped-minus-EXCLUDED=%s-not-in-the-SPITBOL-dialect-named-in-EXCLUDED.tsv-denominator-%s-with-OUTSIDE=%s-spitbol-programs-the-oracle-refuses-kept-as-debt' "$(date +%F)" "$exc" "$total" "$out"
+  if [ -z "$con" ]; then
+    printf '%s:CEO-1286-shape-pass-over-shipped-minus-EXCLUDED=%s-not-in-the-SPITBOL-dialect-named-in-EXCLUDED.tsv-denominator-%s-with-OUTSIDE=%s-spitbol-programs-the-oracle-refuses-kept-as-debt' "$(date +%F)" "$exc" "$total" "$out"
+  else
+    printf '%s:CEO-1288-Excl-classified-EXCLUDED=%s-every-shipped-unit-the-denominator-%s-leaves-out-%s-include-fragments-named-in-CONTAINERS.tsv-and-%s-not-in-the-SPITBOL-dialect-named-in-EXCLUDED.tsv%s' "$(date +%F)" "$exc" "$total" "$con" "$((exc - con))" "${oc:+-with-OUTSIDE=$oc-spitbol-programs-the-oracle-refuses-kept-as-debt}"
+  fi
 }
 # excluded_in_outside <pkgdir> "<names of THIS run's outside set, one per line or space, with or without extension or _driver>"
 # -- prints how many EXCLUDED.tsv programs are in that live set: the count the row subtracts. A name compares by its stem (extension

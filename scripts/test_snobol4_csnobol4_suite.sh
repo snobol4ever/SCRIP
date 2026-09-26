@@ -446,7 +446,7 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite C
     ${_cc:+--criterion-changed "$_cc"} \
     --suite-pass "$BOTH_PASS" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
     --measurer "${S4E_SEAT:-}" \
-    --text "both_modes_pass=$BOTH_PASS/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, EXCLUDED.tsv, CEO-1286) OUTSIDE=$OUT_N, graded $BOTH_PASS/$TOTAL · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
+    --text "both_modes_pass=$BOTH_PASS/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, EXCLUDED.tsv, CEO-1286) OUTSIDE=$OUT_N, graded $BOTH_PASS/$TOTAL · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)} · the $(inventory_containers_of "${INV_LINE:-}") include fragments of CONTAINERS.tsv (CEO-1272) are outside this graded-pair population, so they are named here and are not Excl (CEO-1288)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

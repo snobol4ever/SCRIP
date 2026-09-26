@@ -656,6 +656,14 @@ $_v"; return 2; }
     return 0
 }
 
+# inventory_containers_of "<PACKAGE_INVENTORY line>" -- echo the line's containers=N, 0 when the package declares none. A row's
+# Excl is every shipped unit its denominator leaves out (Lon 2026-09-26, "use the Excl column to properly classify the exclusions
+# for good reasons only"; CEO-1288): its containers plus its EXCLUDED.tsv programs, read off the inventory the runner already
+# printed, never counted a second time.
+inventory_containers_of() {
+    local n; n="$(printf '%s\n' "${1:-}" | grep -oE ' containers=[0-9]+' | head -1 | cut -d= -f2)"; echo "${n:-0}"
+}
+
 # ⛔⭐ CONDITION 2 OF THE LEDGER'S THREE: PRINTED, NEVER SUBTRACTED IN SILENCE. A runner with a nonzero
 # `deferred=` calls this immediately after inventory_line so the names stand beside the count.
 # ⭐ SEPARATE LINE, SEPARATE CALL, for the reason inventory_split_line already documents: PACKAGE_INVENTORY is

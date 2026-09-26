@@ -145,10 +145,14 @@ bothp="$(printf '%s\n' "$board" | grep -oE 'all_pass=[0-9]+' | head -1 | cut -d=
 . "$HERE/lib_outside_shape.sh" || exit 2
 EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((shipped - EXCL_D_N))
 echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
-_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp aisnobol "$DENOM" "$OUTSIDE_N" "$EXCL_D_N")" || exit 2
+# ⭐ THE ROW'S Excl IS EVERY SHIPPED UNIT THE DENOMINATOR LEAVES OUT (Lon 2026-09-26, "use the Excl column to properly classify
+# the exclusions for good reasons only"; CEO-1288): its include fragments of CONTAINERS.tsv (CEO-1272), read off the inventory
+# line, plus the EXCLUDED.tsv programs of this run's outside set -- the denominator does not move, only its classification.
+CONT_N="$(inventory_containers_of "${INV_LINE:-}")"; EXCL_ROW=$((EXCL_D_N + CONT_N))
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp aisnobol "$DENOM" "$OUTSIDE_N" "$EXCL_ROW" "$CONT_N")" || exit 2
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
-    --suite-pass "$bothp" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
+    --suite-pass "$bothp" --suite-total "$DENOM" --excluded "$EXCL_ROW" \
     --measurer "${S4E_SEAT:-}" --text "aisnobol both_modes_pass=$bothp/$DENOM ($shipped shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, CEO-1286; OUTSIDE=$OUTSIDE_N kept as debt) . $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl not in ALL.sno and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h${INV_LINE:+ . $INV_LINE} (\`test_snobol4_aisnobol_suite.sh\`)" \
     || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
