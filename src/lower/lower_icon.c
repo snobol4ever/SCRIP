@@ -1800,16 +1800,18 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
         }
         if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
             icn_note_record_name(proc->v.sval);
-            char spec[256]; int pos = 0;
-            pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", proc->v.sval);
-            for (int _ri = 0; _ri < proc->n && pos < (int)sizeof(spec)-2; _ri++) {
+            size_t cap = strlen(proc->v.sval) + 3;
+            for (int _ri = 0; _ri < proc->n; _ri++) cap += ((proc->c[_ri] && proc->c[_ri]->v.sval) ? strlen(proc->c[_ri]->v.sval) : 0) + 1;
+            char * spec = (char *) ct_alloc(cap); size_t pos = 0;
+            pos += (size_t) snprintf(spec + pos, cap - pos, "%s(", proc->v.sval);
+            for (int _ri = 0; _ri < proc->n; _ri++) {
                 if (_ri > 0) spec[pos++] = ',';
                 const char *fn2 = (proc->c[_ri] && proc->c[_ri]->v.sval) ? proc->c[_ri]->v.sval : "";
-                pos += snprintf(spec+pos, sizeof(spec)-pos, "%s", fn2);
+                pos += (size_t) snprintf(spec + pos, cap - pos, "%s", fn2);
             }
-            if (pos < (int)sizeof(spec)-1) spec[pos++] = ')';
-            spec[pos] = '\0';
+            spec[pos++] = ')'; spec[pos] = '\0';
             record_register(spec);
+            ct_drop(spec);
         }
         if (proc->t == TT_FNC || proc->t == TT_PROC_DECL || proc->t == TT_SUB_DECL) {
             const char *name = NULL;

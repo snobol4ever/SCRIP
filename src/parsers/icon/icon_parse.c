@@ -292,7 +292,7 @@ static tree_t *parse_repalt(IcnParser *p) {
 static tree_t *parse_limit(IcnParser *p) {
     tree_t *n = parse_unary(p);
     if (!n) return NULL;
-    if (check(p, TK_BACKSLASH)) {
+    while (check(p, TK_BACKSLASH)) {
         advance(p);
         tree_t *lim = parse_unary(p);
         n = e_binary(TT_LIMIT, n, lim);

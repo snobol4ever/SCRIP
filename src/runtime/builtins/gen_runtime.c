@@ -68,7 +68,8 @@ long rt_scan_subj_len(void) {
 void rt_scan_subj_len_set(const char *p, long n) { g_scan_subj_ptr = p; g_scan_subj_len = n; }
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
+    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); }
+    else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     scan_depth++;
     if (scan_saved_depth > scan_depth - 1) scan_saved_depth = scan_depth - 1;

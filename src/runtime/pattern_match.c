@@ -1435,7 +1435,7 @@ static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only) {
         char *out = rt_str_alloc(1); out[0] = sp[idx]; out[1] = 0;
         return (DESCR_t){ .v = DT_S, .slen = 1, .s = out };
     }
-    { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t); return rt_list_bang_at(bvar, idx); }
+    { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t); return rt_list_bang_at(obj, idx); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t idx) { return rt_list_bang_var_body(obj, idx, 1); }

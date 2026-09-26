@@ -137,7 +137,6 @@ int icn_builtin_is_known(const char *name)
         "iand", "ior", "ixor", "ishift", "icom", "proc",
         "sqrt", "sin", "cos", "tan", "atan", "log", "exp",
         "asin", "acos", "dtor", "rtod",
-        "max", "min",
         "args", "collect", "copy",
         "image", "name", "type", "variable", "sort", "sortf",
         "center", "detab", "entab", "left", "map", "repl", "reverse", "right", "trim",
@@ -7439,6 +7438,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_numeric) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_INT_fn(av)||IS_REAL_fn(av)) { *out = av; return 1; }
+        { extern int rt_big_is(DESCR_t); if (rt_big_is(av)) { *out = av; return 1; } }
         const char *s = VARVAL_fn(av); if (!s||!*s) { *out = FAILDESCR; return 1; }
         {
             const char *p = s;
@@ -7461,7 +7461,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 if (p > dstart && *p == '\0') { *out = INTVAL(neg ? -v : v); return 1; }
             }
         }
-        char *end; long long iv = strtoll(s, &end, 10);
+        errno = 0; char *end; long long iv = strtoll(s, &end, 10);
+        if (end != s && icn_numeric_tail_is_blank(end) && errno == ERANGE) {
+            extern DESCR_t rt_big_from_str(const char *); const char *b0 = s; while (*b0 == ' ' || *b0 == '\t') b0++;
+            size_t bl = (size_t)(end - b0); char *bs = rt_wsb_alloc(bl + 1); memcpy(bs, b0, bl); bs[bl] = '\0';
+            DESCR_t bg = rt_big_from_str(bs); if (!IS_FAIL_fn(bg)) { *out = bg; return 1; }
+        }
         if (end != s && icn_numeric_tail_is_blank(end)) { *out = INTVAL(iv); return 1; }
         if (icn_numeric_is_c_hex(s)) { *out = FAILDESCR; return 1; }
         double rv = strtod(s, &end);
@@ -7559,7 +7564,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         int _icn_field_only = 0;
         { extern int rt_dat_field_of_any(const char *);
           _icn_field_only = strict && rt_dat_field_of_any(pname) && !dat_find_type(pname) && !icn_builtin_is_known(pname) && icn_builtin_arity(pname) == ICN_ARITY_UNKNOWN; }
-        if (!_icn_field_only && arity == 0 && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
+        if (!_icn_field_only && arity == 0 && (icn_builtin_is_known(pname) || (strict ? dat_find_type(pname) != 0 : rt_builtin_is_known(pname)) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             *out = PROCVAL_BUILTIN(rt_heap_strdup_c(pname)); return 1;
         }
         if (arity < 0) { DESCR_t gv = NV_GET_fn(pname); if (IS_PROCVAL_fn(gv) && gv.s) { *out = gv; return 1; } }
@@ -7574,10 +7579,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         { extern int rt_proc_is_registered(const char *name); extern int rt_proc_nparams(const char *name);
           if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
               if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_heap_strdup_c(pname)); return 1; } } }
-        if (!_icn_field_only && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
+        if (!_icn_field_only && (icn_builtin_is_known(pname) || (strict ? dat_find_type(pname) != 0 : rt_builtin_is_known(pname)) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_heap_strdup_c(pname); *out = bv; return 1;
         }
-        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]", 0 };
+        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]","[]", 0 };
           static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
           const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
           if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)tbl[oi]; *out = bv; return 1; } }
@@ -7762,12 +7767,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         buf[sl]='\0'; *out = BSTRVAL(buf, sl); return 1;
     }
     L_bidjmp_5567: ;
-    if ((_bid == BID_trim) && (nargs == 1 || nargs == 2)) {
+    if ((_bid == BID_trim) && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
-        const char *cset = " ";
-        if (nargs == 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cs = VARVAL_fn(cv); if (cs) cset = cs; } }
+        const char *cset = " "; int cl = 1;
+        if (nargs >= 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cp; int cn; if (cset_resolve(cv, &cp, &cn)) { cset = cp; cl = cn; } } }
         int sl=icn_true_len(args[0], s);
-        while (sl > 0 && strchr(cset, s[sl-1])) sl--;
+        while (sl > 0 && cl > 0 && memchr(cset, (unsigned char)s[sl-1], (size_t)cl)) sl--;
         char *buf=rt_wsb_alloc(sl+1); memcpy(buf,s,sl); buf[sl]='\0';
         *out = BSTRVAL(buf, sl); return 1;
     }
