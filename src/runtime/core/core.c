@@ -4022,7 +4022,7 @@ static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, D
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
+static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
     _func_init();
     if (!name) return NULVCL;
     unsigned h = _func_hash(name);
@@ -4055,6 +4055,14 @@ DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
         fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
     core_runtime_error(22, "Undefined function called");
     return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
+    extern long g_stno, g_line, g_lastno, g_lastline;
+    long sv_stno = g_stno, sv_line = g_line;
+    DESCR_t r = apply_fn_body(name, args, nargs);
+    if (g_stno != sv_stno || g_line != sv_line) { g_lastno = g_stno; g_lastline = g_line; g_stno = sv_stno; g_line = sv_line; }
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ARG_(DESCR_t *a, int n) {

@@ -20,6 +20,8 @@ extern long rt_stno_stack[];
 extern int g_core_errjmp_n;
 extern long g_stno;
 extern long g_line;
+extern long g_lastno;
+extern long g_lastline;
 void *rt_proc_get_fn(const char *name);
 void sno_trace_call(const char *fname);
 void sno_trace_return(const char *fname, DESCR_t retval);
@@ -93,8 +95,21 @@ static std::string bb_stno_save() {
          + x86("mov", "rax", RDQ("rax", 0))
          + x86("mov", RDQ("rcx", 8), "rax");
 }
+static std::string bb_stno_last_from_callee() {
+    return x86("comment", "&LASTNO/&LASTLINE ON RETURN: the returning function's statement and line become the previous ones, as SPITBOL answers them in the calling statement")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
+         + x86("mov", "rcx", RDQ("rax", 0))
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno")
+         + x86("mov", RDQ("rax", 0), "rcx")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rcx", RDQ("rax", 0))
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline")
+         + x86("mov", RDQ("rax", 0), "rcx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_stno_restore() {
     return x86("comment", "&STNO RESTORE: SPITBOL's &STNO is the CALLER's statement again once a function returns (measured on the trace trunk witness); rax and rcx only")
+         + bb_stno_last_from_callee()
          + bb_stno_slot_rcx()
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
          + x86("mov", "rcx", RDQ("rcx", 0))
@@ -106,6 +121,7 @@ static std::string bb_stno_restore() {
 }
 static std::string bb_stno_restore_act() {
     return x86("comment", "&STNO RESTORE + ACTIVATION RECORD RETIRED: the level record's activation base is cleared on the way out, so a SETEXIT handler can never resume into a frame that has returned")
+         + bb_stno_last_from_callee()
          + bb_stno_slot_rcx()
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
          + x86("mov", "rcx", RDQ("rcx", SNO_LVL_STNO))

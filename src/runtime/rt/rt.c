@@ -547,6 +547,19 @@ int rt_proc_named_runs(const char *name)
     return p && (p->fn || p->dyn_scope);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_lvl_stno_stash(long stno, long line)
+{
+    long *sl = &rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS];
+    sl[SNO_LVL_STNO / 8] = stno; sl[SNO_LVL_LINE / 8] = line;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_lvl_stno_land(void)
+{
+    extern long g_stno, g_line, g_lastno, g_lastline;
+    long *sl = &rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS];
+    if (g_stno != sl[SNO_LVL_STNO / 8] || g_line != sl[SNO_LVL_LINE / 8]) { g_lastno = g_stno; g_lastline = g_line; g_stno = sl[SNO_LVL_STNO / 8]; g_line = sl[SNO_LVL_LINE / 8]; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sno_dtx_value(const char *name)
 {
     if (name && *name && !rt_proc_is_registered(name)) return NV_GET_fn(name);
