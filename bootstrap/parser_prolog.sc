@@ -3,8 +3,8 @@ white   =   (  SPAN(' ' tab nl)
             |  '%'  BREAK(nl) nl
             |  '/*' BREAKX('*') '*/'
             );
-White   =   white;
-Gray    =   white | epsilon;
+White   =   white ARBNO(white);
+Gray    =   White | epsilon;
 $' '    =   Gray;
 $'  '   =   White;
 Atom_first = ANY(&LCASE);
