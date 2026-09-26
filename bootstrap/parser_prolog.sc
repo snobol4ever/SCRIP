@@ -194,6 +194,7 @@ primary = (   Atom . p_name $'('
                   epsilon . *Shift('TT_ILIT', '-' p_negi)
           |   $'\' $' ' *primary            reduce("'TT_BINOP'", 2)
           |   $' ' '-' $' ' *primary   reduce("'TT_UMINUS'", 1)
+          |   $' ' '+' $' ' *primary   reduce("'TT_UPLUS'", 1)
           );
 pow_expr  = (   *primary
                 FENCE( $'^'  *pow_expr  reduce("'TT_BINOP'", 2)
