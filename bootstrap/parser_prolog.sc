@@ -324,11 +324,9 @@ directive = (   $':-'
             );
 top_form  = (*directive | *clause | *dcg_rule);
 /* ==================================================================================================================== */
-skip_to_dot = ( BREAKX('.') $'.' shift('skip', 'TT_FNC') );
-top_form_safe = ( *top_form | *skip_to_dot );
-/* SCT-pivot (2026-05-17): nInc() must fire AFTER top_form_safe commits, not before. */
+/* SCT-pivot (2026-05-17): nInc() must fire AFTER top_form commits, not before. */
 Compiland = nPush()
-            POS(0) ARBNO( FENCE($' ' *top_form_safe nInc()) ) $' ' RPOS(0)
+            POS(0) ARBNO( FENCE($' ' *top_form nInc()) ) $' ' RPOS(0)
             reduce(E_Parse, 'nTop()')
             nPop();
 InitCounter();
