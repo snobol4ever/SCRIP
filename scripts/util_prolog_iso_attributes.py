@@ -50,7 +50,12 @@ INRIA_POPULATION = 445
 
 sys.path.insert(0, HERE)
 
-FIXED = ["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "section", "kind", "err", "err_arg"]
+FIXED = ["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "heap_kb", "stack_kb", "compile_args", "run_args",
+         "section", "kind", "err", "err_arg"]
+# ⛔ DECLARED, NEVER DERIVED: a program's heap, stack and command line (CEO-1261; clause 8 (f), CEO-1281) are carried forward
+# from the table on disk by entry -- nothing in a goal's text regenerates them. Before this line --write dropped heap_kb and
+# stack_kb, which corpus 4d805e1bc wrote into both tables, and --check read both tables STALE.
+DECLARED = {"heap_kb": "131072", "stack_kb": "4096", "compile_args": "", "run_args": ""}
 
 CONTROL = ["call", "call_N", "catch", "throw", "cut", "ite", "softcut", "negation", "disj", "conj", "once", "ignore",
            "forall", "findall", "findall_4", "bagof", "setof", "aggregate_all", "between", "succ", "plus", "halt",
@@ -436,12 +441,36 @@ def inria_rows():
     return rows
 
 
-def render(rows):
+def carry_declared(rows, path):
+    """Fill each row's DECLARED cells from the table at `path`, by entry; an entry the table does not hold takes SPITBOL's
+    -d128m -s4m and no command line, what every other table writer gives a new row."""
+    old = {}
+    if os.path.exists(path):
+        with open(path, newline="", encoding="utf-8") as f:
+            old = {r["entry"]: r for r in csv.DictReader(f)}
+    for r in rows:
+        o = old.get(r["entry"], {})
+        for k, d in DECLARED.items():
+            r[k] = (o.get(k) or "").strip() or d
+    return rows
+
+
+def table_fixed(path):
+    """FIXED as the table at `path` carries it: a table that predates the command-line columns keeps its shape (a rewrite never
+    imposes a column the table was not given); a new table gets all of FIXED."""
+    if not os.path.exists(path):
+        return FIXED
+    with open(path, newline="", encoding="utf-8") as f:
+        hdr = next(csv.reader(f), [])
+    return [k for k in FIXED if k not in ("compile_args", "run_args") or k in hdr]
+
+
+def render(rows, fixed=FIXED):
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
-    w.writerow(FIXED + FEATURES)
+    w.writerow(fixed + FEATURES)
     for i, r in enumerate(rows, 1):
-        w.writerow([str(i)] + [r[k] for k in FIXED[1:]] + [str(r[k]) for k in FEATURES])
+        w.writerow([str(i)] + [r[k] for k in fixed[1:]] + [str(r[k]) for k in FEATURES])
     return buf.getvalue()
 
 
@@ -452,9 +481,9 @@ def do_write(which):
     for name, root, fn in TABLES:
         if which not in ("all", name):
             continue
-        rows = fn()
-        text = render(rows)
         path = os.path.join(root, "ALL.csv")
+        rows = carry_declared(fn(), path)
+        text = render(rows, table_fixed(path))
         open(path, "w", encoding="utf-8").write(text)
         print("wrote %s: %d rows, %d columns (%d features)" % (path, len(rows), len(FIXED) + len(FEATURES), len(FEATURES)))
     return 0
@@ -474,7 +503,7 @@ def do_check(which):
             print("⛔ CHECK [%s]: %s is missing -- run --write" % (name, path))
             rc = 1
             continue
-        if open(path, encoding="utf-8").read() != render(rows):
+        if open(path, encoding="utf-8").read() != render(carry_declared(rows, path), table_fixed(path)):
             print("⛔ CHECK [%s]: %s is STALE against the suite on disk -- run --write" % (name, path))
             rc = 1
         else:

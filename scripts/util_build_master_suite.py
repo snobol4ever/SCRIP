@@ -77,6 +77,20 @@ import corpus_suite_harness as h  # noqa: E402
 # holds to the runtime (-d128m and -s4m) -- a declaration an author measured is carried forward unchanged, never replaced by these.
 DEFAULT_HEAP_KB = str(h.GC_HEAP_CAP_KB)
 DEFAULT_STACK_KB = str(h.GC_STACK_FLOOR_KB)
+# the unit's command line (RULES.md hard-cap rule clause 8 (f), ceo CEO-1281): carried forward like heap_kb, never re-derived --
+# nothing in an entry's text says what switches its compile needs or what arguments its run takes
+CMD_COLS = ("compile_args", "run_args")
+
+
+def carried_cmd_cols(csv_path):
+    """The command-line columns a rewrite of the table at csv_path writes: the ones it already has, or both for a new table.
+    A rebuild carries the table's shape and never imposes a column the table was not given, so --reindex on an unmodified
+    tree stays byte-identical (test_gate_master_builder_reindex_only.sh arm a) while the tables gain the columns."""
+    if not os.path.isfile(csv_path):
+        return list(CMD_COLS)
+    with open(csv_path, newline="") as f:
+        hdr = next(csv.reader(f), [])
+    return [c for c in CMD_COLS if c in hdr]
 
 def _stdin_sidecar_names(src_path):
     """The companions h.stdin_companion_candidates() found, rendered RELATIVE TO THE SOURCE'S DIRECTORY.
@@ -901,11 +915,14 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, acknowle
     # 128 and turn a cured row back into a capacity red with no diff naming the cause.
     csv_heap = {}
     csv_stack = {}    # stack_kb, carried forward on the same contract (CEO-1225)
+    csv_cmd = {}      # compile_args and run_args, carried forward on the same contract (clause 8 (f), CEO-1281)
+    cmd_cols = carried_cmd_cols(out_csv)
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
             csv_heap[row["entry"]] = (row.get("heap_kb") or "").strip()
             csv_stack[row["entry"]] = (row.get("stack_kb") or "").strip()
+            csv_cmd[row["entry"]] = {c: (row.get(c) or "").strip() for c in CMD_COLS}
     _tag = ".tmp-%d" % os.getpid()
     tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv = out_sno + _tag, out_ref + _tag, out_in + _tag, out_x + _tag, out_csv + _tag
     def _cleanup():
@@ -938,12 +955,12 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, acknowle
                              % (len(_bad), _bad[0] if _bad else "?")); _cleanup(); return 2
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + cmd_cols + [c for c, _ in COLS])
             for rank, e in enumerate(ordered, 1):
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            (csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [flags_of[e.name][c] for c, _ in COLS])
+                            (csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [csv_cmd.get(e.name, {}).get(c, "") for c in cmd_cols] + [flags_of[e.name][c] for c, _ in COLS])
     except BaseException:
         _cleanup(); raise
     os.replace(tmp_sno, out_sno); os.replace(tmp_ref, out_ref); os.replace(tmp_csv, out_csv)
@@ -1009,23 +1026,26 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, loose_families, ackno
     # 128 and turn a cured row back into a capacity red with no diff naming the cause.
     csv_heap = {}
     csv_stack = {}    # stack_kb, carried forward on the same contract (CEO-1225)
+    csv_cmd = {}      # compile_args and run_args, carried forward on the same contract (clause 8 (f), CEO-1281)
+    cmd_cols = carried_cmd_cols(out_csv)
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
             csv_heap[row["entry"]] = (row.get("heap_kb") or "").strip()
             csv_stack[row["entry"]] = (row.get("stack_kb") or "").strip()
+            csv_cmd[row["entry"]] = {c: (row.get(c) or "").strip() for c in CMD_COLS}
     tmp_csv = out_csv + ".tmp-%d" % os.getpid()
     try:
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + cmd_cols + [c for c, _ in COLS])
             for rank, e in enumerate(entries, 1):
                 text = "\n".join(e.sno_lines)
                 flags = {c: fn(text) for c, fn in COLS}
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            (csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [flags[c] for c, _ in COLS])
+                            (csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [csv_cmd.get(e.name, {}).get(c, "") for c in cmd_cols] + [flags[c] for c, _ in COLS])
     except BaseException:
         if os.path.exists(tmp_csv):
             os.remove(tmp_csv)
@@ -1486,6 +1506,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     master_sno = os.path.join(OUTDIR, "ALL" + EXT)
     master_ref = os.path.join(OUTDIR, "ALL.ref")
     master_csv = os.path.join(OUTDIR, "ALL.csv")
+    cmd_cols = carried_cmd_cols(master_csv)
     base_entries, csv_row_by_name = [], {}
     if os.path.isfile(master_sno) and os.path.isfile(master_ref):
         if lang == "snobol4":
@@ -1554,7 +1575,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
             raise SystemExit(2)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in cols])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + cmd_cols + [c for c, _ in cols])
             for rank, e in enumerate(all_entries, 1):
                 text = "\n".join(e.sno_lines)
                 flags_e = {c: fn(text) for c, fn in cols}
@@ -1563,6 +1584,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
                             ((old_row.get("heap_kb") or "").strip() or DEFAULT_HEAP_KB), ((old_row.get("stack_kb") or "").strip() or DEFAULT_STACK_KB)]
+                           + [(old_row.get(c) or "").strip() for c in cmd_cols]
                            + [flags_e[c] for c, _ in cols])
     except BaseException:
         for q in (tmp_sno, tmp_ref, tmp_csv, tmp_in):
@@ -1787,6 +1809,7 @@ def main():
     # the existing names so nothing collides. No new pairs + an existing master = "current", clean exit.
     master_sno_path = os.path.join(OUTDIR, "ALL" + EXT)
     master_csv_path = os.path.join(OUTDIR, "ALL.csv")
+    _cmd_cols = carried_cmd_cols(master_csv_path)
     base_entries = []
     # ⛔⭐⭐ ALL.csv IS READ UNCONDITIONALLY, AND THAT IS THE WHOLE POINT OF READING IT HERE. It used to be
     # loaded inside the `if the suite pair exists` block below, which made the provenance record exactly as
@@ -1832,6 +1855,7 @@ def main():
         except Exception:
             pass
     _csv_stack = {}   # per-entry `stack_kb` carried forward on the same contract (CEO-1225)
+    _csv_cmd = {}     # per-entry compile_args and run_args, carried forward on the same contract (clause 8 (f), CEO-1281)
     _csv_heap = {}    # per-entry `heap_kb` carried forward, same contract and for the sharper reason: see
                       # the carried-forward note above -- a dropped declaration is a silent capacity red
     if os.path.isfile(master_sno_path) and os.path.isfile(os.path.join(OUTDIR, "ALL.ref")):
@@ -1847,6 +1871,7 @@ def main():
                 _csv_origin[_row["entry"]] = _row.get("origin", "")
                 _csv_heap[_row["entry"]] = (_row.get("heap_kb") or "").strip()
                 _csv_stack[_row["entry"]] = (_row.get("stack_kb") or "").strip()
+                _csv_cmd[_row["entry"]] = {c: (_row.get(c) or "").strip() for c in CMD_COLS}
         for e in base_entries:
             e.origin = _csv_origin.get(e.name) or ("master__%s" % e.name)
             e.src_mode = "base"
@@ -2327,10 +2352,10 @@ def main():
                      "the real tree was never touched)")
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
-            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + [c for c, _ in COLS])
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"] + _cmd_cols + [c for c, _ in COLS])
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]
-                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), (_csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (_csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [flags[c] for c, _ in COLS])
+                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), (_csv_heap.get(e.name, "") or DEFAULT_HEAP_KB), (_csv_stack.get(e.name, "") or DEFAULT_STACK_KB)] + [_csv_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [flags[c] for c, _ in COLS])
         # ⛔⭐ MERGE, NEVER OVERWRITE (hq_P seat08 2026-09-04, row snobol4-every-non-package-source-...): this
         # run only ever discovers tests/<lang>/ loose-pair exclusions -- it has no opinion on additive
         # (demos/benchmarks) exclusions a DIFFERENT run of this same builder (--additive) already wrote, and a

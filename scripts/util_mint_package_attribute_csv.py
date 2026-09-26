@@ -43,12 +43,17 @@ def main():
     if not files: print(f"REFUSE(2): the enumeration matched no file under {d} -- a suite with zero programs is not a suite"); return 2
     preserved = {}
     preserved_stack = {}   # stack_kb, preserved the same way (CEO-1225)
+    preserved_cmd = {}     # compile_args and run_args, the unit's command line, preserved the same way (clause 8 (f), CEO-1281)
+    cmd_cols = ['compile_args', 'run_args']   # a new table gets both; --refresh keeps the ones the table has, never imposes one
     if os.path.exists(out):
         if not a.refresh: print(f"REFUSE(2): {out} exists; --refresh rewrites it preserving heap_kb"); return 2
         with open(out, newline='', encoding='utf-8') as fh:
-            for row in csv.DictReader(fh):
+            rdr = csv.DictReader(fh)
+            cmd_cols = [c for c in cmd_cols if c in (rdr.fieldnames or [])]
+            for row in rdr:
                 if row.get('heap_kb'): preserved[row['entry']] = row['heap_kb']
                 if row.get('stack_kb'): preserved_stack[row['entry']] = row['stack_kb']
+                preserved_cmd[row['entry']] = {c: (row.get(c) or '').strip() for c in ('compile_args', 'run_args')}
     wantrc = {}
     wr = os.path.join(d, 'ALL.wantrc')
     if os.path.exists(wr):
@@ -59,7 +64,7 @@ def main():
             if len(parts) >= 2: wantrc[parts[0]] = parts[1]
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator='\n')
-    w.writerow(['rank', 'entry', 'origin', 'package', 'n_lines', 'stdin', 'want_rc', 'heap_kb', 'stack_kb'])
+    w.writerow(['rank', 'entry', 'origin', 'package', 'n_lines', 'stdin', 'want_rc', 'heap_kb', 'stack_kb'] + cmd_cols)
     n_stdin = n_wantrc = n_pres = 0
     for i, f in enumerate(files, 1):
         rel = os.path.relpath(f, root)
@@ -69,7 +74,7 @@ def main():
         rc = wantrc.get(entry, wantrc.get(os.path.basename(entry), '0'))
         hk = preserved.get(entry, '') or DEFAULT_HEAP_KB
         n_stdin += has_in; n_wantrc += (rc != '0'); n_pres += bool(preserved.get(entry, ''))
-        w.writerow([i, entry, f"{a.package}__{entry}", a.package, n_lines, has_in, rc, hk, preserved_stack.get(entry, '') or DEFAULT_STACK_KB])
+        w.writerow([i, entry, f"{a.package}__{entry}", a.package, n_lines, has_in, rc, hk, preserved_stack.get(entry, '') or DEFAULT_STACK_KB] + [preserved_cmd.get(entry, {}).get(c, '') for c in cmd_cols])
     with open(out, 'w', encoding='utf-8', newline='\n') as fh: fh.write(buf.getvalue())
     print(f"ATTRIBUTE-CSV package={a.package} entries={len(files)} stdin={n_stdin} wantrc={n_wantrc} preserved_heap={n_pres} written={out}")
     return 0

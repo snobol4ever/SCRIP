@@ -416,6 +416,14 @@ def _size_switches(heap_kb, stack_kb):
     return sw
 
 
+def _compile_switches(paths, compile_args):
+    """scrip's switches before the source at the COMPILE step, the same list in both modes (scrip --run in m3, scrip
+    --compile in m4): the harness's typed scrip_extra, which clause 8 (f) retires once every unit that needs it declares it,
+    then the unit's declared compile_args, a switch both carry passed once. None declared = byte-identical to before."""
+    typed = list(paths.get("scrip_extra", []))
+    return typed + [w for w in (compile_args or []) if w not in typed]
+
+
 def _host_u_switch(sno_path, prog_args):
     """SPITBOL's HOST(0) is the -u string and nothing else (sbl -h; Lon 2026-09-23, CEO-1224), so a SNOBOL4 entry's
     DECLARED argv reaches HOST(0) the way CSNOBOL4-targeted programs read it (aisnobol HSORT, ATN) by being passed as
@@ -734,14 +742,14 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None, compile_args=None):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
     # ERROR NNN line naming the file) would otherwise embed this run's own ever-changing mktemp
     # directory, which no frozen .ref can ever match. cwd (set below) is what makes the bare name
     # still resolve to the right file.
-    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + list(paths.get("scrip_extra", [])) + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
+    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run"] + _compile_switches(paths, compile_args) + _size_switches(heap_kb, stack_kb) + _host_u_switch(sno_path, prog_argv) + [Path(sno_path).name])
     # ⛔⭐ THE `--` SEPARATOR IS MANDATORY AND IS WHAT MAKES THIS SAFE. The driver has NO unknown-flag
     # diagnostic: any unrecognised argument falls through to being treated as a FILENAME, so a declared
     # program argument spelled like a flag (`-n10`, the exact shape the first witness used) would be
@@ -772,7 +780,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
 
 
-def compile_m4(paths, sno_path, out_bin, tmp_dir):
+def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
     """Mirrors compile_mode4() in test_corpus_snobol4.sh exactly. Returns None on success, or a
     Verdict("SKIP", ...) describing where it failed."""
     s_path = tmp_dir / "p.s"
@@ -784,7 +792,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     # and so a -INCLUDE (compile-time, unlike run_m3's runtime open() concern) resolves relative to
     # the file's own directory too, not wherever the caller happened to stand.
     with open(s_path, "wb") as f:
-        r = subprocess.run([str(paths["scrip_bin"]), "--compile"] + list(paths.get("scrip_extra", [])) + [sno_path.name],
+        r = subprocess.run([str(paths["scrip_bin"]), "--compile"] + _compile_switches(paths, compile_args) + [sno_path.name],
                             stdout=f, stderr=subprocess.DEVNULL, env=env, cwd=str(sno_path.parent))
     if r.returncode != 0:
         return Verdict("SKIP", detail="scrip --compile failed")
@@ -810,7 +818,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -845,7 +853,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # seven masters before landing: no entry lists or globs its run directory; three print their own argv[0]
     # (icon 414 prints only its TYPE and length, icon 924 is this row, snobol4 104 prints HOST(0)).
     out_bin = (Path(bin_dir) if bin_dir else tmp_dir) / (Path(sno_path).stem or "t")
-    skip = compile_m4(paths, sno_path, out_bin, tmp_dir)
+    skip = compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=compile_args)
     if skip is not None:
         return skip
     # ⭐ NO `--` HERE, AND THE ASYMMETRY WITH run_m3 IS THE POINT: a mode-4 binary IS the program, so
@@ -1017,6 +1025,8 @@ class Entry:
                                    # grading. DECLARED beside the data, never inferred, never in a runner.
         self.want_rc = want_rc    # int: the exit code a CORRECT run of this entry produces. 0 unless the
                                    # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
+        self.compile_args = None  # list[str] of scrip switches this entry DECLARES for its compile step, both modes, or None =
+                                   # none (clause 8 (f), CEO-1281): ALL.csv's compile_args column, read by read_command_line_columns.
         self.stack_kb = None      # int KB of STACK this entry declares (CEO-1225), or None = the runtime's 64 MB floor.
         self.heap_kb = None       # int KB this entry DECLARES it needs, or None = the shipped default.
                                    # Lon 2026-09-23 / CEO-1167. DECLARED in ALL.csv's heap_kb column (or a
@@ -1136,14 +1146,14 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None):
     """Every mode is graded against the ONE ref: the two modes are one machine in two media (Lon 2026-09-23, CEO-1218/1230)."""
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args)
     return out
 
 
@@ -1719,6 +1729,7 @@ def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None, a_pat
     read_xfail_sidecar(x_path, BANNER_RE, entries)
     read_wantrc_sidecar(w_path, entries)
     read_argv_sidecar(a_path, entries, modes)
+    read_command_line_columns(sno_path, entries, modes)
     return entries
 
 
@@ -1756,6 +1767,7 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w
     read_xfail_sidecar(x_path, banner_re, entries)
     read_wantrc_sidecar(w_path, entries)
     read_argv_sidecar(a_path, entries, modes)
+    read_command_line_columns(src_path, entries, modes)
     return entries
 
 
@@ -1931,7 +1943,8 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
                              mask=getattr(entry, 'mask', None),
-                             where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None), stack_kb=getattr(entry, 'stack_kb', None))
+                             where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None), stack_kb=getattr(entry, 'stack_kb', None),
+                             compile_args=getattr(entry, 'compile_args', None))
 
 
 # ================================================================== CLI ===
@@ -2718,6 +2731,16 @@ def cmd_run(args):
         print(f"DECLARED STACK: {_nst} of {len(entries)} entr(y/ies) carry a stack_kb declaration from "
               f"{_stack_src} and run at it; the rest run at the runtime's {GC_STACK_FLOOR_KB} KB floor. "
               + ", ".join(f"{_e.name}={_e.stack_kb}KB" for _e in entries if _e.stack_kb), file=sys.stderr)
+    # ⭐ AND THE COMMAND LINE (clause 8 (f), CEO-1281): compile_args and run_args were attached by the suite reader itself
+    # (read_command_line_columns), so every caller of it sees them; the count is printed here so a transcript records them.
+    _nca = [_e for _e in entries if _e.compile_args]
+    if _nca:
+        _by = {}
+        for _e in _nca:
+            _by.setdefault(" ".join(_e.compile_args), []).append(_e.name)
+        print(f"DECLARED COMPILE SWITCHES: {len(_nca)} of {len(entries)} entr(y/ies) carry compile_args from ALL.csv, applied "
+              f"at the compile step in both modes: "
+              + "; ".join(f"{k} x{len(v)}" for k, v in sorted(_by.items())), file=sys.stderr)
     # ⛔⭐ THERE IS NO MODES COLUMN AND NO PER-ENTRY MODE (Lon 2026-09-23, in-chat to hq_prolog, verbatim: "Get rid of those m3 and
     # and m4 specific columns. We do not do that here." and "mode 3 and 4 are the same with only different MEDIA, binary versus
     # text"). Every entry is graded in every mode the caller asked for; nothing in a suite can narrow that.
@@ -3104,9 +3127,9 @@ def cmd_pin_ref(args):
         one.write_text("\n".join(e.sno_lines) + "\n")
         stdin_text = e.stdin
         if args.mode == "m3":
-            v = run_m3(paths, one, "\n".join(old_ref), stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv)
+            v = run_m3(paths, one, "\n".join(old_ref), stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv, compile_args=e.compile_args)
         else:
-            v = run_m4(paths, one, "\n".join(old_ref), tmp, stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv)
+            v = run_m4(paths, one, "\n".join(old_ref), tmp, stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv, compile_args=e.compile_args)
         if v.kind in ("CRASH", "HANG", "UNPROVEN", "SKIP", "OOM"):
             refuse(f"{args.mode} on {args.entry} came back {v.kind} ({v.detail}) -- a pin records what the "
                    f"compiler DOES, and a run that crashed or could not be made says nothing about that")
@@ -3455,6 +3478,81 @@ def stack_declarations(sno_path):
         if out:
             return out, _csv_path.name
     return {}, None
+
+
+# ⛔ A CLOSED ENUMERATION: the compile switches a unit may declare. A switch joins it when a unit needs it and the switch is
+# proven honoured at the COMPILE step in both modes (hq_snobol4 2026-09-26 on 6974ab821: scrip --compile --stlimit and
+# SCRIP_SNO_STMTKW=1 scrip --compile emit byte-identical .s, and neither turns counting on at a mode-4 binary's run).
+# A runtime switch (-d -i -s -m -u) placed at the compile step would reach mode 3 and never a mode-4 binary.
+COMPILE_ARGS_ADMITTED = ("--stlimit",)
+
+
+def validate_args_cell(raw, col, where):
+    """Parse ONE compile_args or run_args cell into its words, or refuse rc=2 naming the cell; None for the empty cell
+    (nothing declared: byte-identical to the run before the column existed). RULES.md hard-cap rule clause 8 (f), ceo
+    CEO-1281: the command line a test unit needs is stored with it, and the runner types none of its own.
+    ⛔ SPACE-SEPARATED WORDS, NO QUOTING LANGUAGE: a comma, a quote or a tab is refused, because the positional readers
+    (lib_master_extract.sh, board_denominators.sh) split rows on commas. Censused 2026-09-26 over the 68 argv declarations
+    in 63 sidecars: no argument holds a space, a comma or a quote, so the rule loses nothing today, and an argument that
+    ever needs one is refused here rather than split wrong."""
+    if raw is None:
+        return None
+    t = str(raw).strip()
+    if not t:
+        return None
+    for c in (",", '"', "'", "\t"):
+        if c in t:
+            refuse(f"{where}: {col}={t!r} holds {c!r} -- a cell is space-separated words with no quoting language, "
+                   f"and a cell no reader can split one way is not a declaration")
+    words = t.split()
+    if col == "compile_args":
+        for w in words:
+            if w not in COMPILE_ARGS_ADMITTED:
+                refuse(f"{where}: compile_args word {w!r} is not a compile switch a unit may declare "
+                       f"({', '.join(COMPILE_ARGS_ADMITTED)}) -- heap and stack are heap_kb and stack_kb, the program's own "
+                       f"arguments are run_args, and a switch joins the list once it is proven honoured at the compile step "
+                       f"in both modes")
+    return words
+
+
+def read_command_line_columns(src_path, entries, modes=None):
+    """Attach the compile_args and run_args columns of the ALL.csv beside a suite to its entries BY NAME: the ONE reader of
+    a test unit's command line for the masters and the package tables (clause 8 (f), CEO-1281). compile_args are applied at
+    the compile step in both modes (scrip --run in m3, scrip --compile in m4); run_args are the program's own argv after
+    `--`, both modes, carried in entry.argv exactly as a <family>.argv declaration is.
+    ⛔ AN ENTRY DECLARED IN BOTH PLACES IS REFUSED: the column is the declaration and the argv sidecars fold into it, so two
+    declarations of one entry are two answers to one question. ⛔ run_args on a family graded in ast mode only is refused
+    for the reason read_argv_sidecar gives: --dump-ast never runs the program. An ALL.csv with neither column, or empty
+    cells, changes nothing."""
+    csv_path = Path(src_path).parent / "ALL.csv"
+    if not csv_path.is_file():
+        return
+    import csv as _csvm
+    with open(csv_path, newline="") as f:
+        rdr = _csvm.DictReader(f)
+        cols = [c for c in ("compile_args", "run_args") if rdr.fieldnames and c in rdr.fieldnames]
+        if not cols:
+            return
+        rows = [(n, r) for n, r in enumerate(rdr, 2)]
+    by_name = {e.name: e for e in entries}
+    for n, row in rows:
+        e = by_name.get(row.get("entry"))
+        if e is None:
+            continue
+        where = f"{csv_path}:{n}"
+        ca = validate_args_cell(row.get("compile_args"), "compile_args", where)
+        if ca:
+            e.compile_args = ca
+        ra = validate_args_cell(row.get("run_args"), "run_args", where)
+        if ra:
+            if e.argv:
+                refuse(f"{where}: {e.name} declares run_args {ra} in ALL.csv AND {e.argv} in its argv sidecar -- the column "
+                       f"is the declaration; delete the sidecar line")
+            if modes is not None and not ({"m3", "m4"} & set(modes)):
+                refuse(f"{where}: {e.name} declares run_args, and this family is graded in {sorted(modes)} only -- "
+                       f"--dump-ast never RUNS the program, so the arguments could not reach it")
+            e.argv = ra
+
 
 def cmd_extract_family(args):
     """Materialize every entry of ONE family back out as a standalone SUITE PAIR (still banner-block or

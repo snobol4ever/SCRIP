@@ -58,6 +58,9 @@ LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
 # the design working: an attribute column silently counted as an unfilled feature would have dragged
 # every language's coverage denominator without one number changing its name. Measured, in that order.
 PREFIX = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "heap_kb", "stack_kb"]
+# the unit's command line (clause 8 (f), CEO-1281): attribute columns, never features, and optional while the tables gain them --
+# a compile_args cell reads --stlimit, which would refuse here as a non-integer feature, and an absent column is no mismatch
+COMMAND_LINE = ("compile_args", "run_args")
 DEFAULT_FLOOR = 10   # the GOAL text's own worked example: SNOBOL4, the model shape, flags "below 10".
 
 
@@ -119,7 +122,8 @@ def read_master(lang):
                                  "(everything after the last fixed column is a feature column by construction)"
                                  % (p, PREFIX, hdr[:len(PREFIX) + 1]))
         first_feat = _pos[-1] + 1
-        feat_cols = hdr[first_feat:]
+        feat_idx = [i for i in range(first_feat, len(hdr)) if hdr[i] not in COMMAND_LINE]
+        feat_cols = [hdr[i] for i in feat_idx]
         if not feat_cols:
             return [], [], None
         rows = []
@@ -129,8 +133,8 @@ def read_master(lang):
             if len(rec) < len(hdr):
                 return None, None, "ALL.csv at %s line %d has %d field(s), header has %d" % (p, lineno, len(rec), len(hdr))
             vals = {}
-            for f, v in zip(feat_cols, rec[first_feat:]):
-                v = v.strip()
+            for f, i in zip(feat_cols, feat_idx):
+                v = rec[i].strip()
                 try:
                     vals[f] = int(v) if v else 0
                 except ValueError:
