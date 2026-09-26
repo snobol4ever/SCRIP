@@ -561,6 +561,8 @@ test_gate_sno_a_dynamic_function_called_from_a_code_built_function_returns_its_v
 test_gate_sno_a_field_function_call_takes_the_name_entry.sh	WIRED	-	-	-
 test_gate_sno_a_label_hook_on_a_failure_edge_rides_the_spine.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
+test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable.sh	WIRED	-	-	-
+test_gate_sno_a_unary_and_a_binary_opsyn_of_one_operator_are_two_functions.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
 test_gate_sno_an_immediate_assignment_to_a_global_stores_into_its_gva_cell.sh	WIRED	-	-	-
@@ -572,6 +574,7 @@ test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
 test_gate_sno_chain_entry_establishes_the_pend_top_cold_and_preserves_it_mid_match.sh	WIRED	-	-	-
 test_gate_sno_code_statements_are_numbered_after_every_statement_compiled_before_them.sh	WIRED	-	-	-
+test_gate_sno_convert_of_a_matched_substring_is_that_substring.sh	WIRED	-	-	-
 test_gate_sno_cset_from_a_string_view_uses_its_length.sh	WIRED	-	-	-
 test_gate_sno_data_type_named_list_is_a_record.sh	WIRED	-	-	-
 test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
