@@ -67,6 +67,9 @@ while (LE(ascii_i, 127)) {
     ascii_table[CHAR(ascii_i)] = ascii_i;
     ascii_i = ascii_i + 1;
 }
+ascii_table["''"] = 39;  ascii_table['\\'] = 92;  ascii_table["\'"] = 39;  ascii_table['\"'] = 34;  ascii_table['\`'] = 96;
+ascii_table['\n'] = 10;  ascii_table['\r'] = 13;   ascii_table['\t'] = 9;    ascii_table['\a'] = 7;    ascii_table['\b'] = 8;
+ascii_table['\f'] = 12;  ascii_table['\v'] = 11;   ascii_table['\0'] = 0;    ascii_table['\e'] = 27;   ascii_table['\s'] = 32;
 /* ==================================================================================================================== */
 function unescape_q(raw, out, i, n, c, prev_was_quote) {
     out = '';  n = SIZE(raw);  i = 1;  prev_was_quote = 0;
@@ -154,7 +157,7 @@ primary = (   Atom . p_name $'('
               nPop()
           |   shift(Graphic_atom2, 'TT_FNC')
           |   Tk_cut                  reduce("'TT_CUT'", 0)
-          |   "0'" NOTANY(nl) . p_cc
+          |   "0'" ("''" | '\' LEN(1) | NOTANY(nl)) . p_cc
                   epsilon . *Shift('TT_ILIT', ascii_table[p_cc])
           |   shift(Float,'TT_FLIT')
           |   '0x' SPAN(hex_digits) . p_radix
