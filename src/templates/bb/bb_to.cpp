@@ -7,7 +7,6 @@ extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
-void    rt_pl_tr_unwind(void *);
 void    rt_pl_disj_open(void *, void *);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
@@ -28,9 +27,7 @@ static std::string to_trail_mark() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_trail_unwind() {
     if (!x86_fb_pinned()) return std::string();
-    uint64_t fp; { void (*f)(void *) = rt_pl_tr_unwind; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return  x86("mov", "rdi", FRQ(_.op_off + 24))
-         + x86("call_bare", "rt_pl_tr_unwind", fp);
+    return x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_int_operand_guard(int slot) {

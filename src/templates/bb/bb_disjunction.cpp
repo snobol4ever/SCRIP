@@ -6,7 +6,6 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void rt_pl_disj_open(void *, void *);
-extern "C" void rt_pl_tr_unwind(void *);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_dispatch_chain(long N, int base, int lo)
@@ -43,9 +42,7 @@ static std::string disj_choice_open() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_step_unwind() {
     if (!x86_fb_pinned()) return std::string();
-    uint64_t fp; { void (*f)(void *) = rt_pl_tr_unwind; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return  x86("mov", "rdi", FRQ(_.op_off + 24))
-         + x86("call_bare", "rt_pl_tr_unwind", fp);
+    return x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_step_ball() {

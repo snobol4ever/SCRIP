@@ -2987,7 +2987,6 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
 extern "C" int xa_flat_class_c_pred(void);
 extern "C" void xa_flat_chain_prologue(const char * fname);
 extern "C" void xa_flat_chain_epilogue(void);
-extern "C" void rt_pl_tr_unwind(void *);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3767,7 +3766,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         return &lbl_ω; };
     if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
         int _kt0 = g_emit.flat_frame_bytes; int _np0 = g_emit_cfg->nparams; int _nl0 = g_emit_cfg->nlocals;
-        uint64_t _uwfp; { void (*_f)(void *) = rt_pl_tr_unwind; _uwfp = (uint64_t)(uintptr_t)(void *)_f; }
         for (int _ak = 0; _ak < n_alt; _ak++) {
             IR_t * _rd = g_emit_cfg->alt_redo[_ak]; bb_label_t * _rb = (bb_label_t *)0;
             if (!_rd || g_emit_cfg->root_graph) continue;
@@ -3784,8 +3782,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_label_t * pl_step_ball_lbl = emit_label_alloc("%s_step_ball", fam);
         bb_emit_x86(x86("test", "r15", "r15"));
         emit_jmp_label(pl_step_ball_lbl, JMP_JNE);
-        bb_emit_x86( x86("mov", "rdi", RDQ("rbp", _kt0 - 64))
-                  + x86("call", "rt_pl_tr_unwind", _uwfp)
+        bb_label_t * pl_uw_top = emit_label_alloc("%s_uw", fam), * pl_uw_done = emit_label_alloc("%s_uwd", fam);
+        bb_emit_x86(x86("mov", "rsi", RDQ("rbp", _kt0 - 64)));
+        emit_label_define_bb(pl_uw_top);
+        bb_emit_x86(x86("cmp", "rsi", "r12"));
+        emit_jmp_label(pl_uw_done, JMP_JGE);
+        bb_emit_x86(x86_pl_tr_pop_entry());
+        emit_jmp_label(pl_uw_top, JMP_JMP);
+        emit_label_define_bb(pl_uw_done);
+        bb_emit_x86( x86_pl_tr_top_sync()
                   + x86("mov", RDQ("rbp", _kt0 - 48), 0L)
                   + pl_step_reseed_locals()
                   + x86("mov", "rax", RDQ("rbp", _kt0 - 56))
