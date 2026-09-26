@@ -665,13 +665,36 @@ extern "C" int fc_pair_extent(const IR_t *);
 static IR_t * zd_chase(IR_t * t);
 static int zd_nops(IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int alt_arm_member(const IR_t * a, const IR_t * b) {
-    if ((!a && !b) || !g_emit_cfg) return 0;
-    for (int p = 0; p < g_emit_cfg->n; p++) { IR_t * A = g_emit_cfg->all[p]; if (!A || A->op != IR_MATCH_ALTERNATE) continue;
+typedef struct { const IR_t * nd; uint32_t gen; } aam_slot_t;
+static cv_t g_aam_map; static uint32_t g_aam_gen = 1, g_aam_ep = 0, g_aam_cnt = 0; static const IR_graph_t * g_aam_g; static IR_t ** g_aam_all; static int g_aam_n = -1;
+static uint32_t xci_epoch_now(void);
+static aam_slot_t * aam_probe(const IR_t * nd) {
+    uint32_t m = g_aam_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
+    for (;;) { aam_slot_t * t = &CV_AT(g_aam_map, aam_slot_t, h); if (t->gen != g_aam_gen || t->nd == nd) return t; h = (h + 1) & m; }
+}
+static void aam_table(uint32_t want) {
+    uint32_t c = 256; while (c < want) c *= 2;
+    cv_t old = g_aam_map; uint32_t ogen = g_aam_gen; cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(aam_slot_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(aam_slot_t); g_aam_map = v;
+    for (uint32_t i = 0; i < old.len; i++) { aam_slot_t * o = &CV_AT(old, aam_slot_t, i); if (o->gen == ogen) { aam_slot_t * t = aam_probe(o->nd); t->nd = o->nd; t->gen = g_aam_gen; } }
+}
+static void aam_add(const IR_t * nd) {
+    aam_slot_t * t = aam_probe(nd); if (t->gen == g_aam_gen) return;
+    t->nd = nd; t->gen = g_aam_gen; g_aam_cnt++;
+    if ((uint64_t)g_aam_cnt * 2 >= (uint64_t)g_aam_map.len) aam_table(g_aam_map.len * 2);
+}
+static void aam_build(void) {
+    const IR_graph_t * g = g_emit_cfg; int n = g->n; g_aam_gen++; g_aam_cnt = 0;
+    if ((uint64_t)g_aam_map.len < (uint64_t)n * 2 + 2) aam_table((uint32_t)n * 2 + 2);
+    for (int p = 0; p < n; p++) { IR_t * A = g->all[p]; if (!A || A->op != IR_MATCH_ALTERNATE) continue;
         int N = (int)(A->n_operands / 2);
         for (int j = 0; j < N; j++) { IR_t * cur = A->operands[2 * j]; IR_t * res = A->operands[2 * j + 1]; int guard = 0;
-            while (cur && guard++ <= g_emit_cfg->n) { if ((a && cur == a) || (b && cur == b)) return 1; if (cur == res) break; cur = zd_chase(cur->γ.node); } } }
-    return 0;
+            while (cur && guard++ <= n) { aam_add(cur); if (cur == res) break; cur = zd_chase(cur->γ.node); } } }
+    g_aam_g = g; g_aam_all = g->all; g_aam_n = n; g_aam_ep = xci_epoch_now();
+}
+static int alt_arm_member(const IR_t * a, const IR_t * b) {
+    if ((!a && !b) || !g_emit_cfg) return 0;
+    if (g_aam_g != g_emit_cfg || g_aam_all != g_emit_cfg->all || g_aam_n != g_emit_cfg->n || g_aam_ep != xci_epoch_now()) aam_build();
+    return ((a && aam_probe(a)->gen == g_aam_gen) || (b && aam_probe(b)->gen == g_aam_gen)) ? 1 : 0;
 }
 static int arbno_reentry_hazard(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2379,6 +2402,7 @@ static int choice_body_member(const IR_t * q) {
 typedef struct { const IR_t * nd; uint32_t gen; int idx; } xci_slot_t;
 static cv_t g_xci_map, g_xci_off, g_xci_con, g_xci_last, g_xci_at; static uint32_t g_xci_gen = 1, g_xci_epoch = 1, g_xci_built = 0;
 static const IR_graph_t * g_xci_g; static IR_t ** g_xci_all; static int g_xci_n = -1;
+static uint32_t xci_epoch_now(void) { return g_xci_epoch; }
 static xci_slot_t * xci_probe(const IR_t * nd) {
     uint32_t m = g_xci_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
     for (;;) { xci_slot_t * t = &CV_AT(g_xci_map, xci_slot_t, h); if (t->gen != g_xci_gen || t->nd == nd) return t; h = (h + 1) & m; }
@@ -2516,13 +2540,16 @@ int sn4_alt_carrier(void) {
     static int _ac = -1; if (_ac < 0) { const char * e = getenv("SCRIP_ALT_CARRIER"); _ac = (e && *e == '0') ? 0 : 1; } return _ac;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const IR_graph_t * g_bcs_g; static IR_t ** g_bcs_all; static int g_bcs_n = -1, g_bcs_nc, g_bcs_lf, g_bcs_fn; static uint32_t g_bcs_ep;
 void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence) {
     int _nc = 0, _lf = 1, _fn = 0;
-    if (g_emit_cfg) for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m) continue; int o = (int)m->op;
+    if (g_emit_cfg && g_bcs_g == g_emit_cfg && g_bcs_all == g_emit_cfg->all && g_bcs_n == g_emit_cfg->n && g_bcs_ep == g_xci_epoch) { _nc = g_bcs_nc; _lf = g_bcs_lf; _fn = g_bcs_fn; }
+    else if (g_emit_cfg) { for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m) continue; int o = (int)m->op;
         if (o == IR_MATCH_ALTERNATE || o == IR_DISJUNCTION) { if (m->seal) _lf = 0; else _nc++; continue; }
         if ((o == IR_MATCH_FENCE1 || o == IR_MATCH_FENCE0)) { _fn = 1; continue; }
         if (o == IR_SUCCEED || o == IR_FAIL) continue;
         { extern int zdp_scan_pure(const IR_t *); if (!zdp_scan_pure(m)) _lf = 0; } }
+        g_bcs_g = g_emit_cfg; g_bcs_all = g_emit_cfg->all; g_bcs_n = g_emit_cfg->n; g_bcs_ep = g_xci_epoch; g_bcs_nc = _nc; g_bcs_lf = _lf; g_bcs_fn = _fn; }
     if (n_choice) *n_choice = _nc; if (leaf_ok) *leaf_ok = _lf; if (has_fence) *has_fence = _fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
