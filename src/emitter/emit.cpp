@@ -2767,6 +2767,19 @@ static int zd_consumers_build(IR_t **nodes, int n, int **off_out, int **adj_out)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const IR_t * nd; uint32_t gen; int maxk; } zrm_slot_t;
+static cv_t g_zrm_map; static uint32_t g_zrm_gen = 1;
+static zrm_slot_t * zrm_probe(const IR_t * nd) {
+    uint32_t m = g_zrm_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
+    for (;;) { zrm_slot_t * t = &CV_AT(g_zrm_map, zrm_slot_t, h); if (t->gen != g_zrm_gen || t->nd == nd) return t; h = (h + 1) & m; }
+}
+static void zrm_build(IR_t ** nodes, const int * run, int rl) {
+    g_zrm_gen++;
+    if ((uint64_t)g_zrm_map.len < (uint64_t)rl * 2 + 2) { uint32_t c = 256; while ((uint64_t)c < (uint64_t)rl * 2 + 2) c *= 2; cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(zrm_slot_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(zrm_slot_t); g_zrm_map = v; }
+    for (int k = 0; k < rl; k++) { zrm_slot_t * t = zrm_probe(nodes[run[k]]); t->nd = nodes[run[k]]; t->gen = g_zrm_gen; t->maxk = k; }
+}
+static int zrm_maxk(const IR_t * nd) { zrm_slot_t * t = zrm_probe(nd); return t->gen == g_zrm_gen ? t->maxk : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm) {
     extern const char * bb_src_of(const IR_t *);
     static int _dg = -1, _zoh = -1, _zbe = -1, _zvd = -1; static const char * _zo; static const char * _zs;
@@ -2862,6 +2875,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             else vd_tidx = -1; }
         if (vd_tidx >= 0) zvd_ok[vd_tidx] = 1;
         if (ok) { int zd = (vd_tidx >= 0) ? zd_omega_seed(nodes, n, nodes[hi], zon, zout) : 0; int arm_zd = 0; int zdh_match = -1; int zdh_stmt = -1; int zdh_mafter = -1; int zwt = 0;
+            if (nblob <= 0) zrm_build(nodes, run, rl);
             for (int r = 0; r < rl; r++) { int i = run[r];
                 int REL = fence0_release_bytes(nodes[i]);
                 int K = zd_k(nodes[i]);
@@ -2878,7 +2892,9 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int gin = 0; int oin = 0; int gback = -1; int oback = -1;
                 int gib = port_sz_beta(nodes[i]->γ.sz); { int _gg = 0; IR_t * _g = nodes[i]->γ.node; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = port_sz_beta(_g->γ.sz); _g = _g->γ.node; } } gib = gib && !beta_is_stmt_land(gt);
                 if (nblob > 0) { for (int k = 0; k < n; k++) if (cm[k]) { int _bk = zd_blobback_on() && claim[k] == hi && rpos[k] >= 0 && rpos[k] <= r; if (nodes[k] == gt && (!_bk || gib)) gin = 1; if (nodes[k] == ot && (!_bk || !zd_oback_on() || port_sz_beta(nodes[i]->ω.sz)) && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; } }
-                else for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && (k > r || gib)) gin = 1; if (nodes[run[k]] == ot && (k > r || !zd_oback_on() || port_sz_beta(nodes[i]->ω.sz)) && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
+                else { int _mg = zrm_maxk(gt), _mo = zrm_maxk(ot);
+                    if (_mg >= 0 && (_mg > r || gib)) gin = 1;
+                    if (_mo >= 0 && (_mo > r || !zd_oback_on() || port_sz_beta(nodes[i]->ω.sz)) && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
                 if (_zbe && gt) { { int tk = nidx(nodes, n, gt); if (tk >= 0 && (zon[tk])) { gback = tk; } } }
                 if (_zbe && ot) { { int tk = nidx(nodes, n, ot); if (tk >= 0 && (zon[tk])) { oback = tk; } } }
                 { if (!gin && gt && gt->op == IR_SUCCEED && g_emit_cfg && g_emit_cfg->icn_cells_graph && port_sz_beta(nodes[i]->ω.sz)) gin = 1; }
@@ -3525,6 +3541,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int *repalt_of = (int *)alloca(sizeof(int) * (n > 0 ? n : 1)); for (int _q = 0; _q < n; _q++) repalt_of[_q] = -1;
     for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0) { int _k = nidx(nodes, n, nodes[_r]->operands[0]); if (_k >= 0 && repalt_of[_k] < 0) repalt_of[_k] = _r; }
     std::unordered_map<const bb_label_t *, int> beta_of; beta_of.reserve((size_t)n * 2 + 1); for (int _q = 0; _q < n; _q++) if (betas[_q]) beta_of.emplace(betas[_q], _q);
+    int _hk_c = -1, _hk_upto = 0;
     for (int i = 0; i < n; i++) {
         { int _fk = emit_floater_kind(nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
         { static int _sz = -1; if (_sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); _sz = (_e && _e[0] == '0') ? 0 : 1; }
@@ -3682,7 +3699,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               if (node_γ == &lbl_γ) node_γ = &lbl_stcγ; if (node_γ == &lbl_ω) node_γ = &lbl_stcω;
               if (node_ω == &lbl_ω) node_ω = &lbl_stcω; if (node_ω == &lbl_γ) node_ω = &lbl_stcγ; }
           if (nodes[i]->op == IR_MATCH_DEFER) {
-              int _hk = -1; for (int _k = 0; _k < n; _k++) if (nodes[_k]->op == IR_MATCH_BEGIN) { _hk = _k; break; }
+              for (; _hk_c < 0 && _hk_upto < n; _hk_upto++) if (nodes[_hk_upto]->op == IR_MATCH_BEGIN) _hk_c = _hk_upto;
+              int _hk = _hk_c;
               if (_hk >= 0) { IR_t *_gt = nodes[_hk]->γ.node; { int _gg = 0; while (_gt && _gt->op == IR_GOTO && _gg++ < 128) _gt = _gt->γ.node; }
                   if (_gt == nodes[i] && node_ω == betas[_hk]) { g_emit.op_scan = 1; g_emit.op_scan_head_off = (int)drive_value_slot(nodes[_hk]); } }
           }
@@ -3946,9 +3964,37 @@ static int emit_chain_arity(const IR_t *n) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern const char __start_rtx_entry_names[] __attribute__((visibility("hidden")));
+extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")));
+static const char ** g_rtxe_tab = (const char **)0; static uint32_t g_rtxe_cap = 0;
+static uint32_t rtxe_hash(const char * s) { uint32_t h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
+int emit_rtx_entry_is(const char * sym) {
+    if (!sym) return 0;
+    if (!g_rtxe_cap) { uint32_t n = 0, c = 64; for (const char * p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) n++;
+        while (c < n * 2 + 2) c *= 2; const char ** t = (const char **)ct_zalloc(c, sizeof(const char *));
+        for (const char * p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) { uint32_t h = rtxe_hash(p) & (c - 1); while (t[h] && strcmp(t[h], p) != 0) h = (h + 1) & (c - 1); t[h] = p; }
+        g_rtxe_tab = t; g_rtxe_cap = c; }
+    for (uint32_t h = rtxe_hash(sym) & (g_rtxe_cap - 1); g_rtxe_tab[h]; h = (h + 1) & (g_rtxe_cap - 1)) if (strcmp(g_rtxe_tab[h], sym) == 0) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
+static cv_t g_ocr_map; static uint32_t g_ocr_gen = 1, g_ocr_cnt = 0;
+static ocr_slot_t * ocr_probe(const IR_t * nd) {
+    uint32_t m = g_ocr_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
+    for (;;) { ocr_slot_t * t = &CV_AT(g_ocr_map, ocr_slot_t, h); if (t->gen != g_ocr_gen || t->nd == nd) return t; h = (h + 1) & m; }
+}
+static void ocr_table(uint32_t c) {
+    cv_t old = g_ocr_map; cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(ocr_slot_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(ocr_slot_t); g_ocr_map = v;
+    for (uint32_t i = 0; i < old.len; i++) { ocr_slot_t * o = &CV_AT(old, ocr_slot_t, i); if (o->gen == g_ocr_gen) { ocr_slot_t * t = ocr_probe(o->nd); t->nd = o->nd; t->gen = g_ocr_gen; } }
+}
+static void ocr_clear(void) { g_ocr_gen++; g_ocr_cnt = 0; if (!g_ocr_map.len) ocr_table(1024); }
+static int ocr_has(const IR_t * nd) { return ocr_probe(nd)->gen == g_ocr_gen; }
+static void ocr_add(const IR_t * nd) { ocr_slot_t * t = ocr_probe(nd); if (t->gen == g_ocr_gen) return; t->nd = nd; t->gen = g_ocr_gen; if ((uint64_t)++g_ocr_cnt * 2 >= (uint64_t)g_ocr_map.len) ocr_table(g_ocr_map.len * 2); }
 static void emit_chain_operand_refs(IR_t *entry) {
     IR_t *chain[8192]; int nc = 0;
     IR_t *seen[8192]; int ns = 0;
+    ocr_clear();
     IR_t *stkv[8192]; int sv = 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL) && entry->γ.node && guard++ < 8192) entry = entry->γ.node; }
     entry = entry;
@@ -3956,9 +4002,9 @@ static void emit_chain_operand_refs(IR_t *entry) {
     while (sv > 0 && nc < 8192) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
+        int dup = ocr_has(c);
         if (dup) continue;
-        seen[ns++] = c; chain[nc++] = c;
+        seen[ns++] = c; ocr_add(c); chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
@@ -3967,14 +4013,14 @@ static void emit_chain_operand_refs(IR_t *entry) {
         if (c->γ.node && sv < 8192) stkv[sv++] = c->γ.node;
     }
     for (int i = 0; i < nc; i++) if (ir_is_generator_kind(chain[i]->op) && chain[i]->ω.node) {
-        int present = 0; for (int j = 0; j < ns; j++) if (seen[j] == chain[i]->ω.node) { present = 1; break; }
+        int present = ocr_has(chain[i]->ω.node);
         if (!present && sv < 8192) stkv[sv++] = chain[i]->ω.node; }
     while (sv > 0 && nc < 8192) {
         IR_t *c = stkv[--sv];
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == c) { dup = 1; break; }
+        int dup = ocr_has(c);
         if (dup) continue;
-        seen[ns++] = c; chain[nc++] = c;
+        seen[ns++] = c; ocr_add(c); chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY

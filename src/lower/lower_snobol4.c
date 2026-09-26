@@ -1531,10 +1531,9 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
         IR_t * nxt = (i + 1 < ne) ? ent[i + 1] : succ;
         IR_t * prv = (i > 0 && (res[i - 1]->op != IR_MATCH_DEFER || (sno_defer_resume() && res[i - 1]->seal != 1))) ? res[i - 1] : fail;
         int lo_i = lo[i]; int hi_i = (i + 1 < ne) ? lo[i + 1] : g->n;
-        for (int k = 0; k < g->n; k++) {
+        for (int k = (lo_i > 0 ? lo_i : 0); k < g->n && k < hi_i; k++) {
             IR_t * x = g->all[k];
             if (!x || x == S) continue;
-            if (k < lo_i || k >= hi_i) continue;
             if (x->ω.node == S && x->ω.sz[0] == (char)0xcf && (unsigned char)x->ω.sz[1] == 0x86) { x->ω.node = prv; memcpy(x->ω.sz, "β", 3); x->ω.sz[3] = 0; }
             if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x86) { x->γ.node = prv; memcpy(x->γ.sz, "β", 3); x->γ.sz[3] = 0; }
             if (x->γ.node == S && x->γ.sz[0] == (char)0xcf && (unsigned char)x->γ.sz[1] == 0x83) { x->γ.node = nxt; x->γ.sz[0] = 0; }

@@ -13,6 +13,7 @@ extern uint64_t rtccb[32];
 extern unsigned char g_rtcc_on;
 long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
+int emit_rtx_entry_is(const char * sym);
 }
 #include "rtx/rtcc.h"
 #ifndef _
@@ -34,31 +35,17 @@ enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3 };
 #define PORT_OMEGA   "\xCF\x89"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_rnum(const char * r) {
-    if (!r) return 0;
-    if (!strcmp(r, "eax") || !strcmp(r, "rax")) return 0;
-    if (!strcmp(r, "ecx") || !strcmp(r, "rcx")) return 1;
-    if (!strcmp(r, "edx") || !strcmp(r, "rdx")) return 2;
-    if (!strcmp(r, "ebx") || !strcmp(r, "rbx")) return 3;
-    if (!strcmp(r, "esp") || !strcmp(r, "rsp")) return 4;
-    if (r[0]==0x72 && r[1]==0x62 && r[2]==0x70 && !r[3]) return 5;
-    if (!strcmp(r, "esi") || !strcmp(r, "rsi")) return 6;
-    if (!strcmp(r, "edi") || !strcmp(r, "rdi")) return 7;
-    if (!strcmp(r, "r8d")  || !strcmp(r, "r8"))  return 8;
-    if (!strcmp(r, "r9d")  || !strcmp(r, "r9"))  return 9;
-    if (!strcmp(r, "r10d") || !strcmp(r, "r10")) return 10;
-    if (!strcmp(r, "r11d") || !strcmp(r, "r11")) return 11;
-    if (!strcmp(r, "r12d") || !strcmp(r, "r12")) return 12;
-    if (!strcmp(r, "r13d") || !strcmp(r, "r13")) return 13;
-    if (!strcmp(r, "r14d") || !strcmp(r, "r14")) return 14;
-    if (!strcmp(r, "r15d") || !strcmp(r, "r15")) return 15;
-    if (!strcmp(r, "al"))  return 0; if (!strcmp(r, "cl"))  return 1;
-    if (!strcmp(r, "dl"))  return 2; if (!strcmp(r, "bl"))  return 3;
-    if (!strcmp(r, "spl")) return 4; if (!strcmp(r, "bpl")) return 5;
-    if (!strcmp(r, "sil")) return 6; if (!strcmp(r, "dil")) return 7;
-    if (!strcmp(r, "r8b"))  return 8;  if (!strcmp(r, "r9b"))  return 9;
-    if (!strcmp(r, "r10b")) return 10; if (!strcmp(r, "r11b")) return 11;
-    if (!strcmp(r, "r12b")) return 12; if (!strcmp(r, "r13b")) return 13;
-    if (!strcmp(r, "r14b")) return 14; if (!strcmp(r, "r15b")) return 15;
+    if (!r || !r[0] || !r[1]) return 0;
+    if (!r[2]) { switch (r[0]) { case 'r': return r[1] == '8' ? 8 : r[1] == '9' ? 9 : 0; case 'a': return 0; case 'c': return r[1] == 'l' ? 1 : 0; case 'd': return r[1] == 'l' ? 2 : 0; case 'b': return r[1] == 'l' ? 3 : 0; default: return 0; } }
+    if (!r[3]) {
+        if (r[0] == 'e' || r[0] == 'r') { switch (r[1] * 256 + r[2]) { case 'a' * 256 + 'x': return 0; case 'c' * 256 + 'x': return 1; case 'd' * 256 + 'x': return 2; case 'b' * 256 + 'x': return 3;
+            case 's' * 256 + 'p': return 4; case 's' * 256 + 'i': return 6; case 'd' * 256 + 'i': return 7; case 'b' * 256 + 'p': return r[0] == 'r' ? 5 : 0; default: break; } }
+        if (r[0] == 'r' && (r[1] == '8' || r[1] == '9') && (r[2] == 'd' || r[2] == 'b')) return r[1] - '0';
+        if (r[0] == 'r' && r[1] == '1' && r[2] >= '0' && r[2] <= '5') return 10 + (r[2] - '0');
+        if (r[2] == 'l') { switch (r[0] * 256 + r[1]) { case 's' * 256 + 'p': return 4; case 'b' * 256 + 'p': return 5; case 's' * 256 + 'i': return 6; case 'd' * 256 + 'i': return 7; default: return 0; } }
+        return 0;
+    }
+    if (!r[4] && r[0] == 'r' && r[1] == '1' && r[2] >= '0' && r[2] <= '5' && (r[3] == 'd' || r[3] == 'b')) return 10 + (r[2] - '0');
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -307,11 +294,11 @@ static inline int x86_rtx_plant(const char * name, int * cache) { if (*cache < 0
 static inline int x86_rtx_plant_veneer(void) { static int v = -1; return x86_rtx_plant("SCRIP_RTX_PLANT_VENEER", &v); }
 static inline int x86_rtx_plant_clobber(void) { static int v = -1; return x86_rtx_plant("SCRIP_RTX_PLANT_CLOBBER", &v); }
 inline std::string x86_rtx_after_bare(const char * sym) {
-    if (!x86_rtx_plant_clobber() || !rtx_entry_is(sym)) return std::string();
+    if (!x86_rtx_plant_clobber() || !emit_rtx_entry_is(sym)) return std::string();
     return x86_movabs_r64("r10", ~(uint64_t)0) + x86_movabs_r64("r11", ~(uint64_t)0);
 }
 inline std::string x86_call_text(const char * sym, const char * sfx) {
-    if (rtx_entry_is(sym)) return x86_rec("call") + "qword ptr [rip + " + sym + "@GOTPCREL]\n";
+    if (emit_rtx_entry_is(sym)) return x86_rec("call") + "qword ptr [rip + " + sym + "@GOTPCREL]\n";
     return x86_rec("call") + sym + sfx + "\n";
 }
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
@@ -334,7 +321,7 @@ static inline unsigned x86_rtcc_clob_raw(const char * sym);
 static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_raw(sym) & x86_rtcc_live_mask(); }
 static inline unsigned x86_rtcc_clob_raw(const char * sym) {
     if (!sym) return RTCC_C_ALL;
-    return (rtx_entry_is(sym) && !x86_rtx_plant_veneer()) ? 0 : RTCC_C_ALL;
+    return (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) ? 0 : RTCC_C_ALL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
@@ -1271,11 +1258,18 @@ inline int x86_port_of(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_is_reg(const char * s) {
-    static const char * regs[] = { "rax","rbx","rcx","rdx","rsi","rdi","rsp","rb" "p","r8","r9","r10","r11","r12","r13","r14","r15",
-                                   "eax","ebx","ecx","edx","esi","edi","esp","ebp","r8d","r9d","r10d","r11d","r12d","r13d","r14d","r15d",
-                                   "al","cl","dl","bl","sil","dil","spl","bpl","r8b","r9b","r10b","r11b","r12b","r13b","r14b","r15b",
-                                   "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7" };
-    for (size_t i = 0; i < sizeof regs / sizeof *regs; i++) if (!strcmp(s, regs[i])) return 1;
+    if (!s[0] || !s[1]) return 0;
+    if (s[0] == 'x') return (s[1] == 'm' && s[2] == 'm' && s[3] >= '0' && s[3] <= '7' && !s[4]) ? 1 : 0;
+    if (!s[2]) return ((s[0] == 'r' && (s[1] == '8' || s[1] == '9')) || (s[1] == 'l' && (s[0] == 'a' || s[0] == 'c' || s[0] == 'd' || s[0] == 'b'))) ? 1 : 0;
+    if (!s[3]) {
+        if (s[0] == 'e' || s[0] == 'r') { switch (s[1] * 256 + s[2]) { case 'a' * 256 + 'x': case 'c' * 256 + 'x': case 'd' * 256 + 'x': case 'b' * 256 + 'x':
+            case 's' * 256 + 'p': case 'b' * 256 + 'p': case 's' * 256 + 'i': case 'd' * 256 + 'i': return 1; default: break; } }
+        if (s[0] == 'r' && (s[1] == '8' || s[1] == '9') && (s[2] == 'd' || s[2] == 'b')) return 1;
+        if (s[0] == 'r' && s[1] == '1' && s[2] >= '0' && s[2] <= '5') return 1;
+        if (s[2] == 'l') { switch (s[0] * 256 + s[1]) { case 's' * 256 + 'p': case 'b' * 256 + 'p': case 's' * 256 + 'i': case 'd' * 256 + 'i': return 1; default: return 0; } }
+        return 0;
+    }
+    if (!s[4]) return (s[0] == 'r' && s[1] == '1' && s[2] >= '0' && s[2] <= '5' && (s[3] == 'd' || s[3] == 'b')) ? 1 : 0;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1482,43 +1476,44 @@ inline std::string x86_4col(const std::string & s) {
     x86_argnote(o);
     return o;
 }
+#define X86_MEQ(m, lit) ((m)[0] == (lit)[0] && !strcmp((m), (lit)))
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
-    if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
-    if (!strcmp(mnem, "comment"))   return std::string();
-    if (!strcmp(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");
-    if (!strcmp(mnem, "srccomment")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
-    if (!strcmp(mnem, "loc")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string(".loc ") + std::to_string(xc.u) + " " + std::to_string(xb.u) + " 0\n");
-    if (!strcmp(mnem, "commentrule")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("#") + (xa.s ? xa.s : "") + "\n");
-    if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
-    if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
-    if (!strcmp(mnem, ".quad")) {
+    if (X86_MEQ(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
+    if (X86_MEQ(mnem, "comment"))   return std::string();
+    if (X86_MEQ(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");
+    if (X86_MEQ(mnem, "srccomment")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
+    if (X86_MEQ(mnem, "loc")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string(".loc ") + std::to_string(xc.u) + " " + std::to_string(xb.u) + " 0\n");
+    if (X86_MEQ(mnem, "commentrule")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("#") + (xa.s ? xa.s : "") + "\n");
+    if (X86_MEQ(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
+    if (X86_MEQ(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
+    if (X86_MEQ(mnem, ".quad")) {
         if (a.kind == XK_ILBL) return x86_quad_ilbl(a.lbl);
         if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
         return std::string();
     }
-    if (!strcmp(mnem, ".string")) {
+    if (X86_MEQ(mnem, ".string")) {
         if (MEDIUM_BINARY) return std::string();
         return xb.tag == 2
              ? (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "", (size_t)xb.u) + "\"\n")
              : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
     }
-    if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
-    if (!strcmp(mnem, "cqo")) return x86_cqo();
-    if (!strcmp(mnem, "rep_stosb")) return x86_rep_stosb();
-    if (!strcmp(mnem, "def")) {
+    if (X86_MEQ(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
+    if (X86_MEQ(mnem, "cqo")) return x86_cqo();
+    if (X86_MEQ(mnem, "rep_stosb")) return x86_rep_stosb();
+    if (X86_MEQ(mnem, "def")) {
         if (a.kind == XK_PORT) return x86_deflabel(a.port);
         if (a.kind == XK_ILBL) return x86_deflabel_id(a.lbl);
         if (a.kind == XK_PAIR) return x86_deflabel_pair(a.lbl);
         return std::string();
     }
-    if (!strcmp(mnem, "jmp_fn_cell")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_through_fn_cell(a.sym, xb.u); return std::string(); }
-    if (!strcmp(mnem, "jmp")) {
+    if (X86_MEQ(mnem, "jmp_fn_cell")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_through_fn_cell(a.sym, xb.u); return std::string(); }
+    if (X86_MEQ(mnem, "jmp")) {
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);
         if (a.kind == XK_PAIR) return x86_jmp_pair(a.lbl);
@@ -1540,7 +1535,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_rec(mnem) + a.sym + "\n";
         return std::string();
     }
-    if (!strcmp(mnem, "call")) {
+    if (X86_MEQ(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
                                                     : (x86_rec("call") + x86_portname(a.port) + "\n"));
         if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);
@@ -1551,28 +1546,28 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         }
         return std::string();
     }
-    if (!strcmp(mnem, "call_rt")) {
+    if (X86_MEQ(mnem, "call_rt")) {
         if (a.kind == XK_SYM && b.kind == XK_IMM && c.kind == XK_IMM)
             return x86_rtcc_call_descr(a.sym, (uint64_t)c.imm, (int)b.imm);
         return std::string();
     }
-    if (!strcmp(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }
-    if (!strcmp(mnem, "call_bare")) {
+    if (X86_MEQ(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }
+    if (X86_MEQ(mnem, "call_bare")) {
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_call_text(a.sym, "");
         return std::string();
     }
-    if (!strcmp(mnem, "rtcc_wb")) {
+    if (X86_MEQ(mnem, "rtcc_wb")) {
         unsigned vm = x86_rtcc_live_mask(); if (!vm) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_ALL & vm)) : x86_rtcc_wb_text(RTCC_C_ALL & vm);
     }
-    if (!strcmp(mnem, "rtcc_rl")) {
+    if (X86_MEQ(mnem, "rtcc_rl")) {
         unsigned vm = x86_rtcc_live_mask(); if (!vm) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_ALL & vm)) : x86_rtcc_rl_text(RTCC_C_ALL & vm);
     }
-    if (!strcmp(mnem, "rtcc_anchor_cmp")) {
+    if (X86_MEQ(mnem, "rtcc_anchor_cmp")) {
         if (!RTCC_GLOBAL_R8_ANCHOR) {
             uint64_t anchor_addr = (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr();
             if (MEDIUM_BINARY) {
@@ -1587,20 +1582,20 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (MEDIUM_BINARY) { std::string s; s += (char)0x4D; s += (char)0x85; s += (char)0xC0; return x86_Lrec(s); }
         return x86_rec("test") + "r8, r8\n";
     }
-    if (!strcmp(mnem, "push")) return x86_push(a.txt);
-    if (!strcmp(mnem, "pop"))  return x86_pop(a.txt);
-    if (!strcmp(mnem, "idiv")) return x86_idiv(a.txt);
-    if (!strcmp(mnem, "neg"))  return x86_neg(a.txt);
-    if (!strcmp(mnem, "inc")) {
+    if (X86_MEQ(mnem, "push")) return x86_push(a.txt);
+    if (X86_MEQ(mnem, "pop"))  return x86_pop(a.txt);
+    if (X86_MEQ(mnem, "idiv")) return x86_idiv(a.txt);
+    if (X86_MEQ(mnem, "neg"))  return x86_neg(a.txt);
+    if (X86_MEQ(mnem, "inc")) {
         if (a.kind == XK_FR64) return x86_frame_inc64(a.off);
         if (a.kind == XK_REG) return x86_inc_r(a.txt);
         if (a.kind == XK_REGDISP) return x86_reg_disp32_inc64(a.base, a.off);
         return x86_bomb("x86: inc operand kind unencodable -- an encoder that cannot encode must refuse loudly, never emit nothing (the silent empty here deleted the to-box increment from every armed generator graph; ceo s283)");
     }
-    if (!strcmp(mnem, "movabs")) {
+    if (X86_MEQ(mnem, "movabs")) {
         if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movabs_r64(a.txt, (uint64_t)b.imm);
     }
-    if (!strcmp(mnem, "mov")) {
+    if (X86_MEQ(mnem, "mov")) {
         if (a.kind == XK_REG && b.kind == XK_R13RCX && a.txt && a.txt[0] == 'r' && a.txt[strlen(a.txt) - 1] != 'd') return x86_mov_subj_q(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_mov_subj_d(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_REG)     return x86_frame_store(a.off, b.txt);
@@ -1634,11 +1629,11 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
     }
-    if (!strcmp(mnem, "mov32")) { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movimm32(a.txt, b.imm); return std::string(); }
-    if (!strcmp(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
-    if (!strcmp(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
-    if (!strcmp(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "lea")) {
+    if (X86_MEQ(mnem, "mov32")) { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movimm32(a.txt, b.imm); return std::string(); }
+    if (X86_MEQ(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
+    if (X86_MEQ(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
+    if (X86_MEQ(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "lea")) {
         if (a.kind == XK_REG && b.kind == XK_ILBL)                  return x86_lea_rip_id(a.txt, b.lbl);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && b.kind == XK_RIPGOT)                return x86_load_got(a.txt, xd.s, xc.u);
@@ -1657,7 +1652,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         }
         return std::string();
     }
-    if (!strcmp(mnem, "add")) {
+    if (X86_MEQ(mnem, "add")) {
         if (a.kind == XK_REG && b.kind == XK_REG)  return x86_add_rr(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM)  return x86_add(a.txt, b.imm);
         if (a.kind == XK_ABS64 && b.kind == XK_IMM) return x86_abs_disp32_addsub_imm8(0, a.imm, b.imm);
@@ -1674,7 +1669,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         }
         return std::string();
     }
-    if (!strcmp(mnem, "sub")) {
+    if (X86_MEQ(mnem, "sub")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_sub_rr(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_sub(a.txt, b.imm);
         if (a.kind == XK_ABS64 && b.kind == XK_IMM) return x86_abs_disp32_addsub_imm8(1, a.imm, b.imm);
@@ -1687,10 +1682,10 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         }
         return std::string();
     }
-    if (!strcmp(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
-    if (!strcmp(mnem, "and"))    { if (b.kind == XK_IMM) return x86_and(a.txt, b.imm); if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "or"))     { if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "cmp")) {
+    if (X86_MEQ(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
+    if (X86_MEQ(mnem, "and"))    { if (b.kind == XK_IMM) return x86_and(a.txt, b.imm); if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "or"))     { if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "cmp")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_cmp(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_cmp_imm(a.txt, b.imm);
         if (a.kind == XK_REG && b.kind == XK_ABS64) return x86_cmp_reg_abs64(a.txt, b.imm);
@@ -1702,16 +1697,16 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         }
         return std::string();
     }
-    if (!strcmp(mnem, "cmp64"))  { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
-    if (!strcmp(mnem, "test"))   { return x86_test(a.txt, b.txt); }
-    if (!strcmp(mnem, "movsxd")) {
+    if (X86_MEQ(mnem, "cmp64"))  { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
+    if (X86_MEQ(mnem, "test"))   { return x86_test(a.txt, b.txt); }
+    if (X86_MEQ(mnem, "movsxd")) {
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_movsxd_frame(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_REG)  return x86_movsxd(a.txt, b.txt);
         fprintf(stderr, "FATAL x86(\"movsxd\"): no dispatch arm for operand pair kinds (%d, %d) — dest '%s', src '%s'.  A movsxd emitting the reg/reg form for a memory source is the mode-3/mode-4 divergence class (scan-nary saved_delta, 2026-07-13); add the encoder + dispatch case here (R7).\n",
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
     }
-    if (!strcmp(mnem, "movzx"))  {
+    if (X86_MEQ(mnem, "movzx"))  {
         if (b.kind == XK_MEMBI)  return x86_movzx_bir(a.txt, b.base, b.idx);
         if (b.kind == XK_REG) {
             int g = x86_rnum(a.txt), m = x86_rnum(b.txt);
@@ -1722,22 +1717,22 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         }
         return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0);
     }
-    if (!strcmp(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
-    if (!strcmp(mnem, "bt"))     { (void)a; (void)b; return x86_cset_bt(); }
-    if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
-    if (!strcmp(mnem, "movsd"))  {
+    if (X86_MEQ(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
+    if (X86_MEQ(mnem, "bt"))     { (void)a; (void)b; return x86_cset_bt(); }
+    if (X86_MEQ(mnem, "xorps"))  { return x86_xorps_xmm0(); }
+    if (X86_MEQ(mnem, "movsd"))  {
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }
         return std::string();
     }
-    if (!strcmp(mnem, "movq")) {
+    if (X86_MEQ(mnem, "movq")) {
         if (a.kind == XK_REG && b.kind == XK_REG && a.txt && !strncmp(a.txt, "xmm", 3)) return x86_movq_xmm_r64(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_REG && b.txt && !strncmp(b.txt, "xmm", 3)) return x86_movq_r64_xmm(a.txt, b.txt);
         return std::string();
     }
-    if (!strcmp(mnem, "addsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("addsd", 0x58, a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "subsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("subsd", 0x5C, a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "mulsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("mulsd", 0x59, a.txt, b.txt); return std::string(); }
-    if (!strcmp(mnem, "cvtsi2sd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_cvtsi2sd_xmm_r64(a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "addsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("addsd", 0x58, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "subsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("subsd", 0x5C, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "mulsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("mulsd", 0x59, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "cvtsi2sd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_cvtsi2sd_xmm_r64(a.txt, b.txt); return std::string(); }
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
