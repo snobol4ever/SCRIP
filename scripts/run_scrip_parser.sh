@@ -58,7 +58,7 @@ if [ -f "$SD/${LANG}_helpers.sc" ]; then
 fi
 
 if [ -n "$SRC" ]; then
-    timeout 30 "$SCRIP" --run "${RUNTIME[@]}" "${LOWER[@]}" "${HELPERS[@]}" "$DRIVER" < "$SRC"
+    timeout 30 "$SCRIP" --run -s4096m -d16384m "${RUNTIME[@]}" "${LOWER[@]}" "${HELPERS[@]}" "$DRIVER" < "$SRC"
 else
-    timeout 30 "$SCRIP" --run "${RUNTIME[@]}" "${LOWER[@]}" "${HELPERS[@]}" "$DRIVER"
+    timeout 30 "$SCRIP" --run -s4096m -d16384m "${RUNTIME[@]}" "${LOWER[@]}" "${HELPERS[@]}" "$DRIVER"
 fi

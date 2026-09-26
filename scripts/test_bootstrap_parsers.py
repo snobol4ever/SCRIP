@@ -52,7 +52,12 @@ LANGS = {
 SPITBOL_ERR = re.compile(r"\bERROR \d+ --")
 # SPITBOL's default stack (-s4m) is too small for a recursive grammar on a 1000-line source (ERROR 246 on beauty.sc and
 # beauty_modules.sc, both clean at -s16m); 64m is the knob, printed on the board line. -s256m exceeds this box's limit.
-SBL_STACK = os.environ.get("SBL_STACK") or "64m"
+# HUGE HEAP AND HUGE STACK, ALWAYS (Lon 2026-09-26, in-chat to hq_snocone, verbatim: "You should run with huge heap and huge stack
+# always to avoid limits."): the largest values each engine accepts -- sbl -s2000m -d4000m (-s1g dumps core, -d1g "Workspace memory
+# unavailable", -s needs -d above it); scrip -s4096m -d16384m (m-suffixed, no g), lazily committed, RSS 45 MB either way.
+SBL_STACK = os.environ.get("SBL_STACK") or "2000m"
+SBL_HEAP = os.environ.get("SBL_HEAP") or "4000m"
+SCRIP_ARENA = ["-s4096m", "-d16384m"]
 SCRIP_ERR = re.compile(r"^(?:\S+:\d+: )?(?:Error \d+|error:|FATAL|scrip: )", re.M)
 
 
@@ -138,9 +143,9 @@ def build_arm(lang, arm, work):
     if arm == "sbl":
         if not SBL.is_file():
             refuse(f"no SPITBOL oracle at {SBL}")
-        return [str(SBL), "-bf", "-s" + SBL_STACK, str(prog)], d
+        return [str(SBL), "-bf", "-s" + SBL_STACK, "-d" + SBL_HEAP, str(prog)], d
     if arm in ("m3", "sc3"):
-        return [str(SCRIP), str(prog)], d
+        return [str(SCRIP)] + SCRIP_ARENA + [str(prog)], d
     exe = d / f"{prog.stem}.{arm}.bin"
     asm = d / f"{prog.stem}.{arm}.s"
     obj = d / f"{prog.stem}.{arm}.o"
@@ -150,7 +155,7 @@ def build_arm(lang, arm, work):
         r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=600)
         if r.returncode != 0:
             refuse(f"{arm} build step failed rc={r.returncode}: {' '.join(cmd[:3])} ... {(r.stderr or r.stdout)[:300]}")
-    return [str(exe)], d
+    return [str(exe)] + SCRIP_ARENA, d
 
 
 def classify(arm, rc, text, timed_out):
@@ -232,7 +237,7 @@ def main():
         for c, _, _ in results.values():
             counts[c] += 1
         nfile = sum(1 for n, _ in pop if not n.startswith("master:"))
-        print(f"bootstrap parser {lang} arm={a.arm}" + (f" sbl -s{SBL_STACK}" if a.arm == "sbl" else "")
+        print(f"bootstrap parser {lang} arm={a.arm}" + (f" sbl -s{SBL_STACK} -d{SBL_HEAP}" if a.arm == "sbl" else f" scrip {' '.join(SCRIP_ARENA)}")
               + f" SCRIP {git_head(SCRIP_DIR)} corpus {git_head(CORPUS)} work={work / lang}")
         print(f"POPULATION {lang}: files={nfile} master={len(pop) - nfile} total={len(pop)}")
         print(f"BOARD {lang} {a.arm}: PARSED={counts['PARSED']} REFUSED={counts['REFUSED']} CRASH={counts['CRASH']} "

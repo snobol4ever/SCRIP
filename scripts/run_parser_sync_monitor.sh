@@ -125,7 +125,7 @@ fi
 
 # STEP 2 -- the oracle first. SPITBOL exits 0 even on an ERROR, so its TEXT is read, never its rc.
 SBL="${SBL:-/home/resources/x64/bin/sbl}"
-ORACLE_OUT="$(timeout 60 "$SBL" -bf -s64m "$SNO_OUT" < "$SAMPLE" 2>&1)"
+ORACLE_OUT="$(timeout 60 "$SBL" -bf -s2000m -d4000m "$SNO_OUT" < "$SAMPLE" 2>&1)"
 if printf '%s\n' "$ORACLE_OUT" | grep -qE '^Parse Error\.?$|ERROR [0-9]+ --'; then
     echo "[run_parser_sync_monitor] STEP 2 NOT DONE: SPITBOL itself does not parse $SAMPLE through $SNO_OUT:"
     printf '%s\n' "$ORACLE_OUT" | grep -v '^$' | head -5 | sed 's/^/    /'

@@ -46,6 +46,9 @@ SEQ = re.compile(r"^SEQ[0-9]")
 # program's limit is 10 x that start-up, clamped to TMIN..TMAX; a chain that cannot start within TBOOT makes every program of its
 # language a CRASH named START-UP, none run (each would only time out later). --timeout S still fixes one limit for all.
 TMIN, TMAX, TBOOT = 10, 300, 120
+# HUGE HEAP AND HUGE STACK, ALWAYS (Lon 2026-09-26, in-chat to hq_snocone, verbatim: "You should run with huge heap and huge stack
+# always to avoid limits."): the largest values the driver accepts (m-suffixed; no g), committed lazily (RSS 45 MB either way).
+ARENA = ["-s4096m", "-d16384m"]
 
 
 def refuse(msg):
@@ -68,7 +71,7 @@ def extract(src, ref, key, by_origin, out):
 def parse_one(scrip, chain, prog, timeout):
     try:
         with open(prog, "rb") as f:
-            r = subprocess.run([scrip, chain], stdin=f, capture_output=True, timeout=timeout)
+            r = subprocess.run([scrip] + ARENA + [chain], stdin=f, capture_output=True, timeout=timeout)
         text = (r.stdout + r.stderr).decode("utf-8", "replace")
         tag = ""
     except subprocess.TimeoutExpired as e:
@@ -182,7 +185,7 @@ def main(argv):
             os.makedirs(d, exist_ok=True)
             for key, by_origin in keys:
                 work.append((scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout))
-        print("PARSER-SC CENSUS, population %s, tree %s, timeout %s, jobs %d, declared refusals %d from %s" % (pop, subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), ("%ss per program (--timeout)" % timeout) if timeout else "per language, 10 x its start-up on an empty input, %d..%d s" % (TMIN, TMAX), jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
+        print("PARSER-SC CENSUS, population %s, arena %s, tree %s, timeout %s, jobs %d, declared refusals %d from %s" % (pop, " ".join(ARENA), subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), ("%ss per program (--timeout)" % timeout) if timeout else "per language, 10 x its start-up on an empty input, %d..%d s" % (TMIN, TMAX), jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
         print("%-8s %6s %7s %6s %8s %8s %6s %6s %6s  %s" % ("lang", "pop", "PARSED", "RECOG", "REFUSED", "DECLARED", "CRASH", "EMPTY", "UNEXT", "first undeclared refusal / first crash / first empty"), flush=True)
         red = unext = tp = tn = 0
         for lang, _ in langs:
@@ -192,7 +195,7 @@ def main(argv):
             if not timeout:
                 t0 = time.time()
                 try:
-                    subprocess.run([scrip, mine[0][1] if mine else os.devnull], stdin=subprocess.DEVNULL, capture_output=True, timeout=TBOOT)
+                    subprocess.run([scrip] + ARENA + [mine[0][1] if mine else os.devnull], stdin=subprocess.DEVNULL, capture_output=True, timeout=TBOOT)
                     boot_s = time.time() - t0
                     tl = int(max(TMIN, min(TMAX, 10 * boot_s)))
                 except subprocess.TimeoutExpired:
