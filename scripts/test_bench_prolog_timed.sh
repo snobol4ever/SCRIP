@@ -38,6 +38,7 @@ KERNELS="${KERNELS:-}"   # optional allowlist, same convention as bench_prolog_f
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
+command -v gplc    >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gplc absent (GNU Prolog's native compiler, the gplc arm)"; exit 2; }
 # ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
 # Ten of the 21 van Roy kernels are self-timed on the two-number basis and call wall_us/1 + wall_ms/1 -- SCRIP builtins that are
 # UNDEFINED on gprolog/swipl unless prelude_gplc.pl / prelude_swipl.pl is consulted first. MEASURED before this line existed: every
@@ -77,7 +78,7 @@ ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 # wrapper here: a second producer is how angle 1 came to have a rate and no work number for months.
 genwrap() {
   local src="$1" n="$2" out="$3" eng="$4" ge
-  case "$eng" in gnu) ge=gnu ;; swi) ge=swi ;; *) ge=scrip ;; esac
+  case "$eng" in gnu|gplc) ge=gnu ;; swi) ge=swi ;; *) ge=scrip ;; esac
   "$GEN" "$src" --mode=iter --n="$n" --engine="$ge" -o "$out" >/dev/null 2>"$W/gen.err"
 }
 
@@ -94,6 +95,14 @@ run1() {
     #   ⭐ A doubled prelude is invisible on every engine that tolerates redefinition and fatal on the
     #   one that does not, which is why this comment is longer than the fix.
     gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    # ⭐ gplc -- GNU Prolog's NATIVE compiler (Prolog -> WAM -> mini-assembly -> x86-64, linked; ceo CEO-1281 on Lon's question of 2026-09-26,
+    #   "Is GNU Prolog a true compiler?"): the gnu arm above is gprolog's BYTE-CODE WAM interpreter (a consulted file never becomes native
+    #   code), so until this arm the grid compared SCRIP with two interpreters. Same generated program as gnu (--engine=gnu inlines the
+    #   real_time/1 prelude), compiled here with --no-top-level so the binary exits after its initialization goals and prints no banner.
+    #   MEASURED at the arm's birth: nrev at 65536 iterations, gplc 371 ms of work against 911-930 ms consulted -- about 2.5x.
+    gplc) local gb="$W/$$.gplc"; rm -f "$gb"
+         if ! (cd "$W" && timeout -k 5 "$T" gplc --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- GPLC-BUILD-ERR"; return; fi
+         out=$("$WRAP" timeout -k 5 "$T" "$gb" >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
@@ -141,15 +150,15 @@ search() {
 }
 
 echo "TIME-BASED PROLOG BENCHMARKS -- angle 1: fixed wall-time budget (${BUDGET_MS}ms), iterations counted via live doubling search"
-echo "engines: gnu swi m3 m4   corpus: $B   budget: TIME_BUDGET_MS=$BUDGET_MS cap NMAX=$NMAX   external instrument: tools/bench_rusage"
+echo "engines: gnu gplc swi m3 m4 (gnu = gprolog --consult-file, the byte-code WAM; gplc = GNU Prolog compiled native)   corpus: $B   budget: TIME_BUDGET_MS=$BUDGET_MS cap NMAX=$NMAX   external instrument: tools/bench_rusage"
 echo "wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567 -- this angle no longer writes its own)"
 # ⛔ CEO-697: A COST WITHOUT THE LOAD IT RAN UNDER IS NOT A COST, and perf_grid_begin welds the load to
 #   the shared-axes line so this harness CANNOT print a rate without it -- two runs of one tree on this
 #   box have been measured differing by up to 2.15x.
 perf_grid_begin "Prolog kernels vs gnu/swi -- angle 1, live doubling search · rate = iterations / CPU(user+sys) · WORK = self-measured wall inside the bracket · RT_OPT=-O0"
 echo
-printf "%-14s %14s %14s %14s %14s  %s\n" BENCHMARK gnu/s swi/s m3/s m4/s check
-printf "%-14s %14s %14s %14s %14s  %s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "-----"
+printf "%-14s %14s %14s %14s %14s %14s  %s\n" BENCHMARK gnu/s gplc/s swi/s m3/s m4/s check
+printf "%-14s %14s %14s %14s %14s %14s  %s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "--------------" "-----"
 tot_ok=0; tot_skip=0; tot_dark_rows=0
 declare -A BWORK=(); declare -A BOVH=(); declare -A BN=(); basis_rows=()
 for pl in "$B"/*.pl; do
@@ -163,11 +172,12 @@ for pl in "$B"/*.pl; do
   go=$(cd "$W" && timeout -k 5 15 gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
   so=$(cd "$W" && timeout -k 5 15 swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" 2>/dev/null </dev/null | head -200)
   m3o=$(cd "$W" && timeout -k 5 15 "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>/dev/null | head -200)
-  if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
-    printf "%-14s %14s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP SKIP "correctness-fail(single-shot)"; tot_skip=$((tot_skip+1)); continue
+  gpo=$(cd "$W" && rm -f ss.gplc && gplc --no-top-level -o ss.gplc "$pl" >/dev/null 2>&1 && timeout -k 5 15 ./ss.gplc </dev/null 2>/dev/null | head -200)
+  if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ] || [ "$gpo" != "$want" ]; then
+    printf "%-14s %14s %14s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP SKIP SKIP "correctness-fail(single-shot$([ "$go" != "$want" ] && printf " gnu")$([ "$gpo" != "$want" ] && printf " gplc")$([ "$so" != "$want" ] && printf " swi")$([ "$m3o" != "$want" ] && printf " m3"))"; tot_skip=$((tot_skip+1)); continue
   fi
   declare -A R=() C=()
-  for eng in gnu swi m3 m4; do
+  for eng in gnu gplc swi m3 m4; do
     res=$(search "$eng" "$pl"); n=$(awk '{print $1}' <<<"$res")
     r=$(awk '{print $2}' <<<"$res")
     case "$r" in
@@ -207,9 +217,9 @@ for pl in "$B"/*.pl; do
   #   kernels that were NA on every engine: the board read "m4@N=1:NONZERO(124)" and a reader concluded m4
   #   was the problem, when gnu, swi and m3 had failed too.  An instrument that reports one cause for four
   #   failures is not shorter, it is wrong about WHICH SUBJECT is broken.
-  ckstat=ok; for eng in gnu swi m3 m4; do [ -n "${C[$eng]:-}" ] && { [ "$ckstat" = ok ] && ckstat="${C[$eng]}" || ckstat="$ckstat; ${C[$eng]}"; }; done
+  ckstat=ok; for eng in gnu gplc swi m3 m4; do [ -n "${C[$eng]:-}" ] && { [ "$ckstat" = ok ] && ckstat="${C[$eng]}" || ckstat="$ckstat; ${C[$eng]}"; }; done
   [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1)) || tot_dark_rows=$((tot_dark_rows+1))
-  printf "%-14s %14s %14s %14s %14s  %s\n" "$k" "${R[gnu]:-NA}" "${R[swi]:-NA}" "${R[m3]:-NA}" "${R[m4]:-NA}" "$ckstat"
+  printf "%-14s %14s %14s %14s %14s %14s  %s\n" "$k" "${R[gnu]:-NA}" "${R[gplc]:-NA}" "${R[swi]:-NA}" "${R[m3]:-NA}" "${R[m4]:-NA}" "$ckstat"
 done
 # ⭐⭐ THE TWO-NUMBER WORK/OVERHEAD BASIS ON ANGLE 1 -- the CEO-567 DONE-WHEN clause "the three angles
 #   run over the wrapped form with the process wrapper's numbers printed beside the self-measured ones".
@@ -222,10 +232,10 @@ echo
 echo "N ACTUALLY RUN, PER ENGINE -- the basis of both grids below, printed because it DIFFERS per engine"
 echo "  ⛔ angle 1 derives N live per engine (that is the independence property it exists for), so a RAW"
 echo "  work_us column here would compare each engine at a different N. Read the two grids with these N."
-printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
-printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+printf "%-14s %14s %14s %14s %14s %14s\n" BENCHMARK gnu gplc swi m3 m4
+printf "%-14s %14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "--------------"
 for k in "${basis_rows[@]}"; do
-  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BN[$k:gnu]:--}" "${BN[$k:swi]:--}" "${BN[$k:m3]:--}" "${BN[$k:m4]:--}"
+  printf "%-14s %14s %14s %14s %14s %14s\n" "$k" "${BN[$k:gnu]:--}" "${BN[$k:gplc]:--}" "${BN[$k:swi]:--}" "${BN[$k:m3]:--}" "${BN[$k:m4]:--}"
 done
 echo
 echo "SELF-MEASURED WORK PER ITERATION (us/iter) = work_us / N -- read from INSIDE the generated bracket,"
@@ -234,10 +244,10 @@ echo "  startup entirely AND divides out each engine's own N."
 echo "  ⛔ PRECISION FLOOR: gprolog's wall_us is real_time/1 x 1000 -- a UNIT CONVERSION of a 1 ms tick,"
 echo "  not sub-ms precision (prelude_gplc.pl says so in its own header). A gnu cell whose work_us is a"
 echo "  few thousand is a few TICKS; do not build a multiple on it."
-printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
-printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+printf "%-14s %14s %14s %14s %14s %14s\n" BENCHMARK gnu gplc swi m3 m4
+printf "%-14s %14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "--------------"
 for k in "${basis_rows[@]}"; do
-  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BWORK[$k:gnu]:-DARK}" "${BWORK[$k:swi]:-DARK}" "${BWORK[$k:m3]:-DARK}" "${BWORK[$k:m4]:-DARK}"
+  printf "%-14s %14s %14s %14s %14s %14s\n" "$k" "${BWORK[$k:gnu]:-DARK}" "${BWORK[$k:gplc]:-DARK}" "${BWORK[$k:swi]:-DARK}" "${BWORK[$k:m3]:-DARK}" "${BWORK[$k:m4]:-DARK}"
 done
 echo
 echo "OVERHEAD (us, PER RUN not per iteration) = external elapsed (tools/bench_rusage, CLOCK_MONOTONIC)"
@@ -246,10 +256,10 @@ echo "  N-independent, which is why it is NOT divided by N the way the work colu
 echo "  ⛔ wall minus wall, never CPU minus wall -- the rate column above uses CPU and is a DIFFERENT"
 echo "  instrument; subtracting across the two would publish the difference of two clocks as an overhead."
 echo "  DARK = the engine ran but its bracket reported no work_us; it is named, never left blank (CEO-676)."
-printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
-printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+printf "%-14s %14s %14s %14s %14s %14s\n" BENCHMARK gnu gplc swi m3 m4
+printf "%-14s %14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "--------------"
 for k in "${basis_rows[@]}"; do
-  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]:-DARK}" "${BOVH[$k:swi]:-DARK}" "${BOVH[$k:m3]:-DARK}" "${BOVH[$k:m4]:-DARK}"
+  printf "%-14s %14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]:-DARK}" "${BOVH[$k:gplc]:-DARK}" "${BOVH[$k:swi]:-DARK}" "${BOVH[$k:m3]:-DARK}" "${BOVH[$k:m4]:-DARK}"
 done
 echo
 echo "DECLARED SIDECARS carried as switches on the m3 and m4 command lines (lib_declared_arena.sh, the suite runner's reader; CEO-1281): ${#DECLW[@]} kernel(s)"

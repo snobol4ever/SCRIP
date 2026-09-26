@@ -43,7 +43,7 @@ gen_counted_set() {
   [ -x "$gen" ] || { echo "⛔ REFUSED (rc=2): wrapper generator missing: $gen -- the counted form is generated, never checked in (CEO-567)" >&2; return 2; }
   mkdir -p "$out" || return 2
   local made=0
-  while IFS=$'\t' read -r k n; do
+  while IFS=$'\t' read -r k n _nr; do   # _nr: the rival count column (CEO-1281) -- this set is the SCRIP count's; a two-field read would swallow it into n
     case "$k" in ''|'#'*|kernel) continue ;; esac
     case "$n" in ''|*[!0-9]*) echo "⛔ REFUSED (rc=2): $tsv row '$k' has a non-numeric N '$n'" >&2; return 2 ;; esac
     src="$pro/bench/$k.pl"

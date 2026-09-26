@@ -52,6 +52,7 @@ KERNELS="${KERNELS:-}"
 [ -x "$GEN" ] || { echo "⛔ REFUSED-TO-GRADE wrapper generator missing: $GEN -- the counted form is generated, never checked in (CEO-567)"; exit 2; }
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
+command -v gplc    >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gplc absent (GNU Prolog's native compiler, the gplc arm)"; exit 2; }
 # ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
 # The generated wrapper calls wall_us/1 + wall_ms/1, which gprolog and swipl do not have; prelude_gplc.pl / prelude_swipl.pl supply
 # them. MEASURED before that line existed: every bracketed kernel failed the rival correctness gate with existence_error(wall_us/1),
@@ -78,10 +79,16 @@ ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 
 # ⛔ THE TABLE IS THE ONLY SOURCE OF N HERE. It is read once, up front, so an unreadable or orphaned row
 # REFUSES before a single engine is launched rather than printing a board that is quietly smaller.
-declare -A NCOMMIT=(); order=()
-while IFS=$'\t' read -r k n; do
+# ⭐ TWO COUNT COLUMNS SINCE CEO-1281 (2026-09-26), THE PASCAL SCALE.tsv PRECEDENT: N is the SCRIP count (m3, m4) and N_rival the count for
+#   gnu, gplc and swi, defaulting to N when the column is empty. gplc (GNU Prolog compiled native) runs the fast kernels 20-80x faster than
+#   mode 3, and its clock ticks at 1 ms, so one shared count either starves the rival bracket (cal at 524288: 63 ms on gplc, 1.15x between
+#   its angles) or costs mode 3 a quarter of a minute per kernel. The per-iteration figures below divide each engine by ITS count.
+declare -A NCOMMIT=(); declare -A NRIVAL=(); order=()
+while IFS=$'\t' read -r k n nr; do
   case "$k" in ''|'#'*|kernel) continue ;; esac
   case "$n" in ''|*[!0-9]*) echo "⛔ REFUSED-TO-GRADE: $NTSV row '$k' has a non-numeric N '$n'"; exit 2 ;; esac
+  case "$nr" in '') nr="$n" ;; *[!0-9]*) echo "⛔ REFUSED-TO-GRADE: $NTSV row '$k' has a non-numeric N_rival '$nr'"; exit 2 ;; esac
+  NRIVAL["$k"]="$nr"
   [ -f "$B/$k.pl" ] || { echo "⛔ REFUSED-TO-GRADE: $NTSV names '$k' but $B/$k.pl does not exist -- an orphan denominator entry is a lie, not a smaller board"; exit 2; }
   NCOMMIT["$k"]="$n"; order+=("$k")
 done < "$NTSV"
@@ -93,6 +100,14 @@ run1() {
   local eng="$1" pl="$2" n="${3:-}" exp="${4:-}" out rl user sys nivcsw r
   case "$eng" in
     gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    # ⭐ gplc -- GNU Prolog's NATIVE compiler (Prolog -> WAM -> mini-assembly -> x86-64, linked; ceo CEO-1281 on Lon's question of 2026-09-26,
+    #   "Is GNU Prolog a true compiler?"): the gnu arm above is gprolog's BYTE-CODE WAM interpreter (a consulted file never becomes native
+    #   code), so until this arm the grid compared SCRIP with two interpreters. Same generated program as gnu (--engine=gnu inlines the
+    #   real_time/1 prelude), compiled here with --no-top-level so the binary exits after its initialization goals and prints no banner.
+    #   MEASURED at the arm's birth: nrev at 65536 iterations, gplc 371 ms of work against 911-930 ms consulted -- about 2.5x.
+    gplc) local gb="$W/$$.gplc"; rm -f "$gb"
+         if ! (cd "$W" && timeout -k 5 "$T" gplc --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- GPLC-BUILD-ERR"; return; fi
+         out=$("$WRAP" timeout -k 5 "$T" "$gb" >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
@@ -137,7 +152,7 @@ run1() {
 
 echo "FIXED-ITERATION PROLOG BENCHMARKS -- angle 2: N fixed per kernel (committed in $NTSV), external cpu time measured"
 echo "kernels: $B (pristine, verbatim)   wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567)"
-echo "engines: gnu swi m3 m4   external instrument: tools/bench_rusage (user+sys cpu time)"
+echo "engines: gnu gplc swi m3 m4 (gnu = gprolog --consult-file, the byte-code WAM; gplc = GNU Prolog compiled native)   external instrument: tools/bench_rusage (user+sys cpu time)"
 # ⛔⭐ THE LOAD STAMP IS THE PRINTER'S JOB AND IT BELONGS ABOVE THE NUMBERS, NOT UNDER THEM (hq_P
 #   2026-09-13).  This harness hand-rolled its own LOAD line and printed it AFTER the last grid, so a
 #   reader who pasted a grid -- which is what anyone pastes -- carried the numbers away and left the
@@ -146,28 +161,29 @@ echo "engines: gnu swi m3 m4   external instrument: tools/bench_rusage (user+sys
 #   measured differing by up to 2.15x, so the stamp is not decoration.
 perf_grid_begin "Prolog kernels vs gnu/swi -- angle 2, N committed per kernel in $(basename "$NTSV") · rate = iterations / CPU(user+sys) · WORK = self-measured wall inside the bracket · RT_OPT=-O0"
 echo
-printf "%-14s %10s %14s %14s %14s %14s  %s\n" BENCHMARK N gnu/s swi/s m3/s m4/s check
-printf "%-14s %10s %14s %14s %14s %14s  %s\n" "--------------" "----------" "--------------" "--------------" "--------------" "--------------" "-----"
+printf "%-14s %10s %14s %14s %14s %14s %14s  %s\n" BENCHMARK N[/N_rival] gnu/s gplc/s swi/s m3/s m4/s check
+printf "%-14s %10s %14s %14s %14s %14s %14s  %s\n" "--------------" "----------" "--------------" "--------------" "--------------" "--------------" "--------------" "-----"
 tot_ok=0; tot_bad=0
 declare -A BWORK=(); declare -A BOVH=(); basis_rows=()
 for k in "${order[@]}"; do
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
-  N="${NCOMMIT[$k]}"; pl="$B/$k.pl"
+  N="${NCOMMIT[$k]}"; NR="${NRIVAL[$k]}"; pl="$B/$k.pl"
   DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above) -- a program whose declaration cannot be read is not timed under the default it did not ask for"; exit 2; }
   [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
   ckstat=ok; declare -A RATE=(); declare -A WORK=(); declare -A OVH=(); local_el=""; local_wk=""
-  for eng in gnu swi m3 m4; do
+  for eng in gnu gplc swi m3 m4; do
     # ⛔ --engine names WHO WILL RUN THE OUTPUT and changes only the PRELUDE, never the kernel; m3 and m4 are
     # both the SCRIP arm, which gets no prelude because SCRIP's Prolog has no wall clock at any spelling.
-    case "$eng" in gnu) ge=gnu ;; swi) ge=swi ;; *) ge=scrip ;; esac
+    case "$eng" in gnu|gplc) ge=gnu ;; swi) ge=swi ;; *) ge=scrip ;; esac
+    case "$eng" in m3|m4) EN="$N" ;; *) EN="$NR" ;; esac   # the engine's own count (CEO-1281)
     gpl="$W/gen.$k.$ge.pl"
     if [ ! -s "$gpl" ]; then
-      if ! "$GEN" "$B/$k.pl" --mode=iter --n="$N" --engine="$ge" -o "$gpl" >/dev/null 2>"$W/gen.err"; then
+      if ! "$GEN" "$B/$k.pl" --mode=iter --n="$EN" --engine="$ge" -o "$gpl" >/dev/null 2>"$W/gen.err"; then
         RATE[$eng]="NA"; perf_dark_cell "$k/$eng" "generator refused: $(head -1 "$W/gen.err" | cut -c1-48)"
         [ "$ckstat" = ok ] && ckstat="$eng:GEN-REFUSED($(head -1 "$W/gen.err" | cut -c1-48))"; continue
       fi
     fi
-    res=$(run1 "$eng" "$gpl" "$N" "$B/$k.ref"); cpu=$(awk '{print $1}' <<<"$res")
+    res=$(run1 "$eng" "$gpl" "$EN" "$B/$k.ref"); cpu=$(awk '{print $1}' <<<"$res")
     if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; WORK[$eng]="NA"; OVH[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res")
       # ⛔ ONE BUMP PER UNMEASURED (kernel, engine) PAIR, not per printed cell: one failed run darkens
       #   the same measurement in the rate, work and overhead grids, and counting it three times would
@@ -175,19 +191,19 @@ for k in "${order[@]}"; do
       perf_dark_cell "$k/$eng" "run produced no cpu time: $reason"
       [ "$ckstat" = ok ] && ckstat="$eng:$reason"
     else
-      RATE[$eng]=$(rate "$N" "$cpu")
+      RATE[$eng]=$(rate "$EN" "$cpu")
       local_el=$(awk '{print $3}' <<<"$res"); local_wk=$(awk '{print $4}' <<<"$res")
       # ⛔ A MISSING work_us IS PRINTED AS DARK, NEVER AS A BLANK AND NEVER AS ZERO (CEO-676,
       #   dark-is-worse-than-red): an engine whose bracket did not report is a cell that could not
       #   measure its subject, and it must say so in its own voice rather than leave the column empty.
       case "$local_wk" in ''|-|*[!0-9]*) WORK[$eng]="DARK"; OVH[$eng]="DARK"
           perf_dark_cell "$k/$eng" "the generated bracket reported no work_us" ;;
-        *) WORK[$eng]="$local_wk"; OVH[$eng]=$(( local_el - local_wk )) ;; esac
+        *) WORK[$eng]=$(awk -v w="$local_wk" -v n="$EN" 'BEGIN{printf "%.4f", (n>0)?w/n:0}'); OVH[$eng]=$(( local_el - local_wk )) ;; esac
     fi
   done
   [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1)) || tot_bad=$((tot_bad+1))
-  printf "%-14s %10s %14s %14s %14s %14s  %s\n" "$k" "$N" "${RATE[gnu]}" "${RATE[swi]}" "${RATE[m3]}" "${RATE[m4]}" "$ckstat"
-  for eng in gnu swi m3 m4; do BWORK["$k:$eng"]="${WORK[$eng]:-DARK}"; BOVH["$k:$eng"]="${OVH[$eng]:-DARK}"; done
+  printf "%-14s %10s %14s %14s %14s %14s %14s  %s\n" "$k" "$([ "$N" = "$NR" ] && printf %s "$N" || printf %s/%s "$N" "$NR")" "${RATE[gnu]}" "${RATE[gplc]}" "${RATE[swi]}" "${RATE[m3]}" "${RATE[m4]}" "$ckstat"
+  for eng in gnu gplc swi m3 m4; do BWORK["$k:$eng"]="${WORK[$eng]:-DARK}"; BOVH["$k:$eng"]="${OVH[$eng]:-DARK}"; done
   basis_rows+=("$k")
 done
 echo
@@ -200,22 +216,24 @@ echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad   (bad = crash/DNF/build-fail on at 
 #   a rival's self-measured work.  wall_us/1 and wall_ms/1 landing as real builtins (cto, 05317a5fb)
 #   is what fills these two grids in.
 echo
-echo "SELF-MEASURED WORK (us) -- read from INSIDE the generated bracket, wall clock (CLOCK_MONOTONIC)"
-echo "  this is the number that is comparable across engines: it excludes process startup entirely."
-printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
-printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+echo "SELF-MEASURED WORK PER ITERATION (us/iter) = work_us / the engine's own committed N -- read from INSIDE the generated bracket, wall clock"
+echo "  (CLOCK_MONOTONIC). This is the number comparable across engines: it excludes process startup entirely and divides out each"
+echo "  engine's count (N for m3/m4, N_rival for gnu/gplc/swi, the two columns of fixed-iter-n.tsv; CEO-1281 -- before it this block was raw"
+echo "  work_us over ONE shared N). ⛔ gprolog's and gplc's wall_us is real_time/1 x 1000, a 1 ms tick: N_rival is sized so the bracket holds 200 ms or more."
+printf "%-14s %14s %14s %14s %14s %14s\n" BENCHMARK gnu gplc swi m3 m4
+printf "%-14s %14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "--------------"
 for k in "${basis_rows[@]}"; do
-  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BWORK[$k:gnu]}" "${BWORK[$k:swi]}" "${BWORK[$k:m3]}" "${BWORK[$k:m4]}"
+  printf "%-14s %14s %14s %14s %14s %14s\n" "$k" "${BWORK[$k:gnu]}" "${BWORK[$k:gplc]}" "${BWORK[$k:swi]}" "${BWORK[$k:m3]}" "${BWORK[$k:m4]}"
 done
 echo
 echo "OVERHEAD (us) = external elapsed (tools/bench_rusage, CLOCK_MONOTONIC) MINUS self-measured work"
 echo "  ⛔ wall minus wall, never CPU minus wall -- the rate columns above use CPU and are a DIFFERENT"
 echo "  instrument; subtracting across the two would publish the difference of two clocks as an overhead."
 echo "  DARK = the engine ran but its bracket reported no work_us; it is named, never left blank (CEO-676)."
-printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
-printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+printf "%-14s %14s %14s %14s %14s %14s\n" BENCHMARK gnu gplc swi m3 m4
+printf "%-14s %14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "--------------"
 for k in "${basis_rows[@]}"; do
-  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]}" "${BOVH[$k:swi]}" "${BOVH[$k:m3]}" "${BOVH[$k:m4]}"
+  printf "%-14s %14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]}" "${BOVH[$k:gplc]}" "${BOVH[$k:swi]}" "${BOVH[$k:m3]}" "${BOVH[$k:m4]}"
 done
 echo
 echo "DECLARED SIDECARS carried as switches on the m3 and m4 command lines (lib_declared_arena.sh, the suite runner's reader; CEO-1281): ${#DECLW[@]} kernel(s)"

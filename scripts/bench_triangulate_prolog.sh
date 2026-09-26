@@ -88,7 +88,7 @@ A1_OUT="$(KERNELS="${KERNELS:-}" bash "$HERE/test_bench_prolog_timed.sh" 2>/dev/
 # ⛔ SAME FIRST-BLOCK-ONLY RULE AS parse() BELOW, AND FOR THE SAME REASON.  NF>=6 happens to exclude
 #   angle 1's 5-field basis grids TODAY, but that is the same column-count coincidence documented at
 #   parse(): one column either way and the live-kernel list silently grows duplicates from the N grid.
-measured_kernels=$(printf '%s\n' "$A1_OUT" | awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=6{print $1}')
+measured_kernels=$(printf '%s\n' "$A1_OUT" | awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=7{print $1}')   # 7 since the gplc column (CEO-1281): kernel + five rates + check
 A2_OUT=""
 if [ -n "$measured_kernels" ]; then
   A2_OUT="$(KERNELS="$(printf '%s' "$measured_kernels" | tr '\n' ' ')" bash "$HERE/bench_prolog_fixed_iter.sh" 2>/dev/null)"
@@ -115,7 +115,7 @@ fi
 parse() { awk -v ncol="$1" 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=ncol{print}' ; }
 # parseblk N ncol -- the Nth dashed block (the rows after the Nth /^-{5,}/ rule up to the first blank line), for the WORK grids both
 # angles print under their rate table: angle 1's third block is SELF-MEASURED WORK PER ITERATION (us/iter = work_us / N), angle 2's
-# second block is the raw SELF-MEASURED WORK (us) over its committed N. Same first-blank-line rule as parse(), indexed instead of first.
+# second block is SELF-MEASURED WORK PER ITERATION over each engine's own committed count (N or N_rival). Same first-blank-line rule as parse(), indexed instead of first.
 parseblk() { awk -v want="$1" -v ncol="$2" '/^-{5,}/{blk++; started=(blk==want); next} started&&NF==0{started=0; next} started&&NF>=ncol{print}' ; }
 # ⛔ A NON-NUMBER IS EMPTY, NEVER 0 (hq_P 2026-09-02): angle 1 prints SKIP for a kernel that failed its correctness gate, and `v+0`
 # turned that into a rate of 0 that then printed as a `0 0 n/a` FACT-RULE row -- a zero in a summary is an assertion (RULES.md
@@ -123,14 +123,14 @@ parseblk() { awk -v want="$1" -v ncol="$2" '/^-{5,}/{blk++; started=(blk==want);
 dehuman() { awk -v v="$1" 'BEGIN{ if (v !~ /^[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$/) {print ""; exit} print v+0 }'; }
 
 declare -A A1 A2 KSEEN A1W A2W A2N
-while read -r k g s m3 m4 rest; do
+while read -r k g gp s m3 m4 rest; do
   [ -z "$k" ] && continue
-  A1["$k:gnu"]="$g"; A1["$k:swi"]="$s"; A1["$k:m3"]="$m3"; A1["$k:m4"]="$m4"; KSEEN["$k"]=1
-done < <(printf '%s\n' "$A1_OUT" | parse 5)
-while read -r k n g s m3 m4 rest; do
+  A1["$k:gnu"]="$g"; A1["$k:gplc"]="$gp"; A1["$k:swi"]="$s"; A1["$k:m3"]="$m3"; A1["$k:m4"]="$m4"; KSEEN["$k"]=1
+done < <(printf '%s\n' "$A1_OUT" | parse 6)
+while read -r k n g gp s m3 m4 rest; do
   [ -z "$k" ] && continue
-  A2["$k:gnu"]="$g"; A2["$k:swi"]="$s"; A2["$k:m3"]="$m3"; A2["$k:m4"]="$m4"; KSEEN["$k"]=1; A2N["$k"]="$n"
-done < <(printf '%s\n' "$A2_OUT" | parse 6)
+  A2["$k:gnu"]="$g"; A2["$k:gplc"]="$gp"; A2["$k:swi"]="$s"; A2["$k:m3"]="$m3"; A2["$k:m4"]="$m4"; KSEEN["$k"]=1; A2N["$k"]="$n"
+done < <(printf '%s\n' "$A2_OUT" | parse 7)
 # ⭐ THE WORK BASIS (ceo CEO-1281, 2026-09-26; RULES.md § THE TWO-NUMBER BENCHMARK BASIS: multiples are computed on WORK). The CPU-rate
 #   cross-proof above compares N / process CPU at two different N, so a fixed cost inside the process -- mode 3's in-process compile,
 #   ~130 ms on deriv -- reads as a per-iteration cost that shrinks with N, and the two angles DISAGREEd on mode 3 for 14 of 23 kernels
@@ -139,14 +139,14 @@ done < <(printf '%s\n' "$A2_OUT" | parse 6)
 #   So the CITATION verdict (columns ratio/verdict, what the coverage gate and the README read) is the WORK-per-iteration cross-proof
 #   whenever both brackets report, and the CPU-rate cross-proof only where a bracket is DARK; the basis column says which, and the
 #   CPU columns stay in the record beside it.
-while read -r k g s m3 m4 rest; do
+while read -r k g gp s m3 m4 rest; do
   [ -z "$k" ] && continue
-  A1W["$k:gnu"]="$g"; A1W["$k:swi"]="$s"; A1W["$k:m3"]="$m3"; A1W["$k:m4"]="$m4"
-done < <(printf '%s\n' "$A1_OUT" | parseblk 3 5)
-while read -r k g s m3 m4 rest; do
+  A1W["$k:gnu"]="$g"; A1W["$k:gplc"]="$gp"; A1W["$k:swi"]="$s"; A1W["$k:m3"]="$m3"; A1W["$k:m4"]="$m4"
+done < <(printf '%s\n' "$A1_OUT" | parseblk 3 6)
+while read -r k g gp s m3 m4 rest; do
   [ -z "$k" ] && continue
-  A2W["$k:gnu"]="$g"; A2W["$k:swi"]="$s"; A2W["$k:m3"]="$m3"; A2W["$k:m4"]="$m4"
-done < <(printf '%s\n' "$A2_OUT" | parseblk 2 5)
+  A2W["$k:gnu"]="$g"; A2W["$k:gplc"]="$gp"; A2W["$k:swi"]="$s"; A2W["$k:m3"]="$m3"; A2W["$k:m4"]="$m4"
+done < <(printf '%s\n' "$A2_OUT" | parseblk 2 6)
 
 {
   echo -e "# triangulation TSV -- $TS -- TOL_PCT=$TOL (flat, UNBAKED) -- never hand-edit, regenerate via bench_triangulate_prolog.sh -- ratio/verdict are the CITATION cross-proof: angle 2 over angle 1 on the self-measured WORK per iteration (us/it, the two-number basis) when both brackets report, else on the CPU rates (basis says which); angle1_rate/angle2_rate are the CPU rates (iterations/s) and cpu_ratio/cpu_verdict their own cross-proof; the declared sidecars ride the SCRIP command lines as -d/-s switches (CEO-1281)"
@@ -165,10 +165,9 @@ for k in $kernels; do
   diskflag=""; { [ -n "$ib" ] && [ "$ib" -gt 0 ] 2>/dev/null; } && diskflag=" disk(inblock=$ib)"
 
   row_bits=""
-  for eng in gnu swi m3 m4; do
+  for eng in gnu gplc swi m3 m4; do
     r1=$(dehuman "${A1["$k:$eng"]:-}"); r2=$(dehuman "${A2["$k:$eng"]:-}")
-    w1=$(dehuman "${A1W["$k:$eng"]:-}"); w2raw=$(dehuman "${A2W["$k:$eng"]:-}"); n2="${A2N[$k]:-}"; w2=""
-    case "$n2" in ''|*[!0-9]*) ;; *) [ -n "$w2raw" ] && [ "$n2" -gt 0 ] && w2=$(awk -v w="$w2raw" -v n="$n2" 'BEGIN{printf "%.4f", w/n}') ;; esac
+    w1=$(dehuman "${A1W["$k:$eng"]:-}"); w2=$(dehuman "${A2W["$k:$eng"]:-}")   # both angles print WORK PER ITERATION since CEO-1281 (each over its own count)
     cpu_ratio=""; cpu_verdict=""; work_ratio=""; work_verdict=""
     if [ -n "$r1" ] && [ -n "$r2" ] && [ "$r1" != "0" ]; then
       cpu_verdict=$(awk -v a="$r1" -v b="$r2" -v t="$TOL" 'BEGIN{ ratio=b/a; lo=(100-t)/100; hi=(100+t)/100; print (ratio>=lo && ratio<=hi) ? "AGREE" : "DISAGREE" }')
@@ -190,15 +189,17 @@ done
 
 echo
 grid_incomplete=0
-perf_grid_begin "FACT-RULE grid: m3 vs gnu, m3 vs swi, m4 vs gnu, m4 vs swi (angle 1's self-measured WORK per iteration, us/it -- the two-number basis, a COST: rival us / SCRIP us, axis named once here; RT_OPT=-O0)"
+perf_grid_begin "FACT-RULE grid: m3 and m4 vs gnu (gprolog --consult-file, the byte-code WAM), vs gplc (GNU Prolog compiled native) and vs swi (angle 1's self-measured WORK per iteration, us/it -- the two-number basis, a COST: rival us / SCRIP us, axis named once here; RT_OPT=-O0)"
 # ⛔ perf_row_or_refuse takes (LABEL, REF, OURS) as COSTS (lower is faster; multiple = ref / ours): the rival's us/it first, SCRIP's second.
 #   The rate form this grid carried until CEO-1281 passed (ours, ref) RATES, which yields the same multiple for a rate and the inverse
 #   for a cost -- so the order below is not cosmetic.
 for k in $kernels; do
-  wg=$(dehuman "${A1W["$k:gnu"]:-}"); ws=$(dehuman "${A1W["$k:swi"]:-}"); w3=$(dehuman "${A1W["$k:m3"]:-}"); w4=$(dehuman "${A1W["$k:m4"]:-}")
+  wg=$(dehuman "${A1W["$k:gnu"]:-}"); wp=$(dehuman "${A1W["$k:gplc"]:-}"); ws=$(dehuman "${A1W["$k:swi"]:-}"); w3=$(dehuman "${A1W["$k:m3"]:-}"); w4=$(dehuman "${A1W["$k:m4"]:-}")
   perf_row_or_refuse "$k  m3 vs gnu" "$wg" "$w3"
+  perf_row_or_refuse "$k  m3 vs gplc" "$wp" "$w3"
   perf_row_or_refuse "$k  m3 vs swi" "$ws" "$w3"
   perf_row_or_refuse "$k  m4 vs gnu" "$wg" "$w4"
+  perf_row_or_refuse "$k  m4 vs gplc" "$wp" "$w4"
   perf_row_or_refuse "$k  m4 vs swi" "$ws" "$w4"
 done
 [ -z "$kernels" ] && echo "  (no kernel had both angle-1 and angle-2 numeric rates for any SCRIP engine this run)"
