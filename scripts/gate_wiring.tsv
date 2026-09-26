@@ -580,6 +580,7 @@ test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_a_return_trace_function_sees_the_returning_functions_names_still_bound.sh	WIRED	-	-	-
 test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable.sh	WIRED	-	-	-
 test_gate_sno_a_unary_and_a_binary_opsyn_of_one_operator_are_two_functions.sh	WIRED	-	-	-
+test_gate_sno_a_value_list_in_a_function_with_a_local_yields_its_arm.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
 test_gate_sno_an_immediate_assignment_to_a_global_stores_into_its_gva_cell.sh	WIRED	-	-	-

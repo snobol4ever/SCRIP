@@ -270,6 +270,41 @@ static IR_t * sno_arm_result(IR_t * rv) {
     return rv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_ident_inline_on(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_IDENT_INLINE"); on = (e && *e == '0') ? 0 : 1; } return on; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_vl_quiet(const tree_t * t) {
+    if (!t) return 1;
+    switch (t->t) {
+    case TT_QLIT: case TT_ILIT: case TT_FLIT: case TT_NUL: return 1;
+    case TT_VAR: { const char * nm = t->v.sval; return !(nm && (!strcmp(nm, "INPUT") || !strcmp(nm, "TERMINAL"))); }
+    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_POW: case TT_SEQ: case TT_CAT: case TT_MNS: case TT_PLS: case TT_VLIST:
+        if (t->t != TT_VLIST && t->n > 1 && sno_tree_has_scan(t->c[1], 0)) return 0;
+        for (int i = 0; i < t->n; i++) if (!sno_vl_quiet(t->c[i])) return 0;
+        return 1;
+    case TT_FNC: { const char * name = t->v.sval; int argbase = 0;
+        if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
+        int na = t->n - argbase; if (!name || na < 1 || na > 2) return 0;
+        int lex = 0; long c1 = 0, c2 = 0;
+        int inl = sno_pred_relop(name, &lex, &c1, &c2) >= 0 || (sno_ident_inline_on() && !sno_predef_registered(name) && (!strcmp(name, "IDENT") || !strcmp(name, "DIFFER")));
+        if (!inl) return 0;
+        for (int i = argbase; i < t->n; i++) if (!sno_vl_quiet(t->c[i])) return 0;
+        return 1; }
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_vlist_arms(scx_t * cx, const tree_t * t, int j, char * tn, IR_t * jn, IR_t * ω) {
+    IR_graph_t * g = cx->g; IR_t * next = ω;
+    if (j + 1 < t->n) { IR_t * jr = jn; if (j + 2 < t->n) { jr = lc_build(g, IR_VAR, jn, ω); IR_LIT(jr).sval = tn; } next = sno_vlist_arms(cx, t, j + 1, tn, jr, ω); }
+    IR_t * asn = lc_build(g, IR_ASSIGN, jn, next); IR_LIT(asn).sval = tn;
+    int before = g->n; IR_t * ar = NULL; IR_t * ej = sx_lower(cx, t->c[j], asn, next, &ar);
+    ar = sno_arm_result(ar);
+    if (!ar) { int upto = g->n; ar = lc_build(g, IR_LIT_STRING, asn, next); IR_LIT(ar).sval = (char *) "";
+        for (int k = before; k < upto; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == asn) x->γ.node = ar; }
+        if (ej == asn) ej = ar; }
+    ir_operand_push(asn, ar); return ej;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_idx_container(scx_t * cx, const tree_t * t, IR_t * ω, IR_t ** res) {
     if (t->n < 1) sno_fatal("subscript with no container", NULL);
     IR_t * br = NULL; IR_t * entry = sx_lower(cx, t->c[0], NULL, ω, &br);
@@ -501,9 +536,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         { int lex = 0; long c1 = 0, c2 = 0; int rk = sno_pred_relop(name, &lex, &c1, &c2);
           if (rk >= 0 && t->n - argbase >= 1 && t->n - argbase <= 2) return sx_pred_cmp(cx, t, argbase, lex, rk, c1, c2, γ, ω, res); }
-        { static int _idon = -1; if (_idon < 0) { const char * e = getenv("SCRIP_IDENT_INLINE"); _idon = (e && *e == '0') ? 0 : 1; }
-          int nid = t->n - argbase;
-          if (_idon && nid >= 1 && nid <= 2 && !sno_predef_registered(name)) {
+        { int nid = t->n - argbase;
+          if (sno_ident_inline_on() && nid >= 1 && nid <= 2 && !sno_predef_registered(name)) {
             if (!strcmp(name, "IDENT"))  return sx_ident_differ(cx, t, argbase, 0, γ, ω, res);
             if (!strcmp(name, "DIFFER")) return sx_ident_differ(cx, t, argbase, 1, γ, ω, res);
           } }
@@ -830,6 +864,9 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_VLIST: {
         if (t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
+        { int cf = 1; for (int j = 0; j + 1 < t->n && cf; j++) cf = sno_vl_quiet(t->c[j]);
+          if (cf) { char * tn = sno_scan_tmp("SNO$VL"); IR_t * join = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(join).sval = tn;
+              if (res) *res = join; return sno_vlist_arms(cx, t, 0, tn, join, ω); } }
         IR_graph_t * g = cx->g;
         IR_t * dj = lc_build(g, IR_DISJUNCTION, γ, ω);
         int n = t->n; if (n > 64) n = 64;
