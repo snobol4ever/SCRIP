@@ -134,6 +134,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=max(1, min(8, (os.cpu_count() or 2) // 2)))
     ap.add_argument("--oracle-timeout", type=int, default=120)
     ap.add_argument("--scrip-timeout", type=int, default=20)
+    ap.add_argument("--show", action="store_true", help="under each disagreement, print the source line scrip's error names, with a caret at its column")
     ap.add_argument("--only", default="", help="grade only units whose key starts with this prefix (master: bench: roast:); a partial run prints PARTIAL")
     a = ap.parse_args()
     if not Path(RAKU).is_file():
@@ -200,8 +201,21 @@ def main():
         print(f"RAKU_SYNTAX_AGREEMENT population={n} agree={agree} disagree={d} ungradable={u}" + (f" PARTIAL(--only {a.only})" if a.only else ""))
         for k in sorted(ungradable):
             print(f"  UNGRADABLE {k}  (raku -c gave no verdict in {a.oracle_timeout}s)")
+        paths = dict(units)
         for k, cls, err in sorted(disagree, key=lambda t: (t[1], t[0])):
             print(f"  {cls:34s} {k}  {err}")
+            if a.show:
+                import re
+                m = re.search(r":(\d+):(\d+): raku syntax error", err or "")
+                if m:
+                    ln, col = int(m.group(1)), int(m.group(2))
+                    try:
+                        lines = paths[k].read_text(errors="replace").splitlines()
+                        src = lines[ln - 1] if 0 < ln <= len(lines) else ""
+                        print(f"      | {src[:160]}")
+                        print(f"      | {' ' * max(0, col - 1)}^")
+                    except OSError:
+                        pass
         return 1 if d else 0
 
 

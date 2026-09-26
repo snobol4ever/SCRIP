@@ -1069,6 +1069,7 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/raku/raku.tab.c \
     $(SRC)/parsers/raku/raku.lex.c \
     $(SRC)/parsers/raku/raku_driver.c \
+    $(SRC)/parsers/raku/rk_syntax.c \
     $(SRC)/parsers/raku/re.c \
     $(SRC)/parsers/rebus/rebus.tab.c \
     $(SRC)/parsers/rebus/lex.rebus.c \
