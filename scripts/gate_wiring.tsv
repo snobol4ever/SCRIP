@@ -574,6 +574,7 @@ test_gate_sno_a_deferred_call_capture_finds_its_procedure_once.sh	WIRED	-	-	-
 test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	WIRED	-	-	-
 test_gate_sno_a_define_inside_a_code_fragment_defines_the_function.sh	WIRED	-	-	-
 test_gate_sno_a_dynamic_function_called_from_a_code_built_function_returns_its_value.sh	WIRED	-	-	-
+test_gate_sno_a_fence_or_abort_backtracked_into_fails_the_whole_match.sh	WIRED	-	-	-
 test_gate_sno_a_field_function_call_takes_the_name_entry.sh	WIRED	-	-	-
 test_gate_sno_a_label_hook_on_a_failure_edge_rides_the_spine.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-

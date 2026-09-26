@@ -2257,7 +2257,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int flat_trivial_beta(const IR_t *nd) {
     switch (nd->op) {
-    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ABORT: return 1;
+    case IR_MATCH_POS: case IR_MATCH_RPOS: return 1;
+    case IR_MATCH_ABORT: return IR_LIT(nd).ival != 1;
     case IR_MATCH_ASSIGN_SAVE: { long _k = 0; return fc_geom(nd, &_k) && _k > 0; }
     default: return 0;
     }
@@ -3611,6 +3612,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
             else { { int k = nidx(nodes, n, dobody); if (k >= 0) { g_suspend_dobody_beta = (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED) ? betas[k] : lbls[k]; } } }
         }
+        if (nodes[i]->op == IR_MATCH_DEFER) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
+            for (int _aj = 0; _aj < nodes[i]->n_operands; _aj++) { IR_t *_so = nodes[i]->operands[_aj]; if (!_so || !(_so->op == IR_GOTO || _so->op == IR_MATCH_ARBNO || _so->op == IR_MATCH_ABORT)) continue;
+                int _phi = 0, _gg = 0; while (_so && _so->op == IR_GOTO && _gg++ < 128) { if (!_phi) _phi = (_so->γ.sz[0] == (char)0xcf && (unsigned char)_so->γ.sz[1] == 0x86); _so = _so->γ.node; }
+                { int k = nidx(nodes, n, _so); if (k >= 0) { bb_label_t *_sl = (_phi && na_fo[k]) ? na_fo[k] : betas[k]; g_emit.lbl_t1_p = _sl; g_emit.lbl_t1 = _sl ? _sl->name : NULL; } } break; } }
         if (nodes[i]->op == IR_CREATE && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t *body_entry = nodes[i]->operands[0];
             g_emit.op_sval_lbl = NULL;
