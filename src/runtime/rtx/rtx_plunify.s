@@ -19,15 +19,6 @@ RTX_FUNC(rt_pl_quad_seed)
     add     rsp, 8
     ret
 RTX_ENDF(rt_pl_quad_seed)
-RTX_FUNC(rt_pl_tr_unwind)
-    sub     rsp, 8
-    mov     rsi, rdi
-    mov     rdi, r12
-    RTX_CCALL(rt_pl_tr_unwind_sync)
-    mov     r12, rax
-    add     rsp, 8
-    ret
-RTX_ENDF(rt_pl_tr_unwind)
 RTX_FUNC(rt_pl_choice_open)
     mov     r13, rdi
     ret
