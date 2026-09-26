@@ -388,6 +388,7 @@ test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
 test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
+test_gate_pas_eoln_needs_a_defined_file_not_at_its_end.sh	WIRED	-	-	-
 test_gate_pas_every_identifier_has_a_defining_point.sh	WIRED	-	-	-
 test_gate_pas_exit_leaves_the_routine_it_names.sh	WIRED	-	-	-
 test_gate_pas_five_or_more_parameters_arrive.sh	WIRED	-	-	-

@@ -7232,7 +7232,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5135: ;
     if ((_bid == BID___pas_eoln) && nargs == 0) {
         int c = getchar();
-        if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, stdin); *out = INTVAL(1); return 1; }
+        if (c == EOF) pas_file_err("6.6.6.5", "eoln(input) is activated while eof(input) is true", fn);
+        if (c == '\n') { ungetc(c, stdin); *out = INTVAL(1); return 1; }
         ungetc(c, stdin); *out = INTVAL(0); return 1;
     }
     if ((_bid == BID___pas_read_i_f) && nargs == 2) {
@@ -7245,7 +7246,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if ((_bid == BID___pas_read_c_f)) { int c = fgetc(f); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
         if ((_bid == BID___pas_readln_f)) { int c; while ((c = fgetc(f)) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1; }
         if ((_bid == BID___pas_eof_f)) { int c = fgetc(f); if (c == EOF) { *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
-        if ((_bid == BID___pas_eoln_f)) { int c = fgetc(f); if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, f); *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
+        if ((_bid == BID___pas_eoln_f)) { if (!IS_FH_fn(args[0])) pas_file_err("6.6.6.5", "eoln(f) is activated while f is undefined", fn);
+            int c = fgetc(f); if (c == EOF) pas_file_err("6.6.6.5", "eoln(f) is activated while eof(f) is true", fn);
+            if (c == '\n') { ungetc(c, f); *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
         { int c = fgetc(f); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, f); *out = INTVAL((long long)(unsigned char)c); return 1; }
     }
     L_bidjmp_5149: ;
