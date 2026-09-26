@@ -165,7 +165,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
     case IR_MATCH_FENCE0:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "fence0.watermark (RESERVED — own-extent whack rung; unread today)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "fence0.pad (unused)", nd); return 1;
     case IR_MATCH_FENCE1:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "fence.watermark (α-saved rsp; σ/φ glue restores)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "fence.pad (unused)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "fence.watermark (α-saved rsp; σ/φ glue restores)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "fence.cap_top (α-saved r12, the conditional-capture stack top; β restores it, so a FENCE backtracked into drops the captures its body recorded)", nd); return 1;
     case IR_MATCH_ARB:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, retired ALLOC-port era: reuses this node's existing pad, same reuse precedent as IR_MATCH_BEGIN.zeta_mark; block itself is a separate RSP-carve allocation, header +0 chains the previous activation's ptr)", nd); return 1;
     case IR_MATCH_REM:
