@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (--stlimit): Icon &trace rides the call/return hooks that are off by default since SCRIP 2026-09-24 (Lon: monitor hooks behind the switch)
 # test_icon_ipl_suite.sh -- grades corpus/packages/icon/ipl: the vendored Icon Program Library (every .icn
 # under gprogs/procs/incl/gincl/progs/gprocs -- COUNT IT, never quote a remembered figure:
 #   find corpus/packages/icon/ipl -name '*.icn' | wc -l

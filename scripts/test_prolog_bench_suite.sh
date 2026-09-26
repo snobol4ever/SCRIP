@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${BENCH_PROLOG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/benchmarks/prolog/bench}" || exit 2
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # test_prolog_bench_suite.sh -- THE PROLOG BENCHMARKS DOUBLE AS TESTS: every kernel graded in both modes under three angles, the
 # REF held on every run (ProBench, key prolog-bench-ref; row prolog-benchmarks-double-as-tests-ref-in-out-through-the-three-angle-
 # harness-with-a-row-in-the-suite-grid, CEO-1221, to the coo's contract COO-164). Lon, verbatim: "The reason to force a benchmark to

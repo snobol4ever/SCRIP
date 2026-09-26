@@ -6,7 +6,9 @@
 # ONE SWITCH, SCRIP_DIAG=0, turns off every diagnostic the default run carries: the heap check at every collection (rt_gcheap_verify),
 # the 0xDB poison of vacated ground, the stale-read quarantine, and the compiled node-id stores (`mov r11, <id>` at every alpha and beta
 # port). Each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP, SCRIP_DIAG_REGS), which wins when set. UNSET, EVERY
-# DIAGNOSTIC STAYS ON: every test and every board runs with them; every benchmark driver exports SCRIP_DIAG=0 on its second line.
+# DIAGNOSTIC STAYS ON: every test and every board runs with them; every benchmark driver exports SCRIP_DIAG=0 on its second line, or on
+# its third when its second is the one-runner guard (coo 2026-09-25, ceo CEO-1272: test_gate_one_runner_one_board.sh arm 6a holds the guard
+# to line 2, and the guard runs nothing SCRIP_DIAG reads -- one named line of window, never a free search of the header).
 # ARMS: (1) every benchmark driver in scripts/ (bench_*.sh, test_bench_*.sh, test_<lang>_bench_suite.sh, test_icon_bench_{corpus,rung36}.sh)
 # exports SCRIP_DIAG=0; (2) a churning witness compiled with SCRIP_DIAG=0 carries no node-id store and one compiled without it carries
 # them; (3) at run time SCRIP_DIAG=0 reads verify=0 and no poison line in the collector's telemetry, unset reads both, and
@@ -23,8 +25,8 @@ red=0
 drivers=$(cd "$HERE" && ls | grep -E '^bench_.*\.sh$|^test_bench_.*\.sh$|^test_[a-z0-9]+_bench_suite\.sh$|^test_icon_bench_(corpus|rung36)\.sh$')
 nd=$(echo "$drivers" | grep -c .)
 [ "$nd" -gt 0 ] || { echo "REFUSED(2): no benchmark driver found in $HERE"; exit 2; }
-miss=$(for f in $drivers; do sed -n '2p' "$HERE/$f" | grep -q '^export SCRIP_DIAG=0' || echo "$f"; done)
-if [ -z "$miss" ]; then echo "ok  (1) all $nd benchmark drivers export SCRIP_DIAG=0 on their second line"
+miss=$(for f in $drivers; do { sed -n '2p' "$HERE/$f" | grep -q '^export SCRIP_DIAG=0' || { sed -n '2p' "$HERE/$f" | grep -q '^source .*lib_one_runner\.sh' && sed -n '3p' "$HERE/$f" | grep -q '^export SCRIP_DIAG=0'; }; } || echo "$f"; done)
+if [ -z "$miss" ]; then echo "ok  (1) all $nd benchmark drivers export SCRIP_DIAG=0 on their second line, or on their third right after the one-runner guard"
 else echo "RED (1) $(echo "$miss" | grep -c .) of $nd benchmark drivers do not export SCRIP_DIAG=0: $(echo $miss | cut -c1-300)"; red=1; fi
 cat > "$W/churn.sno" <<'SNO'
         T = TABLE()

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # test_snocone_bench_suite.sh -- THE SNOCONE BENCHMARK SUITE, GRADED AS A TEST UNDER ALL THREE ANGLES, IN BOTH MODES
 #
 # LON 2026-09-23 17:2x-17:4x CDT, in-chat to the ceo, verbatim (CEO-1221): "You messed up and forgot to have the benchmarks in the

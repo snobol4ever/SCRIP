@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${BENCH_REBUS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/benchmarks/rebus}" || exit 2
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
 # test_rebus_bench_suite.sh [--write] -- THE REBUS BENCHMARKS GRADED AS TESTS: every program under corpus/benchmarks/rebus, both modes,
 # all three angles, its REF checked on every run (row rebus-benchmarks-double-as-tests-ref-in-out-through-the-three-angle-harness-with-
 # a-row-in-the-suite-grid; built by the coo on CEO-1227 to the contract of instruments-benchmarks-enter-the-suite-grid-..., COO-164).

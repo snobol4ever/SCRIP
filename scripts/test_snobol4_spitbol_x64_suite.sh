@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SPITBOL_X64_SUITE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/spitbol_x64_tests}" || exit 2
+export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
 # test_snobol4_spitbol_x64_suite.sh -- the runner for corpus/packages/snobol4/spitbol_x64_tests, row
 # snobol4-spitbol-x64-tests-self-check-but-nothing-reads-their-verdict (ceo, 2026-09-11).  36 programs
 # vendored from https://github.com/spitbol/x64 test/ -- the upstream of our own correctness oracle, i.e.
