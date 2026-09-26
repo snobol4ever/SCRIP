@@ -3,7 +3,7 @@
 white       =   (  SPAN(' ' tab)
                 |  '#'  BREAK(nl)
                 |  '//' BREAK(nl)
-                |  '/*' BREAKX('*') '*/'
+                |  '/*' FENCE(BREAKX('*') '*/')
                 );
 White       =   white ARBNO(white);
 Gray        =   White | epsilon;
