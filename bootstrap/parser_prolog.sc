@@ -28,6 +28,7 @@ $':-'  = $' '  ':-' $' ';  $':'  = $' '  ':'  . _op_name @la_c *DIFFER(SUBSTR(Sr
 $'+'   = $' '  '+'  $' ';  $'-'   = $' ' '-' @la_m *DIFFER(SUBSTR(Src, la_m + 1, 1), '>') *DIFFER(SUBSTR(Src, la_m + 1, 2), '->') $' ';
 $'*'   = $' '  '*' @la_s *DIFFER(SUBSTR(Src, la_s + 1, 2), '->') $' ';  $'/'  = $' ' '/'  $' ';
 $'is'  = $'  ' 'is' $'  ';
+$'*->' = $' ' '*->' . _op_name $' ';
 $'as'  = $'  ' 'as' . _op_name $'  ';
 $'-->' = $' ' '-->' $' ';
 $'{'   = $' '  '{'  $' ';  $'}'  = $' ' '}'  $' ';
@@ -275,7 +276,7 @@ conj = (    nPush()
             nPop()
         );
 conj_tail = FENCE( $',' nInc() *body_goal *conj_tail | epsilon );
-conj_arrow = ( *conj FENCE( $'->' *conj_arrow  reduce("'TT_IFTHEN'", 2)  | epsilon ) );
+conj_arrow = ( *conj FENCE( $'->' *conj_arrow  reduce("'TT_IFTHEN'", 2)  | $'*->' *conj_arrow  reduce("'TT_BINOP'", 2)  | epsilon ) );
 disj_tail = ( $';' nInc() *conj_arrow FENCE( *disj_tail | epsilon ) );
 disj = (    nPush()
                 nInc() *conj_arrow
