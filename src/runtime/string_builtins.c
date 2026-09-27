@@ -61,6 +61,21 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
     return BSTRVAL(r, bspan);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t SUBSTR_bytes_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
+    const char *STRVAL_fn = VARVAL_fn(s);
+    int64_t start   = to_int(i);
+    int64_t len_    = to_int(n);
+    size_t blen     = (s.v == DT_S && s.slen != 0xFFFFFFFFu) ? (s.slen ? (size_t)s.slen : (STRVAL_fn?strlen(STRVAL_fn):0)) : (STRVAL_fn?strlen(STRVAL_fn):0);
+    if (start < 1 || (size_t)start > blen + 1) return FAILDESCR;
+    int64_t avail = (int64_t)blen - start + 1;
+    if (len_ < 0 || len_ > avail) return FAILDESCR;
+    if (len_ == 0) len_ = avail;
+    char *r = rt_str_alloc((long)len_);
+    memcpy(r, STRVAL_fn + (start - 1), (size_t)len_);
+    r[len_] = '\0';
+    return BSTRVAL(r, (uint32_t)len_);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t TRIM_fn(DESCR_t s) {
     const char *STRVAL_fn = VARVAL_fn(s);
     int len = (int)strlen(STRVAL_fn);

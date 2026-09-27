@@ -6648,7 +6648,7 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_substr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2 && nargs != 3) return -1;
-    *out = SUBSTR_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(0)); return 1;
+    *out = SUBSTR_bytes_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(0)); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_reverse(DESCR_t *args, int nargs, DESCR_t *out) {

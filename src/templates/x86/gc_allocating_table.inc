@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1743
+#define GC_ALLOC_TAB_N 1744
 #define GC_ALLOC_TAB_N_VOID 201
-#define GC_ALLOC_TAB_N_DESCR 980
+#define GC_ALLOC_TAB_N_DESCR 981
 #define GC_ALLOC_TAB_N_OTHER 562
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -29,6 +29,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "POWER_fn", GC_RET_DESCR },
     { "REPLACE_fn", GC_RET_DESCR },
     { "REVERS_fn", GC_RET_DESCR },
+    { "SUBSTR_bytes_fn", GC_RET_DESCR },
     { "SUBSTR_fn", GC_RET_DESCR },
     { "TRIM_fn", GC_RET_DESCR },
     { "VARVAL_d_fn", GC_RET_DESCR },

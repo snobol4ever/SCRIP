@@ -1650,9 +1650,9 @@ static DESCR_t _SUBSTR_(DESCR_t *a, int n) {
     if (n < 2) return NULVCL;
     if (n < 3) {
         DESCR_t to_end = { .v = DT_I, .slen = 0, .i = 0 };
-        return SUBSTR_fn(a[0], a[1], to_end);
+        return SUBSTR_bytes_fn(a[0], a[1], to_end);
     }
-    return SUBSTR_fn(a[0], a[1], a[2]);
+    return SUBSTR_bytes_fn(a[0], a[1], a[2]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _REVERSE_(DESCR_t *a, int n) {

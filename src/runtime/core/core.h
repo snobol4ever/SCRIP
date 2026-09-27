@@ -228,6 +228,7 @@ DESCR_t SIZE_fn(DESCR_t s);
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n);
 DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to);
 DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n);
+DESCR_t SUBSTR_bytes_fn(DESCR_t s, DESCR_t i, DESCR_t n);
 DESCR_t TRIM_fn(DESCR_t s);
 DESCR_t lpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad);
 DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad);
