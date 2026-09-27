@@ -9,7 +9,8 @@ typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop
 static cv_t         g_rk_gram_names;
 static cv_t         g_rk_class_names;
 static cv_t         g_rk_multi_names;
-extern int rk_seq_is_logical_and(const tree_t * t);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_seq_is_logical_and(const tree_t * t) { return t && t->t == TT_SEQ && t->n == 2 && t->v.ival == 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_multi_names.len; i++) if (!strcmp(CV_AT(g_rk_multi_names, const char *, i), nm)) return 1; return 0; }
 static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_rk_multi_names, const char *) = nm; } }
