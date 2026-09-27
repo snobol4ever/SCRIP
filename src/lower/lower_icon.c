@@ -1004,9 +1004,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_REPALT: {
         IR_t * nd = build(cx, IR_REPALT, γ, ω);
         lc_γ_to(nd, γ);
-        IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &er);
+        IR_t * xs = build(cx, IR_FAIL, NULL, NULL);
+        IR_t * b4 = cx->beta;
+        IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, xs, &er);
+        IR_t * eβ = (cx->beta != b4 && cx->beta != xs && cx->beta != ω) ? cx->beta : NULL;
         ir_operand_push(nd, er);
         ir_operand_push(nd, ee);
+        ir_operand_push(nd, xs);
+        ir_operand_push(nd, eβ);
         cx->beta = nd; *res = nd; return nd; }
     case TT_LIMIT: {
         IR_t * lim = build(cx, IR_LIMIT, γ, ω);
