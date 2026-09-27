@@ -217,7 +217,7 @@ SubBody         =   nPush() $'begin' (*StmtFirst ARBNO(*StmtRest) | epsilon) $'e
                     reduce("'TT_PROGRAM'", 'nTop()') nPop();
 proc_decl       =   ($'procedure' | $'function') shift(*Ident, "'TT_VAR'")
                     *Params FENCE($':' *TypeName | epsilon) $';'
-                    *var_part *SubBody
+                    *var_part *SubBody $';'
                     nPush() reduce("'TT_VLIST'", 'nTop()') nPop()
                     reduce("'TT_PROC_DECL'", 4);
 /* ==================================================================================================================== */
