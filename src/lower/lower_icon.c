@@ -165,6 +165,7 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     if (t->t == TT_SWAP) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_CONJ) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i]) || icn_tree_is_cursor_mover(t->c[i])) return 1; return 0; }
     if (t->t == TT_MAKELIST || t->t == TT_VLIST) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i]) || icn_tree_is_cursor_mover(t->c[i])) return 1; return 0; }
     if (t->t == TT_CASE) { for (int i = 2; i < t->n; i += 2) if (is_resumable(t->c[i])) return 1; return (t->n > 1 && (t->n - 1) % 2 == 1) ? is_resumable(t->c[t->n - 1]) : 0; }
     switch (t->t) {
@@ -931,7 +932,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
         if (lr >= 0) rb = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
-        cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
+        cx->conj_resumable = rb; cx->beta = (last_beta && last_beta != ω) ? last_beta : (rb ? rb : last_beta); *res = SEQX; return ent[0];
     }
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
         if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
