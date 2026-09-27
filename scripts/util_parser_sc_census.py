@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|master] [--declared TSV] [--jobs N] [--timeout S]
+"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|master] [--declared TSV] [--jobs N] [--timeout S] [--list TSV]
 
 DOES EACH BOOTSTRAP PARSER WORK? (Lon 2026-09-23 15:2x, in-chat to the ceo: hq_snocone "to get all the SCRIP bootstrap
 parsers working".) For every language, the Snocone-hosted parser SCRIP/bootstrap/parser_<lang>.sc -- loaded behind the
@@ -15,7 +15,9 @@ one -INCLUDE -- has no statement to print, which is neither a tree shown nor a c
 tree = RECOGNIZED (a recognizer's acceptance, Lon's phase 1 for parser_raku.sc: not a tree, so still red, and not a crash); anything
 else -- a crash, a timeout, heap exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a
 parser that declines. A program's time limit is 10 x its language's start-up on an empty input (10..300 s) unless --timeout S names one.
-It prints its denominator per language as each language finishes and names the first REFUSED and first CRASH. A REFUSED
+It prints its denominator per language as each language finishes and names the first REFUSED and first CRASH; --list TSV
+also writes EVERY member as a row (lang, corpus-relative source or master key, class, first line) so a class can be read whole
+(hq_snocone 2026-09-27: 66 Icon CRASHes on the SCRIP arm were one name on the board line and no list). A REFUSED
 source listed in --declared (default SCRIP/bootstrap/tests/parser_refusals.tsv: lang, corpus-relative path, the measurement
 that the source is not a legal program of its language, or for an EMPTY source that it holds no statement) is DECLARED, never red;
 an undeclared refusal or EMPTY is red, because a parser that declines a legal program, or prints nothing for one, is not working. rc 0 GREEN (every language: population > 0, CRASH 0, undeclared REFUSED 0),
@@ -118,7 +120,7 @@ def task(scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout):
     return lang, key, cls, first
 
 
-KNOWN = ("--lang", "--population", "--declared", "--jobs", "--timeout")
+KNOWN = ("--lang", "--population", "--declared", "--jobs", "--timeout", "--list")
 
 
 def main(argv):
@@ -141,6 +143,8 @@ def main(argv):
     jobs = int(opt(argv, "--jobs", "6"))
     timeout = int(opt(argv, "--timeout", "0"))
     want = opt(argv, "--lang", "")
+    listpath = opt(argv, "--list", "")
+    listed = []
     langs = [l for l in LANGS if not want or l[0] in want.split(",")]
     if not langs:
         refuse("no language matches --lang " + want)
@@ -212,6 +216,7 @@ def main(argv):
                     cls = "DECLARED"
                 r[cls] += 1
                 r["first"].setdefault(cls, "%s [%s]" % (rel, first[:60]))
+                listed.append("%s\t%s\t%s\t%s" % (lang, rel, cls, first.replace("\t", " ")[:200]))
             n = pops[lang]
             tp += r["PARSED"]
             tn += n
@@ -224,6 +229,9 @@ def main(argv):
                 red += 1
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        if listpath:
+            with open(listpath, "w") as lf:
+                lf.write("".join(x + "\n" for x in listed))
     print("PARSER-SC CENSUS: parsed=%d of %d over %d language(s); languages with a crash or an undeclared refusal: %d; unextracted: %d" % (tp, tn, len(langs), red, unext))
     if unext:
         print("REFUSE(2): %d program(s) of the population could not be materialized -- the census cannot say the parsers work over a population it did not read" % unext)
