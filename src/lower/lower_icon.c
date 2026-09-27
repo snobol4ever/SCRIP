@@ -933,10 +933,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t ** jn = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
         for (int i = k - 1; i >= 0; i--) { val[i] = NULL; cx->beta = ω;
             IR_t * failt = ω; if (i > 0) { jn[i] = build(cx, IR_GOTO, ω, ω); failt = jn[i]; }
+            int n0 = cx->g->n;
             ent[i] = lower(cx, S[i], succ, failt, &val[i]); bet[i] = cx->beta;
             if (i == k - 1) last_beta = cx->beta;
             if (!rb && is_resumable(S[i])) rb = cx->beta;
             if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ);
+            for (int j = n0; j < cx->g->n; j++) { IR_t * x = cx->g->all[j]; if (!x) continue;
+                if (x->γ.node == succ && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) lc_γ_to(x, succ);
+                if (x->ω.node == succ && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) lc_ω_to(x, succ); }
             succ = ent[i];
         }
         int lr = -1; int lr_cm = 0;
