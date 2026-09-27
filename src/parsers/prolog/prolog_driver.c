@@ -2,8 +2,6 @@
 #include "ct_arena.h"
 #include "prolog_parse.h"
 #include "prolog_lower.h"
-#include "lower.h"
-#include "../../parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,11 +62,17 @@ static void pl_consult_scan_goal(tree_t *g, const char **pending, int *npending)
         g->t = TT_QLIT; g->v.sval = (char *) "true"; g->n = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_stmt_subj(const tree_t *s) {
+    if (!s) return (tree_t *)0;
+    for (int i = 0; i < s->n; i++) { const tree_t *a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return a->n > 0 ? a->c[0] : (tree_t *)0; }
+    return (tree_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_splice_consults(tree_t *prog, const char *from_file) {
     const char *pending[PL_CONSULT_FILES_MAX]; int npending = 0;
     if (!prog || g_pl_consult_depth >= PL_CONSULT_DEPTH_MAX) return;
     for (int r = 0; r < prog->n; r++) {
-        tree_t *s = prog->c[r]; tree_t *subj = s ? lp_s_expr(s, ":subj") : (tree_t *)0;
+        tree_t *subj = pl_stmt_subj(prog->c[r]);
         if (!subj || subj->t == TT_CHOICE || subj->t == TT_CLAUSE) continue;
         pl_consult_scan_goal(subj, pending, &npending);
     }
@@ -86,6 +90,6 @@ void prolog_compile(const char *source, const char *filename, tree_t **out_ast)
     if (!pl) { fprintf(stderr, "prolog_compile: parse failed for %s\n", filename); return; }
     if (pl->nerrors > 0) fprintf(stderr, "prolog: %d parse error(s) in %s\n", pl->nerrors, filename);
     if (pl->nclauses == 0) { if (out_ast) *out_ast = NULL; if (pl->nerrors > 0) exit(1); }
-    CODE_t *prog = prolog_lower(pl);
-    if (out_ast && prog) { *out_ast = code_to_ast(prog); pl_splice_consults(*out_ast, filename); }
+    tree_t *prog = prolog_lower(pl);
+    if (out_ast && prog) { *out_ast = prog; pl_splice_consults(*out_ast, filename); }
 }

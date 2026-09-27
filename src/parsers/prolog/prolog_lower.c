@@ -342,10 +342,16 @@ tree_t *pl_runtime_clause_tree(tree_t *raw) {
     { TRSlotMap sm; trslot_reset(&sm); return lower_clause_from_tree(syn, k, 0, &sm); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-CODE_t *prolog_lower(PlProgram *pl_prog) {
+static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno) {
+    tree_t *st = ast_node_new(TT_STMT);
+    ast_push(st, ast_attr_int(":line", lineno)); ast_push(st, ast_attr_int(":lline", lineno)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", subj));
+    ast_push(prog, st);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *prolog_lower(PlProgram *pl_prog) {
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
-    CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
+    tree_t *prog = ast_node_new(TT_PROGRAM);
     tree_t *pld_seed[256]; int pld_seed_n = 0;
     #define PL_MAX_CLAUSES 2048
     char plunit_suite[PL_MAX_CLAUSES][64];
@@ -535,35 +541,8 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 }
             }
         }
-        int is_export = 0;
-        if (goal_tr && goal_tr->t == TT_FNC && goal_tr->v.sval &&
-            strcmp(goal_tr->v.sval, "export") == 0 && goal_tr->n == 1) {
-            is_export = 1;
-            tree_t *arg = goal_tr->c[0];
-            const char *ename = NULL;
-            if (arg && arg->t == TT_FNC && arg->v.sval &&
-                strcmp(arg->v.sval, "/") == 0 && arg->n >= 1 &&
-                arg->c[0] && arg->c[0]->t == TT_QLIT) {
-                ename = arg->c[0]->v.sval;
-            } else if (arg && arg->t == TT_QLIT) {
-                ename = arg->v.sval;
-            }
-            if (ename) {
-                ExportEntry *e = ct_zalloc(1, sizeof *e);
-                e->name = ct_strdup(ename);
-                e->next = prog->exports;
-                prog->exports = e;
-            }
-        }
-        if (!is_export) {
-            STMT_t *s = stmt_new();
-            s->subject = goal_tr;
-            s->lineno  = cl->lineno;
-            if (!prog->head) prog->head = s;
-            else             prog->tail->next = s;
-            prog->tail = s;
-            prog->nstmts++;
-        }
+        if (goal_tr && goal_tr->t == TT_FNC && goal_tr->v.sval && strcmp(goal_tr->v.sval, "export") == 0 && goal_tr->n == 1) continue;
+        pl_stmt_push(prog, goal_tr, cl->lineno);
     }
     if (pld_seed_n > 0) {
         for (uint32_t i = 0; i < keys.len; i++) {
@@ -582,14 +561,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             break;
         }
     }
-    for (uint32_t i = 0; i < keys.len; i++) {
-        STMT_t *s = stmt_new();
-        s->subject = CV_AT(choices, tree_t *, i);
-        s->lineno  = 0;
-        if (!prog->head) prog->head = s;
-        else             prog->tail->next = s;
-        prog->tail = s;
-        prog->nstmts++;
-    }
+    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0);
     return prog;
 }
