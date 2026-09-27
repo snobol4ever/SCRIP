@@ -42,9 +42,13 @@ void rt_arg_stage(int idx, DESCR_t v);
 extern "C" DESCR_t g_call_args[];
 extern "C" int g_gc_pending;
 int  rt_proc_is_registered(const char *name);
+long rt_proc_call_open_slim(const char *name, int np, int nargs);
 int  rt_proc_nformals(const char *name);
+void rt_c2b_arm_trap(void);
 int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
+DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
+DESCR_t rt_proc_call_epilogue_slim_ω(void);
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx);
 int  rt_proc_nparams(const char *name);
@@ -206,6 +210,7 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     if (!(nf >= 0 && nf <= np && nf <= 29)) return 0;
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static bool bcps_is_pl_pi(const char * s) {
     if (!s || s[0] == '$') return false;
     const char * sl = strrchr(s, '/');
@@ -254,6 +259,11 @@ static std::string bcps_det_arm() {
         uint64_t det_fp_z; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[64];
         scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
+        long scc_sb_z = 16L * (long)scc_nsave_z;
+        uint64_t trap_fp_z; { void (*fp)(void) = rt_c2b_arm_trap; trap_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        long scc_fp_oz; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; scc_fp_oz = (long)(uint64_t)(uintptr_t)(void*)fp; }
+        long scc_fp_gz; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_gz = (long)(uint64_t)(uintptr_t)(void*)fp; }
+        long scc_fp_wz; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_wz = (long)(uint64_t)(uintptr_t)(void*)fp; }
         uint64_t dc_slot_fp_z = dc_slot_z;
         uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         return x86_alpha()
@@ -301,7 +311,50 @@ static std::string bcps_det_arm() {
                         }
                     }
                     if (!scc_z) return std::string();
-                    return x86_bomb("bb_call_proc_staged: the CALL2BB slice-2 slim road (zref arm) retired 2026-09-26 on a plant proof -- 0 of 4693 corpus sources reached it: the SCC probe held but no tiny or signature arm took the call");
+                    _tiny_fallback_z: ;
+                    return FOR(0, (int)_.op_ival, [&](int i) {
+                               return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                        + x86("sub", "rsp", scc_sb_z)
+                        + FOR(0, scc_nsave_z, [&](int k) {
+                              return x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                                   + x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                        + x86_ro_load_q("rdi", 0)
+                        + x86("mov32", "esi", (long)scc_np_z)
+                        + x86("mov32", "edx", (long)_.op_ival)
+                        + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_oz)
+                        + x86_rt_gc_poll()
+                        + x86("test", "rax", "rax")
+                        + x86("je", L(5))
+                        + x86("mov", "rdx", "rax")
+                        + FOR(0, (int)_.op_ival, [&](int i) {
+                              return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                                   + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str())
+                                   + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16), "rax")
+                                   + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str())
+                                   + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
+                        + x86("mov", "rax", "rdx")
+                        + [&]{ static int _spz = -1; if (_spz < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _spz = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_for(_.op_sval) && _spz && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s110 floater pair (ZD twin): push omega then gamma so the fnrbp2 RETURN/FRETURN floaters find {gamma,omega} AT TOS; floater consumes 16 so L(6)/L(7) arrive at today's depth; witness probe/mon/mon_define_call_min; SCRIP_SLIM_PAIR=0 restores prior bytes") + x86("lea", "rcx", L(7)) + x86("push", "rcx") + x86("lea", "rcx", L(6)) + x86("push", "rcx") : std::string(""); }()
+                        + bcps_wire_cross(6, 7, _.op_sval)
+                        + x86("def", L(6))
+                        + bcps_wire_land(_.op_sval)
+                        + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))
+                        + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16 + 8))
+                        + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
+                              return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
+                                   + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
+                        + x86("add", "rsp", scc_sb_z)
+                        + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_gz)
+                        + x86("jmp", L(2))
+                        + x86("def", L(7))
+                        + bcps_wire_land(_.op_sval)
+                        + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
+                              return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
+                                   + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
+                        + x86("add", "rsp", scc_sb_z)
+                        + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_wz)
+                        + x86("jmp", L(2))
+                        + x86("def", L(5))
+                        + x86("add", "rsp", scc_sb_z);
                 }()
                 : std::string(""))
              + (!scc_z && dc_z
@@ -377,17 +430,49 @@ static std::string bcps_det_arm() {
     uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
         { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char) *nm; if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') mang[mi++] = (char) u; else mi += snprintf(mang + mi, (size_t) (256 - mi), "$%02X", u); } mang[mi] = 0; snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", mang); } } }
+    long scc_fp_o; { long (*fp)(const char *, int, int) = rt_proc_call_open_slim; scc_fp_o = (long)(uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t trap_fp; { void (*fp)(void) = rt_c2b_arm_trap; trap_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    long scc_fp_g; { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_slim_γ; scc_fp_g = (long)(uint64_t)(uintptr_t)(void*)fp; }
+    long scc_fp_w; { DESCR_t (*fp)(void) = rt_proc_call_epilogue_slim_ω; scc_fp_w = (long)(uint64_t)(uintptr_t)(void*)fp; }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
-    { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }
+    int c2 = 0;
+    { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc,c2); }
+    if (c2 && !scc)  return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB consumer probe disagrees with the role-0 producer that armed for this node (structural drift — bb_scc_probe is supposed to make this impossible)");
     if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha() + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist as storage on an armed statement; registration and the probe disagreed");
+    long scc_sb = 16L * (long)scc_nsave;
     return x86_alpha()
-         + x86_scan_sync_out()
+         + (c2 ? IF(g_scan_regs_live, x86("push", "rax") + x86("push", "rax")) + x86_scan_sync_out() + IF(g_scan_regs_live, x86("pop", "rax") + x86("pop", "rax")) : x86_scan_sync_out())
          + x86_anchor_enter()
-         + (scc || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival))
+         + (c2
+            ? x86("test", "rax", "rax")
+            + x86("je", L(5))
+            + bb_glue_pass_wires_blob(6, 7)
+            + x86("def", L(6))
+            + bb_glue_wire_land()
+            + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
+            + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
+            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                  return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                       + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+            + x86("add", "rsp", scc_sb)
+            + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
+            + x86("jmp", L(2))
+            + x86("def", L(7))
+            + bb_glue_wire_land()
+            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                  return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                       + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+            + x86("add", "rsp", scc_sb)
+            + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
+            + x86("jmp", L(2))
+            + x86("def", L(5))
+            + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
+            : std::string(""))
+         + ((scc || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival))) && !c2
             ? [&]() -> std::string {
                 static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
-                { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc); }
+                { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
                 static int _b1ct = -1; if (_b1ct < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1ct = (_e && *_e == '0') ? 0 : 1; }
                 if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                     std::string la = std::string(_.op_sval) + "_\xce\xb1";
@@ -428,7 +513,48 @@ static std::string bcps_det_arm() {
                     }
                 }
                 if (!scc) return std::string();
-                return x86_bomb("bb_call_proc_staged: the CALL2BB slice-2 slim road (frame arm) retired 2026-09-26 on a plant proof -- 0 of 4693 corpus sources reached it: the SCC probe held but no tiny or signature arm took the call");
+                return x86("sub", "rsp", scc_sb)
+                    + FOR(0, scc_nsave, [&](int k) {
+                          return x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                               + x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                    + x86_ro_load_q("rdi", 0)
+                    + x86("mov32", "esi", (long)scc_np)
+                    + x86("mov32", "edx", (long)_.op_ival)
+                    + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_o)
+                    + x86_rt_gc_poll()
+                    + x86("test", "rax", "rax")
+                    + x86("je", L(5))
+                    + x86("mov", "rdx", "rax")
+                    + FOR(0, (int)_.op_ival, [&](int i) {
+                          int slot = bcps_arg_slot(_.node, argblks, i);
+                          return (c2farm() ? x86_rsp_load64("rax", (int)scc_sb) : x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
+                               + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
+                               + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
+                               + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })
+                    + x86("mov", "rax", "rdx")
+                    + [&]{ static int _sp = -1; if (_sp < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_for(_.op_sval) && _sp && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s110 floater pair: fnrbp2 RETURN/FRETURN floaters pop {gamma,omega} AT TOS (bb_define role-1/2 s64 arm); this non-TINY site pushed NOTHING, so :(RETURN) popped enclosing-frame bytes and jumped junk (rip=_rtld_global, the omega_driver signature; witness probe/mon/mon_define_call_min).  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the floater consumes 16 so L(6)/L(7) arrive at today's post-carve depth unchanged.  Wires below stay seated for blob-exit spellings.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(7)) + x86("push", "rcx") + x86("lea", "rcx", L(6)) + x86("push", "rcx") : std::string(""); }()
+                    + bcps_wire_cross(6, 7, _.op_sval)
+                    + x86("def", L(6))
+                    + bcps_wire_land(_.op_sval)
+                    + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
+                    + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
+                    + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                          return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                               + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+                    + x86("add", "rsp", scc_sb)
+                    + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
+                    + x86("jmp", L(2))
+                    + x86("def", L(7))
+                    + bcps_wire_land(_.op_sval)
+                    + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                          return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                               + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+                    + x86("add", "rsp", scc_sb)
+                    + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
+                    + x86("jmp", L(2))
+                    + x86("def", L(5))
+                    + x86("add", "rsp", scc_sb)
+                    + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp));
               }()
             : std::string(""))
          + (dc

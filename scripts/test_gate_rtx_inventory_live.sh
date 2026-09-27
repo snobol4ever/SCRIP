@@ -38,7 +38,7 @@ NMSYMS=$(nm -g --defined-only "$SO" 2>/dev/null | awk '{print $3}')
 SYMS="
 ALLOC:rt_gcheap_alloc rt_str_alloc rt_str_dup rt_ws_alloc rt_ws_realloc rt_ws_strdup rt_ws_alloc_c rt_agg_alloc rt_pl_struct_alloc rt_pvec_alloc rt_wsb_realloc blk_alloc blk_free
 STR:str_concat_d rt_concat rt_lcomp rt_acomp rt_coerce_str_d rt_substr
-CALL:rt_proc_call_open rt_proc_call_epilogue_ rt_proc_open_fn rt_call_arr rt_call_named_proc rt_call rt_arg_stage rt_do_return rt_define rt_define_entry rt_proc_register rt_proc_reset rt_frame
+CALL:rt_proc_call_open rt_proc_call_open_slim rt_proc_call_epilogue_ rt_proc_call_epilogue_slim_ rt_proc_open_fn rt_call_arr rt_call_named_proc rt_call rt_arg_stage rt_do_return rt_define rt_define_entry rt_proc_register rt_proc_reset rt_frame
 AGG:rt_subscript_var rt_deref rt_field_var record_register
 ARITH:rt_num_arith rt_arith rt_binop_overload rt_coerce_num2_d rt_coerce_num rt_num_pos rt_neg rt_incr rt_decr rt_exp rt_cmp_d
 NV:NV_GET_fn NV_SET_fn rt_nv_get rt_nv_set rt_gvar_get_int rt_gvar_assign_str rt_gvar_assign_descr rt_gva_island gva_register rt_subject_load_nv

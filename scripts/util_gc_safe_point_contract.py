@@ -186,6 +186,7 @@ DECLARED_POINTER_FREE = {
 }
 DECLARED_POINTER_FREE_FN = {
     "rt_proc_call_open":       ("src/runtime/rt/rt.c", "return (long)rt_proc_call_prologue_lex(p, nargs, wn);", "the prologue's int status widened to long: 0 declines, never a pointer"),
+    "rt_proc_call_open_slim":  ("src/runtime/rt/rt.c", "return (long)(uintptr_t)(void *)p->fn;", "the procedure's code entry, a CODE address"),
     "rt_proc_call_open_det":   ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
     "rt_proc_call_open_det0":  ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
     "rt_proc_call_open_det1":  ("src/runtime/rt/rt.c", "return (void *)p->fn; } }", "the procedure's code entry, a CODE address, 0 declines"),
