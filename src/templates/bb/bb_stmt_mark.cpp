@@ -5,6 +5,8 @@ extern "C" {
 #include "bb_template_common.h"
 extern long g_stno;
 extern long g_line;
+extern long g_lastno;
+extern long g_lastline;
 extern const char *g_file;
 extern long g_stcount;
 }
@@ -14,9 +16,15 @@ std::string bb_stmt_mark(long stno, long line) {
     x86_begin();
     return  x86_alpha()
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
+         + x86("mov", "rcx", RDQ("rax", 0))
          + x86("mov", RDQ("rax", 0), (long)stno)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno")
+         + x86("mov", RDQ("rax", 0), "rcx")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rcx", RDQ("rax", 0))
          + x86("mov", RDQ("rax", 0), (long)line)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline")
+         + x86("mov", RDQ("rax", 0), "rcx")
          + IF(x86_trace_hooks_on(), x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stcount, "g_stcount")
          + x86("inc", RDQ("rax", 0)))
          + x86_gamma()

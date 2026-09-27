@@ -638,6 +638,7 @@ test_gate_sno_ident_and_the_fused_table_store_take_the_asm_entries.sh	WIRED	-	-	
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-
 test_gate_sno_lastno_after_a_return_is_the_returning_functions_statement.sh	WIRED	-	-	-
+test_gate_sno_lastno_updates_on_every_plain_statement.sh	WIRED	-	-	-
 test_gate_sno_leaf_builtins_dispatch_directly.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
 test_gate_sno_match_operator_composes_in_value_position.sh	WIRED	-	-	-
