@@ -5,7 +5,7 @@
 # is poll_at, the template line the emitted note names.  A witness is the smallest ref-carrying program whose
 # emission reaches the site; UNWITNESSED is a site no program in the set reaches, NAMED and never counted green.
 # COLUMNS: site  poll_at  witness
-src/templates/bb/bb_activate.cpp:34:scrip_coexpr_activate	src/templates/bb/bb_activate.cpp:39	hb_coexpr_refresh.icn
+src/templates/bb/bb_activate.cpp:35:scrip_coexpr_activate	src/templates/bb/bb_activate.cpp:41	hb_coexpr_refresh.icn
 src/templates/bb/bb_assign_global.cpp:116:NV_SET_fn	src/templates/bb/bb_assign_global.cpp:119	UNWITNESSED
 src/templates/bb/bb_assign_var.cpp:24:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:31	hb_nv.sno
 src/templates/bb/bb_assign_var.cpp:42:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:47	hb_concat_augmented_then_subscript.icn
@@ -45,11 +45,11 @@ src/templates/bb/bb_call_proc_staged.cpp:580:rt_proc_call_open	src/templates/bb/
 src/templates/bb/bb_call_proc_staged.cpp:648:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:652	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_call_proc_staged.cpp:651:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:652	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_call_proc_staged.cpp:665:rt_pl_tail_args_safe	src/templates/bb/bb_call_proc_staged.cpp:669	hb_reloc_gaps_on_a_mostly_live_heap.pl
-src/templates/bb/bb_call_value.cpp:67:rt_call_apply_spine_prep	src/templates/bb/bb_call_value.cpp:71	hb_reloc_gaps_on_a_mostly_live_heap.pl
-src/templates/bb/bb_call_value.cpp:70:rt_pl_goal_spine_prep/rt_call_value_spine_prep	src/templates/bb/bb_call_value.cpp:71	hb_reloc_gaps_on_a_mostly_live_heap.pl
-src/templates/bb/bb_call_value.cpp:131:rt_call_apply_gen_h	src/templates/bb/bb_call_value.cpp:143	hb_reloc_gaps_on_a_mostly_live_heap.pl
-src/templates/bb/bb_call_value.cpp:135:rt_pl_goal_gen_h/rt_call_value_gen_h	src/templates/bb/bb_call_value.cpp:143	hb_reloc_gaps_on_a_mostly_live_heap.pl
-src/templates/bb/bb_call_value.cpp:174:rt_call_value_resume_h	src/templates/bb/bb_call_value.cpp:180	hb_reloc_gaps_on_a_mostly_live_heap.pl
+src/templates/bb/bb_call_value.cpp:70:rt_call_apply_spine_prep	src/templates/bb/bb_call_value.cpp:74	hb_reloc_gaps_on_a_mostly_live_heap.pl
+src/templates/bb/bb_call_value.cpp:73:rt_pl_goal_spine_prep/rt_call_value_spine_prep	src/templates/bb/bb_call_value.cpp:74	hb_reloc_gaps_on_a_mostly_live_heap.pl
+src/templates/bb/bb_call_value.cpp:134:rt_call_apply_gen_h	src/templates/bb/bb_call_value.cpp:146	hb_reloc_gaps_on_a_mostly_live_heap.pl
+src/templates/bb/bb_call_value.cpp:138:rt_pl_goal_gen_h/rt_call_value_gen_h	src/templates/bb/bb_call_value.cpp:146	hb_reloc_gaps_on_a_mostly_live_heap.pl
+src/templates/bb/bb_call_value.cpp:177:rt_call_value_resume_h	src/templates/bb/bb_call_value.cpp:183	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_coerce_integer.cpp:21:rt_coerce_int_d	src/templates/bb/bb_coerce_integer.cpp:22	UNWITNESSED
 src/templates/bb/bb_coerce_integer.cpp:32:rt_coerce_int_d	src/templates/bb/bb_coerce_integer.cpp:33	UNWITNESSED
 src/templates/bb/bb_coerce_numeric.cpp:44:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:45	hb_immediate_capture_into_a_gva_cell_polled.sno
@@ -58,7 +58,7 @@ src/templates/bb/bb_coerce_real.cpp:20:rt_coerce_real_d	src/templates/bb/bb_coer
 src/templates/bb/bb_coerce_string.cpp:21:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:22	UNWITNESSED
 src/templates/bb/bb_coerce_string.cpp:32:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:33	UNWITNESSED
 src/templates/bb/bb_cofail.cpp:15:scrip_cofail	src/templates/bb/bb_cofail.cpp:16	hb_coexpr_refresh.icn
-src/templates/bb/bb_coret.cpp:27:scrip_coret	src/templates/bb/bb_coret.cpp:30	hb_coexpr_refresh.icn
+src/templates/bb/bb_coret.cpp:28:scrip_coret	src/templates/bb/bb_coret.cpp:32	hb_coexpr_refresh.icn
 src/templates/bb/bb_define.cpp:151:rt_define_site	src/templates/bb/bb_define.cpp:152	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:363:rt_trace_call_hook	src/templates/bb/bb_define.cpp:364	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:412:rt_trace_return_hook	src/templates/bb/bb_define.cpp:413	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
@@ -82,7 +82,7 @@ src/templates/bb/bb_keyword_assign.cpp:47:rt_keyword_subject_set_strict/rt_keywo
 src/templates/bb/bb_keyword_assign.cpp:91:rt_keyword_trace_set	src/templates/bb/bb_keyword_assign.cpp:96	hb_trace_wildcard_registry_root.icn
 src/templates/bb/bb_keyword_assign_snobol4.cpp:22:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:29	hb_errtext_keyword.sno
 src/templates/bb/bb_keyword_assign_snobol4.cpp:39:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:44	UNWITNESSED
-src/templates/bb/bb_keyword_icon.cpp:22:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:25	hb_scan_subject_embedded_nul_across_a_collection.icn
+src/templates/bb/bb_keyword_icon.cpp:22:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:25	hb_icn_reversible_assignment_to_pos_and_subject.icn
 src/templates/bb/bb_keyword_icon.cpp:123:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:128	hb_icn_errorvalue_keyword.icn
 src/templates/bb/bb_keyword_snobol4.cpp:47:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:52	UNWITNESSED
 src/templates/bb/bb_keyword_snobol4.cpp:84:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:87	UNWITNESSED
@@ -105,9 +105,11 @@ src/templates/bb/bb_match_replace.cpp:34:rt_match_replace	src/templates/bb/bb_ma
 src/templates/bb/bb_match_value.cpp:21:rt_match_value_get_pat_dtp	src/templates/bb/bb_match_value.cpp:31	UNWITNESSED
 src/templates/bb/bb_random.cpp:18:rt_random_var_strict/rt_random_var	src/templates/bb/bb_random.cpp:23	hb_table_dump_every_key_ref.icn
 src/templates/bb/bb_return.cpp:46:rt_trace_gen_return_hook	src/templates/bb/bb_return.cpp:47	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:46:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:49	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:54:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:56	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:67:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:69	UNWITNESSED
+src/templates/bb/bb_rev_assign_global.cpp:31:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:32	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:35:rt_keyword_pos_set_strict	src/templates/bb/bb_rev_assign_global.cpp:37	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:77:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:80	UNWITNESSED
+src/templates/bb/bb_rev_assign_global.cpp:85:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:87	UNWITNESSED
+src/templates/bb/bb_rev_assign_global.cpp:98:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:100	UNWITNESSED
 src/templates/bb/bb_rev_assign_var.cpp:19:rt_deref	src/templates/bb/bb_rev_assign_var.cpp:22	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_rev_assign_var.cpp:27:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_rev_assign_var.cpp:32	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_scan_any.cpp:45:rt_icn_cset_member	src/templates/bb/bb_scan_any.cpp:53	UNWITNESSED
@@ -155,7 +157,7 @@ src/templates/xa/xa_flat.cpp:453:rt_trace_call_hook_f	src/templates/xa/xa_flat.c
 src/templates/xa/xa_flat.cpp:454:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:457	hb_scan_subject_across_a_failing_callee.icn
 src/templates/xa/xa_flat.cpp:455:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:457	hb_scan_subject_across_a_failing_callee.icn
 src/templates/xa/xa_flat.cpp:456:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:457	hb_scan_subject_across_a_failing_callee.icn
-src/emitter/emit.cpp:3038:rt_trace_call_hook_f	src/emitter/emit.cpp:3042	hb_size_result_polled.icn
-src/emitter/emit.cpp:3039:rt_trace_return_hook	src/emitter/emit.cpp:3042	hb_size_result_polled.icn
-src/emitter/emit.cpp:3040:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3042	hb_size_result_polled.icn
-src/emitter/emit.cpp:3041:rt_trace_fail_hook	src/emitter/emit.cpp:3042	hb_size_result_polled.icn
+src/emitter/emit.cpp:3049:rt_trace_call_hook_f	src/emitter/emit.cpp:3053	hb_size_result_polled.icn
+src/emitter/emit.cpp:3050:rt_trace_return_hook	src/emitter/emit.cpp:3053	hb_size_result_polled.icn
+src/emitter/emit.cpp:3051:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3053	hb_size_result_polled.icn
+src/emitter/emit.cpp:3052:rt_trace_fail_hook	src/emitter/emit.cpp:3053	hb_size_result_polled.icn

@@ -1466,7 +1466,12 @@ inline std::string x86_4col(const std::string & s) {
                 else { x86_4col_pad(o, r.op, r.ol, 17); o.append(r.ar, r.al); inst = 1; }
             }
         }
-        if (inst && !note.empty()) { int drop = isj || (willjoin && x86_disp_w(o.data() + ls, o.size() - ls) + 1 < CJ); if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, CJ); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }
+        if (inst && !note.empty()) {
+            int drop = isj || (willjoin && x86_disp_w(o.data() + ls, o.size() - ls) + 1 < CJ);
+            int fresh = note != prevnote || !note.compare(0, 8, "gc_poll ");
+            if (!drop && fresh && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, CJ); o.append("# "); o.append(note); prevnote = note; }
+            if (!drop) { if (note != prevnote) prevnote.clear(); }
+            note.clear(); }
         pend = (ck == 0 || ck == 4) ? 4 : ck; pls = ls;
         i = inext;
     }
