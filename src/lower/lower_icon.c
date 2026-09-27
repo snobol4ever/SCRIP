@@ -12,7 +12,7 @@ typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; const char ** gn; int ngn; const char * pname;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
     IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line;
-    int ret_lv;
+    int ret_lv; const char * file; int links;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω);
@@ -513,7 +513,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
 static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
     if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
-    if (id && !strcmp(id, "file")) { extern const char * stmt_src_get_file(void); const char * sf = stmt_src_get_file(); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) (sf ? sf : ""); *res = nd; return nd; }
+    if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) cx->file; *res = nd; return nd; }
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
         if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -1628,12 +1628,13 @@ static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
     return 0;
 }
 static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next) {
-    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line; return mark;
+    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line;
+    if (cx->links) IR_LIT(mark).sval = (char *) cx->file;
+    return mark;
 }
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
-    extern const char * stmt_src_get_file(void);
     IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line;
-    { const char * sf = stmt_src_get_file(); IR_LIT(mark).sval = (char *) (sf ? sf : ""); }
+    IR_LIT(mark).sval = (char *) cx->file;
     return mark;
 }
 static int icn_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
@@ -1821,6 +1822,8 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     { static lc_vec gnv; icn_vec_reuse(&gnv, (int) sizeof(const char *)); icn_collect_own_globals(prog, &gnv); cx.gn = (const char **) gnv.data; cx.ngn = gnv.n; cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon"; }
     cx.want_lines = icn_tree_mentions_kw(prog, "&trace"); cx.end_line = pd ? pd->slen : 0;
+    { extern const char * stmt_src_get_file(void); const char * mf = stmt_src_get_file(); cx.file = mf ? mf : "";
+      for (int i = 0; prog && i < prog->n; i++) { const tree_t * s = prog->c[i]; if (!s || s->t != TT_STMT) continue; const tree_t * fl = lp_s_expr(s, ":file"); if (!fl || !fl->v.sval) continue; cx.links = 1; if (stmt_subj(s) == pd) cx.file = fl->v.sval; } }
     if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g && cx.pname && !strcmp(cx.pname, "main")) icn_init_reassigned_procs(&cx, g); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; if (pd->v.sval && !strcmp(pd->v.sval, "main")) g->root_graph = 1; } return g; }
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
     g->icn_cells_graph = 1;

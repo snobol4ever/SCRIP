@@ -92,7 +92,8 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             CODE_t * sp = icn_parse_file(&p2, &sub_ast);
             if (p2.had_error) { fprintf(stderr, "icon: parse error in linked file %s: %s\n", path, p2.errmsg); exit(1); }
             ct_drop(sp);
-            if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) ast_push(prog, sub_ast->c[j]);
+            { const char * lb = strrchr(path, '/'); lb = lb ? lb + 1 : path;
+              if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) { if (sub_ast->c[j]->t == TT_STMT) ast_push(sub_ast->c[j], ast_attr_leaf(":file", lb)); ast_push(prog, sub_ast->c[j]); } }
         }
     }
     ct_drop((void *) loaded);
