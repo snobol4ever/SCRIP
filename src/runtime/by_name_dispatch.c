@@ -3189,7 +3189,8 @@ PL_CX_LEAF_HEAD(read, 1) { static char text[65536]; int got; DESCR_t t; pl_vtab_
     else ok = plw_unify_vals(args[0], t, cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(atom_to_term, 3) { char b[65536]; const char *txt; DESCR_t t; pl_vtab_t vt;
     if (pl_val_unbound(rt_pl_deref_val(args[0]))) { extern void *rt_pl_ball_instantiation(void); cx->ball = rt_pl_ball_instantiation(); ok = 0; }
-    else if (!pl_cell_text(args[0], b, sizeof b, &txt) || !pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) ok = 0;
+    else if (!pl_cell_text(args[0], b, sizeof b, &txt)) ok = 0;
+    else if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
     else { DESCR_t el[256]; int n = 0; extern int prolog_atom_intern(const char *);
         for (int i = 0; i < vt.n; i++) { if (!vt.nm[i]) continue; DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2); kids[0] = pl_mk_atom_dup(vt.nm[i], strlen(vt.nm[i])); kids[1] = vt.v[i];
             { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("=")) << 16) | 2u; c.p = (void *)kids; el[n++] = c; } }
@@ -3759,7 +3760,9 @@ PL_CX_LEAF_HEAD(format3, 3) { extern int fh_current_output(void); extern void fh
                     plw_unify_vals(((DESCR_t *)d.p)[0], kind == 1 ? pl_mk_atom_dup(buf ? buf : "", sz) : pl_text_list(buf ? buf : "", kind == 2), cx);
                 } } } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(term_string, 2) { char b[65536]; const char *txt; DESCR_t t; pl_vtab_t vt;
-    if (pl_val_unbound(rt_pl_deref_val(args[0])) && pl_cell_text(args[1], b, sizeof b, &txt)) ok = pl_parse_term_text(txt, &t, &vt, (PlProgram **)0) && plw_unify_vals(args[0], t, cx);
+    if (pl_val_unbound(rt_pl_deref_val(args[0])) && pl_cell_text(args[1], b, sizeof b, &txt)) {
+        if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
+        else ok = plw_unify_vals(args[0], t, cx); }
     else ok = rt_pl_term_string_cell(&args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_read_src_from_fp(FILE *f, char *rb, int cap) {
