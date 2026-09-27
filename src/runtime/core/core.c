@@ -1739,6 +1739,7 @@ static DESCR_t _BACKSPACE_(DESCR_t *a, int n);
 static DESCR_t _DETACH_(DESCR_t *a, int n);
 static DESCR_t _EJECT_(DESCR_t *a, int n);
 static DESCR_t _REWIND_(DESCR_t *a, int n);
+static DESCR_t _SET_(DESCR_t *a, int n);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ARRAY_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
@@ -2605,6 +2606,7 @@ void core_lib_init(void) {
     register_fn("DETACH",   _DETACH_,   1, 1);
     register_fn("EJECT",    _EJECT_,    1, 1);
     register_fn("REWIND",   _REWIND_,   1, 1);
+    register_fn("SET",      _SET_,      1, 3);
     register_fn("APPLY",    _APPLY_,    1, 9);
     register_fn("LPAD",     _LPAD_,     2, 3);
     register_fn("RPAD",     _RPAD_,     2, 3);
@@ -4482,6 +4484,38 @@ static DESCR_t _BACKSPACE_(DESCR_t *a, int n) {
         while (p >= 0) { int c; fseek(fp, p, SEEK_SET); c = fgetc(fp); if (c == '\n') break; p--; }
         fseek(fp, p + 1, SEEK_SET); clearerr(fp); } }
     return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _set_int_arg(DESCR_t d, int64_t *out) {
+    if (IS_INT(d)) { *out = d.i; return 1; }
+    if (!IS_STR(d)) return 0;
+    { const char *p = d.s; size_t len = descr_slen(d), i = 0; int neg = 0; int64_t v = 0;
+      if (!p || len == 0) { *out = 0; return 1; }
+      if (p[0] == '+' || p[0] == '-') { neg = p[0] == '-'; i = 1; }
+      if (i >= len) return 0;
+      for (; i < len; i++) { if (p[i] < '0' || p[i] > '9') return 0; v = v * 10 + (p[i] - '0'); }
+      *out = neg ? -v : v; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _SET_(DESCR_t *a, int n) {
+    _io_chan_setup();
+    DESCR_t c = n > 0 ? a[0] : NULVCL, o = n > 1 ? a[1] : NULVCL, w = n > 2 ? a[2] : NULVCL;
+    int64_t ch, off, wh, eof, target;
+    if (IS_NULL_fn(c)) { core_runtime_error(292, "set first argument is null"); return FAILDESCR; }
+    if (!_set_int_arg(c, &ch) || ch < 0 || ch >= IO_CHAN_MAX || !_io_chan[ch].fp) { core_runtime_error(295, "set file does not exist"); return FAILDESCR; }
+    if (_io_chan[ch].is_popen) { core_runtime_error(296, "set file does not permit setting file pointer"); return FAILDESCR; }
+    if (!_set_int_arg(w, &wh) || !_set_int_arg(o, &off)) { core_runtime_error(293, "inappropriate second argument to set"); return FAILDESCR; }
+    if (wh < 0 || wh > 2) { core_runtime_error(297, "set caused non-recoverable i/o error"); return FAILDESCR; }
+    { FILE *fp = _io_chan[ch].fp; long cur;
+      fflush(fp); cur = ftell(fp);
+      if (cur < 0 || fseek(fp, 0, SEEK_END) != 0) { core_runtime_error(296, "set file does not permit setting file pointer"); return FAILDESCR; }
+      eof = ftell(fp);
+      target = wh == 0 ? off : wh == 1 ? cur + off : eof + off;
+      if (target < 0) target = 0;
+      if (!_io_chan[ch].is_output && target > eof) target = eof;
+      if (fseek(fp, (long)target, SEEK_SET) != 0) { core_runtime_error(297, "set caused non-recoverable i/o error"); return FAILDESCR; }
+      clearerr(fp); }
+    return INTVAL(target);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _DETACH_(DESCR_t *a, int n) {
