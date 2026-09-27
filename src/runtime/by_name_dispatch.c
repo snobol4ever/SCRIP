@@ -9220,6 +9220,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
         DESCR_t av = args[0];
         if (av.v == DT_X) { extern DESCR_t rt_sno_dtx_value(const char *); *out = rt_sno_dtx_value(av.s ? av.s : ""); return 1; }
+        if (av.v != DT_P && av.v != DT_E) { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
         if (av.v == DT_SNUL) { *out = NULVCL; return 1; }
         if (av.v == DT_S) { extern DESCR_t EVAL_fn(DESCR_t); *out = EVAL_fn(av); return 1; }

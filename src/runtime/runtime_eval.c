@@ -353,7 +353,7 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
     if (!_ef) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
-    int my = g_core_errjmp_n++; long esv = g_error; g_error = -1;
+    int my = g_core_errjmp_n++; long esv = g_error == -3 ? 0 : g_error; g_error = -1;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
     rt_c2bb_hit("chain.eval.guarded", "?");
     eval_chain_enter_only(fn);
@@ -568,6 +568,7 @@ DESCR_t code(const char *src) { return code_at(src, 0); }
 long g_sno_stmt_compiled = 0;
 DESCR_t code_at(const char *src, long base)
 {
+    { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src || !*src) return FAILDESCR;
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
@@ -637,7 +638,9 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             DESCR_t saved = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, FAILDESCR);
             rt_c2bb_hit("chain.eval.conve", "?");
+            { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter((const char *)0); }
             eval_chain_enter_only(fn);
+            { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
             DESCR_t result = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, saved);
             return result;
@@ -654,7 +657,9 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         int         save_Δ = Δ;
         NAME_ctx_t eval_ctx;
         NAME_ctx_enter(&eval_ctx);
+        { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter((const char *)0); }
         DESCR_t result = eval_node((tree_t *)expr_d.ptr);
+        { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
         NAME_ctx_leave();
         Σ = save_Σ;
         Ω = save_Ω;
@@ -681,6 +686,7 @@ static int conve_is_bare_name(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t CONVE_fn(DESCR_t str_d)
 {
+    { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     const char *s = VARVAL_fn(str_d);
     if (!s || !*s) return FAILDESCR;
     if (conve_is_bare_name(s)) {

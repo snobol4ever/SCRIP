@@ -480,6 +480,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         extern DESCR_t eval_string_transient(const char *s);
         return eval_string_transient(expr.s ? expr.s : "");
     }
+    if (expr.v != DT_P) { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (expr.v == DT_I) return expr;
     if (expr.v == DT_R) return expr;
     if (expr.v == DT_P) {
@@ -811,6 +812,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
             { int reg = 0; long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb, &reg);
               if (!reg) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return (rt_dcap_next_t){ 1, 0 }; continue; }
               if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return (rt_dcap_next_t){ 1, 0 }; continue; }
+              { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(pn); }
               return (rt_dcap_next_t){ fn, (long)c->how }; }
         }
         if (e->varname && e->varname[0]) {
@@ -852,6 +854,7 @@ rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0)
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     DESCR_t nm = (c->how == 2) ? rt_nret_fix_tiny(frame0, 0) : (c->how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1) : rt_proc_call_epilogue_γ(frame0);
     if (c->how == 3) rt_name_save_unwind(c->nsb);
+    { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump();
 }
@@ -863,6 +866,7 @@ rt_dcap_next_t rt_dcap_land_ω(void)
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     DESCR_t nm = (c->how == 2) ? rt_ret_faildescr() : (c->how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1) : rt_proc_call_epilogue_ω();
     if (c->how == 3) rt_name_save_unwind(c->nsb);
+    { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump();
 }
@@ -921,6 +925,7 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
           rt_g_want_name = 1;
           { rt_dcap_next_t n = rt_call_open_by_name(tn, 0);
             if (!n.fn) { g_capo_top--; rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; }
+            { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(tn); }
             return n; } } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -928,6 +933,7 @@ long rt_cap_land_γ(DESCR_t frame0, long word)
 {
     extern DESCR_t rt_call_land_γ(DESCR_t, long); extern int rt_g_want_name; extern int rt_g_ret_by_name;
     DESCR_t nm = rt_call_land_γ(frame0, word);
+    { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
     if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_γ: no open capture\n"); abort(); }
     g_capo_top--;
     { DESCR_t matched = g_capo[g_capo_top].matched; int by_name;
@@ -940,6 +946,7 @@ long rt_cap_land_ω(long word)
 {
     extern DESCR_t rt_call_land_ω(long); extern int rt_g_want_name; extern int rt_g_ret_by_name;
     DESCR_t nm = rt_call_land_ω(word);
+    { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
     if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_ω: no open capture\n"); abort(); }
     g_capo_top--;
     g_cap_abort_gen = g_capo[g_capo_top].asv; rt_g_want_name = g_capo[g_capo_top].wsv; rt_g_ret_by_name = 0;
@@ -1085,7 +1092,7 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r)
             const char *nm = r.s ? r.s : "";
             s->dtx_used = 1;
             if (!rt_proc_is_registered(nm)) { r = NV_GET_fn(nm); continue; }
-            { rt_dcap_next_t n = rt_call_open_by_name(nm, 0); if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; } return n; }
+            { rt_dcap_next_t n = rt_call_open_by_name(nm, 0); if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; } { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(nm); } return n; }
         }
         if (r.v == DT_P && r.p) { dtp_fn_of(r.p); if (*(void **)r.p) { g_dfx_top--; return (rt_dcap_next_t){ (long)(uintptr_t)r.p, 4 }; } s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
         s->val = r;
@@ -1116,14 +1123,14 @@ rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word)
 {
     extern DESCR_t rt_call_land_γ(DESCR_t, long);
     if (g_dfx_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; return rt_defer_resolve(s, rt_call_land_γ(frame0, word)); }
+    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; DESCR_t r = rt_call_land_γ(frame0, word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_defer_land_ω(long word)
 {
     extern DESCR_t rt_call_land_ω(long);
     if (g_dfx_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; return rt_defer_resolve(s, rt_call_land_ω(word)); }
+    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; DESCR_t r = rt_call_land_ω(word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {

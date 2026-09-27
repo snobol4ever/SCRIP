@@ -2872,7 +2872,7 @@ void core_runtime_error(int code, const char *msg) {
     { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       extern long g_error;
-      if (g_error != 0 && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && _setexit_label[0]))) {
+      if (g_error != 0 && g_error != -3 && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && _setexit_label[0]))) {
           if (g_error > 0) g_error--;
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
@@ -2901,7 +2901,7 @@ void core_runtime_error(int code, const char *msg) {
           if (how == 1) return;
           aborting = 1;
       }
-      if (!aborting && kw_errlimit != 0 && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
+      if (!aborting && (kw_errlimit != 0 || g_error == -3) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
           return;
@@ -2962,7 +2962,7 @@ void core_icn_startup_error_no_main(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_error(int code, DESCR_t val) {
     extern long g_error;
-    if (g_error != 0) {
+    if (g_error != 0 && g_error != -3) {
         g_error--;
         g_icn_errnumber = code; { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; } g_icn_errvalue = val; g_icn_err_valid = 1;
         if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);

@@ -304,15 +304,17 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t g_prim_val;
+void rt_eval_stage_enter(const char *name);
+void rt_eval_stage_leave_word(long word);
 rt_call_next_t rt_pat_prim_open(const char *varname) {
     extern int rt_proc_is_registered(const char *name);
-    if (varname && varname[0] == '*') { if (rt_proc_is_registered(varname + 1)) { rt_call_next_t n = rt_call_open_by_name(varname + 1, 0); if (n.fn) return n; g_prim_val = FAILDESCR; return (rt_call_next_t){ 0, 0 }; } g_prim_val = NV_GET_fn(varname + 1); return (rt_call_next_t){ 0, 0 }; }
+    if (varname && varname[0] == '*') { if (rt_proc_is_registered(varname + 1)) { rt_call_next_t n = rt_call_open_by_name(varname + 1, 0); if (n.fn) { rt_eval_stage_enter(varname + 1); return n; } g_prim_val = FAILDESCR; return (rt_call_next_t){ 0, 0 }; } g_prim_val = NV_GET_fn(varname + 1); return (rt_call_next_t){ 0, 0 }; }
     g_prim_val = NV_GET_fn(varname ? varname : "");
     return (rt_call_next_t){ 0, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pat_prim_land_γ(DESCR_t frame0, long word) { g_prim_val = rt_call_land_γ(frame0, word); }
-void rt_pat_prim_land_ω(long word) { g_prim_val = rt_call_land_ω(word); }
+void rt_pat_prim_land_γ(DESCR_t frame0, long word) { g_prim_val = rt_call_land_γ(frame0, word); rt_eval_stage_leave_word(word); }
+void rt_pat_prim_land_ω(long word) { g_prim_val = rt_call_land_ω(word); rt_eval_stage_leave_word(word); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_pat_prim_int_take(void) {
     DESCR_t v = g_prim_val;
@@ -1134,6 +1136,10 @@ DESCR_t rt_call_land_ω(long word)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
 rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) { rt_proc_t *p = rt_proc_find(name); *registered = p ? 1 : 0; return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 }; }
+static int rt_eval_stage_is_var(const char *name) { return name && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
+void rt_eval_stage_enter(const char *name) { extern long g_error; if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = -3; }
+void rt_eval_stage_leave(const char *name) { extern long g_error; if (g_error == -3 && !rt_eval_stage_is_var(name)) g_error = 0; }
+void rt_eval_stage_leave_word(long word) { long idx = word >> 40; rt_eval_stage_leave((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].name : (const char *)0); }
 long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered)
 {
     rt_proc_t *p = rt_proc_find(name);
