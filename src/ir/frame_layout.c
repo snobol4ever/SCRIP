@@ -11,20 +11,16 @@ extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
-#define FL_MAX_ENTRIES 262144
 #define FL_FC_SYNTH    0x7F000
-#define FL_MAX_FIELDS  524288
-#define FL_MAX_SCOPES  16384
-#define FL_MAX_GRAPHS  16384
-#define FL_MAX_VSLOTS  16384
-#define FL_MAX_MARKS   262144
 typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; int aoff; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;
 typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; struct zls_reuse_s * reuse; int n_reuse; int scratch_pool; const IR_t * scratch_hit_w; const IR_t * scratch_hit_t; } zls_graph_t;
-static zls_entry_t  ze[FL_MAX_ENTRIES];  static int ze_n = 0;
-static zls_pfield_t zf[FL_MAX_FIELDS];   static int zf_n = 0;
+static cv_t ze_v; static int ze_n = 0;
+#define ze ((zls_entry_t *)ze_v.p)
+static cv_t zf_v; static int zf_n = 0;
+#define zf ((zls_pfield_t *)zf_v.p)
 typedef struct { const IR_t * nd; int scope; int end; uint32_t gen; } znb_slot_t;
 static cv_t g_znb; static uint32_t g_znb_gen = 1, g_znb_n = 0;
 static znb_slot_t * znb_probe(cv_t * v, const IR_t * nd, int scope) {
@@ -38,11 +34,16 @@ static void znb_note(const IR_t * nd, int scope, int end) {
     znb_slot_t * t = znb_probe(&g_znb, nd, scope);
     if (t->gen != g_znb_gen) { t->nd = nd; t->scope = scope; t->end = end; t->gen = g_znb_gen; g_znb_n++; } else if (end > t->end) t->end = end;
 }
-static zls_scope_t  zs[FL_MAX_SCOPES];   static int zs_n = 0;
-static zls_graph_t  zg[FL_MAX_GRAPHS];   static int zg_n = 0;
-static zls_vslot_t  zv[FL_MAX_VSLOTS];   static int zv_n = 0;
-static zls_mark_t   zm[FL_MAX_MARKS];    static int zm_n = 0;
-static zls_entry_t * zx[FL_MAX_ENTRIES]; static int zx_n = 0;
+static cv_t zs_v; static int zs_n = 0;
+#define zs ((zls_scope_t *)zs_v.p)
+static cv_t zg_v; static int zg_n = 0;
+#define zg ((zls_graph_t *)zg_v.p)
+static cv_t zv_v; static int zv_n = 0;
+#define zv ((zls_vslot_t *)zv_v.p)
+static cv_t zm_v; static int zm_n = 0;
+#define zm ((zls_mark_t *)zm_v.p)
+static cv_t zx_v; static int zx_n = 0;
+#define zx ((int *)zx_v.p)
 static int zx_sorted = 0; static cv_t g_zx_tail;
 typedef struct { const IR_graph_t * g; int i1; } zgh_t;
 static zgh_t * g_zgh = (zgh_t *)0; static uint32_t g_zgh_cap = 0;
@@ -69,13 +70,13 @@ void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
-    if (zm_n >= FL_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", FL_MAX_MARKS); abort(); }
+    cv_reserve(&zm_v, (uint32_t)sizeof(zls_mark_t), (uint64_t)zm_n + 1, "zm");
     zm[zm_n++] = (zls_mark_t){ g, name, g->n, (const IR_t *)0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark_anchor(const IR_graph_t * g, const char * name, const IR_t * anchor) {
     if (!g || !name) return;
-    if (zm_n >= FL_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", FL_MAX_MARKS); abort(); }
+    cv_reserve(&zm_v, (uint32_t)sizeof(zls_mark_t), (uint64_t)zm_n + 1, "zm");
     zm[zm_n++] = (zls_mark_t){ g, name, g->n, anchor };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -103,7 +104,7 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
     zls_graph_t * r = zls_g_find(g);
     if (r) { r->name = name; if (r->first_scope >= 0 && r->first_scope < zs_n) zs[r->first_scope].name = name; return; }
-    if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
+    cv_reserve(&zg_v, (uint32_t)sizeof(zls_graph_t), (uint64_t)zg_n + 1, "zg");
     zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 };
     zg_n++;
     zgh_note(zg_n - 1);
@@ -111,26 +112,26 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * zls_graph_name_get(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->name : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zx_cmp(const void * a, const void * b) { const zls_entry_t * x = *(zls_entry_t * const *)a; const zls_entry_t * y = *(zls_entry_t * const *)b; return (x->nd > y->nd) - (x->nd < y->nd); }
+static int zx_cmp(const void * a, const void * b) { const zls_entry_t * x = &ze[*(const int *)a]; const zls_entry_t * y = &ze[*(const int *)b]; return (x->nd > y->nd) - (x->nd < y->nd); }
 static void zx_settle(void) {
     int s = (zx_sorted <= zx_n) ? zx_sorted : 0, t = zx_n - s;
-    if (t > 1) qsort(zx + s, (size_t)t, sizeof(zls_entry_t *), zx_cmp);
-    if (s > 0 && t > 0 && zx[s - 1]->nd > zx[s]->nd) {
-        cv_reserve(&g_zx_tail, (uint32_t)sizeof(zls_entry_t *), (uint64_t)t, "g_zx_tail"); zls_entry_t ** tl = (zls_entry_t **)g_zx_tail.p; memcpy(tl, zx + s, (size_t)t * sizeof(zls_entry_t *));
+    if (t > 1) qsort(zx + s, (size_t)t, sizeof(int), zx_cmp);
+    if (s > 0 && t > 0 && ze[zx[s - 1]].nd > ze[zx[s]].nd) {
+        cv_reserve(&g_zx_tail, (uint32_t)sizeof(int), (uint64_t)t, "g_zx_tail"); int * tl = (int *)g_zx_tail.p; memcpy(tl, zx + s, (size_t)t * sizeof(int));
         int i = s - 1, j = t - 1, k = zx_n - 1;
-        while (j >= 0) { if (i >= 0 && zx[i]->nd > tl[j]->nd) zx[k--] = zx[i--]; else zx[k--] = tl[j--]; }
+        while (j >= 0) { if (i >= 0 && ze[zx[i]].nd > ze[tl[j]].nd) zx[k--] = zx[i--]; else zx[k--] = tl[j--]; }
     }
     zx_sorted = zx_n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const zls_entry_t * zx_find(const IR_t * nd) {
     int lo = 0, hi = zx_n - 1;
-    while (lo <= hi) { int m = (lo + hi) / 2; if (zx[m]->nd == nd) return zx[m]; if (zx[m]->nd < nd) lo = m + 1; else hi = m - 1; }
+    while (lo <= hi) { int m = (lo + hi) / 2; if (ze[zx[m]].nd == nd) return &ze[zx[m]]; if (ze[zx[m]].nd < nd) lo = m + 1; else hi = m - 1; }
     return (const zls_entry_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_field(int scope_id, int off, int size, int kind, int audit, const char * what, const IR_t * nd) {
-    if (zf_n >= FL_MAX_FIELDS) { fprintf(stderr, "zls: field table overflow (%d)\n", FL_MAX_FIELDS); abort(); }
+    cv_reserve(&zf_v, (uint32_t)sizeof(zls_pfield_t), (uint64_t)zf_n + 1, "zf");
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
     if (nd) znb_note(nd, scope_id, off + size);
 }
@@ -139,9 +140,9 @@ static int zls_fence_widen(const IR_graph_t * g) { return g && g->zframe_pinned_
 static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_entry(const IR_t * nd, int scope_id, int off) {
-    if (ze_n >= FL_MAX_ENTRIES) { fprintf(stderr, "zls: entry table overflow (%d)\n", FL_MAX_ENTRIES); abort(); }
+    cv_reserve(&ze_v, (uint32_t)sizeof(zls_entry_t), (uint64_t)ze_n + 1, "ze");
     ze[ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(nd->op) ? 16 : 0), 1, -1 };
-    zx[zx_n++] = &ze[ze_n];
+    cv_reserve(&zx_v, (uint32_t)sizeof(int), (uint64_t)zx_n + 1, "zx"); zx[zx_n++] = ze_n;
     ze_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -320,7 +321,7 @@ int zls_result_live(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) 
 int zls_node_off(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; return e ? e->off : -0x40000000; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_scope_new(int parent, int klass, const char * name) {
-    if (zs_n >= FL_MAX_SCOPES) { fprintf(stderr, "zls: scope table overflow (%d)\n", FL_MAX_SCOPES); abort(); }
+    cv_reserve(&zs_v, (uint32_t)sizeof(zls_scope_t), (uint64_t)zs_n + 1, "zs");
     zs[zs_n] = (zls_scope_t){ zs_n, parent, klass, name, -1, 0, 0x7fffffff, 0 };
     return zs_n++;
 }
@@ -480,14 +481,14 @@ void zls_build(IR_graph_t * g) {
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
-        if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
+        cv_reserve(&zg_v, (uint32_t)sizeof(zls_graph_t), (uint64_t)zg_n + 1, "zg");
         zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; r = &zg[zg_n]; zg_n++; zgh_note(zg_n - 1);
     }
-    static char anon[FL_MAX_GRAPHS][8]; int gi = (int)(r - zg);
-    if (!r->name) { snprintf(anon[gi], sizeof anon[gi], "g%d", gi); r->name = anon[gi]; }
+    int gi = (int)(r - zg);
+    if (!r->name) { char ab[16]; snprintf(ab, sizeof ab, "g%d", gi); r->name = ct_strdup(ab); }
     int root = zls_scope_new(-1, ZSC_FN, r->name);
     r->first_scope = root; r->n_scopes = 1;
-    int mfirst[FL_MAX_SCOPES]; int mstart[FL_MAX_SCOPES]; int nl = 0;
+    int * mfirst = (int *)ct_alloc(sizeof(int) * (size_t)(zm_n + 1)); int * mstart = (int *)ct_alloc(sizeof(int) * (size_t)(zm_n + 1)); int nl = 0;
     for (int mi = 0; mi < zm_n; mi++) {
         if (zm[mi].g != g) continue;
         int sc = zls_scope_new(root, ZSC_GROUP, zm[mi].name);
@@ -516,7 +517,7 @@ void zls_build(IR_graph_t * g) {
     int k = 0;
     r->first_vslot = zv_n;
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
-        if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
+        cv_reserve(&zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)zv_n + 1, "zv");
         zv[zv_n++] = (zls_vslot_t){ g->pnames[i], 16 + i * 16 }; r->n_vslots++;
         zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
@@ -600,7 +601,7 @@ void zls_build(IR_graph_t * g) {
             if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
             int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
             if (have) continue;
-            if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
+            cv_reserve(&zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)zv_n + 1, "zv");
             zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
             zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
             k++;
@@ -612,7 +613,7 @@ void zls_build(IR_graph_t * g) {
             if (!vn || vn[0] == '&') continue;
             int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
             if (have) continue;
-            if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
+            cv_reserve(&zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)zv_n + 1, "zv");
             zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
             zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "declared-local", (const IR_t *)0);
             k++;
@@ -621,7 +622,7 @@ void zls_build(IR_graph_t * g) {
     if (g->zframe_graph && !g->icn_cells_graph && g->decl_level == 3) {
         for (int _pdl = 4; _pdl <= 16; _pdl++) {
             const char * nm = zls_pas_display_name(_pdl);
-            if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
+            cv_reserve(&zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)zv_n + 1, "zv");
             zv[zv_n++] = (zls_vslot_t){ nm, base + k * 16 }; r->n_vslots++;
             zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "pas-display-spill", (const IR_t *)0);
             k++;
@@ -851,8 +852,8 @@ void zls_forget_graph_nodes(const IR_graph_t * g) {
     for (int i = 0; i < ze_n; i++) { if (!ze[i].nd) continue;
         for (int k = 0; k < g->n; k++) if (g->all[k] == ze[i].nd) { ze[i].nd = (const IR_t *)0; break; } }
     zx_n = 0;
-    for (int i = 0; i < ze_n; i++) if (ze[i].nd) zx[zx_n++] = &ze[i];
-    qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
+    for (int i = 0; i < ze_n; i++) if (ze[i].nd) { cv_reserve(&zx_v, (uint32_t)sizeof(int), (uint64_t)zx_n + 1, "zx"); zx[zx_n++] = i; }
+    qsort(zx, zx_n, sizeof(int), zx_cmp);
     zx_sorted = zx_n;
     { zls_graph_t * r = zls_g_find(g); if (r) { if (r->reuse) ct_drop(r->reuse); *r = (zls_graph_t){ g, r->name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; } }
 }
@@ -871,13 +872,15 @@ int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return
 #include "gc_frame_map.h"
 _Static_assert(GC_LAY_DESCR == ZK_DESCR && GC_LAY_RAW == ZK_RAW && GC_LAY_PTR_GC == ZK_PTR_GC && GC_LAY_PTR_CODE == ZK_PTR_CODE, "a layout quad's kind IS the zls_field kind: the emitter seals zls_field_t.kind unchanged after the map's four quads and the collector reads it back as GC_LAY_*, so the two enumerations must agree by value (ARCH-GC section 6.2h)");
 typedef struct { int off; int size; unsigned char kind; } zls_layq_t;
-static zls_layq_t zlq[FL_MAX_FIELDS];
+static cv_t zlq_v;
+#define zlq ((zls_layq_t *)zlq_v.p)
 static int zls_layq_cmp(const void * a, const void * b) { const zls_layq_t * x = (const zls_layq_t *)a; const zls_layq_t * y = (const zls_layq_t *)b; if (x->off != y->off) return x->off < y->off ? -1 : 1; if (x->size != y->size) return x->size > y->size ? -1 : 1; return (int)x->kind - (int)y->kind; }
 int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; int n = 0, m = 0, gaps = 0, conf = 0, expect = 0;
     if (gap_bytes) *gap_bytes = 0;
     if (conflicts) *conflicts = 0;
     if (!r || r->first_scope < 0) return -1;
+    cv_reserve(&zlq_v, (uint32_t)sizeof(zls_layq_t), (uint64_t)zf_n + 1, "zlq");
     for (int f = 0; f < zf_n; f++) if (zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && zf[f].size > 0 && zf[f].off >= 0) zlq[n++] = (zls_layq_t){ zf[f].off, zf[f].size, zf[f].kind };
     qsort(zlq, (size_t)n, sizeof zlq[0], zls_layq_cmp);
     for (int i = 0; i < n; i++) {
