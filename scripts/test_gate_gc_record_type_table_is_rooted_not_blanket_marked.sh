@@ -23,6 +23,7 @@ set -u
 # a red here at the tiny arena grades the arena, not the record-type roots this gate exists to grade.  The pin is named in
 # test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh's DECLARED set, where a pin that spreads is caught.
 export SCRIP_HEAP_MB=512
+unset SCRIP_HEAP_KB   # ⛔ THE PIN HOLDS ONLY WITH THIS LINE (cfo 2026-09-26, row gc-four-collector-gates-...): rt_gcheap_init reads SCRIP_HEAP_MB and THEN SCRIP_HEAP_KB, which overwrites the window, so the test-arena export SCRIP_HEAP_KB=128 silently beat the export above
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
 bash scripts/util_require_fresh.sh >/dev/null 2>&1 || { echo "REFUSES rc=2: stale or missing ./scrip -- run make"; exit 2; }
 P="$ROOT/../corpus/packages/icon/arizona_tests/general"

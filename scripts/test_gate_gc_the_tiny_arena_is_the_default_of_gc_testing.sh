@@ -102,6 +102,16 @@ found=$(cd "$HERE" && grep -lE '^export SCRIP_HEAP_MB=' test_gate_*.sh 2>/dev/nu
 want=$(printf '%s\n' $DECLARED | sort | tr '\n' ' ' | sed 's/ $//')
 if [ "$found" = "$want" ]; then echo "  arm 3 PASS: exactly the declared gate(s) PIN an arena: ${found:-none} (each measures an arena-dependent quantity and says so at its pin; a ${SCRIP_HEAP_MB:-N} default is the rule applied, not a pin, and is not counted)"
 else echo "  arm 3 FAIL: the set of gates pinning an arena is not the declared set -- found [${found:-none}] declared [${want:-none}]. A new pin needs its reason at the pin and its name here; a missing one means the rule is off for that gate."; RC=1; fi
+# ARM 3b -- EVERY DECLARED PIN MUST HOLD (cfo 2026-09-26, row gc-four-collector-gates-read-red-at-the-128-kb-...). rt_gcheap_init reads
+# SCRIP_HEAP_MB and THEN SCRIP_HEAP_KB, which overwrites the window, so `export SCRIP_HEAP_MB=512` alone pins NOTHING once make test-arena
+# exports SCRIP_HEAP_KB=128: record_type_table, pacing_bounds and no_pinned_lifetime_class graded the inherited tiny arena for days and read
+# RED "at the tiny arena" for the arena, not for the property. A pin holds only beside an `unset SCRIP_HEAP_KB` line. FAIL_ONCE plants a pin
+# that does not hold.
+examined=$((examined + 1))
+defeated=$(cd "$HERE" && for f in $found; do grep -qE '^unset SCRIP_HEAP_KB' "$f" || printf '%s ' "$f"; done)
+[ "${FAIL_ONCE:-0}" = 1 ] && defeated="${defeated}test_gate_planted_pin_without_the_unset_by_fail_once.sh "
+if [ -z "$defeated" ]; then echo "  arm 3b PASS: every declared pin also unsets SCRIP_HEAP_KB, so the pin holds under the tiny-arena export (${found:-none})"
+else echo "  arm 3b FAIL: a declared pin is DEFEATED -- SCRIP_HEAP_KB is read after SCRIP_HEAP_MB and overwrites the window, so these gates grade the inherited arena, not their own: ${defeated% }"; RC=1; fi
 # ARM 4 -- the board line itself carries the arena, so an archived board line is readable years later.
 examined=$((examined + 1))
 b1=$(grep -oE 'arena_kb=[0-9]+' "$T/h_256.txt" | head -1); b7=$(grep -oE 'arena_kb=[0-9]+' "$T/h_512.txt" | head -1); bd=$(grep -oE 'arena_kb=[0-9]+' "$T/h_unset.txt" | head -1)

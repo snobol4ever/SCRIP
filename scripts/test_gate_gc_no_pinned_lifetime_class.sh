@@ -42,6 +42,7 @@ set -uo pipefail
 # read every collection the pinned run makes (measured 4 at 512 MB in both modes: the live set fits and the collections
 # come from the pacing line, so the count is whatever the pinned window yields and the arms require >= 1).
 export SCRIP_HEAP_MB=512
+unset SCRIP_HEAP_KB   # ⛔ THE PIN HOLDS ONLY WITH THIS LINE (cfo 2026-09-26, row gc-four-collector-gates-...): rt_gcheap_init reads SCRIP_HEAP_MB and THEN SCRIP_HEAP_KB, which overwrites the window, so the test-arena export SCRIP_HEAP_KB=128 silently beat the export above
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $SCRIP"; exit 2; }
