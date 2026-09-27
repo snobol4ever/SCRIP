@@ -7440,7 +7440,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 FILE *fp = fh_get((int)av.i);
                 if (fp) {
                     if (nl && _wi > 0) fputc('\n', dest);
-                    if (nl && fp != stdout) fflush(stdout);
+                    if ((nl && fp != stdout) || fp == stderr) fflush(stdout);
                     dest = fp;
                 }
                 continue;
@@ -8693,6 +8693,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         const char *mode = (nargs == 2 && (args[1].v == DT_S||args[1].v == DT_SNUL) && args[1].s)
                            ? args[1].s : "r";
         const char *cmode = "r"; char mbuf[8]; int is_pipe = 0;
+        if (strict && strpbrk(mode, "gG")) { *out = FAILDESCR; return 1; }
         if (icn_open_spec_is_icon(mode)) { icn_open_cmode(mode, mbuf, &is_pipe); cmode = mbuf; }
         else if (strstr(mode,"w")) cmode = "w";
         else if (strstr(mode,"a")) cmode = "a";
