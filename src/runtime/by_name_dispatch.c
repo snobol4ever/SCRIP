@@ -724,7 +724,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         char *r = (char *)rt_str_alloc(b - a); memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "chop")) {
-        size_t b = n; if (b > 0) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
+        long cnt = (nmargs >= 1 && margs && IS_INT_fn(margs[0])) ? (long)margs[0].i : (nmargs >= 1 && margs && IS_REAL_fn(margs[0])) ? (long)margs[0].r : 1;
+        size_t b = n; for (long k = 0; k < cnt && b > 0; k++) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
         char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "wordcase")) {

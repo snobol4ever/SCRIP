@@ -28,7 +28,10 @@ THREE VERBS.
           the file's last test in rungs 0..K, its open brackets closed -- so nothing LATER in the file (a rarer
           construct the test never needed) can sink it; everything earlier is the test's own context, which is why a
           test's constructs are the running union of its file's tests up to it (rungs only rise along a file, and the
-          tests of rungs <= K of any file are its tests 1..N). --oracle-check runs Rakudo on the same prefix and drops
+          tests of rungs <= K of any file are its tests 1..N). A test missing from the long prefix's output is re-run in
+          ITS OWN prefix (cut after it), so a later statement the compiler refuses cannot sink an earlier test; the first
+          test that fails in its own prefix is a genuine failure, and the file's later tests keep the long prefix's
+          verdict (that failure is their context). --oracle-check runs Rakudo on the same prefix and drops
           (counting) any test the cut changed. Runs scrip (mode 3) on each prefix unit and prints per rung
           pass/total (a test passes when Rakudo printed `ok N` and scrip printed `ok N`), the total, and the CRAWL
           CURSOR: the first failing test in rung order, with its statement. --m4 grades mode 4 as well. Writes nothing.
@@ -454,10 +457,13 @@ def cmd_grade(a):
     nk = collections.defaultdict(int)
     for r in rows:
         nk[r[1]] = max(nk[r[1]], int(r[3]))
-    lines_of = collections.defaultdict(list)
+    line_of = collections.defaultdict(dict)
     for r in every:
         if r[1] in nk and int(r[3]) <= nk[r[1]] and r[5] != "0":
-            lines_of[r[1]].append(int(r[5]))
+            line_of[r[1]][int(r[3])] = int(r[5])
+    want = collections.defaultdict(set)
+    for r in rows:
+        want[r[1]].add(int(r[3]))
     files = sorted(nk)
     with tempfile.TemporaryDirectory(prefix="rk_grade_") as td:
         m = mirror_of(roast, td)
@@ -477,25 +483,43 @@ def cmd_grade(a):
             except subprocess.TimeoutExpired as e:
                 return (e.stdout or b"").decode(errors="replace")
 
-        def one(rel):
-            dst = stage(roast, m, rel)
-            src = dst.read_text(errors="replace").splitlines()
-            end = max((statement_span(src, ln)[1] for ln in lines_of[rel]), default=len(src))
+        def run_prefix(rel, dst, src, end, tag, oracle):
             pre = src[:end]
-            unit = dst.with_name(dst.stem + "__prefix.raku")
+            unit = dst.with_name(f"{dst.stem}__prefix{tag}.raku")
             unit.write_text("\n".join(pre) + "\n" + closers(pre) + "\n")
             ur = str(unit.relative_to(m))
             got = {"m3": tapset(runout([a.scrip, ur], str(m)))}
             if a.m4:
-                base = Path(td) / rel.replace("/", "_")
+                base = Path(td) / f"{rel.replace('/', '_')}{tag}"
                 s_, o_, b_ = str(base) + ".s", str(base) + ".o", str(base) + ".bin"
                 ok = subprocess.run(NICE + [a.scrip, "--compile", ur, "-o", s_], cwd=str(m), stdin=subprocess.DEVNULL, capture_output=True).returncode == 0
                 ok = ok and subprocess.run(["gcc", "-c", s_, "-o", o_], capture_output=True).returncode == 0
                 ok = ok and subprocess.run(["gcc", o_, "-o", b_, f"-L{rt}", "-lscrip_rt", "-lm", f"-Wl,-rpath,{rt}"], capture_output=True).returncode == 0
                 got["m4"] = tapset(runout([b_], str(m))) if ok else set()
-            if a.oracle_check:
+            if oracle:
                 got["rakudo"] = tapset(runout([RAKU, ur], str(m)))
+            return got
+
+        def one(rel):
+            dst = stage(roast, m, rel)
+            src = dst.read_text(errors="replace").splitlines()
+            ends, hi = {}, 0
+            for n in sorted(line_of[rel]):
+                hi = max(hi, statement_span(src, line_of[rel][n])[1])
+                ends[n] = hi
+            got = run_prefix(rel, dst, src, ends.get(nk[rel], len(src)), "", a.oracle_check)
+            modes_ = ["m3"] + (["m4"] if a.m4 else [])
+            for t in sorted(want[rel]):
+                if all(t in got[md] for md in modes_):
+                    continue
+                own = run_prefix(rel, dst, src, ends.get(t, len(src)), f"_{t}", False)
+                if all(t in own[md] for md in modes_):
+                    for md in modes_:
+                        got[md].add(t)
+                    continue
+                break
             return rel, got
+
         with ThreadPoolExecutor(a.jobs) as ex:
             got = dict(ex.map(one, files))
     modes = ["m3"] + (["m4"] if a.m4 else [])
