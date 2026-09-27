@@ -10,6 +10,7 @@
 #include "rk_opname.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { tree_t **v; int n, cap; } TL;
+struct RkArgl { int named; TL pos; TL kw; };
 typedef struct { const char **k; int n, cap; } NS;
 struct RkB {
     const char *s; int len;
@@ -1229,12 +1230,10 @@ void rkb_call(RkB *b, RkItem *it, int from, int to, int namelen, RkItems *args, 
         tree_t *c = make_call(nm); expr_add_child(c, a); it->t = c; return;
     }
     if (form == 2 && args->t[0].kind == RKI_PAREN && !args->t[0].npre && !args->t[0].npost && args->nt > 1 && segs_of(args).n == 1) {
-        RkItems *in = args->t[0].inner;
-        TL pp = { 0 }, nn2 = { 0 };
-        int h2 = arglist(b, in, 1, &pp, &nn2);
+        RkArgl *a = args->t[0].argl;
         tree_t *call;
-        if (h2) call = rk_named_call(nm, pp.n ? &pp : NULL, &nn2);
-        else { call = make_call(nm); for (int i = 0; i < pp.n; i++) expr_add_child(call, pp.v[i]); }
+        if (a->named) call = rk_named_call(nm, a->pos.n ? &a->pos : NULL, &a->kw);
+        else { call = make_call(nm); for (int i = 0; i < a->pos.n; i++) expr_add_child(call, a->pos.v[i]); }
         RkItems cp = *args; cp.t = (RkItem *) ct_alloc(sizeof(RkItem) * (size_t) args->nt); memcpy(cp.t, args->t, sizeof(RkItem) * (size_t) args->nt);
         memset(&cp.t[0], 0, sizeof(RkItem)); cp.t[0].kind = RKI_TREE; cp.t[0].t = call;
         it->t = rkb_expr(b, &cp); return;
@@ -1390,18 +1389,22 @@ static void pair_add(RkB *b, tree_t *h, RkItems *xs, int lo, int hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *hash_pairs(RkB *b, RS *rs, int nrs) {
-    if (nrs == 1 && rs[0].hi - rs[0].lo == 1 && rs[0].xs->t[rs[0].lo].kind == RKI_PAREN) {
-        RkItems *in = rs[0].xs->t[rs[0].lo].inner;
-        SEGS sg = segs_of(in);
-        int ok = sg.n > 0;
-        for (int i = 0; i < sg.n && ok; i++) if (!pair_seg(in, sg.s[i].lo, sg.s[i].hi)) ok = 0;
-        if (ok) { tree_t *h = make_call("__rk_hash"); for (int i = 0; i < sg.n; i++) pair_add(b, h, in, sg.s[i].lo, sg.s[i].hi); return h; }
-        return NULL;
-    }
+    if (nrs == 1 && rs[0].hi - rs[0].lo == 1 && rs[0].xs->t[rs[0].lo].kind == RKI_PAREN) return rs[0].xs->t[rs[0].lo].hp;
     for (int i = 0; i < nrs; i++) if (!pair_seg(rs[i].xs, rs[i].lo, rs[i].hi)) return NULL;
     tree_t *h = make_call("__rk_hash");
     for (int i = 0; i < nrs; i++) pair_add(b, h, rs[i].xs, rs[i].lo, rs[i].hi);
     return h;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_paren_prep(RkB *b, RkItem *it, RkItems *xs) {
+    SEGS sg = segs_of(xs);
+    int ok = sg.n > 0;
+    for (int i = 0; i < sg.n && ok; i++) if (!pair_seg(xs, sg.s[i].lo, sg.s[i].hi)) ok = 0;
+    it->hp = NULL;
+    if (ok) { tree_t *h = make_call("__rk_hash"); for (int i = 0; i < sg.n; i++) pair_add(b, h, xs, sg.s[i].lo, sg.s[i].hi); it->hp = h; }
+    RkArgl *a = (RkArgl *) ct_alloc(sizeof(RkArgl)); memset(a, 0, sizeof *a);
+    a->named = arglist(b, xs, 1, &a->pos, &a->kw);
+    it->argl = a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rs_list(RkB *b, RS *rs, int nrs) {

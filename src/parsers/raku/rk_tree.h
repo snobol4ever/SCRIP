@@ -4,6 +4,7 @@
 typedef struct RkB RkB;
 typedef struct RkItems RkItems;
 typedef struct RkDecl RkDecl;
+typedef struct RkArgl RkArgl;
 enum { RKI_TREE = 0, RKI_VAR, RKI_NAME, RKI_QUOTE, RKI_WORDS, RKI_CP, RKI_FAT, RKI_STAR, RKI_PAREN, RKI_BLOCK, RKI_DECL, RKI_BSTMT, RKI_DOTTY, RKI_EMPTY, RKI_CALL };
 enum { BK_MAIN = 0, BK_BLOCK, BK_SUB, BK_METHOD, BK_CLASS, BK_GRAMMAR, BK_MODULE, BK_GIVEN, BK_CATCH, BK_ITEMS };
 typedef struct RkItem {
@@ -16,7 +17,8 @@ typedef struct RkItem {
     int ck;
     tree_t *val;
     tree_t *lop;
-    RkItems *inner;
+    tree_t *hp;
+    RkArgl *argl;
     int cnt;
     RkDecl *decl;
 } RkItem;
@@ -38,6 +40,7 @@ void     rkb_items_op(RkItems *xs, const char *op, int oplen, tree_t *mid);
 void     rkb_adverb(RkB *b, RkItems *xs, const char *key, int ck, tree_t *val);
 tree_t  *rkb_expr(RkB *b, RkItems *xs);
 tree_t  *rkb_paren(RkB *b, RkItems *xs, int nstmts);
+void     rkb_paren_prep(RkB *b, RkItem *it, RkItems *xs);
 tree_t  *rkb_bracket(RkB *b, RkItems *xs);
 void     rkb_var(RkB *b, RkItem *it, int from, int to, const char *named_capture, int nclen);
 void     rkb_number(RkB *b, RkItem *it, int from, int to);
