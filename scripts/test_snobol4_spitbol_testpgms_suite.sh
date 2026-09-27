@@ -99,7 +99,7 @@ why_red() {
 }
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
-TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""; PM_GRADED=0; PM_VOICE_ONLY=0; MASKED_TOTAL=0; MASKED_FIX=0; MASK_LINES=""
+TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""; PM_GRADED=0; PM_VOICE_ONLY=0; CR_GRADED=0; CR_LINES=""; MASKED_TOTAL=0; MASKED_FIX=0; MASK_LINES=""
 # ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
 # baseline-measured-live; test_snoflake_suite.sh is the shape). A program SPITBOL ITSELF cannot run is OUTSIDE
 # the baseline and out of the denominator. This runner already MEASURES that set live -- it is exactly the
@@ -115,7 +115,38 @@ for p in $progs; do
     # ── the oracle, in the scratch dir, fed the shared stdin file. Status FIRST, bytes never.
     ora="$W/$p.oracle"
     (cd "$W" && timeout "$T" "$obin" $oflags "$p.spt" < "$W/testpgms.in" > "$ora" 2>/dev/null); orc=$?
+    # ⭐⭐ CEO-1323 (2026-09-27, on Lon's "I want to see TPgm go to 8/8"): A COMPILE REFUSAL IS GRADED, the way CEO-1316 grades a post-mortem.
+    # When sbl -bf refuses to compile a program (test2: rc 231, ERROR 214 at line 238, deterministic 30 of 30), SCRIP passes by refusing
+    # where SPITBOL x64 refuses: util_spitbol_compile_refusal.py reads the oracle's diagnostics as (line, code) pairs, SCRIP's stderr is
+    # rendered through util_render_error_voice.py spitbol and read the same way, and the two sets must be equal, with SCRIP exiting
+    # nonzero and printing nothing on stdout (m3) or emitting no assembly (m4). The rc alone never grades (the cfo's condition). An
+    # oracle run with no diagnostic (a signal, a timeout) keeps the OUTSIDE arm below; a diagnostic in a shape the helper was not
+    # measured on refuses rc 2.
     if [ "$orc" -ne 0 ]; then
+        cr_pairs="$(python3 "$HERE/util_spitbol_compile_refusal.py" oracle "$ora" "$orc")"; crc=$?
+        [ "$crc" = 2 ] && { echo "⛔ REFUSE(rc=2): $p -- sbl exited rc $orc with a diagnostic in a shape util_spitbol_compile_refusal.py was not measured on (its reason above); CEO-1323 grades only the measured shape"; exit 2; }
+        if [ "$crc" = 0 ]; then
+            SCORED=$((SCORED+1)); CR_GRADED=$((CR_GRADED+1))
+            ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
+            m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$W/testpgms.in" > "$m3" 2>"$m3.err"); r3=$?
+            got3="$(python3 "$HERE/util_render_error_voice.py" spitbol < "$m3.err" | python3 "$HERE/util_spitbol_compile_refusal.py" pairs -)"
+            s4="$W/$p.s"; (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>"$s4.err") </dev/null; r4=$?
+            got4="$(python3 "$HERE/util_render_error_voice.py" spitbol < "$s4.err" | python3 "$HERE/util_spitbol_compile_refusal.py" pairs -)"
+            want="$(printf '%s' "$cr_pairs" | tr '\t\n' ': ' | sed 's/ *$//')"
+            _p3=0; _p4=0
+            if [ "$r3" -ne 0 ] && [ ! -s "$m3" ] && [ "$got3" = "$cr_pairs" ]; then M3P=$((M3P+1)); _p3=1
+            else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3; sbl refuses at compile, line:code $want; SCRIP's rendered voice read [$(printf '%s' "$got3" | tr '\t\n' ': ')], stdout $(grep -c '' "$m3") line(s))
+"; fi
+            if [ "$r4" -ne 0 ] && [ ! -s "$s4" ] && [ "$got4" = "$cr_pairs" ]; then M4P=$((M4P+1)); _p4=1
+            else M4F=$((M4F+1)); RED_LINES="$RED_LINES  RED  $p m4 (compile rc=$r4; sbl refuses at compile, line:code $want; SCRIP's rendered voice read [$(printf '%s' "$got4" | tr '\t\n' ': ')], assembly $(grep -c '' "$s4") line(s))
+"; fi
+            if [ "$_p3" = 1 ] && [ "$_p4" = 1 ]; then BOTH=$((BOTH+1)); fi
+            if [ "$_p3" = 1 ]; then prog_row "$p" m3 PASS; else prog_row "$p" m3 FAIL "sbl refuses at compile ($want); SCRIP rc=$r3"; fi
+            if [ "$_p4" = 1 ]; then prog_row "$p" m4 PASS; else prog_row "$p" m4 FAIL "sbl refuses at compile ($want); SCRIP compile rc=$r4"; fi
+            CR_LINES="$CR_LINES  COMPILE-REFUSAL  $p  sbl rc $orc, line:code $want -- graded by code and line (CEO-1323)
+"
+            continue
+        fi
         UNSCR=$((UNSCR+1))
         # ⛔ NAME A SIGNAL ONLY WHEN 128+n IS A PLAUSIBLE SIGNAL NUMBER. A program may legitimately EXIT with a
         # code above 128, and this oracle does: measured on test2 in consecutive runs of this very runner --
@@ -219,6 +250,8 @@ SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (the one SNOBOL4 oracle, Lon 2026-09-07) refs cut live"
 echo "SPITBOL_TESTPGMS_POST_MORTEM graded=$PM_GRADED voice_only=$PM_VOICE_ONLY -- programs whose sbl answer is a fatal post-mortem, graded through it (CEO-1316): stdout minus the block byte for byte, the banner and statement through the one error voice, the accounting ungraded (CEO-420 (b)); they pass by stopping exactly where SPITBOL x64 stops -- running them to completion would widen the dialect, Lon's call, not taken; voice_only counts those whose whole sbl stdout IS the post-mortem, so their body compared is empty and they pass on the banner and statement alone (the coo's review, 2026-09-27)"
+echo "SPITBOL_TESTPGMS_COMPILE_REFUSAL graded=$CR_GRADED -- programs sbl -bf refuses to compile, graded by the code and line of every diagnostic through the one error voice (CEO-1323): they pass by being refused where SPITBOL x64 refuses them"
+printf '%s' "$CR_LINES"
 echo "SPITBOL_TESTPGMS_MASKS masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) -- CEO-409 masks declared in ALL.mask beside the suite, counted, the fixture staying in the denominator"
 printf '%b' "$MASK_LINES"
 echo "SPITBOL_TESTPGMS_BASELINE baseline=$SCORED both_modes_pass=$BOTH outside_spitbol_baseline=$UNSCR of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a program SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
@@ -279,7 +312,7 @@ if [ "$SUITE" = "$CANON_SUITE" ]; then
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite testpgms --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
-    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ($PM_GRADED of them graded through SPITBOL's fatal post-mortem, $PM_VOICE_ONLY of those on the error voice alone because sbl's whole stdout is the post-mortem and only $((PM_GRADED-PM_VOICE_ONLY)) compares a body, CEO-1316: they pass by stopping exactly where SPITBOL x64 stops, and running them to completion as Macro SPITBOL 370 would widen the dialect, Lon's call, not taken · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) (CEO-409 in ALL.mask; test1's statement-137 trap is a CEO-1316 ORACLE-ONLY row for Lon's kept VALUE, CEO-1293) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
+    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ($PM_GRADED of them graded through SPITBOL's fatal post-mortem, $PM_VOICE_ONLY of those on the error voice alone because sbl's whole stdout is the post-mortem and only $((PM_GRADED-PM_VOICE_ONLY)) compares a body, CEO-1316: they pass by stopping exactly where SPITBOL x64 stops, and running them to completion as Macro SPITBOL 370 would widen the dialect, Lon's call, not taken · $CR_GRADED graded by being REFUSED where SPITBOL x64 refuses them at compile, by the code and line of every diagnostic through the one error voice, CEO-1323 (test2: ERROR 214 at line 238) · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) (CEO-409 in ALL.mask; test1's statement-137 trap is a CEO-1316 ORACLE-ONLY row for Lon's kept VALUE, CEO-1293) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

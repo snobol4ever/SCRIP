@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <math.h>
 void sno_error(int, const char *, ...);
+void sno_error_voice(int, const char *, int);
 char *inc_dirs[64];
 int   n_inc = 0;
 int   sno_nerrors = 0;
@@ -78,7 +79,7 @@ static Token mktok(int k, const char *sv, long iv, double dv) {
 %}
 %option reentrant noyywrap never-interactive stack
 %option extra-type="void *"
-%x LABEL LABEL_DONE BODY BODY_START GT STR1 STR2 SKIP INCL
+%x LABEL LABEL_DONE BODY BODY_START GT STR1 STR2 SKIP INCL AFTER_SEMI AFTER_BLANK
 DIGIT   [0-9]
 ALPHA   [A-Za-z\x80-\xFF]
 IDCONT  [A-Za-z0-9_.\x80-\xFF]
@@ -89,9 +90,9 @@ CONT    \n[+.][ \t]*
 W       ({WS}|{CONT})+
 G       ({WS}|{CONT})*
 %%
-<INITIAL>\n             { lineno++; return T_STMT_END; }
+<INITIAL>\n             { lineno++; BEGIN(AFTER_BLANK); return T_STMT_END; }
 <INITIAL>[*!|]          { sno_stmt_comment_latch(); BEGIN(SKIP); }
-<INITIAL>";"            { return T_STMT_END; }
+<INITIAL>";"            { BEGIN(AFTER_SEMI); return T_STMT_END; }
 <INITIAL>[ \t]          { sno_stmt_pos_mark(); BEGIN(BODY_START); }
 <INITIAL>"-"[Ii][Nn][Cc][Ll][Uu][Dd][Ee][ \t]+'[^'\n]+'[^\n]*\n  {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
@@ -196,6 +197,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>[+.]           {
+    sno_error_voice(214, "bad label or misplaced continuation line", lineno);
     BEGIN(BODY_START);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -255,15 +257,16 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <BODY_START>[ \t]+      { }
+<BODY_START>{CONT}      { lineno++; }
 <BODY_START>\n          { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START><<EOF>>     { BEGIN(INITIAL); return T_STMT_END; }
-<BODY_START>";"         { BEGIN(INITIAL); return T_STMT_END; }
+<BODY_START>";"         { BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY_START>.           { yyless(0); BEGIN(BODY); }
 <BODY>\n               { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY><<EOF>>          { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<BODY>";"              { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<BODY>{W}";"           { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>";"              { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
+<BODY>{W}";"           { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
 <BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
@@ -385,11 +388,16 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>","                 { gt_have_operand=0; return T_COMMA; }
 <GT>{DIGIT}+            { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_INT; }
-<GT>";"                 { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<GT>";"                 { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
+<GT>{CONT}              { lineno++; }
 <GT>\n                  { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <GT>.                   { }
 <SKIP>[^\n]*            { }
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }
+<AFTER_SEMI>[ \t]*\n/[+.] { lineno++; BEGIN(INITIAL); return T_STMT_END; }
+<AFTER_SEMI>.|\n         { yyless(0); BEGIN(INITIAL); }
+<AFTER_BLANK>[+.]        { BEGIN(BODY_START); }
+<AFTER_BLANK>.|\n        { yyless(0); BEGIN(INITIAL); }
 <<EOF>>             {
     if (incl_stack_depth > 0) {
         int _incl_start = incl_start_stack[incl_stack_depth--].start_line;
@@ -401,6 +409,13 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 %%
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_error_voice(int code, const char *text, int ln) {
+    extern void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno);
+    if (sno_err_quiet) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", text); sno_nerrors++; return; }
+    core_error_voice_at(code, text, sno_frame_file(), ln, 0);
+    sno_nerrors++;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_error(int ln, const char *fmt, ...) {
     va_list ap;

@@ -504,12 +504,16 @@ void core_icn_traceback(void) {
     }
     fflush(stderr);
 }
+void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno) {
+    fflush(stdout);
+    fprintf(stderr, "scrip: error %d: %s\n  at %s:%ld", code, msg ? msg : "", file ? file : "", line);
+    if (stno > 0) fprintf(stderr, "; statement %ld", stno);
+    fputc('\n', stderr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
     extern long g_line; extern const char *g_file; extern long g_stno; extern int rt_k_level;
-    fflush(stdout);
-    fprintf(stderr, "scrip: error %d: %s\n  at %s:%ld", code, msg ? msg : "", g_file ? g_file : "", g_line);
-    if (g_stno > 0) fprintf(stderr, "; statement %ld", g_stno);
-    fputc('\n', stderr);
+    core_error_voice_at(code, msg, g_file, g_line, g_stno);
     if (has_val && val.v != DT_FAIL) {
         extern FILE *fh_memsink_open(char **, size_t *); char *vb = (char *)0; size_t vn = 0; FILE *vf = fh_memsink_open(&vb, &vn);
         if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
