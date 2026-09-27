@@ -2136,26 +2136,12 @@ static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef int (*dop_axbody_fn)(DESCR_t *, int, DESCR_t *, void **);
-static DESCR_t dop_call_ax(dop_axbody_fn body, DESCR_t *args, int nargs, void **ball) {
-    DESCR_t out = FAILDESCR;
-    body(args, nargs, &out, ball);
-    return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     body(args, nargs, &out);
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dop_ax_add(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("add", a, n, o, bl); }
-static int dop_ax_sub(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("sub", a, n, o, bl); }
-static int dop_ax_mul(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("mul", a, n, o, bl); }
-static int dop_ax_div(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("div", a, n, o, bl); }
-static int dop_ax_idiv(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("idiv", a, n, o, bl); }
-static int dop_ax_divf(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("divf", a, n, o, bl); }
-static int dop_ax_mod(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("mod", a, n, o, bl); }
 static int dop_cmp_lt(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("lt", a, n, o); }
 static int dop_cmp_gt(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("gt", a, n, o); }
 static int dop_cmp_le(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("le", a, n, o); }
@@ -2230,46 +2216,20 @@ DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     { DESCR_t out = plw_mkc_build(args, nargs, cx); rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_is_v_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs != 2) return FAILDESCR;
-    rt_pl_tr_gc_sync(cx->tr);
-    { DESCR_t v = rt_pl_deref_val(args[1]); DESCR_t out;
-      if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(v, &ev, &bl)) v = ev; else { cx->ball = bl; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } }
-      if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { pl_iso_evaluable(v); out = FAILDESCR; }
-      else { char *tr0 = cx->tr; out = plw_unify_vals(args[0], v, cx) ? v : FAILDESCR; if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
-      rt_pl_tr_gc_sync(cx->tr); return out; }
+    { DESCR_t v = rt_pl_deref_val(args[1]);
+      if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(v, &ev, &bl)) v = ev; else { if (ball && bl) *ball = bl; return FAILDESCR; } }
+      if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { pl_iso_evaluable(v); return FAILDESCR; }
+      return v; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_add_c(DESCR_t *args, int nargs, void **ball) {
-    if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
-      if (a.v == DT_I && b.v == DT_I && !__builtin_add_overflow(a.i, b.i, &r)) return INTVAL(r); }
-    return nargs == 2 ? dop_call_ax(dop_ax_add, args, nargs, ball) : FAILDESCR;
+DESCR_t rt_pl_ax_cold_c(DESCR_t *args, int nargs, const char *op, void **ball) {
+    DESCR_t out = FAILDESCR;
+    if (!op || !args || nargs < 0 || nargs > 2) return FAILDESCR;
+    dop_ax(op, args, nargs, &out, ball);
+    return out;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_sub_c(DESCR_t *args, int nargs, void **ball) {
-    if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
-      if (a.v == DT_I && b.v == DT_I && !__builtin_sub_overflow(a.i, b.i, &r)) return INTVAL(r); }
-    return nargs == 2 ? dop_call_ax(dop_ax_sub, args, nargs, ball) : FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_mul_c(DESCR_t *args, int nargs, void **ball) {
-    if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
-      if (a.v == DT_I && b.v == DT_I && !__builtin_mul_overflow(a.i, b.i, &r)) return INTVAL(r); }
-    return nargs == 2 ? dop_call_ax(dop_ax_mul, args, nargs, ball) : FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_div_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_div, args, nargs, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_idiv_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_idiv, args, nargs, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_divf_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_divf, args, nargs, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_mod_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_mod, args, nargs, ball) : FAILDESCR; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_AX_LEAF(nm, op, ar) static int dop_ax_##nm(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax(op, a, n, o, bl); } DESCR_t rt_pl_dop_ax_##nm##_c(DESCR_t *args, int nargs, void **ball) { return nargs == ar ? dop_call_ax(dop_ax_##nm, args, nargs, ball) : FAILDESCR; }
-PL_AX_LEAF(rem, "rem", 2) PL_AX_LEAF(fpow, "fpow", 2) PL_AX_LEAF(pow, "pow", 2) PL_AX_LEAF(min, "min", 2) PL_AX_LEAF(max, "max", 2) PL_AX_LEAF(gcd, "gcd", 2) PL_AX_LEAF(xor, "xor", 2)
-PL_AX_LEAF(shr, "shr", 2) PL_AX_LEAF(shl, "shl", 2) PL_AX_LEAF(band, "band", 2) PL_AX_LEAF(bor, "bor", 2)
-PL_AX_LEAF(neg, "neg", 1) PL_AX_LEAF(pos, "pos", 1) PL_AX_LEAF(abs, "abs", 1) PL_AX_LEAF(sign, "sign", 1) PL_AX_LEAF(trunc, "trunc", 1) PL_AX_LEAF(intg, "intg", 1) PL_AX_LEAF(flt, "flt", 1)
-PL_AX_LEAF(floor, "floor", 1) PL_AX_LEAF(ceil, "ceil", 1) PL_AX_LEAF(round, "round", 1) PL_AX_LEAF(sqrt, "sqrt", 1) PL_AX_LEAF(msb, "msb", 1) PL_AX_LEAF(bnot, "bnot", 1) PL_AX_LEAF(sin, "sin", 1)
-PL_AX_LEAF(cos, "cos", 1) PL_AX_LEAF(atan, "atan", 1) PL_AX_LEAF(log, "log", 1) PL_AX_LEAF(exp, "exp", 1) PL_AX_LEAF(fip, "fip", 1) PL_AX_LEAF(ffp, "ffp", 1)
-PL_AX_LEAF(pi, "pi", 0) PL_AX_LEAF(e, "e", 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow, void **ball) {
     DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
@@ -2282,12 +2242,16 @@ static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow, void **bal
       return dop_call(slow, ev, 2); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_cmp_lt_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 0, dop_cmp_lt, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_gt_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 1, dop_cmp_gt, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_le_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 2, dop_cmp_le, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_ge_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 3, dop_cmp_ge, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_eq_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 4, dop_cmp_eq, ball) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_ne_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 5, dop_cmp_ne, ball) : FAILDESCR; }
+DESCR_t rt_pl_cmp_cold_c(DESCR_t *args, int nargs, const char *op, void **ball) {
+    if (nargs != 2 || !op) return FAILDESCR;
+    if (!strcmp(op, "lt")) return dop_cmp_fast(args, 0, dop_cmp_lt, ball);
+    if (!strcmp(op, "gt")) return dop_cmp_fast(args, 1, dop_cmp_gt, ball);
+    if (!strcmp(op, "le")) return dop_cmp_fast(args, 2, dop_cmp_le, ball);
+    if (!strcmp(op, "ge")) return dop_cmp_fast(args, 3, dop_cmp_ge, ball);
+    if (!strcmp(op, "eq")) return dop_cmp_fast(args, 4, dop_cmp_eq, ball);
+    if (!strcmp(op, "ne")) return dop_cmp_fast(args, 5, dop_cmp_ne, ball);
+    return FAILDESCR;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_val_unbound(DESCR_t d);
 DESCR_t dop_write(DESCR_t *args, int nargs) {
@@ -2370,11 +2334,11 @@ static int pl_parse_number(const char *s, DESCR_t *out) { char *e = 0;
         if (d && (d == b || d[-1] < '0' || d[-1] > '9')) return 0;
         *out = REALVAL(dv);return 1;} } return 0; }
 #define PL_TYPE_LEAF(nm) DESCR_t dop_pl_##nm(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_type_test_cell(&args[0], #nm)) ? pl_ok() : FAILDESCR; }
-PL_TYPE_LEAF(var) PL_TYPE_LEAF(nonvar) PL_TYPE_LEAF(atom) PL_TYPE_LEAF(number) PL_TYPE_LEAF(integer) PL_TYPE_LEAF(float)
-PL_TYPE_LEAF(atomic) PL_TYPE_LEAF(compound) PL_TYPE_LEAF(callable) PL_TYPE_LEAF(ground) PL_TYPE_LEAF(is_list)
+PL_TYPE_LEAF(ground) PL_TYPE_LEAF(is_list)
+DESCR_t rt_pl_type_cold_c(DESCR_t *args, int nargs, const char *kind) { pl_atoms_ready(); return (nargs == 1 && kind && rt_pl_type_test_cell(&args[0], kind)) ? pl_ok() : FAILDESCR; }
 DESCR_t dop_pl_acyclic_term(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_acyclic_cell(&args[0])) ? pl_ok() : FAILDESCR; }
-#define PL_ATOP_LEAF(nm, op) DESCR_t dop_pl_atop_##nm(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 2 && rt_pl_atop_cell(op, &args[0], &args[1])) ? pl_ok() : FAILDESCR; }
-PL_ATOP_LEAF(lt, 0) PL_ATOP_LEAF(le, 1) PL_ATOP_LEAF(gt, 2) PL_ATOP_LEAF(ge, 3) PL_ATOP_LEAF(eq, 4) PL_ATOP_LEAF(ne, 5)
+static int pl_atop_op_of(const char *op) { return !op ? -1 : !strcmp(op, "lt") ? 0 : !strcmp(op, "le") ? 1 : !strcmp(op, "gt") ? 2 : !strcmp(op, "ge") ? 3 : !strcmp(op, "eq") ? 4 : !strcmp(op, "ne") ? 5 : -1; }
+DESCR_t rt_pl_atop_cold_c(DESCR_t *args, int nargs, const char *op) { int o = pl_atop_op_of(op); pl_atoms_ready(); return (nargs == 2 && o >= 0 && rt_pl_atop_cell(o, &args[0], &args[1])) ? pl_ok() : FAILDESCR; }
 DESCR_t dop_pl_writeq(DESCR_t *args, int nargs) {if (nargs != 1) return FAILDESCR;
     rt_pl_writeq_cell(&args[0]);return pl_ok(); }
 DESCR_t dop_pl_write_canonical(DESCR_t *args, int nargs) {if (nargs != 1) return FAILDESCR;
@@ -9640,7 +9604,7 @@ void * rt_pl_dop_db_alive_c(DESCR_t *args, int nargs, void *root) {
       return rt_pl_ball_existence(&args[1], 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void * rt_pl_dop_ax_zguard_c(DESCR_t *args, int nargs) {
+void * rt_pl_zguard_cold_c(DESCR_t *args, int nargs) {
     extern void *rt_pl_ball_eval_error(const char *, const char *, int);
     char ob[64]; const char *op = "is";
     if (nargs != 2) return (void *)0;
@@ -9907,9 +9871,7 @@ static void * pl_anum_guard_n(DESCR_t *args, int nargs, int want) {
     return pl_anum_check(nm, &args[1], want);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void * rt_pl_dop_anum_guard2_c(DESCR_t *args, int nargs) { return pl_anum_guard_n(args, nargs, 2); }
-void * rt_pl_dop_anum_guard3_c(DESCR_t *args, int nargs) { return pl_anum_guard_n(args, nargs, 3); }
-void * rt_pl_dop_anum_guard5_c(DESCR_t *args, int nargs) { return pl_anum_guard_n(args, nargs, 5); }
+void * rt_pl_anum_cold_c(DESCR_t *args, int nargs) { return nargs >= 2 ? pl_anum_guard_n(args, nargs, nargs - 1) : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_dop_stream_guard_c(DESCR_t *args, int nargs) {
     char db[64]; const char *dop = "output"; void *ball = (void *)0;

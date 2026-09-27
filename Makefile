@@ -968,6 +968,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_gate.cpp \
     $(SRC)/templates/xa/xa_coexpr_entry.cpp \
     $(SRC)/templates/bb/bb_call.cpp \
+    $(SRC)/templates/bb/bb_call_pl_leaf.cpp \
     $(SRC)/templates/bb/bb_call_proc_staged.cpp \
     $(SRC)/templates/bb/bb_call_bool.cpp \
     $(SRC)/templates/bb/bb_call_fn.cpp \

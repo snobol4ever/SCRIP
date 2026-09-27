@@ -29,6 +29,9 @@ void bb_slot_register(IR_t * nd, int off);
 #include "x86_asm.h"
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
+std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand);
+std::string pl_leaf_zd_cold(const char * fn, int narg);
+int pl_leaf_inline_known(const char * fn, int narg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
 typedef struct { long fn; long how; } rk_next_t;
@@ -141,12 +144,16 @@ std::string bb_call_fn_str(IR_t * pBB) {
             }
         }
         const char * zdsym = 0; void * zdfp = dop_direct_fp(fn, (int64_t)nargs, &zdsym);
-        if (!zdfp && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
+        if (!zdfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
         if (zdfp) {
             s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf under ZD: ") + zdsym + " (no by-name dispatch)").c_str());
             s += x86_reg_disp32_lea64("rdi", "rsp", 0);
             s += x86("mov32", "esi", (long)nargs);
             s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp);
+            s += x86_rt_gc_poll_res();
+            polled_in_arm = 1;
+        } else if (pl_leaf_inline_known(fn, nargs)) {
+            s += pl_leaf_zd_cold(fn, nargs);
             s += x86_rt_gc_poll_res();
             polled_in_arm = 1;
         } else {
@@ -189,7 +196,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     std::string s = x86_alpha()
                   + x86("comment", std::string("BOX IR_CALL ") + fn + "(...) -> rt_call_arr [operand-marshal, FAIL->ω]");
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, (int64_t)nargs, &dsym);
-    if (!dfp && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
+    if (!dfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
     int cui = -1; long long cival = 0; const char * csval = 0;
     if (dfp && nargs == 2 && !strcmp(fn, "$unify") && !getenv("SCRIP_NO_CU")) {
         for (int i = 0; i < 2 && cui < 0; i++) {
@@ -206,6 +213,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         for (int i = nargs - 1; i >= 0; i--)
             s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
     }
+    if (cui < 0) { std::string arm = pl_leaf_inline_arm(fn, nargs, argbase, resoff, (subs && subs[0]) ? subs[0]->entry : ir_call_arg(pBB, 0)); if (!arm.empty()) return s + arm; }
     if (dfp && cui >= 0) {
         s += x86("comment", (std::string("PL-REGAIN-5 const head-unify leaf: ") + (csval ? "rt_pl_dop_unify_cs" : "rt_pl_dop_unify_ci") + " (const in reg, one-operand marshal)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));
