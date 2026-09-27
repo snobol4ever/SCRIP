@@ -86,6 +86,10 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # `fence_then_operand_then_alternation_never_backtracks` and `tpgm4_syntactic_recognizer` are DECLARED in
 # corpus/tests/snobol4/PENDING.md, deferred to a LIVE row whose DONE-WHEN grades the first of them in both modes, and they
 # convert into the master the day it is cured -- at which point this floor falls back to 39 and this gate is what says so.
+# ⭐ FLOOR_snobol4 41 -> 39 (hq_snobol4 2026-09-27): cured at SCRIP 5f445d5fd -- 11c73f1e5 cured the minimal witness and 5f445d5fd the
+# trailing-operand case tpgm4 needed (row snobol4-a-stored-fenced-pattern-with-an-operand-after-its-alternation-never-backtracks-into-
+# it-tpgm4-two-part-gotos); both pairs converted into the master green in both modes by the builder's --absorb-only/--delete-absorbed,
+# content diff lost 0 gained 2 changed 0, and PENDING.md retired with its last deferral.
 # ⛔ WHY THEY ARE NOT SIMPLY ABSORBED RED, WHICH IS WHAT THE LADDER LAW ASKS FOR: util_build_master_suite.py runs every
 # plain loose pair before absorbing it and mints `xfail = not green` with NO reason block and NO flag to decline (its own
 # comment: "auto-XFAIL by source verdict"). I absorbed them once, measured the result -- two XFAIL entries carrying no
@@ -103,7 +107,7 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # both modes (error 111 where iconx assigns through the returned variable), so the builder cannot carry them into the master honestly
 # today (the auto-XFAIL note above), and moving them would break the DONE-WHENs that name their path. tests/icon/PENDING.md declares
 # them under the reopened row; they are absorbed when those rows cure and this floor falls in that commit. Named debt, not a leak.
-FLOOR_icon=2 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=41 FLOOR_snocone=1
+FLOOR_icon=2 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0
