@@ -580,10 +580,12 @@ case "$cmd" in mailbox|banner|check|premise|"") ;; *) s4e_pid_acquire;; esac
 #
 # ⛔⭐⭐ THE MECHANISM IS **CITE**, NOT **RUN**, AND THAT IS A RULING AND NOT A PREFERENCE (ceo CEO-697,
 # 2026-09-13, verbatim: "NO SEAT RUNS A FULL BLOCKING SET FOR A LANDING VERDICT ... your verdict is your row
-# DONE-WHEN, the gates your diff touched, and make preflight"; MODE line 2 under NONET: "ONE RUNNER, ONE BOARD --
-# every master and package board is the coo's, and every other seat grades ... never a board").  The row's own
-# GOAL anticipated this and offered both branches -- "test_corpus_snobol4.sh, OR the one-board-per-tree CITED
-# board of the same tree" -- and CEO-697 decides which one is lawful.  ⭐ THE REASON THIS MATTERS MORE HERE THAN
+# DONE-WHEN, the gates your diff touched, and make preflight").  The row's own GOAL anticipated this and offered
+# both branches -- "test_corpus_snobol4.sh, OR the one-board-per-tree CITED board of the same tree" -- and CEO-697
+# decided which one is lawful.  ⛔ ITS CENTRAL RUNNER IS RETIRED: CEO-697 quoted MODE line 2 under NONET ("every
+# master and package board is the coo's"), which died with CEO-775; since CEO-1232 the lander grades its own
+# language's suites, the gates it touched and make preflight, and every other language's verdict is that HQ's next
+# per-landing pass on origin, which stamps the range it covers.  Cite-not-run survives that ruling unchanged.  ⭐ THE REASON THIS MATTERS MORE HERE THAN
 # ANYWHERE ELSE: `done` runs in EVERY seat.  A `done` that auto-ran a master board would not merely repeat the
 # drift CEO-697 was issued to stop, it would MECHANISE it and make it compulsory -- thirteen seats each firing a
 # board on every codegen landing, which is the 25m55s-at-load-11-13 contention the cfo measured, but automated.
@@ -2624,7 +2626,7 @@ case "$cmd" in
               # marker is written, because a landing that reds the master is NOT DONE however green its own
               # criterion is.  That ordering IS the cure: seat11's DONE-WHEN passed and the row closed, and the
               # 299 red master entries were discovered by other seats hours later.  See s4e_codegen_touched above
-              # for why the touch set is COMPUTED and why this CITES a board rather than running one (CEO-697).
+              # for why the touch set is COMPUTED and why this CITES a board rather than running one (CEO-697, CEO-1232).
               _cg_repo="$S4E/SCRIP"; _cg_touch="$(s4e_codegen_touched "$_cg_repo" "$c")"
               if [ -n "$_cg_touch" ]; then
                 printf '\n⭐ CODEGEN CONTROL ARM -- this landing touches codegen, computed from the diff (never asserted):\n'
@@ -2664,20 +2666,18 @@ case "$cmd" in
                         "$_cg_s" "$(printf '%s' "$_cg_inh" | sed '/^$/d' | grep -c . || echo 0)"
                     else
                       # ⛔⭐⭐ COULD NOT MEASURE IS NOT A VERDICT, AND IT IS ALSO NOT A BLOCKER.  There is no board of
-                      # this exact tree in the database, and under CEO-697 this seat MAY NOT RUN ONE -- the full set
-                      # runs once per stage, on the coo, beside its board pass.  So refusing here would block every
-                      # codegen landing in the fleet on a board only one seat is allowed to produce.  What `done` owes
-                      # instead is to make the coo's stage pass CHEAP: it names this landing, so a red stage board
-                      # arrives with its candidate set already enumerated.  ⭐ THAT IS THE ACTUAL CURE FOR THE
-                      # INCIDENT: the three hours went to the BISECT, not to the board.  A named candidate set is the
-                      # difference between three hours of eight HQs and a lookup.
+                      # this exact tree in the database, and this seat MAY NOT RUN ONE (CEO-697's cite-not-run), so
+                      # refusing here would block every codegen landing in the fleet on a board this seat cannot make.
+                      # ⛔ THE STAGE PASS THIS BRANCH ONCE FED IS RETIRED (ceo CEO-1299, 2026-09-26): it recorded the
+                      # landing in codegen-landings.tsv "for the coo stage pass", a central board that died with
+                      # CEO-775, and nothing but its own gate read the file (46 rows, measured). Under CEO-1232 the
+                      # reader of record is each HQ's next per-landing pass on origin, which stamps the range it
+                      # covers, so the only record kept is the one on this row's baton.
                       printf '   ⚠⚠ %s: NO BOARD OF THIS TREE EXISTS -- so the control arm COULD NOT MEASURE, which is\n' "$_cg_s" >&2
-                      printf '      neither a pass nor a red. Not running one: under CEO-697 the board is the coo stage pass.\n' >&2
-                      printf '      This landing is RECORDED as a codegen landing awaiting that pass.\n' >&2
-                      _cg_pend="$PO/codegen-landings.tsv"
-                      printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$topic" "${_cg_scrip:-?}" "${_cg_corpus:-?}" \
-                        "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" >> "$_cg_pend" 2>/dev/null || true
-                      [ -f "$tf" ] && printf '\n- [%s·%s] ⚠ CODEGEN LANDING WITH NO CITABLE BOARD -- touched: %s (scrip=%s corpus=%s). Recorded in codegen-landings.tsv for the coo stage pass; the control arm could not measure and did not pretend to.\n' \
+                      printf '      neither a pass nor a red. Not running one: under CEO-1232 this landing is graded by its lander on\n' >&2
+                      printf '      its own language'"'"'s suites, the gates it touched and make preflight; every other language'"'"'s verdict is\n' >&2
+                      printf '      that HQ'"'"'s next per-landing pass on origin, which stamps the range it covers.\n' >&2
+                      [ -f "$tf" ] && printf '\n- [%s·%s] ⚠ CODEGEN LANDING WITH NO CITABLE BOARD -- touched: %s (scrip=%s corpus=%s). The control arm could not measure and did not pretend to; under CEO-1232 the lander'"'"'s own-language suites and each other HQ'"'"'s next per-landing pass on origin are the verdict.\n' \
                         "$ME" "$(date -u +%Y-%m-%d)" "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" "${_cg_scrip:-?}" "${_cg_corpus:-?}" >> "$tf"
                     fi
                   done

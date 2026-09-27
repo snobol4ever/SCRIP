@@ -7,10 +7,13 @@
 # master as its control arm" lived in prose and `done` could not see it. Three hours of eight HQs went to the
 # bisect, the revert and the re-measure. A law the tooling does not enforce is a hope.
 #
-# ⛔⭐ CITE, NOT RUN, AND THAT IS A RULING (ceo CEO-697 2026-09-13; MODE line 2 under NONET, "ONE RUNNER, ONE
-# BOARD"). `done` runs in EVERY seat, so a `done` that auto-ran a master board would MECHANISE the very contention
-# CEO-697 was issued to stop -- thirteen seats firing a board per codegen landing. The row's own GOAL offered both
-# branches ("test_corpus_snobol4.sh, OR the one-board-per-tree CITED board of the same tree") and CEO-697 picks one.
+# ⛔⭐ CITE, NOT RUN, AND THAT IS A RULING (ceo CEO-697 2026-09-13). `done` runs in EVERY seat, so a `done` that
+# auto-ran a master board would MECHANISE the very contention CEO-697 was issued to stop -- thirteen seats firing a
+# board per codegen landing. The row's own GOAL offered both branches ("test_corpus_snobol4.sh, OR the one-board-
+# per-tree CITED board of the same tree") and CEO-697 picks one. ⛔ ITS STAGE PASS IS RETIRED (ceo CEO-1299,
+# 2026-09-26): an uncited landing was recorded in codegen-landings.tsv "for the coo stage pass", the central board
+# that died with CEO-775, and nothing but arm (5) read the file. Under CEO-1232 the lander's own-language suites and
+# each other HQ's next per-landing pass on origin are the verdict, and `done` says so.
 #
 # TEN ARMS against a THROWAWAY postoffice, a THROWAWAY git tree and a THROWAWAY progress database under mktemp --
 # never the live ones. Hermetic and seconds-cheap: it builds nothing, runs no suite, and reads no live board.
@@ -18,7 +21,8 @@
 #   (2) CODEGEN + cited CLEAN board    -> closes, and the receipt says the board was CITED and names the tree
 #   (3) CODEGEN + cited board RED      -> REFUSES rc=1 and NAMES the failing entries, row NOT closed
 #   (4) same red board, reds == INHERITED -> closes (the inherited set is honoured)
-#   (5) CODEGEN + NO board of this tree-> closes, but says COULD NOT MEASURE and RECORDS the landing
+#   (5) CODEGEN + NO board of this tree-> closes, says COULD NOT MEASURE and cites CEO-1232, records the landing on
+#       its own baton, and writes NO codegen-landings.tsv (the retired stage pass, CEO-1299)
 #   (6) S4E_DONE_SKIP_MASTER_ARM=why   -> closes, why echoed AND written to the baton ledger
 #   (7) ANTI-ASSERT: the touch set is COMPUTED FROM THE DIFF -- a baton whose PROSE says codegen but whose diff
 #       touches nothing gets no arm, and a diff that touches codegen gets the arm with nothing declaring it
@@ -132,12 +136,13 @@ arm() {   # arm <label> <script> -> 0 iff every contract holds on <script>
   [ "$RC" = 1 ] || { echo "  [$lbl] (8) a partially-inherited red board exited $RC (want 1)"; say; ok=0; }
   grep -q 'gamma_3' "$W/out" || { echo "  [$lbl] (8) the refusal does not name the NON-inherited entry"; say; ok=0; }
   awk '/Entries failing/,0' "$W/out" | grep -q 'beta_2' && { echo "  [$lbl] (8) it named an entry the baton DOES inherit"; say; ok=0; }
-  # (5) CODEGEN + NO board of this tree -> closes, but COULD NOT MEASURE and RECORDED
+  # (5) CODEGEN + NO board of this tree -> closes, COULD NOT MEASURE, CEO-1232 cited, the baton records it, no stage-pass file
   mk_tree || return 2; mk_db "" || return 2; mk_po t5 || return 2; clean_tree; dirty_codegen; assert_codegen_dirty || return 2
   run "$s" t5
   [ "$RC" = 0 ] || { echo "  [$lbl] (5) no citable board exited $RC (want 0 -- cannot-measure must not block the fleet)"; say; ok=0; }
   grep -q 'COULD NOT MEASURE' "$W/out" || { echo "  [$lbl] (5) an unmeasurable arm did not SAY so"; say; ok=0; }
-  grep -q 't5' "$PO/codegen-landings.tsv" 2>/dev/null || { echo "  [$lbl] (5) the landing was not RECORDED for the coo stage pass"; say; ok=0; }
+  grep -q 'CEO-1232' "$W/out" || { echo "  [$lbl] (5) the unmeasured arm does not cite CEO-1232 (the lander's suites and each HQ's next pass)"; say; ok=0; }
+  [ ! -e "$PO/codegen-landings.tsv" ] || { echo "  [$lbl] (5) codegen-landings.tsv was written -- the stage pass it fed is retired (CEO-1299)"; ok=0; }
   grep -q 'NO CITABLE BOARD' "$PO/tasks/t5.task.md" || { echo "  [$lbl] (5) the baton ledger does not record the unmeasured arm"; ok=0; }
   closed t5 || { echo "  [$lbl] (5) row not closed"; ok=0; }
   # (6) SKIP FLAG -- loud AND recorded
@@ -184,11 +189,19 @@ arm LIVE "$MSG"; live=$?
 echo "   ✅ all 10 arms hold on the live s4e_msg.sh"
 # ---- FAIL-ONCE: every arm must be capable of going red -----------------------------------------------------------
 # ⛔ AN ARM THAT CANNOT FAIL IS NOT COUNTED. Each mutant removes ONE half of the cure; each must red.
+# ⛔⭐ A MUTANT RUNS BESIDE THE BUS'S OWN LIBRARIES, OR IT PROVES NOTHING (coo 2026-09-26, measured). They were written to
+# $W alone, and since lib_donewhen.sh became load-bearing (2026-09-23) the bus refuses rc=2 without it beside itself: all
+# five mutants "went red" on that refusal and never reached the control arm -- a falsifiability claim nobody had measured.
+# So the libraries are staged beside them, and a mutant whose output still carries the refusal voids the proof (rc=2).
+MB="$W/bus"; mkdir -p "$MB" && cp "$HERE"/lib_*.sh "$MB"/ 2>/dev/null && cp "$HERE"/util_fit_columns.py "$MB"/ 2>/dev/null \
+  || { echo "⛔ REFUSED(2): could not stage the bus's libraries beside the mutants"; exit 2; }
 mut() {   # mut <name> <sed-program>
-  local n="$1" p="$2" m="$W/mut_$1.sh"
+  local n="$1" p="$2" m="$MB/mut_$1.sh"
   sed "$p" "$MSG" > "$m" || return 2; bash -n "$m" 2>/dev/null || { echo "   [$n] mutant is not valid bash -- not a proof"; return 2; }
-  if arm "MUT:$n" "$m" >/dev/null 2>&1; then echo "   ⛔ mutant $n STILL PASSES -- the arms do not discriminate"; return 1
-  else echo "   ✅ mutant $n goes red, as it must"; return 0; fi
+  cmp -s "$m" "$MSG" && { echo "   [$n] the sed program matched nothing -- the mutant IS the live script, not a proof"; return 2; }
+  if arm "MUT:$n" "$m" >/dev/null 2>&1; then echo "   ⛔ mutant $n STILL PASSES -- the arms do not discriminate"; return 1; fi
+  if grep -q 'lib_donewhen.sh is not readable' "$W/out" 2>/dev/null; then echo "   [$n] the mutant could not run (its libraries are missing) -- red for no reason the arms name, not a proof"; return 2; fi
+  echo "   ✅ mutant $n goes red, as it must"; return 0
 }
 fails=0
 mut no-arm        's/^              _cg_repo=.*$/              _cg_touch=""/'                                  || fails=1
@@ -196,6 +209,7 @@ mut blind-touch   's/^    printf .%s\\n. "\$files" | sed .\/\^\$\/d. | sort -u |
 mut deaf-inherit  's/^    sed -n .s\/\^INHERITED:\[\[:space:\]\]\*\/\/p. "\$1".*$/    return 0/'                || fails=1
 mut fleet-window  's/\$(s4e_own_commits_since "\$repo" "\$since")/$(git -C "$repo" log --since=@"$since" --format=%H HEAD 2>\/dev\/null)/' || fails=1
 mut blind-own     's/\$(s4e_own_commits_since "\$repo" "\$since")/""/'                                     || fails=1
-[ "$fails" = 0 ] || { echo "⛔ GATE RED: at least one arm is unfalsifiable"; exit 1; }
-echo "✅ GATE OK -- 10 arms green on the live script, 5 mutants red. Denominator printed; nothing live was touched."
+mut stage-pass    "s/^\\( *\\)printf '   ⚠⚠ %s: NO BOARD OF THIS TREE EXISTS/\\1: >> \"\\\$PO\/codegen-landings.tsv\"; printf '   ⚠⚠ %s: NO BOARD OF THIS TREE EXISTS/" || fails=1
+[ "$fails" = 0 ] || { echo "⛔ GATE RED: at least one arm is unfalsifiable, or a mutant could not run"; exit 1; }
+echo "✅ GATE OK -- 10 arms green on the live script, 6 mutants red for the reasons their arms name. Denominator printed; nothing live was touched."
 exit 0
