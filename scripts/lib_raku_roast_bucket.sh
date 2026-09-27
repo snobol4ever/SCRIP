@@ -27,10 +27,19 @@ classify() {
   echo "PASS"
 }
 # THE BUCKET. GRADED means our compiler ran the file and TAP came out; everything else is a reason it did not.
+# ⛔⭐ THE PARSER SAYING SO, IN ITS OWN WORDS, AND THE ONE PLACE THAT KNOWS THEM (hq_raku 2026-09-27, ceo CEO-1318).
+# The hand-written parser that replaced flex/bison (SCRIP 2d9817261, 2026-09-26) refuses with a POSITIONED first
+# line, `<file>:<line>:<col>: raku syntax error: <why>`, and the driver's bare `raku: parse error in <file>` comes
+# SECOND. Every test here read line 1 for `parse error`, the old parser's first-line wording, so from the swap on a
+# file the parser refused read as OTHER in the parse census and fell through to UNGRADED-NO-TAP here: the census
+# gate's own unparseable fixture read other=1 parse_fail=0 for a day. Line 1 stays the rule (see the lex arm below
+# for why a whole-stderr grep is wrong); what changes is that line 1 is matched against BOTH parsers' wording, in
+# this one function, so the census, the bucket and the ranker cannot drift apart again.
+roast_parser_refused() { printf '%s' "$1" | grep -qE ': raku syntax error: |parse error'; }
 roast_bucket() {
   local so="$1" se="$2" rc="$3" err1
   err1=$(head -1 "$se" 2>/dev/null)
-  if printf '%s' "$err1" | grep -q 'parse error'; then echo UNGRADED-PARSE; return; fi
+  if roast_parser_refused "$err1"; then echo UNGRADED-PARSE; return; fi
   # ⛔⭐⭐ A LEX FAILURE IS A FRONT-END FAILURE AND THIS FUNCTION HAD NO NAME FOR IT, SO 61 FILES SAT IN
   # BUCKETS THAT DESCRIBED A LATER STAGE (hq_raku 2026-09-16, found by the parse census this landed beside:
   # its OTHER class -- rc!=0 with no "parse error" text -- came back 61 files, and every one of them has
@@ -92,7 +101,9 @@ roast_bucket() {
 # THE CONSTRUCT KEY: the source line the parse died on, literals and numbers folded, so a histogram and a
 # ranker name CONSTRUCTS and not line numbers -- and so both name them THE SAME WAY.
 roast_fold_construct() { sed "s/'[^']*'/'STR'/g; s/\"[^\"]*\"/\"STR\"/g; s/[0-9][0-9]*/N/g"; }
-roast_err_line() { printf '%s' "$1" | sed -n 's/.*line \([0-9]\+\).*/\1/p'; }
+# The line the parse died on: the positioned `<file>:<line>:<col>: raku syntax error:` form FIRST, because its message
+# can itself say `line N` about somewhere else ("corresponding starter was at line 1"); then the old `line N` form.
+roast_err_line() { printf '%s' "$1" | sed -n 's/^[^:]*:\([0-9]\+\):[0-9]\+: raku syntax error: .*/\1/p; t; s/.*line \([0-9]\+\).*/\1/p'; }
 # ⛔⭐ THE POPULATION RESOLVER, SHARED FOR THE SAME REASON THE BUCKET RULE IS (hq_raku 2026-09-16):
 # an instrument that RANKS a census must grade the same files the census graded. Resolution order is
 # per-root refs/ FIRST (a root still carrying its own gitignored copy keeps grading that copy, so this

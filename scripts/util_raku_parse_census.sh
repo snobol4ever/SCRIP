@@ -80,7 +80,7 @@ while IFS= read -r -d '' src; do
   # the parser named. Folding OTHER into either neighbour is exactly the derivation this script replaces.
   if [ "$rc" -eq 0 ]; then
     v=PARSED
-  elif printf '%s' "$err1" | grep -q 'parse error'; then
+  elif roast_parser_refused "$err1"; then
     v=PARSE-FAIL
   else
     v=OTHER

@@ -44,6 +44,18 @@ arm "lex error alone (no second line to latch onto)" UNGRADED-LEX "" "raku lex e
 # first arm below, which is how this was found. ⭐ A comment asserting that something matters is a claim like
 # any other, and the way to check it is to break the thing and watch.
 arm "parse error stays UNGRADED-PARSE" UNGRADED-PARSE "" "raku parse error line 15: syntax error" 1
+# ⛔⭐ THE SHAPE THE DRIVER ACTUALLY EMITS TODAY (hq_raku 2026-09-27, ceo CEO-1318). Every fixture above is the
+# flex/bison parser's wording, which no binary has printed since the hand-written parser swapped in (SCRIP
+# 2d9817261): a refusal now opens with the POSITIONED `<file>:<line>:<col>: raku syntax error: <why>` and the bare
+# `raku: parse error in <file>` is line 2. This gate stayed green on the old fixtures while the real shape read
+# UNGRADED-NO-TAP -- a pinned shape nobody emits proves the function, never the instrument. The line arm pins
+# roast_err_line on the same shape, where the message itself says `line 1` about the opener: the ranker must key
+# the construct on the line the parse DIED on (2), not the line the message mentions.
+arm "the hand-written parser's refusal is UNGRADED-PARSE" UNGRADED-PARSE "" "/tmp/case.raku:2:1: raku syntax error: Unable to parse parenthesized expression; couldn't find final ')' (corresponding starter was at line 1)
+raku: parse error in /tmp/case.raku" 1
+el=$(roast_err_line "/tmp/case.raku:2:1: raku syntax error: Unable to parse parenthesized expression; couldn't find final ')' (corresponding starter was at line 1)")
+if [ "$el" = 2 ]; then PASS=$((PASS+1)); printf '  ok   %-46s -> %s\n' "the dying line of a positioned refusal" "$el"
+else FAIL=$((FAIL+1)); printf '  FAIL %-46s -> %s (expected 2)\n' "the dying line of a positioned refusal" "$el"; fi
 arm "emitter refusal stays UNGRADED-EMITTER" UNGRADED-EMITTER "" "emitter does not yet cover IR_FOO" 1
 # The three the function already got wrong once, pinned so the cure above cannot undo the cure below it.
 arm "SIGSEGV is a CRASH, not a TIMEOUT" UNGRADED-CRASH "" "" 139
