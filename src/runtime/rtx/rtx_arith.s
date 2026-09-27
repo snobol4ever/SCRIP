@@ -138,9 +138,10 @@ RTX_FUNC(rt_add)
     jne     .Ladd_notii
     cmp     dl, DT_I
     jne     .Ladd_notii
-    mov     rdx, rsi
-    add     rdx, rcx
+    mov     rax, rsi
+    add     rax, rcx
     jo      .Ladd_slow
+    mov     rdx, rax
     mov     eax, DT_I
     ret
 .Ladd_notii:
@@ -165,9 +166,10 @@ RTX_FUNC(rt_sub)
     jne     .Lsub_notii
     cmp     dl, DT_I
     jne     .Lsub_notii
-    mov     rdx, rsi
-    sub     rdx, rcx
+    mov     rax, rsi
+    sub     rax, rcx
     jo      .Lsub_slow
+    mov     rdx, rax
     mov     eax, DT_I
     ret
 .Lsub_notii:
@@ -192,9 +194,10 @@ RTX_FUNC(rt_mul)
     jne     .Lmul_notii
     cmp     dl, DT_I
     jne     .Lmul_notii
-    mov     rdx, rsi
-    imul    rdx, rcx
+    mov     rax, rsi
+    imul    rax, rcx
     jo      .Lmul_slow
+    mov     rdx, rax
     mov     eax, DT_I
     ret
 .Lmul_notii:
@@ -219,9 +222,10 @@ RTX_FUNC(rt_add_sno)
     jne     .Laddsno_notii
     cmp     dl, DT_I
     jne     .Laddsno_notii
-    mov     rdx, rsi
-    add     rdx, rcx
+    mov     rax, rsi
+    add     rax, rcx
     jo      .Laddsno_slow
+    mov     rdx, rax
     mov     eax, DT_I
     ret
 .Laddsno_notii:
@@ -246,9 +250,10 @@ RTX_FUNC(rt_sub_sno)
     jne     .Lsubsno_notii
     cmp     dl, DT_I
     jne     .Lsubsno_notii
-    mov     rdx, rsi
-    sub     rdx, rcx
+    mov     rax, rsi
+    sub     rax, rcx
     jo      .Lsubsno_slow
+    mov     rdx, rax
     mov     eax, DT_I
     ret
 .Lsubsno_notii:
@@ -273,9 +278,10 @@ RTX_FUNC(rt_mul_sno)
     jne     .Lmulsno_notii
     cmp     dl, DT_I
     jne     .Lmulsno_notii
-    mov     rdx, rsi
-    imul    rdx, rcx
+    mov     rax, rsi
+    imul    rax, rcx
     jo      .Lmulsno_slow
+    mov     rdx, rax
     mov     eax, DT_I
     ret
 .Lmulsno_notii:

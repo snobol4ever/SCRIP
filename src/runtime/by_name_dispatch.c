@@ -6751,16 +6751,20 @@ static __attribute__((noinline)) int bn_integer(DESCR_t *args, int nargs, DESCR_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2) return -1;
-    DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
+    DESCR_t a = args[0], b = args[1];
+    if (!is_numeric_like(a)) { core_runtime_error(166, "remdr first argument is not numeric"); *out = FAILDESCR; return 1; }
+    if (!is_numeric_like(b)) { core_runtime_error(165, "remdr second argument is not numeric"); *out = FAILDESCR; return 1; }
+    _SNOCOERCE(a); _SNOCOERCE(b);
     if (IS_REAL_fn(a) || IS_REAL_fn(b)) {
         double rb = IS_REAL_fn(b) ? b.r : (double)b.i;
-        if (rb == 0.0) { *out = FAILDESCR; return 1; }
+        if (rb == 0.0) { core_runtime_error(312, "remdr caused real overflow"); *out = FAILDESCR; return 1; }
         double rr = fmod(IS_REAL_fn(a) ? a.r : (double)a.i, rb);
         if (isinf(rr)) { core_runtime_error(312, "remdr caused real overflow"); *out = FAILDESCR; return 1; }
         *out = REALVAL(rr); return 1;
     }
     long long ai = a.i, bi = b.i;
-    if (bi == 0) { *out = FAILDESCR; return 1; }
+    if (bi == 0) { core_runtime_error(167, "remdr caused integer overflow"); *out = FAILDESCR; return 1; }
+    if (bi == -1) { *out = INTVAL(0); return 1; }
     *out = INTVAL(ai % bi); return 1;
 }
 extern unsigned rt_dtax_gen;

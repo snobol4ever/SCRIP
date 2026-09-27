@@ -21,6 +21,11 @@
 # ERRLIMIT ARM: with &ERRLIMIT = 5 the same x + 1 is counted, the statement FAILS, and &ERRTYPE reads 1, as sbl gives it.
 # FAIL-ONCE, MEASURED: SCRIP_BIN at a scrip built on origin bc96cf1b2 (before the cure) reads 0 of 38 raising arms and the
 # &ERRLIMIT arm RED in both modes (&ERRTYPE 0 where sbl gives 1), the two controls green -- the gate measures the cure.
+# LANDING 2 (the class, same row): integer overflow 003/034/028 (it WRAPPED silently: the asm fast paths of rt_add/rt_sub/rt_mul
+# computed into rdx, the right operand's tag word, before their jo, so the slow path read a corrupted right operand -- a wrong
+# answer on every frontend reaching that path), 0 ** 0 018, 2 ** 63 017, (-8) ** 0.5 311, 2.0 ** 2000 266, 1.0E300 squared 263,
+# REMDR 165/166/167/312, and INT64_MIN / -1 (a SIGFPE core dump; sbl dumps too). Measured: a build at origin 7ad35d97a (landing
+# 1 only) reads 38 of 70 raising arms and both INT64_MIN arms RED in both modes.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,7 +42,7 @@ SBL="$(sbl_correctness_bin 2>/dev/null || true)"; [ -n "${SBL:-}" ] && [ -x "$SB
 T="$(mktemp -d)" || refuse "no tmpdir"
 trap 'rm -rf "$T"' EXIT
 prog() {
-    printf "        OUTPUT = 'before'\n        x = 'abc'\n        n = '12'\n        a = 'ab'\n        b = 'X'\n%s        OUTPUT = %s   :S(ok)F(bad)\nok      OUTPUT = 'success' :(END)\nbad     OUTPUT = 'failure'\nEND\n" "${2:-}" "$1" > "$T/w.sno"
+    printf "        OUTPUT = 'before'\n        x = 'abc'\n        n = '12'\n        a = 'ab'\n        b = 'X'\n        i = 9223372036854775807\n        m = 4611686018427387904\n        z = 0\n        t = 2\n        r = 1.0E300\n%s        OUTPUT = %s   :S(ok)F(bad)\nok      OUTPUT = 'success' :(END)\nbad     OUTPUT = 'failure'\nEND\n" "${2:-}" "$1" > "$T/w.sno"
 }
 runm() {
     if [ "$1" = m3 ]; then timeout 20 "$SCRIP" "$T/w.sno" < /dev/null 2>&1
@@ -48,7 +53,9 @@ runm() {
 errno_of() { grep -io 'error [0-9]*' | head -1 | awk '{print $2+0}'; }
 RC=0; n=0; ok=0
 for ex in "x + 1" "1 + x" "x - 1" "2 - x" "x * 2" "2 * x" "x / 2" "2 / x" "x ** 2" "2 ** x" "-x" "+x" "1 / 0" \
-          "ARRAY(0 - 1)" "ARRAY(0)" "ARRAY('')" "ARRAY('3:1')" "REPLACE('abcabc', a, b)" "REPLACE('abcabc', '', '')"; do
+          "ARRAY(0 - 1)" "ARRAY(0)" "ARRAY('')" "ARRAY('3:1')" "REPLACE('abcabc', a, b)" "REPLACE('abcabc', '', '')" \
+          "i + 1" "(0 - i) - 2" "m * 4" "m * t" "9223372036854775807 + 1" "4611686018427387904 * 4" "z ** z" "0.0 ** 0.0" "t ** 63" \
+          "(z - 8) ** 0.5" "2.0 ** 2000" "r * r" "REMDR(5, z)" "REMDR(5.0, 0.0)" "REMDR(x, 2)" "REMDR(5, x)"; do
     prog "$ex"
     want=$("$SBL" -bf "$T/w.sno" < /dev/null 2>/dev/null | errno_of)
     [ -n "$want" ] || refuse "sbl -bf raised no error for [$ex] -- the witness is wrong"
@@ -59,6 +66,14 @@ for ex in "x + 1" "1 + x" "x - 1" "2 - x" "x * 2" "2 * x" "x / 2" "2 / x" "x ** 
     done
 done
 echo "  raising arms: $ok of $n raise the number sbl -bf raises and terminate, both modes"
+# INT64_MIN / -1 and REMDR(INT64_MIN, -1): sbl -bf ITSELF dies of SIGFPE (rc 136) on both, so no number can be read from it; scrip
+# raises SPITBOL's own number for integer division overflow (014) and gives REMDR's exact answer 0 -- and must never dump core.
+for m in m3 m4; do
+    prog "(0 - i - 1) / (0 - 1)"; out=$(runm $m); got=$(printf '%s\n' "$out" | errno_of)
+    [ "$got" = 14 ] && ! printf '%s\n' "$out" | grep -qx 'failure\|success' || { RC=1; echo "  RED $m [INT64_MIN / -1]: expected error 14, got: $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-120)"; }
+    prog "REMDR(0 - i - 1, 0 - 1)"; out=$(runm $m)
+    printf '%s\n' "$out" | grep -qx '0' && printf '%s\n' "$out" | grep -qx 'success' || { RC=1; echo "  RED $m [REMDR(INT64_MIN, -1)]: expected 0 and success, got: $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-120)"; }
+done
 for m in m3 m4; do
     prog "n + 1"; out=$(runm $m)
     if printf '%s\n' "$out" | grep -qx '13' && printf '%s\n' "$out" | grep -qx 'success' && ! printf '%s\n' "$out" | grep -qi 'error'; then :; else RC=1; echo "  RED $m control ['12' + 1]: expected 13 and success, got: $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-120)"; fi

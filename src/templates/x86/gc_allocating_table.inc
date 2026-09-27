@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1759
+#define GC_ALLOC_TAB_N 1761
 #define GC_ALLOC_TAB_N_VOID 200
-#define GC_ALLOC_TAB_N_DESCR 996
+#define GC_ALLOC_TAB_N_DESCR 998
 #define GC_ALLOC_TAB_N_OTHER 563
 #define GC_ALLOC_TAB_N_UNKNOWN 0
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1031,6 +1031,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_icn_trace_coexpr", GC_RET_VOID },
     { "rt_indirect_assign_str", GC_RET_VOID },
     { "rt_indirect_assign_var", GC_RET_VOID },
+    { "rt_int_neg_div", GC_RET_DESCR },
     { "rt_ipow_descr", GC_RET_DESCR },
     { "rt_ipow_promote_descr", GC_RET_DESCR },
     { "rt_jct_relop", GC_RET_OTHER },
@@ -1629,6 +1630,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_sno_goto_special_is", GC_RET_OTHER },
     { "rt_sno_indirect_name", GC_RET_OTHER },
     { "rt_sno_operand_error", GC_RET_VOID },
+    { "rt_sno_pow", GC_RET_DESCR },
     { "rt_sno_runtime_define", GC_RET_VOID },
     { "rt_stmt_enter", GC_RET_VOID },
     { "rt_str_alloc", GC_RET_OTHER },

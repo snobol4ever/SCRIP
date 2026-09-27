@@ -1472,8 +1472,8 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
             if (s->t == TT_ADD) { if (__builtin_add_overflow(lb, rb, &r)) return 0; }
             else if (s->t == TT_SUB) { if (__builtin_sub_overflow(lb, rb, &r)) return 0; }
             else if (s->t == TT_MUL) { if (__builtin_mul_overflow(lb, rb, &r)) return 0; }
-            else if (s->t == TT_DIV) { if (rb == 0) return 0; r = lb / rb; }
-            else { if (rb == 0) return 0; r = lb % rb; }
+            else if (s->t == TT_DIV) { if (rb == 0 || (rb == -1 && lb == INT64_MIN)) return 0; r = lb / rb; }
+            else { if (rb == 0 || (rb == -1 && lb == INT64_MIN)) return 0; r = lb % rb; }
             *bits = r; *isr = 0; return 1;
         }
         double la, ra, rv; if (li) memcpy(&la, &lb, 8); else la = (double) lb; if (ri) memcpy(&ra, &rb, 8); else ra = (double) rb;

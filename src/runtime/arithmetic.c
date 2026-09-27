@@ -390,9 +390,9 @@ static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv) {
+static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv, int strict) {
     extern long g_error; extern int64_t kw_errlimit; extern int core_icn_error(int code, DESCR_t val);
-    if (kw_errlimit != 0) { core_runtime_error(spitcode, what); return FAILDESCR; }
+    if (strict == 2 || kw_errlimit != 0) { core_runtime_error(spitcode, what); return FAILDESCR; }
     core_icn_error(204, FAILDESCR);
     return FAILDESCR;
 }
@@ -439,6 +439,26 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
     else                        ur = cset_inter(as, aslen, bs, bslen, &outlen);
     return CSETVAL(outlen > 0 ? ur : "");
 }
+static DESCR_t rt_int_neg_div(int64_t li, int strict) {
+    if (li != INT64_MIN) return INTVAL(-li);
+    if (strict == 2) { core_runtime_error(14, "division caused integer overflow"); return FAILDESCR; }
+    { extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); return rt_big_mul(INTVAL(li), INTVAL(-1)); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_sno_pow(int anyf, int rreal, int64_t li, int64_t ri, double ld, double rd) {
+    if (!anyf) {
+        if (li == 0 && ri == 0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; }
+        if (ri < 0) return li == 0 ? REALVAL(0.0) : REALVAL(pow((double)li, (double)ri));
+        if (li == 0 || li == 1) return INTVAL(li);
+        if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
+        { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { core_runtime_error(17, "exponentiation caused integer overflow"); return FAILDESCR; } return INTVAL(acc); }
+    }
+    if (ld == 0.0 && rd == 0.0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; }
+    if (ld == 0.0 && rd < 0.0) return REALVAL(0.0);
+    if (ld < 0.0 && rreal && rd != floor(rd)) { core_runtime_error(311, "exponentiation of negative base to non-integral power"); return FAILDESCR; }
+    { double r = rreal ? pow(ld, rd) : rt_ripow(ld, ri); if (!isfinite(r)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; } return REALVAL(r); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_sno_operand_error(int op, int left) {
     switch (op) {
     case BINOP_ADD: core_runtime_error(left ? 1 : 2, left ? "addition left operand is not numeric" : "addition right operand is not numeric"); return;
@@ -464,20 +484,21 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     double ld = to_real(a), rd = to_real(b);
     int64_t li = to_int(a), ri = to_int(b);
     switch (op) {
-        case BINOP_ADD: if (anyf) { double _r = ld + rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(261, "addition caused real overflow", ld); return REALVAL(_r); } { int64_t _z; if (__builtin_add_overflow(li, ri, &_z)) { extern DESCR_t rt_big_add(DESCR_t, DESCR_t); return rt_big_add(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
-        case BINOP_SUB: if (anyf) { double _r = ld - rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(264, "subtraction caused real overflow", ld); return REALVAL(_r); } { int64_t _z; if (__builtin_sub_overflow(li, ri, &_z)) { extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); return rt_big_sub(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
-        case BINOP_MUL: if (anyf) { double _r = ld * rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(263, "multiplication caused real overflow", ld); return REALVAL(_r); } { int64_t _z; if (__builtin_mul_overflow(li, ri, &_z)) { extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); return rt_big_mul(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
-        case BINOP_DIV: if (anyf) { if (rd == 0.0) return rt_real_zero_divisor(strict); { double _r = ld / rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(262, "division caused real overflow", ld); return REALVAL(_r); } } if (ri == 0) { rt_div_zero(BINOP_DIV, oa, ob, "division caused integer overflow", strict); return FAILDESCR; } return INTVAL(li / ri);
-        case BINOP_MOD: if (anyf) return (rd == 0.0) ? rt_real_zero_divisor(strict) : REALVAL(fmod(ld, rd)); if (ri == 0) { rt_div_zero(BINOP_MOD, oa, ob, NULL, strict); return FAILDESCR; } return INTVAL(li % ri);
+        case BINOP_ADD: if (anyf) { double _r = ld + rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(261, "addition caused real overflow", ld, strict); return REALVAL(_r); } { int64_t _z; if (__builtin_add_overflow(li, ri, &_z)) { if (strict == 2) { core_runtime_error(3, "addition caused integer overflow"); return FAILDESCR; } extern DESCR_t rt_big_add(DESCR_t, DESCR_t); return rt_big_add(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
+        case BINOP_SUB: if (anyf) { double _r = ld - rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(264, "subtraction caused real overflow", ld, strict); return REALVAL(_r); } { int64_t _z; if (__builtin_sub_overflow(li, ri, &_z)) { if (strict == 2) { core_runtime_error(34, "subtraction caused integer overflow"); return FAILDESCR; } extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); return rt_big_sub(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
+        case BINOP_MUL: if (anyf) { double _r = ld * rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(263, "multiplication caused real overflow", ld, strict); return REALVAL(_r); } { int64_t _z; if (__builtin_mul_overflow(li, ri, &_z)) { if (strict == 2) { core_runtime_error(28, "multiplication caused integer overflow"); return FAILDESCR; } extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); return rt_big_mul(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
+        case BINOP_DIV: if (anyf) { if (rd == 0.0) return rt_real_zero_divisor(strict); { double _r = ld / rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(262, "division caused real overflow", ld, strict); return REALVAL(_r); } } if (ri == 0) { rt_div_zero(BINOP_DIV, oa, ob, "division caused integer overflow", strict); return FAILDESCR; } if (ri == -1) return rt_int_neg_div(li, strict); return INTVAL(li / ri);
+        case BINOP_MOD: if (anyf) return (rd == 0.0) ? rt_real_zero_divisor(strict) : REALVAL(fmod(ld, rd)); if (ri == 0) { rt_div_zero(BINOP_MOD, oa, ob, NULL, strict); return FAILDESCR; } if (ri == -1) return INTVAL(0); return INTVAL(li % ri);
         case BINOP_POW: {
             extern int core_icn_error(int code, DESCR_t val);
+            if (strict == 2) return rt_sno_pow(anyf, rf || operand_is_real_str(b), li, ri, ld, rd);
             if (!anyf) return rt_ipow_descr(li, ri);
             if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
             if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, FAILDESCR); return FAILDESCR; }
-            if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
-            { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rp); }
+            if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
+            { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict); return REALVAL(_rp); }
         }
-        case BINOP_POW_PROMOTE: if (anyf) { double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rq); } return rt_ipow_promote_descr(li, ri);
+        case BINOP_POW_PROMOTE: if (strict == 2) return rt_sno_pow(anyf, rf || operand_is_real_str(b), li, ri, ld, rd); if (anyf) { double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict); return REALVAL(_rq); } return rt_ipow_promote_descr(li, ri);
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
 }
