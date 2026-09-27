@@ -1128,6 +1128,7 @@ static rt_hblk_t *gc_block_exact_h(const char *q, uint16_t want_type)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gc_alloc_total(void) { return g_hp_fr.alloc_total; }
 long rt_gc_alloc_str(void) { return g_hp_fr.alloc_str; }
+long rt_gc_bytes_in_use(void) { return (g_hp_arena && g_hp_top >= g_hp_arena && g_hp_top <= g_hp_cap_end) ? (long)(g_hp_top - g_hp_arena) : g_hp_live; }
 static int  g_gc_maps_rep = -1;
 #define GC_REP_POPS 5
 static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk", "parked" };

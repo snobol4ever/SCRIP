@@ -634,7 +634,9 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         return FAILDESCR;
     }
     if (!strcmp(kw,"storage")) {
-        if (idx >= 0 && idx <= 2) return INTVAL(0);
+        extern long rt_gc_bytes_in_use(void);
+        if (idx == 0 || idx == 1) return INTVAL(0);
+        if (idx == 2) return INTVAL(rt_gc_bytes_in_use());
         return FAILDESCR;
     }
     if (!strcmp(kw,"collections")) {
