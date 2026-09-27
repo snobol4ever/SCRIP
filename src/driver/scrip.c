@@ -104,6 +104,15 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         "sub $8, %%rsp\n\t"
         "mov $0x70000000, %%r12\n\t"
         "mov (%%r12), %%r12\n\t"
+        "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t"
+        "cmpb $0, (%%r10)\n\t"
+        "je 1f\n\t"
+        "movq rtccb@GOTPCREL(%%rip), %%r10\n\t"
+        "movq 64(%%r10), %%r11\n\t"
+        "movq 40(%%r10), %%r8\n\t"
+        "movq 48(%%r10), %%r9\n\t"
+        "movq 56(%%r10), %%r10\n\t"
+        "1:\n\t"
         "xor %%esi, %%esi\n\t"
         "xor %%r14d, %%r14d\n\t"
         "jmp *%%rax\n\t"
@@ -1842,6 +1851,7 @@ int main(int argc, char **argv)
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
+                { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
                 { extern void rt_pl_root_omega(void);
                   icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)rt_pl_root_omega : (void *)icn_zf_exit_ω); }
             } else

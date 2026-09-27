@@ -399,6 +399,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->v.sval && strchr(t->v.sval, ':')) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval); *res = nd; return nd;
         }
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "Nil") && !rk_is_class_name("Nil")) {
+            IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_undef"; *res = nd; return nd;
+        }
         if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 3.141592653589793; *res = nd; return nd;
         }
@@ -1249,6 +1252,42 @@ static int lower_raku_body(const tree_t *prog, const tree_t *proc) {
     return bb_program_add(&g_stage2.bbp, ng);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_graph_assigns(const IR_graph_t * g, const char * nm) {
+    for (int i = 0; g && i < g->n; i++) { IR_t * m = g->all[i]; if (m && m->op == IR_ASSIGN && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, nm)) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_graph_param(const IR_graph_t * g, const char * nm) {
+    for (int i = 0; g && g->pnames && i < g->nparams; i++) if (g->pnames[i] && !strcmp(g->pnames[i], nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_file_scope_reads_are_globals(void) {
+    extern void global_register(const char * name); extern int is_global(const char *);
+    IR_graph_t * mg = NULL;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        int bi = g_stage2.proc_table[pi].bb_idx;
+        if (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, "main")) mg = g_stage2.bbp.table[bi];
+    }
+    if (!mg) return;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        int bi = g_stage2.proc_table[pi].bb_idx;
+        if (bi < 0 || bi >= g_stage2.bbp.count || g_stage2.bbp.table[bi] == mg) continue;
+        IR_graph_t * g = g_stage2.bbp.table[bi];
+        for (int i = 0; g && i < g->n; i++) {
+            IR_t * m = g->all[i];
+            const char * nm = (m && m->op == IR_VAR) ? IR_LIT(m).sval : NULL;
+            if (!nm || nm[0] == '&' || is_global(nm) || rk_graph_assigns(g, nm) || rk_graph_param(g, nm) || !rk_graph_assigns(mg, nm)) continue;
+            int writer = 0;
+            for (int pj = 0; pj < g_stage2.proc_count && !writer; pj++) {
+                int bj = g_stage2.proc_table[pj].bb_idx;
+                if (bj >= 0 && bj < g_stage2.bbp.count && g_stage2.bbp.table[bj] != mg && rk_graph_assigns(g_stage2.bbp.table[bj], nm)) writer = 1;
+            }
+            if (!writer) global_register(nm);
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void raku_register_program(stage2_t * s2, const tree_t * prog) {
     extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
     extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
@@ -1507,6 +1546,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         }
     }
     rk_reclassify_calls();
+    rk_file_scope_reads_are_globals();
     for (int pi = 0; pi < g_stage2.proc_count; pi++) { int bi = g_stage2.proc_table[pi].bb_idx; if (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) { g_stage2.bbp.table[bi]->entry_frame = 1; g_stage2.bbp.table[bi]->smx = 1; } }
     return &g_stage2;
 }
