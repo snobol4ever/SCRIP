@@ -31,12 +31,13 @@ reserved          = POS(0) ( 'and' | 'array' | 'begin' | 'case' | 'const' | 'div
                            | 'program' | 'record' | 'repeat' | 'set' | 'then'
                            | 'to' | 'type' | 'until' | 'var' | 'while' | 'with' ) RPOS(0);
 /* ==================================================================================================================== */
-/* Lexical layer.  Pascal has TWO comment forms and neither nests.                       */
-white       =   (  SPAN(' ' tab nl)
+/* Lexical layer.  Pascal has TWO comment forms and neither nests; a CR is blank (CRLF files). */
+&ALPHABET ? (POS(13) LEN(1) . cr);
+white       =   (  SPAN(' ' tab nl cr)
                 |  '{' BREAK('}') '}'
                 |  '(*' BREAKX('*') '*)'
                 );
-White       =   white ARBNO(white);
+White       =   white FENCE(*White | epsilon);
 Gray        =   White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
@@ -80,7 +81,7 @@ $'record'   =   $' ' Id $ tx *IDENT(lwr(tx), 'record')    $' ';
 $'set'      =   $' ' Id $ tx *IDENT(lwr(tx), 'set')       $' ';
 $'type'     =   $' ' Id $ tx *IDENT(lwr(tx), 'type')      $' ';
 /* Literals.  A Pascal string is single-quoted and doubles an embedded quote.            */
-Integer     =   SPAN(digits) . token;
+Integer     =   ('$' SPAN(digits 'abcdefABCDEF') | SPAN(digits)) . token;
 Real        =   ( SPAN(digits)
                   FENCE(
                     '.'
@@ -95,9 +96,9 @@ Quoted      =   "'" ARBNO(BREAK("'") "''") BREAK("'") "'";
 String      =   "'" shift(ARBNO(BREAK("'") "''") BREAK("'"), "'TT_QLIT'") "'";
 Ident       =   Id $ tx $ *notmatch(lwr(tx), reserved) . token;
 /* Punctuation.                                                                          */
-$'('        =   '(' $' ';
+$'('        =   $' ' '(' $' ';
 $')'        =   $' ' ')';
-$'['        =   '[' $' ';
+$'['        =   $' ' '[' $' ';
 $']'        =   $' ' ']';
 $','        =   $' ' ',' $' ';
 $';'        =   $' ' ';' $' ';
@@ -105,6 +106,7 @@ $':'        =   $' ' ':' $' ';
 $'.'        =   $' ' '.' $' ';
 $'..'       =   $' ' '..' $' ';
 $'^'        =   $' ' '^' $' ';
+$'@'        =   $' ' '@' $' ';
 $':='       =   $' ' ':=' $' ';
 $'='        =   $' ' '=' $' ';
 $'<>'       =   $' ' '<>' $' ';
@@ -174,6 +176,8 @@ Primary         =   ( $'(' *Expr0 $')'
                     | $'true'   shift_value('1', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
                     | $'false'  shift_value('0', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
                     | $'nil'    shift_value('nil', "'TT_NULL'")
+                    | nPush() '#' shift_value('__pas_chrlit', "'TT_VAR'") nInc() shift(SPAN(digits), "'TT_ILIT'") nInc()
+                      reduce("'TT_FNC'", 'nTop()') nPop()
                     | *SetCtor
                     | shift(*Real, "'TT_FLIT'")
                     | shift(*Integer, "'TT_ILIT'")
@@ -183,6 +187,7 @@ Primary         =   ( $'(' *Expr0 $')'
                     );
 Expr4           =   *Primary *PostStar;
 Expr3           =   $'-'   *Expr3 reduce("'TT_MNS'", 1)
+                |   $'@'   nPush() shift_value('__pas_addr', "'TT_VAR'") nInc() *Expr3 nInc() reduce("'TT_FNC'", 'nTop()') nPop()
                 |   $'+'   *Expr3
                 |   $'not' *Expr3 shift_value('0', "'TT_ILIT'") reduce("'TT_EQ'", 2)
                 |   *Expr4;
