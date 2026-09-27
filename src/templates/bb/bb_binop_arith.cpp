@@ -22,6 +22,22 @@ DESCR_t rt_powreal(DESCR_t a, DESCR_t b);
 DESCR_t rt_cunion(DESCR_t a, DESCR_t b);
 DESCR_t rt_cdiff(DESCR_t a, DESCR_t b);
 DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
+DESCR_t rt_div_strict(DESCR_t, DESCR_t);
+DESCR_t rt_mod_strict(DESCR_t, DESCR_t);
+DESCR_t rt_pow_strict(DESCR_t, DESCR_t);
+DESCR_t rt_powreal_strict(DESCR_t, DESCR_t);
+DESCR_t rt_cunion_strict(DESCR_t, DESCR_t);
+DESCR_t rt_cdiff_strict(DESCR_t, DESCR_t);
+DESCR_t rt_cinter_strict(DESCR_t, DESCR_t);
+DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
+DESCR_t rt_add_sno(DESCR_t, DESCR_t);
+DESCR_t rt_sub_sno(DESCR_t, DESCR_t);
+DESCR_t rt_mul_sno(DESCR_t, DESCR_t);
+DESCR_t rt_div_sno(DESCR_t, DESCR_t);
+DESCR_t rt_mod_sno(DESCR_t, DESCR_t);
+DESCR_t rt_pow_sno(DESCR_t, DESCR_t);
+DESCR_t rt_powreal_sno(DESCR_t, DESCR_t);
+DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
 }
 #include "x86_asm.h"
 #include <cstdlib>
@@ -35,98 +51,27 @@ static inline int binop_promotes(long long op) {
     return op == BINOP_ADD_BIG || op == BINOP_SUB_BIG || op == BINOP_MUL_BIG;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void * rtop_addr(long long op) {
-    switch (op) {
-        case BINOP_ADD_BIG: return (void*)rt_add_big;
-        case BINOP_SUB_BIG: return (void*)rt_sub_big;
-        case BINOP_MUL_BIG: return (void*)rt_mul_big;
-        case BINOP_ADD:    return (void*)rt_add;
-        case BINOP_SUB:    return (void*)rt_sub;
-        case BINOP_MUL:    return (void*)rt_mul;
-        case BINOP_DIV:    return (void*)rt_div;
-        case BINOP_MOD:    return (void*)rt_mod;
-        case BINOP_POW:    return (void*)rt_pow;
-        case BINOP_POW_PROMOTE: return (void*)rt_powreal;
-        case BINOP_CUNION: return (void*)rt_cunion;
-        case BINOP_CDIFF:  return (void*)rt_cdiff;
-        case BINOP_CINTER: return (void*)rt_cinter;
-        default:           return (void*)rt_num_arith;
-    }
-}
+static const struct { long long op; const char * name[3]; void * addr[3]; } rtop_tab[] = {
+    { BINOP_ADD_BIG,     { "rt_add_big", "rt_add_big", "rt_add_big" }, { (void*)rt_add_big, (void*)rt_add_big, (void*)rt_add_big } },
+    { BINOP_SUB_BIG,     { "rt_sub_big", "rt_sub_big", "rt_sub_big" }, { (void*)rt_sub_big, (void*)rt_sub_big, (void*)rt_sub_big } },
+    { BINOP_MUL_BIG,     { "rt_mul_big", "rt_mul_big", "rt_mul_big" }, { (void*)rt_mul_big, (void*)rt_mul_big, (void*)rt_mul_big } },
+    { BINOP_ADD,         { "rt_add", "rt_add", "rt_add_sno" }, { (void*)rt_add, (void*)rt_add, (void*)rt_add_sno } },
+    { BINOP_SUB,         { "rt_sub", "rt_sub", "rt_sub_sno" }, { (void*)rt_sub, (void*)rt_sub, (void*)rt_sub_sno } },
+    { BINOP_MUL,         { "rt_mul", "rt_mul", "rt_mul_sno" }, { (void*)rt_mul, (void*)rt_mul, (void*)rt_mul_sno } },
+    { BINOP_DIV,         { "rt_div", "rt_div_strict", "rt_div_sno" }, { (void*)rt_div, (void*)rt_div_strict, (void*)rt_div_sno } },
+    { BINOP_MOD,         { "rt_mod", "rt_mod_strict", "rt_mod_sno" }, { (void*)rt_mod, (void*)rt_mod_strict, (void*)rt_mod_sno } },
+    { BINOP_POW,         { "rt_pow", "rt_pow_strict", "rt_pow_sno" }, { (void*)rt_pow, (void*)rt_pow_strict, (void*)rt_pow_sno } },
+    { BINOP_POW_PROMOTE, { "rt_powreal", "rt_powreal_strict", "rt_powreal_sno" }, { (void*)rt_powreal, (void*)rt_powreal_strict, (void*)rt_powreal_sno } },
+    { BINOP_CUNION,      { "rt_cunion", "rt_cunion_strict", "rt_cunion" }, { (void*)rt_cunion, (void*)rt_cunion_strict, (void*)rt_cunion } },
+    { BINOP_CDIFF,       { "rt_cdiff", "rt_cdiff_strict", "rt_cdiff" }, { (void*)rt_cdiff, (void*)rt_cdiff_strict, (void*)rt_cdiff } },
+    { BINOP_CINTER,      { "rt_cinter", "rt_cinter_strict", "rt_cinter" }, { (void*)rt_cinter, (void*)rt_cinter_strict, (void*)rt_cinter } },
+    { -1,                { "rt_num_arith", "rt_num_arith_strict", "rt_num_arith_sno" }, { (void*)rt_num_arith, (void*)rt_num_arith_strict, (void*)rt_num_arith_sno } },
+};
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * rtop_name(long long op) {
-    switch (op) {
-        case BINOP_ADD_BIG: return "rt_add_big";
-        case BINOP_SUB_BIG: return "rt_sub_big";
-        case BINOP_MUL_BIG: return "rt_mul_big";
-        case BINOP_ADD:    return "rt_add";
-        case BINOP_SUB:    return "rt_sub";
-        case BINOP_MUL:    return "rt_mul";
-        case BINOP_DIV:    return "rt_div";
-        case BINOP_MOD:    return "rt_mod";
-        case BINOP_POW:    return "rt_pow";
-        case BINOP_POW_PROMOTE: return "rt_powreal";
-        case BINOP_CUNION: return "rt_cunion";
-        case BINOP_CDIFF:  return "rt_cdiff";
-        case BINOP_CINTER: return "rt_cinter";
-        default:           return "rt_num_arith";
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" { DESCR_t rt_div_strict(DESCR_t, DESCR_t); DESCR_t rt_mod_strict(DESCR_t, DESCR_t); DESCR_t rt_pow_strict(DESCR_t, DESCR_t); DESCR_t rt_powreal_strict(DESCR_t, DESCR_t); DESCR_t rt_cunion_strict(DESCR_t, DESCR_t); DESCR_t rt_cdiff_strict(DESCR_t, DESCR_t); DESCR_t rt_cinter_strict(DESCR_t, DESCR_t); DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int); }
-extern "C" { DESCR_t rt_add_sno(DESCR_t, DESCR_t); DESCR_t rt_sub_sno(DESCR_t, DESCR_t); DESCR_t rt_mul_sno(DESCR_t, DESCR_t); DESCR_t rt_div_sno(DESCR_t, DESCR_t); DESCR_t rt_mod_sno(DESCR_t, DESCR_t); DESCR_t rt_pow_sno(DESCR_t, DESCR_t); DESCR_t rt_powreal_sno(DESCR_t, DESCR_t); DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int); }
-static inline const char * rtop_name_s(long long op, int strict) {
-    if (!strict) return rtop_name(op);
-    if (strict == 2) switch (op) {
-        case BINOP_ADD: return "rt_add_sno";
-        case BINOP_SUB: return "rt_sub_sno";
-        case BINOP_MUL: return "rt_mul_sno";
-        case BINOP_DIV: return "rt_div_sno";
-        case BINOP_MOD: return "rt_mod_sno";
-        case BINOP_POW: return "rt_pow_sno";
-        case BINOP_POW_PROMOTE: return "rt_powreal_sno";
-        case BINOP_ADD_BIG: case BINOP_SUB_BIG: case BINOP_MUL_BIG: case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: return rtop_name(op);
-        default: return "rt_num_arith_sno";
-    }
-    switch (op) {
-        case BINOP_DIV:    return "rt_div_strict";
-        case BINOP_MOD:    return "rt_mod_strict";
-        case BINOP_POW:    return "rt_pow_strict";
-        case BINOP_POW_PROMOTE: return "rt_powreal_strict";
-        case BINOP_CUNION: return "rt_cunion_strict";
-        case BINOP_CDIFF:  return "rt_cdiff_strict";
-        case BINOP_CINTER: return "rt_cinter_strict";
-        case BINOP_ADD_BIG: case BINOP_SUB_BIG: case BINOP_MUL_BIG: case BINOP_ADD: case BINOP_SUB: case BINOP_MUL: return rtop_name(op);
-        default:           return "rt_num_arith_strict";
-    }
-}
-static inline void * rtop_addr_s(long long op, int strict) {
-    if (!strict) return rtop_addr(op);
-    if (strict == 2) switch (op) {
-        case BINOP_ADD: return (void*)rt_add_sno;
-        case BINOP_SUB: return (void*)rt_sub_sno;
-        case BINOP_MUL: return (void*)rt_mul_sno;
-        case BINOP_DIV: return (void*)rt_div_sno;
-        case BINOP_MOD: return (void*)rt_mod_sno;
-        case BINOP_POW: return (void*)rt_pow_sno;
-        case BINOP_POW_PROMOTE: return (void*)rt_powreal_sno;
-        case BINOP_ADD_BIG: case BINOP_SUB_BIG: case BINOP_MUL_BIG: case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: return rtop_addr(op);
-        default: return (void*)rt_num_arith_sno;
-    }
-    switch (op) {
-        case BINOP_DIV:    return (void*)rt_div_strict;
-        case BINOP_MOD:    return (void*)rt_mod_strict;
-        case BINOP_POW:    return (void*)rt_pow_strict;
-        case BINOP_POW_PROMOTE: return (void*)rt_powreal_strict;
-        case BINOP_CUNION: return (void*)rt_cunion_strict;
-        case BINOP_CDIFF:  return (void*)rt_cdiff_strict;
-        case BINOP_CINTER: return (void*)rt_cinter_strict;
-        case BINOP_ADD_BIG: case BINOP_SUB_BIG: case BINOP_MUL_BIG: case BINOP_ADD: case BINOP_SUB: case BINOP_MUL: return rtop_addr(op);
-        default:           return (void*)rt_num_arith_strict;
-    }
-}
-#define rtop_is_dyn(op) (rtop_addr(op) == (void*)rt_num_arith)
+static inline int rtop_row(long long op, int i) { return (rtop_tab[i].op == op || rtop_tab[i].op == -1) ? i : rtop_row(op, i + 1); }
+#define rtop_name_s(op, strict) (rtop_tab[rtop_row((op), 0)].name[(strict) == 2 ? 2 : (strict) != 0])
+#define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), 0)].addr[(strict) == 2 ? 2 : (strict) != 0])
+#define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)
