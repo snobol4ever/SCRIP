@@ -53,11 +53,11 @@ def population_files(d, declared):
     return out
 
 
-def compile_one(scrip, sno_lib, prefix, timeout, item):
+def compile_one(scrip, sno_lib, prefix, timeout, item, run=False, extra_env=None):
     path, lang, cargs = item
-    env = dict(os.environ, SNO_LIB=sno_lib)
+    env = dict(os.environ, SNO_LIB=sno_lib, **(extra_env or {}))
     try:
-        r = subprocess.run([scrip, "--compile"] + cargs + [path.name], cwd=str(path.parent), env=env, stdin=subprocess.DEVNULL,
+        r = subprocess.run([scrip] + ([] if run else ["--compile"]) + cargs + [path.name], cwd=str(path.parent), env=env, stdin=subprocess.DEVNULL,
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout)
         rc, err = r.returncode, r.stderr.decode("utf-8", "replace")
     except subprocess.TimeoutExpired as e:
@@ -76,7 +76,11 @@ def main():
     ap.add_argument("--timeout", type=float, default=60)
     ap.add_argument("--sno-lib", default=str(Path(__file__).resolve().parents[2] / "corpus" / "include"))
     ap.add_argument("--witnesses", type=int, default=5)
+    ap.add_argument("--run", action="store_true", help="mode 3: compile AND run each source, so code compiled at run time (EVAL, CODE) prints its tags too")
+    ap.add_argument("--env", action="append", default=[], help="K=V set for every compile (a forced-positive control, e.g. SCRIP_NO_TINY=1)")
+    ap.add_argument("--lang", action="append", help="only these languages (repeatable)")
     a = ap.parse_args()
+    extra_env = dict(kv.split("=", 1) for kv in a.env)
     scrip = str(Path(a.scrip).resolve())
     if not os.access(scrip, os.X_OK):
         refuse(f"no executable scrip at {scrip}")
@@ -87,7 +91,7 @@ def main():
         name, _, rest = spec.partition("=")
         declared = rest.endswith(":declared")
         d = Path(rest[: -len(":declared")] if declared else rest).resolve()
-        items = population_files(d, declared)
+        items = [it for it in population_files(d, declared) if not a.lang or it[1] in a.lang]
         if not items:
             refuse(f"population {name} at {d} holds no source scrip compiles")
         stat = collections.defaultdict(lambda: collections.Counter())
@@ -95,7 +99,7 @@ def main():
         arm_tags = collections.defaultdict(collections.Counter)
         wit = collections.defaultdict(lambda: collections.defaultdict(list))
         with cf.ThreadPoolExecutor(max_workers=a.jobs) as ex:
-            for path, lang, rc, tags in ex.map(lambda it: compile_one(scrip, a.sno_lib, a.prefix, a.timeout, it), items):
+            for path, lang, rc, tags in ex.map(lambda it: compile_one(scrip, a.sno_lib, a.prefix, a.timeout, it, a.run, extra_env), items):
                 s = stat[lang]
                 s["files"] += 1
                 if rc is None:
@@ -123,6 +127,7 @@ def main():
     if not fired_any:
         refuse("no tag fired on any population -- the binary is not the planted one, or the prefix is wrong; nothing is proven")
     hdr = (f"# util_plant_pass.py {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} -- binary {scrip} on tree {tree}; "
+           f"{'mode 3 (compile and run)' if a.run else 'scrip --compile'}{'; env ' + ' '.join(a.env) if a.env else ''}; "
            f"planted files: {dirty[-1] if dirty else 'NONE (the tree is clean: no arm is tagged)'}\n"
            "language\tpopulation\tfiles\tcompiled\trefused\tcrashed\ttimedout\tarm\tfiles_fired\ttags\twitnesses\n")
     Path(a.receipt).write_text(hdr + "".join("\t".join(str(x) for x in r) + "\n" for r in rows))
