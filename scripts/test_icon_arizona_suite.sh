@@ -135,6 +135,12 @@ trap 'rm -rf "$RUNDIR"' EXIT
 # through the harness's own validators before one program is graded; each program then looks its compile_args up with one awk.
 CA_TBL="$RUNDIR/compile_args.tsv"
 declared_memory_table "$PKG_CSV" > "$CA_TBL" || { echo "⛔ REFUSED TO GRADE rc=2: a cell in $PKG_CSV is refused (named above) -- this board does not grade around it" >&2; exit 2; }
+# ⛔⭐ A UNIT WITH NO DECLARING ROW IS NAMED, NEVER GRADED SILENTLY AT THE DEFAULTS (RULES.md 8 (f); coo 2026-09-27): each graded unit and
+# each re-checked outside-baseline unit is asked once, and the names print beside the declared-arena receipt, empty or not. The 23
+# driver-graded libraries of CEO-1269 had no row until corpus 2026-09-27 and ran without the --stlimit this runner typed for every
+# program until 286483382. util_icon_package_units.py lists the keys.
+DECL_CSV_OF_TABLE="$PKG_CSV"; declare -A UNDECLARED=() DECL_ASKED=()
+decl_ask() { [ -n "${DECL_ASKED[$1]:-}" ] && return 0; DECL_ASKED[$1]=1; declared_row_in_table "$CA_TBL" "$1"; case $? in 0) ;; 1) UNDECLARED[$1]=1 ;; *) exit 2 ;; esac; }
 
 # ── SHIPPED: every .icn under every subdirectory this package ships, computed fresh, never hand-pinned.
 SHIPPED=0
@@ -233,6 +239,7 @@ for std in "$SUITE"/*.ref; do
   fi
   [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $sub/$id=stack:${_stack_kb}KB"; }
   # ⭐ AND ITS DECLARED COMPILE SWITCHES, THE SAME KEY (clause 8 (f), CEO-1281): placed after --run and --compile, before the source.
+  decl_ask "$sub/$id"
   _ca="$(declared_compile_args_from_table "$CA_TBL" "$sub/$id")" || exit 2
 
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
@@ -435,6 +442,7 @@ while IFS=$'\t' read -r _on _oc _orest; do
             _osub="${_on%%/*}"; _ob="$(basename "$_on" .icn)"
             if [ -f "$PKG/$_osub/$_ob.ref" ]; then
                 _odat="$PKG/$_osub/$_ob.dat"; _ostdin="/dev/null"; [ -f "$_odat" ] && _ostdin="$_odat"
+                decl_ask "$_osub/$_ob"
                 _oca="$(declared_compile_args_from_table "$CA_TBL" "$_osub/$_ob")" || exit 2
                 _oout=$(cd "$PKG/$_osub" && timeout "$TIMEOUT" "$SCRIP" --run $_oca "$_ob.icn" < "$_ostdin" 2>&1)
                 OUT_RECHECKED=$((OUT_RECHECKED+1))
@@ -473,6 +481,8 @@ echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PA
 # receipt prints even when nothing declares, because "0 declared" is the reading that says the whole board
 # ran at the shipped default, and its ABSENCE would be indistinguishable from a runner that forgot to look.
 declared_arena_receipt "$PKG_CSV"
+echo "-- undeclared (RULES.md 8 (f): no declaring row in ALL.csv, so graded at the runtime's defaults -- named, never taken silently): ${#UNDECLARED[@]} --"
+for n in $(printf '%s\n' "${!UNDECLARED[@]}" | sort); do echo "   $n"; done
 [ -n "$ARENA_NAMES" ] && echo "    DECLARED ARENA HONOURED THIS RUN:$ARENA_NAMES"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the

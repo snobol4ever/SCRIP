@@ -179,6 +179,12 @@ echo "=== Icon Program Library ($TOTAL .icn files, $PKG; run-graded population=$
 . "$HERE/lib_declared_arena.sh"
 CA_TBL="$TMP/compile_args.tsv"
 declared_memory_table "$PKG/ALL.csv" > "$CA_TBL" || { echo "⛔ REFUSED TO GRADE rc=2: a cell in $PKG/ALL.csv is refused (named above) -- this board does not grade around it" >&2; exit 2; }
+# ⛔⭐ A UNIT WITH NO DECLARING ROW IS NAMED, NEVER GRADED SILENTLY AT THE DEFAULTS (RULES.md 8 (f); coo 2026-09-27): every key the two
+# tiers look up is asked once, and the names print below, empty or not. 631 of these 851 files had no row from the drivers of
+# CEO-1269/1272 until corpus 2026-09-27, and the 356 run-graded among them ran without the --stlimit this runner typed for every
+# program until 286483382 -- IPL iftrace's trace lines could never appear (hq_icon's ask). util_icon_package_units.py lists the keys.
+DECL_CSV_OF_TABLE="$PKG/ALL.csv"; declare -A UNDECLARED=() DECL_ASKED=()
+decl_ask() { [ -n "${DECL_ASKED[$1]:-}" ] && return 0; DECL_ASKED[$1]=1; declared_row_in_table "$CA_TBL" "$1"; case $? in 0) ;; 1) UNDECLARED[$1]=1 ;; *) exit 2 ;; esac; }
 
 for f in "${FILES[@]}"; do
     rel="${f#"$PKG"/}"
@@ -189,6 +195,7 @@ for f in "${FILES[@]}"; do
     grep -qE '^procedure[[:space:]]+main[[:space:]]*\(' "$f" && has_main=1
     if [ "$has_main" -eq 1 ]; then HASMAIN_TOTAL=$((HASMAIN_TOTAL+1)); else NOMAIN_TOTAL=$((NOMAIN_TOTAL+1)); fi
 
+    decl_ask "$(basename "$(dirname "$f")")/$base"
     _ca="$(declared_compile_args_from_table "$CA_TBL" "$(basename "$(dirname "$f")")/$base")" || exit 2
     timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$f" -o "$out" < /dev/null > "$log" 2>&1
     rc=$?
@@ -384,6 +391,7 @@ for std in "${STDFILES[@]}"; do
     # literal to the first element -- measured: with (x, "y z") it yields the two words `-- x` and `y z`,
     # so SCRIP receives "-- x" as a single argument and the program sees one argv entry, not two. It
     # looks right, it runs, and every count downstream would have been quietly off.
+    decl_ask "$IPL_ISO_SUBDIR/$id"
     _ca="$(declared_compile_args_from_table "$CA_TBL" "$IPL_ISO_SUBDIR/$id")" || exit 2
     if [ "${#IPLARGV[@]}" -gt 0 ]; then
         ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run $_ca "$icn" -- "${IPLARGV[@]}"
@@ -445,6 +453,8 @@ m4_RED_NAMES="$(printf '%s\n' ${M4_RUN_FAIL_NAMES[@]+"${M4_RUN_FAIL_NAMES[@]}"} 
 read -r AND_PASS AND_RED AND_NAMES <<<"$(gate_and_per_program "$RUN_GRADED" "$m3_RED_NAMES" "$m4_RED_NAMES")"
 echo "IPL_AND_PER_PROGRAM and_pass=${AND_PASS:-n/a} of $RUN_GRADED (m3 $M3_RUN_PASS · m4 $M4_RUN_PASS · union of reds ${AND_RED:-n/a}:${AND_NAMES:-})"
 declared_arena_receipt "$PKG_CSV"
+echo "-- undeclared (RULES.md 8 (f): no declaring row in ALL.csv, so graded at the runtime's defaults -- named, never taken silently): ${#UNDECLARED[@]} --"
+for n in $(printf '%s\n' "${!UNDECLARED[@]}" | sort); do echo "   $n"; done
 ipl_isolation_verify_clean "$S4E/corpus" || true
 
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy

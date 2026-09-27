@@ -145,6 +145,11 @@ trap 'rm -rf "$WORK"' EXIT
 # run_one, which runs inside a command substitution, only looks its program's compile_args up with one awk.
 CA_TBL="$WORK/compile_args.tsv"
 declared_memory_table "$PKG_CSV" > "$CA_TBL" || { echo "⛔ REFUSED TO GRADE rc=2: a cell in $PKG_CSV is refused (named above) -- this board does not grade around it" >&2; exit 2; }
+# ⛔⭐ A UNIT WITH NO DECLARING ROW IS NAMED, NEVER GRADED SILENTLY AT THE DEFAULTS (RULES.md 8 (f); coo 2026-09-27): run_mode asks once per
+# graded unit, here in the main shell, and the names print beside the declared-arena receipt, empty or not. The three driver-graded
+# libraries (link2, load1, load2) had no row until corpus 2026-09-27, and run_one looked their attributes up under the DRIVER's name.
+DECL_CSV_OF_TABLE="$PKG_CSV"; declare -A UNDECLARED=() DECL_ASKED=()
+decl_ask() { [ -n "${DECL_ASKED[$1]:-}" ] && return 0; DECL_ASKED[$1]=1; declared_row_in_table "$CA_TBL" "$1"; case $? in 0) ;; 1) UNDECLARED[$1]=1 ;; *) exit 2 ;; esac; }
 
 # classify one (mode, file) pair. Echoes "KIND" on stdout; KIND in PASS|FAIL|REJECT|CRASH|HANG.
 # stdout of the PROGRAM itself is captured to $2 (a path), never mixed with our own echo.
@@ -220,18 +225,21 @@ run_one() {
     # ⛔⭐ THE ENTRY KEY IS THE BARE NAME: jcon_tests is a flat package (no nested subdirs), unlike arizona's
     # general/mega -- util_build_package_suite.py writes the bare stem into ALL.csv's entry column here, and
     # using anything else would silently match nothing (see arizona's identical note at its own arena read).
+    # ⛔ AND A DRIVER'S KEY IS ITS LIBRARY'S (CEO-1269; coo 2026-09-27): $name is the file that RUNS, so for NAME_driver it looked up
+    # "NAME_driver", a row no table carries, while the unit is counted, named and recorded as NAME -- the key IPL and Arizona read.
+    local _akey="${name%_driver}"
     local _arena_kb _stack_kb _ARENA_PFX=""
-    if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$name"); then
+    if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$_akey"); then
         echo "⛔ REFUSED TO GRADE rc=2: $name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts" >&2
         exit 2
     fi
     [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $name=${_arena_kb}KB"; }
     # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
-    if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$name"); then
+    if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$_akey"); then
       echo "⛔ REFUSED TO GRADE rc=2: $name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
     fi
     [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $name=stack:${_stack_kb}KB"; }
-    local _ca; _ca="$(declared_compile_args_from_table "$CA_TBL" "$name")" || exit 2
+    local _ca; _ca="$(declared_compile_args_from_table "$CA_TBL" "$_akey")" || exit 2
     # ⛔ A DRIVER RUN ONLY PUTS ITS OWN DIRECTORY FIRST ON IPATH (coo 2026-09-25, hq_icon's measurements): a driver's ref was cut over
     # the library shipped beside it, while every other program's ref was cut by icont against its INSTALLED IPL ucode, which the
     # directory first on IPATH would shadow with an older shipped namesake (Arizona ilib read red at 6850da706 exactly that way).
@@ -354,6 +362,7 @@ run_mode() {
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.ref is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.ref sources above
         outfile="$WORK/out.txt"
         name=$(basename "$icn" .icn)
+        decl_ask "$name"
         _want="$std"
         kind=$(run_one "$mode" "$exe" "$_want" "$outfile")
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
@@ -542,6 +551,8 @@ EOF
 # everything on the day one is removed. Names AND the oracle's own class ride on it so the six stay visible.
 echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of the graded denominator, named in $OUTSIDE):${OUTSIDE_LIST:- none}"
 declared_arena_receipt "$PKG_CSV"
+echo "-- undeclared (RULES.md 8 (f): no declaring row in ALL.csv, so graded at the runtime's defaults -- named, never taken silently): ${#UNDECLARED[@]} --"
+for n in $(printf '%s\n' "${!UNDECLARED[@]}" | sort); do echo "   $n"; done
 # ⛔ THE RECONCILIATION PRINTS UNCONDITIONALLY TOO, and for a sharper reason than the list above it: a
 # silent agreement line is the only way a reader can tell "the arm ran and the record holds" apart from
 # "the arm did not run", and those two have opposite meanings for every number on the board line below.

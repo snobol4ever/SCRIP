@@ -402,6 +402,22 @@ declared_compile_args_from_table() {
   awk -F'\t' -v e="$entry" '$1 == e { print $4; exit }' "$tbl"
 }
 
+# declared_row_in_table <table_file> <entry> -- rc 0 when the entry declares something in the declared-memory table, rc 1 when it
+#   declares nothing (no row, or a row whose heap_kb, stack_kb and compile_args are all empty, which declared_memory_table leaves out
+#   of the table), rc 2 when the table is missing. ⛔ A MISSING ROW IS NAMED ON STDERR, EVERY TIME (RULES.md 8 (f): "A declaration that is missing is a gap
+#   the runner names, never a default silently taken"): the three lookups above answer "nothing declared" alike for a row that declares
+#   nothing and for a unit with no row at all, and _decl_miss logs only when SCRIP_DECL_MISS_LOG is set -- so 382 driver-graded Icon
+#   units ran at the runtime's defaults from SCRIP 286483382 until hq_icon asked where IPL iftrace's --stlimit lives (2026-09-27), and
+#   no line of any board said so. A runner asks this once per unit it grades and prints the names it collected, empty or not.
+declared_row_in_table() {
+  local tbl="$1" entry="$2"
+  [ -n "$tbl" ] && [ -f "$tbl" ] || { echo "⛔ REFUSE(2) declared_row_in_table: no declared-memory table at '${tbl}' -- build it with declared_memory_begin first" >&2; return 2; }
+  awk -F'\t' -v e="$entry" '$1 == e { f = 1; exit } END { exit !f }' "$tbl" && return 0
+  _decl_miss "${DECL_CSV_OF_TABLE:-$tbl}" "$entry"
+  echo "⛔ UNDECLARED (RULES.md 8 (f)): $entry declares nothing in ${DECL_CSV_OF_TABLE:-its attribute file} (no row, or every cell empty) -- graded at the runtime's defaults, a gap named here, never a default taken silently" >&2
+  return 1
+}
+
 # declared_switches_beside <program> -- the program's declared heap and stack as SPITBOL's switches (-d<kb>k -s<kb>k), read from its
 # <stem>.heap and <stem>.stack sidecars exactly as test_prolog_bench_suite.sh reads them, for a runner that puts them on the scrip
 # command line (after --run, before the source) or at the head of a compiled binary's own command line -- the form CEO-1225 chose over
