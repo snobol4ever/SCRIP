@@ -7,12 +7,18 @@
 #            PHRASES.IN -> phrases.in) and equals it with only CR and ^Z dropped and trailing blanks dropped: all 61 of the form's
 #            -INCLUDE targets and its INPUT file names are spelled lower-case, so lower-cased names make the sources run verbatim on a
 #            case-sensitive file system with no edit to any line (the two DOS 8.3 names, stringout.inc and resolution.inc, are LOCAL.tsv)
+#            ⭐ Lon, same sitting, verbatim: "So we should vendor all SPITBOL-form files verbatum, with only uppercase keywords/reserved-
+#            words for SCRIP acceptance." and "And any other edit required to get running under Linux." -- so a file MAY differ from the
+#            form, and only when EDITS.tsv declares it (file<TAB>class<TAB>lines<TAB>reason), each class checked mechanically:
+#              RESERVED_UPPER  every changed token differs from the form's only by case, is a SPITBOL reserved word or &keyword, and
+#                              is upper-case in the vendored file; string literals and every other byte are unchanged
+#              LINUX           the lines that differ are EXACTLY the declared line numbers (vendored numbering), reason mandatory
 #   NOTHING  every other vendored file is a driver's own (NAME_driver.sno/.ref/.input/.in), a sidecar the runner or the
 #            inventory reads (ALL.*, *.tsv, README.md, PROVENANCE.md), or declared in LOCAL.tsv (name<TAB>reason)
 #   NAMES    no library or program is named *.sno or with an upper-case extension: *.inc exclusively, a program *.spt
 #   KEYS     the newest gimpel pass in the progress DB keys no library or program by a .sno name
 # rc 0 all four hold, rc 1 any fails (each failure named), rc 2 cannot measure.
-import os, re, sys
+import difflib, os, re, sys
 home = os.environ.get('S4E_HOME') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 V = os.path.join(home, 'corpus', 'packages', 'snobol4', 'gimpel')
 SP = os.environ.get('GIMPEL_SPITBOL_FORM', '/home/resources/gimpel/SPITBOL')
@@ -26,9 +32,44 @@ bad = {'FORM': [], 'NOTHING': [], 'NAMES': [], 'KEYS': []}
 form = sorted(f for f in os.listdir(SP) if not f.upper().startswith('README'))
 if not form: print('REFUSE(2): the SPITBOL form directory is empty'); sys.exit(2)
 vend = set(os.listdir(V))
+RES = set('''OUTPUT INPUT TERMINAL PUNCH DEFINE SIZE DUPL TRIM IDENT DIFFER EQ NE LT GT LE GE SPAN BREAK BREAKX ANY NOTANY LEN POS
+RPOS TAB RTAB ARB BAL REM FAIL FENCE SUCCEED ABORT CONVERT DATATYPE ARRAY TABLE DATA ITEM OPSYN APPLY SUBSTR REPLACE REVERSE LPAD RPAD
+INTEGER REMDR RETURN FRETURN NRETURN END ENDFILE DETACH REWIND EVAL CODE LOAD UNLOAD CHAR LGT LEQ LNE LGE LLE LLT ARBNO COPY FIELD
+PROTOTYPE SORT RSORT EXP LN SQRT SIN COS TAN ATAN CHOP HOST DATE TIME COLLECT DUMP SETEXIT STOPTR TRACE EXIT BACKSPACE CONTINUE
+SCONTINUE VALUE CLEAR NUMERIC REAL STRING PATTERN NAME EXPRESSION'''.split())
+tok = re.compile(r"'[^']*'|\"[^\"]*\"|&?[A-Za-z][A-Za-z0-9_.]*|.")
+edits = {}
+et = os.path.join(V, 'EDITS.tsv')
+if os.path.isfile(et):
+    for l in open(et, encoding='utf-8'):
+        if not l.strip() or l.startswith('#'): continue
+        c = l.rstrip('\n').split('\t')
+        if len(c) < 4 or c[1] not in ('RESERVED_UPPER', 'LINUX') or not c[3].strip(): bad['FORM'].append('EDITS.tsv row malformed or reasonless: ' + l.strip()[:60]); continue
+        edits.setdefault(c[0], []).append((c[1], {int(x) for x in c[2].split(',') if x.strip().isdigit()}))
+def upper_ok(a, b):
+    ta, tb = tok.findall(a), tok.findall(b)
+    if len(ta) != len(tb): return False
+    for x, y in zip(ta, tb):
+        if x == y: continue
+        if x.upper() != y.upper() or x[:1] in '\'"' or y != y.upper(): return False
+        if not (y.startswith('&') or y in RES): return False
+    return True
 for f in form:
-    if f.lower() not in vend: bad['FORM'].append(f.lower() + ' absent'); continue
-    if norm(os.path.join(SP, f)) != norm(os.path.join(V, f.lower())): bad['FORM'].append(f.lower() + ' differs')
+    v = f.lower()
+    if v not in vend: bad['FORM'].append(v + ' absent'); continue
+    A, B = norm(os.path.join(SP, f)), norm(os.path.join(V, v))
+    if A == B:
+        if v in edits: bad['FORM'].append(v + ' declared in EDITS.tsv but identical to the form')
+        continue
+    ed = edits.get(v)
+    if not ed: bad['FORM'].append(v + ' differs, no EDITS.tsv row'); continue
+    linux = set().union(*[s for k, s in ed if k == 'LINUX']); upper = any(k == 'RESERVED_UPPER' for k, s in ed)
+    changed = set()
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, A, B, autojunk=False).get_opcodes():
+        if op == 'equal': continue
+        if op == 'replace' and i2 - i1 == j2 - j1 and upper and all(upper_ok(A[i1 + k], B[j1 + k]) for k in range(i2 - i1)): continue
+        changed |= set(range(j1 + 1, max(j2, j1 + 1) + 1)) if op != 'delete' else {j1 + 1}
+    if changed != linux: bad['FORM'].append('%s LINUX lines %s declared, %s differ' % (v, sorted(linux), sorted(changed)))
 local = set()
 lt = os.path.join(V, 'LOCAL.tsv')
 if os.path.isfile(lt):
