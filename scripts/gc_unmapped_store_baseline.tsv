@@ -65,9 +65,9 @@ hb_match_value_close_polled.sno	2	0	2	9
 hb_mkexpr_unmapped_spine_store.sno	6	0	6	12
 hb_nested_match_outer_subject.sno	14	8	22	39
 hb_nv.sno	36	0	36	69
-hb_pl_findall.pl	0	306	820	1464
-hb_pl_root_cells.pl	0	276	860	1548
-hb_pldb.pl	0	214	722	1293
+hb_pl_findall.pl	0	306	848	1506
+hb_pl_root_cells.pl	0	276	888	1590
+hb_pldb.pl	0	214	750	1335
 hb_plj_batch_b.pl	0	282	786	1386
 hb_procval_in_aggregate.icn	0	0	64	180
 hb_reloc_gaps_on_a_mostly_live_heap.pl	0	96	602	1089
