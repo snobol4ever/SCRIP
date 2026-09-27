@@ -78,16 +78,21 @@ f="$1"; mode="$2"
 rel="${f#"$SWIT"/}"; ref="${f%.pl}.ref"; od="$WORK/out/${rel%.pl}"; mkdir -p "$od"
 act="$od/$mode.actual"; : > "$act"
 if [ ! -f "$ref" ]; then echo "NOREF" > "$od/$mode.tsv"; exit 0; fi
+# ⛔ THE RUN'S EXIT STATUS TRAVELS WITH ITS OUTPUT (the coo 2026-09-27, ceo CEO-1309): the matcher saw the output alone, so a run killed
+# by a signal part-way left its unreported cases reading FAIL -- a crash graded as a wrong answer, which the verdict ladder forbids (CRASH
+# never collapses into FAIL). rc is the run's own status (timeout passes a child's signal on as 128+N and answers 124 itself); a mode-4
+# program that never compiled has no run, and keeps rc 0 and its FAIL.
+rc=0
 if [ "$mode" = "m4" ]; then
     if timeout 60 "$SCRIP" --compile "$PLUNIT" "$f" "$WORK/wrap.pl" > "$od/m4.s" 2>"$od/m4.err" && [ -s "$od/m4.s" ] \
        && gcc -no-pie "$od/m4.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$od/m4.bin" 2>>"$od/m4.err"; then
-        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"
+        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"; rc=$?
     fi
     rm -f "$od/m4.s" "$od/m4.bin"
 else
-    run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"
+    run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"; rc=$?
 fi
-python3 "$MATCH_PY" "$f" "$ref" "$act" > "$od/$mode.tsv"
+python3 "$MATCH_PY" "$f" "$ref" "$act" "$rc" > "$od/$mode.tsv"
 GEOF
 chmod +x "$WORK/grade_one.sh"
 : > "$WORK/jobs.txt"
@@ -138,18 +143,20 @@ for f in open(files).read().split('\n'):
         ok_all = True
         for m in modes:
             r = per[m][i] if i < len(per[m]) else [label, 'FAIL', 'no row']
-            tot[m]['PASS' if r[1] == 'PASS' else 'FAIL'] += 1
+            # ⛔ CRASH AND HANG STAY THEMSELVES (coo 2026-09-27, CEO-1309): every non-PASS was counted and recorded as FAIL.
+            v = r[1] if r[1] in ('PASS', 'FAIL', 'CRASH', 'HANG') else 'FAIL'
+            tot[m][v] += 1
             if r[1] == 'PASS' and 'agreement control' in (r[2] if len(r) > 2 else ''): tot[m]['agree_fail'] += 1
             if r[1] != 'PASS':
                 ok_all = False
                 if name_reds: reds.append('RED %s:%s:%s:%s' % (rel, label, m, (r[2] if len(r) > 2 else '')[:120]))
-            rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t0\tcase of %s' % (rel, label, m, 'PASS' if r[1] == 'PASS' else 'FAIL', rel))
+            rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t0\tcase of %s%s' % (rel, label, m, v, rel, ('' if v in ('PASS', 'FAIL') else ' -- ' + (r[2] if len(r) > 2 else '')[:40])))
         if ok_all: both += 1; fpass += 1
     perfile.append((rel, fpass, fgraded, n_decl - fgraded))
 for rel, p, g, u in perfile:
     print('  %-48s %4d/%-4d agree (AND per case)%s' % (rel, p, g, ('  ungraded=%d' % u) if u else ''))
 print('SWI_BOARD declared=%d graded=%d %s ungraded=%d' % (declared, graded_cases,
-      ' '.join('%s_pass=%d %s_fail=%d %s_agree_fail=%d' % (m, tot[m]['PASS'], m, tot[m]['FAIL'], m, tot[m]['agree_fail']) for m in modes), ungraded_cases))
+      ' '.join('%s_pass=%d %s_fail=%d %s_agree_fail=%d %s_crash=%d %s_hang=%d' % (m, tot[m]['PASS'], m, tot[m]['FAIL'], m, tot[m]['agree_fail'], m, tot[m]['CRASH'], m, tot[m]['HANG']) for m in modes), ungraded_cases))
 print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d declared (%d graded, %d ungraded)' % (both, declared, graded_cases, ungraded_cases))
 print('  identity: graded %d + ungraded %d == declared %d %s' % (graded_cases, ungraded_cases, declared, '✓' if graded_cases + ungraded_cases == declared else '⛔ DOES NOT SUM'))
 print('  UNGRADED by the oracle\'s reason -- named, never a pass: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
