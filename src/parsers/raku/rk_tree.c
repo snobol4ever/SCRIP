@@ -394,12 +394,21 @@ static tree_t *nctx(RkB *b, tree_t *e) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_one_scalar(const tree_t *e) {
+    if (!e) return 0;
+    switch (e->t) {
+    case TT_QLIT: case TT_ILIT: case TT_FLIT: case TT_CAT: case TT_XREP: case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_MNS: return 1;
+    case TT_VAR: return e->v.sval && e->v.sval[0] != '@' && e->v.sval[0] != '%' && !(e->slen & 1);
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_rhs(tree_t *rhs) {
     if (!rhs) return rhs;
     if (rhs->t == TT_TO && rhs->n >= 2) {
         tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]); return call;
     }
-    if (rhs->t == TT_FNC && rhs->v.sval && (!strcmp(rhs->v.sval, "__rk_arr") || !strcmp(rhs->v.sval, "__rk_range_arr"))) return rhs;
+    if (!rk_one_scalar(rhs)) return rhs;
     tree_t *call = make_call("__rk_arr"); expr_add_child(call, rhs); return call;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
