@@ -242,17 +242,23 @@ inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 # denominator with EXCLUDED=N named (util_score_row.py --excluded, SUITES.tsv column today_excluded). A program the oracle refuses
 # for ANY OTHER cause stays in the denominator as debt (CEO-749 unchanged for it). CEO-749's shape and this one differ in exactly one
 # subtraction, and the sidecar is the whole of the difference.
+# ⭐ AND THE GRAPHICS PROGRAMS OF THE ICON PROGRAM LIBRARY (Lon 2026-09-27, in-chat to hq_icon, verbatim: "Place the graphics programs
+# on the exclude list."): class NEEDS_GRAPHICS_FACILITY, a unit whose own source or link closure calls a graphics built-in -- the 48
+# names a graphics-built iconx 9.5.25a's function() lists beyond the installed NoGraphics oracle's -- or opens a window. SCRIP has no
+# Icon graphics facility yet and the oracle has none, so neither side can run them; they leave the denominator named, and a program
+# that merely links a graphics library without reaching it stays in as fixture work.
 # inventory_excluded_names [<pkgdir>] -- echo column 1 of <pkgdir>/EXCLUDED.tsv (default $INV_DIR); nothing when the file is absent;
-# rc 2 on a row that is not name<TAB>NOT_SPITBOL_DIALECT<TAB>evidence (the class is ONE word by design: Lon's test has one outcome).
+# rc 2 on a row that is not name<TAB>CLASS<TAB>evidence with CLASS one of NOT_SPITBOL_DIALECT (Lon's SPITBOL test, one outcome) or
+# NEEDS_GRAPHICS_FACILITY (Lon's graphics word).
 inventory_excluded_names() {
     local d="${1:-${INV_DIR:-}}" f
     f="$d/EXCLUDED.tsv"
     [ -f "$f" ] || return 0
     awk -F'\t' '
         $0 ~ /^#/ || NF == 0 { next }
-        NF < 3 || $2 != "NOT_SPITBOL_DIALECT" || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
+        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
         { print $1 }
-        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT<TAB>evidence of 60+ chars naming the feature, sbl -bf and csnobol4)"; return 2; }
+        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT or NEEDS_GRAPHICS_FACILITY<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
 }
 # inventory_is_excluded <pkgdir> <name> -- 0 when EXCLUDED.tsv names <name> (bare or package-relative), 1 otherwise.
 inventory_is_excluded() {

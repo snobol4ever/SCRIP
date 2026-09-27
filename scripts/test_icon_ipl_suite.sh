@@ -500,21 +500,28 @@ UNG_SPLIT="$(printf '%s' "$SPLIT_LINE" | sed -n 's/.*ungraded_by_class=\([^ ]*\)
 # (procs/, gprocs/) owed their drivers (CEO-1269). The total is now the inventory's own shipped count (containers out, CEO-1272),
 # the graded fraction rides in the text labelled as such, and a refused inventory writes NO row rather than fall back to the subset.
 IPL_SHIPPED="$(printf '%s' "${INV_LINE:-}" | sed -n 's/.* shipped=\([0-9][0-9]*\) .*/\1/p')"
+# ⭐ THE GRAPHICS PROGRAMS LEAVE THE DENOMINATOR, NAMED (Lon 2026-09-27, in-chat to hq_icon, verbatim: "Place the graphics programs on
+# the exclude list."): ipl/EXCLUDED.tsv names them, class NEEDS_GRAPHICS_FACILITY, and the inventory line then carries excluded=N
+# denominator=shipped-N. The row divides by the denominator, and its Excl is the containers plus the excluded -- shipped = denominator
+# + Excl reads off the row. A package with no EXCLUDED.tsv prints no denominator= and the row divides by shipped exactly as before.
+IPL_EXCLUDED="$(printf '%s' "${INV_LINE:-}" | sed -n 's/.* excluded=\([0-9][0-9]*\) denominator=.*/\1/p')"
+IPL_DENOM="$(printf '%s' "${INV_LINE:-}" | sed -n 's/.* denominator=\([0-9][0-9]*\).*/\1/p')"
+[ -n "$IPL_DENOM" ] && [ -n "$IPL_SHIPPED" ] && IPL_SHIPPED="$IPL_DENOM"
 # ⭐ THE ROW'S Excl (Lon 2026-09-26, "use the Excl column to properly classify the exclusions for good reasons only"; CEO-1288): every
 # shipped unit the denominator leaves out, classified -- here the gincl/ include fragments of CONTAINERS.tsv (CEO-1272), read off the
 # inventory line, so shipped = denominator + Excl reads off the row. Unknown when the inventory refused, and then no row is written.
 . "$HERE/lib_outside_shape.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_outside_shape.sh unloadable" >&2; exit 2; }
 EXCL_N=""; _cc=""
 if [ -n "$IPL_SHIPPED" ]; then
-    EXCL_N="$(inventory_containers_of "$INV_LINE")"
-    _cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp ipl "$IPL_SHIPPED" - "$EXCL_N" "$EXCL_N")" || exit 2
+    _CON_N="$(inventory_containers_of "$INV_LINE")"; EXCL_N=$((_CON_N + ${IPL_EXCLUDED:-0}))
+    _cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp ipl "$IPL_SHIPPED" - "$EXCL_N" "$_CON_N")" || exit 2
 fi
 [ -n "${AND_PASS:-}" ] || echo "⚠ SCORE.md NOT UPDATED -- AND per program unavailable (run_graded=$RUN_GRADED): record this row by hand"
 [ -n "$IPL_SHIPPED" ] || echo "⚠ SCORE.md NOT UPDATED -- the inventory refused (above), so the shipped population the row divides by is unknown; the graded subset is never substituted for it (CEO-1245, CEO-1272)"
 [ -n "${AND_PASS:-}" ] && [ -n "$IPL_SHIPPED" ] && python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL --modes m3,m4 \
     --suite-pass "${AND_PASS}" --suite-total "$IPL_SHIPPED" ${_cc:+--criterion-changed "$_cc"} ${EXCL_N:+--excluded "$EXCL_N"} \
     --measurer "${S4E_SEAT:-}" \
-    --text "AND per program ${AND_PASS}/$IPL_SHIPPED shipped (ceo CEO-1272/CEO-1245: the shipped population is the denominator, the libraries owed their drivers in it) · graded ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
+    --text "AND per program ${AND_PASS}/$IPL_SHIPPED shipped${IPL_EXCLUDED:+ less $IPL_EXCLUDED graphics units excluded (EXCLUDED.tsv, Lon 2026-09-27)} (ceo CEO-1272/CEO-1245: the shipped population is the denominator, the libraries owed their drivers in it) · graded ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
