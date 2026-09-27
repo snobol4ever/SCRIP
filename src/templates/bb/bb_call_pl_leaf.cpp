@@ -197,7 +197,7 @@ static std::string pl_anum_arg(int rule, int aoff, int b) {
         case PLR_TEXT_OR_NUM: s += pl_tag_in("SAIRB", l_next) + x86("jmp", L(PL_L_COLD)); break;
         case PLR_INT0: case PLR_UNB_OR_INT0: s += x86("cmp", "al", (long)DT_I) + x86("jne", L(PL_L_COLD)) + x86("mov", "rcx", RDQ("rdi", 8)) + x86("test", "rcx", "rcx") + x86("js", L(PL_L_COLD)) + x86("jmp", L(l_next)); break;
         case PLR_INTCODE: s += x86("cmp", "al", (long)DT_I) + x86("jne", L(PL_L_COLD)) + x86("mov", "rcx", RDQ("rdi", 8)) + x86("cmp", "rcx", (long)0x10FFFF) + x86("ja", L(PL_L_COLD)) + x86("jmp", L(l_next)); break;
-        case PLR_COMP: s += x86("cmp", "al", (long)DT_PLREF) + x86("jne", L(PL_L_COLD)) + x86("mov", "ecx", RDD("rdi", 4)) + x86("and", "ecx", (long)65535) + x86("jz", L(PL_L_COLD)) + x86("jmp", L(l_next)); break;
+        case PLR_COMP: s += x86("cmp", "al", (long)DT_PLREF) + x86("jne", L(PL_L_COLD)) + x86("jmp", L(l_next)); break;
         case PLR_UNB: s += x86("jmp", L(PL_L_COLD)); break;
         default: s += x86("jmp", L(l_next)); break;
     }

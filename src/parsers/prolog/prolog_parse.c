@@ -122,8 +122,10 @@ static const OpEntry PREFIX_OPS[] = {
 };
 static OpEntry *g_uinfix = NULL;
 static int g_uinfix_n = 0, g_uinfix_cap = 0;
+static const char *op_type_unclassify(Assoc assoc, Fixity fix);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void user_op_add(const char *name, int prec, Assoc assoc, Fixity fixity) {
+    if (prolog_op_cols_ready()) prolog_op_col_set(prolog_atom_intern(name), prec, op_type_unclassify(assoc, fixity));
     for (int i = 0; i < g_uinfix_n; i++) if (g_uinfix[i].fixity == fixity && strcmp(g_uinfix[i].name, name) == 0) { g_uinfix[i].prec = prec; g_uinfix[i].assoc = assoc; return; }
     if (g_uinfix_n >= g_uinfix_cap) { g_uinfix_cap = g_uinfix_cap ? g_uinfix_cap * 2 : 8; g_uinfix = (OpEntry *)ct_grow(g_uinfix, g_uinfix_cap * sizeof(OpEntry)); }
     g_uinfix[g_uinfix_n].name = ct_strdup(name); g_uinfix[g_uinfix_n].prec = prec; g_uinfix[g_uinfix_n].assoc = assoc; g_uinfix[g_uinfix_n].fixity = fixity; g_uinfix_n++;

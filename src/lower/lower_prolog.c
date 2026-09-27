@@ -116,7 +116,8 @@ static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, NULL, cx->tω); IR_LIT(nd).sval = "$mkc";
-    IR_t * fn = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(fn).sval = ct_strdup(fname);
+    extern int prolog_atom_intern(const char *); extern int prolog_functor_intern(int, int);
+    IR_t * fn = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(fn).ival = (int64_t)prolog_functor_intern(prolog_atom_intern(fname), nkids);
     ir_operand_push(nd, fn);
     IR_t * prev = fn; IR_t * first = fn;
     for (int i = 0; i < nkids; i++) {
@@ -1903,6 +1904,13 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
 }
 void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_g(key, choice, arity, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_mkc_functor_is(const IR_t * f, const char * nm) {
+    extern int prolog_functor_name(int); extern const char * prolog_atom_name(int);
+    if (!f || !nm) return 0;
+    if (f->op == IR_LIT_INTEGER) { const char * s = prolog_atom_name(prolog_functor_name((int)IR_LIT(f).ival)); return s && !strcmp(s, nm); }
+    return (f->op == IR_LIT_STRING || f->op == IR_LIT_ATOM) && IR_LIT(f).sval && !strcmp(IR_LIT(f).sval, nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_mc_wrapper_term(const char * fn, int ar) {
     if (ar <= 0) { tree_t * a = ast_node_new(TT_QLIT); a->v.sval = ct_strdup(fn); return a; }
     { tree_t * t = ast_node_new(TT_FNC); t->v.sval = ct_strdup(fn);
@@ -1918,7 +1926,7 @@ static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) 
         if (!gv) continue;
         if (ar == 0 && (gv->op == IR_LIT_STRING || gv->op == IR_LIT_ATOM) && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, nm)) return 1;
         if (ar > 0 && gv->op == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkc") && gv->n_operands == ar + 1
-            && gv->operands[0] && (gv->operands[0]->op == IR_LIT_STRING || gv->operands[0]->op == IR_LIT_ATOM) && IR_LIT(gv->operands[0]).sval && !strcmp(IR_LIT(gv->operands[0]).sval, nm)) return 1;
+            && gv->operands[0] && pl_mkc_functor_is(gv->operands[0], nm)) return 1;
     }
     return 0;
 }

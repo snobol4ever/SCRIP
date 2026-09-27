@@ -15,7 +15,7 @@ static inline pl_cell_t pl_make_atom(int id)     { pl_cell_t c; c.v = DT_PLATOM;
 static inline pl_cell_t pl_make_float(double d)  { pl_cell_t c; c.v = DT_R;  c.slen = 0;        c.r = d;       return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_cell_t pl_make_compound(int functor, int arity, void *heap) {
-    pl_cell_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)functor) << 16) | ((uint32_t)arity & 0xFFFFu); c.p = heap; return c;
+    extern int prolog_functor_intern(int, int); pl_cell_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(functor, arity); c.p = heap; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_init_var(pl_cell_t *c, int slot) { c->v = (DTYPE_t)DT_PLVAR; c->slen = (uint32_t)slot; c->p = (void *)c; }
@@ -42,8 +42,10 @@ static inline int pl_is_compound(pl_cell_t *c) { pl_cell_t *d = pl_deref(c); ret
 static inline int64_t pl_int_val(pl_cell_t *c)  { return pl_deref(c)->i; }
 static inline int     pl_atom_id(pl_cell_t *c)  { return (int)pl_deref(c)->i; }
 static inline double  pl_float_val(pl_cell_t *c) { return pl_deref(c)->r; }
-static inline int plc_functor(pl_cell_t *c) { return (int)(pl_deref(c)->slen >> 16); }
-static inline int pl_arity(pl_cell_t *c)   { return (int)(pl_deref(c)->slen & 0xFFFFu); }
+static inline int plc_functor(pl_cell_t *c) { extern int prolog_functor_name(int); return prolog_functor_name((int)pl_deref(c)->slen); }
+static inline int pl_arity(pl_cell_t *c)   { extern int prolog_functor_arity(int); return prolog_functor_arity((int)pl_deref(c)->slen); }
+static inline int plc_fid_name(uint32_t fid)  { extern int prolog_functor_name(int); return prolog_functor_name((int)fid); }
+static inline int plc_fid_arity(uint32_t fid) { extern int prolog_functor_arity(int); return prolog_functor_arity((int)fid); }
 static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) {
     pl_cell_t *v = pl_deref(cell);
@@ -71,7 +73,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     if ((int)A->v == DT_R) return A->r == B->r;
     if ((int)A->v == DT_PLREF) {
         if (A->slen != B->slen) return 0;
-        int ar = (int)(A->slen & 0xFFFFu);
+        int ar = plc_fid_arity(A->slen);
         pl_cell_t *aa = (pl_cell_t *)A->p, *bb = (pl_cell_t *)B->p;
         for (int i = 0; i < ar; i++) if (!pl_unify(&aa[i], &bb[i])) return 0;
         return 1;
