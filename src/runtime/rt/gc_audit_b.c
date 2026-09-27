@@ -1,6 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifdef SCRIP_GC_AUDIT_B
 #define _GNU_SOURCE
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,15 +15,25 @@ typedef struct gc_audit_b_ctr_t { long words; long inheap; long marked; long fil
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_audit_b_log(const char *line)
 {
-    extern const char *g_file; const char *lp = getenv("SCRIP_GC_AUDIT_B_LOG"); char buf[2560]; int fd, n;
+    extern const char *g_file; const char *lp = getenv("SCRIP_GC_AUDIT_B_LOG"); const char *src = g_file ? g_file : "-"; int fd, n;
     if (!lp || !*lp) return;
-    n = snprintf(buf, sizeof buf, "pid=%ld exe=%s src=%s %s", (long)getpid(), program_invocation_short_name, g_file ? g_file : "-", line);
+    n = snprintf((char *)0, 0, "pid=%ld exe=%s src=%s %s", (long)getpid(), program_invocation_short_name, src, line);
     if (n <= 0) return;
-    if (n >= (int)sizeof buf) { n = (int)sizeof buf - 1; buf[n - 1] = '\n'; }
-    fd = open(lp, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
-    if (fd < 0) { fprintf(stderr, "[GC-AUDIT-B] SCRIP_GC_AUDIT_B_LOG=%s cannot be opened (errno %d) -- the log is NOT a receipt of this run\n", lp, errno); return; }
-    if (write(fd, buf, (size_t)n) != (ssize_t)n) fprintf(stderr, "[GC-AUDIT-B] SCRIP_GC_AUDIT_B_LOG=%s short write -- the log is NOT a receipt of this run\n", lp);
-    close(fd);
+    { char buf[n + 1];
+      snprintf(buf, (size_t)n + 1, "pid=%ld exe=%s src=%s %s", (long)getpid(), program_invocation_short_name, src, line);
+      fd = open(lp, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
+      if (fd < 0) { fprintf(stderr, "[GC-AUDIT-B] SCRIP_GC_AUDIT_B_LOG=%s cannot be opened (errno %d) -- the log is NOT a receipt of this run\n", lp, errno); return; }
+      if (write(fd, buf, (size_t)n) != (ssize_t)n) fprintf(stderr, "[GC-AUDIT-B] SCRIP_GC_AUDIT_B_LOG=%s short write -- the log is NOT a receipt of this run\n", lp);
+      close(fd); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_audit_b_say(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+static void gc_audit_b_say(const char *fmt, ...)
+{
+    va_list a; int n;
+    va_start(a, fmt); n = vsnprintf((char *)0, 0, fmt, a); va_end(a);
+    if (n <= 0) return;
+    { char ln[n + 1]; va_start(a, fmt); vsnprintf(ln, (size_t)n + 1, fmt, a); va_end(a); fputs(ln, stderr); gc_audit_b_log(ln); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_audit_b_opaque(uint16_t t) { return (t == HB_WSB || t == HB_WSC || t == HB_ZBLK || t == HB_ZCOL || t == HB_AGGB) ? 1 : 0; }
@@ -32,13 +43,6 @@ static const char *gc_audit_b_excluded(const gc_audit_b_t *v, const char *w)
     long i;
     for (i = 0; i < v->nskip; i++) { const char *a = (const char *)v->skip[i].at; if (w >= a && w < a + v->skip[i].bytes) return v->skip[i].name; }
     return (const char *)0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_audit_b_text(const rt_hblk_t *h, char *tx, long cap)
-{
-    const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t), j = 0;
-    for (; j < cap - 1 && j < n; j++) tx[j] = (b[j] >= 32 && b[j] < 127) ? (char)b[j] : '.';
-    tx[j] = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *hi, const char *pop, const char *nm, gc_audit_b_ctr_t *c, long cap, const gc_audit_b_xr_t *xr, long nxr)
@@ -61,14 +65,17 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
         c->found++;
         if (c->shown >= cap) { c->suppressed++; continue; }
         c->shown++;
-        { char tx[25]; char bb[512]; char hn[512]; Dl_info di; bb[0] = 0; gc_audit_b_text(h, tx, (long)sizeof tx);
+        { char tx[25]; char bb[512]; Dl_info di; const unsigned char *tb = (const unsigned char *)(h + 1); long tn = (long)h->size - (long)sizeof(rt_hblk_t), j; int dl, hl;
+          const char *sn, *df; unsigned long dof;
+          for (j = 0; j < 24 && j < tn; j++) tx[j] = (tb[j] >= 32 && tb[j] < 127) ? (char)tb[j] : '.';
+          tx[j] = 0; bb[0] = 0;
           if (v->birth_of) v->birth_of((const char *)h, bb, (long)sizeof bb);
-          if (dladdr((void *)p, &di) && di.dli_fbase) snprintf(hn, sizeof hn, "%s+0x%lx/%s", di.dli_fname ? di.dli_fname : "?", (unsigned long)((const char *)p - (const char *)di.dli_fbase), di.dli_sname ? di.dli_sname : (nm ? nm : "-"));
-          else snprintf(hn, sizeof hn, "%s", nm ? nm : "-");
-          { char ln[2048];
-            snprintf(ln, sizeof ln, "[GC-AUDIT-B] run=%ld pop=%s CANDIDATE-LOST-ROOT at=%p in=%s word=%p blk=%p type=%u size=%u off=%ld text=%s%s%s\n",
-              v->run, pop, (const void *)p, hn, (const void *)w, (const void *)h, (unsigned)h->type, (unsigned)h->size, (long)(w - (const char *)h), tx, bb[0] ? " " : "", bb);
-            fputs(ln, stderr); gc_audit_b_log(ln); } } }
+          dl = dladdr((void *)p, &di) && di.dli_fbase; sn = (dl && di.dli_sname) ? di.dli_sname : (nm ? nm : "-");
+          df = (dl && di.dli_fname) ? di.dli_fname : "?"; dof = dl ? (unsigned long)((const char *)p - (const char *)di.dli_fbase) : 0;
+          hl = dl ? snprintf((char *)0, 0, "%s+0x%lx/%s", df, dof, sn) : 0;
+          { char hn[hl + 1]; if (dl) snprintf(hn, (size_t)hl + 1, "%s+0x%lx/%s", df, dof, sn);
+            gc_audit_b_say("[GC-AUDIT-B] run=%ld pop=%s CANDIDATE-LOST-ROOT at=%p in=%s word=%p blk=%p type=%u size=%u off=%ld text=%s%s%s\n",
+              v->run, pop, (const void *)p, dl ? hn : sn, (const void *)w, (const void *)h, (unsigned)h->type, (unsigned)h->size, (long)(w - (const char *)h), tx, bb[0] ? " " : "", bb); } } }
     return nw;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -86,11 +93,9 @@ long gc_audit_b_collect(const gc_audit_b_t *v)
     for (i = 0; strstr(ps, "heapint") && i < v->nblk; i++) { const rt_hblk_t *h = v->blk_at(i);
         if (!h || !(h->flags & HBF_MARK) || !gc_audit_b_opaque(h->type)) continue;
         nop++; nhw += gc_audit_b_words(v, (const char *)(h + 1), (const char *)h + h->size, "heapint", "-", &c, cap, (const gc_audit_b_xr_t *)0, 0); }
-    { char ln[1024];
-      snprintf(ln, sizeof ln, "[GC-AUDIT-B] run=%ld audited=1 findings=%ld shown=%ld suppressed=%ld words=%ld inheap=%ld marked=%ld fill=%ld excluded=%ld regions=%ld "
-               "heapint_words=%ld opaque_blocks=%ld of %ld opaque_set=ZCOL,ZBLK,WSC,AGGB,WSB pops=%s excluded_frame_header_raw=%ld excluded_owner_declared=%ld\n",
+    gc_audit_b_say("[GC-AUDIT-B] run=%ld audited=1 findings=%ld shown=%ld suppressed=%ld words=%ld inheap=%ld marked=%ld fill=%ld excluded=%ld regions=%ld "
+                   "heapint_words=%ld opaque_blocks=%ld of %ld opaque_set=ZCOL,ZBLK,WSC,AGGB,WSB pops=%s excluded_frame_header_raw=%ld excluded_owner_declared=%ld\n",
         v->run, c.found, c.shown, c.suppressed, c.words, c.inheap, c.marked, c.fill, c.excl, v->nrgn, nhw, nop, v->nblk, ps, c.xframe, c.xowner);
-      fputs(ln, stderr); gc_audit_b_log(ln); }
     return c.found;
 }
 #endif

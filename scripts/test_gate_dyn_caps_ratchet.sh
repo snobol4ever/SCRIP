@@ -2,6 +2,9 @@
 # test_gate_dyn_caps_ratchet.sh -- THE FIXED-CAPS RATCHET: the population of fixed tables in src/ may only fall, and a fall lowers the
 # baseline in the same landing (Lon 2026-09-23 14:5x: no fixed limit a program can reach; .github/ARCH-DYNAMIC-STORAGE.md section 5;
 # row instruments-the-fixed-caps-ratchet-is-a-blocking-arm-and-every-remaining-cap-refuses-loudly, the coo).
+# ⛔ ONE EXCEPTION TO "MAY ONLY FALL" (ceo CEO-1302, 2026-09-27): a scripts/fixtures/dyn_caps/CLASS_AB.tsv row licenses a raise of
+# exactly the table(s) it declares, and only in the same landing that adds the row with its measurement, the commit naming the raise
+# (5d936b498, the opsym row, is the precedent). The only other raise is a like-for-like re-derivation of the instrument on one tree.
 #
 # THE POPULATION is audit_fixed_caps_census.py's file-, static- and field-scope declarations with a constant bound, counted by
 # util_dyn_caps_witness.sh census against scripts/fixtures/dyn_caps/BASELINE. ⛔ THE CENSUS WAS CORRECTED BEFORE THIS GATE COULD LAND,
