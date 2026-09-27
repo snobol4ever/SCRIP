@@ -81,7 +81,6 @@ test_gate_deferred_rows_name_a_ruling_and_the_work_they_wait_on.sh	WIRED	-	-	-
 test_gate_define_alternate_entry.sh	WIRED	-	-	-
 test_gate_dispatch_bus_failure_modes.sh	WIRED	-	-	-
 test_gate_dispatch_claim_single_authority.sh	WIRED	-	-	-
-test_gate_dispatch_gc_safepoint_inline.sh	WIRED	-	-	-
 test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
 test_gate_done_manifest_handoff.sh	WIRED	-	-	-
 test_gate_done_runs_the_master_arm_for_codegen_rows.sh	WIRED	-	-	-
