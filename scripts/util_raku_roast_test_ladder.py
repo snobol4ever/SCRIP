@@ -524,7 +524,7 @@ def cmd_grade(a):
             got = dict(ex.map(one, files))
     modes = ["m3"] + (["m4"] if a.m4 else [])
     per = collections.defaultdict(lambda: [0, 0])
-    cursor, unsure, verdicts = None, 0, []
+    cursor, unsure, verdicts, fails = None, 0, [], []
     for r in sorted(rows, key=lambda r: (int(r[0]), r[1], int(r[3]))):
         k, n = int(r[0]), int(r[3])
         if a.oracle_check and n not in got[r[1]]["rakudo"]:
@@ -534,8 +534,11 @@ def cmd_grade(a):
         verdicts.append((r[1], n, k, int(passed)))
         per[k][1] += 1
         per[k][0] += passed
-        if not passed and cursor is None:
-            cursor = r
+        if not passed:
+            if cursor is None:
+                cursor = r
+            if len(fails) < a.cursors:
+                fails.append(r)
     if a.tsv:
         with open(a.tsv, "w") as f:
             f.write("rel\tn\trung\tpass\n")
@@ -550,6 +553,9 @@ def cmd_grade(a):
         src = (roast / cursor[1]).read_text(errors="replace").splitlines()
         print(f"CRAWL CURSOR: rung {cursor[0]}  {cursor[1]} test {cursor[3]} (line {cursor[5]}) -- {cursor[7]}")
         print("  " + statement(src, int(cursor[5])).replace("\n", "\n  "))
+    for r in fails[1:]:
+        src = (roast / r[1]).read_text(errors="replace").splitlines()
+        print(f"  next: rung {r[0]}  {r[1]} test {r[3]} (line {r[5]}) -- {statement(src, int(r[5])).strip()[:110]}")
     return 0
 
 
@@ -571,6 +577,7 @@ def main():
     g.add_argument("--show", type=int, default=40)
     g.add_argument("--oracle-check", action="store_true")
     g.add_argument("--tsv")
+    g.add_argument("--cursors", type=int, default=1)
     g.add_argument("--scrip", default=str(SCRIP))
     a = ap.parse_args()
     if getattr(a, "scrip", None):
