@@ -94,7 +94,11 @@ def parse_one(scrip, chain, prog, timeout):
     lines = [l.strip() for l in text.splitlines() if l.strip() and not SEQ.match(l)]
     if any(re.fullmatch(r"Parse Error\.?", l) for l in lines):
         return "REFUSED", "Parse Error"
-    err = next((l for l in lines if re.search(r"\bERROR \d+ --|^Error \d+|FATAL|ZGC-STALE|CORRUPT CAPTURE", l)), "")
+    # hq_snocone 2026-09-27: an error marker is read only on a line that is not part of a tree (a tree line opens with ( or ) or is
+    # indented), and FATAL only at column 0 -- five SNOBOL4 sources printed their whole tree, rc 0, and were called CRASH because a
+    # string literal in the tree read "****** FATAL ERROR ******" or a keyword read &FATALLIMIT.
+    raw = [l for l in text.splitlines() if l.strip() and not SEQ.match(l) and l[:1] not in "() \t"]
+    err = next((l.strip() for l in raw if re.search(r"\bERROR \d+ --|^Error \d+|^FATAL\b|ZGC-STALE|CORRUPT CAPTURE", l)), "")
     if r.returncode != 0 or err:
         return "CRASH", "%s (rc=%d)" % (err or first or "no output", r.returncode)
     if not lines:
