@@ -58,10 +58,6 @@ src/parsers/prolog/prolog_lex.c	8	0	0	0
 src/parsers/prolog/prolog_lower.c	2	0	0	0
 src/parsers/prolog/prolog_lower_test.c	7	0	0	0
 src/parsers/prolog/prolog_parse.c	10	0	0	0
-src/parsers/raku/raku.l	5	0	0	0
-src/parsers/raku/raku.lex.c	8	0	0	0
-src/parsers/raku/raku.tab.c	205	0	0	0
-src/parsers/raku/raku.y	205	0	0	0
 src/parsers/raku/re.c	6	0	0	0
 src/parsers/rebus/lex.rebus.c	6	0	0	0
 src/parsers/rebus/rebus.h	2	0	0	0

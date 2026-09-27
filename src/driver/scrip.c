@@ -1019,8 +1019,6 @@ int main(int argc, char **argv)
         if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile   = 1; if (!target_name) target_name = "x86"; argi++; }
         else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-ast-new")  == 0) { extern int rk_dump_tree_file(const char *path); if (argi + 1 >= argc) { fprintf(stderr, "scrip: --dump-ast-new needs a Raku source file\n");
-            return 2; } return rk_dump_tree_file(argv[argi + 1]); }
         else if (strcmp(argv[argi], "--syntax")        == 0) { extern int rk_syntax_file(const char *path); if (argi + 1 >= argc) { fprintf(stderr, "scrip: --syntax needs a Raku source file\n");
             return 2; } { const char *sx = strrchr(argv[argi + 1], '.'); if (!sx || (strcmp(sx, ".raku") && strcmp(sx, ".t") && strcmp(sx, ".rakumod") && strcmp(sx, ".rakutest") && strcmp(sx,
             ".pm6") && strcmp(sx, ".p6"))) { fprintf(stderr, "scrip: --syntax checks Raku sources only (.raku .rakumod .rakutest .t .pm6 .p6); '%s' is not one\n", argv[argi + 1]); return 2;
@@ -1117,6 +1115,7 @@ int main(int argc, char **argv)
             "\n"
             "Diagnostic options:\n"
             "  --dump-ast       print AST after frontend\n"
+            "  --syntax FILE    check a Raku source file's syntax only (as raku -c): rc 0 accept, rc 1 reject with the error, rc 2 not a Raku file\n"
             "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
             "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for tools/bb_viewer.html\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"

@@ -4683,18 +4683,3 @@ int rk_syntax_file(const char *path) {
     if (rc) fprintf(stderr, "%s\n", err);
     return rc;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rk_dump_tree_file(const char *path) {
-    extern void ir_dump_program(const tree_t *prog, FILE *f);
-    FILE *f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", path); return 2; }
-    fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
-    char *src = (char *) ct_alloc((size_t) n + 1);
-    if (fread(src, 1, (size_t) n, f) != (size_t) n) { fclose(f); fprintf(stderr, "scrip: short read on '%s'\n", path); return 2; }
-    src[n] = 0; fclose(f);
-    char err[600];
-    tree_t *prog = rk_parse_tree(src, (int) n, path, err, sizeof err);
-    if (!prog) { fprintf(stderr, "%s\n", err); return 1; }
-    ir_dump_program(prog, stdout);
-    return 0;
-}

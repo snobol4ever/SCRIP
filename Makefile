@@ -1080,8 +1080,6 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/snocone/snocone_lex.c \
     $(SRC)/parsers/snocone/snocone_parse.tab.c \
     $(SRC)/parsers/snocone/snocone_driver.c \
-    $(SRC)/parsers/raku/raku.tab.c \
-    $(SRC)/parsers/raku/raku.lex.c \
     $(SRC)/parsers/raku/raku_driver.c \
     $(SRC)/parsers/raku/rk_syntax.c \
     $(SRC)/parsers/raku/rk_tree.c \

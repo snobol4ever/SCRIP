@@ -39,8 +39,6 @@ gen_parsers_table() {
         snocone snocone_parse.y snocone_parse.tab.c "bison -d -o snocone_parse.tab.c snocone_parse.y" \
         rebus   rebus.y         rebus.tab.c         "bison -d -o rebus.tab.c rebus.y" \
         rebus   rebus.l         lex.rebus.c         "flex --noline -o lex.rebus.c rebus.l" \
-        raku    raku.y          raku.tab.c          "bison -d --warnings=none -Wno-yacc -o raku.tab.c raku.y" \
-        raku    raku.l          raku.lex.c          "flex --noline --prefix=raku_yy -o raku.lex.c raku.l" \
         pascal  pascal.y        pascal.tab.c        "bison -d -o pascal.tab.c pascal.y" \
         pascal  pascal.l        pascal.lex.c        "flex --noline -o pascal.lex.c pascal.l"
 }

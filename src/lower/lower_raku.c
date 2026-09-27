@@ -9,8 +9,6 @@ typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop
 static cv_t         g_rk_gram_names;
 static cv_t         g_rk_class_names;
 static cv_t         g_rk_multi_names;
-extern int rk_is_arrlit_scalar(const char * nm);
-extern int rk_is_array_name(const char * nm);
 extern int rk_seq_is_logical_and(const tree_t * t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_multi_names.len; i++) if (!strcmp(CV_AT(g_rk_multi_names, const char *, i), nm)) return 1; return 0; }
@@ -390,22 +388,22 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->v.sval && strchr(t->v.sval, ':')) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval); *res = nd; return nd;
         }
-        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 3.141592653589793; *res = nd; return nd;
         }
-        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "e") && !rk_is_class_name("e")) {
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "e") && !rk_is_class_name("e")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 2.718281828459045; *res = nd; return nd;
         }
-        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "tau") && !rk_is_class_name("tau")) {
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "tau") && !rk_is_class_name("tau")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = 6.283185307179586; *res = nd; return nd;
         }
-        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "Inf") && !rk_is_class_name("Inf")) {
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "Inf") && !rk_is_class_name("Inf")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) INFINITY; *res = nd; return nd;
         }
-        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "NaN") && !rk_is_class_name("NaN")) {
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "NaN") && !rk_is_class_name("NaN")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) NAN; *res = nd; return nd;
         }
-        if (t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "i") && !rk_is_class_name("i")) {
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "i") && !rk_is_class_name("i")) {
             IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_mkcplx_i"; *res = nd; return nd;
         }
         if (rk_name_is_byref(cx, t->v.sval)) {
@@ -465,7 +463,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) fn; ast_push(f, leaf_sval2(TT_VAR, fn)); ast_push(f, t->c[0]->c[0]);
             return lower_rcall(cx, f, fn, 1, γ, ω, res); }
         if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR &&
-            (rk_is_arrlit_scalar(t->c[0]->v.sval) || rk_is_array_name(t->c[0]->v.sval)))
+            (t->c[0]->slen & 2))
             return lower_rcall(cx, t, "rk_write_arr", 0, γ, ω, res);
         if (t->n == 1 && rk_yields_list(t->c[0]))
             return lower_rcall(cx, t, "rk_write_list", 0, γ, ω, res);
@@ -719,7 +717,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         if (mname && t->n == 2 && t->c[0] && !g_rk_user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
             const tree_t * inv = t->c[0]; const char * wfn = !strcmp(mname, "print") ? "rk_writes" : "rk_write";
-            if (!strcmp(mname, "say")) { if (inv->t == TT_VAR && inv->v.sval && (rk_is_arrlit_scalar(inv->v.sval) || rk_is_array_name(inv->v.sval))) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
+            if (!strcmp(mname, "say")) { if (inv->t == TT_VAR && inv->v.sval && (inv->slen & 2)) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
             return lower_rcall1(cx, inv, wfn, γ, ω, res);
         }
         if (mname && rk_meth_is_bool(mname)) return lower_rcall_bool(cx, t, "meth_call", 0, γ, ω, res);
@@ -1353,7 +1351,7 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
 static void rk_rename_main_refs(tree_t * t) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "main")) { t->v.sval = (char *) "&main"; if (t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "main")) t->c[0]->v.sval = (char *) "&main"; }
-    else if (t->t == TT_VAR && t->slen == 1 && t->v.sval && !strcmp(t->v.sval, "main")) t->v.sval = (char *) "&main";
+    else if (t->t == TT_VAR && (t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "main")) t->v.sval = (char *) "&main";
     for (int i = 0; i < t->n; i++) rk_rename_main_refs(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

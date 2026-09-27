@@ -229,12 +229,12 @@ static tree_t *rk_bind(tree_t *target, tree_t *rhs) { if (rk_rhs_is_aliasable(rh
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_logical_and(tree_t *a, tree_t *c) { tree_t *s = expr_binary(TT_SEQ, a, c); s->v.ival = 1; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int seq_is_logical_and(const tree_t *t) { return t && t->t == TT_SEQ && t->n == 2 && t->v.ival == 1; }
+int rk_seq_is_logical_and(const tree_t *t) { return t && t->t == TT_SEQ && t->n == 2 && t->v.ival == 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_tail_value(TL *l) {
     if (!l || l->n <= 0) return;
     tree_t *last = l->v[l->n - 1];
-    if (!last || (rk_tail_is_statement(last->t) && !seq_is_logical_and(last))) return;
+    if (!last || (rk_tail_is_statement(last->t) && !rk_seq_is_logical_and(last))) return;
     tree_t *r = ast_node_new(TT_RETURN); r->line = last->line; expr_add_child(r, last); l->v[l->n - 1] = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1822,8 +1822,13 @@ void rkb_sprefix_term(RkB *b, RkItem *it, int from, int to, const char *word, in
     it->kind = RKI_TREE; it->t = blk ? blk : stmt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void mark_arrays(RkB *b, tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval) { int hit = is_arr(b, t->v.sval); for (int i = 0; !hit && i < b->nals; i++) if (!strcmp(b->als[i], t->v.sval)) hit = 1; if (hit) t->slen |= 2; }
+    for (int i = 0; i < t->n; i++) mark_arrays(b, t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_program(RkB *b, tree_t *list) {
-    (void) b;
     TL l = { 0 };
     for (int i = 0; list && i < list->n; i++) tl_add(&l, list->c[i]);
     TL *all = rk_phasers_place(&l, 1);
@@ -1838,5 +1843,6 @@ tree_t *rkb_program(RkB *b, tree_t *list) {
         expr_add_child(st, ast_attr_expr(":subj", e));
         expr_add_child(prog, st);
     }
+    mark_arrays(b, prog);
     return prog;
 }
