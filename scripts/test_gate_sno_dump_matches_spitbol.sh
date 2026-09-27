@@ -17,6 +17,12 @@
 #   5 hash           the string hash itself: XOR of little-endian 8-byte words XOR length; ints by magnitude;
 #                    reals by bit pattern -- proved against a 1000-bucket table with integers marking every bucket
 #
+# ⛔ THE WITNESSES DECLARE THE STATEMENT INSTRUMENTATION, --stlimit, ON BOTH SCRIP COMMAND LINES (coo 2026-09-27, ceo CEO-1306, swept
+# from hq_snobol4; RULES.md 8 (f)): a dump prints &LASTFILE, &LASTLINE, &LASTNO and &LINE, SPITBOL always tracks them, and SCRIP
+# tracks them only under the switch since statement tracking went opt-in (CEO-1243). Typed nowhere, the four dumped blank or zero
+# and the gate read red on origin 81aa23aff, a false red: hq_snobol4 measured all four byte-identical to sbl -bf once the switch is
+# on, in both modes. This is a gate's own witness, so the gate declares it (arm R of the compile_args ratchet exempts gates). And the
+# oracle comes from lib_oracle_flags.sh's sbl_correctness_bin, never a hand-assembled path.
 # A missing oracle or binary REFUSES rc=2 (a missing oracle prints a full, plausible, entirely false table).
 # Exit: 0 all witnesses identical in both modes . 1 a witness differs . 2 could not measure.
 set -u
@@ -29,7 +35,8 @@ refuse() { echo "GATE REFUSE(2) [$NAME]: $*"; exit 2; }
 . "$HERE/lib_gate.sh"
 gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || true
-SBL="${SBL:-/home/resources/x64/bin/sbl}"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- cannot name the oracle"
+SBL="${SBL:-$(sbl_correctness_bin)}"
 [ -x "$SBL" ] || refuse "no sbl oracle at $SBL -- cannot measure"
 TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
 cat > "$TD/dump.sno" <<'EOF'
@@ -130,9 +137,9 @@ for p in dump dump2b dump3 tord hash; do
   grep -q 'dump of natural variables' "$TD/$p.want" || refuse "the oracle printed no dump for $p.sno -- cannot measure"
   for m in 3 4; do
     if [ "$m" = 3 ]; then
-      (cd "$TD" && timeout 20s "$SCRIP" --run "$p.sno" </dev/null >"$p.got$m" 2>&1)
+      (cd "$TD" && timeout 20s "$SCRIP" --run --stlimit "$p.sno" </dev/null >"$p.got$m" 2>&1)
     else
-      (cd "$TD" && "$SCRIP" --compile -o "$p.s" "$p.sno" </dev/null >/dev/null 2>&1) || refuse "mode-4 compile of $p.sno failed -- cannot measure"
+      (cd "$TD" && "$SCRIP" --compile --stlimit -o "$p.s" "$p.sno" </dev/null >/dev/null 2>&1) || refuse "mode-4 compile of $p.sno failed -- cannot measure"
       (cd "$TD" && gcc -no-pie "$p.s" -o "$p.bin" -L "$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1) || refuse "mode-4 link of $p.sno failed -- cannot measure"
       (cd "$TD" && LD_LIBRARY_PATH="$ROOT/out" timeout 20s "./$p.bin" </dev/null >"$p.got$m" 2>&1)
     fi
