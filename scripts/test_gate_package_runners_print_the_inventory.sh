@@ -750,7 +750,11 @@ fi
 # declare zero rows because every Jcon program is graded (SUITES.tsv jcon 86/86, PACKAGE_INVENTORY ungraded=0 ungradable=0), so the data
 # the pin was taken over was emptied by the work the pin exists to protect, not by a wording edit; it re-enters with its next declared
 # row. prolog/logtalk_iso (6 rows) and prolog/swi_tests (70 rows) JOIN it: this arm read both validating clean and unpinned.
-PKGINV_PINNED="icon/arizona_tests icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
+# ⭐ RE-PINNED 2026-09-27 17:3x (coo COO-212/213, the same reading as icon/jcon_tests above): snobol4/spitbol_testpgms LEAVES the set -- its
+# UNGRADABLE.tsv and UNGRADED.tsv declare zero rows since corpus cb91a43f2 (hq_snobol4, ceo CEO-1323) graded all eight programs (SUITES.tsv
+# testpgms 8/8 on 162bb56ea); the data the pin was taken over was emptied by the grading work, not by a wording edit. It re-enters with
+# its next declared row. Eleven pinned.
+PKGINV_PINNED="icon/arizona_tests icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite"
 _a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0; _a20_empty=""; _a20_graded=0
 for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
              | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do
