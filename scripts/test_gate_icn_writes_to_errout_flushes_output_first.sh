@@ -36,5 +36,22 @@ ICN
 red=0
 cmp -s "$T/oracle.txt" "$T/m3.txt" || { echo "  m3 merged output differs from iconx:"; diff "$T/oracle.txt" "$T/m3.txt" | head -6; red=1; }
 cmp -s "$T/oracle.txt" "$T/m4.txt" || { echo "  m4 merged output differs from iconx:"; diff "$T/oracle.txt" "$T/m4.txt" | head -6; red=1; }
-[ "$red" -eq 0 ] && { echo "✅ GATE PASS [$G]: writes and write to &errout keep program order with &output in m3 and m4, as iconx"; exit 0; }
+# ⭐ AND stop(), WHICH WRITES ITS MESSAGE TO &errout AND ENDS THE PROGRAM (hq_icon 2026-09-27, IPL ttt and hr): it wrote the message
+# first and flushed &output after, so a pending prompt landed after "Game Over." in m3 and every buffered stdout line after it in m4.
+cat > "$T/s.icn" <<'ICN'
+procedure main()
+   writes("prompt :");
+   write("line");
+   writes("tail:");
+   stop("Game Over.")
+end
+ICN
+( cd "$T" && "$IC" -s -o s.ox s.icn >/dev/null 2>&1 && ./s.ox > soracle.txt 2>&1 ); [ -s "$T/soracle.txt" ] || { echo "⛔ GATE REFUSE(2) [$G]: icont/iconx did not run the stop witness"; exit 2; }
+"$S" "$T/s.icn" > "$T/s3.txt" 2>&1 < /dev/null
+"$S" --compile -o "$T/s.s" "$T/s.icn" < /dev/null >/dev/null 2>&1 && gcc -no-pie -o "$T/s.x" "$T/s.s" -Wl,-rpath,"$O" -L"$O" -lscrip_rt -lm -lpthread 2>/dev/null \
+    || { echo "⛔ GATE REFUSE(2) [$G]: m4 did not build the stop witness"; exit 2; }
+"$T/s.x" > "$T/s4.txt" 2>&1 < /dev/null
+cmp -s "$T/soracle.txt" "$T/s3.txt" || { echo "  stop: m3 merged output differs from iconx:"; diff "$T/soracle.txt" "$T/s3.txt" | head -6; red=1; }
+cmp -s "$T/soracle.txt" "$T/s4.txt" || { echo "  stop: m4 merged output differs from iconx:"; diff "$T/soracle.txt" "$T/s4.txt" | head -6; red=1; }
+[ "$red" -eq 0 ] && { echo "✅ GATE PASS [$G]: writes, write and stop to &errout keep program order with &output in m3 and m4, as iconx"; exit 0; }
 echo "⛔ GATE FAIL [$G]: &output was not flushed before &errout"; exit 1

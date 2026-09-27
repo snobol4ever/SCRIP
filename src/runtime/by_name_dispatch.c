@@ -8304,6 +8304,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5895: ;
     if ((_bid == BID_stop)) {
         FILE *dest = stderr;
+        fflush(stdout);
         for (int _si = 0; _si < nargs; _si++) {
             DESCR_t _a = args[_si];
             if (IS_FH_fn(_a)) { FILE *fp = fh_get((int)_a.i); if (fp) { if (_si > 0) fputc('\n', dest); dest = fp; } continue; }
