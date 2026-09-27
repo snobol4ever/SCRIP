@@ -89,6 +89,20 @@ A1_OUT="$(KERNELS="${KERNELS:-}" bash "$HERE/test_bench_prolog_timed.sh" 2>/dev/
 #   angle 1's 5-field basis grids TODAY, but that is the same column-count coincidence documented at
 #   parse(): one column either way and the live-kernel list silently grows duplicates from the N grid.
 measured_kernels=$(printf '%s\n' "$A1_OUT" | awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=7{print $1}')   # 7 since the gplc column (CEO-1281): kernel + five rates + check
+# ⛔ A TRUNCATED KERNEL POPULATION REFUSES, BEFORE ANGLE 2 SPENDS A SECOND ON IT (row prolog-bench-triangulation-silently-dropped-14-
+# kernels-and-every-verdict, ceo CEO-1309, the coo 2026-09-27): this script took its kernel set from whatever angle 1 printed, so an
+# angle 1 killed, timed out or crashed part-way wrote a shorter table and the triangulation silently graded the survivors -- 14 kernels
+# and every verdict dropped once. Angle 1 prints one row per kernel it examines, a rate row or a SKIP row, over every $B/*.pl with a
+# .ref beside it narrowed by KERNELS (test_bench_prolog_timed.sh's own loop), so that set is the population and a table naming fewer
+# is a truncated reading. An empty population refuses too: a triangulation over nothing is not a grid.
+expected_kernels=$(for pl in "$B"/*.pl; do [ -e "$pl" ] || continue; k=$(basename "${pl%.pl}"); [ -f "${pl%.pl}.ref" ] || continue
+  if [ -n "${KERNELS:-}" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi; printf '%s\n' "$k"; done | LC_ALL=C sort -u)
+[ -n "$expected_kernels" ] || { echo "⛔ REFUSED (rc=2): no kernel in $B carries a .ref${KERNELS:+ among KERNELS=$KERNELS} -- a population of zero is not a grid" >&2; exit 2; }
+missing_kernels=$(LC_ALL=C comm -23 <(printf '%s\n' "$expected_kernels") <(printf '%s\n' "$measured_kernels" | grep . | LC_ALL=C sort -u))
+if [ -n "$missing_kernels" ]; then
+  echo "⛔ REFUSED (rc=2): angle 1 named $(printf '%s\n' "$measured_kernels" | grep -c .) of the $(printf '%s\n' "$expected_kernels" | grep -c .) kernels in $B -- a truncated population, never triangulated; missing: $(printf '%s' "$missing_kernels" | tr '\n' ' ')" >&2
+  exit 2
+fi
 A2_OUT=""
 if [ -n "$measured_kernels" ]; then
   A2_OUT="$(KERNELS="$(printf '%s' "$measured_kernels" | tr '\n' ' ')" bash "$HERE/bench_prolog_fixed_iter.sh" 2>/dev/null)"
