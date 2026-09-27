@@ -152,6 +152,7 @@ static int is_unop_tt(tree_e tt) {
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_tree_is_cursor_mover(const tree_t * a);
 static int is_resumable(const tree_t * t) {
     if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
     if (t->t == TT_BANG_BINARY) return 1;
@@ -164,6 +165,7 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_ASSIGN) { if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ITERATE) return 1; return (t->n > 1) ? is_resumable(t->c[1]) : 0; }
     if (t->t == TT_SWAP) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_MAKELIST || t->t == TT_VLIST) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i]) || icn_tree_is_cursor_mover(t->c[i])) return 1; return 0; }
     if (t->t == TT_CASE) { for (int i = 2; i < t->n; i += 2) if (is_resumable(t->c[i])) return 1; return (t->n > 1 && (t->n - 1) % 2 == 1) ? is_resumable(t->c[t->n - 1]) : 0; }
     switch (t->t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: case TT_REVSWAP: case TT_ITERATE: return 1;
@@ -1552,8 +1554,9 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
     for (int k = 0; k < t->n; k++) {
         const tree_t * a = t->c[k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
+        IR_t * b4 = cx->beta;
         if (!staged[k]) ae = lower(cx, a, (k == t->n - 1 && !nstage) ? ml : NULL, aω, &ar);
-        aω = cx->beta;
+        aω = (cx->beta == b4 && ar && !staged[k] && icn_tree_is_cursor_mover(a)) ? ar : cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
         prev = ar; args_r[k] = ar;
