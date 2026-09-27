@@ -16,7 +16,11 @@
 # `runerr` must STILL abort with their error. A cure that makes them fail unconditionally would turn
 # every uncaught Icon run-time error into a silent failure -- far worse than the defect -- and those
 # two arms are what catch it.
-# ⛔ REFUSES rc=2 unless all 10 runs (5 witnesses x 2 modes) are graded, and rc=2 if the oracle is
+# ⭐ A NEGATIVE &error COUNTS DOWN THROUGH EVERY NEGATIVE VALUE (iconx: -1 -> -2 -> -3 ...), so the count shares g_error with the
+# SNOBOL4 evaluation stage and must never meet it: 4ff9addec spelled that stage -3, and the THIRD converted error of `&error := -1`
+# went fatal (master rung29 operator-value witnesses and procedure_record_every_replace_12, bisected by hq_icon 2026-09-27). The
+# neg_countdown witness converts four errors from -1 and prints &error; the stage is G_ERROR_EVAL_STAGE (keywords.h) since.
+# ⛔ REFUSES rc=2 unless all 12 runs (6 witnesses x 2 modes) are graded, and rc=2 if the oracle is
 # missing. Expectations come from a LIVE iconx run, never hardcoded.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
@@ -29,8 +33,9 @@ printf 'procedure main()\n  &error := 1;\n  runerr(500);\n  write("caught=", &er
 printf 'procedure main()\n  every write(1 to 5 by 0);\nend\n'                                                   > "$d/by_zero_untrapped.icn"
 printf 'procedure main()\n  runerr(500);\nend\n'                                                                > "$d/runerr_untrapped.icn"
 printf 'procedure main()\n  every write(1 to 5 by 2);\nend\n'                                                   > "$d/by_two.icn"
+printf 'procedure main()\n  &error := -1;\n  every 1 to 4 do write(&null + 1 | &errornumber);\n  write("error=", &error);\nend\n' > "$d/neg_countdown.icn"
 graded=0; bad=0
-for w in by_zero_trapped runerr_trapped by_zero_untrapped runerr_untrapped by_two; do
+for w in by_zero_trapped runerr_trapped by_zero_untrapped runerr_untrapped by_two neg_countdown; do
     "$ICONT" -s -o "$d/$w.ora" "$d/$w.icn" >/dev/null 2>&1 || { echo "⛔ GATE REFUSES (rc=2): icont rejected $w -- cannot measure"; exit 2; }
     want=$(timeout 20 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null); wrc=$?
     [ "$wrc" != 124 ] || { echo "⛔ GATE REFUSES (rc=2): the ORACLE timed out on $w -- cannot measure"; exit 2; }
@@ -50,6 +55,6 @@ for w in by_zero_trapped runerr_trapped by_zero_untrapped runerr_untrapped by_tw
         graded=$((graded+1)); echo "  ⛔ RED m4 $w: does not compile/link"; bad=1
     fi
 done
-[ "$graded" = 10 ] || { echo "⛔ GATE REFUSES (rc=2): graded $graded of the 10 required runs"; exit 2; }
+[ "$graded" = 12 ] || { echo "⛔ GATE REFUSES (rc=2): graded $graded of the 12 required runs"; exit 2; }
 [ "$bad" = 0 ] || { echo "⛔ GATE RED [icn_error_conversion_fails_the_expression]: an absorbed error still does not fail its expression"; exit 1; }
 echo "✅ GATE OK [icn_error_conversion_fails_the_expression]: &error converts to failure and evaluation continues; untrapped errors still abort -- BOTH modes"
