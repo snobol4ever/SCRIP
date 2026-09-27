@@ -62,7 +62,7 @@ typedef struct RkP {
     RkItems *stmt_items; RkItems *last_items; int last_nstmts; int last_real_semi;
     RkItems *blk_items; int blk_n; tree_t *blk_list; tree_t *pb_sig;
     RkClosure *qc; int nqc; int cqc;
-    tree_t *sig; RkTrait tr[8]; int ntr;
+    tree_t *sig; RkTrait *tr; int ntr; RkTrait tr1; int has_tr1;
     RkDecl *dcl; const char *init_op;
     RkItems *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
     int nmods; const char *modk[2]; RkItems *modx[2];
@@ -1973,16 +1973,16 @@ static int autoincrement_postfix_at(RkP *p, int pos) {
 static int r_termish(RkP *p, int pos) {
     int q = pos; int npre = 0; int lastpre = pos;
     int prec; int lastprec = 0;
-    int pf_[4], pt_[4];
+    int *pf_ = NULL, *pt_ = NULL; int cpf = 0, cpt = 0;
     for (;;) {
         int e = r_prefixish(p, q, &prec);
         if (e < 0) break;
-        if (npre < 4) { pf_[npre] = q; pt_[npre] = e; }
+        RK_GROW(pf_, npre, cpf, int); RK_GROW(pt_, npre, cpt, int); pf_[npre] = q; pt_[npre] = e;
         lastpre = q; q = e; npre++; lastprec = prec;
     }
     int t = r_term(p, q);
     RkItem it; memset(&it, 0, sizeof it);
-    if (t >= 0 && p->build) { it = p->ti; for (int i = 0; i < npre && i < 4; i++) rkb_prefix(&it, p->s + pf_[i], pt_[i] - pf_[i]); }
+    if (t >= 0 && p->build) { it = p->ti; for (int i = 0; i < npre; i++) rkb_prefix(&it, p->s + pf_[i], pt_[i] - pf_[i]); }
     if (t < 0) {
         if (npre) {
             int c = ch(p, lastpre);
@@ -3284,16 +3284,15 @@ static int r_trait(RkP *p, int pos) {
         rt.word = "handles"; rt.name = ch(p, t) == '<' ? ct_strndup0(p->s + t + 1, e - t - 2) : ct_strndup0(p->s + t, e - t);
     }
     p->in_decl = sd;
-    if (e >= 0 && rt.word) { p->tr[0] = rt; p->ntr = 1; } else p->ntr = 0;
+    if (e >= 0 && rt.word) { p->tr1 = rt; p->has_tr1 = 1; } else p->has_tr1 = 0;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_traits(RkP *p, int pos) {
     int q = pos;
-    RkTrait tr[8]; int n = 0;
-    for (;;) { int t = ws(p, q); p->ntr = 0; int e = r_trait(p, t); if (e < 0) break; if (p->ntr && n < 8) tr[n++] = p->tr[0]; q = e; }
-    for (int i = 0; i < n; i++) p->tr[i] = tr[i];
-    p->ntr = n;
+    RkTrait *tr = NULL; int n = 0, c = 0;
+    for (;;) { int t = ws(p, q); p->has_tr1 = 0; int e = r_trait(p, t); if (e < 0) break; if (p->has_tr1) { RK_GROW(tr, n, c, RkTrait); tr[n++] = p->tr1; } q = e; }
+    p->tr = tr; p->ntr = n;
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3627,7 +3626,7 @@ static int r_variable_declarator(RkP *p, int pos) {
         break;
     }
     int q = r_traits(p, e);
-    RkTrait vtr[4]; int nvtr = p->ntr > 4 ? 4 : p->ntr; for (int i = 0; i < nvtr; i++) vtr[i] = p->tr[i];
+    RkTrait *vtr = p->tr; int nvtr = p->ntr;
     static const char *const vtraits[] = { "default", "dynamic", "export", 0 };
     if (p->scope != 3 && p->scope != 4) check_is_traits(p, e, q, vtraits, " variable");
     else for (int t = e; t + 10 <= q; t++) if (!memcmp(p->s + t, "default(", 8) && !(t > 0 && asc_word((unsigned char) p->s[t - 1]))) {
@@ -3644,8 +3643,7 @@ static int r_variable_declarator(RkP *p, int pos) {
     if (p->build) {
         RkDecl *d = (RkDecl *) ct_zalloc(1, sizeof(RkDecl));
         d->sigil = ch(p, pos); d->name = ct_strndup0(p->s + pos, var_end - pos);
-        for (int i = 0; i < nvtr; i++) d->tr[i] = vtr[i];
-        d->ntr = nvtr;
+        d->tr = vtr; d->ntr = nvtr;
         p->dcl = d;
     }
     return q;
@@ -3862,7 +3860,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     }
     int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
-    RkTrait rtr[8]; int nrtr = p->ntr; for (int i = 0; i < nrtr; i++) rtr[i] = p->tr[i];
+    RkTrait *rtr = p->tr; int nrtr = p->ntr;
     static const char *const rtraits[] = { "assoc", "DEPRECATED", "export", "hidden-from-backtrace", "hidden-from-USAGE", "implementation-detail", "leading_docs", "nodal",
                                            "pure", "trailing_docs", "default", "equiv", "looser", "tighter", "inlinable", "onlystar", "prec", "raw", "rw", "revision-gated",
                                            "test-assertion", "cached", 0 };
@@ -4013,7 +4011,7 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     }
     int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
-    RkTrait ktr[8]; int nktr = p->ntr; for (int i = 0; i < nktr; i++) ktr[i] = p->tr[i];
+    RkTrait *ktr = p->tr; int nktr = p->ntr;
     int kbk = !strcmp(kind, "class") || !strcmp(kind, "role") ? BK_CLASS : !strcmp(kind, "grammar") ? BK_GRAMMAR : BK_MODULE;
     tree_t *kbody = NULL;
     record_does(p, tstart, q);
@@ -4446,14 +4444,16 @@ static int r_statement_control(RkP *p, int pos) {
     int e;
     if ((e = kok(p, pos, "if")) >= 0 || (e = kok(p, pos, "with")) >= 0) {
         int q = r_xblock(p, e, 0);
-        const char *kws[64]; RkItems *cs[64]; tree_t *bs[64]; int n = 0; tree_t *els = NULL;
+        const char **kws = NULL; RkItems **cs = NULL; tree_t **bs = NULL; int n = 0, ck = 0, cc = 0, cb = 0; tree_t *els = NULL;
+        RK_GROW(kws, n, ck, const char *); RK_GROW(cs, n, cc, RkItems *); RK_GROW(bs, n, cb, tree_t *);
         kws[n] = "if"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++;
         for (;;) {
             int t = ws(p, q);
             int f;
             if (at_lit(p, t, "else") && (f = hs(p, t + 4)) && at_lit(p, f, "if") && !wordch_at(p, f + 2)) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"else if\"");
             if ((f = kw(p, t, "elif")) >= 0) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"elif\"");
-            if ((f = kok(p, t, "elsif")) >= 0 || (f = kok(p, t, "orwith")) >= 0) { q = r_xblock(p, f, 0); if (n < 64) { kws[n] = "elsif"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++; } continue; }
+            if ((f = kok(p, t, "elsif")) >= 0 || (f = kok(p, t, "orwith")) >= 0) { q = r_xblock(p, f, 0); RK_GROW(kws, n, ck, const char *); RK_GROW(cs, n, cc, RkItems *);
+                RK_GROW(bs, n, cb, tree_t *); kws[n] = "elsif"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++; continue; }
             if ((f = kw(p, t, "else")) >= 0) { int g = ws(p, f); int h = r_pblock(p, g, 0); els = p->tv; if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, els); return h; }
             if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, NULL);
             return q;

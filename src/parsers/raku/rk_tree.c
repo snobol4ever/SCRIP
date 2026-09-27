@@ -633,7 +633,7 @@ static tree_t *closure_expr(RkB *b, RkClosure *c) { if (!c) return leaf_sval(TT_
 static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
     const char *s = b->s; SB buf = { 0 };
     typedef struct { int at; int pos; } Mk;
-    Mk mk[64]; int nmk = 0;
+    Mk *mk = NULL; int nmk = 0, cmk = 0;
     int i = from;
     while (i < to) {
         char c = s[i];
@@ -664,7 +664,7 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
         }
         if (c == '{') {
             int e = dq_closure_end(s, i, to);
-            if (e > 0 && nmk < 64) { mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; sb_c(&buf, '\x02'); i = e; continue; }
+            if (e > 0) { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; sb_c(&buf, '\x02'); i = e; continue; }
         }
         sb_c(&buf, c); i++;
     }
@@ -1229,7 +1229,7 @@ void rkb_fatarrow(RkB *b, RkItem *it, int from, int to, int kfrom, int kto, RkIt
     tree_t *c = make_call("__rk_pair"); expr_add_child(c, var_node(b, it->name)); expr_add_child(c, it->val); it->t = c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rkb_prefix(RkItem *it, const char *s, int n) { if (it->npre < 4) it->pre[it->npre++] = trimdup(s, n); }
+void rkb_prefix(RkItem *it, const char *s, int n) { GROW(it->pre, it->npre, it->cpre, const char *); it->pre[it->npre++] = trimdup(s, n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_reduce(RkB *b, RkItem *it, int from, int to, int ofrom, int oto, RkItems *args) {
     memset(it, 0, sizeof *it); it->kind = RKI_TREE; it->from = from; it->to = it->core_to = to;
@@ -1387,9 +1387,9 @@ static tree_t *decl_node(RkB *b, const char *type, tree_t *var, tree_t *val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *build_decl(RkB *b, RkDecl *d, RkItems *outer, SEGS *osg, int ofirst) {
-    RS rs[64]; int nrs = 0;
-    if (d->init) { SEGS sg = segs_of(d->init); for (int i = 0; i < sg.n && nrs < 64; i++) { rs[nrs].xs = d->init; rs[nrs].lo = sg.s[i].lo; rs[nrs].hi = sg.s[i].hi; nrs++; } }
-    if (outer && osg) for (int i = ofirst; i < osg->n && nrs < 64; i++) { rs[nrs].xs = outer; rs[nrs].lo = osg->s[i].lo; rs[nrs].hi = osg->s[i].hi; nrs++; }
+    RS *rs = NULL; int nrs = 0, crs = 0;
+    if (d->init) { SEGS sg = segs_of(d->init); for (int i = 0; i < sg.n; i++) { GROW(rs, nrs, crs, RS); rs[nrs].xs = d->init; rs[nrs].lo = sg.s[i].lo; rs[nrs].hi = sg.s[i].hi; nrs++; } }
+    if (outer && osg) for (int i = ofirst; i < osg->n; i++) { GROW(rs, nrs, crs, RS); rs[nrs].xs = outer; rs[nrs].lo = osg->s[i].lo; rs[nrs].hi = osg->s[i].hi; nrs++; }
     const char *name = d->name ? d->name : "$";
     const char *type = d->type;
     int sig = d->sigil;

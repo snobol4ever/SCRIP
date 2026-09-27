@@ -10,8 +10,8 @@ typedef struct RkItem {
     tree_t *t;
     int kind, cls;
     int from, to, core_to;
-    int npost, npre;
-    const char *pre[4];
+    int npost, npre, cpre;
+    const char **pre;
     const char *name;
     int ck;
     tree_t *val;
@@ -26,7 +26,7 @@ struct RkDecl {
     const char *name, *type, *init_op;
     RkItems *init;
     tree_t *sig;
-    RkTrait tr[4]; int ntr;
+    RkTrait *tr; int ntr;
 };
 typedef struct { int k; int from, to; const char *txt; int form, mod; RkItems *inner; RkItems *args; } RkPf;
 typedef struct { int pos; RkItems *items; int cnt; } RkClosure;
