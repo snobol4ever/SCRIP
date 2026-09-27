@@ -97,19 +97,24 @@ static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
       new_ctx->stk_lo = (char *)sa; new_ctx->stk_hi = (char *)sa + sz; }
     new_ctx->alive = 1;
 }
+void scrip_coexpr_trampoline_entry(void *arg);
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     scrip_co_init_once(old);
     const int _inh_ctx = new_ctx && new_ctx->inherit_scan;
     { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
     if (first == 0) scrip_co_thread_start(new_ctx);
-    if (!new_ctx->started) { new_ctx->started = 1; { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); } }
+    if (!new_ctx->started) { new_ctx->started = 1; { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); }
+        if (_inh_ctx && new_ctx->entry_fn == scrip_coexpr_trampoline_entry && new_ctx->entry_arg) {
+            extern int scan_pos; extern const char *scan_subj; extern long rt_scan_subj_len(void); scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)new_ctx->entry_arg;
+            pkg->r14 = (uint64_t)(scan_pos > 0 ? scan_pos - 1 : 0);
+            if (!new_ctx->sigma_live && scan_depth > 0 && scan_subj) { pkg->r13 = (uint64_t)(uintptr_t)scan_subj; pkg->r15 = (uint64_t)rt_scan_subj_len(); new_ctx->sigma_live = 1; } } }
     __asm__ volatile ("mov %%rsp, %0" : "=m"(old->park_sp));
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
     if (!old->alive) longjmp(old->exit_jmp, 1);
     { extern void rtcc_coexpr_restore(const uint64_t *); rtcc_coexpr_restore(old->rtcc_spill); }
-    { extern void rt_scan_state_apply(void *); if (!_inh_ctx) rt_scan_state_apply(old->scan_state); }
+    { extern void rt_scan_state_apply(void *); if (!_inh_ctx && !(old->inherit_scan && old->entry_fn == scrip_coexpr_trampoline_entry)) rt_scan_state_apply(old->scan_state); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
@@ -263,7 +268,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)ct_alloc(sizeof(scrip_coexpr_entry_pkg_t));
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
-    ctx->inherit_scan = 0;
+    ctx->inherit_scan = 1;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
     pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes; pkg->below = 0;
     ctx->image = 0; ctx->image_src = 0; ctx->image_span = 0; ctx->image_below = below_bytes; ctx->started = 0; ctx->eager = 1; ctx->stk_need = (size_t)frame_bytes;

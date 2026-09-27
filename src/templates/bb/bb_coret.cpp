@@ -16,6 +16,7 @@ std::string bb_coret() {
          + IF(!(_.op_sa < 0),
              x86("comment", "IR_CORET yield")
            + x86_alpha()
+           + x86_scan_sync_out_force()
            + x86("mov",  "rdi", FRQ(_.op_sa))
            + x86("mov",  "rsi", FRQ(_.op_sa + 8))
            + x86("xor",  "edx", "edx")
@@ -27,6 +28,7 @@ std::string bb_coret() {
            + x86("call", "scrip_coret", (uint64_t)(uintptr_t)(void *)scrip_coret)
            + IF(!xa_switch_record_planted(), x86_rsp_load64("r13", 8)
            + x86("add",  "rsp", (long)16))
+           + x86_scan_cursor_sync_in_force()
            + x86_rt_gc_poll()
            + x86_gamma());
 }

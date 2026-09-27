@@ -1859,6 +1859,13 @@ inline std::string x86_scan_sync_out_force() {
     return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_scan_cursor_sync_in_force() {
+    return x86("push", "rax") + x86("push", "rdx")
+         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
+         + x86("mov", "r14", "rax")
+         + x86("pop", "rdx") + x86("pop", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_in_rr_force() {
     return x86("push", "rax") + x86("push", "rdx")
          + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
