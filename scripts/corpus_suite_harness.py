@@ -461,7 +461,7 @@ def oracle_diagnostic(oracle_bin, flags, sno_path, timeout, stdin_text=None, pro
     return ""
 
 
-def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None):
+def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None, out_files=None):
     """One live oracle invocation. stdin is `/dev/null` unless the caller passes stdin_text -- the
     one caller that does is cmd_capture_oracle_refs, feeding a loose companion resolved by
     loose_stdin_companion(); every other oracle/scrip call in this file
@@ -476,7 +476,9 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=
     that echoed text reproducible and comparable to a frozen .ref at all."""
     sno_path = Path(sno_path)
     argv = [oracle_bin] + flags.split() + _host_u_switch(sno_path, prog_args) + [sno_path.name] + (list(prog_args) if prog_args else [])
+    _out_files_clear(sno_path.parent, out_files)
     kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
+    out = _out_files_append(out, sno_path.parent, out_files) if out_files else out
     # ⛔⭐ AN ORACLE KILLED BY A SIGNAL IS A CRASH, NOT A RUN -- and until 2026-09-04 this returned "RAN" for one
     # (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on seat07's finding that
     # `sbl -bf` SIGSEGVs on about half its ERROR 212 runs WHILE PRINTING the diagnostic). _run_raw's "RAN" means
@@ -710,8 +712,10 @@ def apply_line_mask(text, patterns, side="both"):
                 del lines[lines.index(val)]
                 n += 1
     return "\n".join(lines), n
-def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None):
+def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None, out_files=None):
+    _out_files_clear(cwd, out_files)
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
+    out = _out_files_append(out, cwd, out_files) if out_files else out
     if kind == "HANG":
         return Verdict("HANG", out, err, None, detail=f"exceeded {timeout}s")
     if kind == "UNPROVEN":
@@ -765,7 +769,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None, compile_args=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -800,7 +804,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # byte-identical to its .ref when run from its own directory in BOTH modes, FAIL in both from
     # anywhere else. Consistent for suite entries too: run_suite_entry materializes the entry into a
     # temp dir and passes THAT path, so parent is the temp dir -- exactly where it copies companions.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask, out_files=out_files)
 
 
 def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
@@ -841,7 +845,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -893,7 +897,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # the declared heap and stack ride the binary's command line as -d -i -s (see _size_switches), read at its first allocation
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask, out_files=out_files)
 
 
 # ⛔⭐ run_ast TAKES NO prog_argv AND MUST NOT -- NOT AN OVERSIGHT. `--dump-ast` never executes the
@@ -1050,6 +1054,10 @@ class Entry:
                                    # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
         self.compile_args = None  # list[str] of scrip switches this entry DECLARES for its compile step, both modes, or None =
                                    # none (clause 8 (f), CEO-1281): ALL.csv's compile_args column, read by read_command_line_columns.
+        self.out_files = None     # list[str] of files this entry WRITES whose bytes are its answer, or None (Lon 2026-09-27, in-chat to
+                                   # hq_snobol4, picking "Out-file attribute" for aisnobol BUILDLIB.sno, which prints nothing and writes
+                                   # spitlib.idx): ALL.csv's out_files column. Each is deleted before every run (oracle, m3, m4) and its
+                                   # bytes appended to the graded output after it, so a staged copy can never answer for the program.
         self.stack_kb = None      # int KB of STACK this entry declares (CEO-1225), or None = the runtime's 64 MB floor.
         self.heap_kb = None       # int KB this entry DECLARES it needs, or None = the shipped default.
                                    # Lon 2026-09-23 / CEO-1167. DECLARED in ALL.csv's heap_kb column (or a
@@ -1169,14 +1177,14 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None):
     """Every mode is graded against the ONE ref: the two modes are one machine in two media (Lon 2026-09-23, CEO-1218/1230)."""
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files)
     return out
 
 
@@ -1967,7 +1975,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
                              mask=getattr(entry, 'mask', None),
                              where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None), stack_kb=getattr(entry, 'stack_kb', None),
-                             compile_args=getattr(entry, 'compile_args', None))
+                             compile_args=getattr(entry, 'compile_args', None), out_files=getattr(entry, 'out_files', None))
 
 
 # ================================================================== CLI ===
@@ -3518,6 +3526,29 @@ def stack_declarations(sno_path):
 COMPILE_ARGS_ADMITTED = ("--stlimit",)
 
 
+def validate_out_files_cell(raw, where):
+    """Parse ONE out_files cell into bare file names, or refuse rc=2 naming the cell; None for the empty cell. A name is a file
+    in the unit's own run directory: no '/', no leading '.', no ALL.* container, so the run can only delete and read files the
+    staging directory owns."""
+    words = validate_args_cell(raw, "out_files", where)
+    for w in words or []:
+        if "/" in w or w.startswith(".") or w.startswith("ALL."):
+            refuse(f"{where}: out_files names {w!r} -- a bare file name in the unit's own run directory only")
+    return words
+
+
+def _out_files_clear(cwd, names):
+    for n in names or []:
+        (Path(cwd) / n).unlink(missing_ok=True)
+
+
+def _out_files_append(out, cwd, names):
+    for n in names or []:
+        f = Path(cwd) / n
+        out += f.read_bytes() if f.is_file() else f"<<out_files: {n} was not written>>\n".encode()
+    return out
+
+
 def validate_args_cell(raw, col, where):
     """Parse ONE compile_args or run_args cell into its words, or refuse rc=2 naming the cell; None for the empty cell
     (nothing declared: byte-identical to the run before the column existed). RULES.md hard-cap rule clause 8 (f), ceo
@@ -3613,7 +3644,7 @@ def read_command_line_columns(src_path, entries, modes=None):
     import csv as _csvm
     with open(csv_path, newline="") as f:
         rdr = _csvm.DictReader(f)
-        cols = [c for c in ("compile_args", "run_args") if rdr.fieldnames and c in rdr.fieldnames]
+        cols = [c for c in ("compile_args", "run_args", "out_files") if rdr.fieldnames and c in rdr.fieldnames]
         if not cols:
             return
         rows = [(n, r) for n, r in enumerate(rdr, 2)]
@@ -3636,6 +3667,9 @@ def read_command_line_columns(src_path, entries, modes=None):
                 refuse(f"{where}: {e.name} declares run_args, and this family is graded in {sorted(modes)} only -- "
                        f"--dump-ast never RUNS the program, so the arguments could not reach it")
             e.argv = ra
+        of = validate_out_files_cell(row.get("out_files"), where)
+        if of:
+            e.out_files = of
 
 
 def cmd_extract_family(args):

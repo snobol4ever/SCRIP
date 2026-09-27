@@ -267,6 +267,8 @@ def build(pkg_dir, lang, out_prefix="ALL"):
             _al = [ln for ln in argv_path.read_text().split("\n") if ln.strip() and not ln.lstrip().startswith("#")]
             prog_args = _al[0].rstrip("\n").split("\t") if _al else None
         stdin_text = stdin_path.read_text() if stdin_path else None
+        _of_path = src.with_suffix(".outfiles")
+        out_files = h.validate_out_files_cell(" ".join(ln.strip() for ln in _of_path.read_text().split("\n") if ln.strip() and not ln.lstrip().startswith("#")), str(_of_path)) if _of_path.is_file() else None
         # ⭐ ISOLATE THE ORACLE INVOCATION, ONE FILE PER THROWAWAY CWD (measured on
         # corpus/packages/icon/ipl/progs/: this project's own Icon oracle driver, run_oracle()'s
         # cwd=sno_path.parent contract landing it in a directory of `link`-directive .icn siblings, renames
@@ -295,7 +297,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                 if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
                     (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
             _iso_src.write_bytes(src.read_bytes())
-            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text, prog_args=prog_args)
+            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text, prog_args=prog_args, out_files=out_files)
         if ora_kind == "HANG":
             excluded.append((name, "oracle timed out -- non-terminating or too slow for the grading timeout"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle HANG)", file=sys.stderr)
@@ -339,6 +341,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         entries.append(e)
         _fed = f" [stdin: {stdin_path.name}]" if stdin_text is not None else ""
         if prog_args: e.argv = list(prog_args)
+        if out_files: e.out_files = list(out_files)
         _rc = f" [want_rc={want_rc}]" if want_rc else ""
         print(f"[{i}/{len(srcs)}] {name}: ABSORBED{_fed}{_rc}", file=sys.stderr)
 
@@ -394,6 +397,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     _old_stack = {}   # stack_kb: the same kind of paid-for measurement, carried forward the same way (CEO-1225)
     _old_cmd = {}     # compile_args and run_args: the unit's command line, carried forward the same way (clause 8 (f), CEO-1281)
     _cmd_cols = ["compile_args", "run_args"]   # a new table gets both; a rebuild keeps the ones the table has, never imposes one
+    _of_col = ["out_files"] if any(getattr(e, "out_files", None) for e in entries) else []   # derived from <stem>.outfiles, every build
     if out_csv.exists():
         with open(out_csv, newline="") as _f:
             _rdr = csv.DictReader(_f)
@@ -410,12 +414,12 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                     _old_cmd[_row.get("entry")] = _c
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "heap_kb", "stack_kb"] + _cmd_cols + [c for c, _fn in cols])
+        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "heap_kb", "stack_kb"] + _cmd_cols + _of_col + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [_old_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [_old_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [" ".join(getattr(e, "out_files", None) or []) for c in _of_col] + [flags_row[c] for c, _fn in cols])
     if _old_heap:
         print("    heap_kb: %d declaration(s) carried forward across this rebuild: %s"
               % (len(_old_heap), ", ".join("%s=%sKB" % kv for kv in sorted(_old_heap.items()))), file=sys.stderr)
