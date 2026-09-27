@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1812
+#define GC_ALLOC_TAB_N 1815
 #define GC_ALLOC_TAB_N_VOID 206
-#define GC_ALLOC_TAB_N_DESCR 1023
-#define GC_ALLOC_TAB_N_OTHER 577
+#define GC_ALLOC_TAB_N_DESCR 1025
+#define GC_ALLOC_TAB_N_OTHER 578
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -112,6 +112,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_RPAD_", GC_RET_DESCR },
     { "_RSORT_", GC_RET_DESCR },
     { "_SETEXIT_", GC_RET_DESCR },
+    { "_SET_", GC_RET_DESCR },
     { "_SIN_", GC_RET_DESCR },
     { "_SIZE_", GC_RET_DESCR },
     { "_SORT_", GC_RET_DESCR },
@@ -345,6 +346,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_make_ctor", GC_RET_DESCR },
     { "_make_fget", GC_RET_DESCR },
     { "_parse_define_spec", GC_RET_OTHER },
+    { "_set_int_arg", GC_RET_OTHER },
     { "_tbl_grow", GC_RET_OTHER },
     { "_tbl_live_at", GC_RET_OTHER },
     { "_tbl_rehash", GC_RET_VOID },
@@ -561,6 +563,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_argtype_raise", GC_RET_OTHER },
     { "icn_call_value_deref_args", GC_RET_VOID },
     { "icn_call_value_name_invocable", GC_RET_OTHER },
+    { "icn_call_value_not_invocable", GC_RET_DESCR },
     { "icn_extfn_marshal_in", GC_RET_OTHER },
     { "icn_extfn_marshal_out", GC_RET_DESCR },
     { "icn_extfn_unprovided", GC_RET_VOID },

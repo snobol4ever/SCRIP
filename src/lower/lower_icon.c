@@ -11,7 +11,7 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; const char ** gn; int ngn; const char * pname;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line;
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line; int after_line;
     int ret_lv; const char * file; int links;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
@@ -275,6 +275,7 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
+    int after_line = cx->after_line; cx->after_line = 0;
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
     if (name && !strcmp(name, "key") && nargs == 1 && icn_callable_proc_index("key") < 0) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
@@ -312,6 +313,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int cline = (t && t->line > 0) ? t->line : ((t && argbase > 0 && t->c[argbase - 1]) ? t->c[argbase - 1]->line : 0);
+    int own_line = cline; if (after_line > 0) cline = after_line;
     IR_t * callin = (name && cline > 0) ? icn_line_mark(cx, cline, call) : call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
@@ -321,7 +323,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
-        if (!staged[k]) ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar);
+        if (!staged[k]) { if (k == nargs - 1) cx->after_line = own_line; ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar); }
         aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
@@ -587,7 +589,7 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
-    cx->beta = ω;
+    cx->beta = ω; int after_line = cx->after_line; cx->after_line = 0;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
         if (t->t == TT_CAT && t->n == 2 && (icn_arg_is_scan_fn(t->c[0]) || icn_arg_is_scan_fn(t->c[1]))) {
@@ -607,8 +609,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
         int late_deref = icn_operand_derefs_late(cx, t->c[0]);
         IR_t * lr = NULL, * rr = NULL, * ea = NULL, * eb = NULL, * lβ = NULL, * rβ = NULL;
-        if (late_deref) { eb = lower(cx, t->c[1], NULL, ω, &rr); rβ = cx->beta; ea = lower(cx, t->c[0], bsucc, rβ, &lr); lβ = cx->beta; }
-        else { ea = lower(cx, t->c[0], NULL, ω, &lr); lβ = cx->beta; eb = lower(cx, t->c[1], bsucc, lβ, &rr); rβ = cx->beta; }
+        if (late_deref) { eb = lower(cx, t->c[1], NULL, ω, &rr); rβ = cx->beta; cx->after_line = (t->line > 0) ? t->line : -1; ea = lower(cx, t->c[0], bsucc, rβ, &lr); lβ = cx->beta; }
+        else { ea = lower(cx, t->c[0], NULL, ω, &lr); lβ = cx->beta; cx->after_line = (t->line > 0) ? t->line : -1; eb = lower(cx, t->c[1], bsucc, lβ, &rr); rβ = cx->beta; }
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
         if (is_relop && opfail) ω_to(op, opfail);
         if (late_deref) lc_γ_to(rr, ea); else lc_γ_to(lr, eb);
@@ -690,7 +692,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
           if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res); if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res); return lower(cx, tg, γ, ω, res); } }
         if (!fn || icn_callee_is_name(cx, fn)) {
             const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
-            if (!icn_call_yields_a_variable(cx, nm)) return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
+            cx->after_line = after_line; if (!icn_call_yields_a_variable(cx, nm)) return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
             IR_t * cr = NULL; IR_t * drf = build(cx, IR_DEREF, γ, ω);
             IR_t * centry = lower_call(cx, nm, t, 1, t->n - 1, drf, ω, &cr);
             IR_t * cβ = cx->beta; if (cβ && cβ != ω && cβ != drf) ω_to(drf, cβ);
@@ -706,13 +708,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         for (int i = 1; i < t->n; i++) {
             IR_t * ar = NULL; IR_t * ae = NULL;
             if (icn_arg_stages(cx, t->c[i]) || (t->c[i] && t->c[i]->t == TT_ITERATE && t->c[i]->n > 0 && icn_arg_stages(cx, t->c[i]->c[0]))) { cx->beta = prevβ ? prevβ : ω; ae = lower_lvalue_var(cx, t->c[i], prevβ ? prevβ : ω, &ar); if (ae && ar && ar->op == IR_VAR_REF) ar->pat_static = 1; }
-            if (!ae || !ar) ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar);
+            if (!ae || !ar) { if (i == t->n - 1) cx->after_line = (t->line > 0) ? t->line : fn->line; ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar); }
             prevβ = cx->beta;
             lc_γ_to(prev, ae); prev = ar;
             ir_operand_push(nd, ar);
         }
         ω_to(nd, prevβ ? prevβ : ω);
-        lc_γ_to(prev, nd);
+        { long own = (t->line > 0) ? t->line : fn->line; long vline = (after_line != 0 && after_line != own) ? 0 : own; lc_γ_to(prev, (vline > 0) ? icn_line_mark(cx, (int) vline, nd) : nd); }
         ω_to(drf, nd); ir_operand_push(drf, nd);
         cx->beta = nd;
         *res = drf; return ce; }

@@ -458,7 +458,7 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int stri
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) { extern int rt_k_level; r->name = name; r->args = args; r->nargs = nargs; r->level = rt_k_level; r->prev = g_icn_bi_top; g_icn_bi_top = r; if (!core_icn_op_plant()) g_icn_op.sym = (const char *)0; }
+void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) { extern int rt_k_level; r->name = name; r->args = args; r->nargs = nargs; r->level = rt_k_level; r->prev = g_icn_bi_top; r->callee = NULVCL; g_icn_bi_top = r; if (!core_icn_op_plant()) g_icn_op.sym = (const char *)0; }
 void core_icn_bi_pop(icn_bi_rec_t *r) { g_icn_bi_top = r->prev; }
 void *core_icn_bi_mark(void) { return (void *)g_icn_bi_top; }
 void core_icn_bi_reset(void *mark) { g_icn_bi_top = (icn_bi_rec_t *)mark; }
@@ -468,7 +468,7 @@ static void icn_tb_builtins_at(int lv) {
     for (int k = n; k > 0; k--) {
         int i = 0; icn_bi_rec_t *b = g_icn_bi_top; while (b && !(b->level == lv && ++i == k)) b = b->prev;
         if (!b) break;
-        fputs("  in ", stderr); fputs(b->name ? b->name : "", stderr); fputc('(', stderr);
+        fputs("  in ", stderr); if (b->name) fputs(b->name, stderr); else icn_tb_image(b->callee); fputc('(', stderr);
         { extern int icn_builtin_arity(const char *nm); int np = b->name ? icn_builtin_arity(b->name) : 0; int n2 = (np > b->nargs) ? np : b->nargs;
           for (int j = 0; j < n2; j++) { if (j) fputc(',', stderr); icn_tb_image((b->args && j < b->nargs) ? b->args[j] : NULVCL); } }
         fputc(')', stderr);

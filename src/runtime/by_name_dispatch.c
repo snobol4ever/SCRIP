@@ -1566,12 +1566,18 @@ static int icn_call_value_name_invocable(DESCR_t callee, const char *nm, int n) 
     return !IS_FAIL_fn(pv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t icn_call_value_not_invocable(DESCR_t callee, DESCR_t *argv, int n) {
+    icn_bi_rec_t bi; core_icn_bi_push(&bi, (const char *)0, argv, n); bi.callee = callee;
+    core_icn_error(106, callee); core_icn_bi_pop(&bi);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (callee.v == DT_R) callee = INTVAL((int64_t)callee.r);
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
-    if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
+    if (!nm) return icn_call_value_not_invocable(callee, argv, n);
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
@@ -1597,7 +1603,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     }
     if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, 0);
     if (n == 0 && !strcmp(nm, "function")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_FNAMES, 0), argv, n, 0);
-    if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
+    if (!icn_call_value_name_invocable(callee, nm, n)) return icn_call_value_not_invocable(callee, argv, n);
     return RT_GC_CALLBACK(rt_call_arr_strict(nm, argv, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1607,7 +1613,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
-    if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
+    if (!nm) return icn_call_value_not_invocable(callee, argv, n);
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
@@ -1639,7 +1645,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         ICN_OPGEN_t *g = icn_opgen_new(ICN_OPGEN_CURSOR, 0); if (g) { g->cur = at; *hslot = (void *)g; }
         return v;
     }
-    if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
+    if (!icn_call_value_name_invocable(callee, nm, n)) return icn_call_value_not_invocable(callee, argv, n);
     return RT_GC_CALLBACK(rt_call_value(callee, argv, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1682,10 +1688,10 @@ CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm) return cvprep_decline("noname", nm);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_BUILTIN_fn(callee)) return cvprep_decline("builtin", nm);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) return cvprep_decline("external", nm);
-    if (!nm) return cvprep_decline("noname", nm);
     if (!rt_proc_is_registered(nm)) return cvprep_decline("unregistered", nm);
     if (!rt_proc_jmp_entry(nm)) return cvprep_decline("nojmpentry", nm);
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return cvprep_decline("genregionft", nm); }
