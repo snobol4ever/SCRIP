@@ -1569,6 +1569,17 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         for (int i = 1; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i]));
         return expr_binary(TT_ASSIGN, var_node(b, t0->name), call);
     }
+    if (op1 && !strcmp(op1, "=") && L->n == 1 && t0->t) {
+        tree_t *g = t0->t, *var = NULL, *from = NULL, *len = NULL;
+        if (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "substr-rw") && g->n >= 3) { var = g->c[1]; from = g->c[2]; len = g->n >= 4 ? g->c[3] : NULL; }
+        else if (g->t == TT_METHCALL && g->n >= 3 && g->c[1] && g->c[1]->v.sval && !strcmp(g->c[1]->v.sval, "substr-rw")) { var = g->c[0]; from = g->c[2]; len = g->n >= 4 ? g->c[3] : NULL; }
+        if (var && var->t == TT_VAR && var->v.sval && var->v.sval[0] != '@' && var->v.sval[0] != '%') {
+            tree_t *c = make_call("__rk_substr_replace"); expr_add_child(c, rk_tree_clone(var)); expr_add_child(c, from);
+            if (len) expr_add_child(c, len);
+            expr_add_child(c, el_rest(b, e0));
+            return expr_binary(TT_ASSIGN, rk_tree_clone(var), c);
+        }
+    }
     if (op1 && t0->kind == TK_PAREN && !t0->npost && !t0->npre && L->n == 1 && t0->t
         && ((t0->t->t == TT_ASSIGN && t0->t->n == 2 && t0->t->c[0] && ((t0->t->c[0]->t == TT_VAR && t0->t->c[0]->v.sval && t0->t->c[0]->v.sval[0] != '@'
              && t0->t->c[0]->v.sval[0] != '%') || rk_is_elem(t0->t->c[0])))

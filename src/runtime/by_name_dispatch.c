@@ -338,7 +338,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_set_cell", "__pas_stdfile", "__pas_arr_copy",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -754,7 +754,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "index") && nmargs >= 1) {
         char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1;
     }
-    if (!strcmp(meth, "substr") && nmargs >= 1) {
+    if ((!strcmp(meth, "substr") || !strcmp(meth, "substr-rw")) && nmargs >= 1) {
         long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb));
         long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0;
         long avail = (long)utf8_strlen(s) - from; if (avail < 0) avail = 0; if (ln > avail) ln = avail;
@@ -775,6 +775,24 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "sin")) { *out = REALVAL(sin(to_real(recv))); return 1; }
     if (!strcmp(meth, "cos")) { *out = REALVAL(cos(to_real(recv))); return 1; }
     if (!strcmp(meth, "tan")) { *out = REALVAL(tan(to_real(recv))); return 1; }
+    if (!strcmp(meth, "polymod") && IS_INT_fn(recv) && nmargs >= 1 && margs) {
+        long long v = recv.i; size_t nd = 0;
+        for (int i = 0; i < nmargs; i++) nd += IS_INT_fn(margs[i]) ? 1 : (size_t)rk_a_count(rk_a_body(VARVAL_fn(margs[i])));
+        char *buf = rt_wsb_alloc(24 * (nd + 1) + 1); size_t q = 0;
+        for (int i = 0; i < nmargs; i++) {
+            const char **els = NULL; size_t *lens = NULL; int ne = 1; long long one = IS_INT_fn(margs[i]) ? margs[i].i : 0;
+            if (!IS_INT_fn(margs[i])) ne = rk_a_split(rk_a_body(VARVAL_fn(margs[i])), &els, &lens);
+            for (int k = 0; k < ne; k++) {
+                long long d = els ? strtoll(els[k], NULL, 10) : one;
+                if (d == 0) return 0;
+                long long r = v % d; if (r != 0 && ((r < 0) != (d < 0))) r += d;
+                q += (size_t)snprintf(buf + q, 24, "%s%lld", q ? "\x01" : "", r);
+                v = (v - r) / d;
+            }
+        }
+        q += (size_t)snprintf(buf + q, 24, "%s%lld", q ? "\x01" : "", v);
+        *out = STRVAL(buf); return 1;
+    }
     if (!strcmp(meth, "sqrt")) { *out = REALVAL(sqrt(to_real(recv))); return 1; }
     if (!strcmp(meth, "log")) { *out = REALVAL(log(to_real(recv))); return 1; }
     if (!strcmp(meth, "exp")) { *out = REALVAL(exp(to_real(recv))); return 1; }
@@ -4659,6 +4677,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_substr_replace") && (nargs == 3 || nargs == 4)) {
+        char sa[64], sr[64]; const char *str = to_cstring(args[0], sa, sizeof sa); if (!str) str = "";
+        const char *rep = to_cstring(args[nargs - 1], sr, sizeof sr); if (!rep) rep = "";
+        long from = IS_INT_fn(args[1]) ? (long)args[1].i : 0, len = nargs == 4 && IS_INT_fn(args[2]) ? (long)args[2].i : -1;
+        size_t n = strlen(str), a = 0; long k = 0;
+        while (a < n && k < from) { a++; while (a < n && ((unsigned char)str[a] & 0xC0) == 0x80) a++; k++; }
+        size_t e = a; k = 0;
+        if (len < 0) e = n; else while (e < n && k < len) { e++; while (e < n && ((unsigned char)str[e] & 0xC0) == 0x80) e++; k++; }
+        size_t rl = strlen(rep); char *r = (char *)rt_str_alloc(a + rl + (n - e));
+        memcpy(r, str, a); memcpy(r + a, rep, rl); memcpy(r + a + rl, str + e, n - e); r[a + rl + (n - e)] = '\0';
+        *out = STRVAL(r); return 1;
     }
     if (!strcmp(fn, "__rk_eqv") && nargs == 2) {
         DESCR_t a = args[0], b = args[1]; long long t;
