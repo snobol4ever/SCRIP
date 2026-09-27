@@ -166,8 +166,15 @@ ipl_isolation_run() {
   # the driver's own isolated directory first on IPATH, which SCRIP and icont read before ICONPATH -- as the Arizona and Jcon runners
   # give a NAME_driver run (09ee9fb91). Any other program runs exactly as before.
   [ -n "${IPL_ISO_DRIVER:-}" ] && _isoenv+=("IPATH=$work/$sub")
-  ( cd "$work/$sub" && timeout "$to" env "${_isoenv[@]}" "$@" < "$stdin_src" > "$outfile" 2>&1 )
+  # ⭐ THE UNIT'S RUN SIDECARS (NAME.env, NAME.pin, NAME.pty, NAME.outfiles), applied exactly as the cutter applies them.
+  local -a _cmd=("$@")
+  if [ -n "${IPL_ISO_FIXTURES:-}" ]; then
+    ipl_env_apply "$IPL_ISO_FIXTURES" "$work/$sub" _isoenv || { rm -rf "$work"; return 125; }
+    ipl_pty_declared "$IPL_ISO_FIXTURES"; case $? in 0) ipl_pty_cmd _cmd "$@" ;; 2) rm -rf "$work"; return 125 ;; esac
+  fi
+  ( cd "$work/$sub" && timeout "$to" env "${_isoenv[@]}" "${_cmd[@]}" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
+  if [ -n "${IPL_ISO_FIXTURES:-}" ]; then ipl_outfiles_append "$IPL_ISO_FIXTURES" "$work/$sub" "$outfile" || { rm -rf "$work"; return 125; }; fi
   rm -rf "$work"
   return "$rc"
 }
@@ -289,12 +296,94 @@ ipl_fixtures_stage() {
   if [ ! -d "$dir" ] || [ -L "$dir" ]; then
     echo "⛔ FIXTURE SIDECAR REFUSES(2): $dir exists but is not a plain directory" >&2; return 2
   fi
-  for f in "$dir"/*; do
-    [ -e "$f" ] || continue
-    if [ ! -f "$f" ] || [ -L "$f" ]; then
-      echo "⛔ FIXTURE SIDECAR REFUSES(2): $f is not a plain regular file" >&2; return 2
-    fi
-    cp "$f" "$dest/$(basename "$f")" || return 2
-  done
+  # ⭐ SUBDIRECTORIES AND DOTFILES ARE STAGED (hq_icon 2026-09-27, ceo CEO-1315, Lon's "Get IPL to 843."): progs/iplweb and
+  # progs/mszip take a directory TREE as their argument and progs/newsrc opens the fixed name .newsrc, and the old '*' glob copied
+  # neither -- it skipped dotfiles and refused every subdirectory. The tree is copied as it stands; a symlink or a special file
+  # anywhere in it still refuses, since either could escape the scratch tree. ⛔ A staged file is visible to every program that
+  # lists its directory (progs/duplfile runs ls -R), so fixture names must not repeat under the package subdirectory.
+  f="$(find "$dir" -mindepth 1 \( -type l -o \( ! -type f ! -type d \) \) -print -quit)"
+  [ -z "$f" ] || { echo "⛔ FIXTURE SIDECAR REFUSES(2): $f is not a plain regular file or directory" >&2; return 2; }
+  cp -R "$dir"/. "$dest"/ || return 2
   return 0
+}
+
+# ⭐⭐ THE PER-UNIT RUN SIDECARS (hq_icon 2026-09-27; Lon's word "Get IPL to 843."; ceo CEO-1315: "The seven runner sidecars are
+# YOURS ... Each is a per-test-unit attribute read by the one IPL reader (CEO-1281), with one gate per sidecar"). Each is a file
+# beside NAME.icn, read here and applied by BOTH callers at the same point -- util_cut_icon_ipl_refs.sh's run_isolated (the ref)
+# and ipl_isolation_run (m3 and m4) -- so a ref and its grading can never run in two different worlds. Absent means today's
+# behaviour exactly; a malformed sidecar refuses (rc 2), never guesses.
+#   NAME.env      KEY=VALUE per line (# comments): the unit's environment, e.g. TERM, TERMCAP, HOME=@RUNDIR (the run directory),
+#                 VISUAL=cat. The runner's own variables (PATH IPATH ICONPATH LD_* SCRIP_*) are refused.
+#   NAME.pin      the clock and entropy pin: an LD_PRELOAD shim (scripts/ipl_pin_shim.c) fixes the wall clock, zeroes CPU time and
+#                 serves /dev/urandom from a fixed stream, wrapping iconx in the cutter and SCRIP in both modes alike.
+#   (A program whose correct exit status is not 0 -- every exit is stop() -- declares it in the pre-existing NAME.rc, which the cutter
+#   already reads and the runner now grades; there is no second spelling of that fact.)
+#   NAME.empty    one line of reason: the program's correct output is empty by design (proto exits first).
+#   NAME.outfiles one relative path per line: files the program writes, appended to the graded output after the run.
+#   NAME.pty      one line of reason: the unit runs on a pseudo-terminal (script(1)), for programs that need a terminal.
+_ipl_side_lines() { grep -v '^[[:space:]]*\(#.*\)\?$' "$1"; }
+# ipl_env_apply <icn> <rundir> <arrname> -- appends the unit's NAME.env assignments (and NAME.pin's LD_PRELOAD) to an env array.
+ipl_env_apply() {
+  local icn="$1" run="$2" arr="$3" side kv k v so
+  side="${icn%.icn}.env"
+  if [ -f "$side" ]; then
+    while IFS= read -r kv; do
+      k="${kv%%=*}"; v="${kv#*=}"
+      case "$kv" in *=*) ;; *) echo "⛔ ENV SIDECAR REFUSES(2): $side line [$kv] is not KEY=VALUE" >&2; return 2;; esac
+      [[ "$k" =~ ^[A-Z_][A-Z0-9_]*$ ]] || { echo "⛔ ENV SIDECAR REFUSES(2): $side key [$k] is not an environment name" >&2; return 2; }
+      case "$k" in PATH|IPATH|ICONPATH|LD_*|SCRIP_*) echo "⛔ ENV SIDECAR REFUSES(2): $side sets $k, which is the runner's to set, never a unit's" >&2; return 2;; esac
+      v="${v//@RUNDIR/$run}"
+      eval "$arr+=(\"\$k=\$v\")"
+    done < <(_ipl_side_lines "$side")
+  fi
+  if [ -f "${icn%.icn}.pin" ]; then
+    so="$(ipl_pin_shim_path)" || return 2
+    eval "$arr+=(\"LD_PRELOAD=\$so\")"
+  fi
+  return 0
+}
+# ipl_pin_shim_path -- echoes the built shim, compiling scripts/ipl_pin_shim.c once per source hash into a cache directory.
+ipl_pin_shim_path() {
+  local src d h so
+  src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ipl_pin_shim.c"
+  [ -f "$src" ] || { echo "⛔ PIN SIDECAR REFUSES(2): $src is missing" >&2; return 2; }
+  h="$(sha1sum "$src" | cut -c1-12)"; d="${TMPDIR:-/tmp}/scrip-ipl-pin-$(id -u)"; so="$d/pin-$h.so"
+  if [ ! -f "$so" ]; then
+    mkdir -p "$d" && gcc -shared -fPIC -O0 -o "$so.tmp.$$" "$src" -ldl 2>"$d/build.err" && mv -f "$so.tmp.$$" "$so" \
+      || { echo "⛔ PIN SIDECAR REFUSES(2): the pin shim did not build: $(head -c 200 "$d/build.err")" >&2; return 2; }
+  fi
+  echo "$so"
+}
+# ipl_empty_declared <icn> -- 0 when NAME.empty declares an empty output with a reason of 20+ characters, 1 when absent, 2 malformed.
+ipl_empty_declared() {
+  local side="${1%.icn}.empty" r
+  [ -f "$side" ] || return 1
+  r="$(_ipl_side_lines "$side")"
+  [ "${#r}" -ge 20 ] || { echo "⛔ EMPTY SIDECAR REFUSES(2): $side must say WHY the output is empty by design (20+ characters)" >&2; return 2; }
+  return 0
+}
+# ipl_outfiles_append <icn> <rundir> <outfile> -- appends each declared file the program wrote, in declaration order.
+ipl_outfiles_append() {
+  local side="${1%.icn}.outfiles" run="$2" out="$3" rel
+  [ -f "$side" ] || return 0
+  while IFS= read -r rel; do
+    case "$rel" in /*|*..*) echo "⛔ OUTFILES SIDECAR REFUSES(2): $side names [$rel], which leaves the run directory" >&2; return 2;; esac
+    printf '=== OUTFILE %s ===\n' "$rel" >> "$out"
+    if [ -f "$run/$rel" ]; then cat "$run/$rel" >> "$out"; else printf '(absent)\n' >> "$out"; fi
+  done < <(_ipl_side_lines "$side")
+  return 0
+}
+# ipl_pty_declared <icn> -- 0 when NAME.pty asks for a pseudo-terminal (with a reason of 20+ characters), 1 absent, 2 malformed.
+ipl_pty_declared() {
+  local side="${1%.icn}.pty" r
+  [ -f "$side" ] || return 1
+  r="$(_ipl_side_lines "$side")"
+  [ "${#r}" -ge 20 ] || { echo "⛔ PTY SIDECAR REFUSES(2): $side must say WHY the unit needs a terminal (20+ characters)" >&2; return 2; }
+  return 0
+}
+# ipl_pty_cmd <arrname> cmd arg... -- sets the array to the command wrapped for script(1) when a terminal is declared.
+ipl_pty_cmd() {
+  local arr="$1"; shift; local q="" a
+  for a in "$@"; do q="$q $(printf '%q' "$a")"; done
+  eval "$arr=(script -qefc \"\${q# }\" /dev/null)"
 }

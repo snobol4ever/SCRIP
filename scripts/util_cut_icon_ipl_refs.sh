@@ -155,8 +155,14 @@ run_isolated() {
     [ "$crc" -eq 0 ] && crc=1
     return "$crc"
   fi
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env "${_isoenv[@]}" "$ICONX" "$bx" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
+  # ⭐ THE UNIT'S RUN SIDECARS (lib_icon_ipl_isolation.sh: NAME.env, NAME.pin, NAME.pty, NAME.outfiles), applied to iconx here exactly
+  # as ipl_isolation_run applies them to both SCRIP modes -- the pin shim wraps the oracle too, or the ref comes from another world.
+  local -a _runenv=("${_isoenv[@]}") _runcmd=("$ICONX" "$bx" ${argv[@]+"${argv[@]}"})
+  ipl_env_apply "$PROGS/$f" "$work/$SUBDIR" _runenv || { rm -rf "$work"; return 125; }
+  ipl_pty_declared "$PROGS/$f"; case $? in 0) ipl_pty_cmd _runcmd "${_runcmd[@]}" ;; 2) rm -rf "$work"; return 125 ;; esac
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env "${_runenv[@]}" "${_runcmd[@]}" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
+  ipl_outfiles_append "$PROGS/$f" "$work/$SUBDIR" "$outfile" || { rm -rf "$work"; return 125; }
   rm -rf "$work"
   return "$rc"
 }
@@ -433,8 +439,10 @@ for f in "${FILES[@]}"; do
     n_diagnostic=$((n_diagnostic+1)); printf 'ALL_ORACLE_DIAGNOSTIC\t%s\t%s\t0\tNOT MINTED -- the run wrote nothing and every line of evidence is the ORACLE talking about the program, not the program: %s\n' "$f" "$rc1" "$(printf '%s' "$ev_link" | grep -vE '^[[:space:]]*$' | head -1)"
     continue
   fi
-  if [ "$by1" -eq 0 ]; then
-    n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .ref pins "produced nothing" as correct\n' "$f"
+  # ⭐ NAME.empty (hq_icon 2026-09-27): a program whose correct output is empty BY DESIGN -- progs/proto exits before it prints --
+  # declares so with its reason, and then the empty run mints like any other; without the sidecar an empty run still refuses.
+  if [ "$by1" -eq 0 ] && ! ipl_empty_declared "$PROGS/$f" 2>/dev/null; then
+    n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .ref pins "produced nothing" as correct (declare NAME.empty with the reason when it is by design)\n' "$f"
     continue
   fi
   # ⛔⭐⭐ THE CONTENT ASSERTION -- the FIFTH property, and the one that would have caught the 27
@@ -537,7 +545,11 @@ for f in "${FILES[@]}"; do
   # ⛔ CLASSIFIED NONDETERMINISTIC, deliberately NOT a new class name: hq_T's ruling vocabulary is frozen,
   # and NONDETERMINISTIC is not a euphemism here -- the output genuinely varies between runs, the period
   # is simply longer than anyone watched. The reason names the marker so the ruling can be re-examined.
-  if _clk=$(grep -ohE '&dateline|&date|&clock|&now|&time' "$PROGS/$f" 2>/dev/null | sort -u | tr '\n' ' '); [ -n "$_clk" ]; then
+  # ⭐ UNLESS THE UNIT DECLARES NAME.pin (hq_icon 2026-09-27; ceo CEO-1315 ruled the clock and urandom pin, wrapping this cutter's
+  # iconx as it wraps both SCRIP modes): under the pin the clock reads one fixed instant on every run and every day, so the period
+  # this arm exists for is gone, and the determinism arms above decide as they do for any other program.
+  _clk=""; [ -f "$PROGS/${f%.icn}.pin" ] || _clk=$(grep -ohE '&dateline|&date|&clock|&now|&time' "$PROGS/$f" 2>/dev/null | sort -u | tr '\n' ' ')
+  if [ -n "$_clk" ]; then
     n_nondet=$((n_nondet+1))
     printf 'NONDETERMINISTIC\t%s\t%s\t%s\tNOT MINTED -- source reads the clock (%s) so its output has a period no run-twice check can observe; rule it in the package sidecar with the marker named, never pin it\n' "$f" "$rc1" "$by1" "${_clk% }"
     continue
