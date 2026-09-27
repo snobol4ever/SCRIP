@@ -2935,6 +2935,14 @@ static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_body_beta_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (flat_beta_kind_keeps(nd) || op == IR_SCAN_TAB || op == IR_SCAN_MOVE)) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
+    for (int j = 0; j < n; j++) { IR_t * s = nodes[j]; if (!s || s->op != IR_SUSPEND || s->seal != 1 || s->n_operands < 2) continue;
+        IR_t * x = s->operands[1]; int h = 0;
+        while (x && x->op == IR_SCAN && x->n_operands > 2 && !x->operands[1] && x->operands[2] && x->operands[2]->op == IR_SCAN && x->operands[2]->n_operands > 2 && !x->operands[2]->operands[1] && h++ < 64) x = x->operands[2];
+        if (x == c) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
@@ -3575,7 +3583,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
             if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
-            else { { int k = nidx(nodes, n, dobody); if (k >= 0) { g_suspend_dobody_beta = (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED) ? betas[k] : lbls[k]; } } }
+            else { { int k = nidx(nodes, n, dobody); if (k >= 0) { int do_alpha = nodes[i]->seal == 1 && !(dobody->op == IR_SCAN && dobody->n_operands > 2 && !dobody->operands[1]); g_suspend_dobody_beta = (!do_alpha && (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED)) ? betas[k] : lbls[k]; } } }
         }
         if (nodes[i]->op == IR_MATCH_DEFER) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
             for (int _aj = 0; _aj < nodes[i]->n_operands; _aj++) { IR_t *_so = nodes[i]->operands[_aj]; if (!_so || !(_so->op == IR_GOTO || _so->op == IR_MATCH_ARBNO || _so->op == IR_MATCH_ABORT)) continue;
@@ -3631,7 +3639,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; int _fk = -1;
                 for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {
                     { int _conduit = (IR_LIT(nodes[i]).dval == 3.0 || IR_LIT(nodes[i]).dval == 4.0) ? 1 : 0;
-                    { int k = nidx(nodes, n, bb2); if (k >= 0) { _fk = k; g_scan_body_beta = (betas[k] && (scan_body_beta_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; } } }
+                    { int k = nidx(nodes, n, bb2); if (k >= 0) { _fk = k; g_scan_body_beta = (betas[k] && !(_hops == 0 && !bv && scan_conduit_enters_a_do_clause(nodes, n, nodes[i])) && (scan_body_beta_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; } } }
                     if (_fk < 0) bb2 = bb2->γ.node;
                 }
                 if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d dval=%g nops=%d bv=%d -> t0=%s (alpha=%s beta=%s keeps=%d used=%d)\n", i, _fk, IR_LIT(nodes[i]).dval, nodes[i]->n_operands, bv ? 1 : 0, g_scan_body_beta ? g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-", _fk >= 0 ? scan_body_beta_keeps(nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }

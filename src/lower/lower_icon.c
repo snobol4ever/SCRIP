@@ -857,7 +857,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
         if (t->n > 0 && t->c[0]) { cx->beta = ω; if (icn_trace_operand_has_var(cx, t->c[0])) sn->pat_static = 1; e_entry = lower_trace_operand(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }
         ir_operand_push(sn, ev);
-        IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv); }
+        IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv); sn->seal = 1; }
         else rrt = eβ ? eβ : ω;
         if (cx->scan_sp > 0) {
             IR_t * ytgt = cx->psucc ? cx->psucc : γ; IR_t * rrt0 = rrt;
