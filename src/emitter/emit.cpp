@@ -3847,7 +3847,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (_dres && g_emit.flat_pat && g_emit_cfg && g_emit_cfg->body_root) {
             int _f1 = 0; for (int i = 0; i < n; i++) if (nodes[i]->op == IR_MATCH_FENCE1) { _f1 = 1; break; }
             int _sd = resume_sealed_defer_on_root(nodes, n, g_emit_cfg->body_root);
-            int _f1r = _f1; { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME"); if (!(_fre && *_fre == '0') && g_emit_cfg->body_root && g_emit_cfg->body_root->op != IR_MATCH_FENCE1 && (zdp_seam_tier(g_emit_cfg->body_root) == 1 || zdp_seam_tier(g_emit_cfg->body_root) == 3)) _f1r = 0; }
+            int _f1r = _f1; { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME"); if (!(_fre && *_fre == '0') && g_emit_cfg->body_root && zdp_seam_tier(g_emit_cfg->body_root) != 0) _f1r = 0; }
             if (getenv("SCRIP_RESUME_WHY")) { extern int zdp_seam_tier(const IR_t *); const IR_t * _br = g_emit_cfg->body_root; int _found = 0; { int i = nidx(nodes, n, _br); if (i >= 0) _found = 1; }
                 int _wnc = 0, _wlf = 0, _wfn = 0; sn4_blob_choice_scan(&_wnc, &_wlf, &_wfn);
                 fprintf(stderr, "[RESUME-WHY] flat_pat=%d dres=%d f1=%d f1r=%d sd=%d body_root_op=%d tier=%d seal=%d in_nodes=%d n=%d nc=%d lf=%d fn=%d cro=%d\n", g_emit.flat_pat, _dres, _f1, _f1r, _sd, _br ? (int)_br->op : -1, _br ? zdp_seam_tier(_br) : -1, _br ? (int)_br->seal : -1, _found, n, _wnc, _wlf, _wfn, sn4_choice_rbp_off()); }
