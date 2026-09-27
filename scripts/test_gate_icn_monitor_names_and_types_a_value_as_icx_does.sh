@@ -18,6 +18,9 @@
 #       for each (hq_icon 2026-09-27: regexp's /Re_WordChars := ... and s[-1] := "");
 #   (7) a statement that lowers to a generator-kind entry (every if) inside a { } block sent no LABEL: the block loop labelled a
 #       statement only when no trampoline stood in front of its entry (hq_icon 2026-09-27: regexp line 444).
+#   (8) a reversible assignment x <- v traced x AFTER its store, so where a caller rewired the store's success (an operand of
+#       ||) the trace was left behind and no VALUE went out; and &subject <- s / &pos <- i sent VALUE &subject / &pos, where
+#       icx sends nothing for a keyword (hq_icon 2026-09-27: IPL patterns, (n <- Span(...)) || ="H" || ...).
 # core.c's rt_trace_value now shows a static by its source name and emits nothing for a synthetic global, and one typing helper
 # (mon_wire_type) sends a set as DATA, as monitor_icx.c types T_Set, and a procedure value as CODE.
 #
@@ -33,6 +36,9 @@ IM="${ICON_MON_ROOT:-$S4A/icon-mon}"
 T="$(mktemp -d "${TMPDIR:-/tmp}/valname_gate.XXXXXX")" || { echo "⛔ GATE REFUSE(2) [$G]: mktemp failed"; exit 2; }
 trap 'rm -rf "$T"' EXIT
 cat > "$T/valname.icn" <<'EOF'
+procedure span(c)
+   suspend tab(many(c))
+end
 procedure f()
    static k;
    initial k := 3;
@@ -57,6 +63,8 @@ procedure main()
          };
       n := 3
       };
+   "5H1" ? ((n <- span('0123456789')) || ="H");
+   (&subject <- "xy") & (&pos <- 2) & (n <- 4);
    n := *s;
    p(n, " ", *&progname > 0, " ", q(2, 3))
 end

@@ -1110,16 +1110,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
             if (rbeta) ω_to(nd, rbeta);
             else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);
+            IR_t * tvc = NULL; IR_t * tv = icn_trace_named_prep(cx, "__trace_value", (lhs->v.sval && lhs->v.sval[0] != '&') ? lhs->v.sval : NULL, nd, ω, &tvc); if (tvc) lc_γ_to(tvc, nd);
             lc_γ_to(lr, re);
-            lc_γ_to(rr, nd);
+            lc_γ_to(rr, tv ? tv : nd);
+            if (tv && rr) ir_operand_push(tvc, rr);
             ir_operand_push(nd, rr);
             ir_operand_push(nd, lr);
-            IR_t * tvc = NULL; IR_t * tv = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, γ, ω, &tvc);
-            if (tv) {
-                IR_t * tval = NULL; IR_t * tval_entry = lower(cx, lhs, tv, ω, &tval);
-                if (tval) ir_operand_push(tvc, tval);
-                lc_γ_to(nd, tval_entry);
-            }
             cx->beta = nd; *res = nd; return le;
         }
         if (icn_tree_is_literal(lhs)) return lower_runerr_111(cx, rhs, lhs, γ, ω, res);
