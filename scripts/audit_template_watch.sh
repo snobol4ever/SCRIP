@@ -34,7 +34,12 @@
 #   rc 1  some class rose: each such file is printed with its raising commit(s)
 #   rc 2  BASE or HEAD is not a readable commit, or the population is under the floor
 # Env: TEMPLATE_WATCH_JOBS (parallel audits, default 8); TEMPLATE_WATCH_CACHE (a directory to keep per-blob
-# counts across runs, keyed by the audit's own blob so an edited audit never reads a stale count).
+# counts across runs, keyed by the audit's own blob so an edited audit never reads a stale count, and per-commit
+# form censuses keyed by the census script's blob and the commit).
+# ⭐ AND THE FORMS (Lon, same sitting: "...to consider having other IR/BB broken out properly by form/pattern"):
+# audit_template_forms.py is run on both ends (git archive of the templates and emit.cpp), and a box whose LIVE
+# FORM count rose past one, or an IR kind the emitter newly splits across boxes, is named with the commit that
+# raised it -- a form can arrive with no rule class moving, so the rule census alone would never see it.
 # Print the next tick's BASE from the last line: "NEXT TICK BASE: <sha>".
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -178,6 +183,57 @@ while IFS=$'\t' read -r path bs hs; do
 done < "$TMP/pairs"
 [ -n "$fell" ] && echo "  FELL (cured, no class rose):$fell"
 echo "  VERDICT: $rose template file(s) gained violations in ${BASE:0:9}..${HEADC:0:9}, $arrived violation(s) arrived by the raising commits"
+FORMS="$HERE/audit_template_forms.py"
+FKEY="$(git hash-object "$FORMS" 2>/dev/null | cut -c1-12)"
+fpath() { echo "$CNT/forms.$FKEY.$(git -C "$REPO" rev-parse -q --verify "$1^{commit}" 2>/dev/null || echo none)"; }
+forms_at() {
+    local p d
+    p="$(fpath "$1")"
+    [ -s "$p" ] && return 0
+    d="$TMP/tree.$$.$RANDOM"
+    mkdir -p "$d"
+    git -C "$REPO" archive "$1" src/templates/bb src/templates/xa src/emitter/emit.cpp 2>/dev/null | tar -x -C "$d" 2>/dev/null
+    python3 "$FORMS" --root "$d" --tsv > "$p.tmp.$$" 2>&1
+    if [ $? -le 1 ]; then mv "$p.tmp.$$" "$p"; else rm -f "$p.tmp.$$"; rm -rf "$d"; return 1; fi
+    rm -rf "$d"
+}
+live_of() { awk -F'\t' -v b="$2" '$1 == b { print $6; f = 1 } END { if (!f) print 0 }' "$(fpath "$1")"; }
+split_of() { awk -F'\t' -v k="$2" '$1 == "kind" && $2 == k { print $3; f = 1 } END { if (!f) print "-" }' "$(fpath "$1")"; }
+nboxes() { [ "$1" = "-" ] && echo 0 || tr '|' '\n' <<< "$1" | wc -l; }
+formrose=0
+if [ ! -f "$FORMS" ]; then
+    echo "  FORMS: the form census audit_template_forms.py is absent -- forms not watched this tick"
+elif ! forms_at "$BASE" || ! forms_at "$HEADC"; then
+    echo "  FORMS: UNPROVEN -- the form census could not read ${BASE:0:9} or ${HEADC:0:9} (no emitter switch there?) -- forms not watched this tick"
+else
+    for b in $(awk -F'\t' '$1 ~ /^bb_/ { print $1 }' "$(fpath "$HEADC")"); do
+        lb="$(live_of "$BASE" "$b")"; lh="$(live_of "$HEADC" "$b")"
+        [ "$lh" -gt 1 ] && [ "$lh" -gt "$lb" ] || continue
+        formrose=$((formrose + 1))
+        f="$(awk -F'\t' -v b="$b" '$1 == b { print $2 }' "$(fpath "$HEADC")")"
+        echo "  FORMS ROSE: $b  live forms $lb -> $lh  ($f)"
+        for c in $(git -C "$REPO" log --reverse --no-merges --format=%H "$BASE..$HEADC" -- "$f" src/emitter/emit.cpp); do
+            forms_at "$c^" && forms_at "$c" || { echo "    ?       ${c:0:9}  the census could not read this commit"; continue; }
+            pl="$(live_of "$c^" "$b")"; cl="$(live_of "$c" "$b")"
+            [ "$cl" -gt "$pl" ] || continue
+            echo "    RAISED  ${c:0:9}  $(seat_of "$c")  [live forms $pl -> $cl]"
+            echo "            $(git -C "$REPO" log -1 --format='%an | %s' "$c" | cut -c1-160)"
+        done
+    done
+    for k in $(awk -F'\t' '$1 == "kind" { print $2 }' "$(fpath "$HEADC")"); do
+        sb="$(split_of "$BASE" "$k")"; sh="$(split_of "$HEADC" "$k")"
+        [ "$(nboxes "$sh")" -gt 1 ] && [ "$(nboxes "$sh")" -gt "$(nboxes "$sb")" ] || continue
+        formrose=$((formrose + 1))
+        echo "  KIND SPLIT ROSE: $k  ${sb} -> ${sh}  (the emitter now picks among boxes for this kind)"
+        for c in $(git -C "$REPO" log --reverse --no-merges --format=%H "$BASE..$HEADC" -- src/emitter/emit.cpp); do
+            forms_at "$c^" && forms_at "$c" || continue
+            [ "$(nboxes "$(split_of "$c" "$k")")" -gt "$(nboxes "$(split_of "$c^" "$k")")" ] || continue
+            echo "    RAISED  ${c:0:9}  $(seat_of "$c")  [$(split_of "$c^" "$k") -> $(split_of "$c" "$k")]"
+            echo "            $(git -C "$REPO" log -1 --format='%an | %s' "$c" | cut -c1-160)"
+        done
+    done
+    echo "  FORMS VERDICT: $formrose box(es) or kind(s) gained a form in ${BASE:0:9}..${HEADC:0:9} (a box with more than one live form, or a kind the emitter splits across boxes, that grew)"
+fi
 gate_floor "$hf" 50 "bb_*/xa_* template files at head"
 echo "NEXT TICK BASE: $HEADC"
-gate_verdict "$rose" "template file(s) where a rule class rose"
+gate_verdict "$((rose + formrose))" "template file(s) where a rule class rose, or box(es) and kind(s) that gained a form"
