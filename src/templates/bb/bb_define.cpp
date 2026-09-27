@@ -69,8 +69,12 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
     static std::vector<std::string> seen;
     for (size_t i = 0; i < seen.size(); i++) if (seen[i] == lbl) return std::string();
     seen.push_back(lbl);
-    return x86("directive", std::string(".section .data")) + x86("directive", std::string(".align 8")) + x86("directive", lbl + std::string(":"))
-         + x86("directive", std::string(".quad ") + init) + x86("directive", std::string(".section .text")) + x86("directive", std::string(".intel_syntax noprefix"));
+    return x86("directive", std::string(".section .data"))
+         + x86("directive", std::string(".align 8"))
+         + x86("directive", lbl + std::string(":"))
+         + x86("directive", std::string(".quad ") + init)
+         + x86("directive", std::string(".section .text"))
+         + x86("directive", std::string(".intel_syntax noprefix"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_fnclevel_enter() {
@@ -108,7 +112,8 @@ static std::string bb_stno_last_from_callee() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_stno_restore_act() {
-    return x86("comment", "&STNO RESTORE + ACTIVATION RECORD RETIRED: the level record's activation base is cleared on the way out, so a SETEXIT handler can never resume into a frame that has returned")
+    return x86("comment", "&STNO RESTORE + ACTIVATION RECORD RETIRED: the level record's activation base is cleared on the way out, "
+                          "so a SETEXIT handler can never resume into a frame that has returned")
          + bb_stno_last_from_callee()
          + bb_stno_slot_rcx()
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
@@ -141,8 +146,8 @@ static std::string bb_define_bind() {
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
     std::string blbl = _.lbl_t0 ? std::string(_.lbl_t0) : std::string("rt_ab_undef_fn_stub");
     std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
-         + x86_ro_load_q("rdi", 0)
-         + x86_ro_load_q("rsi", 1)
+         + x86("mov", "rdi", ROQ(0))
+         + x86("mov", "rsi", ROQ(1))
          + x86("mov32", "edx", (long)_np)
          + x86("mov32", "ecx", (long)_nf)
          + x86("mov32", "r8d", (long)_fb)
@@ -155,7 +160,7 @@ static std::string bb_define_bind() {
       if (_m4seal && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
         uint64_t _seal_fp; { void (*fp)(const char *, void *) = bb_ab_seal_alpha; _seal_fp = (uint64_t)(uintptr_t)(void *)fp; }
         reg = reg + x86("comment", "M4-ALPHA-SEAL: alpha$<FN> <- &<FN>_α, the m4 twin of the driver seal")
-            + x86_ro_load_q("rdi", 0)
+            + x86("mov", "rdi", ROQ(0))
             + x86("lea", "rsi", std::string("[rip + __]"), (uint64_t)0, (std::string(fname) + "_\xce\xb1").c_str())
             + x86_scan_sync_out()
             + x86("call", "bb_ab_seal_alpha", _seal_fp)
@@ -171,23 +176,38 @@ static std::string bb_define_bind() {
         const char * _ent = (strncmp(_.lbl_t0, "LBL__", 5) == 0) ? _.lbl_t0 + 5 : _.lbl_t0;
         uint64_t _bind_fp; { void (*fp)(const char *, const char *) = rt_define_bind_entry; _bind_fp = (uint64_t)(uintptr_t)(void *)fp; }
         reg = reg
-            + x86_ro_load_q("rdi", 0)
-            + x86_ro_load_q("rsi", 2)
+            + x86("mov", "rdi", ROQ(0))
+            + x86("mov", "rsi", ROQ(2))
             + x86_scan_sync_out()
             + x86("call", "rt_define_bind_entry", _bind_fp)
             + x86_scan_sync_in_rr();
-        bind_seal = x86_ro_seal_str(2, _ent); } }
+        bind_seal = x86("def", L(2))
+            + x86(".quad", LS(2), _ent)
+            + x86("label", LS(2))
+            + x86(".string", _ent); } }
     std::string entry_seal;
     { if (_.op_proto && strchr(_.op_proto, '|') && _.op_entry && *_.op_entry) {
         uint64_t _ent_fp; { void (*fp)(const char *, const char *) = rt_define_site_entry; _ent_fp = (uint64_t)(uintptr_t)(void *)fp; }
         reg = reg
-            + x86_ro_load_q("rdi", 0)
-            + x86_ro_load_q("rsi", 3)
+            + x86("mov", "rdi", ROQ(0))
+            + x86("mov", "rsi", ROQ(3))
             + x86_scan_sync_out()
             + x86("call", "rt_define_site_entry", _ent_fp)
             + x86_scan_sync_in_rr();
-        entry_seal = x86_ro_seal_str(3, _.op_entry); } }
-    std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "") + bind_seal + entry_seal;
+        entry_seal = x86("def", L(3))
+            + x86(".quad", LS(3), _.op_entry)
+            + x86("label", LS(3))
+            + x86(".string", _.op_entry); } }
+    std::string seals = x86("def", L(0))
+        + x86(".quad", LS(0), fname)
+        + x86("label", LS(0))
+        + x86(".string", fname)
+        + x86("def", L(1))
+        + x86(".quad", LS(1), (_csv ? _csv : ""))
+        + x86("label", LS(1))
+        + x86(".string", (_csv ? _csv : ""))
+        + bind_seal
+        + entry_seal;
     return x86_alpha() + reg + x86_pair_loop() + seals;
 }
 #include <string>
@@ -219,7 +239,11 @@ static std::string bb_define_sr() {
         int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
         int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
-        if (!(ok4 && nf4 >= 0 && nf4 <= np4)) return inl5 ? x86("comment", "role 5: shim refused inline (hatch or probe/formals shape) — sites fall to the slim arm") :    (x86("comment", "IR_DEFINE role 4: shim refused (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma());
+        if (!(ok4 && nf4 >= 0 && nf4 <= np4)) return inl5
+             ? x86("comment", "role 5: shim refused inline (hatch or probe/formals shape) — sites fall to the slim arm")
+             : (x86("comment", "IR_DEFINE role 4: shim refused (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm")
+                 + x86_alpha()
+                 + x86_gamma());
         int xt4 = ns4 - nf4;
         long T4 = 16L * xt4 + 32;
         int rgx = rg4 < 0 ? 0 : rg4;
@@ -247,7 +271,11 @@ static std::string bb_define_sr() {
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());
         uint64_t entry_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("entry$") + fn4).c_str());
         std::string bcell = std::string("entry_cell$") + std::string(bb_ab_sym_name(fn4));
-        auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };
+        auto SCALE16 = [&]() { return x86("mov", "rax", "rcx")
+                 + x86("add", "rax", "rax")
+                 + x86("add", "rax", "rax")
+                 + x86("add", "rax", "rax")
+                 + x86("add", "rax", "rax"); };
         auto RESTORE4 = [&](int lid) {
             return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))
                  + SCALE16()
@@ -258,8 +286,11 @@ static std::string bb_define_sr() {
                  + x86("lea", "r8", std::string("[rsp + ") + std::to_string(T4) + "]")
                  + x86("sub", "r8", "rax")
                  + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
-                       return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(gk4[nf4 + k])) + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
-                            + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
+                       return x86_rsp_load64("rax", 16 * k)
+                            + x86("note", gva_name(gk4[nf4 + k]))
+                            + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
+                            + x86_rsp_load64("rax", 16 * k + 8)
+                            + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
                  + CHAIN(lid, "rcx",
                        [&](int i) {
                            return x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
@@ -283,8 +314,11 @@ static std::string bb_define_sr() {
                      + x86("mov", "rdx", SIGQ(0))
                      + R8AT()
                      + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
-                           return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(gk4[nf4 + k])) + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
-                                + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
+                           return x86_rsp_load64("rax", 16 * k)
+                                + x86("note", gva_name(gk4[nf4 + k]))
+                                + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
+                                + x86_rsp_load64("rax", 16 * k + 8)
+                                + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
                      + CHAIN(lid, "rdx",
                            [&](int i) {
                                return x86("mov", "rax", SIGQ(24 + 8L * i))
@@ -310,9 +344,13 @@ static std::string bb_define_sr() {
                  + x86("sub", "rsp", F4)
                  + WNSAVE()
                  + FOR(0, xt4, [&](int k) {
-                       return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
-                            + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
-                            + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
+                       return x86("note", gva_name(gk4[nf4 + k]))
+                            + x86("mov", "rax", GQ(gk4[nf4 + k], 0))
+                            + x86_rsp_store64(16 * k, "rax")
+                            + x86("mov", "rax", GQ(gk4[nf4 + k], 8))
+                            + x86_rsp_store64(16 * k + 8, "rax")
+                            + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL)
+                            + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
                  + x86_rsp_store64(16 * xt4 + 16, "rcx")
                  + x86("mov", "rdx", SIGQ(0))
                  + R8AT()
@@ -359,7 +397,7 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
-                 + x86_ro_load_q("rdi", 232)
+                 + x86("mov", "rdi", ROQ(232))
                  + x86("call", "rt_trace_call_hook", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook)
                  + x86_rt_gc_poll()
                  + x86_align_leave()
@@ -373,7 +411,10 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdi")
                  + x86_deflabel_id(230))
                  + x86_jmp_id(231)
-                 + x86_ro_seal_str(232, fn4)
+                 + x86("def", L(232))
+                 + x86(".quad", LS(232), fn4)
+                 + x86("label", LS(232))
+                 + x86(".string", fn4)
                  + x86_deflabel_id(231)
                  + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
                  + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
@@ -406,7 +447,7 @@ static std::string bb_define_sr() {
                  + x86("push", "r9")
                  + x86("push", "r12")
                  + x86_align_enter()
-                 + x86_ro_load_q("rdi", 237)
+                 + x86("mov", "rdi", ROQ(237))
                  + x86_rsp_load64("rsi", 56)
                  + x86_rsp_load64("rdx", 48)
                  + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook)
@@ -420,7 +461,10 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdi")
                  + x86_deflabel_id(235))
                  + x86_jmp_id(236)
-                 + x86_ro_seal_str(237, fn4)
+                 + x86("def", L(237))
+                 + x86(".quad", LS(237), fn4)
+                 + x86("label", LS(237))
+                 + x86(".string", fn4)
                  + x86_deflabel_id(236)
                  + x86("pop", "rdx")
                  + x86("pop", "rax")
@@ -432,7 +476,8 @@ static std::string bb_define_sr() {
                  + WNRESTORE()
                  + x86("mov", "rcx", SIGQ(8))
                  + x86("add", "rsp", F4)
-                 + x86("comment", "re-stage the return value: FRESTORE above uses rax/rdx as scratch, so the pair staged for the tap is gone by here (row 521; the d067ceae4 revert was exactly this clobber)")
+                 + x86("comment", "re-stage the return value: FRESTORE above uses rax/rdx as scratch, so the pair staged for the tap is gone by here "
+                                  "(row 521; the d067ceae4 revert was exactly this clobber)")
                  + x86("mov", "rax", "rdi")
                  + x86("mov", "rdx", "rsi")
                  + x86("jmp", "rcx")
@@ -456,7 +501,7 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
-                 + x86_ro_load_q("rdi", 237)
+                 + x86("mov", "rdi", ROQ(237))
                  + x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook)
                  + x86_rt_gc_poll()
                  + x86_align_leave()
@@ -499,9 +544,13 @@ static std::string bb_define_sr() {
              + x86("add", "rsp", "rax")
              + WNSAVE()
              + FOR(0, xt4, [&](int k) {
-                   return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
-                        + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
-                        + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
+                   return x86("note", gva_name(gk4[nf4 + k]))
+                        + x86("mov", "rax", GQ(gk4[nf4 + k], 0))
+                        + x86_rsp_store64(16 * k, "rax")
+                        + x86("mov", "rax", GQ(gk4[nf4 + k], 8))
+                        + x86_rsp_store64(16 * k + 8, "rax")
+                        + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL)
+                        + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
              + x86_rsp_store64(16 * xt4 + 16, "rcx")
              + CHAIN(BB_SHIM_ID_ALPHA, "rcx",
                    [&](int i) {
@@ -563,7 +612,8 @@ static std::string bb_define_sr() {
     }
     if (role == 1 || role == 2 || role == -1 ) {
         uint64_t _rtn_fp; { void (*_f)(int) = rt_kw_set_rtntype_role; _rtn_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        std::string rtn_set = x86("mov", "edi", (long)role) + x86("call", "rt_kw_set_rtntype_role", _rtn_fp);
+        std::string rtn_set = x86("mov", "edi", (long)role)
+                            + x86("call", "rt_kw_set_rtntype_role", _rtn_fp);
         std::string frag_release = (g_rt_fragment_emit && xa_flat_class_c_pred()) ? x86("add", "rsp", (long)_.flat_frame_bytes) : std::string();
         return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
                                    role == 2 ? "IR_DEFINE FRETURN floater (s64 RSP-ONLY: skip gamma, pop omega — depth IS the anchor)" :
@@ -571,11 +621,14 @@ static std::string bb_define_sr() {
                  + x86_alpha()
                  + rtn_set
                  + frag_release
-                 + (role == 2 ? x86("add", "rsp", (long)8) + x86("pop", "rcx")
-                              : x86("pop", "rcx") + x86("add", "rsp", (long)8))
+                 + (role == 2 ? x86("add", "rsp", (long)8)
+                                + x86("pop", "rcx")
+                              : x86("pop", "rcx")
+                                + x86("add", "rsp", (long)8))
                  + x86("jmp", "rcx");
     }
-    return x86_alpha() + x86_bomb("IR_DEFINE role 0 (the CALL2BB slice-2 producer) retired 2026-09-26 on a plant proof: no lowerer builds an SR-citizen DEFINE outside roles 1..5 (0 of 4693 corpus sources reached this arm or armed a handoff)");
+    return x86_alpha() + x86_bomb("IR_DEFINE role 0 (the CALL2BB slice-2 producer) retired 2026-09-26 on a plant proof: "
+                                  "no lowerer builds an SR-citizen DEFINE outside roles 1..5 (0 of 4693 corpus sources reached this arm or armed a handoff)");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_nreturn_mark() {
