@@ -35,7 +35,7 @@ reserved          = POS(0) ( 'and' | 'array' | 'begin' | 'case' | 'const' | 'div
 &ALPHABET ? (POS(13) LEN(1) . cr);
 white       =   (  SPAN(' ' tab nl cr)
                 |  '{' BREAK('}') '}'
-                |  '(*' BREAKX('*') '*)'
+                |  '(*' FENCE(BREAKX('*') '*)')
                 );
 White       =   white FENCE(*White | epsilon);
 Gray        =   White | epsilon;
@@ -92,8 +92,11 @@ Real        =   ( SPAN(digits)
                     SPAN(digits)
                   )
                 ) . token;
-Quoted      =   "'" ARBNO(BREAK("'") "''") BREAK("'") "'";
-String      =   "'" shift(ARBNO(BREAK("'") "''") BREAK("'"), "'TT_QLIT'") "'";
+/* a string's characters, a doubled quote among them, are taken greedily: shortest-first, '''' read as the  */
+/* empty string first, and inside a FENCE'd operand (x <> '''') that choice was never retried              */
+StrChars    =   FENCE((NOTANY("'") | "''") *StrChars | epsilon);
+Quoted      =   "'" *StrChars "'";
+String      =   "'" shift(*StrChars, "'TT_QLIT'") "'";
 Ident       =   Id $ tx $ *notmatch(lwr(tx), reserved) . token;
 /* Punctuation.                                                                          */
 $'('        =   $' ' '(' $' ';
@@ -246,10 +249,13 @@ for_cmd         =   $'for' shift(*Ident, "'TT_VAR'") $':=' *Expr0
                     reduce("'TT_FOR'", 4);
 /* case e of c1, c2: S; … end -> TT_CASE(e, TT_ALT(c1, c2), S, …): an arm's constants are one TT_ALT */
 CaseConst       =   *Expr0 FENCE($'..' *Expr0 reduce("'TT_TO'", 2) | epsilon) nInc();
-CaseArm         =   nPush() *CaseConst ARBNO($',' *CaseConst) reduce("'TT_ALT'", 'nTop()') nPop() nInc()
+/* the constants and the arms repeat greedily: an arm, once parsed, is never re-parsed when a later one refuses */
+ConstStar       =   FENCE($',' *CaseConst *ConstStar | epsilon);
+CaseArm         =   nPush() *CaseConst *ConstStar reduce("'TT_ALT'", 'nTop()') nPop() nInc()
                     $':' *Command nInc();
+ArmStar         =   FENCE($';' *CaseArm *ArmStar | epsilon);
 case_cmd        =   nPush() $'case' *Expr0 nInc() $'of'
-                    *CaseArm ARBNO($';' *CaseArm) FENCE($';' | epsilon)
+                    *CaseArm *ArmStar FENCE($';' | epsilon)
                     FENCE($'else' *Command nInc() FENCE($';' | epsilon) | epsilon)
                     $'end' reduce("'TT_CASE'", 'nTop()') nPop();
 /* with r1, r2 do S -> TT_FNC(TT_VAR __pas_with, r1, r2, S), the oracle's naming for a lowered form  */
