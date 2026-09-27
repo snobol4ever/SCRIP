@@ -240,6 +240,10 @@ static uint64_t pas_callee_byref_mask(const char * name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_is_stdfile_actual(const tree_t * a) {
+    return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_stdfile");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pas_vptmp_var(void) {
     static int g_pas_vptmp_n = 0;
     char buf[32]; snprintf(buf, sizeof buf, "__pas_vptmp_%d", g_pas_vptmp_n++);
@@ -316,7 +320,7 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         *res = nd; return e;
     }
     uint64_t brm = pas_callee_byref_mask(cn ? cn->v.sval : NULL);
-    if (brm) { int rw = 0; for (int i = env + 1; i < t->n; i++) { if (((brm >> (i - env - 1)) & 1ULL) && t->c[i] && t->c[i]->t == TT_IDX) { rw = 1; break; } }
+    if (brm) { int rw = 0; for (int i = env + 1; i < t->n; i++) { if (((brm >> (i - env - 1)) & 1ULL) && t->c[i] && (t->c[i]->t == TT_IDX || pas_is_stdfile_actual(t->c[i]))) { rw = 1; break; } }
         if (rw) {
             tree_t * seq = ast_node_new(TT_SEQ_EXPR);
             tree_t * call = ast_node_new(TT_FNC); for (int i = 0; i < env; i++) ast_push(call, t->c[i]); ast_push(call, pas_lc_leaf(TT_VAR, cn && cn->v.sval ? cn->v.sval : ""));
@@ -328,6 +332,10 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
                     outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), pas_lc_clone(tv));
+                } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_stdfile_actual(arg)) {
+                    tree_t * tv = pas_vptmp_var();
+                    ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
+                    ast_push(call, tv);
                 } else ast_push(call, arg);
             }
             ast_push(seq, call);

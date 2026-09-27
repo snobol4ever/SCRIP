@@ -365,6 +365,7 @@ test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
 test_gate_pas_a_blocks_declaration_parts_come_in_iso_order.sh	WIRED	-	-	-
 test_gate_pas_a_call_carries_as_many_actuals_as_formals.sh	WIRED	-	-	-
 test_gate_pas_a_case_statement_with_no_matching_constant_is_an_error.sh	WIRED	-	-	-
+test_gate_pas_a_char_array_read_out_of_a_record_field_keeps_its_characters.sh	WIRED	-	-	-
 test_gate_pas_a_char_code_literal_is_a_char.sh	WIRED	-	-	-
 test_gate_pas_a_char_subrange_variable_holds_chars.sh	WIRED	-	-	-
 test_gate_pas_a_character_string_is_never_empty.sh	WIRED	-	-	-
@@ -387,9 +388,11 @@ test_gate_pas_a_number_read_from_a_textfile_is_an_iso_signed_number.sh	WIRED	-	-
 test_gate_pas_a_numeric_literal_fits_what_scrip_represents.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
 test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
+test_gate_pas_a_set_held_in_a_record_keeps_its_members.sh	WIRED	-	-	-
 test_gate_pas_a_set_member_is_of_an_ordinal_type.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_bound_or_case_constant_is_never_real.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_variable_is_given_only_values_of_its_subrange.sh	WIRED	-	-	-
+test_gate_pas_a_text_parameter_is_the_file_its_actual_names.sh	WIRED	-	-	-
 test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-
 test_gate_pas_a_type_definition_never_applies_its_own_identifier.sh	WIRED	-	-	-
 test_gate_pas_a_var_actual_has_the_type_of_its_formal.sh	WIRED	-	-	-
@@ -430,6 +433,7 @@ test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
 test_gate_pas_record_variables_are_scoped_to_their_procedure.sh	WIRED	-	-	-
 test_gate_pas_set_constructor_takes_a_subrange_member.sh	WIRED	-	-	-
 test_gate_pas_succ_and_pred_keep_their_arguments_type.sh	WIRED	-	-	-
+test_gate_pas_the_input_buffer_variable_is_the_next_character.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
