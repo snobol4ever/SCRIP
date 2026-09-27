@@ -3149,10 +3149,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_initf(&lbl_ω,       "%s_ω",      fam);
     emit_label_initf(&lbl_β,       "%s_β",       fam);
     emit_label_initf(&lbl_res,     "%s_res",     fam);
-    bb_label_t * alt_tr[64]; bb_label_t * ret_tr[64]; bb_label_t * pl_step_lbl = (bb_label_t *)0; int n_alt = 0;
+    static bb_label_t **alt_tr = 0; static bb_label_t **ret_tr = 0; static int alt_tr_cap = 0; bb_label_t * pl_step_lbl = (bb_label_t *)0; int n_alt = 0;
     g_emit.flat_alt1_p = (bb_label_t *)0; g_emit.flat_altdet_p = (bb_label_t *)0;
     if (g_emit_cfg && g_emit_cfg->n_alts > 0) {
-        n_alt = g_emit_cfg->n_alts > 64 ? 64 : g_emit_cfg->n_alts;
+        n_alt = g_emit_cfg->n_alts;
+        if (alt_tr_cap < n_alt) { alt_tr = (bb_label_t **)ct_grow(alt_tr, (size_t)n_alt * sizeof(bb_label_t *));
+                                  ret_tr = (bb_label_t **)ct_grow(ret_tr, (size_t)n_alt * sizeof(bb_label_t *)); alt_tr_cap = n_alt; }
         for (int _ak = 0; _ak < n_alt; _ak++) alt_tr[_ak] = emit_label_alloc("%s_alt%d", fam, _ak);
         for (int _ak = 0; _ak < n_alt; _ak++) ret_tr[_ak] = emit_label_alloc("%s_ret%d", fam, _ak);
         pl_step_lbl = emit_label_alloc("%s_step", fam);
