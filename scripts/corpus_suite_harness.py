@@ -657,7 +657,19 @@ def read_mask_sidecar(ref_path):
                    "is empty is a mask nobody can audit -- got %r" % (mp, ln))
         pat = parts[1].strip()
         m = re.match(r"^L(\d+)$", pat)
-        key = ("line", int(m.group(1))) if m else ("regex", re.compile(pat))
+        # ⭐ ORACLE-ONLY:<exact line> (ceo CEO-1316 (2), 2026-09-27, on Lon's "I want to see TPgm go to 8/8"): the one mask kind that
+        # REMOVES a line, and only from the ORACLE's stream -- a line the oracle prints and we never do, because we keep an enhancement
+        # the oracle lacks (CEO-1293: Lon's "Keep the VALUE function we like new features"; testpgms test1's statement-137 trap).
+        # Replace-never-delete cannot reach a line one side lacks. Matched by EXACT text (never a regex), ONE occurrence, counted like
+        # every mask; our side is never touched, so a missing or extra line of ours still reds. Scoped to the CEO-1293 class: a row
+        # whose reason does not cite CEO-1293 is refused, and the never-delete guardrail binds every other kind.
+        if pat.startswith("ORACLE-ONLY:"):
+            if "CEO-1293" not in parts[2]:
+                refuse("%s: an ORACLE-ONLY row removes a line from the oracle's stream and is admitted only for a kept "
+                       "enhancement the oracle lacks (ceo CEO-1293, CEO-1316 (2)) -- its reason must cite CEO-1293; got %r" % (mp, ln))
+            key = ("oracle_only", parts[1][len("ORACLE-ONLY:"):].rstrip("\r"))
+        else:
+            key = ("line", int(m.group(1))) if m else ("regex", re.compile(pat))
         out.setdefault(parts[0].strip(), []).append((key, parts[2].strip()))
     return out
 def masks_for(masks, name):
@@ -671,10 +683,13 @@ def masks_for(masks, name):
     still fails a fixture that would be mostly masked, and the reason column is still mandatory -- `*` widens WHICH
     entries a row is offered to, never WHAT a row is allowed to hide."""
     return list(masks.get("*", [])) + list(masks.get(name, []))
-def apply_line_mask(text, patterns):
+def apply_line_mask(text, patterns, side="both"):
     """Rewrite every line matching any pattern to a canonical marker. A ("regex", rx) pattern matches by
     content against the line; a ("line", n) pattern matches by OUTPUT POSITION against line n (1-indexed),
-    regardless of content -- see read_mask_sidecar's L<n> form. Returns (text, masked_line_count)."""
+    regardless of content -- see read_mask_sidecar's L<n> form. An ("oracle_only", text) pattern REMOVES the first
+    line exactly equal to text, and only when side == "oracle" -- the stream is the oracle's; on our side, or when a
+    caller names no side, it does nothing (see read_mask_sidecar). Positional L<n> rows are applied before any
+    removal, so a line number always means the stream as the engine printed it. Returns (text, masked_line_count)."""
     if not patterns or text is None:
         return text, 0
     n = 0
@@ -682,10 +697,18 @@ def apply_line_mask(text, patterns):
     for i, ln in enumerate(lines):
         for key, _reason in patterns:
             kind, val = key
+            if kind == "oracle_only":
+                continue
             if val.search(ln) if kind == "regex" else (val == i + 1):
                 lines[i] = "<<CEO-409 MASKED IMPLEMENTATION-DEFINED LINE>>"
                 n += 1
                 break
+    if side == "oracle":
+        for key, _reason in patterns:
+            kind, val = key
+            if kind == "oracle_only" and val in lines:
+                del lines[lines.index(val)]
+                n += 1
     return "\n".join(lines), n
 def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None):
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
@@ -700,8 +723,8 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     masked_n = 0
     if mask:
         exp_lines = len(exp.split("\n")) if exp is not None else 0
-        got, mg = apply_line_mask(got, mask)
-        exp, me = apply_line_mask(exp, mask)
+        got, mg = apply_line_mask(got, mask, side="scrip")
+        exp, me = apply_line_mask(exp, mask, side="oracle")
         masked_n = max(mg, me)
         if exp_lines and masked_n * 2 >= exp_lines:
             return Verdict("FAIL", out, err, rc, detail="mask covers %d of %d ref lines -- a majority-masked fixture is "

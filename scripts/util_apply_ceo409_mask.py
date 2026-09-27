@@ -9,7 +9,9 @@ the same replace-never-delete marker.  ⭐ THE DIALECT IS THE WHOLE REASON THIS 
 quantifiers are all silently different or absent in an ERE, so a re-implementation would agree on every mask
 anyone happened to test and diverge on the first one they did not.
 
-Usage:  util_apply_ceo409_mask.py <ref-path> <entry-name> <count-out-path>  < stream > masked-stream
+Usage:  util_apply_ceo409_mask.py <ref-path> <entry-name> <count-out-path> [--side=oracle|scrip]  < stream > masked-stream
+--side names whose stream this is (CEO-1316 (2)): an ORACLE-ONLY row removes its one line only from --side=oracle, and does
+nothing on --side=scrip or with no side -- a caller that cannot say which stream it holds can never delete a line.
 Writes the masked stream to stdout and the masked-line COUNT to <count-out-path> (guardrail 3: an invisible mask
 is the hiding mechanism, a counted one is a measurement).  REFUSES rc=2 on a malformed sidecar, which is
 read_mask_sidecar()'s own refusal -- not a copy of its policy.
@@ -17,8 +19,11 @@ read_mask_sidecar()'s own refusal -- not a copy of its policy.
 import importlib.util, os, sys, pathlib
 def refuse(msg):
     sys.stderr.write("REFUSE(rc=2): util_apply_ceo409_mask.py: %s\n" % msg); sys.exit(2)
-if len(sys.argv) != 4:
-    refuse("needs <ref-path> <entry-name> <count-out-path>; got %d argument(s)" % (len(sys.argv) - 1))
+side = "both"
+if len(sys.argv) == 5 and sys.argv[4] in ("--side=oracle", "--side=scrip"):
+    side = sys.argv[4].split("=", 1)[1]
+elif len(sys.argv) != 4:
+    refuse("needs <ref-path> <entry-name> <count-out-path> [--side=oracle|scrip]; got %r" % (sys.argv[1:],))
 ref_path, entry, count_out = sys.argv[1], sys.argv[2], sys.argv[3]
 h = pathlib.Path(__file__).resolve().parent / "corpus_suite_harness.py"
 if not h.is_file():
@@ -45,6 +50,6 @@ pats = mod.masks_for(masks, entry)               # `*` + this entry's own rows, 
 # that differ only in bytes it mangled would then compare EQUAL. surrogateescape round-trips arbitrary bytes
 # losslessly, so an unmasked line leaves exactly as it arrived.
 text = sys.stdin.buffer.read().decode("utf-8", "surrogateescape")
-out, n = mod.apply_line_mask(text, pats)
+out, n = mod.apply_line_mask(text, pats, side=side)
 pathlib.Path(count_out).write_text(str(n))
 sys.stdout.buffer.write(out.encode("utf-8", "surrogateescape"))

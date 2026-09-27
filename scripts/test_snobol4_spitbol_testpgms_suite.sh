@@ -80,19 +80,26 @@ verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then 
 # its body with the post-mortem block removed; and for a post-mortem answer, SCRIP's stderr (<stdout>.err) rendered through the one
 # error voice must carry the oracle's banner line exactly and its statement.
 voice_of() { python3 "$HERE/util_render_error_voice.py" spitbol < "$1" 2>/dev/null; }
+# ⭐ CEO-409 masks from the ALL.mask beside the suite, applied to BOTH streams through the one shim (util_apply_ceo409_mask.py), our
+# side as --side=scrip and the oracle's as --side=oracle, so a CEO-1316 (2) ORACLE-ONLY row can remove its one line from the oracle's
+# stream and never from ours. No sidecar: both streams byte-identical to what they were.
+mask_ours() { python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/ALL.ref" "$p" "$1.mn" --side=scrip < "$1" > "$1.masked"; }
 graded_same() {
-    cmp -s "$ora_cmp" "$1" || return 1
+    [ "$mask_major" = 1 ] && return 1
+    mask_ours "$1" || return 1
+    cmp -s "$ora_cmp" "$1.masked" || return 1
     [ -z "$pm_banner" ] && return 0
     local v; v="$(voice_of "$1.err")" || return 1
     printf '%s\n' "$v" | grep -qxF -- "$pm_banner" && printf '%s\n' "$v" | grep -qxF -- "in statement $pm_stno"
 }
 why_red() {
-    if ! cmp -s "$ora_cmp" "$1"; then echo "first diff: $(diff "$ora_cmp" "$1" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100)"
+    if [ "$mask_major" = 1 ]; then echo "the mask covers $mask_n of $ora_lines oracle lines -- a majority-masked fixture is UNGRADABLE and belongs outside the baseline, named, not masked (CEO-409 guardrail 4)"; return; fi
+    if ! cmp -s "$ora_cmp" "$1.masked"; then echo "first diff: $(diff "$ora_cmp" "$1.masked" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100)"
     else echo "stdout agrees; the error voice does not: oracle [$pm_banner / in statement $pm_stno], SCRIP rendered [$(voice_of "$1.err" | head -2 | tr '\n' ' ' | cut -c1-120)]"; fi
 }
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
-TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""; PM_GRADED=0
+TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""; PM_GRADED=0; PM_VOICE_ONLY=0; MASKED_TOTAL=0; MASKED_FIX=0; MASK_LINES=""
 # ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
 # baseline-measured-live; test_snoflake_suite.sh is the shape). A program SPITBOL ITSELF cannot run is OUTSIDE
 # the baseline and out of the denominator. This runner already MEASURES that set live -- it is exactly the
@@ -171,7 +178,16 @@ for p in $progs; do
         pm_out="$(python3 "$HERE/util_spitbol_post_mortem.py" "$ora" "$ora.body")"; pmrc=$?
         [ "$pmrc" = 0 ] || { echo "⛔ REFUSE(rc=2): $p -- sbl answered with a post-mortem that is not the measured shape (util_spitbol_post_mortem.py rc=$pmrc, its reason above); CEO-1316 grades only the exact shape"; exit 2; }
         pm_banner="$(printf '%s\n' "$pm_out" | awk -F'\t' '$1=="BANNER"{print $2}')"; pm_stno="$(printf '%s\n' "$pm_out" | awk -F'\t' '$1=="STATEMENT"{print $2}')"
-        ora_cmp="$ora.body"; PM_GRADED=$((PM_GRADED+1))
+        ora_cmp="$ora.body"; PM_GRADED=$((PM_GRADED+1)); [ -s "$ora.body" ] || PM_VOICE_ONLY=$((PM_VOICE_ONLY+1))
+    fi
+    ora_lines=$(grep -c "" "$ora_cmp"); mask_major=0
+    python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/ALL.ref" "$p" "$ora_cmp.mn" --side=oracle < "$ora_cmp" > "$ora_cmp.masked" \
+        || { echo "⛔ REFUSE(rc=2): $p -- the CEO-409 mask sidecar beside $SUITE is refused (the reason above); a mask nobody can audit grades nothing"; exit 2; }
+    mask_n=$(cat "$ora_cmp.mn"); ora_cmp="$ora_cmp.masked"
+    if [ "$mask_n" -gt 0 ]; then
+        MASKED_TOTAL=$((MASKED_TOTAL+mask_n)); MASKED_FIX=$((MASKED_FIX+1)); [ $((mask_n*2)) -ge "$ora_lines" ] && mask_major=1
+        MASK_LINES="$MASK_LINES  MASKED  $p  $mask_n line(s) of $ora_lines, declared in ALL.mask beside the suite (CEO-409; an ORACLE-ONLY row is CEO-1316 (2))
+"
     fi
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
@@ -202,7 +218,9 @@ done
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (the one SNOBOL4 oracle, Lon 2026-09-07) refs cut live"
-echo "SPITBOL_TESTPGMS_POST_MORTEM graded=$PM_GRADED -- programs whose sbl answer is a fatal post-mortem, graded through it (CEO-1316): stdout minus the block byte for byte, the banner and statement through the one error voice, the accounting ungraded (CEO-420 (b)); they pass by stopping exactly where SPITBOL x64 stops -- running them to completion would widen the dialect, Lon's call, not taken"
+echo "SPITBOL_TESTPGMS_POST_MORTEM graded=$PM_GRADED voice_only=$PM_VOICE_ONLY -- programs whose sbl answer is a fatal post-mortem, graded through it (CEO-1316): stdout minus the block byte for byte, the banner and statement through the one error voice, the accounting ungraded (CEO-420 (b)); they pass by stopping exactly where SPITBOL x64 stops -- running them to completion would widen the dialect, Lon's call, not taken; voice_only counts those whose whole sbl stdout IS the post-mortem, so their body compared is empty and they pass on the banner and statement alone (the coo's review, 2026-09-27)"
+echo "SPITBOL_TESTPGMS_MASKS masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) -- CEO-409 masks declared in ALL.mask beside the suite, counted, the fixture staying in the denominator"
+printf '%b' "$MASK_LINES"
 echo "SPITBOL_TESTPGMS_BASELINE baseline=$SCORED both_modes_pass=$BOTH outside_spitbol_baseline=$UNSCR of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a program SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
 if [ "$UNSCR" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($UNSCR; name<TAB>SPITBOL's own refusal):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
 # ⛔ THE RECORD IS CROSS-CHECKED AGAINST THE LIVE MEASURE EVERY RUN, and disagreement is said aloud rather than
@@ -261,7 +279,7 @@ if [ "$SUITE" = "$CANON_SUITE" ]; then
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite testpgms --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
-    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ($PM_GRADED of them graded through SPITBOL's fatal post-mortem, CEO-1316: they pass by stopping exactly where SPITBOL x64 stops, and running them to completion as Macro SPITBOL 370 would widen the dialect, Lon's call, not taken · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
+    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ($PM_GRADED of them graded through SPITBOL's fatal post-mortem, $PM_VOICE_ONLY of those on the error voice alone because sbl's whole stdout is the post-mortem and only $((PM_GRADED-PM_VOICE_ONLY)) compares a body, CEO-1316: they pass by stopping exactly where SPITBOL x64 stops, and running them to completion as Macro SPITBOL 370 would widen the dialect, Lon's call, not taken · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) (CEO-409 in ALL.mask; test1's statement-137 trap is a CEO-1316 ORACLE-ONLY row for Lon's kept VALUE, CEO-1293) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
