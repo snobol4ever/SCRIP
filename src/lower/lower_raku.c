@@ -242,6 +242,11 @@ static IR_t * lower_rcall1(rcx_t * cx, const tree_t * recv, const char * nm, IR_
     if (ar) ir_operand_push(nd, ar);
     if (res) *res = nd; return ae;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_lower_str_operand(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    if (!t || t->t == TT_QLIT || t->t == TT_ILIT || t->t == TT_CAT) return lower_rv(cx, t, γ, ω, res);
+    return lower_rcall1(cx, t, "__rk_str", γ, ω, res);
+}
 static IR_t * lower_rcall_skip1(rcx_t * cx, const tree_t * t, const char * nm, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
     int total = t->n - 1; IR_t * prev = NULL; IR_t * entry = nd; int k = 0;
@@ -382,7 +387,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     if (t->t == TT_MOD && t->n > 1) { return lower_rcall(cx, t, "__rk_mod", 0, γ, ω, res); }
     if (rk_is_binop(t->t)) {
         IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = rk_binop_code(t->t);
-        IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
+        IR_t * lr = NULL, * rr = NULL; IR_t * ea, * eb;
+        if (t->t == TT_CAT) { ea = rk_lower_str_operand(cx, t->c[0], NULL, ω, &lr); eb = rk_lower_str_operand(cx, t->c[1], op, ω, &rr); }
+        else { ea = lower_rv(cx, t->c[0], NULL, ω, &lr); eb = lower_rv(cx, t->c[1], op, ω, &rr); }
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea; }
     switch (t->t) {
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }

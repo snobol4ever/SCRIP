@@ -914,6 +914,7 @@ tree_t *rkb_prefix_apply(RkB *b, const char *op, tree_t *x) {
     if (!strcmp(op, "+")) { tree_t *n = nctx(b, x); if (n == x && x->t != TT_ILIT && x->t != TT_FLIT) n = expr_binary(TT_ADD, x, rk_ilit(0)); return n; }
     if (!strcmp(op, "?") || !strcmp(op, "so")) { tree_t *m = make_call("__rk_mkbool"); expr_add_child(m, x); return m; }
     if (!strcmp(op, "!") || !strcmp(op, "not")) return expr_unary(TT_NOT, x);
+    if (!strcmp(op, "~")) { tree_t *m = make_call("__rk_str"); expr_add_child(m, x); return m; }
     if (!strcmp(op, "^")) return rk_range_ex(b, rk_ilit(0), x);
     return x;
 }
