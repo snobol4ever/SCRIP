@@ -348,7 +348,11 @@ for std in "${STDFILES[@]}"; do
     # ⭐ NAME.rc, THE PROGRAM'S DECLARED EXIT STATUS (seat07's sidecar, which the cutter mints under): a program whose every exit is
     # stop() is graded on its status as well as its output, so a run that prints the right text and exits 0 is not a pass
     # (hq_icon 2026-09-27, ceo CEO-1315). Absent, the status is not graded, exactly as before.
-    want_rc=""; [ -f "$(dirname "$std")/$base.rc" ] && want_rc="$(tr -dc '0-9' < "$(dirname "$std")/$base.rc")"
+    if ! want_rc="$(ipl_rc_declared "$(dirname "$std")/$base.icn")"; then
+        M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id(rc-sidecar-malformed)"); ipl_progress "$id" m3 REFUSE
+        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(rc-sidecar-malformed)"); ipl_progress "$id" m4 REFUSE
+        continue
+    fi
     # ⭐ NAME.dat STDIN SIDECAR (hq_I 2026-09-05): same convention as arizona/jcon_tests' own .dat
     # fixtures, and the one util_cut_icon_ipl_refs.sh mints these four new refs under -- both tiers
     # must agree per this file's own FACT RULE (a script and its DONE-WHEN, or its sibling ref-cutter,

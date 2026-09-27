@@ -14,7 +14,7 @@ sg_init() {
   trap 'rm -rf "$SG_T"' EXIT
   SG_SCRIP="$SG_HERE/../scrip"; SG_OUT="$SG_HERE/../out"
   [ -x "$SG_SCRIP" ] || { echo "⛔ GATE REFUSE(2): scrip not built"; exit 2; }
-  [ -x /home/resources/icon-master/bin/icont ] || { echo "⛔ GATE REFUSE(2): the Icon oracle is required"; exit 2; }
+  ( . "$SG_HERE/lib_oracle_flags.sh" && [ -x "$(icont_bin)" ] ) || { echo "⛔ GATE REFUSE(2): the Icon oracle is required (icont_bin in lib_oracle_flags.sh)"; exit 2; }
 }
 # sg_fresh_pkg -- a new empty scratch home for one verdict (a doctored run never sees the green run's ref)
 sg_fresh_pkg() {
@@ -44,14 +44,20 @@ sg_verdict() {
   tag="$(basename "$sd")"; sg_fresh_pkg "$tag"; "$plant"
   S4E_HOME="$SG_H" timeout 300 bash "$sd/util_cut_icon_ipl_refs.sh" --apply --only "$n" > "$SG_T/cut.$tag.log" 2>&1
   SG_REF="$SG_PKG/progs/$n.ref"; [ -f "$SG_REF" ] && minted=1
-  [ -f "$SG_PKG/progs/$n.rc" ] && want="$(tr -dc '0-9' < "$SG_PKG/progs/$n.rc")"
+  want="$( . "$sd/lib_icon_ipl_isolation.sh"; ipl_rc_declared "$SG_PKG/progs/$n.icn" )" || want=MALFORMED
   if [ "$minted" -eq 1 ]; then
-    local out3="$SG_T/$n.$tag.m3" out4="$SG_T/$n.$tag.m4" bin="$SG_T/$n.$tag.bin" stdin=/dev/null
+    local out3="$SG_T/$n.$tag.m3" out4="$SG_T/$n.$tag.m4" bin="$SG_T/$n.$tag.bin" stdin=/dev/null ca
+    # ⛔ THE UNIT'S COMPILE SWITCHES ARE THE PACKAGE'S OWN DECLARATION, READ AS THE RUNNER READS THEM (clause 8 (f), CEO-1281; the coo's
+    # batch audit 2026-09-27): the scratch package carries the real IPL ALL.csv's header and its first row re-keyed to this fixture, and
+    # the cell comes back through declared_memory_table + declared_compile_args_from_table -- this lib types no switch of its own.
+    awk -F, -v OFS=, -v k="progs/$n" 'NR==1 { print; next } NR==2 { $2 = k; $3 = "ipl__" k; print; exit }' "$SG_HERE/../../corpus/packages/icon/ipl/ALL.csv" > "$SG_PKG/ALL.csv"
+    ca="$( . "$SG_HERE/lib_declared_arena.sh"; declared_memory_table "$SG_PKG/ALL.csv" > "$SG_T/ca.$tag.tsv" && declared_compile_args_from_table "$SG_T/ca.$tag.tsv" "progs/$n" )" \
+      || { echo "⛔ GATE REFUSE(2): the fixture's compile_args cell could not be read from the package declaration"; exit 2; }
     [ -f "$SG_PKG/progs/$n.dat" ] && stdin="$SG_PKG/progs/$n.dat"
     ( . "$sd/lib_icon_ipl_isolation.sh"; ipl_isolation_init "$SG_PKG" >/dev/null 2>&1 || exit 2
       export IPL_ISO_SUBDIR=progs IPL_ISO_FIXTURES="$SG_PKG/progs/$n.icn"; declare -a A=(); ipl_argv_read "$SG_PKG/progs/$n.icn" A
-      ipl_isolation_run "$out3" 60 "$stdin" "$SG_SCRIP" --run --stlimit "$SG_PKG/progs/$n.icn" -- "${A[@]}"; echo $? > "$out3.rc"
-      "$SG_SCRIP" --compile --stlimit "$SG_PKG/progs/$n.icn" > "$bin.s" 2>/dev/null < /dev/null \
+      ipl_isolation_run "$out3" 60 "$stdin" "$SG_SCRIP" --run $ca "$SG_PKG/progs/$n.icn" -- "${A[@]}"; echo $? > "$out3.rc"
+      "$SG_SCRIP" --compile $ca "$SG_PKG/progs/$n.icn" > "$bin.s" 2>/dev/null < /dev/null \
         && gcc -no-pie "$bin.s" -L"$SG_OUT" -lscrip_rt -Wl,-rpath,"$SG_OUT" -lm -lpthread -o "$bin" 2>/dev/null
       if [ -x "$bin" ]; then ipl_isolation_run "$out4" 60 "$stdin" "$bin" -- "${A[@]}"; echo $? > "$out4.rc"; else echo 99 > "$out4.rc"; : > "$out4"; fi
       ipl_isolation_cleanup )

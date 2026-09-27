@@ -270,7 +270,7 @@ fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_badside=0; n_badfix=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_badside=0; n_badfix=0; n_badrc=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2" "$OUT1.link" "$OUT2.link"; rm -rf "$HOLD"' EXIT
@@ -424,7 +424,11 @@ for f in "${FILES[@]}"; do
   # would otherwise be permanently unmintable, since every nonzero rc not already claimed by a named class
   # above falls straight into ORACLE_FAIL. Absent NAME.rc, exp_rc defaults to 0: byte-for-byte the same
   # comparison as before this sidecar existed, so every program without one is completely unaffected.
-  exp_rc=0; [ -f "$PROGS/${f%.icn}.rc" ] && exp_rc="$(cat "$PROGS/${f%.icn}.rc")"
+  if ! exp_rc="$(ipl_rc_declared "$PROGS/$f")"; then
+    n_badrc=$((n_badrc+1)); printf 'RC_SIDECAR_MALFORMED\t%s\t%s\t-\tNOT MINTED -- the NAME.rc sidecar beside this program is malformed; ipl_rc_declared printed the reason above. Refused rather than compared.\n' "$f" "$rc1"
+    continue
+  fi
+  [ -n "$exp_rc" ] || exp_rc=0
   if [ "$rc1" -ne "$exp_rc" ]; then
     n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- rc=%s under this driver (expected %s); the oracle said: %s\n' "$f" "$rc1" "$rc1" "$exp_rc" "$(first_diag "$ev1")"
     [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(first_diag "$out1")"
@@ -582,7 +586,7 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   fi
   for cand in "${CANDS[@]}"; do
     cb="$(basename "$cand" .cand)"
-    exp_rc=0; [ -f "$PROGS/$cb.rc" ] && exp_rc="$(cat "$PROGS/$cb.rc")"
+    exp_rc="$(ipl_rc_declared "$PROGS/$cb.icn")"; [ -n "$exp_rc" ] || exp_rc=0
     run_isolated "$cb.icn" "$OUT2"; rc2=$?
     if [ "$rc2" -ne "$exp_rc" ] || ! cmp -s "$cand" "$OUT2"; then
       n_live=$((n_live-1)); n_nondet=$((n_nondet+1)); n_minute_reject=$((n_minute_reject+1))
@@ -606,8 +610,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ARGV_SIDECAR_MALFORMED %d · FIXTURE_SIDECAR_MALFORMED %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_badside" "$n_badfix" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ARGV_SIDECAR_MALFORMED %d · FIXTURE_SIDECAR_MALFORMED %d · RC_SIDECAR_MALFORMED %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_badside" "$n_badfix" "$n_badrc" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove nothing in the tracked tree moved while this script ran, census or not.
 # ⛔⭐ THIS WAS A SECOND COPY OF THE CHECK, not a call to the one in lib_icon_ipl_isolation.sh -- the same

@@ -316,12 +316,24 @@ ipl_fixtures_stage() {
 #                 VISUAL=cat. The runner's own variables (PATH IPATH ICONPATH LD_* SCRIP_*) are refused.
 #   NAME.pin      the clock and entropy pin: an LD_PRELOAD shim (scripts/ipl_pin_shim.c) fixes the wall clock, zeroes CPU time and
 #                 serves /dev/urandom from a fixed stream, wrapping iconx in the cutter and SCRIP in both modes alike.
-#   (A program whose correct exit status is not 0 -- every exit is stop() -- declares it in the pre-existing NAME.rc, which the cutter
-#   already reads and the runner now grades; there is no second spelling of that fact.)
+#   NAME.rc       the program's correct exit status, one integer 0..255 on its only non-comment line (every exit is stop(): 1),
+#                 read by ipl_rc_declared for the cutter (both of its comparisons), the runner and the sidecar gates -- one reader, so
+#                 a comment line or a stray digit can never read as one status in one place and another, or none, in the next.
 #   NAME.empty    one line of reason: the program's correct output is empty by design (proto exits first).
 #   NAME.outfiles one relative path per line: files the program writes, appended to the graded output after the run.
 #   NAME.pty      one line of reason: the unit runs on a pseudo-terminal (script(1)), for programs that need a terminal.
 _ipl_side_lines() { grep -v '^[[:space:]]*\(#.*\)\?$' "$1"; }
+# ipl_rc_declared <icn> -- echoes the exit status NAME.rc declares; echoes nothing when there is no NAME.rc; refuses (rc 2) anything
+# but exactly one non-comment line holding one integer 0..255, so a malformed declaration can never be compared as a string or skipped.
+ipl_rc_declared() {
+  local side="${1%.icn}.rc" v
+  [ -f "$side" ] || return 0
+  v="$(_ipl_side_lines "$side")"
+  if [ "$(printf '%s\n' "$v" | grep -c .)" -ne 1 ] || ! [[ "$v" =~ ^[[:space:]]*([0-9]{1,3})[[:space:]]*$ ]] || [ "$((10#${BASH_REMATCH[1]}))" -gt 255 ]; then
+    echo "⛔ RC SIDECAR REFUSES(2): $side must hold one exit status 0..255 on its only non-comment line" >&2; return 2
+  fi
+  echo "$((10#${BASH_REMATCH[1]}))"
+}
 # ipl_env_apply <icn> <rundir> <arrname> -- appends the unit's NAME.env assignments (and NAME.pin's LD_PRELOAD) to an env array.
 ipl_env_apply() {
   local icn="$1" run="$2" arr="$3" side kv k v so
@@ -348,8 +360,13 @@ ipl_pin_shim_path() {
   src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ipl_pin_shim.c"
   [ -f "$src" ] || { echo "⛔ PIN SIDECAR REFUSES(2): $src is missing" >&2; return 2; }
   h="$(sha1sum "$src" | cut -c1-12)"; d="${TMPDIR:-/tmp}/scrip-ipl-pin-$(id -u)"; so="$d/pin-$h.so"
+  mkdir -p -m 700 "$d" || { echo "⛔ PIN SIDECAR REFUSES(2): cannot create the shim cache $d" >&2; return 2; }
+  if [ ! -O "$d" ] || { [ -f "$so" ] && [ ! -O "$so" ]; }; then
+    echo "⛔ PIN SIDECAR REFUSES(2): the shim cache $d (or $so) belongs to another user -- a preloaded library is never trusted from a place someone else can write" >&2; return 2
+  fi
+  chmod 700 "$d" && { [ ! -f "$so" ] || chmod go-w "$so"; } || { echo "⛔ PIN SIDECAR REFUSES(2): cannot make the shim cache $d this user's alone" >&2; return 2; }
   if [ ! -f "$so" ]; then
-    mkdir -p "$d" && gcc -shared -fPIC -O0 -o "$so.tmp.$$" "$src" -ldl 2>"$d/build.err" && mv -f "$so.tmp.$$" "$so" \
+    gcc -shared -fPIC -O0 -o "$so.tmp.$$" "$src" -ldl 2>"$d/build.err" && chmod go-w "$so.tmp.$$" && mv -f "$so.tmp.$$" "$so" \
       || { echo "⛔ PIN SIDECAR REFUSES(2): the pin shim did not build: $(head -c 200 "$d/build.err")" >&2; return 2; }
   fi
   echo "$so"

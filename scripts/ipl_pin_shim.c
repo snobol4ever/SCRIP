@@ -78,3 +78,29 @@ int fgetc(FILE *f) {
     return real_fgetc(f);
 }
 int getc(FILE *f) { return fgetc(f); }
+int getc_unlocked(FILE *f) {
+    static int (*real_getc_unlocked)(FILE *) = 0;
+    if (f && pin_fd >= 0 && fileno(f) == pin_fd) return pin_next_byte();
+    if (!real_getc_unlocked) real_getc_unlocked = (int (*)(FILE *))dlsym(RTLD_NEXT, "getc_unlocked");
+    return real_getc_unlocked(f);
+}
+int fgetc_unlocked(FILE *f) { return getc_unlocked(f); }
+char *fgets(char *s, int n, FILE *f) {
+    static char *(*real_fgets)(char *, int, FILE *) = 0;
+    if (f && pin_fd >= 0 && fileno(f) == pin_fd) { if (!s || n <= 0) return 0; int i = 0; while (i < n - 1) { s[i] = (char)pin_next_byte(); if (s[i++] == '\n') break; } s[i] = 0; return s; }
+    if (!real_fgets) real_fgets = (char *(*)(char *, int, FILE *))dlsym(RTLD_NEXT, "fgets");
+    return real_fgets(s, n, f);
+}
+/* A closed entropy descriptor is forgotten, so a later file the kernel hands the same number reads the file (the coo's review of 569bf02c6). */
+int close(int fd) {
+    static int (*real_close)(int) = 0;
+    if (fd >= 0 && fd == pin_fd) pin_fd = -1;
+    if (!real_close) real_close = (int (*)(int))dlsym(RTLD_NEXT, "close");
+    return real_close(fd);
+}
+int fclose(FILE *f) {
+    static int (*real_fclose)(FILE *) = 0;
+    if (f && pin_fd >= 0 && fileno(f) == pin_fd) pin_fd = -1;
+    if (!real_fclose) real_fclose = (int (*)(FILE *))dlsym(RTLD_NEXT, "fclose");
+    return real_fclose(f);
+}
