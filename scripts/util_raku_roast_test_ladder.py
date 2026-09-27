@@ -549,6 +549,8 @@ def main():
     g.add_argument("--tsv")
     g.add_argument("--scrip", default=str(SCRIP))
     a = ap.parse_args()
+    if getattr(a, "scrip", None):
+        a.scrip = str(Path(a.scrip).resolve())
     if getattr(a, "jobs", None) is not None:
         a.jobs = a.jobs or fanout_width()
     return {"cut": cmd_cut, "rungs": cmd_rungs, "grade": cmd_grade}[a.verb](a)

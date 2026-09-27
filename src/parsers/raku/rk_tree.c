@@ -1569,6 +1569,20 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         for (int i = 1; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i]));
         return expr_binary(TT_ASSIGN, var_node(b, t0->name), call);
     }
+    if (op1 && t0->kind == TK_PAREN && !t0->npost && !t0->npre && L->n == 1 && t0->t
+        && ((t0->t->t == TT_ASSIGN && t0->t->n == 2 && t0->t->c[0] && ((t0->t->c[0]->t == TT_VAR && t0->t->c[0]->v.sval && t0->t->c[0]->v.sval[0] != '@'
+             && t0->t->c[0]->v.sval[0] != '%') || rk_is_elem(t0->t->c[0])))
+            || ((t0->t->t == TT_ARR_SET || t0->t->t == TT_HASH_SET) && t0->t->n == 3))) {
+        int clv, ck; int eq = !strcmp(op1, "=");
+        if (eq || rkb_compound_base(op1, &clv, &ck)) {
+            tree_t *inner = t0->t, *lhs = inner->c[0], *rhs = el_rest(b, e0);
+            if (inner->t == TT_ARR_SET || inner->t == TT_HASH_SET) { lhs = ast_node_new(inner->t == TT_ARR_SET ? TT_ARR_GET : TT_HASH_GET); ast_push(lhs, rk_tree_clone(inner->c[0])); ast_push(lhs, rk_tree_clone(inner->c[1])); }
+            tree_t *val = eq ? rk_scalar_rhs(rhs) : rk_scalar_rhs(rkb_binop(b, clv, ck, rk_tree_clone(lhs), rhs));
+            tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, inner);
+            expr_add_child(seq, rk_is_elem(lhs) ? rk_elem_store(lhs, val) : expr_binary(TT_ASSIGN, rk_tree_clone(lhs), val));
+            return seq;
+        }
+    }
     if (op1 && !strcmp(op1, "=") && t0->kind == TK_PAREN && !t0->npost && !t0->npre) {
         tree_t *rhs = el_rest(b, e0);
         TL targets = { 0 }; rk_group_targets(t0->t, &targets);
