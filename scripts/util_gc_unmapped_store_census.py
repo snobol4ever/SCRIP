@@ -59,6 +59,9 @@ THE ARITHMETIC IS CONFIRMED AGAINST THE RUNTIME ON THE ROW'S WITNESS.  hq_snobol
 `mov [rsp+0],rax / mov [rsp+8],rdx / call rt_gc_poll` at .Lcall_alpha_76_240; this census reads the poll's spine
 displacement as -32, so the pointer word at [rsp+8] sits at -24 -- and SCRIP_GC_MAPS=1 prints
 `[GC-WALK-SPINE] graph=main off=-24 ... text=EXPR$0$lvl1` at the same site.  Two independent roads, same byte.
+Since af773a80e (CEO-1251) the call sits behind the inline pending test -- push rax, the load and test of
+g_gc_pending, pop rax, je 1f -- and shielded_stores() steps over that six-instruction preamble as the poll's own
+(gate_preamble_ending_at): the je skips only the poll body, so both paths passed the stores.
 
 VERDICTS a store target k (relative to the region base) can take:
   MAPPED         -- inside a GC_LAY_DESCR or GC_LAY_PTR_GC layout entry; the collector visits it typed.
@@ -571,13 +574,47 @@ def shielded_stores(insns, i):
     while j >= 0:
         ins = insns[j]
         if CS.JCC.match(ins.mnem) or ins.mnem in ("call", "ret", "ud2"):
-            break
+            n = gate_preamble_ending_at(insns, j)
+            if not n:
+                break
+            j -= n
+            if insns[j + 1].labels:
+                break
+            continue
         frame.extend(_store_of(ins))
         static.extend(_static_store_of(ins))
         if ins.labels:
             break
         j -= 1
     return frame, static
+
+
+GATE_PREAMBLE = ("push rax", "mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]", "mov eax, dword ptr [rax + 0]",
+                 "test eax, eax", "pop rax", "je 1f")
+
+
+def gate_preamble_ending_at(insns, j):
+    """the length of the CEO-1251 inline pending test whose `je 1f` is insns[j], or 0.
+
+    THE SHAPE, from x86_gc_gate in x86_asm.h (af773a80e, 2026-09-25): every poll is emitted as `push rax / mov rax,
+    [rip+g_gc_pending@GOTPCREL] / mov eax,[rax] / test eax,eax / pop rax / je 1f` and then the poll body, with the
+    `1:` label after it.  That je skips ONLY the poll's own body, so every path that reaches the poll also passed the
+    instructions before the push -- the preamble is the poll's, not a join, and the backward walk steps over it.
+    THE READING THIS CURED: for two days the walk met the je, called it a control transfer and stopped, so the frame
+    stores the poll was placed after were never read; the census REFUSED with zero shielded stores over every witness
+    and arms (b) and (e) of test_gate_gc_a_safe_point_stores_into_a_mapped_slot.sh were red (the cfo's bisect,
+    2026-09-26).  ALL SIX INSTRUCTIONS ARE MATCHED BY TEXT: a gate that changes shape is a stop again, never a silent
+    skip, and a je to any other target is the real branch it always was.  A label on any instruction after the push
+    is another path entering the preamble itself and is refused as a gate."""
+    if j < 5:
+        return 0
+    for k, want in enumerate(GATE_PREAMBLE):
+        ins = insns[j - 5 + k]
+        if " ".join(ins.text.split()) != want:
+            return 0
+        if k and ins.labels:
+            return 0
+    return 6
 
 
 def _store_of(ins):
@@ -1279,6 +1316,21 @@ def selftest():
     arm("grid: the region base itself is ON-GRID", grid_verdict(0) == "ON-GRID")
     arm("grid: an 8-byte push below the base takes the floor OFF-GRID", grid_verdict(-8) == "OFF-GRID")
     spill = CS.Insn(1, "mov qword ptr [rip + rtccb+40], r8", [])
+    gated = [CS.Insn(1, "mov qword ptr [rsp + 0], rax", (".Lcall_a_1",)), CS.Insn(2, "mov qword ptr [rsp + 8], rdx", ()),
+             CS.Insn(3, "push rax", ()), CS.Insn(4, "mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]", ()),
+             CS.Insn(5, "mov eax, dword ptr [rax + 0]", ()), CS.Insn(6, "test eax, eax", ()), CS.Insn(7, "pop rax", ()),
+             CS.Insn(8, "je 1f", ()), CS.Insn(9, "mov qword ptr [rip + rtccb+40], r8", ()), CS.Insn(10, "call rt_gc_poll_asm@PLT", ())]
+    arm("GATED POLL: the stores before the inline pending test are FOUND -- the je 1f skips only the poll body, so the walk steps over the six-instruction preamble as the poll's own",
+        shielded_stores(gated, 9) == ([("rsp", 8, "rdx"), ("rsp", 0, "rax")], [("rtccb", 40, "r8")]))
+    branched = list(gated); branched[7] = CS.Insn(8, "je .Lelse_1", ())
+    arm("GATED POLL NEGATIVE: a real branch between the store and the poll still stops the walk -- the preamble is matched by all six texts, never by 'any je'",
+        shielded_stores(branched, 9) == ([], [("rtccb", 40, "r8")]))
+    reshaped = list(gated); reshaped[5] = CS.Insn(6, "test rax, rax", ())
+    arm("GATED POLL RESHAPED: a gate whose test changed spelling is a stop again, not a silent skip",
+        shielded_stores(reshaped, 9) == ([], [("rtccb", 40, "r8")]))
+    joined = list(gated); joined[2] = CS.Insn(3, "push rax", (".Lpoll_entry",))
+    arm("GATED POLL JOINED: a label on the preamble's own push is another path entering, so the walk stops after the gate and reads no store",
+        shielded_stores(joined, 9) == ([], [("rtccb", 40, "r8")]))
     arm("a rip-relative shield is NAMED with its symbol and offset, not dropped",
         _static_store_of(spill) == [("rtccb", 40, "r8")])
     arm("the frame reader still REFUSES that same store -- the reach boundary is counted, never graded",
