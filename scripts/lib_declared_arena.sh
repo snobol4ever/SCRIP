@@ -422,8 +422,8 @@ declared_switches_beside() {
 }
 
 # declared_compile_args_beside <program> -- a STANDALONE program's declared compile switches (a demo, a benchmark kernel, an extracted
-#   entry: no ALL.csv row to read), from its <stem>.args sidecar, one line NAME<TAB>compile_args<TAB>run_args, read through
-#   corpus_suite_harness.args_declarations() -- CALLED, never copied, as the .heap and .stack sidecars are read above. Echoes one line of
+#   entry: no ALL.csv row to read), from its <stem>.cmdline sidecar, one line NAME<TAB>compile_args<TAB>run_args, read through
+#   corpus_suite_harness.cmdline_declarations() -- CALLED, never copied, as the .heap and .stack sidecars are read above. Echoes one line of
 #   words for the runner to place right after --run and --compile, before the source, in both modes (the cto's order, as
 #   declared_compile_args_from_table); nothing when there is no sidecar (clause 8 (f), CEO-1281, landing 4 of 5: the runner types none of
 #   its own). ⛔ rc 2 on a sidecar that declares nothing for the program beside it (the name is the program's stem, as for .heap), on a
@@ -431,14 +431,14 @@ declared_switches_beside() {
 #   reader honours grades green while it is ignored (declared_memory_table's rule).
 declared_compile_args_beside() {
   local prog="$1"
-  [ -n "$prog" ] && [ -f "${prog%.*}.args" ] || return 0
+  [ -n "$prog" ] && [ -f "${prog%.*}.cmdline" ] || return 0
   python3 - "$prog" "$_LDA_HERE" <<'PY'
 import os, sys
 prog, here = sys.argv[1], sys.argv[2]
 sys.path.insert(0, here)
 import corpus_suite_harness as h
-side = h.args_sidecar_path(prog)
-decl, src = h.args_declarations(prog)
+side = h.cmdline_sidecar_path(prog)
+decl, src = h.cmdline_declarations(prog)
 stem = os.path.splitext(os.path.basename(prog))[0]
 if src != os.path.basename(side) or stem not in decl:
     sys.stderr.write("⛔ REFUSE(2) %s declares no command line for %s: the sidecar's format is one line NAME<TAB>compile_args<TAB>run_args "

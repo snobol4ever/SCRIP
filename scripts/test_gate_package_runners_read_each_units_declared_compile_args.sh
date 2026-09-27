@@ -23,15 +23,23 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #   P1..P10  the ten package runners, each on its own scratch suite and scratch progress table: dotnet, snoflake, spitbol_x64,
 #       spitbol_testpgms, csnobol4, aisnobol (through the harness), jcon, arizona, ipl, and spitbol_x32 (hq_snobol4's X32T, 1cddec296)
 #
-#   L3  landing 4: declared_compile_args_beside reads a standalone program's <stem>.args (NAME<TAB>compile_args<TAB>run_args) and
+#   L3  landing 4: declared_compile_args_beside reads a standalone program's <stem>.cmdline (NAME<TAB>compile_args<TAB>run_args) and
 #       refuses rc 2 on another unit's name, a word outside the admitted list and a run_args cell
 #   X1  corpus_suite_harness.py extract carries the unit's heap, stack and command line out beside it, named by the output's stem
-#       (CEO-1127: an entry extracted standalone is how every seat cures); an undeclaring unit gets no .args
-#   X2  extract-family carries <stem>.args, and the harness run on the extracted pair -- no ALL.csv beside it -- applies it
+#       (CEO-1127: an entry extracted standalone is how every seat cures); an undeclaring unit gets no .cmdline
+#   X2  extract-family carries <stem>.cmdline, and the harness run on the extracted pair -- no ALL.csv beside it -- applies it
 #   S1  scorecard_snobol4.sh on a scratch gimpel table (the path test_snobol4_gimpel_suite.sh grades through)
-#   S2  scorecard_snobol4.sh on a scratch benchmarks dir with no table: the <stem>.args sidecar is the only declaration
+#   S2  scorecard_snobol4.sh on a scratch benchmarks dir with no table: the <stem>.cmdline sidecar is the only declaration
 #   D1  test_corpus_snobol4.sh's own run_test and compile_mode4, lifted out of the runner by sed (never copied) and run on a demo
 #       pair: the runner's master block cannot be fixtured cheaply, and these two functions are its every direct scrip command line
+#   A   landing 5, THE ACCEPT ARM: every word of COMPILE_ARGS_ADMITTED (read from the harness) is accepted by scrip at both compile
+#       steps and switches the witness to the oracle's answer, and every compile_args word the corpus declares -- 25 tables and every
+#       <stem>.cmdline -- is admitted; FAIL-ONCE inside the arm: --nosuchswitch must be REJECTED at both steps, or acceptance could not
+#       be told from indifference and the arm refuses rc 2
+#   R   landing 5, THE RATCHET: the scripts that type the switch themselves (an executable line naming SCRIP_SNO_STMTKW, or a literal
+#       --stlimit; gates excluded, a grader's instrumentation is not a unit's) are exactly the five named with their reasons below --
+#       a new one reds, and so does a named one that no longer types it; FAIL-ONCE inside the arm: a planted runner that exports the
+#       switch reds the same census over a scratch dir
 #
 # NOT COVERED, AND NAMED: the ladder, port-trace and gate graders keep their export, because a grader's instrumentation is not a unit
 # attribute. LANDING 4 (coo 2026-09-26): the three exports this header used to name here -- test_corpus_snobol4.sh, scorecard_snobol4.sh
@@ -174,30 +182,32 @@ DBPFX=progs/ run_db P9 "$W/p9.tsv" S4E_HOME="$W/ipl" -- "$HERE/test_icon_ipl_sui
 mk_sno "$W/x32" spt
 run_db P10 "$W/p10.tsv" SPITBOL_X32_SUITE="$W/x32" SPITBOL_X32_SHIPPED=2 -- "$HERE/test_snobol4_spitbol_x32_suite.sh"
 
-# ── landing 4: a STANDALONE unit's command line travels in <stem>.args ──────────────────────────────────────────
+# ── landing 4: a STANDALONE unit's command line travels in <stem>.cmdline ──────────────────────────────────────────
 mkdir -p "$W/sa"; for n in decl nodecl other bad ra; do cp "$W/cnt.sno" "$W/sa/$n.sno"; done
-printf 'decl\t--stlimit\t\n' > "$W/sa/decl.args"; printf 'someone_else\t--stlimit\t\n' > "$W/sa/other.args"
-printf 'bad\t--nosuchswitch\t\n' > "$W/sa/bad.args"; printf 'ra\t\tx\n' > "$W/sa/ra.args"
+printf 'decl\t--stlimit\t\n' > "$W/sa/decl.cmdline"; printf 'someone_else\t--stlimit\t\n' > "$W/sa/other.cmdline"
+printf 'bad\t--nosuchswitch\t\n' > "$W/sa/bad.cmdline"; printf 'ra\t\tx\n' > "$W/sa/ra.cmdline"
 b_d="$(declared_compile_args_beside "$W/sa/decl.sno")"; rd=$?; b_n="$(declared_compile_args_beside "$W/sa/nodecl.sno")"; rn=$?
 declared_compile_args_beside "$W/sa/other.sno" >/dev/null 2>&1; ro=$?; declared_compile_args_beside "$W/sa/bad.sno" >/dev/null 2>&1; rb=$?
 declared_compile_args_beside "$W/sa/ra.sno" >/dev/null 2>&1; rr=$?
-if [ "$rd" = 0 ] && [ "$b_d" = "--stlimit" ] && [ "$rn" = 0 ] && [ -z "$b_n" ] && [ "$ro" = 2 ] && [ "$rb" = 2 ] && [ "$rr" = 2 ]; then
-    ok L3 "decl.args reads '--stlimit', nodecl (no sidecar) reads nothing; another unit's name, a word outside the admitted list and a run_args cell each refuse rc 2"
-else red L3 "decl=[$b_d] rc $rd, nodecl=[$b_n] rc $rn, other rc $ro, bad word rc $rb, run_args rc $rr (want --stlimit/0, empty/0, 2, 2, 2)"; fi
+cp "$W/cnt.sno" "$W/sa/argvonly.sno"; printf 'a b c\n' > "$W/sa/argvonly.args"   # Icon's <name>.args is an argv, never this declaration
+b_v="$(declared_compile_args_beside "$W/sa/argvonly.sno" 2>&1)"; rv=$?
+if [ "$rd" = 0 ] && [ "$b_d" = "--stlimit" ] && [ "$rn" = 0 ] && [ -z "$b_n" ] && [ "$ro" = 2 ] && [ "$rb" = 2 ] && [ "$rr" = 2 ] && [ "$rv" = 0 ] && [ -z "$b_v" ]; then
+    ok L3 "decl.cmdline reads '--stlimit', nodecl (no sidecar) reads nothing, an Icon argv .args beside a program is not read; another unit's name, a word outside the admitted list and a run_args cell each refuse rc 2"
+else red L3 "decl=[$b_d] rc $rd, nodecl=[$b_n] rc $rn, argv .args=[$b_v] rc $rv, other rc $ro, bad word rc $rb, run_args rc $rr (want --stlimit/0, empty/0, empty/0, 2, 2, 2)"; fi
 mkdir -p "$W/xt"
 python3 "$HERE/corpus_suite_harness.py" extract "$W/fam/ALL.sno" "$W/fam/ALL.ref" decl "$W/xt/one.sno" >/dev/null 2>&1; x1=$?
 python3 "$HERE/corpus_suite_harness.py" extract "$W/fam/ALL.sno" "$W/fam/ALL.ref" nodecl "$W/xt/two.sno" >/dev/null 2>&1; x2=$?
 x_ca="$(declared_compile_args_beside "$W/xt/one.sno" 2>&1)"; x_sw="$(declared_switches_beside "$W/xt/one.sno" 2>&1)"; x_n="$(declared_compile_args_beside "$W/xt/two.sno" 2>&1)"
-if [ "$x1" = 0 ] && [ "$x2" = 0 ] && [ "$x_ca" = "--stlimit" ] && [ "$x_sw" = "-d131072k -s4096k" ] && [ ! -e "$W/xt/two.args" ] && [ -z "$x_n" ]; then
-    ok X1 "extract carries decl's --stlimit, 131072 KB and 4096 KB out beside one.sno, and nodecl's two.sno gets no .args"
-else red X1 "extract rc $x1/$x2; one.sno reads [$x_ca] and [$x_sw] (want --stlimit and -d131072k -s4096k); two.args $([ -e "$W/xt/two.args" ] && echo present || echo absent), two reads [$x_n]"; fi
+if [ "$x1" = 0 ] && [ "$x2" = 0 ] && [ "$x_ca" = "--stlimit" ] && [ "$x_sw" = "-d131072k -s4096k" ] && [ ! -e "$W/xt/two.cmdline" ] && [ -z "$x_n" ]; then
+    ok X1 "extract carries decl's --stlimit, 131072 KB and 4096 KB out beside one.sno, and nodecl's two.sno gets no .cmdline"
+else red X1 "extract rc $x1/$x2; one.sno reads [$x_ca] and [$x_sw] (want --stlimit and -d131072k -s4096k); two.cmdline $([ -e "$W/xt/two.cmdline" ] && echo present || echo absent), two reads [$x_n]"; fi
 mkdir -p "$W/xf"
 python3 "$HERE/corpus_suite_harness.py" extract-family "$W/fam/ALL.sno" "$W/fam/ALL.ref" "$W/fam/ALL.csv" fx "$W/xf/fx.sno" "$W/xf/fx.ref" >/dev/null 2>&1 \
     || red X2 "extract-family refused the scratch family"
-if [ -f "$W/xf/fx.args" ] && [ ! -e "$W/xf/ALL.csv" ]; then
+if [ -f "$W/xf/fx.cmdline" ] && [ ! -e "$W/xf/ALL.csv" ]; then
     out="$(cd "$ROOT" && env "${typed[@]}" timeout 300 python3 "$HERE/corpus_suite_harness.py" run "$W/xf/fx.sno" "$W/xf/fx.ref" --modes m3,m4 2>&1)"; rc=$?
     board_pair X2 "$rc" "$out"
-else red X2 "extract-family wrote no fx.args beside the extracted pair"; fi
+else red X2 "extract-family wrote no fx.cmdline beside the extracted pair"; fi
 # ⛔ THE SCORECARD APPENDS ITS results.tsv TO THE PROGRESS TABLE ON EVERY run, scratch corpus or not, so S1 and S2 name a scratch table:
 # the first draft of these arms did not, and one run put 4 fixture rows (decl_driver, nodecl_driver; dev-pass, -dirty) into the live one.
 sc_overlay() {  # <corpus dir> <top-level dir the fixture replaces> -- every other top-level dir of the real corpus symlinked in, as the gimpel runner does
@@ -211,10 +221,10 @@ for n in decl_driver nodecl_driver; do cp "$W/cnt.sno" "$G1/$n.sno"; done; csv_p
 out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s1.tsv" CORPUS="$W/sc1/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W/sc1/out" 2>&1)"; rc=$?
 sc_pair S1 "$rc" "$W/sc1/out/results.tsv" packages/snobol4/gimpel/decl_driver.sno packages/snobol4/gimpel/nodecl_driver.sno || show_on_red "$out"
 B2="$W/sc2/corpus/benchmarks/snobol4"; mkdir -p "$B2"; sc_overlay "$W/sc2/corpus" benchmarks
-for n in decl nodecl; do cp "$W/cnt.sno" "$B2/$n.sno"; done; printf 'decl\t--stlimit\t\n' > "$B2/decl.args"
+for n in decl nodecl; do cp "$W/cnt.sno" "$B2/$n.sno"; done; printf 'decl\t--stlimit\t\n' > "$B2/decl.cmdline"
 out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s2.tsv" CORPUS="$W/sc2/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites benchmarks --out "$W/sc2/out" 2>&1)"; rc=$?
 sc_pair S2 "$rc" "$W/sc2/out/results.tsv" benchmarks/snobol4/decl.sno benchmarks/snobol4/nodecl.sno || show_on_red "$out"
-mkdir -p "$W/dm"; for n in decl nodecl; do cp "$W/cnt.sno" "$W/dm/$n.sno"; printf '%s\n' "$sbl_o" > "$W/dm/$n.ref"; done; printf 'decl\t--stlimit\t\n' > "$W/dm/decl.args"
+mkdir -p "$W/dm"; for n in decl nodecl; do cp "$W/cnt.sno" "$W/dm/$n.sno"; printf '%s\n' "$sbl_o" > "$W/dm/$n.ref"; done; printf 'decl\t--stlimit\t\n' > "$W/dm/decl.cmdline"
 fns="$(sed -n '/^compile_mode4() {/,/^}/p; /^run_test() {/,/^}/p' "$HERE/test_corpus_snobol4.sh")"
 if printf '%s' "$fns" | grep -q '^run_test() {' && printf '%s' "$fns" | grep -q '^compile_mode4() {'; then
     d1="$(cd "$ROOT" && env "${typed[@]}" bash -c '
@@ -229,8 +239,64 @@ if printf '%s' "$fns" | grep -q '^run_test() {' && printf '%s' "$fns" | grep -q 
     pair D1 "$rc" "$d3" "$d4" "$n3" "$n4" || show_on_red "$d1"
 else red D1 "run_test and compile_mode4 are no longer in test_corpus_snobol4.sh as sed can lift them -- this arm grades nothing"; fi
 
+# ── landing 5: A, the accept arm; R, the ratchet ───────────────────────────────────────────────────────────
+adm="$(cd "$ROOT" && python3 -c 'import sys; sys.path.insert(0, "scripts"); import corpus_suite_harness as h; print(" ".join(h.COMPILE_ARGS_ADMITTED))' 2>/dev/null)"
+if [ -z "$adm" ]; then red A "COMPILE_ARGS_ADMITTED could not be read from the harness"; else
+    a_bad=""; for w in $adm; do
+        [ "$(m3_of cnt.sno "$w")" = "$sbl_o" ] || a_bad="$a_bad $w:m3"; [ "$(m4_of cnt.sno "$w")" = "$sbl_o" ] || a_bad="$a_bad $w:m4"; done
+    ( cd "$W" && timeout 20 "$SCRIP" --run --nosuchswitch cnt.sno < /dev/null > /dev/null 2>&1 ); u3=$?
+    ( cd "$W" && timeout 20 "$SCRIP" --compile --nosuchswitch cnt.sno < /dev/null > "$W/u.s" 2>/dev/null ); u4=$?
+    census="$(cd "$ROOT" && python3 - "$ROOT/../corpus" <<'PYC' 2>&1
+import csv, glob, os, sys
+sys.path.insert(0, "scripts"); import corpus_suite_harness as h
+root = sys.argv[1]; words = 0; cells = 0; bad = []
+for t in sorted(glob.glob(os.path.join(root, "tests", "*", "ALL.csv")) + glob.glob(os.path.join(root, "packages", "*", "*", "ALL.csv"))):
+    with open(t, newline="") as f:
+        for n, r in enumerate(csv.DictReader(f), 2):
+            raw = (r.get("compile_args") or "").strip()
+            if not raw: continue
+            cells += 1
+            try: words += len(h.validate_args_cell(raw, "compile_args", "%s:%d" % (t, n)) or [])
+            except SystemExit: bad.append("%s:%d" % (os.path.relpath(t, root), n))
+for a in sorted(glob.glob(os.path.join(root, "**", "*.cmdline"), recursive=True)):
+    try: h.cmdline_declarations(a); cells += 1
+    except SystemExit: bad.append(os.path.relpath(a, root))
+print("cells=%d words=%d refused=%d %s" % (cells, words, len(bad), " ".join(bad[:5])))
+PYC
+)"
+    if [ "$u3" = 0 ] || { [ "$u4" = 0 ] && [ -s "$W/u.s" ]; }; then
+        unproven "scrip ACCEPTED --nosuchswitch (run rc $u3, compile rc $u4) -- acceptance of the admitted words cannot be told from indifference, so arm A grades nothing"
+    elif [ -z "$a_bad" ] && printf '%s' "$census" | grep -qE '^cells=[1-9][0-9]* words=[0-9]+ refused=0 '; then
+        ok A "scrip accepts [$adm] at both compile steps and each switches the witness to the oracle's '$sbl_o'; --nosuchswitch is rejected (run rc $u3, compile rc $u4); the corpus declares $(printf '%s' "$census" | cut -d' ' -f1,2), every word admitted"
+    else red A "not accepted:${a_bad:- none}; corpus census: $census"; fi
+fi
+# R: exactly these scripts may type the switch, each for the reason given; gates are not runners and are not censused
+RATCHET_EXEMPT="lib_ladder.sh:a ladder grader's instrumentation, not a unit attribute (landing 3's ruling)
+lib_port_trace.sh:the port-trace grader's instrumentation, not a unit attribute (landing 3's ruling)
+util_stlimit_keeps_three_package_answers.sh:an instrument that measures the switch itself -- its arms type it by design
+corpus_suite_harness.py:COMPILE_ARGS_ADMITTED is the switch's one definition
+util_gc_safe_point_contract.py:CEO-1250 pins its reach reading's environment to the switch"
+ratchet_offenders() {  # <dir> -> the basename of every non-gate .sh/.py in it with an executable line typing the switch
+    local f; for f in "$1"/*.sh "$1"/*.py; do [ -f "$f" ] || continue
+        case "${f##*/}" in test_gate_*) continue;; esac
+        awk '{ l=$0; sub(/^[ \t]*#.*$/, "", l); sub(/[ \t]+#[^"'"'"']*$/, "", l)
+               if (l ~ /unset SCRIP_SNO_STMTKW|-u SCRIP_SNO_STMTKW/) next
+               if (l ~ /SCRIP_SNO_STMTKW|--stlimit/) { hit=1; exit } } END { exit !hit }' "$f" && printf '%s\n' "${f##*/}"
+    done | LC_ALL=C sort; }
+exempt="$(printf '%s\n' "$RATCHET_EXEMPT" | cut -d: -f1 | LC_ALL=C sort)"
+offend="$(ratchet_offenders "$HERE")"
+new="$(comm -13 <(printf '%s\n' "$exempt") <(printf '%s\n' "$offend") | grep . | tr '\n' ' ')"
+stale="$(comm -23 <(printf '%s\n' "$exempt") <(printf '%s\n' "$offend") | grep . | tr '\n' ' ')"
+mkdir -p "$W/rt"; printf '#!/usr/bin/env bash\nexport SCRIP_SNO_STMTKW=1\n' > "$W/rt/test_planted_suite.sh"; printf '#!/usr/bin/env bash\n# export SCRIP_SNO_STMTKW=1 in a comment is not typing it\nenv -u SCRIP_SNO_STMTKW true\n' > "$W/rt/test_quiet_suite.sh"
+planted="$(ratchet_offenders "$W/rt" | tr '\n' ' ')"
+if [ "$planted" != "test_planted_suite.sh " ]; then
+    unproven "the ratchet's census reads the planted scratch dir as [$planted], want [test_planted_suite.sh] -- a census that cannot see a planted export grades nothing"
+elif [ -z "$new$stale" ]; then
+    ok R "the scripts typing the switch are exactly the $(printf '%s\n' "$exempt" | grep -c .) named ones ($(printf '%s' "$exempt" | tr '\n' ' ')); a planted exporting runner is seen and a commented or unsetting one is not"
+else red R "${new:+NEW, type the switch without a named reason: $new}${stale:+ STALE, named but no longer typing it: $stale}"; fi
+
 echo "------------------------------------------------------------"
 N=$((PASS + FAIL))
-if [ "$FAIL" = 0 ]; then echo "GATE PASS(0) [$G]: $PASS of $N arms green (denominator: $N arms -- the premise, three reader arms, the harness, ten package runners, the extract and extract-family carry, the scorecard by table and by sidecar and the demo runner's own functions, each runner on a decl/nodecl pair in both modes)"; exit 0; fi
+if [ "$FAIL" = 0 ]; then echo "GATE PASS(0) [$G]: $PASS of $N arms green (denominator: $N arms -- the premise, three reader arms, the harness, ten package runners, the extract and extract-family carry, the scorecard by table and by sidecar, the demo runner's own functions, the accept arm and the ratchet, each runner on a decl/nodecl pair in both modes)"; exit 0; fi
 if [ -n "$UNM" ] && [ "$FAIL" = "$(printf '%s' "$UNM" | wc -w)" ]; then echo "GATE UNPROVEN(2) [$G]: $FAIL of $N arms could not measure their fixtures:$UNM"; exit 2; fi
 echo "GATE FAIL(1) [$G]: $FAIL of $N arms red${UNM:+ (could not measure:$UNM)}"; exit 1

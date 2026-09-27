@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION (clause 8 (f), CEO-1281, landing 4): the master's entries declare it in tests/snobol4/ALL.csv, which the harness applies; a demo row declares it in its <stem>.args sidecar, which run_test reads. This board exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source); measured that day, all 23 demos run byte-identical in both modes without it
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION (clause 8 (f), CEO-1281, landing 4): the master's entries declare it in tests/snobol4/ALL.csv, which the harness applies; a demo row declares it in its <stem>.cmdline sidecar, which run_test reads. This board exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source); measured that day, all 23 demos run byte-identical in both modes without it
 # scripts/test_corpus_snobol4.sh — SNOBOL4 broad corpus, modes 2+3+4
 # Mode-4 gate (hard). Modes 2+3 informational. Reinstated 2026-06-08.
 # Compares output against .ref files. Reports PASS/FAIL/SKIP per mode.
@@ -225,7 +225,7 @@ run_test() {
     local heap_env=(); [ -n "$heap_kb" ] && heap_env=("SCRIP_HEAP_CAP_KB=$heap_kb")
     # ⭐ AND THE DECLARED STACK AS AN OPTIONAL 7th argv, the same way (CEO-1225): SCRIP_STACK sizes the m3 process and the m4 binary.
     [ -n "$stack_kb" ] && heap_env+=("SCRIP_STACK=${stack_kb}k")
-    # ⭐ AND THE PROGRAM'S OWN COMPILE SWITCHES, from its <stem>.args sidecar (clause 8 (f), CEO-1281, landing 4): placed after --run and
+    # ⭐ AND THE PROGRAM'S OWN COMPILE SWITCHES, from its <stem>.cmdline sidecar (clause 8 (f), CEO-1281, landing 4): placed after --run and
     # --compile, both modes; a sidecar the reader refuses refuses the board, which never grades around a declaration it cannot honour.
     local ca; ca="$(declared_compile_args_beside "$sno")" || { echo "⛔ REFUSED TO GRADE rc=2: $label's command-line sidecar is refused (named above)" >&2; exit 2; }
 

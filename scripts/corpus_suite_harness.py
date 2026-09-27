@@ -3518,19 +3518,22 @@ def validate_args_cell(raw, col, where):
     return words
 
 
-def args_sidecar_path(sno_path):
-    """<stem>.args beside an extracted pair or a standalone program: the command line's twin of heap_sidecar_path (clause 8 (f),
+def cmdline_sidecar_path(sno_path):
+    """<stem>.cmdline beside an extracted pair or a standalone program: the command line's twin of heap_sidecar_path (clause 8 (f),
     CEO-1281, landing 4 of 5). One line per unit, NAME<TAB>compile_args<TAB>run_args, either cell empty, each cell in
     validate_args_cell's grammar. A unit with no ALL.csv row -- a demo, a benchmark kernel, an extracted entry -- carries its
-    command line here or it declares none."""
-    return str(Path(sno_path).with_suffix(".args"))
+    command line here or it declares none. ⛔ NOT .args, WHICH WAS TAKEN: Icon's <name>.args is already a program's argv (the jcon
+    runner, bench_triangulate_demos_icon.sh, util_icon_ref_provenance.sh; CEO-609 moves argv to .argv), and a second format under
+    one name would hand an argv reader a declaration and this reader an argv (coo 2026-09-26, found by landing 5's corpus census:
+    jcon_tests/link1.args holds `a b c`)."""
+    return str(Path(sno_path).with_suffix(".cmdline"))
 
 
-def args_declarations(sno_path):
-    """({unit: (compile_args words or None, run_args words or None)}, the sidecar's name) from the <stem>.args beside `sno_path`;
+def cmdline_declarations(sno_path):
+    """({unit: (compile_args words or None, run_args words or None)}, the sidecar's name) from the <stem>.cmdline beside `sno_path`;
     ({}, None) when there is none or it declares nothing. ⛔ A LINE WITH NO NAME, OR ONE UNIT NAMED TWICE, IS REFUSED rc=2: a
     declaration no reader can attribute is not a declaration, and two lines for one unit are two answers to one question."""
-    _p = Path(args_sidecar_path(sno_path))
+    _p = Path(cmdline_sidecar_path(sno_path))
     if not _p.is_file():
         return {}, None
     out = {}
@@ -3558,15 +3561,15 @@ def read_command_line_columns(src_path, entries, modes=None):
     declarations of one entry are two answers to one question. ⛔ run_args on a family graded in ast mode only is refused
     for the reason read_argv_sidecar gives: --dump-ast never runs the program. An ALL.csv with neither column, or empty
     cells, changes nothing.
-    ⭐ AN EXTRACTED PAIR HAS NO ALL.csv, SO ITS COMMAND LINE TRAVELS IN <stem>.args (extract-family writes it, heap_declarations'
+    ⭐ AN EXTRACTED PAIR HAS NO ALL.csv, SO ITS COMMAND LINE TRAVELS IN <stem>.cmdline (extract-family writes it, heap_declarations'
     order for heap_kb's reason, CEO-1127): read first, by name; a unit it names that ALL.csv also declares is refused."""
     by_name = {e.name: e for e in entries}
-    side, side_name = args_declarations(src_path)
+    side, side_name = cmdline_declarations(src_path)
     for name, (ca, ra) in side.items():
         e = by_name.get(name)
         if e is None:
             continue
-        where = f"{args_sidecar_path(src_path)}:{name}"
+        where = f"{cmdline_sidecar_path(src_path)}:{name}"
         if ca:
             e.compile_args = ca
         if ra:
@@ -3704,7 +3707,7 @@ def cmd_extract_family(args):
                 _sf.write("%s\t%s\n" % (_n, _v))
     elif os.path.exists(stack_sidecar_path(args.out_sno)):
         os.remove(stack_sidecar_path(args.out_sno))
-    # ⭐ AND THE COMMAND LINE (clause 8 (f), CEO-1281): compile_args and run_args travel in <stem>.args, NAME<TAB>compile_args<TAB>
+    # ⭐ AND THE COMMAND LINE (clause 8 (f), CEO-1281): compile_args and run_args travel in <stem>.cmdline, NAME<TAB>compile_args<TAB>
     # run_args, which read_command_line_columns reads first for a pair with no ALL.csv.
     _cmd_sel = {}
     with open(args.csv, newline="") as _cf:
@@ -3715,19 +3718,19 @@ def cmd_extract_family(args):
                 _cmd_sel[_r["entry"]] = (" ".join(_ca or []), " ".join(_ra or []))
     _mine = [(_e.name, _cmd_sel[_e.name]) for _e in sel if _e.name in _cmd_sel]
     if _mine:
-        with open(args_sidecar_path(args.out_sno), "w", encoding="utf-8") as _af:
+        with open(cmdline_sidecar_path(args.out_sno), "w", encoding="utf-8") as _af:
             _af.write("# command line carried out of %s by extract-family (family=%s). entry<TAB>compile_args<TAB>run_args.\n"
                       % (Path(args.csv).name, args.family))
             for _n, (_ca, _ra) in _mine:
                 _af.write("%s\t%s\t%s\n" % (_n, _ca, _ra))
-    elif os.path.exists(args_sidecar_path(args.out_sno)):
-        os.remove(args_sidecar_path(args.out_sno))
+    elif os.path.exists(cmdline_sidecar_path(args.out_sno)):
+        os.remove(cmdline_sidecar_path(args.out_sno))
 
 
 def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
     """The four attributes of ONE extracted unit, written beside it under the name the standalone readers look up -- the
     output's own stem, since lib_declared_arena.sh's *_beside readers key a sidecar by the program beside it: <stem>.heap and
-    <stem>.stack (NAME<TAB>KB) and <stem>.args (NAME<TAB>compile_args<TAB>run_args), each only when the unit's ALL.csv row
+    <stem>.stack (NAME<TAB>KB) and <stem>.cmdline (NAME<TAB>compile_args<TAB>run_args), each only when the unit's ALL.csv row
     declares it. ⛔⭐ CEO-1127: an entry extracted standalone is how every seat cures, and a declaration left behind grades a
     different program -- master entry 1991 declares --stlimit, 131072 KB and 4096 KB, and extract carried none of the three
     (coo 2026-09-26, measured). A stale sidecar is removed only when an extract wrote it (its first line says so)."""
@@ -3748,7 +3751,7 @@ def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
     mark = "# carried out of %s by extract (entry %s)." % (csv_path.name, entry_name)
     for path, body in ((heap_sidecar_path(out_sno), None if kb is None else "%s\t%s" % (stem, kb)),
                        (stack_sidecar_path(out_sno), None if st is None else "%s\t%s" % (stem, st)),
-                       (args_sidecar_path(out_sno), None if not (ca or ra) else "%s\t%s\t%s" % (stem, " ".join(ca or []), " ".join(ra or [])))):
+                       (cmdline_sidecar_path(out_sno), None if not (ca or ra) else "%s\t%s\t%s" % (stem, " ".join(ca or []), " ".join(ra or [])))):
         if body is not None:
             Path(path).write_text(mark + "\n" + body + "\n", encoding="utf-8")
         elif os.path.exists(path) and Path(path).read_text(encoding="utf-8", errors="replace").startswith("# carried out of "):

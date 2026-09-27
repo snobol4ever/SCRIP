@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" || exit 2; case "${1:-report}" in run|report) one_runner_guard "${0##*/} ${1:-report}" || exit 2;; esac  # PER VERB, CEO-547 part 1: run and report ARE boards; `one` and `oracle` grade ONE named program, write no results.tsv and publish no board, so they are development aids and the guard must not judge them by the entry point (hq_B measurement, .github 92335e4b)
-# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program by sc_decl_build below from the ALL.csv row beside it or its <stem>.args sidecar (clause 8 (f), CEO-1281, landing 4): this grader exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program by sc_decl_build below from the ALL.csv row beside it or its <stem>.cmdline sidecar (clause 8 (f), CEO-1281, landing 4): this grader exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # scorecard_snobol4.sh — THE SNOBOL4 SCORECARD + META SCORE (Lon directive 2026-08-15 s91, Fable seat).
 #
 #   bash scripts/scorecard_snobol4.sh run    [--suites a,b,..] [--jobs N] [--out DIR] [--force]   # measure (long)
@@ -141,7 +141,7 @@ sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from
 # with one awk; a refused cell refuses the whole run before one program is graded.
 . "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_declared_arena.sh -- the one reader of a declared heap and stack"; exit 2; }
 sc_decl_build() {  # $1 = table out  $2.. = program paths (or - to read them from stdin) -> "path<TAB>heap_kb<TAB>stack_kb<TAB>compile_args" per declaring program; rc 2 on a refused cell
-  # ⭐ THE 4th COLUMN IS THE PROGRAM'S compile_args (clause 8 (f), CEO-1281, landing 4 of 5): the ALL.csv row's, or its <stem>.args
+  # ⭐ THE 4th COLUMN IS THE PROGRAM'S compile_args (clause 8 (f), CEO-1281, landing 4 of 5): the ALL.csv row's, or its <stem>.cmdline
   # sidecar's for a program with no table (declared_compile_args_beside), which run_one puts after --run and --compile.
   local out="$1" p d n kb st ca rc=0; shift; : > "$out" || return 2
   local -a progs=(); if [ "${1:-}" = - ]; then mapfile -t progs; else progs=("$@"); fi
