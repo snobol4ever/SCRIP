@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1815
+#define GC_ALLOC_TAB_N 1821
 #define GC_ALLOC_TAB_N_VOID 206
-#define GC_ALLOC_TAB_N_DESCR 1025
-#define GC_ALLOC_TAB_N_OTHER 578
+#define GC_ALLOC_TAB_N_DESCR 1026
+#define GC_ALLOC_TAB_N_OTHER 583
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -443,6 +443,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "cf_eval", GC_RET_OTHER },
     { "cf_run", GC_RET_OTHER },
     { "cnv_c_str", GC_RET_OTHER },
+    { "cnv_int", GC_RET_OTHER },
     { "cnv_real", GC_RET_OTHER },
     { "cnv_str", GC_RET_OTHER },
     { "code", GC_RET_DESCR },
@@ -553,6 +554,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "flat_drive_match_alt", GC_RET_VOID },
     { "flat_drive_repalt", GC_RET_VOID },
     { "ge", GC_RET_OTHER },
+    { "getdbl", GC_RET_OTHER },
     { "gram_set", GC_RET_VOID },
     { "grammar_parse_core", GC_RET_OTHER },
     { "gt", GC_RET_OTHER },
@@ -582,6 +584,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_tb_builtins_at", GC_RET_VOID },
     { "icn_tb_image", GC_RET_VOID },
     { "icn_true_len", GC_RET_OTHER },
+    { "icnx_lrgint_str", GC_RET_OTHER },
+    { "icnx_to_double", GC_RET_OTHER },
     { "icon_radix_big", GC_RET_DESCR },
     { "icon_register_program", GC_RET_VOID },
     { "ident", GC_RET_OTHER },
@@ -915,9 +919,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_big_arith_route", GC_RET_DESCR },
     { "rt_big_cmp", GC_RET_OTHER },
     { "rt_big_div", GC_RET_DESCR },
+    { "rt_big_from_icnx_block", GC_RET_DESCR },
     { "rt_big_from_str", GC_RET_DESCR },
     { "rt_big_from_str_base", GC_RET_DESCR },
     { "rt_big_hash", GC_RET_OTHER },
+    { "rt_big_icnx_block", GC_RET_OTHER },
     { "rt_big_image_str", GC_RET_OTHER },
     { "rt_big_mod", GC_RET_DESCR },
     { "rt_big_mul", GC_RET_DESCR },

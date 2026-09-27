@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <stddef.h>
 #include "descr.h"
 extern void *rt_wsb_alloc(size_t);
 extern char *rt_heap_strdup_c(const char *);
@@ -343,4 +344,23 @@ char *rt_big_str(DESCR_t d) {
     }
     if (b->sign < 0) buf[--p] = '-';
     return rt_heap_strdup_c(buf + p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct ICNX_BIG_t { long title, blksize, msd, lsd; int sign; uint32_t digits[1]; } ICNX_BIG_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_big_icnx_block(DESCR_t d) {
+    BIG_t *b = big_of(d); if (!b) return (void *) 0;
+    size_t sz = offsetof(ICNX_BIG_t, digits) + (size_t) b->n * sizeof(uint32_t);
+    ICNX_BIG_t *x = (ICNX_BIG_t *) rt_wsb_alloc(sz); if (!x) return (void *) 0;
+    x->title = 2; x->blksize = (long) sz; x->msd = 0; x->lsd = (long) b->n - 1; x->sign = b->sign < 0;
+    for (uint32_t i = 0; i < b->n; i++) x->digits[i] = b->limb[b->n - 1 - i];
+    return (void *) x;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_from_icnx_block(const void *p) {
+    const ICNX_BIG_t *x = (const ICNX_BIG_t *) p; if (!x || x->lsd < x->msd) return FAILDESCR;
+    uint32_t n = (uint32_t) (x->lsd - x->msd + 1); BIG_t *b = big_alloc(n); if (!b) return FAILDESCR;
+    for (uint32_t i = 0; i < n; i++) b->limb[i] = x->digits[x->lsd - i];
+    b->sign = x->sign ? -1 : 1;
+    return rt_big_norm(b);
 }

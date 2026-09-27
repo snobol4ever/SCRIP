@@ -15,15 +15,19 @@ typedef struct { icnx_word_t title; double rval; } icnx_realblock_t;
 #define ICNX_D_Typecode (ICNX_F_Nqual | ICNX_F_Typecode)
 #define ICNX_D_Null     ((icnx_word_t)0 | ICNX_D_Typecode)
 #define ICNX_D_Integer  ((icnx_word_t)1 | ICNX_D_Typecode)
+#define ICNX_D_Lrgint   ((icnx_word_t)2 | ICNX_D_Typecode | ICNX_F_Ptr)
 #define ICNX_D_Real     ((icnx_word_t)3 | ICNX_D_Typecode | ICNX_F_Ptr)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icnx_is_string(const icnx_descr_t *d) { return d->dword >= 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *icnx_lrgint_str(const icnx_descr_t *d) { extern DESCR_t rt_big_from_icnx_block(const void *); extern char *rt_big_str(DESCR_t); return rt_big_str(rt_big_from_icnx_block((const void *)d->vword)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icnx_to_double(const icnx_descr_t *s, double *out) {
     if (icnx_is_string(s)) { char buf[64]; icnx_word_t n = s->dword; if (n < 0 || n >= (icnx_word_t)sizeof buf) return 0; memcpy(buf, (const char *)s->vword, (size_t)n); buf[n] = 0;
         char *end = buf; double v = strtod(buf, &end); while (*end == ' ' || *end == '\t') end++; if (end == buf || *end) return 0; *out = v; return 1; }
     if (s->dword == ICNX_D_Integer) { *out = (double)s->vword; return 1; }
     if (s->dword == ICNX_D_Real) { *out = ((const icnx_realblock_t *)(const void *)s->vword)->rval; return 1; }
+    if (s->dword == ICNX_D_Lrgint) { char *t = icnx_lrgint_str(s); if (!t) return 0; *out = strtod(t, (char **)0); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -69,6 +73,7 @@ int cnv_real(icnx_descr_t *s, icnx_descr_t *d) {
 int cnv_str(icnx_descr_t *s, icnx_descr_t *d) {
     if (!s || !d) return 0;
     if (icnx_is_string(s)) { *d = *s; return 1; }
+    if (s->dword == ICNX_D_Lrgint) { char *t = icnx_lrgint_str(s); if (!t) return 0; icnx_word_t n = (icnx_word_t)strlen(t); char *p = alcstr(t, n); if (!p) return 0; d->dword = n; d->vword = (icnx_word_t)(void *)p; return 1; }
     char buf[64];
     if (s->dword == ICNX_D_Integer) snprintf(buf, sizeof buf, "%ld", (long)s->vword);
     else if (s->dword == ICNX_D_Real) { double r = ((const icnx_realblock_t *)(const void *)s->vword)->rval; snprintf(buf, sizeof buf, "%g", r); }
@@ -85,6 +90,7 @@ int cnv_c_str(icnx_descr_t *s, icnx_descr_t *d) {
 static icnx_descr_t icn_extfn_marshal_in(DESCR_t v) {
     icnx_descr_t d; d.dword = ICNX_D_Null; d.vword = 0;
     if (v.v == DT_I) { d.dword = ICNX_D_Integer; d.vword = (icnx_word_t)v.i; return d; }
+    if (v.v == DT_BIG) { extern void *rt_big_icnx_block(DESCR_t); void *b = rt_big_icnx_block(v); if (b) { d.dword = ICNX_D_Lrgint; d.vword = (icnx_word_t)b; } return d; }
     if (v.v == DT_R) { icnx_realblock_t *b = alcreal(v.r); if (b) { d.dword = ICNX_D_Real; d.vword = (icnx_word_t)(void *)b; } return d; }
     if (v.v == DT_S) { const char *s = v.s ? v.s : ""; d.dword = (icnx_word_t)descr_slen(v); d.vword = (icnx_word_t)(void *)s; return d; }
     if (v.v == DT_SNUL) { d.dword = 0; d.vword = (icnx_word_t)(void *)""; return d; }
@@ -95,6 +101,7 @@ static DESCR_t icn_extfn_marshal_out(const icnx_descr_t *d) {
     if (icnx_is_string(d)) { char *p = alcstr((char *)(void *)d->vword, d->dword); if (!p) return FAILDESCR; return (DESCR_t){ .v = DT_S, .slen = (uint32_t)d->dword, .s = p }; }
     if (d->dword == ICNX_D_Integer) return INTVAL((int64_t)d->vword);
     if (d->dword == ICNX_D_Real) return REALVAL(((const icnx_realblock_t *)(const void *)d->vword)->rval);
+    if (d->dword == ICNX_D_Lrgint) { extern DESCR_t rt_big_from_icnx_block(const void *); return rt_big_from_icnx_block((const void *)d->vword); }
     return (DESCR_t){ .v = DT_SNUL, .i = 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
