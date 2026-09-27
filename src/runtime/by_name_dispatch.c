@@ -3785,7 +3785,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fh_ensure_init();
         FILE *fp = fh_get((int)args[0].i);
         if (!fp) { *out = FAILDESCR; return 1; }
-        long o = (nargs == 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 1L;
+        long o = 1L;
+        if (nargs == 2 && args[1].v != DT_SNUL && args[1].v != 0) { extern int64_t core_icn_to_int_d(DESCR_t); o = IS_INT_fn(args[1]) ? (long)args[1].i : (long)core_icn_to_int_d(args[1]); }
         int rc = (o > 0) ? fseek(fp, o - 1, SEEK_SET) : fseek(fp, o, SEEK_END);
         if (rc != 0) { *out = FAILDESCR; return 1; }
         *out = args[0]; return 1;
