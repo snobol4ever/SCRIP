@@ -1492,6 +1492,7 @@ static int icn_call_value_name_invocable(DESCR_t callee, const char *nm, int n) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
+    if (callee.v == DT_R) callee = INTVAL((int64_t)callee.r);
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
@@ -1526,6 +1527,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
     { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
+    if (callee.v == DT_R) callee = INTVAL((int64_t)callee.r);
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
@@ -7448,7 +7450,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (av.v == DT_SNUL) continue;
             if (_wdi == 1 && g_fh[1].closed) { core_icn_error(213, FAILDESCR); *out = FAILDESCR; return 1; }
             if (IS_STR_fn(av) && !IS_CSET_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u);
-                if ((dest != stdout && dest != stderr) || (_bs && _bn && memchr(_bs, 0, _bn))) { if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; } }
+                if (strict || (dest != stdout && dest != stderr) || (_bs && _bn && memchr(_bs, 0, _bn))) { if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; } }
             out_write_descr(dest, av, nl);
         }
         if (nl && _wdi == 1 && g_fh[1].closed) { core_icn_error(213, FAILDESCR); *out = FAILDESCR; return 1; }
