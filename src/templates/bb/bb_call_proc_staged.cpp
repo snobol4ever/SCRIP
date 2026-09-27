@@ -190,7 +190,7 @@ extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsav
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
     if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF") && (g_trace_budget == 0 || getenv("SCRIP_MON_SCC")) && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
         np = rt_proc_nparams(fname);
-        if (np >= 0 && np <= 60 && nargs <= rt_proc_nformals(fname)) {
+        if (np >= 0 && np <= BB_SCC_NP_MAX && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
             for (int k = 0; ok && k < np; k++) { const char *nm = rt_proc_pname(fname, k); int gk = nm ? gva_index_of(nm) : -1; if (gk < 0) ok = 0; else { gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
             if (ok) { res_gk = gva_index_of(rn); if (res_gk < 0) ok = 0; else if (!sh) gk_out[nsave++] = res_gk; }
@@ -207,7 +207,7 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     int np = 0, ns = 0, rg = -1; int gk[64];
     if (!bb_scc_probe(fname, 0, &np, &ns, gk, &rg)) return 0;
     int nf = rt_proc_nformals(fname);
-    if (!(nf >= 0 && nf <= np && nf <= 29)) return 0;
+    if (!(nf >= 0 && nf <= np)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -276,7 +276,7 @@ static std::string bcps_det_arm() {
                     if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = std::string(_.op_sval) + "_\xce\xb1";
                         if (bcps_fnsig()) {
-                            long soffz[29]; const char * whyz = "eligible"; std::string badz; int sigokz = ((long)_.op_ival <= 29); if (!sigokz) whyz = "arity-over-29";
+                            std::vector<long> soffz((size_t)_.op_ival); const char * whyz = "eligible"; std::string badz; int sigokz = 1;
                             for (int i = 0; sigokz && i < (int)_.op_ival; i++) {
                                 int zs = _.op_zread[i];
                                 if (x86_fc_hit(zs) || x86_fc_hit(zs + 8)) { sigokz = 0; whyz = "fc-hit"; break; }
@@ -477,7 +477,7 @@ static std::string bcps_det_arm() {
                 if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                     std::string la = std::string(_.op_sval) + "_\xce\xb1";
                     if (bcps_fnsig()) {
-                        long soff[29]; const char * why = "eligible"; std::string bad; int sigok = ((long)_.op_ival <= 29); if (!sigok) why = "arity-over-29";
+                        std::vector<long> soff((size_t)_.op_ival); const char * why = "eligible"; std::string bad; int sigok = 1;
                         for (int i = 0; sigok && i < (int)_.op_ival; i++) {
                             int slot = bcps_arg_slot(_.node, argblks, i);
                             if (x86_fc_hit(slot) || x86_fc_hit(slot + 8)) { sigok = 0; why = "fc-hit"; break; }

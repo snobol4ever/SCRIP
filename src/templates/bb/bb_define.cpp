@@ -219,12 +219,18 @@ static std::string bb_define_sr() {
         int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
         int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
-        if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return inl5 ? x86("comment", "role 5: shim refused inline (hatch or probe/formals shape) — sites fall to the slim arm") :    (x86("comment", "IR_DEFINE role 4: shim refused (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma());
+        if (!(ok4 && nf4 >= 0 && nf4 <= np4)) return inl5 ? x86("comment", "role 5: shim refused inline (hatch or probe/formals shape) — sites fall to the slim arm") :    (x86("comment", "IR_DEFINE role 4: shim refused (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma());
         int xt4 = ns4 - nf4;
         long T4 = 16L * xt4 + 32;
         int rgx = rg4 < 0 ? 0 : rg4;
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
+        auto CHAIN = [&](int base, const char * reg, auto arg, auto ext) {
+            if (nf4 <= 0) return std::string();
+            return FOR(0, nf4, [&](int i) { return x86("cmp", reg, (long)i) + x86_jcc_id("jbe", base + i) + arg(i); })
+                 + x86_jmp_id(base + nf4)
+                 + FOR(0, nf4, [&](int i) { return x86_deflabel_id(base + i) + ext(i); })
+                 + x86_deflabel_id(base + nf4); };
         long WNOFF = 16L * xt4 + 24;
         auto WNSAVE = [&]() {
             return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
@@ -254,21 +260,19 @@ static std::string bb_define_sr() {
                  + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
                        return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(gk4[nf4 + k])) + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
                             + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
-                 + FOR(0, nf4, [&](int i) {
-                       return x86("cmp", "rcx", (long)i) + x86_jcc_id("jbe", lid + i)
-                            + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
-                            + x86("note", gva_name(gk4[i]))
-                            + x86("mov", GQ(gk4[i], 0), "rax")
-                            + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8))
-                            + x86("mov", GQ(gk4[i], 8), "rax")
-                            + x86_jmp_id(lid + 30 + i)
-                            + x86_deflabel_id(lid + i)
-                            + x86("mov", "rax", R8Q(16L * i))
-                            + x86("note", gva_name(gk4[i]))
-                            + x86("mov", GQ(gk4[i], 0), "rax")
-                            + x86("mov", "rax", R8Q(16L * i + 8))
-                            + x86("mov", GQ(gk4[i], 8), "rax")
-                            + x86_deflabel_id(lid + 30 + i); }); };
+                 + CHAIN(lid, "rcx",
+                       [&](int i) {
+                           return x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
+                                + x86("note", gva_name(gk4[i]))
+                                + x86("mov", GQ(gk4[i], 0), "rax")
+                                + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8))
+                                + x86("mov", GQ(gk4[i], 8), "rax"); },
+                       [&](int i) {
+                           return x86("mov", "rax", R8Q(16L * i))
+                                + x86("note", gva_name(gk4[i]))
+                                + x86("mov", GQ(gk4[i], 0), "rax")
+                                + x86("mov", "rax", R8Q(16L * i + 8))
+                                + x86("mov", GQ(gk4[i], 8), "rax"); }); };
         if (fnsig()) {
             long F4 = T4 + 16L * nf4;
             auto SIGQ = [&](long d) { return std::string("[rcx + ") + std::to_string(d) + "]"; };
@@ -281,25 +285,23 @@ static std::string bb_define_sr() {
                      + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
                            return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(gk4[nf4 + k])) + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
                                 + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
-                     + FOR(0, nf4, [&](int i) {
-                           return x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", lid + i)
-                                + x86("mov", "rax", SIGQ(24 + 8L * i))
-                                + x86("add", "rax", "r8")
-                                + x86("mov", "rax", "[rax + 0]")
-                                + x86("note", gva_name(gk4[i]))
-                                + x86("mov", GQ(gk4[i], 0), "rax")
-                                + x86("mov", "rax", SIGQ(24 + 8L * i))
-                                + x86("add", "rax", "r8")
-                                + x86("mov", "rax", "[rax + 8]")
-                                + x86("mov", GQ(gk4[i], 8), "rax")
-                                + x86_jmp_id(lid + 30 + i)
-                                + x86_deflabel_id(lid + i)
-                                + x86("mov", "rax", EXTQ(16L * i).c_str())
-                                + x86("note", gva_name(gk4[i]))
-                                + x86("mov", GQ(gk4[i], 0), "rax")
-                                + x86("mov", "rax", EXTQ(16L * i + 8).c_str())
-                                + x86("mov", GQ(gk4[i], 8), "rax")
-                                + x86_deflabel_id(lid + 30 + i); }); };
+                     + CHAIN(lid, "rdx",
+                           [&](int i) {
+                               return x86("mov", "rax", SIGQ(24 + 8L * i))
+                                    + x86("add", "rax", "r8")
+                                    + x86("mov", "rax", "[rax + 0]")
+                                    + x86("note", gva_name(gk4[i]))
+                                    + x86("mov", GQ(gk4[i], 0), "rax")
+                                    + x86("mov", "rax", SIGQ(24 + 8L * i))
+                                    + x86("add", "rax", "r8")
+                                    + x86("mov", "rax", "[rax + 8]")
+                                    + x86("mov", GQ(gk4[i], 8), "rax"); },
+                           [&](int i) {
+                               return x86("mov", "rax", EXTQ(16L * i).c_str())
+                                    + x86("note", gva_name(gk4[i]))
+                                    + x86("mov", GQ(gk4[i], 0), "rax")
+                                    + x86("mov", "rax", EXTQ(16L * i + 8).c_str())
+                                    + x86("mov", GQ(gk4[i], 8), "rax"); }); };
             return x86("comment", "IR_DEFINE role 4: SIG s66 per-DEFINE shim (alpha=swap-by-map, gamma/omega=restore-by-map, CONSTANT frame)")
                  + IF(inl5, x86_jmp_id(245))
                  + x86("commentrule", std::string(119, '-'))
@@ -314,29 +316,27 @@ static std::string bb_define_sr() {
                  + x86_rsp_store64(16 * xt4 + 16, "rcx")
                  + x86("mov", "rdx", SIGQ(0))
                  + R8AT()
-                 + FOR(0, nf4, [&](int i) {
-                       return x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", 10 + i)
-                            + x86("mov", "rdi", SIGQ(24 + 8L * i))
-                            + x86("add", "rdi", "r8")
-                            + x86("mov", "rax", "[rdi + 0]")
-                            + x86("note", gva_name(gk4[i]))
-                            + x86("mov", "rsi", GQ(gk4[i], 0))
-                            + x86("mov", GQ(gk4[i], 0), "rax")
-                            + x86("mov", "[rdi + 0]", "rsi")
-                            + x86("mov", "rax", "[rdi + 8]")
-                            + x86("mov", "rsi", GQ(gk4[i], 8))
-                            + x86("mov", GQ(gk4[i], 8), "rax")
-                            + x86("mov", "[rdi + 8]", "rsi")
-                            + x86_jmp_id(41 + i)
-                            + x86_deflabel_id(10 + i)
-                            + x86("note", gva_name(gk4[i]))
-                            + x86("mov", "rax", GQ(gk4[i], 0))
-                            + x86("mov", EXTQ(16L * i).c_str(), "rax")
-                            + x86("mov", "rax", GQ(gk4[i], 8))
-                            + x86("mov", EXTQ(16L * i + 8).c_str(), "rax")
-                            + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
-                            + x86("mov", GQ(gk4[i], 8), (long)0)
-                            + x86_deflabel_id(41 + i); })
+                 + CHAIN(BB_SHIM_ID_ALPHA, "rdx",
+                       [&](int i) {
+                           return x86("mov", "rdi", SIGQ(24 + 8L * i))
+                                + x86("add", "rdi", "r8")
+                                + x86("mov", "rax", "[rdi + 0]")
+                                + x86("note", gva_name(gk4[i]))
+                                + x86("mov", "rsi", GQ(gk4[i], 0))
+                                + x86("mov", GQ(gk4[i], 0), "rax")
+                                + x86("mov", "[rdi + 0]", "rsi")
+                                + x86("mov", "rax", "[rdi + 8]")
+                                + x86("mov", "rsi", GQ(gk4[i], 8))
+                                + x86("mov", GQ(gk4[i], 8), "rax")
+                                + x86("mov", "[rdi + 8]", "rsi"); },
+                       [&](int i) {
+                           return x86("note", gva_name(gk4[i]))
+                                + x86("mov", "rax", GQ(gk4[i], 0))
+                                + x86("mov", EXTQ(16L * i).c_str(), "rax")
+                                + x86("mov", "rax", GQ(gk4[i], 8))
+                                + x86("mov", EXTQ(16L * i + 8).c_str(), "rax")
+                                + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
+                                + x86("mov", GQ(gk4[i], 8), (long)0); })
          + x86("push", "rcx")
                  + bb_fnclevel_enter()
                  + bb_stno_save()
@@ -424,7 +424,7 @@ static std::string bb_define_sr() {
                  + x86_deflabel_id(236)
                  + x86("pop", "rdx")
                  + x86("pop", "rax")
-                 + FRESTORE(80)
+                 + FRESTORE(BB_SHIM_ID_BETA)
          + x86("push", "rcx")
                  + bb_stno_restore_act()
                  + bb_fnclevel_leave()
@@ -437,7 +437,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdx", "rsi")
                  + x86("jmp", "rcx")
                  + x86_def_ext(lbl_o)
-                 + FRESTORE(150)
+                 + FRESTORE(BB_SHIM_ID_OMEGA)
          + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
@@ -503,27 +503,25 @@ static std::string bb_define_sr() {
                         + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
                         + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
              + x86_rsp_store64(16 * xt4 + 16, "rcx")
-             + FOR(0, nf4, [&](int i) {
-                   return x86("cmp", "rcx", (long)i) + x86_jcc_id("jbe", 10 + i)
-                        + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
-                        + x86("note", gva_name(gk4[i]))
-                        + x86("mov", "rdx", GQ(gk4[i], 0))
-                        + x86("mov", GQ(gk4[i], 0), "rax")
-                        + x86("mov", R8Q(16L * nf4 + 32 + 16L * i).c_str(), "rdx")
-                        + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8))
-                        + x86("mov", "rdx", GQ(gk4[i], 8))
-                        + x86("mov", GQ(gk4[i], 8), "rax")
-                        + x86("mov", R8Q(16L * nf4 + 32 + 16L * i + 8).c_str(), "rdx")
-                        + x86_jmp_id(41 + i)
-                        + x86_deflabel_id(10 + i)
-                        + x86("note", gva_name(gk4[i]))
-                        + x86("mov", "rax", GQ(gk4[i], 0))
-                        + x86("mov", R8Q(16L * i).c_str(), "rax")
-                        + x86("mov", "rax", GQ(gk4[i], 8))
-                        + x86("mov", R8Q(16L * i + 8).c_str(), "rax")
-                        + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
-                        + x86("mov", GQ(gk4[i], 8), (long)0)
-                        + x86_deflabel_id(41 + i); })
+             + CHAIN(BB_SHIM_ID_ALPHA, "rcx",
+                   [&](int i) {
+                       return x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
+                            + x86("note", gva_name(gk4[i]))
+                            + x86("mov", "rdx", GQ(gk4[i], 0))
+                            + x86("mov", GQ(gk4[i], 0), "rax")
+                            + x86("mov", R8Q(16L * nf4 + 32 + 16L * i).c_str(), "rdx")
+                            + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8))
+                            + x86("mov", "rdx", GQ(gk4[i], 8))
+                            + x86("mov", GQ(gk4[i], 8), "rax")
+                            + x86("mov", R8Q(16L * nf4 + 32 + 16L * i + 8).c_str(), "rdx"); },
+                   [&](int i) {
+                       return x86("note", gva_name(gk4[i]))
+                            + x86("mov", "rax", GQ(gk4[i], 0))
+                            + x86("mov", R8Q(16L * i).c_str(), "rax")
+                            + x86("mov", "rax", GQ(gk4[i], 8))
+                            + x86("mov", R8Q(16L * i + 8).c_str(), "rax")
+                            + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
+                            + x86("mov", GQ(gk4[i], 8), (long)0); })
              + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
              + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
              + ( x86("push", "rax")
@@ -533,7 +531,7 @@ static std::string bb_define_sr() {
              + x86("note", gva_name(rgx))
              + x86("mov", "rdi", GQ(rgx, 0))
              + x86("mov", "rsi", GQ(rgx, 8))
-             + RESTORE4(80)
+             + RESTORE4(BB_SHIM_ID_BETA)
              + WNRESTORE()
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4)
@@ -547,7 +545,7 @@ static std::string bb_define_sr() {
              + x86("mov", "rdx", "rsi")
              + x86("jmp", "rcx")
              + x86_def_ext(lbl_o)
-             + RESTORE4(150)
+             + RESTORE4(BB_SHIM_ID_OMEGA)
              + WNRESTORE()
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4)

@@ -3,6 +3,14 @@
 #ifdef __cplusplus
 #include <string>
 #include "IR.h"
+enum { BB_SCC_NP_MAX = 60, BB_SHIM_ID_ALPHA = 10, BB_SHIM_ID_BETA = 80, BB_SHIM_ID_OMEGA = 150, BB_SHIM_ID_FIXED = 230 };
+static_assert(BB_SHIM_ID_ALPHA + BB_SCC_NP_MAX < BB_SHIM_ID_BETA - 5 && BB_SHIM_ID_BETA + BB_SCC_NP_MAX < BB_SHIM_ID_OMEGA - 5
+              && BB_SHIM_ID_OMEGA + BB_SCC_NP_MAX < BB_SHIM_ID_FIXED,
+              "THE ROLE-4 DEFINE SHIM ADMITS EVERY DEFINE THE SCC PROBE ADMITS (bb_scc_probe: np <= BB_SCC_NP_MAX): its three per-formal "
+              "chains (alpha swap, beta restore, omega restore) each take ONE one-byte internal label id per formal plus one join, from "
+              "its own base, below the next base's lid-5 join and the fixed ids 230..249 (X86_INTERNAL_MAX 250); the branch is monotone "
+              "in the argument count, so every formal past the arguments falls through the ext chain (it spent two ids per formal and "
+              "stopped at 29 formals until 2026-09-27)");
 extern "C" { void bb_pattern_stub(const char * which); }
 extern "C++" {
 std::string bb_match_any();
