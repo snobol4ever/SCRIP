@@ -339,7 +339,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_set_cell", "__pas_stdfile", "__pas_arr_copy",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -376,6 +376,8 @@ int rt_builtin_is_known(const char *name)
 #define RK_RX '\x06'
 static int rk_a_empty1(const char *s) { return s && s[0] == RK_A1 && s[1] == '\0'; }
 static const char *rk_rx_pat(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_RX) ? v.s + 1 : NULL; }
+#define RK_TY '\x07'
+static const char *rk_typeobj_name(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_TY) ? v.s + 1 : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_a_seal(char *buf, int nonzero) {
     if (nonzero && !buf[0]) { char *e = rt_wsb_alloc(2); e[0] = RK_A1; e[1] = '\0'; return STRVAL(e); }
@@ -731,9 +733,52 @@ static char *rk_case_str(const char *s, size_t n, int mfirst, int mrest, int wor
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_typeobj(const char *nm) {
+    size_t l = strlen(nm ? nm : ""); char *r = (char *)rt_str_alloc(l + 1); r[0] = RK_TY; memcpy(r + 1, nm ? nm : "", l); r[l + 1] = '\0'; return STRVAL(r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_value_type(DESCR_t v) {
+    const char *t = rk_typeobj_name(v); if (t) return t;
+    if (v.v == DT_BOOL) return "Bool";
+    if (v.v == DT_ORDER) return "Order";
+    if (IS_INT_fn(v) || v.v == DT_BIG) return "Int";
+    if (IS_REAL_fn(v)) return "Num";
+    if (v.v == DT_SNUL) return "Nil";
+    if (v.v == DT_A) return "Array";
+    if (IS_DATA_INST_fn(v) && v.u) { DATINST_t *di = (DATINST_t *)v.u; return (di && di->type) ? di->type->name : "Any"; }
+    const char *s = VARVAL_fn(v);
+    if (s && (strchr(s, SOH) || (s[0] == '\x02' && !s[1]))) return "List";
+    return "Str";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_type_isa(const char *have, const char *want) {
+    static const char *const up[][8] = {
+        { "Bool", "Int", "Cool", "Any", "Numeric", "Real", 0 }, { "Order", "Int", "Cool", "Any", "Numeric", "Real", 0 },
+        { "Int", "Cool", "Any", "Numeric", "Real", 0 }, { "Num", "Cool", "Any", "Numeric", "Real", 0 },
+        { "Rat", "Cool", "Any", "Numeric", "Real", "Rational", 0 }, { "Str", "Cool", "Any", "Stringy", 0 },
+        { "List", "Cool", "Any", "Positional", "Iterable", 0 }, { "Array", "List", "Cool", "Any", "Positional", "Iterable", 0 },
+        { "Nil", "Cool", "Any", 0 }, { 0 } };
+    if (!have || !want) return 0;
+    if (!strcmp(have, want) || !strcmp(want, "Mu")) return 1;
+    for (int i = 0; up[i][0]; i++) if (!strcmp(up[i][0], have)) { for (int j = 1; up[i][j]; j++) if (!strcmp(up[i][j], want)) return 1; return 0; }
+    extern int dat_mro(const char *name, const char **out, int max);
+    const char *mro[64]; int mn = dat_mro(have, mro, 64);
+    for (int i = 0; i < mn; i++) if (mro[i] && !strcmp(mro[i], want)) return 1;
+    return mn > 0 && !strcmp(want, "Any");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
+    { const char *tn = rk_typeobj_name(recv);
+      if (tn) {
+          if (!strcmp(meth, "defined") || !strcmp(meth, "Bool") || !strcmp(meth, "so")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+          if (!strcmp(meth, "gist") && !strcmp(tn, "Nil")) { *out = STRVAL(rt_heap_strdup_c("Nil")); return 1; }
+          if (!strcmp(meth, "gist")) { size_t l = strlen(tn); char *r = (char *)rt_str_alloc(l + 2); r[0] = '('; memcpy(r + 1, tn, l); r[l + 1] = ')'; r[l + 2] = '\0'; *out = STRVAL(r); return 1; }
+          if (!strcmp(meth, "raku") || !strcmp(meth, "perl") || !strcmp(meth, "^name") || !strcmp(meth, "name")) { *out = STRVAL(rt_heap_strdup_c(tn)); return 1; }
+          if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+          if (!strcmp(meth, "WHAT")) { *out = recv; return 1; }
+      } }
     char sb[64]; const char *s = IS_REAL_fn(recv) ? rk_real_str(recv.r, sb, (int)sizeof sb) : to_cstring(recv, sb, sizeof sb); if (!s) s = "";
     if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words") || !strcmp(meth, "split")) s = rk_list_as_str(s);
     size_t n = strlen(s);
@@ -4108,7 +4153,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 else known = 0; }
             if (!known) { rk_tap_proclaim(0, d, ""); char b[256]; snprintf(b, sizeof b, "cmp-ok: comparator '%s' is not implemented -- reported as a FAILURE, never a pass", cop); rk_tap_diag(b); *out = INTVAL(0); return 1; }
             rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
-        { static const struct { const char *nm; int di; } rk_unimpl[] = { { "is_deeply", 2 }, { "isa_ok", 2 }, { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
+        if (!strcmp(op, "isa_ok") && nargs >= 2) {
+            const char *want = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : args[1].v == DT_SNUL ? "Nil" : to_cstring(args[1], sb2, sizeof sb2);
+            int c = rk_type_isa(rk_value_type(args[0]), want);
+            char dd[600]; const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : (snprintf(dd, sizeof dd, "The object is-a '%s'", want ? want : ""), dd);
+            rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        { static const struct { const char *nm; int di; } rk_unimpl[] = { { "is_deeply", 2 }, { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
           for (int i = 0; rk_unimpl[i].nm; i++) if (!strcmp(op, rk_unimpl[i].nm)) {
               const char *d = (nargs > rk_unimpl[i].di) ? to_cstring(args[rk_unimpl[i].di], msg, sizeof msg) : "";
               rk_tap_proclaim(0, d, "");
@@ -4745,7 +4795,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         memcpy(r, str, a); memcpy(r + a, rep, rl); memcpy(r + a + rl, str + e, n - e); r[a + rl + (n - e)] = '\0';
         *out = STRVAL(r); return 1;
     }
-    if (!strcmp(fn, "__rk_eqv") && nargs == 2) {
+    if (!strcmp(fn, "__rk_ident") && nargs == 2 && IS_DATA_INST_fn(args[0]) && IS_DATA_INST_fn(args[1])) { *out = (DESCR_t){ .v = DT_BOOL, .i = args[0].u == args[1].u }; return 1; }
+    if ((!strcmp(fn, "__rk_eqv") || !strcmp(fn, "__rk_ident")) && nargs == 2) {
         DESCR_t a = args[0], b = args[1]; long long t;
         int an = IS_INT_fn(a) || IS_REAL_fn(a), bn = IS_INT_fn(b) || IS_REAL_fn(b);
         if (an != bn) t = 0;
@@ -4795,11 +4846,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         buf[q] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    if (!strcmp(fn, "__rk_typeobj") && nargs == 1) { *out = rk_typeobj(VARVAL_fn(args[0])); return 1; }
     if (!strcmp(fn, "__rk_str") && nargs == 1) {
         DESCR_t a = args[0];
         if (a.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(a.i ? "True" : "False")); return 1; }
         if (a.v == DT_ORDER) { *out = STRVAL(rt_heap_strdup_c(a.i < 0 ? "Less" : (a.i > 0 ? "More" : "Same"))); return 1; }
-        if (a.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        if (a.v == DT_SNUL || rk_typeobj_name(a)) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         if (IS_REAL_fn(a)) { char rb[64]; rk_real_str(a.r, rb, (int)sizeof rb); *out = STRVAL(rt_heap_strdup_c(rb)); return 1; }
         *out = a; return 1;
     }
@@ -4810,6 +4862,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
             else if (args[_ri].v == DT_SNUL) tmp[_ri] = STRVAL(rt_heap_strdup_c("Nil"));
             else if (IS_REAL_fn(args[_ri])) { char *_rb = rt_wsb_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
+            else if (rk_typeobj_name(args[_ri])) { const char *tn = rk_typeobj_name(args[_ri]); size_t l = strlen(tn); char *r = rt_wsb_alloc(l + 3);
+                if (!strcmp(fn, "rk_write") && !strcmp(tn, "Nil")) memcpy(r, "Nil", 4);
+                else if (!strcmp(fn, "rk_write")) { r[0] = '('; memcpy(r + 1, tn, l); r[l + 1] = ')'; r[l + 2] = '\0'; } else r[0] = '\0'; tmp[_ri] = STRVAL(r); }
             else tmp[_ri] = args[_ri];
         }
         *out = RT_GC_CALLBACK(rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs)); return 1;
@@ -5774,6 +5829,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             if (cn && !strcmp(mm, "name")) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
+            if (!cn && !strcmp(mm, "name")) { *out = STRVAL(rt_heap_strdup_c(rk_value_type(args[0]))); return 1; }
             if (cn && !strcmp(mm, "parents")) {
                 extern int dat_mro(const char *name, const char **out, int max); const char *mro[64]; int mn = dat_mro(cn, mro, 64);
                 char buf[1024]; int pos = 0; buf[0] = 0;
@@ -5799,13 +5855,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
             if (cn) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
-            *out = FAILDESCR; return 1;
+            *out = rk_typeobj(rk_value_type(args[0])); return 1;
         }
         if (mname0 && (!strcmp(mname0, "isa") || !strcmp(mname0, "does")) && nargs >= 3) {
             const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
-            const char *target = VARVAL_fn(args[2]);
+            const char *target = rk_typeobj_name(args[2]) ? rk_typeobj_name(args[2]) : VARVAL_fn(args[2]);
+            if (!cn && target) { *out = INTVAL(rk_type_isa(rk_value_type(args[0]), target) ? 1 : 0); return 1; }
             if (!cn || !target) { *out = INTVAL(0); return 1; }
             extern int dat_mro(const char *name, const char **out, int max);
             extern int dat_roles(const char *name, const char **out, int max);

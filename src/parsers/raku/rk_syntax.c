@@ -429,6 +429,12 @@ static int is_name_n(RkP *p, const char *s, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_is_core_type(const char *s) {
+    static const char *const vals[] = { "True", "False", "Less", "Same", "More", "Inf", "NaN", "Empty", "Nil", 0 };
+    if (!s || !(*s >= 'A' && *s <= 'Z') || strchr(s, ':')) return 0;
+    for (int i = 0; vals[i]; i++) if (!strcmp(vals[i], s)) return 0;
+    return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, (int) strlen(s));
+}
 static int is_type_n(RkP *p, const char *s, int n) {
     static const char *const vals[] = { "True", "False", "Less", "Same", "More", "Inf", "NaN", "pi", "e", "i", "tau", "Empty", "Nil", 0 };
     for (int i = 0; vals[i]; i++) if ((int) strlen(vals[i]) == n && !memcmp(vals[i], s, (size_t) n)) return 0;

@@ -1166,6 +1166,7 @@ void rkb_name(RkB *b, RkTerm *it, int from, int to, int namelen) {
     memset(it, 0, sizeof *it); it->kind = TK_NAME; it->from = from; it->to = it->core_to = to;
     char *nm = spn(b, from, from + namelen); it->name = nm;
     if (!strcmp(nm, "True") || !strcmp(nm, "False")) { it->t = mkbool_lit(!strcmp(nm, "True")); return; }
+    if (rk_is_core_type(nm)) { tree_t *c = make_call("__rk_typeobj"); expr_add_child(c, leaf_sval(TT_QLIT, intern(nm))); it->t = c; return; }
     it->t = var_node(b, nm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

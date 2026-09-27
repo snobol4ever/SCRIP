@@ -33,7 +33,8 @@ THREE VERBS.
           test that fails in its own prefix is a genuine failure, and the file's later tests keep the long prefix's
           verdict (that failure is their context). --oracle-check runs Rakudo on the same prefix and drops
           (counting) any test the cut changed. Runs scrip (mode 3) on each prefix unit and prints per rung
-          pass/total (a test passes when Rakudo printed `ok N` and scrip printed `ok N`), the total, and the CRAWL
+          pass/total (a test passes when Rakudo printed `ok N` and scrip printed `ok N` WITH RAKUDO'S DESCRIPTION -- a
+          test that silently never ran shifts every later number, and a number alone would credit the wrong test), the total, and the CRAWL
           CURSOR: the first failing test in rung order, with its statement. --m4 grades mode 4 as well. Writes nothing.
 CONSTRUCTS are read off the test's code -- the code run since the previous test's statement (when the file flows
 straight on to this test) plus the test's own statement, from its #TL line to its end -- by a Raku-aware tokenizer: keywords, operators (longest match), method names, sub calls, variable sigils and twigils, literal and quote
@@ -462,8 +463,10 @@ def cmd_grade(a):
         if r[1] in nk and int(r[3]) <= nk[r[1]] and r[5] != "0":
             line_of[r[1]][int(r[3])] = int(r[5])
     want = collections.defaultdict(set)
+    desc = {}
     for r in rows:
         want[r[1]].add(int(r[3]))
+        desc[(r[1], int(r[3]))] = r[7]
     files = sorted(nk)
     with tempfile.TemporaryDirectory(prefix="rk_grade_") as td:
         m = mirror_of(roast, td)
@@ -475,7 +478,7 @@ def cmd_grade(a):
         rt = Path(a.scrip).resolve().parent / "out"
 
         def tapset(out):
-            return {int(t.group(2)) for t in map(TAPL.match, out.splitlines()) if t and not t.group(1) and not t.group(4)}
+            return {int(t.group(2)): (t.group(3) or "").replace("\t", " ")[:160] for t in map(TAPL.match, out.splitlines()) if t and not t.group(1) and not t.group(4)}
 
         def runout(cmd, cwd):
             try:
@@ -509,13 +512,15 @@ def cmd_grade(a):
                 ends[n] = hi
             got = run_prefix(rel, dst, src, ends.get(nk[rel], len(src)), "", a.oracle_check)
             modes_ = ["m3"] + (["m4"] if a.m4 else [])
+            def hit(tap, t):
+                return t in tap and tap[t] == desc[(rel, t)]
             for t in sorted(want[rel]):
-                if all(t in got[md] for md in modes_):
+                if all(hit(got[md], t) for md in modes_):
                     continue
                 own = run_prefix(rel, dst, src, ends.get(t, len(src)), f"_{t}", False)
-                if all(t in own[md] for md in modes_):
+                if all(hit(own[md], t) for md in modes_):
                     for md in modes_:
-                        got[md].add(t)
+                        got[md][t] = own[md][t]
                     continue
                 break
             return rel, got
@@ -527,10 +532,10 @@ def cmd_grade(a):
     cursor, unsure, verdicts, fails = None, 0, [], []
     for r in sorted(rows, key=lambda r: (int(r[0]), r[1], int(r[3]))):
         k, n = int(r[0]), int(r[3])
-        if a.oracle_check and n not in got[r[1]]["rakudo"]:
+        if a.oracle_check and got[r[1]]["rakudo"].get(n) != r[7]:
             unsure += 1
             continue
-        passed = all(n in got[r[1]][md] for md in modes)
+        passed = all(got[r[1]][md].get(n) == r[7] for md in modes)
         verdicts.append((r[1], n, k, int(passed)))
         per[k][1] += 1
         per[k][0] += passed
