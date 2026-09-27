@@ -176,7 +176,7 @@ Primary         =   ( $'(' *Expr0 $')'
                     | $'true'   shift_value('1', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
                     | $'false'  shift_value('0', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
                     | $'nil'    shift_value('nil', "'TT_NULL'")
-                    | nPush() '#' shift_value('__pas_chrlit', "'TT_VAR'") nInc() shift(SPAN(digits), "'TT_ILIT'") nInc()
+                    | nPush() '#' shift_value('__pas_chrlit', "'TT_VAR'") nInc() shift(*Integer, "'TT_ILIT'") nInc()
                       reduce("'TT_FNC'", 'nTop()') nPop()
                     | *SetCtor
                     | shift(*Real, "'TT_FLIT'")
@@ -226,7 +226,10 @@ assign_cmd      =   *AssignTarget $':=' *Expr0 reduce("'TT_ASSIGN'", 2);
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command nInc();
 StmtRest        =   $';' (*Command nInc() | epsilon);
-compound_cmd    =   nPush() $'begin' (*StmtFirst ARBNO(*StmtRest) | epsilon) $'end'
+/* the statements of a sequence repeat greedily: a refusal further on fails at once instead of    */
+/* backtracking through every earlier statement (46 lines took over 60 s that way)                */
+StmtStar        =   FENCE(*StmtRest *StmtStar | epsilon);
+compound_cmd    =   nPush() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
                     reduce("'TT_SEQ_EXPR'", 'nTop()') nPop();
 /* if C then S [else S] -> TT_IF(C, S[, S])                                              */
 if_cmd          =   $'if' *Expr0 $'then' *Command
@@ -235,7 +238,7 @@ if_cmd          =   $'if' *Expr0 $'then' *Command
 /* while C do S -> TT_WHILE(C, S)                                                        */
 while_cmd       =   $'while' *Expr0 $'do' *Command reduce("'TT_WHILE'", 2);
 /* repeat S… until C -> TT_REPEAT(S…, C).  The body is a statement sequence.             */
-repeat_cmd      =   nPush() $'repeat' (*StmtFirst ARBNO(*StmtRest) | epsilon) $'until'
+repeat_cmd      =   nPush() $'repeat' (*StmtFirst *StmtStar | epsilon) $'until'
                     *Expr0 nInc() reduce("'TT_REPEAT'", 'nTop()') nPop();
 /* for v := a to|downto b do S -> TT_FOR(v, a, b, S)                                     */
 for_cmd         =   $'for' shift(*Ident, "'TT_VAR'") $':=' *Expr0
@@ -319,7 +322,7 @@ Params          =   nPush() FENCE($'(' *ParamFirst ARBNO(*ParamRest) $')' | epsi
                     reduce("'TT_VLIST'", 'nTop()') nPop();
 /* procedure/function P(params); <decls> begin … end;  or  ...; forward;                  */
 /*   -> TT_PROC_DECL(TT_VAR P, TT_VLIST(params), <nested TT_PROC_DECL…>, TT_PROGRAM(body), TT_VLIST()) */
-SubBody         =   nPush() $'begin' (*StmtFirst ARBNO(*StmtRest) | epsilon) $'end'
+SubBody         =   nPush() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
                     reduce("'TT_PROGRAM'", 'nTop()') nPop();
 proc_decl       =   nPush() ($'procedure' | $'function') shift(*Ident, "'TT_VAR'") nInc()
                     *Params nInc() FENCE($':' *TypeName | epsilon) $';'
@@ -336,7 +339,7 @@ Decls           =   FENCE(*label_part | epsilon) FENCE(*const_part | epsilon) FE
 /* Compiland — program header, declarations, main block.  The main block is emitted as    */
 /* a TT_PROC_DECL named `main`, which is the shape the C frontend's dump carries.         */
 /* ==================================================================================================================== */
-MainBody        =   nPush() $'begin' (*StmtFirst ARBNO(*StmtRest) | epsilon) $'end'
+MainBody        =   nPush() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
                     reduce("'TT_PROGRAM'", 'nTop()') nPop();
 program_head    =   FENCE($'program' *Ident FENCE($'(' BREAK(')') ')' | epsilon) $';' | epsilon);
 main_decl       =   shift_value('main', "'TT_VAR'")
