@@ -1153,7 +1153,14 @@ $(RT_OBJDIR)/%.o: %.s | $(RT_OBJDIR)
 # ⛔ KEYED BY CONTENT, NOT BY TIME: two identical rebuilds collapse onto one attic entry, so a build loop cannot flush
 # a genuinely different predecessor out of the window. The window is the 8 most recent by mtime -- deliberately small,
 # and pruned here rather than by a cron nobody runs (THE PACE RULES: "Do not depend on cron").
-$(RT_SO): $(RT_PIC_OBJS)
+# ⛔ EVERY FILE UNDER src/ IS A PREREQUISITE OF THE RUNTIME (the coo 2026-09-27, on the cfo's finding): lib_build_currency.sh, the one
+# authority on "is the artifact built from src/?", compares it with the NEWEST FILE under src/, compiled or not, while this rule relinked
+# only when an object changed. 41 files under src/ reach no compile (READMEs, unit tests, sub-Makefiles, grammar sources and
+# src/templates/x86/gc_allocating_table.inc, which util_gen_gc_allocating_table.py rewrites and only util_emitted_alloc_cost.py and a gate
+# read). So touching one left every runner, gate and census refusing rc 2 ("the runtime predates src/") until a make pristine -- six
+# minutes at load 45, three times in one cfo sitting. Now the relink is this recipe over objects already built: seconds.
+RT_SRC_ALL := $(shell find $(SRC) -type f 2>/dev/null)
+$(RT_SO): $(RT_PIC_OBJS) $(RT_SRC_ALL)
 	@mkdir -p out out/attic
 	@if [ -f $@ ]; then cp -pn $@ out/attic/$(notdir $(basename $(RT_SO)))-$$(md5sum $@ | cut -c1-12).so 2>/dev/null || true; fi
 	@ls -1t out/attic/*.so 2>/dev/null | tail -n +9 | xargs -r rm -f
