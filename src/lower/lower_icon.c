@@ -241,6 +241,8 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (a->t == TT_SECTION || a->t == TT_SECTION_PLUS || a->t == TT_SECTION_MINUS) return 1;
     if ((a->t == TT_ASSIGN || a->t == TT_AUGOP || a->t == TT_SWAP) && a->n > 1 && a->c[0] && a->c[0]->t == TT_VAR) return icn_arg_stages(cx, a->c[0]);
     if (icn_tree_is_kw_var(a)) return 1;
+    if (a->t == TT_FNC && a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval && icn_callee_is_name(cx, a->c[0])
+        && icn_call_yields_a_variable((icx_t *) cx, a->c[0]->v.sval)) return 1;
     if (a->t != TT_VAR || !a->v.sval || a->v.sval[0] == '&') return 0;
     const char * nm = a->v.sval;
     if (icn_is_proc_or_record_name(nm)) return 0;
