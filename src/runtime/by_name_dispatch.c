@@ -6287,7 +6287,7 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
     if (IS_INT_fn(v) || IS_REAL_fn(v)) { *out = v; return 1; }
     const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
     if (!s) return 0;
-    char nb[128]; if (IS_STR_fn(v) && v.slen != 0 && v.slen != 0xFFFFFFFFu) { if (v.slen >= sizeof nb) return 0; memcpy(nb, s, v.slen); nb[v.slen] = '\0'; s = nb; }
+    char nb[128]; if (IS_STR_fn(v) && v.slen != 0 && v.slen != 0xFFFFFFFFu) { char *cp = (v.slen < sizeof nb) ? nb : (char *)rt_wsb_alloc((size_t)v.slen + 1); memcpy(cp, s, v.slen); cp[v.slen] = '\0'; s = cp; }
     const char *t = s; while (*t == ' ') t++; if (!*t) return 0;
     char *endi = 0, *endd = 0; long long iv = strtoll(t, &endi, 10); double dv = strtod(t, &endd);
     const char *e = (endd > endi) ? endd : endi; if (e == t) return 0;
