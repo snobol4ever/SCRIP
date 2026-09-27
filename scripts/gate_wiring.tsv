@@ -303,6 +303,7 @@ test_gate_icon_runners_grade_the_preprocess_only_contract.sh	WIRED	-	-	-
 test_gate_icon_scratch_names_are_not_tracked.sh	WIRED	-	-	-
 test_gate_icon_shipped_trees_compile_under_icont.sh	WIRED	-	-	-
 test_gate_icon_shootout_is_ceo567_conforming.sh	WIRED	-	-	-
+test_gate_int64_min_divided_by_minus_one_dies_of_no_signal_in_any_frontend.sh	WIRED	-	-	-
 test_gate_ir_reading_voids_a_dead_run.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
 test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-

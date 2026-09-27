@@ -1803,6 +1803,7 @@ const char * pl_real_iso_str(double fv, char * fb, int bufsz) {
 static DESCR_t pl_arith2(const char *op, DESCR_t a, DESCR_t b) {
     extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
     int ai = (a.v == DT_I), bi = (b.v == DT_I);
+    if (ai && bi && b.i == -1) return rt_num_arith(a, b, pl_is_op_code(op));
     if (ai && bi && !strcmp(op, "idiv")) { if (b.i == 0) return FAILDESCR; return INTVAL(a.i / b.i); }
     if (ai && bi && !strcmp(op, "div"))  { if (b.i == 0) return FAILDESCR; if (a.i % b.i == 0) return INTVAL(a.i / b.i); return REALVAL((double)a.i / (double)b.i); }
     if (ai && bi && !strcmp(op, "mod"))  { if (b.i == 0) return FAILDESCR; long long m = a.i % b.i; if (m && ((m < 0) != (b.i < 0))) m += b.i; return INTVAL(m); }
@@ -4547,7 +4548,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!bi && !brl) { char sb[64]; const char *cs = to_cstring(b, sb, sizeof sb); bd = cs ? strtod(cs, (char **)0) : 0.0; }
         if (ai && bi) {
             if (b.i == 0) { rt_script_die_surface("Attempt to divide by zero"); *out = FAILDESCR; return 1; }
-            if (b.i == -1) { *out = INTVAL(-a.i); return 1; }
+            if (b.i == -1) { extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); *out = rt_num_arith(a, b, BINOP_DIV); return 1; }
             if ((a.i % b.i) == 0) { *out = INTVAL(a.i / b.i); return 1; }
             *out = REALVAL((double)a.i / (double)b.i); return 1;
         }
@@ -4564,6 +4565,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!bi && !brl) { char sb[64]; const char *cs = to_cstring(b, sb, sizeof sb); bd = cs ? strtod(cs, (char **)0) : 0.0; }
         if (ai && bi) {
             if (b.i == 0) { rt_script_die_surface(is_div ? "Attempt to divide by zero" : "Attempt to divide by zero using infix:<%>"); *out = FAILDESCR; return 1; }
+            if (b.i == -1) { extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); *out = is_div ? rt_num_arith(a, b, BINOP_DIV) : INTVAL(0); return 1; }
             long long q = a.i / b.i, r = a.i % b.i;
             if (r != 0 && ((r < 0) != (b.i < 0))) { q -= 1; r += b.i; }
             *out = INTVAL(is_div ? q : r); return 1;
