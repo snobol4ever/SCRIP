@@ -469,3 +469,32 @@ if ra:
 print(" ".join(ca or []))
 PY
 }
+
+# declared_workhorse_beside <program> -- THE BENCHMARK ROLE OF A DEMO (Lon 2026-09-27, in-chat to the ceo, verbatim: "All demos are
+# benchmarks since they can be run at wall clock and perf values extracted. They are not run in loops."; ceo CEO-1313; coo COO-206): the
+# <stem>.workhorse sidecar names the FULL input a demo is timed on, once, at wall clock -- its sample input and .ref are the TEST role.
+# The format is one KEY<TAB>VALUE per line, '#' comments: stdin (a file beside the program holding the full input, or - for none),
+# scale (the stdin file replicated N times, the DEMO-SCALE.tsv precedent), argv (the full run's arguments), why (a note). stdin is
+# required. Echoes "stdin=<file|-> scale=<n> argv=<words>" and rc 0; nothing and rc 0 when there is no sidecar (the role is then owed,
+# and test_demos_suite.sh counts it); rc 2 on a sidecar the reader refuses -- an unknown or repeated key, no stdin line, a stdin file
+# that is not beside the program, a scale that is not a positive integer.
+declared_workhorse_beside() {
+  local prog="$1" side k v stdin="" scale=1 argv="" seen=" " n=0
+  side="${prog%.*}.workhorse"
+  [ -n "$prog" ] && [ -f "$side" ] || return 0
+  while IFS=$'\t' read -r k v || [ -n "$k" ]; do
+    case "$k" in ''|'#'*) continue ;; esac
+    n=$((n+1))
+    case "$seen" in *" $k "*) echo "⛔ REFUSE(2) declared_workhorse_beside: $side names '$k' twice -- one workhorse run, one answer" >&2; return 2 ;; esac
+    seen="$seen$k "
+    case "$k" in
+      stdin) stdin="$v"; if [ "$v" != - ] && [ ! -f "$(dirname "$prog")/$v" ]; then echo "⛔ REFUSE(2) declared_workhorse_beside: $side's stdin '$v' is not a file beside the program" >&2; return 2; fi ;;
+      scale) case "$v" in ''|*[!0-9]*|0) echo "⛔ REFUSE(2) declared_workhorse_beside: $side's scale '$v' is not a positive integer" >&2; return 2 ;; esac; scale="$v" ;;
+      argv) argv="$v" ;;
+      why) : ;;
+      *) echo "⛔ REFUSE(2) declared_workhorse_beside: $side names an unknown key '$k' (stdin scale argv why)" >&2; return 2 ;;
+    esac
+  done < "$side"
+  [ -n "$stdin" ] || { echo "⛔ REFUSE(2) declared_workhorse_beside: $side declares no stdin line (a file beside the program, or - for none)" >&2; return 2; }
+  printf 'stdin=%s scale=%s argv=%s\n' "$stdin" "$scale" "$argv"
+}

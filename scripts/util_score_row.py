@@ -1199,7 +1199,9 @@ SUITE_SYNC_ROW = "suite-table-row-rewritten-by-the-runner-through-util-suite-ban
 # and V feeds the PROGRESS percent, so a correctness fraction in either would give one cell two meanings. The key resolves from
 # --lang alone: the ONE SUITES.tsv row of that language whose key ends in the suffix. The key IS the progress table's suite name,
 # so the CEO-750 cross-check reads `<lang>-bench-ref` rows and no key-to-DB map anywhere needs an entry.
-SUITE_ONLY = {"bench-ref": "-bench-ref"}
+# ⭐ AND THE DEMO ROWS (Lon 2026-09-27: "all demos are also benchmarks. They are work-horse benchmarks."; ceo CEO-1312/1313; coo COO-206): a
+# <lang>-demos row is written by test_demos_suite.sh <lang> through this same path -- no grid cell, the key the progress table's suite name.
+SUITE_ONLY = {"bench-ref": "-bench-ref", "demos": "-demos"}
 SUITE_SYNC_COLUMNS = ("board", "vendor") + tuple(SUITE_ONLY)
 
 

@@ -22,6 +22,8 @@ declare -A DIR=(
   [snocone-bench-ref]=corpus/benchmarks/snocone [snobol4-bench-ref]=corpus/benchmarks/snobol4 [icon-bench-ref]=corpus/benchmarks/icon
   [prolog-bench-ref]=corpus/benchmarks/prolog [pascal-bench-ref]=corpus/benchmarks/pascal [raku-bench-ref]=corpus/benchmarks/raku
   [rebus-bench-ref]=corpus/benchmarks/rebus
+  [snobol4-demos]=corpus/demos/snobol4 [snocone-demos]=corpus/demos/snocone [icon-demos]=corpus/demos/icon [prolog-demos]=corpus/demos/prolog
+  [scrip-demos]=corpus/demos/scrip
 )
 rows=0; ok=0; okb=0; missing=(); unknown=()
 while IFS=$'\t' read -r key rest; do
@@ -29,7 +31,9 @@ while IFS=$'\t' read -r key rest; do
   rows=$((rows+1))
   d="${DIR[$key]:-}"
   if [ -z "$d" ]; then unknown+=("$key"); continue; fi
-  case "$key" in *-bench-ref) if [ -d "$S4E/$d" ]; then okb=$((okb+1)); else missing+=("$key -> $d (its benchmark tree)"); fi; continue;; esac
+  # ⭐ A DEMO ROW (key *-demos, CEO-1312/1313; coo COO-206) is a benchmark row too: every demo declares its memory, command line and
+  # workhorse run in sidecars beside it (NAME.heap/.stack/.cmdline/.workhorse), never a per-tree attribute file -- placed like *-bench-ref.
+  case "$key" in *-bench-ref|*-demos) if [ -d "$S4E/$d" ]; then okb=$((okb+1)); else missing+=("$key -> $d (its benchmark or demo tree)"); fi; continue;; esac
   if [ -s "$S4E/$d/ALL.csv" ]; then ok=$((ok+1)); else missing+=("$key -> $d/ALL.csv"); fi
 done < "$T"
 echo "ATTRIBUTE-FILES suites=$rows with_all_csv=$ok benchmark_rows_by_sidecar=$okb missing=${#missing[@]} unknown=${#unknown[@]}"
