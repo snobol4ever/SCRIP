@@ -217,9 +217,13 @@ sc_pair() {  # <arm> <rc> <results.tsv> <decl program path> <nodecl program path
     st() { awk -F'\t' -v p="$1" -v c="$2" '$2==p {print $c; exit}' "$3" 2>/dev/null; }
     pair "$1" "$2" "$(st "$4" 3 "$3")" "$(st "$4" 4 "$3")" "$(st "$5" 3 "$3")" "$(st "$5" 4 "$3")"; }
 G1="$W/sc1/corpus/packages/snobol4/gimpel"; mkdir -p "$G1"; sc_overlay "$W/sc1/corpus" packages
-for n in decl_driver nodecl_driver; do cp "$W/cnt.sno" "$G1/$n.sno"; done; csv_pair decl_driver nodecl_driver > "$G1/ALL.csv"
+for n in decl_driver nodecl_driver norow_driver; do cp "$W/cnt.sno" "$G1/$n.sno"; done; csv_pair decl_driver nodecl_driver > "$G1/ALL.csv"
 out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s1.tsv" CORPUS="$W/sc1/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W/sc1/out" 2>&1)"; rc=$?
 sc_pair S1 "$rc" "$W/sc1/out/results.tsv" packages/snobol4/gimpel/decl_driver.sno packages/snobol4/gimpel/nodecl_driver.sno || show_on_red "$out"
+# S1u (coo 2026-09-27, COO-205): norow_driver has no row in the suite's ALL.csv, so the scorecard names it UNDECLARED and names no other
+_ul="$(printf '%s\n' "$out" | grep -m1 'UNDECLARED (RULES.md 8 (f))')"
+if printf '%s' "$_ul" | grep -q ': 1 program(s) ' && printf '%s' "$_ul" | grep -q 'norow_driver' && ! printf '%s' "$_ul" | grep -q 'decl_driver'; then ok S1u "the scorecard names the one program of a table-carrying suite with no row (norow_driver), and no declared one"
+else red S1u "the scorecard's UNDECLARED line: [${_ul:-none printed}]"; fi
 B2="$W/sc2/corpus/benchmarks/snobol4"; mkdir -p "$B2"; sc_overlay "$W/sc2/corpus" benchmarks
 for n in decl nodecl; do cp "$W/cnt.sno" "$B2/$n.sno"; done; printf 'decl\t--stlimit\t\n' > "$B2/decl.cmdline"
 out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s2.tsv" CORPUS="$W/sc2/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites benchmarks --out "$W/sc2/out" 2>&1)"; rc=$?

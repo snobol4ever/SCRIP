@@ -428,6 +428,11 @@ cmd_run() {
       { cat "$out/decl.$name.err"; echo "   suite $name: a declared-memory cell is refused (named above) -- this board does not grade around it"; } > "$out/declared_memory.refused"; break
     fi
     echo "   declared memory: $(grep -c . "$out/decl.$name") of $(wc -l < "$list") program(s) run at a declared heap or stack$(awk -F'\t' '{n=$1; sub(/.*\//,"",n); printf "%s%s(heap=%s,stack=%s)", (NR>1?", ":" -- "), n, ($2==""?"-":$2"KB"), ($3==""?"-":$3"KB")}' "$out/decl.$name")"
+    # ⛔ A PROGRAM WHOSE SUITE CARRIES AN ALL.csv AND WHICH HAS NO ROW THERE IS NAMED, NEVER GRADED QUIETLY AT THE DEFAULTS (RULES.md 8 (f);
+    # coo 2026-09-27, COO-205): 24 gimpel drivers had no row and ran with no switch, heap or stack while this line counted only the declared
+    # ones -- the COO-199 hole class the icon runners name since SCRIP b26afab9f. A program with no table (the sidecar model) is not a gap.
+    _und="$(awk -F'\t' 'FNR==NR { if ($1 != "") d[$1] = 1; next } !($0 in d)' <(echo; cat "$out/decl.$name") "$list" | while IFS= read -r _p; do [ -n "$_p" ] && [ -f "$(dirname "$_p")/ALL.csv" ] && basename "$_p" .sno; done | tr '\n' ' ')"
+    [ -z "$_und" ] || echo "   ⛔ UNDECLARED (RULES.md 8 (f)): $(printf '%s' "$_und" | wc -w) program(s) of this suite have no row in their ALL.csv and run at the runtime's defaults -- a gap named, never filled here: $_und"
     SC_DECL="$out/decl.$name" xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
     # ⛔ SCOPED TO probes_misc/bb_probes DELIBERATELY (row scorecard-probes-misc-suite-awareness, extended
     # row probe-consolidate-bb 2026-08-28): these are the two rows whose root has a live sibling
