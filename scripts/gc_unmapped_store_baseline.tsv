@@ -12,6 +12,7 @@
 # RE-CUT 2026-09-24 cto, SCRIP this landing (the seventeen-red row, class B): 56 rows MOVED with shielded and unread_static UP everywhere and members unchanged -- since af1d0e856 every C call from emitted code writes r8/r10/r11 into the fixed symbol rtccb around the call (the RTX ABI's writebacks), which this census counts as stores shielded into a fixed symbol; the five polls landed the same day add record stores below the swept floor. Neither is a store that lost its map (members=0 on every moved row before and after). Four witness rows are NEW (hb_match_enter_subject_polled, hb_defer_close_after_a_deferred_capture_polled, hb_match_value_close_polled, hb_size_result_polled), the reach witnesses of the five polls; the population is the gate's own (icn, sno, pl, raku).
 # RE-CUT 2026-09-26 cto, SCRIP this landing (row gc-the-unmapped-store-census-walks-back-through-the-inline-pending-test-of-ceo-1251-to-the-stores-the-poll-shields): the census was BLIND from af773a80e (CEO-1251, 2026-09-25 00:08: every poll behind an inline g_gc_pending test whose je stopped the backward walk) until this landing taught shielded_stores() the six-instruction preamble, so this re-cut spans two days of landings the ratchet could not read. 67 of 73 rows MOVED, 8 ARRIVED, none GONE; members UP on NO witness; the loss direction (shielded DOWN with unread_static UP) on NO witness. By language, net over the moved rows: Icon members -14 undecidable -8 shielded -2 unread_static -822 (24 rows moved in unread_static ONLY, every delta a multiple of 3, one poll bracket of three write-backs each -- two-tree count on hb_aggt.icn: the 09-24 tree 08236d07d emits 21 polls and 120 rtccb write-backs, HEAD 18 and 102, three polls fewer since the speed landings, so nine fewer static stores in the polls own blocks; nothing moved from the graded road); SNOBOL4 members -352 undecidable -58 shielded -410 unread_static -669 (fewer safe points after the 09-24/25 by-name speed landings; no row rose); Prolog members 0 undecidable +274 shielded +830 unread_static +1353 (more sites after hq_prolog landings, every one undecidable NO-ANCHOR-REACHES-SITE, no member); Raku unchanged on all 6 rows.
 # RE-CUT 2026-09-27 cto, SCRIP this landing (the slim-road restore): six Prolog rows MOVED and nothing else, every one hq_prolog R7 (cc049b33f, 19:06, landed while this census was blind and after the 09-26 re-cut above was measured): is/2 carries two polls and every $ax_/$cmp_/type-test site derefs inline before its cold call, so undecidable UP (findall 282 -> 306, root_cells 256 -> 276, pldb 194 -> 214, batch_b 258 -> 282, reloc_gaps 96 -> 96, atom_dup 144 -> 152), shielded and unread_static UP with them, members 0 -> 0 on every row -- the same six rises R7 declared on gc_safe_point_contract_floor.tsv with the reader-limit reason (the anchor walk does not cross the deref loop back-edge, the contract row owes the walk). The 09-26 re-cut line above is preserved; Icon, SNOBOL4 and Raku rows unchanged.
+# RE-CUT 2026-09-27 hq_icon, SCRIP this landing (the cto's bisect of two GC reds from the 09-27 Icon landings): ONE row MOVED, hb_sibling_frames_leave_no_dead_map_cell.icn shielded 122 -> 174 and unread_static 1419 -> 1536 with members 0 both times -- first bad 9778142aa (icon: a builtin whose global is assigned or swapped is called through that global), whose calls through a global add shielded stores and statics read, never an unmapped member; and ONE row ARRIVED, hb_icn_reversible_assignment_to_pos_and_subject.icn (added by 9df517aae with no baseline line), members 0. Arm (h) stays red by design at 622.
 hb_aggt.icn	0	0	22	54
 hb_aggv.icn	0	0	16	42
 hb_apply_opens_and_lands.sno	4	2	6	15
@@ -56,6 +57,7 @@ hb_icn_errorvalue_keyword.icn	0	0	32	60
 hb_icn_op_context_after_a_converted_error.icn	0	0	22	51
 hb_icn_op_context_held_into_a_builtin_traceback.icn	0	0	16	33
 hb_icn_procedure_call_shapes.icn	0	4	58	210
+hb_icn_reversible_assignment_to_pos_and_subject.icn	0	0	38	84
 hb_immediate_capture_into_a_gva_cell_polled.sno	16	0	16	42
 hb_kw_cset_index_across_a_collection.icn	0	0	20	66
 hb_match_enter_subject_polled.sno	2	0	2	6
@@ -74,7 +76,7 @@ hb_scan_subject_across_a_failing_callee.icn	4	0	14	36
 hb_scan_subject_across_allocating_poll.icn	0	0	40	105
 hb_scan_subject_embedded_nul_across_a_collection.icn	6	0	24	66
 hb_scan_suspend_bank_across_a_collection.icn	0	6	40	102
-hb_sibling_frames_leave_no_dead_map_cell.icn	0	0	122	1419
+hb_sibling_frames_leave_no_dead_map_cell.icn	0	0	174	1536
 hb_size_result_polled.icn	0	0	6	12
 hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno	2	10	12	30
 hb_sno_data_field_name_held_across_collections.sno	50	0	50	84
