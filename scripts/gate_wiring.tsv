@@ -48,6 +48,7 @@ test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_be
 test_gate_a_program_with_more_functions_than_the_old_cell_table_held_compiles_and_runs.sh	WIRED	-	-	-
 test_gate_abandoned_generator_handle_is_dropped_at_alpha.sh	WIRED	-	-	-
 test_gate_absent_line_is_unproven_not_red.sh	WIRED	-	-	-
+test_gate_add_ladder_witness_declares_every_attribute_column.sh	WIRED	-	-	-
 test_gate_an_assignment_to_a_value_raises_111_at_run_time_instead_of_aborting.sh	WIRED	-	-	-
 test_gate_apply_reaches_every_formal_at_every_arity.sh	WIRED	-	-	-
 test_gate_banner_prints_a_verdict_word_and_a_ruled_grid.sh	WIRED	-	-	-

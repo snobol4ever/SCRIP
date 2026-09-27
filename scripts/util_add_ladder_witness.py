@@ -110,6 +110,33 @@ SPECIAL_ORDER = ["scan", "alternation", "element_gen", "limitation", "to_by", "a
 FLAG_ORDER = SIMPLE_WORDS + SPECIAL_ORDER
 assert len(FLAG_ORDER) == 61, len(FLAG_ORDER)
 FIXED = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines"]
+# ⛔⭐ THE ATTRIBUTE ROW CARRIES THE TEST UNIT'S COMMAND LINE (Lon 2026-09-26, RULES.md hard-cap rule clause 8 (f), CEO-1281):
+# heap_kb, stack_kb, compile_args and run_args are declared on EVERY master row, and a witness this tool mints is a test unit
+# like any other. It left all four BLANK (ceo CEO-1323, on hq_snocone's entry 1994 filled by hand), so the runner graded the
+# new witness under a default it never declared. The values are never baked here: they are READ from the master's own ladder
+# rows (the convention every ladder row carries, 131072 / 4096 / --stlimit / empty run_args on the SNOBOL4-family masters),
+# an explicit --heap-kb/--stack-kb/--compile-args/--run-args overrides, and a column the ladder rows disagree on REFUSES.
+ATTR_COLUMNS = ["heap_kb", "stack_kb", "compile_args", "run_args"]
+
+
+def ladder_convention(rows, fields, overrides):
+    """{column: value} for every ATTR column the master's header carries. An override wins; otherwise the ONE value
+    the existing ladder__ rows agree on (all rows when the master has no ladder row yet); several values -> refuse."""
+    out = {}
+    for col in ATTR_COLUMNS:
+        if col not in fields:
+            continue
+        if overrides.get(col) is not None:
+            out[col] = overrides[col]
+            continue
+        pool = [r for r in rows if r.get("origin", "").startswith("ladder__")] or rows
+        seen = sorted({(r.get(col) or "") for r in pool})
+        if len(seen) != 1:
+            refuse("cannot determine the master's %s convention: its %s rows carry %d different values (%s) -- pass --%s"
+                   % (col, "ladder" if pool is not rows else "", len(seen),
+                      ", ".join(repr(v) for v in seen[:6]), col.replace("_", "-")))
+        out[col] = seen[0]
+    return out
 CSV_FIELDS = FIXED + FLAG_ORDER
 WORD_RE = {w: re.compile(r"\b%s\b" % re.escape(w)) for w in SIMPLE_WORDS}
 
@@ -219,8 +246,9 @@ def lang_schema(lang, rows):
     """The CSV schema is READ FROM THE FILE THIS TOOL IS ABOUT TO APPEND TO, never hardcoded twice. Icon keeps
     its compiled-in assertion (its 61 columns are this script's own contract); every other language takes the
     builder's own flag columns as the header names them, because the builder owns that header and a second copy
-    of it here would drift. A column this tool does not derive (a per-entry declaration such as heap_kb) is
-    left BLANK on the new row -- a new witness declares nothing -- and the dry-run names it."""
+    of it here would drift. The four attribute columns (heap_kb, stack_kb, compile_args, run_args) are filled by
+    ladder_convention() from the master's own ladder rows (CEO-1323); any other column this tool does not derive
+    is left BLANK on the new row and the dry-run names it."""
     if not rows:
         refuse("%s master ALL.csv has no rows -- nothing to derive a schema from" % lang)
     fields = list(rows[0].keys())
@@ -327,6 +355,10 @@ def main():
                          "everything is derived from --source, so no sibling is needed -- the flag exists so a "
                          "typo'd rung number is still caught")
     ap.add_argument("--apply", action="store_true", help="write the files; omit for a dry-run report")
+    ap.add_argument("--master-dir", default="", help="the master's directory (default corpus/tests/<lang>); a gate points it at a scratch copy")
+    for _a in ATTR_COLUMNS:
+        ap.add_argument("--" + _a.replace("_", "-"), default=None, dest="attr_" + _a,
+                        help="the new row's %s; omitted, the master's own ladder convention is READ from its ladder rows" % _a)
     args = ap.parse_args()
 
     lang = args.lang
@@ -336,7 +368,7 @@ def main():
     # shared table where they would claim membership of a family this master is not in.
     cfg = csh.LANG_CONFIGS[lang] if lang in csh.LANG_CONFIGS else {
         "ext": ".sno", "comment_open": "*", "comment_close": ""}
-    master_dir = S4E / "corpus" / "tests" / lang
+    master_dir = Path(args.master_dir) if args.master_dir else S4E / "corpus" / "tests" / lang
     master_src, master_ref, master_csv = (master_dir / ("ALL" + cfg["ext"]), master_dir / "ALL.ref",
                                            master_dir / "ALL.csv")
     for p in (master_src, master_ref, master_csv):
@@ -519,9 +551,14 @@ def main():
                "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines))}
     for k in flag_order:
         new_row[k] = str(flags[k])
+    attrs = ladder_convention(rows, fields, {c: getattr(args, "attr_" + c) for c in ATTR_COLUMNS})
+    new_row.update(attrs)
 
     print("would add: rank=%s entry=%s origin=%s want_rc=%s n_lines=%s"
           % (rank, entry_name, args.origin, want_rc, len(sno_lines)))
+    if attrs:
+        print("  attribute row (clause 8 f):", ", ".join("%s=%r" % (c, attrs[c]) for c in ATTR_COLUMNS if c in attrs),
+              "-- read from the master's ladder rows unless given on the command line")
     _blank = [f for f in fields if f not in new_row]
     if _blank:
         print("  left blank (not derived here):", ", ".join(_blank))
