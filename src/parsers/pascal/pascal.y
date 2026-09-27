@@ -39,12 +39,13 @@ static PNodeList *pnl_concat(PNodeList *a, PNodeList *b) {
 typedef struct { const char *name; const char *sig; const char *owner; int depth, rid, formal, uid; } PasDef;
 typedef struct { const char *name; PNodeList *params; const char *sig; } PasFwd;
 static struct { PasDef *defs; int n, cap; int *marks; int depth, mcap; PasFwd *fwd; int nfwd, fcap;
-                PasDef *pend; int npend, cpend; PasDef *fsig; int nfsig, cfsig; PasDef *cand; int ncand, ccand; int nrid, npf, nuid; PasDef *lab; int nlab, clab; } g_pas_scope;
+                PasDef *pend; int npend, cpend; PasDef *fsig; int nfsig, cfsig; PasDef *cand; int ncand, ccand; int nrid, npf, nuid; PasDef *lab; int nlab, clab; PasDef *apl; int napl, capl; } g_pas_scope;
 static PasDef *pas_scope_push(PasDef **a, int *n, int *cap, const char *name) {
     if (*n >= *cap) { *cap = *cap ? *cap * 2 : 256; *a = (PasDef *)ct_grow(*a, (size_t)*cap * sizeof(PasDef)); }
     PasDef *d = &(*a)[(*n)++]; d->name = name; d->sig = NULL; d->owner = NULL; d->depth = g_pas_scope.depth; d->rid = 0; d->formal = 0; d->uid = ++g_pas_scope.nuid; return d;
 }
-static void pas_scope_define(const char *name) { if (name) pas_scope_push(&g_pas_scope.defs, &g_pas_scope.n, &g_pas_scope.cap, name); }
+static void pas_scope_defined_after_use(const char *name);
+static void pas_scope_define(const char *name) { if (name) { pas_scope_defined_after_use(name); pas_scope_push(&g_pas_scope.defs, &g_pas_scope.n, &g_pas_scope.cap, name); } }
 static int pas_scope_uid(const char *name) { for (int i = g_pas_scope.n - 1; name && i >= 0; i--) if (g_pas_scope.defs[i].name && !strcmp(g_pas_scope.defs[i].name, name)) return g_pas_scope.defs[i].uid; return 0; }
 static void pas_scope_define_list(PNodeList *ids) { for (int i = 0; ids && i < ids->count; i++) if (ids->items[i] && ids->items[i]->v.sval) pas_scope_define(ids->items[i]->v.sval); }
 static void pas_scope_fwd_save(const char *name, PNodeList *params, const char *sig) {
@@ -70,7 +71,10 @@ static const char *pas_pf_rtype(const tree_t *e) {
     if (!e || e->t != TT_FNC || e->n < 4 || !e->c[0] || !e->c[0]->v.sval || strcmp(e->c[0]->v.sval, "__pas_pcall") || !e->c[2]->v.sval || e->c[2]->v.sval[0] != 'F') return NULL;
     const char *r = strrchr(e->c[2]->v.sval, ')'); return (r && r[1] == ':') ? r + 2 : NULL;
 }
-static void pas_scope_exit(void) { if (g_pas_scope.depth > 0) g_pas_scope.n = g_pas_scope.marks[--g_pas_scope.depth]; }
+static void pas_scope_exit(void) {
+    if (g_pas_scope.depth > 0) g_pas_scope.n = g_pas_scope.marks[--g_pas_scope.depth];
+    while (g_pas_scope.napl > 0 && g_pas_scope.apl[g_pas_scope.napl - 1].depth > g_pas_scope.depth) g_pas_scope.napl--;
+}
 static int pas_is_int_typename(const char *t);
 static int pas_is_realtypename(const char *t);
 static int pas_scope_has(const char *name) {
@@ -1413,7 +1417,19 @@ static tree_t *mk_ident(const char *name) {
     pas_scope_require(name);
     return leaf_s(TT_VAR, name);
 }
+static void pas_scope_applied(const char *name) {
+    for (int i = g_pas_scope.n - 1; name && i >= 0; i--) if (g_pas_scope.defs[i].name && !strcmp(g_pas_scope.defs[i].name, name)) {
+        if (g_pas_scope.defs[i].depth < g_pas_scope.depth) pas_scope_push(&g_pas_scope.apl, &g_pas_scope.napl, &g_pas_scope.capl, name);
+        return; }
+}
+static void pas_scope_defined_after_use(const char *name) {
+    if (g_pas_recbody_depth > 0) return;
+    for (int i = g_pas_scope.napl - 1; i >= 0 && g_pas_scope.apl[i].depth == g_pas_scope.depth; i--) if (!strcmp(g_pas_scope.apl[i].name, name)) {
+        fprintf(stderr, "pascal: ISO 7185 6.2.2.9 violation: '%s' is used in this block before its defining-point in this block, which shall precede every applied occurrence\n", name);
+        g_pas_iso_errors++; return; }
+}
 static void pas_scope_require(const char *name) {
+    pas_scope_applied(name);
     if (pas_scope_has(name)) return;
     fprintf(stderr, "pascal: ISO 7185 6.2.2.1 violation: the identifier '%s' has no defining-point -- it is declared nowhere in a region enclosing this use\n", name);
     g_pas_iso_errors++;
@@ -1858,7 +1874,7 @@ const_decl: IDENT EQOP REALCONST SEMICOLON { pas_scope_define($1); pas_rconst_ad
     | IDENT EQOP constant SEMICOLON { pas_scope_define($1); pas_const_add($1, $3); } ;
 constant:
     scalar_constant { $$ = $1; } | PLUS scalar_constant { $$ = $2; } | MINUS scalar_constant { $$ = -$2; } ;
-scalar_constant: IDENT { long long cv = 0; if ($1 && !strcmp($1, "true")) cv = 1; else if ($1 && !strcmp($1, "false")) cv = 0; else if (!pas_const_get($1, &cv) && $1 && !strcmp($1, "maxint")) cv = 2147483647; $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { pas_real_is_not_ordinal($1); $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } | CHARCODE { $$ = $1; } ;
+scalar_constant: IDENT { pas_scope_applied($1); long long cv = 0; if ($1 && !strcmp($1, "true")) cv = 1; else if ($1 && !strcmp($1, "false")) cv = 0; else if (!pas_const_get($1, &cv) && $1 && !strcmp($1, "maxint")) cv = 2147483647; $$ = cv; } | INTCONST { $$ = $1; } | REALCONST { pas_real_is_not_ordinal($1); $$ = (long long)$1; } | STRINGCONST { $$ = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0; } | CHARCODE { $$ = $1; } ;
 type_decl_list:
     type_decl_list type_decl
     | type_decl
@@ -1890,7 +1906,7 @@ simple_type:
               if (_id && _id->v.sval) { if (_eo > 0) strncat(g_pas_pend_enum_names, ",", sizeof g_pas_pend_enum_names - strlen(g_pas_pend_enum_names) - 1); strncat(g_pas_pend_enum_names, _id->v.sval, sizeof g_pas_pend_enum_names - strlen(g_pas_pend_enum_names) - 1); pas_const_add(_id->v.sval, (long long)(_eo++)); } }
           g_pas_pend_enum_max = (long long)(_eo - 1);
           $$ = _eo > 0 ? (long long)(_eo - 1) : -1; }
-    | IDENT { g_pas_pend_typename = ct_strdup($1); g_pas_pend_isbool = pas_is_booltype($1); g_pas_pend_istfile = pas_is_tfiletype($1); g_pas_pend_ischar = !strcmp($1, "char") || !strcmp($1, "widechar") || pas_typealias_is_char($1); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = ct_strdup(_pt); $$ = -3; } else { if (!strcmp($1, "char") || !strcmp($1, "widechar")) { $$ = 255; } else if (pas_is_settype($1)) { $$ = -2; } else { long long _eh = pas_enumtype_high($1); long long _sh = pas_subtype_high($1); long long _ah = pas_arrtype_high($1); if (_eh >= 0) { $$ = _eh; } else if (_sh >= 0) { $$ = _sh; } else if (_ah >= 0) { if (g_pas_recbody_depth == 0 && pas_rectype_nf($1) > 0) { pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); } $$ = _ah; } else { if (g_pas_recbody_depth == 0) pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); $$ = -1; } } } }
+    | IDENT { pas_scope_applied($1); g_pas_pend_typename = ct_strdup($1); g_pas_pend_isbool = pas_is_booltype($1); g_pas_pend_istfile = pas_is_tfiletype($1); g_pas_pend_ischar = !strcmp($1, "char") || !strcmp($1, "widechar") || pas_typealias_is_char($1); const char *_pt = pas_ptrtype_target($1); if (_pt) { g_pas_pend_ptrtarget = ct_strdup(_pt); $$ = -3; } else { if (!strcmp($1, "char") || !strcmp($1, "widechar")) { $$ = 255; } else if (pas_is_settype($1)) { $$ = -2; } else { long long _eh = pas_enumtype_high($1); long long _sh = pas_subtype_high($1); long long _ah = pas_arrtype_high($1); if (_eh >= 0) { $$ = _eh; } else if (_sh >= 0) { $$ = _sh; } else if (_ah >= 0) { if (g_pas_recbody_depth == 0 && pas_rectype_nf($1) > 0) { pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); } $$ = _ah; } else { if (g_pas_recbody_depth == 0) pas_rectype_to_pend($1); g_pas_pend_typename = ct_strdup($1); $$ = -1; } } } }
     | constant DOTDOT constant { g_pas_pend_sub_low = $1; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 0; $$ = $3; }
     | STRINGCONST DOTDOT constant { long long _l = ($1 && strlen($1) == 1) ? (long long)(unsigned char)$1[0] : 0;
           g_pas_pend_sub_low = _l; g_pas_pend_sub_high = $3; g_pas_pend_ischar = 1; $$ = $3; }
