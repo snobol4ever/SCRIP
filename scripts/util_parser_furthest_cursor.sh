@@ -49,9 +49,9 @@ src=src.replace(a,'(Gray = ((White | epsilon) @FARC *FarSet()))')
 b="\tInitCounter()\n"
 if src.count(b)!=1: print("REFUSE the transpiled driver has no unique InitCounter() call to hook", file=sys.stderr); sys.exit(2)
 src=src.replace(b,"\tDEFINE('FarSet()')\t:(FarSet_end)\nFarSet\t(FAR = GT(FARC,FAR) FARC)\n\t:(RETURN)\nFarSet_end\n\t(FAR = 0)\n"+b)
-c="(OUTPUT = 'Parse Error')"
-if src.count(c)<1: print("REFUSE the transpiled driver prints no Parse Error", file=sys.stderr); sys.exit(2)
-src=src.replace(c,"(OUTPUT = 'Parse Error at ' FAR)")
+cs=["(OUTPUT = 'Parse Error')", "(OUTPUT = 'Parse Error.')"]
+if not any(src.count(c) for c in cs): print("REFUSE the transpiled driver prints no Parse Error", file=sys.stderr); sys.exit(2)
+for c in cs: src=src.replace(c,"(OUTPUT = 'Parse Error at ' FAR)")
 open(sys.argv[2],'w').write(src)
 PY
 fi
