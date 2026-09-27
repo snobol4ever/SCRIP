@@ -645,7 +645,7 @@ void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
 }
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_tap_off(void) { g_trace_tap_off = 1; }
-void rt_trace_value_sigil(const char *name, DESCR_t val, int sigil) {
+void rt_trace_value_sigil(const char *name, DESCR_t val, int via_call) {
     if (g_trace_budget == 0 || !name) return;
     if (!strncmp(name, "__icn_", 6) || strstr(name, "__INITFLAG__")) return;
     { const char *st = strstr(name, "__STATIC__"); if (st && st[10]) name = st + 10; }
@@ -653,16 +653,16 @@ void rt_trace_value_sigil(const char *name, DESCR_t val, int sigil) {
     static long g_trace_value_last_gen = -1;
     static char g_trace_value_last_name[256] = "";
     static char g_trace_value_last_text[512] = "";
-    if (g_trace_stmt_gen == g_trace_value_last_gen && !strcmp(name, g_trace_value_last_name) && !strcmp(vtext, g_trace_value_last_text))
+    if (g_trace_stmt_gen == g_trace_value_last_gen && g_trace_value_last_name[0] != (via_call ? '1' : '0') && !strcmp(name, g_trace_value_last_name + 1) && !strcmp(vtext, g_trace_value_last_text))
         return;
     g_trace_value_last_gen = g_trace_stmt_gen;
-    snprintf(g_trace_value_last_name, sizeof g_trace_value_last_name, "%s", name);
+    snprintf(g_trace_value_last_name, sizeof g_trace_value_last_name, "%c%s", via_call ? '1' : '0', name);
     snprintf(g_trace_value_last_text, sizeof g_trace_value_last_text, "%s", vtext);
     g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
     DESCR_t wire = val;
-    if (sigil && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
+    if (via_call && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
     if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, wire); else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
 }
 void rt_trace_value(const char *name, DESCR_t val) { rt_trace_value_sigil(name, val, 0); }
