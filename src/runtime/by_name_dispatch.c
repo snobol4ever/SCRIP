@@ -1377,6 +1377,29 @@ static const char *icn_opproc_find(const char *nm, int arity) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_opproc_arity(const char *s) { int n; const icn_opproc_t *t = icn_opproc_table(&n); for (int i = 0; s && i < n; i++) if (s == t[i].opsym) return t[i].ar; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) {
+    extern void rt_coerce_num2_d(const DESCR_t *, const DESCR_t *, DESCR_t *, long); extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
+    extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int); extern DESCR_t rt_div_strict(DESCR_t, DESCR_t);
+    extern DESCR_t rt_mod_strict(DESCR_t, DESCR_t); extern DESCR_t rt_pow_strict(DESCR_t, DESCR_t);
+    if (icn_opproc_arity(nm) != n) return 0;
+    if (n == 2 && !strcmp(nm, "||")) { *out = RT_GC_CALLBACK(str_concat_fracdigit_d(argv[0], argv[1])); return 1; }
+    int bc = !strcmp(nm, "+") ? BINOP_ADD : !strcmp(nm, "-") ? BINOP_SUB : !strcmp(nm, "*") ? BINOP_MUL : !strcmp(nm, "/") ? BINOP_DIV
+           : !strcmp(nm, "%") ? BINOP_MOD : !strcmp(nm, "^") ? BINOP_POW : -1;
+    DESCR_t l, r;
+    if (bc < 0 || (n == 1 && bc != BINOP_ADD && bc != BINOP_SUB)) return 0;
+    if (n == 1) {
+        rt_coerce_num2_d(&argv[0], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_SUB ? COERCE_OP_UNARY_NEG : COERCE_OP_UNARY_POS));
+        *out = IS_FAIL_fn(r) ? FAILDESCR : (bc == BINOP_SUB) ? RT_GC_CALLBACK(rt_num_arith_strict(INTVAL(0), r, BINOP_SUB)) : r;
+        return 1;
+    }
+    rt_coerce_num2_d(&argv[0], &argv[1], &l, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bc));
+    if (IS_FAIL_fn(l)) { *out = FAILDESCR; return 1; }
+    rt_coerce_num2_d(&argv[1], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_POW ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bc) | COERCE_OP_SELF_RIGHT);
+    if (IS_FAIL_fn(r)) { *out = FAILDESCR; return 1; }
+    *out = RT_GC_CALLBACK(bc == BINOP_DIV ? rt_div_strict(l, r) : bc == BINOP_MOD ? rt_mod_strict(l, r) : bc == BINOP_POW ? rt_pow_strict(l, r) : rt_num_arith_strict(l, r, bc));
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_opproc_fit(const char *nm, DESCR_t **argv, int *n) {
     extern void *rt_ws_alloc_descr(size_t);
     int oa = icn_opproc_arity(nm);
@@ -1476,6 +1499,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
+    if (IS_PROCVAL_fn(callee)) { DESCR_t ov; if (icn_opproc_typed(nm, argv, n, &ov)) return ov; }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
