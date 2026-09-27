@@ -2923,6 +2923,10 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
 }
 void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
+#ifdef SCRIP_GC_AUDIT_B
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *core_gc_audit_nonref(const char *p) { const char *b = (const char *)g_core_errjmp_stk; if (p < b || p >= b + sizeof g_core_errjmp_stk) return (const char *)0; return ((size_t)(p - b) / sizeof(jmp_buf) >= (size_t)g_core_errjmp_n) ? "g_core_errjmp_stk-popped" : (const char *)0; }
+#endif
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg_known(int n) {

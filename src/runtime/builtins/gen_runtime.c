@@ -327,6 +327,7 @@ void gen_gc_roots(void)
     rt_gc_visit_descr(&drive_val);
     for (int f = 0; f < frame_depth; f++) { GenFrame *fr = &frame_stack[f]; for (int i = 0; i < fr->env_n; i++) rt_gc_visit_descr(&fr->env[i]); rt_gc_visit_descr(&fr->return_val); for (int g = 0; g < fr->gen_depth; g++) rt_gc_visit_raw(&fr->gen[g].sval); }
     if (g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
+    if (g_scan_needle_ptr) rt_gc_visit_raw(&g_scan_needle_ptr);
     rt_gc_visit_raw(&scan_subj);
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) if (scan_saved[i].subj) rt_gc_visit_raw(&scan_saved[i].subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
