@@ -114,6 +114,10 @@ static int rk_is_binop(tree_e tt) {
     switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_CAT: case TT_XREP: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t rk_binop_code(tree_e tt) {
+    switch (tt) { case TT_ADD: return BINOP_ADD_BIG; case TT_SUB: return BINOP_SUB_BIG; case TT_MUL: return BINOP_MUL_BIG; default: return lc_binop_code(tt); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_yields_list(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->v.sval) {
@@ -368,7 +372,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     if (t->t == TT_DIV && t->n > 1) { return lower_rcall(cx, t, "__rk_div", 0, γ, ω, res); }
     if (t->t == TT_MOD && t->n > 1) { return lower_rcall(cx, t, "__rk_mod", 0, γ, ω, res); }
     if (rk_is_binop(t->t)) {
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = lc_binop_code(t->t);
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = rk_binop_code(t->t);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr); IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
         γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr); *res = op; return ea; }
     switch (t->t) {
@@ -380,8 +384,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n < 1) return rk_excise(cx, γ, ω, res);
         tree_t * nb = ast_node_new(TT_FNC); nb->v.sval = (char *) intern("__rk_notbool");
         ast_push(nb, leaf_sval2(TT_VAR, "__rk_notbool")); ast_push(nb, t->c[0]); return lower_rv(cx, nb, γ, ω, res); }
-    case TT_MNS: { IR_t * nd = build(cx, IR_UNOP, γ, ω); IR_LIT(nd).ival = (long long) TT_MNS;
-        IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], nd, ω, &r); ir_operand_push(nd, r); *res = nd; return e; }
+    case TT_MNS: {
+        if (t->n < 1) return rk_excise(cx, γ, ω, res);
+        const tree_t * x = t->c[0];
+        if (x && x->t == TT_ILIT && x->v.ival != INT64_MIN) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = -x->v.ival; *res = nd; return nd; }
+        if (x && x->t == TT_FLIT) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = -x->v.dval; *res = nd; return nd; }
+        tree_t * m = ast_node_new(TT_MUL); m->line = t->line; ast_push(m, t->c[0]);
+        tree_t * m1 = ast_node_new(TT_ILIT); m1->v.ival = -1; ast_push(m, m1);
+        return lower_rv(cx, m, γ, ω, res); }
     case TT_VAR: {
         if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;

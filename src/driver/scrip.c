@@ -319,6 +319,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
     if (r->op == IR_BINOP_RELOP_VAL) return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL
+                               || IR_LIT(r).ival == BINOP_ADD_BIG || IR_LIT(r).ival == BINOP_SUB_BIG || IR_LIT(r).ival == BINOP_MUL_BIG
                                || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || binop_is_concat((long)IR_LIT(r).ival)))
         return 1;
     if (ir_norm_call_kind(r->op) == IR_CALL || r->op == IR_UNOP || r->op == IR_FIELD_GET || r->op == IR_PROC_GEN) return 1;
@@ -356,7 +357,8 @@ static int local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
 static int arith_operand_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_INTEGER) return 1;
-    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD)) return 1;
+    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD
+                              || IR_LIT(r).ival == BINOP_ADD_BIG || IR_LIT(r).ival == BINOP_SUB_BIG || IR_LIT(r).ival == BINOP_MUL_BIG)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
