@@ -1767,7 +1767,7 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
         return ARRAY_VAL(arrrc);
     }
     int sz = (int)to_int(a[0]);
-    if (sz < 1) return FAILDESCR;
+    if (sz < 1) { core_runtime_error(67, "array dimension is zero, negative or out of range"); return FAILDESCR; }
     ARBLK_t *arr = array_new(1, sz);
     arr->proto_bare = 1;
     if (n >= 2) {

@@ -280,12 +280,13 @@ static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
 }
 static void rt_div_zero(int bcode, DESCR_t a, DESCR_t b, const char *msg, int strict) {
     core_icn_op_ctx(core_icn_binop_sym(bcode), 2, a, b);
-    if (strict) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(bcode == BINOP_MOD ? 202 : 201, bcode == BINOP_MOD ? b : FAILDESCR); }
-    else core_runtime_error(2, msg);
+    if (strict == 1) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(bcode == BINOP_MOD ? 202 : 201, bcode == BINOP_MOD ? b : FAILDESCR); }
+    else core_runtime_error(strict == 2 ? 14 : 2, msg);
     core_icn_op_ctx_clear();
 }
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 0); }
 DESCR_t rt_num_arith_strict(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 1); }
+DESCR_t rt_num_arith_sno(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 2); }
 static inline int rt_int_str_operand(DESCR_t d, int64_t *out) __attribute__((always_inline));
 static inline int rt_int_str_operand(DESCR_t d, int64_t *out)
 {
@@ -317,7 +318,7 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
     g_core_errjmp_n = my; \
     return r; \
 }
-#define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1)
+#define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)
 RT_BINOP_ENTRY(c_rt_add,  BINOP_ADD,    { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
 RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
 RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
@@ -398,7 +399,7 @@ static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_real_zero_divisor(int strict) {
     extern int core_icn_error(int code, DESCR_t val);
-    if (strict) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
+    if (strict == 1) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
     core_runtime_error(262, "division caused real overflow");
     return FAILDESCR;
 }
@@ -438,6 +439,17 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
     else                        ur = cset_inter(as, aslen, bs, bslen, &outlen);
     return CSETVAL(outlen > 0 ? ur : "");
 }
+static void rt_sno_operand_error(int op, int left) {
+    switch (op) {
+    case BINOP_ADD: core_runtime_error(left ? 1 : 2, left ? "addition left operand is not numeric" : "addition right operand is not numeric"); return;
+    case BINOP_SUB: core_runtime_error(left ? 32 : 33, left ? "subtraction left operand is not numeric" : "subtraction right operand is not numeric"); return;
+    case BINOP_MUL: core_runtime_error(left ? 26 : 27, left ? "multiplication left operand is not numeric" : "multiplication right operand is not numeric"); return;
+    case BINOP_DIV: core_runtime_error(left ? 12 : 13, left ? "division left operand is not numeric" : "division right operand is not numeric"); return;
+    case BINOP_POW: case BINOP_POW_PROMOTE: core_runtime_error(left ? 16 : 15, left ? "exponentiation left operand is not numeric" : "exponentiation right operand is not numeric"); return;
+    default: return;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (a.v == DT_CPLX || b.v == DT_CPLX) return rt_cplx_arith(a, b, op);
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return rt_cset_arith(a, b, op);
@@ -446,7 +458,7 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
-    if (!is_numeric_like(a) || !is_numeric_like(b)) return FAILDESCR;
+    if (!is_numeric_like(a) || !is_numeric_like(b)) { if (strict == 2) rt_sno_operand_error(op, !is_numeric_like(a)); return FAILDESCR; }
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = to_real(a), rd = to_real(b);
@@ -481,7 +493,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_neg(DESCR_t a) {
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
-    if (!is_numeric_like(a)) { core_runtime_error(1, "negation operand is not numeric"); return FAILDESCR; }
+    if (!is_numeric_like(a)) { core_runtime_error(10, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
     return INTVAL(-to_int(a));
 }
@@ -489,7 +501,7 @@ DESCR_t rt_num_neg(DESCR_t a) {
 DESCR_t rt_num_pos(DESCR_t a) {
     if (a.v == DT_BIG) return a;
     { DESCR_t bs = big_str_operand(a); if (bs.v == DT_BIG) return bs; }
-    if (!is_numeric_like(a)) { core_runtime_error(1, "affirmation operand is not numeric"); return FAILDESCR; }
+    if (!is_numeric_like(a)) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
     return INTVAL(to_int(a));
 }

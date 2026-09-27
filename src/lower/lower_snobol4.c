@@ -147,7 +147,7 @@ static const tree_t * sno_pat_valued(scx_t * cx, const tree_t ** subj, int has_r
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_tree_has_scan(const tree_t * n, int d) { if (!n || d > 24) return 0; if (n->t == TT_SCAN) return 1; for (int i = 0; i < n->n; i++) if (sno_tree_has_scan(n->c[i], d + 1)) return 1; return 0; }
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * op = lc_build(cx->g, IR_BINOP, γ, ω); IR_LIT(op).ival = code;
+    IR_t * op = lc_build(cx->g, IR_BINOP, γ, ω); IR_LIT(op).ival = code; op->strict = 2;
     IR_t * lr = NULL; IR_t * rr = NULL;
     if (sno_tree_has_scan(t->c[1], 0)) {
         static int g_scl_n = 0;

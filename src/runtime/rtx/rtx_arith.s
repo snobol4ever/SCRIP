@@ -212,4 +212,85 @@ RTX_FUNC(rt_mul)
 .Lmul_slow:
     RTX_CTAIL(c_rt_mul)
 RTX_ENDF(rt_mul)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RTX_FUNC(rt_add_sno)
+    RTX_GATE(arith, .Laddsno_slow)
+    cmp     dil, DT_I
+    jne     .Laddsno_notii
+    cmp     dl, DT_I
+    jne     .Laddsno_notii
+    mov     rdx, rsi
+    add     rdx, rcx
+    jo      .Laddsno_slow
+    mov     eax, DT_I
+    ret
+.Laddsno_notii:
+    cmp     dil, DT_R
+    jne     .Laddsno_slow
+    cmp     dl, DT_R
+    jne     .Laddsno_slow
+    movq    xmm0, rsi
+    movq    xmm1, rcx
+    addsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Laddsno_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Laddsno_slow:
+    RTX_CTAIL(c_rt_add_sno)
+RTX_ENDF(rt_add_sno)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RTX_FUNC(rt_sub_sno)
+    RTX_GATE(arith, .Lsubsno_slow)
+    cmp     dil, DT_I
+    jne     .Lsubsno_notii
+    cmp     dl, DT_I
+    jne     .Lsubsno_notii
+    mov     rdx, rsi
+    sub     rdx, rcx
+    jo      .Lsubsno_slow
+    mov     eax, DT_I
+    ret
+.Lsubsno_notii:
+    cmp     dil, DT_R
+    jne     .Lsubsno_slow
+    cmp     dl, DT_R
+    jne     .Lsubsno_slow
+    movq    xmm0, rsi
+    movq    xmm1, rcx
+    subsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Lsubsno_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lsubsno_slow:
+    RTX_CTAIL(c_rt_sub_sno)
+RTX_ENDF(rt_sub_sno)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RTX_FUNC(rt_mul_sno)
+    RTX_GATE(arith, .Lmulsno_slow)
+    cmp     dil, DT_I
+    jne     .Lmulsno_notii
+    cmp     dl, DT_I
+    jne     .Lmulsno_notii
+    mov     rdx, rsi
+    imul    rdx, rcx
+    jo      .Lmulsno_slow
+    mov     eax, DT_I
+    ret
+.Lmulsno_notii:
+    cmp     dil, DT_R
+    jne     .Lmulsno_slow
+    cmp     dl, DT_R
+    jne     .Lmulsno_slow
+    movq    xmm0, rsi
+    movq    xmm1, rcx
+    mulsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Lmulsno_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lmulsno_slow:
+    RTX_CTAIL(c_rt_mul_sno)
+RTX_ENDF(rt_mul_sno)
 .section .note.GNU-stack,"",@progbits
