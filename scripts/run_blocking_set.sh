@@ -423,6 +423,10 @@ if [ -n "$SHARD" ]; then
 fi
 if [ -n "$SHARDS" ]; then
     case "$SHARDS" in [1-9]|[1-9][0-9]) : ;; *) refuse "--shards takes a count 1..99 (got '$SHARDS')" ;; esac
+    # ⛔ THE FAN-OUT CEILING (ceo CEO-1333, 2026-09-27): a seat caps its concurrent children at max(2, min(4, cores - load1)), read from
+    # scripts/lib_fanout.sh at launch; a requested width above it is CLAMPED and the clamp is printed, never silent.
+    . "$HERE/lib_fanout.sh" || refuse "scripts/lib_fanout.sh is missing -- the fan-out ceiling has no instrument"
+    _fw=$(fanout_width); if [ "$SHARDS" -gt "$_fw" ] 2>/dev/null; then echo "fanout: --shards $SHARDS clamped to $_fw at load1 $(fanout_load1) on $(fanout_cores) cores (CEO-1333: max(2, min(4, cores - load1)))"; SHARDS=$_fw; fi
 fi
 if [ "$SHARD_N" -gt 0 ]; then
     KEEP_F=(); KEEP_C=(); _slot=0

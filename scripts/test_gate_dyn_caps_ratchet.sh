@@ -84,6 +84,7 @@
 # and the corrected one 355, the difference exactly the 8 phantoms by name; the 355 are the same tables by name.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_fanout.sh" 2>/dev/null || { echo "⛔ GATE REFUSE(2): scripts/lib_fanout.sh is missing -- a census runs serially under nice 19 (CEO-1333)"; exit 2; }
 ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/lib_gate.sh" || { echo "REFUSING(2): cannot load lib_gate.sh"; exit 2; }
 GATE_NAME=dyn_caps_ratchet
@@ -102,7 +103,7 @@ WORK=$(mktemp -d "$SCRATCH/gate_dyn_caps_XXXXXX") || exit 2
 trap '[ -n "${WORK:-}" ] && rm -rf "$WORK"' EXIT INT TERM
 fails=0
 ck() { if eval "$2"; then echo "  ok   $1"; else fails=$((fails+1)); echo "  FAIL $1"; fi; }
-st=$(python3 "$C" --selftest 2>&1); st_rc=$?
+st=$($(fanout_nice) python3 "$C" --selftest 2>&1); st_rc=$?
 ck "1 the census selftest: every declared form counted once, a typedef, an extern and a comparison refused, each guard shape read as its class ($(grep -c '^SELFTEST: ' <<<"$st") checks)" '[ "$st_rc" = 0 ] && grep -q "^SELFTEST PASS" <<<"$st"'
 [ "$st_rc" = 0 ] || printf '%s\n' "$st" | grep FAIL | sed 's/^/      /'
 out=$(cd "$ROOT" && bash "$WIT" census 2>&1); line=$(grep -m1 '^fixed-bound declarations' <<<"$out")

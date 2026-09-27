@@ -33,12 +33,13 @@
 #   rc 0  no rule class rose on any template file in BASE..HEAD
 #   rc 1  some class rose: each such file is printed with its raising commit(s)
 #   rc 2  BASE or HEAD is not a readable commit, or the population is under the floor
-# Env: TEMPLATE_WATCH_JOBS (parallel audits, default 8); TEMPLATE_WATCH_CACHE (a directory to keep per-blob
+# Env: TEMPLATE_WATCH_JOBS (parallel audits; the default is the fan-out ceiling of scripts/lib_fanout.sh, max(2, min(4, cores - load1)), CEO-1333); TEMPLATE_WATCH_CACHE (a directory to keep per-blob
 # counts across runs, keyed by the audit's own blob so an edited audit never reads a stale count).
 # Print the next tick's BASE from the last line: "NEXT TICK BASE: <sha>".
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_fanout.sh" || { echo "REFUSE(2): scripts/lib_fanout.sh is missing -- the fan-out ceiling (CEO-1333) has no instrument"; exit 2; }
 AUDIT="$HERE/audit_bb_fixup_file.sh"
 PO="${S4E_POST:-/home/resources/postoffice}"
 REPO="$ROOT"
@@ -93,7 +94,7 @@ class_of() { [ "$1" = "-" ] && { echo 0; return; }; awk -F= -v k="$2" '$1 == k {
 blob_at() { git -C "$REPO" rev-parse -q --verify "$1:$2" 2>/dev/null || echo -; }
 population "$BASE" > "$TMP/base.pop"
 population "$HEADC" > "$TMP/head.pop"
-cut -f1 "$TMP/base.pop" "$TMP/head.pop" | sort -u | xargs -r -P "${TEMPLATE_WATCH_JOBS:-8}" -I{} bash -c 'count_blob "$1"' _ {}
+cut -f1 "$TMP/base.pop" "$TMP/head.pop" | sort -u | xargs -r -P "${TEMPLATE_WATCH_JOBS:-$(fanout_width)}" -I{} bash -c 'count_blob "$1"' _ {}
 for s in $(cut -f1 "$TMP/base.pop" "$TMP/head.pop" | sort -u); do
     [ -s "$CNT/$s" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the audit produced no count for blob $s"; gate_stamp; exit 2; }
 done

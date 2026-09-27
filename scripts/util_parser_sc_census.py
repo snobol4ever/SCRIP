@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|master] [--declared TSV] [--jobs N] [--timeout S] [--list TSV]
+"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|master] [--declared TSV] [--jobs N (default: the fan-out ceiling of lib_fanout.py, max(2, min(4, cores - load1)), CEO-1333)] [--timeout S] [--list TSV]
 
 DOES EACH BOOTSTRAP PARSER WORK? (Lon 2026-09-23 15:2x, in-chat to the ceo: hq_snocone "to get all the SCRIP bootstrap
 parsers working".) For every language, the Snocone-hosted parser SCRIP/bootstrap/parser_<lang>.sc -- loaded behind the
@@ -25,6 +25,9 @@ an undeclared refusal or EMPTY is red, because a parser that declines a legal pr
 PARSED is a tree, not a CORRECT tree: equivalence with the C frontend's AST is the next bar, written in the row's GOAL.
 """
 import concurrent.futures
+import sys as _fanout_sys, os as _fanout_os
+_fanout_sys.path.insert(0, _fanout_os.path.dirname(_fanout_os.path.abspath(__file__)))
+import lib_fanout
 import csv
 import os
 import re
@@ -146,7 +149,7 @@ def main(argv):
             f = line.rstrip("\n").split("\t")
             if len(f) >= 3 and not line.startswith("#") and f[2].strip():
                 declared.add((f[0], f[1]))
-    jobs = int(opt(argv, "--jobs", "6"))
+    jobs = int(opt(argv, "--jobs", str(lib_fanout.fanout_width())))
     timeout = int(opt(argv, "--timeout", "0"))
     want = opt(argv, "--lang", "")
     listpath = opt(argv, "--list", "")
