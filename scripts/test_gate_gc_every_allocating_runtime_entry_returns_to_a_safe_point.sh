@@ -36,6 +36,13 @@
 # wordings and read red on every tree since, which no landing was allowed to see through the count arm. The greps follow the
 # telemetry; the properties they grade are unchanged.)
 # SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512, and a cap-named abort (rc=134) when the cap equals the window.
+# ⛔ THE CAP ARM GRADES A CLEAN ABORT, NOT ONLY A NAMED ONE (cfo 2026-09-27, CFO-169). Under make test-arena (SCRIP_HEAP_KB=128, which the
+# runtime reads after SCRIP_HEAP_MB, so the window is 128 KB under the 8 MB cap) the heap fills to its last byte. Since 572981e49 the
+# error's own report copies &ERRTEXT onto the heap, so it asked the full heap again: error 307 was re-raised 3904 times (4.9 MB of
+# stderr) and the run died of ERROR 246. On 8064f4679, 572981e49's parent, it is raised once. The arm now requires 307 exactly
+# once and no 246. It reads the output through here-strings, because `printf | grep -q` under pipefail took SIGPIPE (rc 141)
+# on that output and graded a phrase that was present as absent. At the shipped window the failing request is a 1 MB block,
+# the report still fits, and the arm is green either way.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -56,8 +63,9 @@ if [ "$(printf '%s\n' "$out" | grep -c '^done 400000$')" = 1 ] && [ "$g" -gt 0 ]
 else echo "  reserve FAIL (soft-end advances=$g, answer=[$(printf '%s\n' "$out" | grep '^done' | head -1)] -- the arena did not grow when the allocator refused to collect)"; RC=1; fi
 examined=$((examined+1))
 out=$(cd "$T" && SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout 120 "$SCRIP" grow.icn 2>&1); r=$?
-if [ "$r" -ne 0 ] && printf '%s\n' "$out" | grep -q 'heap exhausted AT THE HARD CAP'; then echo "  cap PASS (cap == window: growth is refused at the cap and the abort names it, rc=$r)"
-else echo "  cap FAIL (rc=$r, no cap-named exhaustion -- the reserve is unbounded or the abort does not name the cap)"; RC=1; fi
+n307=$(grep -c 'error 307' <<< "$out"); n246=$(grep -c 'ERROR 246' <<< "$out")
+if [ "$r" -ne 0 ] && grep -q 'heap exhausted AT THE HARD CAP' <<< "$out" && [ "$n307" = 1 ] && [ "$n246" = 0 ]; then echo "  cap PASS (growth is refused at the cap, the abort names it, and error 307 is raised once, rc=$r)"
+else echo "  cap FAIL (rc=$r, error 307 raised $n307 time(s), ERROR 246 $n246 time(s) -- the reserve is unbounded, the abort does not name the cap, or the abort's own report asked the full heap again and re-raised)"; RC=1; fi
 examined=$((examined+1))
 printf 'procedure main()\n   local i, L;\n   every i := 1 to 4000000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/churn.icn"
 ( cd "$T" && SCRIP_ZETA_TELEM=1 /usr/bin/time -f 'RSS=%M' timeout 180 "$SCRIP" churn.icn ) >"$T/c.out" 2>"$T/c.err"
