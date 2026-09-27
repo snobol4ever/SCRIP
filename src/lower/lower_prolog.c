@@ -1972,6 +1972,20 @@ static void pl_dir_number_vars(tree_t * t, const char ** names, int * n, int sco
     for (int i = 0; i < t->n; i++) pl_dir_number_vars(t->c[i], names, n, scope0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_dir_catch_wrap(tree_t * dirgoal, const char ** dvn, int * dvc) {
+    int dv_scope0 = *dvc;
+    tree_t * eb = ast_node_new(TT_VAR); eb->v.sval = (char *) "$DirBall";
+    tree_t * eb2 = ast_node_new(TT_VAR); eb2->v.sval = (char *) "$DirBall";
+    tree_t * fargs = ast_node_new(TT_MAKELIST); fargs->v.ival = 0; ast_push(fargs, eb2);
+    tree_t * rep = ast_node_new(TT_FNC); rep->v.sval = (char *) "format";
+    ast_push(rep, (tree_t *) pl_atom_goal("user_error")); ast_push(rep, (tree_t *) pl_atom_goal("Warning: directive raised: ~q~n")); ast_push(rep, fargs);
+    tree_t * cat = ast_node_new(TT_FNC); cat->v.sval = (char *) "catch";
+    ast_push(cat, dirgoal); ast_push(cat, eb); ast_push(cat, rep);
+    tree_t * ig = pl_cc_fnc1("ignore", cat);
+    pl_dir_number_vars(ig, dvn, dvc, dv_scope0);
+    return ig;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     int _pl_bb0 = g_stage2.bbp.count;
     pl_register_program(&g_stage2, prog);
@@ -1996,22 +2010,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "multifile") || !strcmp(subj->v.sval, "discontiguous")) && subj->n >= 1) {
             for (int k = 0; k < subj->n; k++) pl_decl_other_record(subj->c[k]); continue; }
         if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives)) continue;
-        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = subj; continue; }
+        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) subj, dvn, &dvc); continue; }
         { tree_t * dirgoal = (tree_t *) subj;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
             if (pl_flag_directive_is_default(subj) || pl_flag_directive_is_advisory(subj)) continue;
             dirgoal = pl_cc_fnc2("$set_prolog_flag_declare", subj->c[0], subj->c[1]); }
-        { int dv_scope0 = dvc;
-          tree_t * eb = ast_node_new(TT_VAR); eb->v.sval = (char *) "$DirBall";
-          tree_t * eb2 = ast_node_new(TT_VAR); eb2->v.sval = (char *) "$DirBall";
-          tree_t * fargs = ast_node_new(TT_MAKELIST); fargs->v.ival = 0; ast_push(fargs, eb2);
-          tree_t * rep = ast_node_new(TT_FNC); rep->v.sval = (char *) "format";
-          ast_push(rep, (tree_t *) pl_atom_goal("user_error")); ast_push(rep, (tree_t *) pl_atom_goal("Warning: directive raised: ~q~n")); ast_push(rep, fargs);
-          tree_t * cat = ast_node_new(TT_FNC); cat->v.sval = (char *) "catch";
-          ast_push(cat, dirgoal); ast_push(cat, eb); ast_push(cat, rep);
-          tree_t * ig = pl_cc_fnc1("ignore", cat);
-          pl_dir_number_vars(ig, dvn, &dvc, dv_scope0);
-          if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = ig; continue; } }
+        if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = pl_dir_catch_wrap(dirgoal, dvn, &dvc); continue; }
     }
     { const tree_t * all_goals[PL_INIT_GOALS_MAX * 2]; int nall = 0;
       { const tree_t * seeds[PL_INIT_GOALS_MAX * 4]; int nseed = 0; int save_base = g_pl_seed_var_base; g_pl_seed_var_base = 0;
