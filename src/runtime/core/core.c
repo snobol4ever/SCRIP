@@ -882,7 +882,7 @@ void sno_trace_call(const char *fname) {
 void sno_trace_return(const char *fname, DESCR_t retval) {
     if (g_trace_budget == 0 || !fname || !*fname) return;
     if (mon_synth_name(fname)) return;
-    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : "RETURN"));
+    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : (kw_rtntype[0] == 'N' ? "NRETURN" : "RETURN")));
 }
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
     if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
