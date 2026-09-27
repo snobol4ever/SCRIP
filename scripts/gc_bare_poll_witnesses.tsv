@@ -49,7 +49,7 @@ src/templates/bb/bb_call_value.cpp:67:rt_call_apply_spine_prep	src/templates/bb/
 src/templates/bb/bb_call_value.cpp:70:rt_pl_goal_spine_prep/rt_call_value_spine_prep	src/templates/bb/bb_call_value.cpp:71	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_call_value.cpp:131:rt_call_apply_gen_h	src/templates/bb/bb_call_value.cpp:143	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_call_value.cpp:135:rt_pl_goal_gen_h/rt_call_value_gen_h	src/templates/bb/bb_call_value.cpp:143	hb_reloc_gaps_on_a_mostly_live_heap.pl
-src/templates/bb/bb_call_value.cpp:173:rt_call_value_resume_h	src/templates/bb/bb_call_value.cpp:179	hb_reloc_gaps_on_a_mostly_live_heap.pl
+src/templates/bb/bb_call_value.cpp:174:rt_call_value_resume_h	src/templates/bb/bb_call_value.cpp:180	hb_reloc_gaps_on_a_mostly_live_heap.pl
 src/templates/bb/bb_coerce_integer.cpp:21:rt_coerce_int_d	src/templates/bb/bb_coerce_integer.cpp:22	UNWITNESSED
 src/templates/bb/bb_coerce_integer.cpp:32:rt_coerce_int_d	src/templates/bb/bb_coerce_integer.cpp:33	UNWITNESSED
 src/templates/bb/bb_coerce_numeric.cpp:44:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:45	hb_immediate_capture_into_a_gva_cell_polled.sno
