@@ -164,42 +164,8 @@ echo "-- (e) EVERY HOLDER IS CURED OR DECLARED"
 for w in $WITS; do run_aud "$w" 3 1 > /dev/null; cat "$T/e" >> "$T/all.err"; done
 DECLF="$ROOT/$DECL"
 if [ "${FAIL_ONCE:-0}" = 1 ]; then printf '# FAIL_ONCE: the ledger is emptied so arm (e1) must RED on every holder pass B names\n' > "$T/decl.empty"; DECLF="$T/decl.empty"; echo "     FAIL_ONCE=1 -- the declared ledger is EMPTY for this run; (e1) is expected to RED"; fi
-python3 - "$T/all.err" "$AUD_SO" "$DECLF" > "$T/holders.txt" <<'PY'
-import subprocess, sys, re
-errf, so, decl = sys.argv[1], sys.argv[2], sys.argv[3]
-syms = []
-for ln in subprocess.run(['nm','-S','--defined-only',so],capture_output=True,text=True).stdout.splitlines():
-    f = ln.split()
-    if len(f) < 4: continue
-    try: a = int(f[0],16); sz = int(f[1],16)
-    except ValueError: continue
-    syms.append((a,sz,f[3]))
-seen = {}
-for ln in open(errf, errors='replace'):
-    m = re.search(r'CANDIDATE-LOST-ROOT at=\S+ in=(\S+)', ln)
-    if not m: continue
-    h = m.group(1); name = None
-    mo = re.match(r'^.*\+0x([0-9a-f]+)/(.*)$', h)
-    if mo:
-        off = int(mo.group(1),16); tail = mo.group(2)
-        hit = [s for s in syms if s[0] <= off < s[0]+s[1]]
-        name = hit[0][2] if hit else (tail if tail != 'writable-PT_LOAD' else 'UNRESOLVED+0x%x' % off)
-    else:
-        name = h
-    # a function-local static is named by nm with a per-translation-unit serial (lnv.3, _excl.1) that moves whenever
-    # its file gains or loses a static, so the ledger is keyed by the base name (cto 2026-09-24, the seventeen-red row)
-    name = re.sub(r'\.\d+$', '', name)
-    seen[name] = seen.get(name,0)+1
-declared = {}
-for ln in open(decl):
-    ln = ln.strip()
-    if not ln or ln.startswith('#'): continue
-    f = ln.split(None,2)
-    if len(f) >= 2: declared[f[0]] = f[1]
-for k in sorted(seen): print("HOLDER %s %d %s" % (k, seen[k], declared.get(k,'UNDECLARED')))
-print("OPENROWS %d" % sum(1 for v in declared.values() if v == 'OPEN'))
-print("TOTALHOLDERS %d" % len(seen))
-PY
+# the holder resolution is the ONE reader the receipts of the retirement row also run (CEO-1307): scripts/util_gc_audit_b_receipt.py
+python3 "$ROOT/scripts/util_gc_audit_b_receipt.py" holders "$T/all.err" "$AUD_SO" "$DECLF" > "$T/holders.txt"
 sed 's/^/     /' "$T/holders.txt"
 undecl=$(grep "^HOLDER" "$T/holders.txt" | grep -c "UNDECLARED" || true)
 nh=$(awk '/^TOTALHOLDERS/{print $2}' "$T/holders.txt"); nopen=$(awk '/^OPENROWS/{print $2}' "$T/holders.txt")
