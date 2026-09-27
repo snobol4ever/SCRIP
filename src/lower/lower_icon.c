@@ -562,7 +562,7 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
     if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);
     cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
-    { const tree_t * bt = body_t; while (bt && bt->t == TT_CONJ && bt->n >= 2) bt = bt->c[bt->n - 1];
+    { const tree_t * bt = body_t; while (bt && ((bt->t == TT_CONJ && bt->n >= 2) || (bt->t == TT_SEQ_EXPR && bt->n >= 1) || bt->t == TT_STMT)) bt = (bt->t == TT_STMT) ? stmt_subj(bt) : bt->c[bt->n - 1];
       if (icn_tree_is_kw_var(bt)) { IR_t * kr = build(cx, IR_KW_ICON, γ, ω); IR_LIT(kr).sval = (char *) bt->v.sval; lc_γ_to(leave_succ, kr); *res = kr; return s_entry; } }
     *res = leave_succ; return s_entry;
 }
