@@ -25,7 +25,11 @@ G=sno_mode4_code_call_inherits_the_scc_taint
 "$HERE/util_require_fresh.sh" --gate test_gate_$G "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$G]: this tree's binary is stale or unbuilt -- run make"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$G]: lib_oracle_flags.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)"; [ -x "$SBL" ] || { echo "GATE UNPROVEN(2) [$G]: sbl -bf oracle absent"; exit 2; }
-GIM="$S4E/corpus/packages/snobol4/gimpel"; [ -f "$GIM/FRSORT_driver.sno" ] && [ -f "$GIM/COUNT.sno" ] || { echo "GATE UNPROVEN(2) [$G]: gimpel package (FRSORT_driver, COUNT) missing at $GIM"; exit 2; }
+GIM="$S4E/corpus/packages/snobol4/gimpel"
+# gimpel's COUNT and SEQ ship as NAME.INC since the .inc row (Lon 2026-09-14, CEO-1274/1315); the witness includes whichever the package ships.
+inc_of() { local e; for e in INC inc sno; do [ -f "$GIM/$1.$e" ] && { printf '%s' "$1.$e"; return 0; }; done; return 1; }
+COUNT_F="$(inc_of COUNT)"; SEQ_F="$(inc_of SEQ)"
+[ -f "$GIM/FRSORT_driver.sno" ] && [ -n "$COUNT_F" ] && [ -n "$SEQ_F" ] || { echo "GATE UNPROVEN(2) [$G]: gimpel package (FRSORT_driver, COUNT, SEQ) missing at $GIM"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_m4taint.XXXXXX")" || { echo "GATE UNPROVEN(2) [$G]: mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 SINK="$(sbl_listing_sink_flag "$W")" || { echo "GATE UNPROVEN(2) [$G]: no listing sink for the oracle"; exit 2; }
@@ -33,7 +37,7 @@ MS=$'\tDEFINE("MS(A,OP)")\t:(MS_END)\nMS\tOPSYN("Z","LT")\n\tMS = 1\t:(RETURN)\n
 CC=$'\tDEFINE("CNT(A,B)")\t:(CNT_END)\nCNT\tCNT = A + B\t:(RETURN)\nCNT_END\n'
 TL=$'\tX = CODE("  N = CNT(2,3)  :(END_C)")\n\t:<X>\nEND_C\tOUTPUT = "n=" N\nEND\n'
 printf '%s%s%s' "$CC" "$MS" "$TL" > "$W/T.sno"; printf '%s%s' "$CC" "$TL" > "$W/U.sno"
-printf -- '-INCLUDE "COUNT.sno"\n-INCLUDE "SEQ.sno"\n%s\tS = "MISSISSIPPI"\n\tC = ARRAY(2)\n\tC<1> = "S"\n\tC<2> = "M"\n\tN = ARRAY(2)\n\tSEQ("  N<I>  =  COUNT(S,C<I>) ", .I)\n\tOUTPUT = "n=" N<1> "," N<2>\nEND\n' "$MS" > "$W/S.sno"
+printf -- '-INCLUDE "%s"\n-INCLUDE "%s"\n%s\tS = "MISSISSIPPI"\n\tC = ARRAY(2)\n\tC<1> = "S"\n\tC<2> = "M"\n\tN = ARRAY(2)\n\tSEQ("  N<I>  =  COUNT(S,C<I>) ", .I)\n\tOUTPUT = "n=" N<1> "," N<2>\nEND\n' "$COUNT_F" "$SEQ_F" "$MS" > "$W/S.sno"
 cp "$GIM/FRSORT_driver.sno" "$W/F.sno"
 PASS=0; FAIL=0; GRADED=0
 grade() { local name="$1" dir="$2" rc4 o

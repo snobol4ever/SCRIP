@@ -138,12 +138,17 @@ fi
 # a driver row whose library is not shipped refuses -- a vehicle with nothing to carry. The progress rows land under the
 # library's name (util_progress_append.py results-tsv). Measured at the ruling: 148 libraries, 144 drivers, four without one.
 GPKG="$CORPUS_REAL/packages/snobol4/gimpel"
+# ⛔ A LIBRARY SHIPS AS NAME.sno, NAME.INC OR NAME.inc (Lon 2026-09-14, "Change the *.sno to *.inc", CEO-1274/1315; coo COO-203): an
+# include file carries the extension its own first line names, so 120 gimpel libraries are NAME.INC and their drivers stay NAME_driver.sno.
+# A census over *.sno alone read those 120 as unshipped and refused 118 drivers as orphans. _lib_of names the file a driver carries.
+_lib_of() { local s="$CORPUS_REAL/${1%_driver.sno}" e; for e in sno INC inc; do [ -f "$s.$e" ] && { printf '%s' "${s##*/}.$e"; return 0; }; done; return 1; }
 SHIPPED_LIBS=0; NODRV_NAMES=""
 while IFS= read -r _f; do
     _b="${_f##*/}"; case "$_b" in ALL.*|*_driver.sno) continue ;; esac
-    SHIPPED_LIBS=$((SHIPPED_LIBS+1)); [ -f "${_f%.sno}_driver.sno" ] || NODRV_NAMES="$NODRV_NAMES ${_b%.sno}"
-done < <(find "$GPKG" -type f -name '*.sno' ! -path '*.fixtures/*' 2>/dev/null | LC_ALL=C sort)
-ORPHAN_DRV="$(awk -F'\t' '{print $2}' "$TSV" | while IFS= read -r _p; do [ -f "$CORPUS_REAL/${_p%_driver.sno}.sno" ] || printf ' %s' "${_p##*/}"; done)"
+    SHIPPED_LIBS=$((SHIPPED_LIBS+1)); [ -f "${_f%.*}_driver.sno" ] || NODRV_NAMES="$NODRV_NAMES ${_b%.*}"
+done < <(find "$GPKG" -type f \( -name '*.sno' -o -name '*.INC' -o -name '*.inc' \) ! -path '*.fixtures/*' 2>/dev/null | LC_ALL=C sort)
+ORPHAN_DRV="$(awk -F'\t' '{print $2}' "$TSV" | while IFS= read -r _p; do _lib_of "$_p" > /dev/null || printf ' %s' "${_p##*/}"; done)"
+LIBMAP="$(awk -F'\t' '{print $2}' "$TSV" | while IFS= read -r _p; do _l="$(_lib_of "$_p")" && printf '%s\t%s\n' "$_p" "$_l"; done)"
 [ -z "$ORPHAN_DRV" ] || { echo "⛔ REFUSE(rc=2): graded driver(s) whose library the package does not ship:$ORPHAN_DRV -- a vehicle with nothing to carry (CEO-1269)"; exit 2; }
 [ "$SHIPPED_LIBS" -ge "$TOTAL" ] || { echo "⛔ REFUSE(rc=2): $TOTAL graded drivers against $SHIPPED_LIBS shipped libraries -- more vehicles than programs, so the census and the board disagree (CEO-1269)"; exit 2; }
 OUTSIDE_TSV="$CORPUS_REAL/packages/snobol4/gimpel/OUTSIDE_SPITBOL_BASELINE.tsv"
@@ -164,8 +169,8 @@ else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-b
 echo "GIMPEL_LIBRARIES shipped=$SHIPPED_LIBS graded_through_a_driver=$TOTAL no_driver=$(printf '%s' "$NODRV_NAMES" | wc -w) (CEO-1269: the program is the library, its verdict is its driver's)"
 [ -n "$NODRV_NAMES" ] && echo "NO DRIVER (owed, UNGRADED.tsv NEEDS_DRIVER -- in the denominator, a non-pass):$NODRV_NAMES"
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
-awk -F'\t' '$3=="ORACLE_FAIL"{l=$2; sub(/_driver\.sno$/, ".sno", l); sub(/.*\//, "", l); printf "  UNSCR  %s (driver %s)  %s\n", l, $2, $7}' "$TSV"
-awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){l=$2; sub(/_driver\.sno$/, ".sno", l); sub(/.*\//, "", l); printf "  RED    %s (driver %s)  m3=%s m4=%s%s\n", l, $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
+awk -F'\t' 'NR==FNR{lib[$1]=$2; next} $3=="ORACLE_FAIL"{printf "  UNSCR  %s (driver %s)  %s\n", lib[$2], $2, $7}' <(printf '%s\n' "$LIBMAP") "$TSV"
+awk -F'\t' 'NR==FNR{lib[$1]=$2; next} $3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s (driver %s)  m3=%s m4=%s%s\n", lib[$2], $2, $3, $4, ($7!="" ? "  "$7 : "")}' <(printf '%s\n' "$LIBMAP") "$TSV"
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06), through the SHARED body -- never a second copy of the arithmetic.
 #
 # ⛔⭐⭐ WHAT USED TO BE HERE COMPUTED `ungraded` AS A TAUTOLOGY, AND THE LOCKDOWN'S OWN CRITERION IS
@@ -193,7 +198,7 @@ awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){l=$2; sub(/_driver\.
 # is rc=2 on the INVENTORY only -- the board line and this gate's own verdict are untouched below.
 # The sidecars are row snobol4-gimpel-inventory-sidecars-name-the-oracles-own-reason-for-all-163 (seat02).
 . "$HERE/lib_inventory.sh"
-INV_PACKAGE=gimpel; INV_DIR="$CORPUS_REAL/packages/snobol4/gimpel"; INV_EXT=".sno"
+INV_PACKAGE=gimpel; INV_DIR="$CORPUS_REAL/packages/snobol4/gimpel"; INV_EXT=".sno .INC .inc"
 # graded_narrow=0, and CONFIRMED rather than assumed (ceo CEO-307 (3) asked for exactly this): this runner
 # grades through scorecard_snobol4.sh's grade(), which is `cmp -s` against the .ref pin and then against the
 # live oracle -- full stream equality, no error-number arm anywhere in the path. ⛔ THE ERROR-NUMBER ARM IS

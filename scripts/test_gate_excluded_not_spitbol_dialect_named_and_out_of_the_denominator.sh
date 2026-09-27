@@ -65,7 +65,7 @@ for spec in aisnobol:aisnobol csnobol4_suite:csnobol4 dotnet:dotnet gimpel:gimpe
     [ -f "$d/CONTAINERS.tsv" ] && awk -F'\t' -v n="$name" '$1==n{f=1} END{exit f?0:1}' "$d/CONTAINERS.tsv" && container="$container $name"
     stem="${name%.*}"
     if [ -f "$d/OUTSIDE_SPITBOL_BASELINE.tsv" ]; then
-      awk -F'\t' -v a="$name" -v b="${stem}_driver.${name##*.}" '$0 !~ /^#/ && ($1==a || $1==b){f=1} END{exit f?0:1}' "$d/OUTSIDE_SPITBOL_BASELINE.tsv" || not_outside="$not_outside $name"
+      awk -F'\t' -v a="$name" -v b="${stem}_driver.${name##*.}" -v c="${stem}_driver.sno" '$0 !~ /^#/ && ($1==a || $1==b || $1==c){f=1} END{exit f?0:1}' "$d/OUTSIDE_SPITBOL_BASELINE.tsv" || not_outside="$not_outside $name"
     else not_outside="$not_outside $name(no OUTSIDE_SPITBOL_BASELINE.tsv)"; fi
     case "$p/$name" in spitbol_testpgms/*|csnobol4_suite/diag1.sno|csnobol4_suite/diag2.sno) deck="$deck $name" ;; esac
   done < <(rows_of "$d")

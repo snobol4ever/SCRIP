@@ -211,7 +211,9 @@ def enumerate_prolog(path, own=True, seen=None):
             procs.append(Proc(m.group(1), [f"A{i+1}" for i in range(len(args))], [], path.name, own))
     return procs
 
-LANGS = {".sno": ("snobol4", enumerate_snobol4), ".icn": ("icon", enumerate_icon),
+# A SNOBOL4 include library ships as NAME.inc or NAME.INC (Lon 2026-09-14, "Change the *.sno to *.inc", CEO-1274/1315): gimpel's
+# 120 libraries and include/'s four. lang_of lowers the suffix, so one key reads both spellings; the driver is still NAME_driver.sno.
+LANGS = {".sno": ("snobol4", enumerate_snobol4), ".inc": ("snobol4", enumerate_snobol4), ".icn": ("icon", enumerate_icon),
          ".pl": ("prolog", enumerate_prolog), ".sc": ("snocone", enumerate_snobol4)}
 
 def lang_of(path):
@@ -624,9 +626,9 @@ def cmd_classify(a):
         # that reports a smaller population than exists never says so.
         # ⛔ An `ALL.<ext>` file is the suite's own concatenation of the package, not a module: censusing it
         # would count the whole package twice, once as itself and once as one enormous entry.
-        for ext in LANGS:
-            targets += [f for f in sorted(root.rglob(f"*{ext}"))
-                        if not f.stem.endswith("_driver") and f.stem != "ALL"]
+        # The suffix is compared lowered, so NAME.INC is censused with NAME.inc (a glob per key is case-sensitive and missed it).
+        targets = [f for f in sorted(root.rglob("*"))
+                   if f.is_file() and f.suffix.lower() in LANGS and not f.stem.endswith("_driver") and f.stem != "ALL"]
     elif root.is_file():
         targets = [root]
     else:
@@ -789,7 +791,7 @@ def cmd_gen(a):
     if not [p for p in procs if p.own]:
         refuse(f"{module.name} defines no procedures of its own -- nothing to drive.")
     text, ex, df = SKELETONS[lang](module, procs, a.max_procs)
-    driver = outdir / f"{module.stem}_driver{module.suffix}"
+    driver = outdir / f"{module.stem}_driver{'.sno' if module.suffix.lower() == '.inc' else module.suffix}"
     driver.write_text(text)
     # ⛔ THE MODULE IS COPIED BESIDE THE DRIVER. -INCLUDE / $include resolve relative to the program's own
     # directory under the board's own lib spec (SELFDIR first), so a driver generated into a scratch dir

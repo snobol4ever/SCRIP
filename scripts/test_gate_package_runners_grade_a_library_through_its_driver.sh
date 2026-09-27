@@ -50,17 +50,19 @@ cp "$I"/*.icn "$C/" && ( cd "$C" && "$ICONT" -s -c alib.icn blib.icn && "$ICONT"
 grep -qx 'dbl(21) = 42' "$I/alib_driver.ref" && grep -qx 'half(9) = 4' "$C/blib_oracle.txt" || { echo "⛔ REFUSED(2): iconx did not answer the fixture as expected -- $(tr '\n' '|' < "$I/alib_driver.ref")"; exit 2; }
 echo 'half(9) = 5' > "$I/blib_driver.ref"
 
-# ---- the SNOBOL4 fixture in gimpel's shape (-INCLUDE the library), ALIB's ref cut from sbl -bf
+# ---- the SNOBOL4 fixture in gimpel's shape (-INCLUDE the library), ALIB's ref cut from sbl -bf. The three libraries take the three
+# spellings gimpel ships since the .inc row (Lon 2026-09-14, CEO-1274/1315; coo COO-203): ALIB.sno, BLIB.INC, CLIB.inc -- each driver is
+# NAME_driver.sno whatever its library's extension. FAILED ONCE on the runner before it: BLIB_driver refused as an orphan, shipped 1.
 G="$T/gp/corpus/packages/snobol4/gimpel"; mkdir -p "$G" || exit 2
 printf "* ALIB - double a number\n\tDEFINE('DBL(X)')\t\t\t:(DBL_END)\nDBL\tDBL = 2 * X\t\t\t:(RETURN)\nDBL_END\n" > "$G/ALIB.sno"
 printf -- "-INCLUDE \"ALIB.sno\"\n\tOUTPUT = 'DBL(21) = ' DBL(21)\n\tOUTPUT = 'DBL(-4) = ' DBL(-4)\nEND\n" > "$G/ALIB_driver.sno"
-printf "* BLIB - halve a number\n\tDEFINE('HALF(X)')\t\t\t:(HALF_END)\nHALF\tHALF = X / 2\t\t\t:(RETURN)\nHALF_END\n" > "$G/BLIB.sno"
-printf -- "-INCLUDE \"BLIB.sno\"\n\tOUTPUT = 'HALF(9) = ' HALF(9)\n\tOUTPUT = 'V=' &VERSION\nEND\n" > "$G/BLIB_driver.sno"
-printf "* CLIB - triple a number\n\tDEFINE('TRIPLE(X)')\t\t\t:(TRIPLE_END)\nTRIPLE\tTRIPLE = 3 * X\t\t\t:(RETURN)\nTRIPLE_END\n" > "$G/CLIB.sno"
+printf "* BLIB - halve a number\n\tDEFINE('HALF(X)')\t\t\t:(HALF_END)\nHALF\tHALF = X / 2\t\t\t:(RETURN)\nHALF_END\n" > "$G/BLIB.INC"
+printf -- "-INCLUDE \"BLIB.INC\"\n\tOUTPUT = 'HALF(9) = ' HALF(9)\n\tOUTPUT = 'V=' &VERSION\nEND\n" > "$G/BLIB_driver.sno"
+printf "* CLIB - triple a number\n\tDEFINE('TRIPLE(X)')\t\t\t:(TRIPLE_END)\nTRIPLE\tTRIPLE = 3 * X\t\t\t:(RETURN)\nTRIPLE_END\n" > "$G/CLIB.inc"
 ( cd "$G" && "$SBL" -bf ALIB_driver.sno ) > "$G/ALIB_driver.ref" 2>&1 </dev/null
 grep -qx 'DBL(21) = 42' "$G/ALIB_driver.ref" || { echo "⛔ REFUSED(2): sbl -bf did not answer ALIB_driver as expected -- $(tr '\n' '|' < "$G/ALIB_driver.ref")"; exit 2; }
 echo 'HALF(9) = 5' > "$G/BLIB_driver.ref"
-printf '# fixture\n# name<TAB>CLASS<TAB>reason\nCLIB.sno\tNEEDS_DRIVER\ta library with no CLIB_driver.sno (gate fixture)\n' > "$G/UNGRADED.tsv"
+printf '# fixture\n# name<TAB>CLASS<TAB>reason\nCLIB.inc\tNEEDS_DRIVER\ta library with no CLIB_driver.sno (gate fixture)\n' > "$G/UNGRADED.tsv"
 printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$G/UNGRADABLE.tsv"
 
 # rows <db> -- "program mode outcome" per recorded row, the program's basename without its extension
@@ -148,12 +150,13 @@ progress_arms ipl "$T/ipl.tsv" alib blib
   || ck no "ipl: the IPL-namesake driver: $(grep -E '^mode-[34]' "$T/ipl.out" | tr '\n' ' ' | cut -c1-200)"
 # ---- gimpel
 CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
-if [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
+if has "$T/gp.out" 'whose library the package does not ship'; then ck no "gimpel: a library shipped as NAME.INC or NAME.inc reads as unshipped -- its driver refused as an orphan: $(grep -m1 -o 'does not ship:[^-]*' "$T/gp.out")"
+elif [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
 has "$T/gp.out" '^GIMPEL_LIBRARIES shipped=3 graded_through_a_driver=2 no_driver=1 ' && ck ok "gimpel: shipped 3 libraries, 2 graded through their drivers, 1 with none" || ck no "gimpel: $(grep -m1 'GIMPEL_LIBRARIES' "$T/gp.out" | cut -c1-120)"
 has "$T/gp.out" '^GIMPEL_BOARD total=2 .* m3_pass=1 m3_fail=1 m4_pass=1 m4_fail=1 ' && ck ok "gimpel: pass 1 in each mode" || ck no "gimpel: $(grep -m1 '^GIMPEL_BOARD' "$T/gp.out" | cut -c1-120)"
-has "$T/gp.out" '^  RED    BLIB\.sno \(driver ' && has "$T/gp.out" '^NO DRIVER .*: CLIB$' && ck ok "gimpel: the failing library BLIB and the driverless CLIB are named" || ck no "gimpel: BLIB/CLIB not named as non-passes"
+has "$T/gp.out" '^  RED    BLIB\.INC \(driver ' && has "$T/gp.out" '^NO DRIVER .*: CLIB$' && ck ok "gimpel: the failing library BLIB and the driverless CLIB are named" || ck no "gimpel: BLIB/CLIB not named as non-passes"
 has "$T/gp.out" '^PACKAGE_INVENTORY package=gimpel shipped=3 graded=2 ungraded=1 ' && ck ok "gimpel: the inventory sums (CLIB owed, NEEDS_DRIVER)" || ck no "gimpel: $(grep -m1 'PACKAGE_INVENTORY\|INVENTORY REFUSES' "$T/gp.out" | cut -c1-140)"
-has "$T/gp.out" 'both_modes_pass=1/3 shipped libraries' && ck ok "gimpel: the row it would publish is 1/3 over the shipped libraries" || ck no "gimpel: the row text is not 1/3 over the libraries: $(grep -m1 -o 'both_modes_pass=[^ ]*' "$T/gp.out")"
+has "$T/gp.out" 'both_modes_pass=1/3 \(3 shipped libraries minus EXCLUDED=0 ' && ck ok "gimpel: the row it would publish is 1/3 over the shipped libraries" || ck no "gimpel: the row text is not 1/3 over the libraries: $(grep -m1 -o 'both_modes_pass=[^ ]*' "$T/gp.out")"
 progress_arms gimpel "$T/gp.tsv" ALIB BLIB
 
 echo "population: $checks arm(s) over 4 runners, 3 scratch packages of 3 libraries each plus one IPL-namesake library and one non-driver program linking its name per Icon runner, and one two-name link line for jcon; an ipl package with two drivers and a progs/ namesake; refs cut live from iconx and sbl -bf"
