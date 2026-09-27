@@ -7632,6 +7632,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!_icn_field_only && arity == 0 && (icn_builtin_is_known(pname) || (strict ? dat_find_type(pname) != 0 : rt_builtin_is_known(pname)) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             *out = PROCVAL_BUILTIN(rt_heap_strdup_c(pname)); return 1;
         }
+        if (strict && arity == 0) { *out = FAILDESCR; return 1; }
         if (arity < 0) { DESCR_t gv = NV_GET_fn(pname); if (IS_PROCVAL_fn(gv) && gv.s) { *out = gv; return 1; } }
         for (int i = 0; i < g_stage2.proc_count; i++) {
             if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, pname) == 0) {
@@ -7640,6 +7641,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                     *out = rt_proc_value(g_stage2.proc_table[i].name); return 1;
                 }
             }
+        }
+        if (strict && (rt_proc_is_registered(pname) || !strcmp(pname, "main")) && (arity < 0 || rt_proc_nparams(pname) == arity || rt_proc_nparams(pname) <= 0)) {
+            extern DESCR_t rt_proc_value(const char *);
+            *out = rt_proc_value(rt_heap_strdup_c(pname)); return 1;
         }
         { extern int rt_proc_is_registered(const char *name); extern int rt_proc_nparams(const char *name);
           if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
