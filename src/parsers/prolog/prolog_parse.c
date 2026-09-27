@@ -1362,20 +1362,27 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     ct_drop(pre);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cv_has_key(const cv_t *v, const char *nm, int ar) {
+    size_t n = strlen(nm);
+    for (uint32_t i = 0; i < v->len; i++) {
+        const char *e = CV_AT(*v, char *, i);
+        if (!strncmp(e, nm, n) && e[n] == '/' && (int)strtol(e + n + 1, (char **)0, 10) == ar) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_prelude_defines(const char *nm, int ar) {
-    char key[300];
     if (!nm) return 0;
     if (!g_stage2.pl_prelude_keys.len) {
         PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
         if (!pre) return 0;
         for (PlClause *cl = pre->head; cl; cl = cl->next) {
             const char *cn; int car;
-            if (pl_clause_key(cl, &cn, &car) && cn) { snprintf(key, sizeof key, "%s/%d", cn, car); pl_cv_add(&g_stage2.pl_prelude_keys, key); }
+            if (pl_clause_key(cl, &cn, &car) && cn && !pl_cv_has_key(&g_stage2.pl_prelude_keys, cn, car)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(cn, car);
         }
         ct_drop(pre);
     }
-    if ((size_t)snprintf(key, sizeof key, "%s/%d", nm, ar) >= sizeof key) return 0;
-    return pl_cv_has(&g_stage2.pl_prelude_keys, key);
+    return pl_cv_has_key(&g_stage2.pl_prelude_keys, nm, ar);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog);
