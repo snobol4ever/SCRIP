@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION (clause 8 (f), CEO-1281, landing 4): the master's entries declare it in tests/snobol4/ALL.csv, which the harness applies; a demo row declares it in its <stem>.args sidecar, which run_test reads. This board exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source); measured that day, all 23 demos run byte-identical in both modes without it
 # scripts/test_corpus_snobol4.sh — SNOBOL4 broad corpus, modes 2+3+4
 # Mode-4 gate (hard). Modes 2+3 informational. Reinstated 2026-06-08.
 # Compares output against .ref files. Reports PASS/FAIL/SKIP per mode.
@@ -156,6 +156,7 @@ if ! . "$HERE/lib_gate.sh" 2>/dev/null || ! command -v gate_require_fresh >/dev/
     exit 2
 fi
 gate_require_fresh "$HERE/.." src "$SCRIP" "$RT_DIR/libscrip_rt.so"
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_declared_arena.sh unloadable -- the one reader of a program's declared command line" >&2; exit 2; }
 # ⛔⛔ REFUSE ON A MISSING SUBTREE -- DO NOT SILENTLY DISCOVER FEWER PROGRAMS (hq_C s271). This board read
 # "PASS=342 FAIL=0" for a whole session because $DEMO pointed at a path that did not exist: every visible signal
 # said green while 22 programs had left the denominator. A clean numerator over a shrunken denominator is the most
@@ -186,9 +187,9 @@ trap 'rm -rf "$WORKDIR"' EXIT
 T_M3=0; T_M4=0; T0_ALL=$SECONDS
 
 compile_mode4() {
-    local sno="$1" out="$2"
+    local sno="$1" out="$2" ca="${3:-}"   # ca: the program's declared compile_args (run_test reads them), after --compile
     local tmp; tmp="$(mktemp -d)"
-    SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+    SNO_LIB="$INC" "$SCRIP" --compile $ca "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
     # ⛔ -no-pie is NOT applied here, deliberately -- RULED, not blocked: row
     # `m4-pie-vs-no-pie-changes-behaviour-not-just-signal` (seat10 2026-08-28), full analysis in
@@ -224,6 +225,9 @@ run_test() {
     local heap_env=(); [ -n "$heap_kb" ] && heap_env=("SCRIP_HEAP_CAP_KB=$heap_kb")
     # ⭐ AND THE DECLARED STACK AS AN OPTIONAL 7th argv, the same way (CEO-1225): SCRIP_STACK sizes the m3 process and the m4 binary.
     [ -n "$stack_kb" ] && heap_env+=("SCRIP_STACK=${stack_kb}k")
+    # ⭐ AND THE PROGRAM'S OWN COMPILE SWITCHES, from its <stem>.args sidecar (clause 8 (f), CEO-1281, landing 4): placed after --run and
+    # --compile, both modes; a sidecar the reader refuses refuses the board, which never grades around a declaration it cannot honour.
+    local ca; ca="$(declared_compile_args_beside "$sno")" || { echo "⛔ REFUSED TO GRADE rc=2: $label's command-line sidecar is refused (named above)" >&2; exit 2; }
 
 
     # ── Mode 3: --run ──────────────────────────────────────────────────────
@@ -236,9 +240,9 @@ run_test() {
     local rc3=0
     local m3ok=0   # ⭐ the m3 half of this program's AND -- a TIMEOUT or a FAIL both leave it 0, because neither is green
     if [ -n "$inp_arg" ]; then
-        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
+        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
     else
-        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); rc3=$?
+        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < /dev/null 2>/dev/null); rc3=$?
     fi
     [ -n "$filter" ] && got3=$(printf '%s\n' "$got3" | grep -v "$filter" || true)
     T_M3=$((T_M3+SECONDS-T0m3))
@@ -251,7 +255,7 @@ run_test() {
     local T0m4=$SECONDS
     if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then SKIP4=$((SKIP4+1)); return; fi
     local bin="$WORKDIR/${slug}.bin"
-    if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); FAILURES4="${FAILURES4}  SKIP(compile/link) ${label}\n"; return; fi
+    if ! compile_mode4 "$sno" "$bin" "$ca"; then SKIP4=$((SKIP4+1)); FAILURES4="${FAILURES4}  SKIP(compile/link) ${label}\n"; return; fi
     local got4
     local rc4=0
     if [ -n "$inp_arg" ]; then

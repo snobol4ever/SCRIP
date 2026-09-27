@@ -3300,6 +3300,7 @@ def cmd_extract(args):
             Path(args.out_in).write_text(e.stdin)
         if args.out_xfail and e.xfail_reason:
             Path(args.out_xfail).write_text(e.xfail_reason + "\n")
+        _write_extracted_unit_sidecars(args.sno, e.name, args.out_sno)
         return
     refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
 
@@ -3517,6 +3518,37 @@ def validate_args_cell(raw, col, where):
     return words
 
 
+def args_sidecar_path(sno_path):
+    """<stem>.args beside an extracted pair or a standalone program: the command line's twin of heap_sidecar_path (clause 8 (f),
+    CEO-1281, landing 4 of 5). One line per unit, NAME<TAB>compile_args<TAB>run_args, either cell empty, each cell in
+    validate_args_cell's grammar. A unit with no ALL.csv row -- a demo, a benchmark kernel, an extracted entry -- carries its
+    command line here or it declares none."""
+    return str(Path(sno_path).with_suffix(".args"))
+
+
+def args_declarations(sno_path):
+    """({unit: (compile_args words or None, run_args words or None)}, the sidecar's name) from the <stem>.args beside `sno_path`;
+    ({}, None) when there is none or it declares nothing. ⛔ A LINE WITH NO NAME, OR ONE UNIT NAMED TWICE, IS REFUSED rc=2: a
+    declaration no reader can attribute is not a declaration, and two lines for one unit are two answers to one question."""
+    _p = Path(args_sidecar_path(sno_path))
+    if not _p.is_file():
+        return {}, None
+    out = {}
+    for ln, line in enumerate(_p.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        where = f"{_p}:{ln}"
+        name, _, rest = line.partition("\t")
+        ca_raw, _, ra_raw = rest.partition("\t")
+        name = name.strip()
+        if not name:
+            refuse(f"{where}: a command-line declaration names no unit")
+        if name in out:
+            refuse(f"{where}: {name} is declared twice in {_p.name} -- one unit, one command line")
+        out[name] = (validate_args_cell(ca_raw, "compile_args", where), validate_args_cell(ra_raw, "run_args", where))
+    return out, (_p.name if out else None)
+
+
 def read_command_line_columns(src_path, entries, modes=None):
     """Attach the compile_args and run_args columns of the ALL.csv beside a suite to its entries BY NAME: the ONE reader of
     a test unit's command line for the masters and the package tables (clause 8 (f), CEO-1281). compile_args are applied at
@@ -3525,7 +3557,25 @@ def read_command_line_columns(src_path, entries, modes=None):
     ⛔ AN ENTRY DECLARED IN BOTH PLACES IS REFUSED: the column is the declaration and the argv sidecars fold into it, so two
     declarations of one entry are two answers to one question. ⛔ run_args on a family graded in ast mode only is refused
     for the reason read_argv_sidecar gives: --dump-ast never runs the program. An ALL.csv with neither column, or empty
-    cells, changes nothing."""
+    cells, changes nothing.
+    ⭐ AN EXTRACTED PAIR HAS NO ALL.csv, SO ITS COMMAND LINE TRAVELS IN <stem>.args (extract-family writes it, heap_declarations'
+    order for heap_kb's reason, CEO-1127): read first, by name; a unit it names that ALL.csv also declares is refused."""
+    by_name = {e.name: e for e in entries}
+    side, side_name = args_declarations(src_path)
+    for name, (ca, ra) in side.items():
+        e = by_name.get(name)
+        if e is None:
+            continue
+        where = f"{args_sidecar_path(src_path)}:{name}"
+        if ca:
+            e.compile_args = ca
+        if ra:
+            if e.argv:
+                refuse(f"{where}: {name} declares run_args {ra} in {side_name} AND {e.argv} in its argv sidecar -- one declaration")
+            if modes is not None and not ({"m3", "m4"} & set(modes)):
+                refuse(f"{where}: {name} declares run_args, and this family is graded in {sorted(modes)} only -- "
+                       f"--dump-ast never RUNS the program, so the arguments could not reach it")
+            e.argv = ra
     csv_path = Path(src_path).parent / "ALL.csv"
     if not csv_path.is_file():
         return
@@ -3536,12 +3586,13 @@ def read_command_line_columns(src_path, entries, modes=None):
         if not cols:
             return
         rows = [(n, r) for n, r in enumerate(rdr, 2)]
-    by_name = {e.name: e for e in entries}
     for n, row in rows:
         e = by_name.get(row.get("entry"))
         if e is None:
             continue
         where = f"{csv_path}:{n}"
+        if e.name in side and (validate_args_cell(row.get("compile_args"), "compile_args", where) or validate_args_cell(row.get("run_args"), "run_args", where)):
+            refuse(f"{where}: {e.name} declares its command line in ALL.csv AND in {side_name} -- two answers to one question")
         ca = validate_args_cell(row.get("compile_args"), "compile_args", where)
         if ca:
             e.compile_args = ca
@@ -3653,6 +3704,55 @@ def cmd_extract_family(args):
                 _sf.write("%s\t%s\n" % (_n, _v))
     elif os.path.exists(stack_sidecar_path(args.out_sno)):
         os.remove(stack_sidecar_path(args.out_sno))
+    # ⭐ AND THE COMMAND LINE (clause 8 (f), CEO-1281): compile_args and run_args travel in <stem>.args, NAME<TAB>compile_args<TAB>
+    # run_args, which read_command_line_columns reads first for a pair with no ALL.csv.
+    _cmd_sel = {}
+    with open(args.csv, newline="") as _cf:
+        for _n, _r in enumerate(_csv.DictReader(_cf), 2):
+            _ca = validate_args_cell(_r.get("compile_args"), "compile_args", f"{args.csv}:{_n}")
+            _ra = validate_args_cell(_r.get("run_args"), "run_args", f"{args.csv}:{_n}")
+            if _ca or _ra:
+                _cmd_sel[_r["entry"]] = (" ".join(_ca or []), " ".join(_ra or []))
+    _mine = [(_e.name, _cmd_sel[_e.name]) for _e in sel if _e.name in _cmd_sel]
+    if _mine:
+        with open(args_sidecar_path(args.out_sno), "w", encoding="utf-8") as _af:
+            _af.write("# command line carried out of %s by extract-family (family=%s). entry<TAB>compile_args<TAB>run_args.\n"
+                      % (Path(args.csv).name, args.family))
+            for _n, (_ca, _ra) in _mine:
+                _af.write("%s\t%s\t%s\n" % (_n, _ca, _ra))
+    elif os.path.exists(args_sidecar_path(args.out_sno)):
+        os.remove(args_sidecar_path(args.out_sno))
+
+
+def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
+    """The four attributes of ONE extracted unit, written beside it under the name the standalone readers look up -- the
+    output's own stem, since lib_declared_arena.sh's *_beside readers key a sidecar by the program beside it: <stem>.heap and
+    <stem>.stack (NAME<TAB>KB) and <stem>.args (NAME<TAB>compile_args<TAB>run_args), each only when the unit's ALL.csv row
+    declares it. ⛔⭐ CEO-1127: an entry extracted standalone is how every seat cures, and a declaration left behind grades a
+    different program -- master entry 1991 declares --stlimit, 131072 KB and 4096 KB, and extract carried none of the three
+    (coo 2026-09-26, measured). A stale sidecar is removed only when an extract wrote it (its first line says so)."""
+    import csv as _csvm
+    csv_path = Path(suite_sno).parent / "ALL.csv"
+    row, where = None, ""
+    if csv_path.is_file():
+        with open(csv_path, newline="") as f:
+            for n, r in enumerate(_csvm.DictReader(f), 2):
+                if r.get("entry") == entry_name:
+                    row, where = r, f"{csv_path}:{n}"
+                    break
+    stem = Path(out_sno).stem
+    kb = validate_heap_kb(row.get("heap_kb"), where) if row else None
+    st = validate_stack_kb(row.get("stack_kb"), where) if row else None
+    ca = validate_args_cell(row.get("compile_args"), "compile_args", where) if row else None
+    ra = validate_args_cell(row.get("run_args"), "run_args", where) if row else None
+    mark = "# carried out of %s by extract (entry %s)." % (csv_path.name, entry_name)
+    for path, body in ((heap_sidecar_path(out_sno), None if kb is None else "%s\t%s" % (stem, kb)),
+                       (stack_sidecar_path(out_sno), None if st is None else "%s\t%s" % (stem, st)),
+                       (args_sidecar_path(out_sno), None if not (ca or ra) else "%s\t%s\t%s" % (stem, " ".join(ca or []), " ".join(ra or [])))):
+        if body is not None:
+            Path(path).write_text(mark + "\n" + body + "\n", encoding="utf-8")
+        elif os.path.exists(path) and Path(path).read_text(encoding="utf-8", errors="replace").startswith("# carried out of "):
+            os.remove(path)
 
 
 def cmd_list(args):

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" || exit 2; case "${1:-report}" in run|report) one_runner_guard "${0##*/} ${1:-report}" || exit 2;; esac  # PER VERB, CEO-547 part 1: run and report ARE boards; `one` and `oracle` grade ONE named program, write no results.tsv and publish no board, so they are development aids and the guard must not judge them by the entry point (hq_B measurement, .github 92335e4b)
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION, read per program by sc_decl_build below from the ALL.csv row beside it or its <stem>.args sidecar (clause 8 (f), CEO-1281, landing 4): this grader exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # scorecard_snobol4.sh — THE SNOBOL4 SCORECARD + META SCORE (Lon directive 2026-08-15 s91, Fable seat).
 #
 #   bash scripts/scorecard_snobol4.sh run    [--suites a,b,..] [--jobs N] [--out DIR] [--force]   # measure (long)
@@ -140,19 +140,22 @@ sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from
 # through lib_declared_arena.sh (the one reader) into one table keyed by program path, which run_one's parallel children look up
 # with one awk; a refused cell refuses the whole run before one program is graded.
 . "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_declared_arena.sh -- the one reader of a declared heap and stack"; exit 2; }
-sc_decl_build() {  # $1 = table out  $2.. = program paths (or - to read them from stdin) -> "path<TAB>heap_kb<TAB>stack_kb" per declaring program; rc 2 on a refused cell
-  local out="$1" p d n kb st rc=0; shift; : > "$out" || return 2
+sc_decl_build() {  # $1 = table out  $2.. = program paths (or - to read them from stdin) -> "path<TAB>heap_kb<TAB>stack_kb<TAB>compile_args" per declaring program; rc 2 on a refused cell
+  # ⭐ THE 4th COLUMN IS THE PROGRAM'S compile_args (clause 8 (f), CEO-1281, landing 4 of 5): the ALL.csv row's, or its <stem>.args
+  # sidecar's for a program with no table (declared_compile_args_beside), which run_one puts after --run and --compile.
+  local out="$1" p d n kb st ca rc=0; shift; : > "$out" || return 2
   local -a progs=(); if [ "${1:-}" = - ]; then mapfile -t progs; else progs=("$@"); fi
   local -A dt=()
   for p in "${progs[@]}"; do
     [ -n "$p" ] || continue; d="$(dirname "$p")"; n="$(basename "$p" .sno)"
     if [ -f "$d/ALL.csv" ]; then
       if [ -z "${dt[$d]:-}" ]; then dt[$d]="$(mktemp)"; declared_memory_table "$d/ALL.csv" > "${dt[$d]}" || { rc=2; break; }; fi
-      awk -F'\t' -v e="$n" -v p="$p" '$1 == e { print p "\t" $2 "\t" $3; exit }' "${dt[$d]}" >> "$out"
+      awk -F'\t' -v e="$n" -v p="$p" '$1 == e { print p "\t" $2 "\t" $3 "\t" $4; exit }' "${dt[$d]}" >> "$out"
     else
       kb="$(declared_arena_kb_beside "$p")" || { rc=2; break; }
       st="$(declared_stack_kb_beside "$p")" || { rc=2; break; }
-      [ -z "$kb$st" ] || printf '%s\t%s\t%s\n' "$p" "$kb" "$st" >> "$out"
+      ca="$(declared_compile_args_beside "$p")" || { rc=2; break; }
+      [ -z "$kb$st$ca" ] || printf '%s\t%s\t%s\t%s\n' "$p" "$kb" "$st" "$ca" >> "$out"
     fi
   done
   [ "${#dt[@]}" -eq 0 ] || rm -f "${dt[@]}"
@@ -314,6 +317,7 @@ run_one() {  # suite lib prog norm run_to
   # no existing row.  ⛔ VISIBLE AND STRUCTURAL, never a run-time skip list (this file's own law, :72): the sidecar is a
   # committed file a reader can ls, and an unknown dialect REFUSES rather than silently grading in the default.
   local cflag=""
+  local ca; ca="$(declared_compile_args_from_table "$SC_DECL" "$prog")" || ca=""   # the program's own compile_args (sc_decl_build), after --run and --compile
   W="$(mktemp -d)"; ulimit -s unlimited 2>/dev/null
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
@@ -335,12 +339,12 @@ run_one() {  # suite lib prog norm run_to
   }
   # ---- m3
   t0=$SECONDS
-  (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$SCRIP" $cflag --run "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
+  (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$SCRIP" $cflag --run $ca "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
   if [ ! -s "$W/m3" ] && [ $rc -ne 0 ] && grep -q 'emit_chain.*FAILED\|unresolved forward\|bb_emit_end\|[Pp]arse error\|syntax error\|COMPILE' "$W/m3e" 2>/dev/null; then st3=COMPILE_FAIL; else st3="$(grade "$W/m3" $rc)"; fi
   t3=$((SECONDS-t0))
   # ---- m4
   t0=$SECONDS
-  if ! (cd "$d" && SNO_LIB="$lib" timeout 60 "$SCRIP" $cflag --compile "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
+  if ! (cd "$d" && SNO_LIB="$lib" timeout 60 "$SCRIP" $cflag --compile $ca "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
   elif ! gcc -no-pie "$W/p.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/p.bin" 2>/dev/null; then st4=ASM_FAIL
   else
     (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?
@@ -352,7 +356,7 @@ run_one() {  # suite lib prog norm run_to
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table; export CORPUS SBL SCRIP SC DEMO
+export -f run_one stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table declared_compile_args_from_table; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
@@ -601,7 +605,7 @@ cmd_one() {  # <suite> <program-basename-or-path> [N]
     [ -n "$full" ] && [ -f "$full" ] || { echo "⛔ not found in suite $want: $prog" >&2; exit 2; }
     SC_DECL="$(mktemp)"; export SC_DECL
     sc_decl_build "$SC_DECL" "$full" || { rm -f "$SC_DECL"; echo "⛔ REFUSED: $full declares a heap or stack that cannot be honoured (named above)" >&2; exit 2; }
-    echo "# suite=$name lib=$lib rto=$rto norm=$norm prog=${full#$CORPUS/}  reps=$reps  declared=$(if [ -s "$SC_DECL" ]; then awk -F'\t' '{printf "heap=%s,stack=%s", ($2==""?"-":$2"KB"), ($3==""?"-":$3"KB")}' "$SC_DECL"; else printf 'none'; fi)  (rep, load1, runnable, then the board TSV line)"
+    echo "# suite=$name lib=$lib rto=$rto norm=$norm prog=${full#$CORPUS/}  reps=$reps  declared=$(if [ -s "$SC_DECL" ]; then awk -F'\t' '{printf "heap=%s,stack=%s,compile_args=%s", ($2==""?"-":$2"KB"), ($3==""?"-":$3"KB"), ($4==""?"-":$4)}' "$SC_DECL"; else printf 'none'; fi)  (rep, load1, runnable, then the board TSV line)"
     for i in $(seq 1 "$reps"); do L="$(sc_load)"; printf '%s\t%s\t%s\t' "$i" "${L%% *}" "${L##* }"; run_one "$name" "$lib" "$full" "$norm" "$rto"; done
     rm -f "$SC_DECL"
   }

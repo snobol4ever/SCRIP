@@ -23,9 +23,20 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #   P1..P10  the ten package runners, each on its own scratch suite and scratch progress table: dotnet, snoflake, spitbol_x64,
 #       spitbol_testpgms, csnobol4, aisnobol (through the harness), jcon, arizona, ipl, and spitbol_x32 (hq_snobol4's X32T, 1cddec296)
 #
-# NOT COVERED, AND NAMED: test_corpus_snobol4.sh and scorecard_snobol4.sh (and test_snobol4_gimpel_suite.sh, which grades through the
-# scorecard) keep their export until landing 4 gives their standalone programs STEM.args sidecars; the ladder, port-trace and gate
-# graders keep theirs, because a grader's instrumentation is not a unit attribute.
+#   L3  landing 4: declared_compile_args_beside reads a standalone program's <stem>.args (NAME<TAB>compile_args<TAB>run_args) and
+#       refuses rc 2 on another unit's name, a word outside the admitted list and a run_args cell
+#   X1  corpus_suite_harness.py extract carries the unit's heap, stack and command line out beside it, named by the output's stem
+#       (CEO-1127: an entry extracted standalone is how every seat cures); an undeclaring unit gets no .args
+#   X2  extract-family carries <stem>.args, and the harness run on the extracted pair -- no ALL.csv beside it -- applies it
+#   S1  scorecard_snobol4.sh on a scratch gimpel table (the path test_snobol4_gimpel_suite.sh grades through)
+#   S2  scorecard_snobol4.sh on a scratch benchmarks dir with no table: the <stem>.args sidecar is the only declaration
+#   D1  test_corpus_snobol4.sh's own run_test and compile_mode4, lifted out of the runner by sed (never copied) and run on a demo
+#       pair: the runner's master block cannot be fixtured cheaply, and these two functions are its every direct scrip command line
+#
+# NOT COVERED, AND NAMED: the ladder, port-trace and gate graders keep their export, because a grader's instrumentation is not a unit
+# attribute. LANDING 4 (coo 2026-09-26): the three exports this header used to name here -- test_corpus_snobol4.sh, scorecard_snobol4.sh
+# and test_snobol4_gimpel_suite.sh -- are deleted; measured that day, every one of their table rows declares --stlimit and the 27
+# rowless programs the scorecard grades and the 23 demos run byte-identical in both modes without it.
 # FAIL-ONCE, MEASURED 2026-09-26 17:4x CDT (coo) on SCRIP 0dd682acd plus this landing, both directions: (1) FAIL_ONCE=1 exports
 # SCRIP_SNO_STMTKW=1 around every harness and runner invocation -- the typed switch this row retires -- and nodecl reads PASS/PASS
 # everywhere: H and P1..P10 red, 11 of 14; W, L1 and L2 read no runner and stay green by construction. (2) The same gate over origin's
@@ -163,8 +174,63 @@ DBPFX=progs/ run_db P9 "$W/p9.tsv" S4E_HOME="$W/ipl" -- "$HERE/test_icon_ipl_sui
 mk_sno "$W/x32" spt
 run_db P10 "$W/p10.tsv" SPITBOL_X32_SUITE="$W/x32" SPITBOL_X32_SHIPPED=2 -- "$HERE/test_snobol4_spitbol_x32_suite.sh"
 
+# ── landing 4: a STANDALONE unit's command line travels in <stem>.args ──────────────────────────────────────────
+mkdir -p "$W/sa"; for n in decl nodecl other bad ra; do cp "$W/cnt.sno" "$W/sa/$n.sno"; done
+printf 'decl\t--stlimit\t\n' > "$W/sa/decl.args"; printf 'someone_else\t--stlimit\t\n' > "$W/sa/other.args"
+printf 'bad\t--nosuchswitch\t\n' > "$W/sa/bad.args"; printf 'ra\t\tx\n' > "$W/sa/ra.args"
+b_d="$(declared_compile_args_beside "$W/sa/decl.sno")"; rd=$?; b_n="$(declared_compile_args_beside "$W/sa/nodecl.sno")"; rn=$?
+declared_compile_args_beside "$W/sa/other.sno" >/dev/null 2>&1; ro=$?; declared_compile_args_beside "$W/sa/bad.sno" >/dev/null 2>&1; rb=$?
+declared_compile_args_beside "$W/sa/ra.sno" >/dev/null 2>&1; rr=$?
+if [ "$rd" = 0 ] && [ "$b_d" = "--stlimit" ] && [ "$rn" = 0 ] && [ -z "$b_n" ] && [ "$ro" = 2 ] && [ "$rb" = 2 ] && [ "$rr" = 2 ]; then
+    ok L3 "decl.args reads '--stlimit', nodecl (no sidecar) reads nothing; another unit's name, a word outside the admitted list and a run_args cell each refuse rc 2"
+else red L3 "decl=[$b_d] rc $rd, nodecl=[$b_n] rc $rn, other rc $ro, bad word rc $rb, run_args rc $rr (want --stlimit/0, empty/0, 2, 2, 2)"; fi
+mkdir -p "$W/xt"
+python3 "$HERE/corpus_suite_harness.py" extract "$W/fam/ALL.sno" "$W/fam/ALL.ref" decl "$W/xt/one.sno" >/dev/null 2>&1; x1=$?
+python3 "$HERE/corpus_suite_harness.py" extract "$W/fam/ALL.sno" "$W/fam/ALL.ref" nodecl "$W/xt/two.sno" >/dev/null 2>&1; x2=$?
+x_ca="$(declared_compile_args_beside "$W/xt/one.sno" 2>&1)"; x_sw="$(declared_switches_beside "$W/xt/one.sno" 2>&1)"; x_n="$(declared_compile_args_beside "$W/xt/two.sno" 2>&1)"
+if [ "$x1" = 0 ] && [ "$x2" = 0 ] && [ "$x_ca" = "--stlimit" ] && [ "$x_sw" = "-d131072k -s4096k" ] && [ ! -e "$W/xt/two.args" ] && [ -z "$x_n" ]; then
+    ok X1 "extract carries decl's --stlimit, 131072 KB and 4096 KB out beside one.sno, and nodecl's two.sno gets no .args"
+else red X1 "extract rc $x1/$x2; one.sno reads [$x_ca] and [$x_sw] (want --stlimit and -d131072k -s4096k); two.args $([ -e "$W/xt/two.args" ] && echo present || echo absent), two reads [$x_n]"; fi
+mkdir -p "$W/xf"
+python3 "$HERE/corpus_suite_harness.py" extract-family "$W/fam/ALL.sno" "$W/fam/ALL.ref" "$W/fam/ALL.csv" fx "$W/xf/fx.sno" "$W/xf/fx.ref" >/dev/null 2>&1 \
+    || red X2 "extract-family refused the scratch family"
+if [ -f "$W/xf/fx.args" ] && [ ! -e "$W/xf/ALL.csv" ]; then
+    out="$(cd "$ROOT" && env "${typed[@]}" timeout 300 python3 "$HERE/corpus_suite_harness.py" run "$W/xf/fx.sno" "$W/xf/fx.ref" --modes m3,m4 2>&1)"; rc=$?
+    board_pair X2 "$rc" "$out"
+else red X2 "extract-family wrote no fx.args beside the extracted pair"; fi
+# ⛔ THE SCORECARD APPENDS ITS results.tsv TO THE PROGRESS TABLE ON EVERY run, scratch corpus or not, so S1 and S2 name a scratch table:
+# the first draft of these arms did not, and one run put 4 fixture rows (decl_driver, nodecl_driver; dev-pass, -dirty) into the live one.
+sc_overlay() {  # <corpus dir> <top-level dir the fixture replaces> -- every other top-level dir of the real corpus symlinked in, as the gimpel runner does
+    local c="$1" keep="$2" d b; mkdir -p "$c"
+    for d in "$ROOT/../corpus"/*/; do b="$(basename "$d")"; [ "$b" = "$keep" ] && continue; ln -s "$d" "$c/$b" 2>/dev/null || true; done; }
+sc_pair() {  # <arm> <rc> <results.tsv> <decl program path> <nodecl program path>
+    st() { awk -F'\t' -v p="$1" -v c="$2" '$2==p {print $c; exit}' "$3" 2>/dev/null; }
+    pair "$1" "$2" "$(st "$4" 3 "$3")" "$(st "$4" 4 "$3")" "$(st "$5" 3 "$3")" "$(st "$5" 4 "$3")"; }
+G1="$W/sc1/corpus/packages/snobol4/gimpel"; mkdir -p "$G1"; sc_overlay "$W/sc1/corpus" packages
+for n in decl_driver nodecl_driver; do cp "$W/cnt.sno" "$G1/$n.sno"; done; csv_pair decl_driver nodecl_driver > "$G1/ALL.csv"
+out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s1.tsv" CORPUS="$W/sc1/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W/sc1/out" 2>&1)"; rc=$?
+sc_pair S1 "$rc" "$W/sc1/out/results.tsv" packages/snobol4/gimpel/decl_driver.sno packages/snobol4/gimpel/nodecl_driver.sno || show_on_red "$out"
+B2="$W/sc2/corpus/benchmarks/snobol4"; mkdir -p "$B2"; sc_overlay "$W/sc2/corpus" benchmarks
+for n in decl nodecl; do cp "$W/cnt.sno" "$B2/$n.sno"; done; printf 'decl\t--stlimit\t\n' > "$B2/decl.args"
+out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s2.tsv" CORPUS="$W/sc2/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites benchmarks --out "$W/sc2/out" 2>&1)"; rc=$?
+sc_pair S2 "$rc" "$W/sc2/out/results.tsv" benchmarks/snobol4/decl.sno benchmarks/snobol4/nodecl.sno || show_on_red "$out"
+mkdir -p "$W/dm"; for n in decl nodecl; do cp "$W/cnt.sno" "$W/dm/$n.sno"; printf '%s\n' "$sbl_o" > "$W/dm/$n.ref"; done; printf 'decl\t--stlimit\t\n' > "$W/dm/decl.args"
+fns="$(sed -n '/^compile_mode4() {/,/^}/p; /^run_test() {/,/^}/p' "$HERE/test_corpus_snobol4.sh")"
+if printf '%s' "$fns" | grep -q '^run_test() {' && printf '%s' "$fns" | grep -q '^compile_mode4() {'; then
+    d1="$(cd "$ROOT" && env "${typed[@]}" bash -c '
+        . "$1/lib_declared_arena.sh" || exit 2; eval "$2"
+        SCRIP="$3/scrip"; RT_DIR="$3/out"; INC="$4"; TIMEOUT=30; WORKDIR="$(mktemp -d)"; HERE="$1"
+        PASS3=0 FAIL3=0 PASS4=0 FAIL4=0 BOTH=0 SKIP4=0 TMOUT3=0 TMOUT4=0 MISSING=0 T_M3=0 T_M4=0 FAILURES3= FAILURES4= TMOUT_LIST= MISSING_LIST=
+        run_test decl "$5/decl.sno" "$5/decl.ref" "" ""; echo "decl $PASS3 $PASS4"
+        run_test nodecl "$5/nodecl.sno" "$5/nodecl.ref" "" ""; echo "nodecl $FAIL3 $FAIL4"; rm -rf "$WORKDIR"' _ "$HERE" "$fns" "$ROOT" "$ROOT/../corpus/include" "$W/dm" 2>&1)"; rc=$?
+    d3=FAIL; d4=FAIL; n3=PASS; n4=PASS
+    printf '%s\n' "$d1" | grep -q '^decl 1 1$' && d3=PASS && d4=PASS
+    printf '%s\n' "$d1" | grep -q '^nodecl 1 1$' && n3=FAIL && n4=FAIL
+    pair D1 "$rc" "$d3" "$d4" "$n3" "$n4" || show_on_red "$d1"
+else red D1 "run_test and compile_mode4 are no longer in test_corpus_snobol4.sh as sed can lift them -- this arm grades nothing"; fi
+
 echo "------------------------------------------------------------"
 N=$((PASS + FAIL))
-if [ "$FAIL" = 0 ]; then echo "GATE PASS(0) [$G]: $PASS of $N arms green (denominator: $N arms -- the premise, two reader arms, the harness and ten package runners, each on a decl/nodecl pair in both modes)"; exit 0; fi
+if [ "$FAIL" = 0 ]; then echo "GATE PASS(0) [$G]: $PASS of $N arms green (denominator: $N arms -- the premise, three reader arms, the harness, ten package runners, the extract and extract-family carry, the scorecard by table and by sidecar and the demo runner's own functions, each runner on a decl/nodecl pair in both modes)"; exit 0; fi
 if [ -n "$UNM" ] && [ "$FAIL" = "$(printf '%s' "$UNM" | wc -w)" ]; then echo "GATE UNPROVEN(2) [$G]: $FAIL of $N arms could not measure their fixtures:$UNM"; exit 2; fi
 echo "GATE FAIL(1) [$G]: $FAIL of $N arms red${UNM:+ (could not measure:$UNM)}"; exit 1

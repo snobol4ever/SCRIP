@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION: gimpel's ALL.csv declares it on all 120 rows, and scorecard_snobol4.sh, which this wrapper grades through, reads it per program (clause 8 (f), CEO-1281, landing 4). This wrapper exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source)
 # test_snobol4_gimpel_suite.sh -- dedicated gate for corpus/packages/snobol4/gimpel (144 *_driver.sno
 # programs; 145 further NAME.sno library modules exist alongside them but are structurally unscoreable
 # by design -- see gimpel/README.md), minted for row
