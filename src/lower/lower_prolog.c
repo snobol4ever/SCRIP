@@ -733,6 +733,9 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1, "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" },
     { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" },
     { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" },
+    { "sort", 1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" },
+    { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" },
+    { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" },
     { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) {
     for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1;
@@ -874,6 +877,8 @@ static int pl_pi_is_static_builtin(const char * pn, int ar) {
     if (pl_rung_of(pn) && strcmp(pn, "for")) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_pi_is_builtin(const char * pn, int ar) { return pl_pi_is_static_builtin(pn, ar); }
 static const tree_t * pl_tree_number(const tree_t * t) { return (t && (t->t == TT_ILIT || t->t == TT_FLIT || pl_tree_is_big(t))) ? t : NULL; }
 static const tree_t * pl_body_ill_typed(const tree_t * b) {
     if (!b) return NULL;

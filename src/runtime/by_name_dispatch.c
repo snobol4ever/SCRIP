@@ -2538,8 +2538,9 @@ static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
         idx = (int)a.i; }
     else { *ball = rt_pl_ball_kind2("domain_error", "stream_or_alias", d); return -1; }
     { int is_in = (g_fh[idx].mode == 'r');
-      if (out && is_in) { *ball = rt_pl_ball_permission3("output", "stream", d); return -1; }
-      if (!out && !is_in && idx != 0) { *ball = rt_pl_ball_permission3("input", "stream", d); return -1; }
+      if (out > 0 && is_in) { *ball = rt_pl_ball_permission3("output", "stream", d); return -1; }
+      if (out == 0 && !is_in && idx != 0) { *ball = rt_pl_ball_permission3("input", "stream", d); return -1; }
+      if (out < 0) out = !is_in && idx != 0;
       if (textop > 0 && g_fh[idx].type == 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", d); return -1; }
       if (textop < 0 && g_fh[idx].type != 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "text_stream", d); return -1; } }
     return idx;
@@ -2725,15 +2726,21 @@ PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_L
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(plus, 3) ok = rt_pl_succ_plus_cell(3, &args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 static int pl_is_pair(DESCR_t d) { extern int prolog_atom_intern(const char *); return d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("-") && (d.slen & 0xFFFFu) == 2; }
-static void *pl_sort_args_ball(DESCR_t *args, int pairs) {
-    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_dop_list_guard_c(DESCR_t *, int);
-    DESCR_t orig = rt_pl_deref_val(args[0]), cur = orig, e; void *b;
+static void *pl_sort_list_ball(DESCR_t orig, int pairs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
+    DESCR_t cur = orig, e;
     while (pl_is_cons(cur)) cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]);
     if (pl_val_unbound(cur)) return rt_pl_ball_instantiation();
     if (!pl_is_nil(cur)) return rt_pl_ball_kind2("type_error", "list", orig);
     for (cur = orig; pairs && pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) { e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
         if (pl_val_unbound(e)) return rt_pl_ball_instantiation();
         if (!pl_is_pair(e)) return rt_pl_ball_kind2("type_error", "pair", e); }
+    return (void *)0;
+}
+static void *pl_sort_args_ball(DESCR_t *args, int pairs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_dop_list_guard_c(DESCR_t *, int);
+    DESCR_t cur, e; void *b;
+    if ((b = pl_sort_list_ball(rt_pl_deref_val(args[0]), pairs))) return b;
     if ((b = rt_pl_dop_list_guard_c(&args[1], 1))) return b;
     for (cur = rt_pl_deref_val(args[1]); pairs && pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) { e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
         if (!pl_val_unbound(e) && !pl_is_pair(e)) return rt_pl_ball_kind2("type_error", "pair", e); }
@@ -3106,13 +3113,14 @@ static int pl_read_term_text(char *buf, size_t n) {
     size_t k = 0; int c, q = 0, seen = 0, lit = 0, wlit;
     while ((c = fgetc(in)) != EOF) {
         if (!seen && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) continue;
-        if (!seen && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; continue; }
+        if (!q && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; if (seen) { if (k + 2 >= n) return -1; buf[k++] = '\n'; } continue; }
         if (!q && c == '/') { int d = fgetc(in);
             if (d == '*') { int p = 0, e2, closed = 0;
                 while ((e2 = fgetc(in)) != EOF) { if (p == '*' && e2 == '/') { closed = 1; break; } p = e2; }
                 if (!closed) { buf[k] = 0; return 2; }
                 continue; }
             if (d != EOF) ungetc(d, in); }
+        if (!seen) { extern void fh_note_read_start(int); extern int fh_current_input(void); fh_note_read_start(fh_current_input()); }
         seen = 1; if (k + 2 >= n) return -1; wlit = lit; lit = 0; buf[k++] = (char)c;
         if (q) { if (c == '\\') { int r = pl_read_esc_body(in, buf, n, &k); if (r) { buf[k] = 0; return r; } }
                  else if (c == q) { q = 0; lit = 1; }
@@ -3446,6 +3454,8 @@ static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
     { "dialect", "scrip", 0, { 0 } },
+    { "prolog_name", "SCRIP", 0, { 0 } },
+    { "prolog_version", "0.0.0", 0, { 0 } },
     { "version_data", "", 0, { 0 } },
     { 0, "", 0, { 0 } } };
 const char *rt_pl_flag_name(int i) { return (i >= 0 && i < PL_FLAGS_MAX) ? pl_flags[i].nm : (const char *)0; }
@@ -3572,6 +3582,73 @@ PL_CX_LEAF_HEAD(current_input, 1) { extern int fh_current_input(void); ok = plw_
 PL_CX_LEAF_HEAD(open, 3) ok = pl_open_leaf(args, 3, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open4, 4) ok = pl_open_leaf(args, 4, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(keysort, 2) { void *b = pl_sort_args_ball(args, 1); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_keysort_cell(&args[0], &args[1], cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_GNU_SORT1_LEAF(nm, mode) PL_CX_LEAF_HEAD(nm, 1) { extern int rt_pl_sort_in_place_cell(int, void *); void *b = pl_sort_list_ball(rt_pl_deref_val(args[0]), (mode) == 2); \
+    if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_in_place_cell((mode), &args[0]); } PL_CX_LEAF_TAIL
+PL_GNU_SORT1_LEAF(gnu_sort1, 0) PL_GNU_SORT1_LEAF(gnu_msort1, 1) PL_GNU_SORT1_LEAF(gnu_keysort1, 2)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_gnu_position(DESCR_t s, long *ch, long *ln, long *lp, pl_tr_ctx_t *cx, const char *who) {
+    extern int fh_in_position(int, long *, long *, long *); void *b = (void *)0; int idx = pl_stream_resolve(s, -1, 1, &b), r;
+    if (b) { cx->ball = b; return 0; }
+    r = fh_in_position(idx, ch, ln, lp);
+    if (r == 1) return 1;
+    fprintf(stderr, "scrip: prolog: %s on %s is not tracked yet -- positions are read from ftell and pread over a readable, seekable input stream\n", who, r == -1 ? "an output stream" : "a stream that cannot seek");
+    exit(2);
+}
+PL_CX_LEAF_HEAD(gnu_line_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_count/2") && plw_unify_vals(args[1], INTVAL(l), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_line_position, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_position/2") && plw_unify_vals(args[1], INTVAL(p), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_character_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "character_count/2") && plw_unify_vals(args[1], INTVAL(c), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_stream_line_column, 3) { long c, l, p;
+    ok = pl_gnu_position(args[0], &c, &l, &p, cx, "stream_line_column/3") && plw_unify_vals(args[1], INTVAL(l + 1), cx) && plw_unify_vals(args[2], INTVAL(p + 1), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_last_read_start, 2) { extern int fh_last_read_start(long *, long *); long l = 0, c = 0; (void)fh_last_read_start(&l, &c);
+    ok = plw_unify_vals(args[0], INTVAL(l), cx) && plw_unify_vals(args[1], INTVAL(c), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_gnu_abs_path(const char *src, char *out, size_t cap) {
+    char a[4096]; size_t k = 0, o = 0; int add_slash;
+    for (const char *p = src; *p; ) {
+        if (*p == '$') { const char *q = p + 1; char nm[256]; size_t j = 0; const char *v;
+            while ((isalnum((unsigned char)*q) || *q == '_') && j + 1 < sizeof nm) nm[j++] = *q++;
+            nm[j] = 0; v = j ? getenv(nm) : (const char *)0;
+            if (v) { size_t L = strlen(v); if (k + L >= sizeof a) return 0; memcpy(a + k, v, L); k += L; p = q; continue; } }
+        if (k + 1 >= sizeof a) return 0;
+        a[k++] = *p++; }
+    a[k] = 0;
+    if (a[0] == '~' && (a[1] == '/' || a[1] == 0)) { const char *h = getenv("HOME"); char t[4096]; if (!h || strlen(h) + k + 2 >= sizeof t) return 0;
+        snprintf(t, sizeof t, "%s/%s", h, a + 1); k = strlen(t); memcpy(a, t, k + 1); }
+    else if (a[0] == '~') return 0;
+    if (!strcmp(a, "user")) { if (cap < 5) return 0; memcpy(out, "user", 5); return 1; }
+    if (!a[0]) return 0;
+    add_slash = a[k - 1] == '/';
+    if (a[0] != '/') { char cwd[4096], t[4096]; if (!getcwd(cwd, sizeof cwd) || strlen(cwd) + k + 2 >= sizeof t) return 0;
+        snprintf(t, sizeof t, "%s/%s", cwd, a); k = strlen(t); memcpy(a, t, k + 1); }
+    for (size_t i = 0; i < k; ) {
+        size_t j = i; while (j < k && a[j] == '/') j++;
+        size_t e = j; while (e < k && a[e] != '/') e++;
+        if (e == j) break;
+        if (e - j == 1 && a[j] == '.') { i = e; continue; }
+        if (e - j == 2 && a[j] == '.' && a[j + 1] == '.') { if (o == 0) return 0; while (o > 0 && out[o - 1] != '/') o--; if (o > 0) o--; i = e; continue; }
+        if (o + (e - j) + 2 >= cap) return 0;
+        out[o++] = '/'; memcpy(out + o, a + j, e - j); o += e - j; i = e; }
+    if (o == 0) out[o++] = '/'; else if (add_slash) out[o++] = '/';
+    out[o] = 0; return 1;
+}
+PL_CX_LEAF_HEAD(gnu_absolute_file_name, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
+    char nb[4096], ab[4096]; const char *nm; DESCR_t f = rt_pl_deref_val(args[0]); ok = 0;
+    if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
+    else if (!pl_atom_str(f) || !pl_cell_text(args[0], nb, sizeof nb, &nm)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+    else if (!pl_gnu_abs_path(nm, ab, sizeof ab)) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
+    else ok = plw_unify_vals(args[1], pl_mk_atom_dup(ab, strlen(ab)), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_prolog_file_name, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
+    const char *const sfx[] = { ".pl", ".pro", ".prolog", 0 };
+    char nb[4096], ab[4096], cand[4200]; const char *nm, *base, *use = ".pl"; DESCR_t f = rt_pl_deref_val(args[0]); ok = 0;
+    if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
+    else if (!pl_atom_str(f) || !pl_cell_text(args[0], nb, sizeof nb, &nm)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+    else if (!pl_gnu_abs_path(nm, ab, sizeof ab)) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
+    else if (!strcmp(ab, "user") || strchr((base = strrchr(ab, '/')) ? base : ab, '.')) ok = plw_unify_vals(args[1], f, cx);
+    else { for (int i = 0; sfx[i]; i++) { snprintf(cand, sizeof cand, "%s%s", ab, sfx[i]); if (!access(cand, F_OK)) { use = sfx[i]; break; } }
+        snprintf(cand, sizeof cand, "%s%s", nm, use); ok = plw_unify_vals(args[1], pl_mk_atom_dup(cand, strlen(cand)), cx); } } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_builtin, 2) { extern int pl_pi_is_builtin(const char *, int); char nb[512]; const char *nm; DESCR_t a = rt_pl_deref_val(args[1]);
+    ok = a.v == (DTYPE_t)DT_I && pl_atom_str(rt_pl_deref_val(args[0])) && pl_cell_text(args[0], nb, sizeof nb, &nm) && nm && pl_pi_is_builtin(nm, (int)a.i); } PL_CX_LEAF_TAIL
 static int pl_op_spec_ok(const char *t) { static const char *const k[] = { "xfx", "xfy", "yfx", "fy", "fx", "yf", "xf", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(t, k[i])) return 1; return 0; }
 static const char *pl_op_name(DESCR_t d) { return pl_is_nil(d) ? "[]" : pl_atom_str(d); }
 PL_CX_LEAF_HEAD(op, 3) { extern int prolog_op_table_add(const char *, int, const char *); extern int prolog_op_permission(const char *, int, const char *);

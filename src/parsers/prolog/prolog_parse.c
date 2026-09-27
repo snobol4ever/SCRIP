@@ -1132,6 +1132,33 @@ static const char *PL_PRELUDE_SRC =
     "numlist(L,H,R):-'$numlist_'(L,H,R).\n"
     "'$numlist_'(L,H,[]):-L>H,!.\n"
     "'$numlist_'(L,H,[L|T]):-L=<H,L1 is L+1,'$numlist_'(L1,H,T).\n"
+    "memberchk(X,L):-member(X,L),!.\n"
+    "list(L):-is_list(L).\n"
+    "g_assign(K,V):-retractall('$g_var'(K,_)),assertz('$g_var'(K,V)).\n"
+    "g_read(K,V):-catch('$g_var'(K,V0),error(existence_error(procedure,_),_),fail),!,V=V0.\n"
+    "g_read(_,0).\n"
+    "'$catch'(G,C,R,_,_,_):-catch(G,C,R).\n"
+    "'$expand_term1'(T1,T2,_):-var(T1),!,T2=T1.\n"
+    "'$expand_term1'(T1,T2,true):-current_predicate(term_expansion/2),call(term_expansion(T1,T2)),!.\n"
+    "'$expand_term1'((H-->B),T2,_):-!,dcg_translate_rule((H-->B),T2).\n"
+    "'$expand_term1'(T,T,_).\n"
+    "'$predicate_property1'(F,N,built_in):-'$gnu_builtin'(F,N),\\+current_predicate(F/N).\n"
+    "'$aux_name'(N):-'$gnu_aux_split'(N,_,_).\n"
+    "'$pred_without_aux'(N,A,N1,A1):-('$gnu_aux_split'(N,F,FA)->N1=F,A1=FA;N1=N,A1=A).\n"
+    "'$make_aux_name'(N,A,K,X):-'$pred_without_aux'(N,A,N1,A1),atom_codes(N1,NC),number_codes(A1,AC),number_codes(K,KC),"
+        "append(AC,[0'_,0'$,0'a,0'u,0'x|KC],T),append([0'$|NC],[0'/|T],All),atom_codes(X,All).\n"
+    "'$gnu_aux_split'(N,F,A):-atom(N),atom_codes(N,[0'$|Cs]),append(Pre,[0'_,0'$,0'a,0'u,0'x,D|Ds],Cs),!,'$gnu_digits'([D|Ds]),"
+        "reverse(Pre,R),'$gnu_digit_run'(R,RD,[0'/|RF]),reverse(RD,AC),reverse(RF,FC),atom_codes(F,FC),(AC==[]->A=0;number_codes(A,AC)).\n"
+    "'$gnu_digits'([]).\n"
+    "'$gnu_digits'([C|Cs]):-C>=0'0,C=<0'9,'$gnu_digits'(Cs).\n"
+    "'$gnu_digit_run'([C|Cs],[C|Ds],R):-C>=0'0,C=<0'9,!,'$gnu_digit_run'(Cs,Ds,R).\n"
+    "'$gnu_digit_run'(R,[],R).\n"
+    "is_relative_file_name(P):-atom(P),\\+sub_atom(P,0,1,_,'/').\n"
+    "decompose_file_name(P,D,B,S):-atom_codes(P,Cs),('$gnu_last_sep'(Cs,0'/,DP,BC)->append(DP,[0'/],DC);DC=[],BC=Cs),"
+        "('$gnu_last_sep'(BC,0'.,PC,SP)->SC=[0'.|SP];PC=BC,SC=[]),atom_codes(D,DC),atom_codes(B,PC),atom_codes(S,SC).\n"
+    "'$gnu_last_sep'(Cs,Ch,Pre,Post):-reverse(Cs,R),'$gnu_upto'(R,Ch,RPost,RPre),reverse(RPost,Post),reverse(RPre,Pre).\n"
+    "'$gnu_upto'([C|Cs],C,[],Cs):-!.\n"
+    "'$gnu_upto'([C|Cs],Ch,[C|P],R):-'$gnu_upto'(Cs,Ch,P,R).\n"
     "last([X],X):- !.\n"
     "last([_|T],X):-last(T,X).\n"
     "nth0(N,L,E):-'$nth_'(L,0,N,E).\n"
@@ -1300,8 +1327,7 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
-        if (nm[0] == '$') continue;
-        if (!pl_cv_has(&referenced, nm) && !pl_word_referenced(user_src, nm)) continue;
+        if (!pl_cv_has(&referenced, nm) && (nm[0] == '$' || !pl_word_referenced(user_src, nm))) continue;
         char *key = pl_pred_key(nm, ar);
         if (!pl_cv_has(&user_defined, key)) pl_cv_add(&wanted, key);
     }

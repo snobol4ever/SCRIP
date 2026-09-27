@@ -53,6 +53,10 @@ DESCR_t rt_pl_dop_atom_codes(DESCR_t *, int); DESCR_t rt_pl_dop_atom_number(DESC
 DESCR_t rt_pl_dop_downcase_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_concat(DESCR_t *, int); DESCR_t rt_pl_dop_string_length(DESCR_t *, int); DESCR_t rt_pl_dop_string_lower(DESCR_t *, int);
 DESCR_t rt_pl_dop_string_upper(DESCR_t *, int); DESCR_t rt_pl_dop_string_to_atom(DESCR_t *, int); DESCR_t rt_pl_dop_number_string(DESCR_t *, int);
 DESCR_t rt_pl_dop_atomic_list_concat(DESCR_t *, int); DESCR_t rt_pl_dop_concat_atom(DESCR_t *, int); DESCR_t rt_pl_dop_char_code(DESCR_t *, int); DESCR_t rt_pl_dop_number_codes(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_sort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_msort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_keysort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_line_count(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_line_position(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_character_count(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_stream_line_column(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_last_read_start(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_absolute_file_name(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_prolog_file_name(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_builtin(DESCR_t *, int);
 DESCR_t rt_pl_dop_number_chars(DESCR_t *, int); DESCR_t rt_pl_dop_name(DESCR_t *, int); DESCR_t rt_pl_dop_get_char(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char(DESCR_t *, int);
 DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_atom(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_chars(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_codes(DESCR_t *, int);DESCR_t rt_pl_dop_display(DESCR_t *, int); DESCR_t rt_pl_dop_display_s(DESCR_t *, int); DESCR_t rt_pl_dop_unify_oc(DESCR_t *, int); DESCR_t rt_pl_dop_aggregate_reduce(DESCR_t *, int);
 DESCR_t rt_pl_dop_read_term_opts(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_opts_s(DESCR_t *, int);
@@ -234,6 +238,13 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$number_string", 2, "rt_pl_dop_number_string", rt_pl_dop_number_string }, { "$atomic_list_concat", 2, "rt_pl_dop_atomic_list_concat", rt_pl_dop_atomic_list_concat },
         { "$atomic_list_concat", 3, "rt_pl_dop_atomic_list_concat", rt_pl_dop_atomic_list_concat }, { "$concat_atom", 2, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom },
         { "$concat_atom", 3, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom }, { "$char_code", 2, "rt_pl_dop_char_code", rt_pl_dop_char_code },
+        { "$gnu_sort1", 1, "rt_pl_dop_gnu_sort1", rt_pl_dop_gnu_sort1 }, { "$gnu_msort1", 1, "rt_pl_dop_gnu_msort1", rt_pl_dop_gnu_msort1 },
+        { "$gnu_keysort1", 1, "rt_pl_dop_gnu_keysort1", rt_pl_dop_gnu_keysort1 }, { "$gnu_line_count", 2, "rt_pl_dop_gnu_line_count", rt_pl_dop_gnu_line_count },
+        { "$gnu_line_position", 2, "rt_pl_dop_gnu_line_position", rt_pl_dop_gnu_line_position }, { "$gnu_character_count", 2, "rt_pl_dop_gnu_character_count", rt_pl_dop_gnu_character_count },
+        { "$gnu_stream_line_column", 3, "rt_pl_dop_gnu_stream_line_column", rt_pl_dop_gnu_stream_line_column },
+        { "$gnu_last_read_start", 2, "rt_pl_dop_gnu_last_read_start", rt_pl_dop_gnu_last_read_start },
+        { "$gnu_absolute_file_name", 2, "rt_pl_dop_gnu_absolute_file_name", rt_pl_dop_gnu_absolute_file_name },
+        { "$gnu_prolog_file_name", 2, "rt_pl_dop_gnu_prolog_file_name", rt_pl_dop_gnu_prolog_file_name }, { "$gnu_builtin", 2, "rt_pl_dop_gnu_builtin", rt_pl_dop_gnu_builtin },
         { "$number_codes", 2, "rt_pl_dop_number_codes", rt_pl_dop_number_codes }, { "$number_chars", 2, "rt_pl_dop_number_chars", rt_pl_dop_number_chars },
         { "$name", 2, "rt_pl_dop_name", rt_pl_dop_name }, { "$get_char", 1, "rt_pl_dop_get_char", rt_pl_dop_get_char }, { "$peek_char", 1, "rt_pl_dop_peek_char", rt_pl_dop_peek_char },
         { "$get_code", 1, "rt_pl_dop_get_code", rt_pl_dop_get_code }, { "$peek_code", 1, "rt_pl_dop_peek_code", rt_pl_dop_peek_code },

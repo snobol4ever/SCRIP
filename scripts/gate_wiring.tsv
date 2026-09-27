@@ -472,6 +472,7 @@ test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
 test_gate_pl_current_op_enumerates_newest_first_over_the_table_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_findall_4_serves_a_bound_tail_and_an_unbound_one.sh	WIRED	-	-	-
 test_gate_pl_format_column_fill_is_a_character_not_a_byte.sh	WIRED	-	-	-
+test_gate_pl_gnu_dialect_value_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
 test_gate_pl_include_splices_in_place_and_ensure_loaded_loads_once.sh	WIRED	-	-	-
 test_gate_pl_integer_division_floors_and_int64_overflow_promotes.sh	WIRED	-	-	-

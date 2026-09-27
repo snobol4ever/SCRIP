@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1777
+#define GC_ALLOC_TAB_N 1803
 #define GC_ALLOC_TAB_N_VOID 205
-#define GC_ALLOC_TAB_N_DESCR 998
-#define GC_ALLOC_TAB_N_OTHER 568
+#define GC_ALLOC_TAB_N_DESCR 1020
+#define GC_ALLOC_TAB_N_OTHER 572
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -759,6 +759,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_store", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
     { "pl_format_body", GC_RET_OTHER },
+    { "pl_gnu_position", GC_RET_OTHER },
     { "pl_goal_body_conv_ball", GC_RET_OTHER },
     { "pl_goal_key_live", GC_RET_OTHER },
     { "pl_include_directive", GC_RET_OTHER },
@@ -789,6 +790,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_runtime_define_pred_g", GC_RET_OTHER },
     { "pl_sink_build", GC_RET_DESCR },
     { "pl_sort_args_ball", GC_RET_OTHER },
+    { "pl_sort_list_ball", GC_RET_OTHER },
     { "pl_sp_prop", GC_RET_OTHER },
     { "pl_splice_consults", GC_RET_VOID },
     { "pl_split_text", GC_RET_OTHER },
@@ -814,6 +816,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_fmt_eval", GC_RET_OTHER },
     { "plc_fmt_int", GC_RET_OTHER },
     { "plc_fmt_text", GC_RET_OTHER },
+    { "plc_inplace_cmp", GC_RET_OTHER },
     { "plc_make_atom_cell", GC_RET_DESCR },
     { "plc_nil_cell", GC_RET_DESCR },
     { "plc_num_of_text", GC_RET_OTHER },
@@ -1331,6 +1334,28 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_get_code_s_c", GC_RET_DESCR },
     { "rt_pl_dop_get_edin", GC_RET_DESCR },
     { "rt_pl_dop_get_edin_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_absolute_file_name", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_absolute_file_name_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_builtin", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_builtin_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_character_count", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_character_count_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_keysort1", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_keysort1_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_last_read_start", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_last_read_start_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_line_count", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_line_count_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_line_position", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_line_position_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_msort1", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_msort1_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_prolog_file_name", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_prolog_file_name_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_sort1", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_sort1_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_stream_line_column", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_stream_line_column_c", GC_RET_DESCR },
     { "rt_pl_dop_goal_guard", GC_RET_DESCR },
     { "rt_pl_dop_goal_guard_c", GC_RET_OTHER },
     { "rt_pl_dop_halt", GC_RET_DESCR },
@@ -1558,6 +1583,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_pairs_keys_values_cell", GC_RET_OTHER },
     { "rt_pl_root_omega", GC_RET_VOID },
     { "rt_pl_sort_cell", GC_RET_OTHER },
+    { "rt_pl_sort_in_place_cell", GC_RET_OTHER },
     { "rt_pl_struct_alloc", GC_RET_OTHER },
     { "rt_pl_sub_atom_at_cell", GC_RET_OTHER },
     { "rt_pl_subsumes_cell", GC_RET_OTHER },

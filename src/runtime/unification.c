@@ -1460,6 +1460,45 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_inplace_cmp(int mode, pl_cell_t *vals, int a, int b) {
+    return mode == 2 ? rt_pl_cell_compare((pl_cell_t *)vals[a].p, (pl_cell_t *)vals[b].p) : rt_pl_cell_compare(&vals[a], &vals[b]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_sort_in_place_cell(int mode, void *list_cell)
+{
+    extern void *rt_wsb_alloc(size_t);
+    int dot_id = prolog_atom_intern("."); int n = 0, m = 0;
+    pl_cell_t *cur;
+    for (cur = pl_deref((pl_cell_t *)list_cell); cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2; cur = pl_deref(&((pl_cell_t *)cur->p)[1])) n++;
+    if (n == 0) return 1;
+    pl_cell_t **kids = (pl_cell_t **)rt_wsb_alloc((size_t)n * sizeof(pl_cell_t *));
+    pl_cell_t *vals = (pl_cell_t *)PL_CELL_ALLOC((size_t)n * sizeof(pl_cell_t));
+    int *ord = (int *)rt_wsb_alloc((size_t)n * sizeof(int)); int *tmp = (int *)rt_wsb_alloc((size_t)n * sizeof(int));
+    cur = pl_deref((pl_cell_t *)list_cell);
+    for (int i = 0; i < n; i++) {
+        pl_cell_t *d;
+        kids[i] = (pl_cell_t *)cur->p; d = pl_deref(&kids[i][0]);
+        vals[i] = pl_cell_unbound(d) ? pl_make_ref(d, (int)d->slen) : *d;
+        ord[i] = i; cur = pl_deref(&kids[i][1]);
+    }
+    for (int w = 1; w < n; w *= 2) {
+        for (int lo = 0; lo < n; lo += 2 * w) {
+            int mid = lo + w < n ? lo + w : n, hi = lo + 2 * w < n ? lo + 2 * w : n, a = lo, b = mid, k = lo;
+            while (a < mid && b < hi) tmp[k++] = plc_inplace_cmp(mode, vals, ord[a], ord[b]) <= 0 ? ord[a++] : ord[b++];
+            while (a < mid) tmp[k++] = ord[a++];
+            while (b < hi) tmp[k++] = ord[b++];
+        }
+        { int *t = ord; ord = tmp; tmp = t; }
+    }
+    for (int i = 0; i < n; i++) {
+        if (mode == 0 && m > 0 && rt_pl_cell_compare(&vals[ord[m - 1]], &vals[ord[i]]) == 0) continue;
+        ord[m++] = ord[i];
+    }
+    for (int i = 0; i < m; i++) kids[i][0] = vals[ord[i]];
+    if (m < n) kids[m - 1][1] = plc_nil_cell();
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_group_pairs_by_key_cell(void *list_cell, void *result_cell)
 {
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");

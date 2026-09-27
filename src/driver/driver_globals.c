@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <unistd.h>
 #include "driver_private.h"
 char g_script_exception[512] = "";
 int g_script_try_depth = 0;
@@ -30,6 +31,35 @@ void fh_set_repos(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh
 int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].repos?1:0; }
 void fh_set_eof(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].eof=(char)v; }
 int fh_eof(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].eof; }
+static void fh_pos_reset(int idx){ g_fh[idx].pos_off=0; g_fh[idx].pos_chars=0; g_fh[idx].pos_lines=0; g_fh[idx].pos_lpos=0; g_fh[idx].rd_line=0; g_fh[idx].rd_col=0; g_fh[idx].rd_last=0; }
+int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
+    fh_ensure_init();
+    if(idx<0||idx>=FH_MAX||!g_fh[idx].fp) return 0;
+    if(idx!=0&&g_fh[idx].mode!='r') return -1;
+    fh_slot_t *s=&g_fh[idx]; long off=ftell(s->fp); char buf[4096];
+    if(off<0) return -2;
+    if(off<s->pos_off){ s->pos_off=0; s->pos_chars=0; s->pos_lines=0; s->pos_lpos=0; }
+    while(s->pos_off<off){
+        size_t want=(size_t)(off-s->pos_off); if(want>sizeof buf) want=sizeof buf;
+        ssize_t got=pread(fileno(s->fp),buf,want,(off_t)s->pos_off);
+        if(got<=0) return -2;
+        for(ssize_t i=0;i<got;i++){ unsigned char c=(unsigned char)buf[i]; if((c&0xC0)==0x80) continue; s->pos_chars++; if(c=='\n'){ s->pos_lines++; s->pos_lpos=0; } else s->pos_lpos++; }
+        s->pos_off+=got; }
+    *chars=s->pos_chars; *lines=s->pos_lines; *lpos=s->pos_lpos;
+    return 1;
+}
+void fh_note_read_start(int idx) {
+    long c=0,l=0,p=0; int ok=fh_in_position(idx,&c,&l,&p);
+    for(int i=0;i<FH_MAX;i++) g_fh[i].rd_last=0;
+    if(idx<0||idx>=FH_MAX) return;
+    g_fh[idx].rd_line = ok==1 ? l+1 : 0; g_fh[idx].rd_col = ok==1 ? p : 0; g_fh[idx].rd_last=1;
+}
+int fh_last_read_start(long *line, long *col) {
+    fh_ensure_init();
+    for(int i=0;i<FH_MAX;i++) if(g_fh[i].rd_last){ *line=g_fh[i].rd_line; *col=g_fh[i].rd_col; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
     for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;g_fh[i].closed=0;g_fh[i].eof=0;return i;}
@@ -43,6 +73,7 @@ FILE *fh_get(int idx){
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){
+    if(fh_init&&idx>=3&&idx<FH_MAX) fh_pos_reset(idx);
     if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
 }
 int   fh_cur_in  = 0;
