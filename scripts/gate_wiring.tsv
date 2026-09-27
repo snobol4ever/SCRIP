@@ -927,3 +927,4 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
+test_gate_pas_a_name_is_a_char_array_only_where_its_char_array_declaration_is_visible.sh	WIRED	-	-	-
