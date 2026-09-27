@@ -44,7 +44,7 @@ S4E_SUITE_TABLE_LOCK_S=1 python3 "$B" --set "$k1" "$((t1-1))" "$t1" 2026-09-25 l
 mkdir -p "$T/home/.github" && cp "$T/SUITES.tsv" "$T/SCORE.md" "$T/home/.github/"
 rm -f "$T/held"; python3 -c 'import fcntl,os,sys,time; fd=os.open(sys.argv[1],os.O_RDONLY); fcntl.flock(fd,fcntl.LOCK_EX); open(sys.argv[2],"w").write("held"); time.sleep(6)' "$T/home/.github/SUITES.tsv" "$T/held" & waitheld || { echo "⛔ REFUSED(2): the lock holder never took the lock"; exit 2; }
 before="$(md5sum < "$T/home/.github/SCORE.md")"
-S4E_HOME="$T/home" S4E_SUITE_TABLE_LOCK_S=1 python3 "$R" write --lang icon --column vendor --suite IPL --text "fixture" --measurer coo --suite-pass 1 --suite-total 2 > "$T/r3.out" 2>&1; rc=$?
+S4E_HOME="$T/home" S4E_SUITE_TABLE_LOCK_S=1 python3 "$R" write --lang icon --column vendor --suite IPL --text "fixture" --measurer "${S4E_SEAT:-}" --suite-pass 1 --suite-total 2 > "$T/r3.out" 2>&1; rc=$?
 [ "$rc" = 2 ] && grep -q 'suite-table lock' "$T/r3.out" && [ "$(md5sum < "$T/home/.github/SCORE.md")" = "$before" ] \
   && ck ok "(3) util_score_row.py write refuses rc 2 under a held lock before it reads a byte -- it takes the lock first" || ck no "(3) util_score_row under a held lock: rc=$rc $(grep -m1 -v '^\s*$' "$T/r3.out" | cut -c1-160)"
 # (4) a writer's own child proceeds under its parent's hold
