@@ -74,7 +74,7 @@ static std::string pl_cold_call(const char * sym, void * fp, int narg, int argba
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_ok_store(int resoff) { return x86("def", L(PL_L_OK)) + x86("mov", FRQ(resoff), (long)DT_I) + x86("mov", FRQ(resoff + 8), (long)1) + x86_gamma(); }
-static std::string pl_fail_store(int resoff) { return x86("def", L(PL_L_FAIL)) + x86("mov", FRQ(resoff), (long)DT_FAIL) + x86_omega(); }
+static std::string pl_fail_store(int resoff) { return x86("def", L(PL_L_FAIL)) + x86("mov", FRQ(resoff), (long)DT_FAIL) + x86("mov", FRQ(resoff + 8), (long)0) + x86_omega(); }
 static std::string pl_tail() { return x86_gamma() + x86_beta() + x86_omega(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_ax(const char * op, int narg, int argbase, int resoff) {
