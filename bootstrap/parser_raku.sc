@@ -139,7 +139,7 @@ function rk_mem(nm, mk, k, r, e) {
 g_ws      = @rk_cur *rk_mem('g__ws', '');
 rk_termish = *g_termish;
 rk_EXPR_step = *g_ws *g_infixish *g_ws *rk_termish;
-rk_EXPR   = *rk_termish @rk_cur *rk_star(*rk_EXPR_step, FAIL, 0);
+rk_EXPR   = *rk_termish @rk_cur *rk_star(*rk_EXPR_step, FAIL, 0) (*g_ws ',' | epsilon);
 rk_lang_ws = FAIL;
 rk_lang_yx3d = FAIL;
 rk_m_maybe_typename = FAIL;

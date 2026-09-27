@@ -79,6 +79,8 @@ def parse_one(scrip, chain, prog, timeout):
     except subprocess.TimeoutExpired as e:
         text = ((e.stdout or b"") + (e.stderr or b"")).decode("utf-8", "replace")
         tag = "TIMEOUT %ss" % timeout
+    except OSError as e:
+        return "UNEXTRACTED", "could not run %s (%s): the program was not measured" % (scrip, e.strerror or e)
     first = ""
     for line in text.splitlines():
         if line.strip() and not SEQ.match(line):
