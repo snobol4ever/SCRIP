@@ -66,7 +66,7 @@ FILE *emit_outf(void) { return bb_emit_out ? bb_emit_out : stdout; }
 bb_buf_t   bb_emit_buf   = NULL;
 int        bb_emit_pos   = 0;
 int        bb_emit_size  = 0;
-bb_patch_t bb_patch_list[BB_PATCH_MAX];
+cv_t       bb_patch_list;
 int        bb_patch_count = 0;
 static bb_label_t ** g_label_pool      = NULL;
 static std::unordered_map<std::string, bb_label_t *> g_label_map;
@@ -149,8 +149,8 @@ int bb_emit_end(void)
                 bb_patch_count);
         for (int i = 0; i < bb_patch_count; i++)
             fprintf(stderr, "  site=%d label='%s'\n",
-                    bb_patch_list[i].site,
-                    bb_patch_list[i].label->name);
+                    CV_AT(bb_patch_list, bb_patch_t, i).site,
+                    CV_AT(bb_patch_list, bb_patch_t, i).label->name);
         abort();
     }
     return bb_emit_pos;
@@ -177,13 +177,8 @@ void bb_emit_patch_rel32(bb_label_t *lbl)
         bb_emit_i32(disp);
         return;
     }
-    if (bb_patch_count >= BB_PATCH_MAX) {
-        bb_emit_overflow = 1;
-        return;
-    }
-    bb_patch_list[bb_patch_count].site  = bb_emit_pos;
-    bb_patch_list[bb_patch_count].label = lbl;
-    bb_patch_list[bb_patch_count].kind  = PATCH_REL32;
+    cv_reserve(&bb_patch_list, (uint32_t)sizeof(bb_patch_t), (uint64_t)bb_patch_count + 1, "bb_patch_list");
+    { bb_patch_t * pp = &CV_AT(bb_patch_list, bb_patch_t, bb_patch_count); pp->site = bb_emit_pos; pp->label = lbl; pp->kind = PATCH_REL32; }
     bb_patch_count++;
     bb_emit_u32(0x00000000);
 }
@@ -193,10 +188,8 @@ void bb_emit_patch_abs64(bb_label_t *lbl)
     lbl = bb_label_fold(lbl);
     if (!MEDIUM_BINARY) { fprintf(stderr, "bb_emit_patch_abs64: TEXT-mode reach (target='%s')\n", lbl->name); abort(); }
     if (bb_label_defined(lbl)) { bb_emit_u64((uint64_t)(uintptr_t)(bb_emit_buf + lbl->offset)); return; }
-    if (bb_patch_count >= BB_PATCH_MAX) { bb_emit_overflow = 1; return; }
-    bb_patch_list[bb_patch_count].site  = bb_emit_pos;
-    bb_patch_list[bb_patch_count].label = lbl;
-    bb_patch_list[bb_patch_count].kind  = PATCH_ABS64;
+    cv_reserve(&bb_patch_list, (uint32_t)sizeof(bb_patch_t), (uint64_t)bb_patch_count + 1, "bb_patch_list");
+    { bb_patch_t * pp = &CV_AT(bb_patch_list, bb_patch_t, bb_patch_count); pp->site = bb_emit_pos; pp->label = lbl; pp->kind = PATCH_ABS64; }
     bb_patch_count++;
     bb_emit_u64(0);
 }
@@ -285,7 +278,7 @@ void bb_label_define(bb_label_t *lbl)
     lbl->offset = bb_emit_pos;
     { static int bm = -1; if (bm < 0) { const char *e = getenv("SCRIP_BLOB_MAP"); bm = (e && *e == '1') ? 1 : 0; } if (bm) fprintf(stderr, "BLOBMAP %p %s\n", (void *)(bb_emit_buf + bb_emit_pos), lbl->name); }
     for (int i = 0; i < bb_patch_count; i++) {
-        bb_patch_t *p = &bb_patch_list[i];
+        bb_patch_t *p = &CV_AT(bb_patch_list, bb_patch_t, i);
         if (p->label != lbl) continue;
         int target = lbl->offset;
         if (p->kind == PATCH_REL8) {
@@ -308,7 +301,7 @@ void bb_label_define(bb_label_t *lbl)
             bb_emit_buf[p->site + 2] = (uint8_t)(u >> 16);
             bb_emit_buf[p->site + 3] = (uint8_t)(u >> 24);
         }
-        bb_patch_list[i] = bb_patch_list[--bb_patch_count];
+        CV_AT(bb_patch_list, bb_patch_t, i) = CV_AT(bb_patch_list, bb_patch_t, --bb_patch_count);
         i--;
     }
 }
@@ -381,20 +374,21 @@ void xa_dispatch(XA_op_t op)
     default: return;
     }
 }
-#define SMX_STRTAB_CAP 8192
-static struct { const char *s; int idx; } g_strtab[SMX_STRTAB_CAP];
+typedef struct { const char *s; int idx; } strtab_ent_t;
+static cv_t g_strtab;
 static int g_strtab_n = 0;
+#define STRTAB(i) CV_AT(g_strtab, strtab_ent_t, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void strtab_reset(void) { for (int i = 0; i < g_strtab_n; i++) ct_drop((void *)g_strtab[i].s); g_strtab_n = 0; }
+void strtab_reset(void) { for (int i = 0; i < g_strtab_n; i++) ct_drop((void *)STRTAB(i).s); g_strtab_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int strtab_intern(const char *s)
 {
     if (!s) s = "";
     for (int i = 0; i < g_strtab_n; i++)
-        if (g_strtab[i].s == s || strcmp(g_strtab[i].s, s) == 0) return g_strtab[i].idx;
-    if (g_strtab_n >= SMX_STRTAB_CAP) { fprintf(stderr, "strtab overflow\n"); abort(); }
+        if (STRTAB(i).s == s || strcmp(STRTAB(i).s, s) == 0) return STRTAB(i).idx;
     int idx = g_strtab_n;
-    g_strtab[g_strtab_n].s = ct_strdup(s); g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
+    cv_reserve(&g_strtab, (uint32_t)sizeof(strtab_ent_t), (uint64_t)g_strtab_n + 1, "g_strtab");
+    STRTAB(g_strtab_n).s = ct_strdup(s); STRTAB(g_strtab_n).idx = idx; g_strtab_n++;
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -404,34 +398,35 @@ void strtab_label(char *buf, size_t bufsz, const char *s)
     int idx = strtab_intern(s);
     snprintf(buf, bufsz, ".S%d", idx);
 }
+static size_t rodata_chars_put(cv_t * chars, const char * t) { size_t n = strlen(t) + 1, off = chars->len; cv_reserve(chars, 1, (uint64_t)chars->len + n, "rodata_chars"); memcpy((char *)chars->p + off, t, n); chars->len += (uint32_t)n; return off; }
+static void rodata_chars_point(cv_t * chars, cv_t * offs) { for (uint32_t i = 0; i < offs->len; i++) CV_AT(*offs, const char *, i) = (const char *)chars->p + CV_AT(*offs, size_t, i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_emit_strtab_rodata(void)
 {
     if (g_strtab_n <= 0) { strtab_reset(); return; }
-    static const char *labels[SMX_STRTAB_CAP];
-    static std::string escbuf[SMX_STRTAB_CAP];
-    static const char *escaped[SMX_STRTAB_CAP];
-    static char        lblbuf[SMX_STRTAB_CAP][24];
+    static cv_t chars, labels, escaped;
+    chars.len = 0; labels.len = 0; escaped.len = 0;
     for (int i = 0; i < g_strtab_n; i++) {
-        snprintf(lblbuf[i], sizeof lblbuf[i], ".S%d:", g_strtab[i].idx);
-        labels[i]  = lblbuf[i];
-        escbuf[i]  = gas_escape_str(g_strtab[i].s ? g_strtab[i].s : "");
-        escaped[i] = escbuf[i].c_str();
+        char lb[24]; snprintf(lb, sizeof lb, ".S%d:", STRTAB(i).idx);
+        CV_PUSH(labels, size_t)  = rodata_chars_put(&chars, lb);
+        CV_PUSH(escaped, size_t) = rodata_chars_put(&chars, gas_escape_str(STRTAB(i).s ? STRTAB(i).s : "").c_str());
     }
+    rodata_chars_point(&chars, &labels); rodata_chars_point(&chars, &escaped);
     g_emit.xa_strtab_n       = g_strtab_n;
-    g_emit.xa_strtab_labels  = labels;
-    g_emit.xa_strtab_escaped = escaped;
+    g_emit.xa_strtab_labels  = (const char **)labels.p;
+    g_emit.xa_strtab_escaped = (const char **)escaped.p;
     xa_dispatch(XA_STRTAB_RODATA);
     g_emit.xa_strtab_n       = 0;
     g_emit.xa_strtab_labels  = NULL;
     g_emit.xa_strtab_escaped = NULL;
     strtab_reset();
 }
-#define SMX_CSETTAB_CAP 256
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_cset32(void) { static int _c = -1; if (_c < 0) { const char * e = getenv("SCRIP_CSET32"); _c = (e && *e == '1') ? 1 : 0; } return _c; }
-static struct { const char *s; int idx; unsigned char tbl[256]; unsigned char bits[32]; } g_csettab[SMX_CSETTAB_CAP];
+typedef struct { const char *s; int idx; unsigned char *tbl; unsigned char *bits; } csettab_ent_t;
+static cv_t g_csettab;
 static int g_csettab_n = 0;
+#define CSETTAB(i) CV_AT(g_csettab, csettab_ent_t, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void csettab_reset(void) { g_csettab_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -439,38 +434,36 @@ const void *csettab_label(char *buf, size_t bufsz, const char *cset)
 {
     if (!cset) cset = "";
     for (int i = 0; i < g_csettab_n; i++)
-        if (g_csettab[i].s == cset || strcmp(g_csettab[i].s, cset) == 0) { snprintf(buf, bufsz, ".C%d", g_csettab[i].idx); return sn4_cset32() ? (const void *)g_csettab[i].bits : (const void *)g_csettab[i].tbl; }
-    if (g_csettab_n >= SMX_CSETTAB_CAP) { fprintf(stderr, "csettab overflow\n"); abort(); }
+        if (CSETTAB(i).s == cset || strcmp(CSETTAB(i).s, cset) == 0) { snprintf(buf, bufsz, ".C%d", CSETTAB(i).idx); return sn4_cset32() ? (const void *)CSETTAB(i).bits : (const void *)CSETTAB(i).tbl; }
     int idx = g_csettab_n;
-    g_csettab[idx].s = cset; g_csettab[idx].idx = idx;
-    memset(g_csettab[idx].tbl, 0, 256); memset(g_csettab[idx].bits, 0, 32);
-    for (const unsigned char *p = (const unsigned char *)cset; *p; ++p) { g_csettab[idx].tbl[*p] = 1; g_csettab[idx].bits[*p >> 3] |= (unsigned char)(1u << (*p & 7)); }
+    cv_reserve(&g_csettab, (uint32_t)sizeof(csettab_ent_t), (uint64_t)g_csettab_n + 1, "g_csettab");
+    { unsigned char * pl = (unsigned char *)ct_zalloc(256 + 32, 1); CSETTAB(idx).s = cset; CSETTAB(idx).idx = idx; CSETTAB(idx).tbl = pl; CSETTAB(idx).bits = pl + 256; }
+    for (const unsigned char *p = (const unsigned char *)cset; *p; ++p) { CSETTAB(idx).tbl[*p] = 1; CSETTAB(idx).bits[*p >> 3] |= (unsigned char)(1u << (*p & 7)); }
     g_csettab_n++;
     snprintf(buf, bufsz, ".C%d", idx);
-    return sn4_cset32() ? (const void *)g_csettab[idx].bits : (const void *)g_csettab[idx].tbl;
+    return sn4_cset32() ? (const void *)CSETTAB(idx).bits : (const void *)CSETTAB(idx).tbl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_emit_csettab_rodata(void)
 {
     if (g_csettab_n <= 0) { csettab_reset(); return; }
-    static std::string rowbuf[SMX_CSETTAB_CAP];
-    static const char *rows[SMX_CSETTAB_CAP];
-    static const char *labels[SMX_CSETTAB_CAP];
-    static char        lblbuf[SMX_CSETTAB_CAP][24];
+    static cv_t chars, rows, labels;
+    chars.len = 0; rows.len = 0; labels.len = 0;
     for (int i = 0; i < g_csettab_n; i++) {
-        snprintf(lblbuf[i], sizeof lblbuf[i], ".C%d:", g_csettab[i].idx);
-        labels[i] = lblbuf[i];
+        char lb[24]; snprintf(lb, sizeof lb, ".C%d:", CSETTAB(i).idx);
+        CV_PUSH(labels, size_t) = rodata_chars_put(&chars, lb);
         std::string r;
-        if (sn4_cset32()) { for (int j = 0; j < 32; j += 16) { r += " .byte "; for (int k = 0; k < 16; k++) { r += std::to_string((int)g_csettab[i].bits[j + k]); r += (k < 15) ? "," : "\n"; } } }
+        if (sn4_cset32()) { for (int j = 0; j < 32; j += 16) { r += " .byte "; for (int k = 0; k < 16; k++) { r += std::to_string((int)CSETTAB(i).bits[j + k]); r += (k < 15) ? "," : "\n"; } } }
         else for (int j = 0; j < 256; j += 16) {
             r += " .byte ";
-            for (int k = 0; k < 16; k++) { r += std::to_string((int)g_csettab[i].tbl[j + k]); r += (k < 15) ? "," : "\n"; }
+            for (int k = 0; k < 16; k++) { r += std::to_string((int)CSETTAB(i).tbl[j + k]); r += (k < 15) ? "," : "\n"; }
         }
-        rowbuf[i] = r; rows[i] = rowbuf[i].c_str();
+        CV_PUSH(rows, size_t) = rodata_chars_put(&chars, r.c_str());
     }
+    rodata_chars_point(&chars, &labels); rodata_chars_point(&chars, &rows);
     g_emit.xa_csettab_n      = g_csettab_n;
-    g_emit.xa_csettab_labels = labels;
-    g_emit.xa_csettab_rows   = rows;
+    g_emit.xa_csettab_labels = (const char **)labels.p;
+    g_emit.xa_csettab_rows   = (const char **)rows.p;
     xa_dispatch(XA_CSETTAB_RODATA);
     g_emit.xa_csettab_n      = 0;
     g_emit.xa_csettab_labels = NULL;
@@ -572,9 +565,6 @@ static int emit_fb_bit_of(IR_t * nd);
 static int emit_fb_stmt_scan(IR_graph_t * g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_fb_divergence_check(void) { if (fbdiv_mode < 0) { const char * e = getenv("SCRIP_FB_DIVERGE"); fbdiv_mode = (e && *e == '1') ? 1 : 0; } if (!fbdiv_mode) return; if (!fbdiv_hooked) { fbdiv_hooked = 1; atexit(fbdiv_report); } if (emit_jmp_pin_legacy() == emit_rec_pin()) return; fbdiv_n++; fprintf(stderr, "FB-DIVERGE #%d graph=%s data_fb=%s rec_fb=%s deep=%d pat=%d gen=%d genproc=%d rescall=%d\n", fbdiv_n, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", emit_jmp_pin_legacy() ? "rsp" : "rsp", emit_rec_pin() ? "rsp" : "rsp", g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_gen_proc_active, g_resumable_callable_active); }
-#define FLAT_CHAIN_SET_MAX 512
-static IR_t *g_flat_chain_set[FLAT_CHAIN_SET_MAX];
-static int   g_flat_chain_set_n = 0;
 static bb_label_t *g_limit_gen_beta = NULL;
 static bb_label_t *g_scan_body_beta = NULL;
 static bb_label_t *g_create_body_entry = NULL;
@@ -588,7 +578,6 @@ const char *        g_match_advance_lbl  = NULL;
 struct bb_label_t * g_match_elem_p       = NULL;
 struct bb_label_t * g_match_advance_p    = NULL;
 #define FLAT_DATA_BUF_MAX     (32 * 1024)
-#define FLAT_DATA_LBL_MAX     32
 char   g_flat_data_buf[FLAT_DATA_BUF_MAX];
 size_t g_flat_data_len    = 0;
 static int    g_flat_data_active = 0;
@@ -600,10 +589,8 @@ const char *child_cache_get_lbl(bb_box_fn fn) { fprintf(stderr, "GROUND ZERO: %s
 int    g_flat_data_any    = 0;
 static int    g_flat_data_just_closed = 0;
 static char   g_flat_data_pending_lbl[160] = "";
-static char   g_flat_data_block_lbls[FLAT_DATA_LBL_MAX][96];
-static int    g_flat_data_block_nlbls = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void data_buf_reset(void) { g_flat_data_len = 0; g_flat_data_active = 0; g_flat_data_any = 0; g_flat_data_just_closed = 0; g_flat_data_block_nlbls = 0; g_flat_data_pending_lbl[0] = '\0'; }
+void data_buf_reset(void) { g_flat_data_len = 0; g_flat_data_active = 0; g_flat_data_any = 0; g_flat_data_just_closed = 0; g_flat_data_pending_lbl[0] = '\0'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void data_buf_appendf(const char *fmt, ...) {
     if (g_flat_data_len >= FLAT_DATA_BUF_MAX) return; va_list ap; va_start(ap, fmt);
@@ -1390,8 +1377,8 @@ extern IR_graph_t *  g_emit_cfg;
     g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=_fs__; g_emit.lbl_ω_p=_ff__; g_emit.lbl_β_p=(b); \
     walk_bb_node((nd), emit_outf()); } while(0)
 #define DRIVE_PAIR_RESET()      do { g_emit.xa_bb_emit_pair_n = 0; } while(0)
-#define DRIVE_PAIR_JMP(tgt)     do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=NULL; g_emit.xa_bb_emit_pair_jmp[_i]=(tgt); } while(0)
-#define DRIVE_PAIR_DEF_JMP(l,t) do { int _i=g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i]=(l); g_emit.xa_bb_emit_pair_jmp[_i]=(t); } while(0)
+#define DRIVE_PAIR_JMP(tgt)     do { xa_pair_push(NULL, (tgt)); } while(0)
+#define DRIVE_PAIR_DEF_JMP(l,t) do { xa_pair_push((l), (t)); } while(0)
 extern "C" void * rt_proc_get_fn(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int drive_value_slot(IR_t *nd) {
@@ -1491,7 +1478,6 @@ static void emit_parts_reserve(int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t *node_γ, bb_label_t *node_ω) {
     IR_t *nd = nodes[i]; int N = nd->n_operands;
-    if (N + 1 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_gate: node n%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, N, N + 1, XA_BB_EMIT_PAIR_MAX); abort(); }
     g_emit.xa_bb_emit_pair_n = 0;
     for (int j = 0; j < N; j++) {
         IR_t *arm = nd->operands[j];
@@ -1500,7 +1486,7 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
         bb_label_t *t = node_ω;
         if (rtgt && rtgt->op == IR_SUCCEED) t = node_γ;
         else if (rtgt && rtgt->op != IR_FAIL) { int k = nidx(nodes, n, rtgt); if (k >= 0) t = wantb ? betas[k] : lbls[k]; }
-        int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t;
+        xa_pair_push(NULL, t);
     }
     g_emit.op_off = drive_value_slot(nd);
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
@@ -1508,16 +1494,15 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t **na_fo, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω, bb_label_t *chain_ω) {
     IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;
-    if (3 * N + 3 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_match_alt: node n%d op=%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, (int)nd->op, N, 3 * N + 3, XA_BB_EMIT_PAIR_MAX); abort(); }
     g_emit.xa_bb_emit_pair_n = 0;
-    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; { int k = nidx(nodes, n, e); if (k >= 0) { t = lbls[k]; } } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
-    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; { int k = nidx(nodes, n, r); if (k >= 0) { t = betas[k]; } } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_fo[i];    if (nd->op == IR_DISJUNCTION && r == nd) t = na_fo[i];    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
-    { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
-    { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
-    if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1; for (int k = 0; k < n; k++) { if (_s0 && nodes[k] == _s0) _i0 = k; if (_t && nodes[k] == _t) _i1 = k; } if (_i0 > _i1) { int _sw = _i0; _i0 = _i1; _i1 = _sw; } if (_i0 >= 0) for (int k = _i1; k >= _i0; k--) if (nodes[k] && nodes[k] != nd && nodes[k]->γ.node == nd) { _t = nodes[k]; break; } }    bb_label_t *_tb = node_ω; for (int k = 0; k < n; k++) if (_t && nodes[k] == _t) { _tb = betas[k]; break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = _tb; }
+    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; { int k = nidx(nodes, n, e); if (k >= 0) { t = lbls[k]; } } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;    xa_pair_push(NULL, t); }
+    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; { int k = nidx(nodes, n, r); if (k >= 0) { t = betas[k]; } } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_fo[i];    if (nd->op == IR_DISJUNCTION && r == nd) t = na_fo[i];    xa_pair_push(NULL, t); }
+    { xa_pair_push(na_s[i], NULL); }
+    { xa_pair_push(na_f[i], NULL); }
+    if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1; for (int k = 0; k < n; k++) { if (_s0 && nodes[k] == _s0) _i0 = k; if (_t && nodes[k] == _t) _i1 = k; } if (_i0 > _i1) { int _sw = _i0; _i0 = _i1; _i1 = _sw; } if (_i0 >= 0) for (int k = _i1; k >= _i0; k--) if (nodes[k] && nodes[k] != nd && nodes[k]->γ.node == nd) { _t = nodes[k]; break; } }    bb_label_t *_tb = node_ω; for (int k = 0; k < n; k++) if (_t && nodes[k] == _t) { _tb = betas[k]; break; } xa_pair_push(NULL, _tb); }
     if (nd->op == IR_MATCH_ALTERNATE && fc_sig && fc_sig[i])
-        for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
-    { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_fo[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
+        for (int j = 0; j < N; j++) { xa_pair_push(fc_sig[i][j], NULL); }
+    { xa_pair_push(na_fo[i], NULL); }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { emit_parts_reserve(N); for (int j = 0; j < N; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
     if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }    int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }
@@ -1683,8 +1668,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_frame_extra = emit_match_begin_frame_extra(nd);
         DRIVE_PAIR_RESET();
-        if (g_emit.lbl_t0_p) { for (int _q = 0; _q < 3; _q++) { int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = NULL; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; } int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = g_emit.lbl_t0_p; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; g_emit.lbl_t0_p = NULL; g_emit.lbl_t0 = NULL;
-          int _zo = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_zo] = g_emit.lbl_t0o_p; g_emit.xa_bb_emit_pair_jmp[_zo] = NULL; g_emit.lbl_t0o_p = NULL; }
+        if (g_emit.lbl_t0_p) { for (int _q = 0; _q < 3; _q++) { xa_pair_push(NULL, NULL); } xa_pair_push(g_emit.lbl_t0_p, NULL); g_emit.lbl_t0_p = NULL; g_emit.lbl_t0 = NULL;
+          xa_pair_push(g_emit.lbl_t0o_p, NULL); g_emit.lbl_t0o_p = NULL; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_END: {
@@ -3459,7 +3444,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int st_first_seen = 0;
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **bxs   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
-    for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     g_suspend_resume_slot = -1;
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { g_suspend_resume_slot = g_emit_cfg->resume_slot; break; }
@@ -3533,7 +3517,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (_sz && g_is_text) {
               if (_bx_open >= 0) emit_textf(".size %s, .-%s\n", bxs[_bx_open]->name, bxs[_bx_open]->name);
               emit_textf(".type %s, @function\n%s:\n", bxs[i]->name, bxs[i]->name); _bx_open = i; } }
-        if (g_emit.flat_stmt_frame && st_pre[i]) { g_emit.xa_bb_emit_pair_n = 2; g_emit.xa_bb_emit_pair_define[0] = st_x[i]; g_emit.xa_bb_emit_pair_jmp[0] = NULL; g_emit.xa_bb_emit_pair_define[1] = st_pre[i]; g_emit.xa_bb_emit_pair_jmp[1] = NULL; g_emit.op_fc_bytes = 0; bb_emit_x86((st_x[i] ? x86_deflabel_pair(0) + bb_glue_framed_leave() : std::string()) + x86_deflabel_pair(1) + bb_glue_framed_enter()); }
+        if (g_emit.flat_stmt_frame && st_pre[i]) { g_emit.xa_bb_emit_pair_n = 0; xa_pair_push(st_x[i], NULL); xa_pair_push(st_pre[i], NULL); g_emit.op_fc_bytes = 0; bb_emit_x86((st_x[i] ? x86_deflabel_pair(0) + bb_glue_framed_leave() : std::string()) + x86_deflabel_pair(1) + bb_glue_framed_enter()); }
         { static int _beo = -1; if (_beo < 0) { const char *_e = getenv("SCRIP_BETA_ELIDE_OFF"); _beo = (_e && _e[0] == '1') ? 1 : 0; } g_emit.op_beta_dead = (_beo || bused[i]) ? 0 : 1; }
         g_emit.op_wpop = 0;
         { extern int zls_off(const IR_t *); extern int zls_result_off(const IR_t *); extern int zls_node_bytes(const IR_t *); int _zo = zls_off(nodes[i]); int _zr = zls_result_off(nodes[i]);
@@ -4154,7 +4138,6 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);
     g_bb_slotmap_n = 0; g_bb_slotix_gen++;
-    g_flat_chain_set_n = 0;
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }
     { extern void zop_audit_graph_close(void); zop_audit_graph_close(); g_emit.zop_seen = 0; }
     g_emit.flat_all_zd = 0;
@@ -4187,10 +4170,9 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > flat_cap) {
         extern int bb_emit_pos; extern int bb_patch_count;
-        fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%d patches=%d/%d — %s\n",
-                prefix ? prefix : "", bb_emit_overflow, nbytes, bb_emit_pos, flat_cap, bb_patch_count, BB_PATCH_MAX,
-                (bb_emit_pos >= flat_cap) ? "flat_cap exceeded (graph too large for the 1MB flat buffer)" :
-                (bb_patch_count >= BB_PATCH_MAX) ? "BB_PATCH_MAX exceeded" : "empty or invalid emission");
+        fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%d patches=%d — %s\n",
+                prefix ? prefix : "", bb_emit_overflow, nbytes, bb_emit_pos, flat_cap, bb_patch_count,
+                (bb_emit_pos >= flat_cap) ? "flat_cap exceeded (graph too large for the 1MB flat buffer)" : "empty or invalid emission");
         bb_free(buf, flat_cap); return NULL;
     }
     bb_seal(buf, (size_t)nbytes);

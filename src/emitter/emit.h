@@ -9,6 +9,7 @@ extern "C" {
 #include "rt/rt_arena.h"
 #include "bb_pool.h"
 #include "IR.h"
+#include "ct_vec.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -52,9 +53,9 @@ static inline void bb_label_name_set(char * dst, const char * src) {
 }
 #define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
-#define BB_PATCH_MAX   65536
 typedef enum { PATCH_REL8, PATCH_REL32, PATCH_ABS64 } bb_patch_kind_t;
 typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; } bb_patch_t;
+typedef struct { struct bb_label_t * define; struct bb_label_t * jmp; } xa_pair_t;
 typedef int emitter_t;
 extern bb_emit_mode_t  bb_emit_mode;
 extern int             g_sm_native_unsupported;
@@ -62,7 +63,7 @@ extern FILE          * bb_emit_out;
 extern bb_buf_t        bb_emit_buf;
 extern int             bb_emit_pos;
 extern int             bb_emit_size;
-extern bb_patch_t      bb_patch_list[BB_PATCH_MAX];
+extern cv_t            bb_patch_list;
 extern int             bb_patch_count;
 extern int             g_is_text;
 extern int             g_emit_text_mode;
@@ -453,9 +454,7 @@ typedef struct {
     const char *                 xa_cap_varname_lbl;
     int                          xa_cap_immediate;
     int                          xa_pat_blob_invariant_n;
-#define XA_BB_EMIT_PAIR_MAX 1024
-    struct bb_label_t *          xa_bb_emit_pair_define[XA_BB_EMIT_PAIR_MAX];
-    struct bb_label_t *          xa_bb_emit_pair_jmp[XA_BB_EMIT_PAIR_MAX];
+    cv_t                         xa_bb_emit_pair;
     int                          xa_bb_emit_pair_n;
     int                          x86_uid;
     const char *                 x86_uid_kind;
@@ -540,6 +539,8 @@ typedef struct {
     int                          pl_trace_atexit;
 } sm_emit_t;
 extern sm_emit_t g_emit;
+#define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))
+static inline void xa_pair_push(struct bb_label_t * d, struct bb_label_t * j) { cv_reserve(&g_emit.xa_bb_emit_pair, (uint32_t)sizeof(xa_pair_t), (uint64_t)g_emit.xa_bb_emit_pair_n + 1, "xa_bb_emit_pair"); xa_pair_t * e = &XA_PAIR(g_emit.xa_bb_emit_pair_n); e->define = d; e->jmp = j; g_emit.xa_bb_emit_pair_n++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph; }
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }

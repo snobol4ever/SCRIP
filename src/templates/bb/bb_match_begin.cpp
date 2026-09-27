@@ -78,8 +78,8 @@ std::string bb_match_begin() {
          + x86("jne", L(1))
          + x86("jmp", L(0))
          + x86("def", L(1))
-         + IF(g_emit.xa_bb_emit_pair_n >= 4 && g_emit.xa_bb_emit_pair_define[3] != NULL, x86("def", PAIR(3)))
-         + IF(g_emit.xa_bb_emit_pair_n >= 5 && g_emit.xa_bb_emit_pair_define[4] != NULL, x86("def", PAIR(4)))
+         + IF(g_emit.xa_bb_emit_pair_n >= 4 && XA_PAIR(3).define != NULL, x86("def", PAIR(3)))
+         + IF(g_emit.xa_bb_emit_pair_n >= 5 && XA_PAIR(4).define != NULL, x86("def", PAIR(4)))
          + IF(({ static int _bg3 = -1; if (_bg3 < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg3 = (e && *e == '0') ? 0 : 1; } _bg3; }),
                x86("note", "mbc_restore")
              + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")

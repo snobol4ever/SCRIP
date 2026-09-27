@@ -2080,10 +2080,12 @@ inline std::string x86_jmp_through_fn_cell(const char * label, uint64_t cell) {
          + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]); }
+inline std::string x86_pair_idx_bytes(int idx) { std::string r; for (int j = 0; j < 4; j++) r += (char)(unsigned char)(((unsigned)idx) >> (8 * j)); return r; }
+inline int x86_pair_idx_read(const std::string & s, size_t & i) { unsigned v = 0; for (int j = 0; j < 4; j++) v |= ((unsigned)(unsigned char)s[i++]) << (8 * j); return (int)v; }
+inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(XA_PAIR(idx).jmp ? XA_PAIR(idx).jmp : XA_PAIR(idx).define); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pair_jmp(int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r; }
     return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2091,29 +2093,29 @@ inline std::string x86_pair_loop() {
     std::string r;
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, g_emit.xa_bb_emit_pair_define[i]->name); }
-            if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
+            if (XA_PAIR(i).define) { r += (char)'E'; r += x86_pair_idx_bytes(i); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
+            if (XA_PAIR(i).jmp)    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
         } else {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, g_emit.xa_bb_emit_pair_define[i]->name); }
-            if (g_emit.xa_bb_emit_pair_jmp[i])    r += x86_rec("jmp") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
+            if (XA_PAIR(i).define) { r += emit_fmt("%s:\n", XA_PAIR(i).define->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
+            if (XA_PAIR(i).jmp)    r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n";
         }
     }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel_pair(int idx) {
-    const char * pnm = g_emit.xa_bb_emit_pair_define[idx] ? g_emit.xa_bb_emit_pair_define[idx]->name : "??";
-    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += (char)(unsigned char)idx; r += x86_port_canary(); r += x86_port_hook(X86H_DEF_PAIR, X86P_BETA, pnm); return r; }
+    const char * pnm = XA_PAIR(idx).define ? XA_PAIR(idx).define->name : "??";
+    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += x86_pair_idx_bytes(idx); r += x86_port_canary(); r += x86_port_hook(X86H_DEF_PAIR, X86P_BETA, pnm); return r; }
     return emit_fmt("%s:\n", pnm) + x86_port_canary() + x86_port_hook(X86H_DEF_PAIR, X86P_BETA, pnm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_pair(int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r; }
     return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_pair(const char * mnem, int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r; }
     return x86_rec(mnem) + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2218,8 +2220,8 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'J') { int id = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_label_for(id, internal)); }
         else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal)); }
         else if (tag == 'Q') { int id = (unsigned char)s[i++]; bb_emit_patch_abs64(x86_label_for(id, internal)); }
-        else if (tag == 'E') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_define[idx]) bb_label_define(g_emit.xa_bb_emit_pair_define[idx]); }
-        else if (tag == 'F') { int idx = (unsigned char)s[i++]; bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
+        else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); if (XA_PAIR(idx).define) bb_label_define(XA_PAIR(idx).define); }
+        else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
         else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_label_define((bb_label_t *)(uintptr_t)v); }
         else break;
@@ -2230,7 +2232,7 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
 extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);
 extern "C" int g_gc_pending;
-inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k; } else if (t == 'J' || t == 'F') { i += 1; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D' || t == 'E') { i += 1; } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else return -1; } return n; }
+inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k; } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4; } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else return -1; } return n; }
 inline std::string x86_gc_gate(const std::string & body) {
     std::string test = x86("push", "rax") + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", "eax", RDD("rax", 0)) + x86("test", "eax", "eax") + x86("pop", "rax");
     if (!MEDIUM_BINARY) return test + x86("directive", "\tje 1f") + body + x86("directive", "1:");
