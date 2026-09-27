@@ -3604,52 +3604,58 @@ PL_CX_LEAF_HEAD(gnu_stream_line_column, 3) { long c, l, p;
 PL_CX_LEAF_HEAD(gnu_last_read_start, 2) { extern int fh_last_read_start(long *, long *); long l = 0, c = 0; (void)fh_last_read_start(&l, &c);
     ok = plw_unify_vals(args[0], INTVAL(l), cx) && plw_unify_vals(args[1], INTVAL(c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_gnu_abs_path(const char *src, char *out, size_t cap) {
-    char a[4096]; size_t k = 0, o = 0; int add_slash;
-    for (const char *p = src; *p; ) {
-        if (*p == '$') { const char *q = p + 1; char nm[256]; size_t j = 0; const char *v;
-            while ((isalnum((unsigned char)*q) || *q == '_') && j + 1 < sizeof nm) nm[j++] = *q++;
-            nm[j] = 0; v = j ? getenv(nm) : (const char *)0;
-            if (v) { size_t L = strlen(v); if (k + L >= sizeof a) return 0; memcpy(a + k, v, L); k += L; p = q; continue; } }
-        if (k + 1 >= sizeof a) return 0;
-        a[k++] = *p++; }
-    a[k] = 0;
-    if (a[0] == '~' && (a[1] == '/' || a[1] == 0)) { const char *h = getenv("HOME"); char t[4096]; if (!h || strlen(h) + k + 2 >= sizeof t) return 0;
-        snprintf(t, sizeof t, "%s/%s", h, a + 1); k = strlen(t); memcpy(a, t, k + 1); }
-    else if (a[0] == '~') return 0;
-    if (!strcmp(a, "user")) { if (cap < 5) return 0; memcpy(out, "user", 5); return 1; }
-    if (!a[0]) return 0;
-    add_slash = a[k - 1] == '/';
-    if (a[0] != '/') { char cwd[4096], t[4096]; if (!getcwd(cwd, sizeof cwd) || strlen(cwd) + k + 2 >= sizeof t) return 0;
-        snprintf(t, sizeof t, "%s/%s", cwd, a); k = strlen(t); memcpy(a, t, k + 1); }
-    for (size_t i = 0; i < k; ) {
-        size_t j = i; while (j < k && a[j] == '/') j++;
-        size_t e = j; while (e < k && a[e] != '/') e++;
+static char *pl_gnu_cat3(const char *x, const char *y, const char *z) {
+    size_t lx = strlen(x), ly = strlen(y), lz = strlen(z); char *o = (char *)rt_wsb_alloc(lx + ly + lz + 1);
+    memcpy(o, x, lx); memcpy(o + lx, y, ly); memcpy(o + lx + ly, z, lz); o[lx + ly + lz] = 0; return o;
+}
+static char *pl_gnu_cwd(void) {
+    for (size_t n = 256; n < ((size_t)1 << 30); n *= 2) { char *b = (char *)rt_wsb_alloc(n); if (getcwd(b, n)) return b; if (errno != ERANGE) return (char *)0; }
+    return (char *)0;
+}
+static char *pl_gnu_abs_path(const char *src) {
+    size_t need = 1, k = 0; char *a = (char *)0, *out; size_t o = 0, n; int add_slash;
+    for (int pass = 0; pass < 2; pass++) {
+        if (pass) { a = (char *)rt_wsb_alloc(need); k = 0; }
+        for (const char *p = src; *p; ) {
+            if (*p == '$') { const char *q = p + 1; while (isalnum((unsigned char)*q) || *q == '_') q++;
+                if (q > p + 1) { char *nm = (char *)rt_wsb_alloc((size_t)(q - p)); const char *v; memcpy(nm, p + 1, (size_t)(q - p - 1)); nm[q - p - 1] = 0;
+                    if ((v = getenv(nm))) { size_t L = strlen(v); if (pass) memcpy(a + k, v, L); k += L; if (!pass) need += L; p = q; continue; } } }
+            if (pass) a[k] = *p; k++; if (!pass) need++; p++; }
+        if (pass) a[k] = 0; }
+    if (a[0] == '~' && (a[1] == '/' || a[1] == 0)) { const char *h = getenv("HOME"); if (!h) return (char *)0; a = pl_gnu_cat3(h, "/", a + 1); }
+    else if (a[0] == '~') return (char *)0;
+    if (!strcmp(a, "user")) return a;
+    if (!a[0]) return (char *)0;
+    add_slash = a[strlen(a) - 1] == '/';
+    if (a[0] != '/') { char *cwd = pl_gnu_cwd(); if (!cwd) return (char *)0; a = pl_gnu_cat3(cwd, "/", a); }
+    n = strlen(a); out = (char *)rt_wsb_alloc(n + 2);
+    for (size_t i = 0; i < n; ) {
+        size_t j = i; while (j < n && a[j] == '/') j++;
+        size_t e = j; while (e < n && a[e] != '/') e++;
         if (e == j) break;
         if (e - j == 1 && a[j] == '.') { i = e; continue; }
-        if (e - j == 2 && a[j] == '.' && a[j + 1] == '.') { if (o == 0) return 0; while (o > 0 && out[o - 1] != '/') o--; if (o > 0) o--; i = e; continue; }
-        if (o + (e - j) + 2 >= cap) return 0;
+        if (e - j == 2 && a[j] == '.' && a[j + 1] == '.') { if (o == 0) return (char *)0; while (o > 0 && out[o - 1] != '/') o--; if (o > 0) o--; i = e; continue; }
         out[o++] = '/'; memcpy(out + o, a + j, e - j); o += e - j; i = e; }
     if (o == 0) out[o++] = '/'; else if (add_slash) out[o++] = '/';
-    out[o] = 0; return 1;
+    out[o] = 0; return out;
 }
 PL_CX_LEAF_HEAD(gnu_absolute_file_name, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
-    char nb[4096], ab[4096]; const char *nm; DESCR_t f = rt_pl_deref_val(args[0]); ok = 0;
+    DESCR_t f = rt_pl_deref_val(args[0]); const char *nm = pl_atom_str(f); char *ab; ok = 0;
     if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
-    else if (!pl_atom_str(f) || !pl_cell_text(args[0], nb, sizeof nb, &nm)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
-    else if (!pl_gnu_abs_path(nm, ab, sizeof ab)) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
+    else if (!nm) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+    else if (!(ab = pl_gnu_abs_path(nm))) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
     else ok = plw_unify_vals(args[1], pl_mk_atom_dup(ab, strlen(ab)), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_prolog_file_name, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
     const char *const sfx[] = { ".pl", ".pro", ".prolog", 0 };
-    char nb[4096], ab[4096], cand[4200]; const char *nm, *base, *use = ".pl"; DESCR_t f = rt_pl_deref_val(args[0]); ok = 0;
+    DESCR_t f = rt_pl_deref_val(args[0]); const char *nm = pl_atom_str(f), *base, *use = ".pl"; char *ab, *cand; ok = 0;
     if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
-    else if (!pl_atom_str(f) || !pl_cell_text(args[0], nb, sizeof nb, &nm)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
-    else if (!pl_gnu_abs_path(nm, ab, sizeof ab)) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
+    else if (!nm) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+    else if (!(ab = pl_gnu_abs_path(nm))) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
     else if (!strcmp(ab, "user") || strchr((base = strrchr(ab, '/')) ? base : ab, '.')) ok = plw_unify_vals(args[1], f, cx);
-    else { for (int i = 0; sfx[i]; i++) { snprintf(cand, sizeof cand, "%s%s", ab, sfx[i]); if (!access(cand, F_OK)) { use = sfx[i]; break; } }
-        snprintf(cand, sizeof cand, "%s%s", nm, use); ok = plw_unify_vals(args[1], pl_mk_atom_dup(cand, strlen(cand)), cx); } } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(gnu_builtin, 2) { extern int pl_pi_is_builtin(const char *, int); char nb[512]; const char *nm; DESCR_t a = rt_pl_deref_val(args[1]);
-    ok = a.v == (DTYPE_t)DT_I && pl_atom_str(rt_pl_deref_val(args[0])) && pl_cell_text(args[0], nb, sizeof nb, &nm) && nm && pl_pi_is_builtin(nm, (int)a.i); } PL_CX_LEAF_TAIL
+    else { for (int i = 0; sfx[i]; i++) if (!access(pl_gnu_cat3(ab, sfx[i], ""), F_OK)) { use = sfx[i]; break; }
+        cand = pl_gnu_cat3(nm, use, ""); ok = plw_unify_vals(args[1], pl_mk_atom_dup(cand, strlen(cand)), cx); } } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_builtin, 2) { extern int pl_pi_is_builtin(const char *, int); DESCR_t a = rt_pl_deref_val(args[1]); const char *nm = pl_atom_str(rt_pl_deref_val(args[0]));
+    ok = a.v == (DTYPE_t)DT_I && nm && pl_pi_is_builtin(nm, (int)a.i); } PL_CX_LEAF_TAIL
 static int pl_op_spec_ok(const char *t) { static const char *const k[] = { "xfx", "xfy", "yfx", "fy", "fx", "yf", "xf", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(t, k[i])) return 1; return 0; }
 static const char *pl_op_name(DESCR_t d) { return pl_is_nil(d) ? "[]" : pl_atom_str(d); }
 PL_CX_LEAF_HEAD(op, 3) { extern int prolog_op_table_add(const char *, int, const char *); extern int prolog_op_permission(const char *, int, const char *);

@@ -36,12 +36,12 @@ int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
     fh_ensure_init();
     if(idx<0||idx>=FH_MAX||!g_fh[idx].fp) return 0;
     if(idx!=0&&g_fh[idx].mode!='r') return -1;
-    fh_slot_t *s=&g_fh[idx]; long off=ftell(s->fp); char buf[4096];
+    fh_slot_t *s=&g_fh[idx]; long off=ftell(s->fp);
     if(off<0) return -2;
     if(off<s->pos_off){ s->pos_off=0; s->pos_chars=0; s->pos_lines=0; s->pos_lpos=0; }
     while(s->pos_off<off){
-        size_t want=(size_t)(off-s->pos_off); if(want>sizeof buf) want=sizeof buf;
-        ssize_t got=pread(fileno(s->fp),buf,want,(off_t)s->pos_off);
+        size_t want=(size_t)(off-s->pos_off); if(want>65536) want=65536;
+        char buf[want]; ssize_t got=pread(fileno(s->fp),buf,want,(off_t)s->pos_off);
         if(got<=0) return -2;
         for(ssize_t i=0;i<got;i++){ unsigned char c=(unsigned char)buf[i]; if((c&0xC0)==0x80) continue; s->pos_chars++; if(c=='\n'){ s->pos_lines++; s->pos_lpos=0; } else s->pos_lpos++; }
         s->pos_off+=got; }

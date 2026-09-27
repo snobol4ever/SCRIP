@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1805
+#define GC_ALLOC_TAB_N 1808
 #define GC_ALLOC_TAB_N_VOID 206
 #define GC_ALLOC_TAB_N_DESCR 1020
-#define GC_ALLOC_TAB_N_OTHER 573
+#define GC_ALLOC_TAB_N_OTHER 576
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -761,6 +761,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_store", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
     { "pl_format_body", GC_RET_OTHER },
+    { "pl_gnu_abs_path", GC_RET_OTHER },
+    { "pl_gnu_cat3", GC_RET_OTHER },
+    { "pl_gnu_cwd", GC_RET_OTHER },
     { "pl_gnu_position", GC_RET_OTHER },
     { "pl_goal_body_conv_ball", GC_RET_OTHER },
     { "pl_goal_key_live", GC_RET_OTHER },
