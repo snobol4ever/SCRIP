@@ -1272,40 +1272,38 @@ static int pl_word_referenced(const char *src, const char *w) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_tree_collect_calls(tree_t *t, char names[][96], int *nn, int cap) {
+static int pl_cv_has(const cv_t *v, const char *s) {
+    for (uint32_t i = 0; i < v->len; i++) if (!strcmp(CV_AT(*v, char *, i), s)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_cv_add(cv_t *v, const char *s) { if (!pl_cv_has(v, s)) CV_PUSH(*v, char *) = ct_strdup(s); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pl_pred_key(const char *nm, int ar) { size_t l = strlen(nm) + 16; char *k = (char *)ct_alloc(l); snprintf(k, l, "%s/%d", nm, ar); return k; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_tree_collect_calls(const tree_t *t, cv_t *names) {
     if (!t) return;
-    if ((t->t == TT_FNC || t->t == TT_QLIT) && t->v.sval) {
-        int seen = 0;
-        for (int i = 0; i < *nn; i++) if (!strcmp(names[i], t->v.sval)) { seen = 1; break; }
-        if (!seen && *nn < cap) { snprintf(names[*nn], 96, "%s", t->v.sval); (*nn)++; }
-    }
-    for (int i = 0; i < t->n; i++) pl_tree_collect_calls(t->c[i], names, nn, cap);
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_cv_add(names, t->v.sval);
+    for (int i = 0; i < t->n; i++) pl_tree_collect_calls(t->c[i], names);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
-    char user_defined[512][96];
-    int nud = 0;
+    cv_t user_defined = { 0 }, referenced = { 0 }, wanted = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
-        if (pl_clause_key(cl, &nm, &ar) && nm && nud < 512) { snprintf(user_defined[nud], 96, "%s/%d", nm, ar); nud++; }
+        if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
+        if (cl->tr) pl_tree_collect_calls(cl->tr, &referenced);
     }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
-    char wanted[256][96];
-    int nwant = 0;
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
         if (nm[0] == '$') continue;
-        if (!pl_word_referenced(user_src, nm)) continue;
-        char key[96]; snprintf(key, 96, "%s/%d", nm, ar);
-        int is_user = 0;
-        for (int i = 0; i < nud; i++) if (!strcmp(user_defined[i], key)) { is_user = 1; break; }
-        if (is_user) continue;
-        int seen = 0;
-        for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], key)) { seen = 1; break; }
-        if (!seen && nwant < 256) { snprintf(wanted[nwant], 96, "%s/%d", nm, ar); nwant++; }
+        if (!pl_cv_has(&referenced, nm) && !pl_word_referenced(user_src, nm)) continue;
+        char *key = pl_pred_key(nm, ar);
+        if (!pl_cv_has(&user_defined, key)) pl_cv_add(&wanted, key);
     }
     int changed = 1;
     while (changed) {
@@ -1313,23 +1311,16 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         for (PlClause *cl = pre->head; cl; cl = cl->next) {
             const char *nm; int ar;
             if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
-            char key[96]; snprintf(key, 96, "%s/%d", nm, ar);
-            int in_want = 0;
-            for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], key)) { in_want = 1; break; }
-            if (!in_want) continue;
-            char calls[64][96]; int ncalls = 0;
-            if (cl->tr && cl->tr->n > 1 && cl->tr->c[1]) pl_tree_collect_calls(cl->tr->c[1], calls, &ncalls, 64);
-            for (int ci = 0; ci < ncalls; ci++) {
+            if (!pl_cv_has(&wanted, pl_pred_key(nm, ar))) continue;
+            cv_t calls = { 0 };
+            if (cl->tr && cl->tr->n > 1 && cl->tr->c[1]) pl_tree_collect_calls(cl->tr->c[1], &calls);
+            for (uint32_t ci = 0; ci < calls.len; ci++) {
                 for (PlClause *d = pre->head; d; d = d->next) {
                     const char *dn; int dar;
                     if (!pl_clause_key(d, &dn, &dar) || !dn) continue;
-                    if (strcmp(dn, calls[ci])) continue;
-                    char dk[96]; snprintf(dk, 96, "%s/%d", dn, dar);
-                    int have = 0;
-                    for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], dk)) { have = 1; break; }
-                    int du = 0;
-                    for (int i = 0; i < nud; i++) if (!strcmp(user_defined[i], dk)) { du = 1; break; }
-                    if (!have && !du && nwant < 256) { snprintf(wanted[nwant], 96, "%s/%d", dn, dar); nwant++; changed = 1; }
+                    if (strcmp(dn, CV_AT(calls, char *, ci))) continue;
+                    char *dk = pl_pred_key(dn, dar);
+                    if (!pl_cv_has(&wanted, dk) && !pl_cv_has(&user_defined, dk)) { pl_cv_add(&wanted, dk); changed = 1; }
                 }
             }
         }
@@ -1338,11 +1329,7 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     for (PlClause *cl = pre->head; cl; cl = nextc) {
         nextc = cl->next;
         const char *nm; int ar;
-        int keep = 0;
-        if (pl_clause_key(cl, &nm, &ar) && nm) {
-            char key[96]; snprintf(key, 96, "%s/%d", nm, ar);
-            for (int i = 0; i < nwant; i++) if (!strcmp(wanted[i], key)) { keep = 1; break; }
-        }
+        int keep = pl_clause_key(cl, &nm, &ar) && nm && pl_cv_has(&wanted, pl_pred_key(nm, ar));
         if (keep) { cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
     }
     ct_drop(pre);
