@@ -7,6 +7,7 @@
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "rk_tree.h"
+#include "rk_syntax.h"
 #include "rk_opname.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { tree_t **v; int n, cap; } TL;
@@ -663,6 +664,18 @@ static RkClosure *closure_at(RkClosure *cl, int ncl, int pos) { for (int i = 0; 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *closure_expr(RkB *b, RkClosure *c) { if (!c) return leaf_sval(TT_QLIT, ""); return rkb_paren(b, c->last, c->cnt); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dq_named_chars(SB *buf, const char *p, int n) {
+    int start = buf->n, k = 0;
+    while (k < n) {
+        int e = k; while (e < n && p[e] != ',') e++;
+        const char *seq = rk_uniname_seq(p + k, e - k);
+        if (seq) { while (*seq) { char *x; unsigned long v = strtoul(seq, &x, 10); sb_cp(buf, v); seq = *x == ',' ? x + 1 : x; } }
+        else { unsigned v = rk_uniname_cp(p + k, e - k); if (!v) { buf->n = start; return 0; } sb_cp(buf, v); }
+        k = e + 1;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
     const char *s = b->s; SB buf = { 0 };
     typedef struct { int at; int pos; } Mk;
@@ -686,6 +699,12 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
                 }
             }
             if (d == 'x' && i + 2 < to && ishex(s[i + 2])) { int j = i + 2; while (j < to && ishex(s[j])) j++; sb_cp(&buf, strtoul(spn(b, i + 2, j), NULL, 16)); i = j; continue; }
+            if (d == 'c' && i + 2 < to && s[i + 2] == '[') {
+                int j = i + 3; while (j < to && s[j] != ']') j++;
+                if (j < to && dq_named_chars(&buf, s + i + 3, j - i - 3)) { i = j + 1; continue; }
+            }
+            if (d == 'c' && i + 2 < to && isdigit((unsigned char) s[i + 2])) { int j = i + 2; while (j < to && isdigit((unsigned char) s[j])) j++; sb_cp(&buf, strtoul(spn(b, i + 2, j), NULL, 10)); i = j; continue; }
+            if (d == 'c' && i + 2 < to && strchr("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_?", s[i + 2])) { sb_cp(&buf, s[i + 2] == '?' ? 127u : (unsigned) (s[i + 2] ^ 0x40)); i += 3; continue; }
             if (d == 'b') { sb_c(&buf, '\b'); i += 2; continue; }
             if (d == 'r') { sb_c(&buf, '\r'); i += 2; continue; }
             if (d == 'a') { sb_c(&buf, '\a'); i += 2; continue; }

@@ -496,7 +496,30 @@ static unsigned uniname_cp(const char *s, int n) {
     buf[k] = 0;
     if (digits) return (unsigned) strtoul(buf, NULL, 10);
     const RkUniName *u = (const RkUniName *) bsearch(buf, rk_uninames, sizeof rk_uninames / sizeof *rk_uninames, sizeof *rk_uninames, uniname_cmp);
-    return u ? (unsigned) u->cp : 0;
+    if (u) return (unsigned) u->cp;
+    static const char *const alg[] = { "CJK UNIFIED IDEOGRAPH-", "CJK COMPATIBILITY IDEOGRAPH-", "TANGUT IDEOGRAPH-", "KHITAN SMALL SCRIPT CHARACTER-", "NUSHU CHARACTER-", 0 };
+    for (int i = 0; alg[i]; i++) {
+        size_t l = strlen(alg[i]);
+        if (strncmp(buf, alg[i], l) || !buf[l]) continue;
+        char *e; unsigned long v = strtoul(buf + l, &e, 16);
+        return *e ? 0 : (unsigned) v;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+unsigned rk_uniname_cp(const char *s, int n) { return uniname_cp(s, n); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int uniseq_cmp(const void *a, const void *b) { return strcmp((const char *) a, ((const RkUniSeq *) b)->name); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rk_uniname_seq(const char *s, int n) {
+    while (n > 0 && *s == ' ') { s++; n--; }
+    while (n > 0 && s[n - 1] == ' ') n--;
+    if (n <= 0) return NULL;
+    char *buf = (char *) ct_alloc((size_t) n + 1);
+    for (int i = 0; i < n; i++) buf[i] = (char) (s[i] >= 'a' && s[i] <= 'z' ? s[i] - 32 : s[i]);
+    buf[n] = 0;
+    const RkUniSeq *q = (const RkUniSeq *) bsearch(buf, rk_uniseqs, sizeof rk_uniseqs / sizeof *rk_uniseqs, sizeof *rk_uniseqs, uniseq_cmp);
+    return q ? q->cps : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {

@@ -6,8 +6,10 @@
 #   setting, so the table is cut from the oracle (/usr/bin/raku), never typed: every non-sigiled CORE:: symbol two
 #   package levels deep (four under X::, where roast names deep exception types; enum values included, enum stashes
 #   not recursed), every CORE routine (&-sigiled) name, the names and routines a `use v6.e.PREVIEW` program's CORE
-#   adds (rk_core_e_*, each led by "" so no table is empty), the Unicode name of every symbol and punctuation
-#   character (rk_uninames, sorted, for \c[NAME] in an operator's name), and every routine `use Test` imports (the
+#   adds (rk_core_e_*, each led by "" so no table is empty), the Unicode name of every character and every
+#   name alias Rakudo resolves (rk_uninames, sorted, for \c[NAME] in a string or an operator's name; the algorithmic
+#   ideograph families NAME-HEX are decoded in code, not listed) and every named sequence (rk_uniseqs, name -> code
+#   points), and every routine `use Test` imports (the
 #   undeclared-routine check resolves a bare call against them, as Rakudo's explain_mystery does). The whole word
 #   Term is written \124erm (octal T): the
 #   Term word-ref ratchet (test_gate_term_wordref_ratchet.sh) counts Prolog's Term representation, and Rakudo's
@@ -44,7 +46,13 @@ EOF
 "$RAKU" "$T/names.raku" 2>/dev/null | LC_ALL=C sort -u > "$T/names.txt"
 "$RAKU" -e 'say $_ for CORE::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u > "$T/routines.txt"
 "$RAKU" -e 'use Test; say $_ for MY::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u > "$T/test.txt"
-"$RAKU" -e 'for 0x21..0x10FFFF -> $c { my $u = $c.chr; next unless $u.uniprop ~~ /^<[SP]>/; my $n = $u.uniname; next if $n.starts-with("<"); say "$n\t$c" }' 2>/dev/null | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -u > "$T/uninames.txt"
+"$RAKU" -e 'for 0x1..0x10FFFF -> $c { next if 0xD800 <= $c <= 0xDFFF; my $n = $c.uniname; next if $n.starts-with("<"); next if $n ~~ /^["CJK UNIFIED IDEOGRAPH" | "CJK COMPATIBILITY IDEOGRAPH" | "TANGUT IDEOGRAPH" | "KHITAN SMALL SCRIPT CHARACTER" | "NUSHU CHARACTER"] "-" <xdigit>+ $/; say "$n\t$c" }' 2>/dev/null | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -u > "$T/uninames_real.txt"
+# aliases and named sequences, each resolved by Rakudo's own uniparse (a real name wins over an alias, as in Rakudo)
+{ grep -v '^#' /usr/share/unicode/NameAliases.txt 2>/dev/null | cut -d';' -f2; grep -v '^#' /usr/share/unicode/NamedSequences.txt 2>/dev/null | cut -d';' -f1; } | grep -v '^\s*$' | LC_ALL=C sort -u > "$T/aliases_in.txt"
+"$RAKU" -e 'for $*IN.lines -> $n { my $r = try $n.uniparse; next unless $r.defined; say "$n\t" ~ $r.ords.join(",") }' < "$T/aliases_in.txt" 2>/dev/null > "$T/aliases.txt"
+cut -f1 "$T/uninames_real.txt" > "$T/real_keys.txt"
+awk -F'\t' 'NR==FNR { real[$1]=1; next } !($1 in real) && $2 !~ /,/' "$T/real_keys.txt" "$T/aliases.txt" | cat "$T/uninames_real.txt" - | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -u > "$T/uninames.txt"
+awk -F'\t' 'NR==FNR { real[$1]=1; next } !($1 in real) && $2 ~ /,/' "$T/real_keys.txt" "$T/aliases.txt" | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -u > "$T/uniseqs.txt"
 { echo 'use v6.e.PREVIEW;'; cat "$T/names.raku"; } > "$T/names_e.raku"
 "$RAKU" "$T/names_e.raku" 2>/dev/null | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$T/names.txt" > "$T/names_e.txt"
 "$RAKU" -e 'use v6.e.PREVIEW; say $_ for CORE::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$T/routines.txt" > "$T/routines_e.txt"
@@ -70,9 +78,14 @@ EOF
     echo "static const RkUniName rk_uninames[] = {"
     awk -F'\t' '{ printf "    { \"%s\", %s },\n", $1, $2 }' "$T/uninames.txt"
     echo "};"
+    echo "typedef struct { const char *name; const char *cps; } RkUniSeq;"
+    echo "static const RkUniSeq rk_uniseqs[] = {"
+    echo '    { "", "" },'
+    awk -F'\t' '{ printf "    { \"%s\", \"%s\" },\n", $1, $2 }' "$T/uniseqs.txt"
+    echo "};"
     echo "static const char *const rk_test_routines[] = {"
     sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/test.txt"
     echo "};"
     echo "#endif"
 } > "$OUT"
-echo "rk_core_names.h: $(wc -l < "$T/names.txt") names, $(wc -l < "$T/routines.txt") routines, $(wc -l < "$T/test.txt") Test routines, $(wc -l < "$T/names_e.txt")+$(wc -l < "$T/routines_e.txt") 6.e additions, $(wc -l < "$T/uninames.txt") symbol names, cut from $("$RAKU" --version | head -1)"
+echo "rk_core_names.h: $(wc -l < "$T/names.txt") names, $(wc -l < "$T/routines.txt") routines, $(wc -l < "$T/test.txt") Test routines, $(wc -l < "$T/names_e.txt")+$(wc -l < "$T/routines_e.txt") 6.e additions, $(wc -l < "$T/uninames.txt") character names and aliases, $(wc -l < "$T/uniseqs.txt") named sequences, cut from $("$RAKU" --version | head -1)"

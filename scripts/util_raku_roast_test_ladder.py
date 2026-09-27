@@ -463,9 +463,10 @@ def cmd_grade(a):
         m = mirror_of(roast, td)
         probe = Path(td) / "probe.raku"
         probe.write_text("say 1;\n")
-        p = subprocess.run([str(SCRIP), str(probe)], capture_output=True, stdin=subprocess.DEVNULL, timeout=30)
+        p = subprocess.run([a.scrip, str(probe)], capture_output=True, stdin=subprocess.DEVNULL, timeout=30)
         if p.returncode != 0 or p.stdout.decode().strip() != "1":
             refuse("scrip cannot run `say 1;`")
+        rt = Path(a.scrip).resolve().parent / "out"
 
         def tapset(out):
             return {int(t.group(2)) for t in map(TAPL.match, out.splitlines()) if t and not t.group(1) and not t.group(4)}
@@ -484,13 +485,13 @@ def cmd_grade(a):
             unit = dst.with_name(dst.stem + "__prefix.raku")
             unit.write_text("\n".join(pre) + "\n" + closers(pre) + "\n")
             ur = str(unit.relative_to(m))
-            got = {"m3": tapset(runout([str(SCRIP), ur], str(m)))}
+            got = {"m3": tapset(runout([a.scrip, ur], str(m)))}
             if a.m4:
                 base = Path(td) / rel.replace("/", "_")
                 s_, o_, b_ = str(base) + ".s", str(base) + ".o", str(base) + ".bin"
-                ok = subprocess.run(NICE + [str(SCRIP), "--compile", ur, "-o", s_], cwd=str(m), stdin=subprocess.DEVNULL, capture_output=True).returncode == 0
+                ok = subprocess.run(NICE + [a.scrip, "--compile", ur, "-o", s_], cwd=str(m), stdin=subprocess.DEVNULL, capture_output=True).returncode == 0
                 ok = ok and subprocess.run(["gcc", "-c", s_, "-o", o_], capture_output=True).returncode == 0
-                ok = ok and subprocess.run(["gcc", o_, "-o", b_, f"-L{RT}", "-lscrip_rt", "-lm", f"-Wl,-rpath,{RT}"], capture_output=True).returncode == 0
+                ok = ok and subprocess.run(["gcc", o_, "-o", b_, f"-L{rt}", "-lscrip_rt", "-lm", f"-Wl,-rpath,{rt}"], capture_output=True).returncode == 0
                 got["m4"] = tapset(runout([b_], str(m))) if ok else set()
             if a.oracle_check:
                 got["rakudo"] = tapset(runout([RAKU, ur], str(m)))
@@ -499,17 +500,23 @@ def cmd_grade(a):
             got = dict(ex.map(one, files))
     modes = ["m3"] + (["m4"] if a.m4 else [])
     per = collections.defaultdict(lambda: [0, 0])
-    cursor, unsure = None, 0
+    cursor, unsure, verdicts = None, 0, []
     for r in sorted(rows, key=lambda r: (int(r[0]), r[1], int(r[3]))):
         k, n = int(r[0]), int(r[3])
         if a.oracle_check and n not in got[r[1]]["rakudo"]:
             unsure += 1
             continue
         passed = all(n in got[r[1]][md] for md in modes)
+        verdicts.append((r[1], n, k, int(passed)))
         per[k][1] += 1
         per[k][0] += passed
         if not passed and cursor is None:
             cursor = r
+    if a.tsv:
+        with open(a.tsv, "w") as f:
+            f.write("rel\tn\trung\tpass\n")
+            for v in verdicts:
+                f.write("\t".join(map(str, v)) + "\n")
     tp, tt = sum(v[0] for v in per.values()), sum(v[1] for v in per.values())
     extra = f" prefix_changed_rakudo={unsure}" if a.oracle_check else ""
     print(f"ROAST_TEST_LADDER --to {a.to} modes={'+'.join(modes)} units(files)={len(files)} tests={tt} pass={tp} ({100.0 * tp / max(tt, 1):.2f}%){extra}")
@@ -539,6 +546,8 @@ def main():
     g.add_argument("--m4", action="store_true")
     g.add_argument("--show", type=int, default=40)
     g.add_argument("--oracle-check", action="store_true")
+    g.add_argument("--tsv")
+    g.add_argument("--scrip", default=str(SCRIP))
     a = ap.parse_args()
     if getattr(a, "jobs", None) is not None:
         a.jobs = a.jobs or fanout_width()
