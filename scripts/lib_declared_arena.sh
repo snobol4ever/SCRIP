@@ -526,3 +526,33 @@ declared_workhorse_beside() {
   [ -n "$stdin" ] || { echo "⛔ REFUSE(2) declared_workhorse_beside: $side declares no stdin line (a file beside the program, or - for none)" >&2; return 2; }
   printf 'stdin=%s scale=%s argv=%s\n' "$stdin" "$scale" "$argv"
 }
+
+# declared_clib_beside <program> <package_root> -- THE C LIBRARY A PROGRAM LOADS (hq_icon 2026-09-27, Arizona general/cfuncs under
+# CEO-1336): the <stem>.clib sidecar is one line, "<libname>.so <dir>", <dir> relative to <package_root>, a vendored C-source
+# directory (every *.c in it, the headers beside them). The library is built once per content hash -- gcc -shared -fPIC, the
+# distribution's own mklib.sh line -- into a per-user cache, its undefined symbols left to the loading process (libscrip_rt.so
+# exports the iconx internals the C interface binds). Echoes the directory holding <libname>.so, which the runner puts on FPATH
+# as ". <dir>" -- the value iconx exports for its own bin, where the distribution's build of the same sources lives. Nothing and
+# rc 0 when there is no sidecar; rc 2 on a malformed line, a name that is not lib*.so, an absolute path or a .. component, a
+# directory with no *.c, or a build that fails -- ⛔ a library that cannot be built is a refusal, never a skip.
+declared_clib_beside() {
+  local prog="$1" root="${2:-}" side line lib dir src h cache so extra
+  side="${prog%.*}.clib"
+  [ -n "$prog" ] && [ -f "$side" ] || return 0
+  [ -n "$root" ] && [ -d "$root" ] || { echo "⛔ REFUSE(2) declared_clib_beside: $side needs a package root to resolve against (got '$root')" >&2; return 2; }
+  [ "$(grep -c . "$side")" = 1 ] || { echo "⛔ REFUSE(2) declared_clib_beside: $side must be exactly one line, '<libname>.so <dir>'" >&2; return 2; }
+  read -r lib dir extra < "$side"
+  [ -n "$lib" ] && [ -n "$dir" ] && [ -z "$extra" ] || { echo "⛔ REFUSE(2) declared_clib_beside: $side line is not '<libname>.so <dir>'" >&2; return 2; }
+  case "$lib" in lib*.so) ;; *) echo "⛔ REFUSE(2) declared_clib_beside: $side names '$lib', not lib*.so" >&2; return 2 ;; esac
+  case "$lib" in */*) echo "⛔ REFUSE(2) declared_clib_beside: $side library name '$lib' carries a path" >&2; return 2 ;; esac
+  case "$dir" in /*|..|../*|*/..|*/../*) echo "⛔ REFUSE(2) declared_clib_beside: $side names '$dir' -- a path relative to the package, no .. component" >&2; return 2 ;; esac
+  src="$root/$dir"
+  compgen -G "$src/*.c" >/dev/null || { echo "⛔ REFUSE(2) declared_clib_beside: $side names '$dir', which holds no *.c under $root" >&2; return 2; }
+  h="$(cat "$src"/*.c "$src"/*.h 2>/dev/null | sha1sum | cut -c1-12)"
+  cache="${TMPDIR:-/tmp}/scrip-clib-$(id -u)/$h"; so="$cache/$lib"
+  if [ ! -f "$so" ]; then
+    mkdir -p "$cache" && gcc -shared -fPIC -O0 -I"$src" -o "$so.tmp.$$" "$src"/*.c 2>"$cache/build.err" && mv -f "$so.tmp.$$" "$so" \
+      || { echo "⛔ REFUSE(2) declared_clib_beside: $lib from $dir did not build: $(head -c 300 "$cache/build.err")" >&2; rm -f "$so.tmp.$$"; return 2; }
+  fi
+  printf '%s\n' "$cache"
+}

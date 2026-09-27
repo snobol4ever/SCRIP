@@ -268,7 +268,12 @@ for std in "$SUITE"/*.ref; do
   # ucode (icont cannot see an untranslated .icn beside the program), so the suite first on IPATH linked the older shipped options.icn
   # and turned ilib red in both modes at 6850da706 (hq_icon's bisect, line 169 "a:1 b:1 c:-" for "abc:-").
   _ipath=(); case "$name" in *_driver) _ipath=(env "IPATH=$SUITE${IPATH:+:$IPATH}") ;; esac
-  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run $_ca "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  # ⛔ A PROGRAM THAT LOADS C DECLARES ITS LIBRARY (hq_icon 2026-09-27, general/cfuncs under CEO-1336): iconx exports FPATH=". <its bin>"
+  # into every program, and its bin holds the distribution's build of ipl/cfuncs, so pathload(LIB, ...) finds libcfunc.so there. A
+  # <stem>.clib sidecar names the vendored sources; declared_clib_beside (lib_declared_arena.sh, the one reader) builds them and the run
+  # gets FPATH=". <that directory>" in both modes -- the same search iconx makes. No sidecar, no FPATH: every other program runs as before.
+  _fp=(); _clib="$(declared_clib_beside "$SUITE/$name.icn" "$PKG")" || exit 2; [ -n "$_clib" ] && _fp=(env "FPATH=. $_clib")
+  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run $_ca "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
@@ -307,7 +312,7 @@ for std in "$SUITE"/*.ref; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" $_ARENA_PFX timeout "$TIMEOUT" "$name" < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$name" < "$stdin_file" 2>&1); m4rc=$?
       m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi
