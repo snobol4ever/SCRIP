@@ -72,7 +72,7 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     scan_depth++;
-    if (scan_saved_depth > scan_depth - 1) scan_saved_depth = scan_depth - 1;
+    if (scan_saved_depth > scan_depth - 1) { for (int i = scan_depth - 1; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) scan_saved[i].subj = (const char *)0; scan_saved_depth = scan_depth - 1; }
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
@@ -118,7 +118,8 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_le
 void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
     if (scan_depth > 0) {
         scan_depth--;
-        if (scan_depth < SCAN_STACK_MAX) { scan_saved[scan_depth].subj = scan_subj; scan_saved[scan_depth].pos = scan_pos; scan_saved[scan_depth].len = rt_scan_subj_len(); }
+        if (scan_depth < SCAN_STACK_MAX) { scan_saved[scan_depth].subj = scan_depth < scan_saved_depth ? scan_subj : (const char *)0;
+            scan_saved[scan_depth].pos = scan_pos; scan_saved[scan_depth].len = rt_scan_subj_len(); }
     }
     scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
     scan_pos  = (int)outer_delta + 1;

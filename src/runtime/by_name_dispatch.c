@@ -948,6 +948,7 @@ void bnd_gc_roots(void)
     extern void rt_gc_visit_raw(const char **);
     for (int gi = 0; gi < gram_n && gi < GRAMMAR_MAX; gi++) { if (gram_reg[gi].qname) rt_gc_visit_raw(&gram_reg[gi].qname); if (gram_reg[gi].body) rt_gc_visit_raw(&gram_reg[gi].body); }
     for (int rd = 0; rd < g_redisp_top && rd < 64; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); for (int k = 0; k < g_redisp[rd].nargs && k < 16; k++) rt_gc_visit_descr(&g_redisp[rd].args[k]); }
+    { extern void rt_main_args_gc_root(void); rt_main_args_gc_root(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) {
@@ -6200,6 +6201,7 @@ void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_
 const char *rt_main_progname(void) { return g_main_progname ? g_main_progname : ""; }
 void rt_main_args_bind(void) { extern DESCR_t g_call_args[]; if (g_main_args_descr.v == DT_DATA) return; if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0); g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n); if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }
 DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_main_args_descr; }
+void rt_main_args_gc_root(void) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr(&g_main_args_descr); }
 int rt_main_args_count(void) { return g_main_args_n < 0 ? 0 : g_main_args_n; }
 const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_main_args_n && g_main_args_v) ? g_main_args_v[i] : (const char *)0; }
 extern int junction_is(DESCR_t v);
