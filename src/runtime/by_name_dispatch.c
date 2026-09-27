@@ -10,6 +10,7 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 #include "snobol4_system_fns.h"
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
+#include "rk_case_table.h"
 int core_icn_error(int code, DESCR_t val);
 void rt_pl_iso_throw_existence_key(const char *key);
 extern int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
@@ -683,6 +684,53 @@ static const char *rk_list_as_str(const char *s) {
     size_t n = strlen(s); char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = s[i] == SOH ? ' ' : s[i]; r[n] = '\0'; return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned rk_utf8_cp(const unsigned char *p, size_t n, size_t *len) {
+    if (p[0] < 0xC0 || n < 2) { *len = 1; return p[0]; }
+    size_t k = p[0] >= 0xF0 ? 4 : p[0] >= 0xE0 ? 3 : 2; if (k > n) { *len = 1; return p[0]; }
+    unsigned c = p[0] & (0x7Fu >> k);
+    for (size_t i = 1; i < k; i++) c = (c << 6) | (p[i] & 0x3Fu);
+    *len = k; return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_case_cmp(const void *k, const void *e) { unsigned a = *(const unsigned *)k, b = ((const RkCase *)e)->cp; return a < b ? -1 : a > b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_case_one(unsigned cp, int m) {
+    const RkCase *e = (const RkCase *)bsearch(&cp, rk_case, sizeof rk_case / sizeof *rk_case, sizeof *rk_case, rk_case_cmp);
+    if (!e) return NULL;
+    return m == 1 ? e->uc : m == 2 ? e->lc : m == 3 ? e->tc : e->fc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_wordish(unsigned cp) {
+    if (cp < 0x80) return isalnum((int)cp) || cp == '_';
+    if (cp >= 0x2000 && cp <= 0x206F) return 0;
+    if (cp >= 0x3000 && cp <= 0x303F) return 0;
+    return cp >= 0xC0 && cp != 0xD7 && cp != 0xF7;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *rk_case_str(const char *s, size_t n, int mfirst, int mrest, int words) {
+    size_t need = 0;
+    for (int pass = 0; pass < 2; pass++) {
+        char *r = pass ? (char *)rt_str_alloc(need) : NULL; size_t o = 0; int inw = 0;
+        for (size_t i = 0; i < n; ) {
+            size_t L; unsigned cp = rk_utf8_cp((const unsigned char *)s + i, n - i, &L); int m;
+            if (words) {
+                size_t L2 = 0; unsigned nx = i + L < n ? rk_utf8_cp((const unsigned char *)s + i + L, n - i - L, &L2) : 0;
+                int letter = rk_wordish(cp) && !(cp < 0x80 && isdigit((int)cp)) && cp != '_';
+                if (!inw && letter) { m = 3; inw = 1; }
+                else if (inw && (rk_wordish(cp) || ((cp == '\'' || cp == '-') && nx && rk_wordish(nx)))) m = 2;
+                else { m = 0; inw = 0; }
+            } else m = i == 0 ? mfirst : mrest;
+            const char *rep = m ? rk_case_one(cp, m) : NULL;
+            size_t rl = rep ? strlen(rep) : L;
+            if (pass) memcpy(r + o, rep ? rep : s + i, rl);
+            o += rl; i += L;
+        }
+        if (pass) { r[o] = '\0'; return r; }
+        need = o;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
@@ -705,16 +753,16 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         r[op] = '\0'; *out = rk_a_seal(r, nel > 0); return 1;
     }
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
-    if (!strcmp(meth, "uc")) { char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) {
-        char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1;
+    if (!strcmp(meth, "uc")) { *out = STRVAL(rk_case_str(s, n, 1, 1, 0)); return 1; }
+    if (!strcmp(meth, "lc")) { *out = STRVAL(rk_case_str(s, n, 2, 2, 0)); return 1; }
+    if (!strcmp(meth, "fc")) { *out = STRVAL(rk_case_str(s, n, 4, 4, 0)); return 1; }
+    if (!strcmp(meth, "tc")) { *out = STRVAL(rk_case_str(s, n, 3, 0, 0)); return 1; }
+    if (!strcmp(meth, "tclc")) { *out = STRVAL(rk_case_str(s, n, 3, 2, 0)); return 1; }
+    if (!strcmp(meth, "flip")) {
+        char *r = (char *)rt_str_alloc(n); size_t o = n;
+        for (size_t i = 0; i < n; ) { size_t L; rk_utf8_cp((const unsigned char *)s + i, n - i, &L); o -= L; memcpy(r + o, s + i, L); i += L; }
+        r[n] = '\0'; *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "tc")) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "tclc")) {
-        char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]);
-        *out = STRVAL(r); return 1;
-    }
-    if (!strcmp(meth, "flip")) { char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "trim")) {
         size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)rt_str_alloc(b - a);
         memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
@@ -728,14 +776,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         size_t b = n; for (long k = 0; k < cnt && b > 0; k++) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
         char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "wordcase")) {
-        char *r = (char *)rt_str_alloc(n); int inw = 0;
-        for (size_t i = 0; i < n; i++) { unsigned char c = (unsigned char)s[i];
-            if (!inw && isalpha(c)) { r[i] = (char)toupper(c); inw = 1; }
-            else if (inw && (isalnum(c) || c == '_' || ((c == '\'' || c == '-') && i + 1 < n && isalpha((unsigned char)s[i + 1])))) r[i] = (char)tolower(c);
-            else { r[i] = (char)c; inw = 0; } }
-        r[n] = '\0'; *out = STRVAL(r); return 1;
-    }
+    if (!strcmp(meth, "wordcase")) { *out = STRVAL(rk_case_str(s, n, 0, 0, 1)); return 1; }
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
