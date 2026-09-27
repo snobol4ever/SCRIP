@@ -60,6 +60,7 @@ static lc_vec g_icn_reassigned; static const tree_t * g_icn_reassigned_prog = NU
 static int icn_name_assigned(const char * nm) { if (!nm) return 0; for (int k = 0; k < g_icn_reassigned.n; k++) if (!strcmp(LC_AT(&g_icn_reassigned, const char *, k), nm)) return 1; return 0; }
 static int icn_proc_reassigned(const char * nm) { return nm && icn_is_proc(nm) && icn_name_assigned(nm); }
 static int icn_is_icon_function(const char * nm);
+#define ICN_IF_FROM_INITIAL 0x1417
 static void icn_reassigned_walk(const tree_t * n) {
     if (!n) return;
     if (n->t == TT_STMT) { icn_reassigned_walk(stmt_subj(n)); return; }
@@ -882,7 +883,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) lc_vec_push(&Sv, &s); }
         const tree_t ** S = (const tree_t **) Sv.data; int k = Sv.n;
         if (k == 0) { IR_t * nv = build(cx, IR_VAR, γ, ω); IR_LIT(nv).sval = (char *) "&null"; *res = nv; return nv; }
-        if (k == 1) return lower(cx, S[0], γ, ω, res);
+        if (k == 1 && (t->v.ival != ICN_IF_FROM_INITIAL || (S[0]->line <= 0 && t->line <= 0))) return lower(cx, S[0], γ, ω, res);
+        if (k == 1) {
+            long ln = (S[0]->line > 0) ? S[0]->line : t->line;
+            IR_t * e1 = lower(cx, S[0], γ, ω, res);
+            e1 = cx->want_lines ? icn_line_hook(cx, ln, e1) : icn_line_mark(cx, ln, e1);
+            return icn_trace_stmt_wrap(cx, ln, e1, ω);
+        }
         IR_t * SEQX = build(cx, IR_CONJUNCTION, γ, ω);
         IR_t ** val = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
         if (t->t == TT_SEQ_EXPR) {
@@ -1658,7 +1665,8 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
             entry = tramp;
         }
         if (entry && sline > 0) entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry);
-        if (entry && sline > 0 && s->t != TT_LOCAL && s->t != TT_STATIC_DECL && s->t != TT_INITIAL) entry = icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
+        if (entry && sline > 0 && s->t != TT_LOCAL && s->t != TT_STATIC_DECL && s->t != TT_INITIAL && !(s->t == TT_IF && s->v.ival == ICN_IF_FROM_INITIAL))
+            entry = icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
         succ = entry; fail = entry;
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
@@ -1713,12 +1721,17 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
             { const char * fc = f; lc_vec_push(&g_icn_synth_excl, &fc); }
             tree_t * fv = ast_node_new(TT_VAR); fv->v.sval = f;
             tree_t * nz = ast_node_new(TT_NULL); ast_push(nz, fv);
+            tree_t * fv2 = ast_node_new(TT_VAR); fv2->v.sval = f;
             tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
-            tree_t * asn = ast_node_new(TT_ASSIGN); ast_push(asn, nz); ast_push(asn, one);
+            tree_t * asn = ast_node_new(TT_ASSIGN); ast_push(asn, fv2); ast_push(asn, one);
             tree_t * child = (st->n > 0) ? st->c[0] : NULL;
-            st->t = TT_IF; st->n = 0;
-            ast_push(st, asn);
-            if (child) ast_push(st, child); else { tree_t * s1 = ast_node_new(TT_ILIT); s1->v.ival = 1; ast_push(st, s1); }
+            if (!child) { child = ast_node_new(TT_ILIT); child->v.ival = 1; child->line = st->line; }
+            if (child->t != TT_SEQ_EXPR) { tree_t * sq = ast_node_new(TT_SEQ_EXPR); sq->line = (child->line > 0) ? child->line : st->line; ast_push(sq, child); child = sq; }
+            child->v.ival = ICN_IF_FROM_INITIAL;
+            tree_t * body = ast_node_new(TT_CONJ); ast_push(body, asn); ast_push(body, child);
+            st->t = TT_IF; st->n = 0; st->v.ival = ICN_IF_FROM_INITIAL;
+            ast_push(st, nz);
+            ast_push(st, body);
         }
     }
 }

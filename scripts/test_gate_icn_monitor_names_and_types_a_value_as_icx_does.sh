@@ -9,7 +9,10 @@
 #   (3) a set went on the wire as MWT_TABLE (SCRIP keeps a set as a table block with is_set) where icx sends MWT_DATA;
 #   (4) a procedure value (p := write, q := proc("*", 2)) went on the wire as MWT_EXPRESSION -- SCRIP keeps it as a DT_E with the
 #       procedure-value marker -- where icx sends MWT_CODE (hq_icon 2026-09-26: it was the FIRST divergence of every bracket that
-#       assigns a procedure value, cured or not, e.g. IPL procname's witnesses, so it hid the real one behind it).
+#       assigns a procedure value, cured or not, e.g. IPL procname's witnesses, so it hid the real one behind it);
+#   (5) an initial clause: its flag went on the wire as VALUE <lval> = 1 (the rewrite assigned it through /flag := 1) and its
+#       statement sent a LABEL on every call, where icx labels only the clause's own statements and only on the call that runs
+#       them (hq_icon 2026-09-27: it blocked the bracket of every procedure with an initial clause, IPL regexp among them).
 # core.c's rt_trace_value now shows a static by its source name and emits nothing for a synthetic global, and one typing helper
 # (mon_wire_type) sends a set as DATA, as monitor_icx.c types T_Set, and a procedure value as CODE.
 #
@@ -27,12 +30,14 @@ trap 'rm -rf "$T"' EXIT
 cat > "$T/valname.icn" <<'EOF'
 procedure f()
    static k;
-   k := 5;
+   initial k := 3;
+   k +:= 2;
    write(k)
 end
 procedure main()
    local s, n, p, q;
    s := set([1, 2]);
+   f();
    f();
    p := write;
    q := proc("*", 2);
