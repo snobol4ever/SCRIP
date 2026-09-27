@@ -3209,6 +3209,12 @@ static void _var_init(void) {
     { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int mon_cell_is_named(void *cellp) {
+    if (!cellp) return 0;
+    for (int h = 0; h < VAR_BUCKETS; h++) for (NV_t *e = _var_buckets[h]; e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
     if (monitor_fd < 0 || !cellp) return;
     for (int h = 0; h < VAR_BUCKETS; h++) for (NV_t *e = _var_buckets[h]; e; e = e->next)

@@ -12,7 +12,12 @@
 #       assigns a procedure value, cured or not, e.g. IPL procname's witnesses, so it hid the real one behind it);
 #   (5) an initial clause: its flag went on the wire as VALUE <lval> = 1 (the rewrite assigned it through /flag := 1) and its
 #       statement sent a LABEL on every call, where icx labels only the clause's own statements and only on the call that runs
-#       them (hq_icon 2026-09-27: it blocked the bracket of every procedure with an initial clause, IPL regexp among them).
+#       them (hq_icon 2026-09-27: it blocked the bracket of every procedure with an initial clause, IPL regexp among them);
+#   (6) /g := v on a global sent VALUE g (the cell-store tap) AND VALUE <lval> (the assignment's own trace), and a substring
+#       assignment t[-1] := "" sent the underlying t's new value as <lval> before the assigned one, where icx sends one event
+#       for each (hq_icon 2026-09-27: regexp's /Re_WordChars := ... and s[-1] := "");
+#   (7) a statement that lowers to a generator-kind entry (every if) inside a { } block sent no LABEL: the block loop labelled a
+#       statement only when no trampoline stood in front of its entry (hq_icon 2026-09-27: regexp line 444).
 # core.c's rt_trace_value now shows a static by its source name and emits nothing for a synthetic global, and one typing helper
 # (mon_wire_type) sends a set as DATA, as monitor_icx.c types T_Set, and a procedure value as CODE.
 #
@@ -34,13 +39,24 @@ procedure f()
    k +:= 2;
    write(k)
 end
+global g
 procedure main()
-   local s, n, p, q;
+   local s, n, p, q, t;
    s := set([1, 2]);
    f();
    f();
    p := write;
    q := proc("*", 2);
+   /g := 4;
+   t := "ab";
+   t[-1] := "";
+   if *t > 0 then {
+      n := 1;
+      if n > 0 then {
+         n := 2
+         };
+      n := 3
+      };
    n := *s;
    p(n, " ", *&progname > 0, " ", q(2, 3))
 end

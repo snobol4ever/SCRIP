@@ -1637,7 +1637,9 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         char *ns = rt_str_alloc(nlen);
         memcpy(ns, sp, (size_t)prelen); memcpy(ns + prelen, src, (size_t)srclen); memcpy(ns + prelen + srclen, sp + poststrt, (size_t)(slen - poststrt)); ns[nlen] = 0;
         DESCR_t nsd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)nlen, .s = ns };
+        long tb = g_trace_budget; g_trace_budget = 0;
         DESCR_t wr = rt_assign_var(vc->sv, nsd);
+        g_trace_budget = tb;
         if (wr.v == DT_FAIL) return FAILDESCR;
         vc->len = srclen;
         if (owned) return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = (char *)src };
@@ -1651,7 +1653,11 @@ static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict)
 {
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
     DESCR_t r = c_rt_assign_var_body(var, val, strict);
-    if (!simple && g_trace_budget != 0 && !IS_FAIL_fn(r)) sno_trace_value("<lval>", val);
+    if (!simple && g_trace_budget != 0 && !IS_FAIL_fn(r)) {
+        extern int monitor_fd; extern int mon_cell_is_named(void *);
+        void *cp = (var.v == DT_N && var.slen == 1) ? var.ptr : (IS_NAMETRAP_fn(var) && var.p) ? (void *)((VCELL_t *)var.p)->cellp : (void *)0;
+        if (!(monitor_fd >= 0 && cp && mon_cell_is_named(cp))) sno_trace_value("<lval>", val);
+    }
     { extern int g_sno_etrace_n; extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t);
       if (g_sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
     return r;
