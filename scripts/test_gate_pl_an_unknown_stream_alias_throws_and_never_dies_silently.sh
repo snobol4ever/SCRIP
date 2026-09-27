@@ -60,7 +60,10 @@ out_dir = os.path.dirname(os.path.abspath(scrip))
 verbose = os.environ.get("GATE_VERBOSE", "") not in ("", "0")
 
 # GOAL <TAB> CLASS. E:<name> = must throw a CATCHABLE existence_error(stream,<name>). I = instantiation_error.
-# D = domain_error(stream_or_alias,_). R = must NOT raise AND must succeed (the control population: a live alias
+# D = domain_error(stream_or_alias,_). S:<name> = domain_error(stream,<name>), the ISO core's answer where it and swipl
+# conflict: stream_property/2 on an atom that is no stream (ISO conformance case sics_stream_property_2_03,
+# corpus packages/prolog/logtalk_iso/predicates/stream_property_2/tests.lgt, and gprolog; swipl says existence_error;
+# the superset's ISO core wins a conflict, CEO-391/CEO-1305). R = must NOT raise AND must succeed (the control population: a live alias
 # or handle). N = must NOT raise but MAY legitimately fail -- for a TEST predicate whose failure is an answer,
 # not an error. at_end_of_stream/1 on a non-empty stream is the only one here: it correctly fails, in SCRIP and
 # in swipl alike, and grading it R reported the compiler wrong when the control row was wrong. The row is kept
@@ -91,7 +94,7 @@ peek_code(nos, _C)	E:nos
 get_byte(nos, _B)	E:nos
 peek_byte(nos, _B)	E:nos
 close(nos)	E:nos
-stream_property(nos, alias(_A))	E:nos
+stream_property(nos, alias(_A))	S:nos
 unget_char(nos, a)	E:nos
 unget_code(nos, 0'a)	E:nos
 unget_byte(nos, 65)	E:nos
@@ -191,6 +194,10 @@ def grade(label, want, o, rc, mode):
         nm = want[2:]
         if ("existence_error(stream," + nm) not in ball.replace(" ", ""):
             fails += 1; rows.append((label, mode, "existence_error(stream,%s)" % nm, "raised %s" % ball))
+    elif want.startswith("S:"):
+        nm = want[2:]
+        if ("domain_error(stream," + nm) not in ball.replace(" ", ""):
+            fails += 1; rows.append((label, mode, "domain_error(stream,%s)" % nm, "raised %s" % ball))
     elif want == "I":
         if "instantiation_error" not in ball:
             fails += 1; rows.append((label, mode, "instantiation_error", "raised %s" % ball))

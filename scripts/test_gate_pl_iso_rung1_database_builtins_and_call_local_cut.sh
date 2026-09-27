@@ -25,33 +25,41 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 MODES="${PL_RUNG_MODES:-m3,m4}"
 red=0; total=0
+# ⭐ THE FLOOR IS THE FAMILY'S POPULATION, READ FROM THE BOARD, NEVER A LITERAL (ceo CEO-1305, 2026-09-27): the literal floors
+# stood above populations the CEO-1266 crawl shrank at 97ade7cf7 (coinduction declared unsupported, engine guards probed), so
+# functor_3 read 19 of 19 under a floor of 21. A case the grader names GUARDED OUT has already left the population; a case it
+# names OUTSIDE, UNGRADABLE or DEFERRED leaves the floor here, per mode, from its identity line. Every other case must PASS:
+# the gate still reds on a lost pass, and a newly admitted case enters the floor the run it enters the population.
 floor() {
-    local group="$1" want="$2" line pass
-    line="$(python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "${PL_RUNG_JOBS:-8}" --group "$group" 2>/dev/null | grep -m1 '^LOGTALK_ISO_BOARD ')"
-    [ -n "$line" ] || { echo "  ⛔ $group: the grader printed no LOGTALK_ISO_BOARD line"; red=$((red+1)); total=$((total+1)); return; }
-    pass="$(printf '%s\n' "$line" | sed -n 's/.*m3_pass=\([0-9]*\).*/\1/p')"
+    local group="$1" out line mode pass want idl
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "${PL_RUNG_JOBS:-8}" --group "$group" 2>/dev/null)"
+    line="$(printf '%s\n' "$out" | grep -m1 '^LOGTALK_ISO_BOARD ')"
     total=$((total+1))
-    if [ "${pass:-0}" -ge "$want" ]; then echo "  ok  $group m3_pass=$pass (floor $want)  $line"
-    else echo "  RED $group m3_pass=$pass < floor $want  $line"; red=$((red+1)); fi
-    case "$MODES" in *m4*)
-        local p4; p4="$(printf '%s\n' "$line" | sed -n 's/.*m4_pass=\([0-9]*\).*/\1/p')"
-        if [ -n "$p4" ] && [ "$p4" -lt "$want" ]; then echo "  RED $group m4_pass=$p4 < floor $want (modes may diverge as an optimization, never here)"; red=$((red+1)); fi ;;
-    esac
+    [ -n "$line" ] || { echo "  ⛔ $group: the grader printed no LOGTALK_ISO_BOARD line"; red=$((red+1)); return; }
+    for mode in $(printf '%s' "$MODES" | tr ',' ' '); do
+        pass="$(printf '%s\n' "$line" | sed -n "s/.*${mode}_pass=\\([0-9]*\\).*/\\1/p")"
+        idl="$(printf '%s\n' "$out" | grep -m1 "identity ${mode}:")"
+        want="$(printf '%s\n' "$idl" | awk '{for (i = 1; i < NF; i++) { if ($i == "OUTSIDE" || $i == "UNGRADABLE" || $i == "DEFERRED") named += $(i+1); if ($i == "==") pop = $(i+1) } } END { if (pop != "") print pop - named }')"
+        [ -n "$want" ] && [ -n "$pass" ] || { echo "  ⛔ $group $mode: the board printed no identity line or no pass count -- cannot read the population"; red=$((red+1)); continue; }
+        if [ "$pass" -ge "$want" ]; then echo "  ok  $group ${mode}_pass=$pass (floor = its population less named outside/ungradable/deferred: $want)  $line"
+        else echo "  RED $group ${mode}_pass=$pass < floor $want (its population less named outside/ungradable/deferred)  $line"; red=$((red+1)); fi
+    done
+    printf '%s\n' "$out" | grep -m1 '^GUARDED OUT' | sed -n 's/^GUARDED OUT.* named): \([0-9]* case(s)\).* -- \(.*\)$/        guarded out of the population, named: \1 -- \2/p'
 }
-floor asserta_1 16
-floor assertz_1 16
-floor abolish_1 12
-floor retract_1 13
-floor retractall_1 10
-floor clause_2 11
-floor current_predicate_1 7
-floor cut_0 16
-floor call_1 16
-floor if_then_else_3 13
-floor disjunction_2 6
-floor term_comparison 36
-floor compare_3 23
-floor functor_3 21
+floor asserta_1
+floor assertz_1
+floor abolish_1
+floor retract_1
+floor retractall_1
+floor clause_2
+floor current_predicate_1
+floor cut_0
+floor call_1
+floor if_then_else_3
+floor disjunction_2
+floor term_comparison
+floor compare_3
+floor functor_3
 echo "$GATE_NAME: groups=$total red=$red modes=$MODES"
 [ "$red" -eq 0 ] || { echo "⛔ $GATE_NAME RED"; exit 1; }
 echo "✅ $GATE_NAME GREEN"

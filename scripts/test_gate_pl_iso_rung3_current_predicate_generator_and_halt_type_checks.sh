@@ -89,7 +89,7 @@ main :-
     catch(halt(_), error(E5, _), (write(E5), nl)).
 memberchk(X, [Y|T]) :- ( X == Y -> true ; memberchk(X, T) ).
 EOF
-arm generator_enumerates_and_registry_is_current "$TMPD/enum.pl" "$(printf '%s\n' ops_ok statics_ok arity_ok builtins_hidden runtime_ok retracted_still_current abolished_gone 'type_error(predicate_indicator,4)' 'type_error(predicate_indicator,0/dog)' 'type_error(predicate_indicator,f/-1)' var_spec_ok 'type_error(integer,a)' instantiation_error)" 0
+arm generator_enumerates_and_registry_is_current "$TMPD/enum.pl" "$(printf '%s\n' ops_ok statics_ok arity_ok builtins_hidden runtime_ok retracted_still_current abolished_gone 'type_error(predicate_indicator,4)' 'type_error(predicate_indicator,0/dog)' 'type_error(predicate_indicator,f/ -1)' var_spec_ok 'type_error(integer,a)' instantiation_error)" 0
 cat > "$TMPD/ret0.pl" <<'EOF'
 :- initialization(main).
 combo :- write(a), (write(x) ; write(y)), write(b).
