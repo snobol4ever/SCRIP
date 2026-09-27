@@ -284,6 +284,54 @@ s4e_servable_blocker() {   # <blocked-topic> -> prints the topic to serve INSTEA
     done
     return 1
 }
+# ⭐ THE CHAIN, SPELLED OUT (ceo 2026-09-26, row instruments-next-dependency-inversion-serves-an-officer-another-lane-s-row-
+# three-times-in-one-sitting-the-promoted-blocker-must-be-in-the-picker-s-own-lane, case (b)). s4e_servable_blocker walks
+# the hops and returns the LAST one, but every line the picker printed named only the FIRST: the ceo read "rank-1
+# bench-rivals-raku-pascal is BLOCKED-ON raku-frontend-real-world-syntax-gaps, which is un-DONE, unclaimed and FREE" over
+# a lock on raku-roast-100-percent-compile, a row that line never named -- and the first hop was BLOCKED-ON, not FREE.
+# Same walk, same 8-hop bound, printed as hop -> hop -> served.
+s4e_blocker_chain() {   # <blocked-topic> <promoted-topic> -> "hop1 -> hop2 -> ... -> promoted"
+    local _cur="$1" _end="$2" _out="" _st _blk _d=0
+    while [ "$_d" -lt 8 ]; do
+      _d=$((_d+1))
+      _st="$(s4e_row_state "$_cur")"
+      case "$_st" in BLOCKED-ON:*|PARKED-AWAITING:*) _blk="${_st#*:}";; *) break;; esac
+      _out="${_out:+$_out -> }$_blk"
+      [ "$_blk" = "$_end" ] && break
+      _cur="$_blk"
+    done
+    printf '%s' "${_out:-$_end}"
+}
+# ⭐ WHOSE ROW, BY THE OWNER CELL ALONE: the named owner, or empty when the cell is blank or `unassigned`. The lane a row's
+# LANGUAGE maps to is s4e_topic_lane's question and a different one -- an unowned row stays with the lane cut below.
+s4e_row_owner_named() { local _o; _o="$(qrow "${1:-}" | cut -f3)"; case "$_o" in ''|unassigned) ;; *) printf '%s' "$_o";; esac; }
+# ⭐ AN OWNER CELL IS IN MY LANE when it names me, or names the lane I resolve to and that lane is not me -- a numbered
+# seat's HQ (s4e_my_lane reads its HQ file). ⛔ NOT s4e_hq: under the consolidated modes EVERY HQ file names an officer
+# (hq_icon's reads ceo, hq_raku's reads cto; the officers' read ceo), which is where `ask` routes, not a lane. Read as a
+# lane it handed the coo and hq_icon the ceo's rows and hq_raku the cto's (measured on a TENET fixture 2026-09-26).
+s4e_owner_in_my_lane() {   # <owner-cell> -- rc 0 = mine, rc 1 = another seat's
+    [ "${1:-}" = "$ME" ] && return 0
+    [ -n "${_my_lane:-}" ] && [ "$_my_lane" != "$ME" ] && [ "${1:-}" = "$_my_lane" ]
+}
+# ⭐ THE BLOCKER'S OWNER IS TOLD (the same row's GOAL: "the blocked row stays blocked, the blocker's owner is told or
+# doorbelled"). Rung only from `next` run by the BLOCKED row's own seat -- a seat walking past another seat's blocked row
+# is not the one held up -- and at most once per blocker per S4E_BLOCKER_DOORBELL_COOLDOWN seconds (default a day), so
+# ten seats typing `next` ring once. The key is a hash: a topic runs to 191 bytes and the file name must stay legal.
+s4e_ring_foreign_blocker_owner() {   # <owner> <blocker> <blocked> <rank> <chain>
+    local _who="$1" _p="$2" _b="$3" _r="$4" _ch="$5" _dir="$PO/blocker-doorbells" _f _now _then _cool
+    _cool="${S4E_BLOCKER_DOORBELL_COOLDOWN:-86400}"; case "$_cool" in ''|*[!0-9]*) _cool=86400;; esac
+    _f="$_dir/$(printf '%s' "$_p" | md5sum | cut -c1-16).rung"; _now="$(date -u +%s)"
+    _then="$(head -1 "$_f" 2>/dev/null)"; case "$_then" in ''|*[!0-9]*) _then=0;; esac
+    if [ "$((_now - _then))" -lt "$_cool" ]; then
+      printf '   %s was told about %s %ss ago; not rung again inside %ss.\n' "$_who" "$_p" "$((_now - _then))" "$_cool"; return 0; fi
+    if [ ! -d "$PO/$_who/inbox" ] || [ -f "$PO/$_who/DRAINED" ]; then
+      printf '   ⛔ NOT RUNG: %s has no live mailbox -- tell its owner yourself.\n' "$_who"; return 1; fi
+    if printf '%s\n' "$ME's next reached rank-$_r $_b, which is BLOCKED-ON $_ch. $_p is your row (owner cell $_who), so the picker did not lock it for $ME: a promoted blocker is locked only inside the picker's own lane, in every pass. $_b stays blocked until $_p lands DONE; your own next serves $_p at rank $_r by dependency inversion. The queue row and its task file are authoritative; this is the doorbell, not a request to reply." \
+         | S4E_NO_BANNER=1 "$0" send "$_who" "your-row-blocks-rank-$_r-work" --stdin >/dev/null 2>&1; then
+      mkdir -p "$_dir" 2>/dev/null && printf '%s\n%s\n%s\n%s\n' "$_now" "$ME" "$_p" "$_b" > "$_f" 2>/dev/null
+      printf '   DOORBELL: %s told that %s holds up rank-%s %s (once per %ss per blocker).\n' "$_who" "$_p" "$_r" "$_b" "$_cool"
+    else printf '   ⛔ DOORBELL NOT SENT to %s -- tell its owner yourself.\n' "$_who"; return 1; fi
+}
 # ⭐⭐ PROMOTION ADMISSIBILITY -- next-dependency-promotion-walks-around-the-mode-lane-filter. MEASURED
 # (seat01, MODE FLEET-8 ON SNOBOL4 ONLY): `next` served and LOCKED an Icon row via s4e_servable_blocker
 # above with NO lane check and NO language-freeze check at all -- the ordinary FREE-row path below applies
@@ -316,7 +364,7 @@ s4e_rank_cap_refuses() {   # <rank> -- rc 0 = REFUSE this row for this identity,
     return 0
 }
 s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
-    local _p="$1" _blocked="$2" _rank="$3" _tl
+    local _p="$1" _blocked="$2" _rank="$3" _tl _own _bown _ch
     if s4e_language_freeze_refuses "$_p"; then
       printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s and THE ORDER OF WORK is %s ONLY.\n' \
         "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language_display "$_p")" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')"
@@ -331,6 +379,32 @@ s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
       printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but ranks 6+ are HQ-ONLY under THE FLEET-12 PLAN and you are a seat.\n' \
         "$_rank" "$_blocked" "$_p"
       printf '   Not promoted, not served -- %s stays skipped this pass; ask your HQ to take %s.\n' "$_blocked" "$_p"
+      return 1
+    fi
+    # ⛔⭐⭐ THE OWNER CELL CONSTRAINS A PROMOTION EXACTLY AS IT CONSTRAINS AN ORDINARY PICK, IN EVERY PASS, FOR EVERY
+    # IDENTITY (ceo 2026-09-26, row instruments-next-dependency-inversion-serves-an-officer-another-lane-s-row-...,
+    # CEO-1232: the officers run no board and hold no HQ's row). MEASURED the same sitting under TENET: `next` LOCKED the
+    # cto's gc-the-key-collision-plant-... and hq_raku's raku-roast-100-percent-compile for the ceo. The ordinary path
+    # skips a FREE row whose owner cell names another seat; this path never read the cell, and the one check that stood
+    # in for it -- CEO-779 below -- bites only a seat owning no language, which the ceo stopped being when TENET gave
+    # it rebus. So the blocker of another seat is REPORTED to the blocked row's own seat, its owner is rung, and nothing
+    # is locked; a seat walking past someone else's blocked row skips it silently, as it skips every row that is not FREE.
+    _own="$(s4e_row_owner_named "$_p")"
+    if [ -n "$_own" ] && ! s4e_owner_in_my_lane "$_own"; then
+      case "${_promo_reported:-}" in *" $_blocked>$_p "*) return 1;; esac
+      _promo_reported="${_promo_reported:- }$_blocked>$_p "
+      _ch="$(s4e_blocker_chain "$_blocked" "$_p")"
+      _bown="$(s4e_row_owner_named "$_blocked")"
+      if ! s4e_seat_owns_a_language; then
+        _xlane_refused=$(( ${_xlane_refused:-0} + 1 )); _xlane_last="$_p ($_own's, blocker of $_blocked)"
+        printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, which is %s'"'"'s row -- and %s holds NO language under MODE line 2 / the LANES line, so it is never served another lane'"'"'s row, own-lane pass or fallback (CEO-779).\n' \
+          "$_rank" "$_blocked" "$_ch" "$_own" "$ME"
+      elif [ -z "$_bown" ] || s4e_owner_in_my_lane "$_bown"; then
+        printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, and %s is %s'"'"'s row; your lane is %s.\n' \
+          "$_rank" "$_blocked" "$_ch" "$_p" "$_own" "${_my_lane:-$ME}"
+      else return 1; fi
+      printf '   REPORTED, not locked: a promoted blocker is locked only inside the picker'"'"'s own lane, in every pass. %s stays blocked; %s stays FREE for %s.\n' "$_blocked" "$_p" "$_own"
+      if [ -z "$_bown" ] || s4e_owner_in_my_lane "$_bown"; then s4e_ring_foreign_blocker_owner "$_own" "$_p" "$_blocked" "$_rank" "$_ch"; fi
       return 1
     fi
     _tl="$(s4e_topic_lane "$_p")"
@@ -3167,7 +3241,9 @@ TASKEOF
            # counter initialised outside it counts every skipped row once per pass. Measured: three rank-6+ rows
            # in a scratch queue reported "skipped 6". The honest number is the LAST pass's, because that is the
            # pass that actually gave up and produced the report the seat is reading.
-           _rankcap_skipped=0; _rankcap_first=""
+           # ⛔ THE OWNED-ROW COUNTER HAD THE SAME DEFECT AND KEPT IT: one ceo-owned row read "skipped 2 free row(s)
+           # owned by another seat" for any seat with a lane (coo 2026-09-26, measured on a TENET fixture).
+           _rankcap_skipped=0; _rankcap_first=""; _owned_skipped=0; _owned_first=""
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
            # ⛔ s265 — THE STATE COLUMN IS LOAD-BEARING NOW. It was decorative (94 of 94 rows FREE, nothing read it),
@@ -3205,7 +3281,9 @@ TASKEOF
                  # blocker that is already satisfied is the WORST row to hand out unprobed: it is blocking
                  # something else, so closing it here also un-blocks the row that named it.
                  s4e_dispatch_gate "$promo" "$rank" || continue
-                 printf '⭐ DEPENDENCY INVERSION — rank-%s %s is BLOCKED-ON %s, which is un-DONE, unclaimed and FREE.\n' "$rank" "$topic" "$blk"
+                 # ⭐ THE CHAIN, NOT THE FIRST HOP -- see s4e_blocker_chain: a transitive promotion printed the first
+                 # hop as "un-DONE, unclaimed and FREE" and served a row the line never named (the ceo, case (b)).
+                 printf '⭐ DEPENDENCY INVERSION — rank-%s %s is BLOCKED-ON %s; %s is un-DONE, unclaimed and FREE.\n' "$rank" "$topic" "$(s4e_blocker_chain "$topic" "$promo")" "$promo"
                  printf '   Rank is a human guess at priority; a dependency is a fact, and a fact outranks a guess.\n'
                  printf '   You are being served THE BLOCKER at the blocked row'"'"'s own rank position.\n'
                  printf '   When %s lands DONE, %s un-blocks ITSELF — its state column is the self-clearing spelling.\n' "$promo" "$topic"
@@ -3256,10 +3334,16 @@ TASKEOF
                  # to every owner cell, and it silently idled four lanes the day HQs started owning rows.
                  # ⛔ ONLY THE SEAT'S OWN HQ. Another HQ's row stays skipped -- that is a lane boundary, and the
                  # cure for wanting it is `claim`, which is still the deliberate override it has always been.
-                 "$(s4e_hq)") _serve_reason="rank $rank, owned by your HQ $brief (your lane)" ;;
-                 *) _owned_skipped=$((_owned_skipped+1))
-                    [ -n "$_owned_first" ] || _owned_first="rank $rank  $topic  (owner $brief)"
-                    continue;;
+                 # ⛔⭐ AND "YOUR HQ" MEANS THE LANE A NUMBERED SEAT RESOLVES TO, NEVER WHATEVER AN HQ FILE NAMES
+                 # (coo 2026-09-26, same row as the owner cut in s4e_promotion_admissible). This arm read s4e_hq, and
+                 # under the consolidated modes every HQ file names an officer: measured on a TENET fixture, `next`
+                 # LOCKED a ceo-owned row for the coo and for hq_icon, and a cto-owned one for hq_raku, each "owned by
+                 # your HQ (your lane)". An HQ and an officer resolve to themselves; only a seat's lane is its HQ.
+                 *) if s4e_owner_in_my_lane "$brief"; then _serve_reason="rank $rank, owned by your HQ $brief (your lane)"
+                    else _owned_skipped=$((_owned_skipped+1))
+                         [ -n "$_owned_first" ] || _owned_first="rank $rank  $topic  (owner $brief)"
+                         continue
+                    fi;;
                esac ;;
              RESTRICTED:*) [ "$(s4e_restricted_to "$step")" = "$ME" ] || continue ;;
              *) continue;;
@@ -3370,7 +3454,7 @@ TASKEOF
          # the own-lane pass tries the WHOLE rank-sorted queue before giving up, not just rank<=1 -- a
          # strict rank<=1-only trigger would send a seat cross-lane while its own rank-2 work still sat
          # unclaimed.
-         _xlane_refused=0; _xlane_last=""
+         _xlane_refused=0; _xlane_last=""; _promo_reported=" "
          if [ -n "$_my_lane" ]; then _lane_filter=own-lane; s4e_pass3_scan; fi
          _lane_filter=any-lane; s4e_pass3_scan
          # ⛔ CEO-779: a seat that owns no language, held back ONLY by other lanes' rows, is REFUSED rc=2 -- not told the
