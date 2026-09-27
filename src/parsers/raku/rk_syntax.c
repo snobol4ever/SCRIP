@@ -357,8 +357,8 @@ static void add_name_all(RkP *p, const char *s, int n) {
 static int core_name_cmp(const void *a, const void *b) { return strcmp(*(const char *const *) a, *(const char *const *) b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_has(const char *const *tab, size_t n, const char *s, int len) {
-    char buf[256];
-    if (len <= 0 || len >= (int) sizeof buf) return 0;
+    if (len <= 0) return 0;
+    char *buf = (char *) ct_alloc((size_t) len + 1);
     memcpy(buf, s, (size_t) len); buf[len] = 0;
     const char *key = buf;
     return bsearch(&key, tab, n, sizeof *tab, core_name_cmp) != NULL;
@@ -402,14 +402,14 @@ static int is_type_n(RkP *p, const char *s, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_routine_name(RkP *p, const char *s, int n) {
-    if (n <= 0 || n > 250) return;
-    char buf[256]; buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
+    if (n <= 0) return;
+    char *buf = (char *) ct_alloc((size_t) n + 1); buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
     add_name_n(p, buf, n + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int routine_visible(RkP *p, const char *s, int n) {
-    if (n <= 0 || n > 250) return 1;
-    char buf[256]; buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
+    if (n <= 0) return 1;
+    char *buf = (char *) ct_alloc((size_t) n + 1); buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
     if (user_name_index(p, buf, n + 1) >= 0 || user_name_index(p, s, n) >= 0) return 1;
     if (core_has(rk_core_routines, sizeof rk_core_routines / sizeof *rk_core_routines, s, n)) return 1;
     if (p->lang_e && core_has(rk_core_e_routines, sizeof rk_core_e_routines / sizeof *rk_core_e_routines, s, n)) return 1;
@@ -450,10 +450,10 @@ static void scope_leave(RkP *p) {
 static int uniname_cmp(const void *a, const void *b) { return strcmp((const char *) a, ((const RkUniName *) b)->name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned uniname_cp(const char *s, int n) {
-    char buf[128]; int k = 0;
     while (n > 0 && *s == ' ') { s++; n--; }
     while (n > 0 && s[n - 1] == ' ') n--;
-    if (n <= 0 || n >= (int) sizeof buf) return 0;
+    if (n <= 0) return 0;
+    char *buf = (char *) ct_alloc((size_t) n + 1); int k = 0;
     int digits = 1;
     for (int i = 0; i < n; i++) { char c = s[i]; if (c < '0' || c > '9') digits = 0; buf[k++] = (char) (c >= 'a' && c <= 'z' ? c - 32 : c); }
     buf[k] = 0;
@@ -1064,22 +1064,22 @@ static int quote_body_at(RkP *p, int pos, RkLang *L, const char *what, int *stop
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int quote_body(RkP *p, int pos, RkLang *L, const char *what) { return quote_body_at(p, pos, L, what, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int r_quotepair(RkP *p, int pos, char *key, int keylen, int *val) {
+static int r_quotepair(RkP *p, int pos, const char **key, int *val) {
     if (ch(p, pos) != ':') return -1;
     int q = pos + 1; *val = 1;
     if (ch(p, q) == '!') {
         int e = r_identifier(p, q + 1);
         if (e < 0) return -1;
-        snprintf(key, (size_t) keylen, "%.*s", e - q - 1, p->s + q + 1); *val = 0; return e;
+        *key = ct_strndup0(p->s + q + 1, e - q - 1); *val = 0; return e;
     }
     if (is_digit_cp(cp_at(p, q))) {
         int d = r_decint(p, q); int e = r_identifier(p, d);
         if (e < 0) return -1;
-        snprintf(key, (size_t) keylen, "%.*s", e - d, p->s + d); return e;
+        *key = ct_strndup0(p->s + d, e - d); return e;
     }
     int e = r_identifier(p, q);
     if (e < 0) return -1;
-    snprintf(key, (size_t) keylen, "%.*s", e - q, p->s + q);
+    *key = ct_strndup0(p->s + q, e - q);
     if (ch(p, e) == '(') { int c = r_circumfix(p, e); if (c >= 0) { *val = 2; return c; } }
     return e;
 }
@@ -1105,9 +1105,9 @@ static int apply_quote_adverb(RkP *p, int pos, RkLang *L, const char *k, int v, 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quibble(RkP *p, int pos, RkLang *L, int to, const char *what) {
-    char key[64]; int v;
+    const char *key; int v;
     for (;;) {
-        int e = r_quotepair(p, pos, key, sizeof key, &v);
+        int e = r_quotepair(p, pos, &key, &v);
         if (e < 0) break;
         apply_quote_adverb(p, pos, L, key, v, &to);
         pos = ws(p, e);
@@ -2359,9 +2359,9 @@ static int strs_has(const RkStrs *a, const char *s, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void record_attribute(RkP *p, int sigil, const char *name, int n, int pub) {
-    if (!p->npkgs || n <= 0 || n > 250) return;
+    if (!p->npkgs || n <= 0) return;
     if (pub) strs_add(&p->pkgs[p->npkgs - 1].meths, name, n);
-    char buf[256]; buf[0] = (char) sigil; buf[1] = '!'; memcpy(buf + 2, name, (size_t) n);
+    char *buf = (char *) ct_alloc((size_t) n + 2); buf[0] = (char) sigil; buf[1] = '!'; memcpy(buf + 2, name, (size_t) n);
     strs_add(&p->pkgs[p->npkgs - 1].attrs, buf, n + 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2416,8 +2416,9 @@ static int role_flatten(RkP *p, const char *name, RkStrs *meths, RkStrs *multis,
     RkPkg *r = role_lookup(p, name);
     if (!r || r->unknown || depth > 16) return 0;
     for (int i = 0; i < r->meths.n; i++) {
-        char buf[512]; int m = snprintf(buf, sizeof buf, "%s\t%s", r->meths.v[i], r->name);
-        if (m > 0 && m < (int) sizeof buf && !strs_has(meths, buf, m)) strs_add(meths, buf, m);
+        size_t need = strlen(r->meths.v[i]) + strlen(r->name) + 2;
+        char *buf = (char *) ct_alloc(need); int m = snprintf(buf, need, "%s\t%s", r->meths.v[i], r->name);
+        if (m > 0 && !strs_has(meths, buf, m)) strs_add(meths, buf, m);
     }
     for (int i = 0; i < r->multis.n; i++) if (!strs_has(multis, r->multis.v[i], (int) strlen(r->multis.v[i]))) strs_add(multis, r->multis.v[i], (int) strlen(r->multis.v[i]));
     for (int i = 0; i < r->stubs.n; i++) if (!strs_has(stubs, r->stubs.v[i], (int) strlen(r->stubs.v[i]))) strs_add(stubs, r->stubs.v[i], (int) strlen(r->stubs.v[i]));
@@ -2492,7 +2493,7 @@ static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
     if ((twig == '^' || twig == ':') && e - pos == 3 && p->s[pos + 2] >= 'A' && p->s[pos + 2] <= 'Z') panic_at(p, pos, "Unsupported use of %.3s variable", p->s + pos);
     if (twig == '=' && !p->in_decl && !(e - pos == 5 && !memcmp(p->s + pos + 2, "pod", 3)) && !(e - pos == 8 && !memcmp(p->s + pos + 2, "finish", 6)))
         panic_at(p, pos, "Pod variable %.*s not yet implemented. Sorry.", e - pos, p->s + pos);
-    if (twig == '^' || twig == ':') { char buf[256]; int n = e - pos - 1; if (n < 1 || n > 250) return; buf[0] = (char) c; memcpy(buf + 1, p->s + pos + 2, (size_t) n - 1);
+    if (twig == '^' || twig == ':') { int n = e - pos - 1; if (n < 1) return; char *buf = (char *) ct_alloc((size_t) n); buf[0] = (char) c; memcpy(buf + 1, p->s + pos + 2, (size_t) n - 1);
         if (user_name_index(p, buf, n) < 0) add_name_n(p, buf, n); return; }
     if (twig) return;
     if (p->in_decl) {
@@ -2652,9 +2653,9 @@ static int qok(RkP *p, int pos, const char *word) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rx_adverbs(RkP *p, int pos, int *p5) {
-    char key[64]; int v;
+    const char *key; int v;
     for (;;) {
-        int e = r_quotepair(p, pos, key, sizeof key, &v);
+        int e = r_quotepair(p, pos, &key, &v);
         if (e < 0) return pos;
         if (!strcmp(key, "P5") || !strcmp(key, "Perl5")) *p5 = 1;
         pos = ws(p, e);
@@ -2842,7 +2843,7 @@ static int r_quote_raw(RkP *p, int pos) {
     int wend = pos; while (is_word_cp(cp_at(p, wend))) wend += cp_len(p, wend);
     if ((ch(p, wend) == '-' || ch(p, wend) == '\'') && is_alpha_cp(cp_at(p, wend + 1))) return -1;
     int wl = wend - pos; const char *w = p->s + pos;
-    char word[16]; if (wl >= (int) sizeof word) return -1; memcpy(word, w, (size_t) wl); word[wl] = 0;
+    char *word = (char *) ct_alloc((size_t) wl + 1); memcpy(word, w, (size_t) wl); word[wl] = 0;
     if (!strcmp(word, "q") || !strcmp(word, "qq") || !strcmp(word, "Q") || (wl > 1 && (w[0] == 'q' || w[0] == 'Q') && (w[1] != 'q' || wl > 2))) {
         RkLang L; int to = 0; int base;
         if (w[0] == 'Q') { memset(&L, 0, sizeof L); base = 1; }
@@ -2850,7 +2851,7 @@ static int r_quote_raw(RkP *p, int pos) {
         else { lang_q(&L); base = 1; }
         int q = pos + base;
         if (q < wend) { int m = quote_mod_after(p, q, &to, &L); if (m != wend) return -1; q = m; }
-        char qw[16]; memcpy(qw, w, (size_t) (q - pos)); qw[q - pos] = 0;
+        char *qw = (char *) ct_alloc((size_t) (q - pos) + 1); memcpy(qw, w, (size_t) (q - pos)); qw[q - pos] = 0;
         int k = qok(p, q, qw);
         if (k < 0) return -1;
         return r_quibble(p, k, &L, to, "quote");
@@ -3012,7 +3013,8 @@ static int name_part_len(RkP *p, int from, int to) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_capture(RkP *p, const char *s, int n) {
-    char buf[256]; if (n <= 0 || n > 250) return 0;
+    if (n <= 0) return 0;
+    char *buf = (char *) ct_alloc((size_t) n + 2);
     buf[0] = ':'; buf[1] = ':'; memcpy(buf + 2, s, (size_t) n);
     return user_name_index(p, buf, n + 2) >= 0;
 }
@@ -3806,10 +3808,10 @@ static void record_method(RkP *p, int name_from, int name_to, int sig_from, int 
     if (strs_has(&k->explicit, p->s + nf, nl))
         panic_at(p, name_from, "Cannot have a multi candidate for '%.*s' when an only method is also in the package '%s'", nl, p->s + nf, k->name ? k->name : "<anon>");
     strs_add(&k->mnames, p->s + nf, nl);
-    char buf[512]; int m = 0;
-    for (int i = nf; i < nf + nl && m < 250; i++) buf[m++] = p->s[i];
+    char *buf = (char *) ct_alloc((size_t) nl + 1 + (size_t) (sig_to - sig_from)); int m = 0;
+    for (int i = nf; i < nf + nl; i++) buf[m++] = p->s[i];
     buf[m++] = '|';
-    for (int i = sig_from; i < sig_to && m < 500; i++) if (!asc_space((unsigned char) p->s[i])) buf[m++] = p->s[i];
+    for (int i = sig_from; i < sig_to; i++) if (!asc_space((unsigned char) p->s[i])) buf[m++] = p->s[i];
     strs_add(&k->multis, buf, m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4340,14 +4342,17 @@ static void add_use_lib(RkP *p, int from, int to) {
         else if (p->s[q] == '\'' || p->s[q] == '"') { char qc = p->s[q]; int b = q + 1; int t = b; while (t < to && p->s[t] != qc) t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; }
         else if (p->s[q] == '<') { int b = q + 1; int t = b; while (t < to && p->s[t] != '>') t++; lit_s = p->s + b; lit_n = t - b; e = t + 1; }
         if (lit_s) {
-            char buf[1024];
+            size_t flen = strlen(p->file);
+            size_t dcap = flen + 2;
+            size_t bcap = flen + (size_t) lit_n + 4;
+            char *buf = (char *) ct_alloc(bcap);
             if (prog) {
-                char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file);
-                for (int k = 0; k < parent; k++) { char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, sizeof dir, "."); }
-                snprintf(buf, sizeof buf, "%s/%.*s", dir, lit_n, lit_s);
+                char *dir = (char *) ct_alloc(dcap); snprintf(dir, dcap, "%s", p->file);
+                for (int k = 0; k < parent; k++) { char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, dcap, "."); }
+                snprintf(buf, bcap, "%s/%.*s", dir, lit_n, lit_s);
             }
-            else if (lit_n && lit_s[0] == '/') snprintf(buf, sizeof buf, "%.*s", lit_n, lit_s);
-            else { char dir[1024]; snprintf(dir, sizeof dir, "%s", p->file); char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, sizeof dir, "."); snprintf(buf, sizeof buf, "%s/%.*s",
+            else if (lit_n && lit_s[0] == '/') snprintf(buf, bcap, "%.*s", lit_n, lit_s);
+            else { char *dir = (char *) ct_alloc(dcap); snprintf(dir, dcap, "%s", p->file); char *sl = strrchr(dir, '/'); if (sl) *sl = 0; else snprintf(dir, dcap, "."); snprintf(buf, bcap, "%s/%.*s",
                 dir, lit_n, lit_s); }
             RK_GROW(p->libs, p->nlibs, p->clibs, char *);
             p->libs[p->nlibs++] = ct_strndup0(buf, (int) strlen(buf));
@@ -4636,7 +4641,7 @@ static int rk_check_into(RkP *p, const char *src, int len, const char *path, RkP
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rk_syntax_check(const char *src, int len, const char *path, char *err, int errlen) {
+int rk_syntax_check(const char *src, int len, const char *path, char **err) {
     RkP *p = (RkP *) ct_alloc(sizeof(RkP));
     memset(p, 0, sizeof *p);
     p->s = src; p->n = len; p->file = path ? path : "<stdin>";
@@ -4647,11 +4652,14 @@ int rk_syntax_check(const char *src, int len, const char *path, char *err, int e
     if (setjmp(p->jb)) {
         int line = line_of(p, p->err_pos);
         int col = 1; for (int i = p->err_pos - 1; i >= 0 && src[i] != '\n'; i--) col++;
-        if (err && errlen > 0) snprintf(err, (size_t) errlen, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+        if (err) {
+            int n = snprintf(NULL, 0, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+            *err = (char *) ct_alloc((size_t) n + 1); snprintf(*err, (size_t) n + 1, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+        }
         return 1;
     }
     r_comp_unit(p);
-    if (err && errlen > 0) err[0] = 0;
+    if (err) *err = NULL;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4685,8 +4693,8 @@ int rk_syntax_file(const char *path) {
     char *src = (char *) ct_alloc((size_t) n + 1);
     if (fread(src, 1, (size_t) n, f) != (size_t) n) { fclose(f); fprintf(stderr, "scrip: short read on '%s'\n", path); return 2; }
     src[n] = 0; fclose(f);
-    char err[600];
-    int rc = rk_syntax_check(src, (int) n, path, err, sizeof err);
+    char *err = NULL;
+    int rc = rk_syntax_check(src, (int) n, path, &err);
     if (rc) fprintf(stderr, "%s\n", err);
     return rc;
 }
