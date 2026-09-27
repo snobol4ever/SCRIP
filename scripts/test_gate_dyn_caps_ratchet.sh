@@ -122,7 +122,7 @@ fn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline \([0
 fu=$(sed -n 's/^function-scope arrays a program fills, unguarded: \([0-9]*\)$/\1/p' <<<"$out")
 [ -n "$fn" ] && [ -n "$fb" ] && [ -n "$fu" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the witness printed no function-scope lines -- $(printf '%s\n' "$out" | tail -3 | tr '\n' ' ')"; gate_stamp; exit 2; }
 echo "  function-scope population: $fn locals a program fills, baseline $fb; $fu of them unguarded (CEO-1231; printed, not graded here)"
-mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src" && cp "$C" "$WIT" "$WORK/r/scripts/" \
+mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src" && cp "$C" "$WIT" "$HERE/lib_fanout.sh" "$WORK/r/scripts/" \
   && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" && printf '%s\n' "$fn" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" \
   && cp "$HERE/fixtures/dyn_caps/CLASS_AB.tsv" "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
   && cp "$NSF" "$WORK/r/scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv" && cp "$ROOT/Makefile" "$WORK/r/Makefile" \
