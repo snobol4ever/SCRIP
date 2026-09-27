@@ -15,6 +15,7 @@ typedef struct RkItem {
     const char *name;
     int ck;
     tree_t *val;
+    tree_t *lop;
     RkItems *inner;
     int cnt;
     RkDecl *decl;

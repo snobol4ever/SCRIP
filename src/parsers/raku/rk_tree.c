@@ -1165,8 +1165,9 @@ void rkb_name(RkB *b, RkItem *it, int from, int to, int namelen) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *closure_of(RkB *b, RkItem *t) {
+    (void) b;
     if (!t || t->kind != RKI_BLOCK) return NULL;
-    return rkb_paren(b, t->inner, t->cnt);
+    return t->lop;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flatten_paren_args(RkItems *xs, TL *pos) {
@@ -1635,10 +1636,9 @@ tree_t *rkb_block_seq(RkB *b, tree_t *list, int bk, int yada) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_block_term(RkB *b, RkItem *it, int from, int to, tree_t *seq, tree_t *sig, int sub, RkItems *last, int nstmts) {
     (void) sub;
-    memset(it, 0, sizeof *it); it->kind = RKI_BLOCK; it->from = from; it->to = it->core_to = to; it->val = seq; it->inner = last; it->cnt = nstmts;
+    memset(it, 0, sizeof *it); it->kind = RKI_BLOCK; it->from = from; it->to = it->core_to = to; it->val = seq; it->lop = rkb_paren(b, last, nstmts);
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
     for (int i = 0; sig && i < sig->n; i++) { tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; expr_add_child(a, p); }
-    (void) b;
     it->t = a;
 }
 /*====================================================================================================================================================================================================*/
