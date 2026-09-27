@@ -1857,6 +1857,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     { extern int rt_proc_is_registered(const char *); extern void rt_proc_register(const char *, const char **, int);
       if (!rt_proc_is_registered(key)) rt_proc_register(ct_strdup(key), (const char **) 0, arity); }
     { extern void bb_pool_init(void); bb_pool_init(); }
+    { extern void zls_reset(void); zls_reset(); }
     idx = lower_pl_pred_graph(key, choice);
     if (idx < 0) return (void *)0;
     g = g_stage2.bbp.table[idx];
@@ -1897,6 +1898,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     rt_proc_set_zstatic(key, g_last_flat_zstatic);
     emit_patzeta_register(key, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
     { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); rt_proc_set_dcfn(key, (g_last_dc_off >= 0) ? (void *)((char *)fn + g_last_dc_off) : (void *)0); }
+    if (!gout) { extern void zls_reset(void); extern void IR_free(IR_graph_t *); zls_reset(); g_stage2.bbp.table[idx] = (IR_graph_t *)0; if (idx == g_stage2.bbp.count - 1) g_stage2.bbp.count--; IR_free(g); }
     return (void *)fn;
 }
 void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_g(key, choice, arity, NULL); }

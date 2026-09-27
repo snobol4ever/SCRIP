@@ -5,6 +5,7 @@
 #include "SM.h"
 #include "bb_program.h"
 #include "ast.h"
+#include "ct_vec.h"
 #define STAGE2_LABEL_MAX           4096
 #define STAGE2_PROC_TABLE_MAX       256
 #define STAGE2_PL_PRED_TABLE_SIZE   256
@@ -69,6 +70,7 @@ typedef struct stage2_t {
     const char          *pl_dyn_name[64];
     int                  pl_dyn_arity[64];
     int                  pl_dyn_n;
+    cv_t                 pl_prelude_keys;
 } stage2_t;
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
 typedef struct { const tree_t *prog; lower_entry_fn fn; } lower_seg_t;

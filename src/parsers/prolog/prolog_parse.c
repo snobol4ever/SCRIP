@@ -3,6 +3,7 @@
 #include "ct_vec.h"
 #include "prolog_lex.h"
 #include "prolog_atom.h"
+#include "stage2.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1362,16 +1363,19 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_prelude_defines(const char *nm, int ar) {
+    char key[300];
     if (!nm) return 0;
-    PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
-    if (!pre) return 0;
-    int found = 0;
-    for (PlClause *cl = pre->head; cl; cl = cl->next) {
-        const char *cn; int car;
-        if (pl_clause_key(cl, &cn, &car) && cn && !strcmp(cn, nm) && car == ar) { found = 1; break; }
+    if (!g_stage2.pl_prelude_keys.len) {
+        PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
+        if (!pre) return 0;
+        for (PlClause *cl = pre->head; cl; cl = cl->next) {
+            const char *cn; int car;
+            if (pl_clause_key(cl, &cn, &car) && cn) { snprintf(key, sizeof key, "%s/%d", cn, car); pl_cv_add(&g_stage2.pl_prelude_keys, key); }
+        }
+        ct_drop(pre);
     }
-    ct_drop(pre);
-    return found;
+    if ((size_t)snprintf(key, sizeof key, "%s/%d", nm, ar) >= sizeof key) return 0;
+    return pl_cv_has(&g_stage2.pl_prelude_keys, key);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog);
