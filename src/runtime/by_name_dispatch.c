@@ -1403,6 +1403,7 @@ typedef struct { uint64_t magic; const char *nm; int64_t idx; int kind; int64_t 
 #define ICN_OPGEN_TOBY 1
 #define ICN_OPGEN_KEY  2
 #define ICN_OPGEN_SCAN 3
+#define ICN_OPGEN_CURSOR 4
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_opgen_scan_name(const char *nm) {
     if (!nm) return 0;
@@ -1418,6 +1419,7 @@ static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g, DESCR_t *argv, int n) {
     DESCR_t out;
     if (!g) return FAILDESCR;
     if (g->kind == ICN_OPGEN_TOBY) { if (g->step > 0 ? g->cur > g->lim : g->cur < g->lim) return FAILDESCR; out = INTVAL(g->cur); g->cur += g->step; return out; }
+    if (g->kind == ICN_OPGEN_CURSOR) { extern int scan_pos; scan_pos = (int)g->cur; return FAILDESCR; }
     if (g->kind == ICN_OPGEN_SCAN) { int hi = (g->nm[0] == 'b') ? 6 : 4; return RT_GC_CALLBACK(rt_call_arr_gen_strict(g->nm, argv, n > hi ? hi : n, &g->idx)); }
     if (n < 1) return FAILDESCR;
     if (g->kind == ICN_OPGEN_KEY) { out = rt_list_bang_key_at(argv[0], g->idx); if (IS_FAIL_fn(out)) return FAILDESCR; g->idx++; return out; }
@@ -1527,6 +1529,13 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, hslot);
     if (n == 1 && !strcmp(nm, "key")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_KEY, 0), argv, n, hslot);
     if ((n >= 1 || !strcmp(nm, "bal")) && icn_opgen_scan_name(nm)) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_SCAN, icn_opgen_scan_name(nm)), argv, n, hslot);
+    if (hslot && (!strcmp(nm, "tab") || !strcmp(nm, "move"))) {
+        extern int scan_pos; int64_t at = scan_pos;
+        DESCR_t v = RT_GC_CALLBACK(rt_call_value(callee, argv, n));
+        if (IS_FAIL_fn(v)) return v;
+        ICN_OPGEN_t *g = icn_opgen_new(ICN_OPGEN_CURSOR, 0); if (g) { g->cur = at; *hslot = (void *)g; }
+        return v;
+    }
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return RT_GC_CALLBACK(rt_call_value(callee, argv, n));
 }

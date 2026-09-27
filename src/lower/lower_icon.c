@@ -59,6 +59,7 @@ static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 static lc_vec g_icn_reassigned; static const tree_t * g_icn_reassigned_prog = NULL;
 static int icn_name_assigned(const char * nm) { if (!nm) return 0; for (int k = 0; k < g_icn_reassigned.n; k++) if (!strcmp(LC_AT(&g_icn_reassigned, const char *, k), nm)) return 1; return 0; }
 static int icn_proc_reassigned(const char * nm) { return nm && icn_is_proc(nm) && icn_name_assigned(nm); }
+static int icn_is_icon_function(const char * nm);
 static void icn_reassigned_walk(const tree_t * n) {
     if (!n) return;
     if (n->t == TT_STMT) { icn_reassigned_walk(stmt_subj(n)); return; }
@@ -94,6 +95,10 @@ static int icn_proc_is_generator(const char * name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "key") || !strcmp(name, "seq")); }
+static int icn_callee_is_a_value(const char * nm) {
+    extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
+    return nm && nm[0] != '&' && (icn_proc_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !dat_find_type(nm)));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
     switch (aop) {
@@ -117,7 +122,7 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_FIELD || t->t == TT_NULL || t->t == TT_NONNULL) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (t->t == TT_REPALT) return 1;
     if (is_unop_tt(t->t)) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
-    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; if (!nm || icn_call_allow_gen(nm)) return 1; for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; if (!nm || icn_call_allow_gen(nm) || icn_callee_is_a_value(nm)) return 1; for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_LIMIT) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
@@ -1471,6 +1476,7 @@ static const char *const icn_function_names[] = {
         "where", "write", "writes",
         (const char *) 0
 };
+static int icn_is_icon_function(const char * nm) { for (int k = 0; nm && icn_function_names[k]; k++) if (!strcmp(icn_function_names[k], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * fg = build(cx, IR_ITERATE, γ, ω);
@@ -1641,6 +1647,7 @@ static void fill_pnames(const tree_t * prog, lc_vec * pn) {
 static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** mangled, int cnt) {
     if (!n) return;
     if (n->t == TT_PROC_DECL || n->t == TT_STATIC_DECL) return;
+    if (n->t == TT_FIELD) { if (n->n > 0) icn_rename_statics_walk(n->c[0], names, mangled, cnt); return; }
     if (n->t == TT_VAR && n->v.sval) { for (int k = 0; k < cnt; k++) if (!strcmp(n->v.sval, names[k])) { n->v.sval = mangled[k]; return; } }
     for (int i = 0; i < n->n; i++) icn_rename_statics_walk(n->c[i], names, mangled, cnt);
 }
@@ -1689,6 +1696,7 @@ static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
 static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out) {
     if (!n) return;
     if (n->t == TT_PROC_DECL || n->t == TT_LOCAL || n->t == TT_STATIC_DECL || n->t == TT_GLOBAL) return;
+    if (n->t == TT_FIELD) { if (n->n > 0) icn_collect_implicit_locals(n->c[0], excl, nexcl, out); return; }
     if (n->t == TT_VAR && n->v.sval) {
         const char * nm = n->v.sval; int found = 0;
         for (int k = 0; k < nexcl && !found; k++) if (excl[k] && !strcmp(excl[k], nm)) found = 1;
