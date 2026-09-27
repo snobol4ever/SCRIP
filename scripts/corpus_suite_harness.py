@@ -2567,8 +2567,13 @@ def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
     # ⛔⭐ ONE SEAT, ONE LANGUAGE (Lon 2026-09-24, verbatim: "Just have each seat run only their own test suites." / "We can not have
     # all 5 HQ's deciding to run all seven test suites simultaneously. Fix that."): an hq_* seat the LANES: line names gets neither
     # exemption below and falls through to the refusal. Mirrors lib_one_runner.sh:one_runner_seat_is_language_hq.
+    # ⛔⭐ THE FIXTURE EXEMPTION HOLDS ONLY FOR A POPULATION OUTSIDE THE SHARED CORPUS (ceo CEO-1302 (c), 2026-09-27; lib_one_runner.sh
+    # carries the why): a suite reaching this line is a board -- a scratch one returned at the top -- so the exemption, which admitted
+    # exactly this case, now names it and falls through to the checks below, which end in the refusal.
     if os.environ.get("S4E_ONE_RUNNER_FIXTURE"):
-        print("ONE-RUNNER FIXTURE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_FIXTURE"])); return
+        sys.stderr.write("\u26d4 ONE-RUNNER FIXTURE NOT ADMITTED: %s is the shared corpus or a population a board reads -- the exemption "
+                         "admits a scratch population only (ceo CEO-1302 (c)); point the fixture at one with a scratch "
+                         "S4E_PROGRESS_DB\n" % (suite_path or "a run naming no suite"))
     if seat.startswith("hq_") and seat in _one_runner_who("all"):
         sys.stderr.write("\u26d4 ONE SEAT, ONE LANGUAGE: %s is a language HQ -- no S4E_ONE_RUNNER_OVERRIDE and no DONE-WHEN admits it to "
                          "a %s board (Lon 2026-09-24: \"Just have each seat run only their own test suites.\")\n" % (seat, blang))

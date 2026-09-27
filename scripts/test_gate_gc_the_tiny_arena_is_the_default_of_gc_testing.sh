@@ -46,10 +46,14 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 S4E="$(cd "$ROOT/.." && pwd)"
-SUITE="$S4E/corpus/tests/rebus/ALL.reb"; SREF="$S4E/corpus/tests/rebus/ALL.ref"
-[ -f "$SUITE" ] && [ -f "$SREF" ] || { echo "⛔ REFUSE(2) [$G]: no rebus master at $SUITE -- this gate needs one graded entry to make the harness print a board"; exit 2; }
+[ -f "$S4E/corpus/tests/rebus/ALL.reb" ] && [ -f "$S4E/corpus/tests/rebus/ALL.ref" ] || { echo "⛔ REFUSE(2) [$G]: no rebus master at $S4E/corpus/tests/rebus/ALL.reb -- this gate needs one graded entry to make the harness print a board"; exit 2; }
 command -v make >/dev/null || { echo "⛔ REFUSE(2) [$G]: make is arm 1's instrument and it is absent"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
+# ⛔ A SCRATCH COPY OF THE REBUS MASTER, NEVER THE MASTER ITSELF (ceo CEO-1302 (c), coo 2026-09-27): the fixture exemption no longer
+# admits the shared corpus, so the harness refused a shard of corpus/tests/rebus/ALL.reb and printed no ARENA line. The copy, beside
+# its ALL.csv and sidecars, sits outside every checkout: the same entries, the same shard, and no board.
+cp -a "$S4E/corpus/tests/rebus" "$T/rebus" || { echo "⛔ REFUSE(2) [$G]: could not copy the rebus master to a scratch directory"; exit 2; }
+SUITE="$T/rebus/ALL.reb"; SREF="$T/rebus/ALL.ref"
 RC=0; examined=0
 # ARM 1 -- the tiny arena is A PASS OF ITS OWN (make test-arena), it announces its arena, the arena TRACKS its knob,
 # and the blanket export that was tried first is NOT back.  ⛔ WHY THE SHAPE CHANGED, MEASURED (ceo CEO-939): the first

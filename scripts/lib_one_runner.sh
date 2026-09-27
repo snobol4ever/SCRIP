@@ -166,6 +166,15 @@ one_runner_bin_fingerprint() {
   [ -f "$_b" ] && [ -f "$_r" ] || return 1
   md5sum "$_b" "$_r" 2>/dev/null | cut -c1-12 | tr '\n' ' '
 }
+# one_runner_population_of "$@" -- the population a runner was pointed at by its caller: the word after --corpus on its command line,
+# else its CORPUS variable, else nothing (the runner grades its default population, the one its environment resolves). ⛔ WHY (ceo
+# CEO-1302 (c), 2026-09-27): the fixture exemption holds only for a population outside the shared corpus, and a runner that takes its
+# population from an argument or its own variable called the guard with none, so the guard judged the default -- the real corpus --
+# and refused a gate's scratch package (test_icon_jcon_suite.sh --corpus <mktemp>). Such a runner hands this to the guard.
+one_runner_population_of() {
+  while [ $# -gt 0 ]; do [ "$1" = --corpus ] && [ -n "${2:-}" ] && { printf '%s' "$2"; return 0; }; shift; done
+  printf '%s' "${CORPUS:-}"
+}
 one_runner_guard() {
   if [ -z "${S4E_BIN_AT_START:-}" ]; then S4E_BIN_AT_START="$(one_runner_bin_fingerprint)" && export S4E_BIN_AT_START; fi
   local board="${1:-${0##*/}}" suite="${2:-}" seat who lang
@@ -180,7 +189,19 @@ one_runner_guard() {
   # shared-code landing is graded by its lander on its OWN language and every other language reads it on its own next pass (CEO-775).
   # A GATE running a runner as an instrument fixture (a tiny slice inside the blocking set, never a seat's board run) says so with
   # S4E_ONE_RUNNER_FIXTURE="why" and is admitted for every seat; S4E_ONE_RUNNER_OVERRIDE is the SEAT's override and is not an HQ's.
-  if [ -n "${S4E_ONE_RUNNER_FIXTURE:-}" ]; then printf 'ONE-RUNNER FIXTURE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_FIXTURE"; return 0; fi
+  # ⛔⭐ AND THE EXEMPTION HOLDS ONLY FOR A POPULATION OUTSIDE THE SHARED CORPUS (ceo CEO-1302 (c), 2026-09-27, on the coo's COO-198
+  # report): it admitted the variable alone, whatever the runner graded, so test_gate_nreturn_by_name_value_broken.sh and
+  # test_gate_snocone_returns_codegen.sh ran test_corpus_snobol4.sh over the real 1991-entry master inside a control arm -- two whole
+  # SnoM passes and 7964 dev-pass rows under a seat that runs no board. A suite path that reaches this line is a board (a scratch one
+  # returned above), and a runner that names none is judged by the corpus its environment resolves -- S4E_CORPUS, else S4E_HOME/corpus
+  # -- which is a fixture only when it lies inside no checkout of the shared corpus (one_runner_in_a_shared_checkout, the test a suite
+  # outside the configured root already gets: a gate's mktemp root, git-initialised or not, is outside; a worktree of the corpus is
+  # inside). Not admitted, the run falls through to the checks below, which end in the refusal.
+  if [ -n "${S4E_ONE_RUNNER_FIXTURE:-}" ]; then
+    local _fxpop="${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}"
+    if [ -z "$suite" ] && ! one_runner_in_a_shared_checkout "$_fxpop"; then printf 'ONE-RUNNER FIXTURE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_FIXTURE"; return 0; fi
+    printf '⛔ ONE-RUNNER FIXTURE NOT ADMITTED: %s grades %s, the shared corpus or a population a board reads -- the exemption admits a scratch population only (ceo CEO-1302 (c)); point the fixture at one (S4E_HOME, --corpus, the runner'"'"'s *_SUITE) with a scratch S4E_PROGRESS_DB\n' "$board" "${suite:-$_fxpop}" >&2
+  fi
   local _hq=0; [ -n "$seat" ] && one_runner_seat_is_language_hq "$seat" && _hq=1
   if [ "$_hq" = 0 ]; then
     if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
