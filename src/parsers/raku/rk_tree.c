@@ -912,8 +912,8 @@ tree_t *rkb_assign(RkB *b, int cls, const char *name, int k, tree_t *r) {
 tree_t *rkb_prefix_apply(RkB *b, const char *op, tree_t *x) {
     if (!strcmp(op, "-")) return expr_unary(TT_MNS, nctx(b, x));
     if (!strcmp(op, "+")) { tree_t *n = nctx(b, x); if (n == x && x->t != TT_ILIT && x->t != TT_FLIT) n = expr_binary(TT_ADD, x, rk_ilit(0)); return n; }
-    if (!strcmp(op, "?")) { tree_t *m = make_call("__rk_mkbool"); expr_add_child(m, x); return m; }
-    if (!strcmp(op, "!")) return expr_unary(TT_NOT, x);
+    if (!strcmp(op, "?") || !strcmp(op, "so")) { tree_t *m = make_call("__rk_mkbool"); expr_add_child(m, x); return m; }
+    if (!strcmp(op, "!") || !strcmp(op, "not")) return expr_unary(TT_NOT, x);
     if (!strcmp(op, "^")) return rk_range_ex(b, rk_ilit(0), x);
     return x;
 }
@@ -1076,6 +1076,10 @@ void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl) {
     if (u[0] == '"') it->t = b_dq(b, cl, ncl, from + 1, to - 1);
     else if (u[0] == '\'') it->t = b_sq(b, from + 1, to - 1);
     else if (u[0] == 0xEF && u[1] == 0xBD && u[2] == 0xA2) it->t = leaf_sval(TT_QLIT, spn(b, from + 3, to - 3));
+    else if (u[0] == '/' || !strncmp((const char *) u, "rx/", 3) || !strncmp((const char *) u, "m/", 2)) {
+        int at = from + (u[0] == '/' ? 1 : u[0] == 'r' ? 3 : 2);
+        it->t = make_call("__rk_regex"); expr_add_child(it->t, leaf_sval(TT_QLIT, regex_to_engine(regex_body(b, at, to, '/'))));
+    }
     else it->t = leaf_sval(TT_QLIT, spn(b, from, to));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1428,6 +1432,11 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     const char *op1 = L->nitem > 1 ? L->op1 : NULL;
     if (!op1) return NULL;
     int eq = !strcmp(op1, "=");
+    if (!strcmp(op1, ":=") && plain(t0, 'S') && (!tail || bk == BK_BLOCK || bk == BK_CATCH || bk == BK_GIVEN)) {
+        tree_t *e = el_rest(b, e0);
+        tree_t *bd = rk_bind(var_node(b, t0->name), rk_scalar_rhs(e));
+        return bd ? bd : expr_binary(TT_ASSIGN, var_node(b, t0->name), e);
+    }
     if (eq && t0->npost && !t0->npre && t0->t && t0->t->t == TT_METHCALL && t0->t->n == 2 && L->n == 1 && (!tail || bk == BK_BLOCK || bk == BK_CATCH || bk == BK_GIVEN)) {
         tree_t *rhs = el_rest(b, e0);
         tree_t *fe = ast_node_new(TT_FIELD); fe->v.sval = (char *) intern(t0->t->c[1]->v.sval); expr_add_child(fe, t0->t->c[0]);
@@ -1467,11 +1476,6 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         tree_t *call = make_call("__rk_arr"); expr_add_child(call, first);
         for (int i = 1; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i]));
         return expr_binary(TT_ASSIGN, var_node(b, t0->name), call);
-    }
-    if (op1 && !strcmp(op1, ":=") && plain(t0, 'S')) {
-        tree_t *e = el_rest(b, e0);
-        tree_t *bd = rk_bind(var_node(b, t0->name), rk_scalar_rhs(e));
-        return bd ? bd : expr_binary(TT_ASSIGN, var_node(b, t0->name), e);
     }
     if (op1 && !strcmp(op1, "=") && t0->kind == TK_PAREN && !t0->npost && !t0->npre) {
         tree_t *rhs = el_rest(b, e0);
@@ -1525,7 +1529,7 @@ void rkb_statement(RkB *b, tree_t *list, int bk, int from, int to, RkList *L, in
     }
     int tail = !semi && last && (bk == BK_BLOCK || bk == BK_SUB || bk == BK_METHOD || bk == BK_CATCH || bk == BK_GIVEN);
     tree_t *tr;
-    if (nmods) { tr = el_tree(b, e0); for (int i = 0; i < nmods; i++) tr = wrap_mod(b, modk[i], modx[i], tr); }
+    if (nmods) { tr = assign_forms(b, L, 0, BK_MAIN); if (!tr) tr = el_tree(b, e0); for (int i = 0; i < nmods; i++) tr = wrap_mod(b, modk[i], modx[i], tr); }
     else if (tail) tr = stmt_tail(b, L, bk);
     else tr = stmt_plain(b, L);
     app(b, list, tr, from);

@@ -2166,11 +2166,13 @@ static tree_t *x_expr(RkP *p, RkX *x);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *x_after(RkP *p, RkX *x) { int cap = x->nops - x->el_nops == 1; tree_t *r = x_expr(p, x); if (cap) x->el->rest = r; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_tern(RkP *p, RkX *x);
 static tree_t *x_unary(RkP *p, RkX *x) {
     RkTerm tm, *t = &tm;
     int first = !x->nterm && !x->pend && !x->eli;
     if (x->pend) { t = x->pend; x->pend = NULL; } else if (!x_term(p, x, &tm)) return NULL;
     tree_t *base = NULL; int np = t->npre;
+    const char *loose = (p->build && np && (!strcmp(t->pre[0], "so") || !strcmp(t->pre[0], "not"))) ? t->pre[0] : NULL;
     x->lastcls = 0;
     if (p->build) {
         if (np && (!strcmp(t->pre[np - 1], "++") || !strcmp(t->pre[np - 1], "--")) && t->kind == TK_VAR && t->cls == 'S' && !t->npost) { base = rkb_incdec(p->B, t->name, t->pre[np - 1][0] == '+');
@@ -2186,7 +2188,14 @@ static tree_t *x_unary(RkP *p, RkX *x) {
         }
     }
     if (x_in(p, x, LV_POW) >= 0) { x_take(p, x); tree_t *r = x_unary(p, x); if (p->build) base = rkb_binop(p->B, LV_POW, 0, base, r); x->lastcls = 0; }
-    if (p->build) for (int i = np - 1; i >= 0; i--) base = rkb_prefix_apply(p->B, t->pre[i], base);
+    if (p->build) for (int i = np - 1; i >= (loose ? 1 : 0); i--) base = rkb_prefix_apply(p->B, t->pre[i], base);
+    if (loose) {
+        RkTerm lt; memset(&lt, 0, sizeof lt); lt.kind = TK_TREE; lt.t = base; lt.from = t->from; lt.to = lt.core_to = t->to;
+        x->pend = &lt; x->lastcls = 0;
+        tree_t *r = x_tern(p, x);
+        x->lastcls = 0;
+        return rkb_prefix_apply(p->B, loose, r);
+    }
     return base;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

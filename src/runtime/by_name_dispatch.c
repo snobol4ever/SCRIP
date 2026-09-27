@@ -333,9 +333,9 @@ int rt_builtin_is_known(const char *name)
         "[]",
         "__apply__",
         "MAKELIST",
-        "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
+        "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth",
+        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
@@ -372,7 +372,9 @@ int rt_builtin_is_known(const char *name)
 }
 #define SOH '\x01'
 #define RK_A1 '\x02'
+#define RK_RX '\x06'
 static int rk_a_empty1(const char *s) { return s && s[0] == RK_A1 && s[1] == '\0'; }
+static const char *rk_rx_pat(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_RX) ? v.s + 1 : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_a_seal(char *buf, int nonzero) {
     if (nonzero && !buf[0]) { char *e = rt_wsb_alloc(2); e[0] = RK_A1; e[1] = '\0'; return STRVAL(e); }
@@ -684,8 +686,23 @@ static const char *rk_list_as_str(const char *s) {
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = "";
-    if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words")) s = rk_list_as_str(s);
+    if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words") || !strcmp(meth, "split")) s = rk_list_as_str(s);
     size_t n = strlen(s);
+    if ((!strcmp(meth, "split") || !strcmp(meth, "comb")) && nmargs >= 1 && rk_rx_pat(margs[0])) {
+        Nfa *nfa = nfa_build(rk_rx_pat(margs[0])); if (!nfa) { *out = FAILDESCR; return 1; }
+        int split = meth[0] == 's'; char *r = (char *)rt_str_alloc((long)(2 * n + 1)); size_t op = 0, seg = 0, pos = 0; int nel = 0;
+        while (pos <= n) {
+            Match m; nfa_exec(nfa, s + pos, &m); if (!m.matched) break;
+            size_t ms = pos + (size_t)m.full_start, me = pos + (size_t)m.full_end;
+            if (me == ms) { pos = ms + 1; continue; }
+            if (nel++) r[op++] = SOH;
+            if (split) { memcpy(r + op, s + seg, ms - seg); op += ms - seg; seg = me; } else { memcpy(r + op, s + ms, me - ms); op += me - ms; }
+            pos = me;
+        }
+        nfa_free(nfa);
+        if (split) { if (nel++) r[op++] = SOH; memcpy(r + op, s + seg, n - seg); op += n - seg; }
+        r[op] = '\0'; *out = rk_a_seal(r, nel > 0); return 1;
+    }
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
     if (!strcmp(meth, "uc")) { char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) {
@@ -3959,7 +3976,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (idx < 0) { *out = NULVCL; return 1; }
         if (rk_a_empty1(cur)) { *out = (idx == 0) ? STRVAL(rt_heap_strdup_c("")) : NULVCL; return 1; }
         if (idx == 0 && !*cur) { *out = NULVCL; return 1; }
-        if (idx >= 1 && !strchr(cur, SOH) && (size_t)idx <= strlen(cur)) { *out = INTVAL((long long)(unsigned char)cur[idx - 1]); return 1; }
         const char *seg = cur; long k = 0;
         for (;;) {
             const char *nx = strchr(seg, SOH);
@@ -4942,6 +4958,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (!have) { *out = NULVCL; return 1; }
         *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best)); return 1;
+    }
+    if (!strcmp(fn, "__rk_regex") && nargs == 1) {
+        char sb[64]; const char *pat = to_cstring(args[0], sb, sizeof sb); size_t L = strlen(pat);
+        char *r = rt_str_alloc((long)L + 1); r[0] = RK_RX; memcpy(r + 1, pat, L); r[L + 1] = '\0'; *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(fn, "__rk_smartmatch") && nargs == 2) {
+        const char *pat = rk_rx_pat(args[1]);
+        if (pat) {
+            char sb[64]; const char *subj = to_cstring(args[0], sb, sizeof sb); subj = rt_heap_strdup_c(subj ? subj : "");
+            Nfa *nfa = nfa_build(pat); if (!nfa) { *out = FAILDESCR; return 1; }
+            nfa_exec(nfa, subj, &g_match); g_subject = subj; int ok = g_match.matched; nfa_free(nfa);
+            *out = ok ? INTVAL(1) : FAILDESCR; return 1;
+        }
+        long long hit;
+        if (args[1].v == DT_BOOL) hit = args[1].i != 0;
+        else if (IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) hit = to_real(args[0]) == to_real(args[1]);
+        else { char s1[64], s2[64]; const char *x = to_cstring(args[0], s1, sizeof s1), *y = to_cstring(args[1], s2, sizeof s2); hit = !strcmp(x ? x : "", y ? y : ""); }
+        *out = (DESCR_t){ .v = DT_BOOL, .i = hit }; return 1;
     }
     if (!strcmp(fn, "__rk_hyper_meth") && nargs >= 2) {
         char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch);
@@ -5935,6 +5969,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *o = rt_wsb_alloc(al + 1 + cl + 1);
         memcpy(o, acc, al); o[al] = SOH; memcpy(o + al + 1, cur, cl); o[al + 1 + cl] = '\0';
         *out = STRVAL(o); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_set") && nargs >= 3) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        char ib[64]; long idx = IS_INT_fn(args[1]) ? (long)args[1].i : IS_REAL_fn(args[1]) ? (long)args[1].r : strtol(to_cstring(args[1], ib, sizeof ib), NULL, 10);
+        if (idx < 0) { *out = FAILDESCR; return 1; }
+        char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb); size_t rvl = strlen(rv);
+        const char **els; size_t *lens; int nel = rk_a_split(cur, &els, &lens);
+        long n = idx + 1 > nel ? idx + 1 : nel; size_t total = rvl + (size_t)n;
+        for (int i = 0; i < nel; i++) if (i != idx) total += lens[i];
+        char *o = rt_str_alloc((long)total); size_t p = 0;
+        for (long i = 0; i < n; i++) {
+            if (i) o[p++] = SOH;
+            if (i == idx) { memcpy(o + p, rv, rvl); p += rvl; } else if (i < nel) { memcpy(o + p, els[i], lens[i]); p += lens[i]; }
+        }
+        o[p] = '\0'; *out = rk_a_seal(o, 1); return 1;
     }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
         if (args[0].v == DT_A && args[0].arr) {
