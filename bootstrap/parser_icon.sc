@@ -86,6 +86,8 @@ $'<'        =   $' ' '<' @lt_a (ANY('-=<') | epsilon) @lt_b *EQ(lt_a, lt_b) $' '
 $'>'        =   $' ' '>' @gt_a (ANY('=>')  | epsilon) @gt_b *EQ(gt_a, gt_b)  $' ';
 $':=:'      =   $' ' ':=:'   $' ';
 $':='       =   $' ' ':='    $' ';
+$'+:'       =   $' ' '+:'    $' ';
+$'-:'       =   $' ' '-:'    $' ';
 $'<->'      =   $' ' '<->'   $' ';
 $'<-'       =   $' ' '<-'    $' ';
 $'~==:='    =   $' ' '~==:=' $' ';
@@ -164,8 +166,8 @@ ListCtor  = ( nPush()
    then reduce('TT_FIELD', 2) gives children [object, TT_VAR(name)] in source order. */
 FieldTail   = ( $'.' shift(id_pat, 'TT_VAR') reduce('TT_FIELD', 2) );
 Expr11tail  = ( $'[' *Expr
-                FENCE( $':+' *Expr $']' reduce('TT_SECTION_PLUS',  3)
-                     | $':-' *Expr $']' reduce('TT_SECTION_MINUS', 3)
+                FENCE( $'+:' *Expr $']' reduce('TT_SECTION_PLUS',  3)
+                     | $'-:' *Expr $']' reduce('TT_SECTION_MINUS', 3)
                      | $':'  *Expr $']' reduce('TT_SECTION',       3)
                      | $']'            reduce('TT_IDX',            2)
                      )
