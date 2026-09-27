@@ -50,8 +50,11 @@ UNG = {"UNGRADED", "SKIP", "MISSING", "UNPROVEN"}
 # counts twice, once from the DB and once from the sidecar (gimpel read 160 against its row of 148, coo 2026-09-25).
 # ⛔ AN INCLUDE LIBRARY'S FILE IS NAME.INC OR NAME.inc AND ITS PROGRESS KEY STAYS NAME.sno (corpus fb0900573; ceo CEO-1317, declared in
 # gimpel's README): the stem folds .INC/.inc too, else gimpel's sidecars named 10 libraries a second time (152 against its row of 142).
+# ⛔ AND THE PAIR CONVENTION: a stem the package ships twice, as the program x.spt and the library x.inc, is graded through x_driver and
+# x_lib_driver (gimpel since CEO-1319), so x_lib_driver's stem is x -- else its OUTSIDE row counted a 146th program against gimpel's 145.
 def stem(n):
-    return re.sub(r"_driver$", "", re.sub(r"\.(sno|spt|sc|icn|pl|reb|raku|pas|inc|INC)$", "", n.split("/")[-1]))
+    b = re.sub(r"\.(sno|spt|sc|icn|pl|reb|raku|pas|inc|INC)$", "", n.split("/")[-1])
+    return b[: -len("_lib_driver")] if b.endswith("_lib_driver") else re.sub(r"_driver$", "", b)
 
 
 # ⛔ PACKAGES WITH NO OUTSIDE FILE WHOSE ROW IS STILL THEIR SHIPPED POPULATION (ceo CEO-1272, coo 2026-09-25): IPL publishes the
@@ -339,24 +342,24 @@ def selftest():
         # (CEO-1269); a CONTAINERS.tsv name is no program even with a stale DB row on the tree (CEO-1272); and a package with no outside
         # file folds its sidecars BY PATH, so two files sharing a basename count twice (IPL). Each row reads AGREE only with all three.
         dn = os.path.join(w, "corpus", "packages", "snobol4", "dotnet"); os.makedirs(dn)
-        open(os.path.join(dn, "OUTSIDE_SPITBOL_BASELINE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\n")
+        open(os.path.join(dn, "OUTSIDE_SPITBOL_BASELINE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\nq_lib_driver.sno\tORACLE_REFUSES\tthe library of a twice-shipped stem (fixture)\n")
         open(os.path.join(dn, "UNGRADABLE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\nY.INC\tORACLE_REFUSES\tan include library, keyed Y.sno in the DB (fixture)\n")
         open(os.path.join(dn, "CONTAINERS.tsv"), "w").write("chap.sno\tMULTI_PROGRAM\t2 top-level END statements (fixture)\n")
         ip = os.path.join(w, "corpus", "packages", "icon", "ipl"); os.makedirs(ip)
         open(os.path.join(ip, "UNGRADED.tsv"), "w").write("procs/dup.icn\tNEEDS_DRIVER\tfixture\ngprocs/dup.icn\tNEEDS_DRIVER\tfixture\n")
         open(os.path.join(ip, "EXCLUDED.tsv"), "w").write("gprogs/a1.icn\tNEEDS_GRAPHICS_FACILITY\tthe namesake of the graded gprocs/a1 (fixture)\n")
-        open(suites, "w").write("# fixture\n" + hdr + "dotnet\tDotnet\tx\tsnobol4\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n"
+        open(suites, "w").write("# fixture\n" + hdr + "dotnet\tDotnet\tx\tsnobol4\t2026-09-25\t2\t5\t2026-09-25\t2\t5\tfeedbeef1\tfixture\n"
                                 + "ipl\tIPL\tx\ticon\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n")
         dl = [lines[0]]
         for m in ("m3", "m4"):
-            dl += [row("feedbeef1", "dotnet", "d1", m, "PASS"), row("feedbeef1", "dotnet", "X", m, "UNGRADED"), row("feedbeef1", "dotnet", "chap", m, "UNGRADED"), row("feedbeef1", "dotnet", "Y", m, "UNGRADED"),
+            dl += [row("feedbeef1", "dotnet", "d1", m, "PASS"), row("feedbeef1", "dotnet", "X", m, "UNGRADED"), row("feedbeef1", "dotnet", "chap", m, "UNGRADED"), row("feedbeef1", "dotnet", "Y", m, "UNGRADED"), row("feedbeef1", "dotnet", "q.spt", m, "PASS"), row("feedbeef1", "dotnet", "q.inc", m, "UNGRADED"),
                    row("feedbeef1", "ipl", "gprocs/a1", m, "PASS")]
         open(db, "w").write("".join(dl))
         buf = []
         rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
         txt = "\n".join(buf)
         ck(rc == 0 and re.search(r"dotnet .*AGREE", txt) and re.search(r"ipl .*AGREE", txt),
-           "(d) a driver-named sidecar row is its library's DB row, a NAME.INC sidecar row is its NAME.sno DB row, a container's stale DB row is no program, IPL's two same-basename sidecar files count twice and its EXCLUDED gprogs/a1 leaves the graded gprocs/a1 in -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
+           "(d) a driver-named sidecar row is its library's DB row, a NAME.INC sidecar row is its NAME.sno DB row, q_lib_driver's OUTSIDE row is the library q.inc beside the program q.spt, a container's stale DB row is no program, IPL's two same-basename sidecar files count twice and its EXCLUDED gprogs/a1 leaves the graded gprocs/a1 in -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
         print(f"population: 4 selftest arm(s), {fails} FAIL")
         print("SELFTEST " + ("PASS" if fails == 0 else "FAIL"))
         return 0 if fails == 0 else 1
