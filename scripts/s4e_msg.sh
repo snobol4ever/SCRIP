@@ -2091,7 +2091,13 @@ case "$cmd" in
          esac;;
   claim) [ -n "${2:-}" ] || s4e_need claim "a topic" "s4e_msg.sh claim <topic>" "Takes a row deliberately. Use \`next\` to be served one; this verb is for a row you have chosen by name."
          topic="$2"; c="$PO/claims/$topic.claim"; mkdir -p "$PO/claims"
-         if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"; else echo "CLAIMED by $own — pick other work"; exit 1; fi
+         # ⭐ AN ASSIGNED ROW ITS OWNER CLAIMS BY NAME IS STARTED, THE SAME MARK `next` WRITES WHEN IT SERVES ONE (the coo 2026-09-27, ceo
+         # CEO-1306): PASS 1 appends RUNNING as it serves ASSIGNED->RUNNING, but `claim` on the same row said "already yours" and wrote
+         # nothing, so an owner who took an assigned row by name left no trace a sweep could read -- util_queue_visibility_census.py's
+         # BLOCKING-RED PAST WINDOW counts an assignment alone as NOT started. Once, with the bus notice, never twice.
+         if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"
+              if grep -q '^ASSIGNED-BY ' "$c" && ! grep -qx 'RUNNING' "$c" && ! grep -qx 'DONE' "$c"; then echo "RUNNING" >> "$c"; s4e_announce_claim "$topic"; fi
+            else echo "CLAIMED by $own — pick other work"; exit 1; fi
          else
               # ⛔⭐ THE PREMISE GATE RUNS HERE: BEFORE THE LOCK EXISTS, AND ONLY ON THE PATH THAT TAKES ONE.
               # BEFORE, because "refuses the lock" is the whole deliverable -- a row nobody can usefully work is

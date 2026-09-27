@@ -129,5 +129,110 @@ for name, lst, note in (("A2 FREE-behind-DONE-claim", A2, "verify each DONE, the
             print(f"    {t}" + (f"  [rank {r.get('rank','?')}, owner {r.get('owner','?')}]" + (f"  criterion: {_grade(t)}" if GRADE else "") if name.startswith('R ') else ''))
 if Rh:
     print(f"R  (history, informational) {len(Rh)} row(s) in QUEUE.done.tsv carry DONE with no claim carrying DONE -- swept before the receipt existed; not counted")
+# ⭐⭐ THE TWO SWEEP LINES (the coo 2026-09-27, ceo CEO-1306, row instruments-the-queue-census-names-blocking-red-rows-past-their-two-hour-
+# window-and-hq-lane-rows-unserved-past-24-hours-ceo-1306). Measured the morning they were ruled: three blocking-red rows of the 09-26 audit
+# board sat FREE for 23 hours while every seat's make test read them as tolerated reds, and 227 rank-0/1 rows sat FREE in HQ lanes -- 40
+# at rank 0 -- that their HQs would not serve while each held its one row. The ceo swept both by hand; these two lines make the sweep a
+# reading, printed EVERY run, zero included.
+#   BLOCKING-RED PAST WINDOW  a row whose baton LINKS line carries BLOCKING-RED and whose owner has not STARTED within two hours of the later
+#       of the tagged time (`since <ISO>`) and the row's first assignment. STARTED is the owner's own act: its claim from FREE (CLAIMED:<owner>,
+#       or a claim file it holds with no ASSIGNED-BY line), a RUNNING mark on the claim it was assigned (`next` writes one as it serves the row
+#       ASSIGNED->RUNNING, and `claim` by name since the same landing), or a LEDGER line of its own dated inside or after the window (an
+#       undated one counts: the owner acted). An assignment alone never counts. A row whose times cannot be read is named, never counted.
+#   HQ-LANE UNSERVED PAST 24H  a FREE rank-0 or rank-1 row in an HQ lane (owner hq_*), minted more than 24 hours ago, while that HQ holds
+#       another live claim -- rank 0 first, oldest first.
+# Each named row carries its age and the officer RULES.md's escalation channel (clause 2) routes it to by default: the collector, rt.c and
+# the safe-point road to the cfo; the emitter, planner, templates and spine to the cto; instruments, gates, censuses and the bus to the
+# coo; everything else to the ceo. S4E_CENSUS_NOW=YYYY-MM-DDTHH:MM:SSZ pins the clock, so a fixture reads the same answer every run.
+import re as _re
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+def _iso(s):
+    for f in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%MZ'):
+        try: return _dt.strptime(s, f).replace(tzinfo=_tz.utc)
+        except (ValueError, TypeError): pass
+    return None
+_nv = os.environ.get('S4E_CENSUS_NOW', '')
+NOW = _iso(_nv) if _nv else _dt.now(_tz.utc)
+if NOW is None: print(f"REFUSED (rc=2): S4E_CENSUS_NOW={_nv!r} is not YYYY-MM-DDTHH:MM:SSZ", file=sys.stderr); sys.exit(2)
+def _baton(t):
+    try: return open(os.path.join(tasks_dir, t + '.task.md'), encoding='utf-8', errors='replace').read()
+    except OSError: return ''
+def _claim_lines(t):
+    try: return [l.strip() for l in open(os.path.join(claims_dir, t + '.claim'), encoding='utf-8', errors='replace') if l.strip()]
+    except OSError: return []
+_ROUTE = (('cfo', ('gc', 'collector', 'collection', 'safe-point', 'safepoint', 'heap', 'arena', 'allocator', 'rt-c')),
+          ('cto', ('emitter', 'planner', 'template', 'templates', 'spine', 'codegen', 'zeta', 'lowerer')),
+          ('coo', ('instrument', 'instruments', 'gate', 'gates', 'census', 'bus', 'picker', 'postoffice', 'runner', 'runners',
+                   'harness', 'board', 'boards', 'progress', 'triangulator', 'triangulation')))
+def _route(t):
+    w = set(t.lower().replace('_', '-').replace('.', '-').split('-'))
+    for who, keys in _ROUTE:
+        if w & set(keys): return who
+    return 'ceo'
+_LEDGER = _re.compile(r'^- \[([A-Za-z0-9_]+)·([^\]]*)\]')
+def _ledger_when(s):
+    m = _re.match(r'(\d{4}-\d\d-\d\d)(?:[ T](\d\d):(\d)(\d|x))?', s.strip())
+    if not m: return None
+    d = _dt.strptime(m.group(1), '%Y-%m-%d').replace(tzinfo=_tz.utc)
+    if m.group(2) is None: return d
+    t = d + _td(hours=int(m.group(2)), minutes=int(m.group(3)) * 10 + (0 if m.group(4) == 'x' else int(m.group(4))))
+    return t + _td(hours=5) if 'CDT' in s else t
+def _owner_acted(b, owner, since):
+    for ln in b.split('\n'):
+        m = _LEDGER.match(ln)
+        if not m or m.group(1) != owner: continue
+        w = _ledger_when(m.group(2))
+        if w is None or w >= since - _td(minutes=10): return True
+    return False
+BR, BRx = [], []
+for t, r in rows.items():
+    st = r['state'].split(':')[0]
+    if st in ('DONE', 'SUPERSEDED', 'RETIRED'): continue
+    b = _baton(t)
+    links = next((l for l in b.split('\n') if l.startswith('LINKS:')), '')
+    if 'BLOCKING-RED' not in links: continue
+    m = _re.search(r'BLOCKING-RED:.*?\bsince\s+(\S+?)[.,;)]*(?:\s|$)', links)
+    tag = _iso(m.group(1)) if m else None
+    cl = _claim_lines(t)
+    asg = next((_iso(x.split()[2]) for x in cl if x.startswith('ASSIGNED-BY ') and len(x.split()) >= 3), None)
+    known = [x for x in (tag, asg) if x is not None]
+    if not known: BRx.append(t); continue
+    start = max(known); owner = r['owner']
+    held = bool(cl) and cl[0] == owner
+    started = (r['state'] == 'CLAIMED:' + owner) or (held and ('RUNNING' in cl or not any(x.startswith('ASSIGNED-BY ') for x in cl))) \
+              or _owner_acted(b, owner, start)
+    if not started and NOW > start + _td(hours=2):
+        BR.append((NOW - start - _td(hours=2), t, owner, r['rank'], r['state'], start))
+live_by = {}
+for t, c in claims.items():
+    rr = rows.get(t)
+    if c['done'] or rr is None or rr['state'].split(':')[0] in ('DONE', 'SUPERSEDED', 'RETIRED'): continue
+    live_by.setdefault(c['holder'], []).append(t)
+def _minted(t):
+    b = _baton(t)
+    m = _re.search(r'minted via `(?:s4e_msg\.sh )?mint` by \S+?,\s*(\d{4}-\d\d-\d\dT[\d:]+Z)', b)
+    if m: return _iso(m.group(1))
+    for ln in b.split('\n'):
+        mm = _LEDGER.match(ln)
+        if mm and 'Minted via' in ln: return _ledger_when(mm.group(2))
+    return None
+HQ, HQx = [], []
+for t, r in rows.items():
+    if r['state'] not in ('FREE', '') or r['rank'] not in ('0', '1') or not r['owner'].startswith('hq_') or t in claims: continue
+    others = [x for x in live_by.get(r['owner'], []) if x != t]
+    if not others: continue
+    mt = _minted(t)
+    if mt is None: HQx.append(t); continue
+    if NOW - mt > _td(hours=24): HQ.append((r['rank'], -(NOW - mt).total_seconds(), t, r['owner'], others[0], NOW - mt))
+BR.sort(key=lambda x: -x[0].total_seconds()); HQ.sort()
+print(f"BLOCKING-RED PAST WINDOW: {len(BR)}  (window: two hours from the later of the BLOCKING-RED `since` time and the first assignment; now {NOW:%Y-%m-%dT%H:%MZ})")
+for late, t, owner, rank, state, start in BR:
+    print(f"    {t}  [owner {owner}, rank {rank}, {state}, window opened {start:%Y-%m-%dT%H:%MZ}, not started {late.total_seconds() / 3600 + 2:.1f} h] -> {_route(t)}")
+if BRx: print(f"    (named, not counted: {len(BRx)} BLOCKING-RED row(s) with no readable `since` time and no assignment -- {' '.join(BRx[:5])})")
+print(f"HQ-LANE UNSERVED PAST 24H: {len(HQ)}  (FREE, rank 0 or 1, minted over 24 h ago, while the owning HQ holds another claim)")
+for rank, _, t, owner, other, age in HQ:
+    print(f"    {t}  [rank {rank}, minted {age.total_seconds() / 3600:.0f} h ago, {owner} holds {other}] -> {_route(t)}")
+if HQx: print(f"    (named, not counted: {len(HQx)} such row(s) whose mint time the baton does not carry -- {' '.join(HQx[:5])})")
+findings += len(BR) + len(HQ)
 if findings == 0: print("CENSUS CLEAN: every minted row is pickable, closable, and owned."); sys.exit(0)
 print(f"TOTAL FINDINGS: {findings}"); sys.exit(1)
