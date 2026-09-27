@@ -225,7 +225,10 @@ DESCR_t pat_mk_capt(int tt, const char *name, DESCR_t sub) { DESCR_t v; v.v = DT
 DESCR_t pat_mk_cursor(const char *name) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_CAPT_CURSOR, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 DESCR_t pat_defer(const char *name) { DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pat_operand_is_null(DESCR_t d) { return (d.v == DT_SNUL) || (d.v == DT_S && (!d.s || (d.slen == 0xFFFFFFFFu ? !*d.s : d.slen == 0))); }
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
+    if (pat_operand_is_null(right)) return left;
+    if (pat_operand_is_null(left)) return right;
     DESCR_t v; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
     return v;
 }
