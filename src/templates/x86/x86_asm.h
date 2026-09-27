@@ -1490,7 +1490,6 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
-    opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
     if (X86_MEQ(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
     if (X86_MEQ(mnem, "comment"))   return std::string();
     if (X86_MEQ(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");
@@ -1500,6 +1499,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (X86_MEQ(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
     if (X86_MEQ(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
     if (X86_MEQ(mnem, ".quad")) {
+        opnd a; x86_parse(xa, a);
         if (a.kind == XK_ILBL) return x86_quad_ilbl(a.lbl);
         if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
@@ -1511,6 +1511,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
              ? (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "", (size_t)xb.u) + "\"\n")
              : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
     }
+    opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
     if (X86_MEQ(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
     if (X86_MEQ(mnem, "cqo")) return x86_cqo();
     if (X86_MEQ(mnem, "rep_stosb")) return x86_rep_stosb();
