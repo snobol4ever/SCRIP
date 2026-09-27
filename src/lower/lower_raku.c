@@ -122,7 +122,7 @@ static int rk_yields_list(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->v.sval) {
         const char * f = t->c[0]->v.sval;
-        return !strcmp(f, "__rk_arr_slice") || !strcmp(f, "__rk_arr_pick");
+        return !strcmp(f, "__rk_arr_slice") || !strcmp(f, "__rk_arr_pick") || !strcmp(f, "__rk_hyper_meth");
     }
     if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) {
         int li = rk_listlike_idx(t->c[1]->v.sval);
@@ -130,6 +130,12 @@ static int rk_yields_list(const tree_t * t) {
     }
     if (t->t == TT_SORT || t->t == TT_REVERSE) return 1;
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_yields_array(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_VAR) return (t->slen & 2) != 0;
+    return t->t == TT_FNC && t->n > 1 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_hyper_meth") && rk_yields_array(t->c[1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_relop(tree_e tt) {
@@ -169,9 +175,9 @@ static IR_t * trace_value_prep(rcx_t * cx, const char * name, IR_t * γ, IR_t * 
     return nm;
 }
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
-    if (!t) return build(cx, IR_SUCCEED, γ, ω);
+    if (!t) return (γ && ir_is_generator_kind(γ->op)) ? γ : build(cx, IR_SUCCEED, γ, ω);
     if (t->t != TT_SEQ && t->t != TT_PROGRAM && t->t != TT_SEQ_EXPR) { IR_t * r = NULL; return lower_rv(cx, t, γ, ω, &r); }
-    if (t->n == 0) return build(cx, IR_SUCCEED, γ, ω);
+    if (t->n == 0) return (γ && ir_is_generator_kind(γ->op)) ? γ : build(cx, IR_SUCCEED, γ, ω);
     IR_t * succ = γ; IR_t * entry = γ;
     for (int i = t->n - 1; i >= 0; i--) {
         const tree_t * s = t->c[i];
@@ -476,8 +482,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const char * fn = t->c[0]->t == TT_CAPTURE ? "__rk_say_capture" : "__rk_say_named_capture";
             tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) fn; ast_push(f, leaf_sval2(TT_VAR, fn)); ast_push(f, t->c[0]->c[0]);
             return lower_rcall(cx, f, fn, 1, γ, ω, res); }
-        if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR &&
-            (t->c[0]->slen & 2))
+        if (t->n == 1 && rk_yields_array(t->c[0]))
             return lower_rcall(cx, t, "rk_write_arr", 0, γ, ω, res);
         if (t->n == 1 && rk_yields_list(t->c[0]))
             return lower_rcall(cx, t, "rk_write_list", 0, γ, ω, res);
@@ -731,7 +736,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         if (mname && t->n == 2 && t->c[0] && !g_rk_user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
             const tree_t * inv = t->c[0]; const char * wfn = !strcmp(mname, "print") ? "rk_writes" : "rk_write";
-            if (!strcmp(mname, "say")) { if (inv->t == TT_VAR && inv->v.sval && (inv->slen & 2)) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
+            if (!strcmp(mname, "say")) { if (rk_yields_array(inv)) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
             return lower_rcall1(cx, inv, wfn, γ, ω, res);
         }
         if (mname && rk_meth_is_bool(mname)) return lower_rcall_bool(cx, t, "meth_call", 0, γ, ω, res);

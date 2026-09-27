@@ -335,7 +335,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce",
+        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
@@ -675,9 +675,17 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     *out = rk_match_make(ok ? subj : "", caps, ok); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_list_as_str(const char *s) {
+    if (rk_a_empty1(s)) return "";
+    if (!strchr(s, SOH) || strchr(s, RK_A1)) return s;
+    size_t n = strlen(s); char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = s[i] == SOH ? ' ' : s[i]; r[n] = '\0'; return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
-    char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
+    char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = "";
+    if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words")) s = rk_list_as_str(s);
+    size_t n = strlen(s);
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
     if (!strcmp(meth, "uc")) { char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) {
@@ -4934,6 +4942,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (!have) { *out = NULVCL; return 1; }
         *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best)); return 1;
+    }
+    if (!strcmp(fn, "__rk_hyper_meth") && nargs >= 2) {
+        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
+        DESCR_t *fa = rt_ws_alloc_descr((size_t)nargs);
+        size_t cap = 64, p = 0; char *buf = rt_wsb_alloc(cap + 1);
+        for (int i = 0; i < nel; i++) {
+            char *el = rt_wsb_alloc(lens[i] + 1); memcpy(el, els[i], lens[i]); el[lens[i]] = '\0';
+            fa[0] = rk_elem_descr(el, lens[i]); for (int k = 1; k < nargs; k++) fa[k] = args[k];
+            DESCR_t rd = FAILDESCR; if (!script_try_call_builtin_by_name("meth_call", fa, nargs, &rd)) rd = FAILDESCR;
+            char rscratch[64]; const char *keep = to_cstring(rd, rscratch, sizeof rscratch); size_t KL = strlen(keep);
+            if (p + KL + 2 > cap) { size_t ncap = (p + KL + 2) * 2; char *nb = rt_wsb_alloc(ncap + 1); memcpy(nb, buf, p); buf = nb; cap = ncap; }
+            if (i) buf[p++] = SOH;
+            memcpy(buf + p, keep, KL); p += KL;
+        }
+        buf[p] = '\0';
+        *out = rk_a_seal(buf, nel > 0); return 1;
     }
     if ((!strcmp(fn, "__rk_arr_map") || !strcmp(fn, "__rk_arr_grep")) && nargs >= 2) {
         int want_map = (fn[9] == 'm');

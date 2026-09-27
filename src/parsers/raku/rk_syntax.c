@@ -67,7 +67,7 @@ typedef struct RkP {
     RkList *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
     int nmods, cmodk, cmodx; const char **modk; RkList **modx;
     int ctl_ns;
-    const char *x_wrap; int x_star; int x_sub; const char *x_subst; int x_subst_len;
+    int x_star; int x_sub; const char *x_subst; int x_subst_len;
 } RkP;
 static const int rk_brackets[] = {
     0x0028,0x0029,0x003C,0x003E,0x005B,0x005D,0x007B,0x007D,0x00AB,0x00BB,0x0F3A,0x0F3B,0x0F3C,0x0F3D,0x169B,0x169C,0x2018,0x2019,0x201A,0x2019,0x201B,0x2019,0x201C,0x201D,0x201E,0x201D,
@@ -1903,6 +1903,7 @@ static int r_dotty(RkP *p, int pos) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_postfixish_at(RkP *p, int q, int sub, int meta);
 static int r_postfixish(RkP *p, int pos) {
     int sub = p->x_sub; p->x_sub = 0;
     if (stdstopper(p, pos)) return -1;
@@ -1921,6 +1922,12 @@ static int r_postfixish(RkP *p, int pos) {
             q = t;
         }
     }
+    int e = r_postfixish_at(p, q, sub, meta);
+    if (e >= 0 && meta && p->build) p->pf.hyper = 1;
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_postfixish_at(RkP *p, int q, int sub, int meta) {
     int e;
     if (p->nuops) {
         int prec; int idx; int l = user_op_longest_i(p, q, 'k', &prec, &idx);
@@ -2066,7 +2073,7 @@ typedef struct RkX {
     tree_t *cur;
     RkTerm *pend;
     RkList *L; RkEl *el;
-    const char *wrap; int star; const char *subst; int subst_len;
+    int star; const char *subst; int subst_len;
     tree_t *subst_call, *subst_paren;
 } RkX;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2180,7 +2187,6 @@ static tree_t *x_unary(RkP *p, RkX *x) {
     }
     if (x_in(p, x, LV_POW) >= 0) { x_take(p, x); tree_t *r = x_unary(p, x); if (p->build) base = rkb_binop(p->B, LV_POW, 0, base, r); x->lastcls = 0; }
     if (p->build) for (int i = np - 1; i >= 0; i--) base = rkb_prefix_apply(p->B, t->pre[i], base);
-    if (first && x->wrap) { if (p->build) base = rkb_wrap_call(p->B, x->wrap, base); x->wrap = NULL; x->lastcls = 0; }
     return base;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2294,8 +2300,8 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
     x.sl = p->leftsigil; p->leftsigil = 0;
     x.preclim = preclim; x.noinfix = preclim == PR('y'); x.base = p->nops; x.q = pos; x.nextterm = NT_TERMISH; x.last_end = -1;
     x.L = rkb_list_new();
-    x.wrap = p->x_wrap; x.star = p->x_star; x.subst = p->x_subst; x.subst_len = p->x_subst_len;
-    p->x_wrap = NULL; p->x_star = 0; p->x_subst = NULL;
+    x.star = p->x_star; x.subst = p->x_subst; x.subst_len = p->x_subst_len;
+    p->x_star = 0; p->x_subst = NULL;
     x_list(p, &x);
     p->nops = x.base; p->lst = x.L;
     if (x.fail) { p->leftsigil = x.sl; return -1; }
@@ -3177,9 +3183,7 @@ static int r_reduce(RkP *p, int pos) {
     if ((o.flags & OF_DIFFY) && !(o.flags & OF_CHAIN)) panic_at(p, pos, "Cannot reduce with %.*s because %s operators are diffy and not chaining", e - q, p->s + q, "structural infix");
     p->in_reduce = si;
     const char *rop = p->build ? rkb_reduce_name(p->B, q, e) : NULL;
-    p->x_wrap = rop;
     int f = r_args(p, e + 1, 0);
-    p->x_wrap = NULL;
     if (p->build) rkb_reduce(p->B, &p->tm, pos, f, rop, takelst(p));
     return f;
 }

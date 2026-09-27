@@ -36,7 +36,7 @@ struct RkDecl {
     tree_t *sig;
     RkTrait *tr; int ntr;
 };
-typedef struct { int k; int from, to; const char *txt; int form, mod; RkList *inner; RkList *args; } RkPf;
+typedef struct { int k; int from, to; const char *txt; int form, mod, hyper; RkList *inner; RkList *args; } RkPf;
 typedef struct { int pos; RkList *last; int cnt; } RkClosure;
 RkB     *rkb_new(const char *src, int len);
 RkList  *rkb_list_new(void);
@@ -54,7 +54,6 @@ tree_t  *rkb_smartmatch(RkB *b, tree_t *l, tree_t *r);
 int      rkb_listop_substitutes(const char *name, int namelen);
 tree_t  *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren);
 const char *rkb_reduce_name(RkB *b, int ofrom, int oto);
-tree_t  *rkb_wrap_call(RkB *b, const char *fn, tree_t *x);
 void     rkb_adverb(RkB *b, tree_t *t, const char *key);
 tree_t  *rkb_expr(RkB *b, RkList *L);
 tree_t  *rkb_paren(RkB *b, RkList *L, int nstmts);

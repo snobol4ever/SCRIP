@@ -946,7 +946,7 @@ tree_t *rkb_smartmatch_term(RkB *b, tree_t *l, RkTerm *x) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_smartmatch(RkB *b, tree_t *l, tree_t *r) { (void) b; return call2("__rk_smartmatch", l, r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rkb_wrap_call(RkB *b, const char *fn, tree_t *x) { (void) b; tree_t *e = make_call(fn); expr_add_child(e, x); return e; }
+static tree_t *rkb_wrap_call(const char *fn, tree_t *x) { tree_t *e = make_call(fn); expr_add_child(e, x); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rkb_reduce_name(RkB *b, int ofrom, int oto) {
     char *op = spn(b, ofrom, oto);
@@ -1192,7 +1192,9 @@ void rkb_prefix(RkTerm *it, const char *s, int n) { GROW(it->pre, it->npre, it->
 void rkb_reduce(RkB *b, RkTerm *it, int from, int to, const char *rop, RkList *args) {
     memset(it, 0, sizeof *it); it->kind = TK_TREE; it->from = from; it->to = it->core_to = to;
     if (!args || !args->nitem) { it->t = make_call(rop); return; }
-    it->t = rkb_expr(b, args);
+    tree_t *l = rkb_paren(b, args, 0);
+    if (l->t == TT_TO && l->n >= 2) { tree_t *r = make_call("__rk_range_arr"); expr_add_child(r, l->c[0]); expr_add_child(r, l->c[1]); l = r; }
+    it->t = rkb_wrap_call(rop, l);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
@@ -1263,7 +1265,13 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
             for (int i = 0; i < named.n; i++) ast_push(c, named.v[i]);
             it->t = c; return;
         }
-        it->t = method_call(b, e, pf); return;
+        it->t = method_call(b, e, pf);
+        if (pf->hyper && pf->k == 'M' && !pf->mod) {
+            tree_t *h = make_call("__rk_hyper_meth"); tree_t *inv = it->t->c[0];
+            if (inv && inv->t == TT_TO && inv->n >= 2) { tree_t *r = make_call("__rk_range_arr"); expr_add_child(r, inv->c[0]); expr_add_child(r, inv->c[1]); inv = r; }
+            expr_add_child(h, inv); for (int i = 1; i < it->t->n; i++) expr_add_child(h, it->t->c[i]); it->t = h;
+        }
+        return;
     }
     if (pf->k == '[') { tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, e); ast_push(c, rkb_expr(b, pf->inner)); it->t = c; return; }
     if (pf->k == '{' || pf->k == '<') {
