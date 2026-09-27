@@ -7090,6 +7090,21 @@ __attribute__((visibility("hidden"))) const bn_direct_t g_bn_direct[BID_TABSZ] =
     [BID_DIFFER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 0, 0 },
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t *icn_variable_frame_cell(DESCR_t nm, char *stat, size_t statsz) {
+    extern int core_icn_act_top(void); extern const char *core_icn_act_name(int); extern void *core_icn_act_base(int); extern int core_icn_act_np(int);
+    extern int rt_proc_nparams(const char *); extern const char *rt_proc_pname(const char *, int); extern const char *rt_proc_loc_pname(const char *, int);
+    extern int rt_proc_nlocals(const char *); extern const char *rt_proc_lname(const char *, int); extern int rt_proc_loff(const char *, int);
+    if (stat && statsz) stat[0] = 0;
+    if (nm.v != DT_S || !nm.s || nm.slen == 0 || nm.s[0] == 38) return (DESCR_t *)0;
+    int lv = core_icn_act_top(); const char *pn = core_icn_act_name(lv); char *base = (char *)core_icn_act_base(lv); size_t L = nm.slen;
+    if (!pn || !base) return (DESCR_t *)0;
+    int nt = core_icn_act_np(lv); if (nt <= 0) nt = rt_proc_nparams(pn); if (nt < 0) nt = 0;
+    for (int k = 0; k < nt; k++) { const char *vn = rt_proc_pname(pn, k); if (!vn) vn = rt_proc_loc_pname(pn, k); if (vn && strlen(vn) == L && !memcmp(vn, nm.s, L)) return (DESCR_t *)(base + (k + 1) * 16); }
+    for (int k = 0, nl = rt_proc_nlocals(pn); k < nl; k++) { const char *vn = rt_proc_lname(pn, k); int off = rt_proc_loff(pn, k); if (vn && off >= 0 && strlen(vn) == L && !memcmp(vn, nm.s, L)) return (DESCR_t *)(base + off); }
+    if (stat && snprintf(stat, statsz, "%s__STATIC__%.*s", pn, (int)L, nm.s) < (int)statsz && !NV_EXISTS_fn(stat)) stat[0] = 0;
+    return (DESCR_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict)
 {
     if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
@@ -8189,6 +8204,13 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         }
         *out = src; return 1;
     }
+    if (!strcmp(fn, "ICN$VARNAME") && nargs == 1) {
+        char stat[320]; DESCR_t *fc = icn_variable_frame_cell(args[0], stat, sizeof stat);
+        if (fc) { *out = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)fc }; return 1; }
+        if (stat[0]) { DESCR_t sn = STRVAL(stat); return bn_sno_name(&sn, 1, out); }
+        if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].s[0] != 38) { extern const char *NV_intern_name_n(const char *, size_t); const char *in = NV_intern_name_n(args[0].s, (size_t)args[0].slen); if (!in || !NV_EXISTS_fn(in)) { *out = FAILDESCR; return 1; } }
+        return bn_sno_name(args, nargs, out);
+    }
     if (!strcmp(fn, "ICN$REFRESH") && nargs == 1) {
         DESCR_t src = args[0];
         extern int core_icn_error(int code, DESCR_t val);
@@ -8895,6 +8917,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_variable) && nargs == 1) {
         const char *vname = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
         if (!vname || !*vname) { *out = FAILDESCR; return 1; }
+        char stat[320]; { DESCR_t *fc = icn_variable_frame_cell(args[0], stat, sizeof stat); if (fc) { *out = *fc; return 1; } if (stat[0]) vname = stat; }
         DESCR_t v = NV_GET_fn(vname);
         if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
         if (v.v == DT_SNUL && !NV_EXISTS_fn(vname)) { *out = FAILDESCR; return 1; }

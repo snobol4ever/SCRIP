@@ -30,11 +30,12 @@ static int icn_is_own_global(const icx_t * cx, const char * nm) { for (int i = 0
 static const char * icn_static_mangled(const icx_t * cx, const char * nm) { if (!cx->pname) return NULL; size_t pl = strlen(cx->pname), nl = strlen(nm); for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strncmp(m, cx->pname, pl) && !strncmp(m + pl, "__STATIC__", 10) && !strcmp(m + pl + 10, nm) && strlen(m) == pl + 10 + nl) return m; } return NULL; }
 static int icn_operand_derefs_late(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_VAR || !t->v.sval || t->v.sval[0] == '&') return 0; return !icn_is_local(cx, t->v.sval); }
 static int icn_tree_is_kw_var(const tree_t * t) { return t && (t->t == TT_KEYWORD || t->t == TT_VAR) && t->v.sval && t->v.sval[0] == '&' && icn_kw_assignable(t->v.sval); }
+static int icn_builtin_reassigned(const char * nm);
 static int icn_is_proc(const char * nm) { for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) return 1; return 0; }
 static int icn_call_yields_a_variable(icx_t * cx, const char * nm) { (void) cx; return nm && icn_is_proc(nm); }
 static int icn_is_static_mangled_name(const char * nm) { if (!nm || !strstr(nm, "__STATIC__")) return 0; for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strcmp(m, nm)) return 1; } return 0; }
 static int icn_ret_global_name(const icx_t * cx, const char * nm) { return nm && nm[0] != '&' && !icn_is_local(cx, nm) && (icn_is_own_global(cx, nm) || icn_is_static_mangled_name(nm)); }
-static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) { if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL; if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn); { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); } if (icn_is_own_global(cx, vn) || icn_is_proc(vn)) return icn_variable_lit_tree(vn); return NULL; }
+static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) { if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL; if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn); { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); } if (icn_is_own_global(cx, vn) || icn_is_proc(vn) || icn_builtin_reassigned(vn)) return icn_variable_lit_tree(vn); return NULL; }
 static int icn_gen_wiring(const IR_t * t) {
     if (!t) return 0;
     if (ir_is_generator_kind(t->op)) return 1;
@@ -70,9 +71,22 @@ static void icn_reassigned_walk(const tree_t * n) {
             if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break; }
     for (int i = 0; i < n->n; i++) icn_reassigned_walk(n->c[i]);
 }
+static int icn_is_rtname_variable(const tree_t * c) {
+    return c && c->t == TT_FNC && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && !strcmp(c->c[0]->v.sval, "variable") && c->c[1] && c->c[1]->t != TT_QLIT;
+}
+static int icn_tree_has_rtname_lv(const tree_t * n) {
+    if (!n) return 0;
+    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP)
+        for (int i = 0; i < n->n; i++) { if (icn_is_rtname_variable(n->c[i])) return 1; if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break; }
+    for (int i = 0; i < n->n; i++) if (icn_tree_has_rtname_lv(n->c[i])) return 1;
+    return 0;
+}
 static void icn_collect_reassigned_procs(const tree_t * prog) {
     if (g_icn_reassigned_prog == prog) return;
     lc_vec_init(&g_icn_reassigned, (int) sizeof(const char *)); g_icn_reassigned.n = 0; icn_reassigned_walk(prog); g_icn_reassigned_prog = prog;
+    if (icn_tree_has_rtname_lv(prog))
+        for (int i = 0; i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) d = stmt_subj(d);
+            if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval)) lc_vec_push(&g_icn_reassigned, &d->v.sval); }
 }
 static lc_vec g_icn_breassigned; static const tree_t * g_icn_breassigned_prog = NULL;
 static int icn_builtin_reassigned(const char * nm) {
@@ -91,23 +105,27 @@ static int icn_proc_declares(const tree_t * pd, const char * nm) {
         if (st && (st->t == TT_LOCAL || st->t == TT_STATIC_DECL) && icn_decl_list_has(st, nm)) return 1; }
     return 0;
 }
-static void icn_breassigned_walk(const tree_t * prog, const tree_t * pd, const tree_t * n) {
+static void icn_breassigned_note(const tree_t * prog, const tree_t * pd, const char * nm) {
     extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
+    if (nm && (icn_builtin_is_known(nm) || icn_is_icon_function(nm)) && !icn_is_proc(nm) && !dat_find_type(nm) && !icn_proc_declares(pd, nm) && !icn_builtin_reassigned(nm)) {
+        int glob = 0; for (int g = 0; g < prog->n && !glob; g++) { const tree_t * d = prog->c[g]; if (d && d->t == TT_STMT) d = stmt_subj(d); if (d && d->t == TT_GLOBAL && icn_decl_list_has(d, nm)) glob = 1; }
+        if (!glob) lc_vec_push(&g_icn_breassigned, &nm); }
+}
+static void icn_breassigned_walk(const tree_t * prog, const tree_t * pd, const tree_t * n, int every_ref) {
     if (!n) return;
-    if (n->t == TT_STMT) { icn_breassigned_walk(prog, pd, stmt_subj(n)); return; }
+    if (n->t == TT_STMT) { icn_breassigned_walk(prog, pd, stmt_subj(n), every_ref); return; }
+    if (every_ref && n->t == TT_VAR && n->v.sval && n->v.sval[0] != '&') icn_breassigned_note(prog, pd, n->v.sval);
     if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP)
-        for (int i = 0; i < n->n; i++) { const tree_t * c = n->c[i]; const char * nm = (c && c->t == TT_VAR) ? c->v.sval : NULL;
-            if (nm && (icn_builtin_is_known(nm) || icn_is_icon_function(nm)) && !icn_is_proc(nm) && !dat_find_type(nm) && !icn_proc_declares(pd, nm) && !icn_builtin_reassigned(nm)) {
-                int glob = 0; for (int g = 0; g < prog->n && !glob; g++) { const tree_t * d = prog->c[g]; if (d && d->t == TT_STMT) d = stmt_subj(d); if (d && d->t == TT_GLOBAL && icn_decl_list_has(d, nm)) glob = 1; }
-                if (!glob) lc_vec_push(&g_icn_breassigned, &nm); }
+        for (int i = 0; i < n->n; i++) { const tree_t * c = n->c[i]; icn_breassigned_note(prog, pd, (c && c->t == TT_VAR) ? c->v.sval : NULL);
             if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break; }
-    for (int i = 0; i < n->n; i++) icn_breassigned_walk(prog, pd, n->c[i]);
+    for (int i = 0; i < n->n; i++) icn_breassigned_walk(prog, pd, n->c[i], every_ref);
 }
 static void icn_collect_reassigned_builtins(const tree_t * prog) {
     if (g_icn_breassigned_prog == prog) return;
     lc_vec_init(&g_icn_breassigned, (int) sizeof(const char *)); g_icn_breassigned.n = 0; g_icn_breassigned_prog = prog;
+    int every_ref = icn_tree_has_rtname_lv(prog);
     for (int i = 0; prog && i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) d = stmt_subj(d);
-        if (d && d->t == TT_PROC_DECL && d->n > 2) icn_breassigned_walk(prog, d, d->c[2]); }
+        if (d && d->t == TT_PROC_DECL && d->n > 2) icn_breassigned_walk(prog, d, d->c[2], every_ref); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * icn_cset_canon(const char * s, int len, int * out_len) {
@@ -395,7 +413,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         IR_t * kv = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(kv).sval = (char *) t->v.sval; kv->pat_static = 1; *var_res = kv; return kv;
     }
     if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "variable") && !icn_is_local(cx, "variable")) {
-        IR_t * mk = build(cx, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "SNO$NAME";
+        IR_t * mk = build(cx, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "ICN$VARNAME";
         IR_t * nr = NULL; IR_t * ne = lower(cx, t->c[1], mk, ω, &nr);
         if (nr) ir_operand_push(mk, nr);
         *var_res = mk; return ne;
