@@ -1166,6 +1166,11 @@ static tree_t *rk_flat_call(TL *pos) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_await_call(TL *pos) {
+    if (pos->n == 1) return pos->v[0];
+    tree_t *c = make_call("__rk_arr"); for (int i = 0; i < pos->n; i++) expr_add_child(c, pos->v[i]); return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rkb_listop_substitutes(const char *name, int namelen) {
     static const char *const own[] = { "say", "print", "take", "return", "fail", "exit", "die", "join", "map", "grep", "sort", "reverse", "exists", "delete", 0 };
     char *nm = trimdup(name, namelen);
@@ -1180,6 +1185,7 @@ tree_t *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren) {
     int named = arglist(b, paren->in, 1, &pos, &kw);
     if (named) return rk_named_call(nm, pos.n ? &pos : NULL, &kw);
     if (!strcmp(nm, "flat")) return rk_flat_call(&pos);
+    if (!strcmp(nm, "await")) return rk_await_call(&pos);
     tree_t *call = make_call(nm); for (int i = 0; i < pos.n; i++) expr_add_child(call, pos.v[i]);
     return call;
 }
@@ -1215,6 +1221,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     if (!strcmp(nm, "exit")) { arglist(b, args, 0, &pos, NULL); tree_t *c = make_call("__rk_exit"); if (pos.n) expr_add_child(c, pos.v[0]); it->t = c; return; }
     if (!strcmp(nm, "die")) { arglist(b, args, 0, &pos, NULL); tree_t *d = ast_node_new(TT_DIE); if (pos.n) expr_add_child(d, pos.v[0]); it->t = d; return; }
     if (!strcmp(nm, "flat")) { arglist(b, args, 0, &pos, NULL); it->t = rk_flat_call(&pos); return; }
+    if (!strcmp(nm, "await")) { arglist(b, args, 0, &pos, NULL); it->t = rk_await_call(&pos); return; }
     if (!strcmp(nm, "join") && form == 2) { arglist(b, args, 0, &pos, NULL); tree_t *e = make_call("join"); for (int i = 0; i < pos.n; i++) expr_add_child(e, pos.v[i]); it->t = e; return; }
     if (!strcmp(nm, "map") || !strcmp(nm, "grep") || !strcmp(nm, "sort")) {
         tree_e k = nm[0] == 'm' ? TT_MAP : nm[0] == 'g' ? TT_GREP : TT_SORT;
@@ -1842,6 +1849,16 @@ static int is_phaser_word(const char *w, int blk) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_do_for_map(tree_t *st) {
+    if (!st || st->t != TT_EVERY || st->n != 2 || !st->c[0] || st->c[0]->t != TT_ITERATE || st->c[0]->n != 1) return NULL;
+    const char *v = st->c[0]->v.sval;
+    if (v && strcmp(v, "_")) return NULL;
+    tree_t *e = st->c[1];
+    while (e && e->t == TT_SEQ_EXPR && e->n == 1) e = e->c[0];
+    if (!e || e->t == TT_SEQ_EXPR) return NULL;
+    tree_t *m = ast_node_new(TT_MAP); ast_push(m, e); ast_push(m, st->c[0]->c[0]); return m;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_sprefix_term(RkB *b, RkTerm *it, int from, int to, const char *word, int wlen, tree_t *blk, tree_t *stmt) {
     (void) b;
     memset(it, 0, sizeof *it); it->from = from; it->to = it->core_to = to;
@@ -1849,6 +1866,7 @@ void rkb_sprefix_term(RkB *b, RkTerm *it, int from, int to, const char *word, in
     if (is_phaser_word(w, blk != NULL)) { it->kind = TK_BSTMT; it->ck = blk ? 2 : 1; it->t = rk_phaser_mark(w, blk ? blk : seq1(stmt)); return; }
     if (!strcmp(w, "try")) { it->kind = blk ? TK_BSTMT : TK_TREE; tree_t *e = ast_node_new(TT_TRY); ast_push(e, blk ? blk : seq1(stmt)); it->t = e; return; }
     if (!strcmp(w, "gather")) { it->kind = TK_TREE; tree_t *g = ast_node_new(TT_GATHER); expr_add_child(g, blk ? blk : stmt); it->t = g; return; }
+    if (!strcmp(w, "do") && !blk) { tree_t *m = rk_do_for_map(stmt); if (m) { it->kind = TK_TREE; it->t = m; return; } }
     it->kind = TK_TREE; it->t = blk ? blk : stmt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
