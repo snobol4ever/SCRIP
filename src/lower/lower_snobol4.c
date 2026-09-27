@@ -1634,9 +1634,10 @@ static int sno_pat_inline_ok(const tree_t * t) {
 static IR_t * sno_capt_body(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail, IR_t ** out_itail) {
     IR_graph_t * g = cx->g;
     const tree_t * eff = t;
-    if (eff && eff->t == TT_VAR && eff->v.sval) {
+    const tree_t * vn = (eff && eff->t == TT_VAR) ? eff : (eff && eff->t == TT_DEFER && eff->n > 0 && eff->c[0] && eff->c[0]->t == TT_VAR) ? eff->c[0] : NULL;
+    if (vn && vn->v.sval) {
         static int _pi = -1; if (_pi < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _pi = (!e || *e != '0') ? 1 : 0; }
-        if (_pi && !sno_encl_hostile(eff->v.sval)) { const tree_t * p = sno_fz_tree(eff->v.sval); if (p && sno_pat_inline_ok(p)) eff = p; }
+        if (_pi && !sno_encl_hostile(vn->v.sval)) { const tree_t * p = sno_fz_tree(vn->v.sval); if (p && sno_pat_inline_ok(p)) eff = p; }
     }
     if (sno_pat_eff_kind(eff) == TT_SEQ) {
         sno_tvec_t ev = {0}; sno_seq_flatten_pat(eff, &ev); const tree_t ** elems = ev.v; int ne = ev.n;

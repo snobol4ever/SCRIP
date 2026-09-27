@@ -212,8 +212,8 @@ test_gate_harness_shard_reads_the_outside_list_from_the_unsharded_entries.sh	WIR
 test_gate_heap_exhaustion_at_the_cap_is_a_reported_error_not_an_abort.sh	WIRED	-	-	-
 test_gate_icn_a_call_through_a_value_reports_its_line_and_its_frame.sh	WIRED	-	-	-
 test_gate_icn_a_clib_sidecar_builds_the_library_a_program_loads.sh	WIRED	-	-	-
-test_gate_icn_a_large_integer_crosses_into_a_loaded_c_function.sh	WIRED	-	-	-
 test_gate_icn_a_closed_file_raises_212_on_read_and_213_on_write.sh	WIRED	-	-	-
+test_gate_icn_a_large_integer_crosses_into_a_loaded_c_function.sh	WIRED	-	-	-
 test_gate_icn_a_linked_procedure_reports_its_own_file.sh	WIRED	-	-	-
 test_gate_icn_a_one_character_substring_swap_builds_one_string.sh	WIRED	-	-	-
 test_gate_icn_a_procedure_returns_its_variable_when_its_result_is_one.sh	WIRED	-	-	-
@@ -618,6 +618,7 @@ test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_call_saves_binds_and_restores_an_io_associated_name_without_io.sh	WIRED	-	-	-
 test_gate_sno_a_call_through_an_opsyn_alias_is_the_functions_own_call.sh	WIRED	-	-	-
 test_gate_sno_a_capture_slices_the_subject_and_table_convert_mkpat_take_the_direct_table.sh	WIRED	-	-	-
+test_gate_sno_a_captured_deferred_pattern_resumes_at_its_tail.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
 test_gate_sno_a_continuation_after_a_label_only_line_continues_that_statement.sh	WIRED	-	-	-
 test_gate_sno_a_data_field_access_takes_one_lookup_and_a_field_store_allocates_nothing.sh	WIRED	-	-	-
