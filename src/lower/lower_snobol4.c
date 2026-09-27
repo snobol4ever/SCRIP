@@ -1545,6 +1545,7 @@ static int sno_seq_tail(void) { static int v = -1; if (v < 0) { const char * e =
 static int sno_alt_tail(void) { const char * e = getenv("SCRIP_ALT_TAIL"); return (e && *e == '0') ? 0 : 1; }
 static int sno_fence_rtail(void) { const char * e = getenv("SCRIP_FENCE_RTAIL"); return (e && *e == '0') ? 0 : 1; }
 static int sno_pat_contains_fence(const tree_t * t, int depth) { if (!t || depth > 64) return 0; if (sno_is_fence(t)) return 1; for (int i = 0; i < t->n; i++) if (sno_pat_contains_fence(t->c[i], depth + 1)) return 1; return 0; }
+static int sno_pat_contains_fence0(const tree_t * t, int depth) { if (!t || depth > 64) return 0; if (sno_is_fence0(t)) return 1; for (int i = 0; i < t->n; i++) if (sno_pat_contains_fence0(t->c[i], depth + 1)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * succ, IR_t * fail, IR_t ** out_rtail) {
     IR_graph_t * g = cx->g;
@@ -2794,7 +2795,7 @@ static IR_t * sno_pat_carrier_build(scx_t * px, const tree_t * pat, IR_t * ok, I
     int pfenced = sno_pat_contains_fence(pat, 0);
     if (getenv("SCRIP_FENCE_IGNORE")) pfenced = 0;
     { sno_tvec_t fv = {0}; sno_seq_flatten_pat(pat, &fv); const tree_t ** fel = fv.v; int fne = fv.n; int topf = 0; for (int i = 0; i < fne; i++) if (sno_is_fence(fel[i])) { topf = 1; break; }
-      if (fne > 1 && !topf) pfenced = 0;
+      if (fne > 1 && !topf && !sno_pat_contains_fence0(pat, 0)) pfenced = 0;
       px->seq_rlast = NULL; px->seq_rlast_for = NULL; px->seq_rtail = NULL;
       pe = (sno_defer_resume() && fne > 1 && (!pfenced || (sno_fence_rtail() && !topf))) ? sno_seq_nary(px, fel, fne, ok, no, out_brt) : sno_pat_node(px, pat, ok, no);
       if (topf && !*out_brt && px->seq_rlast_for == pe && px->seq_rtail) *out_brt = px->seq_rtail;
