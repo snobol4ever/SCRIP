@@ -151,10 +151,9 @@ int icn_builtin_is_known(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int icn_builtin_arity(const char *name)
-{
-    if (!name || !name[0] || name[0] < 'a' || name[0] > 'z') return ICN_ARITY_UNKNOWN;
-    static const struct { const char *nm; int np; } tbl[] = {
+typedef struct { const char *nm; int np; } icn_bi_ent_t;
+static const icn_bi_ent_t *icn_bi_tbl(void) {
+    static const icn_bi_ent_t tbl[] = {
         {"abs",1},{"acos",1},{"any",4},{"args",1},{"asin",1},{"atan",2},{"bal",6},{"center",3},{"char",1},{"chdir",1},{"close",1},{"collect",2},{"copy",1},{"cos",1},{"cset",1},
         {"delay",1},{"delete",2},{"detab",-2},{"display",2},{"dtor",1},{"entab",-2},{"errorclear",0},{"exit",1},{"exp",1},{"find",4},{"flush",1},{"function",0},{"get",1},{"getch",0},
         {"getche",0},{"getenv",1},{"iand",2},{"icom",1},{"image",1},{"insert",3},{"integer",1},{"ior",2},{"ishift",2},{"ixor",2},{"kbhit",0},{"key",1},{"left",3},{"list",2},{"loadfunc",2},
@@ -162,6 +161,15 @@ int icn_builtin_arity(const char *name)
         {"read",1},{"reads",2},{"real",1},{"remove",1},{"rename",2},{"repl",2},{"reverse",1},{"right",3},{"rtod",1},{"runerr",-2},{"seek",2},{"seq",2},{"serial",1},{"set",1},{"sin",1},
         {"sort",2},{"sortf",2},{"sqrt",1},{"stop",-1},{"string",1},{"system",1},{"tab",1},{"table",1},{"tan",1},{"trim",2},{"type",1},{"upto",4},{"variable",1},{"where",1},{"write",-1},{"writes",-1},
         {NULL,0}};
+    return tbl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *icn_builtin_nth(int k) { const icn_bi_ent_t *tbl = icn_bi_tbl(); for (int i = 0; tbl[i].nm; i++) if (i == k) return tbl[i].nm; return (const char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int icn_builtin_arity(const char *name)
+{
+    if (!name || !name[0] || name[0] < 'a' || name[0] > 'z') return ICN_ARITY_UNKNOWN;
+    const icn_bi_ent_t *tbl = icn_bi_tbl();
     for (int i = 0; tbl[i].nm; i++) if (tbl[i].nm[0] == name[0] && !strcmp(tbl[i].nm, name)) return tbl[i].np;
     return ICN_ARITY_UNKNOWN;
 }
@@ -1427,6 +1435,7 @@ typedef struct { uint64_t magic; const char *nm; int64_t idx; int kind; int64_t 
 #define ICN_OPGEN_KEY  2
 #define ICN_OPGEN_SCAN 3
 #define ICN_OPGEN_CURSOR 4
+#define ICN_OPGEN_FNAMES 5
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_opgen_scan_name(const char *nm) {
     if (!nm) return 0;
@@ -1443,6 +1452,7 @@ static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g, DESCR_t *argv, int n) {
     if (!g) return FAILDESCR;
     if (g->kind == ICN_OPGEN_TOBY) { if (g->step > 0 ? g->cur > g->lim : g->cur < g->lim) return FAILDESCR; out = INTVAL(g->cur); g->cur += g->step; return out; }
     if (g->kind == ICN_OPGEN_CURSOR) { extern int scan_pos; scan_pos = (int)g->cur; return FAILDESCR; }
+    if (g->kind == ICN_OPGEN_FNAMES) { const char *f = icn_builtin_nth((int)g->idx); if (!f) return FAILDESCR; g->idx++; return STRVAL(f); }
     if (g->kind == ICN_OPGEN_SCAN) { int hi = (g->nm[0] == 'b') ? 6 : 4; return RT_GC_CALLBACK(rt_call_arr_gen_strict(g->nm, argv, n > hi ? hi : n, &g->idx)); }
     if (n < 1) return FAILDESCR;
     if (g->kind == ICN_OPGEN_KEY) { out = rt_list_bang_key_at(argv[0], g->idx); if (IS_FAIL_fn(out)) return FAILDESCR; g->idx++; return out; }
@@ -1521,6 +1531,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
         if (!strcmp(nm, "=")) { DESCR_t m = RT_GC_CALLBACK(rt_call_arr_strict("match", argv, 1)); if (IS_FAIL_fn(m)) return FAILDESCR; return RT_GC_CALLBACK(rt_call_arr_strict("tab", &m, 1)); }
     }
     if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, 0);
+    if (n == 0 && !strcmp(nm, "function")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_FNAMES, 0), argv, n, 0);
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return RT_GC_CALLBACK(rt_call_arr_strict(nm, argv, n));
 }
@@ -1553,6 +1564,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     }
     if (n == 1 && !strcmp(nm, "!")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_BANG, 0), argv, n, hslot);
     if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, hslot);
+    if (n == 0 && !strcmp(nm, "function")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_FNAMES, 0), argv, n, hslot);
     if (n == 1 && !strcmp(nm, "key")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_KEY, 0), argv, n, hslot);
     if ((n >= 1 || !strcmp(nm, "bal")) && icn_opgen_scan_name(nm)) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_SCAN, icn_opgen_scan_name(nm)), argv, n, hslot);
     if (hslot && (!strcmp(nm, "tab") || !strcmp(nm, "move") || (n == 1 && IS_PROCVAL_fn(callee) && !strcmp(nm, "=")))) {

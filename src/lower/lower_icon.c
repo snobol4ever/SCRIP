@@ -1513,29 +1513,16 @@ static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
     cx->beta = kg; *res = kg; return ee;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *const icn_function_names[] = {
-        "abs", "acos", "any", "args", "asin", "atan", "bal", "center",
-        "char", "chdir", "close", "collect", "copy", "cos", "cset", "delay", "delete", "detab",
-        "display", "dtor", "entab", "errorclear", "exit", "exp", "find", "flush", "function",
-        "get", "getch", "getche", "getenv", "iand", "icom", "image", "insert", "integer", "ior",
-        "ishift", "ixor", "kbhit", "key", "left", "list", "loadfunc", "log", "many", "map",
-        "match", "member", "move", "name", "numeric", "open", "ord", "pop",
-        "pos", "proc", "pull", "push", "put", "read", "reads", "real",
-        "remove", "rename", "repl", "reverse", "right", "rtod", "runerr", "seek", "seq",
-        "serial", "set", "sin", "sort", "sortf", "sqrt", "stop", "string",
-        "system", "tab", "table", "tan", "trim", "type", "upto", "variable",
-        "where", "write", "writes",
-        (const char *) 0
-};
-static int icn_is_icon_function(const char * nm) { for (int k = 0; nm && icn_function_names[k]; k++) if (!strcmp(icn_function_names[k], nm)) return 1; return 0; }
+extern const char * icn_builtin_nth(int);
+static int icn_is_icon_function(const char * nm) { for (int k = 0; nm && icn_builtin_nth(k); k++) if (!strcmp(icn_builtin_nth(k), nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * fg = build(cx, IR_ITERATE, γ, ω);
     IR_t * ml = build(cx, IR_MAKE_LIST, NULL, ω);
     IR_t * prev = NULL; IR_t * entry = NULL;
-    for (int k = 0; icn_function_names[k]; k++) {
-        IR_t * sn = build(cx, IR_LIT_STRING, icn_function_names[k + 1] ? NULL : ml, ω);
-        IR_LIT(sn).sval = (char *) icn_function_names[k];
+    for (int k = 0; icn_builtin_nth(k); k++) {
+        IR_t * sn = build(cx, IR_LIT_STRING, icn_builtin_nth(k + 1) ? NULL : ml, ω);
+        IR_LIT(sn).sval = (char *) icn_builtin_nth(k);
         if (!entry) entry = sn;
         if (prev) lc_γ_to(prev, sn);
         prev = sn;
