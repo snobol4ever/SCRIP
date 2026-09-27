@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1803
-#define GC_ALLOC_TAB_N_VOID 205
+#define GC_ALLOC_TAB_N 1805
+#define GC_ALLOC_TAB_N_VOID 206
 #define GC_ALLOC_TAB_N_DESCR 1020
-#define GC_ALLOC_TAB_N_OTHER 572
+#define GC_ALLOC_TAB_N_OTHER 573
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -450,6 +450,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "comm_call", GC_RET_VOID },
     { "comm_return", GC_RET_VOID },
     { "comm_var", GC_RET_VOID },
+    { "comm_var_hook", GC_RET_VOID },
     { "core_DATA_register", GC_RET_DESCR },
     { "core_apply_runtime_proc", GC_RET_OTHER },
     { "core_error_voice", GC_RET_VOID },
@@ -663,6 +664,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_call_args", GC_RET_OTHER },
     { "pas_call_args_brm", GC_RET_OTHER },
     { "pas_call_args_brm_dir", GC_RET_OTHER },
+    { "pas_cell_cstring", GC_RET_OTHER },
     { "pas_cell_str", GC_RET_OTHER },
     { "pas_cond", GC_RET_OTHER },
     { "pas_cond_bool", GC_RET_OTHER },

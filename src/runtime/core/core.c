@@ -645,7 +645,7 @@ void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
 }
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_tap_off(void) { g_trace_tap_off = 1; }
-void rt_trace_value_sigil(const char *name, DESCR_t val, int via_call) {
+void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) {
     if (g_trace_budget == 0 || !name) return;
     if (!strncmp(name, "__icn_", 6) || strstr(name, "__INITFLAG__")) return;
     { const char *st = strstr(name, "__STATIC__"); if (st && st[10]) name = st + 10; }
@@ -653,16 +653,16 @@ void rt_trace_value_sigil(const char *name, DESCR_t val, int via_call) {
     static long g_trace_value_last_gen = -1;
     static char g_trace_value_last_name[256] = "";
     static char g_trace_value_last_text[512] = "";
-    if (g_trace_stmt_gen == g_trace_value_last_gen && g_trace_value_last_name[0] != (via_call ? '1' : '0') && !strcmp(name, g_trace_value_last_name + 1) && !strcmp(vtext, g_trace_value_last_text))
+    if (g_trace_stmt_gen == g_trace_value_last_gen && g_trace_value_last_name[0] != (char)('0' + hook) && !strcmp(name, g_trace_value_last_name + 1) && !strcmp(vtext, g_trace_value_last_text))
         return;
     g_trace_value_last_gen = g_trace_stmt_gen;
-    snprintf(g_trace_value_last_name, sizeof g_trace_value_last_name, "%c%s", via_call ? '1' : '0', name);
+    snprintf(g_trace_value_last_name, sizeof g_trace_value_last_name, "%c%s", (char)('0' + hook), name);
     snprintf(g_trace_value_last_text, sizeof g_trace_value_last_text, "%s", vtext);
     g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
     DESCR_t wire = val;
-    if (via_call && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
+    if (hook == 1 && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
     if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, wire); else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
 }
 void rt_trace_value(const char *name, DESCR_t val) { rt_trace_value_sigil(name, val, 0); }
@@ -1040,7 +1040,7 @@ static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) {
+void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) {
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
     if (monitor_quiet_depth > 0) return;
@@ -1053,13 +1053,15 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
     if (!g_monitor_bin) {
         rt_trace_event(TRK_VALUE, name, val, stno);
     }
-    if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value(name, val); return; }
+    if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value_sigil(name, val, hook); return; }
     if (monitor_fd < 0 || g_monitor_bin) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;
     const char *s = VARVAL_fn(val);
     mon_send("VALUE", name, s ? s : "(undef)");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { comm_var_hook(name, val, file, line, stno, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_call(const char *fname) {
     if (!fname || !*fname) return;
@@ -3348,7 +3350,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
-    { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val, stmt_src_get_file(), 0, 0); return val; } }
+    { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
@@ -3400,7 +3402,7 @@ nv_store: ;
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
             if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;
-            comm_var(name, val, stmt_src_get_file(), 0, 0);
+            comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
             return val;
         }
     }
@@ -3413,7 +3415,7 @@ nv_store: ;
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e; g_nv_memo_gen++;
-    comm_var(name, val, stmt_src_get_file(), 0, 0);
+    comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

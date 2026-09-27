@@ -3851,7 +3851,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "__trace_value") && nargs == 2) {
-        extern void rt_trace_value_sigil(const char *name, DESCR_t val, int via_call);
+        extern void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
         rt_trace_value_sigil(VARVAL_fn(args[0]), args[1], 1);
         *out = NULVCL; return 1;
     }
