@@ -69,8 +69,18 @@ def container_stems(corpus, key):
     for fn in ("CONTAINERS.tsv", "EXCLUDED.tsv"):
         fp = os.path.join(corpus, d, fn) if d else ""
         if fp and os.path.exists(fp):
-            out |= {stem(l.split("\t")[0].strip()) for l in open(fp, encoding="utf-8", errors="replace") if l.strip() and not l.startswith("#")}
+            names = [l.split("\t")[0].strip() for l in open(fp, encoding="utf-8", errors="replace") if l.strip() and not l.startswith("#")]
+            # a PATH-keyed package (IPL, sidecar_stems) names one FILE per row, never every file sharing its basename
+            out |= {("path:" + n) if path_keyed(key) else stem(n) for n in names}
     return out
+
+
+def path_keyed(key):
+    return key not in SIDECAR and key in PKG_SIDECARS
+
+
+def _noext(n):
+    return re.sub(r"\.[A-Za-z0-9]+$", "", n)
 
 
 def read_rows(suites):
@@ -142,7 +152,13 @@ def population_inputs(corpus, key, d):
     side, s_ungradable, s_ungraded = sidecar_stems(corpus, key)
     cont = container_stems(corpus, key)
     if cont:
-        d = {p: mm for p, mm in d.items() if stem(p) not in cont}
+        # ⛔ IPL's EXCLUDED.tsv names gprogs/spokes.icn; folded to the stem "spokes" it also dropped the graded gprocs/spokes, so
+        # util_score_row refused hq_icon's 581/581 as 580 on a6747c757 (coo 2026-09-27). A path-keyed package filters by path.
+        if path_keyed(key):
+            cp = {_noext(c[5:]) for c in cont}
+            d = {p: mm for p, mm in d.items() if _noext(p) not in cp}
+        else:
+            d = {p: mm for p, mm in d.items() if stem(p) not in cont}
         side, s_ungradable, s_ungraded = side - cont, s_ungradable - cont, s_ungraded - cont
     return d, side, s_ungradable, s_ungraded
 
@@ -328,18 +344,19 @@ def selftest():
         open(os.path.join(dn, "CONTAINERS.tsv"), "w").write("chap.sno\tMULTI_PROGRAM\t2 top-level END statements (fixture)\n")
         ip = os.path.join(w, "corpus", "packages", "icon", "ipl"); os.makedirs(ip)
         open(os.path.join(ip, "UNGRADED.tsv"), "w").write("procs/dup.icn\tNEEDS_DRIVER\tfixture\ngprocs/dup.icn\tNEEDS_DRIVER\tfixture\n")
+        open(os.path.join(ip, "EXCLUDED.tsv"), "w").write("gprogs/a1.icn\tNEEDS_GRAPHICS_FACILITY\tthe namesake of the graded gprocs/a1 (fixture)\n")
         open(suites, "w").write("# fixture\n" + hdr + "dotnet\tDotnet\tx\tsnobol4\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n"
                                 + "ipl\tIPL\tx\ticon\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n")
         dl = [lines[0]]
         for m in ("m3", "m4"):
             dl += [row("feedbeef1", "dotnet", "d1", m, "PASS"), row("feedbeef1", "dotnet", "X", m, "UNGRADED"), row("feedbeef1", "dotnet", "chap", m, "UNGRADED"), row("feedbeef1", "dotnet", "Y", m, "UNGRADED"),
-                   row("feedbeef1", "ipl", "a1", m, "PASS")]
+                   row("feedbeef1", "ipl", "gprocs/a1", m, "PASS")]
         open(db, "w").write("".join(dl))
         buf = []
         rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
         txt = "\n".join(buf)
         ck(rc == 0 and re.search(r"dotnet .*AGREE", txt) and re.search(r"ipl .*AGREE", txt),
-           "(d) a driver-named sidecar row is its library's DB row, a NAME.INC sidecar row is its NAME.sno DB row, a container's stale DB row is no program, and IPL's two same-basename sidecar files count twice -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
+           "(d) a driver-named sidecar row is its library's DB row, a NAME.INC sidecar row is its NAME.sno DB row, a container's stale DB row is no program, IPL's two same-basename sidecar files count twice and its EXCLUDED gprogs/a1 leaves the graded gprocs/a1 in -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
         print(f"population: 4 selftest arm(s), {fails} FAIL")
         print("SELFTEST " + ("PASS" if fails == 0 else "FAIL"))
         return 0 if fails == 0 else 1
