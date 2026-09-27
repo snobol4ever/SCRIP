@@ -6,6 +6,8 @@
 #include "ct_arena.h"
 #include "rk_syntax.h"
 #include "rk_core_names.h"
+#include "rk_tree.h"
+#include "../snobol4/scrip_cc.h"
 /*====================================================================================================================================================================================================*/
 enum { AS_LEFT = 1, AS_RIGHT, AS_NON, AS_LIST, AS_UNARY };
 enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_DOTTY = 32, OF_COMMA = 64, OF_WORD = 128 };
@@ -54,6 +56,17 @@ typedef struct RkP {
     RkPkg *roledb; int nroledb; int croledb;
     RkStrs exported; RkStrs exported_from;
     char **exports; int nexports; int cexports;
+    int build; RkB *B;
+    tree_t *tv; RkItems *xs; RkItem ti; RkPf pf; int args_form;
+    tree_t *cur_list; int bk; int next_bk; int xb_bk;
+    RkItems *stmt_items; RkItems *last_items; int last_nstmts; int last_real_semi;
+    RkItems *blk_items; int blk_n; tree_t *blk_list; tree_t *pb_sig;
+    RkClosure *qc; int nqc; int cqc;
+    tree_t *sig; RkTrait tr[8]; int ntr;
+    RkDecl *dcl; const char *init_op;
+    RkItems *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
+    int nmods; const char *modk[2]; RkItems *modx[2];
+    int ctl_ns;
 } RkP;
 static const int rk_brackets[] = {
     0x0028,0x0029,0x003C,0x003E,0x005B,0x005D,0x007B,0x007D,0x00AB,0x00BB,0x0F3A,0x0F3B,0x0F3C,0x0F3D,0x169B,0x169C,0x2018,0x2019,0x201A,0x2019,0x201B,0x2019,0x201C,0x201D,0x201E,0x201D,
@@ -86,6 +99,10 @@ static int rk_decode(const char *s, int n, int pos, int *len) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cp_at(RkP *p, int pos) { int l; return rk_decode(p->s, p->n, pos, &l); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static RkItems *takexs(RkP *p) { RkItems *x = p->xs; p->xs = NULL; return x; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *taketv(RkP *p) { tree_t *t = p->tv; p->tv = NULL; return t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cp_len(RkP *p, int pos) { int l; rk_decode(p->s, p->n, pos, &l); return l ? l : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -974,10 +991,10 @@ static int q_backslash(RkP *p, int pos, RkLang *L) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int interp_sigil(RkP *p, int pos, int sigil) {
-    int sq = p->qsigil;
-    p->qsigil = sigil;
+    int sq = p->qsigil; int sb = p->build;
+    p->qsigil = sigil; p->build = 0;
     int e = r_EXPR(p, pos, PR('y'));
-    p->qsigil = sq;
+    p->qsigil = sq; p->build = sb;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -988,7 +1005,11 @@ static int r_quote_escape(RkP *p, int pos, RkLang *L) {
         else if (L->qbs) return q_backslash(p, pos + 1, L);
         return -1;
     }
-    if (c == '{' && L->clos) { p->quote_block = 1; return r_block(p, pos); }
+    if (c == '{' && L->clos) {
+        p->quote_block = 1; int e = r_block(p, pos);
+        if (e >= 0 && p->build) { RK_GROW(p->qc, p->nqc, p->cqc, RkClosure); p->qc[p->nqc].pos = pos; p->qc[p->nqc].items = p->blk_items; p->qc[p->nqc].cnt = p->blk_n; p->nqc++; }
+        return e;
+    }
     if (c == '$' && L->sc) {
         int e = interp_sigil(p, pos, '$');
         if (e < 0) panic_at(p, pos, "Non-variable $ must be backslashed");
@@ -1542,7 +1563,7 @@ static int rx_quantified_atom(RkP *p, int pos, RkLang *L) {
     return q;
 }
 /*====================================================================================================================================================================================================*/
-typedef struct { int prec; int sub; int assoc; unsigned flags; int from; int to; int nextterm; } OpInfo;
+typedef struct { int prec; int sub; int assoc; unsigned flags; int from; int to; int nextterm; tree_t *mid; } OpInfo;
 enum { NT_TERMISH = 0, NT_NULLTERMISH, NT_DOTTYOPISH };
 enum { GOAL_NONE = 0, GOAL_BLOCK = '{', GOAL_BANGBANG = '!', GOAL_ENDARGS = 'e' };
 static int r_term(RkP *p, int pos);
@@ -1622,10 +1643,11 @@ static int r_ternary_rest(RkP *p, int pos) {
     int sg = p->goal; p->goal = GOAL_BANGBANG;
     int q = ws(p, pos);
     int e = r_EXPR(p, q, PR('i'));
+    tree_t *mid = p->build ? rkb_expr(p->B, takexs(p)) : NULL;
     p->goal = sg;
     if (e < 0) panic_at(p, q, "Confused: Found ?? but no !!");
     int t = ws(p, e);
-    if (at_lit(p, t, "!!")) return t + 2;
+    if (at_lit(p, t, "!!")) { p->tv = mid; return t + 2; }
     if (at_lit(p, t, "::") && ch(p, t + 2) != '=') panic_at(p, t, "Please use !! rather than :: in the conditional operator");
     if (ch(p, t) == ':' && ch(p, t + 1) != '=' && !is_word_cp(cp_at(p, t + 1))) panic_at(p, t, "Please use !! rather than : in the conditional operator");
     OpInfo io;
@@ -1635,12 +1657,14 @@ static int r_ternary_rest(RkP *p, int pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_infix_plain(RkP *p, int pos, OpInfo *o) {
+    o->mid = NULL;
     const RkOp *best; int bl = op_table_longest(p, pos, rk_infix, &best);
     int uprec = 0; int uidx = -1; int ul = user_op_longest_i(p, pos, 'i', &uprec, &uidx);
     int c = ch(p, pos);
     if (at_lit(p, pos, "??") && ch(p, pos + 2) != '?') {
         if (ul > 2) goto user;
         int e = r_ternary_rest(p, pos + 2);
+        o->mid = p->build ? taketv(p) : NULL;
         o->prec = PR('j'); o->sub = o->prec; o->assoc = AS_RIGHT; o->flags = OF_FIDDLY; o->from = pos; o->to = e; o->nextterm = NT_TERMISH;
         return e;
     }
@@ -1707,7 +1731,7 @@ user:
 static int r_infixish_core(RkP *p, int pos, OpInfo *o, int in_meta) {
     int sm = p->in_meta; p->in_meta = in_meta;
     int best = -1; OpInfo bo; memset(&bo, 0, sizeof bo);
-    OpInfo t;
+    OpInfo t; memset(&t, 0, sizeof t);
     int c = cp_at(p, pos);
     if (c == '[') {
         if (ch(p, pos + 1) == '&' && (is_alpha_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == '(' || strchr(".!^:*?=~", ch(p, pos + 2)))) {
@@ -1818,7 +1842,15 @@ static int r_prefixish(RkP *p, int pos, int *prec) {
     return ws(p, e);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_postfix_op_raw(RkP *p, int pos);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_postfix_op(RkP *p, int pos) {
+    int e = r_postfix_op_raw(p, pos);
+    if (e >= 0 && p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'P'; p->pf.from = pos; p->pf.to = e; p->pf.txt = ct_strndup0(p->s + pos, e - pos); }
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_postfix_op_raw(RkP *p, int pos) {
     const RkOp *best; int bl = op_table_longest(p, pos, rk_postfix, &best);
     int uprec = 0; int ul = user_op_longest(p, pos, 'P', &uprec);
     if (at_lit(p, pos, "->")) {
@@ -1850,13 +1882,16 @@ static int r_dotty(RkP *p, int pos) {
         int t = q + 1;
         if (c == '^' && ch(p, t) == '!') t++;
         int e = r_dottyop(p, t);
-        if (e >= 0) return e;
+        if (e >= 0) { p->pf.mod = c; p->pf.from = pos; return e; }
     }
-    return r_dottyop(p, q);
+    int e = r_dottyop(p, q);
+    if (e >= 0) p->pf.from = pos;
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_postfixish(RkP *p, int pos) {
     if (stdstopper(p, pos)) return -1;
+    memset(&p->pf, 0, sizeof p->pf);
     int wf = marked_ws_from(p, pos);
     if (wf >= 0 && wf != pos) return -1;
     int q = pos;
@@ -1890,7 +1925,7 @@ static int r_postfixish(RkP *p, int pos) {
     if ((e = r_postcircumfix(p, q)) >= 0) return e;
     if (ch(p, q) == '.' && (ch(p, q + 1) == '[' || ch(p, q + 1) == '{' || ch(p, q + 1) == '<' || ch(p, q + 1) == '(' || cp_at(p, q + 1) == 0xAB) && (e = r_postcircumfix(p, q + 1)) >= 0) return e;
     if ((e = r_dotty(p, q)) >= 0) return e;
-    if (ch(p, q) == '!' && ch(p, q + 1) != '!' && ch(p, q + 1) != '=' && ch(p, q + 1) != '~' && (e = r_methodop(p, q + 1)) >= 0) return e;
+    if (ch(p, q) == '!' && ch(p, q + 1) != '!' && ch(p, q + 1) != '=' && ch(p, q + 1) != '~' && (e = r_methodop(p, q + 1)) >= 0) { p->pf.mod = '!'; return e; }
     if (meta && !p->qsigil) {
         if (is_space_cp(cp_at(p, q))) panic_at(p, q, "Missing postfix");
         if (is_alpha_cp(cp_at(p, q))) panic_at(p, q, "Missing dot on method call");
@@ -1938,12 +1973,16 @@ static int autoincrement_postfix_at(RkP *p, int pos) {
 static int r_termish(RkP *p, int pos) {
     int q = pos; int npre = 0; int lastpre = pos;
     int prec; int lastprec = 0;
+    int pf_[4], pt_[4];
     for (;;) {
         int e = r_prefixish(p, q, &prec);
         if (e < 0) break;
+        if (npre < 4) { pf_[npre] = q; pt_[npre] = e; }
         lastpre = q; q = e; npre++; lastprec = prec;
     }
     int t = r_term(p, q);
+    RkItem it; memset(&it, 0, sizeof it);
+    if (t >= 0 && p->build) { it = p->ti; for (int i = 0; i < npre && i < 4; i++) rkb_prefix(&it, p->s + pf_[i], pt_[i] - pf_[i]); }
     if (t < 0) {
         if (npre) {
             int c = ch(p, lastpre);
@@ -1967,16 +2006,19 @@ static int r_termish(RkP *p, int pos) {
     int tq = q;
     for (;;) {
         int e = r_postfixish(p, t); if (e < 0) break;
+        if (p->build) rkb_postfix(p->B, &it, &p->pf);
         if (npre && lastprec == PR('x') && autoincrement_postfix_at(p, t))
             panic_at(p, t, "Operators '%.*s' and '%.*s' are non-associative and require parentheses", tq - lastpre, p->s + lastpre, e - t, p->s + t);
         t = e; p->leftsigil = '@';
     }
+    if (p->build) p->ti = it;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_nulltermish(RkP *p, int pos) {
-    if (is_terminator_at(p, pos) || pos >= p->n) return pos;
+    if (is_terminator_at(p, pos) || pos >= p->n) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_EMPTY; return pos; }
     int e = r_termish(p, pos);
+    if (e < 0) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_EMPTY; }
     return e >= 0 ? e : pos;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2000,6 +2042,7 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
     StackOp *st; int ns = 0;
     int q = pos; int nextterm = NT_TERMISH; int first = 1;
     int last_end = -1;
+    RkItems *X = p->build ? rkb_items_new() : NULL;
     for (;;) {
         int t;
         if (nextterm == NT_DOTTYOPISH) t = r_dottyop(p, q);
@@ -2008,7 +2051,12 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
         if (t < 0) {
             if (ns) panic_at(p, q, "Missing required term after infix");
             p->leftsigil = sl; p->nops = base;
+            p->xs = X;
             return first ? -1 : last_end;
+        }
+        if (X) {
+            if (nextterm == NT_DOTTYOPISH) { RkItem d; rkb_method_term(p->B, &d, &p->pf); rkb_items_term(X, &d); }
+            else rkb_items_term(X, p->ti.kind == RKI_EMPTY ? NULL : &p->ti);
         }
         first = 0; last_end = t;
         if (noinfix) break;
@@ -2027,7 +2075,8 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
             while (ns && st[ns - 1].sub > o.prec) ns--;
             if (ns == ns0 && o.to - o.from >= 2 && at_lit(p, o.from, ":=") && paren_list_term(p, q, t)) panic_at(p, o.from, "Cannot use bind operator with this left-hand side");
             if (at_lit(p, o.from, "==>>") || at_lit(p, o.from, "<<==")) panic_at(p, o.from, "%.4s feed operator not yet implemented. Sorry.", p->s + o.from);
-            if (o.flags & OF_FAKE) { last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } last_end = w; continue; }
+            if (o.flags & OF_FAKE) { if (X && p->ti.kind == RKI_CP) rkb_adverb(p->B, X, p->ti.name, p->ti.ck, p->ti.val); last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; }
+                last_end = w; continue; }
             break;
         }
         if (e < 0) break;
@@ -2051,26 +2100,37 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
         st = p->ops + base;
         st[ns].prec = o.prec; st[ns].sub = o.sub; st[ns].assoc = o.assoc; st[ns].from = o.from; st[ns].to = o.to; ns++;
         p->nops = base + ns;
+        if (X) { if (o.mid) rkb_items_op(X, "??", 2, o.mid); else rkb_items_op(X, p->s + o.from, o.to - o.from, NULL); }
         nextterm = o.nextterm;
         q = ws(p, e);
     }
     p->leftsigil = sl ? sl : p->leftsigil;
     p->nops = base;
+    p->xs = X;
     return last_end;
 }
 /*====================================================================================================================================================================================================*/
 static int r_semilist(RkP *p, int pos) {
     int q = ws(p, pos);
+    int sbk = p->bk; tree_t *sl = p->cur_list;
+    p->bk = BK_ITEMS; p->cur_list = NULL;
+    RkItems *first = NULL; int n = 0;
     for (;;) {
         int c = ch(p, q);
-        if (c == ')' || c == ']' || c == '}' || q >= p->n) return q;
-        if (p->ustop && q + p->ustop_len <= p->n && !memcmp(p->s + q, p->ustop, (size_t) p->ustop_len)) return q;
+        if (c == ')' || c == ']' || c == '}' || q >= p->n) break;
+        if (p->ustop && q + p->ustop_len <= p->n && !memcmp(p->s + q, p->ustop, (size_t) p->ustop_len)) break;
+        p->stmt_items = NULL;
         int e = r_statement(p, q);
-        if (e < 0) return q;
+        if (e < 0) break;
+        if (!n) first = p->stmt_items;
+        n++;
         q = r_eat_terminator(p, e);
-        if (q < 0) return e;
+        if (q < 0) { q = e; break; }
         q = ws(p, q);
     }
+    p->bk = sbk; p->cur_list = sl;
+    p->last_items = first; p->last_nstmts = n;
+    return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int expect_close(RkP *p, int pos, int c, const char *what, int open_pos) {
@@ -2085,15 +2145,24 @@ static int words_quote(RkP *p, int pos, int open, int nrep, int qq) {
     RkLang L; if (qq) { lang_qq(&L); L.ww = 1; } else lang_q(&L);
     L.words = 1; L.start = open; L.nrep = nrep; L.stop = opener_close(open);
     int s = quote_starter(p, pos, &L);
-    return quote_body(p, s, &L, "quote words");
+    int stop_at = s;
+    int e = quote_body_at(p, s, &L, "quote words", &stop_at);
+    if (p->build) rkb_words(p->B, &p->ti, pos, e, s, stop_at);
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_circumfix(RkP *p, int pos) {
     int c = cp_at(p, pos);
-    if (c == '(') { int sa = p->invocant_ok; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->invocant_ok = sa; p->goal = sg; return expect_close(p, e, ')',
-        "parenthesized expression", pos); }
-    if (c == '[') { int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->goal = sg; return expect_close(p, e, ']', "array composer", pos); }
-    if (c == '{') { int sg = p->goal; p->goal = 0; int e = r_pblock(p, pos, 1); p->goal = sg; return e; }
+    if (c == '(') { int sa = p->invocant_ok; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); RkItems *in = p->last_items; int n = p->last_nstmts; p->invocant_ok = sa;
+        p->goal = sg; e = expect_close(p, e, ')', "parenthesized expression", pos);
+        if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_PAREN; p->ti.from = pos; p->ti.to = p->ti.core_to = e; p->ti.inner = in; p->ti.cnt = n; p->ti.t = rkb_paren(p->B, in, n); }
+        return e; }
+    if (c == '[') { int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); RkItems *in = p->last_items; p->goal = sg; e = expect_close(p, e, ']', "array composer", pos);
+        if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_TREE; p->ti.from = pos; p->ti.to = p->ti.core_to = e; p->ti.t = rkb_bracket(p->B, in); }
+        return e; }
+    if (c == '{') { int sg = p->goal; p->goal = 0; int e = r_pblock(p, pos, 1); p->goal = sg;
+        if (p->build) rkb_block_term(p->B, &p->ti, pos, e, p->tv, p->pb_sig, 0, p->blk_items, p->blk_n);
+        return e; }
     if (at_lit(p, pos, "<<")) return words_quote(p, pos, '<', 2, 1);
     if (c == 0xAB) return words_quote(p, pos, 0xAB, 1, 1);
     if (c == '<') {
@@ -2106,30 +2175,43 @@ static int r_circumfix(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_postcircumfix(RkP *p, int pos) {
     int c = cp_at(p, pos);
-    if (c == '[') { int sq = p->qsigil; p->qsigil = 0; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->qsigil = sq; p->goal = sg; return expect_close(p, e, ']', "subscript", pos); }
-    if (c == '{') { int sq = p->qsigil; p->qsigil = 0; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); p->qsigil = sq; p->goal = sg; return expect_close(p, e, '}', "subscript", pos); }
+    if (c == '[' || c == '{') { int sq = p->qsigil; p->qsigil = 0; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); RkItems *in = p->last_items; p->qsigil = sq; p->goal = sg;
+        e = expect_close(p, e, c == '[' ? ']' : '}', "subscript", pos);
+        if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = c; p->pf.from = pos; p->pf.to = e; p->pf.inner = in; }
+        return e; }
     if (c == '(') {
         int sq = p->qsigil; p->qsigil = 0; int sg = p->goal; p->goal = 0;
         int e = r_arglist(p, ws(p, pos + 1));
+        RkItems *a = takexs(p);
         p->qsigil = sq; p->goal = sg;
-        return expect_close(p, e, ')', "argument list", pos);
+        e = expect_close(p, e, ')', "argument list", pos);
+        if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = '('; p->pf.from = pos; p->pf.to = e; p->pf.args = a; p->pf.form = 1; }
+        return e;
     }
     if (at_lit(p, pos, "<<")) {
         RkLang L; lang_qq(&L); L.ww = 1; L.start = '<'; L.stop = '>'; L.nrep = 2;
         int e; r_nibble_until(p, pos + 2, &L, &e);
         if (e < 0 || quote_stopper(p, e, &L) < 0) panic_at(p, pos, "Unable to parse quote-words subscript; couldn't find '>>' (corresponding '<<' was at line %d)", line_of(p, pos));
-        return quote_stopper(p, e, &L);
+        int f = quote_stopper(p, e, &L);
+        if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'W'; p->pf.from = pos; p->pf.to = f; p->pf.txt = ct_strndup0(p->s + pos + 2, e - pos - 2); }
+        return f;
     }
     if (c == 0xAB) {
         RkLang L; lang_qq(&L); L.ww = 1; L.start = 0xAB; L.stop = 0xBB; L.nrep = 1;
         int e; r_nibble_until(p, pos + 2, &L, &e);
         if (e < 0 || quote_stopper(p, e, &L) < 0) panic_at(p, pos, "Unable to parse quote-words subscript; couldn't find '\xc2\xbb'");
-        return quote_stopper(p, e, &L);
+        int f = quote_stopper(p, e, &L);
+        if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'W'; p->pf.from = pos; p->pf.to = f; p->pf.txt = ct_strndup0(p->s + pos + 2, e - pos - 2); }
+        return f;
     }
     if (c == '<') {
         RkLang L; lang_q(&L); L.start = '<'; L.stop = '>'; L.nrep = 1;
         int e; r_nibble_until(p, pos + 1, &L, &e);
-        if (e >= 0 && quote_stopper(p, e, &L) >= 0) return quote_stopper(p, e, &L);
+        if (e >= 0 && quote_stopper(p, e, &L) >= 0) {
+            int f = quote_stopper(p, e, &L);
+            if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = '<'; p->pf.from = pos; p->pf.to = f; p->pf.txt = ct_strndup0(p->s + pos + 1, e - pos - 1); }
+            return f;
+        }
         int q = pos + 1; while (ch(p, q) == '=') q++;
         int h = hs(p, q);
         int d = cp_at(p, h);
@@ -2144,14 +2226,18 @@ static int r_arglist(RkP *p, int pos) {
     p->goal = GOAL_ENDARGS; p->qsigil = 0;
     int q = ws(p, pos);
     int e = q;
-    if (!stdstopper(p, q)) { int x = r_EXPR(p, q, PR('e')); if (x >= 0) e = x; }
+    RkItems *a = NULL;
+    if (!stdstopper(p, q)) { int x = r_EXPR(p, q, PR('e')); if (x >= 0) { e = x; a = takexs(p); } }
     p->goal = sg; p->qsigil = sq;
+    p->xs = a;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_semiarglist(RkP *p, int pos) {
     int q = r_arglist(p, pos);
+    RkItems *a = takexs(p);
     for (;;) { int t = ws(p, q); if (ch(p, t) != ';') { q = t; break; } q = r_arglist(p, t + 1); }
+    p->xs = a;
     return ws(p, q);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2159,21 +2245,25 @@ static int r_args(RkP *p, int pos, int invocant_ok) {
     int si = p->invocant_ok; int sg = p->goal; int sv = p->saw_inv;
     p->invocant_ok = invocant_ok; p->goal = 0; p->saw_inv = 0;
     int e = pos;
-    if (ch(p, pos) == '(') { int q = r_semiarglist(p, pos + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')' (corresponding starter was at line %d)",
-        line_of(p, pos)); e = q + 1; }
+    RkItems *a = NULL; int form = 0;
+    if (ch(p, pos) == '(') { int q = r_semiarglist(p, pos + 1); a = takexs(p); form = 1; if (ch(p, q) != ')') panic_at(p, q,
+        "Unable to parse argument list; couldn't find final ')' (corresponding starter was at line %d)", line_of(p, pos)); e = q + 1; }
     else {
         int u = r_unsp(p, pos);
-        if (u >= 0 && ch(p, u) == '(') { int q = r_semiarglist(p, u + 1); if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')'"); e = q + 1; }
-        else if (is_space_cp(cp_at(p, pos))) { e = r_arglist(p, pos + cp_len(p, pos)); }
+        if (u >= 0 && ch(p, u) == '(') { int q = r_semiarglist(p, u + 1); a = takexs(p); form = 1; if (ch(p, q) != ')') panic_at(p, q, "Unable to parse argument list; couldn't find final ')'");
+            e = q + 1; }
+        else if (is_space_cp(cp_at(p, pos))) { e = r_arglist(p, pos + cp_len(p, pos)); a = takexs(p); form = a ? 2 : 0; }
     }
     p->last_inv = p->saw_inv;
     p->invocant_ok = si; p->goal = sg; p->saw_inv = sv;
+    p->xs = a; p->args_form = form;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_methodop(RkP *p, int pos) {
     int q = -1;
     int c = cp_at(p, pos);
+    RkItems *ma = NULL; int mform = 0;
     if (c == '$' || c == '@' || c == '&') q = r_variable(p, pos);
     else if (c == '\'' || c == '"' || c == 0x2018 || c == 0x201C || c == 0xFF62) {
         if (p->qsigil && c == '"') { int t = pos + 1; while (t < p->n && p->s[t] != '"' && !is_space_cp(cp_at(p, t))) t += cp_len(p, t); if (t >= p->n || p->s[t] != '"') return -1; }
@@ -2186,11 +2276,13 @@ static int r_methodop(RkP *p, int pos) {
         if (q >= 0 && q - pos == 2 && at_lit(p, pos, "::")) panic_at(p, pos, "Malformed class-qualified postfix call");
     }
     if (q < 0) return -1;
+    int name_end = q;
     int u = r_unsp(p, q); if (u >= 0) q = u;
-    if (ch(p, q) == '(') q = r_args(p, q, 0);
-    else if (ch(p, q) == ':' && (is_space_cp(cp_at(p, q + 1)) || ch(p, q + 1) == '{') && !p->qsigil) q = r_arglist(p, q + 1);
+    if (ch(p, q) == '(') { q = r_args(p, q, 0); ma = takexs(p); mform = 1; }
+    else if (ch(p, q) == ':' && (is_space_cp(cp_at(p, q + 1)) || ch(p, q + 1) == '{') && !p->qsigil) { q = r_arglist(p, q + 1); ma = takexs(p); mform = 2; }
     else if (p->qsigil && ch(p, q) != '.') return -1;
     u = r_unsp(p, q); if (u >= 0) q = u;
+    if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'M'; p->pf.from = pos; p->pf.to = q; p->pf.txt = ct_strndup0(p->s + pos, name_end - pos); p->pf.args = ma; p->pf.form = mform; }
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2340,7 +2432,7 @@ static int class_defines(const RkPkg *k, const char *n, int len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void check_role_composition(RkP *p, RkPkg *k) {
     int nr = k->roles.n;
-    if (!nr) return;
+    if (!nr || p->build) return;
     for (int i = 0; i < nr; i++) if (role_generic_is(p, k->roles.v[i], 0))
         panic_at(p, k->decl_pos, "Cannot find method 'instantiate_generic' on object of type Perl6::Metamodel::ClassHOW");
     RkStrs *M = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr), *K = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr), *S = (RkStrs *) ct_alloc(sizeof(RkStrs) * (size_t) nr);
@@ -2373,7 +2465,7 @@ static void check_role_composition(RkP *p, RkPkg *k) {
 static void package_close(RkP *p) {
     RkPkg k = p->pkgs[--p->npkgs];
     if (!strcmp(k.kind, "role") && k.name) { RK_GROW(p->roledb, p->nroledb, p->croledb, RkPkg); p->roledb[p->nroledb++] = k; }
-    if (k.unknown || !(!strcmp(k.kind, "class") || !strcmp(k.kind, "grammar") || !strcmp(k.kind, "role"))) return;
+    if (p->build || k.unknown || !(!strcmp(k.kind, "class") || !strcmp(k.kind, "grammar") || !strcmp(k.kind, "role"))) return;
     if (k.name && (!strcmp(k.kind, "class") || !strcmp(k.kind, "grammar"))) check_role_composition(p, &k);
     for (int i = 0; i < k.nuses; i++) {
         const char *a = p->s + k.uses[i].pos; int n = k.uses[i].len;
@@ -2489,6 +2581,7 @@ static int r_colonpair(RkP *p, int pos) {
         if (e < 0) panic_at(p, q, "Malformed False pair; expected identifier");
         int d = ch(p, e);
         if (d == '[' || d == '(' || d == '<' || d == '{') panic_at(p, pos, "Argument not allowed on negated pair with key '%.*s'", e - q - 1, p->s + q + 1);
+        if (p->build) rkb_colonpair(p->B, &p->ti, pos, e, '!', q + 1, e, NULL, 0, 0, 0);
         return e;
     }
     if (is_digit_cp(c)) {
@@ -2497,6 +2590,7 @@ static int r_colonpair(RkP *p, int pos) {
         if (e < 0) return -1;
         int x = ch(p, e);
         if (x == '[' || x == '(' || x == '<' || x == '{') panic_at(p, e, "Extra argument not allowed; pair already has argument of %.*s", d - q, p->s + q);
+        if (p->build) rkb_colonpair(p->B, &p->ti, pos, e, 'd', d, e, NULL, 0, 0, 0);
         return e;
     }
     if (is_alpha_cp(c)) {
@@ -2504,31 +2598,46 @@ static int r_colonpair(RkP *p, int pos) {
         int t = e; int u = r_unsp(p, t); if (u >= 0) t = u;
         int d = cp_at(p, t);
         if (d == '(' || d == '[' || d == '{' || d == '<' || d == 0xAB) {
-            if (at_lit(p, t, "<>")) return t + 2;
+            if (at_lit(p, t, "<>")) { if (p->build) rkb_colonpair(p->B, &p->ti, pos, t + 2, 'v', q, e, NULL, t + 1, t + 1, 'W'); return t + 2; }
             int f = r_circumfix(p, t);
-            if (f >= 0) return f;
+            if (f >= 0) {
+                if (p->build) {
+                    RkItem v = p->ti; int vk = d == '(' ? 'P' : d == '<' || d == 0xAB ? 'W' : d == '[' ? 'B' : 'C';
+                    tree_t *vt = v.t; if (vk == 'P' && (!v.inner || !v.inner->nt)) vt = NULL;
+                    int wf = t + (d == 0xAB ? 2 : at_lit(p, t, "<<") ? 2 : 1), wt = f - (d == 0xAB ? 2 : at_lit(p, t, "<<") ? 2 : 1);
+                    rkb_colonpair(p->B, &p->ti, pos, f, 'v', q, e, vt, wf, wt, vk);
+                }
+                return f;
+            }
         }
+        if (p->build) rkb_colonpair(p->B, &p->ti, pos, e, 'n', q, e, NULL, 0, 0, 0);
         return e;
     }
     if (c == '(') {
         int s = r_signature(p, q + 1, 1);
         s = ws(p, s);
         if (ch(p, s) != ')') panic_at(p, s, "Unable to parse signature; couldn't find final ')'");
+        if (p->build) rkb_colonpair(p->B, &p->ti, pos, s + 1, 's', pos, pos, NULL, 0, 0, 0);
         return s + 1;
     }
     if (c == '<' || c == '[' || c == '{' || c == 0xAB) {
-        if (at_lit(p, q, "<>")) return q + 2;
+        if (at_lit(p, q, "<>")) { if (p->build) rkb_colonpair(p->B, &p->ti, pos, q + 2, 'c', pos, pos, NULL, 0, 0, 0); return q + 2; }
         if (c == '{' && p->in_reduce) return -1;
-        return r_circumfix(p, q);
+        int f = r_circumfix(p, q);
+        if (f >= 0 && p->build) { tree_t *vt = p->ti.t; rkb_colonpair(p->B, &p->ti, pos, f, 'c', pos, pos, vt, 0, 0, 'P'); }
+        return f;
     }
     if (c == '$' || c == '@' || c == '%' || c == '&') {
         int t = q + 1;
-        if (ch(p, t) == '<') { int e = r_desigilname(p, t + 1); if (e < 0 || ch(p, e) != '>') return -1; return e + 1; }
+        if (ch(p, t) == '<') { int e = r_desigilname(p, t + 1); if (e < 0 || ch(p, e) != '>') return -1; if (p->build) rkb_colonpair(p->B, &p->ti, pos, e + 1, '<', t + 1, e, NULL, 0, 0, 0);
+            return e + 1; }
         if (is_twigil_at(p, t)) t++;
         int e = r_desigilname(p, t);
         if (e < 0) return -1;
+        if (p->build) { RkItem v; rkb_var(p->B, &v, q, e, NULL, 0); rkb_colonpair(p->B, &p->ti, pos, e, '$', t, e, v.t, 0, 0, 0); }
         return e;
     }
+    if (p->build) rkb_colonpair(p->B, &p->ti, pos, pos + 1, 'c', pos, pos, NULL, 0, 0, 0);
     return -1;
 }
 /*====================================================================================================================================================================================================*/
@@ -2695,7 +2804,18 @@ static int simple_quote(RkP *p, int pos, int open, int stop, int stop2, int qq, 
     return quote_stopper(p, e, &L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_quote_raw(RkP *p, int pos);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quote(RkP *p, int pos) {
+    RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc;
+    p->qc = NULL; p->nqc = 0; p->cqc = 0;
+    int e = r_quote_raw(p, pos);
+    if (e >= 0 && p->build) rkb_quote(p->B, &p->ti, pos, e, p->qc, p->nqc);
+    p->qc = sq; p->nqc = sn; p->cqc = sc;
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_quote_raw(RkP *p, int pos) {
     int c = cp_at(p, pos);
     switch (c) {
     case '\'': return simple_quote(p, pos, '\'', '\'', 0, 0, 0, "single quotes");
@@ -2778,10 +2898,15 @@ static int r_routine_declarator(RkP *p, int pos);
 static int r_regex_declarator(RkP *p, int pos);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_blorst(RkP *p, int pos) {
-    if (ch(p, pos) == '{') return r_block(p, pos);
+    if (ch(p, pos) == '{') { int e = r_block(p, pos); p->blk_n = -1; return e; }
     if (ch(p, pos) == ';' || pos >= p->n) panic_at(p, pos, "Missing block or statement");
+    tree_t *sl = p->cur_list; int sbk = p->bk;
+    tree_t *tmp = p->build ? ast_node_new(TT_SEQ_EXPR) : NULL;
+    p->cur_list = tmp; if (p->bk == BK_ITEMS || p->bk == BK_MAIN || p->bk == BK_CLASS || p->bk == BK_GRAMMAR) p->bk = BK_MODULE;
     int e = r_statement(p, pos);
+    p->cur_list = sl; p->bk = sbk;
     if (e < 0) panic_at(p, pos, "Missing block or statement");
+    p->tv = tmp && tmp->n ? tmp->c[0] : NULL; p->blk_n = -2;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2790,15 +2915,21 @@ static int r_statement_prefix(RkP *p, int pos) {
                                         "eager", "sink", "try", "quietly", "gather", "once", "start", "supply", "react", "do", 0 };
     for (int i = 0; pre[i]; i++) {
         int e = kok(p, pos, pre[i]);
-        if (e >= 0) return r_blorst(p, e);
+        if (e >= 0) {
+            int f = r_blorst(p, e);
+            if (p->build) { tree_t *t = taketv(p); int isblk = p->blk_n == -1 || ch(p, e) == '{'; rkb_sprefix_term(p->B, &p->ti, pos, f, pre[i], (int) strlen(pre[i]), isblk ? t : NULL,
+                isblk ? NULL : t); }
+            return f;
+        }
     }
     static const char *const hyp[] = { "race", "hyper", "lazy", 0 };
     for (int i = 0; hyp[i]; i++) {
         int e = kok(p, pos, hyp[i]);
         if (e >= 0) {
             int f = kok(p, e, "for");
-            if (f >= 0) return r_statement_control(p, e);
-            return r_blorst(p, e);
+            int g = f >= 0 ? r_statement_control(p, e) : r_blorst(p, e);
+            if (p->build) { tree_t *t = taketv(p); rkb_sprefix_term(p->B, &p->ti, pos, g, hyp[i], (int) strlen(hyp[i]), ch(p, e) == '{' ? t : NULL, ch(p, e) == '{' ? NULL : t); }
+            return g;
         }
     }
     int e = kok(p, pos, "DOC");
@@ -2812,7 +2943,9 @@ static int r_statement_prefix(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_lambda_term(RkP *p, int pos) {
     if (!at_lambda(p, pos)) return -1;
-    return r_pblock(p, pos, 2);
+    int e = r_pblock(p, pos, 2);
+    if (e >= 0 && p->build) rkb_block_term(p->B, &p->ti, pos, e, p->tv, p->pb_sig, 0, p->blk_items, p->blk_n);
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_reduce(RkP *p, int pos) {
@@ -2837,7 +2970,9 @@ static int r_reduce(RkP *p, int pos) {
     if (o.flags & OF_FIDDLY) panic_at(p, pos, "Cannot reduce with %.*s because %s operators are too fiddly", e - q, p->s + q, o.prec == PR('i') ? "item assignment" : "conditional");
     if ((o.flags & OF_DIFFY) && !(o.flags & OF_CHAIN)) panic_at(p, pos, "Cannot reduce with %.*s because %s operators are diffy and not chaining", e - q, p->s + q, "structural infix");
     p->in_reduce = si;
-    return r_args(p, e + 1, 0);
+    int f = r_args(p, e + 1, 0);
+    if (p->build) rkb_reduce(p->B, &p->ti, pos, f, q, e, takexs(p));
+    return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_capterm(RkP *p, int pos) {
@@ -2857,6 +2992,7 @@ static int r_fatarrow(RkP *p, int pos) {
     int q = ws(p, h + 2);
     int v = r_EXPR(p, q, PRLE('i'));
     if (v < 0) panic_at(p, q, "Missing value after =>");
+    if (p->build) rkb_fatarrow(p->B, &p->ti, pos, v, pos, e, takexs(p));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2905,11 +3041,13 @@ static int r_term_name(RkP *p, int pos) {
             int t2 = ws(p, tn >= 0 ? tn : t);
             if (ch(p, t2) == ')') e = t2 + 1;
         }
+        if (p->build) rkb_name(p->B, &p->ti, pos, e, nl);
         return e;
     }
     int q = e;
     if (ch(p, q) == '\\' && ch(p, q + 1) == '(') q++;
     int a = r_args(p, q, 1);
+    RkItems *args = takexs(p); int form = p->args_form;
     int na = a;
     if (a >= 0 && !p->last_inv && nl == e - pos && !memchr(p->s + pos, ':', (size_t) nl)) add_mystery(p, pos, nl);
     if (a == q) {
@@ -2923,6 +3061,7 @@ static int r_term_name(RkP *p, int pos) {
                     panic_at(p, e, "A list operator such as \"%.*s\" must have whitespace before its arguments (or use parens)", e - pos, p->s + pos);
         }
     }
+    if (p->build) rkb_call(p->B, &p->ti, pos, na, e - pos, args, form);
     return na;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2937,7 +3076,9 @@ static int r_term_identifier(RkP *p, int pos) {
     else if (ch(p, q) == '\\' && ch(p, q + 1) == '(') q++;
     else return -1;
     int a = r_args(p, q, 1);
+    RkItems *args = takexs(p);
     if (a >= 0 && !p->last_inv) add_mystery(p, pos, e - pos);
+    if (p->build) rkb_call(p->B, &p->ti, pos, a, e - pos, args, 1);
     return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2955,14 +3096,14 @@ static int r_keyword_term(RkP *p, int pos) {
     if ((e = r_regex_declarator(p, pos)) >= 0) return e;
     if ((e = r_package_declarator(p, pos)) >= 0) return e;
     if ((e = r_type_declarator(p, pos)) >= 0) return e;
-    if ((e = kw_end(p, pos, "self")) >= 0) return e;
-    if ((e = kw_end(p, pos, "now")) >= 0 && !is_name_n(p, "now", 3)) return e;
-    if ((e = kw_end(p, pos, "time")) >= 0 && !is_name_n(p, "time", 4)) return e;
+    if ((e = kw_end(p, pos, "self")) >= 0) { if (p->build) { rkb_var(p->B, &p->ti, pos, e, NULL, 0); p->ti.cls = 'S'; } return e; }
+    if ((e = kw_end(p, pos, "now")) >= 0 && !is_name_n(p, "now", 3)) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
+    if ((e = kw_end(p, pos, "time")) >= 0 && !is_name_n(p, "time", 4)) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
     if ((e = kw(p, pos, "rand")) >= 0 && ch(p, e) != '-' && ch(p, e) != '\'') {
         int h = e; if (ch(p, h) == '(') h++; h = hs(p, h);
         if (is_digit_cp(cp_at(p, h)) || ch(p, h) == '$') panic_at(p, pos, "Unsupported use of rand(N); in Raku please use N.rand for Num or (^N).pick for Int result");
         if (at_lit(p, e, "()")) panic_at(p, pos, "Unsupported use of rand(); in Raku please use rand");
-        if (end_keyword_ok(p, e)) return e;
+        if (end_keyword_ok(p, e)) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
     }
     if ((e = kw(p, pos, "undef")) >= 0 && ch(p, e) != '-' && ch(p, e) != '\'') {
         int h = hs(p, e);
@@ -2982,8 +3123,9 @@ static int r_keyword_term(RkP *p, int pos) {
     }
     if ((e = lit(p, pos, "nqp::")) >= 0) {
         int w = e; while (is_word_cp(cp_at(p, w))) w++;
-        if (at_lit(p, e, "const::")) { int x = e + 7; while (is_word_cp(cp_at(p, x))) x++; return x; }
-        if (ch(p, w) == '(') return r_args(p, w, 0);
+        if (at_lit(p, e, "const::")) { int x = e + 7; while (is_word_cp(cp_at(p, x))) x++; if (p->build) rkb_name(p->B, &p->ti, pos, x, x - pos); return x; }
+        if (ch(p, w) == '(') { int a = r_args(p, w, 0); if (p->build) rkb_call(p->B, &p->ti, pos, a, w - pos, takexs(p), 1); return a; }
+        if (p->build) rkb_name(p->B, &p->ti, pos, w, w - pos);
         return w;
     }
     if ((e = kw(p, pos, "__END__")) >= 0) panic_at(p, pos, "Unsupported use of __END__ as end of code; in Raku please use the =finish pod marker and $=finish to read");
@@ -3019,15 +3161,20 @@ static int r_term(RkP *p, int pos) {
     int c = cp_at(p, pos);
     if (c < 0) return -1;
     int e;
-    if (p->nuops && (e = r_user_term(p, pos)) >= 0) return e;
+    if (p->nuops && (e = r_user_term(p, pos)) >= 0) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
     if (c == '$' || c == '@' || c == '%' || c == '&') {
         if (c == '&' && ch(p, pos + 1) == '&') return -1;
-        return r_variable(p, pos);
+        e = r_variable(p, pos);
+        if (e >= 0 && p->build) { if ((c == '$' || c == '@') && ch(p, pos + 1) == '<') rkb_var(p->B, &p->ti, pos, e, p->s + pos + 2, e - pos - 3); else rkb_var(p->B, &p->ti, pos, e, NULL, 0); }
+        return e;
     }
-    if (is_digit_cp(c) || (c == '.' && is_digit_cp(cp_at(p, pos + 1)))) return r_numish(p, pos);
+    if (is_digit_cp(c) || (c == '.' && is_digit_cp(cp_at(p, pos + 1)))) { e = r_numish(p, pos); if (e >= 0 && p->build) rkb_number(p->B, &p->ti, pos, e); return e; }
     if (c == ':') {
-        if (is_digit_cp(cp_at(p, pos + 1))) { int d = r_decint(p, pos + 1); int x = ch(p, d); if (x == '<' || x == '[' || x == '(' || x == '\\') return r_rad_number(p, pos); }
-        if (ch(p, pos + 1) == ':') { if (at_lit(p, pos, "::?") && is_alpha_cp(cp_at(p, pos + 3))) return r_identifier(p, pos + 3); return r_term_name(p, pos); }
+        if (is_digit_cp(cp_at(p, pos + 1))) { int d = r_decint(p, pos + 1); int x = ch(p, d); if (x == '<' || x == '[' || x == '(' || x == '\\') { e = r_rad_number(p, pos); if (e >= 0 && p->build)
+            rkb_number(p->B, &p->ti, pos, e); return e; } }
+        if (ch(p, pos + 1) == ':') { if (at_lit(p, pos, "::?") && is_alpha_cp(cp_at(p, pos + 3))) { e = r_identifier(p, pos + 3); if (e >= 0 && p->build) rkb_name(p->B, &p->ti, pos, e, e - pos);
+            return e; }
+            return r_term_name(p, pos); }
         return r_colonpair(p, pos);
     }
     if (c == '\'' || c == '"' || c == 0x2018 || c == 0x201A || c == 0x2019 || c == 0x201C || c == 0x201E || c == 0x201D || c == 0xFF62 || c == '/') return r_quote(p, pos);
@@ -3040,28 +3187,35 @@ static int r_term(RkP *p, int pos) {
     }
     if (c == '\\') return r_capterm(p, pos);
     if (c == '-' && at_lit(p, pos, "->")) return r_lambda_term(p, pos);
-    if (c == '*') { if (at_lit(p, pos, "**")) return pos + 2; return pos + 1; }
+    if (c == '*') { e = at_lit(p, pos, "**") ? pos + 2 : pos + 1; if (p->build) { rkb_name(p->B, &p->ti, pos, e, e - pos); p->ti.kind = RKI_STAR; } return e; }
     if (at_lit(p, pos, "...") || c == 0x2026) {
         int q = c == 0x2026 ? pos + 3 : pos + 3;
         if (at_lit(p, pos, "...^") || at_lit(p, pos, "\xe2\x80\xa6^")) return -1;
-        return r_args(p, q, 0);
+        e = r_args(p, q, 0);
+        if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_TREE; p->ti.from = pos; p->ti.to = p->ti.core_to = e; p->ti.t = ast_node_new(TT_YADA); }
+        return e;
     }
-    if (at_lit(p, pos, "???") || at_lit(p, pos, "!!!")) return r_args(p, pos + 3, 0);
-    if (at_lit(p, pos, "!!") && is_space_cp(cp_at(p, pos + 2))) return pos + 2;
+    if (at_lit(p, pos, "???") || at_lit(p, pos, "!!!")) { e = r_args(p, pos + 3, 0); if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_TREE; p->ti.from = pos;
+        p->ti.to = p->ti.core_to = e;
+        p->ti.t = ast_node_new(TT_YADA); } return e; }
+    if (at_lit(p, pos, "!!") && is_space_cp(cp_at(p, pos + 2))) { if (p->build) rkb_name(p->B, &p->ti, pos, pos + 2, 2); return pos + 2; }
     if (c == '.') {
         if (at_lit(p, pos, "..")) return -1;
-        return r_dotty(p, pos);
+        e = r_dotty(p, pos);
+        if (e >= 0 && p->build) rkb_method_term(p->B, &p->ti, &p->pf);
+        return e;
     }
-    if (c == 0x2205) { int q = pos + 3; if (!(ch(p, q) == '(' || ch(p, q) == '\\' || ch(p, q) == '\'' || ch(p, q) == '-') && !at_lit(p, hs(p, q), "=>")) return q; }
-    if (c == 0x221E) return pos + 3;
-    if (c >= 0x80 && is_numeric_other_cp(c) && !is_alpha_cp(c)) return r_numish(p, pos);
+    if (c == 0x2205) { int q = pos + 3; if (!(ch(p, q) == '(' || ch(p, q) == '\\' || ch(p, q) == '\'' || ch(p, q) == '-') && !at_lit(p, hs(p, q), "=>")) { if (p->build) rkb_name(p->B, &p->ti, pos, q,
+        q - pos); return q; } }
+    if (c == 0x221E) { if (p->build) rkb_name(p->B, &p->ti, pos, pos + 3, 3); return pos + 3; }
+    if (c >= 0x80 && is_numeric_other_cp(c) && !is_alpha_cp(c)) { e = r_numish(p, pos); if (e >= 0 && p->build) rkb_number(p->B, &p->ti, pos, e); return e; }
     if (!is_alpha_cp(c)) return -1;
     if ((e = r_fatarrow(p, pos)) >= 0) return e;
     if ((e = r_quote(p, pos)) >= 0) return e;
     if ((e = r_keyword_term(p, pos)) >= 0) return e;
-    if (c == 'v' && (e = r_version(p, pos)) >= 0) return e;
-    if ((e = kw(p, pos, "NaN")) >= 0) return e;
-    if ((e = kw(p, pos, "Inf")) >= 0) return e;
+    if (c == 'v' && (e = r_version(p, pos)) >= 0) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
+    if ((e = kw(p, pos, "NaN")) >= 0) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
+    if ((e = kw(p, pos, "Inf")) >= 0) { if (p->build) rkb_name(p->B, &p->ti, pos, e, e - pos); return e; }
     if ((e = r_term_identifier(p, pos)) >= 0) return e;
     return r_term_name(p, pos);
 }
@@ -3096,16 +3250,19 @@ static int r_typename(RkP *p, int pos) {
 static int r_trait(RkP *p, int pos) {
     int sd = p->in_decl; p->in_decl = 0;
     int e = -1; int q;
+    RkTrait rt = { NULL, NULL };
     if ((q = kw(p, pos, "is")) >= 0) {
         int t = ws(p, q);
         e = r_longname(p, t);
         if (e < 0) panic_at(p, t, "Invalid name");
+        rt.word = "is"; rt.name = ct_strndup0(p->s + t, name_part_len(p, t, e));
         int c = ch(p, e);
         if (c == '(' || c == '[' || c == '<' || c == '{' || cp_at(p, e) == 0xAB) { int f = r_circumfix(p, e); if (f >= 0) e = f; }
     }
     else if ((q = kw(p, pos, "hides")) >= 0 || (q = kw(p, pos, "does")) >= 0 || (q = kw(p, pos, "of")) >= 0) {
         int t = ws(p, q);
         e = r_typename(p, t);
+        if (e >= 0) { rt.word = ct_strndup0(p->s + pos, q - pos); rt.name = ct_strndup0(p->s + t, e - t); }
         if (e < 0) { int l = r_longname(p, t); if (l >= 0) panic_at(p, t, "Invalid typename '%.*s'", l - t, p->s + t); panic_at(p, t, "Malformed trait"); }
     }
     else if ((q = kw(p, pos, "returns")) >= 0) {
@@ -3124,14 +3281,20 @@ static int r_trait(RkP *p, int pos) {
         int t = ws(p, q);
         e = r_term(p, t);
         if (e < 0) panic_at(p, t, "Invalid term");
+        rt.word = "handles"; rt.name = ch(p, t) == '<' ? ct_strndup0(p->s + t + 1, e - t - 2) : ct_strndup0(p->s + t, e - t);
     }
     p->in_decl = sd;
+    if (e >= 0 && rt.word) { p->tr[0] = rt; p->ntr = 1; } else p->ntr = 0;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_traits(RkP *p, int pos) {
     int q = pos;
-    for (;;) { int t = ws(p, q); int e = r_trait(p, t); if (e < 0) return q; q = e; }
+    RkTrait tr[8]; int n = 0;
+    for (;;) { int t = ws(p, q); p->ntr = 0; int e = r_trait(p, t); if (e < 0) break; if (p->ntr && n < 8) tr[n++] = p->tr[0]; q = e; }
+    for (int i = 0; i < n; i++) p->tr[i] = tr[i];
+    p->ntr = n;
+    return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_post_constraint(RkP *p, int pos) {
@@ -3236,12 +3399,15 @@ static int r_default_value(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {
     int q = pos; int e = -1; int ntc = 0;
-    for (;;) { int t = r_type_constraint(p, q); if (t < 0) break; q = t; ntc++; }
+    int tf[4], tt[4]; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0;
+    for (;;) { int t = r_type_constraint(p, q); if (t < 0) break; if (ntc < 4) { tf[ntc] = q; int te = t; while (te > q && asc_space((unsigned char) p->s[te - 1])) te--; tt[ntc] = te; } q = t; ntc++;
+        }
     int c = ch(p, q);
     if (at_lit(p, q, "**") || c == '*' || c == '+') {
         int l = at_lit(p, q, "**") ? 2 : 1;
         int v = r_param_var(p, q + l);
-        if (v >= 0) e = v;
+        pref = l == 2 ? 'L' : c;
+        if (v >= 0) { e = v; vfrom = q + l; vto = v; }
         else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) { e = r_identifier(p, q + 1); if (e >= 0) add_value_name(p, p->s + q + 1, e - q - 1); }
         else if (c == '+') e = q + 1;
     }
@@ -3252,12 +3418,15 @@ static int r_parameter(RkP *p, int pos) {
         }
         int t = r_identifier(p, q + 1);
         e = t >= 0 ? t : q + 1;
+        pref = c; vfrom = q + 1; vto = e;
         if (t >= 0) add_value_name(p, p->s + q + 1, t - q - 1);
     }
     else {
         int v = r_param_var(p, q);
-        if (v < 0) v = r_named_param(p, q);
-        if (v >= 0) { e = v; if (ch(p, e) == '?' || ch(p, e) == '!') e++; }
+        if (v >= 0) { vfrom = q; vto = v; }
+        if (v < 0) { v = r_named_param(p, q); if (v >= 0) { named = 1; int k = q; while (k < v && p->s[k] != '$' && p->s[k] != '@' && p->s[k] != '%' && p->s[k] != '&') k++; vfrom = k; vto = v;
+            while (vto > vfrom && p->s[vto - 1] == ')') vto--; } }
+        if (v >= 0) { e = v; if (ch(p, e) == '?' || ch(p, e) == '!') { suffix = ch(p, e); e++; } }
         else if (ntc) e = q;
         else {
             int l = r_longname(p, q);
@@ -3270,6 +3439,8 @@ static int r_parameter(RkP *p, int pos) {
     q = r_traits(p, q); q = ws(p, q);
     for (;;) { int t = r_post_constraint(p, q); if (t < 0) break; q = ws(p, t); }
     int d = r_default_value(p, q);
+    RkItems *dflt = d >= 0 ? takexs(p) : NULL;
+    if (p->build) p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc > 4 ? 4 : ntc, dflt, suffix, named);
     if (d >= 0) {
         q = ws(p, d);
         int t = r_trait(p, q);
@@ -3287,10 +3458,13 @@ static int sig_end_at(RkP *p, int pos) {
 static int r_signature(RkP *p, int pos, int allow_invocant) {
     int sd = p->in_decl; p->in_decl = 1;
     int q = ws(p, pos);
+    tree_t *S = p->build ? ast_node_new(TT_SEQ_EXPR) : NULL;
     for (;;) {
         if (!sig_end_at(p, q)) {
+            p->tv = NULL;
             int e = r_parameter(p, q);
             if (e < 0) break;
+            if (S && p->tv) ast_push(S, taketv(p));
             q = e;
         }
         int t = ws(p, q);
@@ -3314,6 +3488,7 @@ static int r_signature(RkP *p, int pos, int allow_invocant) {
         int c = ch(p, q);
         if (!(c == '{' || c == ')')) panic_at(p, q, "Malformed return value (return constraints only allowed at the end of the signature)");
     }
+    p->sig = S;
     return q;
 }
 /*====================================================================================================================================================================================================*/
@@ -3323,14 +3498,16 @@ static int r_pblock(RkP *p, int pos, int implicit) {
         scope_enter(p);
         int sg = p->goal; p->goal = GOAL_BLOCK;
         int s = r_signature(p, q, 0);
+        tree_t *sig = p->sig;
         p->goal = sg;
         s = ws(p, s);
         if (ch(p, s) != '{') panic_at(p, s, "Missing block");
         int e = r_blockoid(p, s);
+        p->pb_sig = sig;
         scope_leave(p);
         return e;
     }
-    if (ch(p, pos) == '{') { scope_enter(p); int e = r_blockoid(p, pos); scope_leave(p); return e; }
+    if (ch(p, pos) == '{') { scope_enter(p); int e = r_blockoid(p, pos); p->pb_sig = NULL; scope_leave(p); return e; }
     (void) implicit;
     if (pos > 0 && p->s[pos - 1] == '}') panic_at(p, pos, "Missing block (whitespace needed before curlies taken as a hash subscript?)");
     panic_at(p, pos, "Missing block");
@@ -3357,7 +3534,16 @@ static int r_blockoid(RkP *p, int pos) {
     int sg = p->goal; int sq = p->qsigil; int sr = p->in_reduce; int sm = p->in_meta; int sa = p->invocant_ok; int sd = p->in_decl; int sl = p->leftsigil; int ss = p->scope;
     const char *su = p->ustop; int sul = p->ustop_len; int s5 = p->p5isms;
     p->goal = 0; p->qsigil = 0; p->in_reduce = 0; p->in_meta = 0; p->in_decl = 0; p->scope = 0; p->ustop = NULL; p->ustop_len = 0;
+    int bk = p->next_bk ? p->next_bk : BK_BLOCK; p->next_bk = 0;
+    int sbk = p->bk; tree_t *scl = p->cur_list;
+    tree_t *list = p->build ? ast_node_new(TT_SEQ_EXPR) : NULL;
+    p->bk = bk; p->cur_list = list;
     int e = r_statementlist(p, pos + 1);
+    p->bk = sbk; p->cur_list = scl;
+    if (p->build) {
+        p->blk_items = p->last_items; p->blk_n = p->last_nstmts; p->blk_list = list;
+        p->tv = (bk == BK_GIVEN || bk == BK_CATCH) ? NULL : rkb_block_seq(p->B, list, bk, 0);
+    }
     p->goal = sg; p->qsigil = sq; p->in_reduce = sr; p->in_meta = sm; p->invocant_ok = sa; p->in_decl = sd; p->leftsigil = sl; p->scope = ss; p->ustop = su; p->ustop_len = sul; p->p5isms = s5;
     if (ch(p, e) != '}') {
         if (e >= p->n) panic_at(p, e, "Missing block (couldn't find final '}' of block starting at line %d)", line_of(p, pos));
@@ -3367,12 +3553,18 @@ static int r_blockoid(RkP *p, int pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_xblock(RkP *p, int pos, int implicit) {
+    int xbk = p->xb_bk; p->xb_bk = 0;
     int sg = p->goal; p->goal = GOAL_BLOCK;
     int e = r_EXPR(p, pos, 0);
+    RkItems *cond = takexs(p);
     p->goal = sg;
     if (e < 0) panic_at(p, pos, "Missing expression");
     e = ws(p, e);
-    return r_pblock(p, e, implicit);
+    p->next_bk = xbk;
+    int f = r_pblock(p, e, implicit);
+    p->next_bk = 0;
+    p->xb_cond = cond; p->xb_blk = p->tv; p->xb_sig = p->pb_sig;
+    return f;
 }
 /*====================================================================================================================================================================================================*/
 static int r_initializer(RkP *p, int pos) {
@@ -3381,12 +3573,14 @@ static int r_initializer(RkP *p, int pos) {
         int q = ws(p, pos + 1);
         int e = r_EXPR(p, q, p->leftsigil == '$' ? PRLE('i') : PR('e'));
         if (e < 0) panic_at(p, q, "Malformed initializer");
+        p->init_op = "=";
         return e;
     }
     if (at_lit(p, pos, ":=")) {
         int q = ws(p, pos + 2);
         int e = r_EXPR(p, q, PR('e'));
         if (e < 0) panic_at(p, q, "Malformed binding");
+        p->init_op = ":=";
         return e;
     }
     if (at_lit(p, pos, "::=")) panic_at(p, pos, "\"::=\" not yet implemented. Sorry.");
@@ -3394,6 +3588,8 @@ static int r_initializer(RkP *p, int pos) {
         int q = ws(p, pos + 2);
         int e = r_dottyop(p, q);
         if (e < 0) panic_at(p, q, "Malformed mutator method call");
+        if (p->build) { RkItems *x = rkb_items_new(); RkItem d; rkb_method_term(p->B, &d, &p->pf); rkb_items_term(x, &d); p->xs = x; }
+        p->init_op = ".=";
         return e;
     }
     return -1;
@@ -3418,6 +3614,7 @@ static int r_variable_declarator(RkP *p, int pos) {
     int e = r_variable(p, pos);
     p->in_decl = sd;
     if (e < 0) return -1;
+    int var_end = e;
     int c0 = ch(p, pos);
     if (c0 == '&') register_user_op(p, pos + 1, e);
     for (;;) {
@@ -3430,6 +3627,7 @@ static int r_variable_declarator(RkP *p, int pos) {
         break;
     }
     int q = r_traits(p, e);
+    RkTrait vtr[4]; int nvtr = p->ntr > 4 ? 4 : p->ntr; for (int i = 0; i < nvtr; i++) vtr[i] = p->tr[i];
     static const char *const vtraits[] = { "default", "dynamic", "export", 0 };
     if (p->scope != 3 && p->scope != 4) check_is_traits(p, e, q, vtraits, " variable");
     else for (int t = e; t + 10 <= q; t++) if (!memcmp(p->s + t, "default(", 8) && !(t > 0 && asc_word((unsigned char) p->s[t - 1]))) {
@@ -3443,6 +3641,13 @@ static int r_variable_declarator(RkP *p, int pos) {
         if (b > a && !wordch_at(p, b) && ch(p, b) != '(' && is_capture(p, p->s + a, b - a)) p->pkgs[p->npkgs - 1].generic_is = 1;
     }
     for (;;) { int t = ws(p, q); int f = r_post_constraint(p, t); if (f < 0) break; q = f; }
+    if (p->build) {
+        RkDecl *d = (RkDecl *) ct_zalloc(1, sizeof(RkDecl));
+        d->sigil = ch(p, pos); d->name = ct_strndup0(p->s + pos, var_end - pos);
+        for (int i = 0; i < nvtr; i++) d->tr[i] = vtr[i];
+        d->ntr = nvtr;
+        p->dcl = d;
+    }
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3455,26 +3660,36 @@ static int r_declarator(RkP *p, int pos) {
         add_value_name(p, p->s + pos + 1, name_part_len(p, pos + 1, e));
         register_user_op(p, pos + 1, e);
         int q = ws(p, e);
+        p->init_op = NULL;
         int i = r_initializer(p, q);
         if (i < 0) panic_at(p, q, "A sigilless term definition requires an initializer");
+        if (p->build) { RkDecl *d = (RkDecl *) ct_zalloc(1, sizeof(RkDecl)); d->sigil = '$'; d->name = ct_strndup0(p->s + pos + 1, e - pos - 1); d->init_op = p->init_op; d->init = takexs(p);
+            p->dcl = d; }
         return i;
     }
     if (c == '$' || c == '@' || c == '%' || c == '&') {
+        p->dcl = NULL;
         int e = r_variable_declarator(p, pos);
         if (e < 0) return -1;
+        RkDecl *d = p->dcl;
         int q = ws(p, e);
         int thunk = p->scope == 3 || p->scope == 4;
         if (thunk) scope_enter(p);
+        p->init_op = NULL;
         int i = r_initializer(p, q);
+        if (d && i >= 0) { d->init_op = p->init_op; d->init = takexs(p); }
         if (thunk) scope_leave(p);
+        p->dcl = d;
         return i >= 0 ? i : e;
     }
     if (c == '(') {
-        int s = r_signature(p, pos + 1, 0); s = ws(p, s);
+        int s = r_signature(p, pos + 1, 0); tree_t *sig = p->sig; s = ws(p, s);
         if (ch(p, s) != ')') panic_at(p, s, "Unable to parse signature; couldn't find final ')'");
         int e = r_traits(p, s + 1);
         int q = ws(p, e);
+        p->init_op = NULL;
         int i = r_initializer(p, q);
+        if (p->build) { RkDecl *d = (RkDecl *) ct_zalloc(1, sizeof(RkDecl)); d->sigil = '('; d->sig = sig; if (i >= 0) { d->init_op = p->init_op; d->init = takexs(p); } p->dcl = d; }
         return i >= 0 ? i : e;
     }
     if (at_lit(p, pos, ":(")) {
@@ -3636,8 +3851,10 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     int outer_depth = p->depth;
     scope_enter(p);
     int sig_from = q, sig_to = q;
+    tree_t *rsig = NULL; int multi = p->multiness;
     if (ch(p, q) == '(') {
         int s = r_signature(p, q + 1, is_method);
+        rsig = p->sig;
         s = ws(p, s);
         if (ch(p, s) != ')') panic_at(p, s, "Unable to parse signature; couldn't find final ')'");
         sig_to = s + 1;
@@ -3645,6 +3862,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     }
     int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
+    RkTrait rtr[8]; int nrtr = p->ntr; for (int i = 0; i < nrtr; i++) rtr[i] = p->tr[i];
     static const char *const rtraits[] = { "assoc", "DEPRECATED", "export", "hidden-from-backtrace", "hidden-from-USAGE", "implementation-detail", "leading_docs", "nodal",
                                            "pure", "trailing_docs", "default", "equiv", "looser", "tighter", "inlinable", "onlystar", "prec", "raw", "rw", "revision-gated",
                                            "test-assertion", "cached", 0 };
@@ -3680,10 +3898,17 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
         panic_at(p, q, "Missing block");
         return -1;
     }
-    else e = r_blockoid(p, q);
+    else { p->next_bk = name_from < 0 ? BK_BLOCK : is_method ? BK_METHOD : BK_SUB; e = r_blockoid(p, q); }
+    tree_t *body = p->build ? taketv(p) : NULL;
+    RkItems *bl = p->blk_items; int bn = p->blk_n;
     scope_leave(p);
     p->has_self = sm;
     if (is_method && name_from >= 0 && p->npkgs && !(is_method == 2 && p->lang_e)) record_method(p, name_from, name_to, sig_from, sig_to, q);
+    if (p->build) {
+        if (name_from < 0 && !is_method) rkb_block_term(p->B, &p->ti, pos, e, body, rsig, 1, bl, bn);
+        else { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_BSTMT; p->ti.from = pos; p->ti.to = p->ti.core_to = e;
+            p->ti.t = rkb_routine(p->B, is_method ? 1 : 0, multi, name_from >= 0 ? p->s + name_from : "", name_from >= 0 ? name_to - name_from : 0, 0, rsig, sig_to > sig_from, body, rtr, nrtr); }
+    }
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3691,14 +3916,15 @@ static int r_regex_declarator(RkP *p, int pos) {
     static const char *const k[] = { "rule", "token", "regex", 0 };
     for (int i = 0; k[i]; i++) {
         int e = kok(p, pos, k[i]);
-        if (e >= 0) return r_regex_def(p, e);
+        if (e >= 0) { p->xb_bk = i; int f = r_regex_def(p, e); return f; }
     }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_regex_def(RkP *p, int pos) {
-    int q = pos;
+    int q = pos; int rkind = p->xb_bk; p->xb_bk = 0;
     int n = r_deflongname(p, q);
+    int nfrom = q, nto = n;
     if (n >= 0) q = ws(p, n);
     scope_enter(p);
     for (;;) {
@@ -3726,6 +3952,8 @@ static int r_regex_def(RkP *p, int pos) {
     }
     if (ch(p, e) != '}') { scope_leave(p); panic_at(p, e, "Unable to parse regex; couldn't find final '}'"); }
     scope_leave(p);
+    if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_BSTMT; p->ti.from = pos; p->ti.to = p->ti.core_to = e + 1;
+        p->ti.t = rkb_regex_decl(p->B, rkind, nto >= 0 ? p->s + nfrom : "", nto >= 0 ? nto - nfrom : 0, q); }
     return r_ENDSTMT(p, e + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3785,6 +4013,9 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     }
     int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
+    RkTrait ktr[8]; int nktr = p->ntr; for (int i = 0; i < nktr; i++) ktr[i] = p->tr[i];
+    int kbk = !strcmp(kind, "class") || !strcmp(kind, "role") ? BK_CLASS : !strcmp(kind, "grammar") ? BK_GRAMMAR : BK_MODULE;
+    tree_t *kbody = NULL;
     record_does(p, tstart, q);
     if (pkg_len) for (int t = tstart; t + 6 <= q; t++) if (!memcmp(p->s + t, "export", 6) && !wordch_at(p, t + 6) && !asc_word((unsigned char) p->s[t - 1])) {
         RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = ct_strndup0(p->s + pkg_from, pkg_len); break;
@@ -3793,7 +4024,9 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     if (ch(p, q) == '{') {
         if (unit) panic_at(p, q, "Cannot use 'unit' with block form of %s", kind);
         int sh = p->has_self; p->has_self = 1;
+        p->next_bk = kbk;
         e = r_blockoid(p, q);
+        kbody = p->build ? taketv(p) : NULL;
         p->has_self = sh;
     }
     else if (ch(p, q) == ';') {
@@ -3805,7 +4038,10 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
         }
         if (n < 0) panic_at(p, q, "Compilation unit cannot be anonymous");
         int sh = p->has_self; p->has_self = 1;
+        tree_t *scl = p->cur_list; int sbk = p->bk;
+        kbody = p->build ? ast_node_new(TT_SEQ_EXPR) : NULL; p->cur_list = kbody; p->bk = kbk;
         e = r_statementlist(p, q + 1);
+        p->cur_list = scl; p->bk = sbk;
         p->has_self = sh;
     }
     else { scope_leave(p); p->scope = saved_scope; panic_at(p, q, "Unable to parse %s definition", kind); return -1; }
@@ -3813,6 +4049,8 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     p->scope = saved_scope;
     if (!unit) p->pkg = saved_pkg;
     if (!unit) package_close(p);
+    if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_BSTMT; p->ti.from = pos; p->ti.to = p->ti.core_to = e;
+        p->ti.t = rkb_package(p->B, kind, n >= 0 ? p->s + pkg_from : "", pkg_len, ktr, nktr, kbody); }
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3866,12 +4104,15 @@ static int r_type_declarator(RkP *p, int pos) {
         if (!(c == '<' || c == '(' || c == 0xAB)) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
         int t = r_term(p, q);
         if (t < 0) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
+        tree_t *et = NULL;
+        if (p->build) et = p->ti.kind == RKI_WORDS && p->ti.name ? rkb_enum(p->B, p->ti.name, (int) strlen(p->ti.name)) : ast_node_new(TT_SEQ_EXPR);
         enum_names_from(p, q, t, p->s + en, enl);
         for (int k = q, quo = 0; k < t; k++) {
             unsigned char b = (unsigned char) p->s[k];
             if (b == '\'' || b == '"') quo = !quo;
             else if (!quo && (b == '.' || b == '~' || b == '*' || b == '+' || b == '^' || b == '$' || b == '@' || b == '&')) { p->myst_off = 1; break; }
         }
+        if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_TREE; p->ti.from = pos; p->ti.to = p->ti.core_to = t; p->ti.t = et; }
         return ws(p, t);
     }
     if ((e = kok(p, pos, "subset")) >= 0) {
@@ -3880,13 +4121,16 @@ static int r_type_declarator(RkP *p, int pos) {
         if (n >= 0) { add_name_all(p, p->s + q, name_part_len(p, q, n)); q = ws(p, n); }
         q = r_traits(p, q); q = ws(p, q);
         int w = kw(p, q, "where");
-        if (w >= 0) { int t = ws(p, w); int x = r_EXPR(p, t, PR('e')); if (x < 0) panic_at(p, t, "Malformed subset"); return x; }
+        if (p->build) { memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_TREE; p->ti.t = ast_node_new(TT_NUL); }
+        if (w >= 0) { int t = ws(p, w); int x = r_EXPR(p, t, PR('e')); if (x < 0) panic_at(p, t, "Malformed subset"); if (p->build) { p->ti.kind = RKI_TREE; p->ti.t = ast_node_new(TT_NUL); }
+            return x; }
         return q;
     }
     if ((e = kok(p, pos, "constant")) >= 0) {
         int q = e;
         int sd = p->in_decl; p->in_decl = 1;
         if (ch(p, q) == '\\') q++;
+        int cnf = q;
         int n = r_identifier(p, q);
         if (n >= 0) { while (ch(p, n) == ':' && ch(p, n + 1) != ':' && ch(p, n + 1) != '=') { int f = r_colonpair(p, n); if (f < 0) break; n = f; } add_name_n(p, p->s + q, name_part_len(p, q, n));
             register_user_op(p, q, n); q = n; }
@@ -3894,8 +4138,12 @@ static int r_type_declarator(RkP *p, int pos) {
         p->in_decl = sd;
         q = ws(p, q);
         q = r_traits(p, q); q = ws(p, q);
+        int cnt_ = n >= 0 ? n : q;
         int i = r_initializer(p, q);
         if (i < 0) panic_at(p, q, "Missing initializer on constant declaration");
+        if (p->build) { RkItems *ci = takexs(p); int ce = cnt_; while (ce > cnf && asc_space((unsigned char) p->s[ce - 1])) ce--; memset(&p->ti, 0, sizeof p->ti); p->ti.kind = RKI_TREE;
+            p->ti.from = pos;
+            p->ti.to = p->ti.core_to = i; p->ti.t = rkb_constant(p->B, p->s + cnf, ce - cnf, ci); }
         return i;
     }
     return -1;
@@ -3905,15 +4153,18 @@ static int r_scoped(RkP *p, int pos, int scope) {
     int ss = p->scope; p->scope = scope + 1;
     int q = ws(p, pos);
     int e = -1;
+    int tyf = -1, tyt = -1;
+    p->dcl = NULL;
     if ((e = r_declarator(p, q)) >= 0) goto done;
     if ((e = r_regex_declarator(p, q)) >= 0) goto done;
     if ((e = r_package_declarator(p, q)) >= 0) goto done;
     {
         int t = q; int nt = 0;
-        for (;;) { int tn = r_typename(p, t); if (tn < 0) break; t = ws(p, tn); nt++; }
+        for (;;) { int tn = r_typename(p, t); if (tn < 0) break; if (!nt) { tyf = t; tyt = tn; } t = ws(p, tn); nt++; }
         if (nt && scope == 1 && (ch(p, t) == '$' || ch(p, t) == '@' || ch(p, t) == '%' || ch(p, t) == '&'))
             panic_at(p, t, "Cannot put a type constraint on an 'our'-scoped variable");
         if (nt) {
+            p->dcl = NULL;
             e = r_multi_declarator(p, t);
             if (e < 0) e = r_declarator(p, t);
             if (e >= 0) goto done;
@@ -3947,6 +4198,7 @@ static int r_scoped(RkP *p, int pos, int scope) {
     return -1;
 done:
     p->scope = ss;
+    if (p->build && p->dcl) { RkDecl *d = p->dcl; p->dcl = NULL; d->scope = scope; if (tyf >= 0) d->type = ct_strndup0(p->s + tyf, tyt - tyf); rkb_decl(p->B, &p->ti, pos, e, d); }
     return e;
 }
 /*====================================================================================================================================================================================================*/
@@ -3964,13 +4216,14 @@ static int r_statement_mods(RkP *p, int pos) {
         int e = kok(p, q, cond[i]);
         if (e < 0) continue;
         int x = r_statement_mod_expr(p, e, cond[i]);
+        p->modk[0] = cond[i]; p->modx[0] = takexs(p); p->nmods = 1;
         int t = ws(p, x);
-        for (int j = 0; loop[j]; j++) { int f = kok(p, t, loop[j]); if (f >= 0) return r_statement_mod_expr(p, f, loop[j]); }
+        for (int j = 0; loop[j]; j++) { int f = kok(p, t, loop[j]); if (f >= 0) { int y = r_statement_mod_expr(p, f, loop[j]); p->modk[1] = loop[j]; p->modx[1] = takexs(p); p->nmods = 2; return y; } }
         return x;
     }
     for (int j = 0; loop[j]; j++) {
         int f = kok(p, q, loop[j]);
-        if (f >= 0) return r_statement_mod_expr(p, f, loop[j]);
+        if (f >= 0) { int y = r_statement_mod_expr(p, f, loop[j]); p->modk[0] = loop[j]; p->modx[0] = takexs(p); p->nmods = 1; return y; }
     }
     return -1;
 }
@@ -3983,21 +4236,42 @@ static int r_label(RkP *p, int pos) {
     return ws(p, e + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void stmt_end_info(RkP *p, int e, int *semi, int *last) {
+    int t = ws(p, e);
+    *semi = ch(p, t) == ';';
+    p->last_real_semi = *semi;
+    if (p->bk == BK_MAIN) { *last = t >= p->n || p->finished; if (*last && !*semi) *semi = 1; }
+    else *last = t >= p->n || ch(p, t) == '}';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_statement(RkP *p, int pos) {
     int c = ch(p, pos);
     if (c == ')' || c == ']' || c == '}' || pos >= p->n) return -1;
-    if (c == ';') return pos;
+    if (c == ';') { if (p->build) { rkb_empty(p->B, p->cur_list, p->bk); p->last_real_semi = 1; } return pos; }
     int e;
     if ((e = r_label(p, pos)) >= 0) return r_statement(p, e);
-    if ((e = r_statement_control(p, pos)) >= 0) return e;
+    p->ctl_ns = 0; p->tv = NULL;
+    if ((e = r_statement_control(p, pos)) >= 0) {
+        if (p->build && p->tv) { int semi, last; tree_t *t = taketv(p); int ns = p->ctl_ns; stmt_end_info(p, e, &semi, &last); rkb_control(p->B, p->cur_list, p->bk, pos, t, ns, semi, last); }
+        else if (p->build) { int semi, last; stmt_end_info(p, e, &semi, &last); }
+        return e;
+    }
     int si = p->invocant_ok; int sq = p->qsigil; p->qsigil = 0;
     e = r_EXPR(p, pos, 0);
+    RkItems *X = takexs(p);
     p->invocant_ok = si; p->qsigil = sq;
     if (e >= 0) {
-        if (marked_end(p, e) || marked_end(p, ws(p, e))) return e;
-        int m = r_statement_mods(p, e);
-        if (m >= 0) return m;
-        return e;
+        int end = e; int nm = 0; const char *mk[2]; RkItems *mx[2];
+        if (!(marked_end(p, e) || marked_end(p, ws(p, e)))) {
+            p->nmods = 0;
+            int m = r_statement_mods(p, e);
+            if (m >= 0) { end = m; nm = p->nmods; for (int i = 0; i < nm; i++) { mk[i] = p->modk[i]; mx[i] = p->modx[i]; } }
+        }
+        if (p->build) {
+            p->stmt_items = X;
+            if (p->bk != BK_ITEMS) { int semi, last; stmt_end_info(p, end, &semi, &last); rkb_statement(p->B, p->cur_list, p->bk, pos, end, X, nm, mk, mx, semi, last); }
+        }
+        return end;
     }
     if (is_terminator_at(p, pos)) return pos;
     panic_at(p, pos, "Bogus statement");
@@ -4029,15 +4303,20 @@ static int r_eat_terminator(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_statementlist(RkP *p, int pos) {
     int q = ws(p, pos);
+    RkItems *last = NULL; int n = 0;
     for (;;) {
-        if (p->finished) return p->n;
+        if (p->finished) { q = p->n; break; }
         int c = ch(p, q);
-        if (q >= p->n || c == ')' || c == ']' || c == '}') return q;
+        if (q >= p->n || c == ')' || c == ']' || c == '}') break;
+        p->stmt_items = NULL;
         int e = r_statement(p, q);
-        if (e < 0) return q;
+        if (e < 0) break;
+        last = p->stmt_items; n++;
         q = r_eat_terminator(p, e);
         q = ws(p, q);
     }
+    p->last_items = last; p->last_nstmts = n;
+    return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_check_into(RkP *p, const char *src, int len, const char *path, RkP *out);
@@ -4128,6 +4407,7 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     if (v >= 0) {
         if (!strcmp(what, "use")) {
             if (!p->comp_unit_begin) panic_at(p, q, "Too late to switch language version. Must be used as the very first statement.");
+            if (p->build) p->tv = rkb_use(p->B, p->s + q, v - q, NULL);
             return ws(p, v);
         }
         return ws(p, v);
@@ -4141,9 +4421,10 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     int e = m;
     int c = cp_at(p, e);
     int args_from = e;
+    RkItems *uargs = NULL;
     if (is_space_cp(c) || c == '#') {
         int t = ws(p, e);
-        if (!stdstopper(p, t)) { int a = r_arglist(p, e); e = a; }
+        if (!stdstopper(p, t)) { int a = r_arglist(p, e); e = a; uargs = takexs(p); }
     }
     static const char *const pragmas[] = { "lib", "soft", "strict", "fatal", "MONKEY", "dynamic-scope", "isms", "variables", "attributes", "invocant", "parameters", "experimental", "newline",
                                            "internals", "nqp", "precompilation", "trace", "worries", "v6", "BUILDPLAN", 0 };
@@ -4155,6 +4436,7 @@ static int r_use_like(RkP *p, int pos, const char *what) {
             if (strncmp(rk_test_routines[i], "trait_mod:", 10)) add_routine_name(p, rk_test_routines[i], (int) strlen(rk_test_routines[i]));
     }
     else if (!strcmp(what, "use") && !is_pragma) { if (!import_module(p, name)) p->myst_off = 1; }
+    if (p->build) p->tv = rkb_use(p->B, p->s + q, name_part_len(p, q, m), uargs);
     return ws(p, e);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4164,32 +4446,46 @@ static int r_statement_control(RkP *p, int pos) {
     int e;
     if ((e = kok(p, pos, "if")) >= 0 || (e = kok(p, pos, "with")) >= 0) {
         int q = r_xblock(p, e, 0);
+        const char *kws[64]; RkItems *cs[64]; tree_t *bs[64]; int n = 0; tree_t *els = NULL;
+        kws[n] = "if"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++;
         for (;;) {
             int t = ws(p, q);
             int f;
             if (at_lit(p, t, "else") && (f = hs(p, t + 4)) && at_lit(p, f, "if") && !wordch_at(p, f + 2)) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"else if\"");
             if ((f = kw(p, t, "elif")) >= 0) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"elif\"");
-            if ((f = kok(p, t, "elsif")) >= 0 || (f = kok(p, t, "orwith")) >= 0) { q = r_xblock(p, f, 0); continue; }
-            if ((f = kw(p, t, "else")) >= 0) { int g = ws(p, f); return r_pblock(p, g, 0); }
+            if ((f = kok(p, t, "elsif")) >= 0 || (f = kok(p, t, "orwith")) >= 0) { q = r_xblock(p, f, 0); if (n < 64) { kws[n] = "elsif"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++; } continue; }
+            if ((f = kw(p, t, "else")) >= 0) { int g = ws(p, f); int h = r_pblock(p, g, 0); els = p->tv; if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, els); return h; }
+            if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, NULL);
             return q;
         }
     }
     if ((e = kok(p, pos, "unless")) >= 0 || (e = kok(p, pos, "without")) >= 0) {
         int q = r_xblock(p, e, 0);
+        if (p->build) p->tv = rkb_unless(p->B, p->xb_cond, p->xb_blk);
         int t = ws(p, q);
         if (kw(p, t, "else") >= 0 || kw(p, t, "elsif") >= 0 || kw(p, t, "orwith") >= 0) panic_at(p, t, "\"%s\" does not take \"%.*s\", please rewrite using \"if\"", at_lit(p, pos,
             "unless") ? "unless" : "without", 4, p->s + t);
         return q;
     }
-    if ((e = kok(p, pos, "while")) >= 0 || (e = kok(p, pos, "until")) >= 0) return r_xblock(p, e, 0);
+    if ((e = kok(p, pos, "while")) >= 0 || (e = kok(p, pos, "until")) >= 0) {
+        int q = r_xblock(p, e, 0);
+        if (p->build) { rkb_set_after_line(p->B, q); p->tv = rkb_while(p->B, ch(p, pos) == 'u', p->xb_cond, p->xb_blk); }
+        return q;
+    }
     if ((e = kok(p, pos, "repeat")) >= 0) {
         int f;
-        if ((f = kok(p, e, "while")) >= 0 || (f = kok(p, e, "until")) >= 0) return r_xblock(p, f, 0);
+        if ((f = kok(p, e, "while")) >= 0 || (f = kok(p, e, "until")) >= 0) {
+            int q = r_xblock(p, f, 0);
+            if (p->build) { rkb_set_after_line(p->B, q); p->tv = rkb_repeat(p->B, ch(p, e) == 'u', p->xb_blk, p->xb_cond); }
+            return q;
+        }
         int q = r_pblock(p, e, 0);
+        tree_t *blk = p->tv;
         int t = ws(p, q);
         if ((f = kok(p, t, "while")) < 0 && (f = kok(p, t, "until")) < 0) panic_at(p, t, "Missing \"while\" or \"until\"");
         int x = r_EXPR(p, f, 0);
         if (x < 0) panic_at(p, f, "Missing expression");
+        if (p->build) { RkItems *cx = takexs(p); rkb_set_after_line(p->B, x); p->tv = rkb_repeat(p->B, ch(p, t) == 'u', blk, cx); p->ctl_ns = 1; }
         return x;
     }
     if ((e = kok(p, pos, "for")) >= 0) {
@@ -4198,24 +4494,29 @@ static int r_statement_control(RkP *p, int pos) {
             while (t < p->n && d) { if (p->s[t] == '(') d++; else if (p->s[t] == ')') d--; else if (p->s[t] == ';' && d == 1) semis++; t++; }
             if (semis == 2) panic_at(p, pos, "Unsupported use of C-style \"for (;;)\" loop; in Raku please use \"loop (;;)\"");
         }
-        return r_xblock(p, e, 2);
+        int q = r_xblock(p, e, 2);
+        if (p->build) { rkb_set_after_line(p->B, q); p->tv = rkb_for(p->B, p->xb_cond, p->xb_sig, p->xb_blk); }
+        return q;
     }
-    if ((e = kok(p, pos, "whenever")) >= 0) return r_xblock(p, e, 2);
+    if ((e = kok(p, pos, "whenever")) >= 0) { int q = r_xblock(p, e, 2); p->tv = NULL; return q; }
     if ((e = kw_end(p, pos, "foreach")) >= 0) panic_at(p, pos, "Unsupported use of 'foreach'; in Raku please use 'for'");
     if ((e = kok(p, pos, "loop")) >= 0) {
-        int q = e;
+        int q = e; RkItems *le[3] = { NULL, NULL, NULL }; int parens = 0;
         if (ch(p, q) == '(') {
+            parens = 1;
             int t = ws(p, q + 1); int n = 0;
-            int x = r_EXPR(p, t, 0); if (x >= 0) { t = ws(p, x); n = 1; }
-            if (ch(p, t) == ';') { t = ws(p, t + 1); n = 2; x = r_EXPR(p, t, 0); if (x >= 0) t = ws(p, x);
-                if (ch(p, t) == ';') { t = ws(p, t + 1); n = 3; x = r_EXPR(p, t, 0); if (x >= 0) t = ws(p, x); } }
+            int x = r_EXPR(p, t, 0); if (x >= 0) { le[0] = takexs(p); t = ws(p, x); n = 1; }
+            if (ch(p, t) == ';') { t = ws(p, t + 1); n = 2; x = r_EXPR(p, t, 0); if (x >= 0) { le[1] = takexs(p); t = ws(p, x); }
+                if (ch(p, t) == ';') { t = ws(p, t + 1); n = 3; x = r_EXPR(p, t, 0); if (x >= 0) { le[2] = takexs(p); t = ws(p, x); } } }
             if (n == 3 && ch(p, t) == ')') q = ws(p, t + 1);
             else if (ch(p, t) == ')') panic_at(p, t,
                 n == 0 ? "Malformed loop spec (expected 3 semicolon-separated expressions)" : "Malformed loop spec (expected 3 semicolon-separated expressions but got %d)", n);
             else if (ch(p, t) == ';') panic_at(p, t, "Malformed loop spec (expected 3 semicolon-separated expressions but got more)");
             else panic_at(p, t, "Malformed loop spec");
         }
-        return r_block(p, q);
+        int b = r_block(p, q);
+        if (p->build) { rkb_set_after_line(p->B, b); p->tv = rkb_loop(p->B, le[0], le[1], le[2], parens, p->tv); }
+        return b;
     }
     if ((e = kok(p, pos, "need")) >= 0) {
         int q = e;
@@ -4225,6 +4526,7 @@ static int r_statement_control(RkP *p, int pos) {
             import_module(p, ct_strndup0(p->s + q, name_part_len(p, q, m)));
             q = ws(p, m);
             if (ch(p, q) == ',') { q = ws(p, q + 1); continue; }
+            p->tv = NULL;
             return q;
         }
     }
@@ -4235,10 +4537,11 @@ static int r_statement_control(RkP *p, int pos) {
         if (!is_pseudo_pkg(p->s + q, name_part_len(p, q, m))) p->myst_off = 1;
         int t = m;
         if (is_space_cp(cp_at(p, t)) || ch(p, t) == '#') { int u = ws(p, t); if (!stdstopper(p, u)) t = r_arglist(p, t); }
+        p->tv = NULL;
         return ws(p, t);
     }
-    if ((e = lit(p, pos, "no")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) return r_use_like(p, ws(p, e), "no");
-    if ((e = lit(p, pos, "use")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) return r_use_like(p, ws(p, e), "use");
+    if ((e = lit(p, pos, "no")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) { int f = r_use_like(p, ws(p, e), "no"); p->tv = NULL; return f; }
+    if ((e = lit(p, pos, "use")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) { int f = r_use_like(p, ws(p, e), "use"); p->ctl_ns = 1; return f; }
     if ((e = lit(p, pos, "DOC")) >= 0 && is_hspace_cp(cp_at(p, e))) { int u = hs(p, e); int f = lit(p, u, "use"); if (f >= 0 && !wordch_at(p, f)) return r_use_like(p, ws(p, f), "use"); }
     if ((e = kok(p, pos, "require")) >= 0) {
         p->myst_off = 1;
@@ -4249,16 +4552,31 @@ static int r_statement_control(RkP *p, int pos) {
         if (m < 0) panic_at(p, q, "Malformed require");
         q = ws(p, m);
         if (!stdstopper(p, q)) { int x = r_EXPR(p, q, 0); if (x >= 0) q = x; }
+        p->tv = NULL;
         return q;
     }
-    if ((e = kok(p, pos, "given")) >= 0) return r_xblock(p, e, 2);
-    if ((e = kok(p, pos, "when")) >= 0) return r_xblock(p, e, 0);
-    if ((e = kok(p, pos, "default")) >= 0) return r_block(p, e);
+    if ((e = kok(p, pos, "given")) >= 0) { p->xb_bk = BK_GIVEN; int q = r_xblock(p, e, 2); if (p->build) p->tv = rkb_given(p->B, p->xb_cond, p->blk_list); return q; }
+    if ((e = kok(p, pos, "when")) >= 0) {
+        tree_t *list = p->cur_list; int bk = p->bk;
+        int q = r_xblock(p, e, 0);
+        if (p->build) { rkb_when(p->B, list, bk, p->xb_cond, p->xb_blk); p->tv = NULL; }
+        return q;
+    }
+    if ((e = kok(p, pos, "default")) >= 0) {
+        tree_t *list = p->cur_list; int bk = p->bk;
+        int q = r_block(p, e);
+        if (p->build) { if (bk == BK_GIVEN || bk == BK_CATCH) rkb_default(p->B, list, p->tv); else if (list) ast_push(list, p->tv); p->tv = NULL; }
+        return q;
+    }
     if ((e = lit(p, pos, "CATCH")) >= 0 || (e = lit(p, pos, "CONTROL")) >= 0 || (e = lit(p, pos, "QUIT")) >= 0) {
         if (wordch_at(p, e)) return -1;
         int q = ws(p, e);
         if (ch(p, q) != '{') return -1;
-        return r_block(p, q);
+        int saved = p->build ? rkb_swap_nonwhen(p->B, 0) : 0;
+        p->next_bk = BK_CATCH;
+        int b = r_block(p, q);
+        if (p->build) { int nw = rkb_swap_nonwhen(p->B, saved); p->tv = rkb_catch(p->B, p->blk_list, nw == 0); }
+        return b;
     }
     return -1;
 }
@@ -4269,6 +4587,8 @@ static int r_comp_unit(RkP *p) {
     if (at_lit(p, q, "#!")) q = line_end(p, q);
     p->comp_unit_begin = 1;
     q = ws(p, q);
+    tree_t *list = p->build ? ast_node_new(TT_SEQ_EXPR) : NULL;
+    p->cur_list = list; p->bk = BK_MAIN; p->last_real_semi = 1;
     int v = lit(p, q, "use");
     if (v >= 0 && is_space_cp(cp_at(p, v))) {
         int t = ws(p, v);
@@ -4276,12 +4596,14 @@ static int r_comp_unit(RkP *p) {
         if (ve >= 0) {
             if (!(ch(p, t + 1) == '6')) panic_at(p, t, "No compiler available for Raku %.*s", ve - t, p->s + t);
             if (ve - t >= 4 && p->s[t + 3] != 'c' && p->s[t + 3] != 'd') p->lang_e = 1;
+            if (p->build) { int semi, last; tree_t *u = rkb_use(p->B, p->s + t, ve - t, NULL); int e0 = ve; stmt_end_info(p, e0, &semi, &last); rkb_control(p->B, list, BK_MAIN, q, u, 1, semi, last); }
             q = r_eat_terminator(p, ws(p, ve));
         }
     }
     p->comp_unit_begin = 0;
     scope_enter(p);
     int e = r_statementlist(p, q);
+    if (p->build) { if (p->last_real_semi) rkb_empty(p->B, list, BK_MAIN); p->tv = rkb_program(p->B, list); }
     e = ws(p, e);
     if (e < p->n && !p->finished) {
         int c = ch(p, e);
@@ -4329,6 +4651,26 @@ int rk_syntax_check(const char *src, int len, const char *path, char *err, int e
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rk_parse_tree(const char *src, int len, const char *path, char *err, int errlen) {
+    RkP *p = (RkP *) ct_alloc(sizeof(RkP));
+    memset(p, 0, sizeof *p);
+    p->s = src; p->n = len; p->file = path ? path : "<stdin>"; p->build = 1; p->B = rkb_new(src, len);
+    p->myst_off = 1; p->lax = 1;
+    p->wsmark = (int *) ct_alloc(sizeof(int) * ((size_t) len + 2));
+    memset(p->wsmark, 0, sizeof(int) * ((size_t) len + 2));
+    p->endmark = (unsigned char *) ct_alloc((size_t) len + 2);
+    memset(p->endmark, 0, (size_t) len + 2);
+    if (setjmp(p->jb)) {
+        int line = line_of(p, p->err_pos);
+        int col = 1; for (int i = p->err_pos - 1; i >= 0 && src[i] != '\n'; i--) col++;
+        if (err && errlen > 0) snprintf(err, (size_t) errlen, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+        return NULL;
+    }
+    r_comp_unit(p);
+    if (err && errlen > 0) err[0] = 0;
+    return p->tv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_syntax_file(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", path); return 2; }
@@ -4340,4 +4682,19 @@ int rk_syntax_file(const char *path) {
     int rc = rk_syntax_check(src, (int) n, path, err, sizeof err);
     if (rc) fprintf(stderr, "%s\n", err);
     return rc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_dump_tree_file(const char *path) {
+    extern void ir_dump_program(const tree_t *prog, FILE *f);
+    FILE *f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", path); return 2; }
+    fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
+    char *src = (char *) ct_alloc((size_t) n + 1);
+    if (fread(src, 1, (size_t) n, f) != (size_t) n) { fclose(f); fprintf(stderr, "scrip: short read on '%s'\n", path); return 2; }
+    src[n] = 0; fclose(f);
+    char err[600];
+    tree_t *prog = rk_parse_tree(src, (int) n, path, err, sizeof err);
+    if (!prog) { fprintf(stderr, "%s\n", err); return 1; }
+    ir_dump_program(prog, stdout);
+    return 0;
 }
