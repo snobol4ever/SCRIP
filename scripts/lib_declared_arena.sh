@@ -470,6 +470,34 @@ print(" ".join(ca or []))
 PY
 }
 
+# declared_chain_beside <program> <corpus_root> -- THE UNITS A DEMO IS BUILT FROM (hq_snocone and coo 2026-09-27, beauty.sc, coo
+# COO-212): the <stem>.chain sidecar lists the source units the program is concatenated AFTER -- one unit per line, its path relative
+# to <corpus_root>, in concatenation order, nothing else on a line. The runner concatenates the listed units then the program itself
+# into one source under the program's own name and extension and runs THAT under the program's .heap/.stack/.in; the oracle cut is
+# the same concatenation. Echoes the units' absolute paths one per line, rc 0; nothing and rc 0 when there is no sidecar; rc 2 on
+# a blank or comment line, a line carrying whitespace, an absolute path or a .. component, a repeated unit, a sidecar naming no
+# unit, or a unit that is not a file -- ⛔ a missing unit is a refusal, never a skip.
+declared_chain_beside() {
+  local prog="$1" root="${2:-}" side line seen=" " n=0
+  side="${prog%.*}.chain"
+  [ -n "$prog" ] && [ -f "$side" ] || return 0
+  [ -n "$root" ] && [ -d "$root" ] || { echo "⛔ REFUSE(2) declared_chain_beside: $side needs a corpus root to resolve against (got '$root')" >&2; return 2; }
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      '') echo "⛔ REFUSE(2) declared_chain_beside: $side carries a blank line -- one unit per line, nothing else" >&2; return 2 ;;
+      '#'*) echo "⛔ REFUSE(2) declared_chain_beside: $side carries a comment line -- one unit per line, nothing else" >&2; return 2 ;;
+      *[[:space:]]*) echo "⛔ REFUSE(2) declared_chain_beside: $side line '$line' carries whitespace -- one path per line, nothing else" >&2; return 2 ;;
+      /*) echo "⛔ REFUSE(2) declared_chain_beside: $side names an absolute path '$line' -- paths are relative to corpus/" >&2; return 2 ;;
+      ..|../*|*/..|*/../*) echo "⛔ REFUSE(2) declared_chain_beside: $side names '$line' with a .. component -- paths are relative to corpus/" >&2; return 2 ;;
+    esac
+    case "$seen" in *" $line "*) echo "⛔ REFUSE(2) declared_chain_beside: $side names '$line' twice -- each unit is concatenated once" >&2; return 2 ;; esac
+    seen="$seen$line "
+    [ -f "$root/$line" ] || { echo "⛔ REFUSE(2) declared_chain_beside: $side names '$line', not a file under $root -- a missing unit is a refusal, never a skip" >&2; return 2; }
+    printf '%s\n' "$root/$line"; n=$((n+1))
+  done < "$side"
+  [ "$n" -gt 0 ] || { echo "⛔ REFUSE(2) declared_chain_beside: $side names no unit -- delete the sidecar or list the units" >&2; return 2; }
+}
+
 # declared_workhorse_beside <program> -- THE BENCHMARK ROLE OF A DEMO (Lon 2026-09-27, in-chat to the ceo, verbatim: "All demos are
 # benchmarks since they can be run at wall clock and perf values extracted. They are not run in loops."; ceo CEO-1313; coo COO-206): the
 # <stem>.workhorse sidecar names the FULL input a demo is timed on, once, at wall clock -- its sample input and .ref are the TEST role.

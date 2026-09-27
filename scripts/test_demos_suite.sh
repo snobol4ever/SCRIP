@@ -48,7 +48,7 @@ print(" ".join(w or []))
 PY
 }
 verdict() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; elif cmp -s "$2" "$3"; then echo PASS; else echo FAIL; fi; }
-TOTAL=0; CONTN=0; BOTH=0; M3P=0; M4P=0; WH=0; NAMED=""
+TOTAL=0; CONTN=0; BOTH=0; M3P=0; M4P=0; WH=0; CH=0; NAMED=""
 printf '%-40s %-6s %-6s %s\n' program m3 m4 note
 for r in "${PROGS[@]}"; do
     if [ -f "$CONT" ] && awk -F'\t' -v n="$r" '$1 == n { f = 1 } END { exit !f }' "$CONT"; then CONTN=$((CONTN+1)); continue; fi
@@ -71,6 +71,16 @@ for r in "${PROGS[@]}"; do
     # entries (packages, include, library, tests, ...) are symlinks to the real ones: every source-relative path resolves.
     M="$T/w.$TOTAL"; W="$M/${DEMOS_PARENT##*/}/${DD##*/}/$(dirname "$r")"; mkdir -p "$W" && cp -a "$d"/. "$W"/
     for x in "$ROOT"/*/; do x="${x%/}"; [ "${x##*/}" = "${DEMOS_PARENT##*/}" ] && continue; ln -s "$x" "$M/${x##*/}"; done
+    # ⛔ A CHAINED DEMO (hq_snocone and coo 2026-09-27, beauty.sc; coo COO-212): <stem>.chain lists the units the program is
+    # concatenated AFTER, paths relative to the corpus root, in order (lib_declared_arena.sh declared_chain_beside, the ONE reader).
+    # The scratch copy's program becomes units-then-program under its own name and extension, so both modes, the sidecars and the
+    # oracle cut (the same concatenation) see ONE source. A missing unit refuses rc 2, never a skip.
+    if [ -f "$stem.chain" ]; then
+        units_txt="$(declared_chain_beside "$f" "$ROOT")" || refuse "$r: its .chain sidecar is refused (the reader said why above)"
+        mapfile -t units <<<"$units_txt"
+        cat "${units[@]}" "$f" > "$W/$b" || refuse "$r: its chain could not be concatenated"
+        CH=$((CH+1))
+    fi
     # shellcheck disable=SC2086
     ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" timeout "$TMO" "$SCRIP" $sw --run $ca "$b" ${args[@]+-- "${args[@]}"} < "$in" > "$W/.m3" 2> "$W/.m3e" ); r3=$?
     v3="$(verdict "$r3" "$W/.m3" "$ref")"
@@ -95,7 +105,7 @@ SCRIP_HASH="$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo '?')"
 # fraction stated as all_pass=/all_n= so util_score_row.py READS the row off the line that measured it (never typed beside
 # it) and archives it verbatim under .github/board-lines/. shipped= is the whole census, containers= the declared library
 # blocks it excludes, so shipped = all_n + containers reads off the line. Fields are read BY NAME (lib_board_line.sh).
-LINE="DEMOS_SUITE_BOARD lang=$L total=$TOTAL shipped=$((TOTAL+CONTN)) all_pass=$BOTH all_n=$TOTAL m3_pass=$M3P m4_pass=$M4P containers=$CONTN workhorse_declared=$WH tree=$SCRIP_HASH corpus=$CORP_HASH RT_OPT=-O0"
+LINE="DEMOS_SUITE_BOARD lang=$L total=$TOTAL shipped=$((TOTAL+CONTN)) all_pass=$BOTH all_n=$TOTAL m3_pass=$M3P m4_pass=$M4P containers=$CONTN workhorse_declared=$WH chained=$CH tree=$SCRIP_HASH corpus=$CORP_HASH RT_OPT=-O0"
 echo "$LINE (the sample input against each demo's oracle ref; both_modes_pass=all_pass)"
 [ -n "$NAMED" ] && echo "  NOT BOTH-MODES PASS:$NAMED"
 [ "$WH" -lt "$TOTAL" ] && echo "  ⚠ WORKHORSE: $((TOTAL-WH)) of $TOTAL demo(s) declare no <stem>.workhorse -- the benchmark role is owed (CEO-1313)"
