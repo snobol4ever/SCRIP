@@ -2811,7 +2811,7 @@ static void sno_pat_publish_body_root(IR_graph_t * gp, int before_pat, const tre
         if (!rn) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { rn = x2; break; } }
     }
     else if (sno_defer_resume() && pfenced) { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME");
-        if (!(_fre && *_fre == '0')) { IR_t * _c = (sno_fence_rtail() && brt) ? brt : NULL; if (!_c) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { _c = x2; break; } } { int _t2 = zdp_seam_tier(_c); if (_t2 == 1 || _t2 == 3) rn = _c; } }
+        if (!(_fre && *_fre == '0')) { IR_t * _c = (sno_fence_rtail() && brt) ? brt : NULL; if (!_c) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { _c = x2; break; } } { int _t2 = zdp_seam_tier(_c); if (_t2 == 1 || _t2 == 2 || _t2 == 3) rn = _c; } }
     }
     int rs = sno_pat_right_sealed(pat) ? 1 : 0;
     gp->body_root = (gp->n > before_pat && !rs) ? ((sno_defer_resume() && pfenced && !rn) ? NULL : (rn ? rn : gp->all[before_pat])) : NULL;
