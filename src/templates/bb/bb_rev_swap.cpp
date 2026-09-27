@@ -13,7 +13,14 @@ struct DESCR_t rt_rev_swap_undo(long lkind, struct DESCR_t *lp, long rkind, stru
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rsw_kind(const char *n) { if (!n || n[0] != '&') return 0; if (!strcmp(n, "&pos")) return 1; return -1; }
+static long rsw_kind(const char *n) {
+    if (!n || n[0] != '&') return 0;
+    if (!strcmp(n, "&pos")) return 1;
+    if (!strcmp(n, "&random")) return 3;
+    if (!strcmp(n, "&error")) return 4;
+    if (!strcmp(n, "&dump")) return 6;
+    return -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rsw_eff(long k, int slot, const char *n) { return (k == 0 && slot < 0 && n && is_global(n)) ? 2 : k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -31,10 +38,10 @@ static std::string rsw_operands(long lk, long rk, int arm) {
     return IF(lk == 2, rsw_cell(0, arm) + x86("mov", FRQ(_.op_off + 64), "rax"))
          + IF(rk == 2, rsw_cell(1, arm) + x86("mov", "rcx", "rax"))
          + IF(rk == 0, x86("lea", "rcx", FRQ(_.op_sa)))
-         + IF(rk == 1, x86("mov", "rcx", (long)0))
+         + IF(rk == 1 || rk >= 3, x86("mov", "rcx", (long)0))
          + IF(lk == 2, x86("mov", "rsi", FRQ(_.op_off + 64)))
          + IF(lk == 0, x86("lea", "rsi", FRQ(_.op_sb)))
-         + IF(lk == 1, x86("mov", "rsi", (long)0))
+         + IF(lk == 1 || lk >= 3, x86("mov", "rsi", (long)0))
          + x86("mov", "rdi", (long)(lk == 2 ? 0 : lk))
          + x86("mov", "rdx", (long)(rk == 2 ? 0 : rk))
          + x86("lea", "r8", FRQ(_.op_off + 16))
@@ -50,7 +57,7 @@ static std::string rsw_names(long lk, long rk) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_swap() {
     return [&](long lk, long rk) {
-        return (lk < 0 || rk < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: <-> keyword operand other than &pos is its own rung (wire it in rsw_kind + rsw_get/rsw_set)")
+        return (lk < 0 || rk < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: <-> keyword operand other than &pos &random &error &dump is its own rung (wire it in rsw_kind + rsw_get/rsw_set)") + x86_beta() + x86_bomb("bb_rev_swap: <-> keyword operand resumed")
              : (_.op_off < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: no result slot")
              : x86("comment", "IR_REV_SWAP")
              + x86_alpha()

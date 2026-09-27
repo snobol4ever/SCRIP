@@ -237,12 +237,19 @@ DESCR_t rt_keyword_pos_set(DESCR_t v) {
 static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
     if (kind == 0) return vp ? *vp : NULVCL;
     if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)scan_pos);
+    if (kind == 3) { extern long g_random; return INTVAL((int64_t)g_random); }
+    if (kind == 4) { extern long g_error; return INTVAL((int64_t)g_error); }
+    if (kind == 6) { extern long g_dump; return INTVAL((int64_t)g_dump); }
     fprintf(stderr, "[REVSWAP] FATAL: <-> read of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     if (kind == 0) { if (vp) *vp = v; return 1; }
     if (kind == 1) { long len = spill ? (long)spill[1] : (scan_subj ? rt_scan_subj_len() : 0); int ok; long p = cvpos_of(v, len, &ok); if (!ok) return 0; if (spill) spill[0] = (int64_t)(p - 1); else scan_pos = (int)p; return 1; }
+    extern DESCR_t rt_keyword_random_set(DESCR_t), rt_keyword_error_set(DESCR_t), rt_keyword_dump_set(DESCR_t);
+    if (kind == 3) return !IS_FAIL_fn(rt_keyword_random_set(v));
+    if (kind == 4) return !IS_FAIL_fn(rt_keyword_error_set(v));
+    if (kind == 6) return !IS_FAIL_fn(rt_keyword_dump_set(v));
     fprintf(stderr, "[REVSWAP] FATAL: <-> write of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
