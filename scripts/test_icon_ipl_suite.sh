@@ -60,13 +60,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #                real cause underneath it. Set the path the way lib_icon_ipl_isolation.sh does. IPL's own
 #                progs/procs/gprocs/incl/gincl split is upstream's NORMAL organization -- a progs/
 #                file linking a procs/ helper is the library working as designed, not a corpus defect.
-#                KNOWN, NAMED, NOT cured by this row: this task is a runner+census row (GOAL: "print
-#                the denominator ... classify the reds"), same scope line the GNU Prolog and Arizona
-#                vendor-suite rows drew before it -- a real fix here means either a genuine link
-#                search-path feature in the compiler (shared-node, cross-language blast radius) or
-#                vendoring/renaming ~hundreds of cross-links (the Arizona finding did this AT ONE
-#                FILE'S SCALE, by hand, for 5 names -- not a pattern that scales to IPL's population
-#                sight-unseen). Left for a follow-up row.
+#                ⭐ WHAT IS LEFT, MEASURED (hq_icon on SCRIP f7c43e4a2, re-read by the coo on a58f8e68c,
+#                2026-09-27): 3 files -- procs/vhttp, progs/htget, and progs/weblinks through vhttp --
+#                each on `link cfunc`, the IPL's dynamic-loading C-function library (ipl/cfuncs, loaded
+#                with loadfunc), which the Icon distribution ships (/home/resources/icon-master/ipl/
+#                cfuncs/cfunc.icn) and the corpus does not vendor: the NEEDS_VENDORED_SOURCE class of
+#                Zona's cfuncs/extlvals rows, row icon-vendor-ipl-cfuncs-so-zona-and-jcon-reach-their-
+#                full-denominators. The three are printed by name below with or without -v, as parseerr's
+#                are; the "single-directory resolver, hundreds of cross-links" reason printed there until
+#                this date was the retired paragraph above, still being quoted.
 #   parseerr  -- "parse error" on stdout/stderr -- genuine frontend rejection.
 #   timeout   -- exceeded $TIMEOUT.
 #   other     -- any other non-zero, non-timeout signal. Reported individually (name + first stderr
@@ -236,8 +238,8 @@ for f in "${FILES[@]}"; do
 done
 
 echo ""
-echo "-- linkgap (KNOWN, NAMED, not cured this row -- see file header: SCRIP's link resolver is single-directory-only, icon_driver.c:26-45; IPL's progs/procs split makes cross-dir links the library's normal shape): $LINKGAP --"
-if [ "$VERBOSE" -eq 1 ]; then for n in "${LINKGAP_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done; fi
+echo "-- linkgap (KNOWN, NAMED -- see file header: link cfunc, the IPL's loadfunc C-function library in ipl/cfuncs, not vendored in the corpus; NEEDS_VENDORED_SOURCE, row icon-vendor-ipl-cfuncs-so-zona-and-jcon-reach-their-full-denominators): $LINKGAP --"
+for n in "${LINKGAP_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done
 
 echo ""
 echo "-- parseerr (genuine frontend rejection): $PARSEERR --"
