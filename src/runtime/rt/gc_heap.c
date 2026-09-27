@@ -1420,15 +1420,46 @@ static long gc_audit_b_birth_of(const char *blk, char *buf, long cap)
       const char *s0 = (dladdr(v->ra_site, &d0) && d0.dli_sname) ? d0.dli_sname : "?"; const char *s1 = (v->ra_from && dladdr(v->ra_from, &d1) && d1.dli_sname) ? d1.dli_sname : "?";
       return (long)snprintf(buf, (size_t)cap, "birth=#%ld by=%s from=%s born_at=arena+%ld", v->serial, s0, s1, (long)(v->at - g_hp_arena)); }
 }
+static int gc_audit_b_xr_cmp(const void *a, const void *b) { const char *x = ((const gc_audit_b_xr_t *)a)->lo, *y = ((const gc_audit_b_xr_t *)b)->lo; return x < y ? -1 : (x > y ? 1 : 0); }
+static long gc_audit_b_lay_ranges(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi, gc_audit_b_xr_t *xr, long n, long cap)
+{
+    const uint64_t *t = (const uint64_t *)(m + 1); long ne = (long)t[0];
+    for (long j = 0; j < ne && n < cap; j++) { uint64_t q = t[1 + j]; unsigned kind = GC_LAY_KIND(q); const char *w = anchor + GC_LAY_OFF(q), *e = w + GC_LAY_SIZE(q);
+        if (kind != GC_LAY_RAW && kind != GC_LAY_PTR_CODE) continue;
+        if (w < lo) w = lo;
+        if (e > hi) e = hi;
+        if (w < e) { xr[n].lo = w; xr[n].hi = e; n++; } }
+    return n;
+}
+static long gc_audit_b_frame_ranges(const char *lo0, const char *hi, gc_audit_b_xr_t *xr, long n, long cap)
+{
+    const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *p = lo;
+    while (p + 8 <= hi && n < cap) { const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
+        while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
+        if (!m) break;
+        if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
+            n = gc_audit_b_lay_ranges(c + (long)m->frame_bytes, m, lo, hi, xr, n, cap); p = (top > p) ? top : p + 8; continue; }
+        { const char *base = c - (long)m->map_off, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (hhi > hi) hhi = hi;
+          if (m->flags & GC_FRAME_MAP_LAYOUT) n = gc_audit_b_lay_ranges(base, m, lo, hi, xr, n, cap);
+          if (hlo < hhi && n < cap) { xr[n].lo = hlo; xr[n].hi = hhi; n++; }
+          p = (hhi > p) ? hhi : p + 8; } }
+    return n;
+}
 static long gc_audit_b_shim(char *floor)
 {
-    gc_audit_b_rgn_t rg[64]; gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i; int pop, saved = g_gc_seg_main;
+    gc_audit_b_rgn_t rg[64]; gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i, nstat, nx = 0, xcap = 0; int pop, saved = g_gc_seg_main;
+    gc_audit_b_xr_t *xr = (gc_audit_b_xr_t *)0;
     if (!g_hp_arena || !g_gc_idx) return -1;
     gc_static_segs_init();
-    for (i = 0; i < g_gc_nseg && n < 64; i++) { rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; n++; }
+    for (i = 0; i < g_gc_nseg && n < 64; i++) { rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; rg[n].xr = xr; rg[n].nxr = 0; n++; }
+    nstat = n;
     gc_seg_begin(&it, floor);
-    while (n < 64 && gc_seg_next(&it, &lo, &hi, &pop)) { rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop]; n++; }
+    while (n < 64 && gc_seg_next(&it, &lo, &hi, &pop)) { rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop];
+        rg[n].xr = xr; rg[n].nxr = 0; xcap += (long)(hi - lo) / 8 + 1; n++; }
     g_gc_seg_main = saved;
+    if (xcap > 0) { xr = (gc_audit_b_xr_t *)gcbk_alloc((size_t)xcap * sizeof(*xr));
+        for (i = nstat; i < n; i++) { long s0 = nx; nx = gc_audit_b_frame_ranges(rg[i].lo, rg[i].hi, xr, nx, xcap);
+            qsort((void *)(xr + s0), (size_t)(nx - s0), sizeof(*xr), gc_audit_b_xr_cmp); rg[i].xr = xr + s0; rg[i].nxr = nx - s0; } }
     sk[k].at = (const void *)&g_hp_fr;          sk[k].bytes = (long)sizeof g_hp_fr;          sk[k].name = "g_hp_fr";          k++;
     sk[k].at = (const void *)&g_hp_arena;       sk[k].bytes = (long)sizeof g_hp_arena;       sk[k].name = "g_hp_arena";       k++;
     sk[k].at = (const void *)&g_hp_gcline;      sk[k].bytes = (long)sizeof g_hp_gcline;      sk[k].name = "g_hp_gcline";      k++;
@@ -1442,7 +1473,8 @@ static long gc_audit_b_shim(char *floor)
     sk[k].at = (const void *)g_gc_spine_rec;    sk[k].bytes = (long)sizeof g_gc_spine_rec;   sk[k].name = "g_gc_spine_rec";   k++;
     v.blk_of = gc_audit_b_blk_of; v.blk_at = gc_audit_b_blk_at; v.birth_of = gc_birth_on() ? gc_audit_b_birth_of : (long (*)(const char *, char *, long))0;
     v.alo = g_hp_arena; v.ahi = g_hp_top; v.run = g_gc_runs + 1; v.nblk = g_gc_nblk; v.rgn = rg; v.nrgn = n; v.skip = sk; v.nskip = k;
-    return gc_audit_b_collect(&v);
+    { extern const char *gen_gc_audit_nonref(const char *p); v.owner_nonref = gen_gc_audit_nonref; }
+    { long r = gc_audit_b_collect(&v); if (xr) gcbk_drop((void *)xr); return r; }
 }
 #endif
 static long gc_collect_ex(void)
