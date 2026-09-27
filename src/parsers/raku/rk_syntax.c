@@ -2072,7 +2072,7 @@ typedef struct RkX {
     const char *lastname;
     tree_t *cur;
     RkTerm *pend;
-    RkList *L; RkEl *el;
+    RkList *L; RkEl *el; int xstop;
     int star; const char *subst; int subst_len;
     tree_t *subst_call, *subst_paren;
 } RkX;
@@ -2283,25 +2283,43 @@ static tree_t *x_expr(RkP *p, RkX *x) {
     return l;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int x_listinfix(RkX *x) { return !strcmp(x->pk_txt, "X") || !strcmp(x->pk_txt, "Z"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *x_elem(RkP *p, RkX *x) {
     x->nterm = 0; x->el_nops = x->nops;
     tree_t *t = x_expr(p, x);
     if (x->fail) return NULL;
-    while (x_peek(p, x) && strcmp(x->pk_txt, ",")) { x_take(p, x); x_after(p, x); }
+    while (x_peek(p, x) && strcmp(x->pk_txt, ",") && !x_listinfix(x)) { x_take(p, x); x_after(p, x); }
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void x_cross(RkP *p, RkX *x);
 static void x_list(RkP *p, RkX *x) {
     for (x->eli = 0;; x->eli++) {
         x->el = rkb_list_el(x->L);
         tree_t *t = x_elem(p, x);
         if (x->fail) { x->L->n--; return; }
         x->el->t = t; x->el->nitem = x->nterm;
+        if (x_peek(p, x) && x_listinfix(x)) { if (!x->xstop) x_cross(p, x); break; }
         if (!x_peek(p, x) || strcmp(x->pk_txt, ",")) break;
         x_take(p, x);
     }
     rkb_list_end(x->L);
     if (x->L->subst && x->L->n != 1) { *x->subst_call = *x->subst_paren; x->L->subst = 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void x_cross(RkP *p, RkX *x) {
+    const char *op = x->pk_txt; RkList *L = x->L; int eli = x->eli;
+    RkList **rs = NULL; int nr = 0, cr = 0;
+    while (!x->fail && x_peek(p, x) && !strcmp(x->pk_txt, op)) {
+        x_take(p, x);
+        RkList *R = rkb_list_new(); x->L = R; x->xstop = 1;
+        x_list(p, x);
+        x->xstop = 0;
+        RK_GROW(rs, nr, cr, RkList *); rs[nr++] = R;
+    }
+    x->L = L; x->eli = eli;
+    if (p->build && !x->fail && nr) rkb_cross(p->B, op, L, rs, nr);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_EXPR(RkP *p, int pos, int preclim) {

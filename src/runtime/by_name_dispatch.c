@@ -338,7 +338,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_str", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_set_cell", "__pas_stdfile",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -4643,6 +4643,36 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *buf = rt_wsb_alloc((size_t)cnt * 24 + 1); size_t p = 0;
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
+    if ((!strcmp(fn, "__rk_cross") || !strcmp(fn, "__rk_zip")) && nargs >= 1) {
+        int zip = fn[5] == 'z';
+        const char **els[nargs]; size_t *lens[nargs]; long long cnt[nargs]; size_t sum[nargs];
+        long long rows = zip ? -1 : 1;
+        for (int i = 0; i < nargs; i++) {
+            char sb[64]; const char *s = IS_REAL_fn(args[i]) ? rk_real_str(args[i].r, sb, (int)sizeof sb) : to_cstring(args[i], sb, sizeof sb);
+            if (s == sb) s = rt_heap_strdup_c(sb);
+            cnt[i] = rk_a_split(rk_a_body(s ? s : ""), &els[i], &lens[i]);
+            sum[i] = 0; for (long long k = 0; k < cnt[i]; k++) sum[i] += lens[i][k];
+            if (zip) rows = (rows < 0 || cnt[i] < rows) ? cnt[i] : rows; else rows *= cnt[i];
+        }
+        if (rows <= 0) { char *e = rt_wsb_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
+        size_t need = (size_t)rows * (size_t)nargs + 1;
+        for (int i = 0; i < nargs; i++) {
+            if (zip) { for (long long r = 0; r < rows; r++) need += lens[i][r]; }
+            else need += sum[i] * (size_t)(rows / cnt[i]);
+        }
+        char *buf = rt_wsb_alloc(need); size_t q = 0;
+        for (long long r = 0; r < rows; r++) {
+            long long rem = r;
+            long long pick[nargs];
+            for (int i = nargs - 1; i >= 0; i--) { if (zip) pick[i] = r; else { pick[i] = rem % cnt[i]; rem /= cnt[i]; } }
+            for (int i = 0; i < nargs; i++) {
+                if (q > 0) buf[q++] = SOH;
+                memcpy(buf + q, els[i][pick[i]], lens[i][pick[i]]); q += lens[i][pick[i]];
+            }
+        }
+        buf[q] = '\0';
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_str") && nargs == 1) {
