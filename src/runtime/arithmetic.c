@@ -505,12 +505,15 @@ DESCR_t rt_cset_compl(DESCR_t a) {
     return CSETVAL(cset_canonical(outs, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_num_neg(DESCR_t a) {
+static DESCR_t rt_num_neg_s(DESCR_t a, int strict) {
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
     if (!is_numeric_like(a)) { core_runtime_error(10, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
-    return INTVAL(-to_int(a));
+    { int64_t li = to_int(a); if (li != INT64_MIN || strict == 0) return INTVAL(-li); if (strict == 2) { core_runtime_error(11, "negation caused integer overflow"); return FAILDESCR; } return rt_int_neg_div(li, strict); }
 }
+DESCR_t rt_num_neg(DESCR_t a) { return rt_num_neg_s(a, 0); }
+DESCR_t rt_num_neg_strict(DESCR_t a) { return rt_num_neg_s(a, 1); }
+DESCR_t rt_num_neg_sno(DESCR_t a) { return rt_num_neg_s(a, 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_pos(DESCR_t a) {
     if (a.v == DT_BIG) return a;

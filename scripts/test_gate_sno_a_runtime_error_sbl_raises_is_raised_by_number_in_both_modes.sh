@@ -26,6 +26,9 @@
 # answer on every frontend reaching that path), 0 ** 0 018, 2 ** 63 017, (-8) ** 0.5 311, 2.0 ** 2000 266, 1.0E300 squared 263,
 # REMDR 165/166/167/312, and INT64_MIN / -1 (a SIGFPE core dump; sbl dumps too). Measured: a build at origin 7ad35d97a (landing
 # 1 only) reads 38 of 70 raising arms and both INT64_MIN arms RED in both modes.
+# LANDING 3 (the class, same row): negating INT64_MIN raises 011 (it WRAPPED to itself). rt_num_neg gained the voiced entries
+# rt_num_neg_sno (011) and rt_num_neg_strict (Icon: the large integer), chosen by bb_unop from the node's strict; strict 0
+# still wraps, which is fpc's answer for Pascal. Measured: a build of landing 2 reads that arm RED in both modes.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -55,7 +58,7 @@ RC=0; n=0; ok=0
 for ex in "x + 1" "1 + x" "x - 1" "2 - x" "x * 2" "2 * x" "x / 2" "2 / x" "x ** 2" "2 ** x" "-x" "+x" "1 / 0" \
           "ARRAY(0 - 1)" "ARRAY(0)" "ARRAY('')" "ARRAY('3:1')" "REPLACE('abcabc', a, b)" "REPLACE('abcabc', '', '')" \
           "i + 1" "(0 - i) - 2" "m * 4" "m * t" "9223372036854775807 + 1" "4611686018427387904 * 4" "z ** z" "0.0 ** 0.0" "t ** 63" \
-          "(z - 8) ** 0.5" "2.0 ** 2000" "r * r" "REMDR(5, z)" "REMDR(5.0, 0.0)" "REMDR(x, 2)" "REMDR(5, x)"; do
+          "(z - 8) ** 0.5" "2.0 ** 2000" "r * r" "REMDR(5, z)" "REMDR(5.0, 0.0)" "REMDR(x, 2)" "REMDR(5, x)" "-(0 - i - 1)"; do
     prog "$ex"
     want=$("$SBL" -bf "$T/w.sno" < /dev/null 2>/dev/null | errno_of)
     [ -n "$want" ] || refuse "sbl -bf raised no error for [$ex] -- the witness is wrong"
