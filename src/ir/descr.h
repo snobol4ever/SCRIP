@@ -33,6 +33,7 @@ typedef enum {
     DT_RAW  = 0x98,
     DT_MAP  = 0xA0,
     DT_CPLX = 0xA8,
+    DT_PLATOM = 0xB0,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)
@@ -59,6 +60,11 @@ DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fix
 DESCR_SASSERT(DT_RAW > DT_ORDER && DT_MAP > DT_RAW, "DT_RAW and DT_MAP are the two value-never-a-pointer stack-cell codes of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65): every code above DT_ORDER is a cell the collector never visits as a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason");
 DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)) && !(DT_MAP & DT_NUMERIC_BIT) && (DT_MAP & (DT_NOTSTR_MASK & 0xFF)), "DT_RAW and DT_MAP read as neither numeric nor string under the 8-bit mask, like DT_FAIL");
 DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.s array+table share one subscript range guard");
+DESCR_SASSERT(DT_PLATOM > DT_CPLX && DT_PLATOM < 0x100 && !(DT_PLATOM & DT_NUMERIC_BIT) && (DT_PLATOM & (DT_NOTSTR_MASK & 0xFF)),
+               "DT_PLATOM is the Prolog atom, {v, slen 0, i = atom id} (ARCH-PROLOG-BB-REWRITE.md section 3, rung R1): it replaced the builder form that wore DT_A, "
+               "the SNOBOL4/Icon ARRAY tag, with an integer payload -- the collector's DT_A arm read atom id 0x8e as an ARBLK pointer (row prolog-an-atom-wears-the-array-tag). "
+               "It is safe under the collector because gc_type_says_ref is an explicit switch whose default returns 0, NOT because it sits above DT_ORDER (DT_CPLX sits above "
+               "DT_ORDER and is a ref); IS_DATA_TAG_fn's v < DT_RAW bound excludes it; and it reads neither numeric nor string under the 8-bit mask, like DT_FAIL");
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;

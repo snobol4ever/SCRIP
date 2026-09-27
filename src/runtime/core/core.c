@@ -126,8 +126,8 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
         case DT_R: snprintf(buf, bufsz, "%g", val.r); return;
         case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
         case DT_FAIL: buf[0] = '\0'; return;
-        case DT_S: case DT_SNUL: {
-            const char *s = rt_cstr_d(val); size_t o = 0;
+        case DT_S: case DT_SNUL: case DT_PLATOM: {
+            const char *s = val.v == DT_PLATOM ? VARVAL_fn(val) : rt_cstr_d(val); size_t o = 0;
             if (bufsz > 2) buf[o++] = '\'';
             for (; s && *s && o + 3 < bufsz; s++) { if (*s == '\n') { buf[o++] = '\\'; buf[o++] = 'n'; } else if (*s == '\r') { buf[o++] = '\\'; buf[o++] = 'r'; } else buf[o++] = *s; }
             if (o + 1 < bufsz) buf[o++] = '\'';
@@ -807,6 +807,7 @@ static uint8_t scrip_tag_to_wire(int v) {
     switch (v) {
         case DT_SNUL:  return MWT_STRING;
         case DT_S:     return MWT_STRING;
+        case DT_PLATOM: return MWT_STRING;
         case DT_I:     return MWT_INTEGER;
         case DT_R:     return MWT_REAL;
         case DT_P:     return MWT_PATTERN;
@@ -896,6 +897,7 @@ void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
     int64_t i_buf; double r_buf;
     switch (type) {
         case MWT_STRING: case MWT_NAME:
+            if (val.v == DT_PLATOM) { const char *nm = VARVAL_fn(val); vlen = nm ? (uint32_t)strlen(nm) : 0; vp = vlen ? (const void *)nm : NULL; break; }
             if (val.s) { vlen = val.slen; vp = vlen ? (const void *)val.s : NULL; } break;
         case MWT_INTEGER: { int64_t iv = val.i; unsigned char *p = (unsigned char *)&i_buf;
             for (int k = 0; k < 8; k++) p[k] = (unsigned char)((iv >> (k*8)) & 0xff); vp = &i_buf; vlen = 8; break; }
@@ -2716,6 +2718,7 @@ char *c_VARVAL_fn(DESCR_t v) {
         case DT_BOOL:    return rt_heap_strdup_c(v.i ? "True" : "False");
         case DT_ORDER:   return rt_heap_strdup_c(v.i < 0 ? "Less" : (v.i > 0 ? "More" : "Same"));
         case DT_S:     return v.s ? v.s : rt_heap_strdup_c("");
+        case DT_PLATOM: { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm ? (char *)nm : rt_heap_strdup_c(""); }
         case DT_I: {
             int64_t _x = v.i; int _p = (int)sizeof(buf);
             buf[--_p] = 0;

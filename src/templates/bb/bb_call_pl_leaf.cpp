@@ -126,7 +126,7 @@ static std::string pl_arm_is(int argbase, int resoff) {
 static std::string pl_tag_in(const char * tags, int l_yes) {
     std::string s;
     for (const char * p = tags; *p; p++) {
-        long t = *p == 'I' ? (long)DT_I : *p == 'R' ? (long)DT_R : *p == 'B' ? (long)DT_BIG : *p == 'S' ? (long)DT_S : *p == 'A' ? (long)DT_A : (long)DT_PLREF;
+        long t = *p == 'I' ? (long)DT_I : *p == 'R' ? (long)DT_R : *p == 'B' ? (long)DT_BIG : *p == 'S' ? (long)DT_S : *p == 'A' ? (long)DT_PLATOM : (long)DT_PLREF;
         s += x86("cmp", "al", t) + x86("je", L(l_yes));
     }
     return s;

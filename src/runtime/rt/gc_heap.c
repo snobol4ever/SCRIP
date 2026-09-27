@@ -1036,9 +1036,11 @@ static void gc_static_segs_init(void)
     dl_iterate_phdr(gc_phdr_cb, (void *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_platom_plant(void);
 void rt_gcheap_warmup(void)
 {
     gc_static_segs_init();
+    if (gc_diag_on()) gc_platom_plant();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void *__libc_stack_end;
@@ -1172,6 +1174,17 @@ static int gc_sniff_would_take(const DESCR_t *d)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_tag_known(uint8_t v);
+static void gc_platom_plant(void)
+{
+    DESCR_t a; char probe; int bad = 0;
+    memset(&a, 0, sizeof a); a.v = (uint8_t)DT_PLATOM;
+    a.i = 0x8e; if (gc_type_says_ref(&a) || gc_sniff_would_take(&a)) bad |= 1;
+    a.p = (void *)&probe; if (gc_type_says_ref(&a) || gc_sniff_would_take(&a)) bad |= 2;
+    if (!gc_tag_known((uint8_t)DT_PLATOM)) bad |= 4;
+    if (bad) { fprintf(stderr, "[GC-PLATOM-PLANT] RED %d: a DT_PLATOM cell (a Prolog atom id, ARCH-PROLOG-BB-REWRITE.md section 3) read as a reference or as an unknown tag -- the collector would follow an atom id as a pointer\n", bad); abort(); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_maps_report_range(const char *lo0, const char *hi0)
 {
     char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
@@ -1205,7 +1218,7 @@ static void gc_spine_record(const char *graph, long off, const char *const *w, r
     if (g_gc_spine_recn >= GC_SPINE_REC_CAP) return;
     g_gc_spine_rec[g_gc_spine_recn].h = h; g_gc_spine_rec[g_gc_spine_recn].graph = graph; g_gc_spine_rec[g_gc_spine_recn].off = off; g_gc_spine_rec[g_gc_spine_recn].at = w; g_gc_spine_recn++;
 }
-static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_MAP); }
+static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_MAP) || v == DT_PLATOM; }
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h)
 {
     if (!gc_maps_on()) return;

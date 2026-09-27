@@ -179,7 +179,7 @@ static int plc_op_is_postfix(const char *name)
 static int plc_is_nil(pl_cell_t *d)
 {
     extern int ATOM_NIL;
-    if ((int)d->v == DT_A) return (int)d->i == ATOM_NIL;
+    if ((int)d->v == DT_PLATOM) return (int)d->i == ATOM_NIL;
     if ((int)d->v == DT_S) return d->s && strcmp(d->s, "[]") == 0;
     return 0;
 }
@@ -264,7 +264,7 @@ static int plc_term_prio(pl_cell_t *c, int ignore_ops)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_is_graphic_char(int ch) { static const char *const g = "#$&*+-./:<=>?@\\^~"; return ch && strchr(g, ch) != (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_is_op_atom(pl_cell_t *d) { int p = 0, l = 0, r = 0; const char *n = ((int)d->v == DT_A || (int)d->v == DT_S) ? plc_atom_text(d) : (const char *)0;
+static int plc_is_op_atom(pl_cell_t *d) { int p = 0, l = 0, r = 0; const char *n = ((int)d->v == DT_PLATOM || (int)d->v == DT_S) ? plc_atom_text(d) : (const char *)0;
     return n && (plc_op_info(n, 2, &p, &l, &r) || plc_op_info(n, 1, &p, &l, &r)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars)
@@ -276,7 +276,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
     if (pl_cell_unbound(d)) return '_';
     if ((int)d->v == DT_I) return d->i < 0 ? '-' : '0';
     if ((int)d->v == DT_R) return d->r < 0 ? '-' : '0';
-    if ((int)d->v == DT_A || (int)d->v == DT_S) { const char *n = plc_atom_text(d);
+    if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) { const char *n = plc_atom_text(d);
         if (!n || !n[0]) return quoted ? '\'' : ' ';
         return (quoted && plc_atom_needs_quoting(n)) ? '\'' : (unsigned char)n[0]; }
     if ((int)d->v != DT_PLREF) return '_';
@@ -322,7 +322,7 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
     if (max_depth > 0 && depth >= max_depth) { fprintf(fp, "..."); return; }
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
-    if (tg == DT_A || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
+    if (tg == DT_PLATOM || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) { plc_wt_num(fp, d); return; }
     if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
@@ -338,7 +338,7 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
     }
     if (numbervars && strcmp(fn, "$VARNAME") == 0 && ar == 1) {
         pl_cell_t *n = pl_deref(&aa[0]);
-        if ((int)n->v == DT_A || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
+        if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
     if (ignore_ops != 1 && fnid == ATOM_DOT && ar == 2) {
         pl_cell_t *cur = d; long n = 0;
@@ -404,7 +404,7 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, 0, 1, 0, 0, 120
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
+static void plc_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
@@ -447,7 +447,7 @@ static int plc_opt_is_true(pl_cell_t *o)
     o = pl_deref(o);
     if ((int)o->v == DT_PLREF && (int)(o->slen & 0xFFFFu) == 1) {
         pl_cell_t *a = pl_deref((pl_cell_t *)o->p);
-        return ((int)a->v == DT_A || (int)a->v == DT_S) && strcmp(plc_atom_text(a), "true") == 0;
+        return ((int)a->v == DT_PLATOM || (int)a->v == DT_S) && strcmp(plc_atom_text(a), "true") == 0;
     }
     return 0;
 }
@@ -473,7 +473,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
                     if ((int)e->v == DT_PLREF && (int)(e->slen & 0xFFFFu) == 2 && e->p) { pl_cell_t *ea = (pl_cell_t *)e->p;
                         pl_cell_t *nm = pl_deref(&ea[0]); pl_cell_t *vr = pl_deref(&ea[1]); int dup = 0;
                         for (int k = base; k < m.vnc; k++) if (m.vnv[k] == vr) { dup = 1; break; }
-                        if (!dup && pl_cell_unbound(vr) && ((int)nm->v == DT_A || (int)nm->v == DT_S) && m.vnc < 256) { m.vnv[m.vnc] = vr; m.vnn[m.vnc] = plc_atom_text(nm); m.vnc++; } }
+                        if (!dup && pl_cell_unbound(vr) && ((int)nm->v == DT_PLATOM || (int)nm->v == DT_S) && m.vnc < 256) { m.vnv[m.vnc] = vr; m.vnn[m.vnc] = plc_atom_text(nm); m.vnc++; } }
                     vl = pl_deref(&vp[1]); } }
         }
         lst = pl_deref(&pair[1]);
@@ -486,12 +486,12 @@ extern long   rt_arith(int lk, long li, const char *ls, int rk, long ri, const c
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_atom_id_of(pl_cell_t *d)
 {
-    if ((int)d->v == DT_A) return (int)d->i;
+    if ((int)d->v == DT_PLATOM) return (int)d->i;
     if ((int)d->v == DT_S) { extern int prolog_atom_intern(const char *); return prolog_atom_intern(d->s ? d->s : ""); }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_is_atomlike(pl_cell_t *d) { return (int)d->v == DT_A || (int)d->v == DT_S; }
+static int plc_is_atomlike(pl_cell_t *d) { return (int)d->v == DT_PLATOM || (int)d->v == DT_S; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_atom_id_cell(int id) { const char *n = prolog_atom_name(id); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(n ? strlen(n) : 0); c.s = n ? n : ""; return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -700,7 +700,7 @@ static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
 {
     if (!t) return (const char *)0;
     pl_cell_t *d = pl_deref(t);
-    if ((int)d->v == DT_A || (int)d->v == DT_S) return plc_atom_text(d);
+    if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) return plc_atom_text(d);
     if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
     if ((int)d->v == DT_BIG) { extern char *rt_big_str(DESCR_t); return rt_big_str(*d); }
     if ((int)d->v == DT_R) { extern const char *pl_real_iso_str(double, char *, int); return pl_real_iso_str(d->r, buf, (int)bufsz); }
@@ -846,7 +846,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             pl_cell_t *el = pl_deref(&pr[0]);
             if (oi + 8 >= sizeof(out)) break;
             if (as_codes) { if ((int)el->v != DT_I) { return 0; } oi += (size_t)rt_pl_u8_put(out + oi, (int)el->i); }
-            else { if ((int)el->v != DT_A && (int)el->v != DT_S) { return 0; } const char *cn = plc_atom_text(el);
+            else { if ((int)el->v != DT_PLATOM && (int)el->v != DT_S) { return 0; } const char *cn = plc_atom_text(el);
                    if (!cn) { out[oi++] = '?'; } else { size_t cl = strlen(cn); memcpy(out + oi, cn, cl); oi += cl; } }
             cur = pl_deref(&pr[1]);
         }
@@ -914,7 +914,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         return 1;
     }
     if (!strcmp(fn, "atomic_list_concat") || !strcmp(fn, "concat_atom")) {
-        const char *sep = (t1 && ((int)t1->v == DT_A || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
+        const char *sep = (t1 && ((int)t1->v == DT_PLATOM || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
         void *result_cell = t2 ? a2_cell : a1_cell;
         pl_cell_t *lst = t0;
         char *out = (char *)rt_wsb_alloc(4096); size_t oi = 0;
@@ -1006,7 +1006,7 @@ static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int igno
     return m.pthrown;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_A || (int)d->v == DT_S) && !pl_cell_unbound(d); }
+static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_PLATOM || (int)d->v == DT_S) && !pl_cell_unbound(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_eval(pl_cell_t *h, DESCR_t *out, void **ball)
 {
@@ -1187,7 +1187,7 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr
         if (!plc_unify_into_cell_cx(inner, out, cx)) { return 0; }
         return 1;
     }
-    if ((int)td->v != DT_A && (int)td->v != DT_S) { return 0; }
+    if ((int)td->v != DT_PLATOM && (int)td->v != DT_S) { return 0; }
     const char *ty = ((int)td->v == DT_S) ? (td->s ? td->s : "") : prolog_atom_name(pl_atom_id(td));
     if (!ty) { return 0; }
     int ok = 0;
@@ -1234,7 +1234,7 @@ static int rt_pl_cell_class(pl_cell_t *d) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) return 0;
     if (t == DT_I || t == DT_R || t == DT_BIG) return 1;
-    if (t == DT_A || t == DT_S) return 2;
+    if (t == DT_PLATOM || t == DT_S) return 2;
     if (t == DT_PLREF) return 3;
     return 0;
 }
@@ -1567,7 +1567,7 @@ static void pl_distinct_vars_walk(pl_cell_t *c, pl_cell_t **pool, int *counts, i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pl_atom_text(pl_cell_t *d) {
     if ((int)d->v == DT_S || d->v == DT_SNUL) return d->s ? d->s : "";
-    if ((int)d->v == DT_A) { const char *nm = prolog_atom_name((int)d->i); return nm ? nm : ""; }
+    if ((int)d->v == DT_PLATOM) { const char *nm = prolog_atom_name((int)d->i); return nm ? nm : ""; }
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1774,7 +1774,7 @@ void *rt_pl_ball_make(DESCR_t *a, int n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pl_ball_key_str(DESCR_t d)
 {
-    if ((int)d.v == DT_A) return prolog_atom_name((int)d.i);
+    if ((int)d.v == DT_PLATOM) return prolog_atom_name((int)d.i);
     if ((int)d.v == DT_S || (int)d.v == DT_N) return d.s;
     return (const char *)0;
 }
@@ -1934,7 +1934,7 @@ void rt_pl_ball_report(void *ball)
 static int pl_cell_atom_id(pl_cell_t *c)
 {
     pl_cell_t *d = pl_deref(c);
-    if ((int)d->v == DT_A) return (int)d->i;
+    if ((int)d->v == DT_PLATOM) return (int)d->i;
     if ((int)d->v == DT_S) { extern int prolog_atom_intern(const char *); return prolog_atom_intern(d->s ? d->s : ""); }
     return -1;
 }
@@ -2078,7 +2078,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
         if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
         return pl_make_ref(fresh, (int)fresh->slen);
     }
-    if ((int)d->v == DT_A) {
+    if ((int)d->v == DT_PLATOM) {
         extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)d->i);
         pl_cell_t c2; c2.v = DT_S; c2.slen = (uint32_t)(nm ? strlen(nm) : 0); c2.s = nm ? nm : ""; return c2;
     }
@@ -2289,7 +2289,7 @@ int rt_pl_db_term_key(void *term_cell, char *out, size_t n, int *ar)
     if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) h = pl_deref(&((pl_cell_t *)t->p)[0]);
     { const char *nm;
       if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); *ar = pl_arity(h); }
-      else if ((int)h->v == DT_A) { nm = prolog_atom_name((int)h->i); *ar = 0; }
+      else if ((int)h->v == DT_PLATOM) { nm = prolog_atom_name((int)h->i); *ar = 0; }
       else if ((int)h->v == DT_S) { nm = h->s; *ar = 0; }
       else return 0;
       if (!nm) return 0;
@@ -2324,7 +2324,7 @@ int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar)
     if ((int)p->v != DT_PLREF || pl_arity(p) != 2) return 0;
     { pl_cell_t *h = pl_deref(&((pl_cell_t *)p->p)[0]); const char *nm;
       if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); *ar = pl_arity(h); }
-      else if ((int)h->v == DT_A) { nm = prolog_atom_name((int)h->i); *ar = 0; }
+      else if ((int)h->v == DT_PLATOM) { nm = prolog_atom_name((int)h->i); *ar = 0; }
       else if ((int)h->v == DT_S) { nm = h->s; *ar = 0; }
       else return 0;
       if (!nm) return 0;

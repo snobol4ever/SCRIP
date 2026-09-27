@@ -11,7 +11,7 @@ typedef DESCR_t pl_cell_t;
 static inline int      pl_tag(const pl_cell_t *c)     { return (int)c->v; }
 static inline uint32_t pl_disc(const pl_cell_t *c)    { return c->slen; }
 static inline pl_cell_t pl_make_int(int64_t v)   { pl_cell_t c; c.v = DT_I;  c.slen = 0;        c.i = v;       return c; }
-static inline pl_cell_t pl_make_atom(int id)     { pl_cell_t c; c.v = DT_A;  c.slen = (uint32_t)id; c.i = id;  return c; }
+static inline pl_cell_t pl_make_atom(int id)     { pl_cell_t c; c.v = DT_PLATOM; c.slen = 0; c.i = id;  return c; }
 static inline pl_cell_t pl_make_float(double d)  { pl_cell_t c; c.v = DT_R;  c.slen = 0;        c.r = d;       return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_cell_t pl_make_compound(int functor, int arity, void *heap) {
@@ -36,7 +36,7 @@ static inline pl_cell_t *pl_deref(pl_cell_t *c) {
 static inline int pl_cell_unbound(const pl_cell_t *d) { return (int)d->v == DT_PLVAR || d->v == DT_SNUL || d->v == DT_FAIL; }
 static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return pl_cell_unbound(d); }
 static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I || (int)d->v == DT_BIG; }
-static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_A; }
+static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLATOM; }
 static inline int plc_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
 static inline int pl_is_compound(pl_cell_t *c) { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLREF; }
 static inline int64_t pl_int_val(pl_cell_t *c)  { return pl_deref(c)->i; }
@@ -59,7 +59,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     if (av && bv) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
-    if (((int)A->v == DT_S || (int)A->v == DT_A) && ((int)B->v == DT_S || (int)B->v == DT_A)) {
+    if (((int)A->v == DT_S || (int)A->v == DT_PLATOM) && ((int)B->v == DT_S || (int)B->v == DT_PLATOM)) {
         extern const char *prolog_atom_name(int);
         const char *as = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
         const char *bs = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
