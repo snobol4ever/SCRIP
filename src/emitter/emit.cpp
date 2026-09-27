@@ -2946,22 +2946,6 @@ static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
-    for (int j = 0; j < n; j++) { IR_t * s = nodes[j]; if (!s || s->op != IR_SUSPEND || s->seal != 1 || s->n_operands < 2) continue;
-        IR_t * x = s->operands[1]; int h = 0;
-        while (x && x->op == IR_SCAN && x->n_operands > 2 && !x->operands[1] && x->operands[2] && x->operands[2]->op == IR_SCAN && x->operands[2]->n_operands > 2 && !x->operands[2]->operands[1] && h++ < 64) x = x->operands[2];
-        if (x == c) return 1; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
-    for (int j = 0; j < n; j++) { IR_t * s = nodes[j]; if (!s || s->op != IR_SUSPEND || s->seal != 1 || s->n_operands < 2) continue;
-        IR_t * x = s->operands[1]; int h = 0;
-        while (x && x->op == IR_SCAN && x->n_operands > 2 && !x->operands[1] && x->operands[2] && x->operands[2]->op == IR_SCAN && x->operands[2]->n_operands > 2 && !x->operands[2]->operands[1] && h++ < 64) x = x->operands[2];
-        if (x == c) return 1; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
