@@ -125,6 +125,32 @@ function compute_oct(raw, n, i, len, s) {
     return;
 }
 /* ==================================================================================================================== */
+/* op/3: the user operator table -- uop_band[name] is the band key ('in700', 'pre500', 'post'); uop_on is FAIL until the first */
+/* op/3 goal declares, then the one token pattern, and each site checks its own key by *IDENT at match time; no pattern is built */
+uop_band = TABLE();
+uop_tok  = $' ' ((((Atom | Graphic_atom) $ uop_tx) . thx) . *Shift('TT_FNC', thx)) $' ';
+uop_on   = FAIL;
+op_infix   = epsilon . *OpSwap(3);
+op_postfix = epsilon . *OpSwap(2);
+/* ==================================================================================================================== */
+function OpSwap(n, x, k, f) {
+    Reduce('TT_COMPOUND', n);
+    x = Pop();  k = c(x);  f = k[1];  k[1] = k[2];  k[2] = f;  Push(x);
+    OpSwap = .dummy;
+    nreturn;
+}
+/* ==================================================================================================================== */
+function DeclareOp(p, t, n, b) {
+    DeclareOp = .dummy;
+    if (LE(p, 0)) { uop_band[n] = ;  nreturn; }
+    b = 900;  b = LE(p, 700) 700;  b = LE(p, 600) 600;  b = LE(p, 500) 500;  b = LE(p, 400) 400;  b = LE(p, 200) 200;
+    if (EQ(SIZE(t), 3))                    uop_band[n] = 'in' b;
+    else if (IDENT(SUBSTR(t, 1, 1), 'f'))  uop_band[n] = 'pre' b;
+    else                                   uop_band[n] = 'post';
+    uop_on = uop_tok;
+    nreturn;
+}
+/* ==================================================================================================================== */
 arg       = ( *unify_expr | Graphic_atom . b_name epsilon . *Shift('TT_FNC', b_name) );
 args      = ( nInc() *arg FENCE(*args_tail | epsilon) );
 args_tail = ( $',' nInc() *arg FENCE(*args_tail | epsilon) );
@@ -158,6 +184,16 @@ primary = (   Atom . p_name $'('
                   *args $')'
                   reduce("'TT_COMPOUND'", 'nTop()')
               nPop()
+          |   $' ' '-' Float . p_negf
+                  epsilon . *Shift('TT_FLIT', '-' p_negf)
+          |   $' ' '-' Int . p_negi
+                  epsilon . *Shift('TT_ILIT', '-' p_negi)
+          |   *uop_on *IDENT(uop_band[uop_tx], 'pre200') *primary     reduce("'TT_COMPOUND'", 2)
+          |   *uop_on *IDENT(uop_band[uop_tx], 'pre400') *pow_expr    reduce("'TT_COMPOUND'", 2)
+          |   *uop_on *IDENT(uop_band[uop_tx], 'pre500') *mul_expr    reduce("'TT_COMPOUND'", 2)
+          |   *uop_on *IDENT(uop_band[uop_tx], 'pre600') *add_expr    reduce("'TT_COMPOUND'", 2)
+          |   *uop_on *IDENT(uop_band[uop_tx], 'pre700') *colon_expr  reduce("'TT_COMPOUND'", 2)
+          |   *uop_on *IDENT(uop_band[uop_tx], 'pre900') *unify_expr  reduce("'TT_COMPOUND'", 2)
           |   shift(Graphic_atom2, 'TT_FNC')
           |   Tk_cut                  reduce("'TT_CUT'", 0)
           |   "0'" ("''" | '\' LEN(1) | NOTANY(nl)) . p_cc
@@ -190,10 +226,6 @@ primary = (   Atom . p_name $'('
           |   $'{' $'}'             reduce("'TT_DCG_IL'", 0)
           |   $'{' *body $'}'       reduce("'TT_DCG_IL'", 1)
           |   *list
-          |   $' ' '-' Float . p_negf
-                  epsilon . *Shift('TT_FLIT', '-' p_negf)
-          |   $' ' '-' Int . p_negi
-                  epsilon . *Shift('TT_ILIT', '-' p_negi)
           |   $'\' $' ' *primary            reduce("'TT_BINOP'", 2)
           |   $' ' '-' $' ' *primary   reduce("'TT_UMINUS'", 1)
           |   $' ' '+' $' ' *primary   reduce("'TT_UPLUS'", 1)
@@ -201,6 +233,8 @@ primary = (   Atom . p_name $'('
 pow_expr  = (   *primary
                 FENCE( $'^'  *pow_expr  reduce("'TT_BINOP'", 2)
                      | $'**' *primary   reduce("'TT_BINOP'", 2)
+                     | *uop_on *IDENT(uop_band[uop_tx], 'in200') *pow_expr op_infix
+                     | *uop_on *IDENT(uop_band[uop_tx], 'post') op_postfix
                      | epsilon
                      )
             );
@@ -215,15 +249,18 @@ mul_tail  = FENCE( FENCE( $'mod' *pow_expr  reduce("'TT_BINOP'", 2)
                          | $'//'  *pow_expr  reduce("'TT_IDIV'",  2)
                          | $'/\'  *pow_expr  reduce("'TT_BINOP'", 2)
                          | $'/'   *pow_expr  reduce("'TT_DIV'",   2)
+                         | *uop_on *IDENT(uop_band[uop_tx], 'in400') *pow_expr op_infix
                          ) *mul_tail | epsilon );
 add_expr  = (   *mul_expr *add_tail );
 add_tail  = FENCE( FENCE( $'+' *mul_expr  reduce("'TT_ADD'",   2)
                          | $'-' *mul_expr  reduce("'TT_SUB'",   2)
                          | $'\/' *mul_expr reduce("'TT_BINOP'", 2)
                          | $'xor' *mul_expr reduce("'TT_BINOP'", 2)
+                         | *uop_on *IDENT(uop_band[uop_tx], 'in500') *mul_expr op_infix
                          ) *add_tail | epsilon );
 colon_expr = (  *add_expr
                 FENCE( $':' *colon_expr  reduce("'TT_BINOP'", 2)
+                     | *uop_on *IDENT(uop_band[uop_tx], 'in600') *colon_expr op_infix
                      | epsilon
                      )
              );
@@ -249,24 +286,36 @@ cmp_expr  = (   *is_expr
                      | $'<'   *is_expr  reduce("'TT_LT'",   2)
                      | $'\='  *is_expr  reduce("'TT_NE1'",  2)
                      | $'=='  *is_expr  reduce("'TT_ID'",   2)
+                     | *uop_on *IDENT(uop_band[uop_tx], 'in700') *is_expr  op_infix
                      | epsilon
                      )
             );
-unify_expr = (  *cmp_expr
+eq_expr    = (  *cmp_expr
                 FENCE( $'=..' *cmp_expr  reduce("'TT_UNIV'",  2)
                      | $'='   *cmp_expr  reduce("'TT_UNIFY'", 2)
                      | epsilon
                      )
              );
+unify_expr = ( *eq_expr *op_tail );
+op_tail    = FENCE( *uop_on *IDENT(uop_band[uop_tx], 'in900') *eq_expr op_infix *op_tail | epsilon );
 /* ==================================================================================================================== */
 pfx_kw_name = (   "dynamic" | "discontiguous" | "meta_predicate" | "multifile"
               |   "module_transparent" | "thread_local" | "volatile"
               |   "initialization" | "thread_initialization" | "public" | "table"
               );
+op_type = ( 'xfx' | 'xfy' | 'yfx' | 'fy' | 'fx' | 'xf' | 'yf' );
+op_goal = (   $' ' 'op' $'(' nPush() epsilon . *Shift('TT_FNC', 'op') nInc()
+              shift(Int $ op_p, 'TT_ILIT') nInc() $','
+              shift(op_type $ op_t, 'TT_FNC') nInc() $','
+              $' ' ( "'" (BREAK("'") $ op_n . thx) "'" | (Atom | Graphic_atom) $ op_n . thx ) . *Shift('TT_FNC', thx) nInc()
+              $')' epsilon $ *DeclareOp(op_p, op_t, op_n)
+              reduce("'TT_COMPOUND'", 'nTop()') nPop()
+          );
 body_goal = (   $'(' *body $')'
             |   $' ' pfx_kw_name . pfx_kw $'  ' *unify_expr
                     reduce("'TT_PFX'", 1)
             |   $' ' '\+' $' ' *body_goal  reduce("'TT_NAF'", 1)
+            |   *op_goal
             |   *unify_expr
             );
 conj = (    nPush()
