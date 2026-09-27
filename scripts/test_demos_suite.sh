@@ -25,6 +25,7 @@ case "$L" in icon|prolog|snobol4|snocone|scrip|pascal|raku|rebus) ;; *) refuse "
 DD="${DEMOS_DIR:-$S4E/corpus/demos/$L}"
 SCRIP="$HERE/../scrip"; RT_DIR="${RT_DIR:-$HERE/../out}"; TMO="${DEMO_TIMEOUT:-60}"
 [ -d "$DD" ] || refuse "no demo tree at $DD"
+DEMOS_PARENT="$(cd "$DD/.." && pwd)"; ROOT="$(cd "$DD/../.." && pwd)"   # <root>/demos/<lang>: the roots beside demos/ are mirrored
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first"
 "$HERE/util_require_fresh.sh" --gate "$G" "$SCRIP" "$RT_DIR/libscrip_rt.so" || exit 2
 . "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared arena"
@@ -63,7 +64,13 @@ for r in "${PROGS[@]}"; do
     args=(); [ -n "$ra" ] && read -r -a args <<<"$ra"
     case "$b" in *.icn) if ipl_argv_read "$f" _av 2>/dev/null; then args=("${_av[@]}"); fi ;; esac
     in=/dev/null; for e in in input; do [ -f "$stem.$e" ] && { in="$stem.$e"; break; }; done
-    W="$T/w.$TOTAL"; mkdir -p "$W" && cp -a "$d"/. "$W"/
+    # ⛔ THE SCRATCH COPY KEEPS THE PROGRAM'S DEPTH (coo COO-209, 2026-09-27): a demo may write files beside itself (porter,
+    # calculator, the scrip demos), so it runs in a copy; but the JCON demos are link manifests naming
+    # ../../../packages/icon/jcon-compiler/<module>, and a copy at any other depth reads "link: cannot open" in both modes --
+    # a runner-made red that the tree does not have. So the copy sits at demos/<lang>/<dir> under a mirror root whose other
+    # entries (packages, include, library, tests, ...) are symlinks to the real ones: every source-relative path resolves.
+    M="$T/w.$TOTAL"; W="$M/${DEMOS_PARENT##*/}/${DD##*/}/$(dirname "$r")"; mkdir -p "$W" && cp -a "$d"/. "$W"/
+    for x in "$ROOT"/*/; do x="${x%/}"; [ "${x##*/}" = "${DEMOS_PARENT##*/}" ] && continue; ln -s "$x" "$M/${x##*/}"; done
     # shellcheck disable=SC2086
     ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" timeout "$TMO" "$SCRIP" $sw --run $ca "$b" ${args[@]+-- "${args[@]}"} < "$in" > "$W/.m3" 2> "$W/.m3e" ); r3=$?
     v3="$(verdict "$r3" "$W/.m3" "$ref")"
@@ -81,7 +88,7 @@ for r in "${PROGS[@]}"; do
     printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\tm3\t%s\t0\t%s\n' "$L" "$L" "$L" "$r" "$v3" "sample" >> "$PROG_ROWS"
     printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\tm4\t%s\t0\t%s\n' "$L" "$L" "$L" "$r" "$v4" "sample" >> "$PROG_ROWS"
     printf '%-40s %-6s %-6s %s\n' "$r" "$v3" "$v4" "$note"
-    rm -rf "$W"
+    rm -rf "$M"
 done
 SCRIP_HASH="$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo '?')"; CORP_HASH="$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 # ⭐ THE BOARD LINE IS THE RECEIPT (CEO-827/839, ceo CEO-1325 ask 1, coo COO-207): a *SUITE_BOARD line in key=value form, its

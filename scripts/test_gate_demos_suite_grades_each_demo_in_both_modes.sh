@@ -27,12 +27,17 @@ printf "LOOP\tOUTPUT = INPUT\t:S(LOOP)\nEND\n" > "$F/b/echo.sno"; printf 'one\nt
 printf "\tOUTPUT = 'two'\nEND\n" > "$F/c/bad.sno"; printf 'one\n' > "$F/c/bad.ref"
 printf "\tOUTPUT = 'x'\nEND\n" > "$F/d/noref.sno"
 printf "\tDEFINE('U()')\t:(U_END)\nU\t:(RETURN)\nU_END\n" > "$F/lib/util.sno"
+# (e) a link manifest naming a module OUTSIDE the demo tree by a source-relative path, as the JCON demos do
+#     (link "../../../packages/icon/jcon-compiler/dump"): the scratch copy must keep the program's depth or this reads
+#     "link: cannot open" in both modes (coo COO-209)
+mkdir -p "$F/e" "$T/packages/gate"; printf 'procedure greet()\n   write("linked")\nend\n' > "$T/packages/gate/mod.icn"
+printf 'link "../../../packages/gate/mod"\nprocedure main()\n   greet()\nend\n' > "$F/e/linked.icn"; printf 'linked\n' > "$F/e/linked.ref"
 printf '# fixture\nlib/util.sno\tLIBRARY\tincluded by nothing here (gate fixture)\n' > "$F/CONTAINERS.tsv"
 out="$(DEMOS_DIR="$F" S4E_PROGRESS_DB="$T/db.tsv" timeout 600 bash "$HERE/test_demos_suite.sh" snobol4 2>&1)"; rc=$?
 [ "$rc" = 2 ] && { echo "⛔ REFUSED(2) [$G]: the runner did not measure the fixture:"; printf '%s\n' "$out" | grep -m3 -E 'REFUS|UNPROVEN' | sed 's/^/    /'; exit 2; }
 _b="$(printf '%s\n' "$out" | grep -m1 '^DEMOS_SUITE_BOARD ')"; _ok=1
-for kv in lang=snobol4 total=4 shipped=5 all_pass=2 all_n=4 m3_pass=2 m4_pass=2 containers=1 workhorse_declared=1; do grep -qE "(^| )$kv( |\$)" <<<"$_b" || _ok=0; done
-[ "$_ok" = 1 ] && ck ok "(1) the board: a DEMOS_SUITE_BOARD line, total=4 shipped=5 all_pass=2 all_n=4 m3/m4 2 containers=1 workhorse_declared=1 (the shared stdin read through echo.in)" || ck no "(1) the board line: $_b"
+for kv in lang=snobol4 total=5 shipped=6 all_pass=3 all_n=5 m3_pass=3 m4_pass=3 containers=1 workhorse_declared=1; do grep -qE "(^| )$kv( |\$)" <<<"$_b" || _ok=0; done
+[ "$_ok" = 1 ] && ck ok "(1) the board: a DEMOS_SUITE_BOARD line, total=5 shipped=6 all_pass=3 all_n=5 m3/m4 3 containers=1 workhorse_declared=1 (the shared stdin read through echo.in; the link manifest resolved through the depth-keeping copy)" || ck no "(1) the board line: $_b"
 # (1b) the writer READS the fraction off that line by name and would archive it verbatim (CEO-827): a receipt that is prose is the CEO-1325 fault
 # (the write path itself gates on a clean committed tree and the lane seat, neither of which a gate may assume, so the
 #  READER is called directly: the same two functions `write` runs on --text)
@@ -43,11 +48,11 @@ p, t, why = u.fraction_from_text(line, None, None)
 print("archivable=%s pass=%s total=%s why=%s" % ("yes" if m else "no", p, t, why))
 PY
 )"
-grep -qx 'archivable=yes pass=2 total=4 why=None' <<<"$_w" && ck ok "(1b) util_score_row reads all_pass=2 all_n=4 off the DEMOS_SUITE_BOARD line by name and its archiver matches it (CEO-827)" || ck no "(1b) the writer's reader on the board line: $_w"
+grep -qx 'archivable=yes pass=3 total=5 why=None' <<<"$_w" && ck ok "(1b) util_score_row reads all_pass=3 all_n=5 off the DEMOS_SUITE_BOARD line by name and its archiver matches it (CEO-827)" || ck no "(1b) the writer's reader on the board line: $_w"
 { grep -q 'c/bad.sno(m3=FAIL,m4=FAIL)' <<<"$out" && grep -q 'd/noref.sno(no-ref)' <<<"$out"; } && ck ok "(2) the reds are named, the ref-less demo as no-ref" || ck no "(2) the named reds: $(grep 'NOT BOTH' <<<"$out")"
 _rows="$(awk -F'\t' 'NR>1 && $5=="benchmark" && $6=="snobol4-demos" {print $8" "$9" "$10}' "$T/db.tsv" 2>/dev/null | sort)"
-{ [ "$(printf '%s\n' "$_rows" | grep -c .)" = 8 ] && grep -qx 'demos/snobol4/a/hello.sno m3 PASS' <<<"$_rows" && grep -qx 'demos/snobol4/d/noref.sno m4 FAIL' <<<"$_rows" && ! grep -q util <<<"$_rows"; } \
-  && ck ok "(3) 8 progress rows, class benchmark, suite snobol4-demos, keyed demos/snobol4/<r>, the container none" || ck no "(3) progress rows: $(tr '\n' ';' <<<"$_rows")"
+{ [ "$(printf '%s\n' "$_rows" | grep -c .)" = 10 ] && grep -qx 'demos/snobol4/e/linked.icn m4 PASS' <<<"$_rows" && grep -qx 'demos/snobol4/a/hello.sno m3 PASS' <<<"$_rows" && grep -qx 'demos/snobol4/d/noref.sno m4 FAIL' <<<"$_rows" && ! grep -q util <<<"$_rows"; } \
+  && ck ok "(3) 10 progress rows (the linked Icon manifest PASS in both modes), class benchmark, suite snobol4-demos, keyed demos/snobol4/<r>, the container none" || ck no "(3) progress rows: $(tr '\n' ';' <<<"$_rows")"
 grep -q 'not the canonical demo tree -- a fixture, never written' <<<"$out" && ck ok "(4) the scratch tree is never written as a suite row" || ck no "(4) the fixture was not declared unwritten"
 . "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSED(2) [$G]: lib_declared_arena.sh unloadable"; exit 2; }
 W="$T/wh"; mkdir -p "$W"; printf "\tOUTPUT = 1\nEND\n" > "$W/p.sno"; printf 'full\n' > "$W/full.dat"
@@ -59,6 +64,6 @@ printf 'stdin\tnot_there.dat\n' > "$W/p.workhorse"; declared_workhorse_beside "$
 [ "$r" = 2 ] && ck ok "(7) a stdin file that is not beside the program REFUSES rc 2" || ck no "(7) missing stdin file rc=$r"
 printf 'stdin\tfull.dat\nscale\t0\n' > "$W/p.workhorse"; declared_workhorse_beside "$W/p.sno" >/dev/null 2>&1; r=$?
 [ "$r" = 2 ] && ck ok "(8) a zero scale REFUSES rc 2" || ck no "(8) zero scale rc=$r"
-echo "population: $checks arm(s) over one scratch demo tree of 5 programs (1 container) and 4 workhorse sidecars"
+echo "population: $checks arm(s) over one scratch demo tree of 6 files (5 programs, 1 container, one an Icon link manifest into a mirrored packages root) and 4 workhorse sidecars"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$G]: $checks of $checks arms hold"; exit 0; fi
 echo "⛔ GATE FAIL(1) [$G]: $fails of $checks arms red"; exit 1
