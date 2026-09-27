@@ -389,6 +389,7 @@ test_gate_pas_a_for_statement_stays_inside_its_control_variables_type.sh	WIRED	-
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
 test_gate_pas_a_goto_leaves_its_routine_for_an_enclosing_label.sh	WIRED	-	-	-
 test_gate_pas_a_goto_never_enters_a_structured_statement.sh	WIRED	-	-	-
+test_gate_pas_a_goto_out_of_a_routine_leaves_every_box_of_main_at_one_depth.sh	WIRED	-	-	-
 test_gate_pas_a_literal_actual_is_assignment_compatible_with_its_value_formal.sh	WIRED	-	-	-
 test_gate_pas_a_literal_is_assignment_compatible_with_its_variable.sh	WIRED	-	-	-
 test_gate_pas_a_mod_divisor_is_positive.sh	WIRED	-	-	-
@@ -400,6 +401,7 @@ test_gate_pas_a_number_read_from_a_textfile_is_an_iso_signed_number.sh	WIRED	-	-
 test_gate_pas_a_numeric_literal_fits_what_scrip_represents.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
 test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
+test_gate_pas_a_set_held_in_a_record_field_combines_as_a_set.sh	WIRED	-	-	-
 test_gate_pas_a_set_held_in_a_record_keeps_its_members.sh	WIRED	-	-	-
 test_gate_pas_a_set_member_is_of_an_ordinal_type.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_bound_or_case_constant_is_never_real.sh	WIRED	-	-	-
@@ -413,6 +415,7 @@ test_gate_pas_a_variant_case_constant_is_a_value_of_its_tag_type.sh	WIRED	-	-	-
 test_gate_pas_a_word_symbol_is_never_defined_as_an_identifier.sh	WIRED	-	-	-
 test_gate_pas_an_anonymous_record_variable_borrows_no_declared_record_type.sh	WIRED	-	-	-
 test_gate_pas_an_arithmetic_or_transfer_function_has_a_value.sh	WIRED	-	-	-
+test_gate_pas_an_array_assigned_or_passed_by_value_is_a_copy.sh	WIRED	-	-	-
 test_gate_pas_an_array_keeps_its_declared_low_bound.sh	WIRED	-	-	-
 test_gate_pas_an_identifier_is_defined_before_it_is_used_in_its_block.sh	WIRED	-	-	-
 test_gate_pas_an_if_while_or_until_condition_must_be_boolean.sh	WIRED	-	-	-
@@ -434,6 +437,7 @@ test_gate_pas_labels_stay_under_ten_thousand_and_program_parameters_are_distinct
 test_gate_pas_maxint_is_the_required_constant.sh	WIRED	-	-	-
 test_gate_pas_monitor_plug_sends_every_assignment.sh	WIRED	-	-	-
 test_gate_pas_nested_record_char_field_prints_as_a_char.sh	WIRED	-	-	-
+test_gate_pas_only_the_tree_crosses_from_the_parser_to_lower.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-

@@ -65,7 +65,6 @@ static int pas_name_is_byref(pcx_t * cx, const char * name) {
     for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return (int)((s->byref >> sl) & 1LL); }
     return 0;
 }
-extern int pas_is_agg_local(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int slot; int uplevel; int owner_level; const char * owner_proc; } pas_res_t;
 static int pas_resolve2(pcx_t * cx, const char * name, pas_res_t * r) {
@@ -377,7 +376,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             IR_t * e = pas_call_args(cx, call, 2.0, av, 3, ω);
             *res = call; return e;
         }
-        if (base && base->t == TT_IDX && !pas_is_nrec_idx(lhs)) return pas_lower_idx_assign_curried(cx, lhs, rhs, γ, ω, res);
+        if (base && base->t == TT_IDX && !pas_node_nrec_marked(lhs)) return pas_lower_idx_assign_curried(cx, lhs, rhs, γ, ω, res);
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         if (bname && pas_name_is_byref(cx, bname)) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
@@ -623,7 +622,7 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         return lower_unop(cx, t, γ, ω, res);
     case TT_ASSIGN: return lower_assign(cx, t, γ, ω, res);
     case TT_IDX: {
-        if (pas_is_nrec_idx(t) && t->n == 2 && t->c[0] && t->c[0]->t == TT_IDX && t->c[0]->n == 2) {
+        if (pas_node_nrec_marked(t) && t->n == 2 && t->c[0] && t->c[0]->t == TT_IDX && t->c[0]->n == 2) {
             const tree_t *inner = t->c[0];
             const tree_t *base_node = inner->c[0]; const tree_t *fi_node = inner->c[1]; const tree_t *ei_node = t->c[1];
             IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__pas_nrec_get";
@@ -800,7 +799,7 @@ static void pas_nlg_scan(const tree_t * t, const tree_t * pd, const tree_t * wan
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω) {
     if (!cx->unw) return γ;
-    IR_t * op = build(cx, IR_BINOP_TEST, cx->unw, γ); IR_LIT(op).ival = lc_binop_code(TT_NE);
+    IR_t * op = build(cx, IR_BINOP_TEST, γ, cx->unw); IR_LIT(op).ival = lc_binop_code(TT_EQ);
     IR_t * v = lower_var(cx, "__pas_nlg", NULL, ω);
     IR_t * z = build(cx, IR_LIT_INTEGER, op, ω); IR_LIT(z).ival = 0;
     γ_to(v, z); ir_operand_push(op, v); ir_operand_push(op, z);
