@@ -746,7 +746,11 @@ fi
 # not. ⛔ PINNING IS THE POINT OF CURING IT: the cure lives in a .tsv WORDING, and ARM 20 exists because a
 # wording change reverts a board cell to prose with every gate green. Unpinned, this row could be un-cured by
 # one careless edit and nothing would say so.
-PKGINV_PINNED="icon/arizona_tests icon/ipl icon/jcon_tests pascal/pat prolog/gnu_prolog snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
+# ⭐ RE-PINNED 2026-09-27 (coo, ceo CEO-1306, the five-gates row): icon/jcon_tests LEAVES the set -- its UNGRADABLE.tsv and UNGRADED.tsv
+# declare zero rows because every Jcon program is graded (SUITES.tsv jcon 86/86, PACKAGE_INVENTORY ungraded=0 ungradable=0), so the data
+# the pin was taken over was emptied by the work the pin exists to protect, not by a wording edit; it re-enters with its next declared
+# row. prolog/logtalk_iso (6 rows) and prolog/swi_tests (70 rows) JOIN it: this arm read both validating clean and unpinned.
+PKGINV_PINNED="icon/arizona_tests icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
 _a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0; _a20_empty=""; _a20_graded=0
 for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
              | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do

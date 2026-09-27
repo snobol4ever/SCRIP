@@ -27,7 +27,12 @@ S="$S4E/corpus/tests/snocone/beauty_modules.sc"; R="$S4E/corpus/tests/snocone/be
 [ -x "$ROOT/scrip" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $ROOT/scrip -- run make"; exit 2; }
 { [ -f "$S" ] && [ -f "$R" ]; } || { echo "⛔ GATE REFUSE(2) [$G]: the beauty container or its ref is missing ($S)"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
-out=$(cd "$ROOT" && S4E_PROGRESS_DB="$T/progress.tsv" timeout 1200 python3 "$HERE/corpus_suite_harness.py" run "$S" "$R" --lang snocone --modes m3,m4 2>&1); rc=$?
+# ⛔ THE HARNESS GRADES A COPY OF THE CONTAINER, OUTSIDE THE SHARED CORPUS (coo 2026-09-27, ceo CEO-1306, the five-gates row): the real
+# container is a Snocone board, which the one-runner guard admits for hq_snocone alone, so on every other seat -- the ceo's CEO-1274
+# audit board among them -- this blocking gate REFUSED rc 2 and graded nothing. Its tests inline their code (no -INCLUDE), so the copy
+# grades the same twenty programs, and a gate is an invariant check any seat runs, never a lane's board (CEO-1232).
+cp "$S" "$R" "$T/" || { echo "⛔ GATE REFUSE(2) [$G]: could not copy the container to a scratch directory"; exit 2; }
+out=$(cd "$ROOT" && S4E_PROGRESS_DB="$T/progress.tsv" timeout 1200 python3 "$HERE/corpus_suite_harness.py" run "$T/$(basename "$S")" "$T/$(basename "$R")" --lang snocone --modes m3,m4 2>&1); rc=$?
 line=$(printf '%s\n' "$out" | grep '^SUITE_BOARD family=beauty_modules' | tail -1)
 [ -n "$line" ] || { printf '%s\n' "$out" | tail -5; echo "⛔ GATE REFUSE(2) [$G]: the harness printed no SUITE_BOARD line (rc=$rc) -- nothing was graded"; exit 2; }
 field() { printf '%s' "$line" | grep -oE " $1=[0-9]+" | cut -d= -f2; }
