@@ -155,7 +155,6 @@ std::string bb_call_fn_str(IR_t * pBB) {
             polled_in_arm = 1;
         } else if (pl_leaf_inline_known(fn, nargs)) {
             s += pl_leaf_zd_cold(fn, nargs);
-            s += x86_rt_gc_poll_res();
             polled_in_arm = 1;
         } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);

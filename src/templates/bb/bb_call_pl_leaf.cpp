@@ -240,15 +240,32 @@ std::string pl_leaf_zd_cold(const char * fn, int narg) {
     std::string s = x86("comment", (std::string("PL-R7 ") + fn + " under ZD: the cold value service alone (no Prolog graph takes this route today)").c_str());
     s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)narg);
     switch (k) {
-        case PLK_AX:     return s + pl_opstr("rdx", op) + x86("call", "rt_pl_ax_cold", (uint64_t)(uintptr_t)(void *)rt_pl_ax_cold);
-        case PLK_CMP:    return s + pl_opstr("rdx", op) + x86("call", "rt_pl_cmp_cold", (uint64_t)(uintptr_t)(void *)rt_pl_cmp_cold);
-        case PLK_TYPE:   return s + pl_opstr("rdx", op) + x86("call", "rt_pl_type_cold", (uint64_t)(uintptr_t)(void *)rt_pl_type_cold);
-        case PLK_ATOP:   return s + pl_opstr("rdx", op) + x86("call", "rt_pl_atop_cold", (uint64_t)(uintptr_t)(void *)rt_pl_atop_cold);
-        case PLK_ZGUARD: return s + x86("call", "rt_pl_zguard_cold", (uint64_t)(uintptr_t)(void *)rt_pl_zguard_cold);
-        case PLK_ANUM:   return s + x86("call", "rt_pl_anum_cold", (uint64_t)(uintptr_t)(void *)rt_pl_anum_cold);
-        case PLK_IS:     return s + x86("call", "rt_pl_is_cold", (uint64_t)(uintptr_t)(void *)rt_pl_is_cold) + x86("cmp", "al", (long)DT_FAIL) + x86("je", L(150))
-                              + x86("mov", RDQ("rsp", 16), "rax") + x86("mov", RDQ("rsp", 24), "rdx") + x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)2)
-                              + x86("call", "rt_pl_dop_unify", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify) + x86("def", L(150));
+        case PLK_AX:
+            s += pl_opstr("rdx", op) + x86("call", "rt_pl_ax_cold", (uint64_t)(uintptr_t)(void *)rt_pl_ax_cold);
+            return s + x86_rt_gc_poll_res();
+        case PLK_CMP:
+            s += pl_opstr("rdx", op) + x86("call", "rt_pl_cmp_cold", (uint64_t)(uintptr_t)(void *)rt_pl_cmp_cold);
+            return s + x86_rt_gc_poll_res();
+        case PLK_TYPE:
+            s += pl_opstr("rdx", op) + x86("call", "rt_pl_type_cold", (uint64_t)(uintptr_t)(void *)rt_pl_type_cold);
+            return s + x86_rt_gc_poll_res();
+        case PLK_ATOP:
+            s += pl_opstr("rdx", op) + x86("call", "rt_pl_atop_cold", (uint64_t)(uintptr_t)(void *)rt_pl_atop_cold);
+            return s + x86_rt_gc_poll_res();
+        case PLK_ZGUARD:
+            s += x86("call", "rt_pl_zguard_cold", (uint64_t)(uintptr_t)(void *)rt_pl_zguard_cold);
+            return s + x86_rt_gc_poll_res();
+        case PLK_ANUM:
+            s += x86("call", "rt_pl_anum_cold", (uint64_t)(uintptr_t)(void *)rt_pl_anum_cold);
+            return s + x86_rt_gc_poll_res();
+        case PLK_IS:
+            s += x86("call", "rt_pl_is_cold", (uint64_t)(uintptr_t)(void *)rt_pl_is_cold);
+            s += x86_rt_gc_poll_res();
+            s += x86("cmp", "al", (long)DT_FAIL) + x86("je", L(150));
+            s += x86("mov", RDQ("rsp", 16), "rax") + x86("mov", RDQ("rsp", 24), "rdx") + x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)2);
+            s += x86("call", "rt_pl_dop_unify", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify);
+            s += x86_rt_gc_poll_res();
+            return s + x86("def", L(150));
         default:         return std::string();
     }
 }
