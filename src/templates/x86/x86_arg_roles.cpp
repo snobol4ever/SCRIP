@@ -129,7 +129,7 @@ const char x86_argrole_blob[] =
     "rt_match_ctx_restore\0"
     "sig\0"
     "len\0"
-    "capgen\0"
+    "cell\0"
     "rt_match_enter\0"
     "rt_match_replace\0"
     "sub_lo\0"

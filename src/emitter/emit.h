@@ -568,6 +568,8 @@ extern int         Σlen;
 extern int         Δ;
 #define TEMPLATE_ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 #define TEMPLATE_ADDR_SIGLEN  ((uint64_t)(uintptr_t)&Σlen)
+#define MATCH_CTX_CELL_BYTES  32
+#define MATCH_CTX_CELL_OFF(extra) (-56 - (extra))
 #ifdef __cplusplus
 }
 #endif

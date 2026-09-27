@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1745
-#define GC_ALLOC_TAB_N_VOID 201
+#define GC_ALLOC_TAB_N 1743
+#define GC_ALLOC_TAB_N_VOID 199
 #define GC_ALLOC_TAB_N_DESCR 981
 #define GC_ALLOC_TAB_N_OTHER 563
 #define GC_ALLOC_TAB_N_UNKNOWN 0
@@ -1052,8 +1052,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_match_replace", GC_RET_VOID },
     { "rt_match_value_get_pat_dtp", GC_RET_OTHER },
     { "rt_match_value_get_pat_fn", GC_RET_OTHER },
-    { "rt_mctx_grow", GC_RET_VOID },
-    { "rt_mctx_push", GC_RET_VOID },
     { "rt_mod", GC_RET_DESCR },
     { "rt_mod_strict", GC_RET_DESCR },
     { "rt_mul", GC_RET_DESCR },

@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-extern "C" uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
+extern "C" uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);
 typedef struct { long fn; long how; } rt_dcap_next_t;
 extern "C" rt_dcap_next_t rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
 extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0);
@@ -70,7 +70,7 @@ static std::string release_pump() {
          + x86("mov",  "rdi", RDQ("rbp", -16))
          + x86("note", HKN(3))
          + x86("mov",  "rsi", RDQ("rbp", -32))
-         + x86("xor",  "edx", "edx")
+         + x86("lea",  "rdx", RDQ("rbp", MATCH_CTX_CELL_OFF(_.op_frame_extra)))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
          + x86("note", HKN(1))
          + x86("mov",  RDQ("rbp", -16), "rax")

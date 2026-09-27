@@ -8,11 +8,15 @@
 # rbp-16 -- and rt_match_enter overwrites the rooted global Σ with the inner subject. A collection INSIDE the nested match (a deferred
 # *f(x) whose function allocates) moves the outer subject; nothing visits the pushed r13; the nested match's exit (bb_match_begin's
 # omega, bb_match_end's release) handed that stale word to rt_match_ctx_restore, which stored it in Σ, and reloaded r13 from it.
-# THE CURE (the frozen design, CEO-812: a saved subject is a word the collector visits, never a conservative scan, never a pin):
-# rt_match_enter records the outer Σ in a rooted runtime record keyed by the match frame's rbp (gen_runtime.c rt_mctx_push;
-# gen_gc_roots visits every record's subject); rt_match_ctx_restore restores Σ from that record -- and hands the fresh address back
-# for r13 -- when the word the frame pushed is the subject it recorded, and exactly as before (the pushed word) when it is not; records
-# of frames a non-local exit abandoned are discarded by frame address.
+# THE CURE (the frozen design, CEO-812: a saved subject is a word the collector visits, never a conservative scan, never a pin),
+# AS IT STANDS SINCE CEO-1302 (cfo 2026-09-27): the match box's OWN FRAME carries the outer subject. bb_match_begin writes a tagged
+# DESCR cell {DT_S, slen=Σlen, s=Σ} at rbp-56-extra (MATCH_CTX_CELL_OFF, emit.h; the 32 bytes ride emit_match_begin_frame_extra so
+# every cross-frame offset sees them) and the pre-move key -Σ beside it -- negated, so it can never read as a heap pointer. The
+# collector's spine walk visits the tagged cell and relocates its s. Both exits hand the cell to rt_match_ctx_restore, which returns
+# the relocated s when the word the frame pushed is the recorded subject (-r13 == key), and the pushed word unchanged when it is not.
+# The first cure (5fc6651ca) kept that record in g_mctx, a runtime vector on the collected heap keyed by rbp: new runtime state that no
+# exemption reached (CEO-1302), deleted by this move. FAIL-ONCE measured on the move: tagging the cell DT_SNUL, a tag the spine walk
+# never relocates, reds arm 1.
 #
 # ARM 1 (the row's DONE-WHEN): hq_snocone's 17-line witness in mode 3 and mode 4 at SCRIP_GC_STRESS 1 2 5 20 100 prints what
 # sbl -bf prints. The 200000-byte dead block below the subject is what makes the collection move the outer subject far enough to land

@@ -113,27 +113,12 @@ RTX_ENDF(rt_defer_close)
 .Lrtx_dfx_nul:
     .byte 0
 RTX_FUNC(rt_match_ctx_restore)
-    mov     ecx, dword ptr [rip + g_mctx_n]
-.Lmr_pop:
-    test    ecx, ecx
-    jz      .Lmr_commit
-    mov     rax, qword ptr [rip + g_mctx]
-    mov     rdx, rcx
-    shl     rdx, 5
-    add     rax, rdx
-    mov     rdx, qword ptr [rax - 16]
-    cmp     rdx, rbp
-    jae     .Lmr_top
-    sub     ecx, 1
-    jmp     .Lmr_pop
-.Lmr_top:
+    mov     rax, rdi
+    neg     rax
+    cmp     rax, qword ptr [rdx + 16]
     jne     .Lmr_commit
-    sub     ecx, 1
-    cmp     rdi, qword ptr [rax - 24]
-    jne     .Lmr_commit
-    mov     rdi, qword ptr [rax - 32]
+    mov     rdi, qword ptr [rdx + 8]
 .Lmr_commit:
-    mov     dword ptr [rip + g_mctx_n], ecx
     mov     rax, qword ptr [rip + Σ@GOTPCREL]
     mov     qword ptr [rax], rdi
     mov     rax, qword ptr [rip + Σlen@GOTPCREL]
@@ -176,32 +161,6 @@ RTX_FUNC(rt_match_enter)
     pop     rsi
     mov     rdx, rax
 .Lme_store:
-    mov     ecx, dword ptr [rip + g_mctx_n]
-.Lme_pop:
-    test    ecx, ecx
-    jz      .Lme_room
-    mov     rax, qword ptr [rip + g_mctx]
-    mov     rdi, rcx
-    shl     rdi, 5
-    cmp     qword ptr [rax + rdi - 16], rbp
-    ja      .Lme_room
-    sub     ecx, 1
-    jmp     .Lme_pop
-.Lme_room:
-    cmp     ecx, dword ptr [rip + g_mctx_cap]
-    jae     .Lme_grow
-.Lme_put:
-    mov     rax, qword ptr [rip + g_mctx]
-    mov     rdi, rcx
-    shl     rdi, 5
-    add     rax, rdi
-    mov     rdi, qword ptr [rip + Σ@GOTPCREL]
-    mov     rdi, qword ptr [rdi]
-    mov     qword ptr [rax], rdi
-    mov     qword ptr [rax + 8], rdi
-    mov     qword ptr [rax + 16], rbp
-    add     ecx, 1
-    mov     dword ptr [rip + g_mctx_n], ecx
     mov     rcx, qword ptr [rip + Σ@GOTPCREL]
     mov     qword ptr [rcx], rsi
     mov     rcx, qword ptr [rip + Σlen@GOTPCREL]
@@ -217,19 +176,7 @@ RTX_FUNC(rt_match_enter)
     pop     rdx
     pop     rsi
     jmp     .Lme_dcap_done
-.Lme_grow:
-    mov     dword ptr [rip + g_mctx_n], ecx
-    push    rsi
-    push    rdx
-    sub     rsp, 8
-    RTX_CCALL(rt_mctx_grow)
-    add     rsp, 8
-    pop     rdx
-    pop     rsi
-    mov     ecx, dword ptr [rip + g_mctx_n]
-    jmp     .Lme_put
 .Lme_c:
-    mov     rdx, rbp
     RTX_CTAIL(c_rt_match_enter)
 RTX_ENDF(rt_match_enter)
 RTX_FUNC(rt_dcap_end_ok_open)

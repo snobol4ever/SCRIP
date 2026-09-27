@@ -6,7 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
-uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
+uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);
 extern "C" long *rt_anchor_ptr(void);
 }
 #include "x86_asm.h"
@@ -36,6 +36,15 @@ std::string bb_match_begin() {
          + x86("note", HKN(3))
          + x86("push", "r15")
          + x86("sub",  "rsp", (long)(24 + _.op_frame_extra))
+         + x86("mov", "rax", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGMA, "Σ")
+         + x86("mov", "rax", "[rax]")
+         + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGLEN, "Σlen")
+         + x86("mov", "ecx", RDD("rcx", 0))
+         + x86("mov", RDD("rbp", MATCH_CTX_CELL_OFF(_.op_frame_extra)), (long)DT_S)
+         + x86("mov", RDD("rbp", MATCH_CTX_CELL_OFF(_.op_frame_extra) + 4), "ecx")
+         + x86("mov", RDQ("rbp", MATCH_CTX_CELL_OFF(_.op_frame_extra) + 8), "rax")
+         + x86("neg", "rax")
+         + x86("mov", RDQ("rbp", MATCH_CTX_CELL_OFF(_.op_frame_extra) + 16), "rax")
          + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86_rt_gc_poll_rec_subject_new()
          + x86("mov", "r13", "rax")
@@ -86,6 +95,7 @@ std::string bb_match_begin() {
          + x86("mov", "r15", RDQ("rbp", -32))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
+         + x86("lea", "rdx", RDQ("rbp", MATCH_CTX_CELL_OFF(_.op_frame_extra)))
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
          + x86("note", HKN(1))
          + x86("mov", RDQ("rbp", -16), "rax")

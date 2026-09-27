@@ -1688,6 +1688,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_MATCH_END: {
         IR_t *hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = hd ? drive_value_slot(hd) : -1;
+        g_emit.op_frame_extra = emit_match_begin_frame_extra(hd);
         if (getenv("SCRIP_EDRIVE_END_DIAG")) fprintf(stderr, "[EDRIVE-END] op_off=%d op_fc_disp(pre)=%d op_tail(pre)=%d\n", g_emit.op_off, g_emit.op_fc_disp, g_emit.op_tail);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2654,12 +2655,12 @@ int capture_frame_slot(const IR_t * cap_nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_match_begin_frame_extra(const IR_t * match_begin_nd) {
-    if (!g_emit_cfg) return 0;
+    if (!g_emit_cfg) return MATCH_CTX_CELL_BYTES;
     int mb = -1; for (int j = 0; j < g_emit_cfg->n; j++) if (g_emit_cfg->all[j] == match_begin_nd) { mb = j; break; }
-    if (mb < 0) return 0;
+    if (mb < 0) return MATCH_CTX_CELL_BYTES;
     int hi = g_emit_cfg->n; for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
     int count = 0; for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && frame_slot_is_candidate(m)) count++; }
-    return 16 * count;
+    return MATCH_CTX_CELL_BYTES + 16 * count;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int alt_arm_complex(const IR_t * nd) {

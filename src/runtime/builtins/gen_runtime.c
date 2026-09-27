@@ -153,37 +153,7 @@ ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *sig; const char *orig; uint64_t key; uint64_t pad; } rt_mctx_t;
-_Static_assert(sizeof(rt_mctx_t) == 32, "rtx_match.s indexes the match-context records by shl 5: sig +0, orig +8, key +16");
-__attribute__((visibility("hidden"))) rt_mctx_t *g_mctx = (rt_mctx_t *)0;
-__attribute__((visibility("hidden"))) uint32_t g_mctx_n = 0, g_mctx_cap = 0;
-_Static_assert(sizeof(rt_mctx_t) == 32 && offsetof(rt_mctx_t, sig) == 0 && offsetof(rt_mctx_t, orig) == 8,
-    "rt_match_ctx_restore (rtx_match.s) reads an entry as [end-32] sig and [end-24] orig and only COMPARES orig with the caller's copy of the subject: "
-    "orig is a pre-move KEY, never dereferenced, and gen_gc_audit_nonref declares it no reference to the auditor (ceo CEO-1300); a dereference of orig is a lost root");
-#ifdef SCRIP_GC_AUDIT_B
-const char *gen_gc_audit_nonref(const char *p)
-{
-    const char *b = (const char *)g_mctx; size_t i, o;
-    if (!b || p < b || p >= b + (size_t)g_mctx_cap * sizeof(rt_mctx_t)) return (const char *)0;
-    i = (size_t)(p - b) / sizeof(rt_mctx_t); o = (size_t)(p - b) % sizeof(rt_mctx_t);
-    if (i >= (size_t)g_mctx_n) return "g_mctx-popped";
-    return (o == offsetof(rt_mctx_t, orig)) ? "g_mctx-orig-key" : (const char *)0;
-}
-#endif
-void rt_mctx_grow(void) {
-    extern void *rt_wsb_alloc(size_t);
-    uint32_t nc = g_mctx_cap ? g_mctx_cap * 2 : 64; rt_mctx_t *q = (rt_mctx_t *)rt_wsb_alloc((size_t)nc * sizeof(rt_mctx_t));
-    if (g_mctx_n) memcpy(q, g_mctx, (size_t)g_mctx_n * sizeof(rt_mctx_t));
-    g_mctx = q; g_mctx_cap = nc;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_mctx_push(const char *outer, uint64_t key) {
-    while (g_mctx_n > 0 && g_mctx[g_mctx_n - 1].key <= key) g_mctx_n--;
-    if (g_mctx_n == g_mctx_cap) rt_mctx_grow();
-    g_mctx[g_mctx_n].sig = outer; g_mctx[g_mctx_n].orig = outer; g_mctx[g_mctx_n].key = key; g_mctx_n++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi, uint64_t key) {
+ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     extern const char *Σ; extern int Σlen;
     extern void rt_cap_match_begin(void);
     extern void rt_dcap_lazy_init(void);
@@ -194,7 +164,6 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi, uint64_t key) {
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    rt_mctx_push(Σ, key);
     Σ = s; Σlen = (int)L;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
@@ -360,7 +329,6 @@ void gen_gc_roots(void)
     if (g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
     rt_gc_visit_raw(&scan_subj);
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) if (scan_saved[i].subj) rt_gc_visit_raw(&scan_saved[i].subj);
-    if (g_mctx) { rt_gc_visit_raw((const char **)&g_mctx); for (uint32_t i = 0; i < g_mctx_n; i++) if (g_mctx[i].sig) rt_gc_visit_raw(&g_mctx[i].sig); }
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
