@@ -51,26 +51,55 @@ static inline int binop_promotes(long long op) {
     return op == BINOP_ADD_BIG || op == BINOP_SUB_BIG || op == BINOP_MUL_BIG;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const struct { long long op; const char * name[3]; void * addr[3]; } rtop_tab[] = {
-    { BINOP_ADD_BIG,     { "rt_add_big", "rt_add_big", "rt_add_big" }, { (void*)rt_add_big, (void*)rt_add_big, (void*)rt_add_big } },
-    { BINOP_SUB_BIG,     { "rt_sub_big", "rt_sub_big", "rt_sub_big" }, { (void*)rt_sub_big, (void*)rt_sub_big, (void*)rt_sub_big } },
-    { BINOP_MUL_BIG,     { "rt_mul_big", "rt_mul_big", "rt_mul_big" }, { (void*)rt_mul_big, (void*)rt_mul_big, (void*)rt_mul_big } },
-    { BINOP_ADD,         { "rt_add", "rt_add", "rt_add_sno" }, { (void*)rt_add, (void*)rt_add, (void*)rt_add_sno } },
-    { BINOP_SUB,         { "rt_sub", "rt_sub", "rt_sub_sno" }, { (void*)rt_sub, (void*)rt_sub, (void*)rt_sub_sno } },
-    { BINOP_MUL,         { "rt_mul", "rt_mul", "rt_mul_sno" }, { (void*)rt_mul, (void*)rt_mul, (void*)rt_mul_sno } },
-    { BINOP_DIV,         { "rt_div", "rt_div_strict", "rt_div_sno" }, { (void*)rt_div, (void*)rt_div_strict, (void*)rt_div_sno } },
-    { BINOP_MOD,         { "rt_mod", "rt_mod_strict", "rt_mod_sno" }, { (void*)rt_mod, (void*)rt_mod_strict, (void*)rt_mod_sno } },
-    { BINOP_POW,         { "rt_pow", "rt_pow_strict", "rt_pow_sno" }, { (void*)rt_pow, (void*)rt_pow_strict, (void*)rt_pow_sno } },
-    { BINOP_POW_PROMOTE, { "rt_powreal", "rt_powreal_strict", "rt_powreal_sno" }, { (void*)rt_powreal, (void*)rt_powreal_strict, (void*)rt_powreal_sno } },
-    { BINOP_CUNION,      { "rt_cunion", "rt_cunion_strict", "rt_cunion" }, { (void*)rt_cunion, (void*)rt_cunion_strict, (void*)rt_cunion } },
-    { BINOP_CDIFF,       { "rt_cdiff", "rt_cdiff_strict", "rt_cdiff" }, { (void*)rt_cdiff, (void*)rt_cdiff_strict, (void*)rt_cdiff } },
-    { BINOP_CINTER,      { "rt_cinter", "rt_cinter_strict", "rt_cinter" }, { (void*)rt_cinter, (void*)rt_cinter_strict, (void*)rt_cinter } },
-    { -1,                { "rt_num_arith", "rt_num_arith_strict", "rt_num_arith_sno" }, { (void*)rt_num_arith, (void*)rt_num_arith_strict, (void*)rt_num_arith_sno } },
+static const struct { long long op; int col; const char * name; void * addr; } rtop_tab[] = {
+    { BINOP_ADD_BIG,     0, "rt_add_big", (void*)rt_add_big },
+    { BINOP_ADD_BIG,     1, "rt_add_big", (void*)rt_add_big },
+    { BINOP_ADD_BIG,     2, "rt_add_big", (void*)rt_add_big },
+    { BINOP_SUB_BIG,     0, "rt_sub_big", (void*)rt_sub_big },
+    { BINOP_SUB_BIG,     1, "rt_sub_big", (void*)rt_sub_big },
+    { BINOP_SUB_BIG,     2, "rt_sub_big", (void*)rt_sub_big },
+    { BINOP_MUL_BIG,     0, "rt_mul_big", (void*)rt_mul_big },
+    { BINOP_MUL_BIG,     1, "rt_mul_big", (void*)rt_mul_big },
+    { BINOP_MUL_BIG,     2, "rt_mul_big", (void*)rt_mul_big },
+    { BINOP_ADD,         0, "rt_add", (void*)rt_add },
+    { BINOP_ADD,         1, "rt_add", (void*)rt_add },
+    { BINOP_ADD,         2, "rt_add_sno", (void*)rt_add_sno },
+    { BINOP_SUB,         0, "rt_sub", (void*)rt_sub },
+    { BINOP_SUB,         1, "rt_sub", (void*)rt_sub },
+    { BINOP_SUB,         2, "rt_sub_sno", (void*)rt_sub_sno },
+    { BINOP_MUL,         0, "rt_mul", (void*)rt_mul },
+    { BINOP_MUL,         1, "rt_mul", (void*)rt_mul },
+    { BINOP_MUL,         2, "rt_mul_sno", (void*)rt_mul_sno },
+    { BINOP_DIV,         0, "rt_div", (void*)rt_div },
+    { BINOP_DIV,         1, "rt_div_strict", (void*)rt_div_strict },
+    { BINOP_DIV,         2, "rt_div_sno", (void*)rt_div_sno },
+    { BINOP_MOD,         0, "rt_mod", (void*)rt_mod },
+    { BINOP_MOD,         1, "rt_mod_strict", (void*)rt_mod_strict },
+    { BINOP_MOD,         2, "rt_mod_sno", (void*)rt_mod_sno },
+    { BINOP_POW,         0, "rt_pow", (void*)rt_pow },
+    { BINOP_POW,         1, "rt_pow_strict", (void*)rt_pow_strict },
+    { BINOP_POW,         2, "rt_pow_sno", (void*)rt_pow_sno },
+    { BINOP_POW_PROMOTE, 0, "rt_powreal", (void*)rt_powreal },
+    { BINOP_POW_PROMOTE, 1, "rt_powreal_strict", (void*)rt_powreal_strict },
+    { BINOP_POW_PROMOTE, 2, "rt_powreal_sno", (void*)rt_powreal_sno },
+    { BINOP_CUNION,      0, "rt_cunion", (void*)rt_cunion },
+    { BINOP_CUNION,      1, "rt_cunion_strict", (void*)rt_cunion_strict },
+    { BINOP_CUNION,      2, "rt_cunion", (void*)rt_cunion },
+    { BINOP_CDIFF,       0, "rt_cdiff", (void*)rt_cdiff },
+    { BINOP_CDIFF,       1, "rt_cdiff_strict", (void*)rt_cdiff_strict },
+    { BINOP_CDIFF,       2, "rt_cdiff", (void*)rt_cdiff },
+    { BINOP_CINTER,      0, "rt_cinter", (void*)rt_cinter },
+    { BINOP_CINTER,      1, "rt_cinter_strict", (void*)rt_cinter_strict },
+    { BINOP_CINTER,      2, "rt_cinter", (void*)rt_cinter },
+    { -1,                0, "rt_num_arith", (void*)rt_num_arith },
+    { -1,                1, "rt_num_arith_strict", (void*)rt_num_arith_strict },
+    { -1,                2, "rt_num_arith_sno", (void*)rt_num_arith_sno },
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int rtop_row(long long op, int i) { return (rtop_tab[i].op == op || rtop_tab[i].op == -1) ? i : rtop_row(op, i + 1); }
-#define rtop_name_s(op, strict) (rtop_tab[rtop_row((op), 0)].name[(strict) == 2 ? 2 : (strict) != 0])
-#define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), 0)].addr[(strict) == 2 ? 2 : (strict) != 0])
+static inline int rtop_row(long long op, int strict, int i) {
+    return (rtop_tab[i].op == op || rtop_tab[i].op == -1) && rtop_tab[i].col == (strict == 2 ? 2 : strict != 0) ? i : rtop_row(op, strict, i + 1);
+}
+#define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), (strict), 0)].addr)
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -101,7 +130,7 @@ static inline int rtop_row(long long op, int i) { return (rtop_tab[i].op == op |
     + x86("mov", "rdx", FRQ(_.op_sb)) \
     + x86("mov", "rcx", FRQ(_.op_sb + 8)) \
     + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival)) \
-    + x86("call", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict)) \
+    + x86("call", rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)].name, (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict)) \
     + x86("cmp", "al", (long)DT_FAIL) \
     + x86_omega("je") \
     + x86("mov", FRQ(_.op_off), "rax") \
@@ -200,7 +229,7 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("call", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
+             + x86("call", rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)].name, (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -278,7 +307,7 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("call", rtop_name_s(_.op_ival, _.op_strict), (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
+             + x86("call", rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)].name, (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
