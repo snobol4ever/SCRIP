@@ -2053,9 +2053,11 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * ce = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * xv = nd->n_operands > 1 ? nd->operands[1] : NULL;
         int sa = ce ? bb_slot_get(ce) : -1;
+        if (sa < 0 && ce) sa = nd_slot(ce);
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa;
         g_emit.op_sb = xv ? bb_slot_get(xv) : -1;
+        if (g_emit.op_sb < 0 && xv) g_emit.op_sb = nd_slot(xv);
         g_emit.op_activate_proc = IR_LIT(nd).sval;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -2934,6 +2936,14 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
 static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (ir_is_generator_kind(nd->op) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT || op == IR_GOTO || op == IR_STATEMENT_BEGIN || (g_emit_cfg && nd == g_emit_cfg->body_root))) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_body_beta_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (flat_beta_kind_keeps(nd) || op == IR_SCAN_TAB || op == IR_SCAN_MOVE)) ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
+    for (int j = 0; j < n; j++) { IR_t * s = nodes[j]; if (!s || s->op != IR_SUSPEND || s->seal != 1 || s->n_operands < 2) continue;
+        IR_t * x = s->operands[1]; int h = 0;
+        while (x && x->op == IR_SCAN && x->n_operands > 2 && !x->operands[1] && x->operands[2] && x->operands[2]->op == IR_SCAN && x->operands[2]->n_operands > 2 && !x->operands[2]->operands[1] && h++ < 64) x = x->operands[2];
+        if (x == c) return 1; }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
     for (int j = 0; j < n; j++) { IR_t * s = nodes[j]; if (!s || s->op != IR_SUSPEND || s->seal != 1 || s->n_operands < 2) continue;
