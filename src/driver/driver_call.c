@@ -1,8 +1,8 @@
 #include "rt/rt_arena.h"
 #include "driver_private.h"
-CallFrame  call_stack[CALL_STACK_MAX];
+cv_t       call_stack_v;
 int        call_depth = 0;
-InitEnt init_tab[INIT_MAX];
+cv_t       init_tab_v;
 int        init_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void init_update_snapshot(char **snames, DESCR_t *svals, int nsaved) {
@@ -40,7 +40,7 @@ void shadow_set_cur(const char *name, DESCR_t val) {
     CallFrame *fr = &call_stack[call_depth - 1];
     for (int j = 0; j < fr->nshadow; j++)
         if (strcmp(fr->shadow[j].name, name) == 0) { fr->shadow[j].val = val; return; }
-    if (fr->nshadow < SHADOW_MAX) {
+    { if (fr->nshadow >= fr->shadow_cap) { int nc = fr->shadow_cap ? fr->shadow_cap * 2 : 8; fr->shadow = (ShadowEntry *)ct_grow(fr->shadow, (size_t)nc * sizeof(ShadowEntry)); fr->shadow_cap = nc; }
         strncpy(fr->shadow[fr->nshadow].name, name, 63);
         fr->shadow[fr->nshadow].name[63] = '\0';
         fr->shadow[fr->nshadow].val = val;
@@ -59,7 +59,6 @@ int shadow_has(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
 {
-    if (call_depth >= CALL_STACK_MAX) return FAILDESCR;
     int np = FUNC_NPARAMS_fn(fname);
     int nl = FUNC_NLOCALS_fn(fname);
     char *pnames[64]; if (np > 64) np = 64;
@@ -105,28 +104,28 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
         NV_SET_fn(lnames[i], NULVCL);
     }
     monitor_quiet_depth--;
-    CallFrame *fr = &call_stack[call_depth++];
+    cv_reserve(&call_stack_v, (uint32_t)sizeof(CallFrame), (uint64_t)call_depth + 1, "call_stack"); int fi = call_depth++;
     kw_fnclevel = call_depth;
-    strncpy(fr->fname, retname, sizeof(fr->fname)-1);
-    fr->fname[sizeof(fr->fname)-1] = '\0';
-    fr->nshadow = 0;
+    strncpy(call_stack[fi].fname, retname, sizeof(call_stack[fi].fname)-1);
+    call_stack[fi].fname[sizeof(call_stack[fi].fname)-1] = '\0';
+    call_stack[fi].nshadow = 0;
     for (int i = 0; i < np; i++)
         if (_is_pat_fnc_name(pnames[i]))
             shadow_set_cur(pnames[i], (i < nargs) ? args[i] : NULVCL);
     for (int i = 0; i < nl; i++)
         if (_is_pat_fnc_name(lnames[i]))
             shadow_set_cur(lnames[i], NULVCL);
-    fr->saved_names = snames;
-    fr->saved_vals  = svals;
-    fr->nsaved      = nsaved;
-    fr->retval_cell = STRVAL("");
-    fr->retval_set  = 0;
+    call_stack[fi].saved_names = snames;
+    call_stack[fi].saved_vals  = svals;
+    call_stack[fi].nsaved      = nsaved;
+    call_stack[fi].retval_cell = STRVAL("");
+    call_stack[fi].retval_set  = 0;
     DESCR_t retval = NULVCL;
     const char *saved_Σ    = Σ;
     int         saved_Δ    = Δ;
     int         saved_Ω    = Ω;
     int         saved_Σlen = Σlen;
-    int ret_kind = setjmp(fr->ret_env);
+    int ret_kind = setjmp(call_stack[fi].ret_env);
     if (ret_kind == 0) {
         const char *entry = FUNC_ENTRY_fn(fname);
         const tree_t *body = entry ? label_lookup(entry) : NULL;
@@ -152,10 +151,10 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
             retval = FAILDESCR;
             goto fn_done;
         }
-        retval = fr->retval_set ? fr->retval_cell : NV_GET_fn(fr->fname);
+        retval = call_stack[fi].retval_set ? call_stack[fi].retval_cell : NV_GET_fn(call_stack[fi].fname);
         strncpy(kw_rtntype, "RETURN",  sizeof(kw_rtntype)-1);
     } else if (ret_kind == 1) {
-        retval = fr->retval_set ? fr->retval_cell : NV_GET_fn(fr->fname);
+        retval = call_stack[fi].retval_set ? call_stack[fi].retval_cell : NV_GET_fn(call_stack[fi].fname);
         strncpy(kw_rtntype, "RETURN",  sizeof(kw_rtntype)-1);
     } else {
         retval = FAILDESCR;

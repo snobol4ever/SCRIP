@@ -1950,7 +1950,7 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
             int np = g_stage2.proc_table[pi].nparams;
             Scope *sc = &g_stage2.proc_table[pi].lower_sc;
             sc->n = 0;
-            for (int k = 0; k < np && plist && k < plist->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+            for (int k = 0; k < np && plist && k < plist->n; k++) { stage2_scope_reserve(sc, sc->n + 1);
                 const tree_t *pv = plist->c[k];
                 if (!pv || !pv->v.sval) continue;
                 sc->e[sc->n].name = lp_strdup(pv->v.sval);

@@ -35,7 +35,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int polyglot_module_open(stage2_t *s2, const tree_t *s)
 {
-    if (s2->module_registry.nmod >= SCRIP_MOD_MAX) return -1;
+    stage2_mods_reserve(&s2->module_registry, s2->module_registry.nmod + 1);
     int mod_idx = s2->module_registry.nmod++;
     ScripModule *m = &s2->module_registry.mods[mod_idx];
     m->name             = NULL;

@@ -69,8 +69,6 @@ const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"
 #include "driver.h"
-#define CALL_STACK_MAX 256
-#define SHADOW_MAX 32
 typedef struct { char name[64]; DESCR_t val; } ShadowEntry;
 typedef struct {
     jmp_buf  ret_env;
@@ -80,20 +78,22 @@ typedef struct {
     int      nsaved;
     DESCR_t  retval_cell;
     int      retval_set;
-    ShadowEntry shadow[SHADOW_MAX];
+    ShadowEntry *shadow;
+    int         shadow_cap;
     int         nshadow;
 } CallFrame;
-extern CallFrame call_stack[CALL_STACK_MAX];
+extern cv_t call_stack_v;
+#define call_stack ((CallFrame *)call_stack_v.p)
 extern int       call_depth;
 int  shadow_get(const char *name, DESCR_t *out);
 void shadow_set_cur(const char *name, DESCR_t val);
 int  shadow_has(const char *name);
 int  is_current_frame_local(const char *name);
-#define INIT_MAX   64
 #define INIT_SLOTS  8
 typedef struct { char nm[64]; DESCR_t val; } InitSlot;
 typedef struct { int id; int ns; InitSlot s[INIT_SLOTS]; } InitEnt;
-extern InitEnt init_tab[INIT_MAX];
+extern cv_t init_tab_v;
+#define init_tab ((InitEnt *)init_tab_v.p)
 extern int        init_n;
 void init_update_snapshot(char **snames, DESCR_t *svals, int nsaved);
 int _is_pat_fnc_name(const char *s);

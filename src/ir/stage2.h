@@ -10,14 +10,14 @@
 #define STAGE2_PROC_TABLE_MAX       256
 #define STAGE2_PL_PRED_TABLE_SIZE   256
 typedef struct Resolve_PredEntry_t { const char *key; tree_t *choice; struct Resolve_PredEntry_t *next; int entry_pc; } Resolve_PredEntry;
-#define STAGE2_MOD_MAX               64
 #define STAGE2_FRAME_SLOT_MAX        64
 typedef struct LabelEntry {
     const char    *name;
     const tree_t  *stmt;
 } LabelEntry;
 typedef struct ScopeEnt { const char *name; int slot; } ScopeEnt;
-typedef struct Scope    { ScopeEnt e[STAGE2_FRAME_SLOT_MAX]; int n; } Scope;
+typedef struct Scope    { ScopeEnt *e; int n; int cap; } Scope;
+static inline void stage2_scope_reserve(Scope *sc, int need) { if (need > sc->cap) { int nc = sc->cap ? sc->cap * 2 : 8; while (nc < need) nc *= 2; sc->e = (ScopeEnt *)ct_grow(sc->e, (size_t)nc * sizeof(ScopeEnt)); sc->cap = nc; } }
 struct IR_graph_t;
 typedef struct ProcEntry {
     const char         *name;
@@ -53,10 +53,12 @@ typedef struct ScripModule {
     int           nprocs;
 } ScripModule;
 typedef struct ScripModuleRegistry {
-    ScripModule mods[STAGE2_MOD_MAX];
+    ScripModule *mods;
+    int         cap;
     int         nmod;
     int         main_mod;
 } ScripModuleRegistry;
+static inline void stage2_mods_reserve(ScripModuleRegistry *r, int need) { if (need > r->cap) { int nc = r->cap ? r->cap * 2 : 8; while (nc < need) nc *= 2; r->mods = (ScripModule *)ct_grow(r->mods, (size_t)nc * sizeof(ScripModule)); r->cap = nc; } }
 typedef struct stage2_t {
     bb_program_t         bbp;
     LabelEntry          *label_table;

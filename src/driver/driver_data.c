@@ -8,8 +8,8 @@ DESCR_t _builtin_print(DESCR_t *args, int nargs) {
     for (int i = 0; i < nargs; i++) output_val(args[i]);
     return NULVCL;
 }
-#define SC_DAT_MAX_TYPES  1024
-static DatType dat_types[SC_DAT_MAX_TYPES];
+static cv_t dat_types_v;
+#define dat_types ((DatType *)dat_types_v.p)
 static int       dat_ntypes = 0;
 unsigned rt_dtax_gen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -33,7 +33,7 @@ static void dat_field_put(DatType *t, char *nm, DESCR_t df, char hd, char rq, ch
     int k = t->nfields++; t->fields[k] = nm; t->defaults[k] = df; t->has_default[k] = hd; t->required[k] = rq; t->rw[k] = rw; t->sigil[k] = sg; t->priv[k] = pv;
 }
 DatType *dat_register(const char *spec) {
-    if (dat_ntypes >= SC_DAT_MAX_TYPES) { fprintf(stderr, "[REC-REG-CAP] FATAL: record/type registry saturated (%d >= %d) registering '%s' -- constructors past the cap resolve as Error 5; raise SC_DAT_MAX_TYPES\n", dat_ntypes, SC_DAT_MAX_TYPES, spec ? spec : "?"); return NULL; }
+    cv_reserve(&dat_types_v, (uint32_t)sizeof(DatType), (uint64_t)dat_ntypes + 1, "dat_types");
     DatType *t = &dat_types[dat_ntypes];
     memset(t, 0, sizeof *t);
     const char *p = spec;

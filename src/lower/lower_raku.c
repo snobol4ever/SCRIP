@@ -1493,11 +1493,11 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             Scope *sc = &g_stage2.proc_table[pi].lower_sc;
             sc->n = 0;
             if (is_method) {
-                sc->e[sc->n].name = lp_strdup("self");
+                stage2_scope_reserve(sc, sc->n + 1); sc->e[sc->n].name = lp_strdup("self");
                 sc->e[sc->n].slot = sc->n; sc->n++;
                 param_start = 1;
             }
-            for (int k = 0; k < np && (k + param_start) < proc->n && sc->n < STAGE2_FRAME_SLOT_MAX; k++) {
+            for (int k = 0; k < np && (k + param_start) < proc->n; k++) { stage2_scope_reserve(sc, sc->n + 1);
                 const tree_t *pv = proc->c[k + param_start];
                 if (!pv || !pv->v.sval) continue;
                 sc->e[sc->n].name = lp_strdup(pv->v.sval);

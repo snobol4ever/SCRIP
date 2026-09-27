@@ -7,7 +7,6 @@
 #include "stage2.h"
 extern int g_opt_dump_bb;
 extern int g_polyglot;
-#define SCRIP_MOD_MAX STAGE2_MOD_MAX
 void polyglot_init(stage2_t *s2, const tree_t *prog);
 int  polyglot_module_open(stage2_t *s2, const tree_t *s);
 void polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s);

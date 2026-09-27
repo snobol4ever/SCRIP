@@ -3057,8 +3057,9 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].entry_pc = -1;
         g_stage2.proc_table[fpi].nparams = d0.nnames;
         g_stage2.proc_table[fpi].nformals = d0.nformals;
-        for (int k = 0; k < d0.nnames && k < STAGE2_FRAME_SLOT_MAX; k++) g_stage2.proc_table[fpi].lower_sc.e[k].name = d0.names[k];
-        g_stage2.proc_table[fpi].lower_sc.n = d0.nnames < STAGE2_FRAME_SLOT_MAX ? d0.nnames : STAGE2_FRAME_SLOT_MAX;
+        stage2_scope_reserve(&g_stage2.proc_table[fpi].lower_sc, d0.nnames);
+        for (int k = 0; k < d0.nnames; k++) g_stage2.proc_table[fpi].lower_sc.e[k].name = d0.names[k];
+        g_stage2.proc_table[fpi].lower_sc.n = d0.nnames;
         g_stage2.proc_table[fpi].is_generator = 0;
         g_stage2.proc_table[fpi].dyn_scope = 1;
         g_stage2.proc_table[fpi].result_name = rn;
