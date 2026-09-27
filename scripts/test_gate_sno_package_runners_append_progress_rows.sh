@@ -22,6 +22,15 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #   7  this seat's snoflake rows in the live table are exactly as many after arm 6 as before it (the table is shared and grows under other seats)
 #   8  dotnet, scratch suite + scratch table: exactly 4 rows (2 programs x 2 modes), all PASS
 #   9  dotnet prints the table's reading: DOTNET_AND both_modes_pass=2/2
+#  10  testpgms, scratch copy of SPITBOL's own deck + scratch table: two rows per program, every outcome on the ladder, and the
+#      programs PASS in both modes are the board's both_modes_pass
+#  11  every program the board names UNSCORED reads OUTSIDE in both modes, its note carrying the oracle's own refusal
+#  12  the same scratch deck WITHOUT S4E_PROGRESS_DB records nothing, writes no SCORE.md cell, and the live SUITES.tsv and SCORE.md
+#      are byte-identical after it
+#      (coo 2026-09-26, on hq_snobol4's report: test_snobol4_spitbol_testpgms_suite.sh appended NOTHING, so every write refused
+#      "no progress rows for suite 'testpgms'" and the batch audit read the row UNPROVEN since 61315eaa9; and it wrote the
+#      leaderboard for ANY suite, harmless only while nothing was appended. TESTPGMS_RUNNER=<a pre-cure copy beside this file>
+#      reads 10, 11 and 12 red.)
 # Fail-once (2026-09-07 09:0x CDT, coo, measured): with the pre-landing runners restored from scratch copies, 7 of 9 arms red
 # (1-4, 6, 8, 9); arm 5 stays green because the scratch sidecars already name both outside fixtures, arm 7 by construction.
 set -uo pipefail
@@ -74,6 +83,28 @@ OUT8="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db2.tsv" DOTNET_SUITE="$W/dot" timeout
 n="$(rows "$W/db2.tsv")"; np="$(awk -F'\t' 'NR>1 && $10=="PASS"' "$W/db2.tsv" 2>/dev/null | wc -l | tr -d ' ')"
 [ "$n" = 4 ] && [ "$np" = 4 ] && ok 8 "4 dotnet rows, all PASS" || red 8 "dotnet rows=$n pass=$np (want 4/4)"
 printf '%s\n' "$OUT8" | grep -qE '^DOTNET_AND both_modes_pass=2/2( |$)' && ok 9 "DOTNET_AND both_modes_pass=2/2" || red 9 "no DOTNET_AND both_modes_pass=2/2 line"
+# --- testpgms: a scratch copy of the whole deck (its programs share testpgms.in and read their sidecars)
+TP="$S4E/corpus/packages/snobol4/spitbol_testpgms"; TP_RUNNER="${TESTPGMS_RUNNER:-$HERE/test_snobol4_spitbol_testpgms_suite.sh}"
+[ -d "$TP" ] && [ -s "$TP_RUNNER" ] || { echo "GATE UNPROVEN(2) [$G]: $TP or $TP_RUNNER missing"; exit 2; }
+cp -a "$TP" "$W/tp" || { echo "GATE UNPROVEN(2) [$G]: could not copy $TP to a scratch deck"; exit 2; }
+NTP="$(ls "$W/tp"/test*.spt 2>/dev/null | wc -l | tr -d ' ')"
+OUT10="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db3.tsv" SPITBOL_TESTPGMS_SUITE="$W/tp" timeout 600 bash "$TP_RUNNER" 2>&1)"
+n="$(rows "$W/db3.tsv")"; bad="$(awk -F'\t' 'NR>1 && $10 !~ /^(PASS|FAIL|CRASH|HANG|OUTSIDE)$/' "$W/db3.tsv" 2>/dev/null | wc -l | tr -d ' ')"
+both_db="$(awk -F'\t' 'NR>1 {k[$8]=k[$8] " " $9 ":" $10} END {n=0; for (p in k) if (k[p] ~ /m3:PASS/ && k[p] ~ /m4:PASS/) n++; print n}' "$W/db3.tsv" 2>/dev/null)"
+both_bd="$(printf '%s\n' "$OUT10" | sed -n 's/^SPITBOL_TESTPGMS_BASELINE .*both_modes_pass=\([0-9]*\).*/\1/p')"
+if [ "$NTP" -gt 0 ] && [ "$n" = "$((2*NTP))" ] && [ "$bad" = 0 ] && [ -n "$both_bd" ] && [ "$both_db" = "$both_bd" ]; then
+    ok 10 "testpgms: $n rows for $NTP programs, every outcome on the ladder, $both_db PASS in both modes = the board's both_modes_pass"
+else red 10 "testpgms rows=$n (want $((2*NTP))), off-ladder=$bad, both-modes PASS in the table=$both_db vs the board's both_modes_pass=${both_bd:-none}"; fi
+uns="$(printf '%s\n' "$OUT10" | sed -n 's/^  UNSCORED  \([^ ]*\) .*/\1/p' | sort | tr '\n' ' ')"
+out_db="$(awk -F'\t' 'NR>1 && $10=="OUTSIDE" && $12 ~ /sbl -bf/ {print $8}' "$W/db3.tsv" 2>/dev/null | sort | uniq -c | awk '$1==2 {print $2}' | tr '\n' ' ')"
+[ "$uns" = "$out_db" ] && ok 11 "testpgms: the programs the oracle does not run [${uns:-none}] read OUTSIDE in both modes with its refusal" \
+    || red 11 "UNSCORED on the board [${uns:-none}] vs OUTSIDE in both modes in the table [${out_db:-none}]"
+s_before="$(cat "$S4E/.github/SUITES.tsv" "$S4E/.github/SCORE.md" 2>/dev/null | md5sum)"
+OUT12="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SPITBOL_TESTPGMS_SUITE="$W/tp" timeout 600 bash "$TP_RUNNER" 2>&1)"
+s_after="$(cat "$S4E/.github/SUITES.tsv" "$S4E/.github/SCORE.md" 2>/dev/null | md5sum)"
+if printf '%s\n' "$OUT12" | grep -q 'progress: scratch suite .* NOT recorded' && printf '%s\n' "$OUT12" | grep -q '^SCORE.md: scratch suite' && [ "$s_before" = "$s_after" ]; then
+    ok 12 "testpgms: a scratch deck without a scratch table records nothing and leaves the live SUITES.tsv and SCORE.md byte-identical"
+else red 12 "testpgms scratch deck without S4E_PROGRESS_DB: NOT-recorded line $(printf '%s\n' "$OUT12" | grep -c 'NOT recorded'), scratch SCORE line $(printf '%s\n' "$OUT12" | grep -c '^SCORE.md: scratch suite'), live files $([ "$s_before" = "$s_after" ] && echo unchanged || echo CHANGED)"; fi
 echo "------------------------------------------------------------"
-if [ "$FAIL" = 0 ]; then echo "GATE PASS(0) [$G]: $PASS of 9 arms green (denominator: 9 arms over 3 snoflake fixtures + 2 dotnet programs, scratch table + scratch suites)"; exit 0
-else echo "GATE FAIL(1) [$G]: $FAIL of 9 arms red"; exit 1; fi
+if [ "$FAIL" = 0 ]; then echo "GATE PASS(0) [$G]: $PASS of 12 arms green (denominator: 12 arms over 3 snoflake fixtures + 2 dotnet programs + the $NTP-program testpgms deck, scratch tables + scratch suites)"; exit 0
+else echo "GATE FAIL(1) [$G]: $FAIL of 12 arms red"; exit 1; fi

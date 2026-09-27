@@ -35,6 +35,7 @@ SCRIP="${SCRIP:-$SD/scrip}"; RT_DIR="${RT_DIR:-$SD/out}"; T="${TIMEOUT:-60}"
 [ -f "$SUITE/testpgms.in" ] || { echo "⛔ REFUSE(rc=2): $SUITE/testpgms.in missing -- every program reads it on stdin"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority; a private fallback would grade a DIFFERENT LANGUAGE (s189: -bf is the only correct arm)"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)" || exit 2
 FLAGS="$(sbl_lang_flags)"
 # ⛔⭐⭐ CEO-281 CLAUSE (2) -- TWO PROGRAMS ARE GRADED AGAINST CSNOBOL4, AND THE CHOICE IS RULED, NOT CONVENIENT.
@@ -64,6 +65,17 @@ cp -a "$SUITE"/. "$W/" || { echo "⛔ REFUSE(rc=2): could not copy the suite to 
 DECL="$W/declared_memory.tsv"
 declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 
+# ⭐ THE PROGRESS DATABASE (CEO-319/331, CEO-750; the spitbol_x64 runner's shape): one row per program per mode, appended
+# once before the row is written, because util_score_row takes the row's number from the append on the tree it stamps.
+# ⛔ THIS RUNNER APPENDED NOTHING UNTIL 2026-09-26 (coo, on hq_snobol4's report): every write refused "no progress rows
+# for suite 'testpgms'" although the board graded, and the batch audit read the row UNPROVEN since 61315eaa9. A program
+# the oracle does not run is OUTSIDE with the oracle's own refusal; a scored one is PASS, or FAIL/CRASH/HANG by status.
+# Recorded only for the canonical suite or when S4E_PROGRESS_DB names a scratch table.
+PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
+CANON_SUITE="$ROOT/corpus/packages/snobol4/spitbol_testpgms"
+PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
+prog_row() { printf 'package\ttestpgms\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "${4:-}" >> "$PROG_ROWS"; }
+verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
 TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""
@@ -97,6 +109,7 @@ for p in $progs; do
         OUTSIDE_LIST="${OUTSIDE_LIST}${p}\t${why} (sbl -bf does not complete the program)\n"
         UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle $why after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s) -- truncated output is not ground truth, no ref cut
 "
+        prog_row "$p" m3 OUTSIDE "sbl -bf $why"; prog_row "$p" m4 OUTSIDE "sbl -bf $why"
         continue
     fi
     # ⛔⭐⭐ AND rc=0 IS NOT "THE ORACLE ANSWERED". This guard's own header says the run STATUS decides and the
@@ -138,6 +151,7 @@ for p in $progs; do
         OUTSIDE_LIST="${OUTSIDE_LIST}${p}\t${_errno:-ERROR} (sbl -bf refuses the program at rc=0 with a post-mortem block)\n"
         UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle REFUSED THE PROGRAM at rc=0 -- ${_errno:-ERROR} plus a post-mortem block after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s): a diagnostic is not an answer, no ref cut
 "
+        prog_row "$p" m3 OUTSIDE "sbl -bf refuses the program at rc=0: ${_errno:-ERROR}"; prog_row "$p" m4 OUTSIDE "sbl -bf refuses the program at rc=0: ${_errno:-ERROR}"
         continue
     fi
     SCORED=$((SCORED+1))
@@ -161,6 +175,10 @@ for p in $progs; do
     # written as an if, not an && chain: this file is set -uo pipefail today, but an && chain whose last
     # link is false returns non-zero and would abort the loop the day someone adds -e.
     if [ "$_p3" = 1 ] && [ "$_p4" = 1 ]; then BOTH=$((BOTH+1)); fi
+    if [ "$_p3" = 1 ]; then prog_row "$p" m3 PASS; else prog_row "$p" m3 "$(verdict_of "$r3")" "rc=$r3"; fi
+    if [ "$_p4" = 1 ]; then prog_row "$p" m4 PASS
+    elif [ "$r4" = 125 ]; then prog_row "$p" m4 FAIL "mode-4 compile or link failed"
+    else prog_row "$p" m4 "$(verdict_of "$r4")" "rc=$r4"; fi
 done
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
@@ -195,6 +213,9 @@ printf '%s' "$RED_LINES"
 INV_PACKAGE=spitbol_testpgms; INV_DIR="$SUITE"; INV_EXT=".spt"
 INV_LINE="$(inventory_line "$SCORED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+if [ "$PROG_RECORD" = 1 ]; then
+    progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
+else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
 # ⛔ ZERO SCORED IS UNMEASURED, NEVER GREEN. If the oracle ever dies on all four, every counter above reads 0
 # and the verdict `m3_fail=0 && m4_fail=0` would be a perfect green board over an empty population.
 if [ "$SCORED" -eq 0 ]; then
@@ -213,9 +234,14 @@ fi
 EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((TOTAL - EXCL_D_N))
 echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
 _cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp testpgms "$DENOM" "$UNSCR" "$EXCL_D_N")" || exit 2
+# ⛔ ONLY THE CANONICAL SUITE WRITES THE LEADERBOARD (the x64 and dotnet runners' guard; absent here until 2026-09-26, and
+# harmless only while nothing was appended: a scratch suite graded under a scratch S4E_PROGRESS_DB now passes the write's
+# DB check, so without this a fixture run would set the live testpgms row).
+if [ "$SUITE" = "$CANON_SUITE" ]; then
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite testpgms --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
     --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ( programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
