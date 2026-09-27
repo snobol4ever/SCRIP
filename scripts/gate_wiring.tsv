@@ -210,9 +210,9 @@ test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_harness_shard_reads_the_outside_list_from_the_unsharded_entries.sh	WIRED	-	-	-
 test_gate_heap_exhaustion_at_the_cap_is_a_reported_error_not_an_abort.sh	WIRED	-	-	-
+test_gate_icn_a_call_through_a_value_reports_its_line_and_its_frame.sh	WIRED	-	-	-
 test_gate_icn_a_closed_file_raises_212_on_read_and_213_on_write.sh	WIRED	-	-	-
 test_gate_icn_a_linked_procedure_reports_its_own_file.sh	WIRED	-	-	-
-test_gate_icn_a_call_through_a_value_reports_its_line_and_its_frame.sh	WIRED	-	-	-
 test_gate_icn_a_one_character_substring_swap_builds_one_string.sh	WIRED	-	-	-
 test_gate_icn_a_procedure_returns_its_variable_when_its_result_is_one.sh	WIRED	-	-	-
 test_gate_icn_a_record_field_under_a_subscript_section_bang_or_random_is_a_variable.sh	WIRED	-	-	-
@@ -721,6 +721,7 @@ test_gate_suite_table_graded_cell_is_a_date_never_an_age.sh	WIRED	-	-	-
 test_gate_suite_table_writers_hold_one_lock.sh	WIRED	-	-	-
 test_gate_swi_runner_grades_a_signal_death_crash_never_fail.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
+test_gate_template_form_census_names_a_planted_two_form_box.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
 test_gate_template_watch_names_a_planted_violation_by_commit.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-

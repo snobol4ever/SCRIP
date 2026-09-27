@@ -17,7 +17,10 @@
 # THE ARMS. BASE..C4: rc 1, both files named with their class, C2 and C3 named RAISED with that class and their
 # seat (C2 by the bus claim, over the ceo its message also names), C1 and C4 named touched and never RAISED, the
 # verdict counting two files and two arrived violations, the population read at both ends. BASE..C1: rc 0 and
-# nothing RAISED (the watch can say no). An unreadable base and a base that is not an ancestor: rc 2.
+# nothing RAISED (the watch can say no). Neither range names a form rise. D1, planted on HEAD apart from the chain,
+# gives a one-form box (chosen by the form census at HEAD) a second guarded return: B0..D1 names that box 1 -> 2
+# live forms and D1 as its raiser -- a form can arrive with no rule class moving, which is why the watch censuses
+# both. An unreadable base and a base that is not an ancestor: rc 2.
 # ⛔ FAIL-ONCE: TEMPLATE_WATCH=<path> points the gate at another watch; the landing's proof ran it on a mutant
 # that credits the first commit touching a file instead of the one that raised it, and the gate read RED.
 # Usage: bash scripts/test_gate_template_watch_names_a_planted_violation_by_commit.sh
@@ -104,6 +107,31 @@ hb="$(sed -n 's/^  POPULATION base: \([0-9]*\) files.*/\1/p' "$TMP/out")"; hh="$
 rc="$(run_watch "$B0" "$C1")"
 [ "$rc" = 0 ] && r=ok || r=red; arm "$r" "B0..C1 (neutral only) reads rc 0 (read $rc)"
 arm "$(hasnt "RAISED")" "B0..C1 names nothing RAISED"
+arm "$(has "FORMS VERDICT: 0 box(es) or kind(s) gained a form")" "B0..C1 names no form rise"
+grep -qF "FORMS VERDICT: 0 box(es) or kind(s) gained a form" "$TMP/out.planted" && r=ok || r=red; arm "$r" "B0..C4 (blank line, PORT_ALPHA) names no form rise"
+FB=""; FF=""
+if [ -f "$HERE/audit_template_forms.py" ]; then
+    mkdir -p "$TMP/t0"
+    git -C "$W" archive "$B0" src/templates/bb src/templates/xa src/emitter/emit.cpp | tar -x -C "$TMP/t0"
+    while IFS=$'\t' read -r b f k st fo li re; do
+        [ "$fo" = 1 ] && [ "$li" = 1 ] && [ "$re" = 0 ] || continue
+        [ "$(grep -c "^std::string $b() {\$" "$TMP/t0/$f")" = 1 ] || continue
+        FB="$b"; FF="$f"; break
+    done < <(python3 "$HERE/audit_template_forms.py" --root "$TMP/t0" --tsv | awk -F'\t' '$1 ~ /^bb_/')
+fi
+addform() { sed "s/^std::string $FB() {\$/&\n    if (_.op_zres) return x86_alpha() + x86_gamma();/"; }
+D1=""
+[ -n "$FB" ] && D1="$(plant "$B0" "$FF" addform "templates watch gate fixture: hq_templates gives the one-form box $FB a second form")"
+if [ -z "$D1" ]; then
+    arm red "a one-form box to plant a second form in was found and planted (box='$FB')"
+else
+    echo "fixture: D1=${D1:0:9} gives $FB ($FF) a second form"
+    rc="$(run_watch "$B0" "$D1")"
+    [ "$rc" = 1 ] && r=ok || r=red; arm "$r" "B0..D1 (a second form) reads rc 1 (read $rc)"
+    arm "$(has "FORMS ROSE: $FB  live forms 1 -> 2  ($FF)")" "the box that gained a form is named, 1 -> 2 live forms"
+    arm "$(has "RAISED  ${D1:0:9}  seats named: hq_templates  [live forms 1 -> 2]")" "D1 is named as the commit that raised it, with its seat"
+    arm "$(has "FORMS VERDICT: 1 box(es) or kind(s) gained a form")" "the forms verdict counts one"
+fi
 rc="$(run_watch "no-such-base-$$" "$C4")"
 [ "$rc" = 2 ] && r=ok || r=red; arm "$r" "an unreadable base refuses rc 2 (read $rc)"
 rc="$(run_watch "$C4" "$B0")"
@@ -112,5 +140,5 @@ if [ "$fails" -gt 0 ]; then
     echo "--- the watch's output on B0..C4 ---"
     cat "$TMP/out.planted"
 fi
-gate_floor "$arms" 16 "watch arms"
+gate_floor "$arms" 22 "watch arms"
 gate_verdict "$fails" "watch arm(s) red"
