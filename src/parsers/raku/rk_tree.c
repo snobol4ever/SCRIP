@@ -396,8 +396,12 @@ static tree_t *nctx(RkB *b, tree_t *e) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_rhs(tree_t *rhs) {
-    if (!rhs || rhs->t != TT_TO || rhs->n < 2) return rhs;
-    tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]); return call;
+    if (!rhs) return rhs;
+    if (rhs->t == TT_TO && rhs->n >= 2) {
+        tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]); return call;
+    }
+    if (rhs->t == TT_FNC && rhs->v.sval && (!strcmp(rhs->v.sval, "__rk_arr") || !strcmp(rhs->v.sval, "__rk_range_arr"))) return rhs;
+    tree_t *call = make_call("__rk_arr"); expr_add_child(call, rhs); return call;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_index(RkB *b, const char *arr, tree_t *idx) {
