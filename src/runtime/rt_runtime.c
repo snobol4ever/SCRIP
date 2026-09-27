@@ -4,7 +4,7 @@
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
 #include "../../parsers/prolog/prolog_atom.h"
-#include "../../parsers/raku/re.h"
+#include "re.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>

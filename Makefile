@@ -1057,6 +1057,7 @@ RT_PIC_SRCS := \
     $(SRC)/ir/frame_layout.c \
     $(SRC)/ir/zeta_depth.c \
     $(SRC)/runtime/rt_runtime.c \
+    $(SRC)/runtime/re.c \
     $(SRC)/driver/driver_globals.c \
     $(SRC)/driver/driver_label.c \
     $(SRC)/driver/driver_hooks.c \
@@ -1083,7 +1084,6 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/raku/raku_driver.c \
     $(SRC)/parsers/raku/rk_syntax.c \
     $(SRC)/parsers/raku/rk_tree.c \
-    $(SRC)/parsers/raku/re.c \
     $(SRC)/parsers/rebus/rebus.tab.c \
     $(SRC)/parsers/rebus/lex.rebus.c \
     $(SRC)/parsers/rebus/rebus_lower.c \
@@ -1325,4 +1325,9 @@ distclean: clean
 # every TU that includes it.  Before this, editing emit.h rebuilt NOTHING and make
 # silently linked an ABI-mismatched binary (the s157 bisect produced impossible
 # results for exactly this reason).  find, not wildcard: objects nest in subdirs.
--include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null)
+# A SOURCE THAT MOVED leaves every older objdir a .d naming its old path as the object's first prerequisite, and -MP
+# phony-targets headers only, so the next incremental make dies "No rule to make target" on a file nobody should build.
+# Such a .d is left out: its object rebuilds from the pattern rule when its source changes, and the .d is rewritten.
+# re.c moved from src/parsers/raku to src/runtime when the flex/bison Raku parser was deleted (CEO-1289 phase 2, cto
+# ruling). An empty rule per vanished source does NOT work: vpath then resolves the stem to the phantom target.
+-include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null | xargs -r grep -L 'src/parsers/raku/re\.c' 2>/dev/null)

@@ -74,6 +74,14 @@
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-23 cto (CTO-152 registration, ceo CEO-1213/1215): arena_in_runtime_ratcheted and arena_in_runtime_debt fall 111 -> 107. The four sites the coo recorded at 107 -> 111 are the strings the runtime pattern compiler bakes (pattern_match.c ct_strndup x2, ct_strdup x2, SCRIP d363c713e); they are now CLASS 3 in c_allocator_ruled_permanent.tsv under CEO-924 -- imm64 operands of rtpat code that outlives every collection, whose collected-heap copy WAS the holder of CTO-152 -- so they leave the ratcheted debt without moving back to the collected heap. arena_in_runtime (the unsplit total) stays 111; CLASS-3-RULED-PERMANENT 1 -> 5.
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-24 hq_prolog (row prolog-all-test-suites-...-the-home-stretch): arena_in_runtime_ratcheted and arena_in_runtime_debt fall 107 -> 106 BY STRUCTURE, NOT BY A CURE: the op/3 rewrite (by_name_dispatch.c, dop_pl_op -> rt_pl_dop_op_c) walks an atom and a list of names in one loop, so its two ct_strdup sites for an operator name became one. The runtime still copies the operator's type and name into the compile-time arena for the parser's operator table -- that debt is unchanged and is named here so the lower number is not read as a site retired.
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-26 hq_icon (row icon-every-suite-to-100-under-nonet-ceo-1266): arena_in_runtime_ratcheted and arena_in_runtime_debt fall 106 -> 105 BY STRUCTURE, NOT BY A CURE: by_name_dispatch.c's two ct_zalloc sites for the ICN_OPGEN handle (the ... and ! arms of rt_call_value_gen_h) became the one in icn_opgen_new, and the handle no longer holds a heap DESCR.
+# RE-BASELINED 2026-09-26 (hq_raku, cto ruling on CEO-1289 phase 2): `arena_in_runtime_ratcheted` and
+# `arena_in_runtime_debt` 105 -> 111 (hq_icon lowered it to 105 the same evening) by RECLASSIFICATION, NOT A NEW SITE. re.c is the runtime regex engine (nfa_build,
+# called by by_name_dispatch.c re_match/re_match_global at run time for every smartmatch) and was misfiled under
+# src/parsers/raku, where the census's path test could not see it; it moved to src/runtime with the flex/bison parser's
+# deletion. Its six compile-time-arena calls were runtime-reachable all along: src/runtime/re.c:40 ct_grow (state growth),
+# :198 ct_alloc (code-assertion copy), :302 ct_alloc (the Nfa), :305 ct_alloc (the state vector), :322 ct_drop x2 (nfa_free).
+# Paid back by row raku-the-regex-engine-nfa-storage-leaves-the-compile-time-arena-for-the-runtime-allocator-and-the-arena-
+# in-runtime-ratchet-returns-to-106 (owner hq_raku, the cfo's allocator: the collected GC heap, one block per regex).
 forbidden_total	0
 malloc	0
 calloc	0
@@ -81,9 +89,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	105
+arena_in_runtime_ratcheted	111
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	105
+arena_in_runtime_debt	111
 container_unmarked_live	1
 libc_owned_misuse	0
 libc_doors	1

@@ -90,7 +90,7 @@ static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_err
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
 #include "../driver/driver_private.h"
-#include "../parsers/raku/re.h"
+#include "re.h"
 #include "core.h"
 #include "core/utf8.h"
 #include "builtin_ids.h"

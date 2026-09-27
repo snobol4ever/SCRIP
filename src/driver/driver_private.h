@@ -10,7 +10,7 @@
 #include "parsers/snocone/snocone_driver.h"
 #include "parsers/prolog/prolog_driver.h"
 #include "parsers/prolog/prolog_atom.h"
-#include "parsers/raku/re.h"
+#include "runtime/re.h"
 #include "parsers/icon/icon_driver.h"
 #include "parsers/raku/raku_driver.h"
 #include "parsers/rebus/rebus_lower.h"
