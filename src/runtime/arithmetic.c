@@ -325,17 +325,10 @@ RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    { int64_t _z; if (!__builtin_mul_overflo
 RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);)
 RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_add_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
-    if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }
-    return rt_num_arith_impl(a, b, BINOP_ADD); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_sub_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
-    if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }
-    return rt_num_arith_impl(a, b, BINOP_SUB); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_mul_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
-    if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }
-    return rt_num_arith_impl(a, b, BINOP_MUL); }
+DESCR_t rt_big_add(DESCR_t, DESCR_t); DESCR_t rt_big_sub(DESCR_t, DESCR_t); DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+RT_BINOP_ENTRY_S(rt_add_big, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }, 0)
+RT_BINOP_ENTRY_S(rt_sub_big, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }, 0)
+RT_BINOP_ENTRY_S(rt_mul_big, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
 RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, )
