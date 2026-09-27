@@ -26,10 +26,11 @@ G=sno_mode4_code_call_inherits_the_scc_taint
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$G]: lib_oracle_flags.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)"; [ -x "$SBL" ] || { echo "GATE UNPROVEN(2) [$G]: sbl -bf oracle absent"; exit 2; }
 GIM="$S4E/corpus/packages/snobol4/gimpel"
-# gimpel's COUNT and SEQ ship as NAME.INC since the .inc row (Lon 2026-09-14, CEO-1274/1315); the witness includes whichever the package ships.
-inc_of() { local e; for e in INC inc sno; do [ -f "$GIM/$1.$e" ] && { printf '%s' "$1.$e"; return 0; }; done; return 1; }
-COUNT_F="$(inc_of COUNT)"; SEQ_F="$(inc_of SEQ)"
-[ -f "$GIM/FRSORT_driver.sno" ] && [ -n "$COUNT_F" ] && [ -n "$SEQ_F" ] || { echo "GATE UNPROVEN(2) [$G]: gimpel package (FRSORT_driver, COUNT, SEQ) missing at $GIM"; exit 2; }
+# gimpel's COUNT and SEQ ship as count.inc and seq.inc (Catspaw's SPITBOL form under lower-case names, CEO-1319; NAME.INC the day before,
+# CEO-1315); the witness includes whichever the package ships, and grades the frequency-sort driver under its own spelling.
+inc_of() { local n e; for n in "$(printf '%s' "$1" | tr 'A-Z' 'a-z')" "$1"; do for e in inc INC sno; do [ -f "$GIM/$n.$e" ] && { printf '%s' "$n.$e"; return 0; }; done; done; return 1; }
+COUNT_F="$(inc_of COUNT)"; SEQ_F="$(inc_of SEQ)"; FRS_D=frsort_driver.sno; [ -f "$GIM/$FRS_D" ] || FRS_D=FRSORT_driver.sno
+[ -f "$GIM/$FRS_D" ] && [ -n "$COUNT_F" ] && [ -n "$SEQ_F" ] || { echo "GATE UNPROVEN(2) [$G]: gimpel package (frsort_driver, count, seq) missing at $GIM"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_m4taint.XXXXXX")" || { echo "GATE UNPROVEN(2) [$G]: mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 SINK="$(sbl_listing_sink_flag "$W")" || { echo "GATE UNPROVEN(2) [$G]: no listing sink for the oracle"; exit 2; }
@@ -38,7 +39,7 @@ CC=$'\tDEFINE("CNT(A,B)")\t:(CNT_END)\nCNT\tCNT = A + B\t:(RETURN)\nCNT_END\n'
 TL=$'\tX = CODE("  N = CNT(2,3)  :(END_C)")\n\t:<X>\nEND_C\tOUTPUT = "n=" N\nEND\n'
 printf '%s%s%s' "$CC" "$MS" "$TL" > "$W/T.sno"; printf '%s%s' "$CC" "$TL" > "$W/U.sno"
 printf -- '-INCLUDE "%s"\n-INCLUDE "%s"\n%s\tS = "MISSISSIPPI"\n\tC = ARRAY(2)\n\tC<1> = "S"\n\tC<2> = "M"\n\tN = ARRAY(2)\n\tSEQ("  N<I>  =  COUNT(S,C<I>) ", .I)\n\tOUTPUT = "n=" N<1> "," N<2>\nEND\n' "$COUNT_F" "$SEQ_F" "$MS" > "$W/S.sno"
-cp "$GIM/FRSORT_driver.sno" "$W/F.sno"
+cp "$GIM/$FRS_D" "$W/F.sno"
 PASS=0; FAIL=0; GRADED=0
 grade() { local name="$1" dir="$2" rc4 o
     ( cd "$dir" && timeout 10s "$SBL" -bf $SINK "$W/$name.sno" < /dev/null > "$W/$name.oracle" 2>&1 )

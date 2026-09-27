@@ -787,10 +787,11 @@ for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv 
     _ext="$(cat "$_sd/UNGRADABLE.tsv" "$_sd/UNGRADED.tsv" 2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$' \
             | cut -f1 | sed -n 's/.*\(\.[A-Za-z0-9]*\)$/\1/p' | sort -u)"
     _nx="$(printf '%s\n' "$_ext" | grep -c .)"
-    # ONE DIALECT, THREE SPELLINGS (Lon 2026-09-14, "Change the *.sno to *.inc", CEO-1274/1315; coo COO-203): a SNOBOL4 package ships its
-    # include libraries as NAME.INC or NAME.inc beside its NAME.sno programs, so gimpel's rows name all three. They are one extension
+    # ONE DIALECT, ITS SPELLINGS (Lon 2026-09-14, "Change the *.sno to *.inc", CEO-1274/1315; Lon 2026-09-27, Catspaw's SPITBOL form under
+    # lower-case names, CEO-1319; coo COO-203/204): a SNOBOL4 package ships its include libraries as name.inc (NAME.INC the day before)
+    # beside its programs, name.spt in the SPITBOL form and NAME.sno before it, so gimpel's rows name several. They are one extension
     # family, handed to the body together exactly as test_snobol4_gimpel_suite.sh hands them; any other mix still refuses below.
-    if [ "$_nx" -gt 1 ] && [ -z "$(printf '%s\n' "$_ext" | grep -v -x -E '\.(sno|INC|inc)')" ]; then _ext="$(printf '%s' "$_ext" | tr '\n' ' ')"; _nx=1; fi
+    if [ "$_nx" -gt 1 ] && [ -z "$(printf '%s\n' "$_ext" | grep -v -x -E '\.(sno|spt|INC|inc)')" ]; then _ext="$(printf '%s' "$_ext" | tr '\n' ' ')"; _nx=1; fi
     if [ "$_nx" -eq 0 ]; then
         echo "    ARM 20 REFUSES(2): $_rel declares $_rows row(s) and NOT ONE carries an extension in its name column -- this is a malformed name column, not an empty package, and the arm will not pick an extension the data never claimed"
         echo "GATE REFUSES(2): ARM 20 could not derive $_rel's extension from its $_rows declared row(s)"; exit 2

@@ -45,13 +45,14 @@ NAME=sno_a_value_list_in_a_function_with_a_local_yields_its_arm
 refuse() { echo "GATE REFUSE(2) [$NAME]: $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- cannot measure"
 [ -f "$RT_DIR/libscrip_rt.so" ] || refuse "no $RT_DIR/libscrip_rt.so -- cannot measure mode 4"
-[ -f "$PKG/ARC_driver.sno" ] && [ -f "$PKG/ARC.sno" ] || refuse "no Gimpel ARC under $PKG -- pull corpus"
+{ [ -f "$PKG/arc_driver.sno" ] && [ -f "$PKG/arc.inc" ]; } || { [ -f "$PKG/ARC_driver.sno" ] && [ -f "$PKG/ARC.sno" ]; } || refuse "no Gimpel ARC under $PKG -- pull corpus"
+ARC_D=arc_driver; [ -f "$PKG/$ARC_D.sno" ] || ARC_D=ARC_driver   # lower-case since Catspaw's SPITBOL form (CEO-1319)
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || true
 SBL="$(sbl_correctness_bin 2>/dev/null || true)"; [ -n "${SBL:-}" ] && [ -x "$SBL" ] || SBL=/home/resources/x64/bin/sbl
 [ -x "$SBL" ] || refuse "no sbl oracle -- cannot measure (a missing oracle prints a full false table)"
 T="$(mktemp -d)" || refuse "no tmpdir"
 trap 'rm -rf "$T"' EXIT
-cp "$PKG"/*.sno "$T/" 2>/dev/null; cp "$PKG"/*.INC "$PKG"/*.inc "$T/" 2>/dev/null
+cp "$PKG"/*.sno "$T/" 2>/dev/null; cp "$PKG"/*.INC "$PKG"/*.inc "$PKG"/*.spt "$T/" 2>/dev/null
 cat > "$T/vl.sno" <<'EOF'
         DEFINE('F(X)K')                         :(F_END)
 F       F = (EQ(X,0) 5, EQ(X,1) 'one', 7)       :(RETURN)
@@ -110,7 +111,7 @@ for s in range(0, 4):
     bd += ["        OUTPUT = 'nf%d ' NF%d(%d)" % (s, s, s)]
 open(sys.argv[1], "w").write("\n".join(fd + bd + ["END"]) + "\n")
 PY2
-for w in vl mx ctl ARC_driver; do ( cd "$T" && timeout 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
+for w in vl mx ctl "$ARC_D"; do ( cd "$T" && timeout 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
 grep -qx '5 one 7' "$T/vl.oracle" && grep -qx 'fact 720' "$T/vl.oracle" && grep -qx 'lqll lsl' "$T/vl.oracle" || refuse "sbl's answer moved: [$(tr '\n' '|' < "$T/vl.oracle")]"
 [ "$(wc -l < "$T/mx.oracle")" = 44 ] && grep -qx 'Lk5s3 v3 R' "$T/mx.oracle" && grep -qx 'Fk4s0 fail' "$T/mx.oracle" || refuse "sbl's matrix answer moved: $(wc -l < "$T/mx.oracle") lines"
 grep -qx 'three-last-succeeds  7' "$T/ctl.oracle" && grep -qx 'calls c!' "$T/ctl.oracle" || refuse "sbl's control answer moved: [$(tr '\n' '|' < "$T/ctl.oracle")]"
@@ -122,7 +123,7 @@ m3s() { ( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --stlimit "$1.sno" <
 m4() { ( cd "$T" && timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
 rc=$(m3 vl); arm "m3: lists in functions with locals, nested lists, operands around the list" "$(same "$rc" vl.m3 vl.oracle)"
 rc=$(m4 vl); arm "m4: lists in functions with locals, nested lists, operands around the list" "$(same "$rc" vl.m4 vl.oracle)"
-rc=$(m3s ARC_driver); arm "m3: Gimpel ARC through its driver (under --stlimit, as the graders run it)" "$(same "$rc" ARC_driver.m3 ARC_driver.oracle)"
+rc=$(m3s "$ARC_D"); arm "m3: Gimpel ARC through its driver (under --stlimit, as the graders run it)" "$(same "$rc" "$ARC_D.m3" "$ARC_D.oracle")"
 rc=$(m3 mx); arm "MATRIX m3: 2-5 arms, every succeeding position and none, top level and in a function, nested" "$(same "$rc" mx.m3 mx.oracle)"
 rc=$(m4 mx); arm "MATRIX m4: 2-5 arms, every succeeding position and none, top level and in a function, nested" "$(same "$rc" mx.m4 mx.oracle)"
 rc=$( cd "$T" && SCRIP_GC_STRESS=5 timeout 60 "$SCRIP" mx.sno < /dev/null > mx.gc 2>&1; echo $? ); arm "MATRIX m3 under SCRIP_GC_STRESS=5" "$(same "$rc" mx.gc mx.oracle)"

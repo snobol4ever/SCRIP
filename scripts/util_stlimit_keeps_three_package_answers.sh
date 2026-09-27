@@ -4,7 +4,7 @@
 # graders' --stlimit switch OFF and not with it ON; this runs them ON. rc 0 all three answer, 1 a red named, 2 could not run.
 export SCRIP_SNO_STMTKW=1
 cd "${S4E_HOME:-/home/claude_ceo}/corpus/packages/snobol4/gimpel" || exit 2
-for p in TICTACTO TREEREAD; do i=/dev/null; [ -f ${p}_driver.in ] && i=${p}_driver.in; diff -q <(SNO_LIB=.:include timeout 60 "${S4E_HOME:-/home/claude_ceo}/SCRIP/scrip" ${p}_driver.sno < $i 2>/dev/null) ${p}_driver.ref > /dev/null || { echo "RED $p"; exit 1; }; done
+for p in TICTACTO TREEREAD; do [ -f ${p}_driver.sno ] || p=$(printf %s "$p" | tr A-Z a-z); i=/dev/null; [ -f ${p}_driver.in ] && i=${p}_driver.in; diff -q <(SNO_LIB=.:include timeout 60 "${S4E_HOME:-/home/claude_ceo}/SCRIP/scrip" ${p}_driver.sno < $i 2>/dev/null) ${p}_driver.ref > /dev/null || { echo "RED $p"; exit 1; }; done
 cd ../aisnobol || exit 2
 # ⛔ THE ORACLE'S STATUS IS READ BEFORE ITS ANSWER IS USED (coo 2026-09-27, test_gate_ref_cutters_refuse_a_dead_oracle.sh arm 6, ceo
 # CEO-1306): the answer came through a process substitution, so an sbl that died on a signal half-way through printing -- the ERROR 212

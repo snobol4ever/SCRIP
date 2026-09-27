@@ -138,15 +138,20 @@ fi
 # a driver row whose library is not shipped refuses -- a vehicle with nothing to carry. The progress rows land under the
 # library's name (util_progress_append.py results-tsv). Measured at the ruling: 148 libraries, 144 drivers, four without one.
 GPKG="$CORPUS_REAL/packages/snobol4/gimpel"
-# ⛔ A LIBRARY SHIPS AS NAME.sno, NAME.INC OR NAME.inc (Lon 2026-09-14, "Change the *.sno to *.inc", CEO-1274/1315; coo COO-203): an
-# include file carries the extension its own first line names, so 120 gimpel libraries are NAME.INC and their drivers stay NAME_driver.sno.
-# A census over *.sno alone read those 120 as unshipped and refused 118 drivers as orphans. _lib_of names the file a driver carries.
-_lib_of() { local s="$CORPUS_REAL/${1%_driver.sno}" e; for e in sno INC inc; do [ -f "$s.$e" ] && { printf '%s' "${s##*/}.$e"; return 0; }; done; return 1; }
+# ⛔ A LIBRARY SHIPS AS name.inc, A PROGRAM AS name.spt (Lon 2026-09-27, "Use the *.inc names exclusively" -- Catspaw's SPITBOL form under
+# lower-case names, CEO-1319; the .sno/.INC spellings of the day before, CEO-1315, still read), and its driver is name_driver.sno. The two
+# stems the form ships twice, as a program and the library it includes (infinip, rseason), keep the _lib convention: x_driver drives x.spt
+# and x_lib_driver drives x.inc. _lib_of names the file a driver carries; a library no driver carries is NO DRIVER.
+_lib_of() { local s="$CORPUS_REAL/${1%_driver.sno}" e
+    for e in spt inc sno INC; do [ -f "$s.$e" ] && { printf '%s' "${s##*/}.$e"; return 0; }; done
+    case "$s" in *_lib) s="${s%_lib}"; [ -f "$s.inc" ] && { printf '%s' "${s##*/}.inc"; return 0; } ;; esac
+    return 1; }
+DRIVEN=" $(cd "$GPKG" 2>/dev/null && for _d in *_driver.sno; do [ -f "$_d" ] && _lib_of "packages/snobol4/gimpel/$_d" && printf ' '; done) "
 SHIPPED_LIBS=0; NODRV_NAMES=""
 while IFS= read -r _f; do
     _b="${_f##*/}"; case "$_b" in ALL.*|*_driver.sno) continue ;; esac
-    SHIPPED_LIBS=$((SHIPPED_LIBS+1)); [ -f "${_f%.*}_driver.sno" ] || NODRV_NAMES="$NODRV_NAMES ${_b%.*}"
-done < <(find "$GPKG" -type f \( -name '*.sno' -o -name '*.INC' -o -name '*.inc' \) ! -path '*.fixtures/*' 2>/dev/null | LC_ALL=C sort)
+    SHIPPED_LIBS=$((SHIPPED_LIBS+1)); case "$DRIVEN" in *" $_b "*) ;; *) NODRV_NAMES="$NODRV_NAMES ${_b%.*}" ;; esac
+done < <(find "$GPKG" -type f \( -name '*.inc' -o -name '*.spt' -o -name '*.sno' -o -name '*.INC' \) ! -path '*.fixtures/*' 2>/dev/null | LC_ALL=C sort)
 ORPHAN_DRV="$(awk -F'\t' '{print $2}' "$TSV" | while IFS= read -r _p; do _lib_of "$_p" > /dev/null || printf ' %s' "${_p##*/}"; done)"
 LIBMAP="$(awk -F'\t' '{print $2}' "$TSV" | while IFS= read -r _p; do _l="$(_lib_of "$_p")" && printf '%s\t%s\n' "$_p" "$_l"; done)"
 [ -z "$ORPHAN_DRV" ] || { echo "⛔ REFUSE(rc=2): graded driver(s) whose library the package does not ship:$ORPHAN_DRV -- a vehicle with nothing to carry (CEO-1269)"; exit 2; }
@@ -198,7 +203,7 @@ awk -F'\t' 'NR==FNR{lib[$1]=$2; next} $3!="ORACLE_FAIL" && ($3!="PASS" || $4!="P
 # is rc=2 on the INVENTORY only -- the board line and this gate's own verdict are untouched below.
 # The sidecars are row snobol4-gimpel-inventory-sidecars-name-the-oracles-own-reason-for-all-163 (seat02).
 . "$HERE/lib_inventory.sh"
-INV_PACKAGE=gimpel; INV_DIR="$CORPUS_REAL/packages/snobol4/gimpel"; INV_EXT=".sno .INC .inc"
+INV_PACKAGE=gimpel; INV_DIR="$CORPUS_REAL/packages/snobol4/gimpel"; INV_EXT=".inc .spt .sno .INC"
 # graded_narrow=0, and CONFIRMED rather than assumed (ceo CEO-307 (3) asked for exactly this): this runner
 # grades through scorecard_snobol4.sh's grade(), which is `cmp -s` against the .ref pin and then against the
 # live oracle -- full stream equality, no error-number arm anywhere in the path. ⛔ THE ERROR-NUMBER ARM IS

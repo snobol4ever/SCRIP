@@ -417,6 +417,27 @@ SCORECARD_SUITE_KEYS = {"gimpel": "gimpel", "csnobol4": "csnobol4", "csnobol4_su
                         "aisnobol": "aisnobol", "dotnet": "dotnet", "testpgms": "testpgms", "spitbol_testpgms": "testpgms"}
 
 
+def _driven_library(prog):
+    """NAME_driver<ext> -> the library file it drives, as the package ships it (CEO-1269). The nominal NAME<ext> when that file ships;
+    else the one shipped NAME.spt / NAME.inc / NAME.INC, and NAME_lib_driver drives NAME.inc when NAME ships twice -- gimpel is Catspaw's
+    SPITBOL form under lower-case names since 2026-09-27 (Lon: "Use the *.inc names exclusively", CEO-1319, which keys every row by the
+    library's own file and never by NAME.sno). A program that is not a driver is itself."""
+    m = re.match(r"(.*)_driver(\.[A-Za-z0-9]+)$", prog)
+    if not m:
+        return prog
+    stem, nominal = m.group(1), m.group(1) + m.group(2)
+    # the corpus the run graded: a runner's overlay or fixture (CORPUS, as scorecard_snobol4.sh reads it) before the seat's own
+    for base in [b for b in (os.environ.get("CORPUS"), os.path.join(S4E, "corpus")) if b]:
+        if os.path.isfile(os.path.join(base, nominal)):
+            return nominal
+        for ext in (".spt", ".inc", ".INC"):
+            if os.path.isfile(os.path.join(base, stem + ext)):
+                return stem + ext
+        if stem.endswith("_lib") and os.path.isfile(os.path.join(base, stem[:-4] + ".inc")):
+            return stem[:-4] + ".inc"
+    return nominal
+
+
 def rows_from_results_tsv(path, suite, lang):
     """scorecard_snobol4.sh results.tsv: suite<TAB>program<TAB>m3<TAB>m4<TAB>t3<TAB>t4<TAB>note -- one row per mode.
     suite="auto" takes column 1 through SCORECARD_SUITE_KEYS and SKIPS (aloud) rows of a suite that is not in the table."""
@@ -433,7 +454,7 @@ def rows_from_results_tsv(path, suite, lang):
         # ⛔⭐ A DRIVER'S ROW IS ITS LIBRARY'S ROW (ceo CEO-1269; coo 2026-09-25): NAME_driver<ext> is the grading vehicle of the
         # library NAME<ext>, which is the program, so the verdict is recorded under the library's name. gimpel's 144 drivers were
         # recorded as packages/snobol4/gimpel/NAME_driver.sno, and the 148 libraries they grade appeared nowhere in this table.
-        prog = re.sub(r"_driver(\.[A-Za-z0-9]+)$", r"\1", f[1])
+        prog = _driven_library(f[1])
         row_suite = suite
         if suite == "auto":
             row_suite = SCORECARD_SUITE_KEYS.get(f[0].strip().lower(), "")
