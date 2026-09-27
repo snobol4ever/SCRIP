@@ -563,6 +563,10 @@ static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb)
         if (a.i > b.i) return  1;
         return 0;
     }
+    if ((a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R)) {
+        double x = a.v == DT_I ? (double)a.i : a.r, y = b.v == DT_I ? (double)b.i : b.r;
+        return x < y ? -1 : (x > y ? 1 : 0);
+    }
     if ((a.v == DT_S || a.v == DT_SNUL) && (b.v == DT_S || b.v == DT_SNUL)) {
         return strcmp(sa ? sa : "", sb ? sb : "");
     }
@@ -571,95 +575,130 @@ static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb)
     return strcmp(sa ? sa : "", sb ? sb : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t sort_fn(DESCR_t arr) {
-    if (arr.v == DT_A) {
-        ARBLK_t *src = arr.arr;
-        if (!src) return arr;
-        int n = src->hi - src->lo + 1;
-        if (n <= 0) return arr;
-        DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
-        const char **strs = rt_pvec_alloc((size_t)n);
-        char *bufblk = rt_wsb_alloc((size_t)n * 64);
-        for (int i = 0; i < n; i++) { vals[i] = src->data[i]; strs[i] = tbl_key_str(vals[i], bufblk + (size_t)i * 64, 64); }
-        for (int i = 1; i < n; i++) {
-            DESCR_t tv = vals[i]; const char *ts = strs[i];
-            int j = i - 1;
-            while (j >= 0 && _sort_cmp_descr(vals[j], tv, strs[j], ts) > 0) {
-                vals[j+1] = vals[j]; strs[j+1] = strs[j]; j--;
-            }
-            vals[j+1] = tv; strs[j+1] = ts;
-        }
-        ARBLK_t *a = array_new(src->lo, src->hi);
-        for (int i = 0; i < n; i++) a->data[i] = vals[i];
-        DESCR_t result = {0}; result.v = DT_A; result.arr = a;
-        return result;
-    }
-    if (arr.v != DT_T) return arr;
-    TBBLK_t *tbl = arr.tbl;
-    if (!tbl) return FAILDESCR;
-    int n = 0; TBPAIR_t *e;
-    TBL_FOREACH(tbl, e) n++;
-    if (n == 0) return FAILDESCR;
-    const char **keys = rt_pvec_alloc((size_t)n);
-    DESCR_t *key_descrs = rt_ws_alloc_descr((size_t)n);
-    DESCR_t *vals = rt_ws_alloc_descr((size_t)n);
-    int idx = 0;
-    TBL_FOREACH(tbl, e) {
-            keys[idx] = tbl_pair_key(e);
-            key_descrs[idx] = e->key_descr;
-            vals[idx] = e->val;
-            idx++;
-        }
-    int *order = rt_wsb_alloc(n * sizeof(int));
-    for (int i = 0; i < n; i++) order[i] = i;
-    for (int i = 1; i < n; i++) {
-        int tmp = order[i];
-        int j = i - 1;
-        while (j >= 0 &&
-               _sort_cmp_descr(key_descrs[order[j]], key_descrs[tmp],
-                               keys[order[j]],      keys[tmp]) > 0) {
-            order[j+1] = order[j]; j--;
-        }
-        order[j+1] = tmp;
-    }
-    ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
-    a->dumpno     = rt_sno_dumpno_next();
-    a->lo         = 1;
-    a->hi         = n;
-    a->ndim       = 1;
-    a->lo2        = 0;
-    a->hi2        = 0;
-    a->proto_bare = 1;
-    a->id         = rt_agg_serial_list();
-    { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_heap_strdup_c(pb); }
-    a->data = rt_ws_alloc_descr((size_t)n);
-    for (int i = 0; i < n; i++) {
-        ARBLK_t *row = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
-        row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0; row->id = rt_agg_serial_list(); row->dumpno = 0;
-        row->data = rt_ws_alloc_descr(2);
-        row->data[0] = key_descrs[order[i]];
-        row->data[1] = vals[order[i]];
-        DESCR_t rd = {0}; rd.v = DT_A; rd.arr = row;
-        a->data[i] = rd;
-    }
-    DESCR_t result = {0};
-    result.v = DT_A;
-    result.arr    = a;
-    return result;
+static int sort_is_rowarr(const ARBLK_t *a) { return a && a->ndim == 1 && a->proto && strchr(a->proto, ','); }
+static int sort_proto_dims(const ARBLK_t *a) { int d = 1; if (a && a->proto) for (const char *p = a->proto; *p; p++) if (*p == ',') d++; return d; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sort_row_cell(DESCR_t row, int c) { return (row.v == DT_A && row.arr && c >= row.arr->lo && c <= row.arr->hi) ? row.arr->data[c - row.arr->lo] : NULVCL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sort_field_key(DESCR_t v, const char *fld) {
+    if (!fld || !IS_DATA(v) || !v.u || !v.u->type) return v;
+    for (int i = 0; i < v.u->type->nfields; i++) if (strcasecmp(v.u->type->fields[i], fld) == 0) return v.u->fields[i];
+    return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rsort_fn(DESCR_t arr) {
-    DESCR_t sorted = sort_fn(arr);
-    if (sorted.v != DT_A || !sorted.arr) return sorted;
-    ARBLK_t *a = sorted.arr;
-    int n = a->hi - a->lo + 1;
-    for (int lo = 0, hi = n - 1; lo < hi; lo++, hi--) {
-        DESCR_t tmp = a->data[lo];
-        a->data[lo] = a->data[hi];
-        a->data[hi] = tmp;
-    }
-    return sorted;
+static int sort_ord_cmp(const DESCR_t *keys, const char **strs, int x, int y, int rev) {
+    int c = _sort_cmp_descr(keys[x], keys[y], strs[x], strs[y]);
+    if (c) return rev ? -c : c;
+    return x < y ? -1 : (x > y ? 1 : 0);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sort_ord_merge(int *ord, int *tmp, int n, const DESCR_t *keys, const char **strs, int rev) {
+    if (n < 2) return;
+    int m = n / 2, i = 0, j = m, k = 0;
+    sort_ord_merge(ord, tmp, m, keys, strs, rev); sort_ord_merge(ord + m, tmp + m, n - m, keys, strs, rev);
+    while (i < m && j < n) tmp[k++] = (sort_ord_cmp(keys, strs, ord[j], ord[i], rev) < 0) ? ord[j++] : ord[i++];
+    while (i < m) tmp[k++] = ord[i++];
+    while (j < n) tmp[k++] = ord[j++];
+    for (int t = 0; t < n; t++) ord[t] = tmp[t];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int *sort_order(const DESCR_t *keys, int n, int rev) {
+    const char **strs = rt_pvec_alloc((size_t)n);
+    char *bufblk = rt_wsb_alloc((size_t)n * 64);
+    for (int i = 0; i < n; i++) strs[i] = tbl_key_str(keys[i], bufblk + (size_t)i * 64, 64);
+    int *ord = rt_wsb_alloc((size_t)n * sizeof(int)), *tmp = rt_wsb_alloc((size_t)n * sizeof(int));
+    for (int i = 0; i < n; i++) ord[i] = i;
+    sort_ord_merge(ord, tmp, n, keys, strs, rev);
+    return ord;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sort_row_copy(DESCR_t row) {
+    if (row.v != DT_A || !row.arr) return row;
+    ARBLK_t *s = row.arr, *r = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+    int w = s->hi - s->lo + 1; if (w < 1) w = 1;
+    r->lo = s->lo; r->hi = s->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = s->proto_bare; r->proto = s->proto; r->id = rt_agg_serial_list(); r->dumpno = 0;
+    r->data = rt_ws_alloc_descr((size_t)w);
+    for (int i = 0; i < w; i++) r->data[i] = s->data[i];
+    DESCR_t d = {0}; d.v = DT_A; d.arr = r; return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_column(DESCR_t col, int lb2, int dim2, int *out) {
+    extern DESCR_t rt_sno_cnv_num(DESCR_t, int);
+    if (IS_NULL_fn(col)) { *out = lb2; return 1; }
+    DESCR_t ci = IS_INT_fn(col) ? col : rt_sno_cnv_num(col, 'I');
+    if (ci.v != DT_I || ci.i < lb2 || ci.i >= (int64_t)lb2 + dim2) return 0;
+    *out = (int)ci.i; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sort_rows(DESCR_t *rows, int n, int lo, const char *proto, int proto_bare, DESCR_t col, int rev) {
+    extern int kwb_error(int code, const char *msg);
+    int c, lb2 = 1, w = 2;
+    if (n > 0 && rows[0].v == DT_A && rows[0].arr) { lb2 = rows[0].arr->lo; w = rows[0].arr->hi - rows[0].arr->lo + 1; }
+    if (!sort_column(col, lb2, w, &c)) { kwb_error(258, "sort/rsort 2nd arg out of range or non-integer"); return FAILDESCR; }
+    DESCR_t *keys = rt_ws_alloc_descr((size_t)n);
+    for (int i = 0; i < n; i++) keys[i] = sort_row_cell(rows[i], c);
+    int *ord = sort_order(keys, n, rev);
+    ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+    a->dumpno = rt_sno_dumpno_next(); a->lo = lo; a->hi = lo + n - 1; a->ndim = 1; a->lo2 = 0; a->hi2 = 0;
+    a->proto_bare = proto_bare; a->id = rt_agg_serial_list(); a->proto = proto;
+    a->data = rt_ws_alloc_descr((size_t)n);
+    for (int i = 0; i < n; i++) a->data[i] = sort_row_copy(rows[ord[i]]);
+    DESCR_t result = {0}; result.v = DT_A; result.arr = a; return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sort_impl(DESCR_t arr, DESCR_t col, int rev) {
+    extern int kwb_error(int code, const char *msg);
+    if (arr.v == DT_T) {
+        TBBLK_t *tbl = arr.tbl;
+        if (!tbl) return FAILDESCR;
+        int n = 0; TBPAIR_t *e;
+        TBL_FOREACH(tbl, e) if (!IS_NULL_fn(e->val)) n++;
+        if (n == 0) return FAILDESCR;
+        DESCR_t *rows = rt_ws_alloc_descr((size_t)n);
+        int k = 0;
+        TBL_FOREACH(tbl, e) {
+            if (IS_NULL_fn(e->val)) continue;
+            ARBLK_t *row = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+            row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0; row->id = rt_agg_serial_list(); row->dumpno = 0;
+            row->data = rt_ws_alloc_descr(2);
+            row->data[0] = e->key_descr; row->data[1] = e->val;
+            DESCR_t rd = {0}; rd.v = DT_A; rd.arr = row; rows[k++] = rd;
+        }
+        char pb[48]; snprintf(pb, sizeof pb, "%d,2", n);
+        return sort_rows(rows, n, 1, rt_heap_strdup_c(pb), 1, col, rev);
+    }
+    if (arr.v != DT_A || !arr.arr || (arr.arr->ndim != 1 && arr.arr->ndim != 2) || sort_proto_dims(arr.arr) > 2) { kwb_error(256, "sort/rsort 1st arg not suitable array or table"); return FAILDESCR; }
+    ARBLK_t *src = arr.arr;
+    int n = src->hi - src->lo + 1;
+    if (sort_is_rowarr(src)) return sort_rows(src->data, n < 0 ? 0 : n, src->lo, src->proto, src->proto_bare, col, rev);
+    if (src->ndim == 2) {
+        int w = src->hi2 - src->lo2 + 1, c;
+        if (!sort_column(col, src->lo2, w, &c)) { kwb_error(258, "sort/rsort 2nd arg out of range or non-integer"); return FAILDESCR; }
+        ARBLK_t *a = array_new2d(src->lo, src->hi, src->lo2, src->hi2);
+        a->proto = src->proto; a->proto_bare = src->proto_bare;
+        if (n <= 0 || w <= 0) { DESCR_t r0 = {0}; r0.v = DT_A; r0.arr = a; return r0; }
+        DESCR_t *keys = rt_ws_alloc_descr((size_t)n);
+        for (int i = 0; i < n; i++) keys[i] = src->data[(size_t)i * w + (c - src->lo2)];
+        int *ord = sort_order(keys, n, rev);
+        for (int i = 0; i < n; i++) for (int j = 0; j < w; j++) a->data[(size_t)i * w + j] = src->data[(size_t)ord[i] * w + j];
+        DESCR_t result = {0}; result.v = DT_A; result.arr = a; return result;
+    }
+    const char *fld = NULL;
+    if (!IS_NULL_fn(col)) {
+        if (!IS_STR_fn(col) && !IS_INT_fn(col) && !IS_REAL_fn(col)) { kwb_error(257, "erroneous 2nd arg in sort/rsort of vector"); return FAILDESCR; }
+        fld = VARVAL_fn(col);
+    }
+    ARBLK_t *a = array_new(src->lo, src->hi);
+    if (n <= 0) { DESCR_t r0 = {0}; r0.v = DT_A; r0.arr = a; return r0; }
+    DESCR_t *keys = rt_ws_alloc_descr((size_t)n);
+    for (int i = 0; i < n; i++) keys[i] = sort_field_key(src->data[i], fld);
+    int *ord = sort_order(keys, n, rev);
+    for (int i = 0; i < n; i++) a->data[i] = src->data[ord[i]];
+    DESCR_t result = {0}; result.v = DT_A; result.arr = a; return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
+DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_CAS_ISLAND_BYTES ((size_t)8u << 20)
 #define RT_CAS_DFX_MAX      (1 << 14)

@@ -431,8 +431,8 @@ DESCR_t CODE_fn(DESCR_t str_d);
 DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t opsyn2(DESCR_t a, DESCR_t b) { return opsyn(a, b, NULVCL); }
-DESCR_t sort_fn(DESCR_t arr);
-DESCR_t rsort_fn(DESCR_t arr);
+DESCR_t sort_fn(DESCR_t arr, DESCR_t col);
+DESCR_t rsort_fn(DESCR_t arr, DESCR_t col);
 void    core_set_label_exists_hook(int (*fn)(const char *));
 const char *setexit_label_get(char *buf, size_t bufsz);
 void    sno_setexit_fire_on_end(void);

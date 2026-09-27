@@ -1693,7 +1693,7 @@ static DESCR_t _UCASE__fn(DESCR_t *a, int n) {
 extern DESCR_t EVAL_fn(DESCR_t);
 extern DESCR_t code(const char *src);
 extern DESCR_t opsyn(DESCR_t, DESCR_t, DESCR_t);
-extern DESCR_t sort_fn(DESCR_t);
+extern DESCR_t sort_fn(DESCR_t, DESCR_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _EVAL_(DESCR_t *a, int n)  { return EVAL_fn(n>0?a[0]:NULVCL); }
 static DESCR_t _CODE_(DESCR_t *a, int n)  { return code(n>0?VARVAL_fn(a[0]):""); }
@@ -1712,7 +1712,7 @@ static DESCR_t _LABELCODE_(DESCR_t *a, int n) {
 static DESCR_t _OPSYN_(DESCR_t *a, int n) {
     return opsyn(n>0?a[0]:NULVCL,n>1?a[1]:NULVCL,n>2?a[2]:NULVCL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _SORT_(DESCR_t *a, int n)  { return sort_fn(n>0?a[0]:NULVCL); }
+static DESCR_t _SORT_(DESCR_t *a, int n)  { return sort_fn(n>0?a[0]:NULVCL, n>1?a[1]:NULVCL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _DATE_(DESCR_t *a, int n) {
     (void)a; (void)n;
@@ -1969,9 +1969,9 @@ static DESCR_t _b_tree_c(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     return FIELD_GET_fn(a[0], "c");
 }
-extern DESCR_t rsort_fn(DESCR_t t);
+extern DESCR_t rsort_fn(DESCR_t t, DESCR_t c);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _RSORT_(DESCR_t *a, int n) { return rsort_fn(n>0?a[0]:NULVCL); }
+static DESCR_t _RSORT_(DESCR_t *a, int n) { return rsort_fn(n>0?a[0]:NULVCL, n>1?a[1]:NULVCL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CLEAR_MAX_EXCEPT 64
 static DESCR_t _CLEAR_(DESCR_t *a, int n) {
@@ -2645,7 +2645,7 @@ void core_lib_init(void) {
     register_fn("OPSYN", _OPSYN_, 2, 3);
     register_fn("ARG",   _ARG_,   2, 2);
     register_fn("LOCAL", _LOCAL_, 2, 2);
-    register_fn("SORT",  _SORT_,  1, 1);
+    register_fn("SORT",  _SORT_,  1, 2);
     register_fn("INPUT",  _INPUT_,  1, 4);
     register_fn("OUTPUT", _OUTPUT_, 1, 4);
     register_fn("nPush",    _b_nPush,    0, 0);
@@ -2677,7 +2677,7 @@ void core_lib_init(void) {
     register_fn("MON_CLOSE",       _b_MON_CLOSE,        0, 0);
     register_fn("DATE",     _DATE_,        0, 0);
     register_fn("TIME",     _TIME_,        0, 0);
-    register_fn("RSORT",    _RSORT_,       1, 1);
+    register_fn("RSORT",    _RSORT_,       1, 2);
     register_fn("CLEAR",    _CLEAR_,       0, 1);
     register_fn("SETEXIT",  _SETEXIT_,     0, 1);
     register_fn("FUNCTION", _FUNCTION_,    1, 1);
