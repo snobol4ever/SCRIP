@@ -484,7 +484,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return sx_binop(cx, t, sno_binop_code(t->t), γ, ω, res);
     case TT_MNS: case TT_PLS: {
         if (t->n < 1) sno_fatal("unary operator with missing operand", NULL);
-        IR_t * op = lc_build(cx->g, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) t->t;
+        IR_t * op = lc_build(cx->g, IR_UNOP, γ, ω); IR_LIT(op).ival = (long long) t->t; op->strict = 2;
         IR_t * ar = NULL; IR_t * ea = sx_lower(cx, t->c[0], op, ω, &ar);
         ir_operand_push(op, ar);
         if (res) *res = op; return ea;

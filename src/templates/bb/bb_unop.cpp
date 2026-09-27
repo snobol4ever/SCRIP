@@ -7,6 +7,8 @@ extern "C" {
 #include "descr.h"
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_num_neg(struct DESCR_t a);
+struct DESCR_t rt_num_neg_strict(struct DESCR_t a);
+struct DESCR_t rt_num_neg_sno(struct DESCR_t a);
 struct DESCR_t rt_num_pos(struct DESCR_t a);
 struct DESCR_t rt_cset_compl(struct DESCR_t a);
 struct DESCR_t rt_deref(struct DESCR_t d);
@@ -22,7 +24,8 @@ std::string bb_unop() {
              + x86("mov", "rdi", ZOPQ(0, 0))
              + x86("note", ZOPN(0))
              + x86("mov", "rsi", ZOPQ(0, 8))
-             + IF((int)_.op_ival == TT_MNS,        x86("call", "rt_num_neg",   (uint64_t)(uintptr_t)(void *)rt_num_neg))
+             + IF((int)_.op_ival == TT_MNS,        x86("call", (_.op_strict == 2 ? "rt_num_neg_sno" : _.op_strict == 1 ? "rt_num_neg_strict" : "rt_num_neg"),
+                                                        (uint64_t)(uintptr_t)(_.op_strict == 2 ? (void *)rt_num_neg_sno : _.op_strict == 1 ? (void *)rt_num_neg_strict : (void *)rt_num_neg)))
              + IF((int)_.op_ival == TT_PLS,        x86("call", "rt_num_pos",   (uint64_t)(uintptr_t)(void *)rt_num_pos))
              + IF((int)_.op_ival == TT_SIZE,       x86("call", "rt_size_d",    (uint64_t)(uintptr_t)(void *)rt_size_d))
              + IF((int)_.op_ival == TT_CSET_COMPL, x86("call", "rt_cset_compl",(uint64_t)(uintptr_t)(void *)rt_cset_compl))
@@ -111,7 +114,8 @@ std::string bb_unop() {
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
-             + IF((int)_.op_ival == TT_MNS, x86("call", "rt_num_neg", (uint64_t)(uintptr_t)(void *)rt_num_neg))
+             + IF((int)_.op_ival == TT_MNS, x86("call", (_.op_strict == 2 ? "rt_num_neg_sno" : _.op_strict == 1 ? "rt_num_neg_strict" : "rt_num_neg"),
+                                                 (uint64_t)(uintptr_t)(_.op_strict == 2 ? (void *)rt_num_neg_sno : _.op_strict == 1 ? (void *)rt_num_neg_strict : (void *)rt_num_neg)))
              + IF((int)_.op_ival != TT_MNS, x86("call", "rt_num_pos", (uint64_t)(uintptr_t)(void *)rt_num_pos))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
