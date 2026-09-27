@@ -38,7 +38,7 @@ SCRIP="${SCRIP:-$SD/scrip}"; RT_DIR="${RT_DIR:-$SD/out}"; T="${TIMEOUT:-60}"
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)" || exit 2
 FLAGS="$(sbl_lang_flags)"
-# ⛔⭐⭐ CEO-281 CLAUSE (2) -- TWO PROGRAMS ARE GRADED AGAINST CSNOBOL4, AND THE CHOICE IS RULED, NOT CONVENIENT.
+# ⛔⭐⭐ CEO-281 CLAUSE (2) -- SUPERSEDED BY CEO-1316 (2026-09-27): test5 and test8 are graded against sbl itself, through its post-mortem block (the CEO-1316 arm below); what follows is the history of why they once read against csnobol4.
 # test5 and test8 are LEGAL SNOBOL4 that SPITBOL declines by I/O ENVIRONMENT rather than by semantics: sbl -bf
 # stops test5 with ERROR 116 (`INPUT(.INPUT,,72)` -- an EMPTY channel, where manual v3.7:1929 requires a valid
 # integer) and test8 with ERROR 160 (`OUTPUT('TITLE',6,'(14H1THIS IS HAND ,110A1)')` -- a third argument that is
@@ -76,9 +76,23 @@ CANON_SUITE="$ROOT/corpus/packages/snobol4/spitbol_testpgms"
 PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
 prog_row() { printf 'package\ttestpgms\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "${4:-}" >> "$PROG_ROWS"; }
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
+# graded_same <scrip-stdout> -- the one comparison, both modes (CEO-1316): stdout byte for byte against the oracle's stdout, or against
+# its body with the post-mortem block removed; and for a post-mortem answer, SCRIP's stderr (<stdout>.err) rendered through the one
+# error voice must carry the oracle's banner line exactly and its statement.
+voice_of() { python3 "$HERE/util_render_error_voice.py" spitbol < "$1" 2>/dev/null; }
+graded_same() {
+    cmp -s "$ora_cmp" "$1" || return 1
+    [ -z "$pm_banner" ] && return 0
+    local v; v="$(voice_of "$1.err")" || return 1
+    printf '%s\n' "$v" | grep -qxF -- "$pm_banner" && printf '%s\n' "$v" | grep -qxF -- "in statement $pm_stno"
+}
+why_red() {
+    if ! cmp -s "$ora_cmp" "$1"; then echo "first diff: $(diff "$ora_cmp" "$1" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100)"
+    else echo "stdout agrees; the error voice does not: oracle [$pm_banner / in statement $pm_stno], SCRIP rendered [$(voice_of "$1.err" | head -2 | tr '\n' ' ' | cut -c1-120)]"; fi
+}
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
-TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""
+TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""; PM_GRADED=0
 # ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
 # baseline-measured-live; test_snoflake_suite.sh is the shape). A program SPITBOL ITSELF cannot run is OUTSIDE
 # the baseline and out of the denominator. This runner already MEASURES that set live -- it is exactly the
@@ -131,7 +145,7 @@ for p in $progs; do
     # diagnostic with NO post-mortem, so a diagnostic-only rule and a post-mortem-only rule each miss a real
     # case that the other catches. Requiring both together fires on exactly the five rc=0 error-path programs
     # and on neither of the two that answered.
-    # ⛔ THIS DOES NOT DECIDE WHAT TO DO ABOUT THE FIVE. Grading them against csnobol4 (as gimpel's
+    # ⛔ SUPERSEDED BY CEO-1316 (the arm just below this block): THE FIVE ARE NOW GRADED THROUGH SPITBOL'S POST-MORTEM. What follows is the 2026-09-05 reasoning for the old UNSCORED arm. Grading them against csnobol4 (as gimpel's
     # ASM_driver.sno already does for this class) is with the ceo as a ruling; this arm only stops calling a
     # non-answer an answer. The honest board reads WORSE (scored 3, unscored 5) and that is the point.
     # ⛔ THIS ARM IS SPITBOL-SPECIFIC AND IS NOW SCOPED TO THE sbl ORACLE. It keys on SPITBOL's own listing
@@ -140,37 +154,42 @@ for p in $progs; do
     # `orc -ne 0` arm above already covers it, and running this grep over csnobol4 output would only invite a
     # false UNSCORED the day a program legitimately PRINTS the words "ERROR 116 --" as part of its answer.
     # ⭐ test5 is exactly that hazard: its own answer quotes SPITBOL diagnostics back as data.
-    _diag=""; _pm=0
+    # ⭐⭐ CEO-1316 (2026-09-27, on Lon's word "I want to see TPgm go to 8/8. I'm tired of seeing that 1/8."): THE FIVE ARE GRADED.
+    # A post-mortem answer is graded, never marked OUTSIDE: util_spitbol_post_mortem.py removes SPITBOL's post-mortem block ONLY when it
+    # has exactly the measured shape (its header carries the grammar, derived from stopr in sbl.min) and REFUSES rc 2 on any other shape;
+    # the remainder is compared byte for byte with SCRIP's stdout, the banner's line and statement with SCRIP's stderr rendered through
+    # util_render_error_voice.py spitbol; the accounting is never graded (CEO-420 (b), the rewind-174 precedent). Measured when this
+    # landed: test4..test8 PASS both modes -- they pass by STOPPING EXACTLY WHERE SPITBOL x64 STOPS, and running them to completion as
+    # Macro SPITBOL 370 would would widen the dialect, which is Lon's call and is not taken. The hazard kept from the old arm: test5's own
+    # answer quotes SPITBOL diagnostics as data, so the trigger still needs a diagnostic AND the accounting lines before the helper runs.
+    _diag=""; _pm=0; pm_banner=""; pm_stno=""; ora_cmp="$ora"
     if [ "$okind" = sbl ]; then
         _diag="$(grep -m1 -E 'ERROR [0-9]+ --' "$ora" 2>/dev/null)"
         _pm="$(grep -cE '^(in line|stmts executed|memory used \(bytes\)|memory left \(bytes\))' "$ora" 2>/dev/null || echo 0)"
     fi
     if [ -n "$_diag" ] && [ "$_pm" -ge 2 ]; then
-        UNSCR=$((UNSCR+1))
-        _errno="$(printf '%s' "$_diag" | sed -n 's/.*\(ERROR [0-9]*\) --.*/\1/p')"
-        OUTSIDE_LIST="${OUTSIDE_LIST}${p}\t${_errno:-ERROR} (sbl -bf refuses the program at rc=0 with a post-mortem block)\n"
-        UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle REFUSED THE PROGRAM at rc=0 -- ${_errno:-ERROR} plus a post-mortem block after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s): a diagnostic is not an answer, no ref cut
-"
-        prog_row "$p" m3 OUTSIDE "sbl -bf refuses the program at rc=0: ${_errno:-ERROR}"; prog_row "$p" m4 OUTSIDE "sbl -bf refuses the program at rc=0: ${_errno:-ERROR}"
-        continue
+        pm_out="$(python3 "$HERE/util_spitbol_post_mortem.py" "$ora" "$ora.body")"; pmrc=$?
+        [ "$pmrc" = 0 ] || { echo "⛔ REFUSE(rc=2): $p -- sbl answered with a post-mortem that is not the measured shape (util_spitbol_post_mortem.py rc=$pmrc, its reason above); CEO-1316 grades only the exact shape"; exit 2; }
+        pm_banner="$(printf '%s\n' "$pm_out" | awk -F'\t' '$1=="BANNER"{print $2}')"; pm_stno="$(printf '%s\n' "$pm_out" | awk -F'\t' '$1=="STATEMENT"{print $2}')"
+        ora_cmp="$ora.body"; PM_GRADED=$((PM_GRADED+1))
     fi
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
     ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
-    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
+    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$W/testpgms.in" > "$m3" 2>"$m3.err"); r3=$?
     _p3=0
-    if cmp -s "$ora" "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, first diff: $(diff "$ora" "$m3" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
+    if graded_same "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, $(why_red "$m3"))
 "; fi
     s4="$W/$p.s"; b4="$W/$p.bin"
     (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>/dev/null) </dev/null
     m4="$W/$p.m4"; r4=0
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
-        (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$b4" < "$W/testpgms.in" > "$m4" 2>/dev/null); r4=$?
+        (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$b4" < "$W/testpgms.in" > "$m4" 2>"$m4.err"); r4=$?
     else
-        : > "$m4"; r4=125
+        : > "$m4"; : > "$m4.err"; r4=125
     fi
     _p4=0
-    if cmp -s "$ora" "$m4"; then M4P=$((M4P+1)); _p4=1; else M4F=$((M4F+1)); RED_LINES="$RED_LINES  RED  $p m4 (rc=$r4, first diff: $(diff "$ora" "$m4" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
+    if graded_same "$m4"; then M4P=$((M4P+1)); _p4=1; else M4F=$((M4F+1)); RED_LINES="$RED_LINES  RED  $p m4 (rc=$r4, $(why_red "$m4"))
 "; fi
     # written as an if, not an && chain: this file is set -uo pipefail today, but an && chain whose last
     # link is false returns non-zero and would abort the loop the day someone adds -e.
@@ -183,6 +202,7 @@ done
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (the one SNOBOL4 oracle, Lon 2026-09-07) refs cut live"
+echo "SPITBOL_TESTPGMS_POST_MORTEM graded=$PM_GRADED -- programs whose sbl answer is a fatal post-mortem, graded through it (CEO-1316): stdout minus the block byte for byte, the banner and statement through the one error voice, the accounting ungraded (CEO-420 (b)); they pass by stopping exactly where SPITBOL x64 stops -- running them to completion would widen the dialect, Lon's call, not taken"
 echo "SPITBOL_TESTPGMS_BASELINE baseline=$SCORED both_modes_pass=$BOTH outside_spitbol_baseline=$UNSCR of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a program SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
 if [ "$UNSCR" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($UNSCR; name<TAB>SPITBOL's own refusal):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
 # ⛔ THE RECORD IS CROSS-CHECKED AGAINST THE LIVE MEASURE EVERY RUN, and disagreement is said aloud rather than
@@ -205,7 +225,7 @@ printf '%s' "$UNSCR_LINES"
 printf '%s' "$RED_LINES"
 # ⭐ THE PACKAGE LOCKDOWN: lib_inventory.sh recomputes ungradable from UNGRADABLE.tsv beside $SUITE (a
 # static declaration of test2/test4/test6/test7's known sbl behavior) rather than trusting $UNSCR as a
-# number. test5.spt and test8.spt are graded (against csnobol4, CEO-281) and land in graded_stream via
+# number. test4..test8 are graded (through the post-mortem, CEO-1316) and land in graded_stream via
 # SCORED -- ⛔ if a future run of sbl answers a declared-ungradable program cleanly instead, SCORED
 # changes but the static declaration does not, and inventory_line correctly REFUSES on that mismatch
 # rather than silently accepting a stale ruling (this runner's own live UNSCR check still decides each
@@ -241,7 +261,7 @@ if [ "$SUITE" = "$CANON_SUITE" ]; then
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite testpgms --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
-    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ( programs SPITBOL runs clean · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
+    --text "spitbol_testpgms both_modes_pass=$BOTH/$DENOM ($TOTAL shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect -- all eight are SPITBOL's own test deck, CEO-1286) OUTSIDE=$UNSCR, graded $BOTH/$SCORED ($PM_GRADED of them graded through SPITBOL's fatal post-mortem, CEO-1316: they pass by stopping exactly where SPITBOL x64 stops, and running them to completion as Macro SPITBOL 370 would widen the dialect, Lon's call, not taken · $UNSCR outside the SPITBOL baseline, named with SPITBOL's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped · sbl -bf the one oracle, Lon 2026-09-07 · refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
