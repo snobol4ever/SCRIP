@@ -10,10 +10,10 @@
 #include "rk_opname.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { tree_t **v; int n, cap; } TL;
+typedef struct { const char **k; int n, cap; } NS;
 struct RkB {
     const char *s; int len;
-    const char **arrn; int narrn, carrn;
-    const char **als; int nals, cals;
+    NS arrn, als;
     int post_uid, twpost_uid, destr_uid, fm_uid;
     int after_line;
     tree_t *tail_list, *tail_tree;
@@ -68,20 +68,33 @@ static const char *strip_sigil(const char *s) { if (s && (s[0] == '$' || s[0] ==
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_tw_bare(const char *s) { return (s && (s[0] == '.' || s[0] == '!')) ? s + 1 : s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void mark_arr(RkB *b, const char *bare) {
-    if (!bare) return;
-    for (int i = 0; i < b->narrn; i++) if (!strcmp(b->arrn[i], bare)) return;
-    if (b->narrn >= 256) return;
-    GROW(b->arrn, b->narrn, b->carrn, const char *); b->arrn[b->narrn++] = intern(bare);
+static unsigned ns_hash(const char *s) { unsigned h = 2166136261u; while (*s) h = (h ^ (unsigned char) *s++) * 16777619u; return h; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ns_has(const NS *t, const char *s) {
+    if (!s || !t->cap) return 0;
+    for (unsigned m = (unsigned) t->cap - 1, i = ns_hash(s) & m; t->k[i]; i = (i + 1) & m) if (!strcmp(t->k[i], s)) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_arr(RkB *b, const char *bare) { if (!bare) return 0; for (int i = 0; i < b->narrn; i++) if (!strcmp(b->arrn[i], bare)) return 1; return 0; }
+static void ns_put(NS *t, const char *s) { unsigned m = (unsigned) t->cap - 1, i = ns_hash(s) & m; while (t->k[i]) i = (i + 1) & m; t->k[i] = s; t->n++; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ns_add(NS *t, const char *s) {
+    if (!s || ns_has(t, s)) return;
+    if (2 * (t->n + 1) > t->cap) {
+        int cap = t->cap ? t->cap * 2 : 16; NS g = { (const char **) ct_zalloc((size_t) cap, sizeof(const char *)), 0, cap };
+        for (int i = 0; i < t->cap; i++) if (t->k[i]) ns_put(&g, t->k[i]);
+        *t = g;
+    }
+    ns_put(t, intern(s));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void mark_arr(RkB *b, const char *bare) { ns_add(&b->arrn, bare); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int is_arr(RkB *b, const char *bare) { return ns_has(&b->arrn, bare); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mark_arrlit(RkB *b, const char *bare, const tree_t *rhs) {
     if (!bare || !rhs || rhs->t != TT_FNC || !rhs->v.sval || strcmp(rhs->v.sval, "__rk_arr_lit")) return;
-    for (int i = 0; i < b->nals; i++) if (!strcmp(b->als[i], bare)) return;
-    if (b->nals >= 256) return;
-    GROW(b->als, b->nals, b->cals, const char *); b->als[b->nals++] = intern(bare);
+    ns_add(&b->als, bare);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *var_ident(const char *s) { if (s && (s[0] == '@' || s[0] == '%')) return s; return strip_sigil(s); }
@@ -1825,7 +1838,7 @@ void rkb_sprefix_term(RkB *b, RkItem *it, int from, int to, const char *word, in
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mark_arrays(RkB *b, tree_t *t) {
     if (!t) return;
-    if (t->t == TT_VAR && t->v.sval) { int hit = is_arr(b, t->v.sval); for (int i = 0; !hit && i < b->nals; i++) if (!strcmp(b->als[i], t->v.sval)) hit = 1; if (hit) t->slen |= 2; }
+    if (t->t == TT_VAR && t->v.sval && (is_arr(b, t->v.sval) || ns_has(&b->als, t->v.sval))) t->slen |= 2;
     for (int i = 0; i < t->n; i++) mark_arrays(b, t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
