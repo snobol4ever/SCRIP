@@ -772,7 +772,12 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         char *r = (char *)rt_str_alloc(b - a); memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "chop")) {
-        long cnt = (nmargs >= 1 && margs && IS_INT_fn(margs[0])) ? (long)margs[0].i : (nmargs >= 1 && margs && IS_REAL_fn(margs[0])) ? (long)margs[0].r : 1;
+        long cnt = 1;
+        if (nmargs >= 1 && margs) {
+            DESCR_t c = margs[0];
+            if (IS_INT_fn(c)) cnt = (long)c.i; else if (IS_REAL_fn(c)) cnt = (long)c.r; else if (c.v == DT_BIG) cnt = LONG_MAX;
+            else { const char *t = to_cstring(c, sb, sizeof sb); cnt = (t && strspn(t, "0123456789") > 18) ? LONG_MAX : t ? atol(t) : 1; }
+        }
         size_t b = n; for (long k = 0; k < cnt && b > 0; k++) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
         char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
     }
@@ -792,8 +797,17 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         memcpy(o, s, pre); memcpy(o + pre, repl, rl); memcpy(o + pre + rl, hit + nl, n - pre - nl); o[n - nl + rl] = '\0';
         *out = STRVAL(o); return 1;
     }
-    if (!strcmp(meth, "index") && nmargs >= 1) {
-        char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; const char *hit = strstr(s, nd); *out = hit ? INTVAL((long)(hit - s)) : NULVCL; return 1;
+    if ((!strcmp(meth, "index") || !strcmp(meth, "rindex")) && nmargs >= 1) {
+        char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = "";
+        int rev = meth[0] == 'r'; size_t nl = strlen(nd); long nch = (long)utf8_strlen(s);
+        long pos = nmargs >= 2 ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : IS_REAL_fn(margs[1]) ? (long)margs[1].r : atol(to_cstring(margs[1], sb, sizeof sb))) : (rev ? nch : 0);
+        long found = -1; size_t b = 0;
+        for (long c = 0; c <= nch; c++) {
+            if (b + nl <= n && memcmp(s + b, nd, nl) == 0) { if (rev) { if (c <= pos) found = c; } else if (c >= pos) { found = c; break; } }
+            if (b >= n) break;
+            b++; while (b < n && ((unsigned char)s[b] & 0xC0) == 0x80) b++;
+        }
+        *out = found >= 0 ? INTVAL(found) : NULVCL; return 1;
     }
     if ((!strcmp(meth, "substr") || !strcmp(meth, "substr-rw")) && nmargs >= 1) {
         long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb));

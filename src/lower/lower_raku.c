@@ -106,7 +106,7 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_str_subform(const char * nm) {
-    static const char * const names[] = { "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", NULL };
+    static const char * const names[] = { "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", "index", "rindex", NULL };
     for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1; return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

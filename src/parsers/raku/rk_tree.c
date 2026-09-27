@@ -1205,6 +1205,7 @@ tree_t *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren) {
     if (named) return rk_named_call(nm, pos.n ? &pos : NULL, &kw);
     if (!strcmp(nm, "flat")) return rk_flat_call(&pos);
     if (!strcmp(nm, "await")) return rk_await_call(&pos);
+    if (!strcmp(nm, "defined") && pos.n == 1) { tree_t *c = ast_node_new(TT_METHCALL); ast_push(c, pos.v[0]); ast_push(c, leaf_sval(TT_QLIT, "defined")); return c; }
     tree_t *call = make_call(nm); for (int i = 0; i < pos.n; i++) expr_add_child(call, pos.v[i]);
     return call;
 }
@@ -1241,6 +1242,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     if (!strcmp(nm, "die")) { arglist(b, args, 0, &pos, NULL); tree_t *d = ast_node_new(TT_DIE); if (pos.n) expr_add_child(d, pos.v[0]); it->t = d; return; }
     if (!strcmp(nm, "flat")) { arglist(b, args, 0, &pos, NULL); it->t = rk_flat_call(&pos); return; }
     if (!strcmp(nm, "await")) { arglist(b, args, 0, &pos, NULL); it->t = rk_await_call(&pos); return; }
+    if (!strcmp(nm, "defined")) { arglist(b, args, 0, &pos, NULL); if (pos.n == 1) { tree_t *c = ast_node_new(TT_METHCALL); ast_push(c, pos.v[0]); ast_push(c, leaf_sval(TT_QLIT, "defined")); it->t = c; return; } }
     if (!strcmp(nm, "join") && form == 2) { arglist(b, args, 0, &pos, NULL); tree_t *e = make_call("join"); for (int i = 0; i < pos.n; i++) expr_add_child(e, pos.v[i]); it->t = e; return; }
     if (!strcmp(nm, "map") || !strcmp(nm, "grep") || !strcmp(nm, "sort")) {
         tree_e k = nm[0] == 'm' ? TT_MAP : nm[0] == 'g' ? TT_GREP : TT_SORT;
