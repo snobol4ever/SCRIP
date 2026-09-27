@@ -1093,8 +1093,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 *res = write_plain; return kv_old;
             } }
         if (!(plain_l && plain_r)) {
+            IR_t * b4 = cx->beta;
             IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
-            IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, ω, &yr) : NULL;
+            IR_t * xbeta = (cx->beta != b4) ? cx->beta : NULL;
+            IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, xbeta ? xbeta : ω, &yr) : NULL;
             if (xe && ye) {
                 lc_γ_to(xr, ye);
                 IR_t * nd = build(cx, IR_SWAP_VAR, γ, ω);
