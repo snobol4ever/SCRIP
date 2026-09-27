@@ -35,18 +35,19 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # ⛔ THE TIMINGS ARE SCOUTING DATA, NEVER A GRID: timing grids wait for the quiet box (CEO-1219), and bench_triangulate_icon.sh is the
 #   timing instrument. The defaults (n=2, 200 ms) prove the machinery and the refs, not a rate. RT_OPT is -O0.
 #
-# USAGE: bash scripts/test_icon_bench_suite.sh [--out-dir DIR] [--n N] [--bud-ms MS] [--timeout S] [--write] [kernel ...]
-#   --write   publish through util_score_row.py --column bench-ref (key icon-bench-ref, nick IcnBench); non-fatal by design.
+# USAGE: bash scripts/test_icon_bench_suite.sh [--out-dir DIR] [--n N] [--bud-ms MS] [--timeout S] [--no-write] [kernel ...]
+#   --no-write  do not publish; without it a whole-population pass (no kernel named) publishes (CEO-1302 (a)) through util_score_row.py --column bench-ref (key icon-bench-ref, nick IcnBench); non-fatal by design.
 # EXIT 0 every kernel PASS; 1 any kernel not PASS; 2 REFUSED (no binary, no oracle, no population, a tool that cannot be built).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"; BD="$S4E/corpus/benchmarks/icon"; GEN="$HERE/util_icon_bench_wrap.py"
-OUTDIR=""; NITER=2; BUD=200; TMO=300; WRITE=0; WANT=""
+OUTDIR=""; NITER=2; BUD=200; TMO=300; NOWRITE=0; WANT=""
 refuse() { echo "⛔ ICON BENCH SUITE REFUSE(2): $*"; exit 2; }
+# ⭐ PUBLISHING IS THE DEFAULT (ceo CEO-1302 (a), lib_bench_write.sh): a whole-population pass writes its row, a subset or --no-write never does; --write is still accepted and changes nothing
 while [ $# -gt 0 ]; do case "$1" in
   --out-dir) OUTDIR="$2"; shift 2;; --n) NITER="$2"; shift 2;; --bud-ms) BUD="$2"; shift 2;; --timeout) TMO="$2"; shift 2;;
-  --write) WRITE=1; shift;; -*) refuse "unknown argument '$1' (usage in the header)";; *) WANT="$WANT $1"; shift;; esac; done
+  --write) shift;; --no-write) NOWRITE=1; shift;; -*) refuse "unknown argument '$1' (usage in the header)";; *) WANT="$WANT $1"; shift;; esac; done
 [ "$NITER" -ge 2 ] 2>/dev/null || refuse "--n must be at least 2: one iteration cannot tell a kernel that loops from one that does not"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "cannot load lib_oracle_flags.sh -- the ONE oracle-path authority"
 . "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "cannot load lib_icon_ipl_isolation.sh -- the ONE argv-sidecar reader"
@@ -161,6 +162,9 @@ printf 'SCOUTING DATA -- one run each on a loaded box, NOT A GRID (timing waits 
 LINE="SUITE_BOARD family=icon-bench-ref total=$N shipped=$N all_pass=$PASS all_n=$N m3_pass=$P3 m4_pass=$P4 angles=process,iter,time loop_in=$LIN loop_proc=$LPROC refless=$REFLESS ref_drift=$DRIFT wrapper_sensitive=$WSENS heap_declared=$HEAPD"
 echo "$LINE"
 [ "$PREFUSED" = 0 ] || echo "⚠ $PREFUSED progress row(s) REFUSED (named above) -- the board stands, but it cannot be published until they are recorded"
+. "$HERE/lib_bench_write.sh" || refuse "lib_bench_write.sh unloadable -- the one rule for when a bench row publishes"
+read -r WRITE WRITE_WHY <<<"$(bench_row_writes "$(cd "$HERE/../.." && pwd)/corpus/benchmarks/icon" "$BD" "$WANT" "$NOWRITE")"
+echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
 if [ "$WRITE" = 1 ]; then
   python3 "$HERE/util_score_row.py" write --lang icon --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
     || echo "⚠ SCORE.md NOT UPDATED -- util_score_row.py refused (the line above says why); the row stays as last published"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${BENCH_SNOBOL4_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/benchmarks/snobol4}" || exit 2
 export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
-# test_snobol4_bench_suite.sh [--write] -- THE SNOBOL4 BENCHMARKS GRADED AS TESTS: every kernel under corpus/benchmarks/snobol4, both
+# test_snobol4_bench_suite.sh [--no-write] -- THE SNOBOL4 BENCHMARKS GRADED AS TESTS: every kernel under corpus/benchmarks/snobol4, both
 # modes, all three angles, its REF checked on every run (the SnoBench row of SCORE.md THE SUITE TABLE; Lon 2026-09-24 14:2x, in-chat
 # to the ceo: create a runner for SnoBench; built by the ceo on the shape of test_rebus_bench_suite.sh, the coo's COO-164 contract).
 # Lon 2026-09-23, verbatim: "The reason to force a benchmark to also be a test is to guarantee it is not vacuous." -- "The source of
@@ -26,7 +26,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # ⛔ TIMING IS SCOUTING, NOT PUBLISHED: the BENCH and BENCH_RUSAGE numbers are printed per run; no rate enters a grid from here
 # (bench_triangulate_snobol4.sh is the timing instrument). CEO-1222: REF only -- each run's stdout lives in a temp dir that is deleted.
 # PUBLISH: the board is the SNOBOL4 lane's (MODE LANES snobol4=hq_snobol4). One progress row per kernel per mode (class benchmark,
-# suite snobol4-bench-ref, config declared) is appended when the population is the corpus tree; --write then calls util_score_row.py
+# suite snobol4-bench-ref, config declared) is appended when the population is the corpus tree; a whole-population pass then calls util_score_row.py by default (CEO-1302 (a), --no-write opts out)
 # write --lang snobol4 --column bench-ref, whose lane check admits only the lane's seat. A population OUTSIDE the corpus tree
 # (a fixture, BENCH_SNOBOL4_DIR) is not a board (CEO-547): it is graded, and nothing is appended or written.
 # THE ORACLE ARM (BENCH_ORACLE_ARM=1; Lon 2026-09-24 15:1x: run the same 23 on SPITBOL using the 3-angle harness and show the
@@ -45,7 +45,7 @@ SCRIP="$HERE/../scrip"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 ITER_N="${BENCH_ITER_N:-3}"
 BUD_MS="${BENCH_BUD_MS:-200}"
-WRITE=0; [ "${1:-}" = --write ] && WRITE=1
+NOWRITE=0; [ "${1:-}" = --no-write ] && NOWRITE=1   # ⭐ PUBLISHING IS THE DEFAULT (ceo CEO-1302 (a), lib_bench_write.sh): a whole-population pass writes its row, a subset or --no-write never does; --write is still accepted and changes nothing
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -d "$BD" ] || refuse "no benchmark tree at $BD"
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first"
@@ -149,11 +149,14 @@ if [ "$IS_BOARD" = 0 ]; then
   echo "  population $BD is OUTSIDE the corpus tree -- not a board (CEO-547): graded, and no progress row and no suite row written"
 else
   progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
+  . "$HERE/lib_bench_write.sh" || refuse "lib_bench_write.sh unloadable -- the one rule for when a bench row publishes"
+  read -r WRITE WRITE_WHY <<<"$(bench_row_writes "$(cd "$HERE/../.." && pwd)/corpus/benchmarks/snobol4" "$BD" "" "$NOWRITE")"
+  echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
   if [ "$WRITE" = 1 ]; then
     python3 "$HERE/util_score_row.py" write --lang "$LANG_KEY" --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
       || echo "⚠ SUITE ROW NOT WRITTEN -- util_score_row.py refused (reason above)"
   else
-    echo "  suite row: not written (pass --write; the SNOBOL4 lane's seat publishes, util_score_row.py write --lang snobol4 --column bench-ref)"
+    echo "  suite row: not written ($WRITE_WHY; a whole-population pass publishes by default, the SNOBOL4 lane's seat publishes: util_score_row.py write --lang snobol4 --column bench-ref)"
   fi
 fi
 [ "$BOTH" = "$TOTAL" ] && exit 0 || exit 1

@@ -32,19 +32,20 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 #   refuses to publish a row with no appends behind it.
 # ⛔ THE TIMING COLUMNS ARE SCOUTING DATA, NEVER A GRID: timing grids wait on the quiet box (CEO-1219); the correctness verdict does not.
 #
-# USAGE: bash scripts/test_snocone_bench_suite.sh [--out-dir DIR] [--n N] [--bud-ms MS] [--timeout S] [--write]
+# USAGE: bash scripts/test_snocone_bench_suite.sh [--out-dir DIR] [--n N] [--bud-ms MS] [--timeout S] [--no-write]
 #   --n N        iter-angle repetitions (default: each marked program's check=, else 1)   --bud-ms MS  time-angle budget (default 200)
-#   --write      publish through util_score_row.py --column bench-ref (the coo's column for a benchmark CORRECTNESS row, key
+#   --no-write   do not publish; without it a whole-population pass publishes (CEO-1302 (a), lib_bench_write.sh) through util_score_row.py --column bench-ref (the coo's column for a benchmark CORRECTNESS row, key
 #                snocone-bench-ref, nick SncBench -- never --column bench, which is the grid's B TIMING cell); non-fatal by design.
 # EXIT 0 every program PASS; 1 any program not PASS; 2 REFUSED (no binary, no population, a tool that cannot be built).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"; BD="$S4E/corpus/benchmarks/snocone"; GEN="$HERE/bench_wrap_snocone.py"
-OUTDIR=""; NITER=""; BUD=200; TMO=300; WRITE=0
+OUTDIR=""; NITER=""; BUD=200; TMO=300; NOWRITE=0
+# ⭐ PUBLISHING IS THE DEFAULT (ceo CEO-1302 (a), lib_bench_write.sh): a whole-population pass writes its row, a subset or --no-write never does; --write is still accepted and changes nothing
 while [ $# -gt 0 ]; do case "$1" in
   --out-dir) OUTDIR="$2"; shift 2;; --n) NITER="$2"; shift 2;; --bud-ms) BUD="$2"; shift 2;; --timeout) TMO="$2"; shift 2;;
-  --write) WRITE=1; shift;; *) echo "⛔ REFUSE(2): unknown argument '$1' (usage in the header)"; exit 2;; esac; done
+  --write) shift;; --no-write) NOWRITE=1; shift;; *) echo "⛔ REFUSE(2): unknown argument '$1' (usage in the header)"; exit 2;; esac; done
 refuse() { echo "⛔ SNOCONE BENCH SUITE REFUSE(2): $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "scrip is not built at $SCRIP -- run make"
 [ -f "$RT/libscrip_rt.so" ] || refuse "no runtime at $RT/libscrip_rt.so"
@@ -120,6 +121,9 @@ printf 'SCOUTING DATA -- one run each, a loaded box, NOT A GRID (timing waits fo
 LINE="SUITE_BOARD family=snocone-bench-ref total=$N shipped=$N all_pass=$PASS all_n=$N m3_pass=$P3 m4_pass=$P4 angles=process,iter,time refless=$REFLESS unwrappable=$UNWRAP heap_declared=$HEAPD"
 echo "$LINE"
 [ "$PREFUSED" = 0 ] || echo "⚠ $PREFUSED progress row(s) REFUSED (named above) -- the board stands, but it cannot be published until they are recorded"
+. "$HERE/lib_bench_write.sh" || refuse "lib_bench_write.sh unloadable -- the one rule for when a bench row publishes"
+read -r WRITE WRITE_WHY <<<"$(bench_row_writes "$(cd "$HERE/../.." && pwd)/corpus/benchmarks/snocone" "$BD" "" "$NOWRITE")"
+echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
 if [ "$WRITE" = 1 ]; then
   python3 "$HERE/util_score_row.py" write --lang snocone --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
     || echo "⚠ SCORE.md NOT UPDATED -- util_score_row.py refused (the line above says why); the row stays as last published"

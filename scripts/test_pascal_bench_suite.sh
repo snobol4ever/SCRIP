@@ -29,6 +29,7 @@ GATE_NAME=test_pascal_bench_suite
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 B="$ROOT/corpus/benchmarks/pascal"
+NOWRITE=0; [ "${1:-}" = --no-write ] && NOWRITE=1   # ⭐ PUBLISHING IS THE DEFAULT (ceo CEO-1302 (a), lib_bench_write.sh): a whole-population pass writes its row, a subset or --no-write never does; --write is still accepted and changes nothing
 SCRIP="$HERE/../scrip"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 ITER_N="${BENCH_ITER_N:-3}"
@@ -122,5 +123,10 @@ if [ -s "$PROG_ROWS" ]; then
 fi
 LINE="SUITE_BOARD family=pascal-bench-ref total=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=wrap,iter,time"
 echo "$LINE"
-python3 "$HERE/util_score_row.py" write --lang pascal --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" 2>&1 | sed 's/^/    /'
+. "$HERE/lib_bench_write.sh" || refuse "lib_bench_write.sh unloadable -- the one rule for when a bench row publishes"
+read -r WRITE WRITE_WHY <<<"$(bench_row_writes "$(cd "$HERE/../.." && pwd)/corpus/benchmarks/pascal" "$B" "" "$NOWRITE")"
+echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
+if [ "$WRITE" = 1 ]; then
+  python3 "$HERE/util_score_row.py" write --lang pascal --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" 2>&1 | sed 's/^/    /'
+fi
 [ "$BOTH" = "$TOTAL" ] && exit 0 || exit 1

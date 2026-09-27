@@ -14,7 +14,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # POPULATION: corpus/benchmarks/prolog/bench/*.pl, the pristine kernels. The upstream copies under src/ and the per-engine
 # preludes are not in it yet -- the row's NEXT converts src/ into kernels with oracle-cut REFs, and a kernel with no REF is counted
 # FAIL, never skipped. Memory: a <k>.heap / <k>.stack sidecar is honoured through lib_declared_arena.sh.
-# --write publishes the suite row: util_score_row.py write --lang prolog --column bench-ref. Exit: 0 every kernel passes, 1 not, 2 refused.
+# A whole-population pass publishes the suite row by default (CEO-1302 (a), lib_bench_write.sh; --no-write opts out): util_score_row.py write --lang prolog --column bench-ref. Exit: 0 every kernel passes, 1 not, 2 refused.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
@@ -24,7 +24,7 @@ SCRIP="$HERE/../scrip"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 ITER_N="${BENCH_ITER_N:-3}"
 BUD_MS="${BENCH_BUD_MS:-200}"
-WRITE=0; [ "${1:-}" = --write ] && WRITE=1
+NOWRITE=0; [ "${1:-}" = --no-write ] && NOWRITE=1   # ⭐ PUBLISHING IS THE DEFAULT (ceo CEO-1302 (a), lib_bench_write.sh): a whole-population pass writes its row, a subset or --no-write never does; --write is still accepted and changes nothing
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -d "$BD" ] || refuse "no benchmark tree at $BD"
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first"
@@ -113,11 +113,14 @@ if [ "$IS_BOARD" = 0 ]; then
   echo "  population $BD is OUTSIDE the corpus tree -- not a board (CEO-547): graded, and no progress row and no suite row written"
 else
   progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
+  . "$HERE/lib_bench_write.sh" || refuse "lib_bench_write.sh unloadable -- the one rule for when a bench row publishes"
+  read -r WRITE WRITE_WHY <<<"$(bench_row_writes "$(cd "$HERE/../.." && pwd)/corpus/benchmarks/prolog/bench" "$BD" "" "$NOWRITE")"
+  echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
   if [ "$WRITE" = 1 ]; then
     python3 "$HERE/util_score_row.py" write --lang prolog --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
       || echo "⚠ SUITE ROW NOT WRITTEN -- util_score_row.py refused (reason above)"
   else
-    echo "  suite row: not written (pass --write; the Prolog lane's seat publishes, util_score_row.py write --lang prolog --column bench-ref)"
+    echo "  suite row: not written ($WRITE_WHY; a whole-population pass publishes by default, the Prolog lane's seat publishes: util_score_row.py write --lang prolog --column bench-ref)"
   fi
 fi
 [ "$BOTH" = "$TOTAL" ] && exit 0 || exit 1
