@@ -2177,6 +2177,8 @@ static tree_t *x_unary(RkP *p, RkX *x) {
     if (p->build) {
         if (np && (!strcmp(t->pre[np - 1], "++") || !strcmp(t->pre[np - 1], "--")) && t->kind == TK_VAR && t->cls == 'S' && !t->npost) { base = rkb_incdec(p->B, t->name, t->pre[np - 1][0] == '+');
             np--; }
+        else if (np && (!strcmp(t->pre[np - 1], "++") || !strcmp(t->pre[np - 1], "--")) && t->kind == TK_VAR && t->npost && t->t
+                 && (t->t->t == TT_ARR_GET || t->t->t == TT_HASH_GET)) { base = rkb_elem_incdec(p->B, t->t, t->pre[np - 1][0] == '+', 0); np--; }
         else if (t->kind == TK_DECL && !t->t) { base = ast_node_new(TT_NUL); rkb_pend(x->el, base, t->decl); }
         else base = t->t ? t->t : ast_node_new(TT_NUL);
         if (t->kind == TK_VAR && !t->npre && !t->npost) { x->lastcls = t->cls; x->lastname = t->name; }
@@ -2273,10 +2275,13 @@ static tree_t *x_expr(RkP *p, RkX *x) {
     if (x->fail) return NULL;
     if (x->nterm == n0 + 1 && x->lastcls && x_peek(p, x)) {
         int cls = x->lastcls; const char *nm = x->lastname;
-        int eq = !strcmp(x->pk_txt, "="), k = rkb_op_index(LV_COMPOUND, x->pk_txt);
-        if ((eq && (cls == 'S' || cls == 'A')) || (k >= 0 && cls == 'S')) {
+        int eq = !strcmp(x->pk_txt, "="), k = rkb_op_index(LV_COMPOUND, x->pk_txt), clv, ck;
+        int gen = !eq && k < 0 && cls == 'S' && x->pk_o.prec == PR('i') && rkb_compound_base(x->pk_txt, &clv, &ck);
+        if ((eq && (cls == 'S' || cls == 'A')) || (k >= 0 && cls == 'S') || gen) {
+            const char *op = x->pk_txt;
             x_take(p, x); tree_t *r = x_after(p, x);
-            return p->build ? rkb_assign(p->B, cls, nm, eq ? -1 : k, r) : NULL;
+            if (!p->build) return NULL;
+            return gen ? rkb_assign_op(p->B, nm, op, r) : rkb_assign(p->B, cls, nm, eq ? -1 : k, r);
         }
     }
     if (x_in(p, x, LV_PAIR) >= 0) { x_take(p, x); tree_t *r = x_after(p, x); return p->build ? rkb_binop(p->B, LV_PAIR, 0, l, r) : NULL; }

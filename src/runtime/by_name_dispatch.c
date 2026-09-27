@@ -338,7 +338,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_set_cell", "__pas_stdfile",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -4644,6 +4644,26 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_eqv") && nargs == 2) {
+        DESCR_t a = args[0], b = args[1]; long long t;
+        int an = IS_INT_fn(a) || IS_REAL_fn(a), bn = IS_INT_fn(b) || IS_REAL_fn(b);
+        if (an != bn) t = 0;
+        else if (an) t = IS_INT_fn(a) && IS_INT_fn(b) ? a.i == b.i : IS_REAL_fn(a) && IS_REAL_fn(b) ? a.r == b.r : 0;
+        else if (a.v == DT_BOOL || b.v == DT_BOOL) t = a.v == b.v && a.i == b.i;
+        else { char sa[64], sb[64]; const char *x = to_cstring(a, sa, sizeof sa), *y = to_cstring(b, sb, sizeof sb); t = !strcmp(rk_a_body(x ? x : ""), rk_a_body(y ? y : "")); }
+        *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
+    }
+    if ((!strcmp(fn, "__rk_min") || !strcmp(fn, "__rk_max")) && nargs == 2) {
+        DESCR_t a = args[0], b = args[1]; int c;
+        if ((IS_INT_fn(a) || IS_REAL_fn(a)) && (IS_INT_fn(b) || IS_REAL_fn(b))) {
+            if (IS_INT_fn(a) && IS_INT_fn(b)) c = a.i < b.i ? -1 : a.i > b.i;
+            else { double x = IS_REAL_fn(a) ? a.r : (double)a.i, y = IS_REAL_fn(b) ? b.r : (double)b.i; c = x < y ? -1 : x > y; }
+        } else {
+            char sa[64], sb[64]; const char *xs = to_cstring(a, sa, sizeof sa), *ys = to_cstring(b, sb, sizeof sb);
+            c = strcmp(xs ? xs : "", ys ? ys : "");
+        }
+        *out = (fn[5] == 'm' && fn[6] == 'i') ? (c <= 0 ? a : b) : (c >= 0 ? a : b); return 1;
     }
     if ((!strcmp(fn, "__rk_cross") || !strcmp(fn, "__rk_zip")) && nargs >= 1) {
         int zip = fn[5] == 'z';
