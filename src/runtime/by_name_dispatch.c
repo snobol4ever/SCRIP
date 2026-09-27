@@ -7403,9 +7403,6 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5209: ;
     if ((_bid == BID_write) || (_bid == BID_writes)) {
-        { DESCR_t _wv = NV_GET_fn(fn);
-          int _is_self_default = (IS_PROCVAL_fn(_wv) && _wv.s && !strcmp(_wv.s, fn));
-          if (!_is_self_default) { *out = RT_GC_CALLBACK(rt_call_value(_wv, args, nargs)); return 1; } }
         L_write_body_5209: ;
         int nl = (fn[5] == '\0');
         int start = 0;
