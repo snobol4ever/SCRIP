@@ -117,8 +117,12 @@ WriteCall       =   nPush() (*WriteName | *WritelnName)
                     shift_value('-1', "'TT_ILIT'") nInc()
                     reduce("'TT_FNC'", 'nTop()') nPop();
 /* An ordinary call: the callee is a TT_VAR leaf and is itself one of the children.      */
+/* In an expression a call carries its parentheses; a bare identifier there is a TT_VAR.  */
 ProcCall        =   nPush() shift(*Ident, "'TT_VAR'") nInc()
                     FENCE($'(' *CallArgs $')' | epsilon)
+                    reduce("'TT_FNC'", 'nTop()') nPop();
+FuncCall        =   nPush() shift(*Ident, "'TT_VAR'") nInc()
+                    $'(' *CallArgs $')'
                     reduce("'TT_FNC'", 'nTop()') nPop();
 /* A subscripted variable: a[i] -> TT_IDX(a, i…)                                         */
 IdxTail         =   nInc() $'[' *ArgFirst ARBNO(*ArgRest) $']';
@@ -129,7 +133,7 @@ Primary         =   ( $'(' *Expr0 $')'
                     | shift(*Real, "'TT_FLIT'")
                     | shift(*Integer, "'TT_ILIT'")
                     | *String
-                    | *ProcCall
+                    | *FuncCall
                     | shift(*Ident, "'TT_VAR'")
                     );
 Expr4           =   *Primary FENCE(nPush() *IdxTail reduce("'TT_IDX'", 'nTop() + 1') nPop() | epsilon);
