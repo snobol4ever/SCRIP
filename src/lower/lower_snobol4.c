@@ -1206,6 +1206,16 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
     sno_ω_to(nd, t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_emit_order_last(IR_graph_t * g, int lo, IR_t * stop, IR_t * nd, char * vis, IR_t ** last) {
+    if (!nd || nd == stop) return;
+    int ix = -1; for (int k = lo; k < g->n; k++) if (g->all[k] == nd) { ix = k; break; }
+    if (ix < 0 || vis[ix - lo]) return;
+    vis[ix - lo] = 1; *last = nd;
+    sno_emit_order_last(g, lo, stop, nd->γ.node, vis, last);
+    sno_emit_order_last(g, lo, stop, nd->ω.node, vis, last);
+    for (int j = 0; j < nd->n_operands; j++) sno_emit_order_last(g, lo, stop, nd->operands[j], vis, last);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e sno_pat_eff_kind(const tree_t * t) {
     if (!t) return TT_VAR;
     if ((t->t == TT_ARB || t->t == TT_BAL || t->t == TT_REM || t->t == TT_FAIL || t->t == TT_SUCCEED || t->t == TT_ABORT) && t->v.sval && sno_predef_registered(t->v.sval)) return TT_FNC;
@@ -1807,6 +1817,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         cx->seq_rlast = NULL; cx->seq_rlast_for = NULL;
         IR_t * ei = sno_pat_node(cx, t->c[0], R, R);
         IR_t * rl = (cx->seq_rlast && cx->seq_rlast_for == ei) ? cx->seq_rlast : NULL;
+        IR_t * rtl = (rl && cx->seq_rtail) ? cx->seq_rtail : NULL;
         sno_in_arbno--;
         cx->pat_seal = prev_seal;
         if (before >= g->n) sno_fatal("ARBNO body lowered to zero nodes (bare FENCE / null pattern body)", NULL);
@@ -1822,7 +1833,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             if (x->γ.node == R) { if (x->op == IR_GOTO && x->ω.node == R) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
         ir_operand_push(R, ei);
-        ir_operand_push(R, rl ? ei : ri);
+        ir_operand_push(R, rl ? (rtl ? rtl : ei) : ri);
+        if (rl) { char * vis = (char *) ct_zalloc((size_t)(g->n - before), 1); sno_emit_order_last(g, before, R, ei, vis, &rl); ct_drop(vis); }
         ir_operand_push(R, rl ? rl : ((g->n > before) ? g->all[g->n - 1] : ei));
         { sno_tvec_t bv = {0}; sno_seq_flatten_pat(t->c[0], &bv);
           if (bv.n > 0 && sno_is_fence(bv.v[bv.n - 1])) ir_operand_push(R, R); ct_drop(bv.v); }

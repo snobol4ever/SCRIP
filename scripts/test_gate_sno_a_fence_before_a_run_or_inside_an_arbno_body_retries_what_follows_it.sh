@@ -21,7 +21,11 @@
 # STILL OPEN, not armed here (with the cto): ARBNO(P) with the fenced sequence held in a VARIABLE (a PAT$ graph whose fenced
 # body root meets the zeta seam-tier check): P1 = 'c' FENCE('+' | '') ':' ARBNO('b'); '{c:bb}' ? POS(0) '{' ARBNO(P1) '}' RPOS(0).
 #
-# ARMS: (1) mode 3 and (2) mode 4 run one witness program of eleven statements, each printing a YES or NO line; the ref is CUT FROM
+# AND WITNESS 12 (hq_snobol4's bisect of master entry arbno_fence_span_branch_7 to cc0e5a2a6): ARBNO(FENCE('+') SPAN(d) . L1),
+# a fenced body whose rightmost segment ends in a conditional capture -- the ARBNO's range operands must span the WHOLE body in
+# the emitter's order (a gamma-first DFS from the body entry), and its resume operand is the body's rightmost tail, or the capture
+# record is read as outside the ARBNO (rt_dcap_pump: CORRUPT CAPTURE ENTRY) and the match fails.
+# ARMS: (1) mode 3 and (2) mode 4 run one witness program of twelve statements, each printing a YES or NO line; the ref is CUT FROM
 # THE ORACLE at run time and every line must match byte for byte. Two control lines (no FENCE; nested ARBNO without a FENCE)
 # were green before the cure and must stay green.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -68,21 +72,25 @@ W11     $('F') = FENCE('0')
         $('T') = F ARBNO('*' F)
         $('X') = T ARBNO('+' T)
         '0*0' ? POS(0) X RPOS(0)                                              :S(Y11)
-        OUTPUT = 'NO  11 runtime-built FENCE(0) under nested ARBNO'           :(END)
+        OUTPUT = 'NO  11 runtime-built FENCE(0) under nested ARBNO'           :(W12)
 Y11     OUTPUT = 'YES 11 runtime-built FENCE(0) under nested ARBNO'
+W12     '1+2+3' ? POS(0) SPAN('0123456789') . F1 ARBNO(FENCE('+') SPAN('0123456789') . L1) RPOS(0)   :F(N12)
+        IDENT(F1 '/' L1, '1/3')                                               :S(Y12)
+N12     OUTPUT = 'NO  12 ARBNO(FENCE(+) SPAN . L1): the capture ends the body' :(END)
+Y12     OUTPUT = 'YES 12 ARBNO(FENCE(+) SPAN . L1): the capture ends the body'
 END
 EOF
 ( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
-[ "$(grep -c '^YES' "$T/w.ref")" = 11 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read eleven YES lines -- the witness is not the one this gate was minted on"; exit 2; }
+[ "$(grep -c '^YES' "$T/w.ref")" = 12 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read twelve YES lines -- the witness is not the one this gate was minted on"; exit 2; }
 RC=0
 got="$(timeout 20s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
-if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  m3 PASS (11/11 lines byte-identical to the oracle)"
+if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  m3 PASS (12/12 lines byte-identical to the oracle)"
 else echo "  m3 FAIL (diverged from the oracle on: $(diff <(echo "$got") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w" 2>"$T/ld.log"; then
     got4="$(timeout 20s "$T/w" </dev/null 2>&1)"
-    if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (11/11 lines byte-identical to the oracle)"
+    if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (12/12 lines byte-identical to the oracle)"
     else echo "  m4 FAIL (diverged from the oracle on: $(diff <(echo "$got4") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so arm 2 measured nothing"; exit 2; fi
-if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: what follows a FENCE is retried as SPITBOL retries it, flat and inside an ARBNO body, in both modes (2 arms, 11 witnesses)"
-else echo "⛔ GATE FAIL(1) [$G]: a FENCE cut more than its own argument (examined 2 arms, 11 witnesses)"; fi
+if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: what follows a FENCE is retried as SPITBOL retries it, flat and inside an ARBNO body, in both modes (2 arms, 12 witnesses)"
+else echo "⛔ GATE FAIL(1) [$G]: a FENCE cut more than its own argument (examined 2 arms, 12 witnesses)"; fi
 exit $RC
