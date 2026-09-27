@@ -14,12 +14,12 @@ struct DESCR_t rt_rev_swap_undo(long lkind, struct DESCR_t *lp, long rkind, stru
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rsw_kind(const char *n) {
-    if (!n || n[0] != '&') return 0;
-    if (!strcmp(n, "&pos")) return 1;
-    if (!strcmp(n, "&random")) return 3;
-    if (!strcmp(n, "&error")) return 4;
-    if (!strcmp(n, "&dump")) return 6;
-    return -1;
+    return (!n || n[0] != '&') ? 0
+         : !strcmp(n, "&pos") ? 1
+         : !strcmp(n, "&random") ? 3
+         : !strcmp(n, "&error") ? 4
+         : !strcmp(n, "&dump") ? 6
+         : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rsw_eff(long k, int slot, const char *n) { return (k == 0 && slot < 0 && n && is_global(n)) ? 2 : k; }
@@ -30,7 +30,8 @@ static std::string rsw_cell(int lbl, int arm) {
          + x86_rt_gc_poll_rec_name("rax")
          + x86("test", "rax", "rax")
          + x86("jne", L(2 + arm * 2 + lbl))
-         + x86_bomb("bb_rev_swap: NV_PTR_fn refuses this global by name, so <-> has no cell to exchange — the name is one the name table declines to hand out a pointer for (the SNOBOL4 keyword set), and an exchange that silently read &null and wrote nowhere is the failure this refusal replaces")
+         + x86_bomb("bb_rev_swap: NV_PTR_fn refuses this global by name, so <-> has no cell to exchange — the name is one the name table declines to hand out a pointer for (the SNOBOL4 keyword set)"
+                    ", and an exchange that silently read &null and wrote nowhere is the failure this refusal replaces")
          + x86("def", L(2 + arm * 2 + lbl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -51,14 +52,24 @@ static std::string rsw_operands(long lk, long rk, int arm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string rsw_names(long lk, long rk) {
-    return IF(lk == 2, x86("def", L(0)) + x86(".quad", LS(0), _.op_sval) + x86("label", LS(0)) + x86(".string", _.op_sval))
-         + IF(rk == 2, x86("def", L(1)) + x86(".quad", LS(1), _.op_name2) + x86("label", LS(1)) + x86(".string", _.op_name2));
+    return IF(lk == 2, x86("def", L(0))
+                     + x86(".quad", LS(0), _.op_sval)
+                     + x86("label", LS(0))
+                     + x86(".string", _.op_sval))
+         + IF(rk == 2, x86("def", L(1))
+                     + x86(".quad", LS(1), _.op_name2)
+                     + x86("label", LS(1))
+                     + x86(".string", _.op_name2));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_swap() {
     return [&](long lk, long rk) {
-        return (lk < 0 || rk < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: <-> keyword operand other than &pos &random &error &dump is its own rung (wire it in rsw_kind + rsw_get/rsw_set)") + x86_beta() + x86_bomb("bb_rev_swap: <-> keyword operand resumed")
-             : (_.op_off < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: no result slot")
+        return (lk < 0 || rk < 0) ? x86_alpha()
+                                  + x86_bomb("bb_rev_swap: <-> keyword operand other than &pos &random &error &dump is its own rung (wire it in rsw_kind + rsw_get/rsw_set)")
+                                  + x86_beta()
+                                  + x86_bomb("bb_rev_swap: <-> keyword operand resumed")
+             : (_.op_off < 0) ? x86_alpha()
+                              + x86_bomb("bb_rev_swap: no result slot")
              : x86("comment", "IR_REV_SWAP")
              + x86_alpha()
              + IF(g_scan_regs_live != 0, x86("note", "scan_δ")
