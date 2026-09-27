@@ -424,7 +424,12 @@ s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
       if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ] && [ "${_lane_filter:-own-lane}" = own-lane ]; then
         printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s'"'"'s lane and yours is %s.\n' \
           "$_rank" "$_blocked" "$_p" "$_p" "$_tl" "$_my_lane"
-        printf '   Not promoted (own-lane pass); %s stays skipped this pass -- retried cross-lane if your own lane has nothing else.\n' "$_blocked"
+        if s4e_any_lane_closed; then printf '   Not promoted; %s stays skipped -- the any-lane fallback is CLOSED under TENET (ceo CEO-1302 (b)), so no pass retries it cross-lane.\n' "$_blocked"
+        else printf '   Not promoted (own-lane pass); %s stays skipped this pass -- retried cross-lane if your own lane has nothing else.\n' "$_blocked"; fi
+        return 1
+      fi
+      if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ] && s4e_any_lane_closed; then
+        _xlane_refused=$(( ${_xlane_refused:-0} + 1 )); _xlane_last="$_p ($_tl's, blocker of $_blocked)"
         return 1
       fi
     fi
@@ -1004,6 +1009,10 @@ s4e_lane_owner_of_language() {
 # FLEET-16 keeps the fallback; test_gate_s4e_next_serves_own_lane arm (c)); the rule bites the OFFICERS the table
 # names for nothing: ceo, coo, cto today, and the cfo the day rebus leaves its cell.
 s4e_seat_owns_a_language() { local _l _who; _who="$(s4e_my_lane 2>/dev/null)"; [ -n "$_who" ] || _who="$ME"; case "$_who" in hq_*) return 0;; esac; for _l in $(s4e_lane_languages); do [ "$(s4e_lane_owner_of_language "$_l")" = "$_who" ] && return 0; done; return 1; }
+# ⛔ THE ANY-LANE FALLBACK CLOSES UNDER TENET FOR EVERY SEAT, ORDINARY AND PROMOTION PATHS ALIKE (ceo CEO-1302 (b), 2026-09-27): an HQ
+# runs only its own language (CEO-1232) and holds one row, so a language seat whose lane has nothing servable is told so (rc 2), never
+# handed another HQ's row; the census at the ruling found zero live rows owned `unassigned`, so the close strands nothing. MODE line 1.
+s4e_any_lane_closed() { case "$(head -1 "$PO/MODE" 2>/dev/null | tr -d '[:space:]')" in TENET) return 0;; esac; return 1; }
 s4e_lane_help() { local _l _o _out=""; for _l in $(s4e_lane_languages); do _o="$(s4e_lane_owner_of_language "$_l")"; _out="$_out$_l -> $_o · "; done; printf '%s' "${_out% · }"; }
 s4e_topic_lane() {
     local _t="$1" _owner _lang
@@ -3404,7 +3413,7 @@ TASKEOF
                # ⛔ THE FALLBACK IS NOT FOR A SEAT THAT OWNS NO LANGUAGE (CEO-779): the coo/cto wander into an HQ's cure
                # row here exactly as the promotion path did. Counted and reported once at the end, exit 2 -- a refusal
                # to serve, never "QUEUE EMPTY", because the queue is not empty, it is somebody else's.
-               if ! s4e_seat_owns_a_language; then
+               if ! s4e_seat_owns_a_language || s4e_any_lane_closed; then
                  _xlane_refused=$(( ${_xlane_refused:-0} + 1 )); _xlane_last="$topic ($_tl's)"
                  continue
                fi
@@ -3466,6 +3475,13 @@ TASKEOF
          _lane_filter=any-lane; s4e_pass3_scan
          # ⛔ CEO-779: a seat that owns no language, held back ONLY by other lanes' rows, is REFUSED rc=2 -- not told the
          # queue is empty (it is not; it is the HQs'). rc=2 is "could not serve", the same word every instrument uses.
+         if [ "${_xlane_refused:-0}" -gt 0 ] && s4e_seat_owns_a_language && s4e_any_lane_closed; then
+           s4e_report_owned_skips
+           s4e_report_rankcap_skips
+           printf '⛔ REFUSED (rc=2): %s cross-lane row(s) NOT served -- your lane %s has nothing servable, and the any-lane fallback is CLOSED under TENET (ceo CEO-1302 (b): an HQ runs only its own language, CEO-1232). Last: %s\n' "$_xlane_refused" "${_my_lane:-$ME}" "$_xlane_last"
+           printf '   Your lane is empty, not the queue: ask your officer or the ceo for your next row (s4e_msg.sh ask <topic>); another lane'"'"'s row is an ASK to its owner, never a claim.\n'
+           exit 2
+         fi
          if [ "${_xlane_refused:-0}" -gt 0 ] && ! s4e_seat_owns_a_language; then
            s4e_report_owned_skips
            s4e_report_rankcap_skips

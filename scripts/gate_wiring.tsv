@@ -556,6 +556,7 @@ test_gate_s4e_done_rows_carry_a_computed_receipt.sh	WIRED	-	-	-
 test_gate_s4e_done_timeout_is_a_refusal.sh	WIRED	-	-	-
 test_gate_s4e_donewhen_refuses_when_compiler_absent.sh	WIRED	-	-	-
 test_gate_s4e_donewhen_runs_the_whole_criterion.sh	WIRED	-	-	-
+test_gate_s4e_next_any_lane_fallback_closes_under_tenet.sh	WIRED	-	-	-
 test_gate_s4e_next_any_lane_fallback_refuses_a_seat_with_no_language.sh	WIRED	-	-	-
 test_gate_s4e_next_honours_owner.sh	WIRED	-	-	-
 test_gate_s4e_next_locks_a_promoted_blocker_only_in_its_own_lane.sh	WIRED	-	-	-
