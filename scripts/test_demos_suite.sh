@@ -84,7 +84,12 @@ for r in "${PROGS[@]}"; do
     rm -rf "$W"
 done
 SCRIP_HASH="$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo '?')"; CORP_HASH="$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
-echo "DEMOS_BOARD lang=$L total=$TOTAL both_modes_pass=$BOTH m3_pass=$M3P m4_pass=$M4P containers=$CONTN workhorse_declared=$WH -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 (the sample input against each demo's oracle ref)"
+# ⭐ THE BOARD LINE IS THE RECEIPT (CEO-827/839, ceo CEO-1325 ask 1, coo COO-207): a *SUITE_BOARD line in key=value form, its
+# fraction stated as all_pass=/all_n= so util_score_row.py READS the row off the line that measured it (never typed beside
+# it) and archives it verbatim under .github/board-lines/. shipped= is the whole census, containers= the declared library
+# blocks it excludes, so shipped = all_n + containers reads off the line. Fields are read BY NAME (lib_board_line.sh).
+LINE="DEMOS_SUITE_BOARD lang=$L total=$TOTAL shipped=$((TOTAL+CONTN)) all_pass=$BOTH all_n=$TOTAL m3_pass=$M3P m4_pass=$M4P containers=$CONTN workhorse_declared=$WH tree=$SCRIP_HASH corpus=$CORP_HASH RT_OPT=-O0"
+echo "$LINE (the sample input against each demo's oracle ref; both_modes_pass=all_pass)"
 [ -n "$NAMED" ] && echo "  NOT BOTH-MODES PASS:$NAMED"
 [ "$WH" -lt "$TOTAL" ] && echo "  ⚠ WORKHORSE: $((TOTAL-WH)) of $TOTAL demo(s) declare no <stem>.workhorse -- the benchmark role is owed (CEO-1313)"
 # progress rows: the canonical tree always, a fixture only into the table it names explicitly (S4E_PROGRESS_DB), as the testpgms runner does
@@ -94,8 +99,7 @@ fi
 if [ "$IS_BOARD" = 1 ]; then
     if [ "$NOWRITE" = 0 ]; then
         python3 "$HERE/util_score_row.py" write --lang "$L" --column demos --modes m3,m4 --measurer "${S4E_SEAT:-}" \
-            --suite-pass "$BOTH" --suite-total "$TOTAL" \
-            --text "$L-demos both_modes_pass=$BOTH/$TOTAL · m3 $M3P/$TOTAL · m4 $M4P/$TOTAL · containers $CONTN out of the population · workhorse declared $WH/$TOTAL (\`test_demos_suite.sh $L\`)" \
+            --text "$LINE" \
             || echo "⚠ SUITE ROW NOT WRITTEN -- the writer's refusal above says why"
     fi
 else echo "suite row: $DD is not the canonical demo tree -- a fixture, never written"; fi
