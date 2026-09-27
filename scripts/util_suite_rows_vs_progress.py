@@ -48,8 +48,10 @@ UNG = {"UNGRADED", "SKIP", "MISSING", "UNPROVEN"}
 # ⛔ A DRIVER IS ITS LIBRARY'S VEHICLE (CEO-1269): the progress writer records NAME_driver under NAME, and a sidecar written before the
 # re-keying still names the driver (gimpel's OUTSIDE file: BAL_driver.sno), so the stem folds the suffix -- else the one program
 # counts twice, once from the DB and once from the sidecar (gimpel read 160 against its row of 148, coo 2026-09-25).
+# ⛔ AN INCLUDE LIBRARY'S FILE IS NAME.INC OR NAME.inc AND ITS PROGRESS KEY STAYS NAME.sno (corpus fb0900573; ceo CEO-1317, declared in
+# gimpel's README): the stem folds .INC/.inc too, else gimpel's sidecars named 10 libraries a second time (152 against its row of 142).
 def stem(n):
-    return re.sub(r"_driver$", "", re.sub(r"\.(sno|spt|sc|icn|pl|reb|raku|pas)$", "", n.split("/")[-1]))
+    return re.sub(r"_driver$", "", re.sub(r"\.(sno|spt|sc|icn|pl|reb|raku|pas|inc|INC)$", "", n.split("/")[-1]))
 
 
 # ⛔ PACKAGES WITH NO OUTSIDE FILE WHOSE ROW IS STILL THEIR SHIPPED POPULATION (ceo CEO-1272, coo 2026-09-25): IPL publishes the
@@ -322,22 +324,22 @@ def selftest():
         # file folds its sidecars BY PATH, so two files sharing a basename count twice (IPL). Each row reads AGREE only with all three.
         dn = os.path.join(w, "corpus", "packages", "snobol4", "dotnet"); os.makedirs(dn)
         open(os.path.join(dn, "OUTSIDE_SPITBOL_BASELINE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\n")
-        open(os.path.join(dn, "UNGRADABLE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\n")
+        open(os.path.join(dn, "UNGRADABLE.tsv"), "w").write("X_driver.sno\tORACLE_REFUSES\tfixture\nY.INC\tORACLE_REFUSES\tan include library, keyed Y.sno in the DB (fixture)\n")
         open(os.path.join(dn, "CONTAINERS.tsv"), "w").write("chap.sno\tMULTI_PROGRAM\t2 top-level END statements (fixture)\n")
         ip = os.path.join(w, "corpus", "packages", "icon", "ipl"); os.makedirs(ip)
         open(os.path.join(ip, "UNGRADED.tsv"), "w").write("procs/dup.icn\tNEEDS_DRIVER\tfixture\ngprocs/dup.icn\tNEEDS_DRIVER\tfixture\n")
-        open(suites, "w").write("# fixture\n" + hdr + "dotnet\tDotnet\tx\tsnobol4\t2026-09-25\t1\t2\t2026-09-25\t1\t2\tfeedbeef1\tfixture\n"
+        open(suites, "w").write("# fixture\n" + hdr + "dotnet\tDotnet\tx\tsnobol4\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n"
                                 + "ipl\tIPL\tx\ticon\t2026-09-25\t1\t3\t2026-09-25\t1\t3\tfeedbeef1\tfixture\n")
         dl = [lines[0]]
         for m in ("m3", "m4"):
-            dl += [row("feedbeef1", "dotnet", "d1", m, "PASS"), row("feedbeef1", "dotnet", "X", m, "UNGRADED"), row("feedbeef1", "dotnet", "chap", m, "UNGRADED"),
+            dl += [row("feedbeef1", "dotnet", "d1", m, "PASS"), row("feedbeef1", "dotnet", "X", m, "UNGRADED"), row("feedbeef1", "dotnet", "chap", m, "UNGRADED"), row("feedbeef1", "dotnet", "Y", m, "UNGRADED"),
                    row("feedbeef1", "ipl", "a1", m, "PASS")]
         open(db, "w").write("".join(dl))
         buf = []
         rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
         txt = "\n".join(buf)
         ck(rc == 0 and re.search(r"dotnet .*AGREE", txt) and re.search(r"ipl .*AGREE", txt),
-           "(d) a driver-named sidecar row is its library's DB row, a container's stale DB row is no program, and IPL's two same-basename sidecar files count twice -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
+           "(d) a driver-named sidecar row is its library's DB row, a NAME.INC sidecar row is its NAME.sno DB row, a container's stale DB row is no program, and IPL's two same-basename sidecar files count twice -- both rows AGREE" + ("" if rc == 0 else " :: " + " | ".join(l for l in buf if "DISAGREE" in l)[:300]))
         print(f"population: 4 selftest arm(s), {fails} FAIL")
         print("SELFTEST " + ("PASS" if fails == 0 else "FAIL"))
         return 0 if fails == 0 else 1
