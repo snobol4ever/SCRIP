@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include "ct_arena.h"
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
@@ -21,6 +22,24 @@ struct RkB {
 typedef struct { RkB *b; RkItems *xs; int i, hi; } C;
 #define GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 8; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 /*====================================================================================================================================================================================================*/
+static char *fmt(const char *f, ...) {
+    va_list a; va_start(a, f); int n = vsnprintf(NULL, 0, f, a); va_end(a);
+    char *r = (char *) ct_alloc((size_t) n + 1); va_start(a, f); vsnprintf(r, (size_t) n + 1, f, a); va_end(a); return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { char *v; int n, cap; } SB;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sb_c(SB *s, char c) { GROW(s->v, s->n, s->cap, char); s->v[s->n++] = c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sb_cp(SB *s, unsigned long cp) {
+    if (cp < 0x80) sb_c(s, (char) cp);
+    else if (cp < 0x800) { sb_c(s, (char) (0xC0 | (cp >> 6))); sb_c(s, (char) (0x80 | (cp & 0x3F))); }
+    else if (cp < 0x10000) { sb_c(s, (char) (0xE0 | (cp >> 12))); sb_c(s, (char) (0x80 | ((cp >> 6) & 0x3F))); sb_c(s, (char) (0x80 | (cp & 0x3F))); }
+    else { sb_c(s, (char) (0xF0 | (cp >> 18))); sb_c(s, (char) (0x80 | ((cp >> 12) & 0x3F))); sb_c(s, (char) (0x80 | ((cp >> 6) & 0x3F))); sb_c(s, (char) (0x80 | (cp & 0x3F))); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *sb_str(SB *s) { sb_c(s, 0); s->n--; return s->v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void tl_add(TL *l, tree_t *t) { GROW(l->v, l->n, l->cap, tree_t *); l->v[l->n++] = t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *spn(RkB *b, int from, int to) { if (to < from) to = from; char *r = (char *) ct_alloc((size_t) (to - from) + 1); memcpy(r, b->s + from, (size_t) (to - from)); r[to - from] = 0; return r;
@@ -121,18 +140,17 @@ static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
 static tree_t *rk_adverb_bool(int v) { tree_t *b = make_call("__rk_mkbool"); expr_add_child(b, rk_ilit(v)); return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_multi_mangle(const char *base, TL *params) {
-    char buf[512]; int np = params ? params->n : 0;
-    int pos = snprintf(buf, sizeof buf, "%s$%d", base, np);
+    int np = params ? params->n : 0;
+    SB b = { 0 };
+    for (const char *c = fmt("%s$%d", base, np); *c; c++) sb_c(&b, *c);
     for (int i = 0; i < np; i++) {
         tree_t *p = params->v[i];
         const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : "Any";
         if (!strcmp(ty, "*@") || !strcmp(ty, "**@")) ty = "Slurpy";
-        char safe[64]; int j = 0;
-        for (const char *c = ty; *c && j < 63; c++, j++) safe[j] = (*c == ':') ? '_' : *c;
-        safe[j] = 0;
-        pos += snprintf(buf + pos, sizeof buf - (size_t) pos, "$%s", safe);
+        sb_c(&b, '$');
+        for (const char *c = ty; *c; c++) sb_c(&b, (*c == ':') ? '_' : *c);
     }
-    return intern(buf);
+    return sb_str(&b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_typed_param(RkB *b, const char *type, const char *name) { tree_t *p = var_node(b, name); expr_add_child(p, leaf_sval(TT_QLIT, type)); return p; }
@@ -146,8 +164,7 @@ static tree_t *seq1(tree_t *stmt) { tree_t *seq = ast_node_new(TT_SEQ_EXPR); if 
 #define RK_PH_LOOP (-2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_phaser_mark(const char *name, tree_t *body) {
-    char buf[64]; snprintf(buf, sizeof buf, "__rk_phaser_%s", name ? name : "");
-    tree_t *m = make_call(buf); expr_add_child(m, body ? body : ast_node_new(TT_SEQ_EXPR)); return m;
+    tree_t *m = make_call(fmt("__rk_phaser_%s", name ? name : "")); expr_add_child(m, body ? body : ast_node_new(TT_SEQ_EXPR)); return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_phaser_of(tree_t *n) { if (!n || n->t != TT_FNC || !n->v.sval || strncmp(n->v.sval, "__rk_phaser_", 12) != 0) return NULL; return n->v.sval + 12; }
@@ -172,8 +189,7 @@ static int rk_phaser_rank(const char *p, int mainline) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_phaser_unplaced(const char *p) {
     extern void rt_script_die_surface(const char *msg);
-    char m[192]; snprintf(m, sizeof m, "%s { } is implemented at mainline scope and as a loop phaser at the top level of a loop body, not here", p);
-    rt_script_die_surface(m);
+    rt_script_die_surface(fmt("%s { } is implemented at mainline scope and as a loop phaser at the top level of a loop body, not here", p));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_phaser_inline_tree(tree_t *n) {
@@ -252,8 +268,7 @@ static tree_t *rk_loop_phasers(RkB *b, tree_t *loop, tree_t *body) {
         else body->c[keep++] = body->c[i];
     }
     if (keep == body->n) return loop;
-    char gn[48]; snprintf(gn, sizeof gn, "__rk_ph_g%d", b->after_line);
-    const char *g = intern(gn);
+    const char *g = fmt("__rk_ph_g%d", b->after_line);
     TL inner = { 0 };
     if (first) {
         tree_t *t = ast_node_new(TT_SEQ_EXPR); expr_add_child(t, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(0))); expr_add_child(t, first);
@@ -281,7 +296,7 @@ static tree_t *rk_quiet_store(tree_t *target, tree_t *rhs) { tree_t *a = expr_bi
 static tree_t *rk_incdec(RkB *b, const char *var, int add) { return rk_quiet_store(var_node(b, var), expr_binary(add ? TT_ADD : TT_SUB, var_node(b, var), rk_ilit(1))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_post_incdec(RkB *b, const char *var, int add) {
-    char tmp[32]; snprintf(tmp, sizeof tmp, "__post_%d", b->post_uid++);
+    const char *tmp = fmt("__post_%d", b->post_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), var_node(b, var)));
     expr_add_child(seq, rk_quiet_store(var_node(b, var), expr_binary(add ? TT_ADD : TT_SUB, var_node(b, var), rk_ilit(1))));
@@ -292,7 +307,7 @@ static tree_t *rk_post_incdec(RkB *b, const char *var, int add) {
 static tree_t *rk_tw_field(const char *name) { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name)); return fe; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_tw_post_incdec(RkB *b, const char *var, int add) {
-    char tmp[32]; snprintf(tmp, sizeof tmp, "__twpost_%d", b->twpost_uid++);
+    const char *tmp = fmt("__twpost_%d", b->twpost_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), rk_tw_field(var)));
     expr_add_child(seq, expr_binary(TT_ASSIGN, rk_tw_field(var), expr_binary(add ? TT_ADD : TT_SUB, rk_tw_field(var), rk_ilit(1))));
@@ -306,7 +321,7 @@ static void rk_group_targets(tree_t *grp, TL *t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_destructure(RkB *b, TL *targets, tree_t *rhs_arr) {
-    char tmp[32]; snprintf(tmp, sizeof tmp, "__destr_%d", b->destr_uid++);
+    const char *tmp = fmt("__destr_%d", b->destr_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), rhs_arr));
     for (int i = 0; targets && i < targets->n; i++) {
@@ -317,8 +332,7 @@ static tree_t *rk_destructure(RkB *b, TL *targets, tree_t *rhs_arr) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_for_multi(RkB *b, TL *vars, tree_t *list, tree_t *body) {
-    char av[32], iv[32];
-    snprintf(av, sizeof av, "__fm_a_%d", b->fm_uid); snprintf(iv, sizeof iv, "__fm_i_%d", b->fm_uid); b->fm_uid++;
+    const char *av = fmt("__fm_a_%d", b->fm_uid), *iv = fmt("__fm_i_%d", b->fm_uid); b->fm_uid++;
     int k = vars ? vars->n : 0;
     tree_t *hoist = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, intern(av)), list);
     tree_t *init = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, intern(iv)), rk_ilit(0));
@@ -466,10 +480,10 @@ static tree_t *rk_interp_primary(RkB *b, const char *s, int *ip, int len) {
     while (i < len && s[i] == ' ') i++;
     if (i < len && (s[i] == '$' || s[i] == '@')) {
         char sig = s[i]; i++;
-        char nm[258]; int nl = 0; nm[nl++] = sig;
-        while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { if (nl < 257) nm[nl++] = s[i]; i++; }
-        nm[nl] = '\0'; *ip = i;
-        return var_node(b, nm);
+        SB nm = { 0 }; sb_c(&nm, sig);
+        while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&nm, s[i]); i++; }
+        *ip = i;
+        return var_node(b, sb_str(&nm));
     }
     if (i < len && s[i] >= '0' && s[i] <= '9') {
         long v = 0;
@@ -498,22 +512,21 @@ static tree_t *rk_interp_subexpr(RkB *b, const char *s, int *ip, int len) {
 static tree_t *lower_interp_str(RkB *b, const char *s) {
     int len = s ? (int) strlen(s) : 0;
     tree_t *result = NULL;
-    char litbuf[4096]; int litpos = 0, i = 0;
+    SB lit = { 0 }; int i = 0;
     while (i < len) {
         if (s[i] == '$' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z'))) {
-            if (litpos > 0) { litbuf[litpos] = '\0'; tree_t *lit = leaf_sval(TT_QLIT, litbuf); result = result ? expr_binary(TT_CAT, result, lit) : lit; litpos = 0; }
+            if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
             i++;
-            char vname[256]; int vlen = 0;
-            while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { if (vlen < 255) vname[vlen++] = s[i]; i++; }
-            vname[vlen] = '\0';
-            tree_t *var = leaf_sval(TT_VAR, vname);
+            SB vn = { 0 };
+            while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
+            tree_t *var = leaf_sval(TT_VAR, sb_str(&vn));
             result = result ? expr_binary(TT_CAT, result, var) : var;
         }
         else if (s[i] == '@' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z'))) {
-            if (litpos > 0) { litbuf[litpos] = '\0'; tree_t *lit = leaf_sval(TT_QLIT, litbuf); result = result ? expr_binary(TT_CAT, result, lit) : lit; litpos = 0; }
-            char vname[256]; int vlen = 0; vname[vlen++] = s[i]; i++;
-            while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { if (vlen < 255) vname[vlen++] = s[i]; i++; }
-            vname[vlen] = '\0';
+            if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
+            SB vn = { 0 }; sb_c(&vn, s[i]); i++;
+            while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
+            char *vname = sb_str(&vn);
             tree_t *arrpart;
             if (i < len && s[i] == '[') {
                 i++;
@@ -525,9 +538,9 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             else arrpart = leaf_sval(TT_VAR, vname);
             result = result ? expr_binary(TT_CAT, result, arrpart) : arrpart;
         }
-        else { if (litpos < 4095) litbuf[litpos++] = s[i]; i++; }
+        else { sb_c(&lit, s[i]); i++; }
     }
-    if (litpos > 0) { litbuf[litpos] = '\0'; tree_t *lit = leaf_sval(TT_QLIT, litbuf); result = result ? expr_binary(TT_CAT, result, lit) : lit; }
+    if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; }
     return result ? result : leaf_sval(TT_QLIT, "");
 }
 /*====================================================================================================================================================================================================*/
@@ -588,18 +601,6 @@ static char *regex_to_engine(const char *r) {
     return o;
 }
 /*====================================================================================================================================================================================================*/
-typedef struct { char *v; int n, cap; } SB;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sb_c(SB *s, char c) { GROW(s->v, s->n, s->cap, char); s->v[s->n++] = c; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sb_cp(SB *s, unsigned long cp) {
-    if (cp < 0x80) sb_c(s, (char) cp);
-    else if (cp < 0x800) { sb_c(s, (char) (0xC0 | (cp >> 6))); sb_c(s, (char) (0x80 | (cp & 0x3F))); }
-    else if (cp < 0x10000) { sb_c(s, (char) (0xE0 | (cp >> 12))); sb_c(s, (char) (0x80 | ((cp >> 6) & 0x3F))); sb_c(s, (char) (0x80 | (cp & 0x3F))); }
-    else { sb_c(s, (char) (0xF0 | (cp >> 18))); sb_c(s, (char) (0x80 | ((cp >> 12) & 0x3F))); sb_c(s, (char) (0x80 | ((cp >> 6) & 0x3F))); sb_c(s, (char) (0x80 | (cp & 0x3F))); }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *sb_str(SB *s) { sb_c(s, 0); s->n--; return s->v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dq_closure_end(const char *s, int i, int n) {
     int j = i + 1;
@@ -1624,9 +1625,9 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     const char *lt = strstr(nm, ":<");
     if (lt && nm[strlen(nm) - 1] == '>') {
-        char cat[32]; int cl = (int) (lt - nm); if (cl > 31) cl = 31; memcpy(cat, nm, (size_t) cl); cat[cl] = 0;
-        char raw[64]; int rl = (int) strlen(lt + 2) - 1; if (rl > 63) rl = 63; if (rl < 0) rl = 0; memcpy(raw, lt + 2, (size_t) rl); raw[rl] = 0;
-        char cb[96]; rk_op_canon_base(cat, raw, cb, sizeof cb); nm = ct_strdup(cb);
+        char *cat = trimdup(nm, (int) (lt - nm));
+        int rl = (int) strlen(lt + 2) - 1; char *raw = trimdup(lt + 2, rl < 0 ? 0 : rl);
+        size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); nm = cb;
     }
     const char *mn = multi == 1 ? rk_multi_mangle(nm, &params) : intern(nm);
     tree_t *e;

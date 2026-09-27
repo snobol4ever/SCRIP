@@ -65,7 +65,7 @@ typedef struct RkP {
     tree_t *sig; RkTrait *tr; int ntr; RkTrait tr1; int has_tr1;
     RkDecl *dcl; const char *init_op;
     RkItems *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
-    int nmods; const char *modk[2]; RkItems *modx[2];
+    int nmods, cmodk, cmodx; const char **modk; RkItems **modx;
     int ctl_ns;
 } RkP;
 static const int rk_brackets[] = {
@@ -3398,8 +3398,9 @@ static int r_default_value(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {
     int q = pos; int e = -1; int ntc = 0;
-    int tf[4], tt[4]; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0;
-    for (;;) { int t = r_type_constraint(p, q); if (t < 0) break; if (ntc < 4) { tf[ntc] = q; int te = t; while (te > q && asc_space((unsigned char) p->s[te - 1])) te--; tt[ntc] = te; } q = t; ntc++;
+    int *tf = NULL, *tt = NULL, ctf = 0, ctt = 0; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0;
+    for (;;) { int t = r_type_constraint(p, q); if (t < 0) break; RK_GROW(tf, ntc, ctf, int); RK_GROW(tt, ntc, ctt, int); tf[ntc] = q;
+        { int te = t; while (te > q && asc_space((unsigned char) p->s[te - 1])) te--; tt[ntc] = te; } q = t; ntc++;
         }
     int c = ch(p, q);
     if (at_lit(p, q, "**") || c == '*' || c == '+') {
@@ -3439,7 +3440,7 @@ static int r_parameter(RkP *p, int pos) {
     for (;;) { int t = r_post_constraint(p, q); if (t < 0) break; q = ws(p, t); }
     int d = r_default_value(p, q);
     RkItems *dflt = d >= 0 ? takexs(p) : NULL;
-    if (p->build) p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc > 4 ? 4 : ntc, dflt, suffix, named);
+    if (p->build) p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named);
     if (d >= 0) {
         q = ws(p, d);
         int t = r_trait(p, q);
@@ -4214,14 +4215,17 @@ static int r_statement_mods(RkP *p, int pos) {
         int e = kok(p, q, cond[i]);
         if (e < 0) continue;
         int x = r_statement_mod_expr(p, e, cond[i]);
-        p->modk[0] = cond[i]; p->modx[0] = takexs(p); p->nmods = 1;
+        p->modk = NULL; p->modx = NULL; p->cmodk = p->cmodx = 0; p->nmods = 0;
+        RK_GROW(p->modk, p->nmods, p->cmodk, const char *); RK_GROW(p->modx, p->nmods, p->cmodx, RkItems *); p->modk[0] = cond[i]; p->modx[0] = takexs(p); p->nmods = 1;
         int t = ws(p, x);
-        for (int j = 0; loop[j]; j++) { int f = kok(p, t, loop[j]); if (f >= 0) { int y = r_statement_mod_expr(p, f, loop[j]); p->modk[1] = loop[j]; p->modx[1] = takexs(p); p->nmods = 2; return y; } }
+        for (int j = 0; loop[j]; j++) { int f = kok(p, t, loop[j]); if (f >= 0) { int y = r_statement_mod_expr(p, f, loop[j]); RK_GROW(p->modk, p->nmods, p->cmodk, const char *);
+            RK_GROW(p->modx, p->nmods, p->cmodx, RkItems *); p->modk[1] = loop[j]; p->modx[1] = takexs(p); p->nmods = 2; return y; } }
         return x;
     }
     for (int j = 0; loop[j]; j++) {
         int f = kok(p, q, loop[j]);
-        if (f >= 0) { int y = r_statement_mod_expr(p, f, loop[j]); p->modk[0] = loop[j]; p->modx[0] = takexs(p); p->nmods = 1; return y; }
+        if (f >= 0) { int y = r_statement_mod_expr(p, f, loop[j]); p->modk = NULL; p->modx = NULL; p->cmodk = p->cmodx = 0; p->nmods = 0;
+            RK_GROW(p->modk, p->nmods, p->cmodk, const char *); RK_GROW(p->modx, p->nmods, p->cmodx, RkItems *); p->modk[0] = loop[j]; p->modx[0] = takexs(p); p->nmods = 1; return y; }
     }
     return -1;
 }
@@ -4259,11 +4263,11 @@ static int r_statement(RkP *p, int pos) {
     RkItems *X = takexs(p);
     p->invocant_ok = si; p->qsigil = sq;
     if (e >= 0) {
-        int end = e; int nm = 0; const char *mk[2]; RkItems *mx[2];
+        int end = e; int nm = 0; const char **mk = NULL; RkItems **mx = NULL;
         if (!(marked_end(p, e) || marked_end(p, ws(p, e)))) {
             p->nmods = 0;
             int m = r_statement_mods(p, e);
-            if (m >= 0) { end = m; nm = p->nmods; for (int i = 0; i < nm; i++) { mk[i] = p->modk[i]; mx[i] = p->modx[i]; } }
+            if (m >= 0) { end = m; nm = p->nmods; mk = p->modk; mx = p->modx; }
         }
         if (p->build) {
             p->stmt_items = X;
@@ -4501,13 +4505,13 @@ static int r_statement_control(RkP *p, int pos) {
     if ((e = kok(p, pos, "whenever")) >= 0) { int q = r_xblock(p, e, 2); p->tv = NULL; return q; }
     if ((e = kw_end(p, pos, "foreach")) >= 0) panic_at(p, pos, "Unsupported use of 'foreach'; in Raku please use 'for'");
     if ((e = kok(p, pos, "loop")) >= 0) {
-        int q = e; RkItems *le[3] = { NULL, NULL, NULL }; int parens = 0;
+        int q = e; RkItems *le0 = NULL, *le1 = NULL, *le2 = NULL; int parens = 0;
         if (ch(p, q) == '(') {
             parens = 1;
             int t = ws(p, q + 1); int n = 0;
-            int x = r_EXPR(p, t, 0); if (x >= 0) { le[0] = takexs(p); t = ws(p, x); n = 1; }
-            if (ch(p, t) == ';') { t = ws(p, t + 1); n = 2; x = r_EXPR(p, t, 0); if (x >= 0) { le[1] = takexs(p); t = ws(p, x); }
-                if (ch(p, t) == ';') { t = ws(p, t + 1); n = 3; x = r_EXPR(p, t, 0); if (x >= 0) { le[2] = takexs(p); t = ws(p, x); } } }
+            int x = r_EXPR(p, t, 0); if (x >= 0) { le0 = takexs(p); t = ws(p, x); n = 1; }
+            if (ch(p, t) == ';') { t = ws(p, t + 1); n = 2; x = r_EXPR(p, t, 0); if (x >= 0) { le1 = takexs(p); t = ws(p, x); }
+                if (ch(p, t) == ';') { t = ws(p, t + 1); n = 3; x = r_EXPR(p, t, 0); if (x >= 0) { le2 = takexs(p); t = ws(p, x); } } }
             if (n == 3 && ch(p, t) == ')') q = ws(p, t + 1);
             else if (ch(p, t) == ')') panic_at(p, t,
                 n == 0 ? "Malformed loop spec (expected 3 semicolon-separated expressions)" : "Malformed loop spec (expected 3 semicolon-separated expressions but got %d)", n);
@@ -4515,7 +4519,7 @@ static int r_statement_control(RkP *p, int pos) {
             else panic_at(p, t, "Malformed loop spec");
         }
         int b = r_block(p, q);
-        if (p->build) { rkb_set_after_line(p->B, b); p->tv = rkb_loop(p->B, le[0], le[1], le[2], parens, p->tv); }
+        if (p->build) { rkb_set_after_line(p->B, b); p->tv = rkb_loop(p->B, le0, le1, le2, parens, p->tv); }
         return b;
     }
     if ((e = kok(p, pos, "need")) >= 0) {
@@ -4651,7 +4655,7 @@ int rk_syntax_check(const char *src, int len, const char *path, char *err, int e
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rk_parse_tree(const char *src, int len, const char *path, char *err, int errlen) {
+tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg) {
     RkP *p = (RkP *) ct_alloc(sizeof(RkP));
     memset(p, 0, sizeof *p);
     p->s = src; p->n = len; p->file = path ? path : "<stdin>"; p->build = 1; p->B = rkb_new(src, len);
@@ -4663,11 +4667,14 @@ tree_t *rk_parse_tree(const char *src, int len, const char *path, char *err, int
     if (setjmp(p->jb)) {
         int line = line_of(p, p->err_pos);
         int col = 1; for (int i = p->err_pos - 1; i >= 0 && src[i] != '\n'; i--) col++;
-        if (err && errlen > 0) snprintf(err, (size_t) errlen, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+        if (errmsg) {
+            int n = snprintf(NULL, 0, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+            *errmsg = (char *) ct_alloc((size_t) n + 1); snprintf(*errmsg, (size_t) n + 1, "%s:%d:%d: raku syntax error: %s", p->file, line, col, p->msg);
+        }
         return NULL;
     }
     r_comp_unit(p);
-    if (err && errlen > 0) err[0] = 0;
+    if (errmsg) *errmsg = NULL;
     return p->tv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

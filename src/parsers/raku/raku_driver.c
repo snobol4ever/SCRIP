@@ -8,10 +8,10 @@
 void raku_compile(const char *src, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
     if (out_ast) *out_ast = NULL;
-    char err[600];
-    tree_t *prog = rk_parse_tree(src, (int) strlen(src), filename, err, sizeof err);
+    char *err = NULL;
+    tree_t *prog = rk_parse_tree(src, (int) strlen(src), filename, &err);
     if (!prog) {
-        fprintf(stderr, "%s\n", err);
+        fprintf(stderr, "%s\n", err ? err : "raku: parse failed");
         fprintf(stderr, "raku: parse error in %s\n", filename);
         return;
     }
