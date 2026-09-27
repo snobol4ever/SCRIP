@@ -14,7 +14,8 @@ printed nothing = EMPTY (hq_snocone 2026-09-25: a source holding only comments a
 one -INCLUDE -- has no statement to print, which is neither a tree shown nor a crash); a clean exit whose output is "Parsed." and no
 tree = RECOGNIZED (a recognizer's acceptance, Lon's phase 1 for parser_raku.sc: not a tree, so still red, and not a crash); anything
 else -- a crash, a timeout, heap exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a
-parser that declines. A program's time limit is 10 x its language's start-up on an empty input (10..300 s) unless --timeout S names one.
+parser that declines. A program's time limit is 10 x its language's start-up on an empty input (10..300 s) unless --timeout S names one;
+without --timeout every program that times out is re-run alone at 300 s before it counts, so a load rise mid-run is no CRASH.
 It prints its denominator per language as each language finishes and names the first REFUSED and first CRASH; --list TSV
 also writes EVERY member as a row (lang, corpus-relative source or master key, class, first line) so a class can be read whole
 (hq_snocone 2026-09-27: 66 Icon CRASHes on the SCRIP arm were one name on the board line and no list). A REFUSED
@@ -219,6 +220,12 @@ def main(argv):
                 mine = [w[:9] + (tl,) for w in mine]
                 with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
                     results = list(ex.map(lambda w: task(*w), mine))
+                # A TIMEOUT IS RE-TIMED ALONE BEFORE IT COUNTS (hq_snocone 2026-09-27, measured 09-27d): the limit is fixed once from the
+                # start-up, so a load rise mid-run turned six Raku programs into TIMEOUT crashes that each parse, rc 0, in 36..85 s when
+                # re-run alone. Each TIMEOUT is re-run serially at TMAX; only one that still times out is a CRASH.
+                if not timeout:
+                    again = {w[6]: w[:9] + (TMAX,) for w in mine}
+                    results = [task(*again[x[1]]) if x[2] == "CRASH" and x[3].startswith("TIMEOUT") else x for x in results]
             for _l, key, cls, first in results:
                 rel = os.path.relpath(key, CORPUS) if os.path.isabs(key) else key
                 if cls in ("REFUSED", "EMPTY") and (lang, rel) in declared:
