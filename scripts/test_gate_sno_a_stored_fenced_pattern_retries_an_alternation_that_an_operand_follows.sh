@@ -18,6 +18,10 @@
 # alternative would match (NO in SPITBOL), 11 the same with no FENCE (the outer alternative matches, YES).
 # FAIL_ONCE (recorded, hq_snobol4 2026-09-27): on f32289815 (the cure absent) m3 AND m4 diverge on 1, 2, 3, 4, 5, 9 and 10 (9 and 10
 # read YES: the pattern failed whole and the outer alternative matched); with the cure all 11 lines equal the oracle in both modes.
+# THE CTO'S REVIEW (2026-09-27, accepted 5f445d5fd): 12 is the cto's control -- a conditional-capture tail must read V=c, never V=b
+# (a skipped capture's stale record); 13-17 widen it: an immediate-capture tail, a capture around a generator, a cursor-capture
+# tail, two stacked capture tails, and an abort through the bare FENCE with a capture tail and an outer alternative (sbl NO).
+# Witnesses 9, 10 and 17 also guard the fallback first-node root the widening reaches (the cto's note).
 # ARMS: (1) mode 3 and (2) mode 4 run the witness; every line must match the oracle byte for byte.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -77,19 +81,43 @@ W11     P11 = ':' NULL ('S' G | 'X') NULL
         S ? POS(0) (P11 | ':' REM) RPOS(0)                                 :S(Y11)
         OUTPUT = 'NO  11 control: with no FENCE the outer alternative matches' :(END)
 Y11     OUTPUT = 'YES 11 control: with no FENCE the outer alternative matches'
+W12     P12 = ':' FENCE ('a' | 'ab') (LEN(1) . V)
+        V = ; ':abcd' ? POS(0) P12 'd'                                     :S(Y12)
+        OUTPUT = 'NO  12 the cto control: a conditional capture tail'      :(W13)
+Y12     OUTPUT = '12 the cto control, conditional capture tail: V=' V
+W13     P13 = ':' FENCE ('a' | 'ab') (LEN(1) $ W)
+        W = ; ':abcd' ? POS(0) P13 'd'                                     :S(Y13)
+        OUTPUT = 'NO  13 an immediate capture tail'                        :(W14)
+Y13     OUTPUT = '13 an immediate capture tail: W=' W
+W14     P14 = ':' FENCE ('a' | 'ab') ((LEN(1) | LEN(2)) . X)
+        X = ; ':abcde' ? POS(0) P14 'e'                                    :S(Y14)
+        OUTPUT = 'NO  14 a capture around a generator'                     :(W15)
+Y14     OUTPUT = '14 a capture around a generator: X=' X
+W15     P15 = ':' FENCE ('a' | 'ab') LEN(1) @C
+        C = ; ':abcd' ? POS(0) P15 'd'                                     :S(Y15)
+        OUTPUT = 'NO  15 a cursor capture tail'                            :(W16)
+Y15     OUTPUT = '15 a cursor capture tail: C=' C
+W16     P16 = ':' FENCE ('a' | 'ab') (LEN(1) . Y) (LEN(1) . Z)
+        Y = ; Z = ; ':abcde' ? POS(0) P16 'e'                              :S(Y16)
+        OUTPUT = 'NO  16 two stacked capture tails'                        :(W17)
+Y16     OUTPUT = '16 two stacked capture tails: Y=' Y ' Z=' Z
+W17     P17 = ':' FENCE ('a' | 'x') (LEN(1) . Q)
+        Q = 'unset'; ':abcd' ? POS(0) (P17 'd' | ':' REM . R)              :S(Y17)
+        OUTPUT = 'NO  17 abort through the FENCE with a capture tail'      :(END)
+Y17     OUTPUT = 'YES 17 abort through the FENCE with a capture tail: Q=' Q ' R=' R
 END
 EOF
 ( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
-[ "$(grep -c '^YES' "$T/w.ref")" = 9 ] && [ "$(grep -c '^NO  9 ' "$T/w.ref")" = 1 ] && [ "$(grep -c '^NO  10 ' "$T/w.ref")" = 1 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read nine YES lines and NO on 9 and 10 -- the witness is not the one this gate was minted on"; exit 2; }
+[ "$(grep -c '^YES' "$T/w.ref")" = 9 ] && [ "$(grep -c '^NO  9 ' "$T/w.ref")" = 1 ] && [ "$(grep -c '^NO  10 ' "$T/w.ref")" = 1 ] && grep -qx '12 the cto control, conditional capture tail: V=c' "$T/w.ref" && grep -qx 'NO  17 abort through the FENCE with a capture tail' "$T/w.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read nine YES lines, NO on 9, 10 and 17, and V=c on 12 -- the witness is not the one this gate was minted on"; exit 2; }
 RC=0
 got="$(cd "$T" && timeout 20s "$SCRIP" w.sno </dev/null 2>&1)"
-if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  m3 PASS (11/11 lines byte-identical to the oracle)"
+if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  m3 PASS (17/17 lines byte-identical to the oracle)"
 else echo "  m3 FAIL (diverged from the oracle on: $(diff <(echo "$got") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w" 2>"$T/ld.log"; then
     got4="$(cd "$T" && timeout 20s ./w </dev/null 2>&1)"
-    if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (11/11 lines byte-identical to the oracle)"
+    if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (17/17 lines byte-identical to the oracle)"
     else echo "  m4 FAIL (diverged from the oracle on: $(diff <(echo "$got4") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so arm 2 measured nothing"; exit 2; fi
-if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: a stored or run-time fenced pattern retries an alternation an operand follows, and a walk reaching its bare FENCE aborts the match, as SPITBOL does, in both modes (2 arms, 11 witnesses)"
-else echo "⛔ GATE FAIL(1) [$G]: a stored or run-time fenced pattern was failed whole where SPITBOL retries it or aborts through its FENCE (examined 2 arms, 11 witnesses)"; fi
+if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: a stored or run-time fenced pattern retries an alternation an operand follows, and a walk reaching its bare FENCE aborts the match, as SPITBOL does, in both modes (2 arms, 17 witnesses)"
+else echo "⛔ GATE FAIL(1) [$G]: a stored or run-time fenced pattern was failed whole where SPITBOL retries it or aborts through its FENCE (examined 2 arms, 17 witnesses)"; fi
 exit $RC
