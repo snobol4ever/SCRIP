@@ -22,7 +22,8 @@ static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(
 static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
 static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
 DESCR_t rt_pl_dop_unify_ci(DESCR_t * args, long long imm);
-DESCR_t rt_pl_dop_unify_cs(DESCR_t * args, const char * cs);
+DESCR_t rt_pl_dop_unify_ca(DESCR_t * args, long long id);
+int prolog_atom_intern(const char * name);
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
@@ -197,13 +198,13 @@ std::string bb_call_fn_str(IR_t * pBB) {
                   + x86("comment", std::string("BOX IR_CALL ") + fn + "(...) -> rt_call_arr [operand-marshal, FAIL->ω]");
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, (int64_t)nargs, &dsym);
     if (!dfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
-    int cui = -1; long long cival = 0; const char * csval = 0;
+    int cui = -1; long long cival = 0; int catom = 0;
     if (dfp && nargs == 2 && !strcmp(fn, "$unify") && !getenv("SCRIP_NO_CU")) {
         for (int i = 0; i < 2 && cui < 0; i++) {
             IR_t * lf = (subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i);
             if (!lf) continue;
             if (lf->op == IR_LIT_INTEGER) { cui = i; cival = (long long)IR_LIT(lf).ival; }
-            else if (lf->op == IR_LIT_STRING && IR_LIT(lf).sval) { cui = i; csval = IR_LIT(lf).sval; }
+            else if (lf->op == IR_LIT_ATOM && IR_LIT(lf).sval) { cui = i; cival = (long long)(unsigned)prolog_atom_intern(IR_LIT(lf).sval); catom = 1; }
         }
     }
     if (cui >= 0) {
@@ -215,14 +216,11 @@ std::string bb_call_fn_str(IR_t * pBB) {
     }
     if (cui < 0) { std::string arm = pl_leaf_inline_arm(fn, nargs, argbase, resoff, (subs && subs[0]) ? subs[0]->entry : ir_call_arg(pBB, 0)); if (!arm.empty()) return s + arm; }
     if (dfp && cui >= 0) {
-        s += x86("comment", (std::string("PL-REGAIN-5 const head-unify leaf: ") + (csval ? "rt_pl_dop_unify_cs" : "rt_pl_dop_unify_ci") + " (const in reg, one-operand marshal)").c_str());
+        s += x86("comment", (std::string("PL-REGAIN-5 const head-unify leaf: ") + (catom ? "rt_pl_dop_unify_ca" : "rt_pl_dop_unify_ci") + " (const in reg, one-operand marshal)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));
-        if (csval) {
-            s += x86("mov", "rsi", ROQ(cui * 2));
-            s += x86_jmp_id(cui * 2 + 1);
-            s += x86_ro_seal_str(cui * 2, csval);
-            s += x86_deflabel_id(cui * 2 + 1);
-            s += x86("call", "rt_pl_dop_unify_cs", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_cs);
+        if (catom) {
+            s += x86_movabs_r64("rsi", (uint64_t)cival);
+            s += x86("call", "rt_pl_dop_unify_ca", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_ca);
             s += x86("mov", FRQ(resoff), "rax");
             s += x86("mov", FRQ(resoff + 8), "rdx");
             s += x86_rt_gc_poll();

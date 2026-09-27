@@ -116,7 +116,7 @@ static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, NULL, cx->tω); IR_LIT(nd).sval = "$mkc";
-    IR_t * fn = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(fn).sval = ct_strdup(fname);
+    IR_t * fn = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(fn).sval = ct_strdup(fname);
     ir_operand_push(nd, fn);
     IR_t * prev = fn; IR_t * first = fn;
     for (int i = 0; i < nkids; i++) {
@@ -134,7 +134,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return NULL;
     switch (t->t) {
-    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval; return nd; }
+    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
     case TT_VAR:  { IR_t * nd = build(cx, IR_VAR, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); return nd; }
@@ -142,7 +142,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         int bar = (t->v.ival == 1 && t->n > 0);
         IR_t * prev; IR_t * prev_e = NULL;
         if (bar) prev = term_lval_e(cx, t->c[t->n - 1], &prev_e);
-        else { prev = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(prev).sval = "[]"; }
+        else { prev = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(prev).sval = "[]"; }
         for (int i = (bar ? t->n - 2 : t->n - 1); i >= 0; i--) {
             IR_t * ee = NULL; IR_t * e = term_lval_e(cx, t->c[i], &ee);
             IR_t * kids[2] = { e, prev }; IR_t * kes[2] = { ee, prev_e };
@@ -160,7 +160,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
             lc_γ_to(dg, nd);
             if (entry_out) *entry_out = dg;
             return nd; }
-        if (nk == 0) { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; return nd; }
+        if (nk == 0) { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; return nd; }
         IR_t ** kids = (IR_t **) ct_zalloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
         IR_t ** kes  = (IR_t **) ct_zalloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
         for (int i = 0; i < nk; i++) kids[i] = term_lval_e(cx, t->c[i], &kes[i]);
@@ -168,8 +168,8 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         ct_drop(kids); ct_drop(kes);
         return nd;
     }
-    case TT_CUT: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = "!"; return nd; }
-    default: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = "?"; return nd; }
+    case TT_CUT: { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = "!"; return nd; }
+    default: { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = "?"; return nd; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1909,9 +1909,9 @@ static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) 
         if (!nd || nd->op != IR_CALL_VALUE || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "goal") || nd->n_operands < 1) continue;
         gv = nd->operands[0];
         if (!gv) continue;
-        if (ar == 0 && gv->op == IR_LIT_STRING && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, nm)) return 1;
+        if (ar == 0 && (gv->op == IR_LIT_STRING || gv->op == IR_LIT_ATOM) && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, nm)) return 1;
         if (ar > 0 && gv->op == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkc") && gv->n_operands == ar + 1
-            && gv->operands[0] && gv->operands[0]->op == IR_LIT_STRING && IR_LIT(gv->operands[0]).sval && !strcmp(IR_LIT(gv->operands[0]).sval, nm)) return 1;
+            && gv->operands[0] && (gv->operands[0]->op == IR_LIT_STRING || gv->operands[0]->op == IR_LIT_ATOM) && IR_LIT(gv->operands[0]).sval && !strcmp(IR_LIT(gv->operands[0]).sval, nm)) return 1;
     }
     return 0;
 }

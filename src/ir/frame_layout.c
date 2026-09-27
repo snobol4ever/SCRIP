@@ -907,7 +907,7 @@ static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RA
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_op_names_a_string(IR_e op) { return op == IR_CALL || op == IR_CALL_BUILTIN || op == IR_CALL_BUILTIN_GEN || op == IR_CALL_ICON || op == IR_CALL_PROC_STAGED || op == IR_CALL_SNOBOL4 || op == IR_CALL_VALUE || op == IR_MATCH_DEFER || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF; }
-static int zls_reuse_straight(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK; }
+static int zls_reuse_straight(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK; }
 static int zls_reuse_detleaf(const IR_t * c) { return c && c->op == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
 static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w) {
     const IR_t * c = g->all[i];
@@ -1113,7 +1113,7 @@ void fl_derive_tier(IR_graph_t * g) {
     if (!g || !g->all) return;
     int window = 0, callee = 0, statements = 0, resumed = 0, matchers = 0, others = 0;
     for (int i = 0; i < g->n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
-        { int o = (int)c->op; if (o >= IR_MATCH && o <= IR_MATCH_VALUE) matchers++; else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && o != IR_LIT_STRING && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET && o != IR_LIT_NAME) others++; }
+        { int o = (int)c->op; if (o >= IR_MATCH && o <= IR_MATCH_VALUE) matchers++; else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && o != IR_LIT_STRING && o != IR_LIT_ATOM && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET && o != IR_LIT_NAME) others++; }
         switch ((int)c->op) {
             case IR_STATEMENT: case IR_STATEMENT_BEGIN: case IR_STATEMENT_END: case IR_STMT_MARK: case IR_DEFINE: case IR_GOTO_DEFERRED: case IR_CALL_SNOBOL4: case IR_KW_SNOBOL4: case IR_KW_ASSIGN_SNOBOL4: case IR_DTP_ASSIGN: statements = 1; break;
             case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_REM: case IR_MATCH_ARB: case IR_MATCH_BAL: case IR_MATCH_ATP: case IR_MATCH_LAMBDA: case IR_MATCH_RETRY: case IR_MATCH_REPLACE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_SPAN_VAR: statements = 1; break;
@@ -1168,7 +1168,7 @@ long zw_carve_k(const IR_t * nd) {
     extern int bb_node_id(IR_t *); long _d, _k; int _spine;
     if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); { const char * a = getenv("SCRIP_BB_ALLOC_ALL"); _all = (a && *a == '0') ? 0 : 1; }    }
     if (!_ba || !nd) return 0;
-    _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
+    _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
     if (_spine) return 0;
     if (!_all && ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;
     if (fc_geom(nd, &_d)) return 0;

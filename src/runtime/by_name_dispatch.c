@@ -228,12 +228,14 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     }
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
-    if (((int)A->v == DT_S || (int)A->v == DT_PLATOM) && ((int)B->v == DT_S || (int)B->v == DT_PLATOM)) {
+    if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
+    { int aa = (int)A->v == DT_S || (int)A->v == DT_PLATOM, ba = (int)B->v == DT_S || (int)B->v == DT_PLATOM;
+      if (aa && ba) {
         extern const char *prolog_atom_name(int);
         const char *x = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
         const char *y = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
-        return x && y && strcmp(x, y) == 0;
-    }
+        return x && y && strcmp(x, y) == 0; }
+      if (aa || ba) return 0; }
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -264,12 +266,14 @@ static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     }
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
-    if (((int)A->v == DT_S || (int)A->v == DT_PLATOM) && ((int)B->v == DT_S || (int)B->v == DT_PLATOM)) {
+    if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
+    { int aa = (int)A->v == DT_S || (int)A->v == DT_PLATOM, ba = (int)B->v == DT_S || (int)B->v == DT_PLATOM;
+      if (aa && ba) {
         extern const char *prolog_atom_name(int);
         const char *x = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
         const char *y = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
-        return x && y && strcmp(x, y) == 0;
-    }
+        return x && y && strcmp(x, y) == 0; }
+      if (aa || ba) return 0; }
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2240,11 +2244,12 @@ static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t plw_mkc_build(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
-    int ar = nargs - 1;
+    int ar = nargs - 1, fid;
     extern int prolog_atom_intern(const char *);
+    if (args[0].v == (DTYPE_t)DT_PLATOM) fid = (int)args[0].i;
+    else { const char *fname = VARVAL_fn(args[0]); fid = prolog_atom_intern(fname ? fname : "?"); }
     DESCR_t *kids = plw_mkc_kids(args + 1, ar, cx);
-    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
+    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)fid) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2319,13 +2324,14 @@ DESCR_t rt_pl_dop_unify_ci_c(DESCR_t *args, long long imm, pl_tr_ctx_t *cx) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify_cs_c(DESCR_t *args, const char *cs, pl_tr_ctx_t *cx) {
+DESCR_t rt_pl_dop_unify_ca_c(DESCR_t *args, long long id, pl_tr_ctx_t *cx) {
     DESCR_t out;
     rt_pl_tr_gc_sync(cx->tr);
     { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
-      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; plw_bind(c, w, cx); out = w; }
-      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
-      else { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; out = plw_unify_vals(args[0], w, cx) ? rt_pl_deref_val(args[0]) : FAILDESCR; }
+      if (plw_unbound_tag(c)) { DESCR_t w; w.v = (DTYPE_t)DT_PLATOM; w.slen = 0; w.i = id; plw_bind(c, w, cx); out = w; }
+      else if (c->v == (DTYPE_t)DT_PLATOM) out = (c->i == id) ? *c : FAILDESCR;
+      else if (c->v == DT_S) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)id); out = (nm && !strcmp(nm, c->s ? c->s : "")) ? *c : FAILDESCR; }
+      else out = FAILDESCR;
       if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
     rt_pl_tr_gc_sync(cx->tr);
     return out;
@@ -2738,8 +2744,8 @@ PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->b
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 static long pl_sub_atom_count(DESCR_t a) {
     char sb[8192]; DESCR_t av = rt_pl_deref_val(a);
-    if (av.v != DT_S) return -1;
-    { const char *s = to_cstring(av, sb, sizeof sb); if (!s) return -1; return (long)utf8_strlen(s); }
+    if (av.v != DT_S && av.v != (DTYPE_t)DT_PLATOM) return -1;
+    { const char *s = av.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(av) : to_cstring(av, sb, sizeof sb); if (!s) return -1; return (long)utf8_strlen(s); }
 }
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
@@ -2750,8 +2756,8 @@ DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
 }
 static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     char sb[8192]; DESCR_t av = rt_pl_deref_val(args[0]); DESCR_t iv = rt_pl_deref_val(args[1]);
-    if (av.v != DT_S || iv.v != DT_I) return 0;
-    { const char *s = to_cstring(av, sb, sizeof sb);
+    if ((av.v != DT_S && av.v != (DTYPE_t)DT_PLATOM) || iv.v != DT_I) return 0;
+    { const char *s = av.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(av) : to_cstring(av, sb, sizeof sb);
       size_t blen = s ? strlen(s) : 0, boff, bspan;
       long n = s ? (long)utf8_strlen(s) : -1, idx = (long)iv.i, b = 0, l, a;
       if (!s || n < 0 || idx < 0) return 0;

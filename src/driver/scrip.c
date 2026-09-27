@@ -513,7 +513,7 @@ static void bbj_label(FILE * fp, const IR_t * bb) {
     switch (bb->op) {
         case IR_LIT_INTEGER: fprintf(fp, ",\"label\":\"%lld\"", (long long) IR_LIT(bb).ival); break;
         case IR_LIT_REAL: fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval); break;
-        case IR_LIT_STRING: case IR_LIT_CHARSET: case IR_LIT_NAME: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_LIT_STRING: case IR_LIT_CHARSET: case IR_LIT_NAME: case IR_LIT_ATOM: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_VAR: case IR_ASSIGN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
@@ -545,6 +545,23 @@ static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face)
 static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_MODULE_INIT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int m4_program_has_atom_literals(stage2_t *s2, IR_graph_t *bbg) {
+    for (int gi = -1; gi < (s2 ? s2->bbp.count : 0); gi++) { IR_graph_t *g = gi < 0 ? bbg : s2->bbp.table[gi]; if (!g) continue;
+        for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_LIT_ATOM) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m4_emit_atom_table(void) {
+    extern int prolog_atom_count(void); extern const char *prolog_atom_name(int); int n = prolog_atom_count();
+    emit_textf("  .section .rodata\n  .align 8\n.Lpl_atom_tab:\n  .quad %d\n", n);
+    for (int k = 0; k < n; k++) emit_textf("  .quad .Lpl_atom%d\n", k);
+    for (int k = 0; k < n; k++) { const unsigned char *p = (const unsigned char *)prolog_atom_name(k); if (!p) p = (const unsigned char *)"";
+        emit_textf(".Lpl_atom%d:\n", k);
+        for (int col = 0; ; p++, col++) { if (col % 32 == 0) emit_textf(col ? "\n  .byte %u" : "  .byte %u", (unsigned)*p); else emit_textf(",%u", (unsigned)*p); if (!*p) break; }
+        emit_textf("\n"); }
+    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
@@ -1589,6 +1606,7 @@ int main(int argc, char **argv)
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
+            int _pl_atoms = m4_program_has_atom_literals(s2, bbg);
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
             emit_textf("  push rdi\n  push rsi\n  sub rsp, 8\n  call rt_main_stack_adopt@PLT\n  mov rsi, qword ptr [rsp + 8]\n  mov rdi, qword ptr [rsp + 16]\n  add rsp, 24\n  test rax, rax\n  jz .Lmain_stack_kept\n  mov rsp, rax\n.Lmain_stack_kept:\n");
@@ -1600,6 +1618,7 @@ int main(int argc, char **argv)
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             emit_textf("  call core_lib_init@PLT\n");
+            if (_pl_atoms) emit_textf("  lea rdi, [rip + .Lpl_atom_tab]\n  call rt_pl_atom_table_install@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2))
                 emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
             { extern int proc_slot_count(void); int _nps = proc_slot_count(); if (_nps > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", _nps); }
@@ -1676,6 +1695,7 @@ int main(int argc, char **argv)
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             { extern int g_monitor_bin; extern long g_trace_budget; extern int g_mon_max_stno; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
+            if (_pl_atoms) m4_emit_atom_table();
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);

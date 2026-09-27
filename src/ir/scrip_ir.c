@@ -49,6 +49,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_LIMIT]  = "IR_LIMIT",
     [IR_LIMIT_GATE] = "IR_LIMIT_GATE",
+    [IR_LIT_ATOM] = "IR_LIT_ATOM",
     [IR_REPALT] = "IR_REPALT",
     [IR_REV_ASSIGN] = "IR_REV_ASSIGN",
     [IR_REV_ASSIGN_VAR] = "IR_REV_ASSIGN_VAR",
@@ -242,7 +243,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_node_produces_value(IR_e op) {
-    return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME || op == IR_VAR || op == IR_VAR_REF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_COERCE_NUMERIC || op == IR_COERCE_REAL || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER
+    return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_COERCE_NUMERIC || op == IR_COERCE_REAL || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER
         || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_RANDOM || op == IR_LIMIT
         || op == IR_SWAP || op == IR_SWAP_VAR || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
@@ -337,7 +338,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_LIT_INTEGER: fprintf(fp, " %lld", (long long)IR_LIT(bb).ival); break;
         case IR_LIT_REAL: fprintf(fp, " %g", IR_LIT(bb).dval); break;
         case IR_LIT_STRING: fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_LIT_CHARSET: case IR_LIT_NAME: fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_LIT_CHARSET: case IR_LIT_NAME: case IR_LIT_ATOM: fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_ASSIGN: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;

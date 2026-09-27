@@ -86,6 +86,17 @@ const char *prolog_atom_name(int id) {
     return atom_names[id];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_count(void) { return atom_len; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_atom_table_install(const long *tab) {
+    if (!tab) return;
+    long n = tab[0]; const char *const *names = (const char *const *)(tab + 1);
+    for (long i = 0; i < n; i++) {
+        int id = prolog_atom_intern(names[i] ? names[i] : "");
+        if (id != (int)i) { fprintf(stderr, "scrip: the compiled atom table does not match the runtime's interner -- atom %ld '%s' took id %d (an atom was interned before the table was installed; ARCH-PROLOG-BB-REWRITE.md section 3)\n", i, names[i] ? names[i] : "", id); exit(2); }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void prolog_atom_init(void) {
     ATOM_DOT  = prolog_atom_intern(".");
     ATOM_NIL  = prolog_atom_intern("[]");

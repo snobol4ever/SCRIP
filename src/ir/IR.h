@@ -154,6 +154,7 @@ typedef enum {
     IR_VAR_FRAME,
     IR_ASSIGN_FRAME,
     IR_LIMIT_GATE,
+    IR_LIT_ATOM,
     IR_OP_COUNT
 } IR_e;
 DESCR_SASSERT(IR_OP_COUNT > 0,

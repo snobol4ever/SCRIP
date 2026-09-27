@@ -5,6 +5,7 @@ void prolog_atom_init(void);
 int prolog_atom_intern(const char *name);
 const char *prolog_atom_name(int id);
 int prolog_atom_count(void);
+void rt_pl_atom_table_install(const long *tab);
 extern int ATOM_DOT;
 extern int ATOM_NIL;
 extern int ATOM_TRUE;

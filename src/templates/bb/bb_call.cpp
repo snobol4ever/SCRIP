@@ -25,6 +25,7 @@ extern "C" {
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
     return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
+extern "C" int prolog_atom_intern(const char *);
 extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
 static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
@@ -122,6 +123,14 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = LIT_F -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", FRQ(aoff), (long)DT_R);
         s += x86_movabs_r64("rax", bits);
+        s += x86("mov", FRQ(aoff + 8), "rax");
+        return s;
+    }
+    if (lf->op == IR_LIT_ATOM) {
+        std::string s;
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = LIT_ATOM (compile-time atom id) -> [zr+" + std::to_string(aoff) + "]");
+        s += x86("mov", FRQ(aoff), (long)DT_PLATOM);
+        s += x86_movabs_r64("rax", (uint64_t)(unsigned)prolog_atom_intern(IR_LIT(lf).sval ? IR_LIT(lf).sval : ""));
         s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }

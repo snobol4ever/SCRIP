@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 void rt_icn_cset_register(const char *ptr, int len);
+int prolog_atom_intern(const char *name);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -53,6 +54,18 @@ std::string bb_lit_scalar() {
              + (_.op_a_node_kind >= 0
                  ? x86(".string", _.op_sval ? _.op_sval : "", (unsigned long)_.op_a_ival_sg)
                  : x86(".string", _.op_sval ? _.op_sval : ""))
+         : _.op_node_kind == (int)IR_LIT_ATOM && (_.op_off >= 0 || _.op_zres)
+         ? x86("comment", "IR_LIT_ATOM: the atom's compile-time id from the one interner (ARCH-PROLOG-BB-REWRITE.md section 3, R1)")
+             + x86_alpha()
+             + x86("note",   ZRESN())
+             + x86("mov",    ls_rq(0), lit_tag_imm((long)DT_PLATOM))
+             + x86("mov",    "rax", ROQ(0))
+             + x86("note",   ZRESN())
+             + x86("mov",    ls_rq(8), "rax")
+             + x86_gamma()
+             + x86_beta_trampoline()
+             + x86("def",    L(0))
+             + x86(".quad",  (uint64_t)(unsigned)prolog_atom_intern(_.op_sval ? _.op_sval : ""))
          : _.op_node_kind == (int)IR_LIT_NAME && (_.op_off >= 0 || _.op_zres)
          ? x86("comment", "IR_LIT_NAME")
              + x86_alpha()
