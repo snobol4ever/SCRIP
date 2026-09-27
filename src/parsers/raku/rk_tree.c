@@ -13,6 +13,7 @@ typedef struct { tree_t **v; int n, cap; } TL;
 typedef struct { const char **k; int n, cap; } NS;
 struct RkB {
     const char *s; int len;
+    int *nlp; int nnlp, cnlp;
     NS arrn, als;
     int post_uid, twpost_uid, destr_uid, fm_uid;
     int after_line;
@@ -51,7 +52,11 @@ static char *trimdup(const char *s, int n) {
     char *r = (char *) ct_alloc((size_t) n + 1); memcpy(r, s, (size_t) n); r[n] = 0; return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int line_at(RkB *b, int pos) { int l = 1; for (int i = 0; i < pos && i < b->len; i++) if (b->s[i] == '\n') l++; return l; }
+static int line_at(RkB *b, int pos) {
+    int lo = 0, hi = b->nnlp; if (pos > b->len) pos = b->len;
+    while (lo < hi) { int m = lo + (hi - lo) / 2; if (b->nlp[m] < pos) lo = m + 1; else hi = m; }
+    return lo + 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int next_tok_pos(RkB *b, int pos) {
     int q = pos;
@@ -742,7 +747,11 @@ static tree_t *b_words(RkB *b, const char *s, int n) {
     return call;
 }
 /*====================================================================================================================================================================================================*/
-RkB *rkb_new(const char *src, int len) { RkB *b = (RkB *) ct_zalloc(1, sizeof(RkB)); b->s = src; b->len = len; return b; }
+RkB *rkb_new(const char *src, int len) {
+    RkB *b = (RkB *) ct_zalloc(1, sizeof(RkB)); b->s = src; b->len = len;
+    for (int i = 0; i < len; i++) if (src[i] == '\n') { GROW(b->nlp, b->nnlp, b->cnlp, int); b->nlp[b->nnlp++] = i; }
+    return b;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RkItems *rkb_items_new(void) { return (RkItems *) ct_zalloc(1, sizeof(RkItems)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
