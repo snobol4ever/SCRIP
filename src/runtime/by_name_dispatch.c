@@ -1555,7 +1555,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, hslot);
     if (n == 1 && !strcmp(nm, "key")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_KEY, 0), argv, n, hslot);
     if ((n >= 1 || !strcmp(nm, "bal")) && icn_opgen_scan_name(nm)) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_SCAN, icn_opgen_scan_name(nm)), argv, n, hslot);
-    if (hslot && (!strcmp(nm, "tab") || !strcmp(nm, "move"))) {
+    if (hslot && (!strcmp(nm, "tab") || !strcmp(nm, "move") || (n == 1 && IS_PROCVAL_fn(callee) && !strcmp(nm, "=")))) {
         extern int scan_pos; int64_t at = scan_pos;
         DESCR_t v = RT_GC_CALLBACK(rt_call_value(callee, argv, n));
         if (IS_FAIL_fn(v)) return v;

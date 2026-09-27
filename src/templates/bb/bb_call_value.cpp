@@ -28,6 +28,9 @@ static bool cv_is_goal() { return _.op_sval && strcmp(_.op_sval, "goal") == 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static bool cv_pl_proto() { return cv_is_goal() && x86_fb_pinned(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string cv_sync_out() { return cv_is_goal() ? x86_scan_sync_out() : x86_scan_sync_out_force(); }
+static std::string cv_sync_in() { return cv_is_goal() ? x86_scan_sync_in_rr() : x86_scan_sync_in_rr_force(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_value() {
     x86_begin();
     if (_.op_off < 0 || _.op_sa < 0) return x86_alpha() + x86_bomb("bb_call_value: needs own slot + callee operand slot");
@@ -50,7 +53,7 @@ std::string bb_call_value() {
            + x86("mov", FRQ(_.op_off + 16 + i * 16), "rax")
            + x86("mov", "rax", FRQ(_.op_arg_slot[i] + 8))
            + x86("mov", FRQ(_.op_off + 16 + i * 16 + 8), "rax");
-    s += x86_scan_sync_out()
+    s += cv_sync_out()
        + x86_anchor_enter()
          + x86("mov",   "rax", FRQ(H))
        + x86("test",  "rax", "rax")
@@ -135,7 +138,7 @@ std::string bb_call_value() {
             + (cv_is_goal() ? x86("call", "rt_pl_goal_gen_h", (uint64_t)(uintptr_t)(void *)rt_pl_goal_gen_h) : x86("call", "rt_call_value_gen_h", (uint64_t)(uintptr_t)(void *)rt_call_value_gen_h)))
        + x86("def", L(2))
        + x86_anchor_leave()
-       + x86_scan_sync_in_rr()
+       + cv_sync_in()
        + x86("mov",   FRQ(_.op_off),     "rax")
        + x86("mov",   FRQ(_.op_off + 8), "rdx")
        + x86("cmp",   "al", (long)DT_FAIL)
@@ -168,11 +171,11 @@ std::string bb_call_value() {
               + x86("mov",  "rsp", FRQ(H + 8))
               + x86_jmp_mem("rsp", 0))
        + x86("def", L(8))
-       + x86_scan_sync_out()
+       + cv_sync_out()
        + x86("lea",   "rdi", FRQ(H))
        + x86("mov32", "esi", cv_is_apply() ? -1L : (long)n)
        + x86("call",  "rt_call_value_resume_h", (uint64_t)(uintptr_t)(void *)rt_call_value_resume_h)
-       + x86_scan_sync_in_rr()
+       + cv_sync_in()
        + x86("cmp",   "al", (long)DT_FAIL)
        + x86_omega("je")
        + x86("mov",   FRQ(_.op_off),     "rax")
