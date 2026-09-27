@@ -432,7 +432,7 @@ done
 # hang.  ⭐ The general form worth keeping: bounding N-1 of N cooperating processes bounds
 # NOTHING; the unbounded one becomes the duration of the job.
 CTRL_TIMEOUT="${MONITOR_CTRL_TIMEOUT:-$((TIMEOUT*4))}"
-MONITOR_SNO_FILE="$([[ "$SNO" == *.sno ]] && echo "$SNO")" \
+MONITOR_SNO_FILE="$([[ "$SNO" == *.sno || "$SNO" == *.spt || "$SNO" == *.sbl ]] && echo "$SNO")" \
 MONITOR_INC_DIR="$(dirname "$(realpath "$SNO")"):$INC" \
     timeout "$CTRL_TIMEOUT" python3 "$MON_DIR/monitor_sync_bin.py" "${SPECS[@]}" > "$TMP/ctrl.out" 2>&1 &
 CTRL_PID=$!

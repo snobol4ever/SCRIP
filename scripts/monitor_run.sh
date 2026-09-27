@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do case "$1" in --modes) mode=modes;; --trace) mode=trace;; 
 src="$(realpath "$src")"; base="${src%.*}"; ext="${src##*.}"
 [ -z "$input" ] && [ -f "$base.input" ] && input="$base.input"; [ -z "$input" ] && input=/dev/null
 [ "$input" = /dev/null ] || { [ -f "$input" ] || { echo "REFUSE(2): --input $input is not a file"; exit 2; }; input="$(realpath "$input")"; }   # absolute before the cd into the scratch mirror below
-case "$ext" in sno|icn|pl|pas|raku|sc|reb) ;; *) echo "REFUSE(2): $ext is not a SCRIP source extension"; exit 2;; esac
+case "$ext" in sno|spt|sbl|icn|pl|pas|raku|sc|reb) ;; *) echo "REFUSE(2): $ext is not a SCRIP source extension"; exit 2;; esac
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 # ⛔⭐ THE SUBJECT RUNS IN A SCRATCH MIRROR OF ITS OWN DIRECTORY, NEVER IN THE CALLER'S CWD (coo 2026-09-25, on hq_pascal's
 # measurement). Every run below -- the traced and untraced mode 3, both mode-4 binaries and the participants -- inherited
@@ -85,7 +85,7 @@ if [ "$mode" = modes ]; then
 fi
 if [ "$mode" = oracle ]; then
     case "$ext" in
-        sno) parts="spl scr" ;;
+        sno|spt|sbl) parts="spl scr" ;;
         raku) parts="rkx scr" ;;
         icn) parts="icx scr" ;;
         pl) case "${MONITOR_PL_ORACLE:-gprolog}" in gprolog) parts="gpx scr" ;; swipl) parts="swx scr" ;; *) echo "REFUSE(2): MONITOR_PL_ORACLE=$MONITOR_PL_ORACLE names no Prolog oracle participant (gprolog: gpx, the default; swipl: swx)"; exit 2 ;; esac ;;
