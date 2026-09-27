@@ -2905,7 +2905,7 @@ void core_runtime_error(int code, const char *msg) {
           return;
       } }
     { extern void core_error_voice(int, const char *, int, DESCR_t); core_error_voice(code, msg, 0, FAILDESCR); }
-    { extern void rt_kw_publish_error(int code, const char *msg); rt_kw_publish_error(code, msg); }
+    { extern void rt_kw_publish_error_at_exit(int code, const char *msg); rt_kw_publish_error_at_exit(code, msg); }
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
     exit(1);

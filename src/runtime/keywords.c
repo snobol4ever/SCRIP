@@ -368,6 +368,11 @@ void rt_kw_publish_error(int code, const char *msg) {
     g_sno_errtext = msg ? rt_heap_strdup_c(msg) : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_publish_error_at_exit(int code, const char *msg) {
+    KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code;
+    g_sno_errtext = msg ? msg : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
     static const uint64_t words[4] = { 0x00004E5255544552ull, 0x004E525554455246ull, 0x004E52555445524Eull, 0ull };
     _Static_assert(sizeof(kw_rtntype) >= 8, "rt_kw_set_rtntype stores RETURN / FRETURN / NRETURN as one little-endian 8-byte word");

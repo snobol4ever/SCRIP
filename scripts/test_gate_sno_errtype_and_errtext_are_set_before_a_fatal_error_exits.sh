@@ -53,5 +53,16 @@ for tag in m3 m4; do
         echo "RED  $tag: want [$ORA_ERRTYPE / $ORA_ERRTEXT] got [$got_errtype / $got_errtext]"; red=$((red+1))
     fi
 done
-gate_floor "$examined" 2 "modes graded"
-gate_verdict "$red" "mode(s) whose &ERRTYPE/&ERRTEXT do not match the oracle's crash-time dump after a fatal error"
+# ⛔ THE CAP ARM (the cfo's bisect of 572981e49, 2026-09-27): the first cut published &ERRTEXT on the fatal arms with rt_kw_publish_error,
+# which copies the text onto the GC heap. When the fatal error IS the heap at its hard cap (Icon 307, SNOBOL4 204), that copy asks the
+# full heap for more, raises the same error again, and recursed 3904 times into ERROR 246 with 4.9 MB of stderr -- in every frontend,
+# since core_runtime_error is shared. The fatal arms now publish without a copy (rt_kw_publish_error_at_exit, kwb_error's own shape);
+# nothing runs after them but the atexit dump. The cfo's witness fills an 8 MB cap with small blocks: 307 exactly once, no 246.
+mkdir -p "$T/cap"; printf 'procedure main()\n   local i, L;\n   L := [];\n   every i := 1 to 400000 do put(L, [i, i+1, i+2]);\n   write("done ", *L);\nend\n' > "$T/cap/grow.icn"
+( cd "$T/cap" && SCRIP_HEAP_KB=128 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout 120 "$ROOT/scrip" grow.icn > out 2> err ); crc=$?
+n307="$(grep -c 'error 307' "$T/cap/err")"; n246="$(grep -c 'error 246' "$T/cap/err")"
+examined=$((examined+1))
+if [ "$crc" = 1 ] && [ "$n307" = 1 ] && [ "$n246" = 0 ]; then echo "PASS cap: a heap-full fatal error is reported once (307 x1, 246 x0, rc 1)"
+else echo "RED  cap: rc=$crc, error 307 x$n307, error 246 x$n246, stderr $(wc -c < "$T/cap/err") bytes -- publishing the error must not allocate on a full heap"; red=$((red+1)); fi
+gate_floor "$examined" 3 "arms graded (two modes and the cap arm)"
+gate_verdict "$red" "arm(s) red: &ERRTYPE/&ERRTEXT against the oracle's crash-time dump, or a heap-full fatal error that recurses"
