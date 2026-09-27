@@ -9,7 +9,7 @@ extern "C" {
 extern DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n);
 extern DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot);
 extern DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot);
-extern DESCR_t rt_call_value_resume_h(void **hslot);
+extern DESCR_t rt_call_value_resume_h(void **hslot, int n);
 extern void rt_proc_drop_frame_h(void **hslot);
 extern CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
 extern CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
@@ -170,6 +170,7 @@ std::string bb_call_value() {
        + x86("def", L(8))
        + x86_scan_sync_out()
        + x86("lea",   "rdi", FRQ(H))
+       + x86("mov32", "esi", cv_is_apply() ? -1L : (long)n)
        + x86("call",  "rt_call_value_resume_h", (uint64_t)(uintptr_t)(void *)rt_call_value_resume_h)
        + x86_scan_sync_in_rr()
        + x86("cmp",   "al", (long)DT_FAIL)

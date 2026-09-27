@@ -823,6 +823,7 @@ static uint8_t scrip_tag_to_wire(int v) {
 static uint8_t mon_wire_type(DESCR_t v) {
     if (IS_CSET_fn(v)) return MWT_UNKNOWN;
     if (v.v == DT_T && v.tbl && v.tbl->is_set) return MWT_DATA;
+    if (IS_PROCVAL_fn(v)) return MWT_CODE;
     return scrip_tag_to_wire(v.v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1397,19 +1397,57 @@ static const char * procval_name(DESCR_t v) {
 extern int rt_proc_is_registered(const char *name);
 extern int rt_proc_nparams(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { uint64_t magic; DESCR_t obj; int64_t idx; int kind; int64_t cur, lim, step; } ICN_OPGEN_t;
+typedef struct { uint64_t magic; const char *nm; int64_t idx; int kind; int64_t cur, lim, step; } ICN_OPGEN_t;
 #define ICN_OPGEN_MAGIC 0x1CBA46E4E52DULL
 #define ICN_OPGEN_BANG 0
 #define ICN_OPGEN_TOBY 1
+#define ICN_OPGEN_KEY  2
+#define ICN_OPGEN_SCAN 3
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g) {
-    extern int list_bang_at(DESCR_t, int64_t, DESCR_t *);
+static const char *icn_opgen_scan_name(const char *nm) {
+    if (!nm) return 0;
+    if (!strcmp(nm, "find")) return "find";
+    if (!strcmp(nm, "upto")) return "upto";
+    if (!strcmp(nm, "bal")) return "bal";
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g, DESCR_t *argv, int n) {
+    extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); extern DESCR_t rt_list_bang_key_at(DESCR_t, int64_t);
+    extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);
     DESCR_t out;
     if (!g) return FAILDESCR;
     if (g->kind == ICN_OPGEN_TOBY) { if (g->step > 0 ? g->cur > g->lim : g->cur < g->lim) return FAILDESCR; out = INTVAL(g->cur); g->cur += g->step; return out; }
-    if (!list_bang_at(g->obj, g->idx, &out)) return FAILDESCR;
+    if (g->kind == ICN_OPGEN_SCAN) { int hi = (g->nm[0] == 'b') ? 6 : 4; return RT_GC_CALLBACK(rt_call_arr_gen_strict(g->nm, argv, n > hi ? hi : n, &g->idx)); }
+    if (n < 1) return FAILDESCR;
+    if (g->kind == ICN_OPGEN_KEY) { out = rt_list_bang_key_at(argv[0], g->idx); if (IS_FAIL_fn(out)) return FAILDESCR; g->idx++; return out; }
+    if (!list_bang_at(argv[0], g->idx, &out)) return FAILDESCR;
     g->idx++;
     return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ICN_OPGEN_t *icn_opgen_new(int kind, const char *nm) {
+    ICN_OPGEN_t *g = (ICN_OPGEN_t *)ct_zalloc(1, sizeof *g);
+    if (g) { g->magic = ICN_OPGEN_MAGIC; g->kind = kind; g->nm = nm; }
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t icn_opgen_start(ICN_OPGEN_t *g, DESCR_t *argv, int n, void **hslot) {
+    if (!g) return FAILDESCR;
+    DESCR_t first = icn_opgen_pump(g, argv, n);
+    if (IS_FAIL_fn(first) || !hslot) { ct_drop(g); return first; }
+    *hslot = (void *)g;
+    return first;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ICN_OPGEN_t *icn_opgen_seq(DESCR_t *argv, int n) {
+    extern int64_t core_icn_to_int_d(DESCR_t); extern int core_icn_by_zero_check(int64_t);
+    int64_t lo = (n > 0 && argv[0].v != DT_SNUL && argv[0].v != 0) ? core_icn_to_int_d(argv[0]) : 1;
+    int64_t st = (n > 1 && argv[1].v != DT_SNUL && argv[1].v != 0) ? core_icn_to_int_d(argv[1]) : 1;
+    core_icn_by_zero_check(st);
+    ICN_OPGEN_t *g = icn_opgen_new(ICN_OPGEN_TOBY, 0);
+    if (g) { g->cur = lo; g->step = st; g->lim = st > 0 ? INT64_MAX : INT64_MIN; }
+    return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t rt_deref(DESCR_t d);
@@ -1455,6 +1493,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
         if (!strcmp(nm, "^")) return RT_GC_CALLBACK(rt_call_arr_strict("ICN$REFRESH", argv, 1));
         if (!strcmp(nm, "=")) { DESCR_t m = RT_GC_CALLBACK(rt_call_arr_strict("match", argv, 1)); if (IS_FAIL_fn(m)) return FAILDESCR; return RT_GC_CALLBACK(rt_call_arr_strict("tab", &m, 1)); }
     }
+    if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, 0);
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return RT_GC_CALLBACK(rt_call_arr_strict(nm, argv, n));
 }
@@ -1482,20 +1521,12 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         ICN_OPGEN_t *g = (ICN_OPGEN_t *)ct_zalloc(1, sizeof *g);
         if (!g) return FAILDESCR;
         g->magic = ICN_OPGEN_MAGIC; g->kind = ICN_OPGEN_TOBY; g->cur = lo; g->lim = hi; g->step = st;
-        DESCR_t first = icn_opgen_pump(g);
-        if (IS_FAIL_fn(first) || !hslot) { ct_drop(g); return first; }
-        *hslot = (void *)g;
-        return first;
+        return icn_opgen_start(g, argv, n, hslot);
     }
-    if (n == 1 && !strcmp(nm, "!")) {
-        ICN_OPGEN_t *g = (ICN_OPGEN_t *)ct_zalloc(1, sizeof *g);
-        if (!g) return FAILDESCR;
-        g->magic = ICN_OPGEN_MAGIC; g->kind = ICN_OPGEN_BANG; g->obj = argv[0]; g->idx = 0;
-        DESCR_t first = icn_opgen_pump(g);
-        if (IS_FAIL_fn(first) || !hslot) { ct_drop(g); return first; }
-        *hslot = (void *)g;
-        return first;
-    }
+    if (n == 1 && !strcmp(nm, "!")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_BANG, 0), argv, n, hslot);
+    if (!strcmp(nm, "seq")) return icn_opgen_start(icn_opgen_seq(argv, n), argv, n, hslot);
+    if (n == 1 && !strcmp(nm, "key")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_KEY, 0), argv, n, hslot);
+    if ((n >= 1 || !strcmp(nm, "bal")) && icn_opgen_scan_name(nm)) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_SCAN, icn_opgen_scan_name(nm)), argv, n, hslot);
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return RT_GC_CALLBACK(rt_call_value(callee, argv, n));
 }
@@ -1512,13 +1543,13 @@ int rt_apply_unpack(DESCR_t lv, DESCR_t *buf, int cap) {
           DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
           DESCR_t *arr = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
           if (!arr) return -1;
-          if (ln < 0) ln = 0; if (ln > cap) ln = cap;
+          if (ln < 0) ln = 0; if (!buf) return ln; if (ln > cap) ln = cap;
           for (int k = 0; k < ln; k++) buf[k] = arr[k];
           return ln;
       } }
     if (rt_data_is_record(lv)) {
         DATINST_t *di = (DATINST_t *)lv.u;
-        int n = di->type->nfields; if (n < 0) n = 0; if (n > cap) n = cap;
+        int n = di->type->nfields; if (n < 0) n = 0; if (!buf) return n; if (n > cap) n = cap;
         for (int k = 0; k < n; k++) buf[k] = di->fields[k];
         return n;
     }
@@ -1636,11 +1667,18 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
     return rt_proc_call_gen_h(key, ar + n, hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_value_resume_h(void **hslot) {
+DESCR_t rt_call_value_resume_h(void **hslot, int n) {
     extern DESCR_t rt_proc_resume_frame_h(void **hslot);
     if (!hslot || !*hslot) return FAILDESCR;
+    DESCR_t *argv = (DESCR_t *)hslot - (n < 0 ? 1 : n);
     { ICN_OPGEN_t *g = (ICN_OPGEN_t *)*hslot;
-      if (g->magic == ICN_OPGEN_MAGIC) { DESCR_t v = icn_opgen_pump(g); if (IS_FAIL_fn(v)) { ct_drop(g); *hslot = (void *)0; } return v; } }
+      if (g->magic == ICN_OPGEN_MAGIC) {
+          if (n < 0) {
+              extern void *rt_ws_alloc_descr(size_t);
+              int ln = argv ? rt_apply_unpack(argv[0], (DESCR_t *)0, 0) : -1;
+              DESCR_t *buf = (ln > 0) ? (DESCR_t *)rt_ws_alloc_descr((size_t)ln) : (DESCR_t *)0;
+              n = buf ? rt_apply_unpack(argv[0], buf, ln) : 0; if (n < 0) n = 0; argv = buf; icn_call_value_deref_args(g->nm, argv, n); }
+          DESCR_t v = icn_opgen_pump(g, argv, n); if (IS_FAIL_fn(v)) { ct_drop(g); *hslot = (void *)0; } return v; } }
     rt_c2bb_hit("gen_h.resume_frame", "?");
     return rt_proc_resume_frame_h(hslot);
 }
@@ -6117,9 +6155,9 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
 static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64_t *resume, int strict) {
     DESCR_t out = FAILDESCR;
     if (fn && resume && nargs <= 6 && !strcmp(fn, "bal")) { if (*resume == (0x7FFFFFFFll << 32)) return FAILDESCR; if (*resume == 0) { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs); int bad = icn_argtype_gate(BID_bal, args, nargs, &out, strict); core_icn_bi_pop(&bi); if (bad) return FAILDESCR; } if (bn_bal_gen(args, nargs, &out, resume) && !IS_FAIL_fn(out)) return out; return FAILDESCR; }
-    if (fn && resume && nargs >= 2 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
+    if (fn && resume && nargs >= 1 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         if (*resume == 0) { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs); int bad = icn_argtype_gate(fn[0] == 'f' ? BID_find : BID_upto, args, nargs, &out, strict); core_icn_bi_pop(&bi); if (bad) return FAILDESCR; }
-        DESCR_t a4[4]; a4[0] = args[0]; a4[1] = args[1];
+        DESCR_t a4[4]; a4[0] = args[0]; a4[1] = (nargs > 1) ? args[1] : NULVCL;
         { const char *hs; int ni, nj; if (!bn_str_anal(args, nargs, 1, &hs, &ni, &nj)) return FAILDESCR;
           long i1 = ni; if (*resume > 0 && (long)*resume > i1) i1 = (long)*resume;
           a4[2] = INTVAL(i1); a4[3] = INTVAL(nj); }

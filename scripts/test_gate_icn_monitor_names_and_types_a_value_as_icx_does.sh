@@ -6,12 +6,15 @@
 #   (1) a static local went on the wire under its lowering's mangled global name (main__STATIC__y) where icx sends y;
 #   (2) SCRIP's own synthetic globals (__icn_progname, the initial-block flags PROC__INITFLAG__n) produced VALUE events that no
 #       source assignment makes, so icx never sends them;
-#   (3) a set went on the wire as MWT_TABLE (SCRIP keeps a set as a table block with is_set) where icx sends MWT_DATA.
+#   (3) a set went on the wire as MWT_TABLE (SCRIP keeps a set as a table block with is_set) where icx sends MWT_DATA;
+#   (4) a procedure value (p := write, q := proc("*", 2)) went on the wire as MWT_EXPRESSION -- SCRIP keeps it as a DT_E with the
+#       procedure-value marker -- where icx sends MWT_CODE (hq_icon 2026-09-26: it was the FIRST divergence of every bracket that
+#       assigns a procedure value, cured or not, e.g. IPL procname's witnesses, so it hid the real one behind it).
 # core.c's rt_trace_value now shows a static by its source name and emits nothing for a synthetic global, and one typing helper
-# (mon_wire_type) sends a set as DATA, as monitor_icx.c types T_Set.
+# (mon_wire_type) sends a set as DATA, as monitor_icx.c types T_Set, and a procedure value as CODE.
 #
-# THE WITNESS assigns a static local and a set and then runs a statement that needs &progname: it must bracket AGREE.
-# On core.c before this change it DIVERGES at the static's VALUE (red).
+# THE WITNESS assigns a static local, a set and two procedure values and then runs a statement that needs &progname: it must
+# bracket AGREE. On core.c before (1)-(3) it DIVERGES at the static's VALUE, and before (4) at p's VALUE (red).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 G=test_gate_icn_monitor_names_and_types_a_value_as_icx_does
@@ -28,18 +31,20 @@ procedure f()
    write(k)
 end
 procedure main()
-   local s, n;
+   local s, n, p, q;
    s := set([1, 2]);
    f();
+   p := write;
+   q := proc("*", 2);
    n := *s;
-   write(n, " ", *&progname > 0)
+   p(n, " ", *&progname > 0, " ", q(2, 3))
 end
 EOF
 out="$(cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" valname.icn --oracle 2>&1)"; rc=$?
 line="$(printf '%s\n' "$out" | grep -aE '^\[monitor_run\] (AGREE|DIVERGE|UNGRADED)|REFUSE|^\| \*\*>' | tail -2 | tr '\n' ' ' | cut -c1-240)"
 if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qa '^\[monitor_run\] AGREE'; then
     echo "  $line"
-    echo "✅ GATE PASS [$G]: a static, a set and &progname bracket AGREE against icx"; exit 0
+    echo "✅ GATE PASS [$G]: a static, a set, two procedure values and &progname bracket AGREE against icx"; exit 0
 fi
 echo "  rc=$rc $line"
 echo "⛔ GATE FAIL [$G]: the witness did not bracket AGREE -- a VALUE event is named or typed unlike icx"; exit 1
