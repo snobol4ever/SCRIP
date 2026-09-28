@@ -351,7 +351,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
-        "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_set_cell", "__pas_stdfile", "__pas_arr_copy",
+        "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
@@ -4121,19 +4121,9 @@ DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
 static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_STR_fn(v)) { const char *s = VARVAL_fn(v); return (s && s[0]) ? (long)(unsigned char)s[0] : -1L; } return -1L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PAS_SET_BYTES 32
-#define PAS_SET_CELL_MARK '\x1b'
-static int pas_hexval(char c) { return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : -1; }
 static void pas_set_bits(DESCR_t v, unsigned char out[PAS_SET_BYTES]) { memset(out, 0, PAS_SET_BYTES); if (IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s) { memcpy(out, v.s, PAS_SET_BYTES); return; }
-    if (IS_STR_fn(v) && v.s && v.s[0] == PAS_SET_CELL_MARK && strlen(v.s) == 2 * PAS_SET_BYTES + 1) { for (int i = 0; i < PAS_SET_BYTES; i++) { int h = pas_hexval(v.s[1 + 2 * i]), l = pas_hexval(v.s[2 + 2 * i]); out[i] = (unsigned char)((h < 0 || l < 0) ? 0 : (h << 4) | l); } return; }
     if (IS_INT_fn(v)) { long iv = v.i; for (int b = 0; b < 64; b++) if ((iv >> b) & 1L) out[b / 8] |= (unsigned char)(1u << (b % 8)); } }
-static int pas_set_needs_cell(DESCR_t v) { return IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s && (memchr(v.s, 0, PAS_SET_BYTES) || memchr(v.s, SOH, PAS_SET_BYTES)); }
-static const char *pas_cell_cstring(DESCR_t v, char *scratch, size_t scap) {
-    if (pas_set_needs_cell(v)) {
-        char *o = rt_str_alloc(2 * PAS_SET_BYTES + 1); o[0] = PAS_SET_CELL_MARK;
-        for (int i = 0; i < PAS_SET_BYTES; i++) { int h = (unsigned char)v.s[i] >> 4, l = (unsigned char)v.s[i] & 15; o[1 + 2 * i] = (char)(h < 10 ? '0' + h : 'a' + h - 10); o[2 + 2 * i] = (char)(l < 10 ? '0' + l : 'a' + l - 10); }
-        o[1 + 2 * PAS_SET_BYTES] = '\0'; return o; }
-    return to_cstring(v, scratch, scap);
-}
+static const char *pas_cell_cstring(DESCR_t v, char *scratch, size_t scap) { return to_cstring(v, scratch, scap); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_positional_group(int n) {
     if (n < 0) return -1;
@@ -4483,12 +4473,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__pas_arr_copy") && nargs == 1) {
         *out = pas_agg_copy(args[0]); return 1;
     }
+    if (!strcmp(fn, "__pas_arr_of") && nargs == 3) {
+        long long lo = IS_INT_fn(args[0]) ? args[0].i : 0; long long hi = IS_INT_fn(args[1]) ? args[1].i : 0; long long n = hi - lo + 1; if (n < 1) n = 1;
+        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next();
+        b->lo = (int) lo; b->hi = (int) hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
+        for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(args[2]);
+        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
+    }
     if (!strcmp(fn, "__pas_stdfile") && nargs == 1) {
         extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(IS_INT_fn(args[0]) && args[0].i == 1 ? 1 : 0); return 1;
-    }
-    if (!strcmp(fn, "__pas_set_cell") && nargs == 1) {
-        if (!pas_set_needs_cell(args[0])) { *out = args[0]; return 1; }
-        *out = STRVAL((char *) pas_cell_cstring(args[0], NULL, 0)); return 1;
     }
     if (!strcmp(fn, "__pas_ca_encode") && nargs == 3) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
@@ -6664,7 +6657,7 @@ DESCR_t proc_as_value(const char *name) {
     static const char *const builtins[] = {
         "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin",
         "__pas_read_i_f","__pas_read_c_f","__pas_readln_f","__pas_eof_f","__pas_eoln_f","__pas_getbufch","__pas_getbufch_f",
-        "__pas_ca_pack","__pas_ca_unpack","__pas_ca_encode","__pas_set_cell","__pas_stdfile","__pas_arr_copy",
+        "__pas_ca_pack","__pas_ca_unpack","__pas_ca_encode","__pas_stdfile","__pas_arr_copy","__pas_arr_of",
         "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite","__pas_reset","__pas_fclose","write","writes","read","reads","close","open","remove",
         "flush",
         "put","get","pull","push","pop","list","image","proc","type","copy",
