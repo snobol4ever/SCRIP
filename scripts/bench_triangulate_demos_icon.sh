@@ -58,6 +58,8 @@ while [ $# -gt 0 ]; do case "$1" in --out) OUT="$2"; shift;; *) ARGS_LEFT="$ARGS
 refuse() { echo "⛔ ICON DEMO TRIANGULATION REFUSED(2): $*" >&2; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "cannot load lib_oracle_flags.sh -- the ONE oracle-path authority (s200)."
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || refuse "cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple (s266)."
+. "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "cannot load lib_icon_ipl_isolation.sh -- the ONE argv-sidecar reader."
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "cannot load lib_declared_arena.sh -- the ONE declared-size reader."
 ICONT="$(icont_bin)" || refuse "the Arizona icont oracle is missing. ⛔ Not a \`command -v\` verdict -- the oracles are not on PATH."
 [ -x "$SCRIP" ] || refuse "scrip not built ($SCRIP) -- a table printed without it would be plausible and false."
 [ -d "$D" ] || refuse "Icon demo corpus missing ($D)."
@@ -82,9 +84,9 @@ run1() {                               # $1=engine $2=stem $3=args $4=stream
     # stderr-answering demo the ANSWER is e.err with the BENCH_RUSAGE lines filtered back out.
     case "$eng" in
       iconx) out=$( cd "$W" && "$WRAP" timeout 300 "./$stem.oracle" $a </dev/null 2>"$W/e.err" ) ;;
-      m3)    out=$( cd "$D" && "$WRAP" timeout 300 "$SCRIP" "$D/$stem.icn" ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
+      m3)    out=$( cd "$D" && "$WRAP" timeout 300 "$SCRIP" $SWN "$D/$stem.icn" ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
       m4)    [ -x "$W/$stem.m4bin" ] || { echo "- - - - BUILD-ERR	BUILD-ERR"; return; }
-             out=$( cd "$D" && "$WRAP" timeout 300 "$W/$stem.m4bin" $a </dev/null 2>"$W/e.err" ) ;;
+             out=$( cd "$D" && "$WRAP" timeout 300 "$W/$stem.m4bin" $SWN ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
     esac
     [ "$stream" = stderr ] && out="$(grep -v '^BENCH_RUSAGE:' "$W/e.err")"
     rl=$(grep '^BENCH_RUSAGE:' "$W/e.err" | tail -1)
@@ -161,12 +163,17 @@ printf '%s\n' "-----------------------------------------------------------------
 printf '# icon-demo-triangulation -- basis=WHOLE-PROGRAM-RUN (total, incl startup); overhead=empty-program subtraction\n' >> "$OUT"
 printf 'demo\tengine\ta1_runs_per_s\ta2_runs_per_s\tratio\tverdict\ttotal_cpu_ms\twork_ms\toverhead_ms\tinblock\toublock\tanswer_digest\n' >> "$OUT"
 
-RC=0; ROWS=0
+RC=0; ROWS=0; SWN=""
 for E in "$D"/*.icn; do
     [ -f "$E" ] || continue
     N="$(basename "$E" .icn)"
     [ -n "${ARGS_LEFT// /}" ] && ! grep -qw "$N" <<<"$ARGS_LEFT" && continue
-    A=""; [ -f "$D/$N.args" ] && A="$(cat "$D/$N.args")"
+    # ⭐ ARGV FROM THE ONE READER (ipl_argv_read, NAME.argv): this read NAME.args, a spelling the corpus retired for jtran.argv on 09-12
+    # (CEO-609), so jtran ran with no argv on every engine. SIZES: NAME.heap and NAME.stack as switches on the SCRIP engines (CEO-1353).
+    declare -a AV=(); ipl_argv_read "$E" AV; [ $? -eq 2 ] && { echo "⛔ UNPROVEN $N -- $N.argv is malformed (the reader said why above)"; RC=1; continue; }
+    A="${AV[*]}"
+    SWN="$(declared_switches_beside "$E")" || { echo "⛔ UNPROVEN $N -- $N.heap or $N.stack is malformed (the reader said why above)"; RC=1; continue; }
+    [ -n "$SWN" ] || echo "    $N: declares no heap and stack beside it -- the SCRIP engines run at the shipped default, NAMED"
     MODS=""; ok=1
     for m in $(entry_modules "$E"); do
         [ -f "$PKG/$m.icn" ] || { echo "⛔ UNPROVEN $N -- entry links '$m' but $PKG/$m.icn is absent; NAMED, not dropped."; ok=0; break; }
