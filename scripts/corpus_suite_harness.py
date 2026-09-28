@@ -2851,6 +2851,17 @@ def cmd_run(args):
         print(f"DECLARED STACK: {_nst} of {len(entries)} entr(y/ies) carry a stack_kb declaration from "
               f"{_stack_src} and run at it; the rest run at the runtime's {GC_STACK_FLOOR_KB} KB floor. "
               + ", ".join(f"{_e.name}={_e.stack_kb}KB" for _e in entries if _e.stack_kb), file=sys.stderr)
+    # ⛔ A MISSING DECLARATION IS NAMED ON THIS RUN'S OWN OUTPUT (Lon 2026-09-28, ceo CEO-1353 gap 5: "a missing declaration runs silently
+    # at the default"): the counts above went to stderr and said nothing at all when the column or the table was absent. Every entry that
+    # declares no heap_kb or no stack_kb is NAMED on stdout, with where the declaration was looked for, so a board's transcript shows it.
+    _no_heap = [_e.name for _e in entries if not _e.heap_kb]
+    _no_stack = [_e.name for _e in entries if not _e.stack_kb]
+    if _no_heap or _no_stack:
+        _where = str(Path(args.sno).parent / "ALL.csv") + (" (present)" if (Path(args.sno).parent / "ALL.csv").is_file() else " (ABSENT)")
+        _nm = lambda xs: " ".join(xs[:20]) + (" ... and %d more" % (len(xs) - 20) if len(xs) > 20 else "")
+        print("UNDECLARED heap_kb on %d of %d entr(y/ies), stack_kb on %d -- run at the shipped default, named (CEO-1353; the declaration "
+              "is looked for in %s and a travelling <stem>.heap / <stem>.stack): heap: %s%s" % (len(_no_heap), len(entries), len(_no_stack), _where,
+              _nm(_no_heap) or "none", ("; stack: " + _nm(_no_stack)) if _no_stack else ""))
     # ⭐ AND THE COMMAND LINE (clause 8 (f), CEO-1281): compile_args and run_args were attached by the suite reader itself
     # (read_command_line_columns), so every caller of it sees them; the count is printed here so a transcript records them.
     _nca = [_e for _e in entries if _e.compile_args]

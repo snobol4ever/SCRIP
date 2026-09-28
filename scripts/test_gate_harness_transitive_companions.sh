@@ -132,8 +132,15 @@ if grep -q 'HANG' <<<"$after_line"; then
     echo "    Raise ARM1_BUDGET and re-run. If the duration keeps climbing, the row is the RUNTIME's, not this gate's."
     exit 2
 fi
-[ "$after_line" = "AFTER CRASH CRASH" ] && ck ok "pass-once: the cured copier reports CRASH in both modes, the oracle-confirmed true state" \
-    || ck no "the cure did not turn this witness into a CRASH verdict -- ${after_line:-<no output>}"
+# ⭐ THE CURED READING IS THE RUNTIME'S, NOT THIS GATE'S (the coo 2026-09-28): at the mint the witness exhausted the workspace heap and
+# aborted in both modes (CRASH CRASH, oracle-confirmed then); since the collector grew it runs to the end and matches ALL.ref, the
+# oracle's cut (PASS PASS). What companion-copying decides is that the second-level file is PRESENT, so the program compiles and both
+# modes read the same runtime verdict -- never the one-level copier's FAIL m3 / SKIP m4. Either cured reading holds; anything else reds.
+case "$after_line" in
+  "AFTER CRASH CRASH"|"AFTER PASS PASS")
+    ck ok "pass-once: the cured copier reaches the program in both modes (${after_line#AFTER }, the runtime's verdict with every companion present)" ;;
+  *) ck no "the cure did not reach the program in both modes -- ${after_line:-<no output>} (want CRASH CRASH at the mint or PASS PASS since the collector grew)" ;;
+esac
 # ⭐ THE DURATION IS REPORTED ON EVERY RUN AND NEVER REDDENS THIS GATE. A perf ratchet on a shared runtime node
 # is a different row with a different owner; reddening a companion-copying gate on it is how a gate teaches its
 # reader to route around it. But burying it is how an 8x slowdown reaches a board as the word HANG, so it is

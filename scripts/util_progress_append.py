@@ -244,20 +244,42 @@ def _bin_digest(scrip_bin=None, rt_dir=None):
     return h.hexdigest() if ok == 2 else "unknown"
 
 
-def _ground():
-    return {"scrip": _git_short(os.path.join(S4E, "SCRIP")), "corpus": _git_short(os.path.join(S4E, "corpus")), "fp": _bin_digest()}
+def _tree_of_binary(scrip_bin):
+    """The SCRIP checkout a graded binary was built in: the git toplevel of the binary's own directory (a worktree's scrip lives in
+    the worktree), or S4E_HOME/SCRIP when there is no binary path or it is in no checkout."""
+    if scrip_bin:
+        try:
+            out = subprocess.run(["git", "-C", os.path.dirname(os.path.abspath(scrip_bin)), "rev-parse", "--show-toplevel"],
+                                 capture_output=True, text=True, timeout=20)
+            if out.returncode == 0 and out.stdout.strip():
+                return out.stdout.strip()
+        except Exception:
+            pass
+    return os.path.join(S4E, "SCRIP")
+
+
+def _ground(scrip_bin=None, rt_dir=None):
+    """⛔⭐ THE GROUND IS THE GRADED BINARY'S, NOT THE SEAT ROOT'S (the coo 2026-09-28, row instruments-util-progress-append-fingerprints-
+    the-seat-roots-binary-not-the-one-the-harness-graded-...): the harness pins the digest of the binary it GRADES (a worktree's, or
+    SCRIP=), and this used to re-read S4E_HOME/SCRIP/scrip at append time -- so every worktree run ended THE GROUND MOVED rc 2 after a
+    green board, and a row's scrip stamp named the seat root's commit, a tree that never graded it. The tree hash is the graded binary's
+    own checkout; the corpus stays S4E_HOME's (the population the run read)."""
+    return {"scrip": _git_short(_tree_of_binary(scrip_bin) if scrip_bin else os.path.join(S4E, "SCRIP")),
+            "corpus": _git_short(os.path.join(S4E, "corpus")), "fp": _bin_digest(scrip_bin, rt_dir)}
 
 
 _PINNED = {}
+_PINNED_BIN = {}
 
 
 def pin_context(scrip_bin=None, rt_dir=None):
     """Read the tree hashes and the binary digest BEFORE the first program is graded, and make context() serve
     THOSE. ⛔ Without this, _git_short runs at APPEND time -- after a mid-run pull -- so rows name a tree the
-    programs were never graded against (seat10, 3736 rows stamped 3377cf43e, CEO-338)."""
-    g = _ground()
-    if scrip_bin or rt_dir:
-        g["fp"] = _bin_digest(scrip_bin, rt_dir)
+    programs were never graded against (seat10, 3736 rows stamped 3377cf43e, CEO-338). The binary it names is remembered, so the
+    append-time check re-reads THAT binary and THAT tree (assert_ground_unmoved)."""
+    g = _ground(scrip_bin, rt_dir)
+    _PINNED_BIN.clear()
+    _PINNED_BIN.update({"scrip_bin": scrip_bin, "rt_dir": rt_dir})
     _PINNED.clear()
     _PINNED.update(g)
     _CTX.clear()
@@ -273,7 +295,7 @@ def assert_ground_unmoved():
     that fires after the side effect is an annotation, not a refusal."""
     if not _PINNED:
         return
-    now = _ground()
+    now = _ground(_PINNED_BIN.get("scrip_bin"), _PINNED_BIN.get("rt_dir"))
     moved = [k for k in ("scrip", "corpus", "fp") if _PINNED.get(k) != now.get(k)]
     if moved:
         what = ", ".join("%s %s -> %s" % (k, _PINNED.get(k), now.get(k)) for k in moved)
@@ -337,9 +359,11 @@ def normalize_row(r):
 def bin_fingerprint():
     """lib_gate.sh's shape: md5 first 12 of ./scrip and out/libscrip_rt.so (resolved), space-joined; '' when either is missing."""
     import hashlib
-    root = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
-    b = os.environ.get("SCRIP") or os.path.join(root, "SCRIP", "scrip")
-    r = os.path.join(os.environ.get("RT_DIR") or os.path.join(root, "SCRIP", "out"), "libscrip_rt.so")
+    # the tree THIS FILE lives in, whose scrip the harness beside it grades by default -- never S4E_HOME/SCRIP, which in a worktree is a
+    # different binary (the coo 2026-09-28: a rebuild of the graded binary went unseen and the seat root's was fingerprinted instead)
+    tree = os.path.abspath(os.path.join(HERE, ".."))
+    b = os.environ.get("SCRIP") or os.path.join(tree, "scrip")
+    r = os.path.join(os.environ.get("RT_DIR") or os.path.join(tree, "out"), "libscrip_rt.so")
     out = []
     for f in (b, r):
         try:

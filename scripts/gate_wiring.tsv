@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 164
+# TASK-CEILING: 163
 # 166 -> 165 (coo 2026-09-25): test_gate_diag_regs_survive.sh retired -- its r10 statement number was removed by design at 2a81a02db, and r11 cannot stand in, because a later box stamp masks a planted clobber; the survival property is test_gate_rtx_entries_keep_the_rtcc_four.sh's.
 test_gate_a_blocking_set_death_names_its_killer.sh	WIRED	-	-	-
 test_gate_a_cgroup_kill_is_a_refusal_not_a_red.sh	WIRED	-	-	-
@@ -217,6 +217,7 @@ test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_harness_renders_a_spitbol_fatal_into_stdout.sh	WIRED	-	-	-
 test_gate_harness_shard_reads_the_outside_list_from_the_unsharded_entries.sh	WIRED	-	-	-
+test_gate_harness_transitive_companions.sh	WIRED	-	-	-
 test_gate_heap_exhaustion_at_the_cap_is_a_reported_error_not_an_abort.sh	WIRED	-	-	-
 test_gate_icn_a_call_through_a_value_reports_its_line_and_its_frame.sh	WIRED	-	-	-
 test_gate_icn_a_clib_sidecar_builds_the_library_a_program_loads.sh	WIRED	-	-	-
@@ -556,6 +557,7 @@ test_gate_polyglot_demos.sh	WIRED	-	-	-
 test_gate_postoffice_identity.sh	WIRED	-	-	-
 test_gate_pre_commit_refuses_a_conflict_marker.sh	WIRED	-	-	-
 test_gate_preflight_arms_stay_cheap.sh	WIRED	-	-	-
+test_gate_progress_append_fingerprints_the_graded_binary.sh	WIRED	-	-	-
 test_gate_progress_append_writes_a_row.sh	WIRED	-	-	-
 test_gate_progress_configuration_declarations_do_not_regress.sh	WIRED	-	-	-
 test_gate_progress_flips_a_program_that_stops_being_graded_went_dark.sh	WIRED	-	-	-
@@ -819,7 +821,6 @@ test_gate_gates_can_say_no.sh	TASK	-	-	-
 test_gate_generator_oracle_agreement.sh	TASK	-	-	-
 test_gate_generator_oracle_agreement_rung2.sh	TASK	-	-	-
 test_gate_handoff_status_three_state.sh	TASK	-	-	-
-test_gate_harness_transitive_companions.sh	TASK	-	-	-
 test_gate_icn_arith_unconvertible_operand_raises_102.sh	TASK	-	-	-
 test_gate_icn_bignum_rung0.sh	TASK	-	-	-
 test_gate_icn_bignum_rung1.sh	TASK	-	-	-

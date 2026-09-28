@@ -43,6 +43,10 @@ S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 SCRIP_BIN="${SCRIP:-$HERE/../scrip}"
 PKGROOT="${PKGROOT:-$S4E/corpus/packages}"
 PER_SUITE_TIMEOUT="${PER_SUITE_TIMEOUT:-600}"
+# ⭐ A SUITE WHOSE HONEST WALL IS LONGER THAN THE BOARD'S CEILING GETS ITS OWN (the coo 2026-09-28: the IPL runner -- 851 units, both
+# modes -- hit 600 s on the loop's packages stage and read UNPROVEN rc 124 with nothing measured). The ceiling is named per suite, never
+# raised for all: a hang in any other runner still fires at 600 s.
+suite_timeout_for() { case "$1" in icon/ipl) echo "${PER_SUITE_TIMEOUT_IPL:-3600}";; *) echo "$PER_SUITE_TIMEOUT";; esac; }
 
 # ⛔ A BOARD THAT CANNOT MEASURE REFUSES rc=2 -- never skip-as-success (RULES.md).
 if [ ! -x "$SCRIP_BIN" ]; then echo "⛔ BOARD REFUSES (rc=2): scrip not built at $SCRIP_BIN"; exit 2; fi
@@ -68,6 +72,8 @@ runner_for() {  # $1 = "<lang>/<name>" -> echoes the grading script's basename, 
     snobol4/gimpel)          echo test_snobol4_gimpel_suite.sh ;;
     snobol4/spitbol_testpgms) echo test_snobol4_spitbol_testpgms_suite.sh ;;
     snobol4/snoflake_suite)  echo test_snoflake_suite.sh ;;
+    snobol4/spitbol_x64_tests) echo test_snobol4_spitbol_x64_suite.sh ;;   # hq_snobol4's X64T deck (the coo 2026-09-28, CEO-1353 gap 7: it was UNPROVEN "no gate wired" beside a runner that exists)
+    snobol4/spitbol_x32_tests) echo test_snobol4_spitbol_x32_suite.sh ;;   # hq_snobol4's X32T deck, the same
     *) : ;;
   esac
 }
@@ -96,7 +102,7 @@ for pkg in "${ALL_PKGS[@]}"; do
   if [ ! -f "$HERE/$runner" ]; then
     UNPROVEN=$((UNPROVEN+1)); DETAIL+=("UNPROVEN $pkg -- mapped runner $runner is missing from scripts/"); continue
   fi
-  out=$(cd "$S4E/SCRIP" && timeout "$PER_SUITE_TIMEOUT" bash "scripts/$runner" 2>&1); rc=$?
+  _to="$(suite_timeout_for "$pkg")"; out=$(cd "$S4E/SCRIP" && timeout "$_to" bash "scripts/$runner" 2>&1); rc=$?
   # Cosmetic preview only -- the authoritative per-suite numbers already live in each runner's own
   # SCORE.md vendor-cell write, not here; this line just saves a reader one extra terminal round trip.
   line="$(printf '%s\n' "$out" | grep -E '_BOARD |Suite totals:|^mode-4' | tail -1)"
@@ -114,7 +120,7 @@ for pkg in "${ALL_PKGS[@]}"; do
   fi
   if [ "$rc" = 124 ] || [ "$rc" = 2 ]; then
     UNPROVEN=$((UNPROVEN+1))
-    extra=""; [ "$rc" = 124 ] && extra=" (this board's own ${PER_SUITE_TIMEOUT}s per-suite timeout fired)"
+    extra=""; [ "$rc" = 124 ] && extra=" (this board's own ${_to}s per-suite timeout fired)"
     DETAIL+=("UNPROVEN $pkg ($runner) -- rc=$rc, could not measure$extra")
   else
     GRADED=$((GRADED+1))

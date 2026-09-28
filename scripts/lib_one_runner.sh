@@ -159,8 +159,11 @@ one_runner_seat_admitted() {
 # joined); util_progress_append.py and util_score_row.py REFUSE when the binary they see differs, and corpus_suite_harness.py checks it
 # before printing any board. An outer runner's stamp is kept by an inner one.
 one_runner_bin_fingerprint() {
-  local _root="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}" _b _r
-  _b="${SCRIP:-$_root/SCRIP/scrip}"; _r="${RT_DIR:-$_root/SCRIP/out}/libscrip_rt.so"
+  # the checkout THIS FILE lives in, whose scrip every runner beside it grades ($SD/scrip) -- never S4E_HOME/SCRIP, which in a worktree is
+  # another binary (the coo 2026-09-28: util_progress_append.py reads the same tree, so the start and the append-time readings agree)
+  local _t _b _r
+  _t="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  _b="${SCRIP:-$_t/scrip}"; _r="${RT_DIR:-$_t/out}/libscrip_rt.so"
   [ -f "$_b" ] && [ -f "$_r" ] || return 1
   md5sum "$_b" "$_r" 2>/dev/null | cut -c1-12 | tr '\n' ' '
 }

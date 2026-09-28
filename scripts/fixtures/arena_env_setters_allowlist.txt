@@ -19,7 +19,7 @@ scripts/test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	sets noth
 scripts/test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh	sets nothing: its one match is a report line naming the arena the run used
 scripts/test_gate_declared_arena_switches_agree_with_the_harness.sh	control arm: arm 2 runs a declared heap as the old SCRIP_HEAP_KB export beside the -d/-i switches to prove both read the same arena line -- the export is the subject of that comparison
 
-scripts/util_gc_event_coverage.py	GC instrument: runs its probes at the tiny window (SCRIP_HEAP_MB=1) by design -- without it most probes never collect, and the collection count IS the measurement
+scripts/util_gc_event_coverage.py	GC instrument: pins the window explicitly at the shipped 1024 KB (SCRIP_HEAP_MB=1) so its collection counts, driven by SCRIP_GC_STRESS, are readings of a named window and not of the caller's environment (the cfo's wording, 2026-09-28)
 scripts/util_gc_population_machine.py	GC instrument: each configuration it names IS a window setting (nogc at 512 MB, the stress points at 128 KB); the window is the variable it sweeps
 scripts/util_gc_safe_point_contract.py	GC instrument: the bare-arena run sets the window (BARE_ARENA_MB) so the census reaches its safe points; the window is the instrument's input
 scripts/util_gc_witness_sweep.sh	GC instrument: sweeps the gc witness set at a named window (ARENA_KB) and stress point; the window is the sweep's axis
