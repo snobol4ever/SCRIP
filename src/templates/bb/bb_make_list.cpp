@@ -10,34 +10,29 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_make_list() {
     x86_begin();
-    if (_.op_zres) {
-        int na = _.op_arg_slot_n;
-        std::string s = x86("comment", "IR_MAKE_LIST zd: elements from ZOPQ -> rt_make_list -> ZRES")
-                      + x86_alpha();
-        if (na > 0) {
-            s += x86("sub", "rsp", (long)(na * 16));
-            for (int i = 0; i < na; i++) {
-                s += x86("mov", "rax", ZOPQ(i, na * 16 + 0));
-                s += x86("mov", x86_zref(i * 16 + 0, 1), "rax");
-                s += x86("mov", "rax", ZOPQ(i, na * 16 + 8));
-                s += x86("mov", x86_zref(i * 16 + 8, 1), "rax");
-            }
-            s += x86_reg_disp32_lea64("rdi", "rsp", 0);
-        } else {
-            s += x86("xor", "edi", "edi");
-        }
-        s += x86("mov32", "esi", (long)na);
-        s += x86("call", "rt_make_list", (uint64_t)(uintptr_t)(void*)rt_make_list);
-        if (na > 0) s += x86("add", "rsp", (long)(na * 16));
-        s += x86("note", ZRESN());
-        s += x86("mov", ZRES(0), "rax");
-        s += x86("note", ZRESN());
-        s += x86("mov", ZRES(8), "rdx");
-        s += x86_rt_gc_poll();
-        s += x86_gamma();
-        s += x86_beta_trampoline();
-        return s;
-    }
+    if (_.op_zres)
+        return x86("comment", "IR_MAKE_LIST zd: elements from ZOPQ -> rt_make_list -> ZRES")
+             + x86_alpha()
+             + IF(_.op_arg_slot_n > 0,
+                  x86("sub", "rsp", (long)(_.op_arg_slot_n * 16))
+                + FOR(0, _.op_arg_slot_n, [&](int i) { return x86("mov", "rax", ZOPQ(i, _.op_arg_slot_n * 16 + 0))
+                           + x86("mov", x86_zref(i * 16 + 0, 1), "rax")
+                           + x86("mov", "rax", ZOPQ(i, _.op_arg_slot_n * 16 + 8))
+                           + x86("mov", x86_zref(i * 16 + 8, 1), "rax"); })
+                + x86_reg_disp32_lea64("rdi", "rsp", 0))
+             + IF(!(_.op_arg_slot_n > 0),
+                  x86("xor", "edi", "edi"))
+             + x86("mov32", "esi", (long)_.op_arg_slot_n)
+             + x86("call", "rt_make_list", (uint64_t)(uintptr_t)(void*)rt_make_list)
+             + IF(_.op_arg_slot_n > 0,
+                  x86("add", "rsp", (long)(_.op_arg_slot_n * 16)))
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(8), "rdx")
+             + x86_rt_gc_poll()
+             + x86_gamma()
+             + x86_beta_trampoline();
     return _.op_off < 0
              ? x86_alpha() + x86_bomb("bb_make_list: unhandled (needs result slot, descr flat-chain)")
          : ![&]() { for (int i = 0; i < _.op_arg_slot_n; i++) if (_.op_arg_slot[i] < 0) return 0; return 1; }()
