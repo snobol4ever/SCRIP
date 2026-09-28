@@ -200,7 +200,8 @@ void kw_cset_gc_roots(void)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
+static const char *g_kw_cset_regc_ptr[64];
+static int g_kw_cset_regc_len[64];
 void kw_cset_gc_weak(void)
 {
     extern int rt_gc_weak_keep(const char **loc);

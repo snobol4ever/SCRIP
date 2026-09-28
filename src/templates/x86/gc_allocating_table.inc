@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1914
+#define GC_ALLOC_TAB_N 1915
 #define GC_ALLOC_TAB_N_VOID 222
 #define GC_ALLOC_TAB_N_DESCR 1044
-#define GC_ALLOC_TAB_N_OTHER 642
+#define GC_ALLOC_TAB_N_OTHER 643
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -340,6 +340,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_facc_get_97", GC_RET_DESCR },
     { "_facc_get_98", GC_RET_DESCR },
     { "_facc_get_99", GC_RET_DESCR },
+    { "_func_grow", GC_RET_VOID },
+    { "_func_link", GC_RET_VOID },
     { "_icn_hash", GC_RET_OTHER },
     { "_icn_succ", GC_RET_OTHER },
     { "_io_assoc_pair_state", GC_RET_OTHER },
@@ -599,7 +601,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icon_radix_big", GC_RET_DESCR },
     { "icon_register_program", GC_RET_VOID },
     { "ident", GC_RET_OTHER },
-    { "init_update_snapshot", GC_RET_VOID },
     { "input_read", GC_RET_DESCR },
     { "intern_name_bin", GC_RET_OTHER },
     { "invoke_method_proc", GC_RET_DESCR },
@@ -779,6 +780,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_define_absent", GC_RET_OTHER },
     { "pl_db_enum", GC_RET_OTHER },
     { "pl_db_enum_ref", GC_RET_OTHER },
+    { "pl_db_key_need", GC_RET_OTHER },
     { "pl_db_leaf2", GC_RET_OTHER },
     { "pl_db_leaf2_tree", GC_RET_OTHER },
     { "pl_db_leaf_seed", GC_RET_OTHER },
@@ -829,7 +831,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_parse_loop", GC_RET_VOID },
     { "pl_parse_number", GC_RET_OTHER },
     { "pl_parse_number_radix", GC_RET_OTHER },
-    { "pl_parse_term_text", GC_RET_OTHER },
+    { "pl_parse_term_tree", GC_RET_OTHER },
     { "pl_past_eos_ball", GC_RET_OTHER },
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_prelude_defines", GC_RET_OTHER },
@@ -856,7 +858,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_tree_cell", GC_RET_DESCR },
     { "pl_unify", GC_RET_OTHER },
     { "pl_user_call", GC_RET_OTHER },
-    { "pl_variant_rec", GC_RET_OTHER },
     { "pl_write_opt_bad", GC_RET_OTHER },
     { "plc_atom_id_of", GC_RET_OTHER },
     { "plc_atom_op_list_text_heap", GC_RET_OTHER },
@@ -1910,7 +1911,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "trace_print_banner_args", GC_RET_VOID },
     { "trace_print_icon", GC_RET_VOID },
     { "trace_register", GC_RET_VOID },
-    { "trace_spell_value", GC_RET_VOID },
+    { "trace_spell_value", GC_RET_OTHER },
     { "try_call_builtin_by_name", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl_s", GC_RET_OTHER },
