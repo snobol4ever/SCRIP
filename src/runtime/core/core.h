@@ -319,6 +319,9 @@ extern int64_t kw_fnclevel;
 extern char    kw_rtntype[16];
 void core_unwind_pending(void);
 #include <setjmp.h>
+typedef struct core_errjmp { jmp_buf jb; struct core_errjmp *prev; int depth; } core_errjmp_t;
+extern core_errjmp_t *g_core_errjmp_top;
+extern int g_core_errjmp_n;
 void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;
 extern jmp_buf g_core_err_jmp;

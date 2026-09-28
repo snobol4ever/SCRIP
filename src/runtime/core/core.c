@@ -803,7 +803,8 @@ static void mon_at_exit(void) {
     already = 1;
     if (monitor_fd >= 0 && g_monitor_bin) {
         if (g_mon_max_stno > 0 && monitor_ready) {
-            int64_t es = (int64_t)g_mon_max_stno + 1; unsigned char lhdr[MW_HDR_BYTES]; unsigned char lbuf[8];
+            int64_t es = (int64_t)g_mon_max_stno + 1; unsigned char lhdr[MW_HDR_BYTES];
+            unsigned char lbuf[8];
             for (int k = 0; k < 8; k++) lbuf[k] = (unsigned char)(((uint64_t)es >> (k*8)) & 0xff);
             mw_pack_hdr(lhdr, MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, 8);
             struct iovec iov[2]; iov[0].iov_base = lhdr; iov[0].iov_len = MW_HDR_BYTES; iov[1].iov_base = lbuf; iov[1].iov_len = 8;
@@ -2025,8 +2026,7 @@ static cv_t _setexit_label_v;
 static void _setexit_label_set(const char *s) { size_t n = strlen(s) + 1; cv_reserve(&_setexit_label_v, 1u, (uint64_t)n, "_setexit_label"); memcpy(_setexit_label_v.p, s, n); }
 static void _setexit_label_clear(void) { if (_setexit_label_v.p) ((char *)_setexit_label_v.p)[0] = '\0'; }
 static int _setexit_resume = -1;
-extern jmp_buf g_core_errjmp_stk[64];
-extern int g_core_errjmp_n;
+static core_errjmp_t *_setexit_resume_ej = (core_errjmp_t *)0;
 extern long rt_stno_stack[];
 extern int * const rt_k_level_p;
 extern void rt_unwind_to_activation(void *act, void *r12, long wire) __attribute__((noreturn));
@@ -2036,7 +2036,7 @@ static long *core_lvl_rec(void) { return &rt_stno_stack[(long)(*rt_k_level_p & S
 static void core_unwind_next(void) __attribute__((noreturn));
 static void core_unwind_next(void) {
     long *rec = core_lvl_rec();
-    if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 3);
+    if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(g_core_errjmp_top->jb, 3);
     long wire = (rec[SNO_LVL_UNWIND / 8] == 2) ? 8 : 0;
     rec[SNO_LVL_UNWIND / 8] = 0;
     rt_unwind_to_activation((void *)rec[SNO_LVL_ACT_RSP / 8], (void *)rec[SNO_LVL_ACT_R12 / 8], wire);
@@ -2099,18 +2099,15 @@ void sno_setexit_fire_on_end(void) {
     if (!lbl) return;
     extern void rt_kw_publish_error(int code, const char *msg);
     extern int rt_goto_transfer(const char *name);
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     rt_kw_publish_error(0, "");
-    if (g_core_errjmp_n >= 64) { rt_goto_transfer(lbl); return; }
-    int my = g_core_errjmp_n; int outer = _setexit_resume;
-    if (setjmp(g_core_errjmp_stk[my]) == 0) { g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
-    g_core_errjmp_n = my; _setexit_resume = outer;
+    int my = g_core_errjmp_n; int outer = _setexit_resume; core_errjmp_t *outer_ej = _setexit_resume_ej; core_errjmp_t ej; ej.prev = g_core_errjmp_top; ej.depth = my;
+    if (setjmp(ej.jb) == 0) { g_core_errjmp_top = &ej; g_core_errjmp_n = my + 1; _setexit_resume = my; _setexit_resume_ej = &ej; rt_goto_transfer(lbl); }
+    g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; _setexit_resume = outer; _setexit_resume_ej = outer_ej;
     core_unwind_pending();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_resume(const char *which) {
-    extern jmp_buf g_core_errjmp_stk[64];
-    if (_setexit_resume >= 0) longjmp(g_core_errjmp_stk[_setexit_resume], (which && which[0] == 'A') ? 2 : 1);
+    if (_setexit_resume >= 0 && _setexit_resume_ej) longjmp(_setexit_resume_ej->jb, (which && which[0] == 'A') ? 2 : 1);
     char w0 = which ? which[0] : 'C'; char w1 = which ? which[1] : '\0';
     if (w0 == 'A') core_runtime_error(36, "goto abort with no preceding error");
     else if (w0 == 'S' && w1 == 'C') core_runtime_error(321, "goto scontinue with no preceding error");
@@ -2190,16 +2187,11 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     return STRVAL(rt_heap_strdup_c(varname));
 }
 static DATBLK_t *_udef_lookup(const char *name);
-typedef struct { char *typename; int nfields; char **fields; } DataClosure;
-typedef struct { char *typename; char *fieldname; } FieldClosure;
-#define DATA_MAX_TYPES 64
-#define DATA_MAX_FIELDS 16
-static struct {
-    char *typename;
-    int   nfields;
-    char *fields[DATA_MAX_FIELDS];
-} _data_types[DATA_MAX_TYPES];
-static int _data_ntypes = 0;
+typedef struct { char *typename; int nfields; cv_t fields; } core_dtype_t;
+static cv_t _data_types_v;
+#define _data_types ((core_dtype_t *)_data_types_v.p)
+#define _data_ntypes ((int)_data_types_v.len)
+#define DTF(t, i) CV_AT(_data_types[t].fields, char *, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     if (tidx < 0 || tidx >= _data_ntypes) return NULVCL;
@@ -2214,45 +2206,10 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
     return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = u };
 }
-#define CTOR_FN(idx) \
-static DESCR_t _ctor_##idx(DESCR_t *a, int n) { return _make_ctor(idx, a, n); }
-CTOR_FN(0)  CTOR_FN(1)  CTOR_FN(2)  CTOR_FN(3)
-CTOR_FN(4)  CTOR_FN(5)  CTOR_FN(6)  CTOR_FN(7)
-CTOR_FN(8)  CTOR_FN(9)  CTOR_FN(10) CTOR_FN(11)
-CTOR_FN(12) CTOR_FN(13) CTOR_FN(14) CTOR_FN(15)
-CTOR_FN(16) CTOR_FN(17) CTOR_FN(18) CTOR_FN(19)
-CTOR_FN(20) CTOR_FN(21) CTOR_FN(22) CTOR_FN(23)
-CTOR_FN(24) CTOR_FN(25) CTOR_FN(26) CTOR_FN(27)
-CTOR_FN(28) CTOR_FN(29) CTOR_FN(30) CTOR_FN(31)
-CTOR_FN(32) CTOR_FN(33) CTOR_FN(34) CTOR_FN(35)
-CTOR_FN(36) CTOR_FN(37) CTOR_FN(38) CTOR_FN(39)
-CTOR_FN(40) CTOR_FN(41) CTOR_FN(42) CTOR_FN(43)
-CTOR_FN(44) CTOR_FN(45) CTOR_FN(46) CTOR_FN(47)
-CTOR_FN(48) CTOR_FN(49) CTOR_FN(50) CTOR_FN(51)
-CTOR_FN(52) CTOR_FN(53) CTOR_FN(54) CTOR_FN(55)
-CTOR_FN(56) CTOR_FN(57) CTOR_FN(58) CTOR_FN(59)
-CTOR_FN(60) CTOR_FN(61) CTOR_FN(62) CTOR_FN(63)
-static DESCR_t (*_ctor_fns[DATA_MAX_TYPES])(DESCR_t *, int) = {
-    _ctor_0,  _ctor_1,  _ctor_2,  _ctor_3,
-    _ctor_4,  _ctor_5,  _ctor_6,  _ctor_7,
-    _ctor_8,  _ctor_9,  _ctor_10, _ctor_11,
-    _ctor_12, _ctor_13, _ctor_14, _ctor_15,
-    _ctor_16, _ctor_17, _ctor_18, _ctor_19,
-    _ctor_20, _ctor_21, _ctor_22, _ctor_23,
-    _ctor_24, _ctor_25, _ctor_26, _ctor_27,
-    _ctor_28, _ctor_29, _ctor_30, _ctor_31,
-    _ctor_32, _ctor_33, _ctor_34, _ctor_35,
-    _ctor_36, _ctor_37, _ctor_38, _ctor_39,
-    _ctor_40, _ctor_41, _ctor_42, _ctor_43,
-    _ctor_44, _ctor_45, _ctor_46, _ctor_47,
-    _ctor_48, _ctor_49, _ctor_50, _ctor_51,
-    _ctor_52, _ctor_53, _ctor_54, _ctor_55,
-    _ctor_56, _ctor_57, _ctor_58, _ctor_59,
-    _ctor_60, _ctor_61, _ctor_62, _ctor_63,
-};
-#define FIELD_ACCESSOR_MAX (DATA_MAX_TYPES * DATA_MAX_FIELDS)
-static struct { int tidx; int fidx; } _facc_slots[FIELD_ACCESSOR_MAX];
-static int _facc_n = 0;
+typedef struct { int tidx; int fidx; } core_facc_t;
+static cv_t _facc_slots_v;
+#define _facc_slots ((core_facc_t *)_facc_slots_v.p)
+#define _facc_n ((int)_facc_slots_v.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _make_fget(int slot, DESCR_t obj) {
     if (slot < 0 || slot >= _facc_n) return FAILDESCR;
@@ -2273,147 +2230,11 @@ static void _make_fset(int slot, DESCR_t obj, DESCR_t val) {
     if (fidx < 0 || fidx >= obj.u->type->nfields) return;
     obj.u->fields[fidx] = val;
 }
-#define FACC_FN(idx) \
-static DESCR_t _facc_get_##idx(DESCR_t *a, int n) { \
-    return n>=1 ? _make_fget(idx, a[0]) : NULVCL; }
-#define FACC_SET_FN(idx) \
-static DESCR_t _facc_set_##idx(DESCR_t *a, int n) { \
-    if (n>=2) _make_fset(idx, a[1], a[0]); \
-    return n>=1 ? a[0] : NULVCL; }
-FACC_FN(0)   FACC_FN(1)   FACC_FN(2)   FACC_FN(3)
-FACC_FN(4)   FACC_FN(5)   FACC_FN(6)   FACC_FN(7)
-FACC_FN(8)   FACC_FN(9)   FACC_FN(10)  FACC_FN(11)
-FACC_FN(12)  FACC_FN(13)  FACC_FN(14)  FACC_FN(15)
-FACC_FN(16)  FACC_FN(17)  FACC_FN(18)  FACC_FN(19)
-FACC_FN(20)  FACC_FN(21)  FACC_FN(22)  FACC_FN(23)
-FACC_FN(24)  FACC_FN(25)  FACC_FN(26)  FACC_FN(27)
-FACC_FN(28)  FACC_FN(29)  FACC_FN(30)  FACC_FN(31)
-FACC_FN(32)  FACC_FN(33)  FACC_FN(34)  FACC_FN(35)
-FACC_FN(36)  FACC_FN(37)  FACC_FN(38)  FACC_FN(39)
-FACC_FN(40)  FACC_FN(41)  FACC_FN(42)  FACC_FN(43)
-FACC_FN(44)  FACC_FN(45)  FACC_FN(46)  FACC_FN(47)
-FACC_FN(48)  FACC_FN(49)  FACC_FN(50)  FACC_FN(51)
-FACC_FN(52)  FACC_FN(53)  FACC_FN(54)  FACC_FN(55)
-FACC_FN(56)  FACC_FN(57)  FACC_FN(58)  FACC_FN(59)
-FACC_FN(60)  FACC_FN(61)  FACC_FN(62)  FACC_FN(63)
-FACC_FN(64)  FACC_FN(65)  FACC_FN(66)  FACC_FN(67)
-FACC_FN(68)  FACC_FN(69)  FACC_FN(70)  FACC_FN(71)
-FACC_FN(72)  FACC_FN(73)  FACC_FN(74)  FACC_FN(75)
-FACC_FN(76)  FACC_FN(77)  FACC_FN(78)  FACC_FN(79)
-FACC_FN(80)  FACC_FN(81)  FACC_FN(82)  FACC_FN(83)
-FACC_FN(84)  FACC_FN(85)  FACC_FN(86)  FACC_FN(87)
-FACC_FN(88)  FACC_FN(89)  FACC_FN(90)  FACC_FN(91)
-FACC_FN(92)  FACC_FN(93)  FACC_FN(94)  FACC_FN(95)
-FACC_FN(96)  FACC_FN(97)  FACC_FN(98)  FACC_FN(99)
-FACC_FN(100) FACC_FN(101) FACC_FN(102) FACC_FN(103)
-FACC_FN(104) FACC_FN(105) FACC_FN(106) FACC_FN(107)
-FACC_FN(108) FACC_FN(109) FACC_FN(110) FACC_FN(111)
-FACC_FN(112) FACC_FN(113) FACC_FN(114) FACC_FN(115)
-FACC_FN(116) FACC_FN(117) FACC_FN(118) FACC_FN(119)
-FACC_FN(120) FACC_FN(121) FACC_FN(122) FACC_FN(123)
-FACC_FN(124) FACC_FN(125) FACC_FN(126) FACC_FN(127)
-FACC_SET_FN(0)   FACC_SET_FN(1)   FACC_SET_FN(2)   FACC_SET_FN(3)
-FACC_SET_FN(4)   FACC_SET_FN(5)   FACC_SET_FN(6)   FACC_SET_FN(7)
-FACC_SET_FN(8)   FACC_SET_FN(9)   FACC_SET_FN(10)  FACC_SET_FN(11)
-FACC_SET_FN(12)  FACC_SET_FN(13)  FACC_SET_FN(14)  FACC_SET_FN(15)
-FACC_SET_FN(16)  FACC_SET_FN(17)  FACC_SET_FN(18)  FACC_SET_FN(19)
-FACC_SET_FN(20)  FACC_SET_FN(21)  FACC_SET_FN(22)  FACC_SET_FN(23)
-FACC_SET_FN(24)  FACC_SET_FN(25)  FACC_SET_FN(26)  FACC_SET_FN(27)
-FACC_SET_FN(28)  FACC_SET_FN(29)  FACC_SET_FN(30)  FACC_SET_FN(31)
-FACC_SET_FN(32)  FACC_SET_FN(33)  FACC_SET_FN(34)  FACC_SET_FN(35)
-FACC_SET_FN(36)  FACC_SET_FN(37)  FACC_SET_FN(38)  FACC_SET_FN(39)
-FACC_SET_FN(40)  FACC_SET_FN(41)  FACC_SET_FN(42)  FACC_SET_FN(43)
-FACC_SET_FN(44)  FACC_SET_FN(45)  FACC_SET_FN(46)  FACC_SET_FN(47)
-FACC_SET_FN(48)  FACC_SET_FN(49)  FACC_SET_FN(50)  FACC_SET_FN(51)
-FACC_SET_FN(52)  FACC_SET_FN(53)  FACC_SET_FN(54)  FACC_SET_FN(55)
-FACC_SET_FN(56)  FACC_SET_FN(57)  FACC_SET_FN(58)  FACC_SET_FN(59)
-FACC_SET_FN(60)  FACC_SET_FN(61)  FACC_SET_FN(62)  FACC_SET_FN(63)
-FACC_SET_FN(64)  FACC_SET_FN(65)  FACC_SET_FN(66)  FACC_SET_FN(67)
-FACC_SET_FN(68)  FACC_SET_FN(69)  FACC_SET_FN(70)  FACC_SET_FN(71)
-FACC_SET_FN(72)  FACC_SET_FN(73)  FACC_SET_FN(74)  FACC_SET_FN(75)
-FACC_SET_FN(76)  FACC_SET_FN(77)  FACC_SET_FN(78)  FACC_SET_FN(79)
-FACC_SET_FN(80)  FACC_SET_FN(81)  FACC_SET_FN(82)  FACC_SET_FN(83)
-FACC_SET_FN(84)  FACC_SET_FN(85)  FACC_SET_FN(86)  FACC_SET_FN(87)
-FACC_SET_FN(88)  FACC_SET_FN(89)  FACC_SET_FN(90)  FACC_SET_FN(91)
-FACC_SET_FN(92)  FACC_SET_FN(93)  FACC_SET_FN(94)  FACC_SET_FN(95)
-FACC_SET_FN(96)  FACC_SET_FN(97)  FACC_SET_FN(98)  FACC_SET_FN(99)
-FACC_SET_FN(100) FACC_SET_FN(101) FACC_SET_FN(102) FACC_SET_FN(103)
-FACC_SET_FN(104) FACC_SET_FN(105) FACC_SET_FN(106) FACC_SET_FN(107)
-FACC_SET_FN(108) FACC_SET_FN(109) FACC_SET_FN(110) FACC_SET_FN(111)
-FACC_SET_FN(112) FACC_SET_FN(113) FACC_SET_FN(114) FACC_SET_FN(115)
-FACC_SET_FN(116) FACC_SET_FN(117) FACC_SET_FN(118) FACC_SET_FN(119)
-FACC_SET_FN(120) FACC_SET_FN(121) FACC_SET_FN(122) FACC_SET_FN(123)
-FACC_SET_FN(124) FACC_SET_FN(125) FACC_SET_FN(126) FACC_SET_FN(127)
-static DESCR_t (*_facc_set_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = {
-    _facc_set_0,   _facc_set_1,   _facc_set_2,   _facc_set_3,
-    _facc_set_4,   _facc_set_5,   _facc_set_6,   _facc_set_7,
-    _facc_set_8,   _facc_set_9,   _facc_set_10,  _facc_set_11,
-    _facc_set_12,  _facc_set_13,  _facc_set_14,  _facc_set_15,
-    _facc_set_16,  _facc_set_17,  _facc_set_18,  _facc_set_19,
-    _facc_set_20,  _facc_set_21,  _facc_set_22,  _facc_set_23,
-    _facc_set_24,  _facc_set_25,  _facc_set_26,  _facc_set_27,
-    _facc_set_28,  _facc_set_29,  _facc_set_30,  _facc_set_31,
-    _facc_set_32,  _facc_set_33,  _facc_set_34,  _facc_set_35,
-    _facc_set_36,  _facc_set_37,  _facc_set_38,  _facc_set_39,
-    _facc_set_40,  _facc_set_41,  _facc_set_42,  _facc_set_43,
-    _facc_set_44,  _facc_set_45,  _facc_set_46,  _facc_set_47,
-    _facc_set_48,  _facc_set_49,  _facc_set_50,  _facc_set_51,
-    _facc_set_52,  _facc_set_53,  _facc_set_54,  _facc_set_55,
-    _facc_set_56,  _facc_set_57,  _facc_set_58,  _facc_set_59,
-    _facc_set_60,  _facc_set_61,  _facc_set_62,  _facc_set_63,
-    _facc_set_64,  _facc_set_65,  _facc_set_66,  _facc_set_67,
-    _facc_set_68,  _facc_set_69,  _facc_set_70,  _facc_set_71,
-    _facc_set_72,  _facc_set_73,  _facc_set_74,  _facc_set_75,
-    _facc_set_76,  _facc_set_77,  _facc_set_78,  _facc_set_79,
-    _facc_set_80,  _facc_set_81,  _facc_set_82,  _facc_set_83,
-    _facc_set_84,  _facc_set_85,  _facc_set_86,  _facc_set_87,
-    _facc_set_88,  _facc_set_89,  _facc_set_90,  _facc_set_91,
-    _facc_set_92,  _facc_set_93,  _facc_set_94,  _facc_set_95,
-    _facc_set_96,  _facc_set_97,  _facc_set_98,  _facc_set_99,
-    _facc_set_100, _facc_set_101, _facc_set_102, _facc_set_103,
-    _facc_set_104, _facc_set_105, _facc_set_106, _facc_set_107,
-    _facc_set_108, _facc_set_109, _facc_set_110, _facc_set_111,
-    _facc_set_112, _facc_set_113, _facc_set_114, _facc_set_115,
-    _facc_set_116, _facc_set_117, _facc_set_118, _facc_set_119,
-    _facc_set_120, _facc_set_121, _facc_set_122, _facc_set_123,
-    _facc_set_124, _facc_set_125, _facc_set_126, _facc_set_127,
-};
-static DESCR_t (*_facc_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = {
-    _facc_get_0,   _facc_get_1,   _facc_get_2,   _facc_get_3,
-    _facc_get_4,   _facc_get_5,   _facc_get_6,   _facc_get_7,
-    _facc_get_8,   _facc_get_9,   _facc_get_10,  _facc_get_11,
-    _facc_get_12,  _facc_get_13,  _facc_get_14,  _facc_get_15,
-    _facc_get_16,  _facc_get_17,  _facc_get_18,  _facc_get_19,
-    _facc_get_20,  _facc_get_21,  _facc_get_22,  _facc_get_23,
-    _facc_get_24,  _facc_get_25,  _facc_get_26,  _facc_get_27,
-    _facc_get_28,  _facc_get_29,  _facc_get_30,  _facc_get_31,
-    _facc_get_32,  _facc_get_33,  _facc_get_34,  _facc_get_35,
-    _facc_get_36,  _facc_get_37,  _facc_get_38,  _facc_get_39,
-    _facc_get_40,  _facc_get_41,  _facc_get_42,  _facc_get_43,
-    _facc_get_44,  _facc_get_45,  _facc_get_46,  _facc_get_47,
-    _facc_get_48,  _facc_get_49,  _facc_get_50,  _facc_get_51,
-    _facc_get_52,  _facc_get_53,  _facc_get_54,  _facc_get_55,
-    _facc_get_56,  _facc_get_57,  _facc_get_58,  _facc_get_59,
-    _facc_get_60,  _facc_get_61,  _facc_get_62,  _facc_get_63,
-    _facc_get_64,  _facc_get_65,  _facc_get_66,  _facc_get_67,
-    _facc_get_68,  _facc_get_69,  _facc_get_70,  _facc_get_71,
-    _facc_get_72,  _facc_get_73,  _facc_get_74,  _facc_get_75,
-    _facc_get_76,  _facc_get_77,  _facc_get_78,  _facc_get_79,
-    _facc_get_80,  _facc_get_81,  _facc_get_82,  _facc_get_83,
-    _facc_get_84,  _facc_get_85,  _facc_get_86,  _facc_get_87,
-    _facc_get_88,  _facc_get_89,  _facc_get_90,  _facc_get_91,
-    _facc_get_92,  _facc_get_93,  _facc_get_94,  _facc_get_95,
-    _facc_get_96,  _facc_get_97,  _facc_get_98,  _facc_get_99,
-    _facc_get_100, _facc_get_101, _facc_get_102, _facc_get_103,
-    _facc_get_104, _facc_get_105, _facc_get_106, _facc_get_107,
-    _facc_get_108, _facc_get_109, _facc_get_110, _facc_get_111,
-    _facc_get_112, _facc_get_113, _facc_get_114, _facc_get_115,
-    _facc_get_116, _facc_get_117, _facc_get_118, _facc_get_119,
-    _facc_get_120, _facc_get_121, _facc_get_122, _facc_get_123,
-    _facc_get_124, _facc_get_125, _facc_get_126, _facc_get_127,
-};
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _data_fn_stub(DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
 static int fn_has_builtin(const char *name);
 static void _func_init(void);
+static void core_fn_set_data(const char *name, int kind, int idx);
 DESCR_t core_DATA_register(DESCR_t *a, int n);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _DATA_(DESCR_t *a, int n) { return core_DATA_register(a, n); }
@@ -2451,36 +2272,32 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     char *fstr = paren + 1;
     char *close = strchr(fstr, ')');
     if (close) *close = '\0';
-    if (_data_ntypes >= DATA_MAX_TYPES) return NULVCL;
-    int tidx = _data_ntypes++;
-    char *uname = rt_heap_strdup_c(tname);
-    _data_types[tidx].typename = uname;
+    int tidx = _data_ntypes;
+    { core_dtype_t *dt = &CV_PUSH(_data_types_v, core_dtype_t); dt->typename = rt_heap_strdup_c(tname); }
+    char *uname = _data_types[tidx].typename;
     int nf = 0;
     char *tmp = rt_heap_strdup_c(fstr);
     char *tok = strtok(tmp, ",");
-    while (tok && nf < DATA_MAX_FIELDS) {
+    while (tok) {
         while (*tok == ' ') tok++;
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
         char *fld = rt_heap_strdup_c(tok);
-        _data_types[tidx].fields[nf] = fld;
+        CV_PUSH(_data_types[tidx].fields, char *) = fld;
         nf++;
         tok = strtok(NULL, ",");
     }
     _data_types[tidx].nfields = nf;
     extern void register_fn(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
-    register_fn(uname, _ctor_fns[tidx], 0, nf);
+    register_fn(uname, _data_fn_stub, 0, nf); core_fn_set_data(uname, 1, tidx);
     for (int fi = 0; fi < nf; fi++) {
-        if (_facc_n >= FIELD_ACCESSOR_MAX) { fprintf(stderr, "scrip: the field accessor table is full at %d slots (FIELD_ACCESSOR_MAX = DATA_MAX_TYPES * DATA_MAX_FIELDS, one accessor function per slot) -- this record type's field %d has no accessor\n", _facc_n, fi);
-            abort(); }
-        int slot = _facc_n++;
-        _facc_slots[slot].tidx = tidx;
-        _facc_slots[slot].fidx = fi;
-        const char *fname = _data_types[tidx].fields[fi];
-        register_fn(fname, _facc_fns[slot], 1, 1);
+        int slot = _facc_n;
+        { core_facc_t *fa = &CV_PUSH(_facc_slots_v, core_facc_t); fa->tidx = tidx; fa->fidx = fi; }
+        const char *fname = DTF(tidx, fi);
+        register_fn(fname, _data_fn_stub, 1, 1); core_fn_set_data(fname, 2, slot);
         char setname[fmt_len("%s_SET", fname)];
         snprintf(setname, sizeof(setname), "%s_SET", fname);
-        register_fn(setname, _facc_set_fns[slot], 2, 2);
+        register_fn(setname, _data_fn_stub, 2, 2); core_fn_set_data(setname, 3, slot);
     }
     return NULVCL;
 }
@@ -2911,33 +2728,32 @@ void core_runtime_error(int code, const char *msg) {
     core_err_compat_map(&code, &msg);
     if (!msg && code >= 1 && code <= 39)
         msg = core_err_msgs[code];
-    { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
-      extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
+    { extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       extern long g_error;
       if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && _setexit_label[0]))) {
           if (g_error > 0) g_error--;
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
           rt_kw_publish_error(code, msg);
-          longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+          longjmp(g_core_errjmp_top->jb, code);
       } }
     { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern int rt_goto_transfer_checked(const char *name);
-      extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       volatile int vcode = code; const char * volatile vmsg = msg; volatile int aborting = 0;
-      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0 && g_core_errjmp_n < 64) {
+      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0) {
           char lbl[strlen(_setexit_label) + 1]; memcpy(lbl, _setexit_label, sizeof lbl);
           _setexit_label_clear();
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
-          int my = g_core_errjmp_n; int outer = _setexit_resume; int how = setjmp(g_core_errjmp_stk[my]);
+          int my = g_core_errjmp_n; int outer = _setexit_resume; core_errjmp_t *outer_ej = _setexit_resume_ej; core_errjmp_t ej; ej.prev = g_core_errjmp_top; ej.depth = my;
+          int how = setjmp(ej.jb);
           if (how == 0) {
-              g_core_errjmp_n = my + 1; _setexit_resume = my;
+              g_core_errjmp_top = &ej; g_core_errjmp_n = my + 1; _setexit_resume = my; _setexit_resume_ej = &ej;
               int resolved = rt_goto_transfer_checked(lbl);
-              g_core_errjmp_n = my; _setexit_resume = outer;
+              g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; _setexit_resume = outer; _setexit_resume_ej = outer_ej;
               if (!resolved) return;
               exit(0);
           }
-          g_core_errjmp_n = my; _setexit_resume = outer;
+          g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; _setexit_resume = outer; _setexit_resume_ej = outer_ej;
           core_unwind_pending();
           code = vcode; msg = vmsg;
           if (how == 1) return;
@@ -2967,10 +2783,10 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
     exit(1);
 }
 void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
-jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
+core_errjmp_t *g_core_errjmp_top = (core_errjmp_t *)0; int g_core_errjmp_n = 0;
 #ifdef SCRIP_GC_AUDIT_B
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *core_gc_audit_nonref(const char *p) { const char *b = (const char *)g_core_errjmp_stk; if (p < b || p >= b + sizeof g_core_errjmp_stk) return (const char *)0; return ((size_t)(p - b) / sizeof(jmp_buf) >= (size_t)g_core_errjmp_n) ? "g_core_errjmp_stk-popped" : (const char *)0; }
+const char *core_gc_audit_nonref(const char *p) { (void)p; return (const char *)0; }
 #endif
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3008,7 +2824,7 @@ int core_icn_error(int code, DESCR_t val) {
     if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE) {
         g_error--;
         g_icn_errnumber = code; { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; } g_icn_errvalue = val; g_icn_err_valid = 1;
-        if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+        if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_top->jb, code);
         return 1;
     }
     core_icn_report(code, val, (const char *)0);
@@ -3871,6 +3687,8 @@ typedef struct _FNCBLK_t {
     int     nlocals;
     char  **locals;
     int     min_args;
+    int     dkind;
+    int     didx;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
 static gv_t g_func_buckets; static unsigned _func_nbuckets = 0; static unsigned long _func_count = 0;
@@ -3988,6 +3806,17 @@ void core_fn_set_min_args(const char *name, int min_args) {
     unsigned h = _func_hash(name);
     for (FNCBLK_t *e = FBR(h); e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args; return; }
 }
+static void core_fn_set_data(const char *name, int kind, int idx) {
+    _func_init();
+    unsigned h = _func_hash(name);
+    for (FNCBLK_t *e = FBR(h); e; e = e->next) if (strcmp(e->name, name) == 0) { e->dkind = kind; e->didx = idx; return; }
+}
+static DESCR_t core_fn_invoke(FNCBLK_t *e, DESCR_t *args, int nargs) {
+    if (e->dkind == 1) return _make_ctor(e->didx, args, nargs);
+    if (e->dkind == 2) return nargs >= 1 ? _make_fget(e->didx, args[0]) : NULVCL;
+    if (e->dkind == 3) { if (nargs >= 2) _make_fset(e->didx, args[1], args[0]); return nargs >= 1 ? args[0] : NULVCL; }
+    return e->fn(args, nargs);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFINE_fn(const char *spec, FNCPTR_t fn) {
     _func_init();
@@ -3999,6 +3828,7 @@ void DEFINE_fn(const char *spec, FNCPTR_t fn) {
         if (strcmp(e->name, fe->name) == 0) {
             e->spec    = fe->spec;
             e->fn      = fe->fn;
+            e->dkind   = fe->dkind; e->didx = fe->didx;
             e->nparams = fe->nparams;
             e->params  = fe->params;
             e->nlocals = fe->nlocals;
@@ -4193,7 +4023,7 @@ int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t 
     for (FNCBLK_t *e = FBR(h); e; e = e->next)
         if (strcmp(e->name, name) == 0) {
             if (!e->fn) return 0;
-            *out = e->fn(args, nargs);
+            *out = core_fn_invoke(e, args, nargs);
             return 1;
         }
     return 0;
@@ -4233,6 +4063,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
         fe->spec        = old_entry->spec;
         fe->entry_label = old_entry->entry_label;
         fe->fn          = old_entry->fn;
+        fe->dkind = old_entry->dkind; fe->didx = old_entry->didx;
         fe->nparams = old_entry->nparams;
         fe->params  = old_entry->params;
         fe->nlocals = old_entry->nlocals;
@@ -4247,7 +4078,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
     unsigned hn = _func_hash(newname);
     for (FNCBLK_t *e = FBR(hn); e; e = e->next) {
         if (strcmp(e->name, newname) == 0) {
-            e->spec = fe->spec; e->fn = fe->fn;
+            e->spec = fe->spec; e->fn = fe->fn; e->dkind = fe->dkind; e->didx = fe->didx;
             e->entry_label = fe->entry_label;
             e->nparams = fe->nparams; e->params = fe->params;
             e->nlocals = fe->nlocals; e->locals = fe->locals;
@@ -4283,9 +4114,9 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
                     DESCR_t pad[e->min_args]; int pi = 0;
                     for (; pi < nargs && pi < e->min_args; pi++) pad[pi] = args[pi];
                     for (; pi < e->min_args; pi++) pad[pi] = NULVCL;
-                    return e->fn(pad, e->min_args);
+                    return core_fn_invoke(e, pad, e->min_args);
                 }
-                return e->fn(args, nargs);
+                return core_fn_invoke(e, args, nargs);
             }
             { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr)) return pr; }
             if (g_user_call_hook) return g_user_call_hook(name, args, nargs);
@@ -4779,6 +4610,9 @@ void core_gc_roots(void)
         if (t->fields) { rt_gc_visit_raw_in((const char **)&t->fields, t);
             for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw_in((const char **)&t->fields[i], t->fields); }
         if (t->next) rt_gc_visit_raw_in((const char **)&t->next, t); }
+    for (int t = 0; t < _data_ntypes; t++) {
+        if (_data_types[t].typename) rt_gc_visit_raw((const char **)&_data_types[t].typename);
+        for (uint32_t f = 0; f < _data_types[t].fields.len; f++) if (DTF(t, f)) rt_gc_visit_raw((const char **)&DTF(t, f)); }
     rt_gc_visit_descr(&g_icn_errvalue);
     if (core_icn_op_plant() != 2) { rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b); }
     for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used) {

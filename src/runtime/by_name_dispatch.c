@@ -1695,7 +1695,7 @@ DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs);
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen);
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict);
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
-extern const char *icon_real_str(double r, char *buf, int bufsz);
+extern const char *icon_real_str(double r, char *buf, int bufsz); extern int icon_real_str_need(double r);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz) {
     if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
@@ -4363,7 +4363,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
     }
     if (!strncmp(fn, "__rk_test_", 10)) {
-        const char *op = fn + 10; char sb1[512]; char sb2[512]; char msg[1024];
+        const char *op = fn + 10;
+        char sb1[512];
+        char sb2[512];
+        char msg[1024];
         if (!strcmp(op, "plan")) { long n = (nargs > 0 && IS_INT_fn(args[0])) ? (long)args[0].i : 0; g_tap_planned = n; g_tap_no_plan = 0; printf("1..%ld\n", n); fflush(stdout); *out = NULVCL; return 1; }
         if (!strcmp(op, "ok")) { int c = (nargs > 0) ? rk_tap_truthy(args[0]) : 0; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "nok")) { int c = (nargs > 0) ? !rk_tap_truthy(args[0]) : 1; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
@@ -5154,7 +5157,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rk_mk_arr(r, (int) (a.n * cnt)); return 1;
     }
     if (!strcmp(fn, "__rk_hash")) {
-        size_t total = 1; char kb[256]; char vb[256];
+        size_t total = 1;
+        char kb[256];
+        char vb[256];
         for (int i = 0; i + 1 < nargs; i += 2) { total += strlen(to_cstring(args[i], kb, sizeof kb)) + strlen(to_cstring(args[i + 1], vb, sizeof vb)) + 2; }
         char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
         for (int i = 0; i + 1 < nargs; i += 2) { const char *k = to_cstring(args[i], kb, sizeof kb); const char *v = to_cstring(args[i + 1], vb, sizeof vb);
@@ -5565,13 +5570,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = r; return 1;
     }
     if (!strcmp(fn, "exc_clear") && nargs == 0) {
-        extern char g_script_exception[512];
-        g_script_exception[0] = '\0';
+        extern void rt_script_exception_clear(void);
+        rt_script_exception_clear();
         *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "try_enter") && nargs == 0) {
-        extern char g_script_exception[512]; extern int g_script_try_depth;
-        g_script_try_depth++; g_script_exception[0] = '\0';
+        extern void rt_script_exception_clear(void); extern int g_script_try_depth;
+        g_script_try_depth++; rt_script_exception_clear();
         *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "try_exit") && nargs == 0) {
@@ -5580,13 +5585,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "exc_check") && nargs == 0) {
-        extern char g_script_exception[512];
-        if (g_script_exception[0] != '\0') { *out = INTVAL(1); return 1; }
+        extern const char *rt_script_exception(void);
+        if (rt_script_exception()[0] != '\0') { *out = INTVAL(1); return 1; }
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "exc_get") && nargs == 0) {
-        extern char g_script_exception[512];
-        *out = STRVAL(rt_heap_strdup_c(g_script_exception)); return 1;
+        extern const char *rt_script_exception(void);
+        *out = STRVAL(rt_heap_strdup_c(rt_script_exception())); return 1;
     }
     if (!strcmp(fn, "fh_capture") && nargs == 1) {
         extern void fh_ensure_init(void);
@@ -6492,14 +6497,12 @@ DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
-    if (g_core_errjmp_n >= 64) { DESCR_t r0 = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4)); return r0; }
-    int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); core_unwind_pending(); return FAILDESCR; }
-    g_core_errjmp_n = my + 1;
+    int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark(); core_errjmp_t ej; ej.prev = g_core_errjmp_top; ej.depth = my;
+    if (setjmp(ej.jb)) { g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; core_icn_bi_reset(bimark); core_unwind_pending(); return FAILDESCR; }
+    g_core_errjmp_top = &ej; g_core_errjmp_n = my + 1;
     DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4));
-    g_core_errjmp_n = my;
+    g_core_errjmp_top = ej.prev; g_core_errjmp_n = my;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6678,13 +6681,11 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
-    if (g_core_errjmp_n >= 64) return rt_jct_relop_impl(lhs, rhs, op);
-    int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_unwind_pending(); return 0; }
-    g_core_errjmp_n = my + 1;
+    int my = g_core_errjmp_n; core_errjmp_t ej; ej.prev = g_core_errjmp_top; ej.depth = my;
+    if (setjmp(ej.jb)) { g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; core_unwind_pending(); return 0; }
+    g_core_errjmp_top = &ej; g_core_errjmp_n = my + 1;
     int r = rt_jct_relop_impl(lhs, rhs, op);
-    g_core_errjmp_n = my;
+    g_core_errjmp_top = ej.prev; g_core_errjmp_n = my;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6877,7 +6878,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
-    if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
+    if (IS_REAL_fn(av)) { char _rb[icon_real_str_need(av.r)]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) { int _kl = kw_cset_len(av.s); fwrite(av.s, 1, (_kl >= 0) ? (size_t)_kl : strlen(av.s), dest); } return; }
     if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
@@ -7995,7 +7996,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_cset) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_CSET_fn(av)) { *out = av; return 1; }
-        char _cbuf[64];
+        int _cn = IS_INT_fn(av) ? fmt_len("%lld",(long long)av.i) : IS_REAL_fn(av) ? icon_real_str_need(av.r) : 1; char _cbuf[_cn];
         const char *raw; int rawlen;
         if (IS_INT_fn(av))       { snprintf(_cbuf,sizeof _cbuf,"%lld",(long long)av.i); raw=_cbuf; rawlen=(int)strlen(_cbuf); }
         else if (IS_REAL_fn(av)) { icon_real_str(av.r,_cbuf,sizeof _cbuf); raw=_cbuf; rawlen=(int)strlen(_cbuf); }
@@ -8304,7 +8305,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_collect) && nargs <= 2) { extern long rt_gc_collect(void); rt_gc_collect(); *out = NULVCL; return 1; }
     L_bidjmp_5585: ;
     if ((_bid == BID_left) && nargs >= 1) {
-        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
+        char _pb[IS_REAL_fn(args[0]) ? icon_real_str_need(args[0].r) : 1]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
         int sl=icn_true_len(args[0], s);
         int n = 1;
         if (nargs >= 2) {
@@ -8333,7 +8334,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5613: ;
     if ((_bid == BID_right) && nargs >= 1) {
-        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
+        char _pb[IS_REAL_fn(args[0]) ? icon_real_str_need(args[0].r) : 1]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
         int sl=icn_true_len(args[0], s);
         int n = 1;
         if (nargs >= 2) {
@@ -8360,7 +8361,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5639: ;
     if ((_bid == BID_center) && nargs >= 1) {
-        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
+        char _pb[IS_REAL_fn(args[0]) ? icon_real_str_need(args[0].r) : 1]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
         int sl=icn_true_len(args[0], s);
         int n = 1;
         if (nargs >= 2) {
@@ -8718,7 +8719,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5900: ;
     if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
         const char *s; long n;
-        if (IS_REAL_fn(args[0])) { char _rb[64]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_heap_strdup_c(_rb); n = (long)strlen(_rb); }
+        if (IS_REAL_fn(args[0])) { char _rb[icon_real_str_need(args[0].r)]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_heap_strdup_c(_rb); n = (long)strlen(_rb); }
         else { s = VARVAL_fn(args[0]); if (!s) s = ""; n = (args[0].v == DT_S && args[0].s == s && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : (long)strlen(s); }
         scan_depth++;
         { char *c = rt_wsb_alloc(n + 1); memcpy(c, s, (size_t)n); c[n] = '\0'; scan_subj = c; } scan_pos = 1;
@@ -9634,7 +9635,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 else *out=TABLE_VAL(set_inter(l.tbl, r.tbl));
                 return 1;
             }
-            char _lbuf[64], _rbuf[64];
+            int _ln = IS_INT_fn(l) ? fmt_len("%lld",(long long)l.i) : IS_REAL_fn(l) ? icon_real_str_need(l.r) : 1;
+            int _rn = IS_INT_fn(r) ? fmt_len("%lld",(long long)r.i) : IS_REAL_fn(r) ? icon_real_str_need(r.r) : 1;
+            char _lbuf[_ln];
+            char _rbuf[_rn];
             const char *la, *ra;
             if (IS_INT_fn(l))       { snprintf(_lbuf,sizeof _lbuf,"%lld",(long long)l.i); la=_lbuf; }
             else if (IS_REAL_fn(l)) { icon_real_str(l.r,_lbuf,sizeof _lbuf); la=_lbuf; }
@@ -10222,11 +10226,13 @@ void * rt_pl_dop_list_guard_c(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_pl_declared_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_key_is_declared(void *, const char *);
-    char nb[264]; char key[300]; const char *nm;
+    char nb[264];
+    const char *nm;
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     { DESCR_t a = rt_pl_deref_val(args[1]);
       if (a.v != DT_I || !pl_cell_text(args[0], nb, sizeof nb, &nm) || !nm) return FAILDESCR;
+      char key[fmt_len("%s/%d", nm, (int)a.i)];
       snprintf(key, sizeof key, "%s/%d", nm, (int)a.i);
       return rt_pl_db_key_is_declared(root, key) ? pl_ok() : FAILDESCR; }
 }

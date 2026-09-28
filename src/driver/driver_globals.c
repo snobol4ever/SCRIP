@@ -1,7 +1,9 @@
 #define _GNU_SOURCE
 #include <unistd.h>
 #include "driver_private.h"
-char g_script_exception[512] = "";
+static cv_t g_script_exception_v;
+const char *rt_script_exception(void) { return g_script_exception_v.p ? (const char *)g_script_exception_v.p : ""; }
+void rt_script_exception_clear(void) { if (g_script_exception_v.p) ((char *)g_script_exception_v.p)[0] = '\0'; }
 int g_script_try_depth = 0;
 Match g_match;
 const char *g_subject = "";
@@ -153,11 +155,11 @@ trace_hook:
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_script_die_surface(const char *msg) {
     const char *m = msg ? msg : "Died";
-    size_t mlen = strlen(m); if (mlen > 511) mlen = 511;
-    memcpy(g_script_exception, m, mlen); g_script_exception[mlen] = '\0';
+    size_t mlen = strlen(m);
+    cv_reserve(&g_script_exception_v, 1u, (uint64_t)mlen + 1, "g_script_exception"); memmove(g_script_exception_v.p, m, mlen + 1);
     if (g_script_try_depth > 0) return;
     fflush(NULL);
-    fprintf(stderr, "%s\n", g_script_exception);
+    fprintf(stderr, "%s\n", rt_script_exception());
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

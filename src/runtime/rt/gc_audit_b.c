@@ -65,7 +65,9 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
         c->found++;
         if (c->shown >= cap) { c->suppressed++; continue; }
         c->shown++;
-        { char tx[25]; char bb[512]; Dl_info di; const unsigned char *tb = (const unsigned char *)(h + 1); long tn = (long)h->size - (long)sizeof(rt_hblk_t), j; int dl, hl;
+        { char tx[25]; Dl_info di; const unsigned char *tb = (const unsigned char *)(h + 1); long tn = (long)h->size - (long)sizeof(rt_hblk_t), j; int dl, hl;
+          long bn = v->birth_of ? v->birth_of((const char *)h, (char *)0, 0) : 0;
+          char bb[bn > 0 ? bn + 1 : 1];
           const char *sn, *df; unsigned long dof;
           for (j = 0; j < 24 && j < tn; j++) tx[j] = (tb[j] >= 32 && tb[j] < 127) ? (char)tb[j] : '.';
           tx[j] = 0; bb[0] = 0;

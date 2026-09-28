@@ -2055,8 +2055,8 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
         { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     }
     if (v.v == DT_R) {
-        extern const char *icon_real_str(double r, char *buf, int bufsz);
-        char buf[64];
+        extern const char *icon_real_str(double r, char *buf, int bufsz); extern int icon_real_str_need(double r);
+        char buf[icon_real_str_need(v.r)];
         icon_real_str(v.r, buf, sizeof(buf));
         DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)strlen(buf); return r;
     }

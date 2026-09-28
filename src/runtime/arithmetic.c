@@ -259,7 +259,6 @@ static DESCR_t rt_cplx_arith(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (a.v == DT_I && b.v == DT_I) {
         int64_t _z;
         switch (op) {
@@ -271,12 +270,11 @@ static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
             default: break;
         }
     }
-    if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, op, strict);
-    int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; }
-    g_core_errjmp_n = my + 1;
+    int my = g_core_errjmp_n; core_errjmp_t ej; ej.prev = g_core_errjmp_top; ej.depth = my;
+    if (setjmp(ej.jb)) { g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; }
+    g_core_errjmp_top = &ej; g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl_s(a, b, op, strict);
-    g_core_errjmp_n = my;
+    g_core_errjmp_top = ej.prev; g_core_errjmp_n = my;
     return r;
 }
 static void rt_div_zero(int bcode, DESCR_t a, DESCR_t b, const char *msg, int strict) {
@@ -307,16 +305,14 @@ static inline int rt_int_str_operand(DESCR_t d, int64_t *out)
 }
 #define RT_BINOP_ENTRY_S(fn, code, fast, strict) \
 DESCR_t fn(DESCR_t a, DESCR_t b) { \
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; \
     if (a.v == DT_I && b.v == DT_I) { fast } \
     { int64_t _x, _y; if (rt_int_str_operand(a, &_x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
-    if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, code, strict); \
-    int my = g_core_errjmp_n; \
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; } \
-    g_core_errjmp_n = my + 1; \
+    int my = g_core_errjmp_n; core_errjmp_t ej; ej.prev = g_core_errjmp_top; ej.depth = my; \
+    if (setjmp(ej.jb)) { g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; } \
+    g_core_errjmp_top = &ej; g_core_errjmp_n = my + 1; \
     DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); \
-    g_core_errjmp_n = my; \
+    g_core_errjmp_top = ej.prev; g_core_errjmp_n = my; \
     return r; \
 }
 #define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)
@@ -426,7 +422,9 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
     { extern int core_icn_error(int code, DESCR_t val);
       if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
       if (!icn_cset_operand_ok(b)) { core_icn_error(120, b); return FAILDESCR; } }
-    char _ab[64], _bb[64]; int aslen, bslen, outlen; const char *ur;
+    char _ab[64];
+    char _bb[64];
+    int aslen, bslen, outlen; const char *ur;
     const char *as = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen), *bs = rt_cset_operand_chars(b, _bb, sizeof _bb, &bslen);
     if (op == BINOP_CUNION)     ur = cset_union(as, aslen, bs, bslen, &outlen);
     else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, bs, bslen, &outlen);

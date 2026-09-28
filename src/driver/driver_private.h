@@ -31,7 +31,8 @@ extern int         Ω;
 extern int         Δ;
 extern int         Σlen;
 #include "driver.h"
-extern char  g_script_exception[512];
+const char *rt_script_exception(void);
+void rt_script_exception_clear(void);
 extern int   g_script_try_depth;
 void rt_script_die_surface(const char *msg);
 extern Match  g_match;
