@@ -7,12 +7,10 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_len_body() {
-    static char b[24];
-    const char * _vn1 = _.op_sval ? _.op_sval + 1 : "";
     return x86("comment", "IR_MATCH_LEN")
          + x86_alpha()
          + IF(_.op_sval != NULL,
-               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_vn1, (strtab_label(b, sizeof b, _vn1), b))
+               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval + 1 : ""), x86_strtab_lbl((_.op_sval ? _.op_sval + 1 : "")).c_str())
              + bb_glue_prim_int(50)
              + x86("test", "rax", "rax")
              + x86_omega("js")
@@ -30,7 +28,7 @@ static std::string bb_match_len_body() {
          + x86_gamma()
          + x86_beta()
          + IF(_.op_sval != NULL,
-               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_vn1, (strtab_label(b, sizeof b, _vn1), b))
+               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval + 1 : ""), x86_strtab_lbl((_.op_sval ? _.op_sval + 1 : "")).c_str())
              + bb_glue_prim_int(60)
              + x86("test", "rax", "rax")
              + x86_omega("js")
