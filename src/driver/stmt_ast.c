@@ -93,11 +93,13 @@ tree_t *stmt_to_ast(const STMT_t *s)
     sa_add(node, attr_int(":stno", s->stno));
     { char * ssrc = stmt_src_slice(s);
       if (!s->subject && !s->pattern && !s->replacement && !s->label && !s->goto_s && !s->goto_f && !s->goto_u && !s->goto_s_expr && !s->goto_f_expr && !s->goto_u_expr && !s->is_end) { ct_drop(ssrc); ssrc = ct_strdup(""); }
-      if (!ssrc && !s->is_end && stmt_line_is_included(s->lineno)) {
-        ssrc = ct_fmt("%s%s<stmt %d, line %d: source not in main file (INCLUDE)>", s->label ? s->label : "", s->label && s->label[0] ? "  " : "        ", s->stno, s->lineno);
-        sa_add(node, attr_int(":incl", 1)); }
-      if (!ssrc && !s->is_end)
-        ssrc = ct_fmt("%s%s<stmt %d, line %d: source not resolvable>", s->label ? s->label : "", s->label && s->label[0] ? "  " : "        ", s->stno, s->lineno);
+      const char * sl = s->label ? s->label : "", * sp = s->label && s->label[0] ? "  " : "        ";
+      if (!ssrc && !s->is_end && stmt_line_is_included(s->lineno)) { char b[fmt_len("%s%s<stmt %d, line %d: source not in main file (INCLUDE)>", sl, sp, s->stno, s->lineno)];
+        snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not in main file (INCLUDE)>", sl, sp, s->stno, s->lineno);
+        sa_add(node, attr_int(":incl", 1)); sa_add(node, attr_leaf(":src", b)); }
+      else if (!ssrc && !s->is_end) { char b[fmt_len("%s%s<stmt %d, line %d: source not resolvable>", sl, sp, s->stno, s->lineno)];
+        snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not resolvable>", sl, sp, s->stno, s->lineno);
+        sa_add(node, attr_leaf(":src", b)); }
       if (ssrc) { sa_add(node, attr_leaf(":src", ssrc)); ct_drop(ssrc); } }
     if (s->subject)
         sa_add(node, attr_expr(":subj", s->subject));

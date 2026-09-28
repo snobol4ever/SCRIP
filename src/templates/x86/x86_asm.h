@@ -1943,15 +1943,15 @@ inline std::string x86_pl_trace_ev(int site, int port, const char * lbl) {
     int def = site == X86H_DEF || site == X86H_DEF_PAIR;
     if (def ? (port != X86P_ALPHA && port != X86P_BETA) : (site != X86H_JMP || (port != X86P_GAMMA && port != X86P_OMEGA))) return std::string();
     const char * own = def ? (lbl ? lbl : x86_portname(port)) : _.lbl_α;
-    size_t len = own ? strlen(own) : 0;
+    size_t len = own ? strlen(own) : 0, svl = (_.op_sval && *_.op_sval) ? strlen(_.op_sval) : 0;
     if (len > 3 && own[len - 3] == '_' && (unsigned char)own[len - 2] == 0xCE) len -= 3;
-    std::string stem(own ? own : "", len);
-    if (_.op_sval && *_.op_sval) { stem += ' '; stem += _.op_sval; }
+    char stem[len + (svl ? svl + 1 : 0) + 1]; memcpy(stem, own ? own : "", len); stem[len] = 0;
+    if (svl) { stem[len] = ' '; memcpy(stem + len + 1, _.op_sval, svl + 1); }
     const char * tgt = def ? NULL : x86_portname(port);
     long ev = (long)port | ((long)site << 4) | ((long)_.op_node_kind << 8);
     return x86("push", "rax") + x86("push", "rax") + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
          + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
-         + x86_pl_trace_ro("rdi", stem.c_str()) + x86_pl_trace_ro("rsi", tgt) + x86("mov", "rdx", ev) + x86("mov", "rcx", (long)_.x86_uid) + x86("mov", "r8", "r15")
+         + x86_pl_trace_ro("rdi", stem) + x86_pl_trace_ro("rsi", tgt) + x86("mov", "rdx", ev) + x86("mov", "rcx", (long)_.x86_uid) + x86("mov", "r8", "r15")
          + x86_call_ro("rt_pl_port_trace", (uint64_t)(uintptr_t)(void *)rt_pl_port_trace)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi") + x86("pop", "rax") + x86("pop", "rax");
