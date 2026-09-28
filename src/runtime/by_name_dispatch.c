@@ -683,12 +683,12 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
     char caps[2048]; int cp = 0; caps[0] = '\0';
     if (ok) for (int k = 0; k < m.ncaplog && cp < (int)sizeof(caps) - 128; k++) {
-        int g = m.caplog_group[k]; if (g < 0 || g >= MAX_GROUPS) continue;
+        int g = m.caplog_group[k]; if (g < 0 || g >= m.ngroups) continue;
         const char *cn = m.group_name[g]; if (!cn || !*cn) continue;
         int cs = m.caplog_start[k], ce = m.caplog_end[k]; if (cs < 0 || ce < cs) continue;
         cp += snprintf(caps + cp, sizeof(caps) - cp, "%s\t%.*s\n", cn, ce - cs, subj + cs);
     }
-    nfa_free(nfa);
+    match_free(&m); nfa_free(nfa);
     *out = rk_match_make(ok ? subj : "", caps, ok); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -890,8 +890,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         Nfa *nfa = nfa_build(rk_rx_pat(margs[0])); if (!nfa) { *out = FAILDESCR; return 1; }
         int split = meth[0] == 's'; char *r = (char *)rt_str_alloc((long)(2 * n + 1)); size_t op = 0, seg = 0, pos = 0; int nel = 0;
         while (pos <= n) {
-            Match m; nfa_exec(nfa, s + pos, &m); if (!m.matched) break;
-            size_t ms = pos + (size_t)m.full_start, me = pos + (size_t)m.full_end;
+            Match m; nfa_exec(nfa, s + pos, &m); if (!m.matched) { match_free(&m); break; }
+            size_t ms = pos + (size_t)m.full_start, me = pos + (size_t)m.full_end; match_free(&m);
             if (me == ms) { pos = ms + 1; continue; }
             if (nel++) r[op++] = SOH;
             if (split) { memcpy(r + op, s + seg, ms - seg); op += ms - seg; seg = me; } else { memcpy(r + op, s + ms, me - ms); op += me - ms; }
@@ -5153,7 +5153,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (pat) {
             char sb[64]; const char *subj = to_cstring(args[0], sb, sizeof sb); subj = rt_heap_strdup_c(subj ? subj : "");
             Nfa *nfa = nfa_build(pat); if (!nfa) { *out = FAILDESCR; return 1; }
-            nfa_exec(nfa, subj, &g_match); g_subject = subj; int ok = g_match.matched; nfa_free(nfa);
+            match_free(&g_match); nfa_exec(nfa, subj, &g_match); g_subject = subj; int ok = g_match.matched; nfa_free(nfa);
             *out = ok ? INTVAL(1) : FAILDESCR; return 1;
         }
         long long hit;
@@ -5873,7 +5873,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
         Nfa *nfa = nfa_build(pat);
         if (!nfa) { *out = FAILDESCR; return 1; }
-        nfa_exec(nfa, subj, &g_match);
+        match_free(&g_match); nfa_exec(nfa, subj, &g_match);
         g_subject = subj;
         int verdict = g_match.matched ? 1 : 0;
         nfa_free(nfa);
@@ -5919,11 +5919,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int pos = 0, count = 0;
         while (pos <= slen) {
             Match m; nfa_exec(nfa, subj + pos, &m);
-            if (!m.matched) break;
+            if (!m.matched) { match_free(&m); break; }
             int mlen = m.full_end - m.full_start;
             if (count > 0) { int ol = (int)strlen(acc); acc[ol] = SOH; acc[ol + 1] = '\0'; }
             strncat(acc, subj + pos + m.full_start, (size_t)mlen);
-            g_match = m;
+            match_free(&g_match); g_match = m;
             g_match.full_start += pos;
             g_match.full_end   += pos;
             for (int g = 0; g < m.ngroups; g++) {
@@ -5956,10 +5956,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int pos = 0, did_one = 0;
         while (pos <= slen) {
             Match m; nfa_exec(nfa, subj + pos, &m);
-            if (!m.matched) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
+            if (!m.matched) { match_free(&m); strncat(res, subj + pos, (size_t)(slen - pos)); break; }
             strncat(res, subj + pos, (size_t)m.full_start);
             strcat(res, repl);
-            g_match = m; g_subject = subj;
+            match_free(&g_match); g_match = m; g_subject = subj;
             int advance = m.full_start + (m.full_end - m.full_start > 0 ? m.full_end - m.full_start : 1);
             pos += advance; did_one = 1;
             if (!global) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
