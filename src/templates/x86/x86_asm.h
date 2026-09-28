@@ -2079,6 +2079,16 @@ inline std::string x86_strtab_lbl(const char * s) {
     return std::string(lbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline uint64_t x86_csettab_ptr(const char * cset) {
+    char lbl[24];
+    return (uint64_t)(uintptr_t)csettab_label(lbl, sizeof lbl, cset);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_csettab_lbl(const char * cset) {
+    char lbl[24]; csettab_label(lbl, sizeof lbl, cset);
+    return std::string(lbl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_ro_str(const char * dst, const char * s) {
     const char * str = s ? s : "";
     const char * lbl = emit_intern_str(str);
