@@ -10,6 +10,26 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
+#include <dlfcn.h>
+#include <stdio.h>
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc)
+{
+    uintptr_t ip = (uintptr_t)uc->uc_mcontext.gregs[REG_RIP], sp = (uintptr_t)uc->uc_mcontext.gregs[REG_RSP]; Dl_info di; int n, found = dladdr((void *)ip, &di) && di.dli_fname;
+    const char *mod = found ? (strrchr(di.dli_fname, '/') ? strrchr(di.dli_fname, '/') + 1 : di.dli_fname) : "", *sym = (found && di.dli_sname) ? di.dli_sname : "";
+    char buf[512 + strlen(mod) + strlen(sym)];
+    if (found) { n = snprintf(buf, sizeof buf, "scrip: fatal signal %d (SIGSEGV) at pc %s+0x%lx", sig, mod, (unsigned long)(ip - (uintptr_t)di.dli_fbase));
+        if (*sym) n += snprintf(buf + n, sizeof buf - (size_t)n, " (%s+0x%lx)", sym, (unsigned long)(ip - (uintptr_t)di.dli_saddr)); }
+    else n = snprintf(buf, sizeof buf, "scrip: fatal signal %d (SIGSEGV) at pc %p (no loaded module holds it: emitted code, mode 3's slab)", sig, (void *)ip);
+    n += snprintf(buf + n, sizeof buf - (size_t)n, ", fault address %p, si_code=%d, rsp=%p (rsp mod 16 = %lu)", si->si_addr, si->si_code, (void *)sp, (unsigned long)(sp & 15u));
+    if (si->si_code == SI_KERNEL && (sp & 15u) == 8u) n += snprintf(buf + n, sizeof buf - (size_t)n, " -- a GENERAL-PROTECTION fault, not a page fault: an aligned SSE access (movaps/movdqa) on a stack entered at 8 mod 16, the usual cause a call made with rsp misaligned\n");
+    else if (si->si_code == SI_KERNEL) n += snprintf(buf + n, sizeof buf - (size_t)n, " -- a GENERAL-PROTECTION fault, not a page fault: a non-canonical address or an aligned access to a misaligned operand\n");
+    else if (si->si_code == SEGV_MAPERR) n += snprintf(buf + n, sizeof buf - (size_t)n, " -- the address is not mapped\n");
+    else if (si->si_code == SEGV_ACCERR) n += snprintf(buf + n, sizeof buf - (size_t)n, " -- the page is mapped but protected against this access\n");
+    else n += snprintf(buf + n, sizeof buf - (size_t)n, "\n");
+    if (n > (int)sizeof buf) n = (int)sizeof buf;
+    if (n > 0) write(2, buf, (size_t)n);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
 {
@@ -25,6 +45,7 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
         if (fault < lo && fault + guard >= lo && rsp + guard >= lo && rsp <= hi) {
             static const char msg[] = "scrip: runtime error: ERROR 246 -- stack overflow (unbounded or too-deep recursion exhausted the call stack)\n";
             write(2, msg, sizeof msg - 1); _exit(1); } }
+    rt_fault_say(sig, si, uc);
     signal(sig, SIG_DFL);
     raise(sig);
 }

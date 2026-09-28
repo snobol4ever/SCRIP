@@ -593,6 +593,7 @@ test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_rtx_calls_carry_no_veneer.sh	WIRED	-	-	-
 test_gate_rtx_entries_keep_the_rtcc_four.sh	WIRED	-	-	-
 test_gate_runners_refuse_on_a_stale_binary.sh	WIRED	-	-	-
+test_gate_runtime_a_fault_nobody_claims_names_its_class.sh	WIRED	-	-	-
 test_gate_runtime_trampolines_enter_generated_code_16_byte_aligned.sh	WIRED	-	-	-
 test_gate_s4e_assign_refuses_an_unrunnable_done_when.sh	WIRED	-	-	-
 test_gate_s4e_done_rows_carry_a_computed_receipt.sh	WIRED	-	-	-
