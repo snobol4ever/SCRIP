@@ -1,7 +1,8 @@
 # BASELINE of the delimited-aggregate census, member sites per carrier (RULES.md NO DELIMITER-JOINED AGGREGATES, CEO-1349). The count may only fall; lower it in the landing that converts the sites. Cut by the cfo on 2026-09-28 from audit_delimited_aggregates_census.py over src/ on the landing tree (a041c3c9b + this commit).
 # 2026-09-28 hq_pascal: PASCAL 18 -> 11, earned by the record-block landing (row pascal-records-and-arrays-are-typed-storage-..., step 1).
 # 2026-09-28 hq_pascal: PASCAL 11 -> 10, earned by step 2 (arrays of records as arrays of record blocks; the set cell encoding deleted).
-PASCAL	10
-RAKU	102
+# 2026-09-28 hq_pascal: PASCAL 10 -> 0, earned by step 3 (a char array is a block of char codes or a byte string with no separator; norm_charseq, pas_seg_span and the SOH walks of arr_get/arr_set_pure deleted). RAKU re-cut from the tree's census (102 -> 97) as the cfo asked of whoever lands second.
+PASCAL	0
+RAKU	97
 REGISTRY_KEY	0
 OTHER	0

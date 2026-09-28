@@ -60,24 +60,6 @@ const char *lp_strdup(const char *s) {
     { size_t n = strlen(s) + 1; char *q = (char *)ct_alloc(n); if (!q) return NULL; memcpy(q, s, n); return q; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * norm_charseq(DESCR_t d) {
-    if (d.v == DT_SNUL) return "";
-    if (!IS_STR_fn(d)) return NULL;
-    const char * s = d.s ? d.s : "";
-    if (!strchr(s, '\x01')) return s;
-    size_t cap = strlen(s) + 1; char * out = (char *) rt_wsb_alloc(cap); size_t oi = 0;
-    const char * seg = s;
-    for (;;) {
-        const char * nx = strchr(seg, '\x01');
-        size_t slen = nx ? (size_t)(nx - seg) : strlen(seg);
-        int allnum = (slen > 0); for (size_t k = 0; k < slen; k++) if (!isdigit((unsigned char) seg[k])) { allnum = 0; break; }
-        if (allnum) { long v = strtol(seg, NULL, 10); if (v != 0 && oi + 1 < cap) out[oi++] = (char)(v & 0xFF); }
-        else { for (size_t k = 0; k < slen && oi + 1 < cap; k++) out[oi++] = seg[k]; }
-        if (!nx) break; seg = nx + 1;
-    }
-    out[oi] = '\0'; return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
     *rel_fail = 0;
     if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) return FAILDESCR;
@@ -105,8 +87,6 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         const char *rs = (rv.v == DT_S && rv.s) ? rv.s : "";
         size_t ll = (lv.v == DT_S && lv.slen > 0) ? (size_t)lv.slen : strlen(ls);
         size_t rl = (rv.v == DT_S && rv.slen > 0) ? (size_t)rv.slen : strlen(rs);
-        if (strchr(ls, '\x01')) { const char * n = norm_charseq(lv); if (n) { ls = n; ll = strlen(ls); } }
-        if (strchr(rs, '\x01')) { const char * n = norm_charseq(rv); if (n) { rs = n; rl = strlen(rs); } }
         size_t nn = ll < rl ? ll : rl;
         int cmp = nn ? memcmp(ls, rs, nn) : 0;
         if (!cmp) cmp = (ll > rl) - (ll < rl);

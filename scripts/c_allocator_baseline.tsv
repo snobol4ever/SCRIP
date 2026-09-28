@@ -87,6 +87,8 @@
 # arena_in_runtime_debt fall 108 -> 93 BY DELETION (111 -> 96 before hq_prolog's ee6777bcc landed first): a Pascal record is now an ARBLK_t block of DESCR slots on the collected heap, so
 # by_name_dispatch.c's record-string splicers (pas_nrec_subrec_set, __pas_nrec_pfield_set, __pas_nrec_field_set, __pas_nrec_update, __pas_nrec_deref_set) and their ct_alloc/ct_drop buffers left the tree.
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-28 hq_prolog (Lon's lifetime rule, CEO-1354): arena_in_runtime_ratcheted and _debt 93 -> 91 -- the Prolog format column-stop segment (plc_fb_stop) is a stack array sized to its need, its ct_alloc/ct_drop pair gone from the runtime.
+# CRITERION UNCHANGED, COUNT EARNED 2026-09-28 hq_pascal (typed-storage row, step 3): arena_in_runtime_ratcheted and arena_in_runtime_debt fall 91 -> 88 (93 -> 90 before hq_prolog's lifetime landing arrived first) BY DELETION -- __pas_field_set's
+# ct_alloc splice copy and the SOH walks it fed are gone: a pointer-to-char-array cell takes a byte splice (pas_str_setch) on the collected heap.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -94,9 +96,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	91
+arena_in_runtime_ratcheted	88
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	91
+arena_in_runtime_debt	88
 container_unmarked_live	1
 libc_owned_misuse	0
 libc_doors	1

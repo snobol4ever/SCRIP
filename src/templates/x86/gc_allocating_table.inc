@@ -2,8 +2,8 @@
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 1911
 #define GC_ALLOC_TAB_N_VOID 222
-#define GC_ALLOC_TAB_N_DESCR 1044
-#define GC_ALLOC_TAB_N_OTHER 639
+#define GC_ALLOC_TAB_N_DESCR 1045
+#define GC_ALLOC_TAB_N_OTHER 638
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -670,7 +670,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "mon_tap_cell_store", GC_RET_VOID },
     { "mul", GC_RET_DESCR },
     { "neg", GC_RET_DESCR },
-    { "norm_charseq", GC_RET_OTHER },
     { "op_cols_fill", GC_RET_VOID },
     { "opsyn", GC_RET_DESCR },
     { "optimizer_run", GC_RET_VOID },
@@ -687,6 +686,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_cell_cstring", GC_RET_OTHER },
     { "pas_cell_str", GC_RET_OTHER },
     { "pas_ch_of", GC_RET_OTHER },
+    { "pas_chars_of", GC_RET_DESCR },
     { "pas_cond", GC_RET_OTHER },
     { "pas_cond_bool", GC_RET_OTHER },
     { "pas_cond_sc", GC_RET_OTHER },
