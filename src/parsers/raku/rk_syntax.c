@@ -33,7 +33,7 @@ typedef struct { char *delim; int dlen; RkLang lang; } RkHere;
 typedef struct { int prec; int sub; int assoc; int from; int to; } StackOp;
 typedef struct RkP {
     const char *s; int n; const char *file;
-    jmp_buf jb; char msg[400]; int err_pos;
+    jmp_buf jb; char *msg; int msgcap; int err_pos;
     int hw;
     int *wsmark; unsigned char *endmark;
     int goal; int qsigil; int in_meta; int in_reduce; int invocant_ok; int in_decl; int leftsigil; int in_proto; int multiness;
@@ -196,8 +196,13 @@ static int line_of(RkP *p, int pos) {
     return line;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_msg_vput(RkP *p, const char *fmt, va_list ap) {
+    int need = vfmt_len(fmt, ap);
+    if (need > p->msgcap) { int nc = p->msgcap ? p->msgcap * 2 : 64; if (nc < need) nc = need; p->msg = (char *) ct_grow(p->msg, (size_t) nc); p->msgcap = nc; }
+    vsnprintf(p->msg, (size_t) p->msgcap, fmt, ap);
+}
 static void panic_at(RkP *p, int pos, const char *fmt, ...) {
-    va_list ap; va_start(ap, fmt); vsnprintf(p->msg, sizeof p->msg, fmt, ap); va_end(ap);
+    va_list ap; va_start(ap, fmt); rk_msg_vput(p, fmt, ap); va_end(ap);
     p->err_pos = pos;
     longjmp(p->jb, 1);
 }
@@ -2006,10 +2011,10 @@ static int infix_in_term_position(RkP *p, int pos) {
         c == '.' || c == '!' || c == '~' || c == '+' || c == '-' || c == '^' || c == '=' || c == 'e' || c == 'n' || c == 'l' || c == 'g' || c == 'c' || c == 'X' || c == 'Z' || c == 'R' || c == 'S' ||
         c == 'd' || c == 'm' || c == 'b' || c == 'f' || c == 'u' || c >= 0x80) {
         jmp_buf save; memcpy(save, p->jb, sizeof save);
-        char msg[400]; memcpy(msg, p->msg, sizeof msg); int ep = p->err_pos;
+        const char *om = p->msg ? p->msg : ""; char msg[strlen(om) + 1]; memcpy(msg, om, sizeof msg); int ep = p->err_pos;
         if (!setjmp(p->jb)) { e = r_infix_plain(p, pos, &o); }
         else e = -1;
-        memcpy(p->jb, save, sizeof save); memcpy(p->msg, msg, sizeof msg); p->err_pos = ep;
+        memcpy(p->jb, save, sizeof save); if (p->msg) memcpy(p->msg, msg, sizeof msg); p->err_pos = ep;
     }
     p->invocant_ok = sp; p->leftsigil = sl; p->goal = sg;
     if (e < 0) return 0;

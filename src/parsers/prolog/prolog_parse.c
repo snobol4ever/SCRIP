@@ -10,7 +10,6 @@
 #include <ctype.h>
 extern void *rt_wsb_alloc(size_t);
 extern int rt_pl_double_quotes_mode(void);
-#define IF_STACK_MAX 32
 typedef struct {
     int active;
     int taken;
@@ -28,7 +27,7 @@ typedef struct {
     int         quiet;
     int         dq;
     int         prec;
-    IfFrame     ifst[IF_STACK_MAX];
+    cv_t        ifst;
     int         ifst_top;
     TreeScope   ts;
     int         incl_depth;
@@ -37,7 +36,7 @@ typedef struct {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
     if (p->ifst_top == 0) return 1;
-    return p->ifst[p->ifst_top - 1].active;
+    return CV_AT(p->ifst, IfFrame, p->ifst_top - 1).active;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void resync_past_clause_end(Parser *p) {
@@ -803,45 +802,46 @@ static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_ou
     return mk_atom(prolog_atom_intern("true"));
 }
 static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
-                           TreeScope *ts, tree_t **buf, int idx);
+                           TreeScope *ts, cv_t *buf);
+static void dcg_put(cv_t *buf, tree_t *x) { *(tree_t **) cv_push(buf, (uint32_t) sizeof(tree_t *), "dcg_buf") = x; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
-                           TreeScope *ts, tree_t **buf, int idx) {
+                           TreeScope *ts, cv_t *buf) {
     if (!body) {
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
-        return idx;
+        dcg_put(buf, dcg_make_unify(ts, s_in, s_out));
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "{}") == 0
             && body->n == 1) {
         int n = dcg_count_conj(body->c[0]);
         tree_t **tmp = (tree_t **)rt_wsb_alloc((size_t)(n+1) * sizeof(tree_t *));
         int nn = dcg_flatten_conj(body->c[0], tmp, 0);
-        for (int i = 0; i < nn; i++) buf[idx++] = tmp[i];
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
-        return idx;
+        for (int i = 0; i < nn; i++) dcg_put(buf, tmp[i]);
+        dcg_put(buf, dcg_make_unify(ts, s_in, s_out));
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "[]") == 0 && body->n == 0) {
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
-        return idx;
+        dcg_put(buf, dcg_make_unify(ts, s_in, s_out));
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ".") == 0 && body->n == 2) {
         tree_t *list_with_tail = dcg_append_tail(ts, body, s_out);
-        buf[idx++] = dcg_make_unify(ts, s_in, list_with_tail);
-        return idx;
+        dcg_put(buf, dcg_make_unify(ts, s_in, list_with_tail));
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ",") == 0
             && body->n == 2) {
         tree_t *s_mid = dcg_fresh_var(ts);
-        idx = dcg_expand_body(body->c[0], s_in,  s_mid, ts, buf, idx);
-        idx = dcg_expand_body(body->c[1], s_mid, s_out, ts, buf, idx);
-        return idx;
+        dcg_expand_body(body->c[0], s_in,  s_mid, ts, buf);
+        dcg_expand_body(body->c[1], s_mid, s_out, ts, buf);
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ";") == 0
             && body->n == 2) {
-        tree_t *buf_a[256]; int na = 0;
-        tree_t *buf_b[256]; int nb = 0;
-        na = dcg_expand_body(body->c[0], s_in, s_out, ts, buf_a, 0);
-        nb = dcg_expand_body(body->c[1], s_in, s_out, ts, buf_b, 0);
+        cv_t bav = {0}; int na = 0;
+        cv_t bbv = {0}; int nb = 0;
+        na = dcg_expand_body(body->c[0], s_in, s_out, ts, &bav); tree_t **buf_a = (tree_t **) bav.p;
+        nb = dcg_expand_body(body->c[1], s_in, s_out, ts, &bbv); tree_t **buf_b = (tree_t **) bbv.p;
         tree_t *conj_a = buf_a[0];
         for (int i = 1; i < na; i++) {
             tree_t *ca[2] = { conj_a, buf_a[i] };
@@ -853,47 +853,50 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
             conj_b = mk_raw(prolog_atom_intern(","), cb, 2);
         }
         tree_t *sargs[2] = { conj_a, conj_b };
-        buf[idx++] = mk_raw(prolog_atom_intern(";"), sargs, 2);
-        return idx;
+        dcg_put(buf, mk_raw(prolog_atom_intern(";"), sargs, 2));
+        ct_drop(bav.p); ct_drop(bbv.p);
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && (strcmp(body->v.sval, "->") == 0 || strcmp(body->v.sval, "*->") == 0) && body->n == 2) {
-        tree_t *buf_c[256]; int nc = 0; tree_t *buf_t[256]; int nt = 0; tree_t *s_mid = dcg_fresh_var(ts);
-        nc = dcg_expand_body(body->c[0], s_in, s_mid, ts, buf_c, 0);
-        nt = dcg_expand_body(body->c[1], s_mid, s_out, ts, buf_t, 0);
+        cv_t bcv = {0}; int nc = 0; cv_t btv = {0}; int nt = 0; tree_t *s_mid = dcg_fresh_var(ts);
+        nc = dcg_expand_body(body->c[0], s_in, s_mid, ts, &bcv); tree_t **buf_c = (tree_t **) bcv.p;
+        nt = dcg_expand_body(body->c[1], s_mid, s_out, ts, &btv); tree_t **buf_t = (tree_t **) btv.p;
         tree_t *conj_c = buf_c[nc - 1];
         for (int i = nc - 2; i >= 0; i--) { tree_t *cc[2] = { buf_c[i], conj_c }; conj_c = mk_raw(prolog_atom_intern(","), cc, 2); }
         tree_t *conj_t = buf_t[nt - 1];
         for (int i = nt - 2; i >= 0; i--) { tree_t *ct[2] = { buf_t[i], conj_t }; conj_t = mk_raw(prolog_atom_intern(","), ct, 2); }
         tree_t *iargs[2] = { conj_c, conj_t };
-        buf[idx++] = mk_raw(prolog_atom_intern(body->v.sval), iargs, 2);
-        return idx;
+        dcg_put(buf, mk_raw(prolog_atom_intern(body->v.sval), iargs, 2));
+        ct_drop(bcv.p); ct_drop(btv.p);
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "\\+") == 0 && body->n == 1) {
-        tree_t *buf_g[256]; int ng = 0; tree_t *s_void = dcg_fresh_var(ts);
-        ng = dcg_expand_body(body->c[0], s_in, s_void, ts, buf_g, 0);
+        cv_t bgv = {0}; int ng = 0; tree_t *s_void = dcg_fresh_var(ts);
+        ng = dcg_expand_body(body->c[0], s_in, s_void, ts, &bgv); tree_t **buf_g = (tree_t **) bgv.p;
         tree_t *conj_g = buf_g[ng - 1];
         for (int i = ng - 2; i >= 0; i--) { tree_t *cg[2] = { buf_g[i], conj_g }; conj_g = mk_raw(prolog_atom_intern(","), cg, 2); }
         tree_t *nargs[1] = { conj_g };
-        buf[idx++] = mk_raw(prolog_atom_intern("\\+"), nargs, 1);
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
-        return idx;
+        dcg_put(buf, mk_raw(prolog_atom_intern("\\+"), nargs, 1));
+        dcg_put(buf, dcg_make_unify(ts, s_in, s_out));
+        ct_drop(bgv.p);
+        return (int) buf->len;
     }
     if (body->t == TT_VAR) {
         tree_t *cargs[3] = { dcg_var_use(ts, body), dcg_var_use(ts, s_in), dcg_var_use(ts, s_out) };
-        buf[idx++] = mk_raw(prolog_atom_intern("phrase"), cargs, 3);
-        return idx;
+        dcg_put(buf, mk_raw(prolog_atom_intern("phrase"), cargs, 3));
+        return (int) buf->len;
     }
     if (body->t == TT_CUT) {
-        buf[idx++] = body;
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
-        return idx;
+        dcg_put(buf, body);
+        dcg_put(buf, dcg_make_unify(ts, s_in, s_out));
+        return (int) buf->len;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "true") == 0 && body->n == 0) {
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
-        return idx;
+        dcg_put(buf, dcg_make_unify(ts, s_in, s_out));
+        return (int) buf->len;
     }
-    buf[idx++] = dcg_call_nt(ts, body, s_in, s_out);
-    return idx;
+    dcg_put(buf, dcg_call_nt(ts, body, s_in, s_out));
+    return (int) buf->len;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, tree_t *pushback, TreeScope *ts) {
@@ -905,21 +908,23 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     for (int i = 0; i < head_tr->n; i++) ast_push(new_head, head_tr->c[i]);
     ast_push(new_head, dcg_var_use(ts, s0));
     ast_push(new_head, dcg_var_use(ts, s));
-    tree_t *buf[1024];
+    cv_t bufv = {0};
     int n;
     if (pushback) {
         tree_t *s_mid = dcg_fresh_var(ts);
-        n = dcg_expand_body(dcg_body, s0, s_mid, ts, buf, 0);
+        dcg_expand_body(dcg_body, s0, s_mid, ts, &bufv);
         tree_t *pushback_with_tail = dcg_append_tail(ts, pushback, s_mid);
-        buf[n++] = dcg_make_unify(ts, s, pushback_with_tail);
+        dcg_put(&bufv, dcg_make_unify(ts, s, pushback_with_tail));
     } else {
-        n = dcg_expand_body(dcg_body, s0, s, ts, buf, 0);
+        dcg_expand_body(dcg_body, s0, s, ts, &bufv);
     }
+    n = (int) bufv.len; tree_t **buf = (tree_t **) bufv.p;
     tree_t *new_head_final = ast_node_new(TT_FNC);
     new_head_final->v.sval = ct_strdup(new_head->v.sval ? new_head->v.sval : "");
     for (int i = 0; i < new_head->n; i++) ast_push(new_head_final, tls(new_head->c[i]));
     tree_t *body_prog = ast_node_new(TT_PROGRAM);
     for (int i = 0; i < n; i++) ast_push(body_prog, tls(buf[i]));
+    ct_drop(bufv.p);
     tree_t *_cl = ast_node_new(TT_CLAUSE);
     ast_push(_cl, new_head_final);
     ast_push(_cl, body_prog);
@@ -981,14 +986,11 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
     }
     if (!fn) return 0;
     if (strcmp(fn, "if") == 0 && arity == 1) {
-        if (p->ifst_top >= IF_STACK_MAX) {
-            perror_at(p, lineno, ":- if/1 nesting too deep");
-            return 1;
-        }
         int parent_active = if_currently_active(p);
         int verdict = parent_active ? eval_if_condition_tree(arg0) : 0;
         int active = parent_active && (verdict != 0);
-        IfFrame *f = &p->ifst[p->ifst_top++];
+        cv_reserve(&p->ifst, (uint32_t) sizeof(IfFrame), (uint64_t) p->ifst_top + 1, "ifst");
+        IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst_top++);
         f->active = active;
         f->taken  = active;
         f->parent_active = parent_active;
@@ -1000,7 +1002,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
             perror_at(p, lineno, ":- elif without matching :- if");
             return 1;
         }
-        IfFrame *f = &p->ifst[p->ifst_top - 1];
+        IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst_top - 1);
         if (!f->parent_active || f->taken) {
             f->active = 0;
         } else {
@@ -1016,7 +1018,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
             perror_at(p, lineno, ":- else without matching :- if");
             return 1;
         }
-        IfFrame *f = &p->ifst[p->ifst_top - 1];
+        IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst_top - 1);
         if (!f->parent_active || f->taken) {
             f->active = 0;
         } else {
@@ -1441,7 +1443,7 @@ static int pl_include_directive(Parser *pp, PlProgram *prog, const PlClause *cl)
         if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
         pp->nerrors++; return 1; }
     memset(&q, 0, sizeof q); lexer_init(&q.lx, src); q.filename = path; q.quiet = pp->quiet; q.dq = pp->dq; q.iso = pp->iso; q.incl_depth = pp->incl_depth + 1;
-    pl_parse_loop(&q, prog);
+    pl_parse_loop(&q, prog); ct_drop(q.ifst.p);
     pp->nerrors += q.nerrors; pp->dq = q.dq;
     return 1;
 }
@@ -1483,7 +1485,7 @@ static void pl_parse_loop(Parser *pp, PlProgram *prog) {
     }
     if (pp->ifst_top != 0) {
         fprintf(stderr, "%s: parse error: unmatched :- if (opened at line %d)\n",
-                pp->filename, pp->ifst[pp->ifst_top - 1].line);
+                pp->filename, CV_AT(pp->ifst, IfFrame, pp->ifst_top - 1).line);
         pp->nerrors++;
     }
 }
@@ -1495,7 +1497,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.filename = filename ? filename : "<input>";
     p.nerrors  = 0;
     p.clause_errs = 0;
-    p.ifst_top = 0;
+    p.ifst_top = 0; memset(&p.ifst, 0, sizeof p.ifst);
     p.in_args  = 0;
     p.quiet    = quiet;
     p.dq       = rt_pl_double_quotes_mode();
@@ -1505,6 +1507,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);
+    ct_drop(p.ifst.p);
     prog->nerrors = p.nerrors;
     if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(prog, src);
     return prog;

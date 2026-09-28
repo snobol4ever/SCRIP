@@ -14,16 +14,17 @@ static int g_pl_consulted_n = 0;
 static int g_pl_consult_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * pl_consult_resolve(const char *spec, const char *from_file) {
-    char cand[4096]; const char *slash; size_t dlen; FILE *probe; int has_ext;
+    char *cand; const char *slash; size_t dlen; FILE *probe; int has_ext;
     if (!spec || !*spec) return (char *)0;
     has_ext = (strlen(spec) > 3 && !strcmp(spec + strlen(spec) - 3, ".pl"));
     slash = from_file ? strrchr(from_file, '/') : (const char *)0;
     dlen = slash ? (size_t)(slash - from_file) + 1 : 0;
-    if (dlen && dlen < sizeof cand - strlen(spec) - 8) {
-        memcpy(cand, from_file, dlen); snprintf(cand + dlen, sizeof cand - dlen, "%s%s", spec, has_ext ? "" : ".pl");
-        probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); } }
-    snprintf(cand, sizeof cand, "%s%s", spec, has_ext ? "" : ".pl");
-    probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); }
+    if (dlen) {
+        cand = ct_fmt("%.*s%s%s", (int) dlen, from_file, spec, has_ext ? "" : ".pl");
+        probe = fopen(cand, "r"); if (probe) { fclose(probe); return cand; } ct_drop(cand); }
+    cand = ct_fmt("%s%s", spec, has_ext ? "" : ".pl");
+    probe = fopen(cand, "r"); if (probe) { fclose(probe); return cand; }
+    ct_drop(cand);
     return (char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

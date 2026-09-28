@@ -139,7 +139,7 @@ typedef struct {
     size_t      pos;
     int         line;
     int         col;
-    char        errmsg[256];
+    char       *errmsg;
     int         had_error;
     int         pp_fatals;
 } IcnLexer;

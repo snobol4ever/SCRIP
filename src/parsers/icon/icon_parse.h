@@ -9,7 +9,7 @@ typedef struct {
     IcnToken    peek;
     IcnTkKind   prev_kind;
     int         had_error;
-    char        errmsg[512];
+    char       *errmsg;
 } IcnParser;
 void     icn_parse_init(IcnParser *p, IcnLexer *lex);
 CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast);

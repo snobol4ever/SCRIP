@@ -47,7 +47,6 @@ stage2_t *lower_icon_stage2(const tree_t *prog);
 stage2_t *lower_pl_stage2(const tree_t *prog);
 stage2_t *lower_raku_stage2(const tree_t *prog);
 stage2_t *lower_pascal_stage2(const tree_t *prog);
-typedef struct { bb_node_t gen[2]; int which; } alt_dcg_t;
 typedef struct { bb_node_t left; bb_node_t right; BinopKind op; int is_relop; DESCR_t left_val; DESCR_t right_val; int phase; } binop_dcg_t;
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 struct GeneratorState;

@@ -84,8 +84,8 @@ static int kw_lookup_at(const char *s, int idx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int classify_keyword_range(const char *start, const char *end) {
     int n = (int)(end - start);
-    if (n <= 0 || n > 32) return T_IDENT;
-    char buf[64];
+    if (n <= 0) return T_IDENT;
+    char buf[n + 1];
     memcpy(buf, start, n);
     buf[n] = '\0';
     return kw_lookup_at(buf, 0);
@@ -100,12 +100,13 @@ static inline int emit_kind(LexCtx *ctx, SC_STYPE *yylval, const char *p, int ki
     return kind;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_strbuf_put(LexCtx *ctx, char c) {
+    if (ctx->strpos >= ctx->strcap) { int nc = ctx->strcap ? ctx->strcap * 2 : 64; ctx->strbuf = (char *) ct_grow(ctx->strbuf, (size_t) nc); ctx->strcap = nc; }
+    ctx->strbuf[ctx->strpos++] = c;
+}
 static inline int emit_value(LexCtx *ctx, SC_STYPE *yylval, const char *p, const char *tok_start, int kind) {
     int n = (int)(p - tok_start);
-    if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-    memcpy(ctx->text, tok_start, n);
-    ctx->text[n] = '\0';
-    yylval->str = ct_strdup(ctx->text);
+    yylval->str = ct_strndup(tok_start, (size_t) n);
     ctx->p = p;
     ctx->last_kind = kind;
     return kind;
@@ -212,16 +213,16 @@ S_EXP_DIG:
                                                                                                                            goto LX_REAL;
 S_STR1:
     if (PEEK(0) == '\0' )                                                                                                  goto LX_STR;
-    if (PEEK(0) == '\'' && PEEK(1) == '\'' )                       {  ctx->strbuf[ctx->strpos++] = '\''; ADV(2);           goto S_STR1;      }
+    if (PEEK(0) == '\'' && PEEK(1) == '\'' )                       {  sc_strbuf_put(ctx, '\''); ADV(2);                    goto S_STR1;      }
     if (PEEK(0) == '\'' )                                          {  ADV(1);                                              goto LX_STR;       }
-    if (PEEK(0) == '\n' )                                          {  ctx->line++; ctx->strbuf[ctx->strpos++] = '\n'; ADV(1); goto S_STR1;   }
-                                                                   {  ctx->strbuf[ctx->strpos++] = *p; ADV(1);              goto S_STR1;     }
+    if (PEEK(0) == '\n' )                                          {  ctx->line++; sc_strbuf_put(ctx, '\n'); ADV(1);         goto S_STR1;   }
+                                                                   {  sc_strbuf_put(ctx, *p); ADV(1);                       goto S_STR1;     }
 S_STR2:
     if (PEEK(0) == '\0' )                                                                                                  goto LX_STR;
-    if (PEEK(0) == '"'  && PEEK(1) == '"'  )                       {  ctx->strbuf[ctx->strpos++] = '"';  ADV(2);           goto S_STR2;      }
+    if (PEEK(0) == '"'  && PEEK(1) == '"'  )                       {  sc_strbuf_put(ctx, '"');  ADV(2);                    goto S_STR2;      }
     if (PEEK(0) == '"'  )                                          {  ADV(1);                                              goto LX_STR;       }
-    if (PEEK(0) == '\n' )                                          {  ctx->line++; ctx->strbuf[ctx->strpos++] = '\n'; ADV(1); goto S_STR2;   }
-                                                                   {  ctx->strbuf[ctx->strpos++] = *p; ADV(1);              goto S_STR2;     }
+    if (PEEK(0) == '\n' )                                          {  ctx->line++; sc_strbuf_put(ctx, '\n'); ADV(1);         goto S_STR2;   }
+                                                                   {  sc_strbuf_put(ctx, *p); ADV(1);                       goto S_STR2;     }
 S_OP_COLON:
     if (PEEK(1) == ':' )                                           {  ADV(2);                                              goto LX_IDENT_OP;  }
     if (PEEK(1) == '!' && PEEK(2) == ':' )                         {  ADV(3);                                              goto LX_DIFFER;    }
@@ -377,10 +378,7 @@ LX_CALL:
     if (ctx->last_kind == T_DEFINE)                      goto LX_IDENT;
     {
         int n = (int)(p - tok_start);
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, tok_start, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = ct_strndup(tok_start, (size_t) n);
         ADV(1);
         ctx->p = p;
         ctx->last_kind = T_CALL;
@@ -390,32 +388,20 @@ LX_IDENT:
     {
         int kind = classify_keyword_range(tok_start, p);
         int n    = (int)(p - tok_start);
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, tok_start, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = ct_strndup(tok_start, (size_t) n);
         ctx->p = p; ctx->last_kind = kind; return kind;
     }
 TT_KEYWORD:
     {
         int n = (int)(p - tok_start);
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, tok_start, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = ct_strndup(tok_start, (size_t) n);
         ctx->p = p; ctx->last_kind = T_KEYWORD; return T_KEYWORD;
     }
 LX_STR:
     {
-        ctx->strbuf[ctx->strpos] = '\0';
         int n = ctx->strpos;
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, ctx->strbuf, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = ct_strndup(ctx->strbuf ? ctx->strbuf : "", (size_t) n);
         ctx->p = p; ctx->last_kind = T_STR; return T_STR;
     }
 TT_UNKNOWN:       EMIT_V(T_UNKNOWN);
 }
-static const char *sc_name_table[512];
-static int         sc_name_table_built = 0;

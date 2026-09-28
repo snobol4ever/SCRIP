@@ -24,7 +24,7 @@ static tree_t *e_binary(tree_e k, tree_t *left, tree_t *right) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void parser_error(IcnParser *p, const char *msg) {
     if (!p->had_error) {
-        snprintf(p->errmsg, sizeof(p->errmsg),
+        p->errmsg = ct_fmt(
                  "line %d: %s (got %s)", p->cur.line, msg, icn_tk_name(p->cur.kind));
         p->had_error = 1;
     }
@@ -46,8 +46,8 @@ static int match(IcnParser *p, IcnTkKind kind) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int expect(IcnParser *p, IcnTkKind kind, const char *ctx) {
     if (p->cur.kind == kind) { advance(p); return 1; }
-    char msg[128];
-    snprintf(msg, sizeof(msg), "%s: expected %s", ctx, icn_tk_name(kind));
+    const char *tkn = icn_tk_name(kind); char msg[fmt_len("%s: expected %s", ctx, tkn)];
+    snprintf(msg, sizeof(msg), "%s: expected %s", ctx, tkn);
     parser_error(p, msg);
     return 0;
 }
@@ -126,7 +126,7 @@ static tree_t *parse_primary(IcnParser *p) {
             if (!ok) kwname = NULL;
         }
         if (!kwname) { parser_error(p, "expected keyword name after &"); return NULL; }
-        char name[256]; snprintf(name, sizeof(name), "&%s", kwname);
+        char name[fmt_len("&%s", kwname)]; snprintf(name, sizeof(name), "&%s", kwname);
         advance(p);
         tree_t *ek = e_leaf_sval(TT_VAR, name, -1); ek->line = t.line; return ek;
     }

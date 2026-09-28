@@ -25,51 +25,49 @@ static const tree_t * icn_stmt_subject(const tree_t * s) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_link_note(char * tried, size_t triedsz, const char * cand) {
-    if (!tried || !triedsz) return;
-    size_t have = strlen(tried); size_t need = strlen(cand) + 2;
-    if (have + need >= triedsz) return;
-    if (have) { tried[have++] = ','; tried[have++] = ' '; }
-    memcpy(tried + have, cand, strlen(cand)); tried[have + strlen(cand)] = '\0';
+static void icn_link_note(char ** tried, const char * cand) {
+    if (!tried) return;
+    char * t = *tried ? ct_fmt("%s, %s", *tried, cand) : ct_strdup(cand);
+    ct_drop(*tried); *tried = t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char * icn_link_open(const char * dir, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz) {
-    if (triedsz) tried[0] = '\0';
+static char * icn_link_try(char ** out, char ** tried, char * cand) {
+    ct_drop(*out); *out = cand; icn_link_note(tried, cand);
+    return icn_read_file(cand);
+}
+static char * icn_link_open(const char * dir, const char * nm, char ** out, char ** tried) {
+    if (tried) *tried = NULL;
+    *out = NULL;
     char * src = NULL;
     const char * vars[2]; vars[0] = getenv("IPATH"); vars[1] = getenv("ICONPATH");
     for (int v = 0; v < 2; v++) {
         const char * p = vars[v];
         while (p && *p) {
             const char * colon = strchr(p, ':'); size_t seg = colon ? (size_t)(colon - p) : strlen(p);
-            if (seg > 0 && seg < 1000) {
-                char d[1024]; memcpy(d, p, seg); d[seg] = '\0';
-                snprintf(out, outsz, "%s/%s.icn", d, nm);
-                icn_link_note(tried, triedsz, out);
-                src = icn_read_file(out);
+            if (seg > 0) {
+                char d[seg + 1]; memcpy(d, p, seg); d[seg] = '\0';
+                src = icn_link_try(out, tried, ct_fmt("%s/%s.icn", d, nm));
                 if (src) return src;
             }
             if (!colon) break;
             p = colon + 1;
         }
     }
-    { char exe[1024]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1);
+    { size_t cap = 256; char * exe = NULL; ssize_t el;
+      for (;;) { exe = (char *) ct_grow(exe, cap); el = readlink("/proc/self/exe", exe, cap); if (el < 0 || (size_t) el < cap) break; cap *= 2; }
       if (el > 0) { exe[el] = '\0'; char * sl = strrchr(exe, '/'); if (sl) { *sl = '\0';
-          snprintf(out, outsz, "%s/../corpus/packages/icon/ipl/procs/%s.icn", exe, nm);
-          icn_link_note(tried, triedsz, out);
-          src = icn_read_file(out);
-          if (src) return src; } } }
-    snprintf(out, outsz, "%s/%s.icn", dir, nm);
-    icn_link_note(tried, triedsz, out);
-    src = icn_read_file(out);
+          src = icn_link_try(out, tried, ct_fmt("%s/../corpus/packages/icon/ipl/procs/%s.icn", exe, nm));
+          if (src) { ct_drop(exe); return src; } } }
+      ct_drop(exe); }
+    src = icn_link_try(out, tried, ct_fmt("%s/%s.icn", dir, nm));
     if (src) return src;
-    snprintf(out, outsz, "%s/%s.icn", dir, nm);
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_resolve_links(tree_t * prog, const char * filename) {
     if (!prog) return;
-    char dir[1024]; const char * slash = strrchr(filename, '/');
-    if (slash) { size_t dl = (size_t)(slash - filename); if (dl >= sizeof dir) dl = sizeof dir - 1; memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
+    const char * slash = strrchr(filename, '/'); size_t dl = slash ? (size_t)(slash - filename) : 1; char dir[dl + 1];
+    if (slash) { memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
     const char ** loaded = (const char **) ct_grow(NULL, 16 * sizeof *loaded); int nloaded = 0, nloadcap = 16;
     { const char * base = slash ? slash + 1 : filename; const char * dot = strrchr(base, '.'); size_t bl = dot ? (size_t)(dot - base) : strlen(base);
       char * own = (char *) ct_alloc(bl + 1); memcpy(own, base, bl); own[bl] = '\0'; loaded[nloaded++] = own; }
@@ -83,8 +81,8 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             if (dup) continue;
             if (nloaded == nloadcap) { nloadcap *= 2; loaded = (const char **) ct_grow((void *) loaded, (size_t) nloadcap * sizeof *loaded); }
             loaded[nloaded++] = nm;
-            char path[1200]; char tried[4096]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
-            if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
+            char * path = NULL; char * tried = NULL; char * src = icn_link_open(dir, nm, &path, &tried);
+            if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried ? tried : ""); exit(1); }
             IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src);
             if (lx2.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in linked file %s\n", lx2.pp_fatals, lx2.pp_fatals == 1 ? "" : "s", path); exit(1); }
             IcnParser p2; icn_parse_init(&p2, &lx2);
@@ -94,6 +92,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             ct_drop(sp);
             { const char * lb = strrchr(path, '/'); lb = lb ? lb + 1 : path;
               if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) { if (sub_ast->c[j]->t == TT_STMT) ast_push(sub_ast->c[j], ast_attr_leaf(":file", lb)); ast_push(prog, sub_ast->c[j]); } }
+            ct_drop(path); ct_drop(tried);
         }
     }
     ct_drop((void *) loaded);

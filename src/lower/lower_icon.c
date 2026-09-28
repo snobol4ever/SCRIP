@@ -11,7 +11,7 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; const char ** gn; int ngn; const char * pname;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line; int after_line;
+    cv_t loop_stk_exit; cv_t loop_stk_next; cv_t loop_stk_fail; IR_t * loop_fail; int loop_sp; cv_t scan_stk_enter; int scan_sp; int loop_next_ssp; int want_lines; int end_line; int after_line;
     int ret_lv; const char * file; int links;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
@@ -19,7 +19,13 @@ static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t
 static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_entry, IR_t * ω);
 static IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out);
 static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
-#define ICN_LOOP_STK_MAX 64
+static void icn_stk_put(cv_t * v, int i, IR_t * x) {
+    cv_reserve(v, (uint32_t) sizeof(IR_t *), (uint64_t) i + 1, "icn_stk"); CV_AT(*v, IR_t *, i) = x; if ((uint32_t) i >= v->len) v->len = (uint32_t) i + 1;
+}
+static IR_t * icn_stk_at(const cv_t * v, int i) { return (i >= 0 && (uint32_t) i < v->len) ? CV_AT(*v, IR_t *, i) : NULL; }
+static void icn_loop_stk_set(icx_t * cx, IR_t * x, IR_t * n, IR_t * f) {
+    icn_stk_put(&cx->loop_stk_exit, cx->loop_sp, x); icn_stk_put(&cx->loop_stk_next, cx->loop_sp, n); icn_stk_put(&cx->loop_stk_fail, cx->loop_sp, f);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
 static int icn_kw_assignable(const char * kw) { const char * id = (kw && kw[0] == '&') ? kw + 1 : kw; return id && (!strcmp(id, "subject") || !strcmp(id, "pos") || !strcmp(id, "random") || !strcmp(id, "trace") || !strcmp(id, "error") || !strcmp(id, "dump")); }
@@ -238,11 +244,11 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
                   || !strcmp(nm, "many") || !strcmp(nm, "upto") || !strcmp(nm, "find") || !strcmp(nm, "bal"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * icn_record_names[512]; static int icn_record_name_count = 0;
-static void icn_note_record_name(const char * nm) { if (nm && icn_record_name_count < 512) icn_record_names[icn_record_name_count++] = nm; }
+static cv_t icn_record_names;
+static void icn_note_record_name(const char * nm) { if (nm) CV_PUSH(icn_record_names, const char *) = nm; }
 static int icn_is_proc_or_record_name(const char * nm) {
     if (icn_is_proc(nm)) return 1;
-    for (int ri = 0; ri < icn_record_name_count; ri++) if (!strcmp(icn_record_names[ri], nm)) return 1;
+    for (int ri = 0; ri < (int) icn_record_names.len; ri++) if (!strcmp(CV_AT(icn_record_names, const char *, ri), nm)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -359,7 +365,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
 static void icn_cat_flatten(const tree_t * t, const tree_t ** elems, int * ne) {
     if (!t) return;
     if (t->t == TT_CAT && t->n == 2) { icn_cat_flatten(t->c[0], elems, ne); icn_cat_flatten(t->c[1], elems, ne); return; }
-    if (*ne < 64) elems[(*ne)++] = t;
+    if (elems) elems[*ne] = t;
+    (*ne)++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -562,7 +569,7 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
     IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
     int scan_body_lo = cx->g->n;
-    if (cx->scan_sp < 16) cx->scan_stk_enter[cx->scan_sp] = enter; cx->scan_sp++;
+    icn_stk_put(&cx->scan_stk_enter, cx->scan_sp, enter); cx->scan_sp++;
     IR_t * bv = NULL; IR_t * b_entry = lower(cx, body_t, succ_tramp, fail_tramp, &bv);
     cx->scan_sp--;
     if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
@@ -593,7 +600,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
         if (t->t == TT_CAT && t->n == 2 && (icn_arg_is_scan_fn(t->c[0]) || icn_arg_is_scan_fn(t->c[1]))) {
-            const tree_t * elems[64]; int ne = 0; icn_cat_flatten(t, elems, &ne);
+            int ne = 0; icn_cat_flatten(t, NULL, &ne); const tree_t * elems[ne]; ne = 0; icn_cat_flatten(t, elems, &ne);
             int all_scan = (ne >= 2); for (int i = 0; i < ne; i++) if (!icn_arg_is_scan_fn(elems[i])) { all_scan = 0; break; }
             if (all_scan) return icn_scan_seq_nary(cx, elems, ne, γ, ω, res);
         }
@@ -818,7 +825,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * rtc = NULL; IR_t * rtn = icn_trace_named_prep(cx, "__trace_return", cx->pname, ret, ω, &rtc);
         IR_t * vtgt = rtn ? rtn : ret;
         if (cx->scan_sp > 0) { IR_t * tgt = ret;
-            for (int _k = 0; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+            for (int _k = 0; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, CV_AT(cx->scan_stk_enter, IR_t *, _k));
+                lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
             IR_t * tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(tramp, tgt); lc_ω_to(tramp, tgt); vtgt = tramp; }
         if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower_result_operand(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); if (vr && rtc) ir_operand_push(rtc, vr); *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, entry) : entry; }
         *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, vtgt) : vtgt; }
@@ -828,7 +836,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         while (ch && ch->t == TT_LOOP_BREAK) { k++; ch = (ch->n >= 1) ? ch->c[0] : NULL; }
         if (!ch) {
             int idx = cx->loop_sp - k;
-            IR_t * lx = (idx >= 0 && idx < ICN_LOOP_STK_MAX) ? cx->loop_stk_exit[idx] : NULL;
+            IR_t * lx = icn_stk_at(&cx->loop_stk_exit, idx);
             if (!lx) lx = cx->loop_exit;
             if (!lx) { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
             IR_t * nullv = build(cx, IR_VAR, NULL, lx); IR_LIT(nullv).sval = (char *) "&null";
@@ -836,7 +844,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * asn0 = build(cx, IR_ASSIGN, gt, gt); IR_LIT(asn0).sval = (char *) "__break_result";
             ir_operand_push(asn0, nullv); γ_to(nullv, asn0);
             if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = nullv;
-                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0;
+                    ir_operand_push(lv, CV_AT(cx->scan_stk_enter, IR_t *, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
                 *res = gt; return tgt; }
             *res = gt; return nullv;
         } else {
@@ -845,21 +854,23 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * cur_fail = cx->loop_fail;
             IR_t * fail_goto = cur_fail ? build(cx, IR_GOTO, cur_fail, cur_fail) : exit_goto;
             int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next, * sf = cx->loop_fail;
-            if (idx >= 0 && idx < ICN_LOOP_STK_MAX) { cx->loop_exit = cx->loop_stk_exit[idx]; cx->loop_next = cx->loop_stk_next[idx]; cx->loop_fail = cx->loop_stk_fail[idx]; }
+            if (idx >= 0) { cx->loop_exit = icn_stk_at(&cx->loop_stk_exit, idx); cx->loop_next = icn_stk_at(&cx->loop_stk_next, idx); cx->loop_fail = icn_stk_at(&cx->loop_stk_fail, idx); }
             IR_t * ev = NULL; IR_t * en = lower(cx, ch, NULL, fail_goto, &ev);
             cx->loop_exit = se; cx->loop_next = sn; cx->loop_fail = sf;
             IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto); IR_LIT(asn).sval = (char *) "__break_result";
             { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
             cx->loop_break_beta = cx->beta;
             if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = en;
-                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0;
+                    ir_operand_push(lv, CV_AT(cx->scan_stk_enter, IR_t *, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
                 *res = exit_goto; return tgt; }
             *res = exit_goto; return en;
         }
     }
     case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd;
         if (ln && cx->scan_sp > cx->loop_next_ssp) {
-            for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, ln); lc_ω_to(lv, ln); ln = lv; }
+            for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv);
+                ir_operand_push(lv, CV_AT(cx->scan_stk_enter, IR_t *, _k)); lc_γ_to(lv, ln); lc_ω_to(lv, ln); ln = lv; }
             nd = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(nd, ln); lc_ω_to(nd, ln);
         } else nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω);
         *res = nd; return nd; }
@@ -884,11 +895,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         else rrt = eβ ? eβ : ω;
         if (cx->scan_sp > 0) {
             IR_t * ytgt = cx->psucc ? cx->psucc : γ; IR_t * rrt0 = rrt;
-            IR_t * lvs[16]; int nlv = 0;
+            IR_t * lvs[cx->scan_sp]; int nlv = 0;
             for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {
                 IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
-                IR_LIT(cx->scan_stk_enter[_k]).dval = 3.0;
-                ir_operand_push(lv, cx->scan_stk_enter[_k]); ir_operand_push(lv, NULL); ir_operand_push(lv, NULL);
+                IR_LIT(CV_AT(cx->scan_stk_enter, IR_t *, _k)).dval = 3.0;
+                ir_operand_push(lv, CV_AT(cx->scan_stk_enter, IR_t *, _k)); ir_operand_push(lv, NULL); ir_operand_push(lv, NULL);
                 if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
                 lvs[nlv++] = lv;
             }
@@ -1196,7 +1207,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const char * rname = t->v.sval;
         icn_note_record_name(rname);
         if (rname) {
-            char spec[2048]; int pos = 0;
+            size_t sl = strlen(rname) + 3; for (int k = 0; k < t->n; k++) sl += 1 + ((t->c[k] && t->c[k]->v.sval) ? strlen(t->c[k]->v.sval) : 0);
+            char spec[sl]; int pos = 0;
             pos += snprintf(spec + pos, sizeof spec - pos, "%s(", rname);
             for (int k = 0; k < t->n; k++) {
                 if (k) pos += snprintf(spec + pos, sizeof spec - pos, ",");
@@ -1217,12 +1229,12 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
-    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = NULL; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
+    icn_loop_stk_set(cx, cx->loop_exit, NULL, cx->loop_fail); cx->loop_sp++;
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, BENT, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT; cx->loop_next_ssp = cx->scan_sp;
-    if (cx->loop_sp - 1 >= 0 && cx->loop_sp - 1 < ICN_LOOP_STK_MAX) cx->loop_stk_next[cx->loop_sp - 1] = CENT;
+    if (cx->loop_sp - 1 >= 0) icn_stk_put(&cx->loop_stk_next, cx->loop_sp - 1, CENT);
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, CENT, CENT, &bval);
     cx->loop_sp--;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
@@ -1240,7 +1252,8 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT; cx->loop_next_ssp = cx->scan_sp;
-    IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
+    IR_t * b_entry; if (B) { icn_loop_stk_set(cx, cx->loop_exit, cx->loop_next, cx->loop_fail); cx->loop_sp++;
+        IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
@@ -1252,7 +1265,7 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     IR_t * H = build(cx, IR_GOTO, NULL, ω);
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres; cx->loop_next = H; cx->loop_next_ssp = cx->scan_sp;
-    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
+    icn_loop_stk_set(cx, cx->loop_exit, cx->loop_next, cx->loop_fail); cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
     cx->loop_sp--;
     lc_γ_to(H, b_entry); lc_ω_to(H, b_entry);
@@ -1367,7 +1380,7 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
     γ_to(dj, γ); ω_to(dj, ω);
     IR_t * fs = IR_node_alloc(g, IR_FAIL);
-    IR_t * entv[2]; IR_t * resumev[2]; IR_t * resv[2];
+    IR_t * entv[n]; IR_t * resumev[n]; IR_t * resv[n];
     for (int j = 0; j < n; j++) {
         const tree_t * ARM = j ? EL : TH;
         int before = g->n;
@@ -1610,7 +1623,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL;
     IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = bres; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
-    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = NULL; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
+    icn_loop_stk_set(cx, cx->loop_exit, NULL, cx->loop_fail); cx->loop_sp++;
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
     cx->loop_sp--;
     if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
@@ -1621,7 +1634,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
         ir_operand_push(unmk, mark);
         cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
-        if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
+        icn_loop_stk_set(cx, cx->loop_exit, cx->loop_next, cx->loop_fail); cx->loop_sp++;
         b_entry = lower(cx, B, unmk, unmk, &bval);
         cx->loop_sp--;
         lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
@@ -1694,6 +1707,8 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
     g->icn_cells_graph = 1;
+    ct_drop(cx->loop_stk_exit.p); ct_drop(cx->loop_stk_next.p); ct_drop(cx->loop_stk_fail.p); ct_drop(cx->scan_stk_enter.p);
+    cx->loop_stk_exit = (cv_t) {0}; cx->loop_stk_next = (cv_t) {0}; cx->loop_stk_fail = (cv_t) {0}; cx->scan_stk_enter = (cv_t) {0};
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1723,11 +1738,14 @@ static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** man
 static lc_vec g_icn_synth_excl;
 static void icn_statics_prepass(tree_t * body, const char * pname) {
     if (!body) return;
-    const char * names[64]; char * mangled[64]; int cnt = 0; int inits = 0;
+    int nst = 0;
+    for (int i = 0; i < body->n; i++) { const tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
+        if (st && st->t == TT_STATIC_DECL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) nst++; }
+    const char * names[nst + 1]; char * mangled[nst + 1]; int cnt = 0; int inits = 0;
     for (int i = 0; i < body->n; i++) {
         tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
         if (st && st->t == TT_STATIC_DECL)
-            for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval && cnt < 64) {
+            for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) {
                 names[cnt] = st->c[k]->v.sval;
                 char * m = ct_alloc(strlen(pname) + strlen(names[cnt]) + 12); sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
                 { extern void global_register(const char *); global_register(m); }
