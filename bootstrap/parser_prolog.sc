@@ -416,6 +416,6 @@ if (Src ? Compiland) {
     ptree = Pop();
     if (DIFFER(ptree)) {
         i = 1; n_kids = n(ptree);
-        while (LE(i, n_kids)) { TDump(c(ptree)[i]); i = i + 1; }
+        while (LE(i, n_kids)) { TreeDump(c(ptree)[i]); i = i + 1; }
     }
 } else OUTPUT = 'Parse Error';

@@ -144,3 +144,52 @@ function TDump(x, outNm, i, t) {
     Gen(TValue(x) nl, outNm);
     return;
 }
+/* ==================================================================================================================== */
+function TreeDumpValue(x, t, v, fval, zeros, pre) {
+    t = t(x); v = v(x);
+    if (~DIFFER(v)) { TreeDumpValue = ; return; }
+    if (t ? (POS(0) ('TT_QLIT' | 'TT_CSET') RPOS(0))) { TreeDumpValue = ' "' CQize(v) '"'; return; }
+    if (IDENT(t, 'TT_FLIT')) {
+        fval = '' CONVERT(v, 'REAL');
+        fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
+        while (DIFFER(zeros)) {
+            fval = REPLACE(fval, zeros, '');
+            zeros = '';
+            fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
+        }
+        fval SPAN(digits &UCASE &LCASE '+' '-') . pre;
+        if (DIFFER(pre) IDENT(SIZE(pre) + 1, SIZE(fval))) fval = pre;
+        TreeDumpValue = ' ' fval;
+        return;
+    }
+    TreeDumpValue = ' ' v;
+    return;
+}
+/* ==================================================================================================================== */
+function TreeDumpSkip(x) {
+    if (~IDENT(t(x), 'TT_ATTR')) freturn;
+    if (v(x) ? (POS(0) (':line' | ':lline' | ':file' | ':stno' | ':src') RPOS(0))) return;
+    freturn;
+}
+/* ==================================================================================================================== */
+function TreeDumpAt(x, level, outNm, i, line, kids) {
+    x = IDENT(DATATYPE(x), 'NAME') $x;
+    line = DUPL(' ', 2 * level) '(' t(x) TreeDumpValue(x);
+    kids = 0;
+    i = 0;
+    while (i = LT(i, n(x)) i + 1) kids = (TreeDumpSkip(c(x)[i]) kids, kids + 1);
+    if (~GT(kids, 0)) { $outNm = line ')'; return; }
+    $outNm = line;
+    i = 0;
+    while (i = LT(i, n(x)) i + 1) {
+        if (~TreeDumpSkip(c(x)[i])) TreeDumpAt(c(x)[i], level + 1, outNm);
+    }
+    $outNm = DUPL(' ', 2 * level) ')';
+    return;
+}
+/* ==================================================================================================================== */
+function TreeDump(x, outNm) {
+    outNm = IDENT(outNm) .OUTPUT;
+    TreeDumpAt(x, 0, outNm);
+    return;
+}

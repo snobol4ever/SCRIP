@@ -1278,6 +1278,17 @@ scrip: libscrip_rt
 	    $(LIBS) -o scrip
 	@echo "Built: scrip (dynamic, links out/libscrip_rt.so)"
 
+# ── parsers: the seven stand-alone parser executables (Lon 2026-09-27, CEO-1340): src/tools/parser_main.c compiled once per frontend,
+# each linking out/libscrip_rt.so exactly as scrip does, printing the tree in the one line-per-node form (ir_dump_tree) the
+# Snocone TreeDump twin prints. The frontend is chosen by the build, never by a runtime switch.
+PARSER_LANGS := snobol4 snocone icon prolog rebus raku pascal
+parsers: $(PARSER_LANGS:%=out/parser_%)
+	@echo "Built: $(PARSER_LANGS:%=out/parser_%)"
+out/parser_%: $(SRC)/tools/parser_main.c libscrip_rt
+	@mkdir -p $(OBJ) out
+	$(CC) $(CRT) -DPARSER_LANG_$(shell echo $* | tr a-z A-Z) -c $(SRC)/tools/parser_main.c -o $(OBJ)/parser_$*.o
+	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/parser_$*.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt $(LIBS) -o $@
+
 
 # test_emit_io retired (2026-05-25): it existed only to keep the dead g_text_buf/g_bin_buf
 # buffered path exercised. NO-BUFFERS ruling removed that path; emit_io.c is now pure passthrough.

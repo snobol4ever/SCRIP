@@ -259,7 +259,7 @@ if (Src ? Compiland) {
         i = 1;
         n_kids = n(ptree);
         while (LE(i, n_kids)) {
-            TDump(c(ptree)[i]);
+            TreeDump(c(ptree)[i]);
             i = i + 1;
         }
     }

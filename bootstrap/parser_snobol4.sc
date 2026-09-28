@@ -239,7 +239,7 @@ if (Src ? Compiland) {
     nk = n(ptree);
     while (LE(i, nk)) {
         cmd = ITEM(c(ptree), i);
-        if (IDENT(t(cmd), 'TT_STMT')) { TDump(cmd); }
+        if (IDENT(t(cmd), 'TT_STMT')) { TreeDump(cmd); }
         i = i + 1;
     }
 } else OUTPUT = 'Parse Error.';

@@ -98,3 +98,38 @@ static void print_node(const tree_t * e, FILE * f, int depth) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_print_node(const tree_t * e, FILE * f)    { print_node(e, f, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void print_head(const tree_t * e, FILE * f) {
+    const char * kname = (e->t >= 0 && e->t < TT_KIND_COUNT) ? tt_e_name[e->t] : "E_???";
+    fputc('(', f); fputs(kname, f);
+    switch (e->t) {
+    case TT_QLIT: case TT_CSET: fputc(' ', f); print_escaped(e->v.sval, f); return;
+    case TT_ILIT: fprintf(f, " %lld", (long long)e->v.ival); return;
+    case TT_FLIT: fprintf(f, " %g", e->v.dval); return;
+    case TT_NUL:  return;
+    default: break;
+    }
+    if (e->v.sval && (uintptr_t)e->v.sval >= 4096 && e->t != TT_CLAUSE && e->t != TT_SUB_DECL && e->t != TT_REGEX_DECL && e->t != TT_AUGOP) { fputc(' ', f); fputs(e->v.sval, f); }
+    else if (e->t == TT_VAR && (uintptr_t)e->v.sval < 4096) fprintf(f, " #%d", (int)e->v.ival);
+    else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { fputc(' ', f); fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int is_bookkeeping_attr(const tree_t * e) {
+    static const char * const skip[] = { ":line", ":lline", ":file", ":stno", ":src", NULL };
+    if (!e || e->t != TT_ATTR || !e->v.sval || (uintptr_t)e->v.sval < 4096) return 0;
+    for (int i = 0; skip[i]; i++) if (!strcmp(e->v.sval, skip[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void print_tree_lines(const tree_t * e, FILE * f, int depth) {
+    print_indent(depth, f);
+    if (!e) { fputs("(null)\n", f); return; }
+    print_head(e, f);
+    int kids = 0; for (int i = 0; i < e->n; i++) if (!is_bookkeeping_attr(e->c[i])) kids++;
+    if (kids == 0) { fputs(")\n", f); return; }
+    fputc('\n', f);
+    for (int i = 0; i < e->n; i++) if (!is_bookkeeping_attr(e->c[i])) print_tree_lines(e->c[i], f, depth + 1);
+    print_indent(depth, f); fputs(")\n", f);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void ir_dump_tree(const tree_t * e, FILE * f)     { print_tree_lines(e, f, 0); }
