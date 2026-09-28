@@ -346,7 +346,7 @@ char *rt_big_str(DESCR_t d) {
     return rt_heap_strdup_c(buf + p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct ICNX_BIG_t { long title, blksize, msd, lsd; int sign; uint32_t digits[1]; } ICNX_BIG_t;
+typedef struct ICNX_BIG_t { long title, blksize, msd, lsd; int sign; uint32_t digits[]; } ICNX_BIG_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_big_icnx_block(DESCR_t d) {
     BIG_t *b = big_of(d); if (!b) return (void *) 0;
