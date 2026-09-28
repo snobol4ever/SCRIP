@@ -18,11 +18,10 @@ static int sub_cval(void) { return _.op_sval && !strcmp(_.op_sval, "container-va
 static int sub_conly(void) { return sub_cval() || (_.op_sval && !strcmp(_.op_sval, "container-only")); }
 static int sub_vctx(void) { return (sub_cval() && !_.op_strict && sub_val_on()) ? 1 : 0; }
 static const char * sub_open_sym(void) { return sub_vctx() ? "rt_subscript_val" : (sub_conly() ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")); }
+#define SUB_OPEN_FN() (sub_vctx() ? (uint64_t)(uintptr_t)(void *)rt_subscript_val \
+                      : (uint64_t)(uintptr_t)(void *)(sub_conly() ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) \
+                                                                   : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var)))
 std::string bb_subscript() {
-    const int cval = _.op_sval && !strcmp(_.op_sval, "container-value");
-    const int conly = cval || (_.op_sval && !strcmp(_.op_sval, "container-only"));
-    const int vctx = (cval && !_.op_strict && sub_val_on()) ? 1 : 0;
-    const uint64_t    sub_fn = vctx ? (uint64_t)(uintptr_t)(void *)rt_subscript_val : (uint64_t)(uintptr_t)(void *)(conly ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var));
     if (_.op_zres)
         return x86("comment", "IR_SUBSCRIPT x[i] variable zd")
              + x86_alpha()
@@ -34,7 +33,7 @@ std::string bb_subscript() {
              + x86("mov",     "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1))
              + x86("mov",     "rcx", ZOPQ(1, 8))
-             + x86("call",    sub_open_sym(), sub_fn)
+             + x86("call",    sub_open_sym(), SUB_OPEN_FN())
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -52,7 +51,7 @@ std::string bb_subscript() {
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
          + x86("mov",     "rdx", FRQ(_.op_sa))
          + x86("mov",     "rcx", FRQ(_.op_sa + 8))
-         + x86("call",    sub_open_sym(), sub_fn)
+         + x86("call",    sub_open_sym(), SUB_OPEN_FN())
          + x86("cmp",     "al", (long)DT_FAIL)
          + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     "rax")
