@@ -45,7 +45,7 @@ TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
 # 60 formals (beaf84b26), and the plant over the corpus sources, the master entries compiled and the dyn-scope master entries run in mode 3 read
 # both slim sites at 0 with a forced-positive control (SCRIP_NO_TINY=1) firing them (scripts/gc_master_entry_plant_receipt.tsv); the two
 # UNWITNESSED rt_proc_call_open_slim sites leave the table with their roads, and nothing arrives, so the ceiling only falls.
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-55}"
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-54}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

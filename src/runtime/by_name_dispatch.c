@@ -88,6 +88,10 @@ static int icn_cvt_int_ok(DESCR_t d) {
 static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_error(code, val); *out = FAILDESCR; return 1; }
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
+extern gv_t g_call_args;
+void rt_call_args_need(int n);
+void rt_call_args_clear_from(int n);
+#define CALL_ARGS ((DESCR_t *)g_call_args.p)
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
 #include "../driver/driver_private.h"
@@ -436,8 +440,8 @@ static DESCR_t rk_elem_descr(const char *el, size_t L) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_block_cmp(const char *bn, const char *x, size_t xl, const char *y, size_t yl) {
-    extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-    g_call_args[0] = rk_elem_descr(x, xl); g_call_args[1] = rk_elem_descr(y, yl);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    rt_call_args_need(2); CALL_ARGS[0] = rk_elem_descr(x, xl); CALL_ARGS[1] = rk_elem_descr(y, yl);
     double d = to_real(RT_GC_CALLBACK(rt_call_proc_descr(bn, 2)));
     return d < 0 ? -1 : (d > 0 ? 1 : 0);
 }
@@ -1156,15 +1160,15 @@ static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int t
     for (pi = 0; pi < g_stage2.proc_count; pi++)
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
     if (pi >= g_stage2.proc_count) {
-        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
+        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = callargs[k];
         return RT_GC_CALLBACK(rt_call_proc_descr(procname, total));
     }
     if (g_stage2.proc_table[pi].bb_idx >= 0) {
         extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); extern int rt_proc_has_native_fn(const char *name);
         if (rt_proc_has_native_fn(procname)) {
-            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k];
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = callargs[k];
             return RT_GC_CALLBACK(rt_call_proc_descr(procname, total));
         }
         return ir_call_proc(pi, callargs, total);
@@ -1177,7 +1181,6 @@ rt_call_next_t rk_method_open(DESCR_t *args, int nargs)
     extern int rt_define_returns_by_frame(const char *name);
     extern int rt_proc_has_native_fn(const char *name);
     extern int dat_mro(const char *name, const char **out, int max);
-    extern DESCR_t g_call_args[];
     rt_call_next_t none; none.fn = 0; none.how = 0;
     if (nargs < 2 || !args) return none;
     if (args[0].v != DT_DATA || !IS_DATA_INST_fn(args[0]) || !args[0].u) return none;
@@ -1203,8 +1206,8 @@ rt_call_next_t rk_method_open(DESCR_t *args, int nargs)
         g_redisp[rd].nargs = total < 16 ? total : 16;
         g_redisp[rd].args[0] = args[0];
         for (int k = 1; k < g_redisp[rd].nargs; k++) g_redisp[rd].args[k] = args[1 + k]; }
-      g_call_args[0] = args[0];
-      for (int k = 0; k < nextra && 1 + k < 64; k++) g_call_args[1 + k] = args[2 + k];
+      rt_call_args_need(nextra + 1); CALL_ARGS[0] = args[0];
+      for (int k = 0; k < nextra; k++) CALL_ARGS[1 + k] = args[2 + k];
       { rt_call_next_t n = rt_call_open_by_name(procname, total);
         if (!n.fn) { g_redisp_top--; return none; }
         return n; } }
@@ -1213,14 +1216,13 @@ rt_call_next_t rk_method_open(DESCR_t *args, int nargs)
 rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
     extern rt_call_next_t rt_call_open_by_name(const char *, int);
     extern int rt_proc_is_registered(const char *);
-    extern DESCR_t g_call_args[];
     extern void rt_c2bb_hit(const char *site, const char *name);
     rt_call_next_t none = (rt_call_next_t){ 0, 0 };
     if (!args || nargs < 1) return none;
     { const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
       if (!pn || !*pn) return none;
       { int na = nargs - 1; if (na > 64) na = 64;
-        for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1];
+        rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1];
         rt_c2bb_hit("apply.open", pn);
         { extern rt_call_next_t rt_call_open_found(const char *, int, int *); extern void rt_lvl_stno_stash(long, long); extern long g_stno, g_line; long sv_stno = g_stno, sv_line = g_line; int reg = 0; rt_call_next_t n = rt_call_open_found(pn, na, &reg);
           if (!(reg && n.fn)) return none;
@@ -1284,7 +1286,6 @@ long rk_iter_open(DESCR_t *args, int nargs, DESCR_t *cur)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rk_iter_step(DESCR_t *cur)
 {
-    extern DESCR_t g_call_args[];
     rt_call_next_t none; none.fn = 0; none.how = 0;
     { DESCR_t *c = rk_iter_cells(cur);
       if (!c || c[RKIT_SUBJ].v == DT_FAIL) return none;
@@ -1294,9 +1295,9 @@ rt_call_next_t rk_iter_step(DESCR_t *cur)
         memcpy(el, seg, L); el[L] = 0;
         c[RKIT_SUBJ] = nx ? STRVAL((char *)(nx + 1)) : FAILDESCR;
         c[RKIT_CUR] = STRVAL(el);
-        if (kind == RKIT_K_REDUCE) { g_call_args[0] = c[RKIT_ACC]; g_call_args[1] = rk_elem_descr(el, L);
+        if (kind == RKIT_K_REDUCE) { rt_call_args_need(2); CALL_ARGS[0] = c[RKIT_ACC]; CALL_ARGS[1] = rk_elem_descr(el, L);
           { rt_call_next_t n = rt_call_open_by_name(c[RKIT_BLK].s, 2); return n.fn ? n : none; } }
-        g_call_args[0] = rk_elem_descr(el, L);
+        rt_call_args_need(2); CALL_ARGS[0] = rk_elem_descr(el, L);
         { rt_call_next_t n = rt_call_open_by_name(c[RKIT_BLK].s, 1); return n.fn ? n : none; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1361,8 +1362,8 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
         any = 1;
         int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
         if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
-            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            g_call_args[0] = self; RT_GC_CALLBACK(rt_call_proc_descr(proc, 1));
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            rt_call_args_need(2); CALL_ARGS[0] = self; RT_GC_CALLBACK(rt_call_proc_descr(proc, 1));
         } else {
             extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); DESCR_t a0 = self; ir_call_proc(pi, &a0, 1);
         }
@@ -1390,8 +1391,8 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
         int total = 1 + nk;
         int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
         if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
-            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            for (int k = 0; k < total && k < 64; k++) g_call_args[k] = callargs[k]; RT_GC_CALLBACK(rt_call_proc_descr(proc, total));
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = callargs[k]; RT_GC_CALLBACK(rt_call_proc_descr(proc, total));
         } else {
             extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na); ir_call_proc(pi, callargs, total);
         }
@@ -1710,8 +1711,8 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (IS_PROCVAL_fn(callee)) { DESCR_t ov; if (icn_opproc_typed(nm, argv, n, &ov)) return ov; }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) {
-        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
+        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n);
         return RT_GC_CALLBACK(rt_call_proc_descr(nm, n));
     }
     if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); extern int64_t core_icn_to_int_d(DESCR_t); int64_t lo = core_icn_to_int_d(argv[0]), hi = core_icn_to_int_d(argv[1]), st = core_icn_to_int_d(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
@@ -1745,8 +1746,8 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
-        extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
-        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
+        extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
+        rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n);
         rt_c2bb_hit("gen_h.call_value", nm);
         return rt_proc_call_gen_h(nm, n, hslot);
     }
@@ -1822,7 +1823,7 @@ CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     if (!rt_proc_is_registered(nm)) return cvprep_decline("unregistered", nm);
     if (!rt_proc_jmp_entry(nm)) return cvprep_decline("nojmpentry", nm);
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return cvprep_decline("genregionft", nm); }
-    { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0}; }
+    { rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n); }
     if (!rt_proc_call_open(nm, n)) return cvprep_decline("openfailed", nm);
     { int gen = rt_proc_is_generator(nm); cvprep_say("open", gen ? "spine" : "spinedet", nm); return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), gen ? 0 : 2 }; }
 }
@@ -1861,12 +1862,11 @@ static int pl_goal_key_live(char *key, size_t cap) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
-    extern DESCR_t g_call_args[];
-    enum { CALL_ARGS_MAX = 64 };
     int k = 0;
-    for (int i = 0; i < ar && k < CALL_ARGS_MAX; i++) g_call_args[k++] = kids[i];
-    for (int i = 0; i < n && k < CALL_ARGS_MAX; i++) g_call_args[k++] = argv[i];
-    for (int i = k; i < CALL_ARGS_MAX; i++) { DESCR_t z; memset(&z, 0, sizeof z); g_call_args[i] = z; }
+    rt_call_args_need((ar > 0 ? ar : 0) + (n > 0 ? n : 0));
+    for (int i = 0; i < ar; i++) CALL_ARGS[k++] = kids[i];
+    for (int i = 0; i < n; i++) CALL_ARGS[k++] = argv[i];
+    rt_call_args_clear_from(k);
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4260,8 +4260,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (!beaten) { win = i; break; } }
         if (win < 0) win = 0;
         const char *wname = acc_names[win]; (void)acc_idx;
-        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        for (int k = 0; k < na && k < 64; k++) g_call_args[k] = aa[k];
+        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = aa[k];
         *out = RT_GC_CALLBACK(rt_call_proc_descr(wname, na)); return 1;
     }
     if (!strcmp(fn, "__blk_ref") && nargs == 1) {
@@ -4270,8 +4270,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
         const char *bn = (args[0].v == DT_BLK) ? args[0].s : VARVAL_fn(args[0]); if (!bn || !*bn) { *out = FAILDESCR; return 1; }
-        int na = nargs - 1; extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        for (int k = 0; k < na && k < 64; k++) g_call_args[k] = args[k + 1];
+        int na = nargs - 1; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1];
         *out = RT_GC_CALLBACK(rt_call_proc_descr(bn, na)); return 1;
     }
     if (!strcmp(fn, "__param_check") && nargs >= 2) {
@@ -5164,7 +5164,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__rk_arr_reduce") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
         const char *bn = args[1].s;
-        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         char scratch0[64];
         const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0);
         const char **els; size_t *lens; int nel = rk_a_split(cs0, &els, &lens);
@@ -5172,7 +5172,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t acc = rk_elem_descr(els[0], lens[0]);
         for (int i = 1; i < nel; i++) {
             DESCR_t ed = rk_elem_descr(els[i], lens[i]);
-            g_call_args[0] = acc; g_call_args[1] = ed; acc = RT_GC_CALLBACK(rt_call_proc_descr(bn, 2));
+            rt_call_args_need(2); CALL_ARGS[0] = acc; CALL_ARGS[1] = ed; acc = RT_GC_CALLBACK(rt_call_proc_descr(bn, 2));
         }
         *out = acc; return 1;
     }
@@ -5238,14 +5238,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!bn || !*bn) { *out = FAILDESCR; return 1; }
         char scratch[64];
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
+        extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
         const char **srcels; size_t *srclens; int srcnel = rk_a_split(cs, &srcels, &srclens);
         size_t cap = (cs ? strlen(cs) : 0) * 4 + 64; char *buf = rt_wsb_alloc(cap + 1); size_t p = 0; int nout = 0;
         for (int si = 0; si < srcnel; si++) {
             size_t L = srclens[si]; const char *el = srcels[si];
             char *ep; long long ev = strtoll(el, &ep, 10);
             DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL((char *)el);
-            g_call_args[0] = ed;
+            rt_call_args_need(2); CALL_ARGS[0] = ed;
             DESCR_t rd = RT_GC_CALLBACK(rt_call_proc_descr(bn, 1));
             const char *keep = NULL; char rscratch[64];
             if (want_map) keep = to_cstring(rd, rscratch, sizeof rscratch);
@@ -5266,14 +5266,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (bn && *bn) {
             char scratch0[64];
             const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
-            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
             const char *seg = cs0;
             while (*cs0) {
                 const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
                 char *el = rt_wsb_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
                 char *ep; long long ev = strtoll(el, &ep, 10);
                 DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
-                g_call_args[0] = ed;
+                rt_call_args_need(2); CALL_ARGS[0] = ed;
                 if (rt_is_truthy(RT_GC_CALLBACK(rt_call_proc_descr(bn, 1)))) { *out = ed; return 1; }
                 if (!nx) break;
                 seg = nx + 1;
@@ -5822,9 +5822,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             for (pi = 0; pi < g_stage2.proc_count; pi++)
                 if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, newproc)) break;
             if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(newproc)) {
-                extern DESCR_t g_call_args[];
-                extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-                int total = nargs; for (int k = 0; k < total && k < 64; k++) g_call_args[k] = args[k];
+                            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+                int total = nargs; rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = args[k];
                 *out = RT_GC_CALLBACK(rt_call_proc_descr(newproc, total)); return 1;
             }
             extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
@@ -5978,8 +5977,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                     int pi; for (pi = 0; pi < g_stage2.proc_count; pi++)
                         if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, tproc)) break;
                     if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(tproc)) {
-                        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-                        for (int k = 0; k < total && k < 64; k++) g_call_args[k] = ca[k];
+                        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+                        rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = ca[k];
                         *out = RT_GC_CALLBACK(rt_call_proc_descr(tproc, total)); return 1;
                     }
                     extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
@@ -6707,7 +6706,7 @@ void rt_main_args_stage_argv(char **v, int n)
 }
 void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_drop((void *) g_main_progname); g_main_progname = c; }
 const char *rt_main_progname(void) { return g_main_progname ? g_main_progname : ""; }
-void rt_main_args_bind(void) { extern DESCR_t g_call_args[]; if (g_main_args_descr.v == DT_DATA) return; if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0); g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n); if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }
+void rt_main_args_bind(void) { if (g_main_args_descr.v == DT_DATA) return; if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0); g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n); if (!getenv("SCRIP_NO_MAIN_ARGS")) rt_call_args_need(2); CALL_ARGS[0] = g_main_args_descr; }
 DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_main_args_descr; }
 void rt_main_args_gc_root(void) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr(&g_main_args_descr); }
 int rt_main_args_count(void) { return g_main_args_n < 0 ? 0 : g_main_args_n; }
@@ -9562,8 +9561,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_APPLY) && nargs >= 1) {
         const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
         if (!pn || !*pn) { *out = FAILDESCR; return 1; }
-        extern int rt_proc_is_registered(const char *); extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t g_call_args[];
-        if (rt_proc_is_registered(pn)) { int na = nargs - 1; if (na > 64) na = 64; for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1]; *out = RT_GC_CALLBACK(rt_call_proc_descr(pn, na)); return 1; }
+        extern int rt_proc_is_registered(const char *); extern DESCR_t rt_call_proc_descr(const char *, int);
+        if (rt_proc_is_registered(pn)) { int na = nargs - 1; rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1]; *out = RT_GC_CALLBACK(rt_call_proc_descr(pn, na)); return 1; }
         { extern int rt_g_want_name; extern int rt_dat_field_of_any(const char *);
           extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
           if (rt_g_want_name && nargs >= 2 && args[1].v == DT_DATA && rt_dat_field_of_any(pn)) {

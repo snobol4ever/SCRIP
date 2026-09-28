@@ -78,7 +78,8 @@ static std::string xa_flat_dc_stub_str(void) {
                 + x86("mov32", "edi", (long)i)
                 + x86("mov", "rsi", "[rax + 0]")
                 + x86("mov", "rdx", "[rax + 8]")
-                + x86("call", "rt_arg_stage", stg_fp);
+                + x86("call", "rt_arg_stage", stg_fp)
+           + x86_rt_gc_poll();
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
         if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {

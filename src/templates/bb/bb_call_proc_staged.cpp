@@ -39,7 +39,7 @@ static int bcps_wire_pair_consumed(const char *fname) {
 }
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
-extern "C" DESCR_t g_call_args[];
+extern "C" struct gv_s g_call_args;
 extern "C" int g_gc_pending;
 int  rt_proc_is_registered(const char *name);
 int  rt_proc_nformals(const char *name);
@@ -90,7 +90,8 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SAI_L0 200
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
-    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp)
+                        + x86_rt_gc_poll();
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
     return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
          + x86("mov", "eax", "dword ptr [r8 + 0]")
@@ -98,9 +99,12 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
          + x86("jne", L(SAI_L0 + i * 2))
          + x86("mov", "rax", FRQ(slot))
          + x86("mov", "rdx", FRQ(slot + 8))
-         + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+         + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
+         + x86("mov", "r8", "qword ptr [r8 + 0]")
+         + x86("test", "r8", "r8")
+         + x86("je", L(SAI_L0 + i * 2))
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
-         + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
+         + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx") + x86("xor", "r8d", "r8d")
          + x86("jmp", L(SAI_L0 + 1 + i * 2))
          + x86("def", L(SAI_L0 + i * 2))
          + slow
@@ -317,11 +321,13 @@ static std::string bcps_det_arm() {
                     + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
                     + x86("call", detN_nm_z[det_nA_z], detN_fp_z[det_nA_z])
                     : ((det_idx_z >= 0
-                        ? FOR(0, (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                        ? FOR(0, (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z)
+                        + x86_rt_gc_poll(); })
                         + x86("mov32", "edi", (long)det_idx_z)
                         + x86("mov32", "esi", (long)_.op_ival)
                         + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp_z)
-                        : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                        : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z)
+                        + x86_rt_gc_poll(); })
                         + x86_ro_load_q("rdi", 0)
                         + x86("mov32", "esi", (long)_.op_ival)
                         + x86("call", "rt_proc_call_open", open_fp_z))))

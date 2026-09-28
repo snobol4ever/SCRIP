@@ -391,7 +391,7 @@ void *rt_pvec_realloc(void *p, size_t n)
     if (!p) return rt_pvec_alloc(n);
     { rt_hblk_t *h = (rt_hblk_t *)p - 1; size_t old = (size_t)h->size - sizeof(rt_hblk_t), want = (n ? n : 1) * sizeof(void *);
       if (want <= old) return p;
-      { void *q = rt_pvec_alloc(n); memcpy(q, p, old); return q; } }
+      return rt_gcheap_grow_block(p, (uint16_t)HB_PVEC, (uint64_t)want); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pm_struct_alloc(uint16_t type, size_t n)
@@ -401,13 +401,49 @@ void *rt_pm_struct_alloc(uint16_t type, size_t n)
     return rt_gcheap_alloc(type, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_visit_raw(const char **loc);
+void *rt_gcheap_grow_block(void *p, uint16_t type, uint64_t n)
+{
+    static long stress_n = -1;
+    if (!p) { void *q = c_rt_gcheap_alloc(type, n ? n : 1); memset(q, 0, (size_t)(n ? n : 1)); return q; }
+    { rt_hblk_t *h = (rt_hblk_t *)p - 1; uint64_t old = (uint64_t)h->size - sizeof(rt_hblk_t);
+      if (n <= old) return p;
+      if (stress_n < 0) { const char *e = getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
+      { uint64_t total = sizeof(rt_hblk_t) + ((n + 15u) & ~15ull); uint64_t delta = total - (uint64_t)h->size;
+        if (stress_n == 0 && g_ah_on <= 0 && !g_gc_in && (char *)h + h->size == g_hp_top && g_hp_top + delta <= g_hp_end && total <= 0xFFFFFFFFull) {
+            if (g_hp_gcline && g_hp_top + delta > g_hp_gcline) g_gc_pending = 1;
+            if (g_hp_qlo) gc_quar_release(g_hp_top + delta);
+            memset(g_hp_top, 0, (size_t)delta); h->size = (uint32_t)total; g_hp_top += delta; g_hp_fr.alloc_total += (long)delta;
+            return p; } }
+      { void *q = c_rt_gcheap_alloc(type, n); memcpy(q, p, (size_t)old); memset((char *)q + old, 0, (size_t)(n - old)); return q; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_wsb_realloc(void *p, size_t n)
 {
     if (!p) return rt_wsb_alloc(n);
-    { rt_hblk_t *h = (rt_hblk_t *)p - 1; size_t old = (size_t)h->size - sizeof(rt_hblk_t);
-      if (n <= old) return p;
-      { void *q = rt_wsb_alloc(n); memcpy(q, p, old); return q; } }
+    return rt_gcheap_grow_block(p, (uint16_t)HB_WSB, (uint64_t)n);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gv_reserve(gv_t *v, uint16_t kind, uint32_t esz, uint64_t need, const char *name)
+{
+    uint64_t nc;
+    if (need <= v->cap) return;
+    nc = v->cap ? (uint64_t)v->cap * 2 : 4;
+    if (nc < need) nc = need;
+    if (esz == 0 || nc > 0x7FFFFFFFull / esz) { fprintf(stderr, "gc_vec: table %s cannot grow to %llu elements of %u bytes\n", name, (unsigned long long)nc, (unsigned)esz); abort(); }
+    v->p = rt_gcheap_grow_block(v->p, kind, nc * (uint64_t)esz);
+    v->cap = (uint32_t)nc; v->esz = esz; v->kind = kind;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *gv_push(gv_t *v, uint16_t kind, uint32_t esz, const char *name)
+{
+    void *e;
+    gv_reserve(v, kind, esz, (uint64_t)v->len + 1, name);
+    e = (char *)v->p + (size_t)v->len * esz; memset(e, 0, esz); v->len++;
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gv_gc_root(gv_t *v) { if (v->p) rt_gc_visit_raw((const char **)&v->p); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_agg_alloc(int kind, size_t n)
 {

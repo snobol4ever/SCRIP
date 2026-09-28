@@ -4162,10 +4162,11 @@ void register_fn_alias(const char *newname, const char *oldname) {
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
-    extern int rt_proc_is_registered(const char *); extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *, int);
+    extern int rt_proc_is_registered(const char *); extern gv_t g_call_args; extern void rt_call_args_need(int); extern void rt_call_args_clear_from(int); extern DESCR_t rt_call_proc_descr(const char *, int);
     if (!rt_proc_is_registered(name)) return 0;
-    for (int k = 0; k < nargs && k < 64; k++) g_call_args[k] = args[k];
-    for (int k = (nargs < 0 ? 0 : nargs); k < 64; k++) g_call_args[k] = (DESCR_t){0};
+    rt_call_args_need(nargs);
+    for (int k = 0; k < nargs; k++) ((DESCR_t *)g_call_args.p)[k] = args[k];
+    rt_call_args_clear_from(nargs);
     *out = RT_GC_CALLBACK(rt_call_proc_descr(name, nargs));
     return 1;
 }

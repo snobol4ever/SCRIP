@@ -87,11 +87,8 @@ int rt_case_eq(const DESCR_t *sel, const DESCR_t *key)
     if (sel->v == DT_I && key->v == DT_I) return sel->i == key->i;
     { const char *ss = VARVAL_fn(*sel); const char *ks = VARVAL_fn(*key); if (ss && ks) return strcmp(ss, ks) == 0; return ss == ks; }
 }
-#define EXPRESSION_REG_MAX 256
-typedef struct { const char *name; void *fn; } ExpressionRegEntry;
-static ExpressionRegEntry g_expression_reg[EXPRESSION_REG_MAX];
-static int           g_expression_reg_count = 0;
 #include "IR.h"
+#include "ct_vec.h"
 extern cap_t *bb_cap_new(bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 extern cap_t *bb_cap_new_call(bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern void *bb_arbno_new(void *fn, void *state);
@@ -364,11 +361,6 @@ extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
 const char *g_subject_dbg_base = 0;
 long        g_subject_dbg_len  = -1;
-#define RT_FRAME_STACK_MAX 256
-#define RT_FRAME_SLOT_MAX  64
-typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
-static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
-static int        g_rt_frame_depth = 0;
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
 static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
@@ -394,7 +386,6 @@ static inline __attribute__((always_inline)) void rt_lvl_retire(void) { rt_stno_
 "  movq (%rsp), %rcx\n" \
 "  movq 8(%rsp), %rdx\n"
 #define PROC_FRAME_QWORDS 512
-#define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
     int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
@@ -633,39 +624,38 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
     { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_PROC_LOC_MAX 4096
-static struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } g_proc_loc[RT_PROC_LOC_MAX];
-static int g_proc_loc_n = 0;
+typedef struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } rt_proc_loc_t;
+static cv_t g_proc_loc;
+#define PLOC(i) CV_AT(g_proc_loc, rt_proc_loc_t, (i))
 void rt_proc_set_locals(const char *name, const char **lnames, int nlocals) {
     if (!name) return;
-    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) { g_proc_loc[i].lnames = lnames; g_proc_loc[i].nlocals = nlocals; return; }
-    if (g_proc_loc_n >= RT_PROC_LOC_MAX) return;
-    g_proc_loc[g_proc_loc_n].name = name; g_proc_loc[g_proc_loc_n].lnames = lnames; g_proc_loc[g_proc_loc_n].nlocals = nlocals; g_proc_loc_n++;
+    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) { PLOC(i).lnames = lnames; PLOC(i).nlocals = nlocals; return; }
+    { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->lnames = lnames; e->nlocals = nlocals; }
 }
 void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams) {
     if (!name) return;
-    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) { g_proc_loc[i].pnames = pnames; g_proc_loc[i].nparams = nparams; return; }
-    if (g_proc_loc_n >= RT_PROC_LOC_MAX) return;
-    g_proc_loc[g_proc_loc_n].name = name; g_proc_loc[g_proc_loc_n].pnames = pnames; g_proc_loc[g_proc_loc_n].nparams = nparams; g_proc_loc_n++;
+    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) { PLOC(i).pnames = pnames; PLOC(i).nparams = nparams; return; }
+    { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; }
 }
 const char *rt_proc_loc_pname(const char *name, int k) {
     if (!name || k < 0) return (const char *)0;
-    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return (g_proc_loc[i].pnames && k < g_proc_loc[i].nparams) ? g_proc_loc[i].pnames[k] : (const char *)0;
+    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).pnames && k < PLOC(i).nparams) ? PLOC(i).pnames[k] : (const char *)0;
     return (const char *)0;
 }
 void rt_proc_set_local_offs(const char *name, const int *loffs, int nlocals) {
     if (!name) return;
-    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) { g_proc_loc[i].loffs = loffs; if (nlocals > 0) g_proc_loc[i].nlocals = nlocals; return; }
-    if (g_proc_loc_n >= RT_PROC_LOC_MAX) return;
-    g_proc_loc[g_proc_loc_n].name = name; g_proc_loc[g_proc_loc_n].lnames = (const char **)0; g_proc_loc[g_proc_loc_n].nlocals = nlocals; g_proc_loc[g_proc_loc_n].loffs = loffs; g_proc_loc_n++;
+    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) { PLOC(i).loffs = loffs; if (nlocals > 0) PLOC(i).nlocals = nlocals; return; }
+    { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->lnames = (const char **)0; e->nlocals = nlocals; e->loffs = loffs; }
 }
 int rt_proc_loff(const char *name, int k) {
     if (!name || k < 0) return -1;
-    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return (g_proc_loc[i].loffs && k < g_proc_loc[i].nlocals) ? g_proc_loc[i].loffs[k] : -1;
+    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).loffs && k < PLOC(i).nlocals) ? PLOC(i).loffs[k] : -1;
     return -1;
 }
-int rt_proc_nlocals(const char *name) { if (!name) return 0; for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return g_proc_loc[i].nlocals; return 0; }
-const char *rt_proc_lname(const char *name, int k) { if (!name) return (const char *)0; for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return (g_proc_loc[i].lnames && k >= 0 && k < g_proc_loc[i].nlocals) ? g_proc_loc[i].lnames[k] : (const char *)0; return (const char *)0; }
+int rt_proc_nlocals(const char *name) { if (!name) return 0; for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return PLOC(i).nlocals; return 0; }
+const char *rt_proc_lname(const char *name, int k) { if (!name) return (const char *)0; for (int i = 0; i < (int)g_proc_loc.len;
+    i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).lnames && k >= 0 && k < PLOC(i).nlocals) ? PLOC(i).lnames[k] : (const char *)0;
+    return (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_nformals(const char *name)
 {
@@ -677,8 +667,8 @@ int rt_proc_nformals(const char *name)
 void rt_proc_set_pname(const char *name, int k, const char *pname)
 {
     rt_proc_t *p = rt_proc_find(name);
-    if (!p || k < 0 || k >= CALL_ARGS_MAX) return;
-    if (!p->pnames) { const char **v = (const char **)ct_zalloc((size_t)CALL_ARGS_MAX, sizeof(const char *)); if (!v) return; p->pnames = v; p->pnames_owned = 1; }
+    if (!p || k < 0 || k >= p->nparams) return;
+    if (!p->pnames) { const char **v = (const char **)ct_zalloc((size_t)p->nparams, sizeof(const char *)); if (!v) return; p->pnames = v; p->pnames_owned = 1; }
     if (!p->pnames_owned) return;
     ((const char **)p->pnames)[k] = pname;
 }
@@ -808,11 +798,15 @@ void rt_call_proc(const char *name, int nargs)
     (void)nargs;
     STACKLESS_ABORT("rt_call_proc");
 }
-DESCR_t g_call_args[CALL_ARGS_MAX];
+gv_t g_call_args;
+void rt_call_args_need(int n) { uint64_t w = (uint64_t)(n > 8 ? n : 8); gv_reserve(&g_call_args, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), w, "g_call_args"); }
+void rt_call_args_clear_from(int n) { DESCR_t *a = CALL_ARGS; for (uint32_t i = (uint32_t)(n < 0 ? 0 : n); a && i < g_call_args.cap; i++) memset(&a[i], 0, sizeof(DESCR_t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_arg_stage(int idx, DESCR_t v)
 {
-    if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
+    if (idx < 0) return;
+    rt_call_args_need(idx + 1);
+    CALL_ARGS[idx] = v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi)
@@ -820,14 +814,14 @@ int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi)
     extern DESCR_t rt_deref(DESCR_t d);
     int r = 1;
     if (nargs <= 0) r = 1;
-    else if (nargs > CALL_ARGS_MAX) r = 0;
+    else if ((uint32_t)nargs > g_call_args.cap) r = 0;
     else for (int i = 0; i < nargs; i++) {
-        DESCR_t v = g_call_args[i];
+        DESCR_t v = CALL_ARGS[i];
         DESCR_t chain[5]; int nch = 0;
         chain[nch++] = v;
         for (int hop = 0; hop < 4 && v.v == DT_N; hop++) { v = rt_deref(v); if (nch < 5) chain[nch++] = v; }
-        if (v.v == DT_I || v.v == DT_R || (v.v == DT_SNUL && nch == 1)) { g_call_args[i] = v; continue; }
-        if (v.v == DT_SNUL) { void * cell = chain[nch - 2].ptr; if (cell && cell >= frame_lo && cell < frame_hi) { r = 0; break; } g_call_args[i] = chain[nch - 2]; continue; }
+        if (v.v == DT_I || v.v == DT_R || (v.v == DT_SNUL && nch == 1)) { CALL_ARGS[i] = v; continue; }
+        if (v.v == DT_SNUL) { void * cell = chain[nch - 2].ptr; if (cell && cell >= frame_lo && cell < frame_hi) { r = 0; break; } CALL_ARGS[i] = chain[nch - 2]; continue; }
         int unsafe = 0;
         for (int k = 0; k < nch; k++) { void *cp = chain[k].ptr; if (cp && cp >= frame_lo && cp < frame_hi) { unsafe = 1; break; } }
         if (unsafe) { r = 0; break; }
@@ -841,16 +835,16 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
     extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
-    int npc = p->nparams; if (npc > CALL_ARGS_MAX) npc = CALL_ARGS_MAX;
+    int npc = p->nparams; rt_call_args_need(npc > nargs ? npc : nargs);
     if (p->is_variadic && npc > 0) {
         int fixed = npc - 1;
-        for (int i = 0; i < fixed; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = (i < nargs) ? g_call_args[i] : NULVCL;
+        for (int i = 0; i < fixed; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = (i < nargs) ? CALL_ARGS[i] : NULVCL;
         int rest = nargs - fixed; if (rest < 0) rest = 0;
-        DESCR_t *tail = rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0;
+        DESCR_t *tail = rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0;
         *(DESCR_t *)(fb + 16 * (fixed + 1)) = (p->rest_kind == 2) ? rt_make_nested_agg(tail, rest) : p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
         return;
     }
-    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
+    for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = CALL_ARGS[i];
     for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL;
     if (p->named_rest > 0 && p->named_rest <= npc) { DESCR_t *slot = (DESCR_t *)(fb + 16 * p->named_rest); if (slot->v == NULVCL.v && slot->i == NULVCL.i) { char *e = (char *)rt_wsb_alloc(1); e[0] = '\0'; *slot = STRVAL(e); } }
 }
@@ -893,6 +887,7 @@ __asm__(
 "  addq $8, %rcx\n"
 "  subq %rcx, %rsp\n"
 "  movq g_call_args@GOTPCREL(%rip), %r10\n"
+"  movq (%r10), %r10\n"
 "  xorq %rdi, %rdi\n"
 "  cmpq $0, %rsi\n"
 "  jle 6f\n"
@@ -1063,7 +1058,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     rt_proc_t *p = rt_proc_find(name);
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn); }
         rt_c2bb_hit(frag ? "descr.frag" : "descr.named", name);
         return frag ? rt_proc_enter_frag(fn, (long)(p - g_rt_gen_procs)) : rt_proc_enter_named(fn, (long)(p - g_rt_gen_procs)); } }
     if (!p || !p->fn) {
@@ -1072,7 +1067,8 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return FAILDESCR;
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; rt_c2bb_hit("descr.tiny", name); return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
+        int _n = nargs < 0 ? 0 : nargs; rt_call_args_need(_n); rt_c2bb_hit("descr.tiny", name); return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
     int _nsb = rt_name_save_mark();
     long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
@@ -1099,7 +1095,7 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
 {
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *efn = rt_entry_resolve(el, &frag); if (!efn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn); }
         return rt_c2bb_word(p, (long)(uintptr_t)efn, 1, 0); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
@@ -1170,21 +1166,19 @@ void rt_proc_seal_alpha(const char * name, void * fn) {
     { extern void * bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name);
       void ** cell = (void **) bb_ab_fn_cell_ptr(cn); if (cell) *cell = fn; }
 }
-#define RT_INITIAL_MAX 8192
-static int64_t g_initial_fired[RT_INITIAL_MAX];
-static int     g_initial_fired_n = 0;
+static cv_t g_initial_fired;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_initial_fire(int64_t site)
 {
-    for (int i = 0; i < g_initial_fired_n; i++) if (g_initial_fired[i] == site) return 0;
-    if (g_initial_fired_n < RT_INITIAL_MAX) g_initial_fired[g_initial_fired_n++] = site;
+    for (uint32_t i = 0; i < g_initial_fired.len; i++) if (CV_AT(g_initial_fired, int64_t, i) == site) return 0;
+    CV_PUSH(g_initial_fired, int64_t) = site;
     return 1;
 }
 typedef struct rt_genp_s {
     struct rt_genp_s *next;
     uint64_t          regs[5];
     scrip_coctx_t     co;
-    DESCR_t           args[CALL_ARGS_MAX];
+    DESCR_t          *args;
     int               nargs;
     void             *fn;
     const char       *name;
@@ -1281,8 +1275,9 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         rt_genp_s *g = (rt_genp_s *)ct_zalloc(1, sizeof *g);
         if (!g) { if (hout) *hout = (void *)0; return FAILDESCR; }
         memcpy(g->regs, cregs, sizeof cregs);
-        g->nargs = nargs; if (g->nargs > CALL_ARGS_MAX) g->nargs = CALL_ARGS_MAX; if (g->nargs < 0) g->nargs = 0;
-        for (int i = 0; i < g->nargs; i++) g->args[i] = g_call_args[i];
+        g->nargs = nargs < 0 ? 0 : nargs; rt_call_args_need(g->nargs);
+        g->args = (DESCR_t *)rt_ws_alloc_descr((size_t)(g->nargs > 0 ? g->nargs : 1));
+        for (int i = 0; i < g->nargs; i++) g->args[i] = CALL_ARGS[i];
         g->fn = (void *)p->fn; g->name = p->name; g->done = 0;
         if (p->gen_region_ft > 0) g->region_ft = (long)p->gen_region_ft;
         scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
@@ -1417,7 +1412,7 @@ void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
     char *base = (char *)base_p;
     int nargs = nparams;
     int na = (nargs < nparams) ? nargs : nparams;
-    for (int i = 0; i < na; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
+    for (int i = 0; i < na; i++) { DESCR_t _v = ((uint32_t)i < g_call_args.cap) ? CALL_ARGS[i] : NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _v; }
     for (int i = na; i < nparams; i++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _n; }
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
@@ -1425,7 +1420,7 @@ void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
 void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
     { extern void rt_sxt_frames_present(void); rt_sxt_frames_present(); }
     char *base = (char *)base_p;
-    for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
+    for (int i = 0; i < nparams; i++) { DESCR_t _v = ((uint32_t)i < g_call_args.cap) ? CALL_ARGS[i] : NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _v; }
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1439,15 +1434,18 @@ void rt_gc_ws_roots(void)
         rt_gc_visit_descr(&g_name_save[i].old); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static unsigned char g_lvl_own[1 << 16];
+static cv_t g_lvl_own;
+#define LVL_OWN(L) CV_AT(g_lvl_own, unsigned char, (L))
+static inline unsigned char *rt_lvl_cell(int L) { if (L < 0) return (unsigned char *)0; if ((uint32_t)L >= g_lvl_own.cap) cv_reserve(&g_lvl_own, 1, (uint64_t)L + 1, "g_lvl_own"); return &LVL_OWN(L); }
 static inline __attribute__((always_inline)) void rt_lvl_open(int own) {
-    int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 2) | (own ? 1 : 0)); else own = 0;
+    int L = rt_k_level; { unsigned char *c = rt_lvl_cell(L); if (c) *c = (unsigned char)((*c & 2) | (own ? 1 : 0)); else own = 0; }
     if (!own) { rt_k_level++; rt_lvl_retire(); } rt_k_level_mirror();
 }
-static inline __attribute__((always_inline)) void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 1)) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
+static inline __attribute__((always_inline)) void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && (uint32_t)L < g_lvl_own.cap && (LVL_OWN(L) & 1)) { LVL_OWN(L) = 0;
+    return; } rt_k_level--; rt_k_level_mirror(); }
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
-static inline __attribute__((always_inline)) void rt_lvl_park_wn(int wn) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = (unsigned char)((g_lvl_own[L] & 1) | (wn ? 2 : 0)); }
-static inline __attribute__((always_inline)) int rt_lvl_parked_wn(void) { int L = rt_k_level; return (L >= 0 && L < (1 << 16) && (g_lvl_own[L] & 2)) ? 1 : 0; }
+static inline __attribute__((always_inline)) void rt_lvl_park_wn(int wn) { int L = rt_k_level; { unsigned char *c = rt_lvl_cell(L); if (c) *c = (unsigned char)((*c & 1) | (wn ? 2 : 0)); } }
+static inline __attribute__((always_inline)) int rt_lvl_parked_wn(void) { int L = rt_k_level; return (L >= 0 && (uint32_t)L < g_lvl_own.cap && (LVL_OWN(L) & 2)) ? 1 : 0; }
 int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
     rt_proc_resolve_cells(p);
@@ -1523,11 +1521,17 @@ DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_idx(idx
 _Static_assert(sizeof(long) == 8, "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the idx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
 _Static_assert(sizeof(long) == 8, "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; parking the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
 static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn);
-#define RT_DC_FNS_MAX 8192
-static void *g_rt_dc_fns_store[RT_DC_FNS_MAX];
+#define RT_DC_CHUNK 64
+static cv_t g_rt_dc_chunks;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void **rt_pl_dc_slot(long idx) { return (idx >= 0 && idx < RT_DC_FNS_MAX) ? &g_rt_dc_fns_store[idx] : (void **)0; }
-void rt_proc_set_dcfn(const char *name, void *fp) { int i = name ? rt_proc_hash_lookup(name) : -1; if (i >= 0 && i < RT_DC_FNS_MAX) g_rt_dc_fns_store[i] = fp; }
+void **rt_pl_dc_slot(long idx) {
+    if (idx < 0) return (void **)0;
+    { uint64_t ci = (uint64_t)idx / RT_DC_CHUNK; void **ch;
+      if (ci >= g_rt_dc_chunks.len) { cv_reserve(&g_rt_dc_chunks, (uint32_t)sizeof(void **), ci + 1, "g_rt_dc_chunks"); g_rt_dc_chunks.len = (uint32_t)(ci + 1); }
+      ch = CV_AT(g_rt_dc_chunks, void **, ci); if (!ch) { ch = (void **)ct_zalloc((size_t)RT_DC_CHUNK, sizeof(void *)); CV_AT(g_rt_dc_chunks, void **, ci) = ch; }
+      return &ch[(size_t)idx % RT_DC_CHUNK]; }
+}
+void rt_proc_set_dcfn(const char *name, void *fp) { int i = name ? rt_proc_hash_lookup(name) : -1; { void **sl = rt_pl_dc_slot(i); if (sl) *sl = fp; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dc_ok(const char *name, int nargs)
 {
@@ -1535,7 +1539,7 @@ int rt_pl_dc_ok(const char *name, int nargs)
     if (off) return 0;
     if (name && strncmp(name, "LBL__", 5) == 0) return 0;
     { int i = name ? rt_proc_hash_lookup(name) : -1;
-      if (i < 0 || i >= RT_DC_FNS_MAX) return 0;
+      if (i < 0) return 0;
       { rt_proc_t *p = &g_rt_gen_procs[i];
         return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && (p->nformals > 0 ? p->nformals : p->nparams) == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
 }
@@ -1735,24 +1739,23 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
     int fbytes = (int)(PROC_FRAME_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = nargs; i < _np; i++) g_call_args[i] = NULVCL; }
+    { int _np = p->nparams; rt_call_args_need(_np > nargs ? _np : nargs); for (int i = nargs; i < _np; i++) CALL_ARGS[i] = NULVCL; }
     { static int _va = -1; if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
       if (_va && p->is_variadic && p->jmp_entry) {
         extern DESCR_t rt_make_list(DESCR_t *args, int nargs); extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs); extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
-        int npc = p->nparams; if (npc > CALL_ARGS_MAX) npc = CALL_ARGS_MAX;
+        int npc = p->nparams;
         if (npc > 0) { int fixed = npc - 1; int rest = nargs - fixed; if (rest < 0) rest = 0;
-            for (int i = nargs; i < fixed; i++) g_call_args[i] = NULVCL;
-            DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
-            g_call_args[fixed] = _tail; } } }
-    { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; if (_tn > CALL_ARGS_MAX) _tn = CALL_ARGS_MAX; rt_trace_event_args(TRK_CALL, p->name, g_call_args, _tn, NULVCL, g_stno); } }
+            for (int i = nargs; i < fixed; i++) CALL_ARGS[i] = NULVCL;
+            DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
+            CALL_ARGS[fixed] = _tail; } } }
+    { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); } }
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
-    if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    for (int i = 0; i < nargs; i++) g_call_args[i] = args ? args[i] : NULVCL;
+    if (nargs < 0) nargs = 0; rt_call_args_need(nargs);
+    for (int i = 0; i < nargs; i++) CALL_ARGS[i] = args ? args[i] : NULVCL;
     if (p->jmp_entry) {
         (void)rt_proc_call_prologue_lex(p, nargs, wn);
         rt_c2bb_hit("c_lex.enter", p->name);
@@ -1769,7 +1772,7 @@ static long rt_proc_call_open_p(rt_proc_t *p, int nargs)
 {
     if (!p || !p->fn) return 0;
     int wn = rt_g_want_name; rt_g_want_name = 0;
-    if (p->dyn_scope) return (long)rt_proc_call_prologue(p, g_call_args, nargs, wn);
+    if (p->dyn_scope) return (long)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn);
     return (long)rt_proc_call_prologue_lex(p, nargs, wn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1802,7 +1805,7 @@ void *rt_proc_call_open_det0(long idx)
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
-      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 0; i < _np; i++) g_call_args[i] = NULVCL; }
+      { int _np = p->nparams; rt_call_args_need(_np); for (int i = 0; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 0, wn);
         return (void *)p->fn; } }
@@ -1813,8 +1816,7 @@ void *rt_proc_call_open_det1(long idx, DESCR_t *a0)
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
-      g_call_args[0] = *a0;
-      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 1; i < _np; i++) g_call_args[i] = NULVCL; }
+      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; for (int i = 1; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 1, wn);
         return (void *)p->fn; } }
@@ -1825,8 +1827,7 @@ void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1)
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
-      g_call_args[0] = *a0; g_call_args[1] = *a1;
-      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 2; i < _np; i++) g_call_args[i] = NULVCL; }
+      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; for (int i = 2; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 2, wn);
         return (void *)p->fn; } }
@@ -1837,8 +1838,7 @@ void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2)
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
-      g_call_args[0] = *a0; g_call_args[1] = *a1; g_call_args[2] = *a2;
-      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 3; i < _np; i++) g_call_args[i] = NULVCL; }
+      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; for (int i = 3; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 3, wn);
         return (void *)p->fn; } }
@@ -1849,8 +1849,7 @@ void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DE
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
-      g_call_args[0] = *a0; g_call_args[1] = *a1; g_call_args[2] = *a2; g_call_args[3] = *a3;
-      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 4; i < _np; i++) g_call_args[i] = NULVCL; }
+      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; CALL_ARGS[3] = *a3; for (int i = 4; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 4, wn);
         return (void *)p->fn; } }
@@ -1879,16 +1878,16 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     if (!name) return FAILDESCR;
     { rt_proc_t *pd = rt_proc_find(name);
       if (pd && !pd->fn && pd->dyn_scope) {
-          int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
-          for (int i = 0; i < _n; i++) g_call_args[i] = args[i];
+          int _n = nargs; if (_n < 0) _n = 0; rt_call_args_need(_n);
+          for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i];
           return RT_GC_CALLBACK(rt_call_proc_descr(name, _n)); } }
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     { void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
-      if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
-                 for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; rt_c2bb_hit("named.tiny", name); return rt_tiny_record_enter(afn, (long)_n); } }
+      if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs; if (_n < 0) _n = 0; rt_call_args_need(_n);
+                 for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i]; rt_g_want_name = _wn; rt_c2bb_hit("named.tiny", name); return rt_tiny_record_enter(afn, (long)_n); } }
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
     rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
     return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
@@ -2080,16 +2079,13 @@ typedef struct { const char *chars; int delta; } rt_cs_t;
 extern void flush_pending_captures(void);
 extern void reset_capture_registry(void);
 extern void clear_pending_flags(void);
-static void rt_register_cap(cap_t *c);
-#define RT_MAX_CAPTURES 256
-static cap_t *g_rt_cap_list[RT_MAX_CAPTURES];
-static int    g_rt_cap_count = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_args(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
-    for (int i = 0; i < CALL_ARGS_MAX; i++) rt_gc_visit_descr(&g_call_args[i]);
+    gv_gc_root(&g_call_args);
+    for (rt_genp_s *gp = g_genp_head; gp; gp = gp->next) if (gp->args) rt_gc_visit_raw((const char **)&gp->args);
     rt_gc_visit_descr(&g_prim_val);
     if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
     if (g_rt_gen_procs) { rt_gc_visit_raw((const char **)&g_rt_gen_procs);

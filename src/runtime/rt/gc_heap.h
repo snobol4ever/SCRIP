@@ -34,6 +34,12 @@ char *rt_str_alloc(long n);
 void *rt_ws_alloc_descr(size_t n);
 void *rt_wsb_alloc(size_t n);
 void *rt_wsb_realloc(void *p, size_t n);
+void *rt_gcheap_grow_block(void *p, uint16_t type, uint64_t n);
+typedef struct gv_s { void *p; uint32_t len, cap, esz; uint16_t kind; uint16_t pad; } gv_t;
+void  gv_reserve(gv_t *v, uint16_t kind, uint32_t esz, uint64_t need, const char *name);
+void *gv_push(gv_t *v, uint16_t kind, uint32_t esz, const char *name);
+void  gv_gc_root(gv_t *v);
+#define GV_AT(v, T, i) (((T *)(v).p)[i])
 void *rt_pl_struct_alloc(uint16_t type, size_t n);
 void *rt_pvec_alloc(size_t n);
 void *rt_pvec_realloc(void *p, size_t n);

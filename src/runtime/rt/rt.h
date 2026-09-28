@@ -2,6 +2,7 @@
 #ifndef RT_H
 #define RT_H
 #include <stdint.h>
+#include "gc_heap.h"
 struct IR_graph_t;
 #ifndef DESCR_T_DEFINED
 #define DESCR_T_DEFINED
@@ -117,7 +118,10 @@ DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals);
 void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals);
-extern DESCR_t g_call_args[];
+extern gv_t g_call_args;
+#define CALL_ARGS ((DESCR_t *)g_call_args.p)
+void rt_call_args_need(int n);
+void rt_call_args_clear_from(int n);
 int  rt_proc_is_registered(const char *name);
 int  rt_proc_has_native_fn(const char *name);
 void rt_proc_set_generator(const char *name, int is_gen);
