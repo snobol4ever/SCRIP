@@ -33,7 +33,7 @@ void rt_write_any_nl(DESCR_t d)
     { extern int fh_is_closed(int); if (fh_is_closed(1)) { extern int core_icn_error(int, DESCR_t); core_icn_error(213, FAILDESCR); return; } }
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     if (d.v == DT_I)       fprintf(stdout, "%lld\n", (long long)d.i);
-    else if (d.v == DT_R)  { char b[64]; rt_format_float(b, sizeof b, d.r); fprintf(stdout, "%s\n", b); }
+    else if (d.v == DT_R)  { extern int real_str_need(double r); char b[real_str_need(d.r)]; rt_format_float(b, sizeof b, d.r); fprintf(stdout, "%s\n", b); }
     else if (d.v == DT_FAIL) fputc('\n', stdout);
     else if (d.v == DT_DATA) { const char *s = rk_obj_stringify(d, 1); if (s) out_write_str(stdout, s); fputc('\n', stdout); }
     else if (d.v == DT_S && d.slen && d.slen != 0xFFFFFFFFu) {

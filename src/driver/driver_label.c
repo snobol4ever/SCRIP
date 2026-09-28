@@ -35,20 +35,21 @@ const char *define_spec_from_expr(tree_t *subj)
     tree_t *arg = subj->c[0];
     if (arg->t == TT_QLIT) return arg->v.sval;
     if (arg->t == TT_CAT || arg->t == TT_SEQ) {
-        static char flatbuf[1024];
+        size_t total = 0;
+        for (int i = 0; i < arg->n; i++) { tree_t *c = arg->c[i]; if (c && c->t == TT_QLIT && c->v.sval) total += strlen(c->v.sval); }
+        if (!total) return NULL;
+        char *flatbuf = (char *)ct_alloc(total + 1);
         size_t pos = 0;
-        flatbuf[0] = '\0';
-        for (int i = 0; i < arg->n && pos < sizeof(flatbuf)-1; i++) {
+        for (int i = 0; i < arg->n; i++) {
             tree_t *c = arg->c[i];
             if (c && c->t == TT_QLIT && c->v.sval) {
                 size_t clen = strlen(c->v.sval);
-                if (pos + clen >= sizeof(flatbuf)-1) break;
                 memcpy(flatbuf + pos, c->v.sval, clen);
                 pos += clen;
             }
         }
         flatbuf[pos] = '\0';
-        return pos ? flatbuf : NULL;
+        return flatbuf;
     }
     return NULL;
 }

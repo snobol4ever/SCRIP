@@ -4,6 +4,7 @@
 #include "coerce.h"
 #include "string_ops.h"
 #include "rt/gc_heap.h"
+#include "ct_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,23 +100,23 @@ DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *real_str(double r, char *buf, int bufsz) {
-    if (isnan(r)) { snprintf(buf, bufsz, "%s", "nan"); return buf; }
-    if (isinf(r)) { snprintf(buf, bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
+static int real_str_fmt(double r, char *buf, int bufsz) {
+    if (isnan(r)) return snprintf(buf, (size_t)bufsz, "%s", "nan") + 1;
+    if (isinf(r)) return snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-inf" : "inf") + 1;
     int neg = (r < 0.0);
     double ar = fabs(r);
-    if (ar == 0.0) { snprintf(buf, bufsz, "%s", "0."); return buf; }
+    if (ar == 0.0) return snprintf(buf, (size_t)bufsz, "%s", "0.") + 1;
     char sci[64];
     snprintf(sci, sizeof sci, "%.14e", ar);
-    char digits[40]; int nd = 0; int E = 0;
+    char digits[sizeof sci]; int nd = 0; int E = 0;
     const char *p = sci;
     if (*p >= '0' && *p <= '9') digits[nd++] = *p++;
-    if (*p == '.') { p++; while (*p >= '0' && *p <= '9' && nd < (int)sizeof digits - 1) digits[nd++] = *p++; }
+    if (*p == '.') { p++; while (*p >= '0' && *p <= '9') digits[nd++] = *p++; }
     if (*p == 'e' || *p == 'E') { p++; E = (int)strtol(p, (char **)0, 10); }
     while (nd > 1 && digits[nd - 1] == '0') nd--;
     digits[nd] = '\0';
     int lo = -1;
-    char out[80]; int o = 0;
+    char out[neg + nd + (E < 0 ? -E : E) + 2 + fmt_len("%+d", E + 1)]; int o = 0;
     if (neg) out[o++] = '-';
     if (E >= lo && E <= 14) {
         if (E >= 0) {
@@ -140,9 +141,10 @@ const char *real_str(double r, char *buf, int bufsz) {
         o += snprintf(out + o, sizeof out - (size_t)o, "%+d", E + 1);
     }
     out[o] = '\0';
-    snprintf(buf, bufsz, "%s", out);
-    return buf;
+    return snprintf(buf, (size_t)bufsz, "%s", out) + 1;
 }
+const char *real_str(double r, char *buf, int bufsz) { real_str_fmt(r, buf, bufsz); return buf; }
+int real_str_need(double r) { return real_str_fmt(r, (char *)0, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *icon_real_str(double r, char *buf, int bufsz) {
     if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "nan"); return buf; }

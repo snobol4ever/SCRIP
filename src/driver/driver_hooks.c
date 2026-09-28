@@ -45,9 +45,8 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
         if (_ft && nargs >= 1) return dat_field_get(name, args[0]);
         size_t _nlen = strlen(name);
         if (_nlen > 4 && strcmp(name + _nlen - 4, "_SET") == 0 && nargs >= 2) {
-            char _fname[128];
             size_t _flen = _nlen - 4;
-            if (_flen >= sizeof(_fname)) _flen = sizeof(_fname) - 1;
+            char _fname[_flen + 1];
             memcpy(_fname, name, _flen); _fname[_flen] = '\0';
             DESCR_t *_cell = data_field_ptr(_fname, args[1]);
             if (_cell) { *_cell = args[0]; return args[0]; }

@@ -2,32 +2,17 @@
 #include "driver_private.h"
 cv_t       call_stack_v;
 int        call_depth = 0;
-cv_t       init_tab_v;
-int        init_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void init_update_snapshot(char **snames, DESCR_t *svals, int nsaved) {
-    for (int ei = 0; ei < init_n; ei++) {
-        InitEnt *ent = &init_tab[ei];
-        for (int si = 0; si < ent->ns; si++) {
-            for (int ni = 0; ni < nsaved; ni++) {
-                if (snames[ni] && strcmp(snames[ni], ent->s[si].nm) == 0) {
-                    ent->s[si].val = NV_GET_fn(ent->s[si].nm);
-                    break;
-                }
-            }
-        }
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void shadow_set_cur(const char *name, DESCR_t val) {
     if (call_depth <= 0) return;
     CallFrame *fr = &call_stack[call_depth - 1];
     for (int j = 0; j < fr->nshadow; j++)
         if (strcmp(fr->shadow[j].name, name) == 0) { fr->shadow[j].val = val; return; }
-    { if (fr->nshadow >= fr->shadow_cap) { int nc = fr->shadow_cap ? fr->shadow_cap * 2 : 8; fr->shadow = (ShadowEntry *)ct_grow(fr->shadow, (size_t)nc * sizeof(ShadowEntry)); fr->shadow_cap = nc; }
-        strncpy(fr->shadow[fr->nshadow].name, name, 63);
-        fr->shadow[fr->nshadow].name[63] = '\0';
+    { if (fr->nshadow >= fr->shadow_cap) { int nc = fr->shadow_cap ? fr->shadow_cap * 2 : 8; fr->shadow = (ShadowEntry *)ct_grow(fr->shadow, (size_t)nc * sizeof(ShadowEntry));
+            memset(&fr->shadow[fr->shadow_cap], 0, (size_t)(nc - fr->shadow_cap) * sizeof(ShadowEntry)); fr->shadow_cap = nc; }
+        { ShadowEntry *se = &fr->shadow[fr->nshadow]; size_t nl = strlen(name) + 1;
+          if (se->name_cap < nl) { size_t nc = se->name_cap * 2 > nl ? se->name_cap * 2 : nl; se->name = (char *)ct_grow(se->name, nc); se->name_cap = nc; }
+          memcpy(se->name, name, nl); }
         fr->shadow[fr->nshadow].val = val;
         fr->nshadow++;
     }
@@ -46,8 +31,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
 {
     int np = FUNC_NPARAMS_fn(fname);
     int nl = FUNC_NLOCALS_fn(fname);
-    char *pnames[64]; if (np > 64) np = 64;
-    char *lnames[64]; if (nl > 64) nl = 64;
+    char *pnames[np > 0 ? np : 1];
+    char *lnames[nl > 0 ? nl : 1];
     for (int i = 0; i < np; i++) {
         const char *p = FUNC_PARAM_fn(fname, i);
         pnames[i] = p ? rt_heap_strdup_c(p) : rt_heap_strdup_c("");
@@ -56,10 +41,9 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
         const char *l = FUNC_LOCAL_fn(fname, i);
         lnames[i] = l ? rt_heap_strdup_c(l) : rt_heap_strdup_c("");
     }
-    char ufname[128];
+    char ufname[strlen(fname) + 1];
     {
         size_t flen = strlen(fname);
-        if (flen >= sizeof(ufname)) flen = sizeof(ufname)-1;
         for (size_t i = 0; i <= flen; i++) ufname[i] = fname[i];
     }
     const char *entry_pre = FUNC_ENTRY_fn(fname);
@@ -91,8 +75,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     monitor_quiet_depth--;
     cv_reserve(&call_stack_v, (uint32_t)sizeof(CallFrame), (uint64_t)call_depth + 1, "call_stack"); int fi = call_depth++;
     kw_fnclevel = call_depth;
-    strncpy(call_stack[fi].fname, retname, sizeof(call_stack[fi].fname)-1);
-    call_stack[fi].fname[sizeof(call_stack[fi].fname)-1] = '\0';
+    char fname_st[strlen(retname) + 1]; memcpy(fname_st, retname, sizeof fname_st);
+    call_stack[fi].fname = fname_st;
     call_stack[fi].nshadow = 0;
     for (int i = 0; i < np; i++)
         if (_is_pat_fnc_name(pnames[i]))
@@ -151,7 +135,6 @@ fn_done:
     Ω    = saved_Ω;
     Σlen = saved_Σlen;
     comm_return(retname, retval);
-    init_update_snapshot(snames, svals, nsaved);
     monitor_quiet_depth++;
     for (int i = 0; i < nsaved; i++)
         NV_SET_fn(snames[i], svals[i]);

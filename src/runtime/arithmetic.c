@@ -5,6 +5,7 @@
 #include "rt/rt.h"
 #include "rt/gc_heap.h"
 #include "rk_opname.h"
+#include "ct_arena.h"
 #include "builtins/gen.h"
 #include "builtins/gen_runtime.h"
 #include "rt/prolog_atom.h"
@@ -44,9 +45,9 @@ static const char *rk_binop_opstr(int op) {
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (a.v != DT_DATA && b.v != DT_DATA) return 0;
     const char *ops = rk_binop_opstr(op); if (!ops) return 0;
-    char base[96]; rk_op_canon_base("infix", ops, base, sizeof base);
+    char base[strlen("infix") + 2 * strlen(ops) + 3]; rk_op_canon_base("infix", ops, base, sizeof base);
     extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int i);
-    char prefix[112]; int pl = snprintf(prefix, sizeof prefix, "%s$", base);
+    char prefix[fmt_len("%s$", base)]; int pl = snprintf(prefix, sizeof prefix, "%s$", base);
     int found = 0, pcount = rt_proc_enum_count();
     for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) { found = 1; break; } }
     if (!found) return 0;

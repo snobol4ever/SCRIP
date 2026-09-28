@@ -22,8 +22,6 @@ void rt_zdp_report(unsigned long rsp, long op, long node, unsigned long expected
 {
     fprintf(stderr, "[ZDPANCHOR] op=%ld node=%ld expected=%lu actual=%lu delta=%ld\n", op, node, expected, rsp, (long)(expected - rsp));
 }
-#define ZDP_RBP_TAB_N 65536
-__attribute__((visibility("hidden"))) unsigned long g_zdp_rbp_tab[ZDP_RBP_TAB_N * 2];
 unsigned long g_zdp_rbp_violations = 0UL;
 unsigned long g_zdp_rbp_nobank     = 0UL;
 void rt_bomb(const char *msg);
@@ -124,7 +122,8 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {
             g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
-              { char b[256]; snprintf(b, sizeof b, "ZSM node=%lu FSM ILLEGAL: gamma with no live α (state=%s) -- success transfer from a box that was never entered", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH)); rt_bomb(b); } }
+              { const char *zf = "ZSM node=%lu FSM ILLEGAL: gamma with no live α (state=%s) -- success transfer from a box that was never entered";
+                  char b[fmt_len(zf, node, zsm_sn(e->node == node ? e->state : ZSM_FRESH))]; snprintf(b, sizeof b, zf, node, zsm_sn(e->node == node ? e->state : ZSM_FRESH)); rt_bomb(b); } }
             else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] γ· node=%lu with no live α (state=%s) -- counted (frameless arm)\n", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH));
         }
         return;
@@ -133,7 +132,8 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         if (rsp != e->rsp_a && zsm_bskew_on()) { fprintf(stderr, "[ZSM-BSKEW] β%s node=%lu op=%ld(%s) rsp at β differs from α by %ld bytes (α rsp=0x%lx β rsp=0x%lx) st=%ld\n", fl ? "·" : "", node, zop, bb_op_name((IR_e)zop), (long)(e->rsp_a - rsp), e->rsp_a, rsp, (long)kw_stcount); }
         if (e->state != ZSM_SUSPENDED) { g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
-              { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma", node, zsm_sn(e->state)); rt_bomb(b); } }
+              { const char *zf = "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma";
+                  char b[fmt_len(zf, node, zsm_sn(e->state))]; snprintf(b, sizeof b, zf, node, zsm_sn(e->state)); rt_bomb(b); } }
             else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] β· node=%lu while state=%s -- counted (frameless arm)\n", node, zsm_sn(e->state)); }
         if (rbp != e->F) { g_zsm_violations++;
             if (!fl) { zsm_dump();
@@ -146,7 +146,8 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         g_zsm_gamma_events++;
         if (e->state != ZSM_LIVE && e->state != ZSM_RESUMED) { g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
-              { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FSM ILLEGAL: gamma while state=%s (need LIVE or RESUMED) -- success transfer from a box not currently entered", node, zsm_sn(e->state)); rt_bomb(b); } }
+              { const char *zf = "ZSM γ node=%lu FSM ILLEGAL: gamma while state=%s (need LIVE or RESUMED) -- success transfer from a box not currently entered";
+                  char b[fmt_len(zf, node, zsm_sn(e->state))]; snprintf(b, sizeof b, zf, node, zsm_sn(e->state)); rt_bomb(b); } }
             else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] γ· node=%lu while state=%s -- counted (frameless arm)\n", node, zsm_sn(e->state)); }
         if (rbp != e->F) { g_zsm_violations++;
             if (!fl) { zsm_dump();

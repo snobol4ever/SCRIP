@@ -142,7 +142,7 @@ void set_and_trace(const char *name, DESCR_t val) {
 trace_hook:
     if (call_depth > 0) {
         CallFrame *fr = &call_stack[call_depth - 1];
-        if (name && fr->fname[0] && strcmp(name, fr->fname) == 0) {
+        if (name && fr->fname && fr->fname[0] && strcmp(name, fr->fname) == 0) {
             fr->retval_cell = val;
             fr->retval_set  = 1;
         }
