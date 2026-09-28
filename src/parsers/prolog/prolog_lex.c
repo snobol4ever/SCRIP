@@ -147,14 +147,14 @@ static Token scan_quoted_atom(Lexer *lx) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_string(Lexer *lx) {
+static Token scan_string_q(Lexer *lx, char q, TkKind kind) {
     int line = lx->line;
     advance(lx);
     char *buf = NULL; int len = 0, cap = 0;
     for (;;) {
         char c = cur(lx);
         if (c == '\0') return make_err(line, "unterminated string");
-        if (c == '"') { advance(lx); if (cur(lx) == '"') { buf_push(&buf, &len, &cap, '"'); advance(lx); continue; } break; }
+        if (c == q) { advance(lx); if (cur(lx) == q) { buf_push(&buf, &len, &cap, q); advance(lx); continue; } break; }
         if (c == '\\') {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
@@ -167,9 +167,13 @@ static Token scan_string(Lexer *lx) {
         }
     }
     if (!buf) buf = ct_strdup("");
-    Token t = make_tok(TK_STRING, buf, line);
+    Token t = make_tok(kind, buf, line);
     return t;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static Token scan_string(Lexer *lx) { return scan_string_q(lx, '"', TK_STRING); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static Token scan_bqstring(Lexer *lx) { return scan_string_q(lx, '`', TK_BQSTRING); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_number(Lexer *lx) {
     int line = lx->line;
@@ -240,7 +244,13 @@ static Token scan_number(Lexer *lx) {
             return t;
         }
     }
-    if (cur(lx) == '.' && isdigit((unsigned char)peek1(lx))) {
+    if ((cur(lx) == 'e' || cur(lx) == 'E') && buf && len > 0 && (isdigit((unsigned char)peek1(lx)) || ((peek1(lx) == '+' || peek1(lx) == '-') && isdigit((unsigned char)lx->src[lx->pos + 2])))) {
+        is_float = 1;
+        buf_push(&buf, &len, &cap, advance(lx));
+        if (cur(lx) == '+' || cur(lx) == '-') buf_push(&buf, &len, &cap, advance(lx));
+        while (isdigit((unsigned char)cur(lx))) buf_push(&buf, &len, &cap, advance(lx));
+    }
+    else if (cur(lx) == '.' && isdigit((unsigned char)peek1(lx))) {
         is_float = 1;
         buf_push(&buf, &len, &cap, advance(lx));
         while (isdigit((unsigned char)cur(lx)))
@@ -335,6 +345,7 @@ static Token lexer_next_raw(Lexer *lx) {
     if (c == '\0') return make_tok(TK_EOF, ct_strdup(""), line);
     if (c == '\'') return scan_quoted_atom(lx);
     if (c == '"') return scan_string(lx);
+    if (c == '`') return scan_bqstring(lx);
     { int uadv, uk = ((unsigned char)c >= 0x80) ? prolog_u_letter(lx->src + lx->pos, &uadv) : 0;
       if (isupper((unsigned char)c) || uk == 1) {
         char *buf = NULL; int len = 0, cap = 0, n;

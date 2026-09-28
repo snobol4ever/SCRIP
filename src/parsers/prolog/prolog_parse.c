@@ -235,7 +235,7 @@ static void register_op_directive(tree_t *goal) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int prefix_arg_starts(Token pk) {
     switch (pk.kind) {
-        case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
+        case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_BQSTRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
         case TK_ATOM: case TK_OP: return (find_prefix(pk.text) != NULL) || (find_binop(pk.text) == NULL);
         default: return 0;
     }
@@ -504,6 +504,12 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
         case TK_FLOAT: {
             tree_t *n = ast_node_new(TT_FLIT);
             n->v.dval = tk.fval;
+            return pt_stamp(n, ln);
+        }
+        case TK_BQSTRING: {
+            tree_t *n = ast_node_new(TT_MAKELIST);
+            n->v.ival = 0;
+            for (const unsigned char *q = (const unsigned char *)tk.text; *q; q++) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; ast_push(n, e); }
             return pt_stamp(n, ln);
         }
         case TK_STRING: {

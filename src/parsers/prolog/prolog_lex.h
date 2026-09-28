@@ -9,6 +9,7 @@ typedef enum {
     TK_INT,
     TK_FLOAT,
     TK_STRING,
+    TK_BQSTRING,
     TK_LPAREN,
     TK_RPAREN,
     TK_LBRACKET,
