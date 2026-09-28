@@ -18,19 +18,16 @@ static inline int stf() { return _.flat_stmt_frame; }
 static inline int mon_vars_on() { return x86_trace_hooks_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string mon_var_trace_tap() {
-    const char * srcfile = stmt_src_get_file();
-    if (!srcfile) srcfile = "";
-    std::string fl = LS(1);
     return x86("push", "rax") + x86("push", "rax") + x86("push", "rdi") + x86("push", "rsi")
          + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9")
          + x86("push", "r10") + x86("push", "r11")
          + x86("mov", "rsi", "rax")
          + x86("mov", "rdi", ROQ(0))
          + x86("directive", ".section .rodata")
-         + x86("directive", (fl + ": .string \"" + srcfile + "\"").c_str())
+         + x86("directive", (LS(1) + ": .string \"" + (stmt_src_get_file() ? stmt_src_get_file() : "") + "\"").c_str())
          + x86("directive", ".section .text")
          + x86("directive", ".intel_syntax noprefix")
-         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)srcfile, fl.c_str())
+         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(stmt_src_get_file() ? stmt_src_get_file() : ""), LS(1).c_str())
          + x86("mov", "r8", (long)_.op_line)
          + x86("mov", "r9", (long)_.op_stno)
          + x86("call", "comm_var", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, DESCR_t, const char *, long, long long))comm_var)
