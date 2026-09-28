@@ -435,6 +435,9 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                             opts_tr = ast_node_new(TT_QLIT);
                             opts_tr->v.sval = ct_strdup("[]");
                         }
+                        if (opts_tr->t != TT_MAKELIST && !((opts_tr->t == TT_QLIT || opts_tr->t == TT_NAME || opts_tr->t == TT_FNC) && opts_tr->v.sval && !strcmp(opts_tr->v.sval, "[]") && opts_tr->n == 0)) {
+                            tree_t *one = ast_node_new(TT_MAKELIST); one->v.ival = 0; expr_add_child(one, opts_tr); opts_tr = one;
+                        }
                         tree_t *suite_tr = ast_node_new(TT_QLIT);
                         suite_tr->v.sval = ct_strdup(plunit_suite[clause_idx]);
                         tree_t *pj_head = ast_node_new(TT_FNC);
