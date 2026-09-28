@@ -4154,12 +4154,26 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 else known = 0; }
             if (!known) { rk_tap_proclaim(0, d, ""); char b[256]; snprintf(b, sizeof b, "cmp-ok: comparator '%s' is not implemented -- reported as a FAILURE, never a pass", cop); rk_tap_diag(b); *out = INTVAL(0); return 1; }
             rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "is_deeply") && nargs >= 2) {
+            DESCR_t g = args[0], e = args[1]; int c;
+            int gn = IS_INT_fn(g) || IS_REAL_fn(g) || g.v == DT_BIG, en = IS_INT_fn(e) || IS_REAL_fn(e) || e.v == DT_BIG;
+            if (gn || en) c = gn && en && ((IS_INT_fn(g) && IS_INT_fn(e) && g.i == e.i) || (IS_REAL_fn(g) && IS_REAL_fn(e) && g.r == e.r)
+                                   || (g.v == DT_BIG && e.v == DT_BIG && !strcmp(to_cstring(g, sb1, sizeof sb1), to_cstring(e, sb2, sizeof sb2))));
+            else if (g.v == DT_BOOL || e.v == DT_BOOL || g.v == DT_ORDER || e.v == DT_ORDER) c = g.v == e.v && g.i == e.i;
+            else if (rk_typeobj_name(g) || rk_typeobj_name(e)) c = rk_typeobj_name(g) && rk_typeobj_name(e) && !strcmp(rk_typeobj_name(g), rk_typeobj_name(e));
+            else if (g.v == DT_SNUL || e.v == DT_SNUL) c = g.v == e.v;
+            else { const char *x = to_cstring(g, sb1, sizeof sb1), *y = to_cstring(e, sb2, sizeof sb2); c = !strcmp(rk_a_body(x ? x : ""), rk_a_body(y ? y : "")); }
+            const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : "";
+            rk_tap_proclaim(c, d, "");
+            if (!c) { char b[1200]; snprintf(b, sizeof b, "expected: %s", rk_list_as_str(to_cstring(e, sb2, sizeof sb2))); rk_tap_diag(b);
+                      snprintf(b, sizeof b, "     got: %s", rk_list_as_str(to_cstring(g, sb1, sizeof sb1))); rk_tap_diag(b); }
+            *out = INTVAL(c); return 1; }
         if (!strcmp(op, "isa_ok") && nargs >= 2) {
             const char *want = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : args[1].v == DT_SNUL ? "Nil" : to_cstring(args[1], sb2, sizeof sb2);
             int c = rk_type_isa(rk_value_type(args[0]), want);
             char dd[600]; const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : (snprintf(dd, sizeof dd, "The object is-a '%s'", want ? want : ""), dd);
             rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
-        { static const struct { const char *nm; int di; } rk_unimpl[] = { { "is_deeply", 2 }, { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
+        { static const struct { const char *nm; int di; } rk_unimpl[] = { { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
           for (int i = 0; rk_unimpl[i].nm; i++) if (!strcmp(op, rk_unimpl[i].nm)) {
               const char *d = (nargs > rk_unimpl[i].di) ? to_cstring(args[rk_unimpl[i].di], msg, sizeof msg) : "";
               rk_tap_proclaim(0, d, "");
