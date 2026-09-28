@@ -251,8 +251,8 @@ Command  = *func_cmd | *rec_cmd | *blank;
 Compiland = nPush() POS(0) ARBNO(Command) RPOS(0) reduce(Parse, nTop_count) nPop();
 InitCounter();
 InitStack();
-Src = '';
-while (Line = INPUT) Src = Src Line nl;
+INPUT(.INPUT, 9, '[-f0 -r16777215]');
+Src = INPUT;
 if (Src ? Compiland) {
     ptree = Pop();
     if (DIFFER(ptree)) {

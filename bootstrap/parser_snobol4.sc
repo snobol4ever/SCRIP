@@ -193,7 +193,7 @@ Comment     =  '*' BREAK(nl);
 /* PST-SN4-2 (2026-05-16): Stmt redesigned to emit TT_STMT directly as a pure syntax tree.
    Children in source order: TT_LABEL? subject? TT_PAT? TT_EQ? replacement? goto*.
    No post-parse cooking.  Counter tracks child count for reduce('TT_STMT', nTop()). */
-StmtLabel   =  shift(BREAK(' ' tab nl ';'), "'TT_LABEL'");
+StmtLabel   =  shift(BREAK(' ' tab nl ';') | ARBNO(NOTANY(' ' tab nl ';')) RPOS(0), "'TT_LABEL'");
 StmtRepl    =  $'=' $' ' *Expr reduce("'TT_EQ'", 2)
             |  $'  ' '=' $' ' shift(epsilon, "'TT_EQ'");
 StmtGoto    =  FENCE(*Goto nInc() nInc() | epsilon);
@@ -214,22 +214,21 @@ Stmt        =  nPush()
                reduce("'TT_STMT'", 'nTop()')
                nPop()
                $' ';
-Commands    =  *Command FLUSH FENCE(*Commands | epsilon);
+Commands    =  *Command FENCE(*Commands | epsilon);
 Command     =  FENCE(
                   shift(*Comment, "'TT_COMMENT'") nInc() reduce("'TT_COMMENT'", 1) nl
                |  shift(*Control, "'TT_CONTROL'") nInc() reduce("'TT_CONTROL'", 1) (nl | ';')
-               |  *Stmt nInc() (nl | ';')
+               |  *Stmt nInc() (nl | ';' | RPOS(0))
                );
 Compiland   =  nPush()
-               POS(0) ARBNO(*Command) RPOS(0)
+               POS(0) ARBNO(*Command FLUSH) ('END' (ANY(' ' tab nl) | RPOS(0)) ARB | epsilon) RPOS(0)
                reduce(E_Parse, 'nTop()')
-               ('END' (' ' BREAK(nl) nl | nl) ARBNO(BREAK(nl) nl) | epsilon)
                nPop();
 /* ==================================================================================================================== */
 InitCounter();
 InitStack();
-Src = '';
-while ((Line = INPUT)) { Src = Src Line nl; if (Line ? POS(0) 'END' (ANY(' ' tab) | RPOS(0))) break; }
+INPUT(.INPUT, 9, '[-f0 -r16777215]');
+Src = INPUT;
 if (Src ? Compiland) {
     /* SCT-fix: $'[' and $']' are OPSYN binary operators (Expr16) that override
      * SPITBOL's built-in array-indexing brackets.  Use ITEM(array, index) which

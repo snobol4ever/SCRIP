@@ -449,8 +449,8 @@ Compiland = ( nPush()
             );
 InitCounter();
 InitStack();
-Src = '';
-while (Line = INPUT) Src = Src Line nl ;
+INPUT(.INPUT, 9, '[-f0 -r16777215]');
+Src = INPUT;
 if (Src ? Compiland) {
     ptree = Pop();
     if (DIFFER(ptree)) {

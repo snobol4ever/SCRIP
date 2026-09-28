@@ -54,29 +54,15 @@ static void include_dirs_from_env(const char * path) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if defined(PARSER_LANG_SNOBOL4)
-static int is_end_line(const char * p, const char * lim) {
-    if (lim - p < 3 || strncmp(p, "END", 3) != 0) return 0;
-    const char * q = p + 3;
-    return q == lim || *q == '\n' || *q == ' ' || *q == '\t' || *q == '\r';
-}
-static int parse_snobol4_stream(char * src, size_t len, const char * path) {
-    int programs = 0, refused = 0;
-    char * p = src; char * lim = src + len;
-    while (p < lim) {
-        char * q = p; char * end = NULL;
-        while (q < lim) { char * nl = memchr(q, '\n', (size_t)(lim - q)); char * next = nl ? nl + 1 : lim; if (is_end_line(q, lim)) { end = next; break; } q = next; }
-        if (!end) end = lim;
-        FILE * mf = fmemopen(p, (size_t)(end - p), "r");
-        if (!mf) { fprintf(stderr, "%s: fmemopen failed\n", PARSER_NAME); return 2; }
-        sno_reset();
-        tree_t * ast = sno_parse_ast(mf, path, NULL);
-        fclose(mf);
-        programs++;
-        if (ast) { for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout); } else { puts("Parse Error"); refused++; }
-        p = end;
-    }
-    fprintf(stderr, "%s: %d program(s) at END boundaries, %d refused\n", PARSER_NAME, programs, refused);
-    return refused ? 1 : 0;
+static int parse_snobol4_program(char * src, size_t len, const char * path) {
+    FILE * mf = fmemopen(src, len, "r");
+    if (!mf) { fprintf(stderr, "%s: fmemopen failed\n", PARSER_NAME); return 2; }
+    sno_reset();
+    tree_t * ast = sno_parse_ast(mf, path, NULL);
+    fclose(mf);
+    if (!ast) { puts("Parse Error"); return 1; }
+    for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout);
+    return 0;
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -91,7 +77,7 @@ int main(int argc, char ** argv) {
     stmt_src_set_file(name);
     include_dirs_from_env(path);
 #if defined(PARSER_LANG_SNOBOL4)
-    return parse_snobol4_stream(src, len, name);
+    return parse_snobol4_program(src, len, name);
 #else
     tree_t * ast = NULL;
     PARSER_COMPILE(src, name, &ast);

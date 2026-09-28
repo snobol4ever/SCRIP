@@ -408,8 +408,8 @@ Compiland = nPush()
             nPop();
 InitCounter();
 InitStack();
-Src = '';
-while ((Line = INPUT)) Src = Src Line nl ;
+INPUT(.INPUT, 9, '[-f0 -r16777215]');
+Src = INPUT;
 /* SCT-pivot (2026-05-17): strip the trailing nl added by the loop. */
 if (GT(SIZE(Src), 0)) Src = SUBSTR(Src, 1, SIZE(Src) - 1);
 if (Src ? Compiland) {
