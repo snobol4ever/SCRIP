@@ -1562,7 +1562,9 @@ static long gc_collect_ex(void)
     if (pl_slot >= 0 && g_gc_nblk > 0) { pl_blk = g_gc_idx[g_gc_nblk - 1]; pl_addr = (char *)(pl_blk + 1); pl_save = rtccb[pl_slot]; rtccb[pl_slot] = (uint64_t)(uintptr_t)pl_addr; }
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_gc_rrng_n; i++) if (!g_gc_rrng[i].hi) pl_tr_gc_root_ball(g_gc_rrng[i].lo); }
     for (long i = 0; i < g_gc_rrng_n; i++) { if (g_gc_rrng[i].hi) continue; { const char *top = *(const char * const *)g_gc_rrng[i].lo;
-        for (char *e = (char *)g_gc_rrng[i].lo + 32; e + 32 <= top; e += 32) { const char **cell = (const char **)e; DESCR_t *old = (DESCR_t *)(e + 16); if (*cell) rt_gc_visit_raw(cell); rt_gc_visit_descr(old); } } }
+        for (char *e = (char *)top; e >= (char *)g_gc_rrng[i].lo + 32 + 8; ) { e -= 8; uintptr_t w = *(uintptr_t *)e;
+            if (w & 1u) { rt_gc_visit_raw((const char **)e); e -= 16; rt_gc_visit_descr((DESCR_t *)e); }
+            else if (w) rt_gc_visit_raw((const char **)e); } } }
     rt_gc_ws_roots();
     gc_coexpr_records(); words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
     gc_root_cas();

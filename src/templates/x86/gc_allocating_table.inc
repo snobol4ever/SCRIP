@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1884
-#define GC_ALLOC_TAB_N_VOID 217
-#define GC_ALLOC_TAB_N_DESCR 1030
-#define GC_ALLOC_TAB_N_OTHER 631
+#define GC_ALLOC_TAB_N 1862
+#define GC_ALLOC_TAB_N_VOID 213
+#define GC_ALLOC_TAB_N_DESCR 1028
+#define GC_ALLOC_TAB_N_OTHER 615
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -752,7 +752,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_big_binop", GC_RET_OTHER },
     { "pl_big_sign", GC_RET_OTHER },
     { "pl_big_unop", GC_RET_OTHER },
-    { "pl_bind", GC_RET_VOID },
     { "pl_body_graph", GC_RET_OTHER },
     { "pl_byte_cur_ball", GC_RET_OTHER },
     { "pl_cell_atom_id", GC_RET_OTHER },
@@ -843,7 +842,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_text_cur_ball", GC_RET_OTHER },
     { "pl_text_list", GC_RET_DESCR },
     { "pl_tree_cell", GC_RET_DESCR },
-    { "pl_unify", GC_RET_OTHER },
     { "pl_user_call", GC_RET_OTHER },
     { "pl_variant_rec", GC_RET_OTHER },
     { "pl_write_opt_bad", GC_RET_OTHER },
@@ -851,7 +849,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_atom_op_list_text", GC_RET_OTHER },
     { "plc_atom_op_text", GC_RET_OTHER },
     { "plc_atoms_ready", GC_RET_VOID },
-    { "plc_bind_cx", GC_RET_VOID },
     { "plc_cell_is_proper_list", GC_RET_OTHER },
     { "plc_cons", GC_RET_DESCR },
     { "plc_fb_term", GC_RET_OTHER },
@@ -874,15 +871,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_sp_not_negative", GC_RET_OTHER },
     { "plc_term_prio", GC_RET_OTHER },
     { "plc_unify_cells_cx", GC_RET_OTHER },
-    { "plc_unify_into_cell", GC_RET_OTHER },
     { "plc_unify_into_cell_cx", GC_RET_OTHER },
     { "plc_write", GC_RET_VOID },
     { "plc_write_canonical", GC_RET_VOID },
     { "plc_writeq", GC_RET_VOID },
     { "plc_wt", GC_RET_VOID },
-    { "plw_bind", GC_RET_VOID },
-    { "plw_bind_x", GC_RET_VOID },
-    { "plw_det_cell", GC_RET_OTHER },
     { "plw_mkc_build", GC_RET_DESCR },
     { "plw_mkc_kids", GC_RET_OTHER },
     { "plw_unify_cell_val", GC_RET_OTHER },
@@ -1184,11 +1177,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_patv_defer_get_pat_dtp", GC_RET_OTHER },
     { "rt_patv_defer_open_entry", GC_RET_OTHER },
     { "rt_patv_freeze", GC_RET_VOID },
-    { "rt_pl_agg_count_finish", GC_RET_OTHER },
-    { "rt_pl_agg_max_finish", GC_RET_OTHER },
-    { "rt_pl_agg_min_finish", GC_RET_OTHER },
-    { "rt_pl_agg_minmax_finish", GC_RET_OTHER },
-    { "rt_pl_agg_sum_finish", GC_RET_OTHER },
     { "rt_pl_all_solutions_cell", GC_RET_OTHER },
     { "rt_pl_all_solutions_tail_cell", GC_RET_OTHER },
     { "rt_pl_anum_cold", GC_RET_DESCR },
@@ -1589,8 +1577,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_unget_code_s_c", GC_RET_DESCR },
     { "rt_pl_dop_unify", GC_RET_DESCR },
     { "rt_pl_dop_unify_c", GC_RET_DESCR },
-    { "rt_pl_dop_unify_ca", GC_RET_DESCR },
-    { "rt_pl_dop_unify_ca_c", GC_RET_DESCR },
     { "rt_pl_dop_unify_ci", GC_RET_DESCR },
     { "rt_pl_dop_unify_ci_c", GC_RET_DESCR },
     { "rt_pl_dop_unify_oc", GC_RET_DESCR },
@@ -1638,10 +1624,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_goal_stage", GC_RET_OTHER },
     { "rt_pl_group_pairs_by_key_cell", GC_RET_OTHER },
     { "rt_pl_gz_init", GC_RET_VOID },
-    { "rt_pl_is_cell_arith", GC_RET_OTHER },
-    { "rt_pl_is_cell_bivar", GC_RET_OTHER },
-    { "rt_pl_is_cell_float", GC_RET_OTHER },
-    { "rt_pl_is_cell_int", GC_RET_OTHER },
     { "rt_pl_is_cold", GC_RET_DESCR },
     { "rt_pl_is_cold_c", GC_RET_DESCR },
     { "rt_pl_keysort_cell", GC_RET_OTHER },
@@ -1658,16 +1640,13 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_sort_in_place_cell", GC_RET_OTHER },
     { "rt_pl_struct_alloc", GC_RET_OTHER },
     { "rt_pl_sub_atom_at_cell", GC_RET_OTHER },
-    { "rt_pl_subsumes_cell", GC_RET_OTHER },
     { "rt_pl_succ_plus_cell", GC_RET_OTHER },
-    { "rt_pl_tail_args_safe", GC_RET_OTHER },
     { "rt_pl_term_string_cell", GC_RET_OTHER },
     { "rt_pl_term_variables_cell", GC_RET_OTHER },
     { "rt_pl_throw_raise", GC_RET_DESCR },
     { "rt_pl_type_cold", GC_RET_DESCR },
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
-    { "rt_pl_unify_cell_float", GC_RET_OTHER },
     { "rt_pl_unify_struct", GC_RET_OTHER },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },
@@ -1784,7 +1763,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_suspend_hook", GC_RET_VOID },
     { "rt_trace_value", GC_RET_VOID },
     { "rt_trace_value_sigil", GC_RET_VOID },
-    { "rt_unify_terms", GC_RET_OTHER },
     { "rt_unwind_to_activation", GC_RET_VOID },
     { "rt_var_ref_cell", GC_RET_DESCR },
     { "rt_var_ref_cell_named", GC_RET_DESCR },

@@ -138,7 +138,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
-    case TT_VAR:  { IR_t * nd = build(cx, IR_VAR, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); return nd; }
+    case TT_VAR:  { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); nd->strict = 1; return nd; }
     case TT_MAKELIST: {
         int bar = (t->v.ival == 1 && t->n > 0);
         IR_t * prev; IR_t * prev_e = NULL;
@@ -176,7 +176,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
-    if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); return nd; }
+    if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); nd->strict = 1; return nd; }
     return term_e(cx, t, entry_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1410,7 +1410,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * te2 = NULL; IR_t * tv2 = term_e(cx, t->c[0], &te2);
                 IR_t ** wk = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
                 IR_t ** we = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
-                for (int i = 0; i < pl_nfv; i++) { wk[i] = build(cx, IR_VAR, NULL, ωfail); IR_LIT(wk[i]).sval = pl_vname(cx, pl_fv[i]); we[i] = NULL; }
+                for (int i = 0; i < pl_nfv; i++) { wk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(wk[i]).sval = pl_vname(cx, pl_fv[i]); wk[i]->strict = 1; we[i] = NULL; }
                 IR_t * wce = NULL; IR_t * wc = mkc_node(cx, "$w", pl_nfv, wk, we, &wce);
                 IR_t * pkids[2]; IR_t * pkes[2]; pkids[0] = wc; pkes[0] = wce; pkids[1] = tv2; pkes[1] = te2;
                 IR_t * pe = NULL; IR_t * pr = mkc_node(cx, "-", 2, pkids, pkes, &pe);
@@ -1429,7 +1429,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 lc_ω_to(add, lo);
                 IR_t ** rk = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
                 IR_t ** rke = (IR_t **) ct_zalloc((size_t) pl_nfv, sizeof(IR_t *));
-                for (int i = 0; i < pl_nfv; i++) { rk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(rk[i]).sval = pl_vname(cx, pl_fv[i]); rke[i] = NULL; }
+                for (int i = 0; i < pl_nfv; i++) { rk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(rk[i]).sval = pl_vname(cx, pl_fv[i]); rk[i]->strict = 1; rke[i] = NULL; }
                 IR_t * wre = NULL; IR_t * wr = mkc_node(cx, "$w", pl_nfv, rk, rke, &wre);
                 IR_t * re2 = NULL; IR_t * rl2 = term_lval_e(cx, t->c[2], &re2);
                 lc_γ_to(rl2, wre ? wre : wr); lc_ω_to(rl2, ωfail);
@@ -1820,7 +1820,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         for (int i = ar - 1; i >= 0; i--) {
             if (cl->c[i] && cl->c[i]->t == TT_VAR && (int) cl->c[i]->v.ival >= 0 && (int) cl->c[i]->v.ival < 1024 && cx.valias[(int) cl->c[i]->v.ival] == i + 1) continue;
             IR_t * u = build(&cx, IR_CALL, next, step); IR_LIT(u).sval = "$unify";
-            IR_t * lhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
+            IR_t * lhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i); lhs->strict = 1;
             IR_t * he = NULL; IR_t * rhs = term_lval_e(&cx, cl->c[i], &he);
             lc_γ_to(lhs, he ? he : rhs); lc_ω_to(lhs, step);
             lc_γ_to(rhs, u); lc_ω_to(rhs, step);

@@ -2159,8 +2159,7 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx)
       pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
       pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn, 256);
       if (*cell) {
-          char probe; char *floor_ = &probe;
-          if (pl_tr_needs_log(cx, *cell, floor_)) pl_tr_push(cx, *cell);
+          if (pl_tr_needs_log(cx)) pl_tr_push_value(cx, *cell);
           **cell = stored;
       } else {
           pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);

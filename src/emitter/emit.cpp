@@ -3761,7 +3761,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_label_define_bb(pl_uw_top);
         bb_emit_x86(x86("cmp", "rsi", "r12"));
         emit_jmp_label(pl_uw_done, JMP_JGE);
-        bb_emit_x86(x86_pl_tr_pop_entry());
+        bb_emit_x86(x86_pl_tr_pop_entry(230, 231));
         emit_jmp_label(pl_uw_top, JMP_JMP);
         emit_label_define_bb(pl_uw_done);
         bb_emit_x86( x86_pl_tr_top_sync()

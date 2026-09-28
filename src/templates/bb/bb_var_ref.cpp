@@ -55,6 +55,20 @@ std::string bb_var_ref() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
+    if (_.op_strict == 1 && _.op_sa >= 0) {
+        std::string s = x86("comment", "IR_VAR_REF cell: the frame slot holds a VALUE and is never bound -- an empty slot (tag DT_SNUL) takes a fresh self-referencing heap cell (rt_pl_fresh_var_ref), and the result is the slot's value, never a trap into the frame")
+                      + x86_alpha()
+                      + x86("mov", "rax", FRQ(_.op_sa))
+                      + x86("mov", "rcx", "rax") + x86("and", "rcx", 255L) + x86("jnz", L(210))
+                      + x86("call", "rt_pl_fresh_var_ref", (uint64_t)(uintptr_t)(void *)rt_pl_fresh_var_ref)
+                      + x86("mov", FRQ(_.op_sa), "rax") + x86("mov", FRQ(_.op_sa + 8), "rdx")
+                      + x86_rt_gc_poll()
+                      + x86("def", L(210))
+                      + x86("mov", "rax", FRQ(_.op_sa)) + x86("mov", "rdx", FRQ(_.op_sa + 8));
+        if (_.op_zres) s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        else           s += x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx");
+        return s + x86_gamma() + x86_beta_trampoline();
+    }
     if (_.op_var_named == 1 && _.op_sval && (_.op_sa >= 0 || _.op_gva_k >= 0)) {
         std::string fl = std::string(".L") + x86_boxkind() + "_vrnm" + std::to_string(g_flat_node_id++);
         std::string s = x86("comment", "IR_VAR_REF named: a value-call argument carries its identifier so name() through a value can answer -> rt_var_ref_cell_named(&cell, \"id\")")

@@ -32,7 +32,6 @@ int     zls_g_resume_by_name(const char *name);
 int  rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
-int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_wire_pair_consumed(const char *fname) {
     return (fname && rt_define_returns_by_frame(fname)) ? 0 : 1;
@@ -512,7 +511,6 @@ static std::string bcps_spine_gen_arm() {
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t tailsafe_fp; { int (*fp)(int, void *, void *) = rt_pl_tail_args_safe; tailsafe_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int pl_lco_armed = bcps_pl() && _.node && _.node->seal == 1 && !(g_emit_cfg && g_emit_cfg->root_graph);
     int n2_fb = -1;
     if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
@@ -541,18 +539,7 @@ static std::string bcps_spine_gen_arm() {
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
          + IF(icn_gen_regime(),  x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0))
          + IF(pl_lco_armed,
-               x86("sub", "rsp", 8L)
-            + x86("push", "rax")
-            + x86("mov32", "edi", (long)_.op_ival)
-            + x86("mov", "rsi", "rbp")
-            + x86("lea", "rdx", RDQ("rbp", g_emit.flat_frame_bytes))
-            + x86("call", "rt_pl_tail_args_safe", tailsafe_fp)
-            + x86("mov", "r10d", "eax")
-            + x86("pop", "rax")
-            + x86("add", "rsp", 8L)
-            + x86_rt_gc_poll()
-            + x86("test", "r10", "r10")
-            + x86("je", L(99))
+               x86("note", "R2: no argument chain can point into a frame -- every variable cell lives in the heap and an occurrence yields the slot's value -- so the LCO refusal rt_pl_tail_args_safe is gone")
             + x86("mov", "r10", RDQ("rbp", g_emit.flat_frame_bytes - 40))
             + x86("cmp", "r13", "r10")
             + x86("jne", L(99))

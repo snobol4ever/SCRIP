@@ -202,26 +202,15 @@ static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c)
 extern void *rt_ws_alloc_descr(size_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
-    char probe; char *floor_ = &probe;
-    if (pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
-    if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
+    if (pl_tr_needs_log(cx)) pl_tr_push(cx, cell);
     *cell = word;
 }
-static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
-    if (av && bv) {
-        char probe; char *floor_ = &probe;
-        if (plw_vvb_on() && (char *)A > floor_ && (char *)B > floor_) {
-            DESCR_t *lo = A < B ? A : B; DESCR_t *hi = A < B ? B : A;
-            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)hi;
-            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u, cx); }
-            plw_bind(lo, r, cx); return 1;
-        }
-        { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
+    if (av && bv) { DESCR_t *lo = A < B ? A : B; DESCR_t *hi = A < B ? B : A; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)lo; plw_bind(hi, r, cx); return 1; }
     if (av) { plw_bind(A, *B, cx); return 1; }
     if (bv) { plw_bind(B, *A, cx); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -258,8 +247,7 @@ static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
-    if (av && bv) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
-        DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; }
+    if (av && bv) { DESCR_t *lo = A < B ? A : B; DESCR_t *hi = A < B ? B : A; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)lo; plw_bind(hi, r, cx); return 1; }
     if (av) { if (plw_occurs_in(A, B)) return 0; plw_bind(A, *B, cx); return 1; }
     if (bv) { if (plw_occurs_in(B, A)) return 0; plw_bind(B, *A, cx); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -304,13 +292,6 @@ int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx)
 {
     if (!a || n < 1 || !ball) return 0;
     return plw_unify_cells(plw_entry(&a[0]), (DESCR_t *)ball, cx) ? 1 : 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t *plw_det_cell(DESCR_t *tmp) {
-    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
-    DESCR_t *c = plw_cell_deref(plw_entry(tmp));
-    if (c->v == DT_SNUL || c->v == DT_FAIL) { c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; }
-    return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
@@ -2393,11 +2374,8 @@ static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
     for (int i = 0; i < ar; i++) {
         DESCR_t t = srcs[i];
         DESCR_t *F = plw_cell_deref(plw_entry(&t));
-        if (plw_unbound_tag(F)) {
-            kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i];
-            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)&kids[i];
-            plw_bind(F, r, cx);
-        } else kids[i] = *F;
+        if (plw_unbound_tag(F)) { kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)F; }
+        else kids[i] = *F;
     }
     return kids;
 }

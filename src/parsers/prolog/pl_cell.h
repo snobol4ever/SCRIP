@@ -47,18 +47,13 @@ static inline int pl_arity(pl_cell_t *c)   { extern int prolog_functor_arity(int
 static inline int plc_fid_name(uint32_t fid)  { extern int prolog_functor_name(int); return prolog_functor_name((int)fid); }
 static inline int plc_fid_arity(uint32_t fid) { extern int prolog_functor_arity(int); return prolog_functor_arity((int)fid); }
 static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
-static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) {
-    pl_cell_t *v = pl_deref(cell);
-    char probe; char *floor_ = &probe;
-    if ((char *)v <= floor_) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
-    *v = word;
-}
+static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) { *pl_deref(cell) = word; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
-    if (av && bv) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
+    if (av && bv) { pl_cell_t *lo = A < B ? A : B; pl_cell_t *hi = A < B ? B : A; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)lo; pl_bind(hi, r); return 1; }
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
     if ((int)A->v == DT_PLATOM && (int)B->v == DT_PLATOM) return A->i == B->i;
