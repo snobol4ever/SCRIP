@@ -195,6 +195,18 @@ m3rc=0; m4rc=0
 for sub in $SUITE_SUBDIRS; do
 SUITE="$PKG/$sub"
 [ -d "$SUITE" ] || continue
+# ⛔ A DRIVER'S IPATH NAMES THE SUITE'S LIBRARIES, NEVER ITS PROGRAMS (coo ruling 2026-09-28 on hq_icon's ask): general/ ships io.icn, an
+# Arizona TEST PROGRAM, and cfunc.icn says `link io` meaning the IPL library that defines pathload. icont links ucode only and the suite
+# holds no io.u, so iconx falls through to the installed io; SCRIP's link search reads source, so the whole suite on IPATH linked the
+# test program and every cfunc wrapper died with error 106. LIBPATH mirrors the suite by symlink minus every .icn that declares
+# procedure main -- the libraries, their data and their includes stay reachable, the programs do not. test_gate_icon_arizona_driver_
+# ipath_names_libraries_not_programs.sh proves it (red once with the whole directory on IPATH).
+LIBPATH="$RUNDIR/libpath/$sub"; mkdir -p "$LIBPATH" || { echo "⛔ GATE REFUSES: cannot create $LIBPATH" >&2; exit 2; }
+for _f in "$SUITE"/*; do
+  [ -f "$_f" ] || continue
+  case "$_f" in *.icn) grep -qE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' "$_f" && continue ;; esac
+  ln -sf "$_f" "$LIBPATH/" || { echo "⛔ GATE REFUSES: cannot link $_f into $LIBPATH" >&2; exit 2; }
+done
 for std in "$SUITE"/*.ref; do
   [ -f "$std" ] || continue
   name=$(basename "$std" .ref)
@@ -267,7 +279,7 @@ for std in "$SUITE"/*.ref; do
   # driver grades the file it is named for. EVERY OTHER PROGRAM RUNS WITHOUT IT: ilib's ref was cut by icont against its INSTALLED IPL
   # ucode (icont cannot see an untranslated .icn beside the program), so the suite first on IPATH linked the older shipped options.icn
   # and turned ilib red in both modes at 6850da706 (hq_icon's bisect, line 169 "a:1 b:1 c:-" for "abc:-").
-  _ipath=(); case "$name" in *_driver) _ipath=(env "IPATH=$SUITE${IPATH:+:$IPATH}") ;; esac
+  _ipath=(); case "$name" in *_driver) _ipath=(env "IPATH=$LIBPATH${IPATH:+:$IPATH}") ;; esac
   # ⛔ A PROGRAM THAT LOADS C DECLARES ITS LIBRARY (hq_icon 2026-09-27, general/cfuncs under CEO-1336): iconx exports FPATH=". <its bin>"
   # into every program, and its bin holds the distribution's build of ipl/cfuncs, so pathload(LIB, ...) finds libcfunc.so there. A
   # <stem>.clib sidecar names the vendored sources; declared_clib_beside (lib_declared_arena.sh, the one reader) builds them and the run

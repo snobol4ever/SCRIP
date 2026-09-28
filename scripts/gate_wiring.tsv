@@ -213,6 +213,7 @@ test_gate_heap_exhaustion_at_the_cap_is_a_reported_error_not_an_abort.sh	WIRED	-
 test_gate_icn_a_call_through_a_value_reports_its_line_and_its_frame.sh	WIRED	-	-	-
 test_gate_icn_a_clib_sidecar_builds_the_library_a_program_loads.sh	WIRED	-	-	-
 test_gate_icn_an_external_value_answers_type_image_copy_identity_and_sort_as_iconx.sh	WIRED	-	-	-
+test_gate_icon_arizona_driver_ipath_names_libraries_not_programs.sh	WIRED	-	-	-
 test_gate_icn_a_closed_file_raises_212_on_read_and_213_on_write.sh	WIRED	-	-	-
 test_gate_icn_a_large_integer_crosses_into_a_loaded_c_function.sh	WIRED	-	-	-
 test_gate_icn_a_linked_procedure_reports_its_own_file.sh	WIRED	-	-	-

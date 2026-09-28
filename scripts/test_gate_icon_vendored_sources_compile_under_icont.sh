@@ -72,6 +72,9 @@ for ref in "${REFS[@]}"; do
         for l in $todo; do
             case "$seen" in *" $l "*) continue ;; esac; seen="$seen$l "
             [ -f "$dir/$l.icn" ] && [ "$l" != "$base" ] || continue
+            # a shipped PROGRAM is never a link target (the runner's LIBPATH rule, the coo's 2026-09-28 ruling): general/io.icn is an
+            # Arizona test program, and cfunc.icn's `link io` means the installed IPL io -- translating the program made a second main
+            grep -qE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' "$dir/$l.icn" && continue
             (cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s -c "$l.icn" >/dev/null 2>&1); made="$made $dir/$l"; nxt="$nxt $(link_names "$dir/$l.icn")"
         done
         todo="$nxt"
@@ -90,8 +93,14 @@ for ref in "${REFS[@]}"; do
     stdin_src=/dev/null; [ -f "$dir/$base.dat" ] && stdin_src="$dir/$base.dat"
     # ⛔ RUN UNDER `iconx <stem>`, THE INVOCATION EVERY REF WAS CUT UNDER (CEO-624): &progname is a function of the
     # invocation, so `./kwds` answers `./kwds` against a ref reading `kwds` -- a divergence of the gate, not of the ref.
-    got="$(cd "$dir" && timeout "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"
-    if [ "$got" != "$(cat "$ref")" ]; then
+    got="$(cd "$dir" && timeout "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"; exp="$(cat "$ref")"
+    # a CEO-409 mask beside the ref (env: the clock, the machine, the user) is applied to BOTH streams through the runner's own shim
+    if [ -f "$dir/$base.mask" ]; then
+        got="$(printf '%s' "$got" | python3 "$HERE/util_apply_ceo409_mask.py" "$ref" "$base" "$WORK/.mask_n" 2>/dev/null)" \
+          && exp="$(printf '%s' "$exp" | python3 "$HERE/util_apply_ceo409_mask.py" "$ref" "$base" "$WORK/.mask_n" 2>/dev/null)" \
+          || { echo "⛔ $GATE REFUSES rc=2: $base.mask could not be applied" >&2; exit 2; }
+    fi
+    if [ "$got" != "$exp" ]; then
         n_diverged=$((n_diverged+1)); DIVERGED+=("$base")
         continue
     fi
