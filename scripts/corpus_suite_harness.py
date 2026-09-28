@@ -4093,8 +4093,13 @@ def cmd_smoke(args):
         skipped_outside = [n for n in s["entries"] if n in outside]
         missing = [n for n in wanted if n not in by_name]
         if missing:
-            refuse(f"smoke: {s['csv']} names entries the suite {suite.name} does not contain: {_smoke_names(missing, 10)} -- "
-                   f"the table and the suite disagree, which is a builder defect, not a smoke result (nothing was run)")
+            # ⛔ A TABLE THAT DISAGREES WITH ITS SUITE IS ITS BUILDER'S DEFECT, NOT EVERY SEAT'S PREFLIGHT (hq_pascal 2026-09-28: ipl's ALL.csv
+            # named progs/kwic, procs/ichartp, progs/concord that ALL.icn lacks, and the smoke refused every template-touching landing
+            # fleet-wide). The entries that cannot be run are NAMED, left out of this run, and the rest of the table runs; the
+            # disagreement itself is the package board's and the builder's to read (the loop names it to the owner).
+            print(f"AREA_SMOKE_TABLE_SUITE_DISAGREEMENT table={key}: {s['csv']} names {len(missing)} entr(y/ies) the suite {suite.name} "
+                  f"does not contain, left out of this run and named for the table's builder: {_smoke_names(missing, 10)}")
+            wanted = [n for n in wanted if n in by_name]
         plans.append((key, s, suite, lang, ext, by_name, wanted, skipped_outside, ref))
     standing, suite_of, base_note = _smoke_standing(plans, paths)
     print(base_note)

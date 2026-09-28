@@ -106,6 +106,7 @@ test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_every_c_to_bb_box_entry_carries_its_hit.sh	WIRED	-	-	-
 test_gate_every_graded_suite_has_an_attribute_csv.sh	WIRED	-	-	-
+test_gate_every_runner_passes_the_declared_heap_and_stack.sh	WIRED	-	-	-
 test_gate_excluded_not_spitbol_dialect_named_and_out_of_the_denominator.sh	WIRED	-	-	-
 test_gate_fanout_ceiling.sh	WIRED	-	-	-
 test_gate_fc_side_tables_are_reset_at_every_runtime_compile_entry.sh	WIRED	-	-	-

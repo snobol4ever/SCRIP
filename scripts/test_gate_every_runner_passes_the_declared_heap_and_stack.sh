@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrument fixture over a scratch population, not a board (CEO-547)"
+# test_gate_every_runner_passes_the_declared_heap_and_stack.sh -- EVERY RUNNER PASSES EACH UNIT'S DECLARED HEAP AND STACK IN BOTH MODES,
+# NEVER AS THE WINDOW (Lon 2026-09-28 15:4x CDT, in-chat to the ceo, verbatim: "Ensure that every program in every language as it necessary
+# stack size and heap size values stored in the per-program attribute file, and ensure that those command-line switches and environment
+# variable values are being used by the harness shell scripts which run all of them."; ceo CEO-1353; half (b) of the coo's row
+# instruments-every-runner-passes-each-units-declared-heap-and-stack-in-both-modes-never-as-the-window-names-a-missing-one).
+# THE VERDICT-PAIR METHOD of test_gate_package_runners_read_each_units_declared_compile_args.sh, extended to SIZE. Each runner family
+# grades FOUR scratch units of two witnesses whose outcome depends on the declared size, in both modes:
+#   deepdecl    a 50000-deep recursion declaring stack_kb 262144      -> PASS  (it needs the declared stack)
+#   deepnodecl  the same program at the shipped 4096 KB stack          -> FAIL  (ERROR 246 at the default)
+#   livedecl    a 30000-entry live set declaring heap_kb 2048          -> FAIL  (HARD CAP at the declared 2 MB)
+#   livenodecl  the same program at the shipped 131072 KB cap          -> PASS
+# A runner that reads no declaration reads deepdecl FAIL; a runner that hands the declared heap to SCRIP_HEAP_KB (the collector's initial
+# WINDOW, cap = max(128 MB, window)) reads livedecl PASS -- both are named. The premise arm W re-measures the four against scrip directly
+# (and the window mistake), so the day a witness stops depending on its size this gate says so.
+# FAMILIES: H the harness (the masters' and package tables' one reader), D test_demos_suite.sh (a standalone unit's .heap/.stack
+# sidecars), P1 test_snobol4_dotnet_suite.sh, P2 test_snobol4_csnobol4_suite.sh (the SNOBOL4 package runners through
+# run_at_declared_table). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
+# a family is unproven; each is added here as its lane cures its runner (the HQ asks of 2026-09-28).
+# FAIL_ONCE=1: the harness family runs from a scratch copy of scripts/ whose _size_switches returns nothing (the reader removed) -- H reds.
+# EXIT 0 every family's pair holds and none is pending; 1 a pair failed or a family is pending; 2 could not measure.
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_gate.sh" || { echo "REFUSING(2): cannot load lib_gate.sh"; exit 2; }
+GATE_NAME=every_runner_passes_the_declared_heap_and_stack
+gate_parse_args "$@"
+SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
+gate_require_exec "$SCRIP" "scrip binary" || exit 2
+[ -n "${SCRIP_BIN:-}" ] || "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: lib_oracle_flags.sh unloadable"; exit 2; }
+SBL="$(sbl_correctness_bin 2>/dev/null)"; SBLF="$(sbl_lang_flags 2>/dev/null)"
+[ -x "$SBL" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no SNOBOL4 oracle"; exit 2; }
+SCRATCH="${S4E_SCRATCH:-$(cd "$ROOT/.." && pwd)/.scratch}"; mkdir -p "$SCRATCH" || exit 2
+W=$(mktemp -d "$SCRATCH/gate_sizes_XXXXXX") || exit 2
+trap 'rm -rf "$W"' EXIT INT TERM
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); echo "  ok   $1: $2"; }
+red() { FAIL=$((FAIL+1)); echo "  FAIL $1: $2"; }
+
+# the witnesses
+printf "        DEFINE('R(N)')                    :(REND)\nR       R = EQ(N,0) 0                     :S(RETURN)\n        R = R(N - 1) + 1                  :(RETURN)\nREND    OUTPUT = 'depth=' R(50000)\nEND\n" > "$W/deep.sno"
+printf "        T = TABLE()\n        I = 0\nL       I = LT(I,30000) I + 1         :F(D)\n        T<I> = DUPL('x',100)          :(L)\nD       OUTPUT = 'built ' I\nEND\n" > "$W/live.sno"
+(cd "$W" && timeout 60 "$SBL" $SBLF deep.sno < /dev/null > deep.ref 2>&1; timeout 60 "$SBL" $SBLF live.sno < /dev/null > live.ref 2>&1)
+[ "$(cat "$W/deep.ref")" = "depth=50000" ] && [ "$(cat "$W/live.ref")" = "built 30000" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the oracle's refs moved: deep '$(head -c 60 "$W/deep.ref")' live '$(head -c 60 "$W/live.ref")'"; gate_stamp; exit 2; }
+declare -A HEAP=([deepdecl]=131072 [deepnodecl]=131072 [livedecl]=2048 [livenodecl]=131072)
+declare -A STACK=([deepdecl]=262144 [deepnodecl]=4096 [livedecl]=4096 [livenodecl]=4096)
+declare -A WANT=([deepdecl]=PASS [deepnodecl]=FAIL [livedecl]=FAIL [livenodecl]=PASS)
+UNITS="deepdecl deepnodecl livedecl livenodecl"
+src_of() { case "$1" in deep*) echo "$W/deep.sno";; *) echo "$W/live.sno";; esac; }
+ref_of() { case "$1" in deep*) echo "$W/deep.ref";; *) echo "$W/live.ref";; esac; }
+
+echo "--- W PREMISE: the four units against scrip directly, both modes, and the window mistake ---"
+m4bin() { (cd "$W" && timeout 120 "$SCRIP" --compile "$1" < /dev/null > "$2.s" 2>/dev/null && gcc -c "$2.s" -o "$2.o" && gcc "$2.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$2.bin") >/dev/null 2>&1; }
+m4bin "$W/deep.sno" "$W/deepbin"; m4bin "$W/live.sno" "$W/livebin"
+prem_ok=1
+for u in $UNITS; do
+  s=$(src_of "$u"); r=$(ref_of "$u"); b=$W/$([ "${u#deep}" != "$u" ] && echo deepbin || echo livebin).bin
+  o3=$(cd "$W" && timeout 60 "$SCRIP" --run -d${HEAP[$u]}k -s${STACK[$u]}k "$s" < /dev/null 2>/dev/null); o4=$(timeout 60 "$b" -d${HEAP[$u]}k -s${STACK[$u]}k < /dev/null 2>/dev/null)
+  v3=FAIL; [ "$o3" = "$(cat "$r")" ] && v3=PASS; v4=FAIL; [ "$o4" = "$(cat "$r")" ] && v4=PASS
+  [ "$v3" = "${WANT[$u]}" ] && [ "$v4" = "${WANT[$u]}" ] || { prem_ok=0; echo "      $u m3=$v3 m4=$v4 want ${WANT[$u]}"; }
+done
+ow=$(cd "$W" && SCRIP_HEAP_KB=2048 timeout 60 "$SCRIP" --run "$W/live.sno" < /dev/null 2>/dev/null)
+[ "$prem_ok" = 1 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: a witness no longer depends on its declared size -- the pairs below would measure nothing"; gate_stamp; exit 2; }
+ok W "deepdecl PASS / deepnodecl FAIL / livedecl FAIL / livenodecl PASS against scrip -d -s directly, m3 and m4; the declared 2 MB handed to SCRIP_HEAP_KB (the window) reads '$(head -c 20 <<<"$ow")' -- PASS, the mistake a pair catches"
+
+# outcome <db> <unit> <mode> -- the program's last outcome in a scratch progress table (a runner names it bare, or with its extension)
+outcome() { awk -F'\t' -v p="$2" -v m="$3" 'NR>1 && ($8==p || $8==p".sno" || $8~("/"p"(\\.sno)?$")) && $9==m {v=$10} END {print v}' "$1" 2>/dev/null; }
+quad() {  # <arm> <db> <label> -- the four units' outcomes in both modes against WANT
+  local a="$1" db="$2" lbl="$3" bad="" u m v
+  for u in $UNITS; do for m in m3 m4; do v=$(outcome "$db" "$u" "$m"); [ -n "$v" ] || v=MISSING
+    { [ "${WANT[$u]}" = PASS ] && [ "$v" = PASS ]; } || { [ "${WANT[$u]}" = FAIL ] && [ "$v" != PASS ] && [ "$v" != MISSING ]; } || bad="$bad $u:$m=$v"; done; done
+  if [ -z "$bad" ]; then ok "$a" "$lbl -- deepdecl PASS, deepnodecl not, livedecl not, livenodecl PASS, both modes"
+  else red "$a" "$lbl --$bad (want deepdecl PASS, deepnodecl FAIL, livedecl FAIL, livenodecl PASS)"; fi; }
+HDR="rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args"
+csv4() { printf '%s\n' "$HDR"; local i=1 u; for u in $UNITS; do printf '%s,%s,%s,%s,5,0,0,%s,%s,,\n' "$i" "$u" "$u" "$1" "${HEAP[$u]}" "${STACK[$u]}"; i=$((i+1)); done; }
+
+echo "--- H: the harness (the masters' and package tables' one reader) ---"
+mkdir -p "$W/h"; python3 - "$HERE" "$W" <<'PY'
+import sys; sys.path.insert(0, sys.argv[1]); import corpus_suite_harness as h
+W = sys.argv[2]; src = []; ref = []
+for i, u in enumerate(["deepdecl", "deepnodecl", "livedecl", "livenodecl"], 1):
+    b = h.make_banner(i, u); w = "deep" if u.startswith("deep") else "live"
+    src.append(b + "\n" + open(f"{W}/{w}.sno").read()); ref.append(b + "\n" + open(f"{W}/{w}.ref").read())
+open(f"{W}/h/ALL.sno", "w").write("".join(src)); open(f"{W}/h/ALL.ref", "w").write("".join(ref))
+PY
+csv4 hfam > "$W/h/ALL.csv"
+HSCRIPTS="$HERE"
+if [ "${FAIL_ONCE:-0}" = 1 ]; then
+  mkdir -p "$W/fo"; cp -rs "$HERE" "$W/fo/scripts" 2>/dev/null; rm -f "$W/fo/scripts/corpus_suite_harness.py"
+  sed 's/^def _size_switches(heap_kb, stack_kb):/def _size_switches(heap_kb, stack_kb):\n    return []  # FAIL_ONCE: the reader removed/' "$HERE/corpus_suite_harness.py" > "$W/fo/scripts/corpus_suite_harness.py"
+  grep -q 'FAIL_ONCE: the reader removed' "$W/fo/scripts/corpus_suite_harness.py" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: FAIL_ONCE found no _size_switches anchor"; exit 2; }
+  HSCRIPTS="$W/fo/scripts"; echo "FAIL_ONCE=1: the harness family runs with _size_switches removed"
+fi
+oh=$(SCRIP="$SCRIP" RT_DIR="$RT" S4E_PROGRESS_DB="$W/h.tsv" timeout 600 python3 "$HSCRIPTS/corpus_suite_harness.py" run "$W/h/ALL.sno" "$W/h/ALL.ref" --modes m3,m4 2>&1); rh=$?
+[ "$rh" = 2 ] && { echo "      $(grep -m1 -E 'REFUS' <<<"$oh" | cut -c1-200)"; }
+# a suite outside the corpus appends no progress rows, so the harness's own output is read: every non-PASS entry prints
+# "  <KIND> <mode> <name>: ..." and an entry absent from those lines in a graded run (SUITE_BOARD printed) passed
+if grep -q '^SUITE_BOARD ' <<<"$oh"; then
+  { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
+    for u in $UNITS; do for m in m3 m4; do k=$(grep -m1 -E "^  [A-Z]+ $m $u: " <<<"$oh" | awk '{print $1}'); printf 'x\tx\tx\tx\tx\th\tsnobol4\t%s\t%s\t%s\n' "$u" "$m" "${k:-PASS}"; done; done; } > "$W/h.tsv"
+fi
+quad H "$W/h.tsv" "corpus_suite_harness.py run over a scratch SNOBOL4 table (rc $rh)"
+
+echo "--- D: test_demos_suite.sh (a standalone unit's .heap/.stack sidecars) ---"
+mkdir -p "$W/d"
+for u in $UNITS; do cp "$(src_of "$u")" "$W/d/$u.sno"; cp "$(ref_of "$u")" "$W/d/$u.ref"; printf '%s\t%s\n' "$u" "${HEAP[$u]}" > "$W/d/$u.heap"; printf '%s\t%s\n' "$u" "${STACK[$u]}" > "$W/d/$u.stack"; done
+od=$(DEMOS_DIR="$W/d" S4E_PROGRESS_DB="$W/d.tsv" timeout 600 bash "$HERE/test_demos_suite.sh" snobol4 2>&1); rd=$?
+[ "$rd" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$od" | cut -c1-200)"
+quad D "$W/d.tsv" "test_demos_suite.sh snobol4 over a scratch demos dir (rc $rd)"
+
+echo "--- P1: test_snobol4_dotnet_suite.sh (live oracle diff, the table's heap_kb/stack_kb through run_at_declared_table) ---"
+mkdir -p "$W/p1"; for u in $UNITS; do cp "$(src_of "$u")" "$W/p1/$u.sno"; done; csv4 dotnet > "$W/p1/ALL.csv"
+o1=$(DOTNET_SUITE="$W/p1" S4E_PROGRESS_DB="$W/p1.tsv" timeout 600 bash "$HERE/test_snobol4_dotnet_suite.sh" 2>&1); r1=$?
+[ "$r1" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$o1" | cut -c1-200)"
+quad P1 "$W/p1.tsv" "test_snobol4_dotnet_suite.sh over a scratch package (rc $r1)"
+
+echo "--- P2: test_snobol4_csnobol4_suite.sh (the Budne runner, ref-graded, run_at_declared_table) ---"
+mkdir -p "$W/p2"; for u in $UNITS; do cp "$(src_of "$u")" "$W/p2/$u.sno"; cp "$(ref_of "$u")" "$W/p2/$u.ref"; done; csv4 csnobol4_suite > "$W/p2/ALL.csv"; : > "$W/p2/ALL.ref"
+o2=$(CSNOBOL4_SUITE="$W/p2" S4E_PROGRESS_DB="$W/p2.tsv" timeout 600 bash "$HERE/test_snobol4_csnobol4_suite.sh" 2>&1); r2=$?
+[ "$r2" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$o2" | cut -c1-200)"
+quad P2 "$W/p2.tsv" "test_snobol4_csnobol4_suite.sh over a scratch package (rc $r2)"
+
+echo "--- PENDING: runner families not yet fixtured here -- RED by declaration until each is added as its lane cures its runner ---"
+PENDING="the seven ladders (lib_ladder.sh, cured by the coo 2026-09-28, fixture owed) | snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench family, the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_master.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
+n_pend=$(tr '|' '\n' <<<"$PENDING" | grep -c .)
+echo "  PENDING ($n_pend groups): $PENDING"
+FAIL=$((FAIL+n_pend))
+
+echo "------------------------------------------------------------"
+echo "population: $((PASS+FAIL)) verdict(s): the premise, 4 families x 4 units x 2 modes, and $n_pend pending family group(s) counted red"
+if [ "$FAIL" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: every runner family passes each unit's declared heap and stack in both modes"; gate_stamp; exit 0; fi
+echo "⛔ GATE FAIL [$GATE_NAME]: $FAIL red (pairs that failed, and $n_pend family group(s) not yet fixtured)"; gate_stamp; exit 1
