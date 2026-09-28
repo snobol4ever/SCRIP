@@ -1729,32 +1729,61 @@ int rt_pl_bind_variables_cell(void *term_cell, void *options_cell) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_acyclic_walk(pl_cell_t *c, pl_cell_t ***ppath, int *pdepth, int *pcap)
+typedef struct { pl_cell_t **tab; unsigned mask; unsigned n; pl_cell_t **path; int depth; int cap; } pl_pathset_t;
+static unsigned pl_ps_slot(pl_cell_t *p, unsigned mask) { uintptr_t x = (uintptr_t)p >> 4; x *= 0x9E3779B97F4A7C15ULL; return (unsigned)(x >> 29) & mask; }
+static int pl_ps_has(pl_pathset_t *s, pl_cell_t *p) { unsigned i = pl_ps_slot(p, s->mask); while (s->tab[i]) { if (s->tab[i] == p) return 1; i = (i + 1) & s->mask; } return 0; }
+static int pl_ps_grow(pl_pathset_t *s) {
+    unsigned om = s->mask, nm = om * 2 + 1; pl_cell_t **ot = s->tab, **nt = (pl_cell_t **)ct_alloc((size_t)(nm + 1) * sizeof(pl_cell_t *));
+    if (!nt) return 0;
+    memset(nt, 0, (size_t)(nm + 1) * sizeof(pl_cell_t *));
+    for (unsigned i = 0; i <= om; i++) if (ot[i]) { unsigned j = pl_ps_slot(ot[i], nm); while (nt[j]) j = (j + 1) & nm; nt[j] = ot[i]; }
+    ct_drop(ot); s->tab = nt; s->mask = nm; return 1;
+}
+static int pl_ps_push(pl_pathset_t *s, pl_cell_t *p) {
+    unsigned i;
+    if ((s->n + 1) * 2 > s->mask && !pl_ps_grow(s)) return 0;
+    if (s->depth >= s->cap) { int nc = s->cap * 2; pl_cell_t **np = (pl_cell_t **)ct_grow(s->path, (size_t)nc * sizeof(pl_cell_t *)); if (!np) return 0; s->path = np; s->cap = nc; }
+    i = pl_ps_slot(p, s->mask); while (s->tab[i]) i = (i + 1) & s->mask;
+    s->tab[i] = p; s->n++; s->path[s->depth++] = p; return 1;
+}
+static void pl_ps_pop_to(pl_pathset_t *s, int base) {
+    while (s->depth > base) {
+        pl_cell_t *p = s->path[--s->depth]; unsigned i = pl_ps_slot(p, s->mask), j;
+        while (s->tab[i] != p) i = (i + 1) & s->mask;
+        s->tab[i] = (pl_cell_t *)0; s->n--; j = (i + 1) & s->mask;
+        while (s->tab[j]) { unsigned k = pl_ps_slot(s->tab[j], s->mask);
+            if ((j > i && (k <= i || k > j)) || (j < i && (k <= i && k > j))) { s->tab[i] = s->tab[j]; s->tab[j] = (pl_cell_t *)0; i = j; }
+            j = (j + 1) & s->mask; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_acyclic_walk(pl_cell_t *c, pl_pathset_t *s)
 {
-    int base = *pdepth, ret = 1;
+    int base = s->depth, ret = 1;
     for (;;) {
         pl_cell_t *d = pl_deref(c);
         if ((int)d->v != DT_PLREF) { ret = 1; break; }
-        int cyc = 0; for (int i = 0; i < *pdepth; i++) if ((*ppath)[i] == d) { cyc = 1; break; }
-        if (cyc) { ret = 0; break; }
-        if (*pdepth >= *pcap) { int nc = *pcap * 2; pl_cell_t **np = (pl_cell_t **)ct_grow(*ppath, (size_t)nc * sizeof(pl_cell_t *)); if (!np) { ret = 0; break; } *ppath = np; *pcap = nc; }
-        (*ppath)[(*pdepth)++] = d;
+        if (pl_ps_has(s, d)) { ret = 0; break; }
+        if (!pl_ps_push(s, d)) { ret = 0; break; }
         int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d);
         if (ar <= 0) { ret = 1; break; }
-        int bad = 0; for (int i = 0; i < ar - 1; i++) if (!pl_acyclic_walk(&aa[i], ppath, pdepth, pcap)) { bad = 1; break; }
+        int bad = 0; for (int i = 0; i < ar - 1; i++) if (!pl_acyclic_walk(&aa[i], s)) { bad = 1; break; }
         if (bad) { ret = 0; break; }
         c = &aa[ar - 1];
     }
-    *pdepth = base; return ret;
+    pl_ps_pop_to(s, base); return ret;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_acyclic_cell(void *term_cell)
 {
+    pl_pathset_t s; int r;
     if (!term_cell) return 1;
-    int cap = 256, depth = 0; pl_cell_t **path = (pl_cell_t **)ct_alloc((size_t)cap * sizeof(pl_cell_t *));
-    if (!path) return 1;
-    int r = pl_acyclic_walk((pl_cell_t *)term_cell, &path, &depth, &cap);
-    ct_drop(path); return r;
+    s.mask = 255; s.n = 0; s.depth = 0; s.cap = 256;
+    s.tab = (pl_cell_t **)ct_alloc((size_t)(s.mask + 1) * sizeof(pl_cell_t *)); s.path = (pl_cell_t **)ct_alloc((size_t)s.cap * sizeof(pl_cell_t *));
+    if (!s.tab || !s.path) { if (s.tab) ct_drop(s.tab); if (s.path) ct_drop(s.path); return 1; }
+    memset(s.tab, 0, (size_t)(s.mask + 1) * sizeof(pl_cell_t *));
+    r = pl_acyclic_walk((pl_cell_t *)term_cell, &s);
+    ct_drop(s.tab); ct_drop(s.path); return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
