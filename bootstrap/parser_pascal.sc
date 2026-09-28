@@ -96,7 +96,7 @@ Real        =   ( SPAN(digits)
 /* empty string first, and inside a FENCE'd operand (x <> '''') that choice was never retried              */
 StrChars    =   FENCE((NOTANY("'") | "''") *StrChars | epsilon);
 Quoted      =   "'" *StrChars "'";
-String      =   "'" shift(*StrChars, "'TT_QLIT'") "'";
+String      =   "'" (*StrChars) . thx . *Shift('TT_QLIT', thx) "'";
 Ident       =   Id $ tx $ *notmatch(lwr(tx), reserved) . token;
 /* Punctuation.                                                                          */
 $'('        =   $' ' '(' $' ';
@@ -137,87 +137,87 @@ function Swap(a, b) {
     nreturn;
 }
 swap            =   epsilon . *Swap();
-ArgFirst        =   *Expr0 nInc();
-ArgRest         =   $',' *Expr0 nInc();
+ArgFirst        =   *Expr0 . *IncCounter();
+ArgRest         =   $',' *Expr0 . *IncCounter();
 CallArgs        =   *ArgFirst ARBNO(*ArgRest);
 /* A write/writeln call lowers to TT_FNC(TT_VAR __pas_write[ln], args…, TT_ILIT -1) --   */
 /* the trailing -1 is the oracle's own field-width sentinel, read off its dump.          */
 WriteName       =   $' ' Id $ tx *IDENT(lwr(tx), 'write')   $' '
-                    shift_value('__pas_write', "'TT_VAR'") nInc();
+                    . *Shift('TT_VAR', '__pas_write') . *IncCounter();
 WritelnName     =   $' ' Id $ tx *IDENT(lwr(tx), 'writeln') $' '
-                    shift_value('__pas_writeln', "'TT_VAR'") nInc();
-WriteArg        =   *Expr0 nInc() FENCE($':' *Expr0 nInc() FENCE($':' *Expr0 nInc() | epsilon) | epsilon);
+                    . *Shift('TT_VAR', '__pas_writeln') . *IncCounter();
+WriteArg        =   *Expr0 . *IncCounter() FENCE($':' *Expr0 . *IncCounter() FENCE($':' *Expr0 . *IncCounter() | epsilon) | epsilon);
 WriteArgs       =   *WriteArg ARBNO($',' *WriteArg);
-WriteCall       =   nPush() (*WriteName | *WritelnName)
+WriteCall       =   epsilon . *PushCounter() (*WriteName | *WritelnName)
                     FENCE($'(' *WriteArgs $')' | epsilon)
-                    shift_value('-1', "'TT_ILIT'") nInc()
-                    reduce("'TT_FNC'", 'nTop()') nPop();
+                    . *Shift('TT_ILIT', '-1') . *IncCounter()
+                    . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* An ordinary call: the callee is a TT_VAR leaf and is itself one of the children.      */
 /* In an expression a call carries its parentheses; a bare identifier there is a TT_VAR.  */
-ProcCall        =   nPush() shift(*Ident, "'TT_VAR'") nInc()
+ProcCall        =   epsilon . *PushCounter() (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()
                     FENCE($'(' *CallArgs $')' | epsilon)
-                    reduce("'TT_FNC'", 'nTop()') nPop();
-FuncCall        =   nPush() shift(*Ident, "'TT_VAR'") nInc()
+                    . *Reduce('TT_FNC', nTop()) . *PopCounter();
+FuncCall        =   epsilon . *PushCounter() (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()
                     $'(' *CallArgs $')'
-                    reduce("'TT_FNC'", 'nTop()') nPop();
+                    . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* A set constructor [a, b..c] -> TT_FNC(TT_VAR __pas_set, a, TT_TO(b, c)), the callee first.  */
-SetMember       =   *Expr0 FENCE($'..' *Expr0 reduce("'TT_TO'", 2) | epsilon) nInc();
+SetMember       =   *Expr0 FENCE($'..' *Expr0 . *Reduce('TT_TO', 2) | epsilon) . *IncCounter();
 SetTail         =   FENCE($',' *SetMember *SetTail | epsilon);
-SetCtor         =   nPush() $'[' shift_value('__pas_set', "'TT_VAR'") nInc()
+SetCtor         =   epsilon . *PushCounter() $'[' . *Shift('TT_VAR', '__pas_set') . *IncCounter()
                     FENCE(*SetMember *SetTail | epsilon) $']'
-                    reduce("'TT_FNC'", 'nTop()') nPop();
+                    . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* A subscripted variable: a[i] -> TT_IDX(a, i…); the leading nInc counts a itself.        */
-IdxTail         =   nInc() $'[' *ArgFirst ARBNO(*ArgRest) $']';
+IdxTail         =   epsilon . *IncCounter() $'[' *ArgFirst ARBNO(*ArgRest) $']';
 /* A variable access is a primary and any number of postfixes: a[i], r.f, p^.               */
-Postfix         =   ( nPush() *IdxTail reduce("'TT_IDX'", 'nTop()') nPop()
-                    | $'.' shift(*Ident, "'TT_VAR'") reduce("'TT_FIELD'", 2)
-                    | $'^' reduce("'TT_DEREF'", 1)
+Postfix         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop()) . *PopCounter()
+                    | $'.' (*Ident) . thx . *Shift('TT_VAR', thx) . *Reduce('TT_FIELD', 2)
+                    | $'^' . *Reduce('TT_DEREF', 1)
                     );
 PostStar        =   FENCE(*Postfix *PostStar | epsilon);
 Primary         =   ( $'(' *Expr0 $')'
                     | *WriteCall
-                    | $'true'   shift_value('1', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
-                    | $'false'  shift_value('0', "'TT_ILIT'") shift_value('1', "'TT_ILIT'") reduce("'TT_EQ'", 2)
-                    | $'nil'    shift_value('nil', "'TT_NULL'")
-                    | nPush() '#' shift_value('__pas_chrlit', "'TT_VAR'") nInc() shift(*Integer, "'TT_ILIT'") nInc()
-                      reduce("'TT_FNC'", 'nTop()') nPop()
+                    | $'true'   . *Shift('TT_ILIT', '1') . *Shift('TT_ILIT', '1') . *Reduce('TT_EQ', 2)
+                    | $'false'  . *Shift('TT_ILIT', '0') . *Shift('TT_ILIT', '1') . *Reduce('TT_EQ', 2)
+                    | $'nil'    . *Shift('TT_NULL', 'nil')
+                    | epsilon . *PushCounter() '#' . *Shift('TT_VAR', '__pas_chrlit') . *IncCounter() (*Integer) . thx . *Shift('TT_ILIT', thx) . *IncCounter()
+                      . *Reduce('TT_FNC', nTop()) . *PopCounter()
                     | *SetCtor
-                    | shift(*Real, "'TT_FLIT'")
-                    | shift(*Integer, "'TT_ILIT'")
+                    | (*Real) . thx . *Shift('TT_FLIT', thx)
+                    | (*Integer) . thx . *Shift('TT_ILIT', thx)
                     | *String
                     | *FuncCall
-                    | shift(*Ident, "'TT_VAR'")
+                    | (*Ident) . thx . *Shift('TT_VAR', thx)
                     );
 Expr4           =   *Primary *PostStar;
-Expr3           =   $'-'   *Expr3 reduce("'TT_MNS'", 1)
-                |   $'@'   nPush() shift_value('__pas_addr', "'TT_VAR'") nInc() *Expr3 nInc() reduce("'TT_FNC'", 'nTop()') nPop()
+Expr3           =   $'-'   *Expr3 . *Reduce('TT_MNS', 1)
+                |   $'@'   . *PushCounter() . *Shift('TT_VAR', '__pas_addr') . *IncCounter() *Expr3 . *IncCounter() . *Reduce('TT_FNC', nTop()) . *PopCounter()
                 |   $'+'   *Expr3
-                |   $'not' *Expr3 shift_value('0', "'TT_ILIT'") reduce("'TT_EQ'", 2)
+                |   $'not' *Expr3 . *Shift('TT_ILIT', '0') . *Reduce('TT_EQ', 2)
                 |   *Expr4;
 /* Multiplying operators.  `/` forces a real result the way the oracle does, by folding  */
 /* the LEFT operand with a 1.0 before dividing.  `mod` is the named divergence above.    */
-MulOp           =   ( $'*'   *Expr3 reduce("'TT_MUL'", 2)
-                    | $'/'   shift_value('1', "'TT_FLIT'") reduce("'TT_MUL'", 2)
-                             *Expr3 reduce("'TT_DIV'", 2)
-                    | $'div' *Expr3 reduce("'TT_DIV'", 2)
-                    | $'mod' *Expr3 reduce("'TT_MOD'", 2)
-                    | $'and' *Expr3 reduce("'TT_MUL'", 2)
+MulOp           =   ( $'*'   *Expr3 . *Reduce('TT_MUL', 2)
+                    | $'/'   . *Shift('TT_FLIT', '1') . *Reduce('TT_MUL', 2)
+                             *Expr3 . *Reduce('TT_DIV', 2)
+                    | $'div' *Expr3 . *Reduce('TT_DIV', 2)
+                    | $'mod' *Expr3 . *Reduce('TT_MOD', 2)
+                    | $'and' *Expr3 . *Reduce('TT_MUL', 2)
                     );
 Expr2           =   *Expr3 *MulStar;
 MulStar         =   FENCE(*MulOp *MulStar | epsilon);
-AddOp           =   ( $'+'  *Expr2 reduce("'TT_ADD'", 2)
-                    | $'-'  *Expr2 reduce("'TT_SUB'", 2)
-                    | $'or' *Expr2 reduce("'TT_ADD'", 2)
+AddOp           =   ( $'+'  *Expr2 . *Reduce('TT_ADD', 2)
+                    | $'-'  *Expr2 . *Reduce('TT_SUB', 2)
+                    | $'or' *Expr2 . *Reduce('TT_ADD', 2)
                     );
 Expr1           =   *Expr2 *AddStar;
 AddStar         =   FENCE(*AddOp *AddStar | epsilon);
-RelOp           =   ( $'<>' *Expr1 reduce("'TT_NE'", 2)
-                    | $'<=' *Expr1 reduce("'TT_LE'", 2)
-                    | $'>=' *Expr1 reduce("'TT_GE'", 2)
-                    | $'='  *Expr1 reduce("'TT_EQ'", 2)
-                    | $'<'  *Expr1 reduce("'TT_LT'", 2)
-                    | $'>'  *Expr1 reduce("'TT_GT'", 2)
-                    | $'in' shift_value('__pas_in', "'TT_VAR'") *swap *Expr1 reduce("'TT_FNC'", 3)
+RelOp           =   ( $'<>' *Expr1 . *Reduce('TT_NE', 2)
+                    | $'<=' *Expr1 . *Reduce('TT_LE', 2)
+                    | $'>=' *Expr1 . *Reduce('TT_GE', 2)
+                    | $'='  *Expr1 . *Reduce('TT_EQ', 2)
+                    | $'<'  *Expr1 . *Reduce('TT_LT', 2)
+                    | $'>'  *Expr1 . *Reduce('TT_GT', 2)
+                    | $'in' . *Shift('TT_VAR', '__pas_in') *swap *Expr1 . *Reduce('TT_FNC', 3)
                     );
 Expr0           =   *Expr1 FENCE(*RelOp | epsilon);
 /* ==================================================================================================================== */
@@ -225,48 +225,48 @@ Expr0           =   *Expr1 FENCE(*RelOp | epsilon);
 /* ==================================================================================================================== */
 /* assignment: v := e  ->  TT_ASSIGN(v, e).  The target may be subscripted.              */
 AssignTarget    =   *Primary *PostStar;
-assign_cmd      =   *AssignTarget $':=' *Expr0 reduce("'TT_ASSIGN'", 2);
+assign_cmd      =   *AssignTarget $':=' *Expr0 . *Reduce('TT_ASSIGN', 2);
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
-StmtFirst       =   *Command nInc();
-StmtRest        =   $';' (*Command nInc() | epsilon);
+StmtFirst       =   *Command . *IncCounter();
+StmtRest        =   $';' (*Command . *IncCounter() | epsilon);
 /* the statements of a sequence repeat greedily: a refusal further on fails at once instead of    */
 /* backtracking through every earlier statement (46 lines took over 60 s that way)                */
 StmtStar        =   FENCE(*StmtRest *StmtStar | epsilon);
-compound_cmd    =   nPush() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
-                    reduce("'TT_SEQ_EXPR'", 'nTop()') nPop();
+compound_cmd    =   epsilon . *PushCounter() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
+                    . *Reduce('TT_SEQ_EXPR', nTop()) . *PopCounter();
 /* if C then S [else S] -> TT_IF(C, S[, S])                                              */
 if_cmd          =   $'if' *Expr0 $'then' *Command
-                    FENCE( $'else' *Command reduce("'TT_IF'", 3)
-                         | reduce("'TT_IF'", 2) );
+                    FENCE( $'else' *Command . *Reduce('TT_IF', 3)
+                         | epsilon . *Reduce('TT_IF', 2) );
 /* while C do S -> TT_WHILE(C, S)                                                        */
-while_cmd       =   $'while' *Expr0 $'do' *Command reduce("'TT_WHILE'", 2);
+while_cmd       =   $'while' *Expr0 $'do' *Command . *Reduce('TT_WHILE', 2);
 /* repeat S… until C -> TT_REPEAT(S…, C).  The body is a statement sequence.             */
-repeat_cmd      =   nPush() $'repeat' (*StmtFirst *StmtStar | epsilon) $'until'
-                    *Expr0 nInc() reduce("'TT_REPEAT'", 'nTop()') nPop();
+repeat_cmd      =   epsilon . *PushCounter() $'repeat' (*StmtFirst *StmtStar | epsilon) $'until'
+                    *Expr0 . *IncCounter() . *Reduce('TT_REPEAT', nTop()) . *PopCounter();
 /* for v := a to|downto b do S -> TT_FOR(v, a, b, S)                                     */
-for_cmd         =   $'for' shift(*Ident, "'TT_VAR'") $':=' *Expr0
+for_cmd         =   $'for' (*Ident) . thx . *Shift('TT_VAR', thx) $':=' *Expr0
                     ($'to' | $'downto') *Expr0 $'do' *Command
-                    reduce("'TT_FOR'", 4);
+                    . *Reduce('TT_FOR', 4);
 /* case e of c1, c2: S; … end -> TT_CASE(e, TT_ALT(c1, c2), S, …): an arm's constants are one TT_ALT */
-CaseConst       =   *Expr0 FENCE($'..' *Expr0 reduce("'TT_TO'", 2) | epsilon) nInc();
+CaseConst       =   *Expr0 FENCE($'..' *Expr0 . *Reduce('TT_TO', 2) | epsilon) . *IncCounter();
 /* the constants and the arms repeat greedily: an arm, once parsed, is never re-parsed when a later one refuses */
 ConstStar       =   FENCE($',' *CaseConst *ConstStar | epsilon);
-CaseArm         =   nPush() *CaseConst *ConstStar reduce("'TT_ALT'", 'nTop()') nPop() nInc()
-                    $':' *Command nInc();
+CaseArm         =   epsilon . *PushCounter() *CaseConst *ConstStar . *Reduce('TT_ALT', nTop()) . *PopCounter() . *IncCounter()
+                    $':' *Command . *IncCounter();
 ArmStar         =   FENCE($';' *CaseArm *ArmStar | epsilon);
-case_cmd        =   nPush() $'case' *Expr0 nInc() $'of'
+case_cmd        =   epsilon . *PushCounter() $'case' *Expr0 . *IncCounter() $'of'
                     *CaseArm *ArmStar FENCE($';' | epsilon)
-                    FENCE($'else' *Command nInc() FENCE($';' | epsilon) | epsilon)
-                    $'end' reduce("'TT_CASE'", 'nTop()') nPop();
+                    FENCE($'else' *Command . *IncCounter() FENCE($';' | epsilon) | epsilon)
+                    $'end' . *Reduce('TT_CASE', nTop()) . *PopCounter();
 /* with r1, r2 do S -> TT_FNC(TT_VAR __pas_with, r1, r2, S), the oracle's naming for a lowered form  */
-with_cmd        =   nPush() $'with' shift_value('__pas_with', "'TT_VAR'") nInc()
-                    *Expr0 nInc() ARBNO($',' *Expr0 nInc()) $'do' *Command nInc()
-                    reduce("'TT_FNC'", 'nTop()') nPop();
+with_cmd        =   epsilon . *PushCounter() $'with' . *Shift('TT_VAR', '__pas_with') . *IncCounter()
+                    *Expr0 . *IncCounter() ARBNO($',' *Expr0 . *IncCounter()) $'do' *Command . *IncCounter()
+                    . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* goto 20 -> (TT_GOTO_U 20); 10: S -> TT_LABEL_DEF(TT_ILIT 10, S)                          */
-goto_cmd        =   $'goto' shift(*Integer, "'TT_GOTO_U'");
-label_cmd       =   shift(*Integer, "'TT_ILIT'") $':' *Command reduce("'TT_LABEL_DEF'", 2);
+goto_cmd        =   $'goto' (*Integer) . thx . *Shift('TT_GOTO_U', thx);
+label_cmd       =   (*Integer) . thx . *Shift('TT_ILIT', thx) $':' *Command . *Reduce('TT_LABEL_DEF', 2);
 /* an empty statement is legal Pascal wherever a statement may appear: the oracle's TT_SUCCEED */
-empty_cmd       =   $' ' *IDENT(epsilon, epsilon) shift_value('', "'TT_SUCCEED'");
+empty_cmd       =   $' ' *IDENT(epsilon, epsilon) . *Shift('TT_SUCCEED', '');
 Command         =   $' ' ( *compound_cmd
                     | *if_cmd
                     | *while_cmd
@@ -319,45 +319,45 @@ VarGroup        =   *Ident ARBNO($',' *Ident) $':' *TypeSpec $';';
 VarGroups       =   *VarGroup FENCE(*VarGroups | epsilon);
 var_part        =   $'var' *VarGroups;
 /* A parameter list contributes TT_VAR leaves to the procedure's TT_VLIST.                */
-ParamFirst      =   ( ($'procedure' | $'function') shift(*Ident, "'TT_VAR'") nInc()
+ParamFirst      =   ( ($'procedure' | $'function') (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()
                       FENCE($'(' BREAK(')') ')' $' ' | epsilon) FENCE($':' *TypeName | epsilon)
-                    | FENCE($'var' | epsilon) shift(*Ident, "'TT_VAR'") nInc()
-                      ARBNO($',' shift(*Ident, "'TT_VAR'") nInc()) $':' *TypeName );
+                    | FENCE($'var' | epsilon) (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()
+                      ARBNO($',' (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()) $':' *TypeName );
 ParamRest       =   $';' *ParamFirst;
-Params          =   nPush() FENCE($'(' *ParamFirst ARBNO(*ParamRest) $')' | epsilon)
-                    reduce("'TT_VLIST'", 'nTop()') nPop();
+Params          =   epsilon . *PushCounter() FENCE($'(' *ParamFirst ARBNO(*ParamRest) $')' | epsilon)
+                    . *Reduce('TT_VLIST', nTop()) . *PopCounter();
 /* procedure/function P(params); <decls> begin … end;  or  ...; forward;                  */
 /*   -> TT_PROC_DECL(TT_VAR P, TT_VLIST(params), <nested TT_PROC_DECL…>, TT_PROGRAM(body), TT_VLIST()) */
-SubBody         =   nPush() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
-                    reduce("'TT_PROGRAM'", 'nTop()') nPop();
-proc_decl       =   nPush() ($'procedure' | $'function') shift(*Ident, "'TT_VAR'") nInc()
-                    *Params nInc() FENCE($':' *TypeName | epsilon) $';'
-                    ( $'forward' $';' nPush() reduce("'TT_PROGRAM'", 'nTop()') nPop() nInc()
-                    | *Decls *SubBody nInc() $';' )
-                    nPush() reduce("'TT_VLIST'", 'nTop()') nPop() nInc()
-                    reduce("'TT_PROC_DECL'", 'nTop()') nPop();
+SubBody         =   epsilon . *PushCounter() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
+                    . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
+proc_decl       =   epsilon . *PushCounter() ($'procedure' | $'function') (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()
+                    *Params . *IncCounter() FENCE($':' *TypeName | epsilon) $';'
+                    ( $'forward' $';' . *PushCounter() . *Reduce('TT_PROGRAM', nTop()) . *PopCounter() . *IncCounter()
+                    | *Decls *SubBody . *IncCounter() $';' )
+                    . *PushCounter() . *Reduce('TT_VLIST', nTop()) . *PopCounter() . *IncCounter()
+                    . *Reduce('TT_PROC_DECL', nTop()) . *PopCounter();
 /* A block's declaration parts in ISO 7185 6.2.1's order: label, const, type, var, then the   */
 /* procedures and functions; the C frontend refuses any other order, and so does this.          */
-ProcDecls       =   FENCE(*proc_decl nInc() *ProcDecls | epsilon);
+ProcDecls       =   FENCE(*proc_decl . *IncCounter() *ProcDecls | epsilon);
 Decls           =   FENCE(*label_part | epsilon) FENCE(*const_part | epsilon) FENCE(*type_part | epsilon)
                     FENCE(*var_part | epsilon) *ProcDecls;
 /* ==================================================================================================================== */
 /* Compiland — program header, declarations, main block.  The main block is emitted as    */
 /* a TT_PROC_DECL named `main`, which is the shape the C frontend's dump carries.         */
 /* ==================================================================================================================== */
-MainBody        =   nPush() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
-                    reduce("'TT_PROGRAM'", 'nTop()') nPop();
+MainBody        =   epsilon . *PushCounter() $'begin' (*StmtFirst *StmtStar | epsilon) $'end'
+                    . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
 program_head    =   FENCE($'program' *Ident FENCE($'(' BREAK(')') ')' | epsilon) $';' | epsilon);
-main_decl       =   shift_value('main', "'TT_VAR'")
-                    nPush() reduce("'TT_VLIST'", 'nTop()') nPop()
+main_decl       =   epsilon . *Shift('TT_VAR', 'main')
+                    . *PushCounter() . *Reduce('TT_VLIST', nTop()) . *PopCounter()
                     *MainBody
-                    nPush() reduce("'TT_VLIST'", 'nTop()') nPop()
-                    reduce("'TT_PROC_DECL'", 4);
-Compiland       =   nPush() POS(0) $' ' *program_head
+                    . *PushCounter() . *Reduce('TT_VLIST', nTop()) . *PopCounter()
+                    . *Reduce('TT_PROC_DECL', 4);
+Compiland       =   epsilon . *PushCounter() POS(0) $' ' *program_head
                     *Decls
-                    *main_decl nInc()
+                    *main_decl . *IncCounter()
                     $' ' FENCE($'.' | epsilon) $' ' RPOS(0)
-                    reduce("'Parse'", 'nTop()') nPop();
+                    . *Reduce('Parse', nTop()) . *PopCounter();
 /* ==================================================================================================================== */
 /* Driver — byte-identical in shape to the other six parsers.                             */
 /* ==================================================================================================================== */

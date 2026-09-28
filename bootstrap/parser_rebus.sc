@@ -110,145 +110,145 @@ SUBASSIGN   = 'SUBASSIGN';
 CATASSIGN   = 'CATASSIGN';
 COMPOUND    = 'COMPOUND';
 nTop_count   = 'nTop()';
-X_sub = nInc() *expr FENCE($',' *X_sub | epsilon);
-X_args   = nInc() *alt_expr FENCE($',' FENCE(*X_args | nInc() shift(epsilon, 'TT_NUL') FENCE($',' *X_args | epsilon)) | epsilon);
-call_or_id = FENCE(  nPush() shift(*Id, 'TT_VAR') nInc() $'(' FENCE(*X_args | epsilon) $')' reduce('TT_FNC', nTop_count) nPop()
-                   | shift(*Id, 'TT_VAR')
+X_sub = epsilon . *IncCounter() *expr FENCE($',' *X_sub | epsilon);
+X_args   = epsilon . *IncCounter() *alt_expr FENCE($',' FENCE(*X_args | epsilon . *IncCounter() (epsilon) . thx . *Shift('TT_NUL', thx) FENCE($',' *X_args | epsilon)) | epsilon);
+call_or_id = FENCE(  epsilon . *PushCounter() (*Id) . thx . *Shift('TT_VAR', thx) . *IncCounter() $'(' FENCE(*X_args | epsilon) $')' . *Reduce('TT_FNC', nTop()) . *PopCounter()
+                   | (*Id) . thx . *Shift('TT_VAR', thx)
                   );
-primary = FENCE(  '"' shift(*DQ_body, 'TT_QLIT') '"'
-                | "'" shift(*SQ_body, 'TT_QLIT') "'"
-                | KW_open shift(*KW_body, 'TT_KEYWORD')
-                | '@' shift(*Id, 'TT_CAPT_CURSOR')
-                | shift(*Real, 'TT_FLIT')
-                | shift(*Integer, 'TT_ILIT')
+primary = FENCE(  '"' (*DQ_body) . thx . *Shift('TT_QLIT', thx) '"'
+                | "'" (*SQ_body) . thx . *Shift('TT_QLIT', thx) "'"
+                | KW_open (*KW_body) . thx . *Shift('TT_KEYWORD', thx)
+                | '@' (*Id) . thx . *Shift('TT_CAPT_CURSOR', thx)
+                | (*Real) . thx . *Shift('TT_FLIT', thx)
+                | (*Integer) . thx . *Shift('TT_ILIT', thx)
                 | *call_or_id
                 | '(' *expr ')'
                );
 postfix_expr = *primary
-               FENCE(  $'[' *alt_expr $'+:' *alt_expr $']' reduce('TT_IDX', 2) reduce('TT_IDX', 2)
-                         FENCE($'[' *alt_expr $'+:' *alt_expr $']' reduce('TT_IDX', 2) reduce('TT_IDX', 2) | epsilon)
-                      | $'[' nPush() nInc() *X_sub $']' reduce('TT_IDX', nTop_count) nPop()
-                         FENCE($'[' nPush() nInc() *X_sub $']' reduce('TT_IDX', nTop_count) nPop() | epsilon)
-                      | *dot_capt    *primary reduce('TT_CAPT_COND_ASGN', 2)
-                         FENCE(*dot_capt    *primary reduce('TT_CAPT_COND_ASGN', 2) | epsilon)
-                      | *dollar_capt *primary reduce('TT_CAPT_IMMED_ASGN',  2)
-                         FENCE(*dollar_capt *primary reduce('TT_CAPT_IMMED_ASGN',  2) | epsilon)
+               FENCE(  $'[' *alt_expr $'+:' *alt_expr $']' . *Reduce('TT_IDX', 2) . *Reduce('TT_IDX', 2)
+                         FENCE($'[' *alt_expr $'+:' *alt_expr $']' . *Reduce('TT_IDX', 2) . *Reduce('TT_IDX', 2) | epsilon)
+                      | $'[' . *PushCounter() . *IncCounter() *X_sub $']' . *Reduce('TT_IDX', nTop()) . *PopCounter()
+                         FENCE($'[' . *PushCounter() . *IncCounter() *X_sub $']' . *Reduce('TT_IDX', nTop()) . *PopCounter() | epsilon)
+                      | *dot_capt    *primary . *Reduce('TT_CAPT_COND_ASGN', 2)
+                         FENCE(*dot_capt    *primary . *Reduce('TT_CAPT_COND_ASGN', 2) | epsilon)
+                      | *dollar_capt *primary . *Reduce('TT_CAPT_IMMED_ASGN', 2)
+                         FENCE(*dollar_capt *primary . *Reduce('TT_CAPT_IMMED_ASGN', 2) | epsilon)
                       | epsilon
                      );
-unary_expr = FENCE(  $'-'  *unary_expr reduce('TT_MNS', 1)
-                   | '+'   *unary_expr reduce('TT_POS', 1)
-                   | '~'   *unary_expr reduce('TT_NOTPAT', 1)
-                   | '!'   *unary_expr reduce('TT_BANGPAT', 1)
-                   | '/'   *unary_expr reduce('TT_VALUEPAT', 1)
-                   | '\'   *unary_expr reduce('TT_NOTPAT', 1)
-                   | '$'   *unary_expr reduce('TT_INDIRECT', 1)
-                   | '.'   *unary_expr reduce('TT_CAPT_COND_ASGN', 1)
+unary_expr = FENCE(  $'-'  *unary_expr . *Reduce('TT_MNS', 1)
+                   | '+'   *unary_expr . *Reduce('TT_POS', 1)
+                   | '~'   *unary_expr . *Reduce('TT_NOTPAT', 1)
+                   | '!'   *unary_expr . *Reduce('TT_BANGPAT', 1)
+                   | '/'   *unary_expr . *Reduce('TT_VALUEPAT', 1)
+                   | '\'   *unary_expr . *Reduce('TT_NOTPAT', 1)
+                   | '$'   *unary_expr . *Reduce('TT_INDIRECT', 1)
+                   | '.'   *unary_expr . *Reduce('TT_CAPT_COND_ASGN', 1)
                    | *postfix_expr
                   );
-pow_expr = *unary_expr FENCE(  $'**' *pow_expr reduce('TT_POW', 2)
-                              | $'^'  *pow_expr reduce('TT_POW', 2)
+pow_expr = *unary_expr FENCE(  $'**' *pow_expr . *Reduce('TT_POW', 2)
+                              | $'^'  *pow_expr . *Reduce('TT_POW', 2)
                               | epsilon
                              );
 mul_expr = *pow_expr *mul_tail;
-mul_tail = ( $'*' *pow_expr reduce('TT_MUL', 2) *mul_tail
-           | $'/' *pow_expr reduce('TT_DIV', 2) *mul_tail
-           | $'%' *pow_expr reduce(REMDR,  2) *mul_tail
+mul_tail = ( $'*' *pow_expr . *Reduce('TT_MUL', 2) *mul_tail
+           | $'/' *pow_expr . *Reduce('TT_DIV', 2) *mul_tail
+           | $'%' *pow_expr . *Reduce('REMDR', 2) *mul_tail
            | epsilon
            );
 add_expr = *mul_expr *add_tail;
-add_tail = ( $'+' *mul_expr reduce('TT_ADD', 2) *add_tail
-           | $'-' *mul_expr reduce('TT_SUB', 2) *add_tail
+add_tail = ( $'+' *mul_expr . *Reduce('TT_ADD', 2) *add_tail
+           | $'-' *mul_expr . *Reduce('TT_SUB', 2) *add_tail
            | epsilon
            );
-cmp_expr = *add_expr FENCE(  $'~==' *add_expr reduce(CMP_SNE, 2)
-                             | $'==' *add_expr reduce(CMP_SEQ, 2)
-                             | $'<<=' *add_expr reduce(CMP_SLE, 2)
-                             | $'>>=' *add_expr reduce(CMP_SGE, 2)
-                             | $'<<'  *add_expr reduce(CMP_SLT, 2)
-                             | $'>>'  *add_expr reduce(CMP_SGT, 2)
-                             | $'<='  *add_expr reduce(CMP_LE,  2)
-                             | $'>='  *add_expr reduce(CMP_GE,  2)
-                             | $'~='  *add_expr reduce(CMP_NE,  2)
-                             | $'='   *add_expr reduce(CMP_EQ,  2)
-                             | $'<'   *add_expr reduce(CMP_LT,  2)
-                             | $'>'   *add_expr reduce(CMP_GT,  2)
+cmp_expr = *add_expr FENCE(  $'~==' *add_expr . *Reduce('CMP_SNE', 2)
+                             | $'==' *add_expr . *Reduce('CMP_SEQ', 2)
+                             | $'<<=' *add_expr . *Reduce('CMP_SLE', 2)
+                             | $'>>=' *add_expr . *Reduce('CMP_SGE', 2)
+                             | $'<<'  *add_expr . *Reduce('CMP_SLT', 2)
+                             | $'>>'  *add_expr . *Reduce('CMP_SGT', 2)
+                             | $'<='  *add_expr . *Reduce('CMP_LE', 2)
+                             | $'>='  *add_expr . *Reduce('CMP_GE', 2)
+                             | $'~='  *add_expr . *Reduce('CMP_NE', 2)
+                             | $'='   *add_expr . *Reduce('CMP_EQ', 2)
+                             | $'<'   *add_expr . *Reduce('CMP_LT', 2)
+                             | $'>'   *add_expr . *Reduce('CMP_GT', 2)
                              | epsilon
                             );
 cat_expr = *cmp_expr *cat_tail;
-cat_tail = ( $'||' *cmp_expr reduce('TT_CAT', 2) *cat_tail
-           | $'&'  *cmp_expr reduce('TT_CAT', 2) *cat_tail
+cat_tail = ( $'||' *cmp_expr . *Reduce('TT_CAT', 2) *cat_tail
+           | $'&'  *cmp_expr . *Reduce('TT_CAT', 2) *cat_tail
            | epsilon
            );
-X_alt = nInc() *cat_expr FENCE($'|' *X_alt | epsilon);
-alt_expr = nPush() *X_alt reduce(ALT, nTop_count) nPop();
-expr = *alt_expr FENCE(  $'||:=' *alt_expr reduce(CATASSIGN, 2)
-                       | $'+:='  *alt_expr reduce(ADDASSIGN, 2)
-                       | $'-:='  *alt_expr reduce(SUBASSIGN, 2)
-                       | $':=:'  *alt_expr reduce(EXCHG, 2)
-                       | $':='   *alt_expr reduce(ASSIGN, 2)
+X_alt = epsilon . *IncCounter() *cat_expr FENCE($'|' *X_alt | epsilon);
+alt_expr = epsilon . *PushCounter() *X_alt . *Reduce('ALT', nTop()) . *PopCounter();
+expr = *alt_expr FENCE(  $'||:=' *alt_expr . *Reduce('CATASSIGN', 2)
+                       | $'+:='  *alt_expr . *Reduce('ADDASSIGN', 2)
+                       | $'-:='  *alt_expr . *Reduce('SUBASSIGN', 2)
+                       | $':=:'  *alt_expr . *Reduce('EXCHG', 2)
+                       | $':='   *alt_expr . *Reduce('ASSIGN', 2)
                        | epsilon
                       );
 $'?-match'  = $' '  '?-'  $' ';
-match_or_expr = *expr FENCE($'?-match' *alt_expr reduce(REPLN, 2)
-                           | $'?' *alt_expr $'<-arrow' *alt_expr reduce(REPLACE, 3)
-                           | $'?' *alt_expr reduce(MATCH, 2)
+match_or_expr = *expr FENCE($'?-match' *alt_expr . *Reduce('REPLN', 2)
+                           | $'?' *alt_expr $'<-arrow' *alt_expr . *Reduce('REPLACE', 3)
+                           | $'?' *alt_expr . *Reduce('MATCH', 2)
                            | epsilon);
 opt_nl = (nl | epsilon);
 stmt_body = *opt_nl $' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr);
-if_stmt    = $'if'     *match_or_expr $'then' FENCE(*opt_nl *stmt_body *opt_nl $'else' *opt_nl *stmt_body reduce(IFELSE, 3) | *opt_nl *stmt_body reduce(IF, 2));
-while_stmt = $'while'  *match_or_expr $'do'   *opt_nl *stmt_body reduce(WHILE,  2);
-unless_stmt = $'unless' *match_or_expr $'then' *opt_nl *stmt_body reduce(UNLESS, 2);
-until_stmt  = $'until'  *match_or_expr $'do'   *opt_nl *stmt_body reduce(UNTIL,  2);
-repeat_stmt = $'repeat' *opt_nl *stmt_body reduce(REPEAT, 1);
+if_stmt    = $'if'     *match_or_expr $'then' FENCE(*opt_nl *stmt_body *opt_nl $'else' *opt_nl *stmt_body . *Reduce('IFELSE', 3) | *opt_nl *stmt_body . *Reduce('IF', 2));
+while_stmt = $'while'  *match_or_expr $'do'   *opt_nl *stmt_body . *Reduce('WHILE', 2);
+unless_stmt = $'unless' *match_or_expr $'then' *opt_nl *stmt_body . *Reduce('UNLESS', 2);
+until_stmt  = $'until'  *match_or_expr $'do'   *opt_nl *stmt_body . *Reduce('UNTIL', 2);
+repeat_stmt = $'repeat' *opt_nl *stmt_body . *Reduce('REPEAT', 1);
 for_body = $'do' *opt_nl *stmt_body;
-for_stmt = $'for' shift(*Id, 'TT_VAR') $'from' *match_or_expr $'to' *match_or_expr
-           FENCE($'by' *match_or_expr *for_body reduce(RB_FOR, 5) | *for_body reduce(RB_FOR, 4));
-return_stmt = $'return' FENCE(*match_or_expr reduce(RB_RETURN_VAL, 1) | reduce(RB_RETURN, 0));
-exit_stmt   = $'exit'   reduce(RB_EXIT, 0);
-fail_stmt   = $'fail'   reduce(RB_FAIL, 0);
-stop_stmt   = $'stop'   reduce(RB_STOP, 0);
-next_stmt   = $'next'   reduce(RB_NEXT, 0);
+for_stmt = $'for' (*Id) . thx . *Shift('TT_VAR', thx) $'from' *match_or_expr $'to' *match_or_expr
+           FENCE($'by' *match_or_expr *for_body . *Reduce('RB_FOR', 5) | *for_body . *Reduce('RB_FOR', 4));
+return_stmt = $'return' FENCE(*match_or_expr . *Reduce('RB_RETURN_VAL', 1) | epsilon . *Reduce('RB_RETURN', 0));
+exit_stmt   = $'exit'   . *Reduce('RB_EXIT', 0);
+fail_stmt   = $'fail'   . *Reduce('RB_FAIL', 0);
+stop_stmt   = $'stop'   . *Reduce('RB_STOP', 0);
+next_stmt   = $'next'   . *Reduce('RB_NEXT', 0);
 compound_end       = $' ' '}';
-compound_item      = nInc() *stmt_inline FENCE($';' | epsilon) $' ' nl;
+compound_item      = epsilon . *IncCounter() *stmt_inline FENCE($';' | epsilon) $' ' nl;
 compound_body_tail = FENCE(*compound_end | *blank_line *compound_body_tail | *compound_item *compound_body_tail);
-compound_stmt = $' ' '{' $' ' nl nPush() *compound_body_tail reduce(COMPOUND, nTop_count) nPop();
+compound_stmt = $' ' '{' $' ' nl . *PushCounter() *compound_body_tail . *Reduce('COMPOUND', nTop()) . *PopCounter();
 CASE_CLAUSE   = 'CASE_CLAUSE';
 CASE_DEFAULT  = 'CASE_DEFAULT';
 stmt_inline = $' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr) $' ';
-caseclause_guard   = nInc() *match_or_expr $':' *stmt_inline reduce(CASE_CLAUSE, 2);
+caseclause_guard   = epsilon . *IncCounter() *match_or_expr $':' *stmt_inline . *Reduce('CASE_CLAUSE', 2);
 rb_default_kw  = $' '  'default'   $' ';
-caseclause_default = nInc() *rb_default_kw $':' *stmt_inline reduce(CASE_DEFAULT, 1);
+caseclause_default = epsilon . *IncCounter() *rb_default_kw $':' *stmt_inline . *Reduce('CASE_DEFAULT', 1);
 caseclause         = FENCE(*caseclause_default | *caseclause_guard);
 caselist_tail = FENCE(FENCE($';' | epsilon) $' ' nl $' ' FENCE(*caseclause *caselist_tail | *caselist_tail) | $';' FENCE(*caseclause *caselist_tail | epsilon) | epsilon);
 caselist      = *caseclause *caselist_tail;
-case_stmt = *rb_case_kw nPush() nInc() *match_or_expr $'of' $'{' *opt_nl $' ' *caselist $'}' reduce(RB_CASE, nTop_count) nPop();
+case_stmt = *rb_case_kw . *PushCounter() . *IncCounter() *match_or_expr $'of' $'{' *opt_nl $' ' *caselist $'}' . *Reduce('RB_CASE', nTop()) . *PopCounter();
 stmt = $' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr) $' ' FENCE($';' FENCE(nl | epsilon) | nl);
 func_end      = $'end' $' ' nl;
 blank_line    = $' ' nl;
-func_body_stmt = FENCE(*blank_line *func_body_stmt | *func_end | nInc() *stmt *func_body_stmt);
-func_body     = nPush() *func_body_stmt reduce(BODY, nTop_count) nPop();
-X_params  = nInc() shift(*Id, 'TT_VAR') FENCE($',' *X_params | epsilon);
-opt_params = nPush() FENCE(*X_params | epsilon) reduce(PARAMS, nTop_count) nPop();
-X_fields  = nInc() shift(*Id, 'TT_VAR') FENCE($',' *X_fields | epsilon);
-opt_fields = nPush() FENCE(*X_fields | epsilon) reduce(FIELDS, nTop_count) nPop();
-X_locals   = nInc() shift(*Id, 'TT_VAR') FENCE($',' *X_locals | epsilon);
-opt_locals = nPush() FENCE($'local' *X_locals FENCE($';' | epsilon) $' ' nl | epsilon) reduce(LOCALS, nTop_count) nPop();
+func_body_stmt = FENCE(*blank_line *func_body_stmt | *func_end | epsilon . *IncCounter() *stmt *func_body_stmt);
+func_body     = epsilon . *PushCounter() *func_body_stmt . *Reduce('BODY', nTop()) . *PopCounter();
+X_params  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', thx) FENCE($',' *X_params | epsilon);
+opt_params = epsilon . *PushCounter() FENCE(*X_params | epsilon) . *Reduce('PARAMS', nTop()) . *PopCounter();
+X_fields  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', thx) FENCE($',' *X_fields | epsilon);
+opt_fields = epsilon . *PushCounter() FENCE(*X_fields | epsilon) . *Reduce('FIELDS', nTop()) . *PopCounter();
+X_locals   = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', thx) FENCE($',' *X_locals | epsilon);
+opt_locals = epsilon . *PushCounter() FENCE($'local' *X_locals FENCE($';' | epsilon) $' ' nl | epsilon) . *Reduce('LOCALS', nTop()) . *PopCounter();
 init_expr   = *stmt_inline;
-opt_initial = FENCE(nPush() $'initial' *init_expr FENCE($';' | epsilon) $' ' nl reduce(RB_INITIAL, 1) nPop() | reduce(RB_INITIAL, 0));
+opt_initial = FENCE(epsilon . *PushCounter() $'initial' *init_expr FENCE($';' | epsilon) $' ' nl . *Reduce('RB_INITIAL', 1) . *PopCounter() | epsilon . *Reduce('RB_INITIAL', 0));
 function_decl =
-    $'function' shift(*Id, 'TT_VAR') $'(' *opt_params $')' $' ' nl
+    $'function' (*Id) . thx . *Shift('TT_VAR', thx) $'(' *opt_params $')' $' ' nl
     *opt_locals
     *opt_initial
     *func_body
-    reduce(FUNC_DECL, 5);
+    . *Reduce('FUNC_DECL', 5);
 record_decl =
-    $'record' shift(*Id, 'TT_VAR') $'(' *opt_fields $')' $' ' nl
-    reduce(REC_DECL, 2);
-func_cmd = nInc() *function_decl;
-rec_cmd  = nInc() *record_decl;
+    $'record' (*Id) . thx . *Shift('TT_VAR', thx) $'(' *opt_fields $')' $' ' nl
+    . *Reduce('REC_DECL', 2);
+func_cmd = epsilon . *IncCounter() *function_decl;
+rec_cmd  = epsilon . *IncCounter() *record_decl;
 blank    = $' ' nl;
 Command  = *func_cmd | *rec_cmd | *blank;
-Compiland = nPush() POS(0) ARBNO(Command) RPOS(0) reduce(Parse, nTop_count) nPop();
+Compiland = epsilon . *PushCounter() POS(0) ARBNO(Command) RPOS(0) . *Reduce('Parse', nTop()) . *PopCounter();
 function ParseOne(ptree, i, n_kids) {
     InitCounter();
     InitStack();
