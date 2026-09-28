@@ -74,10 +74,10 @@ src/templates/bb/bb_gcc.cpp:24:rt_icn_cset_member	src/templates/bb/bb_gcc.cpp:25
 src/templates/bb/bb_glue_flat.cpp:47:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:48	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_goto_deferred.cpp:26:rt_sno_goto_special_is	src/templates/bb/bb_goto_deferred.cpp:28	UNWITNESSED
 src/templates/bb/bb_goto_deferred.cpp:47:rt_goto_resolve	src/templates/bb/bb_goto_deferred.cpp:49	UNWITNESSED
-src/templates/bb/bb_iterate.cpp:27:rt_list_bang_key_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_iterate.cpp:28:rt_list_bang_elem_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_iterate.cpp:29:rt_list_bang_var_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_iterate.cpp:30:rt_list_bang_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:25:rt_list_bang_key_at	src/templates/bb/bb_iterate.cpp:33	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:26:rt_list_bang_elem_at	src/templates/bb/bb_iterate.cpp:33	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:27:rt_list_bang_var_at	src/templates/bb/bb_iterate.cpp:33	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:28:rt_list_bang_at	src/templates/bb/bb_iterate.cpp:33	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_keyword_assign.cpp:30:rt_keyword_pos_set_strict	src/templates/bb/bb_keyword_assign.cpp:35	UNWITNESSED
 src/templates/bb/bb_keyword_assign.cpp:46:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_keyword_assign.cpp:51	UNWITNESSED
 src/templates/bb/bb_keyword_assign.cpp:90:rt_keyword_trace_set	src/templates/bb/bb_keyword_assign.cpp:95	hb_trace_wildcard_registry_root.icn
