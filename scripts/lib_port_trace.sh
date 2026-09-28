@@ -92,6 +92,10 @@ port_trace_main() {
   REF="$MASTER_DIR/ALL.trace"; PREFIX_CAP="${PREFIX_CAP:-400}"; T="${TIMEOUT:-20}"
   gate_require_exec "$SCRIP" "scrip binary"
   gate_require "$RT/libscrip_rt.so" "runtime library"
+  # ⛔ THE BINARY IS AS NEW AS src/ OR THE GATE CANNOT MEASURE (cto 2026-09-27 22:1x, from the port-trace bisect under CEO-1343):
+  # a worktree whose make had refused rc 2 graded the PREVIOUS tree's binary here and stamped the NEW tree's hash on the
+  # verdict -- a reading of nothing wearing a hash. The guard every other gate carries, in the ONE body all seven share.
+  [ -n "${SCRIP_BIN:-}" ] || "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
   gate_require "$MASTER_DIR/ALL$PORTTRACE_EXT" "$PORTTRACE_LANG master suite"
   gate_require "$MASTER_DIR/ALL.csv" "$PORTTRACE_LANG master suite index"
   [ "$CUT" = 1 ] || gate_require "$REF" "trace refs (run with --cut to create them)"
