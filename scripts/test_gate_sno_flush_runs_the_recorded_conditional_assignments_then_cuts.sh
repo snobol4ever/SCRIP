@@ -25,7 +25,8 @@
 # SCRIP_GC_STRESS=1 its output is unchanged. FAIL-ONCE/PASS-ONCE, MEASURED: on the tree before the box (SCRIP main 51ea208cc, a
 # scratch worktree build) FLUSH is a null variable, so arms 1 and 2 diverge at witness 5 (the cut is not made: YES 5 cut where
 # the oracle reads NO), the DEFINITION arm fails both lines (X= and seen X=) and arm 4 fails on the missing prelude -- FAIL(1);
-# green on the 2026-09-28 landing.
+# green on the 2026-09-28 landing. (6) hq_snobol4 2026-09-28: &DUMP of a program that never touches FLUSH prints no FLUSH line (sbl has no
+# preset), and FLUSH = FENCE dumps FLUSH = PATTERN as the oracle does; FAIL-ONCE measured: arm 6 u reads FAIL with var_dump's skip removed.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -146,6 +147,16 @@ else echo "  arm 5 zero-collection FAIL ($(grep -o 'collections=[0-9]*' "$T/gz.e
 gs="$(SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" "$T/w.sno" </dev/null 2>/dev/null)"
 if [ "$gs" = "$(cat "$T/w.ref")" ]; then echo "  arm 5 stress point PASS (SCRIP_GC_STRESS=1, output unchanged)"
 else echo "  arm 5 stress point FAIL (SCRIP_GC_STRESS=1 changed the output: $(diff <(echo "$gs") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: FLUSH runs the conditional assignments recorded so far and cuts like FENCE, in both modes, SNOBOL4 and Snocone, stored or written, oracle-identical on every succeeding match and as Lon defined it where the oracle cannot see (5 arms)"
-else echo "⛔ GATE FAIL(1) [$G]: FLUSH does not run the recorded conditional assignments at its point, or does not cut, or diverges from the oracle on a succeeding match (examined 5 arms)"; fi
+printf '        X = 1\n        &DUMP = 1\nEND\n' > "$T/u.sno"; { printf '\tFLUSH = FENCE\n'; cat "$T/u.sno"; } > "$T/p.sno"
+for dw in u p; do
+    want="$( cd "$T" && timeout 20s "$SBL" -bf $dw.sno </dev/null 2>&1 | grep '^FLUSH = ' )"
+    [ "$dw" = u ] && want=""
+    got6="$(timeout 20s "$SCRIP" "$T/$dw.sno" </dev/null 2>&1 | grep '^FLUSH = ')"
+    if link4 "$T/$dw.sno" $dw; then got64="$(timeout 20s "$T/$dw" </dev/null 2>&1 | grep '^FLUSH = ')"; else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link of the DUMP witness $dw failed"; exit 2; fi
+    [ "$dw" = p ] && [ -z "$want" ] && { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed no FLUSH line for FLUSH = FENCE under &DUMP -- nothing to grade the assigned case against"; exit 2; }
+    if [ "$got6" = "$want" ] && [ "$got64" = "$want" ]; then echo "  arm 6 DUMP $dw PASS (m3+m4 FLUSH dump line(s) '${want:-none}', as the oracle under the prelude)"
+    else echo "  arm 6 DUMP $dw FAIL (want '${want:-none}', m3 '${got6:-none}', m4 '${got64:-none}' -- the untouched preset must not dump; an assigned FLUSH must)"; RC=1; fi
+done
+if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: FLUSH runs the conditional assignments recorded so far and cuts like FENCE, in both modes, SNOBOL4 and Snocone, stored or written, oracle-identical on every succeeding match and as Lon defined it where the oracle cannot see, and the untouched preset never dumps (6 arms)"
+else echo "⛔ GATE FAIL(1) [$G]: FLUSH does not run the recorded conditional assignments at its point, or does not cut, or diverges from the oracle on a succeeding match (examined 6 arms)"; fi
 exit $RC

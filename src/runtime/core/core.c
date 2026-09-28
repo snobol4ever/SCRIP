@@ -2471,6 +2471,7 @@ extern DESCR_t pat_arbno(DESCR_t);
 extern DESCR_t pat_fence(void);
 extern DESCR_t pat_fence_p(DESCR_t);
 extern DESCR_t pat_flush(void);
+extern int pat_is_bare_flush(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 ? pat_span(rt_cstr_d(a[0]))    : FAILDESCR; }
 static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 ? pat_break_(rt_cstr_d(a[0]))  : FAILDESCR; }
@@ -3742,6 +3743,7 @@ static void var_dump(void) {
         if (!e->is_gva && !e->touched && is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (dump_is_null(d) || d.v == DT_FH) continue;
+        if (!strcmp(e->name, "FLUSH") && pat_is_bare_flush(d)) continue;
         if (n == cap) { cap = cap ? cap * 2 : 64; v = (NV_t **)ct_grow(v, (size_t)cap * sizeof(NV_t *)); if (!v) return; }
         v[n++] = e;
     }
