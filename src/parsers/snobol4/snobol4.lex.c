@@ -3173,7 +3173,8 @@ Token flex_lex_next(Lex *lx) {
             return t;
         case T_REAL:
             t.sval = intern(strbuf);
-            { char *_ne = (char *)0; errno = 0; double _rv = strtod(strbuf, &_ne);
+            { extern int rt_gtn_real(const char *, long, double *); char *_ne = (char *)0; errno = 0; double _rv = 0.0;
+              if (!rt_gtn_real(strbuf, (long)strlen(strbuf), &_rv)) _rv = strtod(strbuf, &_ne);
               if (!isfinite(_rv)) { sno_error(lineno, "syntax error: invalid numeric item"); _rv = 0.0; }
               t.dval = _rv; }
             return t;

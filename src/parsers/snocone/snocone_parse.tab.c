@@ -2644,8 +2644,9 @@ static tree_t *sc_int_literal(const char *txt) {
     return e;
 }
 static tree_t *sc_real_literal(const char *txt) {
+    extern int rt_gtn_real(const char *, long, double *);
     tree_t *e = expr_new(TT_FLIT);
-    e->dval = strtod(txt, NULL);
+    if (!rt_gtn_real(txt, (long)strlen(txt), &e->dval)) e->dval = strtod(txt, NULL);
     return e;
 }
 static tree_t *sc_str_literal(const char *txt) {

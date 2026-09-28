@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <math.h>
 extern DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 extern DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 extern DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
@@ -40,11 +41,13 @@ static int cf_eval(DESCR_t da, DESCR_t db, int code, DESCR_t * out) {
     return folded;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int cf_subnormal(DESCR_t d) { return d.v == DT_R && fpclassify(d.r) == FP_SUBNORMAL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cf_binop(IR_graph_t * g, IR_t * nd, long code, DESCR_t da, DESCR_t db) {
     if (code == BINOP_LCONCAT) return 0;
     if (code == BINOP_CONCAT_FRACDIGIT && !(core_icn_str_ok(da) && core_icn_str_ok(db))) return 0;
     if (binop_is_concat(code)) return cf_store_descr(g, nd, code == BINOP_CONCAT_FRACDIGIT ? str_concat_fracdigit_d(da, db) : str_concat_d(da, db));
-    if (code == BINOP_ADD || code == BINOP_SUB || code == BINOP_MUL || code == BINOP_DIV || code == BINOP_MOD) { DESCR_t r; return cf_eval(da, db, (int)code, &r) ? cf_store_descr(g, nd, r) : 0; }
+    if (code == BINOP_ADD || code == BINOP_SUB || code == BINOP_MUL || code == BINOP_DIV || code == BINOP_MOD) { DESCR_t r; if (cf_subnormal(da) || cf_subnormal(db)) return 0; if (!cf_eval(da, db, (int)code, &r) || cf_subnormal(r)) return 0; return cf_store_descr(g, nd, r); }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

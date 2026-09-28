@@ -14,6 +14,7 @@
 extern int g_protected_pat_vars_armed;
 int core_icn_error(int code, DESCR_t val);
 int rt_str_to_real(const char *s, double *out);
+int rt_gtn_real(const char *s, long n, double *out);
 DESCR_t rt_sno_cnv_num(DESCR_t v, int want);
 int g_call_fastpath_off = 0;
 #include <stdio.h>
@@ -23,6 +24,7 @@ int g_call_fastpath_off = 0;
 #include <math.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <xmmintrin.h>
 #include <limits.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -3988,6 +3990,7 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
 int rt_str_to_real(const char *s, double *out) {
     if (!s) return 0;
     while (*s == ' ') s++;
+    { double g; if (rt_gtn_real(s, (long)strlen(s), &g)) { if (out) *out = g; return 1; } }
     { char *end = (char *)0; double v = strtod(s, &end);
       if (!end || end == s) return 0;
       while (*end == ' ') end++;
@@ -4119,6 +4122,15 @@ gtn30:
 gtn35:
     ra = -(double)si;
     goto gtn11;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_fp_model_spitbol(DESCR_t *a, int n) { (void)a; (void)n; _mm_setcsr(_mm_getcsr() | 0x8040u); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_gtn_real(const char *s, long n, double *out) {
+    DESCR_t d;
+    if (!s || !rt_gtn_str(s, n, &d)) return 0;
+    *out = IS_REAL(d) ? d.r : (double)d.i;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sno_cnv_num(DESCR_t v, int want) {
