@@ -2219,14 +2219,14 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
                     tl_why = "body-range";
                     if (i_b0 > i_arb && i_b1 >= i_b0) {
                         int cap_left = 0;
-                        int n_wrap = 0; const IR_t * wsv[4]; const IR_t * wcd[4];
+                        int n_wrap = 0, n_wmax = i_arb - before_pat + 1; const IR_t * wsv[n_wmax]; const IR_t * wcd[n_wmax];
                         { const IR_t * inner_want = R;
                           for (;;) {
                               int found = -1;
                               for (int k = before_pat; k < i_arb; k++) { IR_t * x = g->all[k]; if (x && (x->op == IR_MATCH_ASSIGN_COND || x->op == IR_MATCH_ASSIGN_IMM) && x->n_operands > 1 && x->operands[0] == inner_want) { found = k; break; } }
                               if (found < 0) break;
                               IR_t * sv = (found + 1 < g->n) ? g->all[found + 1] : NULL;
-                              if (!sv || sv->op != IR_MATCH_ASSIGN_SAVE || g->all[found]->operands[1] != sv || n_wrap >= 4) { cap_left = 1; break; }
+                              if (!sv || sv->op != IR_MATCH_ASSIGN_SAVE || g->all[found]->operands[1] != sv || n_wrap >= n_wmax) { cap_left = 1; break; }
                               wcd[n_wrap] = g->all[found]; wsv[n_wrap] = sv; n_wrap++;
                               inner_want = sv;
                           }
