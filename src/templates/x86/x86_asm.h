@@ -2079,6 +2079,15 @@ inline std::string x86_strtab_lbl(const char * s) {
     return std::string(lbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rodata_str_lea(const char * reg, const char * str, const char * stem) {
+    std::string fl = std::string(".L") + x86_boxkind() + stem + std::to_string(g_flat_node_id++);
+    return x86("directive", ".section .rodata")
+         + x86("directive", (fl + ": .string \"" + std::string(str) + "\"").c_str())
+         + x86("directive", ".section .text")
+         + x86("directive", ".intel_syntax noprefix")
+         + x86("lea", reg, "[rip + __]", (uint64_t)(uintptr_t)str, fl.c_str());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint64_t x86_cset_word(const char * s, long n, int k) {
     uint64_t w = 0;
     for (long i = 0; s && i < n; i++) if (((unsigned char)s[i] >> 6) == k) w |= 1ull << ((unsigned char)s[i] & 63);
