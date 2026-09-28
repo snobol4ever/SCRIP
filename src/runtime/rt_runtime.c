@@ -19,11 +19,6 @@ extern const char *Σ;
 extern int         Δ;
 extern int         Ω;
 extern int         Σlen;
-#define BB_DCAP_MAX 32
-typedef struct { const char *varname; int start; int len; } bb_dcap_t;
-static bb_dcap_t g_dcap[BB_DCAP_MAX];
-static int       g_dcap_n = 0;
-static int       g_dcap_active = 0;
 #include "core.h"
 #include "lower.h"
 #include "../runtime/builtins/gen_runtime.h"
@@ -38,23 +33,8 @@ extern DESCR_t    dat_construct(DatType *t, DESCR_t *args, int nargs);
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 static DESCR_t g_ir_return_val;
-typedef struct { DESCR_t * items; int count; int cap; int active; } SuspendBuf;
-static SuspendBuf g_suspend_buf;
-typedef struct { DESCR_t * items; int count; } SuspendList;
-#define SAVE_MAX 4096
-typedef struct { const char * name; DESCR_t old; } SaveEnt;
-static SaveEnt   g_save_stack[SAVE_MAX];
-static int          g_save_stack_top = 0;
 static const char * g_cur_func = NULL;
 IR_graph_t * g_current_cfg = NULL;
-typedef struct { IR_t * node; DESCR_t * items; int count; int cap; } seq_cache_t;
-#define SEQ_CACHE_MAX 64
-static seq_cache_t g_seq_cache[SEQ_CACHE_MAX];
-static int g_seq_cache_n = 0;
-typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
-#define SUSP_GEN_CACHE_MAX 64
-static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
-static int g_susp_gen_cache_n = 0;
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {
