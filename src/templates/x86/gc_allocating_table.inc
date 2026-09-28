@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1913
-#define GC_ALLOC_TAB_N_VOID 221
+#define GC_ALLOC_TAB_N 1914
+#define GC_ALLOC_TAB_N_VOID 222
 #define GC_ALLOC_TAB_N_DESCR 1044
 #define GC_ALLOC_TAB_N_OTHER 642
 #define GC_ALLOC_TAB_N_UNKNOWN 6
@@ -933,6 +933,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rgbkey", GC_RET_OTHER },
     { "rk_a_seal", GC_RET_DESCR },
     { "rk_a_split", GC_RET_OTHER },
+    { "rk_arr_append", GC_RET_VOID },
     { "rk_av", GC_RET_OTHER },
     { "rk_av_args", GC_RET_OTHER },
     { "rk_av_arith", GC_RET_DESCR },

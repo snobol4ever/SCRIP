@@ -347,7 +347,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
+        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
@@ -791,6 +791,12 @@ static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
     char *buf = rt_wsb_alloc(tot); size_t p = 0;
     for (int i = 0; i < n; i++) { if (i) buf[p++] = SOH; size_t L = strlen(tx[i]); memcpy(buf + p, tx[i], L); p += L; }
     buf[p] = '\0'; return rk_a_seal(buf, n > 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_arr_append(ARBLK_t *b, DESCR_t v) {
+    int n = b->hi - b->lo + 1; size_t cap = (((rt_hblk_t *) b->data - 1)->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t);
+    if ((size_t) n + 1 > cap) { size_t nc = 2 * cap > (size_t) n + 1 ? 2 * cap : (size_t) n + 1; b->data = (DESCR_t *) rt_gcheap_grow_block(b->data, HB_DVEC, nc * sizeof(DESCR_t)); }
+    b->data[n] = v; b->hi++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_text_int(const char *t, long long *v) { char *ep; *v = strtoll(t, &ep, 10); return *ep == '\0' && ep != t; }
@@ -5172,6 +5178,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         buf[p] = '\0';
         *out = rk_a_seal(buf, nel > 0); return 1;
+    }
+    if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) {
+        if (nargs && args[0].v == DT_A && args[0].arr) { *out = args[0]; return 1; }
+        extern ARBLK_t *array_new(int lo, int hi);
+        rk_av_t a = { 0, NULL, 1 }; if (nargs) a = rk_av(args[0]); ARBLK_t *b = array_new(0, a.n - 1);
+        for (int i = 0; i < a.n; i++) b->data[i] = rk_elem_descr(a.el[i].s ? a.el[i].s : "", a.el[i].s ? strlen(a.el[i].s) : 0);
+        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
+    }
+    if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && nargs == 2 && args[0].v == DT_A && args[0].arr) {
+        ARBLK_t *b = (ARBLK_t *) args[0].arr;
+        if (fn[5] == 'm' && args[1].v == DT_A) { rk_av_t v = rk_av(args[1]); for (int i = 0; i < v.n; i++) rk_arr_append(b, v.el[i]); }
+        else rk_arr_append(b, args[1]);
+        *out = args[0]; return 1;
+    }
+    if (!strcmp(fn, "__rk_iter_done") && nargs == 1) {
+        rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1;
     }
     if ((!strcmp(fn, "__rk_arr_map") || !strcmp(fn, "__rk_arr_grep")) && nargs >= 2) {
         int want_map = (fn[9] == 'm');
