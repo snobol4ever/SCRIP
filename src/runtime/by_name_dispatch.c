@@ -870,7 +870,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
           if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
           if (!strcmp(meth, "WHAT")) { *out = recv; return 1; }
       } }
-    char sb[64]; const char *s = IS_REAL_fn(recv) ? rk_real_str(recv.r, sb, (int)sizeof sb) : to_cstring(recv, sb, sizeof sb); if (!s) s = "";
+    char sb[64]; const char *s = recv.v == DT_A ? rk_av_joined(rk_av(recv), " ", "", "") : IS_REAL_fn(recv) ? rk_real_str(recv.r, sb, (int)sizeof sb) : to_cstring(recv, sb, sizeof sb); if (!s) s = "";
     if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words") || !strcmp(meth, "split")) s = rk_list_as_str(s);
     size_t n = strlen(s);
     if ((!strcmp(meth, "split") || !strcmp(meth, "comb")) && nmargs >= 1 && rk_rx_pat(margs[0])) {
@@ -4249,10 +4249,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else if (g.v == DT_BOOL || e.v == DT_BOOL || g.v == DT_ORDER || e.v == DT_ORDER) c = g.v == e.v && g.i == e.i;
             else if (rk_typeobj_name(g) || rk_typeobj_name(e)) c = rk_typeobj_name(g) && rk_typeobj_name(e) && !strcmp(rk_typeobj_name(g), rk_typeobj_name(e));
             else if (g.v == DT_SNUL || e.v == DT_SNUL) c = g.v == e.v;
+            else if (g.v == DT_A || e.v == DT_A) { rk_av_t x = rk_av(g), y = rk_av(e); c = x.n == y.n; for (int i = 0; c && i < x.n; i++) c = !strcmp(rk_av_text(x, i), rk_av_text(y, i)); }
             else { const char *x = to_cstring(g, sb1, sizeof sb1), *y = to_cstring(e, sb2, sizeof sb2); c = !strcmp(rk_a_body(x ? x : ""), rk_a_body(y ? y : "")); }
             const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : "";
             rk_tap_proclaim(c, d, "");
-            if (!c) { const char *ex = rk_list_as_str(rk_cstr(e)), *go = rk_list_as_str(rk_cstr(g));
+            if (!c) { const char *ex = e.v == DT_A ? rk_av_joined(rk_av(e), " ", "", "") : rk_list_as_str(rk_cstr(e)), *go = g.v == DT_A ? rk_av_joined(rk_av(g), " ", "", "") : rk_list_as_str(rk_cstr(g));
                       size_t l = strlen(ex) + strlen(go) + 16; char *b = rt_wsb_alloc(l);
                       snprintf(b, l, "expected: %s", ex); rk_tap_diag(b); snprintf(b, l, "     got: %s", go); rk_tap_diag(b); }
             *out = INTVAL(c); return 1; }
