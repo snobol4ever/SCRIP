@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1900
-#define GC_ALLOC_TAB_N_VOID 218
+#define GC_ALLOC_TAB_N 1905
+#define GC_ALLOC_TAB_N_VOID 219
 #define GC_ALLOC_TAB_N_DESCR 1038
-#define GC_ALLOC_TAB_N_OTHER 638
+#define GC_ALLOC_TAB_N_OTHER 642
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -698,6 +698,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_pf_resolve", GC_RET_VOID },
     { "pas_read_number", GC_RET_DESCR },
     { "pas_tf_read", GC_RET_OTHER },
+    { "pas_tf_set", GC_RET_VOID },
     { "pas_tf_write", GC_RET_VOID },
     { "pas_trace_print_value", GC_RET_VOID },
     { "pascal_compile", GC_RET_VOID },
@@ -735,6 +736,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pat_succeed", GC_RET_DESCR },
     { "pat_tab", GC_RET_DESCR },
     { "patv_slot", GC_RET_DESCR },
+    { "pl_acyclic_walk", GC_RET_OTHER },
     { "pl_anum_atomics_in_list", GC_RET_OTHER },
     { "pl_anum_big_sign", GC_RET_OTHER },
     { "pl_anum_check", GC_RET_OTHER },
@@ -827,6 +829,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_past_eos_ball", GC_RET_OTHER },
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_prelude_defines", GC_RET_OTHER },
+    { "pl_ps_grow", GC_RET_OTHER },
+    { "pl_ps_push", GC_RET_OTHER },
     { "pl_read_opts_ball", GC_RET_OTHER },
     { "pl_read_term_options_cell", GC_RET_OTHER },
     { "pl_runtime_clause_tree", GC_RET_OTHER },
@@ -1199,6 +1203,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_patv_defer_get_pat_dtp", GC_RET_OTHER },
     { "rt_patv_defer_open_entry", GC_RET_OTHER },
     { "rt_patv_freeze", GC_RET_VOID },
+    { "rt_pl_acyclic_cell", GC_RET_OTHER },
     { "rt_pl_agg_count_finish", GC_RET_OTHER },
     { "rt_pl_agg_max_finish", GC_RET_OTHER },
     { "rt_pl_agg_min_finish", GC_RET_OTHER },

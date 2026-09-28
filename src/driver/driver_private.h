@@ -37,10 +37,13 @@ void rt_script_die_surface(const char *msg);
 extern Match  g_match;
 extern const char *g_subject;
 extern int   g_kw_ctx;
-#define FH_MAX 64
+#include "ct_vec.h"
 typedef struct { FILE *fp; char *name; char *alias; char *enc; char mode; char type; char untrans; char bom; char repos; char closed; char eof; char rd_last;
     long pos_off; long pos_chars; long pos_lines; long pos_lpos; long rd_line; long rd_col; } fh_slot_t;
-extern fh_slot_t g_fh[FH_MAX];
+extern cv_t g_fhv;
+void fh_ensure_init(void);
+#define g_fh (fh_ensure_init(), (fh_slot_t *)g_fhv.p)
+#define FH_N ((int)g_fhv.len)
 void  drv_gc_roots(void);
 extern int   fh_init;
 int   fh_alias_idx(const char *nm);

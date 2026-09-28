@@ -88,6 +88,7 @@ static int icn_cvt_int_ok(DESCR_t d) {
 static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_error(code, val); *out = FAILDESCR; return 1; }
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
+#include "ct_vec.h"
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 void rt_call_args_clear_from(int n);
@@ -558,23 +559,24 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     switch (flav) { case 'a': return hits >= 1; case 'l': return total > 0 && hits == total;
                     case 'o': return hits == 1; case 'n': return hits == 0; default: return 0; }
 }
-#define GRAMMAR_MAX 128
 #define RK_NAMED_MAX 32
-static struct { const char *qname; const char *body; int flavor; } gram_reg[GRAMMAR_MAX];
-static int gram_n = 0;
+typedef struct { const char *qname; const char *body; int flavor; } gram_ent_t;
+static cv_t g_gram;
+#define GRAM(k) CV_AT(g_gram, gram_ent_t, (k))
+#define gram_n ((int)g_gram.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gram_set(const char *qname, const char *body, int flavor) {
-    for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) { gram_reg[i].body = rt_heap_strdup_c(body); gram_reg[i].flavor = flavor; return; }
-    if (gram_n < GRAMMAR_MAX) { gram_reg[gram_n].qname = rt_heap_strdup_c(qname); gram_reg[gram_n].body = rt_heap_strdup_c(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
+    for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) { GRAM(i).body = rt_heap_strdup_c(body); GRAM(i).flavor = flavor; return; }
+    { gram_ent_t *e = &CV_PUSH(g_gram, gram_ent_t); e->qname = rt_heap_strdup_c(qname); e->body = rt_heap_strdup_c(body); e->flavor = flavor; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gram_get_flavor(const char *qname) {
-    for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) return gram_reg[i].flavor;
+    for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) return GRAM(i).flavor;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *gram_get(const char *qname) {
-    for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) return gram_reg[i].body;
+    for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) return GRAM(i).body;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -648,9 +650,9 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_grammar_register(const char *qname, const char *body, int flavor) { if (qname && body) gram_set(qname, body, flavor); }
 int rt_grammar_count(void) { return gram_n; }
-const char *rt_grammar_qname(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].qname : NULL; }
-const char *rt_grammar_body(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].body : NULL; }
-int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].flavor : 0; }
+const char *rt_grammar_qname(int i) { return (i >= 0 && i < gram_n) ? GRAM(i).qname : NULL; }
+const char *rt_grammar_body(int i) { return (i >= 0 && i < gram_n) ? GRAM(i).body : NULL; }
+int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? GRAM(i).flavor : 0; }
 int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_is_nil(DESCR_t d) {
@@ -1084,7 +1086,18 @@ static unsigned char *g_pas_heap_dead = (unsigned char *)0;
 static long *g_pas_heap_free = (long *)0;
 static long g_pas_heap_nfree = 0;
 static long g_pas_heap_freecap = 0;
-static struct { DESCR_t buf; int has; int mode; } g_pas_tf[512];
+static gv_t g_pas_tf;
+#define PTF_BUF(k) (((DESCR_t *)g_pas_tf.p)[2 * (k)])
+#define PTF_ST(k) (((DESCR_t *)g_pas_tf.p)[2 * (k) + 1])
+#define PTF_HAS(k) ((int)(PTF_ST(k).i & 1))
+#define PTF_MODE(k) ((int)(PTF_ST(k).i >> 1))
+#define PTF_N ((int)(g_pas_tf.len / 2))
+static void pas_tf_set(int idx, DESCR_t buf, int has, int mode) {
+    uint64_t need = (uint64_t)(2 * (idx + 1));
+    gv_reserve(&g_pas_tf, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), need, "g_pas_tf");
+    while (g_pas_tf.len < need) { ((DESCR_t *)g_pas_tf.p)[g_pas_tf.len] = INTVAL(0); g_pas_tf.len++; }
+    PTF_BUF(idx) = buf; PTF_ST(idx) = INTVAL((long)(has & 1) | ((long)mode << 1));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_cell(long n, int grow) {
     if (n <= 0) return (DESCR_t *)0;
@@ -1165,7 +1178,7 @@ void pas_gc_roots(void) {
     if (plant) return;
     long top = (g_pas_heap_ctr < g_pas_heap_cap) ? g_pas_heap_ctr : g_pas_heap_cap - 1;
     for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_pas_heap[n]);
-    for (int i = 0; i < 512; i++) if (g_pas_tf[i].has) rt_gc_visit_descr(&g_pas_tf[i].buf);
+    gv_gc_root(&g_pas_tf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pas_cell_str(DESCR_t *hc) {
@@ -1234,7 +1247,7 @@ void bnd_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *);
     extern void rt_gc_visit_raw(const char **);
-    for (int gi = 0; gi < gram_n && gi < GRAMMAR_MAX; gi++) { if (gram_reg[gi].qname) rt_gc_visit_raw(&gram_reg[gi].qname); if (gram_reg[gi].body) rt_gc_visit_raw(&gram_reg[gi].body); }
+    for (int gi = 0; gi < gram_n; gi++) { if (GRAM(gi).qname) rt_gc_visit_raw(&GRAM(gi).qname); if (GRAM(gi).body) rt_gc_visit_raw(&GRAM(gi).body); }
     for (int rd = 0; rd < g_redisp_top && rd < 64; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); for (int k = 0; k < g_redisp[rd].nargs && k < 16; k++) rt_gc_visit_descr(&g_redisp[rd].args[k]); }
     { extern void rt_main_args_gc_root(void); rt_main_args_gc_root(); }
 }
@@ -2780,7 +2793,7 @@ static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
         if (idx < 0 || !fh_get(idx)) { *ball = rt_pl_ball_kind2("existence_error", "stream", d); return -1; } }
     else if (d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == prolog_atom_intern("$stream") && plc_fid_arity(d.slen) == 1) {
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
-        if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_MAX || !fh_get((int)a.i)) { *ball = rt_pl_ball_kind2("existence_error", "stream", d); return -1; }
+        if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_N || !fh_get((int)a.i)) { *ball = rt_pl_ball_kind2("existence_error", "stream", d); return -1; }
         idx = (int)a.i; }
     else { *ball = rt_pl_ball_kind2("domain_error", "stream_or_alias", d); return -1; }
     { int is_in = (g_fh[idx].mode == 'r');
@@ -2910,7 +2923,7 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
                 if ((ex >= 0 && ex != idx) || !strcmp(as, "user_input") || !strcmp(as, "user_output") || !strcmp(as, "user_error")) { cx->ball = rt_pl_ball_permission3("open", "source_sink", opt); return 0; } }
               fh_set_alias(idx, as); }
           else if (on && !strcmp(on, "type")) { if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
-              if (idx >= 0 && idx < FH_MAX) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
+              if (idx >= 0 && idx < FH_N) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
           else if (on && !strcmp(on, "reposition")) { extern void fh_set_repos(int, int); if (!as || (strcmp(as, "true") && strcmp(as, "false"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               fh_set_repos(idx, as[0] == 't'); }
           else if (on && !strcmp(on, "eof_action")) { extern void fh_set_eof(int, int);
@@ -3241,7 +3254,7 @@ PL_CX_LEAF_HEAD(name, 2) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_
     else { DESCR_t num; if (!pl_list_text(args[1], b, sizeof b)) ok = 0; else ok = plw_unify_vals(args[0], pl_parse_number(b, &num) ? num : pl_mk_atom_dup(b, strlen(b)), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_in_is_text(void) { extern int fh_current_input(void); extern int fh_is_untranslated(int); int ix = fh_current_input();
-    return ix >= 0 && ix < FH_MAX && g_fh[ix].type != 'b' && !fh_is_untranslated(ix); }
+    return ix >= 0 && ix < FH_N && g_fh[ix].type != 'b' && !fh_is_untranslated(ix); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_getc_cp(FILE *f, char *seq, int *seqn) {
     int b0, n, i, cp;
@@ -3281,13 +3294,13 @@ PL_CX_LEAF_HEAD(peek_code, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_byte_cur_ball(int out) { extern int fh_current_output(void); extern int fh_current_input(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = out ? fh_current_output() : fh_current_input();
-    return (ix >= 0 && ix < FH_MAX && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", pl_mk_stream(ix)) : (void *)0; }
+    return (ix >= 0 && ix < FH_N && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", pl_mk_stream(ix)) : (void *)0; }
 static void *pl_past_eos_ball(void) { extern int fh_current_input(void); extern int fh_eof(int); extern FILE *fh_cur_in_fp(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = fh_current_input(); FILE *fp = fh_cur_in_fp();
-    return (ix >= 3 && ix < FH_MAX && fp && feof(fp) && fh_eof(ix) == 'e') ? rt_pl_ball_permission3("input", "past_end_of_stream", pl_mk_stream(ix)) : (void *)0; }
+    return (ix >= 3 && ix < FH_N && fp && feof(fp) && fh_eof(ix) == 'e') ? rt_pl_ball_permission3("input", "past_end_of_stream", pl_mk_stream(ix)) : (void *)0; }
 static void *pl_text_cur_ball(void) { extern int fh_current_input(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = fh_current_input();
-    return (ix >= 0 && ix < FH_MAX && g_fh[ix].type == 'b') ? rt_pl_ball_permission3("input", "binary_stream", pl_mk_stream(ix)) : (void *)0; }
+    return (ix >= 0 && ix < FH_N && g_fh[ix].type == 'b') ? rt_pl_ball_permission3("input", "binary_stream", pl_mk_stream(ix)) : (void *)0; }
 PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c; if ((cx->ball = pl_byte_cur_ball(0)) || (cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } c = fgetc(fh_cur_in_fp());
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3942,7 +3955,7 @@ PL_CX_LEAF_HEAD(set_stream_position, 2) { extern void *rt_pl_ball_instantiation(
     if (nm) { si = pl_sp_named(sd); if (si < 0 || !fh_get(si)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; } }
     else if (sd.v == (DTYPE_t)DT_PLREF && plc_fid_name(sd.slen) == prolog_atom_intern("$stream") && plc_fid_arity(sd.slen) == 1) {
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)sd.p)[0]);
-        if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_MAX || !fh_get((int)a.i)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; }
+        if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_N || !fh_get((int)a.i)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; }
         si = (int)a.i; }
     else { cx->ball = rt_pl_ball_kind2("domain_error", "stream_or_alias", sd); return FAILDESCR; }
     if (pl_val_unbound(pd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
@@ -3958,10 +3971,10 @@ PL_CX_LEAF_HEAD(pl_op_nth, 4) { extern int prolog_op_table_get(int, const char *
     if (iv.v == DT_I && prolog_op_table_get((int)iv.i - 1, &onm, &opr, &oty) && onm && oty)
         ok = plw_unify_vals(args[1], INTVAL((long long)opr), cx) && plw_unify_vals(args[2], pl_mk_atom_dup(oty, strlen(oty)), cx)
           && plw_unify_vals(args[3], pl_mk_atom_dup(onm, strlen(onm)), cx); } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(pl_cs_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)FH_MAX), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_cs_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)FH_N), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_cs_nth, 4) { DESCR_t iv = rt_pl_deref_val(args[0]); int si; ok = 0;
     if (iv.v == DT_I) { si = (int)iv.i - 1;
-        if (si >= 3 && si < FH_MAX && pl_sp_stream_live(si) && g_fh[si].name)
+        if (si >= 3 && si < FH_N && pl_sp_stream_live(si) && g_fh[si].name)
             ok = plw_unify_vals(args[1], pl_mk_atom_dup(g_fh[si].name, strlen(g_fh[si].name)), cx)
               && plw_unify_vals(args[2], pl_mk_atom(pl_sp_mode_name(si)), cx) && plw_unify_vals(args[3], pl_mk_stream(si), cx); } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_ioarg, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_kind1(const char *, const char *);
@@ -3970,7 +3983,7 @@ PL_CX_LEAF_HEAD(pl_ioarg, 2) { extern void *rt_pl_ball_kind2(const char *, const
     if (!k) return pl_ok();
     out = !strncmp(k, "put_", 4); sx = out ? fh_current_output() : fh_current_input();
     if (!strncmp(k, "in_byte", 7)) { if (!pl_val_unbound(c) && (c.v != DT_I || c.i < -1 || c.i > 255)) cx->ball = rt_pl_ball_kind2("type_error", "in_byte", c); }
-    else if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_MAX && g_fh[sx].type == 'b') cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", pl_mk_stream(sx));
+    else if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_N && g_fh[sx].type == 'b') cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", pl_mk_stream(sx));
     else if (!strncmp(k, "put_code", 8)) { if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation(); else if (c.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", c);
         else if (c.i < 0 || c.i > 0x10FFFF) cx->ball = rt_pl_ball_kind1("representation_error", "character_code"); }
     else if (!strncmp(k, "put_char", 8)) { if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation();
@@ -3985,19 +3998,19 @@ PL_CX_LEAF_HEAD(pl_sp_check, 2) { extern void *rt_pl_ball_kind2(const char *, co
     DESCR_t s = rt_pl_deref_val(args[0]), p = rt_pl_deref_val(args[1]); const char *nm = (const char *)0; int i; ok = 1;
     if (!pl_val_unbound(s)) {
         if (s.v == (DTYPE_t)DT_PLREF && plc_fid_name(s.slen) == prolog_atom_intern("$stream") && plc_fid_arity(s.slen) == 1) {
-            DESCR_t k = rt_pl_deref_val(((DESCR_t *)s.p)[0]); if (k.v != DT_I || k.i < 0 || k.i >= FH_MAX || !pl_sp_stream_live((int)k.i)) cx->ball = rt_pl_ball_kind2("existence_error", "stream", s); }
+            DESCR_t k = rt_pl_deref_val(((DESCR_t *)s.p)[0]); if (k.v != DT_I || k.i < 0 || k.i >= FH_N || !pl_sp_stream_live((int)k.i)) cx->ball = rt_pl_ball_kind2("existence_error", "stream", s); }
         else if (pl_sp_named(s) < 0) cx->ball = rt_pl_ball_kind2("domain_error", "stream", s); }
     if (!cx->ball && !pl_val_unbound(p)) { nm = pl_atom_str(p); if (!nm && p.v == (DTYPE_t)DT_PLREF) nm = prolog_atom_name(plc_fid_name(p.slen));
         for (i = 0; nm && pn[i]; i++) if (!strcmp(nm, pn[i])) break;
         if (!nm || !pn[i]) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p); }
     if (cx->ball) ok = 0; } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(pl_sp_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)(FH_MAX * PL_SP_NPROP)), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_sp_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)(FH_N * PL_SP_NPROP)), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_sp_nth, 3) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     DESCR_t iv = rt_pl_deref_val(args[0]); DESCR_t sd = rt_pl_deref_val(args[1]); DESCR_t pv; int k, si, pi, want = -1, named; ok = 0;
     named = pl_atom_str(sd) != (const char *)0;
     if (named && (want = pl_sp_named(sd)) < 0) cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd);
     else if (iv.v == DT_I) { k = (int)iv.i - 1; si = k / PL_SP_NPROP; pi = k % PL_SP_NPROP;
-        if (si >= 0 && si < FH_MAX && pl_sp_stream_live(si) && (named ? si == want : plw_unify_vals(args[1], pl_mk_stream(si), cx)) && pl_sp_prop(si, pi, &pv))
+        if (si >= 0 && si < FH_N && pl_sp_stream_live(si) && (named ? si == want : plw_unify_vals(args[1], pl_mk_stream(si), cx)) && pl_sp_prop(si, pi, &pv))
             ok = plw_unify_vals(args[2], pv, cx); } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(format3, 3) { extern int fh_current_output(void); extern void fh_set_output(int); extern int fh_capture_begin(char **, size_t *, int *);
     extern void fh_capture_end(int, int); extern int prolog_atom_intern(const char *);
@@ -4553,7 +4566,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             int oidx = (int)args[0].i;
             FILE *ofp = fh_get(oidx);
             if (ofp) { rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
-            if (oidx >= 0 && oidx < FH_MAX) stale_nm = g_fh[oidx].name;
+            if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
@@ -4578,7 +4591,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             int oidx = (int)args[0].i;
             FILE *ofp = fh_get(oidx);
             if (ofp) { *out = args[0]; return 1; }
-            if (oidx >= 0 && oidx < FH_MAX) stale_nm = g_fh[oidx].name;
+            if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
@@ -4596,7 +4609,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             int oidx = (int)args[0].i;
             FILE *ofp = fh_get(oidx);
             if (ofp) { rewind(ofp); *out = args[0]; return 1; }
-            if (oidx >= 0 && oidx < FH_MAX) stale_nm = g_fh[oidx].name;
+            if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r"); if (!fp) { *out = FAILDESCR; return 1; }
@@ -4614,7 +4627,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *nm = NULL;
         if (IS_FH_fn(args[0])) {
             int idx = (int)args[0].i;
-            if (idx >= 0 && idx < FH_MAX) nm = g_fh[idx].name;
+            if (idx >= 0 && idx < FH_N) nm = g_fh[idx].name;
             FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); }
         } else nm = VARVAL_fn(args[0]);
         if (nm && nm[0]) remove(nm);
@@ -4709,7 +4722,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
                 if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
-            if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = 0; g_pas_tf[idx].buf = INTVAL(0); g_pas_tf[idx].mode = 1; }
+            if (idx >= 0) pas_tf_set(idx, INTVAL(0), 0, 1);
             *out = FHVAL(idx); return 1;
         }
         int pas_tf_read(FILE *fp, DESCR_t *o);
@@ -4722,42 +4735,42 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 if (!nm || !nm[0]) { pas_file_err("6.6.5.2", "the file is undefined immediately prior to reset (it has neither been rewritten nor associated with an external file)", "__pas_treset"); *out = FAILDESCR; return 1; }
                 fp = fopen(nm, "rb"); if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
-            if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); g_pas_tf[idx].mode = 2; }
+            if (idx >= 0) { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, 2); }
             *out = FHVAL(idx); return 1;
         }
         if (!IS_FH_fn(args[0])) { pas_file_err("6.6.5.2", "the file is undefined (it has been neither reset nor rewritten)", fn); *out = FAILDESCR; return 1; }
         int idx = (int)args[0].i; FILE *fp = fh_get(idx);
-        if (!fp || idx < 0 || idx >= 512) { pas_file_err("6.6.5.2", "the file is undefined (no open stream stands behind it)", fn); *out = FAILDESCR; return 1; }
-        if (!strcmp(fn, "__pas_fbuf_get") && nargs == 1) { *out = g_pas_tf[idx].has ? g_pas_tf[idx].buf : INTVAL(0); return 1; }
-        if (!strcmp(fn, "__pas_fbuf_set") && nargs == 2) { g_pas_tf[idx].buf = args[1]; g_pas_tf[idx].has = 1; *out = NULVCL; return 1; }
+        if (!fp || idx < 0 || idx >= PTF_N) { pas_file_err("6.6.5.2", "the file is undefined (no open stream stands behind it)", fn); *out = FAILDESCR; return 1; }
+        if (!strcmp(fn, "__pas_fbuf_get") && nargs == 1) { *out = PTF_HAS(idx) ? PTF_BUF(idx) : INTVAL(0); return 1; }
+        if (!strcmp(fn, "__pas_fbuf_set") && nargs == 2) { pas_tf_set(idx, args[1], 1, PTF_MODE(idx)); *out = NULVCL; return 1; }
         if (!strcmp(fn, "__pas_fput") && nargs == 1) {
-            if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to put", fn);
-            if (!g_pas_tf[idx].has) pas_file_err("6.6.5.2", "the buffer-variable is undefined immediately prior to put", fn);
-            pas_tf_write(fp, g_pas_tf[idx].buf); g_pas_tf[idx].has = 0; *out = NULVCL; return 1; }
+            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to put", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.6.5.2", "the buffer-variable is undefined immediately prior to put", fn);
+            pas_tf_write(fp, PTF_BUF(idx)); pas_tf_set(idx, PTF_BUF(idx), 0, PTF_MODE(idx)); *out = NULVCL; return 1; }
         if (!strcmp(fn, "__pas_fget") && nargs == 1) {
-            if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to get", fn);
-            if (!g_pas_tf[idx].has) pas_file_err("6.6.5.2", "end-of-file is true immediately prior to get", fn);
-            g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = NULVCL; return 1; }
+            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to get", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.6.5.2", "end-of-file is true immediately prior to get", fn);
+            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); } *out = NULVCL; return 1; }
         if (!strcmp(fn, "__pas_fwrite") && nargs == 2) {
-            if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
+            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
             pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
         if (!strcmp(fn, "__pas_fwrite_range") && nargs == 4) {
-            if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
+            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
             long _lo = pas_ord_of(args[2]), _hi = pas_ord_of(args[3]), _ov = pas_ord_of(args[1]);
             if (_ov < _lo || _ov > _hi) pas_file_err("6.4.3.5", "the value written is not assignment-compatible with the file's subrange component-type", fn);
             pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
         if (!strcmp(fn, "__pas_fread") && nargs == 1) {
-            if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
-            if (!g_pas_tf[idx].has) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
-            DESCR_t v = g_pas_tf[idx].buf; g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = v; return 1; }
+            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
+            DESCR_t v = PTF_BUF(idx); { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); } *out = v; return 1; }
         if (!strcmp(fn, "__pas_fread_range") && nargs == 3) {
-            if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
-            if (!g_pas_tf[idx].has) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
-            DESCR_t v = g_pas_tf[idx].buf; g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf);
+            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
+            DESCR_t v = PTF_BUF(idx); { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
             long _lo = pas_ord_of(args[1]), _hi = pas_ord_of(args[2]), _ov = pas_ord_of(v);
             if (_ov < _lo || _ov > _hi) pas_file_err("6.9.1", "the value read is not assignment-compatible with the subrange of the destination variable", fn);
             *out = v; return 1; }
-        if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(g_pas_tf[idx].has ? 0 : 1); return 1; }
+        if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(PTF_HAS(idx) ? 0 : 1); return 1; }
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "__pas_setrange") && nargs == 2) {
@@ -5502,7 +5515,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) g_fh[idx].type = 'p';
-        if (_isdir && idx >= 0 && idx < FH_MAX) g_fh[idx].type = 'd';
+        if (_isdir && idx >= 0 && idx < FH_N) g_fh[idx].type = 'd';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
         *out = INTVAL(idx); return 1;
@@ -7109,7 +7122,7 @@ static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
         if (idx == 0) return "&input";
         if (idx == 1) return "&output";
         if (idx == 2) return "&errout";
-        if (idx >= 0 && idx < FH_MAX && g_fh[idx].name) { snprintf(buf, (size_t)bufsz, "file(%s)", g_fh[idx].name); return buf; }
+        if (idx >= 0 && idx < FH_N && g_fh[idx].name) { snprintf(buf, (size_t)bufsz, "file(%s)", g_fh[idx].name); return buf; }
         return "file(?)";
     }
     { const char *s = VARVAL_fn(v); return s ? s : ""; }
@@ -7761,7 +7774,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (IS_FH_fn(av)) {
-                if ((int)av.i >= 0 && (int)av.i < FH_MAX && g_fh[(int)av.i].closed) { core_icn_error(213, av); *out = FAILDESCR; return 1; }
+                if ((int)av.i >= 0 && (int)av.i < FH_N && g_fh[(int)av.i].closed) { core_icn_error(213, av); *out = FAILDESCR; return 1; }
                 _wdi = (int)av.i;
                 FILE *fp = fh_get((int)av.i);
                 if (fp) {
@@ -7999,7 +8012,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (idx == 0) { snprintf(buf,256,"&input");  *out = STRVAL(buf); return 1; }
             if (idx == 1) { snprintf(buf,256,"&output"); *out = STRVAL(buf); return 1; }
             if (idx == 2) { snprintf(buf,256,"&errout"); *out = STRVAL(buf); return 1; }
-            if (idx >= 0 && idx < FH_MAX && g_fh[idx].name) {
+            if (idx >= 0 && idx < FH_N && g_fh[idx].name) {
                 snprintf(buf,256,"file(%s)",g_fh[idx].name);
                 *out = STRVAL(buf); return 1;
             }
@@ -9041,10 +9054,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) g_fh[idx].type = 'p';
-        if (_isdir && idx >= 0 && idx < FH_MAX) g_fh[idx].type = 'd';
+        if (_isdir && idx >= 0 && idx < FH_N) g_fh[idx].type = 'd';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
-        if (idx >= 0 && idx < FH_MAX) g_fh[idx].name = rt_heap_strdup_c(path);
+        if (idx >= 0 && idx < FH_N) g_fh[idx].name = rt_heap_strdup_c(path);
         *out = FHVAL(idx); return 1;
     }
     L_bidjmp_6376: ;
@@ -9067,7 +9080,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             int pst = -1;
             if (fp && idx > 2) { if (g_fh[idx].type == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); g_fh[idx].type = 0; fh_free(idx); }
             else if (fp) fflush(fp);
-            if (idx >= 0 && idx < FH_MAX) g_fh[idx].closed = 1;
+            if (idx >= 0 && idx < FH_N) g_fh[idx].closed = 1;
             if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         }
         *out = args[0]; return 1;
@@ -9096,7 +9109,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     if ((_bid == BID_read) && nargs == 1) {
         int _fi = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
-        if (_fi >= 0 && _fi < FH_MAX && g_fh[_fi].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; }
+        if (_fi >= 0 && _fi < FH_N && g_fh[_fi].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; }
         FILE *fp = (_fi >= 0) ? fh_get(_fi) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
         extern int fh_is_untranslated(int);
@@ -9117,13 +9130,13 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     if ((_bid == BID_reads) && nargs >= 1) {
         { int _ri = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
-          if (_ri >= 0 && _ri < FH_MAX && g_fh[_ri].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; } }
+          if (_ri >= 0 && _ri < FH_N && g_fh[_ri].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; } }
         FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
         int n = (nargs >= 2 && args[1].v != DT_SNUL && !IS_FAIL_fn(args[1])) ? (int)to_int(args[1]) : 1;
         if (n <= 0) { *out = FAILDESCR; return 1; }
         { int _fhi = (args[0].v == DT_SNUL) ? 0 : (int)args[0].i;
-          if (_fhi >= 0 && _fhi < FH_MAX && g_fh[_fhi].type == 'd') {
+          if (_fhi >= 0 && _fhi < FH_N && g_fh[_fhi].type == 'd') {
               char *db = rt_wsb_alloc(n + 1); int dl = 0, dc, saw = 0;
               while ((dc = fgetc(fp)) != EOF) { saw = 1; if (dc == '\n') break; if (dl < n) db[dl++] = (char)dc; }
               if (!saw) { *out = FAILDESCR; return 1; }
@@ -9574,19 +9587,21 @@ int rt_dat_field_of_any_live(const char *name) {
     for (int c = 0; c < dat_type_count(); c++) { if (!dat_type_live(c)) continue; for (int f = 0; f < dat_type_nfields(c); f++) { const char *fn2 = dat_type_field(c, f); if (fn2 && !strcmp(fn2, name)) return 1; } }
     return 0;
 }
-#define RT_SYN_MAX 64
-static const char *g_rt_syn_new[RT_SYN_MAX]; static const char *g_rt_syn_old[RT_SYN_MAX]; static int g_rt_syn_n = 0;
+typedef struct { const char *newname; const char *oldname; } rt_syn_t;
+static cv_t g_rt_syn;
+#define SYN(k) CV_AT(g_rt_syn, rt_syn_t, (k))
+#define g_rt_syn_n ((int)g_rt_syn.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_builtin_synonym_add(const char *newname, const char *oldname) {
-    if (!newname || !oldname || g_rt_syn_n >= RT_SYN_MAX) return;
+    if (!newname || !oldname) return;
     rt_dtax_gen++;
-    for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(g_rt_syn_new[i], newname)) { g_rt_syn_old[i] = oldname; return; }
-    g_rt_syn_new[g_rt_syn_n] = newname; g_rt_syn_old[g_rt_syn_n] = oldname; g_rt_syn_n++;
+    for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(SYN(i).newname, newname)) { SYN(i).oldname = oldname; return; }
+    { rt_syn_t *e = &CV_PUSH(g_rt_syn, rt_syn_t); e->newname = newname; e->oldname = oldname; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_builtin_synonym(const char *name) {
     if (!name) return (const char *)0;
-    for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(g_rt_syn_new[i], name)) return g_rt_syn_old[i];
+    for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(SYN(i).newname, name)) return SYN(i).oldname;
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -10298,7 +10313,7 @@ void * rt_pl_dop_curstream_guard_c(DESCR_t *args, int nargs) {
       if (pl_iso_unbound(d)) return (void *)0;
       if (d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == prolog_atom_intern("$stream") && plc_fid_arity(d.slen) == 1) {
           DESCR_t k = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
-          if (k.v == DT_I && k.i >= 0 && k.i < FH_MAX && pl_sp_stream_live((int)k.i)) return (void *)0; }
+          if (k.v == DT_I && k.i >= 0 && k.i < FH_N && pl_sp_stream_live((int)k.i)) return (void *)0; }
       return rt_pl_ball_kind2("domain_error", "stream", d); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
