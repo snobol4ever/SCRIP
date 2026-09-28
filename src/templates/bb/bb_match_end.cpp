@@ -26,7 +26,7 @@ static const char * HKD() { return "dword ptr [rsp# + 0]"; }
 static int cap_name_strict(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string mend_bank_cursors() {
-    return IF(({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; }),
+    return IF(sn4_defer_beta_guard(),
                    x86("note", "mbc_restore")
                  + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
                  + x86("mov", "rax", RDQ("rbp", -48))
