@@ -450,6 +450,7 @@ typedef struct {
     const int *                  op_arbno_zq;
     int                          op_arbno_nzq;
     int                          sn4_defer_cell_n;
+    int                          sn4_defer_site_n;
     int                          op_arbno_dt;
     int                          op_arbno_dt_susp;
     int                          op_defer_leaf_susp;

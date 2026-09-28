@@ -493,8 +493,23 @@ const void *csettab_label(char *buf, size_t bufsz, const char *cset)
     return sn4_cset32() ? (const void *)CSETTAB(idx).bits : (const void *)CSETTAB(idx).tbl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void xa_emit_sno_defer_region(void)
+{
+    int nc = g_emit.sn4_defer_cell_n, np = g_emit.sn4_defer_site_n;
+    if (nc <= 0 && np <= 0) return;
+    std::string zc = ".zero " + std::to_string(8 * (nc > 0 ? nc : 1)), zp = ".zero " + std::to_string(16 * (np > 0 ? np : 1));
+    bb_emit_x86(x86("directive", ".section .bss") + x86("directive", ".align 8")
+              + x86("directive", "__scrip_sno_defer_cells:") + x86("directive", zc.c_str()) + x86("directive", "__scrip_sno_defer_pairs:") + x86("directive", zp.c_str())
+              + x86("directive", ".section .init_array,\"aw\"") + x86("directive", ".align 8") + x86("directive", ".quad __scrip_sno_defer_init")
+              + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix") + x86("directive", "__scrip_sno_defer_init:")
+              + x86("lea", "rdi", "[rip + __]", (uint64_t)0, "__scrip_sno_defer_cells") + x86("mov32", "esi", (long)nc)
+              + x86("lea", "rdx", "[rip + __]", (uint64_t)0, "__scrip_sno_defer_pairs") + x86("mov32", "ecx", (long)np)
+              + x86("jmp", "rt_sno_defer_region"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_emit_csettab_rodata(void)
 {
+    xa_emit_sno_defer_region();
     if (g_csettab_n <= 0) { csettab_reset(); return; }
     static cv_t chars, rows, labels;
     chars.len = 0; rows.len = 0; labels.len = 0;

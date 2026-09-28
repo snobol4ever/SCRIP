@@ -12,10 +12,10 @@ extern "C" rt_dcap_next_t rt_defer_land_ω(long word);
 extern "C" int   rt_defer_close    (int cur_delta);
 extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
-extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site);
+extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, uint64_t *pair);
 extern "C" void *dtp_fn_of(void *headv);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" uint64_t g_sno_defer_cells[4096];
+extern "C" uint64_t *rt_sno_defer_cell_new(int pair);
 extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
@@ -41,15 +41,15 @@ std::string bb_match_defer() {
     { const char *sv = _.op_sval, *d = sv ? strstr(sv, "$V") : 0;
       if (d && d[2] >= '0' && d[2] <= '9')
       { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } }
-    int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
-    static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
+    int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2) ? g_emit.sn4_defer_cell_n++ : -1;
+    static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "__scrip_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
     int merged = (vslot < 0 && !(g_gva_active && _.op_gva_k >= 0));
-    static int g_defer_site_n; int msite = merged ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
-    static char pl[8][48]; static int pln; if (msite >= 0) { pln = (pln + 1) & 7; snprintf(pl[pln], sizeof pl[pln], "g_sno_defer_cells+%d", (2048 + msite * 2) * 8); }
+    int msite = merged ? g_emit.sn4_defer_site_n++ : -1;
+    static char pl[8][48]; static int pln; if (msite >= 0) { pln = (pln + 1) & 7; snprintf(pl[pln], sizeof pl[pln], "__scrip_sno_defer_pairs+%d", msite * 16); }
     const char * pairlbl = msite >= 0 ? pl[pln] : "";
-    uint64_t pairadr = msite >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[2048 + msite * 2] : 0;
-    uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
+    uint64_t pairadr = msite >= 0 ? (uint64_t)(uintptr_t)(const void *)rt_sno_defer_cell_new(1) : 0;
+    uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)rt_sno_defer_cell_new(0) : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
          + IF(dfrm(),
@@ -227,9 +227,9 @@ std::string bb_match_defer() {
              + x86_xfer_enter()
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("mov",  "esi", "r14d")
-             + x86("mov",  "rdx", (long)msite)
+             + x86("lea",  "rdx", "[rip + __]", pairadr, pairlbl)
              + x86_anchor_enter()
-             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int, long))rt_defer_probe_run)
+             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int, uint64_t *))rt_defer_probe_run)
          + x86_rt_gc_poll_rec_sigma_pair(0, 50)
              + x86_anchor_leave()
              + x86_xfer_leave())

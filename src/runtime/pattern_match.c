@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -732,9 +733,31 @@ static void *rt_cas_carve(size_t bytes)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t g_scan_hit_start = 0;
-uint64_t g_sno_defer_cells[4096];
-static int g_sno_defer_pair_hwm = 0;
+typedef struct { uint64_t *base; uint32_t n, used, pair, own; } rt_defer_chunk_t;
+static cv_t g_sno_defer_cells;
 uint64_t g_pat_main_rsp = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rt_defer_chunk_t *rt_defer_chunk_add(uint64_t *base, uint32_t n, uint32_t used, uint32_t pair, uint32_t own) {
+    rt_defer_chunk_t *c = &CV_PUSH(g_sno_defer_cells, rt_defer_chunk_t);
+    c->base = base; c->n = n; c->used = used; c->pair = pair; c->own = own;
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+uint64_t *rt_sno_defer_cell_new(int pair) {
+    rt_defer_chunk_t *c = (rt_defer_chunk_t *)0; uint32_t kind = pair ? 1u : 0u;
+    for (uint32_t i = g_sno_defer_cells.len; i-- > 0; ) { rt_defer_chunk_t *k = &CV_AT(g_sno_defer_cells, rt_defer_chunk_t, i); if (k->own && k->pair == kind) { c = k; break; } }
+    if (!c || c->used == c->n) {
+        uint32_t n = c ? c->n * 2 : 8; cv_t m = { 0, 0, 0, 0 };
+        cv_reserve(&m, kind ? 16u : 8u, n, "g_sno_defer_cells");
+        c = rt_defer_chunk_add((uint64_t *)m.p, n, 0, kind, 1);
+    }
+    return c->base + (size_t)c->used++ * (kind ? 2u : 1u);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_sno_defer_region(uint64_t *cells, long ncells, uint64_t *pairs, long npairs) {
+    if (cells && ncells > 0) rt_defer_chunk_add(cells, (uint32_t)ncells, (uint32_t)ncells, 0, 0);
+    if (pairs && npairs > 0) rt_defer_chunk_add(pairs, (uint32_t)npairs, (uint32_t)npairs, 1, 0);
+}
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
 static int g_rspd_active = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -749,16 +772,20 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
     if (g_rspd_s2 && g_rspd_g6)    fprintf(stderr, "RSPDIFF exhaust-delta (s2-g6)      = %ld\n", (long)(g_rspd_s2 - g_rspd_g6));
 }
 #include "pin_va.h"
+#include <sys/sysinfo.h>
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
-const char *g_dcap_base = 0;
+rt_dcap_island_t g_dcap_island = { 0, 0 };
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_lazy_init(void) {
-    extern void *rt_slab_region(size_t);
     if (!g_dcap_top) {
-        g_dcap_base = (const char *)rt_slab_region(RT_DCAP_ISLAND_BYTES);
-        if (!g_dcap_base) { fprintf(stderr, "rt_dcap: island reserve failed\n"); abort(); }
-        g_dcap_top = g_dcap_base;
+        struct sysinfo si; size_t want = RT_DCAP_ISLAND_MIN; void *m = MAP_FAILED;
+        if (sysinfo(&si) == 0) { unsigned long long mem = ((unsigned long long)si.totalram + (unsigned long long)si.totalswap) * (unsigned long long)si.mem_unit; if (mem > want) want = (size_t)mem; }
+        want = (want + 4095u) & ~(size_t)4095u;
+        while (want >= RT_DCAP_ISLAND_MIN && (m = mmap((void *)0, want, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0)) == MAP_FAILED) want /= 2;
+        if (m == MAP_FAILED) { fprintf(stderr, "rt_dcap: island reserve of %zu bytes failed\n", (size_t)RT_DCAP_ISLAND_MIN); abort(); }
+        g_dcap_island.base = (const char *)m; g_dcap_island.end = (const char *)m + want;
+        g_dcap_top = g_dcap_island.base;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1092,8 +1119,9 @@ long rt_cas_gc_roots(void)
     long b = 0;
     gv_gc_root(&g_capo); b += (long)g_capo_top * 4 * (long)sizeof(DESCR_t);
     for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
-    for (int c = 0; c < 2048; c += 8) { const uint64_t *w = &g_sno_defer_cells[c]; if ((w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0) continue; for (int i = 0; i < 8; i++) if (w[i]) rt_gc_visit_raw((const char **)&w[i]); }
-    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
+    for (uint32_t k = 0; k < g_sno_defer_cells.len; k++) { rt_defer_chunk_t *c = &CV_AT(g_sno_defer_cells, rt_defer_chunk_t, k);
+        if (!c->pair) { for (uint32_t i = 0; i < c->used; i++) if (c->base[i]) rt_gc_visit_raw((const char **)&c->base[i]); }
+        else for (uint32_t i = 0; i < c->used; i++) { uint64_t *slot = c->base + (size_t)i * 2u; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); } }
     for (int i = 0; i < g_dcf_top; i++) { rt_dcf_t *c = &g_dcf[i]; rt_gc_visit_descr(&c->pending); rt_gc_visit_raw(&c->cur); rt_gc_visit_raw(&c->top); rt_gc_visit_raw(&c->subj); rt_gc_visit_raw(&c->star); b += (long)sizeof(DESCR_t) + 4 * (long)sizeof(const char *); }
     return b;
 }
@@ -1261,27 +1289,25 @@ static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val)
     return rt_defer_close_v(cur_delta, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const char *varname, long site)
+static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const char *varname, uint64_t *slot)
 {
     extern DESCR_t *NV_PTR_fn(const char *name);
-    extern uint64_t g_sno_defer_cells[4096];
     extern int g_call_fastpath_off;
-    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*' || g_call_fastpath_off) return (DESCR_t *)0;
-    uint64_t *slot = &g_sno_defer_cells[2048 + site * 2];
+    if (!slot || !varname || varname[0] == '&' || varname[0] == '*' || g_call_fastpath_off) return (DESCR_t *)0;
     if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
     DESCR_t *cell = NV_PTR_fn(varname);
     if (!cell) return (DESCR_t *)0;
-    slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell; if ((int)site >= g_sno_defer_pair_hwm) g_sno_defer_pair_hwm = (int)site + 1;
+    slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell;
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
+rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, uint64_t *pair)
 {
     extern void *dtp_fn_of(void *);
     rt_defer_pr_t r; r.fn = (void *)0; r.aux = 0;
     const int _merge = rt_defer_merge_on();
     if (_merge && varname && varname[0] != '*') {
-        DESCR_t *cp = rt_defer_cell_ptr(varname, site); const int ok = cp != (DESCR_t *)0; DESCR_t cv = ok ? *cp : NULVCL;
+        DESCR_t *cp = rt_defer_cell_ptr(varname, pair); const int ok = cp != (DESCR_t *)0; DESCR_t cv = ok ? *cp : NULVCL;
         if (ok && cv.v != DT_P && cv.v != DT_X && cv.v != DT_E) { r.aux = (long)rt_defer_run_all_v(varname, cur_delta, cv); return r; }
         if (ok && cv.v == DT_P && cv.p) { void *fn = *(void **)cv.p; if (!fn) { dtp_fn_of(cv.p); fn = *(void **)cv.p; } if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)cv.p; return r; } r.aux = -2; return r; }
     }
