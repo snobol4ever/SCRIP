@@ -5,36 +5,36 @@ char g_script_exception[512] = "";
 int g_script_try_depth = 0;
 Match g_match;
 const char *g_subject = "";
-#define FH_MAX 64
-fh_slot_t g_fh[FH_MAX];
+cv_t g_fhv;
 int   fh_init = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_ensure_init(void) {
     if (fh_init) return;
-    memset(g_fh,0,sizeof g_fh);
-    g_fh[0].fp=stdin; g_fh[1].fp=stdout; g_fh[2].fp=stderr;
-    g_fh[0].name="&input"; g_fh[1].name="&output"; g_fh[2].name="&errout";
-    g_fh[0].mode='r'; g_fh[1].mode='w'; g_fh[2].mode='w'; g_fh[0].type='t'; g_fh[1].type='t'; g_fh[2].type='t';
     fh_init=1;
+    cv_reserve(&g_fhv, (uint32_t)sizeof(fh_slot_t), 8, "g_fh"); g_fhv.len = 3; memset(g_fhv.p, 0, 3 * sizeof(fh_slot_t));
+    { fh_slot_t *h = (fh_slot_t *)g_fhv.p;
+      h[0].fp=stdin; h[1].fp=stdout; h[2].fp=stderr;
+      h[0].name="&input"; h[1].name="&output"; h[2].name="&errout";
+      h[0].mode='r'; h[1].mode='w'; h[2].mode='w'; h[0].type='t'; h[1].type='t'; h[2].type='t'; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fh_is_closed(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? g_fh[idx].closed : 0; }
-int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? g_fh[idx].untrans : 0; }
-void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) g_fh[idx].untrans=(char)(v?1:0); }
-int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_MAX;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
-void fh_set_alias(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_MAX) g_fh[idx].alias = nm ? rt_heap_strdup_c(nm) : (char *)0; }
-void fh_set_encoding(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].enc = nm ? rt_heap_strdup_c(nm) : (char *)0; }
-const char *fh_encoding(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return (const char *)0; if(g_fh[idx].type=='b'||g_fh[idx].untrans) return "octet"; return g_fh[idx].enc ? g_fh[idx].enc : "UTF-8"; }
-void fh_set_bom(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].bom=(char)(v?1:0); }
-int fh_bom(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].bom?1:0; }
-void fh_set_repos(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].repos=(char)(v?1:0); }
-int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].repos?1:0; }
-void fh_set_eof(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].eof=(char)v; }
-int fh_eof(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].eof; }
+int fh_is_closed(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_N) ? g_fh[idx].closed : 0; }
+int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_N) ? g_fh[idx].untrans : 0; }
+void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_N) g_fh[idx].untrans=(char)(v?1:0); }
+int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_N;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
+void fh_set_alias(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_N) g_fh[idx].alias = nm ? rt_heap_strdup_c(nm) : (char *)0; }
+void fh_set_encoding(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=0&&idx<FH_N) g_fh[idx].enc = nm ? rt_heap_strdup_c(nm) : (char *)0; }
+const char *fh_encoding(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return (const char *)0; if(g_fh[idx].type=='b'||g_fh[idx].untrans) return "octet"; return g_fh[idx].enc ? g_fh[idx].enc : "UTF-8"; }
+void fh_set_bom(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_N) g_fh[idx].bom=(char)(v?1:0); }
+int fh_bom(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return 0; return g_fh[idx].bom?1:0; }
+void fh_set_repos(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_N) g_fh[idx].repos=(char)(v?1:0); }
+int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return 0; return g_fh[idx].repos?1:0; }
+void fh_set_eof(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_N) g_fh[idx].eof=(char)v; }
+int fh_eof(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return 0; return g_fh[idx].eof; }
 static void fh_pos_reset(int idx){ g_fh[idx].pos_off=0; g_fh[idx].pos_chars=0; g_fh[idx].pos_lines=0; g_fh[idx].pos_lpos=0; g_fh[idx].rd_line=0; g_fh[idx].rd_col=0; g_fh[idx].rd_last=0; }
 int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
     fh_ensure_init();
-    if(idx<0||idx>=FH_MAX||!g_fh[idx].fp) return 0;
+    if(idx<0||idx>=FH_N||!g_fh[idx].fp) return 0;
     if(idx!=0&&g_fh[idx].mode!='r') return -1;
     fh_slot_t *s=&g_fh[idx]; long off=ftell(s->fp);
     if(off<0) return -2;
@@ -50,31 +50,35 @@ int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
 }
 void fh_note_read_start(int idx) {
     long c=0,l=0,p=0; int ok=fh_in_position(idx,&c,&l,&p);
-    for(int i=0;i<FH_MAX;i++) g_fh[i].rd_last=0;
-    if(idx<0||idx>=FH_MAX) return;
+    for(int i=0;i<FH_N;i++) g_fh[i].rd_last=0;
+    if(idx<0||idx>=FH_N) return;
     g_fh[idx].rd_line = ok==1 ? l+1 : 0; g_fh[idx].rd_col = ok==1 ? p : 0; g_fh[idx].rd_last=1;
 }
 int fh_last_read_start(long *line, long *col) {
     fh_ensure_init();
-    for(int i=0;i<FH_MAX;i++) if(g_fh[i].rd_last){ *line=g_fh[i].rd_line; *col=g_fh[i].rd_col; return 1; }
+    for(int i=0;i<FH_N;i++) if(g_fh[i].rd_last){ *line=g_fh[i].rd_line; *col=g_fh[i].rd_col; return 1; }
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void fh_slot_init(fh_slot_t *s, FILE *fp) {
+    s->fp=fp; s->name=NULL; s->alias=NULL; s->enc=NULL; s->mode=0; s->type='t'; s->untrans=0; s->bom=0; s->repos=1; s->closed=0; s->eof=0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;g_fh[i].closed=0;g_fh[i].eof=0;return i;}
-    return -1;
+    for(int i=3;i<FH_N;i++) if(!g_fh[i].fp){ fh_slot_init(&g_fh[i], fp); return i; }
+    { int i=FH_N; (void)CV_PUSH(g_fhv, fh_slot_t); fh_slot_init(&g_fh[i], fp); return i; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 FILE *fh_get(int idx){
     fh_ensure_init();
-    if(idx<0||idx>=FH_MAX) return NULL;
+    if(idx<0||idx>=FH_N) return NULL;
     return g_fh[idx].fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){
-    if(fh_init&&idx>=3&&idx<FH_MAX) fh_pos_reset(idx);
-    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
+    if(fh_init&&idx>=3&&idx<FH_N) fh_pos_reset(idx);
+    if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
 }
 int   fh_cur_in  = 0;
 int   fh_cur_out = 1;
@@ -83,8 +87,8 @@ int   fh_cur_init = 0;
 void fh_cur_ensure(void){ if(fh_cur_init) return; fh_ensure_init(); fh_cur_in=0; fh_cur_out=1; fh_cur_init=1; }
 int fh_current_input(void){ fh_cur_ensure(); return fh_cur_in; }
 int fh_current_output(void){ fh_cur_ensure(); return fh_cur_out; }
-void fh_set_input(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_MAX&&g_fh[idx].fp) fh_cur_in=idx; }
-void fh_set_output(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_MAX&&g_fh[idx].fp) fh_cur_out=idx; }
+void fh_set_input(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_N&&g_fh[idx].fp) fh_cur_in=idx; }
+void fh_set_output(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_N&&g_fh[idx].fp) fh_cur_out=idx; }
 FILE *fh_cur_out_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_out); return fp?fp:stdout; }
 FILE *fh_cur_in_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_in); return fp?fp:stdin; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -160,6 +164,6 @@ void rt_script_die_surface(const char *msg) {
 void drv_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **loc);
-    for (int i = 0; i < FH_MAX; i++) { if (g_fh[i].name) rt_gc_visit_raw((const char **)&g_fh[i].name); if (g_fh[i].alias) rt_gc_visit_raw((const char **)&g_fh[i].alias); if (g_fh[i].enc) rt_gc_visit_raw((const char **)&g_fh[i].enc); }
+    for (int i = 0; i < FH_N; i++) { if (g_fh[i].name) rt_gc_visit_raw((const char **)&g_fh[i].name); if (g_fh[i].alias) rt_gc_visit_raw((const char **)&g_fh[i].alias); if (g_fh[i].enc) rt_gc_visit_raw((const char **)&g_fh[i].enc); }
     if (g_fh_sink_v) rt_gc_visit_raw((const char **)&g_fh_sink_v);
 }
