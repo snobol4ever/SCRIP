@@ -11,15 +11,13 @@ extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-static char an_nlb[24];
-static char an_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define an_gu() (_.op_sa < 0)
 #define an_gi() (_.op_sa >= 0)
 #define an_ndl_r8() (_.op_sa >= 0 \
          ? x86("mov", "r8",  XSAQ(8)) \
          + x86("mov", "ecx", XSAD(4)) \
-         : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), an_nlb) \
+         : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), "") \
          + x86("mov32", "ecx", CSK()))
 #define an_chainp() (an_gu() && CSK() >= 2 && CSK() <= CSET_CHAIN_MAX)
 #define an_tablep() (an_gu() && (CSK() == 0 || CSK() > CSET_CHAIN_MAX))
@@ -32,13 +30,13 @@ static std::string an_memb(long i) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_any() {
     x86_begin();
-    if (_.node && _.node->pat_static && _.op_sval)
+    if (_.op_pat_static && _.op_sval)
         return x86("comment", "IR_MATCH_ANY defer")
              + x86_alpha()
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
              + x86_omega("jge")
-             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(an_dlb, sizeof an_dlb, _.op_sval), an_dlb))
+             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
              + bb_glue_prim_str(50, 0, 0, 8, 8)
              + x86("test",   "rax", "rax")
              + x86_omega("js")
@@ -54,8 +52,6 @@ std::string bb_match_any() {
              + x86_beta()
              + x86("sub",    "r14d", (long)1)
              + x86_omega();
-    static char c[24];
-    const void * ct = an_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (_.op_zres && _.op_sa >= 0)
         return x86("comment", "IR_MATCH_ANY zd")
              + x86_alpha()
@@ -101,7 +97,7 @@ std::string bb_match_any() {
            + x86_omega("jne"))
          + IF(an_chainp(), an_memb(0))
          + IF(an_tablep(),
-             x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c)
+             x86("lea",  "rdi", "[rip + __]", x86_csettab_ptr(_.op_sval ? _.op_sval : ""), x86_csettab_lbl(_.op_sval ? _.op_sval : "").c_str())
            + (sn4_cset32()
               ? x86("bt", "[rdi]", "esi") + x86_omega("jnc")
               : x86("cmpb0", "[rdi+rsi]", "0") + x86_omega("je")))
