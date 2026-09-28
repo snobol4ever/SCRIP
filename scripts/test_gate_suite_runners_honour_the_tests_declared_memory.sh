@@ -402,9 +402,13 @@ done
 need scorecard_snobol4.sh table 'sc_decl_build' 3; need scorecard_snobol4.sh runs 'run_at_declared_table "\$SC_DECL"' 2
 need test_snobol4_gimpel_suite.sh through-the-scorecard 'scorecard_snobol4.sh" run --suites gimpel' 1
 need test_snobol4_aisnobol_suite.sh through-the-harness 'corpus_suite_harness.py run "\$SUITE/ALL.sno"' 1
-need test_prolog_inria_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 1; need test_prolog_inria_suite.sh runs 'env=decl_env(_tidx, fam)' 4
+# ⭐ INRIA AND THE LOGTALK GRADER PASS THE DECLARATION AS SWITCHES (the coo 2026-09-28, CEO-1353/1355: both handed the declared heap to
+# SCRIP_HEAP_KB, the collector's initial WINDOW, and the stack to SCRIP_STACK): -d<kb>k -s<kb>k after --run in m3, leading the binary in m4.
+need test_prolog_inria_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 1
+need test_prolog_inria_suite.sh m3-switches '"--run"\] + decl_sw(_tidx, fam) + \[prog\]' 2; need test_prolog_inria_suite.sh m4-switches '\[b\] + decl_sw(_tidx, fam)' 2
 need test_prolog_logtalk_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 1; need test_prolog_logtalk_suite.sh hands-it-over '--decl "\$_decl"' 1
-need util_logtalk_grade.py per-case 'env=decl_env(decl' 2; need util_logtalk_grade.py runs 'cwd=d, env=env)' 2
+need util_logtalk_grade.py per-case 'sw=decl_switches(decl' 2
+need util_logtalk_grade.py m3-switches '\[scrip, "--run"\] + list(sw) + \[prog\]' 1; need util_logtalk_grade.py m4-switches '\[b_out\] + list(sw)' 1
 need test_prolog_swi_suite.sh runs 'run_at_declared_arena "\$SWIT/ALL.csv"' 2
 # ⭐ THE THREE ICON PACKAGE RUNNERS PASS THE DECLARATION AS SWITCHES (ceo CEO-1353, the coo's census): declared_arena_switches reads both
 # cells, and the words ride the m3 command line after --run and the compile args and lead the m4 binary's arguments -- never SCRIP_HEAP_KB.

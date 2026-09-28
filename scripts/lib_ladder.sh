@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrumentation (the --stlimit switch; Lon 2026-09-24 16:0x: the feature is off by default and never inferred from the source, the correctness graders turn it on because the oracle always has it)
+# (the blanket `export SCRIP_SNO_STMTKW=1` that stood here typed the SNOBOL4 statement instrumentation for EVERY language's ladder; since 2026-09-28 each witness carries its own declared --stlimit in its <stem>.cmdline compile_args, read below -- CEO-1353, the coo)
 # lib_ladder.sh -- THE ONE CONSTRUCT-LADDER RUNNER BODY, shared by every language's test_<lang>_ladder.sh
 # (GOAL-TEST-SUITE-CONSISTENCY.md standard point 1; row test-suite-consistency-seven-languages-one-standard,
 # hq_T 2026-09-03). Extracted from test_prolog_ladder.sh (hq_P/hq_C) and test_raku_ladder.sh (seat11), whose
@@ -70,6 +70,18 @@ ladder_main() {
   [ -f "$RT/libscrip_rt.so" ] || refuse "runtime library missing at $RT/libscrip_rt.so"
   [ -f "$MASTER_DIR/ALL$MASTER_EXT" ] && [ -f "$MASTER_DIR/ALL.ref" ] && [ -f "$MASTER_DIR/ALL.csv" ] || refuse "$LADDER_LANG master suite missing under $MASTER_DIR (ALL$MASTER_EXT / ALL.ref / ALL.csv)"
   . "$HERE/lib_master_extract.sh" || refuse "cannot source lib_master_extract.sh"
+  . "$HERE/lib_declared_arena.sh" || refuse "cannot source lib_declared_arena.sh -- the one reader of a witness's declared heap and stack"
+  # ladder_cmdline_words <program> -- two lines: the compile_args and the run_args its <stem>.cmdline declares (empty lines when none),
+  # through corpus_suite_harness.cmdline_declarations(), the one reader of a test unit's command line (clause 8 (f), CEO-1281).
+  ladder_cmdline_words() { python3 - "$1" "$HERE" <<'PY'
+import os, sys
+sys.path.insert(0, sys.argv[2])
+import corpus_suite_harness as h
+decl, _ = h.cmdline_declarations(sys.argv[1])
+ca, ra = decl.get(os.path.splitext(os.path.basename(sys.argv[1]))[0], (None, None))
+print(" ".join(ca or [])); print(" ".join(ra or []))
+PY
+  }
   local all_origins; all_origins=$(master_origins_of_family ladder 2>/dev/null) || all_origins=""
   [ -n "$all_origins" ] || refuse "no \`ladder\` origins in $MASTER_DIR/ALL.csv -- the witnesses moved or were never absorbed; re-point, never skip"
   local -a origins=(); local o r
@@ -98,7 +110,7 @@ ladder_main() {
   # ⭐ THE DEBT COUNTER IS PART OF THE CURE, NOT A DECORATION. Capturing stderr without saying how much of it nobody
   # asserts would replace a silent false green with a silent uncompared stream -- the same defect one step quieter.
   # This prints, on every run, how many witnesses EMIT stderr that no master block asserts. It is a work list.
-  local unasserted=0 unasserted_names="" _decl_nums=""
+  local unasserted=0 unasserted_names="" _decl_nums="" undeclared=""
   for pair in $(printf '%s\n' "${origins[@]}" | sort -n | tr ' ' ':'); do
     r=${pair%%:*}; o=${pair#*:}; src="$W/$o$MASTER_EXT"; ref="$W/$o.ref"
     master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || refuse "cannot extract $o from the master suite (lib_master_extract.sh)"
@@ -128,19 +140,34 @@ ladder_main() {
     # changes ZERO verdicts by construction, and every later change is a deliberate one -- which is the whole reason it
     # is safe to land two days before the announcement.
     local err_ref="$W/$o.err"
-    r3=$( ( timeout "$T" "$SCRIP" --run "$src" <"$stdin_src" >"$W/$o.m3.out" 2>"$W/$o.m3.err"; echo $? ) 2>/dev/null )
+    # ⛔⭐ THE WITNESS'S OWN COMMAND LINE (Lon 2026-09-28, ceo CEO-1353; the coo's row instruments-every-runner-passes-each-units-declared-
+    # heap-and-stack-...): extract writes the entry's declared heap and stack (<stem>.heap / <stem>.stack) and compile and run args
+    # (<stem>.cmdline) beside the witness, and the ladder READS them -- through lib_declared_arena.sh and the harness's own reader, never a
+    # copy -- exactly as the harness runs the same entry: m3 scrip --run <compile_args> <sizes> src -- <run_args>; m4 compiles with
+    # <compile_args> and no size, and the binary runs <sizes> -- <run_args>. A witness that declares no size is NAMED at the end, never
+    # run silently at the default. (It used to type SCRIP_SNO_STMTKW=1 for every language and read no declaration at all.)
+    local sw ca ra _cl
+    sw=$(declared_switches_beside "$src") || refuse "lib_declared_arena.sh refused the declared heap/stack beside $o -- fix the ALL.csv row; this ladder does not grade around it"
+    _cl=$(ladder_cmdline_words "$src") || refuse "the harness refused the declared command line beside $o"
+    ca=$(printf '%s\n' "$_cl" | sed -n 1p); ra=$(printf '%s\n' "$_cl" | sed -n 2p)
+    [ -n "$sw" ] || undeclared="$undeclared $o"
+    # shellcheck disable=SC2086
+    r3=$( ( timeout "$T" "$SCRIP" --run $ca $sw "$src" ${ra:+-- $ra} <"$stdin_src" >"$W/$o.m3.out" 2>"$W/$o.m3.err"; echo $? ) 2>/dev/null )
     [ -s "$W/$o.m3.err" ] && [ ! -f "$err_ref" ] && unasserted=$((unasserted+1)) && unasserted_names="$unasserted_names $o"
     if [ "$r3" = "$want" ] && cmp -s "$W/$o.m3.out" "$ref" && { [ ! -f "$err_ref" ] || cmp -s "$W/$o.m3.err" "$err_ref"; }; then v3=PASS; pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else v3="FAIL(rc=$r3)"; fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
     v4=NOBUILD
-    if (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s" "$src" </dev/null >/dev/null 2>&1) && [ -s "$W/$o.s" ] \
+    # shellcheck disable=SC2086
+    if (cd "$W" && timeout "$T" "$SCRIP" --compile $ca -o "$o.s" "$src" </dev/null >/dev/null 2>&1) && [ -s "$W/$o.s" ] \
        && as --64 -o "$W/$o.o" "$W/$o.s" 2>/dev/null && gcc -no-pie -o "$W/$o.bin" "$W/$o.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; then
-      r4=$( ( timeout "$T" "$W/$o.bin" <"$stdin_src" >"$W/$o.m4.out" 2>"$W/$o.m4.err"; echo $? ) 2>/dev/null )
+      # shellcheck disable=SC2086
+      r4=$( ( timeout "$T" "$W/$o.bin" $sw ${ra:+-- $ra} <"$stdin_src" >"$W/$o.m4.out" 2>"$W/$o.m4.err"; echo $? ) 2>/dev/null )
       if [ "$r4" = "$want" ] && cmp -s "$W/$o.m4.out" "$ref" && { [ ! -f "$err_ref" ] || cmp -s "$W/$o.m4.err" "$err_ref"; }; then v4=PASS; else v4="FAIL(rc=$r4)"; fi
     fi
     if [ "$v4" = PASS ]; then pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
     printf 'rung %2d  %-44s m3=%-12s m4=%-12s (%s, want rc=%s)\n' "$r" "$o" "$v3" "$v4" "$name" "$want"
   done
   for r in $(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -nu); do printf 'rung %2d summary: PASS=%d FAIL=%d (witness x mode)\n' "$r" "${rp[$r]:-0}" "${rf[$r]:-0}"; done
+  [ -n "$undeclared" ] && printf 'LADDER %s: UNDECLARED heap/stack on %d of %d witness(es) -- run at the runtime default, named (CEO-1353: every unit declares its sizes in its ALL.csv row):%s\n' "$SEL" "$(set -- $undeclared; echo $#)" "$n" "$(printf '%s' "$undeclared" | tr ' ' '\n' | head -12 | tr '\n' ' ')"
   [ "$unasserted" -gt 0 ] && printf 'LADDER %s: stderr UNASSERTED on %d of %d witness(es) -- captured, not compared (no ALL.err block):%s\n' "$SEL" "$unasserted" "$n" "$(printf '%s' "$unasserted_names" | tr ' ' '\n' | head -8 | tr '\n' ' ')"
   # ⛔⭐ `git status --short | grep -q .` WAS A PROVENANCE LIE WAITING FOR LOAD, and it is the same defect this session
   # proved in gate_file_has_fresh_guard: `grep -q .` exits on the FIRST line, the kernel tears down the read end, and a

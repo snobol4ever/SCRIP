@@ -461,20 +461,17 @@ def load_decl(path):
     return out
 
 
-def decl_env(decl, fc, plan):
+def decl_switches(decl, fc, plan):
+    """The case's declared heap and stack as SPITBOL's switches, -d<kb>k and -s<kb>k (ceo CEO-1353, RULES.md clause 8 (g); the harness's
+    _size_switches): after --run in m3 and leading the compiled binary's command line in m4. ⛔ NEVER SCRIP_HEAP_KB -- gc_heap.c reads it
+    as the collector's initial WINDOW, so the declared maximum used to be handed over as a window and the cap stayed the default -- and
+    never SCRIP_STACK, an environment knob a transcript cannot show. [] when the case declares nothing: its command line is unchanged."""
     kb, st = (decl or {}).get("%s:%s" % (fc.group, plan.case.name), ("", ""))
-    if not kb and not st:
-        return None
-    env = dict(os.environ)
-    if kb:
-        env["SCRIP_HEAP_KB"] = kb
-    if st:
-        env["SCRIP_STACK"] = st + "k"
-    return env
+    return (["-d%sk" % kb] if kb else []) + (["-s%sk" % st] if st else [])
 
 
-def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=(), env=None):
-    """Run one planned case in one mode. Returns (outcome, detail). `env` is the case's declared heap and stack (decl_env)."""
+def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=(), sw=()):
+    """Run one planned case in one mode. Returns (outcome, detail). `sw` is the case's declared heap and stack (decl_switches)."""
     d = tempfile.mkdtemp(prefix="lgtcase.", dir=workroot)
     try:
         # ⛔⭐ tests.lgt IS COPIED, AND THAT IS DELIBERATE (hq_R 2026-09-13, row prolog-logtalk-eleven-
@@ -497,8 +494,8 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
         open(prog, "w", encoding="utf-8").write(program_text(plan, db, shim_src, loaded))
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, prog], capture_output=True, text=True, errors="replace", timeout=timeout,
-                                   stdin=subprocess.DEVNULL, cwd=d, env=env)
+                r = subprocess.run([scrip, "--run"] + list(sw) + [prog], capture_output=True, text=True, errors="replace", timeout=timeout,
+                                   stdin=subprocess.DEVNULL, cwd=d)
             else:
                 s_out = os.path.join(d, "case.s")
                 b_out = os.path.join(d, "case.bin")
@@ -511,8 +508,8 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
                                     "-Wl,-rpath," + rt, "-lm"], capture_output=True, text=True, errors="replace", timeout=120, cwd=d)
                 if g.returncode != 0:
                     return "nolink", (g.stderr or "").strip()[:160]
-                r = subprocess.run([b_out], capture_output=True, text=True, errors="replace", timeout=timeout,
-                                   stdin=subprocess.DEVNULL, cwd=d, env=env)
+                r = subprocess.run([b_out] + list(sw), capture_output=True, text=True, errors="replace", timeout=timeout,
+                                   stdin=subprocess.DEVNULL, cwd=d)
         except subprocess.TimeoutExpired:
             return "timeout", ""
         for line in r.stdout.splitlines():
@@ -568,7 +565,7 @@ def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot
             i, fc, q = t
             try:
                 return i, run_one(q, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                  loaded=fc.loaded or (), env=decl_env(decl, fc, q))
+                                  loaded=fc.loaded or (), sw=decl_switches(decl, fc, q))
             except Exception as e:                          # noqa: BLE001 -- one case never takes a run down
                 return i, ("harness", "%s: %s" % (type(e).__name__, e))
         with ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -943,7 +940,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 k, fc, p = t
                 try:
                     return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                      loaded=fc.loaded or (), env=decl_env(decl, fc, p))
+                                      loaded=fc.loaded or (), sw=decl_switches(decl, fc, p))
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
                     return k, ("harness", "%s: %s" % (type(e).__name__, e))
             with ThreadPoolExecutor(max_workers=jobs) as pool:

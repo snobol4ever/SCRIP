@@ -275,8 +275,8 @@ PYC
     else red A "not accepted:${a_bad:- none}; corpus census: $census"; fi
 fi
 # R: exactly these scripts may type the switch, each for the reason given; gates are not runners and are not censused
-RATCHET_EXEMPT="lib_ladder.sh:a ladder grader's instrumentation, not a unit attribute (landing 3's ruling)
-lib_port_trace.sh:the port-trace grader's instrumentation, not a unit attribute (landing 3's ruling)
+# (lib_ladder.sh left this list 2026-09-28: each ladder witness carries its own --stlimit in its row's compile_args, CEO-1353, the coo)
+RATCHET_EXEMPT="lib_port_trace.sh:the port-trace grader's instrumentation, not a unit attribute (landing 3's ruling)
 util_stlimit_keeps_three_package_answers.sh:an instrument that measures the switch itself -- its arms type it by design
 corpus_suite_harness.py:COMPILE_ARGS_ADMITTED is the switch's one definition
 util_gc_safe_point_contract.py:CEO-1250 pins its reach reading's environment to the switch"

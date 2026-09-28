@@ -47,7 +47,7 @@ echo "== the graded runs capture stderr =="
 # claiming something it does not do. ⭐ Third time today a gate's own text changed a measurement about it (the others:
 # arm 10's census counting this file's comment, and arm 3/4 matching a subshell's trailing redirect) -- which is the open
 # row `gate-arms-and-their-own-fixtures-are-never-graded-against-each-other`, and the real cure lives there, not here.
-if grep -qE '[$]SCRIP" --run "[$]src".*2>"[$]W/[$]o\.m3\.err"' <<<"$BODY"; then ok "1 the m3 graded run captures stderr to a file"; else no "1 the m3 graded run does not capture stderr -- a trace rung cannot fail for its own reason"; fi
+if grep -qE '[$]SCRIP" --run ([$][a-z]+ )*"[$]src".*2>"[$]W/[$]o\.m3\.err"' <<<"$BODY"; then ok "1 the m3 graded run captures stderr to a file"; else no "1 the m3 graded run does not capture stderr -- a trace rung cannot fail for its own reason"; fi
 if grep -qE '\$W/\$o\.bin".*2>"\$W/\$o\.m4\.err"' <<<"$BODY"; then ok "2 the m4 graded run captures stderr to a file"; else no "2 the m4 graded run does not capture stderr"; fi
 # ⛔ ANCHOR ON THE PROGRAM'S OWN REDIRECT, NOT ON THE LINE. Both run lines legitimately END in `) 2>/dev/null`, which
 # belongs to the SUBSHELL wrapping `echo $?` and suppresses SHELL noise, not the witness's stderr. My first spelling of

@@ -190,14 +190,12 @@ if DECL:
                          "cases in this runner's order (%d here, %d there) -- a declaration would be applied to a different case\n"
                          % (len(DECL), len(_ids), len(_csv_ids)))
         raise SystemExit(2)
-def decl_env(idx, fam):
+def decl_sw(idx, fam):
+    # the case's declared heap and stack as SPITBOL's switches, -d<kb>k -s<kb>k (ceo CEO-1353, clause 8 (g); the harness's _size_switches):
+    # after --run in m3, leading the binary's command line in m4. NEVER SCRIP_HEAP_KB (gc_heap.c reads it as the collector's initial WINDOW,
+    # so the declared maximum was handed over as a window) and never SCRIP_STACK. [] when the case declares nothing.
     kb, st = DECL.get("%s#%d" % (fam, idx), ("", ""))
-    if not kb and not st:
-        return None
-    env = dict(os.environ)
-    if kb: env["SCRIP_HEAP_KB"] = kb
-    if st: env["SCRIP_STACK"] = st + "k"
-    return env
+    return (["-d%sk" % kb] if kb else []) + (["-s%sk" % st] if st else [])
 # ⛔⭐ OUTCOME_ERRATA (row inria-three-functor-bis-cells-graded-on-iso-through-a-named-outcome-erratum-sibling-of-
 # known-suite-errata, hq_R 2026-09-06, ceo-370; hq_T co-signs the runner change). SIBLING of KNOWN_SUITE_ERRATA
 # below, and deliberately NOT the same mechanism: that one relaxes the BINDINGS comparison to outcome-class-only
@@ -304,7 +302,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
             f.write(":- catch( ( %s -> write('@OK') ; write('@NO') ), E, ( write('@ER('), write(E), write(')') ) ), nl.\n" % goal)
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
+                r = subprocess.run([scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
             else:
                 s = os.path.join(tmp, "t.s"); b = os.path.join(tmp, "t.bin")
                 c = subprocess.run([scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
@@ -313,7 +311,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                                     "-lscrip_rt", "-Wl,-rpath," + os.path.join(os.path.dirname(scrip), "out"), "-lm"],
                                    capture_output=True, text=True, timeout=60, cwd=tmp)
                 if g.returncode != 0: res[mode][1] += 1; named.append("%s:%s:m4:NOLINK" % (fam, goal[:28])); continue
-                r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
+                r = subprocess.run([b] + decl_sw(_tidx, fam), capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
         except subprocess.TimeoutExpired:
             res[mode][2] += 1; named.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         if want == "impl_defined":
@@ -514,7 +512,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                      % (goal, disj))
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
+                r = subprocess.run([scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
             else:
                 s = os.path.join(tmp, "t.s"); b = os.path.join(tmp, "t.bin")
                 c = subprocess.run([scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
@@ -523,7 +521,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                                     "-lscrip_rt", "-Wl,-rpath," + os.path.join(os.path.dirname(scrip), "out"), "-lm"],
                                    capture_output=True, text=True, timeout=60, cwd=tmp)
                 if g.returncode != 0: bres[mode][1] += 1; bnamed.append("%s:%s:m4:NOLINK" % (fam, goal[:28])); continue
-                r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp, env=decl_env(_tidx, fam))
+                r = subprocess.run([b] + decl_sw(_tidx, fam), capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
         except subprocess.TimeoutExpired:
             bres[mode][1] += 1; bnamed.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         o = r.stdout
