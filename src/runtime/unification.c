@@ -330,7 +330,8 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
         if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
     if (ignore_ops != 1 && fnid == ATOM_DOT && ar == 2) {
-        pl_cell_t *cur = d; long n = 0;
+        extern void *rt_pl_ball_kind1(const char *, const char *);
+        pl_cell_t *cur = d; long n = 0; pl_cell_t *tort = d;
         fputc('[', fp);
         for (;;) {
             pl_cell_t *ca = (pl_cell_t *)cur->p; pl_cell_t *tl;
@@ -339,7 +340,11 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
             plc_wt(&ca[0], quoted, ignore_ops, numbervars, max_depth, depth, 999, m);
             n++;
             tl = pl_deref(&ca[1]);
-            if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == ATOM_DOT && plc_fid_arity(tl->slen) == 2 && tl->p) { cur = tl; continue; }
+            if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == ATOM_DOT && plc_fid_arity(tl->slen) == 2 && tl->p) {
+                cur = tl;
+                if (cur == tort) { fprintf(fp, "|..."); if (!m->pthrown) m->pthrown = rt_pl_ball_kind1("resource_error", "cyclic_term"); break; }
+                if ((n & (n - 1)) == 0) tort = cur;
+                continue; }
             if (!plc_is_nil(tl)) { fputc('|', fp); plc_wt(tl, quoted, ignore_ops, numbervars, max_depth, depth, 999, m); }
             break;
         }
@@ -499,10 +504,14 @@ static int plc_cell_is_ground(pl_cell_t *c)
 static int plc_cell_is_proper_list(pl_cell_t *c)
 {
     extern int ATOM_DOT, ATOM_NIL;
-    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
+    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0; pl_cell_t *tort = d; unsigned long n = 0;
     while (d) {
         if (plc_is_atomlike(d) && plc_atom_id_of(d) == ATOM_NIL) return 1;
-        if ((int)d->v == DT_PLREF && plc_fid_name(d->slen) == ATOM_DOT && plc_fid_arity(d->slen) == 2 && d->p) { d = pl_deref(&((pl_cell_t *)d->p)[1]); continue; }
+        if ((int)d->v == DT_PLREF && plc_fid_name(d->slen) == ATOM_DOT && plc_fid_arity(d->slen) == 2 && d->p) {
+            d = pl_deref(&((pl_cell_t *)d->p)[1]); n++;
+            if (d == tort) return 0;
+            if ((n & (n - 1)) == 0) tort = d;
+            continue; }
         return 0;
     }
     return 0;
