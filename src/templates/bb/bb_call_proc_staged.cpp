@@ -104,7 +104,8 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
          + x86("test", "r8", "r8")
          + x86("je", L(SAI_L0 + i * 2))
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
-         + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx") + x86("xor", "r8d", "r8d")
+         + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
+         + x86("xor", "r8d", "r8d")
          + x86("jmp", L(SAI_L0 + 1 + i * 2))
          + x86("def", L(SAI_L0 + i * 2))
          + slow
