@@ -10,7 +10,9 @@ THE POPULATION IS THE ORACLE'S ENUMERATION: every case the ref names (a forall(G
 instance, recorded by plunit as @(name,Bindings); a macro-generated test has no test/2 head in the source at all), plus,
 for a unit the oracle could not run (EMPTY, UNGRADABLE), the test/2 heads the source declares inside that unit (at
 least one entry, so a unit is never silently zero).  Names are matched by unit:name and OCCURRENCE ORDER on both sides,
-with @(name,Bindings) normalised to name.
+with @(name,Bindings) normalised to name; a name may carry spaces (the oracle key is the whole rest of its line, the shim's
+name ends at the two-space gap before its parenthesised why), which the first cut truncated at the first space on both
+sides -- 22 forall cases whose names read like 'sequence//2 ground list' could never match their @(...) key.
 
 Prints one TSV row per case:
   <unit:test#k>  PASS      agrees with the oracle (both pass, or both fail: an agreement control, marked in col 3)
@@ -58,17 +60,17 @@ def split_key(key):
     return u, norm(t)
 cases = []
 for line in open(ref_path, encoding='utf-8', errors='replace'):
-    parts = line.rstrip('\n').split(' ', 2)
+    parts = line.rstrip('\n').split(' ', 1)
     if len(parts) < 2: continue
     verdict, key = parts[0], parts[1]
     if verdict in ('PASS', 'FAIL', 'BLOCKED'):
         u, t = split_key(key); cases.append((u, t, verdict, ''))
     elif verdict in ('EMPTY', 'UNGRADABLE'):
-        why = parts[2] if len(parts) > 2 else ''
+        key, _, why = key.partition(' ')
         names = heads.get(key, []) or ['(unit)']
         for t in names: cases.append((key, t, verdict, why))
 act = {}
-act_re = re.compile(r'^\s*(pass|FAIL|skip):\s+(\S+?)(?:\s+(.*))?$')
+act_re = re.compile(r'^\s*(pass|FAIL|skip):\s+(.+?)(?:\s\s+(.*))?$')
 for line in open(act_path, encoding='utf-8', errors='replace'):
     m = act_re.match(line.rstrip('\n'))
     if not m: continue
