@@ -34,7 +34,7 @@ DEMOS_PARENT="$(cd "$DD/.." && pwd)"; ROOT="$(cd "$DD/../.." && pwd)"   # <root>
 IS_BOARD=0; one_runner_suite_is_a_board "$DD" && IS_BOARD=1
 CONT="$DD/CONTAINERS.tsv"
 mapfile -t PROGS < <(cd "$DD" && find . -maxdepth 3 -type f \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' -o -name '*.sc' -o -name '*.pas' -o -name '*.raku' -o -name '*.reb' -o -name '*.scrip' \) | sed 's|^\./||' | LC_ALL=C sort)
-[ "${#PROGS[@]}" -gt 0 ] || refuse "no demo program under $DD -- a population of zero is not a green board"
+bash "$HERE/util_require_population.sh" --gate "$G" "${#PROGS[@]}" 1 "demo programs under $DD (a population of zero is not a green board; the ONE floor authority, lib_gate.sh gate_floor)" || exit 2
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 PROG_ROWS="$T/progress.tsv"; : > "$PROG_ROWS"
 # cmdline_words <prog> <1=compile_args|2=run_args> -- the unit's declared words from its <stem>.cmdline, through the harness's ONE reader

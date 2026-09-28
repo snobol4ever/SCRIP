@@ -220,6 +220,11 @@ mask_apply() { # $1=name $2=text -> echoes the masked text; leaves the replaced-
 }
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
     local n="$1" t="$2"
+    # ⛔⭐ A SPITBOL FATAL IS GRADABLE (CEO-1344, the coo's row instruments-a-spitbol-fatal-is-gradable-...): this runner captures
+    # 2>&1 and cuts its refs the same way, so the SCRIP error block inside the captured text is replaced by the oracle's fatal
+    # block as a merged capture reads it (measured: the error line twice, the run summary twice), through the ONE renderer; the
+    # run-summary lines are masked by ALL.mask beside the data. The oracle's own text carries no SCRIP block and passes untouched.
+    t="$(printf '%s' "$t" | python3 "$HERE/util_render_error_voice.py" spitbol --fatal-merged)"
     t="$(printf '%s' "$t" | sed -E 's/^x86-64  [A-Z][a-z]{2} [A-Z][a-z]{2} +[0-9]+ [0-9:]+ [0-9]{4}$/x86-64  xxx/')"
     # ⛔⭐ THE &FILL RULE REPLACES, IT NO LONGER DELETES (hq_T 2026-09-08, CEO-432 item 1: "replace-never-delete,
     # guardrail 4 as the harness has it"). This line used to be `/^&FILL = '/d`, and a DELETED line lets a MISSING

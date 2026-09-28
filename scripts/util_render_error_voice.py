@@ -63,13 +63,123 @@ def render(lines, oracle):
         i = j
     return out
 
+def render_fatal_block(block, oracle):
+    """THE FATAL BLOCK AS THE ORACLE PRINTS IT ON STDOUT (ceo CEO-1344, on hq_snobol4's measurement, the cfo seconding; the coo's
+    row instruments-a-spitbol-fatal-is-gradable-...). `block` is ONE SCRIP error block (the `scrip: error` line and its indented
+    lines); the result is the list of stdout lines the oracle prints for the same fatal, so a grader can append it to SCRIP's
+    stdout before comparing with a ref cut from the oracle. MEASURED 2026-09-28 09:00 CDT on x64 sbl -bf, r.sno (OUTPUT then a
+    run-time 1 / Y with Y = 0), stdout byte for byte:
+        before                                      <- the program's own output
+        (three empty lines)
+        r.sno(3) : ERROR 014 -- division caused integer overflow
+        (five empty lines)
+        in file              r.sno
+        in line              3
+        in statement         3
+        stmts executed       3                      <- masked: oracle-internal until SCRIP reports its own count
+        execution time msec  0                      <- masked
+        REGENERATIONS        0                      <- masked
+        memory used (bytes)  11448                  <- masked (csnobol4 ALL.mask since 2026-09-08)
+        memory left (bytes)  1037120                <- masked
+        (one empty line)
+    and sbl EXITS 0 after a run-time fatal where SCRIP exits 1 (the rc clause of the same list, applied by the harness).
+    The labels are padded to column 21. The five run-summary lines SCRIP does not carry are NOT rendered -- a field SCRIP does
+    not carry is masked beside the data, never invented -- and the suite's ALL.mask drops them from the oracle side. A block
+    with no `at <file>:<line>; statement <n>` (a startup error, a compile refusal) renders nothing, so it reads RED, never
+    green by omission; the compile-time fatal shape (a listing header with the date, `page 1`, the statement text) is a
+    different block this list does not render. 'icon' and 'none' render nothing here: their refs carry stderr voices."""
+    if oracle != 'spitbol' or not block:
+        return []
+    m = HEAD.match(block[0])
+    if not m:
+        return []
+    code, text = int(m.group(1)), m.group(2)
+    at = None
+    for l in block[1:]:
+        mm = AT.match(l)
+        if mm:
+            at = mm; break
+    if at is None or not at.group(3):
+        return []
+    f, ln, st = at.group(1), at.group(2), at.group(3)
+    f = os.path.basename(f)
+    # THE FIVE RUN-SUMMARY LINES ARE PRINTED WITH A DASH, NEVER A NUMBER: the CEO-409 mask replaces a matching line with a
+    # placeholder ON BOTH SIDES (apply_line_mask keeps the line count), so the line must exist here to be masked -- its value
+    # is the field SCRIP does not carry, and `-` says so where a number would be an invention. The mask rows admit the dash.
+    return ['', '', '',
+            '%s(%s) : ERROR %03d -- %s' % (f, ln, code, text),
+            '', '', '', '', '',
+            'in file              %s' % f,
+            'in line              %s' % ln,
+            'in statement         %s' % st,
+            'stmts executed       -',
+            'execution time msec  -',
+            'REGENERATIONS        -',
+            'memory used (bytes)  -',
+            'memory left (bytes)  -']
+
+
+def render_fatal_merged(block, oracle):
+    """The same fatal as a MERGED stdout+stderr capture reads it (the bash package runners capture 2>&1 and cut their refs the same
+    way). MEASURED 2026-09-28 09:1x CDT, sbl -bf r.sno 2>&1 through a pipe: sbl writes each line of the block to both streams
+    unbuffered, so the merged text is the program's output, three empty lines, the error line TWICE, seven empty lines (stdout's
+    five and stderr's two), then in file / in line / in statement / stmts executed / execution time msec / REGENERATIONS each
+    TWICE, memory used, memory left (stdout only), two empty lines. Deterministic, so rendered as measured; the twice-printed
+    run-summary lines are masked by the same regexes as the once-printed ones."""
+    one = render_fatal_block(block, oracle)
+    if not one:
+        return []
+    err_line = one[3]
+    return ['', '', '', err_line, err_line, '', '', '', '', '', '', '',
+            one[9], one[9], one[10], one[10], one[11], one[11],
+            one[12], one[12], one[13], one[13], one[14], one[14], one[15], one[16]]
+
+
+def replace_fatal_in_text(lines, oracle, merged):
+    """Replace the FIRST SCRIP error block inside a captured text with the oracle's block (merged capture or stdout-only), the
+    rest of the text untouched. A text with no SCRIP block is returned as it stands."""
+    i = 0
+    while i < len(lines):
+        if HEAD.match(lines[i]):
+            j = i + 1
+            while j < len(lines) and lines[j].startswith('  '):
+                j += 1
+            block = lines[i:j]
+            rendered = render_fatal_merged(block, oracle) if merged else render_fatal_block(block, oracle)
+            if not rendered:
+                return lines
+            return lines[:i] + rendered + lines[j:]
+        i += 1
+    return lines
+
+
+FATAL_SUMMARY_MASKS = (   # each admits the oracle's number and the renderer's dash, so the placeholder lands on both sides
+    (r'^stmts executed       ([0-9]+|-)$', "SPITBOL's own statement counter printed in its fatal block: oracle-internal until SCRIP reports its own count (CEO-1344); SCRIP's rendered block carries a dash"),
+    (r'^execution time msec  ([0-9]+|-)$', "SPITBOL's own clock reading in its fatal block: a duration, never a program's answer (CEO-1344); SCRIP's rendered block carries a dash"),
+    (r'^REGENERATIONS        ([0-9]+|-)$', "SPITBOL's own collector count in its fatal block: engine bookkeeping, not the program's data (CEO-1344); SCRIP's rendered block carries a dash"),
+    (r'^memory used \(bytes\)  ([0-9]+|-)$', "SPITBOL's own allocator arithmetic (CEO-420 clause (b), csnobol4 ALL.mask 2026-09-08), printed in every fatal block (CEO-1344); SCRIP's rendered block carries a dash"),
+    (r'^memory left \(bytes\)  ([0-9]+|-)$', "the same allocator arithmetic from the other side, masked with its twin or not at all (CEO-1344); SCRIP's rendered block carries a dash"),
+)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) != 2 or sys.argv[1] not in ('icon', 'spitbol', 'none'):
-        sys.stderr.write('REFUSE(rc=2): util_render_error_voice.py <icon|spitbol|none>  (stdin -> stdout)\n'); sys.exit(2)
+    args = sys.argv[1:]
+    fatal = None
+    if '--fatal-merged' in args:
+        args.remove('--fatal-merged'); fatal = 'merged'
+    elif '--fatal-stdout' in args:
+        args.remove('--fatal-stdout'); fatal = 'stdout'
+    if len(args) != 1 or args[0] not in ('icon', 'spitbol', 'none'):
+        sys.stderr.write('REFUSE(rc=2): util_render_error_voice.py <icon|spitbol|none> [--fatal-merged|--fatal-stdout]  (stdin -> stdout)\n'); sys.exit(2)
     data = sys.stdin.buffer.read().decode('utf-8', 'surrogateescape')
     trailing_nl = data.endswith('\n')
     lines = data.split('\n')
     if trailing_nl: lines = lines[:-1]
-    res = render(lines, sys.argv[1])
+    if fatal:
+        # THE FATAL BLOCK (CEO-1344): a bash runner pipes SCRIP's captured text through here; the SCRIP error block inside it is
+        # replaced by the oracle's fatal block as that runner's capture would read it (merged 2>&1, or stdout alone).
+        res = replace_fatal_in_text(lines, args[0], fatal == 'merged')
+    else:
+        res = render(lines, args[0])
     text = '\n'.join(res) + ('\n' if trailing_nl else '')
     sys.stdout.buffer.write(text.encode('utf-8', 'surrogateescape'))

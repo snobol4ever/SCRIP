@@ -730,6 +730,52 @@ def apply_line_mask(text, patterns, side="both"):
                 del lines[lines.index(val)]
                 n += 1
     return "\n".join(lines), n
+# ⛔⭐ A SPITBOL FATAL IS GRADABLE (hq_snobol4's measurement 2026-09-27, the cfo seconding, ceo CEO-1344, the coo's row
+# instruments-a-spitbol-fatal-is-gradable-...): x64 sbl -bf prints its FATAL BLOCK ON STDOUT as well as stderr, so a ref cut from
+# the oracle for a program that ends in a fatal carries the block, and SCRIP -- whose ONE error voice goes to stderr -- could never
+# match it: every such program (Budne tab.sno, rewind1.sno; Dotnet 1brc.sno, asgn1.sno; SnoM simple_output_62,
+# user_function_arbno_rpos_1) was ungradable by construction. THE ONE READER renders SCRIP's stderr error block through
+# util_render_error_voice.py's spitbol list into sbl's block shape and appends it to SCRIP's stdout BEFORE the compare; the runtime
+# keeps its one voice (no SPITBOL text enters src/), the ref stays the oracle's word, and the run-summary lines sbl prints after
+# the block (stmts executed, execution time msec, REGENERATIONS, memory used, memory left) are oracle-internal state masked by
+# the suite's ALL.mask beside the data. The voice is set by the suite reader from the suite's language (the SNOBOL4 family:
+# snobol4, snocone -- rebus has no oracle); S4E_FATAL_RENDER=0 is the gate's fail-once seam and nothing else's.
+FATAL_RENDER = {"voice": None}
+
+
+def _fatal_render_voice_for(lang):
+    return "spitbol" if lang in ("", "snobol4", "snocone") else None
+
+
+def _render_fatal_into_stdout(got, err_bytes):
+    """Append SCRIP's rendered error block (if stderr holds one) to the graded stdout text. Returns (text, n_lines_appended)."""
+    voice = FATAL_RENDER.get("voice")
+    if not voice or os.environ.get("S4E_FATAL_RENDER") == "0":
+        return got, 0
+    err_lines = err_bytes.decode("utf-8", "replace").split("\n")
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import util_render_error_voice as _rv
+    except Exception as e:
+        refuse(f"util_render_error_voice.py is not importable ({e}) -- the equivalence list is the ONE renderer, never reimplemented here")
+    i = 0; block = []
+    while i < len(err_lines):
+        if _rv.HEAD.match(err_lines[i]):
+            j = i + 1
+            while j < len(err_lines) and err_lines[j].startswith("  "):
+                j += 1
+            block = err_lines[i:j]
+            break
+        i += 1
+    if not block:
+        return got, 0
+    rendered = _rv.render_fatal_block(block, voice) if hasattr(_rv, "render_fatal_block") else _rv.render(block, voice)
+    if not rendered:
+        return got, 0
+    text = (got + "\n" if got else "") + "\n".join(rendered)
+    return text, len(rendered)
+
+
 def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None, out_files=None):
     _out_files_clear(cwd, out_files)
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
@@ -741,6 +787,12 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     if rc is not None and rc < 0:
         return Verdict("CRASH", out, err, rc, detail=f"signal {-rc}")
     got = out.decode("utf-8", "replace").rstrip("\n")
+    if rc is not None and rc != 0:
+        got, _fatal_n = _render_fatal_into_stdout(got, err)
+        # THE rc CLAUSE OF THE SAME LIST (measured 2026-09-28): sbl -bf EXITS 0 after a run-time fatal, SCRIP's one voice exits 1;
+        # an entry whose ref was cut from the oracle declares want_rc 0, so a rendered fatal at rc 1 is the declared rc.
+        if _fatal_n and rc == 1 and want_rc == 0:
+            want_rc = 1
     exp = expected_text.rstrip("\n") if expected_text is not None else None
     masked_n = 0
     if mask:
@@ -2625,7 +2677,7 @@ def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
         sys.stderr.write("\u26d4 ONE-RUNNER FIXTURE NOT ADMITTED: %s is the shared corpus or a population a board reads -- the exemption "
                          "admits a scratch population only (ceo CEO-1302 (c)); point the fixture at one with a scratch "
                          "S4E_PROGRESS_DB\n" % (suite_path or "a run naming no suite"))
-    if seat.startswith("hq_") and seat in _one_runner_who("all"):
+    if seat.startswith("hq_"):
         sys.stderr.write("\u26d4 ONE SEAT, ONE LANGUAGE: %s is a language HQ -- no S4E_ONE_RUNNER_OVERRIDE and no DONE-WHEN admits it to "
                          "a %s board (Lon 2026-09-24: \"Just have each seat run only their own test suites.\")\n" % (seat, blang))
     else:
@@ -2728,6 +2780,7 @@ def cmd_run(args):
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
                              x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
                              a_path=sidecar_argv_path(args.sno), modes=modes)
+    FATAL_RENDER["voice"] = _fatal_render_voice_for(args.lang)
     _masks = read_mask_sidecar(args.ref)
     if _masks:
         _seen = set()
@@ -4012,6 +4065,7 @@ def cmd_smoke(args):
                 entries = read_suite(str(suite), str(ref), in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
                                      w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
             by_name = {e.name: e for e in entries}
+            FATAL_RENDER["voice"] = _fatal_render_voice_for(lang if lang in LANG_CONFIGS else "")
             masks = read_mask_sidecar(str(ref))
             heap, _ = heap_declarations(str(suite))
             stack, _ = stack_declarations(str(suite))

@@ -131,10 +131,8 @@ one_runner_lang() {
 # one_runner_who now returns EMPTY, and one_runner_guard refuses rc=2 on an empty owner NAMING THE MISSING
 # LANES LINE specifically -- a missing line and a line that names no owner for this language are DIFFERENT
 # faults and a reader must not have to guess which one they are looking at.
-one_runner_seat_is_language_hq() {   # an hq_* seat the LANES: line names for a language (Lon: "all 5 HQ's")
-  case "$1" in hq_*) ;; *) return 1;; esac
-  local lanes; lanes="$(one_runner_lanes_line)"; [ -n "$lanes" ] || return 1
-  printf '%s' "$lanes" | tr ' ' '\n' | sed -n 's/^[a-z0-9]*=//p' | grep -qx -- "$1"
+one_runner_seat_is_language_hq() {   # an hq_* seat IS a language HQ by its name (Lon: "all 5 HQ's"; CEO-1342: the LANES line names the coo for every language, so an HQ is no longer found there -- read by name it is refused, read from LANES it would be ADMITTED with the override, the hole the coo closed 2026-09-28)
+  case "$1" in hq_*) return 0;; *) return 1;; esac
 }
 one_runner_lanes_line() {
   grep -m1 '^LANES:' "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | sed 's/^LANES://'

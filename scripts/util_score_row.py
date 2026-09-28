@@ -1038,6 +1038,21 @@ def one_runner_declines(measurer, what, lang=None):
     if not score_md_is_the_shared_board():
         return None
     nw = os.environ.get("S4E_SCORE_NO_WRITE", "").strip()
+    # ⛔⭐ A FIXTURE RUN PUBLISHES NOTHING, BY CONSTRUCTION (coo 2026-09-28, COO-216): CEO-1342 made the coo the lane owner of every
+    # language, so the lane check below now ADMITS every run the coo makes -- including a blocking-set gate driving a real package
+    # runner over a two-program scratch suite (test_gate_package_runners_read_each_units_declared_compile_args.sh arm P5 over
+    # test_snobol4_csnobol4_suite.sh, S4E_PROGRESS_DB scratch, .github real). MEASURED: the 09-27 19:03 pass left SUITES.tsv's
+    # csnobol4 row reading 1 of 2 on c724bb9e1 with zero progress rows behind it, and it reached origin. CEO-547's definition has
+    # two halves that hold together -- publishes no row, writes no score -- so a run that declares itself a fixture
+    # (S4E_ONE_RUNNER_FIXTURE) or sends its progress rows to a scratch table (S4E_PROGRESS_DB off the live record) writes no score
+    # cell, whatever seat it runs as. The lane owner's real pass sets neither and writes as before.
+    fx = os.environ.get("S4E_ONE_RUNNER_FIXTURE", "").strip()
+    if not nw and fx:
+        nw = "a runner invoked as a gate fixture publishes nothing (S4E_ONE_RUNNER_FIXTURE): %s" % fx
+    pdb = os.environ.get("S4E_PROGRESS_DB", "").strip()
+    if not nw and pdb and os.path.realpath(pdb) != os.path.realpath("/home/resources/progress/results.tsv"):
+        nw = ("this run appends its progress rows to a scratch table (%s), not the live record -- a run that publishes no row "
+              "writes no score (CEO-547, both halves)" % pdb)
     if nw:
         # ⛔⭐ A GATE NEVER PUBLISHES A LEADERBOARD ROW (ceo CEO-997 TWO, 2026-09-20, on the coo's report): a gate is an
         # INVARIANT CHECK, a board is a MEASUREMENT OF RECORD, and an invariant check that writes to the record makes the
