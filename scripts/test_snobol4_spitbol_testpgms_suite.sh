@@ -216,7 +216,7 @@ for p in $progs; do
         || { echo "⛔ REFUSE(rc=2): $p -- the CEO-409 mask sidecar beside $SUITE is refused (the reason above); a mask nobody can audit grades nothing"; exit 2; }
     mask_n=$(cat "$ora_cmp.mn"); ora_cmp="$ora_cmp.masked"
     if [ "$mask_n" -gt 0 ]; then
-        MASKED_TOTAL=$((MASKED_TOTAL+mask_n)); MASKED_FIX=$((MASKED_FIX+1)); [ $((mask_n*2)) -ge "$ora_lines" ] && mask_major=1
+        MASKED_TOTAL=$((MASKED_TOTAL+mask_n)); MASKED_FIX=$((MASKED_FIX+1)); mask_major="$(cat "${ora_cmp%.masked}.mn.major")"
         MASK_LINES="$MASK_LINES  MASKED  $p  $mask_n line(s) of $ora_lines, declared in ALL.mask beside the suite (CEO-409; an ORACLE-ONLY row is CEO-1316 (2))
 "
     fi

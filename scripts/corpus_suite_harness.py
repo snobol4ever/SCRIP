@@ -665,6 +665,13 @@ def read_mask_sidecar(ref_path):
         # Replace-never-delete cannot reach a line one side lacks. Matched by EXACT text (never a regex), ONE occurrence, counted like
         # every mask; our side is never touched, so a missing or extra line of ours still reds. Scoped to the CEO-1293 class: a row
         # whose reason does not cite CEO-1293 is refused, and the never-delete guardrail binds every other kind.
+        # ⭐ ORACLE-IDENTITY (ceo CEO-1344/CEO-1351, 2026-09-28): a row whose reason cites CEO-1344 masks a line naming the ORACLE ITSELF
+        # (HOST()'s "x86-64:unix :Macro SPITBOL 15.01"), the same class as the memory lines -- no program computes it and SCRIP does not
+        # impersonate it. Its lines do not count toward guardrail 4's half (mask_majority), so it must be a content regex: a positional
+        # L<n> or an ORACLE-ONLY deletion could reach a line of the program's own output, which is what the half exists to protect.
+        if ORACLE_IDENTITY_RULING in parts[2] and (pat.startswith("ORACLE-ONLY:") or re.match(r"^L\d+$", pat)):
+            refuse("%s: a row citing %s is an ORACLE-IDENTITY mask, exempt from guardrail 4, and is admitted only as a content regex "
+                   "over the identity line -- never L<n> or ORACLE-ONLY (ceo CEO-1351); got %r" % (mp, ORACLE_IDENTITY_RULING, ln))
         if pat.startswith("ORACLE-ONLY:"):
             if "CEO-1293" not in parts[2]:
                 refuse("%s: an ORACLE-ONLY row removes a line from the oracle's stream and is admitted only for a kept "
@@ -674,6 +681,17 @@ def read_mask_sidecar(ref_path):
             key = ("line", int(m.group(1))) if m else ("regex", re.compile(pat))
         out.setdefault(parts[0].strip(), []).append((key, parts[2].strip()))
     return out
+ORACLE_IDENTITY_RULING = "CEO-1344"
+def mask_guard_patterns(patterns):
+    """The rows guardrail 4 counts: every row but an ORACLE-IDENTITY one (reason cites CEO-1344, ceo CEO-1351)."""
+    return [p for p in (patterns or []) if ORACLE_IDENTITY_RULING not in p[1]]
+def mask_majority(lines, masked_n, guard_n):
+    """⛔ CEO-409 GUARDRAIL 4, THE ONE RULE (classify here, and the bash runners through util_apply_ceo409_mask.py's .major): a fixture is
+    UNGRADABLE when the rows guardrail 4 counts mask half its lines or more, or when every line is masked by any row. With no
+    ORACLE-IDENTITY row guard_n == masked_n and this is exactly the old `masked_n * 2 >= lines`. ⭐ CEO-1351: an ORACLE-IDENTITY line
+    is the oracle's own state, so it does not count toward the half -- host.spt's two lines grade on host(0) with the HOST() line
+    masked -- but at least one line must stay unmasked, or nothing is graded at all."""
+    return bool(lines) and (guard_n * 2 >= lines or masked_n >= lines)
 def masks_for(masks, name):
     """⛔⭐ THE ONE PLACE THE ENTRY COLUMN IS RESOLVED, so the python harness and the bash runners (through
     util_apply_ceo409_mask.py) cannot disagree about which rows apply to an entry.  `*` in the entry column means
@@ -727,10 +745,12 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     masked_n = 0
     if mask:
         exp_lines = len(exp.split("\n")) if exp is not None else 0
+        _gp = mask_guard_patterns(mask)
+        guard_n = max(apply_line_mask(got, _gp, side="scrip")[1], apply_line_mask(exp, _gp, side="oracle")[1])
         got, mg = apply_line_mask(got, mask, side="scrip")
         exp, me = apply_line_mask(exp, mask, side="oracle")
         masked_n = max(mg, me)
-        if exp_lines and masked_n * 2 >= exp_lines:
+        if mask_majority(exp_lines, masked_n, guard_n):
             return Verdict("FAIL", out, err, rc, detail="mask covers %d of %d ref lines -- a majority-masked fixture is "
                            "UNGRADABLE and belongs outside the baseline, named, not masked (CEO-409 guardrail 4)"
                            % (masked_n, exp_lines))

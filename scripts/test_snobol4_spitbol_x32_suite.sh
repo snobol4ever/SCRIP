@@ -62,7 +62,22 @@ RUN="$W/run"; mkdir -p "$RUN"; cp -R "$SUITE"/. "$RUN"/ 2>/dev/null
 DECL="$W/declared_memory.tsv"
 declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; D4=0; BOTH=0; SELF=0; STREAM=0; XG_N=0; XG_LIST=""; XG_NAMES=""
-FL3=""; FL4=""; UNG_LIST=""; DEFER_LIST=""; SELF_LIST=""
+FL3=""; FL4=""; UNG_LIST=""; DEFER_LIST=""; SELF_LIST=""; MASKED_TOTAL=0; MASKED_FIX=0; MASK_LINES=""
+# ⭐ CEO-409 MASKS FROM THE ALL.mask BESIDE THE SUITE, through the one shim (util_apply_ceo409_mask.py, the harness's own body; CEO-432),
+# wired here by ceo CEO-1351 for host's HOST() line -- the oracle's own identity, "x86-64:unix :Macro SPITBOL 15.01", which SCRIP does not
+# impersonate (CEO-1344). Applied to both streams of the STREAM arm only, counted and printed; guardrail 4 is the harness's mask_majority()
+# read back from the shim's .major, never restated here. No ALL.mask is the byte-identical stream (the shim's default-off arm).
+stream_match() {  # stream_match <m3|m4> <rc>
+    [ "$mask_major" = 1 ] && return 1
+    python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/ALL.ref" "$name" "$W/$1.mn" --side=scrip < "$W/$1.out" > "$W/$1.cmp" || return 1
+    gate_oracle_stdout_match "$W/o.cmp" "$W/$1.cmp" "$W/$1.err" "$2"
+}
+stream_note() {  # stream_note <PASS|FAIL> <rc>
+    if [ "$1" = PASS ] && [ "$mask_n" -gt 0 ]; then echo "stream: byte-equal stdout vs live sbl -bf, $mask_n line(s) masked by ALL.mask, rc=$2 (oracle rc=$rcO)"
+    elif [ "$1" = PASS ]; then echo "stream: byte-equal stdout vs live sbl -bf, rc=$2 (oracle rc=$rcO)"
+    elif [ "$mask_major" = 1 ]; then echo "the mask covers $mask_n of $(grep -c '' "$W/o.out") oracle lines -- a majority-masked fixture is UNGRADABLE and belongs outside the baseline, named, not masked (CEO-409 guardrail 4)"
+    else echo "stream: differs from live sbl -bf, rc=$2 (oracle rc=$rcO)"; fi
+}
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 # ⭐ THE PROGRESS DATABASE (CEO-319/331, CEO-383 ruling 2): one row per program per mode, written once at
 # the end through lib_progress.sh, said aloud either way, never a red board.  Recorded only for the
@@ -118,6 +133,13 @@ for sno in "$SUITE"/*.spt; do
     isx=0; inventory_is_excluded "$SUITE" "$base" && isx=1
     oracle_v="$(verdict_lines "$W/o.out")"; oracle_p="$(pass_lines "$W/o.out")"; oracle_f="$(fail_lines "$W/o.out")"
     if [ "$oracle_v" -gt 0 ]; then ARM=self; SELF=$((SELF+1)); SELF_LIST="${SELF_LIST}${base}\n"; else ARM=stream; STREAM=$((STREAM+1)); fi
+    mask_major=0; mask_n=0
+    if [ "$ARM" = stream ]; then
+        python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/ALL.ref" "$name" "$W/o.mn" --side=oracle < "$W/o.out" > "$W/o.cmp" \
+            || { echo "⛔ REFUSE(rc=2): $base -- the CEO-409 mask sidecar beside $SUITE is refused (the reason above); a mask nobody can audit grades nothing"; exit 2; }
+        mask_n="$(cat "$W/o.mn")"; mask_major="$(cat "$W/o.mn.major")"
+        [ "$mask_n" -gt 0 ] && { MASKED_TOTAL=$((MASKED_TOTAL+mask_n)); MASKED_FIX=$((MASKED_FIX+1)); MASK_LINES="${MASK_LINES}  MASKED  $base  $mask_n line(s) of $(grep -c '' "$W/o.out"), declared in ALL.mask beside the suite (CEO-409; an ORACLE-IDENTITY row is CEO-1344/CEO-1351)\n"; }
+    fi
     # --- mode 3
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
     run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run $6 "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" "$ca" 2>/dev/null; rc3=$?
@@ -127,8 +149,7 @@ for sno in "$SUITE"/*.spt; do
         if [ "$sf" = 0 ] && [ "$sp" = "$oracle_p" ] && [ "$oracle_f" = 0 ]; then OUT3=PASS; N3="self-check: $sp pass, 0 FAIL, oracle $oracle_p/0"
         else OUT3=FAIL; N3="self-check: $sp pass / $sf FAIL against the oracle's $oracle_p pass / $oracle_f FAIL"; fi
     else
-        if gate_oracle_stdout_match "$W/o.out" "$W/m3.out" "$W/m3.err" "$rc3"; then OUT3=PASS; N3="stream: byte-equal stdout vs live sbl -bf, rc=$rc3 (oracle rc=$rcO)"
-        else OUT3=FAIL; N3="stream: differs from live sbl -bf, rc=$rc3 (oracle rc=$rcO)"; fi
+        if stream_match m3 "$rc3"; then OUT3=PASS; else OUT3=FAIL; fi; N3="$(stream_note "$OUT3" "$rc3")"
     fi
     if [ "$isx" = 1 ]; then :; elif [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
@@ -140,8 +161,7 @@ for sno in "$SUITE"/*.spt; do
             if [ "$sf" = 0 ] && [ "$sp" = "$oracle_p" ] && [ "$oracle_f" = 0 ]; then OUT4=PASS; N4="self-check: $sp pass, 0 FAIL, oracle $oracle_p/0"
             else OUT4=FAIL; N4="self-check: $sp pass / $sf FAIL against the oracle's $oracle_p pass / $oracle_f FAIL"; fi
         else
-            if gate_oracle_stdout_match "$W/o.out" "$W/m4.out" "$W/m4.err" "$rc4"; then OUT4=PASS; N4="stream: byte-equal stdout vs live sbl -bf, rc=$rc4 (oracle rc=$rcO)"
-            else OUT4=FAIL; N4="stream: differs from live sbl -bf, rc=$rc4 (oracle rc=$rcO)"; fi
+            if stream_match m4 "$rc4"; then OUT4=PASS; else OUT4=FAIL; fi; N4="$(stream_note "$OUT4" "$rc4")"
         fi
         if [ "$isx" = 1 ]; then :; elif [ "$OUT4" = PASS ]; then P4=$((P4+1)); else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
     else
@@ -161,6 +181,8 @@ echo "SPITBOL_X32_POPULATION graded $GRADED of $SHIPPED shipped -- the ungraded 
 if [ "$UNGRADED_N" -gt 0 ]; then printf '%b' "$UNG_LIST" | sed 's/^/UNGRADED\t/'; else printf 'UNGRADED\t(none -- every shipped program is graded)\n'; fi
 [ -n "$DEFER_LIST" ] && echo "M4-DEFERRED (WE chose not to measure, each carrying its threshold -- asm over ${M4_ASM_MB}MB or the ${TIMEOUT}s compile timeout; never a pass, and never our failure either):$DEFER_LIST"
 [ "$XG_N" -gt 0 ] && echo "EXCLUDED-GRADED (named in EXCLUDED.tsv and run anyway, out of pass, fail, rc and the denominator -- ceo CEO-1345):$XG_LIST"
+echo "SPITBOL_X32_MASKS masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) -- CEO-409 masks declared in ALL.mask beside the suite, counted, the fixture staying in the denominator"
+printf '%b' "$MASK_LINES"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"
 # ⭐ THE DECLARATION, RE-ASKED EVERY RUN.  UNGRADED.tsv is the authority on which programs are owed (a
@@ -242,7 +264,7 @@ _cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || { _cc="$(excluded_shape_stamp
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite x32tests --suite-key x32tests --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
-    --text "spitbol_x32 both_modes_pass=$BOTH/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N named in EXCLUDED.tsv: not in the SPITBOL dialect, CEO-1286, or $XG_N deferred after the announcement by Lon's word, graded and named, CEO-1345; $GRADED graded) (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GC · m4 $P4/$GC ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x32_suite.sh\`)" \
+    --text "spitbol_x32 both_modes_pass=$BOTH/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N named in EXCLUDED.tsv: not in the SPITBOL dialect, CEO-1286, or $XG_N deferred after the announcement by Lon's word, graded and named, CEO-1345; $GRADED graded) (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GC · m4 $P4/$GC ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · masked_lines=$MASKED_TOTAL in $MASKED_FIX fixture(s) (CEO-409 ALL.mask; host's HOST() line is the oracle's own identity, CEO-1344/CEO-1351) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x32_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ -z "$DEF_UNDECLARED" ]
