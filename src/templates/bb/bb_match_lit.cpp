@@ -32,7 +32,6 @@ static std::string lit_chain(long n, long k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_lit_body() {
-    static char b[24];
     return x86("comment", "IR_MATCH_LIT")
          + x86_alpha()
          + IF(LITN() > 0,
@@ -44,7 +43,7 @@ static std::string bb_match_lit_body() {
          + IF(LITN() >= 1 && LITN() <= 64, lit_chain(LITN(), 0))
          + IF(LITN() > 64,
               x86("lea",    "rdi", "[r13+rcx]")
-            + x86("lea",    "rsi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+            + x86("lea",    "rsi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
             + x86("mov",    "edx", LITN())
             + x86("call",   "memcmp", (uint64_t)(uintptr_t)(void *)(int (*)(const void *, const void *, size_t)) memcmp)
             + x86("test",   "eax", "eax")
