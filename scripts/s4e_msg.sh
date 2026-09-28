@@ -992,13 +992,16 @@ s4e_lane_owner_of_language() {
        # ⛔⭐ MODE QUINTET (CEO-1356, 2026-09-28 17:2x, Lon in-chat to the ceo: "Bring the fleet into QUARTET mode: CEO, CTO, CFO, and COO. Leave HQ-SNOCONE alone. So QUNTET mode."): SNOCONE
        # stays hq_snocone's; the other languages take the QUARTET map of CEO-1123 -- ICON, SNOBOL4 and REBUS to the ceo, PROLOG, RAKU and PASCAL to the cto. The TENET mapping
        # this replaces -- icon hq_icon, prolog hq_prolog, snobol4 hq_snobol4, pascal hq_pascal, snocone hq_snocone, rebus ceo, raku hq_raku -- is the flip-back template.
+       # ⛔⭐ MODE CEO (CEO-1357, 2026-09-28 18:1x, Lon in-chat to the ceo, verbatim: "Go to CEO mode. For go all work but what we focus on together here. I want to focus on the 6 Snocone parsers (excluding Raku)."): ONE SEAT
+       # HOLDS EVERY LANGUAGE, and the one thing it works is the six self-hosted Snocone parsers with Lon. The QUINTET mapping this replaces -- icon ceo, prolog cto, snobol4 ceo, pascal cto,
+       # snocone hq_snocone, rebus ceo, raku cto -- is the flip-back template, and the TENET mapping stays in the QUINTET comment above.
        icon)     printf 'ceo';;
-       prolog)   printf 'cto';;
+       prolog)   printf 'ceo';;
        snobol4)  printf 'ceo';;
-       pascal)   printf 'cto';;
-       snocone)  printf 'hq_snocone';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'cto';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
