@@ -300,8 +300,12 @@ if [ "$DO_RUN" = 1 ]; then
     PC_LINE="RAKU_PARSE_COVERAGE UNMEASURED -- util_raku_parse_census.sh refused: ${PC_WHY:-no diagnostic on stderr}. ⛔ This row is DARK, not zero."
     printf '%s\n' "$PC_LINE"
   fi
-  printf 'ROAST_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d roast_commit=%s elapsed=%ds\n' \
-    "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$ROAST_COMMIT" "$elapsed"
+  # ⛔ THE BOARD LINE IS NAMED LIKE EVERY OTHER RUNNER'S AND RIDES IN THE CELL (coo 2026-09-28): util_score_row archives the
+  # verbatim <NAME>_SUITE_BOARD line it is handed into .github/board-lines/ so two readings of one suite stay diffable (CEO-827).
+  # This line was ROAST_BOARD and never reached --text, so the 170/1464 publish of 2026-09-28 wrote its row and archived nothing.
+  BOARD_LINE=$(printf 'ROAST_SUITE_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d roast_commit=%s elapsed=%ds' \
+    "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$ROAST_COMMIT" "$elapsed")
+  printf '%s\n' "$BOARD_LINE"
   [ "$LIMIT" -gt 0 ] && { printf 'ROAST_PARTIAL: --limit %d was in force, so this is a SMOKE OF THE INSTRUMENT and NOT a board; no SCORE row is written.\n' "$LIMIT"; exit 0; }
   # ⛔ --suite/--suite-key ARE NOT OPTIONAL HERE AND THEIR ABSENCE WAS A SILENT NO-OP FOR THIS BOARD (hq_raku
   # 2026-09-16): --column vendor writes ONE measurement inside a SHARED cell, so util_score_row cannot infer
@@ -317,7 +321,7 @@ if [ "$DO_RUN" = 1 ]; then
       --suite roast --suite-key roast \
       --suite-pass "$both" --suite-total "$n" \
       --measurer "${S4E_SEAT:-}" \
-      --text "roast run-graded both-modes $both/$n · PARSE COVERAGE: $PC_TEXT (measured by scripts/util_raku_parse_census.sh, --dump-ast rc=0 per file over this same population -- NEVER derived by subtracting buckets) · m3 $m3p/$n · m4 $m4p/$n · compile_only=$compile_only · roast=$ROAST_COMMIT · ⛔ THE DENOMINATOR IS THE POPULATION THIS RUNNER WALKS, every .t file under the vendored tree — ruled by the ceo as THE published roast basis (CEO-784, 2026-09-16, on hq_raku's ask: every shipped .t, CEO-749 shape, the manifest demoted to an inventory column). The 6.c manifest in-tier subset ($MAN_TIER of $MAN_ALL manifest lines, $MAN_MISSING named-but-absent) is a DIFFERENT POPULATION over the same suite, not a disagreement, and it is reported beside this board rather than instead of it. ⛔ THIS NOTE USED TO SAY THE SUBSET WAS ONE NO RUNNER MEASURED. That was FALSE and is corrected here on the ceo's order: the default mode of THIS script measures it and writes RAKU-COVERAGE.md, most recently by hq_raku on 2026-09-16. A runner asserting that nobody measured a number IT ITSELF computes is the worst kind of standing note — it reads as provenance and is self-refuting." \
+      --text "roast run-graded both-modes $both/$n · PARSE COVERAGE: $PC_TEXT (measured by scripts/util_raku_parse_census.sh, --dump-ast rc=0 per file over this same population -- NEVER derived by subtracting buckets) · m3 $m3p/$n · m4 $m4p/$n · compile_only=$compile_only · roast=$ROAST_COMMIT · ⛔ THE DENOMINATOR IS THE POPULATION THIS RUNNER WALKS, every .t file under the vendored tree — ruled by the ceo as THE published roast basis (CEO-784, 2026-09-16, on hq_raku's ask: every shipped .t, CEO-749 shape, the manifest demoted to an inventory column). The 6.c manifest in-tier subset ($MAN_TIER of $MAN_ALL manifest lines, $MAN_MISSING named-but-absent) is a DIFFERENT POPULATION over the same suite, not a disagreement, and it is reported beside this board rather than instead of it. ⛔ THIS NOTE USED TO SAY THE SUBSET WAS ONE NO RUNNER MEASURED. That was FALSE and is corrected here on the ceo's order: the default mode of THIS script measures it and writes RAKU-COVERAGE.md, most recently by hq_raku on 2026-09-16. A runner asserting that nobody measured a number IT ITSELF computes is the worst kind of standing note — it reads as provenance and is self-refuting. · $BOARD_LINE" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
   exit 0
 fi
