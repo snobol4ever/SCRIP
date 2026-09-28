@@ -51,7 +51,7 @@ DESCR_t rt_pl_dop_goal_guard(DESCR_t *, int); DESCR_t rt_pl_dop_list_guard(DESCR
 DESCR_t rt_pl_dop_term_string(DESCR_t *, int); DESCR_t rt_pl_dop_atom_length(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat(DESCR_t *, int); DESCR_t rt_pl_dop_atomic_concat(DESCR_t *, int); DESCR_t rt_pl_dop_atom_chars(DESCR_t *, int);
 DESCR_t rt_pl_dop_atom_codes(DESCR_t *, int); DESCR_t rt_pl_dop_atom_number(DESCR_t *, int); DESCR_t rt_pl_dop_atom_string(DESCR_t *, int); DESCR_t rt_pl_dop_upcase_atom(DESCR_t *, int);
 DESCR_t rt_pl_dop_downcase_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_concat(DESCR_t *, int); DESCR_t rt_pl_dop_string_length(DESCR_t *, int); DESCR_t rt_pl_dop_string_lower(DESCR_t *, int);
-DESCR_t rt_pl_dop_string_upper(DESCR_t *, int); DESCR_t rt_pl_dop_string_to_atom(DESCR_t *, int); DESCR_t rt_pl_dop_number_string(DESCR_t *, int);
+DESCR_t rt_pl_dop_string_upper(DESCR_t *, int); DESCR_t rt_pl_dop_string_to_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_codes(DESCR_t *, int); DESCR_t rt_pl_dop_string_chars(DESCR_t *, int); DESCR_t rt_pl_dop_number_string(DESCR_t *, int);
 DESCR_t rt_pl_dop_atomic_list_concat(DESCR_t *, int); DESCR_t rt_pl_dop_concat_atom(DESCR_t *, int); DESCR_t rt_pl_dop_char_code(DESCR_t *, int); DESCR_t rt_pl_dop_number_codes(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_sort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_msort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_keysort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_line_count(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_line_position(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_character_count(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_stream_line_column(DESCR_t *, int);
@@ -234,7 +234,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$atom_string", 2, "rt_pl_dop_atom_string", rt_pl_dop_atom_string }, { "$upcase_atom", 2, "rt_pl_dop_upcase_atom", rt_pl_dop_upcase_atom },
         { "$downcase_atom", 2, "rt_pl_dop_downcase_atom", rt_pl_dop_downcase_atom }, { "$string_concat", 3, "rt_pl_dop_string_concat", rt_pl_dop_string_concat },
         { "$string_length", 2, "rt_pl_dop_string_length", rt_pl_dop_string_length }, { "$string_lower", 2, "rt_pl_dop_string_lower", rt_pl_dop_string_lower },
-        { "$string_upper", 2, "rt_pl_dop_string_upper", rt_pl_dop_string_upper }, { "$string_to_atom", 2, "rt_pl_dop_string_to_atom", rt_pl_dop_string_to_atom },
+        { "$string_upper", 2, "rt_pl_dop_string_upper", rt_pl_dop_string_upper }, { "$string_to_atom", 2, "rt_pl_dop_string_to_atom", rt_pl_dop_string_to_atom }, { "$string_codes", 2, "rt_pl_dop_string_codes", rt_pl_dop_string_codes }, { "$string_chars", 2, "rt_pl_dop_string_chars", rt_pl_dop_string_chars },
         { "$number_string", 2, "rt_pl_dop_number_string", rt_pl_dop_number_string }, { "$atomic_list_concat", 2, "rt_pl_dop_atomic_list_concat", rt_pl_dop_atomic_list_concat },
         { "$atomic_list_concat", 3, "rt_pl_dop_atomic_list_concat", rt_pl_dop_atomic_list_concat }, { "$concat_atom", 2, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom },
         { "$concat_atom", 3, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom }, { "$char_code", 2, "rt_pl_dop_char_code", rt_pl_dop_char_code },

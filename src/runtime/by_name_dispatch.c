@@ -3211,7 +3211,7 @@ PL_CX_LEAF_HEAD(setof_group_at, 4) ok = rt_pl_bagof_group_at_cell(args, cx, 1); 
 #define PL_ATOM_OP_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm, ar) ok = rt_pl_atom_op_cell(#nm, &args[0], ar > 1 ? (void *)&args[1] : (void *)0, ar > 2 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
 PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(atomic_concat, 3) PL_ATOM_OP_LEAF(atom_chars, 2) PL_ATOM_OP_LEAF(atom_codes, 2) PL_ATOM_OP_LEAF(atom_number, 2) PL_ATOM_OP_LEAF(atom_string, 2)
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)
-PL_ATOM_OP_LEAF(string_to_atom, 2) PL_ATOM_OP_LEAF(number_string, 2)
+PL_ATOM_OP_LEAF(string_to_atom, 2) PL_ATOM_OP_LEAF(number_string, 2) PL_ATOM_OP_LEAF(string_codes, 2) PL_ATOM_OP_LEAF(string_chars, 2)
 static int pl_split_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     char sb[256], tb[8192]; const char *sep, *txt; DESCR_t el[4096]; int n = 0; size_t sl;
     if (!pl_cell_text(args[1], sb, sizeof sb, &sep) || !sep[0] || !pl_cell_text(args[2], tb, sizeof tb, &txt)) return 0;

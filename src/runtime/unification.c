@@ -829,8 +829,8 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(out), cx)) { return 0; }
         return 1;
     }
-    int as_codes = (!strcmp(fn, "atom_codes"));
-    if (!strcmp(fn, "atom_chars") || as_codes) {
+    int as_codes = (!strcmp(fn, "atom_codes") || !strcmp(fn, "string_codes"));
+    if (!strcmp(fn, "atom_chars") || !strcmp(fn, "string_chars") || as_codes) {
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }

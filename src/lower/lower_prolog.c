@@ -706,7 +706,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" },
     { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" },
     { "string_length", 2, "$string_length" }, { "string_lower", 2, "$string_lower" }, { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" },
-    { "number_string", 2, "$number_string" }, { "string_chars", 2, "$atom_chars" }, { "string_codes", 2, "$atom_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
+    { "number_string", 2, "$number_string" }, { "string_chars", 2, "$string_chars" }, { "string_codes", 2, "$string_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
     { "atomic_list_concat", 3, "$atomic_list_concat" }, { "concat_atom", 2, "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" },
     { "number_codes", 2, "$number_codes" }, { "number_chars", 2, "$number_chars" }, { "name", 2, "$name" }, { "get_char", 1, "$get_char" }, { "peek_char", 1, "$peek_char" },
     { "get_code", 1, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "get_byte", 1, "$get_byte" }, { "peek_byte", 1, "$peek_byte" },
