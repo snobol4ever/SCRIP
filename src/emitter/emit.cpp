@@ -1164,7 +1164,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_ASSIGN_FRAME:         { IR_t *_fr = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0;
         g_emit.op_a_slot = _fr ? bb_slot_get(_fr) : -1;
         if (g_emit.op_a_slot < 0 && _fr) { int _z = nd_slot(_fr); if (_z >= 0) g_emit.op_a_slot = _z; }
-        bb_emit_x86(bb_assign_frame()); } return 0;
+        { extern void assign_frame_prepare(IR_t *); assign_frame_prepare(nd); } bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
         if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); bb_emit_x86(bb_var_ref_frame()); return 0; }
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
@@ -4252,4 +4252,20 @@ extern "C" void x86_asm_str_escape_c(const char * s, char * out, unsigned long o
     std::string e = x86_asm_str_escape(s ? s : "");
     unsigned long n = (unsigned long)e.size(); if (n >= outsz) n = outsz - 1;
     memcpy(out, e.c_str(), (size_t)n); out[n] = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" { int stage2_owner_varslot(const char * proc, const char * var); const char * stage2_owner_l3_ancestor(const char * proc); }
+static int frame_display_mem_off(int lvl, const char * owner_proc) {
+    if (lvl <= 3 || !owner_proc) return -1;
+    const char * l3proc = stage2_owner_l3_ancestor(owner_proc);
+    if (!l3proc) return -1;
+    char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", lvl);
+    return stage2_owner_varslot(l3proc, nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void assign_frame_prepare(IR_t *nd) {
+    g_emit.op_seal  = nd ? nd->seal : 0;
+    g_emit.op_name1 = g_emit.op_seal == 1 ? "r13" : g_emit.op_seal == 2 ? "r14" : g_emit.op_seal == 3 ? "r15" : (const char *)0;
+    g_emit.op_sa    = (g_emit.op_a_sval && g_emit.op_sval) ? stage2_owner_varslot(g_emit.op_a_sval, g_emit.op_sval) : -1;
+    g_emit.op_sb    = g_emit.op_name1 ? -1 : frame_display_mem_off(g_emit.op_seal, g_emit.op_a_sval);
 }
