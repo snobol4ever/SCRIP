@@ -271,39 +271,6 @@ static tree_t *mk_call(int fid, tree_t **args, int arity) {
             }
         }
     }
-    int comma_id = prolog_atom_intern(",");
-    if (fid == comma_id && arity == 2) {
-        tree_t *e = ast_node_new(TT_FNC); e->v.sval = ct_strdup(",");
-        ast_push(e, args[0]);
-        tree_t *cur = args[1];
-        while (cur && cur->t == TT_FNC && cur->v.sval && strcmp(cur->v.sval, ",") == 0 && cur->n == 2) {
-            ast_push(e, cur->c[0]); cur = cur->c[1];
-        }
-        if (cur) ast_push(e, cur);
-        return e;
-    }
-    int semi_id = prolog_atom_intern(";");
-    if (fid == semi_id && arity == 2) {
-        tree_t *e = ast_node_new(TT_FNC); e->v.sval = ct_strdup(";");
-        ast_push(e, args[0]);
-        tree_t *cur = args[1];
-        while (cur && cur->t == TT_FNC && cur->v.sval && strcmp(cur->v.sval, ";") == 0 && cur->n == 2) {
-            ast_push(e, cur->c[0]); cur = cur->c[1];
-        }
-        if (cur) ast_push(e, cur);
-        return e;
-    }
-    int arrow_id = prolog_atom_intern("->");
-    if (fid == arrow_id && arity == 2) {
-        tree_t *e = ast_node_new(TT_FNC); e->v.sval = ct_strdup("->");
-        ast_push(e, args[0]);
-        tree_t *cur = args[1];
-        while (cur && cur->t == TT_FNC && cur->v.sval && strcmp(cur->v.sval, ",") == 0 && cur->n == 2) {
-            ast_push(e, cur->c[0]); cur = cur->c[1];
-        }
-        if (cur) ast_push(e, cur);
-        return e;
-    }
     tree_t *e = ast_node_new(TT_FNC);
     const char *fn = prolog_atom_name(fid);
     e->v.sval = ct_strdup(fn ? fn : "");
