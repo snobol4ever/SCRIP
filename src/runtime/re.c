@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "re.h"
+#include "ct_vec.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cc_set(Cc *cc, unsigned char c) { cc->bits[c>>3] |= (1u << (c&7)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -20,7 +21,6 @@ static void cc_fill_word(Cc *cc)  { cc_setrange(cc,'a','z'); cc_setrange(cc,'A',
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cc_fill_space(Cc *cc) { cc_set(cc,' '); cc_set(cc,'\t'); cc_set(cc,'\n');
                                           cc_set(cc,'\r'); cc_set(cc,'\f'); cc_set(cc,'\v'); }
-#define NFA_INIT_CAP 64
 struct Nfa {
     Nfa_state *states;
     int        n;
@@ -28,50 +28,43 @@ struct Nfa {
     int        start;
     int        accept;
     int        ngroups;
-    cv_t       gname_off;
-    cv_t       gname_pool;
+    char      *bytes;
+    size_t     bcap;
+    size_t     blen;
+    Nfa_state  dummy;
     Code_fn code_fn;
     void        *code_ud;
     int          has_code;
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void nfa_set_gname(Nfa *nfa, int g, const char *nm, int nlen) {
-    uint32_t k = nfa->gname_off.len;
-    cv_reserve(&nfa->gname_off, (uint32_t)sizeof(int), (uint64_t)g + 1, "nfa.gname_off");
-    for (; k <= (uint32_t)g; k++) CV_AT(nfa->gname_off, int, k) = -1;
-    if (nfa->gname_off.len < (uint32_t)g + 1) nfa->gname_off.len = (uint32_t)g + 1;
-    cv_reserve(&nfa->gname_pool, 1, (uint64_t)nfa->gname_pool.len + (uint64_t)nlen + 1, "nfa.gname_pool");
-    CV_AT(nfa->gname_off, int, g) = (int)nfa->gname_pool.len;
-    memcpy((char *)nfa->gname_pool.p + nfa->gname_pool.len, nm, (size_t)nlen);
-    ((char *)nfa->gname_pool.p)[nfa->gname_pool.len + (uint32_t)nlen] = 0;
-    nfa->gname_pool.len += (uint32_t)nlen + 1;
-}
+static Nfa_state *nfa_st(Nfa *nfa, int id) { return (id >= 0 && id < nfa->cap) ? &nfa->states[id] : &nfa->dummy; }
+#define NS(nfa, id) (*nfa_st((nfa), (id)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *nfa_gname(const Nfa *nfa, int g) {
-    if (g < 0 || (uint32_t)g >= nfa->gname_off.len || CV_AT(nfa->gname_off, int, g) < 0) return "";
-    return (const char *)nfa->gname_pool.p + CV_AT(nfa->gname_off, int, g);
+static char *nfa_bytes_put(Nfa *nfa, const char *src, int n) {
+    size_t at = nfa->blen;
+    nfa->blen += (size_t)n + 1;
+    if (nfa->blen > nfa->bcap) return (char *)0;
+    memcpy(nfa->bytes + at, src, (size_t)n); nfa->bytes[at + (size_t)n] = 0;
+    return nfa->bytes + at;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int nfa_alloc(Nfa *nfa) {
-    if (nfa->n >= nfa->cap) {
-        nfa->cap *= 2;
-        nfa->states = ct_grow(nfa->states, (size_t)nfa->cap * sizeof(Nfa_state));
-    }
     int id = nfa->n++;
-    memset(&nfa->states[id], 0, sizeof(Nfa_state));
-    nfa->states[id].id      = id;
-    nfa->states[id].out1    = NFA_NULL;
-    nfa->states[id].out2    = NFA_NULL;
-    nfa->states[id].cap_idx = -1;
-    nfa->states[id].kind    = NK_EPS;
+    Nfa_state *st = &NS(nfa, id);
+    memset(st, 0, sizeof(Nfa_state));
+    st->id      = id;
+    st->out1    = NFA_NULL;
+    st->out2    = NFA_NULL;
+    st->cap_idx = -1;
+    st->kind    = NK_EPS;
     return id;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int nfa_state(Nfa *nfa, Nfa_kind kind, int out1, int out2) {
     int id = nfa_alloc(nfa);
-    nfa->states[id].kind = kind;
-    nfa->states[id].out1 = out1;
-    nfa->states[id].out2 = out2;
+    NS(nfa, id).kind = kind;
+    NS(nfa, id).out1 = out1;
+    NS(nfa, id).out2 = out2;
     return id;
 }
 typedef struct {
@@ -98,7 +91,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int parse_charclass(Re_parser *p) {
     int id = nfa_alloc(p->nfa);
-    Nfa_state *s = &p->nfa->states[id];
+    Nfa_state *s = &NS(p->nfa, id);
     s->kind = NK_CLASS;
     s->out1 = NFA_NULL; s->out2 = NFA_NULL;
     int negate = 0, first = 1;
@@ -152,21 +145,21 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         consume(p);
         int gidx = p->group_counter++;
         int cap_open = nfa_alloc(p->nfa);
-        p->nfa->states[cap_open].kind    = NK_CAP_OPEN;
-        p->nfa->states[cap_open].cap_idx = gidx;
-        p->nfa->states[cap_open].out1    = NFA_NULL;
-        p->nfa->states[cap_open].out2    = NFA_NULL;
+        NS(p->nfa, cap_open).kind    = NK_CAP_OPEN;
+        NS(p->nfa, cap_open).cap_idx = gidx;
+        NS(p->nfa, cap_open).out1    = NFA_NULL;
+        NS(p->nfa, cap_open).out2    = NFA_NULL;
         int inner_start, inner_acc;
         if (!parse_alt(p, &inner_start, &inner_acc)) return 0;
         if (peek(p) != ')') { re_err(p,"missing ')'"); return 0; }
         consume(p);
         int cap_close = nfa_alloc(p->nfa);
-        p->nfa->states[cap_close].kind    = NK_CAP_CLOSE;
-        p->nfa->states[cap_close].cap_idx = gidx;
-        p->nfa->states[cap_close].out1    = NFA_NULL;
-        p->nfa->states[cap_close].out2    = NFA_NULL;
-        p->nfa->states[cap_open].out1  = inner_start;
-        p->nfa->states[inner_acc].out1 = cap_close;
+        NS(p->nfa, cap_close).kind    = NK_CAP_CLOSE;
+        NS(p->nfa, cap_close).cap_idx = gidx;
+        NS(p->nfa, cap_close).out1    = NFA_NULL;
+        NS(p->nfa, cap_close).out2    = NFA_NULL;
+        NS(p->nfa, cap_open).out1  = inner_start;
+        NS(p->nfa, inner_acc).out1 = cap_close;
         *out_start  = cap_open;
         *out_accept = cap_close;
         if (gidx + 1 > p->nfa->ngroups) p->nfa->ngroups = gidx + 1;
@@ -183,23 +176,24 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         if (peek(p)!='(') { re_err(p,"<n> must be followed by (...)"); return 0; }
         consume(p);
         int gidx=p->group_counter++;
-        nfa_set_gname(p->nfa, gidx, capname, nlen);
+        const char *kept = nfa_bytes_put(p->nfa, capname, nlen);
         int cap_open=nfa_alloc(p->nfa);
-        p->nfa->states[cap_open].kind=NK_CAP_OPEN;
-        p->nfa->states[cap_open].cap_idx=gidx;
-        p->nfa->states[cap_open].out1=NFA_NULL;
-        p->nfa->states[cap_open].out2=NFA_NULL;
+        NS(p->nfa, cap_open).cap_name=kept;
+        NS(p->nfa, cap_open).kind=NK_CAP_OPEN;
+        NS(p->nfa, cap_open).cap_idx=gidx;
+        NS(p->nfa, cap_open).out1=NFA_NULL;
+        NS(p->nfa, cap_open).out2=NFA_NULL;
         int inner_start,inner_acc;
         if (!parse_alt(p,&inner_start,&inner_acc)) return 0;
         if (peek(p)!=')') { re_err(p,"missing ) in <n>(...)"); return 0; }
         consume(p);
         int cap_close=nfa_alloc(p->nfa);
-        p->nfa->states[cap_close].kind=NK_CAP_CLOSE;
-        p->nfa->states[cap_close].cap_idx=gidx;
-        p->nfa->states[cap_close].out1=NFA_NULL;
-        p->nfa->states[cap_close].out2=NFA_NULL;
-        p->nfa->states[cap_open].out1=inner_start;
-        p->nfa->states[inner_acc].out1=cap_close;
+        NS(p->nfa, cap_close).kind=NK_CAP_CLOSE;
+        NS(p->nfa, cap_close).cap_idx=gidx;
+        NS(p->nfa, cap_close).out1=NFA_NULL;
+        NS(p->nfa, cap_close).out2=NFA_NULL;
+        NS(p->nfa, cap_open).out1=inner_start;
+        NS(p->nfa, inner_acc).out1=cap_close;
         *out_start=cap_open; *out_accept=cap_close;
         if (gidx+1>p->nfa->ngroups) p->nfa->ngroups=gidx+1;
         return 1;
@@ -210,12 +204,13 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         while (!at_end(p)&&depth>0){char x=consume(p);if(x=='{')depth++;else if(x=='}')depth--;}
         int ce=p->pos-1;
         int clen=ce-cs;
-        char *code=ct_alloc(clen+1); memcpy(code,p->pat+cs,clen); code[clen]='\0';
+        char *code=nfa_bytes_put(p->nfa, p->pat+cs, clen);
+        int is_ww=(clen==3 && !memcmp(p->pat+cs,"!ww",3)), is_sp=(clen==3 && !memcmp(p->pat+cs,"!sp",3));
         int id=nfa_alloc(p->nfa);
-        p->nfa->states[id].kind=(!strcmp(code,"!ww")) ? NK_ASSERT_NOT_WW : (!strcmp(code,"!sp")) ? NK_ASSERT_NOT_SP : NK_CODE_ASSERT;
-        p->nfa->states[id].code_str=code;
-        p->nfa->states[id].out1=NFA_NULL;
-        p->nfa->states[id].out2=NFA_NULL;
+        NS(p->nfa, id).kind=is_ww ? NK_ASSERT_NOT_WW : is_sp ? NK_ASSERT_NOT_SP : NK_CODE_ASSERT;
+        NS(p->nfa, id).code_str=code;
+        NS(p->nfa, id).out1=NFA_NULL;
+        NS(p->nfa, id).out2=NFA_NULL;
         p->nfa->has_code=1;
         *out_start=*out_accept=id; return 1;
     }
@@ -232,7 +227,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         if (at_end(p)) { re_err(p,"truncated escape"); return 0; }
         char esc = consume(p);
         int id = nfa_alloc(p->nfa);
-        Nfa_state *s = &p->nfa->states[id];
+        Nfa_state *s = &NS(p->nfa, id);
         s->out1=NFA_NULL; s->out2=NFA_NULL;
         switch (esc) {
             case 'd': s->kind=NK_CLASS; cc_fill_digit(&s->cc);  break;
@@ -250,7 +245,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     }
     consume(p);
     int id=nfa_state(p->nfa,NK_CHAR,NFA_NULL,NFA_NULL);
-    p->nfa->states[id].ch=(unsigned char)c;
+    NS(p->nfa, id).ch=(unsigned char)c;
     *out_start=*out_accept=id; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -263,21 +258,21 @@ static int parse_quantified(Re_parser *p, int *out_start, int *out_accept) {
         Nfa *nfa=p->nfa;
         if (q=='*') {
             int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
-            nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
-            nfa->states[a_acc].out1=split;
-            nfa->states[acc].kind=NK_EPS; nfa->states[acc].out1=NFA_NULL; nfa->states[acc].out2=NFA_NULL;
+            NS(nfa, split).kind=NK_SPLIT; NS(nfa, split).out1=a_start; NS(nfa, split).out2=acc;
+            NS(nfa, a_acc).out1=split;
+            NS(nfa, acc).kind=NK_EPS; NS(nfa, acc).out1=NFA_NULL; NS(nfa, acc).out2=NFA_NULL;
             *out_start=split; *out_accept=acc;
         } else if (q=='+') {
             int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
-            nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
-            nfa->states[a_acc].out1=split;
-            nfa->states[acc].kind=NK_EPS; nfa->states[acc].out1=NFA_NULL; nfa->states[acc].out2=NFA_NULL;
+            NS(nfa, split).kind=NK_SPLIT; NS(nfa, split).out1=a_start; NS(nfa, split).out2=acc;
+            NS(nfa, a_acc).out1=split;
+            NS(nfa, acc).kind=NK_EPS; NS(nfa, acc).out1=NFA_NULL; NS(nfa, acc).out2=NFA_NULL;
             *out_start=a_start; *out_accept=acc;
         } else {
             int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
-            nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
-            nfa->states[a_acc].out1=acc;
-            nfa->states[acc].kind=NK_EPS; nfa->states[acc].out1=NFA_NULL; nfa->states[acc].out2=NFA_NULL;
+            NS(nfa, split).kind=NK_SPLIT; NS(nfa, split).out1=a_start; NS(nfa, split).out2=acc;
+            NS(nfa, a_acc).out1=acc;
+            NS(nfa, acc).kind=NK_EPS; NS(nfa, acc).out1=NFA_NULL; NS(nfa, acc).out2=NFA_NULL;
             *out_start=split; *out_accept=acc;
         }
     } else { *out_start=a_start; *out_accept=a_acc; }
@@ -290,7 +285,7 @@ static int parse_concat(Re_parser *p, int *out_start, int *out_accept) {
         int q_start, q_acc;
         if (!parse_quantified(p,&q_start,&q_acc)) return 0;
         if (!started) { c_start=q_start; c_acc=q_acc; started=1; }
-        else { p->nfa->states[c_acc].out1=q_start; c_acc=q_acc; }
+        else { NS(p->nfa, c_acc).out1=q_start; c_acc=q_acc; }
     }
     if (!started) { int id=nfa_state(p->nfa,NK_EPS,NFA_NULL,NFA_NULL); c_start=c_acc=id; }
     *out_start=c_start; *out_accept=c_acc; return 1;
@@ -305,19 +300,19 @@ static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
         if (!parse_concat(p,&r_start,&r_acc)) return 0;
         Nfa *nfa=p->nfa;
         int split=nfa_alloc(nfa), join=nfa_alloc(nfa);
-        nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=l_start; nfa->states[split].out2=r_start;
-        nfa->states[l_acc].out1=join; nfa->states[r_acc].out1=join;
-        nfa->states[join].kind=NK_EPS; nfa->states[join].out1=NFA_NULL; nfa->states[join].out2=NFA_NULL;
+        NS(nfa, split).kind=NK_SPLIT; NS(nfa, split).out1=l_start; NS(nfa, split).out2=r_start;
+        NS(nfa, l_acc).out1=join; NS(nfa, r_acc).out1=join;
+        NS(nfa, join).kind=NK_EPS; NS(nfa, join).out1=NFA_NULL; NS(nfa, join).out2=NFA_NULL;
         l_start=split; l_acc=join;
     }
     *out_start=l_start; *out_accept=l_acc; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Nfa *nfa_build(const char *pattern) {
-    Nfa *nfa = ct_alloc(sizeof *nfa);
-    nfa->cap=NFA_INIT_CAP; nfa->n=0; nfa->ngroups=0;
-    memset(&nfa->gname_off,0,sizeof nfa->gname_off); memset(&nfa->gname_pool,0,sizeof nfa->gname_pool);
-    nfa->states=ct_alloc((size_t)nfa->cap*sizeof(Nfa_state));
+size_t nfa_head_size(void) { return sizeof(Nfa); }
+size_t nfa_state_size(void) { return sizeof(Nfa_state); }
+int nfa_build_into(Nfa *nfa, void *mem, int scap, size_t bcap, const char *pattern, int *need_s, size_t *need_b) {
+    memset(nfa, 0, sizeof *nfa);
+    nfa->states=(Nfa_state *)mem; nfa->cap=scap; nfa->bytes=(char *)mem + (size_t)scap * sizeof(Nfa_state); nfa->bcap=bcap;
     nfa->start=NFA_NULL; nfa->accept=NFA_NULL;
     Re_parser p;
     p.pat=pattern; p.pos=0; p.len=(int)strlen(pattern);
@@ -325,33 +320,33 @@ Nfa *nfa_build(const char *pattern) {
     int frag_start, frag_acc;
     if (!parse_alt(&p,&frag_start,&frag_acc)||!p.ok) {
         fprintf(stderr,"re: compile error: %s\n",p.err);
-        nfa_free(nfa); return NULL;
+        return 0;
     }
     int acc=nfa_state(nfa,NK_ACCEPT,NFA_NULL,NFA_NULL);
-    nfa->states[frag_acc].out1=acc;
+    NS(nfa, frag_acc).out1=acc;
     nfa->start=frag_start; nfa->accept=acc;
-    return nfa;
+    *need_s=nfa->n; *need_b=nfa->blen;
+    return (nfa->n > scap || nfa->blen > bcap) ? -1 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int        nfa_state_count(const Nfa *nfa) { return nfa?nfa->n:0; }
-void nfa_free(Nfa *nfa) { if(!nfa)return; ct_drop(nfa->gname_off.p); ct_drop(nfa->gname_pool.p); ct_drop(nfa->states); ct_drop(nfa); }
 typedef struct { int *ids; int n; } State_set;
 typedef struct Re_ev { int g; int s; int e; int depth; const struct Re_ev *prev; } Re_ev;
 typedef struct { const int *gse; const int *log; int loglen; const Re_ev *ev; } Re_snap;
-typedef struct { int w; int *gse; int *lo; int *ll; cv_t log; } Re_store;
+typedef struct { int w; int *gse; int *lo; int *ll; int *log; size_t logcap; size_t loglen; } Re_store;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int *re_ints(cv_t *v, uint64_t k, const char *nm) { cv_reserve(v, (uint32_t)sizeof(int), k ? k : 1, nm); return (int *)v->p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void re_store_put(Re_store *st, int slot, const Re_snap *sn) {
     int evn = sn->ev ? sn->ev->depth : 0, len = sn->loglen + evn;
     int *g = st->gse + (size_t)slot * (size_t)st->w;
-    int base = (int)st->log.len;
+    size_t base = st->loglen;
     int *lg;
     memcpy(g, sn->gse, (size_t)st->w * sizeof(int));
-    st->lo[slot] = base;
+    st->lo[slot] = (int)base;
     st->ll[slot] = len;
-    lg = re_ints(&st->log, (uint64_t)base + (uint64_t)len * 3, "re.log") + base;
-    st->log.len = (uint32_t)(base + len * 3);
+    st->loglen = base + (size_t)len * 3;
+    if (st->loglen > st->logcap) return;
+    lg = st->log + base;
     if (sn->loglen) memcpy(lg, sn->log, (size_t)sn->loglen * 3 * sizeof(int));
     for (const Re_ev *e = sn->ev; e; e = e->prev) { int k = (sn->loglen + e->depth - 1) * 3; lg[k] = e->g; lg[k + 1] = e->s; lg[k + 2] = e->e; }
 }
@@ -359,13 +354,12 @@ static void re_store_put(Re_store *st, int slot, const Re_snap *sn) {
 static Re_snap re_store_get(const Re_store *st, int slot) {
     Re_snap sn;
     sn.gse = st->gse + (size_t)slot * (size_t)st->w;
-    sn.log = (const int *)st->log.p + st->lo[slot];
+    sn.log = (const int *)st->log + st->lo[slot];
     sn.loglen = st->ll[slot];
     sn.ev = (const Re_ev *)0;
     return sn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void re_store_drop(Re_store *st) { ct_drop(st->log.p); }
 static int re_is_word_ch(unsigned char c) { return isalnum(c) || c=='_'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ss_add(State_set *ss, Re_store *snaps, const Nfa *nfa, int id,
@@ -410,30 +404,43 @@ static void eps_closure_into(State_set *ss, Re_store *snaps, const Nfa *nfa,
     ss_add(ss,snaps,nfa,start,visited,pos,slen,snap,subj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void re_result(Match *result, const Nfa *nfa, int matched, int fs, int fe, const int *gse, const int *log, int loglen) {
+static size_t re_result_need(int G, int loglen) { return (size_t)G * sizeof(const char *) + ((size_t)G * 2 + (size_t)loglen * 3) * sizeof(int); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void re_result(Match *result, void *mem, const Nfa *nfa, int matched, int fs, int fe, const int *gse, const int *log, int loglen) {
     int G = nfa ? nfa->ngroups : 0;
-    size_t names = 0, ptrs, ints, total;
-    cv_t st;
-    char *pool;
-    int *iv;
-    for (int g = 0; g < G; g++) names += strlen(nfa_gname(nfa, g)) + 1;
-    ptrs = (size_t)G * sizeof(const char *); ints = ((size_t)G * 2 + (size_t)loglen * 3) * sizeof(int); total = ptrs + ints + names;
-    memset(&st, 0, sizeof st);
-    cv_reserve(&st, 1, (uint64_t)(total ? total : 1), "match.store");
-    result->store = st.p; result->matched = matched; result->full_start = fs; result->full_end = fe; result->ngroups = G; result->ncaplog = loglen;
-    result->group_name = (const char **)st.p; iv = (int *)((char *)st.p + ptrs); pool = (char *)st.p + ptrs + ints;
-    result->group_start = iv; result->group_end = iv + G; result->caplog_group = iv + 2 * G; result->caplog_start = iv + 2 * G + loglen;
-    result->caplog_end = iv + 2 * G + 2 * loglen;
-    for (int g = 0; g < G; g++) { const char *nm = nfa_gname(nfa, g); size_t l = strlen(nm) + 1; memcpy(pool, nm, l); result->group_name[g] = pool; pool += l;
-        result->group_start[g] = gse ? gse[2 * g] : -1; result->group_end[g] = gse ? gse[2 * g + 1] : -1; }
+    int *iv = (int *)((char *)mem + (size_t)G * sizeof(const char *));
+    result->matched = matched; result->full_start = fs; result->full_end = fe; result->ngroups = G; result->ncaplog = loglen;
+    result->group_name = (const char **)mem; result->group_start = iv; result->group_end = iv + G;
+    result->caplog_group = iv + 2 * G; result->caplog_start = iv + 2 * G + loglen; result->caplog_end = iv + 2 * G + 2 * loglen;
+    for (int g = 0; g < G; g++) { result->group_name[g] = ""; result->group_start[g] = gse ? gse[2 * g] : -1; result->group_end[g] = gse ? gse[2 * g + 1] : -1; }
+    for (int i = 0; nfa && i < nfa->n; i++) { const Nfa_state *st = &nfa->states[i]; if (st->kind == NK_CAP_OPEN && st->cap_name && st->cap_idx >= 0 && st->cap_idx < G) result->group_name[st->cap_idx] = st->cap_name; }
     for (int k = 0; k < loglen; k++) { result->caplog_group[k] = log[3 * k]; result->caplog_start[k] = log[3 * k + 1]; result->caplog_end[k] = log[3 * k + 2]; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void match_free(Match *m) { if (!m) return; ct_drop(m->store); memset(m, 0, sizeof *m); }
+const char *match_keep(Match *dst, const Match *src, const char *subject) {
+    static cv_t keep;
+    int G = src->ngroups, L = src->ncaplog;
+    size_t names = 0, sl = strlen(subject ? subject : ""), need;
+    for (int g = 0; g < G; g++) names += strlen(src->group_name[g]) + 1;
+    need = re_result_need(G, L) + names + sl + 1;
+    cv_reserve(&keep, 1, (uint64_t)need, "re.kept_match");
+    char *pool = (char *)keep.p + re_result_need(G, L);
+    Match m = *src;
+    int *iv = (int *)((char *)keep.p + (size_t)G * sizeof(const char *));
+    m.group_name = (const char **)keep.p; m.group_start = iv; m.group_end = iv + G;
+    m.caplog_group = iv + 2 * G; m.caplog_start = iv + 2 * G + L; m.caplog_end = iv + 2 * G + 2 * L;
+    for (int g = 0; g < G; g++) { size_t l = strlen(src->group_name[g]) + 1; memcpy(pool, src->group_name[g], l); m.group_name[g] = pool; pool += l;
+        m.group_start[g] = src->group_start[g]; m.group_end[g] = src->group_end[g]; }
+    for (int k = 0; k < L; k++) { m.caplog_group[k] = src->caplog_group[k]; m.caplog_start[k] = src->caplog_start[k]; m.caplog_end[k] = src->caplog_end[k]; }
+    memcpy(pool, subject ? subject : "", sl + 1);
+    *dst = m;
+    return pool;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
+int nfa_exec_into(const Nfa *nfa, const char *subject, Match *result, Match_buf *mb) {
     memset(result,0,sizeof *result);
-    if (!nfa||!subject) { re_result(result, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0); return; }
+    if (!nfa||!subject) { if (re_result_need(nfa ? nfa->ngroups : 0, 0) > mb->cap) { mb->cap = re_result_need(nfa ? nfa->ngroups : 0, 0); return -1; }
+        re_result(result, mb->p, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0); return 0; }
     int slen=(int)strlen(subject);
     int anchored_bol=(nfa->states[nfa->start].kind==NK_ANCHOR_BOL);
     int w = nfa->ngroups > 0 ? 2 * nfa->ngroups : 1, nn = nfa->n > 0 ? nfa->n : 1;
@@ -442,14 +449,19 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
     int ga[nn * w], gb[nn * w], loa[nn], lla[nn], lob[nn], llb[nn], ida[nn], idb[nn], bestg[w];
     Re_store sa, sb; memset(&sa, 0, sizeof sa); memset(&sb, 0, sizeof sb); sa.w = w; sb.w = w;
     sa.gse = ga; sa.lo = loa; sa.ll = lla; sb.gse = gb; sb.lo = lob; sb.ll = llb;
+    sa.logcap = sb.logcap = 64 * 3; sa.log = (int *)alloca(sa.logcap * sizeof(int)); sb.log = (int *)alloca(sb.logcap * sizeof(int));
     Re_store *cs = &sa, *ns_st = &sb;
-    cv_t bestl; memset(&bestl, 0, sizeof bestl);
+    size_t bestcap = 64 * 3; int *bestl = (int *)alloca(bestcap * sizeof(int));
     int *cur_ids = ida, *nxt_ids = idb;
     int found = 0, found_start = 0, found_end = 0, best_len = 0;
     for (int start_pos=0; start_pos<=slen; start_pos++) {
-        State_set cur; cur.ids = cur_ids; cur.n=0;
-        cs->log.len = 0;
-        eps_closure_into(&cur,cs,nfa,nfa->start,start_pos,slen,&blank,subject);
+        State_set cur; cur.ids = cur_ids;
+        for (;;) {
+            cur.n = 0; cs->loglen = 0;
+            eps_closure_into(&cur,cs,nfa,nfa->start,start_pos,slen,&blank,subject);
+            if (cs->loglen <= cs->logcap) break;
+            cs->logcap = cs->loglen * 2; cs->log = (int *)alloca(cs->logcap * sizeof(int));
+        }
         int pos=start_pos;
         int best_end = -1;
         while (1) {
@@ -458,14 +470,16 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                     Re_snap b = re_store_get(cs, i);
                     best_end  = pos;
                     memcpy(bestg, b.gse, (size_t)w * sizeof(int));
-                    if (b.loglen) memcpy(re_ints(&bestl, (uint64_t)b.loglen * 3, "re.bestl"), b.log, (size_t)b.loglen * 3 * sizeof(int));
+                    if ((size_t)b.loglen * 3 > bestcap) { bestcap = (size_t)b.loglen * 6; bestl = (int *)alloca(bestcap * sizeof(int)); }
+                    if (b.loglen) memcpy(bestl, b.log, (size_t)b.loglen * 3 * sizeof(int));
                     best_len = b.loglen;
                 }
             }
             if (pos>=slen) break;
             unsigned char ch=(unsigned char)subject[pos];
-            State_set nxt; nxt.ids = nxt_ids; nxt.n=0;
-            ns_st->log.len = 0;
+            State_set nxt; nxt.ids = nxt_ids;
+            for (;;) {
+            nxt.n = 0; ns_st->loglen = 0;
             for (int i=0;i<cur.n;i++) {
                 Nfa_state *s=&nfa->states[cur.ids[i]];
                 int advance=0;
@@ -481,6 +495,9 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                     ss_add(&nxt,ns_st,nfa,s->out1,visited,pos+1,slen,&from,subject);
                 }
             }
+            if (ns_st->loglen <= ns_st->logcap) break;
+            ns_st->logcap = ns_st->loglen * 2; ns_st->log = (int *)alloca(ns_st->logcap * sizeof(int));
+            }
             { Re_store *t = cs; cs = ns_st; ns_st = t; }
             { int *t = cur_ids; cur_ids = nxt_ids; nxt_ids = t; }
             cur = nxt;
@@ -490,7 +507,9 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
         if (best_end >= 0) { found = 1; found_start = start_pos; found_end = best_end; break; }
         if (anchored_bol) break;
     }
-    if (found) re_result(result, nfa, 1, found_start, found_end, bestg, (const int *)bestl.p, best_len);
-    else re_result(result, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0);
-    re_store_drop(&sa); re_store_drop(&sb); ct_drop(bestl.p);
+    size_t need = re_result_need(nfa->ngroups, found ? best_len : 0);
+    if (need > mb->cap) { mb->cap = need; return -1; }
+    if (found) re_result(result, mb->p, nfa, 1, found_start, found_end, bestg, bestl, best_len);
+    else re_result(result, mb->p, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0);
+    return 0;
 }

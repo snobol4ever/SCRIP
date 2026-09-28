@@ -690,13 +690,12 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     if (!body) { *out = FAILDESCR; return 1; }
     int topflv = gram_get_flavor(qn);
     char pat[gram_expand(gname, body, topflv, (char *)0, 0) + 1]; gram_expand(gname, body, topflv, pat, 0);
-    Nfa *nfa = nfa_build(pat);
+    NFA_ON_STACK(nfa, pat);
     if (!nfa) { *out = FAILDESCR; return 1; }
-    Match m; nfa_exec(nfa, subj, &m);
+    Match m; MATCH_BUF(mb); NFA_EXEC(nfa, subj, &m, mb);
     int slen = (int)strlen(subj);
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
     char caps[rk_caplog_text(&m, subj, ok, (char *)0) + 1]; rk_caplog_text(&m, subj, ok, caps);
-    match_free(&m); nfa_free(nfa);
     *out = rk_match_make(ok ? subj : "", caps, ok); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -895,17 +894,17 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words") || !strcmp(meth, "split")) s = rk_list_as_str(s);
     size_t n = strlen(s);
     if ((!strcmp(meth, "split") || !strcmp(meth, "comb")) && nmargs >= 1 && rk_rx_pat(margs[0])) {
-        Nfa *nfa = nfa_build(rk_rx_pat(margs[0])); if (!nfa) { *out = FAILDESCR; return 1; }
+        NFA_ON_STACK(nfa, rk_rx_pat(margs[0])); if (!nfa) { *out = FAILDESCR; return 1; }
         int split = meth[0] == 's'; char *r = (char *)rt_str_alloc((long)(2 * n + 1)); size_t op = 0, seg = 0, pos = 0; int nel = 0;
+        MATCH_BUF(mb);
         while (pos <= n) {
-            Match m; nfa_exec(nfa, s + pos, &m); if (!m.matched) { match_free(&m); break; }
-            size_t ms = pos + (size_t)m.full_start, me = pos + (size_t)m.full_end; match_free(&m);
+            Match m; NFA_EXEC(nfa, s + pos, &m, mb); if (!m.matched) break;
+            size_t ms = pos + (size_t)m.full_start, me = pos + (size_t)m.full_end;
             if (me == ms) { pos = ms + 1; continue; }
             if (nel++) r[op++] = SOH;
             if (split) { memcpy(r + op, s + seg, ms - seg); op += ms - seg; seg = me; } else { memcpy(r + op, s + ms, me - ms); op += me - ms; }
             pos = me;
         }
-        nfa_free(nfa);
         if (split) { if (nel++) r[op++] = SOH; memcpy(r + op, s + seg, n - seg); op += n - seg; }
         r[op] = '\0'; *out = rk_a_seal(r, nel > 0); return 1;
     }
@@ -5265,9 +5264,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_smartmatch") && nargs == 2) {
         const char *pat = rk_rx_pat(args[1]);
         if (pat) {
-            char sb[64]; const char *subj = to_cstring(args[0], sb, sizeof sb); subj = rt_heap_strdup_c(subj ? subj : "");
-            Nfa *nfa = nfa_build(pat); if (!nfa) { *out = FAILDESCR; return 1; }
-            match_free(&g_match); nfa_exec(nfa, subj, &g_match); g_subject = subj; int ok = g_match.matched; nfa_free(nfa);
+            char sb[64]; const char *subj = to_cstring(args[0], sb, sizeof sb); if (!subj) subj = "";
+            NFA_ON_STACK(nfa, pat); if (!nfa) { *out = FAILDESCR; return 1; }
+            Match m; MATCH_BUF(mb); NFA_EXEC(nfa, subj, &m, mb); g_subject = match_keep(&g_match, &m, subj); int ok = g_match.matched;
             *out = ok ? INTVAL(1) : FAILDESCR; return 1;
         }
         long long hit;
@@ -5990,12 +5989,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "re_match") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
-        Nfa *nfa = nfa_build(pat);
+        NFA_ON_STACK(nfa, pat);
         if (!nfa) { *out = FAILDESCR; return 1; }
-        match_free(&g_match); nfa_exec(nfa, subj, &g_match);
-        g_subject = subj;
+        Match m; MATCH_BUF(mb); NFA_EXEC(nfa, subj, &m, mb);
+        g_subject = match_keep(&g_match, &m, subj);
         int verdict = g_match.matched ? 1 : 0;
-        nfa_free(nfa);
         *out = verdict ? INTVAL(1) : FAILDESCR; return 1;
     }
     if (!strcmp(fn, "nfa_accepts") && nargs == 2) {
@@ -6031,29 +6029,32 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "re_match_global") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
-        Nfa *nfa = nfa_build(pat);
+        NFA_ON_STACK(nfa, pat);
         if (!nfa) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int slen = (int)strlen(subj);
         char *acc = rt_wsb_alloc((size_t)slen * 4 + 4); acc[0] = '\0';
-        int pos = 0, count = 0;
+        int pos = 0, count = 0, last = -1;
+        MATCH_BUF(mb);
         while (pos <= slen) {
-            Match m; nfa_exec(nfa, subj + pos, &m);
-            if (!m.matched) { match_free(&m); break; }
+            Match m; NFA_EXEC(nfa, subj + pos, &m, mb);
+            if (!m.matched) break;
             int mlen = m.full_end - m.full_start;
             if (count > 0) { int ol = (int)strlen(acc); acc[ol] = SOH; acc[ol + 1] = '\0'; }
             strncat(acc, subj + pos + m.full_start, (size_t)mlen);
-            match_free(&g_match); g_match = m;
-            g_match.full_start += pos;
-            g_match.full_end   += pos;
-            for (int g = 0; g < m.ngroups; g++) {
-                if (m.group_start[g] >= 0) g_match.group_start[g] += pos;
-                if (m.group_end[g]   >= 0) g_match.group_end[g]   += pos;
-            }
-            g_subject = subj;
+            last = pos;
             pos += m.full_start + (mlen > 0 ? mlen : 1);
             count++;
         }
-        nfa_free(nfa);
+        if (last >= 0) {
+            Match m; NFA_EXEC(nfa, subj + last, &m, mb);
+            g_subject = match_keep(&g_match, &m, subj);
+            g_match.full_start += last;
+            g_match.full_end   += last;
+            for (int g = 0; g < g_match.ngroups; g++) {
+                if (g_match.group_start[g] >= 0) g_match.group_start[g] += last;
+                if (g_match.group_end[g]   >= 0) g_match.group_end[g]   += last;
+            }
+        }
         *out = count > 0 ? STRVAL(acc) : FAILDESCR; return 1;
     }
     if (!strcmp(fn, "re_subst") && nargs == 2) {
@@ -6068,30 +6069,33 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *pat  = rt_wsb_alloc((size_t)plen + 1); memcpy(pat, tok, (size_t)plen); pat[plen] = '\0';
         char *repl = rt_wsb_alloc((size_t)rlen + 1); memcpy(repl, sep1 + 1, (size_t)rlen); repl[rlen] = '\0';
         int global = (*(sep2 + 1) == 'g');
-        Nfa *nfa = nfa_build(pat);
+        NFA_ON_STACK(nfa, pat);
         if (!nfa) { *out = args[0]; return 1; }
         int slen = (int)strlen(subj);
-        char *res = rt_wsb_alloc((size_t)slen * 4 + (size_t)rlen * 8 + 4); res[0] = '\0';
-        int pos = 0, did_one = 0;
+        size_t rcap = (size_t)slen * 4 + (size_t)rlen * 8 + 4, rl = 0;
+        char *res = rt_wsb_alloc(rcap); res[0] = '\0';
+        int pos = 0, did_one = 0, last = -1;
+        MATCH_BUF(mb);
         while (pos <= slen) {
-            Match m; nfa_exec(nfa, subj + pos, &m);
-            if (!m.matched) { match_free(&m); strncat(res, subj + pos, (size_t)(slen - pos)); break; }
-            strncat(res, subj + pos, (size_t)m.full_start);
-            strcat(res, repl);
-            match_free(&g_match); g_match = m; g_subject = subj;
+            Match m; NFA_EXEC(nfa, subj + pos, &m, mb);
+            size_t want = rl + (size_t)(m.matched ? m.full_start : slen - pos) + (size_t)rlen + (size_t)(slen - pos) + 1;
+            if (want > rcap) { while (rcap < want) rcap *= 2; res = (char *)rt_wsb_realloc(res, rcap); }
+            if (!m.matched) { memcpy(res + rl, subj + pos, (size_t)(slen - pos)); rl += (size_t)(slen - pos); res[rl] = '\0'; break; }
+            memcpy(res + rl, subj + pos, (size_t)m.full_start); rl += (size_t)m.full_start;
+            memcpy(res + rl, repl, (size_t)rlen); rl += (size_t)rlen; res[rl] = '\0';
+            last = pos;
             int advance = m.full_start + (m.full_end - m.full_start > 0 ? m.full_end - m.full_start : 1);
             pos += advance; did_one = 1;
-            if (!global) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
+            if (!global) { memcpy(res + rl, subj + pos, (size_t)(slen - pos > 0 ? slen - pos : 0)); rl += (size_t)(slen - pos > 0 ? slen - pos : 0); res[rl] = '\0'; break; }
         }
-        nfa_free(nfa);
+        if (last >= 0) { Match m; NFA_EXEC(nfa, subj + last, &m, mb); g_subject = match_keep(&g_match, &m, subj); }
         *out = did_one ? STRVAL(res) : args[0]; return 1;
     }
     if (!strcmp(fn, "nfa_compile") && nargs == 1) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) pat = "";
-        Nfa *nfa = nfa_build(pat);
+        NFA_ON_STACK(nfa, pat);
         if (!nfa) { printf("NFA:%s:ERROR\n", pat); *out = INTVAL(0); return 1; }
         printf("NFA:%s:states=%d\n", pat, nfa_state_count(nfa));
-        nfa_free(nfa);
         *out = INTVAL(0); return 1;
     }
     if ((!strcmp(fn, "__rk_say_capture") || !strcmp(fn, "__rk_say_named_capture")) && nargs == 1) {
