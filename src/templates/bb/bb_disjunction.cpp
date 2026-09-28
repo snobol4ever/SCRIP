@@ -9,35 +9,29 @@ extern "C" void rt_pl_disj_open(void *, void *);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_dispatch_chain(long N, int base, int lo)
-{ std::string r;
-  for (long i = lo; i < N; i++) r += x86("cmp", "eax", (int)i)
-                                    + x86("je", PAIR((int)(base + i)));
-  return r; }
+{ return FOR(lo, (int)N, [&](int i) { return x86("cmp", "eax", (int)i)
+                                         + x86("je", PAIR((int)(base + i))); }); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_sigma_copy() {
-    std::string r = x86("mov", "eax", FR(_.op_off + 16));
-    for (int i = 0; i < _.op_parts_n; i++) {
-        r += x86("cmp", "eax", i)
-           + x86("jne", L(i))
-           + IF(_.op_parts_ival[i] >= 0,
-                 x86("mov", "rax", FRQ((int)_.op_parts_ival[i]))
-               + x86("mov", FRQ(_.op_off), "rax")
-               + x86("mov", "rax", FRQ((int)_.op_parts_ival[i] + 8))
-               + x86("mov", FRQ(_.op_off + 8), "rax"))
-           + x86_gamma()
-           + x86("def", L(i));
-    }
-    return r + x86_gamma();
+    return x86("mov", "eax", FR(_.op_off + 16))
+         + FOR(0, _.op_parts_n, [&](int i) { return x86("cmp", "eax", i)
+                                                + x86("jne", L(i))
+                                                + IF(_.op_parts_ival[i] >= 0,
+                                                     x86("mov", "rax", FRQ((int)_.op_parts_ival[i]))
+                                                   + x86("mov", FRQ(_.op_off), "rax")
+                                                   + x86("mov", "rax", FRQ((int)_.op_parts_ival[i] + 8))
+                                                   + x86("mov", FRQ(_.op_off + 8), "rax"))
+                                                + x86_gamma()
+                                                + x86("def", L(i)); })
+         + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_choice_open() {
     if (!x86_fb_pinned()) return std::string();
-    int kt = g_emit.flat_frame_bytes;
-    uint64_t fp; { void (*f)(void *, void *) = rt_pl_disj_open; fp = (uint64_t)(uintptr_t)(void *)f; }
     return  x86("mov", FRQ(_.op_off + 24), "r12")
-         + x86("lea", "rdi", RDQ(x86_fb(), kt - 64))
+         + x86("lea", "rdi", RDQ(x86_fb(), _.flat_frame_bytes - 64))
          + x86("mov", "rsi", x86_fb())
-         + x86("call_bare", "rt_pl_disj_open", fp);
+         + x86("call_bare", "rt_pl_disj_open", (uint64_t)(uintptr_t)(void *)(void (*)(void *, void *))rt_pl_disj_open);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_step_unwind() {
