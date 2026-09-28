@@ -786,6 +786,33 @@ static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
     buf[p] = '\0'; return rk_a_seal(buf, n > 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_text_int(const char *t, long long *v) { char *ep; *v = strtoll(t, &ep, 10); return *ep == '\0' && ep != t; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_av_minmax(rk_av_t a, int want_max) {
+    const char *best = NULL; long long bestn = 0; int best_num = 0;
+    for (int i = 0; i < a.n; i++) {
+        const char *t = rk_av_text(a, i); long long v; int isn = rk_text_int(t, &v); int take;
+        if (!best) take = 1;
+        else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
+        else { int c = strcmp(t, best); take = want_max ? (c > 0) : (c < 0); }
+        if (take) { best = t; bestn = v; best_num = isn; }
+    }
+    if (!best) return NULVCL;
+    return best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_av_arith(rk_av_t a, int op) {
+    long long iacc = 0; double racc = 0.0; int any_real = 0;
+    for (int i = 0; i < a.n; i++) {
+        const char *t = rk_av_text(a, i); long long iv; int isn = rk_text_int(t, &iv); double dv = isn ? (double) iv : strtod(t, NULL); if (!isn) any_real = 1;
+        if (i == 0 && op != '+') { iacc = iv; racc = dv; }
+        else if (op == '+') { iacc += iv; racc += dv; }
+        else if (op == '*') { iacc *= iv; racc *= dv; }
+        else { iacc -= iv; racc -= dv; }
+    }
+    return any_real ? REALVAL(racc) : INTVAL(iacc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *rk_av_joined(rk_av_t a, const char *sep, const char *open, const char *close) {
     size_t sl = strlen(sep), ol = strlen(open), cl = strlen(close), tot = ol + cl + 1;
     const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
@@ -5157,25 +5184,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = acc; return 1;
     }
     if ((!strcmp(fn, "__rk_arr_min") || !strcmp(fn, "__rk_arr_max")) && nargs >= 1) {
-        int want_max = (fn[10] == 'a');
-        const char *best = NULL; size_t bestl = 0; long long bestn = 0; int best_num = 0; int have = 0;
-        for (int i = 0; i < nargs; i++) {
-            char scratch[64];
-            const char *cs = to_cstring(args[i], scratch, sizeof scratch);
-            const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
-            for (int j = 0; j < nel; j++) {
-                size_t L = lens[j]; const char *seg = els[j];
-                char eb[64]; size_t cl = L < 63 ? L : 63; memcpy(eb, seg, cl); eb[cl] = '\0';
-                char *ep; long long v = strtoll(eb, &ep, 10); int isn = (*ep == '\0' && ep != eb);
-                int take;
-                if (!have) take = 1;
-                else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
-                else { int c = strcmp(eb, best ? best : ""); take = want_max ? (c > 0) : (c < 0); }
-                if (take) { char *cp = rt_wsb_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestl = cl; bestn = v; best_num = isn; have = 1; }
-            }
-        }
-        if (!have) { *out = NULVCL; return 1; }
-        *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best)); return 1;
+        int tot = 0; rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) nargs);
+        for (int i = 0; i < nargs; i++) { vs[i] = rk_av(args[i]); tot += vs[i].n; }
+        DESCR_t *all = tot ? (DESCR_t *) rt_ws_alloc_descr((size_t) tot) : NULL; int k = 0;
+        for (int i = 0; i < nargs; i++) for (int j = 0; j < vs[i].n; j++) all[k++] = vs[i].el[j];
+        rk_av_t a = { tot, all, 1 }; *out = rk_av_minmax(a, fn[10] == 'a'); return 1;
     }
     if (!strcmp(fn, "__rk_regex") && nargs == 1) {
         char sb[64]; const char *pat = to_cstring(args[0], sb, sizeof sb); size_t L = strlen(pat);
@@ -5302,66 +5315,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "sum") && nargs >= 1) {
-        long long isum = 0; double rsum = 0.0; int any_real = 0;
-        for (int i = 0; i < nargs; i++) {
-            char scratch[64];
-            const char *cs = rk_a_body(to_cstring(args[i], scratch, sizeof scratch));
-            const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
-            for (int j = 0; j < nel; j++) {
-                size_t L = lens[j];
-                char eb[64]; size_t cl = L < 63 ? L : 63; memcpy(eb, els[j], cl); eb[cl] = '\0';
-                char *ep; long long iv = strtoll(eb, &ep, 10);
-                if (*ep == '\0' && ep > eb) { isum += iv; rsum += (double)iv; }
-                else { double dv = strtod(eb, NULL); any_real = 1; rsum += dv; }
-            }
-        }
-        *out = any_real ? REALVAL(rsum) : INTVAL(isum); return 1;
+        rk_av_t a = rk_av_args(args, 0, nargs); *out = a.n ? rk_av_arith(a, '+') : INTVAL(0); return 1;
     }
     if ((!strcmp(fn, "__rk_reduce_add") || !strcmp(fn, "__rk_reduce_sub") || !strcmp(fn, "__rk_reduce_mul")) && nargs >= 1) {
-        int is_add = !strcmp(fn + 12, "add"); int is_mul = !strcmp(fn + 12, "mul");
-        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
-        if (nel == 0) { *out = INTVAL(is_mul ? 1 : 0); return 1; }
-        long long iacc = 0; double racc = 0.0; int any_real = 0;
-        for (int i = 0; i < nel; i++) {
-            size_t L = lens[i];
-            char eb[64]; size_t cl = L < 63 ? L : 63; memcpy(eb, els[i], cl); eb[cl] = '\0';
-            char *ep; long long iv = strtoll(eb, &ep, 10); int isn = (*ep == '\0' && ep != eb);
-            double dv = isn ? (double)iv : strtod(eb, NULL); if (!isn) any_real = 1;
-            if (i == 0) { iacc = iv; racc = dv; }
-            else if (is_add) { iacc += iv; racc += dv; }
-            else if (is_mul) { iacc *= iv; racc *= dv; }
-            else { iacc -= iv; racc -= dv; }
-        }
-        *out = any_real ? REALVAL(racc) : INTVAL(iacc); return 1;
+        int op = fn[12] == 'a' ? '+' : fn[12] == 'm' ? '*' : '-';
+        rk_av_t a = rk_av(args[0]); *out = a.n ? rk_av_arith(a, op) : INTVAL(op == '*' ? 1 : 0); return 1;
     }
     if (!strcmp(fn, "__rk_reduce_cat") && nargs >= 1) {
-        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
-        if (nel == 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
-        char *buf = rt_heap_strdup_c(""); size_t blen = 0;
-        for (int i = 0; i < nel; i++) {
-            size_t L = lens[i];
-            char *no = rt_wsb_alloc(blen + L + 1); memcpy(no, buf, blen); memcpy(no + blen, els[i], L); no[blen + L] = '\0';
-            buf = no; blen += L;
-        }
-        *out = STRVAL(buf); return 1;
+        *out = STRVAL(rk_av_joined(rk_av(args[0]), "", "", "")); return 1;
     }
     if ((!strcmp(fn, "__rk_reduce_min") || !strcmp(fn, "__rk_reduce_max")) && nargs >= 1) {
-        int want_max = !strcmp(fn + 12, "max");
-        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
-        if (nel == 0) { *out = NULVCL; return 1; }
-        const char *best = NULL; long long bestn = 0; int best_num = 0; int have = 0;
-        for (int i = 0; i < nel; i++) {
-            size_t L = lens[i];
-            char eb[64]; size_t cl = L < 63 ? L : 63; memcpy(eb, els[i], cl); eb[cl] = '\0';
-            char *ep; long long v = strtoll(eb, &ep, 10); int isn = (*ep == '\0' && ep != eb);
-            int take; if (!have) take = 1; else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
-            else { int c = strcmp(eb, best ? best : ""); take = want_max ? (c > 0) : (c < 0); }
-            if (take) { char *cp = rt_wsb_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestn = v; best_num = isn; have = 1; }
-        }
-        *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best ? best : "")); return 1;
+        *out = rk_av_minmax(rk_av(args[0]), fn[13] == 'a'); return 1;
     }
     if (!strcmp(fn, "join") && nargs >= 1) {
         char sb[64]; const char *sep = rt_heap_strdup_c(to_cstring(args[0], sb, sizeof sb));
