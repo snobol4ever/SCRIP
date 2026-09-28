@@ -61,9 +61,13 @@ static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_ou
 static int zls_reuse_detleaf(const IR_t * c);
 static int zls_reuse_straight(IR_e op);
 static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w);
-typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;
-static zls_ageom_t  za[1024];             static int za_n = 0;
-static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
+typedef struct { const IR_t * nd; int min_off; int span; int * zq; int nzq; } zls_ageom_t;
+static cv_t za_v; static int za_n = 0;
+#define za ((zls_ageom_t *)za_v.p)
+typedef struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr;
+                 const IR_t ** wsv; const IR_t ** wcd; int nw; int wcap; } zls_fct_t;
+static cv_t fct_v;
+#define fct ((zls_fct_t *)fct_v.p)
 static int fct_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_reset(void) { for (int i = 0; i < zg_n; i++) if (zg[i].reuse) { ct_drop(zg[i].reuse); zg[i].reuse = (struct zls_reuse_s *)0; zg[i].n_reuse = 0; } ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; if (g_zgh_cap) memset(g_zgh, 0, (size_t)g_zgh_cap * sizeof(zgh_t)); zv_n = 0; zm_n = 0; zx_n = 0; zx_sorted = 0; za_n = 0; g_znb_gen++; g_znb_n = 0; }
@@ -407,19 +411,23 @@ static int g_fcc_gfence = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_call_ok(const IR_t * nd) { (void)nd; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
-    if (!nd || depth > 24 || *pn >= cap) return 0;
-    if (nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { post[(*pn)++] = nd; return 1; }
-    if (fc_vunop_ok(nd) && fc_vtree_scan(g, nd->operands[0], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
-    if (fc_call_ok(nd) && g_fcc_gfence && nd->operands[0] && (nd->operands[0]->op == IR_LIT_INTEGER || nd->operands[0]->op == IR_LIT_STRING || (nd->operands[0]->op == IR_VAR && fc_vvar_ok(g, nd->operands[0]))) && *pn + 2 <= cap) { post[(*pn)++] = nd->operands[0]; post[(*pn)++] = nd; return 1; }
+static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, cv_t * post, int depth) {
+    if (!nd || depth > 24) return 0;
+    if (nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { CV_PUSH(*post, const IR_t *) = nd; return 1; }
+    if (fc_vunop_ok(nd) && fc_vtree_scan(g, nd->operands[0], post, depth + 1)) { CV_PUSH(*post, const IR_t *) = nd; return 1; }
+    if (fc_call_ok(nd) && g_fcc_gfence && nd->operands[0]
+        && (nd->operands[0]->op == IR_LIT_INTEGER || nd->operands[0]->op == IR_LIT_STRING || (nd->operands[0]->op == IR_VAR && fc_vvar_ok(g, nd->operands[0]))))
+        { CV_PUSH(*post, const IR_t *) = nd->operands[0]; CV_PUSH(*post, const IR_t *) = nd; return 1; }
     if (nd->op == IR_BINOP && nd->n_operands == 2 && fc_vbinop_ok((long long)IR_LIT(nd).ival)
-        && fc_vtree_scan(g, nd->operands[0], post, pn, cap, depth + 1) && fc_vtree_scan(g, nd->operands[1], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
+        && fc_vtree_scan(g, nd->operands[0], post, depth + 1) && fc_vtree_scan(g, nd->operands[1], post, depth + 1)) { CV_PUSH(*post, const IR_t *) = nd; return 1; }
     return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * zls_pas_display_name(int lvl) {
-    static char names[13][24]; static int init = 0;
-    if (!init) { for (int i = 0; i < 13; i++) snprintf(names[i], sizeof names[i], "__pas_display_%d", i + 4); init = 1; }
-    return (lvl >= 4 && lvl <= 16) ? names[lvl - 4] : (const char *)0;
+    static cv_t names;
+    if (lvl < 4) return (const char *)0;
+    cv_reserve(&names, (uint32_t)sizeof(const char *), (uint64_t)lvl - 3, "names");
+    if (!CV_AT(names, const char *, lvl - 4)) CV_AT(names, const char *, lvl - 4) = ct_fmt("__pas_display_%d", lvl);
+    return CV_AT(names, const char *, lvl - 4);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
@@ -432,8 +440,8 @@ void zls_build(IR_graph_t * g) {
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
             && r->γ.node == a) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }
         if ((r->op == IR_BINOP || fc_vunop_ok(r) || fc_call_ok(r)) && r->γ.node == a) {
-            const IR_t * post[49]; int pn = 0;
-            int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
+            cv_t postv = { 0 };
+            int _ts = fc_vtree_scan(g, r, &postv, 0); int pn = (int)postv.len; const IR_t ** post = (const IR_t **)postv.p;
             { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg && _ts && pn > 0) fprintf(stderr, "[FCC] tree ts=%d pn=%d tail_is_r=%d\n", _ts, pn, (post[pn-1] == r) ? 1 : 0); }
             if (_ts && post[pn - 1] == r) {
                 int ok = 1, L = 0, B = 0;
@@ -448,7 +456,7 @@ void zls_build(IR_graph_t * g) {
                         else if (x->op == IR_CALL || x->op == IR_CALL_PROC_STAGED) { fc_call_register(x); fc_vwpop_register(x, (long)d * 16); }
                         else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
                     { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg) fprintf(stderr, "[FCC] REGISTERED pn=%d\n", pn); }
-                    fc_vread_register(a, 0); } } } }
+                    fc_vread_register(a, 0); } } ct_drop(postv.p); } }
     { static int subj_on = -1; if (subj_on < 0) { const char * b = getenv("SCRIP_SUBJ_CELL"); subj_on = (b && *b == '0') ? 0 : 1; }
       if (subj_on) for (int vi = 0; vi < g->n; vi++) { IR_t * h = g->all[vi]; if (!(h && h->op == IR_MATCH_BEGIN && h->n_operands > 0 && h->operands[0])) continue;
         { static int dyn_on = -1; if (dyn_on < 0) { const char * b = getenv("SCRIP_SUBJ_DYN"); dyn_on = (b && *b == '0') ? 0 : 1; }
@@ -465,8 +473,8 @@ void zls_build(IR_graph_t * g) {
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
             && _pb1s_adj) { fc_vlit_register(r); fc_subj_register(r); fc_vread_register(h, 0); continue; } }
         if ((r->op == IR_BINOP || fc_vunop_ok(r)) && r->γ.node == h && !zc_nofc()) {
-            const IR_t * post[49]; int pn = 0;
-            int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
+            cv_t postv = { 0 };
+            int _ts = fc_vtree_scan(g, r, &postv, 0); int pn = (int)postv.len; const IR_t ** post = (const IR_t **)postv.p;
             if (_ts && post[pn - 1] == r) {
                 int ok = 1, L = 0, B = 0;
                 for (int i = 0; i + 1 < pn; i++) if (post[i]->γ.node != post[i + 1]) { ok = 0; break; }
@@ -477,7 +485,7 @@ void zls_build(IR_graph_t * g) {
                         if (x->op == IR_BINOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); d -= 1; }
                         else if (x->op == IR_UNOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); }
                         else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
-                    fc_vread_register(h, 0); } } } } }
+                    fc_vread_register(h, 0); } } ct_drop(postv.p); } } }
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
@@ -646,17 +654,18 @@ void zls_build(IR_graph_t * g) {
         for (int j = 0; j < g->n; j++) { if (g->all[j] == nd->operands[1]) i0 = j; if (g->all[j] == nd->operands[2]) i1 = j; }
         if (i0 < 0 || i1 < 0) { fprintf(stderr, "zls: arbno2 geometry — body bracket operands not found in g->all\n"); abort(); }
         if (i0 > i1) { int t = i0; i0 = i1; i1 = t; }
-        int mn = 0x7fffffff, mx = 0; int azq[8]; int anzq = 0;
+        int mn = 0x7fffffff, mx = 0; cv_t azq = { 0 }; int unk = 0;
         for (int j = i0; j <= i1; j++) {
             const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0;
             if (!e) continue;
             if (e->off < mn) mn = e->off;
-            if (g->all[j]->op == IR_MATCH_ASSIGN_SAVE) { int co = -1; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].kind == ZK_PTR_GC) { co = zf[f].off; break; } if (co >= 0) { if (anzq < 8) azq[anzq++] = co; else anzq = 9; } else anzq = 9; }
+            if (g->all[j]->op == IR_MATCH_ASSIGN_SAVE) { int co = -1; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].kind == ZK_PTR_GC) { co = zf[f].off; break; }
+                                                        if (co >= 0) CV_PUSH(azq, int) = co; else unk = 1; }
             for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > mx) mx = zf[f].off + zf[f].size;
         }
-        if (za_n >= (int)(sizeof za / sizeof *za)) { fprintf(stderr, "zls: arbno2 geometry table overflow (%d)\n", (int)(sizeof za / sizeof *za)); abort(); }
-        if (mn == 0x7fffffff) za[za_n++] = (zls_ageom_t){ nd, 16, 0, {0}, 0 };
-        else                  { zls_ageom_t a; a.nd = nd; a.min_off = mn; a.span = mx - mn; a.nzq = anzq > 8 ? 9 : anzq; for (int q = 0; q < (anzq > 8 ? 0 : anzq); q++) a.zq[q] = azq[q]; za[za_n++] = a; }
+        cv_reserve(&za_v, (uint32_t)sizeof(zls_ageom_t), (uint64_t)za_n + 1, "za");
+        if (mn == 0x7fffffff) { ct_drop(azq.p); za[za_n++] = (zls_ageom_t){ nd, 16, 0, (int *)0, 0 }; }
+        else                  { zls_ageom_t a; a.nd = nd; a.min_off = mn; a.span = mx - mn; a.nzq = unk ? -1 : (int)azq.len; a.zq = (int *)azq.p; za[za_n++] = a; }
     }
     if (rb != rb_s) ct_drop(rb);
     zls_fct_finalize(g, 0);
@@ -700,8 +709,9 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zls_arbno_zq(const IR_t * nd, int * zq, int max) {
-    for (int i = 0; i < za_n; i++) if (za[i].nd == nd) { if (za[i].nzq > 8) return 9; int n = za[i].nzq > max ? max : za[i].nzq; for (int q = 0; q < n; q++) zq[q] = za[i].zq[q]; return n; }
+int zls_arbno_zq(const IR_t * nd, const int ** zq) {
+    for (int i = 0; i < za_n; i++) if (za[i].nd == nd) { *zq = za[i].zq; return za[i].nzq; }
+    *zq = (const int *)0;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -993,22 +1003,27 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
     int * lo = (int *)ct_alloc(sizeof(int) * (size_t)n); int * hi = (int *)ct_alloc(sizeof(int) * (size_t)n);
     for (int i = 0; i < n; i++) { lo[i] = -1; hi[i] = -1; }
     int results = 0, cand = 0, pdet = 0, pself = 0, pguard = 0, punpl = 0, ploop = 0, pdyn = 0, preader = 0, elided = 0, placed = 0, boxes = 0, pooled = 0, direct = 0, ncp = 0, nloop = 0, pool_slots = 0;
-    { int seen[64]; int sn = 0;
+    { int * seen = (int *)ct_alloc(sizeof(int) * (size_t)n); int sn = 0;
       for (int i = 0; i < n; i++) {
         const IR_t * c = g->all[i]; if (!c || zls_is_wiring(c->op)) continue;
         const zls_reuse_t * q = zls_reuse_find(r, c); if (!q) continue;
         boxes++; if (q->w >= 0) placed++;
-        if (q->pooled >= 0 && q->direct < 0) { int dup = 0; for (int t = 0; t < sn; t++) if (seen[t] == q->pooled) dup = 1; if (!dup && sn < 64) seen[sn++] = q->pooled; }
+        if (q->pooled >= 0 && q->direct < 0) { int dup = 0; for (int t = 0; t < sn; t++) if (seen[t] == q->pooled) dup = 1; if (!dup) seen[sn++] = q->pooled; }
         if (q->direct >= 0) direct++;
       }
-      pool_slots = sn; }
+      pool_slots = sn; ct_drop(seen); }
+    char * dlp = (char *)0;
     for (int i = 0; i < n; i++) {
         const IR_t * c = g->all[i]; if (!c || zls_is_wiring(c->op)) continue;
         const zls_entry_t * e = zx_find(c); if (!e || e->scope_id < r->first_scope || e->scope_id >= r->first_scope + r->n_scopes) continue;
         const zls_reuse_t * q = zls_reuse_find(r, c); if (!q) continue;
         results++;
         const char * on = bb_op_name(c->op); if (!on) on = "?";
-        char dls[160]; dls[0] = 0; if (zls_reuse_detleaf(c)) { pdet++; if (c->n_operands == 0) snprintf(dls, sizeof dls, "  det leaf %s: no beta, argv dead at gamma, no argv", IR_LIT(c).sval ? IR_LIT(c).sval : "?"); else snprintf(dls, sizeof dls, "  det leaf %s: no beta, argv dead at gamma, argv@+%d%s", IR_LIT(c).sval ? IR_LIT(c).sval : "?", zls_argv_off(c), e->aoff >= 0 ? " pooled" : " own"); }
+        const char * dls = ""; ct_drop(dlp); dlp = (char *)0;
+        if (zls_reuse_detleaf(c)) { const char * dn = IR_LIT(c).sval ? IR_LIT(c).sval : "?"; pdet++;
+            if (c->n_operands == 0) dlp = ct_fmt("  det leaf %s: no beta, argv dead at gamma, no argv", dn);
+            else dlp = ct_fmt("  det leaf %s: no beta, argv dead at gamma, argv@+%d%s", dn, zls_argv_off(c), e->aoff >= 0 ? " pooled" : " own");
+            dls = dlp; }
         { int shared = 0; for (int t = 0; t < ze_n; t++) if (ze[t].off == e->off && ze[t].scope_id >= r->first_scope && ze[t].scope_id < r->first_scope + r->n_scopes && ze[t].nd != c) shared = 1;
           if (shared && !e->live) { elided++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d ELIDED shared dead-result scratch: its gamma writes here at %d%s\n", e->off, on, q->w, 2 * q->w + 1, dls); continue; } }
         switch (q->cls) {
@@ -1024,18 +1039,22 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
         { char ds[64]; if (q->direct >= 0) snprintf(ds, sizeof ds, " direct: argv block slot %d, the marshal copies nothing", q->direct); else snprintf(ds, sizeof ds, "%s", q->pooled >= 0 ? " pooled" : " unpooled");
           fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d CANDIDATE reads=%d%s%s%s\n", e->off, on, q->w, q->last, q->nread, e->live ? "" : " dead-result", ds, dls); }
     }
+    ct_drop(dlp);
     int packed = 0;
     for (int i = 0; i < n; i++) if (lo[i] >= 0) for (int t = lo[i]; t <= hi[i]; t++) { int depth = 0; for (int k = 0; k < n; k++) if (lo[k] >= 0 && lo[k] <= t && hi[k] >= t) depth++; if (depth > packed) packed = depth; }
     { const zls_reuse_t * q0 = (r->n_reuse > 0) ? &r->reuse[0] : (const zls_reuse_t *)0; if (q0 && q0->lhi >= 0) nloop = 1; }
     for (int i = 0; i < r->n_reuse; i++) if (r->reuse[i].cls == ZR_SELF || r->reuse[i].cls == ZR_GUARD) ncp++;
     int predicted = r->region - 16 * ((cand - pooled - direct) - packed > 0 ? (cand - pooled - direct) - packed : 0);
-    char scr[200]; if (r->scratch_pool >= 0) snprintf(scr, sizeof scr, "overlay(pool slot %d: no dead write lands inside a pooled interval)", r->scratch_pool);
-    else if (r->scratch_hit_w && r->scratch_hit_t) { const zls_reuse_t * qw = zls_reuse_find(r, r->scratch_hit_w), * qt = zls_reuse_find(r, r->scratch_hit_t); snprintf(scr, sizeof scr, "own(REFUSED: %s dead write at %d lands inside %s [%d..%d] on every pool slot)", bb_op_name(r->scratch_hit_w->op), qw ? 2 * qw->w + 1 : -1, bb_op_name(r->scratch_hit_t->op), qt ? 2 * qt->w + 1 : -1, qt ? 2 * qt->last : -1); }
-    else if (r->scratch_hit_w) snprintf(scr, sizeof scr, "own(REFUSED: %s is a dead writer whose position or scope the plan cannot bound)", bb_op_name(r->scratch_hit_w->op));
-    else snprintf(scr, sizeof scr, "%s", elided ? (pool_slots ? "own(loop: a back-edge re-runs the dead writers)" : "own(no pool slot)") : "none");
+    char * scrp = (char *)0; const char * scr;
+    if (r->scratch_pool >= 0) scr = scrp = ct_fmt("overlay(pool slot %d: no dead write lands inside a pooled interval)", r->scratch_pool);
+    else if (r->scratch_hit_w && r->scratch_hit_t) { const zls_reuse_t * qw = zls_reuse_find(r, r->scratch_hit_w), * qt = zls_reuse_find(r, r->scratch_hit_t);
+        scr = scrp = ct_fmt("own(REFUSED: %s dead write at %d lands inside %s [%d..%d] on every pool slot)", bb_op_name(r->scratch_hit_w->op), qw ? 2 * qw->w + 1 : -1,
+                            bb_op_name(r->scratch_hit_t->op), qt ? 2 * qt->w + 1 : -1, qt ? 2 * qt->last : -1); }
+    else if (r->scratch_hit_w) scr = scrp = ct_fmt("own(REFUSED: %s is a dead writer whose position or scope the plan cannot bound)", bb_op_name(r->scratch_hit_w->op));
+    else scr = elided ? (pool_slots ? "own(loop: a back-edge re-runs the dead writers)" : "own(no pool slot)") : "none";
     fprintf(fp, ";   reuse '%s' results=%d candidates=%d pooled=%d direct=%d pool_slots=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d reader=%d detleaf=%d) elided=%d spine=%d/%d betacapable=%d loops=%d packed_min=%d predicted_region_end=%d scratch=%s\n",
             r->name ? r->name : "?", results, cand, pooled, direct, pool_slots, pself + pguard + punpl + ploop + pdyn + preader, pself, pguard, punpl, ploop, pdyn, preader, pdet, elided, placed, boxes, ncp, nloop, packed, predicted, scr);
-    ct_drop(lo); ct_drop(hi);
+    ct_drop(scrp); ct_drop(lo); ct_drop(hi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_dump(FILE * fp) {
@@ -1062,14 +1081,24 @@ void zls_dump(FILE * fp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tail_candidate(const IR_t * head, const IR_t * arbno, int i0, int ia, int b0, int b1, int r1) {
-    if (!head || !arbno || fct_n >= 64) return;
+    if (!head || !arbno) return;
+    cv_reserve(&fct_v, (uint32_t)sizeof(zls_fct_t), (uint64_t)fct_n + 1, "fct");
     fct[fct_n].head = head; fct[fct_n].arbno = arbno; fct[fct_n].i0 = i0; fct[fct_n].ia = ia; fct[fct_n].b0 = b0; fct[fct_n].b1 = b1; fct[fct_n].r1 = r1;
     fct[fct_n].fpl = 0; fct[fct_n].fpb = 0; fct[fct_n].fpr = 0; fct[fct_n].fpr_rsp = 0; fct[fct_n].span = 0; fct[fct_n].rspan = 0; fct[fct_n].opsb = 0; fct[fct_n].fin = 0; fct[fct_n].nw = 0; fct_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void zls_fct_wrap_reserve(zls_fct_t * f) {
+    int nc;
+    if (f->nw < f->wcap) return;
+    nc = f->wcap ? f->wcap * 2 : 4;
+    f->wsv = (const IR_t **)ct_grow((void *)f->wsv, (size_t)nc * sizeof(const IR_t *));
+    f->wcd = (const IR_t **)ct_grow((void *)f->wcd, (size_t)nc * sizeof(const IR_t *));
+    f->wcap = nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tail_wrap(const IR_t * arbno, const IR_t * save, const IR_t * cond) {
     if (!arbno || !save || !cond) return;
-    for (int i = fct_n - 1; i >= 0; i--) if (fct[i].arbno == arbno) { if (fct[i].nw < 4) { fct[i].wsv[fct[i].nw] = save; fct[i].wcd[fct[i].nw] = cond; fct[i].nw++; } return; }
+    for (int i = fct_n - 1; i >= 0; i--) if (fct[i].arbno == arbno) { zls_fct_wrap_reserve(&fct[i]); fct[i].wsv[fct[i].nw] = save; fct[i].wcd[fct[i].nw] = cond; fct[i].nw++; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_tail_ncap(const IR_t * nd) {
@@ -1139,12 +1168,14 @@ void fc_tables_reset(void) {
     fct_n = 0; g_fcn_gen++; g_fcn_n = 0; g_fca.len = 0;
 }
 int fc_frameless_fpr_rsp(const IR_t * nd) { if (!nd) return 0; { long _fk = 0; return !fc_geom(nd, &_fk); } }
-static struct { const char * name; int fb; int fp; int uni; } pz[512];
-static int pz_n = 0;
+typedef struct { const char * name; int fb; int fp; int uni; } zls_pz_t;
+static cv_t pz_v; static int pz_n = 0;
+#define pz ((zls_pz_t *)pz_v.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_patzeta_register(const char * name, int frame_bytes, int fp_total, int uniform) {
-    if (!name || pz_n >= (int)(sizeof pz / sizeof *pz)) return;
+    if (!name) return;
     for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { pz[i].fb = frame_bytes; pz[i].fp = fp_total; pz[i].uni = uniform; return; }
+    cv_reserve(&pz_v, (uint32_t)sizeof(zls_pz_t), (uint64_t)pz_n + 1, "pz");
     pz[pz_n].name = name; pz[pz_n].fb = frame_bytes; pz[pz_n].fp = fp_total; pz[pz_n].uni = uniform; pz_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

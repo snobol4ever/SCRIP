@@ -265,10 +265,6 @@ struct IR_graph_t {
     IR_t        ** alt_redo;
     IR_t         * alt_fail;
     int            n_alts;
-    #define AG_RING 16
-    DESCR_t        ring[AG_RING];
-    int            ring_head;
-    int            ring_depth;
     int            zframe_graph;
     int            entry_frame;
     int            smx;
@@ -292,25 +288,6 @@ static inline IR_t * ir_call_arg(const IR_t * nd, int j) {
 static inline IR_t * ir_pair_arg(const IR_t * nd, int j) {
     if (!nd || j < 0 || j > 1) return NULL;
     return (nd->n_operands > 0 && j < nd->n_operands) ? nd->operands[j] : NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void ag_ring_push(IR_graph_t * cfg, DESCR_t v) {
-    if (!cfg) return;
-    cfg->ring_head = (cfg->ring_head + 1) % AG_RING;
-    cfg->ring[cfg->ring_head] = v;
-    if (cfg->ring_depth < AG_RING) cfg->ring_depth++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t ag_ring_peek(const IR_graph_t * cfg, int k) {
-    if (!cfg || k < 0 || k >= cfg->ring_depth) return FAILDESCR;
-    int idx = (cfg->ring_head - k + AG_RING) % AG_RING;
-    return cfg->ring[idx];
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void ag_ring_clear(IR_graph_t * cfg) {
-    if (!cfg) return;
-    cfg->ring_head  = -1;
-    cfg->ring_depth = 0;
 }
 IR_t       * IR_node_alloc(IR_graph_t * cfg, IR_e t);
 int          ir_operand_push(IR_t * nd, IR_t * child);

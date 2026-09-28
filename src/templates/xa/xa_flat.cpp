@@ -61,9 +61,9 @@ static std::string xa_flat_dc_stub_str(void) {
     uint64_t prep_fp;  { void (*fp)(void *, long, long, long, long, long) = rt_pl_dc_prep; prep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) {
-        static const char *dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
+        static const char * const dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
         bool need_align_pad = (np > 0) && (np % 2 == 1);
         std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
@@ -383,7 +383,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
          + xa_flat_wn_park_str(kt, fname);
-    int nf = 0, nsave = 0; int gk[29];
+    int nf = 0, nsave = 0; int gk[bb_scc_gk_cap(fname)];
     if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
         int argkt = 16 * nsave;
         s +=  x86("sub", "rsp", (long)argkt)
@@ -423,7 +423,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
     if (!xa_flat_class_c()) return std::string();
     int kt = g_emit.flat_frame_bytes;
     std::string pre;
-    { int nf = 0, nsave = 0, res_gk = -1; int gk[29];
+    { int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_cap(fname)];
       if (xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk)) {
           int argkt = 16 * nsave;
           std::string reload = (is_gamma && res_gk >= 0)

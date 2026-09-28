@@ -69,11 +69,21 @@ typedef struct stage2_t {
     int                  proc_cap;
     Resolve_PredTable         resolve_pred_table;
     ScripModuleRegistry  module_registry;
-    const char          *pl_dyn_name[64];
-    int                  pl_dyn_arity[64];
+    const char         **pl_dyn_name;
+    int                 *pl_dyn_arity;
     int                  pl_dyn_n;
+    int                  pl_dyn_cap;
     cv_t                 pl_prelude_keys;
 } stage2_t;
+static inline void stage2_pl_dyn_reserve(stage2_t *s2, int need) {
+    int nc;
+    if (need <= s2->pl_dyn_cap) return;
+    nc = s2->pl_dyn_cap ? s2->pl_dyn_cap * 2 : 8;
+    if (nc < need) nc = need;
+    s2->pl_dyn_name  = (const char **)ct_grow((void *)s2->pl_dyn_name, (size_t)nc * sizeof(const char *));
+    s2->pl_dyn_arity = (int *)ct_grow((void *)s2->pl_dyn_arity, (size_t)nc * sizeof(int));
+    s2->pl_dyn_cap   = nc;
+}
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
 typedef struct { const tree_t *prog; lower_entry_fn fn; } lower_seg_t;
 extern stage2_t g_stage2;

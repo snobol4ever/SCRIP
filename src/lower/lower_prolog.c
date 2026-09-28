@@ -58,7 +58,7 @@ void pl_dyn_mark(const char *name, int arity) {
     if (!name) return;
     if (pl_pi_is_static_builtin(name, arity)) return;
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return;
-    if (g_stage2.pl_dyn_n >= 64) return;
+    stage2_pl_dyn_reserve(&g_stage2, g_stage2.pl_dyn_n + 1);
     g_stage2.pl_dyn_name[g_stage2.pl_dyn_n] = name; g_stage2.pl_dyn_arity[g_stage2.pl_dyn_n] = arity; g_stage2.pl_dyn_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

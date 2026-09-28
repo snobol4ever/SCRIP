@@ -17,7 +17,7 @@ static int arbno_poison(void) { static int v = -1; if (v < 0) { const char * e =
 static std::string arbno_fill_cells(void) { std::string r; for (int i = 0; i < _.op_arbno_nzq; i++) { int w = _.op_arbno_zq[i] - _.op_sa + 24; r += x86("mov", RSP(w), "rax"); } return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_fill_window(long op_sb) {
-    return (!arbno_nofill() || _.op_arbno_nzq > 8)
+    return (!arbno_nofill() || _.op_arbno_nzq > 8 || _.op_arbno_nzq < 0)
              ? x86("mov", "eax", 0L) + arbno_zero_window(op_sb)
          : arbno_poison()
              ? x86("movabs", "rax", (uint64_t)0xA5A5A5A5A5A5A5A5ULL) + arbno_zero_window(op_sb) + (_.op_arbno_nzq > 0 ? x86("mov", "eax", 0L) + arbno_fill_cells() : std::string())

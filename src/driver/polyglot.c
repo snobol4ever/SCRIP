@@ -55,7 +55,7 @@ void polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s)
 }
 extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t *segs, int *nsegs, int max_segs)
+tree_t *parse_scrip_polyglot(const char *src, const char *filename, cv_t *segs, int *nsegs)
 {
     tree_t *result = ct_zalloc(1, sizeof(tree_t));
     if (!result) return NULL;
@@ -101,11 +101,12 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
         } else { ct_drop(block); continue; }
         ct_drop(block);
         if (!sub_ast || sub_ast->n == 0) { ct_drop(sub_ast); continue; }
-        if (segs && nsegs && *nsegs < max_segs) {
+        if (segs && nsegs) {
             tree_t *_sp = ct_zalloc(1, sizeof(tree_t));
             if (_sp) { _sp->t = TT_PROGRAM;
                 for (int _si = 0; _si < sub_ast->n; _si++) if (sub_ast->c[_si]) ast_push(_sp, sub_ast->c[_si]);
-                segs[*nsegs].prog = _sp; segs[*nsegs].fn = fence_fn; (*nsegs)++; }
+                cv_reserve(segs, (uint32_t)sizeof(lower_seg_t), (uint64_t)*nsegs + 1, "segs");
+                ((lower_seg_t *)segs->p)[*nsegs].prog = _sp; ((lower_seg_t *)segs->p)[*nsegs].fn = fence_fn; (*nsegs)++; }
         }
         for (int _i = 0; _i < sub_ast->n; _i++) {
             tree_t *ch = sub_ast->c[_i];
