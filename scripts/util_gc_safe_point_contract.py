@@ -539,6 +539,8 @@ def parity_step(ins, p, prbp, pr11, pslot):
 
 BOX_ENTRY_RX = re.compile(r"^n\d+_\w+_bx$")
 PORT_ENTRY_RX = re.compile(r"^(n\d+_\w+|main)_[αβγω]$")
+DC_PORT_RX = re.compile(r"^[\w.$]+_dcα$")
+CALL_ENTERED = set()
 
 
 def parity_walk(insns, succ, asm_text):
@@ -562,6 +564,8 @@ def parity_walk(insns, succ, asm_text):
     first aligned SSE store faults -- the movaps in vsnprintf that convicted bb_call_value 67/70 with the
     collector never run (CEO-1151).  Returns {poll index: (entry label, set of parities)}."""
     fn_labels = set(re.findall(r"^\s*\.type\s+([\w.$]+)\s*,\s*@function", asm_text, re.M))
+    call_targets = set(re.findall(r"^\s*call\s+([^\s;#\[]+)\s*(?:;.*)?$", asm_text, re.M))
+    CALL_ENTERED.clear()
     entries = {}
     for i, ins in enumerate(insns):
         for lab in ins.labels:
@@ -574,7 +578,9 @@ def parity_walk(insns, succ, asm_text):
     for j, i0 in enumerate(order):
         name = entries[i0]
         end = order[j + 1] if j + 1 < len(order) else len(insns)
-        p0 = 8 if name in ("main", "main_bx") else 0
+        called = name in ("main", "main_bx") or name in call_targets or DC_PORT_RX.match(name) is not None
+        if called and name not in ("main", "main_bx"): CALL_ENTERED.add(name)
+        p0 = 8 if called else 0
         st = collections.defaultdict(set)
         st[i0].add((p0, None, None, None))
         work = [i0]
@@ -597,6 +603,7 @@ def parity_rows(par, i):
         return [("K5", "UNDECIDABLE", "PARITY-UNREACHED -- no function entry reaches this poll inside its own text range")]
     name, ps = par[i]
     lab = ("function %s (entered by call, 8 mod 16)" % name if name in ("main", "main_bx")
+           else "port %s (entered by a CALL -- the direct-call port whose first pop takes the return word, 8 mod 16)" % name if name in CALL_ENTERED
            else "box %s (entered by the wiring's jump, on the grid)" % name if BOX_ENTRY_RX.match(name)
            else "port %s (entered by a jump from the wiring or an entry shim, on the grid)" % name)
     if None in ps:
