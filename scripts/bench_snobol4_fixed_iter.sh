@@ -32,7 +32,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 SCALETSV="${SCALETSV:-$B/SCALE.tsv}"
-T="${TIMEOUT:-120}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-4096}"
+T="${TIMEOUT:-120}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"
 STATIC="${STATIC:-0}"    # row m4-static-link-arm: opt-in m4 link arm, out/libscrip_rt.so stays canonical
 # ⛔ HEAP DEFAULT DIFFERS FROM ANGLE 1's 1024MB, MEASURED NOT GUESSED: angle 2's committed N values
 # target a multi-second window (vs angle 1's 500ms budget), so total allocation per run is larger by
@@ -43,7 +43,11 @@ STATIC="${STATIC:-0}"    # row m4-static-link-arm: opt-in m4 link arm, out/libsc
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
 . "$HERE/lib_static_link_snobol4.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_static_link_snobol4.sh -- the ONE static-link-arm authority." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255): never x64/bin/sbl (monitor-IPC overhead)
-SBLFLAGS="${SBLFLAGS:--s16m}"
+# ⛔ SUPERSEDED 2026-09-28 (Lon, ceo CEO-1353, RULES.md hard-cap clause 8 (g)(4)): the typed 4096 MB SCRIP_HEAP_MB window and sbl -s16m
+# above are GONE. Each unit runs at the heap and stack declared beside it (<stem>.heap/.stack, lib_declared_arena.sh), the same switches
+# to m3, the m4 binary and sbl; a collection inside the window is COUNTED (gc), never engineered away; an undeclared unit is UNGRADED.
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "REFUSING: lib_declared_arena.sh unloadable -- the one reader of a unit's declared heap and stack (CEO-1353)" >&2; exit 3; }
+SW=""
 ENGINES="${ENGINES:-sbl m3 m4}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$B" ]     || { echo "SKIP fixed-iter bench corpus missing ($B)"; exit 0; }
@@ -66,8 +70,8 @@ run1() {
   in="$(dirname "$twin")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - ORACLE-MISSING"; return; }
-         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$twin" 2>"$W/gc.err" <"$in") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" --run "$twin" 2>"$W/gc.err" <"$in") ;;
+         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SW "$twin" 2>"$W/gc.err" <"$in") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" $SW --run "$twin" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$twin" > "$W/$s.s" 2>/dev/null
          # ⛔ real if/else, not `A && B || C` -- a static-link failure must REFUSE (BUILD-ERR), never
          # silently fall through to the dynamic arm (the control-arm-trap class FINDING f4f6292c warns
@@ -79,7 +83,7 @@ run1() {
            gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null
          fi
          [ -x "$W/$s.prog" ] || { echo "- - - BUILD-ERR"; return; }
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" $SW 2>"$W/gc.err" <"$in") ;;
   esac
   local ck gc rusage_line user_us sys_us nivcsw cpu_ms
   ck=$(sed -n 's/^check: //p' <<<"$out")
@@ -108,7 +112,7 @@ best() {
 }
 echo "FIXED-ITERATION SNOBOL4 BENCHMARKS -- N fixed per kernel (SCALE.tsv), elapsed cpu time measured"
 echo "engines: $ENGINES   reps: $REPS   corpus: $B   scale: $SCALETSV"
-echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP (sbl unaffected -- separate binary)  m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)"
+echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  heap and stack: each unit's declared .heap/.stack, the same switches to m3, m4 and sbl (CEO-1353)  m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)"
 echo
 printf "%-20s %10s %12s %12s %12s   %8s %8s %5s %7s  %s\n" BENCHMARK "N" "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "gc" "nivcsw" "check"
 printf "%-20s %10s %12s %12s %12s   %8s %8s %5s %7s  %s\n" "--------------------" "----------" "------------" "------------" "------------" "--------" "--------" "-----" "-------" "-----"
@@ -118,6 +122,8 @@ for sno in "$B"/*.sno; do
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
   N=$(scale_n "$s")
   if [ -z "$N" ]; then UNSCALED="$UNSCALED $s"; continue; fi
+  SW="$(declared_switches_beside "$sno")" || { UNGRADED="$UNGRADED $s(size-refused)"; continue; }
+  [ -n "$SW" ] || { UNGRADED="$UNGRADED $s(size-undeclared)"; echo "  ⛔ $s: no .heap/.stack declared beside it (CEO-1353) -- not run at a default it did not ask for" >&2; continue; }
   # ⛔ stderr stays OUT of the capture: bench_wrap stamps `stamp: CONTEXT ...` to stderr by design
   # (sysperf attribution), and a 2>&1 here folded that stamp INTO the twin path -- every engine then
   # ran a nonexistent file, and the sbl/m3 arms rated N against the ~2ms error exit (42G iters/s
@@ -171,8 +177,8 @@ if [ -n "$UNGRADED" ]; then
 fi
 [ -z "$UNSCALED" ] && [ -z "$UNGRADED" ] && echo "coverage: every SCALE.tsv-listed kernel measured."
 if [ "$tot_gc" -gt 0 ]; then
-  echo "⛔ $tot_gc row(s) COLLECTED inside the measurement window -- raise HEAP (currently ${HEAP}MB)."
+  echo "⛔ $tot_gc row(s) COLLECTED inside the measurement window at the declared heaps (CEO-1353) -- those rates are untrusted."
 else
-  echo "gc: 0 rows collected inside the window at HEAP=${HEAP}MB -- every rate above is stall-free."
+  echo "gc: 0 rows collected inside the window at the declared heaps -- every rate above is stall-free."
 fi
 [ "$tot_bad" -eq 0 ] && [ -z "$UNGRADED" ]

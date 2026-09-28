@@ -54,13 +54,16 @@ T="${TIMEOUT:-60}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"
 # allocation and the regeneration count is COUNTED AND PRINTED per row: gc>0 marks the row untrusted
 # rather than silently averaging a stall into it.  The oracle needs no equivalent (measured: sbl is
 # insensitive to -d1024m on both allocating rows), so this equalises the condition, it does not favour.
-HEAP="${HEAP:-1024}"
+# ⛔ SUPERSEDED 2026-09-28 (Lon, ceo CEO-1353, RULES.md hard-cap clause 8 (g)(4)): the 1 GB SCRIP_HEAP_MB window above is GONE -- a runner
+# types no size of its own and never sets the collector's WINDOW. Each unit runs at the heap and stack declared beside it (<stem>.heap,
+# <stem>.stack, read by lib_declared_arena.sh), in m3, in the m4 binary and on sbl alike; a collection inside the window is COUNTED
+# (the gc column), never engineered away. An undeclared unit is named SIZE-UNDECLARED, not run at a default it did not ask for.
 # -s16m: the json deserializer's recursive descent overflows the oracle's DEFAULT stack (ERROR 246)
 # once its match runs inside ZBODY's frame.  Harmless to every other row; sizing a stack is not a
 # throughput knob.  Larger values are refused by this container ("Stack memory unavailable").
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255): x64/bin/sbl carries a monitor-IPC bridge that costs ~2.2-3.5x instructions -- timing must never use it
-SBLFLAGS="${SBLFLAGS:--s16m}"   # SIZING ONLY -- the language arm comes from sbl_lang_flags and may not be overridden here
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_declared_arena.sh unloadable -- the one reader of a unit's declared heap and stack (CEO-1353)"; exit 2; }
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
@@ -83,14 +86,16 @@ run1() {
   # variants of one grammar provably read the SAME bytes.  Microbenchmarks have no .dat and keep
   # /dev/null -- a program that expects input and finds none must not silently "pass" on empty.
   in="$(dirname "$sno")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
+  local sw; sw="$(declared_switches_beside "$sno")" || { echo "- - - - SIZE-REFUSED"; return; }
+  [ -n "$sw" ] || { echo "- - - - SIZE-UNDECLARED"; return; }
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - - ORACLE-MISSING"; return; }
-         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$run" 2>"$W/gc.err" <"$in") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" --run "$run" 2>"$W/gc.err" <"$in") ;;
+         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $sw "$run" 2>"$W/gc.err" <"$in") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" $sw --run "$run" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$run" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
               -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - - BUILD-ERR"; return; fi
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" $sw 2>"$W/gc.err" <"$in") ;;
   esac
   local it ck gc rusage_line user_us sys_us nivcsw cpu_ms
   it=$(sed -n 's/^iters: //p' <<<"$out")
@@ -123,7 +128,7 @@ best() {
 }
 echo "TIME-BASED SNOBOL4 BENCHMARKS -- fixed time budget, iterations counted"
 echo "engines: $ENGINES   reps: $REPS   corpus: $B"
-echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP (sbl unaffected -- separate binary)"
+echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  heap and stack: each unit's declared .heap/.stack, the same switches to m3, m4 and sbl (CEO-1353)"
 if [ -f "$FLOORTSV" ]; then echo "noise floor: $FLOORTSV (per-row; min-det = 3*cv; cpu = external authority, elap = external alongside)"
 else echo "noise floor: NOT BAKED -- run scripts/bake_noise_floor_snobol4_timed.sh"; fi
 echo
@@ -218,8 +223,8 @@ else
 fi
 if [ "$tot_gc" -gt 0 ]; then
   echo "⛔ $tot_gc row(s) COLLECTED inside the measurement window -- those rates are stall figures, not"
-  echo "   throughput.  Raise HEAP (currently ${HEAP}MB) until the gc column reads 0 before quoting them."
+  echo "   throughput.  The heap is the unit's declared need (CEO-1353), never a window typed here: a gc>0 row is quoted as untrusted."
 else
-  echo "gc: 0 rows collected inside the window at HEAP=${HEAP}MB -- every rate above is stall-free."
+  echo "gc: 0 rows collected inside the window at the declared heaps -- every rate above is stall-free."
 fi
 [ "$tot_bad" -eq 0 ] && [ -z "$UNGRADED" ]

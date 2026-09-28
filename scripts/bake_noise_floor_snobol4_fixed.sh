@@ -21,7 +21,10 @@ SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255) -- x64/bin/sbl carrie
 case " ${ENGINES:-sbl m3 m4} " in *" sbl "*) [ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — the sbl rows of the noise floor would be fiction, not a benign gap. Build /home/resources/spitbol-bench-oracle (see RULES.md Oracles) -- seats do not clone x64 (s255). Or run with ENGINES=\"m3 m4\" to skip sbl entirely." >&2; exit 3; };; esac
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 REPS="${REPS:-3}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
-NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-1024}"
+NOHUGE="${NOHUGE:-1}"
+# ⛔ SUPERSEDED 2026-09-28 (Lon, ceo CEO-1353, RULES.md hard-cap clause 8 (g)(4)): no typed SCRIP_HEAP_MB window. Each unit runs at the
+# heap and stack declared beside it (<stem>.heap/.stack, lib_declared_arena.sh), the same switches to m3, the m4 binary and sbl.
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "REFUSING: lib_declared_arena.sh unloadable -- the one reader of a unit's declared heap and stack (CEO-1353)" >&2; exit 3; }
 OUT="${OUT:-$B/NOISE-FLOOR.tsv}"
 # hq_P 2026-09-05: this baker APPENDS its -fixed rows to a file the timed baker headed, so it must stamp its OWN
 # oracle identity -- the two blocks are independently provenanced and can be baked days apart against different
@@ -56,6 +59,8 @@ for sno in "$B"/*.sno; do
   # stdin, so `fixed_n = INPUT` there consumes a line of DATA, never a count.  Baking makes
   # iteration-based measurement reachable for the whole corpus, which is what callgrind needs.
   bash "$HERE/bench_wrap.sh" "$sno" -o "$W/$s.bench.sno" --mode=iter --n="$n" >/dev/null || { echo "  ⛔ $s: not wrappable, skipped" >&2; continue; }
+  SW="$(declared_switches_beside "$sno")" || { echo "  ⛔ $s: its .heap/.stack is refused (the reader said why above), skipped" >&2; continue; }
+  [ -n "$SW" ] || { echo "  ⛔ $s: no .heap/.stack declared beside it (CEO-1353), skipped" >&2; continue; }
   sno="$W/$s.bench.sno"
   : > "$W/$s.stdin"
   case " $ENGINES " in *" sbl "*) sbl_clean_refuse_if_load "$sno" || exit 3;; esac
@@ -72,9 +77,9 @@ for sno in "$B"/*.sno; do
     for _ in $(seq 1 "$REPS"); do
       errfile="$W/r.err"
       case "$eng" in
-        sbl) o=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
-        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout "$T" "$SCRIP" --run "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
-        m4)  if [ "$m4ok" = 1 ]; then o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout "$T" "./$s.prog" 2>"$errfile" <"$W/$s.stdin")
+        sbl) o=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SW "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
+        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout "$T" "$SCRIP" $SW --run "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
+        m4)  if [ "$m4ok" = 1 ]; then o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout "$T" "./$s.prog" $SW 2>"$errfile" <"$W/$s.stdin")
              else o=""; : > "$errfile"; fi ;;
       esac
       rusage_line=$(grep '^BENCH_RUSAGE:' "$errfile" | tail -1)
