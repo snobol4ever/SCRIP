@@ -17,8 +17,9 @@
 # the one run is the declared one, the collector running as shipped; a difference that is a collector defect is bracketed as one
 # (measured 2026-09-23 under the old default arm: irgen.icn exhausted a 4 MB cap after 281 collections, and at 16 MB read a stale
 # table pointer in table_icn_nth resuming `every op := !!!t` inside bc_File's co-expression).
-# The oracle runs with jcont's own environment: COEXPSIZE=1000000 (every pipeline stage is a co-expression) and HEAPSIZE,
-# BLOCKSIZE, MSTKSIZE, QLSIZE unset.
+# The oracle runs in the environment jtran declares beside itself (jtran.oracle_env: jcont's own COEXPSIZE=1000000 -- every pipeline
+# stage is a co-expression, and at iconx's default 18 of the 20 modules die run-time error 302, measured 2026-09-28), every other
+# iconx size knob unset.
 #
 # EXIT: 0 every module's class files byte-identical and every exit status equal; 1 a difference (named per module);
 #       2 REFUSED -- could not build or could not measure. A gate that cannot measure never reports green.
@@ -54,6 +55,10 @@ as --64 -o "$W/jtran.o" "$W/jtran.s" 2>>"$W/scrip.log" && gcc -no-pie -o "$W/jtr
 SW="$(declared_switches_beside "$D/jtran.icn")" || refuse "jtran.heap or jtran.stack is malformed (the reader said why above)."
 [ -n "$SW" ] || refuse "jtran declares no heap and stack beside it ($D/jtran.heap, jtran.stack) -- a run at the default is not a declared run."
 declare -a SWA=(); read -r -a SWA <<<"$SW"
+# ⭐ THE ORACLE'S ENVIRONMENT IS DECLARED BESIDE jtran TOO (clause 8 (g)(3)): jtran.oracle_env, read by declared_oracle_env_beside.
+OE="$(declared_oracle_env_beside "$D/jtran.icn")" || refuse "jtran.oracle_env is malformed (the reader said why above)."
+[ -n "$OE" ] || refuse "jtran declares no oracle environment beside it ($D/jtran.oracle_env) -- the Arizona jtran dies on most modules at iconx's default co-expression size."
+declare -a OENV=(); read -r -a OENV <<<"$OE"
 printf '%-14s %-18s %-18s %s\n' MODULE ORACLE SCRIP VERDICT
 printf '%s\n' "------------------------------------------------------------------------------"
 TOT=0; SAME=0; BAD=0; ROWS=0
@@ -61,7 +66,7 @@ for f in "$W"/src/*.icn; do
     m="$(basename "$f" .icn)"
     [ -n "$WANT" ] && ! grep -qw "$m" <<<"$WANT" && continue
     ROWS=$((ROWS+1)); mkdir -p "$W/o/$m" "$W/s/$m"
-    ( cd "$W/src" && env -u HEAPSIZE -u BLOCKSIZE -u MSTKSIZE -u QLSIZE COEXPSIZE=1000000 timeout "$TMO" "$W/jtran_oracle" \
+    ( cd "$W/src" && env -u HEAPSIZE -u BLOCKSIZE -u BLKSIZE -u STRSIZE -u MSTKSIZE -u QLSIZE -u COEXPSIZE "${OENV[@]}" timeout "$TMO" "$W/jtran_oracle" \
         preproc "$m.icn" : yylex : parse : ast2ir : optim -O : bc_File -class:"l$m" -dir:"$W/o/$m/" ) >/dev/null 2>"$W/o/$m.err"; orc=$?
     ( cd "$W/src" && timeout "$TMO" "$W/jtran_scrip" "${SWA[@]}" -- \
         preproc "$m.icn" : yylex : parse : ast2ir : optim -O : bc_File -class:"l$m" -dir:"$W/s/$m/" ) >/dev/null 2>"$W/s/$m.err"; src=$?

@@ -213,6 +213,22 @@ print(decl[stem])
 PY
 }
 
+# declared_oracle_env_beside <program> -- the ORACLE's declared environment for a standalone unit (ceo CEO-1353, clause 8 (g)(3)), from
+#   its <stem>.oracle_env sidecar (one line NAME<TAB>VAR=VALUE[ VAR=VALUE]), read by corpus_suite_harness.oracle_env_declarations --
+#   CALLED, never copied. Echoes the VAR=VALUE words for `env WORDS oracle ...`, nothing when there is no sidecar; rc 2 with nothing
+#   echoed on another unit's name, a knob outside ORACLE_ENV_ADMITTED, or a value that is not a positive integer.
+declared_oracle_env_beside() {
+  local prog="$1"
+  [ -n "$prog" ] && [ -f "${prog%.*}.oracle_env" ] || return 0
+  python3 - "$prog" "$_LDA_HERE" <<'PY'
+import sys
+prog, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, here)
+import corpus_suite_harness as h
+print(" ".join(h.oracle_env_declarations(prog)))
+PY
+}
+
 # declared_arena_receipt <all_csv> -- one line naming every declaration a board is about to honour, so the
 # published row says at which arena it was graded. A board that silently honours a declaration is a board
 # whose number cannot be reproduced from its own output (RULES.md THE INSTRUMENT LAWS: a number is not

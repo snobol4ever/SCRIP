@@ -3629,6 +3629,49 @@ def stack_declarations(sno_path):
     return {}, None
 
 
+# ⛔ A CLOSED ENUMERATION: the ORACLE's own size knobs a unit may declare beside itself (ceo CEO-1353, RULES.md clause 8 (g)(3): where the
+# oracle needs more than its own default to answer a unit, the unit declares the oracle's knob verbatim, because the engines' needs and
+# units differ). iconx reads MSTKSIZE BLKSIZE STRSIZE COEXPSIZE, gprolog GLOBALSZ LOCALSZ TRAILSZ CSTRSZ; a knob joins when an oracle
+# is measured needing it. MEASURED 2026-09-28 (hq_icon): the Arizona-built JCON jtran dies run-time error 302 / rc 139 on 18 of the
+# package's 20 modules at iconx's default co-expression size and runs all 20 under jcont's own COEXPSIZE=1000000.
+ORACLE_ENV_ADMITTED = ("MSTKSIZE", "BLKSIZE", "STRSIZE", "COEXPSIZE", "GLOBALSZ", "LOCALSZ", "TRAILSZ", "CSTRSZ")
+
+
+def oracle_env_sidecar_path(src_path):
+    """<stem>.oracle_env beside a standalone unit: one line NAME<TAB>VAR=VALUE[ VAR=VALUE] -- the oracle's environment for that unit."""
+    return str(Path(src_path).with_suffix(".oracle_env"))
+
+
+def oracle_env_declarations(src_path):
+    """The VAR=VALUE words the unit at `src_path` declares for its ORACLE's run, [] when it declares none (the oracle runs at its own
+    defaults). Refuses rc=2 on a line naming another unit, a knob outside ORACLE_ENV_ADMITTED, a value that is not a positive
+    integer, or a sidecar that declares nothing for this unit -- a declaration no reader can honour is not one."""
+    _p = Path(oracle_env_sidecar_path(src_path))
+    if not _p.is_file():
+        return []
+    stem = Path(src_path).stem
+    words, seen = [], False
+    for ln, line in enumerate(_p.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name, _, rest = line.partition("\t")
+        if name.strip() != stem:
+            refuse(f"{_p}:{ln}: names {name.strip()!r}, not {stem!r} -- the sidecar's format is one line NAME<TAB>VAR=VALUE with "
+                   f"NAME the unit's stem; another unit's line is not a declaration for this one")
+        seen = True
+        for w in rest.split():
+            var, eq, val = w.partition("=")
+            if not eq or var not in ORACLE_ENV_ADMITTED:
+                refuse(f"{_p}:{ln}: {w!r} is not one of the oracle knobs a unit may declare ({' '.join(ORACLE_ENV_ADMITTED)}) -- "
+                       f"a knob joins the list when an oracle is measured needing it")
+            if not val.isdigit() or int(val) <= 0:
+                refuse(f"{_p}:{ln}: {w!r} -- the value must be a positive integer in the engine's own unit")
+            words.append(w)
+    if not seen or not words:
+        refuse(f"{_p}: declares no oracle environment for {stem!r} -- an empty declaration is not one")
+    return words
+
+
 # ⛔ A CLOSED ENUMERATION: the compile switches a unit may declare. A switch joins it when a unit needs it and the switch is
 # proven honoured at the COMPILE step in both modes (hq_snobol4 2026-09-26 on 6974ab821: scrip --compile --stlimit and
 # SCRIP_SNO_STMTKW=1 scrip --compile emit byte-identical .s, and neither turns counting on at a mode-4 binary's run).
