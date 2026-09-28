@@ -16,10 +16,13 @@ extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define AVS_CONLY() (_.op_sval && !strcmp(_.op_sval, "container-only"))
+#define AVS_FN_NAME() (AVS_CONLY() ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") \
+                               : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var"))
+#define AVS_FN() ((uint64_t)(uintptr_t)(void *)(AVS_CONLY() ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) \
+                                                          : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var)))
 std::string bb_assign_var_sub() {
     x86_begin();
-    const int conly = _.op_sval && !strcmp(_.op_sval, "container-only");
-    const uint64_t sub_fn = (uint64_t)(uintptr_t)(void *)(conly ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var));
     if (_.op_zres)
         return x86("comment", "IR_ASSIGN_VAR T[i]=v fused zd")
              + x86_alpha()
@@ -52,7 +55,7 @@ std::string bb_assign_var_sub() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86("def", L(0))
-             + x86("call",    (conly ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")), sub_fn)
+             + x86("call",    AVS_FN_NAME(), AVS_FN())
              + x86_rt_gc_poll_rec_res()
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
@@ -97,7 +100,7 @@ std::string bb_assign_var_sub() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86("def", L(0))
-             + x86("call",    (conly ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")), sub_fn)
+             + x86("call",    AVS_FN_NAME(), AVS_FN())
              + x86_rt_gc_poll_res()
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
