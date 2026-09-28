@@ -1241,7 +1241,7 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
         _copy_companions(block_text, companion_dir, Path(td))
         cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes, stdin_text=stdin_text)
     if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
-        entry = Entry("block", seq, name, block_lines, expected_text.rstrip("\n").splitlines(),
+        entry = Entry("block", seq, name, block_lines, _lf_lines(expected_text.rstrip("\n")),
                        stdin=stdin_text, xfail=not orig_green)
         if not orig_green:
             reason = "multi-line-block-verbatim(XFAIL: original already non-green)"
@@ -1745,6 +1745,23 @@ def _is_entry_start(line):
     return bool(ONE_LINE_TAG_RE.search(line))
 
 
+def _lf_lines(text):
+    """⛔⭐ LF IS THE ONLY LINE BREAK IN A CONTAINER (the coo 2026-09-28, on hq_snobol4's csnobol4_suite/alph): str.splitlines() also
+    breaks on CR, VT, FF, FS, GS, RS, NEL, LS and PS, and Path.read_text() turns every CR into LF before it -- so a ref whose oracle
+    output carries one of those bytes (alph prints &ALPHABET; ipl progs/puzz prints a form feed, progs/filexref a CR) was read back
+    as more lines than the program wrote, and the entry read FAIL against output equal to sbl -bf byte for byte. One trailing LF is
+    not a line, exactly splitlines()'s convention: "a\\n\\nb\\n" -> ["a", "", "b"], "" -> []."""
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
+def _read_lf_lines(path):
+    """A container read as bytes (no newline translation), decoded strictly as UTF-8 exactly as read_text() did, split on LF only."""
+    return _lf_lines(Path(path).read_bytes().decode("utf-8"))
+
+
 def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None, a_path=None, modes=None):
     """⛔ FOUND AND FIXED (corpus-suites-consolidation, gc family): a block used to be read as running to
     the NEXT banner -- correct only when the next entry is ALSO a block. A block immediately followed by
@@ -1762,8 +1779,8 @@ def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None, a_pat
     Verified against both existing suites: patterns.sno (all-block) and strings.sno (all ten one-liners
     first, then all three blocks) never exercise the peel path and re-read byte-identically to before this
     fix; gc.sno (the interleaved case) is what exposed it."""
-    sno_lines = Path(sno_path).read_text().splitlines()
-    ref_lines = Path(ref_path).read_text().splitlines()
+    sno_lines = _read_lf_lines(sno_path)
+    ref_lines = _read_lf_lines(ref_path)
 
     items = []
     si = 0
@@ -1847,8 +1864,8 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w
     carries SNOBOL4's format-A one-line entries and BANNER_RE). Written separately rather than
     parameterizing read_suite() itself, to avoid coupling a second dialect's reading to
     ONE_LINE_TAG_RE / _is_entry_start, which are SNOBOL4-format-A-specific and meaningless here."""
-    src_lines = Path(src_path).read_text().splitlines()
-    ref_lines = Path(ref_path).read_text().splitlines()
+    src_lines = _read_lf_lines(src_path)
+    ref_lines = _read_lf_lines(ref_path)
     entries = []
     si = ri = seq = 0
     while si < len(src_lines):
@@ -2425,7 +2442,7 @@ def cmd_convert_blocks(args):
             # splitlines() alone (no rstrip) is the correct one-trailing-newline-is-not-a-line convention:
             # "second\n\n".splitlines() == ["second", ""] (blank line preserved), "x\n".splitlines() == ["x"]
             # (no phantom blank), matching body's own convention two lines above.
-            ref_body = expected_text.splitlines()
+            ref_body = _lf_lines(expected_text)   # LF only: a ref carrying CR/VT/FF/FS/GS/RS keeps them (_lf_lines)
             entries.append(Entry("block", len(entries) + 1, name, body, ref_body, stdin=stdin_text, xfail=want_xfail))
             print(f"[{seq}/{len(pairs)}] {name}: OK{' XFAIL' if want_xfail else ''}{' (stdin)' if stdin_text is not None else ''}", file=sys.stderr)
     finally:
