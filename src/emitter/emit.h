@@ -37,20 +37,8 @@ extern int             g_use_bb_macros;
 #define MEDIUM_BINARY    (g_medium == BB_MEDIUM_BINARY)
 #define MEDIUM_MACRO_DEF (g_medium == BB_MEDIUM_MACRO_DEF)
 #include <string.h>
-#define BB_LABEL_NAME_MAX   80
 #define BB_LABEL_UNRESOLVED (-1)
-typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void bb_label_name_set(char * dst, const char * src) {
-    size_t n = src ? strlen(src) : 0;
-    if (n < (size_t) BB_LABEL_NAME_MAX) { if (n) memcpy(dst, src, n); dst[n] = '\0'; return; }
-    unsigned long long h = 1469598103934665603ULL;
-    for (const unsigned char * p = (const unsigned char *) src; *p; p++) { h ^= (unsigned long long) *p; h *= 1099511628211ULL; }
-    int keep = BB_LABEL_NAME_MAX - 18;
-    while (keep > 0 && ((unsigned char) src[keep] & 0xC0) == 0x80) keep--;
-    memcpy(dst, src, (size_t) keep);
-    snprintf(dst + keep, (size_t) (BB_LABEL_NAME_MAX - keep), "$%016llx", h);
-}
+typedef struct bb_label_t { char * name; int offset; } bb_label_t;
 #define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
 typedef enum { PATCH_REL8, PATCH_REL32, PATCH_ABS64 } bb_patch_kind_t;
@@ -190,15 +178,14 @@ void bb_emit_repalt_yield(int off, int e_slot);
 void bb_emit_repalt_test(int off);
 const char * child_cache_get_lbl   (bb_box_fn fn);
 extern void (*g_cap_fixup_cb)      (void *cap_ptr, const char *child_alpha_label);
-extern char   g_flat_data_buf[];
+extern char * g_flat_data_buf;
 extern size_t g_flat_data_len;
 extern int    g_flat_data_any;
 void data_buf_flush_pending_label(void);
 void data_buf_reset(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bb_label_t bb_label_from_name(const char *name) {
-    bb_label_t lbl = { {0}, -1 };
-    if (name) bb_label_name_set(lbl.name, name);
+    bb_label_t lbl = { ct_strdup(name ? name : ""), -1 };
     return lbl;
 }
 #ifdef __cplusplus
@@ -297,9 +284,6 @@ typedef struct {
     int                          op_a_descr;
     int                          op_arith_descr;
     int                          op_parts_n;
-    int                          op_parts_tag[32];
-    const char *                 op_parts_str[32];
-    const char *                 op_parts_lbl[32];
     int64_t *                    op_parts_ival;
     int                          op_parts_cap;
     int64_t *                    gz_arg_slots;
@@ -321,7 +305,6 @@ typedef struct {
     long                         op_fc_bytes;
     int                          op_fc_base;
     long                         op_fc_fpmax;
-    int                          op_fc_arm_fp[16];
     long                         op_fc_disp;
     int                          op_tail;
     int                          op_tail_fpb;
@@ -389,15 +372,12 @@ typedef struct {
     int                          hdr_has_reg;
     int                          reg_expr_count;
     int                          reg_count;
-    char                         bb_ptr_slot_lbl[88];
+    const char *                 bb_ptr_slot_lbl;
     int                          bb_cs_id;
     void *                       bb_cs_zeta;
     void *                       bb_rt_obj;
     const char *                 bb_child_lbl;
     void *                       bb_child_fn;
-    char                         bb_ls_buf[64];
-    char                         bb_rs_buf[64];
-    char                         bb_op_buf[64];
     const char *                 bb_ls;
     int                          pat_via_dtp;
     const char *                 bb_rs;
@@ -462,17 +442,14 @@ typedef struct {
     int                          xa_bb_emit_pair_n;
     int                          x86_uid;
     const char *                 x86_uid_kind;
-    char                         x86_uid_kind_buf[48];
     int                          x86_scratch_off;
     int *                        op_arg_slot;
     int                          op_arg_slot_cap;
     int                          op_arg_slot_n;
     int                          op_define_role;
-    int                          op_arbno_zq[8];
+    const int *                  op_arbno_zq;
     int                          op_arbno_nzq;
     int                          sn4_defer_cell_n;
-    int                          flat_cap_off[48];
-    int                          flat_cap_n;
     int                          op_arbno_dt;
     int                          op_arbno_dt_susp;
     int                          op_defer_leaf_susp;
@@ -665,7 +642,7 @@ namespace EmitStr {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 template<typename... Args>
 inline std::string format_str(const char * fmt, Args... args) {
-    char buf[4096];
+    char buf[fmt_len(fmt, args...)];
     snprintf(buf, sizeof buf, fmt, args...);
     return std::string(buf);
 }

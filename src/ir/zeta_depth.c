@@ -132,7 +132,7 @@ void zdp_report(IR_graph_t * g, const char * tag) {
     zdp_bomb_census(g, tag);
     if (zdp_mode() < 2) return;
     zdp_unwind_census(g);
-    { static const char * tn[3] = { "SPINE", "ACTIVATION", "STANDING" };
+    { static const char * const tn[3] = { "SPINE", "ACTIVATION", "STANDING" };
       for (int i = 0; i < g->n; i++) { int w = zdp_why(g->all[i]); if (w == ZDP_OK || w == ZDP_UNREACHED) continue; int a = zdp_alpha(g->all[i]); int b = zdp_beta(g->all[i]);
         fprintf(stderr, "[ZDP]   node#%d op=%s %s tier=%s alpha=%s beta=%s\n", i, bb_op_name(g->all[i]->op), zdp_wname(w), tn[zdp_tier(g->all[i])], (a == ZDP_TOP) ? "TOP" : (a == ZDP_BOT) ? "BOT" : "int", (b == ZDP_TOP) ? "TOP" : (b == ZDP_BOT) ? "BOT" : "int"); } }
 }

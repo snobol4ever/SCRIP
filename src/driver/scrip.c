@@ -198,8 +198,8 @@ static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2)
                     _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
                 if (!_tn) break;
                 bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; }
-            { char _anb[300]; snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
-              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = ct_strdup(_anb); bbg->n_dentry++; break; } } }
+            { bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0;
+              bbg->dentry_name[bbg->n_dentry] = ct_fmt("%s_\xce\xb1", IR_LIT(_c).sval); bbg->n_dentry++; break; } } }
 }
 static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
@@ -309,12 +309,12 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
     }
     return 1;
 }
-static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, size_t whysz);
+static int graph_native_emittable_mode(stage2_t *s2, int for_run, const char **why);
 static int m4_icn_name_tables_data(int i, IR_graph_t *g);
 static int m4_icn_meta_present(stage2_t *s2);
 static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int graph_native_emittable(stage2_t *s2, char *why, size_t whysz) { return graph_native_emittable_mode(s2, 0, why, whysz); }
+static int graph_native_emittable(stage2_t *s2, const char **why) { return graph_native_emittable_mode(s2, 0, why); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_EXCISED || IR_LIT(r).dval != 1.0) return 0;
@@ -438,10 +438,10 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, size_t whysz) {
+static int graph_native_emittable_mode(stage2_t *s2, int for_run, const char **why) {
     extern int rt_builtin_is_known(const char *name);
     (void)for_run;
-    if (!s2) { snprintf(why, whysz, "no stage2 graph"); return 0; }
+    if (!s2) { *why = ct_fmt("no stage2 graph"); return 0; }
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all || !g->smx) continue;
@@ -449,19 +449,20 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, siz
             IR_t *nd = g->all[ni];
             if (!nd) continue;
             if (nd->op == IR_EXCISED)
-                { snprintf(why, whysz, "an excised node (op IR_EXCISED, dumped as IR_EXCISED; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 0; }
+                { *why = ct_fmt("an excised node (op IR_EXCISED, dumped as IR_EXCISED; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
+                    return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval))
-                { snprintf(why, whysz, "call '%s' is neither a user sub nor a known builtin", IR_LIT(nd).sval); return 0; }
+                { *why = ct_fmt("call '%s' is neither a user sub nor a known builtin", IR_LIT(nd).sval); return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) {
-                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else { snprintf(why, whysz, "%s condition shape has no native arm", IR_LIT(nd).sval); return 0; }
+                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else { *why = ct_fmt("%s condition shape has no native arm", IR_LIT(nd).sval); return 0; }
             }
             if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval))
-                { snprintf(why, whysz, "variable '%s' is read but never assigned and is not a parameter", IR_LIT(nd).sval); return 0; }
+                { *why = ct_fmt("variable '%s' is read but never assigned and is not a parameter", IR_LIT(nd).sval); return 0; }
             if (nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval) && !local_assign_rhs_ok_g(g, nd))
-                { snprintf(why, whysz, "assignment to '%s' has an rhs shape with no native arm", IR_LIT(nd).sval); return 0; }
+                { *why = ct_fmt("assignment to '%s' has an rhs shape with no native arm", IR_LIT(nd).sval); return 0; }
         }
     }
-    why[0] = '\0';
+    *why = "";
     return 1;
 }
 static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
@@ -822,7 +823,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
           int _gn = rt_icn_global_count();
           if (_gn > 0) {
               emit_textf("  .section .rodata\n");
-              for (int _k = 0; _k < _gn; _k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _e[1024]; x86_asm_str_escape_c(rt_icn_global_name(_k) ? rt_icn_global_name(_k) : "", _e, sizeof _e); emit_textf("  .Lstartup_ign%d: .string \"%s\"\n", _k, _e); }
+              for (int _k = 0; _k < _gn; _k++) { extern char * x86_asm_str_escape_c(const char *);
+                  char * _e = x86_asm_str_escape_c(rt_icn_global_name(_k) ? rt_icn_global_name(_k) : ""); emit_textf("  .Lstartup_ign%d: .string \"%s\"\n", _k, _e); ct_drop(_e); }
               emit_textf("  .section .text\n  .intel_syntax noprefix\n");
               for (int _k = 0; _k < _gn; _k++) emit_textf("  lea rdi, [rip + .Lstartup_ign%d]\n  call rt_icn_global_note@PLT\n", _k);
           } }
@@ -845,23 +847,26 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
                 int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
                 emit_textf("  .section .rodata\n");
-                { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
-                  emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc); }
+                { extern char * x86_asm_str_escape_c(const char *); char * _esc = x86_asm_str_escape_c(proc_names_buf[i]);
+                  emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc); ct_drop(_esc); }
                 if (pe->dyn_scope) {
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "", _esc, sizeof _esc); emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, _esc); }
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { extern char * x86_asm_str_escape_c(const char *);
+                        char * _esc = x86_asm_str_escape_c(pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : ""); emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, _esc); ct_drop(_esc); }
                     emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
                     emit_textf("  .quad 0\n");
                 }
                 if (_rkulex) {
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->lower_sc.e[k].name, _esc, sizeof _esc); emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, _esc); }
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) { extern char * x86_asm_str_escape_c(const char *);
+                        char * _esc = x86_asm_str_escape_c(pe->lower_sc.e[k].name); emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, _esc); ct_drop(_esc); }
                     emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }
                     emit_textf("  .quad 0\n");
                 }
                 IR_graph_t *_ig = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
                 int _ihas_p = m4_icn_name_tables_data(i, _ig);
-                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->result_name, _esc, sizeof _esc); emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc); }
+                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) { extern char * x86_asm_str_escape_c(const char *);
+                    char * _esc = x86_asm_str_escape_c(pe->result_name); emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc); ct_drop(_esc); }
                 emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
                 emit_textf("  .quad .Lstartup_pname%d\n", i);
                 if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));
@@ -991,17 +996,17 @@ static int m4_icn_meta_present(stage2_t *s2) {
     return 0;
 }
 static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
-    extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+    extern char * x86_asm_str_escape_c(const char *);
     if (!g || !g->icn_cells_graph) return 0;
     int has_p = (g->pnames && g->nparams > 0);
     if (has_p) {
-        for (int k = 0; k < g->nparams; k++) { char e[1024]; x86_asm_str_escape_c(g->pnames[k] ? g->pnames[k] : "", e, sizeof e); emit_textf("  .Lstartup_ipp%d_%d: .string \"%s\"\n", i, k, e); }
+        for (int k = 0; k < g->nparams; k++) { char * e = x86_asm_str_escape_c(g->pnames[k] ? g->pnames[k] : ""); emit_textf("  .Lstartup_ipp%d_%d: .string \"%s\"\n", i, k, e); ct_drop(e); }
         emit_textf("  .align 8\n  .Lstartup_ipnames%d:\n", i);
         for (int k = 0; k < g->nparams; k++) emit_textf("  .quad .Lstartup_ipp%d_%d\n", i, k);
         emit_textf("  .quad 0\n");
     }
     if (g->lnames && g->nlocals > 0) {
-        for (int k = 0; k < g->nlocals; k++) { char e[1024]; x86_asm_str_escape_c(g->lnames[k] ? g->lnames[k] : "", e, sizeof e); emit_textf("  .Lstartup_iln%d_%d: .string \"%s\"\n", i, k, e); }
+        for (int k = 0; k < g->nlocals; k++) { char * e = x86_asm_str_escape_c(g->lnames[k] ? g->lnames[k] : ""); emit_textf("  .Lstartup_iln%d_%d: .string \"%s\"\n", i, k, e); ct_drop(e); }
         emit_textf("  .align 8\n  .Lstartup_ilnames%d:\n", i);
         for (int k = 0; k < g->nlocals; k++) emit_textf("  .quad .Lstartup_iln%d_%d\n", i, k);
         emit_textf("  .quad 0\n");
@@ -1059,7 +1064,7 @@ int main(int argc, char **argv)
     int opt_pp_only        = 0;
     const char * target_name = NULL;
     const char * output_path = NULL;
-    const char *preload_path[16]; int n_preload = 0;
+    const char *preload_path[argc > 0 ? argc : 1]; int n_preload = 0;
     int argi = 1;
     for (;;) { int before_argi = argi;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
@@ -1088,7 +1093,6 @@ int main(int argc, char **argv)
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == 'L') {
         const char * lp = argv[argi] + 2;
         if (*lp == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -L needs a source file\n"); return 2; } lp = argv[++argi]; }
-        if (n_preload >= (int)(sizeof preload_path / sizeof *preload_path)) { fprintf(stderr, "scrip: too many -L files (max %d)\n", (int)(sizeof preload_path / sizeof *preload_path)); return 2; }
         preload_path[n_preload++] = lp; argi++;
     }
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekE0123456789", argv[argi][1])) {
@@ -1229,14 +1233,16 @@ int main(int argc, char **argv)
         if (scrip_exts[ei].sno)     saw_sno    = 1;
     }
     int is_sno_bb = (saw_sno || is_scrip);
-    lower_seg_t segs[64];
+    cv_t segv = { 0 };
+    lower_seg_t *segs = (lower_seg_t *)0;
     int nsegs = 0;
     tree_t  *ast_prog = NULL;
     #define RECORD_SEG(sub_ast, seg_fn) do { \
-        if ((sub_ast) && nsegs < 64) { \
+        if (sub_ast) { \
             tree_t *_sp = ct_zalloc(1, sizeof(tree_t)); \
             if (_sp) { _sp->t = TT_PROGRAM; \
                 for (int _si = 0; _si < (sub_ast)->n; _si++) if ((sub_ast)->c[_si]) ast_push(_sp, (sub_ast)->c[_si]); \
+                cv_reserve(&segv, (uint32_t)sizeof(lower_seg_t), (uint64_t)nsegs + 1, "segs"); segs = (lower_seg_t *)segv.p; \
                 segs[nsegs].prog = _sp; segs[nsegs].fn = (seg_fn); nsegs++; } } \
     } while(0)
     #define MERGE_AST(sub_ast) do { \
@@ -1263,25 +1269,23 @@ int main(int argc, char **argv)
         {
             char rp[4096];
             const char *abs_path = realpath(input_path, rp) ? rp : input_path;
-            char dirbuf[4096];
-            strncpy(dirbuf, abs_path, sizeof dirbuf - 1);
-            dirbuf[sizeof dirbuf - 1] = '\0';
+            char dirbuf[strlen(abs_path) + 1];
+            memcpy(dirbuf, abs_path, sizeof dirbuf);
             char *sl = strrchr(dirbuf, '/');
             if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); }
             else     { sno_add_include_dir("."); }
             const char *core_lib = getenv("SNO_LIB");
             if (core_lib && *core_lib) {
-                char envb[4096]; strncpy(envb, core_lib, sizeof envb - 1); envb[sizeof envb - 1] = '\0';
+                char envb[strlen(core_lib) + 1]; memcpy(envb, core_lib, sizeof envb);
                 char *sp = envb; char *tk;
                 while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) sno_add_include_dir(ct_strdup(tk));
             }
-            char walk[4096];
-            strncpy(walk, abs_path, sizeof walk - 1);
-            walk[sizeof walk - 1] = '\0';
+            char walk[strlen(abs_path) + 1];
+            memcpy(walk, abs_path, sizeof walk);
             char *p = strrchr(walk, '/');
             while (p) {
                 *p = '\0';
-                char probe[4096];
+                char probe[strlen(walk) + sizeof "/library"];
                 snprintf(probe, sizeof probe, "%s/lib", walk);
                 struct stat st;
                 int hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
@@ -1309,7 +1313,7 @@ int main(int argc, char **argv)
             char *src = ct_alloc(flen + 1);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
             fread(src, 1, flen, f); src[flen] = '\0'; fclose(f);
-            tree_t *sub_ast = parse_scrip_polyglot(src, input_path, segs, &nsegs, 64);
+            tree_t *sub_ast = parse_scrip_polyglot(src, input_path, &segv, &nsegs); segs = (lower_seg_t *)segv.p;
             ct_drop(src);
             MERGE_AST(sub_ast);
         } else if (lang_snocone || lang_prolog || lang_icon || lang_raku || lang_rebus || lang_pascal) {
@@ -1552,8 +1556,8 @@ int main(int argc, char **argv)
             drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
             { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void); proc_collect_reset(); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->static_calls) proc_collect_graph(s2->bbp.table[_gi]); g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
-            char smx_why[256];
-            if (!graph_native_emittable(s2, smx_why, sizeof smx_why)) {
+            const char * smx_why = "";
+            if (!graph_native_emittable(s2, &smx_why)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 return 1;
             }
@@ -1619,7 +1623,10 @@ int main(int argc, char **argv)
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
+                { char * _pfx = ct_fmt("proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx];
+                    int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname));
+                    g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0;
+                    if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1659,7 +1666,10 @@ int main(int argc, char **argv)
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
             { extern int g_monitor_bin; extern long g_trace_budget; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
-              if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
+              if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0;
+                  if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; const char *oq = onm ? onm : ""; char eb[2 * strlen(oq) + 1]; int ei = 0;
+                  for (const char *s = oq; *s; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0;
+                  emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
             emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage_argv@PLT\n"); if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
             int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
@@ -1691,7 +1701,8 @@ int main(int argc, char **argv)
             }
             if (s2->label_count > 0) {
                 emit_textf("  .section .rodata\n");
-                for (int k = 0; k < s2->label_count; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(s2->label_table[k].name ? s2->label_table[k].name : "", _esc, sizeof _esc); emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc); }
+                for (int k = 0; k < s2->label_count; k++) { extern char * x86_asm_str_escape_c(const char *);
+                    char * _esc = x86_asm_str_escape_c(s2->label_table[k].name ? s2->label_table[k].name : ""); emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc); ct_drop(_esc); }
                 emit_textf("  .align 8\n__label_names:\n");
                 for (int k = 0; k < s2->label_count; k++) emit_textf("  .quad .Llbln%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
@@ -1708,7 +1719,8 @@ int main(int argc, char **argv)
                           if (bbg->n_balias >= _na) break;
                           IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
                           { int _dl = 0; for (int _dq = 0; _dq < bbg->n_dentry; _dq++) if (bbg->dentry_entry[_dq] == _bn) { _dl = 1; break; } if (_dl && !sn4_define_lbl_alias()) continue; }
-                          char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+                          bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_fmt("LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5));
+                              if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
                 emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
@@ -1775,8 +1787,8 @@ int main(int argc, char **argv)
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
-            char smx_why[256];
-            if (!graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
+            const char * smx_why = "";
+            if (!graph_native_emittable_mode(s2, 1, &smx_why)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 return 1;
             }
@@ -1808,7 +1820,7 @@ int main(int argc, char **argv)
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
-                char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
+                char * _m3pfx = ct_fmt("proc_%s", pname);
                 if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
                 { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
@@ -1845,12 +1857,13 @@ int main(int argc, char **argv)
                   if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
                       if (bbg->n_balias >= _na) break;
                       IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
-                      char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+                      bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_fmt("LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5));
+                          if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
             { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
             if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;
               for (int _q = 0; _q < s2->proc_count; _q++) { const char * _ln = s2->proc_table[_q].name; if (!_ln || strncmp(_ln, "LBL__", 5) != 0) continue;
-                char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);
+                const char * _asn = asm_sym_name(_ln + 5); char _ab[fmt_len("LBL__%s", _asn)]; snprintf(_ab, sizeof _ab, "LBL__%s", _asn); int _off = emit_label_lookup_offset(_ab);
                 if (_off < 0) { static int _lw = -1; if (_lw < 0) { const char * e = getenv("SCRIP_M3_UNIFY_DIAG"); _lw = (e && *e == '1') ? 1 : 0; } if (_lw) fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in main chain\n", _ln, _ab); continue; }
                 rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb);
                 m3_seal_entry_cells(_ln + 5, (void *)fn, 0); } }
@@ -1864,7 +1877,10 @@ int main(int argc, char **argv)
             int _zframe_pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
-            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); char _pnb[4096]; if (_pn) { const char *_sl = strrchr(_pn, '/'); const char *_dt = strrchr(_pn, '.'); if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1) && (size_t)(_dt - _pn) < sizeof _pnb) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; } } rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
+            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *);
+                extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); char _pnb[_pn ? strlen(_pn) + 1 : 1];
+              if (_pn) { const char *_sl = strrchr(_pn, '/'); const char *_dt = strrchr(_pn, '.'); if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1)) { memcpy(_pnb, _pn, (size_t)(_dt - _pn));
+                  _pnb[_dt - _pn] = 0; _pn = _pnb; } } rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
             if (opt_no_exec) return 231;
             { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(opt_stack_bytes), (_zframe_graph && !_icn_cells_graph) ? 0L : RT_OUTER_RESERVE); }
             { extern void bbprof_start(void); bbprof_start(); }

@@ -42,26 +42,26 @@ extern "C" { extern int g_rt_fragment_emit; int xa_flat_class_c_pred(void); }
 #define AB_TC_REG_D "r8d"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * bb_ab_sym_name(const char * nm) {
-    static char b[256]; int j = 0;
-    for (const char * c = nm ? nm : ""; *c && j < 250; c++) { unsigned char u = (unsigned char) *c;
+    static cv_t sb; int j = 0; const char * c0 = nm ? nm : ""; cv_reserve(&sb, 1, (uint64_t)strlen(c0) * 3 + 1, "bb_ab_sym_name"); char * b = (char *)sb.p;
+    for (const char * c = c0; *c; c++) { unsigned char u = (unsigned char) *c;
         if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') b[j++] = (char) u;
-        else j += snprintf(b + j, (size_t)(256 - j), "$%02X", u); }
+        else j += snprintf(b + j, (size_t)sb.cap - (size_t)j, "$%02X", u); }
     b[j] = 0; return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int alpha_face) {
     extern int emit_label_lookup_offset(const char *);
     if (!pname || !fnbase) return;
-    char lbl[300], cell[300];
-    if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_\xce\xb1", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }
-    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  bb_ab_sym_name(pname)); snprintf(cell, sizeof cell, "entry$%s",  pname); }
+    const char * sym = alpha_face ? pname : bb_ab_sym_name(pname); const char * lf = alpha_face ? "%s_\xce\xb1" : "LBL__%s", * cf = alpha_face ? "alpha$%s" : "entry$%s";
+    char lbl[fmt_len(lf, sym)], cell[fmt_len(cf, pname)];
+    snprintf(lbl, sizeof lbl, lf, sym); snprintf(cell, sizeof cell, cf, pname);
     int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     if (!pname || !alpha) return;
-    char cell[300]; snprintf(cell, sizeof cell, "alpha$%s", pname);
+    char cell[fmt_len("alpha$%s", pname)]; snprintf(cell, sizeof cell, "alpha$%s", pname);
     *(void **)bb_ab_fn_cell_ptr(cell) = alpha;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -236,7 +236,7 @@ static std::string bb_define_sr() {
     }
     if (role == 4) {
         const char * fn4 = _.op_sval; const char * en4 = _.lbl_t0 ? _.lbl_t0 : fn4;
-        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
+        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[bb_scc_gk_cap(fn4)];
         int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
         if (!(ok4 && nf4 >= 0 && nf4 <= np4)) return inl5

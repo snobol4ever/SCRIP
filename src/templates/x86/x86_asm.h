@@ -623,8 +623,7 @@ inline std::string x86_jmp_mem(const char * base, int disp) {
         else { code += (char)(0xA0 | lo); if (sib) code += (char)0x24; code += u32le((uint32_t)disp); }
         return x86_Lrec(code);
     }
-    char b2[96]; if (disp) snprintf(b2, sizeof b2, "qword ptr [%s + %d]\n", base, disp); else snprintf(b2, sizeof b2, "qword ptr [%s]\n", base);
-    return x86_rec("jmp") + b2;
+    return x86_rec("jmp") + "qword ptr [" + base + (disp ? " + " + std::to_string(disp) : std::string()) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_fc_jcc_omega(const char * mnem) {
@@ -848,6 +847,9 @@ inline int icn_gen_zeta_ft() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 extern "C" int rt_proc_is_registered(const char * name);
+extern "C" int rt_proc_nparams(const char * name);
+extern "C" const char * bb_ab_sym_name(const char * nm);
+inline int bb_scc_gk_cap(const char * fname) { int np = (fname && rt_proc_is_registered(fname)) ? rt_proc_nparams(fname) : 0; return np > 0 ? np + 1 : 1; }
 extern "C" int rt_proc_is_generator(const char * name);
 extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);
 extern "C" int emit_graph_has_suspend(IR_graph_t * g);
@@ -931,7 +933,7 @@ extern "C" const char * bb_kind_name(int op);
 inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * ZRESN() { return "result"; }
 inline const char * ZOPN(int k) { if (k < 0 || k >= _.op_zcap) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
-inline const char * HKN(int k) { static const char * n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "rsp_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
+inline const char * HKN(int k) { static const char * const n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "rsp_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * XSAQ(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDQ("rbp", _.op_zread_xf[0] + d) : FRQ(_.op_sa + d); }
 inline const char * XSAD(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
@@ -978,7 +980,7 @@ inline const char * FFC(int d)  { return ZREFC(_.op_fence_frame_off, d, 4, FL_FE
 inline const char * FFCQ(int d) { return ZREFC(_.op_fence_frame_off, d, 8, FL_FENCE); }
 inline const char * CROQ(int cro, int d) { return ZREFS(cro ? cro : -1, d, 8, FL_CHOICE, ZSP_RAW); }
 inline const char * CROD(int cro, int d) { return ZREFS(cro ? cro : -1, d, 4, FL_CHOICE, ZSP_RAW); }
-inline const char * LIDX(long k)  { static char b[8][24]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 24, "[r13+rcx+%ld]", k); else snprintf(b[i], 24, "[r13+rcx]"); return b[i]; }
+inline const char * LIDX(long k)  { static char b[8][32]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 32, "[r13+rcx+%ld]", k); else snprintf(b[i], 32, "[r13+rcx]"); return b[i]; }
 inline long LITQ(long k) { uint64_t w; memcpy(&w, _.op_sval + k, 8); return (long) w; }
 inline void x86_rd32_modrm(std::string & c, int g, int b) { c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); if ((b & 7) == 4) c += (char)0x24; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1212,7 +1214,7 @@ inline std::string x86_frame_inc64(int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_mem64(const char * dst, const char * basebr) {
-    char rb[8]; int k = 0; for (const char * p = basebr; p && *p && k < 7; ++p) if (*p != '[' && *p != ']' && *p != ' ') rb[k++] = *p; rb[k] = 0;
+    char rb[basebr ? strlen(basebr) + 1 : 1]; int k = 0; for (const char * p = basebr; p && *p; ++p) if (*p != '[' && *p != ']' && *p != ' ') rb[k++] = *p; rb[k] = 0;
     int g = x86_rnum(dst), m = x86_rnum(rb);
     uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)((0 << 6) | ((g & 7) << 3) | (m & 7));
@@ -1220,19 +1222,12 @@ inline std::string x86_load_mem64(const char * dst, const char * basebr) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", qword ptr [" + rb + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * x86_strkeep(const std::string & v) {
-    static char ring[16][192]; static int i;
-    i = (i + 1) & 15;
-    size_t n = v.size(); if (n > 191) n = 191;
-    memcpy(ring[i], v.data(), n); ring[i][n] = 0;
-    return ring[i];
-}
 struct xop {
     const char * s; uint64_t u; int tag;
     xop()                    : s(0), u(0), tag(0) {}
     xop(const char * p)      : s(p), u(0), tag(p ? 1 : 0) {}
     xop(char * p)            : s(p), u(0), tag(p ? 1 : 0) {}
-    xop(const std::string & v) : s(x86_strkeep(v)), u(0), tag(1) {}
+    xop(const std::string & v) : s(v.c_str()), u(0), tag(1) {}
     xop(int v)               : s(0), u((uint64_t)(int64_t)v), tag(2) {}
     xop(long v)              : s(0), u((uint64_t)v), tag(2) {}
     xop(long long v)         : s(0), u((uint64_t)v), tag(2) {}
@@ -1244,7 +1239,7 @@ enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
-    char base[8]; char idx[8]; char sym[96];
+    char base[8]; char idx[8]; const char * sym;
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_port_of(const char * s) {
@@ -1296,13 +1291,13 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (!strncmp(s, "qword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP; o.off = (int)d; return; } } }
-    { char ns[32]; int k = 0; for (const char * q = s; *q && k < 31; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
+    { char ns[strlen(s) + 1]; int k = 0; for (const char * q = s; *q; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
       if (!strncmp(ns, "[r13+rcx+", 9)) { o.kind = XK_R13RCX; o.off = atoi(ns + 9); return; }
       if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; o.off = 0; return; }
       { const char * pp = strchr(ns, '+'); size_t nn = strlen(ns);
         if (ns[0] == '[' && pp && nn >= 3 && ns[nn - 1] == ']' && !strchr(pp + 1, '+') && !strchr(ns, '*')) {
-          size_t bl = (size_t)(pp - (ns + 1)); if (bl > 7) bl = 7; char bb[8]; memcpy(bb, ns + 1, bl); bb[bl] = 0;
-          size_t il = (size_t)((ns + nn - 1) - (pp + 1)); if (il > 7) il = 7; char ii[8]; memcpy(ii, pp + 1, il); ii[il] = 0;
+          size_t bl = (size_t)(pp - (ns + 1)); char bb[bl + 1]; memcpy(bb, ns + 1, bl); bb[bl] = 0;
+          size_t il = (size_t)((ns + nn - 1) - (pp + 1)); char ii[il + 1]; memcpy(ii, pp + 1, il); ii[il] = 0;
           if (x86_is_reg(bb) && x86_is_reg(ii)) { memcpy(o.base, bb, bl + 1); memcpy(o.idx, ii, il + 1); o.kind = XK_MEMBI; return; } } } }
     if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
     if (!strcmp(s, "[rip@got + __]"))          { o.kind = XK_RIPGOT; return; }
@@ -1323,8 +1318,8 @@ inline void x86_parse(const xop & x, opnd & o) {
             t = o.idx;  while (*t) { if (*t == ' ') { *t = 0; break; } t++; }
             o.kind = XK_MEMIDX8; return;
         }
-        { const char * pl = strstr(s, " + "); if (pl) { size_t bl = (size_t)(pl - (s + 1)); if (bl > 7) bl = 7;
-          char bbr[8]; memcpy(bbr, s + 1, bl); bbr[bl] = 0; char * ep = 0; long d = strtol(pl + 3, &ep, 10);
+        { const char * pl = strstr(s, " + "); if (pl) { size_t bl = (size_t)(pl - (s + 1));
+          char bbr[bl + 1]; memcpy(bbr, s + 1, bl); bbr[bl] = 0; char * ep = 0; long d = strtol(pl + 3, &ep, 10);
           if (x86_is_reg(bbr) && ep && *ep == ']') { memcpy(o.base, bbr, bl + 1); o.kind = XK_REGDISP; o.off = (int)d; return; } } }
         size_t n = strlen(s);
         if (n >= 3 && s[n - 1] == ']') {
@@ -1336,7 +1331,7 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (x86_is_reg(s)) { o.kind = XK_REG; o.reg = x86_rnum(s); return; }
     char * endp = 0; long v = strtol(s, &endp, 0);
     if (endp && endp != s && *endp == 0) { o.kind = XK_IMM; o.imm = v; return; }
-    o.kind = XK_SYM; size_t sl = strlen(s); if (sl > 95) sl = 95; memcpy(o.sym, s, sl); o.sym[sl] = 0;
+    o.kind = XK_SYM; o.sym = s;
 }
 inline std::string x86_bomb(const char * msg);
 inline std::string x86_deflabel_pair(int idx);
@@ -1948,16 +1943,15 @@ inline std::string x86_pl_trace_ev(int site, int port, const char * lbl) {
     int def = site == X86H_DEF || site == X86H_DEF_PAIR;
     if (def ? (port != X86P_ALPHA && port != X86P_BETA) : (site != X86H_JMP || (port != X86P_GAMMA && port != X86P_OMEGA))) return std::string();
     const char * own = def ? (lbl ? lbl : x86_portname(port)) : _.lbl_α;
-    char stem[192]; size_t len = own ? strlen(own) : 0;
+    size_t len = own ? strlen(own) : 0;
     if (len > 3 && own[len - 3] == '_' && (unsigned char)own[len - 2] == 0xCE) len -= 3;
-    if (len > sizeof stem - 64) len = sizeof stem - 64;
-    memcpy(stem, own ? own : "", len); stem[len] = 0;
-    if (_.op_sval && *_.op_sval) snprintf(stem + len, sizeof stem - len, " %.48s", _.op_sval);
+    std::string stem(own ? own : "", len);
+    if (_.op_sval && *_.op_sval) { stem += ' '; stem += _.op_sval; }
     const char * tgt = def ? NULL : x86_portname(port);
     long ev = (long)port | ((long)site << 4) | ((long)_.op_node_kind << 8);
     return x86("push", "rax") + x86("push", "rax") + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
          + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
-         + x86_pl_trace_ro("rdi", stem) + x86_pl_trace_ro("rsi", tgt) + x86("mov", "rdx", ev) + x86("mov", "rcx", (long)_.x86_uid) + x86("mov", "r8", "r15")
+         + x86_pl_trace_ro("rdi", stem.c_str()) + x86_pl_trace_ro("rsi", tgt) + x86("mov", "rdx", ev) + x86("mov", "rcx", (long)_.x86_uid) + x86("mov", "r8", "r15")
          + x86_call_ro("rt_pl_port_trace", (uint64_t)(uintptr_t)(void *)rt_pl_port_trace)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi") + x86("pop", "rax") + x86("pop", "rax");
@@ -2154,12 +2148,20 @@ inline std::string x86_lit_bytes(const std::string & b) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline char * x86_xi_name(int n) {
+    static cv_t names;
+    cv_reserve(&names, (uint32_t)sizeof(char *), (uint64_t)n + 1, "x86_xi_name");
+    if ((uint32_t)n >= names.len) names.len = (uint32_t)n + 1;
+    if (!CV_AT(names, char *, n)) CV_AT(names, char *, n) = ct_fmt(".Lxi%d", n);
+    return CV_AT(names, char *, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
     if (id == X86T_TGT0) return _.lbl_t0_p;
     if (id == X86T_TGT1) return _.lbl_t1_p;
     if (id < X86_INTERNAL_BASE) return x86_portlbl(id);
     if (id - X86_INTERNAL_BASE >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL bb_emit_x86: record label id %d exceeds internal[%d] -- refusing the out-of-bounds stack write\n", id, X86_INTERNAL_MAX); abort(); }
-    { bb_label_t * l = &internal[id - X86_INTERNAL_BASE]; if (l->name[0] == '\0') snprintf(l->name, BB_LABEL_NAME_MAX, ".Lxi%d", id - X86_INTERNAL_BASE); return l; }
+    { bb_label_t * l = &internal[id - X86_INTERNAL_BASE]; if (!l->name) l->name = x86_xi_name(id - X86_INTERNAL_BASE); return l; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot) {
@@ -2240,7 +2242,7 @@ inline std::string x86_internal_resolve(const std::string & s) {
 inline void bb_emit_x86(const std::string & s) {
     if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); emit_text_n(r.data(), r.size()); } return; }
     bb_label_t internal[X86_INTERNAL_MAX];
-    for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name[0] = '\0'; }
+    for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = (char *)0; }
     size_t i = 0, n = s.size();
     while (i < n) {
         char tag = s[i++];
