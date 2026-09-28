@@ -1311,7 +1311,24 @@ static const char *PL_PRELUDE_SRC =
     "'$ev'(tanh(number),float).\n"
     "'$ev'(tan(number),float).\n"
     "'$ev'(truncate(float),integer).\n"
-    "'$ev'(xor(integer,integer),integer).\n";
+    "'$ev'(xor(integer,integer),integer).\n"
+    "assertion(G):-(\\+ \\+ call(G)->true;throw(error(assertion_failed(G),assertion/1))).\n"
+    "cyclic_term(T):- \\+ acyclic_term(T).\n"
+    "sequence(OnElem,List)-->'$seq_'(List,OnElem).\n"
+    "'$seq_'([H|T],P)-->call(P,H),'$seq_'(T,P).\n"
+    "'$seq_'([],_)-->[].\n"
+    "sequence(OnElem,OnSep,List)-->'$seq_'(List,OnElem,OnSep).\n"
+    "sequence(Start,OnElem,OnSep,End,List)-->Start,'$seq_'(List,OnElem,OnSep),End,!.\n"
+    "'$seq_'(List,OnElem,OnSep)-->{var(List)},!,(call(OnElem,H)*->(OnSep->!,{List=[H|T]},'$seq_as'(T,OnElem,OnSep);{List=[H]});{List=[]}).\n"
+    "'$seq_'([H|T],OnElem,OnSep)-->call(OnElem,H),({T==[]}->[];OnSep,'$seq_'(T,OnElem,OnSep)).\n"
+    "'$seq_'([],_,_)-->[].\n"
+    "'$seq_as'([H|T],OnElem,OnSep)-->call(OnElem,H),(OnSep->!,'$seq_as'(T,OnElem,OnSep);{T=[]}).\n"
+    "optional(Match,_)-->Match,!.\n"
+    "optional(_,Default)-->Default,!.\n"
+    "foreach(Generator,Rule)-->foreach(Generator,Rule,[]).\n"
+    "foreach(Generator,Rule,Sep)-->{term_variables(Generator,GV0),sort(GV0,GV),term_variables((Rule,Sep),RV0),sort(RV0,RV),subtract(RV,GV,SGV),intersection(GV,RV,SV),Templ=..[v|SV],STempl=..[v|SGV],findall(Templ,Generator,List)},'$emit_list'(List,Templ,STempl,Rule,Sep).\n"
+    "'$emit_list'([],_,_,_,_)-->[].\n"
+    "'$emit_list'([H|T],Templ,STempl,OnElem,OnSep)-->{copy_term(t(Templ,STempl,OnElem,OnSep),t(H,STempl,OnElemC,OnSepC))},phrase(OnElemC),({T==[]}->[];phrase(OnSepC),'$emit_list'(T,Templ,STempl,OnElem,OnSep)).\n";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_clause_key(PlClause *cl, const char **name_out, int *ar_out) {
     if (!cl) return 0;
