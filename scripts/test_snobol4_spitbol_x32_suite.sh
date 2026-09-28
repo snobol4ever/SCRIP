@@ -61,7 +61,7 @@ RUN="$W/run"; mkdir -p "$RUN"; cp -R "$SUITE"/. "$RUN"/ 2>/dev/null
 . "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSE(rc=2): lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
 DECL="$W/declared_memory.tsv"
 declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
-GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; D4=0; BOTH=0; SELF=0; STREAM=0
+GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; D4=0; BOTH=0; SELF=0; STREAM=0; XG_N=0; XG_LIST=""; XG_NAMES=""
 FL3=""; FL4=""; UNG_LIST=""; DEFER_LIST=""; SELF_LIST=""
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 # ⭐ THE PROGRESS DATABASE (CEO-319/331, CEO-383 ruling 2): one row per program per mode, written once at
@@ -112,6 +112,10 @@ for sno in "$SUITE"/*.spt; do
         prog_row "$name" m4 UNGRADED "the oracle raises ERROR 022 under sbl -bf: the name lives inside an EVAL'd string literal"; continue
     fi
     GRADED=$((GRADED+1))
+    # ⛔ AN EXCLUDED PROGRAM THE ORACLE RUNS (EXCLUDED.tsv class DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27, ceo CEO-1345: EXIT(3,file)'s
+    # resumable load module, Lon: "will be done but after the announcement") is still graded and its verdicts named below, but it
+    # leaves pass, fail, rc and the denominator; it returns to them the day its row lands and its EXCLUDED.tsv row is deleted.
+    isx=0; inventory_is_excluded "$SUITE" "$base" && isx=1
     oracle_v="$(verdict_lines "$W/o.out")"; oracle_p="$(pass_lines "$W/o.out")"; oracle_f="$(fail_lines "$W/o.out")"
     if [ "$oracle_v" -gt 0 ]; then ARM=self; SELF=$((SELF+1)); SELF_LIST="${SELF_LIST}${base}\n"; else ARM=stream; STREAM=$((STREAM+1)); fi
     # --- mode 3
@@ -126,7 +130,7 @@ for sno in "$SUITE"/*.spt; do
         if gate_oracle_stdout_match "$W/o.out" "$W/m3.out" "$W/m3.err" "$rc3"; then OUT3=PASS; N3="stream: byte-equal stdout vs live sbl -bf, rc=$rc3 (oracle rc=$rcO)"
         else OUT3=FAIL; N3="stream: differs from live sbl -bf, rc=$rc3 (oracle rc=$rcO)"; fi
     fi
-    if [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
+    if [ "$isx" = 1 ]; then :; elif [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
     m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin" "$ca")"; then
         run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
@@ -139,21 +143,24 @@ for sno in "$SUITE"/*.spt; do
             if gate_oracle_stdout_match "$W/o.out" "$W/m4.out" "$W/m4.err" "$rc4"; then OUT4=PASS; N4="stream: byte-equal stdout vs live sbl -bf, rc=$rc4 (oracle rc=$rcO)"
             else OUT4=FAIL; N4="stream: differs from live sbl -bf, rc=$rc4 (oracle rc=$rcO)"; fi
         fi
-        if [ "$OUT4" = PASS ]; then P4=$((P4+1)); else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
+        if [ "$isx" = 1 ]; then :; elif [ "$OUT4" = PASS ]; then P4=$((P4+1)); else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
     else
         OUT4="${m4why%%	*}"; N4="${m4why#*	}"
-        if [ "$OUT4" = DEFERRED ]; then D4=$((D4+1)); DEFER_LIST="$DEFER_LIST $name"
+        if [ "$isx" = 1 ]; then :; elif [ "$OUT4" = DEFERRED ]; then D4=$((D4+1)); DEFER_LIST="$DEFER_LIST $name"
         else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
     fi
-    [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
+    [ "$isx" = 0 ] && [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
+    [ "$isx" = 1 ] && { XG_N=$((XG_N+1)); XG_LIST="$XG_LIST $name(m3=$OUT3,m4=$OUT4)"; XG_NAMES="$XG_NAMES $base"; }
     prog_row "$name" m3 "$OUT3" "$N3"; prog_row "$name" m4 "$OUT4" "$N4"
 done
-echo "SPITBOL_X32_BOARD shipped=$SHIPPED graded=$GRADED ungraded=$UNGRADED_N m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_deferred=$D4 self_check_arm=$SELF stream_arm=$STREAM -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=${TIMEOUT}s m4_asm_budget=${M4_ASM_MB}MB"
-echo "SPITBOL_X32_AND both_modes_pass=$BOTH/$GRADED -- the suite table states this reading (ceo-372: the AND per program; a timed-out or crashed run is HANG/CRASH, never PASS, whatever its stream; a mode 4 we DEFERRED on a declared threshold is never PASS either, and one OUR OWN toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, never in a bucket beside it -- hq_T 2026-09-12)"
+GC=$((GRADED - XG_N))
+echo "SPITBOL_X32_BOARD shipped=$SHIPPED graded=$GRADED excluded_graded=$XG_N ungraded=$UNGRADED_N m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_deferred=$D4 self_check_arm=$SELF stream_arm=$STREAM -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=${TIMEOUT}s m4_asm_budget=${M4_ASM_MB}MB"
+echo "SPITBOL_X32_AND both_modes_pass=$BOTH/$GC -- the suite table states this reading (ceo-372: the AND per program; a timed-out or crashed run is HANG/CRASH, never PASS, whatever its stream; a mode 4 we DEFERRED on a declared threshold is never PASS either, and one OUR OWN toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, never in a bucket beside it -- hq_T 2026-09-12)"
 # ⛔ THE ROW'S OWN CLAUSE: the population, said in one line, with the remainder NAMED rather than counted.
 echo "SPITBOL_X32_POPULATION graded $GRADED of $SHIPPED shipped -- the ungraded remainder ($UNGRADED_N), each with the oracle's own words:"
 if [ "$UNGRADED_N" -gt 0 ]; then printf '%b' "$UNG_LIST" | sed 's/^/UNGRADED\t/'; else printf 'UNGRADED\t(none -- every shipped program is graded)\n'; fi
 [ -n "$DEFER_LIST" ] && echo "M4-DEFERRED (WE chose not to measure, each carrying its threshold -- asm over ${M4_ASM_MB}MB or the ${TIMEOUT}s compile timeout; never a pass, and never our failure either):$DEFER_LIST"
+[ "$XG_N" -gt 0 ] && echo "EXCLUDED-GRADED (named in EXCLUDED.tsv and run anyway, out of pass, fail, rc and the denominator -- ceo CEO-1345):$XG_LIST"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"
 # ⭐ THE DECLARATION, RE-ASKED EVERY RUN.  UNGRADED.tsv is the authority on which programs are owed (a
@@ -229,13 +236,13 @@ if [ "$SUITE" = "$CANON_SUITE" ]; then
 # ⛔⭐ CEO-1286 (Lon 2026-09-26): the denominator is SHIPPED minus the programs NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv) -- none here, the
 # 36 are our oracle's own upstream tests -- so the row publishes over shipped, the unreadable ones named in UNGRADED.tsv as debt.
 . "$HERE/lib_outside_shape.sh" || exit 2
-EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "${UNG_LIST:-}" | cut -f1)")" || exit 2; DENOM=$((SHIPPED - EXCL_D_N))
-echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
-_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp x32tests "$DENOM" "$UNGRADED_N" "$EXCL_D_N")" || exit 2
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "${UNG_LIST:-}" | cut -f1) $XG_NAMES")" || exit 2; DENOM=$((SHIPPED - EXCL_D_N))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set and its $XG_N excluded-graded program(s) (CEO-1345) leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+_cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || { _cc="$(excluded_shape_stamp x32tests "$DENOM" "$UNGRADED_N" "$EXCL_D_N")" || exit 2; [ "$XG_N" -gt 0 ] && _cc="${_cc/not-in-the-SPITBOL-dialect-named-in-EXCLUDED.tsv/named-in-EXCLUDED.tsv-$((EXCL_D_N - XG_N))-not-in-the-SPITBOL-dialect-CEO-1286-and-$XG_N-deferred-after-the-announcement-by-Lons-word-CEO-1345}"; }
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite x32tests --suite-key x32tests --modes m3,m4 \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
-    --text "spitbol_x32 both_modes_pass=$BOTH/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, CEO-1286; $GRADED graded) (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GRADED · m4 $P4/$GRADED ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x32_suite.sh\`)" \
+    --text "spitbol_x32 both_modes_pass=$BOTH/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N named in EXCLUDED.tsv: not in the SPITBOL dialect, CEO-1286, or $XG_N deferred after the announcement by Lon's word, graded and named, CEO-1345; $GRADED graded) (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GC · m4 $P4/$GC ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x32_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ -z "$DEF_UNDECLARED" ]

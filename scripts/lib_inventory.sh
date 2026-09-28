@@ -247,18 +247,22 @@ inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 # names a graphics-built iconx 9.5.25a's function() lists beyond the installed NoGraphics oracle's -- or opens a window. SCRIP has no
 # Icon graphics facility yet and the oracle has none, so neither side can run them; they leave the denominator named, and a program
 # that merely links a graphics library without reaching it stays in as fixture work.
+# ⭐ AND THE PROGRAMS LON DEFERRED PAST THE ANNOUNCEMENT (Lon 2026-09-27 19:3x CDT, in-chat to the ceo, verbatim: "The EXIT() feaure to
+# save/resume executables will be done but after the announcement"; ceo CEO-1345): class DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27, a
+# program the oracle RUNS but that needs a feature Lon scheduled after the announcement (EXIT(3,file)'s resumable load module). The
+# runner still grades it and names its verdicts; it leaves pass, fail, rc and the denominator, and returns to them the day the row lands.
 # inventory_excluded_names [<pkgdir>] -- echo column 1 of <pkgdir>/EXCLUDED.tsv (default $INV_DIR); nothing when the file is absent;
-# rc 2 on a row that is not name<TAB>CLASS<TAB>evidence with CLASS one of NOT_SPITBOL_DIALECT (Lon's SPITBOL test, one outcome) or
-# NEEDS_GRAPHICS_FACILITY (Lon's graphics word).
+# rc 2 on a row that is not name<TAB>CLASS<TAB>evidence with CLASS one of NOT_SPITBOL_DIALECT (Lon's SPITBOL test, one outcome),
+# NEEDS_GRAPHICS_FACILITY (Lon's graphics word) or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 (Lon's EXIT() word, CEO-1345).
 inventory_excluded_names() {
     local d="${1:-${INV_DIR:-}}" f
     f="$d/EXCLUDED.tsv"
     [ -f "$f" ] || return 0
     awk -F'\t' '
         $0 ~ /^#/ || NF == 0 { next }
-        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
+        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
         { print $1 }
-        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT or NEEDS_GRAPHICS_FACILITY<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
+        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
 }
 # inventory_is_excluded <pkgdir> <name> -- 0 when EXCLUDED.tsv names <name> (bare or package-relative), 1 otherwise.
 inventory_is_excluded() {

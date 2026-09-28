@@ -15,6 +15,9 @@
 #   (c) HALF ONE OF THE TEST, MEASURED: every name (or its <name>_driver, gimpel) is in OUTSIDE_SPITBOL_BASELINE.tsv -- the record of
 #       what sbl -bf refuses; a program the oracle runs cannot be excluded whatever feature it uses
 #   (d) no name twice
+#   (a') OR the row is name<TAB>DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27<TAB>evidence (ceo CEO-1345; Lon 2026-09-27, verbatim: "The EXIT()
+#       feaure to save/resume executables will be done but after the announcement"), the evidence 60+ chars citing CEO-1345 -- a
+#       program the oracle RUNS, so arm (c) does not apply to it; the runner grades it, names it and leaves it out of the denominator
 #   (e) SPITBOL's own test deck is never excluded (spitbol_testpgms/*.spt, csnobol4_suite/diag1.sno, diag2.sno -- Lon 2026-09-26:
 #       "Get ALL 8 working in SCRIP since they are SPITBOL programs.")
 # and, over .github/SUITES.tsv:
@@ -25,6 +28,7 @@
 #       graded-pair population and named in its row text, not Excl (CEO-1288), so its bound is EXCLUDED.tsv alone. Arm (f) also reads
 #       every other language's package that ships a CONTAINERS.tsv (Icon's arizona_tests, jcon_tests and ipl).
 # FAIL_ONCE=1 plants a dotnet row naming a shipped program the oracle RUNS (chap8_funcs.sno), so arm (c) trips.
+# FAIL_ONCE=d plants an x64 DEFERRED-AFTER-ANNOUNCEMENT row whose evidence does not cite CEO-1345, so arm (a) trips.
 # FAIL_ONCE=f reads a copy of SUITES.tsv with jcon's today_excluded blanked and dotnet's at 99, so arm (f) trips on both bounds.
 # rc 0 = every arm holds; rc 1 = a FAIL named; rc 2 = REFUSED-TO-GRADE (no packages tree, no SUITES.tsv).
 set -uo pipefail
@@ -52,27 +56,32 @@ arm_f(){ # arm_f <suites-key> <containers counted into Excl> <EXCLUDED.tsv rows>
        else ck ok "(f) $key: today_excluded=$te, classified by $con container(s) and at most $n EXCLUDED.tsv row(s)"; fi ;; esac
 }
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-rows_of(){ grep -v '^#' "$1/EXCLUDED.tsv" | grep .; [ -n "${FAIL_ONCE:-}" ] && [ "${FAIL_ONCE}" != f ] && [ "$(basename "$1")" = dotnet ] && printf 'chap8_funcs.sno\tNOT_SPITBOL_DIALECT\tPLANTED by FAIL_ONCE: a program sbl -bf RUNS, so half one of the test fails; csnobol4 runs it too (CSNOBOL4)\n'; return 0; }
+rows_of(){ grep -v '^#' "$1/EXCLUDED.tsv" | grep .; [ -n "${FAIL_ONCE:-}" ] && [ "${FAIL_ONCE}" != f ] && [ "${FAIL_ONCE}" != d ] && [ "$(basename "$1")" = dotnet ] && printf 'chap8_funcs.sno\tNOT_SPITBOL_DIALECT\tPLANTED by FAIL_ONCE: a program sbl -bf RUNS, so half one of the test fails; csnobol4 runs it too (CSNOBOL4)\n'; [ "${FAIL_ONCE:-}" = d ] && [ "$(basename "$1")" = spitbol_x64_tests ] && printf 'host.sbl\tDEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27\tPLANTED by FAIL_ONCE=d: a deferral whose evidence cites no ruling at all, which arm (a) refuses\n'; return 0; }
 echo "=== gate: EXCLUDED.tsv names only shipped programs SPITBOL rejects for a CSNOBOL4 feature, and the row carries the count (CEO-1286) ==="
 for spec in aisnobol:aisnobol csnobol4_suite:csnobol4 dotnet:dotnet gimpel:gimpel snoflake_suite:snoflake spitbol_testpgms:testpgms spitbol_x64_tests:x64tests spitbol_x32_tests:x32tests; do
   p="${spec%%:*}"; key="${spec#*:}"; d="$PK/$p"
   if [ ! -f "$d/EXCLUDED.tsv" ]; then ck FAIL "$p: no EXCLUDED.tsv -- EXCLUDED=0 is written down, never absent"; continue; fi
-  bad_shape=""; missing=""; container=""; not_outside=""; dup=""; deck=""; n=0
+  bad_shape=""; missing=""; container=""; not_outside=""; dup=""; deck=""; n=0; ndef=0
   while IFS=$'\t' read -r name cls ev; do
     [ -n "$name" ] || continue; n=$((n+1))
-    { [ "$cls" = NOT_SPITBOL_DIALECT ] && [ "${#ev}" -ge 60 ] && printf '%s' "$ev" | grep -q 'CSNOBOL4' && printf '%s' "$ev" | grep -q 'sbl -bf'; } || bad_shape="$bad_shape $name"
+    if [ "$cls" = DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 ]; then
+      { [ "${#ev}" -ge 60 ] && printf '%s' "$ev" | grep -q 'CEO-1345'; } || bad_shape="$bad_shape $name"; ndef=$((ndef+1))
+    else
+      { [ "$cls" = NOT_SPITBOL_DIALECT ] && [ "${#ev}" -ge 60 ] && printf '%s' "$ev" | grep -q 'CSNOBOL4' && printf '%s' "$ev" | grep -q 'sbl -bf'; } || bad_shape="$bad_shape $name"
+    fi
     [ -f "$d/$name" ] || missing="$missing $name"
     [ -f "$d/CONTAINERS.tsv" ] && awk -F'\t' -v n="$name" '$1==n{f=1} END{exit f?0:1}' "$d/CONTAINERS.tsv" && container="$container $name"
     stem="${name%.*}"
-    if [ -f "$d/OUTSIDE_SPITBOL_BASELINE.tsv" ]; then
+    if [ "$cls" = DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 ]; then :
+    elif [ -f "$d/OUTSIDE_SPITBOL_BASELINE.tsv" ]; then
       awk -F'\t' -v a="$name" -v b="${stem}_driver.${name##*.}" -v c="${stem}_driver.sno" '$0 !~ /^#/ && ($1==a || $1==b || $1==c){f=1} END{exit f?0:1}' "$d/OUTSIDE_SPITBOL_BASELINE.tsv" || not_outside="$not_outside $name"
     else not_outside="$not_outside $name(no OUTSIDE_SPITBOL_BASELINE.tsv)"; fi
     case "$p/$name" in spitbol_testpgms/*|csnobol4_suite/diag1.sno|csnobol4_suite/diag2.sno) deck="$deck $name" ;; esac
   done < <(rows_of "$d")
   dup="$(rows_of "$d" | cut -f1 | sort | uniq -d | tr '\n' ' ')"
-  [ -z "$bad_shape" ] && ck ok "(a) $p: $n row(s), each NOT_SPITBOL_DIALECT with evidence naming CSNOBOL4 and sbl -bf" || ck FAIL "(a) $p: malformed row(s):$bad_shape"
+  [ -z "$bad_shape" ] && ck ok "(a) $p: $n row(s), each NOT_SPITBOL_DIALECT with evidence naming CSNOBOL4 and sbl -bf, or one of $ndef DEFERRED-AFTER-ANNOUNCEMENT citing CEO-1345" || ck FAIL "(a) $p: malformed row(s):$bad_shape"
   [ -z "$missing$container" ] && ck ok "(b) $p: every name ships and none is a container" || ck FAIL "(b) $p: not shipped:$missing container:$container"
-  [ -z "$not_outside" ] && ck ok "(c) $p: every excluded program is in OUTSIDE_SPITBOL_BASELINE.tsv (rejected by SPITBOL, half one)" || ck FAIL "(c) $p: the oracle does not refuse these, so they cannot be excluded:$not_outside"
+  [ -z "$not_outside" ] && ck ok "(c) $p: every NOT_SPITBOL_DIALECT program is in OUTSIDE_SPITBOL_BASELINE.tsv (rejected by SPITBOL, half one)" || ck FAIL "(c) $p: the oracle does not refuse these, so they cannot be excluded:$not_outside"
   [ -z "$dup" ] && ck ok "(d) $p: no name twice" || ck FAIL "(d) $p: named twice: $dup"
   [ -z "$deck" ] && ck ok "(e) $p: SPITBOL's own test deck is not excluded" || ck FAIL "(e) $p: SPITBOL's own programs excluded:$deck"
   if [ "$p" = csnobol4_suite ]; then arm_f "$key" 0 "$n"; else arm_f "$key" "$(cont_n "$d")" "$n"; fi
