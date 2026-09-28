@@ -57,7 +57,11 @@ echo "=== gate: the parallel blocking set agrees with the serial one ARM FOR ARM
 # a global and the refusal exits the gate, which is the whole difference between a guard and a decoration.
 MUT=""
 mutant(){ # mutant <dir> <sed-expr> <anchor-line> -- sets MUT
-  mkdir -p "$W/$1" && cp "$D0" "$W/$1/run_blocking_set.sh" || refuse "cannot build mutant $1"
+  # ⛔ THE MUTANT SITS AMONG ITS SIBLINGS (the coo 2026-09-28): the driver sources lib_fanout.sh beside itself since 7c75f8b0a, so a lone
+  # copy in a scratch directory refused rc 2 before it ran an arm -- (e1) and (e2) read rc=2 ARMRACE=0 in every pass from that landing on,
+  # a refusal of the mutant, not a verdict on the detector. Every sibling is linked in, so the next library it sources is found too.
+  mkdir -p "$W/$1" && cp -rs "$HERE/." "$W/$1/" 2>/dev/null; rm -f "$W/$1/run_blocking_set.sh"
+  cp "$D0" "$W/$1/run_blocking_set.sh" || refuse "cannot build mutant $1"
   grep -q "^$3\$" "$W/$1/run_blocking_set.sh" || refuse "mutant $1 has no anchor '$3' in the driver -- a mutant that does not mutate proves nothing"
   sed -i "$2" "$W/$1/run_blocking_set.sh"
   grep -q "^$3\$" "$W/$1/run_blocking_set.sh" && refuse "mutant $1 left its anchor '$3' in place -- the sed matched nothing"
