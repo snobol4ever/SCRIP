@@ -1436,8 +1436,9 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         return NULVCL;
     }
     if (selector == 1) {
-        char buf[32]; snprintf(buf, sizeof(buf), "%d", (int)getpid());
-        return STRVAL(rt_heap_strdup_c(buf));
+        const char *cmd = (n >= 2) ? VARVAL_fn(a[1]) : "";
+        fflush(NULL);
+        return INTVAL((int64_t)system(cmd ? cmd : ""));
     }
     if (selector == 2 && n >= 2) {
         int64_t want = to_int(a[1]); char abuf[4096];
