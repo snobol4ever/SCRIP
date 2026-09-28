@@ -1291,6 +1291,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                              : (nd->n_operands == 3 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "nd2") || !strcmp(IR_LIT(nd).sval, "nd2-lv"))) ? bb_subscript2()
                                              : bb_section()); return 0;
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
+    case IR_UNIFY_CONST:          bb_emit_x86(bb_unify_const());    return 0;
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(nd->n_operands == 3 ? bb_assign_var_sub() : bb_assign_var());     return 0;
     case IR_REV_ASSIGN: {
@@ -1959,6 +1960,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_a_slot = sa; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
+    case IR_UNIFY_CONST:
+        g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_DEREF: {
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = v ? drive_value_slot(v) : -1;

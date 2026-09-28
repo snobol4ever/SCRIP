@@ -984,6 +984,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_subscript.cpp \
     $(SRC)/templates/bb/bb_subscript2.cpp \
     $(SRC)/templates/bb/bb_deref.cpp \
+    $(SRC)/templates/bb/bb_unify.cpp \
     $(SRC)/templates/bb/bb_random.cpp \
     $(SRC)/templates/bb/bb_assign_var.cpp \
     $(SRC)/templates/bb/bb_assign_var_sub.cpp \

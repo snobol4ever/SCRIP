@@ -2593,6 +2593,11 @@ DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
       rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) {
+    if (atom) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)k); return c->v == DT_S && nm && !strcmp(nm, c->s ? c->s : ""); }
+    { extern int rt_descr_equal(DESCR_t, DESCR_t); DESCR_t w; memset(&w, 0, sizeof w); w.v = DT_I; w.i = k; return rt_descr_equal(*c, w) ? 1 : 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_ci_c(DESCR_t *args, long long imm, pl_tr_ctx_t *cx) {
     DESCR_t out;
     rt_pl_tr_gc_sync(cx->tr);
