@@ -9,6 +9,17 @@ extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long ele
 extern "C" int sn4_arbno_seal_omega(void);
 extern "C" int sn4_arbno_tailbeta(void);
 #include "x86_asm.h"
+#define AR_BODYBETA() (sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1))
+#define AR_CS()       ((long)(32 + ((_.op_arbno_win_bytes + 15) & ~15)))
+#define AR_HDRB()     (_.op_sa)
+#define AR_FPB()      (_.op_tail_fpb)
+#define AR_FPL()      (_.op_tail_fpl)
+#define AR_SEAL()     (_.op_tail_seal)
+#define AR_NCAP()     (_.op_tail_ncap)
+#define AR_KA()       ((int)_.op_sb + AR_FPB())
+#define AR_HDRA()     (AR_FPB() + AR_HDRB())
+#define AR_FB5_HDR()  (-(AR_FPL() + AR_KA() - AR_HDRA()))
+#define AR_FPR_RSP()  (_.op_tail_fpr_rsp)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * zv() { return "rsp"; }
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
@@ -64,7 +75,6 @@ static std::string bb_match_arbno_frameless_k() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frameless() {
-    const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
     return x86("comment", "IR_MATCH_ARBNO_FRAMELESS (ARBNO-LON: one cell, two compares, no chain)")
          + x86_alpha()
          + x86("sub", "rsp", 16L)
@@ -76,13 +86,13 @@ static std::string bb_match_arbno_frameless() {
          + x86("def", PAIR(2))
          + x86("mov", "eax", RDD("rsp", 4))
          + x86("cmp", "r14d", "eax")
-         + x86("je",  bodybeta)
+         + x86("je",  AR_BODYBETA())
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
          + x86("def", PAIR(3)) + x86("def", PAIR(5))
          + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
-         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("jne", bodybeta))
+         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("jne", AR_BODYBETA()))
          + x86("add", "rsp", 16L)
          + x86_omega();
 }
@@ -91,10 +101,8 @@ static std::string arbno_win_save(int dst) { std::string r; for (int i = 0; i < 
 static std::string arbno_win_restore(const char * cell, int src) { std::string r; for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ(cell, src + i)) + x86("mov", RDQ("rbp", _.op_arbno_win_lo + i), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frame() {
-    const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
-    long cs = 32 + ((_.op_arbno_win_bytes + 15) & ~15);
     return  x86_alpha()
-         + x86("sub", "rsp", cs)
+         + x86("sub", "rsp", AR_CS())
          + x86("mov", RDD("rsp", 0), "r14d")
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86("mov", RDQ("rsp", 8), "r12")
@@ -112,9 +120,9 @@ static std::string bb_match_arbno_frame() {
          + x86("mov", "eax", RDD("rcx", 4))
          + x86("cmp", "r14d", "eax")
          + x86("comment", "NULL-BODY GUARD: the body matched without moving the cursor -- recede INTO the body (a CHAIN body's beta is its LAST node's, PAIR(4)) for a longer match")
-         + x86("je",  bodybeta)
+         + x86("je",  AR_BODYBETA())
          + x86("comment", "COMMIT: push a fresh cell BELOW the body's live frames and snapshot the body's slot window into it")
-         + x86("sub", "rsp", cs)
+         + x86("sub", "rsp", AR_CS())
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("mov", RDD("rsp", 0), "eax")
          + x86("mov", RDD("rsp", 4), "r14d")
@@ -133,64 +141,60 @@ static std::string bb_match_arbno_frame() {
          + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("je", L(3))
               + x86("comment", "RECEDE into the instance below's body beta.  r12 is left where the body's own beta expects it: the body rolls back its own pend entries, and a second rollback here emptied a deferred capture (COO-62)")
               + arbno_win_restore("rcx", 32)
-              + x86("lea", "rsp", RDQ("rcx", (int)cs))
-              + x86("jmp", bodybeta)
+              + x86("lea", "rsp", RDQ("rcx", (int)AR_CS()))
+              + x86("jmp", AR_BODYBETA())
               + x86("def", L(3)))
-         + x86("lea", "rsp", RDQ("rcx", (int)cs))
+         + x86("lea", "rsp", RDQ("rcx", (int)AR_CS()))
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_tail() {
-    int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl, SEAL = _.op_tail_seal, NCAP = _.op_tail_ncap;
-    int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
-    int FB5_HDR = -(FPL + KA - HDRA);
-    int FPR_RSP = _.op_tail_fpr_rsp;
     return x86("comment", "IR_MATCH_ARBNO_TAIL (R12-EXIT-1 carry-the-tail rsp elements)")
          + x86_alpha()
-         + x86("sub", "rsp", (long)KA)
+         + x86("sub", "rsp", (long)AR_KA())
          + x86("mov", "eax", 0L)
-         + tail_zero(_.op_tail_dfr ? 0 : FPB, FPB + HDRB, "rax")
-         + tail_cap_zero8(HDRA + 32, NCAP, "rax")
-         + x86("mov", trd(HDRA + 0), "r14d")
-         + x86("mov", trd(HDRA + 4), "r14d")
-         + x86("stk32", (long)(HDRA + 8), 1L)
-         + x86("mov", "rax", trq(KA + FPL + 8))
-         + x86("mov", trq(HDRA + 16), "rax")
-         + x86("mov", "rax", trq(KA + FPL + 16))
-         + x86("mov", trq(HDRA + 24), "rax")
-         + tail_cap_copy(HDRA + 32, KA, NCAP)
+         + tail_zero(_.op_tail_dfr ? 0 : AR_FPB(), AR_FPB() + AR_HDRB(), "rax")
+         + tail_cap_zero8(AR_HDRA() + 32, AR_NCAP(), "rax")
+         + x86("mov", trd(AR_HDRA() + 0), "r14d")
+         + x86("mov", trd(AR_HDRA() + 4), "r14d")
+         + x86("stk32", (long)(AR_HDRA() + 8), 1L)
+         + x86("mov", "rax", trq(AR_KA() + AR_FPL() + 8))
+         + x86("mov", trq(AR_HDRA() + 16), "rax")
+         + x86("mov", "rax", trq(AR_KA() + AR_FPL() + 16))
+         + x86("mov", trq(AR_HDRA() + 24), "rax")
+         + tail_cap_copy(AR_HDRA() + 32, AR_KA(), AR_NCAP())
          + x86_gamma()
          + x86_beta()
-         + IF(FPR_RSP > 0 && arbno_fprpop(), x86("add", "rsp", (long)FPR_RSP))
-         + x86("mov", "r14d", trd(HDRA + 4))
-         + x86("mov", "rax", trq(HDRA + 16))
-         + x86("mov", "rcx", trq(HDRA + 24))
+         + IF(AR_FPR_RSP() > 0 && arbno_fprpop(), x86("add", "rsp", (long)AR_FPR_RSP()))
+         + x86("mov", "r14d", trd(AR_HDRA() + 4))
+         + x86("mov", "rax", trq(AR_HDRA() + 16))
+         + x86("mov", "rcx", trq(AR_HDRA() + 24))
          + x86("sub", "rsp", (long)_.op_sb)
          + x86("mov", "edx", 0L)
-         + tail_zero(0, HDRB, "rdx")
-         + x86("mov", trd(HDRB + 0), "r14d")
-         + x86("mov", trd(HDRB + 4), "r14d")
-         + x86("stk32", (long)(HDRB + 8), 0L)
-         + x86("mov", trq(HDRB + 16), "rax")
-         + x86("mov", trq(HDRB + 24), "rcx")
-         + tail_cap_zero8(HDRB + 32, NCAP, "rdx")
-         + tail_cap_copy(HDRB + 32, (int)_.op_sb + HDRA + 32, NCAP)
+         + tail_zero(0, AR_HDRB(), "rdx")
+         + x86("mov", trd(AR_HDRB() + 0), "r14d")
+         + x86("mov", trd(AR_HDRB() + 4), "r14d")
+         + x86("stk32", (long)(AR_HDRB() + 8), 0L)
+         + x86("mov", trq(AR_HDRB() + 16), "rax")
+         + x86("mov", trq(AR_HDRB() + 24), "rcx")
+         + tail_cap_zero8(AR_HDRB() + 32, AR_NCAP(), "rdx")
+         + tail_cap_copy(AR_HDRB() + 32, (int)_.op_sb + AR_HDRA() + 32, AR_NCAP())
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         + x86("mov", "eax", trd(HDRA + 0))
+         + x86("mov", "eax", trd(AR_HDRA() + 0))
          + x86("cmp", "r14d", "eax")
-         + x86("je",  SEAL ? L(3) : PAIR(1))
-         + x86("mov", trd(HDRA + 4), "r14d")
+         + x86("je",  AR_SEAL() ? L(3) : PAIR(1))
+         + x86("mov", trd(AR_HDRA() + 4), "r14d")
          + x86_gamma()
-         + IF(SEAL, x86("def", L(3)) + IF(FPB > 0, x86("add", "rsp", (long)FPB)))
+         + IF(AR_SEAL(), x86("def", L(3)) + IF(AR_FPB() > 0, x86("add", "rsp", (long)AR_FPB())))
          + x86("def", PAIR(3)) + x86("def", PAIR(5))
-         + x86("mov", "eax", trd(HDRB + 8))
+         + x86("mov", "eax", trd(AR_HDRB() + 8))
          + x86("test", "eax", "eax")
          + x86("jnz", L(2))
          + x86("add", "rsp", (long)_.op_sb)
-         + x86("jmp", SEAL ? L(3) : PAIR(1))
+         + x86("jmp", AR_SEAL() ? L(3) : PAIR(1))
          + x86("def", L(2))
-         + x86("mov", "r14d", trd(HDRB + 0))
+         + x86("mov", "r14d", trd(AR_HDRB() + 0))
          + x86("add", "rsp", (long)_.op_sb)
          + IF(_.flat_deep_arrival, x86("note", "old_base") + std::string(""))
          + x86_omega();
