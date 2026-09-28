@@ -227,11 +227,13 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + (x86_fb_pinned()
             ? ( x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
              + x86("mov", x86_fb(), "rsp")
-             + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64)) + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
+             + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64))
+                                                      + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
              + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
-                   x86("comment", "RUNG 10b ζ-STANDING CELLS (ARCH sec B.15, sec C ruling): one named root cell per dynamic predicate, carved INSIDE this root frame just under the header block (emit.cpp added 8*n to the "
-                                  "region) and reached from any depth as [r14 - 24 - 8k] -- never a global, never one table of all of them in one slot. ⛔ ZEROED HERE BECAUSE A CARVE IS NOT AN INITIALISATION: the bytes "
-                                  "are whatever the C stack left, and the runtime reads a NULL cell as \"this predicate has no store yet\" -- an unzeroed cell is a garbage pointer the first assertz would follow.")
+                   x86("comment", "RUNG 10b ζ-STANDING CELLS (ARCH sec B.15, sec C ruling): one named root cell per dynamic predicate, carved INSIDE this root frame just under "
+                                  "the header block (emit.cpp added 8*n to the region) and reached from any depth as [r14 - 24 - 8k] -- never a global, never one table of all of "
+                                  "them in one slot. ⛔ ZEROED HERE BECAUSE A CARVE IS NOT AN INITIALISATION: the bytes are whatever the C stack left, and the runtime reads a "
+                                  "NULL cell as \"this predicate has no store yet\" -- an unzeroed cell is a garbage pointer the first assertz would follow.")
                  + pl_standing_cells_zero(kt, g_emit_cfg->standing_cells))
          + x86("lea", "rax", RDQ("rsp", kt))
              + x86("mov", RDQ("rsp", kt - 32), "rax")
@@ -318,9 +320,16 @@ static int xa_flat_class_zf(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xa_flat_class_c(void) {
     if (!g_emit.flat_jmp_entry) { if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=no_jmp_entry\n", g_emit.nid); return 0; }
-    if (g_emit.flat_pat || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || g_emit.flat_stmt_frame) { if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=pat/gen/lcl/zframe/stmt pat=%d gen=%d lcl=%d zframe=%d stmt=%d\n", g_emit.nid, g_emit.flat_pat, g_emit.flat_gen, g_emit.flat_lcl_proc, g_emit.zframe_graph, g_emit.flat_stmt_frame); return 0; }
-    { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0) { if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=floor floor=%d\n", g_emit.nid, g_flat_frame_floor); return 0; } }
-    { int _r = (g_emit.flat_frame_bytes >= 48) ? 1 : 0; if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d PASS frame_bytes=%d -> %d\n", g_emit.nid, g_emit.flat_frame_bytes, _r); return _r; }
+    if (g_emit.flat_pat || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || g_emit.flat_stmt_frame) {
+        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=pat/gen/lcl/zframe/stmt pat=%d gen=%d lcl=%d zframe=%d stmt=%d\n",
+                                                g_emit.nid, g_emit.flat_pat, g_emit.flat_gen, g_emit.flat_lcl_proc, g_emit.zframe_graph, g_emit.flat_stmt_frame);
+        return 0; }
+    { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0) {
+        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=floor floor=%d\n", g_emit.nid, g_flat_frame_floor);
+        return 0; } }
+    { int _r = (g_emit.flat_frame_bytes >= 48) ? 1 : 0;
+      if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d PASS frame_bytes=%d -> %d\n", g_emit.nid, g_emit.flat_frame_bytes, _r);
+      return _r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_sig_gq(int gk, int w) {
@@ -363,7 +372,9 @@ static std::string xa_flat_wn_restore_str(int kt, const char * fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_prologue_str(const char * fname) {
     if (!xa_flat_class_c()) return std::string();
-    { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; } if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
+    { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; }
+      if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n",
+                                                bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
     int kt = g_emit.flat_frame_bytes;
     if (kt & 15) { fprintf(stderr, "FATAL xa_flat_chain_prologue: kt=%d (must be a 16-multiple >= 48)\n", kt); abort(); }
     std::string s = x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
@@ -380,16 +391,23 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
              + x86("lea", "r8", "[rsp + " + std::to_string(kt + argkt) + "]")
              + FOR(0, nsave, [&](int i) {
                    std::string sv = x86("note", gva_name(gk[i]))
-                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 0)) + x86("mov", "[rsp + " + std::to_string(16 * i) + "]", "r10")
-                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 8)) + x86("mov", "[rsp + " + std::to_string(16 * i + 8) + "]", "r10");
-                   if (i >= nf) return sv + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL) + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0);
+                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 0))
+                        + x86("mov", "[rsp + " + std::to_string(16 * i) + "]", "r10")
+                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 8))
+                        + x86("mov", "[rsp + " + std::to_string(16 * i + 8) + "]", "r10");
+                   if (i >= nf) return sv + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL)
+                                          + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0);
                    return sv + x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", 1 + i)
-                        + x86("mov", "r10", "[rcx + " + std::to_string(24 + 8 * i) + "]") + x86("add", "r10", "r8")
-                        + x86("mov", "r11", "[r10 + 0]") + x86("mov", xa_flat_sig_gq(gk[i], 0), "r11")
-                        + x86("mov", "r11", "[r10 + 8]") + x86("mov", xa_flat_sig_gq(gk[i], 8), "r11")
+                        + x86("mov", "r10", "[rcx + " + std::to_string(24 + 8 * i) + "]")
+                        + x86("add", "r10", "r8")
+                        + x86("mov", "r11", "[r10 + 0]")
+                        + x86("mov", xa_flat_sig_gq(gk[i], 0), "r11")
+                        + x86("mov", "r11", "[r10 + 8]")
+                        + x86("mov", xa_flat_sig_gq(gk[i], 8), "r11")
                         + x86_jmp_id(40 + i)
                         + x86_deflabel_id(1 + i)
-                        + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL) + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0)
+                        + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL)
+                        + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0)
                         + x86_deflabel_id(40 + i); });
     }
     return s;
@@ -409,24 +427,41 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
       if (xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk)) {
           int argkt = 16 * nsave;
           std::string reload = (is_gamma && res_gk >= 0)
-              ? ( x86("note", gva_name(res_gk)) + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0)) + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
+              ? ( x86("note", gva_name(res_gk))
+                + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0))
+                + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
               : std::string();
           pre = reload
          + FOR(0, nsave, [&](int i) {
                     return x86("note", gva_name(gk[i]))
-                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
-                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
+                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]")
+                         + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
+                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]")
+                         + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
               + x86("add", "rsp", (long)argkt);
           (void)nf;
       }
     }
     return pre + x86("comment", is_gamma
-                   ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] (bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx carry the typed result -- reloaded from res_gk just above (nreturn-after-indirect-assign-wrong-value fix) whenever this graph's signature info is known, otherwise still whatever the last node to reach this exit staged. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults (measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
-                   : "CLASS-C chain epilogue-ω, det-arm signature form (s272 snocone-returns-codegen): same signature reload as epilogue-γ, but the ω continuation lives at sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
+                   ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] "
+                     "(bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire "
+                     "epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx carry the typed result -- reloaded from "
+                     "res_gk just above (nreturn-after-indirect-assign-wrong-value fix) whenever this graph's signature info is known, otherwise still whatever the last node to "
+                     "reach this exit staged. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as "
+                     "failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature "
+                     "convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a "
+                     "normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) "
+                     "is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults "
+                     "(measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
+                   : "CLASS-C chain epilogue-ω, det-arm signature form (s272 snocone-returns-codegen): same signature reload as epilogue-γ, but the ω continuation lives at "
+                     "sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit "
+                     "MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two "
+                     "apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
          + xa_flat_wn_restore_str(kt, fname)
          + x86("mov", "rcx", RDQ("rsp", kt - 24))
          + x86("mov", "rcx", RDQ("rcx", is_gamma ? 8 : 16))
-         + (is_gamma ? std::string() : (x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")))
+         + (is_gamma ? std::string() : (x86("mov32", "eax", (long)DT_FAIL)
+                                      + x86("xor", "edx", "edx")))
          + x86("add", "rsp", (long)kt)
          + x86_jmp_reg("rcx");
 }
@@ -446,20 +481,37 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
     pname = xa_icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);
     std::string sk = (kind <= 4) ? "L24" + std::to_string(6 + kind) : "L" + std::to_string(235 + kind); std::string fl = ".Licn_trace_nm" + id;
-    std::string s = x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
+    std::string s = x86("push", "rax")
+                  + x86("push", "rdx") + x86_align_call_enter()
         + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
-        + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
-        + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
+        + x86("mov", "rax", RDQ("rax", 0))
+        + x86("cmp", "rax", (long)0)
+        + x86("je", sk))
+        + x86("directive", ".section .rodata")
+        + x86("directive", (fl + ": .string \"" + pname + "\"").c_str())
+        + x86("directive", ".section .text")
+        + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
-    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
-    else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8)) + x86("mov", "rdx", RDQ("r11", 0)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
-    else if (kind == 5) s += x86("mov", "rsi", "rbp") + x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
+    if (kind == 1) s += x86("mov32", "esi", (long)np)
+                      + x86("lea", "rdx", RDQ("r11", 16));
+    else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8))
+                           + x86("mov", "rdx", RDQ("r11", 0));
+    else if (kind == 5) s += x86("mov", "rsi", "rbp");
+    if (kind == 1) s += x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    else if (kind == 2) s += x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
+    else if (kind == 5) s += x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
     s += x86_rt_gc_poll();
-    s += x86("def", sk) + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax");
+    s += x86("def", sk) + x86_align_call_leave()
+       + x86("pop", "rdx")
+       + x86("pop", "rax");
     return s;
 }
-const char * xa_icn_trace_pname(void) { const char * f = g_emit.flat_fam; if (!f) return (g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (const char *)0; return (strncmp(f, "proc_", 5) == 0) ? f + 5 : f; }
+const char * xa_icn_trace_pname(void) {
+    return !g_emit.flat_fam ? ((g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (const char *)0)
+         : (strncmp(g_emit.flat_fam, "proc_", 5) == 0) ? g_emit.flat_fam + 5
+         : g_emit.flat_fam;
+}
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
@@ -486,7 +538,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
-             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt)) + x86("mov", "rbp", RDQ("rbp", kt - 8)) : x86("add", "rsp", (long)kt))
+             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt))
+                                  + x86("mov", "rbp", RDQ("rbp", kt - 8))
+                                  : x86("add", "rsp", (long)kt))
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
         return  x86("mov", "rdi", "rax")
@@ -540,7 +594,9 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
-             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt)) + x86("mov", "rbp", RDQ("rbp", kt - 8)) : x86("add", "rsp", (long)kt))
+             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt))
+                                  + x86("mov", "rbp", RDQ("rbp", kt - 8))
+                                  : x86("add", "rsp", (long)kt))
              + bb_glue_wire_ω();
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
@@ -555,7 +611,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx");
-    return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
+    return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is "
+                          "WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
          + zf_display_restore(kt)
          + zf_release(kt)

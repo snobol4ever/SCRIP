@@ -157,10 +157,10 @@ src/templates/bb/bb_var_global.cpp:32:NV_GET_fn	src/templates/bb/bb_var_global.c
 src/templates/bb/bb_var_ref.cpp:51:rt_pl_fresh_var_ref	src/templates/bb/bb_var_ref.cpp:54	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:70:rt_var_ref_cell_named	src/templates/bb/bb_var_ref.cpp:73	UNWITNESSED
 src/templates/xa/xa_flat.cpp:81:rt_arg_stage	src/templates/xa/xa_flat.cpp:82	hb_wsb_rk_iter_grep.raku
-src/templates/xa/xa_flat.cpp:454:rt_trace_call_hook_f	src/templates/xa/xa_flat.cpp:458	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
-src/templates/xa/xa_flat.cpp:455:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:458	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
-src/templates/xa/xa_flat.cpp:456:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:458	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
-src/templates/xa/xa_flat.cpp:457:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:458	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
+src/templates/xa/xa_flat.cpp:500:rt_trace_call_hook_f	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
+src/templates/xa/xa_flat.cpp:501:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
+src/templates/xa/xa_flat.cpp:502:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
+src/templates/xa/xa_flat.cpp:503:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/emitter/emit.cpp:3037:rt_trace_call_hook_f	src/emitter/emit.cpp:3041	hb_size_result_polled.icn
 src/emitter/emit.cpp:3038:rt_trace_return_hook	src/emitter/emit.cpp:3041	hb_size_result_polled.icn
 src/emitter/emit.cpp:3039:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3041	hb_size_result_polled.icn
