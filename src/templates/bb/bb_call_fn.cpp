@@ -78,7 +78,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     int resoff = bcfn_result_slot(pBB);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_fn: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && nargs > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_fn: arg count exceeds LOWER grant (TMP-ERADICATE)");
-    int argbase = resoff + 16;
+    int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     std::string s = x86_alpha()
                   + x86("comment", std::string("BOX IR_CALL ") + fn + "(...) -> rt_call_arr [operand-marshal, FAIL->ω]");
