@@ -97,6 +97,8 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
 static FILE *plc_out(void) { extern FILE *fh_cur_out_fp(void); FILE *f = fh_cur_out_fp(); return f ? f : stdout; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct plc_vmap plc_vmap;
+#define PLC_WQ_NOESC 2
+#define PLC_WQ_NONASCII 4
 struct plc_vmap { pl_cell_t *seen[1024]; int n; FILE *fp; pl_cell_t *vnv[256]; const char *vnn[256]; int vnc; int (*portray)(pl_cell_t *, plc_vmap *); void *pthrown; long pheld; };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_vname(plc_vmap *m, pl_cell_t *d)
@@ -200,12 +202,17 @@ static int plc_utf8_run(const char *q) { int n, k;
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_has_non_ascii(const char *s) { for (; *s; s++) if ((unsigned char)*s >= 0x80) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt_atom(FILE *fp, const char *name, int quoted)
 {
+    int noesc = quoted & PLC_WQ_NOESC, qna = quoted & PLC_WQ_NONASCII;
+    quoted &= 1;
     if (!name) name = "?";
-    if (quoted && plc_atom_needs_quoting(name)) {
+    if (quoted && (plc_atom_needs_quoting(name) || (qna && plc_has_non_ascii(name)))) {
         fputc('\'', fp);
         for (const char *q = name; *q; q++) {
+            if (noesc && *q != '\'') { fputc(*q, fp); continue; }
             switch (*q) {
             case '\'': fputs("''", fp); break;
             case '\\': fputs("\\\\", fp); break;
@@ -451,7 +458,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
     plc_atoms_ready();
     plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
-    int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
+    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0; long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
         pl_cell_t *pair = (pl_cell_t *)lst->p;
@@ -460,6 +467,9 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
             const char *on = prolog_atom_name(plc_fid_name(o->slen));
             pl_cell_t *oa = (pl_cell_t *)o->p;
             if (on && !strcmp(on, "quoted")) quoted = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "character_escapes")) noesc = !plc_opt_is_true(o);
+            else if (on && !strcmp(on, "quote_non_ascii")) qna = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "priority")) { pl_cell_t *a = pl_deref(&oa[0]); if ((int)a->v == DT_I && a->i >= 0 && a->i <= 1200) prio = (int)a->i; }
             else if (on && !strcmp(on, "ignore_ops")) ignore_ops = plc_opt_is_true(o);
             else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
             else if (on && !strcmp(on, "max_depth")) { pl_cell_t *a = pl_deref(&oa[0]); if ((int)a->v == DT_I) max_depth = (long)a->i; }
@@ -473,7 +483,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
         }
         lst = pl_deref(&pair[1]);
     }
-    plc_wt((pl_cell_t *)term_cell, quoted, ignore_ops, numbervars, max_depth, 0, 1200, &m);
+    plc_wt((pl_cell_t *)term_cell, quoted ? (1 | (noesc ? PLC_WQ_NOESC : 0) | (qna ? PLC_WQ_NONASCII : 0)) : 0, ignore_ops, numbervars, max_depth, 0, prio, &m);
 }
 extern const char *prolog_atom_name(int id);
 extern int    rt_last_ok(void);

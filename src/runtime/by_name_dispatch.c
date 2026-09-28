@@ -3540,7 +3540,7 @@ PL_CX_LEAF_HEAD(put_char_c, 1) { extern FILE *fh_cur_out_fp(void); extern void *
 PL_OUT_CX_LEAF(put_char_c, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_write_opt_bad(const char *on, DESCR_t a) {
-    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", 0 };
+    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", 0 };
     const char *as;
     if (!on) return 2;
     if (pl_val_unbound(a)) { for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;
@@ -3548,6 +3548,7 @@ static int pl_write_opt_bad(const char *on, DESCR_t a) {
     as = pl_atom_str(a);
     for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
     if (!strcmp(on, "max_depth")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
+    if (!strcmp(on, "priority")) return (a.v == DT_I && a.i >= 0 && a.i <= 1200) ? 0 : 2;
     if (!strcmp(on, "variable_names")) { DESCR_t l = a;
         for (;;) { if (pl_val_unbound(l)) return 1;
             if (pl_is_nil(l)) return 0;
