@@ -20,6 +20,7 @@
 # is sourced here because none applies. EXIT: 0 every selected entry PASS in both modes (or nothing to smoke, said loudly);
 # 1 a red entry; 2 could not measure (unmapped carrier, unknown feature, zero population, stale binary).
 set -u
+set -f   # ⛔ the map's `*` carrier is a word, never a glob: unquoted expansions of the hit list must not turn it into the checkout's top-level names (the cto, 2026-09-28, batch 2b: preflight read 65 arms 1 red on a core.c landing)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${AREA_SMOKE_ROOT:-$(cd "$HERE/.." && pwd)}"
 MAP="$ROOT/scripts/area_map.tsv"; [ -f "$MAP" ] || MAP="$HERE/area_map.tsv"
@@ -78,8 +79,18 @@ if [ ${#FEATS[@]} -eq 0 ]; then
     echo "AREA_SMOKE REFUSE(2): touched src/ file(s) with NO ROW in scripts/area_map.tsv:$unmapped -- add feature<TAB>carrier rows with this landing (a shared node maps to *, a frontend to lang:<x>, a helper to -)"
     exit 2
   fi
+  # ⛔ A SHARED NODE IS THE OFFICER'S, NOT A SMOKE'S (Lon 2026-09-27, verbatim: "Should catch all SPAN problems, but not all system
+  # level problems as side-effects to others. Those will be caught by the officer in charge."; CEO-1342 clause 1). A touched carrier
+  # mapped to `*` reaches every feature of every table: that union IS the whole population, the loop's own pass, and running it here
+  # would make every seat's preflight an hour long on a core.c landing. The smoke says so, names the files, runs the OTHER touched
+  # carriers' features if any, and exits 0 on the shared node alone -- the loop's next pass on origin is that landing's verdict.
+  if grep -qx '\*' <<<"$(printf '%s\n' $raw)"; then
+    shared="$(printf '%s\n' "$files" | while IFS= read -r f; do case "$f" in src/*) ;; *) continue;; esac; awk -F'\t' -v f="$f" '$1=="*" && ($2==f || (substr($2,length($2),1)=="/" && index(f,$2)==1)) {print f; exit}' "$MAP"; done | tr '\n' ' ')"
+    echo "AREA_SMOKE SHARED-NODE:$([ -n "$shared" ] && echo " $shared" || echo " (a touched carrier maps to *)") -- every feature of every table is reached, and that population is the testing officer's loop (CEO-1342), not a per-landing smoke; the loop's next pass on origin is this landing's verdict"
+    raw="$(printf '%s\n' $raw | grep -vx '\*' | tr '\n' ' ')"
+  fi
   FEATS=($(expand_features $raw))
-  if [ ${#FEATS[@]} -eq 0 ]; then echo "AREA_SMOKE NO-AREA: the touched files carry no feature area -- nothing to smoke"; exit 0; fi
+  if [ ${#FEATS[@]} -eq 0 ]; then echo "AREA_SMOKE NO-AREA: the touched files carry no feature area of their own -- nothing to smoke here"; exit 0; fi
 else
   FEATS=($(expand_features "${FEATS[@]}"))
 fi
