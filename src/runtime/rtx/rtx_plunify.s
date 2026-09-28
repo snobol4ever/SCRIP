@@ -4,7 +4,7 @@ RTX_GATE_DEF(plunify)
 #define CTX_B             8
 #define CTX_BALL         16
 #define CTX_FRAME        24
-#define PL_TR_ARENA_MASK  -33554432
+#define PL_TR_ARENA_MASK  -134217728
 #define PL_TR_BALL_SLOT   8
 #define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
 #define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0

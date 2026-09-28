@@ -16,7 +16,7 @@ void *rt_pl_tr_init(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(PL_TR_HEADER_BYTES >= PL_TR_BALL_OFF + 8, "the pending-ball slot must fit inside the trail header, below the first entry");
 _Static_assert(PL_TR_BALL_OFF >= 8, "the trail top word owns offset 0 of the header");
-_Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)33554432, "rtx_plunify.s spells this arena size as the literal mask -33554432");
+_Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)134217728, "rtx_plunify.s spells this arena size as the literal mask -33554432");
 _Static_assert(PL_TR_BALL_OFF == 8, "rtx_plunify.s spells this offset as the literal 8");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_tr_gc_root_ball(const char *base)

@@ -2,7 +2,7 @@
 #define RT_PL_TRAIL_H
 #include <stdint.h>
 #include "descr.h"
-#define PL_TR_ARENA_LG2     25
+#define PL_TR_ARENA_LG2     27
 #define PL_TR_ARENA_BYTES   ((uintptr_t)1 << PL_TR_ARENA_LG2)
 #define PL_TR_HEADER_BYTES  32
 #define PL_TR_ENTRY_BYTES   32
