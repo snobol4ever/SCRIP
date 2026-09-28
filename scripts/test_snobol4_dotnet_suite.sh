@@ -114,6 +114,27 @@ prog_row() { printf 'package\tdotnet\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$
 OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"; OUTSIDE_LIST=""
 prog_unscr() { prog_row "$1" m3 UNGRADED "$2"; prog_row "$1" m4 UNGRADED "$2"; OUTSIDE_LIST="${OUTSIDE_LIST}$1\t$2\n"; }
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
+# ⛔⭐ A SPITBOL FATAL IS GRADABLE (ceo CEO-1344 on hq_snobol4's measurement; the coo's row instruments-a-spitbol-fatal-is-gradable-...):
+# the oracle prints its fatal block on stdout and exits 0, so a program that ends in a run-time fatal (1brc.sno, asgn1.sno) has an
+# answer to grade, not a death to unscore. SCRIP's one error voice is on stderr: it is captured, rendered through the ONE renderer
+# (util_render_error_voice.py --fatal-stdout) into the oracle's block shape and appended to SCRIP's stdout; the five run-summary
+# lines the oracle prints (stmts executed, execution time msec, REGENERATIONS, memory used, memory left) are oracle-internal and
+# masked on BOTH sides through the ONE mask shim from ALL.mask beside the package (a dash on SCRIP's side, the placeholder on both).
+# An oracle that CRASHES (rc >= 128) is still unscored: a signal is not an answer.
+FATAL_GRADED=""
+fatal_render() { # $1=stdout text $2=stderr file -> the text with SCRIP's error block rendered and appended, unchanged when there is none
+    # only the SCRIP error block itself is rendered: stderr also carries the declared-table notes of run_at_declared_table, which are
+    # not the program's and must not reach the compare
+    local blk r; blk="$(awk '/^scrip: error /{p=1; print; next} p && /^  /{print; next} {p=0}' "$2")"
+    [ -n "$blk" ] || { printf '%s' "$1"; return 0; }
+    r="$(printf '%s\n' "$blk" | python3 "$HERE/util_render_error_voice.py" spitbol --fatal-stdout)"
+    if [ -n "$r" ] && [ "$r" != "$blk" ]; then printf '%s\n%s' "$1" "$r"; else printf '%s' "$1"; fi
+}
+mask_dot() { # $1=text $2=name $3=side -> the text masked per ALL.mask (the harness's own reader through the shim), unchanged without one
+    [ -f "$SUITE/ALL.mask" ] || { printf '%s' "$1"; return 0; }
+    local out; out="$(printf '%s' "$1" | python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/ALL.mask" "$2" "$W/mask_n" "--side=$3" 2>"$W/mask_err")" || { echo "⛔ REFUSE(rc=2): the CEO-409 masker refused on $2 (side $3): $(head -1 "$W/mask_err")"; exit 2; }
+    printf '%s' "$out"
+}
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"
@@ -134,13 +155,14 @@ for sno in "$SUITE"/*.sno; do
     fi
     inp="$(stdin_of "$sno")"
     gotS="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$sno" < "$inp" 2>/dev/null)"; rcS=$?
-    if [ "$rcS" -ge 128 ] || sbl_died "$gotS"; then
-        UNSCR=$((UNSCR+1))
-        if [ "$rcS" -ge 128 ]; then FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; else FLU="$FLU $name(oracle-died)"; prog_unscr "$name" "unscored: oracle died mid-report"; fi
-        continue
+    if [ "$rcS" -ge 128 ]; then
+        UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; continue
     fi
+    DIED=0; if sbl_died "$gotS"; then DIED=1; FATAL_GRADED="$FATAL_GRADED $name"; gotS="$(mask_dot "$gotS" "$name" oracle)"; fi
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
-    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>/dev/null)"; rc3=$?
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>"$W/err3")"; rc3=$?
+    [ "$DIED" = 1 ] && got3="$(mask_dot "$(fatal_render "$got3" "$W/err3")" "$name" scrip)"
+    [ -n "${DOTNET_DEBUG_DIR:-}" ] && { printf '%s' "$gotS" > "$DOTNET_DEBUG_DIR/$name.oracle"; printf '%s' "$got3" > "$DOTNET_DEBUG_DIR/$name.m3"; cp "$W/err3" "$DOTNET_DEBUG_DIR/$name.err3" 2>/dev/null; }   # what this runner compared, on request (a red a reader cannot see is a red nobody can cure)
     if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
     # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder): measured 2026-09-07 (coo) on code/palin/temp -- the
     # oracle reads TERMINAL from /dev/null, sees EOF and exits rc=0 with 0 bytes in 0 s; SCRIP spins to the timeout
@@ -148,7 +170,8 @@ for sno in "$SUITE"/*.sno; do
     # progress row and the AND line say HANG, which is what happened.
     [ "$rc3" -eq 124 ] && OUT3=HANG
     rc4=""; if compile_m4 "$sno" "$W/prog.bin" "$ca"; then
-        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>/dev/null)"; rc4=$?
+        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>"$W/err4")"; rc4=$?
+        [ "$DIED" = 1 ] && got4="$(mask_dot "$(fatal_render "$got4" "$W/err4")" "$name" scrip)"
         if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
         [ "$rc4" -eq 124 ] && OUT4=HANG
     else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP
@@ -161,6 +184,7 @@ done
 SCORED=$((TOTAL-UNSCR))
 echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_skip=$S4 -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=$TIMEOUT"
 [ -n "$FLU" ] && echo "UNSCR (missing corpus dependency, not a SCRIP defect):$FLU"
+[ -n "${FATAL_GRADED:-}" ] && echo "FATAL_GRADED (the oracle ended these in a run-time fatal block; graded through the rendered block and ALL.mask, CEO-1344):$FATAL_GRADED"
 echo "DOTNET_AND both_modes_pass=$BOTH/$SCORED -- the suite table states this reading (ceo-372: the AND per program; a timed-out run is HANG, never PASS, whatever its stream)"
 echo "DOTNET_BASELINE baseline=$SCORED both_modes_pass=$BOTH outside_spitbol_baseline=$UNSCR of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a program SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
 if [ "$UNSCR" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($UNSCR; name<TAB>why the oracle gave no answer):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi

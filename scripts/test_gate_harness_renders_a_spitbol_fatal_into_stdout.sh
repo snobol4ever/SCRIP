@@ -92,6 +92,22 @@ md5_after=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
 ck "5a the real SUITES.tsv is byte-identical before and after the fixture run" '[ -n "$md5_before" ] && [ "$md5_before" = "$md5_after" ]'
 ck "5b the runner said so: publishes nothing (S4E_ONE_RUNNER_FIXTURE or a scratch progress table)" 'grep -qE "publishes nothing|publishes no row" <<<"$o4"'
 
+echo "--- ARM 6: the Dotnet runner (live oracle diff, no ref, its own loop) grades the witness PASS in both modes over a scratch suite ---"
+DR="$HERE/test_snobol4_dotnet_suite.sh"
+if [ -f "$DR" ]; then
+  mkdir -p "$W/dot"; cp "$W/fatal_witness.sno" "$W/dot/fatal_witness.sno"; cp "$W/ALL.mask" "$W/dot/ALL.mask"
+  printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,dotnet,5,0,0,131072,4096,,\n' > "$W/dot/ALL.csv"
+  mkdir -p "$W/dbg"
+  o6=$(cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Dotnet runner over a one-program scratch suite, not a board" timeout 300 bash "$DR" 2>&1); r6=$?
+  p6m3=$(awk -F'\t' '$8=="fatal_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1); p6m4=$(awk -F'\t' '$8=="fatal_witness" && $9=="m4" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
+  ck "6a the Dotnet runner's progress rows read fatal_witness m3 PASS and m4 PASS (rc $r6), the program named FATAL_GRADED" '[ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] && grep -q "FATAL_GRADED.* fatal_witness" <<<"$o6"'
+  [ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] || { printf '%s\n' "$o6" | grep -iE 'fatal_witness|REFUS|DOTNET_BOARD|FATAL' | head -6 | sed 's/^/      /'; echo "      what the runner compared (oracle vs m3), first lines of the diff:"; diff "$W/dbg/fatal_witness.oracle" "$W/dbg/fatal_witness.m3" 2>&1 | head -8 | sed 's/^/        /'; echo "      m3 stderr:"; head -4 "$W/dbg/fatal_witness.err3" 2>/dev/null | sed 's/^/        /'; }
+  md5_after6=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
+  ck "6b and wrote no score row either" '[ "$md5_before" = "$md5_after6" ]'
+else
+  echo "  (no Dotnet runner beside this gate: arm 6 not built)"
+fi
+
 echo "------------------------------------------------------------"
 echo "population: $n check(s) over one oracle-cut witness (sbl rc $rcS, $(wc -l < "$W/ref.stdout") stdout lines, $(wc -l < "$W/ref.merged") merged lines), two graders (the harness both modes, the Budne runner both modes), the real SUITES.tsv watched"
 if [ "$fails" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: $n of $n checks hold"; gate_stamp; exit 0; fi

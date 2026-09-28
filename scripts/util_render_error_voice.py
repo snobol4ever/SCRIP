@@ -63,6 +63,39 @@ def render(lines, oracle):
         i = j
     return out
 
+SPITBOL_LINE_WIDTH = 120
+
+
+def _wrap_spitbol(lines):
+    """sbl -bf hard-wraps every line of its fatal block at 120 columns, mid-word, no indent (MEASURED 2026-09-28 10:4x: a 98-byte path
+    made `...(2) : ERROR 014 -- div` end at column 120 and `ision caused integer overflow` follow on the next line). The rendered
+    block is wrapped the same way, so a long path grades byte for byte instead of reading red on the oracle's own line breaking."""
+    out = []
+    for l in lines:
+        while len(l) > SPITBOL_LINE_WIDTH:
+            out.append(l[:SPITBOL_LINE_WIDTH]); l = l[SPITBOL_LINE_WIDTH:]
+        out.append(l)
+    return out
+
+
+def _fatal_fields(block, oracle):
+    """(file, line, statement, code, text) of ONE SCRIP error block, or None when the block carries no file:line; statement."""
+    if oracle != 'spitbol' or not block:
+        return None
+    m = HEAD.match(block[0])
+    if not m:
+        return None
+    code, text = int(m.group(1)), m.group(2)
+    at = None
+    for l in block[1:]:
+        mm = AT.match(l)
+        if mm:
+            at = mm; break
+    if at is None or not at.group(3):
+        return None
+    return at.group(1), at.group(2), at.group(3), code, text
+
+
 def render_fatal_block(block, oracle):
     """THE FATAL BLOCK AS THE ORACLE PRINTS IT ON STDOUT (ceo CEO-1344, on hq_snobol4's measurement, the cfo seconding; the coo's
     row instruments-a-spitbol-fatal-is-gradable-...). `block` is ONE SCRIP error block (the `scrip: error` line and its indented
@@ -88,21 +121,18 @@ def render_fatal_block(block, oracle):
     with no `at <file>:<line>; statement <n>` (a startup error, a compile refusal) renders nothing, so it reads RED, never
     green by omission; the compile-time fatal shape (a listing header with the date, `page 1`, the statement text) is a
     different block this list does not render. 'icon' and 'none' render nothing here: their refs carry stderr voices."""
-    if oracle != 'spitbol' or not block:
+    return _wrap_spitbol(_fatal_lines_unwrapped(block, oracle))
+
+
+def _fatal_lines_unwrapped(block, oracle):
+    fields = _fatal_fields(block, oracle)
+    if fields is None:
         return []
-    m = HEAD.match(block[0])
-    if not m:
-        return []
-    code, text = int(m.group(1)), m.group(2)
-    at = None
-    for l in block[1:]:
-        mm = AT.match(l)
-        if mm:
-            at = mm; break
-    if at is None or not at.group(3):
-        return []
-    f, ln, st = at.group(1), at.group(2), at.group(3)
-    f = os.path.basename(f)
+    f, ln, st, code, text = fields
+    # THE FILE NAME IS PRINTED AS SCRIP PRINTED IT -- the path the program was named by, which is the path the oracle was named by
+    # (a runner hands both engines the same argument: bare in the harness's scratch directory, a full path in the Dotnet runner),
+    # so it is never shortened here; a basename would match the one shape and red the other. Lines longer than 120 columns are
+    # wrapped by the caller exactly as the oracle wraps them (_wrap_spitbol).
     # THE FIVE RUN-SUMMARY LINES ARE PRINTED WITH A DASH, NEVER A NUMBER: the CEO-409 mask replaces a matching line with a
     # placeholder ON BOTH SIDES (apply_line_mask keeps the line count), so the line must exist here to be masked -- its value
     # is the field SCRIP does not carry, and `-` says so where a number would be an invention. The mask rows admit the dash.
@@ -126,13 +156,15 @@ def render_fatal_merged(block, oracle):
     five and stderr's two), then in file / in line / in statement / stmts executed / execution time msec / REGENERATIONS each
     TWICE, memory used, memory left (stdout only), two empty lines. Deterministic, so rendered as measured; the twice-printed
     run-summary lines are masked by the same regexes as the once-printed ones."""
-    one = render_fatal_block(block, oracle)
+    one = _fatal_lines_unwrapped(block, oracle)
     if not one:
         return []
     err_line = one[3]
-    return ['', '', '', err_line, err_line, '', '', '', '', '', '', '',
-            one[9], one[9], one[10], one[10], one[11], one[11],
-            one[12], one[12], one[13], one[13], one[14], one[14], one[15], one[16]]
+    # each stream is wrapped at 120 columns on its own, so a wrapped error line appears as its two halves twice in a row
+    e = _wrap_spitbol([err_line])
+    return (['', '', ''] + e + e + ['', '', '', '', '', '', ''] +
+            _wrap_spitbol([one[9]]) * 2 + _wrap_spitbol([one[10]]) * 2 + _wrap_spitbol([one[11]]) * 2 +
+            [one[12], one[12], one[13], one[13], one[14], one[14], one[15], one[16]])
 
 
 def replace_fatal_in_text(lines, oracle, merged):
