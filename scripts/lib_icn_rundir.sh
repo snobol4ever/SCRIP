@@ -62,6 +62,20 @@ icn_rundir_stdin() {
 # .icn path and derive the sidecar beside it, which is where this contract puts them too.
 icn_rundir_argv() { ipl_argv_read "$1" "$2"; }
 
+# NAME.heap and NAME.stack -- the witness's declared heap and stack (ceo CEO-1353, RULES.md clause 8 (g)(1)), one line NAME<TAB>KB each,
+# read by lib_declared_arena.sh's declared_switches_beside (the harness's own reader, never a copy). Fills the array with SPITBOL's
+# switch words (-d<kb>k -s<kb>k) for the runner to place after scrip --run in m3 and at the head of the binary's argv, before a --,
+# in m4 -- never SCRIP_HEAP_KB, the collector's window. rc 0 declared, 1 none (the runner NAMES it and runs at the shipped default),
+# 2 malformed (the reader said why; the runner refuses).
+icn_rundir_sizes() {
+    local _w
+    declare -F declared_switches_beside >/dev/null || . "$(dirname "${BASH_SOURCE[0]}")/lib_declared_arena.sh" || return 2
+    _w="$(declared_switches_beside "$1")" || return 2
+    [ -n "$_w" ] || return 1
+    read -r -a "$2" <<<"$_w"
+    return 0
+}
+
 # NAME.env -- VAR=value, one per line, blank and #-comment lines ignored. The array is filled with the
 # raw VAR=value words, ready for `env "${arr[@]}" cmd`.
 icn_rundir_env() {

@@ -90,10 +90,14 @@ trap 'rm -rf "$WORK"' EXIT
 # in THIS shell, so a malformed declaration refuses the whole board -- run_prog runs inside $( ), where an exit only ends the
 # subshell. This runner fed stdin but no argv, fixtures or env and ran from the caller's cwd, so rung36_jcon_io and
 # rung36_jcon_recent read red in all three modes for the harness's reasons, not SCRIP's.
-declare -a RP_ARGV=() RP_ENV=(); RP_TDIR=""
+declare -a RP_ARGV=() RP_ENV=() RP_SW=(); RP_TDIR=""
 run_contract() {
     local icn="$1" name rd_rc; name=$(basename "$icn" .icn)
     RP_ARGV=(); RP_ENV=(); RP_TDIR="$WORK/cwd"; mkdir -p "$RP_TDIR"
+    # ⭐ THE DECLARED HEAP AND STACK (CEO-1353): icn_rundir_sizes fills RP_SW with -d<kb>k -s<kb>k for both SCRIP command lines.
+    RP_SW=(); rd_rc=0; if icn_rundir_sizes "$icn" RP_SW; then :; else rd_rc=$?; fi
+    if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed NAME.heap or NAME.stack declaration (the reader said why above)" >&2; exit 2; fi
+    if [ "$rd_rc" -eq 1 ]; then echo "    $name: declares no heap and stack beside it -- runs at the shipped default, NAMED (CEO-1353)" >&2; fi
     icn_rundir_declares "$icn" || return 0
     rd_rc=0; icn_rundir_argv "$icn" RP_ARGV || rd_rc=$?
     if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed argv declaration" >&2; exit 2; fi
@@ -107,8 +111,8 @@ run_prog() {
     name=$(basename "$icn" .icn)
     local IN; IN="$(icn_rundir_stdin "$icn")"
     case "$mode" in
-        interp)  (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
-        run)     (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
+        interp)  (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run ${RP_SW[@]+"${RP_SW[@]}"} "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
+        run)     (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run ${RP_SW[@]+"${RP_SW[@]}"} "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
         compile)
             s="$WORK/$name.s"; o="$WORK/$name.o"; mkdir -p "$WORK/bin"; bin="$WORK/bin/$name"
             if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
@@ -118,7 +122,7 @@ run_prog() {
             if grep -qE "$SMX_SIG" "$errf"; then return 0; fi
             if ! as "$s" -o "$o" 2>>"$errf"; then return 1; fi
             if ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then return 1; fi
-            (cd "$RP_TDIR" && PATH="$WORK/bin:$PATH" timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$name" ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>>"$errf"
+            (cd "$RP_TDIR" && PATH="$WORK/bin:$PATH" timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$name" ${RP_SW[@]+"${RP_SW[@]}"} ${RP_SW[@]+--} ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>>"$errf"
             ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac

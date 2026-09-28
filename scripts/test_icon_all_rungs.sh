@@ -145,6 +145,10 @@ run_one() {
     # line, which reads as a shorter suite rather than as an aborted one.
     local -a rd_argv=() rd_env=()
     local rd_rc
+    # ⭐ THE DECLARED HEAP AND STACK (CEO-1353): icn_rundir_sizes fills rd_sw with -d<kb>k -s<kb>k for the SCRIP command line.
+    local -a rd_sw=(); rd_rc=0; if icn_rundir_sizes "$icn" rd_sw; then :; else rd_rc=$?; fi
+    if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed NAME.heap or NAME.stack declaration (the reader said why above)" >&2; exit 2; fi
+    if [ "$rd_rc" -eq 1 ]; then echo "    $name: declares no heap and stack beside it -- runs at the shipped default, NAMED (CEO-1353)" >&2; fi
     if icn_rundir_declares "$icn"; then
         rd_rc=0; icn_rundir_argv "$icn" rd_argv || rd_rc=$?
         if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed argv declaration" >&2; exit 2; fi
@@ -164,7 +168,7 @@ run_one() {
     # ⛔ `--` separates OUR flags from the PROGRAM's argv; without it a declared argument is read as a
     # second source file (CLAUDE.md § Build and run). ${rd_argv[@]+"${rd_argv[@]}"} is the empty-safe form
     # -- a bare "${rd_argv[@]}" is an unbound-variable error under `set -u` when nothing is declared.
-    got=$( (cd "$tdir" && timeout "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run "$tfn" -- ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null) || rc=$?
+    got=$( (cd "$tdir" && timeout "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run ${rd_sw[@]+"${rd_sw[@]}"} "$tfn" -- ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null) || rc=$?
     [ -f "${base}.exitcode" ] && want_rc=$(tr -dc '0-9' < "${base}.exitcode")
     want=$(cat "$exp")
     if [ "$is_xfail" = 1 ]; then
