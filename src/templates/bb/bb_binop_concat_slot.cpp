@@ -24,13 +24,12 @@ static inline int bcs_null_side() { if (getenv("SCRIP_OPT_NULLCAT") && getenv("S
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     if (_.op_zres && bcs_null_side() >= 0) {
-        const int k = bcs_null_side();
         return x86("comment", "IR_BINOP_CONCAT zd null-identity")
              + x86_alpha()
-             + x86("note", ZOPN(k))
-             + x86("mov",  "rax", ZOPQ(k, 0))
-             + x86("note", ZOPN(k))
-             + x86("mov",  "rdx", ZOPQ(k, 8))
+             + x86("note", ZOPN(bcs_null_side()))
+             + x86("mov",  "rax", ZOPQ(bcs_null_side(), 0))
+             + x86("note", ZOPN(bcs_null_side()))
+             + x86("mov",  "rdx", ZOPQ(bcs_null_side(), 8))
              + x86("note", ZRESN())
              + x86("mov",  ZRES(0), "rax")
              + x86("note", ZRESN())
@@ -39,11 +38,10 @@ std::string bb_binop_concat_slot() {
              + x86_beta_trampoline();
     }
     if (!_.op_zres && bcs_ok() && bcs_null_side() >= 0) {
-        const int s = bcs_null_side() ? _.op_sb : _.op_sa;
         return x86_alpha()
              + x86("comment", "IR_BINOP_CONCAT null-identity")
-             + x86("mov", "rax", FRQ(s))
-             + x86("mov", "rdx", FRQ(s + 8))
+             + x86("mov", "rax", FRQ(bcs_null_side() ? _.op_sb : _.op_sa))
+             + x86("mov", "rdx", FRQ((bcs_null_side() ? _.op_sb : _.op_sa) + 8))
              + x86("mov", FRQ(_.op_off),     "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
