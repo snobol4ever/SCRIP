@@ -5107,38 +5107,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rk_a_seal(buf, nel > 0); return 1;
     }
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
-        const char **els = rt_pvec_alloc((size_t)nargs * 64);
-        size_t *lens = rt_wsb_alloc((size_t)nargs * 64 * sizeof(size_t));
-        int nel = 0, cap = nargs * 64;
-        for (int i = 0; i < nargs; i++) {
-            char scratch[64];
-            const char *cs = rk_a_body(to_cstring(args[i], scratch, sizeof scratch));
-            const char *seg = cs;
-            for (;;) {
-                const char *nx = strchr(seg, SOH);
-                size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                if (nel < cap) { char *cp = rt_wsb_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
-                if (!nx) break;
-                seg = nx + 1;
+        rk_av_t a = rk_av_args(args, 0, nargs);
+        const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL; DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL;
+        for (int i = 0; i < a.n; i++) { tx[i] = rk_av_text(a, i); r[i] = a.el[i]; }
+        for (int i = 1; i < a.n; i++) {
+            const char *kt = tx[i]; DESCR_t kd = r[i]; int j = i - 1;
+            while (j >= 0) {
+                long long xi, yi; int both = rk_text_int(tx[j], &xi) && rk_text_int(kt, &yi);
+                int c = both ? (xi > yi ? 1 : xi < yi ? -1 : 0) : strcmp(tx[j], kt);
+                if (c <= 0) break;
+                tx[j + 1] = tx[j]; r[j + 1] = r[j]; j--;
             }
+            tx[j + 1] = kt; r[j + 1] = kd;
         }
-        for (int a = 1; a < nel; a++) {
-            const char *keys = els[a]; size_t keyl = lens[a]; int b = a - 1;
-            while (b >= 0) {
-                const char *xs = els[b]; const char *ys = keys; char *xe; char *ye;
-                long long xi = strtoll(xs, &xe, 10); long long yi = strtoll(ys, &ye, 10);
-                int both_num = (*xe == '\0' && xe != xs && *ye == '\0' && ye != ys);
-                int cmp = both_num ? (xi > yi ? 1 : xi < yi ? -1 : 0) : strcmp(xs, ys);
-                if (cmp <= 0) break;
-                els[b + 1] = els[b]; lens[b + 1] = lens[b]; b--;
-            }
-            els[b + 1] = keys; lens[b + 1] = keyl;
-        }
-        size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
-        char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
-        for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
-        buf[p] = '\0';
-        *out = rk_a_seal(buf, nel > 0); return 1;
+        *out = rk_mk_arr(r, a.n); return 1;
     }
     if (!strcmp(fn, "__rk_arr_reduce") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
         const char *bn = args[1].s;
@@ -5388,42 +5370,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fwrite(r, 1, rl, stdout); *out = INTVAL(1); return 1;
     }
     if (!strcmp(fn, "array_sort") && nargs == 1) {
-        const char *as = VARVAL_fn(args[0]); if (!as || !*as) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
-        int cnt = 1; for (const char *p = as; *p; p++) if (*p == SOH) cnt++;
-        char **elems = rt_pvec_alloc((size_t)cnt);
-        int idx = 0; const char *seg = as;
-        do {
-            const char *nx = strchr(seg, SOH);
-            size_t elen = nx ? (size_t)(nx - seg) : strlen(seg);
-            char *el = rt_wsb_alloc(elen + 1); memcpy(el, seg, elen); el[elen] = '\0';
-            elems[idx++] = el;
-            seg = nx ? nx + 1 : NULL;
-        } while (seg && idx < cnt);
+        rk_av_t a = rk_av(args[0]);
+        if (!a.n) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        const char **tx = (const char **) rt_pvec_alloc((size_t) a.n); DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) a.n); long long *kv = (long long *) rt_wsb_alloc(sizeof(long long) * (size_t) a.n);
         int all_int = 1;
-        for (int i = 0; i < cnt && all_int; i++) {
-            char *ep; strtol(elems[i], &ep, 10);
-            if (*ep) all_int = 0;
+        for (int i = 0; i < a.n; i++) { char *ep; tx[i] = rk_av_text(a, i); r[i] = a.el[i]; kv[i] = strtoll(tx[i], &ep, 10); if (*ep) all_int = 0; }
+        for (int i = 1; i < a.n; i++) {
+            const char *kt = tx[i]; DESCR_t kd = r[i]; long long kn = kv[i]; int j = i - 1;
+            while (j >= 0 && (all_int ? kv[j] > kn : strcmp(tx[j], kt) > 0)) { tx[j + 1] = tx[j]; r[j + 1] = r[j]; kv[j + 1] = kv[j]; j--; }
+            tx[j + 1] = kt; r[j + 1] = kd; kv[j + 1] = kn;
         }
-        if (all_int) {
-            for (int i = 1; i < cnt; i++) {
-                char *key = elems[i]; long kv = atol(key); int j = i - 1;
-                while (j >= 0 && atol(elems[j]) > kv) { elems[j+1] = elems[j]; j--; }
-                elems[j+1] = key;
-            }
-        } else {
-            for (int i = 1; i < cnt; i++) {
-                char *key = elems[i]; int j = i - 1;
-                while (j >= 0 && strcmp(elems[j], key) > 0) { elems[j+1] = elems[j]; j--; }
-                elems[j+1] = key;
-            }
-        }
-        size_t total = 0; for (int i = 0; i < cnt; i++) total += strlen(elems[i]) + 1;
-        char *o = rt_wsb_alloc(total + 1); o[0] = '\0';
-        for (int i = 0; i < cnt; i++) {
-            if (i) { size_t ol = strlen(o); o[ol] = SOH; o[ol+1] = '\0'; }
-            strcat(o, elems[i]);
-        }
-        *out = STRVAL(o); return 1;
+        *out = rk_mk_arr(r, a.n); return 1;
     }
     if (!strcmp(fn, "array_reverse") && nargs == 1) {
         if (args[0].v == DT_A && args[0].arr) {
