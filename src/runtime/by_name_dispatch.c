@@ -347,7 +347,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
+        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
@@ -5184,6 +5184,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (fn[5] == 'm' && args[1].v == DT_A) { rk_av_t v = rk_av(args[1]); for (int i = 0; i < v.n; i++) rk_arr_append(b, v.el[i]); }
         else rk_arr_append(b, args[1]);
         *out = args[0]; return 1;
+    }
+    if (!strcmp(fn, "__rk_sort_by_keys") && nargs == 2) {
+        rk_av_t a = rk_av(args[0]), k = rk_av(args[1]); int n = a.n < k.n ? a.n : k.n, m = n ? n : 1;
+        int ix[m], tm[m]; DESCR_t r[m];
+        for (int i = 0; i < n; i++) ix[i] = i;
+        for (int w = 1; w < n; w *= 2) {
+            for (int lo = 0; lo < n; lo += 2 * w) {
+                int mid = lo + w < n ? lo + w : n, hi = lo + 2 * w < n ? lo + 2 * w : n, i = lo, j = mid, o = lo;
+                while (i < mid && j < hi) { DESCR_t x = k.el[ix[j]], y = k.el[ix[i]]; long long c = rk_order_both_numeric(x, y) ? rk_order_cmp_num(x, y) : rk_order_cmp_str(x, y); tm[o++] = c < 0 ? ix[j++] : ix[i++]; }
+                while (i < mid) tm[o++] = ix[i++];
+                while (j < hi) tm[o++] = ix[j++];
+            }
+            for (int i = 0; i < n; i++) ix[i] = tm[i];
+        }
+        for (int i = 0; i < n; i++) r[i] = a.el[ix[i]];
+        *out = rk_mk_arr(r, n); return 1;
     }
     if (!strcmp(fn, "__rk_iter_done") && nargs == 1) {
         rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1;
