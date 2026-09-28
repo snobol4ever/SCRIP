@@ -31,9 +31,8 @@ std::string bb_goto_deferred() {
              + x86_gamma()
              + x86_ro_seal_str(0, _.op_sval);
     }
-    { static int _df = -1; if (_df < 0)
-        { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; }
-    if (_df && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
+    {
+    if (sn4_define_fold() && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
         return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp the function's alpha, no chain, no reserve)")
              + x86_alpha()
              + bb_goto_deferred_frame_release()

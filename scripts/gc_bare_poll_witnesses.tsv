@@ -73,7 +73,7 @@ src/templates/bb/bb_field_get.cpp:40:icn_field_get	src/templates/bb/bb_field_get
 src/templates/bb/bb_gcc.cpp:24:rt_icn_cset_member	src/templates/bb/bb_gcc.cpp:25	UNWITNESSED
 src/templates/bb/bb_glue_flat.cpp:47:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:48	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_goto_deferred.cpp:26:rt_sno_goto_special_is	src/templates/bb/bb_goto_deferred.cpp:28	UNWITNESSED
-src/templates/bb/bb_goto_deferred.cpp:48:rt_goto_resolve	src/templates/bb/bb_goto_deferred.cpp:50	UNWITNESSED
+src/templates/bb/bb_goto_deferred.cpp:47:rt_goto_resolve	src/templates/bb/bb_goto_deferred.cpp:49	UNWITNESSED
 src/templates/bb/bb_iterate.cpp:27:rt_list_bang_key_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_iterate.cpp:28:rt_list_bang_elem_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_iterate.cpp:29:rt_list_bang_var_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
