@@ -415,7 +415,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         ir_operand_push(mk, kt); ir_operand_push(mk, va);
         if (res) *res = mk; return kt;
     }
-    case TT_ARB: case TT_REM: case TT_BAL: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: {
+    case TT_ARB: case TT_REM: case TT_BAL: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: case TT_FLUSH: {
         if (t->v.sval && sno_predef_registered(t->v.sval)) return sx_call_named(cx, t->v.sval, t, 0, γ, ω, res);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PB0";
         IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, mk, ω); IR_LIT(kt).ival = (int64_t) t->t;
@@ -1222,14 +1222,15 @@ static tree_e sno_pat_eff_kind(const tree_t * t) {
     if ((t->t != TT_VAR && t->t != TT_KEYWORD) || !t->v.sval) return t->t;
     static const struct { const char * n; tree_e k; } m[] = {
         { "ABORT", TT_ABORT }, { "ARB",  TT_ARB  }, { "BAL", TT_BAL }, { "FAIL", TT_FAIL },
-        { "FENCE", TT_FENCE }, { "REM",  TT_REM  }, { "SUCCEED", TT_SUCCEED }, { NULL, TT_VAR }
+        { "FENCE", TT_FENCE }, { "FLUSH", TT_FLUSH }, { "REM",  TT_REM  }, { "SUCCEED", TT_SUCCEED }, { NULL, TT_VAR }
     };
     const char * nm = t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval;
     for (int i = 0; m[i].n; i++) if (!strcmp(nm, m[i].n)) return m[i].k;
     return t->t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_is_fence(const tree_t * t) { return t && sno_pat_eff_kind(t) == TT_FENCE; }
+static int sno_is_fence(const tree_t * t) { if (!t) return 0; const tree_e k = sno_pat_eff_kind(t); return k == TT_FENCE || k == TT_FLUSH; }
+static int sno_is_flush(const tree_t * t) { return t && sno_pat_eff_kind(t) == TT_FLUSH; }
 static int sno_is_fence1(const tree_t * t) { return t && t->t == TT_FENCE && t->n > 0; }
 static int sno_is_fence0(const tree_t * t) { return sno_is_fence(t) && !sno_is_fence1(t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1309,8 +1310,8 @@ static int sno_pat_dfree(const tree_t * t, int spine, int depth) {
     switch (t->t) {
     case TT_DEFER: return 0;
     case TT_QLIT: case TT_ILIT: case TT_FLIT: case TT_CSET: case TT_NUL: return 1;
-    case TT_REM: case TT_ARB: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: case TT_BAL: return 1;
-    case TT_VAR: { const char * nm = t->v.sval; if (!spine) return 1; if (nm && (!strcmp(nm, "REM") || !strcmp(nm, "ARB") || !strcmp(nm, "FENCE"))) return 1; const tree_t * p = sno_seal_pat(nm); return p ? sno_pat_dfree(p, 1, depth + 1) : 0; }
+    case TT_REM: case TT_ARB: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: case TT_BAL: case TT_FLUSH: return 1;
+    case TT_VAR: { const char * nm = t->v.sval; if (!spine) return 1; if (nm && (!strcmp(nm, "REM") || !strcmp(nm, "ARB") || !strcmp(nm, "FENCE") || !strcmp(nm, "FLUSH"))) return 1; const tree_t * p = sno_seal_pat(nm); return p ? sno_pat_dfree(p, 1, depth + 1) : 0; }
     case TT_KEYWORD: { if (!sno_const_static_on()) return 0; if (!spine) return 1; if (!t->v.sval) return 0; char cb[130]; snprintf(cb, sizeof cb, "&%s", t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval); const tree_t * p = sno_const_pat(cb); return p ? sno_pat_dfree(p, 1, depth + 1) : 0; }
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: { for (int i = 0; i < t->n; i++) if (!sno_pat_dfree(t->c[i], 0, depth + 1)) return 0; return 1; }
     case TT_SEQ: case TT_CAT: case TT_ALT: case TT_FENCE: case TT_ARBNO: { for (int i = 0; i < t->n; i++) if (!sno_pat_dfree(t->c[i], 1, depth + 1)) return 0; return 1; }
@@ -1342,8 +1343,8 @@ static int sno_pat_invariant(const tree_t * t) {
     if (t->t == TT_QLIT) return 1;
     if (t->t == TT_ANY || t->t == TT_NOTANY || t->t == TT_SPAN || t->t == TT_BREAK || t->t == TT_BREAKX) return sno_cset_fold((t->n > 0) ? t->c[0] : NULL) != NULL;
     if (t->t == TT_LEN || t->t == TT_TAB || t->t == TT_RTAB || t->t == TT_POS || t->t == TT_RPOS) return t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT;
-    if (t->t == TT_REM || t->t == TT_ARB) return 1;
-    if (t->t == TT_VAR) return t->v.sval && (!strcmp(t->v.sval, "REM") || !strcmp(t->v.sval, "ARB") || !strcmp(t->v.sval, "FENCE"));
+    if (t->t == TT_REM || t->t == TT_ARB || t->t == TT_FLUSH) return 1;
+    if (t->t == TT_VAR) return t->v.sval && (!strcmp(t->v.sval, "REM") || !strcmp(t->v.sval, "ARB") || !strcmp(t->v.sval, "FENCE") || !strcmp(t->v.sval, "FLUSH"));
     if (t->t == TT_FENCE) return t->n == 0 || sno_pat_invariant(t->c[0]);
     if (t->t == TT_ARBNO) return t->n > 0 && sno_pat_invariant(t->c[0]);
     if (t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_pat_invariant(t->c[0]);
@@ -1733,6 +1734,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_pre_req(cx, t, nd);
         return nd;
     }
+    case TT_FLUSH: { IR_t * F = lc_build(g, IR_MATCH_FENCE0, succ, NULL); sno_ω_to(F, fail); IR_LIT(F).ival = 3; return F; }
     case TT_FENCE:
         if (t->n > 0 && t->c[0] && !g_sno_in_patproc) {
             IR_t * F = lc_build(g, IR_MATCH_FENCE1, succ, NULL);
@@ -1951,12 +1953,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     if (right_tail && !right_sealed) sno_resume_ω_to(g, right_tail_idx, right_tail, F);
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx; right_sealed = 0;
                 }
-                else if (i > 0) {
+                else if (i > 0 || sno_is_flush(elems[i])) {
                     IR_t * fail_p = cx->pat_seal ? cx->pat_seal : fail;
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE0, cur_succ, NULL);
                     sno_ω_to(F, fail_p);
-                    IR_LIT(F).ival = 0;
+                    IR_LIT(F).ival = sno_is_flush(elems[i]) ? 3 : 0;
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx;
                 }
                 if (!rlast && g->n > 0) rlast = g->all[g->n - 1];
@@ -2053,6 +2055,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
 static int sno_pat_supported(const tree_t * t) {
     if (!t) return 0;
     const tree_e k = sno_pat_eff_kind(t);
+    if (k == TT_FLUSH) return 1;
     if (k == TT_FENCE) return t->n == 0 || sno_pat_supported(t->c[0]);
     if (k == TT_QLIT) return 1;
     if (k == TT_ANY || k == TT_NOTANY) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
@@ -2082,7 +2085,7 @@ static int sno_is_pattern_rhs(const tree_t * t) {
     if (!t) return 0;
     switch (sno_pat_eff_kind(t)) {
     case TT_ABORT: case TT_SUCCEED:
-    case TT_ALT: case TT_FENCE: case TT_ARBNO:
+    case TT_ALT: case TT_FENCE: case TT_FLUSH: case TT_ARBNO:
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX:
     case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS:
     case TT_ARB: case TT_REM: case TT_BAL:

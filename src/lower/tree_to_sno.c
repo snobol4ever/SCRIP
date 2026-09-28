@@ -309,6 +309,7 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
     case TT_FAIL:    emit(c, "FAIL"); break;
     case TT_SUCCEED: emit(c, "SUCCEED"); break;
     case TT_ABORT:   emit(c, "ABORT"); break;
+    case TT_FLUSH:   emit(c, "FLUSH"); break;
     case TT_FENCE:
         if (e->n == 0) emit(c, "FENCE");
         else { emit(c, "FENCE("); emit_expr(c, e->c[0]); emit(c, ")"); }
@@ -745,6 +746,8 @@ int tree_to_sno(const tree_t *ast, FILE *out) {
     emit(&c, "-CASE 0");
     emit_nl(&c);
     emit(&c, "\t&FULLSCAN = 1");
+    emit_nl(&c);
+    emit(&c, "\tFLUSH = FENCE");
     emit_nl(&c);
     if (ast->t == TT_PROGRAM) codegen_program(&c, ast);
     else                      emit_node(&c, ast);

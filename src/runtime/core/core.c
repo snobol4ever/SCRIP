@@ -2471,6 +2471,7 @@ extern DESCR_t pat_bal(void);
 extern DESCR_t pat_arbno(DESCR_t);
 extern DESCR_t pat_fence(void);
 extern DESCR_t pat_fence_p(DESCR_t);
+extern DESCR_t pat_flush(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 ? pat_span(rt_cstr_d(a[0]))    : FAILDESCR; }
 static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 ? pat_break_(rt_cstr_d(a[0]))  : FAILDESCR; }
@@ -2707,6 +2708,7 @@ void core_lib_init(void) {
     NV_SET_fn("ARB",     pat_arb());
     NV_SET_fn("BAL",     pat_bal());
     NV_SET_fn("FENCE",   pat_fence());
+    NV_SET_fn("FLUSH",   pat_flush());
     NV_SET_fn("ABORT",   pat_abort());
     NV_SET_fn("FAIL",    pat_fail());
     NV_SET_fn("REM",     pat_rem());
