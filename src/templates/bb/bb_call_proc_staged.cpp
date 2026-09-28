@@ -238,10 +238,10 @@ static std::string bcps_det_arm() {
         long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
         int det_nA_z = (int)_.op_ival;
         int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
-        int dc_z = 0; uint64_t dc_slot_z = 0; std::string dc_name_z;
+        int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[_.op_sval ? 3 * strlen(_.op_sval) + 6 : 1]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
             void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
-                dc_name_z = std::string(bb_ab_sym_name(_.op_sval)) + "_dc\xce\xb1"; } }
+                snprintf(dc_name_z, sizeof dc_name_z, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
         static const char * const detN_argreg_z[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t detN_fp_z[5];
         { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp_z[0] = (uint64_t)(uintptr_t)(void*)f0; }
@@ -313,7 +313,7 @@ static std::string bcps_det_arm() {
                 : std::string(""))
              + (!scc_z && dc_z
                 ? FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
-                + x86_call_dc(dc_name_z.c_str(), dc_slot_fp_z)
+                + x86_call_dc(dc_name_z, dc_slot_fp_z)
                 + x86("jmp", L(2))
                 : std::string(""))
              + (!scc_z && !dc_z
@@ -383,9 +383,9 @@ static std::string bcps_det_arm() {
     static const char * const detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
     int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
-    uint64_t dc_slot = 0; std::string dc_name;
+    uint64_t dc_slot = 0; char dc_name[_.op_sval ? 3 * strlen(_.op_sval) + 6 : 1]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
-        dc_name = std::string(bb_ab_sym_name(_.op_sval)) + "_dc\xce\xb1"; } }
+        snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[bb_scc_gk_cap(_.op_sval)];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
     { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }
@@ -444,7 +444,7 @@ static std::string bcps_det_arm() {
             : std::string(""))
          + (dc
             ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
-            + x86_call_dc(dc_name.c_str(), dc_slot)
+            + x86_call_dc(dc_name, dc_slot)
             + x86("jmp", L(2))
             : std::string(""))
          + (det_fuse || dc ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {

@@ -14,6 +14,9 @@ static std::string xa_bb_ptr_slot_text(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_ptr_slot(void) {
-    { char * p = ct_fmt(".L%s_rtc%d_z", x86_boxkind(), g_flat_node_id++); ct_drop((void *)g_emit.bb_ptr_slot_lbl); g_emit.bb_ptr_slot_lbl = p; }
+    const char * kind = x86_boxkind(); int id = g_flat_node_id++;
+    char lbl[fmt_len(".L%s_rtc%d_z", kind, id)]; snprintf(lbl, sizeof lbl, ".L%s_rtc%d_z", kind, id);
+    g_emit.bb_ptr_slot_lbl = lbl;
     bb_emit_x86(xa_bb_ptr_slot_text());
+    g_emit.bb_ptr_slot_lbl = (const char *)0;
 }
