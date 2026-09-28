@@ -558,6 +558,7 @@ test_gate_prolog_bench_runner_holds_the_ref_on_every_angle.sh	WIRED	-	-	-
 test_gate_prolog_dynamic_predicate_with_file_clauses.sh	WIRED	-	-	-
 test_gate_queue_census_names_the_sweep_rows.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
+test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_parse_census_measures_over_a_printed_denominator.sh	WIRED	-	-	-
 test_gate_raku_port_trace.sh	WIRED	-	-	-
