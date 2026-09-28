@@ -186,14 +186,19 @@ static inline __attribute__((always_inline)) int plw_n_self(const DESCR_t *c) { 
 static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c) || plw_n_self(c); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
-    DESCR_t *prev = (DESCR_t *)0;
-    for (int guard = 0; guard < 4096; guard++) {
-        if (c->v == DT_N && c->slen == 1 && c->p) { prev = c; c = (DESCR_t *)c->p; continue; }
-        if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { prev = c; c = ((VCELL_t *)c->p)->cellp; continue; }
-        if (c->v == (DTYPE_t)DT_PLVAR && c->p && c->p != (void *)c) { prev = c; c = (DESCR_t *)c->p; continue; }
-        return c;
+    if (c->v == DT_N && c->slen == 1 && c->p && ((DESCR_t *)c->p)->v == DT_N && ((DESCR_t *)c->p)->slen == 1 && ((DESCR_t *)c->p)->p) {
+        DESCR_t *last = (DESCR_t *)c->p; DESCR_t *q;
+        while (((DESCR_t *)last->p)->v == DT_N && ((DESCR_t *)last->p)->slen == 1 && ((DESCR_t *)last->p)->p) last = (DESCR_t *)last->p;
+        for (q = c; q != last; ) { DESCR_t *nx = (DESCR_t *)q->p; q->p = (void *)last; q = nx; }
+        c = last;
     }
-    return c;
+    for (unsigned long hops = 0;; hops++) {
+        if (c->v == DT_N && c->slen == 1 && c->p) { c = (DESCR_t *)c->p; }
+        else if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) { c = ((VCELL_t *)c->p)->cellp; }
+        else if (c->v == (DTYPE_t)DT_PLVAR && c->p && c->p != (void *)c) { c = (DESCR_t *)c->p; }
+        else return c;
+        if (hops == (1UL << 28)) { extern void rt_bomb(const char *msg); rt_bomb("plw_cell_deref_slow: a reference chain of 2^28 hops is a cycle, which no sound binding can make -- a bind wrote a cell into its own chain"); }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c) {
@@ -10321,9 +10326,10 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
         int fn = plc_functor((pl_cell_t *)d), ar = pl_arity((pl_cell_t *)d);
         const char *nm = prolog_atom_name(fn); DESCR_t *aa = (DESCR_t *)d->p;
         if (nm && !strcmp(nm, ".") && ar == 2) {
-            tree_t *lst = ast_node_new(TT_MAKELIST); DESCR_t *cur = d; int guard = 0;
-            while (guard++ < 100000) {
+            tree_t *lst = ast_node_new(TT_MAKELIST); DESCR_t *cur = d; unsigned long guard = 0;
+            for (;;) {
                 DESCR_t *cd = (DESCR_t *)pl_deref((pl_cell_t *)cur);
+                if (++guard == (1UL << 28)) { extern void rt_bomb(const char *msg); rt_bomb("pl_cell_tree: a list of 2^28 cells is a cycle, which this reader cannot represent"); }
                 if ((int)cd->v == DT_PLREF && pl_arity((pl_cell_t *)cd) == 2 && plc_functor((pl_cell_t *)cd) == fn) {
                     DESCR_t *kk = (DESCR_t *)cd->p; ast_push(lst, pl_cell_tree(&kk[0], vt)); cur = &kk[1]; continue; }
                 { const char *tn = ((int)cd->v == DT_PLATOM) ? prolog_atom_name((int)cd->i) : (((int)cd->v == DT_S) ? cd->s : (const char *)0);
