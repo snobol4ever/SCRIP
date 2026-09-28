@@ -487,12 +487,14 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
       if (_b1cg && n > 0 && gva_count() == 0) { for (int k = 0; k < n; k++) if (names && names[k]) (void)gva_collect_var(names[k]); g_gva_active = (gva_count() > 0) ? 1 : 0; } }
     return cells;
 }
-#define RT_GVA_ISLAND_BYTES ((size_t)16u << 20)
+#define RT_GVA_WINDOW_BYTES ((size_t)1u << 30)
+static size_t g_gva_mapped = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_pin_init(void) {
     void * p = mmap((void *)RT_PIN_BASE, RT_PIN_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (p != (void *)RT_PIN_BASE) { fprintf(stderr, "rt_pin_init: RT_PIN_BASE 0x%lx unavailable (got %p) -- REG-0 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_PIN_BASE, p); abort(); }
-    void * g = mmap((void *)RT_GVA_VA, RT_GVA_ISLAND_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+    void * g = mmap((void *)RT_GVA_VA, RT_GVA_WINDOW_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
+    g_gva_mapped = RT_GVA_WINDOW_BYTES;
     if (g != (void *)RT_GVA_VA) { fprintf(stderr, "rt_pin_init: RT_GVA_VA 0x%lx unavailable (got %p) -- REG-1 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_GVA_VA, g); abort(); }
     *(volatile uint64_t *)RT_AB_NRET   = 0;
     { extern void rt_dcap_lazy_init(void); rt_dcap_lazy_init(); }
@@ -523,7 +525,13 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *rt_gva_island(int n) {
-    if ((size_t)n * sizeof(DESCR_t) > RT_GVA_ISLAND_BYTES) { fprintf(stderr, "rt_gva_island: %d slots exceed the island (raise RT_GVA_ISLAND_BYTES)\n", n); abort(); }
+    if ((size_t)n * sizeof(DESCR_t) > g_gva_mapped) {
+        size_t want = g_gva_mapped ? g_gva_mapped : RT_GVA_WINDOW_BYTES;
+        while (want < (size_t)n * sizeof(DESCR_t)) want *= 2;
+        void * x = mmap((void *)(RT_GVA_VA + g_gva_mapped), want - g_gva_mapped, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
+        if (x != (void *)(RT_GVA_VA + g_gva_mapped)) { fprintf(stderr, "rt_gva_island: %d slots need %zu bytes and the window past RT_GVA_VA + %zu is not free (got %p)\n", n, want, g_gva_mapped, x); abort(); }
+        g_gva_mapped = want;
+    }
     { extern void rt_sxt_gva_count(int); rt_sxt_gva_count(n); }
     if (n > 0) memset((void *)RT_GVA_VA, 0, (size_t)n * sizeof(DESCR_t));
     return (DESCR_t *)RT_GVA_VA;

@@ -707,23 +707,28 @@ static DESCR_t sort_impl(DESCR_t arr, DESCR_t col, int rev) {
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_CAS_ISLAND_BYTES ((size_t)8u << 20)
+#define RT_CAS_ISLAND_INIT ((size_t)8u << 20)
 #define RT_CAS_DFX_MAX      (1 << 14)
 #define RT_CAS_DCF_MAX      (1 << 14)
 static char  *g_cas_base = 0;
 static size_t g_cas_used = 0;
+static size_t g_cas_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_cas_carve(size_t bytes)
 {
     extern void *rt_slab_region(size_t);
-    if (!g_cas_base) { g_cas_base = (char *)rt_slab_region(RT_CAS_ISLAND_BYTES); if (!g_cas_base) { fprintf(stderr, "rt_cas: island reserve failed\n"); abort(); } }
     bytes = (bytes + 15u) & ~(size_t)15u;
-    if (g_cas_used + bytes > RT_CAS_ISLAND_BYTES) { fprintf(stderr, "rt_cas: carve of %zu exceeds the island (raise RT_CAS_ISLAND_BYTES)\n", bytes); abort(); }
+    if (!g_cas_base || g_cas_used + bytes > g_cas_cap) {
+        size_t want = g_cas_cap ? g_cas_cap * 2 : RT_CAS_ISLAND_INIT;
+        while (want < bytes) want *= 2;
+        g_cas_base = (char *)rt_slab_region(want);
+        if (!g_cas_base) { fprintf(stderr, "rt_cas: island reserve of %zu bytes failed\n", want); abort(); }
+        g_cas_cap = want; g_cas_used = 0;
+    }
     void *p = g_cas_base + g_cas_used; g_cas_used += bytes; memset(p, 0, bytes);
     return p;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_base; if (bytes) *bytes = g_cas_used; }
 uint64_t g_scan_hit_start = 0;
 uint64_t g_sno_defer_cells[4096];
 static int g_sno_defer_pair_hwm = 0;
