@@ -46,11 +46,15 @@ echo "  W    premise: sbl stops the fixture at statement $(awk -F'\t' '$1=="STAT
 
 [ "$(cat "$T/body")" = before ] && grep -qxF "STATEMENT	2" "$T/pm" && grep -q "^BANNER	testpm.spt(2) : ERROR 116 -- " "$T/pm" && arm H1 ok || arm H1 red "body [$(cat "$T/body")] pm [$(tr '\n' ' ' < "$T/pm")]"
 sed '2d' "$T/ora" > "$T/h2"; python3 "$H" "$T/h2" /dev/null >/dev/null 2>&1; r=$?; [ "$r" = 2 ] && arm H2 ok || arm H2 red "rc=$r, want 2"
-sed 's/^\(execution time msec  *0\)$/\1\nstmt \/ microsec      0\nstmt \/ millisec      0\nstmt \/ second        0/' "$T/ora" > "$T/h3"
+# ⛔ THE WITNESSES ARE DERIVED FROM A 0 ms BASE, NEVER FROM THE LIVE TIME (hq_snobol4 2026-09-28): under load sbl reports 1 ms or more and
+# prints its own three throughput lines, so a sed keyed on "msec  0" matched nothing, H3 and H4 were the oracle's valid post-mortem, the helper
+# rightly accepted them, and the gate read RED on a shape it never built. The base normalises the time to 0 and drops any throughput lines.
+sed -e 's/^\(execution time msec  *\)[0-9][0-9]*$/\10/' -e '/^stmt \/ \(microsec\|millisec\|second\) /d' "$T/ora" > "$T/ora0"
+sed 's/^\(execution time msec  *0\)$/\1\nstmt \/ microsec      0\nstmt \/ millisec      0\nstmt \/ second        0/' "$T/ora0" > "$T/h3"
 grep -q "^stmt / second" "$T/h3" || refuse "could not build the H3 witness from sbl's post-mortem (no 'execution time msec 0' line)"
 python3 "$H" "$T/h3" /dev/null >/dev/null 2>&1; r=$?; [ "$r" = 2 ] && arm H3 ok || arm H3 red "rc=$r, want 2"
-sed 's/^\(execution time msec  *\)0$/\15/' "$T/ora" > "$T/h4"; python3 "$H" "$T/h4" /dev/null >/dev/null 2>&1; r=$?; [ "$r" = 2 ] && arm H4 ok || arm H4 red "rc=$r, want 2"
-sed 's/^\(execution time msec  *\)0$/\15\nstmt \/ microsec      0\nstmt \/ millisec      0\nstmt \/ second        0/' "$T/ora" > "$T/h5"
+sed 's/^\(execution time msec  *\)0$/\15/' "$T/ora0" > "$T/h4"; python3 "$H" "$T/h4" /dev/null >/dev/null 2>&1; r=$?; [ "$r" = 2 ] && arm H4 ok || arm H4 red "rc=$r, want 2"
+sed 's/^\(execution time msec  *\)0$/\15\nstmt \/ microsec      0\nstmt \/ millisec      0\nstmt \/ second        0/' "$T/ora0" > "$T/h5"
 python3 "$H" "$T/h5" "$T/h5.body" >/dev/null 2>&1; r=$?; { [ "$r" = 0 ] && [ "$(cat "$T/h5.body")" = before ]; } && arm H5 ok || arm H5 red "rc=$r, want 0 and body 'before'"
 python3 "$H" "$T/fx/testpm.spt" /dev/null >/dev/null 2>&1; r=$?; [ "$r" = 3 ] && arm H6 ok || arm H6 red "rc=$r, want 3"
 
