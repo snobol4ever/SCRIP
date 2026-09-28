@@ -25,26 +25,18 @@ extern "C" int g_gva_active;
     ? (const void *)(long (*)(const char *, int, int, int))rt_cap_open_plain \
     : (const void *)(long (*)(const char *, int, int, int))rt_cap_open \
 )
-static inline int nret_cap_live(void) {
-    static int v = -1;
-    if (v < 0)
-        { const char * e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; }
-    return v;
-}
-static int cap_gva_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_GVA"); v = (e && *e == '0') ? 0 : 1; } return v; }
-#define cap_gva() (cap_gva_on() && g_gva_active && _.op_gva_k >= 0 && cap_name_plain() && !is_protected_pat_name(_.op_sval))
-static const char * gva_cell_addr(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], sizeof b[i], "[" RTCC_GVA_REG " + %d]", k * 16); return b[i]; }
+#define cap_gva() (sn4_cap_gva() && g_gva_active && _.op_gva_k >= 0 && cap_name_plain() && !is_protected_pat_name(_.op_sval))
+static std::string gva_cell_addr(int k) { return std::string("[" RTCC_GVA_REG " + ") + std::to_string(k * 16) + "]"; }
 static std::string cap_imm_gva(const std::string & homeop) {
-    static char b[24];
     return x86("comment", "IR_MATCH_CAPTURE_IMM gva")
          + x86_alpha()
          + x86("mov",  "eax", homeop.c_str())
          + x86_anchor_enter()
          + x86("note", gva_name(_.op_gva_k))
-         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k)) : x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
+         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k).c_str()) : x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
          + x86("mov",  "esi", "eax")
          + x86("mov",  "edx", "r14d")
-         + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(b, sizeof b, _.op_sval), b))
+         + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
          + x86("call", "rt_cap_open_gva", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t *, int, int, const char *))rt_cap_open_gva)
          + x86_rt_gc_poll()
          + x86_anchor_leave()
@@ -56,7 +48,6 @@ static std::string cap_imm_gva(const std::string & homeop) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_capture() {
     x86_begin();
-    static char b[24];
     return (_.op_off < 0)
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_ASSIGN: capture stack slot not promoted (flat_drive_capture)") )
@@ -86,7 +77,7 @@ std::string bb_match_capture() {
            + x86_bomb("IR_MATCH_CAPTURE_SAVE: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm "
                       "classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_push fallback is deliberately not rebuilt (s83)")
            + x86_beta_trampoline() )
-         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*' && !nret_cap_live()
+         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*' && !sn4_nret_cap()
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_COND: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment")
            + x86_beta() )
@@ -94,7 +85,7 @@ std::string bb_match_capture() {
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND")
            + x86_alpha()
            + x86("mov",  "eax", CFC(0))
-           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
            + x86("mov",  RDQ("r12", 0), "rcx")
            + x86("mov",  "esi", "eax")
            + x86("mov",  RDQ("r12", 8), "rsi")
@@ -115,7 +106,7 @@ std::string bb_match_capture() {
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND")
            + x86_alpha()
            + x86("mov",  "eax", readhome())
-           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
            + x86("mov",  RDQ("r12", 0), "rcx")
            + x86("mov",  "esi", "eax")
            + x86("mov",  RDQ("r12", 8), "rsi")
@@ -132,7 +123,7 @@ std::string bb_match_capture() {
            + x86_bomb("IR_MATCH_CAPTURE_COND: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm "
                       "classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")
            + x86_beta() )
-         : (_.op_sval && _.op_sval[0] == '*' && !nret_cap_live())
+         : (_.op_sval && _.op_sval[0] == '*' && !sn4_nret_cap())
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment") )
          : (int)_.op_phase == 2 && _.op_frame_need && _.op_cap_frame_off != -1 && cap_gva()
@@ -142,7 +133,7 @@ std::string bb_match_capture() {
            + x86_alpha()
            + x86("mov",  "eax", CFC(0))
            + x86_anchor_enter()
-           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
@@ -184,7 +175,7 @@ std::string bb_match_capture() {
            + x86_alpha()
            + x86("mov",  "eax", readhome())
            + x86_anchor_enter()
-           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
