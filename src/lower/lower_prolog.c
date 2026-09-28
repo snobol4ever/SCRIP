@@ -1637,7 +1637,6 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             const tree_t * h = t->c[0]; const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;
             int ar = (h && h->t == TT_FNC) ? h->n : 0; const tree_t * pp = t->c[1];
             if (pl_tree_number(h)) return goal(cx, pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
-            if (h && h->t == TT_VAR && h->v.sval && !strcmp(h->v.sval, "_")) return goal(cx, pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), nm, 2), γnext, ωfail, entry_out);
             if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
                 return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
             if (!pn) pl_refuse("predicate_property/2 whose head is not a callable term known at compile time -- ISO's backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);
