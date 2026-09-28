@@ -2074,6 +2074,11 @@ inline std::string x86_bomb(const char * msg) {
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_strtab_lbl(const char * s) {
+    char lbl[24]; strtab_label(lbl, sizeof lbl, s);
+    return std::string(lbl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_ro_str(const char * dst, const char * s) {
     const char * str = s ? s : "";
     const char * lbl = emit_intern_str(str);
