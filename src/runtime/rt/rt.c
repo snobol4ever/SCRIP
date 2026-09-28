@@ -629,7 +629,7 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
       p->fn = (bb_box_fn)0; p->pnames = pnames; p->nparams = nparams; p->nformals = nformals; p->dyn_scope = 1; p->result_name = (const char *)0; p->redefined = 1; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0;
       { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); const char *el = core_define_entry_label(name); int frag = 0; void *fn = el ? rt_entry_resolve(el, &frag) : (void *)0;
         if (fn && !frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } } }
-    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
+    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } rt_proc_loc_t;
@@ -701,14 +701,16 @@ void *rt_proc_get_fn(const char *name)
     { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
     return (void *)0;
 }
-static struct { void *fn; int bytes; } g_blob_fb[512];
-static int g_blob_fb_n = 0;
+typedef struct { void *fn; int bytes; } rt_blob_fb_t;
+static cv_t g_blob_fbv;
+#define g_blob_fb ((rt_blob_fb_t *)g_blob_fbv.p)
+#define g_blob_fb_n ((int)g_blob_fbv.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fn_frame_bytes_register(void *fn, int bytes)
 {
     if (!fn || bytes <= 0) return;
     for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) { if (bytes > g_blob_fb[i].bytes) g_blob_fb[i].bytes = bytes; return; }
-    if (g_blob_fb_n < (int)(sizeof g_blob_fb / sizeof *g_blob_fb)) { g_blob_fb[g_blob_fb_n].fn = fn; g_blob_fb[g_blob_fb_n].bytes = bytes; g_blob_fb_n++; }
+    { rt_blob_fb_t *e = &CV_PUSH(g_blob_fbv, rt_blob_fb_t); e->fn = fn; e->bytes = bytes; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_fn_frame_bytes(void *fn)
@@ -1160,9 +1162,9 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback)
 {
     static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
     if (!live || !name) return fallback;
-    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264];
+    { extern void *bb_ab_fn_cell_ptr(const char *); size_t nl = strlen(name); char cn[nl + 7];
       static int fastcat = -1; if (fastcat < 0) { const char *e = getenv("SCRIP_ALPHA_FASTCAT"); fastcat = (e && *e == '0') ? 0 : 1; }
-      if (fastcat) { memcpy(cn, "alpha$", 6); char *w = cn + 6, *lim = cn + sizeof cn - 1; const char *r = name; while (*r && w < lim) *w++ = *r++; *w = '\0'; }
+      if (fastcat) { memcpy(cn, "alpha$", 6); memcpy(cn + 6, name, nl + 1); }
       else snprintf(cn, sizeof cn, "alpha$%s", name);
       { void **cell = (void **)bb_ab_fn_cell_ptr(cn);
         return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; } }
@@ -1171,7 +1173,7 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback)
 void rt_proc_seal_alpha(const char * name, void * fn) {
     static int live = -1; if (live < 0) { const char * e = getenv("SCRIP_M4_ALPHA_SEAL"); live = e ? (e[0] != '0') : 1; }
     if (!live || !name || !fn) return;
-    { extern void * bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name);
+    { extern void * bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name);
       void ** cell = (void **) bb_ab_fn_cell_ptr(cn); if (cell) *cell = fn; }
 }
 static cv_t g_initial_fired;
@@ -1216,7 +1218,7 @@ void rt_genp_deliver_γ(DESCR_t v)
 {
     rt_genp_s *g = g_genp_self;
     if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v); }
-    { uint64_t d[2]; memcpy(d, &v, 16); scrip_coret(d[0], d[1], (void *)0); }
+    { uint64_t d0, d1; memcpy(&d0, &v, 8); memcpy(&d1, (char *)&v + 8, 8); scrip_coret(d0, d1, (void *)0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_deliver_ω(void)
@@ -1237,7 +1239,7 @@ uint64_t rt_genp_deliver_n2_γ(uint64_t H)
     long ftc = (g->region_ft + 15L) & ~15L;
     DESCR_t v; memcpy(&v, (const void *)(uintptr_t)(H - (uint64_t)ftc), 16);
     if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v); }
-    { uint64_t d[2]; memcpy(d, &v, 16); scrip_coret(d[0], d[1], (void *)0); }
+    { uint64_t d0, d1; memcpy(&d0, &v, 8); memcpy(&d1, (char *)&v + 8, 8); scrip_coret(d0, d1, (void *)0); }
     return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1263,7 +1265,7 @@ static void rt_genp_destroy(rt_genp_s *g)
     ct_drop(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t out2[2], void **hout)
+static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t *out2, void **hout)
 {
     DESCR_t r;
     if (!ok || g->done == 2) { if (hout) *hout = (void *)0; rt_genp_destroy(g); return FAILDESCR; }
@@ -1950,7 +1952,7 @@ void rt_define_bind_entry(const char *fname, const char *entry)
     if (!fname || !*fname || !entry || !*entry) return;
     { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); if (!fn) return;
       { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
-      { char cell[300]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } } }
+      { char cell[fmt_len("entry$%s", fname)]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
