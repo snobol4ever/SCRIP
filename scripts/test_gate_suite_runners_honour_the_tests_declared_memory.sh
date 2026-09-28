@@ -406,7 +406,10 @@ need test_prolog_inria_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 
 need test_prolog_logtalk_suite.sh begin 'declared_memory_begin "\$SUITE/ALL.csv"' 1; need test_prolog_logtalk_suite.sh hands-it-over '--decl "\$_decl"' 1
 need util_logtalk_grade.py per-case 'env=decl_env(decl' 2; need util_logtalk_grade.py runs 'cwd=d, env=env)' 2
 need test_prolog_swi_suite.sh runs 'run_at_declared_arena "\$SWIT/ALL.csv"' 2
-for r in test_icon_arizona_suite.sh test_icon_ipl_suite.sh test_icon_jcon_suite.sh; do need "$r" heap declared_arena_kb 1; need "$r" stack declared_stack_kb 1; done
+# ⭐ THE THREE ICON PACKAGE RUNNERS PASS THE DECLARATION AS SWITCHES (ceo CEO-1353, the coo's census): declared_arena_switches reads both
+# cells, and the words ride the m3 command line after --run and the compile args and lead the m4 binary's arguments -- never SCRIP_HEAP_KB.
+for r in test_icon_arizona_suite.sh test_icon_ipl_suite.sh test_icon_jcon_suite.sh; do need "$r" heap+stack declared_arena_switches 1; need "$r" m3-switches '--run \$_ca \$_sw ' 1; done
+need test_icon_arizona_suite.sh m4-switches '"\$name" \$_sw ' 1; need test_icon_ipl_suite.sh m4-switches '"\$bin4" \$_sw' 2; need test_icon_jcon_suite.sh m4-switches '"\$name" \${_sw4\[@\]' 1
 [ -z "$r_miss" ] && ck ok "R  every package runner reads the declared heap and stack ($r_n wiring points across 17 runners and graders: the eight SNOBOL4, Prolog and Pascal loops, the scorecard behind gimpel, the harness behind aisnobol, inria, logtalk and its grader, SWI, and the three Icon runners)" \
   || ck bad "R  a runner lost its wiring:$r_miss"
 

@@ -378,19 +378,16 @@ for std in "${STDFILES[@]}"; do
 
     # ⛔⭐ THE ENTRY KEY IS "$IPL_ISO_SUBDIR/$id", matching what util_build_package_suite.py writes into
     # ALL.csv's entry column for a nested source (arizona's identical note at its own arena read applies
-    # here verbatim). _ARENA_PFX expands to nothing for an undeclared entry -- an undeclared program's
+    # here verbatim). _sw expands to nothing for an undeclared entry -- an undeclared program's
     # invocation is byte-identical to what it was before this existed.
-    _arena_kb=""; _ARENA_PFX=""
-    if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$IPL_ISO_SUBDIR/$id"); then
-        echo "⛔ REFUSED TO GRADE rc=2: $IPL_ISO_SUBDIR/$id carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts" >&2
+    # ⭐ THE DECLARATION RIDES THE COMMAND LINE AS SPITBOL'S SWITCHES (ceo CEO-1353, the coo's census): -d<kb>k -s<kb>k after --run and
+    # the compile args in m3, leading the binary's own arguments in m4, never the compile step. ⛔ NEVER SCRIP_HEAP_KB: gc_heap.c reads it
+    # as the collector's initial WINDOW, so every declared program ran at window = cap = 128 MB where the shipped window is 1 MB.
+    if ! _sw=$(declared_arena_switches "$PKG_CSV" "$IPL_ISO_SUBDIR/$id"); then
+        echo "⛔ REFUSED TO GRADE rc=2: $IPL_ISO_SUBDIR/$id carries a heap_kb or stack_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose sizes its own attribute file contradicts" >&2
         exit 2
     fi
-    [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $IPL_ISO_SUBDIR/$id=${_arena_kb}KB"; }
-    # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
-    if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$IPL_ISO_SUBDIR/$id"); then
-      echo "⛔ REFUSED TO GRADE rc=2: $IPL_ISO_SUBDIR/$id carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
-    fi
-    [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $IPL_ISO_SUBDIR/$id=stack:${_stack_kb}KB"; }
+    [ -n "$_sw" ] && ARENA_NAMES="${ARENA_NAMES:-} $IPL_ISO_SUBDIR/$id=[$_sw]"
 
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
     # ⛔ `--` separates SCRIP's own flags from the target program's argv; the oracle needs no separator
@@ -402,9 +399,9 @@ for std in "${STDFILES[@]}"; do
     decl_ask "$IPL_ISO_SUBDIR/$id"
     _ca="$(declared_compile_args_from_table "$CA_TBL" "$IPL_ISO_SUBDIR/$id")" || exit 2
     if [ "${#IPLARGV[@]}" -gt 0 ]; then
-        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run $_ca "$icn" -- "${IPLARGV[@]}"
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run $_ca $_sw "$icn" -- "${IPLARGV[@]}"
     else
-        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$SCRIP" --run $_ca "$icn"
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run $_ca $_sw "$icn"
     fi
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
@@ -422,9 +419,9 @@ for std in "${STDFILES[@]}"; do
     ${_drvpath[@]+"${_drvpath[@]}"} "$SCRIP" --compile $_ca "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
         if [ "${#IPLARGV[@]}" -gt 0 ]; then
-            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$bin4" -- "${IPLARGV[@]}"
+            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4" $_sw -- "${IPLARGV[@]}"
         else
-            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$bin4"
+            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4" $_sw
         fi
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)

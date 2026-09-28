@@ -16,14 +16,14 @@ plant() {
   printf 'argw\t-i\t5000\t-x\n' > "$SG_PKG/progs/argw.argv"
 }
 red=0
-dd() { grep -c 'ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" $_ARENA_PFX "$bin4" -- "${IPLARGV\[@\]}"' "$1/test_icon_ipl_suite.sh"; }
+dd() { grep -c 'ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4" $_sw -- "${IPLARGV\[@\]}"' "$1/test_icon_ipl_suite.sh"; }
 [ "$(dd "$SG_HERE")" -eq 1 ] || { echo "  FAIL (a): test_icon_ipl_suite.sh's m4 run does not write -- before the program's argv"; red=1; }
 g="$(sg_verdict "$SG_HERE" argw plant)"
 case "$g" in "MINTED=1 M3=PASS M4=PASS"*) ;; *) echo "  FAIL (b) green: $g"; red=1 ;; esac
 bin="$(ls "$SG_T"/argw.*.bin 2>/dev/null | head -1)"
 if [ -x "$bin" ]; then o="$("$bin" -i 5000 -x 2>&1)"; rc=$?; printf '%s' "$o" | grep -q 'arg "-i"' && [ "$rc" -eq 0 ] && { echo "  FAIL (c): without -- the binary still handed -i 5000 to the program -- the separator is not load-bearing"; red=1; }
 else echo "  FAIL (c): no m4 binary to probe"; red=1; fi
-d="$(sg_doctor "s = s.replace('\"\$bin4\" -- \"\${IPLARGV[@]}\"', '\"\$bin4\" \"\${IPLARGV[@]}\"', 1)" test_icon_ipl_suite.sh)" || exit 2
+d="$(sg_doctor "s = s.replace('\"\$bin4\" \$_sw -- \"\${IPLARGV[@]}\"', '\"\$bin4\" \$_sw \"\${IPLARGV[@]}\"', 1)" test_icon_ipl_suite.sh)" || exit 2
 [ "$(dd "$d")" -eq 0 ] || { echo "  FAIL (d) red: the doctored runner still reads as writing --"; red=1; }
 [ "$red" -eq 0 ] && { echo "✅ GATE PASS [$G]: the IPL runner ends the runtime switches before a program's argv in m4; a unit given -i 5000 matches in m3 and m4 ($g); without -- its argv does not arrive (rc=$rc)"; exit 0; }
 echo "⛔ GATE FAIL [$G]"; exit 1

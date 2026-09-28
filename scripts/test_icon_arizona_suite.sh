@@ -238,18 +238,17 @@ for std in "$SUITE"/*.ref; do
   # ⛔⭐ THE ENTRY KEY IS "$sub/$name", WHICH IS EXACTLY WHAT util_build_package_suite.py WRITES INTO THE
   # entry COLUMN for a nested source (it qualifies as "parentdir/stem"). Using the bare $name here would
   # silently match nothing and every declaration would read as absent -- a default that looks like a
-  # decision. _ARENA_PFX expands to NOTHING for an undeclared entry, so an undeclared program's command
+  # decision. _sw expands to NOTHING for an undeclared entry, so an undeclared program's command
   # line is byte-identical to what it was before this existed.
-  _ARENA_PFX=""
-  if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$sub/$id"); then
-    echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts"; exit 2
+  # ⭐ THE DECLARATION RIDES THE COMMAND LINE AS SPITBOL'S SWITCHES (ceo CEO-1353, the coo's census): -d<kb>k -s<kb>k after --run
+  # and the compile args in m3, leading the binary's own arguments in m4, never the compile step -- spelled by declared_arena_switches
+  # as corpus_suite_harness._size_switches spells them. ⛔ NEVER SCRIP_HEAP_KB: gc_heap.c reads it as the collector's initial WINDOW,
+  # so every declared program ran at window = cap = 128 MB where the shipped window is 1 MB (and under make test-arena the
+  # declaration overrode the tiny window). An undeclared program's command line is byte-identical to before.
+  if ! _sw=$(declared_arena_switches "$PKG_CSV" "$sub/$id"); then
+    echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a heap_kb or stack_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose sizes its own attribute file contradicts"; exit 2
   fi
-  [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="$ARENA_NAMES $sub/$id=${_arena_kb}KB"; }
-  # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
-  if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$sub/$id"); then
-    echo "⛔ REFUSED TO GRADE rc=2: $sub/$name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
-  fi
-  [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $sub/$id=stack:${_stack_kb}KB"; }
+  [ -n "$_sw" ] && ARENA_NAMES="$ARENA_NAMES $sub/$id=[$_sw]"
   # ⭐ AND ITS DECLARED COMPILE SWITCHES, THE SAME KEY (clause 8 (f), CEO-1281): placed after --run and --compile, before the source.
   decl_ask "$sub/$id"
   _ca="$(declared_compile_args_from_table "$CA_TBL" "$sub/$id")" || exit 2
@@ -285,7 +284,7 @@ for std in "$SUITE"/*.ref; do
   # <stem>.clib sidecar names the vendored sources; declared_clib_beside (lib_declared_arena.sh, the one reader) builds them and the run
   # gets FPATH=". <that directory>" in both modes -- the same search iconx makes. No sidecar, no FPATH: every other program runs as before.
   _fp=(); _clib="$(declared_clib_beside "$SUITE/$name.icn" "$PKG")" || exit 2; [ -n "$_clib" ] && _fp=(env "FPATH=. $_clib")
-  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run $_ca "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
@@ -324,7 +323,7 @@ for std in "$SUITE"/*.ref; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$name" < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
       m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi

@@ -18,6 +18,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 G=test_gate_icon_arizona_driver_ipath_names_libraries_not_programs
 SCRIP="$ROOT/scrip"; R="$HERE/test_icon_arizona_suite.sh"
 [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: scrip not built"; exit 2; }
+. "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: lib_gate.sh unloadable"; exit 2; }
+gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 [ -f "$R" ] || { echo "⛔ GATE REFUSE(2) [$G]: $R absent"; exit 2; }
 . "$HERE/lib_oracle_flags.sh"
 ICONT="$(icont_bin)"; ICONX="$(iconx_bin)"

@@ -228,17 +228,17 @@ run_one() {
     # ⛔ AND A DRIVER'S KEY IS ITS LIBRARY'S (CEO-1269; coo 2026-09-27): $name is the file that RUNS, so for NAME_driver it looked up
     # "NAME_driver", a row no table carries, while the unit is counted, named and recorded as NAME -- the key IPL and Arizona read.
     local _akey="${name%_driver}"
-    local _arena_kb _stack_kb _ARENA_PFX=""
-    if ! _arena_kb=$(declared_arena_kb "$PKG_CSV" "$_akey"); then
-        echo "⛔ REFUSED TO GRADE rc=2: $name carries a heap_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose arena its own attribute file contradicts" >&2
+    # ⭐ THE DECLARATION RIDES THE COMMAND LINE AS SPITBOL'S SWITCHES (ceo CEO-1353, the coo's census): -d<kb>k -s<kb>k after --run and
+    # the compile args in m3, leading the binary's own arguments in m4 (a -- before the program's argv, as the harness's run_m4), never
+    # the compile step. ⛔ NEVER SCRIP_HEAP_KB: gc_heap.c reads it as the collector's initial WINDOW, so every declared program ran at
+    # window = cap = 128 MB where the shipped window is 1 MB. An undeclared program's command line is byte-identical to before.
+    local _sw
+    if ! _sw=$(declared_arena_switches "$PKG_CSV" "$_akey"); then
+        echo "⛔ REFUSED TO GRADE rc=2: $name carries a heap_kb or stack_kb cell this runner will not honour (reason above) -- grading it at the shipped default would publish a row whose sizes its own attribute file contradicts" >&2
         exit 2
     fi
-    [ -n "$_arena_kb" ] && { _ARENA_PFX="env SCRIP_HEAP_KB=$_arena_kb"; ARENA_NAMES="${ARENA_NAMES:-} $name=${_arena_kb}KB"; }
-    # ⭐ AND THE DECLARED STACK, THE SAME WAY (CEO-1225, the coo): SCRIP_STACK sizes the m3 process and the m4 binary alike.
-    if ! _stack_kb=$(declared_stack_kb "$PKG_CSV" "$_akey"); then
-      echo "⛔ REFUSED TO GRADE rc=2: $name carries a stack_kb cell this runner will not honour (reason above) -- grading it at the runtime's floor would publish a row whose stack its own attribute file contradicts"; exit 2
-    fi
-    [ -n "$_stack_kb" ] && { _ARENA_PFX="${_ARENA_PFX:-env} SCRIP_STACK=${_stack_kb}k"; ARENA_NAMES="${ARENA_NAMES:-} $name=stack:${_stack_kb}KB"; }
+    [ -n "$_sw" ] && ARENA_NAMES="${ARENA_NAMES:-} $name=[$_sw]"
+    local -a _sw4=(); [ -n "$_sw" ] && { read -r -a _sw4 <<<"$_sw"; [ ${#prog_args[@]} -gt 0 ] && _sw4+=(--); }
     local _ca; _ca="$(declared_compile_args_from_table "$CA_TBL" "$_akey")" || exit 2
     # ⛔ A DRIVER RUN ONLY PUTS ITS OWN DIRECTORY FIRST ON IPATH (coo 2026-09-25, hq_icon's measurements): a driver's ref was cut over
     # the library shipped beside it, while every other program's ref was cut by icont against its INSTALLED IPL ucode, which the
@@ -260,7 +260,7 @@ run_one() {
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
-            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} $_ARENA_PFX timeout "$TIMEOUT" "$SCRIP" --run $_ca "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -291,7 +291,7 @@ run_one() {
             else
                 # ⭐ BARE RELATIVE NAME, matching run_m4 in corpus_suite_harness.py exactly: a mode-4
                 # binary's argv IS the program's argv, so what we type here is what &progname answers.
-                ( cd "$rundir" && PATH="$rundir:$PATH" $_ARENA_PFX timeout "$TIMEOUT" "$name" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+                ( cd "$rundir" && PATH="$rundir:$PATH" timeout "$TIMEOUT" "$name" ${_sw4[@]+"${_sw4[@]}"} ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
                 rc=$?
             fi
             ;;
