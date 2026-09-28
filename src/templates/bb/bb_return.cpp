@@ -9,23 +9,23 @@ extern "C" {
 extern "C" void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_return() {
-    if (_.op_zres && _.op_dval != 2.0) {
-        std::string s = x86("comment", "IR_RETURN ZD (ZK-4 cells arm): ZOPQ -> FRQ(result) -> gamma+release")
-                      + x86_alpha();
-        if (_.op_zread[0] >= 0) {
-            s += x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 0));
-            s += x86("note", ZOPN(0)) + x86("mov", "rdx", ZOPQ(0, 8));
-        } else {
-            s += x86("mov", "eax", (long)DT_SNUL);
-            s += x86("mov", "edx", 0L);
-        }
-        s += x86("mov", FRQ(0), "rax");
-        s += x86("mov", FRQ(8), "rdx");
-        if (_.op_zread[0] < 0) { s += x86("mov", "rax", FRQ(0)); s += x86("mov", "rdx", FRQ(8)); }
-        s += x86_gamma();
-        return s;
-    }
-    int gen_ret = (_.op_dval != 2.0 && _.flat_gen && _.op_sb >= 0 && _.lbl_t1_p && icn_gen_regime()) ? 1 : 0;
+    if (_.op_zres && _.op_dval != 2.0)
+        return x86("comment", "IR_RETURN ZD (ZK-4 cells arm): ZOPQ -> FRQ(result) -> gamma+release")
+             + x86_alpha()
+             + IF(_.op_zread[0] >= 0,
+                  x86("note", ZOPN(0))
+                + x86("mov", "rax", ZOPQ(0, 0))
+                + x86("note", ZOPN(0))
+                + x86("mov", "rdx", ZOPQ(0, 8)))
+             + IF(!(_.op_zread[0] >= 0),
+                  x86("mov", "eax", (long)DT_SNUL)
+                + x86("mov", "edx", 0L))
+             + x86("mov", FRQ(0), "rax")
+             + x86("mov", FRQ(8), "rdx")
+             + IF(_.op_zread[0] < 0,
+                  x86("mov", "rax", FRQ(0))
+                + x86("mov", "rdx", FRQ(8)))
+             + x86_gamma();
     return x86("comment", "IR_RETURN")
          + x86_alpha()
          + (_.op_dval != 2.0 && _.flat_gen && _.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
