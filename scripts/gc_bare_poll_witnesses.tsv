@@ -106,7 +106,7 @@ src/templates/bb/bb_match_replace.cpp:34:rt_match_replace	src/templates/bb/bb_ma
 src/templates/bb/bb_match_value.cpp:21:rt_match_value_get_pat_dtp	src/templates/bb/bb_match_value.cpp:31	UNWITNESSED
 src/templates/bb/bb_random.cpp:18:rt_random_var_strict/rt_random_var	src/templates/bb/bb_random.cpp:23	hb_table_dump_every_key_ref.icn
 src/templates/bb/bb_return.cpp:46:rt_trace_gen_return_hook	src/templates/bb/bb_return.cpp:47	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:31:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:34	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:30:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:33	hb_icn_reversible_assignment_to_pos_and_subject.icn
 src/templates/bb/bb_rev_assign_global.cpp:37:rt_keyword_pos_set_strict	src/templates/bb/bb_rev_assign_global.cpp:42	hb_icn_reversible_assignment_to_pos_and_subject.icn
 src/templates/bb/bb_rev_assign_global.cpp:45:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_rev_assign_global.cpp:51	hb_icn_reversible_assignment_to_pos_and_subject.icn
 src/templates/bb/bb_rev_assign_global.cpp:63:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_rev_assign_global.cpp:67	hb_icn_reversible_assignment_to_pos_and_subject.icn
