@@ -7218,6 +7218,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     const char *t;
     int declared = 0;
     (void)nargs;
+    if (av.v == DT_EXTL) { extern DESCR_t rt_extl_name(DESCR_t); *out = rt_extl_name(av); return 1; }
     if (av.v == DT_CO)       t="co-expression";
     else if (av.v == DT_BIG) t="integer";
     else if (IS_INT_fn(av))  t="integer";
@@ -7310,6 +7311,7 @@ static int sort_type_rank(DESCR_t v) {
     if (v.v == DT_A) return 8;
     if (v.v == DT_T) return (v.tbl && v.tbl->is_set) ? 9 : 10;
     if (v.v == DT_DATA) { DESCR_t tag = FIELD_GET_fn(v, "gen_type"); return (tag.v == DT_S && tag.s && !strcmp(tag.s, "list")) ? 8 : 11; }
+    if (v.v == DT_EXTL) return 12;
     return 3;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -7359,6 +7361,7 @@ static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
     if (ra == 5) return sort_key_str_cmp(a, b);
     if (ra == 7) { int c = strcmp(sort_proc_name(a), sort_proc_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     if (ra == 11) { int c = strcmp(sort_struct_type_name(a), sort_struct_type_name(b)); if (c) return c < 0 ? -1 : 1; }
+    if (ra == 12) { extern int rt_extl_cmp(DESCR_t, DESCR_t); return rt_extl_cmp(a, b); }
     return sort_long_cmp(sort_struct_serial(a), sort_struct_serial(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8151,6 +8154,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
         char *buf = rt_heap_alloc_c(256);
         if (av.v == DT_SNUL)     { *out = STRVAL("&null"); return 1; }
+        if (av.v == DT_EXTL)     { extern DESCR_t rt_extl_image(DESCR_t); *out = rt_extl_image(av); return 1; }
         if (av.v == DT_CO)       { extern long scrip_coexpr_serial_of(void *); extern long scrip_coexpr_activations_of(void *); snprintf(buf,128,"co-expression_%ld(%ld)", scrip_coexpr_serial_of(av.p), scrip_coexpr_activations_of(av.p)); *out = STRVAL(buf); return 1; }
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
@@ -8628,6 +8632,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5811: ;
     if ((_bid == BID_copy) && nargs == 1) {
         DESCR_t src = args[0];
+        if (src.v == DT_EXTL) { extern DESCR_t rt_extl_copy(DESCR_t); *out = rt_extl_copy(src); return 1; }
         if (src.v == DT_T && src.tbl) {
             extern TBBLK_t *set_new(void);
             TBBLK_t *nt = src.tbl->is_set ? set_new() : table_new();

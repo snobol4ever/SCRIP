@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1884
+#define GC_ALLOC_TAB_N 1889
 #define GC_ALLOC_TAB_N_VOID 217
-#define GC_ALLOC_TAB_N_DESCR 1030
-#define GC_ALLOC_TAB_N_OTHER 631
+#define GC_ALLOC_TAB_N_DESCR 1033
+#define GC_ALLOC_TAB_N_OTHER 633
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -589,6 +589,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_tb_builtins_at", GC_RET_VOID },
     { "icn_tb_image", GC_RET_VOID },
     { "icn_true_len", GC_RET_OTHER },
+    { "icnx_extl_call", GC_RET_OTHER },
     { "icnx_lrgint_str", GC_RET_OTHER },
     { "icnx_to_double", GC_RET_OTHER },
     { "icon_radix_big", GC_RET_DESCR },
@@ -1071,6 +1072,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_div_zero", GC_RET_VOID },
     { "rt_extfn_invoke", GC_RET_DESCR },
     { "rt_extfn_mint", GC_RET_DESCR },
+    { "rt_extl_cmp", GC_RET_OTHER },
+    { "rt_extl_copy", GC_RET_DESCR },
+    { "rt_extl_image", GC_RET_DESCR },
+    { "rt_extl_name", GC_RET_DESCR },
     { "rt_field_var", GC_RET_DESCR },
     { "rt_field_var_cell", GC_RET_DESCR },
     { "rt_field_var_strict", GC_RET_DESCR },

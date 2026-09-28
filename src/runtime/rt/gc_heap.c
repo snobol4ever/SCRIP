@@ -831,7 +831,7 @@ int rt_gc_slot_registered(const void *loc)
 static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int gc_tag_bears_ptr(uint8_t v) __attribute__((always_inline));
-static inline int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E || v == DT_BIG || v == DT_CPLX; }
+static inline int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E || v == DT_BIG || v == DT_CPLX || v == DT_EXTL; }
 static DESCR_t **g_gc_wl = (DESCR_t **)0;
 static long g_gc_wln = 0, g_gc_wlcap = 0, g_gc_wlmax = 0;
 static int g_gc_wl_draining = 0;
@@ -959,6 +959,12 @@ static void gc_visit_one(DESCR_t *d)
         gc_slot_reg_tgt((void *)&d->p, h);
         return; }
     case DT_CPLX: {
+        rt_hblk_t *h = gc_blk_of((const char *)d->p);
+        if (!h) return;
+        gc_mark_blk(h, 0);
+        gc_slot_reg_tgt((void *)&d->p, h);
+        return; }
+    case DT_EXTL: {
         rt_hblk_t *h = gc_blk_of((const char *)d->p);
         if (!h) return;
         gc_mark_blk(h, 0);
@@ -1185,6 +1191,7 @@ static int gc_type_says_ref(const DESCR_t *d)
         case DT_DATA: return 1;
         case DT_BIG:  return 1;
         case DT_CPLX: return 1;
+        case DT_EXTL: return 1;
         case DT_P:    return 1;
         case DT_PLVAR: return 1;
         case DT_PLREF: return 1;
@@ -1205,7 +1212,7 @@ static int gc_sniff_would_take(const DESCR_t *d)
     if (d->v == DT_E && IS_PROCVAL_fn(*d)) { rt_hblk_t *eh = gc_blk_of(d->s); if (eh && d->s >= (char *)(eh + 1) && d->s < (char *)eh + eh->size) return 1; }
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN) return gc_dvec_ref_ok(d);
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
-    if (d->v == DT_BIG || d->v == DT_CPLX) { rt_hblk_t *nh = gc_blk_of((const char *)d->p); if (nh && (char *)d->p == (char *)(nh + 1)) return 1; }
+    if (d->v == DT_BIG || d->v == DT_CPLX || d->v == DT_EXTL) { rt_hblk_t *nh = gc_blk_of((const char *)d->p); if (nh && (char *)d->p == (char *)(nh + 1)) return 1; }
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { rt_hblk_t *ph = gc_blk_of((const char *)d->p); if (ph) return 1; }
     return 0;
 }
@@ -1311,6 +1318,7 @@ static int gc_cell_visit(DESCR_t *d)
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { if (gc_blk_of((const char *)d->p)) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); if (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     if (d->v == DT_CPLX) { rt_hblk_t *ch = gc_blk_of((const char *)d->p); if (ch && ch->type == HB_WSB && (char *)d->p == (char *)(ch + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
+    if (d->v == DT_EXTL) { rt_hblk_t *xh = gc_blk_of((const char *)d->p); if (xh && xh->type == HB_WSB && (char *)d->p == (char *)(xh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     return 0;
 }
 static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }

@@ -10,10 +10,12 @@ static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 static long g_agg_list_ser = 1;
 static long g_agg_table_ser = 1;
 static long g_agg_set_ser = 1;
+static long g_agg_external_ser = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_agg_serial_list(void) { return g_agg_list_ser++; }
 long rt_agg_serial_table(void) { return g_agg_table_ser++; }
 long rt_agg_serial_set(void) { return g_agg_set_ser++; }
+long rt_agg_serial_external(void) { return g_agg_external_ser++; }
 static long g_sno_dumpno = 0;
 long rt_sno_dumpno_next(void) { return ++g_sno_dumpno; }
 void rt_sno_dumpno_undo(void) { if (g_sno_dumpno > 0) g_sno_dumpno--; }
