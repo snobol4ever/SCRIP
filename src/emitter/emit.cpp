@@ -1094,7 +1094,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern void bb_prepare(IR_t *nd);
     extern int  bb_slot_get(IR_t *nd);
     if (!nd) return 1;
-    g_emit.node = nd;
+    g_emit.node = nd; g_emit.op_pat_static = nd->pat_static;
     emit_set_sink(out);
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
