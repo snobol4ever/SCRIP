@@ -374,6 +374,18 @@ static IR_t * rk_xf_body(rcx_t * cx, const tree_t * xf, int xfk, const char * vn
     return av;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω) {
+    extern int is_global(const char *);
+    IR_t * r = NULL;
+    const tree_t * v = (br && br->t == TT_ASSIGN && br->n >= 2) ? br->c[0] : NULL;
+    if (v && v->t == TT_VAR && v->v.sval && is_global(v->v.sval)) {
+        IR_t * gv = build(cx, IR_VAR, at, ω); IR_LIT(gv).sval = v->v.sval; ir_operand_push(at, gv);
+        return lower_rv(cx, br, gv, ω, &r);
+    }
+    IR_t * e = lower_rv(cx, br, at, ω, &r); if (r) ir_operand_push(at, r);
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -779,9 +791,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * jv = build(cx, IR_VAR, γ, ω); IR_LIT(jv).sval = tname;
         IR_t * at = build(cx, IR_ASSIGN, jv, ω); IR_LIT(at).sval = tname;
         IR_t * af = build(cx, IR_ASSIGN, jv, ω); IR_LIT(af).sval = tname;
-        IR_t * rt_ = NULL, * rf_ = NULL;
-        IR_t * et = lower_rv(cx, t->c[1], at, ω, &rt_); if (rt_) ir_operand_push(at, rt_);
-        IR_t * ef = lower_rv(cx, t->c[2], af, ω, &rf_); if (rf_) ir_operand_push(af, rf_);
+        IR_t * et = rk_tern_branch(cx, t->c[1], at, ω);
+        IR_t * ef = rk_tern_branch(cx, t->c[2], af, ω);
         IR_t * e = lower_cond(cx, t->c[0], et, ef);
         *res = jv; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -1315,11 +1326,19 @@ static void rk_file_scope_reads_are_globals(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_register_state_globals(const tree_t * t) {
+    extern void global_register(const char * name); extern int is_global(const char *);
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval) { const char * n = t->v.sval; const char * b = (n[0] == '@' || n[0] == '%') ? n + 1 : n; if (!strncmp(b, "__rk_st", 7) && !is_global(n)) global_register(n); }
+    for (int i = 0; i < t->n; i++) rk_register_state_globals(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void raku_register_program(stage2_t * s2, const tree_t * prog) {
     extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
     extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
     extern void record_register(const char * spec);
     int mod_idx = -1;
+    rk_register_state_globals(prog);
     for (int _ci = 0; _ci < prog->n; _ci++) {
         const tree_t * s = prog->c[_ci];
         if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;

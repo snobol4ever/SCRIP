@@ -16,7 +16,7 @@ enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_
 #define PRLE(c) (((c) - 'a') * 4 + 1)
 typedef struct { const char *sym; int prec; int sub; unsigned char assoc; unsigned char flags; } RkOp;
 typedef struct { char *sym; int len; int prec; int depth; char cat; int assoc; unsigned flags; int wordend; } RkUserOp;
-typedef struct { char *name; int depth; int value; } RkName;
+typedef struct { char *name; int depth; int value; const char *st; } RkName;
 typedef struct { int pos; int len; int depth; } RkMyst;
 typedef struct { char **v; int n; int c; } RkStrs;
 typedef struct {
@@ -47,7 +47,7 @@ typedef struct RkP {
     int *ends; int nends; int cends;
     RkUserOp *uops; int nuops; int cuops;
     RkName *names; int nnames; int cnames;
-    int depth;
+    int depth; int st_uid;
     char *pkg;
     int finished;
     int comp_unit_begin;
@@ -379,6 +379,7 @@ static void add_name_n(RkP *p, const char *s, int n) {
     p->names[p->nnames].name = ct_strndup0(s, n);
     p->names[p->nnames].depth = p->depth;
     p->names[p->nnames].value = 0;
+    p->names[p->nnames].st = NULL;
     p->nnames++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -411,6 +412,7 @@ static int user_name_index(RkP *p, const char *s, int n) {
     for (int i = p->nnames - 1; i >= 0; i--) if ((int) strlen(p->names[i].name) == n && !memcmp(p->names[i].name, s, (size_t) n)) return i;
     return -1;
 }
+static const char *state_name_of(void *ctx, const char *s, int n) { RkP *p = (RkP *) ctx; int i = user_name_index(p, s, n); return i >= 0 ? p->names[i].st : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_name_n(RkP *p, const char *s, int n) {
     int i0 = 0; while (i0 + 1 < n && !(s[i0] == ':' && s[i0 + 1] == ':')) i0++;
@@ -2770,6 +2772,10 @@ static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
     if (twig) return;
     if (p->in_decl) {
         add_name_n(p, p->s + pos, e - pos);
+        if (p->scope == 7 && (c == '$' || c == '@' || c == '%')) {
+            int L = e - pos + 32; char *st = (char *) ct_alloc((size_t) L);
+            snprintf(st, (size_t) L, "%c__rk_st%d_%.*s", c, ++p->st_uid, e - pos - 1, p->s + pos + 1); p->names[p->nnames - 1].st = st;
+        }
         if (p->load_depth) { RK_GROW(p->exports, p->nexports, p->cexports, char *); p->exports[p->nexports++] = ct_strndup0(p->s + pos, e - pos); }
         return;
     }
@@ -3453,6 +3459,7 @@ static int r_term(RkP *p, int pos) {
         }
         e = r_variable(p, pos);
         if (e >= 0 && p->build) { if ((c == '$' || c == '@') && ch(p, pos + 1) == '<') rkb_var(p->B, &p->tm, pos, e, p->s + pos + 2, e - pos - 3); else rkb_var(p->B, &p->tm, pos, e, NULL, 0); }
+        if (e >= 0 && p->build && p->tm.kind == TK_VAR && p->tm.t && p->tm.t->t == TT_VAR) { int ni = user_name_index(p, p->s + pos, e - pos); if (ni >= 0 && p->names[ni].st) rkb_rename_var(p->B, &p->tm, p->names[ni].st); }
         return e;
     }
     if (is_digit_cp(c) || (c == '.' && is_digit_cp(cp_at(p, pos + 1)))) { e = r_numish(p, pos); if (e >= 0 && p->build) rkb_number(p->B, &p->tm, pos, e); return e; }
@@ -3931,6 +3938,7 @@ static int r_variable_declarator(RkP *p, int pos) {
     if (p->build) {
         RkDecl *d = (RkDecl *) ct_zalloc(1, sizeof(RkDecl));
         d->sigil = ch(p, pos); d->name = ct_strndup0(p->s + pos, var_end - pos);
+        { int ni = p->scope == 7 ? user_name_index(p, p->s + pos, var_end - pos) : -1; if (ni >= 0 && p->names[ni].st) d->name = p->names[ni].st; }
         if (d->sigil == '&') rkb_codevar(p->B, d->name);
         d->tr = vtr; d->ntr = nvtr;
         p->dcl = d;
@@ -4952,7 +4960,7 @@ int rk_syntax_check(const char *src, int len, const char *path, char **err) {
 tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg) {
     RkP *p = (RkP *) ct_alloc(sizeof(RkP));
     memset(p, 0, sizeof *p);
-    p->s = src; p->n = len; p->file = path ? path : "<stdin>"; p->build = 1; p->B = rkb_new(src, len);
+    p->s = src; p->n = len; p->file = path ? path : "<stdin>"; p->build = 1; p->B = rkb_new(src, len); rkb_set_st_lookup(p->B, state_name_of, p);
     p->myst_off = 1; p->lax = 1;
     p->wsmark = (int *) ct_alloc(sizeof(int) * ((size_t) len + 2));
     memset(p->wsmark, 0, sizeof(int) * ((size_t) len + 2));

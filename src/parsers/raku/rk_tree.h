@@ -63,6 +63,8 @@ tree_t  *rkb_elem_incdec(RkB *b, tree_t *g, int add, int post);
 tree_t  *rkb_paren(RkB *b, RkList *L, int nstmts);
 void     rkb_contextualize(RkB *b, RkTerm *it, const char *meth);
 void     rkb_codevar(RkB *b, const char *name);
+void     rkb_rename_var(RkB *b, RkTerm *it, const char *name);
+void     rkb_set_st_lookup(RkB *b, const char *(*look)(void *, const char *, int), void *ctx);
 tree_t  *rkb_bracket(RkB *b, RkList *L);
 void     rkb_var(RkB *b, RkTerm *it, int from, int to, const char *named_capture, int nclen);
 void     rkb_number(RkB *b, RkTerm *it, int from, int to);

@@ -16,6 +16,7 @@ struct RkB {
     const char *s; int len;
     int *nlp; int nnlp, cnlp;
     NS arrn, als, codev;
+    const char *(*st_look)(void *, const char *, int); void *st_ctx;
     int post_uid, twpost_uid, destr_uid, fm_uid;
     int after_line;
     tree_t *tail_list, *tail_tree;
@@ -112,6 +113,10 @@ static tree_t *var_node(RkB *b, const char *name) {
     if (name && name[0] != '$' && name[0] != '@' && name[0] != '%') e->slen = 1;
     return e;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_set_st_lookup(RkB *b, const char *(*look)(void *, const char *, int), void *ctx) { b->st_look = look; b->st_ctx = ctx; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_rename_var(RkB *b, RkTerm *it, const char *name) { it->name = name; it->t = var_node(b, name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_codevar(RkB *b, const char *name) { if (name && name[0] == '&' && name[1]) ns_add(&b->codev, intern(name + 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -578,7 +583,8 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             i++;
             SB vn = { 0 };
             while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
-            tree_t *var = leaf_sval(TT_VAR, sb_str(&vn));
+            char *vs = sb_str(&vn); const char *st = b->st_look ? b->st_look(b->st_ctx, fmt("$%s", vs), (int) strlen(vs) + 1) : NULL;
+            tree_t *var = leaf_sval(TT_VAR, st ? st + 1 : vs);
             result = result ? expr_binary(TT_CAT, result, var) : var;
         }
         else if (s[i] == '@' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z'))) {
@@ -586,6 +592,7 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             SB vn = { 0 }; sb_c(&vn, s[i]); i++;
             while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
             char *vname = sb_str(&vn);
+            { const char *st = b->st_look ? b->st_look(b->st_ctx, vname, (int) strlen(vname)) : NULL; if (st) vname = (char *) st; }
             tree_t *arrpart;
             if (i < len && s[i] == '[') {
                 i++;
@@ -1492,6 +1499,12 @@ static tree_t *decl_node(RkB *b, const char *type, tree_t *var, tree_t *val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
+    if (d->scope == 6 && d->sigil != '(' && d->name && d->name[0]) {
+        d->scope = 0; tree_t *once = build_decl(b, d, outer, ofirst); d->scope = 6;
+        tree_t *flag = var_node(b, fmt("$%s_init", d->name + 1));
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR); ast_push(seq, expr_binary(TT_ASSIGN, flag, rk_ilit(1))); ast_push(seq, once);
+        tree_t *u = ast_node_new(TT_UNLESS); ast_push(u, rk_tree_clone(flag)); ast_push(u, seq); return u;
+    }
     RkEl **rs = NULL; int nrs = 0, crs = 0;
     if (d->init) for (int i = 0; i < d->init->n; i++) { GROW(rs, nrs, crs, RkEl *); rs[nrs++] = &d->init->v[i]; }
     if (outer) for (int i = ofirst; i < outer->n; i++) { GROW(rs, nrs, crs, RkEl *); rs[nrs++] = &outer->v[i]; }
