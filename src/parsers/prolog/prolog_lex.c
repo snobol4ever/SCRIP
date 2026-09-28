@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char cur(Lexer *lx) {
     return lx->src[lx->pos];
@@ -175,6 +176,22 @@ static Token scan_string(Lexer *lx) { return scan_string_q(lx, '"', TK_STRING); 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_bqstring(Lexer *lx) { return scan_string_q(lx, '`', TK_BQSTRING); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *lex_radix_to_decimal(const char *digs, int radix) {
+    size_t nd = strlen(digs), cap = nd * 2 + 2, n = 1; unsigned char *dec = (unsigned char *)ct_alloc(cap); char *out;
+    if (!dec) return NULL;
+    dec[0] = 0;
+    for (const char *q = digs; *q; q++) {
+        int carry = hexval(*q);
+        if (carry < 0 || carry >= radix) { ct_drop(dec); return NULL; }
+        for (size_t i = 0; i < n; i++) { int v = dec[i] * radix + carry; dec[i] = (unsigned char)(v % 10); carry = v / 10; }
+        while (carry) { if (n >= cap) { ct_drop(dec); return NULL; } dec[n++] = (unsigned char)(carry % 10); carry /= 10; }
+    }
+    out = (char *)ct_alloc(n + 1);
+    if (!out) { ct_drop(dec); return NULL; }
+    for (size_t i = 0; i < n; i++) out[i] = (char)('0' + dec[n - 1 - i]);
+    out[n] = 0; ct_drop(dec); return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_number(Lexer *lx) {
     int line = lx->line;
     char *buf = NULL; int len = 0, cap = 0;
@@ -210,7 +227,10 @@ static Token scan_number(Lexer *lx) {
         }
         if (!ndig || (hexval(cur(lx)) >= 0) || isalnum((unsigned char)cur(lx))) { ct_drop(buf); return make_err(line, "malformed radix integer"); }
         Token t = make_tok(TK_INT, buf, line);
-        t.ival = (long)(unsigned long long)strtoull(buf+2, NULL, radix);
+        errno = 0;
+        { unsigned long long uv = strtoull(buf + 2, NULL, radix);
+          if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { char *dec = lex_radix_to_decimal(buf + 2, radix); if (dec) { t.text = dec; t.big = 1; t.ival = 0; return t; } }
+          t.ival = (long)uv; }
         return t;
     }
     while (isdigit((unsigned char)cur(lx)) || cur(lx) == '_') {
