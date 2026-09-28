@@ -82,6 +82,7 @@
 # :198 ct_alloc (code-assertion copy), :302 ct_alloc (the Nfa), :305 ct_alloc (the state vector), :322 ct_drop x2 (nfa_free).
 # Paid back by row raku-the-regex-engine-nfa-storage-leaves-the-compile-time-arena-for-the-runtime-allocator-and-the-arena-
 # in-runtime-ratchet-returns-to-106 (owner hq_raku, the cfo's allocator: the collected GC heap, one block per regex).
+# CRITERION UNCHANGED, COUNT EARNED 2026-09-28 hq_prolog (ee6777bcc): arena_in_runtime_ratcheted 111 -> 108 -- acyclic_term/1 takes its path set and path array from rt_wsb_alloc/rt_wsb_realloc (workspace heap blocks the collector reclaims) instead of ct_alloc/ct_grow/ct_drop, so the three arena sites its old array walk carried leave the runtime.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -89,9 +90,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	111
+arena_in_runtime_ratcheted	108
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	111
+arena_in_runtime_debt	108
 container_unmarked_live	1
 libc_owned_misuse	0
 libc_doors	1
