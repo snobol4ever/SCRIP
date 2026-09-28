@@ -741,6 +741,7 @@ def apply_line_mask(text, patterns, side="both"):
 # the suite's ALL.mask beside the data. The voice is set by the suite reader from the suite's language (the SNOBOL4 family:
 # snobol4, snocone -- rebus has no oracle); S4E_FATAL_RENDER=0 is the gate's fail-once seam and nothing else's.
 FATAL_RENDER = {"voice": None}
+FATAL_REF_LINE = re.compile(r"^.*\(\d+\) : ERROR \d{3} -- ", re.M)   # the oracle's fatal line as sbl -bf prints it
 
 
 def _fatal_render_voice_for(lang):
@@ -787,7 +788,11 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     if rc is not None and rc < 0:
         return Verdict("CRASH", out, err, rc, detail=f"signal {-rc}")
     got = out.decode("utf-8", "replace").rstrip("\n")
-    if rc is not None and rc != 0:
+    # ⛔ RENDER ONLY WHAT THE REF CARRIES: the block is appended when the oracle's ref itself holds a fatal line (`<file>(<n>) : ERROR
+    # nnn -- ...`). A ref cut without one (snocone ladder__rung23_..._stlimit_halts_a_loop_body: ref `before`, want_rc 1, the halt
+    # graded by rc alone) must not gain a block it never had -- the first masters pass after the render landed read that entry
+    # FAIL and wrote SncM 337/338 on 8c81190b7, a false red of this instrument (coo 2026-09-28 11:0x), restored the same hour.
+    if rc is not None and rc != 0 and expected_text is not None and FATAL_REF_LINE.search(expected_text):
         got, _fatal_n = _render_fatal_into_stdout(got, err)
         # THE rc CLAUSE OF THE SAME LIST (measured 2026-09-28): sbl -bf EXITS 0 after a run-time fatal, SCRIP's one voice exits 1;
         # an entry whose ref was cut from the oracle declares want_rc 0, so a rendered fatal at rc 1 is the declared rc.
