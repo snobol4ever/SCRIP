@@ -361,18 +361,44 @@ Compiland       =   nPush() POS(0) $' ' *program_head
 /* ==================================================================================================================== */
 /* Driver — byte-identical in shape to the other six parsers.                             */
 /* ==================================================================================================================== */
-InitCounter();
-InitStack();
-INPUT(.INPUT, 9, '[-f0 -r16777215]');
-Src = INPUT;
-if (Src ? Compiland) {
-    ptree = Pop();
-    if (DIFFER(ptree)) {
-        i = 1;
-        n_kids = n(ptree);
-        while (LE(i, n_kids)) {
-            TreeDump(c(ptree)[i]);
-            i = i + 1;
+function ParseOne(ptree, i, n_kids) {
+    InitCounter();
+    InitStack();
+    if (Src ? Compiland) {
+        ptree = Pop();
+        if (DIFFER(ptree)) {
+            i = 1;
+            n_kids = n(ptree);
+            while (LE(i, n_kids)) {
+                TreeDump(c(ptree)[i]);
+                i = i + 1;
+            }
         }
+    } else OUTPUT = 'Parse Error';
+    return;
+}
+pf_list = HOST(4, 'PARSER_FILES');
+if (IDENT(pf_list)) {
+    INPUT(.INPUT, 9, '[-f0 -r16777215]');
+    Src = INPUT;
+    ParseOne();
+} else {
+    pf_n = 0;
+    pf_bytes = 0;
+    INPUT(.pf_names, 8, pf_list);
+    pf_t0 = TIME();
+    pf_t1 = pf_t0;
+    while (pf_name = pf_names) {
+        Src = '';
+        INPUT(.pf_file, 9, pf_name '[-r16777215]');
+        Src = pf_file;
+        ENDFILE(9);
+        pf_bytes = pf_bytes + SIZE(Src);
+        OUTPUT = '== ' pf_name;
+        ParseOne();
+        pf_n = pf_n + 1;
+        if (EQ(pf_n, 1)) pf_t1 = TIME();
     }
-} else OUTPUT = 'Parse Error';
+    pf_t2 = TIME();
+    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' first_us=' (pf_t1 - pf_t0) / 1000 ' rest_us=' (pf_t2 - pf_t1) / 1000 ' total_us=' (pf_t2 - pf_t0) / 1000;
+}

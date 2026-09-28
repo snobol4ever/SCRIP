@@ -1480,6 +1480,7 @@ typedef struct {
     char  *buf;
     size_t cap;
     const char *prebind;
+    long   rlen;
 } io_chan_t;
 static io_chan_t _io_chan[IO_CHAN_MAX];
 static int _io_chan_init = 0;
@@ -1527,6 +1528,7 @@ static void _io_chan_close(int ch) {
     _io_chan[ch].cap = 0;
     _io_chan[ch].is_output = 0;
     _io_chan[ch].is_popen = 0;
+    _io_chan[ch].rlen = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ENDFILE_(DESCR_t *a, int n) {
@@ -3355,6 +3357,13 @@ static DESCR_t NV_GET_untapped(const char *name) {
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && !_io_chan[ch].is_output && _io_chan[ch].fp) {
+        if (_io_chan[ch].rlen > 0) {
+            extern char *rt_str_alloc(long n);
+            if (!rt_line_cap(&_io_chan[ch].buf, &_io_chan[ch].cap, (size_t)_io_chan[ch].rlen + 1)) return FAILDESCR;
+            size_t got = fread(_io_chan[ch].buf, 1, (size_t)_io_chan[ch].rlen, _io_chan[ch].fp);
+            if (got == 0) return FAILDESCR;
+            { char *b = rt_str_alloc((long)got); memcpy(b, _io_chan[ch].buf, got); b[got] = '\0'; DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; }
+        }
         ssize_t nread = rt_line_read(&_io_chan[ch].buf, &_io_chan[ch].cap, _io_chan[ch].fp);
         if (nread < 0) return FAILDESCR;
         if (nread > 0 && _io_chan[ch].buf[nread-1] == '\n') { _io_chan[ch].buf[nread-1] = '\0'; nread--; }
@@ -4633,18 +4642,22 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) return NULVCL;
     FILE *f = is_pipe ? popen(fname + 1, "r") : fopen(fname, "r");
     if (!f) return FAILDESCR;
+    long fopt = -1, frlen = 0;
+    _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fopt, &frlen);
     if (ch >= 0 && ch < IO_CHAN_MAX) {
         _io_chan_close(ch);
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 0;
         _io_chan[ch].is_popen = is_pipe;
+        _io_chan[ch].rlen = frlen;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1;
-        if (vn && !strcmp(vn, "INPUT")) { if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); } _input_fp = f; _input_fp_is_popen = is_pipe; }
+        if (vn && !strcmp(vn, "INPUT")) { if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); } _input_fp = f; _input_fp_is_popen = is_pipe; _input_rlen = frlen; }
     } else {
         if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
         _input_fp = f;
         _input_fp_is_popen = is_pipe;
+        _input_rlen = frlen;
     }
     return NULVCL;
 }
