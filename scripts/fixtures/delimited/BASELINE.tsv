@@ -1,5 +1,5 @@
 # BASELINE of the delimited-aggregate census, member sites per carrier (RULES.md NO DELIMITER-JOINED AGGREGATES, CEO-1349). The count may only fall; lower it in the landing that converts the sites. Cut by the cfo on 2026-09-28 from audit_delimited_aggregates_census.py over src/ on the landing tree (a041c3c9b + this commit).
 PASCAL	18
-RAKU	129
+RAKU	113
 REGISTRY_KEY	9
 OTHER	0
