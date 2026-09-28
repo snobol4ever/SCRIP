@@ -93,7 +93,7 @@ src/templates/bb/bb_limit.cpp:62:core_icn_limit_count_check	src/templates/bb/bb_
 src/templates/bb/bb_lit_scalar.cpp:100:rt_icn_cset_register	src/templates/bb/bb_lit_scalar.cpp:103	hb_scan_subject_across_a_failing_callee.icn
 src/templates/bb/bb_make_list.cpp:30:rt_make_list	src/templates/bb/bb_make_list.cpp:36	UNWITNESSED
 src/templates/bb/bb_make_list.cpp:54:rt_make_list	src/templates/bb/bb_make_list.cpp:57	hb_size_result_polled.icn
-src/templates/bb/bb_match_atp.cpp:18:rt_at_cursor	src/templates/bb/bb_match_atp.cpp:19	UNWITNESSED
+src/templates/bb/bb_match_atp.cpp:16:rt_at_cursor	src/templates/bb/bb_match_atp.cpp:17	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:48:rt_cap_open_gva	src/templates/bb/bb_match_capture.cpp:49	hb_immediate_capture_into_a_gva_cell_polled.sno
 src/templates/bb/bb_match_capture.cpp:149:rt_cap_open_plain/rt_cap_open	src/templates/bb/bb_match_capture.cpp:150	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:159:rt_cap_land_γ	src/templates/bb/bb_match_capture.cpp:160	UNWITNESSED
