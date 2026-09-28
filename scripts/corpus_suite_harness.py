@@ -3840,6 +3840,227 @@ def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
             os.remove(path)
 
 
+# ================================================================ area smoke ===
+# THE AREA SMOKE (Lon 2026-09-27, verbatim: "So if you change the SPAN function, then run every program that has SPAN as a
+# reference. That is one of the columns in the attribute file."; ceo CEO-1342; RULES.md section ONE TESTING OFFICER, ONE SCORE
+# BOARD, THE AREA SMOKE clause 4; the coo's row instruments-the-area-smoke-...-ceo-1342). The per-landing arm every seat runs
+# INSTEAD of a suite: the master and package entries whose ATTRIBUTE ROW marks a named feature, read through THIS one reader,
+# run in both modes with each entry's declared heap_kb / stack_kb / compile_args / run_args / out_files, the population
+# printed by name beside the verdict.
+# ⛔ IT IS NOT A BOARD AND IT NEVER BECOMES ONE: it calls no one-runner guard because it needs none -- it appends NO progress
+# row and writes NO score cell (CEO-547's definition of a run that publishes nothing), and the code below has no path to
+# _progress_record. A seat that wants a suite number reads the coo's SUITE TABLE row (clause 2).
+# ⛔ THE VOCABULARY IS THE TABLES' OWN COLUMN NAMES, no taxonomy of this file's: a feature column is a 0/1 column of ALL.csv
+# past the attribute columns (a text column such as inriasuite's section/kind/err is an attribute, not a feature). A named
+# feature no table knows REFUSES rc=2 naming it; a selection of zero entries REFUSES rc=2 (a smoke that grades nothing is
+# not a verdict); a table with feature columns but no suite file beside them is PRINTED as not runnable, never silently
+# skipped. An xfail entry and an entry on the sibling ALL.outside.tsv are excluded from the run and named as excluded.
+_SMOKE_ATTRIBUTE_COLUMNS = frozenset(("rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "package", "stdin",
+                                      "want_rc", "heap_kb", "stack_kb", "compile_args", "run_args", "out_files"))
+
+
+def smoke_tables(corpus_root):
+    """Every attribute table the smoke can see, in a fixed order: [(key, csv_path, suite_path_or_None, lang)]. key is the
+    table's directory relative to corpus/ (tests/icon, packages/snobol4/gimpel). lang is the corpus directory name; the
+    SNOBOL4 family (snobol4 tables, whose suite is ALL.sno) reads through read_suite, every other through read_block_suite."""
+    out = []
+    cr = Path(corpus_root)
+    dirs = sorted(cr.glob("tests/*")) + sorted(cr.glob("packages/*/*"))
+    for d in dirs:
+        csv_path = d / "ALL.csv"
+        if not csv_path.is_file():
+            continue
+        rel = d.relative_to(cr).as_posix()
+        lang = rel.split("/")[1]
+        ext = ".sno" if lang not in LANG_CONFIGS else LANG_CONFIGS[lang]["ext"]
+        suite = d / ("ALL" + ext)
+        out.append((rel, csv_path, suite if suite.is_file() else None, lang))
+    return out
+
+
+def smoke_feature_columns(csv_path):
+    """(feature_columns, rows) of one attribute table: the columns past the attribute set whose every cell is 0, 1 or empty."""
+    import csv as _csvm
+    with open(csv_path, newline="") as f:
+        rdr = _csvm.DictReader(f)
+        fields = list(rdr.fieldnames or [])
+        rows = list(rdr)
+    feats = []
+    for c in fields:
+        if not c or c in _SMOKE_ATTRIBUTE_COLUMNS:
+            continue
+        if all((r.get(c) or "").strip() in ("0", "1", "") for r in rows):
+            feats.append(c)
+    return feats, rows
+
+
+def smoke_select(corpus_root, features, only_tables=None):
+    """The selection: {key: {"csv":..., "suite":..., "lang":..., "features": [known here], "entries": [names], "xfail": [names],
+    "rows": N}} for every table, plus the set of features no table knows. Pure reading -- nothing runs."""
+    want = list(dict.fromkeys(features))
+    known = set()
+    sel = {}
+    for key, csv_path, suite, lang in smoke_tables(corpus_root):
+        if only_tables and not any(t in key for t in only_tables):
+            continue
+        feats, rows = smoke_feature_columns(csv_path)
+        known.update(feats)
+        here = [f for f in want if f in feats]
+        names, xf = [], []
+        for r in rows:
+            if not any((r.get(f) or "").strip() == "1" for f in here):
+                continue
+            n = (r.get("entry") or "").strip()
+            if not n:
+                continue
+            if (r.get("xfail") or "").strip() == "1":
+                xf.append(n)
+            else:
+                names.append(n)
+        sel[key] = {"csv": csv_path, "suite": suite, "lang": lang, "features": here, "entries": names, "xfail": xf,
+                    "rows": len(rows), "columns": feats}
+    unknown = [f for f in want if f not in known]
+    return sel, unknown
+
+
+def _smoke_outside_names(suite):
+    """The entries the sibling ALL.outside.tsv declares outside the baseline: excluded from the smoke, named."""
+    out = set()
+    p = Path(suite).with_name("ALL.outside.tsv")
+    if p.is_file():
+        for ln in p.read_text(encoding="utf-8").splitlines():
+            if ln.strip() and not ln.lstrip().startswith("#"):
+                out.add(ln.split("\t")[0].strip())
+    return out
+
+
+def _smoke_names(names, cap):
+    if len(names) <= cap:
+        return " ".join(names)
+    return " ".join(names[:cap]) + f" ... and {len(names) - cap} more"
+
+
+def cmd_smoke(args):
+    paths = resolve_paths()
+    features = [f for tok in args.features for f in tok.replace(",", " ").split() if f]
+    only = [t for t in (args.tables or "").replace(",", " ").split() if t]
+    if args.vocabulary:
+        # THE VOCABULARY, printed from the tables themselves: test_area_smoke.sh expands a carrier map's `*` and `lang:<x>` rows
+        # through this, so the 0/1-column rule lives here once and the wrapper never re-derives it.
+        n = 0
+        for key, csv_path, suite, lang in smoke_tables(paths["corpus"]):
+            if only and not any(t in key for t in only):
+                continue
+            feats, _rows = smoke_feature_columns(csv_path)
+            if feats:
+                n += 1
+                print(f"AREA_SMOKE_VOCAB table={key} runnable={'yes' if suite else 'no'} {' '.join(feats)}")
+        if n == 0:
+            refuse("smoke --vocabulary: no attribute table with feature columns under %s%s" % (paths["corpus"], f" matching {only}" if only else ""))
+        return
+    if not features:
+        refuse("smoke: no feature named -- the area is the feature columns of ALL.csv (FENCE, SPAN, scan, suspend, cut ...); "
+               "test_area_smoke.sh derives them from a landing's diff through scripts/area_map.tsv")
+    modes = parse_modes(args.modes or "m3,m4", "smoke")
+    if not paths["corpus"].is_dir():
+        refuse(f"smoke: corpus root {paths['corpus']} is not a directory (S4E_HOME={os.environ.get('S4E_HOME', '<unset>')})")
+    sel, unknown = smoke_select(paths["corpus"], features, only)
+    if not sel:
+        refuse("smoke: no attribute table found under %s%s" % (paths["corpus"], f" matching {only}" if only else ""))
+    if unknown:
+        vocab = sorted({c for s in sel.values() for c in s["columns"]})
+        refuse("smoke: feature(s) no attribute table knows: %s -- the vocabulary is the tables' own column names (%d known: %s)"
+               % (" ".join(unknown), len(vocab), " ".join(vocab[:60]) + (" ..." if len(vocab) > 60 else "")))
+    cap = int(args.max_names)
+    total = 0
+    for key, s in sel.items():
+        if not s["entries"] and not s["xfail"]:
+            continue
+        run_note = "" if s["suite"] else " NOT RUNNABLE: no suite file beside the table"
+        print(f"AREA_SMOKE_SELECT table={key} features={','.join(s['features'])} selected={len(s['entries'])} of {s['rows']} "
+              f"xfail_excluded={len(s['xfail'])}{run_note}: {_smoke_names(s['entries'], cap)}")
+        if s["suite"]:
+            total += len(s["entries"])
+    if total == 0:
+        refuse("smoke: the feature(s) %s select ZERO runnable entries across %d table(s) -- a smoke that grades nothing is not "
+               "a verdict; name the feature the landing touches" % (" ".join(features), len(sel)))
+    if args.list_only:
+        print(f"AREA_SMOKE_LIST features={' '.join(features)} runnable_entries={total} (nothing run: --list-only)")
+        return
+    check_scrip(paths)
+    tmp_root = Path(tempfile.mkdtemp(prefix="csh_smoke_"))
+    reds = []
+    graded = 0
+    all_pass = 0
+    per_table = []
+    try:
+        for key, s in sel.items():
+            if not s["entries"] or not s["suite"]:
+                continue
+            suite, lang = s["suite"], s["lang"]
+            ref = suite.with_name("ALL.ref")
+            if not ref.is_file():
+                refuse(f"smoke: {suite} has no ALL.ref beside it -- nothing to grade against")
+            if lang in LANG_CONFIGS:
+                cfg = LANG_CONFIGS[lang]
+                ext = cfg["ext"]
+                entries = read_block_suite(str(suite), str(ref), banner_re_for(cfg["comment_open"], cfg["comment_close"]),
+                                           in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
+                                           w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
+            else:
+                ext = ".sno"
+                entries = read_suite(str(suite), str(ref), in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
+                                     w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
+            by_name = {e.name: e for e in entries}
+            masks = read_mask_sidecar(str(ref))
+            heap, _ = heap_declarations(str(suite))
+            stack, _ = stack_declarations(str(suite))
+            outside = _smoke_outside_names(suite)
+            wanted = [n for n in s["entries"] if n not in outside]
+            skipped_outside = [n for n in s["entries"] if n in outside]
+            missing = [n for n in wanted if n not in by_name]
+            if missing:
+                refuse(f"smoke: {s['csv']} names entries the suite {suite.name} does not contain: {_smoke_names(missing, 10)} -- "
+                       f"the table and the suite disagree, which is a builder defect, not a smoke result")
+            t_pass, t_red = 0, []
+            for n in wanted:
+                e = by_name[n]
+                if masks:
+                    pm = masks_for(masks, e.name)
+                    if pm:
+                        e.mask = pm
+                if n in heap:
+                    e.heap_kb = heap[n]
+                if n in stack:
+                    e.stack_kb = stack[n]
+                verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=suite.parent)
+                graded += 1
+                kinds = {m: verdicts[m].kind for m in modes}
+                ok = all(k == "PASS" for k in kinds.values())
+                if ok:
+                    t_pass += 1
+                    all_pass += 1
+                else:
+                    t_red.append(n)
+                    reds.append((key, n, kinds))
+                print("AREA_SMOKE_ENTRY table=%s entry=%s %s" % (key, n, " ".join(f"{m}={kinds[m]}" for m in modes)))
+                for m in modes:
+                    if kinds[m] != "PASS" and verdicts[m].detail:
+                        print(f"    {m}: {verdicts[m].detail[:300]}")
+            per_table.append((key, len(wanted), t_pass, t_red, skipped_outside))
+    finally:
+        import shutil
+        shutil.rmtree(tmp_root, ignore_errors=True)
+    for key, n, p, red, outs in per_table:
+        print(f"AREA_SMOKE_TABLE table={key} run={n} pass={p} red={len(red)} outside_excluded={len(outs)}"
+              + (f" reds: {_smoke_names(red, cap)}" if red else "")
+              + (f" outside: {_smoke_names(outs, cap)}" if outs else ""))
+    print(f"AREA_SMOKE_TOTAL features={' '.join(features)} modes={','.join(modes)} tables={len(per_table)} entries={graded} "
+          f"all_pass={all_pass} red={len(reds)} -- no progress row appended, no score cell written: an area smoke is not a board "
+          f"(CEO-547, CEO-1342 clause 4); the suite number is the coo's SUITE TABLE row")
+    sys.exit(1 if reds else 0)
+
+
 def cmd_list(args):
     """Print every entry name in a suite, one per line, in file order. For consumers that need to
     enumerate a suite's members -- a board denominator, a tool that materializes every entry into a
@@ -3954,6 +4175,15 @@ def main():
     l.add_argument("ref")
     l.add_argument("--lang", default="", choices=LANG_CHOICES, help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format (a non-.sno suffix without this REFUSES rather than misreading)")
     l.set_defaults(func=cmd_list)
+
+    sm = sub.add_parser("smoke", help="THE AREA SMOKE (CEO-1342 clause 4): run, in both modes, every master and package entry whose ALL.csv attribute row marks any named feature column; population printed by name; appends no progress row and writes no score cell -- not a board")
+    sm.add_argument("features", nargs="*", help="feature column names as the tables spell them (FENCE SPAN scan suspend cut ...); a name no table knows REFUSES rc=2")
+    sm.add_argument("--modes", default="", help="default m3,m4")
+    sm.add_argument("--tables", default="", help="restrict to tables whose key (tests/<lang>, packages/<lang>/<pkg>) contains any of these tokens")
+    sm.add_argument("--list-only", action="store_true", dest="list_only", help="print the selection per table and run nothing")
+    sm.add_argument("--vocabulary", action="store_true", help="print each table's feature columns (AREA_SMOKE_VOCAB lines) and exit; no feature needed")
+    sm.add_argument("--max-names", default="40", dest="max_names", help="names printed per line before '... and K more'")
+    sm.set_defaults(func=cmd_smoke)
 
     args = ap.parse_args()
     # ⛔⭐ EXPLICITNESS IS RECORDED BEFORE THE SYNONYM IS NORMALISED AWAY, because the next line destroys the
