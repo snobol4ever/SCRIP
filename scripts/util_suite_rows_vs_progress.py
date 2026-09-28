@@ -139,6 +139,9 @@ def sidecar_stems(corpus, key):
             if ":" in name:
                 continue
             out.add(stem(name))
+    # the lockdown buckets sit beside the OUTSIDE file and are read whether or not it exists: a package whose last OUTSIDE row was
+    # graded deletes the file (test_gate_icn_outside_baseline_is_read_and_mirrored.sh refuses an empty one), and its UNGRADED rows stand
+    if sc:
         for fn, dst in (("UNGRADABLE.tsv", ungradable), ("UNGRADED.tsv", ungraded)):
             fp = os.path.join(corpus, os.path.dirname(sc), fn)
             if os.path.exists(fp):

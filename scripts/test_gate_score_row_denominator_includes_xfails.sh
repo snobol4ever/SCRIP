@@ -140,6 +140,8 @@ for c in rows:
         for l in open(os.path.join(corpus, sc), encoding="utf-8", errors="replace"):
             if l.startswith("#") or not l.strip(): continue
             side.add(stem(l.split("\t")[0].strip()))
+    # read whether or not the OUTSIDE file exists: a package whose last OUTSIDE row was graded deletes it, and its UNGRADED rows stand
+    if sc:
         # ⛔ THE PACKAGE INVENTORY IS THE POPULATION AUTHORITY (ceo CEO-798, 2026-09-16): the runner's PACKAGE_INVENTORY line counts
         # shipped = graded + ungraded + ungradable, and the package keeps UNGRADABLE.tsv / UNGRADED.tsv beside its OUTSIDE file
         # (csnobol4: 61 UNGRADABLE of which the 49 OUTSIDE are a subset, 12 containers/libraries; 71 graded; 132 shipped). Read
