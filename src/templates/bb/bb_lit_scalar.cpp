@@ -10,13 +10,7 @@ int prolog_atom_intern(const char *name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t blsc_bits(double d, uint64_t b = 0) { memcpy(&b, &d, 8); return b; }
-static int descr_stamp_on(void) {
-    static int on = -1;
-    if (on < 0)
-        { const char * e = getenv("SCRIP_DESCR_STAMP"); on = (e && *e == '1') ? 1 : 0; }
-    return on;
-}
-#define lit_tag_imm(base_tag) (!descr_stamp_on() ? (base_tag) : ((base_tag) \
+#define lit_tag_imm(base_tag) (!sn4_descr_stamp() ? (base_tag) : ((base_tag) \
      | (((_.nid <= 0 || _.nid > (long)DESCR_SRC_NODE_OVERFLOW - 1) ? (long)DESCR_SRC_NODE_OVERFLOW : (long)_.nid) << 8)))
 #define ls_rq(w) (_.op_zres ? ZRES(w) : FRQ(_.op_off + (w)))
 #define ls_rd(w) (_.op_zres ? ZRESD(w) : FR(_.op_off + (w)))
