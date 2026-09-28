@@ -1,5 +1,6 @@
 #include "branch_chain.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "ir_index.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,16 +22,17 @@ static char * bc_build_protect(IR_graph_t *g, const ir_index_t *ix) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * bc_chase(const char *prot, const ir_index_t *ix, IR_t *node, char sz[4]) {
-    IR_t *seen[512]; int ns = 0; int guard = 0;
-    while (node && bc_is_passthrough(node->op) && !bc_stamped(node) && node->γ.node && guard++ < 512) {
+    cv_t seen = {0};
+    while (node && bc_is_passthrough(node->op) && !bc_stamped(node) && node->γ.node) {
         int j = ir_index_of(ix, node);
         if (j >= 0 && prot[j]) break;
-        int dup = 0; for (int i = 0; i < ns; i++) if (seen[i] == node) { dup = 1; break; }
+        int dup = 0; for (uint32_t i = 0; i < seen.len; i++) if (CV_AT(seen, IR_t *, i) == node) { dup = 1; break; }
         if (dup) break;
-        if (ns < 512) seen[ns++] = node;
+        CV_PUSH(seen, IR_t *) = node;
         memcpy(sz, node->γ.sz, 4);
         node = node->γ.node;
     }
+    ct_drop(seen.p);
     return node;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

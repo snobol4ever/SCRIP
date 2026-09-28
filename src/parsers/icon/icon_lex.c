@@ -1,5 +1,6 @@
 #include "icon_lex.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -42,7 +43,8 @@ static IcnToken make_tok(IcnTkKind kind, int line, int col) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IcnToken make_error(IcnLexer *lx, const char *msg) {
-    snprintf(lx->errmsg, sizeof(lx->errmsg), "line %d col %d: %s",
+    ct_drop(lx->errmsg);
+    lx->errmsg = ct_fmt("line %d col %d: %s",
              lx->line, lx->col, msg);
     lx->had_error = 1;
     IcnToken t = make_tok(TK_ERROR, lx->line, lx->col);
@@ -573,18 +575,20 @@ typedef struct {
     IcnPpFile nofile, *curfile; IcnPpBuf *bstack, *bfree; char *buf, *bnxt, *bstop, *blim; IcnPpDef **cbin;
     char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals;
 } IcnPp;
-static char icn_pp_src[1024] = "";
+static cv_t icn_pp_src;
+static const char *icn_pp_src_path(void) { return icn_pp_src.p ? (const char *) icn_pp_src.p : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_pp_set_source_path(const char *path) {
-    if (!path) { icn_pp_src[0] = 0; return; }
-    size_t pl = strlen(path); if (pl >= sizeof icn_pp_src) pl = sizeof icn_pp_src - 1;
-    memcpy(icn_pp_src, path, pl); icn_pp_src[pl] = 0;
+    if (!path) { if (icn_pp_src.p) ((char *) icn_pp_src.p)[0] = 0; return; }
+    size_t pl = strlen(path);
+    cv_reserve(&icn_pp_src, 1u, (uint64_t) pl + 1, "icn_pp_src");
+    memcpy(icn_pp_src.p, path, pl); ((char *) icn_pp_src.p)[pl] = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_pp_source_base(char *out, size_t n) {
     if (!out || n == 0) return;
-    const char *slash = strrchr(icn_pp_src, '/');
-    const char *base  = slash ? slash + 1 : icn_pp_src;
+    const char *slash = strrchr(icn_pp_src_path(), '/');
+    const char *base  = slash ? slash + 1 : icn_pp_src_path();
     size_t bl = strlen(base);
     if (bl >= n) bl = n - 1;
     memcpy(out, base, bl); out[bl] = 0;
@@ -749,8 +753,8 @@ static char *ipp_pathfind(const char *name) {
     }
     ct_drop(exe);
     if (hit) return hit;
-    const char *sl = strrchr(icn_pp_src, '/');
-    if (sl && name[0] != '/') { char *dir = ct_strndup(icn_pp_src, (size_t)(sl - icn_pp_src)); hit = ipp_tryfile(dir, name); ct_drop(dir); if (hit) return hit; }
+    const char *sl = strrchr(icn_pp_src_path(), '/');
+    if (sl && name[0] != '/') { char *dir = ct_strndup(icn_pp_src_path(), (size_t)(sl - icn_pp_src_path())); hit = ipp_tryfile(dir, name); ct_drop(dir); if (hit) return hit; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -938,7 +942,7 @@ static char *icn_pp_text(const char *src, int *fatals) {
     IcnPp pp; ipp_init(&pp);
     IcnPpFile *fs = (IcnPpFile *)ct_zalloc(1, sizeof *fs);
     fs->mem = src; fs->mlen = strlen(src);
-    ipp_push_file(&pp, fs, icn_pp_src[0] ? icn_pp_src : "stdin");
+    ipp_push_file(&pp, fs, icn_pp_src_path()[0] ? icn_pp_src_path() : "stdin");
     char *out = NULL; int olen = 0, ocap = 0, c;
     while ((c = ipp_ppch(&pp)) != EOF) buf_push(&out, &olen, &ocap, (char)c);
     if (!out) out = ct_strdup("");

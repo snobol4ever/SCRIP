@@ -6,8 +6,8 @@ typedef struct LexCtx {
     const char *p;
     int         line;
     int         last_kind;
-    char        text[65536];
-    char        strbuf[65536];
+    char       *strbuf;
+    int         strcap;
     int         strpos;
 } LexCtx;
 int         sc_kind_is_value   (int kind);

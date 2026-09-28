@@ -1,5 +1,6 @@
 #include "rebus.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "rebus_lower.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "ast.h"
@@ -13,10 +14,15 @@ typedef struct {
     int         label_ctr;
     int         cur_line;
     char       *fname;
-    char       *loop_top[64];
-    char       *loop_end[64];
+    cv_t        loop_top;
+    cv_t        loop_end;
     int         loop_depth;
 } RebLow;
+static void reb_loop_push(RebLow *L, char *top, char *end) {
+    cv_reserve(&L->loop_top, (uint32_t) sizeof(char *), (uint64_t) L->loop_depth + 1, "loop_top");
+    cv_reserve(&L->loop_end, (uint32_t) sizeof(char *), (uint64_t) L->loop_depth + 1, "loop_end");
+    CV_AT(L->loop_top, char *, L->loop_depth) = top; CV_AT(L->loop_end, char *, L->loop_depth) = end; L->loop_depth++;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *newlab(RebLow *L) {
     char buf[32];
@@ -198,8 +204,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         char *l_top  = newlab(L);
         char *l_body = newlab(L);
         char *l_end  = newlab(L);
-        L->loop_top[L->loop_depth]   = l_top;
-        L->loop_end[L->loop_depth++] = l_end;
+        reb_loop_push(L, l_top, l_end);
         emit_label(L, l_top);
         STMT_t *cst  = blank_stmt();
         cst->subject = lower_tree_expr(L, s->c[0]);
@@ -218,8 +223,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         char *l_top  = newlab(L);
         char *l_body = newlab(L);
         char *l_end  = newlab(L);
-        L->loop_top[L->loop_depth]   = l_top;
-        L->loop_end[L->loop_depth++] = l_end;
+        reb_loop_push(L, l_top, l_end);
         emit_label(L, l_top);
         STMT_t *cst  = blank_stmt();
         cst->subject = lower_tree_expr(L, s->c[0]);
@@ -237,8 +241,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
     case TT_REPEAT: {
         char *l_top = newlab(L);
         char *l_end = newlab(L);
-        L->loop_top[L->loop_depth]   = l_top;
-        L->loop_end[L->loop_depth++] = l_end;
+        reb_loop_push(L, l_top, l_end);
         emit_label(L, l_top);
         lower_tree_stmt(L, s->c[0]);
         emit_goto(L, l_top);
@@ -250,8 +253,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
     case TT_FOR: {
         char *l_top = newlab(L);
         char *l_end = newlab(L);
-        L->loop_top[L->loop_depth]   = l_top;
-        L->loop_end[L->loop_depth++] = l_end;
+        reb_loop_push(L, l_top, l_end);
         tree_t *var = ast_node_new(TT_VAR); var->v.sval = ct_strdup(s->v.sval);
         STMT_t *init = blank_stmt();
         init->subject = expr_binary(TT_ASSIGN, var, lower_tree_expr(L, s->c[0]));
@@ -327,12 +329,12 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
     case TT_PROC_FAIL:  emit_goto(L, "FRETURN"); break;
     case TT_END:        { STMT_t *st = blank_stmt(); st->is_end = 1; emit(L, st); break; }
     case TT_LOOP_BREAK: {
-        if (L->loop_depth > 0) emit_goto(L, L->loop_end[L->loop_depth - 1]);
+        if (L->loop_depth > 0) emit_goto(L, CV_AT(L->loop_end, char *, L->loop_depth - 1));
         else { STMT_t *st = blank_stmt(); st->is_end = 1; emit(L, st); }
         break;
     }
     case TT_LOOP_NEXT: {
-        if (L->loop_depth > 0) emit_goto(L, L->loop_top[L->loop_depth - 1]);
+        if (L->loop_depth > 0) emit_goto(L, CV_AT(L->loop_top, char *, L->loop_depth - 1));
         break;
     }
     case TT_SWAP: {
@@ -369,7 +371,8 @@ static void lower_decl(RebLow *L, tree_t *d) {
     if (!d) return;
     switch (d->t) {
     case TT_RECORD_DECL: {
-        char buf[1024]; int pos = 0;
+        size_t bl = strlen(d->c[0]->v.sval) + 3; for (int i = 1; i < d->n; i++) bl += strlen(d->c[i]->v.sval) + 1;
+        char buf[bl]; int pos = 0;
         pos += snprintf(buf + pos, sizeof buf - pos, "%s(", d->c[0]->v.sval);
         for (int i = 1; i < d->n; i++) {
             if (i > 1) pos += snprintf(buf + pos, sizeof buf - pos, ",");
@@ -389,7 +392,9 @@ static void lower_decl(RebLow *L, tree_t *d) {
         tree_t *init_node   = d->c[3];
         tree_t *body_node   = d->c[4];
         const char *fname   = name_node->v.sval;
-        char buf[2048]; int pos = 0;
+        size_t bl = strlen(fname) + 4; for (int i = 0; i < params_node->n; i++) bl += strlen(params_node->c[i]->v.sval) + 1;
+        for (int i = 0; i < locals_node->n; i++) bl += strlen(locals_node->c[i]->v.sval) + 1;
+        char buf[bl]; int pos = 0;
         pos += snprintf(buf + pos, sizeof buf - pos, "%s(", fname);
         for (int i = 0; i < params_node->n; i++) {
             if (i) pos += snprintf(buf + pos, sizeof buf - pos, ",");
@@ -411,7 +416,7 @@ static void lower_decl(RebLow *L, tree_t *d) {
         emit_goto(L, l_end);
         emit_label(L, fname);
         if (init_node && init_node->t != TT_NUL) {
-            char flagbuf[64];
+            char flagbuf[fmt_len("rb_init_%s", fname)];
             snprintf(flagbuf, sizeof flagbuf, "rb_init_%s", fname);
             tree_t *flag = ast_node_new(TT_VAR); flag->v.sval = ct_strdup(flagbuf);
             char *l_done = newlab(L);
@@ -450,6 +455,7 @@ CODE_t *rebus_lower(tree_t *prog) {
     L.filename = "<rebus>";
     for (int i = 0; i < prog->n; i++)
         lower_decl(&L, prog->c[i]);
+    ct_drop(L.loop_top.p); ct_drop(L.loop_end.p);
     if (L.nerrors > 0) {
         fprintf(stderr, "rebus_lower: %d error(s)\n", L.nerrors);
         return NULL;

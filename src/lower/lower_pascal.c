@@ -4,9 +4,8 @@
 #include <stdio.h>
 #include "lower.h"
 #include "../parsers/pascal/pascal_driver.h"
-#define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s {
-    const char *        names[PAS_MAX_SCOPE];
+    const char **       names;
     int                 n;
     int                 nparams;
     long long           byref;
@@ -62,7 +61,7 @@ static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω);
 static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_name_is_byref(pcx_t * cx, const char * name) {
-    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return (int)((s->byref >> sl) & 1LL); }
+    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return sl < 64 && (int)((s->byref >> sl) & 1LL); }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -323,10 +322,10 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         if (rw) {
             tree_t * seq = ast_node_new(TT_SEQ_EXPR);
             tree_t * call = ast_node_new(TT_FNC); for (int i = 0; i < env; i++) ast_push(call, t->c[i]); ast_push(call, pas_lc_leaf(TT_VAR, cn && cn->v.sval ? cn->v.sval : ""));
-            tree_t * outs[64]; int nout = 0;
+            tree_t * outs[t->n]; int nout = 0;
             for (int i = env + 1; i < t->n; i++) {
                 tree_t * arg = t->c[i];
-                if (((brm >> (i - env - 1)) & 1ULL) && arg && arg->t == TT_IDX && nout < 64) {
+                if (((brm >> (i - env - 1)) & 1ULL) && arg && arg->t == TT_IDX) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
@@ -682,9 +681,10 @@ static void build_scope(pas_scope_t * sc, const tree_t * pd, pas_scope_t * outer
     const tree_t * locals = (pd->n > 0) ? pd->c[pd->n - 1] : NULL;
     if (locals && locals->t != TT_VLIST) locals = NULL;
     sc->byref = (params && params->t == TT_VLIST) ? params->v.ival : 0;
-    if (params && params->t == TT_VLIST) for (int i = 0; i < params->n && sc->n < PAS_MAX_SCOPE; i++) { if (params->c[i] && params->c[i]->v.sval) sc->names[sc->n++] = params->c[i]->v.sval; }
+    sc->names = (const char **) ct_zalloc((size_t) ((params && params->t == TT_VLIST) ? params->n : 0) + (size_t) (locals ? locals->n : 0) + 1, sizeof(const char *));
+    if (params && params->t == TT_VLIST) for (int i = 0; i < params->n; i++) { if (params->c[i] && params->c[i]->v.sval) sc->names[sc->n++] = params->c[i]->v.sval; }
     sc->nparams = sc->n;
-    if (locals) for (int i = 0; i < locals->n && sc->n < PAS_MAX_SCOPE; i++) { if (locals->c[i] && locals->c[i]->v.sval) sc->names[sc->n++] = locals->c[i]->v.sval; }
+    if (locals) for (int i = 0; i < locals->n; i++) { if (locals->c[i] && locals->c[i]->v.sval) sc->names[sc->n++] = locals->c[i]->v.sval; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_procs(const tree_t * body, const tree_t * parent) {
@@ -929,14 +929,15 @@ static void pascal_register_program(stage2_t * s2, const tree_t * prog) {
                     global_register(proc->c[_gi]->v.sval);
         }
         if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
-            char spec[256]; int pos = 0;
+            size_t sl = strlen(proc->v.sval) + 3; for (int _ri = 0; _ri < proc->n; _ri++) sl += 1 + ((proc->c[_ri] && proc->c[_ri]->v.sval) ? strlen(proc->c[_ri]->v.sval) : 0);
+            char spec[sl]; int pos = 0;
             pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", proc->v.sval);
-            for (int _ri = 0; _ri < proc->n && pos < (int)sizeof(spec)-2; _ri++) {
+            for (int _ri = 0; _ri < proc->n; _ri++) {
                 if (_ri > 0) spec[pos++] = ',';
                 const char *fn2 = (proc->c[_ri] && proc->c[_ri]->v.sval) ? proc->c[_ri]->v.sval : "";
                 pos += snprintf(spec+pos, sizeof(spec)-pos, "%s", fn2);
             }
-            if (pos < (int)sizeof(spec)-1) spec[pos++] = ')';
+            spec[pos++] = ')';
             spec[pos] = '\0';
             record_register(spec);
         }

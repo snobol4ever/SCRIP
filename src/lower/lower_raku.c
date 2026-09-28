@@ -349,12 +349,12 @@ static IR_t * lower_field_set(rcx_t * cx, const tree_t * lhs, const tree_t * rhs
     if (res) *res = nd; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_take_list(const tree_t * g, const tree_t ** out, int max) {
+static int rk_take_list(const tree_t * g, const tree_t ** out) {
     const tree_t * gb = (g && g->n > 0) ? g->c[0] : NULL; int n = 0;
     if (gb && gb->t == TT_SUSPEND) { if (gb->n < 1 || !gb->c[0]) return -1; out[n++] = gb->c[0]; return n; }
     if (!gb || gb->t != TT_SEQ_EXPR) return -1;
     for (int i = 0; i < gb->n; i++) { const tree_t * s = gb->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; }
-        if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0] || n >= max) return -1; out[n++] = s->c[0]; }
+        if (!s || s->t != TT_SUSPEND || s->n < 1 || !s->c[0]) return -1; out[n++] = s->c[0]; }
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -714,7 +714,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             γ_to(to, inner);
             *res = to; return elo; }
         if (src && src->t == TT_GATHER) {
-            const tree_t * takes[64]; int ntk = rk_take_list(src, takes, 64);
+            const tree_t * takes[(src->n > 0 && src->c[0] && src->c[0]->n > 0) ? src->c[0]->n : 1]; int ntk = rk_take_list(src, takes);
             if (ntk > 0) {
                 IR_t * succ = γ;
                 for (int k = ntk - 1; k >= 0; k--) {
@@ -832,7 +832,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_NEW: {
         const char * cls = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : NULL;
-        char mbase[256]; mbase[0] = 0;
+        char mbase[cls ? fmt_len("%s__new", cls) : 1]; mbase[0] = 0;
         if (cls) snprintf(mbase, sizeof mbase, "%s__new", cls);
         if (cls && rk_is_multi_name(mbase)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
@@ -941,7 +941,7 @@ static void rk_discover_grammars(const tree_t * prog) {
             const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
             const char * body  = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
             if (!rname || !body) continue;
-            char qn[256]; snprintf(qn, sizeof qn, "%s::%s", gname, rname);
+            char qn[fmt_len("%s::%s", gname, rname)]; snprintf(qn, sizeof qn, "%s::%s", gname, rname);
             rt_grammar_register(qn, body, (int) rd->v.ival);
         }
     }
@@ -960,18 +960,19 @@ static void rk_register_classes(const tree_t * prog) {
         if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_rk_user_write_meth = 1;
         for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_rk_listlike_overridden[li] = 1;
         if (!rk_is_class_name(cname)) CV_PUSH(g_rk_class_names, const char *) = cname;
-        char spec[512]; int pos = 0;
+        size_t sl = strlen(cname) + 3; for (int j = 1; j < d->n; j++) if (d->c[j] && d->c[j]->t != TT_SUB_DECL) sl += 1 + strlen(rk_fld_bare(d->c[j]->v.sval ? d->c[j]->v.sval : ""));
+        char spec[sl]; int pos = 0;
         pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
         int first_field = 1;
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || ch->t == TT_SUB_DECL) continue;
-            if (!first_field) { if (pos < (int)sizeof(spec) - 2) spec[pos++] = ','; }
+            if (!first_field) spec[pos++] = ',';
             const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : "");
             pos += snprintf(spec + pos, sizeof(spec) - pos, "%s", fn);
             first_field = 0;
         }
-        if (pos < (int)sizeof(spec) - 1) spec[pos++] = ')';
+        spec[pos++] = ')';
         spec[pos] = '\0';
         record_register(spec);
         extern void dat_add_method(const char *type, const char *mname);
@@ -981,7 +982,7 @@ static void rk_register_classes(const tree_t * prog) {
             const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
             if (!mname) continue;
             const char * dollar = strchr(mname, '$');
-            if (dollar) { char base[128]; int bl = (int)(dollar - mname); if (bl > 127) bl = 127; memcpy(base, mname, bl); base[bl] = '\0'; dat_add_method(cname, base); }
+            if (dollar) { int bl = (int)(dollar - mname); char base[bl + 1]; memcpy(base, mname, bl); base[bl] = '\0'; dat_add_method(cname, base); }
             else dat_add_method(cname, mname);
             if (!strcmp(mname, "BUILD")) {
                 extern void dat_set_build_key(const char *cls, const char *key);
@@ -1018,7 +1019,7 @@ static void rk_register_classes(const tree_t * prog) {
             if (!ch || ch->t != TT_HANDLES_DECL) continue;
             const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : ""); if (!*fn) continue;
             const char * words = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : "";
-            char wbuf[256]; snprintf(wbuf, sizeof wbuf, "%s", words); char * sp = wbuf; char * tok;
+            char wbuf[fmt_len("%s", words)]; snprintf(wbuf, sizeof wbuf, "%s", words); char * sp = wbuf; char * tok;
             while ((tok = strtok(sp, " \t")) != (char *)0) { sp = (char *)0; if (*tok) dat_add_handles(cname, tok, fn); }
         }
         extern void dat_set_field_sigil(const char *cls, const char *field, int sig);
@@ -1043,11 +1044,12 @@ static void rk_register_classes(const tree_t * prog) {
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         const char * pname = d->v.sval;
         if (cname && pname && *pname) {
-            char pbuf[8][64]; const char * pl[8]; int np = 0; char rbuf[8][64]; int nr = 0; const char * s = pname;
-            while (*s) { const char * nx = strchr(s, '\x01'); size_t L = nx ? (size_t)(nx - s) : strlen(s);
-                if (L >= 1) { char tag = s[0]; const char * nm = s + 1; size_t NL = L - 1; if (NL > 63) NL = 63;
-                    if (tag == 'i' && np < 8) { memcpy(pbuf[np], nm, NL); pbuf[np][NL] = '\0'; pl[np] = pbuf[np]; np++; }
-                    else if (tag == 'd' && nr < 8) { memcpy(rbuf[nr], nm, NL); rbuf[nr][NL] = '\0'; nr++; } }
+            int nseg = 1; for (const char * q = pname; *q; q++) if (*q == '\x01') nseg++;
+            char pcopy[strlen(pname) + 1]; memcpy(pcopy, pname, sizeof pcopy); const char * pl[nseg]; int np = 0; const char * rbuf[nseg]; int nr = 0; char * s = pcopy;
+            while (*s) { char * nx = strchr(s, '\x01'); size_t L = nx ? (size_t)(nx - s) : strlen(s); if (nx) *nx = '\0';
+                if (L >= 1) { char tag = s[0]; const char * nm = s + 1;
+                    if (tag == 'i') pl[np++] = nm;
+                    else if (tag == 'd') rbuf[nr++] = nm; }
                 if (!nx) break; s = nx + 1; }
             if (np > 0) class_inherit_multi(cname, pl, np);
             extern void class_compose_role(const char *child, const char *role);
@@ -1064,7 +1066,8 @@ static void rk_register_classes(const tree_t * prog) {
                     int sat = rk_type_provides_real_method(cdecl, rm);
                     for (int rj = 0; rj < nr && !sat; rj++) { const tree_t * od = rk_find_type_decl(prog, rbuf[rj]); if (rk_type_provides_real_method(od, rm)) sat = 1; }
                     if (!sat) {
-                        char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri]); rt_script_die_surface(_m);
+                        char _m[fmt_len("Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri])];
+                        snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri]); rt_script_die_surface(_m);
                     }
                 }
             }
@@ -1116,7 +1119,7 @@ static void rk_discover_procs(const tree_t * prog) {
                 if (!ch || ch->t != TT_SUB_DECL || rk_method_is_stub(ch)) continue;
                 const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
                 if (!mname) continue;
-                char qname[256]; snprintf(qname, sizeof qname, "%s__%s", cname, mname);
+                char qname[fmt_len("%s__%s", cname, mname)]; snprintf(qname, sizeof qname, "%s__%s", cname, mname);
                 int np = (int) ch->v.ival;
                 rk_register_proc(ch, qname, np);
             }
@@ -1239,37 +1242,38 @@ static const char * rk_gram_class_members(const char * nm) {
     if (!strcmp(nm, "xdigit")) return "0123456789abcdefABCDEF";
     return NULL;
 }
-typedef struct { int is_lit; char s[256]; } rk_gleaf_t;
+typedef struct { int is_lit; const char * s; int len; } rk_gleaf_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_gram_seq_leaves(const char * body, rk_gleaf_t * out, int maxlv) {
-    if (!body || !out || maxlv < 1) return 0;
-    int n = (int) strlen(body); int i = 0; int nlv = 0;
+static int rk_gram_seq_leaves(const char * body, int n, rk_gleaf_t * out) {
+    if (!body) return 0;
+    int i = 0; int nlv = 0;
     while (i < n) {
         while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
         if (i >= n) break;
-        if (nlv >= maxlv) return 0;
         if (body[i] == '"' || body[i] == '\'') {
-            char q = body[i++]; int op = 0;
-            while (i < n && body[i] != q) { if (body[i] == '\\' || op >= (int) sizeof out[nlv].s - 1) return 0; out[nlv].s[op++] = body[i++]; }
-            if (i >= n || op == 0) return 0;
-            i++; out[nlv].s[op] = '\0'; out[nlv].is_lit = 1; nlv++;
+            char q = body[i++]; int s = i;
+            while (i < n && body[i] != q) { if (body[i] == '\\') return 0; i++; }
+            if (i >= n || i == s) return 0;
+            if (out) { out[nlv].s = body + s; out[nlv].len = i - s; out[nlv].is_lit = 1; }
+            nlv++; i++;
         } else if (body[i] == '<') {
             i++; if (i < n && body[i] == '.') i++;
-            int s = i; char nm[64]; int nl = 0;
-            while (i < n && (isalnum((unsigned char)body[i]) || body[i] == '_') && nl < 63) nm[nl++] = body[i++];
-            nm[nl] = '\0';
+            int s = i;
+            while (i < n && (isalnum((unsigned char)body[i]) || body[i] == '_')) i++;
+            char nm[i - s + 1]; memcpy(nm, body + s, (size_t) (i - s)); nm[i - s] = '\0';
             if (i == s || i >= n || body[i] != '>') return 0;
             i++;
             const char * cs = rk_gram_class_members(nm);
-            if (!cs || (int) strlen(cs) >= (int) sizeof out[nlv].s) return 0;
-            strcpy(out[nlv].s, cs); out[nlv].is_lit = 0; nlv++;
+            if (!cs) return 0;
+            if (out) { out[nlv].s = cs; out[nlv].len = (int) strlen(cs); out[nlv].is_lit = 0; }
+            nlv++;
         } else return 0;
     }
     return nlv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_gram_split_alt(const char * body, char * lbuf, int lsz, char * rbuf, int rsz) {
-    if (!body || !lbuf || !rbuf) return 0;
+static int rk_gram_split_alt(const char * body, int * lend, int * rstart) {
+    if (!body || !lend || !rstart) return 0;
     int n = (int) strlen(body); int depth = 0;
     for (int i = 0; i < n; i++) {
         char c = body[i];
@@ -1278,22 +1282,22 @@ static int rk_gram_split_alt(const char * body, char * lbuf, int lsz, char * rbu
         if (c == '>') { if (depth > 0) depth--; continue; }
         if (c == '|' && depth == 0) {
             int ll = i; while (ll > 0 && (body[ll-1]==' '||body[ll-1]=='\t')) ll--;
-            if (ll <= 0 || ll >= lsz) return 0;
-            memcpy(lbuf, body, (size_t)ll); lbuf[ll] = '\0';
+            if (ll <= 0) return 0;
             int rs = i + 1; while (rs < n && (body[rs]==' '||body[rs]=='\t')) rs++;
-            int rl = n - rs; if (rl <= 0 || rl >= rsz) return 0;
-            memcpy(rbuf, body + rs, (size_t)rl); rbuf[rl] = '\0';
+            int rl = n - rs; if (rl <= 0) return 0;
+            *lend = ll; *rstart = rs;
             return 1;
         }
     }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_gleaf_dup(const rk_gleaf_t * l) { char b[l->len + 1]; memcpy(b, l->s, (size_t) l->len); b[l->len] = '\0'; return lp_strdup(b); }
 static IR_t * rk_gram_build_leaf_chain(IR_graph_t * gg, rk_gleaf_t * lv, int nlv, IR_t * fail_tgt, int beta_tag) {
     IR_t * next = NULL;
     for (int e = nlv - 1; e >= 0; e--) {
         IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
-        IR_LIT(nd).sval = lp_strdup(lv[e].s);
+        IR_LIT(nd).sval = rk_gleaf_dup(&lv[e]);
         if (beta_tag) lc_ω_to_β(nd, fail_tgt); else lc_ω_to(nd, fail_tgt);
         next = nd;
     }
@@ -1316,14 +1320,16 @@ static void rk_lower_grammar_boxes(const tree_t * prog) {
             const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
             const char * body  = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
             if (!rname || !body) continue;
-            char pn[320]; snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
+            char pn[fmt_len("gram__%s__%s", gname, rname)]; snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
             IR_graph_t * gg = IR_alloc(64);
             IR_t * entry = NULL;
-            char lbody[512]; char rbody[512];
-            if (rk_gram_split_alt(body, lbody, sizeof lbody, rbody, sizeof rbody)) {
-                rk_gleaf_t lv1[32]; int nlv1 = rk_gram_seq_leaves(lbody, lv1, 32);
-                rk_gleaf_t lv2[32]; int nlv2 = rk_gram_seq_leaves(rbody, lv2, 32);
+            int ll = 0, rs = 0, blen = (int) strlen(body);
+            if (rk_gram_split_alt(body, &ll, &rs)) {
+                int nlv1 = rk_gram_seq_leaves(body, ll, NULL);
+                int nlv2 = rk_gram_seq_leaves(body + rs, blen - rs, NULL);
                 if (nlv1 <= 0 || nlv2 <= 0) continue;
+                rk_gleaf_t lv1[nlv1]; rk_gram_seq_leaves(body, ll, lv1);
+                rk_gleaf_t lv2[nlv2]; rk_gram_seq_leaves(body + rs, blen - rs, lv2);
                 IR_t * galt = lc_build(gg, IR_GALT, NULL , NULL );
                 IR_t * arm2_root = rk_gram_build_leaf_chain(gg, lv2, nlv2, NULL, 0);
                 ir_operand_push(galt, arm2_root);
@@ -1331,12 +1337,13 @@ static void rk_lower_grammar_boxes(const tree_t * prog) {
                 ir_operand_push(galt, arm1_root);
                 entry = galt;
             } else {
-                rk_gleaf_t lv[64]; int nlv = rk_gram_seq_leaves(body, lv, 64);
+                int nlv = rk_gram_seq_leaves(body, blen, NULL);
                 if (nlv <= 0) continue;
+                rk_gleaf_t lv[nlv]; rk_gram_seq_leaves(body, blen, lv);
                 IR_t * next = NULL;
                 for (int e = nlv - 1; e >= 0; e--) {
                     IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
-                    IR_LIT(nd).sval = lp_strdup(lv[e].s);
+                    IR_LIT(nd).sval = rk_gleaf_dup(&lv[e]);
                     next = nd;
                 }
                 entry = next;
@@ -1418,14 +1425,15 @@ static void raku_register_program(stage2_t * s2, const tree_t * prog) {
                     global_register(proc->c[_gi]->v.sval);
         }
         if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
-            char spec[256]; int pos = 0;
+            size_t sl = strlen(proc->v.sval) + 3; for (int _ri = 0; _ri < proc->n; _ri++) sl += 1 + ((proc->c[_ri] && proc->c[_ri]->v.sval) ? strlen(proc->c[_ri]->v.sval) : 0);
+            char spec[sl]; int pos = 0;
             pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", proc->v.sval);
-            for (int _ri = 0; _ri < proc->n && pos < (int)sizeof(spec)-2; _ri++) {
+            for (int _ri = 0; _ri < proc->n; _ri++) {
                 if (_ri > 0) spec[pos++] = ',';
                 const char *fn2 = (proc->c[_ri] && proc->c[_ri]->v.sval) ? proc->c[_ri]->v.sval : "";
                 pos += snprintf(spec+pos, sizeof(spec)-pos, "%s", fn2);
             }
-            if (pos < (int)sizeof(spec)-1) spec[pos++] = ')';
+            spec[pos++] = ')';
             spec[pos] = '\0';
             record_register(spec);
         }
@@ -1451,21 +1459,33 @@ static void raku_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_collect_blocks(const tree_t * t, tree_t ** out, int * n, int max) {
-    if (!t || *n >= max) return;
+static int rk_count_blocks(const tree_t * t) {
+    if (!t) return 0;
+    int n = (t->t == TT_ANON_BLOCK && !t->v.sval) ? 1 : 0;
+    for (int i = 0; i < t->n; i++) n += rk_count_blocks(t->c[i]);
+    return n;
+}
+static void rk_collect_blocks(const tree_t * t, tree_t ** out, int * n) {
+    if (!t) return;
     if (t->t == TT_ANON_BLOCK && !t->v.sval) out[(*n)++] = (tree_t *) t;
-    for (int i = 0; i < t->n; i++) rk_collect_blocks(t->c[i], out, n, max);
+    for (int i = 0; i < t->n; i++) rk_collect_blocks(t->c[i], out, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph, int max) {
+static int rk_count_implicit_params(const tree_t * t) {
+    if (!t || t->t == TT_ANON_BLOCK) return 0;
+    int n = (t->t == TT_VAR && t->v.sval && t->v.sval[0] == '^') ? 1 : 0;
+    for (int i = 0; i < t->n; i++) n += rk_count_implicit_params(t->c[i]);
+    return n;
+}
+static void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph) {
     if (!t) return;
     if (t->t == TT_ANON_BLOCK) return;
     if (t->t == TT_VAR && t->v.sval) {
         const char * v = t->v.sval;
         if (!strcmp(v, "_")) *topic = 1;
-        else if (v[0] == '^') { int seen = 0; for (int i = 0; i < *nph; i++) if (!strcmp(ph[i], v)) seen = 1; if (!seen && *nph < max) ph[(*nph)++] = v; }
+        else if (v[0] == '^') { int seen = 0; for (int i = 0; i < *nph; i++) if (!strcmp(ph[i], v)) seen = 1; if (!seen) ph[(*nph)++] = v; }
     }
-    for (int i = 0; i < t->n; i++) rk_scan_implicit_params(t->c[i], topic, ph, nph, max);
+    for (int i = 0; i < t->n; i++) rk_scan_implicit_params(t->c[i], topic, ph, nph);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_block_tail_is_value(const tree_t * s) {
@@ -1481,7 +1501,7 @@ static int rk_block_tail_is_value(const tree_t * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_hoist_anon_blocks(tree_t * prog) {
     if (!prog) return;
-    static tree_t * blks[512]; int nb = 0; rk_collect_blocks(prog, blks, &nb, 512);
+    tree_t * blks[rk_count_blocks(prog) + 1]; int nb = 0; rk_collect_blocks(prog, blks, &nb);
     static int g_blk_ctr = 0;
     for (int i = 0; i < nb; i++) {
         tree_t * blk = blks[i]; char nm[64]; snprintf(nm, sizeof nm, "__blk_%d", ++g_blk_ctr);
@@ -1491,8 +1511,8 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
         const tree_t * body = (blk->n > 0) ? blk->c[0] : NULL;
         if (blk->n > 1) { for (int k = 1; k < blk->n; k++) ast_push(sd, blk->c[k]); sd->v.ival = blk->n - 1; }
         else {
-            int topic = 0, nph = 0; const char * ph[16];
-            rk_scan_implicit_params(body, &topic, ph, &nph, 16);
+            int topic = 0, nph = 0; const char * ph[rk_count_implicit_params(body) + 1];
+            rk_scan_implicit_params(body, &topic, ph, &nph);
             for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
             if (nph > 0) { for (int k = 0; k < nph; k++) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) ph[k]; ast_push(sd, pv); } sd->v.ival = nph; }
             else if (topic) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) intern("_"); ast_push(sd, pv); sd->v.ival = 1; }
@@ -1554,7 +1574,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         const char * nm = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!nm) continue;
         const char * soh = strchr(nm, '$'); if (!soh) continue;
-        char base[128]; int bl = (int)(soh - nm); if (bl > 127) bl = 127; memcpy(base, nm, bl); base[bl] = 0;
+        int bl = (int)(soh - nm); char base[bl + 1]; memcpy(base, nm, bl); base[bl] = 0;
         rk_multi_name_add(base);
     }
     for (int i = 0; prog && i < prog->n; i++) {
@@ -1569,7 +1589,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             const char * mn = (m->n > 0 && m->c[0] && m->c[0]->v.sval) ? m->c[0]->v.sval : NULL;
             if (!mn) continue;
             const char * ms = strchr(mn, '$'); if (!ms) continue;
-            char mb[256]; int ml = (int)(ms - mn); if (ml > 200) ml = 200;
+            int ml = (int)(ms - mn); char mb[fmt_len("%s__%.*s", cn, ml, mn)];
             snprintf(mb, sizeof mb, "%s__%.*s", cn, ml, mn);
             rk_multi_name_add(mb);
         }

@@ -1,10 +1,6 @@
 #include <string.h>
-#define ICN_STACK_MAX 256
-static long icn_stack[ICN_STACK_MAX];
-static int  icn_sp = 0;
 long icn_retval = 0;
 int  icn_failed = 0;
-static char subscript_buf[2];
 extern void rt_icn_cset_register(const char *ptr, int len);
 extern const unsigned char *kw_cset_bits(const char *ptr);
 extern const char *kw_cset_intern(const char *canon, int len);
