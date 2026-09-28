@@ -11,14 +11,13 @@ extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-static char sp_nlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define sp_gu() (_.op_sa < 0)
 #define sp_gi() (_.op_sa >= 0)
 #define sp_ndl_r8() ( \
       _.op_sa >= 0 \
     ? x86("mov", "r8", XSAQ(8)) \
-    : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) \
+    : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), "") \
 )
 #define sp_len_eax() ( \
       _.op_sa >= 0 \
@@ -50,8 +49,7 @@ static std::string sp_memb(long u, long i) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_span() {
     x86_begin();
-    static char c[24];
-    const void * ct = sp_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
+    if (sp_tablep()) x86_csettab_ptr(_.op_sval ? _.op_sval : "");
     if (_.op_zres && _.op_sa >= 0)
              return x86("comment", "IR_MATCH_SPAN zd")
              + x86_alpha()
@@ -83,10 +81,10 @@ std::string bb_match_span() {
              + x86_beta()
              + x86("mov",    "r14d", LFC(0))
              + x86_omega();
-    if (_.node && _.node->pat_static && _.op_sval)
+    if (_.op_pat_static && _.op_sval)
         return x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
-             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval), (strtab_label(sp_nlb, sizeof sp_nlb, _.op_sval), sp_nlb))
+             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval), x86_strtab_lbl(_.op_sval).c_str())
              + bb_glue_prim_str(50, 0, 0, 8, 8)
              + x86("test",   "rax", "rax")
              + x86_omega("js")
@@ -158,7 +156,7 @@ std::string bb_match_span() {
             + x86("add",    "edx", "eax")
             + x86("mov",    "r14d", "edx"))
          + IF(sp_gu(),
-              IF(sp_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
+              IF(sp_tablep(), x86("lea", "rdi", "[rip + __]", x86_csettab_ptr(_.op_sval ? _.op_sval : ""), x86_csettab_lbl(_.op_sval ? _.op_sval : "").c_str()))
             + x86("movsxd", "rcx", "r14d")
             + x86("def",    L(0))
             + sp_char(0)
