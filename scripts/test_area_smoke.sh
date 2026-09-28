@@ -70,6 +70,10 @@ if [ ${#FEATS[@]} -eq 0 ]; then
     fi
     if [ -z "$hit" ]; then unmapped="$unmapped $f"; continue; fi
     case " $hit " in *" - "*) [ "$(printf '%s\n' $hit | grep -vc '^-$')" = 0 ] && { noarea="$noarea $f"; continue; };; esac
+    # a file that reaches every feature (a * row) contributes nothing else: its symbol and feature rows are the same shared node seen
+    # up close, and running them is the whole population by another name (the cto 2026-09-28: core.c's ten feature rows ran 1790
+    # entries for twelve minutes on a shared-node landing)
+    case " $hit " in *" * "*) hit="*";; esac
     raw="$raw $hit"
     echo "AREA_SMOKE_MAP $f -> $(printf '%s\n' $hit | grep -v '^-$' | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/ $//')"
   done <<< "$files"

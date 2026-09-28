@@ -4059,6 +4059,35 @@ def cmd_smoke(args):
         print(f"AREA_SMOKE_LIST features={' '.join(features)} runnable_entries={total} (nothing run: --list-only)")
         return
     check_scrip(paths)
+    # EVERY TABLE IS READ AGAINST ITS SUITE BEFORE ANY ENTRY RUNS (the cto 2026-09-28: a table that named three entries its suite
+    # lacked refused the smoke AFTER twelve minutes of entries) -- a refusal that could have been read in a second is read first.
+    plans = []
+    for key, s in sel.items():
+        if not s["entries"] or not s["suite"]:
+            continue
+        suite, lang = s["suite"], s["lang"]
+        ref = suite.with_name("ALL.ref")
+        if not ref.is_file():
+            refuse(f"smoke: {suite} has no ALL.ref beside it -- nothing to grade against")
+        if lang in LANG_CONFIGS:
+            cfg = LANG_CONFIGS[lang]
+            ext = cfg["ext"]
+            entries = read_block_suite(str(suite), str(ref), banner_re_for(cfg["comment_open"], cfg["comment_close"]),
+                                       in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
+                                       w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
+        else:
+            ext = ".sno"
+            entries = read_suite(str(suite), str(ref), in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
+                                 w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
+        by_name = {e.name: e for e in entries}
+        outside = _smoke_outside_names(suite)
+        wanted = [n for n in s["entries"] if n not in outside]
+        skipped_outside = [n for n in s["entries"] if n in outside]
+        missing = [n for n in wanted if n not in by_name]
+        if missing:
+            refuse(f"smoke: {s['csv']} names entries the suite {suite.name} does not contain: {_smoke_names(missing, 10)} -- "
+                   f"the table and the suite disagree, which is a builder defect, not a smoke result (nothing was run)")
+        plans.append((key, s, suite, lang, ext, by_name, wanted, skipped_outside, ref))
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_smoke_"))
     reds = []
     skipped = []
@@ -4066,35 +4095,11 @@ def cmd_smoke(args):
     all_pass = 0
     per_table = []
     try:
-        for key, s in sel.items():
-            if not s["entries"] or not s["suite"]:
-                continue
-            suite, lang = s["suite"], s["lang"]
-            ref = suite.with_name("ALL.ref")
-            if not ref.is_file():
-                refuse(f"smoke: {suite} has no ALL.ref beside it -- nothing to grade against")
-            if lang in LANG_CONFIGS:
-                cfg = LANG_CONFIGS[lang]
-                ext = cfg["ext"]
-                entries = read_block_suite(str(suite), str(ref), banner_re_for(cfg["comment_open"], cfg["comment_close"]),
-                                           in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
-                                           w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
-            else:
-                ext = ".sno"
-                entries = read_suite(str(suite), str(ref), in_path=sidecar_in_path(str(suite)), x_path=sidecar_xfail_path(str(suite)),
-                                     w_path=sidecar_wantrc_path(str(suite)), a_path=sidecar_argv_path(str(suite)), modes=modes)
-            by_name = {e.name: e for e in entries}
+        for key, s, suite, lang, ext, by_name, wanted, skipped_outside, ref in plans:
             FATAL_RENDER["voice"] = _fatal_render_voice_for(lang if lang in LANG_CONFIGS else "")
             masks = read_mask_sidecar(str(ref))
             heap, _ = heap_declarations(str(suite))
             stack, _ = stack_declarations(str(suite))
-            outside = _smoke_outside_names(suite)
-            wanted = [n for n in s["entries"] if n not in outside]
-            skipped_outside = [n for n in s["entries"] if n in outside]
-            missing = [n for n in wanted if n not in by_name]
-            if missing:
-                refuse(f"smoke: {s['csv']} names entries the suite {suite.name} does not contain: {_smoke_names(missing, 10)} -- "
-                       f"the table and the suite disagree, which is a builder defect, not a smoke result")
             t_pass, t_red = 0, []
             for n in wanted:
                 e = by_name[n]
