@@ -3145,10 +3145,9 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
     DESCR_t h = rt_pl_deref_val(args[0]);
     if (!pl_fa_of(h)) return 0;
     { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i;
-      DESCR_t *el; DESCR_t lst;
+      DESCR_t lst;
       if (mode != 0 && n == 0) return 0;
-      el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
-      if (!el) return 0;
+      DESCR_t el[n > 0 ? n : 1];
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
       lst = pl_list_from_arr(el, n);
       if (mode == 2) return rt_pl_sort_cell(0, (void *)&lst, (void *)&args[1], cx);
@@ -3160,9 +3159,8 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     DESCR_t h = rt_pl_deref_val(args[0]);
     if (!pl_fa_of(h)) return 0;
     DESCR_t t4 = args[2]; DESCR_t *c4 = plw_cell_deref(plw_entry(&t4));
-    { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
-      el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
-      if (!el) return 0;
+    { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
+      DESCR_t el[n > 0 ? n : 1];
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
       for (i = n - 1; i >= 0; i--) lst = pl_cons(el[i], lst);
       return plw_unify_vals(args[1], lst, cx); }
@@ -3178,18 +3176,11 @@ static int pl_pair_parts(DESCR_t it, DESCR_t *w, DESCR_t *t) {
     { DESCR_t *aa = (DESCR_t *)d.p; *w = aa[0]; *t = aa[1]; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_bagof_groups(void *acc, DESCR_t **items_out, int **ord_out, int **gs_out, int **gi_out) {
-    extern int rt_pl_findall_count(void *); extern void rt_pl_findall_item(void *, int, void *);
+static int pl_bagof_groups(void *acc, int n, DESCR_t *it, int *ord, int *gs, int *used, int *gi) {
+    extern void rt_pl_findall_item(void *, int, void *);
     extern int rt_pl_variant_cells(void *, void *); extern int rt_pl_atop_cell(int, void *, void *);
-    int n = rt_pl_findall_count(acc), i, j, ng = 0, k = 0;
-    DESCR_t *it; int *ord, *gs, *used, *gi;
+    int i, j, ng = 0, k = 0;
     if (n <= 0) return 0;
-    it = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
-    ord = (int *)rt_wsb_alloc((size_t)n * sizeof(int));
-    gs = (int *)rt_wsb_alloc((size_t)(n + 1) * sizeof(int));
-    used = (int *)rt_wsb_alloc((size_t)n * sizeof(int));
-    gi = (int *)rt_wsb_alloc((size_t)n * sizeof(int));
-    if (!it || !ord || !gs || !used || !gi) return 0;
     for (i = 0; i < n; i++) { rt_pl_findall_item(acc, i, (void *)&it[i]); used[i] = 0; }
     for (i = 0; i < n; i++) {
         DESCR_t wi, ti;
@@ -3212,34 +3203,36 @@ static int pl_bagof_groups(void *acc, DESCR_t **items_out, int **ord_out, int **
         }
         if (best != i) { int tmp = gi[i]; gi[i] = gi[best]; gi[best] = tmp; }
     }
-    *items_out = it; *ord_out = ord; *gs_out = gs; *gi_out = gi;
     return ng;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_bagof_group_n(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
-    { DESCR_t h = rt_pl_deref_val(args[0]); DESCR_t *it; int *ord, *gs, *gi, ng;
+    { extern int rt_pl_findall_count(void *); DESCR_t h = rt_pl_deref_val(args[0]); int n, ng;
       if (!pl_fa_of(h)) return FAILDESCR;
-      ng = pl_bagof_groups(pl_fa_of(h), &it, &ord, &gs, &gi);
+      n = rt_pl_findall_count(pl_fa_of(h)); if (n <= 0) return FAILDESCR;
+      { DESCR_t it[n]; int ord[n], gs[n + 1], used[n], gi[n]; ng = pl_bagof_groups(pl_fa_of(h), n, it, ord, gs, used, gi); }
       if (ng <= 0) return FAILDESCR;
       return INTVAL(ng - 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_bagof_group_at_cell(DESCR_t *args, pl_tr_ctx_t *cx, int sorted) {
     extern int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
+    extern int rt_pl_findall_count(void *);
     DESCR_t h = rt_pl_deref_val(args[0]), iv = rt_pl_deref_val(args[1]);
-    DESCR_t *it; int *ord, *gs, *gi, ng, idx, i, cnt, g;
-    DESCR_t wrep, trep, *el, lst; char *tr0 = cx->tr; int ok;
+    int ng, idx, i, cnt, g, n;
+    DESCR_t wrep, trep, lst; char *tr0 = cx->tr; int ok;
     if (!pl_fa_of(h) || iv.v != DT_I) return 0;
-    ng = pl_bagof_groups(pl_fa_of(h), &it, &ord, &gs, &gi);
+    n = rt_pl_findall_count(pl_fa_of(h)); if (n <= 0) return 0;
+    DESCR_t it[n]; int ord[n], gs[n + 1], used[n], gi[n];
+    ng = pl_bagof_groups(pl_fa_of(h), n, it, ord, gs, used, gi);
     idx = (int)iv.i;
     if (ng <= 0 || idx < 0 || idx >= ng) return 0;
     g = gi[idx];
     cnt = gs[g + 1] - gs[g];
     if (cnt <= 0) return 0;
-    el = (DESCR_t *)rt_ws_alloc_descr((size_t)cnt);
-    if (!el) return 0;
+    DESCR_t el[cnt];
     if (!pl_pair_parts(it[ord[gs[g]]], &wrep, &trep)) return 0;
     ok = 1;
     for (i = 0; i < cnt && ok; i++) {
