@@ -96,12 +96,16 @@ echo "--- ARM 6: the Dotnet runner (live oracle diff, no ref, its own loop) grad
 DR="$HERE/test_snobol4_dotnet_suite.sh"
 if [ -f "$DR" ]; then
   mkdir -p "$W/dot"; cp "$W/fatal_witness.sno" "$W/dot/fatal_witness.sno"; cp "$W/ALL.mask" "$W/dot/ALL.mask"
-  printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,dotnet,5,0,0,131072,4096,,\n' > "$W/dot/ALL.csv"
+  cp "$W/fatal_witness.sno" "$W/dot/excluded_witness.sno"
+  printf 'excluded_witness.sno\tNOT_SPITBOL_DIALECT\tgate fixture: a program whose fatal under sbl -bf is the CSNOBOL4 feature it uses, excluded by CEO-1286\n' > "$W/dot/EXCLUDED.tsv"
+  printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,dotnet,5,0,0,131072,4096,,\n2,excluded_witness,excluded_witness,dotnet,5,0,0,131072,4096,,\n' > "$W/dot/ALL.csv"
   mkdir -p "$W/dbg"
   o6=$(cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Dotnet runner over a one-program scratch suite, not a board" timeout 300 bash "$DR" 2>&1); r6=$?
   p6m3=$(awk -F'\t' '$8=="fatal_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1); p6m4=$(awk -F'\t' '$8=="fatal_witness" && $9=="m4" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
   ck "6a the Dotnet runner's progress rows read fatal_witness m3 PASS and m4 PASS (rc $r6), the program named FATAL_GRADED" '[ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] && grep -q "FATAL_GRADED.* fatal_witness" <<<"$o6"'
   [ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] || { printf '%s\n' "$o6" | grep -iE 'fatal_witness|REFUS|DOTNET_BOARD|FATAL' | head -6 | sed 's/^/      /'; echo "      what the runner compared (oracle vs m3), first lines of the diff:"; diff "$W/dbg/fatal_witness.oracle" "$W/dbg/fatal_witness.m3" 2>&1 | head -8 | sed 's/^/        /'; echo "      m3 stderr:"; head -4 "$W/dbg/fatal_witness.err3" 2>/dev/null | sed 's/^/        /'; }
+  p6x=$(awk -F'\t' '$8=="excluded_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
+  ck "6c a program EXCLUDED.tsv names keeps its fatal as the dialect refusal: UNGRADED, never graded through the rendered block (the d6c775c13 defect)" '[ "$p6x" = UNGRADED ] && ! grep -q "FATAL_GRADED.* excluded_witness" <<<"$o6"'
   md5_after6=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
   ck "6b and wrote no score row either" '[ "$md5_before" = "$md5_after6" ]'
 else

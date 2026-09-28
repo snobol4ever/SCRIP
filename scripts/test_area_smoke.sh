@@ -36,7 +36,8 @@ expand_features() {
   for f in "$@"; do
     case "$f" in
       '*') out="$out $(python3 "$H" smoke --vocabulary 2>/dev/null | sed 's/^AREA_SMOKE_VOCAB table=[^ ]* runnable=[^ ]* //' | tr '\n' ' ')" ;;
-      lang:*) out="$out $(python3 "$H" smoke --vocabulary --tables "tests/${f#lang:} packages/${f#lang:}/" 2>/dev/null | sed 's/^AREA_SMOKE_VOCAB table=[^ ]* runnable=[^ ]* //' | tr '\n' ' ')" ;;
+      # a language's own features are QUALIFIED by it (<lang>:<column>): a Prolog carrier selects Prolog's `write`, never Icon's
+      lang:*) out="$out $(python3 "$H" smoke --vocabulary --tables "tests/${f#lang:} packages/${f#lang:}/" 2>/dev/null | sed 's/^AREA_SMOKE_VOCAB table=[^ ]* runnable=[^ ]* //' | awk -v l="${f#lang:}" '{for (i=1;i<=NF;i++) printf "%s:%s ", l, $i}')" ;;
       -) ;;
       *) out="$out $f" ;;
     esac

@@ -79,4 +79,5 @@ scripts/test_gate_sno_system_fn_table_is_sorted.sh
 scripts/util_suite_rows_vs_progress.py --selftest
 scripts/test_gate_excluded_not_spitbol_dialect_named_and_out_of_the_denominator.sh
 scripts/test_gate_fanout_ceiling.sh
+scripts/test_gate_make_leaves_out_a_dep_file_whose_source_is_gone.sh
 scripts/test_area_smoke.sh

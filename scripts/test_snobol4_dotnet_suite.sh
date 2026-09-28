@@ -158,6 +158,13 @@ for sno in "$SUITE"/*.sno; do
     if [ "$rcS" -ge 128 ]; then
         UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; continue
     fi
+    # ⛔ AN EXCLUDED PROGRAM'S FATAL IS THE DIALECT REFUSAL, NOT AN ANSWER (the coo 2026-09-28, after d6c775c13 counted expr_parser_stub
+    # into the denominator): a program EXCLUDED.tsv names NOT_SPITBOL_DIALECT (CEO-1286) is excluded exactly because sbl -bf stops on the
+    # CSNOBOL4 feature it uses (ERROR 248, a user DEFINE of the system function ITEM) -- that fatal is half one of the exclusion, so the
+    # program stays in the outside set and leaves the denominator, never graded through the rendered block.
+    if sbl_died "$gotS" && inventory_is_excluded "$SUITE" "$name.sno"; then
+        UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-refuses-a-csnobol4-feature:EXCLUDED.tsv)"; prog_unscr "$name" "unscored: EXCLUDED not SPITBOL dialect, the oracle stops on the CSNOBOL4 feature"; continue
+    fi
     DIED=0; if sbl_died "$gotS"; then DIED=1; FATAL_GRADED="$FATAL_GRADED $name"; gotS="$(mask_dot "$gotS" "$name" oracle)"; fi
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
     got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>"$W/err3")"; rc3=$?

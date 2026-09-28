@@ -3959,7 +3959,14 @@ def smoke_feature_columns(csv_path):
 def smoke_select(corpus_root, features, only_tables=None):
     """The selection: {key: {"csv":..., "suite":..., "lang":..., "features": [known here], "entries": [names], "xfail": [names],
     "rows": N}} for every table, plus the set of features no table knows. Pure reading -- nothing runs."""
+    # ⭐ A FEATURE MAY BE QUALIFIED BY ITS LANGUAGE, <lang>:<column> (hq_prolog 2026-09-28: a Prolog landing's `write`, `sort`, `list`
+    # and `read` selected Icon's and Raku's columns of the same name and read their standing reds -- one word, two languages, two
+    # meanings). A qualified token selects that column only in the tables of that language (tests/<lang>, packages/<lang>/*); a
+    # plain token selects it in every table that carries it -- right for a box several frontends share (SPAN in SNOBOL4, Snocone,
+    # Rebus). test_area_smoke.sh expands a lang:<x> carrier row to qualified tokens.
     want = list(dict.fromkeys(features))
+    plain = [f for f in want if ":" not in f]
+    qual = [tuple(f.split(":", 1)) for f in want if ":" in f]
     known = set()
     sel = {}
     for key, csv_path, suite, lang in smoke_tables(corpus_root):
@@ -3967,7 +3974,8 @@ def smoke_select(corpus_root, features, only_tables=None):
             continue
         feats, rows = smoke_feature_columns(csv_path)
         known.update(feats)
-        here = [f for f in want if f in feats]
+        known.update("%s:%s" % (lang, c) for c in feats)
+        here = list(dict.fromkeys([f for f in plain if f in feats] + [c for (l, c) in qual if l == lang and c in feats]))
         names, xf = [], []
         for r in rows:
             if not any((r.get(f) or "").strip() == "1" for f in here):
@@ -4088,8 +4096,11 @@ def cmd_smoke(args):
             refuse(f"smoke: {s['csv']} names entries the suite {suite.name} does not contain: {_smoke_names(missing, 10)} -- "
                    f"the table and the suite disagree, which is a builder defect, not a smoke result (nothing was run)")
         plans.append((key, s, suite, lang, ext, by_name, wanted, skipped_outside, ref))
+    standing, suite_of, base_note = _smoke_standing(plans, paths)
+    print(base_note)
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_smoke_"))
     reds = []
+    stand = []
     skipped = []
     graded = 0
     all_pass = 0
@@ -4120,13 +4131,27 @@ def cmd_smoke(args):
                 if len(measured) < len(kinds):
                     skipped.append((key, n, [m for m, k in kinds.items() if k == "SKIP"]))
                 ok = bool(measured) and all(k == "PASS" for k in measured.values())
+                was = {}
                 if ok:
                     t_pass += 1
                     all_pass += 1
                 else:
-                    t_red.append(n)
-                    reds.append((key, n, kinds))
-                print("AREA_SMOKE_ENTRY table=%s entry=%s %s" % (key, n, " ".join(f"{m}={kinds[m]}" for m in modes)))
+                    # ⭐ A STANDING RED IS NOT THE LANDING'S (the cto, hq_prolog, the cfo, 2026-09-28: every seat's preflight read the
+                    # smoke red on entries the loop's own last reading already had red). An entry whose every red mode read non-PASS at
+                    # its latest reading in the progress record is STANDING: named, never charged to this landing. An entry that read
+                    # PASS there, or was never read (a new witness), is the landing's red.
+                    reds_here = [m for m, k in measured.items() if k != "PASS"] or list(kinds)
+                    sname = suite_of.get(key)
+                    was = {m: standing.get((sname, n, m)) for m in reds_here}
+                    if sname and all(v and v != "PASS" for v in was.values()):
+                        stand.append((key, n, kinds, was))
+                    else:
+                        t_red.append(n)
+                        reds.append((key, n, kinds))
+                tag = ""
+                if not ok and stand and stand[-1][1] == n and stand[-1][0] == key:
+                    tag = " STANDING (the last reading: %s)" % ", ".join(f"{m}={v}" for m, v in was.items())
+                print("AREA_SMOKE_ENTRY table=%s entry=%s %s%s" % (key, n, " ".join(f"{m}={kinds[m]}" for m in modes), tag))
                 for m in modes:
                     if kinds[m] != "PASS" and verdicts[m].detail:
                         print(f"    {m}: {verdicts[m].detail[:300]}")
@@ -4141,10 +4166,52 @@ def cmd_smoke(args):
     if skipped:
         print("AREA_SMOKE_SKIPPED %d entr(y/ies) had a mode that could not be measured (SKIP: mode 4 did not compile or link), graded on the "
               "other mode and named: %s" % (len(skipped), _smoke_names(["%s:%s[%s]" % (k, n, ",".join(ms)) for k, n, ms in skipped], cap)))
+    if stand:
+        print("AREA_SMOKE_STANDING %d entr(y/ies) red here and red at their last reading in the progress record -- standing debt of "
+              "their lanes, not this landing's: %s" % (len(stand), _smoke_names(["%s:%s" % (k, n) for k, n, _kk, _w in stand], cap)))
     print(f"AREA_SMOKE_TOTAL features={' '.join(features)} modes={','.join(modes)} tables={len(per_table)} entries={graded} "
-          f"all_pass={all_pass} red={len(reds)} skipped_modes={len(skipped)} -- no progress row appended, no score cell written: an area smoke is not a board "
+          f"all_pass={all_pass} red={len(reds)} standing={len(stand)} skipped_modes={len(skipped)} -- no progress row appended, no score cell written: an area smoke is not a board "
           f"(CEO-547, CEO-1342 clause 4); the suite number is the coo's SUITE TABLE row")
     sys.exit(1 if reds else 0)
+
+
+def _smoke_standing(plans, paths):
+    """({(suite, program, mode): latest outcome}, {table key: progress suite name}, note) for the tables a smoke will run, read from
+    the progress record (util_progress_append's db_path, S4E_PROGRESS_DB honoured) with a fixed-string grep on the suite names first
+    -- the record is ~840 MB and append-only, so the last line for a key is its latest reading. An unreadable record yields an
+    empty baseline and says so: every red is then the landing's, which is the conservative reading, never a hidden one."""
+    suite_of = {}
+    for key, s, suite, lang, *_rest in plans:
+        try:
+            suite_of[key] = progress_suite_for(str(suite), paths)[1]
+        except Exception:
+            pass
+    names = sorted(set(v for v in suite_of.values() if v))
+    if not names:
+        return {}, suite_of, "AREA_SMOKE_BASELINE none: no table maps to a progress suite name -- every red is the landing's"
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import util_progress_append as _upa
+        db = _upa.db_path()
+    except Exception as e:
+        return {}, suite_of, f"AREA_SMOKE_BASELINE unreadable ({type(e).__name__}) -- every red is the landing's"
+    if not os.path.isfile(db):
+        return {}, suite_of, f"AREA_SMOKE_BASELINE none: no progress record at {db} -- every red is the landing's"
+    args = ["grep", "-F"]
+    for n in names:
+        args += ["-e", "\t%s\t" % n]
+    try:
+        r = subprocess.run(args + [db], capture_output=True, text=True, errors="replace", timeout=120, env=dict(os.environ, LC_ALL="C"))
+    except Exception as e:
+        return {}, suite_of, f"AREA_SMOKE_BASELINE unreadable ({type(e).__name__}: {e}) -- every red is the landing's"
+    out = {}
+    want = set(names)
+    for ln in r.stdout.splitlines():
+        f = ln.split("\t")
+        if len(f) < 10 or f[5] not in want:
+            continue
+        out[(f[5], f[7], f[8])] = f[9]
+    return out, suite_of, f"AREA_SMOKE_BASELINE the progress record {db}: {len(out)} (program, mode) latest readings over {len(names)} suite(s) -- a red that was red there is STANDING"
 
 
 def cmd_list(args):

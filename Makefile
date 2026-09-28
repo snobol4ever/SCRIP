@@ -1419,5 +1419,9 @@ distclean: clean
 # phony-targets headers only, so the next incremental make dies "No rule to make target" on a file nobody should build.
 # Such a .d is left out: its object rebuilds from the pattern rule when its source changes, and the .d is rewritten.
 # re.c moved from src/parsers/raku to src/runtime when the flex/bison Raku parser was deleted (CEO-1289 phase 2, cto
-# ruling). An empty rule per vanished source does NOT work: vpath then resolves the stem to the phantom target.
--include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null | xargs -r grep -L 'src/parsers/raku/re\.c' 2>/dev/null)
+# ruling), prolog_atom.c from src/parsers/prolog to src/runtime/rt (hq_prolog 481a8cd96, the second instance, CEO-1352).
+# An empty rule per vanished source does NOT work: vpath then resolves the stem to the phantom target.
+# BY RULE, NOT BY NAME (the coo 2026-09-28, CEO-1352): scripts/live_dep_files.awk keeps a .d only while the source it names
+# as its object's first prerequisite exists, so the next move needs no edit here; test_gate_make_leaves_out_a_dep_file_whose_
+# source_is_gone.sh proves it end to end (a real make -n over a moved-source fixture) and fails once with the old by-name filter.
+-include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null | xargs -r awk -f $(ROOT)/scripts/live_dep_files.awk 2>/dev/null)
