@@ -11,15 +11,13 @@ extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-static char bk_nlb[24];
-static char bk_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bk_gu() (_.op_sa < 0)
 #define bk_gi() (_.op_sa >= 0)
 #define bk_ndl_r8() ( \
       _.op_sa >= 0 \
     ? x86("mov", "r8", XSAQ(8)) \
-    : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb) \
+    : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), "") \
 )
 #define bk_len_eax() ( \
       _.op_sa >= 0 \
@@ -49,10 +47,10 @@ static std::string bk_memb(long i) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_break() {
     x86_begin();
-    if (_.node && _.node->pat_static && _.op_sval)
+    if (_.op_pat_static && _.op_sval)
         return x86("comment", "IR_MATCH_BREAK defer")
              + x86_alpha()
-             + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, (strtab_label(bk_dlb, sizeof bk_dlb, _.op_sval), bk_dlb))
+             + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
              + bb_glue_prim_str(50, 0, 4, 8, 12)
              + x86("test",  "rax", "rax")
              + x86_omega("js")
@@ -68,8 +66,6 @@ std::string bb_match_break() {
              + x86_beta()
              + x86("mov",   "r14d", LFC(0))
              + x86_omega();
-    static char c[24];
-    const void * ct = bk_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (_.op_zres && _.op_sa >= 0)
         return x86("comment", "IR_MATCH_BREAK zd")
              + x86_alpha()
@@ -118,7 +114,7 @@ std::string bb_match_break() {
             + x86("mov",    LFC(0), "r14d")
             + x86("mov",    "r14d", "eax"))
          + IF(bk_gu(),
-              IF(bk_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
+              IF(bk_tablep(), x86("lea", "rdi", "[rip + __]", x86_csettab_ptr(_.op_sval ? _.op_sval : ""), x86_csettab_lbl(_.op_sval ? _.op_sval : "").c_str()))
             + x86("movsxd", "rcx", "r14d")
             + x86("def",    L(0))
             + bk_char()
