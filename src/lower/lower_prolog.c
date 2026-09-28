@@ -1356,9 +1356,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             tree_t * ti = pl_cc_freshvar(); tree_t * to = pl_cc_freshvar(); tree_t * th = pl_cc_freshvar();
             tree_t * op = pl_cc_fnc3("$wot_open", ti, to, th);
             tree_t * so = pl_cc_fnc1("set_output", ti);
-            tree_t * cg = pl_cc_fnc1("call", (tree_t *) t->c[1]);
-            tree_t * cap = pl_cc_fnc4("$wot_capture", ti, to, th, (tree_t *) t->c[0]);
+            tree_t * ev = pl_cc_freshvar(); tree_t * ev2 = pl_cc_freshvar(); ev2->v.ival = ev->v.ival;
             tree_t * dis = pl_cc_fnc3("$wot_discard", ti, to, th);
+            tree_t * cg = pl_cc_fnc3("catch", pl_cc_fnc1("call", (tree_t *) t->c[1]), ev, pl_cc_fnc2(",", dis, pl_cc_fnc1("throw", ev2)));
+            tree_t * cap = pl_cc_fnc4("$wot_capture", ti, to, th, (tree_t *) t->c[0]);
             tree_t * fb = pl_cc_fnc2(",", dis, pl_atom_goal("fail"));
             tree_t * ite = pl_cc_fnc2(";", pl_cc_fnc2("->", cg, cap), fb);
             tree_t * body = pl_cc_fnc2(",", op, pl_cc_fnc2(",", so, ite));
