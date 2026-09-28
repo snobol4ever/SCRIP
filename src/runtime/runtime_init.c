@@ -6,6 +6,7 @@
 #include "rt/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "ct_vec.h"
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rbp = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -48,7 +49,8 @@ unsigned long g_zsm_violations = 0UL, g_zsm_beta_no_alpha = 0UL, g_zsm_events = 
 unsigned long g_zsm_fsm_illegal = 0UL, g_zsm_gamma_events = 0UL, g_zsm_leaked_at_exit = 0UL, g_zsm_alpha_while_live = 0UL;
 static unsigned long g_zsm_rsp0 = 0UL;
 static unsigned long g_zsm_stmt0 = 0UL;
-static unsigned long g_zsm_seen_nodes[ZSM_N];
+static cv_t g_zsm_seen;
+#define g_zsm_seen_nodes ((unsigned long *)g_zsm_seen.p)
 static unsigned long g_zsm_seen_n = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }
@@ -107,8 +109,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
     if (fl) kind -= 4L;
     if (e->node != node && zsm_leak_report_on()) {
-        if (g_zsm_seen_n >= ZSM_N) { fprintf(stderr, "[ZSM] the seen-node table is full at %lu (ZSM_N) -- the leak report cannot follow more nodes\n", (unsigned long)ZSM_N);
-            fprintf(stderr, "[ZSM] the zsm census is instrumentation; its tables stay fixed and refuse loudly\n"); abort(); }
+        cv_reserve(&g_zsm_seen, (uint32_t)sizeof(unsigned long), (uint64_t)g_zsm_seen_n + 1, "g_zsm_seen");
         g_zsm_seen_nodes[g_zsm_seen_n++] = node;
     }
     if (kind == 1 && (e->node == node) && (e->state == ZSM_LIVE || e->state == ZSM_SUSPENDED || e->state == ZSM_RESUMED)) {
