@@ -376,7 +376,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             IR_t * e = pas_call_args(cx, call, 2.0, av, 3, ω);
             *res = call; return e;
         }
-        if (base && base->t == TT_IDX && !pas_node_nrec_marked(lhs)) return pas_lower_idx_assign_curried(cx, lhs, rhs, γ, ω, res);
+        if (base && base->t == TT_IDX) return pas_lower_idx_assign_curried(cx, lhs, rhs, γ, ω, res);
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         if (bname && pas_name_is_byref(cx, bname)) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
@@ -622,14 +622,6 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         return lower_unop(cx, t, γ, ω, res);
     case TT_ASSIGN: return lower_assign(cx, t, γ, ω, res);
     case TT_IDX: {
-        if (pas_node_nrec_marked(t) && t->n == 2 && t->c[0] && t->c[0]->t == TT_IDX && t->c[0]->n == 2) {
-            const tree_t *inner = t->c[0];
-            const tree_t *base_node = inner->c[0]; const tree_t *fi_node = inner->c[1]; const tree_t *ei_node = t->c[1];
-            IR_t *nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__pas_nrec_get";
-            const tree_t *av[3]; av[0] = base_node; av[1] = fi_node; av[2] = ei_node;
-            IR_t * e = pas_call_args(cx, nd, 2.0, av, 3, ω);
-            *res = nd; return e;
-        }
         IR_t *nd = build(cx, IR_CALL, γ, pas_index_fault(cx, ω)); IR_LIT(nd).sval = "arr_get";
         IR_t * e = pas_call_args(cx, nd, 2.0, (const tree_t * const *) t->c, t->n, ω);
         *res = nd; return e; }

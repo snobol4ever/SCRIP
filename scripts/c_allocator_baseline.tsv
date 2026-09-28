@@ -83,6 +83,9 @@
 # Paid back by row raku-the-regex-engine-nfa-storage-leaves-the-compile-time-arena-for-the-runtime-allocator-and-the-arena-
 # in-runtime-ratchet-returns-to-106 (owner hq_raku, the cfo's allocator: the collected GC heap, one block per regex).
 # CRITERION UNCHANGED, COUNT EARNED 2026-09-28 hq_prolog (ee6777bcc): arena_in_runtime_ratcheted 111 -> 108 -- acyclic_term/1 takes its path set and path array from rt_wsb_alloc/rt_wsb_realloc (workspace heap blocks the collector reclaims) instead of ct_alloc/ct_grow/ct_drop, so the three arena sites its old array walk carried leave the runtime.
+# CRITERION UNCHANGED, COUNT EARNED 2026-09-28 hq_pascal (row pascal-records-and-arrays-are-typed-storage-no-delimiter-joined-strings-lon-2026-09-28, step 1): arena_in_runtime_ratcheted and
+# arena_in_runtime_debt fall 108 -> 93 BY DELETION (111 -> 96 before hq_prolog's ee6777bcc landed first): a Pascal record is now an ARBLK_t block of DESCR slots on the collected heap, so
+# by_name_dispatch.c's record-string splicers (pas_nrec_subrec_set, __pas_nrec_pfield_set, __pas_nrec_field_set, __pas_nrec_update, __pas_nrec_deref_set) and their ct_alloc/ct_drop buffers left the tree.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -90,9 +93,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	108
+arena_in_runtime_ratcheted	93
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	108
+arena_in_runtime_debt	93
 container_unmarked_live	1
 libc_owned_misuse	0
 libc_doors	1

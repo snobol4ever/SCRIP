@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1912
+#define GC_ALLOC_TAB_N 1913
 #define GC_ALLOC_TAB_N_VOID 221
-#define GC_ALLOC_TAB_N_DESCR 1042
-#define GC_ALLOC_TAB_N_OTHER 643
+#define GC_ALLOC_TAB_N_DESCR 1044
+#define GC_ALLOC_TAB_N_OTHER 642
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -680,25 +680,26 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "palnum", GC_RET_OTHER },
     { "parse_clause", GC_RET_OTHER },
     { "parse_scrip_polyglot", GC_RET_OTHER },
+    { "pas_agg_copy", GC_RET_DESCR },
     { "pas_call_args", GC_RET_OTHER },
     { "pas_call_args_brm", GC_RET_OTHER },
     { "pas_call_args_brm_dir", GC_RET_OTHER },
     { "pas_cell_cstring", GC_RET_OTHER },
     { "pas_cell_str", GC_RET_OTHER },
+    { "pas_ch_of", GC_RET_OTHER },
     { "pas_cond", GC_RET_OTHER },
     { "pas_cond_bool", GC_RET_OTHER },
     { "pas_cond_sc", GC_RET_OTHER },
-    { "pas_field_idx_splice", GC_RET_OTHER },
     { "pas_index_fault", GC_RET_OTHER },
     { "pas_lower_exit", GC_RET_OTHER },
     { "pas_lower_idx_assign_curried", GC_RET_OTHER },
     { "pas_mat", GC_RET_OTHER },
     { "pas_mat_rv", GC_RET_OTHER },
-    { "pas_nrec_subrec_set", GC_RET_OTHER },
     { "pas_numeral_put", GC_RET_OTHER },
     { "pas_ord_of", GC_RET_OTHER },
     { "pas_pf_resolve", GC_RET_VOID },
     { "pas_read_number", GC_RET_DESCR },
+    { "pas_str_setch", GC_RET_DESCR },
     { "pas_tf_read", GC_RET_OTHER },
     { "pas_tf_set", GC_RET_VOID },
     { "pas_tf_write", GC_RET_VOID },
