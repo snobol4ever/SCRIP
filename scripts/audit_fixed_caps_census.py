@@ -653,7 +653,15 @@ def loop_kind(lp, size, defines, s):
         init, test, incr = parts[0], parts[1], parts[2]
         up = {x or y for x, y in re.findall(r"([A-Za-z_]\w*)\s*(?:\+\+|\+=)|\+\+\s*([A-Za-z_]\w*)", incr)}
         down = {x or y for x, y in re.findall(r"([A-Za-z_]\w*)\s*(?:--|-=)|--\s*([A-Za-z_]\w*)", incr)}
+        # ⛔⭐ A LITERAL JOINED BY AND TO A DATA-DRIVEN TEST IS A CLAMP, NOT A TRIP BOUND (the cto 2026-09-28): `fi < dt->nfields && fi < 64`
+        # lets the program's count decide the trip and silently drops everything past the literal -- a Raku class of 70 attributes lost
+        # every named value past the 64th in by_name_dispatch.c's fvals[64], read here as B:trip; `sp[k] && sp[k] != '(' && k < 127`
+        # truncates a longer name the same way. B:trip holds only when no OTHER conjunct makes the trip depend on data through the loop's
+        # own variable (a comparison with a non-constant, or an element test indexed by it); otherwise the loop is DATA and the literal
+        # comparison is read as its guard (DROP-truncate). A conjunct that does not name the loop variable (`ok && i < 8`) keeps B:trip.
+        clamp, data_driven = False, False
         for c in conjuncts(test):
+            const_bound = False
             for lv in up:
                 m1 = re.fullmatch(r"\(?\s*" + re.escape(lv) + r"\s*\)?\s*(<|<=|!=)\s*(.+)", c)
                 m2 = re.fullmatch(r"(.+?)\s*(>|>=)\s*\(?\s*" + re.escape(lv) + r"\s*\)?", c)
@@ -662,9 +670,14 @@ def loop_kind(lp, size, defines, s):
                 op, k = (m1.group(1), m1.group(2)) if m1 else (("<" if m2.group(2) == ">" else "<="), m2.group(1))
                 v = resolve(k.strip().strip("()").strip(), defines) if re.fullmatch(BOUND_RE, k.strip().strip("()").strip()) else None
                 if v is not None and size is not None and (v <= size if op in ("<", "!=") else v < size):
-                    return "B:trip", counts
+                    clamp = const_bound = True
+                    continue
                 if v is None and re.fullmatch(LVAR, _norm(k)):
                     counts.add(_norm(k).strip("()"))
+            if not const_bound and any(re.search(r"\b" + re.escape(lv) + r"\b", c) for lv in up):
+                data_driven = True
+        if clamp and not data_driven:
+            return "B:trip", counts
         for lv in down:
             mi = re.search(r"\b" + re.escape(lv) + r"\s*=\s*([^,;]+)", init)
             if mi:
@@ -1170,7 +1183,11 @@ def selftest():
             "    int l17_count[2]; for (int j = 0; j < nb; j++) l17_count[j] = l17_arms[j]->v; }\n"
             "const char *l18(const char *name) { char l18_alias[64]; size_t need = sizeof l18_alias; snprintf(l18_alias, need, \"n_%s\", name); return strdup(l18_alias); }\n"
             "void l19(double r) { char out[32]; snprintf(out, sizeof out, \"%g\", r); char l19_fits[64]; snprintf(l19_fits, sizeof l19_fits, \"%s\", out); }\n"
-            "void l20(struct node *h) { for (; h; h = h->next) { int l20_fresh[2]; int n = 0; l20_fresh[n++] = h->v; if (h->next) l20_fresh[n++] = h->next->v; } }\n")
+            "void l20(struct node *h) { for (; h; h = h->next) { int l20_fresh[2]; int n = 0; l20_fresh[n++] = h->v; if (h->next) l20_fresh[n++] = h->next->v; } }\n"
+            "struct dt { int nfields; };\n"
+            "void l21(struct dt *dt, int v) { int l21_andclamp[64]; for (int fi = 0; fi < dt->nfields && fi < 64; fi++) l21_andclamp[fi] = v; }\n"
+            "void l22(const char *sp) { char l22_sentinelclamp[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) l22_sentinelclamp[k] = sp[k]; l22_sentinelclamp[k] = 0; }\n"
+            "void l23(int v, int ok) { int l23_flagtrip[8]; for (int i = 0; ok && i < 8; i++) l23_flagtrip[i] = v; }\n")
         open(os.path.join(d, "e.cpp"), "w").write(
             "extern \"C\" {\n"
             "int e1_after_extern_c[8];\n"
@@ -1247,7 +1264,8 @@ def selftest():
                  "l9_textfmt": ("FORMAT:snprintf", "DROP"), "l10_strcpy": ("COPY:strcpy", "NONE"), "l11_callee": ("CALLEE:l11_fill", "DROP"),
                  "l12_callee_loud": ("CALLEE:l12_flat", "LOUD"), "l13_callee_fixed": ("B:copy@l13_itos", ""), "l14_constfmt": ("B:fmt", ""),
                  "l15_minclamp": ("COUNTER", "DROP"), "l16_callee_plus": ("CALLEE:l16_text", "DROP"), "l17_count": ("B:count", ""),
-                 "l18_alias": ("FORMAT:snprintf", "DROP"), "l19_fits": ("B:fmt", ""), "l20_fresh": ("B:code", "")}
+                 "l18_alias": ("FORMAT:snprintf", "DROP"), "l19_fits": ("B:fmt", ""), "l20_fresh": ("B:code", ""),
+                 "l21_andclamp": ("COUNTER", "DROP"), "l22_sentinelclamp": ("COUNTER", "DROP"), "l23_flagtrip": ("B:trip", "")}
         for n, w in lwant.items():
             if fill.get(n) != w:
                 print("SELFTEST FAIL: local %s reads (fill, guard) %r, want %r" % (n, fill.get(n), w)); ok = False

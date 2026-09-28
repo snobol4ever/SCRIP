@@ -46,6 +46,15 @@
 #     them declared on a scratch CLASS_AB.tsv it reads 0 of 0, says no LOUD guard remains, and exits 0
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
+# ⛔ BASELINE_FUNCTION_SCOPE 393 -> 408, THE CLAMP RULE, RE-DERIVED LIKE-FOR-LIKE 2026-09-28 (the coo, on the cto's finding): the fill
+# reader read a for loop as B:trip when ONE conjunct bounded its variable by a literal no larger than the array, even when another
+# conjunct let the program's data decide the trip -- `fi < dt->nfields && fi < 64` (a Raku class of 70 attributes lost every named
+# value past the 64th) and `sp[k] && sp[k] != '(' && k < 127` (a longer name truncated, read as B:code through its terminator write).
+# A literal joined by AND to a data-driven test of the same variable is now a clamp: the loop is DATA and the literal its DROP-truncate
+# guard; a conjunct that does not name the variable (`ok && i < 8`) keeps B:trip (selftest l21, l22, l23). On one tree (73cb55741)
+# exactly 15 locals move from fixed-by-construction into the population, each COUNTER DROP, and nothing else moves: by_name_dispatch.c
+# fvals at 5644, 5676, 5741, 5753, ub 7070, tu 7334 and 9269, nb 9281; driver_data.c nb 466; driver_label.c nb 85; lower_snobol4.c
+# fnb 525 and nb 2725; gc_heap.c tx 1284 and 1414; gc_audit_b.c tx 68. The census report's own line reads 432 -> 447 (410 -> 425 dropping).
 # ⛔ BASELINE 392 -> 384 AND BASELINE_FUNCTION_SCOPE 522 -> 483, THE NOT-SHIPPED DECLARATION (the coo, 2026-09-24, CEO-1235 (3)): the
 # census read every compilation unit under src/, and 11 of them are linked by neither the scrip nor the libscrip_rt link line. On one
 # tree (cb1bc6d1b) NOT_SHIPPED.tsv sets aside exactly the 8 tables (rtx_str_test.c 3, emit_per_kind_audit.c 5) and 39 locals a program
