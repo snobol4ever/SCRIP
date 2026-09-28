@@ -19,21 +19,6 @@ void init_update_snapshot(char **snames, DESCR_t *svals, int nsaved) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void init_save_frame(void) {
-    if (frame_depth <= 0) return;
-    GenFrame *f = &frame_stack[frame_depth - 1];
-    for (int ei = 0; ei < init_n; ei++) {
-        InitEnt *ent = &init_tab[ei];
-        for (int si = 0; si < ent->ns; si++) {
-            int slot = scope_get(&f->sc, ent->s[si].nm);
-            if (slot >= 0 && slot < f->env_n) {
-                ent->s[si].val = f->env[slot];
-            } else {
-                ent->s[si].val = NV_GET_fn(ent->s[si].nm);
-            }
-        }
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void shadow_set_cur(const char *name, DESCR_t val) {
     if (call_depth <= 0) return;

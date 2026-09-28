@@ -7,34 +7,7 @@
 #include "IR.h"
 #include "SM.h"
 #include "stage2.h"
-#define FRAME_SLOT_MAX        STAGE2_FRAME_SLOT_MAX
-#define FRAME_DEPTH_MAX         16
-#define FRAME_STACK_MAX      256
-#define EVERY_GEN_SLOT_MAX    16
-#define SCAN_STACK_MAX  16
 struct GeneratorState;
-typedef struct { tree_t *node; long cur; const char *sval; } ScopeEntry;
-typedef struct GenFrame GenFrame;
-typedef struct { unsigned char is_ref; GenFrame *frame; int slot; const char *name; } SlotRef;
-struct GenFrame {
-    DESCR_t       env[FRAME_SLOT_MAX];
-    int           env_n;
-    int           returning;
-    DESCR_t       return_val;
-    ScopeEntry gen[FRAME_DEPTH_MAX];
-    int           gen_depth;
-    int           loop_break;
-    int           loop_next;
-    tree_t       *body_root;
-    Scope      sc;
-    int           suspending;
-    DESCR_t       suspend_val;
-    tree_t       *suspend_do;
-    struct GeneratorState *every_gen[EVERY_GEN_SLOT_MAX];
-    SlotRef       slotref[FRAME_SLOT_MAX];
-    GenFrame     *static_link;
-    int           level;
-};
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e)
 {
@@ -52,14 +25,11 @@ static inline IR_t *bb_proc_entry(const ProcEntry *e)
     return g->entry;
 }
 extern tree_t      *g_root;
-extern GenFrame     frame_stack[FRAME_STACK_MAX];
-extern int          frame_depth;
-#define FRAME (frame_stack[frame_depth - 1])
 extern const char  *scan_subj;
 extern int          scan_pos;
 typedef struct { const char *subj; int pos; long len; } ScanEntry;
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
-typedef struct { const char *subj; int pos; int depth; int saved_depth; long len; ScanEntry saved[SCAN_STACK_MAX]; } ScanState;
+typedef struct { const char *subj; int pos; int depth; int saved_depth; int saved_cap; long len; ScanEntry saved[]; } ScanState;
 void  *rt_scan_state_capture(void *prev);
 void   rt_scan_state_apply(void *saved);
 void   rt_scan_state_reset(void);
@@ -87,7 +57,6 @@ int     scope_add(Scope *sc, const char *name);
 int     scope_get(Scope *sc, const char *name);
 DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs);
 int       is_suspendable(tree_t *e);
-void      init_save_frame(void);
 const char *real_str(double r, char *buf, int bufsz);
 int descr_identical(DESCR_t a, DESCR_t b);
 int c_descr_identical(DESCR_t a, DESCR_t b);

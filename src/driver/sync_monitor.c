@@ -31,32 +31,9 @@ void exec_snapshot_take(ExecSnapshot *s) {
     s->kw_stcount      = kw_stcount;
     s->kw_stlimit      = kw_stlimit;
     s->kw_anchor       = kw_anchor;
-    s->frame_depth = frame_depth;
     s->resolve_trail_mark   = 0;
     s->resolve_locals       = NULL;
     s->resolve_locals_count = 0;
-    s->frame_locals       = NULL;
-    s->frame_locals_count = 0;
-    if (frame_depth > 0) {
-        int total = 0;
-        for (int fi = 0; fi < frame_depth; fi++)
-            total += frame_stack[fi].sc.n;
-        if (total > 0) {
-            s->frame_locals = ct_alloc((size_t)total * sizeof(NvPair));
-            int out = 0;
-            for (int fi = 0; fi < frame_depth; fi++) {
-                GenFrame *f = &frame_stack[fi];
-                for (int si = 0; si < f->sc.n; si++) {
-                    s->frame_locals[out].name = f->sc.e[si].name;
-                    int slot = f->sc.e[si].slot;
-                    s->frame_locals[out].val  = (slot >= 0 && slot < f->env_n)
-                                              ? f->env[slot] : NULVCL;
-                    out++;
-                }
-            }
-            s->frame_locals_count = out;
-        }
-    }
     s->last_ok = -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -66,7 +43,6 @@ void exec_snapshot_restore(const ExecSnapshot *s) {
     kw_stcount = s->kw_stcount;
     kw_stlimit = s->kw_stlimit;
     kw_anchor  = s->kw_anchor;
-    frame_depth = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_free(ExecSnapshot *s) {
@@ -77,9 +53,6 @@ void exec_snapshot_free(ExecSnapshot *s) {
     s->label_path     = NULL;
     s->label_path_n   = 0;
     s->label_path_cap = 0;
-    ct_drop(s->frame_locals);
-    s->frame_locals       = NULL;
-    s->frame_locals_count = 0;
     for (int i = 0; i < s->resolve_locals_count; i++) {
         ct_drop(s->resolve_locals[i].name);
         ct_drop(s->resolve_locals[i].val_str);

@@ -9013,10 +9013,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!rname || !*rname) { *out=FAILDESCR; return 1; }
         DatType *_dt = dat_find_type(rname);
         if (!_dt) { *out=FAILDESCR; return 1; }
-        DESCR_t fargs[FRAME_SLOT_MAX];
-        int nf = nargs - 1;
-        for (int _j=0;_j<nf&&_j<FRAME_SLOT_MAX;_j++) fargs[_j]=args[1+_j];
-        *out = dat_construct(_dt, fargs, nf); return 1;
+        *out = dat_construct(_dt, args + 1, nargs - 1); return 1;
     }
     L_bidjmp_6361: ;
     if ((_bid == BID_open) && (nargs == 1 || nargs == 2)) {

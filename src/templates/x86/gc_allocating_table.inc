@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1901
-#define GC_ALLOC_TAB_N_VOID 219
+#define GC_ALLOC_TAB_N 1900
+#define GC_ALLOC_TAB_N_VOID 218
 #define GC_ALLOC_TAB_N_DESCR 1038
 #define GC_ALLOC_TAB_N_OTHER 638
 #define GC_ALLOC_TAB_N_UNKNOWN 6
@@ -597,7 +597,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icon_radix_big", GC_RET_DESCR },
     { "icon_register_program", GC_RET_VOID },
     { "ident", GC_RET_OTHER },
-    { "init_save_frame", GC_RET_VOID },
     { "init_update_snapshot", GC_RET_VOID },
     { "input_read", GC_RET_DESCR },
     { "intern_name_bin", GC_RET_OTHER },
