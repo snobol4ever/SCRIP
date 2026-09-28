@@ -577,7 +577,10 @@ static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb)
     }
     int ra = _sort_type_rank(a), rb = _sort_type_rank(b);
     if (ra != rb) return ra - rb;
-    return strcmp(sa ? sa : "", sb ? sb : "");
+    if (a.v == DT_BIG && b.v == DT_BIG) { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(a, b); }
+    { long ia = tbl_key_serial(a), ib = tbl_key_serial(b); if (ia || ib) return ia < ib ? -1 : (ia > ib ? 1 : 0); }
+    if (a.v == DT_N && b.v == DT_N && a.slen == 0 && b.slen == 0 && a.s && b.s) return strcmp(a.s, b.s);
+    return a.ptr < b.ptr ? -1 : (a.ptr > b.ptr ? 1 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_is_rowarr(const ARBLK_t *a) { return a && a->ndim == 1 && a->proto && strchr(a->proto, ','); }
@@ -609,8 +612,7 @@ static void sort_ord_merge(int *ord, int *tmp, int n, const DESCR_t *keys, const
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int *sort_order(const DESCR_t *keys, int n, int rev) {
     const char **strs = rt_pvec_alloc((size_t)n);
-    char *bufblk = rt_wsb_alloc((size_t)n * 64);
-    for (int i = 0; i < n; i++) strs[i] = tbl_key_str(keys[i], bufblk + (size_t)i * 64, 64);
+    for (int i = 0; i < n; i++) strs[i] = (keys[i].v == DT_S && keys[i].s) ? keys[i].s : "";
     int *ord = rt_wsb_alloc((size_t)n * sizeof(int)), *tmp = rt_wsb_alloc((size_t)n * sizeof(int));
     for (int i = 0; i < n; i++) ord[i] = i;
     sort_ord_merge(ord, tmp, n, keys, strs, rev);
@@ -1560,7 +1562,7 @@ static DESCR_t rt_random_var_body(DESCR_t base, int strict) {
         long n = (long)(rval * (double)tbl->size) + 1; long seen = 0; TBPAIR_t *ep;
         TBL_FOREACH(tbl, ep)
                 if (++seen == n) {
-                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = rt_heap_strdup_c(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0;
+                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = 0; vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0;
                         vc->len = 0;
                     return NAMETRAP(vc);
                 }
@@ -1780,10 +1782,7 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
         if (ux && uy) {
             if (ux->cellp && ux->cellp == uy->cellp) same_slot = 1;
             else if (ux->tbl && ux->tbl == uy->tbl) {
-                char k1[64], k2[64];
-                const char *s1 = ux->key ? ux->key : tbl_key_str(ux->key_d, k1, sizeof k1);
-                const char *s2 = uy->key ? uy->key : tbl_key_str(uy->key_d, k2, sizeof k2);
-                if (s1 && s2 && !strcmp(s1, s2)) same_slot = 1;
+                if (tbl_key_equal(ux->key_d, uy->key_d)) same_slot = 1;
             }
         }
         if (same_slot) {

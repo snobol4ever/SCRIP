@@ -8,11 +8,11 @@
 #define DT_DATA           0x70
 #define DT_BIG            0x78
 #define DT_N              0x28
-#define TBPAIR_KEYD_V     8
-#define TBPAIR_KEYD_SLEN 12
-#define TBPAIR_KEYD_VAL  16
-#define TBPAIR_HKEY      40
-#define TBPAIR_SIZE      48
+#define TBPAIR_KEYD_V     0
+#define TBPAIR_KEYD_SLEN  4
+#define TBPAIR_KEYD_VAL   8
+#define TBPAIR_HKEY      32
+#define TBPAIR_SIZE      40
 #define TBBUCK_LEN        0
 #define TBBUCK_ENT        8
 #define TBBLK_BUCKETS     0
@@ -58,10 +58,10 @@ RTX_FUNC(rt_table_assign_fast)
     jne     .Lta_store
     mov     qword ptr [r10], 0
 .Lta_store:
-    mov     qword ptr [rax + 24], r8
-    mov     qword ptr [rax + 32], r9
-    mov     qword ptr [rax + 8], rdx
-    mov     qword ptr [rax + 16], rcx
+    mov     qword ptr [rax + 16], r8
+    mov     qword ptr [rax + 24], r9
+    mov     qword ptr [rax + 0], rdx
+    mov     qword ptr [rax + 8], rcx
     mov     rax, r8
     mov     rdx, r9
     RTX_RET_GVA
@@ -349,8 +349,8 @@ RTX_FUNC(rt_subscript_var_container_only)
     pop     rdi
     test    rax, rax
     je      .Lsvco_miss
-    mov     rdx, [rax + 32]
-    mov     rax, [rax + 24]
+    mov     rdx, [rax + 24]
+    mov     rax, [rax + 16]
     ret
 .Lsvco_sv:
     RTX_JMP(rt_subscript_var)

@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1890
-#define GC_ALLOC_TAB_N_VOID 217
-#define GC_ALLOC_TAB_N_DESCR 1034
-#define GC_ALLOC_TAB_N_OTHER 633
+#define GC_ALLOC_TAB_N 1900
+#define GC_ALLOC_TAB_N_VOID 218
+#define GC_ALLOC_TAB_N_DESCR 1038
+#define GC_ALLOC_TAB_N_OTHER 638
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -347,6 +347,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_make_fget", GC_RET_DESCR },
     { "_parse_define_spec", GC_RET_OTHER },
     { "_set_int_arg", GC_RET_OTHER },
+    { "_sort_cmp_descr", GC_RET_OTHER },
     { "_tbl_grow", GC_RET_OTHER },
     { "_tbl_live_at", GC_RET_OTHER },
     { "_tbl_rehash", GC_RET_VOID },
@@ -924,6 +925,13 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rgbkey", GC_RET_OTHER },
     { "rk_a_seal", GC_RET_DESCR },
     { "rk_a_split", GC_RET_OTHER },
+    { "rk_av", GC_RET_OTHER },
+    { "rk_av_args", GC_RET_OTHER },
+    { "rk_av_arith", GC_RET_DESCR },
+    { "rk_av_elem", GC_RET_DESCR },
+    { "rk_av_joined", GC_RET_OTHER },
+    { "rk_av_minmax", GC_RET_DESCR },
+    { "rk_av_text", GC_RET_OTHER },
     { "rk_block_cmp", GC_RET_OTHER },
     { "rk_case_str", GC_RET_OTHER },
     { "rk_cplx_str", GC_RET_OTHER },
@@ -942,6 +950,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_method_land_γ", GC_RET_DESCR },
     { "rk_method_land_ω", GC_RET_DESCR },
     { "rk_method_open", GC_RET_OTHER },
+    { "rk_mk_arr", GC_RET_DESCR },
     { "rk_obj_stringify", GC_RET_OTHER },
     { "rk_order_cmp_num", GC_RET_OTHER },
     { "rk_order_cmp_str", GC_RET_OTHER },
@@ -1835,6 +1844,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sort_key_str_cmp", GC_RET_OTHER },
     { "sort_msort_descr", GC_RET_VOID },
     { "sort_msort_pairs", GC_RET_VOID },
+    { "sort_ord_cmp", GC_RET_OTHER },
+    { "sort_ord_merge", GC_RET_VOID },
     { "sort_order", GC_RET_OTHER },
     { "sort_row_copy", GC_RET_DESCR },
     { "sort_rows", GC_RET_DESCR },
@@ -1867,8 +1878,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "table_new", GC_RET_OTHER },
     { "table_new_args", GC_RET_OTHER },
     { "table_set_descr_d", GC_RET_VOID },
-    { "tbl_key_str", GC_RET_OTHER },
-    { "tbl_pair_key", GC_RET_OTHER },
+    { "tbl_key_equal", GC_RET_OTHER },
     { "term_e", GC_RET_OTHER },
     { "term_lval_e", GC_RET_OTHER },
     { "terminal_read", GC_RET_DESCR },

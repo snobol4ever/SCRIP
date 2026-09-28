@@ -113,7 +113,6 @@ void      array_set(ARBLK_t *a, int i, DESCR_t v);
 DESCR_t    array_get2(ARBLK_t *a, int i, int j);
 void      array_set2(ARBLK_t *a, int i, int j, DESCR_t v);
 typedef struct _TBBLK_tEntry {
-    char              *key;
     DESCR_t            key_descr;
     DESCR_t            val;
     unsigned long long hkey;
@@ -144,8 +143,8 @@ TBBLK_t *table_new(void);
 TBBLK_t *set_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
-const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
-const char *tbl_pair_key(TBPAIR_t *e);
+int  tbl_key_equal(DESCR_t a, DESCR_t b);
+long tbl_key_serial(DESCR_t k);
 TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
 int        table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out);
 TBPAIR_t  *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);

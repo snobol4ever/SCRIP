@@ -21,9 +21,9 @@ RTX_GATE_DEF(icnsub)
 #define FIELD1_P         24
 #define FIELD2_V         32
 #define FIELD2_P         40
-#define TBPAIR_KEY        0
-#define TBPAIR_VAL       24
-#define TBPAIR_NEXT      40
+#define TBPAIR_KEY_D      0
+#define TBPAIR_VAL       16
+#define TBPAIR_HKEY      32
 #define TBBLK_BUCKETS     0
 #define TBL_HASH_SEED  5381
 #define ARBLK_LO          0
@@ -180,7 +180,7 @@ RTX_FUNC(rt_subscript_var)
 .Lsub_chain:
     test    r10, r10
     je      .Lsub_tbl_miss
-    mov     r11, [r10 + TBPAIR_KEY]
+    mov     r11, [r10 + TBPAIR_KEY_D]
     test    r11, r11
     je      .Lsub_bail
     mov     r8, rdi
@@ -195,7 +195,7 @@ RTX_FUNC(rt_subscript_var)
     inc     r8
     jmp     .Lsub_cmp
 .Lsub_chain_next:
-    mov     r10, [r10 + TBPAIR_NEXT]
+    mov     r10, [r10 + TBPAIR_HKEY]
     jmp     .Lsub_chain
 .Lsub_hit:
     lea     rcx, [r10 + TBPAIR_VAL]

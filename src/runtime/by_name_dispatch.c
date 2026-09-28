@@ -8736,7 +8736,6 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         DESCR_t vd = (td.tbl && td.tbl->is_set) ? kd : ((nargs >= 3) ? args[2] : NULVCL);
-        char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
         table_set_descr_d(td.tbl, kd, vd);
         *out = td; return 1;
     }
@@ -8750,7 +8749,6 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         }
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
-        char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
         table_delete_d(td.tbl, kd);
         *out = td; return 1;
     }
@@ -8759,7 +8757,6 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         DESCR_t td = args[0];
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
-        char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
         if (!table_has_d(td.tbl,kd)) { *out=FAILDESCR; return 1; }
         *out = kd; return 1;
     }

@@ -1821,9 +1821,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             for (unsigned oi = 0; oi < tbl->ord_len && row < n; oi++) { TBPAIR_t *pe = table_find_pair_d(tbl, tbl->ord[oi]); if (pe) ord[row++] = pe; }
             if (row < n) { TBL_FOREACH(tbl, e) { if (row >= n) break; int seen = 0; for (int q = 0; q < row; q++) if (ord[q] == e) { seen = 1; break; } if (!seen) ord[row++] = e; } }
             for (int oi = 0; oi < row; oi++) { e = ord[oi];
-                DESCR_t kd = (e->key_descr.v != DT_SNUL)
-                             ? e->key_descr
-                             : STRVAL(tbl_pair_key(e));
+                DESCR_t kd = e->key_descr;
                 ARBLK_t *rb = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
                 rb->dumpno = 0;
                 rb->lo = 1; rb->hi = 2; rb->ndim = 1; rb->lo2 = 0; rb->hi2 = 0;
@@ -1915,7 +1913,7 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         tcopy->dflt = v.tbl->dflt;
         tcopy->is_set = v.tbl->is_set; tcopy->null_one = v.tbl->null_one;
         TBPAIR_t *e;
-        TBL_FOREACH(v.tbl, e) table_set_descr_d(tcopy, (e->key_descr.v != DT_SNUL) ? e->key_descr : STRVAL(tbl_pair_key(e)), e->val);
+        TBL_FOREACH(v.tbl, e) table_set_descr_d(tcopy, e->key_descr, e->val);
         return TABLE_VAL(tcopy);
     }
     return v;

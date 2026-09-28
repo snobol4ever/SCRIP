@@ -891,7 +891,6 @@ static void gc_visit_tbblk(struct _TBBLK_t *t)
         rt_gc_visit_raw((const char **)&t->buckets[b]);
         for (unsigned i = 0; i < bk->len; i++) {
             TBPAIR_t *e = &bk->ent[i];
-            if (e->key) rt_gc_visit_raw((const char **)&e->key);
             rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val);
         }
     }
@@ -1621,7 +1620,7 @@ static long gc_collect_ex(void)
             if (h->type == HB_PVEC) { const char **v = (const char **)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *)); for (long i = 0; i < n; i++) if (v[i]) rt_gc_visit_raw(&v[i]); continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
             if (h->type == HB_AGGB) continue;
-            if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
+            if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; }
             if (h->type < HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;

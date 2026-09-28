@@ -36,7 +36,6 @@ src/runtime/pattern_match.c	_sort_type_rank	DT_BOOL	sort orders by type rank fir
 src/runtime/by_name_dispatch.c	to_cstring	DT_BOOL	method-dispatch string coercion; renders True/False (ceo CEO-656)
 src/runtime/by_name_dispatch.c	rt_mc_type_name	DT_BOOL	the name method dispatch reports for a receiver; answers Bool
 src/runtime/string_builtins.c	ident	DT_BOOL	IDENT compares by value; a Bool is identical exactly as its 1/0 is
-src/runtime/aggregates.c	tbl_key_str	-	OPEN-ASK (hq_T -> ceo, 2026-09-13): a Bool used as a TABLE KEY is CEO-662's standing exception -- "True" and "1" are different keys in Raku and the same key under a 1/0 coercion, and the three table sites must agree with each other whichever way it is ruled
 src/runtime/aggregates.c	_tbl_hval	-	OPEN-ASK: the hash half of the same question; it must hash whatever tbl_key_str keys on, so it is ruled with it, never separately
 src/runtime/aggregates.c	_tbl_eq_d	-	OPEN-ASK: the equality half of the same question; same ruling, same reason
 src/runtime/core/coerce.c	descr_to_str	DT_BOOL	the IF-CHAIN descriptor->string coercion, and the one the `~` operator actually reaches (str_concat_d -> descr_to_str). It fell to FAILDESCR, which is why "x" ~ $bool rendered as "x": THE SITE THE SWITCH-ONLY DISCOVERY MISSED

@@ -149,24 +149,6 @@ DESCR_t agg_prototype(DESCR_t v) {
     return INTVAL(iv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
-    switch (kd.v) {
-        case DT_SNUL: return "\001n";
-        case DT_S:    return kd.s ? kd.s : "";
-        case DT_I:    { char *p = buf; *p++ = '\001'; *p++ = 'i'; long long v = (long long)kd.i; unsigned long long u; if (v < 0) { *p++ = '-'; u = (unsigned long long)(-(v + 1)) + 1ull; } else u = (unsigned long long)v;
-                        char t[24]; int n = 0; do { t[n++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; } while (u); while (n) *p++ = t[--n]; *p = 0; (void)bufn; return buf; }
-        case DT_R:    snprintf(buf, bufn, "\001r%.17g", kd.r); return buf;
-        case DT_DATA: { if (kd.slen != DATA_INST_SLEN || !kd.u) return "\001d0"; snprintf(buf, bufn, "\001d%s#%ld", kd.u->type ? kd.u->type->name : "?", kd.u->id); return buf; }
-        case DT_BIG:  { extern char *rt_big_str(DESCR_t); snprintf(buf, bufn, "\001b%s", rt_big_str(kd)); return buf; }
-        case DT_N:    if (kd.slen == 0 && kd.s) { snprintf(buf, bufn, "\001N%s", kd.s); return buf; } snprintf(buf, bufn, "\001p%p#%u", kd.ptr, kd.slen); return buf;
-        case DT_A:    { if (!kd.arr) return "\001l0"; if (!kd.arr->id) kd.arr->id = g_agg_list_ser++; snprintf(buf, bufn, "\001l%ld", kd.arr->id); return buf; }
-        case DT_T:    { if (!kd.tbl) return "\001t0"; if (!kd.tbl->id) kd.tbl->id = g_agg_table_ser++; snprintf(buf, bufn, "\001%c%ld", kd.tbl->is_set ? 'S' : 't', kd.tbl->id); return buf; }
-        default:      snprintf(buf, bufn, "\001p%p", kd.ptr); return buf;
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) int tbl_typed_off(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_TBL_TYPED"); v = (e && *e == '0') ? 1 : 0; } return v; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_rotl(unsigned long long u, int n) { return (u << n) | (u >> (64 - n)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(const DESCR_t *k) { (void)k; return 0x2F1B3D5C7E9A11ull; }
@@ -232,7 +214,6 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_hval(const 
 }
 static inline __attribute__((always_inline)) DESCR_t _tbl_key_canon(const TBBLK_t *tbl, DESCR_t k) { return (tbl->null_one && k.v == DT_S && (!k.s || _tbl_slen(&k) == 0u)) ? NULVCL : k; }
 static inline __attribute__((always_inline)) unsigned long long _tbl_hkey(DESCR_t k) {
-    if (tbl_typed_off()) { char kb[64]; DESCR_t sk = k; sk.v = DT_S; sk.s = (char *)tbl_key_str(k, kb, sizeof kb); return ((unsigned long long)DT_S << 56) | _tbl_h_str(&sk); }
     return ((unsigned long long)k.v << 56) | (_tbl_hval(&k) & 0x00FFFFFFFFFFFFFFull);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -265,6 +246,14 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int tbl_key_equal(DESCR_t a, DESCR_t b) { TBPAIR_t e; e.key_descr = a; e.val = a; e.hkey = 0; return _tbl_eq_d(&e, b); }
+long tbl_key_serial(DESCR_t k) {
+    if (k.v == DT_A) { if (!k.arr) return 0; if (!k.arr->id) k.arr->id = g_agg_list_ser++; return (long)k.arr->id; }
+    if (k.v == DT_T) { if (!k.tbl) return 0; if (!k.tbl->id) k.tbl->id = g_agg_table_ser++; return (long)k.tbl->id; }
+    if (k.v == DT_DATA) return (k.slen == DATA_INST_SLEN && k.u) ? (long)k.u->id : 0;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define TBL_LINEAR_MAX 12u
 #define TBL_LOAD_MAX    4u
 static inline __attribute__((always_inline)) unsigned _tbl_lower(const TBPAIR_t *en, unsigned n, unsigned long long h) {
@@ -283,12 +272,6 @@ static TBBUCK_t *_tbl_grow(TBBLK_t *tbl, TBBUCK_t *b) {
     if (b && b->len) { memcpy(nb->ent, b->ent, (size_t)b->len * sizeof(TBPAIR_t)); nb->len = b->len; }
     nb->cap = nc;
     return nb;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *tbl_pair_key(TBPAIR_t *e) {
-    if (!e) return "";
-    if (!e->key) { char kb[64]; e->key = rt_heap_strdup_c(tbl_key_str(e->key_descr, kb, sizeof kb)); }
-    return e->key ? e->key : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {
@@ -352,7 +335,7 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
         if (_tbl_eq_d(&b->ent[i], k)) { b->ent[i].val = val; b->ent[i].key_descr = k; return; }
     if (!b || b->len == b->cap) { b = _tbl_grow(tbl, b); tbl->buckets[bi] = b; }
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));
-    { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
+    { TBPAIR_t *n = &b->ent[i]; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;
     if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc_descr((size_t)nc); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
     if (tbl->ord_dead > 0u) { unsigned dead = tbl->ord_len;
