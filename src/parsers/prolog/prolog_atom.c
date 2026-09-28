@@ -214,6 +214,11 @@ void rt_pl_functor_table_install(const long *tab) {
         int id = prolog_functor_intern((int)rows[2 * i], (int)rows[2 * i + 1]);
         if (id != (int)i) { fprintf(stderr, "scrip: the compiled functor table does not match the runtime's interner -- functor %ld (atom %ld/%ld) took id %d (a functor was interned before the table was installed; ARCH-PROLOG-BB-REWRITE.md section 3)\n", i, rows[2 * i], rows[2 * i + 1], id); exit(2); }
     }
+    prolog_atom_init();
+    if (ATOM_DOT != 0 || ATOM_NIL != 1 || ATOM_TRUE != 2 || ATOM_FAIL != 3 || ATOM_CUT != 4 || FUNCTOR_DOT2 != 0) {
+        fprintf(stderr, "scrip: the compiled atom and functor tables do not match the runtime's interner -- the init atoms . [] true fail ! read ids %d %d %d %d %d (0 1 2 3 4 expected) and ./2 reads functor %d (0 expected): the tables were not emitted by this compiler's interner (ARCH-PROLOG-BB-REWRITE.md section 3)\n", ATOM_DOT, ATOM_NIL, ATOM_TRUE, ATOM_FAIL, ATOM_CUT, FUNCTOR_DOT2);
+        exit(2);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_atom_table_install(const long *tab) {
