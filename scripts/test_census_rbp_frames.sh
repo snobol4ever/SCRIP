@@ -73,6 +73,7 @@ DIRS="${EARN2_DIRS:-crosscheck/patterns library/probe_reference/bb tests/snobol4
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 
+IRH="$ROOT/src/ir/IR.h"; [ -f "$IRH" ] || { echo "REFUSE(2): $IRH is missing -- the IR header moved again; repoint this census (until 2026-09-28 it read a retired directory, failed to open it and blamed the enum)"; exit 2; }
 OPTAB=$(mktemp)
 awk '
 /^typedef enum \{/ {inenum=1; n=0; next}
@@ -80,7 +81,7 @@ inenum && /^\} /  {inenum=0}
 inenum {
   line=$0; gsub(/\/\*.*$/,"",line); gsub(/^[ \t]+/,"",line); gsub(/,.*/,"",line);
   if (line ~ /^IR_[A-Za-z0-9_]+$/) { print n" "line; n++ }
-}' "$ROOT/src/contracts/IR.h" > "$OPTAB"
+}' "$IRH" > "$OPTAB"
 ARBNO_OP=$(awk '$2=="IR_MATCH_ARBNO"{print $1}' "$OPTAB")
 FENCE1_OP=$(awk '$2=="IR_MATCH_FENCE1"{print $1}' "$OPTAB")
 IMM_OP=$(awk '$2=="IR_MATCH_ASSIGN_IMM"{print $1}' "$OPTAB")
