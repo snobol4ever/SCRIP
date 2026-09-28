@@ -1911,7 +1911,11 @@ esac
 # ⛔⛔ ORDERING IS LOAD-BEARING AND IS THE ONE WAY THIS GOES WRONG: this commit must be PUSHED BEFORE
 # $PO/PROTOCOL-VERSION is raised to 5. The shared file is what seats compare against; raise it first and
 # every seat is refused work while the commit that would fix them does not yet exist on origin.
-S4E_PROTO=5
+# ⛔ BUMPED 5 -> 6 (ceo CEO-1356, 2026-09-28, at the QUINTET flip): the mode-admission table lives in each seat's own clone, and a
+# clone older than 3a1b8443b has no QUINTET arm, so a stood-down HQ is ADMITTED by falling out of the case (CEO-755b) -- measured:
+# hq_prolog claimed a row at 17:24:49, fifty-four seconds after MODE read QUINTET. Raising the number makes next() and clear()
+# refuse from every clone below it until it pulls, and a pulled clone refuses the stood-down seat by name.
+S4E_PROTO=6
 case "$cmd" in
   send)  [ -n "${2:-}" ] || s4e_need send "a destination seat" "s4e_msg.sh send <to> <topic> --stdin <<'MSG' ... MSG" "A prose body must come through --stdin: a body in double quotes is expanded by YOUR shell before send ever runs."
          [ -n "${3:-}" ] || s4e_need send "a topic" "s4e_msg.sh send <to> <topic> --stdin <<'MSG' ... MSG" "The topic is the subject line the recipient sorts by; it becomes a filename, so keep it a slug."
