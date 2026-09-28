@@ -107,7 +107,9 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
     if (fl) kind -= 4L;
     if (e->node != node && zsm_leak_report_on()) {
-        if (g_zsm_seen_n < ZSM_N) g_zsm_seen_nodes[g_zsm_seen_n++] = node;
+        if (g_zsm_seen_n >= ZSM_N) { fprintf(stderr, "[ZSM] the seen-node table is full at %lu (ZSM_N) -- the leak report cannot follow more nodes\n", (unsigned long)ZSM_N);
+            fprintf(stderr, "[ZSM] the zsm census is instrumentation; its tables stay fixed and refuse loudly\n"); abort(); }
+        g_zsm_seen_nodes[g_zsm_seen_n++] = node;
     }
     if (kind == 1 && (e->node == node) && (e->state == ZSM_LIVE || e->state == ZSM_SUSPENDED || e->state == ZSM_RESUMED)) {
         g_zsm_alpha_while_live++;

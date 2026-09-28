@@ -2438,7 +2438,8 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     extern void register_fn(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
     register_fn(uname, _ctor_fns[tidx], 0, nf);
     for (int fi = 0; fi < nf; fi++) {
-        if (_facc_n >= FIELD_ACCESSOR_MAX) break;
+        if (_facc_n >= FIELD_ACCESSOR_MAX) { fprintf(stderr, "scrip: the field accessor table is full at %d slots (FIELD_ACCESSOR_MAX = DATA_MAX_TYPES * DATA_MAX_FIELDS, one accessor function per slot) -- this record type's field %d has no accessor\n", _facc_n, fi);
+            abort(); }
         int slot = _facc_n++;
         _facc_slots[slot].tidx = tidx;
         _facc_slots[slot].fidx = fi;
@@ -3211,7 +3212,6 @@ void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
             return;
         }
 }
-#define VAR_BUCKETS 512
 typedef struct _VarEntry {
     char   *name;
     DESCR_t  val;
@@ -3221,30 +3221,39 @@ typedef struct _VarEntry {
     int      touched;
     struct _VarEntry *next;
 } NV_t;
-static NV_t *_var_buckets[VAR_BUCKETS];
+static gv_t g_var_buckets; static unsigned _var_nbuckets = 0; static unsigned long _var_count = 0;
+#define VB(h) (((NV_t **)g_var_buckets.p)[h])
+#define VBR(h) (g_var_buckets.p ? VB(h) : (NV_t *)0)
 static int _var_init_done = 0;
+static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s, size_t n);
+static void _var_grow(unsigned nb) {
+    gv_t nv = { 0, 0, 0, 0, 0, 0 };
+    gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(NV_t *), (uint64_t)nb, "g_var_buckets"); memset(nv.p, 0, (size_t)nb * sizeof(NV_t *));
+    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) { unsigned k = (unsigned)(nv_hash_raw(e->name, __builtin_strlen(e->name)) & (uint64_t)(nb - 1)); nx = e->next;
+        e->next = ((NV_t **)nv.p)[k]; ((NV_t **)nv.p)[k] = e; }
+    g_var_buckets = nv; _var_nbuckets = nb;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _var_init(void) {
     if (_var_init_done) return;
-    memset(_var_buckets, 0, sizeof(_var_buckets));
     _var_init_done = 1;
     { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int mon_cell_is_named(void *cellp) {
     if (!cellp) return 0;
-    for (int h = 0; h < VAR_BUCKETS; h++) for (NV_t *e = _var_buckets[h]; e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
+    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
     if (monitor_fd < 0 || !cellp) return;
-    for (int h = 0; h < VAR_BUCKETS; h++) for (NV_t *e = _var_buckets[h]; e; e = e->next)
+    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next)
         if ((void *)e->cell == cellp || (void *)&e->val == cellp) { if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, monitor_ready, monitor_quiet_depth, (long long)kw_trace); comm_var(e->name, val, stmt_src_get_file(), 0, 0); return; }
     if (getenv("SCRIP_TAP_DBG")) { DESCR_t *c = (DESCR_t *)cellp; fprintf(stderr, "[TAP] cell-store UNRESOLVED cellp=%p v=%d slen=%u s=%.24s\n", cellp, (int)(c ? (int)((unsigned char)c->v) : -1), c ? c->slen : 0, (c && (c->v == 2 || c->v == 0) && c->s) ? c->s : "?"); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) {
+static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s, size_t n) {
     uint64_t h = 0x9E3779B97F4A7C15ull ^ (uint64_t)n, w = 0;
     size_t k = 0;
     for (; k + 8 <= n; k += 8) { __builtin_memcpy(&w, s + k, 8); h = (h ^ w) * 0xFF51AFD7ED558CCDull; }
@@ -3255,15 +3264,15 @@ static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, s
         h = (h ^ w) * 0xC4CEB9FE1A85EC53ull;
     }
     h ^= h >> 33;
-    return (unsigned)(h % VAR_BUCKETS);
+    return h;
 }
-_Static_assert(VAR_BUCKETS == 512, "nv_hash_n reduces modulo VAR_BUCKETS; every name lookup hashes through it, the C-string _var_hash and the length-bounded NV_intern_name_n alike, so the two always pick the same bucket (ceo CEO-1263): a word at a time, never past the name's last byte");
+static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) { return _var_nbuckets ? (unsigned)(nv_hash_raw(s, n) & (uint64_t)(_var_nbuckets - 1)) : 0u; }
 static unsigned _var_hash(const char *name) {
     return nv_hash_n(name, __builtin_strlen(name));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static NV_t *_var_bucket_find(const char *name) {
-    for (NV_t *e = _var_buckets[_var_hash(name)]; e; e = e->next)
+    for (NV_t *e = VBR(_var_hash(name)); e; e = e->next)
         if (strcmp(e->name, name) == 0) return e;
     return (NV_t *)0;
 }
@@ -3296,7 +3305,8 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     unsigned h = _var_hash(key);
     e = rt_wsb_alloc(sizeof(NV_t));
     e->name = rt_heap_strdup_c(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0;
-    e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++;
+    if (!_var_nbuckets) { _var_grow(8); h = _var_hash(key); }
+    e->next = VB(h); VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3331,7 +3341,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
         return INTVAL(scan_pos);
     }
     unsigned h = _var_hash(name);
-    for (NV_t *e = _var_buckets[h]; e; e = e->next)
+    for (NV_t *e = VBR(h); e; e = e->next)
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
     { extern DESCR_t rt_proc_value(const char *);
       if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
@@ -3409,7 +3419,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     }
 nv_store: ;
     unsigned h = _var_hash(name);
-    for (NV_t *e = _var_buckets[h]; e; e = e->next) {
+    for (NV_t *e = VBR(h); e; e = e->next) {
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
@@ -3425,20 +3435,21 @@ nv_store: ;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
-    e->next = _var_buckets[h];
-    _var_buckets[h] = e; g_nv_memo_gen++;
+    if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    e->next = VB(h);
+    VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
     comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
-int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
-DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
+int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
+int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
+DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *NV_intern_name_n(const char *s, size_t n) {
     if (!s || n == 0 || n >= 0xFFFFFFFFu || memchr(s, 0, n)) return (const char *)0;
-    for (NV_t *e = _var_buckets[nv_hash_n(s, n)]; e; e = e->next)
+    for (NV_t *e = VBR(nv_hash_n(s, n)); e; e = e->next)
         if (e->name[0] == s[0] && strncmp(e->name, s, n) == 0 && e->name[n] == '\0') return e->name;
     return (const char *)0;
 }
@@ -3468,7 +3479,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     if (strcmp(name, "FNCLEVEL") == 0) return NULL;
     if (strcmp(name, "RTNTYPE")  == 0) return NULL;
     unsigned h = _var_hash(name);
-    for (NV_t *e = _var_buckets[h]; e; e = e->next)
+    for (NV_t *e = VBR(h); e; e = e->next)
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
     NV_t *e = rt_wsb_alloc(sizeof(NV_t));
@@ -3477,8 +3488,9 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
     e->is_const = 0;
-    e->next = _var_buckets[h];
-    _var_buckets[h] = e; g_nv_memo_gen++;
+    if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    e->next = VB(h);
+    VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
     return &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3489,23 +3501,23 @@ int NV_bind_gva(const char *name, DESCR_t *cell) {
     *cell = *p;
     _var_init();
     unsigned h = _var_hash(name);
-    for (NV_t *e = _var_buckets[h]; e; e = e->next)
+    for (NV_t *e = VBR(h); e; e = e->next)
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) { e->cell = cell; e->is_gva = 1; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *NV_name_from_ptr(const DESCR_t *ptr) {
     if (!ptr) return NULL;
-    for (int i = 0; i < VAR_BUCKETS; i++)
-        for (NV_t *e = _var_buckets[i]; e; e = e->next)
+    for (unsigned i = 0; i < _var_nbuckets; i++)
+        for (NV_t *e = VBR(i); e; e = e->next)
             if (&e->val == ptr) return e->name;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NV_CLEAR_fn(const char **except, int nexcept) {
     _var_init();
-    for (int _i = 0; _i < VAR_BUCKETS; _i++) {
-        for (NV_t *_e = _var_buckets[_i]; _e; _e = _e->next) {
+    for (unsigned _i = 0; _i < _var_nbuckets; _i++) {
+        for (NV_t *_e = VBR(_i); _e; _e = _e->next) {
             if (_e->is_const || is_protected_pat_name(_e->name)) continue;
             int _excluded = 0;
             for (int _k = 0; _k < nexcept; _k++) if (!strcmp(_e->name, except[_k])) { _excluded = 1; break; }
@@ -3674,7 +3686,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
     if (!vc || !out || n < 4) return 0;
     char kb[160];
     if (vc->tbl) {
-        for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
+        for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
             if (!etrace_var_name_ok(e->name)) continue;
             DESCR_t d = e->is_gva ? *e->cell : e->val;
             if (d.v != DT_T || d.tbl != vc->tbl) continue;
@@ -3686,7 +3698,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
         return 0;
     }
     if (!vc->cellp) return 0;
-    for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
+    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!etrace_var_name_ok(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (d.v != DT_A || !d.arr || !d.arr->data) continue;
@@ -3724,7 +3736,7 @@ void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) {
 static void var_dump(void) {
     extern long g_dump;
     NV_t **v = (NV_t **)0; int n = 0, cap = 0;
-    for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
+    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!e->name || !e->name[0] || e->name[0] == '&' || strchr(e->name, '$')) continue;
         if (e->name[0] == '_' && strcmp(e->name, "_OUTPUT") && strcmp(e->name, "_INPUT") && strcmp(e->name, "_TERMINAL") && strcmp(e->name, "_PUNCH")) continue;
         if (!e->is_gva && !e->touched && is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
@@ -3787,8 +3799,6 @@ void NPOP_fn(void) {
             ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
     if (_ntop >= 0) _ntop--;
 }
-#define VSTACK_MAX 1024
-static DESCR_t _vstack[VSTACK_MAX];
 static int    _vstop = -1;
 #define FUNC_BUCKETS 128
 typedef struct _FNCBLK_t {
@@ -4663,9 +4673,9 @@ void core_gc_roots(void)
     if (g_bin_names) { rt_gc_visit_raw((const char **)&g_bin_names); rt_gc_visit_raw((const char **)&g_bin_name_lens);
         for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw_in((const char **)&g_bin_names[i], g_bin_names); }
     for (int i = 0; i < IO_CHAN_MAX; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
-    for (int b = 0; b < VAR_BUCKETS; b++) {
-        if (_var_buckets[b]) rt_gc_visit_raw((const char **)&_var_buckets[b]);
-        for (NV_t *e = _var_buckets[b]; e; e = e->next) {
+    gv_gc_root(&g_var_buckets);
+    for (unsigned b = 0; b < _var_nbuckets; b++) {
+        for (NV_t *e = VBR(b); e; e = e->next) {
             if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
             if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
             rt_gc_visit_descr(&e->val);

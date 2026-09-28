@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1900
-#define GC_ALLOC_TAB_N_VOID 218
+#define GC_ALLOC_TAB_N 1901
+#define GC_ALLOC_TAB_N_VOID 219
 #define GC_ALLOC_TAB_N_DESCR 1038
 #define GC_ALLOC_TAB_N_OTHER 638
 #define GC_ALLOC_TAB_N_UNKNOWN 6
@@ -355,6 +355,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_udef_fields_same", GC_RET_OTHER },
     { "_usercall_hook", GC_RET_DESCR },
     { "_var_assoc_set", GC_RET_DESCR },
+    { "_var_grow", GC_RET_VOID },
     { "add", GC_RET_DESCR },
     { "agg_prototype", GC_RET_DESCR },
     { "alcexternal", GC_RET_OTHER },

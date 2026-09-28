@@ -941,8 +941,8 @@ void rt_cap_push(void *slot, int delta)
     }
     s->buf[1 + s->sp++] = (uint32_t)delta;
 }
-#define RT_CAS_CAPO_MAX 1024
-static struct { DESCR_t matched; int wsv; uint32_t asv; int nmyield; } g_capo[RT_CAS_CAPO_MAX]; static int g_capo_top;
+static gv_t g_capo; static int g_capo_top;
+#define CAPO_AT(i, k) (((DESCR_t *)g_capo.p)[(i) * 4 + (k)])
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name)
 {
@@ -967,8 +967,9 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
         if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return (rt_dcap_next_t){ 0, 0 }; }
         { const char *tn = varname + 1; const int nmyield = !strncmp(tn, "EXPRNM$", 7); int wsv = rt_g_want_name;
           if (!rt_proc_is_registered(tn)) { rt_g_want_name = 1; DESCR_t nm = NV_GET_fn(tn); rt_g_want_name = wsv; { int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0; return (rt_dcap_next_t){ rt_cap_target_finish(nm, matched, by_name), 0 }; } }
-          if (g_capo_top >= RT_CAS_CAPO_MAX) { fprintf(stderr, "rt_cas: capo overflow (%d) — raise RT_CAS_CAPO_MAX\n", g_capo_top); abort(); }
-          g_capo[g_capo_top].matched = matched; g_capo[g_capo_top].wsv = wsv; g_capo[g_capo_top].asv = g_cap_abort_gen; g_capo[g_capo_top].nmyield = nmyield; g_capo_top++;
+          gv_reserve(&g_capo, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), (uint64_t)(g_capo_top + 1) * 4, "g_capo");
+          CAPO_AT(g_capo_top, 0) = matched; CAPO_AT(g_capo_top, 1) = INTVAL((long long)wsv); CAPO_AT(g_capo_top, 2) = INTVAL((long long)g_cap_abort_gen);
+              CAPO_AT(g_capo_top, 3) = INTVAL((long long)nmyield); g_capo_top++;
           rt_g_want_name = 1;
           { rt_dcap_next_t n = rt_call_open_by_name(tn, 0);
             if (!n.fn) { g_capo_top--; rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; }
@@ -983,9 +984,9 @@ long rt_cap_land_γ(DESCR_t frame0, long word)
     { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
     if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_γ: no open capture\n"); abort(); }
     g_capo_top--;
-    { DESCR_t matched = g_capo[g_capo_top].matched; int by_name;
-      g_cap_abort_gen = g_capo[g_capo_top].asv; rt_g_want_name = g_capo[g_capo_top].wsv;
-      by_name = rt_g_ret_by_name || g_capo[g_capo_top].nmyield; rt_g_ret_by_name = 0;
+    { DESCR_t matched = CAPO_AT(g_capo_top, 0); int by_name;
+      g_cap_abort_gen = (uint32_t)CAPO_AT(g_capo_top, 2).i; rt_g_want_name = (int)CAPO_AT(g_capo_top, 1).i;
+      by_name = rt_g_ret_by_name || (int)CAPO_AT(g_capo_top, 3).i; rt_g_ret_by_name = 0;
       return rt_cap_target_finish(nm, matched, by_name); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -996,8 +997,8 @@ long rt_cap_land_ω(long word)
     { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
     if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_ω: no open capture\n"); abort(); }
     g_capo_top--;
-    g_cap_abort_gen = g_capo[g_capo_top].asv; rt_g_want_name = g_capo[g_capo_top].wsv; rt_g_ret_by_name = 0;
-    return rt_cap_target_finish(nm, g_capo[g_capo_top].matched, 0);
+    g_cap_abort_gen = (uint32_t)CAPO_AT(g_capo_top, 2).i; rt_g_want_name = (int)CAPO_AT(g_capo_top, 1).i; rt_g_ret_by_name = 0;
+    return rt_cap_target_finish(nm, CAPO_AT(g_capo_top, 0), 0);
 }
 extern const char *Σ;
 extern int Σlen;
@@ -1083,7 +1084,7 @@ long rt_cas_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    for (int i = 0; i < g_capo_top; i++) { rt_gc_visit_descr(&g_capo[i].matched); b += (long)sizeof(DESCR_t); }
+    gv_gc_root(&g_capo); b += (long)g_capo_top * 4 * (long)sizeof(DESCR_t);
     for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
     for (int c = 0; c < 2048; c += 8) { const uint64_t *w = &g_sno_defer_cells[c]; if ((w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0) continue; for (int i = 0; i < 8; i++) if (w[i]) rt_gc_visit_raw((const char **)&w[i]); }
     for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }

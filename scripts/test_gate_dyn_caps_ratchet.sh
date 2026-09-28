@@ -35,7 +35,7 @@
 #     measurement that earned its class; the scratch copy declares a third planted table (which must leave the no-guard line: arm 4's
 #     +1 holds with two never-compared plants) and one table the tree does not declare, which must read RED by name
 #   8 THE WITNESS VERB (CEO-1231: the refusal read at cap+1) CAN RED: util_dyn_caps_witness.sh witness on a scratch WITNESSES.tsv reads
-#     the Prolog trail's refusal at 1200000 conditional bindings, counts a program that never reaches g_capo's cap as SILENT, names a
+#     the Prolog trail's refusal at 1200000 conditional bindings, counts a program that never reaches RT_GVA_ISLAND_BYTES's cap as SILENT, names a
 #     row for no LOUD guard STALE, and exits 1 -- the verb itself is the row's DONE-WHEN, graded there, not here
 #   9 THE NOT-SHIPPED DECLARATION (ceo CEO-1235 (3)): scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv sets aside the unit tests, tools and
 #     demos no program's run reaches, and on the real tree every row passes its check against the scrip and libscrip_rt link lines
@@ -159,11 +159,11 @@ nab=$(sed -n 's/^declared class A or B by .*: \([0-9]*\) table(s); stale declara
 ck "7 THE CLASS A/B FIXTURE (CEO-1234 (1)): the planted declaration counts ($nab -> ${pnab%% *}) and a row naming a table the tree does not declare reads RED by name (stale ${pnab##* })" '[ -n "$nab" ] && [ "$pnab" = "$((nab + 1)) 1" ] && grep -q "^  src/planted_by_the_ratchet_gate.c:g_no_such_table_by_the_ratchet_gate$" <<<"$po"'
 printf 'main :- write(hello), nl.\n:- initialization(main).\n' > "$WORK/silent.pl"
 { grep -v '^#' "$HERE/fixtures/dyn_caps/WITNESSES.tsv" | grep 'PL_TR_ARENA_BYTES'
-  printf 'src/runtime/pattern_match.c\tg_capo\t%s\t\t2\tnever printed\n' "$WORK/silent.pl"
+  printf 'src/runtime/rt/rt.c\tRT_GVA_ISLAND_BYTES\t%s\t\t2\tnever printed\n' "$WORK/silent.pl"
   printf 'src/planted_by_the_ratchet_gate.c\tg_no_such_guard_by_the_ratchet_gate\t%s\t\t2\tnever printed\n' "$WORK/silent.pl"; } > "$WORK/witnesses.tsv"
 wo=$(cd "$ROOT" && DYN_CAPS_WITNESSES="$WORK/witnesses.tsv" bash "$WIT" witness 2>&1); wrc=$?
 wsum=$(grep -m1 '^refusal read at the cap: ' <<<"$wo")
-ck "8 THE WITNESS VERB CAN RED (CEO-1231): on a scratch table the trail's cap+1 is READ, a program that never reaches g_capo's cap is SILENT, a row naming no LOUD guard is STALE, and the verb reds ($wsum, rc $wrc)" '[ "$wrc" = 1 ] && grep -q "^  READ .*PL_TR_ARENA_BYTES rc=2: .*trail arena exhausted" <<<"$wo" && grep -q "^  SILENT .*:g_capo rc=0" <<<"$wo" && grep -q "^  STALE .*g_no_such_guard_by_the_ratchet_gate" <<<"$wo" && grep -qE "^refusal read at the cap: 1 of [1-9][0-9]* guards, silent: 1$" <<<"$wo"'
+ck "8 THE WITNESS VERB CAN RED (CEO-1231): on a scratch table the trail's cap+1 is READ, a program that never reaches RT_GVA_ISLAND_BYTES's cap is SILENT, a row naming no LOUD guard is STALE, and the verb reds ($wsum, rc $wrc)" '[ "$wrc" = 1 ] && grep -q "^  READ .*PL_TR_ARENA_BYTES rc=2: .*trail arena exhausted" <<<"$wo" && grep -q "^  SILENT .*:RT_GVA_ISLAND_BYTES rc=0" <<<"$wo" && grep -q "^  STALE .*g_no_such_guard_by_the_ratchet_gate" <<<"$wo" && grep -qE "^refusal read at the cap: 1 of [1-9][0-9]* guards, silent: 1$" <<<"$wo"'
 nsk=$(sed -n 's/^set aside as not shipped by .*: \([0-9]*\) table(s) and \([0-9]*\) local(s) a program fills, in \([0-9]*\) of \([0-9]*\) declared file(s); linked, header or stale declarations: \([0-9]*\)$/\1 \2 \3 \4 \5/p' <<<"$out")
 read -r nst nsl nsf nsn nsx <<<"${nsk:-- - - - -}"
 ck "9 THE NOT-SHIPPED DECLARATION (CEO-1235 (3)): the real tree sets aside $nst tables and $nsl locals a program fills in $nsf of $nsn declared units, every row checked against the scrip and libscrip_rt link lines (linked, header or stale: $nsx)" '[ -n "$nsk" ] && [ "$nsx" = 0 ] && [ "$nsn" -gt 0 ]'
