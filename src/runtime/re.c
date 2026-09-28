@@ -28,11 +28,29 @@ struct Nfa {
     int        start;
     int        accept;
     int        ngroups;
-    char       group_name[MAX_GROUPS][64];
+    cv_t       gname_off;
+    cv_t       gname_pool;
     Code_fn code_fn;
     void        *code_ud;
     int          has_code;
 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void nfa_set_gname(Nfa *nfa, int g, const char *nm, int nlen) {
+    uint32_t k = nfa->gname_off.len;
+    cv_reserve(&nfa->gname_off, (uint32_t)sizeof(int), (uint64_t)g + 1, "nfa.gname_off");
+    for (; k <= (uint32_t)g; k++) CV_AT(nfa->gname_off, int, k) = -1;
+    if (nfa->gname_off.len < (uint32_t)g + 1) nfa->gname_off.len = (uint32_t)g + 1;
+    cv_reserve(&nfa->gname_pool, 1, (uint64_t)nfa->gname_pool.len + (uint64_t)nlen + 1, "nfa.gname_pool");
+    CV_AT(nfa->gname_off, int, g) = (int)nfa->gname_pool.len;
+    memcpy((char *)nfa->gname_pool.p + nfa->gname_pool.len, nm, (size_t)nlen);
+    ((char *)nfa->gname_pool.p)[nfa->gname_pool.len + (uint32_t)nlen] = 0;
+    nfa->gname_pool.len += (uint32_t)nlen + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *nfa_gname(const Nfa *nfa, int g) {
+    if (g < 0 || (uint32_t)g >= nfa->gname_off.len || CV_AT(nfa->gname_off, int, g) < 0) return "";
+    return (const char *)nfa->gname_pool.p + CV_AT(nfa->gname_off, int, g);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int nfa_alloc(Nfa *nfa) {
     if (nfa->n >= nfa->cap) {
@@ -61,7 +79,7 @@ typedef struct {
     int         pos;
     int         len;
     Nfa   *nfa;
-    char        errbuf[128];
+    const char *err;
     int         ok;
     int         group_counter;
 } Re_parser;
@@ -71,7 +89,7 @@ static char consume(Re_parser *p) { return p->pos < p->len ? p->pat[p->pos++] : 
 static int  at_end(Re_parser *p)  { return p->pos >= p->len; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void re_err(Re_parser *p, const char *msg) {
-    if (p->ok) { snprintf(p->errbuf, sizeof p->errbuf, "%s", msg); p->ok = 0; }
+    if (p->ok) { p->err = msg; p->ok = 0; }
 }
 static int parse_alt(Re_parser *p, int *out_start, int *out_accept);
 static int parse_concat(Re_parser *p, int *out_start, int *out_accept);
@@ -133,7 +151,6 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     if (c == '(') {
         consume(p);
         int gidx = p->group_counter++;
-        if (gidx >= MAX_GROUPS) { re_err(p,"too many capture groups"); return 0; }
         int cap_open = nfa_alloc(p->nfa);
         p->nfa->states[cap_open].kind    = NK_CAP_OPEN;
         p->nfa->states[cap_open].cap_idx = gidx;
@@ -157,18 +174,16 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     }
     if (c == '<') {
         consume(p);
-        char capname[64]; int nlen=0;
+        const char *capname = p->pat + p->pos; int nlen=0;
         while (!at_end(p) && (isalpha((unsigned char)peek(p)) ||
                (nlen>0 && (isalnum((unsigned char)peek(p))||peek(p)=='_'))))
-            capname[nlen++]=consume(p);
-        capname[nlen]='\0';
+            { consume(p); nlen++; }
         if (nlen==0||peek(p)!='>') { re_err(p,"bad named capture <n>"); return 0; }
         consume(p);
         if (peek(p)!='(') { re_err(p,"<n> must be followed by (...)"); return 0; }
         consume(p);
         int gidx=p->group_counter++;
-        if (gidx>=MAX_GROUPS) { re_err(p,"too many groups"); return 0; }
-        snprintf(p->nfa->group_name[gidx],64,"%s",capname);
+        nfa_set_gname(p->nfa, gidx, capname, nlen);
         int cap_open=nfa_alloc(p->nfa);
         p->nfa->states[cap_open].kind=NK_CAP_OPEN;
         p->nfa->states[cap_open].cap_idx=gidx;
@@ -301,15 +316,15 @@ static int parse_alt(Re_parser *p, int *out_start, int *out_accept) {
 Nfa *nfa_build(const char *pattern) {
     Nfa *nfa = ct_alloc(sizeof *nfa);
     nfa->cap=NFA_INIT_CAP; nfa->n=0; nfa->ngroups=0;
-    memset(nfa->group_name,0,sizeof nfa->group_name);
+    memset(&nfa->gname_off,0,sizeof nfa->gname_off); memset(&nfa->gname_pool,0,sizeof nfa->gname_pool);
     nfa->states=ct_alloc((size_t)nfa->cap*sizeof(Nfa_state));
     nfa->start=NFA_NULL; nfa->accept=NFA_NULL;
     Re_parser p;
     p.pat=pattern; p.pos=0; p.len=(int)strlen(pattern);
-    p.nfa=nfa; p.ok=1; p.errbuf[0]='\0'; p.group_counter=0;
+    p.nfa=nfa; p.ok=1; p.err=""; p.group_counter=0;
     int frag_start, frag_acc;
     if (!parse_alt(&p,&frag_start,&frag_acc)||!p.ok) {
-        fprintf(stderr,"re: compile error: %s\n",p.errbuf);
+        fprintf(stderr,"re: compile error: %s\n",p.err);
         nfa_free(nfa); return NULL;
     }
     int acc=nfa_state(nfa,NK_ACCEPT,NFA_NULL,NFA_NULL);
@@ -319,20 +334,42 @@ Nfa *nfa_build(const char *pattern) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int        nfa_state_count(const Nfa *nfa) { return nfa?nfa->n:0; }
-void nfa_free(Nfa *nfa) { if(!nfa)return; ct_drop(nfa->states); ct_drop(nfa); }
-#define MAX_STATES 512
-typedef struct { int ids[MAX_STATES]; int n; } State_set;
-typedef struct {
-    int gs[MAX_GROUPS];
-    int ge[MAX_GROUPS];
-    int nlog; short lg[MAX_CAPLOG]; short ls[MAX_CAPLOG]; short le[MAX_CAPLOG];
-} Cap_snap;
-static Cap_snap g_snaps[MAX_STATES];
+void nfa_free(Nfa *nfa) { if(!nfa)return; ct_drop(nfa->gname_off.p); ct_drop(nfa->gname_pool.p); ct_drop(nfa->states); ct_drop(nfa); }
+typedef struct { int *ids; int n; } State_set;
+typedef struct Re_ev { int g; int s; int e; int depth; const struct Re_ev *prev; } Re_ev;
+typedef struct { const int *gse; const int *log; int loglen; const Re_ev *ev; } Re_snap;
+typedef struct { int w; cv_t gse; cv_t lo; cv_t ll; cv_t log; } Re_store;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int *re_ints(cv_t *v, uint64_t k, const char *nm) { cv_reserve(v, (uint32_t)sizeof(int), k ? k : 1, nm); return (int *)v->p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void re_store_put(Re_store *st, int slot, const Re_snap *sn) {
+    int evn = sn->ev ? sn->ev->depth : 0, len = sn->loglen + evn;
+    int *g = re_ints(&st->gse, (uint64_t)(slot + 1) * (uint64_t)st->w, "re.gse") + (size_t)slot * (size_t)st->w;
+    int base = (int)st->log.len;
+    int *lg;
+    memcpy(g, sn->gse, (size_t)st->w * sizeof(int));
+    re_ints(&st->lo, (uint64_t)slot + 1, "re.lo")[slot] = base;
+    re_ints(&st->ll, (uint64_t)slot + 1, "re.ll")[slot] = len;
+    lg = re_ints(&st->log, (uint64_t)base + (uint64_t)len * 3, "re.log") + base;
+    st->log.len = (uint32_t)(base + len * 3);
+    if (sn->loglen) memcpy(lg, sn->log, (size_t)sn->loglen * 3 * sizeof(int));
+    for (const Re_ev *e = sn->ev; e; e = e->prev) { int k = (sn->loglen + e->depth - 1) * 3; lg[k] = e->g; lg[k + 1] = e->s; lg[k + 2] = e->e; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static Re_snap re_store_get(const Re_store *st, int slot) {
+    Re_snap sn;
+    sn.gse = (const int *)st->gse.p + (size_t)slot * (size_t)st->w;
+    sn.log = (const int *)st->log.p + ((const int *)st->lo.p)[slot];
+    sn.loglen = ((const int *)st->ll.p)[slot];
+    sn.ev = (const Re_ev *)0;
+    return sn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void re_store_drop(Re_store *st) { ct_drop(st->gse.p); ct_drop(st->lo.p); ct_drop(st->ll.p); ct_drop(st->log.p); }
 static int re_is_word_ch(unsigned char c) { return isalnum(c) || c=='_'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
-                   char *visited, int pos, int slen, const Cap_snap *cur_snap, const char *subj) {
+static void ss_add(State_set *ss, Re_store *snaps, const Nfa *nfa, int id,
+                   char *visited, int pos, int slen, const Re_snap *cur_snap, const char *subj) {
     if (id==NFA_NULL||visited[id]) return;
     visited[id]=1;
     Nfa_state *s=&nfa->states[id];
@@ -353,53 +390,80 @@ static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
             int ww = subj && pos>0 && pos<slen && re_is_word_ch((unsigned char)subj[pos-1]) && re_is_word_ch((unsigned char)subj[pos]);
             if (!ww) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj); break; }
         case NK_CAP_OPEN: {
-            Cap_snap ns=*cur_snap;
-            ns.gs[s->cap_idx]=pos; ns.ge[s->cap_idx]=-1;
+            int ng[snaps->w]; Re_snap ns=*cur_snap;
+            memcpy(ng, cur_snap->gse, sizeof ng); ng[2*s->cap_idx]=pos; ng[2*s->cap_idx+1]=-1; ns.gse=ng;
             ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,&ns,subj); break; }
         case NK_CAP_CLOSE: {
-            Cap_snap ns=*cur_snap;
-            ns.ge[s->cap_idx]=pos;
-            if (ns.nlog<MAX_CAPLOG && ns.gs[s->cap_idx]>=0) { ns.lg[ns.nlog]=(short)s->cap_idx; ns.ls[ns.nlog]=(short)ns.gs[s->cap_idx]; ns.le[ns.nlog]=(short)pos; ns.nlog++; }
+            int ng[snaps->w]; Re_snap ns=*cur_snap; Re_ev ev;
+            memcpy(ng, cur_snap->gse, sizeof ng); ng[2*s->cap_idx+1]=pos; ns.gse=ng;
+            if (ng[2*s->cap_idx]>=0) { ev.g=s->cap_idx; ev.s=ng[2*s->cap_idx]; ev.e=pos; ev.prev=cur_snap->ev; ev.depth=(cur_snap->ev?cur_snap->ev->depth:0)+1; ns.ev=&ev; }
             ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,&ns,subj); break; }
         default:
-            snaps[ss->n]=*cur_snap;
+            re_store_put(snaps, ss->n, cur_snap);
             ss->ids[ss->n++]=id; break;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void eps_closure_into(State_set *ss, Cap_snap *snaps, const Nfa *nfa,
-                              int start, int pos, int slen, const Cap_snap *snap, const char *subj) {
-    char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);
+static void eps_closure_into(State_set *ss, Re_store *snaps, const Nfa *nfa,
+                              int start, int pos, int slen, const Re_snap *snap, const char *subj) {
+    char visited[nfa->n > 0 ? nfa->n : 1]; memset(visited,0,sizeof visited);
     ss_add(ss,snaps,nfa,start,visited,pos,slen,snap,subj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void re_result(Match *result, const Nfa *nfa, int matched, int fs, int fe, const int *gse, const int *log, int loglen) {
+    int G = nfa ? nfa->ngroups : 0;
+    size_t names = 0, ptrs, ints, total;
+    cv_t st;
+    char *pool;
+    int *iv;
+    for (int g = 0; g < G; g++) names += strlen(nfa_gname(nfa, g)) + 1;
+    ptrs = (size_t)G * sizeof(const char *); ints = ((size_t)G * 2 + (size_t)loglen * 3) * sizeof(int); total = ptrs + ints + names;
+    memset(&st, 0, sizeof st);
+    cv_reserve(&st, 1, (uint64_t)(total ? total : 1), "match.store");
+    result->store = st.p; result->matched = matched; result->full_start = fs; result->full_end = fe; result->ngroups = G; result->ncaplog = loglen;
+    result->group_name = (const char **)st.p; iv = (int *)((char *)st.p + ptrs); pool = (char *)st.p + ptrs + ints;
+    result->group_start = iv; result->group_end = iv + G; result->caplog_group = iv + 2 * G; result->caplog_start = iv + 2 * G + loglen;
+    result->caplog_end = iv + 2 * G + 2 * loglen;
+    for (int g = 0; g < G; g++) { const char *nm = nfa_gname(nfa, g); size_t l = strlen(nm) + 1; memcpy(pool, nm, l); result->group_name[g] = pool; pool += l;
+        result->group_start[g] = gse ? gse[2 * g] : -1; result->group_end[g] = gse ? gse[2 * g + 1] : -1; }
+    for (int k = 0; k < loglen; k++) { result->caplog_group[k] = log[3 * k]; result->caplog_start[k] = log[3 * k + 1]; result->caplog_end[k] = log[3 * k + 2]; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void match_free(Match *m) { if (!m) return; ct_drop(m->store); memset(m, 0, sizeof *m); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
     memset(result,0,sizeof *result);
-    result->matched=0;
-    for (int i=0;i<MAX_GROUPS;i++) { result->group_start[i]=-1; result->group_end[i]=-1; }
-    result->ngroups=nfa->ngroups;
-    if (!nfa||!subject) return;
-    if (nfa->n>MAX_STATES) { fprintf(stderr,"re: NFA too large\n"); return; }
+    if (!nfa||!subject) { re_result(result, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0); return; }
     int slen=(int)strlen(subject);
     int anchored_bol=(nfa->states[nfa->start].kind==NK_ANCHOR_BOL);
-    Cap_snap blank; for(int i=0;i<MAX_GROUPS;i++){blank.gs[i]=-1;blank.ge[i]=-1;} blank.nlog=0;
-    static Cap_snap cur_snaps[MAX_STATES], nxt_snaps[MAX_STATES];
+    int w = nfa->ngroups > 0 ? 2 * nfa->ngroups : 1, nn = nfa->n > 0 ? nfa->n : 1;
+    int blank_g[w]; for (int i = 0; i < w; i++) blank_g[i] = -1;
+    Re_snap blank; blank.gse = blank_g; blank.log = (const int *)0; blank.loglen = 0; blank.ev = (const Re_ev *)0;
+    Re_store sa, sb; memset(&sa, 0, sizeof sa); memset(&sb, 0, sizeof sb); sa.w = w; sb.w = w;
+    Re_store *cs = &sa, *ns_st = &sb;
+    cv_t ida, idb, bestg, bestl; memset(&ida, 0, sizeof ida); memset(&idb, 0, sizeof idb); memset(&bestg, 0, sizeof bestg); memset(&bestl, 0, sizeof bestl);
+    int *cur_ids = re_ints(&ida, (uint64_t)nn, "re.ids"), *nxt_ids = re_ints(&idb, (uint64_t)nn, "re.ids");
+    int found = 0, found_start = 0, found_end = 0, best_len = 0;
     for (int start_pos=0; start_pos<=slen; start_pos++) {
-        State_set cur; cur.n=0;
-        eps_closure_into(&cur,cur_snaps,nfa,nfa->start,start_pos,slen,&blank,subject);
+        State_set cur; cur.ids = cur_ids; cur.n=0;
+        cs->log.len = 0;
+        eps_closure_into(&cur,cs,nfa,nfa->start,start_pos,slen,&blank,subject);
         int pos=start_pos;
         int best_end = -1;
-        Cap_snap best_snap; memset(&best_snap,0xff,sizeof best_snap);
         while (1) {
             for (int i=0;i<cur.n;i++) {
                 if (nfa->states[cur.ids[i]].kind==NK_ACCEPT && pos>=best_end) {
+                    Re_snap b = re_store_get(cs, i);
                     best_end  = pos;
-                    best_snap = cur_snaps[i];
+                    memcpy(re_ints(&bestg, (uint64_t)w, "re.bestg"), b.gse, (size_t)w * sizeof(int));
+                    if (b.loglen) memcpy(re_ints(&bestl, (uint64_t)b.loglen * 3, "re.bestl"), b.log, (size_t)b.loglen * 3 * sizeof(int));
+                    best_len = b.loglen;
                 }
             }
             if (pos>=slen) break;
             unsigned char ch=(unsigned char)subject[pos];
-            State_set nxt; nxt.n=0;
+            State_set nxt; nxt.ids = nxt_ids; nxt.n=0;
+            ns_st->log.len = 0;
             for (int i=0;i<cur.n;i++) {
                 Nfa_state *s=&nfa->states[cur.ids[i]];
                 int advance=0;
@@ -410,28 +474,21 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                     default: break;
                 }
                 if (advance) {
-                    char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);
-                    ss_add(&nxt,nxt_snaps,nfa,s->out1,visited,pos+1,slen,&cur_snaps[i],subject);
+                    char visited[nn]; memset(visited,0,sizeof visited);
+                    Re_snap from = re_store_get(cs, i);
+                    ss_add(&nxt,ns_st,nfa,s->out1,visited,pos+1,slen,&from,subject);
                 }
             }
-            cur=nxt;
-            memcpy(cur_snaps,nxt_snaps,cur.n*sizeof(Cap_snap));
+            { Re_store *t = cs; cs = ns_st; ns_st = t; }
+            { int *t = cur_ids; cur_ids = nxt_ids; nxt_ids = t; }
+            cur = nxt;
             pos++;
             if (cur.n==0) break;
         }
-        if (best_end >= 0) {
-            result->matched    = 1;
-            result->full_start = start_pos;
-            result->full_end   = best_end;
-            for (int g=0;g<nfa->ngroups;g++) {
-                result->group_start[g] = best_snap.gs[g];
-                result->group_end[g]   = best_snap.ge[g];
-                memcpy(result->group_name[g], nfa->group_name[g], 64);
-            }
-            result->ncaplog = (best_snap.nlog<0) ? 0 : ((best_snap.nlog>MAX_CAPLOG) ? MAX_CAPLOG : best_snap.nlog);
-            for (int k=0;k<result->ncaplog;k++) { result->caplog_group[k]=best_snap.lg[k]; result->caplog_start[k]=best_snap.ls[k]; result->caplog_end[k]=best_snap.le[k]; }
-            return;
-        }
+        if (best_end >= 0) { found = 1; found_start = start_pos; found_end = best_end; break; }
         if (anchored_bol) break;
     }
+    if (found) re_result(result, nfa, 1, found_start, found_end, (const int *)bestg.p, (const int *)bestl.p, best_len);
+    else re_result(result, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0);
+    re_store_drop(&sa); re_store_drop(&sb); ct_drop(ida.p); ct_drop(idb.p); ct_drop(bestg.p); ct_drop(bestl.p);
 }

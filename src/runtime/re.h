@@ -1,6 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef NFA_RE_H
 #define NFA_RE_H
+#include "ct_vec.h"
 typedef struct { unsigned char bits[32]; } Cc;
 int cc_test(const Cc *cc, unsigned char c);
 typedef enum {
@@ -21,7 +22,6 @@ typedef enum {
     NK_ACCEPT
 } Nfa_kind;
 #define NFA_NULL   (-1)
-#define MAX_GROUPS  16
 typedef struct {
     int       id;
     Nfa_kind  kind;
@@ -34,20 +34,21 @@ typedef struct {
     int       pred_neg;
     int       bb_id;
 } Nfa_state;
-#define MAX_CAPLOG 32
 typedef struct {
     int matched;
     int full_start;
     int full_end;
-    int  group_start[MAX_GROUPS];
-    int  group_end[MAX_GROUPS];
-    char group_name[MAX_GROUPS][64];
-    int  ngroups;
-    int  ncaplog;
-    int  caplog_group[MAX_CAPLOG];
-    int  caplog_start[MAX_CAPLOG];
-    int  caplog_end[MAX_CAPLOG];
+    int         *group_start;
+    int         *group_end;
+    const char **group_name;
+    int          ngroups;
+    int          ncaplog;
+    int         *caplog_group;
+    int         *caplog_start;
+    int         *caplog_end;
+    void        *store;
 } Match;
+void match_free(Match *m);
 typedef struct Nfa Nfa;
 Nfa  *nfa_build(const char *pattern);
 int        nfa_state_count(const Nfa *nfa);
@@ -59,7 +60,6 @@ void       nfa_exec(const Nfa *nfa, const char *subject, Match *result);
 void       nfa_free(Nfa *nfa);
 Nfa_state *nfa_states(Nfa *nfa);
 int        nfa_group_by_name(const Nfa *nfa, const char *name);
-void       nfa_group_name_copy(const Nfa *nfa, int g, char *dst64);
 #endif
 typedef int (*Code_fn)(const char *code, int pos, const char *subject,
                             void *userdata);
