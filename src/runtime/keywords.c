@@ -620,7 +620,8 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
     if (!strcmp(kw,"features")) {
-        static const char *const feats[] = { "UNIX", "ASCII", "co-expressions", "environment variables", "keyboard functions", "large integers", "pipes", "system function" };
+        static const char *const feats[] = { "UNIX", "ASCII", "co-expressions", "dynamic loading", "environment variables", "external values",
+                                             "keyboard functions", "large integers", "pipes", "system function" };
         int n = (int)(sizeof(feats) / sizeof(feats[0]));
         if (idx < 0 || idx >= n) return FAILDESCR;
         return STRVAL(feats[idx]);

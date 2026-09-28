@@ -927,7 +927,7 @@ static int ipp_ppch(IcnPp *pp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ipp_init(IcnPp *pp) {
-    static const char *pre[] = { "_UNIX", "_ASCII", "_CO_EXPRESSIONS", "_KEYBOARD_FUNCTIONS", "_LARGE_INTEGERS", "_PIPES", "_SYSTEM_FUNCTION" };
+    static const char *pre[] = { "_UNIX", "_ASCII", "_CO_EXPRESSIONS", "_DYNAMIC_LOADING", "_EXTERNAL_VALUES", "_KEYBOARD_FUNCTIONS", "_LARGE_INTEGERS", "_PIPES", "_SYSTEM_FUNCTION" };
     memset(pp, 0, sizeof *pp);
     pp->cbin = (IcnPpDef **)ct_zalloc(256, sizeof *pp->cbin);
     pp->curfile = &pp->nofile;
