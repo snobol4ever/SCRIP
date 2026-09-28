@@ -113,6 +113,7 @@ void rt_call_args_clear_from(int n);
 #include <math.h>
 #include <float.h>
 #include <sys/select.h>
+#include <termios.h>
 #include <dlfcn.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name)
@@ -7570,6 +7571,22 @@ static DESCR_t *icn_variable_frame_cell(DESCR_t nm, char *stat, size_t statsz) {
     return (DESCR_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_rchar(int with_echo) {
+    struct termios o, t; unsigned char c; int tty = tcgetattr(0, &o) == 0;
+    if (tty) { t = o; t.c_lflag &= ~(tcflag_t)ICANON; if (with_echo) t.c_lflag |= ECHO; else t.c_lflag &= ~(tcflag_t)ECHO; tcsetattr(0, TCSANOW, &t); }
+    ssize_t n = read(0, &c, 1);
+    if (tty) tcsetattr(0, TCSANOW, &o);
+    return n == 1 ? (int)c : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_kbhit(void) {
+    struct termios o, t; fd_set r; struct timeval tv; int tty = tcgetattr(0, &o) == 0;
+    if (tty) { t = o; t.c_lflag &= ~(tcflag_t)ICANON; tcsetattr(0, TCSANOW, &t); }
+    FD_ZERO(&r); FD_SET(0, &r); tv.tv_sec = 0; tv.tv_usec = 0; int rv = select(1, &r, 0, 0, &tv);
+    if (tty) tcsetattr(0, TCSANOW, &o);
+    return rv > 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict)
 {
     if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
@@ -8754,8 +8771,10 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_exit)) { long long _st = (nargs >= 1 && IS_INT_fn(args[0])) ? (long long)args[0].i : 0; exit((int)_st); }
     if (!strcmp(fn, "chdir") && nargs == 1) { const char *_d = VARVAL_fn(args[0]); if (!_d || chdir(_d) != 0) { *out = FAILDESCR; return 1; } *out = NULVCL; return 1; }
     if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
-    if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) { unsigned char _c; ssize_t _n = read(0, &_c, 1); if (_n != 1) { *out = FAILDESCR; return 1; } if (fn[4] == 'e') { fputc(_c, stdout); fflush(stdout); } char *_b = rt_wsb_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
-    if (!strcmp(fn, "kbhit")) { fd_set _r; struct timeval _tv; FD_ZERO(&_r); FD_SET(0, &_r); _tv.tv_sec = 0; _tv.tv_usec = 0; if (select(1, &_r, 0, 0, &_tv) > 0) { *out = NULVCL; return 1; } *out = FAILDESCR; return 1; }
+    if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) {
+        fflush(stdout); int _c = icn_rchar(fn[5] == 'e'); if (_c < 0) { *out = FAILDESCR; return 1; }
+        char *_b = rt_wsb_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
+    if (!strcmp(fn, "kbhit")) { fflush(stdout); *out = icn_kbhit() ? NULVCL : FAILDESCR; return 1; }
     if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; extern DESCR_t rt_extfn_mint(const char *, void *); const char *_l = VARVAL_fn(args[0]); const char *_fnm = VARVAL_fn(args[1]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = (_h && _fnm) ? dlsym(_h, _fnm) : 0; if (!_f) { const char *_de = dlerror(); fprintf(stderr, "\nloadfunc(\"%s\",\"%s\"): %s\n", _l ? _l : "", _fnm ? _fnm : "", _de ? _de : ""); fflush(stderr); icn_loadfunc_cstr_args(args, nargs); if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); *out = FAILDESCR; return 1; } *out = rt_extfn_mint(_fnm, _f); return 1; }
     extern const char *scan_subj;
     extern int         scan_pos;
