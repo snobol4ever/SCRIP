@@ -255,7 +255,7 @@ arg	src/lower/lower_prolog.c
 copy_term	src/lower/lower_prolog.c
 var	src/lower/lower_prolog.c
 nonvar	src/lower/lower_prolog.c
-atom	src/parsers/prolog/prolog_atom.c
+atom	src/runtime/rt/prolog_atom.c
 number	src/lower/lower_prolog.c
 writeq	src/lower/lower_prolog.c
 write_canonical	src/lower/lower_prolog.c
