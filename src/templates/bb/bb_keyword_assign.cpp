@@ -22,8 +22,7 @@ struct DESCR_t rt_keyword_dump_set(struct DESCR_t v);
 std::string bb_keyword_assign() {
     if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword_assign: no result slot");
     if (_.op_a_slot < 0) return x86_alpha() + x86_bomb("bb_keyword_assign: rhs operand slot unresolved");
-    const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
-    if (!strcmp(kw, "pos")) {
+    if (!strcmp(_.op_name2, "pos")) {
         return x86("comment", "BOX ICN IR_KW_ASSIGN pos [unconditional two-world sync: scan_pos global + r14 delta; fail->omega; result {DT_I,pos}]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -39,7 +38,7 @@ std::string bb_keyword_assign() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (!strcmp(kw, "subject")) {
+    if (!strcmp(_.op_name2, "subject")) {
         return x86("comment", "BOX ICN IR_KW_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -57,7 +56,7 @@ std::string bb_keyword_assign() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (!strcmp(kw, "random")) {
+    if (!strcmp(_.op_name2, "random")) {
         return x86("comment", "BOX ICN IR_KW_ASSIGN random [data.r kywdint: coerce int, store g_random seed, result {DT_I,n}; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -70,7 +69,7 @@ std::string bb_keyword_assign() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (!strcmp(kw, "error")) {
+    if (!strcmp(_.op_name2, "error")) {
         return x86("comment", "BOX ICN IR_KW_ASSIGN error [coerce int, store g_error; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -83,7 +82,7 @@ std::string bb_keyword_assign() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (!strcmp(kw, "trace")) {
+    if (!strcmp(_.op_name2, "trace")) {
         return x86("comment", "BOX ICN IR_KW_ASSIGN trace [coerce int, store g_trace; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -97,7 +96,7 @@ std::string bb_keyword_assign() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (!strcmp(kw, "dump")) {
+    if (!strcmp(_.op_name2, "dump")) {
         return x86("comment", "BOX ICN IR_KW_ASSIGN dump [coerce int, store g_dump; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
