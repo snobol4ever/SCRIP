@@ -12,7 +12,8 @@
 #   line_comments — // line comments (no C comments allowed per SPEC)
 #   blank_lines   — blank lines in source (raw, not stripped)
 #   port_english  — PORT_ALPHA|PORT_BETA|PORT_GAMMA|PORT_OMEGA (must use α β γ ω)
-#   local_vars    — local variable declarations inside *_str() body (no locals per SPEC)
+#   local_vars    — lines declaring a local inside any function body, any type, static included (audit_template_locals.py)
+#   cv10_graph    — IR-graph reads: ir_call_arg/ir_pair_arg/ir_operand/IR_LIT( and _.node / g_emit.node (CV10)
 #   lang_blind    — reads of driver-mode/LANGUAGE state-globals (g_gvar_flat_chain/g_descr_flat_chain/
 #                   g_icn_scan_regs_live/g_gvar_callarg_live) inside a template (LANGUAGE-BLIND FACT RULE).
 #                   Distinct from legit extern FUNCTION decls (rt_*/POWER_fn). Extend the alternation for new selectors.
@@ -39,7 +40,7 @@ emit_fmt=$(strip "$f"      | grep -cE 'emit_fmt\(' || true)
 line_comments=$(grep -cE '^\s*//' "$f" || true)
 blank_lines=$(grep -c '^[[:space:]]*$' "$f" || true)
 port_english=$(strip "$f"  | grep -cE 'PORT_ALPHA|PORT_BETA|PORT_GAMMA|PORT_OMEGA' || true)
-local_vars=$(strip "$f"    | grep -cE '^\s+(std::string|const char ?\*|IR_t ?\*|void ?\*|uint64_t|int64_t|size_t|unsigned|double|float|short|long|bool|auto|char|int)[ \*]' || true)
+local_vars=$(python3 "$HERE/audit_template_locals.py" "$f")
 ret_all=$(strip "$f"       | grep -cE '\breturn\b' || true)
 ret_lam=$(strip "$f"       | grep -E '\breturn\b' | grep -cE '\[[&=][^]]*\][[:space:]]*\([^)]*\)[[:space:]]*\{' || true)
 ret=$(( ret_all - ret_lam )); rp=$(( ret > 2 ? ret - 2 : 0 ))
@@ -52,7 +53,7 @@ bypass=$(strip "$f"        | grep -cE 'x86_(frame|ro|reg)_[a-z0-9_]*\(' || true)
 cv9_str=$(strip "$f"   | grep -cE 'bb_[a-z0-9_]*_str\b' || true)
 cv9_param=$(strip "$f" | grep -cE 'std::string[^;]*\bIR_t[[:space:]]*\*' || true)
 cv9=$(( cv9_str + cv9_param ))
-cv10=$(strip "$f"      | grep -cE 'ir_call_arg\(|ir_pair_arg\(|ir_operand|\bIR_LIT[[:space:]]*\(' || true)
+cv10=$(strip "$f"      | grep -cE 'ir_call_arg\(|ir_pair_arg\(|ir_operand|\bIR_LIT[[:space:]]*\(|\b_\.node\b|\bg_emit\.node\b' || true)
 lang_blind=$(strip "$f" | grep -cE '\bg_(gvar_flat_chain|descr_flat_chain|icn_scan_regs_live|gvar_callarg_live)\b' || true)
 total=$((emit_blind + neighbor_walk + bsize + raw_bytes + medium_any + emit_fmt + line_comments + blank_lines + port_english + local_vars + rp + hc + sig_decls + over_col + multi_x86 + xc + bypass + cv9 + cv10 + lang_blind))
 name="$(basename "$f")"
@@ -66,7 +67,7 @@ printf "  emit_fmt      (emit_fmt():            %d\n" "$emit_fmt"
 printf "  line_comments (// ...):               %d\n" "$line_comments"
 printf "  blank_lines   (empty lines):          %d\n" "$blank_lines"
 printf "  port_english  (PORT_ALPHA/etc):       %d\n" "$port_english"
-printf "  local_vars    (decls, widened types): %d\n" "$local_vars"
+printf "  local_vars    (lines declaring one):  %d\n" "$local_vars"
 printf "  returns_plus  (returns beyond 2):     %d\n" "$rp"
 printf "  helper_count  (statics beyond 2):     %d\n" "$hc"
 printf "  sig_decls     (decls on sig line):    %d\n" "$sig_decls"
@@ -75,7 +76,7 @@ printf "  multi_x86     (>=2 x86() per line):   %d\n" "$multi_x86"
 printf "  extra_cmts    (non-separator cmts):   %d\n" "$xc"
 printf "  bypass        (x86_frame/ro/reg_*):   %d\n" "$bypass"
 printf "  cv9_param_str (_str / IR_t* in sig):  %d\n" "$cv9"
-printf "  cv10_graph    (ir_call_arg/IR_LIT):   %d\n" "$cv10"
+printf "  cv10_graph    (IR_LIT/_.node/args):   %d\n" "$cv10"
 printf "  lang_blind    (g_*_flat_chain/scan):  %d\n" "$lang_blind"
 echo "  ---"
 printf "  TOTAL violations:                     %d\n" "$total"
