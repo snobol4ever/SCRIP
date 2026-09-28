@@ -23,10 +23,7 @@ int g_glue_o_sup = 0;
 static inline bool bb_glue_outer_whack() {
     extern int g_glue_o_sup;
     if (g_glue_o_sup) return false;
-    static int s = -1;
-    if (s < 0)
-        { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; }
-    return s ? (g_glue_entered != 0) : true;
+    return sn4_glue_sym() ? (g_glue_entered != 0) : true;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bool bb_glue_outer_needs_ret() {
@@ -91,14 +88,13 @@ std::string bb_glue_lvl_slot_rcx(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_act_record(int keep_rax) {
-    int k = keep_rax ? 8 : 0;
     return x86("comment", "ACTIVATION RECORD (row snobol4-a-setexit-handler-runs-at-top-level-so-freturn-from-it-is-error-242): the wire pair just pushed IS the activation base; a SETEXIT handler that RETURNs resumes here")
          + IF(keep_rax, x86("push", "rax"))
          + bb_glue_lvl_slot_rcx()
-         + x86("lea", "rax", RDQ("rsp", k))
+         + x86("lea", "rax", RDQ("rsp", keep_rax ? 8 : 0))
          + x86("mov", RDQ("rcx", SNO_LVL_ACT_RSP), "rax")
          + x86("mov", RDQ("rcx", SNO_LVL_ACT_R12), "r12")
-         + x86("mov", "rax", RDQ("rsp", k))
+         + x86("mov", "rax", RDQ("rsp", keep_rax ? 8 : 0))
          + x86("mov", RDQ("rcx", SNO_LVL_GAMMA), "rax")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_core_errjmp_n, "g_core_errjmp_n")
          + x86("mov", "eax", RDD("rax", 0))
@@ -134,30 +130,27 @@ extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(void);
 extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len);
+#define GL_SAVE() (x86("sub", "rsp", 64L) \
+         + x86_rsp_store64(56, "r12") \
+         + x86_rsp_store64(48, "rbx") \
+         + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx") \
+         + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14") \
+         + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13"))
+#define GL_RESTORE() (x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24) \
+         + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56) \
+         + x86("add", "rsp", 64L))
+#define GL_LAND_G(drop) (x86("add", "rsp", (long)(drop)) \
+         + x86("mov", "rdi", "rax") \
+         + x86("mov", "rsi", "rdx") \
+         + x86_rsp_load64("rdx", 40) \
+         + GL_RESTORE() \
+         + x86_jmp_id(lg))
+#define GL_LAND_W(drop) (x86("add", "rsp", (long)(drop)) \
+         + x86_rsp_load64("rdi", 40) \
+         + GL_RESTORE() \
+         + x86_jmp_id(lw))
 std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
-    std::string save =  x86("sub", "rsp", 64L)
-         + x86_rsp_store64(56, "r12")
-         + x86_rsp_store64(48, "rbx")
-         + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
-         + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
-         + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
-    auto restore = [&]() {
-        return x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24)
-             + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56)
-             + x86("add", "rsp", 64L); };
-    auto land_γ = [&](long drop) {
-        return x86("add", "rsp", drop)
-             + x86("mov", "rdi", "rax")
-             + x86("mov", "rsi", "rdx")
-             + x86_rsp_load64("rdx", 40)
-             + restore()
-             + x86_jmp_id(lg); };
-    auto land_ω = [&](long drop) {
-        return x86("add", "rsp", drop)
-             + x86_rsp_load64("rdi", 40)
-             + restore()
-             + x86_jmp_id(lw); };
-    return save
+    return GL_SAVE()
          + x86("mov",  "rcx", "rdx")
          + x86("and",  "rcx", 255L)
          + x86("cmp",  "rcx", 2L)
@@ -177,19 +170,19 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + x86("lea",  "rcx", RDQ("rsp", 0))
          + x86_jmp_reg("rax")
          + x86_deflabel_id(base + 3)
-         + land_γ(48L)
+         + GL_LAND_G(48L)
          + x86_deflabel_id(base + 4)
-         + land_ω(48L)
+         + GL_LAND_W(48L)
          + x86_deflabel_id(base + 1)
-         + land_γ(16L)
+         + GL_LAND_G(16L)
          + x86_deflabel_id(base + 2)
-         + land_ω(16L)
+         + GL_LAND_W(16L)
          + x86_deflabel_id(base + 100)
          + bb_glue_pass_wires_blob_regs(base + 101, base + 102)
          + x86_deflabel_id(base + 101)
-         + land_γ(0L)
+         + GL_LAND_G(0L)
          + x86_deflabel_id(base + 102)
-         + land_ω(0L);
+         + GL_LAND_W(0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
@@ -215,19 +208,17 @@ std::string bb_glue_prim_int(int base) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd) {
-    std::string s = bb_glue_prim_open_enter(base);
-    s += x86("lea",  "rdi", LFDQ(ptr_d, ptr_sd));
-    s += x86("lea",  "rsi", LFD(len_d, len_sd));
-    s += x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take);
-    s += x86_rt_gc_poll_rec_sigma(1);
-    return s;
+    return bb_glue_prim_open_enter(base)
+         + x86("lea",  "rdi", LFDQ(ptr_d, ptr_sd))
+         + x86("lea",  "rsi", LFD(len_d, len_sd))
+         + x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take)
+         + x86_rt_gc_poll_rec_sigma(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off) {
-    std::string s = bb_glue_prim_open_enter(base);
-    s += x86("lea",  "rdi", RDQ("rsp", ptr_off));
-    s += x86("lea",  "rsi", RDQ("rsp", len_off));
-    s += x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take);
-    s += x86_rt_gc_poll_rec_sigma(1);
-    return s;
+    return bb_glue_prim_open_enter(base)
+         + x86("lea",  "rdi", RDQ("rsp", ptr_off))
+         + x86("lea",  "rsi", RDQ("rsp", len_off))
+         + x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take)
+         + x86_rt_gc_poll_rec_sigma(1);
 }
