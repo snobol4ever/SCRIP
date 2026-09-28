@@ -26,6 +26,8 @@
 #define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB)
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
+#define HBF_ASSERT_DEAD 0x0004
+#define HBF_ASSERT_INST 0x0008
 typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t flags; } rt_hblk_t;
 struct DESCR_t;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
@@ -59,6 +61,8 @@ int   rt_gc_stale_addr_report(void *fault, void *ip);
 long  rt_gc_collect(void);
 long  rt_gcheap_free(void);
 long  rt_gc_runs_count(void);
+void  rt_gc_assert_dead(const void *payload);
+void *rt_gc_assert_instances(uint16_t type, long n);
 long  rt_gc_cb_open(void);
 long  rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi);
 #define RT_GC_CALLBACK(expr)   ({ long _cb_m = rt_gc_cb_open(); char _cb_f; __typeof__(expr) _cb_r = (expr); rt_gc_cb_close(_cb_m, __FILE__, __LINE__, (void *)&_cb_f, (void *)__builtin_frame_address(0)); _cb_r; })

@@ -1548,6 +1548,19 @@ static long gc_audit_b_shim(char *floor)
     { long r = gc_audit_b_collect(&v); if (xr) gcbk_drop((void *)xr); return r; }
 }
 #endif
+static void gc_assert_report_done(void) { const char *e = getenv("SCRIP_GC_ASSERT_FATAL"); if (e && *e == '1') { fprintf(stderr, "[ZGC-ASSERT] SCRIP_GC_ASSERT_FATAL=1: aborting on the first violated assertion.\n"); abort(); } }
+static void gc_assert_check(void)
+{
+    long nd = 0, ni = 0;
+    for (long i = 0; i < g_gc_nblk; i++) { uint16_t f = g_gc_idx[i]->flags; if (!(f & HBF_MARK)) continue; nd += (f & HBF_ASSERT_DEAD) ? 1 : 0; ni += (f & HBF_ASSERT_INST) ? 1 : 0; }
+    if (!nd && !ni) return;
+    for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i]; if (!(h->flags & HBF_MARK)) continue;
+        if (h->flags & HBF_ASSERT_DEAD) { fprintf(stderr, "[ZGC-ASSERT] DEAD-ASSERTED block kind=%u/%s size=%u at arena+%ld is REACHABLE at collection #%ld: a root or a live block still holds what the program asserted dead\n", (unsigned)h->type, HB_KIND_NAME(h->type), h->size, (long)((char *)h - g_hp_arena), g_gc_runs + 1); gc_assert_report_done(); }
+        if (h->flags & HBF_ASSERT_INST) { const DESCR_t *v = (const DESCR_t *)(h + 1); long want = (long)v[1].i, found = 0; uint16_t t = (uint16_t)v[0].i;
+            for (long j = 0; j < g_gc_nblk; j++) if ((g_gc_idx[j]->flags & HBF_MARK) && g_gc_idx[j]->type == t) found++;
+            if (found != want) { fprintf(stderr, "[ZGC-ASSERT] INSTANCES kind=%u/%s expected %ld live, the trace found %ld at collection #%ld\n", (unsigned)t, HB_KIND_NAME(t), want, found, g_gc_runs + 1); gc_assert_report_done(); } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(void)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern void drv_gc_roots(void); extern int rt_scan_active(void);
@@ -1634,6 +1647,7 @@ static long gc_collect_ex(void)
     gc_audit_b_shim(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
 #endif
     gc_spine_lost_check();
+    gc_assert_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld ceiling_bytes_skipped=%ld ceiling=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, g_gc_ceil_bytes, (void *)g_gc_emit_ceiling); }
     { long shift = gc_plant_shift_bytes(); long prefix = shift ? gc_plant_shift_prefix() : 0;
@@ -1854,3 +1868,5 @@ long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi)
     return n;
 }
 long rt_gc_runs_count(void) { return g_gc_runs; }
+void rt_gc_assert_dead(const void *payload) { if (!payload || (const char *)payload <= g_hp_arena || (const char *)payload >= g_hp_top) return; ((rt_hblk_t *)payload - 1)->flags |= HBF_ASSERT_DEAD; }
+void *rt_gc_assert_instances(uint16_t type, long n) { DESCR_t *v = (DESCR_t *)rt_gcheap_alloc(HB_DVEC, 2 * sizeof(DESCR_t)); v[0] = INTVAL((long long)type); v[1] = INTVAL((long long)n); ((rt_hblk_t *)v - 1)->flags |= HBF_ASSERT_INST; return (void *)v; }

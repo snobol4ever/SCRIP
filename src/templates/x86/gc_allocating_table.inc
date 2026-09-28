@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1914
+#define GC_ALLOC_TAB_N 1915
 #define GC_ALLOC_TAB_N_VOID 222
 #define GC_ALLOC_TAB_N_DESCR 1044
-#define GC_ALLOC_TAB_N_OTHER 642
+#define GC_ALLOC_TAB_N_OTHER 643
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1101,6 +1101,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_fire_build", GC_RET_VOID },
     { "rt_fire_buildplan_tweak", GC_RET_VOID },
     { "rt_frame_bind_args", GC_RET_VOID },
+    { "rt_gc_assert_instances", GC_RET_OTHER },
     { "rt_gcheap_alloc", GC_RET_OTHER },
     { "rt_gcheap_grow_block", GC_RET_OTHER },
     { "rt_gen_proc_grow", GC_RET_VOID },
