@@ -3931,6 +3931,7 @@ static int r_variable_declarator(RkP *p, int pos) {
     if (p->build) {
         RkDecl *d = (RkDecl *) ct_zalloc(1, sizeof(RkDecl));
         d->sigil = ch(p, pos); d->name = ct_strndup0(p->s + pos, var_end - pos);
+        if (d->sigil == '&') rkb_codevar(p->B, d->name);
         d->tr = vtr; d->ntr = nvtr;
         p->dcl = d;
     }

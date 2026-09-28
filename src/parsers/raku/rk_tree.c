@@ -15,7 +15,7 @@ typedef struct { const char **k; int n, cap; } NS;
 struct RkB {
     const char *s; int len;
     int *nlp; int nnlp, cnlp;
-    NS arrn, als;
+    NS arrn, als, codev;
     int post_uid, twpost_uid, destr_uid, fm_uid;
     int after_line;
     tree_t *tail_list, *tail_tree;
@@ -105,12 +105,15 @@ static void mark_arrlit(RkB *b, const char *bare, const tree_t *rhs) {
 static const char *var_ident(const char *s) { if (s && (s[0] == '@' || s[0] == '%')) return s; return strip_sigil(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *var_node(RkB *b, const char *name) {
+    if (name && name[0] == '&' && ns_has(&b->codev, name + 1)) return leaf_sval(TT_VAR, fmt("%s__code", name + 1));
     const char *id = var_ident(name);
     if (name && name[0] == '@') mark_arr(b, id);
     tree_t *e = leaf_sval(TT_VAR, id);
     if (name && name[0] != '$' && name[0] != '@' && name[0] != '%') e->slen = 1;
     return e;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_codevar(RkB *b, const char *name) { if (name && name[0] == '&' && name[1]) ns_add(&b->codev, intern(name + 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *make_call(const char *name) { tree_t *e = leaf_sval(TT_FNC, name); tree_t *n = ast_node_new(TT_VAR); n->v.sval = intern(name); expr_add_child(e, n); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1247,6 +1250,11 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     char *nm = spn(b, from, from + namelen); it->name = nm;
     if (!args || !args->nitem) args = NULL;
     const char *rt = testop_rt(nm);
+    if (!rt && ns_has(&b->codev, nm)) {
+        tree_t *c = ast_node_new(TT_INVOKE); expr_add_child(c, leaf_sval(TT_VAR, fmt("%s__code", nm)));
+        if (args) { TL cp = { 0 }; arglist(b, args, 0, &cp, NULL); for (int i = 0; i < cp.n; i++) expr_add_child(c, cp.v[i]); }
+        it->t = c; return;
+    }
     if (form == 0 || !args) {
         if (!strcmp(nm, "True") || !strcmp(nm, "False")) { it->kind = TK_NAME; it->t = mkbool_lit(!strcmp(nm, "True")); return; }
         if (!strcmp(nm, "last")) { it->t = ast_node_new(TT_LOOP_BREAK); return; }
@@ -1281,6 +1289,12 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         tree_t *c = ast_node_new(k);
         int lo = 0;
         if (args->n && args->v[0].t0.kind == TK_BLOCK && args->v[0].nitem == 1) { ast_push(c, closure_of(&args->v[0].t0)); lo = 1; }
+        RkTerm *f0 = args->n >= 2 ? &args->v[0].t0 : NULL;
+        if (!lo && k != TT_SORT && f0 && args->v[0].nitem == 1 && f0->kind == TK_VAR && !f0->npost && !f0->npre && (f0->cls == 'S' || (f0->name && f0->name[0] == '&' && ns_has(&b->codev, f0->name + 1)))) {
+            tree_t *lst = args->n == 2 ? el_tree(b, &args->v[1]) : make_call("__rk_arr");
+            if (args->n > 2) for (int i = 1; i < args->n; i++) expr_add_child(lst, el_tree(b, &args->v[i]));
+            tree_t *m = ast_node_new(TT_METHCALL); ast_push(m, lst); ast_push(m, leaf_sval(TT_QLIT, nm)); ast_push(m, el_tree(b, &args->v[0])); it->t = m; return;
+        }
         for (int i = lo; i < args->n; i++) ast_push(c, el_tree(b, &args->v[i]));
         if (form == 1 && lo == 0 && args->n > 1) { tree_t *a = make_call("__rk_arr"); for (int i = 0; i < c->n; i++) expr_add_child(a, c->c[i]); c->n = 0; ast_push(c, a); }
         it->t = c; return;
