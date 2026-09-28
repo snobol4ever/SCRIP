@@ -60,7 +60,7 @@ std::string bb_match_begin() {
          + x86("def", L(0))
          + x86("note", "start_δ")
          + x86("mov", "r14d", RDD("rbp", -40))
-         + IF(({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; }),
+         + IF(sn4_defer_beta_guard(),
                x86("note", "match_beta_cont")
              + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
              + x86("mov", "rax", RDQ("rcx", 248))
@@ -69,7 +69,7 @@ std::string bb_match_begin() {
              + x86("mov", RDQ("rcx", 248), "rax"))
          + x86_gamma()
          + x86_beta()
-         + IF(({ static int _bg2 = -1; if (_bg2 < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg2 = (e && *e == '0') ? 0 : 1; } _bg2; }), x86("def", L(13)))
+         + IF(sn4_defer_beta_guard(), x86("def", L(13)))
          + x86("note", "retry_whack")
          + x86("lea", "rsp", RDQ("rbp", -56 - _.op_frame_extra))
          + x86("note", "start_δ")
@@ -86,7 +86,7 @@ std::string bb_match_begin() {
          + x86("def", L(1))
          + IF(g_emit.xa_bb_emit_pair_n >= 4 && XA_PAIR(3).define != NULL, x86("def", PAIR(3)))
          + IF(g_emit.xa_bb_emit_pair_n >= 5 && XA_PAIR(4).define != NULL, x86("def", PAIR(4)))
-         + IF(({ static int _bg3 = -1; if (_bg3 < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg3 = (e && *e == '0') ? 0 : 1; } _bg3; }),
+         + IF(sn4_defer_beta_guard(),
                x86("note", "mbc_restore")
              + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
              + x86("mov", "rax", RDQ("rbp", -48))
