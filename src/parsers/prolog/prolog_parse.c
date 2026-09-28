@@ -889,6 +889,33 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
         buf[idx++] = mk_raw(prolog_atom_intern(";"), sargs, 2);
         return idx;
     }
+    if (body->t == TT_FNC && body->v.sval && (strcmp(body->v.sval, "->") == 0 || strcmp(body->v.sval, "*->") == 0) && body->n == 2) {
+        tree_t *buf_c[256]; int nc = 0; tree_t *buf_t[256]; int nt = 0; tree_t *s_mid = dcg_fresh_var(ts);
+        nc = dcg_expand_body(body->c[0], s_in, s_mid, ts, buf_c, 0);
+        nt = dcg_expand_body(body->c[1], s_mid, s_out, ts, buf_t, 0);
+        tree_t *conj_c = buf_c[nc - 1];
+        for (int i = nc - 2; i >= 0; i--) { tree_t *cc[2] = { buf_c[i], conj_c }; conj_c = mk_raw(prolog_atom_intern(","), cc, 2); }
+        tree_t *conj_t = buf_t[nt - 1];
+        for (int i = nt - 2; i >= 0; i--) { tree_t *ct[2] = { buf_t[i], conj_t }; conj_t = mk_raw(prolog_atom_intern(","), ct, 2); }
+        tree_t *iargs[2] = { conj_c, conj_t };
+        buf[idx++] = mk_raw(prolog_atom_intern(body->v.sval), iargs, 2);
+        return idx;
+    }
+    if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "\\+") == 0 && body->n == 1) {
+        tree_t *buf_g[256]; int ng = 0; tree_t *s_void = dcg_fresh_var(ts);
+        ng = dcg_expand_body(body->c[0], s_in, s_void, ts, buf_g, 0);
+        tree_t *conj_g = buf_g[ng - 1];
+        for (int i = ng - 2; i >= 0; i--) { tree_t *cg[2] = { buf_g[i], conj_g }; conj_g = mk_raw(prolog_atom_intern(","), cg, 2); }
+        tree_t *nargs[1] = { conj_g };
+        buf[idx++] = mk_raw(prolog_atom_intern("\\+"), nargs, 1);
+        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        return idx;
+    }
+    if (body->t == TT_VAR) {
+        tree_t *cargs[3] = { dcg_var_use(ts, body), dcg_var_use(ts, s_in), dcg_var_use(ts, s_out) };
+        buf[idx++] = mk_raw(prolog_atom_intern("phrase"), cargs, 3);
+        return idx;
+    }
     if (body->t == TT_CUT) {
         buf[idx++] = body;
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
