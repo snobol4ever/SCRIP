@@ -375,7 +375,8 @@ static IR_t * rk_xf_body(rcx_t * cx, const tree_t * xf, int xfk, const char * vn
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_proc_nparams(const char * name) {
-    for (int i = 0; name && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].nparams;
+    for (int i = 0; name && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name))
+        return (g_stage2.proc_table[i].is_variadic || g_stage2.proc_table[i].named_rest) ? -1 : g_stage2.proc_table[i].nparams;
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -393,9 +394,12 @@ static tree_t * rk_fnc2(const char * nm, const tree_t * a, const tree_t * b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mname, IR_t * γ, IR_t * ω, IR_t ** res) {
     int k = !strcmp(mname, "map") ? 1 : !strcmp(mname, "grep") ? 2 : !strcmp(mname, "first") ? 3 : !strcmp(mname, "reduce") ? 4 : 0;
-    if (!k || t->n != 3 || !t->c[0] || !t->c[2] || t->c[2]->t != TT_ANON_BLOCK || !t->c[2]->v.sval) return NULL;
-    const char * bn = t->c[2]->v.sval; int np = rk_proc_nparams(bn);
-    if (k == 4 ? np != 2 : (np < 0 || np > 1)) return NULL;
+    const tree_t * fa = t->n == 3 ? t->c[2] : NULL; const char * bn = NULL;
+    if (fa && fa->t == TT_ANON_BLOCK && fa->v.sval) bn = fa->v.sval;
+    else if (fa && fa->t == TT_VAR && fa->v.sval && fa->v.sval[0] == '&' && rk_proc_known(fa->v.sval + 1) && !rk_is_multi_name(fa->v.sval + 1)) bn = fa->v.sval + 1;
+    if (!k || !bn || !t->c[0]) return NULL;
+    int np = rk_proc_nparams(bn), step = (k == 1 && np > 1) ? np : 1;
+    if (k == 4 ? np != 2 : (np < 0 || (k != 1 && np > 1))) return NULL;
     if (rk_user_meth_named(mname) || (t->c[0]->t == TT_VAR && t->c[0]->v.sval && t->c[0]->v.sval[0] == '%')) return NULL;
     char b1[40], b2[40], b3[40], b4[40]; int id = cx->g->n;
     snprintf(b1, sizeof b1, "$?isrc%d", id); snprintf(b2, sizeof b2, "$?ires%d", id); snprintf(b3, sizeof b3, "$?iidx%d", id); snprintf(b4, sizeof b4, "$?iel%d", id);
@@ -407,7 +411,9 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
     IR_t * to = build(cx, IR_TO, va, fin); IR_LIT(to).sval = "ag";
     tree_t * lo = ast_node_new(TT_ILIT); lo->v.ival = k == 4 ? 1 : 0;
     tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
-    tree_t * hi = ast_node_new(TT_SUB); ast_push(hi, rk_fnc2("elems", leaf_sval2(TT_VAR, src), NULL)); ast_push(hi, one);
+    tree_t * nel = rk_fnc2("elems", leaf_sval2(TT_VAR, src), NULL);
+    if (step > 1) { tree_t * sn = ast_node_new(TT_ILIT); sn->v.ival = step; nel = rk_fnc2("__rk_intdiv", nel, sn); }
+    tree_t * hi = ast_node_new(TT_SUB); ast_push(hi, nel); ast_push(hi, one);
     IR_t * rlo = NULL, * rhi = NULL;
     IR_t * elo = lower_rv(cx, lo, NULL, ω, &rlo);
     IR_t * ehi = lower_rv(cx, hi, to, ω, &rhi);
@@ -418,6 +424,11 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
     if (k == 1 || k == 4) {
         IR_t * as = build(cx, IR_ASSIGN, to, to); IR_LIT(as).sval = acc;
         tree_t * call = k == 4 ? rk_fnc2(bn, leaf_sval2(TT_VAR, acc), at) : rk_fnc2(bn, np ? at : NULL, NULL);
+        if (step > 1) { call = rk_fnc2(bn, NULL, NULL);
+            for (int j = 0; j < step; j++) { tree_t * sn = ast_node_new(TT_ILIT); sn->v.ival = step; tree_t * jn = ast_node_new(TT_ILIT); jn->v.ival = j;
+                tree_t * mu = ast_node_new(TT_MUL); ast_push(mu, leaf_sval2(TT_VAR, idx)); ast_push(mu, sn);
+                tree_t * ad = ast_node_new(TT_ADD); ast_push(ad, mu); ast_push(ad, jn);
+                ast_push(call, rk_fnc2("__rk_arr_at", leaf_sval2(TT_VAR, src), ad)); } }
         if (k == 1) call = rk_fnc2("__rk_map_append", leaf_sval2(TT_VAR, acc), call);
         bentry = lower_rcall(cx, call, call->v.sval, 1, as, to, &r); if (r) ir_operand_push(as, r);
     } else {
