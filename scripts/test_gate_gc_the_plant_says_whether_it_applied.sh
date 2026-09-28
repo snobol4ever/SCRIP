@@ -70,7 +70,7 @@ else echo "  arm 2 FAIL: the plant applied 0 times yet a count reads anchored=$d
 # escaping would grade spelling instead of whether the reader looks.  The tag is read on EXECUTABLE lines only, so
 # a gate that merely NAMES the banner in its header is still blind and this arm says so.  A newcomer is declared here or it is not admitted, and arm 4
 # closes the table against src/ so a third knob cannot repeat what the second one did to arm 3.
-TBL='SCRIP_GC_PLANT_SHIFT|GC-SHIFT|test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh test_gate_gc_pas_heap_cells_survive_forced_movement.sh test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh
+TBL='SCRIP_GC_PLANT_SHIFT|GC-SHIFT|test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh test_gate_gc_pas_heap_cells_survive_forced_movement.sh test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh test_gate_gc_the_scan_subject_base_is_reloaded_after_a_call_inside_a_scan.sh
 SCRIP_GC_PLANT_RTCCB|GC-RTCCB|test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh
 SCRIP_GC_PLANT_PIN_SKIP|ZGC-PIN|test_gate_gc_no_pinned_lifetime_class.sh test_gate_gc_the_decidable_test.sh
 SCRIP_GC_PLANT_PIN_TYPE|ZGC-PIN|

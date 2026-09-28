@@ -56,11 +56,15 @@ examined=$((examined + 1))
 # on procedure_coexpr_suspend_replace_3 faulting under the ledger, and once that entry was cured no birth line printed
 # and every field read [none] -- a gate that needs a live defect to grade its instrument goes red the day the defect
 # is cured.  SCRIP_GC_PLANT_STALE_SIGMA=1 leaves the scan subject base unreloaded after a call inside a scan and
-# SCRIP_GC_PLANT_FLIP=1 makes the stale read fault where it is used, so the witness of CTO-165 faults on purpose and
+# SCRIP_GC_PLANT_FLIP=1 makes the stale read fault where it is used (and since CEO-1348, cfo 2026-09-28, the stale-sigma
+# plant requests the collection itself at the scan sync-out, so at SCRIP_GC_STRESS=0 that forced collection is the ONLY
+# one, the flip's PROT_NONE ground holds until the stale read, and the fault no longer rides on the allocation phase of
+# one stress point -- at stress 3 a later collection inside the callee unprotected the ground first and no fault was made;
+# the flip and shift plants exclude each other, gc_heap.c gc_plant_flip() && !g_gc_shift_now, so no shift here), so the witness of CTO-165 faults on purpose and
 # the ledger names the block (HB_WSB) and its allocating site in by_name_dispatch.c; both banners are required.
 W="$ROOT/scripts/gc_witnesses/hb_scan_subject_across_a_failing_callee.icn"; WIN="${W%.icn}.in"
 if [ -s "$W" ] && [ -s "$WIN" ]; then
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_PLANT_STALE_SIGMA=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" <"$WIN" >/dev/null 2>"$T/w.err" )
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=0 SCRIP_GC_PLANT_STALE_SIGMA=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" <"$WIN" >/dev/null 2>"$T/w.err" )
   grep -q "^\[GC-STALESIGMA\] plant:" "$T/w.err" || { echo "  arm 2 REFUSE: the GC-STALESIGMA banner is missing -- the plant never applied, so no fault was made and nothing was graded"; RC=1; }
   grep -q "^\[GC-FLIP\] plant:" "$T/w.err" || { echo "  arm 2 REFUSE: the GC-FLIP banner is missing -- the plant never applied, so no fault was made and nothing was graded"; RC=1; }
   line=$(grep -m1 'ZGC-BIRTH.*allocated by' "$T/w.err")

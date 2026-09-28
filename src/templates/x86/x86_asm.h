@@ -1840,9 +1840,16 @@ extern "C" uint64_t rt_scan_sync_in(void);
 extern "C" uint64_t rt_scan_live_subj(void);
 extern "C" int g_scan_regs_live;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int g_gc_pending;
+inline std::string x86_scan_plant_request_collection() {
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_PLANT_STALE_SIGMA"); v = (e && *e == '1') ? 1 : 0; }
+    if (!v) return std::string();
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", RDD("rax", 0), (long)1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_out() {
     if (!g_scan_regs_live) return std::string();
-    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
+    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out) + x86_scan_plant_request_collection();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sigma_reload() {
@@ -1862,7 +1869,7 @@ inline std::string x86_scan_sync_in_rr() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_out_force() {
-    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
+    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out) + x86_scan_plant_request_collection();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_cursor_sync_in_force() {
