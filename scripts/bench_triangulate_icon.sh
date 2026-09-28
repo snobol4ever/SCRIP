@@ -19,7 +19,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 #   ANGLE 3    every process runs under tools/bench_rusage: CPU (user+sys), elapsed, exit -- independent of the kernel's clock.
 #   stdout must equal k copies of the .ref on EVERY run of every angle; a mismatch is a FAIL of that row whatever its speed.
 # SIDECARS, the same as test_icon_bench_suite.sh (the correctness row): stdin NAME.in, else NAME.stdin, else NAME.dat; argv
-# NAME.argv; the SCRIP engines run at the arena NAME.heap declares (declared_arena_kb_beside), iconx at its own.
+# NAME.argv; the SCRIP engines run at the heap and stack NAME.heap and NAME.stack declare (declared_switches_beside), iconx at its own.
 # THE NUMBERS: WORK = the wrapper's own work_ms (compile phase and startup outside it), per iteration in microseconds; angle 1
 # and angle 2 AGREE when within TOL_PCT, else the row is NOT CITABLE -- reported, never a correctness failure. ⛔ Timing grids
 # wait for the quiet box (CEO-1219): --quick (200 ms budget, N=2) proves the machinery and the refs under all three angles now.
@@ -71,19 +71,22 @@ printf '%s\n' "-----------------------------------------------------------------
 for K in "${POP[@]}"; do
   KD="$(dirname "$K")"; NM="$(basename "$K" .icn)"; B="${K%.icn}"; REF="$B.ref"
   IN=/dev/null; for X in in stdin dat; do [ -f "$B.$X" ] && { IN="$B.$X"; break; }; done   # the suite's order (test_icon_bench_suite.sh)
-  KB="$(declared_arena_kb_beside "$K")" || { echo "⛔ $NM: a malformed $NM.heap (the reader said why above)"; BAD=1; continue; }
+  # ⭐ THE DECLARATION RIDES THE COMMAND LINE AS SWITCHES (ceo CEO-1353): -d<kb>k -s<kb>k from NAME.heap and NAME.stack after scrip in m3
+  # and leading the binary's arguments in m4 (a -- before the kernel's argv), never SCRIP_HEAP_KB, the collector's WINDOW; iconx gets none.
+  SW="$(declared_switches_beside "$K")" || { echo "⛔ $NM: a malformed $NM.heap or $NM.stack (the reader said why above)"; BAD=1; continue; }
+  declare -a SWA=(); [ -n "$SW" ] && read -r -a SWA <<<"$SW"
   declare -a AV=(); if [ -f "$B.argv" ] && ! ipl_argv_read "$K" AV; then echo "⛔ $NM: malformed $NM.argv"; BAD=1; continue; fi
   mkdir -p "$W/$NM"; python3 "$HERE/util_icon_bench_wrap.py" "$K" > "$W/$NM/$NM.icn" || { echo "⛔ $NM: the wrapper generator refused"; BAD=1; continue; }
   N="$(scale_of "$NM")"
   for EN in $ENGINES; do
     ROWS=$((ROWS+1)); V=PASS; CMD=()
-    HEAPENV=(); [ "$EN" != iconx ] && { HEAPENV=(-u SCRIP_HEAP_MB); [ -n "$KB" ] && HEAPENV+=("SCRIP_HEAP_KB=$KB"); }   # SCRIP engines only
+    HEAPENV=(); [ "$EN" != iconx ] && HEAPENV=(-u SCRIP_HEAP_MB)   # SCRIP engines only
     if [ ! -s "$REF" ]; then printf '%-30s %-6s %s\n' "$NM" "$EN" "FAIL -- no .ref: a kernel with no expected output is vacuous"; BAD=1; continue; fi
     case "$EN" in
       iconx) ( cd "$W/$NM" && "$ICONT" -s -o w.x "$NM.icn" ) >"$W/$NM/icont.log" 2>&1 && CMD=("$W/$NM/w.x" ${AV[@]+"${AV[@]}"});;
-      m3)    CMD=("$SCRIP" "$W/$NM/$NM.icn"); [ "${#AV[@]}" -gt 0 ] && CMD+=(-- "${AV[@]}");;
+      m3)    CMD=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$W/$NM/$NM.icn"); [ "${#AV[@]}" -gt 0 ] && CMD+=(-- "${AV[@]}");;
       m4)    ( cd "$W/$NM" && "$SCRIP" --compile -o w.s "$NM.icn" </dev/null && gcc -no-pie -o w4 w.s "$RT/libscrip_rt.so" -lm -lstdc++ -lpthread -Wl,-rpath,"$RT" ) >"$W/$NM/m4.log" 2>&1 \
-               && CMD=("$W/$NM/w4" ${AV[@]+"${AV[@]}"});;
+               && { CMD=("$W/$NM/w4" ${SWA[@]+"${SWA[@]}"}); [ "${#AV[@]}" -gt 0 ] && { [ "${#SWA[@]}" -gt 0 ] && CMD+=(--); CMD+=("${AV[@]}"); }; };;
       *) refuse "unknown engine $EN";;
     esac
     [ "${#CMD[@]}" -gt 0 ] || { printf '%-30s %-6s %s\n' "$NM" "$EN" "FAIL -- the wrapped kernel did not build ($(tail -1 "$W/$NM/"*.log 2>/dev/null | cut -c1-80))"; BAD=1; continue; }

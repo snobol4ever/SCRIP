@@ -13,8 +13,8 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # THE POPULATION is every .icn under corpus/benchmarks/icon, recursively, with a `procedure main` -- printed as the denominator.
 # THE SIDECARS, per kernel NAME, beside it: REF = NAME.ref (cut from Arizona icont/iconx 9.5.25a, util_cut_icon_kernel_refs.sh);
 #   IN = NAME.in, else NAME.stdin, else NAME.dat (the name the icont bench kernels arrived with), else /dev/null; ARGV = NAME.argv
-#   through ipl_argv_read, the ONE reader; MEMORY = NAME.heap, one line NAME<TAB>KB, read through declared_arena_kb_beside (the
-#   harness's own reader; a cell at or below 4096 is refused, CEO-1171) and exported as SCRIP_HEAP_KB for THAT kernel only.
+#   through ipl_argv_read, the ONE reader; MEMORY = NAME.heap and NAME.stack, one line NAME<TAB>KB each, read through
+#   declared_switches_beside (the harness's own reader) and passed as -d<kb>k -s<kb>k on THAT kernel's command line (CEO-1353).
 # THE THREE ANGLES, in m3 (scrip --run) and m4 (--compile, gcc -no-pie, run), every run from the kernel's own directory (a kernel
 #   opens its argv files by relative name), STDOUT compared with the REF on EVERY run:
 #   process  the PRISTINE kernel under tools/bench_rusage (elapsed, CPU, RSS): stdout must be the REF.
@@ -85,13 +85,16 @@ echo "=== ICON BENCHMARK SUITE: ${#POP[@]} kernels x 2 modes x 3 angles, graded 
 PASS=0; P3=0; P4=0; REFLESS=0; DRIFT=0; WSENS=0; LIN=0; LPROC=0; HEAPD=0; PREFUSED=0; NOTES=""; SCOUT=""
 for f in "${POP[@]}"; do
   rel="${f#"$BD"/}"; NM="$(basename "$f" .icn)"; KD="$(dirname "$f")"; ref="${f%.icn}.ref"; IN="$(stdin_of "$f")"; K="$W/k"; rm -rf "$K"; mkdir -p "$K"
-  HEAPENV=(-u SCRIP_HEAP_MB); kb="$(declared_arena_kb_beside "$f")"; krc=$?
+  HEAPENV=(-u SCRIP_HEAP_MB); kb="$(declared_switches_beside "$f")"; krc=$?; declare -a SWA=(); [ -n "$kb" ] && read -r -a SWA <<<"$kb"
   declare -a AV=(); arc=0; [ -f "${f%.icn}.argv" ] && { ipl_argv_read "$f" AV || arc=$?; }
   if [ ! -s "$ref" ]; then REFLESS=$((REFLESS + 1)); printf '  %-40s REFLESS -- no non-empty .ref, not a pass\n' "$rel"
     record "$rel" m3 UNGRADED 0 "no .ref"; record "$rel" m4 UNGRADED 0 "no .ref"; continue; fi
-  if [ "$krc" != 0 ] || [ "$arc" != 0 ]; then why="a malformed ${NM}.heap (the reader said why above)"; [ "$arc" != 0 ] && why="a malformed ${NM}.argv (the reader said why above)"
+  if [ "$krc" != 0 ] || [ "$arc" != 0 ]; then why="a malformed ${NM}.heap or ${NM}.stack (the reader said why above)"; [ "$arc" != 0 ] && why="a malformed ${NM}.argv (the reader said why above)"
     printf '  %-40s UNPROVEN -- %s\n' "$rel" "$why"; record "$rel" m3 UNPROVEN 0 "$why"; record "$rel" m4 UNPROVEN 0 "$why"; continue; fi
-  [ -n "$kb" ] && { HEAPENV+=("SCRIP_HEAP_KB=$kb"); HEAPD=$((HEAPD + 1)); }
+  # ⭐ THE DECLARATION RIDES THE COMMAND LINE AS SWITCHES (ceo CEO-1353): after scrip in m3, leading the binary's arguments in m4 (a --
+  # before the kernel's argv), never SCRIP_HEAP_KB -- gc_heap.c reads that as the collector's WINDOW, so every declared kernel ran at
+  # window = cap. The oracle runs get none.
+  [ -n "$kb" ] && HEAPD=$((HEAPD + 1))
   python3 "$GEN" "$f" >"$K/$NM.icn" 2>"$K/gen.err" || { printf '  %-40s UNPROVEN -- the wrapper generator refused: %s\n' "$rel" "$(head -1 "$K/gen.err")"
     record "$rel" m3 UNPROVEN 0 "unwrappable"; record "$rel" m4 UNPROVEN 0 "unwrappable"; continue; }
   # ---- the oracle: the REF's own check (the PRISTINE kernel), then the loop shape both modes are held to (the WRAPPED one)
@@ -113,12 +116,13 @@ for f in "${POP[@]}"; do
   o3=PASS; o4=PASS; s3=0; s4=0; cells=""
   for mode in m3 m4; do
     PRI=(); WRP=(); o=PASS
-    if [ "$mode" = m3 ]; then PRI=("$SCRIP" "$f"); WRP=("$SCRIP" "$K/$NM.icn"); [ "${#AV[@]}" -gt 0 ] && { PRI+=(-- "${AV[@]}"); WRP+=(-- "${AV[@]}"); }
+    if [ "$mode" = m3 ]; then PRI=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$f"); WRP=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$K/$NM.icn"); [ "${#AV[@]}" -gt 0 ] && { PRI+=(-- "${AV[@]}"); WRP+=(-- "${AV[@]}"); }
     else
       mkdir -p "$K/p4" "$K/w4"
       if ( cd "$KD" && "$SCRIP" --compile -o "$K/p4/$NM.s" "$f" </dev/null && gcc -no-pie -o "$K/p4/$NM" "$K/p4/$NM.s" "$RT/libscrip_rt.so" -lm -lstdc++ -lpthread -Wl,-rpath,"$RT" ) >"$K/m4p.log" 2>&1 \
          && ( cd "$KD" && "$SCRIP" --compile -o "$K/w4/$NM.s" "$K/$NM.icn" </dev/null && gcc -no-pie -o "$K/w4/$NM" "$K/w4/$NM.s" "$RT/libscrip_rt.so" -lm -lstdc++ -lpthread -Wl,-rpath,"$RT" ) >"$K/m4w.log" 2>&1; then
-        PRI=("$K/p4/$NM" ${AV[@]+"${AV[@]}"}); WRP=("$K/w4/$NM" ${AV[@]+"${AV[@]}"})
+        PRI=("$K/p4/$NM" ${SWA[@]+"${SWA[@]}"}); WRP=("$K/w4/$NM" ${SWA[@]+"${SWA[@]}"})
+        [ "${#AV[@]}" -gt 0 ] && { [ "${#SWA[@]}" -gt 0 ] && { PRI+=(--); WRP+=(--); }; PRI+=("${AV[@]}"); WRP+=("${AV[@]}"); }
       else o4=FAIL; cells="$cells m4=BUILD"; NOTES="$NOTES\n    $rel m4: did not compile and link -- $(tail -1 "$K"/m4?.log | cut -c1-120)"; continue; fi
     fi
     for angle in process iter time; do
@@ -151,7 +155,7 @@ for f in "${POP[@]}"; do
     done
   done
   [ "$o3" = PASS ] && P3=$((P3 + 1)); [ "$o4" = PASS ] && P4=$((P4 + 1))
-  hnote=""; [ -n "$kb" ] && hnote=" at declared heap $kb KB"
+  hnote=""; [ -n "$kb" ] && hnote=" at declared $kb"
   record "$rel" m3 "$o3" "$s3" "process/iter/time vs REF, loop $SHAPE$hnote"; record "$rel" m4 "$o4" "$s4" "process/iter/time vs REF, loop $SHAPE$hnote"
   if [ "$o3" = PASS ] && [ "$o4" = PASS ]; then PASS=$((PASS + 1)); printf '  %-40s PASS  (6 of 6 runs print the REF, loop %s)%s\n' "$rel" "$SHAPE" "${hnote:+ --$hnote}"
   else printf '  %-40s FAIL %s  (loop %s)\n' "$rel" "$cells" "$SHAPE"; fi
