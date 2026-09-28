@@ -1219,7 +1219,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ATP:            { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;
     case IR_MATCH_ARB:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_arb()); } return 0;
     case IR_MATCH_BAL:            { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off; } } bb_emit_x86(bb_match_bal()); } return 0;
-    case IR_MATCH_DEFER: { bb_prepare(nd); g_emit.op_seal = nd->seal; g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1; bb_emit_x86(bb_match_defer()); } return 0;
+    case IR_MATCH_DEFER: { bb_prepare(nd); g_emit.op_seal = nd->seal; g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1; defer_prepare(); bb_emit_x86(bb_match_defer()); } return 0;
     case IR_MATCH_VALUE:          { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;
     case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_arbno_rbp = 0;
                                     g_emit.op_arbno_frame_off = arbno_frame_slot(nd); arbno_body_slot_window(nd, &g_emit.op_arbno_win_lo, &g_emit.op_arbno_win_bytes);
@@ -4295,3 +4295,25 @@ void kw_snobol4_prepare(void) {
     g_emit.op_imm_b = soff;
     g_emit.op_addr  = (uint64_t)(uintptr_t)cbase;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_defer_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_defer_inline(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_INLINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_patv_fast(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATV_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_defer_ic(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_IC"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void defer_prepare(void) {
+    extern int g_gva_active;
+    static int g_defer_site_n;
+    char b[24]; strtab_label(b, sizeof b, g_emit.op_sval ? g_emit.op_sval : "");
+    g_emit.op_df_vslot = -1;
+    { const char *sv = g_emit.op_sval, *d = sv ? strstr(sv, "$V") : 0;
+      if (d && d[2] >= '0' && d[2] <= '9')
+      { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) g_emit.op_df_vslot = (int)k; } }
+    g_emit.op_df_cell = (g_emit.op_df_vslot < 0 && sn4_defer_cell() && g_gva_active && g_emit.op_gva_k >= 0 && g_emit.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
+    g_emit.op_df_site = (g_emit.op_df_vslot < 0 && !(g_gva_active && g_emit.op_gva_k >= 0)) ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_glue_sym(void) { static int s = -1; if (s < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; } return s; }
