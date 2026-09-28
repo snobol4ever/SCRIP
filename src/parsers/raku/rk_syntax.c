@@ -3441,6 +3441,16 @@ static int r_term(RkP *p, int pos) {
     if (p->nuops && (e = r_user_term(p, pos)) >= 0) { if (p->build) rkb_name(p->B, &p->tm, pos, e, e - pos); return e; }
     if (c == '$' || c == '@' || c == '%' || c == '&') {
         if (c == '&' && ch(p, pos + 1) == '&') return -1;
+        if (c == '@' && ch(p, pos + 1) == '(' && !p->in_decl && !p->qsigil) {
+            e = r_circumfix(p, pos + 1);
+            if (e >= 0 && p->build) { rkb_contextualize(p->B, &p->tm, "list"); p->tm.from = pos; }
+            return e;
+        }
+        if (c == '@' && ch(p, pos + 1) == '$' && (is_alpha_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == '_') && !p->in_decl && !p->qsigil) {
+            e = r_variable(p, pos + 1);
+            if (e >= 0 && p->build) { rkb_var(p->B, &p->tm, pos + 1, e, NULL, 0); rkb_contextualize(p->B, &p->tm, "list"); p->tm.from = pos; }
+            return e;
+        }
         e = r_variable(p, pos);
         if (e >= 0 && p->build) { if ((c == '$' || c == '@') && ch(p, pos + 1) == '<') rkb_var(p->B, &p->tm, pos, e, p->s + pos + 2, e - pos - 3); else rkb_var(p->B, &p->tm, pos, e, NULL, 0); }
         return e;

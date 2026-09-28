@@ -443,6 +443,29 @@ static tree_t *rk_tree_clone(tree_t *e) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_star(tree_t *t) { return t && t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "*"); }
+static int rk_has_star(tree_t *t) {
+    if (!t) return 0;
+    if (rk_is_star(t)) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_has_star(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pure_base(tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_VAR || t->t == TT_ILIT || t->t == TT_QLIT) return 1;
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "__rk_arr")) return 0;
+    for (int i = 1; i < t->n; i++) if (!rk_pure_base(t->c[i])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_star_elems(tree_t *idx, tree_t *base) {
+    if (!idx || !rk_pure_base(base)) return idx;
+    if (rk_is_star(idx)) { tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, rk_tree_clone(base)); ast_push(el, leaf_sval(TT_QLIT, "elems")); return el; }
+    for (int i = 0; i < idx->n; i++) idx->c[i] = rk_star_elems(idx->c[i], base);
+    return idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_scalar_rhs(tree_t *rhs) {
     if (!rhs || rhs->t != TT_XREP || rhs->n < 2) return rhs;
     tree_t *c = make_call("__rk_rep"); expr_add_child(c, rhs->c[0]); expr_add_child(c, rhs->c[1]); return c;
@@ -1034,6 +1057,12 @@ void rkb_cross(RkB *b, const char *op, RkList *L, RkList **rs, int nr) {
     L->rg_lo = L->rg_hi = NULL; L->rg_op = NULL; L->rg_nitem = 0; memset(&L->t1, 0, sizeof L->t1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_contextualize(RkB *b, RkTerm *it, const char *meth) {
+    (void) b;
+    tree_t *c = ast_node_new(TT_METHCALL); ast_push(c, it->t ? it->t : ast_node_new(TT_NUL)); ast_push(c, leaf_sval(TT_QLIT, meth));
+    it->kind = TK_TREE; it->t = c; it->in = NULL; it->cnt = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_paren(RkB *b, RkList *L, int nstmts) {
     (void) nstmts;
     if (!L || !L->nitem) return make_call("__rk_arr");
@@ -1322,21 +1351,25 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
             RkList *xs = pf->inner;
             RkTerm *x0 = xs && xs->n ? &xs->v[0].t0 : NULL;
             if (x0 && xs->nitem == 1 && x0->kind == TK_STAR && !x0->npost) { it->t = rk_arr_all(b, name); return; }
-            if (x0 && xs->nitem >= 2 && x0->kind == TK_STAR && !x0->npost && xs->op1 && (!strcmp(xs->op1, "-") || !strcmp(xs->op1, "+"))) {
+            if (x0 && xs->n == 1 && xs->nitem >= 2 && x0->kind == TK_STAR && !x0->npost && xs->op1 && (!strcmp(xs->op1, "-") || !strcmp(xs->op1, "+"))) {
                 it->t = rk_arr_end_index(b, name, el_rest(b, &xs->v[0]), xs->op1[0] == '-' ? TT_SUB : TT_ADD); return;
             }
             if (xs && xs->n > 1) {
                 tree_t *call = make_call("__rk_arr_pick"); expr_add_child(call, var_node(b, name));
-                for (int i = 0; i < xs->n; i++) expr_add_child(call, el_tree(b, &xs->v[i]));
+                int s0 = x0 && x0->kind == TK_STAR && !x0->npost && xs->op1 && (!strcmp(xs->op1, "-") || !strcmp(xs->op1, "+"));
+                for (int i = 0; i < xs->n; i++) {
+                    tree_t *el = s0 && !i ? expr_binary(xs->op1[0] == '-' ? TT_SUB : TT_ADD, leaf_sval(TT_VAR, "*"), el_rest(b, &xs->v[0])) : el_tree(b, &xs->v[i]);
+                    expr_add_child(call, rk_star_elems(el, var_node(b, name)));
+                }
                 it->t = call; return;
             }
-            it->t = rk_arr_index(b, name, rkb_expr(b, xs)); return;
+            it->t = rk_arr_index(b, name, rk_star_elems(rkb_expr(b, xs), var_node(b, name))); return;
         }
         if ((cls == 'H' || (cls == 'S' && adj)) && (pf->k == '{' || pf->k == '<')) {
             tree_t *key = pf->k == '<' ? leaf_sval(TT_QLIT, trimdup(pf->txt, (int) strlen(pf->txt))) : rkb_expr(b, pf->inner);
             tree_t *c = ast_node_new(TT_HASH_GET); ast_push(c, var_node(b, name)); ast_push(c, key); it->t = c; return;
         }
-        if (cls == 'S' && adj && pf->k == '[') { it->t = rk_arr_index(b, name, rkb_expr(b, pf->inner)); return; }
+        if (cls == 'S' && adj && pf->k == '[') { it->t = rk_arr_index(b, name, rk_star_elems(rkb_expr(b, pf->inner), var_node(b, name))); return; }
         if (cls == 'S' && pf->k == '(') {
             tree_t *c = ast_node_new(TT_INVOKE); expr_add_child(c, var_node(b, name));
             TL pos = { 0 }; arglist(b, pf->args, 0, &pos, NULL);
@@ -1368,7 +1401,17 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         }
         return;
     }
-    if (pf->k == '[') { tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, e); ast_push(c, rkb_expr(b, pf->inner)); it->t = c; return; }
+    if (pf->k == '[') {
+        RkList *xs = pf->inner;
+        if (xs && xs->n > 1) {
+            tree_t *call = make_call("__rk_arr_pick"); expr_add_child(call, e);
+            for (int i = 0; i < xs->n; i++) expr_add_child(call, rk_star_elems(el_tree(b, &xs->v[i]), e));
+            it->t = call; return;
+        }
+        tree_t *idx = rk_star_elems(rkb_expr(b, xs), e);
+        if (idx && idx->t == TT_TO && idx->n >= 2) { tree_t *call = make_call("__rk_arr_slice"); expr_add_child(call, e); expr_add_child(call, idx->c[0]); expr_add_child(call, idx->c[1]); it->t = call; return; }
+        tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, e); ast_push(c, idx); it->t = c; return;
+    }
     if (pf->k == '{' || pf->k == '<') {
         tree_t *key = pf->k == '<' ? leaf_sval(TT_QLIT, trimdup(pf->txt, (int) strlen(pf->txt))) : rkb_expr(b, pf->inner);
         tree_t *c = ast_node_new(TT_HASH_GET); ast_push(c, e); ast_push(c, key); it->t = c; return;
