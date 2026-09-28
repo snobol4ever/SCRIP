@@ -17,10 +17,9 @@ int     core_icn_by_zero_check(int64_t by);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_by_int_operand_guard(int slot) {
     if (!_.op_range_int_operands) return std::string();
-    uint64_t fp; { int (*f)(uint64_t, uint64_t) = core_icn_int_operand_ok; fp = (uint64_t)(uintptr_t)(void *)f; }
     return  x86("mov",  "rdi", FRQ(slot))
          + x86("mov",  "rsi", FRQ(slot + 8))
-         + x86("call", "core_icn_int_operand_ok", fp)
+         + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
          + x86("test", "eax", "eax")
          + x86_omega("jz")
          + x86_rt_gc_poll();
