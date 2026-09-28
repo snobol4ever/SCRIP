@@ -1152,7 +1152,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_REAL:               { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;
     case IR_KW_ICON:
     case IR_KW_ICON_GEN:     g_emit.op_var_form = nd->pat_static; g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
-    case IR_KW_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
+    case IR_KW_SNOBOL4:      kw_snobol4_prepare(); bb_emit_x86(bb_keyword_snobol4());    return 0;
     case IR_KW_ASSIGN:       g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_assign());     return 0;
     case IR_KW_ASSIGN_SNOBOL4: g_emit.op_imm_a = g_emit.op_sval ? rt_kw_index(g_emit.op_sval) : -1; bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
     case IR_VAR:                  { extern int is_global(const char *);
@@ -1160,13 +1160,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (_vn && _vn[0] == '&') { g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); }
         else if (_vn && (is_global(_vn) && !graph_has_local(g_emit_cfg, _vn))) { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && !g_emit.op_zres) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }
         else bb_emit_x86(bb_var()); } return 0;
-    case IR_VAR_FRAME:            bb_emit_x86(bb_var_frame()); return 0;
+    case IR_VAR_FRAME:            { extern void frame_display_prepare(IR_t *); frame_display_prepare(nd); } bb_emit_x86(bb_var_frame()); return 0;
     case IR_ASSIGN_FRAME:         { IR_t *_fr = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0;
         g_emit.op_a_slot = _fr ? bb_slot_get(_fr) : -1;
         if (g_emit.op_a_slot < 0 && _fr) { int _z = nd_slot(_fr); if (_z >= 0) g_emit.op_a_slot = _z; }
-        { extern void assign_frame_prepare(IR_t *); assign_frame_prepare(nd); } bb_emit_x86(bb_assign_frame()); } return 0;
+        { extern void frame_display_prepare(IR_t *); frame_display_prepare(nd); } bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
-        if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); bb_emit_x86(bb_var_ref_frame()); return 0; }
+        if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); { extern void frame_display_prepare(IR_t *); frame_display_prepare(nd); } bb_emit_x86(bb_var_ref_frame()); return 0; }
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
         else if (_rn) { int _vo = bb_varslot_peek(_rn); g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
         bb_emit_x86(bb_var_ref()); } return 0;
@@ -1261,7 +1261,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ASSIGN_COND:    { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] COND nd=%p fc_disp=%d zres=%d zread0=%d anchor=%d frame_off=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_zres, g_emit.op_zread[0], g_emit.op_cap_anchor, g_emit.op_cap_frame_off); bb_emit_x86(bb_match_capture()); } return 0;
     case IR_MATCH_ASSIGN_IMM:     { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] IMM nd=%p fc_disp=%d anchor=%d off=%d pin=%d refine=%d deep=%d pat=%d frame_off=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_cap_anchor, g_emit.op_off, emit_jmp_pin_legacy(), g_emit.flat_fb_refine, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.op_cap_frame_off); bb_emit_x86(bb_match_capture()); } return 0;
     case IR_MATCH_ASSIGN_SAVE:    { bb_prepare(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_cap_anchor ? -1 : g_emit.op_off; } } { extern int fc_save_active(const IR_t *); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] SAVE nd=%p save_active=%d fc_bytes=%ld anchor=%d frame_off=%d\n", (void*)nd, fc_save_active(nd), (long)g_emit.op_fc_bytes, g_emit.op_cap_anchor, g_emit.op_cap_frame_off); } bb_emit_x86(bb_match_capture()); } return 0;
-    case IR_MATCH_ALTERNATE:      { g_emit.op_alt_cell = alt_arm_complex(nd); bb_emit_x86(bb_match_alternate()); } return 0;
+    case IR_MATCH_ALTERNATE:      { g_emit.op_alt_cell = alt_arm_complex(nd); g_emit.op_sa = sn4_choice_rbp_off_nd(); bb_emit_x86(bb_match_alternate()); } return 0;
     case IR_MATCH_FENCE0:          { bb_prepare(nd); g_emit.op_fence0_release = fence0_release_bytes(nd); g_emit.op_fence0_floor = fence0_dyn_floor(nd);
                                      switch ((sno_fence_lit_e)IR_LIT(nd).ival) { case SNO_FENCE_LIT_BARE: bb_emit_x86(bb_match_fence0()); break; case SNO_FENCE_LIT_FLUSH: bb_emit_x86(bb_match_flush()); break;
                                      default: fprintf(stderr, "[EMIT] FATAL IR_MATCH_FENCE0 node %p carries literal %lld, which names neither the bare FENCE nor FLUSH (sno_fence_lit_e in IR.h) -- refused, not emitted as a plain FENCE\n", (void *)nd, (long long)IR_LIT(nd).ival); abort(); } } return 0;
@@ -4263,7 +4263,7 @@ static int frame_display_mem_off(int lvl, const char * owner_proc) {
     return stage2_owner_varslot(l3proc, nm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void assign_frame_prepare(IR_t *nd) {
+void frame_display_prepare(IR_t *nd) {
     g_emit.op_seal  = nd ? nd->seal : 0;
     g_emit.op_name1 = g_emit.op_seal == 1 ? "r13" : g_emit.op_seal == 2 ? "r14" : g_emit.op_seal == 3 ? "r15" : (const char *)0;
     g_emit.op_sa    = (g_emit.op_a_sval && g_emit.op_sval) ? stage2_owner_varslot(g_emit.op_a_sval, g_emit.op_sval) : -1;
@@ -4273,3 +4273,23 @@ void assign_frame_prepare(IR_t *nd) {
 const char * kw_bare(const char * s) { return !s ? "" : (s[0] == '&' ? s + 1 : s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_defer_beta_guard(void) { static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } return _bg; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_define_fold(void) { static int _df = -1; if (_df < 0) { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; } return _df; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_descr_stamp(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_DESCR_STAMP"); on = (e && *e == '1') ? 1 : 0; } return on; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_u2_fence(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_U2_FENCE"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_nret_cap(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_cap_gva(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_GVA"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_opt_binimm_off(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OPT_BINIMM"); v = (e && e[0] == '0') ? 1 : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void kw_snobol4_prepare(void) {
+    int soff = 0; const void * cbase = (const void *)0;
+    g_emit.op_imm_a = g_emit.op_sval ? rt_kw_index(g_emit.op_sval) : -1;
+    g_emit.op_name1 = (g_emit.op_imm_a >= 0) ? rt_kw_direct_sym((int)g_emit.op_imm_a, &soff, &cbase) : (const char *)0;
+    g_emit.op_imm_b = soff;
+    g_emit.op_addr  = (uint64_t)(uintptr_t)cbase;
+}
