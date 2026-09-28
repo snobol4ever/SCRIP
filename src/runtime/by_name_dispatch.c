@@ -1240,15 +1240,43 @@ static int meth_is_user_proc(const char *procname) {
         if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) return 1;
     return 0;
 }
-typedef struct { DESCR_t self; char mname[128]; const char *mro[64]; int mro_len; int found_idx; DESCR_t args[16]; int nargs; } RedispFrame;
-static RedispFrame g_redisp[64];
-static int g_redisp_top = 0;
+typedef struct { DESCR_t self; DESCR_t mname; cv_t mro; int mro_len; int found_idx; cv_t args; int nargs; } RedispFrame;
+static cv_t g_redispv;
+#define g_redisp ((RedispFrame *)g_redispv.p)
+#define RD_MRO(rd, k) CV_AT(g_redisp[rd].mro, const char *, (k))
+#define RD_ARG(rd, k) CV_AT(g_redisp[rd].args, DESCR_t, (k))
+static int redisp_frame_new(void) {
+    extern int g_redisp_top;
+    int rd = g_redisp_top;
+    cv_reserve(&g_redispv, (uint32_t)sizeof(RedispFrame), (uint64_t)rd + 1, "g_redisp");
+    g_redisp[rd].mro.len = 0; g_redisp[rd].mro_len = 0; g_redisp[rd].nargs = 0; g_redisp[rd].mname = NULVCL; g_redisp[rd].self = NULVCL;
+    g_redisp_top++;
+    return rd;
+}
+static void redisp_mro_of(int rd, const char *cname) {
+    extern int dat_mro(const char *name, const char **out, int max);
+    int cap = g_redisp[rd].mro.cap ? (int)g_redisp[rd].mro.cap : 16;
+    for (;;) {
+        int got;
+        cv_reserve(&g_redisp[rd].mro, (uint32_t)sizeof(const char *), (uint64_t)cap, "g_redisp.mro");
+        got = dat_mro(cname, (const char **)g_redisp[rd].mro.p, cap);
+        if (got < cap) { g_redisp[rd].mro_len = got; break; }
+        cap *= 2;
+    }
+    if (g_redisp[rd].mro_len == 0) { RD_MRO(rd, 0) = cname; g_redisp[rd].mro_len = 1; }
+}
+static void redisp_args_set(int rd, const DESCR_t *src, int n) {
+    cv_reserve(&g_redisp[rd].args, (uint32_t)sizeof(DESCR_t), (uint64_t)(n > 0 ? n : 1), "g_redisp.args");
+    g_redisp[rd].nargs = n;
+    for (int k = 0; k < n; k++) RD_ARG(rd, k) = src[k];
+}
+int g_redisp_top = 0;
 void bnd_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *);
     extern void rt_gc_visit_raw(const char **);
     for (int gi = 0; gi < gram_n; gi++) { if (GRAM(gi).qname) rt_gc_visit_raw(&GRAM(gi).qname); if (GRAM(gi).body) rt_gc_visit_raw(&GRAM(gi).body); }
-    for (int rd = 0; rd < g_redisp_top && rd < 64; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); for (int k = 0; k < g_redisp[rd].nargs && k < 16; k++) rt_gc_visit_descr(&g_redisp[rd].args[k]); }
+    for (int rd = 0; rd < g_redisp_top; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); rt_gc_visit_descr(&g_redisp[rd].mname); for (int k = 0; k < g_redisp[rd].nargs; k++) rt_gc_visit_descr(&RD_ARG(rd, k)); }
     { extern void rt_main_args_gc_root(void); rt_main_args_gc_root(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1293,16 +1321,15 @@ rt_call_next_t rk_method_open(DESCR_t *args, int nargs)
     { int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) break;
       if (pi < g_stage2.proc_count && !(g_stage2.proc_table[pi].bb_idx >= 0 && rt_proc_has_native_fn(procname))) return none; }
     if (!rt_define_returns_by_frame(procname)) return none;
-    if (g_redisp_top >= 64) return none;
-    { int nextra = nargs - 2; int total = 1 + nextra; if (total > 64) return none;
-      { int rd = g_redisp_top++;
-        g_redisp[rd].self = args[0]; snprintf(g_redisp[rd].mname, sizeof g_redisp[rd].mname, "%s", mname);
-        g_redisp[rd].mro_len = dat_mro(cname, g_redisp[rd].mro, 64);
-        if (g_redisp[rd].mro_len == 0) { g_redisp[rd].mro[0] = cname; g_redisp[rd].mro_len = 1; }
+    { int nextra = nargs - 2; int total = 1 + nextra;
+      { int rd = redisp_frame_new();
+        g_redisp[rd].self = args[0]; g_redisp[rd].mname = args[1];
+        redisp_mro_of(rd, cname);
         g_redisp[rd].found_idx = found_idx;
-        g_redisp[rd].nargs = total < 16 ? total : 16;
-        g_redisp[rd].args[0] = args[0];
-        for (int k = 1; k < g_redisp[rd].nargs; k++) g_redisp[rd].args[k] = args[1 + k]; }
+        cv_reserve(&g_redisp[rd].args, (uint32_t)sizeof(DESCR_t), (uint64_t)(total > 0 ? total : 1), "g_redisp.args");
+        g_redisp[rd].nargs = total;
+        RD_ARG(rd, 0) = args[0];
+        for (int k = 1; k < total; k++) RD_ARG(rd, k) = args[1 + k]; }
       rt_call_args_need(nextra + 1); CALL_ARGS[0] = args[0];
       for (int k = 0; k < nextra; k++) CALL_ARGS[1 + k] = args[2 + k];
       { rt_call_next_t n = rt_call_open_by_name(procname, total);
@@ -2688,8 +2715,17 @@ static int pl_cell_text(DESCR_t v, char *buf, size_t n, const char **out) {
     if (pl_is_cons(d) || pl_is_nil(d)) { if (!pl_list_text(d, buf, n)) return 0; *out = buf; return 1; }
     return 0;
 }
-static DESCR_t pl_text_list(const char *s, int codes) { DESCR_t el[4096];int n = 0;for (;*s && n < 4096;s++) { if (codes) el[n++] = INTVAL((long long)(unsigned char)*s);
-    else { char c2[2] = { *s, 0 };el[n++] = pl_mk_atom_dup(c2, 1);} } return pl_list_from_arr(el, n); }
+static DESCR_t pl_text_list(const char *s, int codes) {
+    gv_t el; int n = 0;
+    el.p = 0; el.len = 0; el.cap = 0; el.esz = 0; el.kind = 0; el.pad = 0;
+    for (; *s; s++) {
+        DESCR_t a;
+        if (codes) a = INTVAL((long long)(unsigned char)*s);
+        else { char c2[2] = { *s, 0 }; a = pl_mk_atom_dup(c2, 1); }
+        *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "pl_text_list") = a; n++;
+    }
+    return pl_list_from_arr((DESCR_t *)el.p, n);
+}
 static int pl_parse_number_radix(const char *s, DESCR_t *out) { char *e = 0; int base = 0;
     if (s[0] == '0' && s[1] == '\'') {
         if (s[2] == '\'' && ((s[3] == '\'' && !s[4]) || !s[3])) { *out = INTVAL(39); return 1; }
@@ -3226,11 +3262,12 @@ PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)
 PL_ATOM_OP_LEAF(string_to_atom, 2) PL_ATOM_OP_LEAF(number_string, 2) PL_ATOM_OP_LEAF(string_codes, 2) PL_ATOM_OP_LEAF(string_chars, 2)
 static int pl_split_text(DESCR_t *args, pl_tr_ctx_t *cx) {
-    char sb[256], tb[8192]; const char *sep, *txt; DESCR_t el[4096]; int n = 0; size_t sl;
+    char sb[256], tb[8192]; const char *sep, *txt; gv_t el; int n = 0; size_t sl;
     if (!pl_cell_text(args[1], sb, sizeof sb, &sep) || !sep[0] || !pl_cell_text(args[2], tb, sizeof tb, &txt)) return 0;
     sl = strlen(sep);
-    for (const char *p = txt;;) { const char *q = strstr(p, sep); size_t L = q ? (size_t)(q - p) : strlen(p); el[n++] = pl_mk_atom_dup(p, L); if (!q || n >= 4096) break; p = q + sl; }
-    return plw_unify_vals(args[0], pl_list_from_arr(el, n), cx);
+    el.p = 0; el.len = 0; el.cap = 0; el.esz = 0; el.kind = 0; el.pad = 0;
+    for (const char *p = txt;;) { const char *q = strstr(p, sep); size_t L = q ? (size_t)(q - p) : strlen(p); DESCR_t a = pl_mk_atom_dup(p, L); *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "pl_split_text") = a; n++; if (!q) break; p = q + sl; }
+    return plw_unify_vals(args[0], pl_list_from_arr((DESCR_t *)el.p, n), cx);
 }
 DESCR_t rt_pl_dop_atomic_list_concat_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { int ok;
     if (nargs != 2 && nargs != 3) return FAILDESCR;
@@ -3702,8 +3739,7 @@ static int pl_edin_revert(int is_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; char val[48]; int mod; const char *ok[6]; } pl_flag_t;
-enum { PL_FLAGS_MAX = 64 };
-static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
+static const pl_flag_t pl_flags_init[] = {
     { "bounded", "false", 0, { 0 } },
     { "integer_rounding_function", "toward_zero", 0, { 0 } },
     { "max_arity", "1024", 0, { 0 } },
@@ -3719,17 +3755,24 @@ static pl_flag_t pl_flags[PL_FLAGS_MAX] = {
     { "prolog_version", "0.0.0", 0, { 0 } },
     { "version_data", "", 0, { 0 } },
     { 0, "", 0, { 0 } } };
-const char *rt_pl_flag_name(int i) { return (i >= 0 && i < PL_FLAGS_MAX) ? pl_flags[i].nm : (const char *)0; }
+static cv_t g_pl_flags;
+#define pl_flags ((pl_flag_t *)g_pl_flags.p)
+static void pl_flags_ready(void) {
+    if (g_pl_flags.len) return;
+    for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
+}
+const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) {
+    pl_flags_ready();
     for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
     return (pl_flag_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find_or_create(const char *nm) {
-    int i = 0; for (; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
-    if (i >= PL_FLAGS_MAX - 1) return (pl_flag_t *)0;
+    int i = 0; pl_flags_ready(); for (; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
     { char *persist = strdup(nm); if (!persist) return (pl_flag_t *)0;
+      (void)CV_PUSH(g_pl_flags, pl_flag_t);
       pl_flags[i].nm = persist; pl_flags[i].val[0] = 0; pl_flags[i].mod = 1; pl_flags[i].ok[0] = 0; }
     return &pl_flags[i];
 }
@@ -5431,29 +5474,28 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "callsame") || !strcmp(fn, "nextsame") || !strcmp(fn, "callwith")) {
         if (g_redisp_top <= 0) { *out = FAILDESCR; return 1; }
-        RedispFrame *f = &g_redisp[g_redisp_top - 1];
+        int top = g_redisp_top - 1;
+        const char *fmname = VARVAL_fn(g_redisp[top].mname);
         int next = -1;
-        for (int i = f->found_idx + 1; i < f->mro_len; i++) {
-            char cand[256]; snprintf(cand, sizeof cand, "%s__%s", f->mro[i], f->mname);
+        for (int i = g_redisp[top].found_idx + 1; i < g_redisp[top].mro_len; i++) {
+            char cand[256]; snprintf(cand, sizeof cand, "%s__%s", RD_MRO(top, i), fmname);
             if (meth_is_user_proc(cand)) { next = i; break; }
         }
         if (next < 0) { *out = FAILDESCR; return 1; }
-        char nproc[256]; snprintf(nproc, sizeof nproc, "%s__%s", f->mro[next], f->mname);
-        DESCR_t ca[16]; int total;
-        if (!strcmp(fn, "callwith")) { total = 1 + nargs; if (total > 16) total = 16; ca[0] = f->self; for (int k = 0; k + 1 < total; k++) ca[1 + k] = args[k]; }
-        else { total = f->nargs; if (total > 16) total = 16; for (int k = 0; k < total; k++) ca[k] = f->args[k]; }
-        const char *smro[64]; int smro_len = f->mro_len < 64 ? f->mro_len : 64; for (int k = 0; k < smro_len; k++) smro[k] = f->mro[k];
-        char smname[128]; snprintf(smname, sizeof smname, "%s", f->mname); DESCR_t sself = f->self;
-        int rd = -1;
-        if (g_redisp_top < 64) {
-            rd = g_redisp_top++;
-            g_redisp[rd].self = sself; snprintf(g_redisp[rd].mname, sizeof g_redisp[rd].mname, "%s", smname);
-            for (int k = 0; k < smro_len; k++) g_redisp[rd].mro[k] = smro[k];
-            g_redisp[rd].mro_len = smro_len; g_redisp[rd].found_idx = next;
-            g_redisp[rd].nargs = total; for (int k = 0; k < total; k++) g_redisp[rd].args[k] = ca[k];
-        }
+        char nproc[256]; snprintf(nproc, sizeof nproc, "%s__%s", RD_MRO(top, next), fmname);
+        int total = (!strcmp(fn, "callwith")) ? 1 + nargs : g_redisp[top].nargs;
+        int rd = redisp_frame_new();
+        g_redisp[rd].self = g_redisp[top].self; g_redisp[rd].mname = g_redisp[top].mname;
+        cv_reserve(&g_redisp[rd].mro, (uint32_t)sizeof(const char *), (uint64_t)g_redisp[top].mro_len, "g_redisp.mro");
+        for (int k = 0; k < g_redisp[top].mro_len; k++) RD_MRO(rd, k) = RD_MRO(top, k);
+        g_redisp[rd].mro_len = g_redisp[top].mro_len; g_redisp[rd].found_idx = next;
+        cv_reserve(&g_redisp[rd].args, (uint32_t)sizeof(DESCR_t), (uint64_t)(total > 0 ? total : 1), "g_redisp.args");
+        g_redisp[rd].nargs = total;
+        if (strcmp(fn, "callwith") == 0) { RD_ARG(rd, 0) = g_redisp[top].self; for (int k = 0; k + 1 < total; k++) RD_ARG(rd, 1 + k) = args[k]; }
+        else { for (int k = 0; k < total; k++) RD_ARG(rd, k) = RD_ARG(top, k); }
+        DESCR_t *ca = (DESCR_t *)g_redisp[rd].args.p;
         DESCR_t r = invoke_method_proc(nproc, ca, total);
-        if (rd >= 0) g_redisp_top--;
+        g_redisp_top--;
         *out = r; return 1;
     }
     if (!strcmp(fn, "exc_clear") && nargs == 0) {
@@ -5865,19 +5907,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t callargs[total > 0 ? total : 1];
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
-        int rd = -1;
-        if (g_redisp_top < 64) {
-            rd = g_redisp_top++;
-            extern int dat_mro(const char *name, const char **out, int max);
-            g_redisp[rd].self = args[0]; snprintf(g_redisp[rd].mname, sizeof g_redisp[rd].mname, "%s", mname);
-            g_redisp[rd].mro_len = dat_mro(cname, g_redisp[rd].mro, 64);
-            if (g_redisp[rd].mro_len == 0) { g_redisp[rd].mro[0] = cname; g_redisp[rd].mro_len = 1; }
-            g_redisp[rd].found_idx = found_idx;
-            g_redisp[rd].nargs = total < 16 ? total : 16;
-            for (int k = 0; k < g_redisp[rd].nargs; k++) g_redisp[rd].args[k] = callargs[k];
-        }
+        int rd = redisp_frame_new();
+        g_redisp[rd].self = args[0]; g_redisp[rd].mname = args[1];
+        redisp_mro_of(rd, cname);
+        g_redisp[rd].found_idx = found_idx;
+        redisp_args_set(rd, callargs, total);
         DESCR_t _mr = invoke_method_proc(procname, callargs, total);
-        if (rd >= 0) g_redisp_top--;
+        g_redisp_top--;
         *out = _mr; return 1;
     }
     if (!strcmp(fn, "re_match") && nargs == 2) {
