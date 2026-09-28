@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1909
+#define GC_ALLOC_TAB_N 1910
 #define GC_ALLOC_TAB_N_VOID 219
 #define GC_ALLOC_TAB_N_DESCR 1042
-#define GC_ALLOC_TAB_N_OTHER 642
+#define GC_ALLOC_TAB_N_OTHER 643
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -803,6 +803,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_leaf_lv", GC_RET_OTHER },
     { "pl_leaf_lv_guarded", GC_RET_OTHER },
     { "pl_list_from_arr", GC_RET_DESCR },
+    { "pl_list_text_heap", GC_RET_OTHER },
     { "pl_lower_catch", GC_RET_OTHER },
     { "pl_lower_conj", GC_RET_OTHER },
     { "pl_lower_disj", GC_RET_OTHER },
@@ -855,7 +856,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_variant_rec", GC_RET_OTHER },
     { "pl_write_opt_bad", GC_RET_OTHER },
     { "plc_atom_id_of", GC_RET_OTHER },
-    { "plc_atom_op_list_text", GC_RET_OTHER },
+    { "plc_atom_op_list_text_heap", GC_RET_OTHER },
     { "plc_atom_op_text", GC_RET_OTHER },
     { "plc_atoms_ready", GC_RET_VOID },
     { "plc_bind_cx", GC_RET_VOID },
